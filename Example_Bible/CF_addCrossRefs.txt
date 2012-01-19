@@ -1,0 +1,4 @@
+# Example command file
+# see addCrossRefs.pl for more information
+
+REMOVE_REFS_TO_MISSING_BOOKS:false

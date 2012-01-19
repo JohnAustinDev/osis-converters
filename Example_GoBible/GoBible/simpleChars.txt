@@ -1,0 +1,2 @@
+Replace-these-chars: ЎўҚқҒғҲҳ“”‘’—–‎―
+With-these-chars:    УуКкГгХх""''-- -
