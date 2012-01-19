@@ -1,0 +1,7 @@
+# Example command file
+# see addSeeAlsoLinks.pl for more information
+
+CHECK_ONLY:true
+PUNC_AS_LETTER:'
+SPECIAL_CAPITALS:i->İ ı->I
+REFERENCE_TYPE:x-glosslink

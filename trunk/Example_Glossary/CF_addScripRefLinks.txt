@@ -1,0 +1,86 @@
+# Example command file
+# see addScripRefLinks.pl for more information
+
+REFERENCE_TYPE:
+FILTER:
+CURRENT_BOOK_TERMS:
+CURRENT_CHAPTER_TERMS:
+CHAPTER_TERMS:
+VERSE_TERMS:
+SEPARATOR_TERMS:;|,|ve
+COMMON_REF_TERMS:'le|'de;|-|–|:|\.|,|\s|a|b
+REF_END_TERMS:\)|\s|$|a|b|'
+CHAPTER_TO_VERSE_TERMS::
+CONTINUATION_TERMS:-|–
+PREFIXES:
+SUFFIXES:
+
+Gen             = Yar.
+Exod            = Çık.
+Lev             = Lev.
+Num             = Say.
+Deut            = Yas.
+Josh            = Yşu.
+Judg            = Hak.
+Ruth            = Rut
+1Sam            = 1Sa.
+2Sam            = 2Sa.
+1Kgs            = 1Kr.
+2Kgs            = 2Kr.
+1Chr            = 1 Ta.
+1Chr            = 1Ta.
+2Chr            = 2Ta.
+Ezra            = Ezr.
+Neh             = Neh.
+Esth            = Est.
+Job             = Eyü.
+Ps              = Mez.
+Prov            = Özd.
+Eccl            = Vai.
+Song            = Ezg.
+Isa             = Yşa.
+Jer             = Yer.
+Lam             = Ağı.
+Ezek            = Hez.
+Dan             = Dan.
+Hos             = Hoş.
+Joel            = Yoe.
+Amos            = Amo.
+Obad            = Ova.
+Jonah           = Yun.
+Mic             = Mik.
+Nah             = Nah.
+Hab             = Hab.
+Zeph            = Sef.
+Hag             = Hag.
+Zech            = Zek.
+Mal             = Mal.
+Matt            = Mat.
+Mark            = Mar.
+Luke            = Luk.
+John            = Yu.
+Acts            = Elç.
+Rom             = Rom.
+1Cor            = 1Ko.
+2Cor            = 2Ko.
+Gal             = Gal.
+Eph             = Ef.
+Phil            = Flp.
+Col             = Kol.
+1Thess          = 1Se.
+2Thess          = 2Se.
+1Tim            = 1Ti.
+2Tim            = 2Ti.
+Titus           = Tit.
+Phlm            = Flm.
+Heb             = İbr.
+Jas             = Yak.
+1Pet            = 1Pe.
+2Pet            = 2Pe.
+1John           = 1Yu.
+2John           = 2Yu.
+3John           = 3Yu.
+Jude            = Yah.
+Rev             = Va.
+
+
