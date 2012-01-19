@@ -33,8 +33,8 @@
 #   CHECK_ONLY - Set to true to skip parsing for links and only check 
 #       existing links. During checking, any broken links are corrected.
 #   PUNC_AS_LETTER - List special characters which should be treated as 
-#       letters for purposes of matching. Example for 
-#       Turkish: "PUNC_AS_LETTER:'" 
+#       letters for purposes of matching. 
+#       Example for : "PUNC_AS_LETTER:'`-" 
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
 #   REFERENCE_TYPE - The value of the type attribute for 
@@ -58,15 +58,15 @@ open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command
 while (<CF>) {
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^\#/) {next;}
-  elsif ($_ =~ /^SKIP_ENTRIES:(.*)$/) {$dontAddSeeAlsoLinkTo = $1;} # ALL ENTRIES MUST BE FOLLOWED BY ";" !!
-  elsif ($_ =~ /^DONT_LINK_TO:(.*)$/) {$dontlinkto = $1;}
-  elsif ($_ =~ /^DONT_LINK_TOA_INB:(.*)$/) {$dontlinktoainb = $1;}
-  elsif ($_ =~ /^LINK_HILIGHT_TEXT:(.*)$/) {$linkhilight = $1;}
-  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(.*)$/) {$allowidentlinks = $1;}
-  elsif ($_ =~ /^CHECK_ONLY:\s*(.*?)\s*$/) {my $t = $1; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}
-  elsif ($_ =~ /^PUNC_AS_LETTER:\s*(.*?)\s*$/) {$PAL .= $1;}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:\s*(.*?)\s*$/) {$SpecialCapitals = $1; next;}
-  elsif ($_ =~ /^REFERENCE_TYPE:\s*(.*?)\s*$/) {$ReferenceType = $1; next;}
+  elsif ($_ =~ /^SKIP_ENTRIES:(\s*(.*?)\s*)?$/) {if ($1) {$dontAddSeeAlsoLinkTo = $2;}} # ALL ENTRIES MUST BE FOLLOWED BY ";" !!
+  elsif ($_ =~ /^DONT_LINK_TO:(\s*(.*?)\s*)?$/) {if ($1) {$dontlinkto = $2;}}
+  elsif ($_ =~ /^DONT_LINK_TOA_INB:(\s*(.*?)\s*)?$/) {if ($1) {$dontlinktoainb = $2;}}
+  elsif ($_ =~ /^LINK_HILIGHT_TEXT:(\s*(.*?)\s*)?$/) {if ($1) {$linkhilight = $2;}}
+  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(\s*(.*?)\s*)?$/) {if ($1) {$allowidentlinks = $2;}}
+  elsif ($_ =~ /^CHECK_ONLY:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}}
+  elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PAL .= $2;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2;}}
+  elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$ReferenceType = $2;}}
 }
 close (CF);
 &Log("Will not add \"See Also\" links to: $dontAddSeeAlsoLinkTo\n");
@@ -78,82 +78,84 @@ if ($allowidentlinks eq "true") {&Log("Will create muliple links to same target 
 if ($Checkonly) {
   &Log("Skipping link search. Checking existing links only.\n");
   copy("$INPUTFILE", "$OUTPUTFILE");
-  goto CHECK;
 }
+else {
+  &Log("PARSING WORD LIST FILE: \"$DICTWORDS\".\n");
+  open (IN0, "<:encoding(UTF-8)", $DICTWORDS) or die "Could not open word list file $DICTWORDS.\n";
+  $line=0;
+  while (<IN0>) {
+    $line++;
+    if ($_ =~ /DE(\d+):(.*?)[\n\r\l]/i) {$entry[$1]=$2;}
+    if ($_ =~ /DL(\d+):(.*?)[\n\r\l]/i) {$dict[$1]=$2; $index{$2} = $1;}
+  }
+  close (IN0);
 
-&Log("PARSING WORD LIST FILE: \"$DICTWORDS\".\n");
-open (IN0, "<:encoding(UTF-8)", $DICTWORDS) or die "Could not open word list file $DICTWORDS.\n";
-$line=0;
-while (<IN0>) {
-  $line++;
-  if ($_ =~ /DE(\d+):(.*?)[\n\r\l]/i) {$entry[$1]=$2;}
-  if ($_ =~ /DL(\d+):(.*?)[\n\r\l]/i) {$dict[$1]=$2; $index{$2} = $1;}
-}
-close (IN0);
-
-&Log("ADDING \"SEE ALSO\" LINKS TO \"$INPUTFILE\".\n");
-open (INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
-open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
-$line=0;
-$links=0;
-# Don't make links of bold or italicized words/phrases or titles or footnotes
-$splitter = "(<title.*?<\\/title>|<note.*?<\\/note>|<figure[^>]*>";
-if ($linkhilight ne "true") {$splitter = $splitter . "|<hi type=.*?<\\/hi>";}
-$splitter = $splitter . ")";
-while (<INF>) {
-  $line++;
-  
-  $_ =~ s/\|i(.*?)\|r/<i>$1<\/i>/g;
-  $_ =~ s/\|b(.*?)\|r/<b>$1<\/b>/g;
-  if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry=$1; $linksInEntry=";";}
-  elsif ($dontAddSeeAlsoLinkTo !~ /(^|;)\Q$currentEntry;/i) {
-PARSELINE:
-    $startover = "false";
-    @parts = split(/$splitter/);
-    foreach $sb (@parts){
-      if ($sb !~ /$splitter/) {
-        foreach $w (sort {length($b) <=> length($a)} @dict) {
-          if ($w eq $currentEntry) {next;}
-          if ($allowidentlinks ne "true") {if ($linksInEntry =~ /;$w;/i) {next;}}
-          if ($dontlinkto =~ /(^|;)$w;/i) {next;}
-          if ($dontlinktoainb =~ /(^|;)$w,$currentEntry;/i) {next;}
-          # Don't make links within links!
-          @links = split(/(<reference .*?<\/reference>)/,$sb);
-          foreach $ln (@links) {
-            if ($ln !~ /(<reference .*?<\/reference>)/) {
-              $tmpln = $ln;
-              $wt = $w;
-              $wt =~ s/[\(\)\{\}\[\]\$\^\*\+\-]/./g; #allows us to match these special perl chars in entry names!
-              # using "if" replaces only the first, but "while" will replace all...
-              if ($tmpln =~ s/(^|\W)($wt)(\W|$)/$1$3/i) {
-                $pc=$1; $ww=$2; $sc=$3;
-                if ($pc eq "." && $sc eq "\"") {&Log("$INPUTFILE line $line: Link matched self. Quitting snippet...\n"); last;}
-                $osisRef = $MOD . ":" . encodeOsisRef($entry[$index{$w}]);
-                $ln =~ s/\Q$pc$ww$sc/$pc<reference type=\"x-glosslink\" osisRef="$osisRef">$ww<\/reference>$sc/;
-                &Log("Line $line: Added link \"$w\" to \"$currentEntry\".\n");
-                $linksInEntry = $linksInEntry.$w.";";
-                $entryLength{$currentEntry} = length($_);
-                $links++;
-                $startover = "true";
+  &Log("ADDING \"SEE ALSO\" LINKS TO \"$INPUTFILE\".\n");
+  open (INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
+  open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+  $line=0;
+  $links=0;
+  # Don't make links of bold or italicized words/phrases or titles or footnotes
+  $splitter = "(<title.*?<\\/title>|<note.*?<\\/note>|<figure[^>]*>";
+  if ($linkhilight ne "true") {$splitter = $splitter . "|<hi type=.*?<\\/hi>";}
+  $splitter = $splitter . ")";
+  while (<INF>) {
+    $line++;
+    
+    $_ =~ s/\|i(.*?)\|r/<i>$1<\/i>/g;
+    $_ =~ s/\|b(.*?)\|r/<b>$1<\/b>/g;
+    if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry=$1; $linksInEntry=";";}
+    elsif ($dontAddSeeAlsoLinkTo !~ /(^|;)\Q$currentEntry;/i) {
+  PARSELINE:
+      $startover = "false";
+      @parts = split(/$splitter/);
+      foreach $sb (@parts){
+        if ($sb !~ /$splitter/) {
+          foreach $w (sort {length($b) <=> length($a)} @dict) {
+            if ($w eq $currentEntry) {next;}
+            if ($allowidentlinks ne "true") {if ($linksInEntry =~ /;$w;/i) {next;}}
+            if ($dontlinkto =~ /(^|;)$w;/i) {next;}
+            if ($dontlinktoainb =~ /(^|;)$w,$currentEntry;/i) {next;}
+            # Don't make links within links!
+            @links = split(/(<reference .*?<\/reference>)/,$sb);
+            foreach $ln (@links) {
+              if ($ln !~ /(<reference .*?<\/reference>)/) {
+                $tmpln = $ln;
+                $wt = $w;
+                $wt =~ s/[\(\)\{\}\[\]\$\^\*\+\-]/./g; #allows us to match these special perl chars in entry names!
+                # using "if" replaces only the first, but "while" will replace all...
+                if ($tmpln =~ s/(^|\W)($wt)(\W|$)/$1$3/i) {
+                  $pc=$1; $ww=$2; $sc=$3;
+                  if ($pc eq "." && $sc eq "\"") {&Log("$INPUTFILE line $line: Link matched self. Quitting snippet...\n"); last;}
+                  $osisRef = $MOD . ":" . encodeOsisRef($entry[$index{$w}]);
+                  $ln =~ s/\Q$pc$ww$sc/$pc<reference type=\"x-glosslink\" osisRef="$osisRef">$ww<\/reference>$sc/;
+                  &Log("Line $line: Added link \"$w\" to \"$currentEntry\".\n");
+                  $linksInEntry = $linksInEntry.$w.";";
+                  $entryLength{$currentEntry} = length($_);
+                  $links++;
+                  $startover = "true";
+                }
               }
             }
+          $sb = join("",@links);
+          if ($startover eq "true") {last;}
           }
-        $sb = join("",@links);
-        if ($startover eq "true") {last;}
+          if ($startover eq "true") {last;}
         }
-        if ($startover eq "true") {last;}
       }
+      $_ = join("",@parts);
+      if ($startover eq "true") {goto PARSELINE;}
     }
-    $_ = join("",@parts);
-    if ($startover eq "true") {goto PARSELINE;}
+    print OUTF $_;
   }
-  print OUTF $_;
+  close (INF);
+  close (OUTF);
+  &Log("Added $links \"See Also\" links to \"$OUTPUTFILE\".\n");
 }
-close (INF);
-close (OUTF);
-&Log("Added $links \"See Also\" links to \"$OUTPUTFILE\".\n");
 
-CHECK:
+# Check link targets and repair if needed
+$AllWordFiles{$MOD} = $DICTWORDS;
+&checkGlossReferences($OUTPUTFILE, $AllGlossaryTypes, \%AllWordFiles);
 
 # LOG ALL CIRCULAR REFERENCES...
 &Log("\nCHECKING FOR CIRCULAR ENTRIES...\n");
@@ -225,9 +227,6 @@ if (!$Checkonly && $numfound > 0) {
   }
   &Log("\n");
 }
-
-$AllWordFiles{$MOD} = $DICTWORDS;
-&checkGlossReferences($OUTPUTFILE, $AllGlossaryTypes, \%AllWordFiles);
 
 &Log("FINISHED\n\n");
 

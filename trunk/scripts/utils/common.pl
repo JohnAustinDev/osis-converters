@@ -21,6 +21,10 @@ use File::Copy;
 use File::Path qw(make_path remove_tree);
 
 $OSISSCHEMA = "osisCore.2.1.1.xsd";
+$INDENT = "<milestone type=\"x-p-indent\" />";
+$LB = "<lb />";
+@Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
+
 
 sub getInfoFromConf($) {
   my $conf = shift;
@@ -39,7 +43,6 @@ sub getInfoFromConf($) {
   $VERSESYS = $ConfEntry{"Versification"};
   $LANG = $ConfEntry{"Lang"};
   $MODPATH = $ConfEntry{"DataPath"};
-  if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
   $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
   $MODPATH =~ s/[\\\/]\s*$//; # remove ending slash
   $MODPATH =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path

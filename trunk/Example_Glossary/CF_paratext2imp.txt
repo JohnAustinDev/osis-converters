@@ -1,0 +1,21 @@
+# Example command file
+# see paratext2imp.pl for more information
+
+SPECIAL_CAPITALS:i->İ ı->I
+
+IGNORE_TAGS:(id|mt|b|h)
+
+GLOSSARY_ENTRY:(\\m \\k (.*?)\\k\*)
+SEE_ALSO:(([^\s>]+)\*)
+REMOVE_TAG:(m )
+
+BLANK_LINE:(li1)
+
+TABLE_ROW_START:(tr)
+TABLE_COL1:(th1|tc1)
+TABLE_COL2:(th2|tc2)
+TABLE_COL3:(th3|tc3)
+TABLE_ROW_END:(\n)
+
+RUN:./orig/A9GLOTUREV.SFM
+

@@ -40,7 +40,7 @@ else {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     if ($_ =~ /^\#/) {next;}
-    elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:\s*(.*?)\s*$/) {$removeEmptyRefs = $1; next;}
+    elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:(\s*(.*?)\s*)?$/) {if ($1) {$removeEmptyRefs = $2; next;}}
     elsif ($_ =~ /:/) {next;}
     elsif ($_ =~ /\/(\w+)\.[^\/]+$/) {$bnm=$1;}
     elsif ($_ =~/^\s*(\w+)\s*$/) {$bmn=$1;}

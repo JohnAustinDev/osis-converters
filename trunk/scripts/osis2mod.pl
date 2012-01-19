@@ -21,6 +21,7 @@ require "$SCRD/utils/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
 &getInfoFromConf($CONFFILE);
+if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$INPD/".$MOD.".xml";
 if (!-e $OSISFILE) {die "ERROR: Missing osis file: $OSISFILE\n";}

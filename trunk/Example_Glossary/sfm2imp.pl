@@ -19,11 +19,30 @@
 #
 ########################################################################
 
-# Run this script to create a dictionary SWORD module from an IMP 
-# file and a config.conf file located in this directory.
+# Run this script to convert an SFM glossary file into an IMP file
+# There are three distinct parts of the process: 1) convert the SFM to 
+# OSIS. 2) parse and add Scripture reference links to introductions, 
+# titles, and footnotes. 3) parse and add dictionary links to words 
+# which are described in a separate dictionary module.
 
 #  IMP wiki: http://www.crosswire.org/wiki/File_Formats#IMP
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
+
+# IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
+#  -SFM files must be UTF-8 encoded.
+#
+#  -The CF_paratext2imp.txt command file is executed from top to
+#   bottom. All settings remain in effect until/unless changed (so
+#   settings may be set more than once). All SFM files are processed 
+#   and added to the IMP file in the order in which they appear in 
+#   the command file. Books are processed using all settings 
+#   previously set in the command file.
+
+# set to 1 any features which are to be added.
+# controls for these features are in 
+# corresponding CF_<script>.txt files
+$addscrip = 1;    # addScriptRefLinks.pl
+$addseeal = 1;    # addSeeAlsoLinks.pl
 
 # set to full or relative path of the script directory
 $SCRD = "../scripts";
@@ -37,10 +56,6 @@ $SWORD_PATH = "";
 # or leave empty if it's in PATH.
 $SWORD_BIN = "";
 
-# set to full or relative path of image directory 
-# or leave empty if there are no images i the module.
-$IMAGEDIR = ""; 
-
 ########################################################################
 ########################################################################
 
@@ -48,5 +63,5 @@ use File::Spec;
 use Cwd; $INPD = getcwd;
 if ($SCRD =~ /^\./) {$SCRD = File::Spec->rel2abs($SCRD);}
 if (!-e $SCRD) {die "ERROR: Bad path to script directory.\n";}
-require("$SCRD/dict2mod.pl");
+require("$SCRD/src2imp.pl");
 #print "Press ENTER to close..."; $a = <>;

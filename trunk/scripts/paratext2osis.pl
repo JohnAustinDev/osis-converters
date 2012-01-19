@@ -39,7 +39,7 @@
 #   A "tag-list" is a Perl regular expression consisting of SFM tag 
 #   names separated by the perl OR ("|") term. Order should be longest
 #   tags to shortest. The "\" before the tag is implied. 
-#   For example: toc1|toc2|toc3|ide|rem|id|w\*|h|w
+#   For example: (toc1|toc2|toc3|ide|rem|id|w\*|h|w)
 
 # COMMAND FILE INSTRUCTIONS/SETTINGS:
 #   RUN - Process the SFM file now and add it to the OSIS file. 
@@ -106,10 +106,6 @@
 #       the glossary entry.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
-# Various constants:
-$Indent = "<milestone type=\"x-p-indent\" />";
-@Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-
 open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
 &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
 
@@ -155,37 +151,37 @@ while (<COMF>) {
   elsif ($_ =~ /^\#/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^FIND_ALL_TAGS:\s*(.*?)\s*$/) {$findalltags = $1; next;}
-  elsif ($_ =~ /^BOOK_NAME_RE:(.*?)$/) {$NameMatch = $1; next;}
-  elsif ($_ =~ /^IGNORE_TAGS:(.*?)$/) {$IgnoreTags = $1; next;}
-  elsif ($_ =~ /^MOVE_TITLE_NOTES:(.*?)$/) {$MoveTitleNotes = $1; next;}
-  elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(.*?)$/) {$MoveChapterNotes = $1; next;}
-  elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(.*?)$/) {$ContinuationTerms = $1; next;}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:\s*(.*?)\s*$/) {$SpecialCapitals = $1; next;}
+  elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {if ($1) {$findalltags = $2; next;}}
+  elsif ($_ =~ /^BOOK_NAME_RE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
+  elsif ($_ =~ /^IGNORE_TAGS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
+  elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
+  elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
+  elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
   # FORMATTING TAGS...
-  elsif ($_ =~ /^INTRO_TITLE_1:(.*?)$/) {$IntroFstTitle = $1; next;}
-  elsif ($_ =~ /^INTRO_PARAGRAPH:(.*?)$/) {$intropar = $1; next;}
-  elsif ($_ =~ /^TITLE_1:(.*?)$/) {$FstTitle = $1; next;}
-  elsif ($_ =~ /^TITLE_2:(.*?)$/) {$SecTitle = $1; next;}
-  elsif ($_ =~ /^CANONICAL_TITLE_1:(.*?)$/) {$canonicaltitle = $1; next;}
-  elsif ($_ =~ /^CANONICAL_TITLE_2:(.*?)$/) {$canonicaltitle2 = $1; next;}
-  elsif ($_ =~ /^LIST_TITLE:(.*?)$/) {$listtitle = $1; next;}
-  elsif ($_ =~ /^LIST_ENTRY:(.*?)$/) {$list1 = $1; next;}
-  elsif ($_ =~ /^LIST_ENTRY_BULLET:(.*?)$/) {$list2 = $1; next;}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(.*?)$/) {$enumList1 = $1; next;}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(.*?)$/) {$enumList2 = $1; next;}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(.*?)$/) {$enumList3 = $1; next;}
-  elsif ($_ =~ /^PARAGRAPH:(.*?)$/) {$normpar = $1; next;}
-  elsif ($_ =~ /^PARAGRAPH2:(.*?)$/) {$doublepar = $1; next;}
-  elsif ($_ =~ /^PARAGRAPH3:(.*?)$/) {$triplepar = $1; next;}
-  elsif ($_ =~ /^BLANK_LINE:(.*?)$/) {$blankline = $1; next;}
+  elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
+  elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
+  elsif ($_ =~ /^TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstTitle = $2; next;}}
+  elsif ($_ =~ /^TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecTitle = $2; next;}}
+  elsif ($_ =~ /^CANONICAL_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$canonicaltitle = $2; next;}}
+  elsif ($_ =~ /^CANONICAL_TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$canonicaltitle2 = $2; next;}}
+  elsif ($_ =~ /^LIST_TITLE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$listtitle = $2; next;}}
+  elsif ($_ =~ /^LIST_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list1 = $2; next;}}
+  elsif ($_ =~ /^LIST_ENTRY_BULLET:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list2 = $2; next;}}
+  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList1 = $2; next;}}
+  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList2 = $2; next;}}
+  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList3 = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
+  elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
   # TEXT TAGS...
-  elsif ($_ =~ /^BOLD_PATTERN:(.*?)$/) {$boldpattern = $1; next;}
-  elsif ($_ =~ /^ITALIC_PATTERN:(.*?)$/) {$italicpattern = $1; next;}
-  elsif ($_ =~ /^TEXT_EFFECT:(.*?)$/) {$txttags = $1; next;}
-  elsif ($_ =~ /^CROSSREFS_INLINE:(.*?)$/) {$crossrefs = $1; next;}
-  elsif ($_ =~ /^GLOSSARY_ENTRIES:(.*?)$/) {$glossaryentries = $1; next;}
-  elsif ($_ =~ /^GLOSSARY_NAME:\s*(.*?)\s*$/) {$glossaryname = $1; next;}
+  elsif ($_ =~ /^BOLD_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
+  elsif ($_ =~ /^ITALIC_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
+  elsif ($_ =~ /^TEXT_EFFECT:(\s*\((.*?)\)\s*)?$/) {if ($1) {$txttags = $2; next;}}
+  elsif ($_ =~ /^CROSSREFS_INLINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
+  elsif ($_ =~ /^GLOSSARY_ENTRIES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
+  elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
   
   # OT command...
   elsif ($_ =~ /^OT\s*$/) {
@@ -249,20 +245,36 @@ foreach $tag (keys %skippedTags) {
 
 sub bookSFMtoOSIS {
 
+  # Get the name of the book from the file name
+  if ($NameMatch eq "") {$SFMfile =~ /\/(\w+)\.[^\/]+$/; $bnm=$1;}
+  else {$SFMfile =~ /$NameMatch/; $bnm=$1;}
+  $bookName = &getOsisName($bnm);
+  
+  &Log("Processing $bookName\n");
+  
   # First make a copy of the SFM file, insuring \v tags always begin a line
+  my $sfmname = $SFMfile;
+  $sfmname =~ s/^.*?([^\/]*)$/$1/;
+  $ThisSFM = "$TMPDIR/$sfmname";
   open(TMPI, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
-  open(TMPO, ">:encoding(UTF-8)", "$TMPDIR/sfm.tmp") or die "ERROR: Could not open temporary SFM file $TMPDIR/sfm.tmp\n";
+  open(TMPO, ">:encoding(UTF-8)", $ThisSFM) or die "ERROR: Could not open temporary SFM file $ThisSFM\n";
   $removedSoftHyphens = 0;
-  $removedEmptyVerseMarkers = 0;
   $fixedMultiVerseLines = 0;
+  $line = 0;
   while(<TMPI>) {  
+    $line++;
     # Remove soft hyphens
     my $sh = decode("utf8", "­");
     utf8::upgrade($sh);
     if ($_ =~ s/$sh//g) {$removedSoftHyphens++;}
     
-    # Remove [\v 7] type markers so the line will be retained by paratext2osis.pl
-    if ($_ =~ s/\[\\v\s+(\d+)\]//g) {$removedEmptyVerseMarkers++;}
+    # Remove [] around purposefully skipped verses so they will be recognized
+    # [\v xxx]
+    while ($_ =~ s/(\[(\\v\s+[\s\d$ContinuationTerms]+)\])/$2/) {&Log("INFO: $SFMfile line $line: Removed brackets from verse tag $1 -> $2\n");}
+    # \v [xxx]
+    while ($_ =~ s/((\\v\s+)\[([\s\d$ContinuationTerms]+)\])/$2$3/) {&Log("INFO: $SFMfile line $line: Removed brackets from verse tag $1 -> $2$3\n");}
+    # \v x-[x]
+    while ($_ =~ s/((\\v\s+\d+\s*[$ContinuationTerms]\s*)\[(\d+)\])/$2$3/) {&Log("INFO: $SFMfile line $line: Removed brackets from verse tag $1 -> $2$3\n");}
   
     # Each verse must start on new line
     if ($_ =~ s/([^^])\\v /$1\n\\v /g) {$fixedMultiVerseLines++;}
@@ -273,17 +285,10 @@ sub bookSFMtoOSIS {
   close(TMPO);
 
   # Read the paratext file and convert it
-  open(INF, "<:encoding(UTF-8)", "$TMPDIR/sfm.tmp") or print getcwd." ERROR: Could not open file $TMPDIR/sfm.tmp.\n";
+  open(INF, "<:encoding(UTF-8)", $ThisSFM) or print getcwd." ERROR: Could not open file $ThisSFM.\n";
   
-  # Get the name of the book from the file name
-  if ($NameMatch eq "") {$SFMfile =~ /\/(\w+)\.[^\/]+$/; $bnm=$1;}
-  else {$SFMfile =~ /$NameMatch/; $bnm=$1;}
-  $bookName = &getOsisName($bnm);
-  
-  &Log("Processing $bookName\n");
   if ($removedSoftHyphens) {&Log("INFO: Removed $removedSoftHyphens soft hyphens.\n");}
-  if ($removedEmptyVerseMarkers) {&Log("INFO: Removed $removedEmptyVerseMarkers empty verse markers.\n");}
-  if ($fixedMultiVerseLines) {&Log("INFO: Fixed $fixedMultiVerseLines lines with multiple verses.\n");}
+  if ($fixedMultiVerseLines) {&Log("INFO: Normalized $fixedMultiVerseLines lines with multiple verses.\n");}
   &Write("<div type=\"book\" osisID=\"$bookName\">\n");
  
   # Prepare vars for reading a new paratext file
@@ -311,11 +316,12 @@ sub bookSFMtoOSIS {
   # Notes:
   #   Certain Psalm titles are canonical. If a blank CANONICAL_TITLE_1 tag is found, the next line is considered canonical
   #   Footnotes in introductions and titles/headings must be moved to next verse or ignored (see MOVE_TITLE_NOTES, MOVE_CHAPTER_NOTES)
-    
+   
   # Read the paratext file line by line
+  $linem=0;
   $line=0;
   while (<INF>) {
-    $line++;
+    $linem++;
     $_ =~ s/([^\n\r\f])[\n\r\f]+$/$1/; # Fancy Chop for unicode DOS or Unix file types
     if ($_ =~ /^\s*$/) {next;}
     
@@ -327,6 +333,7 @@ sub bookSFMtoOSIS {
     }
     $tmp = $_;
     &parseline($lastline);
+    $line = $linem;
     $lastline = $tmp;
   }
   if ($lastline ne "") {&parseline($lastline);}
@@ -381,12 +388,8 @@ sub parseline($) {
     }
   }
   
-  # NOTE: The ^[\s\W]* before tags is to filter out any strange chars that 
-  # sometimes appear before tags in SFM files, usually at the beginning of 
-  # a file.
-  
   # Ignore tags on ignore-list
-  if ($findalltags ne "true" && $_ =~ /^[\s\W]*\\($IgnoreTags)(\s|$)/) {} #&Log("WARNING line $line: Ignoring $_.\n");}
+  if ($findalltags ne "true" && $_ =~ /^[\s\W]*\\($IgnoreTags)(\s|$)/) {} #&Log("WARNING $ThisSFM line $line: Ignoring $_.\n");}
   # FIND ALL TAGS but do nothing else
   elsif ($findalltags eq "true" && $_ =~ /^[\s\W]*(\\\w+)/) {
     $skippedTags{$1} = "$skippedTags{$1} $bookName:$_\n";
@@ -398,7 +401,7 @@ sub parseline($) {
     $noteV=0;
     
     # sanity check that chapters are sequential (if SFM is bad)
-    if ($myChap != $refChap) {&Log("ERROR: Line $line ($bookName.$myChap)- chapter is not sequential!\n");}
+    if ($myChap != $refChap) {&Log("ERROR: $ThisSFM Line $line ($bookName.$myChap)- chapter is not sequential!\n");}
     $refChap++;
     
     $inIntroduction="0";
@@ -437,23 +440,23 @@ sub parseline($) {
     # Get any titles that were collected
     $verseTitle = "";
     if ($titleText ne "") {
-      $verseTitle = $titleText.$Indent;
+      $verseTitle = $titleText.$INDENT;
       $titleText="";
     }
     
     # If this is the first verse of chapter, ignore everything before this first verse, otherwise, print previously collected stuff
     if ($readText =~ /<verse[^>]+>.+/) {
       # if an indent will be followed by a title, remove that indent.
-      if ($verseTitle ne "") {$readText =~ s/$Indent$//;}
+      if ($verseTitle ne "") {$readText =~ s/$INDENT$//;}
       &Write("$readText$endVerse");
       $prepend = "";
     }
     else {
       $prepend = $readText;
       # don't allow too much space between verse one's number and the verse text
-      if ($prepend =~ s/(<lb \/>|$Indent)+\s*$/$Indent/) {
-        if ($prepend =~ /^$Indent$/) {
-          $verseTitle =~ s/(<lb \/>|$Indent)+\s*$//;
+      if ($prepend =~ s/(<lb \/>|$INDENT)+\s*$/$INDENT/) {
+        if ($prepend =~ /^$INDENT$/) {
+          $verseTitle =~ s/(<lb \/>|$INDENT)+\s*$//;
         }
       }      
     }
@@ -478,25 +481,25 @@ sub parseline($) {
   # INTRODUCTION MAJOR TITLE TAG
   elsif ($_ =~ /^[\s\W]*\\($IntroFstTitle)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     $readText = "$readText<lb /><lb /><title level=\"1\" type=\"x-intro\">$myT</title>";
   }
   # INTRODUCTORY PARAGRAPH
   elsif ($_ =~ /^[\s\W]*\\($intropar)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText<lb />$Indent$myT";
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    $readText = "$readText<lb />$INDENT$myT";
   }
   # LIST TITLE MARKER
   elsif ($_ =~ /^[\s\W]*\\($listtitle)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     $readText = "$readText<lb /><lb /><title level=\"2\" type=\"x-intro\">$myT</title>";
   }
   # LIST ENTRY
   elsif ($_ =~ /^[\s\W]*\\($list1)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($listStartPrinted ne "true") {$listStart = "<list type=\"x-list-1\">";}
     else {$listStart = "";}
     $readText = "$readText$listStart<item type=\"x-listitem\">$myT</item>";
@@ -505,7 +508,7 @@ sub parseline($) {
   # BULLET LIST ENTRY
   elsif ($_ =~ /^[\s\W]*\\($list2)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($listStartPrinted ne "true") {$listStart = "<list type=\"x-list-2\">";}
     else {$listStart = "";}
     $enum4 = chr(8226) . " -";
@@ -515,17 +518,17 @@ sub parseline($) {
   # ENUMERATED LIST 1 ENTRY
   elsif ($_ =~ /^[\s\W]*\\($enumList1)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($enumList1StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-1\">";}
     else {$listStart = "";}
     $readText = "$readText$listStart<item type=\"x-listitem\">$Roman[$enum1++]. $myT</item>";
-    if ($enum1 > 20) {&Log("ERROR line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
+    if ($enum1 > 20) {&Log("ERROR $ThisSFM line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
     $enumList1StartPrinted = "true";
   }
   # ENUMERATED LIST 2 ENTRY
   elsif ($_ =~ /^[\s\W]*\\($enumList2)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($enumList2StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-2\">";}
     else {$listStart = "";}
     $enum2++;
@@ -535,12 +538,12 @@ sub parseline($) {
   # ENUMERATED LIST 3 ENTRY
   elsif ($_ =~ /^[\s\W]*\\($enumList3)(\s+|$)(.*)/) {
     $myT=$3;
-    while ($myT =~ s/\*//) {&Log("WARNING 112 line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($enumList3StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-3\">";}
     else {$listStart = "";}
     $enum = lc($Roman[$enum3++]);
     $readText = "$readText$listStart<item type=\"x-listitem\">$enum. $myT</item>";
-    if ($enum3 > 20) {&Log("ERROR line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
+    if ($enum3 > 20) {&Log("ERROR $ThisSFM line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
     $enumList3StartPrinted = "true";
   }
   ################## PARATEXT TITLE MARKERS ######################
@@ -555,7 +558,7 @@ sub parseline($) {
         &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
       }
     }
-    else {while ($myT =~ s/\*//) {&Log("WARNING line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+    else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
     if ($inIntroduction eq "1") {$readText = "$readText<title level=\"1\" type=\"x-intro\">$myT</title>";}
     else {
       $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"1\">$myT</title>";
@@ -572,7 +575,7 @@ sub parseline($) {
         &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
       }
     }
-    else {while ($myT =~ s/\*//) {&Log("WARNING line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+    else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
     if ($inIntroduction eq "1") {$readText = "$readText<title level=\"2\" type=\"x-intro\">$myT</title>";}
     else {
       $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"2\">$myT</title>";
@@ -592,7 +595,7 @@ sub parseline($) {
           &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
         }
       }
-      else {while ($myT =~ s/\*//) {&Log("WARNING line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+      else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
       if ($inIntroduction eq "1") {$readText = "$readText<title canonical=\"true\" level=\"1\" type=\"x-intro\">$myT</title>";}
       else {
         $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$myT</title>";
@@ -611,7 +614,7 @@ sub parseline($) {
         &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
       }
     }
-    else {while ($myT =~ s/\*//) {&Log("WARNING line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+    else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
     if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" type=\"x-intro\">$myT</title>";}
     else {
       $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"2\">$myT</title>";
@@ -634,9 +637,9 @@ sub parseline($) {
       if ($myT ne "") {$readText = "$readText$myT";}
       else {$readText="";}
     }
-    elsif($tag =~ /^($doublepar)$/) {$readText = "$readText<lb />$EmptyLine$Indent$Indent$myT";}
-    elsif($tag =~ /^($triplepar)$/) {$readText = "$readText<lb />$EmptyLine$Indent$Indent$Indent$myT";}
-    else {$readText = "$readText<lb />$EmptyLine$Indent$myT";}
+    elsif($tag =~ /^($doublepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$myT";}
+    elsif($tag =~ /^($triplepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$INDENT$myT";}
+    else {$readText = "$readText<lb />$EmptyLine$INDENT$myT";}
   }
   # BLANK LINE MARKER
   elsif ($_ =~ /^[\s\W]*\\($blankline)(\s+|$)(.*)/) {
@@ -649,13 +652,13 @@ sub parseline($) {
   # ALL OTHER TAGS
   elsif ($_ =~ /^[\s\W]*(\\\w+)/) {
     $skippedTags{$1} = "$skippedTags{$1} $bookName:$_\n";
-    &Log("ERROR Line $line: Unhandled tag, line was skipped $_\n");
+    &Log("ERROR $ThisSFM Line $line: Unhandled tag, line was skipped $_\n");
   }
   # LINE WITH NOTHNG AT ALL
   elsif ($_ =~ /^\s*$/) {}
   # ELSE APPEND TO PREVIOUS TAG
   else {
-    &Log("ERROR Line $line: Line starting without a tag should have been handled already=$_\n");
+    &Log("ERROR $ThisSFM Line $line: Line starting without a tag should have been handled already=$_\n");
     $myT = $_;
     $noteVerseNum = $noteV;
     &encodeNotes;
@@ -670,7 +673,7 @@ sub encodeNotes {
     while ($myT =~ /($crossrefs)/) {
       $note = $+;
       if ($inIntroduction eq "1") {
-        &Log("WARNING Line $line: Footnote in intro was removed - \"".$note."\"\n");
+        &Log("WARNING $ThisSFM Line $line: Footnote in intro was removed - \"".$note."\"\n");
         $myT =~ s/($crossrefs)//;
       }
       else {
@@ -683,15 +686,15 @@ sub encodeNotes {
   }
   # Convert glossary entries if any
   if ($glossaryentries) {
-    if (!$glossaryname) {&Log("ERROR line $line: GLOSSARY_ENTRIES specified, but GLOSSARY_NAME is null.\n");}
+    if (!$glossaryname) {&Log("ERROR $ThisSFM line $line: GLOSSARY_ENTRIES specified, but GLOSSARY_NAME is null.\n");}
     $myT =~ s/$glossaryentries/my $a = $+; my $res = "<reference type=\"x-glossary\" osisRef=\"$glossaryname:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
   }
   # Use notes read from file...
   if ($NoteType eq "WITHREFS") {
     # Replace all "*"s in line with note data and increment inst after each replacement
     while ($myT =~ s/\*/<note type=\"study\" osisRef=\"$bookName.$myChap.$noteVerseNum\" osisID=\"$bookName.$myChap.$noteVerseNum!$inst\">$notes{"$bookName,$myChap,$noteVerseNum,$inst"}<\/note>/) {
-      if ($notes{"$bookName,$myChap,$noteVerseNum,$inst"} eq "") {&Log("WARNING 106 line $line: $bookName $myChap:$noteVerseNum #$inst Note not found.\n");}
-      if ($inIntroduction eq "1") {&Log("ERROR Line $line: Footnote was placed in introduction.\n");}
+      if ($notes{"$bookName,$myChap,$noteVerseNum,$inst"} eq "") {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$noteVerseNum #$inst Note not found.\n");}
+      if ($inIntroduction eq "1") {&Log("ERROR $ThisSFM Line $line: Footnote was placed in introduction.\n");}
       $notes{"$bookName,$myChap,$noteVerseNum,$inst"}="e"; 
       $inst++;
     }
@@ -707,11 +710,11 @@ sub encodeNotes {
           if (($bookName ne $b) or ($myChap ne $c) or ($noteVerseNum < $v1) or ($noteVerseNum > $v2)) {$f="true";}
         }
         elsif (($bookName ne $b) or ($myChap ne $c) or ($noteVerseNum ne $v)) {$f="true";}
-        if ($f eq "true") {&Log("WARNING 835 line $line: Note marked as \"$b $c:$v\" found in \"$bookName $myChap:$noteVerseNum\".\n");}
+        if ($f eq "true") {&Log("WARNING $ThisSFM line $line: Note marked as \"$b $c:$v\" found in \"$bookName $myChap:$noteVerseNum\".\n");}
       }
       $myT =~ s/\*/<note type=\"study\" osisRef=\"$bookName.$myChap.$noteVerseNum\" osisID=\"$bookName.$myChap.$noteVerseNum!$inst\">$notes{"$bookName,$noteNum"}<\/note>/;
-      if ($notes{"$bookName,$noteNum"} eq "") {&Log("ERROR 716 line $line: $bookName note #$noteNum not found.\n");}
-      if ($inIntroduction eq "1") {&Log("ERROR Line $line: Footnote was placed in introduction.\n");}
+      if ($notes{"$bookName,$noteNum"} eq "") {&Log("ERROR $ThisSFM line $line: $bookName note #$noteNum not found.\n");}
+      if ($inIntroduction eq "1") {&Log("ERROR $ThisSFM Line $line: Footnote was placed in introduction.\n");}
       $notes{"$bookName,$noteNum"}="e"; 
       $noteNum++;
       $inst++;
@@ -721,7 +724,7 @@ sub encodeNotes {
     while ($myT =~ /($notePattern)/) {
       $note = $+;
       if ($inIntroduction eq "1") {
-        &Log("WARNING Line $line: Footnote in intro was removed - \"".$note."\"\n");
+        &Log("WARNING $ThisSFM Line $line: Footnote in intro was removed - \"".$note."\"\n");
         $myT =~ s/($notePattern)//;
       }
       else {$myT =~ s/($notePattern)/<note type=\"study\" osisRef=\"$bookName.$myChap.$noteVerseNum\" osisID=\"$bookName.$myChap.$noteVerseNum!$inst\">$note<\/note>/;}
@@ -782,7 +785,7 @@ sub readFootNoteFileWithRefs {
     # If this is still an "fuz" footnote, check if we're in intro footnote, otherwise it was not recognized so give a message!
     elsif ($_ =~ /^(\\\w+)\s*(.*)/) {
       if ($ct eq "Intro") {$notes{"$bookName,$ct,,1"} = $2;}
-      else {&Log("WARNING 2 line $line: Line $line, $1 Footnote was not processed.\n");}
+      else {&Log("WARNING $ThisSFM line $line: $1 Footnote was not processed.\n");}
     }
     # If blank, ignore
     elsif ($_ =~ /^\s*$/) {}
@@ -845,7 +848,7 @@ sub readFootNoteFileWithoutRefs {
       }
       else {
         $_ =~ /^(........................)/;
-        &Log("WARNING 245 line $line: Unusual note ignored in $bookName: $1\n");
+        &Log("WARNING 245 $ThisSFM line $line: Unusual note ignored in $bookName: $1\n");
       }
     }
     # Other tags...
@@ -886,7 +889,7 @@ sub Write($) {
   
   while ($print =~ s/(\\([\w]*)\*?)//) {
     $tag = $2;
-    $tagsintext = $tagsintext."WARNING Before $SFMfile Line $line: Tag \"$1\" in \"$bookName\" was REMOVED.\n";
+    $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$1\" in \"$bookName\" was REMOVED.\n";
   }
   print OUTF $print;
 }

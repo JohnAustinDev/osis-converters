@@ -37,8 +37,8 @@
 #   CHECK_ONLY - Set to true to skip parsing for links and only check 
 #       existing links. During checking, any broken links are corrected.
 #   PUNC_AS_LETTER - List special characters which should be treated as 
-#       letters for purposes of matching. Example for 
-#       Turkish: "PUNC_AS_LETTER:'" 
+#       letters for purposes of matching.  
+#       Example for: "PUNC_AS_LETTER:'`-" 
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
 #   REFERENCE_TYPE - The value of the type attribute for 
@@ -63,11 +63,11 @@ while(<COMF>) {
   $_ =~ s/^\s*(.*?)\s*$/$1/;
   if ($_ =~ /^\s*$/) {}
   elsif ($_ =~ /^\#/) {}
-  elsif ($_ =~ /^CHECK_ONLY:\s*(.*?)\s*$/) {my $t = $1; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}
-  elsif ($_ =~ /^PUNC_AS_LETTER:\s*(.*?)\s*$/) {$PAL .= $1;}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:\s*(.*?)\s*$/) {$SpecialCapitals = $1; next;}
-  elsif ($_ =~ /^REFERENCE_TYPE:\s*(.*?)\s*$/) {$ReferenceType = $1; next;}
-  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:\s*(.*?)\s*$/) {my $t = $1; if ($t && $t !~ /(false|0)/i) {$LinkOnlyFirst = 0;} next;}
+  elsif ($_ =~ /^CHECK_ONLY:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}}
+  elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PAL .= $2;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
+  elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$ReferenceType = $2; next;}}
+  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$LinkOnlyFirst = 0;} next;}}
   
   # Some translations have two glossaries, one for OT and another for NT.
   # Each book is only parsed for a main glossary, but matching definitions

@@ -21,11 +21,12 @@ require "$SCRD/utils/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
 &getInfoFromConf($CONFFILE);
+if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
-$IMPFILE = "$INPD/dict.imp";
+$IMPFILE = "$INPD/$MOD.imp";
 if (!-e $IMPFILE) {die "ERROR: Missing imp file: $IMPFILE\n";}
 
-$LOGFILE = "$INPD/OUT_dict2mod.txt";
+$LOGFILE = "$INPD/OUT_imp2sword.txt";
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -45,34 +46,6 @@ if (-e "$INPD/$MOD.zip") {unlink("$INPD/$MOD.zip");}
 $TMPDIR = "$INPD/tmp/dict2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
-
-# add Scripture reference links to imp file
-$COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
-if (!-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
-if ($addscrip && -e $COMMANDFILE) {
-  &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
-  $INPUTFILE = "$INPD/dict.imp";
-  $OUTPUTFILE = "$TMPDIR/dict_1.imp";
-  $NOCONSOLELOG = 1;
-  require("$SCRD/addScripRefLinks.pl");
-  $NOCONSOLELOG = 0;
-}
-else {copy("$INPD/dict.imp", "$TMPDIR/dict_1.imp");}
-
-# add see-also links to imp file
-$COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-$DICTWORDS = "$INPD/DictionaryWords.txt";
-if (!-e $COMMANDFILE) {&Log("\nERROR: Skipping see-also link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if (!-e $DICTWORDS) {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $DICTWORDS.\n");}
-if ($addseeal && -e $COMMANDFILE && -e $DICTWORDS) {
-  &Log("\n--- ADDING/CHECKING SEE-ALSO LINKS\n");
-  $INPUTFILE = "$TMPDIR/dict_1.imp";
-  $OUTPUTFILE = "$TMPDIR/dict_2.imp";
-  $NOCONSOLELOG = 1;
-  require("$SCRD/addSeeAlsoLinks.pl");
-  $NOCONSOLELOG = 0;
-}
-else {rename("$TMPDIR/dict_1.imp", "$TMPDIR/dict_2.imp");}
 
 &Log("\n--- CREATING NEW $MOD MODULE\n");
 $SWDD = "$INPD/sword";
@@ -111,16 +84,16 @@ if ($ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
   print CONF $ret."Category=Lexicons / Dictionaries\n"; $ret="";
 }
 if ($ConfEntry{"DataPath"} ne "./modules/lexdict/rawld/$MODLC/$MODLC") {
-  print CONF $ret."Category=./modules/lexdict/rawld/$MODLC/$MODLC\n"; $ret="";
+  print CONF $ret."DataPath=./modules/lexdict/rawld/$MODLC/$MODLC\n"; $ret="";
 }
 if ($ConfEntry{"Encoding"} ne "UTF-8") {
-  print CONF $ret."Category=UTF-8\n"; $ret="";
+  print CONF $ret."Encoding=UTF-8\n"; $ret="";
 }
 if ($ConfEntry{"MinimumVersion"} ne "1.5.11") {
-  print CONF $ret."Category=1.5.11\n"; $ret="";
+  print CONF $ret."MinimumVersion=1.5.11\n"; $ret="";
 }
 if ($ConfEntry{"SourceType"} ne "OSIS") {
-  print CONF $ret."Category=OSIS\n"; $ret="";
+  print CONF $ret."SourceType=OSIS\n"; $ret="";
 }
 if (!$ConfEntry{"SwordVersionDate"}) {
   my @tm = localtime(time);
@@ -131,7 +104,7 @@ close(CONF);
 # create new module files
 make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
-$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$TMPDIR/dict_2.imp")." $MODLC 2 >> ".&escfile($LOGFILE);
+$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC 2 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 `$cmd`;
 chdir($INPD);
