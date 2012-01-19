@@ -25,22 +25,26 @@
 #  IMP wiki: http://www.crosswire.org/wiki/File_Formats#IMP
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-# set to 1 any features which are to be added
-# controls for these features are in corresponding CF_<script>.txt files
+# set to 1 any features which are to be added.
+# controls for these features are in 
+# corresponding CF_<script>.txt files
 $addscrip = 1;    # addScriptRefLinks.pl
 $addseeal = 1;    # addSeeAlsoLinks.pl
 
 # set to full or relative path of the script directory
 $SCRD = "../scripts";
 
-# set to full path of SWORD module directory to which modules will be copied
-# leave it empty and the module will not be copied .
+# set to full path of SWORD module directory where you would like a
+# copy to be made, as a convenience to help speed up development.
+# if not set, the module will not be copied.
 $SWORD_PATH = "";
 
-# set to full path of the SWORD bin directory or leave empty if it's in PATH
+# set to full path of the SWORD bin directory 
+# or leave empty if it's in PATH.
 $SWORD_BIN = "";
 
-# set to full or relative path of image directory or leave empty if no images
+# set to full or relative path of image directory 
+# or leave empty if there are no images i the module.
 $IMAGEDIR = ""; 
 
 ########################################################################
