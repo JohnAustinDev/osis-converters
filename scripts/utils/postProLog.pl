@@ -20,7 +20,7 @@
 open(LOG, "<:encoding(UTF-8)", $LOGFILE) || die "Could not open $LOGFILE\n";
 open(TMP, ">:encoding(UTF-8)", "$TMPDIR/log.tmp") || die "Could not open tmp log \"$TMPDIR/log.tmp\"\n";
 while(<LOG>) {
-  chomp;
+  $_ =~ s/\s+$//;
   if ($_ =~ /INFO\(LINK\): Linking (\w+)\.(\w+)\.(\w+) to (\w+)\.(\w+)\.(\w+)/) {
     $b2 = $4; $c2 = $5; $v2 = $6;
     if ($b2==$b && $c2==$c && $v2==$v) {$suc++; next;}
