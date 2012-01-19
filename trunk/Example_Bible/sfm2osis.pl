@@ -36,18 +36,20 @@
 #   bottom. All settings remain in effect until/unless changed (so
 #   settings may be set more than once). All SFM files are processed 
 #   and added to the OSIS file in the order in which they appear in 
-#   the command file. Books are processed using all settings previously 
-#   set in the command file. The special terms "OT" and "NT" should 
-#   appear before the first Old-Testament and first New-Testament books.
+#   the command file. Books are processed using all settings 
+#   previously set in the command file. The special terms "OT" and 
+#   "NT" should appear before the first Old-Testament and first 
+#   New-Testament books.
 #
 #  -It might be helpful on the first run of a new SFM project to use 
 #   "FIND_ALL_TAGS:true". This will log all tags found in the project
-#   after "Following is the list of unhandled tags which were skipped:" 
-#   The listed tags can be added to the command file and handled 
-#   as desired.
+#   after "Following is the list of unhandled tags which were 
+#   skipped:" The listed tags can be added to the command file and 
+#   handled as desired.
 
-# set to 1 any features which are to be added
-# controls for these features are in corresponding CF_<script>.txt files
+# set to 1 any features which are to be added.
+# controls for these features are in 
+# corresponding CF_<script>.txt files
 $addscrip = 0;    # addScriptRefLinks.pl
 $adddicts = 0;    # addDictLinks.pl
 $addcross = 0;    # addCrossRefs.pl

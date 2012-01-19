@@ -28,8 +28,9 @@
 # set to full or relative path of the script directory
 $SCRD = "../scripts";
 
-# set to full path of SWORD module directory to which modules will be copied
-# set to null and module will not be copied
+# set to full path of SWORD module directory where you would like a
+# copy to be made, as a convenience to help speed up development.
+# if not set, the module will not be copied.
 $SWORD_PATH = "";
 
 # set to full path of the SWORD bin directory or null if it's in PATH
