@@ -87,6 +87,10 @@ $COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
 if ($addscrip && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
 if ($addscrip && -e $COMMANDFILE) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
+  if (!$ConfEntry{"ReferenceBible"}) {
+    &Log("WARNING: ReferenceBible is not specified in $CONFFILE.\n");
+    &Log("Any companion Bible should be listed in $CONFFILE: ReferenceBible=<BibleModName>\n");
+  }
   $INPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $NOCONSOLELOG = 1;

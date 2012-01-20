@@ -113,6 +113,14 @@ if ($adddicts && -e $COMMANDFILE) {
   $NOCONSOLELOG = 1;
   require("$SCRD/addDictLinks.pl");
   $NOCONSOLELOG = 0;
+  foreach my $dn (values %DictNames) {$allDictNames{$dn}++;}
+  foreach my $dn (keys %allDictNames) {
+    if ($ConfEntry{"DictionaryModule"} !~ /\Q$dn\E/ ) {
+      open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
+      print CONF "DictionaryModule=$dn\n";
+      close(CONF);
+    }
+  }
 }
 else {rename("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 close(CONF);
