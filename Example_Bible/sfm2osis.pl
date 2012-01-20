@@ -20,32 +20,23 @@
 ########################################################################
 
 # Run this script to create an OSIS file from source (U)SFM files. 
-# There are four distinct parts of the process: 1) convert the SFM to 
+# There are four possible steps in the process: 1) convert the SFM to 
 # OSIS. 2) parse and add Scripture reference links to introductions, 
 # titles, and footnotes. 3) parse and add dictionary links to words 
 # which are described in a separate dictionary module. 4) insert cross 
 # reference links into the OSIS file.
+#
+# Begin by updating the config.conf and CF_paratext2osis.txt command 
+# file for the project (see those files for more info). Then set the 
+# $SCRD path below, and run this script. Check the OUT_sfm2osis.txt 
+# log file. Once there are no errors, enable another feature below if 
+# desired, update its command file, and run this script again. Once 
+# all desired features are enabled, there are no errors, and the 
+# information reported in OUT_sfm2osis.txt looks correct, then the 
+# OSIS file is done.
  
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
-
-# IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
-#  -SFM files must be UTF-8 encoded.
-#
-#  -The CF_paratext2osis.txt command file is executed from top to
-#   bottom. All settings remain in effect until/unless changed (so
-#   settings may be set more than once). All SFM files are processed 
-#   and added to the OSIS file in the order in which they appear in 
-#   the command file. Books are processed using all settings 
-#   previously set in the command file. The special terms "OT" and 
-#   "NT" should appear before the first Old-Testament and first 
-#   New-Testament books.
-#
-#  -It might be helpful on the first run of a new SFM project to use 
-#   "FIND_ALL_TAGS:true". This will log all tags found in the project
-#   after "Following is the list of unhandled tags which were 
-#   skipped:" The listed tags can be added to the command file and 
-#   handled as desired.
 
 # set to 1 any features which are to be added.
 # controls for these features are in 
