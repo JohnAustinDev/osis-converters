@@ -709,7 +709,7 @@ sub encodeNotes {
       $inst++;
     }
   }
-  elsif ($NoteType eq "INLINE") {
+  elsif ($NoteType eq "INLINE" && $notePattern) {
     while ($myT =~ /($notePattern)/) {
       $note = $+;
       if ($inIntroduction eq "1") {
