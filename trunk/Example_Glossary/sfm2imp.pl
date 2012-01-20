@@ -41,8 +41,8 @@
 # set to 1 any features which are to be added.
 # controls for these features are in 
 # corresponding CF_<script>.txt files
-$addscrip = 1;    # addScriptRefLinks.pl
-$addseeal = 1;    # addSeeAlsoLinks.pl
+$addscrip = 0;    # addScriptRefLinks.pl
+$addseeal = 0;    # addSeeAlsoLinks.pl
 
 # set to full or relative path of the script directory
 $SCRD = "../scripts";

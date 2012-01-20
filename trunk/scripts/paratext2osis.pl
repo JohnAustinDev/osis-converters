@@ -46,7 +46,6 @@
 #       Only one SFM file per RUN command is allowed. 
 #   SFM_BOOK_NAME - A perl regular expression to match the SFM book 
 #       name from the SFM file name.
-#   IGNORE_LINES - Tags listed here will be ignored.
 #   FIND_ALL_TAGS - Set to "true" to produce a list of all tags in 
 #       the document. NO TAGS ARE IGNORED!
 #   MOVE_TITLE_NOTES - Set to "false" to ignore notes in title, 
@@ -59,6 +58,7 @@
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
+#   IGNORE - A tag-list of SFM lines which should be ignored.
 #   INTRO_TITLE_1 - A tag-list representing titles used in a 
 #       book introduction.
 #   INTRO_PARAGRAPH - A tag-list for paragraphs used in a 
@@ -80,33 +80,22 @@
 #   PARAGRAPH2 - A tag-list for doubly indented paragraphs.
 #   PARAGRAPH3 - A tag-list for triple indented paragraphs.
 #   BLANK_LINE - A tag-list for blank lines (or non-indented paragraphs)
-#   REMOVE - A tag-list of tags to remove from the text. IMPORTANT!: 
-#       tags listed in BOLD_PATTERN and ITALIC_PATTERN must also be 
-#       included in the REMOVE tag-list.
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
-#   BOLD_PATTERN - Perl regular expression to match any bold text.
-#   ITALIC_PATTERN - Perl regular expression to match any italic text.
-#   TEXT_EFFECT - Perl regular expression which includes ALL inline text 
-#   tags. The TEXT_EFFECT expression is used to remove inline text tags 
-#   which should be interpereted as bold, italic, OR else simply 
-#   ignored.      
+#   BOLD - Perl regular expression to match any bold text.
+#   ITALIC - Perl regular expression to match any italic text.
+#   REMOVE - A Perl regular expression for bits to be removed from SFM.     
 
 # COMMAND FILE FOOTNOTE SETTINGS:
-#   FOOTNOTES_INLINE - Use for SFM inline footnotes. A Perl regular 
-#       expression to match all footnotes. The last parenthetical 
-#       grouping of the regular expression should match the footnote 
-#       text which you want retained in the OSIS file.
-#   CROSSREFS_INLINE - For inline cross references. See FOOTNOTES_INLINE
+#   FOOTNOTES - A Perl regular expression to match all SFM footnotes.
+#   CROSSREFS - For inline cross references. See FOOTNOTES_INLINE
 #   FOOTNOTES_WITHREFS - (rarely used) A footnote file whose footnotes 
 #       have refs
 #   FOOTNOTES_NOREFS - (rarely used) A footnote file whose footnotes 
 #       don't have refs
 
 # COMMAND FILE GLOSSARY/DICTIONARY RELATED SETTINGS:
-#   GLOSSARY_ENTRIES - To match glossary entry SFM tags. The last 
-#       parenthetical grouping of the regular expression should match 
-#       the glossary entry.
+#   GLOSSARY - A Perl regular expression to match SFM glossary links.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
 open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
@@ -138,13 +127,15 @@ $canonicaltitle2="none";
 $normpar="none";
 $doublepar="none";
 $triplepar="none";
-$boldpattern="none";
-$italicpattern="none";
+$boldpattern="";
+$italicpattern="";
 $MoveTitleNotes="true";
 $MoveChapterNotes="true";
 $SpecialCapitals="";
 $PreverseTitleType = "";
-$remtag="";
+$removepattern="";
+$notePattern="";
+$NoteType="INLINE";
 
 $line=0;
 while (<COMF>) {
@@ -156,12 +147,12 @@ while (<COMF>) {
   elsif ($_ =~ /^#/) {next;}
   elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {if ($1) {$findalltags = $2; next;}}
   elsif ($_ =~ /^SFM_BOOK_NAME:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
-  elsif ($_ =~ /^IGNORE_LINES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
   elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
   elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
   elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
   # FORMATTING TAGS...
+  elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
   elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
   elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
   elsif ($_ =~ /^TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstTitle = $2; next;}}
@@ -178,13 +169,16 @@ while (<COMF>) {
   elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
   elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
   elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
-  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remtag = $2; next;}}
+  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$removepattern = $2; next;}}
   # TEXT TAGS...
-  elsif ($_ =~ /^BOLD_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
-  elsif ($_ =~ /^ITALIC_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
-  elsif ($_ =~ /^CROSSREFS_INLINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
-  elsif ($_ =~ /^GLOSSARY_ENTRIES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
+  elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
+  elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
+  elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
+  elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
+  elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
   elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
+  
+
   
   # OT command...
   elsif ($_ =~ /^OT\s*$/) {
@@ -207,10 +201,7 @@ while (<COMF>) {
     $notePattern = "";
     if    ($NoteType eq "WITHREFS") {&readFootNoteFileWithRefs;}
     elsif ($NoteType eq "NOREFS") {&readFootNoteFileWithoutRefs;}
-    else {
-      undef %notes;
-      $notePattern = $NoteFileName;
-    }
+    else {&Log("ERROR: Unknown FOOTNOTE setting \"$_\" in $COMMANDFILE\n");}
     &Log("Begin using FOOTNOTES_$NoteType $NoteFileName\n");
   }
   # SFM file name...
@@ -219,12 +210,7 @@ while (<COMF>) {
     $SFMfile =~ s/\\/\//g;
     &bookSFMtoOSIS;
   }
-  # backward compatibility
-  elsif ($_ =~ /^\s*(.*?)\s*$/) {
-    $SFMfile = $1;
-    $SFMfile =~ s/\\/\//g;
-    &bookSFMtoOSIS;
-  }
+  else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
 }
 
 # Write closing tags, and close the output file
@@ -357,9 +343,9 @@ sub parseline($) {
   $_ =~ s/\s*\/\/\s*/ /g; # Force carriage return SFM marker
   
   # replace paratext font tags
-  $_ =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;
-  $_ =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;
-  if ($remtag) {$_ =~ s/\\($remtag)//g;}
+  if ($boldpattern)   {$_ =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
+  if ($italicpattern) {$_ =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
+  if ($removepattern) {$_ =~ s/($removepattern)//g;}
   
   if ($MOD eq "TKL" || $MOD eq "TKC") {$_ =~ s/\\ior\*?//g; $_ =~ s/\\iot\*//g;} # the iot* is a MISTAKE in the paratext!!
   
