@@ -20,23 +20,21 @@
 ########################################################################
 
 # Run this script to convert an SFM glossary file into an IMP file
-# There are three distinct parts of the process: 1) convert the SFM to 
-# OSIS. 2) parse and add Scripture reference links to introductions, 
-# titles, and footnotes. 3) parse and add dictionary links to words 
-# which are described in a separate dictionary module.
+# There are three possible parts of the process: 1) convert the SFM to 
+# IMP. 2) parse and add Scripture reference links to glossary entries. 
+# 3) parse and add "see-also" links to other entries in the glossary.
+#
+# Begin by updating the config.conf and CF_paratext2imp.txt command 
+# file for the project (see those files for more info). Then set the 
+# path variables below and run this script. Check the OUT_sfm2imp.txt 
+# log file. Once there are no errors, enable another feature below, 
+# update its command file, and run this script again. Once all 
+# desired features are enabled, there are no errors, and the 
+# information reported in OUT_sfm2imp.txt looks correct, then the 
+# IMP file is done.
 
 #  IMP wiki: http://www.crosswire.org/wiki/File_Formats#IMP
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
-
-# IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
-#  -SFM files must be UTF-8 encoded.
-#
-#  -The CF_paratext2imp.txt command file is executed from top to
-#   bottom. All settings remain in effect until/unless changed (so
-#   settings may be set more than once). All SFM files are processed 
-#   and added to the IMP file in the order in which they appear in 
-#   the command file. Books are processed using all settings 
-#   previously set in the command file.
 
 # set to 1 any features which are to be added.
 # controls for these features are in 

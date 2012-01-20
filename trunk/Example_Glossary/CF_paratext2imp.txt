@@ -1,5 +1,17 @@
 # Example command file
 # see paratext2imp.pl for more information
+#
+# ABOUT SFM & COMMAND FILES:
+#  -SFM files must be UTF-8 encoded.
+#
+#  -The CF_paratext2imp.txt command file is executed from top to
+#   bottom. All settings remain in effect until/unless changed (so
+#   settings may be set more than once). All SFM files are processed 
+#   and added to the IMP file in the order in which they appear in 
+#   the command file. Books are processed using all settings 
+#   previously set in the command file.
+#
+########################################################################
 
 SPECIAL_CAPITALS:i->İ ı->I
 
