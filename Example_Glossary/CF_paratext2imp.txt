@@ -3,19 +3,37 @@
 
 SPECIAL_CAPITALS:i->İ ı->I
 
-IGNORE_LINES:(id|mt|b|h)
+# The following are regular expressions applied to all SFM. The inner-
+# most matched () grouping is retained within corresponding OSIS tags, 
+# and the rest of the match is dropped. Replacements are always made in
+# the following order, regardless of their order in this command file: 
+# GLOSSARY_ENTRY, BOLD, ITALIC, REMOVE, SEE_ALSO, CROSSREF, FOOTNOTE.
 
 GLOSSARY_ENTRY:(\\m \\k (.*?)\\k\*)
+BOLD:
+ITALIC:
+REMOVE:(\\m )
 SEE_ALSO:(([^\s>]+)\*)
-REMOVE:(m )
+CROSSREF:
+FOOTNOTE:
 
+# The following settings are are all Perl regular expressions used 
+# to handle tags which occur at the beginning of new lines. The "\" 
+# before each tag should not be included. Multiple tags separated by 
+# OR "|" operators should be ordered from longest tag to shortest.
+
+IGNORE:(id|mt|b|h)
 BLANK_LINE:(li1)
+PARAGRAPH:
+PARAGRAPH2:
+PARAGRAPH3:
 
-TABLE_ROW_START:(tr)
-TABLE_COL1:(th1|tc1)
-TABLE_COL2:(th2|tc2)
-TABLE_COL3:(th3|tc3)
+# The following are used to parse tables. 
+TABLE_ROW_START:(\\tr )
+TABLE_COL1:(\\th1 |\\tc1 )
+TABLE_COL2:(\\th2 |\\tc2 )
+TABLE_COL3:(\\th3 |\\tc3 )
+TABLE_COL4:(\\th4 |\\tc4 )
 TABLE_ROW_END:(\n)
 
 RUN:./orig/A9GLOTUREV.SFM
-

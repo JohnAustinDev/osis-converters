@@ -2,18 +2,27 @@
 # see paratext2osis.pl for more information
 
 #FIND_ALL_TAGS:true
-IGNORE_LINES:(restore|toc1|toc2|toc3|ide|rem|id|w\*|h|w)
 SPECIAL_CAPITALS:i->İ ı->I
-
-FOOTNOTES_INLINE:(\\f[\s\+\*]+(\\fr.*?\\ft\s*)?(.*?)\\f\*)
-CROSSREFS_INLINE:(\\x - \\xo[^\\]*\\xt (.*?)\\x\*)
-GLOSSARY_ENTRIES:(\\w (.*?)\\w\*)
 GLOSSARY_NAME:TurSozluk
 
-ITALIC_PATTERN:(\\it.*?\\it\*|\\itw.*?\\itw\*|\\qs.*?\\qs\*)
-BOLD_PATTERN:(\\bd.*?\\bd\*|\\em.*?\\em\*)
+# The following are regular expressions applied to all SFM. The inner-
+# most matched () grouping is retained within corresponding OSIS tags, 
+# and the rest of the match is dropped. Replacements are always made in
+# this order: BOLD, ITALIC, REMOVE, GLOSSARY, CROSSREF, FOOTNOTE.
 
-REMOVE:(itw\*?|it\*?|bd\*|em\*?|qs\*?)
+BOLD:(\\bd(.*?)\\bd\*|\\em(.*?)\\em\*)
+ITALIC:(\\it(.*?)\\it\*|\\itw(.*?)\\itw\*|\\qs(.*?)\\qs\*)
+REMOVE:
+GLOSSARY:(\\w (.*?)\\w\*)
+CROSSREF:(\\x - \\xo[^\\]*\\xt (.*?)\\x\*)
+FOOTNOTE:(\\f[\s\+\*]+(\\fr.*?\\ft\s*)?(.*?)\\f\*)
+
+# The following settings are are all Perl regular expressions used 
+# to handle tags which occur at the beginning of new lines. The "\" 
+# before each tag should not be included. Multiple tags separated by 
+# OR "|" operators should be ordered from longest tag to shortest.
+
+IGNORE:(restore|toc1|toc2|toc3|ide|rem|id|w\*|h|w)
 INTRO_PARAGRAPH:(iq2|ip)
 INTRO_TITLE_1:(mt|is)
 LIST_TITLE:
