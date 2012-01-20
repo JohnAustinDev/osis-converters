@@ -1,9 +1,19 @@
 # Example command file
 # see paratext2osis.pl for more information
 
-IGNORE_TAGS:(restore|toc1|toc2|toc3|ide|rem|id|w\*|h|w)
+#FIND_ALL_TAGS:true
+IGNORE_LINES:(restore|toc1|toc2|toc3|ide|rem|id|w\*|h|w)
 SPECIAL_CAPITALS:i->İ ı->I
 
+FOOTNOTES_INLINE:(\\f[\s\+\*]+(\\fr.*?\\ft\s*)?(.*?)\\f\*)
+CROSSREFS_INLINE:(\\x - \\xo[^\\]*\\xt (.*?)\\x\*)
+GLOSSARY_ENTRIES:(\\w (.*?)\\w\*)
+GLOSSARY_NAME:TurSozluk
+
+ITALIC_PATTERN:(\\it.*?\\it\*|\\itw.*?\\itw\*|\\qs.*?\\qs\*)
+BOLD_PATTERN:(\\bd.*?\\bd\*|\\em.*?\\em\*)
+
+REMOVE:(itw\*?|it\*?|bd\*|em\*?|qs\*?)
 INTRO_PARAGRAPH:(iq2|ip)
 INTRO_TITLE_1:(mt|is)
 LIST_TITLE:
@@ -12,24 +22,16 @@ LIST_ENTRY_BULLET:
 ENUMERATED_LIST_LEVEL1:
 ENUMERATED_LIST_LEVEL2:
 ENUMERATED_LIST_LEVEL3:
+TITLE_1:(ms|s1)
+TITLE_2:(qa|s2|r)
+CANONICAL_TITLE_1:
+CANONICAL_TITLE_2:(d)
+BLANK_LINE:(b|m)
 PARAGRAPH:(iq1|pi|pc|q1|p)
 PARAGRAPH2:(q2)
 PARAGRAPH3:(q3)
-TITLE_1:(ms|s1)
-TITLE_2:(qa|s2|r)
-CANONICAL_TITLE_2:(d)
-BLANK_LINE:(b|m)
 
-ITALIC_PATTERN:(\\it.*?\\it\*|\\itw.*?\\itw\*|\\qs.*?\\qs\*)
-BOLD_PATTERN:(\\bd.*?\\bd\*|\\em.*?\\em\*)
-TEXT_EFFECT:(\\itw\*|\\itw|\\it\*|\\it|\\bd\*|\\bd|\\em\*|\\em|\\qs\*|\\qs)
-
-FOOTNOTES_INLINE:(\\f[\s\+\*]+(\\fr.*?\\ft\s*)?(.*?)\\f\*)
-CROSSREFS_INLINE:(\\x - \\xo[^\\]*\\xt (.*?)\\x\*)
-GLOSSARY_ENTRIES:(\\w (.*?)\\w\*)
-GLOSSARY_NAME:TurSozluk
-
-BOOK_NAME_RE:((...)TUREV\.SFM)
+SFM_BOOK_NAME:((...)TUREV\.SFM)
 
 OT
 RUN:./orig/01GENTUREV.SFM
