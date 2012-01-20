@@ -3,11 +3,11 @@
 
 SPECIAL_CAPITALS:i->İ ı->I
 
-IGNORE_TAGS:(id|mt|b|h)
+IGNORE_LINES:(id|mt|b|h)
 
 GLOSSARY_ENTRY:(\\m \\k (.*?)\\k\*)
 SEE_ALSO:(([^\s>]+)\*)
-REMOVE_TAG:(m )
+REMOVE:(m )
 
 BLANK_LINE:(li1)
 

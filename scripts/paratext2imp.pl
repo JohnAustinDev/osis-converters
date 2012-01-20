@@ -43,13 +43,11 @@
 # COMMAND FILE INSTRUCTIONS/SETTINGS:
 #   RUN - Process the SFM file now and add it to the IMP file. 
 #       Only one SFM file per RUN command is allowed. 
-#   IGNORE_TAGS - Tags listed here will be ignored.
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
-#   GLOSSARY_ENTRY - A Perl regular expression to match 
-#       glossary entries
+#   IGNORE_LINES - A tag-list for lines which should be ignored.
 #   PARAGRAPH - A tag-list for intented paragraphs.
 #   PARAGRAPH2 - A tag-list for doubly indented paragraphs.
 #   PARAGRAPH3 - A tag-list for triple indented paragraphs.
@@ -60,15 +58,13 @@
 #   TABLE_COL3 - A tag-list for beginning of column 3
 #   TABLE_COL4 - A tag-list for beginning of column 4
 #   TABLE_ROW_END - A tag-list for table row's end
+#   REMOVE - A tag-list of tags to remove from the text. IMPORTANT!: 
+#       tags listed in BOLD_PATTERN and ITALIC_PATTERN must also be 
+#       included in the REMOVE tag-list.
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD_PATTERN - Perl regular expression to match any bold text.
-#   ITALIC_PATTERN - Perl regular expression to match any italic text.
-#   TEXT_EFFECT - Perl regular expression which includes ALL inline text 
-#   tags. The TEXT_EFFECT expression is used to remove inline text tags 
-#   which should be interpereted as bold, italic, OR else simply 
-#   ignored.      
-#   REMOVE_TAG - Remove these tags
+#   ITALIC_PATTERN - Perl regular expression to match any italic text.    
 
 # COMMAND FILE FOOTNOTE SETTINGS:
 #   FOOTNOTES_INLINE - Use for SFM inline footnotes. A Perl regular 
@@ -78,9 +74,11 @@
 #   CROSSREFS_INLINE - For inline cross references. See FOOTNOTES_INLINE
 
 # COMMAND FILE GLOSSARY/DICTIONARY RELATED SETTINGS:
-#   SEE_ALSO - To match see-also entry SFM tags. The last 
-#       parenthetical grouping of the regular expression should match 
-#       the glossary entry.
+#   GLOSSARY_ENTRY - A Perl regular expression to match 
+#       glossary entry names in the SFM.
+#   SEE_ALSO - A Perl regular expression to match "see-also" SFM tags.
+#       The last parenthetical grouping of the regular expression 
+#       should match the glossary entry.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
 open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
@@ -120,7 +118,7 @@ while (<COMF>) {
   elsif ($_ =~ /^\#/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^IGNORE_TAGS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
+  elsif ($_ =~ /^IGNORE_LINES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
   elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
   
@@ -138,10 +136,9 @@ while (<COMF>) {
   elsif ($_ =~ /^TABLE_ROW_END:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tableend= $2; next;}}
 
   # TEXT TAGS...  
-  elsif ($_ =~ /^REMOVE_TAG:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remtag = $2; next;}}
+  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remtag = $2; next;}}
   elsif ($_ =~ /^BOLD_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$bold = $2; next;}}
   elsif ($_ =~ /^ITALIC_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italic = $2; next;}}
-  elsif ($_ =~ /^TEXT_EFFECT:(\s*\((.*?)\)\s*)?$/) {if ($1) {$txttags = $2; next;}}
   elsif ($_ =~ /^FOOTNOTES_INLINE:(\s*(.*?)\s*)?$/) {if ($1) {$notes = $2; next;}}
   elsif ($_ =~ /^CROSSREFS_INLINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
   elsif ($_ =~ /^SEE_ALSO:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossentries = $2; next;}}
@@ -213,17 +210,15 @@ sub convertText($) {
   # Ignore tags on ignore-list
   if ($l =~ /^\s*\\($IgnoreTags)(\s|$)/) {return $l;}
   
-  if ($remtag) {$l =~ s/\\($remtag)//;}
+    # text effect tags
+  if ($bold)      {$l =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
+  if ($italic)    {$l =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
+  if ($remtag)    {$l =~ s/\\($remtag)//g;}
 
   # handle table tags
   if ($l =~ /($tablestart)/) {&convertTable(\$l);}
  
   $l =~ s/\s*\/\/\s*/ /g; # Force carriage return SFM marker
-  
-  # text effect tags
-  if ($bold)      {$l =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
-  if ($italic)    {$l =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
-  if ($txttags)   {$l =~ s/($txttags)//g;}
   
   # paragraphs
   if ($blankline) {$l =~ s/\\$blankline(\s|$)/<lb \/>/g;}

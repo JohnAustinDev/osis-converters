@@ -44,9 +44,9 @@
 # COMMAND FILE INSTRUCTIONS/SETTINGS:
 #   RUN - Process the SFM file now and add it to the OSIS file. 
 #       Only one SFM file per RUN command is allowed. 
-#   BOOK_NAME_RE - A perl regular expression to match the SFM book 
+#   SFM_BOOK_NAME - A perl regular expression to match the SFM book 
 #       name from the SFM file name.
-#   IGNORE_TAGS - Tags listed here will be ignored.
+#   IGNORE_LINES - Tags listed here will be ignored.
 #   FIND_ALL_TAGS - Set to "true" to produce a list of all tags in 
 #       the document. NO TAGS ARE IGNORED!
 #   MOVE_TITLE_NOTES - Set to "false" to ignore notes in title, 
@@ -80,6 +80,9 @@
 #   PARAGRAPH2 - A tag-list for doubly indented paragraphs.
 #   PARAGRAPH3 - A tag-list for triple indented paragraphs.
 #   BLANK_LINE - A tag-list for blank lines (or non-indented paragraphs)
+#   REMOVE - A tag-list of tags to remove from the text. IMPORTANT!: 
+#       tags listed in BOLD_PATTERN and ITALIC_PATTERN must also be 
+#       included in the REMOVE tag-list.
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD_PATTERN - Perl regular expression to match any bold text.
@@ -137,11 +140,11 @@ $doublepar="none";
 $triplepar="none";
 $boldpattern="none";
 $italicpattern="none";
-$txttags="none";
 $MoveTitleNotes="true";
 $MoveChapterNotes="true";
 $SpecialCapitals="";
 $PreverseTitleType = "";
+$remtag="";
 
 $line=0;
 while (<COMF>) {
@@ -152,8 +155,8 @@ while (<COMF>) {
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
   elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {if ($1) {$findalltags = $2; next;}}
-  elsif ($_ =~ /^BOOK_NAME_RE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
-  elsif ($_ =~ /^IGNORE_TAGS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
+  elsif ($_ =~ /^SFM_BOOK_NAME:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
+  elsif ($_ =~ /^IGNORE_LINES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
   elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
   elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
@@ -175,10 +178,10 @@ while (<COMF>) {
   elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
   elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
   elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
+  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remtag = $2; next;}}
   # TEXT TAGS...
   elsif ($_ =~ /^BOLD_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
   elsif ($_ =~ /^ITALIC_PATTERN:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
-  elsif ($_ =~ /^TEXT_EFFECT:(\s*\((.*?)\)\s*)?$/) {if ($1) {$txttags = $2; next;}}
   elsif ($_ =~ /^CROSSREFS_INLINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
   elsif ($_ =~ /^GLOSSARY_ENTRIES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
   elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
@@ -356,7 +359,7 @@ sub parseline($) {
   # replace paratext font tags
   $_ =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;
   $_ =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;
-  $_ =~ s/($txttags)//g;
+  if ($remtag) {$_ =~ s/\\($remtag)//g;}
   
   if ($MOD eq "TKL" || $MOD eq "TKC") {$_ =~ s/\\ior\*?//g; $_ =~ s/\\iot\*//g;} # the iot* is a MISTAKE in the paratext!!
   
