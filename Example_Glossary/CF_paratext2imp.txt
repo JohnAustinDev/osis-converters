@@ -11,6 +11,9 @@
 #   the command file. Books are processed using all settings 
 #   previously set in the command file.
 #
+#  -Some less commonly used settings are not included in this example
+#   command file. See paratext2imp.pl for a complete listing.
+#
 ########################################################################
 
 SPECIAL_CAPITALS:i->İ ı->I

@@ -35,7 +35,7 @@
 #   The listed tags can be added to the command file and handled 
 #   as desired.
 
-# IMPORTANT TERMINOLOGY:
+# TERMINOLOGY:
 #   A "tag-list" is a Perl regular expression consisting of SFM tag 
 #   names separated by the perl OR ("|") term. Order should be longest
 #   tags to shortest. The "\" before the tag is implied. 
@@ -47,8 +47,8 @@
 #   SFM_BOOK_NAME - A perl regular expression to match the SFM book 
 #       name from the SFM file name.
 #   FIND_ALL_TAGS - Set to "true" to produce a list of all tags in 
-#       the document. NO TAGS ARE IGNORED!
-#   MOVE_TITLE_NOTES - Set to "false" to ignore notes in title, 
+#       the document. No tags are ignored.
+#   MOVE_TITLE_NOTES - Set to "false" to ignore notes in titles, 
 #       otherwise such notes are moved to beginning of next verse.
 #   MOVE_CHAPTER_NOTES - Set to "false" to ignore notes in \c lines, 
 #       otherwise they are moved to verse 1. 
