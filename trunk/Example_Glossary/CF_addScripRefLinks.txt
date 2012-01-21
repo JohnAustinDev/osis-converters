@@ -1,3 +1,9 @@
+# Example command file
+# see addScripRefLinks.txt for more information
+#
+# Some less commonly used settings are not included in this example
+# command file. See addScripRefLinks.pl for a complete listing.
+
 REFERENCE_TYPE:
 FILTER:
 CURRENT_BOOK_TERMS:

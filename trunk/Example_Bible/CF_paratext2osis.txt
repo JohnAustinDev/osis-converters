@@ -19,6 +19,9 @@
 #   skipped:" The listed tags can be added to the command file and 
 #   handled as desired.
 #
+#  -Some less commonly used settings are not included in this example
+#   command file. See paratext2osis.pl for a complete listing.
+#
 ########################################################################
 
 #FIND_ALL_TAGS:true

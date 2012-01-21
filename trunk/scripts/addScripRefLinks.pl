@@ -28,6 +28,15 @@
 #  (NOTE: settings which are not needed can 
 #   be left blank or not included at all)
 #
+#   <OSIS_BOOK_ABBREVIATION>=aTerm - Will associate the Bible book on
+#       the left with the matching term on the right. Only one term
+#       per line is allowed, but a single book may appear on numerous
+#       lines, each with another matching term. Longest terms for a 
+#       book should be listed before shorter terms for the same book. 
+#       NOTE: terms on the right are NOT Perl regular expressions but 
+#       are string literals. However, these terms may be preceeded by 
+#       PREFIXES or SUFFIXES (see below) and still match the book.
+#
 #   REFERENCE_TYPE - The value to use for the type attribute of 
 #       <reference> links which are added by this script.
 #   FILTER - A Perl regular expression used to select only particular
@@ -64,13 +73,13 @@
 #       do not imply a verse, as in: "Luke 5".
 #   SKIP_PSALMS - Set "true" to skip the book of Psalms.
 #   SKIP_REFERENCES_FOLLOWING - A Perl regular expression which matches
-#       words/terms which should indicate the text following them are NOT
-#       Scripture references.
+#       words/terms which should indicate the text following them are 
+#       NOT Scripture references.
 #   REQUIRE_BOOK - Set to "true" to skip references which do not specify
 #       the book. For example: "see chapter 6 verse 5". Normally, these
 #       references use context to imply their book target.
-#   EXCLUSION - Used to exclude certain references.
-#   LINE_EXCLUSION - Used to excludecertain references on certain lines.
+#   EXCLUSION - Use to exclude certain references.
+#   LINE_EXCLUSION - Use to exclude certain references on certain lines.
 #   FIX - Used to fix an incorrectly parsed reference.
 #   SKIPVERSE - The osisRef of a verse to skip.
 #   SKIPLINE - A line number to skip.
