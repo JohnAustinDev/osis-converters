@@ -57,7 +57,7 @@ $tmp = "$TMPDIR/sword";
 make_path("$tmp/mods.d");
 copy("$SWDD/mods.d/$MODLC.conf", "$tmp/mods.d/$MODLC.conf");
 &copy_dir("$SWDD/$MODPATH", "$tmp/$MODPATH");
-if ("$^0" =~ /MSWin32/i) {
+if ("$^O" =~ /MSWin32/i) {
   `7za a -tzip \"$INPD\\$MOD.zip\" -r \"$tmp\\*\"`;
 }
 else {

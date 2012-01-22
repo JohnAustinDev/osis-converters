@@ -34,16 +34,15 @@ if (-e "$SWDD/mods.d/$MODLC.conf") {unlink("$SWDD/mods.d/$MODLC.conf");}
 # determine the minimum sword version needed to render modules created by this osis2mod
 $msv = "1.6.1";
 if ($VERSESYS && $VERSESYS ne "KJV") {
-  my $outf = &escfile("$TMPDIR/osis2mod_vers.txt");
-  system(&escfile($SWORD_BIN."osis2mod")." 2> \"$outf\"");
-  open(OUTF, "<$outf") || die "Could not open $outf\n";
+  system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
+  open(OUTF, "<:encoding(UTF-8)", "$TMPDIR/osis2mod_vers.txt") || die "Could not open $TMPDIR/osis2mod_vers.txt\n";
   while(<OUTF>) {
     if ($_ =~ (/\$REV:\s*(\d+)\s*\$/i) && $1 > 2478) {
       $msv = "1.6.2"; last;
     }
   }
   close(OUTF);
-  unlink($outf);
+  unlink("$TMPDIR/osis2mod_vers.txt");
 }
 
 # due to SWORD bug: http://www.crosswire.org/bugs/browse/API-121
@@ -123,15 +122,15 @@ system($cmd);
 &Log("\n--- CREATING $MOD ZIPPED SWORD MODULE (".$VERSESYS.")\n");
 $cmd = &escfile($SWORD_BIN."mod2zmod")." $RMOD ".&escfile("$SWDD/modules/texts/ztext/$MODLC")." 4 2 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
-`$cmd`;
+system($cmd);
 
-print "\n--- TESTING FOR EMPTY VERSES\n";
+&Log("\n--- TESTING FOR EMPTY VERSES\n");
 &Log("BEGIN EMPTYVSS OUTPUT\n", 1);
-$cmd = &escfile($SWORD_BIN."emptyvss")." $MOD";
+$cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
 system($cmd);
 &Log("END EMPTYVSS OUTPUT\n", 1);
 chdir($INPD);
 
-&Log("\n--- RUNNING EMPTYVSS LOG POST PROCESSOR\n");
+&Log("\n--- RUNNING OSIS2MOD LINK MESSAGE POST PROCESSOR\n");
 require("$SCRD/utils/postProLog.pl");
 

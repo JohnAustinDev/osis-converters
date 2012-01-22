@@ -158,7 +158,7 @@ sub getOsisName($) {
   elsif ($bnm eq "TIT") {$bookName="Titus";}
   elsif ($bnm eq "ZEC") {$bookName="Zech";}
   elsif ($bnm eq "ZEP") {$bookName="Zeph";}
-  else {print "ERROR: Unrecognized Bookname:\"$bnm\"!\n";}
+  else {&Log("ERROR: Unrecognized Bookname:\"$bnm\"!\n");}
 
   return $bookName;
 }
@@ -688,7 +688,7 @@ sub fromUTF8($) {
 sub escfile($) {
   my $n = shift;
   
-  if ("$^0" =~ /MSWin32/i) {$n = "\"".$n."\"";}
+  if ("$^O" =~ /MSWin32/i) {$n = "\"".$n."\"";}
   else {$n =~ s/([ \(\)])/\\$1/g;}
   return $n;
 }
