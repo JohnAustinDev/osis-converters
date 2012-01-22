@@ -106,7 +106,7 @@ make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
 $cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC 2 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
-`$cmd`;
+system($cmd);
 chdir($INPD);
 
 if ($IMAGEDIR) {
@@ -117,7 +117,7 @@ if ($IMAGEDIR) {
 
 # make a zipped copy of the module
 &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
-if ("$^0" =~ /MSWin32/i) {
+if ("$^O" =~ /MSWin32/i) {
   `7za a -tzip \"$INPD\\$MOD.zip\" -r \"$SWDD\\*\"`;
 }
 else {

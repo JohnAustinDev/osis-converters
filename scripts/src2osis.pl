@@ -129,7 +129,7 @@ close(CONF);
 $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
 if ($addcross && !-e $COMMANDFILE) {&Log("ERROR: Skipping cross-reference insertion. Missing command file: $COMMANDFILE.\n");}
 if ($addcross && -e $COMMANDFILE) {
-  print "\n--- ADDING CROSS REFERENCES\n";
+  &Log("\n--- ADDING CROSS REFERENCES\n");
   $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   $OUTPUTFILE = $OSISFILE;
@@ -146,7 +146,9 @@ if ($VERSESYS eq "Synodal") {require("$SCRD/utils/osis2Synodal.pl");}
 # validate new OSIS file against schema
 &Log("\n--- VALIDATING OSIS SCHEMA\n");
 &Log("BEGIN OSIS SCHEMA VALIDATION\n");
-system("xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" \"$OSISFILE\" 2>> \"$LOGFILE\"");
+$cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
+&Log("$cmd\n");
+system($cmd);
 &Log("END OSIS SCHEMA VALIDATION\n");
 
 1;

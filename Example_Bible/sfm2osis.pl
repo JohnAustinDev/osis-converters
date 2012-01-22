@@ -48,9 +48,15 @@ $addcross = 0;    # addCrossRefs.pl
 # set to full or relative path of the script directory
 $SCRD = "../scripts";
 
+# set to full path of the directory containing the xmllint executable 
+# or null if it's in PATH. xmllint is a program used to validate the 
+# resulting OSIS file.
+$XMLLINT = "";
+
 ########################################################################
 ########################################################################
 
+if ($XMLLINT && $XMLLINT !~ /\/$/) {$XMLLINT .= "/";}
 use File::Spec;
 use Cwd; $INPD = getcwd;
 if ($SCRD =~ /^\./) {$SCRD = File::Spec->rel2abs($SCRD);}

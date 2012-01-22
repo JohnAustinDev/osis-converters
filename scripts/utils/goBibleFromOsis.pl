@@ -40,7 +40,7 @@ while (<INF>) {
   
   # Reset verse counter used to check Go Bible verse number against osis file's verse number
   if ($_ =~ /<chapter [^>]*osisID="([^\.]+\.(\d+))"/) {
-    if ($2 != $cGoBible) {print "Error Line $line: Chapter number mismatch in $1\n";}
+    if ($2 != $cGoBible) {&Log("Error Line $line: Chapter number mismatch in $1\n");}
     $vGoBible = 1;
     $nextOsisVerse = 1;
     $cGoBible++;
@@ -90,13 +90,13 @@ while (<INF>) {
       $blankvs = ($lv-$vOsis);
     }
     elsif ($id =~ /[^\.]+\.[^\.]+\.(\d+)$/) {$vOsis = $1*1;}
-    else {print "Error Line $line: Could not determine verse number from $id\n";}
+    else {&Log("Error Line $line: Could not determine verse number from $id\n");}
     
     # If input osis verse numbers are ever skipped, insert a blank verse in Go Bible osis
     while ($vOsis > $nextOsisVerse) {$_ = "<verse>.<\/verse>\n".$_; $vGoBible++; $nextOsisVerse++;}
         
     # Check if this input osis verse number matches the Go Bible osis verse number
-    if ($vOsis != $vGoBible) {print "Error Line $line: Verse number mismatch in $id\n";}
+    if ($vOsis != $vGoBible) {&Log("Error Line $line: Verse number mismatch in $id\n");}
     $nextOsisVerse = ($vOsis+1);
     
     while ($blankvs > 0) {$_ = $_."<verse>.<\/verse>\n"; $blankvs--; $vGoBible++; $nextOsisVerse++;}
@@ -111,11 +111,11 @@ close(INF);
 close(OUTF);
 
 # Log tag list
-print "Listing of tags and entities within verses:\n";
+&Log("Listing of tags and entities within verses:\n");
 $error = "false";
-foreach $tag (keys %tags) {$error = "true"; print $tag.":".$tags{$tag}."\n";}
-if ($error eq "false") {print "Good! No tags or entities were found.\n\n";}
-else {print "\nERROR: Tags above were found within verses.\n\n";}
+foreach $tag (keys %tags) {$error = "true"; &Log($tag.":".$tags{$tag}."\n");}
+if ($error eq "false") {&Log("Good! No tags or entities were found.\n\n");}
+else {&Log("\nERROR: Tags above were found within verses.\n\n");}
 
 sub Write($) {
   my $print = shift;

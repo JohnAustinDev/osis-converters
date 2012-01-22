@@ -45,15 +45,6 @@ $addseeal = 0;    # addSeeAlsoLinks.pl
 # set to full or relative path of the script directory
 $SCRD = "../scripts";
 
-# set to full path of SWORD module directory where you would like a
-# copy to be made, as a convenience to help speed up development.
-# if not set, the module will not be copied.
-$SWORD_PATH = "";
-
-# set to full path of the SWORD bin directory 
-# or leave empty if it's in PATH.
-$SWORD_BIN = "";
-
 ########################################################################
 ########################################################################
 

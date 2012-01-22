@@ -18,7 +18,7 @@
 
 $emptyHolder = "";
 
-print "\n\nAPPENDING MISSING & NON-CANONICAL VERSES:\n";
+&Log("\n\nAPPENDING MISSING & NON-CANONICAL VERSES:\n");
 
 &getCanon(\%canon, "Synodal");
 
@@ -34,16 +34,16 @@ open(OUTF, ">:encoding(UTF-8)", "$TMPDIR/tmp.xml");
 while(<OSIS>) {
   if ($_ =~ /<div type="book" osisID="([^\"]*)">/) {
     $bk = $1;
-    if (!$canon{$bk}) {print "ERROR: Unrecognized book name $bk\n";}
+    if (!$canon{$bk}) {&Log("ERROR: Unrecognized book name $bk\n");}
   }
   if ($_ =~ /<chapter osisID="\w+\.([^\"]*)">/) {
     $ch = $1;
-    if ($ch > @{$canon{$bk}}) {print "ERROR: Unrecognized chapter $bk $ch\n";}
+    if ($ch > @{$canon{$bk}}) {&Log("ERROR: Unrecognized chapter $bk $ch\n");}
   }
   if ($_ =~ /<verse sID="\w+\.\w+\.([^\"]*)"/) {
     $vs = $1;
     $vs =~ s/\d+\-//;
-    if ($vs > $canon{$bk}->[$ch-1]) {print "ERROR: Unrecognized verse $bk $ch:$vs\n";}
+    if ($vs > $canon{$bk}->[$ch-1]) {&Log("ERROR: Unrecognized verse $bk $ch:$vs\n");}
   }
   
   # each addition is on a one line div for easy removal
@@ -54,14 +54,14 @@ while(<OSIS>) {
     foreach $k (sort keys %canon) {
       $b = $k;
       if (&isCanon($b,$c,$v) && $allbooks !~ /;$b;/) {
-        print "Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." book $b\n";
+        &Log("Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." book $b\n");
         $_ = $_.&emptyBook($b, $canon{$b});
       }
     }
     foreach $k (sort keys %canon) {
       $b = $k;
       if (!&isCanon($b,$c,$v) && $allbooks !~ /;$b;/) {
-        print "Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." book $b\n";
+        &Log("Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." book $b\n");
         $_ = $_.&emptyBook($b, $canon{$b});
       }
     }
@@ -72,7 +72,7 @@ while(<OSIS>) {
     $emp = "";
     for ($i=($ch+1); $i <= @{$canon{$bk}}; $i++) {
       $b=$bk; $c=$i;
-      print "Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." chapter $bk $i\n";
+      &Log("Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." chapter $bk $i\n");
       $emp .= &wrapDiv("<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1])."</chapter>");
     }
     $BUFF = $emp.$BUFF;
@@ -82,7 +82,7 @@ while(<OSIS>) {
   # append missing verses in chapter
   if ($bk && $ch && $_ =~ /<\/chapter>/ && $canon{$bk}->[$ch-1] != $vs) {
     $b=$bk; $c=$ch; $v=($vs+1);
-    print "Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." verse(s) $bk $ch:".$v.($canon{$bk}->[$ch-1]==$v ? "":"-".$canon{$bk}->[$ch-1])."\n";
+    &Log("Appending ".(&isCanon($b,$c,$v) ? "empty":"non-canonical")." verse(s) $bk $ch:".$v.($canon{$bk}->[$ch-1]==$v ? "":"-".$canon{$bk}->[$ch-1])."\n");
     $_ = &wrapDiv(&emptyVerses("$bk.$ch.".$v."-".$canon{$bk}->[$ch-1])).$_;
   }
 
