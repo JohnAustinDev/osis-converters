@@ -31,9 +31,8 @@
 #
 #  -It might be helpful on the first run of a new SFM project to use 
 #   "FIND_ALL_TAGS:true". This will log all tags found in the project
-#   after "Following is the list of unhandled tags which were skipped:" 
-#   The listed tags can be added to the command file and handled 
-#   as desired.
+#   after "FIND_ALL_TAGS listing". The listed tags can be added to 
+#   the command file and handled as desired.
 
 # TERMINOLOGY:
 #   A "tag-list" is a Perl regular expression consisting of SFM tag 
@@ -145,7 +144,13 @@ while (<COMF>) {
   elsif ($_ =~ /^\#/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {if ($1) {$findalltags = $2; next;}}
+  elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {
+    if ($1) {
+      $findalltags = $2; 
+      if ($findalltags eq "true") {&Log("ERROR: FIND_ALL_TAGS is active. SFM will NOT be processed until this setting is deactivated.\n");} 
+      next;
+    }
+  }
   elsif ($_ =~ /^SFM_BOOK_NAME:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
   elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
   elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
@@ -219,12 +224,20 @@ close (OUTF);
 
 # Check and report...
 if (keys %notes > 0) {&checkRemainingNotes;}
-&Log("PROCESSING COMPLETE.\nFollowing is the list of unhandled tags which were skipped:\n");
+&Log("PROCESSING COMPLETE.\n");
+if ($findalltags ne "true") {
+  &Log("Following is the list of unhandled tags which were skipped:\n");
+}
+else {
+  &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
+}
 foreach $tag (keys %skippedTags) {
   #&Log("$skippedTags{$tag}"); #complete printout
   &Log("$tag "); #brief printout
 }
+
 &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+
 &Log("\nEnd of listing\n");
 1;
 
@@ -292,6 +305,7 @@ sub bookSFMtoOSIS {
   $refChap="1";           # used to check that chapters are sequential
   $inIntroduction="1";    # are we in the introduction?
   $lastline = "";         # used to buffer verse text
+  $HasChapterTag = 0;     # insure we find a chapter tag
   
   # BOOK PARSING SCHEME: 
   # Titles are captured and written at the beginning of the verse because, in SWORD, titles can only display before (and never inside) a verse
@@ -389,6 +403,7 @@ sub parseline($) {
     $myT = $2;
     $noteV=0;
     
+    $HasChapterTag = 1;
     # sanity check that chapters are sequential (if SFM is bad)
     if ($myChap != $refChap) {&Log("ERROR: $ThisSFM Line $line ($bookName.$myChap)- chapter is not sequential!\n");}
     $refChap++;
@@ -414,6 +429,8 @@ sub parseline($) {
     $myT = "$titleNotes$2";
     $titleNotes="";
     $myV =~ s/($ContinuationTerms)+/-/;
+    
+    if (!$HasChapterTag) {&Log("ERROR: No \"\\c 1\" chapter tag found. This tag is required before verse 1.\n");}
     
     # CLUDGE
     # If this is a hyphenated verse name, then see if left verse number has footnotes. If not, then use right verse number
@@ -675,7 +692,7 @@ sub encodeNotes {
   }
   # Convert glossary entries if any
   if ($glossaryentries) {
-    if (!$glossaryname) {&Log("ERROR $ThisSFM line $line: GLOSSARY_ENTRIES specified, but GLOSSARY_NAME is null.\n");}
+    if (!$glossaryname) {&Log("ERROR $ThisSFM line $line: GLOSSARY specified, but GLOSSARY_NAME is null.\n");}
     $myT =~ s/$glossaryentries/my $a = $+; my $res = "<reference type=\"x-glossary\" osisRef=\"$glossaryname:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
   }
   # Use notes read from file...
