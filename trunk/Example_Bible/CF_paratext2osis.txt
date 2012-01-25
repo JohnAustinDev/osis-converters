@@ -15,9 +15,8 @@
 #
 #  -It might be helpful on the first run of a new SFM project to use 
 #   "FIND_ALL_TAGS:true". This will log all tags found in the project
-#   after "Following is the list of unhandled tags which were 
-#   skipped:" The listed tags can be added to the command file and 
-#   handled as desired.
+#   after "FIND_ALL_TAGS listing". The listed tags can be added to 
+#   the command file and handled as desired.
 #
 #  -Some less commonly used settings are not included in this example
 #   command file. See paratext2osis.pl for a complete listing.
