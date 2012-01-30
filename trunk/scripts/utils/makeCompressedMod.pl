@@ -125,10 +125,15 @@ $cmd = &escfile($SWORD_BIN."mod2zmod")." $RMOD ".&escfile("$SWDD/modules/texts/z
 system($cmd);
 
 &Log("\n--- TESTING FOR EMPTY VERSES\n");
-&Log("BEGIN EMPTYVSS OUTPUT\n", 1);
-$cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
-system($cmd);
-&Log("END EMPTYVSS OUTPUT\n", 1);
+$cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
+$cmd = `$cmd`;
+if ($cmd =~ /usage/i) {
+  &Log("BEGIN EMPTYVSS OUTPUT\n", 1);
+  $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
+  system($cmd);
+  &Log("END EMPTYVSS OUTPUT\n", 1);
+}
+else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
 chdir($INPD);
 
 &Log("\n--- RUNNING OSIS2MOD LINK MESSAGE POST PROCESSOR\n");
