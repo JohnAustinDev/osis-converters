@@ -36,7 +36,7 @@ while (<INF>) {
   }
   
   # Skip these divs
-  if ($_ =~ /<div [^>]*type=\"(x-Synodal-non-canonical|x-Synodal-empty)\"/) {next;}
+  if ($_ =~ /<div [^>]*type=\"x-([^"]*)(non-canonical|empty)\"/) {next;}
   
   # Reset verse counter used to check Go Bible verse number against osis file's verse number
   if ($_ =~ /<chapter [^>]*osisID="([^\.]+\.(\d+))"/) {
