@@ -68,14 +68,14 @@ sub fillEmptyVerses($$$) {
           $tb = $k;
           if (&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
             &Log("Appending empty book $tb\n");
-            $_ = $_.&emptyBook($vsys, $tb, $canon{$tb});
+            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb});
           }
         }
         foreach my $k (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
           $tb = $k;
           if (!&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
             &Log("Appending non-canonical book $tb\n");
-            $_ = $_.&emptyBook($vsys, $tb, $canon{$tb});
+            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb});
           }
         }
       }
@@ -86,7 +86,7 @@ sub fillEmptyVerses($$$) {
         for (my $i=($ch+1); $i <= @{$canon{$bk}}; $i++) {
           $tb=$bk; $tc=$i;
           &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." chapter $bk $i\n");
-          $emp .= &wrapDiv($vsys, "<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1])."</chapter>");
+          $emp .= &wrapDiv($vsys, "<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1])."</chapter>", $tb, $tc, $tv);
         }
         $BUFF = $emp.$BUFF;
         $ch = @{$canon{$bk}}; # set chapter to current, so we don't ever append same chap again
@@ -96,7 +96,7 @@ sub fillEmptyVerses($$$) {
       if ($bk && $ch && $_ =~ /<\/chapter>/ && $canon{$bk}->[$ch-1] != $vs) {
         $tb=$bk; $tc=$ch; $tv=($vs+1);
         &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." verse(s) $bk $ch:".$tv.($canon{$bk}->[$ch-1]==$tv ? "":"-".$canon{$bk}->[$ch-1])."\n");
-        $_ = &wrapDiv($vsys, &emptyVerses("$bk.$ch.".$tv."-".$canon{$bk}->[$ch-1])).$_;
+        $_ = &wrapDiv($vsys, &emptyVerses("$bk.$ch.".$tv."-".$canon{$bk}->[$ch-1]), $tb, $tc, $tv).$_;
       }
 
       if ($BUFF) {print OUTF $BUFF;}
@@ -119,31 +119,35 @@ sub fillEmptyVerses($$$) {
 # is included in the SWORD versification system.
 sub isCanon($$$$) {
   my $vsys = shift;
-  my $b = shift;
-  my $c = shift;
-  my $v = shift;
+  my $tb = shift;
+  my $tc = shift;
+  my $tv = shift;
+  
   my $isCanon = 1;
   
   if ($vsys eq "Synodal") {
     # The following books/chapters/verses are in the Synodal verse system
     # but are not part of the Protestant Canon.
-    if (";1Esd;2Esd;Jdt;EpJer;Bar;Wis;1Macc;2Macc;3Macc;Sir;PrMan;Tob;" =~ /;$b;/) {$isCanon = 0;}
-    if ($b eq "Josh" && $c==24 && $v >=34 && $v <=36) {$isCanon = 0;}
-    if ($b eq "Ps" && $c==151) {$isCanon = 0;}
-    if ($b eq "Prov" && $c==4 && $v >=28 && $v <=29) {$isCanon = 0;}
-    if ($b eq "Prov" && $c==13 && $v==26) {$isCanon = 0;}
-    if ($b eq "Prov" && $c==18 && $v==25) {$isCanon = 0;}
-    if ($b eq "Dan" && $c==3 && $v >=34 && $v <=100) {$isCanon = 0;}
-    if ($b eq "Dan" && ($c==13 || $c==14)) {$isCanon = 0;}
+    if (";1Esd;2Esd;Jdt;EpJer;Bar;Wis;1Macc;2Macc;3Macc;Sir;PrMan;Tob;" =~ /;$tb;/) {$isCanon = 0;}
+    if ($tb eq "Josh" && $tc==24 && $tv >=34 && $tv <=36) {$isCanon = 0;}
+    if ($tb eq "Ps" && $tc==151) {$isCanon = 0;}
+    if ($tb eq "Prov" && $tc==4 && $tv >=28 && $tv <=29) {$isCanon = 0;}
+    if ($tb eq "Prov" && $tc==13 && $tv==26) {$isCanon = 0;}
+    if ($tb eq "Prov" && $tc==18 && $tv==25) {$isCanon = 0;}
+    if ($tb eq "Dan" && $tc==3 && $tv >=34 && $tv <=100) {$isCanon = 0;}
+    if ($tb eq "Dan" && ($tc==13 || $tc==14)) {$isCanon = 0;}
   }
   
   return $isCanon;
 }
 
-sub wrapDiv($$) {
+sub wrapDiv($$$$$) {
   my $vsys = shift;
   my $towrap = shift;
-  my $text = "<div type=\"".(&isCanon($vsys,$b,$c,$v) ? "x-$vsys-empty":"x-$vsys-non-canonical")."\">$towrap<\/div>\n";
+  my $tb = shift;
+  my $tc = shift;
+  my $tv = shift;
+  my $text = "<div type=\"".(&isCanon($vsys,$tb,$tc,$tv) ? "x-$vsys-empty":"x-$vsys-non-canonical")."\">$towrap<\/div>\n";
   return $text;
 }
 
@@ -162,20 +166,23 @@ sub emptyVerses($) {
   return $text
 }
 
-sub emptyBook($$\@) {
+sub emptyBook($$$$\@) {
   my $vsys = shift;
-  my $bk = shift;
+  my $tb = shift;
+  my $tc = shift;
+  my $tv = shift;
   my $a = shift;
-  my $ret = "<div type=\"book\" osisID=\"$bk\">";
+  
+  my $ret = "<div type=\"book\" osisID=\"$tb\">";
   for (my $i=0; $i<@$a; $i++) {
     my $vm = $a->[$i];
-    $ret = $ret."<chapter osisID=\"$bk.".($i+1)."\"><verse sID=\"$bk.".($i+1).".1-$vm\" osisID=\"";
+    $ret = $ret."<chapter osisID=\"$tb.".($i+1)."\"><verse sID=\"$tb.".($i+1).".1-$vm\" osisID=\"";
     my $sep = "";
-    for (my $v=1; $v<=$vm; $v++) {$ret = $ret.$sep."$bk.".($i+1).".$v"; $sep = " ";}
-    $ret = $ret."\"/>$emptyHolder<verse eID=\"$bk.".($i+1).".1-".$vm."\"/></chapter>";
+    for (my $v=1; $v<=$vm; $v++) {$ret = $ret.$sep."$tb.".($i+1).".$v"; $sep = " ";}
+    $ret = $ret."\"/>$emptyHolder<verse eID=\"$tb.".($i+1).".1-".$vm."\"/></chapter>";
   }
   $ret = $ret."</div>";
-  return &wrapDiv($vsys, $ret);
+  return &wrapDiv($vsys, $ret, $tb, $tc, $tv);
 }
 
 1;

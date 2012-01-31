@@ -168,10 +168,11 @@ sub getCanon($\%\%) {
   my $canonP = shift;
   my $bookOrderP = shift;
   
-  my $INFILE = "$SCRD/utils/canon".($VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
+  my $INFILE = "$SCRD/utils/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
   my $inOT, $inNT, $inVM;
   my $vsys = "unset";
   my %bookLongName, %bookChapters, %bookTest;
+  my @VM;
   my $booknum = 1;
 
   # Collect canon information from header file
@@ -215,7 +216,7 @@ sub getCanon($\%\%) {
     close(INF);
 
     # save canon info
-    $vmi = 0;
+    my $vmi = 0;
     foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
       $newarray = [];
 #&Log("$bk = ");
@@ -227,7 +228,7 @@ sub getCanon($\%\%) {
 #&Log("\n");
     }
 
-    if ($vmi != @VM) {&Log("ERROR: Data count mismatch: $vmi (".$VM[$vmi].") != ".@VM." (".$VM[@VM].").\n");}
+    if ($vmi != @VM) {&Log("ERROR: Data count mismatch: ".($vmi-1)." (".$VM[$vmi-1].") != ".(@VM-1)." (".$VM[@VM-1].").\n");}
   }
   else {
     &Log("ERROR: Could not open canon file \"$INFILE\".\n");
