@@ -140,8 +140,9 @@ if ($addcross && -e $COMMANDFILE) {
 else {rename("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 
 
-# if the module versification is Synodal, then we need to add non-canonical empty verses to the osis file
-if ($VERSESYS eq "Synodal") {require("$SCRD/utils/osis2Synodal.pl");}
+# add any non-canonical and empty verses to the osis file
+require("$SCRD/utils/fillEmptyVerses.pl");
+&fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
 
 # validate new OSIS file against schema
 &Log("\n--- VALIDATING OSIS SCHEMA\n");

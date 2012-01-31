@@ -113,7 +113,8 @@ close (COMF);
 # If no books were listed in the command file, then all books are assumed
 if ($NoBooks) {
   my %canon;
-  &getCanon(\%canon, "Synodal"); # only book list is important, not order
+  my %bookOrder;
+  &getCanon("KJV", \%canon, \%bookOrder); # only book list is important, not order
   foreach my $bookName (keys %canon) {
     $WordFiles{$bookName} = $wordFile;
     $DictNames{$bookName} = $dictName;
