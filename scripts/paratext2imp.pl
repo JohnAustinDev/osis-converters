@@ -53,6 +53,8 @@
 #   TABLE_COL3 - A tag-list for beginning of column 3
 #   TABLE_COL4 - A tag-list for beginning of column 4
 #   TABLE_ROW_END - A tag-list for table row's end
+#   BREAK_BEFORE - A Perl regular expression before which line breaks
+#       will always be inserted.
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD - Perl regular expression to match any bold text.
@@ -83,12 +85,12 @@ $normpar = "";
 $doublepar = "";
 $triplepar = "";
 $blankline = "";
-$tablerstart = "";
+$tablerstart = "none";
 $tablec1 = "none";
 $tablec2 = "none";
 $tablec3 = "none";
 $tablec4 = "none";
-$tablerend = "";
+$tablerend = "none";
 $bold = "";
 $italic = "";
 $remove = "";
@@ -96,6 +98,7 @@ $txttags = "";
 $notes = "";
 $crossrefs = "";
 $seealsopat = "";
+$breakbefore = "";
 
 $tagsintext="";  
 $line=0;
@@ -123,6 +126,7 @@ while (<COMF>) {
   elsif ($_ =~ /^TABLE_COL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec3= $2; next;}}
   elsif ($_ =~ /^TABLE_COL4:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec4= $2; next;}}
   elsif ($_ =~ /^TABLE_ROW_END:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerend= $2; next;}}
+  elsif ($_ =~ /^BREAK_BEFORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$breakbefore= $2; next;}}
 
   # TEXT PATTERNS... 
   elsif ($_ =~ /^GLOSSARY_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$GlossExp = $2; next;}} 
@@ -236,7 +240,8 @@ sub convertText($) {
   if ($remove)    {$l =~ s/($remove)//g;}
 
   # handle table tags
-  if ($l =~ /($tablerstart)/) {&convertTable(\$l);}
+  my $hastable = 0;
+  if ($l =~ /($tablerstart)/) {&convertTable(\$l); $hastable = 1;}
  
   $l =~ s/\s*\/\/\s*/ /g; # Force carriage return SFM marker
   
@@ -253,6 +258,10 @@ sub convertText($) {
   if ($crossrefs) {$l =~ s/$crossrefs/<note type="crossReference">$+<\/note>/g;}
   if ($notes)     {$l =~ s/$notes/<note>$+<\/note>/g;}
      
+  if ($breakbefore && !$hastable) {
+    $l =~ s/($breakbefore)/$LB$LB$1/g;
+  }
+  
   return $l;  
 }
 

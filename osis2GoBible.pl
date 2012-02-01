@@ -34,11 +34,12 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
+  $INPD =~ s/\/\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
   my $dproj = "./Example_GoBible";
-  print "usage: osis2GoBible.pl [Bible_Directory]\n";
+  print "\nusage: osis2GoBible.pl [Bible_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
