@@ -144,6 +144,7 @@ while (<COMF>) {
   elsif ($_ =~ /^\#/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
+  elsif ($_ =~ /^(RUN_addScripRefLinks|RUN_addDictLinks|RUN_addCrossRefs):/) {next;}
   elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {
     if ($1) {
       $findalltags = $2; 
@@ -213,6 +214,11 @@ while (<COMF>) {
   elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
     $SFMfile = $1;
     $SFMfile =~ s/\\/\//g;
+    if ($SFMfile =~ /^\./) {
+      chdir($INPD);
+      $SFMfile = File::Spec->rel2abs($SFMfile);
+      chdir($SCRD);
+    }
     &bookSFMtoOSIS;
   }
   else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}

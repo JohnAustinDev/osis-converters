@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
 # Copyright 2012 John Austin (gpl.programs.info@gmail.com)
@@ -23,7 +24,9 @@
 
 use File::Spec;
 $INPD = shift;
-if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+if ($INPD) {
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+}
 else {
   my $dproj = "./Example_Glossary";
   print "usage: imp2sword.pl [Glossary_Directory]\n";
@@ -34,10 +37,11 @@ else {
   $INPD = File::Spec->rel2abs($dproj);
 }
 if (!-e $INPD) {
-  print "Glossary_Directory does not exist. Exiting.\n";
+  print "Glossary_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
+$SCRD =~ s/\/[^\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
@@ -52,7 +56,11 @@ else {
   print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
   exit;
 }
-if ($IMAGEDIR && $IMAGEDIR =~ /^\./) {$IMAGEDIR = File::Spec->rel2abs($IMAGEDIR);}
+if ($IMAGEDIR && $IMAGEDIR =~ /^\./) {
+  chdir($INPD);
+  $IMAGEDIR = File::Spec->rel2abs($IMAGEDIR);
+  chdir($SCRD);
+}
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}

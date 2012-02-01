@@ -175,7 +175,7 @@ while (<INF>) {
         undef @words;
         undef %dictsForWord;
         undef %searchTerms;
-        &readGlossWordFile($WordFiles{$thisBookName}, $DictNames{$thisBookName}, \@words, \%dictsForWord, \%searchTerms);
+        &readGlossWordFile("$INPD/".$WordFiles{$thisBookName}, $DictNames{$thisBookName}, \@words, \%dictsForWord, \%searchTerms);
         
         # Now add any corresponding secondary glossaries to %dictsForWord entries...
         $secondaryDictName = $SecondaryDictNames{$thisBookName};
