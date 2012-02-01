@@ -28,11 +28,12 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
+  $INPD =~ s/\/\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
   my $dproj = "./Example_Bible";
-  print "usage: osis2sword.pl [Bible_Directory]\n";
+  print "\nusage: osis2sword.pl [Bible_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -74,7 +75,7 @@ $TMPDIR = "$INPD/tmp/osis2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-&Log("\n-----------------------------------------------------\nSTARTING osis2mod.pl\n\n");
+&Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$INPD/sword") {make_path("$INPD/sword");}
 
 # create raw and zipped modules from OSIS

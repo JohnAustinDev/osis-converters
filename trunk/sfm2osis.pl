@@ -36,11 +36,12 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
+  $INPD =~ s/\/\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
   my $dproj = "./Example_Bible";
-  print "usage: sfm2osis.pl [Bible_Directory]\n";
+  print "\nusage: sfm2osis.pl [Bible_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -107,7 +108,7 @@ make_path($TMPDIR);
 
 if ($SWORDBIN && $SWORDBIN !~ /\/\*$/) {$SWORDBIN .= "/";}
 
-&Log("\n-----------------------------------------------------\nSTARTING src2osis.pl\n\n");
+&Log("\n-----------------------------------------------------\nSTARTING sfm2osis.pl\n\n");
 
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;

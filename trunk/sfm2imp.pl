@@ -34,11 +34,12 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
+  $INPD =~ s/\/\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
   my $dproj = "./Example_Glossary";
-  print "usage: sfm2imp.pl [Glossary_Directory]\n";
+  print "\nusage: sfm2imp.pl [Glossary_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -100,7 +101,7 @@ make_path($TMPDIR);
 
 if ($SWORDBIN && $SWORDBIN !~ /\/\*$/) {$SWORDBIN .= "/";}
 
-&Log("\n-----------------------------------------------------\nSTARTING src2imp.pl\n\n");
+&Log("\n-----------------------------------------------------\nSTARTING sfm2imp.pl\n\n");
 
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;

@@ -25,11 +25,12 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
+  $INPD =~ s/\/\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
   my $dproj = "./Example_Glossary";
-  print "usage: imp2sword.pl [Glossary_Directory]\n";
+  print "\nusage: imp2sword.pl [Glossary_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -85,7 +86,7 @@ if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$INPD/sword") {remove_tree("$INPD/sword");}
 if (-e "$INPD/$MOD.zip") {unlink("$INPD/$MOD.zip");}
 
-&Log("\n-----------------------------------------------------\nSTARTING dict2mod.pl\n\n");
+&Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
 $TMPDIR = "$INPD/tmp/dict2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}

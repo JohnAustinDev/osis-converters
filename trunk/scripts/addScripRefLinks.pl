@@ -84,7 +84,7 @@
 #   SKIPVERSE - The osisRef of a verse to skip.
 #   SKIPLINE - A line number to skip.
   
-$debugLine = 347;
+$debugLine = 0;
 $onlyLine = 0;
 
 $tmpFile = $OUTPUTFILE;
@@ -142,6 +142,7 @@ while (<CF>) {
   $_ =~ s/\s+$//;
 
 	if ($_ =~ /^(\#.*|\s*)$/) {next;}
+  elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
 	elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$filter = $2;} next;}
 	elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
 	elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
@@ -429,12 +430,12 @@ sub addLinks(\$$$) {
       my $bareNumbersAre = "chapters";
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
       
-      my @subrefArray = split(/(($sepTerms)+)/, $extref);		
+      my @subrefArray = split(/($sepTerms)/, $extref);		
       foreach my $subref (@subrefArray) {
         if ($line == $debugLine) {&Log("DEBUG3: subref=\"$subref\"\n");}
         
         # Keep sepTerms
-        if ($subref =~ /(($sepTerms)+)/) {
+        if ($subref =~ /($sepTerms)/) {
           $repExtref .= $subref;
           next;
         }
