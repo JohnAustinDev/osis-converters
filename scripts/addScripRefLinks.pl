@@ -84,7 +84,7 @@
 #   SKIPVERSE - The osisRef of a verse to skip.
 #   SKIPLINE - A line number to skip.
   
-$debugLine = 0;
+$debugLine = 347;
 $onlyLine = 0;
 
 $tmpFile = $OUTPUTFILE;
@@ -405,8 +405,8 @@ sub addLinks(\$$$) {
       }
       
       # Skip if on line Exclusion lists
-      if (!&termAcceptable($extref, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
-      if (!&termAcceptable($extref, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
+      if (!&termAcceptable($extref, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($extref, $ttP); next;}
+      if (!&termAcceptable($extref, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($extref, $ttP); next;}
       
       my $repExtref = "";
       my $shouldCheck = 0;
@@ -429,22 +429,24 @@ sub addLinks(\$$$) {
       my $bareNumbersAre = "chapters";
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
       
-      my @subrefArray = split(/($sepTerms)/, $extref);		
+      my @subrefArray = split(/(($sepTerms)+)/, $extref);		
       foreach my $subref (@subrefArray) {
-        if ($line == $debugLine) {&Log("DEBUG3: subref=$subref\n");}
+        if ($line == $debugLine) {&Log("DEBUG3: subref=\"$subref\"\n");}
         
         # Keep sepTerms
-        if ($subref =~ /($sepTerms)/) {
+        if ($subref =~ /(($sepTerms)+)/) {
           $repExtref .= $subref;
           next;
-        }	
+        }
+        
+        if (!$subref) {next;}	
             
         # Skip subrefs without numbers
         if ($subref !~ /\d+/) {
           $numNoDigitRef++;
           $noDigitRef{"S)".$subref} .= $line.", ";
           $repExtref .= $subref;
-          #&Log("$line WARNING $BK.$CH.$VS: Skipped SUBREF \"$subref\" - no DIGITS.\n");
+          &Log("$line WARNING $BK.$CH.$VS: Skipped subref \"$subref\" - no DIGITS.\n");
           next;
         }		
         

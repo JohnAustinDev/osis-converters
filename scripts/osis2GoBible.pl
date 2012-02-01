@@ -36,7 +36,7 @@ if ($delete) {
   $in = <>; 
   if ($in !~ /^\s*y\s*$/i) {die;}
 }
-if (-e $GBOUT) {unlink($GBOUT);}
+if (-e $GBOUT) {remove_tree($GBOUT);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
 make_path($GBOUT);

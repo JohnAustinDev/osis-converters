@@ -222,6 +222,7 @@ sub getCanon($\%\%) {
 #&Log("$bk = ");
       for (my $i=0; $i<$bookChapters{$bk}; $i++) {
 #&Log($VM[$vmi].", ");
+        if ($VM[$vmi] !~ /^\d+$/) {&Log("ERROR: Canon data is not a number \"".$VM[$vmi]."\".\n");}
         push(@{$newarray}, $VM[$vmi++]);
       }
       $canonP->{$bk} = $newarray;
@@ -601,7 +602,7 @@ sub escfile($) {
 sub Log($$) {
   my $p = shift; # log message
   my $h = shift; # hide from console
-  if (!$h && !$NOCONSOLELOG) {print encode("utf8", "$p");}
+  if (!$h && !$NOCONSOLELOG || $p =~ /error/i) {print encode("utf8", "$p");}
   open(LOGF, ">>:encoding(UTF-8)", "$LOGFILE") || die "Could not open log file $LOGFILE\n";
   print LOGF $p;
   close(LOGF);

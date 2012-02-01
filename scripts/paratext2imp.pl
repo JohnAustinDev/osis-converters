@@ -96,7 +96,8 @@ $txttags = "";
 $notes = "";
 $crossrefs = "";
 $seealsopat = "";
-  
+
+$tagsintext="";  
 $line=0;
 while (<COMF>) {
   $line++;
@@ -133,6 +134,7 @@ while (<COMF>) {
   
   # SFM file name...
   elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {&glossSFMtoIMP($1);}
+  elsif ($_ =~ /^APPEND:\s*(.*?)\s*$/) {&appendIMP($1);}
   else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
 }
 close (OUTF);
@@ -140,11 +142,17 @@ close (OUTF);
 # Check and report...
 &Log("PROCESSING COMPLETE.\n");
 &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+&Log("\nFollowing tags were removed from entry names:\n");
+foreach $k (keys %convertEntryRemoved) {&Log("$k ");}
 &Log("\nEnd of listing\n");
 
 # Write DictionaryWords.txt file
+open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) || die "ERROR: Could not open $OUTPUTFILE.\n";
+while(<INF>) {if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {push(@AllEntries, $1);}}
+close(INF);
 open(DWORDS, ">:encoding(UTF-8)", "$INPD/DictionaryWords_autogen.txt") || die "Error: Could not open $INPD/DictionaryWords.txt\n";
 for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DE$i:$AllEntries[$i]\n";}
+print DWORDS "\n########################################################################\n\n";
 for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DL$i:$AllEntries[$i]\n";}
 close(DWORDS);
 1;
@@ -152,6 +160,17 @@ close(DWORDS);
 ########################################################################
 ########################################################################
 
+sub appendIMP($) {
+  my $imp = shift;
+  &Log("Appending $imp\n");
+  if (open(IMP, "<:encoding(UTF-8)", $imp)) {
+    while(<IMP>) {
+      if ($_ =~ /^\s*$/) {next;}
+      print OUTF $_;
+    }
+  }
+  else {&Log("ERROR: Could not append \"$imp\". File not found.\n");}
+}
 
 sub glossSFMtoIMP($) {
   my $SFMfile = shift;
@@ -168,8 +187,9 @@ sub glossSFMtoIMP($) {
   my $t;
   while (<INF>) {
     $lineSFM++;
- 
+
     if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^\s*\\($IgnoreTags)(\s|$)/) {next;}
     elsif ($_ =~ s/^$GlossExp//) {
       my $e2 = $+;
       if ($e) {&Write($e, $t);}
@@ -187,20 +207,20 @@ sub glossSFMtoIMP($) {
 
 sub convertEntry($) {
   my $e = shift;
+  $e =~ s/\\(\w+[\s\*])/$convertEntryRemoved{"\\$1"}++; my $t="";/eg;
+  $e =~ s/<[^>]*>/$convertEntryRemoved{"$1"}++; my $t="";/eg;
+  $e =~ s/(^\s*|\s*$)//g;
+  $e =~ s/\s+/ /g;
   $e = &suc($e, $SpecialCapitals);
-  $e =~ s/<[^>]*>//g;
   return $e;
 }
 
 sub convertText($) {
   my $l = shift;
   
-  # Ignore tags on ignore-list
-  if ($l =~ /^\s*\\($IgnoreTags)(\s|$)/) {return $l;}
-  
   # text effect tags
-  if ($bold)      {$l =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
-  if ($italic)    {$l =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
+  if ($bold)      {$l =~ s/($bold)/<hi type="bold">$+<\/hi>/g;}
+  if ($italic)    {$l =~ s/($italic)/<hi type="italic">$+<\/hi>/g;}
   if ($remove)    {$l =~ s/($remove)//g;}
 
   # handle table tags
@@ -276,15 +296,17 @@ sub Write($$) {
   $e = &convertEntry($e);
   $t = &convertText($t);
   
-  push(@AllEntries, $e);
+  push(@SFMEntries, $e);
   
   # remove any trailing LBs
   $t =~ s/((\Q$LB\E)|(\s))+$//;
   
   my $print = "\$\$\$$e\n$t\n";
   
+  my $save = $print;
   while ($print =~ s/(\\([\w]*)\*?)//) {
-    $tagsintext .= "WARNING Before $ThisSFM Line $lineSFM: Tag \"$1\" was REMOVED.\n";
+    my $msg = "WARNING Before $ThisSFM Line $lineSFM: Tag \"$1\" was REMOVED from $save.\n";
+    $tagsintext .= $msg;
   }
   
   print OUTF $print;
