@@ -104,7 +104,8 @@ while (<INF>) {
     $vGoBible++; # point to next verse now
   }
   
-
+  $_ =~ s/((<\/verse>|<\/?div[^>]*>|<\/?chapter[^>]*>)\s*)/$1\n/g;
+  
   Write($_);
 }
 close(INF);

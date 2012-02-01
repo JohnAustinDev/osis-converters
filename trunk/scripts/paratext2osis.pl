@@ -655,6 +655,14 @@ sub parseline($) {
     $EmptyLine = ""; #($myT ? "":"<lb />");
     $readText = "$readText<lb />$EmptyLine$myT";
   }
+  # FOOTNOTE STARTS A LINE
+  elsif ($NoteType eq "INLINE" && $notePattern && $_ =~ /^[\s\W]*($notePattern)$/) {
+    $myT = $_;
+    $noteVerseNum = $noteV;
+    if (!$noteVerseNum) {$noteVerseNum = 1;}
+    &encodeNotes;
+    $readText = "$readText $myT";
+  }
   # ALL OTHER TAGS
   elsif ($_ =~ /^[\s\W]*(\\\w+)/) {
     $skippedTags{$1} = "$skippedTags{$1} $bookName:$_\n";
@@ -664,9 +672,9 @@ sub parseline($) {
   elsif ($_ =~ /^\s*$/) {}
   # ELSE APPEND TO PREVIOUS TAG
   else {
-    &Log("ERROR $ThisSFM Line $line: Line starting without a tag should have been handled already=$_\n");
     $myT = $_;
     $noteVerseNum = $noteV;
+    if (!$noteVerseNum) {$noteVerseNum = 1;}
     &encodeNotes;
     $readText = "$readText $myT";
   }
