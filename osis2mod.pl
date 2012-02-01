@@ -16,15 +16,41 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-require "$SCRD/utils/common.pl";
+# usage: osis2sword.pl [Bible_Directory]
+
+# Run this script to create raw and zipped SWORD modules from an 
+# osis.xml file and a config.conf file located in the Bible_Directory.
+
+# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
+# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
+
+use File::Spec;
+$INPD = shift;
+if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+else {
+  my $dproj = "./Example_Bible";
+  print "usage: osis2sword.pl [Bible_Directory]\n";
+  print "\n";
+  print "run default project $dproj? (Y/N):";
+  my $in = <>;
+  if ($in !~ /^\s*y\s*$/i) {exit;}
+  $INPD = File::Spec->rel2abs($dproj);
+}
+if (!-e $INPD) {
+  print "Bible_Directory does not exist. Exiting.\n";
+  exit;
+}
+$SCRD = File::Spec->rel2abs( __FILE__ );
+require "$SCRD/scripts/common.pl";
+&initPaths();
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
+if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$INPD/".$MOD.".xml";
-if (!-e $OSISFILE) {die "ERROR: Missing osis file: $OSISFILE\n";}
+if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
 $LOGFILE = "$INPD/OUT_osis2sword.txt";
 
 my $delete;
@@ -49,7 +75,7 @@ if (!-e "$INPD/sword") {make_path("$INPD/sword");}
 
 # create raw and zipped modules from OSIS
 $SWDD = "$INPD/sword";
-require("$SCRD/utils/makeCompressedMod.pl");
+require("$SCRD/scripts/makeCompressedMod.pl");
 
 # make a zipped copy of the entire zipped module
 &Log("\n--- COMPRESSING ZTEXT MODULE TO A ZIP FILE.\n");

@@ -17,6 +17,7 @@
 # <http://www.gnu.org/licenses/>.
 
 use Encode;
+use File::Spec;
 use File::Copy;
 use File::Path qw(make_path remove_tree);
 
@@ -25,6 +26,39 @@ $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 
+
+sub initPaths() {
+  $PATHFILE = "$SCRD/CF_paths";
+  if (open(PTHS, "<:encoding(UTF-8)", $PATHFILE) {
+    while(<PTHS>) {
+      if ($_ =~ /^SWORD_PATH:\s*(.*?)\s*$/) {if ($1) {$SWORD_PATH = $1;}}
+      if ($_ =~ /^SWORD_BIN:\s*(.*?)\s*$/) {if ($1) {$SWORD_BIN = $1;}}
+      if ($_ =~ /^XMLLINT:\s*(.*?)\s*$/) {if ($1) {$XMLLINT = $1;}}
+      if ($_ =~ /^GO_BIBLE_CREATOR:\s*(.*?)\s*$/) {if ($1) {$GOCREATOR = $1;}}
+    }
+    close(PTHS);
+    
+    if ($GOCREATOR && $GOCREATOR =~ /^\./) {$GOCREATOR = File::Spec->rel2abs($GOCREATOR);}
+    if ($SWORD_PATH && $SWORD_PATH =~ /^\./) {$SWORD_PATH = File::Spec->rel2abs($SWORD_PATH);}
+    if ($SWORD_BIN && $SWORD_BIN =~ /^\./) {$SWORD_BIN = File::Spec->rel2abs($SWORD_BIN);}
+    if ($SWORD_BIN && $SWORD_BIN !~ /\/$/) {$SWORD_BIN .= "/";}
+    if ($XMLLINT && $XMLLINT =~ /^\./) {$XMLLINT = File::Spec->rel2abs($XMLLINT);}
+    if ($XMLLINT && $XMLLINT !~ /\/$/) {$XMLLINT .= "/";}
+  }
+  else {
+    open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
+    print PTHS "# With this command file, you may set paths which are used by various scripts.\n\n";
+    print PTHS "# You may set SWORD_PATH to a directory where module copies will then be made.\n";
+    print PTHS "SWORD_PATH:\n\n";
+    print PTHS "# Set SWORD_BIN to the directory where SWORD tools (osis2mod, emptyvss mod2zmod) are located, unless already in your PATH.\n";
+    print PTHS "SWORD_BIN:\n\n";
+    print PTHS "# Set XMLLINT to the xmllint executable's directory if it's not in your PATH.\n";
+    print PTHS "XMLLINT:\n\n";
+    print PTHS "# Set GO_BIBLE_CREATOR to the Go Bible Creator directory.\n";
+    print PTHS "GO_BIBLE_CREATOR:\n";
+    close(PTHS);
+  }
+}
 
 sub getInfoFromConf($) {
   my $conf = shift;

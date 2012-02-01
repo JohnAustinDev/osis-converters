@@ -16,15 +16,51 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-require "$SCRD/utils/common.pl";
+# usage: imp2sword.pl [Glossary_Directory]
+
+# Run this script to create a dictionary SWORD module from an IMP 
+# file and a config.conf file located in the Glossary_Directory.
+
+use File::Spec;
+$INPD = shift;
+if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+else {
+  my $dproj = "./Example_Glossary";
+  print "usage: imp2sword.pl [Glossary_Directory]\n";
+  print "\n";
+  print "run default project $dproj? (Y/N):";
+  my $in = <>;
+  if ($in !~ /^\s*y\s*$/i) {exit;}
+  $INPD = File::Spec->rel2abs($dproj);
+}
+if (!-e $INPD) {
+  print "Glossary_Directory does not exist. Exiting.\n";
+  exit;
+}
+$SCRD = File::Spec->rel2abs( __FILE__ );
+require "$SCRD/scripts/common.pl";
+&initPaths();
+
+$COMMANDFILE = "$INPD/CF_paratext2imp.txt";
+if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
+  while(<COMF>) {
+    if ($_ =~ /^IMAGEDIR:\s*(.*?)\s*$/) {if ($1) {$IMAGEDIR = $1;}}
+  }
+  close(COMF);
+}
+else {
+  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
+  exit;
+}
+if ($IMAGEDIR && $IMAGEDIR =~ /^\./) {$IMAGEDIR = File::Spec->rel2abs($IMAGEDIR);}
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
+if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
 $IMPFILE = "$INPD/$MOD.imp";
-if (!-e $IMPFILE) {die "ERROR: Missing imp file: $IMPFILE\n";}
+if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 
 $LOGFILE = "$INPD/OUT_imp2sword.txt";
 

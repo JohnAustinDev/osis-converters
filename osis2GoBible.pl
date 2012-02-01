@@ -16,15 +16,52 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-require "$SCRD/utils/common.pl";
-require("$SCRD/utils/goBibleConvChars.pl");
+# usage: osis2GoBible.pl [Bible_Directory]
+
+# Run this script to create GoBible mobile phone Bibles from an osis 
+# file. The following input files need to be in a 
+# "Bible_Directory/GoBible" sub-directory:
+#    collections.txt            - build-control file
+#    ui.properties              - user interface translation
+#    icon.png                   - icon for the application
+#    normalChars.txt (optional) - character replacement file
+#    simpleChars.txt (optional) - simplified character replacement file
+
+# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
+# GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
+
+use File::Spec;
+$INPD = shift;
+if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+else {
+  my $dproj = "./Example_GoBible";
+  print "usage: osis2GoBible.pl [Bible_Directory]\n";
+  print "\n";
+  print "run default project $dproj? (Y/N):";
+  my $in = <>;
+  if ($in !~ /^\s*y\s*$/i) {exit;}
+  $INPD = File::Spec->rel2abs($dproj);
+}
+if (!-e $INPD) {
+  print "Bible_Directory does not exist. Exiting.\n";
+  exit;
+}
+$SCRD = File::Spec->rel2abs( __FILE__ );
+require "$SCRD/scripts/common.pl";
+&initPaths();
+if (!$GOCREATOR || !-e $GOCREATOR) {
+  print "Please specify the path to Go Bible Creator in \"$PATHFILE\". Exiting.\n";
+  exit;
+}
+
+require("$SCRD/scripts/goBibleConvChars.pl");
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
+if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 
 $GOBIBLE = "$INPD/GoBible";
-if (!-e $GOBIBLE) {die "ERROR: Missing GoBible directory: $GOBIBLE\n";}
+if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
 $GBOUT = "$GOBIBLE/$MOD$REV";
 $LOGFILE = "$INPD/OUT_osis2GoBible.txt";
@@ -34,7 +71,7 @@ if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {die;}
+  if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $GBOUT) {remove_tree($GBOUT);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
@@ -51,7 +88,7 @@ make_path($TMPDIR);
 &Log("\n--- Creating Go Bible osis.xml file...\n");
 $INPUTFILE = "$INPD/$MOD.xml";
 $OUTPUTFILE = "$TMPDIR/osis.xml";
-require("$SCRD/utils/goBibleFromOsis.pl");
+require("$SCRD/scripts/goBibleFromOsis.pl");
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
 foreach my $f (@FILES) {

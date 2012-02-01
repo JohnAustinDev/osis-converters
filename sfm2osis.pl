@@ -16,10 +16,70 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-require "$SCRD/utils/common.pl";
+# usage: sfm2osis.pl [Bible_Directory]
+
+# Run this script to create an OSIS file from source (U)SFM files. 
+# There are four possible steps in the process: 1) convert the SFM to 
+# OSIS. 2) parse and add Scripture reference links to introductions, 
+# titles, and footnotes. 3) parse and add dictionary links to words 
+# which are described in a separate dictionary module. 4) insert cross 
+# reference links into the OSIS file.
+#
+# Begin by updating the config.conf and CF_paratext2osis.txt command 
+# file located in the Bible_Directory (see those files for more info). 
+# Then check the log file: Bible_Directory/OUT_sfm2osis.txt.
+ 
+# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
+# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
+
+use File::Spec;
+$INPD = shift;
+if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+else {
+  my $dproj = "./Example_Bible";
+  print "usage: sfm2osis.pl [Bible_Directory]\n";
+  print "\n";
+  print "run default project $dproj? (Y/N):";
+  my $in = <>;
+  if ($in !~ /^\s*y\s*$/i) {exit;}
+  $INPD = File::Spec->rel2abs($dproj);
+}
+if (!-e $INPD) {
+  print "Bible_Directory does not exist. Exiting.\n";
+  exit;
+}
+$SCRD = File::Spec->rel2abs( __FILE__ );
+require "$SCRD/scripts/common.pl";
+&initPaths();
+
+$COMMANDFILE = "$INPD/CF_paratext2osis.txt";
+if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
+  while(<COMF>) {
+    if ($_ =~ /^RUN_addScripRefLinks:\s*(.*?)\s*$/) {
+      $addscrip = $1;
+      if ($addscrip && $addscrip =~ /(1|true)/i) {$addscrip = 1;}
+      else {$addscrip = 0;}
+    }
+    if ($_ =~ /^RUN_addDictLinks:\s*(.*?)\s*$/) {
+      $adddicts = $1;
+      if ($adddicts && $adddicts =~ /(1|true)/i) {$adddicts = 1;}
+      else {$adddicts = 0;}
+    }
+    if ($_ =~ /^RUN_addCrossRefs:\s*(.*?)\s*$/) {
+      $addcross = $1;
+      if ($addcross && $addcross =~ /(1|true)/i) {$addcross = 1;}
+      else {$addcross = 0;}
+    }
+  }
+  close(COMF);
+}
+else {
+  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
+  exit;
+}
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
+if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
@@ -79,7 +139,7 @@ if (-e $COMMANDFILE) {
   &Log("\n--- CONVERTING PARATEXT TO OSIS\n");
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $NOCONSOLELOG = 1;
-  require("$SCRD/paratext2osis.pl");
+  require("$SCRD/scripts/paratext2osis.pl");
   $NOCONSOLELOG = 0;
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
@@ -92,7 +152,7 @@ if ($addscrip && -e $COMMANDFILE) {
   $INPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_2.xml";
   $NOCONSOLELOG = 1;
-  require("$SCRD/addScripRefLinks.pl");
+  require("$SCRD/scripts/addScripRefLinks.pl");
   $NOCONSOLELOG = 0;
 }
 else {rename("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
@@ -111,7 +171,7 @@ if ($adddicts && -e $COMMANDFILE) {
     close(CONF);
   }
   $NOCONSOLELOG = 1;
-  require("$SCRD/addDictLinks.pl");
+  require("$SCRD/scripts/addDictLinks.pl");
   $NOCONSOLELOG = 0;
   foreach my $dn (values %DictNames) {$allDictNames{$dn}++;}
   foreach my $dn (keys %allDictNames) {
@@ -134,14 +194,14 @@ if ($addcross && -e $COMMANDFILE) {
   $INPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   $OUTPUTFILE = $OSISFILE;
   $NOCONSOLELOG = 1;
-  require("$SCRD/addCrossRefs.pl");
+  require("$SCRD/scripts/addCrossRefs.pl");
   $NOCONSOLELOG = 0;
 }
 else {rename("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 
 
 # add any non-canonical and empty verses to the osis file
-require("$SCRD/utils/fillEmptyVerses.pl");
+require("$SCRD/scripts/fillEmptyVerses.pl");
 &fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
 
 # validate new OSIS file against schema
