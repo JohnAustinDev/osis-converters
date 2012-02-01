@@ -16,10 +16,63 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-require "$SCRD/utils/common.pl";
+# usage: sfm2imp.pl [Glossary_Directory] 
+
+# Run this script to convert an SFM glossary file into an IMP file
+# There are three possible parts of the process: 1) convert the SFM to 
+# IMP. 2) parse and add Scripture reference links to glossary entries. 
+# 3) parse and add "see-also" links to other entries in the glossary.
+#
+# Begin by updating the config.conf and CF_paratext2imp.txt command 
+# file located in the Glossary_Directory (see those files for more 
+# info). Then check the log file: Glossary_Directory/OUT_sfm2imp.txt.
+
+#  IMP wiki: http://www.crosswire.org/wiki/File_Formats#IMP
+# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
+
+use File::Spec;
+$INPD = shift;
+if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+else {
+  my $dproj = "./Example_Glossary";
+  print "usage: sfm2imp.pl [Glossary_Directory]\n";
+  print "\n";
+  print "run default project $dproj? (Y/N):";
+  my $in = <>;
+  if ($in !~ /^\s*y\s*$/i) {exit;}
+  $INPD = File::Spec->rel2abs($dproj);
+}
+if (!-e $INPD) {
+  print "Glossary_Directory does not exist. Exiting.\n";
+  exit;
+}
+$SCRD = File::Spec->rel2abs( __FILE__ );
+require "$SCRD/scripts/common.pl";
+&initPaths();
+
+$COMMANDFILE = "$INPD/CF_paratext2imp.txt";
+if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
+  while(<COMF>) {
+    if ($_ =~ /^RUN_addScripRefLinks:\s*(.*?)\s*$/) {
+      $addscrip = $1;
+      if ($addscrip && $addscrip =~ /(1|true)/i) {$addscrip = 1;}
+      else {$addscrip = 0;}
+    }
+    if ($_ =~ /^RUN_addSeeAlsotLinks:\s*(.*?)\s*$/) {
+      $addseeal = $1;
+      if ($addseeal && $addseeal =~ /(1|true)/i) {$addseeal = 1;}
+      else {$addseeal = 0;}
+    }
+  }
+  close(COMF);
+}
+else {
+  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
+  exit;
+}
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {die "ERROR: Missing conf file: $CONFFILE\n";}
+if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
@@ -32,7 +85,7 @@ if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {die;}
+  if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $IMPFILE) {unlink($IMPFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
@@ -77,7 +130,7 @@ if (-e $COMMANDFILE) {
   $DICTWORDS = "$INPD/DictionaryWords.txt";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $NOCONSOLELOG = 1;
-  require("$SCRD/paratext2imp.pl");
+  require("$SCRD/scripts/paratext2imp.pl");
   $NOCONSOLELOG = 0;
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
@@ -94,7 +147,7 @@ if ($addscrip && -e $COMMANDFILE) {
   $INPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $NOCONSOLELOG = 1;
-  require("$SCRD/addScripRefLinks.pl");
+  require("$SCRD/scripts/addScripRefLinks.pl");
   $NOCONSOLELOG = 0;
 }
 else {rename("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");}
@@ -108,7 +161,7 @@ if ($addseeal && -e $COMMANDFILE && -e $DICTWORDS) {
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $OUTPUTFILE = "$INPD/".$MOD.".imp";
   $NOCONSOLELOG = 1;
-  require("$SCRD/addSeeAlsoLinks.pl");
+  require("$SCRD/scripts/addSeeAlsoLinks.pl");
   $NOCONSOLELOG = 0;
 }
 else {rename("$TMPDIR/".$MOD."_2.imp", "$INPD/".$MOD.".imp");}

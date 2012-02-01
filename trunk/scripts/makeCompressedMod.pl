@@ -137,5 +137,5 @@ else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" cou
 chdir($INPD);
 
 &Log("\n--- RUNNING OSIS2MOD LINK MESSAGE POST PROCESSOR\n");
-require("$SCRD/utils/postProLog.pl");
+require("$SCRD/scripts/postProLog.pl");
 
