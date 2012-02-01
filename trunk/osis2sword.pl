@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
 # Copyright 2012 John Austin (gpl.programs.info@gmail.com)
@@ -26,7 +27,9 @@
 
 use File::Spec;
 $INPD = shift;
-if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+if ($INPD) {
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+}
 else {
   my $dproj = "./Example_Bible";
   print "usage: osis2sword.pl [Bible_Directory]\n";
@@ -37,10 +40,11 @@ else {
   $INPD = File::Spec->rel2abs($dproj);
 }
 if (!-e $INPD) {
-  print "Bible_Directory does not exist. Exiting.\n";
+  print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
+$SCRD =~ s/\/[^\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 

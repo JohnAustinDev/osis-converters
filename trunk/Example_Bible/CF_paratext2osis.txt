@@ -23,6 +23,20 @@
 #
 ########################################################################
 
+# Set to true to convert scripture references in introductions, titles,
+# and footnotes into reference links. See the CF_addScripRefLinks.txt
+# command file for more info.
+RUN_addScripRefLinks:false
+
+# Set to true to convert glossary words in the text into reference
+# links. See the CF_addDictLinks.txt command file for more info.
+RUN_addDictLinks:false
+
+# Set to true to insert cross-reference links into the text. This
+# feature requires a listing of cross-references to add. See the
+# CF_addCrossRefs.txt command file for more info.
+RUN_addCrossRefs:false
+
 #FIND_ALL_TAGS:true
 SPECIAL_CAPITALS:i->İ ı->I
 GLOSSARY_NAME:TurSozluk

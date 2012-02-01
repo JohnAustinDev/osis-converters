@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
 # Copyright 2012 John Austin (gpl.programs.info@gmail.com)
@@ -32,7 +33,9 @@
 
 use File::Spec;
 $INPD = shift;
-if ($INPD) {$INPD = File::Spec->rel2abs($INPD);}
+if ($INPD) {
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+}
 else {
   my $dproj = "./Example_Glossary";
   print "usage: sfm2imp.pl [Glossary_Directory]\n";
@@ -43,10 +46,11 @@ else {
   $INPD = File::Spec->rel2abs($dproj);
 }
 if (!-e $INPD) {
-  print "Glossary_Directory does not exist. Exiting.\n";
+  print "Glossary_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
+$SCRD =~ s/\/[^\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
@@ -127,7 +131,7 @@ close(CONF);
 $COMMANDFILE = "$INPD/CF_paratext2imp.txt";
 if (-e $COMMANDFILE) {
   &Log("\n--- CONVERTING PARATEXT TO IMP\n");
-  $DICTWORDS = "$INPD/DictionaryWords.txt";
+  $DICTWORDS = "DictionaryWords.txt";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $NOCONSOLELOG = 1;
   require("$SCRD/scripts/paratext2imp.pl");
@@ -154,9 +158,9 @@ else {rename("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");}
 
 # run addSeeAlsoLinks.pl
 $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-if ($addseeal && !-e $DICTWORDS) {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $DICTWORDS.\n");}
+if ($addseeal && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
 if ($addseeal && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($addseeal && -e $COMMANDFILE && -e $DICTWORDS) {
+if ($addseeal && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
   &Log("\n--- ADDING/CHECKING DICTIONARY LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $OUTPUTFILE = "$INPD/".$MOD.".imp";

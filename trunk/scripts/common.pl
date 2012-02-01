@@ -28,8 +28,9 @@ $LB = "<lb />";
 
 
 sub initPaths() {
+  chdir($SCRD);
   $PATHFILE = "$SCRD/CF_paths";
-  if (open(PTHS, "<:encoding(UTF-8)", $PATHFILE) {
+  if (open(PTHS, "<:encoding(UTF-8)", $PATHFILE)) {
     while(<PTHS>) {
       if ($_ =~ /^SWORD_PATH:\s*(.*?)\s*$/) {if ($1) {$SWORD_PATH = $1;}}
       if ($_ =~ /^SWORD_BIN:\s*(.*?)\s*$/) {if ($1) {$SWORD_BIN = $1;}}
@@ -47,15 +48,15 @@ sub initPaths() {
   }
   else {
     open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
-    print PTHS "# With this command file, you may set paths which are used by various scripts.\n\n";
-    print PTHS "# You may set SWORD_PATH to a directory where module copies will then be made.\n";
+    print PTHS "# With this command file, you may set paths which are used by\n# osis-converters scripts.\n\n";
+    print PTHS "# You may set SWORD_PATH to a directory where module copies\n# will then be made.\n";
     print PTHS "SWORD_PATH:\n\n";
-    print PTHS "# Set SWORD_BIN to the directory where SWORD tools (osis2mod, emptyvss mod2zmod) are located, unless already in your PATH.\n";
+    print PTHS "# Set GO_BIBLE_CREATOR to the Go Bible Creator directory\n# if you are using osis2GoBible.pl.\n";
+    print PTHS "GO_BIBLE_CREATOR:\n\n";
+    print PTHS "# Set SWORD_BIN to the directory where SWORD tools (osis2mod,\n# emptyvss mod2zmod) are located, unless already in your PATH.\n";
     print PTHS "SWORD_BIN:\n\n";
-    print PTHS "# Set XMLLINT to the xmllint executable's directory if it's not in your PATH.\n";
+    print PTHS "# Set XMLLINT to the xmllint executable's directory if\n# it's not in your PATH.\n";
     print PTHS "XMLLINT:\n\n";
-    print PTHS "# Set GO_BIBLE_CREATOR to the Go Bible Creator directory.\n";
-    print PTHS "GO_BIBLE_CREATOR:\n";
     close(PTHS);
   }
 }
@@ -202,7 +203,7 @@ sub getCanon($\%\%) {
   my $canonP = shift;
   my $bookOrderP = shift;
   
-  my $INFILE = "$SCRD/utils/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
+  my $INFILE = "$SCRD/scripts/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
   my $inOT, $inNT, $inVM;
   my $vsys = "unset";
   my %bookLongName, %bookChapters, %bookTest;
@@ -441,7 +442,7 @@ sub checkGlossRef($$$$\%\%\%) {
   my $pre = shift;          # pre context
   my $pst = shift;          # post context
   my $types = shift;        # type attributes of references to be checked
-  my $wordFileP = shift;    # hash of glossary names and correspondng word files
+  my $wordFileP = shift;    # hash of glossary names and corresponding word files
   my $replaceListP = shift; # return hash of replacements
   my $contextListP = shift; # return hash of context used by each replacement
   my $errorListP = shift;   # return hash for errors encountered
@@ -465,7 +466,7 @@ if ($line == $DEBUG) {&Log("Line $line: Checking reference $r\n");}
           $Data{"$name:words"} = [];
           $Data{"$name:dictsForWord"} = {};
           $Data{"$name:searchTerms"} = {};
-          &readGlossWordFile($wordFileP->{$name}, $name, $Data{"$name:words"}, $Data{"$name:dictsForWord"}, $Data{"$name:searchTerms"});
+          &readGlossWordFile("$INPD/".$wordFileP->{$name}, $name, $Data{"$name:words"}, $Data{"$name:dictsForWord"}, $Data{"$name:searchTerms"});
         }
 
         my $widx;

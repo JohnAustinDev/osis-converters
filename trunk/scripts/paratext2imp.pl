@@ -105,6 +105,7 @@ while (<COMF>) {
   
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^\#/) {next;}
+  elsif ($_ =~ /^(IMAGEDIR|RUN_addScripRefLinks|RUN_addSeeAlsotLinks):/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
@@ -162,6 +163,12 @@ close(DWORDS);
 
 sub appendIMP($) {
   my $imp = shift;
+  if ($imp =~ /^\./) {
+    chdir($INPD);
+    $imp = File::Spec->rel2abs($imp);
+    chdir($SRCD);
+  }
+  
   &Log("Appending $imp\n");
   if (open(IMP, "<:encoding(UTF-8)", $imp)) {
     while(<IMP>) {
@@ -174,6 +181,11 @@ sub appendIMP($) {
 
 sub glossSFMtoIMP($) {
   my $SFMfile = shift;
+  if ($SFMfile =~ /^\./) {
+    chdir($INPD);
+    $SFMfile = File::Spec->rel2abs($SFMfile);
+    chdir($SRCD);
+  }
 
   &Log("Processing $SFMfile\n");
 

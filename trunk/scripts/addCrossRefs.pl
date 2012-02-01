@@ -25,7 +25,7 @@
 #   If no books are listed, then cross-references will be added to 
 #   ALL books in the OSIS file.
    
-$crossRefs = "$SCRD/utils/CrossReferences/CrossRefs_";
+$crossRefs = "$SCRD/scripts/CrossReferences/CrossRefs_";
 if (!$VERSESYS || $VERSESYS eq "KJV") {$crossRefs .= "KJV.txt";}
 else {$crossRefs .= "$VERSESYS.txt";}
 if (!-e $crossRefs) {

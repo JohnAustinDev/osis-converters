@@ -80,8 +80,8 @@ if ($Checkonly) {
   copy("$INPUTFILE", "$OUTPUTFILE");
 }
 else {
-  &Log("PARSING WORD LIST FILE: \"$DICTWORDS\".\n");
-  open (IN0, "<:encoding(UTF-8)", $DICTWORDS) or die "Could not open word list file $DICTWORDS.\n";
+  &Log("PARSING WORD LIST FILE: \"$INPD/$DICTWORDS\".\n");
+  open (IN0, "<:encoding(UTF-8)", "$INPD/$DICTWORDS") or die "Could not open word list file $INPD/$DICTWORDS.\n";
   $line=0;
   while (<IN0>) {
     $line++;
