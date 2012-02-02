@@ -25,7 +25,9 @@ $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-
+$SVNREV = `svn info "$SCRD"`;
+if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
+else {$SVNREV = "";}
 
 sub initPaths() {
   chdir($SCRD);
@@ -90,7 +92,7 @@ sub normalizeNewLines($) {
     if ($changed) {
       &Log("INFO: Converting newlines from $d: \"$f\".\n");
       unlink($f);
-      copy("$f.tmp", $f);
+      move("$f.tmp", $f);
     }
     else {unlink("$f.tmp");}
   }
@@ -100,9 +102,7 @@ sub normalizeNewLines($) {
 sub addRevisionToCF($) {
   my $f = shift;
   
-  my $rev = `svn info`;
-  if ($rev && $rev =~ /^Revision:\s*(\d+)\s*$/mi) {
-    $rev = $1;
+  if ($SVNREV) {
     my $changed = 0;
     my $msg = "# osis-converters rev-";
     if (open(RCMF, "<:encoding(UTF-8)", $f)) {
@@ -111,10 +111,10 @@ sub addRevisionToCF($) {
       while(<RCMF>) {
         $l++;
         if ($l == 1) {
-          if ($_ =~ s/\Q$msg\E(\d+)/$msg$rev/) {
-            if ($1 != $rev) {$changed = 1;}
+          if ($_ =~ s/\Q$msg\E(\d+)/$msg$SVNREV/) {
+            if ($1 != $SVNREV) {$changed = 1;}
           }
-          else {$_ = "$msg$rev\n$_";}
+          else {$changed = 1; $_ = "$msg$SVNREV\n$_";}
         }
         print OCMF $_;
       }
@@ -129,6 +129,7 @@ sub addRevisionToCF($) {
     }
     else {&Log("WARNING: Could not add revision to command file.\n");}
   }
+  else {&Log("WARNING: SVN revision unknown.\n");}
 }
 
 sub getInfoFromConf($) {
