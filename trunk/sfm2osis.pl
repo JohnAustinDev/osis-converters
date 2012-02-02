@@ -36,7 +36,7 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
-  $INPD =~ s/\/\s*$//;
+  $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
@@ -53,7 +53,7 @@ if (!-e $INPD) {
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
-$SCRD =~ s/\/[^\/]+$//;
+$SCRD =~ s/[\\\/][^\\\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
@@ -80,7 +80,7 @@ $TMPDIR = "$INPD/tmp/src2osis";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-if ($SWORDBIN && $SWORDBIN !~ /\/\*$/) {$SWORDBIN .= "/";}
+if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 
 &Log("\n-----------------------------------------------------\nSTARTING sfm2osis.pl\n\n");
 

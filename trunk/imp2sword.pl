@@ -25,7 +25,7 @@
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
-  $INPD =~ s/\/\s*$//;
+  $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
@@ -42,7 +42,7 @@ if (!-e $INPD) {
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
-$SCRD =~ s/\/[^\/]+$//;
+$SCRD =~ s/[\\\/][^\\\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
