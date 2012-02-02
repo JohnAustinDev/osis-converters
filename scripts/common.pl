@@ -25,7 +25,7 @@ $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-$SVNREV = `svn info "$SCRD"`;
+$SVNREV = `svn info "$SCRD" 2>&1`;
 if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
 else {$SVNREV = "";}
 
@@ -44,9 +44,9 @@ sub initPaths() {
     if ($GOCREATOR && $GOCREATOR =~ /^\./) {$GOCREATOR = File::Spec->rel2abs($GOCREATOR);}
     if ($SWORD_PATH && $SWORD_PATH =~ /^\./) {$SWORD_PATH = File::Spec->rel2abs($SWORD_PATH);}
     if ($SWORD_BIN && $SWORD_BIN =~ /^\./) {$SWORD_BIN = File::Spec->rel2abs($SWORD_BIN);}
-    if ($SWORD_BIN && $SWORD_BIN !~ /\/$/) {$SWORD_BIN .= "/";}
+    if ($SWORD_BIN && $SWORD_BIN !~ /[\\\/]$/) {$SWORD_BIN .= "/";}
     if ($XMLLINT && $XMLLINT =~ /^\./) {$XMLLINT = File::Spec->rel2abs($XMLLINT);}
-    if ($XMLLINT && $XMLLINT !~ /\/$/) {$XMLLINT .= "/";}
+    if ($XMLLINT && $XMLLINT !~ /[\\\/]$/) {$XMLLINT .= "/";}
   }
   else {
     open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
@@ -69,27 +69,20 @@ sub initPaths() {
 # files on SVN need to be copied first, then normalized, then used.
 sub normalizeNewLines($) {
   my $f = shift;
-   
-  my $changed = 0;
   
   my $d = "Windows to Linux";
-  my $r = "\r\n";
-  my $n = "\n";
-  if ("$^O" =~ /MSWin32/i) {
-    $d = "Linux to Windows";
-    $r = "([^\r])\n"; 
-    $n = "$1\r\n";
-  }
+  if ("$^O" =~ /MSWin32/i) {$d = "Linux to Windows";}
   
   if(open(NFRS, "<:encoding(UTF-8)", $f)) {
     open(NFRT, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Unable to open \"$f.tmp\".\n";
     while(<NFRS>) {
-      if ($_ =~ s/$r$/$n/) {$changed = 1;}
+      $_ =~ s/([\r\n]*)$//;
+      $_ .= "\n";
       print NFRT $_;
     }
     close(NFRS);
     close(NFRT);
-    if ($changed) {
+    if (-s $f != -s "$f.tmp") {
       &Log("INFO: Converting newlines from $d: \"$f\".\n");
       unlink($f);
       move("$f.tmp", $f);

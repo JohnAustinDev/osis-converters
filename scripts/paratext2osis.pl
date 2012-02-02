@@ -274,7 +274,7 @@ sub bookSFMtoOSIS {
   
   # First make a copy of the SFM file, insuring \v tags always begin a line
   my $sfmname = $SFMfile;
-  $sfmname =~ s/^.*?([^\/]*)$/$1/;
+  $sfmname =~ s/^.*?([^\/\\]*)$/$1/;
   $ThisSFM = "$TMPDIR/$sfmname";
   &normalizeNewLines($SFMfile);
   open(TMPI, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
