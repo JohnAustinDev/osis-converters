@@ -55,27 +55,6 @@ $SCRD =~ s/\/[^\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
-$COMMANDFILE = "$INPD/CF_paratext2imp.txt";
-if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
-  while(<COMF>) {
-    if ($_ =~ /^RUN_addScripRefLinks:\s*(.*?)\s*$/) {
-      $addscrip = $1;
-      if ($addscrip && $addscrip =~ /(1|true)/i) {$addscrip = 1;}
-      else {$addscrip = 0;}
-    }
-    if ($_ =~ /^RUN_addSeeAlsotLinks:\s*(.*?)\s*$/) {
-      $addseeal = $1;
-      if ($addseeal && $addseeal =~ /(1|true)/i) {$addseeal = 1;}
-      else {$addseeal = 0;}
-    }
-  }
-  close(COMF);
-}
-else {
-  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
-  exit;
-}
-
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
@@ -106,6 +85,7 @@ if ($SWORDBIN && $SWORDBIN !~ /\/\*$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
+&normalizeNewLines($CONFFILE);
 open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
 $ret = "\n";
 if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"}  ne "UTF-8") {
@@ -142,8 +122,8 @@ else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
 
 # run addScripRefLinks.pl
 $COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
-if ($addscrip && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
-if ($addscrip && -e $COMMANDFILE) {
+if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
+if ($addScripRefLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
   if (!$ConfEntry{"ReferenceBible"}) {
     &Log("WARNING: ReferenceBible is not specified in $CONFFILE.\n");
@@ -159,9 +139,9 @@ else {rename("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");}
 
 # run addSeeAlsoLinks.pl
 $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-if ($addseeal && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
-if ($addseeal && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($addseeal && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
+if ($addSeeAlsoLinks && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
+if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
   &Log("\n--- ADDING/CHECKING DICTIONARY LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $OUTPUTFILE = "$INPD/".$MOD.".imp";

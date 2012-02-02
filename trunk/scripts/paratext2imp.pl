@@ -70,12 +70,14 @@
 #       glossary entry names in the SFM.
 #   SEE_ALSO - A Perl regular expression to match "see-also" SFM tags.
 
-open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
 
 &Log("-----------------------------------------------------\nSTARTING paratext2imp.pl\n\n");
 
 # Read the COMMANDFILE, converting each file as it is encountered
-open (COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2imp command file $COMMANDFILE\n";
+&normalizeNewLines($COMMANDFILE);
+&addRevisionToCF($COMMANDFILE);
+open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2imp command file $COMMANDFILE\n";
 
 $IgnoreTags = "";
 $ContinuationTerms = "";
@@ -99,6 +101,7 @@ $notes = "";
 $crossrefs = "";
 $seealsopat = "";
 $breakbefore = "";
+$AllowSet = "imageDir|addScripRefLinks|addSeeAlsoLinks";
 
 $tagsintext="";  
 $line=0;
@@ -108,7 +111,17 @@ while (<COMF>) {
   
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^\#/) {next;}
-  elsif ($_ =~ /^(IMAGEDIR|RUN_addScripRefLinks|RUN_addSeeAlsotLinks):/) {next;}
+  elsif ($_ =~ /^SET_($AllowSet):(\s*(\S+)\s*)?$/) {
+    if ($2) {
+      my $par = $1;
+      my $val = $3;
+      $$par = $val;
+      if ($par =~ /^(addScripRefLinks|addSeeAlsoLinks)$/) {
+        $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
+      }
+      &Log("INFO: Setting $par to $$par\n");
+    }
+  }
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
@@ -174,6 +187,7 @@ sub appendIMP($) {
   }
   
   &Log("Appending $imp\n");
+  &normalizeNewLines($imp);
   if (open(IMP, "<:encoding(UTF-8)", $imp)) {
     while(<IMP>) {
       if ($_ =~ /^\s*$/) {next;}
@@ -194,6 +208,7 @@ sub glossSFMtoIMP($) {
   &Log("Processing $SFMfile\n");
 
   # Read the paratext file and convert it
+  &normalizeNewLines($SFMfile);
   open(INF, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
 
   # Read the paratext file line by line

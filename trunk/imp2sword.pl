@@ -47,9 +47,10 @@ require "$SCRD/scripts/common.pl";
 &initPaths();
 
 $COMMANDFILE = "$INPD/CF_paratext2imp.txt";
+&normalizeNewLines($COMMANDFILE);
 if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
   while(<COMF>) {
-    if ($_ =~ /^IMAGEDIR:\s*(.*?)\s*$/) {if ($1) {$IMAGEDIR = $1;}}
+    if ($_ =~ /^SET_imageDir:\s*(.*?)\s*$/) {if ($1) {$imageDir = $1;}}
   }
   close(COMF);
 }
@@ -57,9 +58,9 @@ else {
   print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
   exit;
 }
-if ($IMAGEDIR && $IMAGEDIR =~ /^\./) {
+if ($imageDir && $imageDir =~ /^\./) {
   chdir($INPD);
-  $IMAGEDIR = File::Spec->rel2abs($IMAGEDIR);
+  $imageDir = File::Spec->rel2abs($imageDir);
   chdir($SCRD);
 }
 
@@ -154,10 +155,10 @@ $cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC 2 >
 system($cmd);
 chdir($INPD);
 
-if ($IMAGEDIR) {
+if ($imageDir) {
   &Log("\n--- COPYING IMAGES TO MODULE\n");
   if (-e "$SWDD/$MODPATH/images") {remove_tree("$SWDD/$MODPATH/images");}
-  &copy_dir($IMAGEDIR, "$SWDD/$MODPATH/images");
+  &copy_dir($imageDir, "$SWDD/$MODPATH/images");
 }
 
 # make a zipped copy of the module

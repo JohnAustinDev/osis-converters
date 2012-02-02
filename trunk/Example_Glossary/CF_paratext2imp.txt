@@ -18,15 +18,15 @@
 
 # If the glossary contains images, set the path to the directory 
 # containing the images here. Otherwise images will not be included.
-IMAGEDIR:
+SET_imageDir:
 
 # Set to true to convert scripture references into reference links. 
 # See the CF_addScripRefLinks.txt command file for more info.
-RUN_addScripRefLinks:false
+SET_addScripRefLinks:false
 
 # Set to true to convert glossary see also entries into reference
 # links. See the CF_addSeeAlsotLinks.txt command file for more info.
-RUN_addSeeAlsotLinks:false
+SET_addSeeAlsoLinks:false
 
 SPECIAL_CAPITALS:i->İ ı->I
 

@@ -57,32 +57,6 @@ $SCRD =~ s/\/[^\/]+$//;
 require "$SCRD/scripts/common.pl";
 &initPaths();
 
-$COMMANDFILE = "$INPD/CF_paratext2osis.txt";
-if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
-  while(<COMF>) {
-    if ($_ =~ /^RUN_addScripRefLinks:\s*(.*?)\s*$/) {
-      $addscrip = $1;
-      if ($addscrip && $addscrip =~ /(1|true)/i) {$addscrip = 1;}
-      else {$addscrip = 0;}
-    }
-    if ($_ =~ /^RUN_addDictLinks:\s*(.*?)\s*$/) {
-      $adddicts = $1;
-      if ($adddicts && $adddicts =~ /(1|true)/i) {$adddicts = 1;}
-      else {$adddicts = 0;}
-    }
-    if ($_ =~ /^RUN_addCrossRefs:\s*(.*?)\s*$/) {
-      $addcross = $1;
-      if ($addcross && $addcross =~ /(1|true)/i) {$addcross = 1;}
-      else {$addcross = 0;}
-    }
-  }
-  close(COMF);
-}
-else {
-  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
-  exit;
-}
-
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
@@ -113,6 +87,7 @@ if ($SWORDBIN && $SWORDBIN !~ /\/\*$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
+&normalizeNewLines($CONFFILE);
 open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
 $ret = "\n";
 if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISFootnotes/) {print CONF $ret."GlobalOptionFilter=OSISFootnotes\n"; $ret="";}
@@ -151,8 +126,8 @@ else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
 
 # run addScripRefLinks.pl
 $COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
-if ($addscrip && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
-if ($addscrip && -e $COMMANDFILE) {
+if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
+if ($addScripRefLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_2.xml";
@@ -164,8 +139,8 @@ else {rename("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
 # run addDictLinks.pl
 $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
-if ($adddicts && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($adddicts && -e $COMMANDFILE) {
+if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+if ($addDictLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING/CHECKING DICTIONARY LINKS\n");
   $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
@@ -192,8 +167,8 @@ close(CONF);
 
 # run addCrossRefs.pl
 $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
-if ($addcross && !-e $COMMANDFILE) {&Log("ERROR: Skipping cross-reference insertion. Missing command file: $COMMANDFILE.\n");}
-if ($addcross && -e $COMMANDFILE) {
+if ($addCrossRefs && !-e $COMMANDFILE) {&Log("ERROR: Skipping cross-reference insertion. Missing command file: $COMMANDFILE.\n");}
+if ($addCrossRefs && -e $COMMANDFILE) {
   &Log("\n--- ADDING CROSS REFERENCES\n");
   $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_3.xml";

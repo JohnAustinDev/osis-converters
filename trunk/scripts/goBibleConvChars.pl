@@ -25,7 +25,8 @@ sub goBibleConvChars($\@) {
   undef(%highUnicode);
   my @FROM,
   my @TO;
-  
+
+  &normalizeNewLines($GOBIBLE."/".$type."Chars.txt");  
   if (open(INF, "<:encoding(UTF-8)", $GOBIBLE."/".$type."Chars.txt")) {
     while(<INF>) {
       if ($_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
@@ -60,6 +61,7 @@ sub goBibleConvChars($\@) {
   make_path("$TMPDIR/$type");
 
   foreach my $file (@$aP) {
+    &normalizeNewLines($file);
     open(INF, "<:encoding(UTF-8)", $file) || die "Could not open $file.\n";
     $leaf = $file;
     $leaf =~ s/^.*?([^\\\/]+)$/$1/;

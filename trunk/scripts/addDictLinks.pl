@@ -56,6 +56,8 @@ $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
 # Read the command file. Processing does not begin until reading is completed.
+&normalizeNewLines($COMMANDFILE);
+&addRevisionToCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open commandFile \"$COMMANDFILE\".";
 $OsisWorkTags = "";
 $NoBooks = 1;
@@ -130,8 +132,8 @@ if ($Checkonly) {
 }
 
 # Parse the input OSIS file, add links, and write results to output OSIS files
-open (INF, "<:encoding(UTF-8)", $INPUTFILE) or die "ERROR: Could not open inFile \"$inFile\".";
-open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "ERROR: Could not open outFile \"$OUTPUTFILE\".";
+open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "ERROR: Could not open inFile \"$inFile\".";
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "ERROR: Could not open outFile \"$OUTPUTFILE\".";
 $isIntro = 0;
 $SkipTerms = "";
 %replacements;
@@ -185,6 +187,7 @@ while (<INF>) {
           $secondaryWordFile =~ s/^([^,]+),?//;
           my $myfile = $1;
           my $secwords = "";
+          &normalizeNewLines($myfile);
           open(WORDS, "<:encoding(UTF-8)", $myfile) or die "ERROR: Could not open secondary word list \"$myfile\".\n";
           &Log("Reading secondary glossary file \"$myfile\".\n");
           my $sep = "";
