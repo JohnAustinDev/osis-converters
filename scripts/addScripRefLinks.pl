@@ -136,6 +136,8 @@ $line=0;
 &Log("-----------------------------------------------------\nSTARTING addScripRefLinks.pl\n\n");
 
 &Log("READING TERM FILE \"$COMMANDFILE\"\n");
+&normalizeNewLines($COMMANDFILE);
+&addRevisionToCF($COMMANDFILE);
 open(CF, "<:encoding(UTF-8)", $COMMANDFILE);
 my @abkn;
 while (<CF>) {
@@ -242,13 +244,17 @@ while (<INF>) {
 		goto FINISH_LINE;
 	}
 
-	if (($filter eq "no filter") || $intro) {
+	if ($intro) {
+    # addLinks cannot handle \n at line's end
+    my $lf = "";
+    if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
 		&addLinks(\$_, $BK, $CH);
+    $_ .= $lf;
 	}
 	else {
 		my @filtered = split(/($filter)/, $_);
 		foreach my $chunk (@filtered) {
-			if ($chunk !~ /$filter/) {next;}
+			if ($chunk !~ /($filter)/) {next;}
 			&addLinks(\$chunk, $BK, $CH);
 		}
 		$_ = join("", @filtered);
@@ -261,10 +267,6 @@ close(INF);
 close(OUTF);
 
 # Check links...
-open(INF2, "<:encoding(UTF-8)", $tmpFile);
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
-my $newLinks=0;
-
 &Log("\nCHECKING LINKS...\n");
 
 &Log("Checking exclusions:\n");
@@ -278,29 +280,33 @@ foreach my $fx (keys %fix) {
 	}
 }
 
-&Log("\nListing of unlocated left refs: ($numMissedLeftRefs instances)\n");
+&Log("\nListing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
 foreach my $mlr (sort keys %missedLeftRefs) {
 	&Log("<$mlr> $missedLeftRefs{$mlr}\n");
 }
 
-&Log("\nListing of refs without digits: ($numNoDigitRef instances)\n");
+&Log("\nListing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
 foreach my $mlr (sort keys %noDigitRef) {
 	&Log("<$mlr> $noDigitRef{$mlr}\n");
 }
 
-&Log("\nListing of subrefs with OSIS ref problems: ($numNoOSISRef instances)\n");
+&Log("\nListing of subrefs with OSIS ref problems which were skipped: ($numNoOSISRef instances)\n");
 foreach my $mlr (sort keys %noOSISRef) {
 	&Log("<$mlr> $noOSISRef{$mlr}\n");
 }
 
-&Log("\nListing of unhandled words: ($numUnhandledWords instances)\n");
+&Log("\nListing of refs with unknown book names which have defaulted to the context book: ($numUnhandledWords instances)\n");
+&Log("NOTE: All actual book names in the following list should be specified in CF_addScripRefLinks.txt.\n");
 foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
 	&Log("<$uw> $UnhandledWords{$uw}\n");
 }
 
-&Log("\nListing of bare number references to check:");
-
+&Log("\nListing of extended refs containing number(s) which were not explicitly specified as being either a chapter or verse (whose meaning has been chosen based on context):\n");
 &Log("$CheckRefs\n");
+
+open(INF2, "<:encoding(UTF-8)", $tmpFile);
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
+$newLinks=0;
 $line=0;
 while (<INF2>) {
 	$line++;
@@ -322,7 +328,7 @@ while (<INF2>) {
 		$_ =~ s/newReference/reference/g;
 	}
 
-	print OUTF "$finalOutFile$_";
+	print OUTF $_;
 }
 foreach my $type (sort keys %Types) {
   &Log("$type:$Types{$type}\n");
@@ -555,6 +561,7 @@ sub encodeTerm($) {
 
 sub decodeTerms(\$) {
 	my $tP = shift;
+
 	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/) {
 		my $re1 = $1;
 		my $et = $2;
@@ -565,7 +572,7 @@ sub decodeTerms(\$) {
 			if (!($i%2)) {$re2 .= $chr;}
 			elsif ($chr ne "_") {&Log("$line ERROR $BK.$CH.$VS: Incorectly encoded reference text \"$re1\".\n");}
 		}
-		
+
 		$$tP =~ s/\Q$re1/$re2/;
 	}
 }
@@ -959,6 +966,7 @@ sub unhandledBook($\$) {
 	my $pre = shift;
 	my $bkP = shift;
 	if ($$bkP) {return "";}
+
 	&decodeTerms(\$pre);
 	if ($pre =~ /(^|\W)(\w*[^\w|>]*)$/) {
 		my $ub = $2;

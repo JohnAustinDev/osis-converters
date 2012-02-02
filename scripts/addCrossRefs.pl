@@ -35,7 +35,9 @@ else {
   &Log("-----------------------------------------------------\nSTARTING addCrossRefs.pl\n\n");
 
   &Log("Reading command file \"$COMMANDFILE\".\n");
-  open (COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
+  &normalizeNewLines($COMMANDFILE);
+  &addRevisionToCF($COMMANDFILE);
+  open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
   $books = "";
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
@@ -60,7 +62,9 @@ else {
 
   # Collect cross references from list file...
   &Log("Reading cross reference file \"$crossRefs\".\n");
-  open (NFLE, "<:encoding(UTF-8)", $crossRefs) or die "Could not open cross reference file \"$crossRefs\".\n";
+  copy($crossRefs, "$crossRefs.tmp");
+  &normalizeNewLines("$crossRefs.tmp");
+  open(NFLE, "<:encoding(UTF-8)", "$crossRefs.tmp") or die "Could not open cross reference file \"$crossRefs.tmp\".\n";
   $emptyRefs=0;
   $line=0;
   while (<NFLE>) {
@@ -111,6 +115,7 @@ else {
   }
   &Log("Removed $emptyRefs empty cross reference notes.\n");
   close (NFLE);
+  unlink("$crossRefs.tmp");
 
   &Log("\nSTARTING PASS 1\n");
   &addCrossRefs;
@@ -163,8 +168,8 @@ else {
 #-------------------------------------------------------------------------------
 
 sub addCrossRefs {
-  open (INF, "<:encoding(UTF-8)", $INPUTFILE);
-  open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
+  open(INF, "<:encoding(UTF-8)", $INPUTFILE);
+  open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
 
   $line=0;
   while (<INF>) {

@@ -54,6 +54,8 @@ $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
 &Log("Reading command file  \"$COMMANDFILE\".\n");
+&normalizeNewLines($COMMANDFILE);
+&addRevisionToCF($COMMANDFILE);
 open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command file \"$COMMANDFILE\".\n";
 while (<CF>) {
   if ($_ =~ /^\s*$/) {next;}
@@ -91,8 +93,8 @@ else {
   close (IN0);
 
   &Log("ADDING \"SEE ALSO\" LINKS TO \"$INPUTFILE\".\n");
-  open (INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
-  open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+  open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
+  open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
   $line=0;
   $links=0;
   # Don't make links of bold or italicized words/phrases or titles or footnotes

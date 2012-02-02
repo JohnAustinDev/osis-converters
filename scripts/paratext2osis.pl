@@ -97,13 +97,15 @@
 #   GLOSSARY - A Perl regular expression to match SFM glossary links.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
-open (OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
 &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
 
 &Log("-----------------------------------------------------\nSTARTING paratext2osis.pl\n\n");
 
 # Read the COMMANDFILE, converting each book as it is encountered
-open (COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2osis command file $COMMANDFILE\n";
+&normalizeNewLines($COMMANDFILE);
+&addRevisionToCF($COMMANDFILE);
+open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2osis command file $COMMANDFILE\n";
 $endTestament="";
 $NameMatch="";
 
@@ -135,6 +137,7 @@ $PreverseTitleType = "";
 $removepattern="";
 $notePattern="";
 $NoteType="INLINE";
+$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
 
 $line=0;
 while (<COMF>) {
@@ -144,7 +147,17 @@ while (<COMF>) {
   elsif ($_ =~ /^\#/) {next;}
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^(RUN_addScripRefLinks|RUN_addDictLinks|RUN_addCrossRefs):/) {next;}
+  elsif ($_ =~ /^SET_($AllowSet):(\s*(\S+)\s*)?$/) {
+    if ($2) {
+      my $par = $1;
+      my $val = $3;
+      $$par = $val;
+      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs)$/) {
+        $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
+      }
+      &Log("INFO: Setting $par to $$par\n");
+    }
+  }
   elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {
     if ($1) {
       $findalltags = $2; 
@@ -157,6 +170,7 @@ while (<COMF>) {
   elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
   elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
+  elsif ($_ =~ /^EXIT:(\s*(.*?)\s*)?$/) {if ($1) {if ($2 !~ /^(0|false)$/i) {last;}}}
   # FORMATTING TAGS...
   elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
   elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
@@ -183,9 +197,7 @@ while (<COMF>) {
   elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
   elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
   elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
-  
 
-  
   # OT command...
   elsif ($_ =~ /^OT\s*$/) {
     &Write("<div type=\"bookGroup\">\n");
@@ -264,6 +276,7 @@ sub bookSFMtoOSIS {
   my $sfmname = $SFMfile;
   $sfmname =~ s/^.*?([^\/]*)$/$1/;
   $ThisSFM = "$TMPDIR/$sfmname";
+  &normalizeNewLines($SFMfile);
   open(TMPI, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
   open(TMPO, ">:encoding(UTF-8)", $ThisSFM) or die "ERROR: Could not open temporary SFM file $ThisSFM\n";
   $removedSoftHyphens = 0;
@@ -760,7 +773,8 @@ sub encodeNotes {
 sub readFootNoteFileWithRefs {
   undef %notes;
   &Log("Processing Footnotes file \"$NoteFileName\" with refs.\n");
-  open (NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
+  &normalizeNewLines($NoteFileName);
+  open(NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
   $line=0;
   while (<NFLE>) {
     $line++;
@@ -826,7 +840,8 @@ sub readFootNoteFileWithRefs {
 
 sub readFootNoteFileWithoutRefs {
   undef %notes;
-  open (NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
+  &normalizeNewLines($NoteFileName);
+  open(NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
   $NoteFileName =~ /\\(...) /; 
   $bookName = &getOsisName($1); 
   $noteNum=1;

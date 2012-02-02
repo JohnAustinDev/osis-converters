@@ -61,9 +61,80 @@ sub initPaths() {
   }
 }
 
+# osis-converters runs in both Linux and Windows, and input files
+# may use different newlines than the current op-sys uses. So 
+# all input files should be normalized. This also means any input 
+# files on SVN need to be copied first, then normalized, then used.
+sub normalizeNewLines($) {
+  my $f = shift;
+   
+  my $changed = 0;
+  
+  my $d = "Windows to Linux";
+  my $r = "\r\n";
+  my $n = "\n";
+  if ("$^O" =~ /MSWin32/i) {
+    $d = "Linux to Windows";
+    $r = "([^\r])\n"; 
+    $n = "$1\r\n";
+  }
+  
+  if(open(NFRS, "<:encoding(UTF-8)", $f)) {
+    open(NFRT, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Unable to open \"$f.tmp\".\n";
+    while(<NFRS>) {
+      if ($_ =~ s/$r$/$n/) {$changed = 1;}
+      print NFRT $_;
+    }
+    close(NFRS);
+    close(NFRT);
+    if ($changed) {
+      &Log("INFO: Converting newlines from $d: \"$f\".\n");
+      unlink($f);
+      copy("$f.tmp", $f);
+    }
+    else {unlink("$f.tmp");}
+  }
+  else {&Log("ERROR: Could not open $f while trying to normalize newlines from $d.\n");}
+}
+
+sub addRevisionToCF($) {
+  my $f = shift;
+  
+  my $rev = `svn info`;
+  if ($rev && $rev =~ /^Revision:\s*(\d+)\s*$/mi) {
+    $rev = $1;
+    my $changed = 0;
+    my $msg = "# osis-converters rev-";
+    if (open(RCMF, "<:encoding(UTF-8)", $f)) {
+      open(OCMF, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Could not open \"$f.tmp\".\n";
+      my $l = 0;
+      while(<RCMF>) {
+        $l++;
+        if ($l == 1) {
+          if ($_ =~ s/\Q$msg\E(\d+)/$msg$rev/) {
+            if ($1 != $rev) {$changed = 1;}
+          }
+          else {$_ = "$msg$rev\n$_";}
+        }
+        print OCMF $_;
+      }
+      close(RCMF);
+      close(OCMF);
+      
+      if ($changed) {
+        unlink($f);
+        move("$f.tmp", $f);
+      }
+      else {unlink("$f.tmp");}
+    }
+    else {&Log("WARNING: Could not add revision to command file.\n");}
+  }
+}
+
 sub getInfoFromConf($) {
   my $conf = shift;
-  open(CONF, "<:encoding(UTF-8)", "$conf") || die "Could not open $conf\n";
+  &normalizeNewLines($conf);
+  open(CONF, "<:encoding(UTF-8)", $conf) || die "Could not open $conf\n";
   while(<CONF>) {
     if ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       if ($ConfEntry{$1} ne "") {$ConfEntry{$1} = $ConfEntry{$1}."<nx>".$2;}
@@ -203,7 +274,7 @@ sub getCanon($\%\%) {
   my $canonP = shift;
   my $bookOrderP = shift;
   
-  my $INFILE = "$SCRD/scripts/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
+  my $INFILE = "$SCRD/scripts/Canon/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
   my $inOT, $inNT, $inVM;
   my $vsys = "unset";
   my %bookLongName, %bookChapters, %bookTest;
@@ -211,7 +282,9 @@ sub getCanon($\%\%) {
   my $booknum = 1;
 
   # Collect canon information from header file
-  if (open (INF, "<$INFILE")) {
+  copy($INFILE, "$INFILE.tmp");
+  &normalizeNewLines("$INFILE.tmp");
+  if (open(INF, "<:encoding(UTF-8)", "$INFILE.tmp")) {
     while(<INF>) {
       # do some error checking
       if ($inOT + $inNT + $inVM > 1) {&Lof("ERROR: Missed data end.\n");}
@@ -267,9 +340,10 @@ sub getCanon($\%\%) {
     if ($vmi != @VM) {&Log("ERROR: Data count mismatch: ".($vmi-1)." (".$VM[$vmi-1].") != ".(@VM-1)." (".$VM[@VM-1].").\n");}
   }
   else {
-    &Log("ERROR: Could not open canon file \"$INFILE\".\n");
+    &Log("ERROR: Could not open canon file \"$INFILE.tmp\".\n");
     return 0;
   }
+  unlink("$INFILE.tmp");
   
   return 1;
 }
@@ -282,6 +356,7 @@ sub readGlossWordFile($$\@\%\%) {
   my $searchTermsP = shift;  # Hash of all search terms and their targets
 
   # Read words and search terms from a word file...
+  &normalizeNewLines($wordfile);
   open(WORDS, "<:encoding(UTF-8)", $wordfile) or die "ERROR: Didn't locate \"$wordfile\" specified in $COMMANDFILE.\n";
   &Log("\nReading glossary file \"$wordfile\".\n");
   my $line=0;
@@ -638,9 +713,11 @@ sub Log($$) {
   my $p = shift; # log message
   my $h = shift; # hide from console
   if (!$h && !$NOCONSOLELOG || $p =~ /error/i) {print encode("utf8", "$p");}
-  open(LOGF, ">>:encoding(UTF-8)", "$LOGFILE") || die "Could not open log file $LOGFILE\n";
-  print LOGF $p;
-  close(LOGF);
+  if ($LOGFILE) {
+    open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
+    print LOGF $p;
+    close(LOGF);
+  }
 }
 
 1;
