@@ -346,4 +346,5 @@ sub Write($$) {
   }
   
   print OUTF $print;
+  &logProgress($e);
 }

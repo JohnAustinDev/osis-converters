@@ -212,16 +212,19 @@ open(OUTF, ">:encoding(UTF-8)", $tmpFile);
 my $intro = 0;
 my $psw = 0;
 $line=0;
+&logProgress($INPUTFILE, -1);
 while (<INF>) {
 	$line++;
 
+  # Log IMP entry name
+  if ($_ =~ /\$\$\$(.*?)$/) {&logProgress($1);}
+  
 	# The following is for matching IMP verse keys
 	if ($_ =~ /^\$\$\$(\w+)\s+(\d+)(:(\d+)(\s*-\s*(\d+))?)?/) {
 		$BK = $1;
 		$CH = $2;
 		$VS = ($4 ? $4:0);
 		$intro = ($CH == 0);
-    &Log("-> $BK\n", 1);
 		goto FINISH_LINE;
 	}
 	
@@ -231,7 +234,7 @@ while (<INF>) {
 		$CH = 1;
 		$VS = 0;
 		$intro = 1;
-    &Log("-> $BK\n", 1);
+    &logProgress($BK, $line);
 		goto FINISH_LINE;
 	}
 	elsif ($_ =~ /<chapter osisID="([^\.]+)\.([^"]+)">/) {
@@ -397,7 +400,7 @@ if (scalar(keys %noOSISRef)) {
 else {&Log("(no subrefs with OSIS ref problems found)\n");}
 &Log("\n");
 
-&Log("REPORT: Grand Totals:\n");
+&Log("REPORT: Grand Total links: ($newLinks instances)\n");
 foreach my $type (sort keys %Types) {
   &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
 }
