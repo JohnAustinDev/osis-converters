@@ -71,7 +71,7 @@ if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {die;}
+  if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $OSISFILE) {unlink($OSISFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}

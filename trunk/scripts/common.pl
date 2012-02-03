@@ -713,11 +713,37 @@ sub escfile($) {
   return $n;
 }
 
+$ProgressTotal = 0;
+$ProgressTime = 0;
+sub logProgress($$) {
+  my $msg = shift;
+  my $ln = shift;
+  
+  my $t = time;
+  my $tleft = 0;
+  if ($ln == -1) {
+      $ProgressTime = time;
+      $ProgressTotal = 0;
+      copy($msg, "$msg.progress.tmp");
+      if (open(PRGF, "<:encoding(UTF-8)", "$msg.progress.tmp")) {
+        while(<PRGF>) {$ProgressTotal++;}
+        close(PRGF);
+      }
+      unlink("$msg.progress.tmp");
+      return;
+  }
+  elsif ($ln) {$tleft = ((($t-$ProgressTime)/$ln)*($ProgressTotal-$ln));}
+
+  &Log("-> $msg", 2);
+  if ($tleft) {&Log(sprintf(" (est: %dmin %dsec)\n", ($tleft/60), ($tleft%60)), 2);}
+  else {&Log("\n", 2);}
+}
+
 sub Log($$) {
   my $p = shift; # log message
-  my $h = shift; # -1 = hide from console, 1 = show in console
-  if ((!$NOCONSOLELOG && $h!=-1) || $h==1 || $p =~ /error/i) {print encode("utf8", "$p");}
-  if ($LOGFILE) {
+  my $h = shift; # -1 = hide from console, 1 = show in console, 2 = only console
+  if ((!$NOCONSOLELOG && $h!=-1) || $h>=1 || $p =~ /error/i) {print encode("utf8", "$p");}
+  if ($LOGFILE && $h!=2) {
     open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
     print LOGF $p;
     close(LOGF);

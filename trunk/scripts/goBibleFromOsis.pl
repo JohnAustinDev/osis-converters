@@ -24,9 +24,12 @@ open(INF, "<:encoding(UTF-8)", $INPUTFILE) || die "Could not open infile $INPUTF
 open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open outfile $OUTPUTFILE.\n";
 
 $line = 0;
+&logProgress($INPUTFILE, -1);
 $inHeader = true;
 while (<INF>) {
   $line++;
+  
+  if ($_ =~ /<div type="book" osisID="([^"]+)">/) {&logProgress($1, $line);}
   
   # Replace header
   if ($inHeader eq "true") {

@@ -271,6 +271,7 @@ sub bookSFMtoOSIS {
   $bookName = &getOsisName($bnm);
   
   &Log("Processing $bookName\n");
+  &logProgress($bookName);
   
   # First make a copy of the SFM file, insuring \v tags always begin a line
   my $sfmname = $SFMfile;

@@ -143,6 +143,7 @@ $SkipTerms = "";
 %replacements;
 %wordHits;
 $line=0;
+&logProgress($INPUTFILE, -1);
 while (<INF>) {
   $line++;
 
@@ -174,7 +175,6 @@ while (<INF>) {
           &logGlossReplacements($currentWordFile, \@words, \%replacements, \%wordHits);
           undef(%replacements);
           undef(%wordHits);
-
         }
 
         # Get the List of dictionary keys
@@ -214,12 +214,16 @@ while (<INF>) {
         $_ = $saveLine;
         $currentWordFile = $WordFiles{$thisBookName};
         
-        &Log("-> $thisBookName (using \"$currentWordFile\")", 1);
+        &logProgress("$thisBookName (using \"$currentWordFile\")", $line);
+        &Log("Processing $thisBookName (using \"$currentWordFile\")");
       }
-      else {&Log("-> $thisBookName", 1);}
+      else {
+        &logProgress($thisBookName, $line);
+        &Log("Processing $thisBookName)");
+      }
     }
         
-    &Log("\n", 1);
+    &Log("\n");
   }
   elsif ($_ =~ /<chapter /) {
     $SkipTerms = "";

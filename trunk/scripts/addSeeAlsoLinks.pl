@@ -54,6 +54,7 @@ $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
+&Log("\n");
 &normalizeNewLines($COMMANDFILE);
 &addRevisionToCF($COMMANDFILE);
 open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command file \"$COMMANDFILE\".\n";
@@ -76,16 +77,19 @@ close (CF);
 &Log("Will not create links to A in B: $dontlinktoainb\n");
 if ($linkhilight eq "true") {&Log("Will create links within hilighted text.\n");}
 if ($allowidentlinks eq "true") {&Log("Will create muliple links to same target within entry.\n");}
+&Log("\n");
 
 &Log("READING IMP FILE: \"$INPUTFILE\".\n");
 &Log("WRITING IMP FILE: \"$OUTPUTFILE\".\n");
 
 if ($Checkonly) {
   &Log("Skipping link search. Checking existing links only.\n");
+  &Log("\n");
   copy("$INPUTFILE", "$OUTPUTFILE");
 }
 else {
   &Log("READING GLOSSARY FILE: \"$INPD/$DICTWORDS\".\n");
+  &Log("\n");
   open (IN0, "<:encoding(UTF-8)", "$INPD/$DICTWORDS") or die "Could not open word list file $INPD/$DICTWORDS.\n";
   $line=0;
   while (<IN0>) {
@@ -97,7 +101,9 @@ else {
 
   open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
   open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+  my $linklog = "";
   $line=0;
+  &logProgress($INPUTFILE, -1);
   $links=0;
   # Don't make links of bold or italicized words/phrases or titles or footnotes
   $splitter = "(<title.*?<\\/title>|<note.*?<\\/note>|<figure[^>]*>";
@@ -111,7 +117,7 @@ else {
     if ($_ =~ /^\$\$\$(.*)\s*$/) {
       $currentEntry=$1;
       $linksInEntry=";";
-      &Log("-> $currentEntry\n", 1);
+      &logProgress($currentEntry, $line);
     }
     elsif ($dontAddSeeAlsoLinkTo !~ /(^|;)\Q$currentEntry;/i) {
   PARSELINE:
@@ -137,7 +143,7 @@ else {
                   if ($pc eq "." && $sc eq "\"") {&Log("$INPUTFILE line $line: Link matched self. Quitting snippet...\n"); last;}
                   $osisRef = $MOD . ":" . encodeOsisRef($entry[$index{$w}]);
                   $ln =~ s/\Q$pc$ww$sc/$pc<reference type=\"x-glosslink\" osisRef="$osisRef">$ww<\/reference>$sc/;
-                  &Log("Line $line: Added link \"$w\" to \"$currentEntry\".\n");
+                  $linklog .= "Linked to \"$w\" in \"$currentEntry\".\n";
                   $linksInEntry = $linksInEntry.$w.";";
                   $entryLength{$currentEntry} = length($_);
                   $links++;
@@ -158,7 +164,9 @@ else {
   }
   close (INF);
   close (OUTF);
-  &Log("Added $links \"See Also\" links to \"$OUTPUTFILE\".\n");
+  &Log("REPORT: \"See Also\" links added: ($links instances)\n");
+  &Log($linklog);
+  &Log("\n");
 }
 
 # Check link targets and repair if needed
@@ -166,7 +174,7 @@ $AllWordFiles{$MOD} = $DICTWORDS;
 &checkGlossReferences($OUTPUTFILE, $AllGlossaryTypes, \%AllWordFiles);
 
 # LOG ALL CIRCULAR REFERENCES...
-&Log("\nCHECKING FOR CIRCULAR ENTRIES...\n");
+&Log("CHECKING FOR CIRCULAR ENTRIES...\n");
 open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
 $line=0;
 while (<INF>) {

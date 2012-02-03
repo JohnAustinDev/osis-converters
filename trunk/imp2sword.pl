@@ -81,7 +81,7 @@ if (-e "$INPD/$MOD.zip") {$delete .= "$INPD/$MOD.zip\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {die;}
+  if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$INPD/sword") {remove_tree("$INPD/sword");}
@@ -150,7 +150,7 @@ close(CONF);
 # create new module files
 make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
-$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC 2 >> ".&escfile($LOGFILE);
+$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." -o ./$MODLC -4 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
 chdir($INPD);
