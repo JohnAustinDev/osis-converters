@@ -659,16 +659,39 @@ sub logGlossReplacements($\@\%\%) {
   
   &Log("\n");
   &Log("REPORT: Glossary entries from $wf which have no links in the text: ($numnolink instances)\n");
-  &Log("$nolink");
+  if ($nolink) {
+    &Log("NOTE: You may want to link to these entries using a different word or phrase. To do this, edit the\n");
+    &Log("$wf file. Find the line with DLxx:<the_entry> and change the word or phrase there \n");
+    &Log("to what you want to match in the text. Also see note below.\n");
+    &Log($nolink);
+  }
+  else {&Log("(all glossary entries have at least one link in the text)\n");}
   &Log("\n");
+  
   &Log("REPORT: Words/phrases converted into links using $wf: ($total instances)\n");
+  &Log("NOTE: The following list must be looked over carefully. Glossary entries are matched\n"); 
+  &Log("in the text using the \"DLxx\" listings in the $wf file. By default,  \n"); 
+  &Log("these are case insensitive and any word ending in the text is matched. This means a \n");
+  &Log("listing like \"DL15:to\" will match \"to\", \"Tom\", \"tomorrow\", and \"together\" and\n");
+  &Log("all these words will be linked to the glossary entry DE15:<entry>. This is probably \n");
+  &Log("not what was intended. So here are ways to control what is matched:\n");
+  &Log("\n");
+  &Log("    DL20:Tom\"                                Do not match any word endings\n");
+  &Log("    DL45:Asia <case sensitive>               Match becomes case sensitive\n");
+  &Log("    DL23:Samuel <only book(s): 1Sam, 2Sam>   Match only in listed books/entries\n");
+  &Log("    DL73:Adam <verse must contain \"Eve\">     Match only in certain verses/entries\n");
+  &Log("    DL11:(be)?love(ed)?                      Any Perl regular expression\n");
+  &Log("\n");
+  &Log("    Multiple DL lines may reference a single DE line. So all DL01 instances will be matched \n");
+  &Log("    and will target DE01. A \"#\" at the beginning of a line is a comment and is ignored.\n");
+  &Log("\n");
   &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
   foreach my $rep (sort keys %$rP) {
     &Log("$rep, $rP->{$rep}\n");
   }
   &Log("\n\n");
 }
-
+      
 # copies a directory to a non existing destination directory
 sub copy_dir($$) {
   my $id = shift;
