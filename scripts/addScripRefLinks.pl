@@ -133,9 +133,20 @@ $numNoDigitRef = 0;
 $numNoOSISRef = 0;
 $line=0;
 
+$Types{"T01 (Book? c:v-c:v)"} = 0;
+$Types{"T02 (Book? c:v-lv)"} = 0;
+$Types{"T03 (Book? c:v)"} = 0;
+$Types{"T04 (Book? c ChapTerm v VerseTerm)"} = 0;
+$Types{"T05 (c-c ChapTerm)"} = 0;
+$Types{"T06 (Book? c ChapTerm)"} = 0;
+$Types{"T07 (Book|CurrentChap? v-v VerseTerms)"} = 0;
+$Types{"T08 (Book|CurrentChap? v VerseTerms)"} = 0;
+$Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
+$Types{"T10 (num1 ... num2?)"} = 0;
+
 &Log("-----------------------------------------------------\nSTARTING addScripRefLinks.pl\n\n");
 
-&Log("READING TERM FILE \"$COMMANDFILE\"\n");
+&Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &normalizeNewLines($COMMANDFILE);
 &addRevisionToCF($COMMANDFILE);
 open(CF, "<:encoding(UTF-8)", $COMMANDFILE);
@@ -192,7 +203,10 @@ else {
 }
 close (CF);
 
-&Log("ADDING LINKS TO \"$OUTPUTFILE\".\n");
+&Log("READING OSIS/IMP FILE: \"$INPUTFILE\".\n");
+&Log("WRITING OSIS/IMP FILE: \"$OUTPUTFILE\".\n");
+&Log("\n");
+
 open(INF, "<:encoding(UTF-8)", $INPUTFILE);
 open(OUTF, ">:encoding(UTF-8)", $tmpFile);
 my $intro = 0;
@@ -207,6 +221,7 @@ while (<INF>) {
 		$CH = $2;
 		$VS = ($4 ? $4:0);
 		$intro = ($CH == 0);
+    &Log("-> $BK\n", 1);
 		goto FINISH_LINE;
 	}
 	
@@ -216,6 +231,7 @@ while (<INF>) {
 		$CH = 1;
 		$VS = 0;
 		$intro = 1;
+    &Log("-> $BK\n", 1);
 		goto FINISH_LINE;
 	}
 	elsif ($_ =~ /<chapter osisID="([^\.]+)\.([^"]+)">/) {
@@ -265,52 +281,22 @@ FINISH_LINE:
 }
 close(INF);
 close(OUTF);
+&Log("Finished adding <reference> tags.\n");
+&Log("\n");
+&Log("\n");
+&Log("#################################################################\n");
+&Log("\n");
+&Log("\n");
+&Log("LINK RESULTS...\n");
+&Log("\n");
 
-# Check links...
-&Log("\nCHECKING LINKS...\n");
-
-&Log("Checking exclusions:\n");
-&reportExclusions(\%exclusion, \%exclusionREP);
-&reportExclusions(\%lineExclusion, \%lineExclusionREP);
-
-&Log("\nChecking fixes:\n");
-foreach my $fx (keys %fix) {
-	if ($fix{$fx} !~ /^\s*$/) {
-		&Log("WARNING: Fix \"$fx\" was not applied.\n");
-	}
-}
-
-&Log("\nListing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
-foreach my $mlr (sort keys %missedLeftRefs) {
-	&Log("<$mlr> $missedLeftRefs{$mlr}\n");
-}
-
-&Log("\nListing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
-foreach my $mlr (sort keys %noDigitRef) {
-	&Log("<$mlr> $noDigitRef{$mlr}\n");
-}
-
-&Log("\nListing of subrefs with OSIS ref problems which were skipped: ($numNoOSISRef instances)\n");
-foreach my $mlr (sort keys %noOSISRef) {
-	&Log("<$mlr> $noOSISRef{$mlr}\n");
-}
-
-&Log("\nListing of refs with unknown book names which have defaulted to the context book: ($numUnhandledWords instances)\n");
-&Log("NOTE: All actual book names in the following list should be specified in CF_addScripRefLinks.txt.\n");
-foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
-	&Log("<$uw> $UnhandledWords{$uw}\n");
-}
-
-&Log("\nListing of extended refs containing number(s) which were not explicitly specified as being either a chapter or verse (whose meaning has been chosen based on context):\n");
-&Log("$CheckRefs\n");
-
+&Log("REPORT: Checking osisRef attributes of links:\n");
 open(INF2, "<:encoding(UTF-8)", $tmpFile);
 open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
 $newLinks=0;
 $line=0;
 while (<INF2>) {
 	$line++;
-
 	@lineLinks = split(/(<newReference osisRef="([^"]+)">(.*?)<\/newReference>)/, $_);
 	foreach $lineLink (@lineLinks) {
 		if ($lineLink !~ /(<newReference osisRef="([^"]+)">(.*?)<\/newReference>)/) {next;}
@@ -330,13 +316,94 @@ while (<INF2>) {
 
 	print OUTF $_;
 }
-foreach my $type (sort keys %Types) {
-  &Log("$type:$Types{$type}\n");
-}
-&Log("Found $newLinks sub-links.\n");
-&Log("FINISHED!\n\n");
 close(INF2);
 close(OUTF);
+&Log("Finished checking osisRefs.\n");
+&Log("\n");
+
+my $tCheckRefs = $CheckRefs;
+my $aerefs = ($tCheckRefs =~ tr/\n//);
+&Log("REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
+if ($CheckRefs) {
+  &Log("NOTE: These are cases where a number could be interpreted as either a verse\n");
+  &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
+  &Log("$CheckRefs\n");
+}
+else {&Log("(no extended refs contain ambiguous numbers)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
+if (scalar(keys %UnhandledWords)) {
+  &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
+  &Log("targets and should have been specified in the command file. Words which do not \n");
+  &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n"); 
+  &Log("added to the command file.\n");
+  foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
+    &Log("<$uw> $UnhandledWords{$uw}\n");
+  }
+}
+else {&Log("(no unknown book names)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of exclusions: (".(scalar(keys %exclusion) + scalar(keys %lineExclusion))." instances)\n");
+if (scalar(keys %exclusion) || scalar(keys %lineExclusion)) {
+  &reportExclusions(\%exclusion, \%exclusionREP, "verse");
+  &reportExclusions(\%lineExclusion, \%lineExclusionREP, "line");
+}
+else {&Log("(no exclusions were specified in command the file)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
+if (scalar(keys %fix)) {
+  foreach my $fx (keys %fix) {
+    if ($fix{$fx} !~ /^\s*$/) {
+      &Log("WARNING: Fix \"$fx\" was not applied.\n");
+    }
+  }
+}
+else {&Log("(no fixes were specified in the command file)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
+if (scalar(keys %missedLeftRefs)) {
+  &Log("NOTE: These occur when the end of an extended ref cannot be determined. To fix these, check \n");
+  &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
+  foreach my $mlr (sort keys %missedLeftRefs) {
+    &Log("<$mlr> $missedLeftRefs{$mlr}\n");
+  }
+}
+else {&Log("(no unlocated left refs)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
+if (scalar(keys %noDigitRef)) {
+  &Log("NOTE: These occur when an extended ref or a subref contain no numbers. A large number \n");
+  &Log("of these may indicate incorrect command file regular expressions.\n");
+  foreach my $mlr (sort keys %noDigitRef) {
+    &Log("$mlr $noDigitRef{$mlr}\n");
+  }
+}
+else {&Log("(no refs without digits found)\n");}
+&Log("\n");
+
+&Log("REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
+if (scalar(keys %noOSISRef)) {
+  &Log("NOTE: These may indicate a ref which should be an EXCLUSION or a problem \n");
+  &Log("with command file regular expressions. \n");
+  foreach my $mlr (sort keys %noOSISRef) {
+    &Log("<$mlr> $noOSISRef{$mlr}\n");
+  }
+}
+else {&Log("(no subrefs with OSIS ref problems found)\n");}
+&Log("\n");
+
+&Log("REPORT: Grand Totals:\n");
+foreach my $type (sort keys %Types) {
+  &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
+}
+&Log("Found $newLinks total sub-links.\n");
+&Log("FINISHED!\n\n");
+
 unlink("$tmpFile");
 
 
@@ -405,7 +472,7 @@ sub addLinks(\$$$) {
       # Skip if no digits
       if ($extref !~ /\d+/) {
         $numNoDigitRef++;
-        $noDigitRef{$extref} .= $line.", ";
+        $noDigitRef{"<$extref> (extref)"} .= $line.", ";
         &Log("$line WARNING $BK.$CH.$VS: Skipped \"$extref\" - no DIGITS.\n");
         &hideTerm($matchedTerm, $ttP);
         next;			
@@ -451,7 +518,7 @@ sub addLinks(\$$$) {
         # Skip subrefs without numbers
         if ($subref !~ /\d+/) {
           $numNoDigitRef++;
-          $noDigitRef{"S)".$subref} .= $line.", ";
+          $noDigitRef{"<$subref> (subref)"} .= $line.", ";
           $repExtref .= $subref;
           &Log("$line WARNING $BK.$CH.$VS: Skipped subref \"$subref\" - no DIGITS.\n");
           next;
@@ -515,10 +582,17 @@ sub termAcceptable($$%%) {
 	return 1;
 }
 
-sub reportExclusions(%%) {
+sub reportExclusions(%%$) {
 	my $excP = shift;
 	my $doneExcP = shift;
+  my $type = shift;
 	
+  if (!(scalar(keys %{$excP}))) {
+    &Log("(no $type exclusions in command file)\n");
+    return;
+  }
+  
+  my $ok = 1;
 	foreach my $ex (sort keys %$excP) {
 		my @exb = split(/$sp(.*?)$sp/, $excP->{$ex});
 		foreach my $exbv (@exb) {
@@ -526,9 +600,12 @@ sub reportExclusions(%%) {
 			my $exbr = quotemeta($exbv);
 			if ($doneExcP->{$ex} !~ /$sp$exbr$sp/) {
 				&Log("ERROR: Exclusion ".$ex." ".$exbv." was not applied.\n");
+        $ok = 0;
 			}
 		}
 	}
+  
+  if ($ok) {&Log("(all $type exclusions where applied)\n");}
 }
 
 sub hideTerm($\$$) {
@@ -758,7 +835,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		my $index = length($pre);		
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
-			$$typeP = "T04a (Book? c ChapTerm v VerseTerm)";
+			$$typeP = "T04 (Book? c ChapTerm v VerseTerm)";
 			$lowestIndex = $index;
 			$shortestMatch = length($ref);
 			if (!$matchleft) {
@@ -783,7 +860,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		my $index = length($pre);
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
-			$$typeP = "T04 (c-c ChapTerm)";
+			$$typeP = "T05 (c-c ChapTerm)";
 			$lowestIndex = $index;
 			$shortestMatch = length($ref);
 			if (!$matchleft) {
@@ -808,7 +885,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
 			$shortestMatch = length($ref);
-			$$typeP = "T05 (Book? c ChapTerm)";
+			$$typeP = "T06 (Book? c ChapTerm)";
 			$lowestIndex = $index;
 			if (!$matchleft) {
 				$$bkP = $tbook;
@@ -832,7 +909,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
 			$shortestMatch = length($ref);
-			$$typeP = "T06 (Book|CurrentChap? v-v VerseTerms)";
+			$$typeP = "T07 (Book|CurrentChap? v-v VerseTerms)";
 			$lowestIndex = $index;
 			if (!$matchleft) {
 				$$bkP = $tbook;
@@ -860,7 +937,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
 			$shortestMatch = length($ref);
-			$$typeP = "T07 (Book|CurrentChap? v VerseTerms)";
+			$$typeP = "T08 (Book|CurrentChap? v VerseTerms)";
 			$lowestIndex = $index;
 			if (!$matchleft) {
 				$$bkP = $tbook;
@@ -888,7 +965,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
 			$shortestMatch = length($ref);
-			$$typeP = "T08 (Book|CurrentChap num1-num2?)";
+			$$typeP = "T09 (Book|CurrentChap num1-num2?)";
 			$lowestIndex = $index;
 			if (!$matchleft) {
 				$$bkP = $tbook;
@@ -921,7 +998,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 	# num1 ... num2?
 	if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/i)) {
 		$matchedTerm = $2;
-		$$typeP = "T09 (num1 ... num2?)";
+		$$typeP = "T10 (num1 ... num2?)";
 		my $num1 = $3;
 		my $num2 = $5;
 		$$bkP = "";
@@ -1000,7 +1077,7 @@ sub validOSISref($$$) {
 		$bk1 = $1;
 		$ch1 = $2;
 		if (!$ch1) {return 0;}
-		if (!$noWarn) {&Log("$line WARNING: Short link \"$osisRef\" found in \"$linkText\".\n");}
+		if (!$noWarn) {&Log("$line WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
 	}
 	else {
 		return 0;
@@ -1027,3 +1104,4 @@ sub reverseAlpha($$) {
 
 	return $a cmp $b;
 }
+

@@ -56,6 +56,7 @@ $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
 # Read the command file. Processing does not begin until reading is completed.
+&Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &normalizeNewLines($COMMANDFILE);
 &addRevisionToCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open commandFile \"$COMMANDFILE\".";
@@ -130,6 +131,9 @@ if ($Checkonly) {
   copy("$INPUTFILE", "$OUTPUTFILE");
   goto CHECK;
 }
+
+&Log("READING OSIS FILE: \"$INPUTFILE\".\n");
+&Log("WRITING OSIS FILE: \"$OUTPUTFILE\".\n");
 
 # Parse the input OSIS file, add links, and write results to output OSIS files
 open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "ERROR: Could not open inFile \"$inFile\".";
@@ -210,12 +214,12 @@ while (<INF>) {
         $_ = $saveLine;
         $currentWordFile = $WordFiles{$thisBookName};
         
-        &Log("Processing $thisBookName, and starting word-file: \"$currentWordFile\"");
+        &Log("-> $thisBookName (using \"$currentWordFile\")", 1);
       }
-      else {&Log("Processing $thisBookName");}
+      else {&Log("-> $thisBookName", 1);}
     }
         
-    &Log(".\n");
+    &Log("\n", 1);
   }
   elsif ($_ =~ /<chapter /) {
     $SkipTerms = "";

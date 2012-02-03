@@ -34,7 +34,7 @@ if (!-e $crossRefs) {
 else {
   &Log("-----------------------------------------------------\nSTARTING addCrossRefs.pl\n\n");
 
-  &Log("Reading command file \"$COMMANDFILE\".\n");
+  &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
   &normalizeNewLines($COMMANDFILE);
   &addRevisionToCF($COMMANDFILE);
   open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
@@ -61,7 +61,7 @@ else {
   }
 
   # Collect cross references from list file...
-  &Log("Reading cross reference file \"$crossRefs\".\n");
+  &Log("READING CROSS REFERENCE FILE \"$crossRefs\".\n");
   copy($crossRefs, "$crossRefs.tmp");
   &normalizeNewLines("$crossRefs.tmp");
   open(NFLE, "<:encoding(UTF-8)", "$crossRefs.tmp") or die "Could not open cross reference file \"$crossRefs.tmp\".\n";
@@ -113,9 +113,13 @@ else {
     $nts =~ s/^(.*)$sp(<\/reference>)(.*?)$/$1$2$3/i;
     $refs{"$typ$bcv"} = $nts;
   }
-  &Log("Removed $emptyRefs empty cross reference notes.\n");
   close (NFLE);
   unlink("$crossRefs.tmp");
+  &Log("Removed $emptyRefs empty cross reference notes.\n");
+  &Log("\n");
+
+  &Log("READING OSIS FILE: \"$INPUTFILE\".\n");
+  &Log("WRITING OSIS FILE: \"$OUTPUTFILE\".\n");
 
   &Log("\nSTARTING PASS 1\n");
   &addCrossRefs;
@@ -178,6 +182,7 @@ sub addCrossRefs {
     if ($_ =~ /<verse.*?sID="(.*?)\.(\d+)\.([\d-]+)"/) {
       $tag = "$1.$2.$3";
       $bkch = "$1.$2";
+      $acrbk = $1;
       $verses = $3;
 
       # If this container covers multiple verses, we need to check each verse for cross references
