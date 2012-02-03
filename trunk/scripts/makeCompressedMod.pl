@@ -115,23 +115,23 @@ close(CONF2);
 chdir("$SWDD");
 if ($VERSESYS) {$vsys = "-v $VERSESYS ";}
 $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWDD/modules/texts/rawtext/$RMODLC")." ".&escfile($OSISFILE)." -N $vsys>> ".&escfile($LOGFILE);
-&Log("$cmd\n", 1);
+&Log("$cmd\n", -1);
 system($cmd);
 
 # create the zip module
 &Log("\n--- CREATING $MOD ZIPPED SWORD MODULE (".$VERSESYS.")\n");
 $cmd = &escfile($SWORD_BIN."mod2zmod")." $RMOD ".&escfile("$SWDD/modules/texts/ztext/$MODLC")." 4 2 >> ".&escfile($LOGFILE);
-&Log("$cmd\n", 1);
+&Log("$cmd\n", -1);
 system($cmd);
 
 &Log("\n--- TESTING FOR EMPTY VERSES\n");
 $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
 $cmd = `$cmd`;
 if ($cmd =~ /usage/i) {
-  &Log("BEGIN EMPTYVSS OUTPUT\n", 1);
+  &Log("BEGIN EMPTYVSS OUTPUT\n", -1);
   $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
   system($cmd);
-  &Log("END EMPTYVSS OUTPUT\n", 1);
+  &Log("END EMPTYVSS OUTPUT\n", -1);
 }
 else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
 chdir($INPD);

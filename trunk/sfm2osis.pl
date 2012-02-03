@@ -141,7 +141,7 @@ else {rename("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
 if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
 if ($addDictLinks && -e $COMMANDFILE) {
-  &Log("\n--- ADDING/CHECKING DICTIONARY LINKS\n");
+  &Log("\n--- ADDING DICTIONARY LINKS\n");
   $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";

@@ -53,7 +53,7 @@ $SpecialCapitals = ""; # Mappings like i->I a->A override normal capitalization
 $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '`
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
-&Log("Reading command file  \"$COMMANDFILE\".\n");
+&Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &normalizeNewLines($COMMANDFILE);
 &addRevisionToCF($COMMANDFILE);
 open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command file \"$COMMANDFILE\".\n";
@@ -77,12 +77,15 @@ close (CF);
 if ($linkhilight eq "true") {&Log("Will create links within hilighted text.\n");}
 if ($allowidentlinks eq "true") {&Log("Will create muliple links to same target within entry.\n");}
 
+&Log("READING IMP FILE: \"$INPUTFILE\".\n");
+&Log("WRITING IMP FILE: \"$OUTPUTFILE\".\n");
+
 if ($Checkonly) {
   &Log("Skipping link search. Checking existing links only.\n");
   copy("$INPUTFILE", "$OUTPUTFILE");
 }
 else {
-  &Log("PARSING WORD LIST FILE: \"$INPD/$DICTWORDS\".\n");
+  &Log("READING GLOSSARY FILE: \"$INPD/$DICTWORDS\".\n");
   open (IN0, "<:encoding(UTF-8)", "$INPD/$DICTWORDS") or die "Could not open word list file $INPD/$DICTWORDS.\n";
   $line=0;
   while (<IN0>) {
@@ -92,7 +95,6 @@ else {
   }
   close (IN0);
 
-  &Log("ADDING \"SEE ALSO\" LINKS TO \"$INPUTFILE\".\n");
   open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
   open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
   $line=0;
@@ -106,7 +108,11 @@ else {
     
     $_ =~ s/\|i(.*?)\|r/<i>$1<\/i>/g;
     $_ =~ s/\|b(.*?)\|r/<b>$1<\/b>/g;
-    if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry=$1; $linksInEntry=";";}
+    if ($_ =~ /^\$\$\$(.*)\s*$/) {
+      $currentEntry=$1;
+      $linksInEntry=";";
+      &Log("-> $currentEntry\n", 1);
+    }
     elsif ($dontAddSeeAlsoLinkTo !~ /(^|;)\Q$currentEntry;/i) {
   PARSELINE:
       $startover = "false";

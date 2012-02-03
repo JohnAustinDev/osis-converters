@@ -352,7 +352,7 @@ sub readGlossWordFile($$\@\%\%) {
   # Read words and search terms from a word file...
   &normalizeNewLines($wordfile);
   open(WORDS, "<:encoding(UTF-8)", $wordfile) or die "ERROR: Didn't locate \"$wordfile\" specified in $COMMANDFILE.\n";
-  &Log("\nReading glossary file \"$wordfile\".\n");
+  &Log("\nREADING GLOSSARY FILE \"$wordfile\".\n");
   my $line=0;
   while (<WORDS>) {
     $line++;
@@ -644,15 +644,25 @@ sub logGlossReplacements($\@\%\%) {
   my $rP = shift; # %replacements
   my $hP = shift; # %wordHits
 
-  &Log("\nBEGIN LOG FOR $wf...\n");
-  &Log("GLOSSARY_ENTRY: LINK, MODNAME(s), NUMBER_OF_LINKS\n");
+  my $total = 0;
+  foreach my $rep (sort keys %$rP) {$total += $rP->{$rep};}
+  
+  my $nolink = "";
+  my $numnolink = 0;
   foreach my $dl (@$wP) {
     my $match = 0;
     foreach my $dh (keys %$hP) {
       if ($dl eq $dh) {$match=1;}
     }
-    if ($match == 0) {&Log("$dl\:\tNO MATCHES!\n");}
+    if ($match == 0) {$nolink .= "$dl\n"; $numnolink++;}
   }
+  
+  &Log("\n");
+  &Log("REPORT: Glossary entries from $wf which have no links in the text: ($numnolink instances)\n");
+  &Log("$nolink");
+  &Log("\n");
+  &Log("REPORT: Words/phrases converted into links using $wf: ($total instances)\n");
+  &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
   foreach my $rep (sort keys %$rP) {
     &Log("$rep, $rP->{$rep}\n");
   }
@@ -705,8 +715,8 @@ sub escfile($) {
 
 sub Log($$) {
   my $p = shift; # log message
-  my $h = shift; # hide from console
-  if (!$h && !$NOCONSOLELOG || $p =~ /error/i) {print encode("utf8", "$p");}
+  my $h = shift; # -1 = hide from console, 1 = show in console
+  if ((!$NOCONSOLELOG && $h!=-1) || $h==1 || $p =~ /error/i) {print encode("utf8", "$p");}
   if ($LOGFILE) {
     open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
     print LOGF $p;

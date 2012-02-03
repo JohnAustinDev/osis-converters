@@ -142,7 +142,7 @@ $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
 if ($addSeeAlsoLinks && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
 if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
 if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
-  &Log("\n--- ADDING/CHECKING DICTIONARY LINKS\n");
+  &Log("\n--- ADDING DICTIONARY LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $OUTPUTFILE = "$INPD/".$MOD.".imp";
   $NOCONSOLELOG = 1;
