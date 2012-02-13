@@ -20,7 +20,9 @@ sub fillEmptyVerses($$$) {
   my $vsys = shift;
   my $osis = shift;
   my $tmpdir = shift;
+  
   my $emptyHolder = "";
+  my $scope = "";
   
   if (!$vsys) {$vsys = "KJV";}
 
@@ -29,6 +31,8 @@ sub fillEmptyVerses($$$) {
   my %canon;
   my %bookOrder;
   my %allbooks;
+  my %missingVerses;
+  my %bookIntro;
   
   if (&getCanon($vsys, \%canon, \%bookOrder)) {
     # discover missing books
@@ -43,21 +47,32 @@ sub fillEmptyVerses($$$) {
     my $canonBKs = 0;
     my $bk, $ch, $vs;
     my $tb, $tc, $tv;
+    my $intro;
     my $BUFF;
     while(<OSIS>) {
       if ($_ =~ /<div type="book" osisID="([^\"]*)">/) {
         $bk = $1;
         if (!$canon{$bk}) {&Log("ERROR: Unrecognized book name $bk\n");}
+        $intro = "capture:";
       }
       if ($_ =~ /<chapter osisID="\w+\.([^\"]*)">/) {
         $ch = $1;
         if ($ch > @{$canon{$bk}}) {&Log("ERROR: Unrecognized chapter $bk $ch\n");}
+        if ($intro) {
+          $intro =~ s/^.*?<div type="book"[^>]*>(.*)$/$1/;
+          if ($intro !~ /^\s*$/) {
+            if ($ch == 1) {$bookIntro{$bk} = $intro;}
+            else {&Log("ERROR: Chapter $ch introduction not supported (must be before chapter 1)\n");}
+          }
+          $intro = "";
+        }
       }
       if ($_ =~ /<verse sID="\w+\.\w+\.([^\"]*)"/) {
         $vs = $1;
         $vs =~ s/\d+\-//;
         if ($vs > $canon{$bk}->[$ch-1]) {&Log("ERROR: Unrecognized verse $bk $ch:$vs\n");}
       }
+      if ($intro) {$intro .= $_;}
       
       # each addition is on a one line div for easy removal
        
@@ -68,14 +83,14 @@ sub fillEmptyVerses($$$) {
           $tb = $k;
           if (&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
             &Log("Appending empty book $tb\n");
-            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb});
+            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb}, \%emptyVerses);
           }
         }
         foreach my $k (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
           $tb = $k;
           if (!&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
             &Log("Appending non-canonical book $tb\n");
-            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb});
+            $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb}, \%emptyVerses);
           }
         }
       }
@@ -86,7 +101,7 @@ sub fillEmptyVerses($$$) {
         for (my $i=($ch+1); $i <= @{$canon{$bk}}; $i++) {
           $tb=$bk; $tc=$i;
           &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." chapter $bk $i\n");
-          $emp .= &wrapDiv($vsys, "<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1])."</chapter>", $tb, $tc, $tv);
+          $emp .= &wrapDiv($vsys, "<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1], \%emptyVerses)."</chapter>", $tb, $tc, $tv);
         }
         $BUFF = $emp.$BUFF;
         $ch = @{$canon{$bk}}; # set chapter to current, so we don't ever append same chap again
@@ -96,7 +111,7 @@ sub fillEmptyVerses($$$) {
       if ($bk && $ch && $_ =~ /<\/chapter>/ && $canon{$bk}->[$ch-1] != $vs) {
         $tb=$bk; $tc=$ch; $tv=($vs+1);
         &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." verse(s) $bk $ch:".$tv.($canon{$bk}->[$ch-1]==$tv ? "":"-".$canon{$bk}->[$ch-1])."\n");
-        $_ = &wrapDiv($vsys, &emptyVerses("$bk.$ch.".$tv."-".$canon{$bk}->[$ch-1]), $tb, $tc, $tv).$_;
+        $_ = &wrapDiv($vsys, &emptyVerses("$bk.$ch.".$tv."-".$canon{$bk}->[$ch-1], \%emptyVerses), $tb, $tc, $tv).$_;
       }
 
       if ($BUFF) {print OUTF $BUFF;}
@@ -108,8 +123,83 @@ sub fillEmptyVerses($$$) {
 
     unlink($osis);
     rename("$tmpdir/tmp.xml", $osis);
+    
+    # assemble the scope conf entry for this text
+    my $s = "";
+    my $hadLastV = 0;
+    my $lastCheckedV = "";
+    my $canbkFirst, $canbkLast;
+    foreach my $bk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
+      if (!$canbkFirst) {$canbkFirst = $bk;}
+      $canbkLast = $bk;
+      for (my $ch=1; $ch<=@{$canon{$bk}}; $ch++) {
+        for (my $vs=1; $vs<=$canon{$bk}->[$ch-1]; $vs++) {
+          # record scope unit start
+          if (!$hadLastV && !$emptyVerses{"$bk.$ch.$vs"}) {
+            $s .= " $bk.$ch.$vs";          
+          }
+          # record scope unit end
+          if ($hadLastV && $emptyVerses{"$bk.$ch.$vs"}) {
+            $s .= "-$lastCheckedV";
+          }
+          $hadLastV = !$emptyVerses{"$bk.$ch.$vs"};
+          $lastCheckedV = "$bk.$ch.$vs";
+        }
+      }
+    }
+    if ($hadLastV) {$s .= "-$lastCheckedV";}
+#&Log("DEBUG=$s\n", 1);    
+    # simplify each scope segment as much as possible
+    my $sep = "";
+    while ($s =~ s/^ ([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)//) {
+      my $b1=$1;
+      my $c1=$2;
+      my $v1=$3;
+      my $b2=$4;
+      my $c2=$5;
+      my $v2=$6;
+      
+      my $sub = "";
+      # simplify scope unit start
+      if ($b2 ne $b1 || ($c1==@{$canon{$b1}} && $v1==$canon{$b1}->[$c1-1])) {
+        if ($v1 == 1) {
+          if ($c1 == 1) {$sub .= "$b1";}
+          else {$sub .= "$b1.$c1";}
+        }
+        else {$sub .= "$b1.$c1.$v1";}
+      }
+      elsif ($c2 != $c1) {
+        if ($v1==1) {
+          if ($c1==1) {$c1 = 0;}
+          $sub .= "$b1.$c1";
+        }
+        else {$sub .= "$b1.$c1.$v1";}
+      }
+      else {$sub .= "$b1.$c1.$v1";}
+      
+      # simplify scope unit end
+      if ($b1 ne $b2 || ($c2==1 && $v2==1)) {
+        if ($v2 == $canon{$b2}->[$c2-1]) {
+          if ($c2 == @{$canon{$b2}}) {$sub .= "-$b2";}
+          else {$sub .= "-$b2.$c2";}
+        }
+        else {$sub .= "-$b2.$c2.$v2";}
+      }
+      elsif ($c1 != $c2) {
+        if ($v2 == $canon{$b2}->[$c2-1]) {$sub .= "-$b2.$c2";}
+        else {$sub .= "-$b2.$c2.$v2";}
+      }
+      else {$sub .= "-$b2.$c2.$v2";}
+     
+      $scope .= $sep.$sub;
+      $sep = " ";
+    }
+    if ($s !~ /^\s*$/) {&Log("ERROR: While processing scope \"$s\"\n");}
+    if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
   }
   else {&Log("ERROR: Not filling empty verses in OSIS file!\n");}
+ 
+  return $scope;
 }
 
 ########################################################################
@@ -151,8 +241,10 @@ sub wrapDiv($$$$$) {
   return $text;
 }
 
-sub emptyVerses($) {
+sub emptyVerses($\%) {
   my $id = shift;
+  my $eP = shift;
+  
   my $text = "<verse sID=\"$id\" osisID=\"";
   if ($id !~ /^(.*?\.)(\d+)(-(\d+))?$/) {die "Could not understand \"$id\" in getVerses\n";}
   my $ref = $1;
@@ -163,15 +255,17 @@ sub emptyVerses($) {
   while ($st <= $en) {$text = $text.$sep."$ref$st"; $st++; $sep = " ";}
   
   $text = $text."\"\/>$emptyHolder<verse eID=\"$id\"\/>";
+  &recordEmptyVerses($id, $eP);
   return $text
 }
 
-sub emptyBook($$$$\@) {
+sub emptyBook($$$$\@\%) {
   my $vsys = shift;
   my $tb = shift;
   my $tc = shift;
   my $tv = shift;
   my $a = shift;
+  my $eP = shift;
   
   my $ret = "<div type=\"book\" osisID=\"$tb\">";
   for (my $i=0; $i<@$a; $i++) {
@@ -180,9 +274,22 @@ sub emptyBook($$$$\@) {
     my $sep = "";
     for (my $v=1; $v<=$vm; $v++) {$ret = $ret.$sep."$tb.".($i+1).".$v"; $sep = " ";}
     $ret = $ret."\"/>$emptyHolder<verse eID=\"$tb.".($i+1).".1-".$vm."\"/></chapter>";
+    &recordEmptyVerses("$tb.".($i+1).".1-".$vm, $eP);
   }
   $ret = $ret."</div>";
   return &wrapDiv($vsys, $ret, $tb, $tc, $tv);
+}
+
+sub recordEmptyVerses($\%) {
+  my $id = shift;
+  my $eP = shift;
+  if ($id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?$/) {&Log("ERROR: Could not understand \"$id\" in recordEmptyVerses\n"); return;}
+  my $bk = $1;
+  my $ch = $2;
+  my $v1 = $3;
+  my $v2 = $5;
+  if (!$v2) {$v2 = $v1;}
+  for (my $v=$v1; $v<=$v2; $v++) {$eP->{"$bk.$ch.$v"}++;}
 }
 
 1;

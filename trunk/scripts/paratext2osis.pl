@@ -55,6 +55,7 @@
 #       used to indicate multiple verses in \v or \f tags.
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
+#   EXIT - Exit the script at this point. Useful for debug.
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
 #   IGNORE - A tag-list of SFM lines which should be ignored.

@@ -83,6 +83,9 @@
 #   FIX - Used to fix an incorrectly parsed reference.
 #   SKIPVERSE - The osisRef of a verse to skip.
 #   SKIPLINE - A line number to skip.
+#   DEBUG_LINE - Set this to a line number to see details of what is
+#       being matched and how. This is sometimes usedful when adjusting
+#       regular expressions or debugging. 
   
 $debugLine = 0;
 $onlyLine = 0;
