@@ -147,6 +147,8 @@ $Types{"T08 (Book|CurrentChap? v VerseTerms)"} = 0;
 $Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
 $Types{"T10 (num1 ... num2?)"} = 0;
 
+&getCanon($VERSESYS, \%mycanon, \%mybookorder);
+
 &Log("-----------------------------------------------------\nSTARTING addScripRefLinks.pl\n\n");
 
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
@@ -1089,11 +1091,9 @@ sub validOSISref($$$) {
 		return 0;
 	}
 	
-	my $bok1, $bok2;
-	foreach $b (%books) {
-		if ($bk1 && $bk1 eq $b) {$bok1 = 1;}
-		if (!$bk2 || $bk2 eq $b) {$bok2 = 1;}
-	}
+	my $bok1 = exists($mycanon{$bk1});
+  my $bok2 = (!$bk2 || exists($mycanon{$bk2}));
+
 	return ($bok1 && $bok2);
 }
 

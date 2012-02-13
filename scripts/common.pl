@@ -758,7 +758,7 @@ sub logProgress($$) {
   elsif ($ln) {$tleft = ((($t-$ProgressTime)/$ln)*($ProgressTotal-$ln));}
 
   &Log("-> $msg", 2);
-  if ($tleft) {&Log(sprintf(" (est: %dmin %dsec)\n", ($tleft/60), ($tleft%60)), 2);}
+  if ($tleft) {&Log(sprintf(" (eta: %dmin %dsec)\n", ($tleft/60), ($tleft%60)), 2);}
   else {&Log("\n", 2);}
 }
 

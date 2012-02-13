@@ -148,7 +148,7 @@ sub fillEmptyVerses($$$) {
       }
     }
     if ($hadLastV) {$s .= "-$lastCheckedV";}
-#&Log("DEBUG=$s\n", 1);    
+ 
     # simplify each scope segment as much as possible
     my $sep = "";
     while ($s =~ s/^ ([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)//) {
@@ -161,7 +161,7 @@ sub fillEmptyVerses($$$) {
       
       my $sub = "";
       # simplify scope unit start
-      if ($b2 ne $b1 || ($c1==@{$canon{$b1}} && $v1==$canon{$b1}->[$c1-1])) {
+      if ($b2 ne $b1 || ($b2 eq $b1 && ($c2==@{$canon{$b2}} && $v2==$canon{$b2}->[$c2-1]))) {
         if ($v1 == 1) {
           if ($c1 == 1) {$sub .= "$b1";}
           else {$sub .= "$b1.$c1";}
@@ -178,7 +178,7 @@ sub fillEmptyVerses($$$) {
       else {$sub .= "$b1.$c1.$v1";}
       
       # simplify scope unit end
-      if ($b1 ne $b2 || ($c2==1 && $v2==1)) {
+      if ($b1 ne $b2 || ($b1 eq $b2 && ($c1==1 && $v1==1))) {
         if ($v2 == $canon{$b2}->[$c2-1]) {
           if ($c2 == @{$canon{$b2}}) {$sub .= "-$b2";}
           else {$sub .= "-$b2.$c2";}
@@ -190,6 +190,8 @@ sub fillEmptyVerses($$$) {
         else {$sub .= "-$b2.$c2.$v2";}
       }
       else {$sub .= "-$b2.$c2.$v2";}
+      
+      $sub =~ s/^(\w+)-(\g1)/$1/;
      
       $scope .= $sep.$sub;
       $sep = " ";
