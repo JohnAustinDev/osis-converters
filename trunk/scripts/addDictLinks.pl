@@ -219,7 +219,7 @@ while (<INF>) {
       }
       else {
         &logProgress($thisBookName, $line);
-        &Log("Processing $thisBookName)");
+        &Log("Processing $thisBookName");
       }
     }
         

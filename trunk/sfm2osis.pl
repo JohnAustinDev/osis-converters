@@ -186,7 +186,7 @@ $SCOPE = &fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
 if ($SCOPE) {
   open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
   if ($ConfEntry{"Scope"} && $ConfEntry{"Scope"}  ne $SCOPE) {
-    &Log("ERROR: Encoding is set incorrectly in $CONFFILE. Remove this entry.\n");
+    &Log("ERROR: Scope is set incorrectly in $CONFFILE. Remove this entry.\n");
   }
   if ($SCOPE && ($ConfEntry{"Scope"}  ne $SCOPE)) {
     print CONF $ret."Scope=$SCOPE\n"; $ret="";

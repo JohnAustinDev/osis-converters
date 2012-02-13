@@ -475,7 +475,11 @@ sub parseline($) {
     if ($readText =~ /<verse[^>]+>.+/) {
       # if an indent will be followed by a title, remove that indent.
       if ($verseTitle ne "") {$readText =~ s/$INDENT$//;}
-      &Write("$readText$endVerse");
+      my $toWrite = "$readText$endVerse";
+      if ($toWrite =~ s/(<verse sID="([^"]+)"[^>]*\/>)\s*(<note[^>]*>.*?<\/note>)\s*(<verse eID="\g2"\/>)/$1-$3$4/) {
+        &Log("INFO: Adding verse holder \"-\" to $2 which is only a note.\n");
+      }
+      &Write($toWrite);
       $prepend = "";
     }
     else {
