@@ -16,6 +16,8 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use File::Find; 
+
 &Log("\n-----------------------------------------------------\nSTARTING makeCompressedMod.pl\n\n");
 
 # prepare module directories and remove old module bits if any
@@ -117,12 +119,25 @@ if ($VERSESYS) {$vsys = "-v $VERSESYS ";}
 $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWDD/modules/texts/rawtext/$RMODLC")." ".&escfile($OSISFILE)." -N $vsys>> ".&escfile($LOGFILE);
 &Log("$cmd\n", -1);
 system($cmd);
+$installSize = 0; 
+# NOTE: this installSize should not include the index.             
+find(sub { $installSize += -s if -f $_ }, "$SWDD/modules/texts/rawtext/$RMODLC");
+open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$RMODLC.conf") || die "Could not append to raw conf $SWDD/mods.d/$RMODLC.conf\n";
+print CONF "\nInstallSize=$installSize\n";
+close(CONF);
 
 # create the zip module
 &Log("\n--- CREATING $MOD ZIPPED SWORD MODULE (".$VERSESYS.")\n");
 $cmd = &escfile($SWORD_BIN."mod2zmod")." $RMOD ".&escfile("$SWDD/modules/texts/ztext/$MODLC")." 4 2 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", -1);
 system($cmd);
+system($cmd);
+$installSize = 0;        
+# NOTE: this installSize should not include the index.     
+find(sub { $installSize += -s if -f $_ }, "$SWDD/modules/texts/ztext/$MODLC");
+open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not append to zip conf $SWDD/mods.d/$MODLC.conf\n";
+print CONF "\nInstallSize=$installSize\n";
+close(CONF);
 
 &Log("\n--- TESTING FOR EMPTY VERSES\n");
 $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
