@@ -216,7 +216,8 @@ while (<COMF>) {
     $NoteType = $1;
     if (keys %notes > 0) {&checkRemainingNotes;}
     $_ =~ /^[^:]+:\s*(.*)/;
-    $NoteFileName = $1;
+    $NoteFileName = "$INPD/".$1;
+    $NoteFileName =~ s/\\/\//g;
     $notePattern = "";
     if    ($NoteType eq "WITHREFS") {&readFootNoteFileWithRefs;}
     elsif ($NoteType eq "NOREFS") {&readFootNoteFileWithoutRefs;}
@@ -848,7 +849,7 @@ sub readFootNoteFileWithoutRefs {
   undef %notes;
   &normalizeNewLines($NoteFileName);
   open(NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
-  $NoteFileName =~ /\\(...) /; 
+  $NoteFileName =~ /\/(...) Footnotes/; 
   $bookName = &getOsisName($1); 
   $noteNum=1;
   $line=0;

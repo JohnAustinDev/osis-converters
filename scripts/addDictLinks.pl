@@ -189,7 +189,7 @@ while (<INF>) {
         while ($secondaryDictName =~ s/^([^,]+),?//) {
           my $mydname = $1;
           $secondaryWordFile =~ s/^([^,]+),?//;
-          my $myfile = $1;
+          my $myfile = "$INPD/".$1;
           my $secwords = "";
           &normalizeNewLines($myfile);
           open(WORDS, "<:encoding(UTF-8)", $myfile) or die "ERROR: Could not open secondary word list \"$myfile\".\n";

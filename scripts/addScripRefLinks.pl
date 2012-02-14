@@ -42,6 +42,7 @@
 #   FILTER - A Perl regular expression used to select only particular
 #       parts of text to search for Scripture references. By default, 
 #       everything is searched.
+#   SKIP_INTRODUCTIONS - Boolean if true introductions are skipped.
 #   CHAPTER_TERMS - A Perl regular expression representing words/phrases
 #       which should be understood as meaning "chapter".
 #   CURRENT_CHAPTER_TERMS - A Perl regular expression representing 
@@ -129,6 +130,7 @@ $skipUnhandledBook = "none";
 $mustHaveVerse = 0;
 $skipPsalms = 0;
 $require_book = 0;
+$skipintros = 0;
 $sp="\"";
 $numUnhandledWords = 0;
 $numMissedLeftRefs = 0;
@@ -162,6 +164,7 @@ while (<CF>) {
 	if ($_ =~ /^(\#.*|\s*)$/) {next;}
   elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
 	elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$filter = $2;} next;}
+  elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
 	elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
 	elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
 	elsif ($_ =~ /^CURRENT_BOOK_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentBookTerms = $2;} next;}
@@ -269,11 +272,13 @@ while (<INF>) {
 	}
 
 	if ($intro) {
-    # addLinks cannot handle \n at line's end
-    my $lf = "";
-    if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
-		&addLinks(\$_, $BK, $CH);
-    $_ .= $lf;
+    if (!$skipintros) {
+      # addLinks cannot handle \n at line's end
+      my $lf = "";
+      if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
+      &addLinks(\$_, $BK, $CH);
+      $_ .= $lf;
+    }
 	}
 	else {
 		my @filtered = split(/($filter)/, $_);
