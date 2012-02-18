@@ -22,6 +22,7 @@
 # Run this script to create a dictionary SWORD module from an IMP 
 # file and a config.conf file located in the Glossary_Directory.
 
+use File::Find; 
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
@@ -99,7 +100,7 @@ $SWDD = "$INPD/sword";
 # create new conf
 if (!-e "$SWDD/mods.d") {make_path("$SWDD/mods.d");}
 copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf") || die "Could not copy dict conf $CONFFILE\n";
-if ($ConfEntry{"ModDrv"} && $ConfEntry{"ModDrv"} ne "RawLD") {
+if ($ConfEntry{"ModDrv"} && $ConfEntry{"ModDrv"} ne "RawLD4") {
   &Log("ERROR: ModDrv is set incorrectly in $CONFFILE. Remove this entry.\n");
 }
 if ($ConfEntry{"Category"} && $ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
@@ -123,8 +124,8 @@ if ($ConfEntry{"SwordVersionDate"}) {
 
 open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not open \"$SWDD/mods.d/$MODLC.conf\"\n";
 $ret = "\n";
-if ($ConfEntry{"ModDrv"} ne "RawLD") {
-  print CONF $ret."ModDrv=RawLD\n"; $ret="";
+if ($ConfEntry{"ModDrv"} ne "RawLD4") {
+  print CONF $ret."ModDrv=RawLD4\n"; $ret="";
 }
 if ($ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
   print CONF $ret."Category=Lexicons / Dictionaries\n"; $ret="";
@@ -151,6 +152,7 @@ close(CONF);
 make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
 $cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." -o ./$MODLC -4 >> ".&escfile($LOGFILE);
+#$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
 chdir($INPD);
@@ -160,6 +162,13 @@ if ($imageDir) {
   if (-e "$SWDD/$MODPATH/images") {remove_tree("$SWDD/$MODPATH/images");}
   &copy_dir($imageDir, "$SWDD/$MODPATH/images");
 }
+
+$installSize = 0;        
+# NOTE: this installSize should not include the index.     
+find(sub { $installSize += -s if -f $_ }, "$SWDD/$MODPATH");
+open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not append to conf $SWDD/mods.d/$MODLC.conf\n";
+print CONF "\nInstallSize=$installSize\n";
+close(CONF);
 
 # make a zipped copy of the module
 &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");

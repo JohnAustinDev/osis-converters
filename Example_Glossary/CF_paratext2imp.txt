@@ -34,7 +34,7 @@ SPECIAL_CAPITALS:i->İ ı->I
 # most matched () grouping is retained within corresponding OSIS tags, 
 # and the rest of the match is dropped. Replacements are always made in
 # the following order, regardless of their order in this command file: 
-# GLOSSARY_ENTRY, BOLD, ITALIC, REMOVE, SEE_ALSO, CROSSREF, FOOTNOTE.
+# REMOVE, REPLACE, GLOSSARY_ENTRY, BOLD, ITALIC, SEE_ALSO, CROSSREF, FOOTNOTE.
 
 GLOSSARY_ENTRY:(\\m \\k (.*?)\\k\*)
 BOLD:
@@ -63,4 +63,4 @@ TABLE_COL3:(\\th3 |\\tc3 )
 TABLE_COL4:(\\th4 |\\tc4 )
 TABLE_ROW_END:(\n)
 
-RUN:./orig/A9GLOTUREV.SFM
+RUN:./sfm/A9GLOTUREV.SFM

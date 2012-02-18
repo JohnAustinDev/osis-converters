@@ -84,7 +84,8 @@
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD - Perl regular expression to match any bold text.
 #   ITALIC - Perl regular expression to match any italic text.
-#   REMOVE - A Perl regular expression for bits to be removed from SFM.     
+#   REMOVE - A Perl regular expression for bits to be removed from SFM. 
+#   REPLACE - A Perl replacement regular expression to apply to text.     
 
 # COMMAND FILE FOOTNOTE SETTINGS:
 #   FOOTNOTES - A Perl regular expression to match all SFM footnotes.
@@ -138,7 +139,12 @@ $PreverseTitleType = "";
 $removepattern="";
 $notePattern="";
 $NoteType="INLINE";
+$replace1="";
+$replace2="";
 $AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
+$addScripRefLink=0;
+$addDictLinks=0;
+$addCrossRefs=0;
 
 $line=0;
 while (<COMF>) {
@@ -198,6 +204,7 @@ while (<COMF>) {
   elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
   elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
   elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
+  elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
 
   # OT command...
   elsif ($_ =~ /^OT\s*$/) {
@@ -283,7 +290,9 @@ sub bookSFMtoOSIS {
   open(TMPI, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
   open(TMPO, ">:encoding(UTF-8)", $ThisSFM) or die "ERROR: Could not open temporary SFM file $ThisSFM\n";
   $removedSoftHyphens = 0;
+  $removedOnLine = 0;
   $fixedMultiVerseLines = 0;
+  $replacedOnLine = 0;
   $line = 0;
   while(<TMPI>) {  
     $line++;
@@ -291,6 +300,16 @@ sub bookSFMtoOSIS {
     my $sh = decode("utf8", "­");
     utf8::upgrade($sh);
     if ($_ =~ s/$sh//g) {$removedSoftHyphens++;}
+    
+    # Global REMOVE
+    if ($removepattern) {
+      if ($_ =~ s/($removepattern)//g) {$removedOnLine++;}
+    }
+      
+    # Global REPLACE
+    if ($replace1) {
+      if ($_ =~ s/$replace1/$replace2/g) {$replacedOnLine++;}
+    }
     
     # Remove [] around purposefully skipped verses so they will be recognized
     # [\v xxx]
@@ -310,8 +329,9 @@ sub bookSFMtoOSIS {
 
   # Read the paratext file and convert it
   open(INF, "<:encoding(UTF-8)", $ThisSFM) or print getcwd." ERROR: Could not open file $ThisSFM.\n";
-  
-  if ($removedSoftHyphens) {&Log("INFO: Removed $removedSoftHyphens soft hyphens.\n");}
+  if ($removedOnLine) {&Log("INFO: Removed /$removepattern/ on $removedOnLine lines.\n");}
+  if ($replacedOnLine) {&Log("INFO: Replaced /$replace1/ with /$replace2/ on $replacedOnLine lines.\n");}
+  if ($removedSoftHyphens) {&Log("INFO: Removed soft hyphens on $removedSoftHyphens lines.\n");}
   if ($fixedMultiVerseLines) {&Log("INFO: Normalized $fixedMultiVerseLines lines with multiple verses.\n");}
   &Write("<div type=\"book\" osisID=\"$bookName\">\n");
  
@@ -381,7 +401,6 @@ sub parseline($) {
   # replace paratext font tags
   if ($boldpattern)   {$_ =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
   if ($italicpattern) {$_ =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
-  if ($removepattern) {$_ =~ s/($removepattern)//g;}
   
   if ($MOD eq "TKL" || $MOD eq "TKC") {$_ =~ s/\\ior\*?//g; $_ =~ s/\\iot\*//g;} # the iot* is a MISTAKE in the paratext!!
   
@@ -543,7 +562,7 @@ sub parseline($) {
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
     if ($listStartPrinted ne "true") {$listStart = "<list type=\"x-list-2\">";}
     else {$listStart = "";}
-    $enum4 = chr(8226) . " -";
+    $enum4 = chr(8226) . " ";
     $readText = "$readText$listStart<item type=\"x-listitem\">$enum4 $myT</item>";
     $listStartPrinted = "true";
   }

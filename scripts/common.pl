@@ -487,9 +487,15 @@ sub checkGlossReferences($$\%) {
   move("$f.tmp", $f);
 
   foreach my $error (sort keys %errorList) {&Log($errorList{$error});}
-
-  if (%replaceList) {
-    &Log("\nLISTING OF FIXED GLOSSARY TARGETS:\n");
+  
+  my $total = 0;
+  foreach my $n (keys %replaceList) {$total += $replaceList{$n};}
+  &Log("\nREPORT: Listing of broken glossary targets which have been adjusted: ($total instances)\n");
+  if ($total) {
+    &Log("NOTE: These references were targetting non-existent glossary entries, but their targets\n");
+    &Log("have now been replaced with the closest matching target which does exist. These \n");
+    &Log("replacements should be checked for correctness. Any Adjustments can be enforced \n");
+    &Log("using DictionaryWords.txt.\n");
     &Log("GLOSSARY_TARGET: PREVIOUS_TARGET, MODNAME(s), NUMBER_CHANGED (CONTEXT IF USED)\n");
     foreach my $rep (sort keys %replaceList) {
       &Log("$rep, $replaceList{$rep}");
@@ -683,7 +689,7 @@ sub logGlossReplacements($\@\%\%) {
   &Log("    DL11:(be)?love(ed)?                      Any Perl regular expression\n");
   &Log("\n");
   &Log("    Multiple DL lines may reference a single DE line. So all DL01 instances will be matched \n");
-  &Log("    and will target DE01. A \"#\" at the beginning of a line is a comment and is ignored.\n");
+  &Log("    and will target DE01. A \"#\" at the beginning of a line is a comment line.\n");
   &Log("\n");
   &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
   foreach my $rep (sort keys %$rP) {
