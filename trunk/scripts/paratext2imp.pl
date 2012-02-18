@@ -40,8 +40,11 @@
 #       Only one SFM file per RUN command is allowed. 
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
+#   SET_combineLikeEntries - Set "true" to combine repeat entries
+#       into a single entry.
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
+#   START_WITH_NEWLINE - If true, entry text begins on new line.
 #   IGNORE - A tag-list for lines which should be ignored.
 #   PARAGRAPH - A tag-list for intented paragraphs.
 #   PARAGRAPH2 - A tag-list for doubly indented paragraphs.
@@ -59,7 +62,8 @@
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD - Perl regular expression to match any bold text.
 #   ITALIC - Perl regular expression to match any italic text. 
-#   REMOVE - Perl regular expression to match any SFM to be removed. 
+#   REMOVE - Perl regular expression to match any SFM to be removed.
+#   REPLACE - A Perl replacement regular expression to apply to text.    
 
 # COMMAND FILE FOOTNOTE SETTINGS:
 #   FOOTNOTE - A Perl regular expression to match all footnotes.
@@ -69,8 +73,6 @@
 #   GLOSSARY_ENTRY - A Perl regular expression to match 
 #       glossary entry names in the SFM.
 #   SEE_ALSO - A Perl regular expression to match "see-also" SFM tags.
-
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
 
 &Log("-----------------------------------------------------\nSTARTING paratext2imp.pl\n\n");
 
@@ -101,8 +103,15 @@ $notes = "";
 $crossrefs = "";
 $seealsopat = "";
 $breakbefore = "";
+$replace1="";
+$replace2="";
 $AllowSet = "imageDir|addScripRefLinks|addSeeAlsoLinks";
+$imageDir="";
+$addScripRefLinks=0;
+$addSeeAlsoLinks=0;
+$newLine="";
 
+undef(%Glossary);
 $tagsintext="";  
 $line=0;
 while (<COMF>) {
@@ -128,6 +137,7 @@ while (<COMF>) {
   elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
   
   # FORMATTING TAGS...
+  elsif ($_ =~ /^START_WITH_NEWLINE:\s*(.*?)\s*$/) {$newLine = $1; $newLine = ($newLine && $newLine !~ /^false$/i ? 1:0); next;}
   elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
   elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
   elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
@@ -149,11 +159,72 @@ while (<COMF>) {
   elsif ($_ =~ /^FOOTNOTE:(\s*(.*?)\s*)?$/) {if ($1) {$notes = $2; next;}}
   elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
   elsif ($_ =~ /^SEE_ALSO:(\s*\((.*?)\)\s*)?$/) {if ($1) {$seealsopat = $2; next;}}
+  elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
   
   # SFM file name...
   elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {&glossSFMtoIMP($1);}
   elsif ($_ =~ /^APPEND:\s*(.*?)\s*$/) {&appendIMP($1);}
   else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
+}
+
+$total = 0;
+$instances = "";
+foreach $e (keys %Glossary) {
+  if (@{$Glossary{$e}} > 1) {
+    $total++;
+    $instances .= "$e\n";
+    while (@{$Glossary{$e}} > 1) {
+      my $txt = splice(@{$Glossary{$e}}, 1, 1);
+      ${$Glossary{$e}}[0] .= $LB.$LB."\n".$txt;
+    }
+  }
+}
+&Log("\nREPORT: Repeated entries combined into a single entry: ($total instances)\n");
+if ($instances) {
+  &Log("NOTE: Glossary keys must be unique. So these entries with identical keys have been merged.\n");
+  &Log("$instances\n");
+}
+
+$total = 0;
+$instances = "";
+foreach $e1 (keys %Glossary) {
+  foreach $e2 (keys %Glossary) {
+    if ($e1 eq $e2) {next;}
+    if ($e1 =~ /$e2/i) {
+      $total++;
+      $instances .= "\"$e1\" contains \"$e2\"\n";
+    }
+  }
+}
+&Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
+if ($total) {
+  &Log("NOTE: Topics covered by these entries may overlap or be repeated.\n");
+  &Log("$instances\n");
+}
+
+$total = 0;
+$instances = "";
+foreach $e (keys %Glossary) {
+  if ($e =~ /(-|,|;|\[|\()/) {
+    $total++;
+    $instances .= "$e\n";
+  }
+}
+&Log("\nREPORT: Compound glossary entry names: ($total instances)\n");
+if ($total) {
+  &Log("NOTE: You may want add separate DL lines for each part into DictionaryWords.txt.\n");
+  &Log("$instances\n");
+}
+
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
+foreach $e (sort keys %Glossary) {
+  my $txt = ${$Glossary{$e}}[0];
+  
+  # begin with newline if needed
+  if ($newLine && $txt !~ /^\s*\Q$LB\E/) {$txt = $LB.$txt;}
+  if ($newLine) {$txt =~ s/^(\s*\Q$LB\E)+/$LB/;}
+  
+  print OUTF "\$\$\$$e\n$txt\n";
 }
 close (OUTF);
 
@@ -166,6 +237,7 @@ foreach $k (keys %convertEntryRemoved) {&Log("$k ");}
 
 # Write DictionaryWords.txt file
 open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) || die "ERROR: Could not open $OUTPUTFILE.\n";
+undef(@AllEntries);
 while(<INF>) {if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {push(@AllEntries, $1);}}
 close(INF);
 open(DWORDS, ">:encoding(UTF-8)", "$INPD/DictionaryWords_autogen.txt") || die "Error: Could not open $INPD/DictionaryWords.txt\n";
@@ -189,16 +261,25 @@ sub appendIMP($) {
   &Log("Appending $imp\n");
   &normalizeNewLines($imp);
   if (open(IMP, "<:encoding(UTF-8)", $imp)) {
+    my $ent = "";
+    my $txt = "";
     while(<IMP>) {
       if ($_ =~ /^\s*$/) {next;}
-      print OUTF $_;
+      if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {
+        my $e = $1;
+        if ($ent) {push(@{$Glossary{$ent}}, $txt);}
+        $ent = $e;
+        $txt = "";
+      }
+      else {$txt .= $_;}
     }
+    if ($ent) {push(@{$Glossary{$ent}}, $txt);}
   }
   else {&Log("ERROR: Could not append \"$imp\". File not found.\n");}
 }
 
 sub glossSFMtoIMP($) {
-  my $SFMfile = shift;
+  $SFMfile = shift;
   if ($SFMfile =~ /^\./) {
     chdir($INPD);
     $SFMfile = File::Spec->rel2abs($SFMfile);
@@ -212,12 +293,12 @@ sub glossSFMtoIMP($) {
   open(INF, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
 
   # Read the paratext file line by line
-  $lineSFM=0;
+  $SFMline=0;
   my $parsebuf = "";
   my $e;
   my $t;
   while (<INF>) {
-    $lineSFM++;
+    $SFMline++;
 
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^\s*\\($IgnoreTags)(\s|$)/) {next;}
@@ -246,32 +327,41 @@ sub convertEntry($) {
   return $e;
 }
 
-sub convertText($) {
+sub convertText($$) {
   my $l = shift;
+  my $e = shift;
   
+  if ($remove)    {
+    if ($l =~ s/($remove)//g) {&Log("INFO: Removed /$remove/ in $e lines.\n");}
+  }
+
+  if ($replace1) {
+    
+    if ($l =~ s/$replace1/my $r = eval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$replace2/ in $e\n");}
+  }
+   
   # text effect tags
   if ($bold)      {$l =~ s/($bold)/<hi type="bold">$+<\/hi>/g;}
   if ($italic)    {$l =~ s/($italic)/<hi type="italic">$+<\/hi>/g;}
-  if ($remove)    {$l =~ s/($remove)//g;}
-
+  
   # handle table tags
   my $hastable = 0;
   if ($l =~ /($tablerstart)/) {&convertTable(\$l); $hastable = 1;}
  
   $l =~ s/\s*\/\/\s*/ /g; # Force carriage return SFM marker
-  
+
   # paragraphs
-  if ($blankline) {$l =~ s/\\$blankline(\s|$)/$LB$LB/g;}
-  if ($normpar)   {$l =~ s/\\$normpar(\s|$)/$LB$INDENT/g;}
-  if ($doublepar) {$l =~ s/\\$doublepar(\s|$)/$LB$INDENT$INDENT/g;}
-  if ($triplepar) {$l =~ s/\\$triplepar(\s|$)/$LB$INDENT$INDENT$INDENT/g;}
+  if ($blankline) {$l =~ s/^\\($blankline)(\s|$)/$LB$LB/gm;}
+  if ($normpar)   {$l =~ s/^\\($normpar)(\s|$)/$LB$INDENT/gm;}
+  if ($doublepar) {$l =~ s/^\\($doublepar)(\s|$)/$LB$INDENT$INDENT/gm;}
+  if ($triplepar) {$l =~ s/^\\($triplepar)(\s|$)/$LB$INDENT$INDENT$INDENT/gm;}
 
   # footnotes, cross references, and glossary entries
   if ($seealsopat) {
-    $l =~ s/$seealsopat/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
+    $l =~ s/($seealsopat)/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
   }
-  if ($crossrefs) {$l =~ s/$crossrefs/<note type="crossReference">$+<\/note>/g;}
-  if ($notes)     {$l =~ s/$notes/<note>$+<\/note>/g;}
+  if ($crossrefs) {$l =~ s/($crossrefs)/<note type="crossReference">$+<\/note>/g;}
+  if ($notes)     {$l =~ s/($notes)/<note>$+<\/note>/g;}
      
   if ($breakbefore && !$hastable) {
     $l =~ s/($breakbefore)/$LB$LB$1/g;
@@ -330,21 +420,23 @@ sub Write($$) {
   my $t = shift;
   
   $e = &convertEntry($e);
-  $t = &convertText($t);
-  
-  push(@SFMEntries, $e);
+  $t = &convertText($t, $e);
   
   # remove any trailing LBs
   $t =~ s/((\Q$LB\E)|(\s))+$//;
   
-  my $print = "\$\$\$$e\n$t\n";
-  
-  my $save = $print;
+  my $save = $e;
   while ($print =~ s/(\\([\w]*)\*?)//) {
-    my $msg = "WARNING Before $ThisSFM Line $lineSFM: Tag \"$1\" was REMOVED from $save.\n";
+    my $msg = "WARNING Before $SFMfile Line $SFMline: Tag \"$1\" was REMOVED from entry name $e\n$save.\n";
     $tagsintext .= $msg;
   }
   
-  print OUTF $print;
+  my $save = $t;
+  while ($print =~ s/(\\([\w]*)\*?)//) {
+    my $msg = "WARNING Before $SFMfile Line $SFMline: Tag \"$1\" was REMOVED from entry text $e\n$save.\n";
+    $tagsintext .= $msg;
+  }
+  
+  push(@{$Glossary{$e}}, $t);
   &logProgress($e);
 }

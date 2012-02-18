@@ -195,7 +195,7 @@ while (<CF>) {
 		push(@abkn, $elb);
 	}
 	else {
-		&Log("WARNING: \"$_\" in command file was not handled.\n");
+		&Log("ERROR: \"$_\" in command file was not handled.\n");
 	}
 }
 if (!@abkn) {$ebookNames="none";}
@@ -1095,9 +1095,9 @@ sub validOSISref($$$) {
 	else {
 		return 0;
 	}
-	
+
 	my $bok1 = exists($mycanon{$bk1});
-  my $bok2 = (!$bk2 || exists($mycanon{$bk2}));
+  my $bok2 = ($bk2=="" || exists($mycanon{$bk2}));
 
 	return ($bok1 && $bok2);
 }

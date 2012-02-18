@@ -126,7 +126,7 @@ if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture refe
 if ($addScripRefLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
   if (!$ConfEntry{"ReferenceBible"}) {
-    &Log("WARNING: ReferenceBible is not specified in $CONFFILE.\n");
+    &Log("ERROR: ReferenceBible is not specified in $CONFFILE.\n");
     &Log("Any companion Bible should be listed in $CONFFILE: ReferenceBible=<BibleModName>\n");
   }
   $INPUTFILE = "$TMPDIR/".$MOD."_1.imp";

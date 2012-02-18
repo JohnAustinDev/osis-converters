@@ -97,7 +97,7 @@ else {
       }
     }
     # Remove empty cross referece footnotes
-    if ($nts =~ /<note type="crossReference">\s*<\/note>/) {
+    if ($nts =~ /<note [^>]*type="crossReference"[^>]*>\s*<\/note>/) {
       $emptyRefs++;
       &Log("WARNING line $line: Removed empty cross reference note for $bcv: $printRefs\n");
       next;

@@ -131,7 +131,6 @@ close(CONF);
 $cmd = &escfile($SWORD_BIN."mod2zmod")." $RMOD ".&escfile("$SWDD/modules/texts/ztext/$MODLC")." 4 2 >> ".&escfile($LOGFILE);
 &Log("$cmd\n", -1);
 system($cmd);
-system($cmd);
 $installSize = 0;        
 # NOTE: this installSize should not include the index.     
 find(sub { $installSize += -s if -f $_ }, "$SWDD/modules/texts/ztext/$MODLC");
