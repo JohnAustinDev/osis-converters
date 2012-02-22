@@ -61,7 +61,6 @@ $LOGFILE = "$INPD/OUT_osis2sword.txt";
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
 if (-e "$INPD/sword") {$delete .= "$INPD/sword\n";}
-if (-e "$INPD/$MOD.zip") {$delete .= "$INPD/$MOD.zip\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
@@ -69,7 +68,6 @@ if ($delete) {
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$INPD/sword") {remove_tree("$INPD/sword");}
-if (-e "$INPD/$MOD.zip") {unlink("$INPD/$MOD.zip");}
 
 $TMPDIR = "$INPD/tmp/osis2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
@@ -89,11 +87,11 @@ make_path("$tmp/mods.d");
 copy("$SWDD/mods.d/$MODLC.conf", "$tmp/mods.d/$MODLC.conf");
 &copy_dir("$SWDD/$MODPATH", "$tmp/$MODPATH");
 if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$INPD\\$MOD.zip\" -r \"$tmp\\*\"`;
+  `7za a -tzip \"$SWDD\\$MOD.zip\" -r \"$tmp\\*\"`;
 }
 else {
   chdir($tmp);
-  `zip -r \"$INPD/$MOD.zip\" ./*`;
+  `zip -r \"$SWDD/$MOD.zip\" ./*`;
   chdir($INPD);
 }
 

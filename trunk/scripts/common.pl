@@ -127,6 +127,7 @@ sub addRevisionToCF($) {
 
 sub getInfoFromConf($) {
   my $conf = shift;
+  undef(%ConfEntry);
   &normalizeNewLines($conf);
   open(CONF, "<:encoding(UTF-8)", $conf) || die "Could not open $conf\n";
   while(<CONF>) {
