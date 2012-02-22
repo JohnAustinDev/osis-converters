@@ -94,6 +94,8 @@ $tablec1 = "none";
 $tablec2 = "none";
 $tablec3 = "none";
 $tablec4 = "none";
+$tablec5 = "none";
+$tablec6 = "none";
 $tablerend = "none";
 $bold = "";
 $italic = "";
@@ -148,6 +150,8 @@ while (<COMF>) {
   elsif ($_ =~ /^TABLE_COL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec2= $2; next;}}
   elsif ($_ =~ /^TABLE_COL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec3= $2; next;}}
   elsif ($_ =~ /^TABLE_COL4:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec4= $2; next;}}
+  elsif ($_ =~ /^TABLE_COL5:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec5= $2; next;}}
+  elsif ($_ =~ /^TABLE_COL6:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec6= $2; next;}}
   elsif ($_ =~ /^TABLE_ROW_END:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerend= $2; next;}}
   elsif ($_ =~ /^BREAK_BEFORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$breakbefore= $2; next;}}
 
@@ -381,12 +385,13 @@ sub convertTable(\$) {
   #my $w3 = "%-".&getWidestW($tP, "\\t[hc]3 ", quotemeta($LB))."s";
   
   if ($tablerstart) {
-    if ($tablec1) {$$tP =~ s/($tablec1)(.*?)(($tablec2)|($tablerend))/my $a=$2; my $b=$3;my $f = &formatCell($a, $b).$b;/ge;}
+    if ($tablec1) {$$tP =~ s/($tablec1)(.*?)(($tablec2)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
     if ($tablec2) {$$tP =~ s/($tablec2)(.*?)(($tablec3)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
     if ($tablec3) {$$tP =~ s/($tablec3)(.*?)(($tablec4)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec4) {$$tP =~ s/($tablec4)(.*?)($tablerend)/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
+    if ($tablec4) {$$tP =~ s/($tablec4)(.*?)(($tablec5)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
+    if ($tablec5) {$$tP =~ s/($tablec5)(.*?)(($tablec6)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
+    if ($tablec6) {$$tP =~ s/($tablec6)(.*?)($tablerend)/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
 
-     
     $$tP =~ s/($tablerstart)/$LB/g; # add one line-break before start of other rows 
     $$tP =~ s/\s*($tablerend)\s*/$LB$1/g; # add line-breaks after each table row
   }
