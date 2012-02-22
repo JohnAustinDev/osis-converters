@@ -1,0 +1,31 @@
+# osis-converters rev-50
+# Example command file
+# see xsm.pl for more information
+#
+# ABOUT SFM & COMMAND FILES:
+#  -The CF_xsm.txt command file is executed from top to
+#   bottom. All settings remain in effect until/unless changed (so
+#   settings may be set more than once). 
+#
+#  -Some less commonly used settings are not included in this example
+#   command file. See xsm.pl for a complete listing.
+#
+########################################################################
+
+SET_includeIndexes:false
+SET_includeSecurityKeys:false
+SET_swordDirectory:/home/proj/repository/modsword/raw
+  
+# These settings specify all contents for a module.
+# ADD settings may be repeated multiple times.
+# A new module is created when CREATE_XSM is called, after which all
+# settings are cleared. Then further modules may then be created.
+
+NAME:aModuleName
+VERSION:3.0
+
+ADD_SWORD:TQL
+ADD_SWORD:TQLDNT
+ADD_SWORD:TQLDOT
+
+CREATE_XSM
