@@ -255,7 +255,7 @@ sub appendIMP($) {
   if ($imp =~ /^\./) {
     chdir($INPD);
     $imp = File::Spec->rel2abs($imp);
-    chdir($SRCD);
+    chdir($SCRD);
   }
   
   &Log("Appending $imp\n");
@@ -283,7 +283,7 @@ sub glossSFMtoIMP($) {
   if ($SFMfile =~ /^\./) {
     chdir($INPD);
     $SFMfile = File::Spec->rel2abs($SFMfile);
-    chdir($SRCD);
+    chdir($SCRD);
   }
 
   &Log("Processing $SFMfile\n");
@@ -320,6 +320,7 @@ sub glossSFMtoIMP($) {
 sub convertEntry($) {
   my $e = shift;
   $e =~ s/\\(\w+[\s\*])/$convertEntryRemoved{"\\$1"}++; my $t="";/eg;
+  $e =~ s/\|([ibr])/$convertEntryRemoved{"|$1"}++; my $t="";/egi;
   $e =~ s/<[^>]*>/$convertEntryRemoved{"$1"}++; my $t="";/eg;
   $e =~ s/(^\s*|\s*$)//g;
   $e =~ s/\s+/ /g;
@@ -426,14 +427,14 @@ sub Write($$) {
   $t =~ s/((\Q$LB\E)|(\s))+$//;
   
   my $save = $e;
-  while ($print =~ s/(\\([\w]*)\*?)//) {
-    my $msg = "WARNING Before $SFMfile Line $SFMline: Tag \"$1\" was REMOVED from entry name $e\n$save.\n";
+  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+    my $msg = "WARNING Before $SFMfile Line $SFMline: SFM Tag \"$+\" was REMOVED from entry name $e\n$save.\n";
     $tagsintext .= $msg;
   }
   
   my $save = $t;
-  while ($print =~ s/(\\([\w]*)\*?)//) {
-    my $msg = "WARNING Before $SFMfile Line $SFMline: Tag \"$1\" was REMOVED from entry text $e\n$save.\n";
+  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+    my $msg = "WARNING Before $SFMfile Line $SFMline: SFM Tag \"$+\" was REMOVED from entry text $e\n$save.\n";
     $tagsintext .= $msg;
   }
   

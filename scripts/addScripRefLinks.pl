@@ -472,7 +472,7 @@ sub addLinks(\$$$) {
       my $mtENC = quotemeta($matchedTerm);
       
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*((($ebookNames|$chapTerms|$verseTerms)($suffixTerms)*)|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
-        &Log("$line WARNING $BK.$CH.$VS: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
+        &Log("$line ERROR $BK.$CH.$VS: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
         $numMissedLeftRefs++;
         $missedLeftRefs{$matchedTerm} .= $line.", ";
         &hideTerm($matchedTerm, $ttP, 1);
