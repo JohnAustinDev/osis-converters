@@ -151,9 +151,8 @@ while (<COMF>) {
   $line++;
   
   if ($_ =~ /^\s*$/) {next;}
-  elsif ($_ =~ /^\#/) {next;}
-  # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
+  # VARIOUS SETTINGS...
   elsif ($_ =~ /^SET_($AllowSet):(\s*(\S+)\s*)?$/) {
     if ($2) {
       my $par = $1;
@@ -245,6 +244,8 @@ while (<COMF>) {
   else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
 }
 
+close(COMF);
+
 # Write closing tags, and close the output file
 &Write("$endTestament\n</osisText>\n</osis>\n");
 close (OUTF);
@@ -258,7 +259,7 @@ if ($findalltags ne "true") {
 else {
   &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
 }
-foreach $tag (keys %skippedTags) {
+foreach $tag (sort keys %skippedTags) {
   #&Log("$skippedTags{$tag}"); #complete printout
   &Log("$tag "); #brief printout
 }
@@ -329,7 +330,7 @@ sub bookSFMtoOSIS {
 
   # Read the paratext file and convert it
   open(INF, "<:encoding(UTF-8)", $ThisSFM) or print getcwd." ERROR: Could not open file $ThisSFM.\n";
-  if ($removedOnLine) {&Log("INFO: Removed /$removepattern/ on $removedOnLine lines.\n");}
+  if ($removedOnLine) {&Log("INFO: Applied REMOVE on $removedOnLine lines.\n");}
   if ($replacedOnLine) {&Log("INFO: Replaced /$replace1/ with /$replace2/ on $replacedOnLine lines.\n");}
   if ($removedSoftHyphens) {&Log("INFO: Removed soft hyphens on $removedSoftHyphens lines.\n");}
   if ($fixedMultiVerseLines) {&Log("INFO: Normalized $fixedMultiVerseLines lines with multiple verses.\n");}
@@ -514,11 +515,11 @@ sub parseline($) {
     
     # If an empty canonical title marker was previously found, process the current verse line as a canonical title
     if ($nextVerseIsCanonTitle eq "true") {
-      $ignoreNextLB="t";
-      $canonTitle="$canonTitle $myT";
-      $titleText="";
+      $verseTitle .= "<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$myT</title>";
       $myT="";
+      $nextVerseIsCanonTitle = "false";
     }
+    
     # Save current verse in print buffer 
     $readText = "<verse sID=\"$bookName.$myChap.$myV\" osisID=\"$bookName.$myChap.$myV\"/>$verseTitle$prepend$myT";
     $endVerse = "<verse eID=\"$bookName.$myChap.$myV\"/>\n";
@@ -680,16 +681,8 @@ sub parseline($) {
     &encodeNotes;
     $EmptyLine = ""; #($myT ? "":"<lb />");
     # After canonical title, we need no line break, and if empty, we need nothing at all
-    if ($ignoreNextLB eq "t") {
-      $ignoreNextLB="";
-      $nextVerseIsCanonTitle = "false";
-      &Write("$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$canonTitle</title>\n");
-      $canonTitle="";
-      if ($myT ne "") {$readText = "$readText$myT";}
-      else {$readText="";}
-    }
-    elsif($tag =~ /^($doublepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$myT";}
-    elsif($tag =~ /^($triplepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$INDENT$myT";}
+    if ($tag =~ /^($doublepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$myT";}
+    elsif ($tag =~ /^($triplepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$INDENT$myT";}
     else {$readText = "$readText<lb />$EmptyLine$INDENT$myT";}
   }
   # BLANK LINE MARKER
@@ -948,9 +941,8 @@ sub Write($) {
   # make sure we don't get more than one blank line between verses
   $print =~ s/(<lb[^\/]*\/><lb[^\/]*\/>)(<lb[^\/]*\/>)+/$1/g;
   
-  while ($print =~ s/(\\([\w]*)\*?)//) {
-    $tag = $2;
-    $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$1\" in \"$bookName\" was REMOVED.\n";
+  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+    $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$+\" in \"$bookName\" was REMOVED.\n";
   }
   print OUTF $print;
 }
