@@ -383,14 +383,14 @@ sub convertTable(\$) {
   #my $w1 = "%-".&getWidestW($tP, "\\t[hc]1 ", "\\t[hc]2 ")."s | ";
   #my $w2 = "%-".&getWidestW($tP, "\\t[hc]2 ", "\\t[hc]3 ")."s | ";
   #my $w3 = "%-".&getWidestW($tP, "\\t[hc]3 ", quotemeta($LB))."s";
-  
+
   if ($tablerstart) {
-    if ($tablec1) {$$tP =~ s/($tablec1)(.*?)(($tablec2)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec2) {$$tP =~ s/($tablec2)(.*?)(($tablec3)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec3) {$$tP =~ s/($tablec3)(.*?)(($tablec4)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec4) {$$tP =~ s/($tablec4)(.*?)(($tablec5)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec5) {$$tP =~ s/($tablec5)(.*?)(($tablec6)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
-    if ($tablec6) {$$tP =~ s/($tablec6)(.*?)($tablerend)/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/ge;}
+    if ($tablec1) {$$tP =~ s/($tablec1)(.*?)(($tablec2)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
+    if ($tablec2) {$$tP =~ s/($tablec2)(.*?)(($tablec3)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
+    if ($tablec3) {$$tP =~ s/($tablec3)(.*?)(($tablec4)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
+    if ($tablec4) {$$tP =~ s/($tablec4)(.*?)(($tablec5)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
+    if ($tablec5) {$$tP =~ s/($tablec5)(.*?)(($tablec6)|($tablerend))/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
+    if ($tablec6) {$$tP =~ s/($tablec6)(.*?)($tablerend)/my $a=$2; my $b=$3; my $f = &formatCell($a, $b).$b;/sge;}
 
     $$tP =~ s/($tablerstart)/$LB/g; # add one line-break before start of other rows 
     $$tP =~ s/\s*($tablerend)\s*/$LB$1/g; # add line-breaks after each table row
@@ -400,7 +400,6 @@ sub convertTable(\$) {
 sub formatCell($$) {
   my $t = shift;
   my $e = shift;
- 
   my $cs = "%s | ";
   my $cl = "%s"; 
   $t =~ s/(^\s*|\s*$)//g;
