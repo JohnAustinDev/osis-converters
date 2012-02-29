@@ -126,7 +126,13 @@ else {
       foreach $sb (@parts){
         if ($sb !~ /$splitter/) {
           foreach $w (sort {length($b) <=> length($a)} @dict) {
-            if ($w eq $currentEntry) {next;}
+            my $skip=0;
+            for (my $i=0; $i<@dict; $i++) {
+              if ($dict[$i] eq $w) {
+                if ($entry[$i] eq $currentEntry) {$skip=1;}
+              }
+            }
+            if ($skip) {next;}
             if ($allowidentlinks ne "true") {if ($linksInEntry =~ /;$w;/i) {next;}}
             if ($dontlinkto =~ /(^|;)$w;/i) {next;}
             if ($dontlinktoainb =~ /(^|;)$w,$currentEntry;/i) {next;}
