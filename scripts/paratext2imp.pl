@@ -342,7 +342,7 @@ sub convertText($$) {
 
   if ($replace1) {
     
-    if ($l =~ s/$replace1/my $r = eval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$replace2/ in $e\n");}
+    if ($l =~ s/$replace1/my $r = &varEval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$replace2/ in $e\n");}
   }
    
   # text effect tags
@@ -373,6 +373,12 @@ sub convertText($$) {
   }
   
   return $l;  
+}
+
+sub varEval($) {
+  my $r = shift;
+  if ($r =~ /\$/) {$r = eval($r);}
+  return $r;
 }
 
 sub convertTable(\$) {
