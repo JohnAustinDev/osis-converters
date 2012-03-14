@@ -25,7 +25,8 @@ $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-$SVNREV = `svn info "$SCRD" 2>&1`;
+$SVNREV = "svn info ".__FILE__." 2>&1";
+$SVNREV = `$SVNREV`;
 if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
 else {$SVNREV = "";}
 
@@ -120,9 +121,9 @@ sub addRevisionToCF($) {
       }
       else {unlink("$f.tmp");}
     }
-    else {&Log("WARNING: Could not add revision to command file.\n");}
+    else {&Log("ERROR: Could not add revision to command file.\n");}
   }
-  else {&Log("WARNING: SVN revision unknown.\n");}
+  else {&Log("ERROR: SVN revision unknown.\n");}
 }
 
 sub getInfoFromConf($) {
