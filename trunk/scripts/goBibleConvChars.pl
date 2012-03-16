@@ -16,7 +16,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-$maxUnicode = 1105; # Default value: highest Russian Cyrillic Uncode code point
+$maxUnicode = 1103; # Default value: highest Russian Cyrillic Uncode code point
 
 sub goBibleConvChars($\@) {
   my $type = shift;
@@ -82,7 +82,7 @@ sub goBibleConvChars($\@) {
       for ($i=0; $i<@FROM; $i++) {
         $r = @FROM[$i];
         $s = @TO[$i];
-        $_ =~ s/$r/$s/g; # simplify the character set      
+        $_ =~ s/\Q$r\E/$s/g; # simplify the character set      
       }
       
       # Change jar name if "simple"
@@ -116,7 +116,6 @@ sub WriteGB($) {
     my $c = substr($print, $i, 1);
     if (ord($c) > $maxUnicode) {$highUnicode{$c} = $highUnicode{$c}.$file."-".$line."-".$i." ";}
   }
-  my $utf8 = encode("utf8", $print);
-  print OUTF $utf8;
+  print OUTF $print;
 }
 ;1
