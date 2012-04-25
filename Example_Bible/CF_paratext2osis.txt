@@ -1,3 +1,4 @@
+# osis-converters rev-58
 # Example command file
 # see paratext2osis.pl for more information
 #
