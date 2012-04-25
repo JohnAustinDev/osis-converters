@@ -146,6 +146,10 @@ if (!$ConfEntry{"SwordVersionDate"}) {
   my @tm = localtime(time);
   print CONF $ret."SwordVersionDate=".sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3])."\n"; $ret="";
 }
+# The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
+if (!$ConfEntry{"CaseSensitiveKeys"}) {
+  print CONF $ret."CaseSensitiveKeys=true\n"; $ret="";
+}
 close(CONF);
 
 # create new module files

@@ -32,7 +32,7 @@ else {$SVNREV = "";}
 
 sub initPaths() {
   chdir($SCRD);
-  $PATHFILE = "$SCRD/CF_paths";
+  $PATHFILE = "$SCRD/CF_paths.txt";
   if (open(PTHS, "<:encoding(UTF-8)", $PATHFILE)) {
     while(<PTHS>) {
       if ($_ =~ /^SWORD_PATH:\s*(.*?)\s*$/) {if ($1) {$SWORD_PATH = $1;}}
