@@ -142,6 +142,9 @@ if ($ConfEntry{"MinimumVersion"} ne "1.5.11") {
 if ($ConfEntry{"SourceType"} ne "OSIS") {
   print CONF $ret."SourceType=OSIS\n"; $ret="";
 }
+if (!$ConfEntry{"SearchOption"}) {
+  print CONF $ret."SearchOption=IncludeKeyInSearch\n"; $ret="";
+}
 if (!$ConfEntry{"SwordVersionDate"}) {
   my @tm = localtime(time);
   print CONF $ret."SwordVersionDate=".sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3])."\n"; $ret="";
