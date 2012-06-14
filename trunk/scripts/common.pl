@@ -77,6 +77,7 @@ sub normalizeNewLines($) {
   if(open(NFRS, "<:encoding(UTF-8)", $f)) {
     open(NFRT, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Unable to open \"$f.tmp\".\n";
     while(<NFRS>) {
+      $_ =~ tr/\x{feff}//d;
       $_ =~ s/([\r\n]*)$//;
       $_ .= "\n";
       print NFRT $_;
