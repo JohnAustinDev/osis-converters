@@ -25,10 +25,20 @@ $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-$SVNREV = "svn info ".__FILE__." 2>&1";
-$SVNREV = `$SVNREV`;
-if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
-else {$SVNREV = "";}
+
+# Get our current osis-converters revision number
+if ("$^O" =~ /MSWin32/i) {
+  $SVNREV = "SubWCRev \"".__FILE__."\" 2>&1";
+  $SVNREV = `$SVNREV`;
+  if ($SVNREV && $SVNREV =~ /^Updated to revision\s*(\d+)\s*$/mi) {$SVNREV = $1;}
+  else {$SVNREV = "";} 
+}
+else {
+  $SVNREV = "svn info ".__FILE__." 2>&1";
+  $SVNREV = `$SVNREV`;
+  if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
+  else {$SVNREV = "";}
+}
 
 sub initPaths() {
   chdir($SCRD);
