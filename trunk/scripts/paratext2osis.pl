@@ -514,13 +514,14 @@ sub parseline($) {
     }
     
     # If an empty canonical title marker was previously found, process the current verse line as a canonical title
-    if ($nextVerseIsCanonTitle eq "true") {
-      $verseTitle .= "<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$myT</title>";
+    if ($nextVerseIsCanonTitle) {
+      $verseTitle .= "<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"".$nextVerseIsCanonTitle."\">$myT</title>";
       $myT="";
-      $nextVerseIsCanonTitle = "false";
+      $nextVerseIsCanonTitle = 0;
     }
     
     # Save current verse in print buffer 
+    if (!$myT && !$prepend) {$myT = " ";} # verse must not be empty or else emptyvss fails
     $readText = "<verse sID=\"$bookName.$myChap.$myV\" osisID=\"$bookName.$myChap.$myV\"/>$verseTitle$prepend$myT";
     $endVerse = "<verse eID=\"$bookName.$myChap.$myV\"/>\n";
   
@@ -637,7 +638,7 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($canonicaltitle)(\s+|$)(.*)/) {
     $myT=$3;
     # If canonical title marker is blank, then next verse will be formatted as a title
-    if ($myT eq "") {$nextVerseIsCanonTitle = "true";}
+    if ($myT eq "") {$nextVerseIsCanonTitle = 1;}
     else {
       if ($MoveTitleNotes eq "true") {
         $noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
@@ -658,18 +659,22 @@ sub parseline($) {
   # CANONICAL TITLE LEVEL 2
   elsif ($_ =~ /^[\s\W]*\\($canonicaltitle2)(\s+|$)(.*)/) {
     $myT=$3;
-    if ($MoveTitleNotes eq "true") {
-      $noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
-      &encodeNotes;
-      while ($myT =~ s/(<note.*?<\/note>)//) {
-        $titleNotes = "$titleNotes$1";
-        &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
-      }
-    }
-    else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-    if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" type=\"x-intro\">$myT</title>";}
+    # If canonical title marker is blank, then next verse will be formatted as a title
+    if ($myT eq "") {$nextVerseIsCanonTitle = 2;}
     else {
-      $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"2\">$myT</title>";
+      if ($MoveTitleNotes eq "true") {
+        $noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
+        &encodeNotes;
+        while ($myT =~ s/(<note.*?<\/note>)//) {
+          $titleNotes = "$titleNotes$1";
+          &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
+        }
+      }
+      else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+      if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" type=\"x-intro\">$myT</title>";}
+      else {
+        $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"2\">$myT</title>";
+      }
     }
   }
   ################## PARATEXT PARAGRAPH AND POETRY MARKERS ######################
