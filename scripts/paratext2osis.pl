@@ -834,7 +834,7 @@ sub readFootNoteFileWithRefs {
       $c = $1;
       $v1 = $2;
       $v2 = $3;
-      $t = "\($2-$3\) $4";
+      $t = "\[$2-$3\] $4";
       #&Log("INFO 1: $bookName,$c,$v,$inst Footnote covered multiple verses.\n");
       $t =~ s/\|i([^\|]*)\|r/<hi type="italic">$1<\/hi>/g;
       $t =~ s/\|b([^\|]*)\|r/<hi type="bold">$1<\/hi>/g;
@@ -893,14 +893,14 @@ sub readFootNoteFileWithoutRefs {
     elsif ($_ =~ /\\fuz/) {
       if ($_ =~ s/^[\s\W]*\\fuz \|b(\d+):(.*?)\|r //) {
         $c=$1; $v=$2;
-        if ($v =~ /(\d+)-(\d+)/) {$_ = "($v) $_";} 
+        if ($v =~ /(\d+)-(\d+)/) {$_ = "[$v] $_";} 
         $notes{$thisNote} = "$bookName,$c,$v,$_";
         #&Log("Read Note: $thisNote $notes{$thisNote}\n");
         $noteNum++;
       }
       elsif ($_ =~ s/^[\s\W]*\\fuz \|b(\d+)\|r //) {
         $c=$1; $v=1;
-        if ($v =~ /(\d+)-(\d+)/) {$_ = "($v) $_";}
+        if ($v =~ /(\d+)-(\d+)/) {$_ = "[$v] $_";}
         $notes{$thisNote} = "$bookName,$c,$v,$_";
         #&Log("Read Note: $thisNote $notes{$thisNote}\n");
         $noteNum++;
