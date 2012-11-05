@@ -158,8 +158,8 @@ close(CONF);
 # create new module files
 make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
-$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." -o ./$MODLC -4 >> ".&escfile($LOGFILE);
-#$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile("$INPD/$MOD.imp")." $MODLC >> ".&escfile($LOGFILE);
+$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." -o ./$MODLC -4 >> ".&escfile($LOGFILE);
+#$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." $MODLC >> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
 chdir($INPD);
