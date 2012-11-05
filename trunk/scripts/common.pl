@@ -49,6 +49,7 @@ sub initPaths() {
       if ($_ =~ /^SWORD_BIN:\s*(.*?)\s*$/) {if ($1) {$SWORD_BIN = $1;}}
       if ($_ =~ /^XMLLINT:\s*(.*?)\s*$/) {if ($1) {$XMLLINT = $1;}}
       if ($_ =~ /^GO_BIBLE_CREATOR:\s*(.*?)\s*$/) {if ($1) {$GOCREATOR = $1;}}
+      if ($_ =~ /^OUTDIR:\s*(.*?)\s*$/) {if ($1) {$OUTDIR = $1;}}
     }
     close(PTHS);
     
@@ -58,6 +59,16 @@ sub initPaths() {
     if ($SWORD_BIN && $SWORD_BIN !~ /[\\\/]$/) {$SWORD_BIN .= "/";}
     if ($XMLLINT && $XMLLINT =~ /^\./) {$XMLLINT = File::Spec->rel2abs($XMLLINT);}
     if ($XMLLINT && $XMLLINT !~ /[\\\/]$/) {$XMLLINT .= "/";}
+    if ($OUTDIR && $OUTDIR =~ /^\./) {$OUTDIR = File::Spec->rel2abs($OUTDIR);}
+    
+    if ($OUTDIR) {
+      $OUTDIR =~ s/\/\s*$//; # remove any trailing slash
+      $INPD =~ /([^\/]+)([\/\.]*\s*)?$/;
+      my $dn = $1;
+      if (!$dn) {$dn = "OUTPUT";}
+      $OUTDIR .= "/".$dn; # use input directory name as this output subdirectory
+      if (!-e $OUTDIR) {make_path($OUTDIR);}
+    }
   }
   else {
     open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
@@ -70,8 +81,12 @@ sub initPaths() {
     print PTHS "SWORD_BIN:\n\n";
     print PTHS "# Set XMLLINT to the xmllint executable's directory if\n# it's not in your PATH.\n";
     print PTHS "XMLLINT:\n\n";
+    print PTHS "# Set OUTDIR to the directory where output files should go.\nDefault is the inputs directory.\n";
+    print PTHS "OUTDIR:\n\n";
     close(PTHS);
   }
+  
+  if (!-e $OUTDIR) {$OUTDIR = $INPD; $OUTDIR_IS_INDIR = 1;}
 }
 
 # osis-converters runs in both Linux and Windows, and input files

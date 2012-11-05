@@ -309,7 +309,13 @@ sub bookSFMtoOSIS {
       
     # Global REPLACE
     if ($replace1) {
-      if ($_ =~ s/$replace1/$replace2/g) {$replacedOnLine++;}
+      if ($replace2 =~ /\$/) {
+        my $r;
+        if ($_ =~ s/$replace1/$r = eval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$r/.\n"); {$replacedOnLine++;}}
+      }
+      else {
+        if ($_ =~ s/$replace1/$replace2/g) {&Log("INFO: Replaced /$replace1/ with /$replace2/.\n"); {$replacedOnLine++;}}
+      }
     }
     
     # Remove [] around purposefully skipped verses so they will be recognized

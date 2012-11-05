@@ -68,8 +68,9 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
-$GBOUT = "$GOBIBLE/$MOD$REV";
-$LOGFILE = "$INPD/OUT_osis2GoBible.txt";
+$GBOUT = "$OUTDIR/GoBible/$MOD$REV";
+
+$LOGFILE = "$OUTDIR/OUT_osis2GoBible.txt";
 my $delete;
 if (-e $GBOUT) {$delete .= "$GBOUT\n";}
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -83,7 +84,7 @@ if (-e $LOGFILE) {unlink($LOGFILE);}
 
 make_path($GBOUT);
 
-$TMPDIR = "$INPD/tmp/osis2GoBible";
+$TMPDIR = "$OUTDIR/tmp/osis2GoBible";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
@@ -91,7 +92,7 @@ make_path($TMPDIR);
 
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-$INPUTFILE = "$INPD/$MOD.xml";
+$INPUTFILE = "$OUTDIR/$MOD.xml";
 $OUTPUTFILE = "$TMPDIR/osis.xml";
 require("$SCRD/scripts/goBibleFromOsis.pl");
 
