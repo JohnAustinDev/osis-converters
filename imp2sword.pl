@@ -70,32 +70,32 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
-$IMPFILE = "$INPD/$MOD.imp";
+$IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 
-$LOGFILE = "$INPD/OUT_imp2sword.txt";
+$LOGFILE = "$OUTDIR/OUT_imp2sword.txt";
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$INPD/sword") {$delete .= "$INPD/sword\n";}
-if (-e "$INPD/$MOD.zip") {$delete .= "$INPD/$MOD.zip\n";}
+if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
+if (-e "$OUTDIR/$MOD.zip") {$delete .= "$OUTDIR/$MOD.zip\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
   if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$INPD/sword") {remove_tree("$INPD/sword");}
-if (-e "$INPD/$MOD.zip") {unlink("$INPD/$MOD.zip");}
+if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
+if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 
 &Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
-$TMPDIR = "$INPD/tmp/dict2mod";
+$TMPDIR = "$OUTDIR/tmp/dict2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
 &Log("\n--- CREATING NEW $MOD MODULE\n");
-$SWDD = "$INPD/sword";
+$SWDD = "$OUTDIR/sword";
 
 # create new conf
 if (!-e "$SWDD/mods.d") {make_path("$SWDD/mods.d");}
@@ -180,12 +180,12 @@ close(CONF);
 # make a zipped copy of the module
 &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
 if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$INPD\\$MOD.zip\" -r \"$SWDD\\*\"`;
+  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$SWDD\\*\"`;
 }
 else {
   chdir($SWDD);
   my $tSWDD = quotemeta($SWDD);
-  `zip -r \"$INPD/$MOD.zip\" ./*`;
+  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
   chdir($INPD);
 }
 

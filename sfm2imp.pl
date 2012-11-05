@@ -60,8 +60,8 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
-$IMPFILE = "$INPD/".$MOD.".imp";
-$LOGFILE = "$INPD/OUT_sfm2imp.txt";
+$IMPFILE = "$OUTDIR/".$MOD.".imp";
+$LOGFILE = "$OUTDIR/OUT_sfm2imp.txt";
 
 my $delete;
 if (-e $IMPFILE) {$delete .= "$IMPFILE\n";}
@@ -74,7 +74,7 @@ if ($delete) {
 if (-e $IMPFILE) {unlink($IMPFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
-$TMPDIR = "$INPD/tmp/src2imp";
+$TMPDIR = "$OUTDIR/tmp/src2imp";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
@@ -144,12 +144,12 @@ if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link
 if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
   &Log("\n--- ADDING DICTIONARY LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
-  $OUTPUTFILE = "$INPD/".$MOD.".imp";
+  $OUTPUTFILE = "$OUTDIR/".$MOD.".imp";
   $NOCONSOLELOG = 1;
   require("$SCRD/scripts/addSeeAlsoLinks.pl");
   $NOCONSOLELOG = 0;
 }
-else {rename("$TMPDIR/".$MOD."_2.imp", "$INPD/".$MOD.".imp");}
+else {rename("$TMPDIR/".$MOD."_2.imp", "$OUTDIR/".$MOD.".imp");}
 close(CONF);
 
 1;

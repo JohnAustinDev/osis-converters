@@ -54,30 +54,30 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
-$OSISFILE = "$INPD/".$MOD.".xml";
+$OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
-$LOGFILE = "$INPD/OUT_osis2sword.txt";
+$LOGFILE = "$OUTDIR/OUT_osis2sword.txt";
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$INPD/sword") {$delete .= "$INPD/sword\n";}
+if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
   if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$INPD/sword") {remove_tree("$INPD/sword");}
+if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
-$TMPDIR = "$INPD/tmp/osis2mod";
+$TMPDIR = "$OUTDIR/tmp/osis2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
-if (!-e "$INPD/sword") {make_path("$INPD/sword");}
+if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
 # create raw and zipped modules from OSIS
-$SWDD = "$INPD/sword";
+$SWDD = "$OUTDIR/sword";
 require("$SCRD/scripts/makeCompressedMod.pl");
 
 # make a zipped copy of the entire zipped module

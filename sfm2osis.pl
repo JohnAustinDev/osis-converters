@@ -62,8 +62,8 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 &getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
-$OSISFILE = "$INPD/".$MOD.".xml";
-$LOGFILE = "$INPD/OUT_sfm2osis.txt";
+$OSISFILE = "$OUTDIR/".$MOD.".xml";
+$LOGFILE = "$OUTDIR/OUT_sfm2osis.txt";
 
 my $delete;
 if (-e $OSISFILE) {$delete .= "$OSISFILE\n";}
@@ -76,7 +76,7 @@ if ($delete) {
 if (-e $OSISFILE) {unlink($OSISFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
-$TMPDIR = "$INPD/tmp/src2osis";
+$TMPDIR = "$OUTDIR/tmp/src2osis";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 

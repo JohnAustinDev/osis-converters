@@ -47,25 +47,25 @@ require "$SCRD/scripts/common.pl";
 
 $COMMANDFILE = "$INPD/CF_xsm.txt";
 if (!-e $COMMANDFILE) {print "ERROR: Missing command file: $COMMANDFILE. Exiting.\n"; exit;}
-$LOGFILE = "$INPD/OUT_xsm.txt";
+$LOGFILE = "$OUTDIR/OUT_xsm.txt";
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$INPD/xsm") {$delete .= "$INPD/xsm\n";}
+if (-e "$OUTDIR/xsm") {$delete .= "$OUTDIR/xsm\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
   if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$INPD/xsm") {remove_tree("$INPD/xsm");}
+if (-e "$OUTDIR/xsm") {remove_tree("$OUTDIR/xsm");}
 
-$TMPDIR = "$INPD/tmp/xsm";
+$TMPDIR = "$OUTDIR/tmp/xsm";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
 &Log("\n-----------------------------------------------------\nSTARTING xsm.pl\n\n");
-if (!-e "$INPD/xsm") {make_path("$INPD/xsm");}
+if (!-e "$OUTDIR/xsm") {make_path("$OUTDIR/xsm");}
 
 # read the command file to build the xsm module
 &normalizeNewLines($COMMANDFILE);
@@ -116,7 +116,7 @@ sub createXSM() {
   # now zip up the finished module
   my $xsmFileName = "$xsmName-$xsmVersion.xsm";
   if ("$^O" =~ /MSWin32/i) {
-    `7za a -tzip \"$INPD\\xsm\\$xsmFileName\" -r \"$TMPDIR\\$xsmName\\*\"`;
+    `7za a -tzip \"$OUTDIR\\xsm\\$xsmFileName\" -r \"$TMPDIR\\$xsmName\\*\"`;
   }
   else {
     my $td = `pwd`; 
@@ -124,7 +124,7 @@ sub createXSM() {
     chdir("$TMPDIR/$xsmName");
     `zip -r $xsmFileName .`;
     chdir($td);
-    move("$TMPDIR/$xsmName/$xsmFileName", "$INPD/xsm");
+    move("$TMPDIR/$xsmName/$xsmFileName", "$OUTDIR/xsm");
   }
 }
 

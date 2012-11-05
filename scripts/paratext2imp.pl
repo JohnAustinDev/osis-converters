@@ -244,7 +244,7 @@ open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) || die "ERROR: Could not open $OUTPU
 undef(@AllEntries);
 while(<INF>) {if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {push(@AllEntries, $1);}}
 close(INF);
-open(DWORDS, ">:encoding(UTF-8)", "$INPD/DictionaryWords_autogen.txt") || die "Error: Could not open $INPD/DictionaryWords.txt\n";
+open(DWORDS, ">:encoding(UTF-8)", "$OUTDIR/DictionaryWords_autogen.txt") || die "Error: Could not open $OUTDIR/DictionaryWords_autogen.txt\n";
 for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DE$i:$AllEntries[$i]\n";}
 print DWORDS "\n########################################################################\n\n";
 for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DL$i:$AllEntries[$i]\n";}
@@ -341,8 +341,13 @@ sub convertText($$) {
   }
 
   if ($replace1) {
-    
-    if ($l =~ s/$replace1/my $r = &varEval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$replace2/ in $e\n");}
+    if ($replace2 =~ /\$/) {
+      my $r;
+      if ($l =~ s/$replace1/$r = eval($replace2);/eg) {&Log("INFO: Replaced /$replace1/ with /$r/ in $e\n");}
+    }
+    else {
+      if ($l =~ s/$replace1/$replace2/g) {&Log("INFO: Replaced /$replace1/ with /$replace2/ in $e\n");}
+    }
   }
    
   # text effect tags
@@ -377,6 +382,7 @@ sub convertText($$) {
 
 sub varEval($) {
   my $r = shift;
+  
   if ($r =~ /\$/) {$r = eval($r);}
   return $r;
 }
