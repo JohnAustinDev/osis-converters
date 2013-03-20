@@ -747,6 +747,7 @@ sub copy_dir($$) {
 
   for(my $i=0; $i < @fs; $i++) {
     if ($fs[$i] =~ /^\.+$/) {next;}
+    if ($fs[$i] =~ /^\.svn/) {next;}
     my $if = "$id/".$fs[$i];
     my $of = "$od/".$fs[$i];
     if (-d $if) {&copy_dir($if, $of);}
