@@ -430,6 +430,12 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
         $mustContain = $1;
         if ($$lnP !~ /$mustContain/) {next;}
       }
+      if ($instruction =~ /only New Testament/) {
+        $instruction = "only book(s):1Cor,1John,1Pet,1Thess,1Tim,2Cor,2John,2Pet,2Thess,2Tim,3John,Acts,Col,Eph,Gal,Heb,Jas,John,Jude,Luke,Matt,Mark,Phlm,Phil,Rev,Rom,Titus";
+      }
+      if ($instruction =~ /only Old Testament/) {
+        $instruction = "1Chr,1Kgs,1Sam,2Chr,2Kgs,2Sam,Amos,Dan,Deut,Eccl,Esth,Exod,Ezek,Ezra,Gen,Hab,Hag,Hos,Isa,Judg,Jer,Job,Joel,Jonah,Josh,Lam,Lev,Mal,Mic,Nah,Neh,Num,Obad,Prov,Ps,Ruth,Song,Titus,Zech,Zeph";
+      }
       if ($instruction =~ /only book\(s\):"\s*(.*)\s*"/) {
         $onlyBooks = $1;
         if ($onlyBooks !~ /(^|,)\s*$bookName\s*(,|$)/) {next;}
@@ -684,6 +690,7 @@ sub logGlossReplacements($\@\%\%) {
   my $nolink = "";
   my $numnolink = 0;
   foreach my $dl (@$wP) {
+    if (!$dl) {next;}
     my $match = 0;
     foreach my $dh (keys %$hP) {
       if ($dl eq $dh) {$match=1;}

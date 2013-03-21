@@ -126,6 +126,7 @@ else {
       foreach $sb (@parts){
         if ($sb !~ /$splitter/) {
           foreach $w (sort {length($b) <=> length($a)} @dict) {
+            if (!$w) {next;}
             my $skip=0;
             for (my $i=0; $i<@dict; $i++) {
               if ($dict[$i] eq $w) {
