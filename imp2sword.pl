@@ -78,7 +78,6 @@ $LOGFILE = "$OUTDIR/OUT_imp2sword.txt";
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
 if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
-if (-e "$OUTDIR/$MOD.zip") {$delete .= "$OUTDIR/$MOD.zip\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
   $in = <>; 
@@ -86,7 +85,6 @@ if ($delete) {
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
-if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 
 &Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
@@ -180,12 +178,12 @@ close(CONF);
 # make a zipped copy of the module
 &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
 if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$SWDD\\*\"`;
+  `7za a -tzip \"$OUTDIR\\sword\\$MOD.zip\" -r \"$SWDD\\*\"`;
 }
 else {
   chdir($SWDD);
   my $tSWDD = quotemeta($SWDD);
-  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
+  `zip -r \"$OUTDIR/sword/$MOD.zip\" ./*`;
   chdir($INPD);
 }
 
