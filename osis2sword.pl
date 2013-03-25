@@ -87,11 +87,11 @@ make_path("$tmp/mods.d");
 copy("$SWDD/mods.d/$MODLC.conf", "$tmp/mods.d/$MODLC.conf");
 &copy_dir("$SWDD/$MODPATH", "$tmp/$MODPATH");
 if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$SWDD\\$MOD.zip\" -r \"$tmp\\*\"`;
+  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$tmp\\*\"`;
 }
 else {
   chdir($tmp);
-  `zip -r \"$SWDD/$MOD.zip\" ./*`;
+  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
   chdir($INPD);
 }
 

@@ -178,12 +178,11 @@ close(CONF);
 # make a zipped copy of the module
 &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
 if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$OUTDIR\\sword\\$MOD.zip\" -r \"$SWDD\\*\"`;
+  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$SWDD\\*\"`;
 }
 else {
   chdir($SWDD);
-  my $tSWDD = quotemeta($SWDD);
-  `zip -r \"$OUTDIR/sword/$MOD.zip\" ./*`;
+  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
   chdir($INPD);
 }
 
