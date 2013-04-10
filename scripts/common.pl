@@ -763,6 +763,22 @@ sub copy_dir($$) {
   return 1;
 }
 
+# deletes files recursively without touching dirs or anything in .svn
+sub delete_files($) {
+  my $dir = shift;
+  my $success = 0;
+  if (!opendir(CHDIR, $dir)) {return 0;}
+  my @listing = readdir(CHDIR);
+  closedir(CHDIR);
+  foreach my $entry (@listing) {
+    if ($entry =~ /^(\.+|\.svn)$/) {next;}
+    if (-d "$dir/$entry") {$success &= delete_files("$dir/$entry");}
+    unlink("$dir/$entry");
+  }
+  
+  return $success;
+}
+
 sub fromUTF8($) {
   my $c = shift;
   $c = decode("utf8", $c);
