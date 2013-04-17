@@ -60,6 +60,7 @@ $LOGFILE = "$OUTDIR/OUT_osis2sword.txt";
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
+if (-e "$OUTDIR/$MOD.zip") {$delete .= "$OUTDIR/$MOD.zip\n";}
 if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
 if ($delete) {
   print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
@@ -67,6 +68,7 @@ if ($delete) {
   if ($in !~ /^\s*y\s*$/i) {exit;}
 }
 if (-e $LOGFILE) {unlink($LOGFILE);}
+if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
 $TMPDIR = "$OUTDIR/tmp/osis2mod";

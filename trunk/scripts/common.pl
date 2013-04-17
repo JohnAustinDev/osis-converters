@@ -423,31 +423,47 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     my $saveSearchTerm = $searchTerm;
     my $sflags = "i";
     if ($useSkipList && $$skipListP =~ /(^|;)\Q$saveSearchTerm\E;/) {next;}
-    if ($searchTerm =~ s/\s*(<.*>)\s*//) {
+    
+    my $done = 0;
+    while ($searchTerm =~ s/\s*(<.*>)\s*$//) {
+      my $handled = 0;
       my $instruction = $1;
       my $mustContain, $onlyBooks;
       if ($instruction =~ /verse must contain "(.*)"/) {
         $mustContain = $1;
-        if ($$lnP !~ /$mustContain/) {next;}
+        if ($$lnP !~ /$mustContain/) {$done = 1; last;}
+        $handled = 1;
       }
       if ($instruction =~ /only New Testament/) {
         $instruction = "only book(s):1Cor,1John,1Pet,1Thess,1Tim,2Cor,2John,2Pet,2Thess,2Tim,3John,Acts,Col,Eph,Gal,Heb,Jas,John,Jude,Luke,Matt,Mark,Phlm,Phil,Rev,Rom,Titus";
       }
       if ($instruction =~ /only Old Testament/) {
-        $instruction = "1Chr,1Kgs,1Sam,2Chr,2Kgs,2Sam,Amos,Dan,Deut,Eccl,Esth,Exod,Ezek,Ezra,Gen,Hab,Hag,Hos,Isa,Judg,Jer,Job,Joel,Jonah,Josh,Lam,Lev,Mal,Mic,Nah,Neh,Num,Obad,Prov,Ps,Ruth,Song,Titus,Zech,Zeph";
+        $instruction = "only book(s):1Chr,1Kgs,1Sam,2Chr,2Kgs,2Sam,Amos,Dan,Deut,Eccl,Esth,Exod,Ezek,Ezra,Gen,Hab,Hag,Hos,Isa,Judg,Jer,Job,Joel,Jonah,Josh,Lam,Lev,Mal,Mic,Nah,Neh,Num,Obad,Prov,Ps,Ruth,Song,Titus,Zech,Zeph";
       }
-      if ($instruction =~ /only book\(s\):"\s*(.*)\s*"/) {
+      if ($instruction =~ /only book\(s\)\:\s*(.*)\s*/) {
         $onlyBooks = $1;
-        if ($onlyBooks !~ /(^|,)\s*$bookName\s*(,|$)/) {next;}
-        if ($notVerse) {next;} # If only book is specified, limit to verses only
+        if ($onlyBooks !~ /(^|,)\s*$bookName\s*(,|$)/) {$done = 1; last;}
+        if ($notVerse) {$done = 1; last;} # If only book is specified, limit to verses only
+        $handled = 1;
       }
-      if ($instruction =~ /<case sensitive>/) {$sflags = "";}
+      if ($instruction =~ /<case sensitive>/) {
+        $sflags = "";
+        $handled = 1;
+      }
+      if (!$handled) {
+        if (!defined($AddGlossLinkCommandErrors{$instruction})) {
+          &Log("ERROR: Unhandled DictionaryWords.txt instruction: \"$instruction\"\n");
+        }
+        $AddGlossLinkCommandErrors{$instruction}++;
+      }
     }
+    if ($done) {next;}
+    
     # Strip off any " at beginning of searchTerm for backward compatibility
     $searchTerm =~ s/^"//; #"
     # Search words with only quote at end match no suffixes
-    my $suffix="";
-    if ($searchTerm !~ s/"$//) {$suffix = ".*?";} #pspad comment "
+    my $suffix=".*?";
+    if ($searchTerm =~ s/"\s*$//) {$suffix = "";}
     my $osisRef = $dictnames;
     my $encentry = &encodeOsisRef($entry);
     $osisRef =~ s/;/:$encentry /g;
