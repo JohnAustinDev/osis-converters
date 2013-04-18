@@ -386,8 +386,11 @@ sub readGlossWordFile($$\@\%\%) {
     $line++;
     $_ =~ s/^\s*(.*?)\s*$/$1/;
     if    ($_ =~ /^DE(\d+):(.*?)$/i) {
-      $$wordsP[$1]=$2;
-      $dictsForWordP->{$2}=$dictname;
+      if (!defined($$wordsP[$1])) {
+        $$wordsP[$1]=$2;
+        $dictsForWordP->{$2}=$dictname;
+      }
+      else {&Log("ERROR: Skipped redefinition in \"$wordfile\", line $line: \"$_\"\n");}
     }
     elsif ($_ =~ /^DL(\d+):(.*?)$/i) {$searchTermsP->{$2} = $$wordsP[$1];}
     elsif ($_ =~ /^\s*$/) {next;}
@@ -423,9 +426,9 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     my $saveSearchTerm = $searchTerm;
     my $sflags = "i";
     if ($useSkipList && $$skipListP =~ /(^|;)\Q$saveSearchTerm\E;/) {next;}
-    
+
     my $done = 0;
-    while ($searchTerm =~ s/\s*(<.*>)\s*$//) {
+    while ($searchTerm =~ s/\s*(<[^>]*>)\s*$//) {
       my $handled = 0;
       my $instruction = $1;
       my $mustContain, $onlyBooks;
@@ -434,19 +437,19 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
         if ($$lnP !~ /$mustContain/) {$done = 1; last;}
         $handled = 1;
       }
-      if ($instruction =~ /only New Testament/) {
+      if ($instruction =~ /only New Testament/i) {
         $instruction = "only book(s):1Cor,1John,1Pet,1Thess,1Tim,2Cor,2John,2Pet,2Thess,2Tim,3John,Acts,Col,Eph,Gal,Heb,Jas,John,Jude,Luke,Matt,Mark,Phlm,Phil,Rev,Rom,Titus";
       }
-      if ($instruction =~ /only Old Testament/) {
+      if ($instruction =~ /only Old Testament/i) {
         $instruction = "only book(s):1Chr,1Kgs,1Sam,2Chr,2Kgs,2Sam,Amos,Dan,Deut,Eccl,Esth,Exod,Ezek,Ezra,Gen,Hab,Hag,Hos,Isa,Judg,Jer,Job,Joel,Jonah,Josh,Lam,Lev,Mal,Mic,Nah,Neh,Num,Obad,Prov,Ps,Ruth,Song,Titus,Zech,Zeph";
       }
-      if ($instruction =~ /only book\(s\)\:\s*(.*)\s*/) {
+      if ($instruction =~ /only book\(s\)\:\s*(.*)\s*/i) {
         $onlyBooks = $1;
         if ($onlyBooks !~ /(^|,)\s*$bookName\s*(,|$)/) {$done = 1; last;}
         if ($notVerse) {$done = 1; last;} # If only book is specified, limit to verses only
         $handled = 1;
       }
-      if ($instruction =~ /<case sensitive>/) {
+      if ($instruction =~ /case sensitive/i) {
         $sflags = "";
         $handled = 1;
       }
@@ -469,6 +472,9 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     $osisRef =~ s/;/:$encentry /g;
     $osisRef .= ":$encentry";
     my $attribs = $referenceType."osisRef=\"$osisRef\"";
+
+#if ($entry eq decode("utf8", "ИИСУС ХРИСТОСТУҢ ҮЕЗИНДЕ ИЕРУСАЛИМДЕ БУРГАННЫҢ ӨРГЭЭЗИ")) {&Log("DEBUG: AFTER " . $saveSearchTerm . ", " . $searchTerm . ", suffix=" . $suffix . ", sflags=" . $sflags . ".\n");}
+
     if ($sflags eq "") {
       if ($$lnP =~ s/(^|\W)($searchTerm$suffix)([^$PAL]|$)/$1<reference $attribs>$2<\/reference>$3/) {
         if ($reportListP) {$reportListP->{"$entry: $2, $dictnames"}++;}
