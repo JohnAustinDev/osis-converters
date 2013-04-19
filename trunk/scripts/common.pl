@@ -400,6 +400,16 @@ sub readGlossWordFile($$\@\%\%) {
   close (WORDS);
 }
 
+sub sortSearchTermKeys($$) {
+  my $aa = shift;
+  my $bb = shift;
+  
+  while ($aa =~ /["\s]+<[^>]*>\s*$/) {$aa =~ s/["\s]+<[^>]*>\s*$//;}
+  while ($bb =~ /["\s]+<[^>]*>\s*$/) {$bb =~ s/["\s]+<[^>]*>\s*$//;}
+  
+  length($bb) <=> length($aa)
+}
+
 # Searches a bit of text for a single dictionary link, starting with longest
 # search terms first. If a match is found, the proper link tag is inserted,
 # and 1 is returned. Otherwise 0 is returned and the input text is unmodified.
@@ -419,7 +429,7 @@ sub addGlossLink(\$\%\%\%\%$\$$$$) {
   
 if ($line == $DEBUG) {&Log("Line $line: lnP=$$lnP, useSkipList=$useSkipList, skipList=$$skipListP\n");}
   my $linkAdded = 0;
-  foreach my $searchTerm (sort {length($b) <=> length($a)} keys %$searchTermsP) {
+  foreach my $searchTerm (sort {&sortSearchTermKeys($a, $b);} keys %$searchTermsP) {
 if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     my $entry = $searchTermsP->{$searchTerm};
     my $dictnames = $dictsForWordP->{$entry};
@@ -428,28 +438,33 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     if ($useSkipList && $$skipListP =~ /(^|;)\Q$saveSearchTerm\E;/) {next;}
 
     my $done = 0;
-    while ($searchTerm =~ s/\s*(<[^>]*>)\s*$//) {
+    while ($searchTerm =~ s/\s*<([^>]*)>\s*$//) {
       my $handled = 0;
       my $instruction = $1;
       my $mustContain, $onlyBooks;
-      if ($instruction =~ /verse must contain "(.*)"/) {
+      if ($instruction =~ /^\s*verse must contain "(.*)"\s*$/) {
         $mustContain = $1;
         if ($$lnP !~ /$mustContain/) {$done = 1; last;}
         $handled = 1;
       }
-      if ($instruction =~ /only New Testament/i) {
+      if ($instruction =~ /^\s*only New Testament\s*$/i) {
         $instruction = "only book(s):1Cor,1John,1Pet,1Thess,1Tim,2Cor,2John,2Pet,2Thess,2Tim,3John,Acts,Col,Eph,Gal,Heb,Jas,John,Jude,Luke,Matt,Mark,Phlm,Phil,Rev,Rom,Titus";
       }
-      if ($instruction =~ /only Old Testament/i) {
+      if ($instruction =~ /^\s*only Old Testament\s*$/i) {
         $instruction = "only book(s):1Chr,1Kgs,1Sam,2Chr,2Kgs,2Sam,Amos,Dan,Deut,Eccl,Esth,Exod,Ezek,Ezra,Gen,Hab,Hag,Hos,Isa,Judg,Jer,Job,Joel,Jonah,Josh,Lam,Lev,Mal,Mic,Nah,Neh,Num,Obad,Prov,Ps,Ruth,Song,Titus,Zech,Zeph";
       }
-      if ($instruction =~ /only book\(s\)\:\s*(.*)\s*/i) {
+      if ($instruction =~ /^\s*only book\(s\)\:\s*(.*)\s*$/i) {
         $onlyBooks = $1;
         if ($onlyBooks !~ /(^|,)\s*$bookName\s*(,|$)/) {$done = 1; last;}
         if ($notVerse) {$done = 1; last;} # If only book is specified, limit to verses only
         $handled = 1;
       }
-      if ($instruction =~ /case sensitive/i) {
+      if ($instruction =~ /^\s*not in book\(s\)\:\s*(.*)\s*$/i) { 
+        my $notInBooks = $1;
+        if ($notInBooks =~ /(^|,)\s*$bookName\s*(,|$)/) {$done = 1; last;}
+        $handled = 1;
+      }
+      if ($instruction =~ /^\s*case sensitive\s*$/i) {
         $sflags = "";
         $handled = 1;
       }
@@ -473,7 +488,8 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     $osisRef .= ":$encentry";
     my $attribs = $referenceType."osisRef=\"$osisRef\"";
 
-#if ($entry eq decode("utf8", "ИИСУС ХРИСТОСТУҢ ҮЕЗИНДЕ ИЕРУСАЛИМДЕ БУРГАННЫҢ ӨРГЭЭЗИ")) {&Log("DEBUG: AFTER " . $saveSearchTerm . ", " . $searchTerm . ", suffix=" . $suffix . ", sflags=" . $sflags . ".\n");}
+#if (!defined($AlreadyShowedThis{$saveSearchTerm})) {&Log("REPLACING in $bookName($notVerse): " . $saveSearchTerm . ", " . $searchTerm . ", suffix=" . $suffix . ", sflags=" . $sflags . ".\n");}
+#$AlreadyShowedThis{$saveSearchTerm}++;
 
     if ($sflags eq "") {
       if ($$lnP =~ s/(^|\W)($searchTerm$suffix)([^$PAL]|$)/$1<reference $attribs>$2<\/reference>$3/) {
