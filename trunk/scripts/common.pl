@@ -69,6 +69,9 @@ sub initPaths() {
       $OUTDIR .= "/".$dn; # use input directory name as this output subdirectory
       if (!-e $OUTDIR) {make_path($OUTDIR);}
     }
+    else {
+      $OUTDIR = $INPD;
+    }
   }
   else {
     open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
