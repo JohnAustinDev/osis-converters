@@ -71,7 +71,7 @@ if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n
 $GBOUT = "$OUTDIR/GoBible/$MOD$REV";
 
 $LOGFILE = "$OUTDIR/OUT_osis2GoBible.txt";
-&Log("osis-converters rev: $SVNREV\n\n");
+
 my $delete;
 if (-e $GBOUT) {$delete .= "$GBOUT\n";}
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -89,6 +89,7 @@ $TMPDIR = "$OUTDIR/tmp/osis2GoBible";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
+&Log("osis-converters rev: $SVNREV\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2GoBible.pl\n\n");
 
 

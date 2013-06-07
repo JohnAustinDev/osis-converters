@@ -48,7 +48,6 @@ require "$SCRD/scripts/common.pl";
 $COMMANDFILE = "$INPD/CF_xsm.txt";
 if (!-e $COMMANDFILE) {print "ERROR: Missing command file: $COMMANDFILE. Exiting.\n"; exit;}
 $LOGFILE = "$OUTDIR/OUT_xsm.txt";
-&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -65,6 +64,7 @@ $TMPDIR = "$OUTDIR/tmp/xsm";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
+&Log("osis-converters rev: $SVNREV\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING xsm.pl\n\n");
 if (!-e "$OUTDIR/xsm") {make_path("$OUTDIR/xsm");}
 

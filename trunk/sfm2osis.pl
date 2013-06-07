@@ -64,7 +64,6 @@ if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 $LOGFILE = "$OUTDIR/OUT_sfm2osis.txt";
-&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $OSISFILE) {$delete .= "$OSISFILE\n";}
@@ -83,6 +82,7 @@ make_path($TMPDIR);
 
 if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 
+&Log("osis-converters rev: $SVNREV\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING sfm2osis.pl\n\n");
 
 # insure the following conf settings are in the conf file
