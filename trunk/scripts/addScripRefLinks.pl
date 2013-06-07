@@ -155,7 +155,7 @@ $Types{"T10 (num1 ... num2?)"} = 0;
 
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(CF, "<:encoding(UTF-8)", $COMMANDFILE);
 my @abkn;
 while (<CF>) {

@@ -106,7 +106,7 @@ open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osi
 
 # Read the COMMANDFILE, converting each book as it is encountered
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2osis command file $COMMANDFILE\n";
 $endTestament="";
 $NameMatch="";
