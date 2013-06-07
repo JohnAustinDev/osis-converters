@@ -74,7 +74,6 @@ $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 
 $LOGFILE = "$OUTDIR/OUT_imp2sword.txt";
-&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -89,6 +88,7 @@ if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
+&Log("osis-converters rev: $SVNREV\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
 $TMPDIR = "$OUTDIR/tmp/dict2mod";

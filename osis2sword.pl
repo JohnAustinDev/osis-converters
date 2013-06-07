@@ -57,7 +57,6 @@ if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
 $LOGFILE = "$OUTDIR/OUT_osis2sword.txt";
-&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -76,6 +75,7 @@ $TMPDIR = "$OUTDIR/tmp/osis2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
+&Log("osis-converters rev: $SVNREV\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
