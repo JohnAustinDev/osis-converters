@@ -36,7 +36,7 @@ else {
 
   &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
   &normalizeNewLines($COMMANDFILE);
-  &addRevisionToCF($COMMANDFILE);
+  &removeRevisionFromCF($COMMANDFILE);
   open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
   $books = "";
   while (<COMF>) {

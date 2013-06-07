@@ -122,37 +122,38 @@ sub normalizeNewLines($) {
   else {&Log("ERROR: Could not open $f while trying to normalize newlines from $d.\n");}
 }
 
-sub addRevisionToCF($) {
+# Formerly there was an addRevisionToCF function which wrote the SVN rev
+# into the CF_ files. But this caused these input files to be rev-ed even
+# when there were no changes to the file settings. This was really a
+# bother. So, the SVN rev is now written to the LOG file, and the 
+# function below is used to remove the old SVN rev from the CF_ files
+# if it's there. 
+sub removeRevisionFromCF($) {
   my $f = shift;
   
-  if ($SVNREV) {
-    my $changed = 0;
-    my $msg = "# osis-converters rev-";
-    if (open(RCMF, "<:encoding(UTF-8)", $f)) {
-      open(OCMF, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Could not open \"$f.tmp\".\n";
-      my $l = 0;
-      while(<RCMF>) {
-        $l++;
-        if ($l == 1) {
-          if ($_ =~ s/\Q$msg\E(\d+)/$msg$SVNREV/) {
-            if ($1 != $SVNREV) {$changed = 1;}
-          }
-          else {$changed = 1; $_ = "$msg$SVNREV\n$_";}
-        }
-        print OCMF $_;
+  my $changed = 0;
+  my $msg = "# osis-converters rev-";
+  if (open(RCMF, "<:encoding(UTF-8)", $f)) {
+    open(OCMF, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Could not open \"$f.tmp\".\n";
+    my $l = 0;
+    while(<RCMF>) {
+      $l++;
+      if ($l == 1 && $_ =~ s/\Q$msg\E(\d+)/$msg$SVNREV/) {
+        $changed = 1;
+        next;
       }
-      close(RCMF);
-      close(OCMF);
-      
-      if ($changed) {
-        unlink($f);
-        move("$f.tmp", $f);
-      }
-      else {unlink("$f.tmp");}
+      print OCMF $_;
     }
-    else {&Log("ERROR: Could not add revision to command file.\n");}
+    close(RCMF);
+    close(OCMF);
+    
+    if ($changed) {
+      unlink($f);
+      move("$f.tmp", $f);
+    }
+    else {unlink("$f.tmp");}
   }
-  else {&Log("ERROR: SVN revision unknown.\n");}
+  else {&Log("ERROR: Could not add revision to command file.\n");}
 }
 
 sub getInfoFromConf($) {

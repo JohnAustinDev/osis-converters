@@ -62,6 +62,7 @@ if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
 
 $IMPFILE = "$OUTDIR/".$MOD.".imp";
 $LOGFILE = "$OUTDIR/OUT_sfm2imp.txt";
+&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $IMPFILE) {$delete .= "$IMPFILE\n";}

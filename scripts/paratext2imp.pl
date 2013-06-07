@@ -78,7 +78,7 @@
 
 # Read the COMMANDFILE, converting each file as it is encountered
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2imp command file $COMMANDFILE\n";
 
 $IgnoreTags = "";

@@ -74,6 +74,7 @@ $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 
 $LOGFILE = "$OUTDIR/OUT_imp2sword.txt";
+&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}

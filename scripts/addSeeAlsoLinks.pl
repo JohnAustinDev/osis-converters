@@ -56,7 +56,7 @@ $Checkonly = 0;        # If set, don't parse new links, only check existing link
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &Log("\n");
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command file \"$COMMANDFILE\".\n";
 while (<CF>) {
   if ($_ =~ /^\s*$/) {next;}

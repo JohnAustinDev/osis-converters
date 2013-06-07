@@ -58,7 +58,7 @@ $Checkonly = 0;        # If set, don't parse new links, only check existing link
 # Read the command file. Processing does not begin until reading is completed.
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open commandFile \"$COMMANDFILE\".";
 $OsisWorkTags = "";
 $NoBooks = 1;

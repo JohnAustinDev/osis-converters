@@ -48,6 +48,7 @@ require "$SCRD/scripts/common.pl";
 $COMMANDFILE = "$INPD/CF_xsm.txt";
 if (!-e $COMMANDFILE) {print "ERROR: Missing command file: $COMMANDFILE. Exiting.\n"; exit;}
 $LOGFILE = "$OUTDIR/OUT_xsm.txt";
+&Log("osis-converters rev: $SVNREV\n\n");
 
 my $delete;
 if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
@@ -69,7 +70,7 @@ if (!-e "$OUTDIR/xsm") {make_path("$OUTDIR/xsm");}
 
 # read the command file to build the xsm module
 &normalizeNewLines($COMMANDFILE);
-&addRevisionToCF($COMMANDFILE);
+&removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open xsm command file $COMMANDFILE\n";
 $AllowSet = "includeIndexes|includeSecurityKeys|swordDirectory";
 $includeIndexes = 0;
