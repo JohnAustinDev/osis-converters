@@ -144,6 +144,11 @@ else {
                 $tmpln = $ln;
                 $wt = $w;
                 $wt =~ s/[\(\)\{\}\[\]\$\^\*\+\-]/./g; #allows us to match these special perl chars in entry names!
+                
+                # It seems the following <reference> additions should use addGlossLink() instead of this custom code?
+                # All matching below is case insensitive, regardless of DL entry instructions, which seems wrong.
+                # Also, the case insensitive matching below incorrectly handles SpecialCapitals!
+                
                 # using "if" replaces only the first, but "while" will replace all...
                 if ($tmpln =~ s/(^|\W)($wt)(\W|$)/$1$3/i) {
                   $pc=$1; $ww=$2; $sc=$3;
