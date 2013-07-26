@@ -88,8 +88,8 @@
 #   REPLACE - A Perl replacement regular expression to apply to text.     
 
 # COMMAND FILE FOOTNOTE SETTINGS:
-#   FOOTNOTES - A Perl regular expression to match all SFM footnotes.
-#   CROSSREFS - For inline cross references. See FOOTNOTES_INLINE
+#   FOOTNOTE - A Perl regular expression to match all SFM footnotes.
+#   CROSSREF - For inline cross references. See FOOTNOTES
 #   FOOTNOTES_WITHREFS - (rarely used) A footnote file whose footnotes 
 #       have refs
 #   FOOTNOTES_NOREFS - (rarely used) A footnote file whose footnotes 
