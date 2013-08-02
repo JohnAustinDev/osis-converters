@@ -72,6 +72,10 @@ sub fillEmptyVerses($$$) {
         $vs =~ s/\d+\-//;
         if ($vs > $canon{$bk}->[$ch-1]) {&Log("ERROR: Unrecognized verse $bk $ch:$vs\n");}
       }
+      elsif ($_ =~ /<verse osisID="[^"]*\.(\d+)">/) {
+        $vs = $1;
+        if ($vs > $canon{$bk}->[$ch-1]) {&Log("ERROR: Unrecognized verse $bk $ch:$vs\n");}
+      }
       if ($intro) {$intro .= $_;}
       
       # each addition is on a one line div for easy removal
