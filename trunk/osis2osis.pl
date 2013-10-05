@@ -171,7 +171,12 @@ if ($addDictLinks && -e $COMMANDFILE) {
   $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISDictionary/) {
     open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-    print CONF "GlobalOptionFilter=OSISDictionary\n";
+    print CONF ";GlobalOptionFilter=OSISDictionary is deprecated.\nGlobalOptionFilter=OSISDictionary\n";
+    close(CONF);
+  }
+  if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISReferenceLinks/) {
+    open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
+    print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
     close(CONF);
   }
   $NOCONSOLELOG = 1;
