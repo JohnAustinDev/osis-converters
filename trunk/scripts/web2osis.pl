@@ -29,10 +29,16 @@ open(OUTF, ">:encoding(UTF-8)", "$OUTPUTFILE.1") || die "Could not open web2osis
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis command file $COMMANDFILE\n";
 
 #Defaults:
+$IgnoreKeyTags = "<b><i>";
+$IgnoreKeyTagAttributes = "<a name><a href><* id>";
 
-$filename = "";
-$linenum  = "";
+$AllowOverlappingHTMLTags = 1;
+$AllowReducedTagClasses = 1;
 $AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
+$InlineTags = "(span|font|sup|a|b|i)";
+
+$Filename = "";
+$Linenum  = 0;
 $line=0;
 while (<COMF>) {
   $line++;
@@ -82,6 +88,24 @@ close(COMF);
 &Write("$endTestament\n</osisText>\n</osis>\n");
 close (OUTF);
 
+&Log("\nLISTING OF SPAN CLASSES:\n");
+foreach my $class (sort {$SpanClassCounts{$a} <=> $SpanClassCounts{$b}} keys %AllSpanClasses) {
+	&Log(sprintf("INFO:%5i %3s=%s\n", $SpanClassCounts{$class}, $class, $AllSpanClasses{$class}));
+}
+
+&Log("\nLISTING OF DIV CLASSES:\n");
+foreach my $class (sort {$DivClassCounts{$a} <=> $DivClassCounts{$b}} keys %AllDivClasses) {
+	&Log(sprintf("INFO:%5i %3s=%s\n", $DivClassCounts{$class}, $class, $AllDivClasses{$class}));
+}
+
+&Log("\nLISTING OF ALL HTML TAGS:\n");
+foreach my $t (sort keys %AllHTMLTags) {
+	&Log($t." ");
+}
+&Log("\nlisting complete\n");
+
+1;
+
 ########################################################################
 ########################################################################
 
@@ -90,9 +114,9 @@ sub bookHTMLtoOSIS1() {
 	my $file = shift;
 	my $book = shift;
 	
-	$filename = $file;
-	$filename =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
-	$linenum = 0;
+	$Filename = $file;
+	$Filename =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
+	$Linenum = 0;
   
   &Log("Processing $book\n");
   &normalizeNewLines($file);
@@ -104,13 +128,13 @@ sub bookHTMLtoOSIS1() {
   my %tagstack;
   my %textclass;
   while(<INP1>) {
-		$linenum++;
+		$Linenum++;
 		$_ =~ s/[\n\l\r]+$//;
 		
-		if ($text) {$text .= " ";}
+		if ($text) {$text .= " ";} # a previous line feed in text requires a space
 		
 		# process body only and ignore all else
-		if ($_ =~ /<body[> ](.*)$/i) {
+		if ($_ =~ /<body[^>]*>(.*)$/i) {
 			$_ = $1;
 			$processing = 1;
 		}
@@ -141,18 +165,99 @@ sub handleTag($\%) {
 	
 	if ($tag =~ /<br(\s+|>)/i) {
 		&Write("<lb \/>\n");
+		$AllHTMLTags{"br"}++;
 		return;
 	}
 	
-	my $inline = "(span|font|sup|a|b|i)";
+	# start tag
+	if ($tag !~ /^<\/(\w+)/) {
+		$tag =~ /^<(\w+)\s*(.*)?\s*>$/;
+		my $tagname = $1;
+		my $atts = $2;
+		
+		$AllHTMLTags{$tagname}++;
+		
+		my $tagkey = "<".lc($tagname);
+		my $tagvalue = $tagkey;
+		if ($atts) {
+			# sort all attributes out
+			my %attrib;
+			if ($atts =~ /^((\w+)(=("([^"]*)"|[\w\d]+))?\s*)+$/) {
+				while ($atts) {
+					if ($atts =~ s/^(\w+)=("([^"]*)"|([\w\d]+))\s*//) {
+						$attrib{$1} = ($3 ? $3:$4);
+					}
+					$atts =~ s/^\w+(\s+|$)//; # some HTML has empty attribs so just remove them
+				}
+			}
+			else {&Log("ERROR: $Filename line $Linenum: bad tag attributes \"$atts\"\n");}
+			
+			
+			my @ignoreAttribs = split(/(<[^>]*>)/, $IgnoreKeyTagAttributes);
+			
+			foreach my $a (sort keys %attrib) {
+				$tagvalue .= " ".lc($a)."=\"".$attrib{$a}."\"";
+				my $skipme = 0;
+				
+				# skip listed tag/attribute pairs which are not relavent to key
+				foreach my $ignoreAttrib (@ignoreAttribs) {
+					if (!$ignoreAttrib) {next;}
+					if ($ignoreAttrib !~ /^<([\w\*]+)\s+(\w+)\s*>$/) {
+						&Log("ERROR: Bad IgnoreKeyTagAttributes value \"$ignoreAttrib\"\n");
+						next;
+					}
+					my $it = $1;
+					my $ia = $2;
+					if (lc($ia) eq lc($a) && ($it eq "*" || lc($it) eq lc($tagname))) {
+						$skipme = 1;
+					}
+				}
+				if ($skipme) {next;}
+				
+				# save attribute to key
+				$tagkey .= " ".lc($a)."=\"".$attrib{$a}."\"";
+			}
+		}
+		$tagkey .= ">";
+		$tagvalue .= ">";
+		
+		# write out all block tags now
+		if ($tagname !~ /^$InlineTags$/i) {
+			if (!defined($tsP->{"classes"}{$tagkey})) {
+				$DivClassNumber++;
+				$tsP->{"classes"}{$tagkey} = "d".$DivClassNumber;
+				$AllDivClasses{"d".$DivClassNumber} = $tagkey;
+			}
+			
+			$DivClassCounts{$tsP->{"classes"}{$tagkey}}++;
+			&Write("<".lc($tagname)." class=\"".$tsP->{"classes"}{$tagkey}."\">\n");
+		}
+
+		# skip certain tags for tagkey
+		my @ignoreTags = split(/(<[^>]*>)/, $IgnoreKeyTags);
+		foreach my $ignoreTag (@ignoreTags) {
+			if (!$ignoreTag) {next;}
+			if ($ignoreTag !~ /<(\w+)/) {next;}
+			my $it = $1;
+			if (lc($it) eq lc($tagname)) {$tagkey = "";}
+		}
+		if ($tagname !~ /^$InlineTags$/i) {$tagkey = "";}
+
+		$tsP->{"level"}++;
+		$tsP->{"tag-name"}{$tsP->{"level"}} = $tagname;
+		$tsP->{"tag-key"}{$tsP->{"level"}} = $tagkey;
+		$tsP->{"tag-value"}{$tsP->{"level"}} = $tagvalue;
+	}
 	
-	# end tag
-	if ($tag =~ /^<\/(\w+)/) {
+	#end tag
+	else {
 		my $tagname = $1;
 		my $taglevel = $tsP->{"level"};
 		
+		$AllHTMLTags{$tagname}++;
+		
 		if ($tagname ne $tsP->{"tag-name"}{$tsP->{"level"}}) {
-			if (1) {
+			if ($AllowOverlappingHTMLTags) {
 				for (my $i = $tsP->{"level"}; $i > 0; $i--) {
 					if ($tagname eq $tsP->{"tag-name"}{$i}) {
 						$taglevel = $i;
@@ -161,63 +266,28 @@ sub handleTag($\%) {
 				}
 			}
 			else {
-				&Log("ERROR: $filename line $linenum: Bad tag stack \"$tag\" != \"".$tsP->{"tag-name"}{$tsP->{"level"}}."\"\n");
+				&Log("ERROR: $Filename line $Linenum: Bad tag stack \"$tag\" != \"".$tsP->{"tag-name"}{$tsP->{"level"}}."\"\n");
 			}
 		}
 		for (my $i = $tsP->{"level"}; $i > 0; $i--) {
 			if ($i == $taglevel) {
 				delete($tsP->{"tag-name"}{$i});
 				delete($tsP->{"tag-key"}{$i});
+				delete($tsP->{"tag-value"}{$i});
 			}
 			if ($i > $taglevel) {
 				$tsP->{"tag-name"}{$i-1} = $tsP->{"tag-name"}{$i};
 				$tsP->{"tag-key"}{$i-1} = $tsP->{"tag-key"}{$i};
+				$tsP->{"tag-value"}{$i-1} = $tsP->{"tag-value"}{$i};
 			}
 		}
 		$tsP->{"level"}--;
 		
-		if ($tagname !~ /^$inline$/i) {
+		if ($tagname !~ /^$InlineTags$/i) {
 			&Write("<\/".lc($tagname).">\n");
 		}
 	}
 	
-	#start tag
-	else {
-		$tag =~ /^<(\w+)\s*(.*)?\s*>$/;
-		my $tagname = $1;
-		my $atts = $2;
-		
-		my $tagkey = "";
-		
-		if ($atts) {
-			# sort attributes to get key
-			if ($atts =~ /^((\w+)(=("([^"]*)"|[\w\d]+))?\s*)+$/) {
-				my %attrib;
-				while ($atts) {
-					if ($atts =~ s/^(\w+)=("([^"]*)"|([\w\d]+))\s*//) {
-						$attrib{$1} = ($3 ? $3:$4);
-					}
-					$atts =~ s/^\w+(\s+|$)//; # some HTML has empty attribs so just remove
-				}
-			}
-			else {&Log("ERROR: $filename line $linenum: bad tag attributes \"$atts\"\n");}
-			$tagkey = $tag;
-			foreach my $a (sort keys %attrib) {$tagkey .= " ".$a."=\"".$attrib{$a}."\"";}
-		}
-	
-		$tsP->{"level"}++;
-		$tsP->{"tag-name"}{$tsP->{"level"}} = $tagname;
-		$tsP->{"tag-key"}{$tsP->{"level"}} = $tagkey;
-		
-		if ($tagname !~ /^$inline$/i) {
-			if (!defined($tsP->{"classes"}{$tagkey})) {
-				$ClassNumber++;
-				$tsP->{"classes"}{$tagkey} = "c".$ClassNumber;
-			}
-			&Write("<".lc($tagname)." class=\"".$tsP->{"classes"}{$tagkey}."\">\n");
-		}
-	
-	}
 }
 
 sub handleText(\$\%) {
@@ -229,19 +299,40 @@ sub handleText(\$\%) {
 	$$textP =~ s/ +/ /g;
 	
 	if (!$tsP->{"level"} && $$textP !~ /^\s*$/) {
-		&Log("WARN: $filename line $linenum: Top level text \"$$textP\"\n");
+		&Log("WARN: $Filename line $Linenum: Top level text \"$$textP\"\n");
 		&Write($$textP);
 	}
 	else {
 		my $key = "";
+		my @tkeys;
+		my %count;
 		for (my $i = $tsP->{"level"}; $i > 0; $i--) {
-			$key .= $tsP->{"tag-key"}{$i}.";";
+			my $ktagval = $tsP->{"tag-key"}{$i};
+			if ($ktagval eq "") {next;}
+			if ($AllowReducedTagClasses) {
+				if (exists($count{$ktagval})) {next;}
+			}
+			$count{$ktagval}++;
+			push(@tkeys, $ktagval);
 		}
+		
+		if ($AllowReducedTagClasses) {
+			# tkeys are sorted 
+			foreach my $tkey (sort @tkeys) {$key .= $tkey;}
+		}
+		else {foreach my $tkey (@tkeys) {$key .= $tkey;}}
+
+c16 is empty space with empty spans tags... 
+
 		if (!exists($tsP->{"classes"}{$key})) {
 			$ClassNumber++;
 			$tsP->{"classes"}{$key} = "c".$ClassNumber;
+			$AllSpanClasses{"c".$ClassNumber} = $key;
 		}
+		
+		$SpanClassCounts{$tsP->{"classes"}{$key}}++;
 		&Write("<span class=\"".$tsP->{"classes"}{$key}."\">".$$textP."</span>\n");
+		
 	}
 	
 	$$textP = "";
