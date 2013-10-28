@@ -36,7 +36,7 @@ $SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
 
 $InlineTags = "(span|font|sup|a|b|i)";
 
-$R = "\n";
+$R = 0;
 $Filename = "";
 $Linenum	= 0;
 $line=0;
@@ -49,9 +49,8 @@ while (<COMF>) {
 	elsif ($_ =~ /^($TagInstructions):\s*((<[^>]*>)+)?\s*$/) {if ($2) {$TagInstruction{$1} = $2;}}
 	elsif ($_ =~ /^($TrueFalseInstructions):\s*(true|false)?\s*$/) {if ($2) {$TrueFalseInstruction{$1} = ($2 eq "true" ? 1:0);}}
 	elsif ($_ =~ /^OSISBOOK:\s*(.*?)\s*=\s*(.*?)\s*$/) {$OsisBook{$1} = $2;}
-	elsif ($_ =~ /^SPAN_CLASS:.*?(s\d+)=((<[^>]*>)+)\s*$/) {$SpanClassName{$2} = $1;}
-	elsif ($_ =~ /^DIV_CLASS:.*?(d\d+)=((<[^>]*>)+)\s*$/) {$DivClassName{$2} = $1;}
-	# VARIOUS SETTINGS...
+	elsif ($_ =~ /^SPAN_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$SpanClassName{$2} = $1;}
+	elsif ($_ =~ /^DIV_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$DivClassName{$2} = $1;}
 	elsif ($_ =~ /^SET_($SetInstructions):(\s*(\S+)\s*)?$/) {
 		if ($2) {
 			my $par = $1;
@@ -63,7 +62,6 @@ while (<COMF>) {
 			&Log("INFO: Setting $par to $$par\n");
 		}
 	}
-	# HTML file name...
 	elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
 		my $htmlfile = $1;
 		$htmlfile =~ s/\\/\//g;
@@ -75,24 +73,27 @@ while (<COMF>) {
 		my $htmlfileName = $htmlfile;
 		$htmlfileName =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
 		if (exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}})) {
+			
+			# process this book now...
 			$TrueFalseInstruction{"GATHER_CLASS_INFO"} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} || !%SpanClassName && !%DivClassName);
-			if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {&Log("INFO: Gathering class information. Output is NOT OSIS!\n");}
+			if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {&Log("INFO: Gathering class information. OUTPUT IS NOT OSIS!\n");}
 			
 			$Book = $OsisBook{$htmlfileName};
 			
-			my $osisText = &tagsHTMLtoOSIS($htmlfile);
-			&handleNotes(\$osisText, "crossref");
-			&handleNotes(\$osisText, "footnote");
+			my $osisfile = &HTMLtoOSIStags($htmlfile);
+			
+			&handleNotes("crossref", \$osisfile);
+			&handleNotes("footnote", \$osisfile);
 			
 			my $tmpBook = "$OUTPUTFILE.1";
 			open(OUTTMP, ">:encoding(UTF-8)", $tmpBook) || die "Could not open web2osis output file $tmpBook\n";
-			print OUTTMP $osisText;
+			print OUTTMP $osisfile;
 			close(OUTTMP);
 			
-			my $swordText = &osis2SWORD($tmpBook);
+			my $swordOsis = &osis2SWORD($tmpBook);
 			
-			# save out text for sorting and printing later
-			$OsisBookText{$OsisBook{$htmlfileName}} = $swordText;
+			# save output for sorting and writing later
+			$OsisBookText{$OsisBook{$htmlfileName}} = $swordOsis;
 		}
 		else {&Log("ERROR: SKIPPING \"$htmlfile\". Could not determine OSIS book.\n");}
 	}
@@ -100,7 +101,7 @@ while (<COMF>) {
 }
 close(COMF);
 
-# print out our OSIS file in correct book order
+# print out the OSIS file in v11n correct book order
 &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
 &Write("<div type=\"bookGroup\">\n");
 foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
@@ -122,6 +123,26 @@ foreach my $classTags (sort {$DivClassCounts{$DivClassName{$a}} <=> $DivClassCou
 	&Log(sprintf("DIV_CLASS:%5i %3s=%s\n", $DivClassCounts{$DivClassName{$classTags}}, $DivClassName{$classTags}, $classTags));
 }
 
+if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
+	&Log("\nLISTING OF UNUSED CLASSES:\n");
+	foreach my $classTags (sort keys %SpanClassName) {
+		if (!exists($UtilizedClasses{$SpanClassName{$classTags}})) {
+			&Log(sprintf("SPAN_CLASS: %5s=%s\n", $SpanClassName{$classTags}, $classTags));
+		}
+	}
+	foreach my $classTags (sort keys %DivClassName) {
+		if (!exists($UtilizedClasses{$DivClassName{$classTags}})) {
+			&Log(sprintf("DIV_CLASS: %5s=%s\n", $DivClassName{$classTags}, $classTags));
+		}
+	}
+	
+	&Log("\nLISTING OF OSIS TYPE X ATTRIBUTES IN OUTPUT:\n");
+	foreach my $type (sort keys %XTypesInText) {
+		&Log($type." ");
+	}
+	&Log("\n");
+}
+
 &Log("\nLISTING OF ALL HTML TAGS:\n");
 foreach my $t (sort keys %AllHTMLTags) {
 	&Log($t." ");
@@ -133,8 +154,11 @@ foreach my $t (sort keys %AllHTMLTags) {
 ########################################################################
 ########################################################################
 
-# All this does is convert HTML tags into correct OSIS tags.
-sub tagsHTMLtoOSIS() {
+# All this really does is convert HTML tags into OSIS tags according to
+# ClassInstructions, and reformats the markup with one tag per line. 
+# It does not output SWORD compatible OSIS markup, and it uses xCHx 
+# and xVSx placeholders for verse and chapter.
+sub HTMLtoOSIStags() {
 	my $file = shift;
 	
 	my $outText = "";
@@ -167,12 +191,45 @@ sub tagsHTMLtoOSIS() {
 			$processing = 0;
 		}
 		
+PROCESS_TEXT:
 		while($_) {
 			if ($_ =~ s/^([^<]+)(<|$)/$2/) {$text .= $1;}
 			if ($_ =~ s/^(<[^>]*>)//) {
 				my $tag = $1;
-				$outText .= &getText(\$text);
-				$outText .= &getTag($tag);
+				
+				# process previously collected text, adding Osis tags around applicable text
+				$outText .= &getOsisText(\$text);
+				
+				# process the new tag
+				my $tagname = $tag;
+				$tagname =~ s/^<(\/)?(\w+)\s*([^>]*?)>$/$2/;
+				my $isEndTag = ($1 ? 1:0);
+				my $attribs = $3;
+				
+				# IGNORE_KEY_TAGS entries do not contribute to any tag's key, but are converted here straight to OSIS tags
+				my @ignoreTags = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAGS"});
+				foreach my $ignoreTag (@ignoreTags) {
+					if (!$ignoreTag || $ignoreTag !~ /<(\w+)/) {next;}
+					if (lc($1) eq lc($tagname)) {
+						my $inlineTag;
+						if (lc($tagname) eq "b") {$inlineTag= (!$isEndTag ? "<hi type=\"bold\">":"</hi>");}
+						elsif (lc($tagname) eq "i") {$inlineTag= (!$isEndTag ? "<hi type=\"italic\">":"</hi>");}
+						else {
+							if (!exists($IgnoreTagErrorReported{$tagname})) {
+								&Log("WARN: IGNORE_KEY_TAGS \"$tagname\" will be completely ignored.\n");
+							}
+							$IgnoreTagErrorReported{$tagname}++;
+						}
+						if ($inlineTag) {
+							if (!$isEndTag) {$R++;} else {$R--;}
+							$outText .= $inlineTag;
+						}
+						next PROCESS_TEXT;
+					}
+				}
+				
+				# get an OSIS tag and add this tag to the current tagstack used for creation of tag classes
+				$outText .= &getStackTag($tag);
 			}
 		}
 	}
@@ -184,13 +241,61 @@ sub tagsHTMLtoOSIS() {
 	return $outText;
 }
 
-sub getTag($\%) {
+sub getOsisText(\$) {
+	my $textP = shift;
+	if (length($$textP) == 0) {return;}
+	
+	my $outText = "";
+	my $class = "";
+	
+	if (!$TagStack{"level"} && $$textP !~ /^\s*$/) {
+		&Log("WARN: $Filename line $Linenum: Top level text \"$$textP\"\n");
+	}
+	else {
+		# create a key by combining all current tags
+		my $key = "";
+		my @tkeys;
+		my %count;
+		for (my $i = $TagStack{"level"}; $i > 0; $i--) {
+			my $ktagval = $TagStack{"tag-key"}{$i};
+			if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
+				if ($TagStack{"tag-name"}{$i} !~ /^$InlineTags$/i) {next;}
+				if ($ktagval eq "" || exists($count{$ktagval})) {next;}
+				$count{$ktagval}++;
+			}
+			push(@tkeys, $ktagval);
+		}
+		
+		if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
+			# then tkeys are sorted 
+			foreach my $tkey (sort @tkeys) {$key .= $tkey;}
+		}
+		else {foreach my $tkey (@tkeys) {$key .= $tkey;}}
+
+		if ($key ne "") {
+			if (!exists($SpanClassName{$key})) {
+				$ClassNumber++;
+				$SpanClassName{$key} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} ? "s":"gs").$ClassNumber;
+			}
+			$SpanClassCounts{$SpanClassName{$key}}++;
+			
+			$class = $SpanClassName{$key};
+		}
+	}
+	
+	$outText = ($class ? &getOsisTag("span", $class, 0):"").$$textP.($class ? &getOsisTag("span", $class, 1):"").($R == 0 ? "\n":"");
+	
+	$$textP = "";
+	return $outText;
+}
+
+sub getStackTag($\%) {
 	my $tag = shift;
 	
 	my $outText = "";
 	
 	if ($tag =~ /<br(\s+|>)/i) {
-		$outText .= "<lb \/>\n";
+		$outText .= "<lb\/>\n";
 		$AllHTMLTags{"br"}++;
 		return;
 	}
@@ -247,27 +352,15 @@ sub getTag($\%) {
 		$tagkey .= ">";
 		$tagvalue .= ">";
 		
-		# write out all block tags now
+		# write out all block tags now, but inline tags will be handled in getOsisText()
 		if ($tagname !~ /^$InlineTags$/i) {
-			if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"} && !exists($DivClassName{$tagkey})) {
-				&Log("ERROR: DIV_CLASS was not specified in CF_html2osis.txt: \"$tagkey\".\n");
-			}
 			if (!exists($DivClassName{$tagkey})) {
 				$DivClassNumber++;
-				$DivClassName{$tagkey} = "d".$DivClassNumber;
+				$DivClassName{$tagkey} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} ? "d":"gd").$DivClassNumber;
 			}
 			$DivClassCounts{$DivClassName{$tagkey}}++;
 			
-			$outText .= &blockTag2Osis($tagname, $DivClassName{$tagkey}, 0);
-		}
-
-		# skip certain tags for tagkey
-		my @ignoreTags = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAGS"});
-		foreach my $ignoreTag (@ignoreTags) {
-			if (!$ignoreTag) {next;}
-			if ($ignoreTag !~ /<(\w+)/) {next;}
-			my $it = $1;
-			if (lc($it) eq lc($tagname)) {$tagkey = "";}
+			$outText .= &getOsisTag($tagname, $DivClassName{$tagkey}, 0).($R == 0 ? "\n":"");
 		}
 
 		$TagStack{"level"}++;
@@ -297,8 +390,9 @@ sub getTag($\%) {
 			}
 		}
 		
+		# write out all block tags now, but inline tags will be handled in getOsisText()
 		if ($tagname !~ /^$InlineTags$/i) {
-			$outText .= &blockTag2Osis($tagname, $DivClassName{$TagStack{"tag-key"}{$taglevel}}, 1);
+			$outText .= &getOsisTag($tagname, $DivClassName{$TagStack{"tag-key"}{$taglevel}}, 1).($R == 0 ? "\n":"");
 		}
 		
 		for (my $i = $TagStack{"level"}; $i > 0; $i--) {
@@ -319,165 +413,114 @@ sub getTag($\%) {
 	return $outText;
 }
 
-sub getText(\$\%) {
-	my $textP = shift;
-	
-	my $outText = "";
-
-	if (length($$textP) == 0) {return;}
-	
-	my $class = "";
-	
-	if (!$TagStack{"level"} && $$textP !~ /^\s*$/) {
-		&Log("WARN: $Filename line $Linenum: Top level text \"$$textP\"\n");
-	}
-	else {
-		# create a key by combining all current tags
-		my $key = "";
-		my @tkeys;
-		my %count;
-		for (my $i = $TagStack{"level"}; $i > 0; $i--) {
-			my $ktagval = $TagStack{"tag-key"}{$i};
-			if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
-				if ($TagStack{"tag-name"}{$i} !~ /^$InlineTags$/i) {next;}
-				if ($ktagval eq "" || exists($count{$ktagval})) {next;}
-				$count{$ktagval}++;
-			}
-			push(@tkeys, $ktagval);
-		}
-		
-		if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
-			# then tkeys are sorted 
-			foreach my $tkey (sort @tkeys) {$key .= $tkey;}
-		}
-		else {foreach my $tkey (@tkeys) {$key .= $tkey;}}
-
-		if ($key ne "") {
-			if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"} && !exists($SpanClassName{$key})) {
-				&Log("ERROR: SPAN_CLASS was not specified in CF_html2osis.txt: \"$key\".\n");
-			}
-			if (!exists($SpanClassName{$key})) {
-				$ClassNumber++;
-				$SpanClassName{$key} = "s".$ClassNumber;
-			}
-			$SpanClassCounts{$SpanClassName{$key}}++;
-			
-			$class = $SpanClassName{$key};
-		}
-	}
-	
-	$outText .= &text2Osis($$textP, $class);
-	
-	$$textP = "";
-	return $outText;
-}
-
-sub blockTag2Osis($$$) {
-	my $tag = shift;
+sub getOsisTag($$$) {
+	my $htmltagname = lc(shift);
 	my $class = shift;
 	my $isEndTag = shift;
-	
-	return &renderOSISTag($tag, $class, $isEndTag).$R;
-}
-
-sub text2Osis($$) {
-	my $text = shift;
-	my $class = shift;
-	
-	$text =~ s/\s+/ /g;
-	
-	my $t = "";
-	if ($class) {$t .= &renderOSISTag("span", $class, 0);}
-	$t .= $text;
-	if ($class) {$t .= &renderOSISTag("span", $class, 1);}
-	
-	return $t.$R;
-}
-
-sub renderOSISTag($$$) {
-	my $tag = lc(shift);
-	my $class = shift;
-	my $isEndTag = shift;
-	
-	if ($class eq "") {return "";}
 	
 	my $t = "";
 	if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
 		$t .= "<";
 		if ($isEndTag) {$t .= "/";}
-		$t .= $tag;
-		if (!$isEndTag && $class) {$t .= " class=\"$class\"";}
+		$t .= $htmltagname;
+		if (!$isEndTag && $class ne "") {$t .= " type=\"x-$class\"";}
 		$t .= ">";
 	}
 	else {
-		# convert the tag and class to OSIS
-		my $myOsisClass = "";
-		foreach my $inst (keys %ClassInstruction) {
-			my $c = $ClassInstruction{$inst};
-			if ($class =~ /^($c)$/) {
-				if ($myOsisClass) {&Log("ERROR: Multiple definitions for class \"$class\" (\"$myOsisClass\" and \"$inst\").\n");}
-				$myOsisClass = $inst;
+		if ($class eq "") {
+			if (!exists($ReportDroppedTag{"$htmltagname-$class"})) {
+				&Log("INFO: Began dropping \"$htmltagname\" tags with null class.\n");
 			}
+			$ReportDroppedTag{"$htmltagname-$class"}++;
+			return "";
 		}
-		if ($myOsisClass) {$t .= &getOSISTagfromOSISClass($myOsisClass, $isEndTag);}
-		else {
-			if (!exists($DefErrorReported{$class})) {
-				&Log("ERROR: No definition assigned to class \"$class\"\n");
-			}
-			$DefErrorReported{$class}++;
-		}
+		$UtilizedClasses{$class}++;
+
+		$t .= &getOsisTagForElement(&getOsisElementForClass($class, $htmltagname), $isEndTag);
 	}
 	
 	return $t;
 }
 
-sub getOSISTagfromOSISClass($$) {
+sub getOsisElementForClass($$) {
 	my $class = shift;
+	my $htmltagname = shift;
+
+	# convert the tag class to an OsisElement based on CF_html2osis.txt ClassInstructions
+	my $myOsisElement = "";
+	foreach my $elem (keys %ClassInstruction) {
+		my $c = $ClassInstruction{$elem};
+		if ($class =~ /^($c)$/) {
+			if ($myOsisElement) {&Log("ERROR: Multiple OSIS elements assigned to class \"$class\" (\"$myOsisElement\" and \"$elem\").\n");}
+			$myOsisElement = $elem;
+		}
+	}
+	if (!$myOsisElement) {
+		$myOsisElement = "PARAGRAPH-".$class;
+		if ($htmltagname =~ /^$InlineTags$/i) {$myOsisElement = "SEG-".$class;}
+		if (!exists($DefErrorReported{$class})) {
+			&Log("INFO: ($Filename line $Linenum) No OSIS element assigned to class \"$class\" using default: \"$myOsisElement\" ($class=".&getTagsOfClass($class).").\n");
+		}
+		$DefErrorReported{$class}++;
+	}
+	
+	return $myOsisElement;
+}
+
+sub getOsisTagForElement($$) {
+	my $element = shift;
 	my $isEndTag = shift;
-	
-	my $tag = "";
+
+	my $tagname = "";
 	my $attribs = "";
+	my $isMilestone = 0;
 
-	if    ($class eq "VERSE_NUMBER") {$tag = "verse";}
-	elsif($class eq "CHAPTER_NUMBER") {$tag = "chapter";}
-	elsif($class eq "BOLD") {$tag = "hi"; $attribs = "type=\"bold\"";}
-	elsif($class eq "ITALIC") {$tag = "hi"; $attribs = "type=\"italic\"";}
-	elsif($class eq "REMOVE") {return "";} # is it really that safe to remove the enclosing text too???
-	elsif($class eq "CROSSREF_MARKER") {$tag = "OC_crossrefMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefMarkerID)."\"";}}
-	elsif($class eq "CROSSREF") {$tag = "OC_crossref"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefID)."\"";}}
-	elsif($class eq "FOOTNOTE_MARKER") {$tag = "OC_footnoteMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteMarkerID)."\"";}}
-	elsif($class eq "FOOTNOTE") {$tag = "OC_footnote"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteID)."\"";}}
-	elsif($class eq "IGNORE") {return "";}
-	elsif($class eq "INTRO_PARAGRAPH") {$tag = "p"; $attribs = "type=\"x-intro\"";}
-	elsif($class eq "INTRO_TITLE_1") {$tag = "title"; $attribs = "type=\"x-intro\" level=\"1\"";}
-	elsif($class eq "LIST_TITLE") {$tag = "list"; $attribs = "type=\"x-intro\"";}
-	elsif($class eq "LIST_ENTRY") {$tag = "item"; $attribs = "type=\"x-listitem\"";}
-	elsif($class eq "TITLE_1") {$tag = "title"; $attribs = "level=\"1\"";}
-	elsif($class eq "TITLE_2") {$tag = "title"; $attribs = "level=\"2\"";}
-	elsif($class eq "CANONICAL_TITLE_1") {$tag = "title"; $attribs = "level=\"1\" canonical=\"true\"";}
-	elsif($class eq "CANONICAL_TITLE_2") {$tag = "title"; $attribs = "level=\"2\" canonical=\"true\"";}
-	elsif($class eq "BLANK_LINE") {$tag = (!$isEndTag ? "</lb >":"");}
-	elsif($class eq "PARAGRAPH") {$tag = "p";}
-	elsif($class eq "POETRY_LINE_GROUP") {$tag = "lg";}
-	elsif($class eq "POETRY_LINE") {$tag = "l";}
+	if    ($element eq "VERSE_NUMBER") {$tagname = "verse";}
+	elsif($element eq "CHAPTER_NUMBER") {$tagname = "chapter";}
+	elsif($element eq "BOLD") {$tagname = "hi"; $attribs = "type=\"bold\"";}
+	elsif($element eq "ITALIC") {$tagname = "hi"; $attribs = "type=\"italic\"";}
+	elsif($element eq "REMOVE") {$tagname = "remove";}
+	elsif($element eq "CROSSREF_MARKER") {$tagname = "OC_crossrefMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefMarkerID)."\"";}}
+	elsif($element eq "CROSSREF") {$tagname = "OC_crossref"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefID)."\"";}}
+	elsif($element eq "FOOTNOTE_MARKER") {$tagname = "OC_footnoteMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteMarkerID)."\"";}}
+	elsif($element eq "FOOTNOTE") {$tagname = "OC_footnote"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteID)."\"";}}
+	elsif($element eq "IGNORE") {return "";}
+	elsif($element eq "INTRO_PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-intro\"";}
+	elsif($element eq "INTRO_TITLE_1") {$tagname = "title"; $attribs = "type=\"x-intro\" level=\"1\"";}
+	elsif($element eq "LIST_TITLE") {$tagname = "list"; $attribs = "type=\"x-intro\"";}
+	elsif($element eq "LIST_ENTRY") {$tagname = "item"; $attribs = "type=\"x-listitem\"";}
+	elsif($element eq "TITLE_1") {$tagname = "title"; $attribs = "level=\"1\"";}
+	elsif($element eq "TITLE_2") {$tagname = "title"; $attribs = "level=\"2\"";}
+	elsif($element eq "CANONICAL_TITLE_1") {$tagname = "title"; $attribs = "level=\"1\" canonical=\"true\"";}
+	elsif($element eq "CANONICAL_TITLE_2") {$tagname = "title"; $attribs = "level=\"2\" canonical=\"true\"";}
+	elsif($element eq "BLANK_LINE") {$isMilestone = 1; $tagname = ($isEndTag ? "lb":"skip");}
+	elsif($element eq "PARAGRAPH") {$tagname = "p";}
+	elsif($element =~ /^PARAGRAPH\-(.*?)$/) {$tagname = "p"; $attribs = "type=\"x-$1\"";}
+	elsif($element eq "POETRY_LINE_GROUP") {$tagname = "lg";}
+	elsif($element eq "POETRY_LINE") {$tagname = "l";}
+	elsif($element =~ /^SEG\-(.*?)$/) {$tagname = "seg"; $attribs="type=\"x-$1\"";}
 	
-	if ($tag eq "") {&Log("ERROR: No entry for OSIS tag \"$class\"\n");}
+	if ($tagname eq "") {&Log("ERROR: No entry for OSIS element \"$element\"\n");}
 	
-	if (!$isEndTag && ($class eq "FOOTNOTE" || $class eq "CROSSREF")) {$R = "";}
-	if ($isEndTag  && ($class eq "FOOTNOTE" || $class eq "CROSSREF")) {$R = "\n";}
+	# notes should end up on a single line
+	if (!$isEndTag && ($element eq "FOOTNOTE" || $element eq "CROSSREF")) {$R++;}
+	if ($isEndTag  && ($element eq "FOOTNOTE" || $element eq "CROSSREF")) {$R--;}
 
+	if ($tagname eq "skip") {return "";}
+	
 	my $ret = "<";
-	if ($isEndTag) {$ret .= "/";}
-	$ret .= $tag;
+	if (!$isMilestone && $isEndTag) {$ret .= "/";}
+	$ret .= $tagname;
 	if (!$isEndTag && $attribs) {$ret .= " ".$attribs;}
+	if ($isMilestone) {$ret .= "/";}
 	$ret .= ">";
 	
 	return $ret;
 }
 
-sub handleNotes(\$$) {
-	my $tP = shift;
+sub handleNotes($\$) {
 	my $type = shift;
+	my $tP = shift;
 	
 	# find and convert each note body
 	while ($$tP =~ s/(<OC_$type id="([^"]*)">(.*?)<\/OC_$type>)//) {
@@ -524,6 +567,8 @@ sub osis2SWORD($) {
 	my $chapterEnd = "";
 
 	while (<IBK>) {
+		$_ =~ s/[\n\l\r]+$//;
+		
 		if ($_ =~ /<chapter>(.*?)<\/chapter>/) {
 			my $ch = $1;
 			$verse = 0;
@@ -562,7 +607,17 @@ sub osis2SWORD($) {
 			next;
 		}
 		
-		if ($_ =~ /<title [^>]*>.*?<\/title>/) {
+		if ($_ =~ /<remove>(.*?)<\/remove>/) {
+			&Log(($Chapter ? "WARN":"INFO").": Removed \"$_\" from \"$Book.$chapter.$verse\".\n");
+			next;
+		}
+		
+		if ($_ =~ /^(.*)(<title [^>]*>)(.*?)(<\/title>)(.*)$/) {
+			my $tp = $1; my $ts = $2; my $t = $4; my $te = $5; my $tx = $6;
+			my $drop = "$tp$tx";
+			while ($t =~ s/(<[^>]*>)//) {$drop .= $1;}
+			if ($drop ne "") {&Log("INFO: Dropping \"$drop\" from title.\n");}
+			$_ = $ts.$t.$te; # this strips off illegal inline hi elements etc from titles.
 			$s .= $verseEnd.$sectionEnd;
 			$verseEnd = "";
 			$sectionEnd = "";
@@ -573,9 +628,22 @@ sub osis2SWORD($) {
 			}
 		}
 		
+		# final text modifications
+		$_ =~ s/\s+/ /g;
 		$_ =~ s/&nbsp;/ /g;
 		$_ =~ s/xCHx/$chapter/g;
 		$_ =~ s/xVSx/$verse/g;
+		$_ =~ s/(<lb\s*\/>)/$1\n/g;
+
+		# final output checking
+		my $check = $_;
+		while ($check =~ s/<([^\s>]+)[^>]*?type="(x\-[^"]*)"//) {
+			$XTypesInText{$1."(".$2.")"}++;
+			if (!exists($ReportXType{$1."(".$2.")"})) {
+				&Log("INFO: First $1($2) found in $Book.$Chapter.$Verse\n");
+			}
+			$ReportXType{$1."(".$2.")"}++;
+		}
 		
 		$s .= $_;
 	}
@@ -585,6 +653,14 @@ sub osis2SWORD($) {
 	$s .= "</div>\n";
 	
 	return $s;
+}
+
+sub getTagsOfClass($) {
+	my $class = shift;
+	foreach my $classTag (keys %SpanClassName) {if ($SpanClassName{$classTag} eq $class) {return $classTag;}}
+	foreach my $classTag (keys %DivClassName) {if ($DivClassName{$classTag} eq $class) {return $classTag;}}
+	&Log("ERROR: Unknown class tags for \"$class\".\n");
+	return "";
 }
 	
 sub Write($) {
