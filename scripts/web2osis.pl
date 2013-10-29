@@ -30,7 +30,7 @@ open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis c
 
 $ClassInstructions = "CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
 $TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES";
-$TrueFalseInstructions = "ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO";
+$TrueFalseInstructions = "ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|AUTO_VERSE_NUMBERING";
 $SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
 $SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
 
@@ -124,6 +124,16 @@ foreach my $classTags (sort {$DivClassCounts{$DivClassName{$a}} <=> $DivClassCou
 }
 
 if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
+	&Log("\nLISTING OF REMOVED TEXT:\n");
+	foreach my $t (sort {length($b) <=> length($a)} keys %AllRemoves) {
+		&Log("$t (".$AllRemoves{$t}.")\n");
+	}
+	
+	&Log("\nLISTING OF DROPPED TITLE TAGS:\n");
+	foreach my $t (sort {length($b) <=> length($a)} keys %AllDroppedTitleTags) {
+		&Log("$t (".$AllDroppedTitleTags{$t}.")\n");
+	}
+	
 	&Log("\nLISTING OF UNUSED CLASSES:\n");
 	foreach my $classTags (sort keys %SpanClassName) {
 		if (!exists($UtilizedClasses{$SpanClassName{$classTags}})) {
@@ -166,6 +176,11 @@ sub HTMLtoOSIStags() {
 	$Filename = $file;
 	$Filename =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
 	$Linenum = 0;
+	
+	$CrossRefMarkerID = 0;
+	$CrossRefID = 0;
+	$FootnoteMarkerID = 0;
+	$FootnoteID = 0;
 	
 	&Log("Processing $Book\n");
 	&normalizeNewLines($file);
@@ -283,7 +298,8 @@ sub getOsisText(\$) {
 		}
 	}
 	
-	$outText = ($class ? &getOsisTag("span", $class, 0):"").$$textP.($class ? &getOsisTag("span", $class, 1):"").($R == 0 ? "\n":"");
+	$outText = ($class ? &getOsisTag("span", $class, 0):"").$$textP.($class ? &getOsisTag("span", $class, 1):"");
+	if ($R <= 0) {$outText .= "\n"; $R = 0;}
 	
 	$$textP = "";
 	return $outText;
@@ -360,7 +376,8 @@ sub getStackTag($\%) {
 			}
 			$DivClassCounts{$DivClassName{$tagkey}}++;
 			
-			$outText .= &getOsisTag($tagname, $DivClassName{$tagkey}, 0).($R == 0 ? "\n":"");
+			$outText .= &getOsisTag($tagname, $DivClassName{$tagkey}, 0);
+			if ($R <= 0) {$outText .= "\n"; $R = 0;}
 		}
 
 		$TagStack{"level"}++;
@@ -392,7 +409,8 @@ sub getStackTag($\%) {
 		
 		# write out all block tags now, but inline tags will be handled in getOsisText()
 		if ($tagname !~ /^$InlineTags$/i) {
-			$outText .= &getOsisTag($tagname, $DivClassName{$TagStack{"tag-key"}{$taglevel}}, 1).($R == 0 ? "\n":"");
+			$outText .= &getOsisTag($tagname, $DivClassName{$TagStack{"tag-key"}{$taglevel}}, 1);
+			if ($R <= 0) {$outText .= "\n"; $R = 0;}
 		}
 		
 		for (my $i = $TagStack{"level"}; $i > 0; $i--) {
@@ -480,10 +498,10 @@ sub getOsisTagForElement($$) {
 	elsif($element eq "BOLD") {$tagname = "hi"; $attribs = "type=\"bold\"";}
 	elsif($element eq "ITALIC") {$tagname = "hi"; $attribs = "type=\"italic\"";}
 	elsif($element eq "REMOVE") {$tagname = "remove";}
-	elsif($element eq "CROSSREF_MARKER") {$tagname = "OC_crossrefMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefMarkerID)."\"";}}
-	elsif($element eq "CROSSREF") {$tagname = "OC_crossref"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$CrossRefID)."\"";}}
-	elsif($element eq "FOOTNOTE_MARKER") {$tagname = "OC_footnoteMarker"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteMarkerID)."\"";}}
-	elsif($element eq "FOOTNOTE") {$tagname = "OC_footnote"; if (!$isEndTag) {$attribs = "id=\"".&getCurrentNoteId(++$FootnoteID)."\"";}}
+	elsif($element eq "CROSSREF_MARKER") {$tagname = "OC_crossrefMarker"; if (!$isEndTag) {$attribs = "id=\"".++$CrossRefMarkerID."\"";}}
+	elsif($element eq "CROSSREF") {$tagname = "OC_crossref"; if (!$isEndTag) {$attribs = "id=\"".++$CrossRefID."\"";}}
+	elsif($element eq "FOOTNOTE_MARKER") {$tagname = "OC_footnoteMarker"; if (!$isEndTag) {$attribs = "id=\"".++$FootnoteMarkerID."\"";}}
+	elsif($element eq "FOOTNOTE") {$tagname = "OC_footnote"; if (!$isEndTag) {$attribs = "id=\"".++$FootnoteID."\"";}}
 	elsif($element eq "IGNORE") {return "";}
 	elsif($element eq "INTRO_PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-intro\"";}
 	elsif($element eq "INTRO_TITLE_1") {$tagname = "title"; $attribs = "type=\"x-intro\" level=\"1\"";}
@@ -503,8 +521,10 @@ sub getOsisTagForElement($$) {
 	if ($tagname eq "") {&Log("ERROR: No entry for OSIS element \"$element\"\n");}
 	
 	# notes should end up on a single line
-	if (!$isEndTag && ($element eq "FOOTNOTE" || $element eq "CROSSREF")) {$R++;}
-	if ($isEndTag  && ($element eq "FOOTNOTE" || $element eq "CROSSREF")) {$R--;}
+	my $oneLine = "FOOTNOTE|CROSSREF|VERSE_NUMBER|CHAPTER_NUMBER|REMOVE|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|POETRY_LINE_GROUP|POETRY_LINE";
+	
+	if (!$isMilestone && !$isEndTag && ($element =~ /^($oneLine)$/)) {$R++;}
+	if (!$isMilestone && $isEndTag  && ($element =~ /^($oneLine)$/)) {$R--;}
 
 	if ($tagname eq "skip") {return "";}
 	
@@ -528,9 +548,9 @@ sub handleNotes($\$) {
 		my $id = $2;
 		my $body = $3;
 		
-		my $note = "<note".($type eq "crossref" ? " type=\"crossReference\"":"");
+		my $note = "<note".($type eq "crossref" ? " type=\"crossReference\"":" type=\"study\"");
 		$note .= " osisRef=\"$Book.xCHx.xVSx\"";
-		$note .= " osisID=\"$Book.xCHx.xVSx!".($type eq "crossref" ? "crossReference.":"")."n$id\"";
+		$note .= " osisID=\"$Book.xCHx.xVSSx!".($type eq "crossref" ? "crossReference.n":"")."$id\"";
 		$note .= " n=\"$id\"";
 		$note .=">$body</note>";
 		
@@ -547,11 +567,6 @@ sub handleNotes($\$) {
 	if ($$tP =~ /<OC_$type/) {&Log("ERROR: Unhandled note type $type \"$id\".\n");}
 }
 
-sub getCurrentNoteId($) {
-	my $n = shift;
-	return $n;
-}
-
 sub osis2SWORD($) {
 	my $bkfile = shift;
 	
@@ -560,7 +575,8 @@ sub osis2SWORD($) {
 	open(IBK, "<:encoding(UTF-8)", $bkfile) || die "Could not open $bkfile\n";
 
 	my $chapter = 0;
-	my $verse = 0;
+	my $verseF = 0;
+	my $verseL = 0;
 
 	my $verseEnd = "";
 	my $sectionEnd = "";
@@ -568,17 +584,26 @@ sub osis2SWORD($) {
 
 	while (<IBK>) {
 		$_ =~ s/[\n\l\r]+$//;
+		$_ =~ s/&nbsp;/ /g;
 		
 		if ($_ =~ /<chapter>(.*?)<\/chapter>/) {
 			my $ch = $1;
-			$verse = 0;
+			$verseF = 0;
+			$verseL = 0;
 			
 			$s .= $verseEnd.$sectionEnd.$chapterEnd;
 			$verseEnd = "";
 			$sectionEnd = "";
 			$chapterEnd = "</chapter>\n";
 			
-			if ($ch =~ /^\s*(\d+)\s*/) {$chapter = $1;}
+			$chapter++;
+			
+			if ($ch =~ /^\s*(\d+)\s*$/) {
+				if ($1 != $chapter) {
+					&Log("ERROR: Chapter is not sequential (was $1, should be $chapter).\n");
+					$chapter = $1;
+				}
+			}
 			else {&Log("ERROR: Could not parse chapter \"$ch\".\n");}
 			
 			$s .= "<chapter osisID=\"$Book.$chapter\" n=\"$chapter\">\n";
@@ -589,34 +614,50 @@ sub osis2SWORD($) {
 			
 			$s .= $verseEnd;
 			
-			if ($vs =~ /^\s*(\d+)\s*(-\s*(\d+))?/) {$verse = $1.($2 ? "-$3":"");}
-			else {&Log("ERROR: Could not parse verse \"$vs\".\n");}
-			$verseEnd = "<verse eID=\"$Book.$chapter.$verse\" />\n";
+			$verseF = (++$verseL);
 			
-			my $osisID = "$Book.$chapter.$verse";
-			if ($verse =~ /^(\d+)\-(\d+)$/) {
-				my $v1 = $1;
-				my $v2 = $2;
-				my $sep = " ";
-				for (my $i=$v1; $i<=$v2; $i++) {
-					$osisID .= $sep."$Book.$chapter.$i";
-					$sep = " ";
-				}
+			my $vf, $vl;
+			if ($vs =~ /^\s*(\d+)([\-\s]+(\d+))?\s*$/) {$vf = $1; $vl = ($2 ? $3:$vf);}
+			elsif ($vs =~ /^\s*(\d+).*?(\d+)\s*$/) {$vf = $1; $vl = $2;}
+			else {&Log("ERROR: Could not parse verse \"$vs\".\n");}
+			if ($vf != $verseF) {
+				&Log("WARN: Corrected non-sequential verse tag \"$vs\". (in Chapter $chapter, $vf was changed to $verseF).\n");
 			}
-			$s .= "<verse sID=\"$Book.$chapter.$verse\" osisID=\"$osisID\" n=\"$verse\" />";
+			if ($vl < $verseF) {
+				&Log("WARN: Corrected Last-verse which was less than first-verse \"vs\", (in Chapter $chapter, $vl was changed to $verseF).\n");
+			}
+			else {$verseL = $vl;}
+			
+			my $verseTextL;
+			my $osisID;
+			if ($TrueFalseInstruction{"AUTO_VERSE_NUMBERING"}) {
+				$verseTextL = "xVERSELx";
+				$osisID = "xOSISIDx";
+			}
+			else {
+				$verseTextL = ($verseL > $verseF ? "-".$verseL:"");
+				if ($verseL > $verseF) {
+					my $sep = "";
+					for (my $i=$verseF; $i<=$verseL; $i++) {
+						$osisID .= $sep."$Book.$chapter.$i";
+						$sep = " ";
+					}
+				}
+				else {$osisID = "$Book.$chapter.$verseF";}
+			}
+			if ($s !~ /\n$/) {$s .= "\n";}
+			$s .= "<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />";
+			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 			next;
 		}
 		
-		if ($_ =~ /<remove>(.*?)<\/remove>/) {
-			&Log(($Chapter ? "WARN":"INFO").": Removed \"$_\" from \"$Book.$chapter.$verse\".\n");
-			next;
-		}
+		while ($_ =~ s/<remove>(.*?)<\/remove>/$1/) {$AllRemoves{$1}++;}
 		
-		if ($_ =~ /^(.*)(<title [^>]*>)(.*?)(<\/title>)(.*)$/) {
-			my $tp = $1; my $ts = $2; my $t = $4; my $te = $5; my $tx = $6;
+		if ($_ =~ /^(.*?)(<title [^>]*>)(.*)(<\/title>)(.*?)$/) {
+			my $tp = $1; my $ts = $2; my $t = $3; my $te = $4; my $tx = $5;
 			my $drop = "$tp$tx";
-			while ($t =~ s/(<[^>]*>)//) {$drop .= $1;}
-			if ($drop ne "") {&Log("INFO: Dropping \"$drop\" from title.\n");}
+			if ($t !~ /<note /) {while ($t =~ s/(<[^>]*>)//) {$drop .= $1;}}
+			if ($drop ne "") {$AllDroppedTitleTags{$drop}++;}
 			$_ = $ts.$t.$te; # this strips off illegal inline hi elements etc from titles.
 			$s .= $verseEnd.$sectionEnd;
 			$verseEnd = "";
@@ -628,12 +669,18 @@ sub osis2SWORD($) {
 			}
 		}
 		
+		# insure lists work right
+		if    ($_ =~ /<list[\s>]/) {$InList = 1;}
+		elsif ($_ =~ /<\/list[\s>]/) {$InList = 0;}
+		elsif ($_ =~ /<item[\s>]/ && !$InList) {$_ =~ s/(<item[\s>])/<list>$1/; $InList = 1;}
+		elsif ($_ !~ /<item[\s>]/ && $InList) {$_ = "</list>".$_; $InList = 0;}
+		
 		# final text modifications
 		$_ =~ s/\s+/ /g;
-		$_ =~ s/&nbsp;/ /g;
 		$_ =~ s/xCHx/$chapter/g;
-		$_ =~ s/xVSx/$verse/g;
-		$_ =~ s/(<lb\s*\/>)/$1\n/g;
+		$_ =~ s/xVSSx/$verseF/g;
+		$_ =~ s/xVSx/$verseF$verseTextL/g;
+		
 
 		# final output checking
 		my $check = $_;
@@ -652,7 +699,19 @@ sub osis2SWORD($) {
 	$s .= $verseEnd.$sectionEnd.$chapterEnd;
 	$s .= "</div>\n";
 	
+	if ($TrueFalseInstruction{"AUTO_VERSE_NUMBERING"}) {&autoVerseNumber(\$s);}
+	
 	return $s;
+}
+
+sub autoVerseNumber(\$) {
+	my $tP = shift;
+	
+	my @lines = split(/^/, $$tP);
+	for (my $i=@lines-1; $i>=0; $i--) {
+		
+	}
+	$$tP = join("", @lines);
 }
 
 sub getTagsOfClass($) {
