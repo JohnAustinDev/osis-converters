@@ -622,11 +622,10 @@ sub osis2SWORD(\$) {
 			if ($t !~ /<note /) {while ($t =~ s/(<[^>]*>)//) {$drop .= $1;}}
 			if ($drop ne "") {$AllDroppedTags{"title:$drop"}++;}
 			
-			$_ = $verseEnd.$sectionEnd;
+			$_ = $sectionEnd;
 			if ($chapter) {$_ .= "<div type=\"section\">\n";}
 			$_ .= $ts.$t.$te."\n"; # this strips off illegal inline hi elements etc from titles.
 
-			$verseEnd = "";
 			$sectionEnd = ($chapter ? "</div>\n":"");
 		}
 		elsif ($_ =~ /^(.*?)<verse>(.*?)<\/verse>(.*?)$/) {
@@ -637,20 +636,24 @@ sub osis2SWORD(\$) {
 			my @myv = &readVerseNumbers($_);
 			
 			$verseF = (++$verseL);
-
-			if ($myv[1] != $verseF) {
-				&Log("WARN: Corrected starting verse: $chapter:".$myv[1]." became $chapter:$verseF.\n");
-			}
 			$verseL = $myv[2];
+			if ($verseL < $verseF) {$verseL = $verseF;}
+
+			if ($verseF != $myv[1]) {
+				&Log("WARN: Corrected starting verse: $chapter:".$myv[1]." became $chapter:$verseF\n");
+			}
+			if ($verseL != $myv[2]) {
+				&Log("WARN: Corrected ending   verse: $chapter:$verseF".($myv[2] ne $verseF ? "-".$myv[2]:"")." became $chapter:$verseF-$verseL\n");
+			}
 			
-			my $nl = $l+1;
-			my @nextv = &readVerseNumbers($lines[$nl++]);
-			while ($nextv[3] == 0 && $nl < @lines) {@nextv = &readVerseNumbers($lines[$nl++]);}
+			my $nl = $l;
+			my @nextv = &readVerseNumbers($lines[++$nl]);
+			while ($nextv[3] == 0 && $nl < @lines) {@nextv = &readVerseNumbers($lines[++$nl]);}
 			if ($nextv[3] == 1 && ($nextv[1]-1) > $verseL) {
-				&Log("WARN: Corrected ending   verse, $chapter:$verseF".($verseL ne $verseF ? "-".$verseL:"")." became $verseF-".($nextv[1]-1).".\n");
+				&Log("WARN: Corrected ending   verse, $chapter:$verseF".($verseL ne $verseF ? "-".$verseL:"")." became $verseF-".($nextv[1]-1)."\n");
 				$verseL = ($nextv[1]-1);
 			}
-			# if this is the last verse in the chapter, check with verse system for correctness
+			# if this is the last verse in the chapter, check against verse system for correctness
 			elsif ($nextv[3] == -1 || $nl == @lines) {
 				my $trueVerseL = $mycanon{$Book}[($chapter-1)];
 				if ($verseL > $trueVerseL && $verseF <= $trueVerseL) {
@@ -673,23 +676,24 @@ sub osis2SWORD(\$) {
 			
 			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 		}
-		# correct any places where verse 1 was was not labeled (AZE rtf)
-		elsif ($_ !~ /^<(p|div)[ >]/ && $chapter && !$verseF) {
-			$verseF = 1;
-			$verseL = 1;
-			
-			my $nl = $l+1;
-			my @nextv = &readVerseNumbers($lines[$nl++]);
-			while ($nextv[3] == 0 && $nl < @lines) {@nextv = &readVerseNumbers($lines[$nl++]);}
-			if ($nextv[3] == 1 && ($nextv[1]-1) > $verseL) {$verseL = ($nextv[1]-1);}
-			
-			my $osisID = &getOsisID($Book, $chapter, $verseF, $verseL);
-			my $verseTextL = ($verseL > $verseF ? "-".$verseL:"");
-			
-			&Log("WARN: Corrected missing  verse: $chapter:$verseF".($verseL ne $verseF ? "-".$verseL:"").".\n");
-			
-			$_ = $verseEnd."<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />".$_;
-			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
+		# correct places where a verse tag is required but we've got some other tag instead (AZE rtf)
+		elsif ($_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && $verseEnd eq "") {
+			if ($verseF == 0) {
+				$verseF = (++$verseL);
+				my $nl = $l;
+				my @nextv = &readVerseNumbers($lines[++$nl]);
+				while ($nextv[3] == 0 && $nl < @lines) {@nextv = &readVerseNumbers($lines[++$nl]);}
+				if ($nextv[3] == 1 && ($nextv[1]-1) > $verseL) {$verseL = ($nextv[1]-1);}
+				
+				my $osisID = &getOsisID($Book, $chapter, $verseF, $verseL);
+				my $verseTextL = ($verseL > $verseF ? "-".$verseL:"");
+				
+				&Log("WARN: Corrected missing  verse: $chapter:$verseF".($verseL ne $verseF ? "-".$verseL:"")."\n");
+				
+				$_ = $verseEnd."<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />".$_;
+				$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
+			}
+			else {&Log("WARN: Illegal outside verse: \"$_\"\n");}
 		}
 		
 		while ($_ =~ s/<remove>(.*?)<\/remove>/$1/) {$AllRemoves{$1}++;}
@@ -701,7 +705,6 @@ sub osis2SWORD(\$) {
 		elsif ($_ !~ /<item[\s>]/ && $InList) {$_ = "</list>".$_; $InList = 0;}
 		
 		# final text modifications
-		$_ =~ s/[ \t]+/ /g;
 		$_ =~ s/xCHx/$chapter/g;
 		$_ =~ s/xVSSx/$verseF/g;
 		$_ =~ s/xVSx/$verseF$verseTextL/g;
@@ -720,20 +723,19 @@ sub osis2SWORD(\$) {
 	}
 	close(IBK);
 	
+	my $t = join("", @lines);
+	$t =~ s/[ \t]+/ /g;
+	
 	$$textP = "<div type=\"book\" osisID=\"$Book\" canonical=\"true\">\n";
-	$$textP .= join("", @lines); 
+	$$textP .= $t; 
 	$$textP .= $verseEnd.$sectionEnd.$chapterEnd;
 	$$textP .= "</div>\n";
 }
 
 sub getOsisID() {
 	my $osisID = $_[0].".".$_[1].".".$_[2];
-	if ($_[3] > $_[2]) {
-		my $sep = "";
-		for (my $i=$_[2]; $i<=$_[3]; $i++) {
-			$osisID .= $sep.$_[0].".".$_[1].".".$i;
-			$sep = " ";
-		}
+	for (my $i=$_[2]+1; $i<=$_[3]; $i++) {
+		$osisID .= " ".$_[0].".".$_[1].".".$i;
 	}
 	
 	return $osisID;
