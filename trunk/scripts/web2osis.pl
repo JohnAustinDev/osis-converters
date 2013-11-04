@@ -86,8 +86,7 @@ while (<COMF>) {
 			&handleNotes("footnote", \$osisfile);
 			
 			if ($TrueFalseInstruction{"DEBUG"}) {
-				my $tmpBook = "$OUTPUTFILE.1";
-				open(OUTTMP, ">:encoding(UTF-8)", $tmpBook) || die "Could not open web2osis output file $tmpBook\n";
+				open(OUTTMP, ">>:encoding(UTF-8)", "$OUTPUTFILE.1") || die "Could not open web2osis output file $tmpBook\n";
 				print OUTTMP $osisfile;
 				close(OUTTMP);
 			}
@@ -104,14 +103,16 @@ while (<COMF>) {
 close(COMF);
 
 # print out the OSIS file in v11n correct book order
-&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
-&Write("<div type=\"bookGroup\">\n");
-foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
-	if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
-	&Write($OsisBookText{$bk});
-	$wasWritingOT = ($mybookorder{$bk} <= 39);
+if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
+	&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
+	&Write("<div type=\"bookGroup\">\n");
+	foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
+		if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
+		&Write($OsisBookText{$bk});
+		$wasWritingOT = ($mybookorder{$bk} <= 39);
+	}
+	&Write("</div>\n</osisText>\n</osis>\n");
 }
-&Write("</div>\n</osisText>\n</osis>\n");
 close (OUTF);
 
 # log a bunch of stuff now...
@@ -167,9 +168,9 @@ foreach my $t (sort keys %AllHTMLTags) {
 ########################################################################
 
 # All this really does is convert HTML tags into OSIS tags according to
-# ClassInstructions, and reformats the markup with one tag per line. 
+# ClassInstructions, and reformats the markup with generally one tag per line. 
 # It does not output SWORD compatible OSIS markup, and it uses xCHx 
-# and xVSx placeholders for verse and chapter.
+# xVSSx, and xVSx placeholders for verse and chapter.
 sub HTMLtoOSIStags() {
 	my $file = shift;
 	
@@ -245,7 +246,7 @@ PROCESS_TEXT:
 					}
 				}
 				
-				# get an OSIS tag and add this tag to the current tagstack used for creation of tag classes
+				# get an OSIS tag, if any, and add this HTML tag to the current tagstack used for creation of tag classes
 				$outText .= &getStackTag($tag);
 			}
 		}
@@ -258,6 +259,7 @@ PROCESS_TEXT:
 	return $outText;
 }
 
+# Adds OSIS tags around input text IF current tag stack requires it.
 sub getOsisText(\$) {
 	my $textP = shift;
 	if (length($$textP) == 0) {return;}
@@ -571,9 +573,13 @@ sub handleNotes($\$) {
 	if ($$tP =~ /<OC_$type/) {&Log("ERROR: Unhandled note type $type \"$id\".\n");}
 }
 
+# Converts the formatted output of HTMLtoOSIStags() into a form of OSIS 
+# which can be read directly by SWORD's osis2mod program.
 sub osis2SWORD(\$) {
 	my $textP = shift;
 	
+	# read the entire book into an array so current, previous and next 
+	# lines can all be known simultaneously.
 	my @lines = split(/^/, $$textP);
 
 	my $chapter = 0;
@@ -624,7 +630,7 @@ sub osis2SWORD(\$) {
 			
 			$_ = $sectionEnd;
 			if ($chapter) {$_ .= "<div type=\"section\">\n";}
-			$_ .= $ts.$t.$te."\n"; # this strips off illegal inline hi elements etc from titles.
+			$_ .= $ts.$t.$te."\n"; # leaving off $tp and $tx strips off illegal inline hi elements etc from titles.
 
 			$sectionEnd = ($chapter ? "</div>\n":"");
 		}
@@ -672,12 +678,12 @@ sub osis2SWORD(\$) {
 			if ($vp ne "" || $vx ne "") {$AllDroppedTags{"verse:$vp$vx"}++;}
 			
 			$_ = $verseEnd;
-			$_ .= "<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />$vnote";
+			$_ .= "<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />";
 			
 			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 		}
-		# correct places where a verse tag is required but we've got some other tag instead (AZE rtf)
-		elsif ($_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && $verseEnd eq "") {
+		# correct some places where a verse tag is required but instead we've got some other tag (AZE rtf)
+		elsif ($_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && !$verseEnd) {
 			if ($verseF == 0) {
 				$verseF = (++$verseL);
 				my $nl = $l;
@@ -693,7 +699,7 @@ sub osis2SWORD(\$) {
 				$_ = $verseEnd."<verse sID=\"$Book.$chapter.$verseF$verseTextL\" osisID=\"$osisID\" n=\"$verseF$verseTextL\" />".$_;
 				$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 			}
-			else {&Log("WARN: Illegal outside verse: \"$_\"\n");}
+			else {&Log("WARN: Cannot handle this outside a verse: \"$_\"\n");}
 		}
 		
 		while ($_ =~ s/<remove>(.*?)<\/remove>/$1/) {$AllRemoves{$1}++;}
@@ -704,7 +710,7 @@ sub osis2SWORD(\$) {
 		elsif ($_ =~ /<item[\s>]/ && !$InList) {$_ =~ s/(<item[\s>])/<list>$1/; $InList = 1;}
 		elsif ($_ !~ /<item[\s>]/ && $InList) {$_ = "</list>".$_; $InList = 0;}
 		
-		# final text modifications
+		# replace place holders with correct values
 		$_ =~ s/xCHx/$chapter/g;
 		$_ =~ s/xVSSx/$verseF/g;
 		$_ =~ s/xVSx/$verseF$verseTextL/g;
@@ -721,7 +727,6 @@ sub osis2SWORD(\$) {
 		
 		$lines[$l] = $_;
 	}
-	close(IBK);
 	
 	my $t = join("", @lines);
 	$t =~ s/[ \t]+/ /g;
