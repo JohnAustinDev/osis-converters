@@ -68,7 +68,7 @@ if ($imageDir && $imageDir =~ /^\./) {
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld/$MODLC/";}
+if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld4/$MODLC/";}
 
 $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
@@ -107,7 +107,7 @@ if ($ConfEntry{"ModDrv"} && $ConfEntry{"ModDrv"} ne "RawLD4") {
 if ($ConfEntry{"Category"} && $ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
   &Log("ERROR: Category is set incorrectly in $CONFFILE. Remove this entry.\n");
 }
-if ($ConfEntry{"DataPath"} && $ConfEntry{"DataPath"} ne "./modules/lexdict/rawld/$MODLC/$MODLC") {
+if ($ConfEntry{"DataPath"} && $ConfEntry{"DataPath"} ne "./modules/lexdict/rawld4/$MODLC/$MODLC") {
   &Log("ERROR: DataPath is set incorrectly in $CONFFILE. Remove this entry.\n");
 }
 if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"} ne "UTF-8") {
@@ -131,8 +131,8 @@ if ($ConfEntry{"ModDrv"} ne "RawLD4") {
 if ($ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
   print CONF $ret."Category=Lexicons / Dictionaries\n"; $ret="";
 }
-if ($ConfEntry{"DataPath"} ne "./modules/lexdict/rawld/$MODLC/$MODLC") {
-  print CONF $ret."DataPath=./modules/lexdict/rawld/$MODLC/$MODLC\n"; $ret="";
+if ($ConfEntry{"DataPath"} ne "./modules/lexdict/rawld4/$MODLC/$MODLC") {
+  print CONF $ret."DataPath=./modules/lexdict/rawld4/$MODLC/$MODLC\n"; $ret="";
 }
 if ($ConfEntry{"Encoding"} ne "UTF-8") {
   print CONF $ret."Encoding=UTF-8\n"; $ret="";
