@@ -45,6 +45,7 @@ if ($VERSESYS && $VERSESYS ne "KJV") {
   }
   close(OUTF);
   unlink("$TMPDIR/osis2mod_vers.txt");
+  if ($VERSESYS eq "SynodalProt") {$msv = "1.7.0";}
 }
 
 # due to SWORD bug: http://www.crosswire.org/bugs/browse/API-121
