@@ -174,6 +174,37 @@ sub getInfoFromConf($) {
   $REV = $ConfEntry{"Version"};
   $VERSESYS = $ConfEntry{"Versification"};
   $LANG = $ConfEntry{"Lang"};
+  
+  # ModDrv must always be specified in config.conf
+  $MODDRV = $ConfEntry{"ModDrv"};
+  if (!$MODDRV) {
+		&Log("ERROR: ModDrv must be specified in config.conf.\n");
+		die;
+	}
+	
+	# DataPath will be correctly determined based on ModDrv
+	my $dp;
+	if    ($MODDRV eq "RawText") {$dp = "./modules/texts/rawtext/".lc($MOD)."/";}
+	elsif ($MODDRV eq "zText") {$dp = "./modules/texts/ztext/".lc($MOD)."/";}
+	elsif ($MODDRV eq "RawCom") {$dp = "./modules/comments/rawcom/".lc($MOD)."/";}
+	elsif ($MODDRV eq "RawCom4") {$dp = "./modules/comments/rawcom4/".lc($MOD)."/";}
+	elsif ($MODDRV eq "zCom") {$dp = "./modules/comments/zcom/".lc($MOD)."/";}
+	elsif ($MODDRV eq "HREFCom") {$dp = "./modules/comments/hrefcom/".lc($MOD)."/";}
+	elsif ($MODDRV eq "RawFiles") {$dp = "./modules/comments/rawfiles/".lc($MOD)."/";}
+	elsif ($MODDRV eq "RawLD") {$dp = "./modules/lexdict/rawld/".lc($MOD)."/".lc($MOD);}
+	elsif ($MODDRV eq "RawLD4") {$dp = "./modules/lexdict/rawld4/".lc($MOD)."/".lc($MOD);}
+	elsif ($MODDRV eq "zLD") {$dp = "./modules/lexdict/zld/".lc($MOD)."/".lc($MOD);}
+	elsif ($MODDRV eq "RawGenBook") {$dp = "./modules/genbook/rawgenbook/".lc($MOD)."/".lc($MOD);}
+	else {
+		&Log("ERROR: ModDrv \"$MODDRV\" is unrecognized.\n");
+		die;
+	}
+	if ($ConfEntry{"DataPath"} && $ConfEntry{"DataPath"} ne $dp) {
+		&Log("ERROR: DataPath is \"".$ConfEntry{"DataPath"}."\" expected \"$dp\". Remove DataPath entry from config.conf.\n");
+		die;
+	}
+	$ConfEntry{"DataPath"} = $dp;
+
   $MODPATH = $ConfEntry{"DataPath"};
   $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
   $MODPATH =~ s/[\\\/]\s*$//; # remove ending slash

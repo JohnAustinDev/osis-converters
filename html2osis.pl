@@ -17,7 +17,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: html2osis.pl [Bible_Directory]
+# usage: html2osis.pl [Project_Directory]
 
 # Run this script to create an OSIS file from source HTML files. 
 # There are four possible steps in the process: 1) convert the HTML to 
@@ -27,8 +27,8 @@
 # reference links into the OSIS file.
 #
 # Begin by updating the config.conf and CF_html2osis.txt command 
-# file located in the Bible_Directory (see those files for more info). 
-# Then check the log file: Bible_Directory/OUT_html2osis.txt.
+# file located in the Project_Directory (see those files for more info). 
+# Then check the log file: Project_Directory/OUT_html2osis.txt.
  
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
@@ -41,7 +41,7 @@ if ($INPD) {
 }
 else {
   my $dproj = "./Example_Bible";
-  print "\nusage: html2osis.pl [Bible_Directory]\n";
+  print "\nusage: html2osis.pl [Project_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -49,7 +49,7 @@ else {
   $INPD = File::Spec->rel2abs($dproj);
 }
 if (!-e $INPD) {
-  print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";
+  print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
@@ -60,7 +60,6 @@ require "$SCRD/scripts/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 $LOGFILE = "$OUTDIR/OUT_html2osis.txt";
@@ -88,12 +87,14 @@ if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
+
+# append any necessary config params to the end of config.conf
 &normalizeNewLines($CONFFILE);
 open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
 $ret = "\n";
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISFootnotes/) {print CONF $ret."GlobalOptionFilter=OSISFootnotes\n"; $ret="";}
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISHeadings/)  {print CONF $ret."GlobalOptionFilter=OSISHeadings\n"; $ret="";}
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISScripref/)  {print CONF $ret."GlobalOptionFilter=OSISScripref\n"; $ret="";}
+if ($MODDRV =~ /Text$/ && $ConfEntry{"GlobalOptionFilter"} !~ /OSISFootnotes/) {print CONF $ret."GlobalOptionFilter=OSISFootnotes\n"; $ret="";}
+if ($MODDRV =~ /Text$/ && $ConfEntry{"GlobalOptionFilter"} !~ /OSISHeadings/)  {print CONF $ret."GlobalOptionFilter=OSISHeadings\n"; $ret="";}
+if ($MODDRV =~ /Text$/ && $ConfEntry{"GlobalOptionFilter"} !~ /OSISScripref/)  {print CONF $ret."GlobalOptionFilter=OSISScripref\n"; $ret="";}
 if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"}  ne "UTF-8") {
   &Log("ERROR: Encoding is set incorrectly in $CONFFILE. Remove this entry.\n");
 }

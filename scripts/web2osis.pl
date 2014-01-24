@@ -21,7 +21,8 @@
 &Log("-----------------------------------------------------\nSTARTING web2osis.pl\n\n");
 open(OUTF, ">:encoding(UTF-8)", "$OUTPUTFILE") || die "Could not open web2osis output file $OUTPUTFILE\n";
 
-&getCanon($VERSESYS, \%mycanon, \%mybookorder);
+$ISVERSEKEY = ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/);
+if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
 
 # Read the COMMANDFILE, converting each book as it is encountered
 &normalizeNewLines($COMMANDFILE);
@@ -72,13 +73,13 @@ while (<COMF>) {
 		}
 		my $htmlfileName = $htmlfile;
 		$htmlfileName =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
-		if (exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}})) {
+		if (!$ISVERSEKEY || exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}})) {
 			
 			# process this book now...
 			$TrueFalseInstruction{"GATHER_CLASS_INFO"} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} || !%SpanClassName && !%DivClassName);
 			if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {&Log("INFO: Gathering class information. OUTPUT IS NOT OSIS!\n");}
 			
-			$Book = $OsisBook{$htmlfileName};
+			$Book = ($ISVERSEKEY ? $OsisBook{$htmlfileName}:$MOD);
 			
 			my $osisfile = &HTMLtoOSIStags($htmlfile);
 			
@@ -94,7 +95,7 @@ while (<COMF>) {
 			&osis2SWORD(\$osisfile);
 			
 			# save output for sorting and writing later
-			$OsisBookText{$OsisBook{$htmlfileName}} = $osisfile;
+			$OsisBookText{$Book} = $osisfile;
 		}
 		else {&Log("ERROR: SKIPPING \"$htmlfile\". Could not determine OSIS book.\n");}
 	}
@@ -188,14 +189,15 @@ sub HTMLtoOSIStags() {
 	&Log("Processing $Book\n");
 	&normalizeNewLines($file);
 	&logProgress($Book);
-	
+
 	open(INP1, "<:encoding(UTF-8)", $file) or print getcwd." ERROR: Could not open file $file.\n";
 	my $processing = 0;
+	my $incomment = 0;
 	my $text = "";
 	while(<INP1>) {
 		$Linenum++;
 		$_ =~ s/[\n\l\r]+$//;
-		
+print $Linenum."\n";	
 		if ($text) {$text .= " ";} # a previous line feed in text requires a space
 		
 		# process body only and ignore all else
@@ -209,12 +211,18 @@ sub HTMLtoOSIStags() {
 			$processing = 0;
 		}
 		
+		# ignore comments in body
+		$_ =~ s/<!--.*?-->//g;
+		if ($_ =~ s/<!--.*$//) {$incomment = 1;}
+		elsif ($incomment && $_ !~ s/^.*?-->//) {next;}
+		
 PROCESS_TEXT:
 		while($_) {
 			if ($_ =~ s/^([^<]+)(<|$)/$2/) {$text .= $1;}
 			if ($_ =~ s/^(<[^>]*>)//) {
 				my $tag = $1;
-				
+				if ($tag =~ /^<img/i) {next;} # strip out images
+		
 				# process previously collected text, adding Osis tags around applicable text
 				$outText .= &getOsisText(\$text);
 				
