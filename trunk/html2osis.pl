@@ -59,7 +59,7 @@ require "$SCRD/scripts/common.pl";
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
+&getInfoFromConf($CONFFILE, 1);
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 $LOGFILE = "$OUTDIR/OUT_html2osis.txt";

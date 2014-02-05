@@ -156,8 +156,12 @@ sub removeRevisionFromCF($) {
   else {&Log("ERROR: Could not add revision to command file.\n");}
 }
 
-sub getInfoFromConf($) {
+# Reads a conf file into program variables, checks conf entries for
+# problems, and fixes such problems in the conf if desired.
+sub getInfoFromConf($$) {
   my $conf = shift;
+  my $doFix = shift;
+  
   undef(%ConfEntry);
   &normalizeNewLines($conf);
   open(CONF, "<:encoding(UTF-8)", $conf) || die "Could not open $conf\n";
@@ -199,12 +203,19 @@ sub getInfoFromConf($) {
 		&Log("ERROR: ModDrv \"$MODDRV\" is unrecognized.\n");
 		die;
 	}
-	if ($ConfEntry{"DataPath"} && $ConfEntry{"DataPath"} ne $dp) {
-		&Log("ERROR: DataPath is \"".$ConfEntry{"DataPath"}."\" expected \"$dp\". Remove DataPath entry from config.conf.\n");
-		die;
+	if ($ConfEntry{"DataPath"}) {
+		if ($ConfEntry{"DataPath"} ne $dp) {
+			&Log("ERROR: DataPath is \"".$ConfEntry{"DataPath"}."\" expected \"$dp\". Remove bad DataPath entry from config.conf.\n");
+			die;
+		}
 	}
-	$ConfEntry{"DataPath"} = $dp;
-
+	elsif ($doFix) {
+		open(CONF, ">>:encoding(UTF-8)", $conf) || die "Could not open $conf\n";
+		print CONF "\nDataPath=$dp\n";
+		close(CONF);
+		$ConfEntry{"DataPath"} = $dp;
+	}
+	
   $MODPATH = $ConfEntry{"DataPath"};
   $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
   $MODPATH =~ s/[\\\/]\s*$//; # remove ending slash

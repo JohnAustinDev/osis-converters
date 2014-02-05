@@ -17,10 +17,10 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2sword.pl [Bible_Directory]
+# usage: osis2sword.pl [Project_Directory]
 
 # Run this script to create raw and zipped SWORD modules from an 
-# osis.xml file and a config.conf file located in the Bible_Directory.
+# osis.xml file and a config.conf file located in the Project_Directory.
 
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
@@ -33,7 +33,7 @@ if ($INPD) {
 }
 else {
   my $dproj = "./Example_Bible";
-  print "\nusage: osis2sword.pl [Bible_Directory]\n";
+  print "\nusage: osis2sword.pl [Project_Directory]\n";
   print "\n";
   print "run default project $dproj? (Y/N):";
   my $in = <>;
@@ -41,7 +41,7 @@ else {
   $INPD = File::Spec->rel2abs($dproj);
 }
 if (!-e $INPD) {
-  print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";
+  print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
@@ -52,7 +52,6 @@ require "$SCRD/scripts/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
@@ -81,7 +80,24 @@ if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
 # create raw and zipped modules from OSIS
 $SWDD = "$OUTDIR/sword";
-require("$SCRD/scripts/makeCompressedMod.pl");
+remove_tree("$SWDD");
+make_path("$SWDD/mods.d");
+if ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/) {
+	require("$SCRD/scripts/makeCompressedMod.pl");
+}
+elsif ($MODDRV =~ /^RawGenBook$/) {
+	copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf");
+	make_path("$SWDD/$MODPATH");
+	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$VERSESYS.")\n");
+	$cmd = &escfile($SWORD_BIN."xml2gbs")." $OSISFILE $MODLC >> ".&escfile($LOGFILE);
+	&Log("$cmd\n", -1);
+	chdir("$SWDD/$MODPATH");
+	system($cmd);
+}
+else {
+	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");
+	die;
+}
 
 # make a zipped copy of the entire zipped module
 &Log("\n--- COMPRESSING ZTEXT MODULE TO A ZIP FILE.\n");

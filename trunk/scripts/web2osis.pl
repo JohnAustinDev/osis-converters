@@ -29,13 +29,15 @@ if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
 &removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis command file $COMMANDFILE\n";
 
-$ClassInstructions = "CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
+$ClassInstructions = "GENBOOK_CHAPTER|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
 $TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES";
 $TrueFalseInstructions = "ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|DEBUG";
 $SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
 $SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
 
 $InlineTags = "(span|font|sup|a|b|i)";
+
+@GenBookHierarchy = ("majorSection", "chapter", "section", "subSection");
 
 $R = 0;
 $Filename = "";
@@ -73,7 +75,7 @@ while (<COMF>) {
 		}
 		my $htmlfileName = $htmlfile;
 		$htmlfileName =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
-		if (!$ISVERSEKEY || exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}})) {
+		if (!$ISVERSEKEY || (exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}}))) {
 			
 			# process this book now...
 			$TrueFalseInstruction{"GATHER_CLASS_INFO"} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} || !%SpanClassName && !%DivClassName);
@@ -87,7 +89,7 @@ while (<COMF>) {
 			&handleNotes("footnote", \$osisfile);
 			
 			if ($TrueFalseInstruction{"DEBUG"}) {
-				open(OUTTMP, ">>:encoding(UTF-8)", "$OUTPUTFILE.1") || die "Could not open web2osis output file $tmpBook\n";
+				open(OUTTMP, ">>:encoding(UTF-8)", "$OUTPUTFILE.osis") || die "Could not open web2osis output file $OUTPUTFILE.osis\n";
 				print OUTTMP $osisfile;
 				close(OUTTMP);
 			}
@@ -105,14 +107,26 @@ close(COMF);
 
 # print out the OSIS file in v11n correct book order
 if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
-	&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
-	&Write("<div type=\"bookGroup\">\n");
-	foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
-		if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
-		&Write($OsisBookText{$bk});
-		$wasWritingOT = ($mybookorder{$bk} <= 39);
+	
+	my $osisRefWork = ($ISVERSEKEY ? "defaultReferenceScheme":"book");
+	my $workTitle = ($ISVERSEKEY ? "$MOD Bible":"OSISGenbook");
+	my $workIdentifier = ($ISVERSEKEY ? "<identifier type=\"OSIS\">Bible.$MOD</identifier>":"");
+	
+	&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"$osisRefWork\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$workTitle</title>$workIdentifier<refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
+	
+	if ($ISVERSEKEY) {
+		&Write("<div type=\"bookGroup\">\n");
+		foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
+			if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
+			&Write($OsisBookText{$bk});
+			$wasWritingOT = ($mybookorder{$bk} <= 39);
+		}
+		&Write("</div>\n");
 	}
-	&Write("</div>\n</osisText>\n</osis>\n");
+	
+	else {&Write($OsisBookText{$MOD});}
+	
+	&Write("</osisText>\n</osis>\n");
 }
 close (OUTF);
 
@@ -171,7 +185,7 @@ foreach my $t (sort keys %AllHTMLTags) {
 # All this really does is convert HTML tags into OSIS tags according to
 # ClassInstructions, and reformats the markup with generally one tag per line. 
 # It does not output SWORD compatible OSIS markup, and it uses xCHx 
-# xVSSx, and xVSx placeholders for verse and chapter.
+# xVSSx, and xVSx placeholders for Bible verse and chapter.
 sub HTMLtoOSIStags() {
 	my $file = shift;
 	
@@ -197,7 +211,8 @@ sub HTMLtoOSIStags() {
 	while(<INP1>) {
 		$Linenum++;
 		$_ =~ s/[\n\l\r]+$//;
-print $Linenum."\n";	
+		print "HTMLtoOSIStags line:$Linenum\n";	
+		
 		if ($text) {$text .= " ";} # a previous line feed in text requires a space
 		
 		# process body only and ignore all else
@@ -221,14 +236,16 @@ PROCESS_TEXT:
 			if ($_ =~ s/^([^<]+)(<|$)/$2/) {$text .= $1;}
 			if ($_ =~ s/^(<[^>]*>)//) {
 				my $tag = $1;
-				if ($tag =~ /^<img/i) {next;} # strip out images
+				if ($tag =~ /^<img/i) {next;} # TODO: strips out images for now...
 		
 				# process previously collected text, adding Osis tags around applicable text
 				$outText .= &getOsisText(\$text);
 				
 				# process the new tag
 				my $tagname = $tag;
-				$tagname =~ s/^<(\/)?(\w+)\s*([^>]*?)>$/$2/;
+				if ($tagname !~ s/^<(\/)?(\w+)\s*([^>]*?)>$/$2/) {
+					&Log("ERROR: $file line $line: failed to parse tag \"$tag\".\"\n");
+				}
 				my $isEndTag = ($1 ? 1:0);
 				my $attribs = $3;
 				
@@ -351,7 +368,6 @@ sub getStackTag($\%) {
 			}
 			else {&Log("ERROR: $Filename line $Linenum: bad tag attributes \"$atts\"\n");}
 			
-			
 			my @ignoreAttribs = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAG_ATTRIBUTES"});
 			
 			foreach my $a (sort keys %attrib) {
@@ -361,13 +377,13 @@ sub getStackTag($\%) {
 				# skip listed tag/attribute pairs which are not relavent to key
 				foreach my $ignoreAttrib (@ignoreAttribs) {
 					if (!$ignoreAttrib) {next;}
-					if ($ignoreAttrib !~ /^<([\w\*]+)\s+(\w+)\s*>$/) {
+					if ($ignoreAttrib !~ /^<([\w\*]+)\s+([\w\*]+)\s*>$/) {
 						&Log("ERROR: Bad IGNORE_KEY_TAG_ATTRIBUTES value \"$ignoreAttrib\"\n");
 						next;
 					}
 					my $it = $1;
 					my $ia = $2;
-					if (lc($ia) eq lc($a) && ($it eq "*" || lc($it) eq lc($tagname))) {
+					if (($ia eq "*" || lc($ia) eq lc($a)) && ($it eq "*" || lc($it) eq lc($tagname))) {
 						$skipme = 1;
 					}
 				}
@@ -507,6 +523,7 @@ sub getOsisTagForElement($$) {
 
 	if    ($element eq "VERSE_NUMBER") {$tagname = "verse";}
 	elsif($element eq "CHAPTER_NUMBER") {$tagname = "chapter";}
+	elsif($element eq "GENBOOK_CHAPTER") {$tagname = "div"; $attribs = "type=\"chapter\" osisID=\"xGENBOOKCHAPTERx\"";}
 	elsif($element eq "BOLD") {$tagname = "hi"; $attribs = "type=\"bold\"";}
 	elsif($element eq "ITALIC") {$tagname = "hi"; $attribs = "type=\"italic\"";}
 	elsif($element eq "REMOVE") {$tagname = "remove";}
@@ -533,7 +550,7 @@ sub getOsisTagForElement($$) {
 	if ($tagname eq "") {&Log("ERROR: No entry for OSIS element \"$element\"\n");}
 	
 	# all these will always end up on a single line
-	my $oneLine = "FOOTNOTE|CROSSREF|VERSE_NUMBER|CHAPTER_NUMBER|REMOVE|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|POETRY_LINE_GROUP|POETRY_LINE";
+	my $oneLine = "GENBOOK_CHAPTER|FOOTNOTE|CROSSREF|VERSE_NUMBER|CHAPTER_NUMBER|REMOVE|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|POETRY_LINE_GROUP|POETRY_LINE";
 	if (!$isMilestone && !$isEndTag && ($element =~ /^($oneLine)$/)) {$R++;}
 	if (!$isMilestone && $isEndTag  && ($element =~ /^($oneLine)$/)) {$R--;}
 
@@ -599,11 +616,43 @@ sub osis2SWORD(\$) {
 	my $chapterEnd = "";
 
 	for (my $l = 0; $l < @lines; $l++) {
+		print "osis2SWORD line:$l\n";	
+		
 		local $_ = $lines[$l];
 		$_ =~ s/[\n\l\r]+$//;
 		$_ =~ s/&nbsp;/ /g;
-		
-		if ($_ =~ /^(.*?)<chapter>(.*?)<\/chapter>(.*?)$/) {
+
+		if ($_ =~ /^(.*?)(<div type=\"([^"]+)\" osisID="xGENBOOKCHAPTERx">)(.*?)<\/div>(.*?)$/) {
+			my $cp = $1;
+			my $ctag = $2;
+			my $ctyp = $3;
+			my $ch = $4;
+			my $cx = $5;
+			
+			# get our genbook chapter title
+			if ($ch =~ s/[^\w\d ]+//g) {&Log("WARN: Replaced illegal chars in chapter osisID \"$ch\".\n");}
+			$ctag =~ s/xGENBOOKCHAPTERx/$ch/;
+			
+			if ($cp ne "" || $cx ne "") {$AllDroppedTags{"chapter:$cp$cx"}++;}
+			
+			# keep hierarchy of divs clean and close all previous containers
+			$_ = $verseEnd.$sectionEnd.$chapterEnd;
+			if (%genBookChapterEnd) {
+				for (my $h=@GenBookHierarchy; $h>=0; $h--) {
+					$_ .= $genBookChapterEnd{@GenBookHierarchy[$h]};
+					$genBookChapterEnd{@GenBookHierarchy[$h]} = "";
+					if (@GenBookHierarchy[$h] eq $ctyp) {last;}
+				}
+			}
+			
+			$_ .= $ctag."\n";
+			
+			$verseEnd = "";
+			$sectionEnd = "";
+			$chapterEnd = "";
+			$genBookChapterEnd{$ctyp} = "</div>\n";
+		}		
+		elsif ($_ =~ /^(.*?)<chapter>(.*?)<\/chapter>(.*?)$/) {
 			my $cp = $1;
 			my $ch = $2;
 			my $cx = $3;
@@ -691,7 +740,7 @@ sub osis2SWORD(\$) {
 			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 		}
 		# correct some places where a verse tag is required but instead we've got some other tag (AZE rtf)
-		elsif ($_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && !$verseEnd) {
+		elsif ($ISVERSEKEY && $_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && !$verseEnd) {
 			if ($verseF == 0) {
 				$verseF = (++$verseL);
 				my $nl = $l;
@@ -739,9 +788,17 @@ sub osis2SWORD(\$) {
 	my $t = join("", @lines);
 	$t =~ s/[ \t]+/ /g;
 	
-	$$textP = "<div type=\"book\" osisID=\"$Book\" canonical=\"true\">\n";
+	my $wosisID = $Book;
+	$$textP = "<div type=\"book\" osisID=\"$wosisID\"";
+	if ($ISVERSEKEY) {$$textP .= " canonical=\"true\"";}
+	$$textP .= ">\n";
 	$$textP .= $t; 
 	$$textP .= $verseEnd.$sectionEnd.$chapterEnd;
+	if (%genBookChapterEnd) {
+		for (my $h=@GenBookHierarchy; $h>=0; $h--) {
+			$$textP .= $genBookChapterEnd{@GenBookHierarchy[$h]};
+		}
+	}
 	$$textP .= "</div>\n";
 }
 
