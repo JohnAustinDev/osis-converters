@@ -181,8 +181,8 @@ while (<CF>) {
 	elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
 	elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
 	elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
-  elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $2);} next;}
-	elsif ($_ =~ /^SKIPLINE:\s*(\d+)\s*$/) {if ($1) {$skipLines .= $sp.$2.$sp} next;}
+  elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
+	elsif ($_ =~ /^SKIPLINE:\s*(\d+)\s*$/) {if ($1) {$skipLines .= $sp.$1.$sp} next;}
 	elsif ($_ =~ /^EXCLUSION:(Linking)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
 	elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
 	elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
