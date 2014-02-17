@@ -171,7 +171,7 @@ if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
 	&Log("\n");
 }
 
-&Log("\nLISTING OF ALL HTML TAGS:\n");
+&Log("\nLISTING OF TAGS:\n");
 foreach my $t (sort keys %AllHTMLTags) {
 	&Log($t." ");
 }
@@ -207,6 +207,7 @@ sub HTMLtoOSIStags() {
 	open(INP1, "<:encoding(UTF-8)", $file) or print getcwd." ERROR: Could not open file $file.\n";
 	my $processing = 0;
 	my $incomment = 0;
+	my $multiLineTag = "";
 	my $text = "";
 	while(<INP1>) {
 		$Linenum++;
@@ -214,6 +215,15 @@ sub HTMLtoOSIStags() {
 		print "HTMLtoOSIStags line:$Linenum\n";	
 		
 		if ($text) {$text .= " ";} # a previous line feed in text requires a space
+		
+		# report and remove contitional tags
+		while ($_ =~ s/(<\!\[[^>]*\]\s*>)//) {
+			my $conditional = $1;
+			if (!$Reported_Conditionals{$conditional}) {
+				&Log("INFO: line $Linenum: Found conditional \"$conditional\". All will be removed.\n");
+			}
+			$Reported_Conditionals{$conditional}++;
+		}
 		
 		# process body only and ignore all else
 		if ($_ =~ /<body[^>]*>(.*)$/i) {
@@ -233,9 +243,14 @@ sub HTMLtoOSIStags() {
 		
 PROCESS_TEXT:
 		while($_) {
-			if ($_ =~ s/^([^<]+)(<|$)/$2/) {$text .= $1;}
-			if ($_ =~ s/^(<[^>]*>)//) {
+			if (!$multiLineTag && $_ =~ s/^([^<]+)(<|$)/$2/) {$text .= $1;}
+			if ($_ =~ s/^(<[^>]*>)// || ($multiLineTag && $_ =~ s/^([^>]*>)//)) {
 				my $tag = $1;
+				if ($multiLineTag) {
+					$tag = $multiLineTag." ".$tag;
+					$multiLineTag = "";
+				}
+				
 				if ($tag =~ /^<img/i) {next;} # TODO: strips out images for now...
 		
 				# process previously collected text, adding Osis tags around applicable text
@@ -243,8 +258,8 @@ PROCESS_TEXT:
 				
 				# process the new tag
 				my $tagname = $tag;
-				if ($tagname !~ s/^<(\/)?(\w+)\s*([^>]*?)>$/$2/) {
-					&Log("ERROR: $file line $line: failed to parse tag \"$tag\".\"\n");
+				if ($tagname !~ s/^<(\/)?([\w\:]+)\s*([^>]*?)>$/$2/) {
+					&Log("ERROR: $file line $Linenum: failed to parse tag \"$tag\".\"\n");
 				}
 				my $isEndTag = ($1 ? 1:0);
 				my $attribs = $3;
@@ -252,7 +267,7 @@ PROCESS_TEXT:
 				# IGNORE_KEY_TAGS entries do not contribute to any tag's key, but are converted here straight to OSIS tags
 				my @ignoreTags = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAGS"});
 				foreach my $ignoreTag (@ignoreTags) {
-					if (!$ignoreTag || $ignoreTag !~ /<(\w+)/) {next;}
+					if (!$ignoreTag || $ignoreTag !~ /<([\w\:]+)/) {next;}
 					if (lc($1) eq lc($tagname)) {
 						my $inlineTag;
 						if (lc($tagname) eq "b") {$inlineTag= (!$isEndTag ? "<hi type=\"bold\">":"</hi>");}
@@ -274,12 +289,14 @@ PROCESS_TEXT:
 				# get an OSIS tag, if any, and add this HTML tag to the current tagstack used for creation of tag classes
 				$outText .= &getStackTag($tag);
 			}
+			elsif ($_ =~ s/^(<[^>]*)$//) {$multiLineTag = $1;}
+			elsif ($multiLineTag && $_ =~ s/^([^<>]*)$//) {$multiLineTag .= " ".$1;}
 		}
 	}
 	close(INP1);
 	
-	if ($text && $text !~ /^\s*$/) {&Log("ERROR: $file line $line: unwritten text \"$text\"\n");}
-	if ($tagstack{"level"}) {&Log("ERROR: $file line $line: tag level not zero \"".$tagstack{"level"}."\"\n");}
+	if ($text && $text !~ /^\s*$/) {&Log("ERROR: $file line $Linenum: unwritten text \"$text\"\n");}
+	if ($tagstack{"level"}) {&Log("ERROR: $file line $Linenum: tag level not zero \"".$tagstack{"level"}."\"\n");}
 	
 	return $outText;
 }
@@ -346,8 +363,13 @@ sub getStackTag($\%) {
 	}
 	
 	# start tag
-	if ($tag !~ /^<\/(\w+)/) {
-		$tag =~ /^<(\w+)\s*(.*)?\s*>$/;
+	if ($tag =~ /^<([\w\:]+)[^>]+\/>$/) {
+		my $mileStoneTag = $1;
+		if (!$MileStoneTags{$mileStoneTag}) {&Log("INFO: line $Linenum: Found milestone tag \"<$mileStoneTag />\". All will be removed.\n");}
+		$MileStoneTags{$mileStoneTag}++;
+	}
+	elsif ($tag !~ /^<\/([\w\:]+)/) {
+		$tag =~ /^<([\w\:]+)\s*(.*)?\s*>$/;
 		my $tagname = $1;
 		my $atts = $2;
 		
@@ -358,12 +380,12 @@ sub getStackTag($\%) {
 		if ($atts) {
 			# sort all attributes out
 			my %attrib;
-			if ($atts =~ /^((\w+)(=("([^"]*)"|[\w\d]+))?\s*)+$/) {
+			if ($atts =~ /^(([\w\:]+)(=("([^"]*)"|'([^']*)'|[\w\d\-]+))?\s*)+$/) {
 				while ($atts) {
-					if ($atts =~ s/^(\w+)=("([^"]*)"|([\w\d]+))\s*//) {
-						$attrib{$1} = ($3 ? $3:$4);
+					if ($atts =~ s/^([\w\:]+)=("([^"]*)"|'([^']*)'|([\w\d\-]+))\s*//) {
+						$attrib{$1} = ($3 ? $3:($4 ? $4:$5));
 					}
-					$atts =~ s/^\w+(\s+|$)//; # some HTML has empty attribs so just remove them
+					$atts =~ s/^[\w\:]+(\s+|$)//; # some HTML has empty attribs so just remove them
 				}
 			}
 			else {&Log("ERROR: $Filename line $Linenum: bad tag attributes \"$atts\"\n");}
@@ -377,7 +399,7 @@ sub getStackTag($\%) {
 				# skip listed tag/attribute pairs which are not relavent to key
 				foreach my $ignoreAttrib (@ignoreAttribs) {
 					if (!$ignoreAttrib) {next;}
-					if ($ignoreAttrib !~ /^<([\w\*]+)\s+([\w\*]+)\s*>$/) {
+					if ($ignoreAttrib !~ /^<([\w\:\*]+)\s+([\w\:\*]+)\s*>$/) {
 						&Log("ERROR: Bad IGNORE_KEY_TAG_ATTRIBUTES value \"$ignoreAttrib\"\n");
 						next;
 					}
