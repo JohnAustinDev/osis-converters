@@ -29,9 +29,9 @@ if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
 &removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis command file $COMMANDFILE\n";
 
-$ClassInstructions = "GENBOOK_CHAPTER|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
-$TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES";
-$TrueFalseInstructions = "ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|DEBUG";
+$ClassInstructions = "GENBOOK_CHAPTER_LEVEL_\\d+|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
+$TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES|IGNORE_KEY_TAG_ATTRIBUTE_VALUES";
+$TrueFalseInstructions = "DUPLICATE_CHAPTER_TITLES|UPPERCASE_CHAPTER_TITLES|ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|DEBUG";
 $SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
 $SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
 
@@ -258,7 +258,7 @@ PROCESS_TEXT:
 				
 				# process the new tag
 				my $tagname = $tag;
-				if ($tagname !~ s/^<(\/)?([\w\:]+)\s*([^>]*?)>$/$2/) {
+				if ($tagname !~ s/^<(\/)?([\w:]+)\s*([^>]*?)>$/$2/) {
 					&Log("ERROR: $file line $Linenum: failed to parse tag \"$tag\".\"\n");
 				}
 				my $isEndTag = ($1 ? 1:0);
@@ -267,7 +267,7 @@ PROCESS_TEXT:
 				# IGNORE_KEY_TAGS entries do not contribute to any tag's key, but are converted here straight to OSIS tags
 				my @ignoreTags = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAGS"});
 				foreach my $ignoreTag (@ignoreTags) {
-					if (!$ignoreTag || $ignoreTag !~ /<([\w\:]+)/) {next;}
+					if (!$ignoreTag || $ignoreTag !~ /<([\w:]+)/) {next;}
 					if (lc($1) eq lc($tagname)) {
 						my $inlineTag;
 						if (lc($tagname) eq "b") {$inlineTag= (!$isEndTag ? "<hi type=\"bold\">":"</hi>");}
@@ -320,7 +320,9 @@ sub getOsisText(\$) {
 		for (my $i = $TagStack{"level"}; $i > 0; $i--) {
 			my $ktagval = $TagStack{"tag-key"}{$i};
 			if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
+				# include only inline tags in key
 				if ($TagStack{"tag-name"}{$i} !~ /^$InlineTags$/i) {next;}
+				# exclude empty and duplicate keys
 				if ($ktagval eq "" || exists($count{$ktagval})) {next;}
 				$count{$ktagval}++;
 			}
@@ -328,8 +330,55 @@ sub getOsisText(\$) {
 		}
 		
 		if ($TrueFalseInstruction{"ALLOW_REDUCED_TAG_CLASSES"}) {
-			# then tkeys are sorted 
-			foreach my $tkey (sort @tkeys) {$key .= $tkey;}
+			# then tkeys are sorted, merged, and normalized
+			my %tags;
+			undef(%tags);
+			foreach my $k (@tkeys) {
+				if ($k !~ /^<([^\s\/\>]+)([^>]*)>$/) {&Log("ERROR: Bad sub-key \"".@tkeys[$i]."\"\n"); @tkeys[$i] = ""; next;}
+				my $tag = lc($1);
+				my $att = $2;
+				my @atts = split(/([\w:]+="[^"]*")/, $att);
+				foreach $att (@atts) {
+					if ($att !~ /([\w:]+)="([^"]*)"/) {next;}
+					my $a = $1;
+					my $v = $2;
+					$tags{$tag}{$a}{$v}++;
+				}
+			}
+			
+			foreach my $t (sort keys %tags) {
+				my $tmpkey .= "<$t ";
+				foreach my $a (sort keys %{$tags{$t}}) {
+					my $allvals = "";
+					foreach my $v (sort keys %{$tags{$t}{$a}}) {$allvals .= $v." ";}
+					if ($a eq "style") {
+						my %normRules;
+						undef(%normRules);
+						my @rules = split(/([^\:]+\:[^\;]+(\;|$))/, $allvals);
+						foreach my $rule (@rules) {
+							if ($rule eq "" || $rule =~ /^[\s\;]*$/) {next;}
+							if ($rule !~ /([^\:]+)\:([^\;]+)(\;|$)/) {print "ERROR: Bad style rule \"$rule\" in $allvals\n"; next;}
+							my $r = $1;
+							my $s = $2;
+							$r =~ s/^\s*(.*?)\s*$/$1/;
+							$s =~ s/^\s*(.*?)\s*$/$1/;
+							$normRules{$r} = $s;
+						}
+						# now reorder style rules
+						$allvals = "";
+						foreach my $s (sort keys %normRules) {$allvals .= "$s:".$normRules{$s}."; ";}
+					}
+					if ($allvals && $allvals !~ /^\s*$/) {
+						$allvals =~ s/\s+/ /g;
+						$allvals =~ s/\s*$//;
+						$tmpkey .= "$a=\"$allvals\" ";
+					}
+				}
+				$tmpkey .= ">";
+				$tmpkey =~ s/\s*>/>/g;
+				
+				if ($tmpkey ne "<span>") {$key .= $tmpkey;} # ignore useless empty spans
+			}
 		}
 		else {foreach my $tkey (@tkeys) {$key .= $tkey;}}
 
@@ -356,50 +405,79 @@ sub getStackTag($\%) {
 	
 	my $outText = "";
 	
-	if ($tag =~ /<br(\s+|>)/i) {
+	# handle <br>
+	if ($tag =~ /<br[\s>\/]+/i) {
 		$outText .= "<lb\/>\n";
 		$AllHTMLTags{"br"}++;
 		return;
 	}
 	
-	# start tag
-	if ($tag =~ /^<([\w\:]+)[^>]+\/>$/) {
+	# handle <hr>
+	if ($tag =~ /<hr[\s>\/]+/i) {
+		$AllHTMLTags{"hr"}++;
+		return;
+	}
+	
+	# milestone tags
+	if ($tag =~ /^<([\w:]+)[^>]+\/>$/) {
 		my $mileStoneTag = $1;
 		if (!$MileStoneTags{$mileStoneTag}) {&Log("INFO: line $Linenum: Found milestone tag \"<$mileStoneTag />\". All will be removed.\n");}
 		$MileStoneTags{$mileStoneTag}++;
 	}
-	elsif ($tag !~ /^<\/([\w\:]+)/) {
-		$tag =~ /^<([\w\:]+)\s*(.*)?\s*>$/;
+	
+	# start tags
+	elsif ($tag !~ /^<\/([\w:]+)/) {
+		$tag =~ /^<([\w:]+)\s*(.*)?\s*>$/;
 		my $tagname = $1;
 		my $atts = $2;
 		
 		$AllHTMLTags{$tagname}++;
 		
+		# Get this tag's attributes
 		my $tagkey = "<".lc($tagname);
 		my $tagvalue = $tagkey;
 		if ($atts) {
-			# sort all attributes out
+			
+			# parse all the tag attributes out
 			my %attrib;
-			if ($atts =~ /^(([\w\:]+)(=("([^"]*)"|'([^']*)'|[\w\d\-]+))?\s*)+$/) {
+			if ($atts =~ /^(([\w:]+)(=("([^"]*)"|'([^']*)'|[\w\d\-]+))?\s*)+$/) {
 				while ($atts) {
-					if ($atts =~ s/^([\w\:]+)=("([^"]*)"|'([^']*)'|([\w\d\-]+))\s*//) {
+					if ($atts =~ s/^([\w:]+)=("([^"]*)"|'([^']*)'|([\w\d\-]+))\s*//) {
 						$attrib{$1} = ($3 ? $3:($4 ? $4:$5));
 					}
-					$atts =~ s/^[\w\:]+(\s+|$)//; # some HTML has empty attribs so just remove them
+					$atts =~ s/^[\w:]+(\s+|$)//; # some HTML has empty attribs so just remove them
 				}
 			}
 			else {&Log("ERROR: $Filename line $Linenum: bad tag attributes \"$atts\"\n");}
 			
+			# Ignore requested attributes and requested attribute values
 			my @ignoreAttribs = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAG_ATTRIBUTES"});
-			
+			my @ignoreAttribVals = split(/(<[^>]*>)/, $TagInstruction{"IGNORE_KEY_TAG_ATTRIBUTE_VALUES"});
 			foreach my $a (sort keys %attrib) {
+				if (lc($a) eq "style") {$attrib{$a} =~ s/[;\s]*$/;/;} # insure style rules all end with ";"
+				
+				# remove requested attribute values
+				foreach my $ignoreAttribVals (@ignoreAttribVals) {
+					if (!$ignoreAttribVals) {next;}
+					if ($ignoreAttribVals !~ /^<([\w:\*]+)\s+([\w:\*]+)="([^"]+)"\s*>$/) {
+						&Log("ERROR: Bad IGNORE_KEY_TAG_ATTRIBUTE_VALUES value \"$ignoreAttribVals\"\n");
+						next;
+					}
+					my $it = $1;
+					my $ia = $2;
+					my $iv = $3;
+					if (($ia eq "*" || lc($ia) eq lc($a)) && ($it eq "*" || lc($it) eq lc($tagname))) {
+						$attrib{$a} =~ s/$iv//g;
+					}
+				}
+				
 				$tagvalue .= " ".lc($a)."=\"".$attrib{$a}."\"";
 				my $skipme = 0;
 				
 				# skip listed tag/attribute pairs which are not relavent to key
 				foreach my $ignoreAttrib (@ignoreAttribs) {
 					if (!$ignoreAttrib) {next;}
-					if ($ignoreAttrib !~ /^<([\w\:\*]+)\s+([\w\:\*]+)\s*>$/) {
+					if ($ignoreAttrib !~ /^<([\w:\*]+)\s+([\w:\*]+)\s*>$/) {
 						&Log("ERROR: Bad IGNORE_KEY_TAG_ATTRIBUTES value \"$ignoreAttrib\"\n");
 						next;
 					}
@@ -409,9 +487,11 @@ sub getStackTag($\%) {
 						$skipme = 1;
 					}
 				}
+				
 				if ($skipme) {next;}
 				
 				# save attribute to key
+				$attrib{$a} =~ s/"/'/g;
 				$tagkey .= " ".lc($a)."=\"".$attrib{$a}."\"";
 			}
 		}
@@ -436,7 +516,7 @@ sub getStackTag($\%) {
 		$TagStack{"tag-value"}{$TagStack{"level"}} = $tagvalue;
 	}
 	
-	#end tag
+	#end tags
 	else {
 		my $tagname = $1;
 		my $taglevel = $TagStack{"level"};
@@ -545,7 +625,7 @@ sub getOsisTagForElement($$) {
 
 	if    ($element eq "VERSE_NUMBER") {$tagname = "verse";}
 	elsif($element eq "CHAPTER_NUMBER") {$tagname = "chapter";}
-	elsif($element eq "GENBOOK_CHAPTER") {$tagname = "div"; $attribs = "type=\"chapter\" osisID=\"xGENBOOKCHAPTERx\"";}
+	elsif($element =~ /^GENBOOK_CHAPTER_LEVEL_(\d+)$/) {$tagname = "div"; $attribs = "type=\"".@GenBookHierarchy[$1]."\" osisID=\"xGENBOOKCHAPTERx\"";}
 	elsif($element eq "BOLD") {$tagname = "hi"; $attribs = "type=\"bold\"";}
 	elsif($element eq "ITALIC") {$tagname = "hi"; $attribs = "type=\"italic\"";}
 	elsif($element eq "REMOVE") {$tagname = "remove";}
@@ -572,7 +652,7 @@ sub getOsisTagForElement($$) {
 	if ($tagname eq "") {&Log("ERROR: No entry for OSIS element \"$element\"\n");}
 	
 	# all these will always end up on a single line
-	my $oneLine = "GENBOOK_CHAPTER|FOOTNOTE|CROSSREF|VERSE_NUMBER|CHAPTER_NUMBER|REMOVE|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|POETRY_LINE_GROUP|POETRY_LINE";
+	my $oneLine = "GENBOOK_CHAPTER_LEVEL_\\d+|FOOTNOTE|CROSSREF|VERSE_NUMBER|CHAPTER_NUMBER|REMOVE|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|POETRY_LINE_GROUP|POETRY_LINE";
 	if (!$isMilestone && !$isEndTag && ($element =~ /^($oneLine)$/)) {$R++;}
 	if (!$isMilestone && $isEndTag  && ($element =~ /^($oneLine)$/)) {$R--;}
 
@@ -652,8 +732,14 @@ sub osis2SWORD(\$) {
 			my $cx = $5;
 			
 			# get our genbook chapter title
-			if ($ch =~ s/[^\w\d ]+//g) {&Log("WARN: Replaced illegal chars in chapter osisID \"$ch\".\n");}
+			$ch =~ s/<[^>]*>/ /g; # remove tags
+			if ($ch =~ s/[^\w\d ]+/ /g) {&Log("WARN: Replaced illegal chars in following chapter's osisID:\n");}
+			$ch =~ s/_+/ /g;
+			$ch =~ s/\s+/ /g;
+			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
+			if ($TrueFalseInstruction{"UPPERCASE_CHAPTER_TITLES"}) {$ch = uc($ch);}
 			$ctag =~ s/xGENBOOKCHAPTERx/$ch/;
+			&Log("INFO: type $ctyp \"$ctag\"\n");
 			
 			if ($cp ne "" || $cx ne "") {$AllDroppedTags{"chapter:$cp$cx"}++;}
 			
@@ -668,6 +754,10 @@ sub osis2SWORD(\$) {
 			}
 			
 			$_ .= $ctag."\n";
+			
+			if ($TrueFalseInstruction{"DUPLICATE_CHAPTER_TITLES"}) {
+				$_ .= "<title level=\"2\">$ch</title>\n";
+			}
 			
 			$verseEnd = "";
 			$sectionEnd = "";
