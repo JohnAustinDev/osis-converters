@@ -132,12 +132,12 @@ close (OUTF);
 
 # log a bunch of stuff now...
 &Log("\nLISTING OF SPAN CLASSES:\n");
-foreach my $classTags (sort {$SpanClassCounts{$SpanClassName{$a}} <=> $SpanClassCounts{$SpanClassName{$b}}} keys %SpanClassName) {
+foreach my $classTags (sort keys %SpanClassName) {
 	&Log(sprintf("SPAN_CLASS:%5i %3s=%s\n", $SpanClassCounts{$SpanClassName{$classTags}}, $SpanClassName{$classTags}, $classTags));
 }
 
 &Log("\nLISTING OF DIV CLASSES:\n");
-foreach my $classTags (sort {$DivClassCounts{$DivClassName{$a}} <=> $DivClassCounts{$DivClassName{$b}}} keys %DivClassName) {
+foreach my $classTags (sort keys %DivClassName) {
 	&Log(sprintf("DIV_CLASS:%5i %3s=%s\n", $DivClassCounts{$DivClassName{$classTags}}, $DivClassName{$classTags}, $classTags));
 }
 
@@ -185,7 +185,7 @@ foreach my $t (sort keys %AllHTMLTags) {
 # All this really does is convert HTML tags into OSIS tags according to
 # ClassInstructions, and reformats the markup with generally one tag per line. 
 # It does not output SWORD compatible OSIS markup, and it uses xCHx 
-# xVSSx, and xVSx placeholders for Bible verse and chapter.
+# xVSSx, xVSx, xGENBOOKCHAPTERx placeholders for Bible verse and chapter, etc.
 sub HTMLtoOSIStags() {
 	my $file = shift;
 	
@@ -471,7 +471,8 @@ sub getStackTag($\%) {
 					}
 				}
 				
-				$tagvalue .= " ".lc($a)."=\"".$attrib{$a}."\"";
+				if ($attrib{$a} =~ /^\s*$/) {next;}
+				
 				my $skipme = 0;
 				
 				# skip listed tag/attribute pairs which are not relavent to key
@@ -492,6 +493,7 @@ sub getStackTag($\%) {
 				
 				# save attribute to key
 				$attrib{$a} =~ s/"/'/g;
+				$attrib{$a} =~ s/\s+$//;
 				$tagkey .= " ".lc($a)."=\"".$attrib{$a}."\"";
 			}
 		}
@@ -671,7 +673,7 @@ sub getOsisTagForElement($$) {
 sub handleNotes($\$) {
 	my $type = shift;
 	my $tP = shift;
-	
+#<OC_footnoteMarker id="237">[95]</OC_footnoteMarker>	
 	# find and convert each note body
 	while ($$tP =~ s/(<OC_$type id="([^"]*)">(.*?)<\/OC_$type>)//) {
 		my $bodyIndex = $-[1];
@@ -681,6 +683,10 @@ sub handleNotes($\$) {
 		# fix any verse numbers in note body
 		$body =~ s/\s*<verse[^>]*>(.*?)<\/verse>\s*/ ($1) /g;
 		
+		# remove note marker if it exists in body (in addition to the text)
+		my $typeMarker = $type."Marker";
+		$body =~ s/<OC_$typeMarker[^>]*>.*?<\/OC_$typeMarker>//;
+		
 		my $note = "<note".($type eq "crossref" ? " type=\"crossReference\"":" type=\"study\"");
 		$note .= " osisRef=\"$Book.xCHx.xVSx\"";
 		$note .= " osisID=\"$Book.xCHx.xVSSx!".($type eq "crossref" ? "crossReference.n":"")."$id\"";
@@ -689,7 +695,6 @@ sub handleNotes($\$) {
 		
 		# place the note now
 		if (exists($ClassInstruction{($type eq "crossref" ? "CROSSREF_MARKER":"FOOTNOTE_MARKER")})) {
-			my $typeMarker = $type."Marker";
 			if ($$tP !~ s/(<OC_$typeMarker id="$id">.*?<\/OC_$typeMarker>)/$note/) {
 				&Log("ERROR: Could not find marker for $type \"$id\".\n");
 			}
