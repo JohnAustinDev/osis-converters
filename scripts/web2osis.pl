@@ -29,7 +29,7 @@ if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
 &removeRevisionFromCF($COMMANDFILE);
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis command file $COMMANDFILE\n";
 
-$ClassInstructions = "GENBOOK_CHAPTER_LEVEL_\\d+|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE";
+$ClassInstructions = "GENBOOK_CHAPTER_LEVEL_\\d+|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE|TABLE|TABLE_ROW|TABLE_CELL";
 $TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES|IGNORE_KEY_TAG_ATTRIBUTE_VALUES";
 $TrueFalseInstructions = "DUPLICATE_CHAPTER_TITLES|UPPERCASE_CHAPTER_TITLES|ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|DEBUG";
 $SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
@@ -650,6 +650,9 @@ sub getOsisTagForElement($$) {
 	elsif($element eq "POETRY_LINE_GROUP") {$tagname = "lg";}
 	elsif($element eq "POETRY_LINE") {$tagname = "l";}
 	elsif($element =~ /^SEG\-(.*?)$/) {$tagname = "seg"; $attribs="type=\"x-$1\"";}
+	elsif($element eq "TABLE") {$tagname = "table";}
+	elsif($element eq "TABLE_ROW") {$tagname = "row";}
+	elsif($element eq "TABLE_CELL") {$tagname = "cell";}
 	
 	if ($tagname eq "") {&Log("ERROR: No entry for OSIS element \"$element\"\n");}
 	
