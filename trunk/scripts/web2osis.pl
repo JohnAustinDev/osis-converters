@@ -730,7 +730,20 @@ sub osis2SWORD(\$) {
 		
 		local $_ = $lines[$l];
 		$_ =~ s/[\n\l\r]+$//;
-		$_ =~ s/&nbsp;/ /g;
+		
+		# remove white-space from the beginning of all paragraphs to normalize how paragraphs begin
+		if ($_ =~ /^(<p>|<p [^>]*>)$/) { # all <p> tags are alone on a line
+			my $fl = ($l+1);
+			while ($fl < @lines) {
+				$lines[$fl] =~ s/^(<hi[^>]*>)(&nbsp;| )*+([^<]*<\/hi>)/$1$3/; # strip leading space from any leading <hi> tag
+				if ($lines[$fl] !~ s/^(<hi[^>]*>(&nbsp;| )*<\/hi>|&nbsp;| )+//) {last;} # strip leading white space and empty start tags
+				if ($lines[$fl] !~ /^\s*$/) {last;} # if line still has non-white space we know we're done
+				$fl++;
+			}
+		}
+		
+		# make all paragraphs begin with indents
+		$_ =~ s/^(<p>|<p [^>]*>)/$1&nbsp;&nbsp;&nbsp;&nbsp; /;
 
 		if ($_ =~ /^(.*?)(<div type=\"([^"]+)\" osisID="xGENBOOKCHAPTERx">)(.*?)<\/div>(.*?)$/) {
 			my $cp = $1;
@@ -741,6 +754,7 @@ sub osis2SWORD(\$) {
 			
 			# get our genbook chapter title
 			$ch =~ s/<[^>]*>/ /g; # remove tags
+			$ch =~ s/&nbsp;/ /g; # entities will become literals!
 			if ($ch =~ s/[^\w\d ]+/ /g) {&Log("WARN: Replaced illegal chars in following chapter's osisID:\n");}
 			$ch =~ s/_+/ /g;
 			$ch =~ s/\s+/ /g;
