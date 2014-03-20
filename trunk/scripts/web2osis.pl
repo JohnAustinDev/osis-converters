@@ -638,7 +638,7 @@ sub getOsisTagForElement($$) {
 	elsif($element eq "IGNORE") {return "";}
 	elsif($element eq "INTRO_PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-intro\"";}
 	elsif($element eq "INTRO_TITLE_1") {$tagname = "title"; $attribs = "type=\"x-intro\" level=\"1\"";}
-	elsif($element eq "LIST_TITLE") {$tagname = "list"; $attribs = "type=\"x-intro\"";}
+	elsif($element eq "LIST_TITLE") {$tagname = "list";}
 	elsif($element eq "LIST_ENTRY") {$tagname = "item"; $attribs = "type=\"x-listitem\"";}
 	elsif($element eq "TITLE_1") {$tagname = "title"; $attribs = "level=\"1\"";}
 	elsif($element eq "TITLE_2") {$tagname = "title"; $attribs = "level=\"2\"";}
@@ -724,6 +724,9 @@ sub osis2SWORD(\$) {
 	my $verseEnd = "";
 	my $sectionEnd = "";
 	my $chapterEnd = "";
+	
+	my $lastGenBookChapterType = "";
+	my %chapGenBookSiblings;
 
 	for (my $l = 0; $l < @lines; $l++) {
 		print "osis2SWORD line:$l\n";	
@@ -745,6 +748,7 @@ sub osis2SWORD(\$) {
 		# make all paragraphs begin with indents
 		$_ =~ s/^(<p>|<p [^>]*>)/$1&nbsp;&nbsp;&nbsp;&nbsp; /;
 
+		# handle all GenBook chapters
 		if ($_ =~ /^(.*?)(<div type=\"([^"]+)\" osisID="xGENBOOKCHAPTERx">)(.*?)<\/div>(.*?)$/) {
 			my $cp = $1;
 			my $ctag = $2;
@@ -755,37 +759,55 @@ sub osis2SWORD(\$) {
 			# get our genbook chapter title
 			$ch =~ s/<[^>]*>/ /g; # remove tags
 			$ch =~ s/&nbsp;/ /g; # entities will become literals!
-			if ($ch =~ s/[^\w\d ]+/ /g) {&Log("WARN: Replaced illegal chars in following chapter's osisID:\n");}
-			$ch =~ s/_+/ /g;
 			$ch =~ s/\s+/ /g;
 			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
 			if ($TrueFalseInstruction{"UPPERCASE_CHAPTER_TITLES"}) {$ch = uc($ch);}
-			$ctag =~ s/xGENBOOKCHAPTERx/$ch/;
-			&Log("INFO: type $ctyp \"$ctag\"\n");
-			
-			if ($cp ne "" || $cx ne "") {$AllDroppedTags{"chapter:$cp$cx"}++;}
-			
-			# keep hierarchy of divs clean and close all previous containers
-			$_ = $verseEnd.$sectionEnd.$chapterEnd;
-			if (%genBookChapterEnd) {
-				for (my $h=@GenBookHierarchy; $h>=0; $h--) {
-					$_ .= $genBookChapterEnd{@GenBookHierarchy[$h]};
-					$genBookChapterEnd{@GenBookHierarchy[$h]} = "";
-					if (@GenBookHierarchy[$h] eq $ctyp) {last;}
+			my $chReadable = $ch;
+			if ($ch =~ s/[^\w\d ]+/_/g) {&Log("WARN: Replaced illegal chars: \"$chReadable\":\n");}
+			$ch =~ s/_+/_/g;
+			$ch =~ s/\s+/ /g;
+			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
+			if ($ch =~ /^\s*$/) {&Log("WARN: Skipping GenBook chapter with empty key name.\n"); $_ = "";} # ignore GenBook chapters with blank key value
+			if ($_) {
+				if ($ctyp eq $lastGenBookChapterType) {
+					if ($chapGenBookSiblings{$ch}) {
+						$ch .= "_32__40_".$chapGenBookSiblings{$chReadable}."_41_";
+						&Log("WARN: Modified repeated key of the following sibling chapter:\n");
+					}
 				}
+				else {undef(%chapGenBookSiblings);}
+				$chapGenBookSiblings{$chReadable}++;
+				$lastGenBookChapterType = $ctyp;
+				
+				$ctag =~ s/xGENBOOKCHAPTERx/$ch/;
+				&Log("INFO: type $ctyp \"$ctag\"\n");
+				
+				if ($cp ne "" || $cx ne "") {$AllDroppedTags{"chapter:$cp$cx"}++;}
+				
+				# keep hierarchy of divs clean and close all previous containers
+				$_ = $verseEnd.$sectionEnd.$chapterEnd;
+				if (%genBookChapterEnd) {
+					for (my $h=@GenBookHierarchy; $h>=0; $h--) {
+						$_ .= $genBookChapterEnd{@GenBookHierarchy[$h]};
+						$genBookChapterEnd{@GenBookHierarchy[$h]} = "";
+						if (@GenBookHierarchy[$h] eq $ctyp) {last;}
+					}
+				}
+				
+				$_ .= $ctag."\n";
+				
+				if ($TrueFalseInstruction{"DUPLICATE_CHAPTER_TITLES"}) {
+					$_ .= "<title level=\"2\">$chReadable</title>\n";
+				}
+				
+				$verseEnd = "";
+				$sectionEnd = "";
+				$chapterEnd = "";
+				$genBookChapterEnd{$ctyp} = "</div>\n";
 			}
-			
-			$_ .= $ctag."\n";
-			
-			if ($TrueFalseInstruction{"DUPLICATE_CHAPTER_TITLES"}) {
-				$_ .= "<title level=\"2\">$ch</title>\n";
-			}
-			
-			$verseEnd = "";
-			$sectionEnd = "";
-			$chapterEnd = "";
-			$genBookChapterEnd{$ctyp} = "</div>\n";
-		}		
+		}
+		
+		# handle all Bible chapters
 		elsif ($_ =~ /^(.*?)<chapter>(.*?)<\/chapter>(.*?)$/) {
 			my $cp = $1;
 			my $ch = $2;
@@ -813,6 +835,8 @@ sub osis2SWORD(\$) {
 			$sectionEnd = "";
 			$chapterEnd = "</chapter>\n";
 		}
+		
+		# handle all titles
 		elsif ($_ =~ /^(.*?)(<title [^>]*>)(.*)(<\/title>)(.*?)$/) {
 			my $tp = $1; my $ts = $2; my $t = $3; my $te = $4; my $tx = $5;
 			my $drop = "$tp$tx";
@@ -825,6 +849,8 @@ sub osis2SWORD(\$) {
 
 			$sectionEnd = ($chapter ? "</div>\n":"");
 		}
+		
+		# handle all verses
 		elsif ($_ =~ /^(.*?)<verse>(.*?)<\/verse>(.*?)$/) {
 			my $vp = $1;
 			my $vs = $2;
@@ -873,6 +899,7 @@ sub osis2SWORD(\$) {
 			
 			$verseEnd = "<verse eID=\"$Book.$chapter.$verseF$verseTextL\" />\n";
 		}
+		
 		# correct some places where a verse tag is required but instead we've got some other tag (AZE rtf)
 		elsif ($ISVERSEKEY && $_ !~ /^<(p|div)[ >]/ && $_ !~ /^\s*$/ && $chapter && !$verseEnd) {
 			if ($verseF == 0) {
