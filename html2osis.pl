@@ -202,11 +202,11 @@ else {rename("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 #}
 
 # validate new OSIS file against schema
-&Log("\n--- VALIDATING OSIS SCHEMA\n");
-&Log("BEGIN OSIS SCHEMA VALIDATION\n");
-$cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
-&Log("$cmd\n");
-system($cmd);
-&Log("END OSIS SCHEMA VALIDATION\n");
+#&Log("\n--- VALIDATING OSIS SCHEMA\n");
+#&Log("BEGIN OSIS SCHEMA VALIDATION\n");
+#$cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
+#&Log("$cmd\n");
+#system($cmd);
+#&Log("END OSIS SCHEMA VALIDATION\n");
 
 1;
