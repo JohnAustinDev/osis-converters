@@ -23,7 +23,6 @@ These scripts also add some xulsword specific .conf file entries:
 
 ==Deprecated in osis-converters==
   * Use of `<reference type="x-glosslink">` was used for glossary "see-also" links which point to other glossary terms. With SWORD 1.7s OSISReferenceLinks filter this is no longer needed.
-  * TabLabel conf entry is replaced by "Abbreviation".
-  * GlobalOptionFilter=OSISDictionary is replaced by the OSISReferenceLinks filter. 
-  * Use of `<title>` tags with `type="x-intro"` are no longer needed or used.
-  * <div type="x-Synodal-non-canonical"> is no longer used since non-canonical material is completely left out of all OSIS files to facilitate simpler and quicker runtime detection of v11n coverage.
+  * `TabLabel` conf entry is replaced by `Abbreviation`.
+  * `GlobalOptionFilter=OSISDictionary` is replaced by the `OSISReferenceLinks` filter. 
+  * `<div type="x-Synodal-non-canonical">` is no longer used since non-canonical material is completely left out of all OSIS files to facilitate simpler and quicker runtime detection of v11n coverage.
