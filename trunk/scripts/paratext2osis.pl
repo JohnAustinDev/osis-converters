@@ -349,6 +349,7 @@ sub bookSFMtoOSIS {
   $titleText="";          # title collection
   $endChapter="";         # end tag(s)
   $endVerse="";           # end tag(s)
+  $endParagraph="";      # end tag(s)
   $myVerse="";            # current verse number
   $myChap="0";            # current chapter number
   $refChap="1";           # used to check that chapters are sequential
@@ -395,7 +396,7 @@ sub bookSFMtoOSIS {
   if ($enumList1StartPrinted eq "true") {$readText = "$readText</list>"; $enumList1StartPrinted = "false";}
   if ($enumList2StartPrinted eq "true") {$readText = "$readText</list>"; $enumList2StartPrinted = "false";}
   if ($enumList3StartPrinted eq "true") {$readText = "$readText</list>"; $enumList3StartPrinted = "false";}
-  &Write("$readText$endVerse</chapter>\n</div>\n");
+  &Write("$readText$endParagraph$endVerse</chapter>\n</div>\n");
   close (INF);
 }
 ############################################
@@ -415,6 +416,12 @@ sub parseline($) {
   if ($_ !~ /^[\s\W]*\\($list1|$list2)(\s+|$)(.*)/) {
     if ($listStartPrinted eq "true") {$readText = "$readText</list>";}
     $listStartPrinted = "false";
+  }
+  
+  # Find end of paragraphs
+  if ($_ !~ /^[\s\W]*\\($normpar|$doublepar|$triplepar)(\s+|$)(.*)/) {
+    $readText = "$readText$endParagraph";
+    $endParagraph="";
   }
 
   # selects when to reset enumerated list counters
@@ -457,8 +464,9 @@ sub parseline($) {
     $refChap++;
     
     $inIntroduction="0";
-    &Write("$readText$endVerse$endChapter\n<chapter osisID=\"$bookName.$myChap\">\n");
+    &Write("$readText$endParagraph$endVerse$endChapter\n<chapter osisID=\"$bookName.$myChap\">\n");
     $readText="";
+    $endParagraph="";
     $endVerse="";
     $endChapter="</chapter>";
     if ($MoveChapterNotes eq "true") {
@@ -494,14 +502,12 @@ sub parseline($) {
     # Get any titles that were collected
     $verseTitle = "";
     if ($titleText ne "") {
-      $verseTitle = $titleText.$INDENT;
+      $verseTitle = $titleText;
       $titleText="";
     }
     
     # If this is the first verse of chapter, ignore everything before this first verse, otherwise, print previously collected stuff
     if ($readText =~ /<verse[^>]+>.+/) {
-      # if an indent will be followed by a title, remove that indent.
-      if ($verseTitle ne "") {$readText =~ s/$INDENT$//;}
       my $toWrite = "$readText$endVerse";
       if ($toWrite =~ s/(<verse sID="([^"]+)"[^>]*\/>)\s*(<note[^>]*>.*?<\/note>)\s*(<verse eID="\g2"\/>)/$1-$3$4/) {
         &Log("INFO: Adding verse holder \"-\" to $2 which is only a note.\n");
@@ -511,12 +517,7 @@ sub parseline($) {
     }
     else {
       $prepend = $readText;
-      # don't allow too much space between verse one's number and the verse text
-      if ($prepend =~ s/(<lb \/>|$INDENT)+\s*$/$INDENT/) {
-        if ($prepend =~ /^$INDENT$/) {
-          $verseTitle =~ s/(<lb \/>|$INDENT)+\s*$//;
-        }
-      }      
+      $prepend =~ s/^(<lb[^>]*>|\s)+//;   
     }
     
     # If an empty canonical title marker was previously found, process the current verse line as a canonical title
@@ -541,19 +542,20 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($IntroFstTitle)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText<lb /><lb /><title level=\"1\" type=\"x-intro\">$myT</title>";
+    $readText = "$readText<lb /><lb /><title level=\"1\" subType=\"x-introduction\">$myT</title>";
   }
   # INTRODUCTORY PARAGRAPH
   elsif ($_ =~ /^[\s\W]*\\($intropar)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText<lb />$INDENT$myT";
+    $readText = "$readText$endParagraph<p type=\"x-indented\" subType=\"x-introduction\">$myT";
+    $endParagraph = "</p>";
   }
   # LIST TITLE MARKER
   elsif ($_ =~ /^[\s\W]*\\($listtitle)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText<lb /><lb /><title level=\"2\" type=\"x-intro\">$myT</title>";
+    $readText = "$readText<lb /><lb /><title level=\"2\" subType=\"x-introduction\">$myT</title>";
   }
   # LIST ENTRY
   elsif ($_ =~ /^[\s\W]*\\($list1)(\s+|$)(.*)/) {
@@ -618,7 +620,7 @@ sub parseline($) {
       }
     }
     else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"1\" type=\"x-intro\">$myT</title>";}
+    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"1\" subType=\"x-introduction\">$myT</title>";}
     else {
       $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"1\">$myT</title>";
     }
@@ -635,7 +637,7 @@ sub parseline($) {
       }
     }
     else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"2\" type=\"x-intro\">$myT</title>";}
+    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"2\" subType=\"x-introduction\">$myT</title>";}
     else {
       $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"2\">$myT</title>";
     }
@@ -655,7 +657,7 @@ sub parseline($) {
         }
       }
       else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-      if ($inIntroduction eq "1") {$readText = "$readText<title canonical=\"true\" level=\"1\" type=\"x-intro\">$myT</title>";}
+      if ($inIntroduction eq "1") {$readText = "$readText<title canonical=\"true\" level=\"1\" subType=\"x-introduction\">$myT</title>";}
       else {
         $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$myT</title>";
       }
@@ -677,7 +679,7 @@ sub parseline($) {
         }
       }
       else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-      if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" type=\"x-intro\">$myT</title>";}
+      if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" subType=\"x-introduction\">$myT</title>";}
       else {
         $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"2\">$myT</title>";
       }
@@ -690,11 +692,20 @@ sub parseline($) {
     $tag = $1;
     $noteVerseNum = $noteV;
     &encodeNotes;
-    $EmptyLine = ""; #($myT ? "":"<lb />");
-    # After canonical title, we need no line break, and if empty, we need nothing at all
-    if ($tag =~ /^($doublepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$myT";}
-    elsif ($tag =~ /^($triplepar)$/) {$readText = "$readText<lb />$EmptyLine$INDENT$INDENT$INDENT$myT";}
-    else {$readText = "$readText<lb />$EmptyLine$INDENT$myT";}
+    if ($myT !~ /^\s*$/) {
+      my $eplg = "$readText$endParagraph<lg>";
+      $eplg =~ s/<\/lg><lg>$//;
+      if ($tag =~ /^($doublepar)$/) {
+        $readText = "$eplg<l type=\"x-indented\">$myT";
+        $endParagraph = "</l></lg>";
+      }
+      elsif ($tag =~ /^($triplepar)$/) {
+        $readText = "$eplg<l type=\"x-indented-2\">$myT"; 
+        $endParagraph = "</l></lg>";
+      }
+      else {$readText .= "$endParagraph<p type=\"x-indented\">$myT"; $endParagraph = "</p>";}
+    }
+    else {$readText .= "<lb />";}
   }
   # BLANK LINE MARKER
   elsif ($_ =~ /^[\s\W]*\\($blankline)(\s+|$)(.*)/) {

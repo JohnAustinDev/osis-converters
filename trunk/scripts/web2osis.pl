@@ -943,6 +943,9 @@ sub osis2SWORD(\$) {
 			$ReportXType{$1."(".$2.")"}++;
 		}
 		
+		# format the OSIS for easier readability
+		$_ =~ s/(<\/p>)/$1\n/g;
+		
 		$lines[$l] = $_;
 	}
 	
