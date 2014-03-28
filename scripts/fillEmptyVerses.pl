@@ -125,8 +125,8 @@ sub fillEmptyVerses($$$) {
     close(OSIS);
     close(OUTF);
 
-    unlink($osis);
-    rename("$tmpdir/tmp.xml", $osis);
+    #unlink($osis);
+    #rename("$tmpdir/tmp.xml", $osis);
     
     # assemble the scope conf entry for this text
     my $s = "";

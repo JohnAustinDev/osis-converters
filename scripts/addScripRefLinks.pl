@@ -326,6 +326,7 @@ while (<INF2>) {
 		$_ =~ s/<newReference/<reference type=\"$refType\"/g;
 		$_ =~ s/newReference/reference/g;
 	}
+	s/(<reference[^>]*osisRef=")([^"]*")/$1Bible:$2/g;
 
 	print OUTF $_;
 }
