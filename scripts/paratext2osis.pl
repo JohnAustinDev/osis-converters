@@ -125,8 +125,8 @@ $enumList3="none";
 $intropar="none";
 $blankline="none";
 $listtitle="none";
-$canonicaltitle="none";
-$canonicaltitle2="none";
+$FstCanonTitle="none";
+$SecCanonTitle="none";
 $normpar="none";
 $doublepar="none";
 $triplepar="none";
@@ -135,7 +135,6 @@ $italicpattern="";
 $MoveTitleNotes="true";
 $MoveChapterNotes="true";
 $SpecialCapitals="";
-$PreverseTitleType = "";
 $removepattern="";
 $notePattern="";
 $NoteType="INLINE";
@@ -183,8 +182,8 @@ while (<COMF>) {
   elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
   elsif ($_ =~ /^TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstTitle = $2; next;}}
   elsif ($_ =~ /^TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecTitle = $2; next;}}
-  elsif ($_ =~ /^CANONICAL_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$canonicaltitle = $2; next;}}
-  elsif ($_ =~ /^CANONICAL_TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$canonicaltitle2 = $2; next;}}
+  elsif ($_ =~ /^CANONICAL_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstCanonTitle = $2; next;}}
+  elsif ($_ =~ /^CANONICAL_TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecCanonTitle = $2; next;}}
   elsif ($_ =~ /^LIST_TITLE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$listtitle = $2; next;}}
   elsif ($_ =~ /^LIST_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list1 = $2; next;}}
   elsif ($_ =~ /^LIST_ENTRY_BULLET:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list2 = $2; next;}}
@@ -346,10 +345,13 @@ sub bookSFMtoOSIS {
   $inst=1;                # to distinguish multiple notes in a verse
   $noteNum=1;             # absolute note number used with footnote files
   $readText="";           # text collection
-  $titleText="";          # title collection
+  
   $endChapter="";         # end tag(s)
   $endVerse="";           # end tag(s)
   $endParagraph="";      # end tag(s)
+  $endSection="";        # end tag(s)
+  $endTitle="";          # end tag(s)
+  
   $myVerse="";            # current verse number
   $myChap="0";            # current chapter number
   $refChap="1";           # used to check that chapters are sequential
@@ -358,7 +360,6 @@ sub bookSFMtoOSIS {
   $HasChapterTag = 0;     # insure we find a chapter tag
   
   # BOOK PARSING SCHEME: 
-  # Titles are captured and written at the beginning of the verse because, in SWORD, titles can only display before (and never inside) a verse
   # Verse text and formatting are captured as follows:
   #   Line 1 - >c1 --> Introduction
   #   c1<    - >v1 --> Ignore
@@ -396,7 +397,7 @@ sub bookSFMtoOSIS {
   if ($enumList1StartPrinted eq "true") {$readText = "$readText</list>"; $enumList1StartPrinted = "false";}
   if ($enumList2StartPrinted eq "true") {$readText = "$readText</list>"; $enumList2StartPrinted = "false";}
   if ($enumList3StartPrinted eq "true") {$readText = "$readText</list>"; $enumList3StartPrinted = "false";}
-  &Write("$readText$endParagraph$endVerse</chapter>\n</div>\n");
+  &Write("$readText$endTitle$endParagraph$endVerse$endSection$endChapter\n</div>\n");
   close (INF);
 }
 ############################################
@@ -416,12 +417,6 @@ sub parseline($) {
   if ($_ !~ /^[\s\W]*\\($list1|$list2)(\s+|$)(.*)/) {
     if ($listStartPrinted eq "true") {$readText = "$readText</list>";}
     $listStartPrinted = "false";
-  }
-  
-  # Find end of paragraphs
-  if ($_ !~ /^[\s\W]*\\($normpar|$doublepar|$triplepar)(\s+|$)(.*)/) {
-    $readText = "$readText$endParagraph";
-    $endParagraph="";
   }
 
   # selects when to reset enumerated list counters
@@ -446,6 +441,12 @@ sub parseline($) {
     }
   }
   
+  # end titles on all tags except title tags
+  if ($endTitle && $_ =~ /^[\s\W]*(\\\w+)/ && $_ !~ /^[\s\W]*\\($FstTitle|$SecTitle|$FstCanonTitle|$SecCanonTitle)(\s+|$)(.*)/) {
+		$readText .= $endTitle; 
+		$endTitle = "";
+	}
+  
   # Ignore tags on ignore-list
   if ($findalltags ne "true" && $_ =~ /^[\s\W]*\\($IgnoreTags)(\s|$)/) {} #&Log("WARNING $ThisSFM line $line: Ignoring $_.\n");}
   # FIND ALL TAGS but do nothing else
@@ -464,7 +465,26 @@ sub parseline($) {
     $refChap++;
     
     $inIntroduction="0";
-    &Write("$readText$endParagraph$endVerse$endChapter\n<chapter osisID=\"$bookName.$myChap\">\n");
+    
+    # some SFM projects consistently encode a chapter's top title(s) BEFORE the chapter tag. So FIX!
+    my $preCh, $postCh;
+    $readText .= $endTitle; $endTitle= "";
+    if ($readText =~ s/((<div[^>]*>)?)(<div[^>]*><title[^>]*>.*?<\/title[^>]*>(<div[^>]*>)?)$//) {
+			my $prevEndSection = $1;
+			my $movedSecTit = $3;
+			$preCh  = "$readText$endParagraph$endVerse$prevEndSection";
+			$postCh = "$movedSecTit";
+		}
+    else {
+			$preCh  = "$readText$endParagraph$endVerse$endSection";
+			$postCh = "";
+			$endSection="";
+		}
+		if ($preCh) {$preCh .= "\n";}
+		if ($postCh) {$postCh = "\n".$postCh;}
+		
+		&Write("$preCh$endChapter\n<chapter osisID=\"$bookName.$myChap\">$postCh\n");
+		
     $readText="";
     $endParagraph="";
     $endVerse="";
@@ -499,37 +519,27 @@ sub parseline($) {
     $noteVerseNum = $nV;
     &encodeNotes;
     
-    # Get any titles that were collected
-    $verseTitle = "";
-    if ($titleText ne "") {
-      $verseTitle = $titleText;
-      $titleText="";
-    }
+    # If readText ends with an empty canonical title, it is meant to apply to the verse, so FIX!
+    if ($readText =~ s/(<title[^>]*canonical="true"[^>]*>)<\/title>$/$1/) {$endTitle = "</title>";}
     
     # If this is the first verse of chapter, ignore everything before this first verse, otherwise, print previously collected stuff
-    if ($readText =~ /<verse[^>]+>.+/) {
+    if ($readText !~ /<verse[^>]+>.+/) {
+      $prepend = $readText;
+      $prepend =~ s/^(<lb[^>]*>|\s)+//;  
+    }
+    else {
+			if ($readText =~ s/((<\w+[^>\/]*>)+)$//) {$prepend = $1;} # move any start tags at end of verse to beginning of next verse
+			else {$prepend = ""; }
       my $toWrite = "$readText$endVerse";
       if ($toWrite =~ s/(<verse sID="([^"]+)"[^>]*\/>)\s*(<note[^>]*>.*?<\/note>)\s*(<verse eID="\g2"\/>)/$1-$3$4/) {
         &Log("INFO: Adding verse holder \"-\" to $2 which is only a note.\n");
       }
       &Write($toWrite);
-      $prepend = "";
-    }
-    else {
-      $prepend = $readText;
-      $prepend =~ s/^(<lb[^>]*>|\s)+//;   
-    }
-    
-    # If an empty canonical title marker was previously found, process the current verse line as a canonical title
-    if ($nextVerseIsCanonTitle) {
-      $verseTitle .= "<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"".$nextVerseIsCanonTitle."\">$myT</title>";
-      $myT="";
-      $nextVerseIsCanonTitle = 0;
     }
     
     # Save current verse in print buffer 
     if (!$myT && !$prepend) {$myT = " ";} # verse must not be empty or else emptyvss fails
-    $readText = "<verse sID=\"$bookName.$myChap.$myV\" osisID=\"$bookName.$myChap.$myV\"/>$verseTitle$prepend$myT";
+    $readText = "<verse sID=\"$bookName.$myChap.$myV\" osisID=\"$bookName.$myChap.$myV\"/>$prepend$myT";
     $endVerse = "<verse eID=\"$bookName.$myChap.$myV\"/>\n";
   
     $myVerse=$myV;
@@ -548,8 +558,9 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($intropar)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText$endParagraph<p type=\"x-indented\" subType=\"x-introduction\">$myT";
+    $readText = "$readText$endTitle$endParagraph<p type=\"x-indented\" subType=\"x-introduction\">$myT";
     $endParagraph = "</p>";
+    $endTitle = "";
   }
   # LIST TITLE MARKER
   elsif ($_ =~ /^[\s\W]*\\($listtitle)(\s+|$)(.*)/) {
@@ -561,28 +572,28 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($list1)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    if ($listStartPrinted ne "true") {$listStart = "<list type=\"x-list-1\">";}
+    if ($listStartPrinted ne "true") {$listStart = "<list subType=\"x-list-1\">";}
     else {$listStart = "";}
-    $readText = "$readText$listStart<item type=\"x-listitem\">$myT</item>";
+    $readText = "$readText$listStart<item>$myT</item>";
     $listStartPrinted = "true";
   }
   # BULLET LIST ENTRY
   elsif ($_ =~ /^[\s\W]*\\($list2)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    if ($listStartPrinted ne "true") {$listStart = "<list type=\"x-list-2\">";}
+    if ($listStartPrinted ne "true") {$listStart = "<list subType=\"x-list-2\">";}
     else {$listStart = "";}
     $enum4 = chr(8226) . " ";
-    $readText = "$readText$listStart<item type=\"x-listitem\">$enum4 $myT</item>";
+    $readText = "$readText$listStart<item>$enum4 $myT</item>";
     $listStartPrinted = "true";
   }
   # ENUMERATED LIST 1 ENTRY
   elsif ($_ =~ /^[\s\W]*\\($enumList1)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    if ($enumList1StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-1\">";}
+    if ($enumList1StartPrinted ne "true") {$listStart = "<list subType=\"x-enumlist-1\">";}
     else {$listStart = "";}
-    $readText = "$readText$listStart<item type=\"x-listitem\">$Roman[$enum1++]. $myT</item>";
+    $readText = "$readText$listStart<item>$Roman[$enum1++]. $myT</item>";
     if ($enum1 > 20) {&Log("ERROR $ThisSFM line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
     $enumList1StartPrinted = "true";
   }
@@ -590,20 +601,20 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($enumList2)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    if ($enumList2StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-2\">";}
+    if ($enumList2StartPrinted ne "true") {$listStart = "<list subType=\"x-enumlist-2\">";}
     else {$listStart = "";}
     $enum2++;
-    $readText = "$readText$listStart<item type=\"x-listitem\">$enum2. $myT</item>";
+    $readText = "$readText$listStart<item>$enum2. $myT</item>";
     $enumList2StartPrinted = "true";
   }
   # ENUMERATED LIST 3 ENTRY
   elsif ($_ =~ /^[\s\W]*\\($enumList3)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    if ($enumList3StartPrinted ne "true") {$listStart = "<list type=\"x-enumlist-3\">";}
+    if ($enumList3StartPrinted ne "true") {$listStart = "<list subType=\"x-enumlist-3\">";}
     else {$listStart = "";}
     $enum = lc($Roman[$enum3++]);
-    $readText = "$readText$listStart<item type=\"x-listitem\">$enum. $myT</item>";
+    $readText = "$readText$listStart<item>$enum. $myT</item>";
     if ($enum3 > 20) {&Log("ERROR $ThisSFM line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
     $enumList3StartPrinted = "true";
   }
@@ -620,9 +631,15 @@ sub parseline($) {
       }
     }
     else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"1\" subType=\"x-introduction\">$myT</title>";}
+    if ($inIntroduction eq "1") {$readText .= "<title level=\"1\" subType=\"x-introduction\">$myT</title>";}
     else {
-      $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"1\">$myT</title>";
+			my $startSection = "";
+			if ($endTitle) {$endSection = "";} # don't allow multiple sections for multiple titles
+			else {$startSection = "<div type=\"section\" sID=\"sec".++$sectionID."\" />";}
+			$readText .= "$endTitle$endParagraph$endSection$startSection<title level=\"1\">$myT";
+			$endParagraph = "";
+			$endTitle = "</title>";
+			$endSection = "<div eID=\"sec$sectionID\" />";
     }
   }
   # SECONDARY TITLE MARKER
@@ -637,52 +654,62 @@ sub parseline($) {
       }
     }
     else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-    if ($inIntroduction eq "1") {$readText = "$readText<title level=\"2\" subType=\"x-introduction\">$myT</title>";}
+    if ($inIntroduction eq "1") {$readText .= "<title level=\"2\" subType=\"x-introduction\">$myT</title>";}
     else {
-      $titleText = "$titleText<title ".$PreverseTitleType."subType=\"x-preverse\" level=\"2\">$myT</title>";
+			my $startSection = "";
+			if ($endTitle) {$endSection = "";} # don't allow multiple sections for multiple titles
+			else {$startSection = "<div type=\"section\" sID=\"sec".++$sectionID."\" />";}
+			$readText .= "$endTitle$endParagraph$endSection$startSection<title level=\"2\">$myT"; 
+			$endParagraph = "";
+			$endTitle = "</title>";
+			$endSection = "<div eID=\"sec$sectionID\" />";
     }
   }
   # CANONICAL TITLE LEVEL 1
-  elsif ($_ =~ /^[\s\W]*\\($canonicaltitle)(\s+|$)(.*)/) {
+  elsif ($_ =~ /^[\s\W]*\\($FstCanonTitle)(\s+|$)(.*)/) {
     $myT=$3;
-    # If canonical title marker is blank, then next verse will be formatted as a title
-    if ($myT eq "") {$nextVerseIsCanonTitle = 1;}
+		if ($MoveTitleNotes eq "true") {
+			$noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
+			&encodeNotes;
+			while ($myT =~ s/(<note.*?<\/note>)//) {
+				$titleNotes = "$titleNotes$1";
+				&Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
+			}
+		}
+		else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+    if ($inIntroduction eq "1") {$readText .= "<title canonical=\"true\" level=\"1\" subType=\"x-introduction\">$myT</title>";}
     else {
-      if ($MoveTitleNotes eq "true") {
-        $noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
-        &encodeNotes;
-        while ($myT =~ s/(<note.*?<\/note>)//) {
-          $titleNotes = "$titleNotes$1";
-          &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
-        }
-      }
-      else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-      if ($inIntroduction eq "1") {$readText = "$readText<title canonical=\"true\" level=\"1\" subType=\"x-introduction\">$myT</title>";}
-      else {
-        $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"1\">$myT</title>";
-      }
+			my $startSection = "";
+			if ($endTitle) {$endSection = "";} # don't allow multiple sections for multiple titles
+			else {$startSection = "<div type=\"section\" sID=\"sec".++$sectionID."\" />";}
+			$readText .= "$endTitle$endParagraph$endSection$startSection<title canonical=\"true\" level=\"1\">$myT";
+			$endParagraph = "";
+			$endTitle = "</title>";
+			$endSection = "<div eID=\"sec$sectionID\" />";
     }
   }
   # sh - UZV secondary headings in Psalms are canonical!
   # CANONICAL TITLE LEVEL 2
-  elsif ($_ =~ /^[\s\W]*\\($canonicaltitle2)(\s+|$)(.*)/) {
+  elsif ($_ =~ /^[\s\W]*\\($SecCanonTitle)(\s+|$)(.*)/) {
     $myT=$3;
-    # If canonical title marker is blank, then next verse will be formatted as a title
-    if ($myT eq "") {$nextVerseIsCanonTitle = 2;}
+		if ($MoveTitleNotes eq "true") {
+			$noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
+			&encodeNotes;
+			while ($myT =~ s/(<note.*?<\/note>)//) {
+				$titleNotes = "$titleNotes$1";
+				&Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
+			}
+		}
+		else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
+    if ($inIntroduction eq "1") {$readText .= "<title canonical=\"true\" level=\"2\" subType=\"x-introduction\">$myT</title>";}
     else {
-      if ($MoveTitleNotes eq "true") {
-        $noteVerseNum = $noteV+1; #the +1 is because the title corresponds to the NEXT verse
-        &encodeNotes;
-        while ($myT =~ s/(<note.*?<\/note>)//) {
-          $titleNotes = "$titleNotes$1";
-          &Log("INFO line $line: Note in title was moved to $bookName $myChap:$noteVerseNum.\n");
-        }
-      }
-      else {while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in heading ignored.\n");}}
-      if ($inIntroduction eq "1") {$readText = "$readText$titleText<title canonical=\"true\" level=\"2\" subType=\"x-introduction\">$myT</title>";}
-      else {
-        $titleText = "$titleText<title ".$PreverseTitleType."canonical=\"true\" subType=\"x-preverse\" level=\"2\">$myT</title>";
-      }
+			my $startSection = "";
+			if ($endTitle) {$endSection = "";} # don't allow multiple sections for multiple titles
+			else {$startSection = "<div type=\"section\" sID=\"sec".++$sectionID."\" />";}
+			$readText .= "$endTitle$endParagraph$endSection$startSection<title canonical=\"true\" level=\"2\">$myT";
+			$endParagraph = "";
+			$endTitle = "</title>";
+			$endSection = "<div eID=\"sec$sectionID\" />";
     }
   }
   ################## PARATEXT PARAGRAPH AND POETRY MARKERS ######################
@@ -692,20 +719,18 @@ sub parseline($) {
     $tag = $1;
     $noteVerseNum = $noteV;
     &encodeNotes;
-    if ($myT !~ /^\s*$/) {
-      my $eplg = "$readText$endParagraph<lg>";
-      $eplg =~ s/<\/lg><lg>$//;
-      if ($tag =~ /^($doublepar)$/) {
-        $readText = "$eplg<l type=\"x-indented\">$myT";
-        $endParagraph = "</l></lg>";
-      }
-      elsif ($tag =~ /^($triplepar)$/) {
-        $readText = "$eplg<l type=\"x-indented-2\">$myT"; 
-        $endParagraph = "</l></lg>";
-      }
-      else {$readText .= "$endParagraph<p type=\"x-indented\">$myT"; $endParagraph = "</p>";}
+
+    my $eplg = "$readText$endParagraph<lg>";
+    $eplg =~ s/<\/lg><lg[^>]*>$//;
+    if ($tag =~ /^($doublepar)$/) {
+      $readText = "$eplg<l type=\"x-indent\">$myT"; # implemented by osisxhtml.cpp (as of April 2014)
+      $endParagraph = "</l></lg>";
     }
-    else {$readText .= "<lb />";}
+    elsif ($tag =~ /^($triplepar)$/) {
+      $readText = "$eplg<l type=\"x-indented-2\">$myT";
+      $endParagraph = "</l></lg>";
+    }
+    else {$readText .= "$endTitle$endParagraph<p type=\"x-indented-1\">$myT"; $endParagraph = "</p>"; $endTitle = "";} # all attributes are dropped by osis2mod (as of April 2014)
   }
   # BLANK LINE MARKER
   elsif ($_ =~ /^[\s\W]*\\($blankline)(\s+|$)(.*)/) {
