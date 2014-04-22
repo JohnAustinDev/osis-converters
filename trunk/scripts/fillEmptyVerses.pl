@@ -26,7 +26,7 @@ sub fillEmptyVerses($$$) {
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nAPPENDING MISSING & NON-CANONICAL EMPTY VERSES:\n");
+  &Log("\n\nDETECTING MISSING & NON-CANONICAL VERSES:\n");
 
   my %canon;
   my %bookOrder;
@@ -86,35 +86,36 @@ sub fillEmptyVerses($$$) {
         foreach my $k (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
           $tb = $k;
           if (&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
-            &Log("Appending empty book $tb\n");
+            &Log("Missing book $tb\n");
             $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb}, \%emptyVerses);
           }
         }
         foreach my $k (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
           $tb = $k;
           if (!&isCanon($vsys, $tb,$tc,$tv) && !$allbooks{$tb}) {
-            &Log("Appending non-canonical book $tb\n");
+            &Log("Missing non-canonical book $tb\n");
             $_ = $_.&emptyBook($vsys, $tb, $tc, $tv, $canon{$tb}, \%emptyVerses);
           }
         }
       }
       
       # append missing chapters in book
-      if ($bk && $ch && $_ =~ /<\/div>/ && $canon{$bk} && @{$canon{$bk}} != $ch) {
+      if ($finishedChapter && $bk && $ch && $_ =~ /<\/div>/ && $canon{$bk} && @{$canon{$bk}} != $ch) {
         my $emp = "";
         for (my $i=($ch+1); $i <= @{$canon{$bk}}; $i++) {
           $tb=$bk; $tc=$i;
-          &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." chapter $bk $i\n");
+          &Log("Missing ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." chapter $bk $i\n");
           $emp .= &wrapDiv($vsys, "<chapter osisID=\"$bk.$i\">".&emptyVerses("$bk.$i.1-".$canon{$bk}->[$i-1], \%emptyVerses)."</chapter>", $tb, $tc, $tv);
         }
         $BUFF = $emp.$BUFF;
         $ch = @{$canon{$bk}}; # set chapter to current, so we don't ever append same chap again
       }
+      $finishedChapter = ($_ =~ /<\/chapter>/); # end of book must be encoded as: </chapter>\n</div>
       
       # append missing verses in chapter
       if ($bk && $ch && $_ =~ /<\/chapter>/ && $canon{$bk}->[$ch-1] != $vs) {
         $tb=$bk; $tc=$ch; $tv=($vs+1);
-        &Log("Appending ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." verse(s) $bk $ch:".$tv.($canon{$bk}->[$ch-1]==$tv ? "":"-".$canon{$bk}->[$ch-1])."\n");
+        &Log("Missing ".(&isCanon($vsys, $tb,$tc,$tv) ? "empty":"non-canonical")." verse(s) $bk $ch:".$tv.($canon{$bk}->[$ch-1]==$tv ? "":"-".$canon{$bk}->[$ch-1])."\n");
         $_ = &wrapDiv($vsys, &emptyVerses("$bk.$ch.".$tv."-".$canon{$bk}->[$ch-1], \%emptyVerses), $tb, $tc, $tv).$_;
       }
 
@@ -125,6 +126,8 @@ sub fillEmptyVerses($$$) {
     close(OSIS);
     close(OUTF);
 
+		# The following lines are commented out becuase we no longer want to modify 
+		# the input OSIS file, but just generate INFO and Scope.
     #unlink($osis);
     #rename("$tmpdir/tmp.xml", $osis);
     
@@ -174,7 +177,7 @@ sub fillEmptyVerses($$$) {
       }
       elsif ($c2 != $c1) {
         if ($v1==1) {
-          if ($c1==1) {$c1 = 0;}
+          #if ($c1==1) {$c1 = 0;}
           $sub .= "$b1.$c1";
         }
         else {$sub .= "$b1.$c1.$v1";}
@@ -201,9 +204,11 @@ sub fillEmptyVerses($$$) {
       $sep = " ";
     }
     if ($s !~ /^\s*$/) {&Log("ERROR: While processing scope \"$s\"\n");}
-    if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
+    #if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
   }
-  else {&Log("ERROR: Not filling empty verses in OSIS file!\n");}
+  else {&Log("ERROR: Not checking empty verses in OSIS file!\n");}
+ 
+	&Log("\n\nSCOPE is: $scope\n");
  
   return $scope;
 }
