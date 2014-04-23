@@ -817,16 +817,20 @@ sub logGlossReplacements($\@\%\%) {
   &Log("\n\n");
 }
       
-# copies a directory to a non existing destination directory
-sub copy_dir($$) {
+# copies a directory to a possibly non existing destination directory
+sub copy_dir($$$$) {
   my $id = shift;
   my $od = shift;
+  my $overwrite = shift; # merge with existing directories and overwrite existing files
+  my $noRecurse = shift; # don't recurse into subdirs
+  my $keep = shift; # a regular expression matching files to be copied (null means copy all)
+  my $skip = shift; # a regular expression matching files to be skipped (null means skip none). $skip overrules $keep
 
   if (!-e $id || !-d $id) {
     &Log("ERROR copy_dir: Source does not exist or is not a direcory: $id\n");
     return 0;
   }
-  if (-e $od) {
+  if (!$overwrite && -e $od) {
     &Log("ERROR copy_dir: Destination already exists: $od\n");
     return 0;
   }
@@ -841,8 +845,12 @@ sub copy_dir($$) {
     if ($fs[$i] =~ /^\.svn/) {next;}
     my $if = "$id/".$fs[$i];
     my $of = "$od/".$fs[$i];
-    if (-d $if) {&copy_dir($if, $of);}
-    else {copy($if, $of);}
+    if (!$noRecurse && -d $if) {&copy_dir($if, $of, $noRecurse, $keep, $skip);}
+    elsif ($skip && $if =~ /$skip/) {next;}
+    elsif (!$keep || $if =~ /$keep/) {
+			if ($overwrite && -e $of) {unlink($of);}
+			copy($if, $of);
+		}
   }
   return 1;
 }
