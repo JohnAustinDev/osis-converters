@@ -51,7 +51,7 @@ require "$SCRD/scripts/common.pl";
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
+&getInfoFromConf($CONFFILE, 1);
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
@@ -97,6 +97,33 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 else {
 	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");
 	die;
+}
+
+$IMAGEDIR = "$INPD/images";
+if (-e $IMAGEDIR) {&copy_images_to_module($IMAGEDIR);}
+
+sub copy_images_to_module($) {
+	my $imgFile = shift;
+	&Log("\n--- COPYING $MOD image(s) \"$imgFile\"\n");
+	if (-d $imgFile) {
+		my $imagePaths = "INCLUDE IMAGE PATHS.txt";
+		&copy_dir($imgFile, "$SWDD/$MODPATH/images", 1, 0, 0, quotemeta($imagePaths));
+		if (-e "$imgFile/$imagePaths") { # then copy any additional images located in $imagePaths file
+			open(IIF, "<$imgFile/$imagePaths") || die "Could not open \"$imgFile/$imagePaths\"\n";
+			while (<IIF>) {
+				if ($_ =~ /^\s*#/) {next;}
+				chomp;
+				if ($_ =~ /^\./) {$_ = "$imgFile/$_";}
+				if (-e $_) {&copy_images_to_module($_);}
+				else {&Log("ERROR: Image directory listed in \"$imgFile/$imagePaths\" was not found: \"$_\"\n");}
+			}
+			close(IIF);
+		}
+	}
+	else {
+		if (-e "$SWDD/$MODPATH/images/$imgFile") {unlink("$SWDD/$MODPATH/images/$imgFile");} 
+		copy($imgFile, "$SWDD/$MODPATH/images");
+	}
 }
 
 # make a zipped copy of the entire zipped module

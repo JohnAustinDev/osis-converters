@@ -6,10 +6,11 @@ from __future__ import print_function, unicode_literals
 date = '$Date$'
 rev = '$Rev$'
 id = '$Id$'
+encoding = ''
 
 usfmVersion = '2.35'  # http://ubs-icap.org/chm/usfm/2.35/index.html
 osisVersion = '2.1.1' # http://www.bibletechnologies.net/osisCore.2.1.1.xsd
-scriptVersion = '0.5'
+scriptVersion = '0.5.1'
 
 # usfm2osis.py
 # Copyright 2012 by the CrossWire Bible Society <http://www.crosswire.org/>
@@ -334,15 +335,16 @@ def keysupplied(filename):
     keysupplied.counter += 1
     return keysupplied.counter
 
-def convertToOsis(sFile):
+def convertToOsis(sFile,genBook,encoding,relaxedConformance):
     """Open a USFM file and return a string consisting of its OSIS equivalent.
 
     Keyword arguments:
     sFile -- Path to the USFM file to be converted
-
+    genBook -- Boolean value indicating if generating genbook rather than Bible book
+    encoding -- Input encoding override
+    relaxedConformance -- Boolean value indicating whether to process non-standard & deprecated USFM tags.
+	
     """
-    global encoding
-    global relaxedConformance
 
     verbosePrint(('Processing: ' + sFile))
 
@@ -370,6 +372,33 @@ def convertToOsis(sFile):
         #osis = re.sub('\n'+r'(\\[^\s]+\b\*)', r' \1', osis)
 
         return osis
+    
+    def addBookDiv(osis, sFile):
+        """Add the <div type="book"> tag.
+        Attempts to extract a title from the start of the document - failing this use file name.
+
+        Keyword arguments:
+        osis -- The document as a string.
+        sFile -- Path of file being processed
+
+        """
+        title = ''
+        titleMatch = re.search(r'\\(m|p|mt|mt1)\s+(.+)',osis)
+        sectionMatch = re.search(r'\\s',osis)
+        majorSectionMatch = re.search(r'\\ms',osis)
+        
+        if titleMatch.start() < sectionMatch.start() or  titleMatch.start() < majorSectionMatch.start():
+            title = titleMatch.group(2)
+            title = re.sub(r'\\[it|bd|bdit|em]\*?', '', title)
+        else:
+            titleMatch = re.search(r'[^/\\]+$',sFile)
+            if titleMatch:
+                title = titleMatch.group(0)
+                title = re.sub(r'\..+$', '', title)
+        
+        osis = '<div type="book" osisID="' + title + '">\n' +osis + '\n</div>'
+        return osis
+    
 
 
     def cvtRelaxedConformanceRemaps(osis, relaxedConformance):
@@ -416,7 +445,7 @@ def convertToOsis(sFile):
         return osis
 
 
-    def cvtIdentification(osis, relaxedConformance):
+    def cvtIdentification(osis, relaxedConformance, genBook):
         """Converts USFM **Identification** tags to OSIS, returning the processed text as a string.
 
         Supported tags: \id, \ide, \sts, \rem, \h, \toc1, \toc2, \toc3
@@ -424,11 +453,12 @@ def convertToOsis(sFile):
         Keyword arguments:
         osis -- The document as a string.
         relaxedConformance -- Boolean value indicating whether to process non-standard & deprecated USFM tags.
+        genBook -- Boolean value indicating if a genbook is being generated.
 
         """
-
-        # \id_<CODE>_(Name of file, Book name, Language, Last edited, Date etc.)
-        osis = re.sub(r'\\id\s+([A-Z0-9]{3})\b\s*([^\\'+'\n]*?)\n'+r'(.*)(?=\\id|$)', lambda m: '\uFDD0<div type="book" osisID="' + bookDict[m.group(1)] + '">\n' + (('<!-- id comment - ' + m.group(2) + ' -->\n') if m.group(2) else '') + m.group(3) + '</div type="book">\uFDD0\n' , osis, flags=re.DOTALL)
+        if not genBook:
+            # \id_<CODE>_(Name of file, Book name, Language, Last edited, Date etc.)
+            osis = re.sub(r'\\id\s+([A-Z0-9]{3})\b\s*([^\\'+'\n]*?)\n'+r'(.*)(?=\\id|$)', lambda m: '\uFDD0<div type="book" osisID="' + bookDict[m.group(1)] + '">\n' + (('<!-- id comment - ' + m.group(2) + ' -->\n') if m.group(2) else '') + m.group(3) + '</div type="book">\uFDD0\n' , osis, flags=re.DOTALL)
 
         # \ide_<ENCODING>
         osis = re.sub(r'\\ide\b.*'+'\n', '', osis) # delete, since this was handled above
@@ -540,7 +570,7 @@ def convertToOsis(sFile):
         return osis
 
 
-    def cvtTitles(osis, relaxedConformance):
+    def cvtTitles(osis, relaxedConformance, genBook):
         """Converts USFM **Title, Heading, and Label** tags to OSIS, returning the processed text as a string.
 
         Supported tags: \mt#, \mte#, \ms#, \mr, \s#, \sr, \r, \rq...\rq*, \d, \sp 
@@ -548,11 +578,15 @@ def convertToOsis(sFile):
         Keyword arguments:
         osis -- The document as a string.
         relaxedConformance -- Boolean value indicating whether to process non-standard & deprecated USFM tags.
+        genBook -- Boolean value indicating if a genbook is being generated.
 
         """
 
         # \ms#_text...
-        osis = re.sub(r'\\ms1?\s+(.+)', lambda m: '\uFDD5<div type="majorSection"><title>' + m.group(1) + '</title>', osis)
+        if genBook:
+            osis = re.sub(r'\\ms1?\s+(.+)', lambda m: '\uFDD5<div type="majorSection" osisID="' + m.group(1) + '">', osis)
+        else:
+            osis = re.sub(r'\\ms1?\s+(.+)', lambda m: '\uFDD5<div type="majorSection"><title>' + m.group(1) + '</title>', osis)           
         osis = re.sub('(\uFDD5[^\uFDD5\uFDD0]+)', r'\1'+'</div>\uFDD5\n', osis, flags=re.DOTALL)
         osis = re.sub(r'\\ms2\s+(.+)', lambda m: '\uFDD6<div type="majorSection" n="2"><title>' + m.group(1) + '</title>', osis)
         osis = re.sub('(\uFDD6[^\uFDD5\uFDD0\uFDD6]+)', r'\1'+'</div>\uFDD6\n', osis, flags=re.DOTALL)
@@ -567,20 +601,36 @@ def convertToOsis(sFile):
         osis = re.sub(r'\\mr\s+(.+)', '\uFDD4<title type="scope"><reference>'+r'\1</reference></title>', osis)
 
         # \s#_text...
-        osis = re.sub(r'\\s1?\s+(.+)', lambda m: '\uFDDA<div type="section"><title>' + m.group(1) + '</title>', osis)
-        osis = re.sub('(\uFDDA<div type="section">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA]+)', r'\1'+'</div>\uFDDA\n', osis, flags=re.DOTALL)
+        if genBook:
+            osis = re.sub(r'\\s1?\s+(.+)', lambda m: '\uFDDA<div type="chapter" osisID="' +  m.group(1) + '"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDA<div type="chapter" osisID="[^"]*">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA]+)', r'\1'+'</div>\uFDDA\n', osis, flags=re.DOTALL)
+        else:
+            osis = re.sub(r'\\s1?\s+(.+)', lambda m: '\uFDDA<div type="section"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDA<div type="section">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA]+)', r'\1'+'</div>\uFDDA\n', osis, flags=re.DOTALL)
+
         if relaxedConformance:
             osis = re.sub(r'\\ss\s+', r'\\s2 ', osis)
             osis = re.sub(r'\\sss\s+', r'\\s3 ', osis)
-        osis = re.sub(r'\\s2\s+(.+)', lambda m: '\uFDDB<div type="subSection"><title>' + m.group(1) + '</title>', osis)
-        osis = re.sub('(\uFDDB<div type="subSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB]+)', r'\1'+'</div>\uFDDB\n', osis, flags=re.DOTALL)
-        osis = re.sub(r'\\s3\s+(.+)', lambda m: '\uFDDC<div type="x-subSubSection"><title>' + m.group(1) + '</title>', osis)
-        osis = re.sub('(\uFDDC<div type="x-subSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC]+)', r'\1'+'</div>\uFDDC\n', osis, flags=re.DOTALL)
-        osis = re.sub(r'\\s4\s+(.+)', lambda m: '\uFDDD<div type="x-subSubSubSection"><title>' + m.group(1) + '</title>', osis)
-        osis = re.sub('(\uFDDD<div type="x-subSubSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD]+)', r'\1'+'</div>\uFDDD\n', osis, flags=re.DOTALL)
-        osis = re.sub(r'\\s5\s+(.+)', lambda m: '\uFDDE<div type="x-subSubSubSubSection"><title>' + m.group(1) + '</title>', osis)
-        osis = re.sub('(\uFDDE<div type="x-subSubSubSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE]+)', r'\1'+'</div>\uFDDE\n', osis, flags=re.DOTALL)
-
+        
+        if genBook:  
+            osis = re.sub(r'\\s2\s+(.+)', lambda m: '\uFDDB<div type="Section"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDB<div type="Section">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB]+)', r'\1'+'</div>\uFDDB\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s3\s+(.+)', lambda m: '\uFDDC<div type="subSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDC<div type="subSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC]+)', r'\1'+'</div>\uFDDC\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s4\s+(.+)', lambda m: '\uFDDD<div type="x-subSubSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDD<div type="x-subSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD]+)', r'\1'+'</div>\uFDDD\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s5\s+(.+)', lambda m: '\uFDDE<div type="x-subSubSubSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDE<div type="x-subSubSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE]+)', r'\1'+'</div>\uFDDE\n', osis, flags=re.DOTALL)
+        else:
+            osis = re.sub(r'\\s2\s+(.+)', lambda m: '\uFDDB<div type="subSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDB<div type="subSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB]+)', r'\1'+'</div>\uFDDB\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s3\s+(.+)', lambda m: '\uFDDC<div type="x-subSubSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDC<div type="x-subSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC]+)', r'\1'+'</div>\uFDDC\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s4\s+(.+)', lambda m: '\uFDDD<div type="x-subSubSubSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDD<div type="x-subSubSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD]+)', r'\1'+'</div>\uFDDD\n', osis, flags=re.DOTALL)
+            osis = re.sub(r'\\s5\s+(.+)', lambda m: '\uFDDE<div type="x-subSubSubSubSection"><title>' + m.group(1) + '</title>', osis)
+            osis = re.sub('(\uFDDE<div type="x-subSubSubSubSection">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE]+)', r'\1'+'</div>\uFDDE\n', osis, flags=re.DOTALL)
+           
         # \sr_text...
         osis = re.sub(r'\\sr\s+(.+)', '\uFDD4<title type="scope"><reference>'+r'\1</reference></title>', osis)
         # \r_text...
@@ -601,7 +651,7 @@ def convertToOsis(sFile):
 
         return osis
 
-
+ 
     def cvtChaptersAndVerses(osis, relaxedConformance):
         """Converts USFM **Chapter and Verse** tags to OSIS, returning the processed text as a string.
 
@@ -748,7 +798,7 @@ def convertToOsis(sFile):
         # \qc_text...
         # \qm#(_text...)
         qType = {'qr':'x-right', 'qc':'x-center', 'qm':'x-embedded" level="1', 'qm1':'x-embedded" level="1', 'qm2':'x-embedded" level="2', 'qm3':'x-embedded" level="3', 'qm4':'x-embedded" level="4', 'qm5':'x-embedded" level="5'}
-        osis = re.sub(r'\\(qr|qc|qm\d)\b\s*(.*?)(?=(['+'\uFDD0\uFDD1\uFDD3\uFDD4\uFDD5\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE'+r']|\\q[\d\s]|\\fig|<l\b|<lb\b|<title\b|<list\b|</?div\b))', lambda m: '<l type="' + qType[m.group(1)] + '">' + m.group(2) + '</l>', osis, flags=re.DOTALL)
+        osis = re.sub(r'\\(qr|qc|qm\d)\b\s*(.*?)(?=(['+'\uFDD0\uFDD1\uFDD3\uFDD4\uFDD5\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE'+r']|\\q[rcm\d\s]|\\fig|<l\b|<lb\b|<title\b|<list\b|</?div\b))', lambda m: '<l type="' + qType[m.group(1)] + '">' + m.group(2) + '</l>', osis, flags=re.DOTALL)
 
         osis = osis.replace('\n</l>', '</l>\n')
         osis = re.sub('(<l [^\uFDD0\uFDD1\uFDD3\uFDD4\uFDD5\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA\uFDDB\uFDDC\uFDDD\uFDDE]+</l>)', r'<lg>\1</lg>', osis, flags=re.DOTALL)
@@ -1320,9 +1370,15 @@ def convertToOsis(sFile):
     # call individual conversion processors in series
     osis = cvtPreprocess(osis, relaxedConformance)
     osis = cvtRelaxedConformanceRemaps(osis, relaxedConformance)
-    osis = cvtIdentification(osis, relaxedConformance)
+    if genBook:
+        osis = addBookDiv(osis, sFile)
+    osis = cvtIdentification(osis, relaxedConformance, genBook)
     osis = cvtIntroductions(osis, relaxedConformance)
-    osis = cvtTitles(osis, relaxedConformance)
+    osis = cvtTitles(osis, relaxedConformance,genBook)	
+    if genBook:
+        # remove any chapter tags
+        osis = re.sub(r'\\c\s[^\\<]*', '', osis)        	
+
     osis = cvtChaptersAndVerses(osis, relaxedConformance)
     osis = cvtParagraphs(osis, relaxedConformance)
     osis = cvtPoetry(osis, relaxedConformance)
@@ -1337,14 +1393,15 @@ def convertToOsis(sFile):
     osis = cvtStudyBibleContent(osis, relaxedConformance)
     osis = cvtPrivateUseExtensions(osis, relaxedConformance)
 
-    osis = processOsisIDs(osis)
+    if not genBook:
+        osis = processOsisIDs(osis)
     osis = osisReorderAndCleanup(osis)
 
     # change type on special books
     for sb in specialBooks:
         osis = osis.replace('<div type="book" osisID="' + sb + '">', '<div type="' + sb.lower() + '">')
 
-    if DEBUG:
+    if verbose:
         localUnhandledTags = set(re.findall(r'(\\[^\s\*]+?\b\*?)', osis))
         if localUnhandledTags:
             print(('Unhandled USFM tags in ' + sFile + ': ' + ', '.join(localUnhandledTags) + ' (' + str(len(localUnhandledTags)) + ' total)'))
@@ -1412,6 +1469,7 @@ def printUsage():
     print('  -d               debug mode (single-threaded, verbose output')
     print('  -e ENCODING      input encoding override (default is to read the USFM file\'s')
     print('                     \\ide value or assume UTF-8 encoding in its absence)')
+    print('  -g               generate genbook module rather than Bible module')
     print('  -h, --help       print this usage information')
     print('  -o FILENAME      output filename (default is: <osisWork>.osis.xml)')
     print('  -r               enable relaxed markup processing (for non-standard USFM)')
@@ -1439,15 +1497,18 @@ class Worker(multiprocessing.Process):
         self.kill_received = False
 
     def run(self):
+	
+        global verbose
+
         while not self.kill_received:
             # get a task
             try:
-                job = self.work_queue.get_nowait()
+                job,genBook,encoding,relaxedConformance,verbose = self.work_queue.get_nowait()
             except Queue.Empty:
                 break
 
             # the actual processing
-            osis = convertToOsis(job)
+            osis = convertToOsis(job,genBook,encoding,relaxedConformance)
             # TODO: move XML validation here?
 
             # store the result
@@ -1460,14 +1521,13 @@ osisSchema += r'<xs:element name="milestoneStart" type="milestoneStartCT"/><xs:e
 osisSchema += r'<xs:enumeration value="left"/><xs:enumeration value="right"/><xs:enumeration value="center"/><xs:enumeration value="justify"/><xs:enumeration value="start"/><xs:enumeration value="end"/></xs:restriction></xs:simpleType><xs:simpleType name="osisChanges"><xs:restriction base="xs:string"><xs:enumeration value="added"/><xs:enumeration value="amplified"/><xs:enumeration value="changed"/><xs:enumeration value="deleted"/><xs:enumeration value="implied"/><xs:enumeration value="moved"/><xs:enumeration value="tenseChange"/></xs:restriction></xs:simpleType><xs:simpleType name="osisDescription"><xs:restriction base="xs:string"><xs:enumeration value="usfm"/></xs:restriction></xs:simpleType><xs:simpleType name="osisDivs"><xs:restriction base="xs:string"><xs:enumeration value="acknowledgement"/><xs:enumeration value="afterword"/><xs:enumeration value="annotant"/><xs:enumeration value="appendix"/><xs:enumeration value="article"/><xs:enumeration value="back"/><xs:enumeration value="bibliography"/><xs:enumeration value="body"/><xs:enumeration value="book"/><xs:enumeration value="bookGroup"/><xs:enumeration value="bridge"/><xs:enumeration value="chapter"/><xs:enumeration value="colophon"/><xs:enumeration value="commentary"/><xs:enumeration value="concordance"/><xs:enumeration value="coverPage"/><xs:enumeration value="dedication"/><xs:enumeration value="devotional"/><xs:enumeration value="entry"/><xs:enumeration value="front"/><xs:enumeration value="gazetteer"/><xs:enumeration value="glossary"/><xs:enumeration value="imprimatur"/><xs:enumeration value="index"/><xs:enumeration value="introduction"/><xs:enumeration value="majorSection"/><xs:enumeration value="map"/><xs:enumeration value="outline"/><xs:enumeration value="paragraph"/><xs:enumeration value="part"/><xs:enumeration value="preface"/><xs:enumeration value="publicationData"/><xs:enumeration value="section"/><xs:enumeration value="subSection"/><xs:enumeration value="summary"/><xs:enumeration value="tableofContents"/><xs:enumeration value="titlePage"/></xs:restriction></xs:simpleType><xs:simpleType name="osisEvents"><xs:restriction base="xs:string"><xs:enumeration value="edition"/><xs:enumeration value="eversion"/><xs:enumeration value="imprint"/><xs:enumeration value="original"/></xs:restriction></xs:simpleType><xs:simpleType name="osisGenType"><xs:list itemType="osisGenRegex"/></xs:simpleType><xs:simpleType name="osisHi"><xs:restriction base="xs:string"><xs:enumeration value="acrostic"/><xs:enumeration value="bold"/><xs:enumeration value="emphasis"/><xs:enumeration value="illuminated"/><xs:enumeration value="italic"/><xs:enumeration value="line-through"/><xs:enumeration value="normal"/><xs:enumeration value="small-caps"/><xs:enumeration value="sub"/><xs:enumeration value="super"/><xs:enumeration value="underline"/></xs:restriction></xs:simpleType><xs:simpleType name="osisIdentifier"><xs:restriction base="xs:string"><xs:enumeration value="Dewey"/><xs:enumeration value="DOI"/><xs:enumeration value="ISBN"/><xs:enumeration value="ISSN"/><xs:enumeration value="LCCN"/><xs:enumeration value="OSIS"/><xs:enumeration value="SICI"/><xs:enumeration value="URI"/><xs:enumeration value="URL"/><xs:enumeration value="URN"/></xs:restriction></xs:simpleType><xs:simpleType name="osisIDType"><xs:list itemType="osisIDRegex"/></xs:simpleType><xs:simpleType name="osisLanguage"><xs:restriction base="xs:string"><xs:enumeration value="IANA"/><xs:enumeration value="IETF"/><xs:enumeration value="ISO-639-1"/><xs:enumeration value="ISO-639-2"/><xs:enumeration value="ISO-639-2-B"/><xs:enumeration value="ISO-639-2-T"/><xs:enumeration value="LINGUIST"/><xs:enumeration value="other"/><xs:enumeration value="SIL"/></xs:restriction></xs:simpleType><xs:simpleType name="osisLanguageUsage"><xs:restriction base="xs:string"><xs:enumeration value="base"/><xs:enumeration value="didactic"/><xs:enumeration value="interlinear"/><xs:enumeration value="original"/><xs:enumeration value="quotation"/><xs:enumeration value="source"/><xs:enumeration value="target"/><xs:enumeration value="translation"/></xs:restriction></xs:simpleType><xs:simpleType name="osisLine"><xs:restriction base="xs:string"><xs:enumeration value="refrain"/><xs:enumeration value="doxology"/><xs:enumeration value="selah"/><xs:enumeration value="attribution"/></xs:restriction></xs:simpleType><xs:simpleType name="osisLineGroup"><xs:restriction base="xs:string"></xs:restriction></xs:simpleType><xs:simpleType name="osisMilestonePt"><xs:restriction base="xs:string"><xs:enumeration value="column"/><xs:enumeration value="cQuote"/><xs:enumeration value="footer"/><xs:enumeration value="halfLine"/><xs:enumeration value="header"/><xs:enumeration value="line"/><xs:enumeration value="pb"/><xs:enumeration value="screen"/></xs:restriction></xs:simpleType><xs:simpleType name="osisNames"><xs:restriction base="xs:string"><xs:enumeration value="geographic"/><xs:enumeration value="holiday"/><xs:enumeration value="nonhuman"/><xs:enumeration value="person"/><xs:enumeration value="ritual"/></xs:restriction></xs:simpleType><xs:simpleType name="osisNotes"><xs:restriction base="xs:string"><xs:enumeration value="allusion"/><xs:enumeration value="alternative"/><xs:enumeration value="background"/><xs:enumeration value="citation"/><xs:enumeration value="crossReference"/><xs:enumeration value="devotional"/><xs:enumeration value="encoder"/><xs:enumeration value="exegesis"/><xs:enumeration value="explanation"/><xs:enumeration value="liturgical"/><xs:enumeration value="speaker"/><xs:enumeration value="study"/><xs:enumeration value="translation"/><xs:enumeration value="variant"/></xs:restriction></xs:simpleType><xs:simpleType name="osisPlacementNote"><xs:restriction base="xs:string"><xs:enumeration value="foot"/><xs:enumeration value="end"/><xs:enumeration value="inline"/><xs:enumeration value="left"/><xs:enumeration value="right"/><xs:enumeration value="interlinear"/><xs:enumeration value="apparatus"/></xs:restriction></xs:simpleType><xs:simpleType name="osisPlacementTitle"><xs:restriction base="xs:string"><xs:enumeration value="leftHead"/><xs:enumeration value="centerHead"/><xs:enumeration value="rightHead"/><xs:enumeration value="insideHead"/><xs:enumeration value="outsideHead"/><xs:enumeration value="leftFoot"/><xs:enumeration value="centerFoot"/><xs:enumeration value="rightFoot"/><xs:enumeration value="insideFoot"/><xs:enumeration value="outsideFoot"/></xs:restriction></xs:simpleType><xs:simpleType name="osisQuotes"><xs:restriction base="xs:string"><xs:enumeration value="block"/><xs:enumeration value="citation"/><xs:enumeration value="embedded"/></xs:restriction></xs:simpleType><xs:simpleType name="osisReferences"><xs:restriction base="xs:string"><xs:enumeration value="annotateRef"/><xs:enumeration value="parallel"/><xs:enumeration value="source"/></xs:restriction></xs:simpleType><xs:simpleType name="osisRdg"><xs:restriction base="xs:string"><xs:enumeration value="alternate"/><xs:enumeration value="variant"/></xs:restriction></xs:simpleType><xs:simpleType name="osisRefType"><xs:list itemType="osisRefRegex"/></xs:simpleType><xs:simpleType name="osisRoles"><xs:restriction base="xs:string"><xs:enumeration value="adp"/><xs:enumeration value="ann"/><xs:enumeration value="art"/><xs:enumeration value="aut"/><xs:enumeration value="aqt"/><xs:enumeration value="aft"/><xs:enumeration value="aui"/><xs:enumeration value="bnd"/><xs:enumeration value="bdd"/><xs:enumeration value="bkd"/><xs:enumeration value="bkp"/><xs:enumeration value="bjd"/><xs:enumeration value="bpd"/><xs:enumeration value="ctg"/><xs:enumeration value="clb"/><xs:enumeration value="cmm"/><xs:enumeration value="cwt"/><xs:enumeration value="com"/><xs:enumeration value="ctb"/><xs:enumeration value="cre"/><xs:enumeration value="edt"/><xs:enumeration value="encoder"/><xs:enumeration value="ilu"/><xs:enumeration value="ill"/><xs:enumeration value="pbl"/><xs:enumeration value="trl"/></xs:restriction></xs:simpleType><xs:simpleType name="osisSegs"><xs:restriction base="xs:string"><xs:enumeration value="alluded"/><xs:enumeration value="keyword"/><xs:enumeration value="otPassage"/><xs:enumeration value="verseNumber"/></xs:restriction></xs:simpleType><xs:simpleType name="osisSubjects"><xs:restriction base="xs:string"><xs:enumeration value="ATLA"/><xs:enumeration value="BILDI"/><xs:enumeration value="DBC"/><xs:enumeration value="DDC"/><xs:enumeration value="EUT"/><xs:enumeration value="FGT"/><xs:enumeration value="LCC"/><xs:enumeration value="LCSH"/><xs:enumeration value="MeSH"/><xs:enumeration value="NLSH"/><xs:enumeration value="RSWK"/><xs:enumeration value="SEARS"/><xs:enumeration value="SOG"/><xs:enumeration value="SWD_RSWK"/><xs:enumeration value="UDC"/><xs:enumeration value="VAT"/></xs:restriction></xs:simpleType><xs:simpleType name="roleType"><xs:union memberTypes="osisRoles attributeExtension"/></xs:simpleType><xs:simpleType name="osisTitles"><xs:restriction base="xs:string"><xs:enumeration value="acrostic"/><xs:enumeration value="chapter"/><xs:enumeration value="continued"/><xs:enumeration value="main"/><xs:enumeration value="parallel"/><xs:enumeration value="psalm"/><xs:enumeration value="runningHead"/><xs:enumeration value="scope"/><xs:enumeration value="sub"/></xs:restriction></xs:simpleType><xs:simpleType name="osisTitleType"><xs:union memberTypes="osisTitles attributeExtension"/></xs:simpleType><xs:simpleType name="osisType"><xs:restriction base="xs:string"><xs:enumeration value="OSIS"/></xs:restriction></xs:simpleType><xs:simpleType name="tableRole"><xs:restriction base="xs:string"><xs:enumeration value="label"/><xs:enumeration value="data"/></xs:restriction></xs:simpleType></xs:schema>'
 
 if __name__ == "__main__":
-    global encoding
-    global relaxedConformance
-
+ 
     num_processes = multiprocessing.cpu_count()
     num_jobs = num_processes
 
     encoding = ''
-    relaxedConformance = False
+    localRelaxedConformance = False
+    localGenBook = False
     inputFilesIdx = 2 # This marks the point in the sys.argv array, after which all values represent USFM files to be converted.
     usfmDocList = list()
 
@@ -1496,6 +1556,7 @@ if __name__ == "__main__":
         printUsage()
     else:
         osisWork = sys.argv[1]
+        osisRefWork = 'Bible'
 
         if '-o' in sys.argv:
             i = sys.argv.index('-o')+1
@@ -1512,9 +1573,14 @@ if __name__ == "__main__":
                 printUsage()
             encoding = sys.argv[i]
             inputFilesIdx += 2 # increment 2, reflecting 2 args for -e
+			
+        if '-g' in sys.argv:
+            localGenBook = True
+            osisRefWork = 'book'
+            inputFilesIdx += 1	
 
         if '-r' in sys.argv:
-            relaxedConformance = True
+            localRelaxedConformance = True
             bookDict = dict(list(bookDict.items()) + list(addBookDict.items()))
             inputFilesIdx += 1
 
@@ -1555,7 +1621,7 @@ if __name__ == "__main__":
         # load up work queue
         work_queue = multiprocessing.Queue()
         for job in usfmDocList:
-            work_queue.put(job)
+            work_queue.put((job,localGenBook,encoding,localRelaxedConformance,verbose))
 
         # create a queue to pass to workers to store the results
         result_queue = multiprocessing.Queue()
@@ -1572,7 +1638,7 @@ if __name__ == "__main__":
             osisSegment[k]=v
 
         verbosePrint('Assembling OSIS document...')
-        osisDoc = '<osis xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bibletechnologies.net/2003/OSIS/namespace http://www.bibletechnologies.net/osisCore.'+osisVersion+'.xsd">\n<osisText osisRefWork="Bible" xml:lang="und" osisIDWork="' + osisWork + '">\n<header>\n<work osisWork="' + osisWork + '"/>\n</header>\n'
+        osisDoc = '<osis xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bibletechnologies.net/2003/OSIS/namespace http://www.bibletechnologies.net/osisCore.'+osisVersion+'.xsd">\n<osisText osisRefWork="' + osisRefWork + '" xml:lang="und" osisIDWork="' + osisWork + '">\n<header>\n<work osisWork="' + osisWork + '"/>\n</header>\n'
 
         unhandledTags = set()
         for doc in usfmDocList:
@@ -1603,5 +1669,5 @@ if __name__ == "__main__":
             if verbose:
                 print('')
             print(('Unhandled USFM tags: ' + ', '.join(sorted(unhandledTags)) + ' (' + str(len(unhandledTags)) + ' total)'))
-            if not relaxedConformance:
+            if not localRelaxedConformance:
                 print('Consider using the -r option for relaxed markup processing.')
