@@ -636,19 +636,19 @@ sub getOsisTagForElement($$) {
 	elsif($element eq "FOOTNOTE_MARKER") {$tagname = "OC_footnoteMarker"; if (!$isEndTag) {$attribs = "id=\"".++$FootnoteMarkerID."\"";}}
 	elsif($element eq "FOOTNOTE") {$tagname = "OC_footnote"; if (!$isEndTag) {$attribs = "id=\"".++$FootnoteID."\"";}}
 	elsif($element eq "IGNORE") {return "";}
-	elsif($element eq "INTRO_PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-intro\"";}
-	elsif($element eq "INTRO_TITLE_1") {$tagname = "title"; $attribs = "type=\"x-intro\" level=\"1\"";}
-	elsif($element eq "LIST_TITLE") {$tagname = "list";}
-	elsif($element eq "LIST_ENTRY") {$tagname = "item"; $attribs = "type=\"x-listitem\"";}
+	elsif($element eq "INTRO_PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-indented\" subType=\"x-introduction\"";}
+	elsif($element eq "INTRO_TITLE_1") {$tagname = "title"; $attribs = "level=\"1\" subType=\"x-introduction\"";}
+	elsif($element eq "LIST_TITLE") {$tagname = "list"; $attribs = "type=\"x-list-1\"";}
+	elsif($element eq "LIST_ENTRY") {$tagname = "item";}
 	elsif($element eq "TITLE_1") {$tagname = "title"; $attribs = "level=\"1\"";}
 	elsif($element eq "TITLE_2") {$tagname = "title"; $attribs = "level=\"2\"";}
 	elsif($element eq "CANONICAL_TITLE_1") {$tagname = "title"; $attribs = "level=\"1\" canonical=\"true\"";}
 	elsif($element eq "CANONICAL_TITLE_2") {$tagname = "title"; $attribs = "level=\"2\" canonical=\"true\"";}
-	elsif($element eq "BLANK_LINE") {$isMilestone = 1; $tagname = ($isEndTag ? "lb":"skip");}
-	elsif($element eq "PARAGRAPH") {$tagname = "p";}
+	elsif($element eq "BLANK_LINE") {$isMilestone = 1; $tagname = ($isEndTag ? "lb/><lb":"skip");}
+	elsif($element eq "PARAGRAPH") {$tagname = "p"; $attribs = "type=\"x-indented\"";}
 	elsif($element =~ /^PARAGRAPH\-(.*?)$/) {$tagname = "p"; $attribs = "type=\"x-$1\"";}
 	elsif($element eq "POETRY_LINE_GROUP") {$tagname = "lg";}
-	elsif($element eq "POETRY_LINE") {$tagname = "l";}
+	elsif($element eq "POETRY_LINE") {$tagname = "l"; $attribs = "type=\"x-indent\"";}
 	elsif($element =~ /^SEG\-(.*?)$/) {$tagname = "seg"; $attribs="type=\"x-$1\"";}
 	elsif($element eq "TABLE") {$tagname = "table";}
 	elsif($element eq "TABLE_ROW") {$tagname = "row";}
@@ -744,9 +744,6 @@ sub osis2SWORD(\$) {
 				$fl++;
 			}
 		}
-		
-		# make all paragraphs begin with indents
-		$_ =~ s/^(<p>|<p [^>]*>)/$1&nbsp;&nbsp;&nbsp;&nbsp; /;
 
 		# handle all GenBook chapters
 		if ($_ =~ /^(.*?)(<div type=\"([^"]+)\" osisID="xGENBOOKCHAPTERx">)(.*?)<\/div>(.*?)$/) {
