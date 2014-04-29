@@ -26,6 +26,7 @@
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use File::Spec;
+use Cwd;
 $INPD = shift;
 if ($INPD) {
   $INPD =~ s/[\\\/]\s*$//;
@@ -44,6 +45,7 @@ if (!-e $INPD) {
   print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
+
 $SCRD = File::Spec->rel2abs( __FILE__ );
 $SCRD =~ s/[\\\/][^\\\/]+$//;
 require "$SCRD/scripts/common.pl";
@@ -82,6 +84,7 @@ if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 $SWDD = "$OUTDIR/sword";
 remove_tree("$SWDD");
 make_path("$SWDD/mods.d");
+$defdir = cwd();
 if ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/) {
 	require("$SCRD/scripts/makeCompressedMod.pl");
 }
@@ -93,6 +96,7 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 	&Log("$cmd\n", -1);
 	chdir("$SWDD/$MODPATH");
 	system($cmd);
+	chdir("$defdir")
 }
 else {
 	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");
@@ -135,7 +139,7 @@ copy("$SWDD/mods.d/$MODLC.conf", "$tmp/mods.d/$MODLC.conf");
 if ("$^O" =~ /MSWin32/i) {
   `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$tmp\\*\"`;
 }
-else {
+else { 
   chdir($tmp);
   `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
   chdir($INPD);
