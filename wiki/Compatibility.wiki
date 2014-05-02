@@ -22,7 +22,7 @@ These scripts also add some xulsword specific .conf file entries:
 
 ==Deprecated or no longer utilized in osis-converters==
   * Use of `<reference type="x-glosslink">` was used for glossary "see-also" links which point to other glossary terms. With SWORD 1.7s OSISReferenceLinks filter this is no longer necessary and has been dropped.
-  * `TabLabel` conf entry was replaced by the standard entry `Abbreviation`.
+  * `TabLabel` conf entry was replaced by the standard entry: `Abbreviation`.
   * `GlobalOptionFilter=OSISDictionary` was replaced by the standard `OSISReferenceLinks` filter. 
-  * `<div type="x-Synodal-non-canonical">` is no longer used since non-canonical material is completely left out of all OSIS files to facilitate simpler and quicker runtime detection of v11n coverage.
-  * `ReferenceBible=<BibleModName>` was used by xulsword to prefer the listed Bible module when showing Scripture reference previews found in the module. Soon, the reference Bible will be included within each reference's osisRef, like this: `osisRef="MyRefBible:Matt.1.1". So the .conf param `ReferenceBible` will be unnecessary and is deprecated.
+  * Tags like `<div type="x-Synodal-non-canonical">` are no longer used since non-canonical material is completely left out of all OSIS files to facilitate simpler and quicker runtime detection of v11n coverage.
+  * `ReferenceBible=<BibleModName>` was used by xulsword to prefer the listed Bible module when showing Scripture reference previews found in the module. Soon, the reference Bible will be included within each reference's osisRef, like this: `osisRef="MyRefBible:Matt.1.1". So the .conf param `!ReferenceBible` will be unnecessary and is deprecated.
