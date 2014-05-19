@@ -78,7 +78,7 @@ $ret = "\n";
 if ($ConfEntry{"DataPath"}  ne "./modules/texts/ztext/$MODLC/") {
   print CONF $ret."DataPath=./modules/texts/ztext/$MODLC/\n"; $ret="";
 }
-print CONF $ret."ModDrv=zText\nCompressType=ZIP\nBlockType=BOOK\n"; $ret="";
+print CONF $ret."CompressType=ZIP\nBlockType=BOOK\n"; $ret="";
 if ($VERSESYS && $VERSESYS ne "KJV" && $ConfEntry{"MinimumVersion"} ne $msv) {
   print CONF $ret."MinimumVersion=$msv\n"; $ret="";
 }
