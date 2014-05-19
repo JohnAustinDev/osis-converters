@@ -760,7 +760,6 @@ sub osis2SWORD(\$) {
 			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
 			if ($TrueFalseInstruction{"UPPERCASE_CHAPTER_TITLES"}) {$ch = uc($ch);}
 			my $chReadable = $ch;
-			if ($ch =~ s/[^\w\d ]+/_/g) {&Log("WARN: Replaced illegal chars: \"$chReadable\":\n");}
 			$ch =~ s/_+/_/g;
 			$ch =~ s/\s+/ /g;
 			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
