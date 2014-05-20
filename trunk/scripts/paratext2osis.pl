@@ -76,10 +76,15 @@
 #       secondary lists.
 #   ENUMERATED_LIST_LEVEL3 - A tag-list for enumerated Roman numeral 
 #       small tertiary lists.
+#   PARAGRAPH0 - A tag-list for non-indented paragraphs
 #   PARAGRAPH - A tag-list for intented paragraphs.
-#   PARAGRAPH2 - A tag-list for doubly indented paragraphs.
-#   PARAGRAPH3 - A tag-list for triple indented paragraphs.
-#   BLANK_LINE - A tag-list for blank lines (or non-indented paragraphs)
+#   PARAGRAPH2 - DEPRICATED (use LINE2)
+#   PARAGRAPH3 - DEPRICATED (use LINE3)
+#   LINE0 - Non-indented line (LINE0 markup should NOT cross verse boundaries)
+#   LINE1 - Indented line (LINE1 markup should NOT cross verse boundaries)
+#   LINE2 - Doubly indented line (LINE2 markup should NOT cross verse boundaries)
+#   LINE3 - Triple indented line (LINE3 markup should NOT cross verse boundaries)
+#   BLANK_LINE - A tag-list for blank lines
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD - Perl regular expression to match any bold text.
@@ -127,9 +132,12 @@ $blankline="none";
 $listtitle="none";
 $FstCanonTitle="none";
 $SecCanonTitle="none";
+$zeropar="none";
 $normpar="none";
-$doublepar="none";
-$triplepar="none";
+$noIndentLine="none";
+$indentLine="none";
+$dblIndentLine="none";
+$triIndentLine="none";
 $boldpattern="";
 $italicpattern="";
 $MoveTitleNotes="true";
@@ -190,9 +198,14 @@ while (<COMF>) {
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList1 = $2; next;}}
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList2 = $2; next;}}
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList3 = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH0:(\s*\((.*?)\)\s*)?$/) {if ($1) {$zeropar = $2; next;}}
   elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$indentLine = $2; &Log("WARN: PARAGRAPH2 is deprecated, use LINE2 instead.\n"); next;}}
+  elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$dblIndentLine = $2; &Log("WARN: PARAGRAPH3 is deprecated, use LINE3 instead.\n"); next;}}
+  elsif ($_ =~ /^LINE0:(\s*\((.*?)\)\s*)?$/) {if ($1) {$noIndentLine = $2; next;}}
+  elsif ($_ =~ /^LINE1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$indentLine = $2; next;}}
+  elsif ($_ =~ /^LINE2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$dblIndentLine = $2; next;}}
+  elsif ($_ =~ /^LINE3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triIndentLine = $2; next;}}
   elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
   elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$removepattern = $2; next;}}
   # TEXT TAGS...
@@ -713,8 +726,8 @@ sub parseline($) {
     }
   }
   ################## PARATEXT PARAGRAPH AND POETRY MARKERS ######################
-  # PARAGRAPH MARKER
-  elsif ($_ =~ /^[\s\W]*\\($normpar|$doublepar|$triplepar)(\s+|$)(.*)/) {
+  # PARAGRAPH, LINE GROUP, and LINE MARKERS
+  elsif ($_ =~ /^[\s\W]*\\($zeropar|$normpar|$noIndentLine|$indentLine|$dblIndentLine|$triIndentLine)(\s+|$)(.*)/) {
     $myT = $3;
     $tag = $1;
     $noteVerseNum = $noteV;
@@ -722,15 +735,58 @@ sub parseline($) {
 
     my $eplg = "$readText$endParagraph<lg>";
     $eplg =~ s/<\/lg><lg[^>]*>$//;
-    if ($tag =~ /^($doublepar)$/) {
-      $readText = "$eplg<l type=\"x-indent\">$myT"; # implemented by osisxhtml.cpp (as of April 2014)
+    
+    # Note: osis2mod.exe currently (May 20, 2014) converts these tags to milestones in the final module, like this:
+    #   <p type="T" subType="ST">  = <div sID="n1" type="x-p" /> (NOTE: type and subType are currently DROPPED!)
+    #   </p>                       = <div eID="n1" type="x-p" />
+    #
+    #   <lg type="T" subType="ST"> = <lg sID="n2" type="T" subType="ST" />
+    #   </lg>                      = <lg eID="n2" type="T" subType="ST" />
+    #
+    #   <l type="T" subType="ST">  = <l sID="n3" type="T" subType="ST" />
+    #   </l>                       = <l eID="n3" type="T" subType="ST" />
+    #
+    # Then, xulsword's OSIS to HTML filter currently (May 20, 2014) converts these to HTML, like this:
+    #   <div sID="n1" type="x-p" subType="ST"/> = <span class="p-start ST osis2mod"></span>
+    #   <div eID="n1" type="x-p" subType="ST"/> = <span class="p-end ST osis2mod"></span>
+    #
+    #   <lg sID="n2" type="T" subType="ST" />   = <span class="lg-start ST"></span>
+    #   <lg eID="n2" type="T" subType="ST" />   = <span class="lg-end ST"></span>
+    #
+    #   <l sID="n3" type="T" subType="ST" />    = <span class="line indentN ST"> (WHERE N is derived from T)
+    #   <l eID="n3" type="T" subType="ST" />    = </span>
+    #
+    # LINE(N) markup should NOT cross verse-tag boundaries:
+    # Since <l>abc</l> converts to a non-empty HTML span, and since all HTML tags within verse tags MUST be closed,
+    # xulsword's OSIS to HTML filter will close any such open spans before the verse's closing tag. This means if an 
+    # OSIS <l> crosses a verse boundary, the desired formatting will not be acheived, but the HTML will be valid.
+    # You can edit the source to put multiple verses within a single verse tag to fix the formatting when necessary.
+    
+    # <l>
+    if ($tag =~ /^($noIndentLine)$/) {
+      $readText = "$eplg<l type=\"x-no-indent\">$myT"; # implemented by osisxhtml.cpp (as of May 2014)
       $endParagraph = "</l></lg>";
     }
-    elsif ($tag =~ /^($triplepar)$/) {
-      $readText = "$eplg<l type=\"x-indented-2\">$myT";
+    elsif ($tag =~ /^($indentLine)$/) {
+      $readText = "$eplg<l type=\"x-indent-1\">$myT"; # implemented by osisxhtml.cpp (as of April 2014)
       $endParagraph = "</l></lg>";
     }
-    else {$readText .= "$endTitle$endParagraph<p type=\"x-indented-1\">$myT"; $endParagraph = "</p>"; $endTitle = "";} # all attributes are dropped by osis2mod (as of April 2014)
+    elsif ($tag =~ /^($dblIndentLine)$/) {
+      $readText = "$eplg<l type=\"x-indent-2\">$myT";
+      $endParagraph = "</l></lg>";
+    }
+    elsif ($tag =~ /^($triIndentLine)$/) {
+      $readText = "$eplg<l type=\"x-indent-3\">$myT";
+      $endParagraph = "</l></lg>";
+    }
+    
+    # <p>
+    elsif ($tag =~ /^($zeropar)$/) {
+      $readText .= "$endTitle$endParagraph$myT"; $endParagraph = ""; $endTitle = "";
+    } 
+    else {
+      $readText .= "$endTitle$endParagraph<p type=\"x-indented\">$myT"; $endParagraph = "</p>"; $endTitle = ""; # all attributes are dropped by osis2mod (as of April 2014)
+    } 
   }
   # BLANK LINE MARKER
   elsif ($_ =~ /^[\s\W]*\\($blankline)(\s+|$)(.*)/) {
@@ -977,6 +1033,17 @@ sub checkRemainingNotes {
 
 sub Write($) {
   my $print = shift;
+  
+  # Warn if we are breaking a LINE(N) across verses
+  if ($MustStartWithCloseLine && $print !~ /<verse sID[^>]*>\s*<\/l/) {
+    $print =~ /<verse[^>]*osisID="([^"]*)"/;
+    &Log("WARN: $1: Breaking LINE(N) across verses. This will not display as intended.\n");
+  }
+  my $ls = -1; my $le = -1;
+  if ($print =~ /^(.*)<l[\s>]/) {$ls = length($1);}
+  if ($print =~ /^(.*)<\/l[\s>]/) {$le = length($1);}
+  if ($ls > $le) {$MustStartWithCloseLine = 1;}
+  if (($ls == -1 && $le > -1) || $ls < $le) {$MustStartWithCloseLine = 0;}
   
   # change all book.ch.vs1-vs2 osisIDs to book.ch.vs1 book.ch.vs2 for OSIS schema validation
   while ($print =~ s/(<verse [^>]*osisID=")([^\.]+\.\d+\.)(\d+)-(\d+)"/workingID/) {

@@ -111,6 +111,11 @@ else {
     while($nts =~ s/(<reference[^>]*>)(<\/reference>)/$1$i$sp$2/i) {$i++;}
     $sp = quotemeta($sp);
     $nts =~ s/^(.*)$sp(<\/reference>)(.*?)$/$1$2$3/i;
+    
+    # target module needs to be used here, but this will break xulsword (as of May 2014) so is postponed!
+    #my $bible = ($MOD ? $MOD:"Bible");
+    #$nts =~ s/(<reference[^>]*osisRef=")/$1$bible:/g;
+    
     $refs{"$typ$bcv"} = $nts;
   }
   close (NFLE);
