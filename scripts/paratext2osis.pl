@@ -63,27 +63,29 @@
 #       book introduction.
 #   INTRO_PARAGRAPH - A tag-list for paragraphs used in a 
 #       book introduction.
+#   LIST_TITLE - A tag-list for list titles used in a 
+#       book introduction.
+#   LIST_ENTRY - A tag-list for basic list entries used in a 
+#       book introduction.
+#   LIST_ENTRY_BULLET - A tag-list for bulleted list entries used in a 
+#       book introduction.
+#   ENUMERATED_LIST_LEVEL1 - A tag-list for enumerated Roman numeral 
+#       capitals primary lists used in a 
+#       book introduction.
+#   ENUMERATED_LIST_LEVEL2 - A tag-list for enumerated arabic numeral 
+#       secondary lists used in a 
+#       book introduction.
+#   ENUMERATED_LIST_LEVEL3 - A tag-list for enumerated Roman numeral 
+#       small tertiary lists used in a 
+#       book introduction.
 #   TITLE_1 - A tag-list for main headings.
 #   TITLE_2 - A tag-list for secondary headings.
 #   CANONICAL_TITLE_1 - A tag-list for main canonical headings.
 #   CANONICAL_TITLE_2 - A tag-list for secondary canonical headings.
-#   LIST_TITLE - A tag-list for list titles.
-#   LIST_ENTRY - A tag-list for basic list entries.
-#   LIST_ENTRY_BULLET - A tag-list for bulleted list entries.
-#   ENUMERATED_LIST_LEVEL1 - A tag-list for enumerated Roman numeral 
-#       capitals primary lists.
-#   ENUMERATED_LIST_LEVEL2 - A tag-list for enumerated arabic numeral 
-#       secondary lists.
-#   ENUMERATED_LIST_LEVEL3 - A tag-list for enumerated Roman numeral 
-#       small tertiary lists.
-#   PARAGRAPH0 - A tag-list for non-indented paragraphs
-#   PARAGRAPH - A tag-list for intented paragraphs.
-#   PARAGRAPH2 - DEPRICATED (use LINE2)
-#   PARAGRAPH3 - DEPRICATED (use LINE3)
-#   LINE0 - Non-indented line (LINE0 markup should NOT cross verse boundaries)
-#   LINE1 - Indented line (LINE1 markup should NOT cross verse boundaries)
-#   LINE2 - Doubly indented line (LINE2 markup should NOT cross verse boundaries)
-#   LINE3 - Triple indented line (LINE3 markup should NOT cross verse boundaries)
+#   PARAGRAPH[0-3] - A tag-list for paragraphs. 0=no-indent, 1=normal, 2+=left-margin indented
+#   PARAGRAPH - Same as PARAGRAPH1.
+#   LINE[0-3] - Poetry line indented 0 to 3x (the line should NOT cross verse boundaries)
+#   ITEM[0-3] - List item indented 0 to 3x (the item should NOT cross verse boundaries)
 #   BLANK_LINE - A tag-list for blank lines
 
 # COMMAND FILE TEXT PROCESSING SETTINGS:
@@ -105,7 +107,7 @@
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
 open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
-&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
+&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
 
 &Log("-----------------------------------------------------\nSTARTING paratext2osis.pl\n\n");
 
@@ -132,12 +134,9 @@ $blankline="none";
 $listtitle="none";
 $FstCanonTitle="none";
 $SecCanonTitle="none";
-$zeropar="none";
-$normpar="none";
-$noIndentLine="none";
-$indentLine="none";
-$dblIndentLine="none";
-$triIndentLine="none";
+@paragraph = ("none", "none", "none", "none");
+@poetryline = ("none", "none", "none", "none");
+@listitem = ("none", "none", "none", "none");
 $boldpattern="";
 $italicpattern="";
 $MoveTitleNotes="true";
@@ -198,14 +197,10 @@ while (<COMF>) {
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList1 = $2; next;}}
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList2 = $2; next;}}
   elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList3 = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH0:(\s*\((.*?)\)\s*)?$/) {if ($1) {$zeropar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$indentLine = $2; &Log("WARN: PARAGRAPH2 is deprecated, use LINE2 instead.\n"); next;}}
-  elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$dblIndentLine = $2; &Log("WARN: PARAGRAPH3 is deprecated, use LINE3 instead.\n"); next;}}
-  elsif ($_ =~ /^LINE0:(\s*\((.*?)\)\s*)?$/) {if ($1) {$noIndentLine = $2; next;}}
-  elsif ($_ =~ /^LINE1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$indentLine = $2; next;}}
-  elsif ($_ =~ /^LINE2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$dblIndentLine = $2; next;}}
-  elsif ($_ =~ /^LINE3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triIndentLine = $2; next;}}
+  elsif ($_ =~ /^PARAGRAPH(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@paragraph[$1] = $3; next;}}
+  elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {@paragraph[1] = $2; next;}}
+  elsif ($_ =~ /^LINE(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@poetryline[$1] = $3; next;}}
+  elsif ($_ =~ /^ITEM(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@listitem[$1] = $3; next;}}
   elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
   elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$removepattern = $2; next;}}
   # TEXT TAGS...
@@ -219,14 +214,14 @@ while (<COMF>) {
 
   # OT command...
   elsif ($_ =~ /^OT\s*$/) {
-    &Write("<div type=\"bookGroup\">\n");
+    &Write("<div type=\"bookGroup\">\n", 1);
     $Testament="OT";
     $endTestament="</div>";
   }
   # NT command...
   elsif ($_ =~ /^NT\s*$/) {
     $Testament="NT";
-    &Write("$endTestament\n<div type=\"bookGroup\">\n");
+    &Write("$endTestament\n<div type=\"bookGroup\">\n", 1);
     $endTestament="</div>";
   }
   # FOOTNOTES_ command...
@@ -259,7 +254,7 @@ while (<COMF>) {
 close(COMF);
 
 # Write closing tags, and close the output file
-&Write("$endTestament\n</osisText>\n</osis>\n");
+&Write("$endTestament\n</osisText>\n</osis>\n", 1);
 close (OUTF);
 
 # Check and report...
@@ -286,6 +281,9 @@ foreach $tag (sort keys %skippedTags) {
 
 
 sub bookSFMtoOSIS {
+  @AllTags = ();
+  @AllLineNums = ();
+  @PrintOut = ();
 
   # Get the name of the book from the file name
   if ($NameMatch eq "") {$SFMfile =~ /\/(\w+)\.[^\/]+$/; $bnm=$1;}
@@ -294,6 +292,12 @@ sub bookSFMtoOSIS {
   
   &Log("Processing $bookName\n");
   &logProgress($bookName);
+  
+  $NoNestTags = "";
+  foreach my $p (@paragraph) {$NoNestTags .= $p."|";}
+  foreach my $p (@poetryline) {$NoNestTags .= $p."|";}
+  foreach my $p (@listitem) {$NoNestTags .= $p."|";}
+  $NoNestTags =~ s/\|$//;
   
   # First make a copy of the SFM file, insuring \v tags always begin a line
   my $sfmname = $SFMfile;
@@ -365,6 +369,8 @@ sub bookSFMtoOSIS {
   $endSection="";        # end tag(s)
   $endTitle="";          # end tag(s)
   
+  $lastLineLevel = -99;
+  
   $myVerse="";            # current verse number
   $myChap="0";            # current chapter number
   $refChap="1";           # used to check that chapters are sequential
@@ -384,7 +390,7 @@ sub bookSFMtoOSIS {
   #   Certain Psalm titles are canonical. If a blank CANONICAL_TITLE_1 tag is found, the next line is considered canonical
   #   Footnotes in introductions and titles/headings must be moved to next verse or ignored (see MOVE_TITLE_NOTES, MOVE_CHAPTER_NOTES)
    
-  # Read the paratext file line by line
+  # Read the paratext file line by line into memory
   $linem=0;
   $line=0;
   while (<INF>) {
@@ -394,16 +400,27 @@ sub bookSFMtoOSIS {
     
     # lines which don't start with tags are first attached to the end of the previous line (so that footnotes which are split across lines can be matched)
     if ($_ !~ /^[\s]*(\\\w+)/) {
-      if ($lastline !~ /[\s-]$/ && $_ !~ /^\s/) {$lastline = $lastline." ";} #insure there is white space between lines...
-      $lastline = $lastline.$_;
+      if ($lastline !~ /[\s-]$/ && $_ !~ /^\s/) {$lastline .= " ";} #insure there is white space between lines...
+      $lastline .= $_;
       next;
     }
     $tmp = $_;
-    &parseline($lastline);
+    push(@AllTags, $lastline);
+    push(@AllLineNums, $line);
     $line = $linem;
     $lastline = $tmp;
   }
-  if ($lastline ne "") {&parseline($lastline);}
+  if ($lastline ne "") {
+    push(@AllTags, $lastline);
+    push(@AllLineNums, $line);
+  }
+
+  # Now parse each line
+  for ($IX = 0; $IX < @AllTags; $IX++) {
+    $line = @AllLineNums[$IX];
+    my $cline = @AllTags[$IX];
+    &parseline($cline);
+  }
   
   # Each file now gets this ending
   if ($listStartPrinted eq "true") {$readText = "$readText</list>"; $listStartPrinted = "false";}
@@ -412,6 +429,9 @@ sub bookSFMtoOSIS {
   if ($enumList3StartPrinted eq "true") {$readText = "$readText</list>"; $enumList3StartPrinted = "false";}
   &Write("$readText$endTitle$endParagraph$endVerse$endSection$endChapter\n</div>\n");
   close (INF);
+  
+  # Now commit print buffer to file
+  foreach my $p (@PrintOut) {&Write($p, 1);}
 }
 ############################################
 
@@ -565,13 +585,15 @@ sub parseline($) {
   elsif ($_ =~ /^[\s\W]*\\($IntroFstTitle)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
+    if (!$inIntroduction) {&Log("ERROR: $ThisSFM line $line: $bookName $myChap:$myVerse introduction title is not in introduction.\n");}
     $readText = "$readText<lb /><lb /><title level=\"1\" subType=\"x-introduction\">$myT</title>";
   }
   # INTRODUCTORY PARAGRAPH
   elsif ($_ =~ /^[\s\W]*\\($intropar)(\s+|$)(.*)/) {
     $myT=$3;
     while ($myT =~ s/\*//) {&Log("WARNING $ThisSFM line $line: $bookName $myChap:$myVerse Note in introduction ignored.\n");}
-    $readText = "$readText$endTitle$endParagraph<p type=\"x-indented\" subType=\"x-introduction\">$myT";
+    if (!$inIntroduction) {&Log("ERROR: $ThisSFM line $line: $bookName $myChap:$myVerse introduction paragraph is not in introduction.\n");}
+    $readText = "$readText$endTitle$endParagraph<p subType=\"x-introduction\">$myT";
     $endParagraph = "</p>";
     $endTitle = "";
   }
@@ -727,66 +749,111 @@ sub parseline($) {
   }
   ################## PARATEXT PARAGRAPH AND POETRY MARKERS ######################
   # PARAGRAPH, LINE GROUP, and LINE MARKERS
-  elsif ($_ =~ /^[\s\W]*\\($zeropar|$normpar|$noIndentLine|$indentLine|$dblIndentLine|$triIndentLine)(\s+|$)(.*)/) {
+  elsif ($_ =~ /^[\s\W]*\\($NoNestTags)(\s+|$)(.*)/) {
     $myT = $3;
     $tag = $1;
     $noteVerseNum = $noteV;
     &encodeNotes;
 
-    my $eplg = "$readText$endParagraph<lg>";
-    $eplg =~ s/<\/lg><lg[^>]*>$//;
-    
-    # Note: osis2mod.exe currently (May 20, 2014) converts these tags to milestones in the final module, like this:
-    #   <p type="T" subType="ST">  = <div sID="n1" type="x-p" /> (NOTE: type and subType are currently DROPPED!)
-    #   </p>                       = <div eID="n1" type="x-p" />
+    # get type and level
+    my $type = "paragraph";
+    my $level = 1;
+    for (my $p=0; $p < @poetryline; $p++) {
+      my $pv = @poetryline[$p]; 
+      if ($tag =~ /^($pv)$/) {$type = "poetryline"; $level = $p; last;}
+    }
+    for (my $p=0; $p < @listitem; $p++) {
+      my $pv = @listitem[$p]; 
+      if ($tag =~ /^($pv)$/) {$type = "listitem"; $level = $p; last;}
+    }
+    for (my $p=0; $p < @paragraph; $p++) {
+      my $pv = @paragraph[$p]; 
+      if ($tag =~ /^($pv)$/) {$type = "paragraph"; $level = $p; last;}
+    }
+
+    # Note: osis2mod.exe currently (May 20, 2014) converts some tags to milestones when importing them to the module, like this:
+    #   <p type="T" subType="ST">  = <div sID="n1" type="x-p" /> (NOTE: type and subType are currently DROPPED! And the type must 
+    #   </p>                       = <div eID="n1" type="x-p" />      end up as "x-p" to be handled by SWORD's OSIS filter)
     #
     #   <lg type="T" subType="ST"> = <lg sID="n2" type="T" subType="ST" />
     #   </lg>                      = <lg eID="n2" type="T" subType="ST" />
     #
-    #   <l type="T" subType="ST">  = <l sID="n3" type="T" subType="ST" />
-    #   </l>                       = <l eID="n3" type="T" subType="ST" />
+    #   <l type="T" subType="ST"> = <l sID="n2" type="T" subType="ST" />
+    #   </l>                      = <l eID="n2" type="T" subType="ST" />
+    #
+    # But <list> and <item> are NOT milestonable and so osis2mod.exe imports them without modification.
+    #
     #
     # Then, xulsword's OSIS to HTML filter currently (May 20, 2014) converts these to HTML, like this:
-    #   <div sID="n1" type="x-p" subType="ST"/> = <span class="p-start ST osis2mod"></span>
-    #   <div eID="n1" type="x-p" subType="ST"/> = <span class="p-end ST osis2mod"></span>
+    #   <div sID="n1" type="x-p" subType="ST"/> = <div class="p-start ST osis2mod"></div>
+    #   <div eID="n1" type="x-p" subType="ST"/> = <div class="p-end ST osis2mod"></div>
     #
-    #   <lg sID="n2" type="T" subType="ST" />   = <span class="lg-start ST"></span>
-    #   <lg eID="n2" type="T" subType="ST" />   = <span class="lg-end ST"></span>
+    #   <lg sID="n2" type="T" subType="ST" />   = <div class="lg-start T ST"></div>
+    #   <lg eID="n2" type="T" subType="ST" />   = <div class="lg-end T ST"></div>
     #
-    #   <l sID="n3" type="T" subType="ST" />    = <span class="line indentN ST"> (WHERE N is derived from T)
-    #   <l eID="n3" type="T" subType="ST" />    = </span>
+    #   <l sID="n3" type="T" subType="ST" />    = <div class="line indentN ST"> (WHERE N is derived from T)
+    #   <l eID="n3" type="T" subType="ST" />    = </div>
     #
-    # LINE(N) markup should NOT cross verse-tag boundaries:
-    # Since <l>abc</l> converts to a non-empty HTML span, and since all HTML tags within verse tags MUST be closed,
-    # xulsword's OSIS to HTML filter will close any such open spans before the verse's closing tag. This means if an 
+    #   <list type="T" subType="ST">            = <div class="x-list T ST">
+    #   </list>                                 = </div>
+    #
+    #   <item type="T" subType="ST">            = <div class="item indentN ST"> (WHERE N is derived from T)
+    #   </item>                                 = </div>
+    #
+    # LINE(N) and ITEM(N) markup should NOT cross verse-tag boundaries:
+    # Since these convert to non-empty HTML divs, and since all HTML tags within verse tags MUST be closed,
+    # xulsword's OSIS to HTML filter will close any such open divs before the verse's closing tag. This means if an 
     # OSIS <l> crosses a verse boundary, the desired formatting will not be acheived, but the HTML will be valid.
     # You can edit the source to put multiple verses within a single verse tag to fix the formatting when necessary.
-    
-    # <l>
-    if ($tag =~ /^($noIndentLine)$/) {
-      $readText = "$eplg<l type=\"x-no-indent\">$myT"; # implemented by osisxhtml.cpp (as of May 2014)
+
+    if ($type eq "poetryline") {
+      my $eplg = "$readText$endParagraph<lg>";
+      if ($eplg !~ s/<\/lg><lg[^>]*>$//) {$lastLineLevel = -99;}
+      my $tp = "x-noindent";
+      if ($level > 0) {$tp = "x-indent-$level";}
+
+      if ($level == ($lastLineLevel+1)) {
+        if ($eplg !~ s/^(.*)(<l [^>]*)(>.*?)$/$1$2 subType="x-to-next-level"$3/) {
+        my $ox = @PrintOut-1;
+        while ($ox >= 0 && @PrintOut[$ox] !~ s/^(.*)(<l [^>]*)(>.*?)$/$1$2 subType="x-to-next-level"$3/) {$ox--;}
+          if ($ox == -1) {&Log("ERROR: $ThisSFM Line $line: Did not find expected poetry line.\n");}
+        }
+      }
+      $lastLineLevel = $level;
+
+      $readText = "$eplg<l level=\"$level\" type=\"$tp\">$myT"; # implemented by osisxhtml.cpp (as of May 2014)
       $endParagraph = "</l></lg>";
     }
-    elsif ($tag =~ /^($indentLine)$/) {
-      $readText = "$eplg<l type=\"x-indent-1\">$myT"; # implemented by osisxhtml.cpp (as of April 2014)
-      $endParagraph = "</l></lg>";
+    elsif ($type eq "listitem") {
+      # ITEM(N) should add <list>...</list> tags around successive <item> elements, but <list> is NOT OSIS milestoneable.
+      # This means that osis2mod will create WARNINGS if the list crosses a verse-tag boundary, and this might also 
+      # cause problems for some front ends. So <list> in Bible texts are not very usable, since most will cross verses.
+      # So instead, <lg>...</lg> is used here, but with subType="x-list-ms" and subType="x-item-ms".
+      my $eplg = "$readText$endParagraph<lg subType=\"x-list-ms\">";
+      $eplg =~ s/<\/lg><lg[^>]*>$//;
+      my $tp = "x-noindent";
+      if ($level > 0) {$tp = "x-indent-".$level;}
+      $readText = $eplg."<l type=\"".$tp."\" subType=\"x-item-ms\">".$myT; # implemented by osisxhtml.cpp (as of May 2014)
+      $endParagraph = "</l></lg>";	
     }
-    elsif ($tag =~ /^($dblIndentLine)$/) {
-      $readText = "$eplg<l type=\"x-indent-2\">$myT";
-      $endParagraph = "</l></lg>";
-    }
-    elsif ($tag =~ /^($triIndentLine)$/) {
-      $readText = "$eplg<l type=\"x-indent-3\">$myT";
-      $endParagraph = "</l></lg>";
-    }
-    
-    # <p>
-    elsif ($tag =~ /^($zeropar)$/) {
-      $readText .= "$endTitle$endParagraph$myT"; $endParagraph = ""; $endTitle = "";
-    } 
     else {
-      $readText .= "$endTitle$endParagraph<p type=\"x-indented\">$myT"; $endParagraph = "</p>"; $endTitle = ""; # all attributes are dropped by osis2mod (as of April 2014)
-    } 
+      my $tp = "x-noindent";
+      if ($level == 1) {$tp = "";}
+      if ($level > 1) {$tp = "x-indented-".($level-1);}
+      $tp = ($tp ? " type=\"$tp\"":"");
+
+      # Currently, osis2mod does not retain paragraph types during import, and it is not clear if/when/how this will change.
+      # So zero-indent paragraphs are currently encoded thus:
+      if ($level == 0) {
+        $readText .= $endTitle.$endParagraph.$myT;
+        $endParagraph = ""; 
+      }
+      else {
+        $readText .= $endTitle.$endParagraph."<p$tp>".$myT; # all attributes are dropped by osis2mod (as of April 2014)
+        $endParagraph = "</p>";
+      }
+      $endTitle = "";
+    }
   }
   # BLANK LINE MARKER
   elsif ($_ =~ /^[\s\W]*\\($blankline)(\s+|$)(.*)/) {
@@ -1031,8 +1098,23 @@ sub checkRemainingNotes {
   &Log("$placed of $numNotes notes collected from \"$NoteFileName\" were placed.\n");
 }
 
-sub Write($) {
+sub Write($$) {
   my $print = shift;
+  my $commit = shift;
+  
+  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+    $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$+\" in \"$bookName\" was REMOVED.\n";
+  }
+  
+  if (!$commit) {
+		push(@PrintOut, $print);
+		return;
+	}
+	
+	# Warn about osis2mod <p>
+	if ($print =~ /(<verse[^>]*osisID="([^"]*)")?.*(<p [^>]*(type|subType)[^>]*>)/) {
+		&Log("WARN: $2 <p> attributes are dropped by osis2mod: $3\n");
+	}
   
   # Warn if we are breaking a LINE(N) across verses
   if ($MustStartWithCloseLine && $print !~ /<verse sID[^>]*>\s*<\/l/) {
@@ -1054,9 +1136,6 @@ sub Write($) {
   
   # make sure we don't get more than one blank line between verses
   $print =~ s/(<lb[^\/]*\/><lb[^\/]*\/>)(<lb[^\/]*\/>)+/$1/g;
-  
-  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
-    $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$+\" in \"$bookName\" was REMOVED.\n";
-  }
+	
   print OUTF $print;
 }
