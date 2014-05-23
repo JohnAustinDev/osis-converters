@@ -55,26 +55,29 @@ while (<INF>) {
   if ($_ =~ /<div[^>]*type="book"/) {$inIntro = "true"; $cGoBible = 1;}
   
   # Remove titles
-  $_ =~ s/<title[^>]*>.*?<\/title>//gi;
+  $_ =~ s/<title[^>]*>.*?<\/title>/ /gi;
   
   # Remove notes
-  $_ =~ s/<note[^>]*>.*?<\/note>//gi;
+  $_ =~ s/<note[^>]*>.*?<\/note>/ /gi;
   
   # Remove reference tags
   $_ =~ s/<reference[^>]*>(.*?)<\/reference>/$1/g;
 
   # Remove milestones
-  $_ =~ s/<milestone[^>]*>//gi;
+  $_ =~ s/<milestone[^>]*>/ /gi;
   
   # Remove line breaks
-  $_ =~ s/<lb\s*\/>//ig;
+  $_ =~ s/<lb\s*\/>/ /ig;
   
   # Remove font hilights
   $_ =~ s/<hi [^>]*type="bold"[^>]*>(.*?)<\/hi>/$1/ig;
   $_ =~ s/<hi [^>]*type="italic"[^>]*>(.*?)<\/hi>/$1/ig;
   
   # Remove other OSIS tags
-  $_ =~ s/<\/?(list|item|lg|l|p)[^>]*>//ig;
+  $_ =~ s/<\/?(list|item|lg|l|p)[^>]*>/ /ig;
+  
+  # Remove milestone divs
+  $_ =~ s/<div[^>]*\/>/ /g;
   
   # Remove Strongs numbers
   $_ =~ s/<\/?w[^>]*>//g;
@@ -84,9 +87,12 @@ while (<INF>) {
   
   # Collapse white space
   $_ =~ s/\s+/ /g;
+  
+  # Fix punctuation
+  $_ =~ s/ ([\.\?\:\,\"\:\'\!])/$1/g;
 
   # Change verse tags (and add blank verses as needed)
-  if ($_ =~ s/<verse [^>]*osisID=\"([^\"]*)\"[^>]*>(.*?)(<\/verse[^>]*>|<verse[^>]*\/>)/<verse>$2<\/verse>/i) {
+  if ($_ =~ s/<verse [^>]*osisID=\"([^\"]*)\"[^>]*>\s*(.*?)\s*(<\/verse[^>]*>|<verse[^>]*\/>)/<verse>$2<\/verse>/i) {
     $id = $1;
     $v = $2;
     $blankvs = 0;
@@ -127,10 +133,10 @@ else {&Log("\nERROR: Tags above were found within verses.\n\n");}
 sub Write($) {
   my $print = shift;
   my $copy = $print;
-  while ($copy =~ s/<verse>(.*?)<\/verse>/$1/) {
-    $vtext = $1;
-    while ($vtext =~ s/<\/?(\w+)[^>]*>//) {$tags{$1} = $tags{$1}." ".$line;}
-    while ($vtext =~ s/(\&.*?\;)//) {$tags{$1} = $tags{$1}." ".$line;}
+  if ($print =~ /<\/?verse>/) {
+    my $copy = $print;
+    while ($copy =~ s/<\/?(\w+)[^>]*>//) {my $t = $1; if ($t eq "verse") {next;} $tags{$t} = $tags{$t}." ".$line;}
+    while ($copy =~ s/(\&.*?\;)//) {$tags{$1} = $tags{$1}." ".$line;}
   }
   print OUTF $print;
 }
