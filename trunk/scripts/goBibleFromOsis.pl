@@ -74,7 +74,7 @@ while (<INF>) {
   $_ =~ s/<hi [^>]*type="italic"[^>]*>(.*?)<\/hi>/$1/ig;
   
   # Remove other OSIS tags
-  $_ =~ s/<\/?(list|item)[^>]*>//ig;
+  $_ =~ s/<\/?(list|item|lg|l|p)[^>]*>//ig;
   
   # Remove Strongs numbers
   $_ =~ s/<\/?w[^>]*>//g;
