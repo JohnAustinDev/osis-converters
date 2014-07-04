@@ -484,7 +484,7 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
     if ($useSkipList && $$skipListP =~ /(^|;)\Q$saveSearchTerm\E;/) {next;}
 
     my $done = 0;
-    while ($searchTerm =~ s/\s*<([^>]*)>\s*$//) {
+    while ($searchTerm =~ s/\s*<([^<>]*)>\s*$//) {
       my $handled = 0;
       my $instruction = $1;
       my $mustContain, $onlyBooks;
