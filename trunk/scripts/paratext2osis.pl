@@ -639,7 +639,7 @@ sub parseline($) {
     if ($enumList2StartPrinted ne "true") {$listStart = "<list subType=\"x-enumlist-2\">";}
     else {$listStart = "";}
     $enum2++;
-    $readText = "$readText$listStart<item>$enum2. $myT</item>";
+    $readText = "$readText$listStart<item>&nbsp;&nbsp;&nbsp;&nbsp;$enum2. $myT</item>";
     $enumList2StartPrinted = "true";
   }
   # ENUMERATED LIST 3 ENTRY
@@ -649,7 +649,7 @@ sub parseline($) {
     if ($enumList3StartPrinted ne "true") {$listStart = "<list subType=\"x-enumlist-3\">";}
     else {$listStart = "";}
     $enum = lc($Roman[$enum3++]);
-    $readText = "$readText$listStart<item>$enum. $myT</item>";
+    $readText = "$readText$listStart<item>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$enum. $myT</item>";
     if ($enum3 > 20) {&Log("ERROR $ThisSFM line $line: $bookName $myChap:$myVerse ROMAN ENUMERATION TOO HIGH.\n");}
     $enumList3StartPrinted = "true";
   }
