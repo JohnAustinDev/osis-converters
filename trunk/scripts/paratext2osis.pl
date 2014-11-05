@@ -91,6 +91,8 @@
 # COMMAND FILE TEXT PROCESSING SETTINGS:
 #   BOLD - Perl regular expression to match any bold text.
 #   ITALIC - Perl regular expression to match any italic text.
+#   SUPER - Perl regular expression to match any super script text.
+#   SUB - Perl regular expression to match any sub script text.
 #   REMOVE - A Perl regular expression for bits to be removed from SFM. 
 #   REPLACE - A Perl replacement regular expression to apply to text.     
 
@@ -139,6 +141,8 @@ $SecCanonTitle="none";
 @listitem = ("none", "none", "none", "none");
 $boldpattern="";
 $italicpattern="";
+$superpattern="";
+$subpattern="";
 $MoveTitleNotes="true";
 $MoveChapterNotes="true";
 $SpecialCapitals="";
@@ -206,6 +210,8 @@ while (<COMF>) {
   # TEXT TAGS...
   elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
   elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
+  elsif ($_ =~ /^SUPER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$superpattern = $2; next;}}
+  elsif ($_ =~ /^SUB:(\s*\((.*?)\)\s*)?$/) {if ($1) {$subpattern = $2; next;}}
   elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
   elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
   elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
@@ -443,6 +449,8 @@ sub parseline($) {
   # replace paratext font tags
   if ($boldpattern)   {$_ =~ s/($boldpattern)/<hi type="bold">$+<\/hi>/g;}
   if ($italicpattern) {$_ =~ s/($italicpattern)/<hi type="italic">$+<\/hi>/g;}
+  if ($superpattern) {$_ =~ s/($superpattern)/<hi type="super">$+<\/hi>/g;}
+  if ($subpattern) {$_ =~ s/($subpattern)/<hi type="sub">$+<\/hi>/g;}
   
   if ($MOD eq "TKL" || $MOD eq "TKC") {$_ =~ s/\\ior\*?//g; $_ =~ s/\\iot\*//g;} # the iot* is a MISTAKE in the paratext!!
   
