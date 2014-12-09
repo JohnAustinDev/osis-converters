@@ -222,8 +222,8 @@ sub addCrossRefs {
         $mkey = "norm:$bkch.$st";
         if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
           # Insert these cross references before verse end tag and before any series of: titles, milestone tags, end tags other than </note>, ".", "?" or \s
-          if    ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!note)[^>]*>|<[^>]*\/>)*<verse eID="$tag"\/>\s*$)/$1$refs{$mkey}$2/) {}
-          elsif ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!note)[^>]*>|<[^>]*\/>)*<\/verse>\s*$)/$1$refs{$mkey}$2/) {}
+          if    ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!(note|reference))[^>]*>|<[^>]*\/>)*<verse eID="$tag"\/>\s*$)/$1$refs{$mkey}$2/) {}
+          elsif ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!(note|reference))[^>]*>|<[^>]*\/>)*<\/verse>\s*$)/$1$refs{$mkey}$2/) {}
           # If no end verse marker, just tack cross references at end of line
           else  {$_ = "$_$refs{$mkey}";}
           $refs{$mkey} = "placed";
@@ -231,7 +231,7 @@ sub addCrossRefs {
         $mkey = "para:$bkch.$st";
         if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
           # Insert these cross references after verse start tag, and after any series of: titles, milestone tags, start tags other than <note>, or \s
-          $_ =~ s/(<verse[^>]+>(\s|<title.*?<\/title>|<(?!note)[^\/>]*>|<[^>]*\/>)*)/$1$refs{$mkey}/;
+          $_ =~ s/(<verse[^>]+>(\s|<title.*?<\/title>|<(?!(note|reference))[^\/>]*>|<[^>]*\/>)*)/$1$refs{$mkey}/;
           $refs{$mkey} = "placed";
         }
         $st++; $reps--;
