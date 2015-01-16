@@ -25,12 +25,15 @@ class HtmlWriter:
         self._fh = None
           
     def _writeHeader(self, title):
+        epubString = ''
+        if self._context.config.epub3:
+            epubString = 'xmlns:epub="http://www.idpf.org/2007/ops"'
         self._fh.write('''<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html xmlns="http://www.w3.org/1999/xhtml"%s>
   <head>
     <meta name="generator" content="OSIS"/>
     <title>%s</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>\n''' % title)
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>\n''' % (epubString,title))
         if self._context.cssFile != '':
             self._fh.write('    <link href="%s" type="text/css" rel="stylesheet"/>\n' % self._context.cssFile)
         self._fh.write('''  </head>

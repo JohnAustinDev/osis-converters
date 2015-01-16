@@ -114,7 +114,7 @@ $COMMAND = "ebook-convert $INPF $OPF --config-file $CONFILE";
 $CSSFILE = "e$IPTYPE.css";
 if (-e $CSSFILE) {
   $CSSFILE = File::Spec->rel2abs($CSSFILE);
-  $COMMAND .= " --css-file $CSSFILE";
+  $COMMAND .= " --css-file $CSSFILE ";
 }
 else {
   print "WARNING: Proceding without CSS file as no file found\n"
