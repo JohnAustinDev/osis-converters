@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 
 import codecs, re
@@ -11,7 +12,7 @@ class ConversionConfig:
                       'Josh' : u'Иисус Навин', 'Judg' : u'Книга Судей', 'Ruth' : u'Руфь', '1Sam' : '1-я Царств', '2Sam' : '2-я Царств', \
                       '1Kgs' : u'3-я Царств', '2Kgs' : u'4-я Царств', '1Chr' : u'1-я Паралипоменон', '2Chr' : u'2-я Паралипоменон', \
                       'Ezra' : u'Ездра', 'Neh' : u'Неемия', 'Esth' : u'Есфирь', 'Job' : u'Иов', 'Ps' : u'Псалтирь', \
-                      'Prov' : u'Притчи', 'Eccl' : u'Екклесиаст', 'Song' : u'Песни Песней', 'Isa' : u'Исаия', 'Jeh' : u'Иеремия', \
+                      'Prov' : u'Притчи', 'Eccl' : u'Екклесиаст', 'Song' : u'Песни Песней', 'Isa' : u'Исаия', 'Jer' : u'Иеремия', \
                       'Lam' : u'Плач Иеремии', 'Ezek' :u'Иезекииль', 'Dan' : u'Даниил', 'Hos' : u'Осия', 'Joel' : u'Иоиль', \
                       'Amos' : u'Амос', 'Obad' : u'Авдия', 'Jonah' : u'Иона', 'Mic' : u'Михей', 'Nah' : u'Наум' , 'Hab' : u'Аввакум', \
                       'Zeph' : u'Софония', 'Hag' : u'Аггей', 'Zech' : u'Захария', 'Mal' : u'Малахия', \
@@ -31,6 +32,12 @@ class ConversionConfig:
         self.language = ''
         self.title = ''
         self.publisher = ''
+        self.epub3 = False
+        self.testamentIntro = False
+        self.bibleIntro = False
+        self.bookSubtitles = False
+        self.psalmDivTitle = ''
+        self.psalmDivSubtitle = ''
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -71,7 +78,42 @@ class ConversionConfig:
         m = re.search(r"^\s*title=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.title = m.group(1).strip()
+        #
+        # Look for epub3 setting
+        m = re.search(r"^\s*epub3=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.epub3 = True
+        #
+        # Look for intro settings
+        m = re.search(r"^\s*TestamentIntro=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.testamentIntro = True
+        m = re.search(r"^\s*BibleIntro=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.bibleIntro = True
                 
+        #
+        # Look for settings related to title
+        m = re.search(r"^\s*BookSubtitles=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.bookSubtitles = True
+         
+        m = re.search(r"^\s*PsalmDivTitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        if m:
+            self.psalmDivTitle = m.group(1).strip() + '$'
+            
+        m = re.search(r"^\s*PsalmDivSubtitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        if m:
+            self.psalmDivSubtitle = m.group(1).strip() + '$'
+        
     def bookTitle(self, bookRef):
         if bookRef in self.books:
             return self.books[bookRef]
@@ -85,6 +127,3 @@ class ConversionConfig:
             return self.groups[groupNum]
         else:
             return ''
-    
-    
-    

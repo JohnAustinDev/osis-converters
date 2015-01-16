@@ -1,0 +1,86 @@
+
+.divineName { font-variant: small-caps; }
+.small, .sub, .sup  { font-size: .83em; }
+.sub             { vertical-align: sub; }
+.sup             { vertical-align: super; }
+.overline   { text-decoration: overline; }
+.wordsOfJesus { color:red;}
+
+.poetic-line{
+	text-indent: 0;
+}
+.x-indent-0 {
+	margin-left: 0;
+	text-indent: 0;	
+}
+.x-indent-1 {
+	margin-left: 2em;
+	text-indent: 0;	
+}
+.x-indent-2 {
+	margin-left: 4em;
+	text-indent: 0;		
+}
+.x-indent-3 {
+	margin-left: 6em;
+	text-indent: 0;
+}
+.x-indent-4{
+	margin-left: 8em;
+	text-indent: 0;
+}
+
+h1, h2, h3 {
+  margin-bottom: 1em;
+  margin-top: 1em;
+  clear: both;
+  page-break-after: avoid;
+}
+
+h1, h2 {
+  font-weight: bold;
+  text-align: center;
+}
+
+p, div {
+  margin-top: 0;
+  margin-bottom:0;
+}
+
+p {
+	text-indent: 1em
+}
+
+.first-para {
+	text-indent: 0
+}
+
+.canonical {
+  font-style:italic;
+}
+
+.book-subtitle {
+  text-align: center;
+}
+
+
+.x-chapter-title {
+  text-decoration: underline;
+}
+
+.x-chapter-number {
+  font-size: 3em; 
+  float: left; 
+  margin-right: 5px; 
+}
+
+.x-introduction {
+	background-color:#ebebeb
+}
+
+
+
+
+
+
+
