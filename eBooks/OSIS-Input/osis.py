@@ -60,6 +60,15 @@ class OsisHandler(handler.ContentHandler):
         self._verseText = ''
         self._footnotes = BookFootnotes(htmlWriter, self._context.config.epub3)
         
+        # For fb2, we need chapter/psalm titles.
+        # If no format has been provided, set up format as the chapter/psalm number only
+        
+        if self._context.outputFmt == 'fb2':
+            if self._context.config.chapterTitle == '':
+                self._context.config.chapterTitle = '%s'
+            if self._context.config.psalmTitle == '':
+                self._context.config.psalmTitle = '%s'
+        
     def startDocument(self):
         self._bibleHtmlOpen = False
         self._bibleIntroWritten = False
@@ -195,12 +204,13 @@ class OsisHandler(handler.ContentHandler):
             if self._inTitle:
                 self._inTitle = False
                 if self._headerProcessed:
-                    closingTag = '</h%s>\n' % self._titleTag[2]                    
+                    closingTag = '</h%s><br />\n' % self._titleTag[2]                    
                     if self._titleWritten:
                         if self._psDivTitle and not self._inIntro:
                             self._htmlWriter.write(closingTag)
                         else:
                             self._writeHtml(closingTag)
+                        self._breakCount = 2
                         self._psDivTitle = False
                         self._canonicalTitleWritten = False
                         self._suppressBreaks = True
@@ -310,7 +320,7 @@ class OsisHandler(handler.ContentHandler):
                                     
                                 else:
                                     # Write any chapter title before this title
-                                    if self._chapterTitle != '' and not self._chTitleWritten:
+                                    if self._chapterTitle != '':
                                         self._writeChapterTitle()
                                     self._psDivTitleFound = False
                                     self._writeTitle(text)   
@@ -322,7 +332,7 @@ class OsisHandler(handler.ContentHandler):
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
                                 # Write the chapter title if not already written
-                                if self._chapterTitle != '' and not self._chTitleWritten:
+                                if self._chapterTitle != '':
                                     self._writeChapterTitle()
                                 # Deal with verse numbers supplied as "[nn]"
                                 # First of all, check for such a number right at the start of the verse
@@ -396,7 +406,7 @@ class OsisHandler(handler.ContentHandler):
                 titleFormat = self._context.config.chapterTitle
             if titleFormat != '':
                 title = titleFormat % self._docStructure.chapter
-                self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3>' % (self._docStructure.chapter, title)
+                self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
                 self._chHeadingWritten = True              
  
             self._bibleStarting = False
@@ -678,6 +688,7 @@ class OsisHandler(handler.ContentHandler):
             if self._psDivTitle:
                 self._inVerse = False      # causes title to be written before Psalm heading
             if not self._titleWritten:
+                self._writeBreak(False)
                 self._writeHtml(self._titleTag)
             self._writeHtml(content)
             self._titleWritten = True
@@ -700,6 +711,7 @@ class OsisHandler(handler.ContentHandler):
         self._htmlWriter.write(self._chapterTitle)
         self._chapterTitle = ''
         self._chTitleWritten = True
+        self._breakCount = 2
         
     def _startVerse(self, verse):
         self._docStructure.newVerse(verse)
@@ -716,7 +728,7 @@ class OsisHandler(handler.ContentHandler):
             self._firstVerse = False
         if self._startingChapter and self._chapterTitle != '':
             self._verseText = verseNumber   
-        elif self._startingChapter and ((not self._singleChapterBook) or self._docStructure.chapter != '1'):
+        elif self._startingChapter and not self._singleChapterBook and not self._chTitleWritten:
             self._writeChapterNumber()
             self._chNumWritten = True           
             if self._docStructure.verse != '1':
