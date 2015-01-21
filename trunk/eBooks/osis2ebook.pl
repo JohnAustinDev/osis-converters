@@ -49,6 +49,10 @@ else {
   exit;
 }
 
+# Get directory of perl file
+$CBD = File::Spec->rel2abs( __FILE__ );
+$CBD =~ s/[\\\/][^\\\/]+$//;
+
 $OPTYPE = shift;
 if ($OPTYPE) {
   # Form output file name by replacing file extension
@@ -150,8 +154,22 @@ if (lc $OPTYPE eq "fb2")
   $COMMAND .= ' --fb2 religion --sectionize toc --output-fmt fb2';
 }
 
-# Run conversion commmand
+# Run conversion command
 system $COMMAND;
+
+# Perform post-processing for FB2
+if (lc $OPTYPE eq "fb2")
+{
+  # Create temporary file name
+  $TEMPF = $OPF;
+  $TEMPF =~ s/\./1./;
+  
+  # Rename output file to temp file and pre-process to give new output file
+  rename $OPF, $TEMPF;
+  $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF";
+  system $COMMAND;
+  unlink $TEMPF;
+}
 1;
 
 
