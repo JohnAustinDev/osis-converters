@@ -26,7 +26,7 @@ sub fillEmptyVerses($$$) {
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nDETECTING MISSING & NON-CANONICAL VERSES:\n");
+  &Log("\n\nDETECTING MISSING & NON-CANONICAL VERSES: Versification=$vsys\n");
 
   my %canon;
   my %bookOrder;
