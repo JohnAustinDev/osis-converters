@@ -538,7 +538,7 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
 #$AlreadyShowedThis{$saveSearchTerm}++;
 
     if ($sflags eq "") {
-      if ($$lnP =~ s/(^|\W)($searchTerm$suffix)([^$PAL]|$)/$1<reference $attribs>$2<\/reference>$3/) {
+      if ($$lnP =~ s/(^|\W)($searchTerm$suffix)([^$PAL]|$)/$1<reference $attribs>$2<\/reference>$+/) {
         if ($reportListP) {$reportListP->{"$entry: $2, $dictnames"}++;}
         if ($entryCountP) {$entryCountP->{$entry}++;}
         if ($skipListP && $useSkipList) {$$skipListP .= $saveSearchTerm.";";}
