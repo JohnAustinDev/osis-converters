@@ -1121,13 +1121,13 @@ sub Write($$) {
 	
 	# Warn about osis2mod <p>
 	if ($print =~ /(<verse[^>]*osisID="([^"]*)")?.*(<p [^>]*(type|subType)[^>]*>)/) {
-		&Log("WARN: $2 <p> attributes are dropped by osis2mod: $3\n");
+		&Log("Note: $2 <p> attributes are dropped by osis2mod: $3\n");
 	}
   
   # Warn if we are breaking a LINE(N) across verses
   if ($MustStartWithCloseLine && $print !~ /<verse sID[^>]*>\s*<\/l/) {
     $print =~ /<verse[^>]*osisID="([^"]*)"/;
-    &Log("WARN: $1: Breaking LINE(N) across verses. This will not display as intended.\n");
+    &Log("WARNING: $1: Breaking LINE(N) across verses. This will not display as intended.\n");
   }
   my $ls = -1; my $le = -1;
   if ($print =~ /^(.*)<l[\s>]/) {$ls = length($1);}
