@@ -200,6 +200,10 @@ if ($SCOPE) {
   close(CONF);
 }
 
+# order books in OSIS file according to chosen vlln
+#require("$SCRD/scripts/toVersificationBookOrder.pl");
+#&toVersificationBookOrder($VERSESYS, $OSISFILE, $TMPDIR);
+
 # validate new OSIS file against schema
 &Log("\n--- VALIDATING OSIS SCHEMA\n");
 &Log("BEGIN OSIS SCHEMA VALIDATION\n");
