@@ -634,6 +634,7 @@ def convertToOsis(sFile,genBook,encoding,relaxedConformance):
         # \sr_text...
         osis = re.sub(r'\\sr\s+(.+)', '\uFDD4<title type="scope"><reference>'+r'\1</reference></title>', osis)
         # \r_text...
+        osis = re.sub(r'\\r\s*\n', '', osis)   # Remove empty references
         osis = re.sub(r'\\r\s+(.+)', '\uFDD4<title type="parallel"><reference type="parallel">'+r'\1</reference></title>', osis)
         # \rq_text...\rq*
         osis = re.sub(r'\\rq\s+(.+?)\\rq\*', r'<reference type="source">\1</reference>', osis, flags=re.DOTALL)
@@ -1376,8 +1377,9 @@ def convertToOsis(sFile,genBook,encoding,relaxedConformance):
     osis = cvtIntroductions(osis, relaxedConformance)
     osis = cvtTitles(osis, relaxedConformance,genBook)	
     if genBook:
-        # remove any chapter tags
-        osis = re.sub(r'\\c\s[^\\<]*', '', osis)        	
+        # remove any chapter and verse tags
+        osis = re.sub(r'\\c\s[^\\<]*', '', osis)
+        osis = re.sub(r'\n\\v\s\d+','',osis)
 
     osis = cvtChaptersAndVerses(osis, relaxedConformance)
     osis = cvtParagraphs(osis, relaxedConformance)
