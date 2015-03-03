@@ -341,6 +341,7 @@ sub getCanon($\%\%) {
   my $VSYS = shift;
   my $canonP = shift;
   my $bookOrderP = shift;
+  my $testamentP = shift;
   
   my $INFILE = "$SCRD/scripts/Canon/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
   my $inOT, $inNT, $inVM;
@@ -372,7 +373,7 @@ sub getCanon($\%\%) {
         $bookLongName{$bk} = $bln;
         $bookChapters{$bk} = $nch;
         $bookOrderP->{$bk} = $booknum++;
-        $bookTest{$bk} = ($inOT ? "OT":"NT");
+        if ($testamentP) {$testamentP->{$bk} = ($inOT ? "OT":"NT");}
       }
       elsif ($inVM) {
         my $copy = $_;
