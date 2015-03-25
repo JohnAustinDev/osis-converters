@@ -604,6 +604,9 @@ def convertToOsis(sFile,genBook,encoding,relaxedConformance):
         if genBook:
             osis = re.sub(r'\\s1?\s+(.+)', lambda m: '\uFDDA<div type="chapter" osisID="' +  m.group(1) + '"><title>' + m.group(1) + '</title>', osis)
             osis = re.sub('(\uFDDA<div type="chapter" osisID="[^"]*">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA]+)', r'\1'+'</div>\uFDDA\n', osis, flags=re.DOTALL)
+            
+            # Remove any footnote from chapter osisID
+            osis = re.sub(r'div type="chapter" osisID="(.*?)\\f.*?\\f\*(.*?)">', r'div type="chapter" osisID="\1\2">', osis)
         else:
             osis = re.sub(r'\\s1?\s+(.+)', lambda m: '\uFDDA<div type="section"><title>' + m.group(1) + '</title>', osis)
             osis = re.sub('(\uFDDA<div type="section">[^\uFDD5\uFDD0\uFDD6\uFDD7\uFDD8\uFDD9\uFDDA]+)', r'\1'+'</div>\uFDDA\n', osis, flags=re.DOTALL)
