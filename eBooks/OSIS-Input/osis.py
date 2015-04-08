@@ -495,9 +495,13 @@ class OsisHandler(handler.ContentHandler):
         elif name == 'l':
             self._lineSpan = False
             lineType = self._getAttributeValue(attrs, 'type')
-            if lineType is None:
-                lineType = 'poetic-line'
-            htmlTag = '<div class="%s">' % lineType
+            lineSubType = self._getAttributeValue(attrs, 'subType')
+            lineClass = 'poetic-line'
+            if lineType is not None:
+                lineClass = '%s %s' % (lineClass, lineType)
+                if lineSubType is not None:
+                    lineClass =  '%s %s' % (lineClass, lineSubType)
+            htmlTag = '<div class="%s">' % lineClass
             if self._inVerse and self._verseEmpty:
                 self._verseEmpty = False
                 if self._chNumWritten:

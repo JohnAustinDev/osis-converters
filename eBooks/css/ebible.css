@@ -6,28 +6,29 @@
 .overline   { text-decoration: overline; }
 .wordsOfJesus { color:red;}
 
-.poetic-line{
-	text-indent: 0;
+.poetic-line {
+  text-indent:-1.5em;
+  padding-left:1.5em;
+}
+
+.poetic-line.x-to-next-level {
+  text-indent:-3em;
+  padding-left:3em;
 }
 .x-indent-0 {
-	margin-left: 0;
-	text-indent: 0;	
+	margin-left: 0;	
 }
 .x-indent-1 {
-	margin-left: 2em;
-	text-indent: 0;	
+	margin-left: 1.5em;	
 }
 .x-indent-2 {
-	margin-left: 4em;
-	text-indent: 0;		
+	margin-left: 3em;		
 }
 .x-indent-3 {
-	margin-left: 6em;
-	text-indent: 0;
+	margin-left: 4.5em;
 }
 .x-indent-4{
-	margin-left: 8em;
-	text-indent: 0;
+	margin-left: 6em;
 }
 
 h1, h2, h3 {
