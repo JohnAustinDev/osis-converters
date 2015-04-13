@@ -108,9 +108,6 @@
 #   GLOSSARY - A Perl regular expression to match SFM glossary links.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
-&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
-
 &Log("-----------------------------------------------------\nSTARTING paratext2osis.pl\n\n");
 
 # Read the COMMANDFILE, converting each book as it is encountered
@@ -151,10 +148,11 @@ $notePattern="";
 $NoteType="INLINE";
 $replace1="";
 $replace2="";
-$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
+$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis";
 $addScripRefLink=0;
 $addDictLinks=0;
 $addCrossRefs=0;
+$usfm2osis=0;
 
 $line=0;
 while (<COMF>) {
@@ -252,32 +250,38 @@ while (<COMF>) {
       $SFMfile = File::Spec->rel2abs($SFMfile);
       chdir($SCRD);
     }
-    &bookSFMtoOSIS;
+    if ($usfm2osis) {$USFMfiles .= $SFMfile . " ";}
+    else {&bookSFMtoOSIS;}
   }
   else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
 }
 
 close(COMF);
 
-# Write closing tags, and close the output file
-&Write("$endTestament\n</osisText>\n</osis>\n", 1);
-close (OUTF);
-
-# Check and report...
-if (keys %notes > 0) {&checkRemainingNotes;}
-&Log("PROCESSING COMPLETE.\n");
-if ($findalltags ne "true") {
-  &Log("Following is the list of unhandled tags which were skipped:\n");
+if ($usfm2osis) {
+  &bookUSFMtoISIS;
 }
 else {
-  &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
-}
-foreach $tag (sort keys %skippedTags) {
-  #&Log("$skippedTags{$tag}"); #complete printout
-  &Log("$tag "); #brief printout
-}
+  # Write closing tags, and close the output file
+  &Write("$endTestament\n</osisText>\n</osis>\n", 1);
+  close (OUTF);
 
-&Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+  # Check and report...
+  if (keys %notes > 0) {&checkRemainingNotes;}
+  &Log("PROCESSING COMPLETE.\n");
+  if ($findalltags ne "true") {
+    &Log("Following is the list of unhandled tags which were skipped:\n");
+  }
+  else {
+    &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
+  }
+  foreach $tag (sort keys %skippedTags) {
+    #&Log("$skippedTags{$tag}"); #complete printout
+    &Log("$tag "); #brief printout
+  }
+
+  &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+}
 
 &Log("\nEnd of listing\n");
 1;
@@ -285,6 +289,13 @@ foreach $tag (sort keys %skippedTags) {
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
+
+sub bookUSFMtoISIS {
+  &Log("Processing USFM $USFMfiles\n");
+  my $cmd = "usfm2osis.py Bible.$MOD -v -x -o $OUTPUTFILE $USFMfiles";
+  &Log($cmd . "\n", 1);
+  &Log(`$cmd` . "\n", 1);
+}
 
 sub bookSFMtoOSIS {
   @AllTags = ();
@@ -1109,6 +1120,11 @@ sub checkRemainingNotes {
 sub Write($$) {
   my $print = shift;
   my $commit = shift;
+  
+  if (!fileno(OUTF)) {
+    open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
+    &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
+  }
   
   while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
     $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$+\" in \"$bookName\" was REMOVED.\n";
