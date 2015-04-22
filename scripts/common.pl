@@ -39,6 +39,7 @@ sub initPaths() {
       if ($_ =~ /^XMLLINT:\s*(.*?)\s*$/) {if ($1) {$XMLLINT = $1;}}
       if ($_ =~ /^GO_BIBLE_CREATOR:\s*(.*?)\s*$/) {if ($1) {$GOCREATOR = $1;}}
       if ($_ =~ /^OUTDIR:\s*(.*?)\s*$/) {if ($1) {$OUTDIR = $1;}}
+      if ($_ =~ /^USFM2OSIS:\s*(.*?)\s*$/) {if ($1) {$USFM2OSIS = $1;}}
     }
     close(PTHS);
     
@@ -49,6 +50,7 @@ sub initPaths() {
     if ($XMLLINT && $XMLLINT =~ /^\./) {$XMLLINT = File::Spec->rel2abs($XMLLINT);}
     if ($XMLLINT && $XMLLINT !~ /[\\\/]$/) {$XMLLINT .= "/";}
     if ($OUTDIR && $OUTDIR =~ /^\./) {$OUTDIR = File::Spec->rel2abs($OUTDIR);}
+    if ($USFM2OSIS && $USFM2OSIS =~ /^\./) {$USFM2OSIS = File::Spec->rel2abs($USFM2OSIS);}
     
     if ($OUTDIR) {
       $OUTDIR =~ s/\/\s*$//; # remove any trailing slash
@@ -69,6 +71,8 @@ sub initPaths() {
     print PTHS "SWORD_PATH:\n\n";
     print PTHS "# Set GO_BIBLE_CREATOR to the Go Bible Creator directory\n# if you are using osis2GoBible.pl.\n";
     print PTHS "GO_BIBLE_CREATOR:\n\n";
+    print PTHS "# Set USFM2OSIS to the repotemplate/bin directory\n# if you are using usfm2osis.py.\n";
+    print PTHS "USFM2OSIS:\n\n";
     print PTHS "# Set SWORD_BIN to the directory where SWORD tools (osis2mod,\n# emptyvss mod2zmod) are located, unless already in your PATH.\n";
     print PTHS "SWORD_BIN:\n\n";
     print PTHS "# Set XMLLINT to the xmllint executable's directory if\n# it's not in your PATH.\n";
@@ -873,6 +877,45 @@ sub escfile($) {
   else {$n =~ s/([ \(\)])/\\$1/g;}
   return $n;
 }
+
+# If the osis file originated from usfm2osis.py, run the XSLT on it
+# and return 1, otherwise return 0.
+sub usfm2osisXSLT($$$) {
+  my $osis = shift;
+  my $xsl = shift;
+  my $out = shift;
+
+  my $usfm2osis = 0;
+  
+  open(TEST, "<$osis") || die "Could not open $osis\n";
+  while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
+  close(TEST);
+  
+  if ($usfm2osis) {
+    &Log("\n--- OSIS file was created by usfm2osis.py. Running XSLT...\n");
+    if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
+    else {
+      my $cmd = '';
+      if ("$^O" =~ /MSWin32/i) {
+        # http://www.microsoft.com/en-us/download/details.aspx?id=21714
+        $cmd = "msxsl.exe " . &escfile($osis) . " " . &escfile($xsl) . " -o " . &escfile($out); 
+      }
+      elsif ("$^O" =~ /linux/i) { 
+        $cmd = "xsltproc " . &escfile($xsl) . " " . &escfile($osis) . " > " . &escfile($out);
+      }
+      else {
+        &Log("ERROR: an XSLT converter has not been chosen yet for this operating system.");
+      }
+      if ($cmd) {
+        &Log("$cmd\n");
+        system($cmd);
+      }
+    }
+  }
+
+  return $usfm2osis;
+}
+
 
 $ProgressTotal = 0;
 $ProgressTime = 0;

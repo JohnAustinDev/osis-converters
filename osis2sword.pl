@@ -80,6 +80,9 @@ make_path($TMPDIR);
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
+$IS_usfm2osis = &usfm2osisXSLT($OSISFILE, "$USFM2OSIS/osis2sword.xsl", "$TMPDIR/osis.xml");
+if ($IS_usfm2osis) {$OSISFILE = "$TMPDIR/osis.xml";}
+
 # create raw and zipped modules from OSIS
 $SWDD = "$OUTDIR/sword";
 remove_tree("$SWDD");

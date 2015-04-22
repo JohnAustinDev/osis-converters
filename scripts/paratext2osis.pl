@@ -292,7 +292,7 @@ else {
 
 sub USFMtoISIS {
   &Log("Processing USFM $USFMfiles\n");
-  my $cmd = "usfm2osis.py Bible.$MOD -v -x -r -o $OUTPUTFILE $USFMfiles";
+  my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " Bible.$MOD -v -x -r -o " . &escfile("$OUTPUTFILE") . " $USFMfiles";
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
 }
