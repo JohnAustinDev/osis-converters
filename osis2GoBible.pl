@@ -89,7 +89,7 @@ $TMPDIR = "$OUTDIR/tmp/osis2GoBible";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-&Log("osis-converters rev: $SVNREV\n\n");
+&Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2GoBible.pl\n\n");
 
 

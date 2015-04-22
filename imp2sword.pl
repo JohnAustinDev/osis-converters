@@ -88,7 +88,7 @@ if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
-&Log("osis-converters rev: $SVNREV\n\n");
+&Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
 $TMPDIR = "$OUTDIR/tmp/dict2mod";

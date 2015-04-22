@@ -27,18 +27,7 @@ $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 
 # Get our current osis-converters revision number
-if ("$^O" =~ /MSWin32/i) {
-  $SVNREV = "SubWCRev \"".__FILE__."\" 2>&1";
-  $SVNREV = `$SVNREV`;
-  if ($SVNREV && $SVNREV =~ /^Updated to revision\s*(\d+)\s*$/mi) {$SVNREV = $1;}
-  else {$SVNREV = "";} 
-}
-else {
-  $SVNREV = "svn info ".__FILE__." 2>&1";
-  $SVNREV = `$SVNREV`;
-  if ($SVNREV && $SVNREV =~ /^Revision:\s*(\d+)\s*$/mi) {$SVNREV = $1;}
-  else {$SVNREV = "";}
-}
+$GITHEAD = `git rev-parse HEAD`;
 
 sub initPaths() {
   chdir($SCRD);
@@ -94,8 +83,7 @@ sub initPaths() {
 
 # osis-converters runs in both Linux and Windows, and input files
 # may use different newlines than the current op-sys uses. So 
-# all input files should be normalized. This also means any input 
-# files on SVN need to be copied first, then normalized, then used.
+# all input files should be normalized.
 sub normalizeNewLines($) {
   my $f = shift;
   
@@ -125,7 +113,7 @@ sub normalizeNewLines($) {
 # Formerly there was an addRevisionToCF function which wrote the SVN rev
 # into the CF_ files. But this caused these input files to be rev-ed even
 # when there were no changes to the file settings. This was really a
-# bother. So, the SVN rev is now written to the LOG file, and the 
+# bother. So, the rev is now written to the LOG file, and the 
 # function below is used to remove the old SVN rev from the CF_ files
 # if it's there. 
 sub removeRevisionFromCF($) {
@@ -138,7 +126,7 @@ sub removeRevisionFromCF($) {
     my $l = 0;
     while(<RCMF>) {
       $l++;
-      if ($l == 1 && $_ =~ s/\Q$msg\E(\d+)/$msg$SVNREV/) {
+      if ($l == 1 && $_ =~ /\Q$msg\E(\d+)/) {
         $changed = 1;
         next;
       }
@@ -843,7 +831,6 @@ sub copy_dir($$$$) {
 
   for(my $i=0; $i < @fs; $i++) {
     if ($fs[$i] =~ /^\.+$/) {next;}
-    if ($fs[$i] =~ /^\.svn/) {next;}
     my $if = "$id/".$fs[$i];
     my $of = "$od/".$fs[$i];
     if (!$noRecurse && -d $if) {&copy_dir($if, $of, $noRecurse, $keep, $skip);}
@@ -856,7 +843,7 @@ sub copy_dir($$$$) {
   return 1;
 }
 
-# deletes files recursively without touching dirs or anything in .svn
+# deletes files recursively without touching dirs
 sub delete_files($) {
   my $dir = shift;
   my $success = 0;
@@ -864,7 +851,7 @@ sub delete_files($) {
   my @listing = readdir(CHDIR);
   closedir(CHDIR);
   foreach my $entry (@listing) {
-    if ($entry =~ /^(\.+|\.svn)$/) {next;}
+    if ($entry =~ /^\.+$/) {next;}
     if (-d "$dir/$entry") {$success &= delete_files("$dir/$entry");}
     unlink("$dir/$entry");
   }

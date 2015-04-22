@@ -67,7 +67,7 @@ $TMPDIR = "$OUTDIR/tmp/osis2ebooks";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-&Log("osis-converters rev: $SVNREV\n\n");
+&Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2ebooks.pl\n\n");
 
 # copy necessary files to tmp

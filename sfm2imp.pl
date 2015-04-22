@@ -80,7 +80,7 @@ make_path($TMPDIR);
 
 if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 
-&Log("osis-converters rev: $SVNREV\n\n");
+&Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING sfm2imp.pl\n\n");
 
 # insure the following conf settings are in the conf file

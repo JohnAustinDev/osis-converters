@@ -259,7 +259,7 @@ while (<COMF>) {
 close(COMF);
 
 if ($usfm2osis) {
-  &bookUSFMtoISIS;
+  &USFMtoISIS;
 }
 else {
   # Write closing tags, and close the output file
@@ -290,7 +290,7 @@ else {
 #-------------------------------------------------------------------------------
 
 
-sub bookUSFMtoISIS {
+sub USFMtoISIS {
   &Log("Processing USFM $USFMfiles\n");
   my $cmd = "usfm2osis.py Bible.$MOD -v -x -r -o $OUTPUTFILE $USFMfiles";
   &Log($cmd . "\n", 1);

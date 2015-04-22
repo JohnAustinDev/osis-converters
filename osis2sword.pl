@@ -76,7 +76,7 @@ $TMPDIR = "$OUTDIR/tmp/osis2mod";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-&Log("osis-converters rev: $SVNREV\n\n");
+&Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
