@@ -22,7 +22,7 @@ sub toVersificationBookOrder($$) {
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nOrdering books in OSIS file according to versification = $vsys\n");
+  &Log("\n\nOrdering books in \"$osis\" according to versification = $vsys\n");
 
   my %canon;
   my %bookOrder;
@@ -36,22 +36,29 @@ sub toVersificationBookOrder($$) {
   
     my $parser = XML::LibXML->new();
     my $xml = $parser->parse_file($osis);
-    
+  
     # remove all books
     my @books = $xpc->findnodes('//x:div[@type="bookGroup"]/x:div[@type="book"]', $xml);
+    if (!@books) {@books = $xpc->findnodes('//x:div[@type="book"]', $xml);}
     foreach my $bk (@books) {
       $bk = $bk->parentNode()->removeChild($bk);
     }
     
-    my @testamentGroup = $xpc->findnodes('//x:div[@type="bookGroup"]', $xml);
-    
-    # place all books in proper order and location
+    # some OSIS files may not have book groups, then books are children of osisText
+    my @bookGroup = $xpc->findnodes('//x:div[@type="bookGroup"]', $xml);
+    my @osisText = $xpc->findnodes('//x:osisText', $xml);
+      
+    # place all books back in canon order
     foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
       foreach my $b (@books) {
         if (!$b || $b->findvalue('./@osisID') ne $v11nbk) {next;}
         my $i = ($testament{$v11nbk} eq 'OT' ? 0:1);
-        if (@testamentGroup == 1) {$i = 0;}
-        @testamentGroup[$i]->appendChild($b);
+        if (!@bookGroup) {@osisText[0]->appendChild($b);}
+        else {
+          if (@bookGroup == 1) {$i = 0;}
+          @bookGroup[$i]->appendChild($b);
+        }
+        
         $b = '';
         last;
       }

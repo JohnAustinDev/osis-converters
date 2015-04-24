@@ -33,6 +33,9 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
+$DEBUG_SKIP_CONVERSION = 1;
+
+use File::Copy;
 use File::Spec;
 $INPD = shift;
 if ($INPD) {
@@ -58,8 +61,8 @@ require "$SCRD/scripts/common.pl";
 &initPaths();
 
 $CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE, 1);
+if (!-e $CONFFILE) {print "ERROR: Missing conf starter file: $CONFFILE. Exiting.\n"; exit;}
+&getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
@@ -76,9 +79,11 @@ if ($delete) {
 if (-e $OSISFILE) {unlink($OSISFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
-$TMPDIR = "$OUTDIR/tmp/src2osis";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
+$TMPDIR = "$OUTDIR/tmp/sfm2osis";
+if (!$DEBUG_SKIP_CONVERSION) {
+  if (-e $TMPDIR) {remove_tree($TMPDIR);}
+  make_path($TMPDIR);
+}
 
 if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 
@@ -88,31 +93,6 @@ if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
-&normalizeNewLines($CONFFILE);
-open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-$ret = "\n";
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISFootnotes/) {print CONF $ret."GlobalOptionFilter=OSISFootnotes\n"; $ret="";}
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISHeadings/)  {print CONF $ret."GlobalOptionFilter=OSISHeadings\n"; $ret="";}
-if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISScripref/)  {print CONF $ret."GlobalOptionFilter=OSISScripref\n"; $ret="";}
-if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"}  ne "UTF-8") {
-  &Log("ERROR: Encoding is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"SourceType"} && $ConfEntry{"SourceType"}  ne "OSIS") {
-  &Log("ERROR: SourceType is set in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"OSISVersion"} && $ConfEntry{"OSISVersion"}  ne $OSISVersion) {
-  &Log("ERROR: OSISVersion is set in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"Encoding"}  ne "UTF-8") {
-  print CONF $ret."Encoding=UTF-8\n"; $ret="";
-}
-if ($ConfEntry{"SourceType"}  ne "OSIS") {
-  print CONF $ret."SourceType=OSIS\n"; $ret="";
-}
-if ($ConfEntry{"OSISVersion"}  ne $OSISVersion) {
-  print CONF $ret."OSISVersion=$OSISVersion\n"; $ret="";
-}
-close(CONF);
 
 # run paratext2osis.pl
 $COMMANDFILE = "$INPD/CF_paratext2osis.txt";
@@ -120,7 +100,7 @@ if (-e $COMMANDFILE) {
   &Log("\n--- CONVERTING PARATEXT TO OSIS\n");
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $NOCONSOLELOG = 1;
-  require("$SCRD/scripts/paratext2osis.pl");
+  if (!$DEBUG_SKIP_CONVERSION) {require("$SCRD/scripts/paratext2osis.pl");}
   $NOCONSOLELOG = 0;
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
@@ -136,7 +116,7 @@ if ($addScripRefLinks && -e $COMMANDFILE) {
   require("$SCRD/scripts/addScripRefLinks.pl");
   $NOCONSOLELOG = 0;
 }
-else {rename("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
+else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
 # run addDictLinks.pl
 $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
@@ -146,29 +126,11 @@ if ($addDictLinks && -e $COMMANDFILE) {
   $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
-  if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISDictionary/) {
-    open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-    print CONF ";GlobalOptionFilter=OSISDictionary is deprecated.\nGlobalOptionFilter=OSISDictionary\n";
-    close(CONF);
-  }
-  if ($ConfEntry{"GlobalOptionFilter"} !~ /OSISReferenceLinks/) {
-    open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-    print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
-    close(CONF);
-  }
   $NOCONSOLELOG = 1;
   require("$SCRD/scripts/addDictLinks.pl");
   $NOCONSOLELOG = 0;
-  foreach my $dn (values %DictNames) {$allDictNames{$dn}++;}
-  foreach my $dn (keys %allDictNames) {
-    if ($ConfEntry{"DictionaryModule"} !~ /\Q$dn\E/ ) {
-      open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-      print CONF "DictionaryModule=$dn\n";
-      close(CONF);
-    }
-  }
 }
-else {rename("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
+else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 close(CONF);
 
 # run addCrossRefs.pl
@@ -183,33 +145,20 @@ if ($addCrossRefs && -e $COMMANDFILE) {
   require("$SCRD/scripts/addCrossRefs.pl");
   $NOCONSOLELOG = 0;
 }
-else {rename("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
-
-
-# add any non-canonical and empty verses to the osis file and set scope
-require("$SCRD/scripts/fillEmptyVerses.pl");
-$SCOPE = &fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
-if ($SCOPE) {
-  open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-  if ($ConfEntry{"Scope"} && $ConfEntry{"Scope"}  ne $SCOPE) {
-    &Log("ERROR: Scope is set incorrectly in $CONFFILE. Remove this entry.\n");
-  }
-  if ($SCOPE && ($ConfEntry{"Scope"}  ne $SCOPE)) {
-    print CONF $ret."Scope=$SCOPE\n"; $ret="";
-  }
-  close(CONF);
-}
+else {copy("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 
 # order books in OSIS file according to chosen vlln
 require("$SCRD/scripts/toVersificationBookOrder.pl");
 &toVersificationBookOrder($VERSESYS, $OSISFILE);
 
-# validate new OSIS file against schema
-&Log("\n--- VALIDATING OSIS SCHEMA\n");
-&Log("BEGIN OSIS SCHEMA VALIDATION\n");
-$cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
-&Log("$cmd\n");
-system($cmd);
-&Log("END OSIS SCHEMA VALIDATION\n");
+if (!$DEBUG_SKIP_CONVERSION) {
+  # validate new OSIS file against schema
+  &Log("\n--- VALIDATING OSIS SCHEMA\n");
+  &Log("BEGIN OSIS SCHEMA VALIDATION\n");
+  $cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
+  &Log("$cmd\n");
+  system($cmd);
+  &Log("END OSIS SCHEMA VALIDATION\n");
+}
 
 1;

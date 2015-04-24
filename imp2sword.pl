@@ -189,14 +189,4 @@ else {
   chdir($INPD);
 }
 
-# copy the module to SWORD_PATH for easy testing
-if ($SWORD_PATH) {
-  &Log("\n--- ADDING COPY OF MODULE TO SWORD_PATH:\n (SWORD_PATH=$SWORD_PATH)\n");
-  if (-e "$SWORD_PATH/$MODPATH") {remove_tree("$SWORD_PATH/$MODPATH");}
-  if (!-e "$SWORD_PATH/mods.d") {make_path("$SWORD_PATH/mods.d");}
-  if (-e "$SWORD_PATH/mods.d/$MODLC.conf") {unlink("$SWORD_PATH/mods.d/$MODLC.conf");}
-
-  copy("$SWDD/mods.d/$MODLC.conf", "$SWORD_PATH/mods.d/$MODLC.conf");
-  &copy_dir("$SWDD/$MODPATH", "$SWORD_PATH/$MODPATH");
-}
 1;

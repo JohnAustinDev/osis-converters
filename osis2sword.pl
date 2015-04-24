@@ -53,7 +53,7 @@ require "$SCRD/scripts/common.pl";
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE, 1);
+&getInfoFromConf($CONFFILE);
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
@@ -72,7 +72,7 @@ if (-e $LOGFILE) {unlink($LOGFILE);}
 if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
 if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
-$TMPDIR = "$OUTDIR/tmp/osis2mod";
+$TMPDIR = "$OUTDIR/tmp/osis2sword";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
@@ -82,6 +82,10 @@ if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
 $IS_usfm2osis = &usfm2osisXSLT($OSISFILE, "$USFM2OSIS/osis2sword.xsl", "$TMPDIR/osis.xml");
 if ($IS_usfm2osis) {$OSISFILE = "$TMPDIR/osis.xml";}
+
+# create and check module's conf file
+&updatedSwordConf("$TMPDIR/config.conf");
+$CONFFILE = "$TMPDIR/config.conf";
 
 # create raw and zipped modules from OSIS
 $SWDD = "$OUTDIR/sword";
@@ -148,14 +152,4 @@ else {
   chdir($INPD);
 }
 
-# copy the module to SWORD_PATH for easy testing
-if ($SWORD_PATH) {
-  &Log("\n--- ADDING COPY OF MODULE TO SWORD_PATH:\n (SWORD_PATH=$SWORD_PATH)\n");
-  if (-e "$SWORD_PATH/$MODPATH") {remove_tree("$SWORD_PATH/$MODPATH");}
-  if (!-e "$SWORD_PATH/mods.d") {make_path("$SWORD_PATH/mods.d");}
-  if (-e "$SWORD_PATH/mods.d/$MODLC.conf") {unlink("$SWORD_PATH/mods.d/$MODLC.conf");}
-
-  copy("$SWDD/mods.d/$MODLC.conf", "$SWORD_PATH/mods.d/$MODLC.conf");
-  &copy_dir("$SWDD/$MODPATH", "$SWORD_PATH/$MODPATH");
-}
 1;

@@ -45,7 +45,7 @@ require "$SCRD/scripts/common.pl";
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE, 1);
+&getInfoFromConf($CONFFILE);
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}

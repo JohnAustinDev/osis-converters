@@ -57,7 +57,7 @@ require "$SCRD/scripts/common.pl";
 
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE, 1);
+&getInfoFromConf($CONFFILE);
 if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld4/$MODLC/";}
 
 $IMPFILE = "$OUTDIR/".$MOD.".imp";
