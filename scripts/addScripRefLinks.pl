@@ -245,14 +245,14 @@ while (<INF>) {
     &logProgress($BK, $line);
 		goto FINISH_LINE;
 	}
-	elsif ($_ =~ /<chapter osisID="([^\.]+)\.([^"]+)">/) {
+	elsif ($_ =~ /<chapter [^>]*osisID="([^\."]+)\.([^"]+)"[^>]*>/) {
 		$BK = $1;
 		$CH = $2;
 		$VS = 0;
 		$intro = 0;
 		goto FINISH_LINE;
 	}
-	elsif ($_ =~ /<verse sID=\"([^\.]+)\.(\d+)\.(\d+)/) {
+	elsif ($_ =~ /<verse [^>]*(?<!i)sID=\"([^\."]+)\.(\d+)\.(\d+)\"[^>]*>/) {
 		$BK = $1;
 		$CH = $2;
 		$VS = $3;
@@ -310,9 +310,29 @@ $newLinks=0;
 $line=0;
 while (<INF2>) {
 	$line++;
-	@lineLinks = split(/(<newReference osisRef="([^"]+)">(.*?)<\/newReference>)/, $_);
+  
+  # <reference> tags may already have been there from usfm2osis.py, so merge new and old
+  @origRefs = split(/(<reference[^>]*>.*?<\/reference>)/, $_);
+  foreach my $ref (@origRefs) {
+    if ($ref !~ /(<reference([^>]*)>)(.*?)(<\/reference>)/) {next;}
+    my $st = $1;
+    my $sa = $2;
+    my $rt = $3;
+    my $et = $4;
+    if ($sa =~ /type="annotateRef"/) {
+      $rt =~ s/<\/?newReference[^>]*>//g;
+      $ref = "$st$rt$et";
+    }
+    else {
+      $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
+      $ref = $rt;
+    }
+  }
+  $_ = join('', @origRefs);
+  
+	@lineLinks = split(/(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/, $_);
 	foreach $lineLink (@lineLinks) {
-		if ($lineLink !~ /(<newReference osisRef="([^"]+)">(.*?)<\/newReference>)/) {next;}
+		if ($lineLink !~ /(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/) {next;}
 		$osisRef = $2;
 		$linkText = $3;
 		if (&validOSISref($osisRef, $linkText)) {$newLinks++;}

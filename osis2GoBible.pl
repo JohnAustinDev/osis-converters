@@ -41,10 +41,7 @@ else {
   my $dproj = "./Example_GoBible";
   print "\nusage: osis2GoBible.pl [Bible_Directory]\n";
   print "\n";
-  print "run default project $dproj? (Y/N):";
-  my $in = <>;
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-  $INPD = File::Spec->rel2abs($dproj);
+  exit;
 }
 if (!-e $INPD) {
   print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";

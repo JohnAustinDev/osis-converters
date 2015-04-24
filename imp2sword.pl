@@ -33,10 +33,7 @@ else {
   my $dproj = "./Example_Glossary";
   print "\nusage: imp2sword.pl [Glossary_Directory]\n";
   print "\n";
-  print "run default project $dproj? (Y/N):";
-  my $in = <>;
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-  $INPD = File::Spec->rel2abs($dproj);
+  exit;
 }
 if (!-e $INPD) {
   print "Glossary_Directory \"$INPD\" does not exist. Exiting.\n";
