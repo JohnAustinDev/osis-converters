@@ -942,7 +942,7 @@ sub updatedSwordConf($) {
   # get OSIS file's dictionary filter and module requirements
   open(OSIS, "<:encoding(UTF-8)", $OSISFILE) || die "Could not open $OSISFILE\n";
   my %referenceWorks;
-  while(<OSIS>) {$_ =~ s/(<reference[^>]*osisRef="([^:"]+):([^"]+)"[^>]*>)/if ($2 ne $MOD) {$referenceWorks{$2}++;} my $r=$1/ge;}
+  while(<OSIS>) {$_ =~ s/(<reference[^>]*osisRef="([^:"]+):([^"]+)"[^>]*>)/if ($2 ne $MOD && $2 ne "Bible") {$referenceWorks{$2}++;} my $r=$1/ge;}
   close(OSIS);
   if (keys %referenceWorks && $ConfEntry{"GlobalOptionFilter"} !~ /OSISReferenceLinks/) {
     print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";

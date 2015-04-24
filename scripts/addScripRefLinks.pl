@@ -319,14 +319,8 @@ while (<INF2>) {
     my $sa = $2;
     my $rt = $3;
     my $et = $4;
-    if ($sa =~ /type="annotateRef"/) {
-      $rt =~ s/<\/?newReference[^>]*>//g;
-      $ref = "$st$rt$et";
-    }
-    else {
-      $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
-      $ref = $rt;
-    }
+    $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
+    $ref = $rt;
   }
   $_ = join('', @origRefs);
   
