@@ -208,21 +208,6 @@ if ($addCrossRefs && -e $COMMANDFILE) {
 }
 else {rename("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 
-
-# add any non-canonical and empty verses to the osis file and set scope
-require("$SCRD/scripts/fillEmptyVerses.pl");
-$SCOPE = &fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
-if ($SCOPE) {
-  open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-  if ($ConfEntry{"Scope"} && $ConfEntry{"Scope"}  ne $SCOPE) {
-    &Log("ERROR: Scope is set incorrectly in $CONFFILE. Remove this entry.\n");
-  }
-  if ($SCOPE && ($ConfEntry{"Scope"}  ne $SCOPE)) {
-    print CONF $ret."Scope=$SCOPE\n"; $ret="";
-  }
-  close(CONF);
-}
-
 # validate new OSIS file against schema
 &Log("\n--- VALIDATING OSIS SCHEMA\n");
 &Log("BEGIN OSIS SCHEMA VALIDATION\n");

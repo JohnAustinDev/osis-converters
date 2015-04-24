@@ -33,7 +33,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$DEBUG_SKIP_CONVERSION = 1;
+$DEBUG_SKIP_CONVERSION = 0;
 
 use File::Copy;
 use File::Spec;

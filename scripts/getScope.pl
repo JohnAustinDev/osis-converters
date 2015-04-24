@@ -1,0 +1,144 @@
+# This file is part of "osis-converters".
+# 
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
+
+sub getScope($$) {
+  my $vsys = shift;
+  my $osis = shift;
+  
+  my $scope = "";
+  
+  if (!$vsys) {$vsys = "KJV";}
+
+  &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
+
+  my %canon;
+  my %bookOrder;
+  my %testament;
+  
+  if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
+    use XML::LibXML;
+    
+    my $xpc = XML::LibXML::XPathContext->new;
+    $xpc->registerNs('x', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
+  
+    my $parser = XML::LibXML->new();
+    my $xml = $parser->parse_file($osis);
+    
+    my @verses = $xpc->findnodes('//x:verse', $xml);
+    foreach my $v (@verses) {
+      my $osisID = $v->findvalue('./@osisID');
+      @osisID = split(/\s+/, $osisID);
+      foreach my $id (@osisID) {$haveVerse{$id}++;}
+    }
+
+    # assemble the scope conf entry for this text
+    my $s = "";
+    my $hadLastV = 0;
+    my $lastCheckedV = "";
+    my $canbkFirst, $canbkLast;
+    foreach my $bk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
+      if (!$canbkFirst) {$canbkFirst = $bk;}
+      $canbkLast = $bk;
+      for (my $ch=1; $ch<=@{$canon{$bk}}; $ch++) {
+        for (my $vs=1; $vs<=$canon{$bk}->[$ch-1]; $vs++) {
+
+          # record scope unit start
+          if (!$hadLastV && $haveVerse{"$bk.$ch.$vs"}) {
+            $s .= " $bk.$ch.$vs";          
+          }
+          # record scope unit end
+          if ($hadLastV && !$haveVerse{"$bk.$ch.$vs"}) {
+            $s .= "-$lastCheckedV";
+          }
+          $hadLastV = $haveVerse{"$bk.$ch.$vs"};
+          $lastCheckedV = "$bk.$ch.$vs";
+        }
+      }
+    }
+    if ($hadLastV) {$s .= "-$lastCheckedV";}
+
+    # simplify each scope segment as much as possible
+    my $sep = "";
+    while ($s =~ s/^ ([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)//) {
+      my $b1=$1;
+      my $c1=$2;
+      my $v1=$3;
+      my $b2=$4;
+      my $c2=$5;
+      my $v2=$6;
+      
+      my $sub = "";
+      # simplify scope unit start
+      if ($b2 ne $b1 || ($b2 eq $b1 && ($c2==@{$canon{$b2}} && $v2==$canon{$b2}->[$c2-1]))) {
+        if ($v1 == 1) {
+          if ($c1 == 1) {$sub .= "$b1";}
+          else {$sub .= "$b1.$c1";}
+        }
+        else {$sub .= "$b1.$c1.$v1";}
+      }
+      elsif ($c2 != $c1) {
+        if ($v1==1) {
+          #if ($c1==1) {$c1 = 0;}
+          $sub .= "$b1.$c1";
+        }
+        else {$sub .= "$b1.$c1.$v1";}
+      }
+      else {$sub .= "$b1.$c1.$v1";}
+      
+      # simplify scope unit end
+      if ($b1 ne $b2 || ($b1 eq $b2 && ($c1==1 && $v1==1))) {
+        if ($v2 == $canon{$b2}->[$c2-1]) {
+          if ($c2 == @{$canon{$b2}}) {$sub .= "-$b2";}
+          else {$sub .= "-$b2.$c2";}
+        }
+        else {$sub .= "-$b2.$c2.$v2";}
+      }
+      elsif ($c1 != $c2) {
+        if ($v2 == $canon{$b2}->[$c2-1]) {$sub .= "-$b2.$c2";}
+        else {$sub .= "-$b2.$c2.$v2";}
+      }
+      else {$sub .= "-$b2.$c2.$v2";}
+      
+      $sub =~ s/^(\w+)-(\g1)/$1/;
+     
+      $scope .= $sep.$sub;
+      $sep = " ";
+    }
+    if ($s !~ /^\s*$/) {&Log("ERROR: While processing scope \"$s\"\n");}
+    #if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
+  }
+  else {&Log("ERROR: Could not check scope in OSIS file!\n");}
+  
+  &Log("Scope is: $scope\n");
+ 
+  return $scope;
+}
+
+sub recordEmptyVerses($\%) {
+  my $id = shift;
+  my $eP = shift;
+  if ($id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?$/) {&Log("ERROR: Could not understand \"$id\" in recordEmptyVerses\n"); return;}
+  my $bk = $1;
+  my $ch = $2;
+  my $v1 = $3;
+  my $v2 = $5;
+  if (!$v2) {$v2 = $v1;}
+  for (my $v=$v1; $v<=$v2; $v++) {$eP->{"$bk.$ch.$v"}++;}
+}
+
+1;

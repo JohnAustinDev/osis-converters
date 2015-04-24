@@ -152,4 +152,9 @@ else {
   chdir($INPD);
 }
 
+&Log("\n");
+open(CONF, "<:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not open $SWDD/mods.d/$MODLC.conf\n";
+while(<CONF>) {&Log($_);}
+close(CONF);
+
 1;

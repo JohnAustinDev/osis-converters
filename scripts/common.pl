@@ -954,8 +954,8 @@ sub updatedSwordConf($) {
   }
   
   # get scope
-  require("$SCRD/scripts/fillEmptyVerses.pl");
-  $SCOPE = &fillEmptyVerses($VERSESYS, $OSISFILE, $TMPDIR);
+  require("$SCRD/scripts/getScope.pl");
+  $SCOPE = &getScope($VERSESYS, $OSISFILE);
   if ($SCOPE) {
     if ($ConfEntry{"Scope"} && $ConfEntry{"Scope"} ne $SCOPE) {
       &Log("ERROR: Scope is set incorrectly in $CONFFILE. Remove this entry.\n");
