@@ -1,6 +1,6 @@
 # This file is part of "osis-converters".
 # 
-# Copyright 2012 John Austin (gpl.programs.info@gmail.com)
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
 #     
 # "osis-converters" is free software: you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License as 
@@ -24,224 +24,175 @@
 #   those books which should have cross-references inserted into them.
 #   If no books are listed, then cross-references will be added to 
 #   ALL books in the OSIS file.
-   
+
+$NumNotes = 0;   
 $crossRefs = "$SCRD/scripts/CrossReferences/CrossRefs_";
 if (!$VERSESYS || $VERSESYS eq "KJV") {$crossRefs .= "KJV.txt";}
 else {$crossRefs .= "$VERSESYS.txt";}
 if (!-e $crossRefs) {
   &Log("ERROR: Missing cross reference file for \"$VERSESYS\": $crossRefs.\n");
+  die;
 }
-else {
-  &Log("-----------------------------------------------------\nSTARTING addCrossRefs.pl\n\n");
 
+&Log("-----------------------------------------------------\nSTARTING addCrossRefs.pl\n\n");
+
+my $booklist = "";
+if (-e $COMMANDFILE) {
   &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
   &normalizeNewLines($COMMANDFILE);
   &removeRevisionFromCF($COMMANDFILE);
   open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
-  $books = "";
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     if ($_ =~ /^\#/) {next;}
-    elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:(\s*(.*?)\s*)?$/) {if ($1) {$removeEmptyRefs = $2; next;}}
+    elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:(\s*(.*?)\s*)?$/) {if ($1) {$RemoveIfMissingTarget = $2; next;}}
     elsif ($_ =~ /:/) {next;}
-    elsif ($_ =~ /\/(\w+)\.[^\/]+$/) {$bnm=$1;}
-    elsif ($_ =~/^\s*(\w+)\s*$/) {$bmn=$1;}
+    elsif ($_ =~ /\/(\w+)\.[^\/]+$/) {}
+    elsif ($_ =~/^\s*(\w+)\s*$/) {}
     else {next;}
-    $bnm=$1;
-    $bookName = &getOsisName($bnm);
-    $books = "$books $bookName";
+    $booklist .= " " . &getOsisName($1);
   }
-  if ($books =~ /^\s*$/) {
-    $useAllBooks = "true";
-    &Log("You are including cross references for ALL books.\n\n");
+  close(COMF);
+}
+
+if (!$booklist || $booklist =~ /^\s*$/) {
+  $useAllBooks = "true";
+  &Log("You are including cross references for ALL books.\n");
+}
+else {
+  $useAllBooks = "false"; 
+  &Log("You are including cross references for the following books:\n$booklist\n");
+}
+
+&Log("READING OSIS FILE: \"$INPUTFILE\".\n");
+use XML::LibXML;
+my $xpc = XML::LibXML::XPathContext->new;
+my $NS = "http://www.bibletechnologies.net/2003/OSIS/namespace";
+$xpc->registerNs('x', $NS);
+my $parser = XML::LibXML->new();
+my $xml = $parser->parse_file($INPUTFILE);
+
+my %book;
+foreach my $b ($xpc->findnodes('//x:div[@type="book"]', $xml)) {
+  my $bk = $b->findvalue('./@osisID');
+  $book{$bk} = $b;
+}
+
+my %verse;
+my @verses = $xpc->findnodes('//x:verse', $xml);
+foreach my $v (@verses) {
+  if ($v->hasChildNodes()) {&Log("ERROR: addCrossRefs.pl expects milestone verse tags\n"); die;}
+  my $tt = 'start';
+  my $refs = $v->findvalue('./@sID');
+  if (!$refs) {
+    $tt = 'end';
+    $refs = $v->findvalue('./@eID');
+  }
+  my @osisRefs;
+  if ($refs =~ /^([^\.]+\.\d+)\.(\d+)-(\d+)$/) {
+    my $bc = $1;
+    my $v1 = $2;
+    my $v2 = $3;
+    for (my $v=$v1; $v<=$v2; $v++) {push(@osisRefs, "$bc.$v");}
+  }
+  else {@osisRefs = split(/\s+/, $refs);}
+  foreach my $ref (@osisRefs) {$verse{$ref}{$tt} = $v;}
+}
+
+&Log("READING CROSS REFERENCE FILE \"$crossRefs\".\n");
+copy($crossRefs, "$crossRefs.tmp");
+&normalizeNewLines("$crossRefs.tmp");
+open(NFLE, "<:encoding(UTF-8)", "$crossRefs.tmp") or die "Could not open cross reference file \"$crossRefs.tmp\".\n";
+while (<NFLE>) {
+  $line++; #if (!($line%100)) {print "$line\n";}
+  if ($_ =~ /^\s*$/) {next;}
+  elsif ($_ !~ /^(norm:|para:)?([^\.]+)\.(\d+)\.(\d+):\s*(<note .*?<\/note>)\s*$/) {&Log("WARNING: Skipping unrecognized line, $line: $_"); next;}
+  my $type = $1;
+  my $b = $2;
+  my $c = $3;
+  my $v = $4;
+  my $note = $5;
+  chop($type);
+
+  if (!defined($book{$b})) {next;} # Skip if this note's book is not in the OSIS file
+  
+  if (($useAllBooks ne "true") && ($booklist !~ /(^|\s+)$b(\s+|$)/)) {next;}
+  
+  my $tmp = $note;
+  if ($RemoveIfMissingTarget eq "true") {
+    while ($tmp =~ s/<reference osisRef="(([^\.]+)\.[^"]+)"><\/reference>//) {
+      my $osisRef = $1;
+      my $bk = $2;
+      if ($booklist =~ /$bk/) {next;}
+      $note =~ s/<reference osisRef="osisRef"><\/reference>//;
+    }
+  }
+  
+  my $osisID = "$b.$c.$v!crossReference." . ($type eq "para" ? "p":"n");
+  my $attribs = "osisRef=\"$b.$c.$v\" osisID=\"$osisID" . ++$REFNUM{$osisID} . "\"";
+  $note =~ s/(type="crossReference")/$1 $attribs/;
+
+  # Add reference text: 1, 2, 3 etc.
+  my $i = 1;
+  my $sp = ",";
+  while($note =~ s/(<reference[^>]*>)(<\/reference>)/$1$i$sp$2/i) {$i++;}
+  $note =~ s/^(.*)$sp(<\/reference>)(.*?)$/$1$2$3/i;
+  
+  # target module needs to be used here, but this will break xulsword (as of May 2014) so is postponed!
+  #my $bible = ($MOD ? $MOD:"Bible");
+  #$note =~ s/(<reference[^>]*osisRef=")/$1$bible:/g;
+  
+  if ($note !~ /^<note type="crossReference" osisRef="[^\.]+\.\d+\.\d+" osisID="[^\.]+\.\d+\.\d+\!crossReference\.(n|p)\d+"( subType="x-parallel-passage")?>(<reference osisRef="([^\.]+\.\d+(\.\d+)?-?)+">\d+,?<\/reference>)+<\/note>$/) {
+    &Log("ERROR: Bad cross reference: \"$note\"\n"); next;
+  }
+
+  if (!$verse{"$b.$c.$v"}) {&Log("WARNING: Target not found, trying v+1 for $type:$b.$c.$v\n"); $v++;}
+  if (!$verse{"$b.$c.$v"}) {&Log("WARNING: Target+1 not found, trying v+2 for $type:$b.$c.$v\n"); $v++;}
+  if (!$verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
+
+  my $noteNode = @{$parser->parse_balanced_chunk($note)->childNodes}[0];
+  if ($type eq "para") {
+    my $nt = @{$xpc->findnodes('following::text()[1]', $verse{"$b.$c.$v"}{'start'})}[0];
+    my $ns = "";
+    while ($nt) {
+      if (my $title = @{$xpc->findnodes('ancestor::x:title', $nt)}[0] || $nt =~ /^\s*$/) {$nt = @{$xpc->findnodes('following::text()[1]', $nt)}[0];}
+      elsif (my $note = @{$xpc->findnodes('ancestor::x:note', $nt)}[0]) {$note->parentNode->insertAfter($noteNode, $note); last;}
+      elsif (my $reference = @{$xpc->findnodes('ancestor::x:reference', $nt)}[0]) {$reference->parentNode->insertBefore($noteNode, $reference); last;}
+      else {$nt->parentNode->insertBefore($noteNode, $nt); last;}
+    }
+    if ($nt) {$NumNotes++;}
+    else {&Log("ERROR: Could not place para note \"$b.$c.$v\"\n");}
   }
   else {
-    $useAllBooks = "false"; 
-    &Log("You are including cross references for the following books:\n$books\n\n");
-  }
-
-  # Collect cross references from list file...
-  &Log("READING CROSS REFERENCE FILE \"$crossRefs\".\n");
-  copy($crossRefs, "$crossRefs.tmp");
-  &normalizeNewLines("$crossRefs.tmp");
-  open(NFLE, "<:encoding(UTF-8)", "$crossRefs.tmp") or die "Could not open cross reference file \"$crossRefs.tmp\".\n";
-  $emptyRefs=0;
-  $line=0;
-  while (<NFLE>) {
-    $line++;
-    if ($_ =~ /^\s*$/) {next;}
-    elsif ($_ !~ /(norm:|para:)?(.*?):\s*(.*)/) {next;}
-    $typ = $1;
-    $bcv = $2;
-    $nts = $3;
-    
-    my $osrf = $bcv;
-    my $osid = $osrf."!crossReference.".($typ eq "para:" ? "p":"n");
-    $osid .= ++$OSISREF{$osid};
-    $nts =~ s/(type="crossReference")/$1 osisRef="$osrf" osisID="$osid"/;
-    # If this book is not included in this file, then don't save it
-    $bcv =~ /^([^\.]+)\./;
-    $bk = $1;
-    if (($useAllBooks ne "true") && ($books !~ /(^|\s+)$bk(\s+|$)/)) {next;}
-    
-    $tmp = $nts;
-    $printRefs = "";
-    if ($removeEmptyRefs eq "true") {
-      # Strip out references to books which aren't included in this module
-      while ($tmp =~ s/<reference osisRef="(([^\.]+)\.[^"]+)"><\/reference>//) { #"{
-        $thisRef = $1;
-        $thisbk = $2;
-        $printRefs = "$printRefs$thisRef; ";
-        if ($books =~ /$thisbk/) {next;}
-        $nts =~ s/<reference osisRef="$thisRef"><\/reference>//;
-      }
-    }
-    # Remove empty cross referece footnotes
-    if ($nts =~ /<note [^>]*type="crossReference"[^>]*>\s*<\/note>/) {
-      $emptyRefs++;
-      &Log("WARNING line $line: Removed empty cross reference note for $bcv: $printRefs\n");
-      next;
-    }
-    if ($nts =~ /^\s*$/) {
-      &Log("ERROR line $line: Removed empty line.\n");
-      next;
-    }
-    my $i=1;
-    my $sp=",";
-    while($nts =~ s/(<reference[^>]*>)(<\/reference>)/$1$i$sp$2/i) {$i++;}
-    $sp = quotemeta($sp);
-    $nts =~ s/^(.*)$sp(<\/reference>)(.*?)$/$1$2$3/i;
-    
-    # target module needs to be used here, but this will break xulsword (as of May 2014) so is postponed!
-    #my $bible = ($MOD ? $MOD:"Bible");
-    #$nts =~ s/(<reference[^>]*osisRef=")/$1$bible:/g;
-    
-    $refs{"$typ$bcv"} = $nts;
-  }
-  close (NFLE);
-  unlink("$crossRefs.tmp");
-  &Log("Removed $emptyRefs empty cross reference notes.\n");
-  &Log("\n");
-
-  &Log("READING OSIS FILE: \"$INPUTFILE\".\n");
-  &Log("WRITING OSIS FILE: \"$OUTPUTFILE\".\n");
-
-  &Log("\nSTARTING PASS 1\n");
-  &addCrossRefs;
-
-  # Check that all cross references were copied to OSIS
-  &Log("FINISHED PASS 1\n\n");
-  $failures="false";
-  foreach $ch (keys %refs) {
-    if ($refs{$ch} ne "placed" && $refs{$ch} ne "moved") {
-      $failures="true"; 
-      &Log("WARNING: $ch = $refs{$ch} Cross References were not copied to OSIS file\n");
-    }
-  }
-
-  if ($failures eq "true") {
-    &Log("\nSTARTING PASS 2\n");
-    rename($OUTPUTFILE, "tmpFile.txt");
-    $INPUTFILE = "tmpFile.txt";
-    &addCrossRefs;
-    unlink("tmpFile.txt");
-    &Log("FINISHED PASS 2\n\n");
-    $failures="false";
-    foreach $ch (keys %refs) {
-      if ($refs{$ch} ne "placed" && $refs{$ch} ne "moved") {
-        $failures="true"; 
-        &Log("WARNING: $ch = $refs{$ch} Cross References were not copied to OSIS file\n"); 
-      }
-    }
-  }
-  if ($failures eq "true") {
-    &Log("\nSTARTING PASS 3\n");
-    rename($OUTPUTFILE, "tmpFile.txt");
-    $INPUTFILE = "tmpFile.txt";
-    &addCrossRefs;
-    unlink("tmpFile.txt");
-    &Log("FINISHED PASS 3\n\n");
-    $failures="false";
-    foreach $ch (keys %refs) {
-      if ($refs{$ch} ne "placed" && $refs{$ch} ne "moved") {
-        $failures="true"; 
-        &Log("WARNING: $ch = $refs{$ch} Cross References were not copied to OSIS file\n");
-      }
-    }
-  }
-  if ($failures eq "false") {&Log("All Cross References have been placed.\n");}
-
-}  
-
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
-
-sub addCrossRefs {
-  open(INF, "<:encoding(UTF-8)", $INPUTFILE);
-  open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
-
-  $line=0;
-  while (<INF>) {
-    $line++;
-    if ($_ =~ /<chapter /) {$tv = 0;}
-    if ($_ =~ /<verse.*?sID="(.*?)\.(\d+)\.([\d-]+)"/) {
-      $tag = "$1.$2.$3";
-      $bkch = "$1.$2";
-      $acrbk = $1;
-      $verses = $3;
-
-      # If this container covers multiple verses, we need to check each verse for cross references
-      if ($verses =~ /(\d+)-(\d+)/) {$reps=$2-$1+1; $st=$1;}
-      else {$reps=1; $st=$verses;}
-
-      $endlessLoop=0;
-      while ($reps > 0) {
-        $tv++;
-  #print "OUTER LOOP: read-$st, internal-$tv\n";
-        while ($tv != $st) {
-          $endlessLoop++;
-          if ($endlessLoop==200) {&Log("ERROR line $line: Endless loop encountered!\n"); die;}
-  #print "INNER LOOP: read>$st<, internal>$tv<\n";
-          $mkey = "norm:$bkch.$tv";
-          if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
-            $tmp = $tv-1;
-            $refs{"norm:$bkch.$tmp"} = $refs{"norm:$bkch.$tv"};
-            $refs{"norm:$bkch.$tv"} = "moved";
-            &Log("Moved note norm:$bkch.$tv to norm:$bkch.$tmp\n");
-          }
-          $mkey = "para:$bkch.$tv";
-          if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
-            $tmp = $tv-1;
-            $refs{"para:$bkch.$tmp"} = $refs{"para:$bkch.$tv"};
-            $refs{"para:$bkch.$tv"} = "moved";
-            &Log("Moved note para:$bkch.$tv to para:$bkch.$tmp\n");
-          }
-          $tv++;
+    my $pt = @{$xpc->findnodes('preceding::text()[1]', $verse{"$b.$c.$v"}{'end'})}[0];
+    while ($pt) {
+      if (my $title = @{$xpc->findnodes('ancestor::x:title', $pt)}[0] || $pt =~ /^\s*$/) {$pt = @{$xpc->findnodes('preceding::text()[1]', $pt)}[0];}
+      elsif (my $note = @{$xpc->findnodes('ancestor::x:note', $pt)}[0]) {$note->parentNode->insertAfter($noteNode, $note); last;}
+      elsif (my $reference = @{$xpc->findnodes('ancestor::x:reference', $pt)}[0]) {$reference->parentNode->insertAfter($noteNode, $reference); last;}
+      else {
+        my $punc = '';
+        my $txt = $pt->nodeValue();
+        if ($txt =~ s/([\.\?\s]+)$//) {
+          $punc = $1;
+          $pt->setData($txt);
         }
-        # if there is a cross reference for this verse, then place it appropriately
-        $mkey = "norm:$bkch.$st";
-        if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
-          # Insert these cross references before verse end tag and before any series of: titles, milestone tags, end tags other than </note>, ".", "?" or \s
-          if    ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!(note|reference))[^>]*>|<[^>]*\/>)*<verse eID="$tag"\/>\s*$)/$1$refs{$mkey}$2/) {}
-          elsif ($_ =~ s/^(.*?)((\.|\?|\s|<title((?:(?!<\/title).)*)<\/title>|<\/(?!(note|reference))[^>]*>|<[^>]*\/>)*<\/verse>\s*$)/$1$refs{$mkey}$2/) {}
-          # If no end verse marker, just tack cross references at end of line
-          else  {$_ = "$_$refs{$mkey}";}
-          $refs{$mkey} = "placed";
-        }
-        $mkey = "para:$bkch.$st";
-        if ($refs{$mkey} && $refs{$mkey} ne "moved" && $refs{$mkey} ne "placed") {
-          # Insert these cross references after verse start tag, and after any series of: titles, milestone tags, start tags other than <note>, or \s
-          $_ =~ s/(<verse[^>]+>(\s|<title.*?<\/title>|<(?!(note|reference))[^\/>]*>|<[^>]*\/>)*)/$1$refs{$mkey}/;
-          $refs{$mkey} = "placed";
-        }
-        $st++; $reps--;
+        $pt->parentNode->insertAfter($noteNode, $pt);
+        if ($punc) {$noteNode->parentNode->insertAfter(XML::LibXML::Text->new($punc), $noteNode);}
+        last;
       }
     }
-    print OUTF $_;
+    if ($pt) {$NumNotes++;}
+    else {&Log("ERROR: Could not place norm note \"$b.$c.$v\"\n");}
   }
-
-  close (OUTF);
-  close (INF);
 }
+close (NFLE);
+unlink("$crossRefs.tmp");
+
+&Log("WRITING OSIS FILE: \"$OUTPUTFILE\".\n");
+open(OUTF, ">$OUTPUTFILE");
+print OUTF $xml->toString();
+close(OUTF);
+
+&Log("REPORT: Placed $NumNotes cross-reference notes.\n");
 
 1;

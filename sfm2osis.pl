@@ -60,7 +60,6 @@ require "$SCRD/scripts/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf starter file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/texts/ztext/$MODLC/";}
 
 $OSISFILE = "$OUTDIR/".$MOD.".xml";
 $LOGFILE = "$OUTDIR/OUT_sfm2osis.txt";
@@ -97,7 +96,7 @@ if (-e $COMMANDFILE) {
   &Log("\n--- CONVERTING PARATEXT TO OSIS\n");
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $NOCONSOLELOG = 1;
-  if (!$DEBUG_SKIP_CONVERSION) {require("$SCRD/scripts/paratext2osis.pl");}
+  require("$SCRD/scripts/paratext2osis.pl");
   $NOCONSOLELOG = 0;
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
@@ -120,7 +119,6 @@ $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
 if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
 if ($addDictLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING DICTIONARY LINKS\n");
-  $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   $NOCONSOLELOG = 1;
@@ -131,14 +129,12 @@ else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 close(CONF);
 
 # run addCrossRefs.pl
-$COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
-if ($addCrossRefs && !-e $COMMANDFILE) {&Log("ERROR: Skipping cross-reference insertion. Missing command file: $COMMANDFILE.\n");}
-if ($addCrossRefs && -e $COMMANDFILE) {
+if ($addCrossRefs) {
   &Log("\n--- ADDING CROSS REFERENCES\n");
   $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   $OUTPUTFILE = $OSISFILE;
-  $NOCONSOLELOG = 1;
+#  $NOCONSOLELOG = 1;
   require("$SCRD/scripts/addCrossRefs.pl");
   $NOCONSOLELOG = 0;
 }

@@ -259,35 +259,36 @@ while (<COMF>) {
   }
   else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
 }
-
 close(COMF);
 
-if ($usfm2osis) {
-  &USFMtoISIS;
-}
-else {
-  # Write closing tags, and close the output file
-  &Write("$endTestament\n</osisText>\n</osis>\n", 1);
-  close (OUTF);
-
-  # Check and report...
-  if (keys %notes > 0) {&checkRemainingNotes;}
-  &Log("PROCESSING COMPLETE.\n");
-  if ($findalltags ne "true") {
-    &Log("Following is the list of unhandled tags which were skipped:\n");
-  }
+if (!$DEBUG_SKIP_CONVERSION) {
+  if ($usfm2osis) {&USFMtoISIS;}
   else {
-    &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
-  }
-  foreach $tag (sort keys %skippedTags) {
-    #&Log("$skippedTags{$tag}"); #complete printout
-    &Log("$tag "); #brief printout
+    # Write closing tags, and close the output file
+    &Write("$endTestament\n</osisText>\n</osis>\n", 1);
+    close (OUTF);
+
+    # Check and report...
+    if (keys %notes > 0) {&checkRemainingNotes;}
+    &Log("PROCESSING COMPLETE.\n");
+    if ($findalltags ne "true") {
+      &Log("Following is the list of unhandled tags which were skipped:\n");
+    }
+    else {
+      &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
+    }
+    foreach $tag (sort keys %skippedTags) {
+      #&Log("$skippedTags{$tag}"); #complete printout
+      &Log("$tag "); #brief printout
+    }
+
+    &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
   }
 
-  &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+  &Log("\nEnd of listing\n");
 }
+else {&Log("\nDebug: skipping conversion\n");}
 
-&Log("\nEnd of listing\n");
 1;
 
 #-------------------------------------------------------------------------------
@@ -1145,6 +1146,8 @@ sub checkRemainingNotes {
 sub Write($$) {
   my $print = shift;
   my $commit = shift;
+  
+  if ($usfm2osis) {return;}
   
   if (!fileno(OUTF)) {
     open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
