@@ -58,6 +58,8 @@
 #   EXIT - Exit the script at this point. Useful for debug.
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
+#   CHANGE_TAG: \col2 -> \p - (usfm2osis.py) Change a tag before conversion. 
+#       Multiple CHANGE_TAG commands are allowed.
 #   IGNORE - A tag-list of SFM lines which should be ignored.
 #   INTRO_TITLE_1 - A tag-list representing titles used in a 
 #       book introduction.
@@ -153,6 +155,7 @@ $addScripRefLink=0;
 $addDictLinks=0;
 $addCrossRefs=0;
 $usfm2osis=0;
+%Changetags;
 
 $line=0;
 while (<COMF>) {
@@ -186,6 +189,7 @@ while (<COMF>) {
   elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
   elsif ($_ =~ /^EXIT:(\s*(.*?)\s*)?$/) {if ($1) {if ($2 !~ /^(0|false)$/i) {last;}}}
   # FORMATTING TAGS...
+  elsif ($_ =~ /^CHANGE_TAG:\s*\\(\S+)\s*->\s*\\(\S+)\s*$/) {$Changetags{$1} = $2; next;}
   elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
   elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
   elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
@@ -292,6 +296,27 @@ else {
 
 sub USFMtoISIS {
   &Log("Processing USFM $USFMfiles\n");
+  
+  # If needed, preprocess tags before running usfm2osis.py
+  if (%Changetags) {
+    my $tmp = "$TMPDIR/sfm";
+    make_path($tmp);
+    foreach my $f1 (glob $USFMfiles) {copy($f1, $tmp);}
+    $USFMfiles = "$tmp/*.*";
+    foreach my $f2 (glob $USFMfiles) {
+      open(SFM, "<:encoding(UTF-8)", $f2) || die "ERROR: could not open \"$f2\"\n";
+      open(SFM2, ">:encoding(UTF-8)", "$f2.new") || die;
+      while(<SFM>) {
+        foreach my $t1 (keys %Changetags) {$_ =~ s/\\$t1\b/\\$Changetags{$t1}/g;}
+        print SFM2 $_;
+      }
+      close(SFM2);
+      close(SFM);
+      unlink($f2);
+      rename("$f2.new", "$f2");
+    }
+  }
+  
   my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " Bible.$MOD -v -x -r -o " . &escfile("$OUTPUTFILE") . " $USFMfiles";
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
