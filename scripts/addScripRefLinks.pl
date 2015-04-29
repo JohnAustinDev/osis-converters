@@ -739,6 +739,11 @@ sub getOSISRef(\$\$\$\$\$\$) {
 	if ($vs == -1 && $mustHaveVerse eq "true") {$$osisP = ""; return 0;}
 	else {
 		$$osisP = $$bkP.".".$$chP;
+    
+    # Some Ps have a verse 0 canonical title, but SWORD does not support verse "0". 
+    # so move these references so they point to verse 1 and are not just dropped.
+    if ($$bkP eq "Ps" && $vs == 0) {$vs++;}
+  
 		# A value of -1 means don't include verse in OSIS ref
 		if ($vs != -1) {$$osisP .= ".".$vs;}
 		if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}

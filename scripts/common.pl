@@ -969,6 +969,24 @@ sub updatedSwordConf($) {
 }
 
 
+sub id2refs($) {
+  my $osisID = shift;
+  my @refs;
+  if ($osisID =~ /^([^\.]+\.\d+)\.(\d+)-(\d+)$/) {
+    my $bc = $1;
+    my $v1 = $2;
+    my $v2 = $3;
+    for (my $v=$v1; $v<=$v2; $v++) {push(@refs, "$bc.$v");}
+  }
+  elsif ($osisID =~ /^([^\.]+\.\d+\.\d+(\s|$))+/) {
+    @refs = split(/\s+/, $osisID);
+  }
+  else {&Log("ERROR Bad id \"$osisID\"\n");}
+  
+  return @refs;
+}
+
+
 $ProgressTotal = 0;
 $ProgressTime = 0;
 sub logProgress($$) {
