@@ -135,7 +135,7 @@ if ($CrossRefFile =~ /\.xml$/) {
 }
 else {
   copy($CrossRefFile, "$CrossRefFile.tmp");
-  &normalizeNewLines("$crossRefs.tmp");
+  &normalizeNewLines("$CrossRefFile.tmp");
   open(NFLE, "<:encoding(UTF-8)", "$CrossRefFile.tmp") or die "Could not open cross reference file \"$CrossRefFile.tmp\".\n";
   while (<NFLE>) {
     $line++; #if (!($line%100)) {print "$line\n";}
