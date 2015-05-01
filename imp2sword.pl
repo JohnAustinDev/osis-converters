@@ -30,7 +30,6 @@ if ($INPD) {
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
-  my $dproj = "./Example_Glossary";
   print "\nusage: imp2sword.pl [Glossary_Directory]\n";
   print "\n";
   exit;
@@ -65,7 +64,6 @@ if ($imageDir && $imageDir =~ /^\./) {
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld4/$MODLC/";}
 
 $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
@@ -88,70 +86,18 @@ if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 &Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
 
-$TMPDIR = "$OUTDIR/tmp/dict2mod";
+$TMPDIR = "$OUTDIR/tmp/imp2sword";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
 &Log("\n--- CREATING NEW $MOD MODULE\n");
+
+# create and check module's conf file
 $SWDD = "$OUTDIR/sword";
+make_path("$SWDD/mods.d");
 
-# create new conf
-if (!-e "$SWDD/mods.d") {make_path("$SWDD/mods.d");}
-copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf") || die "Could not copy dict conf $CONFFILE\n";
-if ($ConfEntry{"ModDrv"} && $ConfEntry{"ModDrv"} ne "RawLD4") {
-  &Log("ERROR: ModDrv is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"Category"} && $ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
-  &Log("ERROR: Category is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"DataPath"} && $ConfEntry{"DataPath"} ne "./modules/lexdict/rawld4/$MODLC/$MODLC") {
-  &Log("ERROR: DataPath is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"} ne "UTF-8") {
-  &Log("ERROR: Encoding is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"MinimumVersion"} && $ConfEntry{"MinimumVersion"} ne "1.5.11") {
-  &Log("ERROR: MinimumVersion is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"SourceType"} && $ConfEntry{"SourceType"} ne "OSIS") {
-  &Log("ERROR: SourceType is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"SwordVersionDate"}) {
-  &Log("WARN: SwordVersionDate is set in $CONFFILE. Remove this entry to have it update automatically\n");
-}
-
-open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not open \"$SWDD/mods.d/$MODLC.conf\"\n";
-$ret = "\n";
-if ($ConfEntry{"ModDrv"} ne "RawLD4") {
-  print CONF $ret."ModDrv=RawLD4\n"; $ret="";
-}
-if ($ConfEntry{"Category"} ne "Lexicons / Dictionaries") {
-  print CONF $ret."Category=Lexicons / Dictionaries\n"; $ret="";
-}
-if ($ConfEntry{"DataPath"} ne "./modules/lexdict/rawld4/$MODLC/$MODLC") {
-  print CONF $ret."DataPath=./modules/lexdict/rawld4/$MODLC/$MODLC\n"; $ret="";
-}
-if ($ConfEntry{"Encoding"} ne "UTF-8") {
-  print CONF $ret."Encoding=UTF-8\n"; $ret="";
-}
-if ($ConfEntry{"MinimumVersion"} ne "1.5.11") {
-  print CONF $ret."MinimumVersion=1.5.11\n"; $ret="";
-}
-if ($ConfEntry{"SourceType"} ne "OSIS") {
-  print CONF $ret."SourceType=OSIS\n"; $ret="";
-}
-if (!$ConfEntry{"SearchOption"}) {
-  print CONF $ret."SearchOption=IncludeKeyInSearch\n"; $ret="";
-}
-if (!$ConfEntry{"SwordVersionDate"}) {
-  my @tm = localtime(time);
-  print CONF $ret."SwordVersionDate=".sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3])."\n"; $ret="";
-}
-# The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
-if (!$ConfEntry{"CaseSensitiveKeys"}) {
-  print CONF $ret."CaseSensitiveKeys=true\n"; $ret="";
-}
-close(CONF);
+&updatedSwordConf("$SWDD/mods.d/$MODLC.conf");
+$CONFFILE = "$SWDD/mods.d/$MODLC.conf";
 
 # create new module files
 make_path("$SWDD/$MODPATH");
@@ -171,8 +117,15 @@ if ($imageDir) {
 $installSize = 0;        
 # NOTE: this installSize should not include the index.     
 find(sub { $installSize += -s if -f $_ }, "$SWDD/$MODPATH");
-open(CONF, ">>:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not append to conf $SWDD/mods.d/$MODLC.conf\n";
-print CONF "\nInstallSize=$installSize\n";
+open(CONF, ">>:encoding(UTF-8)", $CONFFILE) || die "Could not append to conf $CONFFILE\n";
+print CONF "Category=Lexicons / Dictionaries\n";
+print CONF "MinimumVersion=1.5.11\n";
+print CONF "SearchOption=IncludeKeyInSearch\n";
+# The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
+print CONF "CaseSensitiveKeys=true\n";
+my @tm = localtime(time);
+print CONF "SwordVersionDate=".sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3])."\n";
+print CONF "InstallSize=$installSize\n";
 close(CONF);
 
 # make a zipped copy of the module
@@ -185,5 +138,10 @@ else {
   `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
   chdir($INPD);
 }
+
+&Log("\n");
+open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
+while(<CONF>) {&Log($_);}
+close(CONF);
 
 1;

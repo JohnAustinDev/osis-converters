@@ -38,7 +38,6 @@ if ($INPD) {
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
-  my $dproj = "./Example_Glossary";
   print "\nusage: sfm2imp.pl [Glossary_Directory]\n";
   print "\n";
   exit;
@@ -55,7 +54,6 @@ require "$SCRD/scripts/common.pl";
 $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
-if (!$MODPATH) {$MODPATH = "./modules/lexdict/rawld4/$MODLC/";}
 
 $IMPFILE = "$OUTDIR/".$MOD.".imp";
 $LOGFILE = "$OUTDIR/OUT_sfm2imp.txt";
@@ -71,7 +69,7 @@ if ($delete) {
 if (-e $IMPFILE) {unlink($IMPFILE);}
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
-$TMPDIR = "$OUTDIR/tmp/src2imp";
+$TMPDIR = "$OUTDIR/tmp/sfm2imp";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
@@ -83,28 +81,6 @@ if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
-&normalizeNewLines($CONFFILE);
-open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-$ret = "\n";
-if ($ConfEntry{"Encoding"} && $ConfEntry{"Encoding"}  ne "UTF-8") {
-  &Log("ERROR: Encoding is set incorrectly in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"SourceType"} && $ConfEntry{"SourceType"}  ne "OSIS") {
-  &Log("ERROR: SourceType is set in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"OSISVersion"} && $ConfEntry{"OSISVersion"}  ne $OSISVersion) {
-  &Log("ERROR: OSISVersion is set in $CONFFILE. Remove this entry.\n");
-}
-if ($ConfEntry{"Encoding"}  ne "UTF-8") {
-  print CONF $ret."Encoding=UTF-8\n"; $ret="";
-}
-if ($ConfEntry{"SourceType"}  ne "OSIS") {
-  print CONF $ret."SourceType=OSIS\n"; $ret="";
-}
-if ($ConfEntry{"OSISVersion"}  ne $OSISVersion) {
-  print CONF $ret."OSISVersion=$OSISVersion\n"; $ret="";
-}
-close(CONF);
 
 # run paratext2imp.pl
 $COMMANDFILE = "$INPD/CF_paratext2imp.txt";
@@ -123,10 +99,6 @@ $COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
 if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
 if ($addScripRefLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
-  if (!$ConfEntry{"ReferenceBible"}) {
-    &Log("ERROR: ReferenceBible is not specified in $CONFFILE.\n");
-    &Log("Any companion Bible should be listed in $CONFFILE: ReferenceBible=<BibleModName>\n");
-  }
   $INPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $NOCONSOLELOG = 1;
