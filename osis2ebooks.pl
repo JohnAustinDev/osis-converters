@@ -75,6 +75,10 @@ copy("$INPD/eBook/convert.txt", "$TMPDIR/convert.txt");
 copy("$OUTDIR/$MOD.xml", "$TMPDIR/$MOD.xml");
 copy("$SCRD/eBooks/css/ebible.css", "$TMPDIR/ebible.css");
 
+# get scope for naming output files
+&updatedSwordConf("$TMPDIR/config.conf");
+&getInfoFromConf("$TMPDIR/config.conf");
+
 # run the converter
 &makeEbook("$TMPDIR/$MOD.xml", 'epub');
 &makeEbook("$TMPDIR/$MOD.xml", 'mobi');
@@ -92,8 +96,13 @@ sub makeEbook($$$) {
   
   my $out = "$TMPDIR/$MOD.$format";
   if (-e $out) {
-    copy($out, "$OUTDIR/eBooks/");
-    &Log("REPORT: Created output file: $MOD.$format\n");
+    my $name = "$MOD.$format";
+    if ($ConfEntry{"Scope"}) {
+      $name = $ConfEntry{"Scope"} . ".$format";
+      $name =~ s/\s/_/g;
+    }
+    copy($out, "$OUTDIR/eBooks/$name");
+    &Log("REPORT: Created output file: $name\n");
   }
   else {&Log("ERROR: No output file: $out\n");}
 }

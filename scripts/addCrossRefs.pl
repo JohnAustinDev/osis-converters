@@ -185,11 +185,10 @@ sub insertNote($\$) {
   # add non-localized readable reference text (required by some front ends)
   my @refs = $XPC->findnodes("osis:reference", $noteP);
   for (my $i=0; $i<@refs; $i++) {
-    # target module needs to be used here, but this will break xulsword (as of May 2014) so is postponed!
-    #my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
-    #my $new = $osisRef->getValue();
-    #$new =~ s/^Bible:/$MOD:/;
-    #$osisRef->setValue($new);
+    my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
+    my $new = $osisRef->getValue();
+    $new =~ s/^Bible:/$MOD:/;
+    $osisRef->setValue($new);
     @refs[$i]->insertAfter(XML::LibXML::Text->new(sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','))), undef);
   }
   

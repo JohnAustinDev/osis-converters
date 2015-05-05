@@ -340,10 +340,8 @@ while (<INF2>) {
 		$_ =~ s/<newReference/<reference type=\"$refType\"/g;
 		$_ =~ s/newReference/reference/g;
 	}
-	
-	# target module needs to be used here, but this will break xulsword (as of May 2014) so is postponed!
-	my $bible = "Bible"; 
-	#my $bible = ($MOD ? $MOD:"Bible");
+	 
+	my $bible = ($MOD ? $MOD:"Bible");
 	s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
 
 	print OUTF $_;

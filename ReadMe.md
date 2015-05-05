@@ -26,10 +26,6 @@ output TEI dictionaries.
 
 ##Deprecated or no longer utilized
 
-* Use of `<reference type="x-glosslink">` was used for glossary 
-"see-also" links which point to other glossary terms. With SWORD 1.7s 
-OSISReferenceLinks filter this is no longer necessary and has been 
-dropped.
 * `TabLabel` conf entry was replaced by the standard entry: `Abbreviation`.
 * `GlobalOptionFilter = OSISDictionary` was replaced by the standard 
 `OSISReferenceLinks` filter.

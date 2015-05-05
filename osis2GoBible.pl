@@ -65,7 +65,7 @@ if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exi
 $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
-$GBOUT = "$OUTDIR/GoBible/$MOD$REV";
+$GBOUT = "$OUTDIR/GoBible/$MOD";
 
 $LOGFILE = "$OUTDIR/OUT_osis2GoBible.txt";
 

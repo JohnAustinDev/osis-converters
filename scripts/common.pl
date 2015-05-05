@@ -942,34 +942,26 @@ sub updatedSwordConf($) {
   my $type = '';
   my $infile = $OSISFILE;
   if ($MODDRV =~ /ld/i) {$type = 'dictionary'; $infile = $IMPFILE;}
-  elsif ($MODDRV =~ /test/i) {$type = 'bible';}
+  elsif ($MODDRV =~ /text/i) {$type = 'bible';}
   elsif ($MODDRV =~ /com/i) {$type = 'commentary';}
   else {$type = 'genbook';}
 
 
   # get OSIS file's dictionary filter and module requirements
   open(OSIS, "<:encoding(UTF-8)", $infile) || die "Could not open infile $infile\n";
-  my %referenceWorks;
-  my $numrefs = 0;
-  while(<OSIS>) {$_ =~ s/(<reference[^>]*osisRef="([^:"]+):([^"]+)"[^>]*>)/$numrefs++; if ($2 ne $MOD && $2 ne "Bible") {$referenceWorks{$2}++;} my $r=$1/ge;}
-  close(OSIS);
-  if ($numrefs) {print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";}
-  if (keys %referenceWorks && $ConfEntry{"GlobalOptionFilter"} !~ /OSISReferenceLinks/) {
-    foreach my $r (keys %referenceWorks) {
-      if ($type eq 'dictionary') {
-        # deprecated:
-        if ($ConfEntry{"ReferenceBible"} !~ /\Q$r\E/ ) {
-          print CONF "ReferenceBible=$r\n";
-        }
-      }
-      else {
-        # deprecated:
-        if ($ConfEntry{"DictionaryModule"} !~ /\Q$r\E/ ) {
-          print CONF "DictionaryModule=$r\n";
-        }
-      }
+  my $haveGlossLink = 0;
+  my $haveGlossary = 0;
+  while(<OSIS>) {
+    if (!$haveGlossLink && $_ =~ /<reference [^>]*type="x-glosslink"/) {
+      print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference See Also Links|Hide or show see-also links in the text.|x-glosslink||On\n";
+      $haveGlossLink++;
+    }
+    if (!$haveGlossary && $_ =~ /<reference [^>]*type="x-glossary"/) {
+      print CONF "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
+      $haveGlossary++;
     }
   }
+  close(OSIS);
   
   # get scope
   if ($type eq 'bible' || $type eq 'commentary') {

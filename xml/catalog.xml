@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!DOCTYPE catalog PUBLIC "-//OASIS/DTD Entity Resolution XML Catalog V1.0//EN" "http://www.oasis-open.org/committees/entity/release/1.0/catalog.dtd">
+
+<!-- The whole purpose of this catalog is to allow quicker osis file validation. 
+W3C enforces a long DTD request time to spare its servers, so such files are mirrored locally -->
+
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
+  <rewriteSystem systemIdStartString="http://www.w3.org/2001/" rewritePrefix="./www.w3.org/2001/"/>
+	<nextCatalog catalog="/etc/xml/catalog.xml" />
+</catalog>

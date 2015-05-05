@@ -148,7 +148,8 @@ if (!$DEBUG_SKIP_CONVERSION) {
   # validate new OSIS file against schema
   &Log("\n--- VALIDATING OSIS SCHEMA\n");
   &Log("BEGIN OSIS SCHEMA VALIDATION\n");
-  $cmd = $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
+  $cmd = ("$^O" =~ /linux/i ? "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ":'');
+  $cmd .= $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
   &Log("$cmd\n");
   system($cmd);
   &Log("END OSIS SCHEMA VALIDATION\n");
