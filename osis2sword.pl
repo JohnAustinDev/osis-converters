@@ -33,7 +33,6 @@ if ($INPD) {
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
-  my $dproj = "./Example_Bible";
   print "\nusage: osis2sword.pl [Project_Directory]\n";
   print "\n";
   exit;
@@ -52,7 +51,7 @@ $CONFFILE = "$INPD/config.conf";
 if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
 &getInfoFromConf($CONFFILE);
 
-$OSISFILE = "$OUTDIR/".$MOD.".xml";
+$OSISFILE = "$OUTDIR/$MOD.xml";
 if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
 $LOGFILE = "$OUTDIR/OUT_osis2sword.txt";
 
@@ -77,8 +76,17 @@ make_path($TMPDIR);
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
-$IS_usfm2osis = &usfm2osisXSLT($OSISFILE, "$USFM2OSIS/osis2sword.xsl", "$TMPDIR/osis.xml");
-if ($IS_usfm2osis) {$OSISFILE = "$TMPDIR/osis.xml";}
+# run xslt if OSIS came from usfm2osis.py
+$IS_usfm2osis = &is_usfm2osis($OSISFILE);
+if ($IS_usfm2osis) {
+  my $xsl = ''; my $out = '';
+  if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
+  elsif ($MODDRV =~ /LD/) {$xsl = 'osis2tei.xsl'; $out = "tei";}
+  if ($xsl) {
+    &usfm2osisXSLT($OSISFILE, "$USFM2OSIS/$xsl", "$TMPDIR/$out.xml");
+    $OSISFILE = "$TMPDIR/$out.xml";
+  }
+}
 
 # create and check module's conf file
 &updatedSwordConf("$TMPDIR/config.conf");
@@ -101,6 +109,21 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 	chdir("$SWDD/$MODPATH");
 	system($cmd);
 	chdir("$defdir")
+}
+elsif ($MODDRV =~ /LD/) {
+  copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf");
+  make_path("$SWDD/$MODPATH");
+  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$VERSESYS.")\n");
+  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWDD/$MODPATH")." ".&escfile($OSISFILE)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
+  &Log("$cmd\n", -1);
+  system($cmd);
+  opendir(MODF, "$SWDD/$MODPATH");
+  my @mf = readdir(MODF);
+  closedir(MODF);
+  foreach my $m (@mf) {
+  if ($m !~ /^dict\.(.*?)$/) {next;}
+    rename("$SWDD/$MODPATH/$m", "$SWDD/$MODPATH/$MODLC.$1");
+  }
 }
 else {
 	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");

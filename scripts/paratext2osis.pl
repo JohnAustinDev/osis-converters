@@ -150,7 +150,7 @@ $notePattern="";
 $NoteType="INLINE";
 $replace1="";
 $replace2="";
-$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis";
+$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis|addSeeAlsoLinks";
 $addScripRefLink=0;
 $addDictLinks=0;
 $addCrossRefs=0;
@@ -169,7 +169,7 @@ while (<COMF>) {
       my $par = $1;
       my $val = $3;
       $$par = $val;
-      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs)$/) {
+      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis|addSeeAlsoLinks)$/) {
         $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
       }
       &Log("INFO: Setting $par to $$par\n");

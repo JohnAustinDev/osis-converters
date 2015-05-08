@@ -43,13 +43,12 @@ if ($INPD) {
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
 }
 else {
-  my $dproj = "./Example_Bible";
-  print "\nusage: sfm2osis.pl [Bible_Directory]\n";
+  print "\nusage: sfm2osis.pl [Project_Directory]\n";
   print "\n";
   exit;
 }
 if (!-e $INPD) {
-  print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";
+  print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
   exit;
 }
 $SCRD = File::Spec->rel2abs( __FILE__ );
@@ -101,6 +100,21 @@ if (-e $COMMANDFILE) {
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
 
+# create DictionaryWords.txt if needed
+if ($MODDRV =~ /LD/) {
+  use XML::LibXML;
+  my $xpc = XML::LibXML::XPathContext->new;
+  $xpc->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
+  my $parser = XML::LibXML->new();
+  my $xml = $parser->parse_file($OUTPUTFILE);
+  my @keywords = $xpc->findnodes('//osis:seg[@type="keyword"]', $xml);
+  open(DWORDS, ">:encoding(UTF-8)", "$OUTDIR/DictionaryWords_autogen.txt") or die "Could not open $OUTDIR/DictionaryWords_autogen.txt";
+  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DE$i:".uc(@keywords[$i]->textContent())."\n";}
+  print DWORDS "\n########################################################################\n\n";
+  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DL$i:".@keywords[$i]->textContent()."\n";}
+  close(DWORDS);
+}
+
 # run addScripRefLinks.pl
 $COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
 if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
@@ -114,45 +128,59 @@ if ($addScripRefLinks && -e $COMMANDFILE) {
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
-# run addDictLinks.pl
-$COMMANDFILE = "$INPD/CF_addDictLinks.txt";
-if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($addDictLinks && -e $COMMANDFILE) {
-  &Log("\n--- ADDING DICTIONARY LINKS\n");
-  $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
-  $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
-  $NOCONSOLELOG = 1;
-  require("$SCRD/scripts/addDictLinks.pl");
-  $NOCONSOLELOG = 0;
+# run addDictLinks.pl or addSeeAlsoLinks.pl
+if ($MODDRV =~ /Text/) {
+  $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
+  if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+  if ($addDictLinks && -e $COMMANDFILE) {
+    &Log("\n--- ADDING DICTIONARY LINKS\n");
+    $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
+    $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
+    $NOCONSOLELOG = 1;
+    require("$SCRD/scripts/addDictLinks.pl");
+    $NOCONSOLELOG = 0;
+  }
 }
-else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
-close(CONF);
+elsif ($MODDRV =~ /LD/) {
+  $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
+  if ($addSeeAlsoLinks && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
+  if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+  if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
+    &Log("\n--- ADDING DICTIONARY LINKS\n");
+    $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
+    $OUTPUTFILE = "$OUTDIR/".$MOD."_3.xml";
+    $NOCONSOLELOG = 1;
+    require("$SCRD/scripts/addSeeAlsoLinks.pl");
+    $NOCONSOLELOG = 0;
+  }
+}
+if (!-e "$TMPDIR/".$MOD."_3.xml") {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 
 # run addCrossRefs.pl
-if ($addCrossRefs) {
+if ($addCrossRefs && ($MODDRV =~ /Text/ || $MODDRV =~ /Com/)) {
   &Log("\n--- ADDING CROSS REFERENCES\n");
   $COMMANDFILE = "$INPD/CF_addCrossRefs.txt";
   $INPUTFILE = "$TMPDIR/".$MOD."_3.xml";
   $OUTPUTFILE = $OSISFILE;
-#  $NOCONSOLELOG = 1;
+  $NOCONSOLELOG = 1;
   require("$SCRD/scripts/addCrossRefs.pl");
   $NOCONSOLELOG = 0;
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
 
-# order books in OSIS file according to chosen vlln
-require("$SCRD/scripts/toVersificationBookOrder.pl");
-&toVersificationBookOrder($VERSESYS, $OSISFILE);
-
-if (!$DEBUG_SKIP_CONVERSION) {
-  # validate new OSIS file against schema
-  &Log("\n--- VALIDATING OSIS SCHEMA\n");
-  &Log("BEGIN OSIS SCHEMA VALIDATION\n");
-  $cmd = ("$^O" =~ /linux/i ? "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ":'');
-  $cmd .= $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
-  &Log("$cmd\n");
-  system($cmd);
-  &Log("END OSIS SCHEMA VALIDATION\n");
+if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+  # order books in OSIS file according to chosen vlln
+  require("$SCRD/scripts/toVersificationBookOrder.pl");
+  &toVersificationBookOrder($VERSESYS, $OSISFILE);
 }
+
+# validate new OSIS file against schema
+&Log("\n--- VALIDATING OSIS SCHEMA\n");
+&Log("BEGIN OSIS SCHEMA VALIDATION\n");
+$cmd = ("$^O" =~ /linux/i ? "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ":'');
+$cmd .= $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($OSISFILE)." 2>> ".&escfile($LOGFILE);
+&Log("$cmd\n");
+system($cmd);
+&Log("END OSIS SCHEMA VALIDATION\n");
 
 1;

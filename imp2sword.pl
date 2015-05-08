@@ -90,8 +90,6 @@ $TMPDIR = "$OUTDIR/tmp/imp2sword";
 if (-e $TMPDIR) {remove_tree($TMPDIR);}
 make_path($TMPDIR);
 
-&Log("\n--- CREATING NEW $MOD MODULE\n");
-
 # create and check module's conf file
 $SWDD = "$OUTDIR/sword";
 make_path("$SWDD/mods.d");
@@ -102,8 +100,8 @@ $CONFFILE = "$SWDD/mods.d/$MODLC.conf";
 # create new module files
 make_path("$SWDD/$MODPATH");
 chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
-$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." -o ./$MODLC -4 >> ".&escfile($LOGFILE);
-#$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." $MODLC >> ".&escfile($LOGFILE);
+&Log("\n--- CREATING $MOD Dictionary OSIS SWORD MODULE (".$VERSESYS.")\n");
+$cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." -o ./$MODLC ".($MODDRV eq "RawLD4" ? "-4 ":"").">> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
 chdir($INPD);

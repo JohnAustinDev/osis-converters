@@ -341,8 +341,10 @@ while (<INF2>) {
 		$_ =~ s/newReference/reference/g;
 	}
 	 
-	my $bible = ($MOD ? $MOD:"Bible");
-	s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
+  my $bible = "Bible";
+  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
+  elsif ($ConfEntry{"ReferenceBible"}) {$bible = $ConfEntry{"ReferenceBible"};}
+  s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
 
 	print OUTF $_;
 }
