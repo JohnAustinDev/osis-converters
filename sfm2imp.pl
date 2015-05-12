@@ -81,12 +81,12 @@ if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 # insure the following conf settings are in the conf file
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
+$IS_usfm2osis = 0;
 
 # run paratext2imp.pl
 $COMMANDFILE = "$INPD/CF_paratext2imp.txt";
 if (-e $COMMANDFILE) {
   &Log("\n--- CONVERTING PARATEXT TO IMP\n");
-  $DICTWORDS = "DictionaryWords.txt";
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.imp";
   $NOCONSOLELOG = 1;
   require("$SCRD/scripts/paratext2imp.pl");
@@ -109,9 +109,8 @@ else {rename("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");}
 
 # run addSeeAlsoLinks.pl
 $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-if ($addSeeAlsoLinks && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
 if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
+if ($addSeeAlsoLinks && -e $COMMANDFILE) {
   &Log("\n--- ADDING DICTIONARY LINKS\n");
   $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
   $OUTPUTFILE = "$OUTDIR/".$MOD.".imp";

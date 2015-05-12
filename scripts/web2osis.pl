@@ -758,7 +758,7 @@ sub osis2SWORD(\$) {
 			$ch =~ s/&nbsp;/ /g; # entities will become literals!
 			$ch =~ s/\s+/ /g;
 			$ch =~ s/(^\s+|\s+$)//g; # trim start & end
-			if ($TrueFalseInstruction{"UPPERCASE_CHAPTER_TITLES"}) {$ch = uc($ch);}
+			if ($TrueFalseInstruction{"UPPERCASE_CHAPTER_TITLES"}) {$ch = uc2($ch);}
 			my $chReadable = $ch;
 			$ch =~ s/_+/_/g;
 			$ch =~ s/\s+/ /g;

@@ -42,17 +42,14 @@
   
 $DEBUG = 0;
 
-$hs = "<hi type=";
-$he = "</hi>";
-
 &Log("-----------------------------------------------------\nSTARTING addSeeAlsoLinks.pl\n\n");
 
 $ReferenceType = "x-glosslink";
-$AllGlossaryTypes = "x-glossary|x-glosslink";
-$SpecialCapitals = ""; # Mappings like i->I a->A override normal capitalization
 $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '`
-$Checkonly = 0;        # If set, don't parse new links, only check existing links
-
+$DICTIONARY_WORDS = 'DictionaryWords.txt';
+$Linklog = '';
+$Links = 0;
+    
 &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
 &Log("\n");
 &normalizeNewLines($COMMANDFILE);
@@ -61,187 +58,186 @@ open(CF,"<:encoding(UTF-8)", $COMMANDFILE) or die "ERROR: Could not open command
 while (<CF>) {
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^\#/) {next;}
-  elsif ($_ =~ /^SKIP_ENTRIES:(\s*(.*?)\s*)?$/) {if ($1) {$dontAddSeeAlsoLinkTo = $2;}} # ALL ENTRIES MUST BE FOLLOWED BY ";" !!
-  elsif ($_ =~ /^DONT_LINK_TO:(\s*(.*?)\s*)?$/) {if ($1) {$dontlinkto = $2;}}
-  elsif ($_ =~ /^DONT_LINK_TOA_INB:(\s*(.*?)\s*)?$/) {if ($1) {$dontlinktoainb = $2;}}
-  elsif ($_ =~ /^LINK_HILIGHT_TEXT:(\s*(.*?)\s*)?$/) {if ($1) {$linkhilight = $2;}}
-  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(\s*(.*?)\s*)?$/) {if ($1) {$allowidentlinks = $2;}}
-  elsif ($_ =~ /^CHECK_ONLY:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}}
+  elsif ($_ =~ /^SKIP_ENTRIES:(\s*(.*?)\s*)?$/) {if ($1) {$SKIP_ENTRIES = $2;}} # ALL ENTRIES MUST BE FOLLOWED BY ";" !!
+  elsif ($_ =~ /^DONT_LINK_TO:(\s*(.*?)\s*)?$/) {if ($1) {$DONT_LINK_TO = $2;}}
+  elsif ($_ =~ /^DONT_LINK_TOA_INB:(\s*(.*?)\s*)?$/) {if ($1) {$DONT_LINK_TOA_INB = $2;}}
+  elsif ($_ =~ /^LINK_HILIGHT_TEXT:(\s*(.*?)\s*)?$/) {if ($1) {my $b = $2; $Linkhilight = ($b !~ /^(false|0)$/i ? 1:0);}}
+  elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(\s*(.*?)\s*)?$/) {if ($1) {my $b = $2; $Allowidentlinks = ($b !~ /^(false|0)$/i ? 1:0);}}
+  elsif ($_ =~ /^CHECK_ONLY:(\s*(.*?)\s*)?$/) {if ($1) {my $b = $2; $Checkonly = ($b !~ /^(false|0)$/i ? 1:0);}}
   elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PAL .= $2;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2;}}
   elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$ReferenceType = $2;}}
 }
 close (CF);
-&Log("Will not add \"See Also\" links to: $dontAddSeeAlsoLinkTo\n");
-&Log("Will not create links to these entries: $dontlinkto\n");
-&Log("Will not create links to A in B: $dontlinktoainb\n");
-if ($linkhilight eq "true") {&Log("Will create links within hilighted text.\n");}
-if ($allowidentlinks eq "true") {&Log("Will create muliple links to same target within entry.\n");}
+&Log("Will not add \"See Also\" links to: $SKIP_ENTRIES\n");
+&Log("Will not create links to these entries: $DONT_LINK_TO\n");
+&Log("Will not create links to A in B: $DONT_LINK_TOA_INB\n");
+if ($Linkhilight) {&Log("Will create links within hilighted text.\n");}
+if ($Allowidentlinks) {&Log("Will create muliple links to same target within entry.\n");}
 &Log("\n");
 
-&Log("READING IMP FILE: \"$INPUTFILE\".\n");
-&Log("WRITING IMP FILE: \"$OUTPUTFILE\".\n");
+&Log("READING INPUT FILE: \"$INPUTFILE\".\n");
+&Log("WRITING OUTPUT FILE: \"$OUTPUTFILE\".\n");
 
+my @Words, %DictsForWord, %SearchTerms;
+my %ReportList, %EntryCount, %EntryLink;
 if ($Checkonly) {
   &Log("Skipping link search. Checking existing links only.\n");
   &Log("\n");
   copy("$INPUTFILE", "$OUTPUTFILE");
 }
 else {
-  &Log("READING GLOSSARY FILE: \"$INPD/$DICTWORDS\".\n");
-  &Log("\n");
-  open (IN0, "<:encoding(UTF-8)", "$INPD/$DICTWORDS") or die "Could not open word list file $INPD/$DICTWORDS.\n";
-  $line=0;
-  while (<IN0>) {
-    $line++;
-    if ($_ =~ /DE(\d+):(.*?)[\n\r\l]/i) {$entry[$1]=$2;}
-    if ($_ =~ /DL(\d+):(.*?)[\n\r\l]/i) {$dict[$1]=$2; $index{$2} = $1;}
-  }
-  close (IN0);
+  &readGlossWordFile("$INPD/$DICTIONARY_WORDS", $MOD, \@Words, \%DictsForWord, \%SearchTerms);
 
-  open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
-  open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
-  my $linklog = "";
-  $line=0;
-  &logProgress($INPUTFILE, -1);
-  $links=0;
-  # Don't make links of bold or italicized words/phrases or titles or footnotes
-  $splitter = "(<title.*?<\\/title>|<note.*?<\\/note>|<figure[^>]*>";
-  if ($linkhilight ne "true") {$splitter = $splitter . "|<hi type=.*?<\\/hi>";}
-  $splitter = $splitter . ")";
-  while (<INF>) {
-    $line++;
+  &Log("PARSING LINKS...\n");
+  
+  # Process OSIS input file (from usfm2osis.py)
+  if ($IS_usfm2osis) {
     
-    $_ =~ s/\|i(.*?)\|r/<i>$1<\/i>/g;
-    $_ =~ s/\|b(.*?)\|r/<b>$1<\/b>/g;
-    if ($_ =~ /^\$\$\$(.*)\s*$/) {
-      $currentEntry=$1;
-      $linksInEntry=";";
-      &logProgress($currentEntry, $line);
-    }
-    elsif ($dontAddSeeAlsoLinkTo !~ /(^|;)\Q$currentEntry;/i) {
-  PARSELINE:
-      $startover = "false";
-      @parts = split(/$splitter/);
-      foreach $sb (@parts){
-        if ($sb !~ /$splitter/) {
-          foreach $w (sort {length($b) <=> length($a)} @dict) {
-            if (!$w) {next;}
-            my $skip=0;
-            for (my $i=0; $i<@dict; $i++) {
-              if ($dict[$i] eq $w) {
-                if ($entry[$i] eq $currentEntry) {$skip=1;}
-              }
+    my $skipnames = "reference|figure|title|note" . (!$Linkhilight ? '|hi':''); # make no links inside these elements
+  
+    my $xml = $XML_PARSER->parse_file($INPUTFILE);
+    my @entries = $XPC->findnodes("//*[count(descendant::".$KEYWORD.")=1]|".$KEYWORD."[count(../child::".$KEYWORD.")>1]", $xml);
+    for (my $i=0; $i<@entries; $i++) {
+      my $currentEntry=@{$XPC->findnodes("descendant-or-self::".$KEYWORD, $entries[$i])}[0]->textContent();
+      &Log("-> $currentEntry\n", 2);
+      my $skiplist = '';
+      if (&skipEntry($currentEntry, \$skiplist)) {next;}
+      my $done;
+      do {
+        $done = 1;
+        my @elems = $XPC->findnodes('self::*|following::*', $entries[$i]);
+        for (my $j=0; $j<@elems && ($i==@entries-1 || !@elems[$j]->isSameNode($entries[$i+1])); $j++) {
+          if ($elems[$j]->localname =~ /^($skipnames)$/) {next;}
+          my @textchildren = $XPC->findnodes('child::text()', $elems[$j]);
+          foreach my $textchild (@textchildren) {
+            my $text = $textchild->data();
+            if (&addGlossLink(\$text, \%DictsForWord, \%SearchTerms, \%ReportList, \%EntryCount, 1, \$skiplist, $ReferenceType, NULL, NULL)) {
+              $textchild->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
+              $textchild->unbindNode();
+              $text =~ /<reference[^>]*>\s*(.*?)\s*<\/reference[^>]*>/; $EntryLink{$1." in ".$currentEntry}++;
+              $done = 0;
             }
-            if ($skip) {next;}
-            if ($allowidentlinks ne "true") {if ($linksInEntry =~ /;$w;/i) {next;}}
-            if ($dontlinkto =~ /(^|;)$w;/i) {next;}
-            if ($dontlinktoainb =~ /(^|;)$w,$currentEntry;/i) {next;}
-            # Don't make links within links!
-            @links = split(/(<reference .*?<\/reference>)/,$sb);
-            foreach $ln (@links) {
-              if ($ln !~ /(<reference .*?<\/reference>)/) {
-                $tmpln = $ln;
-                $wt = $w;
-                $wt =~ s/[\(\)\{\}\[\]\$\^\*\+\-]/./g; #allows us to match these special perl chars in entry names!
-                
-                # It seems the following <reference> additions should use addGlossLink() instead of this custom code?
-                # All matching below is case insensitive, regardless of DL entry instructions, which seems wrong.
-                # Also, the case insensitive matching below incorrectly handles SpecialCapitals!
-                
-                # using "if" replaces only the first, but "while" will replace all...
-                if ($tmpln =~ s/(^|\W)($wt)(\W|$)/$1$3/i) {
-                  $pc=$1; $ww=$2; $sc=$3;
-                  if ($pc eq "." && $sc eq "\"") {&Log("$INPUTFILE line $line: Link matched self. Quitting snippet...\n"); last;}
-                  $osisRef = $MOD . ":" . encodeOsisRef($entry[$index{$w}]);
-                  $ln =~ s/\Q$pc$ww$sc/$pc<reference type=\"x-glosslink\" osisRef="$osisRef">$ww<\/reference>$sc/;
-                  $linklog .= "Linked to \"$w\" in \"$currentEntry\".\n";
-                  $linksInEntry = $linksInEntry.$w.";";
-                  $entryLength{$currentEntry} = length($_);
-                  $links++;
-                  $startover = "true";
-                }
-              }
-            }
-          $sb = join("",@links);
-          if ($startover eq "true") {last;}
           }
-          if ($startover eq "true") {last;}
         }
-      }
-      $_ = join("",@parts);
-      if ($startover eq "true") {goto PARSELINE;}
+      } while(!$done);
     }
-    print OUTF $_;
+    open(OUTF, ">$OUTPUTFILE") or die "Could not open $OUTPUTFILE.\n";
+    print OUTF $xml->toString();
+    close(OUTF);
+    
   }
-  close (INF);
-  close (OUTF);
-  &Log("REPORT: \"See Also\" links added: ($links instances)\n");
-  &Log($linklog);
-  &Log("\n");
+  
+  # Or process IMP input file
+  else {
+  
+    # For backward compatibility with IMP, dictionary search terms should NEVER match any suffixes
+    foreach my $w (keys %SearchTerms) {
+      my $w2 = $w;
+      if ($w2 =~ s/^("?[^"]*?)((\s|<.*?>)*)$/$1"$2/) {
+        my $targ = $SearchTerms{$w};
+        delete($SearchTerms{$w});
+        $SearchTerms{$w2} = $targ;
+      }
+    }
+  
+    open(INF, "<:encoding(UTF-8)", $INPUTFILE) or die "Could not open $INPUTFILE.\n";
+    open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+    my $line=0;
+    &logProgress($INPUTFILE, -1);
+    my $skiptags = "(<title.*?<\\/title[^>]*>|<note.*?<\\/note[^>]*>|<figure[^>]*>|<reference.*?<\\/reference[^>]*>";
+    if (!$Linkhilight) {$skiptags .= "|<hi.*?<\\/hi[^>]*>";}
+    $skiptags .= ")";
+    my $skiplist;
+    my $skipentry = 0;
+    my $currentEntry;
+    while (<INF>) {
+      $line++;
+      if ($_ =~ /^\$\$\$(.*)\s*$/) {
+        $currentEntry=$1;
+        &logProgress($currentEntry, $line);
+        $skiplist = '';
+        $skipentry = &skipEntry($currentEntry, \$skiplist);
+      }
+      elsif (!$skipentry) {
+        my $done;
+        do {
+          $done = 1;
+          my @parts = split(/$skiptags/);
+          foreach my $sb (@parts) {
+            if ($sb =~ /$skiptags/) {next;}
+            if (&addGlossLink(\$sb, \%DictsForWord, \%SearchTerms, \%ReportList, \%EntryCount, 1, \$skiplist, $ReferenceType, NULL, NULL)) {
+              $sb =~ /<reference[^>]*>\s*(.*?)\s*<\/reference[^>]*>/; $EntryLink{uc2($1)." in ".$currentEntry}++;
+              $done = 0;
+            }
+          }
+          $_ = join('', @parts);
+        } while (!$done);
+      }
+      print OUTF $_;
+    }
+    close (INF);
+    close (OUTF);
+  }
+  
 }
 
 # Check link targets and repair if needed
-$AllWordFiles{$MOD} = $DICTWORDS;
-&checkGlossReferences($OUTPUTFILE, $AllGlossaryTypes, \%AllWordFiles);
+$AllWordFiles{$MOD} = $DICTIONARY_WORDS;
+&checkGlossReferences($OUTPUTFILE, "x-glossary|x-glosslink", \%AllWordFiles);
 
-# LOG ALL CIRCULAR REFERENCES...
-&Log("CHECKING FOR CIRCULAR ENTRIES...\n");
-open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
-$line=0;
-while (<INF>) {
-  $line++;
-  if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry=$1;}
-  else {
-    while ($_ =~ s/<reference type="x-glosslink" osisRef="$MOD\:([^\"]+)">.*?<\/reference>//) {
-      $seeAlsosForWord{$currentEntry} = "$seeAlsosForWord{$currentEntry}$1;";
-    }
+&Log("\nCHECKING FOR CIRCULAR ENTRIES...\n");
+my $numfound = 0;
+my %seeAlsosForWord;
+my %dontlinkAinB;
+if ($IS_usfm2osis) {
+  my $xml = $XML_PARSER->parse_file($OUTPUTFILE);
+  my @refs = $XPC->findnodes('//osis:reference[@type="x-glosslink"]', $xml);
+  foreach my $ref (@refs) {
+    my $currentEntry = @{$XPC->findnodes("preceding::".$KEYWORD."[1]", $ref)}[0]->textContent();
+    my $osisRef;
+    if (!&readGlossaryRef(\$ref, \$osisRef)) {next;}
+    $seeAlsosForWord{$currentEntry} .= &decodeOsisRef($osisRef).';';
+  }
+  foreach my $ref (@refs) {
+    my $currentEntry = @{$XPC->findnodes("preceding::".$KEYWORD."[1]", $ref)}[0]->textContent();
+    my $osisRef;
+    if (!&readGlossaryRef(\$ref, \$osisRef)) {next;}
+    &checkCircular($currentEntry, &decodeOsisRef($osisRef), \%seeAlsosForWord, \%dontlinkAinB);
   }
 }
-close(INF);
-  
-open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
-$line=0;
-$numfound=0;
-while (<INF>) {
-  $line++;
-  
-  if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry=$1;}
-  else {
-    while ($_ =~ s/<reference type="x-glosslink" osisRef="$MOD\:([^\"]+)">.*?<\/reference>//) {
-      $seeAlsoWord = $1;
-      $words2check = $seeAlsosForWord{$seeAlsoWord};
-      # Does this entry have a link to another entry which has a link back to the original entry?
-      if ($words2check eq "") {next;}
-      $words2check =~ s/$currentEntry;//g; # remove any circular reference
-      # if nothing left, then this is a simple circular reference.
-      if ($words2check =~ /^\s*$/) {
-        &Log("$INPUTFILE line $line: CIRCULAR REFERENCE \"$seeAlsoWord\" from entry \"$currentEntry\"\n");
-        $dontlinkAinB{"$currentEntry,$seeAlsoWord;"}++;
-        $numfound++;
-        next;
-      }
-      # if there are other links, we should not say the entry is circular unless all these other links also go back to the original entry
-      else {
-        $secondaryWordsAreCircular = "true";
-        while ($words2check =~ s/^(.*?);//) {
-          $secondaryWords2Check = $seeAlsosForWord{$1};
-          if ($secondaryWords2Check eq "") {$secondaryWordsAreCircular = "false";}
-          $secondaryWords2Check =~ s/$currentEntry;//g;
-          if ($secondaryWords2Check !~ /^\s*$/) {$secondaryWordsAreCircular = "false";}
-        }
-        if ($secondaryWordsAreCircular eq "true") {
-          &Log("$INPUTFILE line $line: (SECONDARILY) CIRCULAR REFERENCE \"$seeAlsoWord\" from entry \"$currentEntry\"!\n");
-          $dontlinkAinB{"$currentEntry,$seeAlsoWord;"}++;
-          $numfound++;
-          next;
-        }
+else {
+  my $currentEntry;
+  open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+  while (<INF>) {
+    if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry = $1;}
+    else {
+      while ($_ =~ s/<reference ([^>]*)>.*?<\/reference>//) {
+        my $a = $1;
+        if ($a !~ /type="x-glosslink"/ || $a !~ /osisRef="$MOD\:([^\"]+)"/) {next;} 
+        $seeAlsosForWord{$currentEntry} .= &decodeOsisRef($1).';';
       }
     }
   }
+  close(INF);
+  open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) or die "Could not open $OUTPUTFILE.\n";
+  while (<INF>) {
+    if ($_ =~ /^\$\$\$(.*)\s*$/) {$currentEntry = $1;}
+    else {
+      while ($_ =~ s/<reference ([^>]*)>.*?<\/reference>//) {
+        my $a = $1;
+        if ($a !~ /type="x-glosslink"/ || $a !~ /osisRef="$MOD\:([^\"]+)"/) {next;} 
+        my $seeAlsoWord = &decodeOsisRef($1);
+        &checkCircular($currentEntry, $seeAlsoWord, \%seeAlsosForWord, \%dontlinkAinB);
+      }
+    }
+  }
+  close(INF);
 }
-close(INF);
-&Log("Found $numfound circular cross references in \"$OUTPUTFILE\".\n");
+
+my $numfound = 0;
+foreach my $k (keys %dontlinkAinB) {$numfound += $dontlinkAinB{$k}};
+&Log("\nREPORT: Found $numfound circular cross references in \"$OUTPUTFILE\".\n");
 if (!$Checkonly && $numfound > 0) {
   &Log("Circular references can be eliminated with the following line in the CF file:\n");
   &Log("DONT_LINK_TOA_INB:");
@@ -250,11 +246,83 @@ if (!$Checkonly && $numfound > 0) {
     # For instance: entry for "blue ribbon" would say "see ribbons", and ribbons would be a compound entry.
     # We will assume the longer entry is the compound entry, and the shorter entry is the "see ..." entry:
     $dlab =~ /([^,]+),([^;]+);/;
-    if ($entryLength{$1} > $entryLength{$2}) {$dlab = "$2,$1;";}
+    if ($EntryLength{$1} > $EntryLength{$2}) {$dlab = "$2,$1;";}
     &Log($dlab);
   }
   &Log("\n");
 }
 
+&logGlossReplacements("$INPD/$DICTIONARY_WORDS", \@Words, \%ReportList, \%EntryCount);
+$n = 0; foreach my $k (keys %EntryLink) {$n++;}
+&Log("REPORT: \"See Also\" links added: ($n instances)\n");
+foreach my $k (sort keys %EntryLink) {&Log("Linked to $k.\n");}
+
 &Log("FINISHED\n\n");
+
+########################################################################
+########################################################################
+
+
+# returns 1 to skip this entry, or adds terms to skiplist to skip terms
+# while linking this entry
+sub skipEntry($\$) {
+  my $currentEntry = shift;
+  my $skiplistP = shift;
+
+  if ($SKIP_ENTRIES =~ /(^|;)\Q$currentEntry\E;/i) {return 1;}
+
+  foreach my $searchTerm (keys %SearchTerms) {
+    my $entry = $SearchTerms{$searchTerm};
+    my $skip = 0;
+    if ($entry eq $currentEntry) {$skip = 1;}
+    if ($DONT_LINK_TO =~ /(^|;)\Q$entry\E;/i) {$skip = 1;}
+    if ($DONT_LINK_TOA_INB =~ /(^|;)\Q$entry,$currentEntry\E;/i) {$skip = 1;}
+    if ($skip) {$$skiplistP .= $searchTerm.';';}
+  }
+
+  return 0;
+}
+
+sub readGlossaryRef(\$\$) {
+  my $refP = shift;
+  my $osisRef = shift;
+  if (ref($$refP) ne "XML::LibXML::Element") {return 0;}
+  $$osisRef = $$refP->getAttribute('osisRef');
+  if (!$$osisRef || $$osisRef !~ /^$MOD\:(.*)$/) {$$refP = NULL; return 0;}
+  $$osisRef = $1;
+  return 1;
+}
+
+sub checkCircular($$\%\%) {
+  my $entry = shift;
+  my $seeAlsoWord = shift;
+  my $seeAlsosForWordP = shift;
+  my $dontlinkAinBp = shift;
+
+  my $words2check = $seeAlsosForWordP->{$seeAlsoWord};
+  # Does this entry have a link to another entry which has a link back to the original entry?
+  if (!$words2check) {next;}
+  $words2check =~ s/$entry;//g; # remove any circular reference
+  # if nothing left, then this is a simple circular reference.
+  if ($words2check =~ /^\s*$/) {
+    &Log("CIRCULAR REFERENCE: target of link \"$seeAlsoWord\" in entry \"$entry\" only links back to entry.\n");
+    $dontlinkAinBp->{"$entry,$seeAlsoWord;"}++;
+    next;
+  }
+  # if there are other links, we should not say the entry is circular unless all these other links also go back to the original entry
+  else {
+    my $secondaryWordsAreCircular = "true";
+    while ($words2check =~ s/^(.*?);//) {
+      my $secondaryWords2Check = $seeAlsosForWord{$1};
+      if (!$secondaryWords2Check) {$secondaryWordsAreCircular = "false";}
+      $secondaryWords2Check =~ s/$entry;//g;
+      if ($secondaryWords2Check !~ /^\s*$/) {$secondaryWordsAreCircular = "false";}
+    }
+    if ($secondaryWordsAreCircular eq "true") {
+      &Log("CIRCULAR REFERENCE: target of link \"$seeAlsoWord\" in entry \"$entry\", and its sibling links, all return back to entry.\n");
+      $dontlinkAinBp->{"$entry,$seeAlsoWord;"}++;
+      next;
+    }
+  }
+}
 

@@ -83,7 +83,6 @@ open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2im
 
 $IgnoreTags = "";
 $ContinuationTerms = "";
-$SpecialCapitals = "";
 $GlossExp = "";
 $normpar = "";
 $doublepar = "";
@@ -136,7 +135,7 @@ while (<COMF>) {
   # VARIOUS SETTINGS...
   elsif ($_ =~ /^#/) {next;}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
   
   # FORMATTING TAGS...
   elsif ($_ =~ /^START_WITH_NEWLINE:\s*(.*?)\s*$/) {$newLine = $1; $newLine = ($newLine && $newLine !~ /^false$/i ? 1:0); next;}
@@ -171,55 +170,6 @@ while (<COMF>) {
   else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
 }
 
-$total = 0;
-$instances = "";
-foreach $e (keys %Glossary) {
-  if (@{$Glossary{$e}} > 1) {
-    $total++;
-    $instances .= "$e\n";
-    while (@{$Glossary{$e}} > 1) {
-      my $txt = splice(@{$Glossary{$e}}, 1, 1);
-      ${$Glossary{$e}}[0] .= $LB.$LB."\n".$txt;
-    }
-  }
-}
-&Log("\nREPORT: Repeated entries combined into a single entry: ($total instances)\n");
-if ($instances) {
-  &Log("NOTE: Glossary keys must be unique. So these entries with identical keys have been merged.\n");
-  &Log("$instances\n");
-}
-
-$total = 0;
-$instances = "";
-foreach $e1 (keys %Glossary) {
-  foreach $e2 (keys %Glossary) {
-    if ($e1 eq $e2) {next;}
-    if ($e1 =~ /$e2/i) {
-      $total++;
-      $instances .= "\"$e1\" contains \"$e2\"\n";
-    }
-  }
-}
-&Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
-if ($total) {
-  &Log("NOTE: Topics covered by these entries may overlap or be repeated.\n");
-  &Log("$instances\n");
-}
-
-$total = 0;
-$instances = "";
-foreach $e (keys %Glossary) {
-  if ($e =~ /(-|,|;|\[|\()/) {
-    $total++;
-    $instances .= "$e\n";
-  }
-}
-&Log("\nREPORT: Compound glossary entry names: ($total instances)\n");
-if ($total) {
-  &Log("NOTE: You may want add separate DL lines for each part into DictionaryWords.txt.\n");
-  &Log("$instances\n");
-}
-
 open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
 foreach $e (sort keys %Glossary) {
   my $txt = ${$Glossary{$e}}[0];
@@ -238,6 +188,7 @@ close (OUTF);
 &Log("\nFollowing tags were removed from entry names:\n");
 foreach $k (keys %convertEntryRemoved) {&Log("$k ");}
 &Log("\nEnd of listing\n");
+&entriesReport(\%Glossary, 1);
 
 # Write DictionaryWords.txt file
 open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) || die "ERROR: Could not open $OUTPUTFILE.\n";
@@ -328,7 +279,7 @@ sub convertEntry($) {
   $e =~ s/<[^>]*>/$convertEntryRemoved{"$1"}++; my $t="";/eg;
   $e =~ s/(^\s*|\s*$)//g;
   $e =~ s/\s+/ /g;
-  $e = &suc($e, $SpecialCapitals);
+  $e = &uc2($e);
   return $e;
 }
 
@@ -368,7 +319,7 @@ sub convertText($$) {
 
   # footnotes, cross references, and glossary entries
   if ($seealsopat) {
-    $l =~ s/($seealsopat)/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
+    $l =~ s/($seealsopat)/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef(&uc2($a))."\">$a<\/reference>";/ge;
   }
   if ($crossrefs) {$l =~ s/($crossrefs)/<note type="crossReference">$+<\/note>/g;}
   if ($notes)     {$l =~ s/($notes)/<note>$+<\/note>/g;}
@@ -443,14 +394,14 @@ sub Write($$) {
   $t =~ s/((\Q$LB\E)|(\s))+$//;
   
   my $save = $e;
-  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+  while ($e =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
     my $msg = "WARNING Before $SFMfile Line $SFMline: SFM Tag \"$+\" was REMOVED from entry name $e\n$save.\n";
     $tagsintext .= $msg;
   }
   
   my $save = $t;
-  while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
-    my $msg = "WARNING Before $SFMfile Line $SFMline: SFM Tag \"$+\" was REMOVED from entry text $e\n$save.\n";
+  while ($t =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
+    my $msg = "WARNING Before $SFMfile Line $SFMline: SFM Tag \"$+\" was REMOVED from entry text $t\n$save.\n";
     $tagsintext .= $msg;
   }
   

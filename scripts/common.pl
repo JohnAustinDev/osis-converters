@@ -20,7 +20,11 @@ use Encode;
 use File::Spec;
 use File::Copy;
 use File::Path qw(make_path remove_tree);
-
+use XML::LibXML;
+$XPC = XML::LibXML::XPathContext->new;
+$XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
+$XML_PARSER = XML::LibXML->new();
+$KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
@@ -225,16 +229,18 @@ sub decodeOsisRef($) {
 }
 
 # Converts to upper case using special translations
-sub suc($$) {
+sub uc2($) {
   my $t = shift;
-  my $i = shift;
   
   # Form for $i: a->A b->B c->C ...
-  $i =~ s/(^\s*|\s*$)//g;
-  my @trs = split(/\s+/, $i);
-  for (my $i=0; $i < @trs; $i++) {
-    my @tr = split(/->/, $trs[$i]);
-    $t =~ s/$tr[0]/$tr[1]/g;
+  if ($SPECIAL_CAPITALS) {
+    my $r = $SPECIAL_CAPITALS;
+    $r =~ s/(^\s*|\s*$)//g;
+    my @trs = split(/\s+/, $r);
+    for (my $i=0; $i < @trs; $i++) {
+      my @tr = split(/->/, $trs[$i]);
+      $t =~ s/$tr[0]/$tr[1]/g;
+    }
   }
 
   $t = uc($t);
@@ -429,6 +435,63 @@ sub readGlossWordFile($$\@\%\%) {
   close (WORDS);
 }
 
+sub entriesReport(\%$) {
+  my $glossP = shift;
+  my $canfix = shift;
+  
+  my $total = 0;
+  my $instances = "";
+  foreach $e (keys %{$glossP}) {
+    if (@{$glossP->{$e}} > 1) {
+      $total++;
+      $instances .= "$e\n";
+      if ($canfix) {
+        while (@{$glossP->{$e}} > 1) {
+          my $txt = splice(@{$glossP->{$e}}, 1, 1);
+          ${$glossP->{$e}}[0] .= $LB.$LB."\n".$txt;
+        }
+      }
+      else {&Log("ERROR: Entry \"$e\" appears more than once. These must be merged.\n"); die;}
+    }
+  }
+  &Log("\nREPORT: Repeated entries".($canfix ? " combined into a single entry":'').": ($total instances)\n");
+  if ($instances) {
+    &Log("NOTE: Glossary keys must be unique. So these entries with identical keys have been merged.\n");
+    &Log("$instances\n");
+  }
+    
+  $total = 0;
+  $instances = "";
+  foreach $e1 (keys %{$glossP}) {
+    foreach $e2 (keys %{$glossP}) {
+      if ($e1 eq $e2) {next;}
+      if ($e1 =~ /$e2/i) {
+        $total++;
+        $instances .= "\"$e1\" contains \"$e2\"\n";
+      }
+    }
+  }
+  &Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
+  if ($total) {
+    &Log("NOTE: Topics covered by these entries may overlap or be repeated.\n");
+    &Log("$instances\n");
+  }
+
+  $total = 0;
+  $instances = "";
+  foreach $e (keys %{$glossP}) {
+    if ($e =~ /(-|,|;|\[|\()/) {
+      $total++;
+      $instances .= "$e\n";
+    }
+  }
+  &Log("\nREPORT: Compound glossary entry names: ($total instances)\n");
+  if ($total) {
+    &Log("NOTE: You may want add separate DL lines for each part into DictionaryWords.txt.\n");
+    &Log("$instances\n");
+  }
+}
+
 sub sortSearchTermKeys($$) {
   my $aa = shift;
   my $bb = shift;
@@ -524,14 +587,14 @@ if ($line == $DEBUG) {&Log("Line $line: searchTerm=$searchTerm\n");}
       if ($$lnP =~ s/(^|\W)($searchTerm$suffix)([^$PAL]|$)/$1<reference $attribs>$2<\/reference>$+/) {
         if ($reportListP) {$reportListP->{"$entry: $2, $dictnames"}++;}
         if ($entryCountP) {$entryCountP->{$entry}++;}
-        if ($skipListP && $useSkipList) {$$skipListP .= $saveSearchTerm.";";}
+        if ($$skipListP && $useSkipList) {$$skipListP .= $saveSearchTerm.";";}
         $linkAdded = 1;
         last;
       }
     }
     elsif ($sflags eq "i") {
-      my $ln = &suc($$lnP, $SpecialCapitals);
-      my $pat = &suc("$searchTerm$suffix", $SpecialCapitals);
+      my $ln = &uc2($$lnP);
+      my $pat = &uc2("$searchTerm$suffix");
 if ($line == $DEBUG) {&Log("Line $line: $ln =~ (^|^.*?\W)($pat)([^$PAL]|$)\n");}
       if ($ln =~ /(^|^.*?\W)($pat)([^$PAL]|$)/) {
         my $m1 = $1;
@@ -543,7 +606,7 @@ if ($line == $DEBUG) {&Log("Line $line: $ln =~ (^|^.*?\W)($pat)([^$PAL]|$)\n");}
 
         if ($reportListP) {$reportListP->{"$entry: $m2o, $dictnames"}++;}
         if ($entryCountP) {$entryCountP->{$entry}++;}
-        if ($skipListP && $useSkipList) {$$skipListP .= $saveSearchTerm.";";}
+        if ($$skipListP && $useSkipList) {$$skipListP .= $saveSearchTerm.";";}
         $linkAdded = 1;
         last;
       }
@@ -1026,6 +1089,10 @@ sub logProgress($$) {
   else {&Log("\n", 2);}
 }
 
+# -1 = only log file (ignore $NOCONSOLELOG)
+#  0 = log file (+ console if !$NOCONSOLELOG)
+#  1 = log file + console
+#  2 = only console
 sub Log($$) {
   my $p = shift; # log message
   my $h = shift; # -1 = hide from console, 1 = show in console, 2 = only console

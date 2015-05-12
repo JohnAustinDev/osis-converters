@@ -31,15 +31,9 @@ sub getScope($$) {
   my %testament;
   
   if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
-    use XML::LibXML;
+    my $xml = $XML_PARSER->parse_file($osis);
     
-    my $xpc = XML::LibXML::XPathContext->new;
-    $xpc->registerNs('x', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
-  
-    my $parser = XML::LibXML->new();
-    my $xml = $parser->parse_file($osis);
-    
-    my @verses = $xpc->findnodes('//x:verse', $xml);
+    my @verses = $XPC->findnodes('//x:verse', $xml);
     foreach my $v (@verses) {
       my $osisID = $v->findvalue('./@osisID');
       @osisID = split(/\s+/, $osisID);

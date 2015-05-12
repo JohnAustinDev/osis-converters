@@ -25,6 +25,8 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
+$UPPERCASE_DICTIONARY_KEYS = 1;
+
 use File::Spec;
 use Cwd;
 $INPD = shift;
@@ -76,9 +78,28 @@ make_path($TMPDIR);
 &Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
 if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
-# run xslt if OSIS came from usfm2osis.py
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
+  # uppercase dictionary keys used to be needed to avoid requiring ICU.
+  # XSLT cannot be used to do this because a custom uc2() Perl function is needed.
+  if ($UPPERCASE_DICTIONARY_KEYS) {
+    my $xml = $XML_PARSER->parse_file($OSISFILE);
+    my $dict;
+    if ($MODDRV =~ /LD/) {
+      $dict = $MOD;
+      my @keywords = $XPC->findnodes('//'.$KEYWORD.'/text()', $xml);
+      foreach my $keyword (@keywords) {$keyword->setData(uc2($keyword->data));}
+    }
+    else {$dict = $ConfEntry{"Companion"}; $dict =~ s/,.*$//;}
+    my @dictrefs = $XPC->findnodes('//osis:reference[contains(@osisRef, "'.$dict.':")]/@osisRef', $xml);
+    foreach my $dictref (@dictrefs) {$dictref->setValue(uc2($dictref->value));}
+    open(OSIS2, ">$TMPDIR/osis_ucdict.xml");
+    print OSIS2 $xml->toString();
+    close(OSIS2);
+    $OSISFILE = "$TMPDIR/osis_ucdict.xml";
+  }
+  
+  # run xslt if OSIS came from usfm2osis.py
   my $xsl = ''; my $out = '';
   if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
   elsif ($MODDRV =~ /LD/) {$xsl = 'osis2tei.xsl'; $out = "tei";}

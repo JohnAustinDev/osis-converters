@@ -29,24 +29,18 @@ sub toVersificationBookOrder($$) {
   my %testament;
   
   if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
-    use XML::LibXML;
-    
-    my $xpc = XML::LibXML::XPathContext->new;
-    $xpc->registerNs('x', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
-  
-    my $parser = XML::LibXML->new();
-    my $xml = $parser->parse_file($osis);
+    my $xml = $XML_PARSER->parse_file($osis);
   
     # remove all books
-    my @books = $xpc->findnodes('//x:div[@type="bookGroup"]/x:div[@type="book"]', $xml);
-    if (!@books) {@books = $xpc->findnodes('//x:div[@type="book"]', $xml);}
+    my @books = $XPC->findnodes('//x:div[@type="bookGroup"]/x:div[@type="book"]', $xml);
+    if (!@books) {@books = $XPC->findnodes('//x:div[@type="book"]', $xml);}
     foreach my $bk (@books) {
       $bk = $bk->parentNode()->removeChild($bk);
     }
     
     # some OSIS files may not have book groups, then books are children of osisText
-    my @bookGroup = $xpc->findnodes('//x:div[@type="bookGroup"]', $xml);
-    my @osisText = $xpc->findnodes('//x:osisText', $xml);
+    my @bookGroup = $XPC->findnodes('//x:div[@type="bookGroup"]', $xml);
+    my @osisText = $XPC->findnodes('//x:osisText', $xml);
       
     # place all books back in canon order
     foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {

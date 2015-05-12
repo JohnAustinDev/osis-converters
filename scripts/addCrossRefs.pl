@@ -59,12 +59,7 @@ else {
 
 ########################################################################
 &Log("READING OSIS FILE: \"$INPUTFILE\".\n");
-use XML::LibXML;
-$XPC = XML::LibXML::XPathContext->new;
-$NS = "http://www.bibletechnologies.net/2003/OSIS/namespace";
-$XPC->registerNs('osis', $NS);
-$PARSER = XML::LibXML->new();
-$OSIS = $PARSER->parse_file($INPUTFILE);
+$OSIS = $XML_PARSER->parse_file($INPUTFILE);
 
 %Book;
 foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $OSIS)) {
@@ -101,7 +96,7 @@ my $f = $CrossRefFile; $f =~ s/^.*?([^\/]+)$/$1/;
 
 # XML is the prefered source type (TXT is deprecated)
 if ($CrossRefFile =~ /\.xml$/) {
-  $NoteXML = $PARSER->parse_file($CrossRefFile);
+  $NoteXML = $XML_PARSER->parse_file($CrossRefFile);
   my @notes = $XPC->findnodes('//osis:note', $NoteXML);
   # combine all matching notes within a verse
   my %osisRefs;
@@ -160,7 +155,7 @@ else {
 
     if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
 
-    &insertNote(@{$PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}});
+    &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}});
   }
   close (NFLE);
   unlink("$CrossRefFile.tmp");
@@ -195,7 +190,7 @@ sub insertNote($\$) {
   # make markup pretty
   my $strip = $noteP->toString();
   $strip =~ s/[\n\s]+(<[^>]*>)/$1/g;
-  $noteP = @{$PARSER->parse_balanced_chunk($strip)->childNodes}[0];
+  $noteP = @{$XML_PARSER->parse_balanced_chunk($strip)->childNodes}[0];
   
   # insert in the right place
   if ($noteP->toString() =~ /x-parallel-passage/) {

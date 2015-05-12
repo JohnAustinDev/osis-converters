@@ -58,8 +58,6 @@
 #   EXIT - Exit the script at this point. Useful for debug.
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
-#   CHANGE_TAG: \col2 -> \p - (usfm2osis.py) Change a tag before conversion. 
-#       Multiple CHANGE_TAG commands are allowed.
 #   IGNORE - A tag-list of SFM lines which should be ignored.
 #   INTRO_TITLE_1 - A tag-list representing titles used in a 
 #       book introduction.
@@ -110,6 +108,9 @@
 #   GLOSSARY - A Perl regular expression to match SFM glossary links.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
+open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
+&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
+
 &Log("-----------------------------------------------------\nSTARTING paratext2osis.pl\n\n");
 
 # Read the COMMANDFILE, converting each book as it is encountered
@@ -144,18 +145,15 @@ $superpattern="";
 $subpattern="";
 $MoveTitleNotes="true";
 $MoveChapterNotes="true";
-$SpecialCapitals="";
 $removepattern="";
 $notePattern="";
 $NoteType="INLINE";
 $replace1="";
 $replace2="";
-$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis|addSeeAlsoLinks";
+$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
 $addScripRefLink=0;
 $addDictLinks=0;
 $addCrossRefs=0;
-$usfm2osis=0;
-%Changetags;
 
 $line=0;
 while (<COMF>) {
@@ -169,7 +167,7 @@ while (<COMF>) {
       my $par = $1;
       my $val = $3;
       $$par = $val;
-      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs|usfm2osis|addSeeAlsoLinks)$/) {
+      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs)$/) {
         $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
       }
       &Log("INFO: Setting $par to $$par\n");
@@ -186,10 +184,9 @@ while (<COMF>) {
   elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
   elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
   elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
   elsif ($_ =~ /^EXIT:(\s*(.*?)\s*)?$/) {if ($1) {if ($2 !~ /^(0|false)$/i) {last;}}}
   # FORMATTING TAGS...
-  elsif ($_ =~ /^CHANGE_TAG:\s*\\(\S+)\s*->\s*\\(\S+)\s*$/) {$Changetags{$1} = $2; next;}
   elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
   elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
   elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
@@ -254,74 +251,39 @@ while (<COMF>) {
       $SFMfile = File::Spec->rel2abs($SFMfile);
       chdir($SCRD);
     }
-    if ($usfm2osis) {$USFMfiles .= $SFMfile . " ";}
-    else {&bookSFMtoOSIS;}
+    &bookSFMtoOSIS;
   }
   else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
 }
+
 close(COMF);
 
-if (!$DEBUG_SKIP_CONVERSION) {
-  if ($usfm2osis) {&USFMtoISIS;}
-  else {
-    # Write closing tags, and close the output file
-    &Write("$endTestament\n</osisText>\n</osis>\n", 1);
-    close (OUTF);
+# Write closing tags, and close the output file
+&Write("$endTestament\n</osisText>\n</osis>\n", 1);
+close (OUTF);
 
-    # Check and report...
-    if (keys %notes > 0) {&checkRemainingNotes;}
-    &Log("PROCESSING COMPLETE.\n");
-    if ($findalltags ne "true") {
-      &Log("Following is the list of unhandled tags which were skipped:\n");
-    }
-    else {
-      &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
-    }
-    foreach $tag (sort keys %skippedTags) {
-      #&Log("$skippedTags{$tag}"); #complete printout
-      &Log("$tag "); #brief printout
-    }
-
-    &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
-  }
-
-  &Log("\nEnd of listing\n");
+# Check and report...
+if (keys %notes > 0) {&checkRemainingNotes;}
+&Log("PROCESSING COMPLETE.\n");
+if ($findalltags ne "true") {
+  &Log("Following is the list of unhandled tags which were skipped:\n");
 }
-else {&Log("\nDebug: skipping conversion\n");}
+else {
+  &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
+}
+foreach $tag (sort keys %skippedTags) {
+  #&Log("$skippedTags{$tag}"); #complete printout
+  &Log("$tag "); #brief printout
+}
 
+&Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+
+&Log("\nEnd of listing\n");
 1;
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-
-sub USFMtoISIS {
-  &Log("Processing USFM $USFMfiles\n");
-  
-  # If needed, preprocess tags before running usfm2osis.py
-  if (%Changetags) {
-    my $tmp = "$TMPDIR/sfm";
-    make_path($tmp);
-    foreach my $f1 (glob $USFMfiles) {copy($f1, $tmp);}
-    $USFMfiles = "$tmp/*.*";
-    foreach my $f2 (glob $USFMfiles) {
-      open(SFM, "<:encoding(UTF-8)", $f2) || die "ERROR: could not open \"$f2\"\n";
-      open(SFM2, ">:encoding(UTF-8)", "$f2.new") || die;
-      while(<SFM>) {
-        foreach my $t1 (keys %Changetags) {$_ =~ s/\\$t1\b/\\$Changetags{$t1}/g;}
-        print SFM2 $_;
-      }
-      close(SFM2);
-      close(SFM);
-      unlink($f2);
-      rename("$f2.new", "$f2");
-    }
-  }
-  
-  my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " Bible.$MOD -v -x -r -o " . &escfile("$OUTPUTFILE") . " $USFMfiles";
-  &Log($cmd . "\n", 1);
-  &Log(`$cmd` . "\n", 1);
-}
 
 sub bookSFMtoOSIS {
   @AllTags = ();
@@ -954,7 +916,7 @@ sub encodeNotes {
   # Convert glossary entries if any
   if ($glossaryentries) {
     if (!$glossaryname) {&Log("ERROR $ThisSFM line $line: GLOSSARY specified, but GLOSSARY_NAME is null.\n");}
-    $myT =~ s/$glossaryentries/my $a = $+; my $res = "<reference type=\"x-glossary\" osisRef=\"$glossaryname:".&encodeOsisRef(&suc($a, $SpecialCapitals))."\">$a<\/reference>";/ge;
+    $myT =~ s/$glossaryentries/my $a = $+; my $res = "<reference type=\"x-glossary\" osisRef=\"$glossaryname:".&encodeOsisRef(&uc2($a))."\">$a<\/reference>";/ge;
   }
   # Use notes read from file...
   if ($NoteType eq "WITHREFS") {
@@ -1146,13 +1108,6 @@ sub checkRemainingNotes {
 sub Write($$) {
   my $print = shift;
   my $commit = shift;
-  
-  if ($usfm2osis) {return;}
-  
-  if (!fileno(OUTF)) {
-    open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
-    &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
-  }
   
   while ($print =~ s/((\\([\w]*)\*?)|(\|[ibr]))//i) {
     $tagsintext = $tagsintext."WARNING Before $ThisSFM Line $line: Tag \"$+\" in \"$bookName\" was REMOVED.\n";

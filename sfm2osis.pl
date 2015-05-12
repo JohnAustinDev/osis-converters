@@ -89,9 +89,17 @@ if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
 $OSISVersion = $OSISSCHEMA;
 $OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
 
-# run paratext2osis.pl
-$COMMANDFILE = "$INPD/CF_paratext2osis.txt";
-if (-e $COMMANDFILE) {
+# convert sfm to OSIS
+if (-e "$INPD/CF_usfm2osis.txt") {
+  $COMMANDFILE = "$INPD/CF_usfm2osis.txt";
+  &Log("\n--- CONVERTING USFM TO OSIS\n");
+  $OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
+  $NOCONSOLELOG = 1;
+  require("$SCRD/scripts/usfm2osis.pl");
+  $NOCONSOLELOG = 0;
+}
+elsif(-e "$INPD/CF_paratext2osis.txt") {
+  $COMMANDFILE = "$INPD/CF_paratext2osis.txt";
   &Log("\n--- CONVERTING PARATEXT TO OSIS\n");
   $OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
   $NOCONSOLELOG = 1;
@@ -100,19 +108,18 @@ if (-e $COMMANDFILE) {
 }
 else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
 
-# create DictionaryWords.txt if needed
+# create DictionaryWords_autogen.txt if needed
 if ($MODDRV =~ /LD/) {
-  use XML::LibXML;
-  my $xpc = XML::LibXML::XPathContext->new;
-  $xpc->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
-  my $parser = XML::LibXML->new();
-  my $xml = $parser->parse_file($OUTPUTFILE);
-  my @keywords = $xpc->findnodes('//osis:seg[@type="keyword"]', $xml);
+  my $xml = $XML_PARSER->parse_file($OUTPUTFILE);
+  my @keywords = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
   open(DWORDS, ">:encoding(UTF-8)", "$OUTDIR/DictionaryWords_autogen.txt") or die "Could not open $OUTDIR/DictionaryWords_autogen.txt";
-  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DE$i:".uc(@keywords[$i]->textContent())."\n";}
+  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DE$i:".@keywords[$i]->textContent()."\n";}
   print DWORDS "\n########################################################################\n\n";
-  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DL$i:".@keywords[$i]->textContent()."\n";}
+  for (my $i=0; $i<@keywords; $i++) {print DWORDS "DL$i:".@keywords[$i]->textContent()."\"\n";}
   close(DWORDS);
+  
+  foreach my $n (@keywords) {$glossary{$n->textContent()}++;}
+  &entriesReport(\%glossary); # needed only by OSIS since IMP is reported in paratext2imp.pl with fix option
 }
 
 # run addScripRefLinks.pl
@@ -129,10 +136,10 @@ if ($addScripRefLinks && -e $COMMANDFILE) {
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
 # run addDictLinks.pl or addSeeAlsoLinks.pl
-if ($MODDRV =~ /Text/) {
+if ($addDictLinks && $MODDRV =~ /Text/) {
   $COMMANDFILE = "$INPD/CF_addDictLinks.txt";
-  if ($addDictLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-  if ($addDictLinks && -e $COMMANDFILE) {
+  if (!-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+  else {
     &Log("\n--- ADDING DICTIONARY LINKS\n");
     $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
     $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
@@ -141,14 +148,14 @@ if ($MODDRV =~ /Text/) {
     $NOCONSOLELOG = 0;
   }
 }
-elsif ($MODDRV =~ /LD/) {
+elsif ($addSeeAlsoLinks && $MODDRV =~ /LD/) {
   $COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-  if ($addSeeAlsoLinks && !-e "$INPD/$DICTWORDS") {&Log("\nERROR: Skipping see-also link parsing/checking. Missing dictionary listing: $INPD/$DICTWORDS.\n");}
-  if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-  if ($addSeeAlsoLinks && -e $COMMANDFILE && -e "$INPD/$DICTWORDS") {
+  if (!-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
+  else {
     &Log("\n--- ADDING DICTIONARY LINKS\n");
     $INPUTFILE = "$TMPDIR/".$MOD."_2.xml";
-    $OUTPUTFILE = "$OUTDIR/".$MOD."_3.xml";
+    $OUTPUTFILE = "$TMPDIR/".$MOD."_3.xml";
+    $IS_usfm2osis = &is_usfm2osis($INPUTFILE);
     $NOCONSOLELOG = 1;
     require("$SCRD/scripts/addSeeAlsoLinks.pl");
     $NOCONSOLELOG = 0;
@@ -166,7 +173,10 @@ if ($addCrossRefs && ($MODDRV =~ /Text/ || $MODDRV =~ /Com/)) {
   require("$SCRD/scripts/addCrossRefs.pl");
   $NOCONSOLELOG = 0;
 }
-else {copy("$TMPDIR/".$MOD."_3.xml", $OSISFILE);}
+else {
+  unlink($OSISFILE);
+  copy("$TMPDIR/".$MOD."_3.xml", $OSISFILE); 
+}
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   # order books in OSIS file according to chosen vlln

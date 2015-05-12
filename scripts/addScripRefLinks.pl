@@ -343,8 +343,8 @@ while (<INF2>) {
 	 
   my $bible = "Bible";
   if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
-  elsif ($ConfEntry{"ReferenceBible"}) {$bible = $ConfEntry{"ReferenceBible"};}
-  s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
+  elsif ($ConfEntry{"Companion"}) {$bible = $ConfEntry{"Companion"}; $bible =~ s/,.*$//;}
+  $_ =~ s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
 
 	print OUTF $_;
 }
@@ -1134,8 +1134,8 @@ sub reverseAlpha($$) {
 	for (my $i=length($a)-1; $i>=0; $i--) {$ar .= substr($a, $i, 1);}
 	my $br = "";
 	for (my $i=length($b)-1; $i>=0; $i--) {$br .= substr($b, $i, 1);}
-	if (ord(substr($a, 0, 1)) == ord(uc(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(uc(substr($b, 0, 1)))) {return -1;}
-	if (ord(substr($a, 0, 1)) != ord(uc(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(uc(substr($b, 0, 1)))) {return 1;}
+	if (ord(substr($a, 0, 1)) == ord(uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(uc2(substr($b, 0, 1)))) {return -1;}
+	if (ord(substr($a, 0, 1)) != ord(uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(uc2(substr($b, 0, 1)))) {return 1;}
 
 	return $a cmp $b;
 }

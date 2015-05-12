@@ -51,7 +51,6 @@ $DEBUG = 0;
 $ReferenceType = "x-glossary";
 $AllGlossaryTypes = "x-glossary|x-glosslink";
 $LinkOnlyFirst = 1;    # Match only the first occurrence of each word in a chapter
-$SpecialCapitals = ""; # Mappings like i->I a->A override normal capitalization
 $PAL = "\\w";          # Listing of punctuation to be treated as letters, like '`
 $Checkonly = 0;        # If set, don't parse new links, only check existing links
 
@@ -68,7 +67,7 @@ while(<COMF>) {
   elsif ($_ =~ /^\#/) {}
   elsif ($_ =~ /^CHECK_ONLY:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$Checkonly = 1;}}}
   elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PAL .= $2;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SpecialCapitals = $2; next;}}
+  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
   elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$ReferenceType = $2; next;}}
   elsif ($_ =~ /^ALLOW_IDENTICAL_LINKS:(\s*(.*?)\s*)?$/) {if ($1) {my $t = $2; if ($t && $t !~ /(false|0)/i) {$LinkOnlyFirst = 0;} next;}}
   
