@@ -83,361 +83,369 @@
 #   LINE_EXCLUSION - Use to exclude certain references on certain lines.
 #   FIX - Used to fix an incorrectly parsed reference.
 #   SKIPVERSE - The osisRef of a verse to skip.
-#   SKIPLINE - A line number to skip.
 #   DEBUG_LINE - Set this to a line number to see details of what is
 #       being matched and how. This is sometimes usedful when adjusting
 #       regular expressions or debugging. 
+
+sub addScripRefLinks($$) {
+  my $in_file = shift;
+  my $out_file = shift;
   
-$debugLine = 0;
-$onlyLine = 0;
-
-$tmpFile = $OUTPUTFILE;
-$tmpFile =~ s/(^|\/|\\)([^\/\\\.]+)([^\/\\]+)$/$1TMP_$2$3/;
-
-# Globals
-%books;
-%UnhandledWords;
-%noDigitRef;
-%noOSISRef;
-%exclusion;
-%lineExclusion;
-%exclusionREP;
-%lineExclusionREP;
-%fix;
-@skipVerse;
-$skipLines;
-
-$BK = "unknown";
-$CH = 0;
-$VS = 0;
-$LV = 0;
-$ebookNames = "";
-$oneChapterBooks = "Obad|Phlm|Jude|2John|3John";
-$refType = "<none>";
-$filter = "^.*\$";
-$chapTerms = "none";
-$currentChapTerms = "none";
-$currentBookTerms = "none";
-$verseTerms = "none";
-$refTerms = "none";
-$prefixTerms = "none";
-$refEndTerms = "none";
-$suffixTerms = "none";
-$sepTerms = "none";
-$chap2VerseTerms = "none";
-$continuationTerms = "none";
-$skipUnhandledBook = "none";
-$mustHaveVerse = 0;
-$skipPsalms = 0;
-$require_book = 0;
-$skipintros = 0;
-$sp="\"";
-$numUnhandledWords = 0;
-$numMissedLeftRefs = 0;
-$numNoDigitRef = 0;
-$numNoOSISRef = 0;
-$line=0;
-
-$Types{"T01 (Book? c:v-c:v)"} = 0;
-$Types{"T02 (Book? c:v-lv)"} = 0;
-$Types{"T03 (Book? c:v)"} = 0;
-$Types{"T04 (Book? c ChapTerm v VerseTerm)"} = 0;
-$Types{"T05 (c-c ChapTerm)"} = 0;
-$Types{"T06 (Book? c ChapTerm)"} = 0;
-$Types{"T07 (Book|CurrentChap? v-v VerseTerms)"} = 0;
-$Types{"T08 (Book|CurrentChap? v VerseTerms)"} = 0;
-$Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
-$Types{"T10 (num1 ... num2?)"} = 0;
-
-&getCanon($VERSESYS, \%mycanon, \%mybookorder);
-
-&Log("-----------------------------------------------------\nSTARTING addScripRefLinks.pl\n\n");
-
-&Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
-&normalizeNewLines($COMMANDFILE);
-&removeRevisionFromCF($COMMANDFILE);
-open(CF, "<:encoding(UTF-8)", $COMMANDFILE);
-my @abkn;
-while (<CF>) {
-  $_ =~ s/\s+$//;
-
-	if ($_ =~ /^(\#.*|\s*)$/) {next;}
-  elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
-	elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$filter = $2;} next;}
-  elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
-	elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
-	elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
-	elsif ($_ =~ /^CURRENT_BOOK_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentBookTerms = $2;} next;}
-	elsif ($_ =~ /^VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$verseTerms = $2;} next;}
-	elsif ($_ =~ /^COMMON_REF_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$refTerms = $2;} next;}
-	elsif ($_ =~ /^PREFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$prefixTerms = $2;} next;}
-	elsif ($_ =~ /^REF_END_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$refEndTerms = $2;} next;}
-	elsif ($_ =~ /^SUFFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$suffixTerms = $2;} next;}
-	elsif ($_ =~ /^SEPARATOR_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$sepTerms = $2;} next;}
-	elsif ($_ =~ /^CHAPTER_TO_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chap2VerseTerms = $2;} next;}
-	elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
-	elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;} 
-  elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$refType = $2;} next;}   
-	elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
-	elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
-	elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
-  elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
-	elsif ($_ =~ /^SKIPLINE:\s*(\d+)\s*$/) {if ($1) {$skipLines .= $sp.$1.$sp} next;}
-	elsif ($_ =~ /^EXCLUSION:(Linking)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
-	elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
-	elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
-	elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
-	elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
-	elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
-		my $lb = $2;
-		my $elb = quotemeta($2);
-		$books{$lb}=$1;
-		push(@abkn, $elb);
-	}
-	else {
-		&Log("ERROR: \"$_\" in command file was not handled.\n");
-	}
-}
-if (!@abkn) {$ebookNames="none";}
-else {
-  my $bktsep="";
-  for (my $i=0; $i<@abkn; $i++) {
-    my $xg=0;
-    my $xi=0;
-    for (my $j=0; $j<@abkn; $j++) {if (length(@abkn[$j]) > $xg) {$xg=length(@abkn[$j]); $xi=$j;}}
-    if (@abkn[$xi]) {$ebookNames .= $bktsep.@abkn[$xi]; $bktsep="|";}
-    @abkn[$xi] = 0;
-  }
-}
-close (CF);
-
-&Log("READING OSIS/IMP FILE: \"$INPUTFILE\".\n");
-&Log("WRITING OSIS/IMP FILE: \"$OUTPUTFILE\".\n");
-&Log("\n");
-
-open(INF, "<:encoding(UTF-8)", $INPUTFILE);
-open(OUTF, ">:encoding(UTF-8)", $tmpFile);
-my $intro = 0;
-my $psw = 0;
-$line=0;
-&logProgress($INPUTFILE, -1);
-while (<INF>) {
-	$line++;
-
-  # Log IMP entry name
-  if ($_ =~ /\$\$\$(.*?)$/) {&logProgress($1);}
+  &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
   
-	# The following is for matching IMP verse keys
-	if ($_ =~ /^\$\$\$(\w+)\s+(\d+)(:(\d+)(\s*-\s*(\d+))?)?/) {
-		$BK = $1;
-		$CH = $2;
-		$VS = ($4 ? $4:0);
-		$intro = ($CH == 0);
-		goto FINISH_LINE;
-	}
-	
-	# The following is for matching OSIS XML file tags
-	if ($_ =~ /<div type="book" osisID="([^\"]*)">/) {
-		$BK = $1;
-		$CH = 1;
-		$VS = 0;
-		$intro = 1;
-    &logProgress($BK, $line);
-		goto FINISH_LINE;
-	}
-	elsif ($_ =~ /<chapter [^>]*osisID="([^\."]+)\.([^"]+)"[^>]*>/) {
-		$BK = $1;
-		$CH = $2;
-		$VS = 0;
-		$intro = 0;
-		goto FINISH_LINE;
-	}
-	elsif ($_ =~ /<verse [^>]*(?<!i)sID=\"([^\."]+)\.(\d+)\.(\d+)\"[^>]*>/) {
-		$BK = $1;
-		$CH = $2;
-		$VS = $3;
-	}
+  # Globals
+  $debugLine = 0;
+  $onlyLine = 0;
 
-	foreach my $av (@skipVerse) {
-		if ($av eq "$BK.$CH.$VS") {
-			&Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n"); 
-			goto FINISH_LINE;
-		}
-	}
+  $tmpFile = $out_file;
+  $tmpFile =~ s/(^|\/|\\)([^\/\\\.]+)([^\/\\]+)$/$1TMP_$2$3/;
 
-	if ($skipPsalms eq "true" && $BK eq "Ps") {
-		if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");}
-		$psw = 1;
-		goto FINISH_LINE;
-	}
+  %books;
+  %UnhandledWords;
+  %noDigitRef;
+  %noOSISRef;
+  %exclusion;
+  %lineExclusion;
+  %exclusionREP;
+  %lineExclusionREP;
+  %fix;
+  @skipVerse;
+  
+  my $none = "nOnE";
 
-	if ($intro) {
-    if (!$skipintros) {
-      # addLinks cannot handle \n at line's end
-      my $lf = "";
-      if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
-      &addLinks(\$_, $BK, $CH);
-      $_ .= $lf;
+  $BK = "unknown";
+  $CH = 0;
+  $VS = 0;
+  $LV = 0;
+  $ebookNames = $none;
+  $oneChapterBooks = "Obad|Phlm|Jude|2John|3John";
+  $refType = "<none>";
+  $filter = "^.*\$";
+  $chapTerms = $none;
+  $currentChapTerms = $none;
+  $currentBookTerms = $none;
+  $verseTerms = $none;
+  $refTerms = $none;
+  $prefixTerms = $none;
+  $refEndTerms = $none;
+  $suffixTerms = $none;
+  $sepTerms = $none;
+  $chap2VerseTerms = $none;
+  $continuationTerms = $none;
+  $skipUnhandledBook = $none;
+  $mustHaveVerse = 0;
+  $skipPsalms = 0;
+  $require_book = 0;
+  $skipintros = 0;
+  $sp="\"";
+  $numUnhandledWords = 0;
+  $numMissedLeftRefs = 0;
+  $numNoDigitRef = 0;
+  $numNoOSISRef = 0;
+  $line=0;
+
+  $Types{"T01 (Book? c:v-c:v)"} = 0;
+  $Types{"T02 (Book? c:v-lv)"} = 0;
+  $Types{"T03 (Book? c:v)"} = 0;
+  $Types{"T04 (Book? c ChapTerm v VerseTerm)"} = 0;
+  $Types{"T05 (c-c ChapTerm)"} = 0;
+  $Types{"T06 (Book? c ChapTerm)"} = 0;
+  $Types{"T07 (Book|CurrentChap? v-v VerseTerms)"} = 0;
+  $Types{"T08 (Book|CurrentChap? v VerseTerms)"} = 0;
+  $Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
+  $Types{"T10 (num1 ... num2?)"} = 0;
+
+  &getCanon($VERSESYS, \%mycanon, \%mybookorder);
+
+  my $commandFile = "$INPD/CF_addScripRefLinks.txt";
+  if (-e $commandFile) {
+    &Log("READING COMMAND FILE \"$commandFile\"\n");
+    &removeRevisionFromCF($commandFile);
+    open(CF, "<:encoding(UTF-8)", $commandFile);
+    my @abkn;
+    while (<CF>) {
+      $_ =~ s/\s+$//;
+
+      if ($_ =~ /^(\#.*|\s*)$/) {next;}
+      elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
+      elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$filter = $2;} next;}
+      elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
+      elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
+      elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
+      elsif ($_ =~ /^CURRENT_BOOK_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentBookTerms = $2;} next;}
+      elsif ($_ =~ /^VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$verseTerms = $2;} next;}
+      elsif ($_ =~ /^COMMON_REF_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$refTerms = $2;} next;}
+      elsif ($_ =~ /^PREFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$prefixTerms = $2;} next;}
+      elsif ($_ =~ /^REF_END_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$refEndTerms = $2;} next;}
+      elsif ($_ =~ /^SUFFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$suffixTerms = $2;} next;}
+      elsif ($_ =~ /^SEPARATOR_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$sepTerms = $2;} next;}
+      elsif ($_ =~ /^CHAPTER_TO_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chap2VerseTerms = $2;} next;}
+      elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
+      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;} 
+      elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$refType = $2;} next;}   
+      elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
+      elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
+      elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
+      elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
+      elsif ($_ =~ /^EXCLUSION:(Linking)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
+      elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
+      elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
+      elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
+      elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
+      elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
+        my $lb = $2;
+        my $elb = quotemeta($2);
+        $books{$lb}=$1;
+        push(@abkn, $elb);
+      }
+      else {
+        &Log("ERROR: \"$_\" in command file was not handled.\n");
+      }
     }
-	}
-	else {
-		my @filtered = split(/($filter)/, $_);
-		foreach my $chunk (@filtered) {
-			if ($chunk !~ /($filter)/) {next;}
-			&addLinks(\$chunk, $BK, $CH);
-		}
-		$_ = join("", @filtered);
-	}
-	
-FINISH_LINE:
-	print OUTF $_;
-}
-close(INF);
-close(OUTF);
-&Log("Finished adding <reference> tags.\n");
-&Log("\n");
-&Log("\n");
-&Log("#################################################################\n");
-&Log("\n");
-&Log("\n");
-&Log("LINK RESULTS...\n");
-&Log("\n");
-
-&Log("REPORT: Checking osisRef attributes of links:\n");
-open(INF2, "<:encoding(UTF-8)", $tmpFile);
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE);
-$newLinks=0;
-$line=0;
-while (<INF2>) {
-	$line++;
-  
-  # <reference> tags may already have been there from usfm2osis.py, so merge new and old
-  @origRefs = split(/(<reference[^>]*>.*?<\/reference>)/, $_);
-  foreach my $ref (@origRefs) {
-    if ($ref !~ /(<reference([^>]*)>)(.*?)(<\/reference>)/) {next;}
-    my $st = $1;
-    my $sa = $2;
-    my $rt = $3;
-    my $et = $4;
-    $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
-    $ref = $rt;
+    close (CF);
+    
+    if (@abkn) {
+      $ebookNames = '';
+      my $bktsep='';
+      for (my $i=0; $i<@abkn; $i++) {
+        my $xg=0;
+        my $xi=0;
+        for (my $j=0; $j<@abkn; $j++) {if (length(@abkn[$j]) > $xg) {$xg=length(@abkn[$j]); $xi=$j;}}
+        if (@abkn[$xi]) {$ebookNames .= $bktsep.@abkn[$xi]; $bktsep="|";}
+        @abkn[$xi] = 0;
+      }
+    }
+    
   }
-  $_ = join('', @origRefs);
-  
-	@lineLinks = split(/(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/, $_);
-	foreach $lineLink (@lineLinks) {
-		if ($lineLink !~ /(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/) {next;}
-		$osisRef = $2;
-		$linkText = $3;
-		if (&validOSISref($osisRef, $linkText)) {$newLinks++;}
-		else {&Log("$line ERROR $BK.$CH.$VS: Link \"$linkText\" has an illegal osisRef \"$osisRef\".\n");}
-	}
-	if ($refType eq "<none>") {
-		$_ =~ s/newReference/reference/g;
-	}
-	else {
-		#$_ =~ s/<newReference osisRef=\"([^"]+)">(.*?)<\/newReference>/<ScripRef passage=\"$1\">$2<\/ScripRef>/g;
-		$_ =~ s/<newReference/<reference type=\"$refType\"/g;
-		$_ =~ s/newReference/reference/g;
-	}
-	 
-  my $bible = "Bible";
-  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
-  elsif ($ConfEntry{"Companion"}) {$bible = $ConfEntry{"Companion"}; $bible =~ s/,.*$//;}
-  $_ =~ s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
+  else {&Log("ERROR: Command file required: $commandFile\n"); die;}
 
-	print OUTF $_;
-}
-close(INF2);
-close(OUTF);
-&Log("Finished checking osisRefs.\n");
-&Log("\n");
+  &Log("READING INPUT FILE: \"$in_file\".\n");
+  &Log("WRITING INPUT FILE: \"$out_file\".\n");
+  &Log("\n");
 
-my $tCheckRefs = $CheckRefs;
-my $aerefs = ($tCheckRefs =~ tr/\n//);
-&Log("REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
-if ($CheckRefs) {
-  &Log("NOTE: These are cases where a number could be interpreted as either a verse\n");
-  &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
-  &Log("$CheckRefs\n");
-}
-else {&Log("(no extended refs contain ambiguous numbers)\n");}
-&Log("\n");
+  open(INF, "<:encoding(UTF-8)", $in_file);
+  open(OUTF, ">:encoding(UTF-8)", $tmpFile);
+  my $intro = 0;
+  my $psw = 0;
+  $line=0;
+  &logProgress($in_file, -1);
+  while (<INF>) {
+    $line++;
 
-&Log("REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
-if (scalar(keys %UnhandledWords)) {
-  &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
-  &Log("targets and should have been specified in the command file. Words which do not \n");
-  &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n"); 
-  &Log("added to the command file.\n");
-  foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
-    &Log("<$uw> $UnhandledWords{$uw}\n");
+    # Log IMP entry name
+    if ($_ =~ /\$\$\$(.*?)$/) {&logProgress($1);}
+    
+    # The following is for matching IMP verse keys
+    if ($_ =~ /^\$\$\$(\w+)\s+(\d+)(:(\d+)(\s*-\s*(\d+))?)?/) {
+      $BK = $1;
+      $CH = $2;
+      $VS = ($4 ? $4:0);
+      $intro = ($CH == 0);
+      goto FINISH_LINE;
+    }
+    
+    # The following is for matching OSIS XML file tags
+    if ($_ =~ /<div type="book" osisID="([^\"]*)">/) {
+      $BK = $1;
+      $CH = 1;
+      $VS = 0;
+      $intro = 1;
+      &logProgress($BK, $line);
+      goto FINISH_LINE;
+    }
+    elsif ($_ =~ /<chapter [^>]*osisID="([^\."]+)\.([^"]+)"[^>]*>/) {
+      $BK = $1;
+      $CH = $2;
+      $VS = 0;
+      $intro = 0;
+      goto FINISH_LINE;
+    }
+    elsif ($_ =~ /<verse [^>]*(?<!i)sID=\"([^\."]+)\.(\d+)\.(\d+)\"[^>]*>/) {
+      $BK = $1;
+      $CH = $2;
+      $VS = $3;
+    }
+
+    foreach my $av (@skipVerse) {
+      if ($av eq "$BK.$CH.$VS") {
+        &Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n"); 
+        goto FINISH_LINE;
+      }
+    }
+
+    if ($skipPsalms eq "true" && $BK eq "Ps") {
+      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");}
+      $psw = 1;
+      goto FINISH_LINE;
+    }
+
+    if ($intro) {
+      if (!$skipintros) {
+        # addLinks cannot handle \n at line's end
+        my $lf = "";
+        if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
+        &addLinks(\$_, $BK, $CH);
+        $_ .= $lf;
+      }
+    }
+    else {
+      my @filtered = split(/($filter)/, $_);
+      foreach my $chunk (@filtered) {
+        if ($chunk !~ /($filter)/) {next;}
+        &addLinks(\$chunk, $BK, $CH);
+      }
+      $_ = join("", @filtered);
+    }
+    
+  FINISH_LINE:
+    print OUTF $_;
   }
-}
-else {&Log("(no unknown book names)\n");}
-&Log("\n");
+  close(INF);
+  close(OUTF);
+  &Log("Finished adding <reference> tags.\n");
+  &Log("\n");
+  &Log("\n");
+  &Log("#################################################################\n");
+  &Log("\n");
+  &Log("\n");
+  &Log("LINK RESULTS...\n");
+  &Log("\n");
 
-&Log("REPORT: Listing of exclusions: (".(scalar(keys %exclusion) + scalar(keys %lineExclusion))." instances)\n");
-if (scalar(keys %exclusion) || scalar(keys %lineExclusion)) {
-  &reportExclusions(\%exclusion, \%exclusionREP, "verse");
-  &reportExclusions(\%lineExclusion, \%lineExclusionREP, "line");
-}
-else {&Log("(no exclusions were specified in command the file)\n");}
-&Log("\n");
+  &Log("REPORT: Checking osisRef attributes of links:\n");
+  open(INF2, "<:encoding(UTF-8)", $tmpFile);
+  open(OUTF, ">:encoding(UTF-8)", $out_file);
+  $newLinks=0;
+  $line=0;
+  while (<INF2>) {
+    $line++;
+    
+    # <reference> tags may already have been there from usfm2osis.py, so merge new and old
+    @origRefs = split(/(<reference[^>]*>.*?<\/reference>)/, $_);
+    foreach my $ref (@origRefs) {
+      if ($ref !~ /(<reference([^>]*)>)(.*?)(<\/reference>)/) {next;}
+      my $st = $1;
+      my $sa = $2;
+      my $rt = $3;
+      my $et = $4;
+      $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
+      $ref = $rt;
+    }
+    $_ = join('', @origRefs);
+    
+    @lineLinks = split(/(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/, $_);
+    foreach $lineLink (@lineLinks) {
+      if ($lineLink !~ /(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/) {next;}
+      $osisRef = $2;
+      $linkText = $3;
+      if (&validOSISref($osisRef, $linkText)) {$newLinks++;}
+      else {&Log("$line ERROR $BK.$CH.$VS: Link \"$linkText\" has an illegal osisRef \"$osisRef\".\n");}
+    }
+    if ($refType eq "<none>") {
+      $_ =~ s/newReference/reference/g;
+    }
+    else {
+      #$_ =~ s/<newReference osisRef=\"([^"]+)">(.*?)<\/newReference>/<ScripRef passage=\"$1\">$2<\/ScripRef>/g;
+      $_ =~ s/<newReference/<reference type=\"$refType\"/g;
+      $_ =~ s/newReference/reference/g;
+    }
+     
+    my $bible = "Bible";
+    if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
+    elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
+    $_ =~ s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
 
-&Log("REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
-if (scalar(keys %fix)) {
-  foreach my $fx (keys %fix) {
-    if ($fix{$fx} !~ /^\s*$/) {
-      &Log("WARNING: Fix \"$fx\" was not applied.\n");
+    print OUTF $_;
+  }
+  close(INF2);
+  close(OUTF);
+  &Log("Finished checking osisRefs.\n");
+  &Log("\n");
+
+  my $tCheckRefs = $CheckRefs;
+  my $aerefs = ($tCheckRefs =~ tr/\n//);
+  &Log("REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
+  if ($CheckRefs) {
+    &Log("NOTE: These are cases where a number could be interpreted as either a verse\n");
+    &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
+    &Log("$CheckRefs\n");
+  }
+  else {&Log("(no extended refs contain ambiguous numbers)\n");}
+  &Log("\n");
+
+  &Log("REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
+  if (scalar(keys %UnhandledWords)) {
+    &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
+    &Log("targets and should have been specified in the command file. Words which do not \n");
+    &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n"); 
+    &Log("added to the command file.\n");
+    foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
+      &Log("<$uw> $UnhandledWords{$uw}\n");
     }
   }
-}
-else {&Log("(no fixes were specified in the command file)\n");}
-&Log("\n");
+  else {&Log("(no unknown book names)\n");}
+  &Log("\n");
 
-&Log("REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
-if (scalar(keys %missedLeftRefs)) {
-  &Log("NOTE: These occur when the end of an extended ref cannot be determined. To fix these, check \n");
-  &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
-  foreach my $mlr (sort keys %missedLeftRefs) {
-    &Log("<$mlr> $missedLeftRefs{$mlr}\n");
+  &Log("REPORT: Listing of exclusions: (".(scalar(keys %exclusion) + scalar(keys %lineExclusion))." instances)\n");
+  if (scalar(keys %exclusion) || scalar(keys %lineExclusion)) {
+    &reportExclusions(\%exclusion, \%exclusionREP, "verse");
+    &reportExclusions(\%lineExclusion, \%lineExclusionREP, "line");
   }
-}
-else {&Log("(no unlocated left refs)\n");}
-&Log("\n");
+  else {&Log("(no exclusions were specified in command the file)\n");}
+  &Log("\n");
 
-&Log("REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
-if (scalar(keys %noDigitRef)) {
-  &Log("NOTE: These occur when an extended ref or a subref contain no numbers. A large number \n");
-  &Log("of these may indicate incorrect command file regular expressions.\n");
-  foreach my $mlr (sort keys %noDigitRef) {
-    &Log("$mlr $noDigitRef{$mlr}\n");
+  &Log("REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
+  if (scalar(keys %fix)) {
+    foreach my $fx (keys %fix) {
+      if ($fix{$fx} !~ /^\s*$/) {
+        &Log("WARNING: Fix \"$fx\" was not applied.\n");
+      }
+    }
   }
-}
-else {&Log("(no refs without digits found)\n");}
-&Log("\n");
+  else {&Log("(no fixes were specified in the command file)\n");}
+  &Log("\n");
 
-&Log("REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
-if (scalar(keys %noOSISRef)) {
-  &Log("NOTE: These may indicate a ref which should be an EXCLUSION or a problem \n");
-  &Log("with command file regular expressions. \n");
-  foreach my $mlr (sort keys %noOSISRef) {
-    &Log("<$mlr> $noOSISRef{$mlr}\n");
+  &Log("REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
+  if (scalar(keys %missedLeftRefs)) {
+    &Log("NOTE: These occur when the end of an extended ref cannot be determined. To fix these, check \n");
+    &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
+    foreach my $mlr (sort keys %missedLeftRefs) {
+      &Log("<$mlr> $missedLeftRefs{$mlr}\n");
+    }
   }
+  else {&Log("(no unlocated left refs)\n");}
+  &Log("\n");
+
+  &Log("REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
+  if (scalar(keys %noDigitRef)) {
+    &Log("NOTE: These occur when an extended ref or a subref contain no numbers. A large number \n");
+    &Log("of these may indicate incorrect command file regular expressions.\n");
+    foreach my $mlr (sort keys %noDigitRef) {
+      &Log("$mlr $noDigitRef{$mlr}\n");
+    }
+  }
+  else {&Log("(no refs without digits found)\n");}
+  &Log("\n");
+
+  &Log("REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
+  if (scalar(keys %noOSISRef)) {
+    &Log("NOTE: These may indicate a ref which should be an EXCLUSION or a problem \n");
+    &Log("with command file regular expressions. \n");
+    foreach my $mlr (sort keys %noOSISRef) {
+      &Log("<$mlr> $noOSISRef{$mlr}\n");
+    }
+  }
+  else {&Log("(no subrefs with OSIS ref problems found)\n");}
+  &Log("\n");
+
+  &Log("REPORT: Grand Total links: ($newLinks instances)\n");
+  foreach my $type (sort keys %Types) {
+    &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
+  }
+  &Log("Found $newLinks total sub-links.\n");
+  &Log("FINISHED!\n\n");
+
+  unlink("$tmpFile");
 }
-else {&Log("(no subrefs with OSIS ref problems found)\n");}
-&Log("\n");
-
-&Log("REPORT: Grand Total links: ($newLinks instances)\n");
-foreach my $type (sort keys %Types) {
-  &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
-}
-&Log("Found $newLinks total sub-links.\n");
-&Log("FINISHED!\n\n");
-
-unlink("$tmpFile");
-
 
 ##########################################################################
 ##########################################################################
@@ -453,10 +461,6 @@ sub addLinks(\$$$) {
 	my $ch = shift;
 
 	if ($onlyLine && $line != $onlyLine) {return;}
-	if ($skipLines && $skipLines =~ /$sp$line$sp/) {
-		&Log("$line WARNING $BK.$CH.$VS: Skipped line - on SKIPLINE list.\n");
-		return;
-	}
 #&Log("$line: addLinks $bk, $ch, $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
@@ -490,7 +494,7 @@ sub addLinks(\$$$) {
 
       my $mtENC = quotemeta($matchedTerm);
       
-      if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*((($ebookNames|$chapTerms|$verseTerms)($suffixTerms)*)|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
+      if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
         &Log("$line ERROR $BK.$CH.$VS: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
         $numMissedLeftRefs++;
         $missedLeftRefs{$matchedTerm} .= $line.", ";
@@ -777,7 +781,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 	my $lowestIndex = length($$tP);
 	my $shortestMatch;
 	my $matchedTerm = "";
-	my $contextBK = ($bkP ? $$bkP:"none");
+	my $contextBK = ($bkP ? $$bkP:$none);
 	my $contextCH = ($chP ? $$chP:0);
 	my $PREM = ($matchleft ? ".*?\\W":".*?");
 	
@@ -1140,3 +1144,4 @@ sub reverseAlpha($$) {
 	return $a cmp $b;
 }
 
+1;

@@ -33,7 +33,7 @@ sub getScope($$) {
   if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
     my $xml = $XML_PARSER->parse_file($osis);
     
-    my @verses = $XPC->findnodes('//x:verse', $xml);
+    my @verses = $XPC->findnodes('//osis:verse', $xml);
     foreach my $v (@verses) {
       my $osisID = $v->findvalue('./@osisID');
       @osisID = split(/\s+/, $osisID);

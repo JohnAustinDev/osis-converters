@@ -108,181 +108,181 @@
 #   GLOSSARY - A Perl regular expression to match SFM glossary links.
 #   GLOSSARY_NAME - Name of glossary module targetted by glossary links.
 
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2osis output file $OUTPUTFILE\n";
-&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
+#   SET_script - Include script during processing (true|false|<option>)
+#   PUNC_AS_LETTER - List special characters which should be treated as 
+#       letters for purposes of matching word boundaries. 
+#       Example for : "PUNC_AS_LETTER:'`" 
 
-&Log("-----------------------------------------------------\nSTARTING paratext2osis.pl\n\n");
 
-# Read the COMMANDFILE, converting each book as it is encountered
-&normalizeNewLines($COMMANDFILE);
-&removeRevisionFromCF($COMMANDFILE);
-open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2osis command file $COMMANDFILE\n";
-$endTestament="";
-$NameMatch="";
-
-#Defaults:
-$findalltags="false";
-$ContinuationTerms="-";
-$FstTitle="none";
-$SecTitle="none";
-$IntroFstTitle="none";
-$list1="none";
-$list2="none";
-$enumList1="none";
-$enumList2="none";
-$enumList3="none";
-$intropar="none";
-$blankline="none";
-$listtitle="none";
-$FstCanonTitle="none";
-$SecCanonTitle="none";
-@paragraph = ("none", "none", "none", "none");
-@poetryline = ("none", "none", "none", "none");
-@listitem = ("none", "none", "none", "none");
-$boldpattern="";
-$italicpattern="";
-$superpattern="";
-$subpattern="";
-$MoveTitleNotes="true";
-$MoveChapterNotes="true";
-$removepattern="";
-$notePattern="";
-$NoteType="INLINE";
-$replace1="";
-$replace2="";
-$AllowSet = "addScripRefLinks|addDictLinks|addCrossRefs";
-$addScripRefLink=0;
-$addDictLinks=0;
-$addCrossRefs=0;
-
-$line=0;
-while (<COMF>) {
-  $line++;
+sub paratext2osis($$) {
+  my $cf = shift;
+  my $osis = shift;
   
-  if ($_ =~ /^\s*$/) {next;}
-  elsif ($_ =~ /^#/) {next;}
-  # VARIOUS SETTINGS...
-  elsif ($_ =~ /^SET_($AllowSet):(\s*(\S+)\s*)?$/) {
-    if ($2) {
-      my $par = $1;
-      my $val = $3;
-      $$par = $val;
-      if ($par =~ /^(addScripRefLinks|addDictLinks|addCrossRefs)$/) {
-        $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
+  &Log("\n--- CONVERTING PARATEXT TO OSIS: paratext2osis.pl\n-----------------------------------------------------\n\n", 1);
+  
+  open(OUTF, ">:encoding(UTF-8)", $osis) || die "Could not open paratext2osis output file $osis\n";
+  &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"defaultReferenceScheme\" xml:lang=\"".$ConfEntryP->{"Lang"}."\"><header><work osisWork=\"$MOD\"><title>$MOD Bible</title><identifier type=\"OSIS\">Bible.$MOD</identifier><refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n", 1);
+
+  # Read the $cf file, converting each book as it is encountered
+  &removeRevisionFromCF($cf);
+  open(COMF, "<:encoding(UTF-8)", $cf) || die "Could not open paratext2osis command file $cf\n";
+  $endTestament="";
+  $NameMatch="";
+
+  #Defaults:
+  $findalltags="false";
+  $ContinuationTerms="-";
+  $FstTitle="nONe";
+  $SecTitle="nONe";
+  $IntroFstTitle="nONe";
+  $list1="nONe";
+  $list2="nONe";
+  $enumList1="nONe";
+  $enumList2="nONe";
+  $enumList3="nONe";
+  $intropar="nONe";
+  $blankline="nONe";
+  $listtitle="nONe";
+  $FstCanonTitle="nONe";
+  $SecCanonTitle="nONe";
+  @paragraph = ("nONe", "nONe", "nONe", "nONe");
+  @poetryline = ("nONe", "nONe", "nONe", "nONe");
+  @listitem = ("nONe", "nONe", "nONe", "nONe");
+  $boldpattern="";
+  $italicpattern="";
+  $superpattern="";
+  $subpattern="";
+  $MoveTitleNotes="true";
+  $MoveChapterNotes="true";
+  $removepattern="";
+  $notePattern="";
+  $NoteType="INLINE";
+  $replace1="";
+  $replace2="";
+
+  $line=0;
+  while (<COMF>) {
+    $line++;
+    
+    if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^#/) {next;}
+    # VARIOUS SETTINGS...
+    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs):(\s*(\S+)\s*)?$/) {
+      if ($2) {
+        my $par = $1;
+        my $val = $3;
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:0);
+        &Log("INFO: Setting $par to $val\n");
       }
-      &Log("INFO: Setting $par to $$par\n");
     }
-  }
-  elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {
-    if ($1) {
-      $findalltags = $2; 
-      if ($findalltags eq "true") {&Log("ERROR: FIND_ALL_TAGS is active. SFM will NOT be processed until this setting is deactivated.\n");} 
-      next;
+    elsif ($_ =~ /^FIND_ALL_TAGS:(\s*(.*?)\s*)?$/) {
+      if ($1) {
+        $findalltags = $2; 
+        if ($findalltags eq "true") {&Log("ERROR: FIND_ALL_TAGS is active. SFM will NOT be processed until this setting is deactivated.\n");} 
+        next;
+      }
     }
-  }
-  elsif ($_ =~ /^SFM_BOOK_NAME:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
-  elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
-  elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
-  elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
-  elsif ($_ =~ /^EXIT:(\s*(.*?)\s*)?$/) {if ($1) {if ($2 !~ /^(0|false)$/i) {last;}}}
-  # FORMATTING TAGS...
-  elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
-  elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
-  elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
-  elsif ($_ =~ /^TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstTitle = $2; next;}}
-  elsif ($_ =~ /^TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecTitle = $2; next;}}
-  elsif ($_ =~ /^CANONICAL_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstCanonTitle = $2; next;}}
-  elsif ($_ =~ /^CANONICAL_TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecCanonTitle = $2; next;}}
-  elsif ($_ =~ /^LIST_TITLE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$listtitle = $2; next;}}
-  elsif ($_ =~ /^LIST_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list1 = $2; next;}}
-  elsif ($_ =~ /^LIST_ENTRY_BULLET:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list2 = $2; next;}}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList1 = $2; next;}}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList2 = $2; next;}}
-  elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList3 = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@paragraph[$1] = $3; next;}}
-  elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {@paragraph[1] = $2; next;}}
-  elsif ($_ =~ /^LINE(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@poetryline[$1] = $3; next;}}
-  elsif ($_ =~ /^ITEM(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@listitem[$1] = $3; next;}}
-  elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
-  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$removepattern = $2; next;}}
-  # TEXT TAGS...
-  elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
-  elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
-  elsif ($_ =~ /^SUPER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$superpattern = $2; next;}}
-  elsif ($_ =~ /^SUB:(\s*\((.*?)\)\s*)?$/) {if ($1) {$subpattern = $2; next;}}
-  elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
-  elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
-  elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
-  elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
-  elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
+    elsif ($_ =~ /^SFM_BOOK_NAME:(\s*\((.*?)\)\s*)?$/) {if ($1) {$NameMatch = $2; next;}}
+    elsif ($_ =~ /^MOVE_TITLE_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveTitleNotes = $2; next;}}
+    elsif ($_ =~ /^MOVE_CHAPTER_NOTES:(\s*(.*?)\s*)?$/) {if ($1) {$MoveChapterNotes = $2; next;}}
+    elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
+    elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
+    elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
+    elsif ($_ =~ /^EXIT:(\s*(.*?)\s*)?$/) {if ($1) {if ($2 !~ /^(0|false)$/i) {last;}}}
+    # FORMATTING TAGS...
+    elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}    
+    elsif ($_ =~ /^INTRO_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IntroFstTitle = $2; next;}}
+    elsif ($_ =~ /^INTRO_PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$intropar = $2; next;}}
+    elsif ($_ =~ /^TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstTitle = $2; next;}}
+    elsif ($_ =~ /^TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecTitle = $2; next;}}
+    elsif ($_ =~ /^CANONICAL_TITLE_1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$FstCanonTitle = $2; next;}}
+    elsif ($_ =~ /^CANONICAL_TITLE_2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$SecCanonTitle = $2; next;}}
+    elsif ($_ =~ /^LIST_TITLE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$listtitle = $2; next;}}
+    elsif ($_ =~ /^LIST_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list1 = $2; next;}}
+    elsif ($_ =~ /^LIST_ENTRY_BULLET:(\s*\((.*?)\)\s*)?$/) {if ($1) {$list2 = $2; next;}}
+    elsif ($_ =~ /^ENUMERATED_LIST_LEVEL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList1 = $2; next;}}
+    elsif ($_ =~ /^ENUMERATED_LIST_LEVEL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList2 = $2; next;}}
+    elsif ($_ =~ /^ENUMERATED_LIST_LEVEL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$enumList3 = $2; next;}}
+    elsif ($_ =~ /^PARAGRAPH(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@paragraph[$1] = $3; next;}}
+    elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {@paragraph[1] = $2; next;}}
+    elsif ($_ =~ /^LINE(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@poetryline[$1] = $3; next;}}
+    elsif ($_ =~ /^ITEM(\d+):(\s*\((.*?)\)\s*)?$/) {if ($2) {@listitem[$1] = $3; next;}}
+    elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
+    elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$removepattern = $2; next;}}
+    # TEXT TAGS...
+    elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$boldpattern = $2; next;}}
+    elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italicpattern = $2; next;}}
+    elsif ($_ =~ /^SUPER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$superpattern = $2; next;}}
+    elsif ($_ =~ /^SUB:(\s*\((.*?)\)\s*)?$/) {if ($1) {$subpattern = $2; next;}}
+    elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
+    elsif ($_ =~ /^GLOSSARY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$glossaryentries = $2; next;}}
+    elsif ($_ =~ /^FOOTNOTE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$notePattern = $2; next;}}
+    elsif ($_ =~ /^GLOSSARY_NAME:(\s*(.*?)\s*)?$/) {if ($1) {$glossaryname = $2; next;}}
+    elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
 
-  # OT command...
-  elsif ($_ =~ /^OT\s*$/) {
-    &Write("<div type=\"bookGroup\">\n", 1);
-    $Testament="OT";
-    $endTestament="</div>";
-  }
-  # NT command...
-  elsif ($_ =~ /^NT\s*$/) {
-    $Testament="NT";
-    &Write("$endTestament\n<div type=\"bookGroup\">\n", 1);
-    $endTestament="</div>";
-  }
-  # FOOTNOTES_ command...
-  elsif ($_ =~ /^FOOTNOTES_([^:]+)/) {
-    $NoteType = $1;
-    if (keys %notes > 0) {&checkRemainingNotes;}
-    $_ =~ /^[^:]+:\s*(.*)/;
-    $NoteFileName = "$INPD/".$1;
-    $NoteFileName =~ s/\\/\//g;
-    $notePattern = "";
-    if    ($NoteType eq "WITHREFS") {&readFootNoteFileWithRefs;}
-    elsif ($NoteType eq "NOREFS") {&readFootNoteFileWithoutRefs;}
-    else {&Log("ERROR: Unknown FOOTNOTE setting \"$_\" in $COMMANDFILE\n");}
-    &Log("Begin using FOOTNOTES_$NoteType $NoteFileName\n");
-  }
-  # SFM file name...
-  elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
-    $SFMfile = $1;
-    $SFMfile =~ s/\\/\//g;
-    if ($SFMfile =~ /^\./) {
-      chdir($INPD);
-      $SFMfile = File::Spec->rel2abs($SFMfile);
-      chdir($SCRD);
+    # OT command...
+    elsif ($_ =~ /^OT\s*$/) {
+      &Write("<div type=\"bookGroup\">\n", 1);
+      $Testament="OT";
+      $endTestament="</div>";
     }
-    &bookSFMtoOSIS;
+    # NT command...
+    elsif ($_ =~ /^NT\s*$/) {
+      $Testament="NT";
+      &Write("$endTestament\n<div type=\"bookGroup\">\n", 1);
+      $endTestament="</div>";
+    }
+    # FOOTNOTES_ command...
+    elsif ($_ =~ /^FOOTNOTES_([^:]+)/) {
+      $NoteType = $1;
+      if (keys %notes > 0) {&checkRemainingNotes;}
+      $_ =~ /^[^:]+:\s*(.*)/;
+      $NoteFileName = "$INPD/".$1;
+      $NoteFileName =~ s/\\/\//g;
+      $notePattern = "";
+      if    ($NoteType eq "WITHREFS") {&readFootNoteFileWithRefs;}
+      elsif ($NoteType eq "NOREFS") {&readFootNoteFileWithoutRefs;}
+      else {&Log("ERROR: Unknown FOOTNOTE setting \"$_\" in $cf\n");}
+      &Log("Begin using FOOTNOTES_$NoteType $NoteFileName\n");
+    }
+    # SFM file name...
+    elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
+      $SFMfile = $1;
+      $SFMfile =~ s/\\/\//g;
+      if ($SFMfile =~ /^\./) {
+        chdir($INPD);
+        $SFMfile = File::Spec->rel2abs($SFMfile);
+        chdir($SCRD);
+      }
+      &bookSFMtoOSIS;
+    }
+    else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
-  else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
+
+  close(COMF);
+
+  # Write closing tags, and close the output file
+  &Write("$endTestament\n</osisText>\n</osis>\n", 1);
+  close (OUTF);
+
+  # Check and report...
+  if (keys %notes > 0) {&checkRemainingNotes;}
+  &Log("PROCESSING COMPLETE.\n");
+  if ($findalltags ne "true") {
+    &Log("Following is the list of unhandled tags which were skipped:\n");
+  }
+  else {
+    &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
+  }
+  foreach $tag (sort keys %skippedTags) {
+    #&Log("$skippedTags{$tag}"); #complete printout
+    &Log("$tag "); #brief printout
+  }
+
+  &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+
+  &Log("\nEnd of listing\n");
 }
-
-close(COMF);
-
-# Write closing tags, and close the output file
-&Write("$endTestament\n</osisText>\n</osis>\n", 1);
-close (OUTF);
-
-# Check and report...
-if (keys %notes > 0) {&checkRemainingNotes;}
-&Log("PROCESSING COMPLETE.\n");
-if ($findalltags ne "true") {
-  &Log("Following is the list of unhandled tags which were skipped:\n");
-}
-else {
-  &Log("FIND_ALL_TAGS listing (NOTE that \\c and \\v tags do not need to be mentioned in the command file as they are always handled):\n");
-}
-foreach $tag (sort keys %skippedTags) {
-  #&Log("$skippedTags{$tag}"); #complete printout
-  &Log("$tag "); #brief printout
-}
-
-&Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
-
-&Log("\nEnd of listing\n");
-1;
-
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
 
 
 sub bookSFMtoOSIS {
@@ -308,7 +308,6 @@ sub bookSFMtoOSIS {
   my $sfmname = $SFMfile;
   $sfmname =~ s/^.*?([^\/\\]*)$/$1/;
   $ThisSFM = "$TMPDIR/$sfmname";
-  &normalizeNewLines($SFMfile);
   open(TMPI, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
   open(TMPO, ">:encoding(UTF-8)", $ThisSFM) or die "ERROR: Could not open temporary SFM file $ThisSFM\n";
   $removedSoftHyphens = 0;
@@ -438,7 +437,7 @@ sub bookSFMtoOSIS {
   # Now commit print buffer to file
   foreach my $p (@PrintOut) {&Write($p, 1);}
 }
-############################################
+
 
 sub parseline($) {
   my $ln = shift;
@@ -894,7 +893,7 @@ sub parseline($) {
     $readText = "$readText $myT";
   }
 }
-#####################################
+
     
 sub encodeNotes {
   # Convert cross references if any
@@ -964,12 +963,11 @@ sub encodeNotes {
     $myT =~ s/\*//g;
   }
 }
-#####################################
+
 
 sub readFootNoteFileWithRefs {
   undef %notes;
   &Log("Processing Footnotes file \"$NoteFileName\" with refs.\n");
-  &normalizeNewLines($NoteFileName);
   open(NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
   $line=0;
   while (<NFLE>) {
@@ -1032,11 +1030,10 @@ sub readFootNoteFileWithRefs {
     #$t =~ s/\|i([^\|]*)\|r/<hi type=\"italic\">$1<\/hi>/g;
   }
 }
-#####################################
+
 
 sub readFootNoteFileWithoutRefs {
   undef %notes;
-  &normalizeNewLines($NoteFileName);
   open(NFLE, "<:encoding(UTF-8)", $NoteFileName) or print "ERROR: Could not open file $NoteFileName.\n";
   $NoteFileName =~ /\/(...) Footnotes/; 
   $bookName = &getOsisName($1); 
@@ -1146,3 +1143,5 @@ sub Write($$) {
 	
   print OUTF $print;
 }
+
+1;

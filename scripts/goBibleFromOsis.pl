@@ -20,11 +20,11 @@
 #   All input OSIS verses are contained on a single line.
 #   All input OSIS <div> and <chapter> tags are alone on a line
 
-open(INF, "<:encoding(UTF-8)", $INPUTFILE) || die "Could not open infile $INPUTFILE.\n";
+open(INF, "<:encoding(UTF-8)", $OSISFILE) || die "Could not open infile $OSISFILE.\n";
 open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open outfile $OUTPUTFILE.\n";
 
 $line = 0;
-&logProgress($INPUTFILE, -1);
+&logProgress($OSISFILE, -1);
 $inHeader = true;
 while (<INF>) {
   $line++;

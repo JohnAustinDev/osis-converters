@@ -25,154 +25,155 @@
 #   If no books are listed, then cross-references will be added to 
 #   ALL books in the OSIS file.
 
-$NumNotes = 0;   
+sub addCrossRefs($$) {
+  my $in_osis = shift;
+  my $out_osis = shift;
+  
+  $NumNotes = 0;   
 
-&Log("-----------------------------------------------------\nSTARTING addCrossRefs.pl\n\n");
+  &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
 
-$Booklist = "";
-if (-e $COMMANDFILE) {
-  &Log("READING COMMAND FILE \"$COMMANDFILE\"\n");
-  &normalizeNewLines($COMMANDFILE);
-  &removeRevisionFromCF($COMMANDFILE);
-  open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) or die "Could not open command file \"$COMMANDFILE\".\n";
-  while (<COMF>) {
-    if ($_ =~ /^\s*$/) {next;}
-    if ($_ =~ /^\#/) {next;}
-    elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:(\s*(.*?)\s*)?$/) {if ($1) {$RemoveIfMissingTarget = $2; next;}}
-    elsif ($_ =~ /:/) {next;}
-    elsif ($_ =~ /\/(\w+)\.[^\/]+$/) {}
-    elsif ($_ =~/^\s*(\w+)\s*$/) {}
-    else {next;}
-    $Booklist .= " " . &getOsisName($1);
-  }
-  close(COMF);
-}
-
-if (!$Booklist || $Booklist =~ /^\s*$/) {
-  $UseAllBooks = "true";
-  &Log("You are including cross references for ALL books.\n");
-}
-else {
-  $UseAllBooks = "false"; 
-  &Log("You are including cross references for the following books:\n$Booklist\n");
-}
-
-########################################################################
-&Log("READING OSIS FILE: \"$INPUTFILE\".\n");
-$OSIS = $XML_PARSER->parse_file($INPUTFILE);
-
-%Book;
-foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $OSIS)) {
-  my $bk = $b->findvalue('./@osisID');
-  $Book{$bk} = $b;
-}
-
-%Verse;
-my @verses = $XPC->findnodes('//osis:verse', $OSIS);
-foreach my $v (@verses) {
-  if ($v->hasChildNodes()) {&Log("ERROR: addCrossRefs.pl expects milestone verse tags\n"); die;}
-  my $tt = 'start';
-  my $id = $v->findvalue('./@sID');
-  if (!$id) {
-    $tt = 'end';
-    $id = $v->findvalue('./@eID');
-  }
-  my @osisRefs = id2refs($id);
-  foreach my $ref (@osisRefs) {$Verse{$ref}{$tt} = $v;}
-}
-
-########################################################################
-my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
-my @try = (
-  "$INPD/../Cross_References/$CrossRefFile.xml",
-  "$INPD/../../Cross_References/$CrossRefFile.xml",
-  "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
-  "$SCRD/scripts/CrossReferences/CrossRefs_$CrossRefFile.txt"
-);
-foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
-if (! -e $CrossRefFile) {&Log("ERROR: Could not locate Cross Reference source file.\n"); die;}
-my $f = $CrossRefFile; $f =~ s/^.*?([^\/]+)$/$1/;
-&Log("READING CROSS REFERENCE FILE \"$f\".\n");
-
-# XML is the prefered source type (TXT is deprecated)
-if ($CrossRefFile =~ /\.xml$/) {
-  $NoteXML = $XML_PARSER->parse_file($CrossRefFile);
-  my @notes = $XPC->findnodes('//osis:note', $NoteXML);
-  # combine all matching notes within a verse
-  my %osisRefs;
-  my @matchAttribs = ('osisRef', 'type', 'subType');
-  for (my $i=0; $i<@notes; $i++) {
-    my $key = '';
-    foreach my $a (@matchAttribs) {$key .= @notes[$i]->findvalue("./\@$a");}
-    if (defined($osisRefs{$key})) {
-      foreach my $ref (@notes[$i]->childNodes()) {@notes[$osisRefs{$key}]->insertAfter($ref, undef);}
-      @notes[$i] = NULL;
+  $Booklist = "";
+  my $commandFile = "$INPD/CF_addCrossRefs.txt";
+  if (-e $commandFile) {
+    &Log("READING COMMAND FILE \"$commandFile\"\n");
+    &removeRevisionFromCF($commandFile);
+    open(COMF, "<:encoding(UTF-8)", $commandFile) or die "Could not open command file \"$commandFile\".\n";
+    while (<COMF>) {
+      if ($_ =~ /^\s*$/) {next;}
+      if ($_ =~ /^\#/) {next;}
+      elsif ($_ =~ /REMOVE_REFS_TO_MISSING_BOOKS:(\s*(.*?)\s*)?$/) {if ($1) {$RemoveIfMissingTarget = $2; next;}}
+      elsif ($_ =~ /:/) {next;}
+      elsif ($_ =~ /\/(\w+)\.[^\/]+$/) {}
+      elsif ($_ =~/^\s*(\w+)\s*$/) {}
+      else {next;}
+      $Booklist .= " " . &getOsisName($1);
     }
-    else {$osisRefs{$key} = $i;}
+    close(COMF);
   }
-  foreach my $note (@notes) {
-    if (ref($note) ne "XML::LibXML::Element") {next;}
-    # place note in first verse of multi-verse osisRef spans
-    my @refs = &id2refs($note->findvalue('./@osisRef'));
-    if (@refs > 1) {
-      my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
-      $osisRef->setValue(@refs[0]);
-      my $osisID = @{$XPC->findnodes('./@osisID', $note)}[0];
-      my $val = $osisID->getValue();
-      $val =~ s/^[^\!]*?(?=(\!|$))//;
-      $osisID->setValue(@refs[0] . $val);
+
+  if (!$Booklist || $Booklist =~ /^\s*$/) {
+    $UseAllBooks = "true";
+    &Log("You are including cross references for ALL books.\n");
+  }
+  else {
+    $UseAllBooks = "false"; 
+    &Log("You are including cross references for the following books:\n$Booklist\n");
+  }
+
+  ########################################################################
+  &Log("READING OSIS FILE: \"$in_osis\".\n");
+  $OSIS = $XML_PARSER->parse_file($in_osis);
+
+  %Book;
+  foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $OSIS)) {
+    my $bk = $b->findvalue('./@osisID');
+    $Book{$bk} = $b;
+  }
+
+  %Verse;
+  my @verses = $XPC->findnodes('//osis:verse', $OSIS);
+  foreach my $v (@verses) {
+    if ($v->hasChildNodes()) {&Log("ERROR: addCrossRefs.pl expects milestone verse tags\n"); die;}
+    my $tt = 'start';
+    my $id = $v->findvalue('./@sID');
+    if (!$id) {
+      $tt = 'end';
+      $id = $v->findvalue('./@eID');
     }
-    @refs[0] =~ /^([^\.]+)\.(\d+)\.(\d+)$/; my $b = $1; my $c = $2; my $v = $3;
-    if (&filterNote($note, $b)) {next;}
-    if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
-    &insertNote($note, \%{$Verse{"$b.$c.$v"}});
+    my @osisRefs = id2refs($id);
+    foreach my $ref (@osisRefs) {$Verse{$ref}{$tt} = $v;}
   }
-}
-else {
-  copy($CrossRefFile, "$CrossRefFile.tmp");
-  &normalizeNewLines("$CrossRefFile.tmp");
-  open(NFLE, "<:encoding(UTF-8)", "$CrossRefFile.tmp") or die "Could not open cross reference file \"$CrossRefFile.tmp\".\n";
-  while (<NFLE>) {
-    $line++; #if (!($line%100)) {print "$line\n";}
-    if ($_ =~ /^\s*$/) {next;}
-    elsif ($_ !~ /^(norm:|para:)?([^\.]+)\.(\d+)\.(\d+):\s*(<note .*?<\/note>)\s*$/) {&Log("WARNING: Skipping unrecognized line, $line: $_"); next;}
-    my $type = $1;
-    my $b = $2;
-    my $c = $3;
-    my $v = $4;
-    my $note = $5;
-    chop($type);
 
-    if (&filterNote(\$note, $b)) {next;}
-    
-    my $osisID = "$b.$c.$v!crossReference." . ($type eq "para" ? "p":"n");
-    my $attribs = "osisRef=\"$b.$c.$v\" osisID=\"$osisID" . ++$REFNUM{$osisID} . "\"";
-    $note =~ s/(type="crossReference")/$1 $attribs/;
-    
-    if ($note !~ /^<note type="crossReference" osisRef="[^\.]+\.\d+\.\d+" osisID="[^\.]+\.\d+\.\d+\!crossReference\.(n|p)\d+"( subType="x-parallel-passage")?>(<reference osisRef="([^\.]+\.\d+(\.\d+)?-?)+"><\/reference>)+<\/note>$/) {
-      &Log("ERROR: Bad cross reference: \"$note\"\n"); next;
+  ########################################################################
+  my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
+  my @try = (
+    "$INPD/../Cross_References/$CrossRefFile.xml",
+    "$INPD/../../Cross_References/$CrossRefFile.xml",
+    "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
+    "$SCRD/scripts/CrossReferences/CrossRefs_$CrossRefFile.txt"
+  );
+  foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
+  if (! -e $CrossRefFile) {&Log("ERROR: Could not locate Cross Reference source file.\n"); die;}
+  my $f = $CrossRefFile; $f =~ s/^.*?([^\/]+)$/$1/;
+  &Log("READING CROSS REFERENCE FILE \"$f\".\n");
+
+  # XML is the prefered cross-reference source format, but TXT is still supported
+  if ($CrossRefFile =~ /\.xml$/) {
+    $NoteXML = $XML_PARSER->parse_file($CrossRefFile);
+    my @notes = $XPC->findnodes('//osis:note', $NoteXML);
+    # combine all matching notes within a verse
+    my %osisRefs;
+    my @matchAttribs = ('osisRef', 'type', 'subType');
+    for (my $i=0; $i<@notes; $i++) {
+      my $key = '';
+      foreach my $a (@matchAttribs) {$key .= @notes[$i]->findvalue("./\@$a");}
+      if (defined($osisRefs{$key})) {
+        foreach my $ref (@notes[$i]->childNodes()) {@notes[$osisRefs{$key}]->insertAfter($ref, undef);}
+        @notes[$i] = NULL;
+      }
+      else {$osisRefs{$key} = $i;}
     }
-
-    if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
-
-    &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}});
+    foreach my $note (@notes) {
+      if (ref($note) ne "XML::LibXML::Element") {next;}
+      # place note in first verse of multi-verse osisRef spans
+      my @refs = &id2refs($note->findvalue('./@osisRef'));
+      if (@refs > 1) {
+        my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
+        $osisRef->setValue(@refs[0]);
+        my $osisID = @{$XPC->findnodes('./@osisID', $note)}[0];
+        my $val = $osisID->getValue();
+        $val =~ s/^[^\!]*?(?=(\!|$))//;
+        $osisID->setValue(@refs[0] . $val);
+      }
+      @refs[0] =~ /^([^\.]+)\.(\d+)\.(\d+)$/; my $b = $1; my $c = $2; my $v = $3;
+      if (&filterNote($note, $b)) {next;}
+      if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
+      &insertNote($note, \%{$Verse{"$b.$c.$v"}});
+    }
   }
-  close (NFLE);
-  unlink("$CrossRefFile.tmp");
+  else {
+    copy($CrossRefFile, "$CrossRefFile.tmp");
+    open(NFLE, "<:encoding(UTF-8)", "$CrossRefFile.tmp") or die "Could not open cross reference file \"$CrossRefFile.tmp\".\n";
+    while (<NFLE>) {
+      $line++; #if (!($line%100)) {print "$line\n";}
+      if ($_ =~ /^\s*$/) {next;}
+      elsif ($_ !~ /^(norm:|para:)?([^\.]+)\.(\d+)\.(\d+):\s*(<note .*?<\/note>)\s*$/) {&Log("WARNING: Skipping unrecognized line, $line: $_"); next;}
+      my $type = $1;
+      my $b = $2;
+      my $c = $3;
+      my $v = $4;
+      my $note = $5;
+      chop($type);
+
+      if (&filterNote(\$note, $b)) {next;}
+      
+      my $osisID = "$b.$c.$v!crossReference." . ($type eq "para" ? "p":"n");
+      my $attribs = "osisRef=\"$b.$c.$v\" osisID=\"$osisID" . ++$REFNUM{$osisID} . "\"";
+      $note =~ s/(type="crossReference")/$1 $attribs/;
+      
+      if ($note !~ /^<note type="crossReference" osisRef="[^\.]+\.\d+\.\d+" osisID="[^\.]+\.\d+\.\d+\!crossReference\.(n|p)\d+"( subType="x-parallel-passage")?>(<reference osisRef="([^\.]+\.\d+(\.\d+)?-?)+"><\/reference>)+<\/note>$/) {
+        &Log("ERROR: Bad cross reference: \"$note\"\n"); next;
+      }
+
+      if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
+
+      &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}});
+    }
+    close (NFLE);
+    unlink("$CrossRefFile.tmp");
+  }
+
+  ########################################################################
+  &Log("WRITING NEW OSIS FILE: \"$out_osis\".\n");
+  open(OUTF, ">$out_osis");
+  print OUTF $OSIS->toString();
+  close(OUTF);
+
+  &Log("REPORT: Placed $NumNotes cross-reference notes.\n");
 }
 
-########################################################################
-&Log("WRITING NEW OSIS FILE: \"$OUTPUTFILE\".\n");
-open(OUTF, ">$OUTPUTFILE");
-print OUTF $OSIS->toString();
-close(OUTF);
 
-&Log("REPORT: Placed $NumNotes cross-reference notes.\n");
-
-1;
-
-########################################################################
-########################################################################
 sub insertNote($\$) {
   my $noteP = shift;
   my $verseP = shift;
@@ -254,3 +255,5 @@ sub filterNote($$) {
   
   return 0;
 }
+
+1;

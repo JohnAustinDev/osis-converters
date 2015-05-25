@@ -37,11 +37,13 @@
 
 # COMMAND FILE INSTRUCTIONS/SETTINGS:
 #   RUN - Process the SFM file now and add it to the IMP file. 
-#       Only one SFM file per RUN command is allowed. 
+#       Only one SFM file per RUN command is allowed.
+#   SET_script - Include script during processing (true|false|<option>)
+#   PUNC_AS_LETTER - List special characters which should be treated as 
+#       letters for purposes of matching word boundaries. 
+#       Example for : "PUNC_AS_LETTER:'`" 
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
-#   SET_combineLikeEntries - Set "true" to combine repeat entries
-#       into a single entry.
 
 # COMMAND FILE FORMATTING RELATED SETTINGS:
 #   START_WITH_NEWLINE - If true, entry text begins on new line.
@@ -74,136 +76,120 @@
 #       glossary entry names in the SFM.
 #   SEE_ALSO - A Perl regular expression to match "see-also" SFM tags.
 
-&Log("-----------------------------------------------------\nSTARTING paratext2imp.pl\n\n");
-
-# Read the COMMANDFILE, converting each file as it is encountered
-&normalizeNewLines($COMMANDFILE);
-&removeRevisionFromCF($COMMANDFILE);
-open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open paratext2imp command file $COMMANDFILE\n";
-
-$IgnoreTags = "";
-$ContinuationTerms = "";
-$GlossExp = "";
-$normpar = "";
-$doublepar = "";
-$triplepar = "";
-$blankline = "";
-$tablerstart = "none";
-$tablec1 = "none";
-$tablec2 = "none";
-$tablec3 = "none";
-$tablec4 = "none";
-$tablec5 = "none";
-$tablec6 = "none";
-$tablerend = "none";
-$bold = "";
-$italic = "";
-$remove = "";
-$txttags = "";
-$notes = "";
-$crossrefs = "";
-$seealsopat = "";
-$breakbefore = "";
-$replace1="";
-$replace2="";
-$AllowSet = "imageDir|addScripRefLinks|addSeeAlsoLinks";
-$imageDir="";
-$addScripRefLinks=0;
-$addSeeAlsoLinks=0;
-$newLine="";
-
-undef(%Glossary);
-$tagsintext="";  
-$line=0;
-while (<COMF>) {
-  $line++;
-  $_ =~ s/\s+$//;
+sub paratext2imp($$) {
+  my $cf = shift;
+  my $outimp = shift;
   
-  if ($_ =~ /^\s*$/) {next;}
-  elsif ($_ =~ /^\#/) {next;}
-  elsif ($_ =~ /^SET_($AllowSet):(\s*(\S+)\s*)?$/) {
-    if ($2) {
-      my $par = $1;
-      my $val = $3;
-      $$par = $val;
-      if ($par =~ /^(addScripRefLinks|addSeeAlsoLinks)$/) {
-        $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
+  &Log("\n--- CONVERTING PARATEXT TO IMP\n-----------------------------------------------------\n\n");
+
+  # Read the COMMANDFILE, converting each file as it is encountered
+  my $commandFile = "$INPD/CF_paratext2imp.txt";
+  &removeRevisionFromCF($commandFile);
+  open(COMF, "<:encoding(UTF-8)", $commandFile) || die "Could not open paratext2imp command file $commandFile\n";
+
+  $IgnoreTags = "";
+  $ContinuationTerms = "";
+  $GlossExp = "";
+  $normpar = "";
+  $doublepar = "";
+  $triplepar = "";
+  $blankline = "";
+  $tablerstart = "nONe";
+  $tablec1 = "nONe";
+  $tablec2 = "nONe";
+  $tablec3 = "nONe";
+  $tablec4 = "nONe";
+  $tablec5 = "nONe";
+  $tablec6 = "nONe";
+  $tablerend = "nONe";
+  $bold = "";
+  $italic = "";
+  $remove = "";
+  $txttags = "";
+  $notes = "";
+  $crossrefs = "";
+  $seealsopat = "";
+  $breakbefore = "";
+  $replace1="";
+  $replace2="";
+  $newLine="";
+
+  undef(%Glossary);
+  $tagsintext="";  
+  $line=0;
+  while (<COMF>) {
+    $line++;
+    $_ =~ s/\s+$//;
+    
+    if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^\#/) {next;}
+    elsif ($_ =~ /^SET_(imageDir|addScripRefLinks|addSeeAlsoLinks):(\s*(\S+)\s*)?$/) {
+      if ($2) {
+        my $par = $1;
+        my $val = $3;
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:0);
+        &Log("INFO: Setting $par to $val\n");
       }
-      &Log("INFO: Setting $par to $$par\n");
     }
+    # VARIOUS SETTINGS...
+    elsif ($_ =~ /^#/) {next;}
+    elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
+    elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
+    elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
+    
+    # FORMATTING TAGS...
+    elsif ($_ =~ /^START_WITH_NEWLINE:\s*(.*?)\s*$/) {$newLine = $1; $newLine = ($newLine && $newLine !~ /^false$/i ? 1:0); next;}
+    elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
+    elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
+    elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
+    elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
+    elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
+    elsif ($_ =~ /^TABLE_ROW_START:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerstart = $2; next;}}
+    elsif ($_ =~ /^TABLE_COL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec1= $2; next;}}
+    elsif ($_ =~ /^TABLE_COL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec2= $2; next;}}
+    elsif ($_ =~ /^TABLE_COL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec3= $2; next;}}
+    elsif ($_ =~ /^TABLE_COL4:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec4= $2; next;}}
+    elsif ($_ =~ /^TABLE_COL5:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec5= $2; next;}}
+    elsif ($_ =~ /^TABLE_COL6:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec6= $2; next;}}
+    elsif ($_ =~ /^TABLE_ROW_END:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerend= $2; next;}}
+    elsif ($_ =~ /^BREAK_BEFORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$breakbefore= $2; next;}}
+
+    # TEXT PATTERNS... 
+    elsif ($_ =~ /^GLOSSARY_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$GlossExp = $2; next;}} 
+    elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remove = $2; next;}}
+    elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$bold = $2; next;}}
+    elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italic = $2; next;}}
+    elsif ($_ =~ /^FOOTNOTE:(\s*(.*?)\s*)?$/) {if ($1) {$notes = $2; next;}}
+    elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
+    elsif ($_ =~ /^SEE_ALSO:(\s*\((.*?)\)\s*)?$/) {if ($1) {$seealsopat = $2; next;}}
+    elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
+    
+    # SFM file name...
+    elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {&glossSFMtoIMP($1);}
+    elsif ($_ =~ /^APPEND:\s*(.*?)\s*$/) {&appendIMP($1);}
+    else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
   }
-  # VARIOUS SETTINGS...
-  elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^VERSE_CONTINUE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$ContinuationTerms = $2; next;}}
-  elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
-  
-  # FORMATTING TAGS...
-  elsif ($_ =~ /^START_WITH_NEWLINE:\s*(.*?)\s*$/) {$newLine = $1; $newLine = ($newLine && $newLine !~ /^false$/i ? 1:0); next;}
-  elsif ($_ =~ /^IGNORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$IgnoreTags = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH:(\s*\((.*?)\)\s*)?$/) {if ($1) {$normpar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$doublepar = $2; next;}}
-  elsif ($_ =~ /^PARAGRAPH3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$triplepar = $2; next;}}
-  elsif ($_ =~ /^BLANK_LINE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$blankline = $2; next;}}
-  elsif ($_ =~ /^TABLE_ROW_START:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerstart = $2; next;}}
-  elsif ($_ =~ /^TABLE_COL1:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec1= $2; next;}}
-  elsif ($_ =~ /^TABLE_COL2:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec2= $2; next;}}
-  elsif ($_ =~ /^TABLE_COL3:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec3= $2; next;}}
-  elsif ($_ =~ /^TABLE_COL4:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec4= $2; next;}}
-  elsif ($_ =~ /^TABLE_COL5:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec5= $2; next;}}
-  elsif ($_ =~ /^TABLE_COL6:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablec6= $2; next;}}
-  elsif ($_ =~ /^TABLE_ROW_END:(\s*\((.*?)\)\s*)?$/) {if ($1) {$tablerend= $2; next;}}
-  elsif ($_ =~ /^BREAK_BEFORE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$breakbefore= $2; next;}}
 
-  # TEXT PATTERNS... 
-  elsif ($_ =~ /^GLOSSARY_ENTRY:(\s*\((.*?)\)\s*)?$/) {if ($1) {$GlossExp = $2; next;}} 
-  elsif ($_ =~ /^REMOVE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$remove = $2; next;}}
-  elsif ($_ =~ /^BOLD:(\s*\((.*?)\)\s*)?$/) {if ($1) {$bold = $2; next;}}
-  elsif ($_ =~ /^ITALIC:(\s*\((.*?)\)\s*)?$/) {if ($1) {$italic = $2; next;}}
-  elsif ($_ =~ /^FOOTNOTE:(\s*(.*?)\s*)?$/) {if ($1) {$notes = $2; next;}}
-  elsif ($_ =~ /^CROSSREF:(\s*\((.*?)\)\s*)?$/) {if ($1) {$crossrefs = $2; next;}}
-  elsif ($_ =~ /^SEE_ALSO:(\s*\((.*?)\)\s*)?$/) {if ($1) {$seealsopat = $2; next;}}
-  elsif ($_ =~ /^REPLACE:(\s*s\/(.*?)\/(.*?)\/\s*)?$/) {if ($1) {$replace1 = $2; $replace2 = $3; next;}}
-  
-  # SFM file name...
-  elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {&glossSFMtoIMP($1);}
-  elsif ($_ =~ /^APPEND:\s*(.*?)\s*$/) {&appendIMP($1);}
-  else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
+  open(OUTF, ">:encoding(UTF-8)", $outimp) || die "Could not open paratext2imp output file $outimp\n";
+  foreach $e (sort keys %Glossary) {
+    my $txt = ${$Glossary{$e}}[0];
+    
+    # begin with newline if needed
+    if ($newLine && $txt !~ /^\s*\Q$LB\E/) {$txt = $LB.$txt;}
+    if ($newLine) {$txt =~ s/^(\s*\Q$LB\E)+/$LB/;}
+    
+    print OUTF "\$\$\$$e\n$txt\n";
+  }
+  close (OUTF);
+
+  # Check and report...
+  &Log("PROCESSING COMPLETE.\n");
+  &Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
+  &Log("\nFollowing tags were removed from entry names:\n");
+  foreach $k (keys %convertEntryRemoved) {&Log("$k ");}
+  &Log("\nEnd of listing\n");
 }
 
-open(OUTF, ">:encoding(UTF-8)", $OUTPUTFILE) || die "Could not open paratext2imp output file $OUTPUTFILE\n";
-foreach $e (sort keys %Glossary) {
-  my $txt = ${$Glossary{$e}}[0];
-  
-  # begin with newline if needed
-  if ($newLine && $txt !~ /^\s*\Q$LB\E/) {$txt = $LB.$txt;}
-  if ($newLine) {$txt =~ s/^(\s*\Q$LB\E)+/$LB/;}
-  
-  print OUTF "\$\$\$$e\n$txt\n";
-}
-close (OUTF);
-
-# Check and report...
-&Log("PROCESSING COMPLETE.\n");
-&Log("\nFollowing are unhandled tags which where removed from the text:\n$tagsintext");
-&Log("\nFollowing tags were removed from entry names:\n");
-foreach $k (keys %convertEntryRemoved) {&Log("$k ");}
-&Log("\nEnd of listing\n");
-&entriesReport(\%Glossary, 1);
-
-# Write DictionaryWords.txt file
-open(INF, "<:encoding(UTF-8)", $OUTPUTFILE) || die "ERROR: Could not open $OUTPUTFILE.\n";
-undef(@AllEntries);
-while(<INF>) {if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {push(@AllEntries, $1);}}
-close(INF);
-open(DWORDS, ">:encoding(UTF-8)", "$OUTDIR/DictionaryWords_autogen.txt") || die "Error: Could not open $OUTDIR/DictionaryWords_autogen.txt\n";
-for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DE$i:$AllEntries[$i]\n";}
-print DWORDS "\n########################################################################\n\n";
-for (my $i=0; $i<@AllEntries; $i++) {print DWORDS "DL$i:$AllEntries[$i]\n";}
-close(DWORDS);
-1;
-
-########################################################################
-########################################################################
 
 sub appendIMP($) {
   my $imp = shift;
@@ -214,7 +200,6 @@ sub appendIMP($) {
   }
   
   &Log("Appending $imp\n");
-  &normalizeNewLines($imp);
   if (open(IMP, "<:encoding(UTF-8)", $imp)) {
     my $ent = "";
     my $txt = "";
@@ -233,6 +218,7 @@ sub appendIMP($) {
   else {&Log("ERROR: Could not append \"$imp\". File not found.\n");}
 }
 
+
 sub glossSFMtoIMP($) {
   $SFMfile = shift;
   if ($SFMfile =~ /^\./) {
@@ -244,7 +230,6 @@ sub glossSFMtoIMP($) {
   &Log("Processing $SFMfile\n");
 
   # Read the paratext file and convert it
-  &normalizeNewLines($SFMfile);
   open(INF, "<:encoding(UTF-8)", $SFMfile) or print getcwd." ERROR: Could not open file $SFMfile.\n";
 
   # Read the paratext file line by line
@@ -272,6 +257,7 @@ sub glossSFMtoIMP($) {
   close (INF);
 }
 
+
 sub convertEntry($) {
   my $e = shift;
   $e =~ s/\\(\w+[\s\*])/$convertEntryRemoved{"\\$1"}++; my $t="";/eg;
@@ -279,9 +265,9 @@ sub convertEntry($) {
   $e =~ s/<[^>]*>/$convertEntryRemoved{"$1"}++; my $t="";/eg;
   $e =~ s/(^\s*|\s*$)//g;
   $e =~ s/\s+/ /g;
-  $e = &uc2($e);
   return $e;
 }
+
 
 sub convertText($$) {
   my $l = shift;
@@ -319,7 +305,7 @@ sub convertText($$) {
 
   # footnotes, cross references, and glossary entries
   if ($seealsopat) {
-    $l =~ s/($seealsopat)/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef(&uc2($a))."\">$a<\/reference>";/ge;
+    $l =~ s/($seealsopat)/my $a = $+; my $res = "<reference type=\"x-glosslink\" osisRef=\"$MOD:".&encodeOsisRef($a)."\">$a<\/reference>";/ge;
   }
   if ($crossrefs) {$l =~ s/($crossrefs)/<note type="crossReference">$+<\/note>/g;}
   if ($notes)     {$l =~ s/($notes)/<note>$+<\/note>/g;}
@@ -331,12 +317,14 @@ sub convertText($$) {
   return $l;  
 }
 
+
 sub varEval($) {
   my $r = shift;
   
   if ($r =~ /\$/) {$r = eval($r);}
   return $r;
 }
+
 
 sub convertTable(\$) {
   my $tP = shift;
@@ -360,6 +348,7 @@ sub convertTable(\$) {
   }
 }
 
+
 sub formatCell($$) {
   my $t = shift;
   my $e = shift;
@@ -370,6 +359,7 @@ sub formatCell($$) {
   
   return $f;
 }
+
 
 sub getWidestW(\$$$) {
   my $tP = shift;
@@ -382,6 +372,7 @@ sub getWidestW(\$$$) {
   
   return $w;
 }
+
 
 sub Write($$) {
   my $e = shift;
@@ -408,3 +399,5 @@ sub Write($$) {
   push(@{$Glossary{$e}}, $t);
   &logProgress($e);
 }
+
+1;

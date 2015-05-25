@@ -31,94 +31,36 @@
 #  IMP wiki: http://www.crosswire.org/wiki/File_Formats#IMP
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use File::Spec;
+$DEBUG = 0;
+
 $INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  print "\nusage: sfm2imp.pl [Glossary_Directory]\n";
-  print "\n";
-  exit;
-}
-if (!-e $INPD) {
-  print "Glossary_Directory \"$INPD\" does not exist. Exiting.\n";
-  exit;
-}
-$SCRD = File::Spec->rel2abs( __FILE__ );
+use File::Spec;
+$SCRD = File::Spec->rel2abs(__FILE__);
 $SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl";
-&initPaths();
+require "$SCRD/scripts/common.pl"; 
+&init(__FILE__);
 
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
-
-$IMPFILE = "$OUTDIR/".$MOD.".imp";
-$LOGFILE = "$OUTDIR/OUT_sfm2imp.txt";
-
-my $delete;
-if (-e $IMPFILE) {$delete .= "$IMPFILE\n";}
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-}
-if (-e $IMPFILE) {unlink($IMPFILE);}
-if (-e $LOGFILE) {unlink($LOGFILE);}
-
-$TMPDIR = "$OUTDIR/tmp/sfm2imp";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
-
-if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
-
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING sfm2imp.pl\n\n");
-
-# insure the following conf settings are in the conf file
-$OSISVersion = $OSISSCHEMA;
-$OSISVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
 $IS_usfm2osis = 0;
 
-# run paratext2imp.pl
-$COMMANDFILE = "$INPD/CF_paratext2imp.txt";
-if (-e $COMMANDFILE) {
-  &Log("\n--- CONVERTING PARATEXT TO IMP\n");
-  $OUTPUTFILE = "$TMPDIR/".$MOD."_1.imp";
-  $NOCONSOLELOG = 1;
-  require("$SCRD/scripts/paratext2imp.pl");
-  $NOCONSOLELOG = 0;
-}
-else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
+require("$SCRD/scripts/paratext2imp.pl");
+&paratext2imp('CF_paratext2imp.txt', "$TMPDIR/".$MOD."_1.imp");
 
-# run addScripRefLinks.pl
-$COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
-if ($addScripRefLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping Scripture reference parsing. Missing command file: $COMMANDFILE.\n");}
-if ($addScripRefLinks && -e $COMMANDFILE) {
-  &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
-  $INPUTFILE = "$TMPDIR/".$MOD."_1.imp";
-  $OUTPUTFILE = "$TMPDIR/".$MOD."_2.imp";
-  $NOCONSOLELOG = 1;
+open(AFILE, ">>:encoding(UTF-8)", "$TMPDIR/".$MOD."_1.imp") || die;
+
+&writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
+if (! -e "$INPD/$DICTIONARY_WORDS") {copy("$OUTDIR/DictionaryWords_autogen.xml", "$INPD/$DICTIONARY_WORDS");}
+&checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$INPD/$DICTIONARY_WORDS");
+
+if ($addScripRefLinks) {
   require("$SCRD/scripts/addScripRefLinks.pl");
-  $NOCONSOLELOG = 0;
+  &addScripRefLinks("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");
 }
 else {rename("$TMPDIR/".$MOD."_1.imp", "$TMPDIR/".$MOD."_2.imp");}
 
-# run addSeeAlsoLinks.pl
-$COMMANDFILE = "$INPD/CF_addSeeAlsoLinks.txt";
-if ($addSeeAlsoLinks && !-e $COMMANDFILE) {&Log("ERROR: Skipping dictionary link parsing/checking. Missing command file: $COMMANDFILE.\n");}
-if ($addSeeAlsoLinks && -e $COMMANDFILE) {
-  &Log("\n--- ADDING DICTIONARY LINKS\n");
-  $INPUTFILE = "$TMPDIR/".$MOD."_2.imp";
-  $OUTPUTFILE = "$OUTDIR/".$MOD.".imp";
-  $NOCONSOLELOG = 1;
+if ($addSeeAlsoLinks) {
   require("$SCRD/scripts/addSeeAlsoLinks.pl");
-  $NOCONSOLELOG = 0;
+  &addSeeAlsoLinks("$TMPDIR/".$MOD."_2.imp", $OUTIMP);
 }
-else {rename("$TMPDIR/".$MOD."_2.imp", "$OUTDIR/".$MOD.".imp");}
-close(CONF);
+else {rename("$TMPDIR/".$MOD."_2.imp", $OUTIMP);}
 
-1;
+

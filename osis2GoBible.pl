@@ -31,26 +31,16 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use File::Spec;
 $INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  my $dproj = "./Example_GoBible";
-  print "\nusage: osis2GoBible.pl [Bible_Directory]\n";
-  print "\n";
-  exit;
-}
-if (!-e $INPD) {
-  print "Bible_Directory \"$INPD\" does not exist. Exiting.\n";
-  exit;
-}
-$SCRD = File::Spec->rel2abs( __FILE__ );
+use File::Spec;
+$SCRD = File::Spec->rel2abs(__FILE__);
 $SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl";
-&initPaths();
+require "$SCRD/scripts/common.pl"; 
+&init(__FILE__);
+
+$GOBIBLE = "$INPD/GoBible";
+if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
+
 if (!$GOCREATOR || !-e $GOCREATOR) {
   print "Please specify the path to Go Bible Creator in \"$PATHFILE\". Exiting.\n";
   exit;
@@ -58,40 +48,7 @@ if (!$GOCREATOR || !-e $GOCREATOR) {
 
 require("$SCRD/scripts/goBibleConvChars.pl");
 
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
-
-$GOBIBLE = "$INPD/GoBible";
-if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
-
-$GBOUT = "$OUTDIR/GoBible/$MOD";
-
-$LOGFILE = "$OUTDIR/OUT_osis2GoBible.txt";
-
-my $delete;
-if (-e $GBOUT) {$delete .= "$GBOUT\n";}
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-}
-if (-e $GBOUT) {&delete_files($GBOUT);}
-if (-e $LOGFILE) {unlink($LOGFILE);}
-
-make_path($GBOUT);
-
-$TMPDIR = "$OUTDIR/tmp/osis2GoBible";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
-
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING osis2GoBible.pl\n\n");
-
-
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-$INPUTFILE = "$OUTDIR/$MOD.xml";
 $OUTPUTFILE = "$TMPDIR/osis.xml";
 require("$SCRD/scripts/goBibleFromOsis.pl");
 
@@ -122,7 +79,7 @@ sub makeGoBible($) {
   system("java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE));
   chdir($INPD);
 
-  &Log("\n--- Copying module to MKS directory $MOD$REV\n");
+  &Log("\n--- Copying module to MKS directory $MOD".$ConfEntryP->{"Version"}."\n");
   chdir("$TMPDIR/$type");
   opendir(DIR, "./");
   my @f = readdir(DIR);
@@ -132,4 +89,4 @@ sub makeGoBible($) {
     copy("$TMPDIR/$type/$f[$i]", "$GBOUT/$f[$i]");
   }
 }
-;1
+

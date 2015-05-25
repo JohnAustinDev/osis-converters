@@ -22,53 +22,12 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use File::Spec;
-use Cwd;
 $INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  print "\nusage: osis2ebooks.pl [Project_Directory]\n";
-  exit;
-}
-if (!-e $INPD) {
-  print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
-  exit;
-}
-
-$SCRD = File::Spec->rel2abs( __FILE__ );
+use File::Spec;
+$SCRD = File::Spec->rel2abs(__FILE__);
 $SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl";
-&initPaths();
-
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
-
-$OSISFILE = "$OUTDIR/".$MOD.".xml";
-if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
-$LOGFILE = "$OUTDIR/OUT_osis2ebooks.txt";
-
-my $delete;
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$OUTDIR/eBooks") {$delete .= "$OUTDIR/eBooks\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-}
-if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$OUTDIR/eBooks") {remove_tree("$OUTDIR/eBooks");}
-make_path("$OUTDIR/eBooks");
-
-$TMPDIR = "$OUTDIR/tmp/osis2ebooks";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
-
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING osis2ebooks.pl\n\n");
+require "$SCRD/scripts/common.pl"; 
+&init(__FILE__);
 
 # copy necessary files to tmp
 copy("$INPD/eBook/convert.txt", "$TMPDIR/convert.txt");
@@ -76,8 +35,7 @@ copy("$OUTDIR/$MOD.xml", "$TMPDIR/$MOD.xml");
 copy("$SCRD/eBooks/css/ebible.css", "$TMPDIR/ebible.css");
 
 # get scope for naming output files
-&updatedSwordConf("$TMPDIR/config.conf");
-&getInfoFromConf("$TMPDIR/config.conf");
+&setConfGlobals(updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # run the converter
 &makeEbook("$TMPDIR/$MOD.xml", 'epub');
@@ -97,7 +55,7 @@ sub makeEbook($$$) {
   my $out = "$TMPDIR/$MOD.$format";
   if (-e $out) {
     my $name = "$MOD.$format";
-    if ($ConfEntry{"Scope"}) {
+    if ($ConfEntryP->{"Scope"}) {
       $name = $ConfEntry{"Scope"} . ".$format";
       $name =~ s/\s/_/g;
     }
@@ -106,5 +64,4 @@ sub makeEbook($$$) {
   }
   else {&Log("ERROR: No output file: $out\n");}
 }
-  
-1;
+

@@ -22,124 +22,81 @@
 # Run this script to create a dictionary SWORD module from an IMP 
 # file and a config.conf file located in the Glossary_Directory.
 
-use File::Find; 
-use File::Spec;
 $INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  print "\nusage: imp2sword.pl [Glossary_Directory]\n";
-  print "\n";
-  exit;
-}
-if (!-e $INPD) {
-  print "Glossary_Directory \"$INPD\" does not exist. Exiting.\n";
-  exit;
-}
-$SCRD = File::Spec->rel2abs( __FILE__ );
+use File::Spec;
+$SCRD = File::Spec->rel2abs(__FILE__);
 $SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl";
-&initPaths();
-
-$COMMANDFILE = "$INPD/CF_paratext2imp.txt";
-&normalizeNewLines($COMMANDFILE);
-if (open(COMF, "<:encoding(UTF-8)", $COMMANDFILE)) {
-  while(<COMF>) {
-    if ($_ =~ /^SET_imageDir:\s*(.*?)\s*$/) {if ($1) {$imageDir = $1;}}
-  }
-  close(COMF);
-}
-else {
-  print "Command File \"$COMMANDFILE\" not found. Exiting.\n";
-  exit;
-}
-if ($imageDir && $imageDir =~ /^\./) {
-  chdir($INPD);
-  $imageDir = File::Spec->rel2abs($imageDir);
-  chdir($SCRD);
-}
-
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
+require "$SCRD/scripts/common.pl"; 
+&init(__FILE__);
 
 $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 
-$LOGFILE = "$OUTDIR/OUT_imp2sword.txt";
-
-my $delete;
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$OUTDIR/$MOD.zip") {$delete .= "$OUTDIR/$MOD.zip\n";}
-if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
+# uppercase dictionary keys were necessary to avoid requiring ICU.
+# XSLT cannot be used to do this because a custom uc2() Perl function is needed.
+if ($UPPERCASE_DICTIONARY_KEYS) {
+  my $entryName, %entryText, @entryOrder;
+  open(INF, "<:encoding(UTF-8)", $IMPFILE) or die "Could not open $IMPFILE.\n";
+  while(<INF>) {
+    if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^\$\$\$\s*(.*)\s*$/) {$entryName = $1; push(@entryOrder, $entryName);}
+    else {$entryText{$entryName} .= $_;}
+  }
+  close(INF);
+  
+  open(OUTF, ">:encoding(UTF-8)", "$TMPDIR/imp_ucdict.imp") or die "Could not open $TMPDIR/imp_ucdict.imp.\n";
+  foreach my $entryName (@entryOrder) {
+    print OUTF "\$\$\$".&uc2($entryName)."\n";
+    $entryText{$entryName} =~ s/(<reference\b[^>]*type="(x-glossary|x-glosslink)"[^>]*>)/my $r = &referenceUC($1);/ge;
+    print OUTF $entryText{$entryName}; 
+  }
+  close(OUTF);
+  
+  $IMPFILE = "$TMPDIR/imp_ucdict.imp";
 }
-if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
-if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
 
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING imp2sword.pl\n\n");
+my $IMAGEDIR = "$INPD/images";
+my $commandFile = "$INPD/CF_paratext2imp.txt";
+if (open(COMF, "<:encoding(UTF-8)", $commandFile)) {
+  while(<COMF>) {
+    if ($_ =~ /^SET_imageDir:\s*(.*?)\s*$/) {if ($1) {$IMAGEDIR = $1;}}
+  }
+  close(COMF);
 
-$TMPDIR = "$OUTDIR/tmp/imp2sword";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
+  if ($IMAGEDIR && $IMAGEDIR =~ /^\./) {
+    chdir($INPD);
+    $imageDir = File::Spec->rel2abs($imageDir);
+    chdir($SCRD);
+  }
+}
 
 # create and check module's conf file
-$SWDD = "$OUTDIR/sword";
-make_path("$SWDD/mods.d");
-
-&updatedSwordConf("$SWDD/mods.d/$MODLC.conf");
-$CONFFILE = "$SWDD/mods.d/$MODLC.conf";
+make_path("$SWOUT/mods.d");
+&writeConf($CONFFILE, $ConfEntryP, $IMPFILE, "$SWOUT/mods.d/$MODLC.conf");
+$CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 
 # create new module files
-make_path("$SWDD/$MODPATH");
-chdir("$SWDD/$MODPATH") || die "Could not cd into \"$SWDD/$MODPATH\"\n";
+make_path("$SWOUT/$MODPATH");
+chdir("$SWOUT/$MODPATH") || die "Could not cd into \"$SWOUT/$MODPATH\"\n";
 &Log("\n--- CREATING $MOD Dictionary OSIS SWORD MODULE (".$VERSESYS.")\n");
 $cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." -o ./$MODLC ".($MODDRV eq "RawLD4" ? "-4 ":"").">> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
 chdir($INPD);
 
-if ($imageDir) {
-  &Log("\n--- COPYING IMAGES TO MODULE\n");
-  if (-e "$SWDD/$MODPATH/images") {remove_tree("$SWDD/$MODPATH/images");}
-  &copy_dir($imageDir, "$SWDD/$MODPATH/images");
-}
+if (-e $IMAGEDIR) {copy_images_to_module($IMAGEDIR, "$SWOUT/$MODPATH");}
 
-$installSize = 0;        
-# NOTE: this installSize should not include the index.     
-find(sub { $installSize += -s if -f $_ }, "$SWDD/$MODPATH");
-open(CONF, ">>:encoding(UTF-8)", $CONFFILE) || die "Could not append to conf $CONFFILE\n";
-print CONF "Category=Lexicons / Dictionaries\n";
-print CONF "MinimumVersion=1.5.11\n";
-print CONF "SearchOption=IncludeKeyInSearch\n";
-# The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
-print CONF "CaseSensitiveKeys=true\n";
-my @tm = localtime(time);
-print CONF "SwordVersionDate=".sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3])."\n";
-print CONF "InstallSize=$installSize\n";
-close(CONF);
+&writeInstallSizeToConf("$SWOUT/$MODPATH", $CONFFILE);
 
-# make a zipped copy of the module
-&Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
-if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$SWDD\\*\"`;
-}
-else {
-  chdir($SWDD);
-  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
-  chdir($INPD);
-}
+&zipModule($SWOUT, $OUTZIP);
 
-&Log("\n");
+&Log("\n\n");
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
-while(<CONF>) {&Log($_);}
+while(<CONF>) {&Log("$_", 1);}
 close(CONF);
 
-1;
+sub referenceUC($) {
+  my $r = shift;
+  if ($r !~ s/(<reference\b[^>]*osisRef="\w+:)([^"]*")/$1.&uc2($2)/e) {&Log("ERROR: bas osisRef \"$r\"\n");}
+  return $r;
+}

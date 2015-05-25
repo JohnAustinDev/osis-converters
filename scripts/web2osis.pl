@@ -18,166 +18,168 @@
 #
 ########################################################################
 
-&Log("-----------------------------------------------------\nSTARTING web2osis.pl\n\n");
-open(OUTF, ">:encoding(UTF-8)", "$OUTPUTFILE") || die "Could not open web2osis output file $OUTPUTFILE\n";
+sub &web2osis($$) {
+  my $cf = shift;
+  my $out_osis = shift;
+  
+  &Log("\n--- CONVERTING HTML TO OSIS\n-----------------------------------------------------\n\n");
+  open(OUTF, ">:encoding(UTF-8)", $out_osis) || die "Could not open web2osis output file $out_osis\n";
 
-$ISVERSEKEY = ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/);
-if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
+  $ISVERSEKEY = ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/);
+  if ($ISVERSEKEY) {&getCanon($VERSESYS, \%mycanon, \%mybookorder);}
 
-# Read the COMMANDFILE, converting each book as it is encountered
-&normalizeNewLines($COMMANDFILE);
-&removeRevisionFromCF($COMMANDFILE);
-open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open html2osis command file $COMMANDFILE\n";
+  # Read the command file, converting each book as it is encountered
+  &removeRevisionFromCF($cf);
+  open(COMF, "<:encoding(UTF-8)", $cf) || die "Could not open html2osis command file $cf\n";
 
-$ClassInstructions = "GENBOOK_CHAPTER_LEVEL_\\d+|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE|TABLE|TABLE_ROW|TABLE_CELL";
-$TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES|IGNORE_KEY_TAG_ATTRIBUTE_VALUES";
-$TrueFalseInstructions = "DUPLICATE_CHAPTER_TITLES|UPPERCASE_CHAPTER_TITLES|ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO|DEBUG";
-$SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
-$SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
+  $ClassInstructions = "GENBOOK_CHAPTER_LEVEL_\\d+|CHAPTER_NUMBER|VERSE_NUMBER|BOLD|ITALIC|REMOVE|CROSSREF|CROSSREF_MARKER|FOOTNOTE|FOOTNOTE_MARKER|IGNORE|INTRO_PARAGRAPH|INTRO_TITLE_1|LIST_TITLE|LIST_ENTRY|TITLE_1|TITLE_2|CANONICAL_TITLE_1|CANONICAL_TITLE_2|BLANK_LINE|PARAGRAPH|POETRY_LINE_GROUP|POETRY_LINE|TABLE|TABLE_ROW|TABLE_CELL";
+  $TagInstructions = "IGNORE_KEY_TAGS|IGNORE_KEY_TAG_ATTRIBUTES|IGNORE_KEY_TAG_ATTRIBUTE_VALUES";
+  $TrueFalseInstructions = "DUPLICATE_CHAPTER_TITLES|UPPERCASE_CHAPTER_TITLES|ALLOW_OVERLAPPING_HTML_TAGS|ALLOW_REDUCED_TAG_CLASSES|GATHER_CLASS_INFO";
+  $SetInstructions = "addScripRefLinks|addDictLinks|addCrossRefs";
+  $SetTrueFalse = "addScripRefLinks|addDictLinks|addCrossRefs";
 
-$InlineTags = "(span|font|sup|a|b|i)";
+  $InlineTags = "(span|font|sup|a|b|i)";
 
-@GenBookHierarchy = ("majorSection", "chapter", "section", "subSection");
+  @GenBookHierarchy = ("majorSection", "chapter", "section", "subSection");
 
-$R = 0;
-$Filename = "";
-$Linenum	= 0;
-$line=0;
-while (<COMF>) {
-	$line++;
-	
-	if ($_ =~ /^\s*$/) {next;}
-	elsif ($_ =~ /^#/) {next;}
-	elsif ($_ =~ /^($ClassInstructions):\s*(\((.*?)\))?\s*$/) {if ($2) {$ClassInstruction{$1} = $3;}}
-	elsif ($_ =~ /^($TagInstructions):\s*((<[^>]*>)+)?\s*$/) {if ($2) {$TagInstruction{$1} = $2;}}
-	elsif ($_ =~ /^($TrueFalseInstructions):\s*(true|false)?\s*$/) {if ($2) {$TrueFalseInstruction{$1} = ($2 eq "true" ? 1:0);}}
-	elsif ($_ =~ /^OSISBOOK:\s*(.*?)\s*=\s*(.*?)\s*$/) {$OsisBook{$1} = $2;}
-	elsif ($_ =~ /^SPAN_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$SpanClassName{$2} = $1;}
-	elsif ($_ =~ /^DIV_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$DivClassName{$2} = $1;}
-	elsif ($_ =~ /^SET_($SetInstructions):(\s*(\S+)\s*)?$/) {
-		if ($2) {
-			my $par = $1;
-			my $val = $3;
-			$$par = $val;
-			if ($par =~ /^($SetTrueFalse)$/) {
-				$$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
-			}
-			&Log("INFO: Setting $par to $$par\n");
-		}
-	}
-	elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
-		my $htmlfile = $1;
-		$htmlfile =~ s/\\/\//g;
-		if ($htmlfile =~ /^\./) {
-			chdir($INPD);
-			$htmlfile = File::Spec->rel2abs($htmlfile);
-			chdir($SCRD);
-		}
-		my $htmlfileName = $htmlfile;
-		$htmlfileName =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
-		if (!$ISVERSEKEY || (exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}}))) {
-			
-			# process this book now...
-			$TrueFalseInstruction{"GATHER_CLASS_INFO"} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} || !%SpanClassName && !%DivClassName);
-			if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {&Log("INFO: Gathering class information. OUTPUT IS NOT OSIS!\n");}
-			
-			$Book = ($ISVERSEKEY ? $OsisBook{$htmlfileName}:$MOD);
-			
-			my $osisfile = &HTMLtoOSIStags($htmlfile);
-			
-			&handleNotes("crossref", \$osisfile);
-			&handleNotes("footnote", \$osisfile);
-			
-			if ($TrueFalseInstruction{"DEBUG"}) {
-				open(OUTTMP, ">>:encoding(UTF-8)", "$OUTPUTFILE.osis") || die "Could not open web2osis output file $OUTPUTFILE.osis\n";
-				print OUTTMP $osisfile;
-				close(OUTTMP);
-			}
-			
-			&osis2SWORD(\$osisfile);
-			
-			# save output for sorting and writing later
-			$OsisBookText{$Book} = $osisfile;
-		}
-		else {&Log("ERROR: SKIPPING \"$htmlfile\". Could not determine OSIS book.\n");}
-	}
-	else {&Log("ERROR: Unhandled entry \"$_\" in $COMMANDFILE\n");}
+  $R = 0;
+  $Filename = "";
+  $Linenum	= 0;
+  $line=0;
+  while (<COMF>) {
+    $line++;
+    
+    if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^#/) {next;}
+    elsif ($_ =~ /^($ClassInstructions):\s*(\((.*?)\))?\s*$/) {if ($2) {$ClassInstruction{$1} = $3;}}
+    elsif ($_ =~ /^($TagInstructions):\s*((<[^>]*>)+)?\s*$/) {if ($2) {$TagInstruction{$1} = $2;}}
+    elsif ($_ =~ /^($TrueFalseInstructions):\s*(true|false)?\s*$/) {if ($2) {$TrueFalseInstruction{$1} = ($2 eq "true" ? 1:0);}}
+    elsif ($_ =~ /^OSISBOOK:\s*(.*?)\s*=\s*(.*?)\s*$/) {$OsisBook{$1} = $2;}
+    elsif ($_ =~ /^SPAN_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$SpanClassName{$2} = $1;}
+    elsif ($_ =~ /^DIV_CLASS:.*?(\S+)=((<[^>]*>)+)\s*$/) {$DivClassName{$2} = $1;}
+    elsif ($_ =~ /^SET_($SetInstructions):(\s*(\S+)\s*)?$/) {
+      if ($2) {
+        my $par = $1;
+        my $val = $3;
+        $$par = $val;
+        if ($par =~ /^($SetTrueFalse)$/) {
+          $$par = ($$par && $$par !~ /^(0|false)$/i ? "1":"0");
+        }
+        &Log("INFO: Setting $par to $$par\n");
+      }
+    }
+    elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
+      my $htmlfile = $1;
+      $htmlfile =~ s/\\/\//g;
+      if ($htmlfile =~ /^\./) {
+        chdir($INPD);
+        $htmlfile = File::Spec->rel2abs($htmlfile);
+        chdir($SCRD);
+      }
+      my $htmlfileName = $htmlfile;
+      $htmlfileName =~ s/^.*?[\/\\]([^\/\\]+)$/$1/;
+      if (!$ISVERSEKEY || (exists($OsisBook{$htmlfileName}) && exists($mycanon{$OsisBook{$htmlfileName}}))) {
+        
+        # process this book now...
+        $TrueFalseInstruction{"GATHER_CLASS_INFO"} = ($TrueFalseInstruction{"GATHER_CLASS_INFO"} || !%SpanClassName && !%DivClassName);
+        if ($TrueFalseInstruction{"GATHER_CLASS_INFO"}) {&Log("INFO: Gathering class information. OUTPUT IS NOT OSIS!\n");}
+        
+        $Book = ($ISVERSEKEY ? $OsisBook{$htmlfileName}:$MOD);
+        
+        my $osisfile = &HTMLtoOSIStags($htmlfile);
+        
+        &handleNotes("crossref", \$osisfile);
+        &handleNotes("footnote", \$osisfile);
+        
+        if ($DEBUG) {
+          open(OUTTMP, ">>:encoding(UTF-8)", "$out_osis.osis") || die "Could not open web2osis output file $out_osis.osis\n";
+          print OUTTMP $osisfile;
+          close(OUTTMP);
+        }
+        
+        &osis2SWORD(\$osisfile);
+        
+        # save output for sorting and writing later
+        $OsisBookText{$Book} = $osisfile;
+      }
+      else {&Log("ERROR: SKIPPING \"$htmlfile\". Could not determine OSIS book.\n");}
+    }
+    else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
+  }
+  close(COMF);
+
+  # print out the OSIS file in v11n correct book order
+  if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
+    
+    my $osisRefWork = ($ISVERSEKEY ? "defaultReferenceScheme":"book");
+    my $workTitle = ($ISVERSEKEY ? "$MOD Bible":"OSISGenbook");
+    my $workIdentifier = ($ISVERSEKEY ? "<identifier type=\"OSIS\">Bible.$MOD</identifier>":"");
+    
+    &Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"$osisRefWork\" xml:lang=\"".$ConfEntryP->{"Lang"}."\"><header><work osisWork=\"$MOD\"><title>$workTitle</title>$workIdentifier<refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
+    
+    if ($ISVERSEKEY) {
+      &Write("<div type=\"bookGroup\">\n");
+      foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
+        if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
+        &Write($OsisBookText{$bk});
+        $wasWritingOT = ($mybookorder{$bk} <= 39);
+      }
+      &Write("</div>\n");
+    }
+    
+    else {&Write($OsisBookText{$MOD});}
+    
+    &Write("</osisText>\n</osis>\n");
+  }
+  close (OUTF);
+
+  # log a bunch of stuff now...
+  &Log("\nLISTING OF SPAN CLASSES:\n");
+  foreach my $classTags (sort keys %SpanClassName) {
+    &Log(sprintf("SPAN_CLASS:%5i %3s=%s\n", $SpanClassCounts{$SpanClassName{$classTags}}, $SpanClassName{$classTags}, $classTags));
+  }
+
+  &Log("\nLISTING OF DIV CLASSES:\n");
+  foreach my $classTags (sort keys %DivClassName) {
+    &Log(sprintf("DIV_CLASS:%5i %3s=%s\n", $DivClassCounts{$DivClassName{$classTags}}, $DivClassName{$classTags}, $classTags));
+  }
+
+  if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
+    &Log("\nLISTING OF REMOVED TEXT:\n");
+    foreach my $t (sort {length($b) <=> length($a)} keys %AllRemoves) {
+      &Log("$t (".$AllRemoves{$t}.")\n");
+    }
+    
+    &Log("\nLISTING OF DROPPED TAGS:\n");
+    foreach my $t (sort {length($b) <=> length($a)} keys %AllDroppedTags) {
+      &Log("$t (".$AllDroppedTags{$t}.")\n");
+    }
+    
+    &Log("\nLISTING OF UNUSED CLASSES:\n");
+    foreach my $classTags (sort keys %SpanClassName) {
+      if (!exists($UtilizedClasses{$SpanClassName{$classTags}})) {
+        &Log(sprintf("SPAN_CLASS: %5s=%s\n", $SpanClassName{$classTags}, $classTags));
+      }
+    }
+    foreach my $classTags (sort keys %DivClassName) {
+      if (!exists($UtilizedClasses{$DivClassName{$classTags}})) {
+        &Log(sprintf("DIV_CLASS: %5s=%s\n", $DivClassName{$classTags}, $classTags));
+      }
+    }
+    
+    &Log("\nLISTING OF OSIS TYPE X ATTRIBUTES IN OUTPUT:\n");
+    foreach my $type (sort keys %XTypesInText) {
+      &Log($type." ");
+    }
+    &Log("\n");
+  }
+
+  &Log("\nLISTING OF TAGS:\n");
+  foreach my $t (sort keys %AllHTMLTags) {
+    &Log($t." ");
+  }
+  &Log("\nlisting complete\n");
 }
-close(COMF);
-
-# print out the OSIS file in v11n correct book order
-if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
-	
-	my $osisRefWork = ($ISVERSEKEY ? "defaultReferenceScheme":"book");
-	my $workTitle = ($ISVERSEKEY ? "$MOD Bible":"OSISGenbook");
-	my $workIdentifier = ($ISVERSEKEY ? "<identifier type=\"OSIS\">Bible.$MOD</identifier>":"");
-	
-	&Write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?><osis xmlns=\"http://www.bibletechnologies.net/2003/OSIS/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.bibletechnologies.net/2003/OSIS/namespace $OSISSCHEMA\"><osisText osisIDWork=\"$MOD\" osisRefWork=\"$osisRefWork\" xml:lang=\"$LANG\"><header><work osisWork=\"$MOD\"><title>$workTitle</title>$workIdentifier<refSystem>Bible.$VERSESYS</refSystem></work><work osisWork=\"defaultReferenceScheme\"><refSystem>Bible.$VERSESYS</refSystem></work></header>\n");
-	
-	if ($ISVERSEKEY) {
-		&Write("<div type=\"bookGroup\">\n");
-		foreach my $bk (sort {$mybookorder{$a} <=> $mybookorder{$b}} keys %OsisBookText) {
-			if ($wasWritingOT && $mybookorder{$bk} > 39) {&Write("</div>\n<div type=\"bookGroup\">\n");}
-			&Write($OsisBookText{$bk});
-			$wasWritingOT = ($mybookorder{$bk} <= 39);
-		}
-		&Write("</div>\n");
-	}
-	
-	else {&Write($OsisBookText{$MOD});}
-	
-	&Write("</osisText>\n</osis>\n");
-}
-close (OUTF);
-
-# log a bunch of stuff now...
-&Log("\nLISTING OF SPAN CLASSES:\n");
-foreach my $classTags (sort keys %SpanClassName) {
-	&Log(sprintf("SPAN_CLASS:%5i %3s=%s\n", $SpanClassCounts{$SpanClassName{$classTags}}, $SpanClassName{$classTags}, $classTags));
-}
-
-&Log("\nLISTING OF DIV CLASSES:\n");
-foreach my $classTags (sort keys %DivClassName) {
-	&Log(sprintf("DIV_CLASS:%5i %3s=%s\n", $DivClassCounts{$DivClassName{$classTags}}, $DivClassName{$classTags}, $classTags));
-}
-
-if (!$TrueFalseInstruction{"GATHER_CLASS_INFO"}) {
-	&Log("\nLISTING OF REMOVED TEXT:\n");
-	foreach my $t (sort {length($b) <=> length($a)} keys %AllRemoves) {
-		&Log("$t (".$AllRemoves{$t}.")\n");
-	}
-	
-	&Log("\nLISTING OF DROPPED TAGS:\n");
-	foreach my $t (sort {length($b) <=> length($a)} keys %AllDroppedTags) {
-		&Log("$t (".$AllDroppedTags{$t}.")\n");
-	}
-	
-	&Log("\nLISTING OF UNUSED CLASSES:\n");
-	foreach my $classTags (sort keys %SpanClassName) {
-		if (!exists($UtilizedClasses{$SpanClassName{$classTags}})) {
-			&Log(sprintf("SPAN_CLASS: %5s=%s\n", $SpanClassName{$classTags}, $classTags));
-		}
-	}
-	foreach my $classTags (sort keys %DivClassName) {
-		if (!exists($UtilizedClasses{$DivClassName{$classTags}})) {
-			&Log(sprintf("DIV_CLASS: %5s=%s\n", $DivClassName{$classTags}, $classTags));
-		}
-	}
-	
-	&Log("\nLISTING OF OSIS TYPE X ATTRIBUTES IN OUTPUT:\n");
-	foreach my $type (sort keys %XTypesInText) {
-		&Log($type." ");
-	}
-	&Log("\n");
-}
-
-&Log("\nLISTING OF TAGS:\n");
-foreach my $t (sort keys %AllHTMLTags) {
-	&Log($t." ");
-}
-&Log("\nlisting complete\n");
-
-1;
 
 ########################################################################
 ########################################################################
@@ -201,7 +203,6 @@ sub HTMLtoOSIStags() {
 	$FootnoteID = 0;
 	
 	&Log("Processing $Book\n");
-	&normalizeNewLines($file);
 	&logProgress($Book);
 
 	open(INP1, "<:encoding(UTF-8)", $file) or print getcwd." ERROR: Could not open file $file.\n";
@@ -1002,3 +1003,5 @@ sub Write($) {
 	my $print = shift;
 	print OUTF $print;
 }
+
+1;

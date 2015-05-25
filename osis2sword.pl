@@ -25,74 +25,32 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$UPPERCASE_DICTIONARY_KEYS = 1;
-
-use File::Spec;
-use Cwd;
 $INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  print "\nusage: osis2sword.pl [Project_Directory]\n";
-  print "\n";
-  exit;
-}
-if (!-e $INPD) {
-  print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
-  exit;
-}
-
-$SCRD = File::Spec->rel2abs( __FILE__ );
+use File::Spec;
+$SCRD = File::Spec->rel2abs(__FILE__);
 $SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl";
-&initPaths();
-
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
+require "$SCRD/scripts/common.pl"; 
+&init(__FILE__);
 
 $OSISFILE = "$OUTDIR/$MOD.xml";
-if (!-e $OSISFILE) {print "ERROR: Missing osis file: $OSISFILE. Exiting.\n"; exit;}
-$LOGFILE = "$OUTDIR/OUT_osis2sword.txt";
 
-my $delete;
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if (-e "$OUTDIR/$MOD.zip") {$delete .= "$OUTDIR/$MOD.zip\n";}
-if (-e "$OUTDIR/sword") {$delete .= "$OUTDIR/sword\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-}
-if (-e $LOGFILE) {unlink($LOGFILE);}
-if (-e "$OUTDIR/$MOD.zip") {unlink("$OUTDIR/$MOD.zip");}
-if (-e "$OUTDIR/sword") {remove_tree("$OUTDIR/sword");}
-
-$TMPDIR = "$OUTDIR/tmp/osis2sword";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
-
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING osis2sword.pl\n\n");
-if (!-e "$OUTDIR/sword") {make_path("$OUTDIR/sword");}
 
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
-  # uppercase dictionary keys used to be needed to avoid requiring ICU.
+  # uppercase dictionary keys were necessary to avoid requiring ICU.
   # XSLT cannot be used to do this because a custom uc2() Perl function is needed.
   if ($UPPERCASE_DICTIONARY_KEYS) {
     my $xml = $XML_PARSER->parse_file($OSISFILE);
-    my $dict;
     if ($MODDRV =~ /LD/) {
-      $dict = $MOD;
       my @keywords = $XPC->findnodes('//'.$KEYWORD.'/text()', $xml);
       foreach my $keyword (@keywords) {$keyword->setData(uc2($keyword->data));}
     }
-    else {$dict = $ConfEntry{"Companion"}; $dict =~ s/,.*$//;}
-    my @dictrefs = $XPC->findnodes('//osis:reference[contains(@osisRef, "'.$dict.':")]/@osisRef', $xml);
-    foreach my $dictref (@dictrefs) {$dictref->setValue(uc2($dictref->value));}
+    my @dictrefs = $XPC->findnodes('//osis:reference[type=\'x-glossary\' or type=\'x-glosslink\']/@osisRef', $xml);
+    foreach my $dictref (@dictrefs) {
+      $ref = $dictref->value;
+      if ($ref !~ /^(\w+):(.*)$/) {&Log("ERROR: bad osisRef \"$ref\"\n");}
+      $dictref->setValue($1.":".uc2($2));
+    }
     open(OSIS2, ">$TMPDIR/osis_ucdict.xml");
     print OSIS2 $xml->toString();
     close(OSIS2);
@@ -109,93 +67,86 @@ if ($IS_usfm2osis) {
   }
 }
 
-# create and check module's conf file
-&updatedSwordConf("$TMPDIR/config.conf");
-$CONFFILE = "$TMPDIR/config.conf";
+$msv = "1.6.1";
+if ($VERSESYS && $VERSESYS ne "KJV") {
+  system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
+  open(OUTF, "<:encoding(UTF-8)", "$TMPDIR/osis2mod_vers.txt") || die "Could not open $TMPDIR/osis2mod_vers.txt\n";
+  while(<OUTF>) {
+    if ($_ =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {
+      $msv = "1.6.2"; last;
+    }
+  }
+  close(OUTF);
+  unlink("$TMPDIR/osis2mod_vers.txt");
+  if ($VERSESYS eq "SynodalProt") {$msv = "1.7.0";}
+  $ConfEntryP->{'MinimumVersion'} = $msv;
+}
 
-# create raw and zipped modules from OSIS
-$SWDD = "$OUTDIR/sword";
-remove_tree("$SWDD");
-make_path("$SWDD/mods.d");
 $defdir = cwd();
-if ($MODDRV =~ /Text$/ || $MODDRV =~ /Com\d*$/) {
-	require("$SCRD/scripts/makeCompressedMod.pl");
+if ($MODDRV =~ /Text$/) {
+	$ConfEntryP->{'Category'} = 'Biblical Texts';
+  
+  if ($MODDRV eq 'zText') {
+    $ConfEntryP->{'CompressType'} = 'ZIP';
+    $ConfEntryP->{'BlockType'} = 'BOOK';
+  }
+
+  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
+  &Log("\n--- CREATING $MOD SWORD MODULE (".$VERSESYS.")\n");
+  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV eq 'zText' ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'')." >> ".&escfile($LOGFILE);
+  &Log("$cmd\n", -1);
+  system($cmd);
+  
+  &Log("\n--- TESTING FOR EMPTY VERSES\n");
+  $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
+  $cmd = `$cmd`;
+  if ($cmd =~ /usage/i) {
+    &Log("BEGIN EMPTYVSS OUTPUT\n", -1);
+    chdir($SWOUT);
+    $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
+    system($cmd);
+    &Log("END EMPTYVSS OUTPUT\n", -1);
+  }
+  else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
+  chdir($INPD);
 }
 elsif ($MODDRV =~ /^RawGenBook$/) {
-	copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf");
-	make_path("$SWDD/$MODPATH");
+  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$VERSESYS.")\n");
 	$cmd = &escfile($SWORD_BIN."xml2gbs")." $OSISFILE $MODLC >> ".&escfile($LOGFILE);
 	&Log("$cmd\n", -1);
-	chdir("$SWDD/$MODPATH");
+	chdir("$SWOUT/$MODPATH");
 	system($cmd);
 	chdir("$defdir")
 }
 elsif ($MODDRV =~ /LD/) {
-  copy($CONFFILE, "$SWDD/mods.d/$MODLC.conf");
-  make_path("$SWDD/$MODPATH");
+  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$VERSESYS.")\n");
-  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWDD/$MODPATH")." ".&escfile($OSISFILE)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
+  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
-  opendir(MODF, "$SWDD/$MODPATH");
+  # tei2mod creates module files called "dict" which are non-standard, so fix
+  opendir(MODF, "$SWOUT/$MODPATH");
   my @mf = readdir(MODF);
   closedir(MODF);
   foreach my $m (@mf) {
   if ($m !~ /^dict\.(.*?)$/) {next;}
-    rename("$SWDD/$MODPATH/$m", "$SWDD/$MODPATH/$MODLC.$1");
+    rename("$SWOUT/$MODPATH/$m", "$SWOUT/$MODPATH/$MODLC.$1");
   }
 }
 else {
 	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");
 	die;
 }
+$CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 
-$IMAGEDIR = "$INPD/images";
-if (-e $IMAGEDIR) {&copy_images_to_module($IMAGEDIR);}
+if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH");}
 
-sub copy_images_to_module($) {
-	my $imgFile = shift;
-	&Log("\n--- COPYING $MOD image(s) \"$imgFile\"\n");
-	if (-d $imgFile) {
-		my $imagePaths = "INCLUDE IMAGE PATHS.txt";
-		&copy_dir($imgFile, "$SWDD/$MODPATH/images", 1, 0, 0, quotemeta($imagePaths));
-		if (-e "$imgFile/$imagePaths") { # then copy any additional images located in $imagePaths file
-			open(IIF, "<$imgFile/$imagePaths") || die "Could not open \"$imgFile/$imagePaths\"\n";
-			while (<IIF>) {
-				if ($_ =~ /^\s*#/) {next;}
-				chomp;
-				if ($_ =~ /^\./) {$_ = "$imgFile/$_";}
-				if (-e $_) {&copy_images_to_module($_);}
-				else {&Log("ERROR: Image directory listed in \"$imgFile/$imagePaths\" was not found: \"$_\"\n");}
-			}
-			close(IIF);
-		}
-	}
-	else {
-		if (-e "$SWDD/$MODPATH/images/$imgFile") {unlink("$SWDD/$MODPATH/images/$imgFile");} 
-		copy($imgFile, "$SWDD/$MODPATH/images");
-	}
-}
+&writeInstallSizeToConf("$SWOUT/$MODPATH", $CONFFILE);
 
-# make a zipped copy of the entire zipped module
-&Log("\n--- COMPRESSING ZTEXT MODULE TO A ZIP FILE.\n");
-$tmp = "$TMPDIR/sword";
-make_path("$tmp/mods.d");
-copy("$SWDD/mods.d/$MODLC.conf", "$tmp/mods.d/$MODLC.conf");
-&copy_dir("$SWDD/$MODPATH", "$tmp/$MODPATH");
-if ("$^O" =~ /MSWin32/i) {
-  `7za a -tzip \"$OUTDIR\\$MOD.zip\" -r \"$tmp\\*\"`;
-}
-else { 
-  chdir($tmp);
-  `zip -r \"$OUTDIR/$MOD.zip\" ./*`;
-  chdir($INPD);
-}
+&zipModule($SWOUT, $OUTZIP);
 
-&Log("\n");
-open(CONF, "<:encoding(UTF-8)", "$SWDD/mods.d/$MODLC.conf") || die "Could not open $SWDD/mods.d/$MODLC.conf\n";
-while(<CONF>) {&Log($_);}
+&Log("\n\n");
+open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
+while(<CONF>) {&Log("$_", 1);}
 close(CONF);
-
-1;

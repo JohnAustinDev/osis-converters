@@ -32,31 +32,32 @@ sub toVersificationBookOrder($$) {
     my $xml = $XML_PARSER->parse_file($osis);
   
     # remove all books
-    my @books = $XPC->findnodes('//x:div[@type="bookGroup"]/x:div[@type="book"]', $xml);
-    if (!@books) {@books = $XPC->findnodes('//x:div[@type="book"]', $xml);}
+    my @books = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[@type="book"]', $xml);
+    if (!@books) {@books = $XPC->findnodes('//osis:div[@type="book"]', $xml);}
     foreach my $bk (@books) {
       $bk = $bk->parentNode()->removeChild($bk);
     }
     
     # some OSIS files may not have book groups, then books are children of osisText
-    my @bookGroup = $XPC->findnodes('//x:div[@type="bookGroup"]', $xml);
-    my @osisText = $XPC->findnodes('//x:osisText', $xml);
+    my @bookGroup = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+    my @osisText = $XPC->findnodes('//osis:osisText', $xml);
       
     # place all books back in canon order
     foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
-      foreach my $b (@books) {
-        if (!$b || $b->findvalue('./@osisID') ne $v11nbk) {next;}
+      foreach my $bk (@books) {
+        if (!$bk || $bk->findvalue('./@osisID') ne $v11nbk) {next;}
         my $i = ($testament{$v11nbk} eq 'OT' ? 0:1);
-        if (!@bookGroup) {@osisText[0]->appendChild($b);}
+        if (!@bookGroup) {@osisText[0]->appendChild($bk);}
         else {
           if (@bookGroup == 1) {$i = 0;}
-          @bookGroup[$i]->appendChild($b);
+          @bookGroup[$i]->appendChild($bk);
         }
         
-        $b = '';
+        $bk = '';
         last;
       }
     }
+    
     foreach my $bk (@books) {
       if ($bk ne '') {&Log("ERROR: Book \"$bk\" not found in $vsys Canon\n");}
     }
