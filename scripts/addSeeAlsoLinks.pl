@@ -96,10 +96,27 @@ sub processEntry($$$$) {
   my $i_or_elemP = shift;
   my $startsArrayP = shift;
   
+  my $entryElementsP = &getEntryElements($i_or_elemP, $startsArrayP);
+  
+  my @parseElems;
+  foreach my $e (@$entryElementsP) {
+    if ($e->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
+    push(@parseElems, $e);
+  }
+
+  &addDictionaryLinks(\@parseElems, $dwf, $entryName);
+  
+  $entryElementsP = &getEntryElements($i_or_elemP, $startsArrayP);
+  &checkCircularEntryCandidate($entryName, $entryElementsP);
+}
+
+sub getEntryElements($$) {
+  my $i_or_elemP = shift;
+  my $startsArrayP = shift;
+  
   my @entryElements;
   if (ref($$i_or_elemP) eq "XML::LibXML::DocumentFragment") {
     @entryElements = $XPC->findnodes('*', $$i_or_elemP);
-
   }
   else {
     my $i = $$i_or_elemP;
@@ -109,15 +126,7 @@ sub processEntry($$$$) {
     }
   }
   
-  my @parseElems;
-  foreach my $e (@entryElements) {
-    if ($e->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
-    push(@parseElems, $e);
-  }
-
-  &addDictionaryLinks(\@parseElems, $dwf, $entryName);
-  
-  &checkCircularEntryCandidate($entryName, \@entryElements);
+  return \@entryElements;
 }
 
 # If this entry is short and contains only one link, record it because 
@@ -129,17 +138,20 @@ sub checkCircularEntryCandidate($\@) {
   my $allElemsP = shift;
 
   my $tlen = 0; 
-  my $singlelink = 0;
+  my $single_osisRef = 0;
   foreach my $e (@$allElemsP) {
     $tlen += length($e->textContent);
     if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
       my $osisRef = $e->getAttribute('osisRef');
-      $singlelink = ($singlelink == 0 ? $osisRef:NULL);
-      $OsisRefLinks{$MOD.':'.&encodeOsisRef($entryName)} .= "$osisRef ";
+      $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
+      $OsisRefLinks{&entry2osisRef($MOD, $entryName)} .= "$osisRef ";
     }
   }
 
-  if ($tlen < 80 && $singlelink) {$CheckCircular{$entryName} = $singlelink;}
+  if ($tlen < 80 && $single_osisRef) {
+    &Log("NOTE: circular reference candidate: from \"".&osisRef2Entry($single_osisRef)."\" to \"$entryName\"\n");
+    $CheckCircular{$entryName} = $single_osisRef;
+  }
 }
 
 # Some entries only say: "see blah". In such cases, blah should not 
@@ -151,11 +163,11 @@ sub checkCircularEntries($) {
   
   my %circulars;
   foreach my $shortEntryName (sort keys %CheckCircular) {
-    my $shortEntryOsisRef = $MOD.':'.&encodeOsisRef($shortEntryName);
-    my $shortEntrySingleLink = $CheckCircular{$shortEntryName};
-    my $longLinks = $OsisRefLinks{$shortEntrySingleLink};
-    if ($longLinks !~ /\b\Q$shortEntryOsisRef\E\b/) {next;}
-    $circulars{$shortEntrySingleLink} = $shortEntryOsisRef;
+    my $shortEntryOsisRef = &entry2osisRef($MOD, $shortEntryName);
+    my $shortEntrySingleLinkOsisRef = $CheckCircular{$shortEntryName};
+    my $longLinks = $OsisRefLinks{$shortEntrySingleLinkOsisRef};
+    if (!$longLinks || $longLinks !~ /\b\Q$shortEntryOsisRef\E\b/) {&Log("NOT CIRC:$longLinks,$shortEntryOsisRef.\n", 1); next;}
+    $circulars{$shortEntrySingleLinkOsisRef} = $shortEntryOsisRef;
   }
   
   my $n = 0; foreach my $k (keys %circulars) {$n++;}
@@ -163,9 +175,9 @@ sub checkCircularEntries($) {
   &Log("\nREPORT: Found $n circular cross references in \"$out_file\".\n");
   if ($addDictLinks !~ /^check$/i && $n > 0) {
     &Log("These circular references can be eliminated with 'notContext' attributes in $DICTIONARY_WORDS, like this:\n");
-    foreach my $longEntryOsisRef (sort keys %circulars) {
-      my $shortEntryOsisRef = $circulars{$longEntryOsisRef};
-      &Log("<entry osisRef=\"$shortEntryOsisRef\" notContext=\"".$longEntryOsisRef."\">\n");
+    foreach my $shortEntrySingleLinkOsisRef (sort keys %circulars) {
+      my $shortEntryOsisRef = $circulars{$shortEntrySingleLinkOsisRef};
+      &Log("<entry osisRef=\"$shortEntryOsisRef\" notContext=\"".$shortEntrySingleLinkOsisRef."\">\n");
     }
   }
 }

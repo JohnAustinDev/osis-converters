@@ -53,7 +53,7 @@ sub convertDWF($\@\%$) {
   foreach my $e (@$entryP) {
     if (!$e) {next;}
     $c++;
-    my $print = "  <entry osisRef=\"$MOD:".&encodeOsisRef($e)."\">\n    <name>$e</name>\n";
+    my $print = "  <entry osisRef=\"".&entry2osisRef($MOD, $e)."\">\n    <name>$e</name>\n";
     my $matchlen = 999;
     foreach my $p (sort {&sortSearchTermKeys($a, $b);} keys %{$patternP->{$e}}) {
       my $attribs = '';

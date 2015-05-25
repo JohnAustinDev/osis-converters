@@ -262,7 +262,7 @@ sub updateConfData(\%$) {
       if (open(OSIS, "<:encoding(UTF-8)", $moduleSource)) {
         while(<OSIS>) {
           if ($_ =~ /<reference [^>]*type="x-glossary"/) {
-            $entryValueP->{'GlobalOptionFilter'} .= "GlobalOptionFilter=OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
+            $entryValueP->{'GlobalOptionFilter'} .= "<nx/>OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
             last;
           }
         }
@@ -718,10 +718,10 @@ sub addDictionaryLink(\$$$$) {
     $logContext =~ s/\..*$//; # keep book/entry only
     $EntryLink{"links in $logContext to ".&decodeOsisRef($osisRef)}++;
     
+    my $dict;
     foreach my $sref (split(/\s+/, $osisRef)) {
-      if ($sref !~ /^(\w+):(.*)$/) {&Log("ERROR: bad dict osisRef \"$osisRef\"\n");}
-      my $dict = $1; my $ref = &decodeOsisRef($2);
-      $Replacements{$ref.": ".$match.", ".$dict}++;
+      my $e = &osisRef2Entry($sref, \$dict);
+      $Replacements{$e.": ".$match.", ".$dict}++;
     }
 
     $MULTIPLES{$m->unique_key}++;
@@ -738,11 +738,30 @@ sub matchInEntry($$) {
   
   my $osisRef = @{$XPC->findnodes('ancestor::entry[1]', $m)}[0]->getAttribute('osisRef');
   foreach my $ref (split(/\s+/, $osisRef)) {
-    if ($ref !~ /^(\w+):(.*)$/) {&Log("ERROR: problem with osisRef \"$ref\"\n"); next;}
-    my $e = &decodeOsisRef($2);
-    if ($e eq $entry) {return 1;}
+    if (&osisRef2Entry($ref) eq $entry) {return 1;}
   }
   return 0;
+}
+
+
+sub osisRef2Entry($\$$) {
+  my $osisRef = shift;
+  my $modP = shift;
+  my $loose = shift;
+  
+  if ($osisRef !~ /^(\w+):(.*)$/) {
+    if ($loose) {return &decodeOsisRef($osisRef);}
+    &Log("ERROR: problem with osisRef \"$osisRef\"\n");
+  }
+  if ($modP) {$$modP = $1;}
+  return &decodeOsisRef($2);
+}
+
+
+sub entry2osisRef($$) {
+  my $mod = shift;
+  my $ref = shift;
+  return $mod.":".encodeOsisRef($ref);
 }
 
 
@@ -780,16 +799,15 @@ sub myContext($$) {
   my $test = shift;
   my $context = shift;
 
+  my $mod;
   my $test2 = $test;
   if ($test eq 'ot') {$test2 = $OT_BOOKS;}
   elsif ($test eq 'nt') {$test2 = $NT_BOOKS;}
   foreach my $t (split(/\s+/, $test2)) {
     if ($t =~ /^\s*$/) {next;}
-    my $mod = '';
-    if ($t =~ /^(\w+):(.*)$/) {$t = $2; $mod = $1;} 
-    $t = &decodeOsisRef($t);
+    my $e = &osisRef2Entry($t, \$mod, 1);
     foreach my $refs (&context2array($context)) {
-      if ($refs =~ /\Q$t\E/i) {return $context;}
+      if ($refs =~ /\Q$e\E/i) {return $context;}
     }
   }
   
@@ -977,7 +995,7 @@ sub writeDictionaryWordsXML($$) {
 <div highlight=\"false\" multiple=\"false\">\n";
   foreach my $k (sort {length($b) <=> length($a)} keys %keys) {
     print DWORDS "
-  <entry osisRef=\"$MOD:".&encodeOsisRef($k)."\">
+  <entry osisRef=\"".&entry2osisRef($MOD, $k)."\">
     <name>".$k."</name>
     <match>/\\b(\\Q".$k."\\E)\\b/i</match>
   </entry>\n";
@@ -1008,18 +1026,16 @@ sub checkDictionaryWordsXML($$) {
   my $dwf = $XML_PARSER->parse_file($dw_file);
   my @dwfEntries = $XPC->findnodes('//entry[@osisRef]/@osisRef', $dwf);
   
-  my $allmatch = 1;
+  my $allmatch = 1; my $mod;
   foreach my $es (@sourceEntries) {
     my $match = 0;
     foreach my  $edr (@dwfEntries) {
-      if ($edr !~ /"(\w+):(.*)"/) {&Log("ERROR: problem with dict entry osisRef \"$edr\"\n");}
-      my $mod = $1; my $ref = $2;
-      my $ed = &decodeOsisRef($ref);
+      my $ed = &osisRef2Entry($edr->value, \$mod);
       if ($es eq $ed) {$match = 1; last;}
       elsif (uc2($es) eq uc2($ed)) {
         $match = 1;
         $update++;
-        $edr->setValue($mod.":".&encodeOsisRef($es));
+        $edr->setValue(entry2osisRef($mod, $es));
         my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
         if (uc2($name) ne uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $dw_file\n");}
         else {$name->setData($es);}
