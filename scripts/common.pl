@@ -906,16 +906,19 @@ sub checkDictReferences($) {
       
       my @srefs = split(/\s+/, $osisRef);
       foreach my $sref (@srefs) {
-        my @entry = $XPC->findnodes('//entry[@osisRef=\''.$sref.'\']', $DWF);
-        if (!@entry) {
-          $errors++;
-          &Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");
+        if ($DWF) {
+          my @entry = $XPC->findnodes('//entry[@osisRef=\''.$sref.'\']', $DWF);
+          if (!@entry) {
+            $errors++;
+            &Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");
+          }
         }
       }
     }
   }
   close(INF);
-  &Log("REPORT: $total dictionary links found and checked. ($errors unknown or missing targets)\n");
+  if (!$DWF && $total) {&Log("REPORT: WARNING, $total dictionary links COULT NOT BE CHECKED without a $DICTIONARY_WORDS file.n");}
+  else {&Log("REPORT: $total dictionary links found and checked. ($errors unknown or missing targets)\n");}
 }
 
 
@@ -1023,11 +1026,11 @@ sub writeDictionaryWordsXML($$) {
 }
 
 
-# check that the entries in an imp or osis file are included in the
-# dictionaryWords file. If the difference is only in capitalization,
+# check that the entries in an imp or osis dictionary source file are included in 
+# the global dictionaryWords file. If the difference is only in capitalization,
 # which occurs when converting from DictionaryWords.txt to DictionaryWords.xml,
-# then fix these.
-sub checkDictionaryWordsXML($) {
+# then fix these, and update the dictionaryWords file.
+sub compareToDictWordsFile($) {
   my $imp_or_osis = shift;
   
   my $dw_file = "$INPD/$DICTIONARY_WORDS";
@@ -1242,6 +1245,9 @@ sub usfm2osisXSLT($$$) {
     elsif ("$^O" =~ /linux/i) { 
       $cmd = "saxonb-xslt -xsl:" . &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out);
     }
+    elsif ("$^O" =~ /darwin/i) {
+      $cmd = "java -jar /Library/Java/Extensions/saxon9.jar -xsl:" . &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out);
+    }
     else {
       &Log("ERROR: an XSLT 2.0 converter has not been chosen yet for this operating system.");
     }
@@ -1326,8 +1332,8 @@ sub copy_images_to_module($$) {
 
 
 sub writeInstallSizeToConf($$) {
-  my $modpath = shift;
   my $conf = shift;
+  my $modpath = shift;
   
   $installSize = 0;             
   find(sub { $installSize += -s if -f $_ }, $modpath);
@@ -1339,8 +1345,8 @@ sub writeInstallSizeToConf($$) {
 
 # make a zipped copy of a module
 sub zipModule($$) {
-  my $moddir = shift;
   my $zipfile = shift;
+  my $moddir = shift;
   
   &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
   if ("$^O" =~ /MSWin32/i) {

@@ -34,7 +34,6 @@ require "$SCRD/scripts/common.pl";
 
 $OSISFILE = "$OUTDIR/$MOD.xml";
 
-
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
   # uppercase dictionary keys were necessary to avoid requiring ICU.
@@ -142,9 +141,9 @@ $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 
 if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH");}
 
-&writeInstallSizeToConf("$SWOUT/$MODPATH", $CONFFILE);
+&writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");
 
-&zipModule($SWOUT, $OUTZIP);
+&zipModule($OUTZIP, $SWOUT);
 
 &Log("\n\n");
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";

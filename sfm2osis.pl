@@ -22,7 +22,6 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$DEBUG_SKIP_CONVERSION = 0;
 $DEBUG = 0;
 
 $INPD = shift;
@@ -32,6 +31,7 @@ $SCRD =~ s/[\\\/][^\\\/]+$//;
 require "$SCRD/scripts/common.pl"; 
 &init(__FILE__);
 
+# use CF_usfm2osis.txt if it exists, otherwise fall back to old CF_paratext2osis.txt
 if (-e "$INPD/CF_usfm2osis.txt") {
   $IS_usfm2osis = 1;
   require("$SCRD/scripts/usfm2osis.pl");
@@ -42,12 +42,12 @@ elsif(-e "$INPD/CF_paratext2osis.txt") {
   require("$SCRD/scripts/paratext2osis.pl");
   &paratext2osis("$INPD/CF_paratext2osis.txt", "$TMPDIR/".$MOD."_1.xml");
 }
-else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
+else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt or CF_paratext2osis.txt.";}
 
-# create DictionaryWords_autogen.xml if needed
 if ($MODDRV =~ /LD/) {
+  # create DictionaryWords.xml if needed
   &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
-  &checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
+  &compareToDictWordsFile("$TMPDIR/".$MOD."_1.xml");
 }
 
 if ($addScripRefLinks) {
@@ -58,15 +58,12 @@ else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
 if ($MODDRV =~ /Text/ && $addDictLinks) {
   if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
-  else {
-    require("$SCRD/scripts/addDictLinks.pl");
-    &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
-  }
+  require("$SCRD/scripts/addDictLinks.pl");
+  &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks) {
   require("$SCRD/scripts/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
-  &checkDictReferences("$TMPDIR/".$MOD."_3.xml");
 }
 else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 
@@ -81,6 +78,8 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &toVersificationBookOrder($VERSESYS, $OUTOSIS);
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
+
+&checkDictReferences($OUTOSIS);
 
 &validateOSIS($OUTOSIS);
 

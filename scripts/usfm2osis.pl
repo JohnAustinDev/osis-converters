@@ -31,7 +31,8 @@
 #       letters for purposes of matching word boundaries. 
 #       Example for : "PUNC_AS_LETTER:'`" 
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
-#       capitalization. Example: SPECIAL_CAPITALS:i->İ ı->I
+#       capitalization which Perl does not handle well. 
+#       Example: SPECIAL_CAPITALS:i->İ ı->I
 
 sub usfm2osis($$) {
   my $cf = shift;
@@ -74,46 +75,43 @@ sub usfm2osis($$) {
   }
   close(COMF);
 
-  if (!$DEBUG_SKIP_CONVERSION) {
-    &Log("Processing USFM $USFMfiles\n");
-    
-    # If needed, preprocess tags before running usfm2osis.py
-    if (@EVAL_REGEX) {
-      my $tmp = "$TMPDIR/sfm";
-      make_path($tmp);
-      foreach my $f1 (glob $USFMfiles) {copy($f1, $tmp);}
-      $USFMfiles = "$tmp/*.*";
-      foreach my $f2 (glob $USFMfiles) {
-        my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
-        open(SFM, "<:encoding(UTF-8)", $f2) || die "ERROR: could not open \"$f2\"\n";
-        open(SFM2, ">:encoding(UTF-8)", "$f2.new") || die;
-        my $line = 0;
-        while(<SFM>) {
-          $line++;
-          foreach my $r (@EVAL_REGEX) {
-            if (eval("\$_ =~ $r;")) {
-              if ($DEBUG) {&Log("$fln:$line: Applied EVAL_REGEX: $r\n");}
-              $eval_regex_report{$r}++;
-            }
+  &Log("Processing USFM $USFMfiles\n");
+  
+  # If needed, preprocess tags before running usfm2osis.py
+  if (@EVAL_REGEX) {
+    my $tmp = "$TMPDIR/sfm";
+    make_path($tmp);
+    foreach my $f1 (glob $USFMfiles) {copy($f1, $tmp);}
+    $USFMfiles = "$tmp/*.*";
+    foreach my $f2 (glob $USFMfiles) {
+      my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
+      open(SFM, "<:encoding(UTF-8)", $f2) || die "ERROR: could not open \"$f2\"\n";
+      open(SFM2, ">:encoding(UTF-8)", "$f2.new") || die;
+      my $line = 0;
+      while(<SFM>) {
+        $line++;
+        foreach my $r (@EVAL_REGEX) {
+          if (eval("\$_ =~ $r;")) {
+            if ($DEBUG) {&Log("$fln:$line: Applied EVAL_REGEX: $r\n");}
+            $eval_regex_report{$r}++;
           }
-          print SFM2 $_;
         }
-        close(SFM2);
-        close(SFM);
-        unlink($f2);
-        rename("$f2.new", "$f2");
+        print SFM2 $_;
       }
+      close(SFM2);
+      close(SFM);
+      unlink($f2);
+      rename("$f2.new", "$f2");
     }
-    foreach my $r (keys %eval_regex_report) {&Log("Applied \"$r\" ".$eval_regex_report{$r}." times\n");}
-    &Log("\n");
-    
-    my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
-    $lang = ($lang ? " -l $lang":'');
-    my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
-    &Log($cmd . "\n", 1);
-    &Log(`$cmd` . "\n", 1);
   }
-  else {&Log("\nDebug: skipping conversion\n", 1);}
+  foreach my $r (keys %eval_regex_report) {&Log("Applied \"$r\" ".$eval_regex_report{$r}." times\n");}
+  &Log("\n");
+  
+  my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
+  $lang = ($lang ? " -l $lang":'');
+  my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+  &Log($cmd . "\n", 1);
+  &Log(`$cmd` . "\n", 1);
   
   return $osis;
 }

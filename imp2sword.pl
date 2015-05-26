@@ -86,9 +86,9 @@ chdir($INPD);
 
 if (-e $IMAGEDIR) {copy_images_to_module($IMAGEDIR, "$SWOUT/$MODPATH");}
 
-&writeInstallSizeToConf("$SWOUT/$MODPATH", $CONFFILE);
+&writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");
 
-&zipModule($SWOUT, $OUTZIP);
+&zipModule($OUTZIP, $SWOUT);
 
 &Log("\n\n");
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";

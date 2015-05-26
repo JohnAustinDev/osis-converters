@@ -82,7 +82,7 @@ sub paratext2imp($$) {
   
   &Log("\n--- CONVERTING PARATEXT TO IMP\n-----------------------------------------------------\n\n");
 
-  # Read the COMMANDFILE, converting each file as it is encountered
+  # Read the commandFile, converting each file as it is encountered
   my $commandFile = "$INPD/CF_paratext2imp.txt";
   &removeRevisionFromCF($commandFile);
   open(COMF, "<:encoding(UTF-8)", $commandFile) || die "Could not open paratext2imp command file $commandFile\n";
@@ -167,7 +167,7 @@ sub paratext2imp($$) {
     # SFM file name...
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {&glossSFMtoIMP($1);}
     elsif ($_ =~ /^APPEND:\s*(.*?)\s*$/) {&appendIMP($1);}
-    else {&Log("ERROR: Unhandled command file entry \"$_\" in $COMMANDFILE\n");}
+    else {&Log("ERROR: Unhandled command file entry \"$_\" in $commandFile\n");}
   }
 
   open(OUTF, ">:encoding(UTF-8)", $outimp) || die "Could not open paratext2imp output file $outimp\n";

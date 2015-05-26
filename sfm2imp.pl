@@ -50,7 +50,7 @@ require("$SCRD/scripts/paratext2imp.pl");
 open(AFILE, ">>:encoding(UTF-8)", "$TMPDIR/".$MOD."_1.imp") || die;
 
 &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
-&checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp");
+&compareToDictWordsFile("$TMPDIR/".$MOD."_1.imp");
 
 if ($addScripRefLinks) {
   require("$SCRD/scripts/addScripRefLinks.pl");
