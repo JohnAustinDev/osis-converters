@@ -40,6 +40,8 @@ $SCRD =~ s/[\\\/][^\\\/]+$//;
 require "$SCRD/scripts/common.pl"; 
 &init(__FILE__);
 
+&Log("NOTE: sfm2imp.pl (IMP output) is DEPRECATED in preference to sfm2osis.pl (TEI output).\n");
+
 $IS_usfm2osis = 0;
 
 require("$SCRD/scripts/paratext2imp.pl");
@@ -48,8 +50,7 @@ require("$SCRD/scripts/paratext2imp.pl");
 open(AFILE, ">>:encoding(UTF-8)", "$TMPDIR/".$MOD."_1.imp") || die;
 
 &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
-if (! -e "$INPD/$DICTIONARY_WORDS") {copy("$OUTDIR/DictionaryWords_autogen.xml", "$INPD/$DICTIONARY_WORDS");}
-&checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$INPD/$DICTIONARY_WORDS");
+&checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp");
 
 if ($addScripRefLinks) {
   require("$SCRD/scripts/addScripRefLinks.pl");
@@ -62,5 +63,7 @@ if ($addSeeAlsoLinks) {
   &addSeeAlsoLinks("$TMPDIR/".$MOD."_2.imp", $OUTIMP);
 }
 else {rename("$TMPDIR/".$MOD."_2.imp", $OUTIMP);}
+
+&checkDictReferences($OUTIMP);
 
 

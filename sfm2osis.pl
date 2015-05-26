@@ -47,8 +47,7 @@ else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
 # create DictionaryWords_autogen.xml if needed
 if ($MODDRV =~ /LD/) {
   &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
-  if (! -e "$INPD/$DICTIONARY_WORDS") {copy("$OUTDIR/DictionaryWords_autogen.xml", "$INPD/$DICTIONARY_WORDS");}
-  &checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$INPD/$DICTIONARY_WORDS");
+  &checkDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
 
 if ($addScripRefLinks) {
@@ -58,12 +57,16 @@ if ($addScripRefLinks) {
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
 if ($MODDRV =~ /Text/ && $addDictLinks) {
-  require("$SCRD/scripts/addDictLinks.pl");
-  &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
+  if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
+  else {
+    require("$SCRD/scripts/addDictLinks.pl");
+    &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
+  }
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks) {
   require("$SCRD/scripts/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
+  &checkDictReferences("$TMPDIR/".$MOD."_3.xml");
 }
 else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 

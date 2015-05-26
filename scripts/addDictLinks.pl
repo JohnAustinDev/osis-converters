@@ -24,8 +24,7 @@ sub addDictLinks($$) {
   &Log("READING OSIS FILE: \"$in_file\".\n");
   &Log("WRITING OSIS FILE: \"$out_file\".\n");
   
-  my $dwf = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-  my @entries = $XPC->findnodes('//entry[@osisRef]', $dwf);
+  my @entries = $XPC->findnodes('//entry[@osisRef]', $DWF);
   
   my $xml = $XML_PARSER->parse_file($in_file);
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
@@ -59,17 +58,16 @@ sub addDictLinks($$) {
       $skip =~ s/([^\|]+(\||$))/self::osis:$1/g;
       
       my @elems = $XPC->findnodes(".//*[not($skip)]", $book);
-      &addDictionaryLinks(\@elems, $dwf);
+      &addDictionaryLinks(\@elems);
     }
     
     open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
     print OUTF $xml->toString();
     close(OUTF);
 
-    &logDictLinks($dwf);
+    &logDictLinks();
   }
 
-  &checkDictOsisRefs($out_file, $dwf);
 }
 
 1;

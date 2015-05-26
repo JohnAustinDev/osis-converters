@@ -40,14 +40,21 @@ while(<INF>) {
   else {&Log("ERROR: Could not parse \"$_\"\n", 1);}
 }
 close(INF);
-&convertDWF("$OUTDIR/DictionaryWords.xml", \@entry, \%pattern, 0);
-&convertDWF("$OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml", \@entry, \%pattern, 1);
+&convertDWF(\@entry, \%pattern, 0, "$OUTDIR/DictionaryWords.xml");
+&convertDWF(\@entry, \%pattern, 1, "$OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml");
+
+&Log("\nOUTPUT FILES CREATED:\n", 1);
+&Log("OUTDIR/DictionaryWords.xml\n", 1);
+&Log("OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml (the old addSeeAlsoLinks.pl 
+implementation never allowed wildcard endings even if they were specified 
+in DictionaryWords.txt, so this file emulates that behaviour such that 
+new SeeAlso links may still match the old)\n", 1);
 
 sub convertDWF($\@\%$) {
-  my $out_file = shift;
   my $entryP = shift;
   my $patternP = shift;
   my $dict_backwardCompat = shift;
+  my $out_file = shift;
 
   my %prints;
   foreach my $e (@$entryP) {

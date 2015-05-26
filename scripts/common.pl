@@ -73,6 +73,8 @@ sub init($) {
 
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  if (-e "$INPD/$DICTIONARY_WORDS") {$DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");}
+  
   my @outs = ($LOGFILE);
   if ($SCRIPT =~ /^(osis2osis|sfm2osis|html2osis)$/i) {
     $OUTOSIS = "$OUTDIR/$MOD.xml"; push(@outs, $OUTOSIS);
@@ -595,16 +597,25 @@ sub sortSearchTermKeys($$) {
 }
 
 
-# add dictionary links as described in $dwf to all elements pointed to 
+# add dictionary links as described in $DWF to all elements pointed to 
 # by $eP array pointer.
-sub addDictionaryLinks(\@$$) {
-  my $eP = shift; # single elem or array of elems
-  my $dwf = shift;
-  my $entry = shift; # for SeeAlso links only
+sub addDictionaryLinks(\@$) {
+  my $eP = shift; # array of elements (NOTE: element children are not touched)
+  my $entry = shift; # should be NULL if not adding SeeAlso links
 
-  if ($entry && $XPC->findnodes('//entry[@noOutboundLinks=\'true\'][@osisRef=\''.&encodeOsisRef($entry).'\']', $dwf)) {return;}
+  if ($entry) {
+    my $entryOsisRef = &entry2osisRef($MOD, $entry);
+    if (!$NoOutboundLinks{'haveBeenRead'}) {
+      foreach my $n ($XPC->findnodes('descendant-or-self::entry[@noOutboundLinks=\'true\']', $DWF)) {
+        foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
+      }
+      $NoOutboundLinks{'haveBeenRead'}++;
+    }
+    if ($NoOutboundLinks{$entryOsisRef}) {return;}
+  }
   
   foreach my $elem (@$eP) {
+    if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $elem)) {next;}
     my @textchildren = $XPC->findnodes('child::text()', $elem);
     my $text, matchedPattern;
     foreach my $textchild (@textchildren) {
@@ -615,7 +626,7 @@ sub addDictionaryLinks(\@$$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $elem, $dwf, $entry)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $elem, $entry)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -627,13 +638,12 @@ sub addDictionaryLinks(\@$$) {
 
 
 # Searches and replaces $$tP text for a single dictionary link, according 
-# to the $dwf file, and logs any result. If a match is found, the proper 
+# to the $DWF file, and logs any result. If a match is found, the proper 
 # reference tags are inserted,and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
-sub addDictionaryLink(\$$$$) {
+sub addDictionaryLink(\$$$) {
   my $tP = shift;
   my $elem = shift;
-  my $dwf = shift;
   my $entry = shift; # for SeeAlso links only
   
   if ($$tP =~ /^\s*$/) {return '';}
@@ -641,7 +651,7 @@ sub addDictionaryLink(\$$$$) {
   my $matchedPattern = '';
   my $dbg;
   
-  if (!@MATCHES) {@MATCHES = $XPC->findnodes("//match", $dwf);}
+  if (!@MATCHES) {@MATCHES = $XPC->findnodes("//match", $DWF);}
   
   my $context;
   my $multiples_context;
@@ -871,52 +881,52 @@ sub context2array($) {
 
 
 # Check all reference links, and report any errors
-sub checkDictOsisRefs($$) {
+sub checkDictReferences($) {
   my $in_file = shift;
-  my $dwf = shift;
   
   my %replaceList;
   
-  &Log("\nChecking dictionary reference osisRef targets:\n");
+  &Log("\nCHECKING DICTIONARY REFERENCE OSISREF TARGETS IN $in_file...\n");
   open(INF, "<:encoding(UTF-8)", $in_file) || die "ERROR: Could not check $in_file.\n";
-  $line = 0;
+  my $line = 0;
+  my $total = 0;
+  my $errors = 0;
   while(<INF>) {
     $line++;
-    my $t = $_;
-
-    my $copy = $t;
-    while ($copy =~ s/(<reference\b[^>]*type="("x-glossary|x-glosslink")"[^>]*>)//) {
+    while ($_ =~ s/(<reference\b[^>]*type="(x-glossary|x-glosslink)"[^>]*>)//) {
       my $r = $1;
 
+      $total++;
       if ($r !~ /<reference [^>]*osisRef="([^\"]+)"/) {
-        &Log("ERROR: missing osisRef in glossary link \"$r\".\n");
+        $errors++;
+        &Log("ERROR: line $line: missing osisRef in glossary link \"$r\".\n");
         next;
       }
       my $osisRef = $1;
       
       my @srefs = split(/\s+/, $osisRef);
       foreach my $sref (@srefs) {
-        my @entry = $XPC->findnodes('//entry[@osisRef=\''.$sref.'\']', $dwf);
-        if (!@entry) {&Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");}
+        my @entry = $XPC->findnodes('//entry[@osisRef=\''.$sref.'\']', $DWF);
+        if (!@entry) {
+          $errors++;
+          &Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");
+        }
       }
     }
   }
   close(INF);
+  &Log("REPORT: $total dictionary links found and checked. ($errors unknown or missing targets)\n");
 }
 
 
 # Print log info for a word file
-sub logDictLinks($) {
-  my $dwf = shift; # dictionary word XML
-  
-  my $eP = shift;
-
+sub logDictLinks() {
   my $total = 0;
   foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
   
   my $nolink = "";
   my $numnolink = 0;
-  my @entries = $XPC->findnodes('//entry/name/text()', $dwf);
+  my @entries = $XPC->findnodes('//entry/name/text()', $DWF);
   my %entriesH; foreach my $e (@entries) {$entriesH{$e}++;}
   foreach my $e (sort keys %entriesH) {
     my $match = 0;
@@ -1006,6 +1016,10 @@ sub writeDictionaryWordsXML($$) {
   close(DWORDS);
   
   &checkEntryNames(\@keywords);
+  
+  # if there is no project dictionary words file, create it
+  if (! -e "$INPD/$DICTIONARY_WORDS") {copy($out_xml, "$INPD/$DICTIONARY_WORDS");}
+  $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
 }
 
 
@@ -1013,18 +1027,17 @@ sub writeDictionaryWordsXML($$) {
 # dictionaryWords file. If the difference is only in capitalization,
 # which occurs when converting from DictionaryWords.txt to DictionaryWords.xml,
 # then fix these.
-sub checkDictionaryWordsXML($$) {
+sub checkDictionaryWordsXML($) {
   my $imp_or_osis = shift;
-  my $dw_file = shift;
   
-   &Log("\n--- CHECKING ENTRIES IN: $imp_or_osis FOR INCLUSION IN: $dw_file\n", 1);
+  my $dw_file = "$INPD/$DICTIONARY_WORDS";
+  &Log("\n--- CHECKING ENTRIES IN: $imp_or_osis FOR INCLUSION IN: $DICTIONARY_WORDS\n", 1);
   
   my $update = 0;
   
   my @sourceEntries = &getDictKeys($imp_or_osis);
   
-  my $dwf = $XML_PARSER->parse_file($dw_file);
-  my @dwfEntries = $XPC->findnodes('//entry[@osisRef]/@osisRef', $dwf);
+  my @dwfEntries = $XPC->findnodes('//entry[@osisRef]/@osisRef', $DWF);
   
   my $allmatch = 1; my $mod;
   foreach my $es (@sourceEntries) {
@@ -1037,20 +1050,22 @@ sub checkDictionaryWordsXML($$) {
         $update++;
         $edr->setValue(entry2osisRef($mod, $es));
         my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
-        if (uc2($name) ne uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $dw_file\n");}
+        if (uc2($name) ne uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
         else {$name->setData($es);}
         last;
       }
     }
-    if (!$match) {&Log("ERROR: Missing entry \"$es\" in $dw_file\n"); $allmatch = 0;}
+    if (!$match) {&Log("ERROR: Missing entry \"$es\" in $DICTIONARY_WORDS\n"); $allmatch = 0;}
   }
   
   if ($update) {
-    open(OUTF, ">$dw_file.tmp") or die "Could not open $dw_file.tmp\n";
-    print OUTF $dwf->toString();
+    open(OUTF, ">$dw_file.tmp") or die "Could not open $DICTIONARY_WORDS.tmp\n";
+    print OUTF $DWF->toString();
     close(OUTF);
     unlink($dw_file); rename("$dw_file.tmp", $dw_file);
     &Log("NOTE: Updated $update entries in $dw_file\n");
+    
+    $DWF = $XML_PARSER->parse_file($dw_file);
   }
   
   if ($allmatch) {&Log("All entries are included.\n");}

@@ -24,8 +24,7 @@ sub addSeeAlsoLinks($$) {
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING OUTPUT FILE: \"$out_file\".\n");
   
-  my $dwf = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-  my @entries = $XPC->findnodes('//entry[@osisRef]', $dwf);
+  my @entries = $XPC->findnodes('//entry[@osisRef]', $DWF);
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
@@ -40,7 +39,7 @@ sub addSeeAlsoLinks($$) {
       my $xml = $XML_PARSER->parse_file($in_file);
       my $entryStartsP = getOSISEntryStarts($xml);
       for (my $i=0; $i<@$entryStartsP; $i++) {
-        &processEntry(getOSISEntryName($entryStartsP->[$i]), $dwf, \$i, $entryStartsP);
+        &processEntry(getOSISEntryName($entryStartsP->[$i]), \$i, $entryStartsP);
       }
       open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
       print OUTF $xml->toString();
@@ -61,7 +60,7 @@ sub addSeeAlsoLinks($$) {
       open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
       foreach my $entryName (@entryOrder) {
         my $entryElem = $XML_PARSER->parse_balanced_chunk("<entry>$entryText{$entryName}</entry>");
-        &processEntry($entryName, $dwf, \$entryElem);
+        &processEntry($entryName, \$entryElem);
         print OUTF encode("utf8", "\$\$\$$entryName\n");
         print OUTF &fragmentToString($entryElem, '<entry>'); 
       }
@@ -69,10 +68,8 @@ sub addSeeAlsoLinks($$) {
     }
     
     &checkCircularEntries($out_file);
-    &logDictLinks($dwf);
+    &logDictLinks();
   }
-
-  &checkDictOsisRefs($out_file, $dwf);
 
   &Log("FINISHED\n\n");
 }
@@ -90,9 +87,9 @@ sub getOSISEntryName($) {
 # $i_or_elem is either an index into a $startsArrayP of entry start tags (as  
 # with OSIS files), or else a document fragment containing an entry (as with IMP).
 # Either way, this function processes the passed entry.
-sub processEntry($$$$) {
+sub processEntry($$$) {
   my $entryName = shift;
-  my $dwf = shift;
+
   my $i_or_elemP = shift;
   my $startsArrayP = shift;
   
@@ -104,10 +101,9 @@ sub processEntry($$$$) {
     push(@parseElems, $e);
   }
 
-  &addDictionaryLinks(\@parseElems, $dwf, $entryName);
+  &addDictionaryLinks(\@parseElems, $entryName);
   
-  $entryElementsP = &getEntryElements($i_or_elemP, $startsArrayP);
-  &checkCircularEntryCandidate($entryName, $entryElementsP);
+  &checkCircularEntryCandidate($entryName, &getEntryElements($i_or_elemP, $startsArrayP));
 }
 
 sub getEntryElements($$) {
@@ -116,11 +112,11 @@ sub getEntryElements($$) {
   
   my @entryElements;
   if (ref($$i_or_elemP) eq "XML::LibXML::DocumentFragment") {
-    @entryElements = $XPC->findnodes('*', $$i_or_elemP);
+    @entryElements = $XPC->findnodes('descendant-or-self::*', $$i_or_elemP);
   }
   else {
     my $i = $$i_or_elemP;
-    my @all = $XPC->findnodes('self::*|following::*', $startsArrayP->[$i]);
+    my @all = $XPC->findnodes('descendant-or-self::*|following::*', $startsArrayP->[$i]);
     for (my $j=0; $j<@all && ($i==@$startsArrayP-1 || !@all[$j]->isSameNode($startsArrayP->[$i+1])); $j++) {
       push(@entryElements, @all[$j]);
     }
@@ -140,22 +136,23 @@ sub checkCircularEntryCandidate($\@) {
   my $tlen = 0; 
   my $single_osisRef = 0;
   foreach my $e (@$allElemsP) {
-    $tlen += length($e->textContent);
+    if ($IS_usfm2osis && $XPC->findnodes("self::$KEYWORD", $e)) {next;}
+    my @at = $XPC->findnodes("text()", $e);
+    foreach my $t (@at) {$tlen += length($t->data);}
     if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
       my $osisRef = $e->getAttribute('osisRef');
       $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
-      $OsisRefLinks{&entry2osisRef($MOD, $entryName)} .= "$osisRef ";
+      $EntryLinkList{$entryName} .= $osisRef." ";
     }
   }
 
   if ($tlen < 80 && $single_osisRef) {
-    &Log("NOTE: circular reference candidate: from \"".&osisRef2Entry($single_osisRef)."\" to \"$entryName\"\n");
+    &Log("NOTE: circular reference candidate from \"".&osisRef2Entry($single_osisRef)."\" to short entry \"$entryName\"\n");
     $CheckCircular{$entryName} = $single_osisRef;
   }
+
 }
 
-# Some entries only say: "see blah". In such cases, blah should not 
-# link back to the short entry. So report these instances.
 sub checkCircularEntries($) {
   my $out_file = shift;
   
@@ -163,21 +160,27 @@ sub checkCircularEntries($) {
   
   my %circulars;
   foreach my $shortEntryName (sort keys %CheckCircular) {
-    my $shortEntryOsisRef = &entry2osisRef($MOD, $shortEntryName);
-    my $shortEntrySingleLinkOsisRef = $CheckCircular{$shortEntryName};
-    my $longLinks = $OsisRefLinks{$shortEntrySingleLinkOsisRef};
-    if (!$longLinks || $longLinks !~ /\b\Q$shortEntryOsisRef\E\b/) {&Log("NOT CIRC:$longLinks,$shortEntryOsisRef.\n", 1); next;}
-    $circulars{$shortEntrySingleLinkOsisRef} = $shortEntryOsisRef;
+    my $osisRefShort = &entry2osisRef($MOD, $shortEntryName);
+    my $osisRefLong = $CheckCircular{$shortEntryName};
+    my $longLinks = $EntryLinkList{&osisRef2Entry($osisRefLong)};
+    if (!$longLinks || $longLinks !~ /(^|\s)\Q$osisRefShort\E(\s|$)/) {
+      my @a; foreach my $or (split(/\s/, $longLinks)) {if ($or) {push(@a, &osisRef2Entry($or));}}
+      &Log("NOTE: short entry was not circular: ".&osisRef2Entry($osisRefShort)." (target only contains links to: ".(@a ? join(", ", @a):'nothing').").\n"); 
+      next;
+    }
+    $circulars{$osisRefShort} = $osisRefLong;
   }
   
-  my $n = 0; foreach my $k (keys %circulars) {$n++;}
+  my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
   &Log("\nREPORT: Found $n circular cross references in \"$out_file\".\n");
   if ($addDictLinks !~ /^check$/i && $n > 0) {
+    &Log("NOTE: Some short entries only say: \"See long entry\". In such cases it is\n");
+    &Log("often nice if the long entry does not link to the short \"dummy\" entry.\n");
     &Log("These circular references can be eliminated with 'notContext' attributes in $DICTIONARY_WORDS, like this:\n");
-    foreach my $shortEntrySingleLinkOsisRef (sort keys %circulars) {
-      my $shortEntryOsisRef = $circulars{$shortEntrySingleLinkOsisRef};
-      &Log("<entry osisRef=\"$shortEntryOsisRef\" notContext=\"".$shortEntrySingleLinkOsisRef."\">\n");
+    foreach my $osisRefShort (sort keys %circulars) {
+      my $osisRefLong = $circulars{$osisRefShort};
+      &Log("<entry osisRef=\"$osisRefShort\" notContext=\"".$osisRefLong."\">\n");
     }
   }
 }
