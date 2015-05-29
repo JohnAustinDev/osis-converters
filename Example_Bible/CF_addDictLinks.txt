@@ -1,7 +1,0 @@
-# Example command file
-# see addDictLinks.txt for more information
-
-CHECK_ONLY:true
-GLOSSARY:TurSozluk,DictionaryWords.txt;
-PUNC_AS_LETTER:'
-SPECIAL_CAPITALS:i->İ ı->I

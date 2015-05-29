@@ -32,14 +32,14 @@ sub addSeeAlsoLinks($$) {
     copy($in_file, $out_file);
   }
   else {
-    &Log("PARSING LINKS...\n");
+    &Log("PARSING ".@entries." ENTRIES...\n");
     
     # Process OSIS dictionary input file (from usfm2osis.py)
     if ($IS_usfm2osis) {
       my $xml = $XML_PARSER->parse_file($in_file);
-      my $entryStartsP = getOSISEntryStarts($xml);
-      for (my $i=0; $i<@$entryStartsP; $i++) {
-        &processEntry(getOSISEntryName($entryStartsP->[$i]), \$i, $entryStartsP);
+      my $entryStartsP = &getOSISEntryStarts($xml);
+      for (my $i=0; $i<@$entryStartsP; $i++) { 
+        &processEntry(&getOSISEntryName($entryStartsP->[$i]), \$i, $entryStartsP);
       }
       open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
       print OUTF $xml->toString();
@@ -76,7 +76,8 @@ sub addSeeAlsoLinks($$) {
 
 sub getOSISEntryStarts($) {
   my $xml = shift;
-  return $XPC->findnodes("//*[count(descendant::".$KEYWORD.")=1]|".$KEYWORD."[count(../child::".$KEYWORD.")>1]", $xml);
+  my @e = $XPC->findnodes("//*[count(descendant::".$KEYWORD.")=1]|//".$KEYWORD."[count(../child::".$KEYWORD.")>1]", $xml);
+  return \@e;
 }
 
 sub getOSISEntryName($) {
@@ -97,7 +98,7 @@ sub processEntry($$$) {
   
   my @parseElems;
   foreach my $e (@$entryElementsP) {
-    if ($e->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
+    if ($e->nodeType == 1 && $e->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
     push(@parseElems, $e);
   }
 
@@ -116,8 +117,9 @@ sub getEntryElements($$) {
   }
   else {
     my $i = $$i_or_elemP;
-    my @all = $XPC->findnodes('descendant-or-self::*|following::*', $startsArrayP->[$i]);
+    my @all = $XPC->findnodes('descendant-or-self::* | following::node()', $startsArrayP->[$i]);
     for (my $j=0; $j<@all && ($i==@$startsArrayP-1 || !@all[$j]->isSameNode($startsArrayP->[$i+1])); $j++) {
+      if (@all[$j]->nodeType != 1 && @all[$j]->nodeType != 3) {next;} # keep only elements and text nodes
       push(@entryElements, @all[$j]);
     }
   }

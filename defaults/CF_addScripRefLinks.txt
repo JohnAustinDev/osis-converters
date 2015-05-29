@@ -1,0 +1,20 @@
+# See /scripts/addScripRefLinks.pl for command file documentation
+
+FILTER:
+CURRENT_BOOK_TERMS:
+CURRENT_CHAPTER_TERMS:
+CHAPTER_TERMS:
+VERSE_TERMS:
+SEPARATOR_TERMS:(,|;)
+COMMON_REF_TERMS:(\-|,|;|:|\.)
+REF_END_TERMS:(\s|;|:|\.|\)|<|$)
+CHAPTER_TO_VERSE_TERMS:(:)
+CONTINUATION_TERMS:(\-) 
+PREFIXES:
+SUFFIXES:(\.)
+
+Gen   = Genesis
+Gen   = Gen
+Exod  = Exodus
+Exod  = Exod
+# etc...

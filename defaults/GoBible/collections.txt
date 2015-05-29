@@ -1,0 +1,14 @@
+// =========================================================================
+// This is an example collections file - text encoded as UTF-8 (without BOM)
+// You may add in comments to this file by starting a line
+// with either '//' or with REM.  Blank lines are ignored as well
+// This collections file is not an exhaustively complete example
+// =========================================================================
+Source-Text: osis.xml
+Source-Format: osis
+Phone-Icon-Filepath: icon.png
+MIDlet-Vendor: CrossWire
+MIDlet-Info-URL: http://crosswire.org
+Codepage: UTF-8
+RedLettering: false
+

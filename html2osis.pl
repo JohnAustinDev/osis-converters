@@ -33,12 +33,9 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 # run web2osis.pl
 $COMMANDFILE = "$INPD/CF_html2osis.txt";
@@ -78,3 +75,5 @@ if ($addCrossRefs) {
 else {rename("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
 &validateOSIS($OUTOSIS);
+
+1;

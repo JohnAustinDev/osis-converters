@@ -22,12 +22,9 @@
 # Run this script to create a dictionary SWORD module from an IMP 
 # file and a config.conf file located in the Glossary_Directory.
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
@@ -72,7 +69,7 @@ if (open(COMF, "<:encoding(UTF-8)", $commandFile)) {
 
 # create and check module's conf file
 make_path("$SWOUT/mods.d");
-&writeConf($CONFFILE, $ConfEntryP, $IMPFILE, "$SWOUT/mods.d/$MODLC.conf");
+&writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $IMPFILE);
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 
 # create new module files
@@ -100,3 +97,5 @@ sub referenceUC($) {
   if ($r !~ s/(<reference\b[^>]*osisRef="\w+:)([^"]*")/$1.&uc2($2)/e) {&Log("ERROR: bas osisRef \"$r\"\n");}
   return $r;
 }
+
+1;

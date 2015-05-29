@@ -25,8 +25,8 @@
 #   RUN - Process the SFM file or file glob. Multiple RUN commands are allowed.
 #   SET_script - Include script during processing (true|false|<option>)
 #   EVAL_REGEX: example: s/\\col2 /\p /g -evaluates this perl regexp on  
-#       each line. Equivalent to: $_ =~ RegExp in Perl. Multiple  
-#       EVAL_REGEX commands are allowed.
+#       the entire file as a single string. Multiple EVAL_REGEX commands  
+#       will be applied one after the other.
 #   PUNC_AS_LETTER - List special characters which should be treated as 
 #       letters for purposes of matching word boundaries. 
 #       Example for : "PUNC_AS_LETTER:'`" 
@@ -46,6 +46,7 @@ sub usfm2osis($$) {
   @EVAL_REGEX;
 
   $line=0;
+  my $clearRegex = 0;
   while (<COMF>) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
@@ -54,11 +55,15 @@ sub usfm2osis($$) {
       if ($2) {
         my $par = $1;
         my $val = $3;
-        $$par = ($val && $val !~ /^(0|false)$/i ? $val:0);
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Log("INFO: Setting $par to $val\n");
       }
     }
-    elsif ($_ =~ /^EVAL_REGEX:\s*(.*?)\s*$/) {push(@EVAL_REGEX, $1); next;}
+    elsif ($_ =~ /^EVAL_REGEX:\s*(.*?)\s*$/) {
+      if ($clearRegex) {@EVAL_REGEX = (); $clearRegex=0;}
+      push(@EVAL_REGEX, $1); 
+      next;
+    }
     elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
     elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
@@ -69,51 +74,70 @@ sub usfm2osis($$) {
         $SFMfile = File::Spec->rel2abs($SFMfile);
         chdir($SCRD);
       }
-      $USFMfiles .= $SFMfile . " ";
+      if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfile);}
+      else {$USFMfiles .= "$SFMfile ";}
+      $clearRegex = 1;
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
   close(COMF);
 
-  &Log("Processing USFM $USFMfiles\n");
-  
-  # If needed, preprocess tags before running usfm2osis.py
-  if (@EVAL_REGEX) {
-    my $tmp = "$TMPDIR/sfm";
-    make_path($tmp);
-    foreach my $f1 (glob $USFMfiles) {copy($f1, $tmp);}
-    $USFMfiles = "$tmp/*.*";
-    foreach my $f2 (glob $USFMfiles) {
-      my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
-      open(SFM, "<:encoding(UTF-8)", $f2) || die "ERROR: could not open \"$f2\"\n";
-      open(SFM2, ">:encoding(UTF-8)", "$f2.new") || die;
-      my $line = 0;
-      while(<SFM>) {
-        $line++;
-        foreach my $r (@EVAL_REGEX) {
-          if (eval("\$_ =~ $r;")) {
-            if ($DEBUG) {&Log("$fln:$line: Applied EVAL_REGEX: $r\n");}
-            $eval_regex_report{$r}++;
-          }
-        }
-        print SFM2 $_;
-      }
-      close(SFM2);
-      close(SFM);
-      unlink($f2);
-      rename("$f2.new", "$f2");
-    }
-  }
-  foreach my $r (keys %eval_regex_report) {&Log("Applied \"$r\" ".$eval_regex_report{$r}." times\n");}
-  &Log("\n");
-  
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
-  my $cmd = &escfile("$USFM2OSIS/usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+  my $cmd = &escfile($REPOTEMPLATE_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
   
   return $osis;
+}
+
+sub evalRegex($) {
+  my $usfmFiles = shift;
+  
+  my $outFiles = '';
+  my %eval_regex_report;
+  
+  &Log("Processing USFM $usfmFiles\n");
+  
+  # If needed, preprocess tags before running usfm2osis.py
+  my $tmp = "$TMPDIR/sfm";
+  make_path($tmp);
+  my @files;
+  foreach my $f (glob $usfmFiles) {
+    my $df = $f; $df =~ s/^.*?([^\\\/]*)$/$1/; $df = "$tmp/$df";
+    copy($f, $df);
+    push (@files, $df);
+  }
+  foreach my $f2 (@files) {
+    $outFiles .= $f2 . " ";
+    
+    my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
+    
+    if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
+    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {eval("\$s =~ $r;");}
+    close(SFM);
+    
+    open(SFM2, ">:encoding(UTF-8)", "$f2.new") or die;
+    print SFM2 $s;
+    close(SFM2);
+    
+    # the following is only for getting replacement line counts, since eval() does not allow this directly
+    if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
+    while (<SFM>) {foreach my $r (@EVAL_REGEX) {if (eval("\$_ =~ $r;")) {$eval_regex_report{$r}++;}}}
+    foreach my $r (@EVAL_REGEX) {if ($eval_regex_report{$r} > 1 && $r !~ /\/\w*g\w*$/) {$eval_regex_report{$r} = 1;}}
+    close(SFM);
+    
+    unlink($f2);
+    rename("$f2.new", "$f2");
+  }
+  
+  foreach my $r (@EVAL_REGEX) {
+    if (!$eval_regex_report{$r}) {&Log("Never applied \"$r\".\n");}
+    else {&Log("Applied \"$r\" on ".$eval_regex_report{$r}." lines.\n");}
+  }
+  &Log("\n");
+  
+  return $outFiles;
 }
 
 1;

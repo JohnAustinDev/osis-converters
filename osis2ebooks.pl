@@ -22,12 +22,9 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 # copy necessary files to tmp
 copy("$INPD/eBook/convert.txt", "$TMPDIR/convert.txt");
@@ -65,3 +62,4 @@ sub makeEbook($$$) {
   else {&Log("ERROR: No output file: $out\n");}
 }
 
+1;

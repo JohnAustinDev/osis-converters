@@ -25,12 +25,9 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 $OSISFILE = "$OUTDIR/$MOD.xml";
 
@@ -61,7 +58,7 @@ if ($IS_usfm2osis) {
   if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
   elsif ($MODDRV =~ /LD/) {$xsl = 'osis2tei.xsl'; $out = "tei";}
   if ($xsl) {
-    &usfm2osisXSLT($OSISFILE, "$USFM2OSIS/$xsl", "$TMPDIR/$out.xml");
+    &usfm2osisXSLT($OSISFILE, $REPOTEMPLATE_BIN.$xsl, "$TMPDIR/$out.xml");
     $OSISFILE = "$TMPDIR/$out.xml";
   }
 }
@@ -90,7 +87,7 @@ if ($MODDRV =~ /Text$/) {
     $ConfEntryP->{'BlockType'} = 'BOOK';
   }
 
-  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
   &Log("\n--- CREATING $MOD SWORD MODULE (".$VERSESYS.")\n");
   $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV eq 'zText' ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
@@ -110,7 +107,7 @@ if ($MODDRV =~ /Text$/) {
   chdir($INPD);
 }
 elsif ($MODDRV =~ /^RawGenBook$/) {
-  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$VERSESYS.")\n");
 	$cmd = &escfile($SWORD_BIN."xml2gbs")." $OSISFILE $MODLC >> ".&escfile($LOGFILE);
 	&Log("$cmd\n", -1);
@@ -119,7 +116,7 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 	chdir("$defdir")
 }
 elsif ($MODDRV =~ /LD/) {
-  &writeConf($CONFFILE, $ConfEntryP, $OSISFILE, "$SWOUT/mods.d/$MODLC.conf");
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$VERSESYS.")\n");
   $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
@@ -149,3 +146,5 @@ if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH"
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);
+
+1;

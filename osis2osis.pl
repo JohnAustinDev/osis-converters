@@ -33,14 +33,9 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
-
-if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 &Log("osis-converters rev: $GITHEAD\n\n");
 &Log("\n-----------------------------------------------------\nSTARTING osis2osis.pl\n\n");
@@ -58,7 +53,7 @@ if (-e $COMMANDFILE) {
       if ($2) {
         my $par = $1;
         my $val = $3;
-        $$par = ($val && $val !~ /^(0|false)$/i ? $val:0);
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Log("INFO: Setting $par to $val\n");
       }
     }
@@ -101,3 +96,4 @@ else {rename("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
 &validateOSIS($OUTOSIS);
 
+1;

@@ -127,7 +127,7 @@ sub paratext2imp($$) {
       if ($2) {
         my $par = $1;
         my $val = $3;
-        $$par = ($val && $val !~ /^(0|false)$/i ? $val:0);
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Log("INFO: Setting $par to $val\n");
       }
     }

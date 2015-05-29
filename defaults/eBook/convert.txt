@@ -1,0 +1,2 @@
+# EPUB3
+Epub3=True

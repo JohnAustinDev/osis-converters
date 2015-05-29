@@ -24,12 +24,9 @@
 # a check will be done when the dictionary source is converted and such
 # entries will be corrected then.
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common.pl";
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 my @entry, %pattern;
 open(INF, "<:encoding(UTF-8)", "$INPD/DictionaryWords.txt") or die;
@@ -113,3 +110,5 @@ sub getPattern($$) {
   
   return $p;
 }
+
+1;

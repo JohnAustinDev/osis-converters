@@ -32,6 +32,19 @@ sub addCrossRefs($$) {
   $NumNotes = 0;   
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
+  
+  my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
+  my @try = (
+    "$INPD/../Cross_References/$CrossRefFile.xml",
+    "$INPD/../../Cross_References/$CrossRefFile.xml",
+    "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
+    "$SCRD/scripts/CrossReferences/CrossRefs_$CrossRefFile.txt"
+  );
+  foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
+  if (!-e $CrossRefFile) {
+    &Log("WARNING: Could not locate Cross Reference source file. Skipping cross-reference insertion.\n");
+    return;
+  }
 
   $Booklist = "";
   my $commandFile = "$INPD/CF_addCrossRefs.txt";
@@ -86,15 +99,6 @@ sub addCrossRefs($$) {
   }
 
   ########################################################################
-  my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
-  my @try = (
-    "$INPD/../Cross_References/$CrossRefFile.xml",
-    "$INPD/../../Cross_References/$CrossRefFile.xml",
-    "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
-    "$SCRD/scripts/CrossReferences/CrossRefs_$CrossRefFile.txt"
-  );
-  foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
-  if (! -e $CrossRefFile) {&Log("ERROR: Could not locate Cross Reference source file.\n"); die;}
   my $f = $CrossRefFile; $f =~ s/^.*?([^\/]+)$/$1/;
   &Log("READING CROSS REFERENCE FILE \"$f\".\n");
 

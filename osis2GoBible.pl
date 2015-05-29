@@ -31,26 +31,18 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
+
+$OSISFILE = "$OUTDIR/$MOD.xml";
 
 $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
-if (!$GOCREATOR || !-e $GOCREATOR) {
-  print "Please specify the path to Go Bible Creator in \"$PATHFILE\". Exiting.\n";
-  exit;
-}
-
-require("$SCRD/scripts/goBibleConvChars.pl");
-
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-$OUTPUTFILE = "$TMPDIR/osis.xml";
 require("$SCRD/scripts/goBibleFromOsis.pl");
+&goBibleFromOsis($OSISFILE, "$TMPDIR/osis.xml");
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
 foreach my $f (@FILES) {
@@ -59,6 +51,7 @@ foreach my $f (@FILES) {
 if (!-e "$GOBIBLE/icon.png") {&Log("ERROR: Missing icon file: $GOBIBLE/icon.png");}
 
 &Log("\n--- Converting characters (normal)\n");
+require("$SCRD/scripts/goBibleConvChars.pl");
 &goBibleConvChars("normal", \@FILES);
 copy("$GOBIBLE/icon.png", "$TMPDIR/normal/icon.png");
 &makeGoBible("normal");
@@ -74,8 +67,8 @@ else {&Log("WARN: Skipping simplified character apps; missing $GOBIBLE/simpleCha
 sub makeGoBible($) {
   my $type = shift;
   &Log("\n--- Running Go Bible Creator with collections.txt\n");
-  copy("$TMPDIR/$type/ui.properties", "$GOCREATOR/GoBibleCore/ui.properties");
-  chdir($GOCREATOR);
+  copy("$TMPDIR/$type/ui.properties", "$GO_BIBLE_CREATOR/GoBibleCore/ui.properties");
+  chdir($GO_BIBLE_CREATOR);
   system("java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE));
   chdir($INPD);
 
@@ -90,3 +83,4 @@ sub makeGoBible($) {
   }
 }
 
+1;

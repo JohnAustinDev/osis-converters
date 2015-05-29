@@ -24,12 +24,9 @@
 
 $DEBUG = 0;
 
-$INPD = shift;
-use File::Spec;
-$SCRD = File::Spec->rel2abs(__FILE__);
-$SCRD =~ s/[\\\/][^\\\/]+$//;
-require "$SCRD/scripts/common.pl"; 
-&init(__FILE__);
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 # use CF_usfm2osis.txt if it exists, otherwise fall back to old CF_paratext2osis.txt
 if (-e "$INPD/CF_usfm2osis.txt") {
@@ -50,25 +47,25 @@ if ($MODDRV =~ /LD/) {
   &compareToDictWordsFile("$TMPDIR/".$MOD."_1.xml");
 }
 
-if ($addScripRefLinks) {
+if ($addScripRefLinks ne '0') {
   require("$SCRD/scripts/addScripRefLinks.pl");
   &addScripRefLinks("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
 
-if ($MODDRV =~ /Text/ && $addDictLinks) {
+if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
   require("$SCRD/scripts/addDictLinks.pl");
   &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
 }
-elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks) {
+elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   require("$SCRD/scripts/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
 }
 else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  if ($addCrossRefs) {
+  if ($addCrossRefs ne '0') {
     require("$SCRD/scripts/addCrossRefs.pl");
     &addCrossRefs("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);
   }
@@ -83,3 +80,4 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
 &validateOSIS($OUTOSIS);
 
+1;

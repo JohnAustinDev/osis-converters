@@ -17,6 +17,7 @@
 # <http://www.gnu.org/licenses/>.
 
 use Encode;
+use File::Spec;
 use File::Copy;
 use File::Path qw(make_path remove_tree);
 use File::Find; 
@@ -38,64 +39,103 @@ $DICTLINK_SKIPNAMES= "reference|figure|title|note|name";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
-
-# Get our current osis-converters revision number
-$GITHEAD = `git rev-parse HEAD`;
+$GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
 
 sub init($) {
   $SCRIPT = shift;
-  
   $SCRIPT =~ s/^.*[\\\/]([^\\\/]+)\.pl$/$1/;
   
-  if ($INPD) {
-    $INPD =~ s/[\\\/]\s*$//;
-    if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-  }
-  else {
-    print "\nusage: $SCRIPT.pl [Project_Directory]\n\n";
-    die;
-  }
+  if (!$INPD) {$INPD = "."};
+  $INPD =~ s/[\\\/]\s*$//;
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
   if (!-e $INPD) {
-    print "Project_Directory \"$INPD\" does not exist. Exiting.\n";
+    print "Project directory \"$INPD\" does not exist. Exiting.\n";
     die;
   }
-
-  &initPaths();
+  chdir($SCRD); # must wait until absolute $INPD is set by rel2abs
   
-  $LOGFILE = "$OUTDIR/OUT_$SCRIPT.txt";
+  &setOUTDIR($SCRD, $INPD);
+  
+  $AUTOMODE = ($LOGFILE ? 1:0);
+  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT.txt";}
+  
+  &initOutputFiles($INPD, $OUTDIR, $LOGFILE, $AUTOMODE);
+  
+  &checkAndWriteDefaults($INPD, $SCRIPT);
+  
+  $CONFFILE = "$INPD/config.conf";
+  &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
+  
+  &checkDependencies($SCRIPT);
   
   $TMPDIR = "$OUTDIR/tmp/$SCRIPT";
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
   make_path($TMPDIR);
-
-  $CONFFILE = "$INPD/config.conf";
-  if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-
-  &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
   if (-e "$INPD/$DICTIONARY_WORDS") {$DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");}
   
-  my @outs = ($LOGFILE);
+  &Log("osis-converters rev: $GITHEAD\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT.pl\n\n");
+}
+
+
+sub setOUTDIR($$$) {
+  my $scrd = shift;
+  my $inpd = shift;
+
+  if (!-e "$scrd/paths.pl") {
+    if (!open(PATHS, ">$scrd/paths.pl")) {&Log("Could not open \"$scrd/paths.pl\". Exiting.\n"); die;}
+    print PATHS "1;\n";
+    close(PATHS);
+  }
+  require "$scrd/paths.pl";
+  
+  if ($OUTDIR) {
+    my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
+    $OUTDIR =~ s/[\\\/]\s*$//; # remove any trailing slash
+    $OUTDIR .= '/'.$sub;
+    if (!-e $OUTDIR) {make_path($OUTDIR);}
+  }
+  else {
+    $OUTDIR = $inpd;
+    &Log("\nWARNING: Output directory \$OUTDIR is not specified- will use inputs directory.\n", 1);
+    &Log("NOTE: Specify an output directory by adding:\n\$OUTDIR = '/path/to/outdir';\nto $scrd/paths.pl.\n\n", 1);
+  }
+}
+
+
+sub initOutputFiles($$$$) {
+  my $inpd = shift;
+  my $outdir = shift;
+  my $logfile = shift;
+  my $automode = shift;
+  
+  my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
+  
+  # When logfile is specified on command line, append to it, but overwrite
+  # other output files without prompting.
+  my @outs;
+  if (!$automode) {push(@outs, $logfile);}
   if ($SCRIPT =~ /^(osis2osis|sfm2osis|html2osis)$/i) {
-    $OUTOSIS = "$OUTDIR/$MOD.xml"; push(@outs, $OUTOSIS);
+    $OUTOSIS = "$outdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
   if ($SCRIPT =~ /^(osis2sword|imp2sword)$/i) {
-    $OUTZIP = "$OUTDIR/$MOD.zip"; push(@outs, $OUTZIP);
-    $SWOUT = "$OUTDIR/sword"; push(@outs, $SWOUT);
+    $OUTZIP = "$outdir/$sub.zip"; push(@outs, $OUTZIP);
+    $SWOUT = "$outdir/sword"; push(@outs, $SWOUT);
   }
   if ($SCRIPT =~ /^osis2GoBible$/i) {
-    $GBOUT = "$OUTDIR/GoBible/$MOD"; push(@outs, $GBOUT);
+    $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
   if ($SCRIPT =~ /^osis2ebooks$/i) {
-    $EBOUT = "$OUTDIR/eBooks"; push(@outs, $EBOUT);
+    $EBOUT = "$outdir/eBooks"; push(@outs, $EBOUT);
   }
   if ($SCRIPT =~ /^sfm2imp$/i) {
-    $OUTIMP = "$OUTDIR/$MOD.imp"; push(@outs, $OUTIMP);
+    $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
   }
 
   my $delete;
   foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
-  if ($delete) {
+  if ($delete && !$automode) {
     print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
     $in = <>; 
     if ($in !~ /^\s*y\s*$/i) {exit;} 
@@ -109,93 +149,396 @@ sub init($) {
       }
     }
   }
-  
-  if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
-  
-  &Log("osis-converters rev: $GITHEAD\n\n");
-  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT.pl\n\n");
 }
 
 
-sub initPaths() {
-  chdir($SCRD);
-  $PATHFILE = "$SCRD/CF_paths.txt";
-  if (open(PTHS, "<:encoding(UTF-8)", $PATHFILE)) {
-    while(<PTHS>) {
-      if ($_ =~ /^SWORD_BIN:\s*(.*?)\s*$/) {if ($1) {$SWORD_BIN = $1;}}
-      if ($_ =~ /^XMLLINT:\s*(.*?)\s*$/) {if ($1) {$XMLLINT = $1;}}
-      if ($_ =~ /^GO_BIBLE_CREATOR:\s*(.*?)\s*$/) {if ($1) {$GOCREATOR = $1;}}
-      if ($_ =~ /^OUTDIR:\s*(.*?)\s*$/) {if ($1) {$OUTDIR = $1;}}
-      if ($_ =~ /^USFM2OSIS:\s*(.*?)\s*$/) {if ($1) {$USFM2OSIS = $1;}}
+sub checkDependencies($script) {
+  my $script = shift;
+  
+  my %path;
+  $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto $SCRD/paths.pl\n";
+  $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto $SCRD/paths.pl\n";
+  $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto $SCRD/paths.pl\n";
+  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/directory';\nto $SCRD/paths.pl\n";
+  $path{'XSLT2'}{'msg'} = "Install the required program.\n";
+  $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
+  
+  foreach my $p (keys %path) {
+    if ($$p) {
+      if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
+      $$p =~ /[\\\/]\s*$/;
+      $$p .= "/";
     }
-    close(PTHS);
+  }
+  
+  $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
+  if ($script =~ /(all|osis)/i) {
+    $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
+    $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
+    $path{'XSLT2'}{'test'} = [&usfm2osisXSLT(), "Usage"];
+  }
+  if ($script =~ /(all|osis2GoBible)/i) {
+    $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
+  }
+  if ($script =~ /(all|osis2ebooks)/i) {
+    $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
+  }
+  
+  foreach my $p (keys %path) {
+    if (!exists($path{$p}{'test'})) {next;}
+    my $pass = 0;
+    system($path{$p}{'test'}[0]." >".&escfile("tmp.txt"). " 2>&1");
+    if (!open(TEST, "<tmp.txt")) {&Log("ERROR: could not read test output \"$SCRD/tmp.txt\". Exiting.\n"); die;}
+    my $res = $path{$p}{'test'}[1];
+    while (<TEST>) {if ($_ =~ /\Q$res\E/i) {$pass = 1; last;}}
+    close(TEST); unlink("tmp.txt");
+    if (!$pass) {
+      &Log("\nERROR: Dependency not found: \"".$path{$p}{'test'}[0]."\"\n", 1);
+      &Log("NOTE: ".$path{$p}{'msg'}."\n", 1);
+      die;
+    }
+  }
+}
+
+
+# If the project config.conf file exists, this routine does nothing. 
+# Otherwise pertinent non-existing project input files are copied from 
+# the first defaults directory found in the following order:
+#
+# - $INPD../defaults
+# - $INPD../../defaults
+# - osis-converters/defaults
+#
+# and then entries are added to each new input file as applicable.
+sub checkAndWriteDefaults($$) {
+  my $dir = shift;
+  my $script = shift;
+
+  # config.conf
+  if (!&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return;}
+
+  my $mod = $dir;
+  $mod =~ s/^.*?([^\\\/]+)$/$1/;
+  $mod = uc($mod);
+  
+  &Log("CREATING DEFAULT FILES FOR PROJECT \"$mod\"\n", 1);
+  
+  &setConfFileValue("$dir/config.conf", 'ModuleName', $mod, 1);
+  &setConfFileValue("$dir/config.conf", 'Abbreviation', $mod, 1);
+  
+  # read my new conf
+  my $confdataP = &readConf("$dir/config.conf");
+  
+  # read sfm files
+  %USFM; &scanUSFM("$dir/sfm", \%USFM);
+  
+  # get my type
+  my $type = (exists($USFM{'bible'}) && $confdataP->{'ModuleName'} !~ /DICT$/ ? 'bible':0);
+  if (!$type) {$type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);}
+  if (!$type) {$type = 'other';}
+  
+  # ModDrv
+  if ($type eq 'bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'zText', 1);}
+  if ($type eq 'dictionary') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawLD4', 1);}
+  if ($type eq 'other') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawGenBook', 1);}
+ 
+  # Companion
+  my $companion;
+  if ($type eq 'bible' && exists($USFM{'dictionary'})) {
+    $companion = $confdataP->{'ModuleName'}.'DICT';
+    if (!-e "$dir/$companion") {
+      make_path("$dir/$companion");
+      &checkAndWriteDefaults("$dir/$companion", $script);
+    }
+    else {&Log("WARNING: Companion directory \"$dir/$companion\" already exists, skipping defaults check for it.\n");}
+  }
+  my $parent = $dir; $parent =~ s/^.*?[\\\/]([^\\\/]+)[\\\/][^\\\/]+\s*$/$1/;
+  if ($type eq 'dictionary' && $confdataP->{'ModuleName'} eq $parent.'DICT') {$companion = $parent;}
+  if ($companion) {
+    &setConfFileValue("$dir/config.conf", 'Companion', $companion, ', ');
+  }
+  
+  # CF_usfm2osis.txt
+  if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
+    if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
+    foreach my $f (keys %{$USFM{$type}}) {
+      my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
+      print CFF "RUN:$r\n";
+    }
+    close(CFF);
+  }
+  
+  # CF_addScripRefLinks.txt
+  &copyDefaultFiles($dir, '.', 'CF_addScripRefLinks.txt');
+  
+  if ($type eq 'bible') {
+    $confdataP = &readConf("$dir/config.conf"); # need a re-read after above modifications
+  
+    # GoBible
+    if ($script =~ /^(osis2GoBible|sfm2all)$/i) {
+      if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
+        if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
+        print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
+        print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
+        my %canon;
+        my %bookOrder;
+        my %testament;
+        if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+          my $col = ''; my $colot = ''; my $colnt = '';
+          foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+            foreach my $f (keys %{$USFM{'bible'}}) {
+              if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
+              my $b = "Book: $v11nbk\n";
+              $col .= $b;
+              if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
+              else {$colnt .= $b;}
+            }
+          }
+          my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
+          if ($col) {print COLL "$colhead\n$col\n";}
+          if ($colot && $colnt) {
+            print COLL $colhead."ot\n$colot\n";
+            print COLL $colhead."nt\n$colnt\n";
+          }
+        }
+        else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
+        close(COLL);
+      }
+    }
     
-    if ($GOCREATOR && $GOCREATOR =~ /^\./) {$GOCREATOR = File::Spec->rel2abs($GOCREATOR);}
-    if ($SWORD_BIN && $SWORD_BIN =~ /^\./) {$SWORD_BIN = File::Spec->rel2abs($SWORD_BIN);}
-    if ($SWORD_BIN && $SWORD_BIN !~ /[\\\/]$/) {$SWORD_BIN .= "/";}
-    if ($XMLLINT && $XMLLINT =~ /^\./) {$XMLLINT = File::Spec->rel2abs($XMLLINT);}
-    if ($XMLLINT && $XMLLINT !~ /[\\\/]$/) {$XMLLINT .= "/";}
-    if ($OUTDIR && $OUTDIR =~ /^\./) {$OUTDIR = File::Spec->rel2abs($OUTDIR);}
-    if ($USFM2OSIS && $USFM2OSIS =~ /^\./) {$USFM2OSIS = File::Spec->rel2abs($USFM2OSIS);}
-    
-    if ($OUTDIR) {
-      $OUTDIR =~ s/\/\s*$//; # remove any trailing slash
-      $INPD =~ /([^\/]+)([\/\.]*\s*)?$/;
-      my $dn = $1;
-      if (!$dn) {$dn = "OUTPUT";}
-      $OUTDIR .= "/".$dn; # use input directory name as this output subdirectory
-      if (!-e $OUTDIR) {make_path($OUTDIR);}
+    # eBooks
+    if ($script =~ /^(osis2ebooks|sfm2all)$/i) {
+      if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
+        if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
+        print CONV "Language=".$confdataP->{'Lang'}."\n";
+        print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
+        print CONV "Title=".$confdataP->{'Description'}."\n";
+        foreach my $f (keys %{$USFM{'bible'}}) {
+          print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
+        }
+        close(CONV);
+      }
+    }
+  }
+}
+
+
+# If any filename in filenames does not exist in subdir of dest, copy its default file. 
+# Return 1 if all files were missing and were successfully created.
+sub copyDefaultFiles($$$$) {
+  my $dest = shift;
+  my $subdir = shift;
+  my $filenames = shift;
+  my $nowarn = shift;
+  
+  my $created = 1;
+  
+  my @filenames = split(/\s*,\s*/, $filenames);
+  
+  if (!-e "$dest/$subdir") {make_path("$dest/$subdir");}
+  
+  foreach my $filename (@filenames) {
+    if (!$filename) {next;}
+    my $starter = &getDefaultFile("$subdir/$filename");
+    if ($starter && !-e "$dest/$subdir/$filename") {&copy($starter, "$dest/$subdir/$filename");}
+    else {
+      if (!$nowarn) {&Log("WARNING: \"$dest/$subdir/$filename\" already exists, skipping defaults check for it.\n");}
+      $created = 0;
+    }
+  }
+  
+  return $created;
+}
+
+
+sub getDefaultFile($) {
+  my $filename = shift;
+  
+  my $d1 = "$SCRD/defaults";
+  my $d2 = "$INPD/../defaults";
+  if (!-e $d2) {"$INPD/../../defaults";}
+  
+  my $starter;
+  if (-e "$d2/$filename") {$starter = "$d2/$filename";}
+  elsif (-e "$d1/$filename") {$starter = "$d1/$filename";}
+  
+  if (!$starter) {&Log("ERROR: problem locating default \"$filename\"\n"); die;}
+  
+  return $starter;
+}
+
+
+sub scanUSFM($\%) {
+  my $sfm_dir = shift;
+  my $sfmP = shift;
+  
+  if (!opendir(SFMS, $sfm_dir)) {
+    &Log("WARNING: unable to read default sfm directory: \"$sfm_dir\"\n");
+    return;
+  }
+  
+  my @sfms = readdir(SFMS); closedir(SFMS);
+  
+  foreach my $sfm (@sfms) {
+    if ($sfm =~ /^\./) {next;}
+    my $f = "$sfm_dir/$sfm";
+    if (-d $f) {&scanUSFM($f, $sfmP); next;}
+    my $sfmInfoP = &scanUSFM_file($f);
+    if (!$sfmInfoP->{'doConvert'}) {next;}
+    foreach my $k (keys %{$sfmInfoP}) {
+      $sfmP->{$sfmInfoP->{'type'}}{$f} = $sfmInfoP;
+    }
+  }
+}
+
+sub scanUSFM_file($) {
+  my $f = shift;
+  
+  my %info;
+  
+  &Log("Scanning SFM file: \"$f\"\n");
+  
+  if (!open(SFM, "<:encoding(UTF-8)", $f)) {&Log("ERROR: could not read \"$f\"\n"); die;}
+  my $id;
+  my @tags = ('h', 'imt', 'is', 'mt');
+  while(<SFM>) {
+    if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
+      my $i = $1; 
+      if ($id) {
+        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous is tags: \"$id\", \"$i\"\n");}
+        next;
+      }
+      $id = $i;
+      &Log("NOTE: id is $id\n");
+    }
+    foreach my $t (@tags) {
+      if ($_ =~ /^\\($t\d*) \s*(.*?)\s*$/) {
+        if ($info{$t}) {&Log("NOTE: ignoring SFM $1 intro tag which is \"".$2."\"\n"); next;}
+        $info{$t} = $2;
+      }
+    }
+    if ($_ =~ /^\\(c|ie)/) {last;}
+  }
+  close(SFM);
+  
+  if ($id =~ /^\s*(\w{3}).*$/) {
+    my $shortid = $1;
+    $info{'doConvert'} = 1;
+    my $osisBook = &getOsisName($shortid, 1);
+    if ($osisBook) {
+      $info{'osisBook'} = $osisBook;
+      $info{'type'} = 'bible';
+    }
+    elsif ($id =~ /(GLO|DIC)/i) {
+      $info{'type'} = 'dictionary';
     }
     else {
-      $OUTDIR = $INPD;
+      $info{'type'} = 'other';
+      if ($id !~ /CB/) {$info{'doConvert'} = 0;} # right now osis-converters only handles Children's Bibles
     }
-  }
-  else {
-    open(PTHS, ">:encoding(UTF-8)", $PATHFILE) || die "Could not open $PATHFILE.\n";
-    print PTHS "# With this command file, you may set paths which are used by\n# osis-converters scripts.\n\n";
-    print PTHS "# Set GO_BIBLE_CREATOR to the Go Bible Creator directory\n# if you are using osis2GoBible.pl.\n";
-    print PTHS "GO_BIBLE_CREATOR:\n\n";
-    print PTHS "# Set USFM2OSIS to the repotemplate/bin directory\n# if you are using usfm2osis.py.\n";
-    print PTHS "USFM2OSIS:\n\n";
-    print PTHS "# Set SWORD_BIN to the directory where SWORD tools (osis2mod,\n# emptyvss mod2zmod) are located, unless already in your PATH.\n";
-    print PTHS "SWORD_BIN:\n\n";
-    print PTHS "# Set XMLLINT to the xmllint executable's directory if\n# it's not in your PATH.\n";
-    print PTHS "XMLLINT:\n\n";
-    print PTHS "# Set OUTDIR to the directory where output files should go.\nDefault is the inputs directory.\n";
-    print PTHS "OUTDIR:\n\n";
-    close(PTHS);
+    &Log("NOTE:");
+    foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
+    &Log("\n");
   }
   
-  if (!-e $OUTDIR) {$OUTDIR = $INPD; $OUTDIR_IS_INDIR = 1;}
+  &Log("\n");
+  
+  return \%info;
 }
 
 
-# Write $conf file by starting with $starterConf and appending necessary 
-# entries from %entryValue after it has been updated according to the module source.
-# Also creates module directory if it doesn't exist, so that it's ready for writing.
-sub writeConf($\%$$) {
-  my $starterConf = shift;
-  my $entryValueP = shift;
-  my $moduleSource = shift;
+# Checks, and optionally updates, a param in conf file and returns 1 if value is there, otherwise 0.
+sub setConfFileValue($$$$) {
   my $conf = shift;
+  my $param = shift;
+  my $value = shift;
+  my $flag = shift; # see &setConfValue()
   
-  $entryValueP = &updateConfData($entryValueP, $moduleSource);
+  my $confEntriesP = &readConf($conf);
   
-  my $starterP = &readConf($starterConf);
-  
-  my $moddir = $conf;
-  if ($moddir =~ s/([\\\/][^\\\/]+){2}$// && !-e "$moddir/mods.d") {
-    make_path("$moddir/mods.d");
+  if (!&setConfValue($confEntriesP, $param, $value, $flag)) {
+    &Log("WARNING: \"$param\" does not have value \"$value\" in \"$conf\"\n"); 
+    return;
   }
+  
+  if ($flag eq "0") {return;}
+  
+  &writeConf($conf, $confEntriesP);
+}
+
+
+# Checks, and optionally updates, a param in confEntriesP and returns 1 if value is there, otherwise 0.
+sub setConfValue($$$$) {
+  my $confEntriesP = shift;
+  my $param = shift;
+  my $value = shift;
+  my $flag = shift; # 0=check-only, 1=overwrite existing, "additional"=append additional param, string=append to existing param with string separator
  
-  copy($starterConf, $conf);
+  my $sep = '';
+  if ($flag ne "0" && $flag ne "1") {
+    if ($flag eq 'additional') {$sep = "<nx/>";}
+    else {$sep = $flag;}
+  }
+  
+  if ($confEntriesP->{$param} && $confEntriesP->{$param} =~ /(^|\Q$sep\E)\Q$value\E(\Q$sep\E|$)/) {return 1;}
+  if ($flag eq "0") {return 0;}
+  
+  elsif ($flag eq "1") {$confEntriesP->{$param} = $value;}
+  elsif (!$confEntriesP->{$param}) {$confEntriesP->{$param} = $value;}
+  else {$confEntriesP->{$param} .= $sep.$value;}
+  
+  return 1;
+}
+
+
+sub osis_converters($$$) {
+  my $script = shift;
+  my $project_dir = shift;
+  my $logfile = shift;
+  
+  $cmd = &escfile("$SCRD/$script.pl")." ".&escfile($project_dir).($logfile ? " ".&escfile($logfile):'');
+  &Log("\n\n\nRUNNING OSIS_CONVERTERS SCRIPT:\n$cmd\n", 1);
+  &Log("########################################################################\n", 1);
+  &Log("########################################################################\n", 1);
+  system($cmd.($logfile ? " 2>> ".&escfile($logfile):''));
+}
+
+
+# Write $conf file by starting with $starterConf (if provided) and 
+# writing necessary entries from %entryValue (after it has been 
+# updated according to the module source if provided). If $conf is in 
+# a mods.d directory, it also creates the module directory if it doesn't 
+# exist, so that it's ready for writing.
+sub writeConf($\%$$) {
+  my $conf = shift;
+  my $entryValueP = shift;
+  my $starterConf = shift;
+  my $moduleSource = shift;
+  
+  if ($moduleSource) {$entryValueP = &updateConfData($entryValueP, $moduleSource);}
+  
+  my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
+  if (!-e $confdir) {make_path($confdir);}
+  
+  my $moddir;
+  if ($confdir =~ /[\\\/]mods\.d$/) {
+    $moddir = $confdir; $moddir =~ s/([\\\/][^\\\/]+){1}$//;
+  }
+  
+  my $starterP;
+  if ($starterConf) {
+    $starterP = &readConf($starterConf);
+    copy($starterConf, $conf);
+  }
+  elsif (-e $conf) {unlink($conf);}
 
   my %used;
   open(CONF, ">>:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
-  print CONF "\n\n#Autogenerated by osis-converters:\n";
+  if ($starterConf) {print CONF "\n\n#Autogenerated by osis-converters:\n";}
+  else {print CONF "[".$entryValueP->{'ModuleName'}."]\n"; $entryValueP->{'ModuleName'} = '';}
   foreach my $e (sort keys %{$entryValueP}) {
-    if ($starterP->{$e}) {
-      if ($starterP->{$e} eq $entryValueP->{$e}) {next;}
+    if ($starterP && $starterP->{$e}) {
+      if ($starterP->{$e} eq $entryValueP->{$e}) {next;} # this also skips ModuleName and other non-real conf entries, or else throws an error
       else {&Log("ERROR: Conflicting entry: \"$e\" in config.conf. Remove this entry.");}
     }
     foreach my $val (split(/<nx\/>/, $entryValueP->{$e})) {
@@ -208,9 +551,11 @@ sub writeConf($\%$$) {
 
   my $entryValueP = &readConf($conf);
   
-  my $realPath = &dataPath2RealPath($entryValueP->{'DataPath'});
-  if (!-e "$moddir/$realPath") {make_path("$moddir/$realPath");}
-
+  if ($moddir) {
+    my $realPath = &dataPath2RealPath($entryValueP->{'DataPath'});
+    if (!-e "$moddir/$realPath") {make_path("$moddir/$realPath");}
+  }
+  
   return $entryValueP;
 }
 
@@ -219,6 +564,11 @@ sub writeConf($\%$$) {
 sub updateConfData(\%$) {
   my $entryValueP = shift;
   my $moduleSource = shift;
+  
+  if (!$entryValueP->{"ModDrv"}) {
+		&Log("ERROR: ModDrv must be specified in config.conf.\n");
+		die;
+	}
   
 	my $dp;
   my $moddrv = $entryValueP->{"ModDrv"};
@@ -301,7 +651,7 @@ sub readConf($) {
   my $conf = shift;
   
   my %entryValue;
-  open(CONF, "<:encoding(UTF-8)", $conf) || die "Could not open $conf\n";
+  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&Log("ERROR: Could not open $conf\n"); die;}
   while(<CONF>) {
     if ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       if ($entryValue{$1} ne '') {$entryValue{$1} .= "<nx/>".$2;}
@@ -313,11 +663,6 @@ sub readConf($) {
 
   if (!$entryValue{"ModuleName"}) {
 		&Log("ERROR: Module name must be specified at top of config.conf like: [MYMOD]\n");
-		die;
-	}
-  
-  if (!$entryValue{"ModDrv"}) {
-		&Log("ERROR: ModDrv must be specified in config.conf.\n");
 		die;
 	}
   
@@ -362,7 +707,7 @@ sub removeRevisionFromCF($) {
   my $changed = 0;
   my $msg = "# osis-converters rev-";
   if (open(RCMF, "<:encoding(UTF-8)", $f)) {
-    open(OCMF, ">:encoding(UTF-8)", "$f.tmp") || die "ERROR: Could not open \"$f.tmp\".\n";
+    if (!open(OCMF, ">:encoding(UTF-8)", "$f.tmp")) {&Log("ERROR: Could not open \"$f.tmp\".\n"); die;}
     my $l = 0;
     while(<RCMF>) {
       $l++;
@@ -428,8 +773,10 @@ sub uc2($) {
 }
 
 
-sub getOsisName($) {
+sub getOsisName($$) {
   my $bnm = shift;
+  my $quiet = shift;
+  
   my $bookName = "";
   $bnm =~ tr/a-z/A-Z/;
      if ($bnm eq "1CH") {$bookName="1Chr";}
@@ -500,7 +847,7 @@ sub getOsisName($) {
   elsif ($bnm eq "TIT") {$bookName="Titus";}
   elsif ($bnm eq "ZEC") {$bookName="Zech";}
   elsif ($bnm eq "ZEP") {$bookName="Zeph";}
-  else {&Log("ERROR: Unrecognized Bookname:\"$bnm\"!\n");}
+  elsif (!$quiet) {&Log("ERROR: Unrecognized Bookname:\"$bnm\"!\n");}
 
   return $bookName;
 }
@@ -524,7 +871,7 @@ sub getCanon($\%\%) {
   if (open(INF, "<:encoding(UTF-8)", "$INFILE.tmp")) {
     while(<INF>) {
       # do some error checking
-      if ($inOT + $inNT + $inVM > 1) {&Lof("ERROR: Missed data end.\n");}
+      if ($inOT + $inNT + $inVM > 1) {&Log("ERROR: Missed data end.\n");}
       if ($vsys ne "unset"  && (($vsys && $vsys !~ /^\Q$VSYS\E$/i) || (!$vsys && $VSYS !~ /^KJV$/i))) {
         &Log("ERROR: Verse system may be incorrectly specified (\"$vsys\" != \"$VSYS\")\n");
       }
@@ -616,7 +963,12 @@ sub addDictionaryLinks(\@$) {
   
   foreach my $elem (@$eP) {
     if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $elem)) {next;}
-    my @textchildren = $XPC->findnodes('child::text()', $elem);
+    my @textchildren;
+    if ($elem->nodeType == 3) {
+      push(@textchildren, $elem);
+      $elem = $elem->parentNode;
+    }
+    else {@textchildren = $XPC->findnodes('child::text()', $elem);}
     my $text, matchedPattern;
     foreach my $textchild (@textchildren) {
       $text = $textchild->data();
@@ -730,6 +1082,7 @@ sub addDictionaryLink(\$$$) {
     
     my $dict;
     foreach my $sref (split(/\s+/, $osisRef)) {
+      if (!$sref) {next;}
       my $e = &osisRef2Entry($sref, \$dict);
       $Replacements{$e.": ".$match.", ".$dict}++;
     }
@@ -887,7 +1240,7 @@ sub checkDictReferences($) {
   my %replaceList;
   
   &Log("\nCHECKING DICTIONARY REFERENCE OSISREF TARGETS IN $in_file...\n");
-  open(INF, "<:encoding(UTF-8)", $in_file) || die "ERROR: Could not check $in_file.\n";
+  if (!open(INF, "<:encoding(UTF-8)", $in_file)) {&Log("ERROR: Could not check $in_file.\n"); die;}
   my $line = 0;
   my $total = 0;
   my $errors = 0;
@@ -1001,7 +1354,7 @@ sub writeDictionaryWordsXML($$) {
   my @keywords = &getDictKeys($in_file);
   
   my %keys; foreach my $k (@keywords) {$keys{$k}++;}
-  open(DWORDS, ">:encoding(UTF-8)", $out_xml) or die "Could not open $out_xml";
+  if (!open(DWORDS, ">:encoding(UTF-8)", $out_xml)) {&Log("ERROR: Could not open $out_xml"); die;}
   print DWORDS &dictWordsHeader();
   print DWORDS "
 <dictionaryWords version=\"1.0\">
@@ -1023,6 +1376,15 @@ sub writeDictionaryWordsXML($$) {
   # if there is no project dictionary words file, create it
   if (! -e "$INPD/$DICTIONARY_WORDS") {copy($out_xml, "$INPD/$DICTIONARY_WORDS");}
   $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+  
+  # if companion has no dictionary words file, create it too
+  foreach my $companion (split(/\s*,\s*/, ConfEntryP->{'Companion'})) {
+    if (!-e "$INPD/../../$companion") {
+      &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
+      next;
+    }
+    if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($out_xml, "$INPD/../../$companion/$DICTIONARY_WORDS");}
+  }
 }
 
 
@@ -1062,7 +1424,7 @@ sub compareToDictWordsFile($) {
   }
   
   if ($update) {
-    open(OUTF, ">$dw_file.tmp") or die "Could not open $DICTIONARY_WORDS.tmp\n";
+    if (!open(OUTF, ">$dw_file.tmp")) {&Log("ERROR: Could not open $DICTIONARY_WORDS.tmp\n"); die;}
     print OUTF $DWF->toString();
     close(OUTF);
     unlink($dw_file); rename("$dw_file.tmp", $dw_file);
@@ -1082,7 +1444,6 @@ sub getDictKeys($) {
   my @keywords;
   if ($in_file =~ /\.(xml|osis)$/i) {
     my $xml = $XML_PARSER->parse_file($in_file);
-    $mod = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml)}[0]->textContent();
     @keywords = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
     foreach my $kw (@keywords) {$kw = $kw->textContent();}
   }
@@ -1102,12 +1463,12 @@ sub getDictKeys($) {
 sub checkEntryNames(\@) {
   my $entriesP = shift;
   
+  my %entries;
   foreach my $name (@$entriesP) {$entries{$name}++;}
   
   foreach my $e (keys %entries) {
     if ($entries{$e} > 1) {
       &Log("ERROR: Entry \"$e\" appears more than once. These must be merged.\n"); 
-      die;
     }
   }
 
@@ -1221,7 +1582,7 @@ sub escfile($) {
 sub is_usfm2osis($) {
   my $osis = shift;
   my $usfm2osis = 0;
-  open(TEST, "<$osis") || die "Could not open $osis\n";
+  if (!open(TEST, "<$osis")) {&Log("ERROR: Could not open $osis\n"); die;}
   while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
   close(TEST);
   if ($usfm2osis) {&Log("\n--- OSIS file was created by usfm2osis.py.\n");}
@@ -1234,28 +1595,31 @@ sub usfm2osisXSLT($$$) {
   my $xsl = shift;
   my $out = shift;
 
-  &Log("\n--- Running XSLT...\n");
-  if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
-  else {
-    my $cmd = '';
-    if ("$^O" =~ /MSWin32/i) {
-      # http://www.microsoft.com/en-us/download/details.aspx?id=21714
-      $cmd = "msxsl.exe " . &escfile($osis) . " " . &escfile($xsl) . " -o " . &escfile($out);
-    }
-    elsif ("$^O" =~ /linux/i) { 
-      $cmd = "saxonb-xslt -xsl:" . &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out);
-    }
-    elsif ("$^O" =~ /darwin/i) {
-      $cmd = "java -jar /Library/Java/Extensions/saxon9.jar -xsl:" . &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out);
-    }
-    else {
-      &Log("ERROR: an XSLT 2.0 converter has not been chosen yet for this operating system.");
-    }
-    if ($cmd) {
-      &Log("$cmd\n");
-      system($cmd);
-    }
+  if ($osis) {
+    &Log("\n--- Running XSLT...\n");
+    if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
   }
+
+  my $cmd = '';
+  if ("$^O" =~ /MSWin32/i) {
+    # http://www.microsoft.com/en-us/download/details.aspx?id=21714
+    $cmd = "msxsl.exe " . ($osis ? &escfile($osis) . " " . &escfile($xsl) . " -o " . &escfile($out):'');
+  }
+  elsif ("$^O" =~ /linux/i) { 
+    $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+  }
+  elsif ("$^O" =~ /darwin/i) {
+    $cmd = "java -jar /Library/Java/Extensions/saxon9.jar -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+  }
+  else {
+    &Log("ERROR: an XSLT 2.0 converter has not been chosen yet for this operating system.");
+  }
+  if ($cmd && $osis) {
+    &Log("$cmd\n");
+    system($cmd);
+  }
+  
+  return $cmd;
 }
 
 
@@ -1397,7 +1761,7 @@ sub validateOSIS($) {
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
   $cmd = ("$^O" =~ /linux/i ? "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ":'');
-  $cmd .= $XMLLINT."xmllint --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
+  $cmd .= &escfile($XMLLINT."xmllint")." --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
   &Log("$cmd\n");
   system($cmd);
   &Log("END OSIS VALIDATION\n");
@@ -1411,12 +1775,12 @@ sub Log($$) {
   my $p = shift; # log message
   my $h = shift; # -1 = hide from console, 1 = show in console, 2 = only console
   
-  # remove file paths
-  $p =~ s/(\Q$INPD\E|\Q$OUTDIR\E)\/?//g;
-  
-  if ((!$NOCONSOLELOG && $h!=-1) || $h>=1 || $p =~ /error/i) {print encode("utf8", "$p");}
+  if ((!$NOCONSOLELOG && $h!=-1) || $h>=1 || $p =~ /error/i) {print encode("utf8", $p);}
   if ($LOGFILE && $h!=2) {
     open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
+    # remove file paths
+    if ($INPD) {$p =~ s/\Q$INPD\E(\/?)/INPD$1/g;}
+    if ($OUTDIR) {$p =~ s/\Q$OUTDIR\E(\/?)/OUTDIR$1/g;}
     print LOGF $p;
     close(LOGF);
   }
