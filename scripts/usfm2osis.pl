@@ -114,7 +114,7 @@ sub evalRegex($) {
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
     if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
-    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {eval("\$s =~ $r;");}
+    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {if (eval("\$s =~ $r;")) {$eval_regex_applied{$r}++;}}
     close(SFM);
     
     open(SFM2, ">:encoding(UTF-8)", "$f2.new") or die;
@@ -132,8 +132,9 @@ sub evalRegex($) {
   }
   
   foreach my $r (@EVAL_REGEX) {
-    if (!$eval_regex_report{$r}) {&Log("Never applied \"$r\".\n");}
-    else {&Log("Applied \"$r\" on ".$eval_regex_report{$r}." lines.\n");}
+    if (!$eval_regex_report{$r} && !$eval_regex_applied{$r}) {&Log("Never applied \"$r\".\n");}
+    elsif ($eval_regex_report{$r}) {&Log("Applied \"$r\" on ".$eval_regex_report{$r}." lines.\n");}
+    else {&Log("Applied \"$r\ on ?? lines.\n");}
   }
   &Log("\n");
   

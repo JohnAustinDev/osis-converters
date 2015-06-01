@@ -41,13 +41,11 @@ $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-require("$SCRD/scripts/goBibleFromOsis.pl");
-&goBibleFromOsis($OSISFILE, "$TMPDIR/osis.xml");
+&osisXSLT($OSISFILE, $REPOTEMPLATE_BIN."osis2gobible.xsl", "$TMPDIR/osis.xml");
+$OSISFILE = "$TMPDIR/$out.xml";
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
-foreach my $f (@FILES) {
-  if (!-e $f) {&Log("ERROR: Missing required file: $f\n");}
-}
+foreach my $f (@FILES) {if (!-e $f) {&Log("ERROR: Missing required file: $f\n");}}
 if (!-e "$GOBIBLE/icon.png") {&Log("ERROR: Missing icon file: $GOBIBLE/icon.png");}
 
 &Log("\n--- Converting characters (normal)\n");
@@ -62,14 +60,16 @@ if (-e "$GOBIBLE/simpleChars.txt") {
   copy("$GOBIBLE/icon.png", "$TMPDIR/simple/icon.png");
   &makeGoBible("simple");
 }
-else {&Log("WARN: Skipping simplified character apps; missing $GOBIBLE/simpleChars.txt\n");}
+else {&Log("WARNING: Skipping simplified character apps; no $GOBIBLE/simpleChars.txt file\n");}
 
 sub makeGoBible($) {
   my $type = shift;
   &Log("\n--- Running Go Bible Creator with collections.txt\n");
   copy("$TMPDIR/$type/ui.properties", "$GO_BIBLE_CREATOR/GoBibleCore/ui.properties");
   chdir($GO_BIBLE_CREATOR);
-  system("java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE));
+  my $cmd = "java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE);
+  &Log($cmd."\n");
+  system($cmd);
   chdir($INPD);
 
   &Log("\n--- Copying module to MKS directory $MOD".$ConfEntryP->{"Version"}."\n");

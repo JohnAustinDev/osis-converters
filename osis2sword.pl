@@ -58,7 +58,7 @@ if ($IS_usfm2osis) {
   if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
   elsif ($MODDRV =~ /LD/) {$xsl = 'osis2tei.xsl'; $out = "tei";}
   if ($xsl) {
-    &usfm2osisXSLT($OSISFILE, $REPOTEMPLATE_BIN.$xsl, "$TMPDIR/$out.xml");
+    &osisXSLT($OSISFILE, $REPOTEMPLATE_BIN.$xsl, "$TMPDIR/$out.xml");
     $OSISFILE = "$TMPDIR/$out.xml";
   }
 }

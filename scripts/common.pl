@@ -52,7 +52,8 @@ sub init($) {
     print "Project directory \"$INPD\" does not exist. Exiting.\n";
     die;
   }
-  chdir($SCRD); # must wait until absolute $INPD is set by rel2abs
+  $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
+  chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
   
   &setOUTDIR($SCRD, $INPD);
   
@@ -141,13 +142,12 @@ sub initOutputFiles($$$$) {
     if ($in !~ /^\s*y\s*$/i) {exit;} 
   }
   foreach my $outfile (@outs) {
+    my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
     if (-e $outfile) {
-      if (!-d $outfile) {unlink($outfile);}
-      else {
-        remove_tree($outfile);
-        make_path($outfile);
-      }
+      if (!$isDir) {unlink($outfile);}
+      else {remove_tree($outfile);}
     }
+    if ($isDir) {make_path($outfile);}
   }
 }
 
@@ -175,7 +175,7 @@ sub checkDependencies($script) {
   if ($script =~ /(all|osis)/i) {
     $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
     $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
-    $path{'XSLT2'}{'test'} = [&usfm2osisXSLT(), "Usage"];
+    $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
   }
   if ($script =~ /(all|osis2GoBible)/i) {
     $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
@@ -201,9 +201,10 @@ sub checkDependencies($script) {
 }
 
 
-# If the project config.conf file exists, this routine does nothing. 
-# Otherwise pertinent non-existing project input files are copied from 
-# the first defaults directory found in the following order:
+# If the project config.conf file exists, or if the sfm subdirectory does 
+# not exist, this routine does nothing. Otherwise pertinent non-existing 
+# project input files are copied from the first defaults directory 
+# found in the following order:
 #
 # - $INPD../defaults
 # - $INPD../../defaults
@@ -215,7 +216,7 @@ sub checkAndWriteDefaults($$) {
   my $script = shift;
 
   # config.conf
-  if (!&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return;}
+  if (!-e "$dir/sfm" || !&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return;}
 
   my $mod = $dir;
   $mod =~ s/^.*?([^\\\/]+)$/$1/;
@@ -1590,7 +1591,7 @@ sub is_usfm2osis($) {
 }
 
 
-sub usfm2osisXSLT($$$) {
+sub osisXSLT($$$) {
   my $osis = shift;
   my $xsl = shift;
   my $out = shift;
