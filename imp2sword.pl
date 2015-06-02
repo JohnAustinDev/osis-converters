@@ -79,7 +79,7 @@ chdir("$SWOUT/$MODPATH") || die "Could not cd into \"$SWOUT/$MODPATH\"\n";
 $cmd = &escfile($SWORD_BIN."imp2ld")." ".&escfile($IMPFILE)." -o ./$MODLC ".($MODDRV eq "RawLD4" ? "-4 ":"").">> ".&escfile($LOGFILE);
 &Log("$cmd\n", 1);
 system($cmd);
-chdir($INPD);
+chdir($SCRD);
 
 if (-e $IMAGEDIR) {copy_images_to_module($IMAGEDIR, "$SWOUT/$MODPATH");}
 
@@ -87,7 +87,7 @@ if (-e $IMAGEDIR) {copy_images_to_module($IMAGEDIR, "$SWOUT/$MODPATH");}
 
 &zipModule($OUTZIP, $SWOUT);
 
-&Log("\n\n");
+&Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);

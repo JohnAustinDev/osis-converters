@@ -70,7 +70,7 @@ sub makeGoBible($) {
   my $cmd = "java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE);
   &Log($cmd."\n");
   system($cmd);
-  chdir($INPD);
+  chdir($SCRD);
 
   &Log("\n--- Copying module to MKS directory $MOD".$ConfEntryP->{"Version"}."\n");
   chdir("$TMPDIR/$type");
@@ -81,6 +81,7 @@ sub makeGoBible($) {
     if ($f[$i] !~ /\.(jar|jad)$/i) {next;}
     copy("$TMPDIR/$type/$f[$i]", "$GBOUT/$f[$i]");
   }
+  chdir($SCRD);
 }
 
 1;

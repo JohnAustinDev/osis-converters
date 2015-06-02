@@ -78,7 +78,6 @@ if ($VERSESYS && $VERSESYS ne "KJV") {
   $ConfEntryP->{'MinimumVersion'} = $msv;
 }
 
-$defdir = cwd();
 if ($MODDRV =~ /Text$/) {
 	$ConfEntryP->{'Category'} = 'Biblical Texts';
   
@@ -93,18 +92,7 @@ if ($MODDRV =~ /Text$/) {
   &Log("$cmd\n", -1);
   system($cmd);
   
-  &Log("\n--- TESTING FOR EMPTY VERSES\n");
-  $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
-  $cmd = `$cmd`;
-  if ($cmd =~ /usage/i) {
-    &Log("BEGIN EMPTYVSS OUTPUT\n", -1);
-    chdir($SWOUT);
-    $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile($LOGFILE);
-    system($cmd);
-    &Log("END EMPTYVSS OUTPUT\n", -1);
-  }
-  else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
-  chdir($INPD);
+  &emptyvss($SWOUT);
 }
 elsif ($MODDRV =~ /^RawGenBook$/) {
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
@@ -113,7 +101,7 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 	&Log("$cmd\n", -1);
 	chdir("$SWOUT/$MODPATH");
 	system($cmd);
-	chdir("$defdir")
+	chdir($SCRD);
 }
 elsif ($MODDRV =~ /LD/) {
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
@@ -142,7 +130,7 @@ if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH"
 
 &zipModule($OUTZIP, $SWOUT);
 
-&Log("\n\n");
+&Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
 open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);

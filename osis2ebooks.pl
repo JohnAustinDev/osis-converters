@@ -32,7 +32,7 @@ copy("$OUTDIR/$MOD.xml", "$TMPDIR/$MOD.xml");
 copy("$SCRD/eBooks/css/ebible.css", "$TMPDIR/ebible.css");
 
 # get scope for naming output files
-&setConfGlobals(updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
+&setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # run the converter
 &makeEbook("$TMPDIR/$MOD.xml", 'epub');

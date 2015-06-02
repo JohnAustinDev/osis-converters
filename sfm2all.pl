@@ -33,8 +33,8 @@ my %modules;
 $modules{$INPD} = $ConfEntryP->{'ModDrv'};
 
 foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-  if (!-e "$INPD/$companion") {
-    &Log("ERROR: Companion project \"$companion\" of \"$MOD\" could not be located for conversion.\n"); 
+  if (!-e "$INPD/$companion/config.conf") {
+    &Log("ERROR: config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion.\n"); 
     next;
   }
   $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};

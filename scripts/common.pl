@@ -27,6 +27,7 @@ use HTML::Entities;
 
 $XPC = XML::LibXML::XPathContext->new;
 $XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
+$XPC->registerNs('tei', 'http://www.crosswire.org/2013/TEIOSIS/namespace');
 $XML_PARSER = XML::LibXML->new();
 $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 $OSISSCHEMA = "osisCore.2.1.1.xsd";
@@ -48,23 +49,33 @@ sub init($) {
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+  $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
   if (!-e $INPD) {
     print "Project directory \"$INPD\" does not exist. Exiting.\n";
     die;
   }
-  $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
+  
+  &checkAndWriteDefaults($INPD, $SCRIPT);
+  
+  $CONFFILE = "$INPD/config.conf";
+  
+  if (!-e $CONFFILE) {
+    &Log("ERROR: Could not find or create a \"$CONFFILE\" file.
+\"$INPD\" may not be an osis-converters project directory.
+A project directory must, at minimum, contain an \"sfm\" subdirectory.
+\n".encode("utf8", $LogfileBuffer)."\n");
+    die;
+  }
   
   &setOUTDIR($SCRD, $INPD);
   
   $AUTOMODE = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT.txt";}
+  if (!$AUTOMODE && -e $LOGFILE) {unlink($LOGFILE);}
   
-  &initOutputFiles($INPD, $OUTDIR, $LOGFILE, $AUTOMODE);
+  &initOutputFiles($INPD, $OUTDIR, $AUTOMODE);
   
-  &checkAndWriteDefaults($INPD, $SCRIPT);
-  
-  $CONFFILE = "$INPD/config.conf";
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
   &checkDependencies($SCRIPT);
@@ -105,18 +116,14 @@ sub setOUTDIR($$$) {
 }
 
 
-sub initOutputFiles($$$$) {
+sub initOutputFiles($$$) {
   my $inpd = shift;
   my $outdir = shift;
-  my $logfile = shift;
   my $automode = shift;
   
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
-  # When logfile is specified on command line, append to it, but overwrite
-  # other output files without prompting.
   my @outs;
-  if (!$automode) {push(@outs, $logfile);}
   if ($SCRIPT =~ /^(osis2osis|sfm2osis|html2osis)$/i) {
     $OUTOSIS = "$outdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
@@ -211,12 +218,13 @@ sub checkDependencies($script) {
 # - osis-converters/defaults
 #
 # and then entries are added to each new input file as applicable.
+# Returns 0 if no action was taken, 1 otherwise.
 sub checkAndWriteDefaults($$) {
   my $dir = shift;
   my $script = shift;
 
-  # config.conf
-  if (!-e "$dir/sfm" || !&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return;}
+  # config.conf and sfm file information
+  if ((!-e "$dir/sfm" && !%USFM) || !&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return 0;}
 
   my $mod = $dir;
   $mod =~ s/^.*?([^\\\/]+)$/$1/;
@@ -321,6 +329,8 @@ sub checkAndWriteDefaults($$) {
       }
     }
   }
+  
+  return 1;
 }
 
 
@@ -468,23 +478,32 @@ sub setConfFileValue($$$$) {
 }
 
 
-# Checks, and optionally updates, a param in confEntriesP and returns 1 if value is there, otherwise 0.
+# Checks, and optionally updates, a param in confEntriesP.
+# Returns 1 if the value is there, otherwise 0.
+# Flag values are:
+# 0 = check-only 
+# 1 = overwrite existing
+# 2 = don't modify existing
+# "additional" = append additional param
+# string = append to existing param with string separator
 sub setConfValue($$$$) {
   my $confEntriesP = shift;
   my $param = shift;
   my $value = shift;
-  my $flag = shift; # 0=check-only, 1=overwrite existing, "additional"=append additional param, string=append to existing param with string separator
+  my $flag = shift;
  
   my $sep = '';
-  if ($flag ne "0" && $flag ne "1") {
+  if ($flag ne "0" && $flag ne "1" && $flag ne "2") {
     if ($flag eq 'additional') {$sep = "<nx/>";}
     else {$sep = $flag;}
   }
   
   if ($confEntriesP->{$param} && $confEntriesP->{$param} =~ /(^|\Q$sep\E)\Q$value\E(\Q$sep\E|$)/) {return 1;}
-  if ($flag eq "0") {return 0;}
+  if (!$confEntriesP->{$param} && !$value) {return 1;}
   
-  elsif ($flag eq "1") {$confEntriesP->{$param} = $value;}
+  if ($flag eq "0" || ($flag eq "2" && $confEntriesP->{$param})) {return 0;}
+  
+  if ($flag eq "1") {$confEntriesP->{$param} = $value;}
   elsif (!$confEntriesP->{$param}) {$confEntriesP->{$param} = $value;}
   else {$confEntriesP->{$param} .= $sep.$value;}
   
@@ -587,61 +606,67 @@ sub updateConfData(\%$) {
 	elsif ($moddrv eq "RawGenBook") {$dp = "./modules/genbook/rawgenbook/".lc($mod)."/".lc($mod);}
 	else {
 		&Log("ERROR: ModDrv \"".$entryValueP->{"ModDrv"}."\" is unrecognized.\n");
-		die;
 	}
-	if ($entryValueP->{"DataPath"}) {
-		if ($entryValueP->{"DataPath"} ne $dp) {
-			&Log("ERROR: DataPath is \"".$entryValueP->{"DataPath"}."\" expected \"$dp\". Remove bad DataPath entry from config.conf.\n");
-			die;
-		}
-	}
-  else {$entryValueP->{"DataPath"} = $dp;}
+  &setConfValue($entryValueP, 'DataPath', $dp, 1);
 
   my $type = 'genbook';
   if ($moddrv =~ /LD/) {$type = 'dictionary';}
   elsif ($moddrv =~ /Text/) {$type = 'bible';}
   elsif ($moddrv =~ /Com/) {$type = 'commentary';}
   
-  $entryValueP->{"Encoding"} = "UTF-8";
-  $entryValueP->{"SourceType"} = 'OSIS'; # Wait until TEI filters are available to change this to: ($IS_usfm2osis && $moddrv =~ /LD/ ? 'TEI':'OSIS');
- 
-  if ($entryValueP->{"SourceType"} eq "OSIS") {
-    my $osisVersion = $OSISSCHEMA;
-    $osisVersion =~ s/(\s*osisCore\.|\.xsd\s*)//ig;
-    $entryValueP->{"OSISVersion"} = $osisVersion;
+  if (!&setConfValue($entryValueP, 'Encoding', "UTF-8", 2)) {
+    &Log("ERROR: Only UTF-8 encoding is supported by osis-converters\n");
+  }
+  
+  if ($moduleSource) {
+    my $moduleSourceXML = $XML_PARSER->parse_file($moduleSource);
+    my $sourceType = ($XPC->findnodes('tei:TEI', $moduleSourceXML) ? 'TEI':'OSIS');
     
-    if ($type eq 'bible' || $type eq 'commentary') {
-      $entryValueP->{'GlobalOptionFilter'} .= "<nx/>OSISFootnotes<nx/>OSISHeadings<nx/>OSISScripref";
-      if (open(OSIS, "<:encoding(UTF-8)", $moduleSource)) {
-        while(<OSIS>) {
-          if ($_ =~ /<reference [^>]*type="x-glossary"/) {
-            $entryValueP->{'GlobalOptionFilter'} .= "<nx/>OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On\n";
-            last;
-          }
-        }
-        close(OSIS);
+    &setConfValue($entryValueP, 'SourceType', $sourceType, 2); # '2' allows config.conf to enforce SourceType
+    if ($entryValueP->{"SourceType"} !~ /^(OSIS|TEI)$/) {&Log("ERROR: Only OSIS and TEI are supported by osis-converters\n");}
+    if ($entryValueP->{"SourceType"} eq 'TEI') {&Log("WARNING: Some front-ends may not fully support TEI yet\n");}
+    
+    if ($entryValueP->{"SourceType"} eq 'OSIS') {
+      my @vers = $XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML);
+      if (!@vers || !@vers[0]->value) {
+        if ($sourceType eq 'OSIS') {&Log("ERROR: Unable to determine OSIS version from \"$moduleSource\"\n");}
+      }
+      else {
+        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+)\.xsd$/$1/i;
+        &setConfValue($entryValueP, 'OSISVersion', $vers, 1);
+      }
+      if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
+        &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On', 'additional');
+      }
       
-        # get scope
-        if ($type eq 'bible' || $type eq 'commentary') {
-          require("$SCRD/scripts/getScope.pl");
-          $entryValueP->{'Scope'} = &getScope($entryValueP->{'Versification'}, $moduleSource);
-        }
+      # get scope
+      if ($type eq 'bible' || $type eq 'commentary') {
+        require("$SCRD/scripts/getScope.pl");
+        &setConfValue($entryValueP, 'Scope', &getScope($entryValueP->{'Versification'}, $moduleSource), 1);
       }
     }
   }
+
+  if ($entryValueP->{"SourceType"} eq "OSIS") {
+    if ($type eq 'bible' || $type eq 'commentary') {
+      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISFootnotes', 'additional');
+      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISHeadings', 'additional');
+      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISScripref', 'additional');
+    }
+  }
   else {
-    $entryValueP->{"OSISVersion"} = '';
-    $entryValueP->{'GlobalOptionFilter'} =~ s/<nx\/>OSIS.*?(?=(<|$))//g;
+    &setConfValue($entryValueP, 'OSISVersion', '', 1);
+    $entryValueP->{'GlobalOptionFilter'} =~ s/(<nx\/>)?OSIS[^<]*(?=(<|$))//g;
   }
   
   if ($type eq 'dictionary') {
-    $entryValueP->{'SearchOption'} = "IncludeKeyInSearch";
+    &setConfValue($entryValueP, 'SearchOption', 'IncludeKeyInSearch', 1);
     # The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
-    if ($UPPERCASE_DICTIONARY_KEYS) {$entryValueP->{'CaseSensitiveKeys'} = "true";}
+    if ($UPPERCASE_DICTIONARY_KEYS) {&setConfValue($entryValueP, 'CaseSensitiveKeys', 'true', 1);}
   }
   
   my @tm = localtime(time);
-  $entryValueP->{'SwordVersionDate'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
+  &setConfValue($entryValueP, 'SwordVersionDate', sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]), 1);
   
   return $entryValueP;
 }
@@ -1720,12 +1745,11 @@ sub zipModule($$) {
     `$cmd`;
   }
   else {
-    my $orig = `pwd`; chomp($orig);
     chdir($moddir);
     my $cmd = "zip -r ".&escfile($zipfile)." ".&escfile("./*");
     &Log($cmd, 1);
     `$cmd`;
-    chdir($orig);
+    chdir($SCRD);
   }
 }
 
@@ -1755,6 +1779,59 @@ sub fragmentToString($$) {
 }
 
 
+sub emptyvss($) {
+  my $dir = shift;
+  
+  my %canon;
+  my %bookOrder;
+  my %testament;
+  if (!&getCanon($ConfEntryP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+    &Log("ERROR: Could not check for empty verses. Cannot read versification \"".$ConfEntryP->{'Versification'}."\"\n");
+    return;
+  }
+  
+  &Log("\n--- TESTING FOR EMPTY VERSES\n");
+  
+  $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
+  $cmd = `$cmd`;
+  if ($cmd =~ /usage/i) {
+    chdir($dir);
+    $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile("$TMPDIR/emptyvss.txt");
+    system($cmd);
+    chdir($SCRD);
+    
+    &Log("BEGIN EMPTYVSS OUTPUT (entire missing books are not reported)\n", -1);
+    my $r = 'failed';
+    if (open(INF, "<$TMPDIR/emptyvss.txt")) {
+      my $lb, $lc, $lv;
+      while (<INF>) {
+        if ($_ !~ /^\s*(.*?)(\d+)\:(\d+)\s*$/) {next;}
+        my $b = $1; my $c = (1*$2); my $v = (1*$3);
+        if ($lb) {
+          my $skip = 0;
+          if ($b eq $lb && $c == $lc && $v == ($lv+1)) {$skip = 1;}
+          if ($b eq $lb && $c == ($lc+1) && $v == 1) {$skip = 1;}
+          if (!$skip) {$r .= "-$lb$lc:$lv\n$b$c:$v";}
+        }
+        else {$r = "$b$c:$v";}
+        $lb = $b; $lc = $c; $lv = $v;
+      }
+      $r .= "-$lb$lc:$lv\n";
+      close(INF);
+    }
+    $r =~ s/^(.*)-(\1)$/$1/mg;
+    
+    # if entire book is missing, don't report it
+    foreach my $bk (keys %bookOrder) {
+      my $whole = @{$canon{$bk}}.":".@{$canon{$bk}}[@{$canon{$bk}}-1];
+      $r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m;
+    }
+    &Log("$r\nEND EMPTYVSS OUTPUT\n", -1);
+  }
+  else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
+}
+
+
 sub validateOSIS($) {
   my $osis = shift;
   
@@ -1768,23 +1845,31 @@ sub validateOSIS($) {
   &Log("END OSIS VALIDATION\n");
 }
 
-# -1 = only log file (ignore $NOCONSOLELOG)
-#  0 = log file (+ console if !$NOCONSOLELOG)
-#  1 = log file + console
+# Log to console and logfile. $flag can have these values:
+# -1 = only log file
+#  0 = log file (+ console unless $NOCONSOLELOG is set)
+#  1 = log file + console (ignoring $NOCONSOLELOG)
 #  2 = only console
 sub Log($$) {
   my $p = shift; # log message
-  my $h = shift; # -1 = hide from console, 1 = show in console, 2 = only console
+  my $flag = shift;
   
-  if ((!$NOCONSOLELOG && $h!=-1) || $h>=1 || $p =~ /error/i) {print encode("utf8", $p);}
-  if ($LOGFILE && $h!=2) {
-    open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
-    # remove file paths
-    if ($INPD) {$p =~ s/\Q$INPD\E(\/?)/INPD$1/g;}
-    if ($OUTDIR) {$p =~ s/\Q$OUTDIR\E(\/?)/OUTDIR$1/g;}
-    print LOGF $p;
-    close(LOGF);
+  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /error/i) {
+    print encode("utf8", $p);
   }
+  
+  if ($flag == 2) {return;}
+  
+  # hide local file paths
+  if ($INPD) {$p =~ s/\Q$INPD\E(\/?)/\$INPD$1/g;}
+  if ($OUTDIR) {$p =~ s/\Q$OUTDIR\E(\/?)/\$OUTDIR$1/g;}
+  
+  if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
+
+  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
+  if ($LogfileBuffer) {print LOGF $LogfileBuffer; $LogfileBuffer = '';}
+  print LOGF $p;
+  close(LOGF);
 }
 
 1;
