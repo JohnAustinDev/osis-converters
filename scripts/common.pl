@@ -1399,12 +1399,12 @@ sub writeDictionaryWordsXML($$) {
   
   &checkEntryNames(\@keywords);
   
-  # if there is no project dictionary words file, create it
+  # if there is no project dictionary words file, then create it
   if (! -e "$INPD/$DICTIONARY_WORDS") {copy($out_xml, "$INPD/$DICTIONARY_WORDS");}
   $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
   
-  # if companion has no dictionary words file, create it too
-  foreach my $companion (split(/\s*,\s*/, ConfEntryP->{'Companion'})) {
+  # if companion has no dictionary words file, then create it too
+  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
     if (!-e "$INPD/../../$companion") {
       &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
       next;
@@ -1800,10 +1800,11 @@ sub emptyvss($) {
     system($cmd);
     chdir($SCRD);
     
-    &Log("BEGIN EMPTYVSS OUTPUT (entire missing books are not reported)\n", -1);
+    &Log("BEGIN EMPTYVSS OUTPUT\n", -1);
     my $r = 'failed';
     if (open(INF, "<$TMPDIR/emptyvss.txt")) {
       my $lb, $lc, $lv;
+      $r = '';
       while (<INF>) {
         if ($_ !~ /^\s*(.*?)(\d+)\:(\d+)\s*$/) {next;}
         my $b = $1; my $c = (1*$2); my $v = (1*$3);
@@ -1816,17 +1817,18 @@ sub emptyvss($) {
         else {$r = "$b$c:$v";}
         $lb = $b; $lc = $c; $lv = $v;
       }
-      $r .= "-$lb$lc:$lv\n";
+      if ($lb) {$r .= "-$lb$lc:$lv\n";}
       close(INF);
     }
     $r =~ s/^(.*)-(\1)$/$1/mg;
     
-    # if entire book is missing, don't report it
+    # report entire missing books separately
+    my $missingBKs = '';
     foreach my $bk (keys %bookOrder) {
       my $whole = @{$canon{$bk}}.":".@{$canon{$bk}}[@{$canon{$bk}}-1];
-      $r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m;
+      if ($r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m) {$missingBKs .= $bk." ";}
     }
-    &Log("$r\nEND EMPTYVSS OUTPUT\n", -1);
+    &Log("$r\nEntire missing books: ".($missingBKs ? $missingBKs:'none')."\nEND EMPTYVSS OUTPUT\n", -1);
   }
   else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
 }

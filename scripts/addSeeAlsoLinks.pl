@@ -117,7 +117,7 @@ sub getEntryElements($$) {
   }
   else {
     my $i = $$i_or_elemP;
-    my @all = $XPC->findnodes('descendant-or-self::* | following::node()', $startsArrayP->[$i]);
+    my @all = $XPC->findnodes('descendant-or-self::* | following-sibling::node() | following::*', $startsArrayP->[$i]);
     for (my $j=0; $j<@all && ($i==@$startsArrayP-1 || !@all[$j]->isSameNode($startsArrayP->[$i+1])); $j++) {
       if (@all[$j]->nodeType != 1 && @all[$j]->nodeType != 3) {next;} # keep only elements and text nodes
       push(@entryElements, @all[$j]);
