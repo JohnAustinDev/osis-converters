@@ -1075,8 +1075,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 	
 	$$tP =~ s/^ //; # undo our added space
 
-#if ($matchleft) {&Log("$$tP, %%typeP, $$uhbkP\n");}
-
+if ($line == $debugLine) {&Log(sprintf("DEBUG_matchRef:\nmatchleft=%s\nt=%s\ntype=%s\nuhbk=%s\nbk=%s\nch=%s\nvs=%s\nlv=%s\nbarenums=%s\n\n", $matchleft, $$tP, $$typeP, $$uhbkP, $$bkP, $$chP, $$vsP, $$lvP, $$barenumsP));}
 	return $matchedTerm;
 }
 
@@ -1138,8 +1137,8 @@ sub reverseAlpha($$) {
 	for (my $i=length($a)-1; $i>=0; $i--) {$ar .= substr($a, $i, 1);}
 	my $br = "";
 	for (my $i=length($b)-1; $i>=0; $i--) {$br .= substr($b, $i, 1);}
-	if (ord(substr($a, 0, 1)) == ord(uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(uc2(substr($b, 0, 1)))) {return -1;}
-	if (ord(substr($a, 0, 1)) != ord(uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(uc2(substr($b, 0, 1)))) {return 1;}
+	if (ord(substr($a, 0, 1)) == ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(&uc2(substr($b, 0, 1)))) {return -1;}
+	if (ord(substr($a, 0, 1)) != ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(&uc2(substr($b, 0, 1)))) {return 1;}
 
 	return $a cmp $b;
 }

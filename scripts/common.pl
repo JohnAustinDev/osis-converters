@@ -622,6 +622,10 @@ sub updateConfData(\%$) {
     my $moduleSourceXML = $XML_PARSER->parse_file($moduleSource);
     my $sourceType = ($XPC->findnodes('tei:TEI', $moduleSourceXML) ? 'TEI':'OSIS');
     
+    if ($sourceType eq 'TEI') {
+      &setConfValue($entryValueP, 'LangSortOrder', &getLangSortOrder($moduleSourceXML), 2);
+    }
+    
     &setConfValue($entryValueP, 'SourceType', $sourceType, 2); # '2' allows config.conf to enforce SourceType
     if ($entryValueP->{"SourceType"} !~ /^(OSIS|TEI)$/) {&Log("ERROR: Only OSIS and TEI are supported by osis-converters\n");}
     if ($entryValueP->{"SourceType"} eq 'TEI') {&Log("WARNING: Some front-ends may not fully support TEI yet\n");}
@@ -712,6 +716,24 @@ sub setConfGlobals(\%) {
 }
 
 
+sub getLangSortOrder($) {
+  my $tei = shift;
+  
+  my $res = '';
+  my @entries = $XPC->findnodes('//tei:entryFree/@n', $tei);
+  my $last = '';
+  foreach my $e (@entries) {
+    my $l = substr($e->value, 0, 1);
+    if (&uc2($l) eq $last) {next;}
+    $res .= &uc2($l).&lc2($l);
+    $last = &uc2($l);
+  }
+  if ($res) {&Log("INFO: LangSortOrder=$res\n");}
+  else {&Log("WARNING: Could not determine LangSortOrder\n");}
+  return $res;
+}
+
+
 sub dataPath2RealPath($) {
   my $datapath = shift;
   $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
@@ -778,9 +800,11 @@ sub decodeOsisRef($) {
 }
 
 
-# Converts to upper case using special translations
-sub uc2($) {
+# Converts cases using special translations
+sub lc2($) {return &uc2(shift, 1);}
+sub uc2($$) {
   my $t = shift;
+  my $tolower = shift;
   
   # Form for $i: a->A b->B c->C ...
   if ($SPECIAL_CAPITALS) {
@@ -789,11 +813,16 @@ sub uc2($) {
     my @trs = split(/\s+/, $r);
     for (my $i=0; $i < @trs; $i++) {
       my @tr = split(/->/, $trs[$i]);
-      $t =~ s/$tr[0]/$tr[1]/g;
+      if ($tolower) {
+        $t =~ s/$tr[1]/$tr[0]/g;
+      }
+      else {
+        $t =~ s/$tr[0]/$tr[1]/g;
+      }
     }
   }
 
-  $t = uc($t);
+  $t = ($tolower ? lc($t):uc($t));
 
   return $t;
 }
@@ -1047,19 +1076,19 @@ sub addDictionaryLink(\$$$) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    &dbg(sprintf("%16s %10s = ", $context, $elem->localName));
-    if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n"); next;}
-    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n"); next;}
-    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n"); next;}
-    if ($elem->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n"); next;}
-    if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n"); next;}
-    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n"); next;}}
-    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n"); next;}}
-    if ($a = &getAttribute('withString', $m)) {if (!&haveString($a, $context, $elem)) {&dbg("70\n"); next;}}
+    &dbg(sprintf("%16s %10s = ", $context, '<'.$elem->localName.'>'), $entry);
+    if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n", $entry); next;}
+    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
+    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
+    if ($elem->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
+    if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n", $entry); next;}
+    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
+    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
+    if ($a = &getAttribute('withString', $m)) {if (!&haveString($a, $context, $elem)) {&dbg("70\n", $entry); next;}}
     
     my $p = $m->textContent;
     
-    if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n"); next;}
+    if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n", $entry); next;}
     my $pm = $1; my $pf = $2;
     
     # handle PUNC_AS_LETTER word boundary matching issue
@@ -1071,12 +1100,12 @@ sub addDictionaryLink(\$$$) {
     # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
     my $t = $$tP;
     my $i = $pf =~ s/i//;
-    $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? uc2($2):$2);/ge;
-    if ($i) {$t = uc2($t);}
+    $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
+    if ($i) {$t = &uc2($t);}
     if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");}
    
     # finally do the actual MATCHING...
-    if ($t !~ /$pm/) {&dbg("-\n"); next;}
+    if ($t !~ /$pm/) {&dbg("$t !~ /$pm/\n", $entry); next;}
       
     my $is = $-[$#+];
     my $ie = $+[$#+];
@@ -1088,7 +1117,7 @@ sub addDictionaryLink(\$$$) {
       $ie = $+[$i];
     }
     
-    &dbg("$pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
+    &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n", $entry);
     $matchedPattern = $m->textContent;
     
     my $osisRef = @{$XPC->findnodes('ancestor::entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
@@ -1174,7 +1203,13 @@ sub getAttribute($$) {
 
 sub dbg($) {
   my $p = shift;
-  if ($DEBUG) {&Log($p);}
+  my $e = shift;
+  
+  my $debug_entry = ''; #decode('utf8', "Pygamber");
+  
+  if ($DEBUG || ($debug_entry && $e eq $debug_entry)) {
+    &Log($p);
+  }
 }
 
 
@@ -1365,9 +1400,9 @@ sub dictWordsHeader() {
   named 'link', will become the link's inner text.
   
   IMPORTANT: 
-  for case insensitive matches to work, all case insensitive text MUST be 
-  surrounded by the \\Q...\\E quote operators, and the /i regex flag must 
-  be included. Any other case related Perl constructs will not always work.
+  For case insensitive matches using /i to work, all text MUST be surrounded 
+  by the \\Q...\\E quote operators. Any other case related Perl constructs 
+  will not always work.
 
 -->\n";
 }
@@ -1436,12 +1471,12 @@ sub compareToDictWordsFile($) {
     foreach my  $edr (@dwfEntries) {
       my $ed = &osisRef2Entry($edr->value, \$mod);
       if ($es eq $ed) {$match = 1; last;}
-      elsif (uc2($es) eq uc2($ed)) {
+      elsif (&uc2($es) eq &uc2($ed)) {
         $match = 1;
         $update++;
         $edr->setValue(entry2osisRef($mod, $es));
         my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
-        if (uc2($name) ne uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
+        if (&uc2($name) ne &uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
         else {$name->setData($es);}
         last;
       }

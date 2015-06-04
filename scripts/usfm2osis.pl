@@ -46,7 +46,6 @@ sub usfm2osis($$) {
   @EVAL_REGEX;
 
   $line=0;
-  my $clearRegex = 0;
   while (<COMF>) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
@@ -55,13 +54,17 @@ sub usfm2osis($$) {
       if ($2) {
         my $par = $1;
         my $val = $3;
-        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
-        &Log("INFO: Setting $par to $val\n");
+        if (defined($$par)) {&Log("ERROR: A particular SET command may only appear once, and it applies everywhere.\n");}
+        else {
+          $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
+          &Log("INFO: Setting $par to $val\n");
+        }
       }
     }
     elsif ($_ =~ /^EVAL_REGEX:\s*(.*?)\s*$/) {
-      if ($clearRegex) {@EVAL_REGEX = (); $clearRegex=0;}
-      push(@EVAL_REGEX, $1); 
+      my $rx = $1;
+      if ($rx =~ /^\s*$/) {@EVAL_REGEX = ();}
+      else {push(@EVAL_REGEX, $rx);}
       next;
     }
     elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
@@ -76,7 +79,6 @@ sub usfm2osis($$) {
       }
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfile);}
       else {$USFMfiles .= "$SFMfile ";}
-      $clearRegex = 1;
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
