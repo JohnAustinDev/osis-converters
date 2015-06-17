@@ -37,9 +37,9 @@ sub addSeeAlsoLinks($$) {
     # Process OSIS dictionary input file (from usfm2osis.py)
     if ($IS_usfm2osis) {
       my $xml = $XML_PARSER->parse_file($in_file);
-      my $entryStartsP = &getOSISEntryStarts($xml);
-      for (my $i=0; $i<@$entryStartsP; $i++) { 
-        &processEntry(&getOSISEntryName($entryStartsP->[$i]), \$i, $entryStartsP);
+      my @entryStarts = $XPC->findnodes("//$KEYWORD", $xml);
+      for (my $i=0; $i<@entryStarts; $i++) {
+        &processEntry(@entryStarts[$i]->textContent(), \$i, \@entryStarts);
       }
       open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
       print OUTF $xml->toString();
@@ -74,73 +74,62 @@ sub addSeeAlsoLinks($$) {
   &Log("FINISHED\n\n");
 }
 
-sub getOSISEntryStarts($) {
-  my $xml = shift;
-  my @e = $XPC->findnodes("//*[count(descendant::".$KEYWORD.")=1]|//".$KEYWORD."[count(../child::".$KEYWORD.")>1]", $xml);
-  return \@e;
-}
-
-sub getOSISEntryName($) {
-  my $elem = shift;
-  return @{$XPC->findnodes("descendant-or-self::".$KEYWORD, $elem)}[0]->textContent();
-}
-
 # $i_or_elem is either an index into a $startsArrayP of entry start tags (as  
 # with OSIS files), or else a document fragment containing an entry (as with IMP).
 # Either way, this function processes the passed entry.
 sub processEntry($$$) {
   my $entryName = shift;
-
   my $i_or_elemP = shift;
   my $startsArrayP = shift;
   
-  my $entryElementsP = &getEntryElements($i_or_elemP, $startsArrayP);
+  my $entryTextNodesP = &getEntryTextNodes($i_or_elemP, $startsArrayP);
   
-  my @parseElems;
-  foreach my $e (@$entryElementsP) {
-    if ($e->nodeType == 1 && $e->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
-    push(@parseElems, $e);
+  my @parseTextNodes;
+  foreach my $e (@$entryTextNodesP) {
+    if ($e->parentNode()->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
+    push(@parseTextNodes, $e);
   }
 
-  &addDictionaryLinks(\@parseElems, $entryName);
+  &addDictionaryLinks(\@parseTextNodes, $entryName);
   
-  &checkCircularEntryCandidate($entryName, &getEntryElements($i_or_elemP, $startsArrayP));
+  &checkCircularEntryCandidate($entryName, &getEntryTextNodes($i_or_elemP, $startsArrayP));
 }
 
-sub getEntryElements($$) {
+sub getEntryTextNodes($$) {
   my $i_or_elemP = shift;
   my $startsArrayP = shift;
   
-  my @entryElements;
+  my @entryTextNodes;
   if (ref($$i_or_elemP) eq "XML::LibXML::DocumentFragment") {
-    @entryElements = $XPC->findnodes('descendant-or-self::*', $$i_or_elemP);
+    my $elemP = $$i_or_elemP;
+    @entryTextNodes = $XPC->findnodes('descendant-or-self::text()', $elemP);
   }
   else {
     my $i = $$i_or_elemP;
-    my @all = $XPC->findnodes('descendant-or-self::* | following-sibling::node() | following::*', $startsArrayP->[$i]);
-    for (my $j=0; $j<@all && ($i==@$startsArrayP-1 || !@all[$j]->isSameNode($startsArrayP->[$i+1])); $j++) {
-      if (@all[$j]->nodeType != 1 && @all[$j]->nodeType != 3) {next;} # keep only elements and text nodes
-      push(@entryElements, @all[$j]);
+    my @text = $XPC->findnodes('descendant-or-self::text()|following::text()', $startsArrayP->[$i]);
+    for (my $j=0; $j<@text && ($i==@$startsArrayP-1 || !@text[$j]->parentNode()->isSameNode($startsArrayP->[$i+1])); $j++) {
+      push(@entryTextNodes, @text[$j]);
     }
   }
   
-  return \@entryElements;
+  if ($DEBUG) {foreach my $e (@entryTextNodes) {&Log("getEntryTextNodes = $e\n");}}
+  return \@entryTextNodes;
 }
 
-# If this entry is short and contains only one link, record it because 
+# If an entry is short and contains only one link, record it because 
 # it may read simply: "see other entry" and in this case, the other entry  
 # should not link back to this dummy entry. Later on, we can report if 
 # the other entry contains such a useless link back to this one.
 sub checkCircularEntryCandidate($\@) {
   my $entryName = shift;
-  my $allElemsP = shift;
+  my $allTextNodesP = shift;
 
   my $tlen = 0; 
   my $single_osisRef = 0;
-  foreach my $e (@$allElemsP) {
+  foreach my $t (@$allTextNodesP) {
+    my $e = $t->parentNode();
     if ($IS_usfm2osis && $XPC->findnodes("self::$KEYWORD", $e)) {next;}
-    my @at = $XPC->findnodes("text()", $e);
-    foreach my $t (@at) {$tlen += length($t->data);}
+    $tlen += length($t->data);
     if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
       my $osisRef = $e->getAttribute('osisRef');
       $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);

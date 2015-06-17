@@ -41,11 +41,10 @@ if ($IS_usfm2osis) {
       my @keywords = $XPC->findnodes('//'.$KEYWORD.'/text()', $xml);
       foreach my $keyword (@keywords) {$keyword->setData(&uc2($keyword->data));}
     }
-    my @dictrefs = $XPC->findnodes('//osis:reference[type=\'x-glossary\' or type=\'x-glosslink\']/@osisRef', $xml);
+    my @dictrefs = $XPC->findnodes('//osis:reference[@type=\'x-glossary\']/@osisRef|//osis:reference[@type=\'x-glosslink\']/@osisRef', $xml);
     foreach my $dictref (@dictrefs) {
-      $ref = $dictref->value;
-      if ($ref !~ /^(\w+):(.*)$/) {&Log("ERROR: bad osisRef \"$ref\"\n");}
-      $dictref->setValue($1.":".&uc2($2));
+      my $mod; my $e = &osisRef2Entry($dictref->value, \$mod);
+      $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
     }
     open(OSIS2, ">$TMPDIR/osis_ucdict.xml");
     print OSIS2 $xml->toString();

@@ -999,10 +999,10 @@ sub sortSearchTermKeys($$) {
 }
 
 
-# add dictionary links as described in $DWF to all elements pointed to 
-# by $eP array pointer.
+# Add dictionary links as described in $DWF to the nodes pointed to 
+# by $eP array pointer. Expected node types are element or text.
 sub addDictionaryLinks(\@$) {
-  my $eP = shift; # array of elements (NOTE: element children are not touched)
+  my $eP = shift; # array of nodes (NOTE: node children are not touched)
   my $entry = shift; # should be NULL if not adding SeeAlso links
 
   if ($entry) {
@@ -1016,15 +1016,13 @@ sub addDictionaryLinks(\@$) {
     if ($NoOutboundLinks{$entryOsisRef}) {return;}
   }
   
-  foreach my $elem (@$eP) {
-    if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $elem)) {next;}
+  foreach my $node (@$eP) {
     my @textchildren;
-    if ($elem->nodeType == 3) {
-      push(@textchildren, $elem);
-      $elem = $elem->parentNode;
-    }
-    else {@textchildren = $XPC->findnodes('child::text()', $elem);}
-    my $text, matchedPattern;
+    my $container = ($node->nodeType == 3 ? $node->parentNode():$node);
+    if ($node->nodeType == 3) {push(@textchildren, $node);}
+    else {@textchildren = $XPC->findnodes('child::text()', $container);}
+    if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
+    my $text, $matchedPattern;
     foreach my $textchild (@textchildren) {
       $text = $textchild->data();
       my $done;
@@ -1033,7 +1031,7 @@ sub addDictionaryLinks(\@$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $elem, $entry)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $node, $entry)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1046,12 +1044,16 @@ sub addDictionaryLinks(\@$) {
 
 # Searches and replaces $$tP text for a single dictionary link, according 
 # to the $DWF file, and logs any result. If a match is found, the proper 
-# reference tags are inserted,and the matching pattern is returned. 
+# reference tags are inserted, and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
 sub addDictionaryLink(\$$$) {
   my $tP = shift;
-  my $elem = shift;
+  my $node = shift;
   my $entry = shift; # for SeeAlso links only
+  
+  my $container = ($node->nodeType == 3 ? $node->parentNode():$node);
+  
+  &dbg(sprintf("tP=%s\nelem=%s\nentry=%s\n", $$tP, $node, $entry), $entry);
   
   if ($$tP =~ /^\s*$/) {return '';}
   
@@ -1064,7 +1066,7 @@ sub addDictionaryLink(\$$$) {
   my $multiples_context;
   if ($entry) {$context = $entry; $multiples_context = $entry;}
   else {
-    $context = &bibleContext($elem);
+    $context = &bibleContext($node);
     $multiples_context = $context;
     $multiples_context =~ s/^(\w+\.\d+).*$/$1/; # reset multiples each chapter
   }
@@ -1076,15 +1078,15 @@ sub addDictionaryLink(\$$$) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    &dbg(sprintf("%16s %10s = ", $context, '<'.$elem->localName.'>'), $entry);
+    &dbg(sprintf("%16s %10s = ", $context, (($node->nodeType == 3) ? 'text':'<'.$node->localName.'>')), $entry);
     if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n", $entry); next;}
     if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
     if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
-    if ($elem->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
+    if ($container->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
     if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n", $entry); next;}
     if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
-    if ($a = &getAttribute('withString', $m)) {if (!&haveString($a, $context, $elem)) {&dbg("70\n", $entry); next;}}
+    if ($a = &getAttribute('withString', $m)) {if (!&haveString($a, $context, $container)) {&dbg("70\n", $entry); next;}}
     
     my $p = $m->textContent;
     
@@ -1105,7 +1107,7 @@ sub addDictionaryLink(\$$$) {
     if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");}
    
     # finally do the actual MATCHING...
-    if ($t !~ /$pm/) {&dbg("$t !~ /$pm/\n", $entry); next;}
+    if ($t !~ /$pm/) {$t =~ s/\n/ /g; &dbg("\"$t\" is not matched by: /$pm/\n", $entry); next;}
       
     my $is = $-[$#+];
     my $ie = $+[$#+];
