@@ -2,4 +2,6 @@ scripts/Canon/canon_*
 scripts/CrossReferences
 scripts/GoBibleCreator*
 paths.pl
+.vagrant
+Vagrantfile
 

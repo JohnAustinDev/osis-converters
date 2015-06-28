@@ -22,13 +22,10 @@ use File::Copy;
 use File::Path qw(make_path remove_tree);
 use File::Find; 
 use Cwd;
-use XML::LibXML;
-use HTML::Entities;
 
-$XPC = XML::LibXML::XPathContext->new;
-$XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
-$XPC->registerNs('tei', 'http://www.crosswire.org/2013/TEIOSIS/namespace');
-$XML_PARSER = XML::LibXML->new();
+select STDERR; $| = 1;  # make unbuffered
+select STDOUT; $| = 1;  # make unbuffered
+
 $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 $OSISSCHEMA = "osisCore.2.1.1.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
@@ -76,9 +73,15 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &initOutputFiles($INPD, $OUTDIR, $AUTOMODE);
   
+  if ($VAGRANT && !-e "/home/vagrant") {&runInVagrant($SCRD, $SCRIPT, $INPD); exit;}
+  
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
-  &checkDependencies($SCRIPT);
+  &checkDependencies($SCRD, $SCRIPT, $INPD);
+  
+  # init non-standard Perl modules now...
+  use HTML::Entities;
+  &initLibXML();
   
   $TMPDIR = "$OUTDIR/tmp/$SCRIPT";
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
@@ -102,6 +105,11 @@ sub setOUTDIR($$$) {
   }
   require "$scrd/paths.pl";
   
+  if (-e "/home/vagrant") {
+    if (-e "/home/vagrant/OUTDIR") {$OUTDIR = "/home/vagrant/OUTDIR";} # Vagrant share
+    else {$OUTDIR = '';}
+  }
+  
   if ($OUTDIR) {
     my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
     $OUTDIR =~ s/[\\\/]\s*$//; # remove any trailing slash
@@ -113,6 +121,17 @@ sub setOUTDIR($$$) {
     &Log("\nWARNING: Output directory \$OUTDIR is not specified- will use inputs directory.\n", 1);
     &Log("NOTE: Specify an output directory by adding:\n\$OUTDIR = '/path/to/outdir';\nto $scrd/paths.pl.\n\n", 1);
   }
+}
+
+
+sub runInVagrant($$$) {
+  my $scrd = shift;
+  my $script = shift;
+  my $inpd = shift;
+  my $cmd = &escfile("$scrd/vagrant.pl")." $script.pl ".&escfile($inpd);
+  &Log("$cmd\n", 1);
+  exec($cmd);
+  exit;
 }
 
 
@@ -143,7 +162,7 @@ sub initOutputFiles($$$) {
 
   my $delete;
   foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
-  if ($delete && !$automode) {
+  if ($delete && !$automode && !-e "/home/vagrant") {
     print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
     $in = <>; 
     if ($in !~ /^\s*y\s*$/i) {exit;} 
@@ -158,15 +177,27 @@ sub initOutputFiles($$$) {
   }
 }
 
-
-sub checkDependencies($script) {
+# Check if dependencies are met and if not, suggest to use Vagrant
+sub checkDependencies($$$) {
+  my $scrd = shift;
   my $script = shift;
+  my $inpd = shift;
+  
+  if (!$GO_BIBLE_CREATOR) {$GO_BIBLE_CREATOR = "$SCRD/scripts/GoBibleCreator.245";} # Default location
+  if (-e "/home/vagrant") {
+    if (-e "/home/vagrant/REPOTEMPLATE_BIN") {$REPOTEMPLATE_BIN = "/home/vagrant/REPOTEMPLATE_BIN";} # Vagrant share
+    else {$REPOTEMPLATE_BIN = "/home/vagrant/src/repotemplate/bin";}
+    if ($SWORD_BIN || $XMLLINT || $XSLT2 || $CALIBRE) {
+      &Log("WARN: Ignoring some paths in paths.pl while running in Vagrant.\n");
+    }
+    $SWORD_BIN = ''; $XMLLINT = ''; $XSLT2 = ''; $CALIBRE = '';
+  }
   
   my %path;
   $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto $SCRD/paths.pl\n";
   $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto $SCRD/paths.pl\n";
   $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto $SCRD/paths.pl\n";
-  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/directory';\nto $SCRD/paths.pl\n";
+  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/bin';\nto $SCRD/paths.pl\n";
   $path{'XSLT2'}{'msg'} = "Install the required program.\n";
   $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
   
@@ -179,18 +210,13 @@ sub checkDependencies($script) {
   }
   
   $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
-  if ($script =~ /(all|osis)/i) {
-    $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
-    $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
-    $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
-  }
-  if ($script =~ /(all|osis2GoBible)/i) {
-    $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
-  }
-  if ($script =~ /(all|osis2ebooks)/i) {
-    $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
-  }
+  $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
+  $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
+  $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
+  $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
+  $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
   
+  my $failMes = '';
   foreach my $p (keys %path) {
     if (!exists($path{$p}{'test'})) {next;}
     my $pass = 0;
@@ -201,10 +227,43 @@ sub checkDependencies($script) {
     close(TEST); unlink("tmp.txt");
     if (!$pass) {
       &Log("\nERROR: Dependency not found: \"".$path{$p}{'test'}[0]."\"\n", 1);
-      &Log("NOTE: ".$path{$p}{'msg'}."\n", 1);
-      die;
+      $failMes .= "NOTE: ".$path{$p}{'msg'}."\n";
     }
   }
+  if ($failMes) {
+    if (!-e "/home/vagrant") {
+      print "\nDo you want to use Vagrant and Virtualbox\nto automatically meet all dependencies? (Y/N):"; 
+      $in = <>; 
+      if ($in =~ /^\s*y\s*$/i) {
+        print "\n";
+        my $fails2 = 0;
+        system("vagrant -v >".&escfile("tmp.txt"). " 2>&1");
+        if (! `grep "Vagrant 1" tmp.txt`) {&Log("Install Vagrant from https://www.vagrantup.com/downloads.html and try again.\n", 1); $fails2++;}
+        system("virtualbox -h >".&escfile("tmp.txt"). " 2>&1");
+        if (! `grep "VirtualBox Manager 4" tmp.txt`) {&Log("Install Virtualbox from https://www.virtualbox.org/wiki/Downloads and try again.\n", 1); $fails2++;}
+        &Log("\n", 1);
+        unlink("tmp.txt");
+        if ($fails2) {exit;}
+        &Log("The first use of Vagrant will automatically download and build a virtual\nmachine having osis-converters fully installed. This build will take some\ntime. Subsequent use of Vagrant will run much faster.\n\n", 1);
+        if (!open(PATHS, ">>$scrd/paths.pl")) {die;}
+        print PATHS "\$VAGRANT = 1;\n1;\n";
+        close(PATHS);
+        &runInVagrant($scrd, $script, $inpd);
+        exit;
+      }
+    }
+    &Log("\n$failMes", 1);
+    exit;
+  }
+}
+
+
+sub initLibXML() {
+  use XML::LibXML;
+  $XPC = XML::LibXML::XPathContext->new;
+  $XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
+  $XPC->registerNs('tei', 'http://www.crosswire.org/2013/TEIOSIS/namespace');
+  $XML_PARSER = XML::LibXML->new();
 }
 
 
