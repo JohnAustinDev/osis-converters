@@ -20,7 +20,7 @@ use Encode;
 use File::Spec;
 use File::Copy;
 use File::Path qw(make_path remove_tree);
-use File::Find; 
+use File::Find;
 use Cwd;
 
 select STDERR; $| = 1;  # make unbuffered
@@ -49,10 +49,17 @@ sub init($) {
   $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
   if (!-e $INPD) {
     print "Project directory \"$INPD\" does not exist. Exiting.\n";
-    die;
+    exit;
   }
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
   
+  if (!-e "$SCRD/paths.pl") {
+    if (!open(PATHS, ">$SCRD/paths.pl")) {&Log("Could not open \"$SCRD/paths.pl\". Exiting.\n"); die;}
+    print PATHS "1;\n";
+    close(PATHS);
+  }
+  require "$SCRD/paths.pl";
+
   &checkAndWriteDefaults($INPD, $SCRIPT);
   
   $CONFFILE = "$INPD/config.conf";
@@ -65,7 +72,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     die;
   }
   
-  &setOUTDIR($SCRD, $INPD);
+  &setOUTDIR($INPD);
   
   $AUTOMODE = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT.txt";}
@@ -73,10 +80,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &initOutputFiles($INPD, $OUTDIR, $AUTOMODE);
   
-  if ($VAGRANT && !-e "/home/vagrant") {&runInVagrant($SCRD, $SCRIPT, $INPD); exit;}
-  
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  # if all dependencies are not met, this asks to run in Vagrant
   &checkDependencies($SCRD, $SCRIPT, $INPD);
   
   # init non-standard Perl modules now...
@@ -94,16 +100,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 }
 
 
-sub setOUTDIR($$$) {
-  my $scrd = shift;
+sub setOUTDIR($) {
   my $inpd = shift;
-
-  if (!-e "$scrd/paths.pl") {
-    if (!open(PATHS, ">$scrd/paths.pl")) {&Log("Could not open \"$scrd/paths.pl\". Exiting.\n"); die;}
-    print PATHS "1;\n";
-    close(PATHS);
-  }
-  require "$scrd/paths.pl";
   
   if (-e "/home/vagrant") {
     if (-e "/home/vagrant/OUTDIR") {$OUTDIR = "/home/vagrant/OUTDIR";} # Vagrant share
@@ -119,19 +117,8 @@ sub setOUTDIR($$$) {
   else {
     $OUTDIR = $inpd;
     &Log("\nWARNING: Output directory \$OUTDIR is not specified- will use inputs directory.\n", 1);
-    &Log("NOTE: Specify an output directory by adding:\n\$OUTDIR = '/path/to/outdir';\nto $scrd/paths.pl.\n\n", 1);
+    &Log("NOTE: Specify an output directory by adding:\n\$OUTDIR = '/path/to/outdir';\nto paths.pl.\n\n", 1);
   }
-}
-
-
-sub runInVagrant($$$) {
-  my $scrd = shift;
-  my $script = shift;
-  my $inpd = shift;
-  my $cmd = &escfile("$scrd/vagrant.pl")." $script.pl ".&escfile($inpd);
-  &Log("$cmd\n", 1);
-  exec($cmd);
-  exit;
 }
 
 
@@ -186,7 +173,7 @@ sub checkDependencies($$$) {
   if (!$GO_BIBLE_CREATOR) {$GO_BIBLE_CREATOR = "$SCRD/scripts/GoBibleCreator.245";} # Default location
   if (-e "/home/vagrant") {
     if (-e "/home/vagrant/REPOTEMPLATE_BIN") {$REPOTEMPLATE_BIN = "/home/vagrant/REPOTEMPLATE_BIN";} # Vagrant share
-    else {$REPOTEMPLATE_BIN = "/home/vagrant/src/repotemplate/bin";}
+    else {$REPOTEMPLATE_BIN = "/home/vagrant/src/repotemplate/bin";} # Default location
     if ($SWORD_BIN || $XMLLINT || $XSLT2 || $CALIBRE) {
       &Log("WARN: Ignoring some paths in paths.pl while running in Vagrant.\n");
     }
@@ -235,20 +222,11 @@ sub checkDependencies($$$) {
       print "\nDo you want to use Vagrant and Virtualbox\nto automatically meet all dependencies? (Y/N):"; 
       $in = <>; 
       if ($in =~ /^\s*y\s*$/i) {
-        print "\n";
-        my $fails2 = 0;
-        system("vagrant -v >".&escfile("tmp.txt"). " 2>&1");
-        if (! `grep "Vagrant 1" tmp.txt`) {&Log("Install Vagrant from https://www.vagrantup.com/downloads.html and try again.\n", 1); $fails2++;}
-        system("virtualbox -h >".&escfile("tmp.txt"). " 2>&1");
-        if (! `grep "VirtualBox Manager 4" tmp.txt`) {&Log("Install Virtualbox from https://www.virtualbox.org/wiki/Downloads and try again.\n", 1); $fails2++;}
-        &Log("\n", 1);
-        unlink("tmp.txt");
-        if ($fails2) {exit;}
-        &Log("The first use of Vagrant will automatically download and build a virtual\nmachine having osis-converters fully installed. This build will take some\ntime. Subsequent use of Vagrant will run much faster.\n\n", 1);
+        if (!&vagrantInstalled()) {exit;}
         if (!open(PATHS, ">>$scrd/paths.pl")) {die;}
         print PATHS "\$VAGRANT = 1;\n1;\n";
         close(PATHS);
-        &runInVagrant($scrd, $script, $inpd);
+        &startVagrant($scrd, $script, $inpd);
         exit;
       }
     }
@@ -1695,8 +1673,7 @@ sub fromUTF8($) {
 sub escfile($) {
   my $n = shift;
   
-  if ("$^O" =~ /MSWin32/i) {$n = "\"".$n."\"";}
-  else {$n =~ s/([ \(\)])/\\$1/g;}
+  $n =~ s/([ \(\)])/\\$1/g;
   return $n;
 }
 
@@ -1722,20 +1699,8 @@ sub osisXSLT($$$) {
     if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
   }
 
-  my $cmd = '';
-  if ("$^O" =~ /MSWin32/i) {
-    # http://www.microsoft.com/en-us/download/details.aspx?id=21714
-    $cmd = "msxsl.exe " . ($osis ? &escfile($osis) . " " . &escfile($xsl) . " -o " . &escfile($out):'');
-  }
-  elsif ("$^O" =~ /linux/i) { 
-    $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
-  }
-  elsif ("$^O" =~ /darwin/i) {
-    $cmd = "java -jar /Library/Java/Extensions/saxon9.jar -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
-  }
-  else {
-    &Log("ERROR: an XSLT 2.0 converter has not been chosen yet for this operating system.");
-  }
+  my $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+  
   if ($cmd && $osis) {
     &Log("$cmd\n");
     system($cmd);
@@ -1835,18 +1800,11 @@ sub zipModule($$) {
   my $moddir = shift;
   
   &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
-  if ("$^O" =~ /MSWin32/i) {
-    my $cmd = "7za a -tzip ".&escfile($zipfile)." -r ".&escfile("$moddir\\*");
-    &Log($cmd, 1);
-    `$cmd`;
-  }
-  else {
-    chdir($moddir);
-    my $cmd = "zip -r ".&escfile($zipfile)." ".&escfile("./*");
-    &Log($cmd, 1);
-    `$cmd`;
-    chdir($SCRD);
-  }
+  chdir($moddir);
+  my $cmd = "zip -r ".&escfile($zipfile)." ".&escfile("./*");
+  &Log($cmd, 1);
+  `$cmd`;
+  chdir($SCRD);
 }
 
 
@@ -1936,8 +1894,7 @@ sub validateOSIS($) {
   # validate new OSIS file against schema
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
-  $cmd = ("$^O" =~ /linux/i ? "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ":'');
-  $cmd .= &escfile($XMLLINT."xmllint")." --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
+  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
   &Log("$cmd\n");
   system($cmd);
   &Log("END OSIS VALIDATION\n");
@@ -1958,9 +1915,9 @@ sub Log($$) {
   
   if ($flag == 2) {return;}
   
-  # hide local file paths
-  if ($INPD) {$p =~ s/\Q$INPD\E(\/?)/\$INPD$1/g;}
-  if ($OUTDIR) {$p =~ s/\Q$OUTDIR\E(\/?)/\$OUTDIR$1/g;}
+  # encode these local file paths
+  my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'REPOTEMPLATE_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
+  foreach my $path (@paths) {if ($$path) {$p =~ s/\Q$$path\E(\/?)/\$$path$1/g;}}
   
   if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
 

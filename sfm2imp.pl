@@ -35,6 +35,7 @@ $DEBUG = 0;
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
 require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 &Log("NOTE: sfm2imp.pl (IMP output) is DEPRECATED in preference to sfm2osis.pl (TEI output).\n");

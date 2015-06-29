@@ -27,6 +27,7 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
 require "$SCRD/scripts/common.pl"; &init(__FILE__);
 
 $OSISFILE = "$OUTDIR/$MOD.xml";

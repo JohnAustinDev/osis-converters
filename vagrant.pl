@@ -34,7 +34,7 @@ close(VUP);
 sub vagrantShare($$) {
   my $host = shift;
   my $client = shift;
-  $host =~ s/^\/(\w)(?=\/Users\/)/$1:/;
+  $host =~ s/^\/(\w)(?=(\/Users\/|$))/$1:/;
   return "config.vm.synced_folder \"$host\", \"/home/vagrant/$client\"";
 }
 
@@ -52,6 +52,9 @@ sub vagrantUp(\@) {
   close(VAG);
   close(TPL);
   print "Starting Vagrant...\n";
+  print "The first use of Vagrant will automatically download and build a virtual\n";
+  print "machine having osis-converters fully installed. This build will take some\n";
+  print "time. Subsequent use of Vagrant will run much faster.\n\n";
   open(VUP, "vagrant up |");
   while(<VUP>) {print $_;}
   close(VUP);
