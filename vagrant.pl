@@ -19,11 +19,11 @@ push(@Shares, &vagrantShare($INPARENT, "INDIR"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
 if ($REPOTEMPLATE_BIN) {push(@Shares, &vagrantShare($REPOTEMPLATE_BIN, "REPOTEMPLATE_BIN"));}
 
-$Status = `vagrant status`;
+$Status = (-e "./.vagrant" ? `vagrant status`:'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
 
-$cmd = "vagrant ssh -c \"/vagrant/$Script /home/vagrant/INDIR/$Indir\"";
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$Script /home/vagrant/INDIR/$Indir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}
