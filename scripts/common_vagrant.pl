@@ -29,7 +29,7 @@ sub init_vagrant($) {
 sub vagrantInstalled() {
   print "\n";
   my $pass;
-  system("vagrant -v >".&escfile_xplatform("tmp.txt"). " 2>&1");
+  system("vagrant -v >tmp.txt 2>&1");
   if (!open(TEST, "<tmp.txt")) {die;}
   $pass = 0; while (<TEST>) {if ($_ =~ /\QVagrant 1\E/i) {$pass = 1; last;}}
   if (!$pass) {
@@ -46,17 +46,10 @@ sub startVagrant($$$) {
   my $scrd = shift;
   my $script = shift;
   my $inpd = shift;
-  my $cmd = &escfile_xplatform("$scrd/vagrant.pl")." $script.pl ".&escfile_xplatform($inpd);
-  print "$cmd\n";
-  exec($cmd);
+  my @args = ("$scrd/vagrant.pl", "$script.pl", $inpd);
+  print "@args\n";
+  exec(@args);
   exit;
-}
-
-sub escfile_xplatform($) {
-  my $n = shift;
-  if ("$^O" =~ /MSWin32/i) {$n = "\"".$n."\"";}
-  else {$n =~ s/([ \(\)])/\\$1/g;}
-  return $n;
 }
 
 1;
