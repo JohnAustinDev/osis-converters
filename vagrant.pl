@@ -13,7 +13,7 @@ if ($INPARENT =~ /^\./) {$INPARENT = File::Spec->rel2abs($INPARENT);}
 
 use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
 chdir $SCRD;
-require "./paths.pl";
+if (-e "./paths.pl") {require "./paths.pl";}
 
 push(@Shares, &vagrantShare($INPARENT, "INDIR"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
@@ -34,7 +34,7 @@ close(VUP);
 sub vagrantShare($$) {
   my $host = shift;
   my $client = shift;
-  $host =~ s/^\/(\w)(?=(\/Users\/|$))/$1:/;
+  if ($host =~ /^\/(\w)(\/Users\/.*)?$/) {$host = uc($1).':'.($2 ? $2:'/');}
   return "config.vm.synced_folder \"$host\", \"/home/vagrant/$client\"";
 }
 

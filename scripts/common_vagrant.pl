@@ -29,19 +29,17 @@ sub init_vagrant($) {
 sub vagrantInstalled() {
   print "\n";
   my $pass;
-  my $fails = 0;
   system("vagrant -v >".&escfile_xplatform("tmp.txt"). " 2>&1");
   if (!open(TEST, "<tmp.txt")) {die;}
   $pass = 0; while (<TEST>) {if ($_ =~ /\QVagrant 1\E/i) {$pass = 1; last;}}
-  if (!$pass) {print "Install Vagrant from https://www.vagrantup.com/downloads.html and try again.\n"; $fails++;}
-  system("virtualbox -h >".&escfile_xplatform("tmp.txt"). " 2>&1");
-  if (!open(TEST, "<tmp.txt")) {die;}
-  $pass = 0; while (<TEST>) {if ($_ =~ /\QVirtualBox Manager 4\E/i) {$pass = 1; last;}}
-  if (!$pass) {print "Install Virtualbox from https://www.virtualbox.org/wiki/Downloads and try again.\n"; $fails++;}
+  if (!$pass) {
+    print "Install Vagrant from https://www.vagrantup.com/downloads.html and install\n";
+    print "Virtualbox from https://www.virtualbox.org/wiki/Downloads and try again.\n";
+  }
   print "\n";
   unlink("tmp.txt");
 
-  return ($fails == 0);
+  return $pass;
 }
 
 sub startVagrant($$$) {
