@@ -42,7 +42,23 @@ sub addCrossRefs($$) {
   );
   foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
   if (!-e $CrossRefFile) {
-    &Log("WARNING: Could not locate Cross Reference source file. Skipping cross-reference insertion.\n");
+    &Log("
+WARNING: Could not locate a Cross Reference source file- skipping cross-reference insertion.
+NOTE: Cross Reference source files are OSIS files containing only cross-references.  
+Thery have the name of their SWORD Versification system, and are placed in the 
+osis-converters/scripts/CrossReferences directory. If reference tags do not contain
+presentational text, it will be added. An example OSIS cross-reference:
+
+<div type=\"book\" osisID=\"Gen\">
+  <chapter osisID=\"Gen.1\">
+    <note type=\"crossReference\" osisRef=\"Gen.1.27\" osisID=\"Gen.1.27!crossReference.r1\">
+      <reference osisRef=\"SynodalProt:Matt.19.4\"/>
+      <reference osisRef=\"SynodalProt:Mark.10.6\"/>
+    </note>
+  </chapter>
+</div>
+
+");
     return;
   }
 
@@ -187,9 +203,11 @@ sub insertNote($\$) {
   for (my $i=0; $i<@refs; $i++) {
     my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
     my $new = $osisRef->getValue();
-    $new =~ s/^Bible:/$MOD:/;
+    $new =~ s/^.*?:/$MOD:/;
     $osisRef->setValue($new);
-    @refs[$i]->insertAfter(XML::LibXML::Text->new(sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','))), undef);
+    if (!@{$XPC->findnodes('./text()', @refs[$i])}) {
+      @refs[$i]->insertAfter(XML::LibXML::Text->new(sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','))), undef);
+    }
   }
   
   # make markup pretty
