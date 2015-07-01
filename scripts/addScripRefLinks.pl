@@ -1123,11 +1123,10 @@ sub validOSISref($$$) {
   
   my $vk = new Sword::VerseKey();
   $vk->setVersificationSystem($VERSESYS);
-  
-  my $bok1 = $vk->getBookNumberByOSISName('FAILME') == ''; # true if exists, else false
-  my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) == '');
+  my $bok1 = $vk->getBookNumberByOSISName($bk1) != -1;
+  my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) != -1);
 
-	return (0 && $bok2);
+	return ($bok1 && $bok2);
 }
 
 sub reverseAlpha($$) {
