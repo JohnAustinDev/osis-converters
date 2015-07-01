@@ -45,7 +45,7 @@ sub addCrossRefs($$) {
     &Log("
 WARNING: Could not locate a Cross Reference source file- skipping cross-reference insertion.
 NOTE: Cross Reference source files are OSIS files containing only cross-references.  
-Thery have the name of their SWORD Versification system, and are placed in the 
+They have the name of their SWORD Versification system, and are placed in the 
 osis-converters/scripts/CrossReferences directory. If reference tags do not contain
 presentational text, it will be added. An example OSIS cross-reference:
 
@@ -57,7 +57,6 @@ presentational text, it will be added. An example OSIS cross-reference:
     </note>
   </chapter>
 </div>
-
 ");
     return;
   }

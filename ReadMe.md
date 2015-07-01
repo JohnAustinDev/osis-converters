@@ -1,15 +1,15 @@
 ##Installation and use
-Linux: Run VagrantProvision.sh to install all dependencies.
-Windows/OS X: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
+**Linux**: Run VagrantProvision.sh to install all dependencies.<br>
+**Windows/OS X**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)
 
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
-this directory:
-/some-path/MODULE_NAME/sfm/
+the directory: `/some-path/MODULE_NAME/sfm/`
 
 In Git Bash or a Linux prompt, run:
-./sfm2all.pl /some-path/MODULE_NAME
+
+    ./sfm2all.pl /some-path/MODULE_NAME
 
 This will output:
 * A SWORD Bible module (from all USFM Bible book files)

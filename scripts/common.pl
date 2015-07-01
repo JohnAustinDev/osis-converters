@@ -86,6 +86,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &checkDependencies($SCRD, $SCRIPT, $INPD);
   
   # init non-standard Perl modules now...
+  use Sword;
   use HTML::Entities;
   &initLibXML();
   
@@ -627,6 +628,12 @@ sub updateConfData(\%$) {
 		die;
 	}
   
+  if ($entryValueP->{"Versification"}) {
+    if (!&isValidVersification($entryValueP->{"Versification"})) {
+      &Log("ERROR: Unrecognized versification system \"".$entryValueP->{"Versification"}."\".\n");
+    }
+  }
+  
 	my $dp;
   my $moddrv = $entryValueP->{"ModDrv"};
   my $mod = $entryValueP->{'ModuleName'};
@@ -945,83 +952,54 @@ sub getOsisName($$) {
 }
 
 
-sub getCanon($\%\%) {
+sub getCanon($\%\%\%) {
   my $VSYS = shift;
-  my $canonP = shift;
-  my $bookOrderP = shift;
-  my $testamentP = shift;
+  my $canonP = shift;     # hash pointer: OSIS-book-name => Array (base 0) containing each chapter's max-verse number
+  my $bookOrderP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
+  my $testamentP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
   
-  my $INFILE = "$SCRD/scripts/Canon/canon".($VSYS && $VSYS ne "KJV" ? "_".lc($VSYS):"").".h";
-  my $inOT, $inNT, $inVM;
-  my $vsys = "unset";
-  my %bookLongName, %bookChapters, %bookTest;
-  my @VM;
-  my $booknum = 1;
-
-  # Collect canon information from header file
-  copy($INFILE, "$INFILE.tmp");
-  if (open(INF, "<:encoding(UTF-8)", "$INFILE.tmp")) {
-    while(<INF>) {
-      # do some error checking
-      if ($inOT + $inNT + $inVM > 1) {&Log("ERROR: Missed data end.\n");}
-      if ($vsys ne "unset"  && (($vsys && $vsys !~ /^\Q$VSYS\E$/i) || (!$vsys && $VSYS !~ /^KJV$/i))) {
-        &Log("ERROR: Verse system may be incorrectly specified (\"$vsys\" != \"$VSYS\")\n");
-      }
-      
-      # capture data
-      if ($_ =~ /^\s*\/\//) {next;}
-      elsif ($_ =~ /^\s*struct\s+sbook\s+otbooks(_(\w+))?\[\]\s*=\s*\{/) {$inOT = 1; $vsys = $2;}
-      elsif ($_ =~ /^\s*struct\s+sbook\s+ntbooks(_(\w+))?\[\]\s*=\s*\{/) {$inNT = 1; $vsys = $2;}
-      elsif ($_ =~ /^int\s+vm(_(\w+))?\[\]\s*=\s*\{/) {$inVM = 1; $vsys = $2;}
-      elsif (($inOT || $inNT) && $_ =~ /\{\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*(\d+)\s*\}/) {
-        my $bln = $1;
-        my $bk = $2;
-        my $nch = $4;
-        $bookLongName{$bk} = $bln;
-        $bookChapters{$bk} = $nch;
-        $bookOrderP->{$bk} = $booknum++;
-        if ($testamentP) {$testamentP->{$bk} = ($inOT ? "OT":"NT");}
-      }
-      elsif ($inVM) {
-        my $copy = $_;
-        $copy =~ s/(^\s*|\s*$|\};\s*$)//g;
-        my @vc = split(/\s*,\s*/, $copy);
-        if (!$vc[@vc-1]) {pop(@vc);}
-        push(@VM, @vc);
-      }
-
-      # find data end
-      if ($_ =~ /\};/) {
-        $inOT = 0;
-        $inNT = 0;
-        $inVM = 0;
-      }
+  if (!&isValidVersification($VSYS)) return 0;
+  
+  my $vk = new Sword::VerseKey();
+  $vk->setVersificationSystem($VSYS);
+  
+  my $t = 1; # 'OT'
+  my $bk = 1;
+  for ($bk = 1; $bk <= $vk->bookCount($t); $bk++) {
+    my $bkname = $vk->bookName($t, $bk);
+    $bookOrderP->{$bkname} = $bk;
+    $testamentP->{$bkname} = ($t == 1 ? "OT":"NT");
+    my $chaps = [];
+    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bk); $ch++) {
+      push(@{$chaps}, $vk->verseCount($t, $bk, $ch));
     }
-    close(INF);
-
-    # save canon info
-    my $vmi = 0;
-    foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
-      $newarray = [];
-#&Log("$bk = ");
-      for (my $i=0; $i<$bookChapters{$bk}; $i++) {
-#&Log($VM[$vmi].", ");
-        if ($VM[$vmi] !~ /^\d+$/) {&Log("ERROR: Canon data is not a number \"".$VM[$vmi]."\".\n");}
-        push(@{$newarray}, $VM[$vmi++]);
-      }
-      $canonP->{$bk} = $newarray;
-#&Log("\n");
+    $canonP->{$bkname} = $chaps;
+  }
+  
+  my $t = 2; # 'NT'
+  for ($bk = 1; $bk <= $vk->bookCount($t); $bk++) {
+    my $bkname = $vk->bookName($t, $bk);
+    $bookOrderP->{$bkname} = $bk + $vk->bookCount(1);
+    $testamentP->{$bkname} = ($t == 1 ? "OT":"NT");
+    my $chaps = [];
+    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bk); $ch++) {
+      push(@{$chaps}, $vk->verseCount($t, $bk, $ch));
     }
-
-    if ($vmi != @VM) {&Log("ERROR: Data count mismatch: ".($vmi-1)." (".$VM[$vmi-1].") != ".(@VM-1)." (".$VM[@VM-1].").\n");}
+    $canonP->{$bkname} = $chaps;
   }
-  else {
-    &Log("ERROR: Could not open canon file \"$INFILE.tmp\".\n");
-    return 0;
-  }
-  unlink("$INFILE.tmp");
   
   return 1;
+}
+
+
+sub isValidVersification($) {
+  my $vsys = shift;
+  
+  my $vsmgr = Sword::VersificationMgr::getSystemVersificationMgr();
+  my $vsyss = $vsmgr->getVersificationSystems();
+  foreach my $vsys (@$vsyss) {if ($vsys->c_str() eq $vsys) {return 1;}}
+  
+  return 0;
 }
 
 

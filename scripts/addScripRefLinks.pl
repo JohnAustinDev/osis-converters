@@ -155,8 +155,6 @@ sub addScripRefLinks($$) {
   $Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
   $Types{"T10 (num1 ... num2?)"} = 0;
 
-  &getCanon($VERSESYS, \%mycanon, \%mybookorder);
-
   my $commandFile = "$INPD/CF_addScripRefLinks.txt";
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
@@ -1122,11 +1120,14 @@ sub validOSISref($$$) {
 	else {
 		return 0;
 	}
+  
+  my $vk = new Sword::VerseKey();
+  $vk->setVersificationSystem($VERSESYS);
+  
+  my $bok1 = $vk->getBookNumberByOSISName('FAILME') == ''; # true if exists, else false
+  my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) == '');
 
-	my $bok1 = exists($mycanon{$bk1});
-  my $bok2 = ($bk2=="" || exists($mycanon{$bk2}));
-
-	return ($bok1 && $bok2);
+	return (0 && $bok2);
 }
 
 sub reverseAlpha($$) {

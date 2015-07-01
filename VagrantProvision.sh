@@ -21,6 +21,7 @@ apt-get install -y cpanminus
 apt-get install -y subversion
 apt-get install -y git
 apt-get install -y zip
+apt-get install -y swig
 
 apt-get install -y default-jre
 apt-get install -y libsaxonb-java
@@ -38,6 +39,7 @@ if [ ! -e /home/vagrant/REPOTEMPLATE_BIN ]; then
     mkdir /home/vagrant/src
   fi
   cd /home/vagrant/src
+  # currently even read requires credentials, so this doesn't yet work...
   git clone -b ja_devel gitosis@crosswire.org:repotemplate
 fi
 
@@ -74,7 +76,7 @@ if [ ! `which osis2mod` ]; then
   fi
 
   # SWORD engine
-  swordRev=3203
+  swordRev=3375
   if [ ! -e ~/src/sword-svn ]; then
     cd ~/src
     svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword-svn
@@ -84,6 +86,16 @@ if [ ! `which osis2mod` ]; then
     sed -i -r -e "s|^bin_PROGRAMS = |bin_PROGRAMS = emptyvss |" ./utilities/Makefile.am
     ./autogen.sh
     ./configure
+    make install
+    
+    # Perl bindings
+    cd ~/src/sword-svn/bindings/swig/package
+    libtoolize --force
+    ./autogen.sh
+    ./configure
+    make perlswig
+    make perl_make
+    cd perl
     make install
     ldconfig
   fi
