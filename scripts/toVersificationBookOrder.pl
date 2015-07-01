@@ -28,49 +28,87 @@ sub toVersificationBookOrder($$) {
   my %bookOrder;
   my %testament;
   
-  if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
-    my $xml = $XML_PARSER->parse_file($osis);
+  if (!&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
+    &Log("ERROR: Not re-ordering books in OSIS file!\n");
+    return;
+  }
   
-    # remove all books
-    my @books = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[@type="book"]', $xml);
-    if (!@books) {@books = $XPC->findnodes('//osis:div[@type="book"]', $xml);}
-    foreach my $bk (@books) {
-      $bk = $bk->parentNode()->removeChild($bk);
-    }
+  my $xml = $XML_PARSER->parse_file($osis);
+
+  # remove all books
+  my @books = @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $bk (@books) {
+    $bk = $bk->parentNode()->removeChild($bk);
+  }
+  
+  # remove bookGroups (if any)
+  my $bookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+  foreach my $bookGroup (@bookGroups) {$bookGroup->parentNode()->removeChild($bookGroup);}
+  
+  # create empty bookGroups
+  my @bookGroups;
+  push(@bookGroups, $XML_PARSER->parse_balanced_chunk("<div type=\"bookGroup\"></div>"));
+  push(@bookGroups, @bookGroups[0]->cloneNode());
     
-    # some OSIS files may not have book groups, then books are children of osisText
-    my @bookGroup = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
-    my @osisText = $XPC->findnodes('//osis:osisText', $xml);
-      
-    # place all books back in canon order
-    foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
-      foreach my $bk (@books) {
-        if (!$bk || $bk->findvalue('./@osisID') ne $v11nbk) {next;}
-        my $i = ($testament{$v11nbk} eq 'OT' ? 0:1);
-        if (!@bookGroup) {@osisText[0]->appendChild($bk);}
-        else {
-          if (@bookGroup == 1) {$i = 0;}
-          @bookGroup[$i]->appendChild($bk);
+  # place all books back in canon order
+  foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+    foreach my $bk (@books) {
+      if (!$bk || $bk->findvalue('./@osisID') ne $v11nbk) {next;}
+      my $i = ($testament{$v11nbk} eq 'OT' ? 0:1);
+      @bookGroups[$i]->appendChild($bk);
+      $bk = '';
+      last;
+    }
+  }
+  
+  foreach my $bk (@books) {
+    if ($bk ne '') {&Log("ERROR: Book \"$bk\" not found in $vsys Canon\n");}
+  }
+  
+  my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+  foreach my $bookGroup (@bookGroups) {$osisText->appendChild($bookGroup);}
+  
+  # Don't check that all books/chapters/verses are included in this 
+  # OSIS file, but DO insure that all verses are in sequential order 
+  # without any skipping (required by GoBible Creator).
+  my @verses = $XPC->findnodes('//osis:verse[@osisID]', $xml);
+  my $lastbkch = '';
+  my $vcounter;
+  foreach my $verse (@verses) {
+    my $insertBefore = 0;
+    my $osisID = $verse->getAttribute('osisID');
+    if ($osisID !~ /^([^\.]+\.\d+)\.(\d+)/) {&Log("ERROR: Can't read vfirst \"$v\"\n");}
+    my $bkch = $1;
+    my $vfirst = (1*$2);
+    if ($bkch ne $lastbkch) {$vcounter = 1;}
+    $lastbkch = $bkch;
+    foreach my $v (split(/\s+/, $osisID)) {
+      if ($v !~ /^\Q$bkch\E\.(\d+)(\-(\d+))?$/) {&Log("ERROR: Can't read v \"$v\" in \"$osisID\"\n");}
+      my $vv1 = (1*$1);
+      my $vv2 = ($3 ? (1*$3):$vv1);
+      for (my $vv = $vv1; $vv <= $vv2; $vv++) {
+        if ($vcounter > $vv) {&Log("ERROR: Verse number goes backwards \"$osisID\"\n");}
+        while ($vcounter < $vv) {
+          $insertBefore++; $vcounter++;
         }
-        
-        $bk = '';
-        last;
+        $vcounter++;
       }
     }
-    
-    foreach my $bk (@books) {
-      if ($bk ne '') {&Log("ERROR: Book \"$bk\" not found in $vsys Canon\n");}
+    while ($insertBefore--) {
+      my $r = $bkch.'.'.($vfirst-$insertBefore-1);
+      &Log("WARNING: Inserting empty verse: \"$r\". Check if the previous verse element\nholds multiple verses, and if so, fix the USFM \\v tag using EVAL_REGEX.\n");
+      my $empty = $XML_PARSER->parse_balanced_chunk("<verse osisID=\"$r\" sID=\"$r\"/>.<verse eID=\"$r\"/>\n");
+      $verse->parentNode->insertBefore($empty, $verse);
     }
-    
-    my $t = $xml->toString();
-    
-    # removed books left a \n dangling, so remove it too
-    $t =~ s/\n+/\n/gm;
-    
-    open(OUTF, ">$osis");
-    print OUTF $t;
-    close(OUTF);
   }
-  else {&Log("ERROR: Not re-ordering books in OSIS file! (2)\n");}
+  
+  my $t = $xml->toString();
+  
+  # removed books left a \n dangling, so remove it too
+  $t =~ s/\n+/\n/gm;
+  
+  open(OUTF, ">$osis");
+  print OUTF $t;
+  close(OUTF);
 }
 1;

@@ -958,32 +958,20 @@ sub getCanon($\%\%\%) {
   my $bookOrderP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
   my $testamentP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
   
-  if (!&isValidVersification($VSYS)) return 0;
+  if (!&isValidVersification($VSYS)) {return 0;}
   
   my $vk = new Sword::VerseKey();
   $vk->setVersificationSystem($VSYS);
   
-  my $t = 1; # 'OT'
-  my $bk = 1;
-  for ($bk = 1; $bk <= $vk->bookCount($t); $bk++) {
-    my $bkname = $vk->bookName($t, $bk);
-    $bookOrderP->{$bkname} = $bk;
+  for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
+    my $t, $bkt;
+    if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
+    else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
+    $bookOrderP->{$bkname} = ($bk+1);
     $testamentP->{$bkname} = ($t == 1 ? "OT":"NT");
     my $chaps = [];
-    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bk); $ch++) {
-      push(@{$chaps}, $vk->verseCount($t, $bk, $ch));
-    }
-    $canonP->{$bkname} = $chaps;
-  }
-  
-  my $t = 2; # 'NT'
-  for ($bk = 1; $bk <= $vk->bookCount($t); $bk++) {
-    my $bkname = $vk->bookName($t, $bk);
-    $bookOrderP->{$bkname} = $bk + $vk->bookCount(1);
-    $testamentP->{$bkname} = ($t == 1 ? "OT":"NT");
-    my $chaps = [];
-    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bk); $ch++) {
-      push(@{$chaps}, $vk->verseCount($t, $bk, $ch));
+    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
+      push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
     }
     $canonP->{$bkname} = $chaps;
   }
