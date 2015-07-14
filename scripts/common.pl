@@ -182,7 +182,8 @@ sub checkDependencies($$$) {
   
   foreach my $p (keys %path) {
     if (-e "/home/vagrant" && $$p) {
-      &Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");
+      if ($p eq 'REPOTEMPLATE_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
+      else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
       $$p = '';
     }
     my $home = `echo \$HOME`; chomp($home);

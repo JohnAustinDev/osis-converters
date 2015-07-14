@@ -47,8 +47,23 @@ fi
 # Repotemplate
 if [ ! -e $VHOME/.osis-converters/src/repotemplate ]; then
   cd $VHOME/.osis-converters/src
-  # currently even read requires credentials, so this doesn't yet work...
-  git clone -b ja_devel gitosis@crosswire.org:repotemplate
+  if [ ! -e ~/.ssh ]; then mkdir ~/.ssh; fi
+  ssh-keyscan crosswire.org >> ~/.ssh/known_hosts
+  # currently even repotemplate read requires ssh credentials, so this 
+  # may not work unless the host machine's ssh agent is configured to
+  # access repotemplate. If this fails, you can obtain repotemplate/bin
+  # somehow and place it in a directory in the host, then add to paths.pl:
+  # $REPOTEMPLATE_BIN = "host-path/to/repotemplate/bin";
+  if [ -e /vagrant ]; then
+    # this sudo is needed for the Vagrantfile ssh.forward_agent work-around to work
+    sudo git clone -b ja_devel gitosis@crosswire.org:repotemplate
+  else
+    git clone -b ja_devel gitosis@crosswire.org:repotemplate
+  fi
+else
+  cd $VHOME/.osis-converters/src/repotemplate
+  git checkout ja_devel
+  git pull
 fi
 
 # SWORD Tools
