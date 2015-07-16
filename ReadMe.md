@@ -1,17 +1,17 @@
-##osis-converters
-**Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to 
+#osis-converters
+Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to 
 [OSIS](http://www.crosswire.org/osis/), 
 [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, 
 [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
-EPUB, MOBI, and FB2 files.**
+EPUB, MOBI, and FB2 files.
 
-#setup:
+##setup:
 **Linux**: Run VagrantProvision.sh to install all dependencies.<br>
 **Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)
 
-#use:
+##use:
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
 the directory: `/some-path/MODULE_NAME/sfm/`
 
