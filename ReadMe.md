@@ -1,17 +1,18 @@
-##Installation and use
+##Setup
 **Linux**: Run VagrantProvision.sh to install all dependencies.<br>
-**Windows/OS X**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
+**Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)
 
+##Use
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
 the directory: `/some-path/MODULE_NAME/sfm/`
 
-In Git Bash or a Linux prompt, run:
+At a Linux or Git Bash prompt:
 
     ./sfm2all.pl /some-path/MODULE_NAME
 
-This will output:
+Will output:
 * A SWORD Bible module (from all USFM Bible book files)
 * A SWORD Glossary module (if there are USFM glossary files).
 * GoBible Java-ME apps.
