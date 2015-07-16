@@ -106,3 +106,5 @@ if [ ! `which osis2mod` ]; then
     sudo ldconfig
   fi
 fi
+
+if [ -e /vagrant ]; then chown -R vagrant:vagrant /home/vagrant/.osis-converters; fi

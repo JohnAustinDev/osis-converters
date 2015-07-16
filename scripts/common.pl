@@ -1889,7 +1889,7 @@ sub Log($$) {
   # encode these local file paths
   my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'REPOTEMPLATE_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
   foreach my $path (@paths) {
-    if (!$$path) {next;}
+    if (!$$path || $$path =~ /^(\/home)?\/vagrant/) {next;}
     my $rp = $$path;
     $rp =~ s/[\/\\]+$//;
     $p =~ s/\Q$rp\E/\$$path/g;
