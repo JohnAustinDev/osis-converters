@@ -7,7 +7,7 @@
 $Script = shift;
 $Indir = shift;
 
-$Indir =~ s/^([\\\/]?[^\\\/]+)[\\\/]?(.*?)[\\\/]?$/$2/;
+$Indir =~ s/^((\w:)?[\\\/]*[^\\\/]+)[\\\/]?(.*?)[\\\/]?$/$3/;
 $INPARENT = $1;
 if ($INPARENT =~ /^\./) {$INPARENT = File::Spec->rel2abs($INPARENT);}
 
@@ -23,6 +23,7 @@ $Status = (-e "./.vagrant" ? `vagrant status`:'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
 
+$Indir =~ s/\\/\//g; # using as Linux relative path
 $cmd = "vagrant ssh -c \"cd /vagrant && ./$Script /home/vagrant/INDIR_ROOT/$Indir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
@@ -35,6 +36,7 @@ sub vagrantShare($$) {
   my $host = shift;
   my $client = shift;
   if ($host =~ /^\/(\w)(\/Users\/.*)?$/) {$host = uc($1).':'.($2 ? $2:'/');}
+  $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
   return "config.vm.synced_folder \"$host\", \"/home/vagrant/$client\"";
 }
 
