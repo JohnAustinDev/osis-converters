@@ -66,12 +66,12 @@ else {&Log("WARNING: Skipping simplified character apps; no $GOBIBLE/simpleChars
 sub makeGoBible($) {
   my $type = shift;
   &Log("\n--- Running Go Bible Creator with collections.txt\n");
-  copy("$TMPDIR/$type/ui.properties", "$GO_BIBLE_CREATOR/GoBibleCore/ui.properties");
-  chdir($GO_BIBLE_CREATOR);
-  my $cmd = "java -jar GoBibleCreator.jar ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE);
+  my $cmd = "cp ".&escfile("$TMPDIR/$type/ui.properties")." ".&escfile($GO_BIBLE_CREATOR."GoBibleCore/ui.properties");
   &Log($cmd."\n");
   system($cmd);
-  chdir($SCRD);
+  $cmd = "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$TMPDIR/$type/collections.txt")." >> ".&escfile($LOGFILE);
+  &Log($cmd."\n");
+  system($cmd);
 
   &Log("\n--- Copying module to MKS directory $MOD".$ConfEntryP->{"Version"}."\n");
   chdir("$TMPDIR/$type");

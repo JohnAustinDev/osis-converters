@@ -1,17 +1,25 @@
-##Installation and use
+#osis-converters
+Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to 
+[OSIS](http://www.crosswire.org/osis/), 
+[SWORD](http://www.crosswire.org/wiki/Main_Page) modules, 
+[GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
+EPUB, MOBI, and FB2 files.
+
+##setup:
 **Linux**: Run VagrantProvision.sh to install all dependencies.<br>
-**Windows/OS X**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
+**Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)
 
+##use:
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
 the directory: `/some-path/MODULE_NAME/sfm/`
 
-In Git Bash or a Linux prompt, run:
+At a Linux or Git Bash prompt:
 
     ./sfm2all.pl /some-path/MODULE_NAME
 
-This will output:
+Will output:
 * A SWORD Bible module (from all USFM Bible book files)
 * A SWORD Glossary module (if there are USFM glossary files).
 * GoBible Java-ME apps.
@@ -25,6 +33,8 @@ If the log file contains errors due to non-conformant SFM etc., control
 files will need adjustment until there are no errors. Warnings are 
 generally okay. The log file should be read over carefully. It 
 also essentially serves as osis-converters' documentation.
+
+-----
 
 ##Comparison of OSIS files to CrossWire OSIS
 
@@ -48,7 +58,7 @@ a dictionary/glossary in original alphabetical order.
 ##Comparison of IMP files to CrossWire IMP
 
 Osis-converters now generates TEI dictionaries according to CrossWire's
-recommendations, so use of IMP is now deprecated. CrossWire encourages  
+recommendations, so use of IMP is now deprecated. CrossWire encourages 
 the use of [TEI P5](http://www.crosswire.org/wiki/TEI_Dictionaries) for 
 dictionary markup.
 

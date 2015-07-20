@@ -165,34 +165,33 @@ sub initOutputFiles($$$) {
   }
 }
 
+
 # Check if dependencies are met and if not, suggest to use Vagrant
 sub checkDependencies($$$) {
   my $scrd = shift;
   my $script = shift;
   my $inpd = shift;
-  
-  if (!$GO_BIBLE_CREATOR) {$GO_BIBLE_CREATOR = "$SCRD/scripts/GoBibleCreator.245";} # Default location
-  if (-e "/home/vagrant") {
-    if (-e "/home/vagrant/REPOTEMPLATE_BIN") {$REPOTEMPLATE_BIN = "/home/vagrant/REPOTEMPLATE_BIN";} # Vagrant share
-    else {$REPOTEMPLATE_BIN = "/home/vagrant/src/repotemplate/bin";} # Default location
-    if ($SWORD_BIN || $XMLLINT || $XSLT2 || $CALIBRE) {
-      &Log("WARN: Ignoring some paths in paths.pl while running in Vagrant.\n");
-    }
-    $SWORD_BIN = ''; $XMLLINT = ''; $XSLT2 = ''; $CALIBRE = '';
-  }
-  
+
   my %path;
-  $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto $SCRD/paths.pl\n";
-  $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto $SCRD/paths.pl\n";
-  $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto $SCRD/paths.pl\n";
-  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/bin';\nto $SCRD/paths.pl\n";
+  $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto osis-converters/paths.pl\n";
+  $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto osis-converters/paths.pl\n";
+  $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator as ~/.osis-converters/GoBibleCreator.245, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto osis-converters/paths.pl\n";
+  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo as ~/.osis-converters/src/repotemplate, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
   $path{'XSLT2'}{'msg'} = "Install the required program.\n";
   $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
   
   foreach my $p (keys %path) {
+    if (-e "/home/vagrant" && $$p) {
+      if ($p eq 'REPOTEMPLATE_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
+      else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
+      $$p = '';
+    }
+    my $home = `echo \$HOME`; chomp($home);
+    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$home/.osis-converters/GoBibleCreator.245";} # Default location
+    if ($p eq 'REPOTEMPLATE_BIN' && !$$p) {$$p = "$home/.osis-converters/src/repotemplate/bin";} # Default location
     if ($$p) {
       if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
-      $$p =~ /[\\\/]\s*$/;
+      $$p =~ s/[\\\/]+\s*$//;
       $$p .= "/";
     }
   }
@@ -220,7 +219,13 @@ sub checkDependencies($$$) {
   }
   if ($failMes) {
     if (!-e "/home/vagrant") {
-      print "\nDo you want to use Vagrant and Virtualbox\nto automatically meet all dependencies? (Y/N):"; 
+      print "\n";
+      if ("$^O" =~ /linux/i) {
+        print "You are running in Linux and can meet all osis-converter dependencies either \n";
+        print "by using Vagrant and Virtualbox or else by running or following the\n";
+        print "VagrantProvision.sh script as root.\n";
+      }
+      print "Do you want to use Vagrant and Virtualbox\nto automatically meet all dependencies? (Y/N):"; 
       $in = <>; 
       if ($in =~ /^\s*y\s*$/i) {
         if (!&vagrantInstalled()) {exit;}
@@ -1883,7 +1888,12 @@ sub Log($$) {
   
   # encode these local file paths
   my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'REPOTEMPLATE_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
-  foreach my $path (@paths) {if ($$path) {$p =~ s/\Q$$path\E(\/?)/\$$path$1/g;}}
+  foreach my $path (@paths) {
+    if (!$$path || $$path =~ /^(\/home)?\/vagrant/) {next;}
+    my $rp = $$path;
+    $rp =~ s/[\/\\]+$//;
+    $p =~ s/\Q$rp\E/\$$path/g;
+  }
   
   if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
 

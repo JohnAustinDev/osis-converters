@@ -5,6 +5,13 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # Work around a problem where ssh.forward_agent fails for root
+  config.vm.provision :shell do |shell|
+    shell.inline = "touch $1 && chmod 0440 $1 && echo $2 > $1"
+    shell.args = %q{/etc/sudoers.d/root_ssh_agent "Defaults    env_keep += \"SSH_AUTH_SOCK\""}
+  end
+  
   # All Vagrant configuration is done here. The most common configuration
   # options are documented and commented below. For a complete reference,
   # please see the online documentation at vagrantup.com.
@@ -13,6 +20,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "precise32"
   config.vm.box_url = "http://files.vagrantup.com/precise32.box"
   config.vm.provision :shell, :path => "VagrantProvision.sh"
+  config.ssh.forward_agent = true
   
   # Default NAT's DNS for Linux VM within MS-Windows VM does not always 
   # work, so the fix:
