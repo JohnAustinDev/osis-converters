@@ -11,6 +11,7 @@ class DocStructure:
         self.bookId = ''
         self.chapter = ''
         self.verse = ''
+        self.chapterRef = None
         self.verseRef = None
         self.groupNumber = 0
         self.inGroup = False
@@ -73,9 +74,15 @@ class DocStructure:
             raise OsisError(error)
         else:
             self.chapter = comp[1]
+            self.chapterRef = chId
             
-    def endChapter(self):
-        self.chapter = ''
+    def endChapter(self, chId):
+        if chId == self.chapterRef:
+            self.chapter = ''
+            self.chapterRef = None
+        else:
+            error = 'Chapter end mismatch - expected %s, found %s' % (self.chapterRef, chId)
+            raise OsisError(error)
               
     def newVerse(self, vId):
         comp = vId.split('.')

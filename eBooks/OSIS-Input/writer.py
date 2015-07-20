@@ -1,3 +1,4 @@
+import codecs
 
 class HtmlWriter:
 
@@ -9,7 +10,7 @@ class HtmlWriter:
         if self._fh is not None:
             self.close()
         filename = name.lower()
-        self._fh = open(filename+'.xhtml', 'w')
+        self._fh = codecs.open(filename+'.xhtml', 'w', 'utf-8')
         self._writeHeader(name)
         self._context.htmlFiles.append(filename)
             

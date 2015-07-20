@@ -29,6 +29,7 @@ class OsisHandler(handler.ContentHandler):
         self._hiLevel = 0
         self._htmlWriter = htmlWriter
         self._inCanonicalTitle = False
+        self._ignoreChEnd = False
         self._ignoreDivEnd = False
         self._ignoreText = False
         self._inFootnote = False
@@ -85,6 +86,7 @@ class OsisHandler(handler.ContentHandler):
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
         self._inCanonicalTitle = False
+        self._ignoreChEnd = False
         self._ignoreDivEnd = False
         self._ignoreText = False
         self._inFootnote = False
@@ -142,11 +144,15 @@ class OsisHandler(handler.ContentHandler):
                 self._inTitle = True
                 
                 
-    def endElement(self, name):  
+    def endElement(self, name):      
         if name == 'chapter':
-            self._docStructure.endChapter()
-            self._writeBreak(True)
-        
+            if self._ignoreChEnd:
+                self._ignoreChEnd = False
+            else:
+                self._docStructure.endChapter(self._docStructure.chapterRef)
+                self._writeBreak(True)
+
+    
         elif name == 'div':
             if self._ignoreDivEnd:
                 self._ignoreDivEnd = False
@@ -360,59 +366,77 @@ class OsisHandler(handler.ContentHandler):
     
     def _processBodyTag(self, name, attrs):
         if name == 'chapter':
-            # If this is the first chapter of the book, write book title and any intro
-            if self._inIntro:
-                if len(self._introText) > 0:
-                    # Remove unwanted breaks at start of intro before writing
-                    while self._introText.startswith('<br />'):
-                        self._introText = self._introText[6:]
-                    if self._bibleStarting and self._context.config.bibleIntro and not self._bibleIntroWritten:
-                        self._htmlWriter.open('bible')
-                        self._bibleHtmlOpen = True
-                        self._writeIntroText()
-                        self._bibleIntroWritten = True
-                        self._introText = ''
-                    elif self._firstBook and self._context.config.testamentIntro and not self._groupIntroWritten:
-                        self._openGroupHtml()
-                        self._writeIntroText()
-                        self._introText = ''
-                        self._groupIntroWritten = True
-                        
-                # Ensure testament title is written
-                if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
-                    self._openGroupHtml()
-                    
-                self._openBookHtml()
-                self._htmlWriter.write('<h2>%s</h2>' % self._bookTitle)
-                if len(self._introText) > 0:
-                    self._introText += '<br />\n'
-                    self._writeIntroText()
-                    self._introText = ''
-                self._inIntro = False
-                self._introStyleStarted = False
-            chId = self._getAttributeValue(attrs,'osisID')
-            self._docStructure.newChapter(chId)
+            osisId = self._getAttributeValue(attrs,'osisID')
+            if osisId is not None:
+                # Start of a chapter
+                # If this is the first chapter of the book, write book title and any intro
+                if self._inIntro:
+                    if len(self._introText) > 0:
+                        # Remove unwanted breaks at start of intro before writing
+                        while self._introText.startswith('<br />'):
+                            self._introText = self._introText[6:]
+                        if self._bibleStarting and self._context.config.bibleIntro and not self._bibleIntroWritten:
+                            self._htmlWriter.open('bible')
+                            self._bibleHtmlOpen = True
+                            self._writeIntroText()
+                            self._bibleIntroWritten = True
+                            self._introText = ''
+                        elif self._firstBook and self._context.config.testamentIntro and not self._groupIntroWritten:
+                            self._openGroupHtml()
+                            self._writeIntroText()
+                            self._introText = ''
+                            self._groupIntroWritten = True
                             
-            # If a chapter/psalm heading format is defined, then write the heading
-            self._chapterTitle = ''
-            self._chTitleWritten = False
-            self._chHeadingWritten = False
-            self._startingChapter = True
-            titleFormat = ''
-            bookId = self._docStructure.bookId
-            if bookId == 'Ps':
-                titleFormat = self._context.config.psalmTitle
-            elif not self._singleChapterBook:
-                titleFormat = self._context.config.chapterTitle
-            if titleFormat != '':
-                title = titleFormat % self._docStructure.chapter
-                self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
-                self._chHeadingWritten = True              
- 
-            self._bibleStarting = False
-            self._firstBook = False
+                    # Ensure testament title is written
+                    if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
+                        self._openGroupHtml()
+                        
+                    self._openBookHtml()
+                    self._htmlWriter.write('<h2>%s</h2>' % self._bookTitle)
+                    if len(self._introText) > 0:
+                        self._introText += '<br />\n'
+                        self._writeIntroText()
+                        self._introText = ''
+                    self._inIntro = False
+                    self._introStyleStarted = False
+                
+                chId = self._getAttributeValue(attrs,'sID')
+                if chId is not None:
+                    self._ignoreChEnd = True        # This is a milestone tag
+                else:
+                    self._ignoreChEnd = False       # This is an enclosing tag
+                    chId = osisId
+                self._docStructure.newChapter(chId)
+                                
+                # If a chapter/psalm heading format is defined, then write the heading
+                self._chapterTitle = ''
+                self._chTitleWritten = False
+                self._chHeadingWritten = False
+                self._startingChapter = True
+                titleFormat = ''
+                bookId = self._docStructure.bookId
+                if bookId == 'Ps':
+                    titleFormat = self._context.config.psalmTitle
+                elif not self._singleChapterBook:
+                    titleFormat = self._context.config.chapterTitle
+                if titleFormat != '':
+                    title = titleFormat % self._docStructure.chapter
+                    self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
+                    self._chHeadingWritten = True              
+     
+                self._bibleStarting = False
+                self._firstBook = False
+                
+                # Do not write chapter number yet, in case there is a heading to write
             
-            # Do not write chapter number yet, in case there is a heading to write
+            else:
+                chId = self._getAttributeValue(attrs,'eID')
+                if chId is not None:
+                    self._docStructure.endChapter(chId)
+                    self._writeBreak(True)
+                else:
+                    print 'Chapter tag does not have expected attributes - ignoring'
+        
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
@@ -446,7 +470,8 @@ class OsisHandler(handler.ContentHandler):
             elif divType == 'section':
                 secRef = self._getAttributeValue(attrs, 'sID')
                 self._docStructure.startSection(secRef)
-                self._ignoreDivEnd = True
+                if secRef is not None:
+                    self._ignoreDivEnd = True           # Milestone tag
                 
             else:
                 secRef = self._getAttributeValue(attrs, 'eID')

@@ -13,7 +13,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS files to ebooks'
-    version = (1, 0, 0)
+    version = (1, 1, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['windows', 'linux']
@@ -74,7 +74,7 @@ class OsisInput(InputFormatPlugin):
             print 'Unexpected tag: <%s>' % tag
         
         # Create the OPF file
-        oh = open('content.opf', 'w')
+        oh = codecs.open('content.opf', 'w', 'utf-8')
         oh.write('''<?xml version='1.0' encoding='utf-8'?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">
   <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">\n''')
