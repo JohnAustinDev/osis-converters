@@ -327,49 +327,45 @@ sub checkAndWriteDefaults($$) {
     $confdataP = &readConf("$dir/config.conf"); # need a re-read after above modifications
   
     # GoBible
-    if ($script =~ /^(osis2GoBible|sfm2all)$/i) {
-      if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
-        if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
-        print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
-        print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
-        my %canon;
-        my %bookOrder;
-        my %testament;
-        if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
-          my $col = ''; my $colot = ''; my $colnt = '';
-          foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
-            foreach my $f (keys %{$USFM{'bible'}}) {
-              if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
-              my $b = "Book: $v11nbk\n";
-              $col .= $b;
-              if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
-              else {$colnt .= $b;}
-            }
-          }
-          my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
-          if ($col) {print COLL "$colhead\n$col\n";}
-          if ($colot && $colnt) {
-            print COLL $colhead."ot\n$colot\n";
-            print COLL $colhead."nt\n$colnt\n";
+    if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
+      if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
+      print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
+      print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
+      my %canon;
+      my %bookOrder;
+      my %testament;
+      if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+        my $col = ''; my $colot = ''; my $colnt = '';
+        foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+          foreach my $f (keys %{$USFM{'bible'}}) {
+            if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
+            my $b = "Book: $v11nbk\n";
+            $col .= $b;
+            if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
+            else {$colnt .= $b;}
           }
         }
-        else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
-        close(COLL);
+        my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
+        if ($col) {print COLL "$colhead\n$col\n";}
+        if ($colot && $colnt) {
+          print COLL $colhead."ot\n$colot\n";
+          print COLL $colhead."nt\n$colnt\n";
+        }
       }
+      else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
+      close(COLL);
     }
     
     # eBooks
-    if ($script =~ /^(osis2ebooks|sfm2all)$/i) {
-      if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
-        if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
-        print CONV "Language=".$confdataP->{'Lang'}."\n";
-        print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
-        print CONV "Title=".$confdataP->{'Description'}."\n";
-        foreach my $f (keys %{$USFM{'bible'}}) {
-          print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
-        }
-        close(CONV);
+    if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
+      if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
+      print CONV "Language=".$confdataP->{'Lang'}."\n";
+      print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
+      print CONV "Title=".$confdataP->{'Description'}."\n";
+      foreach my $f (keys %{$USFM{'bible'}}) {
+        print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
       }
+      close(CONV);
     }
   }
   
