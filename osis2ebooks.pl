@@ -57,7 +57,7 @@ sub makeEbook($$$) {
       $name = $ConfEntry{"Scope"} . ".$format";
       $name =~ s/\s/_/g;
     }
-    copy($out, "$OUTDIR/eBooks/$name");
+    copy($out, "$EBOUT/$name");
     &Log("REPORT: Created output file: $name\n");
   }
   else {&Log("ERROR: No output file: $out\n");}

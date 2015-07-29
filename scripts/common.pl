@@ -142,7 +142,7 @@ sub initOutputFiles($$$) {
     $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
   if ($SCRIPT =~ /^osis2ebooks$/i) {
-    $EBOUT = "$outdir/eBooks"; push(@outs, $EBOUT);
+    $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
   }
   if ($SCRIPT =~ /^sfm2imp$/i) {
     $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
