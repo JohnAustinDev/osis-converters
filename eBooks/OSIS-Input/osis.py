@@ -21,6 +21,7 @@ class OsisHandler(handler.ContentHandler):
         self._firstBook = True                           # First book of testament
         self._firstTitle = False
         self._firstVerse = False
+        self._footnoteRefWritten = False
         self._groupIntroWritten = False
         self._groupHtmlOpen = False
         self._groupTitle = ''
@@ -35,6 +36,7 @@ class OsisHandler(handler.ContentHandler):
         self._ignoreTitle = False
         self._ignoreText = False
         self._inFootnote = False
+        self._inFootnoteRef = False
         self._inGeneratedPara = False
         self._inHeader = False
         self._inIntro = False
@@ -95,6 +97,7 @@ class OsisHandler(handler.ContentHandler):
         self._ignoreText = False
         self._ignoreTitle = False
         self._inFootnote = False
+        self._inFootnoteRef = False
         self._inGeneratedPara = False
         self._inHeader = False
         self._inIntro = False
@@ -158,7 +161,9 @@ class OsisHandler(handler.ContentHandler):
                 self._docStructure.endChapter(self._docStructure.chapterRef)
                 self._writeBreak(True)
 
-    
+        elif name == 'catchWord':
+            self._writeHtml('</i>')
+            
         elif name == 'div':
             if self._ignoreDivEnd:
                 self._ignoreDivEnd = False
@@ -210,6 +215,9 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('</p>\n')
                 self._breakCount = 1
                 self._inParagraph = False
+                
+        elif name == 'reference':
+            self._inFootnoteRef = False
 
         elif name == 'title':
             if self._inTitle:
@@ -268,6 +276,9 @@ class OsisHandler(handler.ContentHandler):
                     
         elif self._inChapterTitle:
             self._chapterTitle += text
+            
+        elif self._inFootnoteRef:
+            self._footnotes.changeVerseId(text)
                     
         else :
             if self._headerProcessed:
@@ -392,7 +403,9 @@ class OsisHandler(handler.ContentHandler):
                     self._writeBreak(True)
                 else:
                     print 'Chapter tag does not have expected attributes - ignoring'
-        
+                    
+        elif name == 'catchWord':
+            self._writeHtml('<i>')
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
@@ -519,20 +532,15 @@ class OsisHandler(handler.ContentHandler):
 
         elif name == 'note':
             noteType = self._getAttributeValue(attrs, 'type')
-            if noteType == 'study':
+            notePlace= self._getAttributeValue(attrs, 'placement')
+            if noteType == 'study' or notePlace == 'foot':
                 # This type of note is a footnote
                 osisRef = self._getAttributeValue(attrs, 'osisID')
-                refParts = re.split('[.!]', osisRef)
-                refBook = refParts[0]
-                refVerse = '%s:%s' % (refParts[1], refParts[2])
-                backRef = '%s-%s-%s-%s' % (refParts[0], refParts[1], refParts[2], refParts[3])
-                noteRef = self._footnotes.newFootnote(refBook, refVerse, backRef)
-                if self._context.config.epub3:
-                    refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
+                if osisRef is not None:
+                    self._inFootnote = self._footnoteRef(osisRef)
                 else:
-                    refString = '<sup><a href="#%s%d" id="%s">[%d]</a></sup>' % (refBook, noteRef, backRef, noteRef)
-                self._writeHtml(refString)
-                self._inFootnote = True
+                    self._footnoteRefWritten = False
+                    self._inFootnote = True
             else:
                 # Ignore other types of note (generally cross-references)
                 self._ignoreText = True
@@ -557,8 +565,13 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml(paraTag)
 
         elif name == 'reference':
-            # reference tags are expected but ignored
-            pass
+            # reference tags are expected but ignored unless in footnote
+            if self._inFootnote and not self._footnoteRefWritten:
+                osisRef = self._getAttributeValue(attrs, 'osisRef')
+                if self._footnoteRef(osisRef):
+                    self._inFootnoteRef = True
+                else:
+                    self._inFootnote = False
         
         elif name == 'title':
             canonical = self._getAttributeValue(attrs,'canonical')
@@ -635,12 +648,11 @@ class OsisHandler(handler.ContentHandler):
                         if self._canonicalTitleWritten:
                             self._htmlWriter.write('<br />')
                             self._canonicalTitleWritten = False
-                    self._htmlWriter.write(self._verseText + '\n')
+                        self._htmlWriter.write(self._verseText + '\n')
+                        self._firstVerse = False
+                        self._chHeadingWritten = False
                     self._inVerse = False
-                    self._firstVerse = False
                     self._verseText =''
-                    self._chHeadingWritten = False
-                
         else:
             self._context.unexpectedTag(name)
                 
@@ -663,7 +675,8 @@ class OsisHandler(handler.ContentHandler):
     def _writeHtml(self, html):
         self._suppressBreaks = False
         if self._inFootnote:
-            self._footnotes.addFootnoteText(html)
+            if self._footnoteRefWritten:
+                self._footnotes.addFootnoteText(html)
         elif self._inTitle:
             self._titleText += html
         elif self._inIntro:
@@ -866,7 +879,45 @@ class OsisHandler(handler.ContentHandler):
                 self._psDivTitleFound = False
                 self._writeTitle()   
                 self._firstTitle = False
-
+                
+    def _footnoteRef(self, osisRef):
+        isRange = False
+        endRef = ''
+        scriptureFootnote = True
+        colonPos = osisRef.find(':')
+        if colonPos >= 0:
+            workRef = osisRef[:colonPos-1]
+            if workRef == self._osisIDWork:
+                reference = osisRef[colonPos+1:]
+            else:
+                # Footnote is not linked to scripture
+                scriptureFootnote = False
+        else:
+            reference = osisRef
+        if (scriptureFootnote):
+            separatorPos = reference.find('-')
+            if separatorPos >= 0:
+                isRange = True
+                endRef = reference[separatorPos+1:]
+                reference = reference[:separatorPos-1]
+            refParts = re.split('[.!]', reference)
+            refBook = refParts[0]
+            refVerse = '%s:%s' % (refParts[1], refParts[2])
+            if isRange:
+                refVerse += '-'
+                endParts = re.split('.', endRef)
+                if endParts[1] != refParts[1]:
+                    refVerse += '%s:' % endParts[1]
+                refVerse += endParts[2]
+            noteRef = self._footnotes.newFootnote(refBook, refVerse)
+            if self._context.config.epub3:
+                refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
+            else:
+                refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)
+            self._writeHtml(refString)
+            self._footnoteRefWritten = True
+            
+        return scriptureFootnote
 
 
 

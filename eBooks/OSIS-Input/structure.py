@@ -51,7 +51,8 @@ class DocStructure:
         return True
     
     def otherDiv(self):
-        self.divStack.append(self.OTHER)            
+        self.divStack.append(self.OTHER)
+        self.refStack.append('')
         return False
     
     def endDiv(self, ref):
@@ -85,12 +86,22 @@ class DocStructure:
             raise OsisError(error)
               
     def newVerse(self, vId):
-        comp = vId.split('.')
+        refs = vId.split()
+        comp = refs[0].split('.')
         if comp[0] != self.bookId or comp[1] != self.chapter:
-            error = 'Invalid verse %s in %s chapter %s' % (vId, self.bookId, self.chapter)
+            error = 'Invalid verse %s in %s chapter %s' % (refs, self.bookId, self.chapter)
             raise OsisError(error)
         else:
             self.verse = comp[2]
+            numVerses = len(refs)
+            if numVerses > 1:
+                last = refs[numVerses-1].split('.')
+                if last[0] != comp[0] or last[1] != comp[1]:
+                    error = 'Invalid range of verses: %s to %s' % (refs, last)
+                    raise OsisError(error)
+                else:
+                    self.verse += '-' + last[2]
+    
             self.verseRef = vId
             
     def endVerse(self, vId):
