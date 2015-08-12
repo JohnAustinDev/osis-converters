@@ -38,6 +38,8 @@ class ConversionConfig:
         self.bookSubtitles = False
         self.psalmDivTitle = ''
         self.psalmDivSubtitle = ''
+        self.optionalBreaks = False
+        self.introInContents = True
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -47,7 +49,7 @@ class ConversionConfig:
         #
         # Look for book names
         for book in self.books:
-            regex = r"^\s*" + book + r"\s*=\s*(.+)"
+            regex = r"^\s*" + book + r"\s*=(.+)"
             m = re.search(regex, config, re.MULTILINE)
             if m:
                 bookName = m.group(1).strip()
@@ -55,64 +57,78 @@ class ConversionConfig:
         #
         # Look for book groups
         for bookGroup in range(1,3):
-            regex = r"^\s*group" + str(bookGroup) + r"\s*=\s*(.+)"
+            regex = r"^\s*group" + str(bookGroup) + r"\s*=(.+)"
             m = re.search(regex, config, re.MULTILINE|re.IGNORECASE)
             if m:
                 self.groups[bookGroup] = m.group(1).strip()
         #
         # Look for Psalm and chapter heading patterns
-        m = re.search(r"^\s*PsalmTitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*PsalmTitle=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.psalmTitle = m.group(1).strip()
-        m = re.search(r"^\s*ChapterTitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*ChapterTitle=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.chapterTitle = m.group(1).strip()
         #
         # Look for metadata
-        m = re.search(r"^\s*language=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*language=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.language = m.group(1).strip()
-        m = re.search(r"^\s*publisher=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*publisher=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.publisher = m.group(1).strip()
-        m = re.search(r"^\s*title=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*title=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             self.title = m.group(1).strip()
         #
         # Look for epub3 setting
-        m = re.search(r"^\s*epub3=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*epub3=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.epub3 = True
         #
         # Look for intro settings
-        m = re.search(r"^\s*TestamentIntro=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*TestamentIntro=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.testamentIntro = True
-        m = re.search(r"^\s*BibleIntro=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*BibleIntro=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.bibleIntro = True
+        m = re.search(r"^\s*IntroInContents=(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'false' or torf == 'f' or torf == 'no' or torf == 'n':
+                self.introInContents = False  
                 
         #
         # Look for settings related to title
-        m = re.search(r"^\s*BookSubtitles=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        m = re.search(r"^\s*BookSubtitles=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.bookSubtitles = True
          
-        m = re.search(r"^\s*PsalmDivTitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        m = re.search(r"^\s*PsalmDivTitle=(.+)", config, re.MULTILINE|re.IGNORECASE)     
         if m:
             self.psalmDivTitle = m.group(1).strip() + '$'
             
-        m = re.search(r"^\s*PsalmDivSubtitle=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        m = re.search(r"^\s*PsalmDivSubtitle=(.+)$", config, re.MULTILINE|re.IGNORECASE)     
         if m:
             self.psalmDivSubtitle = m.group(1).strip() + '$'
+            
+        #
+        # Other settings
+        m = re.search(r"^\s*OptionalBreaks=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)     
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+
+                self.optionalBreaks = True        
         
     def bookTitle(self, bookRef):
         if bookRef in self.books:
