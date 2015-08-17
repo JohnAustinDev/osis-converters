@@ -45,25 +45,12 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   rm GoBibleCreator.245.zip
 fi
 
-# Repotemplate
-if [ ! -e $VHOME/.osis-converters/src/repotemplate ]; then
+# Module-tools
+if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
   cd $VHOME/.osis-converters/src
-  if [ ! -e ~/.ssh ]; then mkdir ~/.ssh; fi
-  ssh-keyscan crosswire.org >> ~/.ssh/known_hosts
-  # currently even repotemplate read requires ssh credentials, so this 
-  # may not work unless the host machine's ssh agent is configured to
-  # access repotemplate. If this fails, you can obtain repotemplate/bin
-  # somehow and place it in a directory in the host, then add to paths.pl:
-  # $REPOTEMPLATE_BIN = "host-path/to/repotemplate/bin";
-  if [ -e /vagrant ]; then
-    # this sudo is needed for the Vagrantfile ssh.forward_agent work-around to work
-    sudo git clone -b ja_devel gitosis@crosswire.org:repotemplate
-  else
-    git clone -b ja_devel gitosis@crosswire.org:repotemplate
-  fi
+  git clone https://github.com/JohnAustinDev/Module-tools.git
 else
-  cd $VHOME/.osis-converters/src/repotemplate
-  git checkout ja_devel
+  cd $VHOME/.osis-converters/src/Module-tools
   git pull
 fi
 

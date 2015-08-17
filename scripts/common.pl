@@ -176,19 +176,19 @@ sub checkDependencies($$$) {
   $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto osis-converters/paths.pl\n";
   $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto osis-converters/paths.pl\n";
   $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator as ~/.osis-converters/GoBibleCreator.245, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto osis-converters/paths.pl\n";
-  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo as ~/.osis-converters/src/repotemplate, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
+  $path{'MODULETOOLS_BIN'}{'msg'} = "Install CrossWire\'s Module-tools git repo as ~/.osis-converters/src/Module-tools, or specify the path to it by adding:\n\$MODULETOOLS_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
   $path{'XSLT2'}{'msg'} = "Install the required program.\n";
   $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
   
   foreach my $p (keys %path) {
     if (-e "/home/vagrant" && $$p) {
-      if ($p eq 'REPOTEMPLATE_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
+      if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
       else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
       $$p = '';
     }
     my $home = `echo \$HOME`; chomp($home);
     if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$home/.osis-converters/GoBibleCreator.245";} # Default location
-    if ($p eq 'REPOTEMPLATE_BIN' && !$$p) {$$p = "$home/.osis-converters/src/repotemplate/bin";} # Default location
+    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$home/.osis-converters/src/Module-tools/bin";} # Default location
     if ($$p) {
       if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
       $$p =~ s/[\\\/]+\s*$//;
@@ -198,7 +198,7 @@ sub checkDependencies($$$) {
   
   $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
   $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
-  $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
+  $path{'MODULETOOLS_BIN'}{'test'} = [&escfile($MODULETOOLS_BIN."usfm2osis.py"), "Usage"];
   $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
   $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
   $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
@@ -1883,7 +1883,7 @@ sub Log($$) {
   if ($flag == 2) {return;}
   
   # encode these local file paths
-  my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'REPOTEMPLATE_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
+  my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
   foreach my $path (@paths) {
     if (!$$path || $$path =~ /^(\/home)?\/vagrant/) {next;}
     my $rp = $$path;

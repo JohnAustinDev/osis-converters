@@ -86,7 +86,8 @@ sub usfm2osis($$) {
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
-  my $cmd = &escfile($REPOTEMPLATE_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
   

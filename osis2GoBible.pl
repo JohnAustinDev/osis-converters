@@ -42,7 +42,7 @@ $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-&osisXSLT($OSISFILE, $REPOTEMPLATE_BIN."osis2gobible.xsl", "$TMPDIR/osis.xml");
+&osisXSLT($OSISFILE, $MODULETOOLS_BIN."osis2gobible.xsl", "$TMPDIR/osis.xml");
 $OSISFILE = "$TMPDIR/$out.xml";
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
