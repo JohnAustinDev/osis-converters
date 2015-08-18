@@ -46,6 +46,8 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
 fi
 
 # Module-tools
+# python3 is for u2o.py testing
+sudo apt-get install -y python3
 if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
   cd $VHOME/.osis-converters/src
   git clone https://github.com/JohnAustinDev/Module-tools.git

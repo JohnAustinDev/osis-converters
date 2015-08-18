@@ -91,6 +91,14 @@ sub usfm2osis($$) {
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
   
+  # test/evaluation for u2o.py script
+  my $osis2 = $osis; $osis2 =~ s/[\\\/]([^\\\/]+)(\.[^\.\\\/]+)$/$1_u2o_evaluation$2/; $osis2 = "$OUTDIR/$osis2";
+  $cmd = &escfile($MODULETOOLS_BIN."u2o.py") . " -x -e UTF8 -v".$lang." -o " . &escfile("$osis2") . ($DEBUG ? " -d":'') . " " .$MOD . " $USFMfiles";
+  &Log("The following is a test of u2o.py...\n", 1);
+  &Log($cmd . "\n", 1);
+  &Log(`$cmd` . "\n", 1);
+  &Log("Failure of u2o.py above does not effect other osis-converters conversions.\n", 1);
+  
   return $osis;
 }
 
