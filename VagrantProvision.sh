@@ -45,9 +45,24 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   rm GoBibleCreator.245.zip
 fi
 
-# Module-tools
 # python3 is for u2o.py testing
-sudo apt-get install -y python3
+#sudo apt-get install -y python3
+#sudo pip3 install lxml
+# u2o.py does not work with Python 3.0 - 3.2.x and the stock VM [Ubuntu Precise] uses 3.2.3. So build 3.4.3 from source...
+cd $VHOME/.osis-converters/src
+wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
+tar -xzf Python-3.4.3.tgz
+rm Python-3.4.3.tgz
+cd Python-3.4.3
+sudo apt-get install libbz2-dev
+./configure --prefix=/usr
+make
+sudo make install
+# apparently, the following install must be after python 3.4.3 is built and installed
+sudo apt-get install libxml2-dev libxslt-dev python-dev
+sudo pip3 install lxml
+
+# Module-tools
 if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
   cd $VHOME/.osis-converters/src
   git clone https://github.com/JohnAustinDev/Module-tools.git
