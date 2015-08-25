@@ -46,7 +46,16 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   rm GoBibleCreator.245.zip
 fi
 
-# python3 is for u2o.py testing
+# u2o is for u2o.py testing
+if [ ! -e $VHOME/.osis-converters/src/u2o ]; then
+  cd $VHOME/.osis-converters/src
+  git clone https://github.com/adyeths/u2o.git
+else
+  cd $VHOME/.osis-converters/src/u2o
+  git pull
+fi 
+
+# python3 is only for u2o.py testing
 if [ ! `which python3` ]; then
   #sudo apt-get install -y python3
   #sudo pip3 install lxml

@@ -95,9 +95,10 @@ sub usfm2osis($$) {
   }
   
   # test/evaluation for u2o.py script
+  my $home = `echo \$HOME`; chomp($home);
   my $osis2 = "$OUTDIR/u2o_evaluation.xml";
   if ($use_u2o) {$osis2 = $osis;}
-  $cmd = &escfile($MODULETOOLS_BIN."u2o.py") . " -e UTF8 -v".$lang." -o " . &escfile($osis2) . ($DEBUG ? " -d":'') . " " .$MOD . " $USFMfiles 2>&1";
+  $cmd = &escfile("$home/.osis-converters/src/u2o/u2o.py") . " -e UTF8 -v".$lang." -o " . &escfile($osis2) . ($DEBUG ? " -d":'') . " " .$MOD . " $USFMfiles 2>&1";
   &Log("The following is a test of u2o.py...\n", 1);
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
