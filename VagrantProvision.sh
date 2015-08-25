@@ -18,6 +18,7 @@ sudo apt-get install -y subversion
 sudo apt-get install -y git
 sudo apt-get install -y zip
 sudo apt-get install -y swig
+sudo apt-get install -y zlib1g-dev
 
 sudo apt-get install -y default-jre
 sudo apt-get install -y libsaxonb-java
@@ -32,7 +33,7 @@ sudo cpanm HTML::Entities
 # Calibre
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
-  sudo apt-get install xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
+  sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   wget -nv -O- https://raw.githubusercontent.com/kovidgoyal/calibre/master/setup/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
   su - vagrant -c 'calibre-customize -b /vagrant/eBooks/OSIS-Input'
 fi
@@ -46,21 +47,21 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
 fi
 
 # python3 is for u2o.py testing
-#sudo apt-get install -y python3
-#sudo pip3 install lxml
-# u2o.py does not work with Python 3.0 - 3.2.x and the stock VM [Ubuntu Precise] uses 3.2.3. So build 3.4.3 from source...
-cd $VHOME/.osis-converters/src
-wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
-tar -xzf Python-3.4.3.tgz
-rm Python-3.4.3.tgz
-cd Python-3.4.3
-sudo apt-get install libbz2-dev
-./configure --prefix=/usr
-make
-sudo make install
-# apparently, the following install must be after python 3.4.3 is built and installed
-sudo apt-get install libxml2-dev libxslt-dev python-dev
-sudo pip3 install lxml
+if [ ! `which python3` ]; then
+  #sudo apt-get install -y python3
+  #sudo pip3 install lxml
+  # u2o.py does not work with Python 3.0 - 3.2.x and the stock VM [Ubuntu Precise] uses 3.2.3. So build 3.4.3 from source...
+  cd $VHOME/.osis-converters/src
+  wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
+  tar -xzf Python-3.4.3.tgz
+  rm Python-3.4.3.tgz
+  cd Python-3.4.3
+  sudo apt-get install -y libbz2-dev libxml2-dev libxslt-dev python-dev
+  ./configure --prefix=/usr
+  make
+  sudo make install
+  sudo pip3 install lxml
+fi
 
 # Module-tools
 if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
@@ -81,6 +82,7 @@ if [ ! `which osis2mod` ]; then
     rm download
     cd clucene-core-0.9.21b
     ./configure --disable-multithreading
+    make
     sudo make install
     sudo ldconfig
   fi
@@ -95,7 +97,8 @@ if [ ! `which osis2mod` ]; then
     sed -i -r -e "s|stepdump step2vpl gbfidx modwrite addvs emptyvss|stepdump step2vpl gbfidx modwrite addvs|" ./utilities/Makefile.am
     sed -i -r -e "s|^bin_PROGRAMS = |bin_PROGRAMS = emptyvss |" ./utilities/Makefile.am
     ./autogen.sh
-    ./configure
+    ./configure --without-bzip2 --without-xz
+    make
     sudo make install
     
     # Perl bindings
