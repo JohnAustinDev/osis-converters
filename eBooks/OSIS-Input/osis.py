@@ -48,6 +48,7 @@ class OsisHandler(handler.ContentHandler):
         self._introTitleWritten = False
         self._inVerse = False 
         self._inWork = False
+        self._lineGroupPara = False
         self._lineSpan = False
         self._osisFound = False
         self._osisIDWork= None
@@ -109,6 +110,7 @@ class OsisHandler(handler.ContentHandler):
         self._introTitleWritten = False
         self._inVerse = False 
         self._inWork = False
+        self._lineGroupPara = False
         self._osisFound = False
         self._osisTextFound = False
         self._psDivTitle = False
@@ -198,8 +200,9 @@ class OsisHandler(handler.ContentHandler):
                 self._breakCount = 1
             
         elif name == 'lg':
-            self._writeBreak(True)
-            self._inParagraph = False
+            if self._lineGroupPara:
+                self._endGeneratedPara()
+                self._lineGroupPara = False
             
         elif name == 'list':
             self._writeHtml('</ul>\n')
@@ -254,6 +257,7 @@ class OsisHandler(handler.ContentHandler):
                     self._verseEmpty = True
                     if self._chTitleWritten or self._docStructure.verse != '1':
                         self._verseText = '<sup>' + self._docStructure.verse + '</sup>'
+                        self._verseNumWritten = True
                         
             elif self._inChapterTitle:
                 self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, self._chapterTitle)
@@ -289,16 +293,15 @@ class OsisHandler(handler.ContentHandler):
                         self._writeHtml(content)
                 else:
                     if self._inVerse and self._firstVerse and self._verseEmpty and not self._verseNumWritten:
-                        verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
-                        if self._chHeadingWritten:
+                        if not self._chTitleWritten and not self._singleChapterBook:
+                            if self._chapterTitle != '':
+                                self._writeChapterTitle()
+                            elif not self._chNumWritten:
+                                self._writeChapterNumber()          
+                        if not self._chNumWritten or self._docStructure.verse != '1':
+                            verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
                             self._verseText += verseNumber
                             self._verseNumWritten = True
-                        elif not self._singleChapterBook:
-                            self._writeChapterNumber()
-                            self._chNumWritten = True           
-                            if not self._docStructure.verse != '1':
-                                self._verseText += verseNumber
-                                self._verseNumWritten = True
                         
                     if not self._ignoreText:
                         if len(text) > 0:
@@ -307,7 +310,7 @@ class OsisHandler(handler.ContentHandler):
                                 self._startGeneratedPara()
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
-                                # Write the chapter title if not already written
+                                # Write chapter title if not already written
                                 if self._chapterTitle != '':
                                     self._writeChapterTitle()
                                 # Deal with verse numbers supplied as "[nn]"
@@ -322,8 +325,14 @@ class OsisHandler(handler.ContentHandler):
                                 self._verseEmpty = False
                                 content = re.sub(r'\['+self._docStructure.verse+r'\]\s*', '', content)
                                 content = re.sub(r'\[([0-9-]+)\]\s*', r'<sup>\1</sup>', content)
-                            self._writeHtml(content)
-                                
+                            if self._inFootnote and not self._footnoteRefWritten:
+                                # This is a footnote without a reference
+                                verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
+                                noteRef = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
+                                self._inFootnoteRef = True
+                                self._writeFootnoteRef(self._docStructure.bookId, noteRef)
+                                self._inFootnoteRef = False
+                            self._writeHtml(content)           
 
     def _getAttributeValue(self, attrs, attrName):
         for (name, value) in attrs.items():
@@ -495,6 +504,10 @@ class OsisHandler(handler.ContentHandler):
             lineType = self._getAttributeValue(attrs, 'type')
             lineSubType = self._getAttributeValue(attrs, 'subType')
             lineClass = 'poetic-line'
+            if lineType is None:
+                level = self._getAttributeValue(attrs, 'level')
+                if level is not None:
+                    lineType = 'x-indent-%s' % level
             if lineType is not None:
                 lineClass = '%s %s' % (lineClass, lineType)
                 if lineSubType is not None:
@@ -514,9 +527,11 @@ class OsisHandler(handler.ContentHandler):
                     self._writeHtml('<span class="x-introduction">')
             
         elif name == 'lg':
-            self._endGeneratedPara()
-            self._writeBreak(False)
-            self._inParagraph = True
+            if not self._inParagraph and not self._inGeneratedPara:
+                self._startGeneratedPara()
+                self._lineGroupPara = True
+            else:
+                self._writeBreak(True)
             
         elif name == 'list':
             listType = self._getAttributeValue(attrs, 'subType')
@@ -529,7 +544,6 @@ class OsisHandler(handler.ContentHandler):
                 htmlTag = '<ul class="%s">' % listType
             self._writeHtml(htmlTag)
                 
-
         elif name == 'note':
             noteType = self._getAttributeValue(attrs, 'type')
             notePlace= self._getAttributeValue(attrs, 'placement')
@@ -537,10 +551,12 @@ class OsisHandler(handler.ContentHandler):
                 # This type of note is a footnote
                 osisRef = self._getAttributeValue(attrs, 'osisID')
                 if osisRef is not None:
+                    self._inFootnoteRef = True
                     self._inFootnote = self._footnoteRef(osisRef)
+                    self._inFootnoteRef = False
                 else:
                     self._footnoteRefWritten = False
-                    self._inFootnote = True
+                self._inFootnote = True
             else:
                 # Ignore other types of note (generally cross-references)
                 self._ignoreText = True
@@ -567,11 +583,12 @@ class OsisHandler(handler.ContentHandler):
         elif name == 'reference':
             # reference tags are expected but ignored unless in footnote
             if self._inFootnote and not self._footnoteRefWritten:
+                self._inFootnoteRef = True
                 osisRef = self._getAttributeValue(attrs, 'osisRef')
-                if self._footnoteRef(osisRef):
-                    self._inFootnoteRef = True
-                else:
+                if not self._footnoteRef(osisRef):
+                    self._inFootnoteRef = False
                     self._inFootnote = False
+                    self._ignoreText = True
         
         elif name == 'title':
             canonical = self._getAttributeValue(attrs,'canonical')
@@ -619,13 +636,13 @@ class OsisHandler(handler.ContentHandler):
                     if (self._context.outputFmt != 'fb2'):
                         if (not self._singleChapterBook) and (self._startingChapter or (self._inVerse and self._firstVerse and self._verseEmpty and not self._canonicalTitleWritten)):
                             if not self._chHeadingWritten:
-                                chapter = 'chapter="%s"' % self._docStructure.chapter
+                                chapter = ' chapter="%s"' % self._docStructure.chapter
                     if self._readyForSubtitle and headerLevel == 4:
                          self._titleTag = '<h4 class="book-subtitle">'              
                     elif subType is not None:
-                        self._titleTag = '<h%d class="%s" %s>' % (headerLevel, subType, chapter)
+                        self._titleTag = '<h%d class="%s"%s>' % (headerLevel, subType, chapter)
                     else:
-                        self._titleTag = '<h%d %s>' % (headerLevel, chapter)
+                        self._titleTag = '<h%d%s>' % (headerLevel, chapter)
                     self._inTitle = True
                     self._titleWritten = False
                     self._titleText = ''
@@ -639,7 +656,8 @@ class OsisHandler(handler.ContentHandler):
                 verse = self._getAttributeValue(attrs,'eID')
                 if verse is not None:
                     self._docStructure.endVerse(verse)
-                    self._endGeneratedPara()
+                    if not self._lineGroupPara:
+                        self._endGeneratedPara()
                     if not self._verseEmpty:
                         if self._chHeadingWritten:
                             # remove chapter attribute from chapter number if a chapter heading has been written
@@ -674,9 +692,8 @@ class OsisHandler(handler.ContentHandler):
                 
     def _writeHtml(self, html):
         self._suppressBreaks = False
-        if self._inFootnote:
-            if self._footnoteRefWritten:
-                self._footnotes.addFootnoteText(html)
+        if self._inFootnote and not self._inFootnoteRef:
+            self._footnotes.addFootnoteText(html)
         elif self._inTitle:
             self._titleText += html
         elif self._inIntro:
@@ -721,6 +738,7 @@ class OsisHandler(handler.ContentHandler):
             self._verseText += spanHtml
         else:
             self._writeHtml(spanHtml)
+        self._chNumWritten = True 
             
     def _writeChapterTitle(self):
         self._htmlWriter.write(self._chapterTitle)
@@ -749,10 +767,7 @@ class OsisHandler(handler.ContentHandler):
         
     def _startGeneratedPara(self):
         paraTag = '<p class="x-indent-0">'
-        if self._inVerse and self._verseEmpty:
-            self._verseText = paraTag + self._verseText
-        else:
-            self._writeHtml(paraTag)
+        self._writeHtml(paraTag)
         self._inGeneratedPara = True
         
     def _endGeneratedPara(self):
@@ -800,7 +815,7 @@ class OsisHandler(handler.ContentHandler):
 
     def _processIntroTitle(self):
         rawText = re.sub('<.*>', ' ', self._titleText)
-        if rawText == self._groupTitle:
+        if rawText.lower() == self._groupTitle.lower():
             if self._context.config.bibleIntro and self._docStructure.groupNumber == 1 and self._introTextFound:
                 # If testament title is found in Bible intro, this is division between Bible and testament intro
                 self._closeParagraph()
@@ -814,7 +829,7 @@ class OsisHandler(handler.ContentHandler):
                 self._introTitleWritten = False
                 self._openGroupHtml()
                     
-        elif rawText == self._bookTitle:
+        elif rawText.lower() == self._bookTitle.lower():
             self._bookTitleFound = True
             if self._firstBook and self._introTextFound:
                 # For the first book in a group, anything before this is assumed to be a Bible/testament introduction
@@ -869,7 +884,6 @@ class OsisHandler(handler.ContentHandler):
                     
             if (self._psDivTitle):
                 # This is a psalm division title or subtitle
-                # Apply approriate style and make sure this is not marked as a chapter heading
                 self._writeTitle()
                 
             else:
@@ -886,7 +900,7 @@ class OsisHandler(handler.ContentHandler):
         scriptureFootnote = True
         colonPos = osisRef.find(':')
         if colonPos >= 0:
-            workRef = osisRef[:colonPos-1]
+            workRef = osisRef[:colonPos]
             if workRef == self._osisIDWork:
                 reference = osisRef[colonPos+1:]
             else:
@@ -899,7 +913,7 @@ class OsisHandler(handler.ContentHandler):
             if separatorPos >= 0:
                 isRange = True
                 endRef = reference[separatorPos+1:]
-                reference = reference[:separatorPos-1]
+                reference = reference[:separatorPos]
             refParts = re.split('[.!]', reference)
             refBook = refParts[0]
             refVerse = '%s:%s' % (refParts[1], refParts[2])
@@ -910,14 +924,15 @@ class OsisHandler(handler.ContentHandler):
                     refVerse += '%s:' % endParts[1]
                 refVerse += endParts[2]
             noteRef = self._footnotes.newFootnote(refBook, refVerse)
-            if self._context.config.epub3:
-                refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
-            else:
-                refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)
-            self._writeHtml(refString)
-            self._footnoteRefWritten = True
-            
+            self._writeFootnoteRef(refBook, noteRef)  
         return scriptureFootnote
-
+    
+    def _writeFootnoteRef(self, refBook, noteRef):
+        if self._context.config.epub3:
+            refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
+        else:
+            refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)   
+        self._writeHtml(refString)
+        self._footnoteRefWritten = True
 
 

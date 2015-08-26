@@ -35,6 +35,10 @@ class OsisInput(InputFormatPlugin):
         self.context = ConvertContext(self.config)
         self.context.outputFmt = self.opts.output_fmt
         #
+        # For correct FB2 footnotes, do not use EPUB3
+        if self.context.outputFmt == 'fb2':
+            self.config.epub3 = False
+        #
         # Get CSS file, if any
         cssPath = self.opts.css_file
         if cssPath is not '':
