@@ -173,6 +173,12 @@ class OsisHandler(handler.ContentHandler):
                 divType = self._docStructure.endDiv(None)
                 if divType == self._docStructure.BOOK:
                     self._footnotes.writeFootnotes()
+                    
+        elif name == 'foreign':
+            self._writeHtml('</span>')
+            
+        elif name == 'head':
+            self._writeHtml('</div>')
                 
         elif name == 'header':
             if self._inHeader:
@@ -458,6 +464,17 @@ class OsisHandler(handler.ContentHandler):
                     self._ignoreDivEnd = True
                 else:
                     self._docStructure.otherDiv()
+                    
+        elif name == 'foreign':
+            verseEmpty = self._verseEmpty
+            if self._inVerse:
+                # prevents style being applied to verse number
+                self._verseEmpty = False
+            self._writeHtml('<span class="foreign">')
+            self._verseEmpty = verseEmpty
+            
+        elif name == 'head':
+            self._writeHtml('<div class="heading">')         
                 
         elif name == 'hi':
             if not self._ignoreText:
@@ -489,8 +506,25 @@ class OsisHandler(handler.ContentHandler):
                 self._hiHtmlTag[self._hiLevel] = ''
             self._hiLevel += 1
             
+        elif name == 'index':
+            # <index> tags are ignored
+            pass
+            
         elif name == 'item':
-            self._writeHtml('<li>')
+            itemType = self._getAttributeValue(attrs, 'type')
+            itemSubType = self._getAttributeValue(attrs, 'subType')
+            itemClass = ''
+            if itemType is not None:
+                itemClass = itemType
+                if itemSubType is not None:
+                    itemClass += ' '
+                    itemClass += itemSubType
+            elif itemSubType is not None:
+                itemClass = itemSubType
+            tag = '<li>'
+            if itemClass != '':
+                tag = '<li class="%s">' % itemClass     
+            self._writeHtml(tag)
      
         elif name == 'lb':
             breakType = self._getAttributeValue(attrs, 'type')
@@ -543,10 +577,18 @@ class OsisHandler(handler.ContentHandler):
             else:
                 htmlTag = '<ul class="%s">' % listType
             self._writeHtml(htmlTag)
+            
+        elif name == 'milestone':
+            # <milestone> tags are ignored
+            pass
+        
+        elif name == 'name':
+            # <name> tags are ignored
+            pass
                 
         elif name == 'note':
             noteType = self._getAttributeValue(attrs, 'type')
-            notePlace= self._getAttributeValue(attrs, 'placement')
+            notePlace = self._getAttributeValue(attrs, 'placement')
             if noteType == 'study' or notePlace == 'foot':
                 # This type of note is a footnote
                 osisRef = self._getAttributeValue(attrs, 'osisID')
@@ -589,6 +631,10 @@ class OsisHandler(handler.ContentHandler):
                     self._inFootnoteRef = False
                     self._inFootnote = False
                     self._ignoreText = True
+                    
+        elif name == 'seg':
+            # <seg> tags are ignored
+            pass
         
         elif name == 'title':
             canonical = self._getAttributeValue(attrs,'canonical')

@@ -84,6 +84,14 @@ p {
 	background-color:#ebebeb
 }
 
+.heading {
+  font-weight: bold;
+  text-align: center;
+}
+
+.foreign {
+  font-style: italic;
+}
 
 
 
