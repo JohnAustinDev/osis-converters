@@ -781,9 +781,9 @@ sub getLangSortOrder($) {
 
 sub dataPath2RealPath($) {
   my $datapath = shift;
-  $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
-  $MODPATH =~ s/[\\\/]\s*$//; # remove ending slash
-  $MODPATH =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
+  $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
+  $datapath =~ s/[\\\/]\s*$//; # remove ending slash
+  $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
   return $datapath;
 }
 

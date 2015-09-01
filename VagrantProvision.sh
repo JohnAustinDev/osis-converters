@@ -106,7 +106,7 @@ if [ ! `which osis2mod` ]; then
     sed -i -r -e "s|stepdump step2vpl gbfidx modwrite addvs emptyvss|stepdump step2vpl gbfidx modwrite addvs|" ./utilities/Makefile.am
     sed -i -r -e "s|^bin_PROGRAMS = |bin_PROGRAMS = emptyvss |" ./utilities/Makefile.am
     ./autogen.sh
-    ./configure --without-bzip2 --without-xz
+    ./configure --without-bzip2
     make
     sudo make install
     
