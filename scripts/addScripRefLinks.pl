@@ -37,11 +37,15 @@
 #       are string literals. However, these terms may be preceeded by 
 #       PREFIXES or SUFFIXES (see below) and still match the book.
 #
-#   REFERENCE_TYPE - The value to use for the type attribute of 
-#       <reference> links which are added by this script.
-#   FILTER - A Perl regular expression used to select only particular
-#       parts of text to search for Scripture references. By default, 
+#   SKIP_XPATH - An XPATH expression used to skip particular elements
+#       of text when searching for Scripture references. By default, 
+#       nothing is skipped.
+#   ONLY_XPATH - An XPATH expression used to select only particular
+#       elements of text to search for Scripture references. By default, 
 #       everything is searched.
+#   FILTER - (no longer supported) A Perl regular expression used to 
+#       select only particular parts of text to search for Scripture 
+#       references. By default, everything is searched.
 #   SKIP_INTRODUCTIONS - Boolean if true introductions are skipped.
 #   CHAPTER_TERMS - A Perl regular expression representing words/phrases
 #       which should be understood as meaning "chapter".
@@ -113,14 +117,10 @@ sub addScripRefLinks($$) {
   
   my $none = "nOnE";
 
-  $BK = "unknown";
-  $CH = 0;
-  $VS = 0;
-  $LV = 0;
   $ebookNames = $none;
   $oneChapterBooks = "Obad|Phlm|Jude|2John|3John";
-  $refType = "<none>";
-  $filter = "^.*\$";
+  $skip_xpath = "";
+  $only_xpath = "";
   $chapTerms = $none;
   $currentChapTerms = $none;
   $currentBookTerms = $none;
@@ -166,7 +166,9 @@ sub addScripRefLinks($$) {
 
       if ($_ =~ /^(\#.*|\s*)$/) {next;}
       elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
-      elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($1) {$filter = $2;} next;}
+      elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
+      elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
+      elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($2) {&Log("ERROR: CF_addScripRefLinks.txt: FILTER is no longer supported. Use ONLY_XPATH instead.\n");} next;}
       elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
       elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
       elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
@@ -179,8 +181,7 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SEPARATOR_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$sepTerms = $2;} next;}
       elsif ($_ =~ /^CHAPTER_TO_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chap2VerseTerms = $2;} next;}
       elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
-      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;} 
-      elsif ($_ =~ /^REFERENCE_TYPE:(\s*(.*?)\s*)?$/) {if ($1) {$refType = $2;} next;}   
+      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}   
       elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
       elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
@@ -220,145 +221,115 @@ sub addScripRefLinks($$) {
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
+  
+  $XML_PARSER->set_option(line_numbers, 1);
+  my $xml = $XML_PARSER->parse_file($in_file);
+  
+  # get every text node
+  my @allTextNodes = $XPC->findnodes('//text()', $xml);
 
-  open(INF, "<:encoding(UTF-8)", $in_file);
-  open(OUTF, ">:encoding(UTF-8)", $tmpFile);
-  my $intro = 0;
-  my $psw = 0;
-  $line=0;
-  &logProgress($in_file, -1);
-  while (<INF>) {
-    $line++;
-
-    # Log IMP entry name
-    if ($_ =~ /\$\$\$(.*?)$/) {&logProgress($1);}
+  # apply text node filters and process desired text-nodes
+  my %nodeInfo;
+  foreach my $textNode (@allTextNodes) {
+    if ($textNode =~ /^\s*$/) {next;}
+    if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
+    if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
+    if ($only_xpath && !$XPC->findnodes("ancestor-or-self::$only_xpath", $textNode)) {next;}
+    if ($skip_xpath && $XPC->findnodes("ancestor-or-self::$skip_xpath", $textNode)) {next;}
+  
+    # get text node's context information
+    my $bcontext = &bibleContext($textNode, 1);
+    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0; 
+    if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
+      $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
+    }
+    $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
     
-    # The following is for matching IMP verse keys
-    if ($_ =~ /^\$\$\$(\w+)\s+(\d+)(:(\d+)(\s*-\s*(\d+))?)?/) {
-      $BK = $1;
-      $CH = $2;
-      $VS = ($4 ? $4:0);
-      $intro = ($CH == 0);
-      goto FINISH_LINE;
+    # display progress
+    my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
+    if ($LASTP ne $thisp) {&Log("--> $line: $thisp\n", 2);} $LASTP = $thisp;
+    
+    if ($intro && $skipintros) {next;}
+    
+    if ($skipPsalms eq "true" && $BK eq "Ps") {
+      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");} $psw = 1;
+      next;
     }
     
-    # The following is for matching OSIS XML file tags
-    if ($_ =~ /<div type="book" osisID="([^\"]*)">/) {
-      $BK = $1;
-      $CH = 1;
-      $VS = 0;
-      $intro = 1;
-      &logProgress($BK, $line);
-      goto FINISH_LINE;
-    }
-    elsif ($_ =~ /<chapter [^>]*osisID="([^\."]+)\.([^"]+)"[^>]*>/) {
-      $BK = $1;
-      $CH = $2;
-      $VS = 0;
-      $intro = 0;
-      goto FINISH_LINE;
-    }
-    elsif ($_ =~ /<verse [^>]*(?<!i)sID=\"([^\."]+)\.(\d+)\.(\d+)\"[^>]*>/) {
-      $BK = $1;
-      $CH = $2;
-      $VS = $3;
-    }
-
+    my $skip = 0;
     foreach my $av (@skipVerse) {
       if ($av eq "$BK.$CH.$VS") {
         &Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n"); 
-        goto FINISH_LINE;
+        $skip = 1; last;
       }
     }
-
-    if ($skipPsalms eq "true" && $BK eq "Ps") {
-      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");}
-      $psw = 1;
-      goto FINISH_LINE;
-    }
-
-    if ($intro) {
-      if (!$skipintros) {
-        # addLinks cannot handle \n at line's end
-        my $lf = "";
-        if ($_ =~ s/([\r\n]*)$//) {$lf = $1;}
-        &addLinks(\$_, $BK, $CH);
-        $_ .= $lf;
-      }
-    }
-    else {
-      my @filtered = split(/($filter)/, $_);
-      foreach my $chunk (@filtered) {
-        if ($chunk !~ /($filter)/) {next;}
-        &addLinks(\$chunk, $BK, $CH);
-      }
-      $_ = join("", @filtered);
-    }
+    if ($skip) {next;}
     
-  FINISH_LINE:
-    print OUTF $_;
+    # search for Scripture references in this text node and add newReference tags around them
+    my $text = $textNode->data();
+    my $contextBookOK = ($XPC->findnodes('ancestor-or-self::osis:reference', $textNode) ? 1:0);
+    &addLinks(\$text, $BK, $CH, $contextBookOK);
+    if ($text eq $textNode->data()) {next;}
+    
+    # save changes for later (to avoid messing up line numbers)
+    $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
+    $nodeInfo{$textNode->unique_key}{'text'} = $text;
   }
-  close(INF);
+  
+  # replace the old text nodes with the new
+  foreach my $n (keys %nodeInfo) {
+    $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
+    $nodeInfo{$n}{'node'}->unbindNode();
+  }
+  
+  # complete osisRef attributes by adding the target Bible
+  my $bible = "Bible";
+  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
+  elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
+  my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
+  foreach my $new (@news) {$new->setValue("$bible:".$new->getValue());}
+  
+  # remove (after copying attributes) pre-existing reference tags which contain newReference tags
+  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
+  foreach my $ref (@refs) {
+    my @attribs = $ref->attributes();
+    my @chdrn = $XPC->findnodes('child::node()', $ref);
+    foreach $child (@chdrn) {
+      $ref->parentNode()->insertBefore($child, $ref);
+      if ($child->nodeName ne 'newReference') {next;}
+      foreach $a (@attribs) {
+        if ($a !~ /^\s*(.*?)="(.*)"$/) {&Log("ERROR: Bad attribute $a\n");}
+        my $n = $1; my $v = $2;
+        if ($child->hasAttribute($n) && $v ne $child->getAttribute($n)) {
+          &Log("ERROR: reference $n=\"".$v."\" is overwriting newReference $n=\"".$child->getAttribute($n)."\"\n");
+        }
+        $child->setAttribute($n, $v);
+      }
+    }
+    $ref->unbindNode();
+  }
+    
+  # convert all newReference elements to reference elements
+  my @nrefs = $XPC->findnodes('//newReference', $xml);
+  $newLinks = scalar(@nrefs);
+  foreach my $nref (@nrefs) {
+    $nref->setNodeName("reference");
+    $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
+  }
+  
+  # write to out_file
+  open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
+  print OUTF $xml->toString();
   close(OUTF);
+  
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");
   &Log("\n");
   &Log("#################################################################\n");
   &Log("\n");
   &Log("\n");
-  &Log("LINK RESULTS...\n");
-  &Log("\n");
-
-  &Log("REPORT: Checking osisRef attributes of links:\n");
-  open(INF2, "<:encoding(UTF-8)", $tmpFile);
-  open(OUTF, ">:encoding(UTF-8)", $out_file);
-  $newLinks=0;
-  $line=0;
-  while (<INF2>) {
-    $line++;
-    
-    # <reference> tags may already have been there from usfm2osis.py, so merge new and old
-    @origRefs = split(/(<reference[^>]*>.*?<\/reference>)/, $_);
-    foreach my $ref (@origRefs) {
-      if ($ref !~ /(<reference([^>]*)>)(.*?)(<\/reference>)/) {next;}
-      my $st = $1;
-      my $sa = $2;
-      my $rt = $3;
-      my $et = $4;
-      $rt =~ s/(<newReference [^>]*)(>)/$1$sa$2/g;
-      $ref = $rt;
-    }
-    $_ = join('', @origRefs);
-    
-    @lineLinks = split(/(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/, $_);
-    foreach $lineLink (@lineLinks) {
-      if ($lineLink !~ /(<newReference osisRef="([^"]+)"[^>]*>(.*?)<\/newReference>)/) {next;}
-      $osisRef = $2;
-      $linkText = $3;
-      if (&validOSISref($osisRef, $linkText)) {$newLinks++;}
-      else {&Log("$line ERROR $BK.$CH.$VS: Link \"$linkText\" has an illegal osisRef \"$osisRef\".\n");}
-    }
-    if ($refType eq "<none>") {
-      $_ =~ s/newReference/reference/g;
-    }
-    else {
-      #$_ =~ s/<newReference osisRef=\"([^"]+)">(.*?)<\/newReference>/<ScripRef passage=\"$1\">$2<\/ScripRef>/g;
-      $_ =~ s/<newReference/<reference type=\"$refType\"/g;
-      $_ =~ s/newReference/reference/g;
-    }
-     
-    my $bible = "Bible";
-    if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
-    elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
-    $_ =~ s/(<reference[^>]*osisRef=")([^"]*")/$1$bible:$2/g;
-
-    print OUTF $_;
-  }
-  close(INF2);
-  close(OUTF);
-  &Log("Finished checking osisRefs.\n");
-  &Log("\n");
-
+  
+  # report other collected data
   my $tCheckRefs = $CheckRefs;
   my $aerefs = ($tCheckRefs =~ tr/\n//);
   &Log("REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
@@ -436,11 +407,36 @@ sub addScripRefLinks($$) {
   &Log("\n");
 
   &Log("REPORT: Grand Total links: ($newLinks instances)\n");
+  $newLinks = 0;
   foreach my $type (sort keys %Types) {
     &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
+    $newLinks += $Types{$type};
   }
   &Log("Found $newLinks total sub-links.\n");
   &Log("FINISHED!\n\n");
+  
+  &Log("LINK RESULTS FROM: $out_file\n");
+  &Log("\n");
+  
+  my $xml = $XML_PARSER->parse_file($out_file);
+
+  # check all reference tags
+  &Log("REPORT: Checking osisRef attributes of links:\n");
+  my @refs = $XPC->findnodes('//osis:reference', $xml);
+  my $warns = ''; my $errs = '';
+  foreach my $ref (@refs) {
+    $line = $ref->line_number();
+    if ($ref->hasAttribute("type") && $ref->getAttribute("type") =~ /^(x-glossary|x-glosslink)$/) {next;}
+    if (!$ref->hasAttribute("osisRef")) {
+      $warns .= "$line WARNING ".&bibleContext($ref, 1).": Link \"".$ref."\" has no osisRef.\n";
+    }
+    elsif (!&validOSISref($ref->getAttribute("osisRef"), $ref->textContent, 1, 0)) {
+      $errs .= "$line ERROR ".&bibleContext($ref, 1).": Link \"".$ref."\" has an illegal osisRef.\n";
+    }
+  }
+  &Log("$warns$errs");
+  &Log("Finished checking osisRefs.\n");
+  &Log("\n");
 
   unlink("$tmpFile");
 }
@@ -457,6 +453,7 @@ sub addLinks(\$$$) {
 	my $tP = shift;
 	my $bk = shift;
 	my $ch = shift;
+  my $contextBookOK = shift;
 
 	if ($onlyLine && $line != $onlyLine) {return;}
 #&Log("$line: addLinks $bk, $ch, $$tP\n");
@@ -474,7 +471,7 @@ sub addLinks(\$$$) {
       if (!&termAcceptable($matchedTerm, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
       
       #  Look at unhandledBook
-      if ($unhandledBook) {
+      if (!$contextBookOK && $unhandledBook) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;
@@ -751,7 +748,7 @@ sub getOSISRef(\$\$\$\$\$\$) {
 		if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}
 	}
 	
-	return &validOSISref($$osisP, 0, 1);
+	return &validOSISref($$osisP, 0, 0, 1);
 }		
 
 # Finds a single reference match in a string, matching either the left-most 
@@ -1090,12 +1087,15 @@ sub unhandledBook($\$) {
 	return substr($pre, length($pre)-10, 10);
 }
 
-sub validOSISref($$$) {
+sub validOSISref($$$$) {
 	my $osisRef = shift;
 	my $linkText = shift;
+  my $strict = shift;
 	my $noWarn = shift;
-	my $bk1, $bk2, $ch1, $ch2, $vs1, $vs2; 
-	if ($osisRef eq "") {return 0;}
+  
+	my $bk1, $bk2, $ch1, $ch2, $vs1, $vs2;
+  if ($strict && $osisRef !~ s/^\w+\://) {return 0;}
+	elsif ($osisRef eq "") {return 0;}
 	elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)$/) {
 		$bk1 = $1;
 		$ch1 = $2;
