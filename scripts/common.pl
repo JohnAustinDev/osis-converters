@@ -1260,14 +1260,37 @@ sub haveString($$$) {
 # Gen.1.0.0 = intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
-sub bibleContext($) {
+sub bibleContext($$) {
   my $elem = shift;
+  my $noerror = shift;
   
   my $context = '';
-  my @c = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
-  if (!@c) {@c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);}
-  if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:chapter[@osisID][1]', $elem);}
-  if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);}
+  
+  # must have book to have context
+  my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);
+  my $bk = (@bk ? @bk[0]->getAttribute('osisID'):'');
+
+  my @c;
+  if (@bk && $bk) {
+    # find most specific osisID associated with elem (assumes milestone end tags have no osisID attribute)
+    @c = $XPC->findnodes('ancestor-or-self::osis:verse[@osisID][1]', $elem);
+    
+    if (!@c) {
+      @c = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
+      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    }
+
+    if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:chapter[@osisID][1]', $elem);}
+    
+    if (!@c) {
+      @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);
+      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    }
+    
+    if (!@c) {@c = @bk;}
+  }
+  
+  # get context from most specific osisID
   if (@c) {
     my $id = @c[0]->getAttribute('osisID');
     $context = ($id ? $id:"unk.0.0.0");
@@ -1276,7 +1299,10 @@ sub bibleContext($) {
     elsif ($id =~ /^\w+\.\d+\.(\d+)$/) {$context .= ".$1";}
     elsif ($id =~ /^(\w+\.\d+\.\d+) .*\w+\.\d+\.(\d+)$/) {$context = "$1.$2";}
   }
-  else {&Log("ERROR: Could not determine context of \"$elem\"\n"); return 0;}
+  else {
+    if (!$noerror) {&Log("ERROR: Could not determine context of \"$elem\"\n");}
+    return 0;
+  }
   
   return $context;
 }
