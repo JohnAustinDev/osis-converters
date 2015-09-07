@@ -27,6 +27,7 @@ class ConversionConfig:
                       '1John' : u'1-e Иоанна', '2John' : u'2-e Иоанна', '3John' : u'3-e Иоанна', 'Jude' : u'Иуда', 'Rev' : u'Откровение' }
         
         self.groups = ['', '', '', '']
+        self.bookTitlesInOSIS = False
         self.psalmTitle = ''
         self.chapterTitle = ''
         self.language = ''
@@ -61,6 +62,13 @@ class ConversionConfig:
             m = re.search(regex, config, re.MULTILINE|re.IGNORECASE)
             if m:
                 self.groups[bookGroup] = m.group(1).strip()
+        #
+        # Look for book title handling
+        m = re.search(r"^\s*BookTitlesInOSIS=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.bookTitlesInOSIS = True
         #
         # Look for Psalm and chapter heading patterns
         m = re.search(r"^\s*PsalmTitle=(.+)", config, re.MULTILINE|re.IGNORECASE)

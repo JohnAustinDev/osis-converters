@@ -668,8 +668,12 @@ class OsisHandler(handler.ContentHandler):
                     self._inTitle = True
                     self._ignoreTitle = True
                 elif titleType == 'x-chapterLabel':
-                    self._chapterTitle = ''
-                    self._inChapterTitle = True
+                    if self._singleChapterBook:
+                        self._inTitle = True
+                        self._ignoreTitle = True
+                    else: 
+                        self._chapterTitle = ''
+                        self._inChapterTitle = True
                 else:
                     level = self._getAttributeValue(attrs,'level')
                     if level is not None:
@@ -894,12 +898,22 @@ class OsisHandler(handler.ContentHandler):
                 self._writeTitle()
             else:
                 self._introText = ''
+                if self._context.config.bookTitlesInOSIS:
+                    self._bookTitle = self._titleText
+                if self._context.config.bookSubtitles:
+                    self._readyForSubtitle = True
+                    
+        elif not self._bookTitleFound and self._context.config.bookTitlesInOSIS and not self._introTextFound:
+                #
+                # This is the book title
+                self._bookTitle = self._titleText
+                self._bookTitleFound = True
                 if self._context.config.bookSubtitles:
                     self._readyForSubtitle = True
                     
         else:
-    
-            if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook:
+                        
+            if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook and 'x-introduction' in self._titleTag:
                 # Intro title may be needed in toc - but make sure this is not a book subtitle
                 titleTag = self._titleTag
                 if self._context.config.introInContents and not 'book-subtitle' in titleTag:
@@ -908,12 +922,12 @@ class OsisHandler(handler.ContentHandler):
             else:
                 # An initial psalm division title may occur at the end of the intro - handle this
                 self._handlePsDivHeading(rawText)
-                
+                    
                 # Terminate any current paragraph to avoid an unwanted introduction style from being applied
                 if self._inParagraph:
                     self._writeHtml('</p>\n')
                     self._inParagraph = False
-    
+        
             self._writeTitle()
             
     def _processScriptureTitle(self):
