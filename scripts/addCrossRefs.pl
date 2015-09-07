@@ -58,7 +58,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   </chapter>
 </div>
 ");
-    return;
+    return 0;
   }
 
   $Booklist = "";
@@ -190,6 +190,8 @@ presentational text, it will be added. An example OSIS cross-reference:
   close(OUTF);
 
   &Log("REPORT: Placed $NumNotes cross-reference notes.\n");
+  
+  return 1;
 }
 
 

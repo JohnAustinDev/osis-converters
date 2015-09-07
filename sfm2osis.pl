@@ -66,11 +66,12 @@ elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS
 else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+  my $success = 0;
   if ($addCrossRefs ne '0') {
     require("$SCRD/scripts/addCrossRefs.pl");
-    &addCrossRefs("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);
+    $success = &addCrossRefs("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);
   }
-  else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
+  if (!$success) {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
 
   require("$SCRD/scripts/toVersificationBookOrder.pl");
   &toVersificationBookOrder($VERSESYS, $OUTOSIS);

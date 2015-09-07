@@ -17,7 +17,7 @@ if (-e "./paths.pl") {require "./paths.pl";}
 
 push(@Shares, &vagrantShare($INPARENT, "INDIR_ROOT"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
-if ($REPOTEMPLATE_BIN) {push(@Shares, &vagrantShare($REPOTEMPLATE_BIN, ".osis-converters/src/repotemplate/bin"));}
+if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
 
 $Status = (-e "./.vagrant" ? `vagrant status`:'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}

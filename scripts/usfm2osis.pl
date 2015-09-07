@@ -86,9 +86,23 @@ sub usfm2osis($$) {
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
-  my $cmd = &escfile($REPOTEMPLATE_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+
+  my $use_u2o = 0;
+  if (!$use_u2o) {
+    &Log($cmd . "\n", 1);
+    &Log(`$cmd` . "\n", 1);
+  }
+  
+  # test/evaluation for u2o.py script
+  my $home = `echo \$HOME`; chomp($home);
+  my $osis2 = "$OUTDIR/u2o_evaluation.xml";
+  if ($use_u2o) {$osis2 = $osis;}
+  $cmd = &escfile("$home/.osis-converters/src/u2o/u2o.py") . " -e UTF8 -v".$lang." -o " . &escfile($osis2) . ($DEBUG ? " -d":'') . " " .$MOD . " $USFMfiles 2>&1";
+  &Log("The following is a test of u2o.py...\n", 1);
   &Log($cmd . "\n", 1);
   &Log(`$cmd` . "\n", 1);
+  &Log("Failure of u2o.py above does not effect other osis-converters conversions.\n", 1);
   
   return $osis;
 }

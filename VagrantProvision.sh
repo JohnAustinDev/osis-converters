@@ -18,6 +18,7 @@ sudo apt-get install -y subversion
 sudo apt-get install -y git
 sudo apt-get install -y zip
 sudo apt-get install -y swig
+sudo apt-get install -y zlib1g-dev
 
 sudo apt-get install -y default-jre
 sudo apt-get install -y libsaxonb-java
@@ -32,9 +33,9 @@ sudo cpanm HTML::Entities
 # Calibre
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
-  sudo apt-get install xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
+  sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   wget -nv -O- https://raw.githubusercontent.com/kovidgoyal/calibre/master/setup/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
-  calibre-customize –b /vagrant/eBooks/OSIS-Input
+  su - vagrant -c 'calibre-customize -b /vagrant/eBooks/OSIS-Input'
 fi
 
 # GoBible Creator
@@ -45,25 +46,38 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   rm GoBibleCreator.245.zip
 fi
 
-# Repotemplate
-if [ ! -e $VHOME/.osis-converters/src/repotemplate ]; then
+# u2o is for u2o.py testing
+if [ ! -e $VHOME/.osis-converters/src/u2o ]; then
   cd $VHOME/.osis-converters/src
-  if [ ! -e ~/.ssh ]; then mkdir ~/.ssh; fi
-  ssh-keyscan crosswire.org >> ~/.ssh/known_hosts
-  # currently even repotemplate read requires ssh credentials, so this 
-  # may not work unless the host machine's ssh agent is configured to
-  # access repotemplate. If this fails, you can obtain repotemplate/bin
-  # somehow and place it in a directory in the host, then add to paths.pl:
-  # $REPOTEMPLATE_BIN = "host-path/to/repotemplate/bin";
-  if [ -e /vagrant ]; then
-    # this sudo is needed for the Vagrantfile ssh.forward_agent work-around to work
-    sudo git clone -b ja_devel gitosis@crosswire.org:repotemplate
-  else
-    git clone -b ja_devel gitosis@crosswire.org:repotemplate
-  fi
+  git clone https://github.com/adyeths/u2o.git
 else
-  cd $VHOME/.osis-converters/src/repotemplate
-  git checkout ja_devel
+  cd $VHOME/.osis-converters/src/u2o
+  git pull
+fi 
+
+# python3 is only for u2o.py testing
+if [ ! `which python3` ]; then
+  #sudo apt-get install -y python3
+  #sudo pip3 install lxml
+  # u2o.py does not work with Python 3.0 - 3.2.x and the stock VM [Ubuntu Precise] uses 3.2.3. So build 3.4.3 from source...
+  cd $VHOME/.osis-converters/src
+  wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
+  tar -xzf Python-3.4.3.tgz
+  rm Python-3.4.3.tgz
+  cd Python-3.4.3
+  sudo apt-get install -y libbz2-dev libxml2-dev libxslt-dev python-dev
+  ./configure --prefix=/usr
+  make
+  sudo make install
+  sudo pip3 install lxml
+fi
+
+# Module-tools
+if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
+  cd $VHOME/.osis-converters/src
+  git clone https://github.com/JohnAustinDev/Module-tools.git
+else
+  cd $VHOME/.osis-converters/src/Module-tools
   git pull
 fi
 
@@ -77,6 +91,7 @@ if [ ! `which osis2mod` ]; then
     rm download
     cd clucene-core-0.9.21b
     ./configure --disable-multithreading
+    make
     sudo make install
     sudo ldconfig
   fi
@@ -91,7 +106,8 @@ if [ ! `which osis2mod` ]; then
     sed -i -r -e "s|stepdump step2vpl gbfidx modwrite addvs emptyvss|stepdump step2vpl gbfidx modwrite addvs|" ./utilities/Makefile.am
     sed -i -r -e "s|^bin_PROGRAMS = |bin_PROGRAMS = emptyvss |" ./utilities/Makefile.am
     ./autogen.sh
-    ./configure
+    ./configure --without-bzip2
+    make
     sudo make install
     
     # Perl bindings

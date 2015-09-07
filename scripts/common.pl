@@ -142,7 +142,7 @@ sub initOutputFiles($$$) {
     $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
   if ($SCRIPT =~ /^osis2ebooks$/i) {
-    $EBOUT = "$outdir/eBooks"; push(@outs, $EBOUT);
+    $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
   }
   if ($SCRIPT =~ /^sfm2imp$/i) {
     $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
@@ -176,19 +176,19 @@ sub checkDependencies($$$) {
   $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto osis-converters/paths.pl\n";
   $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto osis-converters/paths.pl\n";
   $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator as ~/.osis-converters/GoBibleCreator.245, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto osis-converters/paths.pl\n";
-  $path{'REPOTEMPLATE_BIN'}{'msg'} = "Install CrossWire\'s repotemplate git repo as ~/.osis-converters/src/repotemplate, or specify the path to it by adding:\n\$REPOTEMPLATE_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
+  $path{'MODULETOOLS_BIN'}{'msg'} = "Install CrossWire\'s Module-tools git repo as ~/.osis-converters/src/Module-tools, or specify the path to it by adding:\n\$MODULETOOLS_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
   $path{'XSLT2'}{'msg'} = "Install the required program.\n";
   $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
   
   foreach my $p (keys %path) {
     if (-e "/home/vagrant" && $$p) {
-      if ($p eq 'REPOTEMPLATE_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
+      if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
       else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
       $$p = '';
     }
     my $home = `echo \$HOME`; chomp($home);
     if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$home/.osis-converters/GoBibleCreator.245";} # Default location
-    if ($p eq 'REPOTEMPLATE_BIN' && !$$p) {$$p = "$home/.osis-converters/src/repotemplate/bin";} # Default location
+    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$home/.osis-converters/src/Module-tools/bin";} # Default location
     if ($$p) {
       if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
       $$p =~ s/[\\\/]+\s*$//;
@@ -198,7 +198,7 @@ sub checkDependencies($$$) {
   
   $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
   $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
-  $path{'REPOTEMPLATE_BIN'}{'test'} = [&escfile($REPOTEMPLATE_BIN."usfm2osis.py"), "Usage"];
+  $path{'MODULETOOLS_BIN'}{'test'} = [&escfile($MODULETOOLS_BIN."usfm2osis.py"), "Usage"];
   $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
   $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
   $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
@@ -327,49 +327,45 @@ sub checkAndWriteDefaults($$) {
     $confdataP = &readConf("$dir/config.conf"); # need a re-read after above modifications
   
     # GoBible
-    if ($script =~ /^(osis2GoBible|sfm2all)$/i) {
-      if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
-        if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
-        print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
-        print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
-        my %canon;
-        my %bookOrder;
-        my %testament;
-        if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
-          my $col = ''; my $colot = ''; my $colnt = '';
-          foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
-            foreach my $f (keys %{$USFM{'bible'}}) {
-              if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
-              my $b = "Book: $v11nbk\n";
-              $col .= $b;
-              if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
-              else {$colnt .= $b;}
-            }
-          }
-          my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
-          if ($col) {print COLL "$colhead\n$col\n";}
-          if ($colot && $colnt) {
-            print COLL $colhead."ot\n$colot\n";
-            print COLL $colhead."nt\n$colnt\n";
+    if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
+      if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
+      print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
+      print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
+      my %canon;
+      my %bookOrder;
+      my %testament;
+      if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+        my $col = ''; my $colot = ''; my $colnt = '';
+        foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+          foreach my $f (keys %{$USFM{'bible'}}) {
+            if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
+            my $b = "Book: $v11nbk\n";
+            $col .= $b;
+            if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
+            else {$colnt .= $b;}
           }
         }
-        else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
-        close(COLL);
+        my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
+        if ($col) {print COLL "$colhead\n$col\n";}
+        if ($colot && $colnt) {
+          print COLL $colhead."ot\n$colot\n";
+          print COLL $colhead."nt\n$colnt\n";
+        }
       }
+      else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
+      close(COLL);
     }
     
     # eBooks
-    if ($script =~ /^(osis2ebooks|sfm2all)$/i) {
-      if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
-        if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
-        print CONV "Language=".$confdataP->{'Lang'}."\n";
-        print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
-        print CONV "Title=".$confdataP->{'Description'}."\n";
-        foreach my $f (keys %{$USFM{'bible'}}) {
-          print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
-        }
-        close(CONV);
+    if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
+      if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
+      print CONV "Language=".$confdataP->{'Lang'}."\n";
+      print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
+      print CONV "Title=".$confdataP->{'Description'}."\n";
+      foreach my $f (keys %{$USFM{'bible'}}) {
+        print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
       }
+      close(CONV);
     }
   }
   
@@ -785,9 +781,9 @@ sub getLangSortOrder($) {
 
 sub dataPath2RealPath($) {
   my $datapath = shift;
-  $MODPATH =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
-  $MODPATH =~ s/[\\\/]\s*$//; # remove ending slash
-  $MODPATH =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
+  $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
+  $datapath =~ s/[\\\/]\s*$//; # remove ending slash
+  $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
   return $datapath;
 }
 
@@ -1264,14 +1260,37 @@ sub haveString($$$) {
 # Gen.1.0.0 = intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
-sub bibleContext($) {
+sub bibleContext($$) {
   my $elem = shift;
+  my $noerror = shift;
   
   my $context = '';
-  my @c = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
-  if (!@c) {@c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);}
-  if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:chapter[@osisID][1]', $elem);}
-  if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);}
+  
+  # must have book to have context
+  my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);
+  my $bk = (@bk ? @bk[0]->getAttribute('osisID'):'');
+
+  my @c;
+  if (@bk && $bk) {
+    # find most specific osisID associated with elem (assumes milestone end tags have no osisID attribute)
+    @c = $XPC->findnodes('ancestor-or-self::osis:verse[@osisID][1]', $elem);
+    
+    if (!@c) {
+      @c = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
+      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    }
+
+    if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:chapter[@osisID][1]', $elem);}
+    
+    if (!@c) {
+      @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);
+      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    }
+    
+    if (!@c) {@c = @bk;}
+  }
+  
+  # get context from most specific osisID
   if (@c) {
     my $id = @c[0]->getAttribute('osisID');
     $context = ($id ? $id:"unk.0.0.0");
@@ -1280,7 +1299,10 @@ sub bibleContext($) {
     elsif ($id =~ /^\w+\.\d+\.(\d+)$/) {$context .= ".$1";}
     elsif ($id =~ /^(\w+\.\d+\.\d+) .*\w+\.\d+\.(\d+)$/) {$context = "$1.$2";}
   }
-  else {&Log("ERROR: Could not determine context of \"$elem\"\n"); return 0;}
+  else {
+    if (!$noerror) {&Log("ERROR: Could not determine context of \"$elem\"\n");}
+    return 0;
+  }
   
   return $context;
 }
@@ -1887,7 +1909,7 @@ sub Log($$) {
   if ($flag == 2) {return;}
   
   # encode these local file paths
-  my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'REPOTEMPLATE_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
+  my @paths = ('SCRD', 'INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
   foreach my $path (@paths) {
     if (!$$path || $$path =~ /^(\/home)?\/vagrant/) {next;}
     my $rp = $$path;
