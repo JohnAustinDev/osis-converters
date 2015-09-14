@@ -21,6 +21,7 @@ class OsisHandler(handler.ContentHandler):
         self._firstBook = True                           # First book of testament
         self._firstTitle = False
         self._firstVerse = False
+        self._footnoteRefWritten = False
         self._groupIntroWritten = False
         self._groupHtmlOpen = False
         self._groupTitle = ''
@@ -29,9 +30,13 @@ class OsisHandler(handler.ContentHandler):
         self._hiLevel = 0
         self._htmlWriter = htmlWriter
         self._inCanonicalTitle = False
+        self._inChapterTitle = False
+        self._ignoreChEnd = False
         self._ignoreDivEnd = False
+        self._ignoreTitle = False
         self._ignoreText = False
         self._inFootnote = False
+        self._inFootnoteRef = False
         self._inGeneratedPara = False
         self._inHeader = False
         self._inIntro = False
@@ -43,6 +48,7 @@ class OsisHandler(handler.ContentHandler):
         self._introTitleWritten = False
         self._inVerse = False 
         self._inWork = False
+        self._lineGroupPara = False
         self._lineSpan = False
         self._osisFound = False
         self._osisIDWork= None
@@ -54,6 +60,7 @@ class OsisHandler(handler.ContentHandler):
         self._suppressBreaks = False
         self._startingChapter = False
         self._titleTag = ''
+        self._titleText = ''
         self._titleWritten = False
         self._verseEmpty = True
         self._verseNumWritten = False
@@ -85,9 +92,13 @@ class OsisHandler(handler.ContentHandler):
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
         self._inCanonicalTitle = False
+        self._inChapterTitle = False
+        self._ignoreChEnd = False
         self._ignoreDivEnd = False
         self._ignoreText = False
+        self._ignoreTitle = False
         self._inFootnote = False
+        self._inFootnoteRef = False
         self._inGeneratedPara = False
         self._inHeader = False
         self._inIntro = False
@@ -99,12 +110,14 @@ class OsisHandler(handler.ContentHandler):
         self._introTitleWritten = False
         self._inVerse = False 
         self._inWork = False
+        self._lineGroupPara = False
         self._osisFound = False
         self._osisTextFound = False
         self._psDivTitle = False
         self._psDivTitleFound = False
         self._readyForSubtitle = False
         self._suppressBreaks = False
+        self._titleText = ''
         self._verseNumWritten = False
         self._verseText = ''
         self._verseTextFound = False
@@ -142,11 +155,17 @@ class OsisHandler(handler.ContentHandler):
                 self._inTitle = True
                 
                 
-    def endElement(self, name):  
+    def endElement(self, name):      
         if name == 'chapter':
-            self._docStructure.endChapter()
-            self._writeBreak(True)
-        
+            if self._ignoreChEnd:
+                self._ignoreChEnd = False
+            else:
+                self._docStructure.endChapter(self._docStructure.chapterRef)
+                self._writeBreak(True)
+
+        elif name == 'catchWord':
+            self._writeHtml('</i>')
+            
         elif name == 'div':
             if self._ignoreDivEnd:
                 self._ignoreDivEnd = False
@@ -154,6 +173,12 @@ class OsisHandler(handler.ContentHandler):
                 divType = self._docStructure.endDiv(None)
                 if divType == self._docStructure.BOOK:
                     self._footnotes.writeFootnotes()
+                    
+        elif name == 'foreign':
+            self._writeHtml('</span>')
+            
+        elif name == 'head':
+            self._writeHtml('</div>')
                 
         elif name == 'header':
             if self._inHeader:
@@ -181,8 +206,9 @@ class OsisHandler(handler.ContentHandler):
                 self._breakCount = 1
             
         elif name == 'lg':
-            self._writeBreak(True)
-            self._inParagraph = False
+            if self._lineGroupPara:
+                self._endGeneratedPara()
+                self._lineGroupPara = False
             
         elif name == 'list':
             self._writeHtml('</ul>\n')
@@ -198,25 +224,32 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('</p>\n')
                 self._breakCount = 1
                 self._inParagraph = False
+                
+        elif name == 'reference':
+            self._inFootnoteRef = False
 
         elif name == 'title':
-            closingTag = ''
             if self._inTitle:
                 self._inTitle = False
-                if self._headerProcessed:
-                    closingTag = '</h%s><br />\n' % self._titleTag[2]                    
+                if self._ignoreTitle:
+                    self._ignoreTitle = False
+                        
+                elif self._headerProcessed:
+                    if self._inIntro:
+                        self._processIntroTitle()
+                    else:
+                        self._processScriptureTitle()                
                     if self._titleWritten:
-                        if self._psDivTitle and not self._inIntro:
-                            self._htmlWriter.write(closingTag)
-                        else:
-                            self._writeHtml(closingTag)
                         self._breakCount = 2
                         self._psDivTitle = False
                         self._canonicalTitleWritten = False
                         self._suppressBreaks = True
                         if re.search('chapter', self._titleTag) is not None:
                             self._chHeadingWritten = True
+
+                
             elif self._inCanonicalTitle:
+                closingTag = ''
                 if self._context.canonicalClassDefined:
                     closingTag = '</span>'
                 else:
@@ -230,6 +263,12 @@ class OsisHandler(handler.ContentHandler):
                     self._verseEmpty = True
                     if self._chTitleWritten or self._docStructure.verse != '1':
                         self._verseText = '<sup>' + self._docStructure.verse + '</sup>'
+                        self._verseNumWritten = True
+                        
+            elif self._inChapterTitle:
+                self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, self._chapterTitle)
+                self._chHeadingWritten = True
+                self._inChapterTitle = False
                         
         elif name == 'work':
             if self._inWork:
@@ -237,101 +276,47 @@ class OsisHandler(handler.ContentHandler):
 
     def characters(self, content):
         text = content.strip()
-        if self._headerProcessed:
-            if self._inIntro:
-                if self._inTitle:
-                    if text == self._groupTitle:
-                        if self._context.config.bibleIntro and self._docStructure.groupNumber == 1 and self._introTextFound:
-                            # If testament title is found in Bible intro, this is division between Bible and testament intro
-                            self._closeParagraph()
-                            self._introText += '\n'
-                            self._htmlWriter.open('bible')
-                            self._bibleHtmlOpen = True
-                            self._writeIntroText()
-                            self._bibleIntroWritten = True
-                            self._introText = ''
-                            self._introTextFound = False
-                            self._introTitleWritten = False
-                            self._openGroupHtml()
-                                
-                    elif text == self._bookTitle:
-                        self._bookTitleFound = True
-                        if self._firstBook and self._introTextFound:
-                            # For the first book in a group, anything before this is assumed to be a Bible/testament introduction
-                            self._closeParagraph()
-                            self._introText += '\n'
-                            self._openGroupHtml()
-                            self._writeIntroText()
-                            self._groupIntroWritten = True
-                            self._introText = ''
-                            self._introTextFound = False
-                            self._introTitleWritten = False
-                        #
-                        # If title is at the start of the intro, it is the book title
-                        # Do not include this in intro text as book title will be included anyway
-                        if (self._introTextFound):
-                            self._writeTitle(text)
-                        else:
-                            self._introText = ''
-                            if self._context.config.bookSubtitles:
-                                self._readyForSubtitle = True
-                                
-                    else:
- 
-                        if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook:
-                            # Intro title should be in toc - but make sure this is not a book subtitle
-                            titleTag = self._titleTag
-                            if not 'book-subtitle' in titleTag:
-                                self._titleTag = titleTag.replace('>', ' chapter="'+text+'">')
-                                self._introTitleWritten = True
-                        else:
-                            # An initial psalm division title may occur at the end of the intro - handle this
-                            self._handlePsDivHeading(text)
-                            
-                            # Terminate any current paragraph to avoid an unwanted introduction style from being applied
-                            if self._inParagraph:
-                                self._writeHtml('</p>\n')
-                                self._inParagraph = False
-
-                        self._writeTitle(text)
-
-                elif len(text) > 0:
-                    self._introTextFound  = True
-                    self._readyForSubtitle = False
-                    self._writeHtml(content)
-            else:
-                if not self._ignoreText:
+        if self._inTitle:
+            if self._headerProcessed:
+                if not self._ignoreTitle:
+                    self._titleText += text
+                    self._breakCount = 0
+            elif self._context.title == '':
+                    self._context.title = text
+                    
+        elif self._inChapterTitle:
+            self._chapterTitle += text
+            
+        elif self._inFootnoteRef:
+            self._footnotes.changeVerseId(text)
+                    
+        else :
+            if self._headerProcessed:
+                if self._inIntro:
                     if len(text) > 0:
-                        if self._inTitle:
-                            if text == self._bookTitle and not self._bookTitleFound:
-                                self._bookTitleFound = True
-                                if self._verseTextFound or not self._firstTitle:
-                                    self._writeTitle(text)
-                                elif self._context.config.bookSubtitles:
-                                    self._readyForSubtitle = True
-                            else:
-                                # Check for Psalm division titles
-                                self._handlePsDivHeading(text)
-                                        
-                                if (self._psDivTitle):
-                                    # This is a psalm division title or subtitle
-                                    # Apply approriate style and make sure this is not marked as a chapter heading
-                                    self._writeTitle(text)
-                                    
-                                else:
-                                    # Write any chapter title before this title
-                                    if self._chapterTitle != '':
-                                        self._writeChapterTitle()
-                                    self._psDivTitleFound = False
-                                    self._writeTitle(text)   
-                                    self._firstTitle = False
-                        else:
+                        self._introTextFound  = True
+                        self._readyForSubtitle = False
+                        self._writeHtml(content)
+                else:
+                    if self._inVerse and self._firstVerse and self._verseEmpty and not self._verseNumWritten:
+                        if not self._chTitleWritten and not self._singleChapterBook:
+                            if self._chapterTitle != '':
+                                self._writeChapterTitle()
+                            elif not self._chNumWritten:
+                                self._writeChapterNumber()          
+                        if not self._chNumWritten or self._docStructure.verse != '1':
+                            verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
+                            self._verseText += verseNumber
+                            self._verseNumWritten = True
+                        
+                    if not self._ignoreText:
+                        if len(text) > 0:
                             self._readyForSubtitle = False
                             if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle:
                                 self._startGeneratedPara()
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
-                                # Write the chapter title if not already written
+                                # Write chapter title if not already written
                                 if self._chapterTitle != '':
                                     self._writeChapterTitle()
                                 # Deal with verse numbers supplied as "[nn]"
@@ -346,11 +331,14 @@ class OsisHandler(handler.ContentHandler):
                                 self._verseEmpty = False
                                 content = re.sub(r'\['+self._docStructure.verse+r'\]\s*', '', content)
                                 content = re.sub(r'\[([0-9-]+)\]\s*', r'<sup>\1</sup>', content)
-                            self._writeHtml(content)
-                                
-        elif self._inTitle:
-            if self._context.title == '':
-                self._context.title = content
+                            if self._inFootnote and not self._footnoteRefWritten:
+                                # This is a footnote without a reference
+                                verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
+                                noteRef = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
+                                self._inFootnoteRef = True
+                                self._writeFootnoteRef(self._docStructure.bookId, noteRef)
+                                self._inFootnoteRef = False
+                            self._writeHtml(content)           
 
     def _getAttributeValue(self, attrs, attrName):
         for (name, value) in attrs.items():
@@ -360,59 +348,79 @@ class OsisHandler(handler.ContentHandler):
     
     def _processBodyTag(self, name, attrs):
         if name == 'chapter':
-            # If this is the first chapter of the book, write book title and any intro
-            if self._inIntro:
-                if len(self._introText) > 0:
-                    # Remove unwanted breaks at start of intro before writing
-                    while self._introText.startswith('<br />'):
-                        self._introText = self._introText[6:]
-                    if self._bibleStarting and self._context.config.bibleIntro and not self._bibleIntroWritten:
-                        self._htmlWriter.open('bible')
-                        self._bibleHtmlOpen = True
-                        self._writeIntroText()
-                        self._bibleIntroWritten = True
-                        self._introText = ''
-                    elif self._firstBook and self._context.config.testamentIntro and not self._groupIntroWritten:
-                        self._openGroupHtml()
-                        self._writeIntroText()
-                        self._introText = ''
-                        self._groupIntroWritten = True
-                        
-                # Ensure testament title is written
-                if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
-                    self._openGroupHtml()
-                    
-                self._openBookHtml()
-                self._htmlWriter.write('<h2>%s</h2>' % self._bookTitle)
-                if len(self._introText) > 0:
-                    self._introText += '<br />\n'
-                    self._writeIntroText()
-                    self._introText = ''
-                self._inIntro = False
-                self._introStyleStarted = False
-            chId = self._getAttributeValue(attrs,'osisID')
-            self._docStructure.newChapter(chId)
+            osisId = self._getAttributeValue(attrs,'osisID')
+            if osisId is not None:
+                # Start of a chapter
+                # If this is the first chapter of the book, write book title and any intro
+                if self._inIntro:
+                    if len(self._introText) > 0:
+                        # Remove unwanted breaks at start of intro before writing
+                        while self._introText.startswith('<br />'):
+                            self._introText = self._introText[6:]
+                        if self._bibleStarting and self._context.config.bibleIntro and not self._bibleIntroWritten:
+                            self._htmlWriter.open('bible')
+                            self._bibleHtmlOpen = True
+                            self._writeIntroText()
+                            self._bibleIntroWritten = True
+                            self._introText = ''
+                        elif self._firstBook and self._context.config.testamentIntro and not self._groupIntroWritten:
+                            self._openGroupHtml()
+                            self._writeIntroText()
+                            self._introText = ''
+                            self._groupIntroWritten = True
                             
-            # If a chapter/psalm heading format is defined, then write the heading
-            self._chapterTitle = ''
-            self._chTitleWritten = False
-            self._chHeadingWritten = False
-            self._startingChapter = True
-            titleFormat = ''
-            bookId = self._docStructure.bookId
-            if bookId == 'Ps':
-                titleFormat = self._context.config.psalmTitle
-            elif not self._singleChapterBook:
-                titleFormat = self._context.config.chapterTitle
-            if titleFormat != '':
-                title = titleFormat % self._docStructure.chapter
-                self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
-                self._chHeadingWritten = True              
- 
-            self._bibleStarting = False
-            self._firstBook = False
+                    # Ensure testament title is written
+                    if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
+                        self._openGroupHtml()
+                        
+                    self._openBookHtml()
+                    self._htmlWriter.write('<h2>%s</h2>' % self._bookTitle)
+                    if len(self._introText) > 0:
+                        self._introText += '<br />\n'
+                        self._writeIntroText()
+                        self._introText = ''
+                    self._inIntro = False
+                    self._introStyleStarted = False
+                
+                chId = self._getAttributeValue(attrs,'sID')
+                if chId is not None:
+                    self._ignoreChEnd = True        # This is a milestone tag
+                else:
+                    self._ignoreChEnd = False       # This is an enclosing tag
+                    chId = osisId
+                self._docStructure.newChapter(chId)
+                                
+                # If a chapter/psalm heading format is defined, then write the heading
+                self._chapterTitle = ''
+                self._chTitleWritten = False
+                self._chHeadingWritten = False
+                self._startingChapter = True
+                titleFormat = ''
+                bookId = self._docStructure.bookId
+                if bookId == 'Ps':
+                    titleFormat = self._context.config.psalmTitle
+                elif not self._singleChapterBook:
+                    titleFormat = self._context.config.chapterTitle
+                if titleFormat != '':
+                    title = titleFormat % self._docStructure.chapter
+                    self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
+                    self._chHeadingWritten = True              
+     
+                self._bibleStarting = False
+                self._firstBook = False
+                
+                # Do not write chapter number yet, in case there is a heading to write
             
-            # Do not write chapter number yet, in case there is a heading to write
+            else:
+                chId = self._getAttributeValue(attrs,'eID')
+                if chId is not None:
+                    self._docStructure.endChapter(chId)
+                    self._writeBreak(True)
+                else:
+                    print 'Chapter tag does not have expected attributes - ignoring'
+                    
+        elif name == 'catchWord':
+            self._writeHtml('<i>')
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
@@ -446,7 +454,8 @@ class OsisHandler(handler.ContentHandler):
             elif divType == 'section':
                 secRef = self._getAttributeValue(attrs, 'sID')
                 self._docStructure.startSection(secRef)
-                self._ignoreDivEnd = True
+                if secRef is not None:
+                    self._ignoreDivEnd = True           # Milestone tag
                 
             else:
                 secRef = self._getAttributeValue(attrs, 'eID')
@@ -455,6 +464,17 @@ class OsisHandler(handler.ContentHandler):
                     self._ignoreDivEnd = True
                 else:
                     self._docStructure.otherDiv()
+                    
+        elif name == 'foreign':
+            verseEmpty = self._verseEmpty
+            if self._inVerse:
+                # prevents style being applied to verse number
+                self._verseEmpty = False
+            self._writeHtml('<span class="foreign">')
+            self._verseEmpty = verseEmpty
+            
+        elif name == 'head':
+            self._writeHtml('<div class="heading">')         
                 
         elif name == 'hi':
             if not self._ignoreText:
@@ -486,17 +506,42 @@ class OsisHandler(handler.ContentHandler):
                 self._hiHtmlTag[self._hiLevel] = ''
             self._hiLevel += 1
             
+        elif name == 'index':
+            # <index> tags are ignored
+            pass
+            
         elif name == 'item':
-            self._writeHtml('<li>')
+            itemType = self._getAttributeValue(attrs, 'type')
+            itemSubType = self._getAttributeValue(attrs, 'subType')
+            itemClass = ''
+            if itemType is not None:
+                itemClass = itemType
+                if itemSubType is not None:
+                    itemClass += ' '
+                    itemClass += itemSubType
+            elif itemSubType is not None:
+                itemClass = itemSubType
+            tag = '<li>'
+            if itemClass != '':
+                tag = '<li class="%s">' % itemClass     
+            self._writeHtml(tag)
      
         elif name == 'lb':
-            self._writeBreak(False)
+            breakType = self._getAttributeValue(attrs, 'type')
+            if breakType != 'x-optional' or self._context.config.optionalBreaks:
+                self._writeBreak(False)
+            else:
+                self._writeHtml(' ')
             
         elif name == 'l':
             self._lineSpan = False
             lineType = self._getAttributeValue(attrs, 'type')
             lineSubType = self._getAttributeValue(attrs, 'subType')
             lineClass = 'poetic-line'
+            if lineType is None:
+                level = self._getAttributeValue(attrs, 'level')
+                if level is not None:
+                    lineType = 'x-indent-%s' % level
             if lineType is not None:
                 lineClass = '%s %s' % (lineClass, lineType)
                 if lineSubType is not None:
@@ -516,9 +561,11 @@ class OsisHandler(handler.ContentHandler):
                     self._writeHtml('<span class="x-introduction">')
             
         elif name == 'lg':
-            self._endGeneratedPara()
-            self._writeBreak(False)
-            self._inParagraph = True
+            if not self._inParagraph and not self._inGeneratedPara:
+                self._startGeneratedPara()
+                self._lineGroupPara = True
+            else:
+                self._writeBreak(True)
             
         elif name == 'list':
             listType = self._getAttributeValue(attrs, 'subType')
@@ -530,23 +577,27 @@ class OsisHandler(handler.ContentHandler):
             else:
                 htmlTag = '<ul class="%s">' % listType
             self._writeHtml(htmlTag)
+            
+        elif name == 'milestone':
+            # <milestone> tags are ignored
+            pass
+        
+        elif name == 'name':
+            # <name> tags are ignored
+            pass
                 
-
         elif name == 'note':
             noteType = self._getAttributeValue(attrs, 'type')
-            if noteType == 'study':
+            notePlace = self._getAttributeValue(attrs, 'placement')
+            if noteType == 'study' or notePlace == 'foot':
                 # This type of note is a footnote
                 osisRef = self._getAttributeValue(attrs, 'osisID')
-                refParts = re.split('[.!]', osisRef)
-                refBook = refParts[0]
-                refVerse = '%s:%s' % (refParts[1], refParts[2])
-                backRef = '%s-%s-%s-%s' % (refParts[0], refParts[1], refParts[2], refParts[3])
-                noteRef = self._footnotes.newFootnote(refBook, refVerse, backRef)
-                if self._context.config.epub3:
-                    refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
+                if osisRef is not None:
+                    self._inFootnoteRef = True
+                    self._inFootnote = self._footnoteRef(osisRef)
+                    self._inFootnoteRef = False
                 else:
-                    refString = '<sup><a href="#%s%d" id="%s">[%d]</a></sup>' % (refBook, noteRef, backRef, noteRef)
-                self._writeHtml(refString)
+                    self._footnoteRefWritten = False
                 self._inFootnote = True
             else:
                 # Ignore other types of note (generally cross-references)
@@ -572,7 +623,17 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml(paraTag)
 
         elif name == 'reference':
-            # reference tags are expected but ignored
+            # reference tags are expected but ignored unless in footnote
+            if self._inFootnote and not self._footnoteRefWritten:
+                self._inFootnoteRef = True
+                osisRef = self._getAttributeValue(attrs, 'osisRef')
+                if not self._footnoteRef(osisRef):
+                    self._inFootnoteRef = False
+                    self._inFootnote = False
+                    self._ignoreText = True
+                    
+        elif name == 'seg':
+            # <seg> tags are ignored
             pass
         
         elif name == 'title':
@@ -602,28 +663,41 @@ class OsisHandler(handler.ContentHandler):
                 self._inCanonicalTitle = True
                     
             else:
-                level = self._getAttributeValue(attrs,'level')
-                if level is not None:
-                    # Header levels 1 and 2 are for testaments and books, so titles start at 3
-                    headerLevel = int(level) + 2
+                titleType = self._getAttributeValue(attrs,'type')
+                if titleType == 'runningHead':
+                    self._inTitle = True
+                    self._ignoreTitle = True
+                elif titleType == 'x-chapterLabel':
+                    if self._singleChapterBook:
+                        self._inTitle = True
+                        self._ignoreTitle = True
+                    else: 
+                        self._chapterTitle = ''
+                        self._inChapterTitle = True
                 else:
-                    headerLevel = 3
-                subType = self._getAttributeValue(attrs,'subType')
-                chapter = ''
-                if (self._context.outputFmt != 'fb2'):
-                    if (not self._singleChapterBook) and (self._startingChapter or (self._inVerse and self._firstVerse and self._verseEmpty and not self._canonicalTitleWritten)):
-                        if not self._chHeadingWritten:
-                            chapter = 'chapter="%s"' % self._docStructure.chapter
-                if self._readyForSubtitle and headerLevel == 4:
-                     self._titleTag = '<h4 class="book-subtitle">'              
-                elif subType is not None:
-                    self._titleTag = '<h%d class="%s" %s>' % (headerLevel, subType, chapter)
-                else:
-                    self._titleTag = '<h%d %s>' % (headerLevel, chapter)
-                self._inTitle = True
-                self._titleWritten = False
-                self._readyForSubtitle = False
-                
+                    level = self._getAttributeValue(attrs,'level')
+                    if level is not None:
+                        # Header levels 1 and 2 are for testaments and books, so titles start at 3
+                        headerLevel = int(level) + 2
+                    else:
+                        headerLevel = 3
+                    subType = self._getAttributeValue(attrs,'subType')
+                    chapter = ''
+                    if (self._context.outputFmt != 'fb2'):
+                        if (not self._singleChapterBook) and (self._startingChapter or (self._inVerse and self._firstVerse and self._verseEmpty and not self._canonicalTitleWritten)):
+                            if not self._chHeadingWritten:
+                                chapter = ' chapter="%s"' % self._docStructure.chapter
+                    if self._readyForSubtitle and headerLevel == 4:
+                         self._titleTag = '<h4 class="book-subtitle">'              
+                    elif subType is not None:
+                        self._titleTag = '<h%d class="%s"%s>' % (headerLevel, subType, chapter)
+                    else:
+                        self._titleTag = '<h%d%s>' % (headerLevel, chapter)
+                    self._inTitle = True
+                    self._titleWritten = False
+                    self._titleText = ''
+                    self._readyForSubtitle = False
+                    
         elif name == 'verse':
             verse = self._getAttributeValue(attrs,'sID')
             if verse is not None:
@@ -632,21 +706,21 @@ class OsisHandler(handler.ContentHandler):
                 verse = self._getAttributeValue(attrs,'eID')
                 if verse is not None:
                     self._docStructure.endVerse(verse)
-                    self._endGeneratedPara()
+                    if not self._lineGroupPara:
+                        self._endGeneratedPara()
                     if not self._verseEmpty:
                         if self._chHeadingWritten:
                             # remove chapter attribute from chapter number if a chapter heading has been written
                             self._verseText = re.sub(r'span chapter="\d+"', 'span', self._verseText)
                         # Add a break if immediately following a canonical title
                         if self._canonicalTitleWritten:
-                           self._htmlWriter.write('<br />')
-                           self._canonicalTitleWritten = False
+                            self._htmlWriter.write('<br />')
+                            self._canonicalTitleWritten = False
                         self._htmlWriter.write(self._verseText + '\n')
+                        self._firstVerse = False
+                        self._chHeadingWritten = False
                     self._inVerse = False
-                    self._firstVerse = False
                     self._verseText =''
-                    self._chHeadingWritten = False
-                
         else:
             self._context.unexpectedTag(name)
                 
@@ -668,8 +742,10 @@ class OsisHandler(handler.ContentHandler):
                 
     def _writeHtml(self, html):
         self._suppressBreaks = False
-        if self._inFootnote:
+        if self._inFootnote and not self._inFootnoteRef:
             self._footnotes.addFootnoteText(html)
+        elif self._inTitle:
+            self._titleText += html
         elif self._inIntro:
             self._introText += html
         elif self._inVerse and not self._verseEmpty:
@@ -686,15 +762,17 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('\n')
             self._breakCount = storedCount + 1
             
-    def _writeTitle(self, content):
-        if len(content) > 0:
+    def _writeTitle(self):
+        if len(self._titleText) > 0:
             origInVerse = self._inVerse
             if self._psDivTitle:
                 self._inVerse = False      # causes title to be written before Psalm heading
-            if not self._titleWritten:
-                self._writeBreak(False)
-                self._writeHtml(self._titleTag)
-            self._writeHtml(content)
+
+            self._writeBreak(False)
+            self._writeHtml(self._titleTag)
+            self._writeHtml(self._titleText)
+            closingTag = '</h%s><br />\n' % self._titleTag[2]                    
+            self._writeHtml(closingTag)
             self._titleWritten = True
             self._inVerse = origInVerse
         
@@ -710,6 +788,7 @@ class OsisHandler(handler.ContentHandler):
             self._verseText += spanHtml
         else:
             self._writeHtml(spanHtml)
+        self._chNumWritten = True 
             
     def _writeChapterTitle(self):
         self._htmlWriter.write(self._chapterTitle)
@@ -725,32 +804,20 @@ class OsisHandler(handler.ContentHandler):
         self._chNumWritten = False
         self._verseNumWritten = False
         self._psDivTitleFound = False
-        verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
         if self._startingChapter:
             self._firstVerse = True
         else:
+            verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
             self._firstVerse = False
-        if self._startingChapter and self._chapterTitle != '':
-            self._verseText = verseNumber   
-        elif self._startingChapter and not self._singleChapterBook and not self._chTitleWritten:
-            self._writeChapterNumber()
-            self._chNumWritten = True           
-            if self._docStructure.verse != '1':
-                self._verseText += verseNumber
-                self._verseNumWritten = True
-        else:
             self._verseText = verseNumber
             self._verseNumWritten = True
-
+            
         self._startingChapter = False
         
         
     def _startGeneratedPara(self):
         paraTag = '<p class="x-indent-0">'
-        if self._inVerse and self._verseEmpty:
-            self._verseText = paraTag + self._verseText
-        else:
-            self._writeHtml(paraTag)
+        self._writeHtml(paraTag)
         self._inGeneratedPara = True
         
     def _endGeneratedPara(self):
@@ -796,5 +863,136 @@ class OsisHandler(handler.ContentHandler):
                 self._titleTag = re.sub(' class=".+"', '', self._titleTag)
                 self._titleTag = re.sub('>', ' class="psalm-div-heading">', self._titleTag)
 
+    def _processIntroTitle(self):
+        rawText = re.sub('<.*>', ' ', self._titleText)
+        if rawText.lower() == self._groupTitle.lower():
+            if self._context.config.bibleIntro and self._docStructure.groupNumber == 1 and self._introTextFound:
+                # If testament title is found in Bible intro, this is division between Bible and testament intro
+                self._closeParagraph()
+                self._introText += '\n'
+                self._htmlWriter.open('bible')
+                self._bibleHtmlOpen = True
+                self._writeIntroText()
+                self._bibleIntroWritten = True
+                self._introText = ''
+                self._introTextFound = False
+                self._introTitleWritten = False
+                self._openGroupHtml()
+                    
+        elif rawText.lower() == self._bookTitle.lower():
+            self._bookTitleFound = True
+            if self._firstBook and self._introTextFound:
+                # For the first book in a group, anything before this is assumed to be a Bible/testament introduction
+                self._closeParagraph()
+                self._introText += '\n'
+                self._openGroupHtml()
+                self._writeIntroText()
+                self._groupIntroWritten = True
+                self._introText = ''
+                self._introTextFound = False
+                self._introTitleWritten = False
+            #
+            # If title is at the start of the intro, it is the book title
+            # Do not include this in intro text as book title will be included anyway
+            if (self._introTextFound):
+                self._writeTitle()
+            else:
+                self._introText = ''
+                if self._context.config.bookTitlesInOSIS:
+                    self._bookTitle = self._titleText
+                if self._context.config.bookSubtitles:
+                    self._readyForSubtitle = True
+                    
+        elif not self._bookTitleFound and self._context.config.bookTitlesInOSIS and not self._introTextFound:
+                #
+                # This is the book title
+                self._bookTitle = self._titleText
+                self._bookTitleFound = True
+                if self._context.config.bookSubtitles:
+                    self._readyForSubtitle = True
+                    
+        else:
+                        
+            if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook and 'x-introduction' in self._titleTag:
+                # Intro title may be needed in toc - but make sure this is not a book subtitle
+                titleTag = self._titleTag
+                if self._context.config.introInContents and not 'book-subtitle' in titleTag:
+                    self._titleTag = titleTag.replace('>', ' chapter="'+rawText+'">')
+                    self._introTitleWritten = True
+            else:
+                # An initial psalm division title may occur at the end of the intro - handle this
+                self._handlePsDivHeading(rawText)
+                    
+                # Terminate any current paragraph to avoid an unwanted introduction style from being applied
+                if self._inParagraph:
+                    self._writeHtml('</p>\n')
+                    self._inParagraph = False
         
-   
+            self._writeTitle()
+            
+    def _processScriptureTitle(self):
+        rawText = re.sub('<.*>', '', self._titleText)
+        if rawText == self._bookTitle and not self._bookTitleFound:
+            self._bookTitleFound = True
+            if self._verseTextFound or not self._firstTitle:
+                self._writeTitle()
+            elif self._context.config.bookSubtitles:
+                self._readyForSubtitle = True
+        else:
+            # Check for Psalm division titles
+            self._handlePsDivHeading(rawText)
+                    
+            if (self._psDivTitle):
+                # This is a psalm division title or subtitle
+                self._writeTitle()
+                
+            else:
+                # Write any chapter title before this title
+                if self._chapterTitle != '':
+                    self._writeChapterTitle()
+                self._psDivTitleFound = False
+                self._writeTitle()   
+                self._firstTitle = False
+                
+    def _footnoteRef(self, osisRef):
+        isRange = False
+        endRef = ''
+        scriptureFootnote = True
+        colonPos = osisRef.find(':')
+        if colonPos >= 0:
+            workRef = osisRef[:colonPos]
+            if workRef == self._osisIDWork:
+                reference = osisRef[colonPos+1:]
+            else:
+                # Footnote is not linked to scripture
+                scriptureFootnote = False
+        else:
+            reference = osisRef
+        if (scriptureFootnote):
+            separatorPos = reference.find('-')
+            if separatorPos >= 0:
+                isRange = True
+                endRef = reference[separatorPos+1:]
+                reference = reference[:separatorPos]
+            refParts = re.split('[.!]', reference)
+            refBook = refParts[0]
+            refVerse = '%s:%s' % (refParts[1], refParts[2])
+            if isRange:
+                refVerse += '-'
+                endParts = re.split('.', endRef)
+                if endParts[1] != refParts[1]:
+                    refVerse += '%s:' % endParts[1]
+                refVerse += endParts[2]
+            noteRef = self._footnotes.newFootnote(refBook, refVerse)
+            self._writeFootnoteRef(refBook, noteRef)  
+        return scriptureFootnote
+    
+    def _writeFootnoteRef(self, refBook, noteRef):
+        if self._context.config.epub3:
+            refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
+        else:
+            refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)   
+        self._writeHtml(refString)
+        self._footnoteRefWritten = True
+
+

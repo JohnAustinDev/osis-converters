@@ -1,3 +1,4 @@
+import codecs
 
 class HtmlWriter:
 
@@ -9,7 +10,7 @@ class HtmlWriter:
         if self._fh is not None:
             self.close()
         filename = name.lower()
-        self._fh = open(filename+'.xhtml', 'w')
+        self._fh = codecs.open(filename+'.xhtml', 'w', 'utf-8')
         self._writeHeader(name)
         self._context.htmlFiles.append(filename)
             
@@ -29,7 +30,7 @@ class HtmlWriter:
         if self._context.config.epub3:
             epubString = 'xmlns:epub="http://www.idpf.org/2007/ops"'
         self._fh.write('''<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml"%s>
+<html xmlns="http://www.w3.org/1999/xhtml" %s>
   <head>
     <meta name="generator" content="OSIS"/>
     <title>%s</title>
