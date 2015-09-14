@@ -45,20 +45,24 @@ sub makeEbook($$$) {
   my $format = shift; # “epub”, “mobi” or “fb2”
   my $cover = shift; # path to cover image
   
+  &Log("\n--- CREATING $format FROM $osis\n", 1);
+  
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  system("$SCRD/eBooks/osis2ebook.pl " . &escfile($TMPDIR) . " " . &escfile($osis) . " " . $format . " " . $cover . " >> ".&escfile($LOGFILE));
+  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($TMPDIR) . " " . &escfile($osis) . " " . $format . " " . $cover . " >> ".&escfile($LOGFILE);
+  &Log($cmd."\n");
+  system($cmd);
   
   my $out = "$TMPDIR/$MOD.$format";
   if (-e $out) {
     my $name = "$MOD.$format";
     if ($ConfEntryP->{"Scope"}) {
-      $name = $ConfEntry{"Scope"} . ".$format";
+      $name = $ConfEntryP->{"Scope"} . ".$format";
       $name =~ s/\s/_/g;
     }
     copy($out, "$EBOUT/$name");
-    &Log("REPORT: Created output file: $name\n");
+    &Log("REPORT: Created output file: $name\n", 1);
   }
   else {&Log("ERROR: No output file: $out\n");}
 }
