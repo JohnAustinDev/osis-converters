@@ -1,9 +1,15 @@
 #!/bin/bash
 
-# When this script is run, it should:
-#   Install everything necessary on the VM
-#   Update everything necessary on the VM
+# This script should not be run as root (except by Vagrant during initial provisioning)
 
+# When this script is run, it should:
+#   Install everything necessary for the VM
+#   Update everything necessary for the VM
+
+cd $( dirname "${BASH_SOURCE[0]}" )
+
+if [ -e /vagrant ]; then VUSER="vagrant"; else VUSER=$USER; fi
+if [ -e /vagrant ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ -e /vagrant ]; then VHOME="/home/vagrant"; else VHOME=$HOME; fi
 if [ ! -e $VHOME/.osis-converters ]; then mkdir $VHOME/.osis-converters; fi
 if [ ! -e $VHOME/.osis-converters/src ]; then mkdir $VHOME/.osis-converters/src; fi
@@ -21,7 +27,7 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   wget -nv -O- https://raw.githubusercontent.com/kovidgoyal/calibre/master/setup/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
-sudo su - vagrant -c 'calibre-customize -b /vagrant/eBooks/OSIS-Input'
+sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
 
 # GoBible Creator
 if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
