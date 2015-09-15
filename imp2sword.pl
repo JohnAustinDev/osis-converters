@@ -23,9 +23,9 @@
 # file and a config.conf file located in the Glossary_Directory.
 
 $INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
-require "$SCRD/scripts/common.pl"; &init(__FILE__);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 $IMPFILE = "$OUTDIR/$MOD.imp";
 if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}

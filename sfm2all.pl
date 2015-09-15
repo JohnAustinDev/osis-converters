@@ -25,9 +25,9 @@
 $DEBUG = 0;
 
 $INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
-require "$SCRD/scripts/common.pl"; &init(__FILE__);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 # collect all modules to run
 my %modules;
@@ -43,15 +43,15 @@ foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
 
 # create each OSIS file and SWORD module, dictionaries first
 foreach my $dir (sort {($modules{$b} =~ /LD/ ? 1:0) <=> ($modules{$a} =~ /LD/ ? 1:0)} keys %modules) {
-  &osis_converters('sfm2osis', $dir, $LOGFILE);
-  &osis_converters('osis2sword', $dir, $LOGFILE);
+  &osis_converters("$SCRD/sfm2osis.pl", $dir, $LOGFILE);
+  &osis_converters("$SCRD/osis2sword.pl", $dir, $LOGFILE);
 }
 
 # create any GoBibles and eBooks
 foreach my $dir (keys %modules) {
   if ($modules{$dir} !~ /Text/) {next;}
-  &osis_converters('osis2GoBible', $dir, $LOGFILE);
-  &osis_converters('osis2ebooks', $dir, $LOGFILE);
+  &osis_converters("$SCRD/osis2GoBible.pl", $dir, $LOGFILE);
+  &osis_converters("$SCRD/osis2ebooks.pl", $dir, $LOGFILE);
 }
 
 1;

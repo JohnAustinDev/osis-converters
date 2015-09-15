@@ -34,9 +34,9 @@
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 $INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
-require "$SCRD/scripts/common.pl"; &init(__FILE__);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 # run web2osis.pl
 $COMMANDFILE = "$INPD/CF_html2osis.txt";

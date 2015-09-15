@@ -25,9 +25,9 @@
 # entries will be corrected then.
 
 $INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant(__FILE__);
-require "$SCRD/scripts/common.pl"; &init(__FILE__);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 my @entry, %pattern;
 open(INF, "<:encoding(UTF-8)", "$INPD/DictionaryWords.txt") or die;

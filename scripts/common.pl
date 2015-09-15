@@ -39,10 +39,7 @@ $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
 
-sub init($) {
-  $SCRIPT = shift;
-  $SCRIPT =~ s/^.*[\\\/]([^\\\/]+)\.pl$/$1/;
-  
+sub init() {
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
@@ -53,6 +50,8 @@ sub init($) {
   }
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
   
+  $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
+  
   if (!-e "$SCRD/paths.pl") {
     if (!open(PATHS, ">$SCRD/paths.pl")) {&Log("Could not open \"$SCRD/paths.pl\". Exiting.\n"); die;}
     print PATHS "1;\n";
@@ -60,7 +59,7 @@ sub init($) {
   }
   require "$SCRD/paths.pl";
 
-  &checkAndWriteDefaults($INPD, $SCRIPT);
+  &checkAndWriteDefaults($INPD);
   
   $CONFFILE = "$INPD/config.conf";
   
@@ -75,10 +74,10 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &setOUTDIR($INPD);
   
   $AUTOMODE = ($LOGFILE ? 1:0);
-  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT.txt";}
+  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT_NAME.txt";}
   if (!$AUTOMODE && -e $LOGFILE) {unlink($LOGFILE);}
   
-  &initOutputFiles($INPD, $OUTDIR, $AUTOMODE);
+  &initOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR, $AUTOMODE);
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
@@ -90,14 +89,14 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   use HTML::Entities;
   &initLibXML();
   
-  $TMPDIR = "$OUTDIR/tmp/$SCRIPT";
+  $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
   make_path($TMPDIR);
   
   if (-e "$INPD/$DICTIONARY_WORDS") {$DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");}
   
   &Log("osis-converters rev: $GITHEAD\n\n");
-  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT.pl\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
 }
 
 
@@ -123,7 +122,8 @@ sub setOUTDIR($) {
 }
 
 
-sub initOutputFiles($$$) {
+sub initOutputFiles($$$$) {
+  my $script_name = shift;
   my $inpd = shift;
   my $outdir = shift;
   my $automode = shift;
@@ -131,20 +131,20 @@ sub initOutputFiles($$$) {
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
   my @outs;
-  if ($SCRIPT =~ /^(osis2osis|sfm2osis|html2osis)$/i) {
+  if ($script_name =~ /^(osis2osis|sfm2osis|html2osis|cbsfm2osis)$/i) {
     $OUTOSIS = "$outdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
-  if ($SCRIPT =~ /^(osis2sword|imp2sword)$/i) {
+  if ($script_name =~ /^(osis2sword|imp2sword)$/i) {
     $OUTZIP = "$outdir/$sub.zip"; push(@outs, $OUTZIP);
     $SWOUT = "$outdir/sword"; push(@outs, $SWOUT);
   }
-  if ($SCRIPT =~ /^osis2GoBible$/i) {
+  if ($script_name =~ /^osis2GoBible$/i) {
     $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
-  if ($SCRIPT =~ /^osis2ebooks$/i) {
+  if ($script_name =~ /^osis2ebooks$/i) {
     $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
   }
-  if ($SCRIPT =~ /^sfm2imp$/i) {
+  if ($script_name =~ /^sfm2imp$/i) {
     $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
   }
 
@@ -262,9 +262,8 @@ sub initLibXML() {
 #
 # and then entries are added to each new input file as applicable.
 # Returns 0 if no action was taken, 1 otherwise.
-sub checkAndWriteDefaults($$) {
+sub checkAndWriteDefaults($) {
   my $dir = shift;
-  my $script = shift;
 
   # config.conf and sfm file information
   if ((!-e "$dir/sfm" && !%USFM) || !&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return 0;}
@@ -300,7 +299,7 @@ sub checkAndWriteDefaults($$) {
     $companion = $confdataP->{'ModuleName'}.'DICT';
     if (!-e "$dir/$companion") {
       make_path("$dir/$companion");
-      &checkAndWriteDefaults("$dir/$companion", $script);
+      &checkAndWriteDefaults("$dir/$companion");
     }
     else {&Log("WARNING: Companion directory \"$dir/$companion\" already exists, skipping defaults check for it.\n");}
   }
@@ -555,8 +554,8 @@ sub osis_converters($$$) {
   my $project_dir = shift;
   my $logfile = shift;
   
-  $cmd = &escfile("$SCRD/$script.pl")." ".&escfile($project_dir).($logfile ? " ".&escfile($logfile):'');
-  &Log("\n\n\nRUNNING OSIS_CONVERTERS SCRIPT:\n$cmd\n", 1);
+  my $cmd = &escfile($script)." ".&escfile($project_dir).($logfile ? " ".&escfile($logfile):'');
+  &Log("\n\n\nRUNNING OSIS_CONVERTERS:\n$cmd\n", 1);
   &Log("########################################################################\n", 1);
   &Log("########################################################################\n", 1);
   system($cmd.($logfile ? " 2>> ".&escfile($logfile):''));
