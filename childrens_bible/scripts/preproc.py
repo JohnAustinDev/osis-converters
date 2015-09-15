@@ -124,12 +124,12 @@ def addMaterial(usfm, addFile, prefix):
     
 def printUsage():
     """Prints usage statement."""
-    print('cbpreproc.py -- replace \\c UFSM tags in children\'s Bible with appropriate \\fig tags')
+    print('preproc.py -- replace \\c UFSM tags in children\'s Bible with appropriate \\fig tags')
     print('                replace ~ with soft hyphens, remove \\id tags,')
     print('                standardise section heading tags')
     print('                and optionally add aditional material to the file')
     print('')
-    print('Usage: cbpreproc.py [-a <additions file>] [-l] <input file> <output file> <extension> [<prefix>]')
+    print('Usage: preproc.py [-a <additions file>] [-l] <input file> <output file> <extension> [<prefix>]')
     print('')
     print('  <input file>) is the input USFM file or, if -l is specified, a file containing a list of USFM files')
     print('  <extension> is the extension to be added to picture file names, e.g. jpg')
@@ -137,7 +137,7 @@ def printUsage():
     print('  <additions file> is a file specifying material to be added at start and/or end')
     print('')
     print('Example: ')
-    print('  cbpreproc.py -a SFM_Extras.txt -l S sfm/LEZCB_1.sfm jpg LezCB') 
+    print('  preproc.py -a SFM_Extras.txt -l S sfm/LEZCB_1.sfm jpg LezCB') 
     
 
 

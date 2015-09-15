@@ -1,114 +1,76 @@
 #!/usr/bin/perl
+# This file is part of "osis-converters".
+# 
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
 
-# usage: cbsfm2osis.pl ProjectDir [-l] File_path OsisConvertersDir [File_prefix]
-#   Using -l means File_path is a file containing a list of SFM files to process in sequence
-#   File_prefix is a prefix to be added to additional language specific picture file names 
+# usage: cbsfm2osis.pl [Project_Directory]
 
-use File::Spec;
-$List = "";
-$INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-}
-else {
-  print "Directory not specified. Exiting.\n";
+$DEBUG = 0;
+
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
+
+# Get SFM files
+$List = "-l";
+$INPF = "$INPD/SFM_Files.txt";
+if (! -e $INPF) {
+  &Log("ERROR: Must list sfm files in \"$INPF\", one file per line, in proper sequence.\n");
   exit;
 }
 
-$INPF = shift;
-if ($INPF eq "-l") {
-  $List = "-l";
-  $INPF = shift;
+# Get any prefix to be added to additional language specific picture file names
+$PREFIX = '';
+if (-e "$INPD/Image_Prefix.txt") {
+  open(INF, "<$INPD/Image_Prefix.txt"); 
+  $PREFIX = <INF>; 
+  close(INF);
 }
 
-if ($INPF) {$INPF = File::Spec->rel2abs($INPF);}
-else {
-  print "File \"$INPF\" does not exist. Exiting.\n";
-  exit;
-}
-
-$SCRD = shift;
-if ($SCRD =~ /^\./) {$SCRD = File::Spec->rel2abs($SCRD);}
-
-$CBD = File::Spec->rel2abs( __FILE__ );
-# Remove file name
-$CBD =~ s/[\\\/][^\\\/]+$//;
-
-$PREFIX = shift;
-
-require "$SCRD/scripts/common.pl";
-&initPaths();
-
-$CONFFILE = "$INPD/config.conf";
-if (!-e $CONFFILE) {print "ERROR: Missing conf file: $CONFFILE. Exiting.\n"; exit;}
-&getInfoFromConf($CONFFILE);
-
-$OSISFILE = "$OUTDIR/".$MOD.".xml";
-$LOGFILE = "$OUTDIR/OUT_sfm2osis.txt";
-
-my $delete;
-if (-e $OSISFILE) {$delete .= "$OSISFILE\n";}
-if (-e $LOGFILE) {$delete .= "$LOGFILE\n";}
-if ($delete) {
-  print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-  $in = <>; 
-  if ($in !~ /^\s*y\s*$/i) {exit;}
-}
-if (-e $OSISFILE) {unlink($OSISFILE);}
-if (-e $LOGFILE) {unlink($LOGFILE);}
-
-$TMPDIR = "$OUTDIR/tmp/src2osis";
-if (-e $TMPDIR) {remove_tree($TMPDIR);}
-make_path($TMPDIR);
-
-if ($SWORDBIN && $SWORDBIN !~ /[\\\/]$/) {$SWORDBIN .= "/";}
-
-&Log("\n-----------------------------------------------------\nSTARTING usfm2osis.pl\n\n");
+$CBD = "$SCRD/childrens_bible";
 
 # run preprocessor
-&Log("\n--- PREPROCESSING USFM\n");
-$OUTPUTFILE = "$TMPDIR/".$MOD."_1.sfm";
-$AddFileOpt = ""; 
-$ADDFILE = "$INPD/SFM_Add.txt";
-if (-e $ADDFILE) {
-  $AddFileOpt = "-a $ADDFILE" ;
-}
-
-$PPOUT = `$CBD/scripts/cbpreproc.py $AddFileOpt $List $INPF $OUTPUTFILE jpg $PREFIX`;
-
-&Log($PPOUT);
+&Log("\n--- PREPROCESSING USFM\n-----------------------------------------------------\n\n", 1);
+$AddFileOpt = (-e "$INPD/SFM_Add.txt" ? "-a \"$INPD/SFM_Add.txt\"":'');
+$cmd = "$CBD/scripts/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
+&Log($cmd);
+`$cmd`;
 
 # run main conversion script
-&Log("\n--- CONVERTING PARATEXT TO OSIS\n");
-$INPUTFILE = $OUTPUTFILE;
-$OUTPUTFILE = "$TMPDIR/".$MOD."_1.xml";
-$CONVOUT = `$SCRD/scripts/usfm2osis.py $MOD -o $OUTPUTFILE -r -g -x $INPUTFILE`;
-&Log($CONVOUT);
+&Log("\n--- CONVERTING PARATEXT TO OSIS\n-----------------------------------------------------\n\n", 1);
+$cmd = "$CBD/scripts/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
+&Log($cmd);
+`$cmd`;
 
 # run postprocessor
-&Log("\n--- POSTPROCESSING OSIS\n");
-$INPUTFILE = $OUTPUTFILE;
-$OUTPUTFILE = "$TMPDIR/".$MOD."_2.xml";
-
-$PPOUT = `$CBD/scripts/cbpostproc.py $INPUTFILE $OUTPUTFILE`;
-
-&Log($PPOUT);
+&Log("\n--- POSTPROCESSING OSIS\n-----------------------------------------------------\n\n", 1);
+$cmd = "$CBD/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
+&Log($cmd);
+`$cmd`;
 
 # run addScripRefLinks.pl
-$INPUTFILE = $OUTPUTFILE;
-$OUTPUTFILE = $OSISFILE;
-$COMMANDFILE = "$INPD/CF_addScripRefLinks.txt";
-if (-e $COMMANDFILE) {
-  &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n");
-  $NOCONSOLELOG = 1;
+if (-e "$INPD/CF_addScripRefLinks.txt") {
   require("$SCRD/scripts/addScripRefLinks.pl");
-  $NOCONSOLELOG = 0;
+  &addScripRefLinks("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 else {
   &Log("Skipping Scripture reference parsing.\n");
-  rename($INPUTFILE, $OSISFILE);
+  rename("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 
-close(CONF);
 1;

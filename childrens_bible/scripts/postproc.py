@@ -58,15 +58,15 @@ def processOSIS(osis):
 
 def printUsage():
     """Prints usage statement."""
-    print('cbpostproc.py -- add OSIS sub-types for correct formatting of children\'s Bible ')
+    print('postproc.py -- add OSIS sub-types for correct formatting of children\'s Bible ')
     print('')
-    print('Usage: cbpostproc.py <input file> <output file>')
+    print('Usage: postproc.py <input file> <output file>')
     print('')
     print('  <input file> is the input OSIS file')
     print('  <output file> is the processed OSIS file')
     print('')
     print('Example: ')
-    print('  cbpostproc.py sfm/LEZCB_1.xml sfm/LEZCB.xml') 
+    print('  postproc.py sfm/LEZCB_1.xml sfm/LEZCB.xml') 
     
 
 
