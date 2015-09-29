@@ -3,6 +3,8 @@
 # Code here may be run on the host machine (rather than the Vagrant VM) and
 # so should not use any non-standard Perl modules.
 
+$VAGRANT = 1; # Vagrant is on by default. To run natively, add "$Vagrant=0;" to paths.pl
+
 sub init_vagrant() {
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;

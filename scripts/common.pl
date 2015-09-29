@@ -218,24 +218,6 @@ sub checkDependencies($$$) {
     }
   }
   if ($failMes) {
-    if (!-e "/home/vagrant") {
-      print "\n";
-      if ("$^O" =~ /linux/i) {
-        print "You are running in Linux and can meet all osis-converter dependencies either \n";
-        print "by using Vagrant and Virtualbox or else by running or following the\n";
-        print "VagrantProvision.sh script as root.\n";
-      }
-      print "Do you want to use Vagrant and Virtualbox\nto automatically meet all dependencies? (Y/N):"; 
-      $in = <>; 
-      if ($in =~ /^\s*y\s*$/i) {
-        if (!&vagrantInstalled()) {exit;}
-        if (!open(PATHS, ">>$scrd/paths.pl")) {die;}
-        print PATHS "\$VAGRANT = 1;\n1;\n";
-        close(PATHS);
-        &startVagrant($scrd, $script, $inpd);
-        exit;
-      }
-    }
     &Log("\n$failMes", 1);
     exit;
   }
