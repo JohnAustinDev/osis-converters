@@ -69,6 +69,8 @@ if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
   git clone https://github.com/JohnAustinDev/Module-tools.git
 else
   cd $VHOME/.osis-converters/src/Module-tools
+  git stash
+  git checkout master
   git pull
 fi
 
