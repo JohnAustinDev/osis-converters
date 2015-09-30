@@ -22,6 +22,7 @@ class OsisHandler(handler.ContentHandler):
         self._firstBook = True                           # First book of testament
         self._firstTitle = False
         self._firstVerse = False
+        self._footnoteNo = 0
         self._footnoteRefWritten = False
         self._groupIntroWritten = False
         self._groupHtmlOpen = False
@@ -227,7 +228,10 @@ class OsisHandler(handler.ContentHandler):
                 self._inParagraph = False
                 
         elif name == 'reference':
-            self._inFootnoteRef = False
+            if self._inFootnoteRef:
+                if not self._footnoteRefWritten:
+                    self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
+                self._inFootnoteRef = False
 
         elif name == 'title':
             if self._inTitle:
@@ -342,9 +346,9 @@ class OsisHandler(handler.ContentHandler):
                             if self._inFootnote and not self._footnoteRefWritten:
                                 # This is a footnote without a reference
                                 verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
-                                noteRef = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
+                                self._footnoteNo = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
                                 self._inFootnoteRef = True
-                                self._writeFootnoteRef(self._docStructure.bookId, noteRef)
+                                self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
                                 self._inFootnoteRef = False
                             self._writeHtml(content)           
 
@@ -639,7 +643,11 @@ class OsisHandler(handler.ContentHandler):
             if self._inFootnote and not self._footnoteRefWritten:
                 self._inFootnoteRef = True
                 osisRef = self._getAttributeValue(attrs, 'osisRef')
-                if not self._footnoteRef(osisRef):
+                if osisRef is None:
+                    # reference not supplied as an attribute
+                    verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
+                    self._footnoteNo = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
+                elif not self._footnoteRef(osisRef):
                     self._inFootnoteRef = False
                     self._inFootnote = False
                     self._ignoreText = True
@@ -1008,8 +1016,8 @@ class OsisHandler(handler.ContentHandler):
                 if endParts[1] != refParts[1]:
                     refVerse += '%s:' % endParts[1]
                 refVerse += endParts[2]
-            noteRef = self._footnotes.newFootnote(refBook, refVerse)
-            self._writeFootnoteRef(refBook, noteRef)  
+            self._footnoteNo = self._footnotes.newFootnote(refBook, refVerse)
+            self._writeFootnoteRef(refBook, self._footnoteNo)  
         return scriptureFootnote
     
     def _writeFootnoteRef(self, refBook, noteRef):
