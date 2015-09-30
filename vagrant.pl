@@ -4,18 +4,19 @@
 # The purpose of this script is to set the required file shares between
 # host and vagrant client, and to call osis-converters on the client.
 
-$Script = shift;
-$Indir = shift;
+use File::Spec; 
+
+$Script = File::Spec->rel2abs(shift);
+$Indir = File::Spec->rel2abs(shift);
 
 $Indir =~ s/^((\w:)?[\\\/]*[^\\\/]+)[\\\/]?(.*?)[\\\/]?$/$3/;
-$INPARENT = $1;
-if ($INPARENT =~ /^\./) {$INPARENT = File::Spec->rel2abs($INPARENT);}
+$INDIR_ROOT = $1;
 
-use File::Spec; $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
 chdir $SCRD;
 if (-e "./paths.pl") {require "./paths.pl";}
 
-push(@Shares, &vagrantShare($INPARENT, "INDIR_ROOT"));
+push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
 if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
 
@@ -24,7 +25,8 @@ if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
 
 $Indir =~ s/\\/\//g; # using as Linux relative path
-$cmd = "vagrant ssh -c \"cd /vagrant && ./$Script /home/vagrant/INDIR_ROOT/$Indir\"";
+my $script_rel = File::Spec->abs2rel($Script, $SCRD);
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/vagrant/INDIR_ROOT/$Indir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}

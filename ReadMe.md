@@ -6,7 +6,6 @@ Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to
 EPUB, MOBI, and FB2 files.
 
 ##setup:
-**Linux**: Run VagrantProvision.sh to install all dependencies.<br>
 **Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)

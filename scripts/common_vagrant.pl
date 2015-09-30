@@ -3,10 +3,9 @@
 # Code here may be run on the host machine (rather than the Vagrant VM) and
 # so should not use any non-standard Perl modules.
 
-sub init_vagrant($) {
-  $SCRIPT = shift;
-  $SCRIPT =~ s/^.*[\\\/]([^\\\/]+)\.pl$/$1/;
-  
+$VAGRANT = 1; # Vagrant is on by default. To run natively, add "$Vagrant=0;" to paths.pl
+
+sub init_vagrant() {
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
@@ -15,6 +14,7 @@ sub init_vagrant($) {
     print "Project directory \"$INPD\" does not exist. Exiting.\n";
     exit;
   }
+  chdir($INPD);
   
   if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   
@@ -46,7 +46,7 @@ sub startVagrant($$$) {
   my $scrd = shift;
   my $script = shift;
   my $inpd = shift;
-  my @args = ("$scrd/vagrant.pl", "$script.pl", $inpd);
+  my @args = ("$scrd/vagrant.pl", $script, $inpd);
   print "@args\n";
   exec(@args);
   exit;
