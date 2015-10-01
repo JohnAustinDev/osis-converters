@@ -24,6 +24,8 @@ class OsisHandler(handler.ContentHandler):
         self._firstVerse = False
         self._footnoteNo = 0
         self._footnoteRefWritten = False
+        self._groupEmpty = False
+        self._groupIndex = 0
         self._groupIntroWritten = False
         self._groupHtmlOpen = False
         self._groupTitle = ''
@@ -89,7 +91,9 @@ class OsisHandler(handler.ContentHandler):
         self._chNumWritten = False
         self._chHeadingWritten = False
         self._firstBook = True
+        self._groupEmpty = False
         self._groupHtmlOpen = False
+        self._groupIndex = 0
         self._headerProcessed = False
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
@@ -442,15 +446,25 @@ class OsisHandler(handler.ContentHandler):
             if divType == 'bookGroup':
                 if self._docStructure.startGroup():
                     groupNumber = self._docStructure.groupNumber
-                    self._groupTitle = self._context.config.groupTitle(groupNumber)
-                    self._groupIntroWritten = False
-                    self._firstBook = True
-                    if self._groupTitle != '' and (groupNumber != 1 or not self._context.config.bibleIntro):
-                        self._openGroupHtml()
+                    if self._groupEmpty:
+                        print 'Ignoring empty book group'
+                        self._docStructure.groupNumber = groupNumber -1
+                    else:
+                        self._startGroup(groupNumber)
+                        self._groupEmpty = True
 
             elif divType == 'book':
+                self._groupEmpty = False
                 bookRef = self._getAttributeValue(attrs,'osisID')
                 if self._docStructure.startBook(bookRef):
+                    if not self._context.config.testamentGroups:
+                        groupIndex = self._context.config.bookGroup(bookRef)
+                        if not self._firstBook and groupIndex != self._groupIndex:
+                            self._docStructure.groupNumber += 1
+                            self._startGroup(self._docStructure.groupNumber)
+
+                        self._groupIndex = groupIndex
+                            
                     self._bookTitle = self._context.config.bookTitle(bookRef)
                     self._inIntro = True
                     self._introText = ''
@@ -1032,5 +1046,13 @@ class OsisHandler(handler.ContentHandler):
         self._bookTitle = re.sub(r'(\S)<br />(\S)', r'\1 <br />\2', self._bookTitle)
         self._htmlWriter.write('<h2>%s</h2>' % self._bookTitle)
         self._bookTitleWritten = True
+        
+    def _startGroup(self, groupNumber):
+        self._groupTitle = self._context.config.groupTitle(groupNumber)
+        self._groupIntroWritten = False
+        self._firstBook = True
+        if self._groupTitle != '' and (groupNumber != 1 or not self._context.config.bibleIntro):
+            self._openGroupHtml()
+        
 
 
