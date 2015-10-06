@@ -16,6 +16,7 @@ class DocStructure:
         self.groupNumber = 0
         self.inGroup = False
         self.inBook = False
+        self.inSection = False
         self.divStack =[]
         self.refStack =[]        
         
@@ -47,7 +48,8 @@ class DocStructure:
         
     def startSection(self, ref):
         self.divStack.append(self.SECTION)
-        self.refStack.append(ref)            
+        self.refStack.append(ref)
+        self.inSection = True
         return True
     
     def otherDiv(self):
@@ -58,15 +60,17 @@ class DocStructure:
     def endDiv(self, ref):
         divType = self.divStack.pop()
         divRef = self.refStack.pop()
-        if divType == self.SECTION and ref != divRef:
-            print 'Section end mismatch - expected %s, found %s' % (divRef, ref)
-            return self.ERROR
+        if divType == self.SECTION:
+            self.inSection = False
+            if ref != divRef:
+                print 'Section end mismatch - expected %s, found %s' % (divRef, ref)
+                return self.ERROR
         else:
             if divType == self.BOOK:
                 self.inBook = False
             elif divType == self.GROUP:
                 self.inGroup = False
-            return divType
+        return divType
         
     def newChapter(self, chId):
         comp = chId.split('.')

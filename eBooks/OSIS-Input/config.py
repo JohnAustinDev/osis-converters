@@ -26,6 +26,15 @@ class ConversionConfig:
                       'Phlm'  : u'К Филимону', 'Heb' : u'К Евреям', 'Jas' : u'Иакова' , '1Pet' : u'1-e Петра', '2Pet' : u'2-e Петра', \
                       '1John' : u'1-e Иоанна', '2John' : u'2-e Иоанна', '3John' : u'3-e Иоанна', 'Jude' : u'Иуда', 'Rev' : u'Откровение' }
         
+        # Tuples for testamants
+        self.old = ('Gen', 'Exod', 'Lev', 'Num', 'Deut', 'Josh', 'Judg', 'Ruth', '1Sam', '2Sam', '1Kgs', '2Kgs', '1Chr', '2Chr', \
+                      'Ezra', 'Neh' ,'Esth', 'Job', 'Ps', 'Prov', 'Eccl', 'Song', 'Isa', 'Jer' , 'Lam', 'Dan', 'Hos', 'Joel', \
+                      'Amos', 'Obad', 'Jonah', 'Mic', 'Nah', 'Hab', 'Zeph', 'Hag', 'Zech', 'Mal')
+        self.apoc = ('PrMan', '1Esd', 'Tob', 'Jdt', 'Wis', 'Sir','EpJer', 'Bar','1Macc', '2Macc', '3Macc', '2Esd')
+        self.new = ('Matt', 'Mark', 'Luke', 'John', 'Acts', 'Rom', '1Cor', '2Cor', 'Gal', 'Eph', 'Phil', 'Col', '1Thess', '2Thess', \
+                      '1Tim', '2Tim', 'Titus', 'Phlm', 'Heb' , 'Jas', '1Pet', '2Pet','1John', '2John', '3John', 'Jude', 'Rev')
+                      
+        
         self.groups = ['', '', '', '']
         self.bookTitlesInOSIS = False
         self.psalmTitle = ''
@@ -41,6 +50,7 @@ class ConversionConfig:
         self.psalmDivSubtitle = ''
         self.optionalBreaks = False
         self.introInContents = True
+        self.testamentGroups = True
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -62,6 +72,13 @@ class ConversionConfig:
             m = re.search(regex, config, re.MULTILINE|re.IGNORECASE)
             if m:
                 self.groups[bookGroup] = m.group(1).strip()
+        #
+        m = re.search(r"^\s*TestamentGroups=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'false' or torf == 'f' or torf == 'no' or torf == 'n':
+                self.testamentGroups = False
+        #
         #
         # Look for book title handling
         m = re.search(r"^\s*BookTitlesInOSIS=(.+)", config, re.MULTILINE|re.IGNORECASE)
@@ -151,3 +168,13 @@ class ConversionConfig:
             return self.groups[groupNum]
         else:
             return ''
+        
+    def bookGroup(self, bookRef):
+        if bookRef in self.old:
+            return 1
+        elif bookRef in self.apoc:
+            return 2
+        elif bookRef in self.new:
+            return 3
+        else:
+            return 0
