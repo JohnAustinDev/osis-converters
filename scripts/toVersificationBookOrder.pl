@@ -47,8 +47,9 @@ sub toVersificationBookOrder($$) {
   
   # create empty bookGroups
   my @bookGroups;
-  push(@bookGroups, $XML_PARSER->parse_balanced_chunk("<div type=\"bookGroup\"></div>"));
+  push(@bookGroups, XML::LibXML::Element->new("div"));
   push(@bookGroups, @bookGroups[0]->cloneNode());
+  foreach my $bookGroup (@bookGroups) {$bookGroup->setAttribute('type', 'bookGroup');}
     
   # place all books back in canon order
   foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
