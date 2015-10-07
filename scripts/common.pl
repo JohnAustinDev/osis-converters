@@ -266,18 +266,20 @@ sub checkAndWriteDefaults($) {
   %USFM; &scanUSFM("$dir/sfm", \%USFM);
   
   # get my type
-  my $type = (exists($USFM{'bible'}) && $confdataP->{'ModuleName'} !~ /DICT$/ ? 'bible':0);
-  if (!$type) {$type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);}
+  my $type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);
+  if (!$type) {$type = (exists($USFM{'childrens_bible'}) && $confdataP->{'ModuleName'} =~ /CB$/ ? 'childrens_bible':0);}
+  if (!$type) {$type = (exists($USFM{'bible'}) ? 'bible':0);}
   if (!$type) {$type = 'other';}
   
   # ModDrv
-  if ($type eq 'bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'zText', 1);}
   if ($type eq 'dictionary') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawLD4', 1);}
+  if ($type eq 'childrens_bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawGenBook', 1);}
+  if ($type eq 'bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'zText', 1);}
   if ($type eq 'other') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawGenBook', 1);}
  
   # Companion
   my $companion;
-  if ($type eq 'bible' && exists($USFM{'dictionary'})) {
+  if (($type eq 'bible' || $type eq 'childrens_bible') && exists($USFM{'dictionary'})) {
     $companion = $confdataP->{'ModuleName'}.'DICT';
     if (!-e "$dir/$companion") {
       make_path("$dir/$companion");
@@ -290,15 +292,26 @@ sub checkAndWriteDefaults($) {
   if ($companion) {
     &setConfFileValue("$dir/config.conf", 'Companion', $companion, ', ');
   }
-  
-  # CF_usfm2osis.txt
-  if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
-    if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
-    foreach my $f (keys %{$USFM{$type}}) {
-      my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
-      print CFF "RUN:$r\n";
+
+  if ($type eq 'childrens_bible') {
+    # SFM_Files.txt
+    if (!open (SFMFS, ">encoding(UTF-8)", "$dir/SFM_Files.txt")) {&Log("ERROR: Could not open \"$dir/SFM_Files.txt\"\n"); die;}
+    foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
+      $f =~ s/^.*[\/\\]//;
+      print SFMFS "sfm/$f\n";
     }
-    close(CFF);
+    close(SFMFS);
+  }
+  else {
+    # CF_usfm2osis.txt
+    if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
+      if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
+      foreach my $f (keys %{$USFM{$type}}) {
+        my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
+        print CFF "RUN:$r\n";
+      }
+      close(CFF);
+    }
   }
   
   # CF_addScripRefLinks.txt
@@ -343,7 +356,10 @@ sub checkAndWriteDefaults($) {
       print CONV "Language=".$confdataP->{'Lang'}."\n";
       print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
       print CONV "Title=".$confdataP->{'Description'}."\n";
-      foreach my $f (keys %{$USFM{'bible'}}) {
+      # sort books to versification order just to make them easier to manually check/update
+      my (%canon, %bookOrder, %testament);
+      &getCanon(($confdataP->{'Versification'} ? $confdataP->{'Versification'}:'KJV'), \%canon, \%bookOrder, \%testament);
+      foreach my $f (sort {$bookOrder{$USFM{'bible'}{$a}{'osisBook'}} <=> $bookOrder{$USFM{'bible'}{$b}{'osisBook'}}} keys %{$USFM{'bible'}}) {
         print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
       }
       close(CONV);
@@ -452,7 +468,7 @@ sub scanUSFM_file($) {
   }
   close(SFM);
   
-  if ($id =~ /^\s*(\w{3}).*$/) {
+  if ($id =~ /^\s*(\w{2,3}).*$/) {
     my $shortid = $1;
     $info{'doConvert'} = 1;
     my $osisBook = &getOsisName($shortid, 1);
@@ -463,9 +479,13 @@ sub scanUSFM_file($) {
     elsif ($id =~ /(GLO|DIC)/i) {
       $info{'type'} = 'dictionary';
     }
+    elsif ($id =~ /^(CVR|TTL|TLB|PREPAT|PRE|SHM[NO]T|CB|NT|OT|FOTO)$/i) {
+      $info{'type'} = 'childrens_bible';
+    }
+    # others are currently unhandled by osis-converters
     else {
       $info{'type'} = 'other';
-      if ($id !~ /CB/) {$info{'doConvert'} = 0;} # right now osis-converters only handles Children's Bibles
+      $info{'doConvert'} = 0;
     }
     &Log("NOTE:");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}

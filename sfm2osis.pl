@@ -29,6 +29,12 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+# if this is a childrens_bible, run the separate cb script
+if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
+  &osis_converters("$SCRD/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
+  exit;
+}
+
 # use CF_usfm2osis.txt if it exists, otherwise fall back to old CF_paratext2osis.txt
 if (-e "$INPD/CF_usfm2osis.txt") {
   $IS_usfm2osis = 1;

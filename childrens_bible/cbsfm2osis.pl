@@ -48,19 +48,19 @@ $CBD = "$SCRD/childrens_bible";
 &Log("\n--- PREPROCESSING USFM\n-----------------------------------------------------\n\n", 1);
 $AddFileOpt = (-e "$INPD/SFM_Add.txt" ? "-a \"$INPD/SFM_Add.txt\"":'');
 $cmd = "$CBD/scripts/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
-&Log($cmd);
+&Log($cmd."\n");
 `$cmd`;
 
 # run main conversion script
 &Log("\n--- CONVERTING PARATEXT TO OSIS\n-----------------------------------------------------\n\n", 1);
 $cmd = "$CBD/scripts/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
-&Log($cmd);
+&Log($cmd."\n");
 `$cmd`;
 
 # run postprocessor
 &Log("\n--- POSTPROCESSING OSIS\n-----------------------------------------------------\n\n", 1);
 $cmd = "$CBD/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
-&Log($cmd);
+&Log($cmd."\n");
 `$cmd`;
 
 # run addScripRefLinks.pl
@@ -72,5 +72,7 @@ else {
   &Log("Skipping Scripture reference parsing.\n");
   rename("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
+
+#&validateOSIS($OUTOSIS);
 
 1;
