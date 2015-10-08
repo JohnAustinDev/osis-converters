@@ -698,11 +698,9 @@ sub updateConfData(\%$) {
   }
 
   if ($entryValueP->{"SourceType"} eq "OSIS") {
-    if ($type eq 'bible' || $type eq 'commentary') {
-      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISFootnotes', 'additional');
-      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISHeadings', 'additional');
-      &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISScripref', 'additional');
-    }
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISFootnotes', 'additional');
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISHeadings', 'additional');
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISScripref', 'additional');
   }
   else {
     &setConfValue($entryValueP, 'OSISVersion', '', 1);
