@@ -255,7 +255,6 @@ class OsisHandler(handler.ContentHandler):
                         self._suppressBreaks = True
                         if re.search('chapter', self._titleTag) is not None:
                             self._chHeadingWritten = True
-
                 
             elif self._inCanonicalTitle:
                 closingTag = ''
@@ -314,10 +313,7 @@ class OsisHandler(handler.ContentHandler):
                         if not self._bookTitleWritten:
                             self._writeBookTitle()
                         if not self._chTitleWritten and not self._singleChapterBook:
-                            if self._chapterTitle != '':
-                                self._writeChapterTitle()
-                            elif not self._chNumWritten:
-                                self._writeChapterNumber()          
+                            self._writeChapterTitleOrNumber()          
                         if not self._chNumWritten or self._docStructure.verse != '1':
                             verseNumber = '<sup>' + self._docStructure.verse + '</sup>'
                             self._verseText += verseNumber
@@ -368,7 +364,8 @@ class OsisHandler(handler.ContentHandler):
             if osisId is not None:
                 # Start of a chapter
                 # If this is the first chapter of the book, write book title and any intro
-                if self._inIntro:
+
+                if self._inIntro:   
                     if len(self._introText) > 0:
                         # Remove unwanted breaks at start of intro before writing
                         while self._introText.startswith('<br />'):
@@ -393,9 +390,10 @@ class OsisHandler(handler.ContentHandler):
 
                     if self._bookTitleFound or not self._context.config.bookTitlesInOSIS:
                         self._writeBookTitle()
-                    elif len(self._introText) > 0:
-                        self._writeBookTitle()
-                        self._introText += '<br />\n'
+                    if len(self._introText) > 0:
+                        if not self._bookTitleWritten:
+                            self._writeBookTitle()
+                        self._introText += '<br />\n' 
                         self._writeIntroText()
                         self._introText = ''
                     self._inIntro = False
@@ -578,10 +576,9 @@ class OsisHandler(handler.ContentHandler):
                     lineClass =  '%s %s' % (lineClass, lineSubType)
             htmlTag = '<div class="%s">' % lineClass
             if self._inVerse and self._verseEmpty:
-                self._verseEmpty = False
                 if self._chNumWritten:
                     self._lineSpan = True
-                    self._writeHtml('<span class="first-para">')
+                    self._verseText = self._verseText + '<span class="first-line">'
                 else:
                     self._verseText = htmlTag + self._verseText
             else:
@@ -591,6 +588,10 @@ class OsisHandler(handler.ContentHandler):
                     self._writeHtml('<span class="x-introduction">')
             
         elif name == 'lg':
+            if not self._inIntro and not self._bookTitleWritten:
+                self._writeBookTitle()
+            if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
+                self._writeChapterTitleOrNumber()
             if not self._inParagraph and not self._inGeneratedPara:
                 self._startGeneratedPara()
                 self._lineGroupPara = True
@@ -635,6 +636,10 @@ class OsisHandler(handler.ContentHandler):
             
         elif name == 'p':
             self._endGeneratedPara()
+            if not self._inIntro and not self._bookTitleWritten:
+                self._writeBookTitle()
+            if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
+                self._writeChapterTitleOrNumber()
             subType = self._getAttributeValue(attrs, 'subType')
             if subType is not None:
                 paraTag = '<p class="%s">' % subType
@@ -678,20 +683,14 @@ class OsisHandler(handler.ContentHandler):
                 if not self._bookTitleWritten:
                     self._writeBookTitle()
                 if self._startingChapter and not self._chTitleWritten:
-                    if self._chapterTitle != '':
-                        self._writeChapterTitle()
-                    else:
-                        self._writeChapterNumber()
+                    self._writeChapterTitleOrNumber()
                     self._startingChapter = False
                 if self._inVerse:
                     # A canonical title is not part of the verse
                     self._inVerse = False
                     self._verseText = ''
                     if self._firstVerse:
-                        if self._chapterTitle != '':
-                            self._writeChapterTitle()
-                        elif not self._chTitleWritten:
-                            self._writeChapterNumber()
+                        self._writeChapterTitleOrNumber()
                 if self._context.canonicalClassDefined:
                     self._writeHtml('<span class="canonical">')
                 else:
@@ -850,9 +849,10 @@ class OsisHandler(handler.ContentHandler):
             
         self._startingChapter = False
         
-        
     def _startGeneratedPara(self):
         paraTag = '<p class="x-indent-0">'
+        if self._inVerse and self._firstVerse and self._verseEmpty and self._chNumWritten:
+            paraTag = '<p class="first-para">'
         self._writeHtml(paraTag)
         self._inGeneratedPara = True
         
@@ -930,7 +930,7 @@ class OsisHandler(handler.ContentHandler):
             #
             # If title is at the start of the intro, it is the book title
             # Do not include this in intro text as book title will be included anyway
-            if (self._introTextFound):
+            if self._introTextFound:
                 self._writeTitle()
             else:
                 self._introText = ''
@@ -1053,6 +1053,12 @@ class OsisHandler(handler.ContentHandler):
         self._firstBook = True
         if self._groupTitle != '' and (groupNumber != 1 or not self._context.config.bibleIntro):
             self._openGroupHtml()
+            
+    def _writeChapterTitleOrNumber(self):
+        if self._chapterTitle != '':
+            self._writeChapterTitle()
+        elif not self._chNumWritten:
+            self._writeChapterNumber() 
         
 
 
