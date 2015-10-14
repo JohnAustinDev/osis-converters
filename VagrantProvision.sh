@@ -104,6 +104,8 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # modify Makefile to compile and install emptyvss
   sed -i -r -e "s|stepdump step2vpl gbfidx modwrite addvs emptyvss|stepdump step2vpl gbfidx modwrite addvs|" ./utilities/Makefile.am
   sed -i -r -e "s|^bin_PROGRAMS = mod2imp |bin_PROGRAMS = emptyvss mod2imp |" ./utilities/Makefile.am
+  # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
+  sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
   ./autogen.sh
   ./configure --without-bzip2
   make

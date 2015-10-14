@@ -213,7 +213,7 @@ sub checkDependencies($$$) {
     while (<TEST>) {if ($_ =~ /\Q$res\E/i) {$pass = 1; last;}}
     close(TEST); unlink("tmp.txt");
     if (!$pass) {
-      &Log("\nERROR: Dependency not found: \"".$path{$p}{'test'}[0]."\"\n", 1);
+      &Log("\nERROR: Dependency not found or is failing usage test: \"".$path{$p}{'test'}[0]."\"\n", 1);
       $failMes .= "NOTE: ".$path{$p}{'msg'}."\n";
     }
   }
