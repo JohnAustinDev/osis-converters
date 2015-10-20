@@ -1138,7 +1138,7 @@ sub addDictionaryLink(\$$$) {
     
     my $logContext = $context;
     $logContext =~ s/\..*$//; # keep book/entry only
-    $EntryLink{"links in $logContext to ".&decodeOsisRef($osisRef)}++;
+    $EntryLink{&decodeOsisRef($osisRef)}{$logContext}++;
     
     my $dict;
     foreach my $sref (split(/\s+/, $osisRef)) {
@@ -1403,10 +1403,28 @@ sub logDictLinks() {
     &Log("$rep, ".$Replacements{$rep}."\n");
   }
   &Log("\n\n");
+
+  my %kl;
+  my $mkl = 0; foreach my $ent (sort keys %EntryLink) {
+    if (length($ent) > $mkl) {$mkl = length($ent);}
+    my $t = 0; foreach my $ctx (keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
+    $kl{$ent} = $t;
+  }
   
-  $n = 0; foreach my $k (keys %EntryLink) {$n += $EntryLink{$k};}
-  &Log("REPORT: Links created: ($n instances)\n");
-  foreach my $k (sort keys %EntryLink) {&Log(sprintf("%3i %s\n", $EntryLink{$k}, $k));}
+  my $gt = 0;
+  my $p = '';
+  foreach my $ent (sort {$kl{$b} <=> $kl{$a}} keys %kl) {
+    my $t = 0;
+    my $ctxp = '';
+    foreach my $ctx (sort {$EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a}} keys %{$EntryLink{$ent}}) {
+      $t  += $EntryLink{$ent}{$ctx};
+      $gt += $EntryLink{$ent}{$ctx};
+      $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
+    }
+    $p .= sprintf("%3i links to %-".$mkl."s in %s\n", $t, $ent, $ctxp);
+  }
+  &Log("REPORT: Links created: ($gt instances)\n$p");
+  
 }
 
 
