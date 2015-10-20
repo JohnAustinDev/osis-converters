@@ -1399,18 +1399,34 @@ sub logDictLinks() {
   &Log("in the text using the match elements in the $DICTIONARY_WORDS file.\n");
   &Log("\n");
   &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
+  my %ematch;
   foreach my $rep (sort keys %Replacements) {
     &Log("$rep, ".$Replacements{$rep}."\n");
+    if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&Log("ERROR: Bad rep match \"$rep\"\n"); next;}
+    $ematch{"$3:$1"}{$2} += $Replacements{$rep};
   }
   &Log("\n\n");
 
+  # get fields and their lengths
   my %kl;
-  my $mkl = 0; foreach my $ent (sort keys %EntryLink) {
+  my %kas;
+  my $mkl = 0;
+  my $mas = 0;
+  foreach my $ent (sort keys %EntryLink) {
     if (length($ent) > $mkl) {$mkl = length($ent);}
     my $t = 0; foreach my $ctx (keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
     $kl{$ent} = $t;
+    
+    my $asp = '';
+    if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
+    foreach my $as (sort {$ematch{$ent}{$b} <=> $ematch{$ent}{$a}} keys %{$ematch{$ent}}) {
+      $asp .= $as."(".$ematch{$ent}{$as}.") ";
+    }
+    if (length($asp) > $mas) {$mas = length($asp);}
+    $kas{$ent} = $asp;
   }
-  
+
+  # print out the report
   my $gt = 0;
   my $p = '';
   foreach my $ent (sort {$kl{$b} <=> $kl{$a}} keys %kl) {
@@ -1421,7 +1437,8 @@ sub logDictLinks() {
       $gt += $EntryLink{$ent}{$ctx};
       $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
     }
-    $p .= sprintf("%3i links to %-".$mkl."s in %s\n", $t, $ent, $ctxp);
+    
+    $p .= sprintf("%3i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
   &Log("REPORT: Links created: ($gt instances)\n$p");
   
