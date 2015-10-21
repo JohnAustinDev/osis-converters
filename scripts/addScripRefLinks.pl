@@ -663,14 +663,14 @@ sub encodeTerm($) {
 	if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
 		&Log("$line ERROR $BK.$CH.$VS: String already partially encoded \"$t\".\n");
 	}
-	$t =~ s/(.)/$1_/g;
+	$t =~ s/(.)/$1_/gs;
 	return "{{{".$t."}}}";
 }
 
 sub decodeTerms(\$) {
 	my $tP = shift;
 
-	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/) {
+	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/s) {
 		my $re1 = $1;
 		my $et = $2;
 		
