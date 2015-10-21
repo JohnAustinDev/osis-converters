@@ -949,7 +949,7 @@ class OsisHandler(handler.ContentHandler):
                     
         else:
                         
-            if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook and 'x-introduction' in self._titleTag:
+            if not self._introTextFound and not self._introTitleWritten and not self._singleChapterBook:
                 # Intro title may be needed in toc - but make sure this is not a book subtitle
                 titleTag = self._titleTag
                 if self._context.config.introInContents and not 'book-subtitle' in titleTag:
