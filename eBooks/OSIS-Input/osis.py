@@ -689,7 +689,7 @@ class OsisHandler(handler.ContentHandler):
                     # A canonical title is not part of the verse
                     self._inVerse = False
                     self._verseText = ''
-                    if self._firstVerse:
+                    if self._firstVerse and not self._chTitleWritten:
                         self._writeChapterTitleOrNumber()
                 if self._context.canonicalClassDefined:
                     self._writeHtml('<span class="canonical">')
