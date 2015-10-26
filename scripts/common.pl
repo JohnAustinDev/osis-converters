@@ -1448,6 +1448,11 @@ sub logDictLinks() {
 sub dictWordsHeader() {
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!--
+  IMPORTANT: 
+  For case insensitive matches using /match/i to work, ALL text MUST be surrounded 
+  by the \\Q...\\E quote operators. If a match is failing, consider this first!
+  This is not a normal Perl rule, but is required because Perl doesn't properly handle case for Turkish-like languages.
+  
   Use the following attributes to control link placement:
   onlyNewTestament=\"true|false\"
   onlyOldTestament=\"true|false\"
@@ -1464,11 +1469,6 @@ sub dictWordsHeader() {
   Match patterns can be any perl match regex. The entire match (if there 
   are no capture groups), or the last matching group, or else a group 
   named 'link', will become the link's inner text.
-  
-  IMPORTANT: 
-  For case insensitive matches using /i to work, all text MUST be surrounded 
-  by the \\Q...\\E quote operators. Any other case related Perl constructs 
-  will not always work.
 
 -->\n";
 }
