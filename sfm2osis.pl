@@ -54,7 +54,7 @@ if ($MODDRV =~ /LD/) {
   &compareToDictWordsFile("$TMPDIR/".$MOD."_1.xml");
 }
 
-if ($addScripRefLinks ne '0') {
+if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   require("$SCRD/scripts/addScripRefLinks.pl");
   &addScripRefLinks("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");
 }
