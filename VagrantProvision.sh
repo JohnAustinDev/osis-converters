@@ -44,7 +44,8 @@ if [ ! -e $VHOME/.osis-converters/src/u2o ]; then
 else
   cd $VHOME/.osis-converters/src/u2o
   git pull
-fi 
+fi
+chmod a+x "$VHOME/.osis-converters/src/u2o/u2o.py"
 
 # python3 is only for u2o.py testing
 if [ ! `which python3` ]; then
