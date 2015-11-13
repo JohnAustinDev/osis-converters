@@ -824,10 +824,12 @@ sub removeRevisionFromCF($) {
 
 sub encodeOsisRef($) {
   my $r = shift;
-  my $rep = decode("utf8", "–"); #  Condsidered by perl as \w but not accepted by schema?
-  utf8::upgrade($rep);
-  $r =~ s/([$rep])/my $x="_".ord($1)."_"/eg;
-  $r =~ s/(\W)/my $x="_".ord($1)."_"/eg;
+
+  # Apparently \p{L} and \p{N} work different in different regex implementations.
+  # So some schema checkers don't validate high order Unicode letters.
+  $r =~ s/(.)/my $x = (ord($1) > 1103 ? "_".ord($1)."_":$1)/eg;
+  
+  $r =~ s/([^\p{L}\p{N}_])/my $x="_".ord($1)."_"/eg;
   $r =~ s/;/ /g;
   return $r;
 }
