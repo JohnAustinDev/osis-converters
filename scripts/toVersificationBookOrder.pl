@@ -42,8 +42,8 @@ sub toVersificationBookOrder($$) {
   }
   
   # remove bookGroups (if any)
-  my $bookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
-  foreach my $bookGroup (@bookGroups) {$bookGroup->parentNode()->removeChild($bookGroup);}
+  my @removeBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+  foreach my $removeBookGroup (@removeBookGroups) {$removeBookGroup->parentNode()->removeChild($removeBookGroup);}
   
   # create empty bookGroups
   my @bookGroups;
@@ -67,7 +67,10 @@ sub toVersificationBookOrder($$) {
   }
   
   my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
-  foreach my $bookGroup (@bookGroups) {$osisText->appendChild($bookGroup);}
+  foreach my $bookGroup (@bookGroups) {
+    if (!$XPC->findnodes('descendant::*', $bookGroup)) {next;}
+    $osisText->appendChild($bookGroup);
+  }
   
   # Don't check that all books/chapters/verses are included in this 
   # OSIS file, but DO insure that all verses are in sequential order 

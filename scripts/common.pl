@@ -824,10 +824,12 @@ sub removeRevisionFromCF($) {
 
 sub encodeOsisRef($) {
   my $r = shift;
-  my $rep = decode("utf8", "–"); #  Condsidered by perl as \w but not accepted by schema?
-  utf8::upgrade($rep);
-  $r =~ s/([$rep])/my $x="_".ord($1)."_"/eg;
-  $r =~ s/(\W)/my $x="_".ord($1)."_"/eg;
+
+  # Apparently \p{L} and \p{N} work different in different regex implementations.
+  # So some schema checkers don't validate high order Unicode letters.
+  $r =~ s/(.)/my $x = (ord($1) > 1103 ? "_".ord($1)."_":$1)/eg;
+  
+  $r =~ s/([^\p{L}\p{N}_])/my $x="_".ord($1)."_"/eg;
   $r =~ s/;/ /g;
   return $r;
 }
@@ -1138,7 +1140,7 @@ sub addDictionaryLink(\$$$) {
     
     my $logContext = $context;
     $logContext =~ s/\..*$//; # keep book/entry only
-    $EntryLink{"links in $logContext to ".&decodeOsisRef($osisRef)}++;
+    $EntryLink{&decodeOsisRef($osisRef)}{$logContext}++;
     
     my $dict;
     foreach my $sref (split(/\s+/, $osisRef)) {
@@ -1399,20 +1401,60 @@ sub logDictLinks() {
   &Log("in the text using the match elements in the $DICTIONARY_WORDS file.\n");
   &Log("\n");
   &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
+  my %ematch;
   foreach my $rep (sort keys %Replacements) {
     &Log("$rep, ".$Replacements{$rep}."\n");
+    if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&Log("ERROR: Bad rep match \"$rep\"\n"); next;}
+    $ematch{"$3:$1"}{$2} += $Replacements{$rep};
   }
   &Log("\n\n");
+
+  # get fields and their lengths
+  my %kl;
+  my %kas;
+  my $mkl = 0;
+  my $mas = 0;
+  foreach my $ent (sort keys %EntryLink) {
+    if (length($ent) > $mkl) {$mkl = length($ent);}
+    my $t = 0; foreach my $ctx (keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
+    $kl{$ent} = $t;
+    
+    my $asp = '';
+    if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
+    foreach my $as (sort {$ematch{$ent}{$b} <=> $ematch{$ent}{$a}} keys %{$ematch{$ent}}) {
+      $asp .= $as."(".$ematch{$ent}{$as}.") ";
+    }
+    if (length($asp) > $mas) {$mas = length($asp);}
+    $kas{$ent} = $asp;
+  }
+
+  # print out the report
+  my $gt = 0;
+  my $p = '';
+  foreach my $ent (sort {$kl{$b} <=> $kl{$a}} keys %kl) {
+    my $t = 0;
+    my $ctxp = '';
+    foreach my $ctx (sort {$EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a}} keys %{$EntryLink{$ent}}) {
+      $t  += $EntryLink{$ent}{$ctx};
+      $gt += $EntryLink{$ent}{$ctx};
+      $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
+    }
+    
+    $p .= sprintf("%3i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
+  }
+  &Log("REPORT: Links created: ($gt instances)\n$p");
   
-  $n = 0; foreach my $k (keys %EntryLink) {$n += $EntryLink{$k};}
-  &Log("REPORT: Links created: ($n instances)\n");
-  foreach my $k (sort keys %EntryLink) {&Log(sprintf("%3i %s\n", $EntryLink{$k}, $k));}
 }
 
 
 sub dictWordsHeader() {
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!--
+  IMPORTANT: 
+  For case insensitive matches using /match/i to work, ALL text MUST be surrounded 
+  by the \\Q...\\E quote operators. If a match is failing, consider this first!
+  This is not a normal Perl rule, but is required because Perl doesn't properly handle case for Turkish-like languages.
+  
   Use the following attributes to control link placement:
   onlyNewTestament=\"true|false\"
   onlyOldTestament=\"true|false\"
@@ -1429,11 +1471,6 @@ sub dictWordsHeader() {
   Match patterns can be any perl match regex. The entire match (if there 
   are no capture groups), or the last matching group, or else a group 
   named 'link', will become the link's inner text.
-  
-  IMPORTANT: 
-  For case insensitive matches using /i to work, all text MUST be surrounded 
-  by the \\Q...\\E quote operators. Any other case related Perl constructs 
-  will not always work.
 
 -->\n";
 }

@@ -24,9 +24,15 @@
 # COMMAND FILE INSTRUCTIONS/SETTINGS:
 #   RUN - Process the SFM file or file glob. Multiple RUN commands are allowed.
 #   SET_script - Include script during processing (true|false|<option>)
-#   EVAL_REGEX: example: s/\\col2 /\p /g -evaluates this perl regexp on  
-#       the entire file as a single string. Multiple EVAL_REGEX commands  
-#       will be applied one after the other.
+#   EVAL_REGEX(group): example: s/\\col2 /\p /g - evaluates this perl 
+#       regexp on the entire file as a single string. Multiple   
+#       EVAL_REGEX commands will be applied one after the other, in the
+#       order they appear in the CF file. A group name in parenthesis is 
+#       optional, and makes the regex a member of a group. Using an 
+#       "EVAL_REGEX(group):" with an empty expression field clears all 
+#       EVAL_REGEX expressions in that group. Using "EVAL_REGEX:" with 
+#       an empty expression field clears all EVAL_REGEX expressions
+#       which are not part of any group.
 #   PUNC_AS_LETTER - List special characters which should be treated as 
 #       letters for purposes of matching word boundaries. 
 #       Example for : "PUNC_AS_LETTER:'`" 
@@ -61,24 +67,31 @@ sub usfm2osis($$) {
         }
       }
     }
-    elsif ($_ =~ /^EVAL_REGEX:\s*(.*?)\s*$/) {
-      my $rx = $1;
-      if ($rx =~ /^\s*$/) {@EVAL_REGEX = ();}
-      else {push(@EVAL_REGEX, $rx);}
+    elsif ($_ =~ /^EVAL_REGEX(\((.*?)\))?:\s*(.*?)\s*$/) {
+      my $rg = ($1 ? $2:'');
+      my $rx = $3;
+      if ($rx =~ /^\s*$/) {
+        for (my $i=0; $i<@EVAL_REGEX; $i++) {
+          if (${@EVAL_REGEX[$i]}{'group'} ne $rg) {next;}
+          splice(@EVAL_REGEX, $i, 1);
+          $i--;
+        }
+      }
+      else {push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx});}
       next;
     }
     elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
     elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
-      $SFMfile = $1;
-      $SFMfile =~ s/\\/\//g;
-      if ($SFMfile =~ /^\./) {
+      $SFMfileGlob = $1;
+      $SFMfileGlob =~ s/\\/\//g;
+      if ($SFMfileGlob =~ /^\./) {
         chdir($INPD);
-        $SFMfile = File::Spec->rel2abs($SFMfile);
+        $SFMfileGlob = File::Spec->rel2abs($SFMfileGlob);
         chdir($SCRD);
       }
-      if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfile);}
-      else {$USFMfiles .= "$SFMfile ";}
+      if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob);}
+      else {$USFMfiles .= "$SFMfileGlob ";}
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
@@ -112,6 +125,7 @@ sub evalRegex($) {
   
   my $outFiles = '';
   my %eval_regex_report;
+  my %eval_regex_applied;
   
   &Log("Processing USFM $usfmFiles\n");
   
@@ -130,7 +144,7 @@ sub evalRegex($) {
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
     if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
-    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {if (eval("\$s =~ $r;")) {$eval_regex_applied{$r}++;}}
+    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {if (eval("\$s =~ ".$r->{'regex'}.";")) {$eval_regex_applied{$r->{'regex'}}++;}}
     close(SFM);
     
     open(SFM2, ">:encoding(UTF-8)", "$f2.new") or die;
@@ -139,8 +153,8 @@ sub evalRegex($) {
     
     # the following is only for getting replacement line counts, since eval() does not allow this directly
     if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
-    while (<SFM>) {foreach my $r (@EVAL_REGEX) {if (eval("\$_ =~ $r;")) {$eval_regex_report{$r}++;}}}
-    foreach my $r (@EVAL_REGEX) {if ($eval_regex_report{$r} > 1 && $r !~ /\/\w*g\w*$/) {$eval_regex_report{$r} = 1;}}
+    while (<SFM>) {foreach my $r (@EVAL_REGEX) {if (eval("\$_ =~ ".$r->{'regex'}.";")) {$eval_regex_report{$r->{'regex'}}++;}}}
+    foreach my $r (@EVAL_REGEX) {if ($eval_regex_report{$r->{'regex'}} > 1 && $r->{'regex'} !~ /\/\w*g\w*$/) {$eval_regex_report{$r->{'regex'}} = 1;}}
     close(SFM);
     
     unlink($f2);
@@ -148,9 +162,9 @@ sub evalRegex($) {
   }
   
   foreach my $r (@EVAL_REGEX) {
-    if (!$eval_regex_report{$r} && !$eval_regex_applied{$r}) {&Log("Never applied \"$r\".\n");}
-    elsif ($eval_regex_report{$r}) {&Log("Applied \"$r\" on ".$eval_regex_report{$r}." lines.\n");}
-    else {&Log("Applied \"$r\ on ?? lines.\n");}
+    if (!$eval_regex_report{$r->{'regex'}} && !$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied \"".$r->{'regex'}."\".\n");}
+    elsif ($eval_regex_report{$r->{'regex'}}) {&Log("Applied \"".$r->{'regex'}."\" on ".$eval_regex_report{$r->{'regex'}}." lines.\n");}
+    else {&Log("Applied \"".$r->{'regex'}."\ on ?? lines.\n");}
   }
   &Log("\n");
   

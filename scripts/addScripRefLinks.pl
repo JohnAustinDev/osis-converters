@@ -147,7 +147,7 @@ sub addScripRefLinks($$) {
   $Types{"T01 (Book? c:v-c:v)"} = 0;
   $Types{"T02 (Book? c:v-lv)"} = 0;
   $Types{"T03 (Book? c:v)"} = 0;
-  $Types{"T04 (Book? c ChapTerm v VerseTerm)"} = 0;
+  $Types{"T04 (Book? c ChapTerm v(-v)? VerseTerm)"} = 0;
   $Types{"T05 (c-c ChapTerm)"} = 0;
   $Types{"T06 (Book? c ChapTerm)"} = 0;
   $Types{"T07 (Book|CurrentChap? v-v VerseTerms)"} = 0;
@@ -663,14 +663,14 @@ sub encodeTerm($) {
 	if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
 		&Log("$line ERROR $BK.$CH.$VS: String already partially encoded \"$t\".\n");
 	}
-	$t =~ s/(.)/$1_/g;
+	$t =~ s/(.)/$1_/gs;
 	return "{{{".$t."}}}";
 }
 
 sub decodeTerms(\$) {
 	my $tP = shift;
 
-	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/) {
+	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/s) {
 		my $re1 = $1;
 		my $et = $2;
 		
@@ -862,8 +862,8 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		}   
 	}
 
-	# Book? c ChapTerm v VerseTerm
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*($verseTerms))/i)) {
+	# Book? c ChapTerm v(-v)? VerseTerm
+	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*\d+\s*(($continuationTerms)\s*\d+\s*)?($verseTerms))/i)) {
 		my $pre = $1;
 		my $ref = $2;
 		my $tbook = $4;
@@ -871,15 +871,15 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 		my $index = length($pre);		
 		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
 			$matchedTerm = $ref;
-			$$typeP = "T04 (Book? c ChapTerm v VerseTerm)";
+			$$typeP = "T04 (Book? c ChapTerm v(-v)? VerseTerm)";
 			$lowestIndex = $index;
 			$shortestMatch = length($ref);
 			if (!$matchleft) {
 				$$bkP = $tbook;
-				$ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*($verseTerms)/i;
+				$ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*(($continuationTerms)\s*(\d+)\s*)?($verseTerms)/i;
 				$$chP = $1;
 				$$vsP = $4;
-				$$lvP = -1;
+				$$lvP = ($5 ? $7:-1);
 				$$barenumsP = "chapters";
 			}
 			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
