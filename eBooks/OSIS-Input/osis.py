@@ -287,26 +287,40 @@ class OsisHandler(handler.ContentHandler):
 
     def characters(self, content):
         text = content.strip()
-        if self._inTitle:
+        
+        if self._inFootnoteRef:
+            self._footnotes.changeVerseId(text)
+            
+        elif self._inTitle:
             if self._headerProcessed:
                 if not self._ignoreTitle:
-                    self._titleText += text
-                    self._breakCount = 0
+                    if self._inFootnote:
+                        if not self._footnoteRefWritten:
+                            # Footnote in title
+                            verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
+                            if verseRef == ':':
+                                # Not in a verse
+                                verseRef = ''
+                            self._startFootnoteAndWriteRef(verseRef)
+                        self._footnotes.addFootnoteText(content)
+                    else:
+                        self._titleText += text
+                        self._breakCount = 0
             elif self._context.title == '':
                     self._context.title = text
                     
         elif self._inChapterTitle:
             self._chapterTitle += text
-            
-        elif self._inFootnoteRef:
-            self._footnotes.changeVerseId(text)
-                    
+                     
         else :
             if self._headerProcessed:
                 if self._inIntro:
                     if len(text) > 0:
                         self._introTextFound  = True
                         self._readyForSubtitle = False
+                        if self._inFootnote and not self._footnoteRefWritten:
+                            # Footnote in introduction
+                            self._startFootnoteAndWriteRef('')
                         self._writeHtml(content)
                 else:
                     if self._inVerse and self._firstVerse and self._verseEmpty and not self._verseNumWritten:
@@ -346,10 +360,7 @@ class OsisHandler(handler.ContentHandler):
                             if self._inFootnote and not self._footnoteRefWritten:
                                 # This is a footnote without a reference
                                 verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
-                                self._footnoteNo = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
-                                self._inFootnoteRef = True
-                                self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
-                                self._inFootnoteRef = False
+                                self._startFootnoteAndWriteRef(verseRef)
                             self._writeHtml(content)           
 
     def _getAttributeValue(self, attrs, attrName):
@@ -1058,7 +1069,13 @@ class OsisHandler(handler.ContentHandler):
         if self._chapterTitle != '':
             self._writeChapterTitle()
         elif not self._chNumWritten:
-            self._writeChapterNumber() 
-        
+            self._writeChapterNumber()
+            
+    def _startFootnoteAndWriteRef(self, verseRef):
+        self._footnoteNo = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
+        self._inFootnoteRef = True
+        self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
+        self._inFootnoteRef = False
+
 
 
