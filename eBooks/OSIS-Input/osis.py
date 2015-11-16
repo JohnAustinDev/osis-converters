@@ -222,6 +222,7 @@ class OsisHandler(handler.ContentHandler):
         elif name == 'note':
             if self._inFootnote:
                 self._inFootnote = False
+                self._footnotes.footnoteComplete()
             else:
                 self._ignoreText = False
             
@@ -396,7 +397,7 @@ class OsisHandler(handler.ContentHandler):
                     # Ensure testament title is written
                     if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
                         self._openGroupHtml()
-                        
+                    
                     self._openBookHtml()
 
                     if self._bookTitleFound or not self._context.config.bookTitlesInOSIS:
@@ -772,6 +773,9 @@ class OsisHandler(handler.ContentHandler):
                 
     def _openGroupHtml(self):
         if not self._groupHtmlOpen:
+            if self._bibleHtmlOpen:
+                # Write out any footnotes in the preceding Bible introduction
+                self._footnotes.writeFootnotes()
             groupNumber = self._docStructure.groupNumber
             htmlName = 'group%d' % groupNumber
             self._htmlWriter.open(htmlName)
@@ -781,6 +785,10 @@ class OsisHandler(handler.ContentHandler):
                 self._htmlWriter.write('<h1>%s</h1>\n' % self._groupTitle)
                 
     def _openBookHtml(self):
+        if self._groupHtmlOpen or self._bibleHtmlOpen:
+            # Write out any footnotes in the Bible or Testament introduction
+            self._footnotes.writeFootnotes()
+
         bookId = self._docStructure.bookId
         self._htmlWriter.open(bookId)
         self._groupHtmlOpen = False
