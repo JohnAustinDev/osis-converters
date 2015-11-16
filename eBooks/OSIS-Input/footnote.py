@@ -41,8 +41,14 @@ class BookFootnotes:
             count += 1
             if self._epub3:
                 self._writer.write('<aside epub:type="footnote" id="%s">\n' % note.ref)
-                self._writer.write('<p class="x-indent-0">[%d] %s - %s</p>\n' % (count, note.verse, note.content))
+                if note.verse == '':
+                    self._writer.write('<p class="x-indent-0">[%d] %s</p>\n' % (count, note.content))
+                else:
+                    self._writer.write('<p class="x-indent-0">[%d] %s - %s</p>\n' % (count, note.verse, note.content))
                 self._writer.write('</aside>\n')
             else:
-                self._writer.write('<p class="x-indent-0" id="%s">[%d] <a href="#Ref%s">%s</a> - %s</p>\n' % (note.ref, count, note.ref, note.verse, note.content))
+                if note.verse == '':
+                    self._writer.write('<p class="x-indent-0" id="%s"><a href="#Ref%s">[%d]</a> %s</p>\n' % (note.ref, note.ref, count, note.content))                    
+                else:
+                    self._writer.write('<p class="x-indent-0" id="%s">[%d] <a href="#Ref%s">%s</a> - %s</p>\n' % (note.ref, count, note.ref, note.verse, note.content))
         self.reinit()

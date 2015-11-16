@@ -16,7 +16,10 @@ class HtmlWriter:
             
     def write(self, str):
         if self._fh is None:
-            print 'cannot write %s - no HTML file open' % str
+            try:
+                print 'cannot write %s - no HTML file open' % str
+            except:
+                print 'cannot write text - no HTML file open'
         else:
             self._fh.write(str)
     
