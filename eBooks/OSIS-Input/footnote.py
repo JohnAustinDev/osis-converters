@@ -14,6 +14,7 @@ class BookFootnotes:
         self._epub3 = epub3
         self._footnotes = []
         self._count = 0
+        self._buffer= ''
         
     def reinit(self):
         del self._footnotes[:]
@@ -23,15 +24,24 @@ class BookFootnotes:
         self._count+= 1
         noteRef = '%s%d' % (book, self._count)
         self._footnotes.append(Footnote(noteRef, verse))
+        self._footnotes[self._count-1].content = self._buffer
         return self._count
         
     def addFootnoteText(self, text):
         # Deal with verse numbers supplied as "[nn]"
         text = re.sub(r'\[([0-9]+)\]\s*', r'<sup>\1</sup>', text)
-        self._footnotes[self._count-1].content += text
+        try:
+            self._footnotes[self._count-1].content += text
+        except IndexError:
+            # This may be a tag occurring before footnote text or reference has been written
+            # Keep text until the footnote is properly started
+            self._buffer += text
         
     def changeVerseId(self, vId):
         self._footnotes[self._count-1].verse = vId
+        
+    def footnoteComplete(self):
+        self._buffer=''
         
     def writeFootnotes(self):
         count = 0
