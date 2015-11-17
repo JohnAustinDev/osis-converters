@@ -43,6 +43,7 @@ if [ ! -e $VHOME/.osis-converters/src/u2o ]; then
   git clone https://github.com/adyeths/u2o.git
 else
   cd $VHOME/.osis-converters/src/u2o
+  git stash
   git pull
 fi
 chmod a+x "$VHOME/.osis-converters/src/u2o/u2o.py"
