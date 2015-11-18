@@ -13,6 +13,7 @@ class OsisHandler(handler.ContentHandler):
         self._bookTitleWritten = False
         self._breakCount = 0
         self._canonicalTitleWritten = False
+        self._chFootnoteRef = ''
         self._chNumWritten = False
         self._chHeadingWritten = False
         self._chapterTitle = ''
@@ -88,6 +89,7 @@ class OsisHandler(handler.ContentHandler):
         self._breakCount = 0
         self._canonicalTitleWritten = False
         self._chapterTitle = ''
+        self._chFootnoteRef = ''
         self._chNumWritten = False
         self._chHeadingWritten = False
         self._firstBook = True
@@ -278,7 +280,11 @@ class OsisHandler(handler.ContentHandler):
                 chAttribute =''
                 if not self._chHeadingWritten:
                     chAttribute = 'chapter="%s" ' % self._docStructure.chapter
-                self._chapterTitle = '<h3 %s class="x-chapter-title">%s</h3><br />' % (chAttribute, self._chapterTitle)
+                self._chapterTitle = '<h3 %s class="x-chapter-title">%s</h3>' % (chAttribute, self._chapterTitle)
+                if self._chFootnoteRef != '':
+                    self._chapterTitle += self._chFootnoteRef
+                    self._chFootnoteRef = ''
+                self._chapterTitle += '<br />'
                 self._chHeadingWritten = True
                 self._inChapterTitle = False
                         
@@ -296,14 +302,7 @@ class OsisHandler(handler.ContentHandler):
             if self._headerProcessed:
                 if not self._ignoreTitle:
                     if self._inFootnote:
-                        if not self._footnoteRefWritten:
-                            # Footnote in title
-                            verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
-                            if verseRef == ':':
-                                # Not in a verse
-                                verseRef = ''
-                            self._startFootnoteAndWriteRef(verseRef)
-                        self._footnotes.addFootnoteText(content)
+                        self._handleFootnoteTextInTitle(text)
                     else:
                         self._titleText += text
                         self._breakCount = 0
@@ -311,7 +310,10 @@ class OsisHandler(handler.ContentHandler):
                     self._context.title = text
                     
         elif self._inChapterTitle:
-            self._chapterTitle += text
+            if self._inFootnote:
+                self._handleFootnoteTextInTitle(text)
+            else:
+                self._chapterTitle += text
                      
         else :
             if self._headerProcessed:
@@ -1057,8 +1059,11 @@ class OsisHandler(handler.ContentHandler):
         if self._context.config.epub3:
             refString = '<sup><a epub:type="noteref" href="#%s%d">[%d]</a></sup>' % (refBook, noteRef, noteRef)
         else:
-            refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)   
-        self._writeHtml(refString)
+            refString = '<sup><a href="#%s%d" id="Ref%s%d">[%d]</a></sup>' % (refBook, noteRef, refBook, noteRef, noteRef)
+        if self._inChapterTitle:
+            self._chFootnoteRef += refString
+        else:
+            self._writeHtml(refString)
         self._footnoteRefWritten = True
         
     def _writeBookTitle(self):
@@ -1084,6 +1089,15 @@ class OsisHandler(handler.ContentHandler):
         self._inFootnoteRef = True
         self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
         self._inFootnoteRef = False
+        
+    def _handleFootnoteTextInTitle(self, content):
+        if not self._footnoteRefWritten:
+            verseRef = '%s:%s' % (self._docStructure.chapter, self._docStructure.verse)
+            if verseRef == ':':
+                # Not in a verse
+                verseRef = ''
+            self._startFootnoteAndWriteRef(verseRef)
+        self._footnotes.addFootnoteText(content)
 
 
 
