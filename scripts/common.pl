@@ -95,7 +95,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if (-e "$INPD/$DICTIONARY_WORDS") {$DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");}
   
-  &Log("osis-converters rev: $GITHEAD\n\n");
+  &Log("osis-converters git rev: $GITHEAD\n\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
 }
 
@@ -215,6 +215,10 @@ sub checkDependencies($$$) {
     if (!$pass) {
       &Log("\nERROR: Dependency not found or is failing usage test: \"".$path{$p}{'test'}[0]."\"\n", 1);
       $failMes .= "NOTE: ".$path{$p}{'msg'}."\n";
+    }
+    elsif ($p eq 'MODULETOOLS_BIN') {
+      $MODULETOOLS_GITHEAD = `git --git-dir="$MODULETOOLS_BIN../.git" --work-tree="$MODULETOOLS_BIN../" rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
+      &Log("Module-tools git rev: $MODULETOOLS_GITHEAD");
     }
   }
   if ($failMes) {
