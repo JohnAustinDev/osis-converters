@@ -86,9 +86,7 @@ sub usfm2osis($$) {
       $SFMfileGlob = $1;
       $SFMfileGlob =~ s/\\/\//g;
       if ($SFMfileGlob =~ /^\./) {
-        chdir($INPD);
-        $SFMfileGlob = File::Spec->rel2abs($SFMfileGlob);
-        chdir($SCRD);
+        $SFMfileGlob = File::Spec->rel2abs($SFMfileGlob, $INPD);
       }
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob);}
       else {$USFMfiles .= "$SFMfileGlob ";}

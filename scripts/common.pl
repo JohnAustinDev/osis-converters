@@ -311,8 +311,28 @@ sub checkAndWriteDefaults($) {
     if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
       if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
       foreach my $f (keys %{$USFM{$type}}) {
+      
+        # peripherals need a target location in the OSIS file added to their ID
+        if ($USFM{$type}{$f}{'peripheralID'}) {
+          print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
+          print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
+          my $xpath = "introduction == osis:div[\@type='book']";
+          if (@{$USFM{$type}{$f}{'periphType'}}) {
+            foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
+              my $osisMap = &getOsisMap($periphType);
+              if (!$osisMap) {next;}
+              $xpath .= ", ".$osisMap->{'name'}." == ".$osisMap->{'xpath'};
+            }
+          }
+          $xpath =~ s/([\@\$])/\\$1/g;
+          print CFF $xpath;
+          print CFF "/\n";
+        }
+
         my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
         print CFF "RUN:$r\n";
+        
+        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(INT):\n\n";}
       }
       close(CFF);
     }
@@ -371,6 +391,67 @@ sub checkAndWriteDefaults($) {
   }
   
   return 1;
+}
+
+
+# Copied from usfm2osis.py 0.6
+%USFM_PERIPH = (
+  'Title Page' => 'titlePage',
+  'Half Title Page' => 'x-halfTitlePage',
+  'Promotional Page' => 'x-promotionalPage',
+  'Imprimatur' => 'imprimatur',
+  'Publication Data' => 'publicationData',
+  'Foreword' => 'x-foreword',
+  'Preface' => 'preface',
+  'Table of Contents' => 'tableofContents',
+  'Alphabetical Contents' => 'x-alphabeticalContents',
+  'Table of Abbreviations' => 'x-tableofAbbreviations',
+  'Chronology' => 'x-chronology',
+  'Weights and Measures' => 'x-weightsandMeasures',
+  'Map Index' => 'x-mapIndex',
+  'NT Quotes from LXX' => 'x-ntQuotesfromLXX',
+  'Cover' => 'coverPage', 'Spine' => 'x-spine',
+  'Bible Introduction' => 'x-bible',
+  'Old Testament Introduction' => 'x-oldTestament',
+  'Pentateuch Introduction' => 'x-pentateuch',
+  'History Introduction' => 'x-history',
+  'Poetry Introduction' => 'x-poetry',
+  'Prophecy Introduction' => 'x-prophecy',
+  'New Testament Introduction' => 'x-newTestament',
+  'Gospels Introduction' => 'x-gospels',
+  'Acts Introduction' => 'x-acts',
+  'Epistles Introduction' => 'x-epistles',
+  'Letters Introduction' => 'x-letters',
+  'Deuterocanon Introduction' => 'x-deuterocanon'
+);
+%USFM_PERIPH_TARGET = (
+  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
+  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][0]',
+  'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
+  'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
+  'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
+  'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
+  'New Testament Introduction' => 'osis:div[@type="bookGroup"]',
+  'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
+  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
+  'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
+  'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
+);
+
+sub getOsisMap($) {
+  my $pt = shift;
+
+  my $name = $USFM_PERIPH{$pt};
+  if (!$name) {&Log("ERROR: Unrecognized peripheral name \"$pt\"\n"); return NULL;}
+
+  my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
+  foreach my $t (keys %USFM_PERIPH_TARGET) {
+    if ($pt !~ /^($t)$/i) {next;}
+    $xpath = $USFM_PERIPH_TARGET{$t};
+    last;
+  }
+  my %h = ( 'name' => $name, 'xpath' => $xpath );
+  return \%h;
 }
 
 
@@ -436,9 +517,7 @@ sub scanUSFM($\%) {
     if (-d $f) {&scanUSFM($f, $sfmP); next;}
     my $sfmInfoP = &scanUSFM_file($f);
     if (!$sfmInfoP->{'doConvert'}) {next;}
-    foreach my $k (keys %{$sfmInfoP}) {
-      $sfmP->{$sfmInfoP->{'type'}}{$f} = $sfmInfoP;
-    }
+    $sfmP->{$sfmInfoP->{'type'}}{$f} = $sfmInfoP;
   }
 }
 
@@ -468,6 +547,11 @@ sub scanUSFM_file($) {
         $info{$t} = $2;
       }
     }
+    if ($_ =~ /^\\periph\s+(.*?)\s*$/) {
+      my $pt = $1;
+      if (!@{$info{'periphType'}}) {$info{'periphType'} = [];}
+      push(@{$info{'periphType'}}, $pt);
+    }
     if ($_ =~ /^\\(c|ie)/) {last;}
   }
   close(SFM);
@@ -480,10 +564,14 @@ sub scanUSFM_file($) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /(GLO|DIC)/i) {
+    elsif ($id =~ /^(PRE|TTL|FRT|INT|OTH)$/i) {
+      $info{'type'} = 'bible';
+      $info{'peripheralID'} = $id;
+    }
+    elsif ($id =~ /(GLO|DIC|BAK|CNC)/i) {
       $info{'type'} = 'dictionary';
     }
-    elsif ($id =~ /^(CVR|TTL|TLB|PREPAT|PRE|SHM[NO]T|CB|NT|OT|FOTO)$/i) {
+    elsif ($id =~ /^(CVR|TLB|PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) {
       $info{'type'} = 'childrens_bible';
     }
     # others are currently unhandled by osis-converters
@@ -1620,23 +1708,30 @@ sub checkEntryNames(\@) {
   }
   &Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
   if ($total) {
-    &Log("NOTE: Topics covered by these entries may overlap or be repeated.\n");
+    &Log("NOTE: Usually these are intentional, but rarely may indicate some problem.\n");
     foreach my $i (sort keys %instances) {&Log($i);}
   }
 
-  $total = 0;
+  my $p = ''; my $total = 0;
   undef(%instances); my %instances;
   foreach my $e (keys %entries) {
-    if ($e =~ /(-|,|;|\[|\()/) {
-      $total++;
-      $instances{"$e\n"}++;
+    if ($e =~ /(-|,|;|\[|\()/) {$instances{$e}++;}
+  }
+  foreach my $i (sort keys %instances) {
+    my $skip = 0;
+    if ($DWF) {
+      my @elems = $XPC->findnodes('//entry[child::name[text()="' . $i . '"]]', $DWF);
+      foreach my $elem (@elems) {
+        if (@{$elem->findnodes('./match')} > 1) {$skip = 1;}
+      }
     }
+    if (!$skip) {$p .= $i."\n"; $total += $instances{$i};}
   }
-  &Log("\nREPORT: Compound glossary entry names: ($total instances)\n");
+  &Log("\nREPORT: Compound glossary entry names with a single match element: ($total instances)\n");
   if ($total) {
-    &Log("NOTE: Multiple <match> elements may be added to $DICTIONARY_WORDS to match each part.\n");
-    foreach my $i (sort keys %instances) {&Log($i);}
+    &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n$p");
   }
+  
 }
 
 

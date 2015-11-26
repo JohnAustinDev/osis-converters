@@ -22,7 +22,7 @@ sub toVersificationBookOrder($$) {
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nOrdering books in \"$osis\" according to versification = $vsys\n");
+  &Log("\n\nOrdering books and peripherals in \"$osis\" according to versification = $vsys\n");
 
   my %canon;
   my %bookOrder;
@@ -36,9 +36,15 @@ sub toVersificationBookOrder($$) {
   my $xml = $XML_PARSER->parse_file($osis);
 
   # remove all books
-  my @books = @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $bk (@books) {
     $bk = $bk->parentNode()->removeChild($bk);
+  }
+
+  # remove all introductions
+  my @intros = $XPC->findnodes('//osis:div[@type="introduction"][not(@subType)]', $xml);
+  foreach my $intro (@intros) {
+    $intro = $intro->parentNode()->removeChild($intro);
   }
   
   # remove bookGroups (if any)
@@ -71,6 +77,52 @@ sub toVersificationBookOrder($$) {
     if (!$XPC->findnodes('descendant::*', $bookGroup)) {next;}
     $osisText->appendChild($bookGroup);
   }
+
+  # place all introductions in their proper places
+  for (my $i=@intros-1; $i >= 0; $i--) {
+    my $intro = @intros[$i];
+
+    # read the first comment to find desired target location(s), if any
+    my @commentNode = $XPC->findnodes('./comment()', $intro);
+
+    # default target is the introduction to first book
+    if (!@commentNode || @commentNode[0] !~ /\s\S+ == \S+/) {
+      my @bkdef = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+      if (@bkdef) {&placeIntroduction($intro, @bkdef[0]);}
+      else {&Log("ERROR: Removing intro! No book in which to place it:\n$intro\n");}
+    }
+    else {
+      my $comment = @commentNode[0];
+      while ($comment =~ s/^(.*\s)((\S+) == (.*?))[,\s]*(\-\->)?$/$1/) {
+        my $emsg = "as specified in \"$2\" in CF_usfm2osis.txt";
+        my $int = $3;
+        my $xpath = $4;
+        # div[@type"bookGroup"] were created without osis namespace (otherwise the resulting tags are monstrous) so here's a fix
+        $xpath =~ s/osis\:(div(\[[^\]]+\])*\[\@type=["']bookGroup["']\])/$1/g;
+        my @targXpath = $XPC->findnodes('//'.$xpath, $xml);
+        if (!@targXpath) {
+          &Log("ERROR: Removing intro! Could not locate \"$xpath\" $emsg\n");
+          next;
+        }
+        if ($int eq 'introduction') {&placeIntroduction($intro, @targXpath[0]);}
+        else {
+          my @periphs = $XPC->findnodes('.//osis:div[@type="introduction"][@subType="'.$int.'"]', $intro);
+          if (!@periphs) {
+            @periphs = $XPC->findnodes('.//osis:div[@type="'.$int.'"]', $intro);
+            if (!@periphs) {
+              &Log("ERROR: Removing intro! Did not find \"$int\" $emsg\n");
+              next;
+            }
+          }
+          my $periph = @periphs[0]->parentNode()->removeChild(@periphs[0]);
+          &placeIntroduction($periph, @targXpath[0]);
+        }
+      }
+      if ($comment =~ /==/) {
+        &Log("ERROR: Unhandled location assignment \"$comment\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
+      }
+    }
+  }
   
   # Don't check that all books/chapters/verses are included in this 
   # OSIS file, but DO insure that all verses are in sequential order 
@@ -102,7 +154,7 @@ sub toVersificationBookOrder($$) {
       my $r = $bkch.'.'.($vfirst-$insertBefore-1);
       &Log("WARNING: Inserting empty verse: \"$r\". Check if the previous verse element\nholds multiple verses, and if so, fix the USFM \\v tag using EVAL_REGEX.\n");
       my $empty = $XML_PARSER->parse_balanced_chunk("<verse osisID=\"$r\" sID=\"$r\"/>.<verse eID=\"$r\"/>\n");
-      $verse->parentNode->insertBefore($empty, $verse);
+      $verse->parentNode()->insertBefore($empty, $verse);
     }
   }
   
@@ -114,5 +166,13 @@ sub toVersificationBookOrder($$) {
   open(OUTF, ">$osis");
   print OUTF $t;
   close(OUTF);
+}
+
+sub placeIntroduction($$) {
+  my $intro = shift;
+  my $dest = shift;
+  if ($dest->nodeName =~ /\:?header$/) {$dest->parentNode()->insertAfter($intro, $dest);}
+  elsif ($dest->hasChildNodes()) {$dest->insertBefore($intro, $dest->firstChild);}
+  else {$dest->parentNode()->insertAfter($intro, $dest);}
 }
 1;
