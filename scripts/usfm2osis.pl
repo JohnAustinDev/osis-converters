@@ -132,7 +132,14 @@ sub evalRegex($) {
   make_path($tmp);
   my @files;
   foreach my $f (glob $usfmFiles) {
-    my $df = $f; $df =~ s/^.*?([^\\\/]*)$/$1/; $df = "$tmp/$df";
+    my $df = $f;
+    $df =~ /^.*?[\\\/]([^\\\/]+)[\\\/]([^\\\/]+)$/;
+    my $pd = $1; my $dd = $2;
+    if ($pd eq 'sfm') {$df = "$tmp/$2";}
+    else {
+      if (!-e "$tmp/$1") {mkdir("$tmp/$1");}
+      $df = "$tmp/$1/$2";
+    }
     copy($f, $df);
     push (@files, $df);
   }
