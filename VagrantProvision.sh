@@ -108,6 +108,9 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   sed -i -r -e "s|^bin_PROGRAMS = mod2imp |bin_PROGRAMS = emptyvss mod2imp |" ./utilities/Makefile.am
   # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
   sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
+  # fix osis2mod bug that drops paragraph type when converting to milestone div
+  sed -i '1231iSWBuf subType = t.getAttribute("type");' ./utilities/osis2mod.cpp
+  sed -i '1235iif (subType.length()) {t.setAttribute("subType", subType);}' ./utilities/osis2mod.cpp
   ./autogen.sh
   ./configure --without-bzip2
   make
