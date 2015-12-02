@@ -339,7 +339,7 @@ class OsisHandler(handler.ContentHandler):
                     if not self._ignoreText:
                         if len(text) > 0:
                             self._readyForSubtitle = False
-                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle:
+                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle and not self._lineGroupPara:
                                 self._startGeneratedPara()
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
