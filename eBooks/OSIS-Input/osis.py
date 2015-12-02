@@ -215,7 +215,7 @@ class OsisHandler(handler.ContentHandler):
             
         elif name == 'lg':
             if self._lineGroupPara:
-                self._endGeneratedPara()
+                self._writeHtml('</div>\n')
                 self._lineGroupPara = False
             
         elif name == 'list':
@@ -607,7 +607,7 @@ class OsisHandler(handler.ContentHandler):
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
             if not self._inParagraph and not self._inGeneratedPara:
-                self._startGeneratedPara()
+                self._writeHtml('<div>')
                 self._lineGroupPara = True
             else:
                 self._writeBreak(True)
