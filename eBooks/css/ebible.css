@@ -15,20 +15,32 @@
   text-indent:-3em;
   padding-left:3em;
 }
+
+.x-noindent {
+	text-indent: 0;
+}
+
 .x-indent-0 {
 	margin-left: 0;
 }
+.x-indented-1,
 .x-indent-1 {
 	margin-left: 1.5em;	
 }
+.x-indented-2,
 .x-indent-2 {
 	margin-left: 3em;		
 }
+.x-indented-3,
 .x-indent-3 {
 	margin-left: 4.5em;
 }
+.x-indented-4,
 .x-indent-4{
 	margin-left: 6em;
+}
+.x-right{
+	text-align: right;
 }
 
 h1, h2, h3 {

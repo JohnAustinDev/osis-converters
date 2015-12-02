@@ -654,17 +654,28 @@ class OsisHandler(handler.ContentHandler):
                 self._writeBookTitle()
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
+            pClass = ''
+            subClass = ''
+            pType = self._getAttributeValue(attrs, 'type')
+            if pType is not None:
+                pClass = pType
             subType = self._getAttributeValue(attrs, 'subType')
             if subType is not None:
-                paraTag = '<p class="%s">' % subType
+                subClass = subType
                 if subType == 'x-introduction' and self._inIntro:
                     self._introStyleStarted = True
             elif self._inVerse and self._verseEmpty and self._chNumWritten:
-                paraTag = '<p class="first-para">'
+                subClass='first-para'
             elif self._introStyleStarted:
-                paraTag = '<p class="x-introduction">'
-            else:
-                paraTag = '<p>'
+                subClass = '-introduction'
+            if pClass == '':
+                pClass = subClass
+            elif subClass != '':
+                pClass += ' '
+                pClass += subClass
+            paraTag = '<p>'
+            if pClass != '':
+                paraTag = '<p class="%s">' % pClass
             self._inParagraph = True
             if self._inVerse and self._verseEmpty:
                 self._verseText = paraTag + self._verseText
