@@ -897,10 +897,16 @@ class OsisHandler(handler.ContentHandler):
         #
         # adjust intro heading for Bible or Testament intro
         if self._bibleHtmlOpen or self._groupHtmlOpen:
-            if self._groupTitle !='' and self._bibleHtmlOpen:
-                self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+            if self._context.config.introInContents:
+                if self._groupTitle !='' and self._bibleHtmlOpen:
+                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+                else:
+                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)
             else:
-                self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)
+                if self._groupTitle !='' and self._bibleHtmlOpen:
+                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+                else:
+                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)              
         self._htmlWriter.write(self._introText)
         
     def _closeParagraph(self):
