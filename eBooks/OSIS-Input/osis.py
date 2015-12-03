@@ -215,7 +215,7 @@ class OsisHandler(handler.ContentHandler):
             
         elif name == 'lg':
             if self._lineGroupPara:
-                self._endGeneratedPara()
+                self._writeHtml('</div>\n')
                 self._lineGroupPara = False
             
         elif name == 'list':
@@ -339,7 +339,7 @@ class OsisHandler(handler.ContentHandler):
                     if not self._ignoreText:
                         if len(text) > 0:
                             self._readyForSubtitle = False
-                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle:
+                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle and not self._lineGroupPara:
                                 self._startGeneratedPara()
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
@@ -607,7 +607,7 @@ class OsisHandler(handler.ContentHandler):
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
             if not self._inParagraph and not self._inGeneratedPara:
-                self._startGeneratedPara()
+                self._writeHtml('<div>')
                 self._lineGroupPara = True
             else:
                 self._writeBreak(True)
@@ -654,17 +654,28 @@ class OsisHandler(handler.ContentHandler):
                 self._writeBookTitle()
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
+            pClass = ''
+            subClass = ''
+            pType = self._getAttributeValue(attrs, 'type')
+            if pType is not None:
+                pClass = pType
             subType = self._getAttributeValue(attrs, 'subType')
             if subType is not None:
-                paraTag = '<p class="%s">' % subType
+                subClass = subType
                 if subType == 'x-introduction' and self._inIntro:
                     self._introStyleStarted = True
             elif self._inVerse and self._verseEmpty and self._chNumWritten:
-                paraTag = '<p class="first-para">'
+                subClass='first-para'
             elif self._introStyleStarted:
-                paraTag = '<p class="x-introduction">'
-            else:
-                paraTag = '<p>'
+                subClass = '-introduction'
+            if pClass == '':
+                pClass = subClass
+            elif subClass != '':
+                pClass += ' '
+                pClass += subClass
+            paraTag = '<p>'
+            if pClass != '':
+                paraTag = '<p class="%s">' % pClass
             self._inParagraph = True
             if self._inVerse and self._verseEmpty:
                 self._verseText = paraTag + self._verseText
@@ -886,10 +897,16 @@ class OsisHandler(handler.ContentHandler):
         #
         # adjust intro heading for Bible or Testament intro
         if self._bibleHtmlOpen or self._groupHtmlOpen:
-            if self._groupTitle !='' and self._bibleHtmlOpen:
-                self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+            if self._context.config.introInContents:
+                if self._groupTitle !='' and self._bibleHtmlOpen:
+                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+                else:
+                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)
             else:
-                self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)
+                if self._groupTitle !='' and self._bibleHtmlOpen:
+                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
+                else:
+                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)              
         self._htmlWriter.write(self._introText)
         
     def _closeParagraph(self):
