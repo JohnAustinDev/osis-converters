@@ -46,6 +46,7 @@ class OsisHandler(handler.ContentHandler):
         self._inHeader = False
         self._inIntro = False
         self._inParagraph = False
+        self._inTable = False
         self._inTitle = False
         self._introStyleStarted = False
         self._introText = ''
@@ -112,6 +113,7 @@ class OsisHandler(handler.ContentHandler):
         self._inIntro = False
         self._inParagraph = False
         self._inTitle = False
+        self._inTable = False
         self._introStyleStarted = False
         self._introText = ''
         self._introTextFound = False
@@ -173,6 +175,9 @@ class OsisHandler(handler.ContentHandler):
 
         elif name == 'catchWord':
             self._writeHtml('</i>')
+            
+        elif name == 'cell':
+            self._writeHtml('</td>')
             
         elif name == 'div':
             if self._ignoreDivEnd:
@@ -239,6 +244,13 @@ class OsisHandler(handler.ContentHandler):
                 if not self._footnoteRefWritten:
                     self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
                 self._inFootnoteRef = False
+                
+        elif name == 'row':
+            self._writeHtml('</tr>\n')
+                
+        elif name == 'table':
+            self._writeHtml('</table>\n')
+            self._inTable = False
 
         elif name == 'title':
             if self._inTitle:
@@ -339,7 +351,7 @@ class OsisHandler(handler.ContentHandler):
                     if not self._ignoreText:
                         if len(text) > 0:
                             self._readyForSubtitle = False
-                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle and not self._lineGroupPara:
+                            if not self._inParagraph and not self._inGeneratedPara and not self._inCanonicalTitle and not self._lineGroupPara and not self._inTable:
                                 self._startGeneratedPara()
                             if self._inVerse and not self._inFootnote:
                                 self._verseTextFound = True
@@ -452,6 +464,9 @@ class OsisHandler(handler.ContentHandler):
                     
         elif name == 'catchWord':
             self._writeHtml('<i>')
+            
+        elif name == 'cell':
+            self._writeHtml('<td>')
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
@@ -696,9 +711,16 @@ class OsisHandler(handler.ContentHandler):
                     self._inFootnote = False
                     self._ignoreText = True
                     
+        elif name == 'row':
+            self._writeHtml('<tr>')
+                    
         elif name == 'seg':
             # <seg> tags are ignored
             pass
+        
+        elif name == 'table':
+            self._writeHtml('<table>\n')
+            self._inTable = True
         
         elif name == 'title':
             canonical = self._getAttributeValue(attrs,'canonical')
