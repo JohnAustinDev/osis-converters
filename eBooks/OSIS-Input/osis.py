@@ -1,6 +1,7 @@
 from xml.sax import handler
 from calibre_plugins.osis_input.structure import DocStructure, OsisError
 from calibre_plugins.osis_input.footnote import BookFootnotes
+import shutil
 import re
 
 class OsisHandler(handler.ContentHandler):
@@ -20,6 +21,7 @@ class OsisHandler(handler.ContentHandler):
         self._chTitleWritten = False
         self._context = context
         self._docStructure = DocStructure()
+        self._figHtml = ''
         self._firstBook = True                           # First book of testament
         self._firstTitle = False
         self._firstVerse = False
@@ -35,6 +37,7 @@ class OsisHandler(handler.ContentHandler):
         self._hiLevel = 0
         self._htmlWriter = htmlWriter
         self._inCanonicalTitle = False
+        self._inCaption = False
         self._inChapterTitle = False
         self._ignoreChEnd = False
         self._ignoreDivEnd = False
@@ -93,6 +96,7 @@ class OsisHandler(handler.ContentHandler):
         self._chFootnoteRef = ''
         self._chNumWritten = False
         self._chHeadingWritten = False
+        self._figHtml = ''
         self._firstBook = True
         self._groupEmpty = False
         self._groupHtmlOpen = False
@@ -101,6 +105,7 @@ class OsisHandler(handler.ContentHandler):
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
         self._inCanonicalTitle = False
+        self._inCaption = False
         self._inChapterTitle = False
         self._ignoreChEnd = False
         self._ignoreDivEnd = False
@@ -165,8 +170,12 @@ class OsisHandler(handler.ContentHandler):
                 self._inTitle = True
                 
                 
-    def endElement(self, name):      
-        if name == 'chapter':
+    def endElement(self, name):
+        if name == 'caption':
+            if self._inCaption:
+                self._inCaption = False
+                self._figHtml += '</figcaption>\n'
+        elif name == 'chapter':
             if self._ignoreChEnd:
                 self._ignoreChEnd = False
             else:
@@ -186,6 +195,11 @@ class OsisHandler(handler.ContentHandler):
                 divType = self._docStructure.endDiv(None)
                 if divType == self._docStructure.BOOK:
                     self._footnotes.writeFootnotes()
+                    
+        elif name == 'figure':
+            self._figHtml += '</figure>\n'
+            self._writeHtml(self._figHtml)
+            self._fugHtml = False
                     
         elif name == 'foreign':
             self._writeHtml('</span>')
@@ -244,6 +258,8 @@ class OsisHandler(handler.ContentHandler):
                 if not self._footnoteRefWritten:
                     self._writeFootnoteRef(self._docStructure.bookId, self._footnoteNo)
                 self._inFootnoteRef = False
+            elif self._figHtml != '':
+                self._ignoreText = False
                 
         elif name == 'row':
             self._writeHtml('</tr>\n')
@@ -385,7 +401,14 @@ class OsisHandler(handler.ContentHandler):
         return None
     
     def _processBodyTag(self, name, attrs):
-        if name == 'chapter':
+        if name == 'caption':
+            if self._figHtml != '':
+                self._figHtml += '<figcaption>'
+                self._inCaption = True
+            else:
+                print 'Caption not associated with a figure'
+            
+        elif name == 'chapter':
             osisId = self._getAttributeValue(attrs,'osisID')
             if osisId is not None:
                 # Start of a chapter
@@ -521,6 +544,25 @@ class OsisHandler(handler.ContentHandler):
                     self._ignoreDivEnd = True
                 else:
                     self._docStructure.otherDiv()
+                    
+        elif name == 'figure':
+            source = self._getAttributeValue(attrs, 'src')
+            
+            # Assume that a TIFF input file has been converted to JPG
+            source = source.replace('.tiff', '.jpg')
+            source = source.replace('.tif', '.jpg')
+            
+            # Copy the image file to the current directory
+            fullFileSpec = self._context.config.imgFileDir + '/' + source
+            shutil.copy(fullFileSpec, '.')
+            
+            # Set up the html
+            self._figHtml = '<figure>\n<img src="%s" />\n' % source
+            
+            # Add the image file to the list
+            if source not in self._context.imageFiles:
+                self._context.imageFiles.append(source)
+            
                     
         elif name == 'foreign':
             verseEmpty = self._verseEmpty
@@ -711,6 +753,9 @@ class OsisHandler(handler.ContentHandler):
                     self._inFootnote = False
                     self._ignoreText = True
                     
+            elif self._figHtml != '':
+                self._ignoreText = True
+                    
         elif name == 'row':
             self._writeHtml('<tr>')
                     
@@ -835,6 +880,8 @@ class OsisHandler(handler.ContentHandler):
             self._footnotes.addFootnoteText(html)
         elif self._inTitle:
             self._titleText += html
+        elif self._inCaption:
+            self._figHtml += html
         elif self._inIntro:
             self._introText += html
         elif self._inVerse and not self._verseEmpty:

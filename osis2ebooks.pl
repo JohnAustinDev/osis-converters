@@ -31,6 +31,7 @@ require "$SCRD/scripts/common.pl"; &init();
 copy("$INPD/eBook/convert.txt", "$TMPDIR/convert.txt");
 copy("$OUTDIR/$MOD.xml", "$TMPDIR/$MOD.xml");
 copy("$SCRD/eBooks/css/ebible.css", "$TMPDIR/ebible.css");
+if (-d "$INPD/images") {&copy_dir("$INPD/images", "$TMPDIR/images", 1, 1);}
 
 # get scope for naming output files
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
