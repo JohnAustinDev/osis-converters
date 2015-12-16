@@ -51,6 +51,7 @@ class ConversionConfig:
         self.optionalBreaks = False
         self.introInContents = True
         self.testamentGroups = True
+        self.imgFileDir = ''
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -153,7 +154,13 @@ class ConversionConfig:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
 
-                self.optionalBreaks = True        
+                self.optionalBreaks = True
+        
+        #
+        # The location for image files will be in the image subdirectory
+        # under the directory containing the config file
+        lastSlash = configFilePath.rfind("/")
+        self.imgFileDir = configFilePath[:lastSlash] + "/images"
         
     def bookTitle(self, bookRef):
         if bookRef in self.books:
