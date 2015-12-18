@@ -315,6 +315,9 @@ class OsisHandler(handler.ContentHandler):
                 self._chapterTitle += '<br />'
                 self._chHeadingWritten = True
                 self._inChapterTitle = False
+                
+        elif name == 'transChange':
+            self._writeHtml('</span>')
                         
         elif name == 'work':
             if self._inWork:
@@ -824,6 +827,14 @@ class OsisHandler(handler.ContentHandler):
                     self._titleWritten = False
                     self._titleText = ''
                     self._readyForSubtitle = False
+                    
+        elif name == 'transChange':
+            verseEmpty = self._verseEmpty
+            if self._inVerse:
+                # prevents style being applied to verse number
+                self._verseEmpty = False
+            self._writeHtml('<span class="transChange">')
+            self._verseEmpty = verseEmpty
                     
         elif name == 'verse':
             verse = self._getAttributeValue(attrs,'sID')
