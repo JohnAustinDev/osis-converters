@@ -65,8 +65,13 @@ p, div {
   margin-bottom:0;
 }
 
+
 p {
 	text-indent: 1em
+}
+
+dfn {
+	font-weight: bold;
 }
 
 .first-para {
@@ -85,7 +90,6 @@ p {
   text-align: center;
 }
 
-
 .x-chapter-title {
   text-decoration: underline;
 }
@@ -101,6 +105,10 @@ p {
 	background-color:#ebebeb
 }
 
+.x-glossary-link {
+	background-color:#f0ffff
+}
+
 .heading {
   font-weight: bold;
   text-align: center;
@@ -110,10 +118,8 @@ p {
   font-style: italic;
 }
 
-
-
-
-
-
-
+.glossary-entry {
+  margin-bottom: 1em;
+  margin-top: 1em;
+}
 

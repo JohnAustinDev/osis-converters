@@ -20,8 +20,8 @@ class ConversionConfig:
                       'Sir' : u'Sirach', 'EpJer' : u'Послание Джереми', 'Bar' : u'Барух', '1Macc' : u'1-я Маккавеи', \
                       '2Macc' :u'2-я Маккавеи', '3Macc' :u'3-я Маккавеи', '2Esd' : u'2-я Ездры', \
                       'Matt' : u'От Матфея', 'Mark' : u'От Марка', 'Luke': u'От Луки', 'John' : u'От Иоанна', 'Acts' : u'Деяния', \
-                      'Rom' : 'К Римлянам', '1Cor' : u'1-е Коринфянам', '2Cor' : u'2-е Коринфянам', 'Gal' : u'К Галатам', \
-                      'Eph' : 'К Ефесянам', 'Phil' : u'К Филиппийцам', 'Col' : u'К Колоссянам', '1Thess' : u'1-е Фессалоникийцам', \
+                      'Rom' : u'К Римлянам', '1Cor' : u'1-е Коринфянам', '2Cor' : u'2-е Коринфянам', 'Gal' : u'К Галатам', \
+                      'Eph' : u'К Ефесянам', 'Phil' : u'К Филиппийцам', 'Col' : u'К Колоссянам', '1Thess' : u'1-е Фессалоникийцам', \
                       '2Thess' : u'2-е Фессалоникийцам', '1Tim' : u'1-е Тимофею', '2Tim' : u'2-е Тимофею', 'Titus' : u'К Титу', \
                       'Phlm'  : u'К Филимону', 'Heb' : u'К Евреям', 'Jas' : u'Иакова' , '1Pet' : u'1-e Петра', '2Pet' : u'2-e Петра', \
                       '1John' : u'1-e Иоанна', '2John' : u'2-e Иоанна', '3John' : u'3-e Иоанна', 'Jude' : u'Иуда', 'Rev' : u'Откровение' }
@@ -52,6 +52,8 @@ class ConversionConfig:
         self.introInContents = True
         self.testamentGroups = True
         self.imgFileDir = ''
+        self.glossaryTitle = u'Cловарь'
+        self.glossTitleSet = False
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -132,7 +134,7 @@ class ConversionConfig:
                 self.introInContents = False  
                 
         #
-        # Look for settings related to title
+        # Look for settings related to titles
         m = re.search(r"^\s*BookSubtitles=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
@@ -146,6 +148,11 @@ class ConversionConfig:
         m = re.search(r"^\s*PsalmDivSubtitle=(.+)$", config, re.MULTILINE|re.IGNORECASE)     
         if m:
             self.psalmDivSubtitle = m.group(1).strip() + '$'
+            
+        m = re.search(r"^\s*GlossaryTitle=(.+)$", config, re.MULTILINE|re.IGNORECASE)     
+        if m:
+            self.glossaryTitle = m.group(1).strip()
+            self.glossTitleSet = True
             
         #
         # Other settings

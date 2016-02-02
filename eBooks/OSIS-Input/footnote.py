@@ -39,7 +39,7 @@ class BookFootnotes:
         
     def changeVerseId(self, vId):
         self._footnotes[self._count-1].verse = vId
-        
+            
     def footnoteComplete(self):
         self._buffer=''
         

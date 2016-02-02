@@ -2,7 +2,8 @@ from calibre.customize.conversion import InputFormatPlugin, OptionRecommendation
 from calibre_plugins.osis_input.config import ConversionConfig
 from calibre_plugins.osis_input.context import ConvertContext
 from calibre_plugins.osis_input.writer import HtmlWriter
-from calibre_plugins.osis_input.osis import OsisHandler
+from calibre_plugins.osis_input.bible import BibleHandler
+from calibre_plugins.osis_input.glossary import GlossaryHandler
 from xml.sax import make_parser
 import shutil
 import codecs
@@ -13,7 +14,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS files to ebooks'
-    version = (1, 2, 0)
+    version = (2, 0, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['windows', 'linux']
@@ -35,8 +36,8 @@ class OsisInput(InputFormatPlugin):
         self.context = ConvertContext(self.config)
         self.context.outputFmt = self.opts.output_fmt
         #
-        # For correct FB2 footnotes, do not use EPUB3
-        if self.context.outputFmt == 'fb2':
+        # EPUB3 only relevant for epub
+        if self.context.outputFmt != 'epub':
             self.config.epub3 = False
         #
         # Get CSS file, if any
@@ -65,17 +66,37 @@ class OsisInput(InputFormatPlugin):
             if searchRes != -1:
                 self.context.canonicalClassDefined = True
             cfile.close()
+            
+        # Get the directory of the OSIS file in case we need to look for glossary files
+        filePath = stream.name
+        filePos = filePath.rfind('/')
+        if filePos == 0:
+            # Maybe this is Windows and backslashes are used
+            filePos = filePath.rfind('\\')
+        inputDir = filePath[:filePos]
 
         # Prepare to parse the input file
         htmlWriter = HtmlWriter(self.context)
         osisParser = make_parser()
-        osisHandler = OsisHandler(htmlWriter, self.context)
+        osisHandler = BibleHandler(htmlWriter, self.context)
         osisParser.setContentHandler(osisHandler)
         osisParser.parse(stream)
         #
         # Report any unexpected tags
         for tag in self.context.unexpectedTags:
             print 'Unexpected tag: <%s>' % tag
+        #
+        # Process any glossaries
+        if self.context.glossaries:
+            del osisHandler
+            osisHandler = GlossaryHandler(htmlWriter, self.context)
+            osisParser.setContentHandler(osisHandler)
+            for glossary in self.context.glossaries:
+                print 'Processing glossary ' + glossary
+                glosFile = '%s/%s.xml' % (inputDir, glossary)
+                osisParser.parse(glosFile)
+                for tag in self.context.unexpectedTags:
+                    print '%s: Unexpected tag: <%s>' % (glossary, tag)
         
         # Create the OPF file
         oh = codecs.open('content.opf', 'w', 'utf-8')

@@ -111,8 +111,8 @@ else {
  exit;
 }
 
+$COMMAND = "ebook-convert $INPF $OPF --config-file $CONFILE --output-fmt $OPTYPE";
 # Start forming the command string
-$COMMAND = "ebook-convert $INPF $OPF --config-file $CONFILE";
 
 # Check if the CSS file exists
 $CSSFILE = "e$IPTYPE.css";
@@ -151,7 +151,7 @@ if ($COVER and $COVER ne "") {
 # Add options for FB2 output
 if (lc $OPTYPE eq "fb2")
 {
-  $COMMAND .= ' --fb2 religion --sectionize toc --output-fmt fb2';
+  $COMMAND .= ' --fb2 religion --sectionize toc';
 }
 
 # Run conversion command
@@ -166,7 +166,7 @@ if (lc $OPTYPE eq "fb2")
   
   # Rename output file to temp file and pre-process to give new output file
   rename $OPF, $TEMPF;
-  $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF";
+  $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF $CSSFILE";
   system $COMMAND;
   unlink $TEMPF;
 }

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, codecs, tempfile, re
+import os.path
 
 if __name__ == "__main__":
     
@@ -13,13 +14,17 @@ if __name__ == "__main__":
 
     print 'Post-processing FB2 output'
     
-    # Open the input and output FB2 files   
+    # Open the input and output FB2 files  and the CSS file  
     inFile = sys.argv[1]
     fi = codecs.open(inFile, 'r', 'utf-8')
     outFile = sys.argv[2]
     fo = codecs.open(outFile, 'w', 'utf-8')
-    
-    # Process the input file looking for footnotes
+    cssFile = sys.argv[3]
+    cf = None
+    if os.path.isfile(cssFile):
+        cf = codecs.open(cssFile, 'r', 'utf-8')
+
+    # Process the input file
     for line in fi:
         lineOut = ''
     
@@ -57,10 +62,23 @@ if __name__ == "__main__":
                 print 'Footnotes found: %d' % fnCount
                 fnCount = 0
                 
+        # Check for a style to be applied
+        tempLine = re.sub(r'%&amp;(\S+?)&amp;%', r'<style name="\1">', lineOut)
+        lineOut = re.sub('%%%', "</style>", tempLine)
+
         # Write to output file
         if len(lineOut.strip()) > 0:
             if re.match('</FictionBook>', lineOut) is None:
                 fo.write(lineOut)
+                
+        # If this is the end of the description, copy the stylesheet to the output file
+        if re.search('</description>', line) is not None and cssFile is not None:
+            fo.write('<stylesheet type="text/css">\n')
+            for cssLine in cf:
+                if len(cssLine.strip()) > 0:
+                    fo.write(cssLine)
+            fo.write('</stylesheet>\n')
+            cf.close()
             
     # Finished processing input file
     fi.close()

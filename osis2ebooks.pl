@@ -33,6 +33,13 @@ copy("$OUTDIR/$MOD.xml", "$TMPDIR/$MOD.xml");
 copy("$SCRD/eBooks/css/ebible.css", "$TMPDIR/ebible.css");
 if (-d "$INPD/images") {&copy_dir("$INPD/images", "$TMPDIR/images", 1, 1);}
 
+# locate files for any dictionaries and copy these
+foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+  my $outd = $OUTDIR;
+  $outd =~ s/$MOD/$companion/;
+  copy("$outd/$companion.xml", "$TMPDIR/$companion.xml");
+}
+
 # get scope for naming output files
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
