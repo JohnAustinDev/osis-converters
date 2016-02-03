@@ -13,6 +13,9 @@ class HtmlWriter:
         self._fh = codecs.open(filename+'.xhtml', 'w', 'utf-8')
         self._writeHeader(name)
         self._context.htmlFiles.append(filename)
+        
+    def isOpen(self):
+        return(self._fh is not None)
             
     def write(self, str):
         if self._fh is None:
