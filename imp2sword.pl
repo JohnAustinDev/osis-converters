@@ -33,7 +33,7 @@ if (!-e $IMPFILE) {print "ERROR: Missing imp file: $IMPFILE. Exiting.\n"; exit;}
 # uppercase dictionary keys were necessary to avoid requiring ICU.
 # XSLT cannot be used to do this because a custom uc2() Perl function is needed.
 if ($UPPERCASE_DICTIONARY_KEYS) {
-  my $entryName, %entryText, @entryOrder;
+  my ($entryName, %entryText, @entryOrder);
   open(INF, "<:encoding(UTF-8)", $IMPFILE) or die "Could not open $IMPFILE.\n";
   while(<INF>) {
     if ($_ =~ /^\s*$/) {next;}
