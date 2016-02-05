@@ -464,6 +464,7 @@ class OsisHandler(handler.ContentHandler):
         return paraTag
     
     def _handleHi(self, attrs):
+        attributes = ''
         if not self._ignoreText:
             hiType = self._getAttributeValue(attrs, 'type')
             if hiType == 'bold':
@@ -480,11 +481,14 @@ class OsisHandler(handler.ContentHandler):
                 self._hiHtmlTag[self._hiLevel] = 'sup'
             elif hiType == 'underline':
                 self._hiHtmlTag[self._hiLevel] = 'u'
+            elif hiType == 'small-caps':
+                self._hiHtmlTag[self._hiLevel] = 'span'
+                attributes = ' style="font-variant:small-caps;"'
             else:
                 self._hiHtmlTag[self._hiLevel] = ''
                 print 'Unsupported hi type %s' % hiType
             if self._hiHtmlTag[self._hiLevel] != '':
-                html = '<%s>' % self._hiHtmlTag[self._hiLevel]
+                html = '<%s%s>' % (self._hiHtmlTag[self._hiLevel], attributes)
                 self._writeHtml(html)
         else:
             self._hiHtmlTag[self._hiLevel] = ''
