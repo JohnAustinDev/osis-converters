@@ -192,10 +192,10 @@ class BibleHandler(OsisHandler):
                     if self._inFootnote:
                         self._handleFootnoteTextInTitle(text)
                     else:
-                        self._titleText += text
+                        self._titleText += content
                         self._breakCount = 0
             elif self._context.title == '':
-                    self._context.title = text
+                    self._context.title = content
                     
         elif self._inChapterTitle:
             if self._inFootnote:
@@ -844,7 +844,7 @@ class BibleHandler(OsisHandler):
     
     def _writeFootnoteMarker(self, refBook, noteRef):
         if self._inChapterTitle:
-            refSting = self.footnoteMarker(refBook, noteRef)    
+            refString = self._footnoteMarker(refBook, noteRef)    
             self._chFootnoteMarker += refString
         else:
             OsisHandler._writeFootnoteMarker(self, refBook, noteRef)
