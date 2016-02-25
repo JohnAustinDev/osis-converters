@@ -168,8 +168,8 @@ sub evalRegex($) {
   
   foreach my $r (@EVAL_REGEX) {
     if (!$eval_regex_report{$r->{'regex'}} && !$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied \"".$r->{'regex'}."\".\n");}
-    elsif ($eval_regex_report{$r->{'regex'}}) {&Log("Applied \"".$r->{'regex'}."\" on ".$eval_regex_report{$r->{'regex'}}." lines.\n");}
-    else {&Log("Applied \"".$r->{'regex'}."\ on ?? lines.\n");}
+    elsif ($eval_regex_report{$r->{'regex'}}) {&Log("Applied \"".$r->{'regex'}."\" on ".$eval_regex_report{$r->{'regex'}}."\" lines.\n");}
+    else {&Log("Applied \"".$r->{'regex'}."\" on ?? lines.\n");}
   }
   &Log("\n");
   

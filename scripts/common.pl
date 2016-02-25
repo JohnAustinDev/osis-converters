@@ -1150,12 +1150,11 @@ sub addDictionaryLink(\$$$) {
   
   my $container = ($node->nodeType == 3 ? $node->parentNode():$node);
   
-  &dbg(sprintf("tP=%s\nelem=%s\nentry=%s\n", $$tP, $node, $entry), $entry);
+  &dbg(sprintf("\naddDictionaryLink\ntP=%s\nelem=%s\nentry=%s\n", $$tP, $node, $entry), $entry);
   
   if ($$tP =~ /^\s*$/) {return '';}
   
   my $matchedPattern = '';
-  my $dbg;
   
   if (!@MATCHES) {@MATCHES = $XPC->findnodes("//match", $DWF);}
   
@@ -1175,7 +1174,7 @@ sub addDictionaryLink(\$$$) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    &dbg(sprintf("%16s %10s = ", $context, (($node->nodeType == 3) ? 'text':'<'.$node->localName.'>')), $entry);
+    &dbg(sprintf("Context: %16s\nMatch: %s\nNodeType: %10s = ", $context, $m, (($node->nodeType == 3) ? 'text':'<'.$node->localName.'>')), $entry);
     if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n", $entry); next;}
     if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
     if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
@@ -1328,12 +1327,16 @@ sub myContext($$) {
   elsif ($test eq 'nt') {$test2 = $NT_BOOKS;}
   foreach my $t (split(/\s+/, $test2)) {
     if ($t =~ /^\s*$/) {next;}
-    my $e = &osisRef2Entry($t, \$mod, 1);
-    foreach my $refs (&context2array($context)) {
-      if ($refs =~ /\Q$e\E/i) {return $context;}
+    my @es = &osisRefSegment2array(&osisRef2Entry($t, \$mod, 1));
+    foreach my $e (@es) {
+      foreach my $refs (&context2array($context)) {
+        if ($refs =~ /\Q$e\E/i) {
+          return $context;
+        }
+      }
     }
   }
-  
+
   return 0;
 }
 
@@ -1348,7 +1351,7 @@ sub haveString($$$) {
 }
 
 
-# return special Bible reference for $elem:
+# return special Bible context reference for $elem:
 # Gen.0.0.0 = intro
 # Gen.1.0.0 = intro
 # Gen.1.1.1 = Genesis 1:1
@@ -1401,8 +1404,9 @@ sub bibleContext($$) {
 }
 
 
-# return array of refs from context, since context may be a bibleContext 
-# covering a range of verses. Returned refs are NOT encoded osisRefs.
+# return array of single verse osisRefs from context, since context may 
+# be a bibleContext covering a range of verses. Returned refs are NOT
+# encoded osisRefs.
 sub context2array($) {
   my $context = shift;
   
@@ -1415,6 +1419,27 @@ sub context2array($) {
   }
   else {push(@refs, $context);}
   
+  return @refs;
+}
+
+
+# return array of single verse osisRefs from a single osisRef segment.
+# An osisRef segment may contain a hyphen, but no spaces. Returned refs 
+# are NOT encoded osisRefs. Currently for performance reasons, osisRef
+# segments must be constrained to a single chapter or an error is thrown.
+sub osisRefSegment2array($) {
+  my $osisRef = shift;
+
+  my @refs = ($osisRef);
+  if ($osisRef !~ /\-/) {return @refs;}
+  elsif ($osisRef =~ /^([^\.]+\.\d+)\.(\d+)\s*\-\s*\1\.(\d+)$/) {
+    my $context = "$1.$2.$3";
+    return &context2array($context);
+  }
+  else {
+    &Log("ERROR: osisRefSegment2array(): The osisRef segment \"$osisRef\" must be constrained to a single chapter\n");
+  }
+
   return @refs;
 }
 
@@ -1838,6 +1863,9 @@ sub osisXSLT($$$) {
 }
 
 
+# Convert an "id" to an array of osisIDs, where the id is from an  
+# eID or sID attribute, which can apparently be anything unique. So 
+# only a common subset is handled here.
 sub id2refs($) {
   my $osisID = shift;
   my @refs;
