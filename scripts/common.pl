@@ -1122,13 +1122,14 @@ sub addDictionaryLinks(\@$) {
     my $text, $matchedPattern;
     foreach my $textchild (@textchildren) {
       $text = $textchild->data();
+      if ($text =~ /^\s*$/) {next;}
       my $done;
       do {
         $done = 1;
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $node, $entry)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1144,15 +1145,11 @@ sub addDictionaryLinks(\@$) {
 # reference tags are inserted, and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
 sub addDictionaryLink(\$$$) {
-  my $tP = shift;
-  my $node = shift;
+  my $textP = shift;
+  my $textNode = shift;
   my $entry = shift; # for SeeAlso links only
   
-  my $container = ($node->nodeType == 3 ? $node->parentNode():$node);
-  
-  &dbg(sprintf("\naddDictionaryLink\ntP=%s\nelem=%s\nentry=%s\n", $$tP, $node, $entry), $entry);
-  
-  if ($$tP =~ /^\s*$/) {return '';}
+  &dbg(sprintf("\naddDictionaryLink\ntext=%s\nentry=%s\n", $$textP, $entry), $entry);
   
   my $matchedPattern = '';
   
@@ -1162,7 +1159,7 @@ sub addDictionaryLink(\$$$) {
   my $multiples_context;
   if ($entry) {$context = $entry; $multiples_context = $entry;}
   else {
-    $context = &bibleContext($node);
+    $context = &bibleContext($textNode);
     $multiples_context = $context;
     $multiples_context =~ s/^(\w+\.\d+).*$/$1/; # reset multiples each chapter
   }
@@ -1174,11 +1171,11 @@ sub addDictionaryLink(\$$$) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    &dbg(sprintf("Context: %16s\nMatch: %s\nNodeType: %10s = ", $context, $m, (($node->nodeType == 3) ? 'text':'<'.$node->localName.'>')), $entry);
+    &dbg(sprintf("Context: %16s\nMatch: %s\nEntry: %s\nNodeType: %s = ", $context, $m, $entry, $textNode->parentNode()->nodeType), $entry);
     if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n", $entry); next;}
     if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
     if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
-    if ($container->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
+    if ($textNode->parentNode()->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
     if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n", $entry); next;}
     if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
@@ -1196,7 +1193,7 @@ sub addDictionaryLink(\$$$) {
     $pm = decode_entities($pm);
     
     # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
-    my $t = $$tP;
+    my $t = $$textP;
     my $i = $pf =~ s/i//;
     $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
     if ($i) {$t = &uc2($t);}
@@ -1221,10 +1218,10 @@ sub addDictionaryLink(\$$$) {
     my $osisRef = @{$XPC->findnodes('ancestor::entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
     my $name = @{$XPC->findnodes('preceding-sibling::name[1]', $m)}[0]->textContent;
     my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
-    my $match = substr($$tP, $is, ($ie-$is));
+    my $match = substr($$textP, $is, ($ie-$is));
     
-    substr($$tP, $ie, 0, "</reference>");
-    substr($$tP, $is, 0, "<reference $attribs>");
+    substr($$textP, $ie, 0, "</reference>");
+    substr($$textP, $is, 0, "<reference $attribs>");
     
     # record stats...
     $EntryHits{$name}++;
