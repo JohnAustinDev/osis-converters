@@ -65,7 +65,7 @@ sub convertDWF($\@\%$) {
       my $reflags = "i";
       while ($p =~ s/<([^<>]*)>\s*$//) {
         my $inst = $1;
-        if ($inst =~ /^\s*verse must contain "(.*)"\s*$/) {$attribs .= " withString=\"$1\"";}
+        if ($inst =~ /^\s*verse must contain "(.*)"\s*$/) {&Log("ERROR: \"verse must contain\" is no longer supported\n");}
         elsif ($inst =~ /^\s*only New Testament\s*$/i) {$attribs .= " onlyNewTestament=\"true\"";}
         elsif ($inst =~ /^\s*only Old Testament\s*$/i) {$attribs .= " onlyOldTestament=\"true\"";}
         elsif ($inst =~ /^\s*only book\(s\)\:\s*(.*)\s*$/i) {$attribs .= " context=\"$1\"";}

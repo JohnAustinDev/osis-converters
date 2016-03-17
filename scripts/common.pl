@@ -1182,7 +1182,7 @@ sub addDictionaryLink(\$$$) {
     if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n", $entry); next;}
     if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
-    if ($a = &getAttribute('withString', $m)) {if (!&haveString($a, $context, $container)) {&dbg("70\n", $entry); next;}}
+    if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
     
     my $p = $m->textContent;
     
@@ -1337,16 +1337,6 @@ sub myContext($$) {
     }
   }
 
-  return 0;
-}
-
-
-sub haveString($$$) {
-  my $s = shift;
-  my $context = shift;
-  my $elem = shift;
- 
-  &Log("ERROR: \"withString\" is not implemented yet\n");
   return 0;
 }
 
@@ -1577,7 +1567,6 @@ sub dictWordsHeader() {
   onlyOldTestament=\"true|false\"
   context=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which to create links (default is all)\"
   notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
-  withString=\"limit matches to verses or entries which also contain this literal string\"
   highlight=\"true|false: allow links within bold, italic or other highlighted text (default is false)\"
   multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
 
