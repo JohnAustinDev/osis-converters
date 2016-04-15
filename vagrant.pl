@@ -4,15 +4,19 @@
 # The purpose of this script is to set the required file shares between
 # host and vagrant client, and to call osis-converters on the client.
 
-use File::Spec; 
+use File::Spec;
 
 $Script = File::Spec->rel2abs(shift);
-$Indir = File::Spec->rel2abs(shift);
+$ProjectDir = File::Spec->rel2abs(shift);
+$ProjectDir =~ s/\\/\//g; # / works for any opsys
 
-$Indir =~ s/^((\w:)?[\\\/]*[^\\\/]+)[\\\/]?(.*?)[\\\/]?$/$3/;
+# ProjectDir must be relative to INDIR_ROOT
+if ($ProjectDir !~ s/^((?:\w\:)?\/[^\/]+)(.*?)$/$2/) {
+  die "\nERROR: Cannot parse project path \"$ProjectDir\"\n";
+}
 $INDIR_ROOT = $1;
 
-$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
+$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/(\/[^\/]+){1}$//;
 chdir $SCRD;
 if (-e "./paths.pl") {require "./paths.pl";}
 
@@ -24,9 +28,8 @@ $Status = (-e "./.vagrant" ? `vagrant status`:'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
 
-$Indir =~ s/\\/\//g; # using as Linux relative path
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
-$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/vagrant/INDIR_ROOT/$Indir\"";
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/vagrant/INDIR_ROOT$ProjectDir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}
@@ -46,8 +49,8 @@ sub vagrantUp(\@) {
   my $sharesP = shift;
   
   # Create input/output filesystem shares
-  open(TPL, "<./Vagrantfile_tpl") || die;
-  open(VAG, ">./Vagrantfile") || die;
+  open(TPL, "<./Vagrantfile_tpl") || die "\nERROR: Cannot open \"./Vagrantfile_tpl\"\n";
+  open(VAG, ">./Vagrantfile") || die "\nERROR: Cannot open \"./Vagrantfile\"\n";
   if (!-e "./.vagrant") {`mkdir ./.vagrant`;}
   while (<TPL>) {
     print VAG $_;
