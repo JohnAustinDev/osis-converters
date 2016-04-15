@@ -6,17 +6,18 @@
 
 use File::Spec;
 
-$Script = File::Spec->rel2abs(shift);
-$ProjectDir = File::Spec->rel2abs(shift);
-$ProjectDir =~ s/\\/\//g; # / works for any opsys
+$Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
+$ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
 
 # ProjectDir must be relative to INDIR_ROOT
-if ($ProjectDir !~ s/^((?:\w\:)?\/[^\/]+)(.*?)$/$2/) {
+# INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
+# Vagrant cannot create a share to the root of a window's drive.
+if ($ProjectDir !~ s/^((?:\w\:|\/\w)?\/[^\/]+)(.*?)$/$2/) {
   die "\nERROR: Cannot parse project path \"$ProjectDir\"\n";
 }
 $INDIR_ROOT = $1;
 
-$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/(\/[^\/]+){1}$//;
+$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/\\/\//g; $SCRD =~ s/(\/[^\/]+){1}$//;
 chdir $SCRD;
 if (-e "./paths.pl") {require "./paths.pl";}
 
@@ -40,7 +41,8 @@ close(VUP);
 sub vagrantShare($$) {
   my $host = shift;
   my $client = shift;
-  if ($host =~ /^\/(\w)(\/Users\/.*)?$/) {$host = uc($1).':'.($2 ? $2:'/');}
+  # If the host is Windows, $host must be a native path!
+  $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
   $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
   return "config.vm.synced_folder \"$host\", \"/home/vagrant/$client\"";
 }
