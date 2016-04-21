@@ -37,7 +37,6 @@ $DICTLINK_SKIPNAMES= "reference|figure|title|note|name";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
-$GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
 
 sub init() {
   if (!$INPD) {$INPD = "."};
@@ -49,6 +48,8 @@ sub init() {
     exit;
   }
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
+
+  $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
   
   $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
   
