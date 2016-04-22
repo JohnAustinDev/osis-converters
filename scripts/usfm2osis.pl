@@ -97,7 +97,7 @@ sub usfm2osis($$) {
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
-  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -s none -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
 
   my $use_u2o = 0;
   if (!$use_u2o) {

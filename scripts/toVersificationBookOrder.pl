@@ -93,10 +93,25 @@ sub toVersificationBookOrder($$) {
     }
     else {
       my $comment = @commentNode[0];
-      while ($comment =~ s/^(.*\s)((\S+) == (.*?))[,\s]*(\-\->)?$/$1/) {
-        my $emsg = "as specified in \"$2\" in CF_usfm2osis.txt";
-        my $int = $3;
-        my $xpath = $4;
+      #<!-- id comment - (FRT) titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
+      $comment =~ s/^<\!\-\-.*?(?=\s\S+ ==)//; # strip beginning stuff
+      $comment =~ s/\s*\-\->$//; # strip end stuff
+      
+      # process comment parts in reverse order to acheive expected element order
+      my @parts = split(/(,\s*\S+ == )/, ", $comment");
+      for (my $x=@parts-1; $x>0; $x -= 2) {
+        my $part = $parts[$x-1] . $parts[$x];
+        $part =~ s/^,\s*//;
+        if ($part !~ /^(\S+) == (.*?)$/) {
+          &Log("ERROR: Unhandled location assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
+        }
+        my $emsg = "as specified in \"$part\" in CF_usfm2osis.txt";
+        my $int = $1;
+        my $xpath = $2;
+        if ($xpath =~ /^remove$/i) {
+          &Log("NOTE: Removing \"$int\" as requested\n");
+          next;
+        }
         # div[@type"bookGroup"] were created without osis namespace (otherwise the resulting tags are monstrous) so here's a fix
         $xpath =~ s/osis\:(div(\[[^\]]+\])*\[\@type=["']bookGroup["']\])/$1/g;
         my @targXpath = $XPC->findnodes('//'.$xpath, $xml);
@@ -104,7 +119,7 @@ sub toVersificationBookOrder($$) {
           &Log("ERROR: Removing intro! Could not locate \"$xpath\" $emsg\n");
           next;
         }
-        if ($int eq 'introduction') {&placeIntroduction($intro, @targXpath[0]);}
+        if ($int eq 'introduction') {&placeIntroduction($intro, @targXpath[$#targXpath]);}
         else {
           my @periphs = $XPC->findnodes('.//osis:div[@type="introduction"][@subType="'.$int.'"]', $intro);
           if (!@periphs) {
@@ -114,12 +129,9 @@ sub toVersificationBookOrder($$) {
               next;
             }
           }
-          my $periph = @periphs[0]->parentNode()->removeChild(@periphs[0]);
-          &placeIntroduction($periph, @targXpath[0]);
+          my $periph = @periphs[$#periphs]->parentNode()->removeChild(@periphs[$#periphs]);
+          &placeIntroduction($periph, @targXpath[$#targXpath]);
         }
-      }
-      if ($comment =~ /==/) {
-        &Log("ERROR: Unhandled location assignment \"$comment\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
       }
     }
   }
