@@ -317,7 +317,7 @@ sub checkAndWriteDefaults($) {
         if ($USFM{$type}{$f}{'peripheralID'}) {
           print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
           print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
-          my $xpath = "introduction == osis:div[\@type='book']";
+          my $xpath = "introduction == osis:div[\@type='book'][\@osidID='Gen']";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
@@ -427,12 +427,12 @@ sub checkAndWriteDefaults($) {
 );
 %USFM_PERIPH_TARGET = (
   'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
-  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][0]',
+  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
   'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
   'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
   'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
   'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"]',
+  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]',
   'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
   'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
   'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
