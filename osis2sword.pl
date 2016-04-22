@@ -78,17 +78,17 @@ if ($VERSESYS && $VERSESYS ne "KJV") {
   $ConfEntryP->{'MinimumVersion'} = $msv;
 }
 
-if ($MODDRV =~ /Text$/) {
+if ($MODDRV =~ /Text/) {
 	$ConfEntryP->{'Category'} = 'Biblical Texts';
   
-  if ($MODDRV eq 'zText') {
+  if ($MODDRV =~ /zText/) {
     $ConfEntryP->{'CompressType'} = 'ZIP';
     $ConfEntryP->{'BlockType'} = 'BOOK';
   }
 
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
   &Log("\n--- CREATING $MOD SWORD MODULE (".$VERSESYS.")\n");
-  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV eq 'zText' ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'')." >> ".&escfile($LOGFILE);
+  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV =~ /zText/ ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'').($MODDRV =~ /zText4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
   
