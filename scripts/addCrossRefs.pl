@@ -35,6 +35,7 @@ sub addCrossRefs($$) {
   
   my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
   my @try = (
+    "$INPD/Cross_References/$CrossRefFile.xml",
     "$INPD/../Cross_References/$CrossRefFile.xml",
     "$INPD/../../Cross_References/$CrossRefFile.xml",
     "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
@@ -114,8 +115,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   }
 
   ########################################################################
-  my $f = $CrossRefFile; $f =~ s/^.*?([^\/]+)$/$1/;
-  &Log("READING CROSS REFERENCE FILE \"$f\".\n");
+  &Log("READING CROSS REFERENCE FILE \"$CrossRefFile\".\n");
 
   # XML is the prefered cross-reference source format, but TXT is still supported
   if ($CrossRefFile =~ /\.xml$/) {
