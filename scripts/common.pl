@@ -105,21 +105,19 @@ sub setOUTDIR($) {
   my $inpd = shift;
   
   if (-e "/home/vagrant") {
-    if (-e "/home/vagrant/OUTDIR") {$OUTDIR = "/home/vagrant/OUTDIR";} # Vagrant share
+    if (-e "/home/vagrant/OUTDIR" && `mountpoint /home/vagrant/OUTDIR` =~ /is a mountpoint/) {
+      $OUTDIR = "/home/vagrant/OUTDIR"; # Vagrant share
+    }
     else {$OUTDIR = '';}
   }
-  
-  if ($OUTDIR) {
+
+  if (!$OUTDIR) {$OUTDIR = "$inpd/output";}
+  else {
     my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
     $OUTDIR =~ s/[\\\/]\s*$//; # remove any trailing slash
     $OUTDIR .= '/'.$sub;
-    if (!-e $OUTDIR) {make_path($OUTDIR);}
   }
-  else {
-    $OUTDIR = $inpd;
-    &Log("\nWARNING: Output directory \$OUTDIR is not specified- will use inputs directory.\n", 1);
-    &Log("NOTE: Specify an output directory by adding:\n\$OUTDIR = '/path/to/outdir';\nto paths.pl.\n\n", 1);
-  }
+  if (!-e $OUTDIR) {make_path($OUTDIR);}
 }
 
 
