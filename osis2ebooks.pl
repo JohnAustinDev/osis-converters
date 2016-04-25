@@ -58,7 +58,7 @@ sub makeEbook($$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($TMPDIR) . " " . &escfile($osis) . " " . $format . " " . $cover . " >> ".&escfile($LOGFILE);
+  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($TMPDIR) . " " . &escfile($osis) . " " . $format . " Bible " . $cover . " >> ".&escfile($LOGFILE);
   &Log($cmd."\n");
   system($cmd);
   

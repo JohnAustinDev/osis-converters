@@ -27,6 +27,7 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   wget -nv -O- https://raw.githubusercontent.com/kovidgoyal/calibre/master/setup/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
+echo sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
 sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
 
 # GoBible Creator
