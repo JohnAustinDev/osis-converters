@@ -235,7 +235,21 @@ sub addScripRefLinks($$) {
     if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
     if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
     if ($only_xpath && !$XPC->findnodes("ancestor-or-self::$only_xpath", $textNode)) {next;}
-    if ($skip_xpath && $XPC->findnodes("ancestor-or-self::$skip_xpath", $textNode)) {next;}
+    if ($skip_xpath) {
+      if (!$skip_path_XPATH) {
+        $skip_path_XPATH = $skip_xpath;
+        $skip_path_XPATH =~ s/(^|\|)/$1ancestor-or-self::/g;
+      }
+      my @skipped = $XPC->findnodes($skip_path_XPATH, $textNode);
+      if (@skipped) {
+        my $t = @skipped[0]->toString();
+        if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
+          $reportedSkipped{$1}++;
+          &Log("NOTE: SKIP_XPATH skipping \"$1\".\n");
+        }
+        next;
+      }
+    }
   
     # get text node's context information
     my $bcontext = &bibleContext($textNode, 1);
