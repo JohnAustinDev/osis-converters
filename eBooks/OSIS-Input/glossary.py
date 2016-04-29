@@ -106,9 +106,6 @@ class GlossaryHandler(OsisHandler):
     def _processBodyTag(self, name, attrs):
         if name == 'chapter':
             self._endArticle()
-            
-        elif name == 'cell':
-            self._writeHtml('<td>')
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
@@ -121,21 +118,6 @@ class GlossaryHandler(OsisHandler):
                 if divType is not None:
                     typeStr = 'type %s' % divType
                 print 'Unexpected <div> found - type %s' % typeStr
-
-        elif name == 'l':
-            lineType = self._getAttributeValue(attrs, 'type')
-            lineSubType = self._getAttributeValue(attrs, 'subType')
-            lineClass = 'poetic-line'
-            if lineType is None:
-                level = self._getAttributeValue(attrs, 'level')
-                if level is not None:
-                    lineType = 'x-indent-%s' % level
-            if lineType is not None:
-                lineClass = '%s %s' % (lineClass, lineType)
-                if lineSubType is not None:
-                    lineClass =  '%s %s' % (lineClass, lineSubType)
-            htmlTag = '<div class="%s">' % lineClass
-            self._writeHtml(htmlTag)
                 
         elif name == 'reference':
             # reference are ignored apart from glossary references
