@@ -120,6 +120,14 @@ table {
   text-align: center;
 }
 
+.alt-var {
+  font-style: italic;
+}
+
+.foreign {
+  font-style: italic;
+}
+
 .transChange {
   font-style: italic;
 }

@@ -39,7 +39,6 @@ class OsisHandler(handler.ContentHandler):
     def startDocument(self):
         self._breakCount = 0
         self._figHtml = ''
-        self._firstBook = True
         self._headerProcessed = False
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
@@ -162,6 +161,9 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('</p>\n')
                 self._breakCount = 1
                 self._inParagraph = False
+                
+        elif name == 'rdg':
+            self._writeHtml('</span>')
                 
         elif name == 'reference':
             if self._inGlossaryRef:
@@ -328,6 +330,9 @@ class OsisHandler(handler.ContentHandler):
             paraTag = self._generateParaTag(attrs)
             self._inParagraph = True
             self._writeHtml(paraTag)
+            
+        elif name == 'rdg':
+            self._writeHtml('<span class="alt-var">')
 
         elif name == 'reference':
             self._processReference(attrs)
