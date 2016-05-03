@@ -1,18 +1,19 @@
-import codecs
+import codecs, os
 
 class HtmlWriter:
 
     def __init__(self, context):
         self._fh = None
         self._context = context
+        self._filename = ''
         
     def open(self, name):
         if self._fh is not None:
             self.close()
-        filename = name.lower()
-        self._fh = codecs.open(filename+'.xhtml', 'w', 'utf-8')
+        self._filename = name.lower()
+        self._fh = codecs.open(self._filename+'.xhtml', 'w', 'utf-8')
         self._writeHeader(name)
-        self._context.htmlFiles.append(filename)
+        self._context.htmlFiles.append(self._filename)
         
     def isOpen(self):
         return(self._fh is not None)
@@ -30,6 +31,12 @@ class HtmlWriter:
         self._writeFooter()
         self._fh.close()
         self._fh = None
+    
+    def closeAndRemove(self):
+        self._fh.close()
+        self._fh = None
+        os.remove(self._filename+'.xhtml')
+        self._context.htmlFiles.pop()
           
     def _writeHeader(self, title):
         epubString = ''

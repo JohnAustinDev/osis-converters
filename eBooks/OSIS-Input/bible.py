@@ -108,6 +108,17 @@ class BibleHandler(OsisHandler):
                 divType = self._docStructure.endDiv(None)
                 if divType == self._docStructure.BOOK:
                     self._footnotes.writeFootnotes()
+                elif divType == self._docStructure.GROUP:
+                    if self._groupEmpty:
+                        print 'Ignoring empty book group'
+                        self._docStructure.groupNumber -= 1
+                        self._htmlWriter.closeAndRemove()
+                        self._groupHtmlOpen = False
+                        
+        elif name == 'figure':
+            if self._inIntro:
+                self._introTextFound = True
+            OsisHandler.endElement(self, name)
                 
         elif name == 'l':
             if self._lineSpan:
@@ -136,8 +147,10 @@ class BibleHandler(OsisHandler):
                         
                 elif self._headerProcessed:
                     titleWritten = False
-                    if self._inIntro:
+                    if not self._docStructure.inBook:
                         titleWritten = self._processIntroTitle()
+                    elif self._inIntro:
+                        titleWritten = self._processBookIntroTitle()
                     else:
                         titleWritten = self._processScriptureTitle()                
                     if titleWritten:
@@ -205,7 +218,7 @@ class BibleHandler(OsisHandler):
                      
         else :
             if self._headerProcessed:
-                if self._inIntro:
+                if self._inIntro or not self._docStructure.inBook:
                     if len(text) > 0:
                         self._introTextFound  = True
                         self._readyForSubtitle = False
@@ -338,12 +351,7 @@ class BibleHandler(OsisHandler):
             if divType == 'bookGroup':
                 if self._docStructure.startGroup():
                     groupNumber = self._docStructure.groupNumber
-                    if self._groupEmpty:
-                        print 'Ignoring empty book group'
-                        self._docStructure.groupNumber = groupNumber -1
-                    else:
-                        self._startGroup(groupNumber)
-                        self._groupEmpty = True
+                    self._startGroup(groupNumber)
 
             elif divType == 'book':
                 self._groupEmpty = False
@@ -367,18 +375,34 @@ class BibleHandler(OsisHandler):
                     self._firstTitle = True
                     self._verseTextFound = False
                     print 'Processing book ', bookRef
-                    self._footnotes.reinit()
                     if bookRef == 'Phlm' or bookRef == '2John' or bookRef == '3John' or bookRef == 'Jude' or bookRef == 'Obad':
                         self._singleChapterBook = True
                     else:
                         self._singleChapterBook = False
                     # Don't open book HTML yet, in case there is a testament introduction to write
+                    
             elif divType == 'section':
                 secRef = self._getAttributeValue(attrs, 'sID')
                 self._docStructure.startSection(secRef)
                 if secRef is not None:
                     self._ignoreDivEnd = True           # Milestone tag
+                    
+            elif divType == 'introduction' or divType == 'preface':
+                if self._bibleStarting and not self._docStructure.inGroup and not self._bibleHtmlOpen:
+                    self._htmlWriter.open('bible')
+                    self._bibleHtmlOpen = True
+                    self._introTextFound = False
+                elif self._docStructure.inGroup and self._groupEmpty and not not self._groupHtmlOpen:
+                    self._openGroupHtml()
+                    self._introTextFound = False
+                self._docStructure.otherDiv()
                 
+            elif divType == 'coverPage':
+                if self._docStructure.inGroup and self._groupEmpty and not self._groupHtmlOpen:
+                    self._openGroupHtml()
+                    self._introTextFound = False
+                self._docStructure.otherDiv()
+     
             else:
                 secRef = self._getAttributeValue(attrs, 'eID')
                 if secRef is not None:
@@ -576,24 +600,28 @@ class BibleHandler(OsisHandler):
             if self._bibleHtmlOpen:
                 # Write out any footnotes in the preceding Bible introduction
                 self._footnotes.writeFootnotes()
+            else:
+                self._footnotes.reinit()
             groupNumber = self._docStructure.groupNumber
             htmlName = 'group%d' % groupNumber
             self._htmlWriter.open(htmlName)
             self._groupHtmlOpen = True
             self._bookHtmlOpen = False
+            self._bibleHtmlOpen = False
             if self._groupTitle != '':
                 self._htmlWriter.write('<h1>%s</h1>\n' % self._groupTitle)
-                self._context.topHeaderLevel = 1
                 
     def _openBookHtml(self):
         if self._groupHtmlOpen or self._bibleHtmlOpen:
             # Write out any footnotes in the Bible or Testament introduction
             self._footnotes.writeFootnotes()
-
+        else:
+            self._footnotes.reinit()
         bookId = self._docStructure.bookId
         self._htmlWriter.open(bookId)
         self._groupHtmlOpen = False
         self._bookHtmlOpen = False
+        self._bibleHtmlOpen = False
                 
     def _writeHtml(self, html):
         if self._inFootnote and not self._writingFootnoteMarker:
@@ -702,8 +730,30 @@ class BibleHandler(OsisHandler):
                 self._titleTag = re.sub(' chapter=".+"', '', self._titleTag)
                 self._titleTag = re.sub(' class=".+"', '', self._titleTag)
                 self._titleTag = re.sub('>', ' class="psalm-div-heading">', self._titleTag)
+                
+    def _processIntroTitle(self):   
+        rawText = re.sub('<.*>', ' ', self._titleText)
+        writeTitle = True
+        titleWritten = False
+        if not self._introTextFound:
+            self._introTextFound = True
+            # This is the initial title
+            if self._docStructure.inGroup and self._groupEmpty and self._groupTitle != '' and rawText.lower() == self._groupTitle.lower():
+                # Do not write initial title which duplicates the testament heading
+                writeTitle = False
+                self._introTextFound = False
+            elif self._context.config.introInContents or not self._docStructure.inGroup:
+                # Adjust initial title level to create the appropriete TOC entry
+                headerLevel = self._context.topHeaderLevel
+                if self._docStructure.inGroup:
+                    headerLevel = 2
+                self._titleTag = re.sub(r'<h\d+','<h%d' % headerLevel, self._titleTag)
+                
+            
+        if writeTitle:
+            titleWritten = self._writeTitle()
 
-    def _processIntroTitle(self):
+    def _processBookIntroTitle(self):
         titleWritten = False
         rawText = re.sub('<.*>', ' ', self._titleText)
         if rawText.lower() == self._groupTitle.lower():
@@ -860,8 +910,10 @@ class BibleHandler(OsisHandler):
         self._groupTitle = self._context.config.groupTitle(groupNumber)
         self._groupIntroWritten = False
         self._firstBook = True
+        self._groupEmpty = True
         if self._groupTitle != '' and (groupNumber != 1 or not self._context.config.bibleIntro):
             self._openGroupHtml()
+            self._introTextFound = False
             
     def _writeChapterTitleOrNumber(self):
         if self._chapterTitle != '':
@@ -870,8 +922,9 @@ class BibleHandler(OsisHandler):
             self._writeChapterNumber()
             
     def _startFootnoteAndWriteMarker(self, verseRef):
-        footnoteNo = self._footnotes.newFootnote(self._docStructure.bookId, verseRef)
-        self._writeFootnoteMarker(self._docStructure.bookId, footnoteNo)
+        book = self._docStructure.bookRef()
+        footnoteNo = self._footnotes.newFootnote(book, verseRef)
+        self._writeFootnoteMarker(book, footnoteNo)
         
     def _handleFootnoteTextInTitle(self, content):
         if not self._footnoteMarkerWritten:

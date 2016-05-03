@@ -12,6 +12,7 @@ class GlossaryHandler(OsisHandler):
         self._inArticle = False                         # Currently processing a glossary entry
         self._inChapterTitle = False                    # The title currently being processed is a chapter title
         self._inDfn = False                             # Currently within an OSIS <seg> tag for a keyword
+        self._foundGlossaryDiv = False                  # A div with type="glossary" has been found
         
     def startDocument(self):
         OsisHandler.startDocument(self)
@@ -21,6 +22,7 @@ class GlossaryHandler(OsisHandler):
         self._inArticle = False
         self._inChapterTitle = False
         self._inDfn = False
+        self._foundGlossaryDiv = False
         self._defaultHeaderLevel = 3                    # Avoid header level 2 as this would appear in table of contents
 
         # If there are multiple glossaries and Testament headers are used,
@@ -110,10 +112,10 @@ class GlossaryHandler(OsisHandler):
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
             if divType == 'glossary':
-                print 'Opening html file'
                 self._htmlWriter.open(self._osisIDWork)
                 self._breakCount = 2
-            else:
+                self._foundGlossaryDiv = True
+            elif not self._foundGlossaryDiv:
                 typeStr = ''
                 if divType is not None:
                     typeStr = 'type %s' % divType

@@ -116,6 +116,14 @@ class DocStructure:
             error = 'Verse end mismatch - expected %s, found %s' % (self.verseRef, vId)
             raise OsisError(error)
         
+    def bookRef(self):
+        if self.inBook:
+            return self.bookId
+        elif self.inGroup:
+            return 'Group%s' % self.groupNumber
+        else:
+            return 'Book'
+        
 class OsisError(Exception):
     def __init__(self, value):
         self.value = value

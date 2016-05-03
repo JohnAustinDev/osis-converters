@@ -11,7 +11,9 @@ class ConvertContext(object):
         self.outputFmt = ''
         self.unexpectedTags = []
         self.glossaries = []
-        self.topHeaderLevel = 2             # Start by assuming no testament titles
+        self.topHeaderLevel = 2 
+        if self.config.groupTitles:
+            self.topHeaderLevel = 1
         
     def unexpectedTag(self, tag):
         if tag not in self.unexpectedTags:
