@@ -73,6 +73,135 @@ else {
   rename("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 
+# check all images targets, report and remove images with missing targets
+&checkImages($OUTOSIS);
+
+# compare structure to a reference and report any discrepancies
+# this is necessary to insure parallel viewing of Children's Bibles will work
+$reference = "$OUTDIR/../RUSCB/RUSCB.xml";
+if ($reference) {
+  if (-e $reference) {&checkStructure($OUTOSIS, $reference);}
+  else {&Log("ERROR: Reference \"$reference\" not found!\n");}
+}
+
 #&validateOSIS($OUTOSIS);
+
+########################################################################
+########################################################################
+
+sub checkImages($) {
+  my $inosis = shift;
+
+  my $xml = $XML_PARSER->parse_file($inosis);
+
+  # get all images
+  my @figures = $XPC->findnodes('//osis:figure', $xml);
+  
+  # check targets
+  my @badTargets;
+  my @goodTargets;
+  foreach my $figure (@figures) {
+    my $src = $figure->getAttribute('src');
+    if (!$src) {push(@badTargets, $figure); &Log("ERROR: Figure has no target: line ".$figure->line_number()."\n");}
+    elsif (!&srcPath($src) || ! -e &srcPath($src)) {push(@badTargets, $figure); &Log("ERROR: Figure target not found \"".&srcPath($src)."\": line ".$figure->line_number()."\n");}
+    else {push(@goodTargets, $figure);}
+  }
+  &Log("\nREPORT: ". @figures . " figures found in the OSIS file.\n");
+  &Log("REPORT: ". @goodTargets . " figures have valid targets.\n");
+  &Log("REPORT: ". @badTargets . " figure(s) have missing targets.\n");
+
+  # if there are any missing targets, remove the corresponding figures
+  my @removedTargets;
+  if (@badTargets) {
+    &Log("\n");
+    foreach my $f (@badTargets) {
+      push(@removedTargets, $f->parentNode->removeChild($f));
+      &Log("WARNING: Removed figure with missing target: \"".$f."\"\n");
+    }
+    &Log("\n");
+    my $t = $xml->toString();
+    if (open(OSIS, ">$inosis")) {print OSIS $t; close(OSIS);}
+    else {&Log("ERROR: Could not remove bad figures from \"$inosis\"\n"); @removedTargets = ();}
+  }
+  &Log("REPORT: ". @removedTargets . " figure(s) with missing targets were removed from the OSIS file.\n\n");
+}
+
+sub srcPath($) {
+  my $src = shift;
+  if (-e "$INPD/images") {
+    if (! -e "$TMPDIR/images") {&copy_images_to_module("$INPD/images", $TMPDIR);}
+    return "$TMPDIR/$src";
+  }
+  return 0;
+}
+
+# Find each testament in reference file and compare its chapters to those
+# of the OSIS file.
+sub checkStructure($$) {
+  my $inosis = shift;
+  my $refosis = shift;
+
+  my $inmod = $inosis; $inmod =~ s/^.*?([^\/\\]+)$/$1/;
+  my $refmod = $refosis; $refmod =~ s/^.*?([^\/\\]+)$/$1/;
+  if ($inmod eq $refmod) {&Log("WARNING: Not checking structure: OSIS file is $inmod, same as reference file.\n"); return;}
+
+  &Log("\n--- CHECKING STRUCTURE\nOSIS      -> $inosis\nReference -> $refosis\n-----------------------------------------------------\n\n", 1);
+  
+  my $in = $XML_PARSER->parse_file($inosis);
+  my $ref = $XML_PARSER->parse_file($refosis);
+
+  my @refMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $ref);
+  if (@refMS) {
+    my @inMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $in);
+    &Log("REPORT: OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".\n");
+    my $j = 0;
+    for (my $i=0; $i<@refMS && $j<@inMS; $i++) {
+      $i = &nextTestament($i, \@refMS);
+      $j = &nextTestament($j, \@inMS);
+      if ($i >= 99) {}
+      elsif ($j >= 99) {&Log("ERROR: Could not locate testament in OSIS.\n");}
+      else {&compareSection(@inMS[$j], @refMS[$i]);}
+      $j++;
+    }
+  }
+  else {&Log("ERROR: Reference \"$refosis\" has no <div type='majorSection'> tags.\n");}
+
+  &Log("REPORT: Structure comparison to reference:\n");
+  foreach my $ix (sort {$a <=> $b} keys(%StructReport)) {
+    &Log(sprintf("%03i % 64s % 64s\n", $ix, $StructReport{$ix}{'name_in'}, $StructReport{$ix}{'name_ref'}));
+  }
+}
+
+sub nextTestament($\@) {
+  my $i = shift;
+  my $msP = shift;
+  my @ss = $XPC->findnodes('./osis:div[@type]', @{$msP}[$i]);
+  while ($i < (@{$msP}-1) && @ss < 50) {
+    $i++;
+    @ss = $XPC->findnodes('./osis:div[@type]', @{$msP}[$i]);
+  }
+  return (@ss < 50 ? 99:$i);
+}
+
+sub compareSection($$) {
+  my $inMS = shift;
+  my $refMS = shift;
+
+  if (!$inMS->getAttribute('osisID')) {&Log("ERROR: OSIS section line ".$inMS->line_number()." has no osisID.\n");}
+  if (!$refMS->getAttribute('osisID')) {&Log("ERROR: reference section line ".$refMS->line_number()." has no osisID.\n");} 
+  $StructReport{++$StructIndex}{'name_in'} = $inMS->getAttribute('osisID');
+  $StructReport{$StructIndex}{'name_ref'} = $refMS->getAttribute('osisID');
+
+  my @inSS = $XPC->findnodes('./osis:div[@type]', $inMS);
+  my @refSS = $XPC->findnodes('./osis:div[@type]', $refMS);
+
+  if (@inSS != @refSS) {&Log("ERROR: Mismatch: ".$inMS->getAttribute('osisID')."(".@inSS.") != ".$refMS->getAttribute('osisID')."(".@refSS.")\n");}
+  elsif (!@refSS) {return;}
+  else {
+    my $ii;
+    for ($ii=0; $ii<@refSS; $ii++) {&compareSection(@inSS[$ii], @refSS[$ii]);}
+  }
+}
+  
 
 1;
