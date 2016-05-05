@@ -12,8 +12,9 @@ echo ANY LOCAL CHANGES TO OSIS-CONVERTERS HAVE BEEN STASHED!!
 echo TO RE-APPLY ANY CHANGES YOU MADE, USE: git stash apply
 echo .
 
-# Pull any remote updates
-git pull
+# Pull any remote updates from master
+git checkout master
+git pull origin master
 
 # VM must be running before ssh will work
 vagrant up
