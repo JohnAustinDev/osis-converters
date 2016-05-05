@@ -39,7 +39,6 @@ class OsisHandler(handler.ContentHandler):
     def startDocument(self):
         self._breakCount = 0
         self._figHtml = ''
-        self._firstBook = True
         self._headerProcessed = False
         self._hiHtmlTag = ['','','']
         self._hiLevel = 0
@@ -111,9 +110,10 @@ class OsisHandler(handler.ContentHandler):
             self._writeHtml('</td>')
                                
         elif name == 'figure':
-            self._figHtml += '</figure>\n'
-            self._writeHtml(self._figHtml)
-            self._figHtml = ''
+            if self._figHtml != '':
+                self._figHtml += '</figure>\n'
+                self._writeHtml(self._figHtml)
+                self._figHtml = ''
                     
         elif name == 'foreign':
             self._writeHtml('</span>')
@@ -161,6 +161,9 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('</p>\n')
                 self._breakCount = 1
                 self._inParagraph = False
+                
+        elif name == 'rdg':
+            self._writeHtml('</span>')
                 
         elif name == 'reference':
             if self._inGlossaryRef:
@@ -228,17 +231,26 @@ class OsisHandler(handler.ContentHandler):
             source = source.replace('.tiff', '.jpg')
             source = source.replace('.tif', '.jpg')
             
+            # If the image file spec starts with "images/", remove it,
+            # as this is already in _context.config.imgFileDir
+            source = re.sub('^images/','',source)
+            
             # Copy the image file to the current directory
-            fullFileSpec = self._context.config.imgFileDir + '/' + source
-            shutil.copy(fullFileSpec, '.')
+            fullFileSpec = self._context.config.imgFileDir + '/' + source   
+            try:
+                shutil.copy(fullFileSpec, '.')
+                
+                # Set up the html
+                self._figHtml = '<figure>\n<img src="%s" />\n' % source
             
-            # Set up the html
-            self._figHtml = '<figure>\n<img src="%s" />\n' % source
-            
-            # Add the image file to the list
-            if source not in self._context.imageFiles:
-                self._context.imageFiles.append(source)
-            
+                # Add the image file to the list
+                if source not in self._context.imageFiles:
+                    self._context.imageFiles.append(source)
+                    
+            except IOError:
+                print 'Figure omitted: image file %s not found' % fullFileSpec
+            except UnicodeEncodeError:
+                print 'Figure omitted: invalid image file name'
                     
         elif name == 'foreign':
             self._writeHtml('<span class="foreign">')
@@ -318,6 +330,9 @@ class OsisHandler(handler.ContentHandler):
             paraTag = self._generateParaTag(attrs)
             self._inParagraph = True
             self._writeHtml(paraTag)
+            
+        elif name == 'rdg':
+            self._writeHtml('<span class="alt-var">')
 
         elif name == 'reference':
             self._processReference(attrs)

@@ -12,6 +12,7 @@ class GlossaryHandler(OsisHandler):
         self._inArticle = False                         # Currently processing a glossary entry
         self._inChapterTitle = False                    # The title currently being processed is a chapter title
         self._inDfn = False                             # Currently within an OSIS <seg> tag for a keyword
+        self._foundGlossaryDiv = False                  # A div with type="glossary" has been found
         
     def startDocument(self):
         OsisHandler.startDocument(self)
@@ -21,6 +22,7 @@ class GlossaryHandler(OsisHandler):
         self._inArticle = False
         self._inChapterTitle = False
         self._inDfn = False
+        self._foundGlossaryDiv = False
         self._defaultHeaderLevel = 3                    # Avoid header level 2 as this would appear in table of contents
 
         # If there are multiple glossaries and Testament headers are used,
@@ -106,36 +108,18 @@ class GlossaryHandler(OsisHandler):
     def _processBodyTag(self, name, attrs):
         if name == 'chapter':
             self._endArticle()
-            
-        elif name == 'cell':
-            self._writeHtml('<td>')
                                   
         elif name == 'div':
             divType = self._getAttributeValue(attrs, 'type')
             if divType == 'glossary':
-                print 'Opening html file'
                 self._htmlWriter.open(self._osisIDWork)
                 self._breakCount = 2
-            else:
+                self._foundGlossaryDiv = True
+            elif not self._foundGlossaryDiv:
                 typeStr = ''
                 if divType is not None:
                     typeStr = 'type %s' % divType
                 print 'Unexpected <div> found - type %s' % typeStr
-
-        elif name == 'l':
-            lineType = self._getAttributeValue(attrs, 'type')
-            lineSubType = self._getAttributeValue(attrs, 'subType')
-            lineClass = 'poetic-line'
-            if lineType is None:
-                level = self._getAttributeValue(attrs, 'level')
-                if level is not None:
-                    lineType = 'x-indent-%s' % level
-            if lineType is not None:
-                lineClass = '%s %s' % (lineClass, lineType)
-                if lineSubType is not None:
-                    lineClass =  '%s %s' % (lineClass, lineSubType)
-            htmlTag = '<div class="%s">' % lineClass
-            self._writeHtml(htmlTag)
                 
         elif name == 'reference':
             # reference are ignored apart from glossary references

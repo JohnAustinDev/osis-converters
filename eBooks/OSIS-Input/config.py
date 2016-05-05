@@ -54,6 +54,7 @@ class ConversionConfig:
         self.imgFileDir = ''
         self.glossaryTitle = u'Cловарь'
         self.glossTitleSet = False
+        self.groupTitles =False
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -75,6 +76,7 @@ class ConversionConfig:
             m = re.search(regex, config, re.MULTILINE|re.IGNORECASE)
             if m:
                 self.groups[bookGroup] = m.group(1).strip()
+                self.groupTitles = True
         #
         m = re.search(r"^\s*TestamentGroups=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:

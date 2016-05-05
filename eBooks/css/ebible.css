@@ -74,6 +74,10 @@ dfn {
 	font-weight: bold;
 }
 
+table {
+	border: 0;
+}
+
 .first-para {
 	text-indent: 0
 }
@@ -106,12 +110,22 @@ dfn {
 }
 
 .x-glossary-link {
-	background-color:#f0ffff
+	background-color: #f0ffff;
+	text-decoration: none;
+	color: black;
 }
 
 .heading {
   font-weight: bold;
   text-align: center;
+}
+
+.alt-var {
+  font-style: italic;
+}
+
+.foreign {
+  font-style: italic;
 }
 
 .transChange {
