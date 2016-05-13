@@ -135,8 +135,8 @@ sub srcPath($) {
   return 0;
 }
 
-# Find each testament in reference file and compare its chapters to those
-# of the OSIS file.
+# Find each majorSection having children in reference file and compare
+# its children to those of the OSIS file.
 sub checkStructure($$) {
   my $inosis = shift;
   my $refosis = shift;
@@ -156,10 +156,10 @@ sub checkStructure($$) {
     &Log("REPORT: OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".\n");
     my $j = 0;
     for (my $i=0; $i<@refMS && $j<@inMS; $i++) {
-      $i = &nextTestament($i, \@refMS);
-      $j = &nextTestament($j, \@inMS);
+      $i = &nextParent($i, \@refMS);
+      $j = &nextParent($j, \@inMS);
       if ($i >= 99) {}
-      elsif ($j >= 99) {&Log("ERROR: Could not locate testament in OSIS.\n");}
+      elsif ($j >= 99) {&Log("ERROR: Could not locate parent majorSection in OSIS.\n");}
       else {&compareSection(@inMS[$j], @refMS[$i]);}
       $j++;
     }
@@ -172,15 +172,17 @@ sub checkStructure($$) {
   }
 }
 
-sub nextTestament($\@) {
+# MajorSections without children are ignored by finding the next parent
+# by skipping over majorSections without children.
+sub nextParent($\@) {
   my $i = shift;
   my $msP = shift;
   my @ss = $XPC->findnodes('./osis:div[@type]', @{$msP}[$i]);
-  while ($i < (@{$msP}-1) && @ss < 50) {
+  while ($i < (@{$msP}-1) && !@ss) {
     $i++;
     @ss = $XPC->findnodes('./osis:div[@type]', @{$msP}[$i]);
   }
-  return (@ss < 50 ? 99:$i);
+  return (!@ss ? 99:$i);
 }
 
 sub compareSection($$) {
