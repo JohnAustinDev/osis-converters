@@ -33,7 +33,7 @@ $CREATE_SEPARATE_BOOKS = 1;
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # always make eBooks from the entire OSIS file
-#&setupAndMakeEbooks();
+&setupAndMakeEbooks();
 
 # can also make separate eBooks from each Bible book within the OSIS file
 if ($CREATE_SEPARATE_BOOKS) {
@@ -41,7 +41,6 @@ if ($CREATE_SEPARATE_BOOKS) {
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
   foreach my $aBook (@allBooks) {
     &setupAndMakeEbooks($aBook->getAttribute('osisID'));
-    exit;
   }
 }
 
