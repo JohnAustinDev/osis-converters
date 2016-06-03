@@ -1096,6 +1096,39 @@ sub sortSearchTermKeys($$) {
 }
 
 
+# Copy inosis to outosis, while pruning books according to scope. 
+# If scope is NULL then all complete books in inosis are copied to outosis.
+sub pruneFileOSIS($$$$) {
+  my $inosis = shift;
+  my $outosis = shift;
+  my $scope = shift;
+  my $vsys = shift;
+  
+  my $inxml = $XML_PARSER->parse_file($inosis);
+  
+  if ($scope) {
+    my %canon;
+    my %bookOrder;
+    my %testament;
+    if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
+      my $scopeBooks = &scopeToBooks($scope, \%bookOrder);
+      my %scopeBookNames = map { $_ => 1 } @{$scopeBooks};
+      # remove books not in scope
+      my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+      foreach my $bk (@books) {
+        my $id = $bk->getAttribute('osisID');
+        if (!exists($scopeBookNames{$id})) {$bk = $bk->parentNode()->removeChild($bk);}
+      }
+    }
+    else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
+  }
+  
+  open(OUTF, ">$outosis");
+  print OUTF $inxml->toString();
+  close(OUTF);
+}
+
+
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
 sub addDictionaryLinks(\@$) {

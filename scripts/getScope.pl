@@ -135,4 +135,27 @@ sub recordEmptyVerses($\%) {
   for (my $v=$v1; $v<=$v2; $v++) {$eP->{"$bk.$ch.$v"}++;}
 }
 
+sub scopeToBooks($\%) {
+  my $scope = shift;
+  my $bookOrderP = shift;
+  
+  my @scopes = split(/\s+/, $scope);
+  my $i = 0;
+  my $keep = '';
+  
+  my @bookList;
+  foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
+    my $cs = @scopes[$i];
+    $cs =~ s/(^|\-|\s)([^\.]+)\.[^\-]+/$1$2/g; # remove any chapter/verse parts
+    my $bks =$cs;
+    my $bke = $bks;
+    if ($bks =~ s/\-(.*)$//) {$bke = $1;}
+
+    if ($v11nbk =~ /^$bks$/i) {$keep = $bke;}
+    if ($keep) {push(@bookList, $v11nbk);}
+    if ($v11nbk =~ /^$keep$/i) {$keep = ''; $i++;}
+  }
+  return \@bookList;
+}
+
 1;
