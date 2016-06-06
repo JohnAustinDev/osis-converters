@@ -28,9 +28,10 @@ class HtmlWriter:
             self._fh.write(str)
     
     def close(self):
-        self._writeFooter()
-        self._fh.close()
-        self._fh = None
+        if self._fh is not None:
+            self._writeFooter()
+            self._fh.close()
+            self._fh = None
     
     def closeAndRemove(self):
         self._fh.close()
