@@ -31,7 +31,7 @@ require "$SCRD/scripts/common.pl"; &init();
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # always make eBooks from the entire OSIS file
-#&setupAndMakeEbooks();
+&setupAndMakeEbooks();
 
 # also make separate eBooks from each Bible book within the OSIS file
 my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
