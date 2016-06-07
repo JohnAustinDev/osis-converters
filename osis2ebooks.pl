@@ -138,9 +138,12 @@ sub ebookUpdateConf($$) {
     if ($conv{$k}) {$title .= $sep.$conv{$k};}
     $sep = "\n";
   }
-  
   my $t = $title; $t =~ s/\n/, /g;
   $conv{'Title'} .= ": $t";
+  
+  # delete Group1 and Group2 entries
+  if (defined($conv{'Group1'})) {delete($conv{'Group1'});}
+  if (defined($conv{'Group2'})) {delete($conv{'Group2'});}
   
   if (open(CONV, ">encoding(UTF-8)", $convtxt)) {
     foreach my $k (sort keys %conv) {print CONV "$k=".$conv{$k}."\n";}
