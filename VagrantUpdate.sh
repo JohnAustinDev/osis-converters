@@ -14,7 +14,7 @@ echo .
 
 # Pull any remote updates from master
 git checkout master
-git pull origin master
+git pull
 
 # VM must be running before ssh will work
 vagrant up

@@ -27,21 +27,18 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
-$CREATE_SEPARATE_BOOKS = 1;
-
 # get scope and vsys of OSIS file
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # always make eBooks from the entire OSIS file
 &setupAndMakeEbooks();
 
-# can also make separate eBooks from each Bible book within the OSIS file
-if ($CREATE_SEPARATE_BOOKS) {
+# also make separate eBooks from each Bible book within the OSIS file
+my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
+if (!defined($conv{'SeparateBooks'}) || $conv{'SeparateBooks'} !~ /^(false|0)$/i) {
   $thisXML = $XML_PARSER->parse_file("$OUTDIR/$MOD.xml");
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
-  foreach my $aBook (@allBooks) {
-    &setupAndMakeEbooks($aBook->getAttribute('osisID'));
-  }
+  foreach my $aBook (@allBooks) {&setupAndMakeEbooks($aBook->getAttribute('osisID'));}
 }
 
 sub setupAndMakeEbooks($) {
@@ -51,23 +48,47 @@ sub setupAndMakeEbooks($) {
   make_path($tmp);
     
   # copy necessary files to tmp
-  copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
   &pruneFileOSIS("$OUTDIR/$MOD.xml", "$tmp/$MOD.xml", $scope, $ConfEntryP->{"Versification"});
-  if ($scope) {&ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml");}
+  copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
+  my $scopeTitle;
+  if ($scope) {$scopeTitle = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml");}
   copy("$SCRD/eBooks/css/ebible.css", "$tmp/ebible.css");
   if (-d "$INPD/images") {&copy_dir("$INPD/images", "$tmp/images", 1, 1);}
+  my $cover;
+  if (-e "$INPD/eBook/cover.jpg") {
+    $cover = "$tmp/cover.jpg";
+    if ($scope) {
+      # add specific title to the top of the eBook cover image
+      my $imagewidth = 600;
+      my $pointsize = (4/3)*$imagewidth/length($scopeTitle);
+      if ($pointsize > 40) {$pointsize = 40;}
+      elsif ($pointsize < 10) {$pointsize = 10;}
+      my $padding = 20;
+      my $barheight = $pointsize + (2*$padding) - 10;
+      my $cmd = "convert \"$INPD/eBook/cover.jpg\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$scopeTitle' \"$cover\"";
+      &Log("$cmd\n");
+      `$cmd`;
+    }
+    else {copy("$INPD/eBook/cover.jpg", $cover);}
+  }
 
   # locate files for any dictionaries and copy these
   foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+    my $outf;
+    
     my $outd = $OUTDIR;
     $outd =~ s/$MOD/$companion/;
-    copy("$outd/$companion.xml", "$tmp/$companion.xml");
+    if (-e "$outd/$companion.xml") {$outf = "$outd/$companion.xml";}
+    elsif (-e "$INPD/$companion/output/$companion.xml") {$outf = "$INPD/$companion/output/$companion.xml";}
+    else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
+    
+    if ($outf) {copy($outf, "$tmp/$companion.xml");}
   }
 
   # run the converter
-  &makeEbook("$tmp/$MOD.xml", 'epub', NULL, $scope, $tmp);
-  &makeEbook("$tmp/$MOD.xml", 'mobi', NULL, $scope, $tmp);
-  &makeEbook("$tmp/$MOD.xml", 'fb2', NULL, $scope, $tmp);
+  &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);
+  &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp);
+  &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
 }
 
 sub makeEbook($$$$) {
@@ -105,7 +126,33 @@ sub ebookUpdateConf($$) {
   my $convtxt = shift;
   my $osis = shift;
   
+  my $title = "";
   my $sep = "";
+  
+  my %conv = &ebookReadConf($convtxt);
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $abk (@bks) {
+    my $k = $abk->getAttribute('osisID');
+    if ($conv{$k}) {$title .= $sep.$conv{$k};}
+    $sep = "\n";
+  }
+  
+  my $t = $title; $t =~ s/\n/, /g;
+  $conv{'Title'} .= ": $t";
+  
+  if (open(CONV, ">encoding(UTF-8)", $convtxt)) {
+    foreach my $k (sort keys %conv) {print CONV "$k=".$conv{$k}."\n";}
+    close(CONV);
+  }
+  else {&Log("ERROR: Could not write ebookUpdateConf \"$convtxt\"\n"); die;}
+  
+  return $title;
+}
+
+sub ebookReadConf($) {
+  my $convtxt = shift;
   
   my %conv;
   if (open(CONV, "<encoding(UTF-8)", $convtxt)) {
@@ -115,22 +162,8 @@ sub ebookUpdateConf($$) {
     }
     close(CONV);
   }
-  else {&Log("ERROR: Could not read ebookUpdateConf \"$convtxt\"\n"); die;}
+  else {&Log("ERROR: Could not read ebookReadConf \"$convtxt\"\n"); die;}
   
-  my $xml = $XML_PARSER->parse_file($osis);
-  my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-  $conv{'Title'} .= ": ";
-  foreach my $abk (@bks) {
-    my $k = $abk->getAttribute('osisID');
-    if ($conv{$k}) {$conv{'Title'} .= $sep.$conv{$k}}
-    $sep = ", ";
-  }
-  
-  if (open(CONV, ">encoding(UTF-8)", $convtxt)) {
-    foreach my $k (sort keys %conv) {print CONV "$k=".$conv{$k}."\n";}
-    close(CONV);
-  }
-  else {&Log("ERROR: Could not write ebookUpdateConf \"$convtxt\"\n"); die;}
-  
+  return %conv;
 }
 1;
