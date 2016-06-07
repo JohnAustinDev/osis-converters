@@ -31,11 +31,12 @@ require "$SCRD/scripts/common.pl"; &init();
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
 # always make eBooks from the entire OSIS file
-&setupAndMakeEbooks();
+#&setupAndMakeEbooks();
 
 # also make separate eBooks from each Bible book within the OSIS file
 my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
-if (!defined($conv{'SeparateBooks'}) || $conv{'SeparateBooks'} !~ /^(false|0)$/i) {
+$CREATE_SEPARATE_BOOKS = (!defined($conv{'SeparateBooks'}) || $conv{'SeparateBooks'} !~ /^(false|0)$/i);
+if ($CREATE_SEPARATE_BOOKS) {
   $thisXML = $XML_PARSER->parse_file("$OUTDIR/$MOD.xml");
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
   foreach my $aBook (@allBooks) {&setupAndMakeEbooks($aBook->getAttribute('osisID'));}
