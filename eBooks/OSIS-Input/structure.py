@@ -3,7 +3,8 @@ class DocStructure:
     GROUP = 1
     BOOK = 2
     SECTION = 3
-    OTHER = 4
+    INTRO = 4
+    OTHER = 5
     IGNORED = 0
     ERROR = -1
     
@@ -50,6 +51,11 @@ class DocStructure:
         self.divStack.append(self.SECTION)
         self.refStack.append(ref)
         self.inSection = True
+        return True
+    
+    def startIntro(self):
+        self.divStack.append(self.INTRO)
+        self.refStack.append('')
         return True
     
     def otherDiv(self):

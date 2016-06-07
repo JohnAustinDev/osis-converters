@@ -131,7 +131,7 @@ $foundgroup = 0;
 
 foreach $line (<COMF>) {
   $line = lc $line;
-  if ($line =~ /^group\d=/) {
+  if ($line =~ /^group\d\s*=/) {
     #Testament headings used
 	$COMMAND .= " --level1-toc //h:h1 --level2-toc //h:h2 --level3-toc //*[\@chapter]/\@chapter";
 	$foundgroup = 1;

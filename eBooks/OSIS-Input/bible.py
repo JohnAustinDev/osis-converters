@@ -10,6 +10,7 @@ class BibleHandler(OsisHandler):
         self._bibleIntroWritten = False             # A Bible introduction has been written
         self._bibleStarting = True                  # Not yet found first Bible chapter
         self._bookTitle = ''                        # Book title either from config or found in OSIS
+        self._bookHtmlOpen = False
         self._bookTitleFound = False                # Found title which will be used as book title
         self._bookTitleWritten = False              # Title of current book written to output file
         self._canonicalTitleWritten = False         # Last output written was a canonical title
@@ -64,6 +65,7 @@ class BibleHandler(OsisHandler):
         self._bibleHtmlOpen = False
         self._bibleIntroWritten = False
         self._bibleStarting = True
+        self._bookHtmlOpen = False
         self._bookTitle = ''
         self._canonicalTitleWritten = False
         self._chapterTitle = ''
@@ -114,6 +116,11 @@ class BibleHandler(OsisHandler):
                         self._docStructure.groupNumber -= 1
                         self._htmlWriter.closeAndRemove()
                         self._groupHtmlOpen = False
+                elif divType == self._docStructure.INTRO:
+                    if self._bibleHtmlOpen:
+                        self._bibleIntroWritten = True
+                    elif self._groupHtmlOpen:
+                        self._groupIntroWritten = True
                         
         elif name == 'figure':
             if self._inIntro:
@@ -283,11 +290,13 @@ class BibleHandler(OsisHandler):
                         if self._bibleStarting and self._context.config.bibleIntro and not self._bibleIntroWritten:
                             self._htmlWriter.open('bible')
                             self._bibleHtmlOpen = True
+                            self._closeParagraph()
                             self._writeIntroText()
                             self._bibleIntroWritten = True
                             self._introText = ''
                         elif self._firstBook and self._context.config.testamentIntro and not self._groupIntroWritten:
                             self._openGroupHtml()
+                            self._closeParagraph()
                             self._writeIntroText()
                             self._introText = ''
                             self._groupIntroWritten = True
@@ -392,10 +401,11 @@ class BibleHandler(OsisHandler):
                     self._htmlWriter.open('bible')
                     self._bibleHtmlOpen = True
                     self._introTextFound = False
-                elif self._docStructure.inGroup and self._groupEmpty and not not self._groupHtmlOpen:
+                    self._bibleIntroWritten = True 
+                elif self._docStructure.inGroup and self._groupEmpty and not self._groupHtmlOpen:
                     self._openGroupHtml()
                     self._introTextFound = False
-                self._docStructure.otherDiv()
+                self._docStructure.startIntro()
                 
             elif divType == 'coverPage':
                 if self._docStructure.inGroup and self._groupEmpty and not self._groupHtmlOpen:
@@ -442,7 +452,7 @@ class BibleHandler(OsisHandler):
                     self._writeHtml('<span class="x-introduction">')
             
         elif name == 'lg':
-            if not self._inIntro and not self._bookTitleWritten:
+            if not self._inIntro and not self._bookTitleWritten and self._bookHtmlOpen:
                 self._writeBookTitle()
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
@@ -458,7 +468,7 @@ class BibleHandler(OsisHandler):
             
         elif name == 'p':
             self._endGeneratedPara()
-            if not self._inIntro and not self._bookTitleWritten:
+            if not self._inIntro and not self._bookTitleWritten and self._bookHtmlOpen:
                 self._writeBookTitle()
             if self._firstVerse and not self._chTitleWritten and not self._singleChapterBook:
                 self._writeChapterTitleOrNumber()
@@ -620,7 +630,7 @@ class BibleHandler(OsisHandler):
         bookId = self._docStructure.bookId
         self._htmlWriter.open(bookId)
         self._groupHtmlOpen = False
-        self._bookHtmlOpen = False
+        self._bookHtmlOpen = True
         self._bibleHtmlOpen = False
                 
     def _writeHtml(self, html):
@@ -742,10 +752,10 @@ class BibleHandler(OsisHandler):
                 # Do not write initial title which duplicates the testament heading
                 writeTitle = False
                 self._introTextFound = False
-            elif self._context.config.introInContents or not self._docStructure.inGroup:
+            elif self._context.config.introInContents or not self._docStructure.inGroup or self._groupTitle == '':
                 # Adjust initial title level to create the appropriete TOC entry
                 headerLevel = self._context.topHeaderLevel
-                if self._docStructure.inGroup:
+                if self._docStructure.inGroup and self._groupTitle != '':
                     headerLevel = 2
                 self._titleTag = re.sub(r'<h\d+','<h%d' % headerLevel, self._titleTag)
                 
@@ -825,7 +835,7 @@ class BibleHandler(OsisHandler):
     def _processScriptureTitle(self):
         titleWritten = False
         rawText = re.sub('<.*>', ' ', self._titleText)    
-        if rawText == self._bookTitle and not self._bookTitleFound:
+        if rawText.lower() == self._bookTitle.lower() and not self._bookTitleFound:
             self._bookTitleFound = True
             if self._verseTextFound or not self._firstTitle:
                 titleWritten = self._writeTitle()
