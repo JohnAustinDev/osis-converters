@@ -54,6 +54,9 @@ if ($UPPERCASE_DICTIONARY_KEYS) {
 }
 
 my $IMAGEDIR = "$INPD/images";
+if (-e $IMAGEDIR)  {
+  $ConfEntryP->{'Feature'} = ($ConfEntryP->{'Feature'} ? $ConfEntryP->{'Feature'}."<nx/>":"")."Images";
+}
 my $commandFile = "$INPD/CF_paratext2imp.txt";
 if (open(COMF, "<:encoding(UTF-8)", $commandFile)) {
   while(<COMF>) {

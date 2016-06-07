@@ -63,6 +63,10 @@ if ($IS_usfm2osis) {
   }
 }
 
+if (-e "$INPD/images")  {
+  $ConfEntryP->{'Feature'} = ($ConfEntryP->{'Feature'} ? $ConfEntryP->{'Feature'}."<nx/>":"")."Images";
+}
+
 $msv = "1.6.1";
 if ($VERSESYS && $VERSESYS ne "KJV") {
   system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
