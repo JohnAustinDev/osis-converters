@@ -27,15 +27,17 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
+
 # get scope and vsys of OSIS file
 &setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
 
-# always make eBooks from the entire OSIS file
-&setupAndMakeEbooks();
+# make eBooks from the entire OSIS file
+$CREATE_FULL_BIBLE = (!defined($conv{'CreateFullBible'}) || $conv{'CreateFullBible'} !~ /^(false|0)$/i);
+if ($CREATE_FULL_BIBLE) {&setupAndMakeEbooks();}
 
 # also make separate eBooks from each Bible book within the OSIS file
-my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
-$CREATE_SEPARATE_BOOKS = (!defined($conv{'SeparateBooks'}) || $conv{'SeparateBooks'} !~ /^(false|0)$/i);
+$CREATE_SEPARATE_BOOKS = (!defined($conv{'CreateSeparateBooks'}) || $conv{'CreateSeparateBooks'} !~ /^(false|0)$/i);
 if ($CREATE_SEPARATE_BOOKS) {
   $thisXML = $XML_PARSER->parse_file("$OUTDIR/$MOD.xml");
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
