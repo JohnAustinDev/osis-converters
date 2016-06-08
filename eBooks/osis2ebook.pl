@@ -155,6 +155,7 @@ if (lc $OPTYPE eq "fb2")
 }
 
 # Run conversion command
+print "$COMMAND\n";
 system $COMMAND;
 
 # Perform post-processing for FB2
@@ -167,6 +168,7 @@ if (lc $OPTYPE eq "fb2")
   # Rename output file to temp file and pre-process to give new output file
   rename $OPF, $TEMPF;
   $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF $CSSFILE";
+  print "$COMMAND\n";
   system $COMMAND;
   unlink $TEMPF;
 }

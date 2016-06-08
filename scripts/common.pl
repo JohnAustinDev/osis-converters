@@ -1097,6 +1097,7 @@ sub sortSearchTermKeys($$) {
 
 
 # Copy inosis to outosis, while pruning books according to scope. 
+# If any bookGroup is left with no books in it, then the entire bookGroup element is dropped.
 # If scope is NULL then all complete books in inosis are copied to outosis.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
@@ -1119,6 +1120,9 @@ sub pruneFileOSIS($$$$) {
         my $id = $bk->getAttribute('osisID');
         if (!exists($scopeBookNames{$id})) {$bk = $bk->parentNode()->removeChild($bk);}
       }
+      # remove empty bookGroups
+      my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+      foreach my $ebg (@emptyBookGroups) {$ebg->parentNode()->removeChild($ebg);}
     }
     else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   }
