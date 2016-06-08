@@ -92,7 +92,7 @@ if ($MODDRV =~ /Text/) {
 
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $OSISFILE);
   &Log("\n--- CREATING $MOD SWORD MODULE (".$VERSESYS.")\n");
-  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV =~ /zText/ ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'').($MODDRV =~ /zText4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
+  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($OSISFILE)." ".($MODDRV =~ /zText/ ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'').($MODDRV =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
   
