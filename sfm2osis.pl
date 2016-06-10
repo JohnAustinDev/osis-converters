@@ -85,7 +85,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
 &checkDictReferences($OUTOSIS);
-
+&checkIntroductionTags($OUTOSIS);
 &validateOSIS($OUTOSIS);
 
 1;
