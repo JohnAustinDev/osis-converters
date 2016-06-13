@@ -80,10 +80,10 @@ fi
 # SWORD Tools
 swordRev=3375
 if [ ! -e $VHOME/.osis-converters/src/sword-svn ]; then
-svnrev=0
+  svnrev=0
 else
   cd $VHOME/.osis-converters/src/sword-svn
-svnrev=`svnversion`
+  svnrev=`svnversion`
 fi
 if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # CLucene
@@ -110,8 +110,9 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
   sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
   # fix osis2mod bug that drops paragraph type when converting to milestone div
-  sed -i '1231iSWBuf subType = t.getAttribute("type");' ./utilities/osis2mod.cpp
-  sed -i '1235iif (subType.length()) {t.setAttribute("subType", subType);}' ./utilities/osis2mod.cpp
+  # fix osis2mod bug that puts New Testament intro at end of Malachi
+  # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
+  cp "$VCODE/sword-patch/osis2mod.cpp" "$VHOME/.osis-converters/src/sword-svn/utilities/"
   ./autogen.sh
   ./configure --without-bzip2
   make
