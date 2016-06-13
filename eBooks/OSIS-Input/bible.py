@@ -35,6 +35,7 @@ class BibleHandler(OsisHandler):
         self._ignoreDivEnd = False                  # Processing <div> tag which is a milestone tag
         self._inFootnoteRef = False                 # Processing initial reference in a footnote
         self._inIntro = False                       # Processing an introduction rather than scripture
+        self._introDivTextFound = False             # Some text has been processed for current introduction <div>
         self._introStyleStarted = False             # Found first occurrence of 'x-introduction' (sub)type in current introduction
         self._introText = ''                        # Html generated for current introduction
         self._introTextFound = False                # Some text has been processed for current introduction
@@ -82,6 +83,7 @@ class BibleHandler(OsisHandler):
         self._ignoreDivEnd = False
         self._inFootnoteRef = False
         self._inIntro = False
+        self._introDivTextFound = False
         self._introStyleStarted = False
         self._introText = ''
         self._introTextFound = False
@@ -228,6 +230,7 @@ class BibleHandler(OsisHandler):
                 if self._inIntro or not self._docStructure.inBook:
                     if len(text) > 0:
                         self._introTextFound  = True
+                        self._introDivTextFound  = True
                         self._readyForSubtitle = False
                         if self._inFootnote and not self._footnoteMarkerWritten:
                             # Footnote in introduction
@@ -302,7 +305,7 @@ class BibleHandler(OsisHandler):
                             self._groupIntroWritten = True
                             
                     # Ensure testament title is written
-                    if self._firstBook and not self._groupHtmlOpen and self._groupTitle != '':
+                    if self._firstBook and not self._groupIntroWritten and self._groupTitle != '':
                         self._openGroupHtml()
                     
                     self._openBookHtml()
@@ -364,6 +367,15 @@ class BibleHandler(OsisHandler):
 
             elif divType == 'book':
                 self._groupEmpty = False
+                
+                # Finish off any preceding Bible or testament introduction
+                if self._bibleHtmlOpen or self._groupHtmlOpen:
+                    self._footnotes.writeFootnotes()
+                    self._htmlWriter.close()
+                    self._bibleHtmlOpen = False
+                    self._groupHtmlOpen = False
+                
+                # See which book is starting
                 bookRef = self._getAttributeValue(attrs,'osisID')
                 if self._docStructure.startBook(bookRef):
                     if not self._context.config.testamentGroups:
@@ -396,23 +408,24 @@ class BibleHandler(OsisHandler):
                 if secRef is not None:
                     self._ignoreDivEnd = True           # Milestone tag
                     
-            elif divType == 'introduction' or divType == 'preface':
-                if self._bibleStarting and not self._docStructure.inGroup and not self._bibleHtmlOpen:
-                    self._htmlWriter.open('bible')
-                    self._bibleHtmlOpen = True
-                    self._introTextFound = False
-                    self._bibleIntroWritten = True 
-                elif self._docStructure.inGroup and self._groupEmpty and not self._groupHtmlOpen:
-                    self._openGroupHtml()
-                    self._introTextFound = False
-                self._docStructure.startIntro()
-                
-            elif divType == 'coverPage':
-                if self._docStructure.inGroup and self._groupEmpty and not self._groupHtmlOpen:
-                    self._openGroupHtml()
-                    self._introTextFound = False
-                self._docStructure.otherDiv()
-     
+            elif divType == 'introduction' or divType == 'preface' or divType == 'coverPage' or divType == 'titlePage':
+                if self._bibleStarting and not self._docStructure.inGroup:
+                    self._introDivTextFound = False
+                    if not self._bibleHtmlOpen:
+                        self._htmlWriter.open('bible')
+                        self._bibleHtmlOpen = True
+                        self._introTextFound = False
+                        self._bibleIntroWritten = True
+                    self._docStructure.startIntro()
+                elif self._docStructure.inGroup and self._groupEmpty:
+                    self._introDivTextFound = False
+                    if not self._groupHtmlOpen:
+                        self._openGroupHtml()
+                        self._introTextFound = False
+                    self._docStructure.startIntro()
+                else:
+                    self._docStructure.otherDiv()
+ 
             else:
                 secRef = self._getAttributeValue(attrs, 'eID')
                 if secRef is not None:
@@ -625,8 +638,6 @@ class BibleHandler(OsisHandler):
         if self._groupHtmlOpen or self._bibleHtmlOpen:
             # Write out any footnotes in the Bible or Testament introduction
             self._footnotes.writeFootnotes()
-        else:
-            self._footnotes.reinit()
         bookId = self._docStructure.bookId
         self._htmlWriter.open(bookId)
         self._groupHtmlOpen = False
@@ -705,19 +716,6 @@ class BibleHandler(OsisHandler):
         self._inGeneratedPara = True
         
     def _writeIntroText(self):
-        #
-        # adjust intro heading for Bible or Testament intro
-        if self._bibleHtmlOpen or self._groupHtmlOpen:
-            if self._context.config.introInContents:
-                if self._groupTitle !='' and self._bibleHtmlOpen:
-                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
-                else:
-                    self._introText = re.sub(r'<h[34](.*?) chapter=".+?">(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)
-            else:
-                if self._groupTitle !='' and self._bibleHtmlOpen:
-                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h1\1>\2</h1>', self._introText, 1)
-                else:
-                    self._introText = re.sub(r'<h[34](.*?)>(.+?)</h[34]>', r'<h2\1>\2</h2>', self._introText, 1)              
         self._htmlWriter.write(self._introText)
         
     def _handlePsDivHeading(self, text):
@@ -747,19 +745,27 @@ class BibleHandler(OsisHandler):
         titleWritten = False
         if not self._introTextFound:
             self._introTextFound = True
+            self._introDivTextFound = True
             # This is the initial title
             if self._docStructure.inGroup and self._groupEmpty and self._groupTitle != '' and rawText.lower() == self._groupTitle.lower():
                 # Do not write initial title which duplicates the testament heading
                 writeTitle = False
                 self._introTextFound = False
+                self._introDivTextFound = False
             elif self._context.config.introInContents or not self._docStructure.inGroup or self._groupTitle == '':
                 # Adjust initial title level to create the appropriete TOC entry
                 headerLevel = self._context.topHeaderLevel
                 if self._docStructure.inGroup and self._groupTitle != '':
                     headerLevel = 2
                 self._titleTag = re.sub(r'<h\d+','<h%d' % headerLevel, self._titleTag)
-                
-            
+        elif not self._introDivTextFound:
+            self._introDivTextFound = True
+            if self._context.config.introInContents:
+                headerLevel = self._context.topHeaderLevel
+                if self._docStructure.inGroup:
+                     headerLevel = 2
+                self._titleTag = re.sub(r'<h\d+','<h%d' % headerLevel, self._titleTag)
+                           
         if writeTitle:
             titleWritten = self._writeTitle()
 
@@ -792,6 +798,7 @@ class BibleHandler(OsisHandler):
                 self._introText = ''
                 self._introTextFound = False
                 self._introTitleWritten = False
+                self._openBookHtml()
             #
             # If title is at the start of the intro, it is the book title
             # Do not include this in intro text as book title will be included anyway

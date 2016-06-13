@@ -153,6 +153,11 @@ if (lc $OPTYPE eq "fb2")
 {
   $COMMAND .= ' --fb2 religion --sectionize toc';
 }
+  
+if (lc $OPTYPE eq "epub")
+{
+  $COMMAND .= ' -d .';
+}
 
 # Run conversion command
 system $COMMAND;
