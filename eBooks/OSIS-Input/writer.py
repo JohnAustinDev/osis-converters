@@ -8,12 +8,15 @@ class HtmlWriter:
         self._filename = ''
         
     def open(self, name):
-        if self._fh is not None:
+        if self._fh is not None and name.lower() != self._filename:
             self.close()
-        self._filename = name.lower()
-        self._fh = codecs.open(self._filename+'.xhtml', 'w', 'utf-8')
-        self._writeHeader(name)
-        self._context.htmlFiles.append(self._filename)
+        if self._fh is None:
+            self._filename = name.lower()
+            self._fh = codecs.open(self._filename+'.xhtml', 'w', 'utf-8')
+            self._writeHeader(name)
+            self._context.htmlFiles.append(self._filename)
+        else:
+            print 'File %s.xhtml already open' % self._filename
         
     def isOpen(self):
         return(self._fh is not None)
@@ -32,6 +35,7 @@ class HtmlWriter:
             self._writeFooter()
             self._fh.close()
             self._fh = None
+            self._filename = ''
     
     def closeAndRemove(self):
         self._fh.close()
