@@ -1206,6 +1206,7 @@ sub addDictionaryLink(\$$$) {
   
   my $contextIsOT = &myContext('ot', $context);
   my $contextIsNT = &myContext('nt', $context);
+  my @contextNote = $XPC->findnodes("ancestor::osis:note", $textNode);
   
   my $a;
   foreach my $m (@MATCHES) {
@@ -1214,7 +1215,10 @@ sub addDictionaryLink(\$$$) {
     if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
     if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
     if ($textNode->parentNode()->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
-    if ($MULTIPLES{$m->unique_key} && !&attributeIsSet('multiple', $m)) {&dbg("40\n", $entry); next;}
+    if (!&attributeIsSet('multiple', $m)) {
+      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n", $entry); next;}}
+      elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n", $entry); next;}
+    }
     if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
     if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
@@ -1275,7 +1279,8 @@ sub addDictionaryLink(\$$$) {
       $Replacements{$e.": ".$match.", ".$dict}++;
     }
 
-    $MULTIPLES{$m->unique_key}++;
+    if (@contextNote > 0) {$MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
+    else {$MULTIPLES{$m->unique_key}++;}
     last;
   }
  
