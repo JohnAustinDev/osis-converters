@@ -33,7 +33,7 @@ $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
-$DICTLINK_SKIPNAMES= "reference|figure|title|note|name";
+$DICTLINK_SKIPNAMES= "figure|title|name|lb|lg";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
@@ -1530,6 +1530,13 @@ sub checkIntroductionTags($) {
 
 # Print log info for a word file
 sub logDictLinks() {
+  &Log("\n\n");
+  &Log("REPORT: Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)\n");
+  my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
+  foreach my $eg (sort keys %ExplicitGlossary) {
+    &Log(sprintf("%-".$mxl."s was linked to %s", $eg, $ExplicitGlossary{$eg}) . "\n");
+  }
+  
   my $total = 0;
   foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
   
