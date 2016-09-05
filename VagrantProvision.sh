@@ -33,7 +33,7 @@ sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
 # GoBible Creator
 if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   cd $VHOME/.osis-converters
-  wget https://gobible.googlecode.com/files/GoBibleCreator.245.zip
+  wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gobible/GoBibleCreator.245.zip
   unzip GoBibleCreator.245.zip
   rm GoBibleCreator.245.zip
 fi
