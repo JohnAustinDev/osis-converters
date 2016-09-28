@@ -116,6 +116,7 @@ $COMMAND = "ebook-convert $INPF $OPF --config-file $CONFILE --output-fmt $OPTYPE
 
 # Check if the CSS file exists
 $CSSFILE = "e$IPTYPE.css";
+if (! -e $CSSFILE) {$CSSFILE = "./css/e$IPTYPE.css";}
 if (-e $CSSFILE) {
   $CSSFILE = File::Spec->rel2abs($CSSFILE);
   $COMMAND .= " --css-file $CSSFILE ";

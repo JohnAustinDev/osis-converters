@@ -6,6 +6,7 @@ from calibre_plugins.osis_input.bible import BibleHandler
 from calibre_plugins.osis_input.glossary import GlossaryHandler
 from xml.sax import make_parser
 import shutil
+import glob
 import codecs
 import string
 import os
@@ -48,8 +49,15 @@ class OsisInput(InputFormatPlugin):
                 # Maybe this is Windows and backslashes are used
                 filePos = cssPath.rfind('\\') + 1
             if filePos != 0:
-                # Copy the css file to the current directory
-                shutil.copy(cssPath, '.')
+                # If it's in a css directory, copy everything there to the current directory, to get fonts etc.
+                if cssPath.endswith('/css/', 0, filePos):
+                    for cssDirFile in glob.glob('%s*' % cssPath[:filePos]):
+                        print 'Copying css directory file: %s' % cssDirFile
+                        shutil.copy(cssDirFile, '.')
+                # Otherwise copy the css file to the current directory
+                else:
+                    print 'Copying css file: %s' % cssPath
+                    shutil.copy(cssPath, '.')
                 self.context.cssFile = cssPath[filePos:]  
             #
             # Check CSS file definitions 

@@ -58,7 +58,12 @@ sub setupAndMakeEbooks($) {
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
   my $scopeTitle;
   if ($scope) {$scopeTitle = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml");}
-  copy("$SCRD/eBooks/css/ebible.css", "$tmp/ebible.css");
+  my $css = "$SCRD/eBooks/css";
+  # see if a more specific eBook css exists 
+  if (-e "$INPD/eBook/css") {$css = "$INPD/eBook/css";}
+  elsif (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
+  elsif (-e "$INPD/../../defaults/eBook/css") {$css = "$INPD/../../defaults/eBook/css";}
+  copy_dir($css, "$tmp/css");
   if (-d "$INPD/images") {&copy_dir("$INPD/images", "$tmp/images", 1, 1);}
   my $cover;
   if (-e "$INPD/eBook/cover.jpg") {
