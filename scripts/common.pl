@@ -348,17 +348,17 @@ sub checkAndWriteDefaults($) {
       if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
       print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
       print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
-      my %canon;
-      my %bookOrder;
-      my %testament;
-      if (&getCanon($confdataP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+      my $canonP;
+      my $bookOrderP;
+      my $testamentP;
+      if (&getCanon($confdataP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
         my $col = ''; my $colot = ''; my $colnt = '';
-        foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+        foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
           foreach my $f (keys %{$USFM{'bible'}}) {
             if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
             my $b = "Book: $v11nbk\n";
             $col .= $b;
-            if ($testament{$v11nbk} eq 'OT') {$colot .= $b;}
+            if ($testamentP->{$v11nbk} eq 'OT') {$colot .= $b;}
             else {$colnt .= $b;}
           }
         }
@@ -380,9 +380,9 @@ sub checkAndWriteDefaults($) {
       print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
       print CONV "Title=".$confdataP->{'Description'}."\n";
       # sort books to versification order just to make them easier to manually check/update
-      my (%canon, %bookOrder, %testament);
-      &getCanon(($confdataP->{'Versification'} ? $confdataP->{'Versification'}:'KJV'), \%canon, \%bookOrder, \%testament);
-      foreach my $f (sort {$bookOrder{$USFM{'bible'}{$a}{'osisBook'}} <=> $bookOrder{$USFM{'bible'}{$b}{'osisBook'}}} keys %{$USFM{'bible'}}) {
+      my ($canonP, $bookOrderP, $testamentP);
+      &getCanon(($confdataP->{'Versification'} ? $confdataP->{'Versification'}:'KJV'), \$canonP, \$bookOrderP, \$testamentP);
+      foreach my $f (sort {$bookOrderP->{$USFM{'bible'}{$a}{'osisBook'}} <=> $bookOrderP->{$USFM{'bible'}{$b}{'osisBook'}}} keys %{$USFM{'bible'}}) {
         print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
       }
       close(CONV);
@@ -1046,31 +1046,45 @@ sub getOsisName($$) {
   return $bookName;
 }
 
-
-sub getCanon($\%\%\%) {
+%CANON_CACHE;
+sub getCanon($\%\%\%\@) {
   my $VSYS = shift;
-  my $canonP = shift;     # hash pointer: OSIS-book-name => Array (base 0) containing each chapter's max-verse number
-  my $bookOrderP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
-  my $testamentP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
+  my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
+  my $bookOrderPP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
+  my $testamentPP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
+  my $bookArrayPP = shift; # array pointer: OSIS-book-names in verse system order starting with index 1!!
   
-  if (!&isValidVersification($VSYS)) {return 0;}
-  
-  my $vk = new Sword::VerseKey();
-  $vk->setVersificationSystem($VSYS);
-  
-  for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
-    my $t, $bkt;
-    if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
-    else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
-    $bookOrderP->{$bkname} = ($bk+1);
-    $testamentP->{$bkname} = ($t == 1 ? "OT":"NT");
-    my $chaps = [];
-    for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
-      push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
+  if (! %{$CANON_CACHE{$VSYS}}) {
+    if (!&isValidVersification($VSYS)) {return 0;}
+    
+    my $vk = new Sword::VerseKey();
+    $vk->setVersificationSystem($VSYS);
+    
+    for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
+      my $t, $bkt;
+      if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
+      else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
+      $CANON_CACHE{$VSYS}{'bookOrder'}{$bkname} = ($bk+1);
+      $CANON_CACHE{$VSYS}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
+      my $chaps = [];
+      for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
+        # NOTE: CHAPTER 1 IN ARRAY IS INDEX 0!!!
+        push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
+      }
+      $CANON_CACHE{$VSYS}{'canon'}{$bkname} = $chaps;
     }
-    $canonP->{$bkname} = $chaps;
   }
   
+  @{$CANON_CACHE{$VSYS}{'bookArray'}} = ();
+  foreach my $bk (keys %{$CANON_CACHE{$VSYS}{'bookOrder'}}) {
+    @{$CANON_CACHE{$VSYS}{'bookArray'}}[$CANON_CACHE{$VSYS}{'bookOrder'}{$bk}] = $bk;
+  }
+  
+  if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$VSYS}{'canon'}};}
+  if ($bookOrderPP) {$$bookOrderPP = \%{$CANON_CACHE{$VSYS}{'bookOrder'}};}
+  if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$VSYS}{'testament'}};}
+  if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$VSYS}{'bookArray'}};}
+
   return 1;
 }
 
@@ -1109,11 +1123,11 @@ sub pruneFileOSIS($$$$) {
   my $inxml = $XML_PARSER->parse_file($inosis);
   
   if ($scope) {
-    my %canon;
-    my %bookOrder;
-    my %testament;
-    if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
-      my $scopeBooks = &scopeToBooks($scope, \%bookOrder);
+    my $canonP;
+    my $bookOrderP;
+    my $testamentP;
+    if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
+      my $scopeBooks = &scopeToBooks($scope, $bookOrderP);
       my %scopeBookNames = map { $_ => 1 } @{$scopeBooks};
       # remove books not in scope
       my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
@@ -2040,10 +2054,10 @@ sub fragmentToString($$) {
 sub emptyvss($) {
   my $dir = shift;
   
-  my %canon;
-  my %bookOrder;
-  my %testament;
-  if (!&getCanon($ConfEntryP->{'Versification'}, \%canon, \%bookOrder, \%testament)) {
+  my $canonP;
+  my $bookOrderP;
+  my $testamentP;
+  if (!&getCanon($ConfEntryP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
     &Log("ERROR: Could not check for empty verses. Cannot read versification \"".$ConfEntryP->{'Versification'}."\"\n");
     return;
   }
@@ -2082,8 +2096,8 @@ sub emptyvss($) {
     
     # report entire missing books separately
     my $missingBKs = '';
-    foreach my $bk (keys %bookOrder) {
-      my $whole = @{$canon{$bk}}.":".@{$canon{$bk}}[@{$canon{$bk}}-1];
+    foreach my $bk (keys %{$bookOrderP}) {
+      my $whole = @{$canonP->{$bk}}.":".@{$canonP->{$bk}}[@{$canonP->{$bk}}-1];
       if ($r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m) {$missingBKs .= $bk." ";}
     }
     &Log("$r\nEntire missing books: ".($missingBKs ? $missingBKs:'none')."\nEND EMPTYVSS OUTPUT\n", -1);

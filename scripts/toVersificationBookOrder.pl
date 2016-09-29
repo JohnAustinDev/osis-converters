@@ -24,15 +24,16 @@ sub toVersificationBookOrder($$) {
 
   &Log("\n\nOrdering books and peripherals in \"$osis\" according to versification = $vsys\n");
 
-  my %canon;
-  my %bookOrder;
-  my %testament;
+  my $canonP;
+  my $bookOrderP;
+  my $testamentP;
+  my $bookArrayP;
   
-  if (!&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
+  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
     &Log("ERROR: Not re-ordering books in OSIS file!\n");
     return;
   }
-  
+
   my $xml = $XML_PARSER->parse_file($osis);
 
   # remove all books
@@ -58,10 +59,11 @@ sub toVersificationBookOrder($$) {
   foreach my $bookGroup (@bookGroups) {$bookGroup->setAttribute('type', 'bookGroup');}
     
   # place all books back in canon order
-  foreach my $v11nbk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %bookOrder) {
+  foreach my $v11nbk (@{$bookArrayP}) {
+    if (!$v11nbk) {next;} # bookArrayP[0] is empty
     foreach my $bk (@books) {
       if (!$bk || $bk->findvalue('./@osisID') ne $v11nbk) {next;}
-      my $i = ($testament{$v11nbk} eq 'OT' ? 0:1);
+      my $i = ($testamentP->{$v11nbk} eq 'OT' ? 0:1);
       @bookGroups[$i]->appendChild($bk);
       $bk = '';
       last;

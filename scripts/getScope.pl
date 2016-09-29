@@ -26,11 +26,11 @@ sub getScope($$) {
 
   &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
-  my %canon;
-  my %bookOrder;
-  my %testament;
+  my $canonP;
+  my $bookOrderP;
+  my $testamentP;
   
-  if (&getCanon($vsys, \%canon, \%bookOrder, \%testament)) {
+  if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
     my $xml = $XML_PARSER->parse_file($osis);
     
     my @verses = $XPC->findnodes('//osis:verse', $xml);
@@ -45,11 +45,11 @@ sub getScope($$) {
     my $hadLastV = 0;
     my $lastCheckedV = "";
     my $canbkFirst, $canbkLast;
-    foreach my $bk (sort {$bookOrder{$a} <=> $bookOrder{$b}} keys %canon) {
+    foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$canonP}) {
       if (!$canbkFirst) {$canbkFirst = $bk;}
       $canbkLast = $bk;
-      for (my $ch=1; $ch<=@{$canon{$bk}}; $ch++) {
-        for (my $vs=1; $vs<=$canon{$bk}->[$ch-1]; $vs++) {
+      for (my $ch=1; $ch<=@{$canonP->{$bk}}; $ch++) {
+        for (my $vs=1; $vs<=$canonP->{$bk}->[$ch-1]; $vs++) {
 
           # record scope unit start
           if (!$hadLastV && $haveVerse{"$bk.$ch.$vs"}) {
@@ -78,7 +78,7 @@ sub getScope($$) {
       
       my $sub = "";
       # simplify scope unit start
-      if ($b2 ne $b1 || ($b2 eq $b1 && ($c2==@{$canon{$b2}} && $v2==$canon{$b2}->[$c2-1]))) {
+      if ($b2 ne $b1 || ($b2 eq $b1 && ($c2==@{$canonP->{$b2}} && $v2==$canonP->{$b2}->[$c2-1]))) {
         if ($v1 == 1) {
           if ($c1 == 1) {$sub .= "$b1";}
           else {$sub .= "$b1.$c1";}
@@ -96,14 +96,14 @@ sub getScope($$) {
       
       # simplify scope unit end
       if ($b1 ne $b2 || ($b1 eq $b2 && ($c1==1 && $v1==1))) {
-        if ($v2 == $canon{$b2}->[$c2-1]) {
-          if ($c2 == @{$canon{$b2}}) {$sub .= "-$b2";}
+        if ($v2 == $canonP->{$b2}->[$c2-1]) {
+          if ($c2 == @{$canonP->{$b2}}) {$sub .= "-$b2";}
           else {$sub .= "-$b2.$c2";}
         }
         else {$sub .= "-$b2.$c2.$v2";}
       }
       elsif ($c1 != $c2) {
-        if ($v2 == $canon{$b2}->[$c2-1]) {$sub .= "-$b2.$c2";}
+        if ($v2 == $canonP->{$b2}->[$c2-1]) {$sub .= "-$b2.$c2";}
         else {$sub .= "-$b2.$c2.$v2";}
       }
       else {$sub .= "-$b2.$c2.$v2";}
