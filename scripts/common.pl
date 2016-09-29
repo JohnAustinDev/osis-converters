@@ -1467,21 +1467,47 @@ sub context2array($) {
 }
 
 
-# return array of single verse osisRefs from a single osisRef segment.
-# An osisRef segment may contain a hyphen, but no spaces. Returned refs 
-# are NOT encoded osisRefs. Currently for performance reasons, osisRef
-# segments must be constrained to a single chapter or an error is thrown.
+# return array of non-range osisRefs from a single osisRef segment which
+# may contain a range. An osisRef segment may contain a single hyphen, 
+# but no spaces. Returned refs are NOT encoded osisRefs.
 sub osisRefSegment2array($) {
   my $osisRef = shift;
 
-  my @refs = ($osisRef);
-  if ($osisRef !~ /\-/) {return @refs;}
-  elsif ($osisRef =~ /^([^\.]+\.\d+)\.(\d+)\s*\-\s*\1\.(\d+)$/) {
-    my $context = "$1.$2.$3";
-    return &context2array($context);
+  if ($osisRef !~ /^(.*?)\-(.*)$/) {return ($osisRef);}
+  my $r1 = $1; my $r2 = $2;
+  
+  if ($r1 !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {&Log("ERROR: osisRefSegment2array(): Cannot parse osisRef range start \"$r1\"\n"); return ();}
+  my $b1 = $1; my $c1 = ($2 ? $3:0); my $v1 = ($4 ? $5:0);
+  if ($r2 !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {&Log("ERROR: osisRefSegment2array(): Cannot parse osisRef range end \"$r2\"\n"); return ();}
+  my $b2 = $1; my $c2 = ($2 ? $3:0); my $v2 = ($4 ? $5:0);
+  
+  my @refs;
+  my ($canonP, $bookOrderP, $bookArrayP);
+  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+
+  # iterate from starting verse?
+  if ($v1 > 0) {
+    my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
+    for (my $v=$v1; $v<=$ve; $v++) {push(@refs, "$b1.$c1.$v");}
   }
-  else {
-    &Log("ERROR: osisRefSegment2array(): The osisRef segment \"$osisRef\" must be constrained to a single chapter\n");
+  # iterate from starting chapter?
+  if ($c1 > 0) {
+    my $ce = ($b1 eq $b2 ? ($v2>0 ? ($c2-1):$c2):@{$canonP->{$b1}});
+    for (my $c=($v1>0 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@refs, "$b1.$c");}
+  }
+  # iterate from starting book?
+  if ($b1 ne $b2) {
+    my $bs = ($c1>0 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
+    my $be = ($c2>0 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
+    for (my $b=$bs; $b<=$be; $b++) {push(@refs, @{$bookArrayP}[$b]);}
+    # iterate to ending chapter?
+    if ($c2 > 0) {
+      for (my $c=1; $c<=($v2>0 ? $c2-1:$c2); $c++) {push(@refs, "$b2.$c");}
+    }
+  }
+  # iterate to ending verse?
+  if ($v2 > 0 && !($b1 eq $b2 && $c1==$c2)) {
+    for (my $v=1; $v<=$v2; $v++) {push(@refs, "$b2.$c2.$v");}
   }
 
   return @refs;
