@@ -1046,7 +1046,6 @@ sub getOsisName($$) {
   return $bookName;
 }
 
-%CANON_CACHE;
 sub getCanon($\%\%\%\@) {
   my $VSYS = shift;
   my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
@@ -1353,7 +1352,7 @@ sub getAttribute($$) {
 }
 
 
-sub dbg($) {
+sub dbg($$) {
   my $p = shift;
   my $e = shift;
   
@@ -1375,14 +1374,13 @@ sub myContext($$) {
   my $test = shift;
   my $context = shift;
 
-  my $mod;
   my $test2 = $test;
   if ($test eq 'ot') {$test2 = $OT_BOOKS;}
   elsif ($test eq 'nt') {$test2 = $NT_BOOKS;}
   foreach my $t (split(/\s+/, $test2)) {
     if ($t =~ /^\s*$/) {next;}
-    my @es = &osisRefSegment2array(&osisRef2Entry($t, \$mod, 1));
-    foreach my $e (@es) {
+    if (!$REF_SEG_CACHE{$t}) {$REF_SEG_CACHE{$t} = &osisRefSegment2array($t);}
+    foreach my $e (@{$REF_SEG_CACHE{$t}}) {
       foreach my $refs (&context2array($context)) {
         if ($refs =~ /\Q$e\E/i) {
           return $context;
@@ -1467,21 +1465,28 @@ sub context2array($) {
 }
 
 
-# return array of non-range osisRefs from a single osisRef segment which
-# may contain a range. An osisRef segment may contain a single hyphen, 
-# but no spaces. Returned refs are NOT encoded osisRefs.
+# return a valid array of non-range references from a single osisRef segment 
+# which may contain a range. An osisRef segment may contain a single hyphen, 
+# but no spaces. Returned refs are DECODED osisRefs. An ERROR is thrown 
+# if an invalid book or reference is found.
 sub osisRefSegment2array($) {
   my $osisRef = shift;
+  
+  my @refs = ();
 
-  if ($osisRef !~ /^(.*?)\-(.*)$/) {return ($osisRef);}
+  if ($osisRef !~ /^(.*?)\-(.*)$/) {
+    if (!&validOsisRefSegment($osisRef, $VERSESYS)) {return \@refs;}
+    my $mod;
+    push(@refs, &osisRef2Entry($osisRef, \$mod, 1));
+    return (\@refs); # returns decoded osisRef
+  }
   my $r1 = $1; my $r2 = $2;
   
-  if ($r1 !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {&Log("ERROR: osisRefSegment2array(): Cannot parse osisRef range start \"$r1\"\n"); return ();}
-  my $b1 = $1; my $c1 = ($2 ? $3:0); my $v1 = ($4 ? $5:0);
-  if ($r2 !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {&Log("ERROR: osisRefSegment2array(): Cannot parse osisRef range end \"$r2\"\n"); return ();}
-  my $b2 = $1; my $c2 = ($2 ? $3:0); my $v2 = ($4 ? $5:0);
-  
-  my @refs;
+  my ($b1, $c1, $v1);
+  if (!&validOsisRefSegment($r1, $VERSESYS, \$b1, \$c1, \$v1)) {return \@refs;}
+  my ($b2, $c2, $v2);
+  if (!&validOsisRefSegment($r2, $VERSESYS, \$b2, \$c2, \$v2)) {return \@refs;}
+
   my ($canonP, $bookOrderP, $bookArrayP);
   &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
 
@@ -1510,7 +1515,50 @@ sub osisRefSegment2array($) {
     for (my $v=1; $v<=$v2; $v++) {push(@refs, "$b2.$c2.$v");}
   }
 
-  return @refs;
+  return \@refs;
+}
+
+
+# Check an osisRef segment (cannot contain "-") against the verse system or dictionary words
+sub validOsisRefSegment($$\$\$\$) {
+  my $osisRef = shift;
+  my $vsys = shift;
+  my $bP = shift;
+  my $cP = shift;
+  my $vP = shift;
+  
+  my $b; if (!$bP) {$bP = \$b;}
+  my $c; if (!$cP) {$cP = \$c;}
+  my $v; if (!$vP) {$vP = \$v;}
+  
+  if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
+    if (@{$XPC->findnodes("//entry[\@osisRef='$osisRef']", $DWF)}) {return 1;}
+    &Log("ERROR: unknown osisRef: \"$osisRef\"\n");
+    return 0;
+  }
+  $$bP = $1;
+  $$cP = ($2 ? $3:0);
+  $$vP = ($4 ? $5:0);
+  
+  if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
+    &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
+    return 0;
+  }
+  
+  my ($canonP, $bookOrderP, $bookArrayP);
+  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+  
+  if ($$cP != 0 && ($$cP < 0 || $$cP > @{$canonP->{$$bP}})) {
+    &Log("ERROR: Chapter is not in verse system $vsys: \"$$bP.$$cP\"\n");
+    return 0;
+  }
+  
+  if ($$vP != 0 && ($$vP < 0 || $$vP > @{$canonP->{$$bP}}[$$cP-1])) {
+    &Log("ERROR: Verse is not in verse system $vsys: \"$$bP.$$cP.$$vP\"\n");
+    return 0;
+  }
+  
+  return 1;
 }
 
 
