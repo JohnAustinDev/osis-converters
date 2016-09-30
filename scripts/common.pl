@@ -94,10 +94,13 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
   make_path($TMPDIR);
   
-  if (-e "$INPD/$DICTIONARY_WORDS") {$DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");}
-  
   &Log("osis-converters git rev: $GITHEAD\n\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  
+  if (-e "$INPD/$DICTIONARY_WORDS") {
+    $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+    if (&validateDictionaryXML($DWF)) {&Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");}
+  }
 }
 
 
@@ -224,6 +227,47 @@ sub checkDependencies($$$) {
     &Log("\n$failMes", 1);
     exit;
   }
+}
+
+
+sub validateDictionaryXML($) {
+  my $dwf = shift;
+  
+  my $success = 1;
+  my $x = "//*";
+  my @allowed = ('dictionaryWords', 'div', 'entry', 'name', 'match');
+  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  my @badElem = $XPC->findnodes($x, $dwf);
+  if (@badElem) {
+    foreach my $ba (@badElem) {
+      &Log("\nERROR: Bad DictionaryWords.xml element: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  $x = "//*[name()!='dictionaryWords'][name()!='entry']/@*";
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'highlight', 'multiple');
+  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  my @badAttribs = $XPC->findnodes($x, $dwf);
+  if (@badAttribs) {
+    foreach my $ba (@badAttribs) {
+      &Log("\nERROR: Bad DictionaryWords.xml attribute: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  $x = "//entry/@*";
+  push(@allowed, ('osisRef', 'noOutboundLinks'));
+  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  my @badAttribs = $XPC->findnodes($x, $dwf);
+  if (@badAttribs) {
+    foreach my $ba (@badAttribs) {
+      &Log("\nERROR: Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  return $success;
 }
 
 
