@@ -29,6 +29,7 @@ class BibleHandler(OsisHandler):
         self._groupIntroWritten = False             # A testament introduction has been written for current testament
         self._groupHtmlOpen = False
         self._groupTitle = ''                       # Title for current testament, obtained from config
+        self._groupTitleWritten = False             # The current testament title has been written
         self._inCanonicalTitle = False              # Currently processing a canonical title
         self._inChapterTitle = False                # Currently processing a chapter title
         self._ignoreChEnd = False                   # Processing <chapter> tag which is a milestone tag
@@ -305,7 +306,7 @@ class BibleHandler(OsisHandler):
                             self._groupIntroWritten = True
                             
                     # Ensure testament title is written
-                    if self._firstBook and not self._groupIntroWritten and self._groupTitle != '':
+                    if self._firstBook and not self._groupTitleWritten and self._groupTitle != '':
                         self._openGroupHtml()
                     
                     self._openBookHtml()
@@ -633,6 +634,7 @@ class BibleHandler(OsisHandler):
             self._bibleHtmlOpen = False
             if self._groupTitle != '':
                 self._htmlWriter.write('<h1>%s</h1>\n' % self._groupTitle)
+                self._groupTitleWritten = True
                 
     def _openBookHtml(self):
         if self._groupHtmlOpen or self._bibleHtmlOpen:
@@ -791,7 +793,7 @@ class BibleHandler(OsisHandler):
             if self._firstBook and self._introTextFound:
                 # For the first book in a group, anything before this is assumed to be a Bible/testament introduction
                 self._closeParagraph()
-                self._introText += '\n'
+                self._introText += '\n'               
                 self._openGroupHtml()
                 self._writeIntroText()
                 self._groupIntroWritten = True
@@ -926,6 +928,7 @@ class BibleHandler(OsisHandler):
     def _startGroup(self, groupNumber):
         self._groupTitle = self._context.config.groupTitle(groupNumber)
         self._groupIntroWritten = False
+        self._groupTitleWritten = False
         self._firstBook = True
         self._groupEmpty = True
         if self._groupTitle != '' and (groupNumber != 1 or not self._context.config.bibleIntro):
