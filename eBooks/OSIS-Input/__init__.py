@@ -15,7 +15,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS files to ebooks'
-    version = (2, 1, 0)
+    version = (2, 1, 1)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['windows', 'linux']
@@ -42,6 +42,7 @@ class OsisInput(InputFormatPlugin):
             self.config.epub3 = False
         #
         # Get CSS file, if any
+        fontFiles = []
         cssPath = self.opts.css_file
         if cssPath is not '':
             filePos = cssPath.rfind('/') + 1
@@ -54,6 +55,10 @@ class OsisInput(InputFormatPlugin):
                     for cssDirFile in glob.glob('%s*' % cssPath[:filePos]):
                         print 'Copying css directory file: %s' % cssDirFile
                         shutil.copy(cssDirFile, '.')
+                        if not cssDirFile.endswith('.css'):
+                            dirFilePos = cssDirFile.rfind('/') + 1
+                            fileName = cssDirFile[dirFilePos:]
+                            fontFiles.append(fileName)
                 # Otherwise copy the css file to the current directory
                 else:
                     print 'Copying css file: %s' % cssPath
@@ -126,6 +131,15 @@ class OsisInput(InputFormatPlugin):
             oh.write('    <item href="%s.xhtml" id="id%s" media-type="application/xhtml+xml"/>\n' % (hf, hf))
         if self.context.cssFile != '':
             oh.write('    <item href="%s" id="css" media-type="text/css"/>\n' % self.context.cssFile)
+        fontCount = 0
+        for ff in fontFiles:
+            fontCount += 1
+            if ff.lower().endswith('.ttf'):
+                oh.write('    <item href="%s" id="font%d" media-type="application/x-font-ttf"/>\n' % (ff, fontCount))
+            elif ff.lower().endswith('.otf'):
+                oh.write('    <item href="%s" id="font%d" media-type="application/vnd.ms-opentype"/>\n' % (ff, fontCount))
+            else:
+                print 'Unrecognised font type: %s' % ff
         for pf in self.context.imageFiles:
             imageIdEnd = pf.rfind('.') - 1
             imageId = pf[:imageIdEnd]
