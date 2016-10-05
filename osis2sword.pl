@@ -129,6 +129,16 @@ else {
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 
 if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH");}
+if ($ConfEntryP->{"PreferredCSSXHTML"} && ! -e "$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}) {
+  &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");
+}
+elsif (-e "$INPD/sword/css") {
+  if ($ConfEntryP->{"PreferredCSSXHTML"}) {
+    copy("$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}, "$SWOUT/$MODPATH");
+    &Log("\n--- COPYING PreferredCSSXHTML \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\"\n");
+  }
+  else {&Log("ERROR: \"$INPD/sword/css\" directory exists, but conf file lacks a PreferredCSSXHTML entry.\n");}
+}
 
 &writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");
 
