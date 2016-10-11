@@ -283,7 +283,13 @@ sub addScripRefLinks($$) {
     my $text = $textNode->data();
     my $contextBookOK = ($XPC->findnodes('ancestor-or-self::osis:reference', $textNode) ? 1:0);
     &addLinks(\$text, $BK, $CH, $contextBookOK);
-    if ($text eq $textNode->data()) {next;}
+    if ($text eq $textNode->data()) {
+      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern 
+      # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
+      my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
+      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
+      $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
+    }
     
     # save changes for later (to avoid messing up line numbers)
     $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
