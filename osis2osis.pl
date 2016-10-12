@@ -33,68 +33,121 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
+$DEBUG = 0;
+
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
-&Log("osis-converters rev: $GITHEAD\n\n");
-&Log("\n-----------------------------------------------------\nSTARTING osis2osis.pl\n\n");
+require("$SCRD/scripts/simplecc.pl");
+
+my $osis_in = "";
+$CONF_ORIG;
 
 $COMMANDFILE = "$INPD/CF_osis2osis.txt";
-if (-e $COMMANDFILE) {
-  &Log("\n--- READING COMMAND FILE\n");
-  &removeRevisionFromCF($COMMANDFILE);
-  open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis command file $COMMANDFILE\n";
-  while (<COMF>) {
-    if ($_ =~ /^\s*$/) {next;}
-    elsif ($_ =~ /^#/) {next;}
-    # VARIOUS SETTINGS...
-    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs):(\s*(\S+)\s*)?$/) {
-      if ($2) {
-        my $par = $1;
-        my $val = $3;
-        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
-        &Log("INFO: Setting $par to $val\n");
+if (! -e $COMMANDFILE) {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
+
+open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis command file $COMMANDFILE\n";
+while (<COMF>) {
+  if ($_ =~ /^\s*$/) {next;}
+  elsif ($_ =~ /^#/) {next;}
+  elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|CCTable|CONFIG_\w+|CONVERT_\w+):(\s*(.*?)\s*)?$/) {
+    if ($2) {
+      my $par = $1;
+      my $val = $3;
+      $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
+      &Log("INFO: Setting $par to $val\n");
+    }
+  }
+  elsif ($_ =~ /^CC:\s*(.*?)(?<!\\)\s\s*(.*?)\s*$/) {
+    my $CCIN=$1; my $CCOUT=$2;
+    &Log("\nINFO: Processing CC $CCIN\n");
+    if ($CCIN =~ /^\./) {$CCIN = File::Spec->rel2abs($CCIN, $INPD);}
+    if (! -e $CCIN) {&Log("ERROR Could not find \"$CCIN\" with \"$_\"\n"); next;}
+    if (!$CCTable) {&Log("ERROR: Cannot do CC command:\n".$_."You must first specify SET_CCTable:<file-path>\n\n"); next;}
+    if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
+    if (! -e $CCTable) {&Log("ERROR Could not find \"$CCTable\" with:\n$_\n"); next;}
+    if ($CCOUT =~ /^\./) {$CCOUT = File::Spec->rel2abs($CCOUT, $INPD);}
+    
+    my $fname = $CCIN; $fname =~ s/^.*\///;
+    
+    if ($fname eq "config.conf") {
+      $CONF_ORIG = &readConf($CCIN);
+      my $confP = &readConf($CCIN);
+      my @convertThese = ('Abbreviation', 'Description', 'About');
+      foreach my $e (@convertThese) {$confP->{$e} = &simplecc_convert($confP->{$e}, $CCTable);}
+      $confP->{'ModuleName'} = $MOD;
+      foreach my $ent (keys %{$confP}) {if (${"CONFIG_$ent"}) {$confP->{$ent} = ${"CONFIG_$ent"};}}
+      &writeConf($CCOUT, $confP);
+    }
+    elsif ($fname eq "collections.txt") {
+      if (!$CONF_ORIG) {&Log("ERROR: Unable to update collections.txt! To remedy this, put a config.conf CC command before:\n$_\n"); next;}
+      my $origMod = $CONF_ORIG->{'ModuleName'};
+      my $newMod = lc($MOD);
+      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&Log("ERROR: Could not open collections.txt input \"$CCIN\"\n"); next;}
+      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&Log("ERROR: Coult not open collections.txt output \"$CCOUT\"\n"); next;}
+      my %col;
+      while(<CI>) {
+        if ($_ =~ s/^(Collection\:\s*)(\Q$origMod\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
+        else {$_ = &simplecc_convert($_, $CCTable);}
+        print CO $_;
       }
+      close(CO);
+      close(CI);
+      if (!%col) {&Log("ERROR: Did not update Collection names in collections.txt\n");}
+      else {foreach my $c (sort keys %col) {&Log("Updated Collection \"$c\" to \"".$col{$c}."\"\n");}}
     }
-  }
-  close(COMF);
-  $NOCONSOLELOG = 0;
-}
-else {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
-
-copy($OSISFILE, "$TMPDIR/".$MOD."_1.xml");
-
-# run addScripRefLinks.pl
-if ($addScripRefLinks) {
-  require("$SCRD/scripts/addScripRefLinks.pl");
-  &addScripRefLinks("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");
-}
-else {rename("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
-
-# run addDictLinks.pl
-if ($addDictLinks) {
-  require("$SCRD/scripts/addDictLinks.pl");
-  &addDictLinks("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");
-  foreach my $dn (values %DictNames) {$allDictNames{$dn}++;}
-  foreach my $dn (keys %allDictNames) {
-    if ($ConfEntryP->{"DictionaryModule"} !~ /\Q$dn\E/ ) {
-      open(CONF, ">>:encoding(UTF-8)", "$CONFFILE") || die "Could not open $CONFFILE\n";
-      print CONF "DictionaryModule=$dn\n";
-      close(CONF);
+    elsif ($fname eq "convert.txt") {
+      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&Log("ERROR: Could not open convert.txt input \"$CCIN\"\n"); next;}
+      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&Log("ERROR: Coult not open convert.txt output \"$CCOUT\"\n"); next;}
+      while(<CI>) {
+        if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
+          my $e=$1; my $v=$2;
+          if ($e !~ /^(Language|Publisher|BookTitlesInOSIS|Epub3|TestamentGroups)$/) {
+            $_ = "$e=".&simplecc_convert($v, $CCTable)."\n";
+          }
+          if (${"CONVERT_$e"}) {$_ = "$e=".${"CONVERT_$e"}."\n";}
+        }
+        print CO $_;
+      }
+      close(CO);
+      close(CI);
     }
+    else {&simplecc($CCIN, $CCTable, $CCOUT);}
   }
+  elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
+    my $osis = $1;
+    &Log("\nINFO: Processing CCOSIS $CCIN\n");
+    if (!$CONF_ORIG) {&Log("ERROR: Unable to run CCOSIS! To remedy this, put a config.conf CC command before:\n$_\n"); next;}
+    if ($osis =~ /\.xml$/i) {
+      if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $INPD);}
+    }
+    else {$osis = "$OUTDIR/../$osis/$osis.xml";}
+    if (! -e $osis) {&Log("ERROR Could not find \"$osis\" with:\n$_\n"); next;}
+    if (!$CCTable) {&Log("ERROR: Cannot do CCOSIS command:\n".$_."You must first specify SET_CCTable:<file-path>\n\n"); next;}
+    if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
+    if (! -e $CCTable) {&Log("ERROR Could not find \"$CCTable\" with:\n$_\n"); next;}
+    $osis_in = "$TMPDIR/".$MOD."_1.xml";
+    &simplecc($osis, $CCTable, $osis_in);
+  }
+  elsif ($_ =~ /^OSIS_IN:\s*(.*?)\s*$/) {
+    $osis_in = $1;
+    &Log("\nINFO: Processing OSIS_IN $CCIN\n");
+    if ($osis_in =~ /^\./) {$osis_in = File::Spec->rel2abs($osis_in, $INPD);}
+    if (! -e $osis_in) {die "ERROR: Specified OSIS file $_ not found. Exiting...\n";}
+    copy($osis_in, "$TMPDIR/".$MOD."_1.xml");
+  }
+  else {&Log("ERROR: Unhandled command:\n".$_."in $COMMANDFILE\n\n");}
 }
-else {rename("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
+close(COMF);
 
-# run addCrossRefs.pl
-if ($addCrossRefs) {
-  require("$SCRD/scripts/addCrossRefs.pl");
-  &addCrossRefs("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);
+if (!$osis_in) {
+  $osis_in = "$INPD/$MOD.xml";
+  if (! -e $osis_in) {die "ERROR: Default OSIS file \"$osis_in\" not found. Add the file, or specify one using the CCOSIS or OSIS_IN commands. Exiting...\n";}
+  copy($osis_in, "$TMPDIR/".$MOD."_1.xml");
 }
-else {rename("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
-&validateOSIS($OUTOSIS);
+require("$SCRD/scripts/add2osis.pl");
 
 1;
