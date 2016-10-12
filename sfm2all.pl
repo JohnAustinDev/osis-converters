@@ -43,7 +43,8 @@ foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
 
 # create each OSIS file and SWORD module, dictionaries first
 foreach my $dir (sort {($modules{$b} =~ /LD/ ? 1:0) <=> ($modules{$a} =~ /LD/ ? 1:0)} keys %modules) {
-  &osis_converters("$SCRD/sfm2osis.pl", $dir, $LOGFILE);
+  if (-e "$dir/CF_osis2osis.txt") {&osis_converters("$SCRD/osis2osis.pl", $dir, $LOGFILE);}
+  else {&osis_converters("$SCRD/sfm2osis.pl", $dir, $LOGFILE);}
   &osis_converters("$SCRD/osis2sword.pl", $dir, $LOGFILE);
 }
 
@@ -52,6 +53,21 @@ foreach my $dir (keys %modules) {
   if ($modules{$dir} !~ /Text/) {next;}
   &osis_converters("$SCRD/osis2GoBible.pl", $dir, $LOGFILE);
   &osis_converters("$SCRD/osis2ebooks.pl", $dir, $LOGFILE);
+}
+
+# create any companion projects (but only if we're the root script of a top level project directory)
+$CFfile = (-e "$INPD/CF_usfm2osis.txt" ? "$INPD/CF_usfm2osis.txt":(-e "$INPD/CF_osis2osis.txt" ? "$INPD/CF_osis2osis.txt":''));
+if (open(CF, "<encoding(UTF-8)", $CFfile)) {
+  while(<CF>) {if ($_ =~ /^SET_companionProject:\s*(.*?)\s*$/) {$companionProject = $1;}}
+  close(CF);
+}
+if ($LOGFILE eq "$OUTDIR/OUT_$SCRIPT_NAME.txt" && $companionProject) {
+  my @companionProjects = split(/\s*,\s*/, $companionProject);
+  foreach my $cp (@companionProjects) {
+    if (-e "$INPD/../$cp") {
+      &osis_converters("$SCRD/sfm2all.pl", "$INPD/../$cp", $LOGFILE);
+    }
+  }
 }
 
 1;

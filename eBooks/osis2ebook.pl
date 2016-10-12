@@ -48,6 +48,7 @@ else {
   &printUsage();
   exit;
 }
+print "Input file is $INPF\n";
 
 # Get directory of perl file
 $CBD = File::Spec->rel2abs( __FILE__ );
@@ -57,7 +58,7 @@ $OPTYPE = shift;
 if ($OPTYPE) {
   # Form output file name by replacing file extension
   $OPF = $INPF;
-  $OPF =~ s/\..*?$/\.$OPTYPE/;
+  $OPF =~ s/\.[^\.]+$/\.$OPTYPE/;
   print "Output file is $OPF\n";
 }
 else {
