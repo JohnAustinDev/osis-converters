@@ -27,8 +27,11 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+&osisXSLT("$OUTDIR/$MOD.xml", $MODULETOOLS_BIN."osis2ebook.xsl", "$TMPDIR/".$MOD."_1.xml");
+$OSISFILE = "$TMPDIR/".$MOD."_1.xml";
+
 # get scope and vsys of OSIS file
-&setConfGlobals(&updateConfData($ConfEntryP, "$OUTDIR/$MOD.xml"));
+&setConfGlobals(&updateConfData($ConfEntryP, $OSISFILE));
 
 # make eBooks from the entire OSIS file
 my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
@@ -39,7 +42,7 @@ if ($CREATE_FULL_BIBLE) {&setupAndMakeEbooks();}
 
 # also make separate eBooks from each Bible book within the OSIS file
 if ($CREATE_SEPARATE_BOOKS) {
-  $thisXML = $XML_PARSER->parse_file("$OUTDIR/$MOD.xml");
+  $thisXML = $XML_PARSER->parse_file($OSISFILE);
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
   foreach my $aBook (@allBooks) {&setupAndMakeEbooks($aBook->getAttribute('osisID'));}
 }
@@ -54,7 +57,7 @@ sub setupAndMakeEbooks($) {
   make_path($tmp);
     
   # copy necessary files to tmp
-  &pruneFileOSIS("$OUTDIR/$MOD.xml", "$tmp/$MOD.xml", $scope, $ConfEntryP->{"Versification"});
+  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $ConfEntryP->{"Versification"});
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
   my $scopeTitle;
   if ($scope) {$scopeTitle = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml");}
@@ -147,7 +150,11 @@ sub ebookUpdateConf($$) {
   foreach my $abk (@bks) {
     my $k = $abk->getAttribute('osisID');
     if ($conv{$k}) {$title .= $sep.$conv{$k};}
-    $sep = "\n";
+    else {
+      my @t = $XPC->findnodes('//text()[1]/ancestor::osis:title', $abk);
+      if (@t) {$title .= $sep.@t[0]->textContent;}
+    }
+    if ($title) {$sep = "\n";}
   }
   my $t = $title; $t =~ s/\n/, /g;
   $conv{'Title'} .= ": $t";
