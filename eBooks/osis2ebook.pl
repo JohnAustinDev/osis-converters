@@ -1,7 +1,9 @@
 #!/usr/bin/perl
 
 
-# usage: osis2ebook.pl Directory Input_file Output_file_format [Book_type] [Cover_image]
+# usage: osis2ebook.pl ProjectDirectory LogFile Directory Input_file Output_file_format [Book_type] [Cover_image]
+#   ProjectDirectory is the path to the osis-converters project directory
+#   LogFile is the path to the osis-converters log file
 #   Directory is the directory containing the input file and associated configuration and css files
 #   Input_file is the name of the input file (this should include the .xml file extension)
 #   Output_file_format is 'epub', 'fb2' etc.
@@ -13,6 +15,12 @@
 # It creates an epub or fb2 ebook from an osis.xml input file and config file convert.txt located in the specified directory.
 # The css file, if present, must be in the same directory and named ebible.css when processing a Bible.
 # The output file is created in the same directory and has the same name as the input file with the appropriate extension (.epub, .fb2)
+
+
+$INPD = shift; $LOGFILE = shift;
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init(1);
 
 use File::Spec;
 $INPD = shift;
@@ -158,6 +166,7 @@ if (lc $OPTYPE eq "fb2")
 
 # Run conversion command
 print "$COMMAND\n";
+&Log("$COMMAND\n");
 system $COMMAND;
 
 # Perform post-processing for FB2
@@ -171,6 +180,7 @@ if (lc $OPTYPE eq "fb2")
   rename $OPF, $TEMPF;
   $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF $CSSFILE";
   print "$COMMAND\n";
+  &Log("$COMMAND\n");
   system $COMMAND;
   unlink $TEMPF;
 }

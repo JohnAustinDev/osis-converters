@@ -38,7 +38,9 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 
-sub init() {
+sub init($) {
+  my $quiet = shift;
+  
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
@@ -83,7 +85,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
   # if all dependencies are not met, this asks to run in Vagrant
-  &checkDependencies($SCRD, $SCRIPT, $INPD);
+  &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
   
   # init non-standard Perl modules now...
   use Sword;
@@ -94,8 +96,10 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
   make_path($TMPDIR);
   
-  &Log("osis-converters git rev: $GITHEAD\n\n");
-  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  if (!$quiet) {
+    &Log("osis-converters git rev: $GITHEAD\n\n");
+    &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  }
   
   if (-e "$INPD/$DICTIONARY_WORDS") {
     $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
@@ -169,10 +173,11 @@ sub initOutputFiles($$$$) {
 
 
 # Check if dependencies are met and if not, suggest to use Vagrant
-sub checkDependencies($$$) {
+sub checkDependencies($$$$) {
   my $scrd = shift;
   my $script = shift;
   my $inpd = shift;
+  my $quiet = shift;
 
   my %path;
   $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto osis-converters/paths.pl\n";
@@ -184,8 +189,10 @@ sub checkDependencies($$$) {
   
   foreach my $p (keys %path) {
     if (-e "/home/vagrant" && $$p) {
-      if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
-      else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
+      if (!$quiet) {
+        if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
+        else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
+      }
       $$p = '';
     }
     my $home = `echo \$HOME`; chomp($home);
@@ -220,7 +227,7 @@ sub checkDependencies($$$) {
     }
     elsif ($p eq 'MODULETOOLS_BIN') {
       $MODULETOOLS_GITHEAD = `git --git-dir="$MODULETOOLS_BIN../.git" --work-tree="$MODULETOOLS_BIN../" rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
-      &Log("Module-tools git rev: $MODULETOOLS_GITHEAD");
+      if (!$quiet) {&Log("Module-tools git rev: $MODULETOOLS_GITHEAD");}
     }
   }
   if ($failMes) {
