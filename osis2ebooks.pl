@@ -114,7 +114,7 @@ sub makeEbook($$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . $cover . " >> ".&escfile("$tmp/osis2ebook.pl.out");
+  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . $cover . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &Log($cmd."\n");
   system($cmd);
   
