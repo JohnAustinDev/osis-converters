@@ -142,12 +142,6 @@ while (<COMF>) {
 }
 close(COMF);
 
-if (!$osis_in) {
-  $osis_in = "$INPD/$MOD.xml";
-  if (! -e $osis_in) {die "ERROR: Default OSIS file \"$osis_in\" not found. Add the file, or specify one using the CCOSIS or OSIS_IN commands. Exiting...\n";}
-  copy($osis_in, "$TMPDIR/".$MOD."_1.xml");
-}
-
-require("$SCRD/scripts/add2osis.pl");
+if ($osis_in) {require("$SCRD/scripts/add2osis.pl");}
 
 1;
