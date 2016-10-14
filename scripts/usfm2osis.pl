@@ -85,6 +85,7 @@ sub usfm2osis($$) {
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
       $SFMfileGlob = $1;
       $SFMfileGlob =~ s/\\/\//g;
+      $SFMfileGlob =~ s/ /\\ /g; # spaces in file names are possible and need escaping
       if ($SFMfileGlob =~ /^\./) {
         $SFMfileGlob = File::Spec->rel2abs($SFMfileGlob, $INPD);
       }
@@ -145,7 +146,7 @@ sub evalRegex($) {
     push (@files, $df);
   }
   foreach my $f2 (@files) {
-    $outFiles .= $f2 . " ";
+    $outFiles .= "\"".$f2."\" ";
     
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
