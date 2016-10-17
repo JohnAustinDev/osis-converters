@@ -164,11 +164,21 @@ sub toVersificationBookOrder($$) {
         $vcounter++;
       }
     }
-    while ($insertBefore--) {
-      my $r = $bkch.'.'.($vfirst-$insertBefore-1);
-      &Log("WARNING: Inserting empty verse: \"$r\". Check if the previous verse element\nholds multiple verses, and if so, fix the USFM \\v tag using EVAL_REGEX.\n");
-      my $empty = $XML_PARSER->parse_balanced_chunk("<verse osisID=\"$r\" sID=\"$r\"/>.<verse eID=\"$r\"/>\n");
-      $verse->parentNode()->insertBefore($empty, $verse);
+    if ($insertBefore) {
+      my $v = ($vfirst-1-$insertBefore);
+      my $osisID = "$bkch.$v";
+      my @vsid = $XPC->findnodes('//osis:verse[@osisID="'.$osisID.'"]', $xml);
+      if (!@vsid) {&Log("ERROR: Problem locating verse osisID=\"".$osisID."\"\n");}
+      else {
+        my @veid = $XPC->findnodes('//osis:verse[@eID="'.@vsid[0]->getAttributeNode('sID')->getValue().'"]', $xml);
+        while ($insertBefore--) {
+          $v++;
+          my $id = "$bkch.$v";
+          my @ats = (@vsid[0]->getAttributeNode('osisID'), @vsid[0]->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
+          foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
+        }
+        &Log("WARNING: Missing verse(s). Changing verse osis='$osisID' to '".@vsid[0]->getAttribute('osisID')."'. You should check that this is intentional and not the result of a conversion problem!\n");
+      }
     }
   }
   
