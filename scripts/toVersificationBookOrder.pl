@@ -140,11 +140,11 @@ sub toVersificationBookOrder($$) {
     }
   }
   
-  # Don't check that all books/chapters/verses are included in this 
-  # OSIS file, but DO insure that all verses are in sequential order 
-  # without any skipping (required by GoBible Creator).
+  # Don't check that all books/chapters are included in this 
+  # OSIS file, but DO insure that all verses are accounted for and in 
+  # sequential order without any skipping (required by GoBible Creator).
   my @verses = $XPC->findnodes('//osis:verse[@osisID]', $xml);
-  my $lastbkch = '';
+  my $lastbkch=''; my $lastv=0; my $lastVerseTag='';
   my $vcounter;
   my %missingVerseReport;
   foreach my $verse (@verses) {
@@ -153,8 +153,10 @@ sub toVersificationBookOrder($$) {
     if ($osisID !~ /^([^\.]+\.\d+)\.(\d+)/) {&Log("ERROR: Can't read vfirst \"$v\"\n");}
     my $bkch = $1;
     my $vfirst = (1*$2);
-    if ($bkch ne $lastbkch) {$vcounter = 1;}
-    $lastbkch = $bkch;
+    if ($bkch ne $lastbkch) {
+      $vcounter = 1;
+      if ($lastbkch) {&checkLastVerse($lastbkch, $lastv, $lastVerseTag, $xml, $canonP, \%missingVerseReport);}
+    }
     foreach my $v (split(/\s+/, $osisID)) {
       if ($v !~ /^\Q$bkch\E\.(\d+)(\-(\d+))?$/) {&Log("ERROR: Can't read v \"$v\" in \"$osisID\"\n");}
       my $vv1 = (1*$1);
@@ -167,24 +169,12 @@ sub toVersificationBookOrder($$) {
         $vcounter++;
       }
     }
-    if ($insertBefore) {
-      my $v = ($vfirst-1-$insertBefore);
-      my $osisID = "$bkch.$v";
-      my @vsid = $XPC->findnodes('//osis:verse[@osisID="'.$osisID.'"]', $xml);
-      if (!@vsid) {&Log("ERROR: Problem locating verse osisID=\"".$osisID."\"\n");}
-      else {
-        $missingVerseReport{$osisID} = $osisID;
-        my @veid = $XPC->findnodes('//osis:verse[@eID="'.@vsid[0]->getAttributeNode('sID')->getValue().'"]', $xml);
-        while ($insertBefore--) {
-          $v++;
-          my $id = "$bkch.$v";
-          $missingVerseReport{$osisID} .= " $bkch.$v";
-          my @ats = (@vsid[0]->getAttributeNode('osisID'), @vsid[0]->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
-          foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
-        }
-      }
-    }
+    if ($insertBefore) {&spanVerses($lastVerseTag, $insertBefore, $xml, \%missingVerseReport);}
+    $lastbkch = $bkch;
+    $lastv = ($vcounter-1);
+    $lastVerseTag = $verse;
   }
+  &checkLastVerse($lastbkch, $lastv, $lastVerseTag, $xml, $canonP, \%missingVerseReport);
   
   &Log("\nREPORT: ".(keys %missingVerseReport)." instance(s) of missing verses in the USFM".((keys %missingVerseReport) ? ':':'.')."\n");
   if (%missingVerseReport) {
@@ -207,6 +197,45 @@ sub toVersificationBookOrder($$) {
   open(OUTF, ">$osis");
   print OUTF $t;
   close(OUTF);
+}
+
+sub checkLastVerse($$$$$) {
+  my $lastbkch = shift;
+  my $lastv = shift;
+  my $lastVerseTag = shift;
+  my $xml = shift;
+  my $canonP = shift;
+  my $missingVerseReportP = shift;
+  
+  if ($lastbkch =~ /^([^\.]+)\.(\d+)$/) {
+    my $lbk=$1; my $lch=(1*$2);
+    my $lastmaxv = (1*@{$canonP->{$lbk}}[($lch-1)]);
+    if ($lastv != $lastmaxv) {&spanVerses($lastVerseTag, ($lastmaxv - $lastv), $xml, $missingVerseReportP);}
+  }
+  else {&Log("ERROR: Bad bkch \"$lastbkch\"\n");}
+}
+
+sub spanVerses($$$\%) {
+  my $verse = shift;
+  my $n = shift;
+  my $xml = shift;
+  my $missingVerseReportP = shift;
+  
+  my $osisID = $verse->getAttribute('osisID');
+  
+  if ($n) {
+    if ($osisID !~ /\b([^\.]+\.\d+)\.(\d+)$/) {&Log("ERROR: Bad spanVerses osisID \"$osisID\"\n"); return;}
+    my $bkch = $1;
+    my $v = (1*$2);
+    $missingVerseReportP->{$osisID} = $osisID;
+    my @veid = $XPC->findnodes('//osis:verse[@eID="'.$verse->getAttributeNode('sID')->getValue().'"]', $xml);
+    while ($n--) {
+      $v++;
+      $missingVerseReportP->{$osisID} .= " $bkch.$v";
+      my @ats = ($verse->getAttributeNode('osisID'), $verse->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
+      foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
+    }
+  }
 }
 
 sub placeIntroduction($$) {
