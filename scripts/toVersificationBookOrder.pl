@@ -144,6 +144,7 @@ sub toVersificationBookOrder($$) {
   my @verses = $XPC->findnodes('//osis:verse[@osisID]', $xml);
   my $lastbkch = '';
   my $vcounter;
+  my %missingVerseReport;
   foreach my $verse (@verses) {
     my $insertBefore = 0;
     my $osisID = $verse->getAttribute('osisID');
@@ -174,11 +175,24 @@ sub toVersificationBookOrder($$) {
         while ($insertBefore--) {
           $v++;
           my $id = "$bkch.$v";
+          $missingVerseReport{$osisID} .= "$bkch.$v ";
           my @ats = (@vsid[0]->getAttributeNode('osisID'), @vsid[0]->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
           foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
         }
-        &Log("WARNING: Missing verse(s). Changing verse osis='$osisID' to '".@vsid[0]->getAttribute('osisID')."'. You should check that this is intentional and not the result of a conversion problem!\n");
       }
+    }
+  }
+  
+  &Log("\nREPORT: ".(keys %missingVerseReport)." instance(s) of missing verses in the USFM".((keys %missingVerseReport) ? ':':'.')."\n");
+  if (%missingVerseReport) {
+    &Log("NOTE: There are verses missing from the USFM, which are included in the \n");
+    &Log("$vsys verse system. For this reason, the osisIDs of verses previous to these \n");
+    &Log("missing verses have been updated to span the missing verses. These instances \n");
+    &Log("should be checked in the USFM to insure this is the intended result. Otherwise \n");
+    &Log("you need to adjust the USFM using EVAL_REGEX to somehow include the missing \n");
+    &Log("verses as required.\n");
+    foreach my $m (sort keys %missingVerseReport) {
+      &Log(sprintf("WARNING: %s has been appended to osisID %s\n", $missingVerseReport{$m}, $m));
     }
   }
   
