@@ -53,10 +53,13 @@ sub toVersificationBookOrder($$) {
   foreach my $removeBookGroup (@removeBookGroups) {$removeBookGroup->parentNode()->removeChild($removeBookGroup);}
   
   # create empty bookGroups
-  my @bookGroups;
-  push(@bookGroups, XML::LibXML::Element->new("div"));
-  push(@bookGroups, @bookGroups[0]->cloneNode());
-  foreach my $bookGroup (@bookGroups) {$bookGroup->setAttribute('type', 'bookGroup');}
+  my $bg = @books[0]->cloneNode(0); # start with book node to insure bookGroup has correct context
+  foreach my $a ($bg->attributes()) {
+    if ($a->nodeType != 2) {next;}
+    if ($a->nodeName eq "type") {$a->setValue('bookGroup');}
+    else {$bg->removeAttribute($a->nodeName);}
+  }
+  my @bookGroups = ($bg, $bg->cloneNode());
     
   # place all books back in canon order
   foreach my $v11nbk (@{$bookArrayP}) {
@@ -114,11 +117,10 @@ sub toVersificationBookOrder($$) {
           &Log("NOTE: Removing \"$int\" as requested\n");
           next;
         }
-        # div[@type"bookGroup"] were created without osis namespace (otherwise the resulting tags are monstrous) so here's a fix
-        $xpath =~ s/osis\:(div(\[[^\]]+\])*\[\@type=["']bookGroup["']\])/$1/g;
-        my @targXpath = $XPC->findnodes('//'.$xpath, $xml);
+        $xpath = '//'.$xpath;
+        my @targXpath = $XPC->findnodes($xpath, $xml);
         if (!@targXpath) {
-          &Log("ERROR: Removing intro! Could not locate \"$xpath\" $emsg\n");
+          &Log("ERROR: Removing intro! Could not locate xpath:\"$xpath\" $emsg\n");
           next;
         }
         if ($int eq 'introduction') {&placeIntroduction($intro, @targXpath[$#targXpath]);}
@@ -171,11 +173,12 @@ sub toVersificationBookOrder($$) {
       my @vsid = $XPC->findnodes('//osis:verse[@osisID="'.$osisID.'"]', $xml);
       if (!@vsid) {&Log("ERROR: Problem locating verse osisID=\"".$osisID."\"\n");}
       else {
+        $missingVerseReport{$osisID} = $osisID;
         my @veid = $XPC->findnodes('//osis:verse[@eID="'.@vsid[0]->getAttributeNode('sID')->getValue().'"]', $xml);
         while ($insertBefore--) {
           $v++;
           my $id = "$bkch.$v";
-          $missingVerseReport{$osisID} .= "$bkch.$v ";
+          $missingVerseReport{$osisID} .= " $bkch.$v";
           my @ats = (@vsid[0]->getAttributeNode('osisID'), @vsid[0]->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
           foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
         }
@@ -192,7 +195,7 @@ sub toVersificationBookOrder($$) {
     &Log("you need to adjust the USFM using EVAL_REGEX to somehow include the missing \n");
     &Log("verses as required.\n");
     foreach my $m (sort keys %missingVerseReport) {
-      &Log(sprintf("WARNING: %s has been appended to osisID %s\n", $missingVerseReport{$m}, $m));
+      &Log(sprintf("WARNING: osisID %12s became %s\n", $m, $missingVerseReport{$m}));
     }
   }
   
