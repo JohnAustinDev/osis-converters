@@ -23,15 +23,15 @@ require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init(1);
 
 use File::Spec;
-$INPD = shift;
-if ($INPD) {
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-  if (-d $INPD) {
-	chdir ($INPD);
+$RUNDIR = shift;
+if ($RUNDIR) {
+  $RUNDIR =~ s/[\\\/]\s*$//;
+  if ($RUNDIR =~ /^\./) {$RUNDIR = File::Spec->rel2abs($INPD);}
+  if (-d $RUNDIR) {
+	chdir ($RUNDIR);
   }
   else {
-	print "Directory $INPD does not exist\n";
+	print "Directory $RUNDIR does not exist\n";
 	exit;
   }
 }

@@ -1,3 +1,5 @@
+&updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
+
 if ($MODDRV =~ /LD/) {
   # create DictionaryWords.xml if needed
   &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");

@@ -24,24 +24,8 @@ sub addDictLinks($$) {
   &Log("READING OSIS FILE: \"$in_file\".\n");
   &Log("WRITING OSIS FILE: \"$out_file\".\n");
   
-  my @entries = $XPC->findnodes('//entry[@osisRef]', $DWF);
-  
   my $xml = $XML_PARSER->parse_file($in_file);
-  my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
-  
-  # add all dict modules to in_file's osis work header
-  my %didDict;
-  foreach my $entry (@entries) {
-    my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
-    foreach my $dict (@dicts) {
-      if ($dict !~ s/^(\w+):.*$/$1/) {&Log("ERROR: osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module\n"); die;}
-      if (!$didDict{$dict}) {
-        $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work osisWork=\"$dict\"><type type=\"x-glossary\">Glossary</type></work>"), NULL);
-      }
-      $didDict{$dict}++;
-    }
-  }
-  
+
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");

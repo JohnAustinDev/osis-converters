@@ -27,8 +27,8 @@ sub checkUpdateIntros($) {
   my $xml = $XML_PARSER->parse_file($osis);
   my @elems = $XPC->findnodes('//*', $xml);
  
-  # report relevant intro elements which are not subType="x-introduction" and make them such
-  # also add canonical=false as needed
+  # Report relevant intro elements which are not subType="x-introduction" and make them such.
+  # Also add canonical=false as needed.
   my $inIntro = 1;
   for (my $x=0; $x<@elems; $x++) {
     my $elem = @elems[$x];

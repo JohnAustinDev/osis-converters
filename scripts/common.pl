@@ -103,7 +103,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if (-e "$INPD/$DICTIONARY_WORDS") {
     $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-    if (&validateDictionaryXML($DWF)) {&Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");}
+    if (&validateDictionaryXML($DWF) && !$quiet) {
+      &Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");
+    }
   }
 }
 
@@ -239,6 +241,14 @@ sub checkDependencies($$$$) {
 
 sub validateDictionaryXML($) {
   my $dwf = shift;
+  
+  my @entries = $XPC->findnodes('//entry[@osisRef]', $dwf);
+  foreach my $entry (@entries) {
+    my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
+    foreach my $dict (@dicts) {
+      if ($dict !~ s/^(\w+):.*$/$1/) {&Log("ERROR: osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module\n");}
+    }
+  }
   
   my $success = 1;
   my $x = "//*";
@@ -2228,6 +2238,91 @@ sub emptyvss($) {
     &Log("$r\nEntire missing books: ".($missingBKs ? $missingBKs:'none')."\nEND EMPTYVSS OUTPUT\n", -1);
   }
   else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
+}
+
+
+sub updateOsisHeader($) {
+  my $osis = shift;
+  
+  &Log("\nUpdating work and companion work elements in OSIS header:\n");
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  
+  my @uds = ('osisRefWork', 'osisIDWork');
+  foreach my $ud (@uds) {
+    my @orw = $XPC->findnodes('//osis:osisText[@'.$ud.']', $xml);
+    if (!@orw || @orw > 1) {&Log("ERROR: The osisText element's $ud is not being updated to \"$MOD\"\n");}
+    else {
+      &Log("Updated $ud=\"$MOD\"\n");
+      @orw[0]->setAttribute($ud, $MOD);
+    }
+  }
+  
+  # Remove any unknown work elements
+  @keep = ($MOD, split(/\s*,\s*/, $ConfEntryP->{'Companion'}));
+  my %keep = map { $_ => 1 } @keep;
+  foreach my $we (@{$XPC->findnodes('//*[local-name()="work"]', $xml)}) {
+    if ($keep{$we->getAttribute('osisWork')}) {next;}
+    &Log("WARNING: Removing un-applicable work element:".$we."\n");
+    $we->unbindNode();
+  }
+  
+  # Add work element for self
+  &updateWorkElement($MOD, $ConfEntryP, $xml);
+  
+  # Add work element for any companion(s)
+  if ($ConfEntryP->{'Companion'}) {
+    my @comps = split(/\s*,\s*/, $ConfEntryP->{'Companion'});
+    foreach my $comp (@comps) {
+      if ($comp !~ /^\S+/) {next;}
+      my $path = "$INPD/$comp/config.conf";
+      if (! -e $path) {$path = "$INPD/../$comp/config.conf";}
+      if (! -e $path) {$path = "$INPD/../../$comp/config.conf";}
+      if (-e $path) {
+        &updateWorkElement($comp, &readConf($path), $xml);
+      }
+      else {&Log("ERROR: Could not locate Companion \"$comp\" conf at \"$path\"\n");}
+    }
+  }
+  
+  if (open(OUTF, ">$osis")) {
+    print OUTF $xml->toString();
+    close(OUTF);
+  }
+  else {&Log("ERROR: Could not open \"$osis\" to add osisWorks to header!\n");}
+}
+
+
+sub updateWorkElement($\%$) {
+  my $mod = shift;
+  my $confP = shift;
+  my $xml = shift;
+  
+  my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
+  
+  # get or create the work element
+  my $work;
+  my @ws = $XPC->findnodes('./*[local-name()="work"][@osisWork="'.$mod.'"]', $header);
+  if (@ws) {$work = @ws[0];}
+  else {
+    $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work osisWork=\"$mod\"></work>"), NULL);
+  }
+
+  # add type field
+  if (!@{$XPC->findnodes('./*[local-name()="type"]', $work)}) {
+    my $type;
+    if    ($confP->{'ModDrv'} =~ /LD/)   {$type = "<type type=\"x-glossary\">Glossary</type>";}
+    elsif ($confP->{'ModDrv'} =~ /Text/) {$type = "<type type=\"x-bible\">Bible</type>";}
+    elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = "<type type=\"x-childrens-bible\">Children's Bible</type>";}
+    elsif ($confP->{'ModDrv'} =~ /Com/) {$type = "<type type=\"x-commentary\">Commentary</type>";}
+    if ($type) {
+      $work->insertAfter($XML_PARSER->parse_balanced_chunk($type), NULL);
+    }
+  }
+
+  my $w = $work->toString(); 
+  $w =~ s/\n//g;
+  &Log("Updated: $w\n");
 }
 
 
