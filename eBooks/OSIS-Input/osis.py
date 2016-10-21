@@ -233,7 +233,7 @@ class OsisHandler(handler.ContentHandler):
             
             # If the image file spec starts with "images/", remove it,
             # as this is already in _context.config.imgFileDir
-            source = re.sub('^images/','',source)
+            source = re.sub('^(\./|/)?images/','',source)
             
             # Copy the image file to the current directory
             fullFileSpec = self._context.config.imgFileDir + '/' + source   

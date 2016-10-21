@@ -2186,6 +2186,20 @@ sub fragmentToString($$) {
 }
 
 
+# Look for the named companion's config.conf directory, or return null if not found
+sub findCompanionDirectory($) {
+  my $comp = shift;
+  if (!$comp || $comp !~ /^\S+/) {return NULL;}
+  
+  my $path = "$INPD/$comp";
+  if (! -e "$path/config.conf") {$path = "$INPD/../$comp";}
+  if (! -e "$path/config.conf") {$path = "$INPD/../../$comp";}
+  if (! -e "$path/config.conf") {return NULL;}
+  
+  return $path;
+}
+
+
 sub emptyvss($) {
   my $dir = shift;
   
@@ -2274,14 +2288,12 @@ sub updateOsisHeader($) {
   if ($ConfEntryP->{'Companion'}) {
     my @comps = split(/\s*,\s*/, $ConfEntryP->{'Companion'});
     foreach my $comp (@comps) {
-      if ($comp !~ /^\S+/) {next;}
-      my $path = "$INPD/$comp/config.conf";
-      if (! -e $path) {$path = "$INPD/../$comp/config.conf";}
-      if (! -e $path) {$path = "$INPD/../../$comp/config.conf";}
-      if (-e $path) {
-        &updateWorkElement($comp, &readConf($path), $xml);
+      my $path = &findCompanionDirectory($comp);
+      if (!$path) {
+        &Log("ERROR: Could not locate Companion \"$comp\" conf from \"$INPD\"\n");
+        next;
       }
-      else {&Log("ERROR: Could not locate Companion \"$comp\" conf at \"$path\"\n");}
+      &updateWorkElement($comp, &readConf("$path/config.conf"), $xml);
     }
   }
   

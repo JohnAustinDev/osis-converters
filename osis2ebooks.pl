@@ -38,36 +38,42 @@ my %conv = &ebookReadConf("$INPD/eBook/convert.txt");
 $CREATE_FULL_BIBLE = (!defined($conv{'CreateFullBible'}) || $conv{'CreateFullBible'} !~ /^(false|0)$/i);
 $CREATE_SEPARATE_BOOKS = (!defined($conv{'CreateSeparateBooks'}) || $conv{'CreateSeparateBooks'} !~ /^(false|0)$/i);
 
-if ($CREATE_FULL_BIBLE) {&setupAndMakeEbooks();}
+if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook();}
 
 # also make separate eBooks from each Bible book within the OSIS file
 if ($CREATE_SEPARATE_BOOKS) {
   $thisXML = $XML_PARSER->parse_file($OSISFILE);
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
-  foreach my $aBook (@allBooks) {&setupAndMakeEbooks($aBook->getAttribute('osisID'));}
+  foreach my $aBook (@allBooks) {&setupAndMakeEbook($aBook->getAttribute('osisID'));}
 }
 
 ########################################################################
 ########################################################################
 
-sub setupAndMakeEbooks($) {
+sub setupAndMakeEbook($) {
   my $scope = shift;
   
   my $tmp = "$TMPDIR/".($scope ? $scope:'all');
   make_path($tmp);
     
-  # copy necessary files to tmp
   &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $ConfEntryP->{"Versification"});
+  
+  # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
   my $scopeTitle;
   if ($scope) {$scopeTitle = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml");}
+  
+  # copy css
   my $css = "$SCRD/eBooks/css";
-  # see if a more specific eBook css exists 
   if (-e "$INPD/eBook/css") {$css = "$INPD/eBook/css";}
   elsif (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
   elsif (-e "$INPD/../../defaults/eBook/css") {$css = "$INPD/../../defaults/eBook/css";}
   copy_dir($css, "$tmp/css");
+  
+  # copy images
   if (-d "$INPD/images") {&copy_dir("$INPD/images", "$tmp/images", 1, 1);}
+  
+  # copy cover
   my $cover;
   if (-e "$INPD/eBook/cover.jpg") {
     $cover = "$tmp/cover.jpg";
@@ -86,17 +92,34 @@ sub setupAndMakeEbooks($) {
     else {copy("$INPD/eBook/cover.jpg", $cover);}
   }
 
-  # locate files for any dictionaries and copy these
   foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
     my $outf;
     
+    # copy companion OSIS file
     my $outd = $OUTDIR;
     $outd =~ s/$MOD/$companion/;
     if (-e "$outd/$companion.xml") {$outf = "$outd/$companion.xml";}
     elsif (-e "$INPD/$companion/output/$companion.xml") {$outf = "$INPD/$companion/output/$companion.xml";}
     else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
-    
     if ($outf) {copy($outf, "$tmp/$companion.xml");}
+    
+    # copy companion images
+    my $compDir = &findCompanionDirectory($companion);
+    if (!$compDir) {next;}
+    if (-d "$compDir/images") {
+      if (-e "$tmp/images") {
+        if (opendir(IDIR, "$compDir/images")) {
+          my @images = readdir(IDIR);
+          closedir(IDIR);
+          foreach my $image (@images) {
+            if (! -e "$tmp/images/$image") {next;}
+            &Log("ERROR: Images cannot have the same name:\"$compDir/images/$image\" and \"$tmp/images/$image\".\n");
+          }
+        }
+        else {&Log("ERROR: Cannot open image directory \"$compDir/images\"\n");}
+      }
+      &copy_dir("$compDir/images", "$tmp/images", 1, 1);
+    }
   }
 
   # run the converter
