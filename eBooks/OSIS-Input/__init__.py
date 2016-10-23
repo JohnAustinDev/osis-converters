@@ -15,7 +15,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS files to ebooks'
-    version = (2, 1, 1)
+    version = (2, 1, 2)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['windows', 'linux']
@@ -141,7 +141,7 @@ class OsisInput(InputFormatPlugin):
             else:
                 print 'Unrecognised font type: %s' % ff
         for pf in self.context.imageFiles:
-            imageIdEnd = pf.rfind('.') - 1
+            imageIdEnd = pf.rfind('.')
             imageId = pf[:imageIdEnd]
             oh.write('    <item href="%s" id="img%s" media-type="%s"/>\n' % (pf, imageId, self._getImageMime(pf)))
         oh.write('''  </manifest>
