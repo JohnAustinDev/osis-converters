@@ -55,6 +55,8 @@ class ConversionConfig:
         self.glossaryTitle = u'Cловарь'
         self.glossTitleSet = False
         self.groupTitles =False
+        self.glossEntriesInToc = True
+        self.glossEntriesInTocFb2 = False
                       
         cfile = codecs.open(configFilePath, 'r', encoding="utf-8")  
         config = cfile.read().strip()
@@ -162,8 +164,16 @@ class ConversionConfig:
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
-
                 self.optionalBreaks = True
+                
+        m = re.search(r"^\s*GlossEntriesInToc=\s*(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            torf = m.group(1).strip().lower()
+            if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
+                self.glossEntriesInTocFb2 = True
+            elif torf == 'false' or torf == 'f' or torf == 'no' or torf == 'n':
+                self.glossEntriesInToc = False
+
         
         #
         # The location for image files will be in the image subdirectory
@@ -171,6 +181,7 @@ class ConversionConfig:
         lastSlash = configFilePath.rfind("/")
         self.imgFileDir = configFilePath[:lastSlash] + "/images"
         
+
     def bookTitle(self, bookRef):
         if bookRef in self.books:
             return self.books[bookRef]
