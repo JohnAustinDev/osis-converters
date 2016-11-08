@@ -143,14 +143,14 @@ foreach $line (<COMF>) {
   $line = lc $line;
   if ($line =~ /^group\d\s*=/) {
     #Testament headings used
-	$COMMAND .= " --level1-toc //h:h1 --level2-toc //h:h2 --level3-toc //*[\@chapter]/\@chapter";
+	$COMMAND .= '--level1-toc //h:h1 --level2-toc "//h:h2 | //*[@toclevel=\"2\"]" --level3-toc "//*[@toclevel=\"3\"] | //*[@chapter]/@chapter"';
 	$foundgroup = 1;
 	last;
   }
 }
 close(COMF);
 if (!$foundgroup) {
-  $COMMAND .= ' --level1-toc //h:h2 --level2-toc //*[@chapter]/@chapter';
+  $COMMAND .= ' --level1-toc //h:h2 --level2-toc "//*[@toclevel=\"2\"] | //*[@chapter]/@chapter" --level3-toc "//*[@toclevel=\"3\"]"';
 }
 
 # Add cover image if required
