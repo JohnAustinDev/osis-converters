@@ -376,7 +376,7 @@ sub checkAndWriteDefaults($) {
         if ($USFM{$type}{$f}{'peripheralID'}) {
           print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
           print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
-          my $xpath = "introduction == osis:div[\@type='book'][\@osidID='Gen']";
+          my $xpath = "introduction == osis:div[\@type='book'][\@osisID='Gen']";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
