@@ -120,7 +120,7 @@ else {
  exit;
 }
 
-$COMMAND = "ebook-convert $INPF $OPF --config-file $CONFILE --output-fmt $OPTYPE";
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE";
 # Start forming the command string
 
 # Check if the CSS file exists
@@ -128,7 +128,7 @@ $CSSFILE = "e$IPTYPE.css";
 if (! -e $CSSFILE) {$CSSFILE = "./css/e$IPTYPE.css";}
 if (-e $CSSFILE) {
   $CSSFILE = File::Spec->rel2abs($CSSFILE);
-  $COMMAND .= " --css-file $CSSFILE ";
+  $COMMAND .= " --css-file ".&escfile($CSSFILE)." ";
 }
 else {
   print "WARNING: Proceding without CSS file as no file found\n"
@@ -155,7 +155,7 @@ if (!$foundgroup) {
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {
-  $COMMAND .= " --cover $COVER";
+  $COMMAND .= " --cover ".&escfile($COVER);
 }
 
 # Add options for FB2 output
@@ -178,7 +178,7 @@ if (lc $OPTYPE eq "fb2")
   
   # Rename output file to temp file and pre-process to give new output file
   rename $OPF, $TEMPF;
-  $COMMAND = "$CBD/scripts/fb2postproc.py $TEMPF $OPF $CSSFILE";
+  $COMMAND = "$CBD/scripts/fb2postproc.py ".&escfile($TEMPF)." ".&escfile($OPF)." ".&escfile($CSSFILE);
   print "$COMMAND\n";
   &Log("$COMMAND\n");
   system $COMMAND;
