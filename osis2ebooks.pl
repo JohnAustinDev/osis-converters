@@ -124,7 +124,7 @@ sub setupAndMakeEbook($$$) {
     if ($scope && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
       &Log("\nREPORT: Using \"$covname.jpg\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
-      my $imagewidth = 600;
+      my $imagewidth = `identify "$INPD/eBook/$covname.jpg"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($scopeTitle);
       if ($pointsize > 40) {$pointsize = 40;}
       elsif ($pointsize < 10) {$pointsize = 10;}
