@@ -33,6 +33,11 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 
   require("$SCRD/scripts/toVersificationBookOrder.pl");
   &toVersificationBookOrder($VERSESYS, $OUTOSIS);
+  
+  if ($MODDRV =~ /Text/) {
+    require("$SCRD/scripts/checkUpdateIntros.pl");
+    &checkUpdateIntros($OUTOSIS);
+  }
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
