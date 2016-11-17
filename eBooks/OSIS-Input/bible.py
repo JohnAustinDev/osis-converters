@@ -189,7 +189,7 @@ class BibleHandler(OsisHandler):
                         
             elif self._inChapterTitle:
                 chAttribute =''
-                if not self._chTitleWritten:
+                if not self._chHeadingWritten:
                     chAttribute = 'chapter="%s" ' % self._docStructure.chapter
                 self._chapterTitle = '<h3 %s class="x-chapter-title">%s</h3>' % (chAttribute, self._chapterTitle)
                 if self._chFootnoteMarker != '':
@@ -343,8 +343,7 @@ class BibleHandler(OsisHandler):
                     titleFormat = self._context.config.chapterTitle
                 if titleFormat != '':
                     title = titleFormat % self._docStructure.chapter
-                    self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)
-                    self._chHeadingWritten = True              
+                    self._chapterTitle = '<h3 chapter="%s" class="x-chapter-title">%s</h3><br />' % (self._docStructure.chapter, title)             
      
                 self._bibleStarting = False
                 self._firstBook = False
@@ -690,6 +689,7 @@ class BibleHandler(OsisHandler):
         self._htmlWriter.write(self._chapterTitle)
         self._chapterTitle = ''
         self._chTitleWritten = True
+        self._chHeadingWritten = True
         self._breakCount = 2
         
     def _startVerse(self, verse):
