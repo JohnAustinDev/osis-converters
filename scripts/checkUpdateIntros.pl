@@ -19,8 +19,9 @@
 sub checkUpdateIntros($) {
   my $osis = shift;
   
-  my %report;
-  my $total=0;
+  my %report1, %report2;
+  my $total1=0;
+  my $total2=0;
 
   &Log("\n\nChecking introductory material in \"$osis\".\n");
 
@@ -35,7 +36,14 @@ sub checkUpdateIntros($) {
     if    ($elem->nodeName() eq 'div' && $elem->getAttribute('type') eq 'bookGroup') {$inIntro = 1; next;}
     elsif ($elem->nodeName() eq 'div' && $elem->getAttribute('type') eq 'book') {$inIntro = 1; next;}
     elsif ($elem->nodeName() eq 'chapter' && $elem->getAttribute('osisID') =~ /^[^\.]+\.1\s*$/) {$inIntro = 0; next;}
-    elsif (!$inIntro) {next;}
+    elsif (!$inIntro) {
+      if ($elem->nodeName() =~ /^(title|item|p|l|q)$/ && $elem->getAttribute('subType') eq 'x-introduction') {
+        $elem->removeAttribute('subType');
+        $report2{$elem->nodeName()}++;
+        $total2++;
+      }
+      next;
+    }
     elsif ($elem->nodeName() !~ /^(title|item|p|l|q)$/) {next;} # these are the introduction elements output by usfm2osis.py:
 
     if ($XPC->findnodes('ancestor::osis:div[@type="book"][@canonical="true"]', $elem) && !$elem->hasAttribute('canonical')) {
@@ -51,7 +59,10 @@ sub checkUpdateIntros($) {
         $n++;
       }
       if (@elems[$n+1]->nodeName() eq 'chapter') {
-        &Log("NOTE: Section title(s) at end of introduction were left without subType=\"x-introduction\".\n");
+        @elems[$n+1]->unbindNode();
+        my $sectionDiv = &isSectionTitle(@elems[$x]);
+        $sectionDiv->parentNode()->insertBefore(@elems[$n+1], $sectionDiv);
+        &Log("NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:\n\t".@elems[$n+1]."\n\t".$elem."\n");
         $x = $n;
         next;
       }
@@ -59,8 +70,8 @@ sub checkUpdateIntros($) {
     
     if (!$elem->hasAttribute('subType')) {
       $elem->setAttribute('subType', 'x-introduction');
-      $report{$elem->nodeName()}++;
-      $total++;
+      $report1{$elem->nodeName()}++;
+      $total1++;
     }
     
   }
@@ -75,13 +86,22 @@ sub checkUpdateIntros($) {
   print OUTF $t;
   close(OUTF);
   
-  &Log("\nREPORT: $total instance(s) of non-introduction USFM tags used in introductions".($total ? ':':'.')."\n");
-  if ($total) {
+  &Log("\nREPORT: $total1 instance(s) of non-introduction USFM tags used in introductions".($total1 ? ':':'.')."\n");
+  if ($total1) {
     &Log("NOTE: Some USFM tags used for introductory material were not proper introduction\n");
     &Log("tags. But these have been handled by adding subType=\"x-introduction\" to resulting\n");
     &Log("OSIS elements, so changes to USFM source are not required.\n");
-    foreach my $k (sort keys %report) {
-      &Log(sprintf("WARNING: Added subType=\"x-introduction\" to %5i %4s elements.\n", $report{$k}, $k));
+    foreach my $k (sort keys %report1) {
+      &Log(sprintf("WARNING: Added subType=\"x-introduction\" to %5i %4s elements.\n", $report1{$k}, $k));
+    }
+  }
+  
+  &Log("\nREPORT: $total2 instance(s) of introduction USFM tags used outside of introductions".($total2 ? ':':'.')."\n");
+  if ($total2) {
+    &Log("NOTE: These have been handled by removiong subType=\"x-introduction\" to resulting\n");
+    &Log("OSIS elements, so changes to USFM source are not required.\n");
+    foreach my $k (sort keys %report2) {
+      &Log(sprintf("WARNING: Removed subType=\"x-introduction\" to %5i %4s elements.\n", $report2{$k}, $k));
     }
   }
 }
@@ -91,7 +111,7 @@ sub isSectionTitle($) {
   my @p = $XPC->findnodes('parent::osis:div', $t);
   if (!@p) {return 0;}
   if (@p[0]->getAttribute('type') !~ /section/i) {return 0;}
-  return @p[0]->firstChild()->isEqual($t);
+  return (@p[0]->firstChild()->isEqual($t) ? @p[0]:0);
 }
 
 1;
