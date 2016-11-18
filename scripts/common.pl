@@ -836,7 +836,7 @@ sub updateConfData(\%$) {
         if ($sourceType eq 'OSIS') {&Log("ERROR: Unable to determine OSIS version from \"$moduleSource\"\n");}
       }
       else {
-        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+)\.xsd$/$1/i;
+        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
         &setConfValue($entryValueP, 'OSISVersion', $vers, 1);
       }
       if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
