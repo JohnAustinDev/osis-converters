@@ -1,6 +1,8 @@
 &updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
 
 if ($MODDRV =~ /LD/) {
+  copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_0.xml");
+  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
   # create DictionaryWords.xml if needed
   &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
   &compareToDictWordsFile("$TMPDIR/".$MOD."_1.xml");

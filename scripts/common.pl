@@ -1108,42 +1108,42 @@ sub getOsisName($$) {
 }
 
 sub getCanon($\%\%\%\@) {
-  my $VSYS = shift;
+  my $vsys = shift;
   my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
   my $bookOrderPP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
   my $testamentPP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
   my $bookArrayPP = shift; # array pointer: OSIS-book-names in verse system order starting with index 1!!
   
-  if (! %{$CANON_CACHE{$VSYS}}) {
-    if (!&isValidVersification($VSYS)) {return 0;}
+  if (! %{$CANON_CACHE{$vsys}}) {
+    if (!&isValidVersification($vsys)) {return 0;}
     
     my $vk = new Sword::VerseKey();
-    $vk->setVersificationSystem($VSYS);
+    $vk->setVersificationSystem($vsys);
     
     for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
       my $t, $bkt;
       if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
       else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
-      $CANON_CACHE{$VSYS}{'bookOrder'}{$bkname} = ($bk+1);
-      $CANON_CACHE{$VSYS}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
+      $CANON_CACHE{$vsys}{'bookOrder'}{$bkname} = ($bk+1);
+      $CANON_CACHE{$vsys}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
       my $chaps = [];
       for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
         # NOTE: CHAPTER 1 IN ARRAY IS INDEX 0!!!
         push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
       }
-      $CANON_CACHE{$VSYS}{'canon'}{$bkname} = $chaps;
+      $CANON_CACHE{$vsys}{'canon'}{$bkname} = $chaps;
     }
   }
   
-  @{$CANON_CACHE{$VSYS}{'bookArray'}} = ();
-  foreach my $bk (keys %{$CANON_CACHE{$VSYS}{'bookOrder'}}) {
-    @{$CANON_CACHE{$VSYS}{'bookArray'}}[$CANON_CACHE{$VSYS}{'bookOrder'}{$bk}] = $bk;
+  @{$CANON_CACHE{$vsys}{'bookArray'}} = ();
+  foreach my $bk (keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
+    @{$CANON_CACHE{$vsys}{'bookArray'}}[$CANON_CACHE{$vsys}{'bookOrder'}{$bk}] = $bk;
   }
   
-  if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$VSYS}{'canon'}};}
-  if ($bookOrderPP) {$$bookOrderPP = \%{$CANON_CACHE{$VSYS}{'bookOrder'}};}
-  if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$VSYS}{'testament'}};}
-  if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$VSYS}{'bookArray'}};}
+  if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$vsys}{'canon'}};}
+  if ($bookOrderPP) {$$bookOrderPP = \%{$CANON_CACHE{$vsys}{'bookOrder'}};}
+  if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$vsys}{'testament'}};}
+  if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$vsys}{'bookArray'}};}
 
   return 1;
 }
@@ -1759,6 +1759,92 @@ sub logDictLinks() {
   }
   &Log("REPORT: Links created: ($gt instances)\n$p");
   
+}
+
+
+sub aggregateRepeatedEntries($) {
+  my $osis = shift;
+  
+  &Log("\n\nAggregating duplicate keywords in glosary OSIS file \"$osis\".\n");
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+  
+  # Find any duplicate entries (case insensitive)
+  my %entries, %duplicates;
+  foreach my $k (@keys) {
+    my $uck = uc($k->textContent);
+    if (!defined($entries{$uck})) {$entries{$uck} = $k;}
+    else {
+      if (!defined($duplicates{$uck})) {
+        push(@{$duplicates{$uck}}, $entries{$uck});
+      }
+      push(@{$duplicates{$uck}}, $k);
+    }
+  }
+  
+  my $count = scalar keys %duplicates;
+  if ($count) {
+    # create new glossary div for aggregated entries
+    my $glossDiv = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
+    @{$XPC->findnodes('//osis:osisText', $xml)}[0]->appendChild($glossDiv);
+    
+    foreach my $uck (keys %duplicates) {
+      my $haveKey = 0;
+      my $n = 1;
+      foreach my $dk (sort sortKeywordsByBook @{$duplicates{$uck}}) {
+        my @move;
+        my @elements = $XPC->findnodes('./following::node()', $dk);
+        my @titleElem = $XPC->findnodes('./parent::osis:div[@type="glossary"]/following::osis:title[1]', $dk);
+        my $title = (@titleElem ? ' (' . @titleElem[0]->textContent . ')':'');
+        my $context = &getGlossaryContext($dk);
+        push(@move, $dk);
+        push(@move, $XML_PARSER->parse_balanced_chunk("<lb/>$n)$title: "));
+        foreach my $e (@elements) {
+          if (($e->nodeName() eq 'seg' && $e->getAttribute('type') eq 'keyword') ||
+              !$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $e)) {last;}
+          push(@move, $e);
+        }
+        foreach my $a (@move) {
+          $a->unbindNode();
+          if ($a->isEqual($dk)) {
+            if ($haveKey) {next;}
+            $haveKey = $a;
+          }
+          $glossDiv->appendChild($a);
+        }
+        $n++;
+      }
+    }
+    open(OUTF, ">$osis");
+    print OUTF $xml->toString();
+    close(OUTF);
+    
+    &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
+    foreach my $uck (keys %duplicates) {&Log("$uck\n");}
+  }
+  else {&Log("REPORT: Entry aggregation isn't needed, all keywords are unique (case insensitive keyword comparison).\n");}
+}
+
+sub getGlossaryContext($) {
+  my $dk = shift;
+  my @contextAttr = $XPC->findnodes('./parent::osis:div[@type="glossary"]/@context', $dk);
+  return (@contextAttr ? @contextAttr[0]->getValue():'');
+}
+
+sub sortKeywordsByBook($$) {
+  my $a = shift;
+  my $b = shift;
+  
+  $a = &getGlossaryContext($a); $a =~ s/^([^\.\-]+).*?$/$1/;
+  $b = &getGlossaryContext($b); $b =~ s/^([^\.\-]+).*?$/$1/;
+  
+  my $bookOrderP;
+  &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+  $a = ($a && defined($bookOrderP->{$a}) ? $bookOrderP->{$a}:0);
+  $b = ($b && defined($bookOrderP->{$b}) ? $bookOrderP->{$b}:0);
+  
+  return $a <=> $b;
 }
 
 
