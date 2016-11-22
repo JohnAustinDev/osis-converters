@@ -281,12 +281,11 @@ sub addScripRefLinks($$) {
     
     # search for Scripture references in this text node and add newReference tags around them
     my $text = $textNode->data();
-    my $contextBookOK = ($XPC->findnodes('ancestor-or-self::osis:reference', $textNode) ? 1:0);
-    &addLinks(\$text, $BK, $CH, $contextBookOK);
+    my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
+    &addLinks(\$text, $BK, $CH, $isAnnotateRef);
     if ($text eq $textNode->data()) {
       # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern 
       # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
-      my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
       if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
       $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
     }
@@ -470,12 +469,12 @@ sub addScripRefLinks($$) {
 # 5) REASSEMBLE THE EXTENDED REFERENCE USING OSIS LINKS
 # 6) REPEAT FROM STEP 1 UNTIL NO MORE REFERENCES ARE FOUND
 sub addLinks(\$$$) {
-	my $tP = shift;
-	my $bk = shift;
-	my $ch = shift;
+  my $tP = shift;
+  my $bk = shift;
+  my $ch = shift;
   my $contextBookOK = shift;
 
-	if ($onlyLine && $line != $onlyLine) {return;}
+  if ($onlyLine && $line != $onlyLine) {return;}
 #&Log("$line: addLinks $bk, $ch, $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
@@ -491,21 +490,21 @@ sub addLinks(\$$$) {
       if (!&termAcceptable($matchedTerm, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
       
       #  Look at unhandledBook
-      if (!$contextBookOK && $unhandledBook) {
+      if ($unhandledBook) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;
         $ubk =~ s/^.*\($/(/;
         $UnhandledWords{$ubk} .= $line.", ";
-        if ($require_book || $unhandledBook =~ /$skipUnhandledBook/) { # skip if its a tag- this could be a book name, but we can't include it in the link
+        if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
           &Log("$line WARNING $BK.$CH.$VS: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
-        else {
-          &Log("$line NOTE $BK.$CH.$VS: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+        elsif (!$contextBookOK) {
+          &Log("$line WARNING $BK.$CH.$VS: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
         }
-      }	
+      }
 
       my $mtENC = quotemeta($matchedTerm);
       
