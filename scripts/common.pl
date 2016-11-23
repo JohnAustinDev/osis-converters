@@ -1762,92 +1762,6 @@ sub logDictLinks() {
 }
 
 
-sub aggregateRepeatedEntries($) {
-  my $osis = shift;
-  
-  &Log("\n\nAggregating duplicate keywords in glosary OSIS file \"$osis\".\n");
-  
-  my $xml = $XML_PARSER->parse_file($osis);
-  my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
-  
-  # Find any duplicate entries (case insensitive)
-  my %entries, %duplicates;
-  foreach my $k (@keys) {
-    my $uck = uc($k->textContent);
-    if (!defined($entries{$uck})) {$entries{$uck} = $k;}
-    else {
-      if (!defined($duplicates{$uck})) {
-        push(@{$duplicates{$uck}}, $entries{$uck});
-      }
-      push(@{$duplicates{$uck}}, $k);
-    }
-  }
-  
-  my $count = scalar keys %duplicates;
-  if ($count) {
-    # create new glossary div for aggregated entries
-    my $glossDiv = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
-    @{$XPC->findnodes('//osis:osisText', $xml)}[0]->appendChild($glossDiv);
-    
-    foreach my $uck (keys %duplicates) {
-      my $haveKey = 0;
-      my $n = 1;
-      foreach my $dk (sort sortKeywordsByBook @{$duplicates{$uck}}) {
-        my @move;
-        my @elements = $XPC->findnodes('./following::node()', $dk);
-        my @titleElem = $XPC->findnodes('./parent::osis:div[@type="glossary"]/following::osis:title[1]', $dk);
-        my $title = (@titleElem ? ' (' . @titleElem[0]->textContent . ')':'');
-        my $context = &getGlossaryContext($dk);
-        push(@move, $dk);
-        push(@move, $XML_PARSER->parse_balanced_chunk("<lb/>$n)$title: "));
-        foreach my $e (@elements) {
-          if (($e->nodeName() eq 'seg' && $e->getAttribute('type') eq 'keyword') ||
-              !$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $e)) {last;}
-          push(@move, $e);
-        }
-        foreach my $a (@move) {
-          $a->unbindNode();
-          if ($a->isEqual($dk)) {
-            if ($haveKey) {next;}
-            $haveKey = $a;
-          }
-          $glossDiv->appendChild($a);
-        }
-        $n++;
-      }
-    }
-    open(OUTF, ">$osis");
-    print OUTF $xml->toString();
-    close(OUTF);
-    
-    &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
-    foreach my $uck (keys %duplicates) {&Log("$uck\n");}
-  }
-  else {&Log("REPORT: Entry aggregation isn't needed, all keywords are unique (case insensitive keyword comparison).\n");}
-}
-
-sub getGlossaryContext($) {
-  my $dk = shift;
-  my @contextAttr = $XPC->findnodes('./parent::osis:div[@type="glossary"]/@context', $dk);
-  return (@contextAttr ? @contextAttr[0]->getValue():'');
-}
-
-sub sortKeywordsByBook($$) {
-  my $a = shift;
-  my $b = shift;
-  
-  $a = &getGlossaryContext($a); $a =~ s/^([^\.\-]+).*?$/$1/;
-  $b = &getGlossaryContext($b); $b =~ s/^([^\.\-]+).*?$/$1/;
-  
-  my $bookOrderP;
-  &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-  $a = ($a && defined($bookOrderP->{$a}) ? $bookOrderP->{$a}:0);
-  $b = ($b && defined($bookOrderP->{$b}) ? $bookOrderP->{$b}:0);
-  
-  return $a <=> $b;
-}
-
-
 sub dictWordsHeader() {
   return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!--
@@ -1880,7 +1794,7 @@ sub writeDictionaryWordsXML($$) {
   my $in_file = shift;
   my $out_xml = shift;
   
-  my @keywords = &getDictKeys($in_file);
+  my @keywords = &getDictKeys($in_file, './ancestor::osis:div[@type="x-duplicate-keyword"]');
   
   my %keys; foreach my $k (@keywords) {$keys{$k}++;}
   if (!open(DWORDS, ">:encoding(UTF-8)", $out_xml)) {&Log("ERROR: Could not open $out_xml"); die;}
@@ -1889,10 +1803,15 @@ sub writeDictionaryWordsXML($$) {
 <dictionaryWords version=\"1.0\">
 <div highlight=\"false\" multiple=\"false\">\n";
   foreach my $k (sort {length($b) <=> length($a)} keys %keys) {
+    my $context = '';
+    if ($in_file =~ /\.(xml|osis)$/i) {
+      $context = &getDictWordContext($k, $in_file);
+      if ($context) {$context = ' context="'.$context.'"';}
+    }
     print DWORDS "
   <entry osisRef=\"".&entry2osisRef($MOD, $k)."\">
     <name>".$k."</name>
-    <match>/\\b(\\Q".$k."\\E)\\b/i</match>
+    <match".$context.">/\\b(\\Q".$k."\\E)\\b/i</match>
   </entry>\n";
   }
   print DWORDS "
@@ -1914,6 +1833,27 @@ sub writeDictionaryWordsXML($$) {
     }
     if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($out_xml, "$INPD/../../$companion/$DICTIONARY_WORDS");}
   }
+}
+
+
+sub getDictWordContext($$) {
+  my $t = shift;
+  my $osis = shift;
+  
+  my $context = '';
+  
+  my $sep = '';
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @kws = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+  foreach my $kw (@kws) {
+    if (uc($kw->textContent()) ne uc($t)) {next;}
+    my @c = $XPC->findnodes('./ancestor::osis:div[@type="glossary"][@context]', $kw);
+    if (!@c) {return '';} # if any keyword matching has no context, consider this keyword global
+    $context .= $sep.@c[0]->getAttribute('context');
+    $sep = ' ' ;
+  }
+  
+  return $context;
 }
 
 
@@ -1967,14 +1907,18 @@ sub compareToDictWordsFile($) {
 }
 
 
-sub getDictKeys($) {
+sub getDictKeys($$) {
   my $in_file = shift;
+  my $skip = shift;
   
   my @keywords;
   if ($in_file =~ /\.(xml|osis)$/i) {
     my $xml = $XML_PARSER->parse_file($in_file);
-    @keywords = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
-    foreach my $kw (@keywords) {$kw = $kw->textContent();}
+    my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+    foreach my $kw (@keys) {
+      if ($skip && $XPC->findnodes($skip, $kw)) {next;}
+      push(@keywords, $kw->textContent());
+    }
   }
   else {
     open(IMPIN, "<:encoding(UTF-8)", $in_file) or die "Could not open IMP $in_file";

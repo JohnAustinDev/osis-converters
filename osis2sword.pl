@@ -56,7 +56,11 @@ if ($IS_usfm2osis) {
   # run xslt if OSIS came from usfm2osis.py
   my $xsl = ''; my $out = '';
   if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
-  elsif ($MODDRV =~ /LD/) {$xsl = 'osis2tei.xsl'; $out = "tei";}
+  elsif ($MODDRV =~ /LD/) {
+    require "$SCRD/scripts/processGlossary.pl";
+    &removeDuplicateEntries($OSISFILE);
+    $xsl = 'osis2tei.xsl'; $out = "tei";
+  }
   if ($xsl) {
     &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, "$TMPDIR/$out.xml");
     $OSISFILE = "$TMPDIR/$out.xml";

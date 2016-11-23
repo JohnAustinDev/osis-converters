@@ -1,6 +1,7 @@
 &updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
 
 if ($MODDRV =~ /LD/) {
+  require("$SCRD/scripts/processGlossary.pl");
   copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_0.xml");
   &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
   # create DictionaryWords.xml if needed

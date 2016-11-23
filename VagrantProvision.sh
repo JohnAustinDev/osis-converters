@@ -19,6 +19,7 @@ sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-
 
 # XML::LibXML
 sudo cpanm XML::LibXML
+sudo cpanm XML::LibXML::PrettyPrint
 sudo cpanm HTML::Entities
 
 # Calibre

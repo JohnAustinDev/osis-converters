@@ -143,7 +143,7 @@ sub setupAndMakeEbook($$$) {
   
   my @skipCompanions;
   foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-    # Include companion unless CompanionScope is specified, scope is specified, and scope has no overlap with CompanionScope
+    # Don't include companion if CompanionScope is specified, scope is specified, and scope has no overlap with CompanionScope
     my $bookOrderP;
     if ($EBOOKCONV{'CompanionScope_'.$companion} && $scope && &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL)) {
       my $companionScope = &scopeToBooks($EBOOKCONV{'CompanionScope_'.$companion}, $bookOrderP);
@@ -156,7 +156,6 @@ sub setupAndMakeEbook($$$) {
         next;
       }
     }
-    &Log("REPORT: Including \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\"\n");
     
     my $outf;
     
@@ -166,7 +165,19 @@ sub setupAndMakeEbook($$$) {
     if (-e "$outd/$companion.xml") {$outf = "$outd/$companion.xml";}
     elsif (-e "$INPD/$companion/output/$companion.xml") {$outf = "$INPD/$companion/output/$companion.xml";}
     else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
-    if ($outf) {copy($outf, "$tmp/$companion.xml");}
+    if ($outf) {
+      copy($outf, "$tmp/$companion.xml");
+      if ($companion =~ /DICT$/) {
+        require "$SCRD/scripts/processGlossary.pl";
+        if (!&filterGlossaryToScope("$tmp/$companion.xml", $scope)) {
+          unlink("$tmp/$companion.xml");
+          &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\" because the glossary contained nothing which matched the scope.\n");
+          next;
+        }
+      }
+    }
+    
+    &Log("REPORT: Including \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\"\n");
     
     # copy companion images
     my $compDir = &findCompanionDirectory($companion);
