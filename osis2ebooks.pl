@@ -40,7 +40,6 @@ $OSISFILE = "$TMPDIR/".$MOD."_1.xml";
 #  CreateSeparateBooks=(0|1)    - Run/skip individual book builds
 #  CreateFullPublicationN=scope - Create extra full publication (N is a number)
 #  TitleFullPublicationN=text   - Title of extra full publication N (if cover image is not supplied)
-#  CompanionScope_MODNAME=scope - Scope to which a companion MODNAME applies (default is all)
 $CREATE_FULL_BIBLE = (!defined($EBOOKCONV{'CreateFullBible'}) || $EBOOKCONV{'CreateFullBible'} !~ /^(false|0)$/i);
 $CREATE_SEPARATE_BOOKS = (!defined($EBOOKCONV{'CreateSeparateBooks'}) || $EBOOKCONV{'CreateSeparateBooks'} !~ /^(false|0)$/i);
 @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %EBOOKCONV) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
@@ -143,20 +142,6 @@ sub setupAndMakeEbook($$$) {
   
   my @skipCompanions;
   foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-    # Don't include companion if CompanionScope is specified, scope is specified, and scope has no overlap with CompanionScope
-    my $bookOrderP;
-    if ($EBOOKCONV{'CompanionScope_'.$companion} && $scope && &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL)) {
-      my $companionScope = &scopeToBooks($EBOOKCONV{'CompanionScope_'.$companion}, $bookOrderP);
-      my $myScope = &scopeToBooks($scope, $bookOrderP);
-      my $includeCompanion = 0;
-      for my $mb (@{$myScope}) {for my $cb (@{$companionScope}) {if ($mb eq $cb) {$includeCompanion = 1;}}}
-      if (!$includeCompanion) {
-        push(@skipCompanions, $companion);
-        &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\" because CompanionScope_$companion=".$EBOOKCONV{'CompanionScope_'.$companion}."\n");
-        next;
-      }
-    }
-    
     # copy companion OSIS file
     my $outf;
     my $outd = $OUTDIR;
@@ -169,8 +154,9 @@ sub setupAndMakeEbook($$$) {
       copy($outf, "$tmp/$companion.xml");
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/processGlossary.pl";
+        # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);
-        if ($filter == -1) {
+        if ($filter == -1) { # -1 means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           unlink("$tmp/$companion.xml");
           &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\" because the glossary contained nothing which matched the scope.\n");
