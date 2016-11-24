@@ -116,7 +116,7 @@ sub aggregateRepeatedEntries($) {
     &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
     foreach my $uck (keys %duplicates) {&Log("$uck\n");}
   }
-  else {&Log("REPORT: Entry aggregation isn't needed, all keywords are unique (using case insensitive keyword comparison).\n");}
+  else {&Log("REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).\n");}
 }
 
 sub getGlossaryScope($) {
