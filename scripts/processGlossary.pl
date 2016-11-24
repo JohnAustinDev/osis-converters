@@ -1,12 +1,18 @@
 sub aggregateRepeatedEntries($) {
   my $osis = shift;
   
-  &Log("\n\nAggregating duplicate keywords in glosary OSIS file \"$osis\".\n");
-  
   my $xml = $XML_PARSER->parse_file($osis);
-  my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+  
+  &Log("\n\nOrdering glossary divs according to scope in OSIS file \"$osis\".\n");
+  my @gdivs = $XPC->findnodes('//osis:div[@type="glossary"]', $xml);
+  my $parent = @gdivs[0]->parentNode();
+  foreach my $gdiv (@gdivs) {$gdiv->unbindNode();}
+  foreach my $gdiv (sort sortGlossaryDivsByScope @gdivs) {$parent->appendChild($gdiv);}
+  
+  &Log("\nAggregating duplicate keywords in OSIS file \"$osis\".\n\n");
   
   # Find any duplicate entries (case insensitive)
+  my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
   my %entries, %duplicates;
   foreach my $k (@keys) {
     my $uck = uc($k->textContent);
@@ -32,17 +38,19 @@ sub aggregateRepeatedEntries($) {
       my $n = 1;
       
       # cycle through each duplicate keyword element
-      foreach my $dk (sort sortKeywordElementsByBook @{$duplicates{$uck}}) {
+      my @prevGlos;
+      foreach my $dk (@{$duplicates{$uck}}) {
         # create new x-duplicate div to mark this duplicate entry
         my $xDupDiv = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
         $xDupDiv->setAttribute('type', 'x-duplicate-keyword');
         
-        # get entry's elements and metadata
+        # get entry's elements, and read glossary title: $title is first <title type="main">
         my @entry;
-        my @titleElem = $XPC->findnodes('./parent::osis:div[@type="glossary"]/following::osis:title[1]', $dk);
-        my $title = (@titleElem ? ' (' . @titleElem[0]->textContent . ')':'');
-        my $context = &getGlossaryContext($dk);
+        my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
+        my $title = (@titleElem ? "<lb/>$n) " . @titleElem[0]->textContent . "<lb/>":'');
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
+        if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
+        push (@prevGlos, $myGlossary);
         
         # top element is self or else highest ancestor which contains no other keywords
         my $top = $dk;
@@ -82,7 +90,7 @@ sub aggregateRepeatedEntries($) {
               $haveKey = $agg;
               $glossDiv->appendChild($agg);
             }
-            $glossDiv->appendChild($XML_PARSER->parse_balanced_chunk("<lb/>$n)$title: "));
+            $glossDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));
           }
           else {$glossDiv->appendChild($agg);}
         }
@@ -108,21 +116,27 @@ sub aggregateRepeatedEntries($) {
     &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
     foreach my $uck (keys %duplicates) {&Log("$uck\n");}
   }
-  else {&Log("REPORT: Entry aggregation isn't needed, all keywords are unique (case insensitive keyword comparison).\n");}
+  else {&Log("REPORT: Entry aggregation isn't needed, all keywords are unique (using case insensitive keyword comparison).\n");}
 }
 
-sub getGlossaryContext($) {
-  my $dk = shift;
-  my @contextAttr = $XPC->findnodes('./parent::osis:div[@type="glossary"]/@context', $dk);
-  return (@contextAttr ? @contextAttr[0]->getValue():'');
+sub getGlossaryScope($) {
+  my $e = shift;
+
+  my @glossDiv = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]', $e);
+  if (!@glossDiv) {return '';}
+  my @comment = $XPC->findnodes('./descendant::comment()[1]', @glossDiv[0]);
+  if (!@comment) {return '';}
+  my $scope = @comment[0]->textContent();
+  if ($scope !~ s/^.*?\bscope\s*==\s*(.*?)\s*$/$1/) {return '';}
+  return $scope;
 }
 
-sub sortKeywordElementsByBook($$) {
+sub sortGlossaryDivsByScope($$) {
   my $a = shift;
   my $b = shift;
   
-  $a = &getGlossaryContext($a); $a =~ s/^([^\.\-]+).*?$/$1/;
-  $b = &getGlossaryContext($b); $b =~ s/^([^\.\-]+).*?$/$1/;
+  $a = &getGlossaryScope($a); $a =~ s/^([^\.\-]+).*?$/$1/;
+  $b = &getGlossaryScope($b); $b =~ s/^([^\.\-]+).*?$/$1/;
   
   my $bookOrderP;
   &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
@@ -132,28 +146,39 @@ sub sortKeywordElementsByBook($$) {
   return $a <=> $b;
 }
 
+# Returns number of filtered divs, or else -1 if all were filtered
 sub filterGlossaryToScope($$) {
   my $osis = shift;
   my $scope = shift;
   
+  my @removed;
+  my @kept;
+  
   if ($scope) {
     my $xml = $XML_PARSER->parse_file($osis);
-    my @gloss = $XPC->findnodes('//osis:div[@type="glossary"]', $xml);
-    my $success = 0;
-    my @removed;
-    foreach my $glos (@gloss) {
-      if (!$glos->hasAttribute('context') || &myContext($scope, $glos->getAttribute('context'))) {
-        $success = 1;
-        next;
-      }
-      $glos->unbindNode();
-      push(@removed, $glos->getAttribute('context'));
-    }
+    my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
+    GLOSSLOOP: foreach my $div (@glossDivs) {
+      my $divScope = &getGlossaryScope($div);
+      
+      # keep all glossary divs that don't specify a particular scope
+      if (!$divScope) {push(@kept, $divScope); next;}
     
-    &Log("REPORT: ".@removed." instance(s) of glossary divs which didn't match scope \"$scope\"".(@removed ? ':':'.')."\n");
-    foreach my $r (@removed) {&Log("<div type='glossary' scope='$r'>\n");}
+      # keep if any book within the glossary scope matches $scope
+      my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+      my $divScopeBookP = &scopeToBooks($divScope, $bookOrderP);
+      foreach my $bk (@{$divScopeBookP}) { 
+        if (!&myContext($scope, $bk)) {next;}
+        push(@kept, $divScope);
+        next GLOSSLOOP;
+      }
+      
+      $div->unbindNode();
+      push(@removed, $divScope);
+    }
 
-    if (!$success) {return 0;}
+    if (@removed == @glossDivs) {return -1;}
+    
+    &Log("REPORT: Removed ".@removed." of ".@glossDivs." instance(s) of glossary divs outside the scope: $scope (kept: ".join(' ', @kept).", removed: ".join(' ', @removed).")\n");
     
     open(OUTF, ">$osis");
     print OUTF $xml->toString();
@@ -162,7 +187,7 @@ sub filterGlossaryToScope($$) {
   
   &removeAggregateEntries($osis);
   
-  return 1;
+  return @removed;
 }
 
 sub removeDuplicateEntries($) {
@@ -187,8 +212,6 @@ sub removeAggregateEntries($) {
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
-  
-  &Log("REPORT: ".@dels." instance(s) of aggregate glossary div removal.\n");
 }
 
 1;
