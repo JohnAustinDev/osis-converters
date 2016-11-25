@@ -38,6 +38,8 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 
+require("$SCRD/scripts/getScope.pl");
+
 sub init($) {
   my $quiet = shift;
   
@@ -845,7 +847,6 @@ sub updateConfData(\%$) {
       
       # get scope
       if ($type eq 'bible' || $type eq 'commentary') {
-        require("$SCRD/scripts/getScope.pl");
         &setConfValue($entryValueP, 'Scope', &getScope($entryValueP->{'Versification'}, $moduleSource), 1);
       }
     }
@@ -1208,11 +1209,47 @@ sub pruneFileOSIS($$$$) {
 }
 
 
+sub convertExplicitGlossaryElements(\@) {
+  my $indexElementsP = shift;
+  
+  my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+
+  foreach my $g (@{$indexElementsP}) {
+    my $gl = $g->getAttribute("level1");
+    my @tn = $XPC->findnodes("preceding::text()[1]", $g);
+    if (@tn != 1 || $tn[0]->data !~ /\Q$gl\E$/) {
+      &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
+      next;
+    }
+    my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
+    if (@isGlossary) {
+      &addDictionaryLinks(\@tn, @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent(), &scopeToBooks(&getGlossaryScope(@tn[0]), $bookOrderP));
+    }
+    else {
+      &addDictionaryLinks(\@tn);
+    }
+    my $nr = "ERROR, NO MATCH IN GLOSSARY";
+    if (@tn[0]->parentNode ne @tn[0]) {
+      &Log("ERROR: Could not find glossary entry to match explicit glossary markup \"$g\".\n");
+    }
+    else {
+      $nr = &decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"));
+      $g->parentNode->removeChild($g);
+    }
+    if ($ExplicitGlossary{$gl} && $ExplicitGlossary{$gl} ne $nr) {
+      &Log("ERROR: Same explicit glossary markup was converted as \"$nr\" and as \"".$ExplicitGlossary{$gl}."\".\n");
+    }
+    else {$ExplicitGlossary{$gl} = $nr;}
+  }
+}
+
+
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
-sub addDictionaryLinks(\@$) {
+sub addDictionaryLinks(\@$\@) {
   my $eP = shift; # array of nodes (NOTE: node children are not touched)
   my $entry = shift; # should be NULL if not adding SeeAlso links
+  my $glossaryScopeP = shift; # array of books, should be NULL if not adding SeeAlso links
 
   if ($entry) {
     my $entryOsisRef = &entry2osisRef($MOD, $entry);
@@ -1241,7 +1278,7 @@ sub addDictionaryLinks(\@$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry, $glossaryScopeP)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1256,10 +1293,11 @@ sub addDictionaryLinks(\@$) {
 # to the $DWF file, and logs any result. If a match is found, the proper 
 # reference tags are inserted, and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
-sub addDictionaryLink(\$$$) {
+sub addDictionaryLink(\$$$\@) {
   my $textP = shift;
   my $textNode = shift;
   my $entry = shift; # for SeeAlso links only
+  my $glossaryScopeP = shift; # for SeeAlso links only
   
   &dbg(sprintf("\naddDictionaryLink\ntext=%s\nentry=%s\n", $$textP, $entry), $entry);
   
@@ -1293,7 +1331,7 @@ sub addDictionaryLink(\$$$) {
       if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n", $entry); next;}}
       elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n", $entry); next;}
     }
-    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
+    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context) && @{$glossaryScopeP} && !&myGlossaryContext($a, $glossaryScopeP)) {&dbg("50\n", $entry); next;}}
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
     if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
     
@@ -1453,6 +1491,16 @@ sub myContext($$) {
   return 0;
 }
 
+sub myGlossaryContext($\@) {
+  my $test = shift;
+  my $contextP = shift;
+ 
+  foreach my $c (@{$contextP}) {
+    if (&myContext($test, $c)) {return $c;}
+  }
+  
+  return 0;
+}
 
 # return special Bible context reference for $elem:
 # Gen.0.0.0 = intro

@@ -139,6 +139,8 @@ sub scopeToBooks($\%) {
   my $scope = shift;
   my $bookOrderP = shift;
   
+  if (!$bookOrderP) {die;}
+  
   my @scopes = split(/\s+/, $scope);
   my $i = 0;
   my $keep = '';

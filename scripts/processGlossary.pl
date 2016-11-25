@@ -157,7 +157,7 @@ sub filterGlossaryToScope($$) {
   if ($scope) {
     my $xml = $XML_PARSER->parse_file($osis);
     my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
-    GLOSSLOOP: foreach my $div (@glossDivs) {
+    foreach my $div (@glossDivs) {
       my $divScope = &getGlossaryScope($div);
       
       # keep all glossary divs that don't specify a particular scope
@@ -165,11 +165,9 @@ sub filterGlossaryToScope($$) {
     
       # keep if any book within the glossary scope matches $scope
       my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-      my $divScopeBookP = &scopeToBooks($divScope, $bookOrderP);
-      foreach my $bk (@{$divScopeBookP}) { 
-        if (!&myContext($scope, $bk)) {next;}
+      if (&myGlossaryContext($scope, &scopeToBooks($divScope, $bookOrderP))) {
         push(@kept, $divScope);
-        next GLOSSLOOP;
+        next;
       }
       
       $div->unbindNode();
