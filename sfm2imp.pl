@@ -37,6 +37,7 @@ $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
+require("$SCRD/scripts/processGlossary.pl");
 
 &Log("NOTE: sfm2imp.pl (IMP output) is DEPRECATED in preference to sfm2osis.pl (TEI output).\n");
 
@@ -47,8 +48,9 @@ require("$SCRD/scripts/paratext2imp.pl");
 
 open(AFILE, ">>:encoding(UTF-8)", "$TMPDIR/".$MOD."_1.imp") || die;
 
-&writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
-&compareToDictWordsFile("$TMPDIR/".$MOD."_1.imp");
+&writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
+&loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
+&compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp");
 
 if ($addScripRefLinks ne '0') {
   require("$SCRD/scripts/addScripRefLinks.pl");

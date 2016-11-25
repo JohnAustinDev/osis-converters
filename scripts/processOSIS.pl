@@ -4,9 +4,9 @@ if ($MODDRV =~ /LD/) {
   require("$SCRD/scripts/processGlossary.pl");
   copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_0.xml");
   &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
-  # create DictionaryWords.xml if needed
-  &writeDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
-  &compareToDictWordsFile("$TMPDIR/".$MOD."_1.xml");
+  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
+  &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
+  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
 
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
