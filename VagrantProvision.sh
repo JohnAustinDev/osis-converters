@@ -15,7 +15,7 @@ if [ ! -e $VHOME/.osis-converters ]; then mkdir $VHOME/.osis-converters; fi
 if [ ! -e $VHOME/.osis-converters/src ]; then mkdir $VHOME/.osis-converters/src; fi
 
 sudo apt-get update
-sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev
+sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix
 
 # XML::LibXML
 sudo cpanm XML::LibXML

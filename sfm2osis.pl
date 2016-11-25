@@ -29,6 +29,12 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+# check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
+if (-e "$INPD/sfm") {
+  `find "$INPD/sfm" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;`;
+  `find "$INPD/sfm" -type f -exec dos2unix {} \\;`;
+}
+
 # if this is a childrens_bible, run the separate cb script
 if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
   &osis_converters("$SCRD/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
