@@ -285,14 +285,30 @@ sub writeDefaultDictionaryWordsXML($$) {
   print DWORDS "
 <dictionaryWords version=\"1.0\">
 <div highlight=\"false\" multiple=\"false\">\n";
+  my $divEnd;
+  my $esp;
+  my $currentContext;
   foreach my $k (sort {&sortDictKeys($a, $b, \%keys)} keys %keys) {
+    my $contextIsSingleRange = ($keys{$k} !~ /\s+/);
+    if ($keys{$k} ne $currentContext) {
+      print DWORDS $divEnd;
+      $divEnd = '';
+      $esp = '';
+      if ($contextIsSingleRange && $keys{$k}) {
+        print DWORDS "
+  <div context=\"".$keys{$k}."\">";
+       $divEnd = "  </div>\n";
+       $esp = '  ';
+      }
+    }
+    $currentContext = $keys{$k};
     print DWORDS "
-  <entry osisRef=\"".&entry2osisRef($MOD, $k)."\">
-    <name>".$k."</name>
-    <match".($keys{$k} ? ' context="'.$keys{$k}.'"':'').">/\\b(\\Q".$k."\\E)\\b/i</match>
-  </entry>\n";
+".$esp."  <entry osisRef=\"".&entry2osisRef($MOD, $k)."\">
+".$esp."    <name>".$k."</name>
+".$esp."    <match".(!$contextIsSingleRange && $keys{$k} ? ' context="'.$keys{$k}.'"':'').">/\\b(\\Q".$k."\\E)\\b/i</match>
+".$esp."  </entry>\n";
   }
-  print DWORDS "
+  print DWORDS $divEnd."
 </div>
 </dictionaryWords>";
   close(DWORDS);
