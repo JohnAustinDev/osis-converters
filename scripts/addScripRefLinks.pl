@@ -260,8 +260,8 @@ sub addScripRefLinks($$) {
       $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
     }
     else {
-      my $glossScope = &getGlossaryScope($textNode);
-      if ($glossScope && $glossScope !~ /[\s\-]/) {$BK = $glossScope;}
+      my $entryScope = &getEntryScope($textNode);
+      if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
     }
     $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
 

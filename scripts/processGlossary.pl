@@ -8,6 +8,16 @@ sub aggregateRepeatedEntries($) {
   my $parent = @gdivs[0]->parentNode();
   foreach my $gdiv (@gdivs) {$gdiv->unbindNode();}
   foreach my $gdiv (sort sortGlossaryDivsByScope @gdivs) {$parent->appendChild($gdiv);}
+  foreach my $gdiv (@gdivs) {
+    # look for special comment indicating the glossary osisRef
+    my @comment = $XPC->findnodes('./descendant::comment()[1]', $gdiv);
+    if (@comment && !$gdiv->getAttribute('osisRef')) {
+      my $scope = @comment[0]->textContent();
+      if ($scope =~ s/^.*?\bscope\s*==\s*(.*?)\s*$/$1/) {
+        $gdiv->setAttribute('osisRef', $scope);
+      }
+    }
+  }
   
   &Log("\nAggregating duplicate keywords in OSIS file \"$osis\".\n\n");
   
@@ -28,7 +38,7 @@ sub aggregateRepeatedEntries($) {
   my $count = scalar keys %duplicates;
   if ($count) {
     # create new glossary div to contain all aggregated entries
-    my $glossDiv = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
+    my $glossDiv = &createDiv($xml);
     $glossDiv->setAttribute('subType', 'x-aggregate');
     @{$XPC->findnodes('//osis:osisText', $xml)}[0]->appendChild($glossDiv);
     
@@ -41,13 +51,17 @@ sub aggregateRepeatedEntries($) {
       my @prevGlos;
       foreach my $dk (@{$duplicates{$uck}}) {
         # create new x-duplicate div to mark this duplicate entry
-        my $xDupDiv = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
-        $xDupDiv->setAttribute('type', 'x-duplicate-keyword');
+        my $xDupDiv = &createDiv($xml);
+        $xDupDiv->setAttribute('type', 'x-duplicate-keyword'); # holds entries without unique keyword textContent
+        my $xAggDiv = &createDiv($xml);
+        $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
+        my $glossScope = &getGlossaryScope($dk);
+        if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
         
         # get entry's elements, and read glossary title: $title is first <title type="main">
         my @entry;
         my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
-        my $title = (@titleElem ? "<title level=\"2\" subType=\"x-aggregate-entry\">$n) " . @titleElem[0]->textContent . "</title>":'');
+        my $title = (@titleElem ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":'');
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
@@ -90,10 +104,11 @@ sub aggregateRepeatedEntries($) {
               $haveKey = $agg;
               $glossDiv->appendChild($agg);
             }
-            $glossDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));
+            $xAggDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));
           }
-          else {$glossDiv->appendChild($agg);}
+          else {$xAggDiv->appendChild($agg);}
         }
+        $glossDiv->appendChild($xAggDiv);
         
         $n++;
       }
@@ -119,16 +134,22 @@ sub aggregateRepeatedEntries($) {
   else {&Log("REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).\n");}
 }
 
+sub getEntryScope($) {
+  my $e = shift;
+
+  my @eDiv = $XPC->findnodes('./ancestor-or-self::osis:div[@type="x-aggregate-subentry"]', $e);
+  if (@eDiv && @eDiv[0]->getAttribute('osisRef')) {return @eDiv[0]->getAttribute('osisRef');}
+  
+  return &getGlossaryScope($e);
+}
+
 sub getGlossaryScope($) {
   my $e = shift;
 
   my @glossDiv = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]', $e);
   if (!@glossDiv) {return '';}
-  my @comment = $XPC->findnodes('./descendant::comment()[1]', @glossDiv[0]);
-  if (!@comment) {return '';}
-  my $scope = @comment[0]->textContent();
-  if ($scope !~ s/^.*?\bscope\s*==\s*(.*?)\s*$/$1/) {return '';}
-  return $scope;
+
+  return @glossDiv[0]->getAttribute('osisRef');
 }
 
 sub sortGlossaryDivsByScope($$) {
@@ -463,6 +484,14 @@ sub checkEntryNames(\@) {
     &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n$p");
   }
   
+}
+
+sub createDiv($) {
+  my $xml = shift;
+  my $div = @{$XPC->findnodes('//osis:div[@type="glossary"]', $xml)}[0]->cloneNode(0);
+  $div->removeAttribute('subType');
+  $div->removeAttribute('osisRef');
+  return $div
 }
 
 1;
