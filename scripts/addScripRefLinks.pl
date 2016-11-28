@@ -91,6 +91,8 @@
 #       being matched and how. This is sometimes usedful when adjusting
 #       regular expressions or debugging.
 
+require("$SCRD/scripts/processGlossary.pl");
+
 sub addScripRefLinks($$) {
   my $in_file = shift;
   my $out_file = shift;
@@ -256,6 +258,10 @@ sub addScripRefLinks($$) {
     $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
     if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
       $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
+    }
+    else {
+      my $glossScope = &getGlossaryScope($textNode);
+      if ($glossScope && $glossScope !~ /[\s\-]/) {$BK = $glossScope;}
     }
     $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
 
@@ -807,7 +813,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   #     > 0 or !"" means use this value, and return this value so it may be used in next match (book & chapter only)
 
   # Book? c:v-c:v
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+\s*($chap2VerseTerms)\s*\d+)/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+\s*($chap2VerseTerms)\s*\d+)/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -820,7 +826,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
       $shortestMatch = length($ref);
       if (!$matchleft) {
         $$bkP = $tbook;
-        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)\s*($chap2VerseTerms)\s*(\d+)/i;
+        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)\s*($chap2VerseTerms)\s*(\d+)/si;
         $$chP = $1;
         $$vsP = $3;
         my $c2 = $5;
@@ -834,7 +840,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book? c:v-lv
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+)/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+)/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -847,7 +853,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
       $shortestMatch = length($ref);
       if (!$matchleft) {
         $$bkP = $tbook;
-        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)/i;
+        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)/si;
         $$chP = $1;
         $$vsP = $3;
         $$lvP = $5;
@@ -858,7 +864,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book? c:v
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chap2VerseTerms)\s*(\d+))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chap2VerseTerms)\s*(\d+))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -882,7 +888,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book? c ChapTerm v(-v)? VerseTerm
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*\d+\s*(($continuationTerms)\s*\d+\s*)?($verseTerms))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*\d+\s*(($continuationTerms)\s*\d+\s*)?($verseTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -895,7 +901,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
       $shortestMatch = length($ref);
       if (!$matchleft) {
         $$bkP = $tbook;
-        $ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*(($continuationTerms)\s*(\d+)\s*)?($verseTerms)/i;
+        $ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*(($continuationTerms)\s*(\d+)\s*)?($verseTerms)/si;
         $$chP = $1;
         $$vsP = $4;
         $$lvP = ($5 ? $7:-1);
@@ -906,7 +912,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book? c-c ChapTerm
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*\d+\s*($chapTerms))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*\d+\s*($chapTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -930,7 +936,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book? c ChapTerm
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -953,7 +959,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book|CurrentChap? v-v VerseTerms
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -972,7 +978,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
         $$vsP = $tvs;
         $$lvP = $tlv;
         $$barenumsP = "verses";
-        if ($$bkP =~ /($currentChapTerms)/i) {
+        if ($$bkP =~ /($currentChapTerms)/si) {
           $$bkP = $contextBK;
           $$chP = $contextCH;
         }
@@ -982,7 +988,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book|CurrentChap? v VerseTerms
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($verseTerms))/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($verseTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
@@ -1000,7 +1006,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
         $$vsP = $tvs;
         $$lvP = -1;
         $$barenumsP = "verses";
-        if ($$bkP =~ /($currentChapTerms)/i) {
+        if ($$bkP =~ /($currentChapTerms)/si) {
           $$bkP = "";
         }
       }
@@ -1009,7 +1015,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # Book|CurrentChap num1-num2?
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)(($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*(\d+)(\s*($continuationTerms)\s*(\d+))?)/i)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)(($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*(\d+)(\s*($continuationTerms)\s*(\d+))?)/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $3;
@@ -1025,11 +1031,11 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
       if (!$matchleft) {
         $$bkP = $tbook;
         $$chP = "";
-        if ($$bkP =~ /($currentChapTerms)/i) {
+        if ($$bkP =~ /($currentChapTerms)/si) {
           $$bkP = "";
           $$barenumsP = "verses"; # For: шу бобнинг 20, 22, 29–оятларида ҳам иш
         }
-        elsif ((($$bkP =~ /($currentBookTerms)/i) && ($contextBK =~ /($oneChapterBooks)/i)) || ($books{$$bkP} =~ /($oneChapterBooks)/i)) {
+        elsif ((($$bkP =~ /($currentBookTerms)/si) && ($contextBK =~ /($oneChapterBooks)/si)) || ($books{$$bkP} =~ /($oneChapterBooks)/si)) {
           $$chP = 1;
           $$barenumsP = "verses";
         }
@@ -1051,7 +1057,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   }
 
   # num1 ... num2?
-  if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/i)) {
+  if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/si)) {
     $matchedTerm = $2;
     $$typeP = "T10 (num1 ... num2?)";
     my $num1 = $3;
@@ -1079,8 +1085,8 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 
     # Book
     if ($$bkP eq $contextBK) {}
-    elsif ($$bkP =~ /($ebookNames)/i)                            {$$bkP = $books{$1};}
-    elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/i)    {$$bkP = $contextBK;}
+    elsif ($$bkP =~ /($ebookNames)/si)                            {$$bkP = $books{$1};}
+    elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/si)    {$$bkP = $contextBK;}
     else {
       &Log("ERROR: Unexpected book value \"$book\".\n");
       $$bkP = $contextBK;
