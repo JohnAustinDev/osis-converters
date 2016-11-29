@@ -142,6 +142,14 @@ sub evalRegex($) {
       if (!-e "$tmp/$1") {mkdir("$tmp/$1");}
       $df = "$tmp/$1/$2";
     }
+    my $n = 0;
+    while (-e $df) {
+      my $m1 = ($n ? "_$n":'');
+      $n++;
+      my $m2 = ($n ? "_$n":'');
+      $df =~ s/$m1(\.[^\.]+)$/$m2$1/;
+    }
+    if ($n) {&Log("WARNING: running copy $n of $f\n");}
     copy($f, $df);
     push (@files, $df);
   }
