@@ -45,12 +45,12 @@ if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
 if (-e "$INPD/CF_usfm2osis.txt") {
   $IS_usfm2osis = 1;
   require("$SCRD/scripts/usfm2osis.pl");
-  &usfm2osis("$INPD/CF_usfm2osis.txt", "$TMPDIR/".$MOD."_1.xml");
+  &usfm2osis("$INPD/CF_usfm2osis.txt", "$TMPDIR/".$MOD."_0.xml");
 }
 elsif(-e "$INPD/CF_paratext2osis.txt") {
   $IS_usfm2osis = 0;
   require("$SCRD/scripts/paratext2osis.pl");
-  &paratext2osis("$INPD/CF_paratext2osis.txt", "$TMPDIR/".$MOD."_1.xml");
+  &paratext2osis("$INPD/CF_paratext2osis.txt", "$TMPDIR/".$MOD."_0.xml");
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt or CF_paratext2osis.txt.";}
 

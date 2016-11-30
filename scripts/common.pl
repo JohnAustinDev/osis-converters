@@ -2191,6 +2191,29 @@ sub updateWorkElement($\%$) {
 }
 
 
+sub prettyPrintOSIS($) {
+  my $osisDoc = shift;
+  
+  use XML::LibXML::PrettyPrint;
+  
+  my @preserveWhiteSpace = qw(a abbr catchWord date divineName foreign hi index inscription lb mentioned milestone name note q reference salute seg signed speaker titlePage transChange w);
+  
+  my @inline = ('header');
+  push(@inline, @preserveWhiteSpace);
+  
+  my $pp = XML::LibXML::PrettyPrint->new(
+    element => {
+      #block    => [elements-are-block-by-default],
+      inline   => \@inline, # inline elements also preserve whitespace
+      compact  => [qw/title caption l item/], # compact does NOT preserve whitespace
+      #preserve_whitespace => \@preserveWhiteSpace
+    }
+  );
+  
+  $pp->pretty_print($osisDoc, -2);
+}
+
+
 sub validateOSIS($) {
   my $osis = shift;
   

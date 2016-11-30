@@ -189,13 +189,10 @@ sub toVersificationBookOrder($$) {
     }
   }
   
-  my $t = $xml->toString();
-  
-  # removed books left a \n dangling, so remove it too
-  $t =~ s/\n+/\n/gm;
+  &prettyPrintOSIS($xml);
   
   open(OUTF, ">$osis");
-  print OUTF $t;
+  print OUTF $xml->toString();
   close(OUTF);
 }
 

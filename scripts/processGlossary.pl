@@ -115,16 +115,6 @@ sub aggregateRepeatedEntries($) {
     }
  
     open(OUTF, ">$osis");
-    use XML::LibXML::PrettyPrint;
-    XML::LibXML::PrettyPrint->new(
-      indent_string => "  ", 
-      element => {
-        inline   => [qw/hi title header index/],
-        block    => [qw/div/],
-        compact  => [qw/seg/]
-        #preserves_whitespace => [qw/pre script style/],
-      }
-    )->pretty_print($xml);
     print OUTF $xml->toString();
     close(OUTF);
     

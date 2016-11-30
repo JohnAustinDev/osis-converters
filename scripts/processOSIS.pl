@@ -1,8 +1,14 @@
+# pretty print output of OSIS converter
+my $xml = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_0.xml");
+&prettyPrintOSIS($xml);
+open(OUTF, ">$TMPDIR/".$MOD."_1.xml");
+print OUTF $xml->toString();
+close(OUTF);
+
 &updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
 
 if ($MODDRV =~ /LD/) {
   require("$SCRD/scripts/processGlossary.pl");
-  copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_0.xml");
   &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
   &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
   &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
