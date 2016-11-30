@@ -189,8 +189,6 @@ sub toVersificationBookOrder($$) {
     }
   }
   
-  &prettyPrintOSIS($xml);
-  
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);

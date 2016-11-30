@@ -111,7 +111,7 @@ sub aggregateRepeatedEntries($) {
       }
     }
 
-    &prettyPrintOSIS($xml);
+    &prettyPrintOSIS($xml); # must run again because of new aggregated glossary
  
     open(OUTF, ">$osis");
     print OUTF $xml->toString();
