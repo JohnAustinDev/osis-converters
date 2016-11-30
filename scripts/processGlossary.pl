@@ -5,9 +5,6 @@ sub aggregateRepeatedEntries($) {
   
   &Log("\n\nOrdering glossary divs according to scope in OSIS file \"$osis\".\n");
   my @gdivs = $XPC->findnodes('//osis:div[@type="glossary"]', $xml);
-  my $parent = @gdivs[0]->parentNode();
-  foreach my $gdiv (@gdivs) {$gdiv->unbindNode();}
-  foreach my $gdiv (sort sortGlossaryDivsByScope @gdivs) {$parent->appendChild($gdiv);}
   foreach my $gdiv (@gdivs) {
     # look for special comment indicating the glossary osisRef
     my @comment = $XPC->findnodes('./descendant::comment()[1]', $gdiv);
@@ -49,7 +46,7 @@ sub aggregateRepeatedEntries($) {
       
       # cycle through each duplicate keyword element
       my @prevGlos;
-      foreach my $dk (@{$duplicates{$uck}}) {
+      foreach my $dk (sort sortSubEntriesByScope @{$duplicates{$uck}}) {
         # create new x-duplicate div to mark this duplicate entry
         my $xDupDiv = &createDiv($xml);
         $xDupDiv->setAttribute('type', 'x-duplicate-keyword'); # holds entries without unique keyword textContent
@@ -113,6 +110,8 @@ sub aggregateRepeatedEntries($) {
         $n++;
       }
     }
+
+    &prettyPrintOSIS($xml);
  
     open(OUTF, ">$osis");
     print OUTF $xml->toString();
@@ -142,7 +141,7 @@ sub getGlossaryScope($) {
   return @glossDiv[0]->getAttribute('osisRef');
 }
 
-sub sortGlossaryDivsByScope($$) {
+sub sortSubEntriesByScope($$) {
   my $a = shift;
   my $b = shift;
   
