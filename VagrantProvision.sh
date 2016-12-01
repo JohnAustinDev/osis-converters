@@ -68,8 +68,11 @@ if [ ! `which python3` ]; then
 fi
 
 # Module-tools
-if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
+if [ ! -e $VHOME/.osis-converters/src/Module-tools/.git ]; then
   cd $VHOME/.osis-converters/src
+  if [ -e ./Module-tools ]; then
+    rm -rf ./Module-tools
+  fi
   git clone https://github.com/JohnAustinDev/Module-tools.git
 else
   cd $VHOME/.osis-converters/src/Module-tools
