@@ -3,7 +3,7 @@ sub aggregateRepeatedEntries($) {
   
   my $xml = $XML_PARSER->parse_file($osis);
   
-  &Log("\n\nOrdering glossary divs according to scope in OSIS file \"$osis\".\n");
+  &Log("\n\nDetecting and applying glossary scopes to OSIS file \"$osis\".\n");
   my @gdivs = $XPC->findnodes('//osis:div[@type="glossary"]', $xml);
   foreach my $gdiv (@gdivs) {
     # look for special comment indicating the glossary osisRef
@@ -112,15 +112,15 @@ sub aggregateRepeatedEntries($) {
     }
 
     &prettyPrintOSIS($xml); # must run again because of new aggregated glossary
- 
-    open(OUTF, ">$osis");
-    print OUTF $xml->toString();
-    close(OUTF);
     
     &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
     foreach my $uck (keys %duplicates) {&Log("$uck\n");}
   }
   else {&Log("REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).\n");}
+
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
 }
 
 sub getEntryScope($) {
