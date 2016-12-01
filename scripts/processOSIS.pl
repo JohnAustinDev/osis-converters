@@ -6,23 +6,21 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/checkUpdateIntros.pl");
   &checkUpdateIntros("$TMPDIR/".$MOD."_0.xml");
 }
-# MOD_0.xml is raw converter output (with books/intros re-ordered and header/intro-tags updated)
+elsif ($MODDRV =~ /LD/) {
+  require("$SCRD/scripts/processGlossary.pl");
+  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_0.xml");
+  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_0.xml", "$OUTDIR/DictionaryWords_autogen.xml");
+  &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
+  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_0.xml");
+}
+# MOD_0.xml is raw converter output with books/intros re-ordered, header/intro-tags updated, and glossaries pre-processed
 
 # pretty print output of OSIS converter
 my $xml = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_0.xml");
-&prettyPrintOSIS($xml);
 open(OUTF, ">$TMPDIR/".$MOD."_1.xml");
-print OUTF $xml->toString();
+print OUTF &prettyPrintOSIS($xml, 1);
 close(OUTF);
-
-if ($MODDRV =~ /LD/) {
-  require("$SCRD/scripts/processGlossary.pl");
-  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
-  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
-  &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
-  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
-}
-# MOD_1.xml is PrettyPrint, and glossaries have been aggregated
+# MOD_1.xml is PrettyPrint
 
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   require("$SCRD/scripts/addScripRefLinks.pl");

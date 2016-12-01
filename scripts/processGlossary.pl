@@ -58,7 +58,7 @@ sub aggregateRepeatedEntries($) {
         # get entry's elements, and read glossary title: $title is first <title type="main">
         my @entry;
         my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
-        my $title = (@titleElem ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":'');
+        my $title = "<title level=\"2\">$n) " . (@titleElem ? @titleElem[0]->textContent:'') . "</title>";
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
@@ -110,8 +110,6 @@ sub aggregateRepeatedEntries($) {
         $n++;
       }
     }
-
-    &prettyPrintOSIS($xml); # must run again because of new aggregated glossary
     
     &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
     foreach my $uck (keys %duplicates) {&Log("$uck\n");}

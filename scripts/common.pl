@@ -2191,8 +2191,17 @@ sub updateWorkElement($\%$) {
 }
 
 
-sub prettyPrintOSIS($) {
+# returns osisDoc or string depending on $returnString argument
+sub prettyPrintOSIS($$) {
   my $osisDoc = shift;
+  my $returnString = shift;
+  
+  if ($noPrettyPrint) {
+    if (!$returnString) {return $osisDoc;}
+    my $s = $osisDoc->toString();
+    $s =~ s/\n+/\n/gm;
+    return $s;
+  }
   
   use XML::LibXML::PrettyPrint;
   
@@ -2211,6 +2220,8 @@ sub prettyPrintOSIS($) {
   );
   
   $pp->pretty_print($osisDoc, -2);
+  
+  return ($returnString ? $osisDoc->toString():$osisDoc);
 }
 
 

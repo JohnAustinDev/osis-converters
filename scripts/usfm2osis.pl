@@ -56,7 +56,7 @@ sub usfm2osis($$) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|companionProject):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|companionProject|noPrettyPrint):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
