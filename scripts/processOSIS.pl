@@ -1,26 +1,26 @@
-&updateOsisHeader("$TMPDIR/".$MOD."_0.xml");
+copy("$TMPDIR/".$MOD."_0.xml", "$TMPDIR/".$MOD."_1.xml");
+# MOD_0.xml is raw converter output
+
+&updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/toVersificationBookOrder.pl");
-  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_0.xml");
+  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_1.xml");
   require("$SCRD/scripts/checkUpdateIntros.pl");
-  &checkUpdateIntros("$TMPDIR/".$MOD."_0.xml");
+  &checkUpdateIntros("$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {
   require("$SCRD/scripts/processGlossary.pl");
-  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_0.xml");
-  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_0.xml", "$OUTDIR/DictionaryWords_autogen.xml");
+  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
+  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
   &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
-  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_0.xml");
+  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
-# MOD_0.xml is raw converter output with books/intros re-ordered, header/intro-tags updated, and glossaries pre-processed
-
-# pretty print output of OSIS converter
-my $xml = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_0.xml");
+my $xml = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml");
 open(OUTF, ">$TMPDIR/".$MOD."_1.xml");
 print OUTF &prettyPrintOSIS($xml, 1);
 close(OUTF);
-# MOD_1.xml is PrettyPrint
+# MOD_1.xml has books/intros re-ordered, header/intro-tags updated, and glossaries pre-processed
 
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   require("$SCRD/scripts/addScripRefLinks.pl");
@@ -50,6 +50,7 @@ if ($MODDRV =~ /Text/) {
   if (!$success) {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
+# MOD.xml is after addCrossRefs.pl
 
 &checkDictReferences($OUTOSIS);
 &checkIntroductionTags($OUTOSIS);

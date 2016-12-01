@@ -5,6 +5,7 @@
 #SET_addCrossRefs:false
 #SET_addSeeAlsoLinks:false
 
+#SET_prettyPrint:true
 #PUNC_AS_LETTER:'`
 #SPECIAL_CAPITALS:i->İ ı->I
 
