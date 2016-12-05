@@ -27,6 +27,38 @@ sub checkUpdateIntros($) {
 
   my $xml = $XML_PARSER->parse_file($osis);
   my @elems = $XPC->findnodes('//*', $xml);
+  
+  # Move section titles just before chapter tags to after the chapter tags,
+  # because they are not introductory and are associated with the next chapter
+  my $moved;
+  for (my $x=0; $x<@elems; $x++) {
+    my @moveMilestones;
+    if (@elems[$x]->nodeName() eq 'title' && &isSectionTitle(@elems[$x])) {
+      my $n = $x;
+      while ((@elems[$n+1]->nodeName() eq 'title' && &isSectionTitle(@elems[$n+1])) ||
+          (@elems[$n+1]->nodeName() eq 'div' && @elems[$n+1]->getAttribute('type') =~ /section/i) ||
+          @elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE && @elems[$n+1]->data =~ /^[\s\n]*$/ ||
+          (@elems[$n+1]->nodeName() eq 'verse' && @elems[$n+1]->getAttribute('eID')) ||
+          (@elems[$n+1]->nodeName() eq 'chapter' && @elems[$n+1]->getAttribute('eID'))
+      ) {
+        if (@elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE || @elems[$n+1]->nodeName() =~ /^(verse|chapter)$/i) {
+          push (@moveMilestones, @elems[$n+1]);
+        }
+        $n++;
+      }
+      if (@elems[$n+1]->nodeName() eq 'chapter') {
+        my $sectionDiv = &isSectionTitle(@elems[$x]);
+        push(@moveMilestones, @elems[$n+1]);
+        foreach my $m (@moveMilestones) {$m->unbindNode();}
+        foreach my $m (@moveMilestones) {$sectionDiv->parentNode()->insertBefore($m, $sectionDiv);}
+        $moved .= "\t".@elems[$n+1].@elems[$x]."\n";
+        $x = $n;
+      }
+    }
+  }
+  if ($moved) {&Log("NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:\n$moved\n");}
+  
+  my @elems = $XPC->findnodes('//*', $xml);
  
   # Report relevant intro elements which are not subType="x-introduction" and make them such.
   # Also add canonical=false as needed.
@@ -48,24 +80,6 @@ sub checkUpdateIntros($) {
 
     if ($XPC->findnodes('ancestor::osis:div[@type="book"][@canonical="true"]', $elem) && !$elem->hasAttribute('canonical')) {
       $elem->setAttribute('canonical', 'false');
-    }
-    
-    # if there are section titles just before chapter 1, these are NOT x-introduction
-    if ($elem->nodeName() eq 'title' && &isSectionTitle($elem)) {
-      my $n = $x;
-      while ((@elems[$n+1]->nodeName() eq 'title' && &isSectionTitle(@elems[$n+1])) ||
-          (@elems[$n+1]->nodeName() eq 'div' && @elems[$n+1]->getAttribute('type') =~ /section/i) ||
-          @elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE && @elems[$n+1]->data =~ /^[\s\n]*$/) {
-        $n++;
-      }
-      if (@elems[$n+1]->nodeName() eq 'chapter') {
-        @elems[$n+1]->unbindNode();
-        my $sectionDiv = &isSectionTitle(@elems[$x]);
-        $sectionDiv->parentNode()->insertBefore(@elems[$n+1], $sectionDiv);
-        &Log("NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:\n\t".@elems[$n+1]."\n\t".$elem."\n");
-        $x = $n;
-        next;
-      }
     }
     
     if (!$elem->hasAttribute('subType')) {
