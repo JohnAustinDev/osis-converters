@@ -218,7 +218,7 @@ sub spanVerses($$$\%) {
   
   my $osisID = $verse->getAttribute('osisID');
   
-  if ($n) {
+  if ($n > 0) {
     if ($osisID !~ /\b([^\.]+\.\d+)\.(\d+)$/) {&Log("ERROR: Bad spanVerses osisID \"$osisID\"\n"); return;}
     my $bkch = $1;
     my $v = (1*$2);
