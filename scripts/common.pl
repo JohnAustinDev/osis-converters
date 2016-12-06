@@ -2210,25 +2210,14 @@ sub updateWorkElement($\%$) {
 }
 
 
-# returns osisDoc or string depending on boolean $returnString argument
 $IS_SEG_INLINE  = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') ne 'keyword');};
 $IS_SEG_COMPACT = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') eq 'keyword');};
-sub prettyPrintOSIS($$) {
+sub prettyPrintOSIS($) {
   my $osisDoc = shift;
-  my $returnString = shift;
-  
-  if (!$prettyPrint) {
-    if (!$returnString) {return $osisDoc;}
-    my $s = $osisDoc->toString();
-    $s =~ s/\n+/\n/gm;
-    return $s;
-  }
-  
-  &Log("\n\nERROR: Set_PrettyPrint:true should NOT BE USED for final production runs, because it adds white-space that may be visible when rendered by some applications.\n");
   
   use XML::LibXML::PrettyPrint;
   
-  my @preserveWhiteSpace = qw(a abbr catchWord date divineName foreign hi index inscription lb mentioned milestone name note p q reference salute signed speaker titlePage transChange w);
+  my @preserveWhiteSpace = qw(a abbr catchWord date divineName foreign hi index inscription lb mentioned milestone name note q reference salute signed speaker titlePage transChange w);
   
   my @inline = ('header', $IS_SEG_INLINE);
   push(@inline, @preserveWhiteSpace);
@@ -2244,7 +2233,7 @@ sub prettyPrintOSIS($$) {
   
   $pp->pretty_print($osisDoc, -2);
   
-  return ($returnString ? $osisDoc->toString():$osisDoc);
+  return $osisDoc;
 }
 
 

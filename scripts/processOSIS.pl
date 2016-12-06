@@ -16,9 +16,10 @@ elsif ($MODDRV =~ /LD/) {
   &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
   &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
-my $xml = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml");
+my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();
+$osisDocString =~ s/\n+/\n/gm;
 open(OUTF, ">$TMPDIR/".$MOD."_1.xml");
-print OUTF &prettyPrintOSIS($xml, 1);
+print OUTF $osisDocString;
 close(OUTF);
 # MOD_1.xml has books/intros re-ordered, header/intro-tags updated, and glossaries pre-processed
 
@@ -51,6 +52,13 @@ if ($MODDRV =~ /Text/) {
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 # MOD.xml is after addCrossRefs.pl
+
+# Do a tmp Pretty Print for referencing during the conversion process
+my $xml = $XML_PARSER->parse_file($OUTOSIS);
+&prettyPrintOSIS($xml);
+open(OUTF, ">$TMPDIR/".$MOD."_PrettyPrint.xml");
+print OUTF $xml->toString();
+close(OUTF);
 
 &checkDictReferences($OUTOSIS);
 &checkIntroductionTags($OUTOSIS);
