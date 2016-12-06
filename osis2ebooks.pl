@@ -103,39 +103,25 @@ sub setupAndMakeEbook($$$) {
   # Cover name is 'cover' by default, or $scope if that image exists, or in 
   # the case of a single book eBook, the name of an existing image whose scope 
   # includes our book.
-  my $covname = 'cover';
-  if ($scope) {
-    $covname = $scope;
-    if (!-e "$INPD/eBook/$covname.jpg" && $scope !~ /[\s\-]/ && opendir(EBD, "$INPD/eBook")) {
-      my @fs = readdir(EBD);
-      closedir(EBD);
-      my $bookOrderP;
-      &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-      foreach my $f (@fs) {
-        if ($f !~ /\.(jpg)/i) {next;}
-        $f =~ s/\.[^\.]+$//;
-        for my $s (@{&scopeToBooks($f, $bookOrderP)}) {if ($scope eq $s) {$covname = $f;}}
-      }
-    }
-  }
-  if (-e "$INPD/eBook/$covname.jpg") {
+  my $covname = ($scope ? &findCover("$INPD/eBook", $scope):'cover.jpg');
+  if (-e "$INPD/eBook/$covname") {
     $cover = "$tmp/cover.jpg";
     if ($scope && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      &Log("\nREPORT: Using \"$covname.jpg\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
-      my $imagewidth = `identify "$INPD/eBook/$covname.jpg"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
+      &Log("\nREPORT: Using \"$covname\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($scopeTitle);
       if ($pointsize > 40) {$pointsize = 40;}
       elsif ($pointsize < 10) {$pointsize = 10;}
       my $padding = 20;
       my $barheight = $pointsize + (2*$padding) - 10;
-      my $cmd = "convert \"$INPD/eBook/$covname.jpg\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$scopeTitle' \"$cover\"";
+      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$scopeTitle' \"$cover\"";
       &Log("$cmd\n");
       `$cmd`;
     }
     else {
-      &Log("\nREPORT: Using \"$covname.jpg\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
-      copy("$INPD/eBook/$covname.jpg", $cover);
+      &Log("\nREPORT: Using \"$covname\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      copy("$INPD/eBook/$covname", $cover);
     }
   }
   else {&Log("\nREPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");}
@@ -176,7 +162,7 @@ sub setupAndMakeEbook($$$) {
           my @images = readdir(IDIR);
           closedir(IDIR);
           foreach my $image (@images) {
-            if (! -e "$tmp/images/$image") {next;}
+            if (-d "$compDir/images/$image" || ! -e "$tmp/images/$image") {next;}
             &Log("ERROR: Images cannot have the same name:\"$compDir/images/$image\" and \"$tmp/images/$image\".\n");
           }
         }
@@ -201,6 +187,31 @@ sub setupAndMakeEbook($$$) {
   &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp, $type);
   &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp, $type);
   &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp, $type);
+}
+
+# Look for a cover image in $dir matching $scope and return it if found. 
+# The image file name may or may not be prepended with $MOD_, and may use
+# either " " or "_" as scope delimiter.
+sub findCover($$) {
+  my $dir = shift;
+  my $scope = shift;
+  
+  if (opendir(EBD, $dir)) {
+    my @fs = readdir(EBD);
+    closedir(EBD);
+    my $bookOrderP;
+    &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+    foreach my $f (@fs) {
+      my $fscope = $f;
+      my $m = $MOD.'_';
+      if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
+      $fscope =~ s/_/ /g;
+      if ($scope eq $fscope) {return $f;}
+      for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {if ($scope eq $s) {return $f;}}
+    }
+  }
+  
+  return NULL;
 }
 
 sub makeEbook($$$$$$) {
