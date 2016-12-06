@@ -1173,8 +1173,9 @@ sub sortSearchTermKeys($$) {
 
 
 # Copy inosis to outosis, while pruning books according to scope. 
-# If any bookGroup is left with no books in it, then the entire bookGroup element is dropped.
-# If scope is NULL then all complete books in inosis are copied to outosis.
+# If any bookGroup is left with no books in it, then the entire bookGroup element (including its introduction if there is one) is dropped.
+# If a pruned book contains a book introduction which also pertains to a kept book, that intro is moved to the first kept book, so as to retain the intro.
+# If there is no scope then inosis is copied to outosis, unchanged.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
   my $outosis = shift;
@@ -1184,21 +1185,36 @@ sub pruneFileOSIS($$$$) {
   my $inxml = $XML_PARSER->parse_file($inosis);
   
   if ($scope) {
-    my $canonP;
     my $bookOrderP;
-    my $testamentP;
-    if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
+    if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
+      my @lostIntros;
       my $scopeBooks = &scopeToBooks($scope, $bookOrderP);
       my %scopeBookNames = map { $_ => 1 } @{$scopeBooks};
       # remove books not in scope
       my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
       foreach my $bk (@books) {
         my $id = $bk->getAttribute('osisID');
-        if (!exists($scopeBookNames{$id})) {$bk = $bk->parentNode()->removeChild($bk);}
+        if (!exists($scopeBookNames{$id})) {
+          push(@lostIntros, $XPC->findnodes('.//osis:div[@type="introduction"][@osisRef]', $bk));
+          $bk->unbindNode();
+        }
       }
       # remove empty bookGroups
       my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-      foreach my $ebg (@emptyBookGroups) {$ebg->parentNode()->removeChild($ebg);}
+      foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode();}
+      # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
+      my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
+      INTRO: foreach my $intro (reverse(@lostIntros)) {
+        my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+        if (!@{$introBooks}) {next;}
+        foreach $introbk (@{$introBooks}) {
+          foreach my $remainingBook (@remainingBooks) {
+            if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
+            $remainingBook->insertBefore($intro, $remainingBook->firstChild);
+            next INTRO;
+          }
+        }
+      }
     }
     else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   }
@@ -1331,7 +1347,10 @@ sub addDictionaryLink(\$$$\@) {
       if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n", $entry); next;}}
       elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n", $entry); next;}
     }
-    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context) && @{$glossaryScopeP} && !&myGlossaryContext($a, $glossaryScopeP)) {&dbg("50\n", $entry); next;}}
+    if ($a = &getAttribute('context', $m)) {
+      my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs && &myGlossaryContext($a, $glossaryScopeP));
+      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("50\n", $entry); next;}
+    }
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
     if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
     
