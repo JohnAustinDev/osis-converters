@@ -87,7 +87,7 @@ sub toVersificationBookOrder($$) {
   for (my $i=@intros-1; $i >= 0; $i--) {
     my $intro = @intros[$i];
 
-    # read the first comment to find desired target location(s), if any
+    # read the first comment to find desired target location(s) and scope, if any
     my @commentNode = $XPC->findnodes('./comment()', $intro);
 
     # default target is the introduction to first book
@@ -108,11 +108,18 @@ sub toVersificationBookOrder($$) {
         my $part = $parts[$x-1] . $parts[$x];
         $part =~ s/^,\s*//;
         if ($part !~ /^(\S+) == (.*?)$/) {
-          &Log("ERROR: Unhandled location assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
+          &Log("ERROR: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
         }
         my $emsg = "as specified in \"$part\" in CF_usfm2osis.txt";
         my $int = $1;
         my $xpath = $2;
+        if ($int eq 'scope') {
+          if (!$intro->getAttribute('osisRef')) {
+            $intro->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
+          }
+          else {&Log("ERROR: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$intro->getAttribute('osisRef')."\"\n");}
+          next;
+        }
         if ($xpath =~ /^remove$/i) {
           &Log("NOTE: Removing \"$int\" as requested\n");
           next;
