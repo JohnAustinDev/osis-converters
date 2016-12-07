@@ -33,8 +33,6 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$DEBUG = 0;
-
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
@@ -51,7 +49,7 @@ open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis c
 while (<COMF>) {
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|CCTable|companionProject|CONFIG_\w+|CONVERT_\w+):(\s*(.*?)\s*)?$/) {
+  elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|CCTable|companionProject|CONFIG_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
     if ($2) {
       my $par = $1;
       my $val = $3;

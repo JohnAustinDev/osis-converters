@@ -164,6 +164,12 @@ if (lc $OPTYPE eq "fb2")
   $COMMAND .= ' --fb2 religion --sectionize toc';
 }
 
+# Debug keeps eBook intermediate files
+if ($DEBUG)
+{
+  $COMMAND .= ' --debug-pipeline='.&escfile("$RUNDIR/debug");
+}
+
 # Run conversion command
 print "$COMMAND\n";
 &Log("$COMMAND\n");

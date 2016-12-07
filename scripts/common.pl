@@ -1474,11 +1474,8 @@ sub dbg($$) {
   my $p = shift;
   my $e = shift;
   
-  my $debug_entry = ''; #decode('utf8', "Pygamber");
-  
-  if ($DEBUG || ($debug_entry && $e eq $debug_entry)) {
-    &Log($p);
-  }
+  if (!$DEBUG || !$e || $DEBUG !~ /$e/i) {return;}
+  &Log($p);
 }
 
 
