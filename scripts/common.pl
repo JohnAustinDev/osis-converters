@@ -376,9 +376,9 @@ sub checkAndWriteDefaults($) {
       
         # peripherals need a target location in the OSIS file added to their ID
         if ($USFM{$type}{$f}{'peripheralID'}) {
-          print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
-          print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
-          my $xpath = "introduction == osis:div[\@type='book'][\@osisID='Gen']";
+          print CFF "\n# Use <name> == <xpath> expressions to place peripherl material where it should go\n";
+          print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
+          my $xpath = "location == osis:div[\@type='book'][\@osisID='Gen']";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
@@ -388,13 +388,13 @@ sub checkAndWriteDefaults($) {
           }
           $xpath =~ s/([\@\$])/\\$1/g;
           print CFF $xpath;
-          print CFF "/\n";
+          print CFF "/m\n";
         }
 
         my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
         print CFF "RUN:$r\n";
         
-        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(INT):\n\n";}
+        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(PERIPH):\n\n";}
       }
       close(CFF);
     }
