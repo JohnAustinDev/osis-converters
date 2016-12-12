@@ -148,6 +148,7 @@ sub toVersificationBookOrder($$) {
   }
 
   # place all peripheral files, and separately any \periph sections they may contain, each to their proper places
+  my @mylog;
   for (my $i=@periphs-1; $i >= 0; $i--) {
     my $periph = @periphs[$i];
     my $placedPeriph;
@@ -156,9 +157,9 @@ sub toVersificationBookOrder($$) {
     my @commentNode = $XPC->findnodes('child::node()[2][self::comment()]', $periph);
 
     if (!@commentNode || @commentNode[0] !~ /\s\S+ == \S+/) {
-      &Log("ERROR: Removing periph(s)! You must specify the location where each peripheral file should be placed within the OSIS file.\n");
-      &placementMessage();
-      &Log("REMOVED:\n$periph\n");
+      push(@mylog, "ERROR: Removing periph(s)! You must specify the location where each peripheral file should be placed within the OSIS file.\n");
+      push(@mylog, &placementMessage());
+      push(@mylog, "REMOVED:\n$periph\n");
     }
     else {
       my $comment = @commentNode[0];
@@ -172,7 +173,7 @@ sub toVersificationBookOrder($$) {
         my $part = $parts[$x-1] . $parts[$x];
         $part =~ s/^,\s*//;
         if ($part !~ /^(\S+|"[^"]+") == (.*?)$/) {
-          &Log("ERROR: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
+          push(@mylog, "ERROR: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
         }
         my $emsg = "as specified by \"$part\"";
         my $int = $1;
@@ -182,7 +183,7 @@ sub toVersificationBookOrder($$) {
           if (!$periph->getAttribute('osisRef')) {
             $periph->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
           }
-          else {&Log("ERROR: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"\n");}
+          else {push(@mylog, "ERROR: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"\n");}
           next;
         }
         
@@ -192,7 +193,7 @@ sub toVersificationBookOrder($$) {
           $xpath = '//'.$xpath;
           @targXpath = $XPC->findnodes($xpath, $xml);
           if (!@targXpath) {
-            &Log("ERROR: Removing periph! Could not locate xpath:\"$xpath\" $emsg\n");
+            push(@mylog, "ERROR: Removing periph! Could not locate xpath:\"$xpath\" $emsg\n");
             next;
           }
         }
@@ -211,13 +212,13 @@ sub toVersificationBookOrder($$) {
           elsif (defined($PERIPH_TYPE_MAP_R{$int})) {$type = $int;}
           elsif (defined($PERIPH_SUBTYPE_MAP_R{$int})) {$type = "introduction"; $subType = $int;}
           else {
-            &Log("ERROR: Could not place periph! Unable to map \"$int\" to a div element $emsg.\n");
+            push(@mylog, "ERROR: Could not place periph! Unable to map \"$int\" to a div element $emsg.\n");
             next;
           }
           my $srcXpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
           my @ptag = $XPC->findnodes($srcXpath, $periph);
           if (!@ptag) {
-            &Log("ERROR: Could not place periph! Did not find \"$srcXpath\" $emsg\n");
+            push(@mylog, "ERROR: Could not place periph! Did not find \"$srcXpath\" $emsg\n");
             next;
           }
           @ptag[$#ptag]->unbindNode();
@@ -225,28 +226,29 @@ sub toVersificationBookOrder($$) {
         }
         if ($xpath) {
           my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-          &Log("NOTE: Placing $tg as specified by \"$int\" == \"$xpath\"\n");
+          push(@mylog, "NOTE: Placing $tg as specified by \"$int\" == \"$xpath\"\n");
         }
-        else {&Log("NOTE: Removing \"$int\" $emsg\n");}
+        else {push(@mylog, "NOTE: Removing \"$int\" $emsg\n");}
       }
     }
     if (!$placedPeriph) {
       if (@{$XPC->findnodes('.//*', $periph)} || @{$XPC->findnodes('.//text()[normalize-space()]', $periph)}) {
-        &Log(
+        push(@mylog,
 "ERROR: The placement location for the following peripheral material was 
 not specified and its position may be incorrect:
 $periph
 To position the above material, add location == <XPATH> after the \\id tag.\n"
         );
-        &placementMessage();
+        push(@mylog, &placementMessage());
       }
       else {
         $periph->unbindNode();
         my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-        &Log("NOTE: Removing empty div \"$tg\"\n");
+        push(@mylog, "NOTE: Removing empty div \"$tg\"\n");
       }
     }
   }
+  foreach my $lg (reverse(@mylog)) {&Log($lg);}
   
   # Don't check that all books/chapters are included in this 
   # OSIS file, but DO insure that all verses are accounted for and in 
@@ -303,9 +305,9 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
 }
 
 sub placementMessage() {
-  if ($AlreadyReportedThis) {return;}
+  if ($AlreadyReportedThis) {return '';}
   $AlreadyReportedThis = 1;
-  &Log(
+return
 "------------------------------------------------------------------------
 | The location of peripheral file contents and, if desired, the location 
 | of each \periph section within the file must be appended to the end of
@@ -332,8 +334,7 @@ sub placementMessage() {
 | Optionally, you may also specify the scope of each peripheral file by 
 | adding \"scope == Matt-Rev\" for instance. This is used by single Bible-
 | book eBooks to duplicate peripheral material in multiple eBooks.
-------------------------------------------------------------------------\n"
-  );
+------------------------------------------------------------------------\n";
 }
 
 sub checkLastVerse($$$$$) {
