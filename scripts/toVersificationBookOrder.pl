@@ -28,6 +28,7 @@
   'NDX' => 'gazetteer',
   'OTH' => 'x-other'
 );
+%ID_TYPE_MAP_R = reverse %ID_TYPE_MAP;
 
 %PERIPH_TYPE_MAP = (
   # Text following \periph => <div> type attribute value
@@ -81,6 +82,20 @@
 );
 %PERIPH_SUBTYPE_MAP_R = reverse %PERIPH_SUBTYPE_MAP;
 
+%USFM_DEFAULT_PERIPH_TARGET = (
+  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
+  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
+  'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
+  'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
+  'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
+  'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
+  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]',
+  'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
+  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
+  'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
+  'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
+);
+
 sub toVersificationBookOrder($$) {
   my $vsys = shift;
   my $osis = shift;
@@ -112,19 +127,13 @@ sub toVersificationBookOrder($$) {
   }
   foreach my $periph (@periphs) {$periph->unbindNode();}
   
-  # remove bookGroups (if any)
-  my @removeBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
-  foreach my $removeBookGroup (@removeBookGroups) {$removeBookGroup->unbindNode();}
-  
   # create empty bookGroups
-  my $bg = @books[0]->cloneNode(0); # start with book node to insure bookGroup has correct context
-  foreach my $a ($bg->attributes()) {
-    if ($a->nodeType != 2) {next;}
-    if ($a->nodeName eq "type") {$a->setValue('bookGroup');}
-    else {$bg->removeAttribute($a->nodeName);}
-  }
-  my @bookGroups = ($bg, $bg->cloneNode());
-    
+  my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+  my $bg;
+  $bg = $osisText->addNewChild("http://www.bibletechnologies.net/2003/OSIS/namespace", 'div'); $bg->setAttribute('type', 'bookGroup');
+  $bg = $osisText->addNewChild("http://www.bibletechnologies.net/2003/OSIS/namespace", 'div'); $bg->setAttribute('type', 'bookGroup');
+  my @bookGroups = $XPC->findnodes('//osis:osisText/osis:div[@type="bookGroup"]', $xml);
+
   # place all books back in canon order
   foreach my $v11nbk (@{$bookArrayP}) {
     if (!$v11nbk) {next;} # bookArrayP[0] is empty
@@ -141,10 +150,8 @@ sub toVersificationBookOrder($$) {
     if ($bk ne '') {&Log("ERROR: Book \"$bk\" not found in $vsys Canon\n");}
   }
   
-  my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
   foreach my $bookGroup (@bookGroups) {
-    if (!$XPC->findnodes('descendant::*', $bookGroup)) {next;}
-    $osisText->appendChild($bookGroup);
+    if (!$bookGroup->hasChildNodes()) {$bookGroup->unbindNode();}
   }
 
   # place all peripheral files, and separately any \periph sections they may contain, each to their proper places

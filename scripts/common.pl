@@ -39,6 +39,7 @@ $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 
 require("$SCRD/scripts/getScope.pl");
+require("$SCRD/scripts/toVersificationBookOrder.pl");
 
 sub init($) {
   my $quiet = shift;
@@ -383,7 +384,7 @@ sub checkAndWriteDefaults($) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
               if (!$osisMap) {next;}
-              $xpath .= ", ".$osisMap->{'name'}." == ".$osisMap->{'xpath'};
+              $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
             }
           }
           $xpath =~ s/([\@\$])/\\$1/g;
@@ -456,60 +457,17 @@ sub checkAndWriteDefaults($) {
 }
 
 
-# Copied from usfm2osis.py 0.6
-%USFM_PERIPH = (
-  'Title Page' => 'titlePage',
-  'Half Title Page' => 'x-halfTitlePage',
-  'Promotional Page' => 'x-promotionalPage',
-  'Imprimatur' => 'imprimatur',
-  'Publication Data' => 'publicationData',
-  'Foreword' => 'x-foreword',
-  'Preface' => 'preface',
-  'Table of Contents' => 'tableofContents',
-  'Alphabetical Contents' => 'x-alphabeticalContents',
-  'Table of Abbreviations' => 'x-tableofAbbreviations',
-  'Chronology' => 'x-chronology',
-  'Weights and Measures' => 'x-weightsandMeasures',
-  'Map Index' => 'x-mapIndex',
-  'NT Quotes from LXX' => 'x-ntQuotesfromLXX',
-  'Cover' => 'coverPage', 'Spine' => 'x-spine',
-  'Bible Introduction' => 'x-bible',
-  'Old Testament Introduction' => 'x-oldTestament',
-  'Pentateuch Introduction' => 'x-pentateuch',
-  'History Introduction' => 'x-history',
-  'Poetry Introduction' => 'x-poetry',
-  'Prophecy Introduction' => 'x-prophecy',
-  'New Testament Introduction' => 'x-newTestament',
-  'Gospels Introduction' => 'x-gospels',
-  'Acts Introduction' => 'x-acts',
-  'Epistles Introduction' => 'x-epistles',
-  'Letters Introduction' => 'x-letters',
-  'Deuterocanon Introduction' => 'x-deuterocanon'
-);
-%USFM_PERIPH_TARGET = (
-  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
-  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
-  'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
-  'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
-  'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
-  'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]',
-  'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
-  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
-  'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
-  'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
-);
-
 sub getOsisMap($) {
   my $pt = shift;
 
-  my $name = $USFM_PERIPH{$pt};
+  my $name = $PERIPH_TYPE_MAP{$pt};
   if (!$name) {&Log("ERROR: Unrecognized peripheral name \"$pt\"\n"); return NULL;}
+  if ($name eq 'introduction') {$name = $PERIPH_SUBTYPE_MAP{$pt};}
 
   my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
-  foreach my $t (keys %USFM_PERIPH_TARGET) {
+  foreach my $t (keys %USFM_DEFAULT_PERIPH_TARGET) {
     if ($pt !~ /^($t)$/i) {next;}
-    $xpath = $USFM_PERIPH_TARGET{$t};
+    $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
     last;
   }
   my %h = ( 'name' => $name, 'xpath' => $xpath );
@@ -1173,51 +1131,62 @@ sub sortSearchTermKeys($$) {
 
 
 # Copy inosis to outosis, while pruning books according to scope. 
-# If any bookGroup is left with no books in it, then the entire bookGroup element (including its introduction if there is one) is dropped.
-# If a pruned book contains a book introduction which also pertains to a kept book, that intro is moved to the first kept book, so as to retain the intro.
-# If there is no scope then inosis is copied to outosis, unchanged.
+# If any bookGroup is left with no books in it, then the entire bookGroup 
+# element (including its introduction if there is one) is dropped.
+# If a pruned book contains a peripheral which also pertains to a kept 
+# book, that peripheral is moved to the first kept book, so as to retain 
+# the peripheral. If there is no scope then inosis is copied to outosis.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
   my $outosis = shift;
   my $scope = shift;
   my $vsys = shift;
   
+  if (!$scope) {copy($inosis, $outosis); return;}
+  
+  my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
+  $typeRE =~ s/\-/\\-/g;
+  
   my $inxml = $XML_PARSER->parse_file($inosis);
   
-  if ($scope) {
-    my $bookOrderP;
-    if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
-      my @lostIntros;
-      my $scopeBooks = &scopeToBooks($scope, $bookOrderP);
-      my %scopeBookNames = map { $_ => 1 } @{$scopeBooks};
-      # remove books not in scope
-      my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
-      foreach my $bk (@books) {
-        my $id = $bk->getAttribute('osisID');
-        if (!exists($scopeBookNames{$id})) {
-          push(@lostIntros, $XPC->findnodes('.//osis:div[@type="introduction"][@osisRef]', $bk));
-          $bk->unbindNode();
+  my $bookOrderP;
+  if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
+    my @lostIntros;
+    my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
+    # remove books not in scope
+    my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+    foreach my $bk (@books) {
+      my $id = $bk->getAttribute('osisID');
+      if (!exists($scopeBookNames{$id})) {
+        my @divs = $XPC->findnodes('./osis:div[@type]', $bk);
+        foreach my $div (@divs) {
+          if ($div->getAttribute('type') !~ /$typeRE/i) {next;}
+          push(@lostIntros, $div);
         }
+        $bk->unbindNode();
       }
-      # remove empty bookGroups
-      my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-      foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode();}
-      # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
-      my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
-      INTRO: foreach my $intro (reverse(@lostIntros)) {
-        my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
-        if (!@{$introBooks}) {next;}
-        foreach $introbk (@{$introBooks}) {
-          foreach my $remainingBook (@remainingBooks) {
-            if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-            $remainingBook->insertBefore($intro, $remainingBook->firstChild);
-            next INTRO;
-          }
+    }
+    # remove bookGroup if it has no books left (even if it contains other peripheral material)
+    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode();}
+    # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
+    my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
+    INTRO: foreach my $intro (reverse(@lostIntros)) {
+      my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+      if (!@{$introBooks}) {next;}
+      foreach $introbk (@{$introBooks}) {
+        foreach my $remainingBook (@remainingBooks) {
+          if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
+          $remainingBook->insertBefore($intro, $remainingBook->firstChild);
+          my $t1 = $intro; $t1 =~ s/>.*$/>/s;
+          my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
+          &Log("NOTE: Moved peripheral: $t1 to $t2\n");
+          next INTRO;
         }
       }
     }
-    else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   }
+  else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   
   open(OUTF, ">$outosis");
   print OUTF $inxml->toString();

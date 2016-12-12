@@ -75,6 +75,8 @@ sub setupAndMakeEbook($$$) {
   my $type = shift;
   my $title = shift;
   
+  &Log("\n");
+  
   my $tmp = "$TMPDIR/".($scope ? $scope:'all');
   make_path($tmp);
     
@@ -108,7 +110,7 @@ sub setupAndMakeEbook($$$) {
     $cover = "$tmp/cover.jpg";
     if ($scope && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      &Log("\nREPORT: Using \"$covname\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      &Log("REPORT: Using \"$covname\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($scopeTitle);
       if ($pointsize > 40) {$pointsize = 40;}
@@ -120,11 +122,11 @@ sub setupAndMakeEbook($$$) {
       `$cmd`;
     }
     else {
-      &Log("\nREPORT: Using \"$covname\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      &Log("REPORT: Using \"$covname\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
       copy("$INPD/eBook/$covname", $cover);
     }
   }
-  else {&Log("\nREPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");}
+  else {&Log("REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");}
   
   my @skipCompanions;
   foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
