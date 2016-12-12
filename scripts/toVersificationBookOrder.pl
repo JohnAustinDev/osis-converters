@@ -163,7 +163,7 @@ sub toVersificationBookOrder($$) {
     else {
       my $comment = @commentNode[0];
       #<!-- id comment - (FRT) titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
-      $comment =~ s/^<\!\-\-.*?(?=\s\S+ ==)//; # strip beginning stuff
+      $comment =~ s/^<\!\-\-.*?(?=\s(?:\S+|"[^"]+") ==)//; # strip beginning stuff
       $comment =~ s/\s*\-\->$//; # strip end stuff
       
       # process comment parts in reverse order to acheive expected element order
