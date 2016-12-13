@@ -121,10 +121,13 @@ sub toVersificationBookOrder($$) {
   foreach my $bk (@books) {$bk->unbindNode();}
 
   # remove all peripheral file divs
-  my @periphs;
+  my $xpath;
+  my $sep;
   foreach my $type (values(%ID_TYPE_MAP)) {
-    push (@periphs, $XPC->findnodes('//osis:div[@type="'.$type.'"][not(@subType)]', $xml));
+    $xpath .= $sep.'//osis:div[@type="'.$type.'"][not(@subType)]';
+    $sep = '|';
   }
+  my @periphs = $XPC->findnodes($xpath, $xml);
   foreach my $periph (@periphs) {$periph->unbindNode();}
   
   # create empty bookGroups
