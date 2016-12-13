@@ -334,7 +334,7 @@ sub checkAndWriteDefaults($) {
   
   # get my type
   my $type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);
-  if (!$type) {$type = (exists($USFM{'childrens_bible'}) && $confdataP->{'ModuleName'} =~ /CB$/ ? 'childrens_bible':0);}
+  if (!$type) {$type = ($confdataP->{'ModuleName'} =~ /^\w\w\w\w?CB$/ ? 'childrens_bible':0);}
   if (!$type) {$type = (exists($USFM{'bible'}) ? 'bible':0);}
   if (!$type) {$type = 'other';}
   
@@ -377,9 +377,14 @@ sub checkAndWriteDefaults($) {
       
         # peripherals need a target location in the OSIS file added to their ID
         if ($USFM{$type}{$f}{'peripheralID'}) {
-          print CFF "\n# Use <name> == <xpath> expressions to place peripherl material where it should go\n";
-          print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
-          my $xpath = "location == osis:div[\@type='book'][\@osisID='Gen']";
+          print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
+          if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
+            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
+          }
+          else {
+            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+          }
+          my $xpath = "location == osis:header";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
@@ -555,7 +560,7 @@ sub scanUSFM_file($) {
     if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
       my $i = $1; 
       if ($id) {
-        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous is tags: \"$id\", \"$i\"\n");}
+        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous id tags: \"$id\", \"$i\"\n");}
         next;
       }
       $id = $i;
@@ -584,20 +589,25 @@ sub scanUSFM_file($) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /^(PRE|TTL|FRT|INT|OTH)$/i) {
+    elsif ($id =~ /^(FRT|INT|OTH)$/i) {
       $info{'type'} = 'bible';
       $info{'peripheralID'} = $id;
     }
-    elsif ($id =~ /(GLO|DIC|BAK|CNC)/i) {
+    elsif ($id =~ /(GLO|DIC|BAK|CNC|TDX|NDX)/i) {
       $info{'type'} = 'dictionary';
     }
-    elsif ($id =~ /^(CVR|TLB|PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) {
-      $info{'type'} = 'childrens_bible';
+    elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) { # Strange IDs associated with Children's Bibles
+      $info{'type'} = 'bible';
+    }
+    elsif ($id =~ /^\s*(\w{3})\b/) {
+      $info{'peripheralID'} = $1;
+      $info{'type'} = 'bible'; # This has some kind of SFM-like id, so just treat it like a Bible peripheral
     }
     # others are currently unhandled by osis-converters
     else {
       $info{'type'} = 'other';
       $info{'doConvert'} = 0;
+      &Log("WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n");
     }
     &Log("NOTE:");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
