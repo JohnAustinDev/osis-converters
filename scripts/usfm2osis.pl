@@ -103,7 +103,9 @@ sub usfm2osis($$) {
   my $use_u2o = 0;
   if (!$use_u2o) {
     &Log($cmd . "\n", 1);
-    &Log(`$cmd` . "\n", 1);
+    my $result = `$cmd`;
+    &Log("$result\n", 1);
+    if ($result =~ /Unhandled/i) {&Log("ERROR: Unhandled in usfm2osis.py output, see above.\n");}
   }
   
   # test/evaluation for u2o.py script

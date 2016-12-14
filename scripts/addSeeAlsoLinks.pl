@@ -126,7 +126,7 @@ sub getEntryTextNodes($$) {
     }
   }
   
-  if ($DEBUG) {foreach my $e (@entryTextNodes) {&Log("getEntryTextNodes = $e\n");}}
+#  if ($DEBUG) {foreach my $e (@entryTextNodes) {&Log("getEntryTextNodes = $e\n");}}
   return \@entryTextNodes;
 }
 

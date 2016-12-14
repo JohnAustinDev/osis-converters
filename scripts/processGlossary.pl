@@ -162,25 +162,26 @@ sub filterGlossaryToScope($$) {
   my @removed;
   my @kept;
   
-  if ($scope) {
-    my $xml = $XML_PARSER->parse_file($osis);
-    my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
-    foreach my $div (@glossDivs) {
-      my $divScope = &getGlossaryScope($div);
-      
-      # keep all glossary divs that don't specify a particular scope
-      if (!$divScope) {push(@kept, $divScope); next;}
+  if (!$scope) {$scope = 'Gen-Rev';} # This means any non Bible scopes (like SWORD) are filtered out 
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
+  foreach my $div (@glossDivs) {
+    my $divScope = &getGlossaryScope($div);
     
-      # keep if any book within the glossary scope matches $scope
-      my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-      if (&myGlossaryContext($scope, &scopeToBooks($divScope, $bookOrderP))) {
-        push(@kept, $divScope);
-        next;
-      }
-      
-      $div->unbindNode();
-      push(@removed, $divScope);
+    # keep all glossary divs that don't specify a particular scope
+    if (!$divScope) {push(@kept, $divScope); next;}
+  
+    # keep if any book within the glossary scope matches $scope
+    my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+    if (&myGlossaryContext($scope, &scopeToBooks($divScope, $bookOrderP))) {
+      push(@kept, $divScope);
+      next;
     }
+    
+    $div->unbindNode();
+    push(@removed, $divScope);
+  }
 
     if (@removed == @glossDivs) {return -1;}
     
@@ -189,7 +190,6 @@ sub filterGlossaryToScope($$) {
     open(OUTF, ">$osis");
     print OUTF $xml->toString();
     close(OUTF);
-  }
   
   &removeAggregateEntries($osis);
   
