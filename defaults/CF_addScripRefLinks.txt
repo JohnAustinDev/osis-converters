@@ -1,6 +1,5 @@
 # See /scripts/addScripRefLinks.pl for command file documentation
 
-SKIP_XPATH:osis:reference[@type='annotateRef']
 FILTER:
 CURRENT_BOOK_TERMS:
 CURRENT_CHAPTER_TERMS:

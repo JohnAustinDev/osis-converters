@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+# usage: simplecc.pl input-file cc-table output-file
+
+# Support running simplecc as a stand alone script
+sub myLog {if (defined(&Log)) {&Log(@_);} else {print @_[0];}}
+if (@ARGV == 3) {&simplecc(@ARGV[0], @ARGV[1], @ARGV[2]);}
+
 # A simple Constant Changes implementation to apply a very basic CC table using Perl
 %CCDATA;
 
@@ -25,7 +31,7 @@ sub simplecc($$$) {
   my $cctable = shift;
   my $ccout = shift;
   
-  &Log("Applying CC Table: \"$ccin\" \"$cctable\" \"$ccout\"\n");
+  &myLog("Applying CC Table: \"$ccin\" \"$cctable\" \"$ccout\"\n");
   
   if (!$CCDATA{$cctable}) {&readcc($cctable);}
 
@@ -41,13 +47,13 @@ sub simplecc($$$) {
     my @was;
     if ($MOD && $companionProject) {
       # Update OSIS file's module name
-      &Log("Converting moduleName...\n", 2);
+      &myLog("Converting moduleName...\n", 2);
       @was = $XPC->findnodes('//osis:osisText[@osisIDWork="'.$companionProject.'"]/@osisIDWork', $xml);
       push(@was, $XPC->findnodes('//osis:work[@osisWork="'.$companionProject.'"]/@osisWork', $xml));
       foreach my $wa (@was) {$wa->setValue($MOD);}
     
       # Update Scripture references
-      &Log("Converting osisRef=\"".$companionProject.":...\n", 2);
+      &myLog("Converting osisRef=\"".$companionProject.":...\n", 2);
       my @srefs = $XPC->findnodes('//*[starts-with(@osisRef, "'.$companionProject.':")]/@osisRef', $xml);
       foreach my $wa (@srefs) {
         my $ud = $wa->getValue();
@@ -55,16 +61,16 @@ sub simplecc($$$) {
         $wa->setValue($ud);
       }
     }
-    if (!@was) {&Log("ERROR: Did not update module name in \"$ccout\"\n");}
+    if (!@was) {&myLog("ERROR: Did not update module name in \"$ccout\"\n");}
     
-    &Log("Reading text & attribute nodes...\n", 2);
+    &myLog("Reading text & attribute nodes...\n", 2);
     my @nodes = $XPC->findnodes('//text()', $xml);
     push(@nodes, $XPC->findnodes('//*[not(self::osis:div)][@n]/@n', $xml));
-    &Log("Converting text & attribute nodes...\n", 2);
+    &myLog("Converting text & attribute nodes...\n", 2);
     my %ndata;
     my $l=0;
     foreach my $node (@nodes) {
-      $l = $node->line_number(); if (($l%1000) == 0 && !$reported_line{$l}) {&Log("line $l ...\n", 2); $reported_line{$l}++;}
+      $l = $node->line_number(); if (($l%1000) == 0 && !$reported_line{$l}) {&myLog("line $l ...\n", 2); $reported_line{$l}++;}
       if ($node->nodeType() == 3) { # Text nodes
         my $ud = $node->data();
         utf8::upgrade($ud);
@@ -75,7 +81,7 @@ sub simplecc($$$) {
         utf8::upgrade($ud);
         $node->setValue(&simplecc_convert($ud, $cctable));
       }
-      else {&Log("ERROR: Unhandled node type\n");}
+      else {&myLog("ERROR: Unhandled node type\n");}
     }
     
     open(OUT, ">$ccout") || die;

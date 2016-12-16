@@ -27,7 +27,7 @@ select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
 $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
-$OSISSCHEMA = "osisCore.2.1.1.xsd";
+$OSISSCHEMA = "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
@@ -376,7 +376,7 @@ sub checkAndWriteDefaults($) {
         if ($USFM{$type}{$f}{'peripheralID'}) {
           print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
           print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
-          my $xpath = "introduction == osis:div[\@type='book'][\@osidID='Gen']";
+          my $xpath = "introduction == osis:div[\@type='book'][\@osisID='Gen']";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
@@ -2344,7 +2344,7 @@ sub validateOSIS($) {
   # validate new OSIS file against schema
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
-  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"http://www.bibletechnologies.net/$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
+  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
   &Log("$cmd\n");
   system($cmd);
   &Log("END OSIS VALIDATION\n");

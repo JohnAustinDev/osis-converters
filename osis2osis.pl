@@ -142,6 +142,6 @@ while (<COMF>) {
 }
 close(COMF);
 
-if ($osis_in) {require("$SCRD/scripts/add2osis.pl");}
+if ($osis_in) {require("$SCRD/scripts/processOSIS.pl");}
 
 1;

@@ -40,10 +40,6 @@ if (-e "$INPD/CF_usfm2osis.txt") {
   $IS_usfm2osis = 1;
   require("$SCRD/scripts/usfm2osis.pl");
   &usfm2osis("$INPD/CF_usfm2osis.txt", "$TMPDIR/".$MOD."_1.xml");
-  if ($MODDRV =~ /Text/) {
-    require("$SCRD/scripts/checkUpdateIntros.pl");
-    &checkUpdateIntros("$TMPDIR/".$MOD."_1.xml");
-  }
 }
 elsif(-e "$INPD/CF_paratext2osis.txt") {
   $IS_usfm2osis = 0;
@@ -52,6 +48,6 @@ elsif(-e "$INPD/CF_paratext2osis.txt") {
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt or CF_paratext2osis.txt.";}
 
-require("$SCRD/scripts/add2osis.pl");
+require("$SCRD/scripts/processOSIS.pl");
 
 1;
