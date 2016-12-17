@@ -16,6 +16,7 @@ class GlossaryHandler(OsisHandler):
         self._inChapter = False                         # Currently between start and end chapter tags
         self._entryTocLevel = 2                         # Level for toc entries for individual entries
         self._keywordTag = 'dfn'                        # Tag to use for keywords
+        self._startingGlossDiv = False                  # We are at the start of a glossary <div>
         
 
     def startDocument(self):
@@ -27,6 +28,7 @@ class GlossaryHandler(OsisHandler):
         self._inChapterTitle = False
         self._inDfn = False
         self._foundGlossaryDiv = False
+        self._startingGlossDiv = False
         self._inChapter = False
         self._entryTocLevel = 2 
         self._defaultHeaderLevel = 3                    # Avoid header level 2 as this would appear in table of contents
@@ -85,6 +87,7 @@ class GlossaryHandler(OsisHandler):
                         self._entryTocLevel = 3
                     else:
                         self._glossTitleWritten = True
+                        self._startingGlossDiv = False
                     self._writeTitle()
                     
         else:
@@ -102,8 +105,10 @@ class GlossaryHandler(OsisHandler):
             if self._headerProcessed:           
                 if not self._ignoreText:
                     if len(text) > 0:
-                        if not self._glossTitleWritten and not self._inTitle:
-                            self._writeDefaultTitle()                                        
+                        if not self._inTitle:
+                            self._startingGlossDiv = False
+                            if not self._glossTitleWritten:
+                                self._writeDefaultTitle()
                         if not self._inParagraph and not self._inGeneratedPara and not self._inArticle and not self._lineGroupPara and not self._inTable:
                             self._startGeneratedPara()
                         if self._endDfn:
@@ -144,11 +149,18 @@ class GlossaryHandler(OsisHandler):
                 self._htmlWriter.open(self._osisIDWork)
                 self._breakCount = 2
                 self._foundGlossaryDiv = True
-            elif not self._foundGlossaryDiv:
-                typeStr = ''
-                if divType is not None:
-                    typeStr = 'type %s' % divType
-                print 'Unexpected <div> found - type %s' % typeStr
+                self._startingGlossDiv = True
+            else:
+                self._startingGlossDiv = False
+                if not self._foundGlossaryDiv:
+                    typeStr = ''
+                    if divType is not None:
+                        typeStr = 'type %s' % divType
+                    print 'Unexpected <div> found - type %s' % typeStr
+                    
+        elif name == 'p':
+            self._startingGlossDiv = False
+            OsisHandler._processBodyTag(self, name, attrs)
                 
         elif name == 'reference':
             # reference are ignored apart from glossary references
@@ -188,7 +200,7 @@ class GlossaryHandler(OsisHandler):
                 self._inChapterTitle = True
                 self._titleText = ''
             else:
-                if not self._glossTitleWritten:
+                if not self._glossTitleWritten or (titleType == 'main' and self._startingGlossDiv):
                     self._titleTag = '<h%d>' % self._context.topHeaderLevel
                 else:
                     level = self._getAttributeValue(attrs,'level')
