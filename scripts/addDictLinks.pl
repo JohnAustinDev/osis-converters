@@ -40,27 +40,7 @@ sub addDictLinks($$) {
       
       # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
       my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $book);
-      foreach my $g (@glossary) {
-        my $gl = $g->getAttribute("level1");
-        my @tn = $XPC->findnodes("preceding::text()[1]", $g);
-        if (@tn != 1 || $tn[0]->data !~ /\Q$gl\E$/) {
-          &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
-          next;
-        }
-        &addDictionaryLinks(\@tn);
-        my $nr = "ERROR, NO MATCH IN GLOSSARY";
-        if (@tn[0]->parentNode ne @tn[0]) {
-          &Log("ERROR: Could not find glossary entry to match explicit glossary markup \"$g\".\n");
-        }
-        else {
-          $nr = &decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"));
-          $g->parentNode->removeChild($g);
-        }
-        if ($ExplicitGlossary{$gl} && $ExplicitGlossary{$gl} ne $nr) {
-          &Log("ERROR: Same explicit glossary markup was converted as \"$nr\" and as \"".$ExplicitGlossary{$gl}."\".\n");
-        }
-        else {$ExplicitGlossary{$gl} = $nr;}
-      }
+      &convertExplicitGlossaryElements(\@glossary);
       
       my @skips = split(/\|/, $DICTLINK_SKIPNAMES);
       push(@skips, "reference");

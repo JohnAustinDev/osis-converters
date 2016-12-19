@@ -16,7 +16,9 @@ echo .
 git checkout master
 git pull
 
-# VM must be running before ssh will work
+# The VM must not have a Module-tools synced-folder, so that we can update the VM's own Module-tools
+vagrant halt
+cp Vagrantfile_tpl Vagrantfile
 vagrant up
 
 # Running VagrantProvision.sh on the VM will update the VM's installed software

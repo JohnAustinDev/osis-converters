@@ -56,7 +56,7 @@ sub usfm2osis($$) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|companionProject):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|companionProject|DEBUG):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
@@ -103,7 +103,9 @@ sub usfm2osis($$) {
   my $use_u2o = 0;
   if (!$use_u2o) {
     &Log($cmd . "\n", 1);
-    &Log(`$cmd` . "\n", 1);
+    my $result = `$cmd`;
+    &Log("$result\n", 1);
+    if ($result =~ /Unhandled/i) {&Log("ERROR: Unhandled in usfm2osis.py output, see above.\n");}
   }
   
   # test/evaluation for u2o.py script
@@ -142,6 +144,14 @@ sub evalRegex($) {
       if (!-e "$tmp/$1") {mkdir("$tmp/$1");}
       $df = "$tmp/$1/$2";
     }
+    my $n = 0;
+    while (-e $df) {
+      my $m1 = ($n ? "_$n":'');
+      $n++;
+      my $m2 = ($n ? "_$n":'');
+      $df =~ s/$m1(\.[^\.]+)$/$m2$1/;
+    }
+    if ($n) {&Log("WARNING: running copy $n of $f\n");}
     copy($f, $df);
     push (@files, $df);
   }

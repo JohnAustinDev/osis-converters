@@ -19,12 +19,45 @@
 sub checkUpdateIntros($) {
   my $osis = shift;
   
-  my %report;
-  my $total=0;
+  my %report1, %report2;
+  my $total1=0;
+  my $total2=0;
 
   &Log("\n\nChecking introductory material in \"$osis\".\n");
 
   my $xml = $XML_PARSER->parse_file($osis);
+  my @elems = $XPC->findnodes('//*', $xml);
+  
+  # Move section titles just before chapter tags to after the chapter tags,
+  # because they are not introductory and are associated with the next chapter
+  my $moved;
+  for (my $x=0; $x<@elems; $x++) {
+    my @moveMilestones;
+    if (@elems[$x]->nodeName() eq 'title' && &isSectionTitle(@elems[$x])) {
+      my $n = $x;
+      while ((@elems[$n+1]->nodeName() eq 'title' && &isSectionTitle(@elems[$n+1])) ||
+          (@elems[$n+1]->nodeName() eq 'div' && @elems[$n+1]->getAttribute('type') =~ /section/i) ||
+          @elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE && @elems[$n+1]->data =~ /^[\s\n]*$/ ||
+          (@elems[$n+1]->nodeName() eq 'verse' && @elems[$n+1]->getAttribute('eID')) ||
+          (@elems[$n+1]->nodeName() eq 'chapter' && @elems[$n+1]->getAttribute('eID'))
+      ) {
+        if (@elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE || @elems[$n+1]->nodeName() =~ /^(verse|chapter)$/i) {
+          push (@moveMilestones, @elems[$n+1]);
+        }
+        $n++;
+      }
+      if (@elems[$n+1]->nodeName() eq 'chapter') {
+        my $sectionDiv = &isSectionTitle(@elems[$x]);
+        push(@moveMilestones, @elems[$n+1]);
+        foreach my $m (@moveMilestones) {$m->unbindNode();}
+        foreach my $m (@moveMilestones) {$sectionDiv->parentNode()->insertBefore($m, $sectionDiv);}
+        $moved .= "\t".@elems[$n+1].@elems[$x]."\n";
+        $x = $n;
+      }
+    }
+  }
+  if ($moved) {&Log("NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:\n$moved\n");}
+  
   my @elems = $XPC->findnodes('//*', $xml);
  
   # Report relevant intro elements which are not subType="x-introduction" and make them such.
@@ -35,32 +68,24 @@ sub checkUpdateIntros($) {
     if    ($elem->nodeName() eq 'div' && $elem->getAttribute('type') eq 'bookGroup') {$inIntro = 1; next;}
     elsif ($elem->nodeName() eq 'div' && $elem->getAttribute('type') eq 'book') {$inIntro = 1; next;}
     elsif ($elem->nodeName() eq 'chapter' && $elem->getAttribute('osisID') =~ /^[^\.]+\.1\s*$/) {$inIntro = 0; next;}
-    elsif (!$inIntro) {next;}
+    elsif (!$inIntro) {
+      if ($elem->nodeName() =~ /^(title|item|p|l|q)$/ && $elem->getAttribute('subType') eq 'x-introduction') {
+        $elem->removeAttribute('subType');
+        $report2{$elem->nodeName()}++;
+        $total2++;
+      }
+      next;
+    }
     elsif ($elem->nodeName() !~ /^(title|item|p|l|q)$/) {next;} # these are the introduction elements output by usfm2osis.py:
 
     if ($XPC->findnodes('ancestor::osis:div[@type="book"][@canonical="true"]', $elem) && !$elem->hasAttribute('canonical')) {
       $elem->setAttribute('canonical', 'false');
     }
     
-    # if there are section titles just before chapter 1, these are NOT x-introduction
-    if ($elem->nodeName() eq 'title' && &isSectionTitle($elem)) {
-      my $n = $x;
-      while ((@elems[$n+1]->nodeName() eq 'title' && &isSectionTitle(@elems[$n+1])) ||
-          (@elems[$n+1]->nodeName() eq 'div' && @elems[$n+1]->getAttribute('type') =~ /section/i) ||
-          @elems[$n+1]->nodeType == XML::LibXML::XML_TEXT_NODE && @elems[$n+1]->data =~ /^[\s\n]*$/) {
-        $n++;
-      }
-      if (@elems[$n+1]->nodeName() eq 'chapter') {
-        &Log("NOTE: Section title(s) at end of introduction were left without subType=\"x-introduction\".\n");
-        $x = $n;
-        next;
-      }
-    }
-    
     if (!$elem->hasAttribute('subType')) {
       $elem->setAttribute('subType', 'x-introduction');
-      $report{$elem->nodeName()}++;
-      $total++;
+      $report1{$elem->nodeName()}++;
+      $total1++;
     }
     
   }
@@ -75,13 +100,22 @@ sub checkUpdateIntros($) {
   print OUTF $t;
   close(OUTF);
   
-  &Log("\nREPORT: $total instance(s) of non-introduction USFM tags used in introductions".($total ? ':':'.')."\n");
-  if ($total) {
+  &Log("\nREPORT: $total1 instance(s) of non-introduction USFM tags used in introductions".($total1 ? ':':'.')."\n");
+  if ($total1) {
     &Log("NOTE: Some USFM tags used for introductory material were not proper introduction\n");
     &Log("tags. But these have been handled by adding subType=\"x-introduction\" to resulting\n");
     &Log("OSIS elements, so changes to USFM source are not required.\n");
-    foreach my $k (sort keys %report) {
-      &Log(sprintf("WARNING: Added subType=\"x-introduction\" to %5i %4s elements.\n", $report{$k}, $k));
+    foreach my $k (sort keys %report1) {
+      &Log(sprintf("WARNING: Added subType=\"x-introduction\" to %5i %4s elements.\n", $report1{$k}, $k));
+    }
+  }
+  
+  &Log("\nREPORT: $total2 instance(s) of introduction USFM tags used outside of introductions".($total2 ? ':':'.')."\n");
+  if ($total2) {
+    &Log("NOTE: These have been handled by removiong subType=\"x-introduction\" to resulting\n");
+    &Log("OSIS elements, so changes to USFM source are not required.\n");
+    foreach my $k (sort keys %report2) {
+      &Log(sprintf("WARNING: Removed subType=\"x-introduction\" to %5i %4s elements.\n", $report2{$k}, $k));
     }
   }
 }
@@ -91,7 +125,7 @@ sub isSectionTitle($) {
   my @p = $XPC->findnodes('parent::osis:div', $t);
   if (!@p) {return 0;}
   if (@p[0]->getAttribute('type') !~ /section/i) {return 0;}
-  return @p[0]->firstChild()->isEqual($t);
+  return (@p[0]->firstChild()->isEqual($t) ? @p[0]:0);
 }
 
 1;

@@ -1,59 +1,59 @@
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2012 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 # IMPORTANT TERMINOLOGY:
 #   A "reference" is a reference to a contiguous Scripture text. For
 #   example: "Matt 1:1-5".
 #   An "extended reference" is a list of Scripture references. For
-#   example: "John 4:5; 6:7-9, 11, 13; 1 Peter 1:3 and Rev 20:1-5" is 
+#   example: "John 4:5; 6:7-9, 11, 13; 1 Peter 1:3 and Rev 20:1-5" is
 #   a single extended reference.
 
-# POSSIBLE COMMAND FILE SETTINGS: 
+# POSSIBLE COMMAND FILE SETTINGS:
 #
-#  (NOTE: settings which are not needed can 
+#  (NOTE: settings which are not needed can
 #   be left blank or not included at all)
 #
 #   <OSIS_BOOK_ABBREVIATION>=aTerm - Will associate the Bible book on
 #       the left with the matching term on the right. Only one term
 #       per line is allowed, but a single book may appear on numerous
-#       lines, each with another matching term. Longest terms for a 
-#       book should be listed before shorter terms for the same book. 
-#       NOTE: terms on the right are NOT Perl regular expressions but 
-#       are string literals. However, these terms may be preceeded by 
+#       lines, each with another matching term. Longest terms for a
+#       book should be listed before shorter terms for the same book.
+#       NOTE: terms on the right are NOT Perl regular expressions but
+#       are string literals. However, these terms may be preceeded by
 #       PREFIXES or SUFFIXES (see below) and still match the book.
 #
 #   SKIP_XPATH - An XPATH expression used to skip particular elements
-#       of text when searching for Scripture references. By default, 
+#       of text when searching for Scripture references. By default,
 #       nothing is skipped.
 #   ONLY_XPATH - An XPATH expression used to select only particular
-#       elements of text to search for Scripture references. By default, 
+#       elements of text to search for Scripture references. By default,
 #       everything is searched.
-#   FILTER - (no longer supported) A Perl regular expression used to 
-#       select only particular parts of text to search for Scripture 
+#   FILTER - (no longer supported) A Perl regular expression used to
+#       select only particular parts of text to search for Scripture
 #       references. By default, everything is searched.
 #   SKIP_INTRODUCTIONS - Boolean if true introductions are skipped.
 #   CHAPTER_TERMS - A Perl regular expression representing words/phrases
 #       which should be understood as meaning "chapter".
-#   CURRENT_CHAPTER_TERMS - A Perl regular expression representing 
-#       words/phrases which should be understood as meaning 
+#   CURRENT_CHAPTER_TERMS - A Perl regular expression representing
+#       words/phrases which should be understood as meaning
 #       "the current chapter".
 #   CURRENT_BOOK_TERMS - A Perl regular expression representing
-#       words/phrases which should be understood as meaning 
+#       words/phrases which should be understood as meaning
 #       "the current book"
 #   VERSE_TERMS- A Perl regular expression representing words/phrases
 #       which should be understood as meaning "verse".
@@ -67,7 +67,7 @@
 #       appear at the end of book names and chapter/verse terms. Some
 #       Turkic languages have many such suffixes for example.
 #   SEPARATOR_TERMS - A Perl regular expression matching terms used
-#       to separate references in extended references. For 
+#       to separate references in extended references. For
 #       example: ";" and "and".
 #   CHAPTER_TO_VERSE_TERMS - A Perl regular expression matching terms
 #       used to separate chapter from verse in a reference. For
@@ -78,7 +78,7 @@
 #       do not imply a verse, as in: "Luke 5".
 #   SKIP_PSALMS - Set "true" to skip the book of Psalms.
 #   SKIP_REFERENCES_FOLLOWING - A Perl regular expression which matches
-#       words/terms which should indicate the text following them are 
+#       words/terms which should indicate the text following them are
 #       NOT Scripture references.
 #   REQUIRE_BOOK - Set to "true" to skip references which do not specify
 #       the book. For example: "see chapter 6 verse 5". Normally, these
@@ -89,14 +89,16 @@
 #   SKIPVERSE - The osisRef of a verse to skip.
 #   DEBUG_LINE - Set this to a line number to see details of what is
 #       being matched and how. This is sometimes usedful when adjusting
-#       regular expressions or debugging. 
+#       regular expressions or debugging.
+
+require("$SCRD/scripts/processGlossary.pl");
 
 sub addScripRefLinks($$) {
   my $in_file = shift;
   my $out_file = shift;
-  
+
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
-  
+
   # Globals
   $debugLine = 0;
   $onlyLine = 0;
@@ -114,7 +116,7 @@ sub addScripRefLinks($$) {
   %lineExclusionREP;
   %fix;
   @skipVerse;
-  
+
   my $none = "nOnE";
 
   $ebookNames = $none;
@@ -181,7 +183,7 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SEPARATOR_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$sepTerms = $2;} next;}
       elsif ($_ =~ /^CHAPTER_TO_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chap2VerseTerms = $2;} next;}
       elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
-      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}   
+      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}
       elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
       elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
@@ -202,7 +204,7 @@ sub addScripRefLinks($$) {
       }
     }
     close (CF);
-    
+
     if (@abkn) {
       $ebookNames = '';
       my $bktsep='';
@@ -214,17 +216,17 @@ sub addScripRefLinks($$) {
         @abkn[$xi] = 0;
       }
     }
-    
+
   }
   else {&Log("ERROR: Command file required: $commandFile\n"); die;}
 
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
-  
+
   $XML_PARSER->set_option(line_numbers, 1);
   my $xml = $XML_PARSER->parse_file($in_file);
-  
+
   # get every text node
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
 
@@ -250,65 +252,68 @@ sub addScripRefLinks($$) {
         next;
       }
     }
-  
+
     # get text node's context information
     my $bcontext = &bibleContext($textNode, 1);
-    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0; 
+    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
     if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
       $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
     }
+    else {
+      my $entryScope = &getEntryScope($textNode);
+      if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
+    }
     $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
-    
+
     # display progress
     my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $line: $thisp\n", 2);} $LASTP = $thisp;
-    
+
     if ($intro && $skipintros) {next;}
-    
+
     if ($skipPsalms eq "true" && $BK eq "Ps") {
       if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");} $psw = 1;
       next;
     }
-    
+
     my $skip = 0;
     foreach my $av (@skipVerse) {
       if ($av eq "$BK.$CH.$VS") {
-        &Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n"); 
+        &Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n");
         $skip = 1; last;
       }
     }
     if ($skip) {next;}
-    
+
     # search for Scripture references in this text node and add newReference tags around them
     my $text = $textNode->data();
-    my $contextBookOK = ($XPC->findnodes('ancestor-or-self::osis:reference', $textNode) ? 1:0);
-    &addLinks(\$text, $BK, $CH, $contextBookOK);
+    my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
+    &addLinks(\$text, $BK, $CH, $isAnnotateRef);
     if ($text eq $textNode->data()) {
-      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern 
+      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
       # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
-      my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
       if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
       $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
     }
-    
+
     # save changes for later (to avoid messing up line numbers)
     $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
     $nodeInfo{$textNode->unique_key}{'text'} = $text;
   }
-  
+
   # replace the old text nodes with the new
   foreach my $n (keys %nodeInfo) {
     $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
     $nodeInfo{$n}{'node'}->unbindNode();
   }
-  
+
   # complete osisRef attributes by adding the target Bible
   my $bible = "Bible";
   if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
   elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
   my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
   foreach my $new (@news) {$new->setValue("$bible:".$new->getValue());}
-  
+
   # remove (after copying attributes) pre-existing reference tags which contain newReference tags
   my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
   foreach my $ref (@refs) {
@@ -328,7 +333,7 @@ sub addScripRefLinks($$) {
     }
     $ref->unbindNode();
   }
-    
+
   # convert all newReference elements to reference elements
   my @nrefs = $XPC->findnodes('//newReference', $xml);
   $newLinks = scalar(@nrefs);
@@ -336,19 +341,19 @@ sub addScripRefLinks($$) {
     $nref->setNodeName("reference");
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
   }
-  
+
   # write to out_file
   open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
   print OUTF $xml->toString();
   close(OUTF);
-  
+
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");
   &Log("\n");
   &Log("#################################################################\n");
   &Log("\n");
   &Log("\n");
-  
+
   # report other collected data
   my $tCheckRefs = $CheckRefs;
   my $aerefs = ($tCheckRefs =~ tr/\n//);
@@ -365,7 +370,7 @@ sub addScripRefLinks($$) {
   if (scalar(keys %UnhandledWords)) {
     &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
     &Log("targets and should have been specified in the command file. Words which do not \n");
-    &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n"); 
+    &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n");
     &Log("added to the command file.\n");
     foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
       &Log("<$uw> $UnhandledWords{$uw}\n");
@@ -434,10 +439,10 @@ sub addScripRefLinks($$) {
   }
   &Log("Found $newLinks total sub-links.\n");
   &Log("FINISHED!\n\n");
-  
+
   &Log("LINK RESULTS FROM: $out_file\n");
   &Log("\n");
-  
+
   my $xml = $XML_PARSER->parse_file($out_file);
 
   # check all reference tags
@@ -463,19 +468,19 @@ sub addScripRefLinks($$) {
 
 ##########################################################################
 ##########################################################################
-# 1) SEARCH FOR THE LEFTMOST OCCURRENCE OF ANY REFERENCE TYPE. 
+# 1) SEARCH FOR THE LEFTMOST OCCURRENCE OF ANY REFERENCE TYPE.
 # 2) SEARCH FOR AN EXTENDED REFERENCE BEGINNING WITH THAT LEFTMOST REFERENCE.
 # 3) SPLIT THE EXTENDED REFERENCE INTO SUBREFS.
 # 4) PARSE EACH SUBREF SEPARATELY, EACH INHERITING MISSING VALUES FROM THE PREVIOUS SUBREF
 # 5) REASSEMBLE THE EXTENDED REFERENCE USING OSIS LINKS
 # 6) REPEAT FROM STEP 1 UNTIL NO MORE REFERENCES ARE FOUND
 sub addLinks(\$$$) {
-	my $tP = shift;
-	my $bk = shift;
-	my $ch = shift;
+  my $tP = shift;
+  my $bk = shift;
+  my $ch = shift;
   my $contextBookOK = shift;
 
-	if ($onlyLine && $line != $onlyLine) {return;}
+  if ($onlyLine && $line != $onlyLine) {return;}
 #&Log("$line: addLinks $bk, $ch, $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
@@ -485,57 +490,57 @@ sub addLinks(\$$$) {
 
     my $matchedTerm, $type, $unhandledBook;
     while (&leftmostTerm($ttP, \$matchedTerm, \$type, \$unhandledBook)) {
-        
+
       if ($line == $debugLine) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
       if (!&termAcceptable($matchedTerm, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
       if (!&termAcceptable($matchedTerm, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
-      
+
       #  Look at unhandledBook
-      if (!$contextBookOK && $unhandledBook) {
+      if ($unhandledBook) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;
         $ubk =~ s/^.*\($/(/;
         $UnhandledWords{$ubk} .= $line.", ";
-        if ($require_book || $unhandledBook =~ /$skipUnhandledBook/) { # skip if its a tag- this could be a book name, but we can't include it in the link
+        if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
           &Log("$line WARNING $BK.$CH.$VS: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
-        else {
-          &Log("$line NOTE $BK.$CH.$VS: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+        elsif (!$contextBookOK) {
+          &Log("$line WARNING $BK.$CH.$VS: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
         }
-      }	
+      }
 
       my $mtENC = quotemeta($matchedTerm);
-      
+
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
         &Log("$line ERROR $BK.$CH.$VS: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
         $numMissedLeftRefs++;
         $missedLeftRefs{$matchedTerm} .= $line.", ";
         &hideTerm($matchedTerm, $ttP, 1);
         next;
-      }		
+      }
       my $extref = $1;
-      
-      if ($line == $debugLine) {&Log("DEBUG2: extref=\"$extref\" endref=\"$8\"\n");}		
-      
+
+      if ($line == $debugLine) {&Log("DEBUG2: extref=\"$extref\" endref=\"$8\"\n");}
+
       # Skip if no digits
       if ($extref !~ /\d+/) {
         $numNoDigitRef++;
         $noDigitRef{"<$extref> (extref)"} .= $line.", ";
         &Log("$line WARNING $BK.$CH.$VS: Skipped \"$extref\" - no DIGITS.\n");
         &hideTerm($matchedTerm, $ttP);
-        next;			
+        next;
       }
-      
+
       # Skip if on line Exclusion lists
       if (!&termAcceptable($extref, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($extref, $ttP); next;}
       if (!&termAcceptable($extref, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($extref, $ttP); next;}
-      
+
       my $repExtref = "";
       my $shouldCheck = 0;
-      
+
       # Fix if on fix list
       foreach $fx (keys %fix) {
         if ($fx eq $extref) {
@@ -548,24 +553,24 @@ sub addLinks(\$$$) {
         }
       }
 
-      # Now break ref up into its subrefs, and extract OSIS ref for each subref		
+      # Now break ref up into its subrefs, and extract OSIS ref for each subref
       my $tbk = $bk;
       my $tch = $ch;
       my $bareNumbersAre = "chapters";
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
-      
-      my @subrefArray = split(/($sepTerms)/, $extref);		
+
+      my @subrefArray = split(/($sepTerms)/, $extref);
       foreach my $subref (@subrefArray) {
         if ($line == $debugLine) {&Log("DEBUG3: subref=\"$subref\"\n");}
-        
+
         # Keep sepTerms
         if ($subref =~ /($sepTerms)/) {
           $repExtref .= $subref;
           next;
         }
-        
-        if (!$subref) {next;}	
-            
+
+        if (!$subref) {next;}
+
         # Skip subrefs without numbers
         if ($subref !~ /\d+/) {
           $numNoDigitRef++;
@@ -573,8 +578,8 @@ sub addLinks(\$$$) {
           $repExtref .= $subref;
           &Log("$line WARNING $BK.$CH.$VS: Skipped subref \"$subref\" - no DIGITS.\n");
           next;
-        }		
-        
+        }
+
         # Now parse out this subref
         my $osisRef;
         if (!&getOSISRef(\$subref, \$osisRef, \$type, \$tbk, \$tch, \$bareNumbersAre)) {
@@ -582,585 +587,583 @@ sub addLinks(\$$$) {
           $noOSISRef{$subref} .= $line.", ";
           $repExtref .= $subref;
           &Log("$line WARNING $BK.$CH.$VS: Skipping subref \"$subref\", osisref is \"$osisRef\".\n");
-          next;					
+          next;
         }
-        
+
         if ($line == $debugLine) {&Log("DEBUG4: MatchedTerm=$matchedTerm\n");}
-        
+
         $Types{$type}++;
         if ($type eq "T09 (num1 ... num2?)") {$shouldCheck = 1;}
-        
-        $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";	
-        &Log("$line Linking $BK.$CH.$VS: $subref = $osisRef ($type)\n");		
+
+        $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
+        &Log("$line Linking $BK.$CH.$VS: $subref = $osisRef ($type)\n");
       }
-      
-      ADDLINK:	
+
+      ADDLINK:
       my $repExtrefENC = &encodeTerm($repExtref);
-      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$line ERROR $BK.$CH.$VS: Could not replace \"$extref\".\n");}		
-          
+      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$line ERROR $BK.$CH.$VS: Could not replace \"$extref\".\n");}
+
       if ($shouldCheck) {
         $prf = $repExtref;
         $prf =~ s/osisRef="([^"]+)"/$1/g;
         $prf =~ s/newReference/r/g;
         $CheckRefs .= "\nCheck line $line:\"$extref\"=$prf";
-      }		
+      }
     }
-    
+
     &decodeTerms($ttP);
-        
+
     # Now insure consecutive newReference tags don't have anything between them
     while ($$ttP =~ /(<newReference osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference osisRef=[^>]+>)/) {
       $$ttP =~ s/(<newReference osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference osisRef=[^>]+>)/$1$2$4$3$6/;
     }
   }
-  
+
   $$tP = join("", @notags);
-}			
+}
 
 sub termAcceptable($$%%) {
-	my $t = shift;
-	my $key = shift;
-	my $excP = shift;
-	my $doneExcP = shift;
+  my $t = shift;
+  my $key = shift;
+  my $excP = shift;
+  my $doneExcP = shift;
 
-	my $tre = quotemeta($t);
-	if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
-		$doneExcP->{$key} .= $sp.$t.$sp;
-		&Log("$line WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
-		return 0;
-	}	
-	
-	return 1;
+  my $tre = quotemeta($t);
+  if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
+    $doneExcP->{$key} .= $sp.$t.$sp;
+    &Log("$line WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
+    return 0;
+  }
+
+  return 1;
 }
 
 sub reportExclusions(%%$) {
-	my $excP = shift;
-	my $doneExcP = shift;
+        my $excP = shift;
+        my $doneExcP = shift;
   my $type = shift;
-	
+
   if (!(scalar(keys %{$excP}))) {
     &Log("(no $type exclusions in command file)\n");
     return;
   }
-  
+
   my $ok = 1;
-	foreach my $ex (sort keys %$excP) {
-		my @exb = split(/$sp(.*?)$sp/, $excP->{$ex});
-		foreach my $exbv (@exb) {
-			if (!$exbv) {next;}
-			my $exbr = quotemeta($exbv);
-			if ($doneExcP->{$ex} !~ /$sp$exbr$sp/) {
-				&Log("ERROR: Exclusion ".$ex." ".$exbv." was not applied.\n");
+  foreach my $ex (sort keys %$excP) {
+    my @exb = split(/$sp(.*?)$sp/, $excP->{$ex});
+    foreach my $exbv (@exb) {
+      if (!$exbv) {next;}
+      my $exbr = quotemeta($exbv);
+      if ($doneExcP->{$ex} !~ /$sp$exbr$sp/) {
+        &Log("ERROR: Exclusion ".$ex." ".$exbv." was not applied.\n");
         $ok = 0;
-			}
-		}
-	}
-  
+      }
+    }
+  }
+
   if ($ok) {&Log("(all $type exclusions where applied)\n");}
 }
 
 sub hideTerm($\$$) {
-	my $mt = shift;
-	my $tP = shift;
-	my $encFirstWordOnly = shift;
-	
-	my $re1 = quotemeta($mt);
-	my $re2 = "";
-	if ($encFirstWordOnly) {
-		if ($mt =~ /^(\S+?)(\s.*)$/) {
-			my $mt1 = $1;
-			my $mt2 = $2;
-			$re2 = &encodeTerm($mt1).$mt2;
-		}
-	}
-	if (!$re2) {$re2 = &encodeTerm($mt);}
-	
-	if ($$tP !~ s/$re1/$re2/) {&Log("$line ERROR $BK.$CH.$VS: Could not hide term \"$mt\" in \"$$tP\".\n");}
+  my $mt = shift;
+  my $tP = shift;
+  my $encFirstWordOnly = shift;
+
+  my $re1 = quotemeta($mt);
+  my $re2 = "";
+  if ($encFirstWordOnly) {
+    if ($mt =~ /^(\S+?)(\s.*)$/) {
+      my $mt1 = $1;
+      my $mt2 = $2;
+      $re2 = &encodeTerm($mt1).$mt2;
+    }
+  }
+  if (!$re2) {$re2 = &encodeTerm($mt);}
+
+  if ($$tP !~ s/$re1/$re2/) {&Log("$line ERROR $BK.$CH.$VS: Could not hide term \"$mt\" in \"$$tP\".\n");}
 }
 
 sub encodeTerm($) {
-	my $t = shift;
-	if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
-		&Log("$line ERROR $BK.$CH.$VS: String already partially encoded \"$t\".\n");
-	}
-	$t =~ s/(.)/$1_/gs;
-	return "{{{".$t."}}}";
+  my $t = shift;
+  if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
+    &Log("$line ERROR $BK.$CH.$VS: String already partially encoded \"$t\".\n");
+  }
+  $t =~ s/(.)/$1_/gs;
+  return "{{{".$t."}}}";
 }
 
 sub decodeTerms(\$) {
-	my $tP = shift;
+  my $tP = shift;
 
-	while ($$tP =~ /(\{\{\{(.*?)\}\}\})/s) {
-		my $re1 = $1;
-		my $et = $2;
-		
-		my $re2 = "";
-		for (my $i=0; $i<length($et); $i++) {
-			my $chr = substr($et, $i, 1);
-			if (!($i%2)) {$re2 .= $chr;}
-			elsif ($chr ne "_") {&Log("$line ERROR $BK.$CH.$VS: Incorectly encoded reference text \"$re1\".\n");}
-		}
+  while ($$tP =~ /(\{\{\{(.*?)\}\}\})/s) {
+    my $re1 = $1;
+    my $et = $2;
 
-		$$tP =~ s/\Q$re1/$re2/;
-	}
+    my $re2 = "";
+    for (my $i=0; $i<length($et); $i++) {
+      my $chr = substr($et, $i, 1);
+      if (!($i%2)) {$re2 .= $chr;}
+      elsif ($chr ne "_") {&Log("$line ERROR $BK.$CH.$VS: Incorectly encoded reference text \"$re1\".\n");}
+    }
+
+    $$tP =~ s/\Q$re1/$re2/;
+  }
 }
 
 # Finds the left-most reference match.
 # Modifies:
-#	$matchP - holds the matched text
-#	$typeP - holds the type of match
-#	$uhbkP - holds the word preceding the matched text IF no book or book-term was matched.
-#			 The uhkP value is null only if a book or book-term WAS matched
+#       $matchP - holds the matched text
+#       $typeP - holds the type of match
+#       $uhbkP - holds the word preceding the matched text IF no book or book-term was matched.
+#                        The uhkP value is null only if a book or book-term WAS matched
 # Returns:
-#	1 if a match was found
-#	0 otherwise
+#       1 if a match was found
+#       0 otherwise
 sub leftmostTerm(\$\$\$\$) {
-	my $tP = shift;
-	my $matchP = shift;
-	my $typeP = shift;
-	my $uhbkP = shift;
+  my $tP = shift;
+  my $matchP = shift;
+  my $typeP = shift;
+  my $uhbkP = shift;
 
-	$$matchP = &matchRef(1, $tP, $typeP, $uhbkP);
-	if (!$$matchP) {return 0;}
-	return 1;
-}					
+  $$matchP = &matchRef(1, $tP, $typeP, $uhbkP);
+  if (!$$matchP) {return 0;}
+  return 1;
+}
 
 # Finds a single reference match in the subref.
 # Modifies:
-#	$osisP - holds OSIS ref for the sub-ref
-#	$typeP - holds the type of match used
-#	$bk, $ch, $barenumsP - holds values associated with the sub-ref that will
-#			 carry over to the next sub-ref in its extended ref.
+#       $osisP - holds OSIS ref for the sub-ref
+#       $typeP - holds the type of match used
+#       $bk, $ch, $barenumsP - holds values associated with the sub-ref that will
+#                        carry over to the next sub-ref in its extended ref.
 # Returns:
-#	1 if a match was found and a valid OSIS ref was parsed
-#	0 otherwise		
+#       1 if a match was found and a valid OSIS ref was parsed
+#       0 otherwise
 sub getOSISRef(\$\$\$\$\$\$) {
-	my $tP = shift;
-	my $osisP = shift;
-	my $typeP = shift;
-	my $bkP = shift;
-	my $chP = shift;
-	my $barenumsP = shift;
+  my $tP = shift;
+  my $osisP = shift;
+  my $typeP = shift;
+  my $bkP = shift;
+  my $chP = shift;
+  my $barenumsP = shift;
 
-	my $contextBK = $$bkP;
-	my $contextCH = $$chP;
-	
-	my $uhbk = "";
-	my $vs = -1;
-	my $lv = -1;	
-	if (!&matchRef(0, $tP, $typeP, \$uhbk, $bkP, $chP, \$vs, \$lv, $barenumsP)) {
-		return 0;
-	}
-	
-	$$osisP = "";
+  my $contextBK = $$bkP;
+  my $contextCH = $$chP;
 
-	# OSIS reference
-	if ($vs == -1 && $mustHaveVerse eq "true") {$$osisP = ""; return 0;}
-	else {
-		$$osisP = $$bkP.".".$$chP;
-    
-    # Some Ps have a verse 0 canonical title, but SWORD does not support verse "0". 
+  my $uhbk = "";
+  my $vs = -1;
+  my $lv = -1;
+  if (!&matchRef(0, $tP, $typeP, \$uhbk, $bkP, $chP, \$vs, \$lv, $barenumsP)) {
+    return 0;
+  }
+
+  $$osisP = "";
+
+  # OSIS reference
+  if ($vs == -1 && $mustHaveVerse eq "true") {$$osisP = ""; return 0;}
+  else {
+    $$osisP = $$bkP.".".$$chP;
+
+    # Some Ps have a verse 0 canonical title, but SWORD does not support verse "0".
     # so move these references so they point to verse 1 and are not just dropped.
     if ($$bkP eq "Ps" && $vs == 0) {$vs++;}
-  
-		# A value of -1 means don't include verse in OSIS ref
-		if ($vs != -1) {$$osisP .= ".".$vs;}
-		if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}
-	}
-	
-	return &validOSISref($$osisP, 0, 0, 1);
-}		
 
-# Finds a single reference match in a string, matching either the left-most 
+    # A value of -1 means don't include verse in OSIS ref
+    if ($vs != -1) {$$osisP .= ".".$vs;}
+    if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}
+  }
+
+  return &validOSISref($$osisP, 0, 0, 1);
+}
+
+# Finds a single reference match in a string, matching either the left-most
 # possible, or else the most complete match, depending on the $matchleft parameter.
 # Modifies:
-#	$typeP - holds the type of match found
-#	$uhbkP - holds the word preceding the matched text IF no book or book-term was matched.
-#			 The uhkP value should only be null if a book or book-term WAS matched
-#	$bk, $ch, $vs, $lv, $bn - holds values associated with the match.
+#       $typeP - holds the type of match found
+#       $uhbkP - holds the word preceding the matched text IF no book or book-term was matched.
+#                        The uhkP value should only be null if a book or book-term WAS matched
+#       $bk, $ch, $vs, $lv, $bn - holds values associated with the match.
 # Returns:
-#	The matched reference text	
+#       The matched reference text
 sub matchRef($\$\$\$\$\$\$\$\$) {
-	my $matchleft = shift;
-	my $tP = shift;
-	my $typeP = shift;
-	my $uhbkP = shift;
-	my $bkP = shift;
-	my $chP = shift;
-	my $vsP = shift;
-	my $lvP = shift;
-	my $barenumsP = shift;
+  my $matchleft = shift;
+  my $tP = shift;
+  my $typeP = shift;
+  my $uhbkP = shift;
+  my $bkP = shift;
+  my $chP = shift;
+  my $vsP = shift;
+  my $lvP = shift;
+  my $barenumsP = shift;
 
-	$$typeP = "";
-	$$uhbkP = "";
-	my $lowestIndex = length($$tP);
-	my $shortestMatch;
-	my $matchedTerm = "";
-	my $contextBK = ($bkP ? $$bkP:$none);
-	my $contextCH = ($chP ? $$chP:0);
-	my $PREM = ($matchleft ? ".*?\\W":".*?");
-	
-	$$tP = " ".$$tP; # allow $PREM to match to beginning of string!
+  $$typeP = "";
+  $$uhbkP = "";
+  my $lowestIndex = length($$tP);
+  my $shortestMatch;
+  my $matchedTerm = "";
+  my $contextBK = ($bkP ? $$bkP:$none);
+  my $contextCH = ($chP ? $$chP:0);
+  my $PREM = ($matchleft ? ".*?\\W":".*?");
 
-	# The following "IF" code assigns bk, ch, vs, and lv values with the following effect
-	#	= -1 means remove from OSIS ref (verses only!)
-	#	= 0 or "" means use context value (book & chapter only)
-	#	> 0 or !"" means use this value, and return this value so it may be used in next match (book & chapter only)
-	
-	# Book? c:v-c:v
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+\s*($chap2VerseTerms)\s*\d+)/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
+  $$tP = " ".$$tP; # allow $PREM to match to beginning of string!
 
-		my $index = length($pre);		
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$$typeP = "T01 (Book? c:v-c:v)";
-			$lowestIndex = $index;
-			$shortestMatch = length($ref);
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)\s*($chap2VerseTerms)\s*(\d+)/i;
-				$$chP = $1;
-				$$vsP = $3;
-				my $c2 = $5;
-				my $lv = $7;				
-				if ($$chP eq $c2) {$$lvP = $lv;}
-				else {$$lvP = -1;}
-				$$barenumsP = "chapters";
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}
-	}
+  # The following "IF" code assigns bk, ch, vs, and lv values with the following effect
+  #     = -1 means remove from OSIS ref (verses only!)
+  #     = 0 or "" means use context value (book & chapter only)
+  #     > 0 or !"" means use this value, and return this value so it may be used in next match (book & chapter only)
 
-	# Book? c:v-lv
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+)/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
+  # Book? c:v-c:v
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+\s*($chap2VerseTerms)\s*\d+)/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
 
-		my $index = length($pre);		
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$$typeP = "T02 (Book? c:v-lv)";
-			$lowestIndex = $index;
-			$shortestMatch = length($ref);
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)/i;
-				$$chP = $1;
-				$$vsP = $3;
-				$$lvP = $5;
-				$$barenumsP = "verses"; #For: 9:1-17, 15 va 17-boblar, BUT ALSO HAVE китобнинг 10:1-11, 17
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}  
-	}
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T01 (Book? c:v-c:v)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)\s*($chap2VerseTerms)\s*(\d+)/si;
+        $$chP = $1;
+        $$vsP = $3;
+        my $c2 = $5;
+        my $lv = $7;
+        if ($$chP eq $c2) {$$lvP = $lv;}
+        else {$$lvP = -1;}
+        $$barenumsP = "chapters";
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-	# Book? c:v
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chap2VerseTerms)\s*(\d+))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
-		my $tch = $6;
-		my $tvs = $8;
-		my $index = length($pre);		
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$$typeP = "T03 (Book? c:v)";
-			$lowestIndex = $index;
-			$shortestMatch = length($ref);	
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = $tch;
-				$$vsP = $tvs;
-				$$lvP = -1;
-				$$barenumsP = "verses"; # For: something in UZV(?)
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}		
-		}   
-	}
+  # Book? c:v-lv
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?\d+\s*($chap2VerseTerms)\s*\d+\s*($continuationTerms)\s*\d+)/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
 
-	# Book? c ChapTerm v(-v)? VerseTerm
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*\d+\s*(($continuationTerms)\s*\d+\s*)?($verseTerms))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T02 (Book? c:v-lv)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $ref =~ /(\d+)\s*($chap2VerseTerms)\s*(\d+)\s*($continuationTerms)\s*(\d+)/si;
+        $$chP = $1;
+        $$vsP = $3;
+        $$lvP = $5;
+        $$barenumsP = "verses"; #For: 9:1-17, 15 va 17-boblar, BUT ALSO HAVE китобнинг 10:1-11, 17
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-		my $index = length($pre);		
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$$typeP = "T04 (Book? c ChapTerm v(-v)? VerseTerm)";
-			$lowestIndex = $index;
-			$shortestMatch = length($ref);
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*(($continuationTerms)\s*(\d+)\s*)?($verseTerms)/i;
-				$$chP = $1;
-				$$vsP = $4;
-				$$lvP = ($5 ? $7:-1);
-				$$barenumsP = "chapters";
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}  
-	}
+  # Book? c:v
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chap2VerseTerms)\s*(\d+))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tch = $6;
+    my $tvs = $8;
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T03 (Book? c:v)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = $tch;
+        $$vsP = $tvs;
+        $$lvP = -1;
+        $$barenumsP = "verses"; # For: something in UZV(?)
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-	# Book? c-c ChapTerm
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*\d+\s*($chapTerms))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
-		my $tch = $6;
-		
-		my $index = length($pre);
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$$typeP = "T05 (c-c ChapTerm)";
-			$lowestIndex = $index;
-			$shortestMatch = length($ref);
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = $tch;
-				$$vsP = -1;
-				$$lvP = -1;
-				$$barenumsP = "chapters";
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}   
-	}
+  # Book? c ChapTerm v(-v)? VerseTerm
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms)($suffixTerms)*\s*\d+\s*(($continuationTerms)\s*\d+\s*)?($verseTerms))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
 
-	# Book? c ChapTerm
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
-		my $tch = $6;
-		
-		my $index = length($pre);
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$shortestMatch = length($ref);
-			$$typeP = "T06 (Book? c ChapTerm)";
-			$lowestIndex = $index;
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = $tch;
-				$$vsP = -1;
-				$$lvP = -1;
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}   
-	}
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T04 (Book? c ChapTerm v(-v)? VerseTerm)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $ref =~ /(\d+)\s*($chapTerms)($suffixTerms)*\s*(\d+)\s*(($continuationTerms)\s*(\d+)\s*)?($verseTerms)/si;
+        $$chP = $1;
+        $$vsP = $4;
+        $$lvP = ($5 ? $7:-1);
+        $$barenumsP = "chapters";
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-	# Book|CurrentChap? v-v VerseTerms
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
-		my $tvs = $6;
-		my $tlv = $8;
-		
-		my $index = length($pre);
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$shortestMatch = length($ref);
-			$$typeP = "T07 (Book|CurrentChap? v-v VerseTerms)";
-			$lowestIndex = $index;
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = "";
-				$$vsP = $tvs;
-				$$lvP = $tlv;
-				$$barenumsP = "verses";  
-				if ($$bkP =~ /($currentChapTerms)/i) {
-					$$bkP = $contextBK;
-					$$chP = $contextCH;
-				}	
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}     
-	}
+  # Book? c-c ChapTerm
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*\d+\s*($chapTerms))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tch = $6;
 
-	# Book|CurrentChap? v VerseTerms
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($verseTerms))/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $4;
-		my $tvs = $6;
-				
-		my $index = length($pre);
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$shortestMatch = length($ref);
-			$$typeP = "T08 (Book|CurrentChap? v VerseTerms)";
-			$lowestIndex = $index;
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = "";
-				$$vsP = $tvs;
-				$$lvP = -1;
-				$$barenumsP = "verses";
-				if ($$bkP =~ /($currentChapTerms)/i) {
-					$$bkP = "";
-				}
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}     
-	}
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T05 (c-c ChapTerm)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = $tch;
+        $$vsP = -1;
+        $$lvP = -1;
+        $$barenumsP = "chapters";
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-	# Book|CurrentChap num1-num2?
-	if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)(($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*(\d+)(\s*($continuationTerms)\s*(\d+))?)/i)) {
-		my $pre = $1;
-		my $ref = $2;
-		my $tbook = $3;
-		my $num1 = $5;
-		my $num2 = $8;
-		
-		my $index = length($pre);
-		if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
-			$matchedTerm = $ref;
-			$shortestMatch = length($ref);
-			$$typeP = "T09 (Book|CurrentChap num1-num2?)";
-			$lowestIndex = $index;
-			if (!$matchleft) {
-				$$bkP = $tbook;
-				$$chP = "";
-				if ($$bkP =~ /($currentChapTerms)/i) {
-					$$bkP = "";
-					$$barenumsP = "verses"; # For: шу бобнинг 20, 22, 29–оятларида ҳам иш
-				}
-				elsif ((($$bkP =~ /($currentBookTerms)/i) && ($contextBK =~ /($oneChapterBooks)/i)) || ($books{$$bkP} =~ /($oneChapterBooks)/i)) {
-					$$chP = 1; 
-					$$barenumsP = "verses";
-				}
-				else {$$barenumsP = "chapters";}
+  # Book? c ChapTerm
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?(\d+)\s*($chapTerms))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tch = $6;
 
-				if ($$barenumsP eq "chapters") {
-					$$chP = $num1;
-					$$vsP = -1;
-					$$lvP = -1;
-				}
-				elsif ($$barenumsP eq "verses") {
-					$$vsP = $num1;
-					$$lvP = $num2;
-					if (!$$lvP) {$$lvP = -1;}
-				}
-			}
-			else {$$uhbkP = &unhandledBook($pre, \$tbook);}
-		}     
-	}
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T06 (Book? c ChapTerm)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = $tch;
+        $$vsP = -1;
+        $$lvP = -1;
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
 
-	# num1 ... num2?
-	if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/i)) {
-		$matchedTerm = $2;
-		$$typeP = "T10 (num1 ... num2?)";
-		my $num1 = $3;
-		my $num2 = $5;
-		$$bkP = "";
-		$$chP = "";
-		if ($contextBK =~ /($oneChapterBooks)/) {$$barenumsP = "verses"; $$chP = 1;}
-		if ($$barenumsP eq "chapters") {
-			$$chP = $num1;
-			$$vsP = $num2;
-			$$lvP = -1;
-			if (!$$vsP) {$$vsP = -1;}
-		}
-		elsif ($$barenumsP eq "verses") {
-			$$vsP = $num1;
-			$$lvP = $num2;
-			if (!$$lvP) {$$lvP = -1;}
-		}
-	}
-		
-	if ($matchedTerm && !$matchleft) {
-		if (!$$bkP) {$$bkP = $contextBK;}
-		if (!$$chP) {$$chP = $contextCH;}
-		if ($$lvP <= $$vsP) {$$lvP = -1;}
-		
-		# Book
-		if ($$bkP eq $contextBK) {}
-		elsif ($$bkP =~ /($ebookNames)/i)                            {$$bkP = $books{$1};}
-		elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/i)    {$$bkP = $contextBK;}
-		else {
-			&Log("ERROR: Unexpected book value \"$book\".\n"); 
-			$$bkP = $contextBK;
-		}
-	}
-	
-	$$tP =~ s/^ //; # undo our added space
+  # Book|CurrentChap? v-v VerseTerms
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tvs = $6;
+    my $tlv = $8;
 
-if ($line == $debugLine) {&Log(sprintf("DEBUG_matchRef:\nmatchleft=%s\nt=%s\ntype=%s\nuhbk=%s\nbk=%s\nch=%s\nvs=%s\nlv=%s\nbarenums=%s\n\n", $matchleft, $$tP, $$typeP, $$uhbkP, $$bkP, $$chP, $$vsP, $$lvP, $$barenumsP));}
-	return $matchedTerm;
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T07 (Book|CurrentChap? v-v VerseTerms)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = "";
+        $$vsP = $tvs;
+        $$lvP = $tlv;
+        $$barenumsP = "verses";
+        if ($$bkP =~ /($currentChapTerms)/si) {
+          $$bkP = $contextBK;
+          $$chP = $contextCH;
+        }
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+
+  # Book|CurrentChap? v VerseTerms
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($verseTerms))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tvs = $6;
+
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T08 (Book|CurrentChap? v VerseTerms)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = "";
+        $$vsP = $tvs;
+        $$lvP = -1;
+        $$barenumsP = "verses";
+        if ($$bkP =~ /($currentChapTerms)/si) {
+          $$bkP = "";
+        }
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+
+  # Book|CurrentChap num1-num2?
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)(($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*(\d+)(\s*($continuationTerms)\s*(\d+))?)/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $3;
+    my $num1 = $5;
+    my $num2 = $8;
+
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T09 (Book|CurrentChap num1-num2?)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = "";
+        if ($$bkP =~ /($currentChapTerms)/si) {
+          $$bkP = "";
+          $$barenumsP = "verses"; # For: шу бобнинг 20, 22, 29–оятларида ҳам иш
+        }
+        elsif ((($$bkP =~ /($currentBookTerms)/si) && ($contextBK =~ /($oneChapterBooks)/si)) || ($books{$$bkP} =~ /($oneChapterBooks)/si)) {
+          $$chP = 1;
+          $$barenumsP = "verses";
+        }
+        else {$$barenumsP = "chapters";}
+
+        if ($$barenumsP eq "chapters") {
+          $$chP = $num1;
+          $$vsP = -1;
+          $$lvP = -1;
+        }
+        elsif ($$barenumsP eq "verses") {
+          $$vsP = $num1;
+          $$lvP = $num2;
+          if (!$$lvP) {$$lvP = -1;}
+        }
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+
+  # num1 ... num2?
+  if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/si)) {
+    $matchedTerm = $2;
+    $$typeP = "T10 (num1 ... num2?)";
+    my $num1 = $3;
+    my $num2 = $5;
+    $$bkP = "";
+    $$chP = "";
+    if ($contextBK =~ /($oneChapterBooks)/) {$$barenumsP = "verses"; $$chP = 1;}
+    if ($$barenumsP eq "chapters") {
+      $$chP = $num1;
+      $$vsP = $num2;
+      $$lvP = -1;
+      if (!$$vsP) {$$vsP = -1;}
+    }
+    elsif ($$barenumsP eq "verses") {
+      $$vsP = $num1;
+      $$lvP = $num2;
+      if (!$$lvP) {$$lvP = -1;}
+    }
+  }
+
+  if ($matchedTerm && !$matchleft) {
+    if (!$$bkP) {$$bkP = $contextBK;}
+    if (!$$chP) {$$chP = $contextCH;}
+    if ($$lvP <= $$vsP) {$$lvP = -1;}
+
+    # Book
+    if ($$bkP eq $contextBK) {}
+    elsif ($$bkP =~ /($ebookNames)/si)                            {$$bkP = $books{$1};}
+    elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/si)    {$$bkP = $contextBK;}
+    else {
+      &Log("ERROR: Unexpected book value \"$book\".\n");
+      $$bkP = $contextBK;
+    }
+  }
+
+  $$tP =~ s/^ //; # undo our added space
+
+  if ($line == $debugLine) {&Log(sprintf("DEBUG_matchRef:\nmatchleft=%s\nt=%s\ntype=%s\nuhbk=%s\nbk=%s\nch=%s\nvs=%s\nlv=%s\nbarenums=%s\n\n", $matchleft, $$tP, $$typeP, $$uhbkP, $$bkP, $$chP, $$vsP, $$lvP, $$barenumsP));}
+  return $matchedTerm;
 }
 
 sub unhandledBook($\$) {
-	my $pre = shift;
-	my $bkP = shift;
-	if ($$bkP) {return "";}
+  my $pre = shift;
+  my $bkP = shift;
+  if ($$bkP) {return "";}
 
-	&decodeTerms(\$pre);
-	if ($pre =~ /(^|\W)(\w*[^\w|>]*)$/) {
-		my $ub = $2;
-		if ($ub =~ /\w+/) {return $ub;}
-	}
-	return substr($pre, length($pre)-10, 10);
+  &decodeTerms(\$pre);
+  if ($pre =~ /(^|\W)(\w*[^\w|>]*)$/) {
+    my $ub = $2;
+    if ($ub =~ /\w+/) {return $ub;}
+  }
+  return substr($pre, length($pre)-10, 10);
 }
 
 sub validOSISref($$$$) {
-	my $osisRef = shift;
-	my $linkText = shift;
+  my $osisRef = shift;
+  my $linkText = shift;
   my $strict = shift;
-	my $noWarn = shift;
-  
-	my $bk1, $bk2, $ch1, $ch2, $vs1, $vs2;
+  my $noWarn = shift;
+
+  my $bk1, $bk2, $ch1, $ch2, $vs1, $vs2;
   if ($strict && $osisRef !~ s/^\w+\://) {return 0;}
-	elsif ($osisRef eq "") {return 0;}
-	elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)$/) {
-		$bk1 = $1;
-		$ch1 = $2;
-		$vs1 = $3;
-		$bk2 = $4;
-		$ch2 = $5;
-		$vs2 = $6;	
-		if (!$ch1 || !$ch2 || $ch1 != $ch2 || !$vs1 || !$vs2 || $vs2 <= $vs1) {return 0;}
-	}
-	elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-		$bk1 = $1;
-		$ch1 = $2;
-		$vs1 = $3;
-		if (!$ch1 || !$vs1) {return 0;}
-	}
-	elsif ($osisRef =~ /^([^\.]+)\.(\d+)$/) {
-		$bk1 = $1;
-		$ch1 = $2;
-		if (!$ch1) {return 0;}
-		if (!$noWarn) {&Log("$line WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
-	}
-	else {
-		return 0;
-	}
-  
+  elsif ($osisRef eq "") {return 0;}
+  elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)$/) {
+    $bk1 = $1;
+    $ch1 = $2;
+    $vs1 = $3;
+    $bk2 = $4;
+    $ch2 = $5;
+    $vs2 = $6;
+    if (!$ch1 || !$ch2 || $ch1 != $ch2 || !$vs1 || !$vs2 || $vs2 <= $vs1) {return 0;}
+  }
+  elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+    $bk1 = $1;
+    $ch1 = $2;
+    $vs1 = $3;
+    if (!$ch1 || !$vs1) {return 0;}
+  }
+  elsif ($osisRef =~ /^([^\.]+)\.(\d+)$/) {
+    $bk1 = $1;
+    $ch1 = $2;
+    if (!$ch1) {return 0;}
+    if (!$noWarn) {&Log("$line WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
+  }
+  else {return 0;}
+
   my $vk = new Sword::VerseKey();
   $vk->setVersificationSystem($VERSESYS);
   my $bok1 = $vk->getBookNumberByOSISName($bk1) != -1;
   my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) != -1);
 
-	return ($bok1 && $bok2);
+  return ($bok1 && $bok2);
 }
 
 sub reverseAlpha($$) {
-	my $a = shift;
-	my $b = shift;
+  my $a = shift;
+  my $b = shift;
 
-	my $ar = "";
-	for (my $i=length($a)-1; $i>=0; $i--) {$ar .= substr($a, $i, 1);}
-	my $br = "";
-	for (my $i=length($b)-1; $i>=0; $i--) {$br .= substr($b, $i, 1);}
-	if (ord(substr($a, 0, 1)) == ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(&uc2(substr($b, 0, 1)))) {return -1;}
-	if (ord(substr($a, 0, 1)) != ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(&uc2(substr($b, 0, 1)))) {return 1;}
+  my $ar = "";
+  for (my $i=length($a)-1; $i>=0; $i--) {$ar .= substr($a, $i, 1);}
+  my $br = "";
+  for (my $i=length($b)-1; $i>=0; $i--) {$br .= substr($b, $i, 1);}
+  if (ord(substr($a, 0, 1)) == ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(&uc2(substr($b, 0, 1)))) {return -1;}
+  if (ord(substr($a, 0, 1)) != ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(&uc2(substr($b, 0, 1)))) {return 1;}
 
-	return $a cmp $b;
+  return $a cmp $b;
 }
 
 1;

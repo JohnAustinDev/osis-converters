@@ -19,8 +19,6 @@
 
 # usage: cbsfm2osis.pl [Project_Directory]
 
-$DEBUG = 0;
-
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();

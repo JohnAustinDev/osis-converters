@@ -15,10 +15,11 @@ if [ ! -e $VHOME/.osis-converters ]; then mkdir $VHOME/.osis-converters; fi
 if [ ! -e $VHOME/.osis-converters/src ]; then mkdir $VHOME/.osis-converters/src; fi
 
 sudo apt-get update
-sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev
+sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix
 
 # XML::LibXML
 sudo cpanm XML::LibXML
+sudo cpanm XML::LibXML::PrettyPrint
 sudo cpanm HTML::Entities
 
 # Calibre
@@ -67,8 +68,11 @@ if [ ! `which python3` ]; then
 fi
 
 # Module-tools
-if [ ! -e $VHOME/.osis-converters/src/Module-tools ]; then
+if [ ! -e $VHOME/.osis-converters/src/Module-tools/.git ]; then
   cd $VHOME/.osis-converters/src
+  if [ -e ./Module-tools ]; then
+    rm -rf ./Module-tools
+  fi
   git clone https://github.com/JohnAustinDev/Module-tools.git
 else
   cd $VHOME/.osis-converters/src/Module-tools

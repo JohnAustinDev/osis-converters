@@ -38,6 +38,9 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 
+require("$SCRD/scripts/getScope.pl");
+require("$SCRD/scripts/toVersificationBookOrder.pl");
+
 sub init($) {
   my $quiet = shift;
   
@@ -331,7 +334,7 @@ sub checkAndWriteDefaults($) {
   
   # get my type
   my $type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);
-  if (!$type) {$type = (exists($USFM{'childrens_bible'}) && $confdataP->{'ModuleName'} =~ /CB$/ ? 'childrens_bible':0);}
+  if (!$type) {$type = ($confdataP->{'ModuleName'} =~ /^\w\w\w\w?CB$/ ? 'childrens_bible':0);}
   if (!$type) {$type = (exists($USFM{'bible'}) ? 'bible':0);}
   if (!$type) {$type = 'other';}
   
@@ -374,25 +377,30 @@ sub checkAndWriteDefaults($) {
       
         # peripherals need a target location in the OSIS file added to their ID
         if ($USFM{$type}{$f}{'peripheralID'}) {
-          print CFF "\n# Use <name> == <xpath> expressions to place intro(s) where they should go\n";
-          print CFF "EVAL_REGEX(INT):s/\\\\id ".$USFM{$type}{$f}{'peripheralID'}."/\\\\id INT (".$USFM{$type}{$f}{'peripheralID'}.") ";
-          my $xpath = "introduction == osis:div[\@type='book'][\@osisID='Gen']";
+          print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
+          if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
+            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
+          }
+          else {
+            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+          }
+          my $xpath = "location == osis:header";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
             foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
               my $osisMap = &getOsisMap($periphType);
               if (!$osisMap) {next;}
-              $xpath .= ", ".$osisMap->{'name'}." == ".$osisMap->{'xpath'};
+              $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
             }
           }
           $xpath =~ s/([\@\$])/\\$1/g;
           print CFF $xpath;
-          print CFF "/\n";
+          print CFF "/m\n";
         }
 
         my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
         print CFF "RUN:$r\n";
         
-        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(INT):\n\n";}
+        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(PERIPH):\n\n";}
       }
       close(CFF);
     }
@@ -454,60 +462,17 @@ sub checkAndWriteDefaults($) {
 }
 
 
-# Copied from usfm2osis.py 0.6
-%USFM_PERIPH = (
-  'Title Page' => 'titlePage',
-  'Half Title Page' => 'x-halfTitlePage',
-  'Promotional Page' => 'x-promotionalPage',
-  'Imprimatur' => 'imprimatur',
-  'Publication Data' => 'publicationData',
-  'Foreword' => 'x-foreword',
-  'Preface' => 'preface',
-  'Table of Contents' => 'tableofContents',
-  'Alphabetical Contents' => 'x-alphabeticalContents',
-  'Table of Abbreviations' => 'x-tableofAbbreviations',
-  'Chronology' => 'x-chronology',
-  'Weights and Measures' => 'x-weightsandMeasures',
-  'Map Index' => 'x-mapIndex',
-  'NT Quotes from LXX' => 'x-ntQuotesfromLXX',
-  'Cover' => 'coverPage', 'Spine' => 'x-spine',
-  'Bible Introduction' => 'x-bible',
-  'Old Testament Introduction' => 'x-oldTestament',
-  'Pentateuch Introduction' => 'x-pentateuch',
-  'History Introduction' => 'x-history',
-  'Poetry Introduction' => 'x-poetry',
-  'Prophecy Introduction' => 'x-prophecy',
-  'New Testament Introduction' => 'x-newTestament',
-  'Gospels Introduction' => 'x-gospels',
-  'Acts Introduction' => 'x-acts',
-  'Epistles Introduction' => 'x-epistles',
-  'Letters Introduction' => 'x-letters',
-  'Deuterocanon Introduction' => 'x-deuterocanon'
-);
-%USFM_PERIPH_TARGET = (
-  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
-  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
-  'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
-  'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
-  'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
-  'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]',
-  'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
-  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
-  'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
-  'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
-);
-
 sub getOsisMap($) {
   my $pt = shift;
 
-  my $name = $USFM_PERIPH{$pt};
+  my $name = $PERIPH_TYPE_MAP{$pt};
   if (!$name) {&Log("ERROR: Unrecognized peripheral name \"$pt\"\n"); return NULL;}
+  if ($name eq 'introduction') {$name = $PERIPH_SUBTYPE_MAP{$pt};}
 
   my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
-  foreach my $t (keys %USFM_PERIPH_TARGET) {
+  foreach my $t (keys %USFM_DEFAULT_PERIPH_TARGET) {
     if ($pt !~ /^($t)$/i) {next;}
-    $xpath = $USFM_PERIPH_TARGET{$t};
+    $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
     last;
   }
   my %h = ( 'name' => $name, 'xpath' => $xpath );
@@ -595,7 +560,7 @@ sub scanUSFM_file($) {
     if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
       my $i = $1; 
       if ($id) {
-        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous is tags: \"$id\", \"$i\"\n");}
+        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous id tags: \"$id\", \"$i\"\n");}
         next;
       }
       $id = $i;
@@ -624,20 +589,25 @@ sub scanUSFM_file($) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /^(PRE|TTL|FRT|INT|OTH)$/i) {
+    elsif ($id =~ /^(FRT|INT|OTH)$/i) {
       $info{'type'} = 'bible';
       $info{'peripheralID'} = $id;
     }
-    elsif ($id =~ /(GLO|DIC|BAK|CNC)/i) {
+    elsif ($id =~ /(GLO|DIC|BAK|CNC|TDX|NDX)/i) {
       $info{'type'} = 'dictionary';
     }
-    elsif ($id =~ /^(CVR|TLB|PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) {
-      $info{'type'} = 'childrens_bible';
+    elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) { # Strange IDs associated with Children's Bibles
+      $info{'type'} = 'bible';
+    }
+    elsif ($id =~ /^\s*(\w{3})\b/) {
+      $info{'peripheralID'} = $1;
+      $info{'type'} = 'bible'; # This has some kind of SFM-like id, so just treat it like a Bible peripheral
     }
     # others are currently unhandled by osis-converters
     else {
       $info{'type'} = 'other';
       $info{'doConvert'} = 0;
+      &Log("WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n");
     }
     &Log("NOTE:");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
@@ -836,7 +806,7 @@ sub updateConfData(\%$) {
         if ($sourceType eq 'OSIS') {&Log("ERROR: Unable to determine OSIS version from \"$moduleSource\"\n");}
       }
       else {
-        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+)\.xsd$/$1/i;
+        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
         &setConfValue($entryValueP, 'OSISVersion', $vers, 1);
       }
       if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
@@ -845,7 +815,6 @@ sub updateConfData(\%$) {
       
       # get scope
       if ($type eq 'bible' || $type eq 'commentary') {
-        require("$SCRD/scripts/getScope.pl");
         &setConfValue($entryValueP, 'Scope', &getScope($entryValueP->{'Versification'}, $moduleSource), 1);
       }
     }
@@ -1108,42 +1077,42 @@ sub getOsisName($$) {
 }
 
 sub getCanon($\%\%\%\@) {
-  my $VSYS = shift;
+  my $vsys = shift;
   my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
   my $bookOrderPP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
   my $testamentPP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
   my $bookArrayPP = shift; # array pointer: OSIS-book-names in verse system order starting with index 1!!
   
-  if (! %{$CANON_CACHE{$VSYS}}) {
-    if (!&isValidVersification($VSYS)) {return 0;}
+  if (! %{$CANON_CACHE{$vsys}}) {
+    if (!&isValidVersification($vsys)) {return 0;}
     
     my $vk = new Sword::VerseKey();
-    $vk->setVersificationSystem($VSYS);
+    $vk->setVersificationSystem($vsys);
     
     for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
       my $t, $bkt;
       if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
       else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
-      $CANON_CACHE{$VSYS}{'bookOrder'}{$bkname} = ($bk+1);
-      $CANON_CACHE{$VSYS}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
+      $CANON_CACHE{$vsys}{'bookOrder'}{$bkname} = ($bk+1);
+      $CANON_CACHE{$vsys}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
       my $chaps = [];
       for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
         # NOTE: CHAPTER 1 IN ARRAY IS INDEX 0!!!
         push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
       }
-      $CANON_CACHE{$VSYS}{'canon'}{$bkname} = $chaps;
+      $CANON_CACHE{$vsys}{'canon'}{$bkname} = $chaps;
     }
   }
   
-  @{$CANON_CACHE{$VSYS}{'bookArray'}} = ();
-  foreach my $bk (keys %{$CANON_CACHE{$VSYS}{'bookOrder'}}) {
-    @{$CANON_CACHE{$VSYS}{'bookArray'}}[$CANON_CACHE{$VSYS}{'bookOrder'}{$bk}] = $bk;
+  @{$CANON_CACHE{$vsys}{'bookArray'}} = ();
+  foreach my $bk (keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
+    @{$CANON_CACHE{$vsys}{'bookArray'}}[$CANON_CACHE{$vsys}{'bookOrder'}{$bk}] = $bk;
   }
   
-  if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$VSYS}{'canon'}};}
-  if ($bookOrderPP) {$$bookOrderPP = \%{$CANON_CACHE{$VSYS}{'bookOrder'}};}
-  if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$VSYS}{'testament'}};}
-  if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$VSYS}{'bookArray'}};}
+  if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$vsys}{'canon'}};}
+  if ($bookOrderPP) {$$bookOrderPP = \%{$CANON_CACHE{$vsys}{'bookOrder'}};}
+  if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$vsys}{'testament'}};}
+  if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$vsys}{'bookArray'}};}
 
   return 1;
 }
@@ -1172,35 +1141,62 @@ sub sortSearchTermKeys($$) {
 
 
 # Copy inosis to outosis, while pruning books according to scope. 
-# If any bookGroup is left with no books in it, then the entire bookGroup element is dropped.
-# If scope is NULL then all complete books in inosis are copied to outosis.
+# If any bookGroup is left with no books in it, then the entire bookGroup 
+# element (including its introduction if there is one) is dropped.
+# If a pruned book contains a peripheral which also pertains to a kept 
+# book, that peripheral is moved to the first kept book, so as to retain 
+# the peripheral. If there is no scope then inosis is copied to outosis.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
   my $outosis = shift;
   my $scope = shift;
   my $vsys = shift;
   
+  if (!$scope) {copy($inosis, $outosis); return;}
+  
+  my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
+  $typeRE =~ s/\-/\\-/g;
+  
   my $inxml = $XML_PARSER->parse_file($inosis);
   
-  if ($scope) {
-    my $canonP;
-    my $bookOrderP;
-    my $testamentP;
-    if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
-      my $scopeBooks = &scopeToBooks($scope, $bookOrderP);
-      my %scopeBookNames = map { $_ => 1 } @{$scopeBooks};
-      # remove books not in scope
-      my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
-      foreach my $bk (@books) {
-        my $id = $bk->getAttribute('osisID');
-        if (!exists($scopeBookNames{$id})) {$bk = $bk->parentNode()->removeChild($bk);}
+  my $bookOrderP;
+  if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
+    my @lostIntros;
+    my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
+    # remove books not in scope
+    my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+    foreach my $bk (@books) {
+      my $id = $bk->getAttribute('osisID');
+      if (!exists($scopeBookNames{$id})) {
+        my @divs = $XPC->findnodes('./osis:div[@type]', $bk);
+        foreach my $div (@divs) {
+          if ($div->getAttribute('type') !~ /$typeRE/i) {next;}
+          push(@lostIntros, $div);
+        }
+        $bk->unbindNode();
       }
-      # remove empty bookGroups
-      my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-      foreach my $ebg (@emptyBookGroups) {$ebg->parentNode()->removeChild($ebg);}
     }
-    else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
+    # remove bookGroup if it has no books left (even if it contains other peripheral material)
+    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode();}
+    # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
+    my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
+    INTRO: foreach my $intro (reverse(@lostIntros)) {
+      my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+      if (!@{$introBooks}) {next;}
+      foreach $introbk (@{$introBooks}) {
+        foreach my $remainingBook (@remainingBooks) {
+          if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
+          $remainingBook->insertBefore($intro, $remainingBook->firstChild);
+          my $t1 = $intro; $t1 =~ s/>.*$/>/s;
+          my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
+          &Log("NOTE: Moved peripheral: $t1 to $t2\n");
+          next INTRO;
+        }
+      }
+    }
   }
+  else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   
   open(OUTF, ">$outosis");
   print OUTF $inxml->toString();
@@ -1208,11 +1204,47 @@ sub pruneFileOSIS($$$$) {
 }
 
 
+sub convertExplicitGlossaryElements(\@) {
+  my $indexElementsP = shift;
+  
+  my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+
+  foreach my $g (@{$indexElementsP}) {
+    my $gl = $g->getAttribute("level1");
+    my @tn = $XPC->findnodes("preceding::text()[1]", $g);
+    if (@tn != 1 || $tn[0]->data !~ /\Q$gl\E$/) {
+      &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
+      next;
+    }
+    my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
+    if (@isGlossary) {
+      &addDictionaryLinks(\@tn, @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent(), &scopeToBooks(&getGlossaryScope(@tn[0]), $bookOrderP));
+    }
+    else {
+      &addDictionaryLinks(\@tn);
+    }
+    my $nr = "ERROR, NO MATCH IN GLOSSARY";
+    if (@tn[0]->parentNode ne @tn[0]) {
+      &Log("ERROR: Could not find glossary entry to match explicit glossary markup \"$g\".\n");
+    }
+    else {
+      $nr = &decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"));
+      $g->parentNode->removeChild($g);
+    }
+    if ($ExplicitGlossary{$gl} && $ExplicitGlossary{$gl} ne $nr) {
+      &Log("ERROR: Same explicit glossary markup was converted as \"$nr\" and as \"".$ExplicitGlossary{$gl}."\".\n");
+    }
+    else {$ExplicitGlossary{$gl} = $nr;}
+  }
+}
+
+
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
-sub addDictionaryLinks(\@$) {
+sub addDictionaryLinks(\@$\@) {
   my $eP = shift; # array of nodes (NOTE: node children are not touched)
   my $entry = shift; # should be NULL if not adding SeeAlso links
+  my $glossaryScopeP = shift; # array of books, should be NULL if not adding SeeAlso links
 
   if ($entry) {
     my $entryOsisRef = &entry2osisRef($MOD, $entry);
@@ -1241,7 +1273,7 @@ sub addDictionaryLinks(\@$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry, $glossaryScopeP)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1256,10 +1288,11 @@ sub addDictionaryLinks(\@$) {
 # to the $DWF file, and logs any result. If a match is found, the proper 
 # reference tags are inserted, and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
-sub addDictionaryLink(\$$$) {
+sub addDictionaryLink(\$$$\@) {
   my $textP = shift;
   my $textNode = shift;
   my $entry = shift; # for SeeAlso links only
+  my $glossaryScopeP = shift; # for SeeAlso links only
   
   &dbg(sprintf("\naddDictionaryLink\ntext=%s\nentry=%s\n", $$textP, $entry), $entry);
   
@@ -1293,7 +1326,10 @@ sub addDictionaryLink(\$$$) {
       if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n", $entry); next;}}
       elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n", $entry); next;}
     }
-    if ($a = &getAttribute('context', $m)) {if (!&myContext($a, $context)) {&dbg("50\n", $entry); next;}}
+    if ($a = &getAttribute('context', $m)) {
+      my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs && &myGlossaryContext($a, $glossaryScopeP));
+      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("50\n", $entry); next;}
+    }
     if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
     if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
     
@@ -1417,11 +1453,8 @@ sub dbg($$) {
   my $p = shift;
   my $e = shift;
   
-  my $debug_entry = ''; #decode('utf8', "Pygamber");
-  
-  if ($DEBUG || ($debug_entry && $e eq $debug_entry)) {
-    &Log($p);
-  }
+  if (!$DEBUG || !$e || $DEBUG !~ /$e/i) {return;}
+  &Log($p);
 }
 
 
@@ -1453,6 +1486,16 @@ sub myContext($$) {
   return 0;
 }
 
+sub myGlossaryContext($\@) {
+  my $test = shift;
+  my $contextP = shift;
+ 
+  foreach my $c (@{$contextP}) {
+    if (&myContext($test, $c)) {return $c;}
+  }
+  
+  return 0;
+}
 
 # return special Bible context reference for $elem:
 # Gen.0.0.0 = intro
@@ -1758,201 +1801,6 @@ sub logDictLinks() {
     $p .= sprintf("%3i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
   &Log("REPORT: Links created: ($gt instances)\n$p");
-  
-}
-
-
-sub dictWordsHeader() {
-  return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!--
-  IMPORTANT: 
-  For case insensitive matches using /match/i to work, ALL text MUST be surrounded 
-  by the \\Q...\\E quote operators. If a match is failing, consider this first!
-  This is not a normal Perl rule, but is required because Perl doesn't properly handle case for Turkish-like languages.
-  
-  Use the following attributes to control link placement:
-  onlyNewTestament=\"true|false\"
-  onlyOldTestament=\"true|false\"
-  context=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which to create links (default is all)\"
-  notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
-  highlight=\"true|false: allow links within bold, italic or other highlighted text (default is false)\"
-  multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
-
-  Entry elements may contain the following attributes:
-  <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
-         noOutboundLinks=\"true|false: set true if entry should not contain any see-also links\">
-
-  Match patterns can be any perl match regex. The entire match (if there 
-  are no capture groups), or the last matching group, or else a group 
-  named 'link', will become the link's inner text.
-
--->\n";
-}
-
-
-sub writeDictionaryWordsXML($$) {
-  my $in_file = shift;
-  my $out_xml = shift;
-  
-  my @keywords = &getDictKeys($in_file);
-  
-  my %keys; foreach my $k (@keywords) {$keys{$k}++;}
-  if (!open(DWORDS, ">:encoding(UTF-8)", $out_xml)) {&Log("ERROR: Could not open $out_xml"); die;}
-  print DWORDS &dictWordsHeader();
-  print DWORDS "
-<dictionaryWords version=\"1.0\">
-<div highlight=\"false\" multiple=\"false\">\n";
-  foreach my $k (sort {length($b) <=> length($a)} keys %keys) {
-    print DWORDS "
-  <entry osisRef=\"".&entry2osisRef($MOD, $k)."\">
-    <name>".$k."</name>
-    <match>/\\b(\\Q".$k."\\E)\\b/i</match>
-  </entry>\n";
-  }
-  print DWORDS "
-</div>
-</dictionaryWords>";
-  close(DWORDS);
-  
-  &checkEntryNames(\@keywords);
-  
-  # if there is no project dictionary words file, then create it
-  if (! -e "$INPD/$DICTIONARY_WORDS") {copy($out_xml, "$INPD/$DICTIONARY_WORDS");}
-  $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-  
-  # if companion has no dictionary words file, then create it too
-  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-    if (!-e "$INPD/../../$companion") {
-      &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
-      next;
-    }
-    if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($out_xml, "$INPD/../../$companion/$DICTIONARY_WORDS");}
-  }
-}
-
-
-# check that the entries in an imp or osis dictionary source file are included in 
-# the global dictionaryWords file. If the difference is only in capitalization,
-# which occurs when converting from DictionaryWords.txt to DictionaryWords.xml,
-# then fix these, and update the dictionaryWords file.
-sub compareToDictWordsFile($) {
-  my $imp_or_osis = shift;
-  
-  my $dw_file = "$INPD/$DICTIONARY_WORDS";
-  &Log("\n--- CHECKING ENTRIES IN: $imp_or_osis FOR INCLUSION IN: $DICTIONARY_WORDS\n", 1);
-  
-  my $update = 0;
-  
-  my @sourceEntries = &getDictKeys($imp_or_osis);
-  
-  my @dwfEntries = $XPC->findnodes('//entry[@osisRef]/@osisRef', $DWF);
-  
-  my $allmatch = 1; my $mod;
-  foreach my $es (@sourceEntries) {
-    my $match = 0;
-    foreach my  $edr (@dwfEntries) {
-      my $ed = &osisRef2Entry($edr->value, \$mod);
-      if ($es eq $ed) {$match = 1; last;}
-      elsif (&uc2($es) eq &uc2($ed)) {
-        $match = 1;
-        $update++;
-        $edr->setValue(entry2osisRef($mod, $es));
-        my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
-        if (&uc2($name) ne &uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
-        else {$name->setData($es);}
-        last;
-      }
-    }
-    if (!$match) {&Log("ERROR: Missing entry \"$es\" in $DICTIONARY_WORDS\n"); $allmatch = 0;}
-  }
-  
-  if ($update) {
-    if (!open(OUTF, ">$dw_file.tmp")) {&Log("ERROR: Could not open $DICTIONARY_WORDS.tmp\n"); die;}
-    print OUTF $DWF->toString();
-    close(OUTF);
-    unlink($dw_file); rename("$dw_file.tmp", $dw_file);
-    &Log("NOTE: Updated $update entries in $dw_file\n");
-    
-    $DWF = $XML_PARSER->parse_file($dw_file);
-  }
-  
-  if ($allmatch) {&Log("All entries are included.\n");}
-  
-}
-
-
-sub getDictKeys($) {
-  my $in_file = shift;
-  
-  my @keywords;
-  if ($in_file =~ /\.(xml|osis)$/i) {
-    my $xml = $XML_PARSER->parse_file($in_file);
-    @keywords = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
-    foreach my $kw (@keywords) {$kw = $kw->textContent();}
-  }
-  else {
-    open(IMPIN, "<:encoding(UTF-8)", $in_file) or die "Could not open IMP $in_file";
-    while (<IMPIN>) {
-      if ($_ =~ /^\$\$\$\s*(.*?)\s*$/) {push(@keywords, $1);}
-    }
-    close(IMPIN);
-  }
-  
-  return @keywords;
-}
-
-
-# report various info about the entries in a dictionary
-sub checkEntryNames(\@) {
-  my $entriesP = shift;
-  
-  my %entries;
-  foreach my $name (@$entriesP) {$entries{$name}++;}
-  
-  foreach my $e (keys %entries) {
-    if ($entries{$e} > 1) {
-      &Log("ERROR: Entry \"$e\" appears more than once. These must be merged.\n"); 
-    }
-  }
-
-  my $total = 0;
-  my %instances;
-  foreach my $e1 (keys %entries) {
-    foreach my $e2 (keys %entries) {
-      if ($e1 eq $e2) {next;}
-      my $euc1 = &uc2($e1);
-      my $euc2 = &uc2($e2); 
-      if ($euc1 =~ /\Q$euc2\E/) {
-        $total++;
-        $instances{"\"$e1\" contains \"$e2\"\n"}++;
-      }
-    }
-  }
-  &Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
-  if ($total) {
-    &Log("NOTE: Usually these are intentional, but rarely may indicate some problem.\n");
-    foreach my $i (sort keys %instances) {&Log($i);}
-  }
-
-  my $p = ''; my $total = 0;
-  undef(%instances); my %instances;
-  foreach my $e (keys %entries) {
-    if ($e =~ /(-|,|;|\[|\()/) {$instances{$e}++;}
-  }
-  foreach my $i (sort keys %instances) {
-    my $skip = 0;
-    if ($DWF) {
-      my @elems = $XPC->findnodes('//entry[child::name[text()="' . $i . '"]]', $DWF);
-      foreach my $elem (@elems) {
-        if (@{$elem->findnodes('./match')} > 1) {$skip = 1;}
-      }
-    }
-    if (!$skip) {$p .= $i."\n"; $total += $instances{$i};}
-  }
-  &Log("\nREPORT: Compound glossary entry names with a single match element: ($total instances)\n");
-  if ($total) {
-    &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n$p");
-  }
   
 }
 
@@ -2335,6 +2183,33 @@ sub updateWorkElement($\%$) {
   my $w = $work->toString(); 
   $w =~ s/\n//g;
   &Log("Updated: $w\n");
+}
+
+
+$IS_SEG_INLINE  = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') ne 'keyword');};
+$IS_SEG_COMPACT = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') eq 'keyword');};
+sub prettyPrintOSIS($) {
+  my $osisDoc = shift;
+  
+  use XML::LibXML::PrettyPrint;
+  
+  my @preserveWhiteSpace = qw(a abbr catchWord date divineName foreign hi index inscription lb mentioned milestone name note q reference salute signed speaker titlePage transChange w);
+  
+  my @inline = ('header', $IS_SEG_INLINE);
+  push(@inline, @preserveWhiteSpace);
+  
+  my $pp = XML::LibXML::PrettyPrint->new(
+    element => {
+      #block    => [elements-are-block-by-default],
+      inline   => \@inline, # inline elements also preserve whitespace
+      compact  => [qw/title caption l item/, $IS_SEG_COMPACT], # compact does NOT preserve whitespace
+      #preserve_whitespace => \@preserveWhiteSpace
+    }
+  );
+  
+  $pp->pretty_print($osisDoc, -2);
+  
+  return $osisDoc;
 }
 
 
