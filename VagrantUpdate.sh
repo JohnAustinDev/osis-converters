@@ -57,12 +57,13 @@ vagrant up
 # Running VagrantProvision.sh on the VM will update the VM's installed software
 vagrant ssh -c "bash /vagrant/VagrantProvision.sh"
 
-if [ -n "$(grep -P '^\$MODULETOOLS_BIN' paths.pl)" ]; then
+modtools=$(grep -P '^\$MODULETOOLS_BIN' paths.pl);
+if [ ! -z "$modtools" ]; then
   echo .
   echo WARNING!!! WARNING!!! WARNING!!!
   echo ModuleTools ON THE VM HAS BEEN UPDATED.
   echo BUT YOU ARE USING A HOST COPY OF ModuleTools AS SPECIFIED IN 
-  echo paths.pl: \$MODULETOOLS_BIN=...
+  echo paths.pl: $modtools
   echo SO YOU MAY STILL NOT BE USING THE LATEST ModuleTools!
   echo .
 fi
