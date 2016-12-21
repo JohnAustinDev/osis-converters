@@ -6,7 +6,7 @@
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 
 # Stash any local changes
-if [ -n "$(git status --porcelain)" ]; then 
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then 
   git stash
   echo .
   echo LOCAL CHANGES TO OSIS-CONVERTERS HAVE BEEN STASHED!
@@ -24,7 +24,7 @@ if [ $branch_name != "master" ]; then
   echo Exiting...
   exit 
 fi
-if [ -n "$(git status --porcelain)" ]; then 
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then 
   echo You have uncommited changes in your master branch. Commit or stash them and try again.
   echo Exiting...
   exit
@@ -41,7 +41,7 @@ fi
 # Pull updates from https://github.com/JohnAustinDev/osis-converters master
 git pull https://github.com/JohnAustinDev/osis-converters master
 
-if [ -n "$(git status --porcelain)" ]; then 
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then 
   echo .
   echo UNABLE TO CLEANLY PULL FROM JohnAustinDev/osis-converters!
   echo RUN GIT STATUS AND RESOLVE ANY LOCAL CHANGES, THEN TRY AGAIN
