@@ -21,6 +21,7 @@ class OsisHandler(handler.ContentHandler):
         self._inGeneratedPara = False               # Currently within an html paragraph which does not correspond to an OSIS paragraph 
         self._inGlossaryRef = False                 # Currently processing a reference to a glossary entry
         self._inHeader = False                      # Currently processing OSIS header
+        self._inList = False                        # Currently processing contents of a list
         self._inParagraph = False                   # Currently within an html paragraph which corresponds to an OSIS paragraph
         self._inTable = False                       # Currently processing contents of a table
         self._inTitle = False                       # Currently processing a title
@@ -48,6 +49,7 @@ class OsisHandler(handler.ContentHandler):
         self._inGeneratedPara = False
         self._inGlossaryRef = False
         self._inHeader = False
+        self._inList = False
         self._inParagraph = False
         self._inTable = False
         self._inTitle = False
@@ -148,6 +150,7 @@ class OsisHandler(handler.ContentHandler):
             
         elif name == 'list':
             self._writeHtml('</ul>\n')
+            self._inList = False
                         
         elif name == 'note':
             if self._inFootnote:
@@ -306,6 +309,7 @@ class OsisHandler(handler.ContentHandler):
             else:
                 htmlTag = '<ul class="%s">' % listType
             self._writeHtml(htmlTag)
+            self._inList = True
             
         elif name == 'milestone':
             # <milestone> tags are ignored
@@ -525,7 +529,7 @@ class OsisHandler(handler.ContentHandler):
             self._ignoreText = True
             
     def _checkGeneratePara(self):
-        if not self._inParagraph and not self._inTitle and not self._inGeneratedPara and not self._inCaption and not self._lineGroupPara and not self._inTable and not self._inFootnote:
+        if not self._inParagraph and not self._inTitle and not self._inGeneratedPara and not self._inCaption and not self._lineGroupPara and not self._inTable and not self._inFootnote and not self._inList:
             self._startGeneratedPara()
 
  

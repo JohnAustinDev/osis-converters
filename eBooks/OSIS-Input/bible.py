@@ -480,6 +480,7 @@ class BibleHandler(OsisHandler):
             if listType is None and self._inIntro and self._introStyleStarted:
                 htmlTag = '<ul class="x-introduction">\n'
                 self._writeHtml(htmlTag)
+                self._inList = True
             else:
                 OsisHandler._processBodyTag(self, name, attrs)
             
