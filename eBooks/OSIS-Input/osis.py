@@ -30,6 +30,7 @@ class OsisHandler(handler.ContentHandler):
         self._osisFound = False                     # The <osis> tag has been found
         self._osisIDWork = None                     # Value of osisIDwork attribute in <osisText> tag
         self._osisTextFound = False                 # The <osisText> tag has been found
+        self._paraClass = ''                        # Class of current paragraph
         self._suppressBreaks = False                # Set to prevent <br /> tags being written
         self._titleTag = ''                         # Opening tag html for title currently being processed
         self._titleText = ''                        # Text of title currently being processed
@@ -164,6 +165,7 @@ class OsisHandler(handler.ContentHandler):
                 self._writeHtml('</p>\n')
                 self._breakCount = 1
                 self._inParagraph = False
+                self._paraClass = ''
                 
         elif name == 'rdg':
             self._writeHtml('</span>')
@@ -312,9 +314,18 @@ class OsisHandler(handler.ContentHandler):
             self._inList = True
             
         elif name == 'milestone':
-            # <milestone> tags are ignored
-            pass
-        
+            milesoneType = self._getAttributeValue(attrs, 'type')
+            if milesoneType == 'pb':
+                if self._inParagraph or self._inGeneratedPara:
+                    self._writeHtml('</p>\n')
+                    if self._paraClass == '':
+                        self._writeHtml('<p class="page-break">')
+                    else:
+                        self._writeHtml('<p class="%s page-break">' % self._paraClass)
+                else:
+                    self._writeHtml('\n<p class="page-break"></p>\n')
+                    
+            
         elif name == 'name':
             # <name> tags are ignored
             pass
@@ -414,16 +425,19 @@ class OsisHandler(handler.ContentHandler):
         paraTag = '<p class="x-indent-0">'
         self._writeHtml(paraTag)
         self._inGeneratedPara = True
+        self._paraClass = 'x-indent-0'
         
     def _endGeneratedPara(self):
         if self._inGeneratedPara:
             self._writeHtml('</p>')
             self._inGeneratedPara = False
+            self._paraClass = ''
                    
     def _closeParagraph(self):
         if self._inParagraph:
             self._writeHtml('</p>')
             self._inParagraph = False
+            self._paraClass = ''
         else:
             self._endGeneratedPara()
             
@@ -480,6 +494,7 @@ class OsisHandler(handler.ContentHandler):
         paraTag = '<p>'
         if pClass != '':
             paraTag = '<p class="%s">' % pClass
+            self._paraClass = pClass
         return paraTag
     
     def _handleHi(self, attrs):

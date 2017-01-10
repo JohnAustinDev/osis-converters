@@ -137,3 +137,6 @@ table {
   margin-top: 1em;
 }
 
+.page-break  {
+  page-break-before: always;
+}
