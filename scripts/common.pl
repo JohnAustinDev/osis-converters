@@ -33,7 +33,7 @@ $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
-$DICTLINK_SKIPNAMES= "figure|title|name|lb|lg";
+$DICTLINK_SKIPNAMES= "caption|figure|title|name|lb|lg";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
@@ -762,7 +762,7 @@ sub updateConfData(\%$) {
   my $moddrv = $entryValueP->{"ModDrv"};
   my $mod = $entryValueP->{'ModuleName'};
 	if    ($moddrv eq "RawText") {$dp = "./modules/texts/rawtext/".lc($mod)."/";}
-    elsif ($moddrv eq "RawText4") {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
+  elsif ($moddrv eq "RawText4") {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
 	elsif ($moddrv eq "zText") {$dp = "./modules/texts/ztext/".lc($mod)."/";}
 	elsif ($moddrv eq "zText4") {$dp = "./modules/texts/ztext4/".lc($mod)."/";}
 	elsif ($moddrv eq "RawCom") {$dp = "./modules/comments/rawcom/".lc($mod)."/";}
@@ -777,6 +777,9 @@ sub updateConfData(\%$) {
 	else {
 		&Log("ERROR: ModDrv \"".$entryValueP->{"ModDrv"}."\" is unrecognized.\n");
 	}
+  if ($moddrv =~ /^(raw|z)(text|com)$/i || $moddrv =~ /^rawld$/i) {
+    &Log("ERROR: ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.\n");
+  }
   &setConfValue($entryValueP, 'DataPath', $dp, 1);
 
   my $type = 'genbook';
@@ -1210,31 +1213,31 @@ sub convertExplicitGlossaryElements(\@) {
   my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
 
   foreach my $g (@{$indexElementsP}) {
+    my $before = $g->parentNode->toString();
     my $gl = $g->getAttribute("level1");
     my @tn = $XPC->findnodes("preceding::text()[1]", $g);
     if (@tn != 1 || $tn[0]->data !~ /\Q$gl\E$/) {
       &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
+      $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
     my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
+    my $glossContext; my $glossScopeP;
     if (@isGlossary) {
-      &addDictionaryLinks(\@tn, @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent(), &scopeToBooks(&getGlossaryScope(@tn[0]), $bookOrderP));
+      $glossContext = @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent();
+      $glossScopeP = &scopeToBooks(&getEntryScope(@tn[0]), $bookOrderP);
+      &addDictionaryLinks(\@tn, $context, $glossScopeP);
     }
     else {
       &addDictionaryLinks(\@tn);
     }
-    my $nr = "ERROR, NO MATCH IN GLOSSARY";
-    if (@tn[0]->parentNode ne @tn[0]) {
-      &Log("ERROR: Could not find glossary entry to match explicit glossary markup \"$g\".\n");
+    if ($before eq $g->parentNode->toString()) {
+      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".$tn[0]->data."\n".(@isGlossary ? "\tGlossary Context=$glossContext\n\tGlossary Scope=".join("_", @{$glossScopeP})."\n":'')."\n");
+      $ExplicitGlossary{$gl}{"Failed"}++;
+      next;
     }
-    else {
-      $nr = &decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"));
-      $g->parentNode->removeChild($g);
-    }
-    if ($ExplicitGlossary{$gl} && $ExplicitGlossary{$gl} ne $nr) {
-      &Log("ERROR: Same explicit glossary markup was converted as \"$nr\" and as \"".$ExplicitGlossary{$gl}."\".\n");
-    }
-    else {$ExplicitGlossary{$gl} = $nr;}
+    $ExplicitGlossary{$gl}{&decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"))}++;
+    $g->parentNode->removeChild($g);
   }
 }
 
@@ -1726,7 +1729,9 @@ sub logDictLinks() {
   &Log("REPORT: Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)\n");
   my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
   foreach my $eg (sort keys %ExplicitGlossary) {
-    &Log(sprintf("%-".$mxl."s was linked to %s", $eg, $ExplicitGlossary{$eg}) . "\n");
+    my @txt;
+    foreach my $tg (sort keys %{$ExplicitGlossary{$eg}}) {push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}.")");}
+    &Log(sprintf("%-".$mxl."s was linked to %s", $eg, join(", ", @txt)) . "\n");
   }
   
   my $total = 0;
