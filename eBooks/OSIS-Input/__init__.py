@@ -15,7 +15,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS files to ebooks'
-    version = (2, 2, 0)
+    version = (2, 3, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['windows', 'linux']

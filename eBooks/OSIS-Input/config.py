@@ -45,6 +45,7 @@ class ConversionConfig:
         self.epub3 = False
         self.testamentIntro = False
         self.bibleIntro = False
+        self.combinedIntros = False
         self.bookSubtitles = False
         self.psalmDivTitle = ''
         self.psalmDivSubtitle = ''
@@ -126,11 +127,13 @@ class ConversionConfig:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.testamentIntro = True
-        m = re.search(r"^\s*BibleIntro=(.+)", config, re.MULTILINE|re.IGNORECASE)
+
+        m = re.search(r"^\s*CombinedIntros=(.+)", config, re.MULTILINE|re.IGNORECASE)
         if m:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
-                self.bibleIntro = True
+                self.combinedIntros = True
+                
         m = re.search(r"^\s*IntroInContents=(.+)", config, re.MULTILINE|re.IGNORECASE)     
         if m:
             torf = m.group(1).strip().lower()

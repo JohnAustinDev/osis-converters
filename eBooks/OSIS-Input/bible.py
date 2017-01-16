@@ -4,6 +4,10 @@ import shutil
 import re
 
 class BibleHandler(OsisHandler):
+    
+    # Tuple to define div types for introductions
+    INTRO_DIVS = ('introduction', 'front', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other', 'preface','coverPage', 'titlePage')
+    
     def __init__(self, htmlWriter, context):
         OsisHandler.__init__(self, htmlWriter, context)
         self._bibleHtmlOpen = False
@@ -226,7 +230,7 @@ class BibleHandler(OsisHandler):
             else:
                 self._chapterTitle += text
                      
-        else :
+        else:
             if self._headerProcessed:
                 if self._inIntro or not self._docStructure.inBook:
                     if len(text) > 0:
@@ -408,7 +412,7 @@ class BibleHandler(OsisHandler):
                 if secRef is not None:
                     self._ignoreDivEnd = True           # Milestone tag
                     
-            elif divType == 'introduction' or divType == 'preface' or divType == 'coverPage' or divType == 'titlePage':
+            elif divType in self.INTRO_DIVS:
                 if self._bibleStarting and not self._docStructure.inGroup:
                     self._introDivTextFound = False
                     if not self._bibleHtmlOpen:
@@ -476,6 +480,7 @@ class BibleHandler(OsisHandler):
             if listType is None and self._inIntro and self._introStyleStarted:
                 htmlTag = '<ul class="x-introduction">\n'
                 self._writeHtml(htmlTag)
+                self._inList = True
             else:
                 OsisHandler._processBodyTag(self, name, attrs)
             
@@ -554,7 +559,7 @@ class BibleHandler(OsisHandler):
                 if titleType == 'runningHead':
                     self._inTitle = True
                     self._ignoreTitle = True
-                elif titleType == 'x-chapterLabel':
+                elif titleType == 'x-chapterLabel' and self._docStructure.inBook and not self._inIntro:
                     if self._singleChapterBook:
                         self._inTitle = True
                         self._ignoreTitle = True
@@ -569,6 +574,8 @@ class BibleHandler(OsisHandler):
                     else:
                         headerLevel = self._defaultHeaderLevel
                     subType = self._getAttributeValue(attrs,'subType')
+                    if titleType == 'x-chapterLabel':
+                        subType += ' x-chapter-title'
                     chapter = ''
                     if (self._context.outputFmt != 'fb2'):
                         if (not self._singleChapterBook) and (self._startingChapter or (self._inVerse and self._firstVerse and self._verseEmpty and not self._canonicalTitleWritten)):
@@ -718,6 +725,26 @@ class BibleHandler(OsisHandler):
         self._inGeneratedPara = True
         
     def _writeIntroText(self):
+        # If this is being written as a book or testament introduction, adjust any initial heading level to create TOC entry as required
+        if not self._bookHtmlOpen:
+            # Find the first title, and check that this is before the start of the first paragrapph
+            title = re.search(r'<h3.*?>(.*?)</h3>', self._introText, re.DOTALL)
+            para = re.search(r'<p.*?>', self._introText)
+            if title:
+                if para is None or title.start() < para.start():
+                    headerLevel = self._context.topHeaderLevel
+                    if self._groupHtmlOpen:
+                        if self._groupTitle != '':
+                            if self._context.config.introInContents:
+                                headerLevel += 1
+                            else:
+                                headerLevel = 0  # No toc entry required
+                                
+                    if headerLevel == 1 or headerLevel == 2:
+                        newTitle = '<h%d>%s</h%d>' % (headerLevel, title.group(1), headerLevel)
+                        newIntro = self._introText[:title.start()] + newTitle + self._introText[title.end():]
+                        self._introText = newIntro
+            
         self._htmlWriter.write(self._introText)
         
     def _handlePsDivHeading(self, text):
@@ -774,7 +801,7 @@ class BibleHandler(OsisHandler):
     def _processBookIntroTitle(self):
         titleWritten = False
         rawText = re.sub('<.*>', ' ', self._titleText)
-        if rawText.lower() == self._groupTitle.lower():
+        if self._context.config.combinedIntros and rawText.lower() == self._groupTitle.lower():
             if self._context.config.bibleIntro and self._docStructure.groupNumber == 1 and self._introTextFound:
                 # If testament title is found in Bible intro, this is division between Bible and testament intro
                 self._closeParagraph()
@@ -790,7 +817,7 @@ class BibleHandler(OsisHandler):
                     
         elif rawText.lower() == self._bookTitle.lower():
             self._bookTitleFound = True
-            if self._firstBook and self._introTextFound:
+            if self._context.config.combinedIntros and self._firstBook and self._introTextFound:
                 # For the first book in a group, anything before this is assumed to be a Bible/testament introduction
                 self._closeParagraph()
                 self._introText += '\n'               

@@ -16,6 +16,8 @@ class GlossaryHandler(OsisHandler):
         self._inChapter = False                         # Currently between start and end chapter tags
         self._entryTocLevel = 2                         # Level for toc entries for individual entries
         self._keywordTag = 'dfn'                        # Tag to use for keywords
+        self._startingGlossDiv = False                  # We are at the start of a glossary <div>
+        self._needEntryDiv = False                      # Need to write a glossary entry <div> after current title
         
 
     def startDocument(self):
@@ -27,8 +29,10 @@ class GlossaryHandler(OsisHandler):
         self._inChapterTitle = False
         self._inDfn = False
         self._foundGlossaryDiv = False
+        self._startingGlossDiv = False
         self._inChapter = False
-        self._entryTocLevel = 2 
+        self._entryTocLevel = 2
+        self._needEntryDiv = False
         self._defaultHeaderLevel = 3                    # Avoid header level 2 as this would appear in table of contents
         
         # Select appropriate setting for FB2 for whether individual entries should be in the toc       
@@ -67,9 +71,12 @@ class GlossaryHandler(OsisHandler):
             
         elif name == 'seg':
             if self._inDfn:
-                self._writeHtml('</%s>' % self._keywordTag)
-                if self._keywordTag == 'h4':
-                    self._writeHtml('\n<div class="glossary-entry">')
+                if self._context.outputFmt != 'fb2' or not self._inTitle:
+                    self._writeHtml('</%s>' % self._keywordTag)
+                    if self._keywordTag == 'h4':
+                        self._writeHtml('\n<div class="glossary-entry">')
+                else:
+                    self._needEntryDiv = True
                 self._inDfn = False
                 self._endDfn = True
                 
@@ -85,7 +92,10 @@ class GlossaryHandler(OsisHandler):
                         self._entryTocLevel = 3
                     else:
                         self._glossTitleWritten = True
+                        self._startingGlossDiv = False
                     self._writeTitle()
+                    if self._needEntryDiv:
+                        self._writeHtml('\n<div class="glossary-entry">')  
                     
         else:
             OsisHandler.endElement(self, name)
@@ -102,8 +112,10 @@ class GlossaryHandler(OsisHandler):
             if self._headerProcessed:           
                 if not self._ignoreText:
                     if len(text) > 0:
-                        if not self._glossTitleWritten and not self._inTitle:
-                            self._writeDefaultTitle()                                        
+                        if not self._inTitle:
+                            self._startingGlossDiv = False
+                            if not self._glossTitleWritten:
+                                self._writeDefaultTitle()
                         if not self._inParagraph and not self._inGeneratedPara and not self._inArticle and not self._lineGroupPara and not self._inTable:
                             self._startGeneratedPara()
                         if self._endDfn:
@@ -144,11 +156,18 @@ class GlossaryHandler(OsisHandler):
                 self._htmlWriter.open(self._osisIDWork)
                 self._breakCount = 2
                 self._foundGlossaryDiv = True
-            elif not self._foundGlossaryDiv:
-                typeStr = ''
-                if divType is not None:
-                    typeStr = 'type %s' % divType
-                print 'Unexpected <div> found - type %s' % typeStr
+                self._startingGlossDiv = True
+            else:
+                self._startingGlossDiv = False
+                if not self._foundGlossaryDiv:
+                    typeStr = ''
+                    if divType is not None:
+                        typeStr = 'type %s' % divType
+                    print 'Unexpected <div> found - type %s' % typeStr
+                    
+        elif name == 'p':
+            self._startingGlossDiv = False
+            OsisHandler._processBodyTag(self, name, attrs)
                 
         elif name == 'reference':
             # reference are ignored apart from glossary references
@@ -167,11 +186,12 @@ class GlossaryHandler(OsisHandler):
                 if self._context.outputFmt != 'epub':
                     articleTag = 'div'
                 levelAttr = ''
-                if self._context.config.glossEntriesInToc:
-                    levelAttr = ' toclevel="%d"' % self._entryTocLevel
-                if self._keywordTag == 'dfn':                   # fb2 will not generate toc entry if within <div>
-                    self._writeHtml('\n<%s class="glossary-entry">' % articleTag)
-                self._writeHtml('\n<%s%s>' % (self._keywordTag, levelAttr))
+                if self._context.outputFmt != 'fb2' or not self._inTitle:  # If in fb2 title, just stick with this
+                    if self._context.config.glossEntriesInToc:
+                        levelAttr = ' toclevel="%d"' % self._entryTocLevel
+                    if self._keywordTag == 'dfn':                   # fb2 will not generate toc entry if within <div>
+                        self._htmlWriter.write('\n<%s class="glossary-entry">' % articleTag) # Don't use _writeHtml to keep outside heading
+                    self._writeHtml('\n<%s%s>' % (self._keywordTag, levelAttr))
                 self._inArticle = True
                 self._inDfn = True
                     
@@ -188,7 +208,7 @@ class GlossaryHandler(OsisHandler):
                 self._inChapterTitle = True
                 self._titleText = ''
             else:
-                if not self._glossTitleWritten:
+                if not self._glossTitleWritten or (titleType == 'main' and self._startingGlossDiv):
                     self._titleTag = '<h%d>' % self._context.topHeaderLevel
                 else:
                     level = self._getAttributeValue(attrs,'level')
