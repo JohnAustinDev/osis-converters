@@ -1216,23 +1216,29 @@ sub convertExplicitGlossaryElements(\@) {
     my $before = $g->parentNode->toString();
     my $gl = $g->getAttribute("level1");
     my @tn = $XPC->findnodes("preceding::text()[1]", $g);
-    if (@tn != 1 || $tn[0]->data !~ /\Q$gl\E$/) {
+    if (@tn != 1 || @tn[0]->data !~ /\Q$gl\E$/) {
       &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
+    # adjust @tn so index target is a separate text node
+    my $tn0 = @tn[0];
+    my $tn0v = $tn0->data; $tn0v =~ s/\Q$gl\E$//;
+    $tn0->setData($tn0v);
+    @tn[0] = XML::LibXML::Text->new($gl);
+    $tn0->parentNode->insertAfter(@tn[0], $tn0);
     my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
     my $glossContext; my $glossScopeP;
     if (@isGlossary) {
       $glossContext = @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent();
       $glossScopeP = &scopeToBooks(&getEntryScope(@tn[0]), $bookOrderP);
-      &addDictionaryLinks(\@tn, $context, $glossScopeP);
+      &addDictionaryLinks(\@tn, $glossContext, $glossScopeP);
     }
     else {
       &addDictionaryLinks(\@tn);
     }
     if ($before eq $g->parentNode->toString()) {
-      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".$tn[0]->data."\n".(@isGlossary ? "\tGlossary Context=$glossContext\n\tGlossary Scope=".join("_", @{$glossScopeP})."\n":'')."\n");
+      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n".(@isGlossary ? "\tGlossary Context=$glossContext\n\tGlossary Scope=".join("_", @{$glossScopeP})."\n":'')."\n");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
