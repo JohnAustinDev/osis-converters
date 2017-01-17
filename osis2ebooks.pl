@@ -186,9 +186,9 @@ sub setupAndMakeEbook($$$) {
   }
 
   # run the converter
-  &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp, $type);
-  &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp, $type);
-  &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp, $type);
+  if (!$DEBUG || $DEBUG =~ /epub/i) {&makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp, $type);}
+  if (!$DEBUG || $DEBUG =~ /mobi/i) {&makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp, $type);}
+  if (!$DEBUG || $DEBUG =~ /fb2/i) {&makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp, $type);}
 }
 
 # Look for a cover image in $dir matching $scope and return it if found. 
