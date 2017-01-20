@@ -162,8 +162,6 @@ sub filterGlossaryToScope($$) {
   my @removed;
   my @kept;
   
-  if (!$scope) {$scope = 'Gen-Rev';} # This means any non Bible scopes (like SWORD) are filtered out 
-  
   my $xml = $XML_PARSER->parse_file($osis);
   my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
   foreach my $div (@glossDivs) {

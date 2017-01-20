@@ -1148,14 +1148,12 @@ sub sortSearchTermKeys($$) {
 # element (including its introduction if there is one) is dropped.
 # If a pruned book contains a peripheral which also pertains to a kept 
 # book, that peripheral is moved to the first kept book, so as to retain 
-# the peripheral. If there is no scope then inosis is copied to outosis.
+# the peripheral.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
   my $outosis = shift;
   my $scope = shift;
   my $vsys = shift;
-  
-  if (!$scope) {copy($inosis, $outosis); return;}
   
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
   $typeRE =~ s/\-/\\-/g;

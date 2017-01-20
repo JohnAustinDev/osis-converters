@@ -44,12 +44,12 @@ $CREATE_FULL_BIBLE = (!defined($EBOOKCONV{'CreateFullBible'}) || $EBOOKCONV{'Cre
 $CREATE_SEPARATE_BOOKS = (!defined($EBOOKCONV{'CreateSeparateBooks'}) || $EBOOKCONV{'CreateSeparateBooks'} !~ /^(false|0)$/i);
 @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %EBOOKCONV) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
 
-if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook('', 'Full');}
+if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook($ConfEntryP->{"Scope"}, 'Full', '', $ConfEntryP);}
 
 # make eBooks for any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
 if (@CREATE_FULL_PUBLICATIONS) {
   foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-    &setupAndMakeEbook($EBOOKCONV{'CreateFullPublication'.$x}, 'Full', $EBOOKCONV{'TitleFullPublication'.$x});
+    &setupAndMakeEbook($EBOOKCONV{'CreateFullPublication'.$x}, 'Full', $EBOOKCONV{'TitleFullPublication'.$x}, $ConfEntryP);
   }
 }
 
@@ -63,7 +63,7 @@ if ($CREATE_SEPARATE_BOOKS) {
       # don't create single ebook if an identical single ebook publication has already been created
       if ($bk && $bk eq $EBOOKCONV{'CreateFullPublication'.$x}) {$bk = '';}
     }
-    if ($bk) {&setupAndMakeEbook($bk, 'Part');}
+    if ($bk) {&setupAndMakeEbook($bk, 'Part', '', $ConfEntryP);}
   }
 }
 
@@ -73,20 +73,23 @@ if ($CREATE_SEPARATE_BOOKS) {
 sub setupAndMakeEbook($$$) {
   my $scope = shift;
   my $type = shift;
-  my $title = shift;
+  my $titleOverride = shift;
+  my $confP = shift;
+  
+  my $scopeIsCompleteOSIS = ($scope eq $confP->{"Scope"});
   
   &Log("\n");
   
-  my $tmp = "$TMPDIR/".($scope ? $scope:'all');
+  my $tmp = "$TMPDIR/$scope";
   make_path($tmp);
     
-  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $ConfEntryP->{"Versification"});
+  if ($scopeIsCompleteOSIS) {copy($OSISFILE, "$tmp/$MOD.xml");}
+  else {&pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $confP->{"Versification"});}
   
   # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
-  my $scopeTitle;
-  if ($scope) {
-    $scopeTitle = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml", $title);
+  if (!$scopeIsCompleteOSIS) {
+    $titleOverride = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml", $titleOverride);
     %EBOOKCONV = &ebookReadConf("$tmp/convert.txt");
   }
   
@@ -102,34 +105,35 @@ sub setupAndMakeEbook($$$) {
   
   # copy cover
   my $cover;
-  # Cover name is 'cover' by default, or $scope if that image exists, or in 
-  # the case of a single book eBook, the name of an existing image whose scope 
-  # includes our book.
-  my $covname = ($scope ? &findCover("$INPD/eBook", $scope):'cover.jpg');
+  # Cover name is a jpg image named $scope if it exists, or else an 
+  # existing jpg image whose name (which is a scope) includes $scope. 
+  # Or it's just 'cover.jpg' by default
+  my $covname = &findCover("$INPD/eBook", $scope, $confP->{"Versification"});
+  if (!-e "$INPD/eBook/$covname") {$covname = 'cover.jpg';}
   if (-e "$INPD/eBook/$covname") {
     $cover = "$tmp/cover.jpg";
-    if ($scope && $type eq 'Part') {
+    if (!$scopeIsCompleteOSIS && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      &Log("REPORT: Using \"$covname\" with extra title \"$scopeTitle\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      &Log("REPORT: Using \"$covname\" with extra title \"$titleOverride\" as cover of \"$MOD:$scope\".\n");
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
-      my $pointsize = (4/3)*$imagewidth/length($scopeTitle);
+      my $pointsize = (4/3)*$imagewidth/length($titleOverride);
       if ($pointsize > 40) {$pointsize = 40;}
       elsif ($pointsize < 10) {$pointsize = 10;}
       my $padding = 20;
       my $barheight = $pointsize + (2*$padding) - 10;
-      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$scopeTitle' \"$cover\"";
+      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$titleOverride' \"$cover\"";
       &Log("$cmd\n");
       `$cmd`;
     }
     else {
-      &Log("REPORT: Using \"$covname\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");
+      &Log("REPORT: Using \"$covname\" as cover of \"$MOD:$scope\".\n");
       copy("$INPD/eBook/$covname", $cover);
     }
   }
-  else {&Log("REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:".($scope ? $scope:'all')."\".\n");}
+  else {&Log("REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:$scope\".\n");}
   
   my @skipCompanions;
-  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+  foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
     # copy companion OSIS file
     my $outf;
     my $outd = $OUTDIR;
@@ -143,17 +147,18 @@ sub setupAndMakeEbook($$$) {
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
+        # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);
         if ($filter == -1) { # -1 means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           unlink("$tmp/$companion.xml");
-          &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\" because the glossary contained nothing which matched the scope.\n");
+          &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:$scope\" because the glossary contained nothing which matched the scope.\n");
           next;
         }
       }
     }
   
-    &Log("REPORT: Including".($filter ? ' (filtered)':'')." \"$companion\" in \"$MOD:".($scope ? $scope:'all')."\"\n");
+    &Log("REPORT: Including".($filter ? ' (filtered)':'')." \"$companion\" in \"$MOD:$scope\"\n");
     
     # copy companion images
     my $compDir = &findCompanionDirectory($companion);
@@ -197,18 +202,20 @@ sub setupAndMakeEbook($$$) {
 sub findCover($$) {
   my $dir = shift;
   my $scope = shift;
+  my $vsys = shift;
   
   if (opendir(EBD, $dir)) {
     my @fs = readdir(EBD);
     closedir(EBD);
     my $bookOrderP;
-    &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+    &getCanon($vsys, NULL, \$bookOrderP, NULL);
     foreach my $f (@fs) {
       my $fscope = $f;
       my $m = $MOD.'_';
       if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
       $fscope =~ s/_/ /g;
       if ($scope eq $fscope) {return $f;}
+      # if scopes are not a perfect match, then the scope of the eBook is assumed to be a single book!
       for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {if ($scope eq $s) {return $f;}}
     }
   }
@@ -224,7 +231,7 @@ sub makeEbook($$$$$$) {
   my $tmp = shift;
   my $type = shift;
   
-  &Log("--- CREATING $format FROM $osis FOR ".($scope ? $scope:"ALL BOOKS")."\n", 1);
+  &Log("--- CREATING $format FROM $osis FOR $scope\n", 1);
   
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
@@ -235,7 +242,7 @@ sub makeEbook($$$$$$) {
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
-    my $name = ($scope ? $scope:($ConfEntryP->{"Scope"} ? $ConfEntryP->{"Scope"}:$MOD));
+    my $name = $scope;
     if ($type) {$name .= "_" . $type;}
     $name .= ".$format";
     $name =~ s/\s/_/g;
