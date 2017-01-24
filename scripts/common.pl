@@ -777,8 +777,11 @@ sub updateConfData(\%$) {
 	else {
 		&Log("ERROR: ModDrv \"".$entryValueP->{"ModDrv"}."\" is unrecognized.\n");
 	}
-  if ($moddrv =~ /^(raw|z)(text|com)$/i || $moddrv =~ /^rawld$/i) {
-    &Log("ERROR: ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.\n");
+  # At this time (Jan 2017) JSword does not yet support zText4
+  if ($moddrv =~ /^(raw)(text|com)$/i || $moddrv =~ /^rawld$/i) {
+    my $msg = "ERROR: ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.\n";
+    if (!$AlreadyReported{$msg}) {&Log($msg);}
+    $AlreadyReported{$msg}++;
   }
   &setConfValue($entryValueP, 'DataPath', $dp, 1);
 
