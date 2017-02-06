@@ -274,6 +274,7 @@ sub writeDefaultDictionaryWordsXML($$) {
   my %keys;
   foreach my $k (@keywords) {
     if ($osis) {
+      # get a list of this keyword's context values (this keyword may appear multiple times with different context each time)
       my @c;
       foreach my $kw (@osisKW) {
         if (uc($kw->textContent()) ne uc($k)) {next;}
@@ -281,7 +282,7 @@ sub writeDefaultDictionaryWordsXML($$) {
         if (!$gScope) {@c = (); last;} # if any keyword has no context, consider this keyword global
         push(@c, $gScope);
       }
-      if (@c) {$keys{$k} = join(' ', @c);}
+      $keys{$k} = join(' ', @c);
     }
     else {$keys{$k} = '';}
   }
