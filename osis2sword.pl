@@ -62,7 +62,7 @@ if ($IS_usfm2osis) {
     $xsl = 'osis2tei.xsl'; $out = "tei";
   }
   if ($xsl) {
-    &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, "$TMPDIR/$out.xml");
+    &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, "$TMPDIR/$out.xml", 'sword');
     $OSISFILE = "$TMPDIR/$out.xml";
   }
 }

@@ -1899,10 +1899,26 @@ sub is_usfm2osis($) {
 }
 
 
-sub osisXSLT($$$) {
+sub osisXSLT($$$$) {
   my $osis = shift;
   my $xsl = shift;
   my $out = shift;
+  my $customPreprocessorDirName = shift;
+ 
+  if ($osis && $customPreprocessorDirName) {
+    my $preprocessor = "$INPD/$customPreprocessorDirName/preprocess.xsl";
+    if (-e $preprocessor) {
+      &Log("\n--- Running Pre-Processor XSLT...\n");
+      
+      my $outtmp = $out;
+      if ($outtmp !~ s/^(.*?\/)([^\/]+)$/$1preprocessed_$2/) {&Log("ERROR: No substitution: \"$out\"\n"); die;}
+      my $cmd = "saxonb-xslt -xsl:" . &escfile($preprocessor) . " -s:" . &escfile($osis) . " -o:" . &escfile($outtmp);
+      &Log("$cmd\n");
+      system($cmd);
+      
+      $osis = $outtmp;
+    }
+  }
 
   if ($osis) {
     &Log("\n--- Running XSLT...\n");
