@@ -24,7 +24,7 @@ sub addSeeAlsoLinks($$) {
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING OUTPUT FILE: \"$out_file\".\n");
   
-  my @entries = $XPC->findnodes('//entry[@osisRef]', $DWF);
+  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $DWF);
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
@@ -100,7 +100,7 @@ sub processEntry($$$\@) {
   
   my @parseTextNodes;
   foreach my $e (@$entryTextNodesP) {
-    if ($e->parentNode()->localname =~ /^($DICTLINK_SKIPNAMES)$/) {next;}
+    if ($e->parentNode()->localname eq 'reference') {next;}
     push(@parseTextNodes, $e);
   }
 

@@ -46,8 +46,8 @@ require("$SCRD/scripts/paratext2imp.pl");
 
 open(AFILE, ">>:encoding(UTF-8)", "$TMPDIR/".$MOD."_1.imp") || die;
 
-&writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp", "$OUTDIR/DictionaryWords_autogen.xml");
-&loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
+&writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp");
+&loadDictionaryWordsXML(1);
 &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.imp");
 
 if ($addScripRefLinks ne '0') {

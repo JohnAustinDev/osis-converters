@@ -42,11 +42,7 @@ sub addDictLinks($$) {
       my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $book);
       &convertExplicitGlossaryElements(\@glossary);
       
-      my @skips = split(/\|/, $DICTLINK_SKIPNAMES);
-      push(@skips, "reference");
-      foreach my $skip (@skips) {$skip = "local-name() != '$skip'";}
-      my $xpath = ".//*[". join(" and ", @skips) . "]";    
-      my @elems = $XPC->findnodes($xpath, $book);
+      my @elems = $XPC->findnodes(".//*[local-name() != 'reference']", $book);
       &addDictionaryLinks(\@elems);
     }
     

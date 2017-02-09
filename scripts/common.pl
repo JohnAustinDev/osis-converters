@@ -33,7 +33,8 @@ $LB = "<lb />";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
-$DICTLINK_SKIPNAMES= "caption|figure|title|name|lb|lg";
+$DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]";
+$DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
@@ -104,8 +105,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   }
   
+  $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
   if (-e "$INPD/$DICTIONARY_WORDS") {
-    $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+    &loadDictionaryWordsXML();
     if (&validateDictionaryXML($DWF) && !$quiet) {
       &Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");
     }
@@ -130,6 +132,47 @@ sub setOUTDIR($) {
     $OUTDIR .= '/'.$sub;
   }
   if (!-e $OUTDIR) {make_path($OUTDIR);}
+}
+
+# returns true on success
+sub loadDictionaryWordsXML($) {
+  my $companionsAlso = shift;
+  
+  if (-e $DEFAULT_DICTIONARY_WORDS && ! -e "$INPD/$DICTIONARY_WORDS") {
+    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
+  }
+  if (! -e "$INPD/$DICTIONARY_WORDS") {return 0;}
+  $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+  
+  # check for old DWF markup and update
+  my @tst = $XPC->findnodes('//dw:div', $DWF);
+  if (!@tst || !@tst[0]) {
+    &Log("ERROR: Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default!\nAdd 'xmlns:dw=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    my @ns = $XPC->findnodes('//*', $DWF);
+    foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1);}
+  }
+  my @tst = $XPC->findnodes('//*[@highlight]', $DWF);
+  if (@tst && @tst[0]) {
+    &Log("ERROR: Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"\nRemove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.\n\n");
+  }
+  my @tst = $XPC->findnodes('//*[@notXPATH]', $DWF);
+  if (!@tst || !@tst[0]) {
+    &Log("ERROR: Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting!\nAdd 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
+  }
+
+  if (!my $companionsAlso) {return 1;}
+  
+  # if companion has no dictionary words file, then create it too
+  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+    if (!-e "$INPD/../../$companion") {
+      &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
+      next;
+    }
+    if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($DEFAULT_DICTIONARY_WORDS, "$INPD/../../$companion/$DICTIONARY_WORDS");}
+  }
+  
+  return 1;
 }
 
 
@@ -245,7 +288,7 @@ sub checkDependencies($$$$) {
 sub validateDictionaryXML($) {
   my $dwf = shift;
   
-  my @entries = $XPC->findnodes('//entry[@osisRef]', $dwf);
+  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);
   foreach my $entry (@entries) {
     my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
     foreach my $dict (@dicts) {
@@ -256,7 +299,7 @@ sub validateDictionaryXML($) {
   my $success = 1;
   my $x = "//*";
   my @allowed = ('dictionaryWords', 'div', 'entry', 'name', 'match');
-  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badElem = $XPC->findnodes($x, $dwf);
   if (@badElem) {
     foreach my $ba (@badElem) {
@@ -265,9 +308,9 @@ sub validateDictionaryXML($) {
     }
   }
   
-  $x = "//*[name()!='dictionaryWords'][name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'highlight', 'multiple');
-  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'notXPATH', 'version');
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
@@ -276,9 +319,9 @@ sub validateDictionaryXML($) {
     }
   }
   
-  $x = "//entry/@*";
+  $x = "//dw:entry/@*";
   push(@allowed, ('osisRef', 'noOutboundLinks'));
-  foreach my $a (@allowed) {$x .= "[name()!='$a']";}
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
@@ -296,6 +339,7 @@ sub initLibXML() {
   $XPC = XML::LibXML::XPathContext->new;
   $XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
   $XPC->registerNs('tei', 'http://www.crosswire.org/2013/TEIOSIS/namespace');
+  $XPC->registerNs('dw', $DICTIONARY_WORDS_NAMESPACE);
   $XML_PARSER = XML::LibXML->new();
 }
 
@@ -1259,7 +1303,7 @@ sub addDictionaryLinks(\@$\@) {
   if ($entry) {
     my $entryOsisRef = &entry2osisRef($MOD, $entry);
     if (!$NoOutboundLinks{'haveBeenRead'}) {
-      foreach my $n ($XPC->findnodes('descendant-or-self::entry[@noOutboundLinks=\'true\']', $DWF)) {
+      foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
         foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
       }
       $NoOutboundLinks{'haveBeenRead'}++;
@@ -1303,12 +1347,10 @@ sub addDictionaryLink(\$$$\@) {
   my $textNode = shift;
   my $entry = shift; # for SeeAlso links only
   my $glossaryScopeP = shift; # for SeeAlso links only
-  
-  &dbg(sprintf("\naddDictionaryLink\ntext=%s\nentry=%s\n", $$textP, $entry), $entry);
-  
+
   my $matchedPattern = '';
   
-  if (!@MATCHES) {@MATCHES = $XPC->findnodes("//match", $DWF);}
+  if (!@MATCHES) {@MATCHES = $XPC->findnodes("//dw:match", $DWF);}
   
   my $context;
   my $multiples_context;
@@ -1327,25 +1369,27 @@ sub addDictionaryLink(\$$$\@) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    &dbg(sprintf("Context: %16s\nMatch: %s\nEntry: %s\nNodeType: %s = ", $context, $m, $entry, $textNode->parentNode()->nodeType), $entry);
-    if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n", $entry); next;}
-    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n", $entry); next;}
-    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n", $entry); next;}
-    if ($textNode->parentNode()->localName eq 'hi' && !&attributeIsSet('highlight', $m)) {&dbg("30\n", $entry); next;}
+#@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
+    &dbg(sprintf("Context: %16s\nMatch: %s\nEntry: %s\nNode: %s\nNodeType: %s = ", $context, $m, $entry, $textNode, $textNode->parentNode()->nodeType));
+    if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n"); next;} # never add glossary links to self
+    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n"); next;}
+    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n"); next;}
     if (!&attributeIsSet('multiple', $m)) {
-      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n", $entry); next;}}
-      elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n", $entry); next;}
+      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n"); next;}}
+      elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n"); next;}
     }
+    my @tst = $XPC->findnodes(&getAttribute('notXPATH', $m), $textNode);
+    if (@tst && @tst[0]) {&dbg("45\n"); next;}
     if ($a = &getAttribute('context', $m)) {
       my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs && &myGlossaryContext($a, $glossaryScopeP));
-      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("50\n", $entry); next;}
+      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("50\n"); next;}
     }
-    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n", $entry); next;}}
+    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n"); next;}}
     if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
     
     my $p = $m->textContent;
     
-    if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n", $entry); next;}
+    if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n"); next;}
     my $pm = $1; my $pf = $2;
     
     # handle PUNC_AS_LETTER word boundary matching issue
@@ -1362,7 +1406,7 @@ sub addDictionaryLink(\$$$\@) {
     if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");}
    
     # finally do the actual MATCHING...
-    if ($t !~ /$pm/) {$t =~ s/\n/ /g; &dbg("\"$t\" is not matched by: /$pm/\n", $entry); next;}
+    if ($t !~ /$pm/) {$t =~ s/\n/ /g; &dbg("\"$t\" is not matched by: /$pm/\n"); next;}
       
     my $is = $-[$#+];
     my $ie = $+[$#+];
@@ -1374,11 +1418,11 @@ sub addDictionaryLink(\$$$\@) {
       $ie = $+[$i];
     }
     
-    &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n", $entry);
+    &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
     $matchedPattern = $m->textContent;
     
-    my $osisRef = @{$XPC->findnodes('ancestor::entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
-    my $name = @{$XPC->findnodes('preceding-sibling::name[1]', $m)}[0]->textContent;
+    my $osisRef = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
+    my $name = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
     my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
@@ -1412,7 +1456,7 @@ sub matchInEntry($$) {
   my $m = shift;
   my $entry = shift;
   
-  my $osisRef = @{$XPC->findnodes('ancestor::entry[1]', $m)}[0]->getAttribute('osisRef');
+  my $osisRef = @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef');
   foreach my $ref (split(/\s+/, $osisRef)) {
     if (&osisRef2Entry($ref) eq $entry) {return 1;}
   }
@@ -1461,10 +1505,16 @@ sub getAttribute($$) {
 
 sub dbg($$) {
   my $p = shift;
-  my $e = shift;
   
-  if (!$DEBUG || !$e || $DEBUG !~ /$e/i) {return;}
+#for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
+  
+  if (!@DICT_DEBUG_THIS) {return 0;}
+  for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {
+    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
+  }
+  
   &Log($p);
+  return 1;
 }
 
 
@@ -1646,7 +1696,8 @@ sub validOsisRefSegment($$\$\$\$) {
   my $v; if (!$vP) {$vP = \$v;}
   
   if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
-    if (@{$XPC->findnodes("//entry[\@osisRef='$osisRef']", $DWF)}) {return 1;}
+    my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $DWF);
+    if (@tst && @tst[0]) {return 1;}
     &Log("ERROR: unknown osisRef: \"$osisRef\"\n");
     return 0;
   }
@@ -1703,7 +1754,7 @@ sub checkDictReferences($) {
       my @srefs = split(/\s+/, $osisRef);
       foreach my $sref (@srefs) {
         if ($DWF) {
-          my @entry = $XPC->findnodes('//entry[@osisRef=\''.$sref.'\']', $DWF);
+          my @entry = $XPC->findnodes('//dw:entry[@osisRef=\''.$sref.'\']', $DWF);
           if (!@entry) {
             $errors++;
             &Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");
@@ -1746,7 +1797,7 @@ sub logDictLinks() {
   
   my $nolink = "";
   my $numnolink = 0;
-  my @entries = $XPC->findnodes('//entry/name/text()', $DWF);
+  my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $DWF);
   my %entriesH; foreach my $e (@entries) {$entriesH{$e}++;}
   foreach my $e (sort keys %entriesH) {
     my $match = 0;

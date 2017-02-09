@@ -12,8 +12,8 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 elsif ($MODDRV =~ /LD/) {
   require("$SCRD/scripts/processGlossary.pl");
   &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
-  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml", "$OUTDIR/DictionaryWords_autogen.xml");
-  &loadDictionaryWordsXML("$OUTDIR/DictionaryWords_autogen.xml");
+  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
+  &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
 my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();

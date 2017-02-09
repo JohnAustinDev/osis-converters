@@ -242,7 +242,9 @@ sub toVersificationBookOrder($$) {
       }
     }
     if (!$placedPeriph) {
-      if (@{$XPC->findnodes('.//*', $periph)} || @{$XPC->findnodes('.//text()[normalize-space()]', $periph)}) {
+      my @tst = $XPC->findnodes('.//*', $periph);
+      my @tst2 = $XPC->findnodes('.//text()[normalize-space()]', $periph);
+      if ((@tst && @tst[0]) || (@tst2 && @tst2[0])) {
         push(@mylog,
 "ERROR: The placement location for the following peripheral material was 
 not specified and its position may be incorrect:

@@ -231,8 +231,8 @@ sub dictWordsHeader() {
   onlyOldTestament=\"true|false\"
   context=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which to create links (default is all)\"
   notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
-  highlight=\"true|false: allow links within bold, italic or other highlighted text (default is false)\"
   multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
+  notXPATH=\"an xpath expression to be applied on each text node to skip text nodes that return non-null\"
 
   Entry elements may contain the following attributes:
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
@@ -245,26 +245,8 @@ sub dictWordsHeader() {
 -->\n";
 }
 
-sub loadDictionaryWordsXML($) {
-  my $defaultDWF = shift;
-  
-  # if there is no project dictionary words file, then create it
-  if (! -e "$INPD/$DICTIONARY_WORDS") {copy($defaultDWF, "$INPD/$DICTIONARY_WORDS");}
-  $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-  
-  # if companion has no dictionary words file, then create it too
-  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-    if (!-e "$INPD/../../$companion") {
-      &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
-      next;
-    }
-    if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($defaultDWF, "$INPD/../../$companion/$DICTIONARY_WORDS");}
-  }
-}
-
-sub writeDefaultDictionaryWordsXML($$) {
+sub writeDefaultDictionaryWordsXML($) {
   my $in_file = shift; # could be osis or imp
-  my $defaultDWF = shift;
   
   my $osis = ($in_file =~ /\.(xml|osis)$/i ? $XML_PARSER->parse_file($in_file):'');
   my @osisKW = ($osis ? $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]', $osis):'');
@@ -287,11 +269,11 @@ sub writeDefaultDictionaryWordsXML($$) {
     else {$keys{$k} = '';}
   }
   
-  if (!open(DWORDS, ">:encoding(UTF-8)", $defaultDWF)) {&Log("ERROR: Could not open $defaultDWF"); die;}
+  if (!open(DWORDS, ">:encoding(UTF-8)", $DEFAULT_DICTIONARY_WORDS)) {&Log("ERROR: Could not open $DEFAULT_DICTIONARY_WORDS"); die;}
   print DWORDS &dictWordsHeader();
   print DWORDS "
-<dictionaryWords version=\"1.0\">
-<div highlight=\"false\" multiple=\"false\">\n";
+<dictionaryWords version=\"1.0\" xmlns=\"$DICTIONARY_WORDS_NAMESPACE\">
+<div highlight=\"false\" multiple=\"false\" notXPATH=\"$DICTIONARY_NotXPATH_Default\">\n";
   my $divEnd;
   my $esp;
   my $currentContext;
@@ -358,7 +340,7 @@ sub compareToDictionaryWordsXML($) {
   
   my @sourceEntries = &getDictKeys($imp_or_osis);
   
-  my @dwfEntries = $XPC->findnodes('//entry[@osisRef]/@osisRef', $DWF);
+  my @dwfEntries = $XPC->findnodes('//dw:entry[@osisRef]/@osisRef', $DWF);
   
   my $allmatch = 1; my $mod;
   foreach my $es (@sourceEntries) {
@@ -386,7 +368,7 @@ sub compareToDictionaryWordsXML($) {
     unlink($dw_file); rename("$dw_file.tmp", $dw_file);
     &Log("NOTE: Updated $update entries in $dw_file\n");
     
-    $DWF = $XML_PARSER->parse_file($dw_file);
+    &loadDictionaryWordsXML();
   }
   
   if ($allmatch) {&Log("All entries are included.\n");}
@@ -458,9 +440,9 @@ sub checkEntryNames(\@) {
   foreach my $i (sort keys %instances) {
     my $skip = 0;
     if ($DWF) {
-      my @elems = $XPC->findnodes('//entry[child::name[text()="' . $i . '"]]', $DWF);
+      my @elems = $XPC->findnodes('//dw:entry[child::dw:name[text()="' . $i . '"]]', $DWF);
       foreach my $elem (@elems) {
-        if (@{$elem->findnodes('./match')} > 1) {$skip = 1;}
+        if (@{$elem->findnodes('./dw:match')} > 1) {$skip = 1;}
       }
     }
     if (!$skip) {$p .= $i."\n"; $total += $instances{$i};}
