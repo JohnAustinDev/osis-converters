@@ -188,7 +188,7 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
       elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
-      elsif ($_ =~ /^EXCLUSION:(Linking)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
+      elsif ($_ =~ /^EXCLUSION:(Linking|Extended)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
       elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
       elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
       elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
@@ -378,8 +378,10 @@ sub addScripRefLinks($$) {
   }
   else {&Log("(no unknown book names)\n");}
   &Log("\n");
-
-  &Log("REPORT: Listing of exclusions: (".(scalar(keys %exclusion) + scalar(keys %lineExclusion))." instances)\n");
+  my $t = 0;
+  foreach my $e (keys %exclusion) {my @tmp = split(/$sp$sp/, $exclusion{$e}); $t += @tmp;}
+  foreach my $e (keys %lineExclusion) {my @tmp = split(/$sp$sp/, $lineExclusion{$e}); $t += @tmp;}
+  &Log("REPORT: Listing of exclusions: ($t instances)\n");
   if (scalar(keys %exclusion) || scalar(keys %lineExclusion)) {
     &reportExclusions(\%exclusion, \%exclusionREP, "verse");
     &reportExclusions(\%lineExclusion, \%lineExclusionREP, "line");
@@ -560,6 +562,7 @@ sub addLinks(\$$$) {
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
 
       my @subrefArray = split(/($sepTerms)/, $extref);
+      if (@subrefArray > 1) {&Log("$line Extended $BK.$CH.$VS: $extref = \n");}
       foreach my $subref (@subrefArray) {
         if ($line == $debugLine) {&Log("DEBUG3: subref=\"$subref\"\n");}
 
@@ -629,6 +632,7 @@ sub termAcceptable($$%%) {
   my $doneExcP = shift;
 
   my $tre = quotemeta($t);
+#&Log("DEBUG: t=$t, key=$key, " . $excP->{$key} . " =~ /$sp$tre$sp/ is " . (($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) ? "true":"false") . "\n");
   if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
     $doneExcP->{$key} .= $sp.$t.$sp;
     &Log("$line WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
@@ -639,8 +643,8 @@ sub termAcceptable($$%%) {
 }
 
 sub reportExclusions(%%$) {
-        my $excP = shift;
-        my $doneExcP = shift;
+  my $excP = shift;
+  my $doneExcP = shift;
   my $type = shift;
 
   if (!(scalar(keys %{$excP}))) {
