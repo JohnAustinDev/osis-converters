@@ -32,19 +32,17 @@ sub addDictLinks($$) {
     copy($in_file, $out_file);
   }
   else {
+    # bible intro
+    my $bibleintro = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+    &processContainer($bibleintro);
+    
+    # testament intros
+    my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+    foreach my $tst (@tstintro) {&processContainer($tst);}
+    
+    # books and book intros
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-    foreach my $book (@books) {
-      my $bk = $book->getAttribute('osisID');
-      
-      &Log("Processing $bk\n", 1);
-      
-      # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-      my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $book);
-      &convertExplicitGlossaryElements(\@glossary);
-      
-      my @elems = $XPC->findnodes(".//*[local-name() != 'reference']", $book);
-      &addDictionaryLinks(\@elems);
-    }
+    foreach my $book (@books) {&processContainer($book);}
     
     open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
     print OUTF $xml->toString();
@@ -53,6 +51,25 @@ sub addDictLinks($$) {
     &logDictLinks();
   }
 
+}
+
+sub processContainer($) {
+  my $con = shift;
+  
+  my $name = ($con->nodeName() eq 'osisText' ? 'Bible introduction':($con->getAttribute('type') eq 'bookGroup' ? 'Testament introduction':$con->getAttribute('osisID')));
+  
+  my $filter = '';
+  if ($name eq 'Bible introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'bookGroup\']) and not(ancestor-or-self::osis:header)]';}
+  elsif ($name eq 'Testament introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'book\'])]';}
+
+  &Log("Processing $name\n", 1);
+
+  # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
+  my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]$filter", $con);
+  &convertExplicitGlossaryElements(\@glossary);
+
+  my @elems = $XPC->findnodes(".//*[local-name() != 'reference']$filter", $con);
+  &addDictionaryLinks(\@elems);
 }
 
 1;

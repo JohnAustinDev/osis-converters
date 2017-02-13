@@ -1529,8 +1529,14 @@ sub myContext($$) {
   my $context = shift;
 
   my $test2 = $test;
-  if ($test eq 'ot') {$test2 = $OT_BOOKS;}
-  elsif ($test eq 'nt') {$test2 = $NT_BOOKS;}
+  if ($test eq 'ot') {
+    if ($context =~ /^TESTAMENT_INTRO\.1\./) {return $context;}
+    $test2 = $OT_BOOKS;
+  }
+  elsif ($test eq 'nt') {
+    if ($context =~ /^TESTAMENT_INTRO\.2\./) {return $context;}
+    $test2 = $NT_BOOKS;
+  }
   foreach my $t (split(/\s+/, $test2)) {
     if ($t =~ /^\s*$/) {next;}
     if (!$REF_SEG_CACHE{$t}) {$REF_SEG_CACHE{$t} = &osisRefSegment2array($t);}
@@ -1558,8 +1564,11 @@ sub myGlossaryContext($\@) {
 }
 
 # return special Bible context reference for $elem:
-# Gen.0.0.0 = intro
-# Gen.1.0.0 = intro
+# BIBLE_INTRO.0.0.0 = Bible intro
+# TESTAMENT_INTRO.1.0.0 = Old Testament intro
+# TESTAMENT_INTRO.2.0.0 = New Testament intro
+# Gen.0.0.0 = book intro
+# Gen.1.0.0 = chapter intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
 sub bibleContext($$) {
@@ -1568,9 +1577,25 @@ sub bibleContext($$) {
   
   my $context = '';
   
-  # must have book to have context
+  # get book
   my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);
   my $bk = (@bk ? @bk[0]->getAttribute('osisID'):'');
+  
+  # no book means we might be a Bible or testament introduction
+  if (!$bk) {
+    my @bib = $XPC->findnodes('ancestor-or-self::osis:osisText', $elem);
+    if (@bib && @bib[0]) {
+      # make sure this is an x-bible type OSIS file and not a glossary or other type of OSIS file
+      my @xbib = $XPC->findnodes("//osis:work[\@osisWork='".@bib[0]->getAttribute('osisRefWork')."']/osis:type[\@type='x-bible']", @bib[0]);
+      if (@xbib && @xbib[0]) {
+        my @tst = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $elem);
+        if (@tst && @tst[0]) {
+          return "TESTAMENT_INTRO.".(1+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
+        }
+        return "BIBLE_INTRO.0.0.0";
+      }
+    }
+  }
 
   my @c;
   if (@bk && $bk) {
@@ -1704,6 +1729,17 @@ sub validOsisRefSegment($$\$\$\$) {
   $$bP = $1;
   $$cP = ($2 ? $3:0);
   $$vP = ($4 ? $5:0);
+  
+  if ($osisRef =~ /^BIBLE_INTRO\.$/) {
+    $$cP = 0;
+    $vP = 0;
+    return 1;
+  }
+  
+  if ($osisRef =~ /^TESTAMENT_INTRO\.(1|2)\.$/) {
+    $vP = 0;
+    return 1;
+  }
   
   if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
     &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
