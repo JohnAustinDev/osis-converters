@@ -442,7 +442,7 @@ sub checkEntryNames(\@) {
     if ($DWF) {
       my @elems = $XPC->findnodes('//dw:entry[child::dw:name[text()="' . $i . '"]]', $DWF);
       foreach my $elem (@elems) {
-        if (@{$elem->findnodes('./dw:match')} > 1) {$skip = 1;}
+        if (@{$XPC->findnodes('./dw:match', $elem)} > 1) {$skip = 1;}
       }
     }
     if (!$skip) {$p .= $i."\n"; $total += $instances{$i};}
