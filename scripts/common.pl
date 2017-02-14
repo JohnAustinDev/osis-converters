@@ -1331,6 +1331,7 @@ sub addDictionaryLinks(\@$\@) {
         }
         $text = join('', @parts);
       } while(!$done);
+      $text =~ s/(^|\s)&(\s|$)/&amp;/g;
       $textchild->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
       $textchild->unbindNode();
     }
