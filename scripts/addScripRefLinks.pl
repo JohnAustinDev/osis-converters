@@ -236,14 +236,13 @@ sub addScripRefLinks($$) {
     if ($textNode =~ /^\s*$/) {next;}
     if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
     if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
-    if ($only_xpath && !$XPC->findnodes("ancestor-or-self::$only_xpath", $textNode)) {next;}
+    if ($only_xpath) {
+      my @only = $XPC->findnodes($only_xpath, $textNode);
+      if (!@only || !@only[0]) {next;}
+    }
     if ($skip_xpath) {
-      if (!$skip_path_XPATH) {
-        $skip_path_XPATH = $skip_xpath;
-        $skip_path_XPATH =~ s/(^|\|)/$1ancestor-or-self::/g;
-      }
-      my @skipped = $XPC->findnodes($skip_path_XPATH, $textNode);
-      if (@skipped) {
+      my @skipped = $XPC->findnodes($skip_xpath, $textNode);
+      if (@skipped && @skipped[0]) {
         my $t = @skipped[0]->toString();
         if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
           $reportedSkipped{$1}++;
