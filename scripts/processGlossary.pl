@@ -273,7 +273,7 @@ sub writeDefaultDictionaryWordsXML($) {
   print DWORDS &dictWordsHeader();
   print DWORDS "
 <dictionaryWords version=\"1.0\" xmlns=\"$DICTIONARY_WORDS_NAMESPACE\">
-<div highlight=\"false\" multiple=\"false\" notXPATH=\"$DICTIONARY_NotXPATH_Default\">\n";
+<div multiple=\"false\" notXPATH=\"$DICTIONARY_NotXPATH_Default\">\n";
   my $divEnd;
   my $esp;
   my $currentContext;
