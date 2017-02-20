@@ -2335,9 +2335,14 @@ sub validateOSIS($) {
   # validate new OSIS file against schema
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
-  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>> ".&escfile($LOGFILE);
+  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
-  system($cmd);
+  my $res = `$cmd`;
+  &Log("$res\n");
+  
+  # Generate error if file does not validate
+  if ($res !~ /^\Q$osis validates\E$/) {&Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");}
+  
   &Log("END OSIS VALIDATION\n");
 }
 
@@ -2356,14 +2361,7 @@ sub Log($$) {
   
   if ($flag == 2) {return;}
   
-  # encode these local file paths
-  my @paths = ('INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
-  foreach my $path (@paths) {
-    if (!$$path) {next;}
-    my $rp = $$path;
-    $rp =~ s/[\/\\]+$//;
-    $p =~ s/\Q$rp\E/\$$path/g;
-  }
+  $p = &encodePrintPaths($p);
   
   if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
 
@@ -2371,6 +2369,20 @@ sub Log($$) {
   if ($LogfileBuffer) {print LOGF $LogfileBuffer; $LogfileBuffer = '';}
   print LOGF $p;
   close(LOGF);
+}
+
+sub encodePrintPaths($) {
+  my $t = shift;
+  
+  # encode these local file paths
+  my @paths = ('INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
+  foreach my $path (@paths) {
+    if (!$$path) {next;}
+    my $rp = $$path;
+    $rp =~ s/[\/\\]+$//;
+    $t =~ s/\Q$rp\E/\$$path/g;
+  }
+  return $t;
 }
 
 1;
