@@ -10,9 +10,13 @@ sub aggregateRepeatedEntries($) {
     my @comment = $XPC->findnodes('./descendant::comment()[1]', $gdiv);
     if (@comment && !$gdiv->getAttribute('osisRef')) {
       my $scope = @comment[0]->textContent();
+      # only a single scope can be set in glossaries
+      my $c = () = $scope =~ /==/g;
       if ($scope =~ s/^.*?\bscope\s*==\s*(.*?)\s*$/$1/) {
         $gdiv->setAttribute('osisRef', $scope);
+        $c--;
       }
+      if ($c) {&Log("ERROR: Only a single \"scope == <value>\" can be specified for an OSIS glossary div!\n");}
     }
   }
   
