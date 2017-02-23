@@ -218,22 +218,22 @@ sub addFootnoteLinks($$) {
   &Log("#################################################################\n");
   &Log("\n");
   
-  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k}) {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
+  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
   &Log("\n");
     
   &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
   &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
   &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
+  &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
   &Log("\n");
   &Log(sprintf("%5i - Ordinal: default\n", &stat('\-d$')));
   &Log(sprintf("%5i - Ordinal: specific\n", &stat('\d+$')));
+  &Log(sprintf("%5i - Ordinal: last\n", &stat('last')));
   &Log(sprintf("%5i - Ordinal: previous\n", &stat('prev')));
   &Log(sprintf("%5i - Ordinal: next\n", &stat('next')));
-  &Log(sprintf("%5i - Ordinal: last\n", &stat('last')));
   &Log("\n");
   &Log(sprintf("%5i - Single references\n", &stat('single')));
   &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
-  &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
   &Log("FINISHED!\n\n");
 
   &Log("LINK RESULTS FROM: $out_file\n");
@@ -305,7 +305,7 @@ sub addFootnoteLinks2TextNode($$) {
           $ordinal = $1;
           &Log("NOTE $line $BK.$CH.$VS: Applied FIX \"$t\"\n");
           $refType = 'fix';
-          $FNL_FIX{"$BK.$CH.$VS"} = NULL;
+          $FNL_FIX{"$BK.$CH.$VS"} = 'done';
           last;
         }
       }
