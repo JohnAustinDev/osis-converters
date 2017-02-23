@@ -52,6 +52,9 @@ $RefExt = "!footnote.n";
 require("$SCRD/scripts/processGlossary.pl");
 
 %OSISID_FOOTNOTE;
+%FNL_FIX;
+%TERM_ORDINAL;
+%FNL_STATS;
 
 sub addFootnoteLinks($$) {
   my $in_file = shift;
@@ -68,7 +71,6 @@ sub addFootnoteLinks($$) {
   $commonTerms = '';
   $currentVerseTerms = '';
   $suffixTerms = '';
-  %ordinalTerms;
   my $commandFile = "$INPD/CF_addFootnoteLinks.txt";
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
@@ -83,11 +85,20 @@ sub addFootnoteLinks($$) {
           my @ots = split(/\|/, $ots);
           foreach my $ot (@ots) {
             if ($ot !~ /^(\d+|last|next|prev):(.*)$/) {&Log("ERROR: Malformed entry in ORDINAL_TERMS: \"$ot\"\n"); next;}
-            my $ord = $1; my $val = $2;
-            if ($ordinalTerms{$ord}) {$ordinalTerms{$ord} .= '|'.$val;}
-            else {$ordinalTerms{$ord} = $val;}
+            $TERM_ORDINAL{$2} = $1;
           }
         } 
+        next;
+      }
+      elsif ($_ =~ /^FIX:(.*+)$/) {
+        my $fix = $1;
+        if ($fix !~ s/\bLOCATION='(\S+)'//) {&Log("ERROR: Could not find LOCATION='book.ch.vs' in FIX statement: $_\n"); next;}
+        my $location = $1;
+        if ($fix !~ s/\bTARGET='(\S+)'//) {&Log("ERROR: Could not find TARGET='book.ch.vs!footnote.nx' in FIX statement: $_\n"); next;}
+        my $target = $1;
+        if ($fix !~ s/\bAT='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find AT='reference text' in FIX statement: $_\n"); next;}
+        my $at = $1; $at =~ s/\\'/'/g;
+        $FNL_FIX{$location}{$at} = $target;
         next;
       }
       elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
@@ -99,7 +110,6 @@ sub addFootnoteLinks($$) {
       elsif ($_ =~ /^CURRENT_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentVerseTerms = $2;} next;}
       elsif ($_ =~ /^SUFFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$suffixTerms = $2;} next;}
       #elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
-      #elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
       else {
         &Log("ERROR: \"$_\" in command file was not handled.\n");
       }
@@ -139,6 +149,8 @@ sub addFootnoteLinks($$) {
   }
 
   # get every text node
+  &Log(sprintf("%-7s %-13s         %-50s %-18s %s\n", 'LINE', "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
+  &Log(sprintf("%-7s %-13s         %-50s %-18s %s\n", '----', "--------", "-------", '----', '---------'));
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
 
   # apply text node filters and process desired text-nodes
@@ -205,14 +217,42 @@ sub addFootnoteLinks($$) {
   &Log("\n");
   &Log("#################################################################\n");
   &Log("\n");
+  
+  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k}) {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
+  &Log("\n");
+    
+  &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
+  &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
+  &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
+  &Log("\n");
+  &Log(sprintf("%5i - Ordinal: default\n", &stat('\-d$')));
+  &Log(sprintf("%5i - Ordinal: specific\n", &stat('\d+$')));
+  &Log(sprintf("%5i - Ordinal: previous\n", &stat('prev')));
+  &Log(sprintf("%5i - Ordinal: next\n", &stat('next')));
+  &Log(sprintf("%5i - Ordinal: last\n", &stat('last')));
+  &Log("\n");
+  &Log(sprintf("%5i - Single references\n", &stat('single')));
+  &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
+  &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
+  &Log("FINISHED!\n\n");
+
+  &Log("LINK RESULTS FROM: $out_file\n");
   &Log("\n");
 
+
+}
+
+sub stat($) {
+  my $re = shift;
+  my $t = 0;
+  for my $k (keys %FNL_STATS) {if (!$re || $k =~ /$re/) {$t += $FNL_STATS{$k};}}
+  return $t;
 }
 
 ##########################################################################
 ##########################################################################
 # 1) LOCATE RIGHTMOST UNLINKED FOOTNOTE-TERM
-# 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE FOR FOOTNOTE LINK(S)
+# 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
 sub addFootnoteLinks2TextNode($$) {
   my $textNode = shift;
@@ -221,8 +261,9 @@ sub addFootnoteLinks2TextNode($$) {
   if ($textNode->data() !~ /\b($footnoteTerms)($suffixTerms)*\b/i) {return '';}
   
   my $text = $textNode->data();
+  my $ordTerms = join("|", keys(%TERM_ORDINAL));
   
-  my @refType;
+  my %refTypes;
   while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
     my $beg = $1;
     my $term = "$RefStart$2$RefEnd";
@@ -233,21 +274,17 @@ sub addFootnoteLinks2TextNode($$) {
     # Work backwards from our term to discover...
     # Ordinal:
     my $ordinal;
-    foreach my $ot (keys %ordinalTerms) {
-      my $thisOrdinalTerm = $ordinalTerms{$ot};
-      if ($beg =~ s/(\b(\Q$thisOrdinalTerm\E)($suffixTerms)*\b\s*)$//i) {
-        my $ordinalText = $1;
-        $term = $ordinalText.$term;
-        $ordinal = $ot;
-        last;
-      }
+    if ($beg =~ s/(\b($ordTerms)($suffixTerms)*\b\s*)$//i) {
+      my $ordinalTerm = $1;
+      my $ordinalTermKey = $2;
+      $term = $ordinalTerm.$term; # was removed from beg so add to term so it's not lost
+      $ordinal = $TERM_ORDINAL{$ordinalTermKey};
     }
   
     # Target footnote's osisRef address: (must be either "this verse", or else discovered via a reference element)
     my $osisRef; 
-    my $ordTerms = join('|', values(%ordinalTerms));
     my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
-    if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|$ordTerms|\s)*$/i) {
+    if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $osisRef = @haveRef[0]->getAttribute('osisRef');
       $osisRef =~ s/^[^:]+://;
       if (!$osisRef) {
@@ -256,9 +293,26 @@ sub addFootnoteLinks2TextNode($$) {
       }
       $refType = 'ref';
     }
-    elsif ($beg =~ /($currentVerseTerms)($suffixTerms)*(($commonTerms)($suffixTerms)*|$ordTerms|\s)*$/i) {
+    elsif ($beg =~ /($currentVerseTerms)($suffixTerms)*(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $osisRef = "$BK.$CH.$VS";
       $refType = 'self';
+    }
+    elsif (exists($FNL_FIX{"$BK.$CH.$VS"})) {
+      foreach my $t (keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
+        if ("$beg$term" =~ /\Q$t\E/) {
+          $osisRef = $FNL_FIX{"$BK.$CH.$VS"}{$t};
+          $osisRef =~ s/\Q$RefExt\E(\d+)$//;
+          $ordinal = $1;
+          &Log("NOTE $line $BK.$CH.$VS: Applied FIX \"$t\"\n");
+          $refType = 'fix';
+          $FNL_FIX{"$BK.$CH.$VS"} = NULL;
+          last;
+        }
+      }
+      if (!$osisRef) {
+        &Log("ERROR $line $BK.$CH.$VS: Failed to apply FIX: $beg$term\n");
+        next;
+      }
     }
     else {
       &Log("ERROR $line $BK.$CH.$VS: Could not find target footnote verse: $beg$term\n");
@@ -266,30 +320,41 @@ sub addFootnoteLinks2TextNode($$) {
     }
     
     # Now, other associated ordinal terms become separate links to the same base osisRef, but with different extensions
-    if ($beg =~ /(($commonTerms)($suffixTerms)*|$ordTerms|\s)+$/) {
-      my $initialBeg = $beg;
-      while ($beg =~ s/\b(?<!\>)($ordTerms)\b/$RefStart$1$RefEnd/) {
-        my $ordterm = $1;
+    if ($beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
+      my $terms = $1;
+      my $initialTerms = $terms;
+      while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
+        my $ordTermKey = $2;
         
-        my $ord = &convertOrdinal($ordinalTerms{$ordterm}, $osisRef, $textNode, $xml);
-        if ($ord) {
-          my $osisID = $osisRef.$RefExt.$ord;
-          $beg =~ s/\bTARGET\b/$osisID/;
-          push(@refType, "$refType-multi-".$ordinalTerms{$ordterm});
+        my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, $osisRef, $textNode, $xml);
+        if ($osisID) {
+          $terms =~ s/\bTARGET\b/$osisID/;
+          $refTypes{$osisID} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
+          $FNL_STATS{$refTypes{$osisID}}++;
+        }
+        else {
+          &Log("ERROR: $line $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef=$osisRef, textNode=$textNode\n");
         }
       }
-      if ($beg ne $initialBeg) {
+      if ($terms ne $initialTerms) {
+        my $initialBeg = $beg;
+        if ($beg !~ s/\Q$initialTerms\E$/$terms/) {
+          &Log("ERROR $line $BK.$CH.$VS: Associated ordinal beg term(s) were not replaced!\n");
+        }
         if ($text !~ s/^\Q$initialBeg\E/$beg/) {
-          &Log("ERROR $line $BK.$CH.$VS: Associated ordinal term(s) were not replaced!\n");
+          &Log("ERROR $line $BK.$CH.$VS: Associated ordinal text term(s) were not replaced!\n");
         }
       }
     }
     
-    my $ord = ($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):1);
-    if ($ord) {
-      my $osisID = $osisRef.$RefExt.$ord;
+    my $osisID = ($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):$osisRef.$RefExt.'1');
+    if ($osisID) {
       $text =~ s/\bTARGET\b/$osisID/;
-      push(@refType, "$refType-single-".($ordinal ? $ordinal:'d'));
+      $refTypes{$osisID} = "$refType-single-".($ordinal ? $ordinal:'d');
+      $FNL_STATS{$refTypes{$osisID}}++;
+    }
+    else {
+      &Log("ERROR: $line $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
     }
     
     if ($text =~ /\bTARGET\b/) {
@@ -306,7 +371,8 @@ sub addFootnoteLinks2TextNode($$) {
   }
   $text = join('', @alks);
   
-  
+  # Sanity checks (shouldn't be needed but makes me feel better)
+  my $test = $text; $test =~ s/<[^>]*>//g;
   if ($text eq $textNode->data()) {
     &Log("ERROR $line $BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).\n");
     return '';
@@ -315,11 +381,13 @@ sub addFootnoteLinks2TextNode($$) {
     &Log("ERROR $line $BK.$CH.$VS: Footnote text was changed, but no links were created!\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
     return '';
   }
+  elsif ($textNode->data() ne $test) {
+    &Log("ERROR $line $BK.$CH.$VS: A text node was currupted:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
+  }
   else {
     my $report = $text;
-    my $i = @refType-1;
     while ($report =~ s/<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>//) {
-      &Log("$line Linking $BK.$CH.$VS: osisRef=\"$1\" (".@refType[$i--].") at $2\n");
+      &Log(sprintf("%-7i Linking %-13s %-50s %-18s %s\n", $line, "$BK.$CH.$VS", "osisRef=\"$1\"", $refTypes{$1}, $2));
     }
   }
   
@@ -333,31 +401,40 @@ sub convertOrdinal($$$$) {
   my $textNode = shift;
   my $xml = shift;
   
-  if ($ord =~ /^\d+$/) {return $ord;}
+  if ($ord =~ /^\d+$/) {return $osisRef.$RefExt.$ord;}
   elsif ($ord eq 'last') {
     my $n = 1;
-    my $id = "$osisRef$RefExt$n";
-    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$osisRef$RefExt$n";}
+    my $id = $osisRef.$RefExt.$n;
+    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $osisRef.$RefExt.$n;}
     $n--;
     if ($n < 2) {
-      &Log("ERROR $line $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
+      # if this osisRef is compound, then we need to sequentially reverse search each component
+      my $refArrayP = &osisRefSegment2array($osisRef);
+      if (@{$refArrayP} > 1) {
+        for (my $i=(@{$refArrayP}-1); $i>=0; $i--) {
+          my $n = 1;
+          my $id = @{$refArrayP}[$i].$RefExt.$n;
+          while ($OSISID_FOOTNOTE{$id}) {$n++; $id = @{$refArrayP}[$i].$RefExt.$n;}
+          if ($n > 1) {return @{$refArrayP}[$i].$RefExt.($n-1);}
+        }
+      }
+      else {
+        &Log("ERROR $line $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
+      }
     }
-    return $n;
+    return $osisRef.$RefExt.$n;
   }
   elsif ($ord eq 'prev') {
     my $osisID = &getFootnoteOsisID($textNode);
     if ($osisID && $osisID =~ /^(.*?)\Q$RefExt\E(\d+)$/) {
       my $pref = $1;
       my $pord = $2;
-      if ($pref ne $osisRef) {
-        &Log("ERROR $line $BK.$CH.$VS: Cannot use 'prev' ordinal on non-self referenced footnote link\n");
-      }
       $pord--;
-      my $nid = "$pref$RefExt$pord";
+      my $nid = $pref.$RefExt.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $line $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
       }
-      else {return $pord;}
+      else {return $nid;}
     }
   }
   elsif ($ord eq 'next') {
@@ -365,15 +442,12 @@ sub convertOrdinal($$$$) {
     if ($osisID && $osisID =~ /^(.*?)\Q$RefExt\E(\d+)$/) {
       my $pref = $1;
       my $nord = $2;
-      if ($pref ne $osisRef) {
-        &Log("ERROR $line $BK.$CH.$VS: Cannot use 'next' ordinal on non-self referenced footnote link\n");
-      }
       $nord++;
-      my $nid = "$pref$RefExt$nord";
+      my $nid = $pref.$RefExt.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $line $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
       }
-      else {return $nord;}
+      else {return $nid;}
     }    
   }
   else {
