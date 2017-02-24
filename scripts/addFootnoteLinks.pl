@@ -24,26 +24,26 @@
 #
 #   FOOTNOTE_TERMS - A Perl regular expression matching terms which
 #       indicate, and will be converted into, footnote links
-#   ORDINAL_TERMS - A | separated list of number:term pairs where the
-#       number is an ordinal and the term translates to that ordinal
-#   COMMON_TERMS - A Perl regular expression matching all fluff which may 
+#   ORDINAL_TERMS - A | separated list of ordinal:term pairs where the
+#       ordinal is either a number, 'prev', 'next', or 'last', and the  
+#       term is a translation of that ordinal to be parsed from the text.
+#   COMMON_TERMS - A Perl regular expression matching any fluff which may 
 #       appear between the Scripture reference and the footnote term
+#       (excluding ORDINAL_TERMS and SUFFIXES which are automatically 
+#       accounted for)
 #   CURRENT_VERSE_TERMS - A Perl regular expression matching "this verse"
+#   SUFFIXES - A Perl regular expression matching suffixes which may
+#       appear alone or in combination at the end of translated terms. 
+#       Some Turkic languages have many such suffixes for example.
 #   SKIP_XPATH - An XPATH expression used to skip particular elements
 #       of text when searching for Scripture references. By default,
 #       nothing is skipped.
 #   ONLY_XPATH - An XPATH expression used to select only particular
 #       elements of text to search for Scripture references. By default,
 #       everything is searched.
-#   SKIP_INTRODUCTIONS - Boolean if true introductions are skipped.
-#   SUFFIXES - A Perl regular expression matching suffixes which may
-#       appear at the end of book names and chapter/verse terms. Some
-#       Turkic languages have many such suffixes for example.
-#   EXCLUSION - Use to exclude certain references.
-#   FIX - Used to fix an incorrectly parsed reference.
-#   DEBUG_LINE - Set this to a line number to see details of what is
-#       being matched and how. This is sometimes usedful when adjusting
-#       regular expressions or debugging.
+#   SKIP_INTRODUCTIONS - Boolean. If true, introductions are skipped.
+#   FIX - Used to fix a problematic reference. Each instance has the 
+#       form: LOCATION='book.ch.vs' AT='ref text' TARGET='osisID'
 
 $RefStart = "<reference type=\"x-footnote\" osisRef=\"TARGET\">";
 $RefEnd = "</reference>";
@@ -63,7 +63,6 @@ sub addFootnoteLinks($$) {
   &Log("\n--- ADDING FOOTNOTE LINKS\n-----------------------------------------------------\n\n", 1);
 
   # Globals
-  $debugLine = 0;
   $skip_xpath = '';
   $only_xpath = '';
   $skipintros = 0;
@@ -101,7 +100,6 @@ sub addFootnoteLinks($$) {
         $FNL_FIX{$location}{$at} = $target;
         next;
       }
-      elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
       elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
       elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
@@ -252,7 +250,8 @@ sub stat($) {
 ##########################################################################
 ##########################################################################
 # 1) LOCATE RIGHTMOST UNLINKED FOOTNOTE-TERM
-# 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
+# 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH 
+#    EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
 sub addFootnoteLinks2TextNode($$) {
   my $textNode = shift;
@@ -378,11 +377,11 @@ sub addFootnoteLinks2TextNode($$) {
     return '';
   }
   elsif ($text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
-    &Log("ERROR $line $BK.$CH.$VS: Footnote text was changed, but no links were created!\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
+    &Log("ERROR $line $BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
     return '';
   }
   elsif ($textNode->data() ne $test) {
-    &Log("ERROR $line $BK.$CH.$VS: A text node was currupted:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
+    &Log("ERROR $line $BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
   }
   else {
     my $report = $text;
@@ -394,7 +393,8 @@ sub addFootnoteLinks2TextNode($$) {
   return $text;
 }
 
-# returns 0 on error, or else the ordinal as an integer
+# returns 0 on error, or else an existing footnote osisID which 
+# corresponds to the requested ordinal abbreviation, osisRef and textNode
 sub convertOrdinal($$$$) {
   my $ord = shift;
   my $osisRef = shift;
@@ -464,7 +464,7 @@ sub getFootnoteOsisID($) {
   
   my @fn = $XPC->findnodes('ancestor-or-self::osis:note[@placement="foot"][1]', $node);
   if (!@fn || !@fn[0]) {
-    &Log("ERROR $line $BK.$CH.$VS: Not a footnote!\n");
+    &Log("ERROR $line $BK.$CH.$VS: Node must be (in) a footnote!: $node\n");
     return '';
   }
   
