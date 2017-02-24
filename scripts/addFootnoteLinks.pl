@@ -119,9 +119,48 @@ sub addFootnoteLinks($$) {
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
+  
+  &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
+  &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
+  
+  my @files = &splitOSIS($in_file);
+  foreach my $file (@files) {&processFile($file);}
+  &joinOSIS($out_file);
 
-  $XML_PARSER->set_option(line_numbers, 1);
-  my $xml = $XML_PARSER->parse_file($in_file);
+  &Log("Finished adding <reference> tags.\n");
+  &Log("\n");
+  &Log("\n");
+  &Log("#################################################################\n");
+  &Log("\n");
+  
+  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
+  &Log("\n");
+    
+  &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
+  &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
+  &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
+  &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
+  &Log("\n");
+  &Log(sprintf("%5i - Ordinal: default\n", &stat('\-d$')));
+  &Log(sprintf("%5i - Ordinal: specific\n", &stat('\d+$')));
+  &Log(sprintf("%5i - Ordinal: last\n", &stat('last')));
+  &Log(sprintf("%5i - Ordinal: previous\n", &stat('prev')));
+  &Log(sprintf("%5i - Ordinal: next\n", &stat('next')));
+  &Log("\n");
+  &Log(sprintf("%5i - Single references\n", &stat('single')));
+  &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
+  &Log("FINISHED!\n\n");
+
+  &Log("LINK RESULTS FROM: $out_file\n");
+  &Log("\n");
+
+
+}
+
+sub processFile($) {
+  my $osis = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
   
   # add osisIDs to every footnote
   my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
@@ -147,8 +186,6 @@ sub addFootnoteLinks($$) {
   }
 
   # get every text node
-  &Log(sprintf("%-7s %-13s         %-50s %-18s %s\n", 'LINE', "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
-  &Log(sprintf("%-7s %-13s         %-50s %-18s %s\n", '----', "--------", "-------", '----', '---------'));
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
 
   # apply text node filters and process desired text-nodes
@@ -182,11 +219,10 @@ sub addFootnoteLinks($$) {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
     }
-    $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
 
     # display progress
     my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
-    if ($LASTP ne $thisp) {&Log("--> $line: $thisp\n", 2);} $LASTP = $thisp;
+    if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
     if ($intro && $skipintros) {next;}
     
@@ -206,38 +242,9 @@ sub addFootnoteLinks($$) {
   }
 
   # write to out_file
-  open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
+  open(OUTF, ">$osis") or die "Could not open $osis.\n";
   print OUTF $xml->toString();
   close(OUTF);
-
-  &Log("Finished adding <reference> tags.\n");
-  &Log("\n");
-  &Log("\n");
-  &Log("#################################################################\n");
-  &Log("\n");
-  
-  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
-  &Log("\n");
-    
-  &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
-  &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
-  &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
-  &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
-  &Log("\n");
-  &Log(sprintf("%5i - Ordinal: default\n", &stat('\-d$')));
-  &Log(sprintf("%5i - Ordinal: specific\n", &stat('\d+$')));
-  &Log(sprintf("%5i - Ordinal: last\n", &stat('last')));
-  &Log(sprintf("%5i - Ordinal: previous\n", &stat('prev')));
-  &Log(sprintf("%5i - Ordinal: next\n", &stat('next')));
-  &Log("\n");
-  &Log(sprintf("%5i - Single references\n", &stat('single')));
-  &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
-  &Log("FINISHED!\n\n");
-
-  &Log("LINK RESULTS FROM: $out_file\n");
-  &Log("\n");
-
-
 }
 
 sub stat($) {
@@ -288,7 +295,7 @@ sub addFootnoteLinks2TextNode($$) {
       $osisRef = @haveRef[0]->getAttribute('osisRef');
       $osisRef =~ s/^[^:]+://;
       if (!$osisRef) {
-        &Log("ERROR $line $BK.$CH.$VS: verse reference has no osisRef: ".@haveRef[0]."\n");
+        &Log("ERROR $BK.$CH.$VS: verse reference has no osisRef: ".@haveRef[0]."\n");
         next;
       }
       $refType = 'ref';
@@ -303,19 +310,19 @@ sub addFootnoteLinks2TextNode($$) {
           $osisRef = $FNL_FIX{"$BK.$CH.$VS"}{$t};
           $osisRef =~ s/\Q$RefExt\E(\d+)$//;
           $ordinal = $1;
-          &Log("NOTE $line $BK.$CH.$VS: Applied FIX \"$t\"\n");
+          &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
           $refType = 'fix';
           $FNL_FIX{"$BK.$CH.$VS"} = 'done';
           last;
         }
       }
       if (!$osisRef) {
-        &Log("ERROR $line $BK.$CH.$VS: Failed to apply FIX: $beg$term\n");
+        &Log("ERROR $BK.$CH.$VS: Failed to apply FIX: $beg$term\n");
         next;
       }
     }
     else {
-      &Log("ERROR $line $BK.$CH.$VS: Could not find target footnote verse: $beg$term\n");
+      &Log("ERROR $BK.$CH.$VS: Could not find target footnote verse: $beg$term\n");
       next;
     }
     
@@ -332,16 +339,16 @@ sub addFootnoteLinks2TextNode($$) {
           $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
         }
         else {
-          &Log("ERROR: $line $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef=$osisRef, textNode=$textNode\n");
+          &Log("ERROR: $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef=$osisRef, textNode=$textNode\n");
         }
       }
       if ($terms ne $initialTerms) {
         my $initialBeg = $beg;
         if ($beg !~ s/\Q$initialTerms\E$/$terms/) {
-          &Log("ERROR $line $BK.$CH.$VS: Associated ordinal beg term(s) were not replaced!\n");
+          &Log("ERROR $BK.$CH.$VS: Associated ordinal beg term(s) were not replaced!\n");
         }
         if ($text !~ s/^\Q$initialBeg\E/$beg/) {
-          &Log("ERROR $line $BK.$CH.$VS: Associated ordinal text term(s) were not replaced!\n");
+          &Log("ERROR $BK.$CH.$VS: Associated ordinal text term(s) were not replaced!\n");
         }
       }
     }
@@ -352,11 +359,11 @@ sub addFootnoteLinks2TextNode($$) {
       $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
     }
     else {
-      &Log("ERROR: $line $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
+      &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
     }
     
     if ($text =~ /\bTARGET\b/) {
-      &Log("ERROR $line $BK.$CH.$VS: Footnote link problem: $text\n");
+      &Log("ERROR $BK.$CH.$VS: Footnote link problem: $text\n");
     }
   }
   
@@ -372,15 +379,15 @@ sub addFootnoteLinks2TextNode($$) {
   # Sanity checks (shouldn't be needed but makes me feel better)
   my $test = $text; $test =~ s/<[^>]*>//g;
   if ($text eq $textNode->data()) {
-    &Log("ERROR $line $BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).\n");
+    &Log("ERROR $BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).\n");
     return '';
   }
   elsif ($text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
-    &Log("ERROR $line $BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
+    &Log("ERROR $BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
     return '';
   }
   elsif ($textNode->data() ne $test) {
-    &Log("ERROR $line $BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
+    &Log("ERROR $BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
     return '';
   }
   else {
@@ -390,7 +397,7 @@ sub addFootnoteLinks2TextNode($$) {
       my $key = $1;
       my $ref = $2;
       my $linkText = $3;
-      &Log(sprintf("%-7i Linking %-13s %-50s %-18s %s\n", $line, "$BK.$CH.$VS", "osisRef=\"$ref\"", $refInfo{$key}, $linkText));
+      &Log(sprintf("Linking %-13s %-50s %-18s %s\n", "$BK.$CH.$VS", "osisRef=\"$ref\"", $refInfo{$key}, $linkText));
       $FNL_STATS{$refInfo{$key}}++;
     }
   }
@@ -424,7 +431,7 @@ sub convertOrdinal($$$$) {
         }
       }
       else {
-        &Log("ERROR $line $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
+        &Log("ERROR $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
       }
     }
     return $osisRef.$RefExt.$n;
@@ -437,7 +444,7 @@ sub convertOrdinal($$$$) {
       $pord--;
       my $nid = $pref.$RefExt.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
-        &Log("ERROR $line $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
+        &Log("ERROR $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
       }
       else {return $nid;}
     }
@@ -450,13 +457,13 @@ sub convertOrdinal($$$$) {
       $nord++;
       my $nid = $pref.$RefExt.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
-        &Log("ERROR $line $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
+        &Log("ERROR $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
       }
       else {return $nid;}
     }    
   }
   else {
-    &Log("ERROR $line $BK.$CH.$VS: Unhandled ordinal type \"$ord\". This footnote is broken.\n");
+    &Log("ERROR $BK.$CH.$VS: Unhandled ordinal type \"$ord\". This footnote is broken.\n");
   }
   
   return 0;
@@ -469,7 +476,7 @@ sub getFootnoteOsisID($) {
   
   my @fn = $XPC->findnodes('ancestor-or-self::osis:note[@placement="foot"][1]', $node);
   if (!@fn || !@fn[0]) {
-    &Log("ERROR $line $BK.$CH.$VS: Node must be (in) a footnote!: $node\n");
+    &Log("ERROR $BK.$CH.$VS: Node must be (in) a footnote!: $node\n");
     return '';
   }
   

@@ -2329,6 +2329,99 @@ sub prettyPrintOSIS($) {
 }
 
 
+# Split an OSIS file into separate book OSIS files, plus 1 non-book OSIS 
+# file (one that contains everything else). This is intended for use with 
+# joinOSIS to allow parsing smaller files for a big speedup.
+sub splitOSIS($) {
+  my $in_osis = shift;
+  
+  my @return;
+  
+  my $tmp = "$TMPDIR/splitOSIS";
+  if (-e $tmp) {remove_tree($tmp);}
+  make_path($tmp);
+  
+  # Get list of books, and remove them all, and save the rest as other.osis
+  my $xml = $XML_PARSER->parse_file($in_osis);
+  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  my @books; 
+  my %bookGroup;
+  foreach my $book (@bookElements) {
+    my $osisID = $book->getAttribute('osisID');
+    push(@books, $osisID);
+    $bookGroup{$osisID} = scalar(@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $book)});
+    if (!$bookGroup{$osisID}) {$bookGroup{$osisID} = 0;}
+    $book->unbindNode();
+  }
+  push(@return, "$tmp/other.osis");
+  open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
+  print OUTF $xml->toString();
+  close(OUTF);
+  
+  # Save a separate osis file for each book, saving order and bookGroup in the file-name
+  for (my $x=0; $x<@books; $x++) {
+    my $bk = @books[$x];
+    $xml = $XML_PARSER->parse_file($in_osis);
+    
+    # remove all other books (doing this before removing outside material speeds things up a huge amount!)
+    my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+    foreach my $book (@bookElements) {
+      if ($bk && $book->getAttribute('osisID') ne $bk) {$book->unbindNode();}
+    }
+    
+    # remove all material outside of our book
+    my @dels1 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.$bk.'"]/preceding::node()', $xml);
+    my @dels2 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.$bk.'"]/following::node()', $xml);
+    foreach my $del (@dels1) {$del->unbindNode();}
+    foreach my $del (@dels2) {$del->unbindNode();}
+    
+    push(@return, sprintf("%s/%02i %i %s.osis", $tmp, $x, $bookGroup{$bk}, $bk));
+    open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
+    print OUTF $xml->toString();
+    close(OUTF);
+  }
+  
+  return @return;
+}
+sub joinOSIS($) {
+  my $out_osis = shift;
+  
+  my $tmp = "$TMPDIR/splitOSIS";
+  if (!-e $tmp) {die "No splitOSIS tmp directory! \"$tmp\"\n";}
+  
+  opendir(JOSIS, $tmp) || die "joinOSIS could not open splitOSIS tmp directory \"$tmp\"\n";
+  my @files = readdir(JOSIS);
+  closedir(JOSIS);
+  
+  if (!-e "$tmp/other.osis") {die "joinOSIS must have file \"$tmp/other.osis\"!\n";}
+  $xml = $XML_PARSER->parse_file("$tmp/other.osis");
+  
+  foreach my $f (sort @files) {
+    if ($f eq "other.osis" || $f =~ /^\./) {next;}
+    if ($f !~ /^(\d+) (\d+) (.*?)\.osis$/) {
+      &Log("ERROR: joinOSIS bad file name \"$f\"\n");
+    }
+    my $x = $1;
+    my $bookGroup = $2;
+    my $bk = $3;
+    $bkxml = $XML_PARSER->parse_file("$tmp/$f");
+    my @bookNode = $XPC->findnodes('//osis:div[@type="book"]', $bkxml);
+    if (@bookNode != 1) {
+      &Log("ERROR: joinOSIS file \"$f\" does not have just a single book!\n");
+    }
+    my @bookGroupNode = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+    if (!@bookGroupNode || !@bookGroupNode[$bookGroup]) {
+      &Log("ERROR: bookGroup \"$bookGroup\" for joinOSIS file \"$f\" not found!\n");
+    }
+    @bookGroupNode[$bookGroup]->appendChild(@bookNode[0]);
+  }
+  
+  open(OUTF, ">$out_osis") or die "joinOSIS could not open \"$out_osis\".\n";
+  print OUTF $xml->toString();
+  close(OUTF);
+}
+
+
 sub validateOSIS($) {
   my $osis = shift;
   

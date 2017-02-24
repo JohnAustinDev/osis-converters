@@ -24,33 +24,40 @@ sub addDictLinks($$) {
   &Log("READING OSIS FILE: \"$in_file\".\n");
   &Log("WRITING OSIS FILE: \"$out_file\".\n");
   
-  my $xml = $XML_PARSER->parse_file($in_file);
-
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
     copy($in_file, $out_file);
+    return;
   }
-  else {
-    # bible intro
-    my $bibleintro = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
-    &processContainer($bibleintro);
-    
-    # testament intros
-    my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
-    foreach my $tst (@tstintro) {&processContainer($tst);}
-    
-    # books and book intros
-    my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-    foreach my $book (@books) {&processContainer($book);}
-    
-    open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
-    print OUTF $xml->toString();
-    close(OUTF);
+  
+  my @files = &splitOSIS($in_file);
+  foreach my $file (@files) {&processFile($file);}
+  &joinOSIS($out_file);
 
-    &logDictLinks();
-  }
+  &logDictLinks();
+}
 
+sub processFile($) {
+  my $osis = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+
+  # bible intro
+  my $bibleintro = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+  &processContainer($bibleintro);
+  
+  # testament intros
+  my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+  foreach my $tst (@tstintro) {&processContainer($tst);}
+  
+  # books and book intros
+  my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $book (@books) {&processContainer($book);}
+  
+  open(OUTF, ">$osis") or die "addDictLinks processFile could not open $osis.\n";
+  print OUTF $xml->toString();
+  close(OUTF);
 }
 
 sub processContainer($) {
@@ -61,8 +68,6 @@ sub processContainer($) {
   my $filter = '';
   if ($name eq 'Bible introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'bookGroup\']) and not(ancestor-or-self::osis:header)]';}
   elsif ($name eq 'Testament introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'book\'])]';}
-
-  &Log("Processing $name\n", 1);
 
   # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
   my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]$filter", $con);

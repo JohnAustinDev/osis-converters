@@ -84,12 +84,12 @@
 #       the book. For example: "see chapter 6 verse 5". Normally, these
 #       references use context to imply their book target.
 #   EXCLUSION - Use to exclude certain references.
-#   LINE_EXCLUSION - Use to exclude certain references on certain lines.
+#   LINE_EXCLUSION - (NO LONGER SUPPORTED) Was used to exclude certain 
+#       references on certain lines.
 #   FIX - Used to fix an incorrectly parsed reference.
 #   SKIPVERSE - The osisRef of a verse to skip.
-#   DEBUG_LINE - Set this to a line number to see details of what is
-#       being matched and how. This is sometimes usedful when adjusting
-#       regular expressions or debugging.
+
+$DEBUG_LOCATION = 0;
 
 require("$SCRD/scripts/processGlossary.pl");
 
@@ -100,20 +100,12 @@ sub addScripRefLinks($$) {
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
   # Globals
-  $debugLine = 0;
-  $onlyLine = 0;
-
-  $tmpFile = $out_file;
-  $tmpFile =~ s/(^|\/|\\)([^\/\\\.]+)([^\/\\]+)$/$1TMP_$2$3/;
-
   %books;
   %UnhandledWords;
   %noDigitRef;
   %noOSISRef;
   %exclusion;
-  %lineExclusion;
   %exclusionREP;
-  %lineExclusionREP;
   %fix;
   @skipVerse;
 
@@ -144,7 +136,6 @@ sub addScripRefLinks($$) {
   $numMissedLeftRefs = 0;
   $numNoDigitRef = 0;
   $numNoOSISRef = 0;
-  $line=0;
 
   $Types{"T01 (Book? c:v-c:v)"} = 0;
   $Types{"T02 (Book? c:v-lv)"} = 0;
@@ -167,7 +158,6 @@ sub addScripRefLinks($$) {
       $_ =~ s/\s+$//;
 
       if ($_ =~ /^(\#.*|\s*)$/) {next;}
-      elsif ($_ =~ /^DEBUG_LINE:(\s*(\d+)\s*)?$/) {if ($2) {$debugLine = $2;}}
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
       elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
       elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($2) {&Log("ERROR: CF_addScripRefLinks.txt: FILTER is no longer supported. Use ONLY_XPATH instead.\n");} next;}
@@ -190,8 +180,8 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
       elsif ($_ =~ /^EXCLUSION:(Linking|Extended)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
       elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
-      elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
-      elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {$lineExclusion{$1} .= $sp.$2.$sp; next;}
+      elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
+      elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
       elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
       elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
         my $lb = $2;
@@ -223,128 +213,10 @@ sub addScripRefLinks($$) {
   &Log("READING INPUT FILE: \"$in_file\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
-
-  $XML_PARSER->set_option(line_numbers, 1);
-  my $xml = $XML_PARSER->parse_file($in_file);
-
-  # get every text node
-  my @allTextNodes = $XPC->findnodes('//text()', $xml);
-
-  # apply text node filters and process desired text-nodes
-  my %nodeInfo;
-  foreach my $textNode (@allTextNodes) {
-    if ($textNode =~ /^\s*$/) {next;}
-    if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
-    if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
-    if ($only_xpath) {
-      my @only = $XPC->findnodes($only_xpath, $textNode);
-      if (!@only || !@only[0]) {next;}
-    }
-    if ($skip_xpath) {
-      my @skipped = $XPC->findnodes($skip_xpath, $textNode);
-      if (@skipped && @skipped[0]) {
-        my $t = @skipped[0]->toString();
-        if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
-          $reportedSkipped{$1}++;
-          &Log("NOTE: SKIP_XPATH skipping \"$1\".\n");
-        }
-        next;
-      }
-    }
-
-    # get text node's context information
-    my $bcontext = &bibleContext($textNode, 1);
-    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
-    if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
-      $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
-    }
-    else {
-      my $entryScope = &getEntryScope($textNode);
-      if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-    }
-    $line = $textNode->line_number(); # this function always returns 0 after $xml has been modified!
-
-    # display progress
-    my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
-    if ($LASTP ne $thisp) {&Log("--> $line: $thisp\n", 2);} $LASTP = $thisp;
-
-    if ($intro && $skipintros) {next;}
-
-    if ($skipPsalms eq "true" && $BK eq "Ps") {
-      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");} $psw = 1;
-      next;
-    }
-
-    my $skip = 0;
-    foreach my $av (@skipVerse) {
-      if ($av eq "$BK.$CH.$VS") {
-        &Log("$line WARNING $BK.$CH.$VS: Skipping verse $av - on SKIP list\n");
-        $skip = 1; last;
-      }
-    }
-    if ($skip) {next;}
-
-    # search for Scripture references in this text node and add newReference tags around them
-    my $text = $textNode->data();
-    my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
-    &addLinks(\$text, $BK, $CH, $isAnnotateRef);
-    if ($text eq $textNode->data()) {
-      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
-      # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
-      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
-      $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
-    }
-
-    # save changes for later (to avoid messing up line numbers)
-    $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
-    $nodeInfo{$textNode->unique_key}{'text'} = $text;
-  }
-
-  # replace the old text nodes with the new
-  foreach my $n (keys %nodeInfo) {
-    $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
-    $nodeInfo{$n}{'node'}->unbindNode();
-  }
-
-  # complete osisRef attributes by adding the target Bible
-  my $bible = "Bible";
-  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
-  elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
-  my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
-  foreach my $new (@news) {$new->setValue("$bible:".$new->getValue());}
-
-  # remove (after copying attributes) pre-existing reference tags which contain newReference tags
-  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
-  foreach my $ref (@refs) {
-    my @attribs = $ref->attributes();
-    my @chdrn = $XPC->findnodes('child::node()', $ref);
-    foreach $child (@chdrn) {
-      $ref->parentNode()->insertBefore($child, $ref);
-      if ($child->nodeName ne 'newReference') {next;}
-      foreach $a (@attribs) {
-        if ($a !~ /^\s*(.*?)="(.*)"$/) {&Log("ERROR: Bad attribute $a\n");}
-        my $n = $1; my $v = $2;
-        if ($child->hasAttribute($n) && $v ne $child->getAttribute($n)) {
-          &Log("ERROR: reference $n=\"".$v."\" is overwriting newReference $n=\"".$child->getAttribute($n)."\"\n");
-        }
-        $child->setAttribute($n, $v);
-      }
-    }
-    $ref->unbindNode();
-  }
-
-  # convert all newReference elements to reference elements
-  my @nrefs = $XPC->findnodes('//newReference', $xml);
-  $newLinks = scalar(@nrefs);
-  foreach my $nref (@nrefs) {
-    $nref->setNodeName("reference");
-    $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
-  }
-
-  # write to out_file
-  open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
-  print OUTF $xml->toString();
-  close(OUTF);
+  
+  my @files = &splitOSIS($in_file);
+  foreach my $file (@files) {&processFile($file);}
+  &joinOSIS($out_file);
 
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");
@@ -379,11 +251,9 @@ sub addScripRefLinks($$) {
   &Log("\n");
   my $t = 0;
   foreach my $e (keys %exclusion) {my @tmp = split(/$sp$sp/, $exclusion{$e}); $t += @tmp;}
-  foreach my $e (keys %lineExclusion) {my @tmp = split(/$sp$sp/, $lineExclusion{$e}); $t += @tmp;}
   &Log("REPORT: Listing of exclusions: ($t instances)\n");
-  if (scalar(keys %exclusion) || scalar(keys %lineExclusion)) {
+  if (scalar(keys %exclusion)) {
     &reportExclusions(\%exclusion, \%exclusionREP, "verse");
-    &reportExclusions(\%lineExclusion, \%lineExclusionREP, "line");
   }
   else {&Log("(no exclusions were specified in command the file)\n");}
   &Log("\n");
@@ -451,20 +321,142 @@ sub addScripRefLinks($$) {
   my @refs = $XPC->findnodes('//osis:reference', $xml);
   my $warns = ''; my $errs = '';
   foreach my $ref (@refs) {
-    $line = $ref->line_number();
     if ($ref->hasAttribute("type") && $ref->getAttribute("type") =~ /^(x-glossary|x-glosslink)$/) {next;}
     if (!$ref->hasAttribute("osisRef")) {
-      $warns .= "$line WARNING ".&bibleContext($ref, 1).": Link \"".$ref."\" has no osisRef.\n";
+      $warns .= &bibleContext($ref, 1)." WARNING: Link \"".$ref."\" has no osisRef.\n";
     }
     elsif (!&validOSISref($ref->getAttribute("osisRef"), $ref->textContent, 1, 0)) {
-      $errs .= "$line ERROR ".&bibleContext($ref, 1).": Link \"".$ref."\" has an illegal osisRef.\n";
+      $errs .= &bibleContext($ref, 1)." ERROR: Link \"".$ref."\" has an illegal osisRef.\n";
     }
   }
   &Log("$warns$errs");
   &Log("Finished checking osisRefs.\n");
   &Log("\n");
+}
 
-  unlink("$tmpFile");
+sub processFile($) {
+  my $osis = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+
+  # get every text node
+  my @allTextNodes = $XPC->findnodes('//text()', $xml);
+
+  # apply text node filters and process desired text-nodes
+  my %nodeInfo;
+  foreach my $textNode (@allTextNodes) {
+    if ($textNode =~ /^\s*$/) {next;}
+    if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
+    if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
+    if ($only_xpath) {
+      my @only = $XPC->findnodes($only_xpath, $textNode);
+      if (!@only || !@only[0]) {next;}
+    }
+    if ($skip_xpath) {
+      my @skipped = $XPC->findnodes($skip_xpath, $textNode);
+      if (@skipped && @skipped[0]) {
+        my $t = @skipped[0]->toString();
+        if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
+          $reportedSkipped{$1}++;
+          &Log("NOTE: SKIP_XPATH skipping \"$1\".\n");
+        }
+        next;
+      }
+    }
+
+    # get text node's context information
+    my $bcontext = &bibleContext($textNode, 1);
+    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
+    if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
+      $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
+    }
+    else {
+      my $entryScope = &getEntryScope($textNode);
+      if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
+    }
+    $LOCATION = "$BK.$CH.$VS";
+
+    # display progress
+    my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
+    if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
+
+    if ($intro && $skipintros) {next;}
+
+    if ($skipPsalms eq "true" && $BK eq "Ps") {
+      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");} $psw = 1;
+      next;
+    }
+
+    my $skip = 0;
+    foreach my $av (@skipVerse) {
+      if ($av eq "$BK.$CH.$VS") {
+        &Log("$LOCATION WARNING: Skipping verse $av - on SKIP list\n");
+        $skip = 1; last;
+      }
+    }
+    if ($skip) {next;}
+
+    # search for Scripture references in this text node and add newReference tags around them
+    my $text = $textNode->data();
+    my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
+    &addLinks(\$text, $BK, $CH, $isAnnotateRef);
+    if ($text eq $textNode->data()) {
+      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
+      # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
+      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
+      $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
+    }
+
+    # save changes for later (to avoid messing up line numbers)
+    $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
+    $nodeInfo{$textNode->unique_key}{'text'} = $text;
+  }
+
+  # replace the old text nodes with the new
+  foreach my $n (keys %nodeInfo) {
+    $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
+    $nodeInfo{$n}{'node'}->unbindNode();
+  }
+
+  # complete osisRef attributes by adding the target Bible
+  my $bible = "Bible";
+  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
+  elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
+  my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
+  foreach my $new (@news) {$new->setValue("$bible:".$new->getValue());}
+
+  # remove (after copying attributes) pre-existing reference tags which contain newReference tags
+  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
+  foreach my $ref (@refs) {
+    my @attribs = $ref->attributes();
+    my @chdrn = $XPC->findnodes('child::node()', $ref);
+    foreach $child (@chdrn) {
+      $ref->parentNode()->insertBefore($child, $ref);
+      if ($child->nodeName ne 'newReference') {next;}
+      foreach $a (@attribs) {
+        if ($a !~ /^\s*(.*?)="(.*)"$/) {&Log("ERROR: Bad attribute $a\n");}
+        my $n = $1; my $v = $2;
+        if ($child->hasAttribute($n) && $v ne $child->getAttribute($n)) {
+          &Log("ERROR: reference $n=\"".$v."\" is overwriting newReference $n=\"".$child->getAttribute($n)."\"\n");
+        }
+        $child->setAttribute($n, $v);
+      }
+    }
+    $ref->unbindNode();
+  }
+
+  # convert all newReference elements to reference elements
+  my @nrefs = $XPC->findnodes('//newReference', $xml);
+  $newLinks += scalar(@nrefs);
+  foreach my $nref (@nrefs) {
+    $nref->setNodeName("reference");
+    $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
+  }
+
+  # write to out_file
+  open(OUTF, ">$osis") or die "Could not open $osis.\n";
+  print OUTF $xml->toString();
+  close(OUTF);
 }
 
 ##########################################################################
@@ -481,8 +473,7 @@ sub addLinks(\$$$) {
   my $ch = shift;
   my $contextBookOK = shift;
 
-  if ($onlyLine && $line != $onlyLine) {return;}
-#&Log("$line: addLinks $bk, $ch, $$tP\n");
+#&Log("$LOCATION: addLinks $bk, $ch, $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
   for (my $ts = 0; $ts < @notags; $ts++) {
@@ -492,8 +483,7 @@ sub addLinks(\$$$) {
     my $matchedTerm, $type, $unhandledBook;
     while (&leftmostTerm($ttP, \$matchedTerm, \$type, \$unhandledBook)) {
 
-      if ($line == $debugLine) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
-      if (!&termAcceptable($matchedTerm, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
+      if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
       if (!&termAcceptable($matchedTerm, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
 
       #  Look at unhandledBook
@@ -502,41 +492,40 @@ sub addLinks(\$$$) {
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;
         $ubk =~ s/^.*\($/(/;
-        $UnhandledWords{$ubk} .= $line.", ";
+        $UnhandledWords{$ubk} .= $LOCATION.", ";
         if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
-          &Log("$line WARNING $BK.$CH.$VS: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+          &Log("$LOCATION WARNING: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
         elsif (!$contextBookOK) {
-          &Log("$line WARNING $BK.$CH.$VS: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+          &Log("$LOCATION WARNING: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
         }
       }
 
       my $mtENC = quotemeta($matchedTerm);
 
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
-        &Log("$line ERROR $BK.$CH.$VS: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
+        &Log("$LOCATION ERROR: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
         $numMissedLeftRefs++;
-        $missedLeftRefs{$matchedTerm} .= $line.", ";
+        $missedLeftRefs{$matchedTerm} .= $LOCATION.", ";
         &hideTerm($matchedTerm, $ttP, 1);
         next;
       }
       my $extref = $1;
 
-      if ($line == $debugLine) {&Log("DEBUG2: extref=\"$extref\" endref=\"$8\"\n");}
+      if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG2: extref=\"$extref\" endref=\"$8\"\n");}
 
       # Skip if no digits
       if ($extref !~ /\d+/) {
         $numNoDigitRef++;
-        $noDigitRef{"<$extref> (extref)"} .= $line.", ";
-        &Log("$line WARNING $BK.$CH.$VS: Skipped \"$extref\" - no DIGITS.\n");
+        $noDigitRef{"<$extref> (extref)"} .= $LOCATION.", ";
+        &Log("$LOCATION WARNING: Skipped \"$extref\" - no DIGITS.\n");
         &hideTerm($matchedTerm, $ttP);
         next;
       }
 
       # Skip if on line Exclusion lists
-      if (!&termAcceptable($extref, $line, \%lineExclusion, \%lineExclusionREP)) {&hideTerm($extref, $ttP); next;}
       if (!&termAcceptable($extref, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($extref, $ttP); next;}
 
       my $repExtref = "";
@@ -546,7 +535,7 @@ sub addLinks(\$$$) {
       foreach $fx (keys %fix) {
         if ($fx eq $extref) {
           $repExtref = $fix{$fx};
-          &Log("$line WARNING $BK.$CH.$VS: Fixed \"$extref\" - on FIX list.\n");
+          &Log("$LOCATION WARNING: Fixed \"$extref\" - on FIX list.\n");
           $repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g;
           $fix{$fx} = "";
           $shouldCheck = 1;
@@ -561,9 +550,9 @@ sub addLinks(\$$$) {
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
 
       my @subrefArray = split(/($sepTerms)/, $extref);
-      if (@subrefArray > 1) {&Log("$line Extended $BK.$CH.$VS: $extref = \n");}
+      if (@subrefArray > 1) {&Log("$LOCATION Extended: $extref = \n");}
       foreach my $subref (@subrefArray) {
-        if ($line == $debugLine) {&Log("DEBUG3: subref=\"$subref\"\n");}
+        if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG3: subref=\"$subref\"\n");}
 
         # Keep sepTerms
         if ($subref =~ /($sepTerms)/) {
@@ -576,9 +565,9 @@ sub addLinks(\$$$) {
         # Skip subrefs without numbers
         if ($subref !~ /\d+/) {
           $numNoDigitRef++;
-          $noDigitRef{"<$subref> (subref)"} .= $line.", ";
+          $noDigitRef{"<$subref> (subref)"} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$line WARNING $BK.$CH.$VS: Skipped subref \"$subref\" - no DIGITS.\n");
+          &Log("$LOCATION WARNING: Skipped subref \"$subref\" - no DIGITS.\n");
           next;
         }
 
@@ -586,30 +575,30 @@ sub addLinks(\$$$) {
         my $osisRef;
         if (!&getOSISRef(\$subref, \$osisRef, \$type, \$tbk, \$tch, \$bareNumbersAre)) {
           $numNoOSISRef++;
-          $noOSISRef{$subref} .= $line.", ";
+          $noOSISRef{$subref} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$line WARNING $BK.$CH.$VS: Skipping subref \"$subref\", osisref is \"$osisRef\".\n");
+          &Log("$LOCATION WARNING: Skipping subref \"$subref\", osisref is \"$osisRef\".\n");
           next;
         }
 
-        if ($line == $debugLine) {&Log("DEBUG4: MatchedTerm=$matchedTerm\n");}
+        if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG4: MatchedTerm=$matchedTerm\n");}
 
         $Types{$type}++;
         if ($type eq "T09 (num1 ... num2?)") {$shouldCheck = 1;}
 
         $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
-        &Log("$line Linking $BK.$CH.$VS: $subref = $osisRef ($type)\n");
+        &Log("$LOCATION Linking: $subref = $osisRef ($type)\n");
       }
 
       ADDLINK:
       my $repExtrefENC = &encodeTerm($repExtref);
-      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$line ERROR $BK.$CH.$VS: Could not replace \"$extref\".\n");}
+      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$extref\".\n");}
 
       if ($shouldCheck) {
         $prf = $repExtref;
         $prf =~ s/osisRef="([^"]+)"/$1/g;
         $prf =~ s/newReference/r/g;
-        $CheckRefs .= "\nCheck line $line:\"$extref\"=$prf";
+        $CheckRefs .= "\nCheck location $LOCATION:\"$extref\"=$prf";
       }
     }
 
@@ -634,7 +623,7 @@ sub termAcceptable($$%%) {
 #&Log("DEBUG: t=$t, key=$key, " . $excP->{$key} . " =~ /$sp$tre$sp/ is " . (($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) ? "true":"false") . "\n");
   if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
     $doneExcP->{$key} .= $sp.$t.$sp;
-    &Log("$line WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
+    &Log("$LOCATION WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
     return 0;
   }
 
@@ -683,13 +672,13 @@ sub hideTerm($\$$) {
   }
   if (!$re2) {$re2 = &encodeTerm($mt);}
 
-  if ($$tP !~ s/$re1/$re2/) {&Log("$line ERROR $BK.$CH.$VS: Could not hide term \"$mt\" in \"$$tP\".\n");}
+  if ($$tP !~ s/$re1/$re2/) {&Log("$LOCATION ERROR: Could not hide term \"$mt\" in \"$$tP\".\n");}
 }
 
 sub encodeTerm($) {
   my $t = shift;
   if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
-    &Log("$line ERROR $BK.$CH.$VS: String already partially encoded \"$t\".\n");
+    &Log("LOCATION ERROR: String already partially encoded \"$t\".\n");
   }
   $t =~ s/(.)/$1_/gs;
   return "{{{".$t."}}}";
@@ -706,7 +695,7 @@ sub decodeTerms(\$) {
     for (my $i=0; $i<length($et); $i++) {
       my $chr = substr($et, $i, 1);
       if (!($i%2)) {$re2 .= $chr;}
-      elsif ($chr ne "_") {&Log("$line ERROR $BK.$CH.$VS: Incorectly encoded reference text \"$re1\".\n");}
+      elsif ($chr ne "_") {&Log("$LOCATION ERROR: Incorectly encoded reference text \"$re1\".\n");}
     }
 
     $$tP =~ s/\Q$re1/$re2/;
@@ -1098,7 +1087,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
 
   $$tP =~ s/^ //; # undo our added space
 
-  if ($line == $debugLine) {&Log(sprintf("DEBUG_matchRef:\nmatchleft=%s\nt=%s\ntype=%s\nuhbk=%s\nbk=%s\nch=%s\nvs=%s\nlv=%s\nbarenums=%s\n\n", $matchleft, $$tP, $$typeP, $$uhbkP, $$bkP, $$chP, $$vsP, $$lvP, $$barenumsP));}
+  if ($LOCATION eq $DEBUG_LOCATION) {&Log(sprintf("DEBUG_matchRef:\nmatchleft=%s\nt=%s\ntype=%s\nuhbk=%s\nbk=%s\nch=%s\nvs=%s\nlv=%s\nbarenums=%s\n\n", $matchleft, $$tP, $$typeP, $$uhbkP, $$bkP, $$chP, $$vsP, $$lvP, $$barenumsP));}
   return $matchedTerm;
 }
 
@@ -1143,7 +1132,7 @@ sub validOSISref($$$$) {
     $bk1 = $1;
     $ch1 = $2;
     if (!$ch1) {return 0;}
-    if (!$noWarn) {&Log("$line WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
+    if (!$noWarn) {&Log("$LOCATION WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
   }
   else {return 0;}
 
