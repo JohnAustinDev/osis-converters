@@ -262,7 +262,8 @@ sub addFootnoteLinks2TextNode($$) {
   my $text = $textNode->data();
   my $ordTerms = join("|", keys(%TERM_ORDINAL));
   
-  my %refTypes;
+  my %refInfo;
+  my $keyRefInfo = 1;
   while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
     my $beg = $1;
     my $term = "$RefStart$2$RefEnd";
@@ -327,9 +328,8 @@ sub addFootnoteLinks2TextNode($$) {
         
         my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, $osisRef, $textNode, $xml);
         if ($osisID) {
-          $terms =~ s/\bTARGET\b/$osisID/;
-          $refTypes{$osisID} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
-          $FNL_STATS{$refTypes{$osisID}}++;
+          $terms =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
+          $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
         }
         else {
           &Log("ERROR: $line $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef=$osisRef, textNode=$textNode\n");
@@ -348,9 +348,8 @@ sub addFootnoteLinks2TextNode($$) {
     
     my $osisID = ($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):$osisRef.$RefExt.'1');
     if ($osisID) {
-      $text =~ s/\bTARGET\b/$osisID/;
-      $refTypes{$osisID} = "$refType-single-".($ordinal ? $ordinal:'d');
-      $FNL_STATS{$refTypes{$osisID}}++;
+      $text =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
+      $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
     }
     else {
       &Log("ERROR: $line $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
@@ -382,11 +381,17 @@ sub addFootnoteLinks2TextNode($$) {
   }
   elsif ($textNode->data() ne $test) {
     &Log("ERROR $line $BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
+    return '';
   }
   else {
     my $report = $text;
-    while ($report =~ s/<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>//) {
-      &Log(sprintf("%-7i Linking %-13s %-50s %-18s %s\n", $line, "$BK.$CH.$VS", "osisRef=\"$1\"", $refTypes{$1}, $2));
+    $text =~ s/(osisRef=")\d+=/$1/g;
+    while ($report =~ s/<reference [^>]*osisRef="(\d+)=([^"]*)"[^>]*>([^<]*)<\/reference>//) {
+      my $key = $1;
+      my $ref = $2;
+      my $linkText = $3;
+      &Log(sprintf("%-7i Linking %-13s %-50s %-18s %s\n", $line, "$BK.$CH.$VS", "osisRef=\"$ref\"", $refInfo{$key}, $linkText));
+      $FNL_STATS{$refInfo{$key}}++;
     }
   }
   
