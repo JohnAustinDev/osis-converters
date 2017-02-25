@@ -2331,9 +2331,14 @@ sub prettyPrintOSIS($) {
 
 # Split an OSIS file into separate book OSIS files, plus 1 non-book OSIS 
 # file (one that contains everything else). This is intended for use with 
-# joinOSIS to allow parsing smaller files for a big speedup.
+# joinOSIS to allow parsing smaller files for a big speedup. The only 
+# assumption this routine makes is that bookGroup elements contain non-book 
+# (intro) material only at the beginning (never between or after book 
+# elements).
 sub splitOSIS($) {
   my $in_osis = shift;
+  
+  &Log("\nsplitOSIS: ".&encodePrintPaths($in_osis).":\n", 2);
   
   my @return;
   
@@ -2361,6 +2366,7 @@ sub splitOSIS($) {
   # Save a separate osis file for each book, saving order and bookGroup in the file-name
   for (my $x=0; $x<@books; $x++) {
     my $bk = @books[$x];
+    &Log("$bk\n", 2);
     $xml = $XML_PARSER->parse_file($in_osis);
     
     # remove all other books (doing this before removing outside material speeds things up a huge amount!)
@@ -2380,6 +2386,7 @@ sub splitOSIS($) {
     print OUTF $xml->toString();
     close(OUTF);
   }
+  &Log("\n\n", 2);
   
   return @return;
 }

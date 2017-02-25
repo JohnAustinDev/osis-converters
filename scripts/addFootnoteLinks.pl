@@ -124,7 +124,19 @@ sub addFootnoteLinks($$) {
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
   
   my @files = &splitOSIS($in_file);
-  foreach my $file (@files) {&processFile($file);}
+  my %xmls; 
+  foreach my $file (@files) {
+    $xmls{$file} = $XML_PARSER->parse_file($file);
+  }
+  foreach my $file (sort keys %xmls) {
+    &footnoteXML($xmls{$file}); # Do this first to collect/write all footnote osisID values before processing
+  }
+  foreach my $file (sort keys %xmls) {
+    &processXML($xmls{$file});
+    open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
+    print OUTF $xmls{$file}->toString();
+    close(OUTF);
+  }
   &joinOSIS($out_file);
 
   &Log("Finished adding <reference> tags.\n");
@@ -157,10 +169,8 @@ sub addFootnoteLinks($$) {
 
 }
 
-sub processFile($) {
-  my $osis = shift;
-  
-  my $xml = $XML_PARSER->parse_file($osis);
+sub footnoteXML($) {
+  my $xml = shift;
   
   # add osisIDs to every footnote
   my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
@@ -177,13 +187,17 @@ sub processFile($) {
       next;
     }
     my $id = $f->getAttribute('osisID');
-    if ($id) {&Log("WARNING: Overwriting existing footnote osisID=\"$id\"!\n");}
+    if ($id) {&Log("WARNING: Footnote has pre-existing osisID=\"$id\"!\n");}
     my $n = 1;
     $id = "$osisID$RefExt$n";
     while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$osisID$RefExt$n";}
     $OSISID_FOOTNOTE{$id}++;
     $f->setAttribute('osisID', $id);
   }
+}
+
+sub processXML($) {
+  my $xml = shift;
 
   # get every text node
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
@@ -240,11 +254,6 @@ sub processFile($) {
     $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
     $nodeInfo{$n}{'node'}->unbindNode();
   }
-
-  # write to out_file
-  open(OUTF, ">$osis") or die "Could not open $osis.\n";
-  print OUTF $xml->toString();
-  close(OUTF);
 }
 
 sub stat($) {
