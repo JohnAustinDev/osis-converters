@@ -43,7 +43,8 @@
 #       everything is searched.
 #   SKIP_INTRODUCTIONS - Boolean. If true, introductions are skipped.
 #   FIX - Used to fix a problematic reference. Each instance has the 
-#       form: LOCATION='book.ch.vs' AT='ref text' TARGET='osisID'
+#       form: LOCATION='book.ch.vs' AT='ref text' TARGET='osisID|NONE'
+#       If TARGET is NONE, there will be no reference link at all.
 
 $RefStart = "<reference type=\"x-footnote\" osisRef=\"TARGET\">";
 $RefEnd = "</reference>";
@@ -280,6 +281,7 @@ sub addFootnoteLinks2TextNode($$) {
   
   my %refInfo;
   my $keyRefInfo = 1;
+  my $skipSanityCheck = 0;
   while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
     my $beg = $1;
     my $term = "$RefStart$2$RefEnd";
@@ -336,7 +338,7 @@ sub addFootnoteLinks2TextNode($$) {
     }
     
     # Now, other associated ordinal terms become separate links to the same base osisRef, but with different extensions
-    if ($beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
+    if ($osisRef ne 'NONE' && $beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
       my $terms = $1;
       my $initialTerms = $terms;
       while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
@@ -363,7 +365,10 @@ sub addFootnoteLinks2TextNode($$) {
     }
     
     my $osisID = ($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):$osisRef.$RefExt.'1');
-    if ($osisID) {
+    if ($osisRef eq 'NONE') {
+      $skipSanityCheck = 1;
+    }
+    elsif ($osisID) {
       $text =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
       $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
     }
@@ -371,7 +376,7 @@ sub addFootnoteLinks2TextNode($$) {
       &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
     }
     
-    if ($text =~ /\bTARGET\b/) {
+    if (!$skipSanityCheck && $text =~ /\b(TARGET)\b/) {
       &Log("ERROR $BK.$CH.$VS: Footnote link problem: $text\n");
     }
   }
@@ -387,11 +392,11 @@ sub addFootnoteLinks2TextNode($$) {
   
   # Sanity checks (shouldn't be needed but makes me feel better)
   my $test = $text; $test =~ s/<[^>]*>//g;
-  if ($text eq $textNode->data()) {
+  if (!$skipSanityCheck && $text eq $textNode->data()) {
     &Log("ERROR $BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).\n");
     return '';
   }
-  elsif ($text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
+  elsif (!$skipSanityCheck && $text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
     &Log("ERROR $BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
     return '';
   }
@@ -401,7 +406,7 @@ sub addFootnoteLinks2TextNode($$) {
   }
   else {
     my $report = $text;
-    $text =~ s/(osisRef=")\d+=/$1/g;
+    $text =~ s/(osisRef=")\d+=/$1/g; # remove refInfoKey
     while ($report =~ s/<reference [^>]*osisRef="(\d+)=([^"]*)"[^>]*>([^<]*)<\/reference>//) {
       my $key = $1;
       my $ref = $2;

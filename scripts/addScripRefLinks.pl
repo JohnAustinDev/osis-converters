@@ -494,12 +494,12 @@ sub addLinks(\$$$) {
         $ubk =~ s/^.*\($/(/;
         $UnhandledWords{$ubk} .= $LOCATION.", ";
         if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
-          &Log("$LOCATION WARNING: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+#          &Log("$LOCATION WARNING: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
         elsif (!$contextBookOK) {
-          &Log("$LOCATION WARNING: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+#          &Log("$LOCATION WARNING: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
         }
       }
 
