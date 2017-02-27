@@ -2351,7 +2351,7 @@ sub splitOSIS($) {
   if (-e $tmp) {remove_tree($tmp);}
   make_path($tmp);
   
-  # Get list of books, and remove them all, and save the rest as other.osis
+  # Get books, remove them all, and save all remaining stuff as other.osis
   my $xml = $XML_PARSER->parse_file($in_osis);
   my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   my @books; 
@@ -2368,30 +2368,40 @@ sub splitOSIS($) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  # Save a separate osis file for each book, saving order and bookGroup in the file-name
-  for (my $x=0; $x<@books; $x++) {
+  # Prepare an osis file which has only a single book in it
+  $xml = $XML_PARSER->parse_file($in_osis);
+  
+  # remove books, except the first book (doing this before removing outside material speeds things up a huge amount!)
+  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $book (@bookElements) {
+    if (@books[0] && $book->getAttribute('osisID') ne @books[0]) {$book->unbindNode();}
+  }
+  
+  # remove all material outside of the book
+  my @dels1 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.@books[0].'"]/preceding::node()', $xml);
+  my @dels2 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.@books[0].'"]/following::node()', $xml);
+  foreach my $del (@dels1) {$del->unbindNode();}
+  foreach my $del (@dels2) {$del->unbindNode();}
+  
+  # Now save separate osis files for each book, encoding their order and bookGroup in the file-name
+  my $bookGroup = @{$XPC->findnodes('//osis:div[@type="bookGroup"]', $xml)}[0];
+  my $x = 0;
+  do {
     my $bk = @books[$x];
-    &Log("$bk\n", 2);
-    $xml = $XML_PARSER->parse_file($in_osis);
     
-    # remove all other books (doing this before removing outside material speeds things up a huge amount!)
-    my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-    foreach my $book (@bookElements) {
-      if ($bk && $book->getAttribute('osisID') ne $bk) {$book->unbindNode();}
+    if ($x) {
+      foreach my $book (@bookElements) {if ($book->getAttribute('osisID') eq $bk) {$bookGroup->appendChild($book);}}
     }
-    
-    # remove all material outside of our book
-    my @dels1 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.$bk.'"]/preceding::node()', $xml);
-    my @dels2 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.$bk.'"]/following::node()', $xml);
-    foreach my $del (@dels1) {$del->unbindNode();}
-    foreach my $del (@dels2) {$del->unbindNode();}
     
     push(@return, sprintf("%s/%02i %i %s.osis", $tmp, $x, $bookGroup{$bk}, $bk));
     open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
     print OUTF $xml->toString();
     close(OUTF);
-  }
-  &Log("\n\n", 2);
+    
+    foreach my $book (@bookElements) {if ($book->getAttribute('osisID') eq $bk) {$book->unbindNode();}}
+    
+    $x++;
+  } while ($x < @books);
   
   return @return;
 }
