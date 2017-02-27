@@ -160,6 +160,9 @@ sub loadDictionaryWordsXML($) {
     &Log("ERROR: Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting!\nAdd 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
     @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
   }
+  my @tst = $XPC->findnodes('//*[@withString]', $DWF);
+  if (@tst && @tst[0]) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");}
+
 
   if (!my $companionsAlso) {return 1;}
   
@@ -1371,23 +1374,23 @@ sub addDictionaryLink(\$$$\@) {
   my $a;
   foreach my $m (@MATCHES) {
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-    &dbg(sprintf("Context: %16s\nMatch: %s\nEntry: %s\nNode: %s\nNodeType: %s = ", $context, $m, $entry, $textNode, $textNode->parentNode()->nodeType));
+#@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
+    &dbg(sprintf("\nNode(type %s, %s): %s%s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, ($entry ? "\nEntry: $entry":''), $m));
     if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n"); next;} # never add glossary links to self
-    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("10\n"); next;}
-    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("20\n"); next;}
+    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("filtered at 10\n"); next;}
+    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("filtered at 20\n"); next;}
     if (!&attributeIsSet('multiple', $m)) {
-      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("35\n"); next;}}
-      elsif ($MULTIPLES{$m->unique_key}) {&dbg("40\n"); next;}
+      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
+      elsif ($MULTIPLES{$m->unique_key}) {&dbg("filtered at 40\n"); next;}
     }
-    my @tst = $XPC->findnodes(&getAttribute('notXPATH', $m), $textNode);
-    if (@tst && @tst[0]) {&dbg("45\n"); next;}
     if ($a = &getAttribute('context', $m)) {
-      my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs && &myGlossaryContext($a, $glossaryScopeP));
-      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("50\n"); next;}
+      my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs ? &myGlossaryContext($a, $glossaryScopeP):0);
+      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
     }
-    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("60\n"); next;}}
-    if ($a = &getAttribute('withString', $m)) {if (!$ReportedWithString{$m}) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $m\n"); $ReportedWithString{$m} = 1;}}
-    
+    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("filtered at 60\n"); next;}}
+    my @tst = $XPC->findnodes(&getAttribute('notXPATH', $m), $textNode);
+    if (@tst && @tst[0]) {&dbg("filtered at 70\n"); next;}
+        
     my $p = $m->textContent;
     
     if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n"); next;}
@@ -1407,7 +1410,8 @@ sub addDictionaryLink(\$$$\@) {
     if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");}
    
     # finally do the actual MATCHING...
-    if ($t !~ /$pm/) {$t =~ s/\n/ /g; &dbg("\"$t\" is not matched by: /$pm/\n"); next;}
+    &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": $t !~ /$pm/\n"); 
+    if ($t !~ /$pm/) {$t =~ s/\n/ /g; next;}
       
     my $is = $-[$#+];
     my $ie = $+[$#+];
@@ -1531,11 +1535,11 @@ sub myContext($$) {
 
   my $test2 = $test;
   if ($test eq 'ot') {
-    if ($context =~ /^TESTAMENT_INTRO\.1\./) {return $context;}
+    if ($context =~ /^TESTAMENT_INTRO\.0\./) {return $context;}
     $test2 = $OT_BOOKS;
   }
   elsif ($test eq 'nt') {
-    if ($context =~ /^TESTAMENT_INTRO\.2\./) {return $context;}
+    if ($context =~ /^TESTAMENT_INTRO\.1\./) {return $context;}
     $test2 = $NT_BOOKS;
   }
   foreach my $t (split(/\s+/, $test2)) {
@@ -1566,8 +1570,8 @@ sub myGlossaryContext($\@) {
 
 # return special Bible context reference for $elem:
 # BIBLE_INTRO.0.0.0 = Bible intro
-# TESTAMENT_INTRO.1.0.0 = Old Testament intro
-# TESTAMENT_INTRO.2.0.0 = New Testament intro
+# TESTAMENT_INTRO.0.0.0 = Old Testament intro
+# TESTAMENT_INTRO.1.0.0 = New Testament intro
 # Gen.0.0.0 = book intro
 # Gen.1.0.0 = chapter intro
 # Gen.1.1.1 = Genesis 1:1
@@ -1591,7 +1595,7 @@ sub bibleContext($$) {
       if (@xbib && @xbib[0]) {
         my @tst = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $elem);
         if (@tst && @tst[0]) {
-          return "TESTAMENT_INTRO.".(1+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
+          return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
         }
         return "BIBLE_INTRO.0.0.0";
       }
@@ -1731,13 +1735,14 @@ sub validOsisRefSegment($$\$\$\$) {
   $$cP = ($2 ? $3:0);
   $$vP = ($4 ? $5:0);
   
-  if ($osisRef =~ /^BIBLE_INTRO\.$/) {
+  if ($osisRef =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {
     $$cP = 0;
     $vP = 0;
     return 1;
   }
   
-  if ($osisRef =~ /^TESTAMENT_INTRO\.(1|2)\.$/) {
+  if ($osisRef =~ /^TESTAMENT_INTRO\.(0|1)(\.0)?$/) {
+    $$cP = $1;
     $vP = 0;
     return 1;
   }
