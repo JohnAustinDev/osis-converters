@@ -513,14 +513,15 @@ sub addLinks(\$$$) {
         next;
       }
       my $extref = $1;
+      my $pextref = $extref; $pextref =~ s/\n/\\n/g;
 
-      if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG2: extref=\"$extref\" endref=\"$8\"\n");}
+      if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG2: extref=\"$pextref\" endref=\"$8\"\n");}
 
       # Skip if no digits
       if ($extref !~ /\d+/) {
         $numNoDigitRef++;
         $noDigitRef{"<$extref> (extref)"} .= $LOCATION.", ";
-        &Log("$LOCATION WARNING: Skipped \"$extref\" - no DIGITS.\n");
+        &Log("$LOCATION WARNING: Skipped \"$pextref\" - no DIGITS.\n");
         &hideTerm($matchedTerm, $ttP);
         next;
       }
@@ -535,7 +536,7 @@ sub addLinks(\$$$) {
       foreach $fx (keys %fix) {
         if ($fx eq $extref) {
           $repExtref = $fix{$fx};
-          &Log("$LOCATION WARNING: Fixed \"$extref\" - on FIX list.\n");
+          &Log("$LOCATION WARNING: Fixed \"$pextref\" - on FIX list.\n");
           $repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g;
           $fix{$fx} = "";
           $shouldCheck = 1;
@@ -550,9 +551,10 @@ sub addLinks(\$$$) {
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
 
       my @subrefArray = split(/($sepTerms)/, $extref);
-      if (@subrefArray > 1) {&Log("$LOCATION Extended: $extref = \n");}
+      if (@subrefArray > 1) {&Log("$LOCATION Extended: $pextref = \n");}
       foreach my $subref (@subrefArray) {
-        if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG3: subref=\"$subref\"\n");}
+        my $psubref = $subref; $psubref =~ s/\n/\\n/g;
+        if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG3: subref=\"$psubref\"\n");}
 
         # Keep sepTerms
         if ($subref =~ /($sepTerms)/) {
@@ -567,7 +569,7 @@ sub addLinks(\$$$) {
           $numNoDigitRef++;
           $noDigitRef{"<$subref> (subref)"} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$LOCATION WARNING: Skipped subref \"$subref\" - no DIGITS.\n");
+          &Log("$LOCATION WARNING: Skipped subref \"$psubref\" - no DIGITS.\n");
           next;
         }
 
@@ -577,7 +579,7 @@ sub addLinks(\$$$) {
           $numNoOSISRef++;
           $noOSISRef{$subref} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$LOCATION WARNING: Skipping subref \"$subref\", osisref is \"$osisRef\".\n");
+          &Log("$LOCATION WARNING: Skipping subref \"$psubref\", osisref is \"$osisRef\".\n");
           next;
         }
 
@@ -587,18 +589,18 @@ sub addLinks(\$$$) {
         if ($type eq "T09 (num1 ... num2?)") {$shouldCheck = 1;}
 
         $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
-        &Log("$LOCATION Linking: $subref = $osisRef ($type)\n");
+        &Log("$LOCATION Linking: $psubref = $osisRef ($type)\n");
       }
 
       ADDLINK:
       my $repExtrefENC = &encodeTerm($repExtref);
-      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$extref\".\n");}
+      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$pextref\".\n");}
 
       if ($shouldCheck) {
         $prf = $repExtref;
         $prf =~ s/osisRef="([^"]+)"/$1/g;
         $prf =~ s/newReference/r/g;
-        $CheckRefs .= "\nCheck location $LOCATION:\"$extref\"=$prf";
+        $CheckRefs .= "\nCheck location $LOCATION:\"$pextref\"=$prf";
       }
     }
 
