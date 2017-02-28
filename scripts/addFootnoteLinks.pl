@@ -92,7 +92,7 @@ sub addFootnoteLinks($$) {
       }
       elsif ($_ =~ /^FIX:(.*+)$/) {
         my $fix = $1;
-        if ($fix !~ s/\bLOCATION='(\S+)'//) {&Log("ERROR: Could not find LOCATION='book.ch.vs' in FIX statement: $_\n"); next;}
+        if ($fix !~ s/\bLOCATION='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find LOCATION='book.ch.vs' in FIX statement: $_\n"); next;}
         my $location = $1;
         if ($fix !~ s/\bTARGET='(\S+)'//) {&Log("ERROR: Could not find TARGET='book.ch.vs!footnote.nx' in FIX statement: $_\n"); next;}
         my $target = $1;
@@ -184,7 +184,7 @@ sub footnoteXML($) {
       }
     }
     else {
-      &Log("ERROR: Non-Bible footnote links not yet implemented.\n");
+      $osisID = &encodeOsisRef(&glossaryContext($f))."$RefExt$n";
       next;
     }
     my $id = $f->getAttribute('osisID');
@@ -233,10 +233,11 @@ sub processXML($) {
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
+      $CH = &glossaryContext($textNode);
     }
 
     # display progress
-    my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
+    my $thisp = "$BK.$CH.$VS";
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
     if ($intro && $skipintros) {next;}
@@ -288,6 +289,7 @@ sub addFootnoteLinks2TextNode($$) {
     my $end = $5;
     
     my $refType;
+    my $refMod = $MOD;
     
     # Work backwards from our term to discover...
     # Ordinal:
@@ -304,7 +306,8 @@ sub addFootnoteLinks2TextNode($$) {
     my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
     if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $osisRef = @haveRef[0]->getAttribute('osisRef');
-      $osisRef =~ s/^[^:]+://;
+      $osisRef =~ s/^([^:]*)://;
+      if ($1) {$refMod = $1;}
       if (!$osisRef) {
         &Log("ERROR $BK.$CH.$VS: verse reference has no osisRef: ".@haveRef[0]."\n");
         next;
@@ -319,8 +322,15 @@ sub addFootnoteLinks2TextNode($$) {
       foreach my $t (keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
         if ("$beg$term" =~ /\Q$t\E/) {
           $osisRef = $FNL_FIX{"$BK.$CH.$VS"}{$t};
-          $osisRef =~ s/\Q$RefExt\E(\d+)$//;
-          $ordinal = $1;
+          if ($osisRef =~ s/^(([^:]*):)?(.*?)\Q$RefExt\E(\d+)$/$3/) {
+            $ordinal = $4;
+            if ($2) {$refMod = $2;}
+          }
+          elsif ($osisRef ne 'NONE') {
+            &Log("ERROR $BK.$CH.$VS: Bad Fix osisRef:\"".$osisRef."\"\n");
+            next;
+          }
+
           &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
           $refType = 'fix';
           $FNL_FIX{"$BK.$CH.$VS"} = 'done';
@@ -344,7 +354,7 @@ sub addFootnoteLinks2TextNode($$) {
       while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
         my $ordTermKey = $2;
         
-        my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, $osisRef, $textNode, $xml);
+        my $osisID = ($refMod ne $MOD ? "$refMod:":'').&convertOrdinal($TERM_ORDINAL{$ordTermKey}, $osisRef, $textNode, $xml);
         if ($osisID) {
           $terms =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
           $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
@@ -364,7 +374,7 @@ sub addFootnoteLinks2TextNode($$) {
       }
     }
     
-    my $osisID = ($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):$osisRef.$RefExt.'1');
+    my $osisID = ($refMod ne $MOD ? "$refMod:":'').($ordinal ? &convertOrdinal($ordinal, $osisRef, $textNode, $xml):$osisRef.$RefExt.'1');
     if ($osisRef eq 'NONE') {
       $skipSanityCheck = 1;
     }
