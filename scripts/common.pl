@@ -2339,7 +2339,7 @@ sub prettyPrintOSIS($) {
 # joinOSIS to allow parsing smaller files for a big speedup. The only 
 # assumption this routine makes is that bookGroup elements contain non-book 
 # (intro) material only at the beginning (never between or after book 
-# elements).
+# elements). If there are no book divs, everything is put in other.osis.
 sub splitOSIS($) {
   my $in_osis = shift;
   
@@ -2351,22 +2351,30 @@ sub splitOSIS($) {
   if (-e $tmp) {remove_tree($tmp);}
   make_path($tmp);
   
-  # Get books, remove them all, and save all remaining stuff as other.osis
-  my $xml = $XML_PARSER->parse_file($in_osis);
-  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   my @books; 
   my %bookGroup;
-  foreach my $book (@bookElements) {
-    my $osisID = $book->getAttribute('osisID');
-    push(@books, $osisID);
-    $bookGroup{$osisID} = scalar(@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $book)});
-    if (!$bookGroup{$osisID}) {$bookGroup{$osisID} = 0;}
-    $book->unbindNode();
+  
+  my $xml = $XML_PARSER->parse_file($in_osis);
+  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  my $isBible = (@bookElements && @bookElements[0]);
+  
+  if ($isBible) {
+    # Get books, remove them all, and save all remaining stuff as other.osis
+    foreach my $book (@bookElements) {
+      my $osisID = $book->getAttribute('osisID');
+      push(@books, $osisID);
+      $bookGroup{$osisID} = scalar(@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $book)});
+      if (!$bookGroup{$osisID}) {$bookGroup{$osisID} = 0;}
+      $book->unbindNode();
+    }
   }
+  
   push(@return, "$tmp/other.osis");
   open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
   print OUTF $xml->toString();
   close(OUTF);
+  
+  if (!$isBible) {return @return;}
   
   # Prepare an osis file which has only a single book in it
   $xml = $XML_PARSER->parse_file($in_osis);
