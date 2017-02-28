@@ -1639,6 +1639,32 @@ sub bibleContext($$) {
   return $context;
 }
 
+# return special Glossary context reference for $node:
+# BEFORE-keyword = Node is not part of any keyword but next one is keyword
+# keyword = Node is part of keyword's entry
+sub glossaryContext($) {
+  my $node = shift;
+
+  # get preceding keyword
+  my @x = $XPC->findnodes('preceding::osis:seg[@type="keyword"]', $node);
+  my $prevkw = (@x && @x[0] ? @x[$#x]:'');
+  
+  # is node 'within' preceding keyword?
+  if ($prevkw) {
+    my $gn = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $node)}[0];
+    my $gk = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $prevkw)}[0];
+    if (!$gk) {&Log("ERROR glossaryContext: Unexpected - previous keyword is not part of a glossary\n");}
+    if ($gn && $gk && $gn->isSameNode($gk)) {return $prevkw->textContent;}
+  }
+  
+  # if not, then use BEFORE
+  my @x = $XPC->findnodes('following::osis:seg[@type="keyword"]', $node);
+  my $nextkw = (@x && @x[0] ? @x[0]:'');
+  if (!$nextkw) {return "BEFORE-unknown";}
+  
+  return 'BEFORE-'.$nextkw->textContent;
+}
+
 
 # return array of single verse osisRefs from context, since context may 
 # be a bibleContext covering a range of verses. Returned refs are NOT

@@ -37,6 +37,9 @@
 #       are string literals. However, these terms may be preceeded by
 #       PREFIXES or SUFFIXES (see below) and still match the book.
 #
+#   CONTEXT_BOOK: OSISBK if-result XPATH - Will override the context 
+#       book for any node with OSISBK if a result is returned by 
+#       XPATH expression.
 #   SKIP_XPATH - An XPATH expression used to skip particular elements
 #       of text when searching for Scripture references. By default,
 #       nothing is skipped.
@@ -136,6 +139,7 @@ sub addScripRefLinks($$) {
   $numMissedLeftRefs = 0;
   $numNoDigitRef = 0;
   $numNoOSISRef = 0;
+  %xpathIfResultContextBook;
 
   $Types{"T01 (Book? c:v-c:v)"} = 0;
   $Types{"T02 (Book? c:v-lv)"} = 0;
@@ -158,6 +162,14 @@ sub addScripRefLinks($$) {
       $_ =~ s/\s+$//;
 
       if ($_ =~ /^(\#.*|\s*)$/) {next;}
+      elsif ($_ =~ /^CONTEXT_BOOK:\s*(\S+)\s+(if\-result)\s+(.*?)\s*$/) {
+        my $cbk = $1; my $op = $2; my $xp = $3;
+        if ($op ne 'if-result' || "$OT_BOOKS $NT_BOOKS" !~ /\b$cbk\b/) {
+          &Log("ERROR: Illegal CONTEXT_BOOK command.\n");
+        }
+        else {$xpathIfResultContextBook{$xp} = $cbk;}
+        next;
+      }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
       elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
       elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($2) {&Log("ERROR: CF_addScripRefLinks.txt: FILTER is no longer supported. Use ONLY_XPATH instead.\n");} next;}
@@ -262,7 +274,7 @@ sub addScripRefLinks($$) {
   if (scalar(keys %fix)) {
     foreach my $fx (keys %fix) {
       if ($fix{$fx} !~ /^\s*$/) {
-        &Log("WARNING: Fix \"$fx\" was not applied.\n");
+        &Log("ERROR: Fix \"$fx\" was not applied.\n");
       }
     }
   }
@@ -373,11 +385,21 @@ sub processFile($) {
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
+      $CH = &glossaryContext($textNode);
     }
+    
+    # override context book if requested
+    foreach my $xpath (keys %xpathIfResultContextBook) {
+      my @r = $XPC->findnodes($xpath, $textNode);
+      if (!@r || !@r[0]) {next;}
+      $BK = $xpathIfResultContextBook{$xpath};
+      last;
+    }
+    
     $LOCATION = "$BK.$CH.$VS";
 
     # display progress
-    my $thisp = $bcontext; $thisp =~ s/^(\w+\.\d+).*?$/$1/;
+    my $thisp = $LOCATION;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
     if ($intro && $skipintros) {next;}
