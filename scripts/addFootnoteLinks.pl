@@ -146,7 +146,7 @@ sub addFootnoteLinks($$) {
   &Log("#################################################################\n");
   &Log("\n");
   
-  foreach my $k (keys %FNL_FIX) {if ($FNL_FIX{$k} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}
+  foreach my $k (keys %FNL_FIX) {foreach my $t (keys %{$FNL_FIX{$k}}) {if ($FNL_FIX{$k}{$t} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}}
   &Log("\n");
     
   &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
@@ -321,6 +321,7 @@ sub addFootnoteLinks2TextNode($$) {
     }
     elsif (exists($FNL_FIX{"$BK.$CH.$VS"})) {
       foreach my $t (keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
+        if ($FNL_FIX{"$BK.$CH.$VS"}{$t} eq 'done') {next;}
         if ("$beg$term" =~ /\Q$t\E/) {
           $osisRef = $FNL_FIX{"$BK.$CH.$VS"}{$t};
           if ($osisRef =~ s/^(([^:]*):)?(.*?)\Q$RefExt\E(\d+)$/$3/) {
@@ -334,7 +335,7 @@ sub addFootnoteLinks2TextNode($$) {
 
           &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
           $refType = 'fix';
-          $FNL_FIX{"$BK.$CH.$VS"} = 'done';
+          $FNL_FIX{"$BK.$CH.$VS"}{$t} = 'done';
           last;
         }
       }
