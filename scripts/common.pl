@@ -1602,29 +1602,36 @@ sub bibleContext($$) {
     }
   }
 
-  my @c;
+  my @e;
   if (@bk && $bk) {
-    # find most specific osisID associated with elem (assumes milestone end tags have no osisID attribute)
-    @c = $XPC->findnodes('ancestor-or-self::osis:verse[@osisID][1]', $elem);
-    
-    if (!@c) {
-      @c = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
-      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
-    }
+    # find most specific osisID associated with elem (assumes milestone verse/chapter tags and end tags which have no osisID attribute)
+    my @v = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
+    if (@v && @v[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@v = ();}
 
-    if (!@c) {@c = $XPC->findnodes('ancestor-or-self::osis:chapter[@osisID][1]', $elem);}
+    my @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);
+    if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
     
-    if (!@c) {
-      @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);
-      if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    # if we have verse and chapter, but verse is not within chapter, use chapter instead
+    if (@v && @v[0]) {
+      if (@c && @c[0]) {
+        my $bkch;
+        if (@v[0]->getAttribute('osisID') =~ /^([^\.]*\.[^\.]*)(\.|$)/) {
+          $bkch = $1;
+        }
+        if (!$bkch || @c[0]->getAttribute('osisID') !~ /^\Q$bkch\E(\.|$)/) {
+          @e = @c;
+        }
+      }
+      if (!@e) {@e = @v;}
     }
+    else {@e = @c;}
     
-    if (!@c) {@c = @bk;}
+    if (!@e || !@e[0]) {@e = @bk;}
   }
   
   # get context from most specific osisID
-  if (@c) {
-    my $id = @c[0]->getAttribute('osisID');
+  if (@e) {
+    my $id = @e[0]->getAttribute('osisID');
     $context = ($id ? $id:"unk.0.0.0");
     if ($id =~ /^\w+$/) {$context .= ".0.0.0";}
     elsif ($id =~ /^\w+\.\d+$/) {$context .= ".0.0";}
