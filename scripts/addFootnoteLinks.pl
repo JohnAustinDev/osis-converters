@@ -238,6 +238,7 @@ sub processXML($) {
 
     # display progress
     my $thisp = "$BK.$CH.$VS";
+    $thisp =~ s/^([^\.]*\.[^\.]*)\..*$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
     if ($intro && $skipintros) {next;}

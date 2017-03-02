@@ -400,6 +400,7 @@ sub processFile($) {
 
     # display progress
     my $thisp = $LOCATION;
+    $thisp =~ s/^([^\.]*\.[^\.]*)\..*$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
     if ($intro && $skipintros) {next;}
@@ -558,10 +559,13 @@ sub addLinks(\$$$) {
       foreach $fx (keys %fix) {
         if ($fx eq $extref) {
           $repExtref = $fix{$fx};
-          &Log("$LOCATION WARNING: Fixed \"$pextref\" - on FIX list.\n");
-          $repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g;
+          if ($repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
+            &Log("$LOCATION NOTE: Fixed \"$pextref\" - on FIX list.\n");
+          }
+          else {
+            &Log("$LOCATION ERROR: Fix for \"$pextref\" failed!\n");
+          }
           $fix{$fx} = "";
-          $shouldCheck = 1;
           goto ADDLINK;
         }
       }
