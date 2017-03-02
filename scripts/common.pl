@@ -78,7 +78,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     die;
   }
   
-  &setOUTDIR($INPD);
+  $OUTDIR = &getOUTDIR($INPD);
+  if (!-e $OUTDIR) {make_path($OUTDIR);}
   
   $AUTOMODE = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT_NAME.txt";}
@@ -115,23 +116,26 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 }
 
 
-sub setOUTDIR($) {
+sub getOUTDIR($) {
   my $inpd = shift;
+  
+  my $outdir = $OUTDIR;
   
   if (-e "/home/vagrant") {
     if (-e "/home/vagrant/OUTDIR" && `mountpoint /home/vagrant/OUTDIR` =~ /is a mountpoint/) {
-      $OUTDIR = "/home/vagrant/OUTDIR"; # Vagrant share
+      $outdir = "/home/vagrant/OUTDIR"; # Vagrant share
     }
-    else {$OUTDIR = '';}
+    else {$outdir = '';}
   }
 
-  if (!$OUTDIR) {$OUTDIR = "$inpd/output";}
+  if (!$outdir) {$outdir = "$inpd/output";}
   else {
     my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
-    $OUTDIR =~ s/[\\\/]\s*$//; # remove any trailing slash
-    $OUTDIR .= '/'.$sub;
+    $outdir =~ s/[\\\/]\s*$//; # remove any trailing slash
+    $outdir .= '/'.$sub;
   }
-  if (!-e $OUTDIR) {make_path($OUTDIR);}
+
+  return $outdir;
 }
 
 # returns true on success
