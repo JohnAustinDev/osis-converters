@@ -58,6 +58,7 @@ require("$SCRD/scripts/processGlossary.pl");
 %FNL_FIX;
 %TERM_ORDINAL;
 %FNL_STATS;
+%FNL_LINKS;
 
 sub addFootnoteLinks($$) {
   my $in_file = shift;
@@ -128,9 +129,18 @@ sub addFootnoteLinks($$) {
     my $cinpd = $INPD; $cinpd =~ s/\/[^\/]+\/?$//;
     my $cosisFile = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
     if (-e $cosisFile) {
-      my $cosisXml = $XML_PARSER->parse_file($cosisFile);
-      my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
-      foreach my $fn (@fns) {$OSISID_FOOTNOTE{$fn->getAttribute('osisID')}++;}
+      my @files = &splitOSIS($cosisFile);
+      foreach my $file (@files) {
+        my $cosisXml = $XML_PARSER->parse_file($file);
+        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
+        foreach my $fn (@fns) {
+          my $id = $fn->getAttribute('osisID');
+          my $comp = $ConfEntryP->{'Companion'};
+          if ($id !~ /^\Q$comp\E:/) {$id = "$comp:$id";}
+          $OSISID_FOOTNOTE{$id}++;
+          &recordVersesOfFootnote($fn);
+        }
+      }
     }
     else {
       &Log("ERROR: OSIS is a glossary with a companion, but the companion's OSIS was not found at \"$cosisFile\"!\n");
@@ -163,6 +173,11 @@ sub addFootnoteLinks($$) {
   &Log("\n");
   
   foreach my $k (keys %FNL_FIX) {foreach my $t (keys %{$FNL_FIX{$k}}) {if ($FNL_FIX{$k}{$t} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}}
+  &Log("\n");
+  
+  &Log("REPORT: Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):\n");
+  my $x = 0; foreach my $p (sort keys %FNL_LINKS) {if (length($p) > $x) {$x = length($p);}}
+  foreach my $p (sort keys %FNL_LINKS) {&Log(sprintf("%-".$x."s (%i)\n", $p, $FNL_LINKS{$p}));}
   &Log("\n");
     
   &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
@@ -218,38 +233,48 @@ sub footnoteXML($) {
     $OSISID_FOOTNOTE{$id}++;
     $f->setAttribute('osisID', $id);
     
-    # Save each verse id of the range this footnote applies to, 
-    # allowing verse -> footnote lookup
-    if ($bibleContext) {
-      my @verses = &context2array($bibleContext);
-      foreach my $verse (@verses) {
-        if (@verses > 1) {
-          # This footnote is in a linked verse. See if annotateRef tells
-          # us which particular verse(s) this footnote refers to. If the annotateRef
-          # points to verses outside this link, these are ignored.
-          my @annotateRef = $XPC->findnodes('.//osis:reference[@type="annotateRef"][1]', $f);
-          if (@annotateRef && @annotateRef[0]) {
-            if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&Log("ERROR footnoteXML: Bad verse \"$verse\"!\n"); next;}
-            my $chv = $1; my $vsv = $2;
-            my $ar = @annotateRef[0]->textContent;
-            if ($ar =~ /^((\d+):)?(\d+)(\-(\d+))?$/) {
-              my $ch = $2; my $v1 = $3; my $v2 = $5;
-              if (!$v2) {$v2 = $v1;}
-              if ($ch && $ch ne $chv) {
-                &Log("ERROR footnoteXML: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
-              }
-              if ($vsv < $v1 || $vsv > $v2) {
-                &Log("NOTE footnoteXML: Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
-                next;
-              }
-            }
-            else {&Log("ERROR footnoteXML: Unexpected annotateRef \"$ar\"!\n");}
+    if ($bibleContext) {&recordVersesOfFootnote($f, $bibleContext);}
+  }
+}
+
+# Record each separate verse of a footnote's context and annotateRef. 
+# This allows verse -> footnote lookup
+sub recordVersesOfFootnote($$) {
+  my $f = shift;
+  my $bibleContext = shift;
+  
+  if (!$bibleContext) {$bibleContext = &bibleContext($f, 1);}
+  if (!$bibleContext) {return;}
+  
+  my $c = $bibleContext; $c =~ s/^([^\.]*)\..*$/$1/; if ($c ne $AFL_LC) {&Log("recordVersesOfFootnote() \"$c\"\n", 2);} $AFL_LC = $c;
+  
+  my @verses = &context2array($bibleContext);
+  foreach my $verse (@verses) {
+    if (@verses > 1) {
+      # This footnote is in a linked verse. See if annotateRef tells
+      # us which particular verse(s) this footnote refers to. If the annotateRef
+      # points to verses outside this link, these are ignored.
+      my @annotateRef = $XPC->findnodes('.//osis:reference[@type="annotateRef"][1]', $f);
+      if (@annotateRef && @annotateRef[0]) {
+        if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&Log("ERROR footnoteXML: Bad verse \"$verse\"!\n"); next;}
+        my $chv = $1; my $vsv = $2;
+        my $ar = @annotateRef[0]->textContent;
+        if ($ar =~ /^((\d+):)?(\d+)(\-(\d+))?$/) {
+          my $ch = $2; my $v1 = $3; my $v2 = $5;
+          if (!$v2) {$v2 = $v1;}
+          if ($ch && $ch ne $chv) {
+            &Log("ERROR footnoteXML: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
+          }
+          if ($vsv < $v1 || $vsv > $v2) {
+            &Log("NOTE footnoteXML: Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
+            next;
           }
         }
-        if (!exists($VERSE_OSISIDS{$verse})) {$VERSE_OSISIDS{$verse} = ();}
-        push(@{$VERSE_OSISIDS{$verse}}, $id);
+        else {&Log("ERROR footnoteXML: Unexpected annotateRef \"$ar\"!\n");}
       }
     }
+    if (!exists($VERSE_OSISIDS{$verse})) {$VERSE_OSISIDS{$verse} = ();}
+    push(@{$VERSE_OSISIDS{$verse}}, $f->getAttribute('osisID'));
   }
 }
 
@@ -436,7 +461,7 @@ sub addFootnoteLinks2TextNode($$) {
       while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
         my $ordTermKey = $2;
         
-        my $osisID = ($refMod ne $MOD ? "$refMod:":'').&convertOrdinal($TERM_ORDINAL{$ordTermKey}, $osisRef, $textNode, $xml);
+        my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, ($refMod ne $MOD ? $refMod:''), $osisRef, $textNode, $xml);
         if ($osisID) {
           $terms =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
           $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
@@ -458,7 +483,7 @@ sub addFootnoteLinks2TextNode($$) {
     
     my $osisID;
     if ($osisRef ne 'NONE') {
-      $osisID = ($refMod ne $MOD ? "$refMod:":'').&convertOrdinal($ordinal, $osisRef, $textNode, $xml);
+      $osisID = &convertOrdinal($ordinal, ($refMod ne $MOD ? $refMod:''), $osisRef, $textNode, $xml);
     }
     
     if ($osisRef eq 'NONE') {
@@ -509,6 +534,7 @@ sub addFootnoteLinks2TextNode($$) {
       my $linkText = $3;
       &Log(sprintf("Linking %-13s %-50s %-18s %s\n", "$BK.$CH.$VS", "osisRef=\"$ref\"", $refInfo{$key}, $linkText));
       $FNL_STATS{$refInfo{$key}}++;
+      $FNL_LINKS{$linkText}++;
       if (!$OSISID_FOOTNOTE{$ref}) {
         &Log("ERROR $BK.$CH.$VS: Footnote with osisID=\"$ref\" does not exist!\n");
       }
@@ -524,11 +550,14 @@ sub addFootnoteLinks2TextNode($$) {
 # Returns 0 on error, or else an existing footnote osisID which 
 # corresponds to the requested ordinal abbreviation, osisRef and textNode.
 # The $ord may be empty which means default (1)
-sub convertOrdinal($$$$) {
+sub convertOrdinal($$$$$) {
   my $ord = shift;
+  my $refMod = shift;
   my $osisRef = shift;
   my $textNode = shift;
   my $xml = shift;
+  
+  if ($refMod) {$refMod .= ':';}
   
   my $ordUnspecified = 0;
   if (!$ord) {
@@ -537,14 +566,17 @@ sub convertOrdinal($$$$) {
   }
   
   if ($ord =~ /^\d+$/) {
-    if ($OSISID_FOOTNOTE{$osisRef.$RefExt.$ord}) {return $osisRef.$RefExt.$ord;}
+    if ($OSISID_FOOTNOTE{$refMod.$osisRef.$RefExt.$ord}) {return $refMod.$osisRef.$RefExt.$ord;}
     # if the direct footnote osisID doesn't exist, we need to find the one the text is refering to!
     my $fnOsisIdsP = &getRangeFootnoteOsisIds($osisRef);
     if (@{$fnOsisIdsP} && @{$fnOsisIdsP}[0]) {
       if ($ordUnspecified && @{$fnOsisIdsP} > 1) {
-        &Log("ERROR $BK.$CH.$VS: The text assumes osisRef=\"$osisRef\" has one footnote, but it contains \"".@{$fnOsisIdsP}."\" footnotes.\n");
+        my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
+        my $prevr = (@haveRef && @haveRef[0] ? @haveRef[0]->toString():'');
+        my $txt = "$prevr$textNode"; $txt =~ s/<[^>]*>//g;
+        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference \"$osisRef\" contains \"".@{$fnOsisIdsP}."\" footnotes in the text \"$txt\".\n");
       }
-      if (@{$fnOsisIdsP}[($ord-1)]) {return @{$fnOsisIdsP}[($ord-1)];}
+      if (@{$fnOsisIdsP}[($ord-1)]) {return $refMod.@{$fnOsisIdsP}[($ord-1)];}
       else {
         &Log("ERROR $BK.$CH.$VS: The text targets footnote \"$ord\" of osisRef=\"$osisRef\" but such a footnote does not exist!\n");
       }
@@ -555,8 +587,8 @@ sub convertOrdinal($$$$) {
   }
   elsif ($ord eq 'last') {
     my $n = 1;
-    my $id = $osisRef.$RefExt.$n;
-    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $osisRef.$RefExt.$n;}
+    my $id = $refMod.$osisRef.$RefExt.$n;
+    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $refMod.$osisRef.$RefExt.$n;}
     $n--;
     if ($n < 2) {
       # if this osisRef is compound, then we need to sequentially reverse search each component
@@ -564,17 +596,17 @@ sub convertOrdinal($$$$) {
       if (@{$refArrayP} > 1) {
         for (my $i=(@{$refArrayP}-1); $i>=0; $i--) {
           my $n = 1;
-          my $id = @{$refArrayP}[$i].$RefExt.$n;
-          while ($OSISID_FOOTNOTE{$id}) {$n++; $id = @{$refArrayP}[$i].$RefExt.$n;}
+          my $id = $refMod.@{$refArrayP}[$i].$RefExt.$n;
+          while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $refMod.@{$refArrayP}[$i].$RefExt.$n;}
           $n--;
-          if ($n) {return @{$refArrayP}[$i].$RefExt.$n;}
+          if ($n) {return $refMod.@{$refArrayP}[$i].$RefExt.$n;}
         }
       }
       else {
         &Log("ERROR $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
       }
     }
-    return $osisRef.$RefExt.$n;
+    return $refMod.$osisRef.$RefExt.$n;
   }
   elsif ($ord eq 'prev') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
@@ -582,7 +614,7 @@ sub convertOrdinal($$$$) {
       my $pref = $1;
       my $pord = $2;
       $pord--;
-      my $nid = $pref.$RefExt.$pord;
+      my $nid = $refMod.$pref.$RefExt.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
       }
@@ -595,7 +627,7 @@ sub convertOrdinal($$$$) {
       my $pref = $1;
       my $nord = $2;
       $nord++;
-      my $nid = $pref.$RefExt.$nord;
+      my $nid = $refMod.$pref.$RefExt.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
       }

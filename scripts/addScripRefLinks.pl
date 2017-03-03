@@ -413,7 +413,7 @@ sub processFile($) {
     my $skip = 0;
     foreach my $av (@skipVerse) {
       if ($av eq "$BK.$CH.$VS") {
-        &Log("$LOCATION WARNING: Skipping verse $av - on SKIP list\n");
+        &Log("$LOCATION NOTE: Skipping verse $av - on SKIP list\n");
         $skip = 1; last;
       }
     }
@@ -651,7 +651,7 @@ sub termAcceptable($$%%) {
 #&Log("DEBUG: t=$t, key=$key, " . $excP->{$key} . " =~ /$sp$tre$sp/ is " . (($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) ? "true":"false") . "\n");
   if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
     $doneExcP->{$key} .= $sp.$t.$sp;
-    &Log("$LOCATION WARNING $key: Skipped \"$t\" - on EXCLUDE list.\n");
+    &Log("$LOCATION NOTE $key: Skipped \"$t\" - on EXCLUDE list.\n");
     return 0;
   }
 
