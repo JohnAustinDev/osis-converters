@@ -43,7 +43,8 @@
 #       everything is searched.
 #   SKIP_INTRODUCTIONS - Boolean. If true, introductions are skipped.
 #   FIX - Used to fix a problematic reference. Each instance has the 
-#       form: LOCATION='book.ch.vs' AT='ref text' TARGET='osisID|NONE'
+#       form: LOCATION='book.ch.vs' AT='ref-text' and either 
+#       TARGET='osisID|NONE' or REPLACEMENT='exact-replacement'
 #       If TARGET is NONE, there will be no reference link at all.
 
 $RefStart = "<reference type=\"x-footnote\" osisRef=\"TARGET\">";
@@ -95,11 +96,11 @@ sub addFootnoteLinks($$) {
         my $fix = $1;
         if ($fix !~ s/\bLOCATION='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find LOCATION='book.ch.vs' in FIX statement: $_\n"); next;}
         my $location = $1;
-        if ($fix !~ s/\bTARGET='(\S+)'//) {&Log("ERROR: Could not find TARGET='book.ch.vs!footnote.nx' in FIX statement: $_\n"); next;}
-        my $target = $1;
         if ($fix !~ s/\bAT='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find AT='reference text' in FIX statement: $_\n"); next;}
         my $at = $1; $at =~ s/\\'/'/g;
-        $FNL_FIX{$location}{$at} = $target;
+        if ($fix !~ s/\b(TARGET|REPLACEMENT)='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find TARGET='book.ch.vs!footnote.nx' or REPLACEMENT='exact-replacement' in FIX statement: $_\n"); next;}
+        my $type = $1; my $value = $2;
+        $FNL_FIX{$location}{$at} = "$type:$value";
         next;
       }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
@@ -357,7 +358,7 @@ sub addFootnoteLinks2TextNode($$) {
       $ordinal = $TERM_ORDINAL{$ordinalTermKey};
     }
   
-    # Target footnote's osisRef address: (must be either "this verse", or else discovered via a reference element)
+    # Target footnote's osisRef address: (must be either "this verse", or else discovered via a reference element, or a FIX)
     my $osisRef; 
     my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
     if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
@@ -374,18 +375,42 @@ sub addFootnoteLinks2TextNode($$) {
       $osisRef = "$BK.$CH.$VS";
       $refType = 'self';
     }
+    # FIX implementation...
     elsif (exists($FNL_FIX{"$BK.$CH.$VS"})) {
       foreach my $t (keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
         if ($FNL_FIX{"$BK.$CH.$VS"}{$t} eq 'done') {next;}
         if ("$beg$term" =~ /\Q$t\E/) {
-          $osisRef = $FNL_FIX{"$BK.$CH.$VS"}{$t};
-          if ($osisRef =~ s/^(([^:]*):)?(.*?)\Q$RefExt\E(\d+)$/$3/) {
-            $ordinal = $4;
-            if ($2) {$refMod = $2;}
-          }
-          elsif ($osisRef ne 'NONE') {
-            &Log("ERROR $BK.$CH.$VS: Bad Fix osisRef:\"".$osisRef."\"\n");
+          my $value = $FNL_FIX{"$BK.$CH.$VS"}{$t};
+          if ($value !~ s/^(TARGET|REPLACEMENT)://) {
+            &Log("ERROR $BK.$CH.$VS: FIX Bad command value \"$value\"\n");
             next;
+          }
+          my $type = $1;
+          
+          # TARGET was given
+          if ($type eq 'TARGET') {
+            $osisRef = $value;
+            if ($osisRef =~ s/^(([^:]*):)?(.*?)\Q$RefExt\E(\d+)$/$3/) {
+              $ordinal = $4;
+              if ($2) {$refMod = $2;}
+            }
+            elsif ($osisRef ne 'NONE') {
+              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - bad Fix TARGET=\"".$osisRef."\"\n");
+              next;
+            }
+          }
+          
+          # REPLACEMENT was given
+          else {
+            if ($value =~ /^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b/) { # copied from main while loop, this check is to ensure it does not go endless!
+              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\"!\n");
+              next;
+            }
+            if ($text !~ s/\Q$t\E/$value/) {
+              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - REPLACEMENT failed!\n");
+              next;
+            }
+            $osisRef = 'NONE';
           }
 
           &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
