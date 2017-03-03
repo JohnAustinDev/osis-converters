@@ -574,7 +574,7 @@ sub convertOrdinal($$$$$) {
         my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
         my $prevr = (@haveRef && @haveRef[0] ? @haveRef[0]->toString():'');
         my $txt = "$prevr$textNode"; $txt =~ s/<[^>]*>//g;
-        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference \"$osisRef\" contains \"".@{$fnOsisIdsP}."\" footnotes in the text \"$txt\".\n");
+        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference \"$osisRef\" contains \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text \"$txt\".\n");
       }
       if (@{$fnOsisIdsP}[($ord-1)]) {return $refMod.@{$fnOsisIdsP}[($ord-1)];}
       else {
