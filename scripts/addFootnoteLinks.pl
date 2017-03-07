@@ -566,8 +566,6 @@ sub convertOrdinal($$$$$) {
   }
   
   if ($ord =~ /^\d+$/) {
-    if ($OSISID_FOOTNOTE{$refMod.$osisRef.$RefExt.$ord}) {return $refMod.$osisRef.$RefExt.$ord;}
-    # if the direct footnote osisID doesn't exist, we need to find the one the text is refering to!
     my $fnOsisIdsP = &getRangeFootnoteOsisIds($osisRef);
     if (@{$fnOsisIdsP} && @{$fnOsisIdsP}[0]) {
       if ($ordUnspecified && @{$fnOsisIdsP} > 1) {
