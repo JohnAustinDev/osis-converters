@@ -385,16 +385,30 @@ sub addFootnoteLinks2TextNode($$) {
   
     # Target footnote's osisRef address: (must be either "this verse", or else discovered via a reference element, or a FIX)
     my $osisRef; 
-    my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
+    my @haveRef = &previousAdjacentReference($textNode);
     if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $osisRef = @haveRef[0]->getAttribute('osisRef');
       $osisRef =~ s/^([^:]*)://;
       if ($1) {$refMod = $1;}
       if (!$osisRef) {
-        &Log("ERROR $BK.$CH.$VS: verse reference has no osisRef: ".@haveRef[0]."\n");
+        &Log("ERROR $BK.$CH.$VS: Footnote reference has no osisRef: ".@haveRef[0]." before \"$beg$term\"\n");
         next;
       }
       $refType = 'ref';
+      
+      # warn if there are preceeding back-to-back Scripture reference(s)
+      my @warnref = &previousAdjacentReference(@haveRef[0]);
+      if (@warnref && @warnref[0]) {
+        my $txt = @haveRef[0]->toString();
+        do {
+          $txt = @warnref[0]->toString().$txt;
+          @warnref = &previousAdjacentReference(@warnref[0]);
+        }
+        while (@warnref && @warnref[0]);
+        $txt .= $beg.$term;
+        $txt =~ s/<[^>]*>//g;
+        &Log("WARNING $BK.$CH.$VS: Footnote target reference is directly preceeded by another reference. If \"$txt\" refers to any footnote(s) outside of \"".@haveRef[0]->getAttribute('osisRef')."\" these footnotes HAVE NOT BEEN LINKED!\n");
+      }
     }
     elsif ($beg =~ /($currentVerseTerms)($suffixTerms)*(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $osisRef = "$BK.$CH.$VS";
@@ -547,6 +561,15 @@ sub addFootnoteLinks2TextNode($$) {
   return $text;
 }
 
+sub previousAdjacentReference($) {
+  my $node = shift;
+  my @r = $XPC->findnodes('preceding-sibling::node()[1]', $node);
+  
+  if (!@r || !@r[0] || @r[0]->nodeName ne "reference") {@r = ();}
+  
+  return @r;
+}
+
 # Returns 0 on error, or else an existing footnote osisID which 
 # corresponds to the requested ordinal abbreviation, osisRef and textNode.
 # The $ord may be empty which means default (1)
@@ -569,7 +592,7 @@ sub convertOrdinal($$$$$) {
     my $fnOsisIdsP = &getRangeFootnoteOsisIds($osisRef);
     if (@{$fnOsisIdsP} && @{$fnOsisIdsP}[0]) {
       if ($ordUnspecified && @{$fnOsisIdsP} > 1) {
-        my @haveRef = $XPC->findnodes('preceding::*[1][self::osis:reference]', $textNode);
+        my @haveRef = &previousAdjacentReference($textNode);
         my $prevr = (@haveRef && @haveRef[0] ? @haveRef[0]->toString():'');
         my $txt = "$prevr$textNode"; $txt =~ s/<[^>]*>//g;
         &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference \"$osisRef\" contains \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text \"$txt\".\n");
