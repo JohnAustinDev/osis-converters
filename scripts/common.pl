@@ -2337,6 +2337,11 @@ sub updateWorkElement($\%$) {
       $work->insertAfter($XML_PARSER->parse_balanced_chunk($type), NULL);
     }
   }
+  
+  # add refSystem field
+  if ($confP->{'Versification'} && !@{$XPC->findnodes('./*[local-name()="refSystem"]', $work)}) {
+    $work->insertAfter($XML_PARSER->parse_balanced_chunk("<refSystem>Bible.".$confP->{'Versification'}."</refSystem>"), NULL);
+  }
 
   my $w = $work->toString(); 
   $w =~ s/\n//g;

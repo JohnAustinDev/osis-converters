@@ -43,9 +43,14 @@
 #       everything is searched.
 #   SKIP_INTRODUCTIONS - Boolean. If true, introductions are skipped.
 #   FIX - Used to fix a problematic reference. Each instance has the 
-#       form: LOCATION='book.ch.vs' AT='ref-text' and either 
-#       TARGET='osisID|NONE' or REPLACEMENT='exact-replacement'
-#       If TARGET is NONE, there will be no reference link at all.
+#       form: LOCATION='book.ch.vs' AT='ref-text' and REPLACEMENT=
+#       'exact-replacement'. If REPLACEMENT is SKIP, there will be no 
+#        reference link at all.
+#   STOP_REFERENCE - A Perl regular expression matching text of 
+#        back-to-back Scripture references, left of which, refs will no  
+#        longer refer to footnotes. For instance: 'See verses 16:7-14 
+#        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
+#        disassociate the left ref from footnote association.
 
 $RefStart = "<reference type=\"x-footnote\" osisRef=\"TARGET\">";
 $RefEnd = "</reference>";
@@ -54,7 +59,8 @@ $RefExt = "!footnote.n";
 require("$SCRD/scripts/processGlossary.pl");
 
 %OSISID_FOOTNOTE;
-%VERSE_OSISIDS;
+%VERSE_FOOTNOTE_IDS;
+%FNL_MODULE_VERSE_SYSTEMS;
 %FNL_FIX;
 %TERM_ORDINAL;
 %FNL_STATS;
@@ -74,6 +80,7 @@ sub addFootnoteLinks($$) {
   $commonTerms = '';
   $currentVerseTerms = '';
   $suffixTerms = '';
+  $stopreference = '';
   my $commandFile = "$INPD/CF_addFootnoteLinks.txt";
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
@@ -99,7 +106,7 @@ sub addFootnoteLinks($$) {
         my $location = $1;
         if ($fix !~ s/\bAT='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find AT='reference text' in FIX statement: $_\n"); next;}
         my $at = $1; $at =~ s/\\'/'/g;
-        if ($fix !~ s/\b(TARGET|REPLACEMENT)='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find TARGET='book.ch.vs!footnote.nx' or REPLACEMENT='exact-replacement' in FIX statement: $_\n"); next;}
+        if ($fix !~ s/\b(REPLACEMENT)='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find REPLACEMENT='exact-replacement' in FIX statement: $_\n"); next;}
         my $type = $1; my $value = $2;
         $FNL_FIX{$location}{$at} = "$type:$value";
         next;
@@ -111,6 +118,7 @@ sub addFootnoteLinks($$) {
       elsif ($_ =~ /^COMMON_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$commonTerms = $2;} next;}
       elsif ($_ =~ /^CURRENT_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentVerseTerms = $2;} next;}
       elsif ($_ =~ /^SUFFIXES:(\s*\((.*?)\)\s*)?$/) {if ($1) {$suffixTerms = $2;} next;}
+      elsif ($_ =~ /^STOP_REFERENCE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$stopreference = $2;} next;}
       #elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
       else {
         &Log("ERROR: \"$_\" in command file was not handled.\n");
@@ -132,13 +140,19 @@ sub addFootnoteLinks($$) {
       my @files = &splitOSIS($cosisFile);
       foreach my $file (@files) {
         my $cosisXml = $XML_PARSER->parse_file($file);
+        my $mod; my $vsys;
+        if ($file =~ /other\.osis$/) {
+          $mod = @{$XPC->findnodes('//osis:osisText', $xmls{$file})}[0]->getAttribute('osisIDWork');
+          $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$mod']/osis:refSystem", $xmls{$file})}[0]->textContent();
+          $vsys =~ s/^Bible.//;
+          $FNL_MODULE_VERSE_SYSTEMS{$mod} = $vsys;
+        }
         my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
         foreach my $fn (@fns) {
           my $id = $fn->getAttribute('osisID');
-          my $comp = $ConfEntryP->{'Companion'};
-          if ($id !~ /^\Q$comp\E:/) {$id = "$comp:$id";}
+          if ($id !~ /^\Q$mod\E:/) {$id = "$mod:$id";}
           $OSISID_FOOTNOTE{$id}++;
-          &recordVersesOfFootnote($fn);
+          &recordVersesOfFootnote($fn, '', $mod);
         }
       }
     }
@@ -151,15 +165,22 @@ sub addFootnoteLinks($$) {
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
   
   my @files = &splitOSIS($in_file);
-  my %xmls; 
+  my %xmls;
+  my $myMod;
   foreach my $file (@files) {
     $xmls{$file} = $XML_PARSER->parse_file($file);
+    if ($file =~ /other\.osis$/) {
+      $myMod = @{$XPC->findnodes('//osis:osisText', $xmls{$file})}[0]->getAttribute('osisIDWork');
+      $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$myMod']/osis:refSystem", $xmls{$file})}[0]->textContent();
+      $vsys =~ s/^Bible.//;
+      $FNL_MODULE_VERSE_SYSTEMS{$mod} = $vsys;
+    }
   }
   foreach my $file (sort keys %xmls) {
-    &footnoteXML($xmls{$file}); # Do this first to collect/write all footnote osisID values before processing
+    &footnoteXML($xmls{$file}, $myMod); # Do this first to collect/write all footnote osisID values before processing
   }
   foreach my $file (sort keys %xmls) {
-    &processXML($xmls{$file});
+    &processXML($xmls{$file}, $myMod);
     open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
     print OUTF $xmls{$file}->toString();
     close(OUTF);
@@ -201,8 +222,9 @@ sub addFootnoteLinks($$) {
 
 }
 
-sub footnoteXML($) {
+sub footnoteXML($$) {
   my $xml = shift;
+  my $footnoteModuleName = shift;
   
   # add osisIDs to every footnote
   my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
@@ -228,20 +250,21 @@ sub footnoteXML($) {
     # determine the coverage of footnote.
     
     my $n = 1;
-    $id = "$osisID$RefExt$n";
-    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$osisID$RefExt$n";}
+    $id = "$footnoteModuleName:$osisID$RefExt$n";
+    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$footnoteModuleName:$osisID$RefExt$n";}
     $OSISID_FOOTNOTE{$id}++;
-    $f->setAttribute('osisID', $id);
+    $f->setAttribute('osisID', "$osisID$RefExt$n");
     
-    if ($bibleContext) {&recordVersesOfFootnote($f, $bibleContext);}
+    if ($bibleContext) {&recordVersesOfFootnote($f, $bibleContext, $footnoteModuleName);}
   }
 }
 
 # Record each separate verse of a footnote's context and annotateRef. 
 # This allows verse -> footnote lookup
-sub recordVersesOfFootnote($$) {
+sub recordVersesOfFootnote($$$) {
   my $f = shift;
   my $bibleContext = shift;
+  my $footnoteModuleName = shift;
   
   if (!$bibleContext) {$bibleContext = &bibleContext($f, 1);}
   if (!$bibleContext) {return;}
@@ -256,30 +279,32 @@ sub recordVersesOfFootnote($$) {
       # points to verses outside this link, these are ignored.
       my @annotateRef = $XPC->findnodes('.//osis:reference[@type="annotateRef"][1]', $f);
       if (@annotateRef && @annotateRef[0]) {
-        if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&Log("ERROR footnoteXML: Bad verse \"$verse\"!\n"); next;}
+        if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&Log("ERROR recordVersesOfFootnote: Bad verse \"$verse\"!\n"); next;}
         my $chv = $1; my $vsv = $2;
         my $ar = @annotateRef[0]->textContent;
         if ($ar =~ /^((\d+):)?(\d+)(\-(\d+))?$/) {
           my $ch = $2; my $v1 = $3; my $v2 = $5;
           if (!$v2) {$v2 = $v1;}
           if ($ch && $ch ne $chv) {
-            &Log("ERROR footnoteXML: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
+            &Log("ERROR recordVersesOfFootnote: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
           }
           if ($vsv < $v1 || $vsv > $v2) {
-            &Log("NOTE footnoteXML: Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
+            &Log("NOTE recordVersesOfFootnote: Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
             next;
           }
         }
-        else {&Log("ERROR footnoteXML: Unexpected annotateRef \"$ar\"!\n");}
+        else {&Log("ERROR recordVersesOfFootnote: Unexpected annotateRef \"$ar\"!\n");}
       }
     }
-    if (!exists($VERSE_OSISIDS{$verse})) {$VERSE_OSISIDS{$verse} = ();}
-    push(@{$VERSE_OSISIDS{$verse}}, $f->getAttribute('osisID'));
+    my $key = $footnoteModuleName.':'.$verse;
+    if (!exists($VERSE_FOOTNOTE_IDS{$key})) {$VERSE_FOOTNOTE_IDS{$key} = ();}
+    push(@{$VERSE_FOOTNOTE_IDS{$key}}, $footnoteModuleName.':'.$f->getAttribute('osisID'));
   }
 }
 
-sub processXML($) {
+sub processXML($$) {
   my $xml = shift;
+  my $myMod = shift;
 
   # get every text node
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
@@ -287,7 +312,7 @@ sub processXML($) {
   # apply text node filters and process desired text-nodes
   my %nodeInfo;
   foreach my $textNode (@allTextNodes) {
-    if ($textNode =~ /^\s*$/) {next;}
+    if ($textNode->data() =~ /^\s*$/) {next;}
     if ($XPC->findnodes('ancestor::osis:header|ancestor::osis:reference', $textNode)) {next;}
     if ($only_xpath) {
       my @only = $XPC->findnodes($only_xpath, $textNode);
@@ -324,7 +349,7 @@ sub processXML($) {
 
     if ($intro && $skipintros) {next;}
     
-    my $text = &addFootnoteLinks2TextNode($textNode, $xml);
+    my $text = &addFootnoteLinks2TextNode($textNode, $xml, $myMod);
    
     # save changes for later (to avoid messing up line numbers)
     if ($text) {
@@ -353,9 +378,10 @@ sub stat($) {
 # 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH 
 #    EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
-sub addFootnoteLinks2TextNode($$) {
+sub addFootnoteLinks2TextNode($$$) {
   my $textNode = shift;
   my $xml = shift;
+  my $myMod = shift;
   
   if ($textNode->data() !~ /\b($footnoteTerms)($suffixTerms)*\b/i) {return '';}
   
@@ -365,13 +391,15 @@ sub addFootnoteLinks2TextNode($$) {
   my %refInfo;
   my $keyRefInfo = 1;
   my $skipSanityCheck = 0;
+  
+MAIN_LOOP:
   while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
     my $beg = $1;
     my $term = "$RefStart$2$RefEnd";
     my $end = $5;
     
     my $refType;
-    my $refMod = $MOD;
+    my $skipTargetReplacement = 0;
     
     # Work backwards from our term to discover...
     # Ordinal:
@@ -383,36 +411,31 @@ sub addFootnoteLinks2TextNode($$) {
       $ordinal = $TERM_ORDINAL{$ordinalTermKey};
     }
   
-    # Target footnote's osisRef address: (must be either "this verse", or else discovered via a reference element, or a FIX)
-    my $osisRef; 
-    my @haveRef = &previousAdjacentReference($textNode);
-    if (@haveRef && @haveRef[0] && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
-      $osisRef = @haveRef[0]->getAttribute('osisRef');
-      $osisRef =~ s/^([^:]*)://;
-      if ($1) {$refMod = $1;}
-      if (!$osisRef) {
-        &Log("ERROR $BK.$CH.$VS: Footnote reference has no osisRef: ".@haveRef[0]." before \"$beg$term\"\n");
-        next;
-      }
+    # Target footnote's osisRef addresses: (must be either "this verse", or else discovered via back-to-back reference elements, or a FIX)
+    my @osisRefs = ();
+    my $haveRef = &previousAdjacentReference($textNode);
+    if ($haveRef && $beg =~ /^(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
       $refType = 'ref';
-      
-      # warn if there are preceeding back-to-back Scripture reference(s)
-      my @warnref = &previousAdjacentReference(@haveRef[0]);
-      if (@warnref && @warnref[0]) {
-        my $txt = @haveRef[0]->toString();
-        do {
-          $txt = @warnref[0]->toString().$txt;
-          @warnref = &previousAdjacentReference(@warnref[0]);
-        }
-        while (@warnref && @warnref[0]);
-        $txt .= $beg.$term;
-        $txt =~ s/<[^>]*>//g;
-        &Log("WARNING $BK.$CH.$VS: Footnote target reference is directly preceeded by another reference. If \"$txt\" refers to any footnote(s) outside of \"".@haveRef[0]->getAttribute('osisRef')."\" these footnotes HAVE NOT BEEN LINKED!\n");
+      my $bbrefs = "";
+      do {
+        $bbrefs = $haveRef->toString().$bbrefs;
+        my $nr = &previousAdjacentReference($haveRef);
+        $haveRef = $nr;
+      } while ($haveRef);
+      my $orig = $bbrefs;
+      if ($bbrefs =~ s/^.*$stopreference//) {
+        $orig =~ s/<[^>]*>//g; my $new = $bbrefs; $new =~ s/<[^>]*>//g;
+        &Log("NOTE: $BK.$CH.$VS: STOP_REFERENCE shortened reference from \"$orig\" to \"$new\"\n");
+      }
+      while ($bbrefs =~ s/^.*?osisRef="([^"]*)"//) {
+        my $a = $1;
+        if ($a !~ /^\w+\:/) {$a = "$myMod:$a";}
+        push(@osisRefs, $a);
       }
     }
     elsif ($beg =~ /($currentVerseTerms)($suffixTerms)*(($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)*$/i) {
-      $osisRef = "$BK.$CH.$VS";
       $refType = 'self';
+      push(@osisRefs, "$myMod:$BK.$CH.$VS");
     }
     # FIX implementation...
     elsif (exists($FNL_FIX{"$BK.$CH.$VS"})) {
@@ -420,36 +443,26 @@ sub addFootnoteLinks2TextNode($$) {
         if ($FNL_FIX{"$BK.$CH.$VS"}{$t} eq 'done') {next;}
         if ("$beg$term" =~ /\Q$t\E/) {
           my $value = $FNL_FIX{"$BK.$CH.$VS"}{$t};
-          if ($value !~ s/^(TARGET|REPLACEMENT)://) {
+          if ($value !~ s/^REPLACEMENT://) {
             &Log("ERROR $BK.$CH.$VS: FIX Bad command value \"$value\"\n");
             next;
           }
           my $type = $1;
           
-          # TARGET was given
-          if ($type eq 'TARGET') {
-            $osisRef = $value;
-            if ($osisRef =~ s/^(([^:]*):)?(.*?)\Q$RefExt\E(\d+)$/$3/) {
-              $ordinal = $4;
-              if ($2) {$refMod = $2;}
-            }
-            elsif ($osisRef ne 'NONE') {
-              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - bad Fix TARGET=\"".$osisRef."\"\n");
-              next;
-            }
-          }
-          
           # REPLACEMENT was given
-          else {
-            if ($value =~ /^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b/) { # copied from main while loop, this check is to ensure it does not go endless!
-              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\"!\n");
-              next;
+          if ($type eq 'REPLACEMENT') {
+            if ($value eq 'SKIP') {$skipTargetReplacement = 1;}
+            else {
+              if ($value =~ /^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b/) { # copied from main while loop, this check is to ensure it does not go endless!
+                &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\"!\n");
+                next;
+              }
+              if ($text !~ s/\Q$t\E/$value/) {
+                &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - REPLACEMENT failed!\n");
+                next;
+              }
+              $skipTargetReplacement = 1;
             }
-            if ($text !~ s/\Q$t\E/$value/) {
-              &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - REPLACEMENT failed!\n");
-              next;
-            }
-            $osisRef = 'NONE';
           }
 
           &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
@@ -458,7 +471,7 @@ sub addFootnoteLinks2TextNode($$) {
           last;
         }
       }
-      if (!$osisRef) {
+      if ($FNL_FIX{"$BK.$CH.$VS"}{$t} ne 'done') {
         &Log("ERROR $BK.$CH.$VS: Failed to apply FIX: $beg$term\n");
         next;
       }
@@ -468,20 +481,20 @@ sub addFootnoteLinks2TextNode($$) {
       next;
     }
     
-    # Now, other associated ordinal terms become separate links to the same base osisRef, but with different extensions
-    if ($osisRef ne 'NONE' && $beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
+    # Now, other associated ordinal terms become separate links to the same base osisRefs, but with different extensions
+    if (!$skipTargetReplacement && $beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
       my $terms = $1;
       my $initialTerms = $terms;
       while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
         my $ordTermKey = $2;
         
-        my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, ($refMod ne $MOD ? $refMod:''), $osisRef, $textNode, $xml);
+        my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, \@osisRefs, $textNode, $myMod, $xml);
         if ($osisID) {
           $terms =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
           $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
         }
         else {
-          &Log("ERROR: $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef=$osisRef, textNode=$textNode\n");
+          &Log("ERROR: $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef ".join(' ', @osisRefs).", textNode=".$textNode->data()."\n");
         }
       }
       if ($terms ne $initialTerms) {
@@ -494,23 +507,27 @@ sub addFootnoteLinks2TextNode($$) {
         }
       }
     }
-    
-    my $osisID;
-    if ($osisRef ne 'NONE') {
-      $osisID = &convertOrdinal($ordinal, ($refMod ne $MOD ? $refMod:''), $osisRef, $textNode, $xml);
-    }
-    
-    if ($osisRef eq 'NONE') {
-      $skipSanityCheck = 1;
-    }
-    elsif ($osisID) {
-      $text =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
-      $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
+   
+    if (!$skipTargetReplacement) {
+      my $osisID = &convertOrdinal($ordinal, \@osisRefs, $textNode, $myMod, $xml);
+      if ($osisID) {
+        $text =~ s/\bTARGET\b/$keyRefInfo=$osisID/;
+        $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
+      }
+      else {
+        &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRefs ".join(' ', @osisRefs).", textNode=".$textNode->data()."\n");
+      }
     }
     else {
-      &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRef=$osisRef, textNode=$textNode\n");
+      $skipSanityCheck = 1;
+      my $c = 0;
+      while ($text =~ s/(\bosisRef=")(?!\d+=)([^"]*")(\b.*?)$/$1$keyRefInfo=$2$3/) {
+        $c++;
+        my $or = $2; if ($or =~ /\Q$RefExt\E(\d+)"/) {$or = $1;} else {$or = "?";}
+        $refInfo{$keyRefInfo++} = "$refType-".($c == 1 ? 'single':'multi')."-$or";
+      }
     }
-    
+     
     if (!$skipSanityCheck && $text =~ /\b(TARGET)\b/) {
       &Log("ERROR $BK.$CH.$VS: Footnote link problem: $text\n");
     }
@@ -561,26 +578,30 @@ sub addFootnoteLinks2TextNode($$) {
   return $text;
 }
 
+# Returns the previous adjacent reference element if there is one, or else ''
 sub previousAdjacentReference($) {
   my $node = shift;
+  
+  if (!$node) {return '';}
+  
   my @r = $XPC->findnodes('preceding-sibling::node()[1]', $node);
   
-  if (!@r || !@r[0] || @r[0]->nodeName ne "reference") {@r = ();}
+  if (@r && @r[0] && @r[0]->nodeName eq "reference") {return @r[0];}
   
-  return @r;
+  return '';
 }
 
-# Returns 0 on error, or else an existing footnote osisID which 
-# corresponds to the requested ordinal abbreviation, osisRef and textNode.
-# The $ord may be empty which means default (1)
-sub convertOrdinal($$$$$) {
+# Returns 0 on failure, or else it returns a single footnote's MOD:osisID
+# of an existing footnote. This footnote corresponds to the requested 
+# ordinal-abbreviation and osisRef-list or textNode (textNode in case of 
+# prev/next ordinals). The $ord may be empty which is interepereted as 
+# unspecified first (ordinal 1).
+sub convertOrdinal($\@$$$) {
   my $ord = shift;
-  my $refMod = shift;
-  my $osisRef = shift;
-  my $textNode = shift;
+  my $osisRefsP = shift; # ordered array of osisRefs, each beginning with module:
+  my $textNode = shift; # required for prev and next ordinals since they apply to self
+  my $textMod = shift; # required for prev and next ordinals since they apply to self
   my $xml = shift;
-  
-  if ($refMod) {$refMod .= ':';}
   
   my $ordUnspecified = 0;
   if (!$ord) {
@@ -588,54 +609,48 @@ sub convertOrdinal($$$$$) {
     $ordUnspecified = 1;
   }
   
-  if ($ord =~ /^\d+$/) {
-    my $fnOsisIdsP = &getRangeFootnoteOsisIds($osisRef);
-    if (@{$fnOsisIdsP} && @{$fnOsisIdsP}[0]) {
-      if ($ordUnspecified && @{$fnOsisIdsP} > 1) {
-        my @haveRef = &previousAdjacentReference($textNode);
-        my $prevr = (@haveRef && @haveRef[0] ? @haveRef[0]->toString():'');
-        my $txt = "$prevr$textNode"; $txt =~ s/<[^>]*>//g;
-        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference \"$osisRef\" contains \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text \"$txt\".\n");
+  if ($ord =~ /^\d+$/ || $ord eq 'last') {
+    my $fnOsisIdsP = &getFootnotes($osisRefsP);
+    
+    if (!@{$fnOsisIdsP} || !@{$fnOsisIdsP}[0]) {
+      &Log("ERROR $BK.$CH.$VS: The text targets a footnote in osisRefs \"".join(' ', @{$osisRefsP})."\" but there are no footnotes there!\n");
+      return 0;
+    }
+
+    if ($ord eq 'last') {
+      if (@{$fnOsisIdsP} == 1) {
+        &Log("ERROR $BK.$CH.$VS: The 'last' ordinal was used for osisRefs \"".join(' ', @{$osisRefsP})."\" which contain only one footnote. This doesn't make sense.\n");
       }
-      if (@{$fnOsisIdsP}[($ord-1)]) {return $refMod.@{$fnOsisIdsP}[($ord-1)];}
-      else {
-        &Log("ERROR $BK.$CH.$VS: The text targets footnote \"$ord\" of osisRef=\"$osisRef\" but such a footnote does not exist!\n");
-      }
+      return @{$fnOsisIdsP}[$#{$fnOsisIdsP}];
     }
     else {
-      &Log("ERROR $BK.$CH.$VS: The text targets a footnote in osisRef=\"$osisRef\" but there are no footnotes there!\n");
-    }
-  }
-  elsif ($ord eq 'last') {
-    my $n = 1;
-    my $id = $refMod.$osisRef.$RefExt.$n;
-    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $refMod.$osisRef.$RefExt.$n;}
-    $n--;
-    if ($n < 2) {
-      # if this osisRef is compound, then we need to sequentially reverse search each component
-      my $refArrayP = &osisRefSegment2array($osisRef);
-      if (@{$refArrayP} > 1) {
-        for (my $i=(@{$refArrayP}-1); $i>=0; $i--) {
-          my $n = 1;
-          my $id = $refMod.@{$refArrayP}[$i].$RefExt.$n;
-          while ($OSISID_FOOTNOTE{$id}) {$n++; $id = $refMod.@{$refArrayP}[$i].$RefExt.$n;}
-          $n--;
-          if ($n) {return $refMod.@{$refArrayP}[$i].$RefExt.$n;}
+      if ($ordUnspecified && @{$fnOsisIdsP} > 1) {
+        my $txt = $textNode->data();
+        my $haveRef = &previousAdjacentReference($textNode);
+        while ($haveRef) {
+          $txt = $haveRef->toString().$txt;
+          my $nr = &previousAdjacentReference($haveRef);
+          $haveRef = $nr;
         }
+        $txt =~ s/<[^>]*>//g;
+        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference(s) \"".join(' ', @{$osisRefsP})."\" contain(s) \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text \"$txt\".\n");
       }
-      else {
-        &Log("ERROR $BK.$CH.$VS: The 'last' ordinal was used for osisRef=\"$osisRef\" having \"$n\" footnote(s). This doesn't make sense.\n");
+      if (!@{$fnOsisIdsP}[($ord-1)]) {
+        &Log("ERROR $BK.$CH.$VS: The text targets footnote \"$ord\" of osisRefs \"".join(' ', @{$osisRefsP})."\" but such a footnote does not exist!\n");
+        return 0;
       }
+      return @{$fnOsisIdsP}[($ord-1)];
     }
-    return $refMod.$osisRef.$RefExt.$n;
   }
+  
+  # Assumes prev/next will always be in the same verse! These are always relative to textNode's footnote, so @osisRefs are ignored
   elsif ($ord eq 'prev') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
     if ($osisID && $osisID =~ /^(.*?)\Q$RefExt\E(\d+)$/) {
       my $pref = $1;
       my $pord = $2;
       $pord--;
-      my $nid = $refMod.$pref.$RefExt.$pord;
+      my $nid = $textMod.':'.$pref.$RefExt.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
       }
@@ -648,7 +663,7 @@ sub convertOrdinal($$$$$) {
       my $pref = $1;
       my $nord = $2;
       $nord++;
-      my $nid = $refMod.$pref.$RefExt.$nord;
+      my $nid = $textMod.':'.$pref.$RefExt.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
       }
@@ -676,43 +691,49 @@ sub getOsisIdOfFootnoteNode($) {
   return @fn[0]->getAttribute('osisID');
 }
 
-# Takes a Scripture osisRef, which may contain a range, and returns 
-# sequential osisIDs of all footnotes contained within the osisRef 
-# target verses. Each footnote will only appear in the list once, even 
-# if there are linked verses.
-sub getRangeFootnoteOsisIds($) {
-  my $osisRef = shift; 
-  my @osisIDs = ();
-  my $versesP = &osisRefSegment2array($osisRef);
-  
-  # Any "verses" which refer to entire chapters need separate verses spliced into the array
-  for (my $i=0; $i<@{$versesP}; $i++) {
-    if (@{$versesP}[$i] !~ /^([^\.]*)\.([^\.]*)$/) {next;}
-    my $bk = $1; my $ch = $2;
+# Takes an array of Scripture mod:osisRefs, whose elements may contain 
+# ranges, and returns sequential osisIDs of all footnotes contained 
+# within each osisRef. Each footnote will only appear in the list once, 
+# even if there are linked verses etc..
+sub getFootnotes($) {
+  my $osisRefsP = shift;
+
+  my @verses = (); # verses (in order but duplicates are ok) referred to by osisRefs
+  foreach my $or (@{$osisRefsP}) {
+    my $osisRef = $or;
+    my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
+    my $ap = &osisRefSegment2array($osisRef);
+    foreach my $a (@{$ap}) {push(@verses, "$m:$a");}
+  }
+
+  # Any "verses" which refer to entire chapters (ie John.3) need separate actual verses spliced into the array
+  for (my $i=0; $i<@verses; $i++) {
+    if (@verses[$i] !~ /^(\w*):([^\.]*)\.([^\.]*)$/) {next;}
+    my $mod = $1; my $bk = $2; my $ch = $3;
     my ($canonP, $bookOrderP, $bookArrayP);
-    &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+    &getCanon($FNL_MODULE_VERSE_SYSTEMS{$mod}, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
     my @a;
     for (my $vs = 0; $vs <= $canonP->{$bk}->[$ch-1]; $vs++) { # 0 includes chapter intro (for Pslams esp.)
-      push(@a, "$bk.$ch.$vs");
+      push(@a, "$mod:$bk.$ch.$vs");
     }
-    splice(@{$versesP}, $i, 1, @a);
+    splice(@verses, $i, 1, @a);
     $i = $i-1+@a;
   }
-  
-  # Due to linked verses, the same footnote might appear in more than 
-  # one verse. But linked verses will share the same footnotes and each 
-  # of those footnotes will never appear outside the linked verses.
-  my $lastID;
-  foreach $verse (@{$versesP}) {
-    my $verseOsisIDsP = $VERSE_OSISIDS{$verse};
-    if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {
-      if (@{$verseOsisIDsP}[0] ne $lastID) {
-        push(@osisIDs, @{$verseOsisIDsP});
-      }
-      $lastID = @{$verseOsisIDsP}[0];
-    }
+
+  my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)
+  foreach $verse (@verses) {
+    my $verseOsisIDsP = $VERSE_FOOTNOTE_IDS{$verse};
+    if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
   }
-  
+
+  # Due to linked verses, or other possibilities, the same footnote might 
+  # appear more than once in osisIDs list. So remove any duplicate footnotes.
+  my %ids;
+  for (my $i=0; $i < @osisIDs; $i++) {
+    if (!$ids{@osisIDs[$i]}) {$ids{@osisIDs[$i]}++; next;}
+    splice(@osisIDs, $i--, 1);
+  }
+ 
   return \@osisIDs;
 }
 
