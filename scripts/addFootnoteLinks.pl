@@ -289,7 +289,7 @@ sub recordVersesOfFootnote($$$) {
             &Log("ERROR recordVersesOfFootnote: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
           }
           if ($vsv < $v1 || $vsv > $v2) {
-            &Log("NOTE recordVersesOfFootnote: Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
+            &Log("NOTE: recordVersesOfFootnote Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
             next;
           }
         }
@@ -392,7 +392,6 @@ sub addFootnoteLinks2TextNode($$$) {
   my $keyRefInfo = 1;
   my $skipSanityCheck = 0;
   
-MAIN_LOOP:
   while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
     my $beg = $1;
     my $term = "$RefStart$2$RefEnd";
@@ -400,6 +399,7 @@ MAIN_LOOP:
     
     my $refType;
     my $skipTargetReplacement = 0;
+    my $skipFixIndexing = 0;
     
     # Work backwards from our term to discover...
     # Ordinal:
@@ -443,7 +443,7 @@ MAIN_LOOP:
         if ($FNL_FIX{"$BK.$CH.$VS"}{$t} eq 'done') {next;}
         if ("$beg$term" =~ /\Q$t\E/) {
           my $value = $FNL_FIX{"$BK.$CH.$VS"}{$t};
-          if ($value !~ s/^REPLACEMENT://) {
+          if ($value !~ s/^(REPLACEMENT)://) {
             &Log("ERROR $BK.$CH.$VS: FIX Bad command value \"$value\"\n");
             next;
           }
@@ -451,7 +451,11 @@ MAIN_LOOP:
           
           # REPLACEMENT was given
           if ($type eq 'REPLACEMENT') {
-            if ($value eq 'SKIP') {$skipTargetReplacement = 1;}
+            if ($value eq 'SKIP') {
+              $skipTargetReplacement = 1;
+              $skipFixIndexing = 1;
+              $skipSanityCheck = 1;
+            }
             else {
               if ($value =~ /^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b/) { # copied from main while loop, this check is to ensure it does not go endless!
                 &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\"!\n");
@@ -462,6 +466,7 @@ MAIN_LOOP:
                 next;
               }
               $skipTargetReplacement = 1;
+              $skipSanityCheck = 1;
             }
           }
 
@@ -470,10 +475,6 @@ MAIN_LOOP:
           $FNL_FIX{"$BK.$CH.$VS"}{$t} = 'done';
           last;
         }
-      }
-      if ($FNL_FIX{"$BK.$CH.$VS"}{$t} ne 'done') {
-        &Log("ERROR $BK.$CH.$VS: Failed to apply FIX: $beg$term\n");
-        next;
       }
     }
     else {
@@ -518,10 +519,9 @@ MAIN_LOOP:
         &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRefs ".join(' ', @osisRefs).", textNode=".$textNode->data()."\n");
       }
     }
-    else {
-      $skipSanityCheck = 1;
+    elsif (!$skipFixIndexing) {
       my $c = 0;
-      while ($text =~ s/(\bosisRef=")(?!\d+=)([^"]*")(\b.*?)$/$1$keyRefInfo=$2$3/) {
+      while ($text =~ s/(\bosisRef=")(?!\d+=)([^"]*")(.*?)$/$1$keyRefInfo=$2$3/) {
         $c++;
         my $or = $2; if ($or =~ /\Q$RefExt\E(\d+)"/) {$or = $1;} else {$or = "?";}
         $refInfo{$keyRefInfo++} = "$refType-".($c == 1 ? 'single':'multi')."-$or";
@@ -700,7 +700,7 @@ sub getFootnotes($) {
 
   my @verses = (); # verses (in order but duplicates are ok) referred to by osisRefs
   foreach my $or (@{$osisRefsP}) {
-    my $osisRef = $or;
+    my $osisRef = $or; # never modify array pointer value $or!
     my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
     my $ap = &osisRefSegment2array($osisRef);
     foreach my $a (@{$ap}) {push(@verses, "$m:$a");}
