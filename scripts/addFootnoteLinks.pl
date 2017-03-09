@@ -138,21 +138,25 @@ sub addFootnoteLinks($$) {
     my $cosisFile = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
     if (-e $cosisFile) {
       my @files = &splitOSIS($cosisFile);
+      my $cmod; my $vsys;
+      foreach my $file (@files) {
+        if ($file !~ /other\.osis$/) {next;}
+        my $cosisXml = $XML_PARSER->parse_file($file);
+        $cmod = @{$XPC->findnodes('//osis:osisText', $cosisXml)}[0]->getAttribute('osisIDWork');
+        $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$cmod']/osis:refSystem", $cosisXml)}[0]->textContent();
+        $vsys =~ s/^Bible.//;
+        $FNL_MODULE_VERSE_SYSTEMS{$cmod} = $vsys;
+        last;
+      }
       foreach my $file (@files) {
         my $cosisXml = $XML_PARSER->parse_file($file);
-        my $mod; my $vsys;
-        if ($file =~ /other\.osis$/) {
-          $mod = @{$XPC->findnodes('//osis:osisText', $xmls{$file})}[0]->getAttribute('osisIDWork');
-          $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$mod']/osis:refSystem", $xmls{$file})}[0]->textContent();
-          $vsys =~ s/^Bible.//;
-          $FNL_MODULE_VERSE_SYSTEMS{$mod} = $vsys;
-        }
         my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
         foreach my $fn (@fns) {
-          my $id = $fn->getAttribute('osisID');
-          if ($id !~ /^\Q$mod\E:/) {$id = "$mod:$id";}
+          my $id = $cmod.':'.$fn->getAttribute('osisID');
           $OSISID_FOOTNOTE{$id}++;
-          &recordVersesOfFootnote($fn, '', $mod);
+          my $bc = &bibleContext($fn, 1);
+          if ($bc) {&recordVersesOfFootnote($fn, $bc, $cmod);}
+          else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in companion \"$cmod\".\n");}
         }
       }
     }
@@ -173,7 +177,7 @@ sub addFootnoteLinks($$) {
       $myMod = @{$XPC->findnodes('//osis:osisText', $xmls{$file})}[0]->getAttribute('osisIDWork');
       $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$myMod']/osis:refSystem", $xmls{$file})}[0]->textContent();
       $vsys =~ s/^Bible.//;
-      $FNL_MODULE_VERSE_SYSTEMS{$mod} = $vsys;
+      $FNL_MODULE_VERSE_SYSTEMS{$myMod} = $vsys;
     }
   }
   foreach my $file (sort keys %xmls) {
@@ -266,7 +270,6 @@ sub recordVersesOfFootnote($$$) {
   my $bibleContext = shift;
   my $footnoteModuleName = shift;
   
-  if (!$bibleContext) {$bibleContext = &bibleContext($f, 1);}
   if (!$bibleContext) {return;}
   
   my $c = $bibleContext; $c =~ s/^([^\.]*)\..*$/$1/; if ($c ne $AFL_LC) {&Log("recordVersesOfFootnote() \"$c\"\n", 2);} $AFL_LC = $c;
@@ -423,7 +426,7 @@ sub addFootnoteLinks2TextNode($$$) {
         $haveRef = $nr;
       } while ($haveRef);
       my $orig = $bbrefs;
-      if ($bbrefs =~ s/^.*$stopreference//) {
+      if ($stopreference && $bbrefs =~ s/^.*$stopreference//) {
         $orig =~ s/<[^>]*>//g; my $new = $bbrefs; $new =~ s/<[^>]*>//g;
         &Log("NOTE: $BK.$CH.$VS: STOP_REFERENCE shortened reference from \"$orig\" to \"$new\"\n");
       }
