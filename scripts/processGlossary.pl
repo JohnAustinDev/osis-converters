@@ -60,9 +60,8 @@ sub aggregateRepeatedEntries($) {
         if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
         
         # get entry's elements, and read glossary title: $title is first <title type="main">
-        my @entry;
         my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
-        my $title = "<title level=\"2\">$n) " . (@titleElem ? @titleElem[0]->textContent:'') . "</title>";
+        my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":"$n) ");
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
@@ -70,8 +69,9 @@ sub aggregateRepeatedEntries($) {
         # top element is self or else highest ancestor which contains no other keywords
         my $top = $dk;
         while (@{$XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $top->parentNode())} == 1) {$top = $top->parentNode();}
+        my @entry;
         push(@entry, $top);
-        my @elements = $XPC->findnodes('./following::node()', $top);
+        my @elements = $XPC->findnodes('./following::*', $top);
         foreach my $e (@elements) {
           # stop on first element that is, or contains, the next keyword, or is not part of the keyword's glossary div
           my @keyword = $XPC->findnodes('./descendant-or-self::osis:seg[@type="keyword"]', $e);
@@ -88,7 +88,7 @@ sub aggregateRepeatedEntries($) {
         
         # peel off any initial container elements from the entry list (these needn't be aggregated)
         if (!@entry[0]->isEqual($dk)) {
-          my @descendants = $XPC->findnodes('./descendant::node()', @entry[0]);
+          my @descendants = $XPC->findnodes('./descendant::*', @entry[0]);
           my $x = 0;
           while ($x < @descendants) {
             if (@descendants[$x]->isEqual($dk)) {last;}
@@ -105,7 +105,7 @@ sub aggregateRepeatedEntries($) {
               $haveKey = $agg;
               $glossDiv->appendChild($agg);
             }
-            $xAggDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));
+            if ($title) {$xAggDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));}
           }
           else {$xAggDiv->appendChild($agg);}
         }
