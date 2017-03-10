@@ -1284,10 +1284,10 @@ sub convertExplicitGlossaryElements(\@) {
     if (@isGlossary) {
       $glossContext = @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent();
       $glossScopeP = &scopeToBooks(&getEntryScope(@tn[0]), $bookOrderP);
-      &addDictionaryLinks(\@tn, $glossContext, $glossScopeP);
+      &addDictionaryLinks(\@tn, 1, $glossContext, $glossScopeP);
     }
     else {
-      &addDictionaryLinks(\@tn);
+      &addDictionaryLinks(\@tn, 1);
     }
     if ($before eq $g->parentNode->toString()) {
       &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n".(@isGlossary ? "\tGlossary Context=$glossContext\n\tGlossary Scope=".join("_", @{$glossScopeP})."\n":'')."\n");
@@ -1302,8 +1302,9 @@ sub convertExplicitGlossaryElements(\@) {
 
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
-sub addDictionaryLinks(\@$\@) {
+sub addDictionaryLinks(\@$$\@) {
   my $eP = shift; # array of nodes (NOTE: node children are not touched)
+  my $isExplicit = shift; # true if the node was marked in the text as a glossary link
   my $entry = shift; # should be NULL if not adding SeeAlso links
   my $glossaryScopeP = shift; # array of books, should be NULL if not adding SeeAlso links
 
@@ -1334,7 +1335,7 @@ sub addDictionaryLinks(\@$\@) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $entry, $glossaryScopeP)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $isExplicit, $entry, $glossaryScopeP)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1350,15 +1351,38 @@ sub addDictionaryLinks(\@$\@) {
 # to the $DWF file, and logs any result. If a match is found, the proper 
 # reference tags are inserted, and the matching pattern is returned. 
 # Otherwise the empty string is returned and the input text is unmodified.
-sub addDictionaryLink(\$$$\@) {
+sub addDictionaryLink(\$$$$\@) {
   my $textP = shift;
   my $textNode = shift;
+  my $isExplicit = shift; # true if the node was marked in the text as a glossary link
   my $entry = shift; # for SeeAlso links only
   my $glossaryScopeP = shift; # for SeeAlso links only
 
   my $matchedPattern = '';
   
-  if (!@MATCHES) {@MATCHES = $XPC->findnodes("//dw:match", $DWF);}
+  # Cache match related info
+  if (!@MATCHES) {
+    my @ms = $XPC->findnodes("//dw:match", $DWF);
+    my @ns = $XPC->findnodes("//dw:name", $DWF);
+    foreach my $m (@ms) {
+      my %minfo;
+      $minfo{'node'} = $m;
+      $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
+      $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
+      $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
+      $minfo{'multiple'} = &attributeIsSet('multiple', $m);
+      $minfo{'context'} = &getAttribute('context', $m);
+      $minfo{'notContext'} = &getAttribute('notContext', $m);
+      $minfo{'notXPATH'} = &getAttribute('notXPATH', $m);
+      $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
+      $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
+      foreach my $n (@ns) {
+        if (!&matchInEntry($m, $n->textContent)) {next;}
+        $minfo{'inEntries'}{$n->textContent}++;
+      }
+      push(@MATCHES, \%minfo);
+    }
+  }
   
   my $context;
   my $multiples_context;
@@ -1377,25 +1401,32 @@ sub addDictionaryLink(\$$$\@) {
   
   my $a;
   foreach my $m (@MATCHES) {
-#@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
+#@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
-    &dbg(sprintf("\nNode(type %s, %s): %s%s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, ($entry ? "\nEntry: $entry":''), $m));
-    if ($entry && &matchInEntry($m, $entry)) {&dbg("00\n"); next;} # never add glossary links to self
-    if (!$contextIsOT && &attributeIsSet('onlyOldTestament', $m)) {&dbg("filtered at 10\n"); next;}
-    if (!$contextIsNT && &attributeIsSet('onlyNewTestament', $m)) {&dbg("filtered at 20\n"); next;}
-    if (!&attributeIsSet('multiple', $m)) {
-      if (@contextNote > 0) {if ($MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
-      elsif ($MULTIPLES{$m->unique_key}) {&dbg("filtered at 40\n"); next;}
+    &dbg(sprintf("\nNode(type %s, %s): %s%s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, ($entry ? "\nEntry: $entry":''), $m->{'node'}));
+    
+    # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
+    if ($isExplicit) {
+      if ($m->{'notExplicit'}) {&dbg("00\n"); next;}
     }
-    if ($a = &getAttribute('context', $m)) {
-      my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($a, $context); my $igc = ($gs ? &myGlossaryContext($a, $glossaryScopeP):0);
-      if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
+    else {
+      if ($entry && $m->{'inEntries'}{$entry}) {&dbg("05\n"); next;} # never add glossary links to self
+      if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
+      if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
+      if (!$m->{'multiple'}) {
+        if (@contextNote > 0) {if ($MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
+        elsif ($MULTIPLES{$m->{'node'}->unique_key}) {&dbg("filtered at 40\n"); next;}
+      }
+      if ($m->{'context'}) {
+        my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($m->{'context'}, $context); my $igc = ($gs ? &myGlossaryContext($m->{'context'}, $glossaryScopeP):0);
+        if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
+      }
+      if ($m->{'notContext'}) {if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}}
+      my @tst = $XPC->findnodes($m->{'notXPATH'}, $textNode);
+      if (@tst && @tst[0]) {&dbg("filtered at 70\n"); next;}
     }
-    if ($a = &getAttribute('notContext', $m)) {if (&myContext($a, $context)) {&dbg("filtered at 60\n"); next;}}
-    my @tst = $XPC->findnodes(&getAttribute('notXPATH', $m), $textNode);
-    if (@tst && @tst[0]) {&dbg("filtered at 70\n"); next;}
         
-    my $p = $m->textContent;
+    my $p = $m->{'node'}->textContent;
     
     if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n"); next;}
     my $pm = $1; my $pf = $2;
@@ -1411,7 +1442,7 @@ sub addDictionaryLink(\$$$\@) {
     my $i = $pf =~ s/i//;
     $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
     if ($i) {$t = &uc2($t);}
-    if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");}
+    if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->{'node'}->textContent."\"");}
    
     # finally do the actual MATCHING...
     &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": $t !~ /$pm/\n"); 
@@ -1428,32 +1459,30 @@ sub addDictionaryLink(\$$$\@) {
     }
     
     &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
-    $matchedPattern = $m->textContent;
+    $matchedPattern = $m->{'node'}->textContent;
     
-    my $osisRef = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
-    my $name = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
-    my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
+    my $attribs = "osisRef=\"".$m->{'osisRef'}."\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
     substr($$textP, $ie, 0, "</reference>");
     substr($$textP, $is, 0, "<reference $attribs>");
     
     # record stats...
-    $EntryHits{$name}++;
+    $EntryHits{$m->{'name'}}++;
     
     my $logContext = $context;
     $logContext =~ s/\..*$//; # keep book/entry only
-    $EntryLink{&decodeOsisRef($osisRef)}{$logContext}++;
+    $EntryLink{&decodeOsisRef($m->{'osisRef'})}{$logContext}++;
     
     my $dict;
-    foreach my $sref (split(/\s+/, $osisRef)) {
+    foreach my $sref (split(/\s+/, $m->{'osisRef'})) {
       if (!$sref) {next;}
       my $e = &osisRef2Entry($sref, \$dict);
       $Replacements{$e.": ".$match.", ".$dict}++;
     }
 
-    if (@contextNote > 0) {$MULTIPLES{$m->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
-    else {$MULTIPLES{$m->unique_key}++;}
+    if (@contextNote > 0) {$MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
+    else {$MULTIPLES{$m->{'node'}->unique_key}++;}
     last;
   }
  

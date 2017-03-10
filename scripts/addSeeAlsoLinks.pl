@@ -104,7 +104,7 @@ sub processEntry($$$\@) {
     push(@parseTextNodes, $e);
   }
 
-  &addDictionaryLinks(\@parseTextNodes, $entryName, $glossaryScopeP);
+  &addDictionaryLinks(\@parseTextNodes, 0, $entryName, $glossaryScopeP);
   
   &checkCircularEntryCandidate($entryName, &getEntryTextNodes($i_or_elemP, $startsArrayP));
 }

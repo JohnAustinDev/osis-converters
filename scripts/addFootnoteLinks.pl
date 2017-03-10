@@ -249,16 +249,15 @@ sub footnoteXML($$) {
     my $id = $f->getAttribute('osisID');
     if ($id) {&Log("WARNING: Footnote has pre-existing osisID=\"$id\"!\n");}
     
-    # Reserve and write an osisID for this footnote. Verses may be 
-    # linked and so a note's annotateRef will be read in such case to
-    # determine the coverage of footnote.
-    
+    # Reserve and write an osisID for each footnote. 
     my $n = 1;
     $id = "$footnoteModuleName:$osisID$RefExt$n";
     while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$footnoteModuleName:$osisID$RefExt$n";}
     $OSISID_FOOTNOTE{$id}++;
     $f->setAttribute('osisID', "$osisID$RefExt$n");
     
+    # Verses may be linked and so a note's annotateRef will be read in 
+    # such case to determine the coverage of each footnote.
     if ($bibleContext) {&recordVersesOfFootnote($f, $bibleContext, $footnoteModuleName);}
   }
 }

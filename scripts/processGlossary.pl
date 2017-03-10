@@ -237,6 +237,7 @@ sub dictWordsHeader() {
   notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
   multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
   notXPATH=\"an xpath expression to be applied on each text node to skip text nodes that return non-null\"
+  notExplicit=\"true|false\" selects if match(es) are to NOT be applied to explicitly marked glossary entries in the text
 
   Entry elements may contain the following attributes:
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
