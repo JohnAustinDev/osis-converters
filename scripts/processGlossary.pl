@@ -53,61 +53,52 @@ sub aggregateRepeatedEntries($) {
       foreach my $dk (sort sortSubEntriesByScope @{$duplicates{$uck}}) {
         # create new x-duplicate div to mark this duplicate entry
         my $xDupDiv = &createDiv($xml);
-        $xDupDiv->setAttribute('type', 'x-duplicate-keyword'); # holds entries without unique keyword textContent
-        my $xAggDiv = &createDiv($xml);
-        $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
-        my $glossScope = &getGlossaryScope($dk);
-        if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
+        $xDupDiv->setAttribute('type', 'x-duplicate-keyword'); # holds entries whose keyword is not unique
+        my $glossScope = &getGlossaryScope($dk); # save this before dk might be cloned/edited
         
-        # get entry's elements, and read glossary title: $title is first <title type="main">
+        # get glossary and its title: $title is first <title type="main">
         my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
         my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":"<title level=\"2\">$n)</title>");
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
         
-        # top element is self or else highest ancestor which contains no other keywords
-        my $top = $dk;
-        while (@{$XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $top->parentNode())} == 1) {$top = $top->parentNode();}
-        my @entry;
-        push(@entry, $top);
-        my @elements = $XPC->findnodes('./following::*', $top);
-        foreach my $e (@elements) {
-          # stop on first element that is, or contains, the next keyword, or is not part of the keyword's glossary div
-          my @keyword = $XPC->findnodes('./descendant-or-self::osis:seg[@type="keyword"]', $e);
-          if (@keyword && !@keyword[0]->isEqual($dk)) {last;}
-          my $p = $e->parentNode();
-          while ($p && !$p->isEqual($myGlossary)) {$p = $p->parentNode();}
-          if (!$p) {last;}
-          push(@entry, $e);
-        }
-        
-        # move entry inside x-duplicate div
-        $top->parentNode()->insertBefore($xDupDiv, $top);
-        foreach my $e (@entry) {$xDupDiv->appendChild($e);}
-        
-        # peel off any initial container elements from the entry list (these needn't be aggregated)
-        if (!@entry[0]->isEqual($dk)) {
-          my @descendants = $XPC->findnodes('./descendant::*', @entry[0]);
-          my $x = 0;
-          while ($x < @descendants) {
-            if (@descendants[$x]->isEqual($dk)) {last;}
-            $x++;
+        # move the entry into the x-duplicate div
+        # topfirst and toplast elements may need replication if their content is split between multiple keywords
+        my $topFirst = $dk; # topFirst element is the highest ancestor which contains no other keywords, or else self if there isn't such an ancestor 
+        while (@{$XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $topFirst->parentNode())} == 1) {$topFirst = $topFirst->parentNode();}
+        $topFirst = &replicateIfMultiContent($topFirst, 1);
+        my @newSiblings;
+        push(@newSiblings, $topFirst);
+        my @topSiblings = $XPC->findnodes('./following-sibling::node()', $topFirst);
+        foreach my $sibling (@topSiblings) {
+          # stop on first sibling that is, or contains, the next keyword
+          my @kwchild = $XPC->findnodes('./descendant-or-self::osis:seg[@type="keyword"]', $sibling);
+          if (@kwchild && !@kwchild[0]->isEqual($dk)) {
+            my $topLast = &replicateIfMultiContent($sibling, 0);
+            if ($topLast) {push(@newSiblings, $topLast);}
+            last;
           }
-          splice(@entry, 0, 1, @descendants[$x..$#descendants]);
+          push(@newSiblings, $sibling);
         }
+        $topFirst->parentNode()->insertBefore($xDupDiv, $topFirst);
+        foreach my $sibling (@newSiblings) {$xDupDiv->appendChild($sibling);}
         
-        # copy and aggregate entry into new glossary div
-        foreach my $e (@entry) {
-          my $agg = $e->cloneNode(1);
-          if ($e->isEqual($dk)) {
-            if (!$haveKey) {
-              $haveKey = $agg;
-              $glossDiv->appendChild($agg);
-            }
-            if ($title) {$xAggDiv->appendChild($XML_PARSER->parse_balanced_chunk($title));}
+        # copy xDupDiv content, minus the initial keyword element, to the subType='x-aggregate' glossary, initially prepending a single keyword element
+        my $xAggDiv = $xDupDiv->cloneNode(1);
+        $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
+        if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
+        $xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($title), $xAggDiv->firstChild);
+        my @kw = $XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $xAggDiv);
+        if (@kw && @kw[0] && @kw == 1) {
+          my $p = @kw[0]; do {my $n = $p->parentNode; $p->unbindNode(); $p = $n;} while ($p && $p->textContent =~ /^[\s\n]*$/);
+          if (!$haveKey) {
+            $haveKey = 1;
+            $glossDiv->appendChild(@kw[0]);
           }
-          else {$xAggDiv->appendChild($agg);}
+        }
+        else {
+          &Log("ERROR aggregateRepeatedEntries: keyword aggregation failed.\n");
         }
         $glossDiv->appendChild($xAggDiv);
         
@@ -123,6 +114,59 @@ sub aggregateRepeatedEntries($) {
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
+}
+
+# If element is an element which contains text belonging to two 
+# keywords, then clone a previous-sibling element and remove from each  
+# sibling any text not associated with that particular sibling's 
+# relavent keyword. If isFirst is true, then return the (possibly 
+# modified) element, otherwise return the clone, which will be empty if 
+# no cloning was necessary.
+sub replicateIfMultiContent($$) {
+  my $element = shift;
+  my $isFirst = shift;
+  
+  my $clone = $element->cloneNode(1);
+  if (&keywordAncestorStrip($clone, 0)) {
+    &keywordAncestorStrip($element, 1);
+    $element->parentNode()->insertBefore($clone, $element);
+  }
+  else {$clone = '';}
+  
+  return ($isFirst ? $element:$clone);
+}
+
+# Strips text and resulting empty elements either before or after (and also 
+# including) keyword. Returns number of modifications made.
+sub keywordAncestorStrip($$) {
+  my $keywordAncestor = shift;
+  my $stripBefore = shift;
+  
+  my $modsMade = 0;
+  
+  my $isBefore = 1;
+  my @textNodes = $XPC->findnodes('./descendant::text()', $keywordAncestor);
+  foreach my $textNode (@textNodes) {
+    my @kw = $XPC->findnodes('./ancestor::osis:seg[@type="keyword"]', $textNode);
+    if ($isBefore && $stripBefore || !$isBefore && !$stripBefore || $isBefore && @kw && @kw[0]) {
+      $textNode->unbindNode(); $modsMade++;
+    }
+    if (@kw && @kw[0]) {$isBefore = 0;}
+  }
+  
+  $isBefore = 1;
+  my @elements = $XPC->findnodes('./descendant::*', $keywordAncestor);
+  foreach my $element (@elements) {
+    my @kw = $XPC->findnodes('self::osis:seg[@type="keyword"]', $element);
+    if ($isBefore && $stripBefore || !$isBefore && !$stripBefore || $isBefore && @kw && @kw[0]) {
+      if ($element->textContent =~ /^[\s\n]*$/) {
+        $element->unbindNode(); $modsMade++;
+      }
+    }
+    if (@kw && @kw[0]) {$isBefore = 0;}
+  }
+  
+  return $modsNade;
 }
 
 sub getEntryScope($) {
