@@ -63,8 +63,13 @@ sub aggregateRepeatedEntries($) {
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
         
-        # move the entry into the x-duplicate div
-        # topfirst and toplast elements may need replication if their content is split between multiple keywords
+        # Next, move the entry into the x-duplicate div. IMPORTANT: This method assumes this 
+        # keyword's "top" element and the following keyword's "top" element ("top" being 
+        # the highest ancestor containing no other keywords, or else self) are siblings 
+        # of each another. If this is not true (due to inconsistent keyword hierarchy) an ERROR
+        # is generated because it's possible some text between keywrods could be lost.
+        
+        # topfirst and toplast elements may need replication if their content is split between two keywords
         my $topFirst = $dk; # topFirst element is the highest ancestor which contains no other keywords, or else self if there isn't such an ancestor 
         while (@{$XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $topFirst->parentNode())} == 1) {$topFirst = $topFirst->parentNode();}
         $topFirst = &replicateIfMultiContent($topFirst, 1);
@@ -74,6 +79,9 @@ sub aggregateRepeatedEntries($) {
         foreach my $sibling (@topSiblings) {
           # stop on first sibling that is, or contains, the next keyword
           my @kwchild = $XPC->findnodes('./descendant-or-self::osis:seg[@type="keyword"]', $sibling);
+          if (@kwchild > 1) {
+            &Log("ERROR aggregateRepeatedEntries: Inconsistent keyword hierarchy between \"$topFirst\" and \"$sibling\" some text between them may have been LOST!\n");
+          }
           if (@kwchild && !@kwchild[0]->isEqual($dk)) {
             my $topLast = &replicateIfMultiContent($sibling, 0);
             if ($topLast) {push(@newSiblings, $topLast);}
@@ -84,13 +92,14 @@ sub aggregateRepeatedEntries($) {
         $topFirst->parentNode()->insertBefore($xDupDiv, $topFirst);
         foreach my $sibling (@newSiblings) {$xDupDiv->appendChild($sibling);}
         
-        # copy xDupDiv content, minus the initial keyword element, to the subType='x-aggregate' glossary, initially prepending a single keyword element
+        # copy xDupDiv content plus title (and minus the initial keyword element, instead prepending it once) to the subType='x-aggregate' glossary
         my $xAggDiv = $xDupDiv->cloneNode(1);
         $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
         if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
         $xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($title), $xAggDiv->firstChild);
         my @kw = $XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $xAggDiv);
         if (@kw && @kw[0] && @kw == 1) {
+          # remove keyword and any resultant empty ancestors
           my $p = @kw[0]; do {my $n = $p->parentNode; $p->unbindNode(); $p = $n;} while ($p && $p->textContent =~ /^[\s\n]*$/);
           if (!$haveKey) {
             $haveKey = 1;
@@ -281,7 +290,7 @@ sub dictWordsHeader() {
   notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
   multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
   notXPATH=\"an xpath expression to be applied on each text node to skip text nodes that return non-null\"
-  notExplicit=\"true|false\" selects if match(es) are to NOT be applied to explicitly marked glossary entries in the text
+  notExplicit=\"true|false\" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
 
   Entry elements may contain the following attributes:
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
