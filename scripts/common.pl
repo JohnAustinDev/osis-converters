@@ -1545,9 +1545,16 @@ sub getAttribute($$) {
   my $a = shift;
   my $m = shift;
   
-  my @r = $XPC->findnodes("ancestor-or-self::*[\@$a][1]", $m);
+  my $ret = '';
   
-  return (@r ? @r[0]->getAttribute($a):0);
+  my @r = $XPC->findnodes("ancestor-or-self::*[\@$a]", $m);
+  if (@r && @r[0]) {
+    my @atts;
+    foreach my $re (@r) {push(@atts, $re->getAttribute($a));}
+    $ret = join(($a eq 'notXPATH' ? '|':' '), @atts);
+  }
+  
+  return $ret;
 }
 
 
