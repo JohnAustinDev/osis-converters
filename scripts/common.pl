@@ -1339,6 +1339,7 @@ sub addDictionaryLinks(\@$$\@) {
         }
         $text = join('', @parts);
       } while(!$done);
+      $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/g;
       $text =~ s/(^|\s)&(\s|$)/&amp;/g;
       $textchild->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
       $textchild->unbindNode();
@@ -1401,6 +1402,7 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $a;
   foreach my $m (@MATCHES) {
+    my $removeLater = 0;
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
     &dbg(sprintf("\nNode(type %s, %s): %s%s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, ($entry ? "\nEntry: $entry":''), $m->{'node'}));
@@ -1415,7 +1417,9 @@ sub addDictionaryLink(\$$$$\@) {
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if (!$m->{'multiple'}) {
         if (@contextNote > 0) {if ($MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
-        elsif ($MULTIPLES{$m->{'node'}->unique_key}) {&dbg("filtered at 40\n"); next;}
+        # $removeLater disallows links within any phrase that was previously skipped as a multiple.
+        # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
+        elsif ($MULTIPLES{$m->{'node'}->unique_key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
         my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($m->{'context'}, $context); my $igc = ($gs ? &myGlossaryContext($m->{'context'}, $glossaryScopeP):0);
@@ -1458,31 +1462,35 @@ sub addDictionaryLink(\$$$$\@) {
       $ie = $+[$i];
     }
     
-    &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
-    $matchedPattern = $m->{'node'}->textContent;
-    
-    my $attribs = "osisRef=\"".$m->{'osisRef'}."\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
+    my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
+    my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
     substr($$textP, $ie, 0, "</reference>");
     substr($$textP, $is, 0, "<reference $attribs>");
     
-    # record stats...
-    $EntryHits{$m->{'name'}}++;
-    
-    my $logContext = $context;
-    $logContext =~ s/\..*$//; # keep book/entry only
-    $EntryLink{&decodeOsisRef($m->{'osisRef'})}{$logContext}++;
-    
-    my $dict;
-    foreach my $sref (split(/\s+/, $m->{'osisRef'})) {
-      if (!$sref) {next;}
-      my $e = &osisRef2Entry($sref, \$dict);
-      $Replacements{$e.": ".$match.", ".$dict}++;
-    }
+    if (!$removeLater) {
+      &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
+      $matchedPattern = $m->{'node'}->textContent;
+      
+      # record hit...
+      $EntryHits{$m->{'name'}}++;
+      
+      my $logContext = $context;
+      $logContext =~ s/\..*$//; # keep book/entry only
+      $EntryLink{&decodeOsisRef($m->{'osisRef'})}{$logContext}++;
+      
+      my $dict;
+      foreach my $sref (split(/\s+/, $m->{'osisRef'})) {
+        if (!$sref) {next;}
+        my $e = &osisRef2Entry($sref, \$dict);
+        $Replacements{$e.": ".$match.", ".$dict}++;
+      }
 
-    if (@contextNote > 0) {$MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
-    else {$MULTIPLES{$m->{'node'}->unique_key}++;}
+      if (@contextNote > 0) {$MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
+      else {$MULTIPLES{$m->{'node'}->unique_key}++;}
+    }
+    
     last;
   }
  
