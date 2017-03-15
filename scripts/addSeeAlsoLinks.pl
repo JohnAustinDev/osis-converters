@@ -32,46 +32,29 @@ sub addSeeAlsoLinks($$) {
     copy($in_file, $out_file);
   }
   else {
+    if (!$IS_usfm2osis) {
+      &Log("ERROR addSeeAlsoLinks: No longer supports imp input files. Convert \"$in_file\" to OSIS/TEI!\n");
+      return;
+    }
+    
     &Log("PARSING ".@entries." ENTRIES...\n");
     
     # Process OSIS dictionary input file (from usfm2osis.py)
-    if ($IS_usfm2osis) {
-      my $xml = $XML_PARSER->parse_file($in_file);
-      
-      # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-      my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $xml);
-      &convertExplicitGlossaryElements(\@glossary);
-      
-      my @entryStarts = $XPC->findnodes("//$KEYWORD", $xml);
-      my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-      for (my $i=0; $i<@entryStarts; $i++) {
-        &processEntry(@entryStarts[$i]->textContent(), \$i, \@entryStarts, &scopeToBooks(&getGlossaryScope(@entryStarts[$i]), $bookOrderP));
-      }
-      open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
-      print OUTF $xml->toString();
-      close(OUTF);
-    }
+    my $xml = $XML_PARSER->parse_file($in_file);
     
-    # Or process IMP dictionary input file
-    else {
-      my $entryName, %entryText, @entryOrder;
-      open(INF, "<:encoding(UTF-8)", $in_file) or die "Could not open $in_file.\n";
-      while(<INF>) {
-        if ($_ =~ /^\s*$/) {next;}
-        elsif ($_ =~ /^\$\$\$\s*(.*)\s*$/) {$entryName = $1; push(@entryOrder, $entryName);}
-        else {$entryText{$entryName} .= $_;}
-      }
-      close(INF);
-      
-      open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
-      foreach my $entryName (@entryOrder) {
-        my $entryElem = $XML_PARSER->parse_balanced_chunk("<entry>$entryText{$entryName}</entry>");
-        &processEntry($entryName, \$entryElem);
-        print OUTF encode("utf8", "\$\$\$$entryName\n");
-        print OUTF &fragmentToString($entryElem, '<entry>'); 
-      }
-      close(OUTF);
-    }
+    # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
+    my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $xml);
+    &convertExplicitGlossaryElements(\@glossary);
+    
+    my @textNodes = $XPC->findnodes("//text()[not(ancestor::osis:reference)]", $xml);
+    &addDictionaryLinks(\@textNodes, 0, 1);
+    
+    my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
+    &checkCircularEntryCandidates(\@keywords);
+   
+    open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
+    print OUTF $xml->toString();
+    close(OUTF);
     
     &checkCircularEntries($out_file);
     &logDictLinks();
@@ -80,83 +63,44 @@ sub addSeeAlsoLinks($$) {
   &Log("FINISHED\n\n");
 }
 
-# $i_or_elem is either an index into a $startsArrayP of entry start tags (as  
-# with OSIS files), or else a document fragment containing an entry (as with IMP).
-# Either way, this function processes the passed entry.
-sub processEntry($$$\@) {
-  my $entryName = shift;
-  my $i_or_elemP = shift;
-  my $startsArrayP = shift;
-  my $glossaryScopeP = shift;
-  
-  my $entryTextNodesP = &getEntryTextNodes($i_or_elemP, $startsArrayP);
-  
-  # remove text nodes that are within reference elements
-  for (my $x=0; $x < @{$entryTextNodesP}; $x++) {
-    if (@{$entryTextNodesP}[$x]->parentNode->nodeName() ne 'reference') {next;}
-    splice(@{$entryTextNodesP}, $x, 1);
-    $x--;
-  }
-  
-  my @parseTextNodes;
-  foreach my $e (@$entryTextNodesP) {
-    if ($e->parentNode()->localname eq 'reference') {next;}
-    push(@parseTextNodes, $e);
-  }
-
-  &addDictionaryLinks(\@parseTextNodes, 0, $entryName, $glossaryScopeP);
-  
-  &checkCircularEntryCandidate($entryName, &getEntryTextNodes($i_or_elemP, $startsArrayP));
-}
-
-sub getEntryTextNodes($$) {
-  my $i_or_elemP = shift;
-  my $startsArrayP = shift;
-  
-  my @entryTextNodes;
-  if (ref($$i_or_elemP) eq "XML::LibXML::DocumentFragment") {
-    my $elemP = $$i_or_elemP;
-    @entryTextNodes = $XPC->findnodes('descendant-or-self::text()', $elemP);
-  }
-  else {
-    my $i = $$i_or_elemP;
-    my @text = $XPC->findnodes('descendant-or-self::text()|following::text()', $startsArrayP->[$i]);
-    for (my $j=0; $j<@text && ($i==@$startsArrayP-1 || !@text[$j]->parentNode()->isSameNode($startsArrayP->[$i+1])); $j++) {
-      push(@entryTextNodes, @text[$j]);
-    }
-  }
-  
-#  if ($DEBUG) {foreach my $e (@entryTextNodes) {&Log("getEntryTextNodes = $e\n");}}
-  return \@entryTextNodes;
-}
-
 # If an entry is short and contains only one link, record it because 
 # it may read simply: "see other entry" and in this case, the other entry  
 # should not link back to this dummy entry. Later on, we can report if 
 # the other entry contains such a useless link back to this one.
-sub checkCircularEntryCandidate($\@) {
-  my $entryName = shift;
-  my $allTextNodesP = shift;
+sub checkCircularEntryCandidates(\@) {
+  my $keywordsP = shift;
+  
+  foreach my $kw (@{$keywordsP}) {
+    my $entryName = $kw->textContent;
+    my $glossaryElement = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"][1]', $kw)}[0];
+    my @allTextNodes = $XPC->findnodes("following::text()", $kw);
+    my $i;
+    for ($i=0; $i<@allTextNodes; $i++) {
+      if ($XPC->findnodes("./parent::$KEYWORD", @allTextNodes[$i])) {last;}
+      my @tge = $XPC->findnodes('./ancestor::osis:div[@type="glossary"][1]', @allTextNodes[$i]);
+      if (!@tge || !@tge[0] || !@tge[0]->isSameNode($glossaryElement)) {last;}
+    }
+    splice(@allTextNodes, $i);
+  
+    my $text; 
+    my $single_osisRef = 0;
+    foreach my $t (@allTextNodes) {
+      my $e = $t->parentNode();
+      if ($XPC->findnodes("self::$KEYWORD", $e)) {next;}
+      $text .= $t->data;
+      if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
+        my $osisRef = $e->getAttribute('osisRef');
+        $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
+        $EntryLinkList{$entryName} .= $osisRef." ";
+      }
+    }
 
-  my $text; 
-  my $single_osisRef = 0;
-  foreach my $t (@$allTextNodesP) {
-    my $e = $t->parentNode();
-    if ($IS_usfm2osis && $XPC->findnodes("self::$KEYWORD", $e)) {next;}
-    $text .= $t->data;
-    if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
-      my $osisRef = $e->getAttribute('osisRef');
-      $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
-      $EntryLinkList{$entryName} .= $osisRef." ";
+    $text =~ s/\s//sg;
+    if (length($text) < 80 && $single_osisRef) {
+      &Log("NOTE: circular reference candidate link to \"".&osisRef2Entry($single_osisRef)."\" from short entry \"$entryName\"\n");
+      $CheckCircular{$entryName} = $single_osisRef;
     }
   }
-
-  $text =~ s/\s//sg;
-  if (length($text) < 80 && $single_osisRef) {
-    &Log("NOTE: circular reference candidate link to \"".&osisRef2Entry($single_osisRef)."\" from short entry \"$entryName\"\n");
-    $CheckCircular{$entryName} = $single_osisRef;
-  }
-
 }
 
 sub checkCircularEntries($) {

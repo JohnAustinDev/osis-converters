@@ -1280,17 +1280,9 @@ sub convertExplicitGlossaryElements(\@) {
     @tn[0] = XML::LibXML::Text->new($gl);
     $tn0->parentNode->insertAfter(@tn[0], $tn0);
     my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
-    my $glossContext; my $glossScopeP;
-    if (@isGlossary) {
-      $glossContext = @{$XPC->findnodes("./preceding::".$KEYWORD."[1]", @tn[0])}[0]->textContent();
-      $glossScopeP = &scopeToBooks(&getEntryScope(@tn[0]), $bookOrderP);
-      &addDictionaryLinks(\@tn, 1, $glossContext, $glossScopeP);
-    }
-    else {
-      &addDictionaryLinks(\@tn, 1);
-    }
+    &addDictionaryLinks(\@tn, 1, (@isGlossary && @isGlossary[0]));
     if ($before eq $g->parentNode->toString()) {
-      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n".(@isGlossary ? "\tGlossary Context=$glossContext\n\tGlossary Scope=".join("_", @{$glossScopeP})."\n":'')."\n");
+      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
@@ -1302,27 +1294,37 @@ sub convertExplicitGlossaryElements(\@) {
 
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
-sub addDictionaryLinks(\@$$\@) {
-  my $eP = shift; # array of nodes (NOTE: node children are not touched)
+sub addDictionaryLinks(\@$$) {
+  my $eP = shift; # array of text-nodes or text-node parent elements (NOTE: node element child elements are not touched)
   my $isExplicit = shift; # true if the node was marked in the text as a glossary link
-  my $entry = shift; # should be NULL if not adding SeeAlso links
-  my $glossaryScopeP = shift; # array of books, should be NULL if not adding SeeAlso links
-
-  if ($entry) {
-    my $entryOsisRef = &entry2osisRef($MOD, $entry);
-    if (!$NoOutboundLinks{'haveBeenRead'}) {
-      foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
-        foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
-      }
-      $NoOutboundLinks{'haveBeenRead'}++;
-    }
-    if ($NoOutboundLinks{$entryOsisRef}) {return;}
-  }
+  my $isGlossary = shift; # true if the node is in a glossary (See-Also linking)
   
+  my $bookOrderP;
   foreach my $node (@$eP) {
+    my $glossaryContext;
+    my $glossaryScopeP;
+    
+    if ($isGlossary) {
+      if (!$bookOrderP) {
+        my $mod = @{$XPC->findnodes('//osis:osisText', $node)}[0]->getAttribute('osisIDWork');
+        my $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$mod']/osis:refSystem", $node)}[0]->textContent();
+        &getCanon($vsys, NULL, \$bookOrderP, NULL)
+      }
+      $glossaryContext = &glossaryContext($node);
+      if (!$glossaryContext) {next;}
+      $glossaryScopeP = &scopeToBooks(&getEntryScope($node), $bookOrderP);
+      if (!$NoOutboundLinks{'haveBeenRead'}) {
+        foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
+          foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
+        }
+        $NoOutboundLinks{'haveBeenRead'}++;
+      }
+      if ($NoOutboundLinks{&entry2osisRef($MOD, $glossaryContext)}) {return;}
+    }
+  
     my @textchildren;
-    my $container = ($node->nodeType == 3 ? $node->parentNode():$node);
-    if ($node->nodeType == 3) {push(@textchildren, $node);}
+    my $container = ($node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode():$node);
+    if ($node->nodeType == XML::LibXML::XML_TEXT_NODE) {push(@textchildren, $node);}
     else {@textchildren = $XPC->findnodes('child::text()', $container);}
     if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
     my $text, $matchedPattern;
@@ -1335,7 +1337,7 @@ sub addDictionaryLinks(\@$$\@) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $isExplicit, $entry, $glossaryScopeP)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $isExplicit, $glossaryContext, $glossaryScopeP)) {$done = 0;}
         }
         $text = join('', @parts);
       } while(!$done);
@@ -1356,7 +1358,7 @@ sub addDictionaryLink(\$$$$\@) {
   my $textP = shift;
   my $textNode = shift;
   my $isExplicit = shift; # true if the node was marked in the text as a glossary link
-  my $entry = shift; # for SeeAlso links only
+  my $glossaryContext = shift; # for SeeAlso links only
   my $glossaryScopeP = shift; # for SeeAlso links only
 
   my $matchedPattern = '';
@@ -1387,7 +1389,7 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $context;
   my $multiples_context;
-  if ($entry) {$context = $entry; $multiples_context = $entry;}
+  if ($glossaryContext) {$context = $glossaryContext; $multiples_context = $glossaryContext;}
   else {
     $context = &bibleContext($textNode);
     $multiples_context = $context;
@@ -1405,14 +1407,14 @@ sub addDictionaryLink(\$$$$\@) {
     my $removeLater = 0;
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
-    &dbg(sprintf("\nNode(type %s, %s): %s%s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, ($entry ? "\nEntry: $entry":''), $m->{'node'}));
+    &dbg(sprintf("\nNode(type %s, %s): %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $m->{'node'}));
     
     # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
     if ($isExplicit) {
       if ($m->{'notExplicit'}) {&dbg("00\n"); next;}
     }
     else {
-      if ($entry && $m->{'inEntries'}{$entry}) {&dbg("05\n"); next;} # never add glossary links to self
+      if ($glossaryContext && $m->{'inEntries'}{$glossaryContext}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if (!$m->{'multiple'}) {
@@ -1692,6 +1694,10 @@ sub bibleContext($$) {
 # keyword = Node is part of keyword's entry
 sub glossaryContext($) {
   my $node = shift;
+  
+  # is node in a glossary?
+  my @glossElem = $XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $node);
+  if (!@glossElem || !@glossElem[0]) {return '';}
 
   # get preceding keyword
   my @x = $XPC->findnodes('preceding::osis:seg[@type="keyword"]', $node);

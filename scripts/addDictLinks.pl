@@ -74,7 +74,7 @@ sub processContainer($) {
   &convertExplicitGlossaryElements(\@glossary);
 
   my @elems = $XPC->findnodes(".//*[local-name() != 'reference']$filter", $con);
-  &addDictionaryLinks(\@elems, 0);
+  &addDictionaryLinks(\@elems, 0, 0);
 }
 
 1;
