@@ -65,6 +65,6 @@ open(OUTF, ">$TMPDIR/".$MOD."_PrettyPrint.xml");
 print OUTF $xml->toString();
 close(OUTF);
 
-&checkDictReferences($OUTOSIS);
+&checkGlossaryLinks($OUTOSIS);
 &checkIntroductionTags($OUTOSIS);
 &validateOSIS($OUTOSIS);

@@ -1874,44 +1874,38 @@ sub validOsisRefSegment($$\$\$\$) {
 
 
 # Check all reference links, and report any errors
-sub checkDictReferences($) {
-  my $in_file = shift;
+sub checkGlossaryLinks($) {
+  my $in_osis = shift;
   
-  my %replaceList;
+  &Log("\nCHECKING DICTIONARY REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
-  &Log("\nCHECKING DICTIONARY REFERENCE OSISREF TARGETS IN $in_file...\n");
-  if (!open(INF, "<:encoding(UTF-8)", $in_file)) {&Log("ERROR: Could not check $in_file.\n"); die;}
-  my $line = 0;
-  my $total = 0;
+  my $osis = $XML_PARSER->parse_file($in_osis);
+  my @links = $XPC->findnodes('//osis:reference[@type="x-glossary" or @type="x-glosslink"]', $osis);
   my $errors = 0;
-  while(<INF>) {
-    $line++;
-    while ($_ =~ s/(<reference\b[^>]*type="(x-glossary|x-glosslink)"[^>]*>)//) {
-      my $r = $1;
-
-      $total++;
-      if ($r !~ /<reference [^>]*osisRef="([^\"]+)"/) {
-        $errors++;
-        &Log("ERROR: line $line: missing osisRef in glossary link \"$r\".\n");
-        next;
-      }
-      my $osisRef = $1;
-      
-      my @srefs = split(/\s+/, $osisRef);
-      foreach my $sref (@srefs) {
-        if ($DWF) {
-          my @entry = $XPC->findnodes('//dw:entry[@osisRef=\''.$sref.'\']', $DWF);
-          if (!@entry) {
-            $errors++;
-            &Log("ERROR: line $line: osisRef \"$sref\" not found in dictionary words file\n");
-          }
+  foreach my $l (@links) {
+    my $osisRef = $l->getAttribute('osisRef');
+    if (!$osisRef) {
+      &Log("ERROR: Glossary link \"$l\" is missing osisRef attribute!\n"); $errors++;
+      next;
+    }
+    my @srefs = split(/\s+/, $osisRef);
+    foreach my $sref (@srefs) {
+      if ($DWF) {
+        my @entry = $XPC->findnodes('//dw:entry[@osisRef=\''.$sref.'\']', $DWF);
+        if (!@entry) {
+          &Log("ERROR: GLossary link \"$l\" osisRef not found in dictionary words file!\n"); $errors++;
         }
       }
     }
+    if (!$l->textContent || $l->textContent =~ /^[\s\n]*$/) {
+      &Log("ERROR GLossary link \"$l\" has no text content!\n"); $errors++;
+    }
   }
-  close(INF);
-  if (!$DWF && $total) {&Log("REPORT: WARNING, $total dictionary links COULT NOT BE CHECKED without a $DICTIONARY_WORDS file.n");}
-  else {&Log("REPORT: $total dictionary links found and checked. ($errors unknown or missing targets)\n");}
+
+  if (!$DWF && @links && @links[0]) {
+    &Log("REPORT: ERROR, \"".@links."\" glossary links COULT NOT BE CHECKED without a $DICTIONARY_WORDS file.n");
+  }
+  else {&Log("REPORT: \"".@links."\" glossary links found and checked. ($errors unknown or missing targets)\n");}
 }
 
 sub checkIntroductionTags($) {
