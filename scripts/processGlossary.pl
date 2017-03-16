@@ -308,7 +308,7 @@ sub dictWordsHeader() {
 
   Match patterns can be any perl match regex. The entire match (if there 
   are no capture groups), or the last matching group, or else a group 
-  named 'link', will become the link's inner text.
+  named 'link' with (?'link'...), will become the link's inner text.
 
 -->\n";
 }

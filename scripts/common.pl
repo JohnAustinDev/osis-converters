@@ -1342,6 +1342,14 @@ sub addDictionaryLinks(\@$$) {
         $text = join('', @parts);
       } while(!$done);
       $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/g;
+      
+      # sanity check
+      my $check = $text;
+      $check =~ s/<[^>]*>//g;
+      if ($check ne $textchild->data()) {
+        &Log("ERROR addDictionaryLinks: Bible text was changed during glossary linking!!\nBEFORE=".$textchild->data()."\nAFTER =$check\n");
+      }
+      
       $text =~ s/(^|\s)&(\s|$)/&amp;/g;
       $textchild->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
       $textchild->unbindNode();
