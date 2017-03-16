@@ -283,16 +283,26 @@ sub dictWordsHeader() {
   by the \\Q...\\E quote operators. If a match is failing, consider this first!
   This is not a normal Perl rule, but is required because Perl doesn't properly handle case for Turkish-like languages.
   
-  Use the following attributes to control link placement:
+  USE THE FOLLOWING BOOLEAN & NON-BOOLEAN ATTRIBUTES TO CONTROL LINK PLACEMENT:
+  
+  Boolean:
   onlyNewTestament=\"true|false\"
   onlyOldTestament=\"true|false\"
-  context=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which to create links (default is all)\"
-  notContext=\"space separated list of osisRefs, or osisRef-encoded dictionary entries in which not to create links (default is none)\"
-  multiple=\"true|false: allow more than one identical link per entry or chapter (default is false)\"
-  notXPATH=\"an xpath expression to be applied on each text node to skip text nodes that return non-null\"
+  multiple=\"true|false\" to allow more than one identical link per entry or chapter (default is false)
   notExplicit=\"true|false\" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
+  
+  Non-Boolean:
+  IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
+  attribute appears in multiple ancestors, each ancestor value is 
+  accumalated. Also, any 'context' and 'XPATH' values ALWAYS take   
+  precedence over all 'notContext' and 'notXPATH' values respectively.
+  
+  context=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which to create links (context cancels notContext)
+  notContext=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which not to create links (context cancels notContext)
+  XPATH=\"xpath expression\" to be applied on each text node to keep text nodes that return non-null (XPATH cancels notXPATH)
+  notXPATH=\"xpath expression\" to be applied on each text node to skip text nodes that return non-null (XPATH cancels notXPATH)
 
-  Entry elements may contain the following attributes:
+  ENTRY ELEMENTS MAY CONTAIN THE FOLLOWING ATTRIBUTES:
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
          noOutboundLinks=\"true|false: set true if entry should not contain any see-also links\">
 

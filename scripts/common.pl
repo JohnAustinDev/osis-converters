@@ -316,7 +316,7 @@ sub validateDictionaryXML($) {
   }
   
   $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'notXPATH', 'version');
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version');
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
@@ -1377,6 +1377,7 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'context'} = &getAttribute('context', $m);
       $minfo{'notContext'} = &getAttribute('notContext', $m);
       $minfo{'notXPATH'} = &getAttribute('notXPATH', $m);
+      $minfo{'XPATH'} = &getAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
       foreach my $n (@ns) {
@@ -1427,9 +1428,17 @@ sub addDictionaryLink(\$$$$\@) {
         my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($m->{'context'}, $context); my $igc = ($gs ? &myGlossaryContext($m->{'context'}, $glossaryScopeP):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
       }
-      if ($m->{'notContext'}) {if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}}
-      my @tst = $XPC->findnodes($m->{'notXPATH'}, $textNode);
-      if (@tst && @tst[0]) {&dbg("filtered at 70\n"); next;}
+      if ($m->{'notContext'} && !$m->{'context'}) {
+        if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}
+      }
+      if ($m->{'XPATH'}) {
+        my @tst = $XPC->findnodes($m->{'XPATH'}, $textNode);
+        if (!@tst || !@tst[0]) {&dbg("filtered at 70\n"); next;}
+      }
+      if ($m->{'notXPATH'} && !$m->{'XPATH'}) {
+        @tst = $XPC->findnodes($m->{'notXPATH'}, $textNode);
+        if (@tst && @tst[0]) {&dbg("filtered at 80\n"); next;}
+      }
     }
         
     my $p = $m->{'node'}->textContent;
