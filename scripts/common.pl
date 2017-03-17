@@ -316,7 +316,7 @@ sub validateDictionaryXML($) {
   }
   
   $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version');
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink');
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
@@ -1382,10 +1382,11 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
       $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
       $minfo{'multiple'} = &attributeIsSet('multiple', $m);
-      $minfo{'context'} = &getAttribute('context', $m);
-      $minfo{'notContext'} = &getAttribute('notContext', $m);
-      $minfo{'notXPATH'} = &getAttribute('notXPATH', $m);
-      $minfo{'XPATH'} = &getAttribute('XPATH', $m);
+      $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
+      $minfo{'context'} = &getScopedAttribute('context', $m);
+      $minfo{'notContext'} = &getScopedAttribute('notContext', $m);
+      $minfo{'notXPATH'} = &getScopedAttribute('notXPATH', $m);
+      $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
       foreach my $n (@ns) {
@@ -1413,9 +1414,10 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $a;
   foreach my $m (@MATCHES) {
-    my $removeLater = 0;
+    my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
+#&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|inEntries)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $m->{'node'}));
     
     # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
@@ -1436,14 +1438,14 @@ sub addDictionaryLink(\$$$$\@) {
         my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($m->{'context'}, $context); my $igc = ($gs ? &myGlossaryContext($m->{'context'}, $glossaryScopeP):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
       }
-      if ($m->{'notContext'} && !$m->{'context'}) {
+      if ($m->{'notContext'}) {
         if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}
       }
       if ($m->{'XPATH'}) {
         my @tst = $XPC->findnodes($m->{'XPATH'}, $textNode);
         if (!@tst || !@tst[0]) {&dbg("filtered at 70\n"); next;}
       }
-      if ($m->{'notXPATH'} && !$m->{'XPATH'}) {
+      if ($m->{'notXPATH'}) {
         @tst = $XPC->findnodes($m->{'notXPATH'}, $textNode);
         if (@tst && @tst[0]) {&dbg("filtered at 80\n"); next;}
       }
@@ -1481,6 +1483,7 @@ sub addDictionaryLink(\$$$$\@) {
       $ie = $+[$i];
     }
     
+    $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
     my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
@@ -1490,7 +1493,6 @@ sub addDictionaryLink(\$$$$\@) {
     
     if (!$removeLater) {
       &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
-      $matchedPattern = $m->{'node'}->textContent;
       
       # record hit...
       $EntryHits{$m->{'name'}}++;
@@ -1558,17 +1560,30 @@ sub attributeIsSet($$) {
 }
 
 
-sub getAttribute($$) {
+# Scoped attributes are hierarchical and cummulative. They occur in both
+# positive and negative (not) forms. A positive attribute cancels any
+# negative forms of that attribute occuring higher in the hierarchy.
+sub getScopedAttribute($$) {
   my $a = shift;
   my $m = shift;
   
   my $ret = '';
   
-  my @r = $XPC->findnodes("ancestor-or-self::*[\@$a]", $m);
+  my $positive = ($a =~ /^not(.*?)\s*$/ ? lcfirst($1):$a);
+  if ($positive =~ /^xpath$/i) {$positive = uc($positive);}
+  my $negative = ($a =~ /^not/ ? $a:'not'.ucfirst($a));
+    
+  my @r = $XPC->findnodes("ancestor-or-self::*[\@$positive or \@$negative]", $m);
   if (@r && @r[0]) {
-    my @atts;
-    foreach my $re (@r) {push(@atts, $re->getAttribute($a));}
-    $ret = join(($a eq 'notXPATH' ? '|':' '), @atts);
+    my @ps; my @ns;
+    foreach my $re (@r) {
+      if ($re->getAttribute($positive)) {push(@ps, $re->getAttribute($positive)); @ns = ();}
+      if ($re->getAttribute($negative)) {push(@ns, $re->getAttribute($negative));}
+    }
+    my $retP = ($a eq $positive ? \@ps:\@ns);
+    if (@{$retP} && @{$retP}[0]) {
+      $ret = join(($a =~ /XPATH/ ? '|':' '), @{$retP});
+    }
   }
   
   return $ret;

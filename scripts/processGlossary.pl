@@ -286,16 +286,18 @@ sub dictWordsHeader() {
   USE THE FOLLOWING BOOLEAN & NON-BOOLEAN ATTRIBUTES TO CONTROL LINK PLACEMENT:
   
   Boolean:
+  IMPORTANT: default is false for boolean attributes
   onlyNewTestament=\"true|false\"
   onlyOldTestament=\"true|false\"
-  multiple=\"true|false\" to allow more than one identical link per entry or chapter (default is false)
+  dontLink=\"true|false\" to specify matched text should NOT get linked to the entry
+  multiple=\"true|false\" to allow more than one identical link per entry or chapter
   notExplicit=\"true|false\" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
   
   Non-Boolean:
   IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
   attribute appears in multiple ancestors, each ancestor value is 
-  accumalated. Also, any 'context' and 'XPATH' values ALWAYS take   
-  precedence over all 'notContext' and 'notXPATH' values respectively.
+  accumalated. Also, 'context' and 'XPATH' attributes CANCEL the effect   
+  of ancestor 'notContext' and 'notXPATH' attributes respectively.
   
   context=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which to create links (context cancels notContext)
   notContext=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which not to create links (context cancels notContext)
