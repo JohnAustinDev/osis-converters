@@ -68,3 +68,4 @@ close(OUTF);
 &checkGlossaryLinks($OUTOSIS);
 &checkIntroductionTags($OUTOSIS);
 &validateOSIS($OUTOSIS);
+&Log("\nend time: ".localtime()."\n");

@@ -89,6 +89,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  &Log("start time: ".localtime()."\n");
+      
   # if all dependencies are not met, this asks to run in Vagrant
   &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
   
@@ -1629,8 +1631,12 @@ sub myContext($$) {
     if (!$REF_SEG_CACHE{$t}) {$REF_SEG_CACHE{$t} = &osisRefSegment2array($t);}
     foreach my $e (@{$REF_SEG_CACHE{$t}}) {
       foreach my $refs (&context2array($context)) {
-        if ($refs =~ /\Q$e\E/i) {
-          return $context;
+        my $xe = $e;
+        if ($xe =~ s/^xALL(?=\.)//) {
+          if ($refs =~ /^[^\.]+\Q$xe\E/i) {return $context;}
+        }
+        else {
+          if ($refs =~ /\Q$e\E/i) {return $context;}
         }
       }
     }
@@ -1654,8 +1660,8 @@ sub myGlossaryContext($\@) {
 # BIBLE_INTRO.0.0.0 = Bible intro
 # TESTAMENT_INTRO.0.0.0 = Old Testament intro
 # TESTAMENT_INTRO.1.0.0 = New Testament intro
-# Gen.0.0.0 = book intro
-# Gen.1.0.0 = chapter intro
+# Gen.0.0.0 = Gen book intro
+# Gen.1.0.0 = Gen chapter 1 intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
 sub bibleContext($$) {
@@ -1865,6 +1871,8 @@ sub validOsisRefSegment($$\$\$\$) {
     $vP = 0;
     return 1;
   }
+  
+  if ($osisRef =~ /^xALL\./) {return 1;} # xALL is allowed as matching any book or entry
   
   if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
     &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
