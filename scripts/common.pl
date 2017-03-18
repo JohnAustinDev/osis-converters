@@ -1485,6 +1485,7 @@ sub addDictionaryLink(\$$$$\@) {
       $ie = $+[$i];
     }
     
+    $MatchesUsed{$m->{'node'}->unique_key}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
     my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
@@ -1633,7 +1634,8 @@ sub myContext($$) {
       foreach my $refs (&context2array($context)) {
         my $xe = $e;
         if ($xe =~ s/^xALL(?=\.)//) {
-          if ($refs =~ /^[^\.]+\Q$xe\E/i) {return $context;}
+        if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
+          if ($refs =~ /^($AllBooksRE)\Q$xe\E/i) {return $context;}
         }
         else {
           if ($refs =~ /\Q$e\E/i) {return $context;}
@@ -1961,11 +1963,15 @@ sub logDictLinks() {
   my $nolink = "";
   my $numnolink = 0;
   my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $DWF);
-  my %entriesH; foreach my $e (@entries) {$entriesH{$e}++;}
+  my %entriesH; foreach my $e (@entries) {
+    my @ms = $XPC->findnodes('./ancestor::dw:entry[1]//dw:match', $e);
+    $entriesH{(!@ms || !@ms[0] ? "<match> missing:":'').$e}++;
+  }
   foreach my $e (sort keys %entriesH) {
     my $match = 0;
     foreach my $dh (keys %EntryHits) {
-      if ($e eq $dh) {$match = 1;}
+      my $xe = $e; $xe =~ s/^No <match> element(s)\://g;
+      if ($xe eq $dh) {$match = 1;}
     }
     if (!$match) {$nolink .= $e."\n"; $numnolink++;}
   }
@@ -1978,6 +1984,29 @@ sub logDictLinks() {
     &Log($nolink);
   }
   else {&Log("(all glossary entries have at least one link in the text)\n");}
+  &Log("\n");
+  
+  my @matches = $XPC->findnodes('//dw:match', $DWF);
+  my %unused;
+  my $total = 0;
+  my $mlen = 0;
+  foreach my $m (@matches) {
+    if ($MatchesUsed{$m->unique_key}) {next;}
+    my @name = $XPC->findnodes('./preceding-sibling::dw:name[1]', $m);
+    if (@name && @name[0]) {
+    if (!$unused{@name[0]->textContent}) {$unused{@name[0]->textContent} = ();}
+      push(@{$unused{@name[0]->textContent}}, $m->toString());
+      if (length(@name[0]->textContent) > $mlen) {$mlen = length(@name[0]->textContent);}
+      $total++;
+    }
+    else {&Log("ERROR: No <name> for <match> \"$m\" in $DICTIONARY_WORDS\n");}
+  }
+  &Log("REPORT: Unused match elements in $Dictionary_WORDS: ($total instances)\n");
+  foreach my $k (sort keys %unused) {
+    foreach my $m (@{$unused{$k}}) {
+      &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
+    }
+  }
   &Log("\n");
   
   &Log("REPORT: Words/phrases converted into links using $DICTIONARY_WORDS: ($total instances)\n");

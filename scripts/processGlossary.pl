@@ -299,10 +299,10 @@ sub dictWordsHeader() {
   accumalated. Also, 'context' and 'XPATH' attributes CANCEL the effect   
   of ancestor 'notContext' and 'notXPATH' attributes respectively.
   
-  context=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which to create links (context cancels notContext)
-  notContext=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which not to create links (context cancels notContext)
-  XPATH=\"xpath expression\" to be applied on each text node to keep text nodes that return non-null (XPATH cancels notXPATH)
-  notXPATH=\"xpath expression\" to be applied on each text node to skip text nodes that return non-null (XPATH cancels notXPATH)
+  context=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which to create links
+  notContext=\"space separated list of osisRefs or osisRef-encoded dictionary entries\" in which not to create links
+  XPATH=\"xpath expression\" to be applied on each text node to keep text nodes that return non-null
+  notXPATH=\"xpath expression\" to be applied on each text node to skip text nodes that return non-null
 
   ENTRY ELEMENTS MAY CONTAIN THE FOLLOWING ATTRIBUTES:
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
