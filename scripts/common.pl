@@ -1957,9 +1957,6 @@ sub logDictLinks() {
     &Log(sprintf("%-".$mxl."s was linked to %s", $eg, join(", ", @txt)) . "\n");
   }
   
-  my $total = 0;
-  foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
-  
   my $nolink = "";
   my $numnolink = 0;
   my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $DWF);
@@ -2008,6 +2005,9 @@ sub logDictLinks() {
     }
   }
   &Log("\n");
+  
+  $total = 0;
+  foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
   
   &Log("REPORT: Words/phrases converted into links using $DICTIONARY_WORDS: ($total instances)\n");
   &Log("NOTE: The following list must be looked over carefully. Glossary entries are matched\n"); 
