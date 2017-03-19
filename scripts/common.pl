@@ -1840,7 +1840,7 @@ sub osisRefSegment2array($) {
 }
 
 
-# Check an osisRef segment (cannot contain "-") against the verse system or dictionary words
+# Check an osisRef segment (which cannot contain "-") against the verse system or dictionary words
 sub validOsisRefSegment($$\$\$\$) {
   my $osisRef = shift;
   my $vsys = shift;
@@ -1851,6 +1851,8 @@ sub validOsisRefSegment($$\$\$\$) {
   my $b; if (!$bP) {$bP = \$b;}
   my $c; if (!$cP) {$cP = \$c;}
   my $v; if (!$vP) {$vP = \$v;}
+  
+  if ($osisRef =~ /^(OT|NT)$/) {return 1;}
   
   if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
     my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $DWF);
@@ -1874,7 +1876,7 @@ sub validOsisRefSegment($$\$\$\$) {
     return 1;
   }
   
-  if ($osisRef =~ /^xALL\./) {return 1;} # xALL is allowed as matching any book or entry
+  if ($osisRef =~ /^xALL\./) {return 1;} # xALL is allowed as matching any book
   
   if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
     &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
