@@ -704,7 +704,7 @@ sub getFootnotes($) {
   foreach my $or (@{$osisRefsP}) {
     my $osisRef = $or; # never modify array pointer value $or!
     my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
-    my $ap = &osisRefSegment2array($osisRef);
+    my $ap = &osisRef2array($osisRef);
     foreach my $a (@{$ap}) {push(@verses, "$m:$a");}
   }
 

@@ -1055,13 +1055,17 @@ sub uc2($$) {
   return $t;
 }
 
-
+# Returns the OSIS book name from a Paratext or OSIS bookname. Or  
+# returns nothing if argument is neither.
 sub getOsisName($$) {
   my $bnm = shift;
   my $quiet = shift;
   
+  # If it's already an OSIS book name, just return it
+  if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
+  if ($bnm =~ /^($AllBooksRE)$/) {return $bnm;}
+  
   my $bookName = "";
-  $bnm =~ tr/a-z/A-Z/;
      if ($bnm eq "1CH") {$bookName="1Chr";}
   elsif ($bnm eq "1CO") {$bookName="1Cor";}
   elsif ($bnm eq "1JN") {$bookName="1John";}
@@ -1410,8 +1414,8 @@ sub addDictionaryLink(\$$$$\@) {
   if ($multiples_context ne $LAST_CONTEXT) {undef %MULTIPLES; &Log("--> $multiples_context\n", 2);}
   $LAST_CONTEXT = $multiples_context;
   
-  my $contextIsOT = &myContext('ot', $context);
-  my $contextIsNT = &myContext('nt', $context);
+  my $contextIsOT = &myContext('OT', $context);
+  my $contextIsNT = &myContext('NT', $context);
   my @contextNote = $XPC->findnodes("ancestor::osis:note", $textNode);
   
   my $a;
@@ -1521,6 +1525,146 @@ sub addDictionaryLink(\$$$$\@) {
   return $matchedPattern;
 }
 
+# Takes the context or notContext attribute value from DWF and determines
+# whether it is a Paratext reference list or not. If it is, it's converted
+# to a valid osisRef. If there are any errors, the value is returned unchanged.
+sub contextAttribute2osisRefAttribute($) {
+  my $val = shift;
+  
+  if ($CONVERTED_P2O{$val}) {return $CONVERTED_P2O{$val};}
+  
+  my @parts;
+  if ($val =~ /,/) {
+    @parts = split(/\s*,\s*/, $val);
+    foreach my $part (@parts) {
+      if ($part =~ /^[\d\w]\w\w\b/) {next;}
+      return $val;
+    }
+  }
+  else {return $val;}
+  
+  my $p1; my $p2;
+  my @osisRefs = ();
+  foreach my $part (@parts) {
+    my @pOsisRefs = ();
+    
+    my $bk;
+    my $bkP;
+    my $ch;
+    my $chP;
+    my $vs;
+    my $vsP;
+    my $lch;
+    my $lchP;
+    my $lvs;
+    # book-book (assumes Paratext and OSIS verse system's book orders are the same)
+    if ($part =~ /^([\d\w]\w\w)\s*\-\s*([\d\w]\w\w)$/) {
+      my $bk1 = $1; my $bk2 = $2;
+      $bk1 = &getOsisName($bk1, 1);
+      $bk2 = &getOsisName($bk2, 1);
+      if (!$bk1 || !$bk2) {
+        &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$val\"!\n");
+        return $val;
+      }
+      push(@pOsisRefs, "$bk1-$bk2");
+    }
+    # book ch-ch
+    elsif ($part =~ /^([\d\w]\w\w)\s+(\d+)\s*\-\s*(\d+)$/) {
+      $bk = $1;
+      $ch = $2;
+      $lch = $3;
+      $bkP = 1;
+    }
+    # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
+    elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
+      &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\"!\n");
+      return $val;
+    }
+    $bk = $1;
+    $bkP = $2;
+    $ch = $3;
+    $chP = $4;
+    $vs = $5;
+    $vsP = $6;
+    $lch = $7;
+    $lchP = $8;
+    $lvs = $9;
+    
+    if ($vsP && !$lchP) {$lvs = $lch; $lch = '';}
+    
+    my $bk = &getOsisName($bk, 1);
+    if (!$bk) {
+      &Log("ERROR contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\"!\n");
+      return $val;
+    }
+    
+    if (!$bkP) {
+      push(@pOsisRefs, $bk);
+    }
+    elsif (!$chP) {
+      if ($lch) {
+        for (my $i=$ch; $i<=$lch; $i++) {
+          push(@pOsisRefs, "$bk.$i");
+        }
+      }
+      push(@pOsisRefs, "$bk.$ch");
+    }
+    elsif (!$vsP) {
+      if ($vs eq "0") { # sometimes intro was written as GEN 1:0
+        push(@pOsisRefs, "$bk.0");
+      }
+      else {
+        push(@pOsisRefs, "$bk.$ch.$vs");
+      }
+    }
+    elsif (!$lchP) {
+      push(@pOsisRefs, "$bk.$ch.$vs-$bk.$ch.$lvs");
+    }
+    else {
+      my $needIC = 0;
+      for (my $i=$ch; $i<=$lch; $i++) {
+        if ($ch == $lch) {
+          &Log("ERROR contextAttribute2osisRefAttribute: Same chapter \"$part\" of \"$val\"\n");
+          return $val;
+        }
+        if ($i == $ch) {
+          my $canonP;
+          # Bug warning - this assumes osisRef is of same verse system as $VERSESYS
+          &getCanon($VERSESYS, \$canonP, NULL, NULL, NULL);
+          push(@pOsisRefs, "$bk.$ch.$vs-$bk.$ch.".@{$canonP->{$bk}}[($ch-1)]);
+        }
+        elsif ($i == $lch) {
+          if ($needIC) {
+            if ($needIC == 1) {
+              push(@pOsisRefs, "$bk.".($ch+1));
+            }
+            else {
+              push(@pOsisRefs, "$bk.".($ch+1)."-$bk.".($lch-1));
+            }
+          }
+          push(@pOsisRefs, "$bk.$lch.1-$bk.$lch.$lvs");
+        }
+        else {$needIC++;}
+      }
+    }
+    
+    push(@osisRefs, @pOsisRefs);
+    my $new = join(' ', @pOsisRefs);
+    my $len = length($part);
+    if ($len < length($new)) {$len = length($new);}
+    $p1 .= sprintf("%-".$len."s ", $part);
+    $p2 .= sprintf("%-".$len."s ", $new);
+  }
+  
+  my $ret = join(' ', @osisRefs);
+  if ($ret ne $val) {
+    $CONVERTED_P2O{$val} = $ret;
+    &Log("NOTE: Converted Paratext context attribute to OSIS:\n\tParatext: $p1\n\tOSIS:     $p2\n\n");
+  }
+  
+  return $ret;
+}
+
 
 sub matchInEntry($$) {
   my $m = shift;
@@ -1580,8 +1724,17 @@ sub getScopedAttribute($$) {
   if (@r && @r[0]) {
     my @ps; my @ns;
     foreach my $re (@r) {
-      if ($re->getAttribute($positive)) {push(@ps, $re->getAttribute($positive)); @ns = ();}
-      if ($re->getAttribute($negative)) {push(@ns, $re->getAttribute($negative));}
+      my $p = $re->getAttribute($positive);
+      if ($p) {
+        if ($positive eq 'context') {$p = &contextAttribute2osisRefAttribute($p);}
+        push(@ps, $p);
+        @ns = ();
+      }
+      my $n = $re->getAttribute($negative);
+      if ($n) {
+        if ($positive eq 'context') {$n = &contextAttribute2osisRefAttribute($n);}
+        push(@ns, $n);
+      }
     }
     my $retP = ($a eq $positive ? \@ps:\@ns);
     if (@{$retP} && @{$retP}[0]) {
@@ -1608,7 +1761,7 @@ sub dbg($$) {
 }
 
 
-# return context if context is a part of $test, else 0
+# return context if any part of context is a part of $test, else 0
 # $context may be a dictionary entry or a special Bible range - see bibleContext()
 # $test can be:
 #   keyword - return context IF it is part of keyword's scope
@@ -1619,26 +1772,27 @@ sub myContext($$) {
   my $context = shift;
 
   my $test2 = $test;
-  if ($test eq 'ot') {
+  if ($test eq 'OT') {
     if ($context =~ /^TESTAMENT_INTRO\.0\./) {return $context;}
     $test2 = $OT_BOOKS;
   }
-  elsif ($test eq 'nt') {
+  elsif ($test eq 'NT') {
     if ($context =~ /^TESTAMENT_INTRO\.1\./) {return $context;}
     $test2 = $NT_BOOKS;
   }
-  foreach my $t (split(/\s+/, $test2)) {
-    if ($t =~ /^\s*$/) {next;}
-    if (!$REF_SEG_CACHE{$t}) {$REF_SEG_CACHE{$t} = &osisRefSegment2array($t);}
-    foreach my $e (@{$REF_SEG_CACHE{$t}}) {
-      foreach my $refs (&context2array($context)) {
-        my $xe = $e;
-        if ($xe =~ s/^xALL(?=\.)//) {
-        if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
-          if ($refs =~ /^($AllBooksRE)\Q$xe\E/i) {return $context;}
+  foreach my $testPart (split(/\s+/, $test2)) {
+    if ($testPart =~ /^\s*$/) {next;}
+    if (!$REF_SEG_CACHE{$testPart}) {$REF_SEG_CACHE{$testPart} = &osisRef2array($testPart);}
+    foreach my $testSegment (@{$REF_SEG_CACHE{$testPart}}) {
+      foreach my $contextSegment (&context2array($context)) {
+        my $xTestSegmentAfterBK = $testSegment;
+        if ($xTestSegmentAfterBK =~ s/^xALL(?=\.)//) {
+          if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
+          if ($contextSegment =~ /^($AllBooksRE)\Q$xTestSegmentAfterBK\E/i) {return $context;}
         }
         else {
-          if ($refs =~ /\Q$e\E/i) {return $context;}
+          # is this contextSegment part of this testSegment?
+          if ($contextSegment =~ /\Q$testSegment\E/i) {return $context;}
         }
       }
     }
@@ -1786,14 +1940,17 @@ sub context2array($) {
 }
 
 
-# return a valid array of non-range references from a single osisRef segment 
-# which may contain a range. An osisRef segment may contain a single hyphen, 
-# but no spaces. Returned refs are DECODED osisRefs. An ERROR is thrown 
-# if an invalid book or reference is found.
-sub osisRefSegment2array($) {
+# return a valid array of non-hyphenated osisRef segments from a singular 
+# osisRef, which may contain a hyphen, but no spaces. Returned refs are 
+# DECODED osisRefs. An ERROR is thrown if an invalid book or reference 
+# is found.
+sub osisRef2array($) {
   my $osisRef = shift;
   
   my @refs = ();
+  
+  if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@refs, "TESTAMENT_INTRO.0");}
+  elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@refs, "TESTAMENT_INTRO.1");}
 
   if ($osisRef !~ /^(.*?)\-(.*)$/) {
     if (!&validOsisRefSegment($osisRef, $VERSESYS)) {return \@refs;}
@@ -1852,8 +2009,6 @@ sub validOsisRefSegment($$\$\$\$) {
   my $c; if (!$cP) {$cP = \$c;}
   my $v; if (!$vP) {$vP = \$v;}
   
-  if ($osisRef =~ /^(OT|NT)$/) {return 1;}
-  
   if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
     my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $DWF);
     if (@tst && @tst[0]) {return 1;}
@@ -1884,6 +2039,7 @@ sub validOsisRefSegment($$\$\$\$) {
   }
   
   my ($canonP, $bookOrderP, $bookArrayP);
+  # Bug warning - this assumes osisRef is of same verse system as $VERSESYS
   &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
   
   if ($$cP != 0 && ($$cP < 0 || $$cP > @{$canonP->{$$bP}})) {
