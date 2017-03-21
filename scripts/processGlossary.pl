@@ -308,9 +308,9 @@ sub dictWordsHeader() {
   <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
          noOutboundLinks=\"true|false: set true if entry should not contain any see-also links\">
 
-  Match patterns can be any perl match regex. The entire match (if there 
-  are no capture groups), or the last matching group, or else a group 
-  named 'link' with (?'link'...), will become the link's inner text.
+  Match patterns can be any perl match regex. The last matching 
+  parenthetical group, or else a group named 'link' with (?'link'...), 
+  will become the link's inner text.
 
 -->\n";
 }

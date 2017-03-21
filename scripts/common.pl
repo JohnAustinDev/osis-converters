@@ -1399,11 +1399,16 @@ sub addDictionaryLink(\$$$$\@) {
         if (!&matchInEntry($m, $n->textContent)) {next;}
         $minfo{'inEntries'}{$n->textContent}++;
       }
-      push(@MATCHES, \%minfo);
       
-      # test match pattern, so any errors can be found right away
+      # test match pattern, so any errors with it can be found right away
+      if ($m->textContent !~ /(?<!\\)\(.*(?<!\\)\)/) {
+        &Log("ERROR: Skipping match \"$m\" becauase it is missing capture parentheses!\n");
+        next;
+      }
       my $test = "testme"; my $is; my $ie;
-      &glossaryMatch(\$test, $m, \$is, \$ie);
+      if (&glossaryMatch(\$test, $m, \$is, \$ie) == 2) {next;}
+      
+      push(@MATCHES, \%minfo);
     }
   }
   
@@ -1426,7 +1431,7 @@ sub addDictionaryLink(\$$$$\@) {
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ибтидо китоби Тавротнинг биринчи китобидир. Мазкур китобда оламнинг яратилиши, инсон зотининг пайдо бўлиши, Исроил халқининг келиб чиқиши тўғрисида сўз юритилади. Бутун борлиқни, ер юзидаги жамики халқлару шоҳликларни, инсоният тарихини ягона Худо бошқаришига китобда алоҳида урғу берилади."));
+#@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ким мени севса ўшани севаман,"));
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|inEntries)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
@@ -1462,7 +1467,7 @@ sub addDictionaryLink(\$$$$\@) {
     }
     
     my $is; my $ie;
-    if (!&glossaryMatch($textP, $m->{'node'}, \$is, \$ie)) {next;}
+    if (&glossaryMatch($textP, $m->{'node'}, \$is, \$ie)) {next;}
     if ($is == $ie) {
       &Log("ERROR: Match result was zero width!: \"".$m->{'node'}->textContent."\"\n");
       next;
@@ -1503,7 +1508,8 @@ sub addDictionaryLink(\$$$$\@) {
 }
 
 # Look for a single match $m in $$textP and set its start/end positions
-# if one is found. Returns 1 if a match was found or 0 if not.
+# if one is found. Returns 0 if a match was found; or else 1 if no 
+#  match was found, or 2 on error.
 sub glossaryMatch(\$$\$\$) {
   my $textP = shift;
   my $m = shift;
@@ -1514,7 +1520,7 @@ sub glossaryMatch(\$$\$\$) {
   if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
     &Log("ERROR: Bad match regex: \"$p\"\n");
     &dbg("80\n");
-    return 0;
+    return 2;
   }
   my $pm = $1; my $pf = $2;
   
@@ -1538,11 +1544,11 @@ sub glossaryMatch(\$$\$\$) {
   }
  
   # finally do the actual MATCHING...
-  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": $t !~ /$pm/\n"); 
+  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
   if ($t !~ /$pm/) {
-    return 0;
+    return 1;
   }
-    
+
   $$isP = $-[$#+];
   $$ieP = $+[$#+];
   
@@ -1558,7 +1564,7 @@ sub glossaryMatch(\$$\$\$) {
   
   &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, ".$+{'link'}.".\n");
   
-  return 1;
+  return 0;
 }
 
 # Takes the context or notContext attribute value from DWF and determines
