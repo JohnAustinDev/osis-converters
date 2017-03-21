@@ -1342,7 +1342,7 @@ sub addDictionaryLinks(\@$$) {
         $done = 1;
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
-          if ($part =~ /<reference.*?<\/reference[^>]*>/) {next;}
+          if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
           if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $isExplicit, $glossaryContext, $glossaryScopeP)) {$done = 0;}
         }
         $text = join('', @parts);
@@ -1400,6 +1400,10 @@ sub addDictionaryLink(\$$$$\@) {
         $minfo{'inEntries'}{$n->textContent}++;
       }
       push(@MATCHES, \%minfo);
+      
+      # test match pattern, so any errors can be found right away
+      my $test = "testme"; my $is; my $ie;
+      &glossaryMatch(\$test, $m, \$is, \$ie);
     }
   }
   
@@ -1422,9 +1426,9 @@ sub addDictionaryLink(\$$$$\@) {
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = (1); @DICT_DEBUG_THIS = (1);
+#@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ибтидо китоби Тавротнинг биринчи китобидир. Мазкур китобда оламнинг яратилиши, инсон зотининг пайдо бўлиши, Исроил халқининг келиб чиқиши тўғрисида сўз юритилади. Бутун борлиқни, ер юзидаги жамики халқлару шоҳликларни, инсоният тарихини ягона Худо бошқаришига китобда алоҳида урғу берилади."));
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|inEntries)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
-    &dbg(sprintf("\nNode(type %s, %s): %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $m->{'node'}));
+    &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
     # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
     if ($isExplicit) {
@@ -1456,37 +1460,12 @@ sub addDictionaryLink(\$$$$\@) {
         if (@tst && @tst[0]) {&dbg("filtered at 80\n"); next;}
       }
     }
-        
-    my $p = $m->{'node'}->textContent;
     
-    if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {&Log("ERROR: Bad match regex: \"$p\"\n"); &dbg("80\n"); next;}
-    my $pm = $1; my $pf = $2;
-    
-    # handle PUNC_AS_LETTER word boundary matching issue
-    if ($PUNC_AS_LETTER) {$pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;}
-    
-    # handle xml decodes
-    $pm = decode_entities($pm);
-    
-    # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
-    my $t = $$textP;
-    my $i = $pf =~ s/i//;
-    $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
-    if ($i) {$t = &uc2($t);}
-    if ($pf =~ /(\w+)/) {&Log("ERROR: Regex flag \"$1\" not supported in \"".$m->{'node'}->textContent."\"");}
-   
-    # finally do the actual MATCHING...
-    &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": $t !~ /$pm/\n"); 
-    if ($t !~ /$pm/) {$t =~ s/\n/ /g; next;}
-      
-    my $is = $-[$#+];
-    my $ie = $+[$#+];
-    
-    # if a (?'link'...) named group 'link' exists, use it instead
-    if (defined($+{'link'})) {
-      my $i; for ($i=0; $i <= $#+; $i++) {if ($$i eq $+{'link'}) {last;}}
-      $is = $-[$i];
-      $ie = $+[$i];
+    my $is; my $ie;
+    if (!&glossaryMatch($textP, $m->{'node'}, \$is, \$ie)) {next;}
+    if ($is == $ie) {
+      &Log("ERROR: Match result was zero width!: \"".$m->{'node'}->textContent."\"\n");
+      next;
     }
     
     $MatchesUsed{$m->{'node'}->unique_key}++;
@@ -1499,8 +1478,6 @@ sub addDictionaryLink(\$$$$\@) {
     substr($$textP, $is, 0, "<reference $attribs>");
     
     if (!$removeLater) {
-      &dbg("LINKED: $pm\n$t\n$is, $ie, ".$+{'link'}.".\n");
-      
       # record hit...
       $EntryHits{$m->{'name'}}++;
       
@@ -1525,6 +1502,65 @@ sub addDictionaryLink(\$$$$\@) {
   return $matchedPattern;
 }
 
+# Look for a single match $m in $$textP and set its start/end positions
+# if one is found. Returns 1 if a match was found or 0 if not.
+sub glossaryMatch(\$$\$\$) {
+  my $textP = shift;
+  my $m = shift;
+  my $isP = shift;
+  my $ieP = shift;
+  
+  my $p = $m->textContent;
+  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
+    &Log("ERROR: Bad match regex: \"$p\"\n");
+    &dbg("80\n");
+    return 0;
+  }
+  my $pm = $1; my $pf = $2;
+  
+  # handle PUNC_AS_LETTER word boundary matching issue
+  if ($PUNC_AS_LETTER) {
+    $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
+  }
+  
+  # handle xml decodes
+  $pm = decode_entities($pm);
+  
+  # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
+  my $t = $$textP;
+  my $i = $pf =~ s/i//;
+  $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
+  if ($i) {
+    $t = &uc2($t);
+  }
+  if ($pf =~ /(\w+)/) {
+    &Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");
+  }
+ 
+  # finally do the actual MATCHING...
+  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": $t !~ /$pm/\n"); 
+  if ($t !~ /$pm/) {
+    return 0;
+  }
+    
+  $$isP = $-[$#+];
+  $$ieP = $+[$#+];
+  
+  # if a (?'link'...) named group 'link' exists, use it instead
+  if (defined($+{'link'})) {
+    my $i;
+    for ($i=0; $i <= $#+; $i++) {
+      if ($$i eq $+{'link'}) {last;}
+    }
+    $$isP = $-[$i];
+    $$ieP = $+[$i];
+  }
+  
+  &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, ".$+{'link'}.".\n");
+  
+  return 1;
+}
+
 # Takes the context or notContext attribute value from DWF and determines
 # whether it is a Paratext reference list or not. If it is, it's converted
 # to a valid osisRef. If there are any errors, the value is returned unchanged.
@@ -1534,14 +1570,15 @@ sub contextAttribute2osisRefAttribute($) {
   if ($CONVERTED_P2O{$val}) {return $CONVERTED_P2O{$val};}
   
   my @parts;
-  if ($val =~ /,/) {
-    @parts = split(/\s*,\s*/, $val);
-    foreach my $part (@parts) {
-      if ($part =~ /^[\d\w]\w\w\b/) {next;}
-      return $val;
+  @parts = split(/\s*,\s*/, $val);
+  my $reportParatextWarnings = (($val =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1) ? 1:0) || (scalar(@parts) > 3));
+  foreach my $part (@parts) {
+    if ($part =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1)) {next;}
+    if ($reportParatextWarnings) {
+      &Log("WARNING: Attribute part \"$part\" might be a failed Paratext reference in \"$val\".\n");
     }
+    return $val;
   }
-  else {return $val;}
   
   my $p1; my $p2;
   my @osisRefs = ();
