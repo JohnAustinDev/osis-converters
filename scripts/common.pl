@@ -1548,15 +1548,6 @@ sub contextAttribute2osisRefAttribute($) {
   foreach my $part (@parts) {
     my @pOsisRefs = ();
     
-    my $bk;
-    my $bkP;
-    my $ch;
-    my $chP;
-    my $vs;
-    my $vsP;
-    my $lch;
-    my $lchP;
-    my $lvs;
     # book-book (assumes Paratext and OSIS verse system's book orders are the same)
     if ($part =~ /^([\d\w]\w\w)\s*\-\s*([\d\w]\w\w)$/) {
       my $bk1 = $1; my $bk2 = $2;
@@ -1568,83 +1559,80 @@ sub contextAttribute2osisRefAttribute($) {
       }
       push(@pOsisRefs, "$bk1-$bk2");
     }
-    # book ch-ch
-    elsif ($part =~ /^([\d\w]\w\w)\s+(\d+)\s*\-\s*(\d+)$/) {
+    else {
+      my $bk;
+      my $bkP;
+      my $ch;
+      my $chP;
+      my $vs;
+      my $vsP;
+      my $lch;
+      my $lchP;
+      my $lvs;
+      # book ch-ch
+      if ($part =~ /^([\d\w]\w\w)\s+(\d+)\s*\-\s*(\d+)$/) {
+        $bk = $1;
+        $ch = $2;
+        $lch = $3;
+        $bkP = 1;
+      }
+      # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
+      elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
+        &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\"!\n");
+        return $val;
+      }
       $bk = $1;
-      $ch = $2;
-      $lch = $3;
-      $bkP = 1;
-    }
-    # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
-    elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
-      &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\"!\n");
-      return $val;
-    }
-    $bk = $1;
-    $bkP = $2;
-    $ch = $3;
-    $chP = $4;
-    $vs = $5;
-    $vsP = $6;
-    $lch = $7;
-    $lchP = $8;
-    $lvs = $9;
-    
-    if ($vsP && !$lchP) {$lvs = $lch; $lch = '';}
-    
-    my $bk = &getOsisName($bk, 1);
-    if (!$bk) {
-      &Log("ERROR contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\"!\n");
-      return $val;
-    }
-    
-    if (!$bkP) {
-      push(@pOsisRefs, $bk);
-    }
-    elsif (!$chP) {
-      if ($lch) {
-        for (my $i=$ch; $i<=$lch; $i++) {
-          push(@pOsisRefs, "$bk.$i");
+      $bkP = $2;
+      $ch = $3;
+      $chP = $4;
+      $vs = $5;
+      $vsP = $6;
+      $lch = $7;
+      $lchP = $8;
+      $lvs = $9;
+      
+      if ($vsP && !$lchP) {$lvs = $lch; $lch = '';}
+      
+      my $bk = &getOsisName($bk, 1);
+      if (!$bk) {
+        &Log("ERROR contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\"!\n");
+        return $val;
+      }
+      
+      if (!$bkP) {
+        push(@pOsisRefs, $bk);
+      }
+      elsif (!$chP) {
+        if ($lch) {
+          for (my $i=$ch; $i<=$lch; $i++) {
+            push(@pOsisRefs, "$bk.$i");
+          }
+        }
+        push(@pOsisRefs, "$bk.$ch");
+      }
+      elsif (!$vsP) {
+        if ($vs eq "0") { # sometimes intro was written as GEN 1:0
+          push(@pOsisRefs, "$bk.0");
+        }
+        else {
+          push(@pOsisRefs, "$bk.$ch.$vs");
         }
       }
-      push(@pOsisRefs, "$bk.$ch");
-    }
-    elsif (!$vsP) {
-      if ($vs eq "0") { # sometimes intro was written as GEN 1:0
-        push(@pOsisRefs, "$bk.0");
+      elsif (!$lchP) {
+        push(@pOsisRefs, "$bk.$ch.$vs".($lvs != $vs ? "-$bk.$ch.$lvs":''));
       }
       else {
-        push(@pOsisRefs, "$bk.$ch.$vs");
-      }
-    }
-    elsif (!$lchP) {
-      push(@pOsisRefs, "$bk.$ch.$vs-$bk.$ch.$lvs");
-    }
-    else {
-      my $needIC = 0;
-      for (my $i=$ch; $i<=$lch; $i++) {
-        if ($ch == $lch) {
-          &Log("ERROR contextAttribute2osisRefAttribute: Same chapter \"$part\" of \"$val\"\n");
-          return $val;
-        }
-        if ($i == $ch) {
-          my $canonP;
-          # Bug warning - this assumes osisRef is of same verse system as $VERSESYS
-          &getCanon($VERSESYS, \$canonP, NULL, NULL, NULL);
-          push(@pOsisRefs, "$bk.$ch.$vs-$bk.$ch.".@{$canonP->{$bk}}[($ch-1)]);
-        }
-        elsif ($i == $lch) {
-          if ($needIC) {
-            if ($needIC == 1) {
-              push(@pOsisRefs, "$bk.".($ch+1));
-            }
-            else {
-              push(@pOsisRefs, "$bk.".($ch+1)."-$bk.".($lch-1));
-            }
+        my $canonP;
+        # Bug warning - this assumes $VERSESYS is verse system of osisRef  
+        &getCanon($VERSESYS, \$canonP, NULL, NULL, NULL);
+        my $ch1lv = ($lch == $ch ? $lvs:@{$canonP->{$bk}}[($ch-1)]);
+        push(@pOsisRefs, "$bk.$ch.$vs".($ch1lv != $vs ? "-$bk.$ch.$ch1lv":''));
+        if ($lch != $ch) {
+          if (($lch-$ch) >= 2) {
+            push(@pOsisRefs, "$bk.".($ch+1).(($lch-1) != ($ch+1) ? "-$bk.".($lch-1):''));
           }
-          push(@pOsisRefs, "$bk.$lch.1-$bk.$lch.$lvs");
+          push(@pOsisRefs, "$bk.$lch.1".($lvs != 1 ? "-$bk.$lch.$lvs":''));
         }
-        else {$needIC++;}
       }
     }
     
