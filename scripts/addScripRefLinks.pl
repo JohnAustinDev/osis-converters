@@ -314,7 +314,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no subrefs with OSIS ref problems found)\n");}
   &Log("\n");
 
-  &Log("REPORT: Grand Total links: ($newLinks instances)\n");
+  &Log("REPORT: Grand Total Scripture Reference links: ($newLinks instances)\n");
   $newLinks = 0;
   foreach my $type (sort keys %Types) {
     &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
