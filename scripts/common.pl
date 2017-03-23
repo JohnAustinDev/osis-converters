@@ -2187,7 +2187,7 @@ sub logDictLinks() {
     }
     else {&Log("ERROR: No <name> for <match> \"$m\" in $DICTIONARY_WORDS\n");}
   }
-  &Log("REPORT: Unused match elements in $Dictionary_WORDS: ($total instances)\n");
+  &Log("REPORT: Unused match elements in $DICTIONARY_WORDS: ($total instances)\n");
   foreach my $k (sort keys %unused) {
     foreach my $m (@{$unused{$k}}) {
       &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
