@@ -85,4 +85,6 @@ sub makeGoBible($) {
   chdir($SCRD);
 }
 
+&Log("\nend time: ".localtime()."\n");
+
 1;

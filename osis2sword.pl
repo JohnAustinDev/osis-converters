@@ -153,4 +153,6 @@ open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);
 
+&Log("\nend time: ".localtime()."\n");
+
 1;

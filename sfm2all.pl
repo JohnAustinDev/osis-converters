@@ -75,4 +75,6 @@ if ($LOGFILE eq "$OUTDIR/OUT_$SCRIPT_NAME.txt" && $companionProject) {
   }
 }
 
+&Log("\nend time: ".localtime()."\n");
+
 1;
