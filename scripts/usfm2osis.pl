@@ -77,19 +77,23 @@ sub usfm2osis($$) {
           $i--;
         }
       }
-      else {push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx});}
+      else {
+        my $sf = ($rg && -e "$INPD/$rg" ? 1:0); # Is this group a single file?
+        push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx, 'singleFile' => $sf});
+      }
       next;
     }
     elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
     elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
-      $SFMfileGlob = $1;
+      my $runTarget = $1;
+      $SFMfileGlob = $runTarget;
       $SFMfileGlob =~ s/\\/\//g;
       $SFMfileGlob =~ s/ /\\ /g; # spaces in file names are possible and need escaping
       if ($SFMfileGlob =~ /^\./) {
         $SFMfileGlob = File::Spec->rel2abs($SFMfileGlob, $INPD);
       }
-      if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob);}
+      if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
@@ -122,12 +126,11 @@ sub usfm2osis($$) {
   return $osis;
 }
 
-sub evalRegex($) {
+sub evalRegex($$) {
   my $usfmFiles = shift;
+  my $runTarget = shift;
   
   my $outFiles = '';
-  my %eval_regex_report;
-  my %eval_regex_applied;
   
   &Log("Processing USFM $usfmFiles\n");
   
@@ -156,32 +159,38 @@ sub evalRegex($) {
     push (@files, $df);
   }
   foreach my $f2 (@files) {
+    my %eval_regex_report;
+    my %eval_regex_applied;
+  
     $outFiles .= "\"".$f2."\" ";
     
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
     if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
-    my $s = join('', <SFM>); foreach my $r (@EVAL_REGEX) {if (eval("\$s =~ ".$r->{'regex'}.";")) {$eval_regex_applied{$r->{'regex'}}++;}}
+    my $s = join('', <SFM>); 
+    foreach my $r (@EVAL_REGEX) {
+      if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}
+      my $num;
+      eval("\$num = scalar(\$s =~ ".$r->{'regex'}.");");
+      if ($num) {
+        $eval_regex_applied{$r->{'regex'}}++;
+        $eval_regex_report{$r->{'regex'}} += $num;
+      }
+    }
     close(SFM);
     
     open(SFM2, ">:encoding(UTF-8)", "$f2.new") or die;
     print SFM2 $s;
     close(SFM2);
     
-    # the following is only for getting replacement line counts, since eval() does not allow this directly
-    if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
-    while (<SFM>) {foreach my $r (@EVAL_REGEX) {if (eval("\$_ =~ ".$r->{'regex'}.";")) {$eval_regex_report{$r->{'regex'}}++;}}}
-    foreach my $r (@EVAL_REGEX) {if ($eval_regex_report{$r->{'regex'}} > 1 && $r->{'regex'} !~ /\/\w*g\w*$/) {$eval_regex_report{$r->{'regex'}} = 1;}}
-    close(SFM);
-    
     unlink($f2);
     rename("$f2.new", "$f2");
-  }
-  
-  foreach my $r (@EVAL_REGEX) {
-    if (!$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied \"".$r->{'regex'}."\".\n");}
-    elsif ($eval_regex_report{$r->{'regex'}}) {&Log("Applied \"".$r->{'regex'}."\" on ".$eval_regex_report{$r->{'regex'}}." line(s).\n");}
-    else {&Log("Applied \"".$r->{'regex'}."\" on ?? lines.\n");}
+    
+    foreach my $r (@EVAL_REGEX) {
+      if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}
+      if (!$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied \"".$r->{'regex'}."\".\n");}
+      else {&Log("Applied \"".$r->{'regex'}."\" on ".$eval_regex_report{$r->{'regex'}}." line(s).\n");}
+    }
   }
   &Log("\n");
   
