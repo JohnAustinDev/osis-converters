@@ -635,7 +635,7 @@ sub convertOrdinal($\@$$$) {
           $haveRef = $nr;
         }
         $txt =~ s/<[^>]*>//g;
-        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference(s) \"".join(' ', @{$osisRefsP})."\" contain(s) \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text \"$txt\".\n");
+        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference(s) \"".join(' ', @{$osisRefsP})."\" contain \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text: \"$txt\".\n");
       }
       if (!@{$fnOsisIdsP}[($ord-1)]) {
         &Log("ERROR $BK.$CH.$VS: The text targets footnote \"$ord\" of osisRefs \"".join(' ', @{$osisRefsP})."\" but such a footnote does not exist!\n");

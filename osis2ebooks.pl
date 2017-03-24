@@ -172,7 +172,8 @@ sub setupAndMakeEbook($$$) {
           closedir(IDIR);
           foreach my $image (@images) {
             if (-d "$compDir/images/$image" || ! -e "$tmp/images/$image") {next;}
-            &Log("ERROR: Images cannot have the same name:\"$compDir/images/$image\" and \"$tmp/images/$image\".\n");
+            if (-e "$tmp/images/$image" && !`diff "$tmp/images/$image" "$compDir/images/$image"`) {next;}
+            &Log("ERROR: Different images cannot have the same name in both module and companion:\"$compDir/images/$image\" and \"$INPD/images/$image\".\n");
           }
         }
         else {&Log("ERROR: Cannot open image directory \"$compDir/images\"\n");}
