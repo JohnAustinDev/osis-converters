@@ -26,6 +26,11 @@ if __name__ == "__main__":
 
     # Process the input file
     for line in fi:
+        
+        # Check for a style to be applied
+        tempLine = re.sub(r'%&amp;(\S+?)&amp;%', r'<style name="\1">', line)
+        line = re.sub('%%%', "</style>", tempLine)
+
         lineOut = ''
     
         if not inFnSection:
@@ -62,10 +67,6 @@ if __name__ == "__main__":
                 print 'Footnotes found: %d' % fnCount
                 fnCount = 0
                 
-        # Check for a style to be applied
-        tempLine = re.sub(r'%&amp;(\S+?)&amp;%', r'<style name="\1">', lineOut)
-        lineOut = re.sub('%%%', "</style>", tempLine)
-
         # Write to output file
         if len(lineOut.strip()) > 0:
             if re.match('</FictionBook>', lineOut) is None:
@@ -92,6 +93,7 @@ if __name__ == "__main__":
     
     fo.write('</FictionBook>')
     fo.close()
+
         
         
         
