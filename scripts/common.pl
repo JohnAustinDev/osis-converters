@@ -1656,12 +1656,7 @@ sub contextAttribute2osisRefAttribute($) {
         push(@pOsisRefs, "$bk.$ch");
       }
       elsif (!$vsP) {
-        if ($vs eq "0") { # sometimes intro was written as GEN 1:0
-          push(@pOsisRefs, "$bk.0");
-        }
-        else {
-          push(@pOsisRefs, "$bk.$ch.$vs");
-        }
+        push(@pOsisRefs, "$bk.$ch.$vs");
       }
       elsif (!$lchP) {
         push(@pOsisRefs, "$bk.$ch.$vs".($lvs != $vs ? "-$bk.$ch.$lvs":''));
