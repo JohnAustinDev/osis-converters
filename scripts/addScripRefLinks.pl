@@ -511,11 +511,6 @@ sub addLinks(\$$$) {
 
       #  Look at unhandledBook
       if ($unhandledBook) {
-        $numUnhandledWords++;
-        my $ubk = $unhandledBook;
-        $ubk =~ s/^.*>$/<tag>/;
-        $ubk =~ s/^.*\($/(/;
-        $UnhandledWords{$ubk} .= $LOCATION.", ";
         if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
 #          &Log("$LOCATION WARNING: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
           &hideTerm($matchedTerm, $ttP);
@@ -619,6 +614,14 @@ sub addLinks(\$$$) {
       }
 
       ADDLINK:
+      if ($unhandledBook) {
+        $numUnhandledWords++;
+        my $ubk = $unhandledBook;
+        $ubk =~ s/^.*>$/<tag>/;
+        $ubk =~ s/^.*\($/(/;
+        $UnhandledWords{$ubk} .= $LOCATION.", ";
+      }
+      
       my $repExtrefENC = &encodeTerm($repExtref);
       if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$pextref\".\n");}
 
