@@ -318,7 +318,7 @@ sub validateDictionaryXML($) {
   }
   
   $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink');
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink', 'notExplicit', 'onlyExplicit');
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
@@ -1385,6 +1385,7 @@ sub addDictionaryLink(\$$$$\@) {
       my %minfo;
       $minfo{'node'} = $m;
       $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
+      $minfo{'onlyExplicit'} = &attributeIsSet('onlyExplicit', $m);
       $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
       $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
       $minfo{'multiple'} = &attributeIsSet('multiple', $m);
@@ -1440,6 +1441,7 @@ sub addDictionaryLink(\$$$$\@) {
       if ($m->{'notExplicit'}) {&dbg("00\n"); next;}
     }
     else {
+      if ($m->{'onlyExplicit'}) {&dbg("01\n"); next;}
       if ($glossaryContext && $m->{'inEntries'}{$glossaryContext}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}

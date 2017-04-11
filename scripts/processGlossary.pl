@@ -292,6 +292,7 @@ sub dictWordsHeader() {
   dontLink=\"true|false\" to specify matched text should NOT get linked to the entry
   multiple=\"true|false\" to allow more than one identical link per entry or chapter
   notExplicit=\"true|false\" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
+  onlyExplicit=\"true|false\" selects if match(es) should only be applied to explicitly marked glossary entries in the text
   
   Non-Boolean:
   IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
