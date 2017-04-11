@@ -46,7 +46,7 @@ sub addSeeAlsoLinks($$) {
     my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $xml);
     &convertExplicitGlossaryElements(\@glossary);
     
-    my @textNodes = $XPC->findnodes("//text()[not(ancestor::osis:reference)]", $xml);
+    my @textNodes = $XPC->findnodes("//text()[not(ancestor::*[local-name() = 'reference'])]", $xml);
     &addDictionaryLinks(\@textNodes, 0, 1);
     
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);

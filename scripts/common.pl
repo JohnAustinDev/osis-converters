@@ -2153,7 +2153,7 @@ sub logDictLinks() {
   my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $DWF);
   my %entriesH; foreach my $e (@entries) {
     my @ms = $XPC->findnodes('./ancestor::dw:entry[1]//dw:match', $e);
-    $entriesH{(!@ms || !@ms[0] ? "<match> missing:":'').$e}++;
+    $entriesH{(!@ms || !@ms[0] ? '(no match rules) ':'').$e}++;
   }
   foreach my $e (sort keys %entriesH) {
     my $match = 0;
@@ -2244,7 +2244,7 @@ sub logDictLinks() {
       $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
     }
     
-    $p .= sprintf("%3i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
+    $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
   &Log("REPORT: Links created: ($gt instances)\n$p");
   
