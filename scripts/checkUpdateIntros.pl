@@ -91,7 +91,7 @@ sub checkUpdateIntros($) {
   }
   
   # titles should be canonical=false unless already explicitly set
-  my @tts = $XPC->findnodes('//osis:title[not(@canonical)]', $xml);
+  my @tts = $XPC->findnodes('//osis:title[not(@canonical)][not(ancestor::osis:header)]', $xml);
   foreach my $tt (@tts) {$tt->setAttribute('canonical', 'false');}
   
   my $t = $xml->toString();

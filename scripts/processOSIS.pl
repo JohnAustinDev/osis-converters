@@ -1,7 +1,7 @@
 copy("$TMPDIR/".$MOD."_0.xml", "$TMPDIR/".$MOD."_1.xml");
 # MOD_0.xml is raw converter output
 
-&updateOsisHeader("$TMPDIR/".$MOD."_1.xml");
+&writeOsisHeaderWork("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/toVersificationBookOrder.pl");

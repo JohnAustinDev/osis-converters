@@ -2560,10 +2560,11 @@ sub emptyvss($) {
 }
 
 
-sub updateOsisHeader($) {
+sub writeOsisHeaderWork($) {
   my $osis = shift;
+  my $confP = shift;
   
-  &Log("\nUpdating work and companion work elements in OSIS header:\n");
+  &Log("\nWriting work and companion work elements in OSIS header:\n");
   
   my $xml = $XML_PARSER->parse_file($osis);
   
@@ -2577,17 +2578,32 @@ sub updateOsisHeader($) {
     }
   }
   
-  # Remove any unknown work elements
-  @keep = ($MOD, split(/\s*,\s*/, $ConfEntryP->{'Companion'}));
-  my %keep = map { $_ => 1 } @keep;
+  # Remove any work elements
   foreach my $we (@{$XPC->findnodes('//*[local-name()="work"]', $xml)}) {
-    if ($keep{$we->getAttribute('osisWork')}) {next;}
-    &Log("WARNING: Removing un-applicable work element:".$we."\n");
     $we->unbindNode();
   }
   
+  # Get ISBN number from osis file
+  my @isbns;
+  my $isbn;
+  my @tns = $XPC->findnodes('//text()', $xml);
+  foreach my $tn (@tns) {
+    if ($tn =~ /\bisbn ?(number|\#|no\.?)?([\d\- ]+)/i) {
+      $isbn = $2; $isbn =~ s/[\- ]//g;
+      if (length($isbn) != 13) {&Log("ERROR: ISBN number \"$isbn\" is not 13 digits!\n");}
+      push(@isbns, $isbn);
+    }
+  }
+  $isbn = join(', ', @isbns);
+  
   # Add work element for self
-  &updateWorkElement($MOD, $ConfEntryP, $xml);
+  my %workAttributes = ('osisWork' => $MOD);
+  my %workElements;
+  &getOSIS_Work(\%workElements, $confP, $isbn);
+  if ($workElements{'07:type'}{'textContent'} eq 'Bible') {
+    $workElements{'15:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+  }
+  &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
   # Add work element for any companion(s)
   if ($ConfEntryP->{'Companion'}) {
@@ -2598,7 +2614,10 @@ sub updateOsisHeader($) {
         &Log("ERROR: Could not locate Companion \"$comp\" conf from \"$INPD\"\n");
         next;
       }
-      &updateWorkElement($comp, &readConf("$path/config.conf"), $xml);
+      my %compWorkAttributes = ('osisWork' => $comp);
+      my %compWorkElements;
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $isbn);
+      &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
     }
   }
   
@@ -2610,41 +2629,84 @@ sub updateOsisHeader($) {
 }
 
 
-sub updateWorkElement($\%$) {
-  my $mod = shift;
+sub getOSIS_Work($$$) {
+  my $osisWorkP = shift;
   my $confP = shift;
+  my $isbn = shift;
+  
+  # map conf info to OSIS Work elements:
+  my @tm = localtime(time);
+  my %type;
+  # element order seems to be important for passing OSIS schema for some reason (hence the ordinal prefix)
+  $osisWorkP->{'00:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (Version: '.$confP->{'Version'}.')':'');
+  $osisWorkP->{'04:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
+  $osisWorkP->{'04:date'}{'event'} = 'eversion';
+  $osisWorkP->{'05:description'}{'textContent'} = $confP->{'About'};
+  $osisWorkP->{'06:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
+  $osisWorkP->{'09:identifier'}{'textContent'} = $isbn;
+  $osisWorkP->{'09:identifier'}{'type'} = 'ISBN';
+  $osisWorkP->{'10:source'}{'textContent'} = $confP->{'DistributionNotes'};
+  $osisWorkP->{'11:language'}{'textContent'} = $confP->{'Lang'};
+  $osisWorkP->{'14:rights'}{'textContent'} = $confP->{'DistributionLicense'};
+  $osisWorkP->{'18:refSystem'}{'textContent'} = "Bible.".$confP->{'Versification'};
+  if    ($confP->{'ModDrv'} =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
+  elsif ($confP->{'ModDrv'} =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
+  elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
+  elsif ($confP->{'ModDrv'} =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
+  $osisWorkP->{'07:type'} = \%type;
+
+# From OSIS spec, valid work elements are:
+#    '00:title' => '',
+#    '01:contributor' => '',
+#    '02:creator' => '',
+#    '03:subject' => '',
+#    '04:date' => '',
+#    '05:description' => '',
+#    '06:publisher' => '',
+#    '07:type' => '',
+#    '08:format' => '',
+#    '09:identifier' => '',
+#    '10:source' => '',
+#    '11:language' => '',
+#    '12:relation' => '',
+#    '13:coverage' => '',
+#    '14:rights' => '',
+#    '15:scope' => '',
+#    '16:castList' => '',
+#    '17:teiHeader' => '',
+#    '18:refSystem' => ''
+  
+  return;
+}
+
+
+sub writeWorkElement($$$) {
+  my $attributesP = shift;
+  my $elementsP = shift;
   my $xml = shift;
   
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
+  $header->appendTextNode("\n");
+  my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work></work>"), NULL);
   
-  # get or create the work element
-  my $work;
-  my @ws = $XPC->findnodes('./*[local-name()="work"][@osisWork="'.$mod.'"]', $header);
-  if (@ws) {$work = @ws[0];}
-  else {
-    $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work osisWork=\"$mod\"></work>"), NULL);
-  }
-
-  # add type field
-  if (!@{$XPC->findnodes('./*[local-name()="type"]', $work)}) {
-    my $type;
-    if    ($confP->{'ModDrv'} =~ /LD/)   {$type = "<type type=\"x-glossary\">Glossary</type>";}
-    elsif ($confP->{'ModDrv'} =~ /Text/) {$type = "<type type=\"x-bible\">Bible</type>";}
-    elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = "<type type=\"x-childrens-bible\">Children's Bible</type>";}
-    elsif ($confP->{'ModDrv'} =~ /Com/) {$type = "<type type=\"x-commentary\">Commentary</type>";}
-    if ($type) {
-      $work->insertAfter($XML_PARSER->parse_balanced_chunk($type), NULL);
+  foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
+  foreach my $e (sort keys %{$elementsP}) {
+  if (!$elementsP->{$e}{'textContent'}) {next;}
+   $work->appendTextNode("\n  ");
+    my $er = $e;
+    $er =~ s/^\d{2}\://;
+    my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), NULL);
+    foreach my $a (sort keys %{$elementsP->{$e}}) {
+      if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
+      else {$elem->setAttribute($a, $elementsP->{$e}{$a});}
     }
+    $work->appendTextNode("\n");
   }
+  $header->appendTextNode("\n");
   
-  # add refSystem field
-  if ($confP->{'Versification'} && !@{$XPC->findnodes('./*[local-name()="refSystem"]', $work)}) {
-    $work->insertAfter($XML_PARSER->parse_balanced_chunk("<refSystem>Bible.".$confP->{'Versification'}."</refSystem>"), NULL);
-  }
-
   my $w = $work->toString(); 
-  $w =~ s/\n//g;
-  &Log("Updated: $w\n");
+  $w =~ s/\n+/\n/g;
+  &Log("Wrote to header: \n$w\n");
 }
 
 
