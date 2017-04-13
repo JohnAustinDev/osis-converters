@@ -15,7 +15,7 @@ elsif ($MODDRV =~ /LD/) {
   &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
-  &write_osisIDs("$TMPDIR/".$MOD."_1.xml");
+  &writeEntry_osisIDs("$TMPDIR/".$MOD."_1.xml");
 }
 my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();
 $osisDocString =~ s/\n+/\n/gm;
@@ -34,6 +34,7 @@ if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   else {move("$TMPDIR/".$MOD."_1a.xml", "$TMPDIR/".$MOD."_2.xml");}
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
+&writeNote_osisRefs("$TMPDIR/".$MOD."_2.xml");
 # MOD_2.xml is after addScripRefLinks.pl
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {

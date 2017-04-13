@@ -52,9 +52,9 @@
 #        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
 #        disassociate the left ref from footnote association.
 
-$RefStart = "<reference type=\"x-footnote\" osisRef=\"TARGET\">";
+$RefStart = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $RefEnd = "</reference>";
-$RefExt = "!footnote.n";
+$RefExt = "!note.n";
 
 require("$SCRD/scripts/processGlossary.pl");
 

@@ -2623,8 +2623,8 @@ sub writeOsisHeaderWork($) {
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
   &getOSIS_Work(\%workElements, $confP, $isbn);
-  if ($workElements{'07:type'}{'textContent'} eq 'Bible') {
-    $workElements{'15:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+  if ($workElements{'070:type'}{'textContent'} eq 'Bible') {
+    $workElements{'150:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -2657,50 +2657,54 @@ sub getOSIS_Work($$$) {
   my $confP = shift;
   my $isbn = shift;
   
-  # map conf info to OSIS Work elements:
   my @tm = localtime(time);
   my %type;
-  # element order seems to be important for passing OSIS schema for some reason (hence the ordinal prefix)
-  $osisWorkP->{'00:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (e-Version: '.$confP->{'Version'}.')':'');
-  $osisWorkP->{'04:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
-  $osisWorkP->{'04:date'}{'event'} = 'eversion';
-  $osisWorkP->{'05:description'}{'textContent'} = $confP->{'About'};
-  $osisWorkP->{'06:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
-  $osisWorkP->{'09:identifier'}{'textContent'} = $isbn;
-  $osisWorkP->{'09:identifier'}{'type'} = 'ISBN';
-  $osisWorkP->{'10:source'}{'textContent'} = $confP->{'DistributionNotes'};
-  $osisWorkP->{'11:language'}{'textContent'} = $confP->{'Lang'};
-  $osisWorkP->{'14:rights'}{'textContent'} = $confP->{'DistributionLicense'};
   if    ($confP->{'ModDrv'} =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
   elsif ($confP->{'ModDrv'} =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
   elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
-  $osisWorkP->{'07:type'} = \%type;
+  my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-childrens-bible' ? 'GenBook':($type{'type'} eq 'x-commentary' ? 'Comm':'Bible')));
   my $refSystem = "Bible.".$confP->{'Versification'};
-  if ($type{'type'} eq 'x-glossary') {$refSystem = "Glossary";}
-  if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book";}
-  $osisWorkP->{'18:refSystem'}{'textContent'} = $refSystem;
+  if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.".$confP->{'ModuleName'};}
+  if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{'ModuleName'};}
+  
+  # map conf info to OSIS Work elements:
+  # element order seems to be important for passing OSIS schema for some reason (hence the ordinal prefix)
+  $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (e-Version: '.$confP->{'Version'}.')':'');
+  $osisWorkP->{'040:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
+  $osisWorkP->{'040:date'}{'event'} = 'eversion';
+  $osisWorkP->{'050:description'}{'textContent'} = $confP->{'About'};
+  $osisWorkP->{'060:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
+  $osisWorkP->{'070:type'} = \%type;
+  $osisWorkP->{'090:identifier'}{'textContent'} = $isbn;
+  $osisWorkP->{'090:identifier'}{'type'} = 'ISBN';
+  $osisWorkP->{'091:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
+  $osisWorkP->{'091:identifier'}{'type'} = 'OSIS';
+  $osisWorkP->{'100:source'}{'textContent'} = $confP->{'DistributionNotes'};
+  $osisWorkP->{'110:language'}{'textContent'} = $confP->{'Lang'};
+  $osisWorkP->{'140:rights'}{'textContent'} = $confP->{'DistributionLicense'};
+  $osisWorkP->{'180:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
-#    '00:title' => '',
-#    '01:contributor' => '',
-#    '02:creator' => '',
-#    '03:subject' => '',
-#    '04:date' => '',
-#    '05:description' => '',
-#    '06:publisher' => '',
-#    '07:type' => '',
-#    '08:format' => '',
-#    '09:identifier' => '',
-#    '10:source' => '',
-#    '11:language' => '',
-#    '12:relation' => '',
-#    '13:coverage' => '',
-#    '14:rights' => '',
-#    '15:scope' => '',
-#    '16:castList' => '',
-#    '17:teiHeader' => '',
-#    '18:refSystem' => ''
+#    '000:title' => '',
+#    '010:contributor' => '',
+#    '020:creator' => '',
+#    '030:subject' => '',
+#    '040:date' => '',
+#    '050:description' => '',
+#    '060:publisher' => '',
+#    '070:type' => '',
+#    '080:format' => '',
+#    '090:identifier' => '',
+#    '100:source' => '',
+#    '110:language' => '',
+#    '120:relation' => '',
+#    '130:coverage' => '',
+#    '140:rights' => '',
+#    '150:scope' => '',
+#    '160:castList' => '',
+#    '170:teiHeader' => '',
+#    '180:refSystem' => ''
   
   return;
 }
@@ -2720,7 +2724,7 @@ sub writeWorkElement($$$) {
   if (!$elementsP->{$e}{'textContent'}) {next;}
    $work->appendTextNode("\n  ");
     my $er = $e;
-    $er =~ s/^\d{2}\://;
+    $er =~ s/^\d+\://;
     my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), NULL);
     foreach my $a (sort keys %{$elementsP->{$e}}) {
       if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
@@ -2876,6 +2880,25 @@ sub joinOSIS($) {
   }
   
   open(OUTF, ">$out_osis") or die "joinOSIS could not open \"$out_osis\".\n";
+  print OUTF $xml->toString();
+  close(OUTF);
+}
+
+
+# Find all notes beginning with annotateRef type references and add osisRef attributes
+sub writeNote_osisRefs($) {
+  my $osis = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  
+  &Log("\n\nWriting note osisRef attributes to OSIS file \"$osis\".\n");
+  
+  my @annorefs = $XPC->findnodes('//osis:note/osis:reference[1][@type="annotateRef" and @osisRef]', $xml);
+  foreach my $r (@annorefs) {
+    @{$XPC->findnodes('ancestor::osis:note[1]', $r)}[0]->setAttribute('osisRef', $r->getAttribute('osisRef'));
+  }
+
+  open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
 }
