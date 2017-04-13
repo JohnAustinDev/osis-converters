@@ -533,4 +533,36 @@ sub createDiv($) {
   return $div
 }
 
+sub write_osisIDs($) {
+  my $osis = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  
+  &Log("\n\nWriting glossary osisID's to OSIS file \"$osis\".\n");
+  
+  my %osisIDS;
+  my @kws = $XPC->findnodes("//$KEYWORD", $xml);
+  foreach $kw (@kws) {
+    my $suf = '';
+    if (@{$XPC->findnodes('ancestor::osis:div[@type="x-duplicate-keyword"]', $kw)}) {
+      $suf = ".part1";
+    }
+    my $osisID = &encodeOsisRef($kw->textContent) . $suf;
+    if ($osisIDS{$osisID}) {
+      if ($osisID =~ /^(.*?\.part)(\d+)$/) {
+        my $id = $1; my $n = $2;
+        do {$n++} while ($osisIDS{$id.$n});
+        $osisID = $id.$n;
+      }
+      else {&log("ERROR write_osisIDs: Duplicate osisID \"$osisID\"!\n");}
+    }
+    $kw->setAttribute("osisID", $osisID);
+    $osisIDS{$osisID}++;
+  }
+
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
+}
+
 1;

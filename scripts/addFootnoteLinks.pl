@@ -138,14 +138,12 @@ sub addFootnoteLinks($$) {
     my $cosisFile = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
     if (-e $cosisFile) {
       my @files = &splitOSIS($cosisFile);
-      my $cmod; my $vsys;
+      my $cmod;
       foreach my $file (@files) {
         if ($file !~ /other\.osis$/) {next;}
         my $cosisXml = $XML_PARSER->parse_file($file);
-        $cmod = @{$XPC->findnodes('//osis:osisText', $cosisXml)}[0]->getAttribute('osisIDWork');
-        $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$cmod']/osis:refSystem", $cosisXml)}[0]->textContent();
-        $vsys =~ s/^Bible.//;
-        $FNL_MODULE_VERSE_SYSTEMS{$cmod} = $vsys;
+        $cmod = &getModFromNode($cosisXml);
+        $FNL_MODULE_VERSE_SYSTEMS{$cmod} = &getVersificationFromNode($cosisXml);
         last;
       }
       foreach my $file (@files) {
@@ -174,10 +172,8 @@ sub addFootnoteLinks($$) {
   foreach my $file (@files) {
     $xmls{$file} = $XML_PARSER->parse_file($file);
     if ($file =~ /other\.osis$/) {
-      $myMod = @{$XPC->findnodes('//osis:osisText', $xmls{$file})}[0]->getAttribute('osisIDWork');
-      $vsys = @{$XPC->findnodes("//osis:work[\@osisWork='$myMod']/osis:refSystem", $xmls{$file})}[0]->textContent();
-      $vsys =~ s/^Bible.//;
-      $FNL_MODULE_VERSE_SYSTEMS{$myMod} = $vsys;
+      $myMod = &getModFromNode($xmls{$file});
+      $FNL_MODULE_VERSE_SYSTEMS{$myMod} = &getVersificationFromNode($xmls{$file});
     }
   }
   foreach my $file (sort keys %xmls) {
