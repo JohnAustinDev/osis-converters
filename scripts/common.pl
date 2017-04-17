@@ -2131,6 +2131,34 @@ sub checkGlossaryLinks($) {
   else {&Log("REPORT: \"".@links."\" glossary links found and checked. ($errors unknown or missing targets)\n");}
 }
 
+sub checkFigureLinks($) {
+  my $in_osis = shift;
+  
+  &Log("\nCHECKING OSIS FIGURE TARGETS IN $in_osis...\n");
+  
+  my $osis = $XML_PARSER->parse_file($in_osis);
+  my @links = $XPC->findnodes('//osis:figure', $osis);
+  my $errors = 0;
+  foreach my $l (@links) {
+    my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
+    my $src = $l->getAttribute('src');
+    if (!$src) {
+      &Log("ERROR: Figure \"$tag\" has no src target!\n");
+      $errors++;
+      next;
+    }
+    if (! -e "$INPD/$src") {
+      &Log("ERROR checkFigureLinks: Figure \"$tag\" src target does not exist!\n");
+      $errors++;
+    }
+    if ($src != /^\.\/images\//) {
+      &Log("ERROR checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions!\n");
+    }
+  }
+
+  &Log("REPORT: \"".@links."\" figure targets found and checked. ($errors missing targets)\n");
+}
+
 sub checkIntroductionTags($) {
   my $inosis = shift;
   my $parser = XML::LibXML->new('line_numbers' => 1);
