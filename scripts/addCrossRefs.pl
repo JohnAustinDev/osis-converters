@@ -189,7 +189,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   print OUTF $OSIS->toString();
   close(OUTF);
 
-  &Log("REPORT: Placed $NumNotes cross-reference notes.\n");
+  &Log("$MOD REPORT: Placed $NumNotes cross-reference notes.\n");
   
   return 1;
 }

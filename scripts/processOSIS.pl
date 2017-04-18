@@ -68,7 +68,7 @@ print OUTF $xml->toString();
 close(OUTF);
 
 &checkFigureLinks($OUTOSIS);
-&checkGlossaryLinks($OUTOSIS);
+&checkReferenceLinks($OUTOSIS);
 &checkIntroductionTags($OUTOSIS);
 &validateOSIS($OUTOSIS);
 &Log("\nend time: ".localtime()."\n");

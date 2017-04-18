@@ -123,7 +123,7 @@ sub checkCircularEntries($) {
   
   my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
-  &Log("\nREPORT: Found $n circular cross references in \"$out_file\".\n");
+  &Log("\n$MOD REPORT: Found $n circular cross references in \"$out_file\".\n");
   if ($addDictLinks !~ /^check$/i && $n > 0) {
     &Log("NOTE: Some short entries only say: \"See long entry\". In such cases it is\n");
     &Log("often nice if the long entry does not link to the short \"dummy\" entry.\n");

@@ -104,9 +104,9 @@ sub checkImages($) {
     elsif (!&srcPath($src) || ! -e &srcPath($src)) {push(@badTargets, $figure); &Log("ERROR: Figure target not found \"".&srcPath($src)."\": line ".$figure->line_number()."\n");}
     else {push(@goodTargets, $figure);}
   }
-  &Log("\nREPORT: ". @figures . " figures found in the OSIS file.\n");
-  &Log("REPORT: ". @goodTargets . " figures have valid targets.\n");
-  &Log("REPORT: ". @badTargets . " figure(s) have missing targets.\n");
+  &Log("\n$MOD REPORT: ". @figures . " figures found in the OSIS file.\n");
+  &Log("$MOD REPORT: ". @goodTargets . " figures have valid targets.\n");
+  &Log("$MOD REPORT: ". @badTargets . " figure(s) have missing targets.\n");
 
   # if there are any missing targets, remove the corresponding figures
   my @removedTargets;
@@ -121,7 +121,7 @@ sub checkImages($) {
     if (open(OSIS, ">$inosis")) {print OSIS $t; close(OSIS);}
     else {&Log("ERROR: Could not remove bad figures from \"$inosis\"\n"); @removedTargets = ();}
   }
-  &Log("REPORT: ". @removedTargets . " figure(s) with missing targets were removed from the OSIS file.\n\n");
+  &Log("$MOD REPORT: ". @removedTargets . " figure(s) with missing targets were removed from the OSIS file.\n\n");
 }
 
 sub srcPath($) {
@@ -151,7 +151,7 @@ sub checkStructure($$) {
   my @refMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $ref);
   if (@refMS) {
     my @inMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $in);
-    &Log("REPORT: OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".\n");
+    &Log("$MOD REPORT: OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".\n");
     my $j = 0;
     for (my $i=0; $i<@refMS && $j<@inMS; $i++) {
       $i = &nextParent($i, \@refMS);
@@ -164,7 +164,7 @@ sub checkStructure($$) {
   }
   else {&Log("ERROR: Reference \"$refosis\" has no <div type='majorSection'> tags.\n");}
 
-  &Log("REPORT: Structure comparison to reference:\n");
+  &Log("$MOD REPORT: Structure comparison to reference:\n");
   foreach my $ix (sort {$a <=> $b} keys(%StructReport)) {
     &Log(sprintf("%03i % 64s % 64s\n", $ix, $StructReport{$ix}{'name_in'}, $StructReport{$ix}{'name_ref'}));
   }

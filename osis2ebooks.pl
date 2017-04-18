@@ -116,7 +116,7 @@ sub setupAndMakeEbook($$$) {
     $cover = "$tmp/cover.jpg";
     if (!$scopeIsCompleteOSIS && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      &Log("REPORT: Using \"$covname\" with extra title \"$titleOverride\" as cover of \"$MOD:$scope\".\n");
+      &Log("$MOD REPORT: Using \"$covname\" with extra title \"$titleOverride\" as cover of \"$MOD:$scope\".\n");
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($titleOverride);
       if ($pointsize > 40) {$pointsize = 40;}
@@ -128,11 +128,11 @@ sub setupAndMakeEbook($$$) {
       `$cmd`;
     }
     else {
-      &Log("REPORT: Using \"$covname\" as cover of \"$MOD:$scope\".\n");
+      &Log("$MOD REPORT: Using \"$covname\" as cover of \"$MOD:$scope\".\n");
       copy("$INPD/eBook/$covname", $cover);
     }
   }
-  else {&Log("REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:$scope\".\n");}
+  else {&Log("$MOD REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:$scope\".\n");}
   
   my @skipCompanions;
   foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
@@ -154,13 +154,13 @@ sub setupAndMakeEbook($$$) {
         if ($filter == -1) { # -1 means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           unlink("$tmp/$companion.xml");
-          &Log("REPORT: Will NOT include \"$companion\" in \"$MOD:$scope\" because the glossary contained nothing which matched the scope.\n");
+          &Log("$MOD REPORT: Will NOT include \"$companion\" in \"$MOD:$scope\" because the glossary contained nothing which matched the scope.\n");
           next;
         }
       }
     }
   
-    &Log("REPORT: Including".($filter ? ' (filtered)':'')." \"$companion\" in \"$MOD:$scope\"\n");
+    &Log("$MOD REPORT: Including".($filter ? ' (filtered)':'')." \"$companion\" in \"$MOD:$scope\"\n");
     
     # copy companion images
     my $compDir = &findCompanionDirectory($companion);
@@ -251,7 +251,7 @@ sub makeEbook($$$$$$) {
     $name =~ s/\s/_/g;
 
     copy($out, "$EBOUT/$name");
-    &Log("REPORT: Created output file: $name\n", 1);
+    &Log("$MOD REPORT: Created output file: $name\n", 1);
   }
   else {&Log("ERROR: No output file: $out\n");}
 }

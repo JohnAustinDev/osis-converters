@@ -196,12 +196,12 @@ sub addFootnoteLinks($$) {
   foreach my $k (keys %FNL_FIX) {foreach my $t (keys %{$FNL_FIX{$k}}) {if ($FNL_FIX{$k}{$t} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}}
   &Log("\n");
   
-  &Log("REPORT: Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):\n");
+  &Log("$MOD REPORT: Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):\n");
   my $x = 0; foreach my $p (sort keys %FNL_LINKS) {if (length($p) > $x) {$x = length($p);}}
   foreach my $p (sort keys %FNL_LINKS) {&Log(sprintf("%-".$x."s (%i)\n", $p, $FNL_LINKS{$p}));}
   &Log("\n");
     
-  &Log("REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
+  &Log("$MOD REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
   &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
   &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
   &Log(sprintf("%5i - Fixed references\n", &stat('fix')));

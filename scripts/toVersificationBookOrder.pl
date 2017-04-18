@@ -298,7 +298,7 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
   }
   &checkLastVerse($lastbkch, $lastv, $lastVerseTag, $xml, $canonP, \%missingVerseReport);
   
-  &Log("\nREPORT: ".(keys %missingVerseReport)." instance(s) of missing verses in the USFM".((keys %missingVerseReport) ? ':':'.')."\n");
+  &Log("\n$MOD REPORT: ".(keys %missingVerseReport)." instance(s) of missing verses in the USFM".((keys %missingVerseReport) ? ':':'.')."\n");
   if (%missingVerseReport) {
     &Log("NOTE: There are verses missing from the USFM, which are included in the \n");
     &Log("$vsys verse system. For this reason, the osisIDs of verses previous to these \n");

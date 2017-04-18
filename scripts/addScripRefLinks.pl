@@ -240,7 +240,7 @@ sub addScripRefLinks($$) {
   # report other collected data
   my $tCheckRefs = $CheckRefs;
   my $aerefs = ($tCheckRefs =~ tr/\n//);
-  &Log("REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
+  &Log("$MOD REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
   if ($CheckRefs) {
     &Log("NOTE: These are cases where a number could be interpreted as either a verse\n");
     &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
@@ -249,7 +249,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no extended refs contain ambiguous numbers)\n");}
   &Log("\n");
 
-  &Log("REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
+  &Log("$MOD REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
   if (scalar(keys %UnhandledWords)) {
     &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
     &Log("targets and should have been specified in the command file. Words which do not \n");
@@ -263,14 +263,14 @@ sub addScripRefLinks($$) {
   &Log("\n");
   my $t = 0;
   foreach my $e (keys %exclusion) {my @tmp = split(/$sp$sp/, $exclusion{$e}); $t += @tmp;}
-  &Log("REPORT: Listing of exclusions: ($t instances)\n");
+  &Log("$MOD REPORT: Listing of exclusions: ($t instances)\n");
   if (scalar(keys %exclusion)) {
     &reportExclusions(\%exclusion, \%exclusionREP, "verse");
   }
   else {&Log("(no exclusions were specified in command the file)\n");}
   &Log("\n");
 
-  &Log("REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
+  &Log("$MOD REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
   if (scalar(keys %fix)) {
     foreach my $fx (keys %fix) {
       if ($fix{$fx} !~ /^\s*$/) {
@@ -281,7 +281,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no fixes were specified in the command file)\n");}
   &Log("\n");
 
-  &Log("REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
+  &Log("$MOD REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
   if (scalar(keys %missedLeftRefs)) {
     &Log("NOTE: These occur when the end of an extended ref cannot be determined. To fix these, check \n");
     &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
@@ -292,7 +292,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no unlocated left refs)\n");}
   &Log("\n");
 
-  &Log("REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
+  &Log("$MOD REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
   if (scalar(keys %noDigitRef)) {
     &Log("NOTE: These occur when an extended ref or a subref contain no numbers. A large number \n");
     &Log("of these may indicate incorrect command file regular expressions.\n");
@@ -303,7 +303,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no refs without digits found)\n");}
   &Log("\n");
 
-  &Log("REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
+  &Log("$MOD REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
   if (scalar(keys %noOSISRef)) {
     &Log("NOTE: These may indicate a ref which should be an EXCLUSION or a problem \n");
     &Log("with command file regular expressions. \n");
@@ -314,7 +314,7 @@ sub addScripRefLinks($$) {
   else {&Log("(no subrefs with OSIS ref problems found)\n");}
   &Log("\n");
 
-  &Log("REPORT: Grand Total Scripture Reference links: ($newLinks instances)\n");
+  &Log("$MOD REPORT: Grand Total Scripture Reference links: ($newLinks instances)\n");
   $newLinks = 0;
   foreach my $type (sort keys %Types) {
     &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
@@ -329,7 +329,7 @@ sub addScripRefLinks($$) {
   my $xml = $XML_PARSER->parse_file($out_file);
 
   # check all reference tags
-  &Log("REPORT: Checking osisRef attributes of links:\n");
+  &Log("$MOD REPORT: Checking osisRef attributes of links:\n");
   my @refs = $XPC->findnodes('//osis:reference', $xml);
   my $warns = ''; my $errs = '';
   foreach my $ref (@refs) {

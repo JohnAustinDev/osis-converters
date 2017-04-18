@@ -115,10 +115,10 @@ sub aggregateRepeatedEntries($) {
       }
     }
     
-    &Log("REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
+    &Log("$MOD REPORT: $count instance(s) of duplicate keywords were found and aggregated:\n");
     foreach my $uck (keys %duplicates) {&Log("$uck\n");}
   }
-  else {&Log("REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).\n");}
+  else {&Log("$MOD REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).\n");}
 
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
@@ -240,7 +240,7 @@ sub filterGlossaryToScope($$) {
 
     if (@removed == @glossDivs) {return -1;}
     
-    &Log("REPORT: Removed ".@removed." of ".@glossDivs." instance(s) of glossary divs outside the scope: $scope (kept: ".join(' ', @kept).", removed: ".join(' ', @removed).")\n");
+    &Log("$MOD REPORT: Removed ".@removed." of ".@glossDivs." instance(s) of glossary divs outside the scope: $scope (kept: ".join(' ', @kept).", removed: ".join(' ', @removed).")\n");
     
     open(OUTF, ">$osis");
     print OUTF $xml->toString();
@@ -261,7 +261,7 @@ sub removeDuplicateEntries($) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("REPORT: ".@dels." instance(s) of x-duplicate-keyword div removal.\n");
+  &Log("$MOD REPORT: ".@dels." instance(s) of x-duplicate-keyword div removal.\n");
 }
 
 sub removeAggregateEntries($) {
@@ -497,7 +497,7 @@ sub checkEntryNames(\@) {
       }
     }
   }
-  &Log("\nREPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
+  &Log("\n$MOD REPORT: Glossary entry names which are repeated in other entry names: ($total instances)\n");
   if ($total) {
     &Log("NOTE: Usually these are intentional, but rarely may indicate some problem.\n");
     foreach my $i (sort keys %instances) {&Log($i);}
@@ -518,7 +518,7 @@ sub checkEntryNames(\@) {
     }
     if (!$skip) {$p .= $i."\n"; $total += $instances{$i};}
   }
-  &Log("\nREPORT: Compound glossary entry names with a single match element: ($total instances)\n");
+  &Log("\n$MOD REPORT: Compound glossary entry names with a single match element: ($total instances)\n");
   if ($total) {
     &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n$p");
   }

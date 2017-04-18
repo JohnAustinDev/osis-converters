@@ -1993,7 +1993,7 @@ sub osisRef2array($) {
   elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@refs, "TESTAMENT_INTRO.1");}
 
   if ($osisRef !~ /^(.*?)\-(.*)$/) {
-    if (!&validOsisRefSegment($osisRef, $VERSESYS)) {return \@refs;}
+    if (!&validOsisRefSegment($osisRef)) {return \@refs;}
     my $mod;
     push(@refs, &osisRef2Entry($osisRef, \$mod, 1));
     return (\@refs); # returns decoded osisRef
@@ -2001,9 +2001,9 @@ sub osisRef2array($) {
   my $r1 = $1; my $r2 = $2;
   
   my ($b1, $c1, $v1);
-  if (!&validOsisRefSegment($r1, $VERSESYS, \$b1, \$c1, \$v1)) {return \@refs;}
+  if (!&validOsisRefSegment($r1, '', \$b1, \$c1, \$v1)) {return \@refs;}
   my ($b2, $c2, $v2);
-  if (!&validOsisRefSegment($r2, $VERSESYS, \$b2, \$c2, \$v2)) {return \@refs;}
+  if (!&validOsisRefSegment($r2, '', \$b2, \$c2, \$v2)) {return \@refs;}
 
   my ($canonP, $bookOrderP, $bookArrayP);
   &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
@@ -2037,24 +2037,91 @@ sub osisRef2array($) {
 }
 
 
-# Check an osisRef segment (which cannot contain "-") against the verse system or dictionary words
-sub validOsisRefSegment($$\$\$\$) {
+# Check an osisRef segment (which cannot contain "-") against the verse system or dictionary words.
+# Returns 0 if invalid, 1 if valid, or -1 if it cannot be determined
+sub validOsisRefSegment($$\$\$\$\$\$) {
   my $osisRef = shift;
-  my $vsys = shift;
-  my $bP = shift;
-  my $cP = shift;
-  my $vP = shift;
-  
+  my $osis = shift;    # optional OSIS file root node, but without it some refs cannot be validated
+  my $bP = shift;      # optional book return
+  my $cP = shift;      # optional chapter return
+  my $vP = shift;      # optional verse return
+  my $modP = shift;    # optional module return
+  my $typeP = shift;   # optional type return
+  my $extP = shift;    # optional extension return
+
   my $b; if (!$bP) {$bP = \$b;}
   my $c; if (!$cP) {$cP = \$c;}
   my $v; if (!$vP) {$vP = \$v;}
+  my $mod; if (!$modP) {$modP = \$mod;}
+  my $type; if (!$typeP) {$typeP = \$type;}
+  my $ext; if (!$extP) {$extP = \$ext;}
+  
+  $validValue = 1; # is either 1 or -1, and is returned only if possibly valid
+  
+  if ($osisRef =~ s/!(.*)$//) {
+    $$extP = $1;
+  }
+  
+  if ($osisRef =~ s/^([\w\d]+)\://) {
+    $$modP = $1;
+  }
+  elsif ($osis) {
+    if ($VALIDATE_REF_MOD{$osis->unique_key}) {
+      $$modP = $VALIDATE_REF_MOD{$osis->unique_key};
+    }
+    else {
+      $$modP = @{$XPC->findnodes('//osis:osisText', $osis)}[0]->getAttribute('osisRefWork');
+      if (!$$modP) {
+        &Log("ERROR validOsisRefSegment: OSIS file osisText element doesn't have an osisRefWork attribute.\n");
+      }
+    }
+    
+    $VALIDATE_REF_MOD{$osis->unique_key} = $$modP;
+  }
+  
+  if ($$extP) {
+    if ($osis && $$modP && $$modP eq &getModFromNode($osis)) {
+      if (!@{$XPC->findnodes('//*[@osisID="'.$osisRef.'!'.$$extP.'"]', $osis)}) {
+        &Log("ERROR validOsisRefSegment: Reference target osisID \"$osisRef!$$extP\" does not exist.\n");
+        return 0;
+      }
+    }
+    elsif ($OSISID_FOOTNOTE{"$$modP:$osisRef!$$extP"}) {$validValue = 1;}
+    else {$validValue = -1;}
+  }
+  
+  my $vsys = ($$modP =~ /DICT$/ ? "Dict.$$modP":"Bible.$VERSESYS"); # default, unless osis is provided
+  if ($osis) {
+    if ($VALIDATE_REF_VSYS{$$modP}) {$vsys = $VALIDATE_REF_VSYS{$$modP};}
+    else {
+      my @refSystem = $XPC->findnodes('//osis:work[@osisWork="'.$$modP.'"]//osis:refSystem', $osis);
+      if (!@refSystem || !@refSystem[0]) {
+        &Log("ERROR validOsisRefSegment: OSIS file does not specify refSystem of \"$$modP\"!\n");
+      }
+      else {$vsys = @refSystem[0]->textContent;}
+    
+      $VALIDATE_REF_VSYS{$$modP} = $vsys;
+    }
+  }
+  $vsys =~ s/^([^\.]+)\.//;
+  $$typeP = $1;
+    
+  if ($$typeP eq 'Dict') {
+    if (!$DWF) {return -1;}
+    my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$$modP:$osisRef']", $DWF);
+    if (!@tst || !@tst[0]) {
+      &Log("ERROR validOsisRefSegment: Entry with osisRef=\"$$modP:$osisRef\" was not found in DictionaryWords.xml file.\n");
+      return 0;
+    }
+    
+    return $validValue;
+  }
   
   if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
-    my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $DWF);
-    if (@tst && @tst[0]) {return 1;}
-    &Log("ERROR: unknown osisRef: \"$osisRef\"\n");
+    &Log("ERROR validOsisRefSegment: Bad Bible reference \"$osisRef\"\n");
     return 0;
   }
+   
   $$bP = $1;
   $$cP = ($2 ? $3:0);
   $$vP = ($4 ? $5:0);
@@ -2062,16 +2129,16 @@ sub validOsisRefSegment($$\$\$\$) {
   if ($osisRef =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {
     $$cP = 0;
     $vP = 0;
-    return 1;
+    return $validValue;
   }
   
   if ($osisRef =~ /^TESTAMENT_INTRO\.(0|1)(\.0)?$/) {
     $$cP = $1;
     $vP = 0;
-    return 1;
+    return $validValue;
   }
   
-  if ($osisRef =~ /^xALL\./) {return 1;} # xALL is allowed as matching any book
+  if ($osisRef =~ /^xALL\./) {return $validValue;} # xALL is allowed as matching any book
   
   if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
     &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
@@ -2079,8 +2146,7 @@ sub validOsisRefSegment($$\$\$\$) {
   }
   
   my ($canonP, $bookOrderP, $bookArrayP);
-  # Bug warning - this assumes osisRef is of same verse system as $VERSESYS
-  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+  &getCanon($vsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
   
   if ($$cP != 0 && ($$cP < 0 || $$cP > @{$canonP->{$$bP}})) {
     &Log("ERROR: Chapter is not in verse system $vsys: \"$$bP.$$cP\"\n");
@@ -2092,43 +2158,66 @@ sub validOsisRefSegment($$\$\$\$) {
     return 0;
   }
   
-  return 1;
+  return $validValue;
 }
 
 
 # Check all reference links, and report any errors
-sub checkGlossaryLinks($) {
+sub checkReferenceLinks($) {
   my $in_osis = shift;
   
-  &Log("\nCHECKING DICTIONARY REFERENCE OSISREF TARGETS IN $in_osis...\n");
+  &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
-  my @links = $XPC->findnodes('//osis:reference[@type="x-glossary" or @type="x-glosslink"]', $osis);
-  my $errors = 0;
+  
+  my @links = $XPC->findnodes('//osis:reference', $osis);
+  
+  my %linkcount = ('gloss' => 0, 'scrip' => 0, 'unknown' => 0);
+  my %errors = ('gloss' => 0, 'scrip' => 0);
   foreach my $l (@links) {
+    my $linktype = ($l->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/ ? 'gloss':'scrip');
+    
+    $linkcount{$linktype}++;
+    
+    if (!$l->textContent || $l->textContent =~ /^[\s\n]*$/) {
+      &Log("ERROR Reference link \"$l\" has no text content!\n");
+      $errors{$linktype}++;
+    }
+    
     my $osisRef = $l->getAttribute('osisRef');
     if (!$osisRef) {
-      &Log("ERROR: Glossary link \"$l\" is missing osisRef attribute!\n"); $errors++;
+      &Log("ERROR: Reference link \"$l\" is missing osisRef attribute!\n");
+      $errors{$linktype}++;
       next;
     }
-    my @srefs = split(/\s+/, $osisRef);
-    foreach my $sref (@srefs) {
-      if ($DWF) {
-        my @entry = $XPC->findnodes('//dw:entry[@osisRef=\''.$sref.'\']', $DWF);
-        if (!@entry) {
-          &Log("ERROR: GLossary link \"$l\" osisRef not found in dictionary words file!\n"); $errors++;
+    
+    my @srefs1 = split(/\s+/, $osisRef);
+    foreach my $sref1 (@srefs1) {
+      my @srefs = split(/\-/, $sref1);
+      my $m = (@srefs[0] =~ s/^([\w\d]+\:)// ? $1:'');
+      foreach my $sref (@srefs) {
+        my $type; my $mod;
+        my $isValid = &validOsisRefSegment("$m$sref", $osis, '', '', '', \$mod, \$type);
+        if ($isValid == 0) {
+          &Log("ERROR: Invalid osisRef segment \"$sref\" in link \"$l\"\n");
+          $errors{$linktype}++;
+        }
+        elsif ($isValid == -1) {
+          &Log("WARNING: Could not validate: $l\n");
+          $linkcount{'unknown'}++;
+        }
+        elsif ($type eq 'Dict' && $linktype ne 'gloss') {
+          &Log("ERROR: Glossary reference has unexpected type=\"".$l->getAttribute('type')."\" in link \"$l\"\n");
+          $errors{$linktype}++;
         }
       }
     }
-    if (!$l->textContent || $l->textContent =~ /^[\s\n]*$/) {
-      &Log("ERROR GLossary link \"$l\" has no text content!\n"); $errors++;
-    }
   }
 
-  if (!$DWF && @links && @links[0]) {
-    &Log("REPORT: ERROR, \"".@links."\" glossary links COULT NOT BE CHECKED without a $DICTIONARY_WORDS file.n");
-  }
-  else {&Log("REPORT: \"".@links."\" glossary links found and checked. ($errors unknown or missing targets)\n");}
+  &Log("\n$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." unknown or missing targets)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Reference links could not be determined as valid or invalid.\n");
+  &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
 }
 
 sub checkFigureLinks($) {
@@ -2156,7 +2245,7 @@ sub checkFigureLinks($) {
     }
   }
 
-  &Log("REPORT: \"".@links."\" figure targets found and checked. ($errors missing targets)\n");
+  &Log("$MOD REPORT: \"".@links."\" figure targets found and checked. ($errors unknown or missing targets)\n");
 }
 
 sub checkIntroductionTags($) {
@@ -2175,7 +2264,7 @@ sub checkIntroductionTags($) {
 # Print log info for a word file
 sub logDictLinks() {
   &Log("\n\n");
-  &Log("REPORT: Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)\n");
+  &Log("$MOD REPORT: Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)\n");
   my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
   foreach my $eg (sort keys %ExplicitGlossary) {
     my @txt;
@@ -2200,7 +2289,7 @@ sub logDictLinks() {
   }
   
   &Log("\n\n");
-  &Log("REPORT: Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)\n");
+  &Log("$MOD REPORT: Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)\n");
   if ($nolink) {
     &Log("NOTE: You may want to link to these entries using a different word or phrase. To do this, edit the\n");
     &Log("$DICTIONARY_WORDS file.\n");
@@ -2224,7 +2313,7 @@ sub logDictLinks() {
     }
     else {&Log("ERROR: No <name> for <match> \"$m\" in $DICTIONARY_WORDS\n");}
   }
-  &Log("REPORT: Unused match elements in $DICTIONARY_WORDS: ($total instances)\n");
+  &Log("$MOD REPORT: Unused match elements in $DICTIONARY_WORDS: ($total instances)\n");
   foreach my $k (sort keys %unused) {
     foreach my $m (@{$unused{$k}}) {
       &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
@@ -2235,7 +2324,7 @@ sub logDictLinks() {
   $total = 0;
   foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
   
-  &Log("REPORT: Words/phrases converted into links using $DICTIONARY_WORDS: ($total instances)\n");
+  &Log("$MOD REPORT: Words/phrases converted into links using $DICTIONARY_WORDS: ($total instances)\n");
   &Log("NOTE: The following list must be looked over carefully. Glossary entries are matched\n"); 
   &Log("in the text using the match elements in the $DICTIONARY_WORDS file.\n");
   &Log("\n");
@@ -2281,7 +2370,7 @@ sub logDictLinks() {
     
     $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
-  &Log("REPORT: Links created: ($gt instances)\n$p");
+  &Log("$MOD REPORT: Links created: ($gt instances)\n$p");
   
 }
 
@@ -2531,16 +2620,17 @@ sub fragmentToString($$) {
 }
 
 
-# Look for the named companion's config.conf directory, or return null if not found
+# Look for the named companion's config.conf directory, or return '' if not found
 sub findCompanionDirectory($) {
   my $comp = shift;
-  if (!$comp || $comp !~ /^\S+/) {return NULL;}
+
+  if (!$comp || $comp !~ /^\S+/) {return '';}
   
   my $path = "$INPD/$comp";
   if (! -e "$path/config.conf") {$path = "$INPD/../$comp";}
   if (! -e "$path/config.conf") {$path = "$INPD/../../$comp";}
-  if (! -e "$path/config.conf") {return NULL;}
-  
+  if (! -e "$path/config.conf") {return '';}
+
   return $path;
 }
 
@@ -2923,7 +3013,12 @@ sub writeNote_osisRefs($) {
   
   my @annorefs = $XPC->findnodes('//osis:note/osis:reference[1][@type="annotateRef" and @osisRef]', $xml);
   foreach my $r (@annorefs) {
-    @{$XPC->findnodes('ancestor::osis:note[1]', $r)}[0]->setAttribute('osisRef', $r->getAttribute('osisRef'));
+    my $note = @{$XPC->findnodes('ancestor::osis:note[1]', $r)}[0];
+    my $osisref = $note->getAttribute('osisRef');
+    if ($osisref && $osisref ne $r->getAttribute('osisRef')) {
+      &Log("WARNING: Changing osisRef from \"$osisref\" to \"".$r->getAttribute('osisRef')."\"\n");
+    }
+    $note->setAttribute('osisRef', $r->getAttribute('osisRef'));
   }
 
   open(OUTF, ">$osis");

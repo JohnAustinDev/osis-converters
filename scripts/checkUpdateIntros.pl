@@ -58,7 +58,7 @@ sub checkUpdateIntros($) {
   }
   if ($moved) {&Log("NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:\n$moved\n");}
   
-  my @elems = $XPC->findnodes('//*', $xml);
+  my @elems = $XPC->findnodes('//*[not(ancestor::osis:header)]', $xml);
  
   # Report relevant intro elements which are not subType="x-introduction" and make them such.
   # Also add canonical=false as needed.
@@ -83,6 +83,7 @@ sub checkUpdateIntros($) {
     }
     
     if (!$elem->hasAttribute('subType')) {
+      #&Log("INFO: Adding subtype=\"x-introduction\" to: $elem\n");
       $elem->setAttribute('subType', 'x-introduction');
       $report1{$elem->nodeName()}++;
       $total1++;
@@ -100,7 +101,7 @@ sub checkUpdateIntros($) {
   print OUTF $t;
   close(OUTF);
   
-  &Log("\nREPORT: $total1 instance(s) of non-introduction USFM tags used in introductions".($total1 ? ':':'.')."\n");
+  &Log("\n$MOD REPORT: $total1 instance(s) of non-introduction USFM tags used in introductions".($total1 ? ':':'.')."\n");
   if ($total1) {
     &Log("NOTE: Some USFM tags used for introductory material were not proper introduction\n");
     &Log("tags. But these have been handled by adding subType=\"x-introduction\" to resulting\n");
@@ -110,7 +111,7 @@ sub checkUpdateIntros($) {
     }
   }
   
-  &Log("\nREPORT: $total2 instance(s) of introduction USFM tags used outside of introductions".($total2 ? ':':'.')."\n");
+  &Log("\n$MOD REPORT: $total2 instance(s) of introduction USFM tags used outside of introductions".($total2 ? ':':'.')."\n");
   if ($total2) {
     &Log("NOTE: These have been handled by removiong subType=\"x-introduction\" to resulting\n");
     &Log("OSIS elements, so changes to USFM source are not required.\n");

@@ -131,7 +131,7 @@ else {
 	die;
 }
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
-if ($ConfEntryP->{"Font"}) {&Log("\nREPORT: Font \"".$ConfEntryP->{"Font"}."\" has been specified for this module. You may want to package this font with your module.\n");}
+if ($ConfEntryP->{"Font"}) {&Log("\n$MOD REPORT: Font \"".$ConfEntryP->{"Font"}."\" has been specified for this module. You may want to package this font with your module.\n");}
 if (-e "$INPD/images") {&copy_images_to_module("$INPD/images", "$SWOUT/$MODPATH");}
 if ($ConfEntryP->{"PreferredCSSXHTML"} && ! -e "$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}) {
   &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");

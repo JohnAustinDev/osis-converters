@@ -85,9 +85,10 @@ while (<COMF>) {
       my $confP = &readConf($CCIN);
       my @convertThese = ('Abbreviation', 'Description', 'About');
       foreach my $e (@convertThese) {$confP->{$e} = &string_convert($confP->{$e}, $CCTable, $CCScript);}
-      $confP->{'ModuleName'} = $MOD;
+      $confP->{'ModuleName'} = $INPD; $confP->{'ModuleName'} =~ s/^.*?([^\/]+)$/$1/;
       foreach my $ent (keys %{$confP}) {if (${"CONFIG_$ent"}) {$confP->{$ent} = ${"CONFIG_$ent"};}}
       &writeConf($CCOUT, $confP);
+      &setConfGlobals(&updateConfData(&readConf($CCOUT)));
     }
     elsif ($fname eq "collections.txt") {
       if (!$companionProject) {&Log("ERROR: Unable to update collections.txt! To remedy this, specify SET_companionProject in $COMMANDFILE\n"); next;}
