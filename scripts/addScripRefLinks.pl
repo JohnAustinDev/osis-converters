@@ -425,9 +425,15 @@ sub processFile($) {
     &addLinks(\$text, $BK, $CH, $isAnnotateRef);
     if ($text eq $textNode->data()) {
       # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
-      # but can still be parsed because such an annotateRef must refer to a verse in the current book and chapter
+      # but can still be parsed because such an annotateRef must refer to a verse or chapter in the current scope
       if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
-      $text = "<newReference osisRef=\"$BK.$CH.".$1."\">$text</newReference>";
+      my $ar = $1;
+      my $or = "$BK.$CH.$ar";
+      my @pv = $XPC->findnodes('preceding::osis:verse[@sID][1]', $textNode);
+      if (@pv && @pv[0] && @pv[0]->getAttribute('sID') =~ /\.(\d+).(\d+)$/ && $1 ne $CH) {
+        $or = "$BK.$ar"
+      }
+      $text = "<newReference osisRef=\"$or\">$text</newReference>";
     }
 
     # save changes for later (to avoid messing up line numbers)
