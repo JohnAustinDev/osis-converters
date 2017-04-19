@@ -34,7 +34,7 @@ if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   else {move("$TMPDIR/".$MOD."_1a.xml", "$TMPDIR/".$MOD."_2.xml");}
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
-&writeNote_osisRefs("$TMPDIR/".$MOD."_2.xml");
+&writeNoteOsisRefs("$TMPDIR/".$MOD."_2.xml");
 # MOD_2.xml is after addScripRefLinks.pl
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {

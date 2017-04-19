@@ -94,6 +94,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   &Log("READING OSIS FILE: \"$in_osis\".\n");
   $OSIS = $XML_PARSER->parse_file($in_osis);
 
+  # Save all Book and Verse nodes in the OSIS file to data structures
   %Book;
   foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $OSIS)) {
     my $bk = $b->findvalue('./@osisID');
@@ -110,7 +111,7 @@ presentational text, it will be added. An example OSIS cross-reference:
       $tt = 'end';
       $id = $v->findvalue('./@eID');
     }
-    my @osisRefs = id2refs($id);
+    my @osisRefs = split(/\s+/, $id);
     foreach my $ref (@osisRefs) {$Verse{$ref}{$tt} = $v;}
   }
 
@@ -136,16 +137,18 @@ presentational text, it will be added. An example OSIS cross-reference:
     foreach my $note (@notes) {
       if (ref($note) ne "XML::LibXML::Element") {next;}
       # place note in first verse of multi-verse osisRef spans
-      my @refs = &id2refs($note->findvalue('./@osisRef'));
-      if (@refs > 1) {
-        my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
-        $osisRef->setValue(@refs[0]);
-        my $osisID = @{$XPC->findnodes('./@osisID', $note)}[0];
-        my $val = $osisID->getValue();
-        $val =~ s/^[^\!]*?(?=(\!|$))//;
-        $osisID->setValue(@refs[0] . $val);
+      my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
+      my $or = $osisRef->getValue();
+      $or =~ s/[\-\s].*$//; # remove any continuation
+      $or =~ s/^([\w\d]+\:)?(.*?)$/$MOD:$2/; # change or add work reference
+      if ($or !~ /^[^\:]+\:([^\.]+)\.(\d+)\.(\d+)$/) {
+        &Log("ERROR: crossReference has unexpected osisRef \"$osisRef\"\n");
+        next;
       }
-      @refs[0] =~ /^([^\.]+)\.(\d+)\.(\d+)$/; my $b = $1; my $c = $2; my $v = $3;
+      my $b = $1; my $c = $2; my $v = $3;
+      $osisRef->setValue($or);
+      if ($v == 0) {$v++;}
+
       if (&filterNote($note, $b)) {next;}
       if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
       &insertNote($note, \%{$Verse{"$b.$c.$v"}});

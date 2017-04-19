@@ -2214,7 +2214,7 @@ sub checkReferenceLinks($) {
     }
   }
 
-  &Log("\n$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." unknown or missing targets)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." unknown or missing targets)\n");
   &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
   &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Reference links could not be determined as valid or invalid.\n");
   &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
@@ -2491,27 +2491,6 @@ sub osisXSLT($$$$) {
   }
   
   return $cmd;
-}
-
-
-# Convert an "id" to an array of osisIDs, where the id is from an  
-# eID or sID attribute, which can apparently be anything unique. So 
-# only a common subset is handled here.
-sub id2refs($) {
-  my $osisID = shift;
-  my @refs;
-  if ($osisID =~ /^([^\.]+\.\d+)\.(\d+)-(\d+)$/) {
-    my $bc = $1;
-    my $v1 = $2;
-    my $v2 = $3;
-    for (my $v=$v1; $v<=$v2; $v++) {push(@refs, "$bc.$v");}
-  }
-  elsif ($osisID =~ /^([^\.]+\.\d+\.\d+(\s|$))+/) {
-    @refs = split(/\s+/, $osisID);
-  }
-  else {&Log("ERROR Bad id \"$osisID\"\n");}
-  
-  return @refs;
 }
 
 
@@ -3003,27 +2982,64 @@ sub joinOSIS($) {
 }
 
 
-# Find all notes beginning with annotateRef type references and add osisRef attributes
-sub writeNote_osisRefs($) {
+# Find all notes and add osisRef attributes
+sub writeNoteOsisRefs($) {
   my $osis = shift;
-  
-  my $xml = $XML_PARSER->parse_file($osis);
   
   &Log("\n\nWriting note osisRef attributes to OSIS file \"$osis\".\n");
   
-  my @annorefs = $XPC->findnodes('//osis:note/osis:reference[1][@type="annotateRef" and @osisRef]', $xml);
-  foreach my $r (@annorefs) {
-    my $note = @{$XPC->findnodes('ancestor::osis:note[1]', $r)}[0];
-    my $osisref = $note->getAttribute('osisRef');
-    if ($osisref && $osisref ne $r->getAttribute('osisRef')) {
-      &Log("WARNING: Changing osisRef from \"$osisref\" to \"".$r->getAttribute('osisRef')."\"\n");
-    }
-    $note->setAttribute('osisRef', $r->getAttribute('osisRef'));
+  my @files = &splitOSIS($osis);
+  foreach my $file (@files) {
+    &Log("$file\n", 2);
+    my $xml = $XML_PARSER->parse_file($file);
+    &writeNoteOsisRefs2($xml);
+    open(OUTF, ">$file") or die "writeNoteOsisRefs could not open splitOSIS file: \"$file\".\n";
+    print OUTF $xml->toString();
+    close(OUTF);
   }
+  &joinOSIS($osis);
+}
+sub writeNoteOsisRefs2($) {
+  my $xml = shift;
+  
+  my @notes = $XPC->findnodes('//osis:note', $xml);
+  foreach my $note (@notes) {
+    # get notes's context
+    my $con_bc = &bibleContext($note);
+    $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
+    my $con_vf = $1;
+    my $con_vl = $2;
+    
+    # let annotateRef override context if it makes sense
+    my $aror;
+    my @rs = $XPC->findnodes('descendant::osis:reference[1][@type="annotateRef" and @osisRef]', $note);
+    if (@rs && @rs[0]) {
+      $aror = @rs[0]->getAttribute('osisRef');
+      $aror =~ s/^[\w\d]+\://;
+      if ($aror =~ /^([^\.]+\.\d+)(\.(\d+)(-\1\.(\d+))?)?$/) {
+        my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
+        if (!$ref_vf) {$ref_vf = 0;}
+        if (!$ref_vl) {$ref_vl = $ref_vf;}
+        if ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl) {
+          &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
+          $aror = '';
+        }
+      }
+      else {
+        &Log("WARNING writeNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
+        $aror = '';
+      }
+    }
+    
+    my $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl ? "-$con_bc.$con_vl":''));
 
-  open(OUTF, ">$osis");
-  print OUTF $xml->toString();
-  close(OUTF);
+    my $prevOsisref = $note->getAttribute('osisRef');
+    if ($prevOsisref && $prevOsisref ne $osisRef) {
+      &Log("WARNING writeNoteOsisRefs: Changing osisRef from \"$prevOsisref\" to \"$osisRef\"\n");
+    }
+
+    $note->setAttribute('osisRef', $osisRef);
+  }
 }
 
 
