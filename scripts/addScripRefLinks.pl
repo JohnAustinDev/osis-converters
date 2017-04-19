@@ -426,9 +426,10 @@ sub processFile($) {
     if ($text eq $textNode->data()) {
       # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
       # but can still be parsed because such an annotateRef must refer to a verse or chapter in the current scope
-      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\b/) {next;}
+      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\s*$/) {next;}
       my $ar = $1;
       my $or = "$BK.$CH.$ar";
+      # the number is interpereted to refer to the entire chapter if the verse start tag which is previous to ref is in another chapter
       my @pv = $XPC->findnodes('preceding::osis:verse[@sID][1]', $textNode);
       if (@pv && @pv[0] && @pv[0]->getAttribute('sID') =~ /\.(\d+).(\d+)$/ && $1 ne $CH) {
         $or = "$BK.$ar"

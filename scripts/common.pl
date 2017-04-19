@@ -3031,7 +3031,7 @@ sub writeNoteOsisRefs2($) {
       }
     }
     
-    my $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl ? "-$con_bc.$con_vl":''));
+    my $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl != $con_vf ? "-$con_bc.$con_vl":''));
 
     my $prevOsisref = $note->getAttribute('osisRef');
     if ($prevOsisref && $prevOsisref ne $osisRef) {
