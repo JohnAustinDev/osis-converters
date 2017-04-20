@@ -1312,9 +1312,9 @@ sub addDictionaryLinks(\@$$) {
     
     if ($isGlossary) {
       if (!$bookOrderP) {
-        &getCanon(&getVersificationFromNode($node), NULL, \$bookOrderP, NULL)
+        &getCanon(&getBibleVersificationFromNode($node), NULL, \$bookOrderP, NULL)
       }
-      $glossaryContext = &glossaryContext($node);
+      $glossaryContext = &decodeOsisRef(&glossaryContext($node));
       if (!$glossaryContext) {next;}
       $glossaryScopeP = &scopeToBooks(&getEntryScope($node), $bookOrderP);
       if (!$NoOutboundLinks{'haveBeenRead'}) {
@@ -1361,7 +1361,7 @@ sub addDictionaryLinks(\@$$) {
   }
 }
 
-sub getVersificationFromNode($) {
+sub getBibleVersificationFromNode($) {
   my $node = shift;
 
   my $vsys = @{$XPC->findnodes('//osis:work/osis:type[@type="x-bible"]/following-sibling::osis:refSystem', $node)}[0]->textContent();
@@ -1373,6 +1373,41 @@ sub getModFromNode($) {
   my $node = shift;
 
   return @{$XPC->findnodes('//osis:osisText', $node)}[0]->getAttribute('osisIDWork');
+}
+
+# Get any OSIS file header value, where:
+#   name = name of the work element whose value is wanted
+#   node = any node in the file
+#   mod = (optional) work whose value is wanted. Default is SELF (not any companion).
+#   attribsP = (optional) pointer to hash of work element attribs and values of the work element whose value is wanted
+sub getOSISHeaderValueFromNode($$$$) {
+  my $name = shift;
+  my $node = shift;
+  my $mod = shift;
+  my $attribsP = shift;
+  
+  $mod = ($mod ? $mod:&getModFromNode($node));
+  
+  my $xpath = '//osis:header/osis:work[@osisWork="'.$mod.'"]/osis:'.$name.'';
+  if ($attribsP) {
+    my @atts;
+    foreach my $a (sort keys %{$attribsP}) {
+      push(@atts, '@'.$a.'="'.$attribsP->{$a}.'"');
+    }
+    if (@atts) {$xpath .= '['.join(' and ', @atts).']';}
+  }
+  
+  my @r = $XPC->findnodes($xpath, $node);
+  
+  if (!@r || !@r[0]) {
+    &Log("ERROR getOSISHeaderValueFromNode: No value found (xpath=\"$xpath\", node=\"$node\")\n");
+    return '';
+  }
+  elsif (@r > 1) {
+    &Log("WARNING getOSISHeaderValueFromNode: Multiple possible values found but returning only first (xpath=\"$xpath\", node=\"$node\")\n");
+  }
+  
+  return @r[0]->textContent;
 }
 
 
@@ -1852,7 +1887,7 @@ sub myGlossaryContext($\@) {
   return 0;
 }
 
-# return special Bible context reference for $elem:
+# return special Bible context reference for $node:
 # BIBLE_INTRO.0.0.0 = Bible intro
 # TESTAMENT_INTRO.0.0.0 = Old Testament intro
 # TESTAMENT_INTRO.1.0.0 = New Testament intro
@@ -1860,39 +1895,36 @@ sub myGlossaryContext($\@) {
 # Gen.1.0.0 = Gen chapter 1 intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
-sub bibleContext($$) {
-  my $elem = shift;
-  my $noerror = shift;
+sub bibleContext($) {
+  my $node = shift;
   
   my $context = '';
   
   # get book
-  my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $elem);
+  my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $node);
   my $bk = (@bk ? @bk[0]->getAttribute('osisID'):'');
   
-  # no book means we might be a Bible or testament introduction
+  # no book means we might be a Bible or testament introduction (or else an entirely different type of OSIS file)
   if (!$bk) {
-    my @bib = $XPC->findnodes('ancestor-or-self::osis:osisText', $elem);
-    if (@bib && @bib[0]) {
-      # make sure this is an x-bible type OSIS file and not a glossary or other type of OSIS file
-      my @xbib = $XPC->findnodes("//osis:work[\@osisWork='".@bib[0]->getAttribute('osisRefWork')."']/osis:type[\@type='x-bible']", @bib[0]);
-      if (@xbib && @xbib[0]) {
-        my @tst = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $elem);
-        if (@tst && @tst[0]) {
-          return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
-        }
-        return "BIBLE_INTRO.0.0.0";
-      }
+    my $refSystem = &getOSISHeaderValueFromNode('refSystem', $node);
+    if ($refSystem !~ /^Bible/) {
+      &Log("ERROR bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"\n");
+      return '';
     }
+    my @tst = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node);
+    if (@tst && @tst[0]) {
+      return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
+    }
+    return "BIBLE_INTRO.0.0.0";
   }
 
   my @e;
   if (@bk && $bk) {
     # find most specific osisID associated with elem (assumes milestone verse/chapter tags and end tags which have no osisID attribute)
-    my @v = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $elem);
+    my @v = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $node);
     if (@v && @v[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@v = ();}
 
-    my @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $elem);
+    my @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $node);
     if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
     
     # if we have verse and chapter, but verse is not within chapter, use chapter instead
@@ -1923,7 +1955,7 @@ sub bibleContext($$) {
     elsif ($id =~ /^(\w+\.\d+\.\d+) .*\w+\.\d+\.(\d+)$/) {$context = "$1.$2";}
   }
   else {
-    if (!$noerror) {&Log("ERROR: Could not determine context of \"$elem\"\n");}
+    &Log("ERROR: Could not determine context of \"$node\"\n");
     return 0;
   }
   
@@ -1949,7 +1981,13 @@ sub glossaryContext($) {
     my $gn = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $node)}[0];
     my $gk = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $prevkw)}[0];
     if (!$gk) {&Log("ERROR glossaryContext: Unexpected - previous keyword is not part of a glossary\n");}
-    if ($gn && $gk && $gn->isSameNode($gk)) {return $prevkw->textContent;}
+    if ($gn && $gk && $gn->isSameNode($gk)) {
+      if (!$prevkw->getAttribute('osisID')) {
+        &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
+        return '';
+      }
+      return $prevkw->getAttribute('osisID');
+    }
   }
   
   # if not, then use BEFORE
@@ -1957,7 +1995,11 @@ sub glossaryContext($) {
   my $nextkw = (@x && @x[0] ? @x[0]:'');
   if (!$nextkw) {return "BEFORE-unknown";}
   
-  return 'BEFORE-'.$nextkw->textContent;
+  if (!$nextkw->getAttribute('osisID')) {
+    &Log("ERROR glossaryContext: Next keyword has no osisID \"$nextkw\"\n");
+    return '';
+  }
+  return 'BEFORE-'.$nextkw->getAttribute('osisID');
 }
 
 
@@ -2216,7 +2258,7 @@ sub checkReferenceLinks($) {
 
   &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." unknown or missing targets)\n");
   &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Reference links could not be determined as valid or invalid.\n");
+  &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Indeterminent reference links whose targets may or may not be missing.\n");
   &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
 }
 
@@ -2986,52 +3028,79 @@ sub joinOSIS($) {
 sub writeNoteOsisRefs($) {
   my $osis = shift;
   
-  &Log("\n\nWriting note osisRef attributes to OSIS file \"$osis\".\n");
+  &Log("Writing note osisRef attributes to OSIS file \"$osis\".\n");
   
   my @files = &splitOSIS($osis);
+  
+  # check that OSIS refSystem is supported
+  my $refSystem;
+  foreach my $file (@files) {
+    if ($file !~ /other\.osis$/) {next;}
+    my $xml = $XML_PARSER->parse_file($file);
+    $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
+    if ($refSystem !~ /^(Bible|Dict)/) {
+      &Log("ERROR writeNoteOsisRefs: Not yet supporting refSystem \"$refSystem\"\n");
+      return;
+    }
+    last;
+  }
+  
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &writeNoteOsisRefs2($xml);
+    &writeNoteOsisRefs2($xml, $refSystem);
     open(OUTF, ">$file") or die "writeNoteOsisRefs could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
+  
   &joinOSIS($osis);
 }
 sub writeNoteOsisRefs2($) {
   my $xml = shift;
+  my $refSystem = shift;
   
   my @notes = $XPC->findnodes('//osis:note', $xml);
+  
   foreach my $note (@notes) {
-    # get notes's context
-    my $con_bc = &bibleContext($note);
-    $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
-    my $con_vf = $1;
-    my $con_vl = $2;
+    my $osisRef;
     
-    # let annotateRef override context if it makes sense
-    my $aror;
-    my @rs = $XPC->findnodes('descendant::osis:reference[1][@type="annotateRef" and @osisRef]', $note);
-    if (@rs && @rs[0]) {
-      $aror = @rs[0]->getAttribute('osisRef');
-      $aror =~ s/^[\w\d]+\://;
-      if ($aror =~ /^([^\.]+\.\d+)(\.(\d+)(-\1\.(\d+))?)?$/) {
-        my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
-        if (!$ref_vf) {$ref_vf = 0;}
-        if (!$ref_vl) {$ref_vl = $ref_vf;}
-        if ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl) {
-          &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
+    if ($refSystem =~ /^Bible/) {
+      # get notes's context
+      my $con_bc = &bibleContext($note);
+      $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
+      my $con_vf = $1;
+      my $con_vl = $2;
+      
+      # let annotateRef override context if it makes sense
+      my $aror;
+      my @rs = $XPC->findnodes('descendant::osis:reference[1][@type="annotateRef" and @osisRef]', $note);
+      if (@rs && @rs[0]) {
+        $aror = @rs[0]->getAttribute('osisRef');
+        $aror =~ s/^[\w\d]+\://;
+        if ($aror =~ /^([^\.]+\.\d+)(\.(\d+)(-\1\.(\d+))?)?$/) {
+          my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
+          if (!$ref_vf) {$ref_vf = 0;}
+          if (!$ref_vl) {$ref_vl = $ref_vf;}
+          if ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl) {
+            &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
+            $aror = '';
+          }
+        }
+        else {
+          &Log("WARNING writeNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
           $aror = '';
         }
       }
-      else {
-        &Log("WARNING writeNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
-        $aror = '';
-      }
+      
+      $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl != $con_vf ? "-$con_bc.$con_vl":''));
     }
     
-    my $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl != $con_vf ? "-$con_bc.$con_vl":''));
+    elsif ($refSystem =~ /^Dict/) {
+      $osisRef = &glossaryContext($note);
+    }
+    
+    else {return;}
 
     my $prevOsisref = $note->getAttribute('osisRef');
     if ($prevOsisref && $prevOsisref ne $osisRef) {

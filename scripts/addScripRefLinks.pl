@@ -227,7 +227,14 @@ sub addScripRefLinks($$) {
   &Log("\n");
   
   my @files = &splitOSIS($in_file);
-  foreach my $file (@files) {&processFile($file);}
+  my $refSystem;
+  foreach my $file (@files) {
+    if ($file !~ /other\.osis$/) {next;}
+    my $xml = $XML_PARSER->parse_file($file);
+    $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
+    last;
+  }
+  foreach my $file (@files) {&processFile($file, $refSystem);}
   &joinOSIS($out_file);
 
   &Log("Finished adding <reference> tags.\n");
@@ -322,32 +329,11 @@ sub addScripRefLinks($$) {
   }
   &Log("Found $newLinks total sub-links.\n");
   &Log("FINISHED!\n\n");
-
-  &Log("LINK RESULTS FROM: $out_file\n");
-  &Log("\n");
-
-  my $xml = $XML_PARSER->parse_file($out_file);
-
-  # check all reference tags
-  &Log("$MOD REPORT: Checking osisRef attributes of links:\n");
-  my @refs = $XPC->findnodes('//osis:reference', $xml);
-  my $warns = ''; my $errs = '';
-  foreach my $ref (@refs) {
-    if ($ref->hasAttribute("type") && $ref->getAttribute("type") =~ /^(x-glossary|x-glosslink)$/) {next;}
-    if (!$ref->hasAttribute("osisRef")) {
-      $warns .= &bibleContext($ref, 1)." WARNING: Link \"".$ref."\" has no osisRef.\n";
-    }
-    elsif (!&validOSISref($ref->getAttribute("osisRef"), $ref->textContent, 1, 0)) {
-      $errs .= &bibleContext($ref, 1)." ERROR: Link \"".$ref."\" has an illegal osisRef.\n";
-    }
-  }
-  &Log("$warns$errs");
-  &Log("Finished checking osisRefs.\n");
-  &Log("\n");
 }
 
-sub processFile($) {
+sub processFile($$) {
   my $osis = shift;
+  my $refSystem = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
 
@@ -377,15 +363,27 @@ sub processFile($) {
     }
 
     # get text node's context information
-    my $bcontext = &bibleContext($textNode, 1);
-    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
-    if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
-      $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
+    $BK = "unknown";
+    $CH = 0;
+    $VS = 0;
+    $LV = 0;
+    $intro = 0;
+    if ($refSystem =~ /^Bible/) {
+      my $bcontext = &bibleContext($textNode);
+      if ($bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
+        &Log("ERROR processXML: Unrecognized textNode Bible context \"$bcontext\"\n");
+        next;
+      }
+      $BK = $1;
+      $CH = $2;
+      $VS = $3;
+      $LV = $4;
+      $intro = ($VS ? 0:1);
     }
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &glossaryContext($textNode);
+      $CH = &decodeOsisRef(&glossaryContext($textNode));
     }
     
     # override context book if requested

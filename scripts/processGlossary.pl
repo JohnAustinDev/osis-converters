@@ -533,7 +533,7 @@ sub createDiv($) {
   return $div
 }
 
-sub writeEntry_osisIDs($) {
+sub writeEntryOsisIDs($) {
   my $osis = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
@@ -554,7 +554,7 @@ sub writeEntry_osisIDs($) {
         do {$n++} while ($osisIDS{$id.$n});
         $osisID = $id.$n;
       }
-      else {&log("ERROR writeEntry_osisIDs: Duplicate osisID \"$osisID\"!\n");}
+      else {&log("ERROR writeEntryOsisIDs: Duplicate osisID \"$osisID\"!\n");}
     }
     $kw->setAttribute("osisID", $osisID);
     $osisIDS{$osisID}++;

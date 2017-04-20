@@ -60,7 +60,7 @@ require("$SCRD/scripts/processGlossary.pl");
 
 %OSISID_FOOTNOTE;
 %VERSE_FOOTNOTE_IDS;
-%FNL_MODULE_VERSE_SYSTEMS;
+%FNL_MODULE_BIBLE_VERSE_SYSTEMS;
 %FNL_FIX;
 %TERM_ORDINAL;
 %FNL_STATS;
@@ -139,23 +139,30 @@ sub addFootnoteLinks($$) {
     if (-e $cosisFile) {
       my @files = &splitOSIS($cosisFile);
       my $cmod;
+      my $crefSystem;
       foreach my $file (@files) {
         if ($file !~ /other\.osis$/) {next;}
         my $cosisXml = $XML_PARSER->parse_file($file);
         $cmod = &getModFromNode($cosisXml);
-        $FNL_MODULE_VERSE_SYSTEMS{$cmod} = &getVersificationFromNode($cosisXml);
+        $crefSystem = &getOSISHeaderValueFromNode('refSystem', $cosisXml);
+        $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$cmod} = &getBibleVersificationFromNode($cosisXml);
         last;
       }
-      foreach my $file (@files) {
-        my $cosisXml = $XML_PARSER->parse_file($file);
-        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
-        foreach my $fn (@fns) {
-          my $id = $cmod.':'.$fn->getAttribute('osisID');
-          $OSISID_FOOTNOTE{$id}++;
-          my $bc = &bibleContext($fn, 1);
-          if ($bc) {&recordVersesOfFootnote($fn, $bc, $cmod);}
-          else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in companion \"$cmod\".\n");}
+      if ($crefSystem =~ /^Bible/) {
+        foreach my $file (@files) {
+          my $cosisXml = $XML_PARSER->parse_file($file);
+          my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
+          foreach my $fn (@fns) {
+            my $id = $cmod.':'.$fn->getAttribute('osisID');
+            $OSISID_FOOTNOTE{$id}++;
+            my $bc = &bibleContext($fn);
+            if ($bc) {&recordVersesOfFootnote($fn, $bc, $cmod);}
+            else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in companion \"$cmod\".\n");}
+          }
         }
+      }
+      else {
+        &Log("ERROR: Companion OSIS should be a Bible but is not\"$cosisFile\"\n");
       }
     }
     else {
@@ -169,21 +176,28 @@ sub addFootnoteLinks($$) {
   my @files = &splitOSIS($in_file);
   my %xmls;
   my $myMod;
+  my $myRefSystem;
   foreach my $file (@files) {
     $xmls{$file} = $XML_PARSER->parse_file($file);
     if ($file =~ /other\.osis$/) {
       $myMod = &getModFromNode($xmls{$file});
-      $FNL_MODULE_VERSE_SYSTEMS{$myMod} = &getVersificationFromNode($xmls{$file});
+      $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getBibleVersificationFromNode($xmls{$file});
     }
   }
-  foreach my $file (sort keys %xmls) {
-    &footnoteXML($xmls{$file}, $myMod); # Do this first to collect/write all footnote osisID values before processing
+  if ($myRefSystem =~ /^(Bible|Dict)/) {
+    foreach my $file (sort keys %xmls) {
+      &footnoteXML($xmls{$file}, $myMod, $myRefSystem); # Do this first to collect/write all footnote osisID values before processing
+    }
+    foreach my $file (sort keys %xmls) {
+      &processXML($xmls{$file}, $myMod, $myRefSystem);
+      open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
+      print OUTF $xmls{$file}->toString();
+      close(OUTF);
+    }
   }
-  foreach my $file (sort keys %xmls) {
-    &processXML($xmls{$file}, $myMod);
-    open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
-    print OUTF $xmls{$file}->toString();
-    close(OUTF);
+  else {
+    &Log("ERROR addFootnoteLinks: Not yet supporting refSystem \"$myRefSystem\"\n");
   }
   &joinOSIS($out_file);
 
@@ -215,23 +229,21 @@ sub addFootnoteLinks($$) {
   &Log(sprintf("%5i - Single references\n", &stat('single')));
   &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
   &Log("FINISHED!\n\n");
-
-  &Log("LINK RESULTS FROM: $out_file\n");
-  &Log("\n");
-
-
 }
 
-sub footnoteXML($$) {
+sub footnoteXML($$$) {
   my $xml = shift;
   my $footnoteModuleName = shift;
+  my $refSystem = shift;
   
   # add osisIDs to every footnote
   my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
   foreach my $f (@allFootnotes) {
     my $osisID;
-    my $bibleContext = &bibleContext($f, 1);
-    if ($bibleContext) {
+    my $bibleContext;
+    
+    if ($refSystem =~ /^Bible/) {
+      $bibleContext = &bibleContext($f);
       $osisID = $bibleContext;
       if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
         &Log("ERROR: Bad context for footnote osisID: \"$osisID\"\n");
@@ -239,17 +251,20 @@ sub footnoteXML($$) {
       }
     }
     else {
-      $osisID = &encodeOsisRef(&glossaryContext($f))."$RefExt$n";
+      $osisID = &glossaryContext($f)."$RefExt$n";
       next;
     }
-    my $id = $f->getAttribute('osisID');
-    if ($id) {&Log("WARNING: Footnote has pre-existing osisID=\"$id\"!\n");}
     
     # Reserve and write an osisID for each footnote. 
     my $n = 1;
-    $id = "$footnoteModuleName:$osisID$RefExt$n";
+    my $id = "$footnoteModuleName:$osisID$RefExt$n";
     while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$footnoteModuleName:$osisID$RefExt$n";}
     $OSISID_FOOTNOTE{$id}++;
+    
+    if ($f->getAttribute('osisID')) {
+      &Log("WARNING: Overwriting footnote osisID \"".$f->getAttribute('osisID')."\" with \"$osisID$RefExt$n\"\n");
+    }
+    
     $f->setAttribute('osisID', "$osisID$RefExt$n");
     
     # Verses may be linked and so a note's annotateRef will be read in 
@@ -303,6 +318,7 @@ sub recordVersesOfFootnote($$$) {
 sub processXML($$) {
   my $xml = shift;
   my $myMod = shift;
+  my $refSystem = shift;
 
   # get every text node
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
@@ -329,15 +345,27 @@ sub processXML($$) {
     }
 
     # get text node's context information
-    my $bcontext = &bibleContext($textNode, 1);
-    $BK = "unknown"; $CH = 0; $VS = 0; $LV = 0; $intro = 0;
-    if ($bcontext =~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
-      $BK = $1; $CH = $2; $VS = $3; $LV = $4; $intro = ($VS ? 0:1);
+    $BK = "unknown";
+    $CH = 0;
+    $VS = 0;
+    $LV = 0;
+    $intro = 0;
+    if ($refSystem =~ /^Bible/) {
+      my $bcontext = &bibleContext($textNode);
+      if ($bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
+        &Log("ERROR processXML: Unrecognized textNode Bible context \"$bcontext\"\n");
+        next;
+      }
+      $BK = $1;
+      $CH = $2;
+      $VS = $3;
+      $LV = $4;
+      $intro = ($VS ? 0:1);
     }
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &glossaryContext($textNode);
+      $CH = &decodeOsisRef(&glossaryContext($textNode));
     }
 
     # display progress
@@ -709,7 +737,7 @@ sub getFootnotes($) {
     if (@verses[$i] !~ /^(\w*):([^\.]*)\.([^\.]*)$/) {next;}
     my $mod = $1; my $bk = $2; my $ch = $3;
     my ($canonP, $bookOrderP, $bookArrayP);
-    &getCanon($FNL_MODULE_VERSE_SYSTEMS{$mod}, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+    &getCanon($FNL_MODULE_BIBLE_VERSE_SYSTEMS{$mod}, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
     my @a;
     for (my $vs = 0; $vs <= $canonP->{$bk}->[$ch-1]; $vs++) { # 0 includes chapter intro (for Pslams esp.)
       push(@a, "$mod:$bk.$ch.$vs");
