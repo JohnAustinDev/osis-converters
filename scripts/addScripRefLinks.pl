@@ -234,7 +234,7 @@ sub addScripRefLinks($$) {
     $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
     last;
   }
-  foreach my $file (@files) {&processFile($file, $refSystem);}
+  foreach my $file (@files) {&asrlProcessFile($file, $refSystem);}
   &joinOSIS($out_file);
 
   &Log("Finished adding <reference> tags.\n");
@@ -331,7 +331,7 @@ sub addScripRefLinks($$) {
   &Log("FINISHED!\n\n");
 }
 
-sub processFile($$) {
+sub asrlProcessFile($$) {
   my $osis = shift;
   my $refSystem = shift;
   

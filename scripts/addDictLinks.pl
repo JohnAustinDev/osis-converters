@@ -32,13 +32,13 @@ sub addDictLinks($$) {
   }
   
   my @files = &splitOSIS($in_file);
-  foreach my $file (@files) {&processFile($file);}
+  foreach my $file (@files) {&adlProcessFile($file);}
   &joinOSIS($out_file);
 
   &logDictLinks();
 }
 
-sub processFile($) {
+sub adlProcessFile($) {
   my $osis = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
