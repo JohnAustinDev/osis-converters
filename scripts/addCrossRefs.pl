@@ -140,8 +140,8 @@ presentational text, it will be added. An example OSIS cross-reference:
       my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
       my $or = $osisRef->getValue();
       $or =~ s/[\-\s].*$//; # remove any continuation
-      $or =~ s/^([\w\d]+\:)?(.*?)$/$MOD:$2/; # change or add work reference
-      if ($or !~ /^[^\:]+\:([^\.]+)\.(\d+)\.(\d+)$/) {
+      $or =~ s/^[\w\d]+\://; # remove any work reference
+      if ($or !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
         &Log("ERROR: crossReference has unexpected osisRef \"$osisRef\"\n");
         next;
       }
