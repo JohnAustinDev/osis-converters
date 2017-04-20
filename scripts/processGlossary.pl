@@ -211,7 +211,7 @@ sub sortSubEntriesByScope($$) {
   return $a <=> $b;
 }
 
-# Returns number of filtered divs, or else -1 if all were filtered
+# Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were filtered
 sub filterGlossaryToScope($$) {
   my $osis = shift;
   my $scope = shift;
@@ -238,17 +238,15 @@ sub filterGlossaryToScope($$) {
     push(@removed, $divScope);
   }
 
-    if (@removed == @glossDivs) {return -1;}
-    
-    &Log("$MOD REPORT: Removed ".@removed." of ".@glossDivs." instance(s) of glossary divs outside the scope: $scope (kept: ".join(' ', @kept).", removed: ".join(' ', @removed).")\n");
-    
-    open(OUTF, ">$osis");
-    print OUTF $xml->toString();
-    close(OUTF);
+  if (@removed == @glossDivs) {return '-1';}
+  
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
   
   &removeAggregateEntries($osis);
   
-  return @removed;
+  return (@removed ? join(',', @removed):'0');
 }
 
 sub removeDuplicateEntries($) {

@@ -30,6 +30,9 @@ require "$SCRD/scripts/common.pl"; &init();
 &osisXSLT("$OUTDIR/$MOD.xml", $MODULETOOLS_BIN."osis2ebook.xsl", "$TMPDIR/".$MOD."_1.xml", 'eBook');
 $OSISFILE = "$TMPDIR/".$MOD."_1.xml";
 
+%EBOOKREPORT;
+$EBOOKNAME;
+
 # get scope and vsys of OSIS file
 &setConfGlobals(&updateConfData($ConfEntryP, $OSISFILE));
 
@@ -67,6 +70,25 @@ if ($CREATE_SEPARATE_BOOKS) {
   }
 }
 
+# REPORT results
+&Log("\n$MOD REPORT: EBook files created (".scalar(keys %EBOOKREPORT)." instances):\n");
+my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered');
+foreach my $c (@order) {$cm{$c} = length(@order[$c]);}
+foreach my $n (sort keys %EBOOKREPORT) {
+  $EBOOKREPORT{$n}{'Name'} = $n;
+  if (!$cm{$n} || length($EBOOKREPORT{$n}) > $cm{$n}) {$cm{$n} = length($EBOOKREPORT{$n});}
+  foreach my $c (sort keys %{$EBOOKREPORT{$n}}) {
+    if ($c eq 'Format') {$EBOOKREPORT{$n}{$c} = join(',', @{$EBOOKREPORT{$n}{$c}});}
+    if (length($EBOOKREPORT{$n}{$c}) > $cm{$c}) {$cm{$c} = length($EBOOKREPORT{$n}{$c});}
+  }
+}
+my $p; foreach my $c (@order) {$p .= "%-".($cm{$c}+4)."s ";} $p .= "\n";
+&Log(sprintf($p, @order));
+foreach my $n (sort keys %EBOOKREPORT) {
+  my @a; foreach my $c (@order) {push(@a, $EBOOKREPORT{$n}{$c});}
+  &Log(sprintf($p, @a));
+}
+
 &Log("\nend time: ".localtime()."\n");
 
 ########################################################################
@@ -77,6 +99,13 @@ sub setupAndMakeEbook($$$) {
   my $type = shift;
   my $titleOverride = shift;
   my $confP = shift;
+  
+  $EBOOKNAME = $scope;
+  if ($type) {$EBOOKNAME .= "_" . $type;}
+  $EBOOKNAME =~ s/\s/_/g;
+  if ($EBOOKREPORT{$EBOOKNAME}) {
+    &Log("ERROR: eBooks \"$EBOOKNAME\" were already created!\n");
+  }
   
   my $scopeIsCompleteOSIS = ($scope eq $confP->{"Scope"});
   
@@ -116,7 +145,8 @@ sub setupAndMakeEbook($$$) {
     $cover = "$tmp/cover.jpg";
     if (!$scopeIsCompleteOSIS && $type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      &Log("$MOD REPORT: Using \"$covname\" with extra title \"$titleOverride\" as cover of \"$MOD:$scope\".\n");
+      $EBOOKREPORT{$EBOOKNAME}{'Title'} = $titleOverride;
+      $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($titleOverride);
       if ($pointsize > 40) {$pointsize = 40;}
@@ -128,11 +158,15 @@ sub setupAndMakeEbook($$$) {
       `$cmd`;
     }
     else {
-      &Log("$MOD REPORT: Using \"$covname\" as cover of \"$MOD:$scope\".\n");
+      $EBOOKREPORT{$EBOOKNAME}{'Title'} = 'no-title';
+      $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
       copy("$INPD/eBook/$covname", $cover);
     }
   }
-  else {&Log("$MOD REPORT: Using random cover with title \"".$EBOOKCONV{'Title'}."\" as cover of \"$MOD:$scope\".\n");}
+  else {
+    $EBOOKREPORT{$EBOOKNAME}{'Title'} = $EBOOKCONV{'Title'};
+    $EBOOKREPORT{$EBOOKNAME}{'Cover'} = 'random-cover';
+  }
   
   my @skipCompanions;
   foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
@@ -143,7 +177,7 @@ sub setupAndMakeEbook($$$) {
     if (-e "$outd/$companion.xml") {$outf = "$outd/$companion.xml";}
     elsif (-e "$INPD/$companion/output/$companion.xml") {$outf = "$INPD/$companion/output/$companion.xml";}
     else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
-    my $filter = 0;
+    my $filter = '0';
     if ($outf) {
       copy($outf, "$tmp/$companion.xml");
       if ($companion =~ /DICT$/) {
@@ -151,16 +185,18 @@ sub setupAndMakeEbook($$$) {
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);
-        if ($filter == -1) { # -1 means all glossary divs were filtered out
+        if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           unlink("$tmp/$companion.xml");
-          &Log("$MOD REPORT: Will NOT include \"$companion\" in \"$MOD:$scope\" because the glossary contained nothing which matched the scope.\n");
+          $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = 'no-glossary';
+          $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = 'all';
           next;
         }
       }
     }
-  
-    &Log("$MOD REPORT: Including".($filter ? ' (filtered)':'')." \"$companion\" in \"$MOD:$scope\"\n");
+    
+    $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = $companion;
+    $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
     
     # copy companion images
     my $compDir = &findCompanionDirectory($companion);
@@ -245,13 +281,10 @@ sub makeEbook($$$$$$) {
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
-    my $name = $scope;
-    if ($type) {$name .= "_" . $type;}
-    $name .= ".$format";
-    $name =~ s/\s/_/g;
-
-    copy($out, "$EBOUT/$name");
-    &Log("$MOD REPORT: Created output file: $name\n", 1);
+    copy($out, "$EBOUT/$EBOOKNAME.$format");
+    if (!$EBOOKREPORT{$EBOOKNAME}{'Format'}) {$EBOOKREPORT{$EBOOKNAME}{'Format'} = ();}
+    push(@{$EBOOKREPORT{$EBOOKNAME}{'Format'}}, $format);
+    &Log("Created: $EBOOKNAME.$format\n", 2);
   }
   else {&Log("ERROR: No output file: $out\n");}
 }

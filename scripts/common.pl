@@ -89,7 +89,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
-  &Log("start time: ".localtime()."\n");
+  if ($SCRIPT_NAME !~ /osis2ebook/) {&Log("start time: ".localtime()."\n");}
       
   # if all dependencies are not met, this asks to run in Vagrant
   &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
