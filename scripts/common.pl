@@ -908,12 +908,21 @@ sub readConf($) {
   
   my %entryValue;
   if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&Log("ERROR: Could not open $conf\n"); die;}
+  my $contiuation;
   while(<CONF>) {
-    if ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
-      if ($entryValue{$1} ne '') {$entryValue{$1} .= "<nx/>".$2;}
-      else {$entryValue{$1} = $2;}
+    if    ($_ =~ /^#/) {next;}
+    elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {$entryValue{'ModuleName'} = $1; next;}
+    elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
+      my $entry = $1; my $value = $2;
+      if ($entryValue{$entry} ne '') {$entryValue{$entry} .= "<nx/>".$value;}
+      else {$entryValue{$entry} = $value;}
+      $continuation = ($_ =~ /\\\n/ ? $entry:'');
     }
-    if ($_ =~ /^\s*\[(.*?)\]\s*$/) {$entryValue{'ModuleName'} = $1;}
+    else {
+      chomp;
+      if ($continuation) {$entryValue{$continuation} .= "\n$_";}
+      $continuation = ($_ =~ /\\$/ ? $continuation:'');
+    }
   }
   close(CONF);
 
