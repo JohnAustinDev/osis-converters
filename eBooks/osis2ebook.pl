@@ -180,7 +180,7 @@ if (lc $OPTYPE eq "fb2")
 {
   # Create temporary file name
   $TEMPF = $OPF;
-  $TEMPF =~ s/\./1./;
+  $TEMPF =~ s/\.[^\.]*$/1./;
   
   # Rename output file to temp file and pre-process to give new output file
   rename $OPF, $TEMPF;
