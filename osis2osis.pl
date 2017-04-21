@@ -41,6 +41,8 @@ require "$SCRD/scripts/common.pl"; &init();
 require("$SCRD/scripts/simplecc.pl");
 
 my $osis_in = "";
+my $CCIN;
+my $CCOUT;
 
 $COMMANDFILE = "$INPD/CF_osis2osis.txt";
 if (! -e $COMMANDFILE) {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
@@ -49,7 +51,7 @@ open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis c
 while (<COMF>) {
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|CCTable|CCScript|companionProject|CONFIG_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+  elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|CCTable|CCScript|sourceProject|sfm2all_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
     if ($2) {
       my $par = $1;
       my $val = $3;
@@ -58,9 +60,13 @@ while (<COMF>) {
     }
   }
   elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
-    my $CCIN="../$companionProject/$1"; my $CCOUT="./$1";
+    my $sp = $1;
+    $CCIN = ($sourceProject =~ /^\./ ? "$sourceProject/$sp":"../$sourceProject/$sp");
+    $CCIN = File::Spec->rel2abs($CCIN, $INPD);
+    $CCOUT="./$sp";
+    $CCOUT = File::Spec->rel2abs($CCOUT, $INPD);
+    
     &Log("\nINFO: Processing CC $CCIN\n");
-    if ($CCIN =~ /^\./) {$CCIN = File::Spec->rel2abs($CCIN, $INPD);}
     if (! -e $CCIN) {&Log("ERROR Could not find \"$CCIN\" with \"$_\"\n"); next;}
     if (!$CCTable && !$CCScript) {
       &Log("ERROR: Cannot do CC command:\n".$_."You must first specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>\n\n");
@@ -77,8 +83,6 @@ while (<COMF>) {
       if (! -e $CCScript) {&Log("ERROR Could not find \"$CCScript\" with:\n$_\n"); next;}
     }
     
-    if ($CCOUT =~ /^\./) {$CCOUT = File::Spec->rel2abs($CCOUT, $INPD);}
-    
     my $fname = $CCIN; $fname =~ s/^.*\///;
     
     if ($fname eq "config.conf") {
@@ -91,13 +95,13 @@ while (<COMF>) {
       &setConfGlobals(&updateConfData(&readConf($CCOUT)));
     }
     elsif ($fname eq "collections.txt") {
-      if (!$companionProject) {&Log("ERROR: Unable to update collections.txt! To remedy this, specify SET_companionProject in $COMMANDFILE\n"); next;}
+      if (!$sourceProject) {&Log("ERROR: Unable to update collections.txt! To remedy this, specify SET_sourceProject in $COMMANDFILE\n"); next;}
       my $newMod = lc($MOD);
       if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&Log("ERROR: Could not open collections.txt input \"$CCIN\"\n"); next;}
       if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&Log("ERROR: Coult not open collections.txt output \"$CCOUT\"\n"); next;}
       my %col;
       while(<CI>) {
-        if ($_ =~ s/^(Collection\:\s*)(\Q$companionProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
+        if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
         else {$_ = &string_convert($_, $CCTable, $CCScript);}
         print CO $_;
       }
@@ -126,7 +130,7 @@ while (<COMF>) {
   }
   elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
     my $osis = $1;
-    if (!$companionProject) {&Log("ERROR: Unable to run CCOSIS! To remedy this, specify SET_companionProject in $COMMANDFILE\n"); next;}
+    if (!$sourceProject) {&Log("ERROR: Unable to run CCOSIS! To remedy this, specify SET_sourceProject in $COMMANDFILE\n"); next;}
     if ($osis =~ /\.xml$/i) {
       if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $INPD);}
     }

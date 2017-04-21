@@ -45,19 +45,19 @@ sub simplecc($$$) {
     # TODO: Add dictionary link support!
 
     my @was;
-    if ($MOD && $companionProject) {
+    if ($MOD && $sourceProject) {
       # Update OSIS file's module name
       &myLog("Converting moduleName...\n", 2);
-      @was = $XPC->findnodes('//osis:osisText[@osisIDWork="'.$companionProject.'"]/@osisIDWork', $xml);
-      push(@was, $XPC->findnodes('//osis:work[@osisWork="'.$companionProject.'"]/@osisWork', $xml));
+      @was = $XPC->findnodes('//osis:osisText[@osisIDWork="'.$sourceProject.'"]/@osisIDWork', $xml);
+      push(@was, $XPC->findnodes('//osis:work[@osisWork="'.$sourceProject.'"]/@osisWork', $xml));
       foreach my $wa (@was) {$wa->setValue($MOD);}
     
       # Update Scripture references
-      &myLog("Converting osisRef=\"".$companionProject.":...\n", 2);
-      my @srefs = $XPC->findnodes('//*[starts-with(@osisRef, "'.$companionProject.':")]/@osisRef', $xml);
+      &myLog("Converting osisRef=\"".$sourceProject.":...\n", 2);
+      my @srefs = $XPC->findnodes('//*[starts-with(@osisRef, "'.$sourceProject.':")]/@osisRef', $xml);
       foreach my $wa (@srefs) {
         my $ud = $wa->getValue();
-        $ud =~ s/^\Q$companionProject:/$MOD:/;
+        $ud =~ s/^\Q$sourceProject:/$MOD:/;
         $wa->setValue($ud);
       }
     }

@@ -60,18 +60,19 @@ foreach my $dir (keys %modules) {
   &osis_converters("$SCRD/osis2ebooks.pl", $dir, $LOGFILE);
 }
 
-# create any companion projects (but only if we're the root script of a top level project directory)
-$CFfile = (-e "$INPD/CF_usfm2osis.txt" ? "$INPD/CF_usfm2osis.txt":(-e "$INPD/CF_osis2osis.txt" ? "$INPD/CF_osis2osis.txt":''));
+# run any specified projects
+my $CFfile = (-e "$INPD/CF_usfm2osis.txt" ? "$INPD/CF_usfm2osis.txt":(-e "$INPD/CF_osis2osis.txt" ? "$INPD/CF_osis2osis.txt":''));
+my $sfm2all_RUN;
 if (open(CF, "<encoding(UTF-8)", $CFfile)) {
-  while(<CF>) {if ($_ =~ /^SET_companionProject:\s*(.*?)\s*$/) {$companionProject = $1;}}
+  while(<CF>) {if ($_ =~ /^SET_sfm2all_RUN:\s*(.*?)\s*$/) {$sfm2all_RUN = $1; last;}}
   close(CF);
 }
-if ($LOGFILE eq "$OUTDIR/OUT_$SCRIPT_NAME.txt" && $companionProject) {
-  my @companionProjects = split(/\s*,\s*/, $companionProject);
-  foreach my $cp (@companionProjects) {
-    if (-e "$INPD/../$cp") {
-      &osis_converters("$SCRD/sfm2all.pl", "$INPD/../$cp", $LOGFILE);
-    }
+if ($sfm2all_RUN) {
+  my @runProjects = split(/\s*,\s*/, $sfm2all_RUN);
+  foreach my $cp (@runProjects) {
+    if ($cp =~ /^\./) {$cp = File::Spec->rel2abs($cp, $INPD);}
+    else {$cp = "$INPD/../$cp"}
+    if (-e $cp) {`"$SCRD/sfm2all.pl" "$cp"`;} # Run as a separate process with its own separate logfile
   }
 }
 
