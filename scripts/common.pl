@@ -3069,7 +3069,7 @@ sub writeNoteOsisRefs2($) {
   my $xml = shift;
   my $refSystem = shift;
   
-  my @notes = $XPC->findnodes('//osis:note', $xml);
+  my @notes = $XPC->findnodes('//osis:note[not(@osisRef)]', $xml);
   
   foreach my $note (@notes) {
     my $osisRef;
@@ -3110,11 +3110,6 @@ sub writeNoteOsisRefs2($) {
     }
     
     else {return;}
-
-    my $prevOsisref = $note->getAttribute('osisRef');
-    if ($prevOsisref && $prevOsisref ne $osisRef) {
-      &Log("WARNING writeNoteOsisRefs: Changing osisRef from \"$prevOsisref\" to \"$osisRef\"\n");
-    }
 
     $note->setAttribute('osisRef', $osisRef);
   }

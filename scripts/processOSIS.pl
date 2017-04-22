@@ -34,7 +34,6 @@ if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   else {move("$TMPDIR/".$MOD."_1a.xml", "$TMPDIR/".$MOD."_2.xml");}
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
-&writeNoteOsisRefs("$TMPDIR/".$MOD."_2.xml");
 # MOD_2.xml is after addScripRefLinks.pl
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
@@ -58,6 +57,7 @@ if ($MODDRV =~ /Text/) {
   if (!$success) {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
+&writeNoteOsisRefs($OUTOSIS);
 # MOD.xml is after addCrossRefs.pl
 
 # Do a tmp Pretty Print for referencing during the conversion process
