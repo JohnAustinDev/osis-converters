@@ -568,6 +568,9 @@ sub addFootnoteLinks2TextNode($$$) {
   }
   $text = join('', @alks);
   
+  # The following puts any leading reference directly after target reference, as a harmless work-around for a bug in xulsword <= 3.14
+  if (&previousAdjacentReference($textNode)) {$text =~ s/^(\s+)(<reference [^>]*>)/$2$1/;}
+  
   # Sanity checks (shouldn't be needed but makes me feel better)
   my $test = $text; $test =~ s/<[^>]*>//g;
   if (!$skipSanityCheck && $text eq $textNode->data()) {
