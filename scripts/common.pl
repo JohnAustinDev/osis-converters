@@ -2830,7 +2830,7 @@ sub getOSIS_Work($$$) {
   $osisWorkP->{'091:identifier'}{'type'} = 'OSIS';
   $osisWorkP->{'100:source'}{'textContent'} = $confP->{'DistributionNotes'};
   $osisWorkP->{'110:language'}{'textContent'} = $confP->{'Lang'};
-  $osisWorkP->{'140:rights'}{'textContent'} = $confP->{'DistributionLicense'};
+  $osisWorkP->{'140:rights'}{'textContent'} = $confP->{'Copyright'};
   $osisWorkP->{'180:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
