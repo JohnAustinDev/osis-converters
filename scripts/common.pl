@@ -2819,11 +2819,15 @@ sub getOSIS_Work($$$) {
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema for some reason (hence the ordinal prefix)
   $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (e-Version: '.$confP->{'Version'}.')':'');
+  $osisWorkP->{'030:subject'}{'textContent'} = $confP->{'Description'};
+  $osisWorkP->{'030:subject'}{'type'} = 'x-description';
   $osisWorkP->{'040:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040:date'}{'event'} = 'eversion';
   $osisWorkP->{'050:description'}{'textContent'} = $confP->{'About'};
   $osisWorkP->{'060:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
   $osisWorkP->{'070:type'} = \%type;
+  $osisWorkP->{'080:format'}{'textContent'} = 'text/xml';
+  $osisWorkP->{'080:format'}{'type'} = 'x-MIME';
   $osisWorkP->{'090:identifier'}{'textContent'} = $isbn;
   $osisWorkP->{'090:identifier'}{'type'} = 'ISBN';
   $osisWorkP->{'091:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
