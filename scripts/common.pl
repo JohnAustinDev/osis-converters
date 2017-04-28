@@ -2825,6 +2825,10 @@ sub getOSIS_Work($$$) {
   $osisWorkP->{'040:date'}{'event'} = 'eversion';
   $osisWorkP->{'050:description'}{'textContent'} = $confP->{'About'};
   $osisWorkP->{'060:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
+  $osisWorkP->{'061:publisher'}{'textContent'} = $confP->{'CopyrightContactAddress'};
+  $osisWorkP->{'061:publisher'}{'type'} = 'x-ContactAddress';
+  $osisWorkP->{'062:publisher'}{'textContent'} = $confP->{'CopyrightContactEmail'};
+  $osisWorkP->{'062:publisher'}{'type'} = 'x-ContactEmail';
   $osisWorkP->{'070:type'} = \%type;
   $osisWorkP->{'080:format'}{'textContent'} = 'text/xml';
   $osisWorkP->{'080:format'}{'type'} = 'x-MIME';
