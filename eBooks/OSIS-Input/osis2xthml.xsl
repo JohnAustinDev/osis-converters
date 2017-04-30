@@ -6,35 +6,38 @@
  xmlns:epub="http://www.idpf.org/2007/ops"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
- <!-- Run like this: 
+  <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES
+  This transform may be tested from command line (and outputs will appear in an xhtml directory): 
+  $ saxonb-xslt -ext:on -xsl:osis2xthml.xsl -s:input-osis.xml tocnumber=1 optionalBreaks='true' epub3='true' fb2='false'
+  -->
  
- $ saxonb-xslt -ext:on -xsl:osis2xthml.xsl -s:osis.xml
- 
- Outputs will appear in an xhtml directory
- 
- -->
- 
- <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES -->
+  <!-- Input parameters which may be passed into this XSLT -->
+  <param name="tocnumber" select="2"/>
+  <param name="optionalBreaks" select="false"/>
+  <param name="epub3" select="true"/>
+  <param name="fb2" select="false"/>
+
+  <output indent="yes"/>
+  <strip-space elements="*"/>
+  <!-- <preserve-space elements="*"/> -->
+  
+  <!-- Pass over all nodes that don't match another template (output nothing) -->
+  <template match="node()"><apply-templates select="node()"/></template>
   
   <!-- Separate any Bible introduction, testament introductions and Bible books into separate xhtml files -->
-  <template match="/|node()">
-    <choose>
-      <when test="self::osis:osisText">
-        <call-template name="write-file"><with-param name="filename" select="'bible-introduction'"/></call-template>
-      </when>
-      <when test="self::osis:div[@type='bookGroup']">
-        <call-template name="write-file"><with-param name="filename" select="concat('bookGroup-introduction_', position())"/></call-template>
-      </when>
-      <when test="self::osis:div[@type='book']">
-        <call-template name="write-file"><with-param name="filename" select="@osisID"/></call-template>
-      </when>
-      <otherwise>
-        <apply-templates select="node()"/>
-      </otherwise>
-    </choose>
+  <template match="osis:osisText">
+    <call-template name="write-file"><with-param name="filename" select="'bible-introduction'"/></call-template>
   </template>
   
-  <!-- Write each xhtml file -->
+  <template match="osis:div[@type='bookGroup']">
+    <call-template name="write-file"><with-param name="filename" select="concat('bookGroup-introduction_', position())"/></call-template>
+  </template>
+  
+  <template match="osis:div[@type='book']">
+    <call-template name="write-file"><with-param name="filename" select="@osisID"/></call-template>
+  </template>
+  
+  <!-- Write each xhtml file's contents, choosing which child nodes to write and which to drop -->
   <template name="write-file">
     <param name="filename"/>
     <result-document method="xml" href="xhtml/{$filename}.xhtml">
@@ -49,11 +52,19 @@
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <when test="$filename='bible-introduction'">
               <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])]"/>
+              <hr xmlns="http://www.w3.org/1999/xhtml"/>
+              <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])]"/>
             </when>
             <when test="substring($filename, 1, 9)='bookGroup'">
               <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
+              <hr xmlns="http://www.w3.org/1999/xhtml"/>
+              <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
             </when>
-            <otherwise><apply-templates mode="xhtml" select="*"/></otherwise>
+            <otherwise>
+              <apply-templates mode="xhtml" select="node()"/>
+              <hr xmlns="http://www.w3.org/1999/xhtml"/>
+              <apply-templates mode="footnotes" select="node()"/>
+            </otherwise>
           </choose>
         </body>
       </html>
@@ -61,29 +72,180 @@
     <apply-templates select="node()"/>
   </template>
   
+  <!-- Place footnotes at the bottom of the file -->
+  <template match="node()" mode="footnotes"><apply-templates mode="footnotes" select="node()"/></template>
+  <template match="osis:note" mode="footnotes">
+    <aside xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote">
+      <xsl:attribute name="id" select="replace(@osisID, '!', '_')"/>
+      <p>* <xsl:apply-templates mode="xhtml" select="node()"/></p>
+    </aside>
+  </template>
   
-  <!-- THE FOLLOWING CONVERTINGS OSIS INTO THE HTML MARKUP THAT IS DESIRED -->
+
+  <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO HTML MARKUP AS DESIRED -->
   
-  <!-- Text and attributes are just copied by default -->
-  <template match="text()|@*" mode="xhtml"><copy/></template>
+  <!-- This template adds a class attribute when it's called -->
+  <template name="class">
+    <param name="inputclass"/>
+    <variable name="class">
+      <choose>
+        <when test="osis:foreign">foreign</when>
+        <when test="osis:head">heading</when>
+        <when test="osis:l"><value-of select="string-join(('poetic-line', (if (@level) then concat('x-indent-', @level) else '')), ' ')"/></when>
+      </choose>
+    </variable>
+    <if test="$inputclass!='' or $class!='' or @type or @subType"><attribute name="class"><value-of select="normalize-space(string-join(($class, @type, @subType, $inputclass), ' '))"/></attribute></if>
+  </template>
   
-  <!-- Remove chapter and verse tags -->
-  <template match="osis:verse | osis:chapter" mode="xhtml"/>
+  <!-- By default, text is just copied -->
+  <template match="text()" mode="xhtml"><copy/></template>
   
-  <!-- By default, elements just get their namespace changed from OSIS to HTML-->
+  <!-- By default, attributes are dropped -->
+  <template match="@*" mode="xhtml"/>
+  
+  <!-- By default, elements just get their namespace changed from OSIS to HTML, plus a class added-->
   <template match="*" mode="xhtml">
     <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
+      <call-template name="class"/>
       <apply-templates mode="xhtml" select="node()|@*"/>
     </element>
+  </template>
+  
+  <!-- Remove these elements entirely -->
+  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:name | osis:milestone[@type='pb'][ancestor::osis:p] | osis:title[@type='x-chapterLabel']" mode="xhtml"/>
+  
+  <!-- Remove these tags (keep their content) -->
+  <template match="osis:name | osis:seg" mode="xhtml">
+    <xsl:apply-templates mode="xhtml" select="node()"/>
+  </template>
+  
+  <!-- Verses -->
+  <template match="osis:verse[@sID and @osisID]" mode="xhtml">
+    <variable name="first"><value-of select="tokenize(@osisID, '\s+')[1]"/></variable>
+    <variable name="last"><value-of select="tokenize(@osisID, '\s+')[last()]"/></variable>
+    <sup xmlns="http://www.w3.org/1999/xhtml">
+      <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
+    </sup>
+  </template>
+  
+  <!-- Chapters -->
+  <template match="osis:chapter[@sID and @osisID]" mode="xhtml">
+    <variable name="chapter" select="tokenize(@osisID, '\.')[last()]"/>
+    <h3 xmlns="http://www.w3.org/1999/xhtml" class="x-chapter-title">
+      <xsl:attribute name="data-chapter"><xsl:value-of select="$chapter"/></xsl:attribute>
+      <xsl:choose>
+        <xsl:when test="count(following-sibling::*[1][@type='x-chapterLabel'])"><xsl:value-of select="following-sibling::*[1]/text()"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$chapter"/></xsl:otherwise>
+      </xsl:choose>
+    </h3>
   </template>
   
   <!-- Convert OSIS titles to HTML heading tags -->
   <template match="osis:title" mode="xhtml">
     <variable name="level"><value-of select="if (@level) then @level else '1'"/></variable>
     <element name="h{$level}" namespace="http://www.w3.org/1999/xhtml">
-      <if test="./@subType"><attribute name="class"><value-of select="./@subType"/></attribute></if>
+      <call-template name="class"/>
       <apply-templates mode="xhtml" select="node()"/>
     </element>
+  </template>
+  
+  <template match="osis:catchWord" mode="xhtml">
+    <i xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></i>
+  </template>
+  
+  <template match="osis:cell" mode="xhtml">
+    <td xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></td>
+  </template>
+  
+  <template match="osis:caption" mode="xhtml">
+    <figcaption xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></figcaption>
+  </template>
+  
+  <template match="osis:figure" mode="xhtml">
+    <figure xmlns="http://www.w3.org/1999/xhtml"><img><xsl:attribute name="src"><xsl:value-of select="@src"/></xsl:attribute></img><xsl:apply-templates mode="xhtml" select="node()"/></figure>
+  </template>
+  
+  <template match="osis:foreign" mode="xhtml">
+    <span xmlns="http://www.w3.org/1999/xhtml" class="foreign"><xsl:apply-templates mode="xhtml" select="node()"/></span>
+  </template>
+  
+  <template match="osis:head" mode="xhtml">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="heading"><xsl:apply-templates mode="xhtml" select="node()"/></div>
+  </template>
+  
+  <template match="osis:hi[@type='bold']" mode="xhtml"><b xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></b></template>
+  <template match="osis:hi[@type='emphasis']" mode="xhtml"><em xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></em></template>
+  <template match="osis:hi[@type='italic']" mode="xhtml"><i xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></i></template>
+  <template match="osis:hi[@type='line-through']" mode="xhtml"><s xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></s></template>
+  <template match="osis:hi[@type='sub']" mode="xhtml"><sub xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></sub></template>
+  <template match="osis:hi[@type='super']" mode="xhtml"><sup xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></sup></template>
+  <template match="osis:hi[@type='underline']" mode="xhtml"><u xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></u></template>
+  <template match="osis:hi[@type='small-caps']" mode="xhtml"><span xmlns="http://www.w3.org/1999/xhtml" style="font-variant:small-caps"><xsl:apply-templates mode="xhtml" select="node()"/></span></template>
+  
+  <template match="osis:item" mode="xhtml">
+    <li xmlns="http://www.w3.org/1999/xhtml"><call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></li>
+  </template>
+  
+  <template match="osis:lb" mode="xhtml">
+    <if test="lower-case($optionalBreaks)!='false' or @type!='x-optional'"><br xmlns="http://www.w3.org/1999/xhtml"/></if>
+    <apply-templates mode="xhtml" select="node()"/>
+  </template>
+  
+  <template match="osis:l" mode="xhtml">
+    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+  </template>
+  
+  <template match="osis:lg" mode="xhtml">
+    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+  </template>
+  
+  <template match="osis:list" mode="xhtml">
+    <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></ul>
+  </template>
+  
+  <template match="osis:milestone[@type='pb'][not(ancestor::osis:p)]" mode="xhtml">
+    <p xmlns="http://www.w3.org/1999/xhtml" class="page-break"></p>
+  </template>
+  
+  <template match="osis:p[child::osis:milestone[@type='pb']]" mode="xhtml">
+    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/>
+      <xsl:apply-templates mode="xhtml" select="node()[not(following-sibling::osis:milestone[@type='pb'])]"/>
+    </p>
+    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"><xsl:with-param name="inputclass" select="'page-break'"/></xsl:call-template>
+      <xsl:apply-templates mode="xhtml" select="node()[following-sibling::osis:milestone[@type='pb']]"/>
+    </p>
+  </template>
+  
+  <template match="osis:note" mode="xhtml">
+    <choose>
+      <when test="lower-case($epub3)!='false'">
+        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a epub:type="noteref" href="#{replace(@osisID, '!', '_')}">*</a></sup>
+      </when>
+      <otherwise>
+        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a href="#{replace(@osisID, '!', '_')}" id="Ref{replace(@osisID, '!', '_')}">*</a></sup>
+      </otherwise>
+    </choose>
+  </template>
+  
+  <template match="osis:rdg" mode="xhtml">
+    <span xmlns="http://www.w3.org/1999/xhtml" class="alt-var"><xsl:apply-templates mode="xhtml" select="node()"/></span>
+  </template>
+  
+  <template match="osis:reference" mode="xhtml">
+    <choose>
+      <when test="lower-case($fb2)='false'">
+        <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></span>
+      </when>
+      <otherwise>%&amp;x-glossary-link&amp;%<xsl:apply-templates mode="xhtml" select="node()"/></otherwise>
+    </choose>
+  </template>
+  
+  <template match="osis:row" mode="xhtml">
+    <tr xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></tr>
+  </template>
+  
+  <template match="osis:transChange" mode="xhtml">
+    <span xmlns="http://www.w3.org/1999/xhtml" class="transChange"><xsl:apply-templates mode="xhtml" select="node()"/></span>
   </template>
 
 </stylesheet>
