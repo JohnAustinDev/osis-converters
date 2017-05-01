@@ -8,14 +8,14 @@
  
   <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES
   This transform may be tested from command line (and outputs will appear in an xhtml directory): 
-  $ saxonb-xslt -ext:on -xsl:osis2xthml.xsl -s:input-osis.xml tocnumber=1 optionalBreaks='true' epub3='true' fb2='false'
+  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml tocnumber=2 optionalBreaks='false' epub3='true' outputfmt='epub'
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
   <param name="tocnumber" select="2"/>
   <param name="optionalBreaks" select="false"/>
   <param name="epub3" select="true"/>
-  <param name="fb2" select="false"/>
+  <param name="outputfmt" select="epub"/>
 
   <output indent="yes"/>
   <strip-space elements="*"/>
@@ -24,7 +24,7 @@
   <!-- Pass over all nodes that don't match another template (output nothing) -->
   <template match="node()"><apply-templates select="node()"/></template>
   
-  <!-- Separate any Bible introduction, testament introductions and Bible books into separate xhtml files -->
+  <!-- Separate the OSIS file into separate xhtml files -->
   <template match="osis:osisText">
     <call-template name="write-file"><with-param name="filename" select="'bible-introduction'"/></call-template>
   </template>
@@ -37,10 +37,14 @@
     <call-template name="write-file"><with-param name="filename" select="@osisID"/></call-template>
   </template>
   
+  <template match="osis:div[@type='glossary']">
+    <call-template name="write-file"><with-param name="filename" select="concat('glossary_', position())"/></call-template>
+  </template>
+  
   <!-- Write each xhtml file's contents, choosing which child nodes to write and which to drop -->
   <template name="write-file">
     <param name="filename"/>
-    <result-document method="xml" href="xhtml/{$filename}.xhtml">
+    <result-document method="xml" href="{$filename}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
           <meta name="generator" content="OSIS"/>
@@ -112,7 +116,7 @@
   </template>
   
   <!-- Remove these elements entirely -->
-  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:name | osis:milestone[@type='pb'][ancestor::osis:p] | osis:title[@type='x-chapterLabel']" mode="xhtml"/>
+  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:name | osis:milestone | osis:title[@type='x-chapterLabel']" mode="xhtml"/>
   
   <!-- Remove these tags (keep their content) -->
   <template match="osis:name | osis:seg" mode="xhtml">
@@ -121,8 +125,8 @@
   
   <!-- Verses -->
   <template match="osis:verse[@sID and @osisID]" mode="xhtml">
-    <variable name="first"><value-of select="tokenize(@osisID, '\s+')[1]"/></variable>
-    <variable name="last"><value-of select="tokenize(@osisID, '\s+')[last()]"/></variable>
+    <variable name="first" select="tokenize(@osisID, '\s+')[1]"/>
+    <variable name="last" select="tokenize(@osisID, '\s+')[last()]"/>
     <sup xmlns="http://www.w3.org/1999/xhtml">
       <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
     </sup>
@@ -131,18 +135,59 @@
   <!-- Chapters -->
   <template match="osis:chapter[@sID and @osisID]" mode="xhtml">
     <variable name="chapter" select="tokenize(@osisID, '\.')[last()]"/>
-    <h3 xmlns="http://www.w3.org/1999/xhtml" class="x-chapter-title">
-      <xsl:attribute name="data-chapter"><xsl:value-of select="$chapter"/></xsl:attribute>
+    <variable name="toclevel" select="count(ancestor::*/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])+1"/>
+    <variable name="title">
       <xsl:choose>
         <xsl:when test="count(following-sibling::*[1][@type='x-chapterLabel'])"><xsl:value-of select="following-sibling::*[1]/text()"/></xsl:when>
         <xsl:otherwise><xsl:value-of select="$chapter"/></xsl:otherwise>
       </xsl:choose>
+    </variable>
+    <div xmlns="http://www.w3.org/1999/xhtml" class="toc-title" toclevel="{$toclevel}"><xsl:value-of select="$title"/></div>
+    <h3 xmlns="http://www.w3.org/1999/xhtml" class="x-chapter-title">
+      <xsl:attribute name="chapter"><xsl:value-of select="$chapter"/></xsl:attribute>
+      <xsl:value-of select="$title"/>
     </h3>
   </template>
   
-  <!-- Convert OSIS titles to HTML heading tags -->
+  <!-- Glossary keywords in TOC -->
+  <template match="osis:seg[@type='keyword']" mode="xhtml" priority="2">
+    <variable name="toclevel" select="count(ancestor::*/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])+1"/>
+    <div xmlns="http://www.w3.org/1999/xhtml" class="toc-title" toclevel="{$toclevel}"><xsl:value-of select="./text()"/></div>
+    <choose>
+      <!-- mobi -->
+      <when test="lower-case($outputfmt)='mobi'">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="glossary-entry">
+          <dfn xmlns="http://www.w3.org/1999/xhtml">
+            <xsl:apply-templates mode="xhtml" select="node()"/>
+          </dfn>
+        </div>
+      </when>
+      <!-- fb2 -->
+      <when test="lower-case($outputfmt)='fb2'">
+        <h4 xmlns="http://www.w3.org/1999/xhtml">
+          <xsl:apply-templates mode="xhtml" select="node()"/>
+        </h4>
+      </when>
+      <!-- epub -->
+      <otherwise>
+        <article xmlns="http://www.w3.org/1999/xhtml" class="glossary-entry">
+          <dfn xmlns="http://www.w3.org/1999/xhtml">
+            <xsl:apply-templates mode="xhtml" select="node()"/>
+          </dfn>
+        </article>
+      </otherwise>
+    </choose>
+  </template>
+  
+  <!-- Table of Contents -->
+  <template match="osis:milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
+    <variable name="toclevel" select="count(ancestor-or-self::*/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])"/>
+    <div xmlns="http://www.w3.org/1999/xhtml" class="toc-title" toclevel="{$toclevel}"><xsl:value-of select="./@n"/></div>
+  </template>
+  
+  <!-- Titles -->
   <template match="osis:title" mode="xhtml">
-    <variable name="level"><value-of select="if (@level) then @level else '1'"/></variable>
+    <variable name="level" select="if (@level) then @level else '1'"/>
     <element name="h{$level}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
       <apply-templates mode="xhtml" select="node()"/>
@@ -203,7 +248,7 @@
     <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></ul>
   </template>
   
-  <template match="osis:milestone[@type='pb'][not(ancestor::osis:p)]" mode="xhtml">
+  <template match="osis:milestone[@type='pb'][not(ancestor::osis:p)]" mode="xhtml" priority="2">
     <p xmlns="http://www.w3.org/1999/xhtml" class="page-break"></p>
   </template>
   
@@ -233,7 +278,7 @@
   
   <template match="osis:reference" mode="xhtml">
     <choose>
-      <when test="lower-case($fb2)='false'">
+      <when test="lower-case($outputfmt)!='fb2'">
         <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></span>
       </when>
       <otherwise>%&amp;x-glossary-link&amp;%<xsl:apply-templates mode="xhtml" select="node()"/></otherwise>
