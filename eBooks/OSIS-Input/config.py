@@ -43,6 +43,7 @@ class ConversionConfig:
         self.title = ''
         self.publisher = ''
         self.epub3 = False
+        self.toc = 2
         self.testamentIntro = False
         self.bibleIntro = False
         self.combinedIntros = False
@@ -120,6 +121,11 @@ class ConversionConfig:
             torf = m.group(1).strip().lower()
             if torf == 'true' or torf == 't' or torf == 'yes' or torf == 'y':
                 self.epub3 = True
+        #
+        # Look for TOC setting
+        m = re.search(r"^\s*TOC=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            self.toc = m.group(1).strip()
         #
         # Look for intro settings
         m = re.search(r"^\s*TestamentIntro=(.+)", config, re.MULTILINE|re.IGNORECASE)

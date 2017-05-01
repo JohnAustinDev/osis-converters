@@ -10,6 +10,8 @@ import glob
 import codecs
 import string
 import os
+from subprocess import Popen, PIPE
+from lxml import etree
 
 class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
@@ -88,28 +90,23 @@ class OsisInput(InputFormatPlugin):
             filePos = filePath.rfind('\\')
         inputDir = filePath[:filePos]
 
-        # Prepare to parse the input file
-        htmlWriter = HtmlWriter(self.context)
-        osisParser = make_parser()
-        osisHandler = BibleHandler(htmlWriter, self.context)
-        osisParser.setContentHandler(osisHandler)
-        osisParser.parse(stream)
-        #
-        # Report any unexpected tags
-        for tag in self.context.unexpectedTags:
-            print 'Unexpected tag: <%s>' % tag
-        #
-        # Process any glossaries
-        if self.context.glossaries:
-            del osisHandler
-            osisHandler = GlossaryHandler(htmlWriter, self.context)
-            osisParser.setContentHandler(osisHandler)
-            for glossary in self.context.glossaries:
-                print 'Processing glossary ' + glossary
-                glosFile = '%s/%s.xml' % (inputDir, glossary)
-                osisParser.parse(glosFile)
-                for tag in self.context.unexpectedTags:
-                    print '%s: Unexpected tag: <%s>' % (glossary, tag)
+        # Transform the input OSIS file to XHTML
+        shutil.copy("%s/osis2xhtml.xsl" % inputDir, '.')
+        p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
+        output, err = p.communicate()
+        if p.returncode != 0:
+            print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)
+        
+        # Transform any glossaries
+        osis = etree.parse(stream)
+        glossaries = osis.xpath("//osis:work[child::osis:type[@type='x-glossary']]/@osisWork", namespaces={'osis': 'http://www.bibletechnologies.net/2003/OSIS/namespace'})
+        for glossary in glossaries:
+            print 'Processing glossary ' + glossary
+            p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s/%s.xml" % (inputDir, glossary), "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
+            output, err = p.communicate()
+            if p.returncode != 0:
+                print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)
+        os.remove('osis2xhtml.xsl')
         
         # Create the OPF file
         oh = codecs.open('content.opf', 'w', 'utf-8')
