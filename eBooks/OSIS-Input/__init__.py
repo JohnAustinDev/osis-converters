@@ -12,6 +12,7 @@ import string
 import os
 from subprocess import Popen, PIPE
 from lxml import etree
+from os import walk
 
 class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
@@ -82,88 +83,54 @@ class OsisInput(InputFormatPlugin):
                 self.context.canonicalClassDefined = True
             cfile.close()
             
-        # Get the directory of the OSIS file in case we need to look for glossary files
+        # Get the directory of the OSIS file
         filePath = stream.name
         filePos = filePath.rfind('/')
-        if filePos == 0:
-            # Maybe this is Windows and backslashes are used
-            filePos = filePath.rfind('\\')
         inputDir = filePath[:filePos]
-
-        # Transform the input OSIS file to XHTML
+        
+        # copy images
+        for afile in glob.glob("%s/images/*.*" % inputDir):
+            if not os.path.exists('./images'):
+                os.makedirs('./images')                                                                                                                                 
+            shutil.copy(afile, './images')
+            
+        # Transform the input OSIS files to XHTML
+        for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
+            shutil.copy(afile, '.')
         shutil.copy("%s/osis2xhtml.xsl" % inputDir, '.')
-        p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
+        p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
         if p.returncode != 0:
             print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)
-        
-        # Transform any glossaries
-        osis = etree.parse(stream)
-        glossaries = osis.xpath("//osis:work[child::osis:type[@type='x-glossary']]/@osisWork", namespaces={'osis': 'http://www.bibletechnologies.net/2003/OSIS/namespace'})
-        for glossary in glossaries:
-            print 'Processing glossary ' + glossary
-            p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s/%s.xml" % (inputDir, glossary), "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
-            output, err = p.communicate()
-            if p.returncode != 0:
-                print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)
         os.remove('osis2xhtml.xsl')
+        for afile in glob.glob("./*.xml"):                                                                                                                                   
+            os.remove(afile)
         
-        # Create the OPF file
-        oh = codecs.open('content.opf', 'w', 'utf-8')
-        oh.write('''<?xml version='1.0' encoding='utf-8'?>
-<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">
-  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">\n''')
-        publisher = self.config.publisher
-        if publisher == '':
-            publisher = 'IBT'
-        oh.write('    <dc:publisher>%s</dc:publisher>\n' % publisher)
-        if self.context.title != '':
-            oh.write('    <dc:title>%s</dc:title>\n' % self.context.title)
-        if self.context.lang != '':
-            oh.write('    <dc:language>%s</dc:language>\n' % self.context.lang)
-        oh.write('''  </metadata>
-          
-  <manifest>\n''')
-        for hf in self.context.htmlFiles:
-            oh.write('    <item href="%s.xhtml" id="id%s" media-type="application/xhtml+xml"/>\n' % (hf, hf))
-        if self.context.cssFile != '':
-            oh.write('    <item href="%s" id="css" media-type="text/css"/>\n' % self.context.cssFile)
-        fontCount = 0
-        for ff in fontFiles:
-            fontCount += 1
-            if ff.lower().endswith('.ttf'):
-                oh.write('    <item href="%s" id="font%d" media-type="application/x-font-ttf"/>\n' % (ff, fontCount))
-            elif ff.lower().endswith('.otf'):
-                oh.write('    <item href="%s" id="font%d" media-type="application/vnd.ms-opentype"/>\n' % (ff, fontCount))
-            else:
-                print 'Unrecognised font type: %s' % ff
-        for pf in self.context.imageFiles:
-            imageIdEnd = pf.rfind('.')
-            imageId = pf[:imageIdEnd]
-            oh.write('    <item href="%s" id="img%s" media-type="%s"/>\n' % (pf, imageId, self._getImageMime(pf)))
-        oh.write('''  </manifest>
+        # Add files which are not discoverable in the OSIS file to the manifest
+        parser = etree.XMLParser(remove_blank_text=True)
+        contentopf = etree.parse('content.opf', parser)
+        namespace = {'opf': 'http://www.idpf.org/2007/opf'}
+        manifest = contentopf.xpath("opf:manifest", namespaces=namespace)[0]
+        for dirpath, dirnames, filenames in walk('.'):
+            for name in filenames:
+                if not contentopf.xpath("//opf:manifest/opf:item[@href='%s']" % name, namespaces=namespace):
+                    ext = os.path.splitext(name)[1].lower()
+                    elem = 'none'
+                    if ext == '.css':
+                        elem = etree.fromstring('<item href="%s" id="css" media-type="text/css"/>' % name)
+                    elif ext == '.ttf':
+                        elem = etree.fromstring('<item href="./%s" id="font_%s" media-type="application/x-font-ttf"/>' % (name, name))
+                    elif ext == '.otf':
+                        elem = etree.fromstring('<item href="./%s" id="font%s" media-type="application/vnd.ms-opentype"/>' % (name, name))
+                    if elem != 'none':
+                        print "Adding file %s to content.opf" % name
+                        manifest.append(elem)
+        opffile = open('content.opf', "w")
+        opffile.write(etree.tostring(contentopf, encoding='utf-8', pretty_print=True))
         
-  <spine toc="ncx">\n''')
-        for hf in self.context.htmlFiles:
-            oh.write('    <itemref idref="id%s"/>\n' % hf)
-        oh.write('''  </spine>
-        
-</package>\n''')
-        oh.close()
         return os.path.abspath('content.opf')
 
 
-    def _getImageMime(self, img):
-        if img is None or img == '':
-            return 'application/octet-stream'
-        if img.lower().endswith('jpg') or img.lower().endswith('jpeg') or img.lower().endswith('jpe'):
-            return 'image/jpeg'
-        if img.lower().endswith('gif'):
-            return 'image/gif'
-        if img.lower().endswith('png'):
-            return 'image/png'
-        else:
-            return 'application/octet-stream'
 
     
     

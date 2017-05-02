@@ -134,24 +134,7 @@ else {
   print "WARNING: Proceding without CSS file as no file found\n"
 }
 
-# Check table of contents requirements
-# Note - this currently only caters for Bibles
-open(COMF, "<:encoding(UTF-8)", $CONFILE);
-$foundgroup = 0;
-
-foreach $line (<COMF>) {
-  $line = lc $line;
-  if ($line =~ /^group\d\s*=/) {
-    #Testament headings used
-	$COMMAND .= '--level1-toc //h:h1 --level2-toc "//h:h2 | //*[@toclevel=\"2\"]" --level3-toc "//*[@toclevel=\"3\"] | //*[@chapter]/@chapter"';
-	$foundgroup = 1;
-	last;
-  }
-}
-close(COMF);
-if (!$foundgroup) {
-  $COMMAND .= ' --level1-toc //h:h2 --level2-toc "//*[@toclevel=\"2\"] | //*[@chapter]/@chapter" --level3-toc "//*[@toclevel=\"3\"]"';
-}
+$COMMAND .= '--level1-toc "//h:div[@toclevel=\'1\']" --level2-toc "//h:div[@toclevel=\'2\']" --level3-toc "//h:div[@toclevel=\'3\']"';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {
