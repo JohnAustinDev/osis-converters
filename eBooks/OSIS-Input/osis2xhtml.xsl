@@ -6,9 +6,9 @@
  xmlns:epub="http://www.idpf.org/2007/ops"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
-  <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES
-  This transform may be tested from command line (and outputs will appear in an xhtml directory): 
-  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml tocnumber=2 optionalBreaks='false' epub3='true' outputfmt='epub'
+  <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES AND CORRESPONDING CONTENT.OPF FILE
+  This transform may be tested from command line (and outputs will appear in the current directory): 
+  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2 optionalBreaks='false' epub3='true' outputfmt='epub'
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
@@ -24,24 +24,32 @@
   <!-- Pass over all nodes that don't match another template (output nothing) -->
   <template match="node()"><apply-templates select="node()"/></template>
   
-  <!-- Separate the OSIS file into separate xhtml files -->
-  <template match="osis:osisText">
-    <call-template name="write-file"><with-param name="filename" select="'bible-introduction'"/></call-template>
+  <!-- Separate the OSIS file into separate xhtml files (this also writes to content.opf on subsequent passes when contentopf param is set) -->
+  <template match="osis:osisText | osis:div[@type='bookGroup'] | osis:div[@type='book'] | osis:div[@type='glossary']">
+    <param name="contentopf" tunnel="yes"/>
+    <variable name="filename">
+      <choose>
+        <when test="self::osis:osisText"><value-of select="concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')"/></when>
+        <when test="self::osis:div[@type='bookGroup']"><value-of select="concat(ancestor-or-self::osis:osisText/@osisIDWork,'_bookGroup-introduction_', position())"/></when>
+        <when test="self::osis:div[@type='book']"><value-of select="concat(ancestor-or-self::osis:osisText/@osisIDWork, '_', @osisID)"/></when>
+        <when test="self::osis:div[@type='glossary']"><value-of select="concat(ancestor-or-self::osis:osisText/@osisIDWork, '_glossary_', position())"/></when>
+      </choose>
+    </variable>
+    <choose>
+      <when test="$contentopf='manifest'">
+        <item xmlns="http://www.idpf.org/2007/opf" href="{$filename}.xhtml" id="id.{$filename}" media-type="application/xhtml+xml"/>
+      </when>
+      <when test="$contentopf='spine'">
+        <itemref xmlns="http://www.idpf.org/2007/opf" idref="id.{$filename}"/>
+      </when>
+      <otherwise>
+        <call-template name="write-file"><with-param name="filename" select="$filename"/></call-template>
+      </otherwise>
+    </choose>
+    <apply-templates select="node()"/>
   </template>
-  
-  <template match="osis:div[@type='bookGroup']">
-    <call-template name="write-file"><with-param name="filename" select="concat('bookGroup-introduction_', position())"/></call-template>
-  </template>
-  
-  <template match="osis:div[@type='book']">
-    <call-template name="write-file"><with-param name="filename" select="@osisID"/></call-template>
-  </template>
-  
-  <template match="osis:div[@type='glossary']">
-    <call-template name="write-file"><with-param name="filename" select="concat('glossary_', position())"/></call-template>
-  </template>
-  
-  <!-- Write each xhtml file's contents, choosing which child nodes to write and which to drop -->
+
+  <!-- Write each xhtml file's contents (choosing which child nodes to write and which to drop) -->
   <template name="write-file">
     <param name="filename"/>
     <result-document method="xml" href="{$filename}.xhtml">
@@ -73,7 +81,6 @@
         </body>
       </html>
     </result-document>
-    <apply-templates select="node()"/>
   </template>
   
   <!-- Place footnotes at the bottom of the file -->
@@ -292,5 +299,81 @@
   <template match="osis:transChange" mode="xhtml">
     <span xmlns="http://www.w3.org/1999/xhtml" class="transChange"><xsl:apply-templates mode="xhtml" select="node()"/></span>
   </template>
-
+  
+  
+  <!-- THE FOLLOWING TEMPLATES PROCESS REFERENCED GLOSSARY MODULES -->
+  <template match="node()|@*" mode="glossaries">
+    <apply-templates select="node()" mode="glossaries"/>
+  </template>
+  
+  <template match="osis:work[child::osis:type[@type='x-glossary']]" mode="glossaries">
+    <apply-templates select="doc(concat(@osisWork, '.xml'))"/>
+  </template>
+    
+    
+  <!-- THE FOLLOWING TEMPLATE FOR THE ROOT NODE CONTROLS OVERALL CONVERSION FLOW -->
+  <template match="/">
+    <param name="contentopf" tunnel="yes"/>
+    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
+    
+    <apply-templates select="node()"/>
+    
+    <if test="not($isBible) and $contentopf='manifest'">
+      <xsl:call-template name="figure-manifest"/>
+    </if>
+    
+    <if test="$isBible">
+      <apply-templates select="node()" mode="glossaries"/>
+      <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
+        <metadata 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+            xmlns:opf="http://www.idpf.org/2007/opf" 
+            xmlns:dcterms="http://purl.org/dc/terms/" 
+            xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:publisher><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:publisher[not(@type)]/text()"/></dc:publisher>
+          <dc:title><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:title/text()"/></dc:title>
+          <dc:language><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:language/text()"/></dc:language>
+        </metadata>
+        <manifest>
+          <xsl:apply-templates select="node()">
+            <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
+          </xsl:apply-templates>
+          <xsl:apply-templates select="node()" mode="glossaries">
+            <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
+            <xsl:with-param name="figures-already-in-manifest" select="distinct-values(//osis:figure/@src)" tunnel="yes"/>
+          </xsl:apply-templates>
+        </manifest>
+        <spine toc="ncx">
+          <xsl:apply-templates select="node()">
+            <xsl:with-param name="contentopf" select="'spine'" tunnel="yes"/>
+          </xsl:apply-templates>
+          <xsl:apply-templates select="node()" mode="glossaries">
+            <xsl:with-param name="contentopf" select="'spine'" tunnel="yes"/>
+          </xsl:apply-templates>
+        </spine>
+      </package>
+    </if>
+  </template>
+  
+  <template name="figure-manifest">
+    <param name="figures-already-in-manifest" select="()" tunnel="yes"/>
+    <variable name="a" select="distinct-values(//osis:figure/@src)"/><variable name="b" select="distinct-values($figures-already-in-manifest)"/><message select="'BEFORE:'"/><message select="($a, $b)"/>
+    <variable name="c" select="distinct-values(($a, $b))"/><message select="'AFTER:'"/><message select="$c"/>
+    <for-each select="$c">
+      <item xmlns="http://www.idpf.org/2007/opf">
+        <xsl:attribute name="href" select="."/>
+        <xsl:attribute name="id" select="tokenize(., '/')[last()]"/>
+        <xsl:attribute name="media-type">
+          <xsl:choose xmlns="http://www.w3.org/1999/XSL/Transform">
+            <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
+            <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
+            <when test="ends-with(lower-case(.), 'png')">image/png</when>
+            <otherwise>application/octet-stream</otherwise>
+          </xsl:choose>
+        </xsl:attribute>
+      </item>
+    </for-each>
+  </template>
+  
 </stylesheet>
