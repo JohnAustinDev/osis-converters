@@ -2759,7 +2759,7 @@ sub writeOsisHeaderWork($) {
   my $isbn;
   my @tns = $XPC->findnodes('//text()', $xml);
   foreach my $tn (@tns) {
-    if ($tn =~ /\bisbn ?(number|\#|no\.?)?([\d\- ]+)/i) {
+    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
       $isbn = $2;
       push(@isbns, $isbn);
     }
@@ -3064,13 +3064,15 @@ sub joinOSIS($) {
 }
 
 
-# Find all notes and add osisRef attributes
-sub writeNoteOsisRefs($) {
+# Normalize all osisRef and osisID attributes
+sub normalizeRefsIds($) {
   my $osis = shift;
   
-  &Log("Writing note osisRef attributes to OSIS file \"$osis\".\n");
+  &Log("Normalizing osisRef and osisID attributes in OSIS file \"$osis\".\n");
   
   my @files = &splitOSIS($osis);
+  
+  my %stats = ('osisRef'=>0, 'osisID'=>0);
   
   # check that OSIS refSystem is supported
   my $refSystem;
@@ -3079,7 +3081,7 @@ sub writeNoteOsisRefs($) {
     my $xml = $XML_PARSER->parse_file($file);
     $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
     if ($refSystem !~ /^(Bible|Dict)/) {
-      &Log("ERROR writeNoteOsisRefs: Not yet supporting refSystem \"$refSystem\"\n");
+      &Log("ERROR normalizeRefsIds: Not yet supporting refSystem \"$refSystem\"\n");
       return;
     }
     last;
@@ -3088,15 +3090,20 @@ sub writeNoteOsisRefs($) {
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &writeNoteOsisRefs2($xml, $refSystem);
-    open(OUTF, ">$file") or die "writeNoteOsisRefs could not open splitOSIS file: \"$file\".\n";
+    &writeNoteOsisRefs($xml, $refSystem);
+    &normalizeRefsAndIds($xml, $refSystem, \%stats);
+    open(OUTF, ">$file") or die "normalizeRefsIds could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
   
   &joinOSIS($osis);
+  
+  &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
+  &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");
 }
-sub writeNoteOsisRefs2($) {
+
+sub writeNoteOsisRefs($$) {
   my $xml = shift;
   my $refSystem = shift;
   
@@ -3143,6 +3150,38 @@ sub writeNoteOsisRefs2($) {
     else {return;}
 
     $note->setAttribute('osisRef', $osisRef);
+  }
+}
+
+sub normalizeRefsAndIds($$\%) {
+  my $xml = shift;
+  my $refSystem = shift;
+  my $statsP = shift;
+  
+  # normalize osisRefs
+  my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,6)!='x-gloss']/\@osisRef", $xml);
+  my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
+  my $normedOR = 0;
+  foreach my $osisRef (@osisRefs) {
+    if ($osisRef->getValue() !~ /^$osisRefWork\:/) {next;}
+    $new = $osisRef->getValue();
+    $new =~ s/^$osisRefWork\://;
+    $osisRef->setValue($new);
+    $statsP->{'osisRef'}++;
+  }
+  
+  # normalize osisIDs
+  if ($refSystem =~ /^Bible/) { # non-Bibles have always included the work prefix in every osisID, so let's keep them
+    my @osisIDs = $XPC->findnodes('//@osisID', $xml);
+    my $osisIDWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml)}[0]->getValue();
+    my $normedID = 0;
+    foreach my $osisID (@osisIDs) {
+      if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
+      $new = $osisID->getValue();
+      $new =~ s/^$osisIDWork\://;
+      $osisID->setValue($new);
+      $statsP->{'osisID'}++;
+    }
   }
 }
 

@@ -191,7 +191,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   print OUTF $OSIS->toString();
   close(OUTF);
 
-  &Log("$MOD REPORT: Placed $NumNotes cross-reference notes.\n");
+  &Log("$MOD REPORT: Placed $NumNotes cross-reference notes.\n\n");
   
   return 1;
 }
@@ -206,7 +206,7 @@ sub insertNote($\$) {
   for (my $i=0; $i<@refs; $i++) {
     my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
     my $new = $osisRef->getValue();
-    $new =~ s/^.*?:/$MOD:/;
+    $new =~ s/^.*?://;
     $osisRef->setValue($new);
     if (!@{$XPC->findnodes('./text()', @refs[$i])}) {
       @refs[$i]->insertAfter(XML::LibXML::Text->new(sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','))), undef);

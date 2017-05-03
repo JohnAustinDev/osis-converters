@@ -57,7 +57,7 @@ if ($MODDRV =~ /Text/) {
   if (!$success) {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
-&writeNoteOsisRefs($OUTOSIS);
+&normalizeRefsIds($OUTOSIS);
 # MOD.xml is after addCrossRefs.pl
 
 # Do a tmp Pretty Print for referencing during the conversion process

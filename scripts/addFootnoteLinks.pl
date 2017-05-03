@@ -65,6 +65,7 @@ require("$SCRD/scripts/processGlossary.pl");
 %TERM_ORDINAL;
 %FNL_STATS;
 %FNL_LINKS;
+$OSISREFWORK;
 
 sub addFootnoteLinks($$) {
   my $in_file = shift;
@@ -182,6 +183,7 @@ sub addFootnoteLinks($$) {
     if ($file =~ /other\.osis$/) {
       $myMod = &getModFromNode($xmls{$file});
       $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
+      $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
       $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getBibleVersificationFromNode($xmls{$file});
     }
   }
@@ -588,6 +590,7 @@ sub addFootnoteLinks2TextNode($$$) {
   else {
     my $report = $text;
     $text =~ s/(osisRef=")\d+=/$1/g; # remove refInfoKey
+    $text =~ s/(osisRef=")$OSISREFWORK\:/$1/g; # remove default osisRefWork
     while ($report =~ s/<reference [^>]*osisRef="(\d+)=([^"]*)"[^>]*>([^<]*)<\/reference>//) {
       my $key = $1;
       my $ref = $2;
