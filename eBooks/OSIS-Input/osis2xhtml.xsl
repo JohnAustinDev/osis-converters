@@ -62,12 +62,12 @@
         </head>
         <body class="calibre">
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-            <when test="$filename='bible-introduction'">
+            <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
               <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])]"/>
               <hr xmlns="http://www.w3.org/1999/xhtml"/>
               <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])]"/>
             </when>
-            <when test="substring($filename, 1, 9)='bookGroup'">
+            <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_bookGroup-introduction_'))">
               <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
               <hr xmlns="http://www.w3.org/1999/xhtml"/>
               <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
@@ -122,8 +122,8 @@
     </element>
   </template>
   
-  <!-- Remove these elements entirely -->
-  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:name | osis:milestone | osis:title[@type='x-chapterLabel']" mode="xhtml"/>
+  <!-- Remove these elements entirely (title type x-chapterLabel are not output, because they are dynamically handled by the chapter template) -->
+  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='x-chapterLabel' or @type='runningHead']" mode="xhtml"/>
   
   <!-- Remove these tags (keep their content) -->
   <template match="osis:name | osis:seg" mode="xhtml">
@@ -201,6 +201,11 @@
     </element>
   </template>
   
+  <!-- Parallel passage titles become secondary titles !-->
+  <xsl:template match="osis:title[@type='parallel']">
+    <h2 xmlns="http://www.w3.org/1999/xhtml" ><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></h2>
+  </xsl:template>
+  
   <template match="osis:catchWord" mode="xhtml">
     <i xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></i>
   </template>
@@ -220,10 +225,10 @@
   <template match="osis:foreign" mode="xhtml">
     <span xmlns="http://www.w3.org/1999/xhtml" class="foreign"><xsl:apply-templates mode="xhtml" select="node()"/></span>
   </template>
-  
-  <template match="osis:head" mode="xhtml">
-    <div xmlns="http://www.w3.org/1999/xhtml" class="heading"><xsl:apply-templates mode="xhtml" select="node()"/></div>
-  </template>
+
+  <xsl:template match="osis:head">
+    <h2 xmlns="http://www.w3.org/1999/xhtml" class="heading x-introduction"><xsl:apply-templates mode="xhtml" select="node()"/></h2>
+  </xsl:template>
   
   <template match="osis:hi[@type='bold']" mode="xhtml"><b xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></b></template>
   <template match="osis:hi[@type='emphasis']" mode="xhtml"><em xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></em></template>
@@ -243,8 +248,27 @@
     <apply-templates mode="xhtml" select="node()"/>
   </template>
   
+  <!-- usfm2osis.py follows the OSIS manual recommendation for selah as a line element which differs from the USFM recommendation for selah.
+  According to USFM 2.35 spec, selah is: "A character style. This text is frequently right aligned, and rendered on the same line as the previous poetic text..." !-->
   <template match="osis:l" mode="xhtml">
-    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+    <choose>
+      <when test="@type = 'selah'"/>
+      <when test="following-sibling::osis:l[1]/@type = 'selah'">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <xsl:call-template name="class"/>
+          <xsl:apply-templates mode="xhtml" select="node()"/>
+          <i class="x-selah">
+            <xsl:text> </xsl:text>
+            <xsl:value-of select="following-sibling::osis:l[1]"/>
+            <xsl:text> </xsl:text>
+            <xsl:value-of select="following-sibling::osis:l[2][@type = 'selah']"/>
+          </i>
+        </div>
+      </when>
+      <otherwise>
+        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+      </otherwise>
+    </choose>
   </template>
   
   <template match="osis:lg" mode="xhtml">
@@ -341,7 +365,7 @@
           </xsl:apply-templates>
           <xsl:apply-templates select="node()" mode="glossaries">
             <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
-            <xsl:with-param name="figures-already-in-manifest" select="distinct-values(//osis:figure/@src)" tunnel="yes"/>
+            <xsl:with-param name="figures-already-in-manifest" select="//osis:figure/@src" tunnel="yes"/>
           </xsl:apply-templates>
         </manifest>
         <spine toc="ncx">
@@ -358,9 +382,7 @@
   
   <template name="figure-manifest">
     <param name="figures-already-in-manifest" select="()" tunnel="yes"/>
-    <variable name="a" select="distinct-values(//osis:figure/@src)"/><variable name="b" select="distinct-values($figures-already-in-manifest)"/><message select="'BEFORE:'"/><message select="($a, $b)"/>
-    <variable name="c" select="distinct-values(($a, $b))"/><message select="'AFTER:'"/><message select="$c"/>
-    <for-each select="$c">
+    <for-each select="distinct-values((distinct-values(//osis:figure/@src), distinct-values($figures-already-in-manifest)))">
       <item xmlns="http://www.idpf.org/2007/opf">
         <xsl:attribute name="href" select="."/>
         <xsl:attribute name="id" select="tokenize(., '/')[last()]"/>

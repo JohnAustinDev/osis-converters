@@ -2514,7 +2514,9 @@ sub osisXSLT($$$$) {
   my $out = shift;
   my $customPreprocessorDirName = shift;
  
-  if ($osis && $customPreprocessorDirName) {
+  if (!$osis) {return '';}
+  
+  if ($customPreprocessorDirName) {
     my $preprocessor = "$INPD/$customPreprocessorDirName/preprocess.xsl";
     if (-e $preprocessor) {
       &Log("\n--- Running Pre-Processor XSLT...\n");
@@ -2529,17 +2531,18 @@ sub osisXSLT($$$$) {
     }
   }
 
-  if ($osis) {
+  my $cmd;
+  if ($xsl) {
     &Log("\n--- Running XSLT...\n");
     if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
+    $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
   }
-
-  my $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+  else {
+    $cmd = 'cp '.&escfile($osis).' '.&escfile($out);
+  }
   
-  if ($cmd && $osis) {
-    &Log("$cmd\n");
-    system($cmd);
-  }
+  &Log("$cmd\n");
+  system($cmd);
   
   return $cmd;
 }
