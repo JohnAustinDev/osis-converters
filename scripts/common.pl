@@ -2759,9 +2759,8 @@ sub writeOsisHeaderWork($) {
   my $isbn;
   my @tns = $XPC->findnodes('//text()', $xml);
   foreach my $tn (@tns) {
-    if ($tn =~ /\bisbn ?(number|\#|no\.?)?([\d\- ]+)/i) {
-      $isbn = $2; $isbn =~ s/[\- ]//g;
-      if (length($isbn) != 13) {&Log("ERROR: ISBN number \"$isbn\" is not 13 digits!\n");}
+    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
+      $isbn = $2;
       push(@isbns, $isbn);
     }
   }
@@ -2771,8 +2770,9 @@ sub writeOsisHeaderWork($) {
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
   &getOSIS_Work(\%workElements, $confP, $isbn);
-  if ($workElements{'070:type'}{'textContent'} eq 'Bible') {
-    $workElements{'150:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+  # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
+  if ($workElements{'100:type'}{'textContent'} eq 'Bible') {
+    $workElements{'190:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -2815,54 +2815,76 @@ sub getOSIS_Work($$$) {
   my $refSystem = "Bible.".$confP->{'Versification'};
   if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.".$confP->{'ModuleName'};}
   if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{'ModuleName'};}
+  my $isbnID = $isbn;
+  $isbnID =~ s/[\- ]//g;
+  if ($isbnID && length($isbnID) != 13) {&Log("ERROR: ISBN number \"$isbn\" is not 13 digits!\n");}
   
   # map conf info to OSIS Work elements:
-  # element order seems to be important for passing OSIS schema for some reason (hence the ordinal prefix)
+  # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
   $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (e-Version: '.$confP->{'Version'}.')':'');
-  $osisWorkP->{'030:subject'}{'textContent'} = $confP->{'Description'};
-  $osisWorkP->{'030:subject'}{'type'} = 'x-description';
+  &mapLocalizedElem(30, 'subject', 'Description', $confP, $osisWorkP);
   $osisWorkP->{'040:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040:date'}{'event'} = 'eversion';
-  $osisWorkP->{'050:description'}{'textContent'} = $confP->{'About'};
-  $osisWorkP->{'060:publisher'}{'textContent'} = $confP->{'CopyrightHolder'};
-  $osisWorkP->{'061:publisher'}{'textContent'} = $confP->{'CopyrightContactAddress'};
-  $osisWorkP->{'061:publisher'}{'type'} = 'x-ContactAddress';
-  $osisWorkP->{'062:publisher'}{'textContent'} = $confP->{'CopyrightContactEmail'};
-  $osisWorkP->{'062:publisher'}{'type'} = 'x-ContactEmail';
-  $osisWorkP->{'070:type'} = \%type;
-  $osisWorkP->{'080:format'}{'textContent'} = 'text/xml';
-  $osisWorkP->{'080:format'}{'type'} = 'x-MIME';
-  $osisWorkP->{'090:identifier'}{'textContent'} = $isbn;
-  $osisWorkP->{'090:identifier'}{'type'} = 'ISBN';
-  $osisWorkP->{'091:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
-  $osisWorkP->{'091:identifier'}{'type'} = 'OSIS';
-  $osisWorkP->{'100:source'}{'textContent'} = $confP->{'DistributionNotes'};
-  $osisWorkP->{'110:language'}{'textContent'} = $confP->{'Lang'};
-  $osisWorkP->{'140:rights'}{'textContent'} = $confP->{'Copyright'};
-  $osisWorkP->{'180:refSystem'}{'textContent'} = $refSystem;
+  &mapLocalizedElem(50, 'description', 'About', $confP, $osisWorkP);
+  &mapLocalizedElem(60, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
+  &mapLocalizedElem(70, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
+  &mapLocalizedElem(80, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
+  &mapLocalizedElem(90, 'publisher', 'ShortPromo', $confP, $osisWorkP);
+  $osisWorkP->{'100:type'} = \%type;
+  $osisWorkP->{'110:format'}{'textContent'} = 'text/xml';
+  $osisWorkP->{'110:format'}{'type'} = 'x-MIME';
+  $osisWorkP->{'120:identifier'}{'textContent'} = $isbnID;
+  $osisWorkP->{'120:identifier'}{'type'} = 'ISBN';
+  $osisWorkP->{'121:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
+  $osisWorkP->{'121:identifier'}{'type'} = 'OSIS';
+  $osisWorkP->{'130:source'}{'textContent'} = ($isbn ? "ISBN: $isbn":'');
+  $osisWorkP->{'140:language'}{'textContent'} = $confP->{'Lang'};
+  &mapLocalizedElem(170, 'rights', 'Copyright', $confP, $osisWorkP);
+  &mapLocalizedElem(180, 'rights', 'DistributionNotes', $confP, $osisWorkP);
+  $osisWorkP->{'220:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
 #    '000:title' => '',
 #    '010:contributor' => '',
 #    '020:creator' => '',
-#    '030:subject' => '',
+#    '030+:subject' => '',
 #    '040:date' => '',
-#    '050:description' => '',
-#    '060:publisher' => '',
-#    '070:type' => '',
-#    '080:format' => '',
-#    '090:identifier' => '',
-#    '100:source' => '',
-#    '110:language' => '',
-#    '120:relation' => '',
-#    '130:coverage' => '',
-#    '140:rights' => '',
-#    '150:scope' => '',
-#    '160:castList' => '',
-#    '170:teiHeader' => '',
-#    '180:refSystem' => ''
+#    '050+:description' => '',
+#    '060-090+:publisher' => '',
+#    '100:type' => '',
+#    '110:format' => '',
+#    '120-121:identifier' => '',
+#    '130:source' => '',
+#    '140:language' => '',
+#    '150:relation' => '',
+#    '160:coverage' => '',
+#    '170-180+:rights' => '',
+#    '190:scope' => '',
+#    '200:castList' => '',
+#    '210:teiHeader' => '',
+#    '220:refSystem' => ''
   
   return;
+}
+
+sub mapLocalizedElem($$$$$) {
+  my $index = shift;
+  my $workElement = shift;
+  my $confEntry = shift;
+  my $confP = shift;
+  my $osisWorkP = shift;
+  
+  foreach my $k (sort {length($a) <=> length($b)} keys %{$confP}) {
+    if ($k !~ /^$confEntry(_([\w\-]+))?$/) {next;}
+    my $lang = ($1 ? $2:'');
+    $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'textContent'} = $confP->{$k};
+    $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'type'} = "x-$k";
+    if ($lang) {
+      $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'xml:lang'} = $lang;
+    }
+    $index++;
+    if (($index % 10) == 0) {&Log("ERROR mapLocalizedConf: Too many \"$workElement\" language variants.\n");}
+  }
 }
 
 
@@ -2875,6 +2897,7 @@ sub writeWorkElement($$$) {
   $header->appendTextNode("\n");
   my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work></work>"), NULL);
   
+  # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
   foreach my $e (sort keys %{$elementsP}) {
   if (!$elementsP->{$e}{'textContent'}) {next;}
@@ -3041,13 +3064,15 @@ sub joinOSIS($) {
 }
 
 
-# Find all notes and add osisRef attributes
-sub writeNoteOsisRefs($) {
+# Normalize all osisRef and osisID attributes
+sub normalizeRefsIds($) {
   my $osis = shift;
   
-  &Log("Writing note osisRef attributes to OSIS file \"$osis\".\n");
+  &Log("Normalizing osisRef and osisID attributes in OSIS file \"$osis\".\n");
   
   my @files = &splitOSIS($osis);
+  
+  my %stats = ('osisRef'=>0, 'osisID'=>0);
   
   # check that OSIS refSystem is supported
   my $refSystem;
@@ -3056,7 +3081,7 @@ sub writeNoteOsisRefs($) {
     my $xml = $XML_PARSER->parse_file($file);
     $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
     if ($refSystem !~ /^(Bible|Dict)/) {
-      &Log("ERROR writeNoteOsisRefs: Not yet supporting refSystem \"$refSystem\"\n");
+      &Log("ERROR normalizeRefsIds: Not yet supporting refSystem \"$refSystem\"\n");
       return;
     }
     last;
@@ -3065,15 +3090,20 @@ sub writeNoteOsisRefs($) {
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &writeNoteOsisRefs2($xml, $refSystem);
-    open(OUTF, ">$file") or die "writeNoteOsisRefs could not open splitOSIS file: \"$file\".\n";
+    &writeNoteOsisRefs($xml, $refSystem);
+    &normalizeRefsAndIds($xml, $refSystem, \%stats);
+    open(OUTF, ">$file") or die "normalizeRefsIds could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
   
   &joinOSIS($osis);
+  
+  &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
+  &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");
 }
-sub writeNoteOsisRefs2($) {
+
+sub writeNoteOsisRefs($$) {
   my $xml = shift;
   my $refSystem = shift;
   
@@ -3120,6 +3150,38 @@ sub writeNoteOsisRefs2($) {
     else {return;}
 
     $note->setAttribute('osisRef', $osisRef);
+  }
+}
+
+sub normalizeRefsAndIds($$\%) {
+  my $xml = shift;
+  my $refSystem = shift;
+  my $statsP = shift;
+  
+  # normalize osisRefs
+  my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,6)!='x-gloss']/\@osisRef", $xml);
+  my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
+  my $normedOR = 0;
+  foreach my $osisRef (@osisRefs) {
+    if ($osisRef->getValue() !~ /^$osisRefWork\:/) {next;}
+    $new = $osisRef->getValue();
+    $new =~ s/^$osisRefWork\://;
+    $osisRef->setValue($new);
+    $statsP->{'osisRef'}++;
+  }
+  
+  # normalize osisIDs
+  if ($refSystem =~ /^Bible/) { # non-Bibles have always included the work prefix in every osisID, so let's keep them
+    my @osisIDs = $XPC->findnodes('//@osisID', $xml);
+    my $osisIDWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml)}[0]->getValue();
+    my $normedID = 0;
+    foreach my $osisID (@osisIDs) {
+      if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
+      $new = $osisID->getValue();
+      $new =~ s/^$osisIDWork\://;
+      $osisID->setValue($new);
+      $statsP->{'osisID'}++;
+    }
   }
 }
 

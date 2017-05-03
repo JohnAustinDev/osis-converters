@@ -447,11 +447,13 @@ sub asrlProcessFile($$) {
   }
 
   # complete osisRef attributes by adding the target Bible
-  my $bible = "Bible";
-  if ($MOD && $MODDRV =~ /Text/) {$bible = $MOD;}
-  elsif ($ConfEntryP->{"Companion"}) {$bible = $ConfEntryP->{"Companion"}; $bible =~ s/,.*$//;}
-  my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
-  foreach my $new (@news) {$new->setValue("$bible:".$new->getValue());}
+  my $refmod = "Bible";
+  if ($MOD && $MODDRV =~ /Text/) {$refmod = '';} # A Bible's default osisRef is correct as is
+  elsif ($ConfEntryP->{"Companion"}) {$refmod = $ConfEntryP->{"Companion"}; $refmod =~ s/,.*$//;}
+  if ($refmod) {
+    my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
+    foreach my $new (@news) {$new->setValue("$refmod:".$new->getValue());}
+  }
 
   # remove (after copying attributes) pre-existing reference tags which contain newReference tags
   my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
