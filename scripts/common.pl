@@ -3159,7 +3159,7 @@ sub normalizeRefsAndIds($$\%) {
   my $statsP = shift;
   
   # normalize osisRefs
-  my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,6)!='x-gloss']/\@osisRef", $xml);
+  my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,7)!='x-gloss']/\@osisRef", $xml);
   my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
