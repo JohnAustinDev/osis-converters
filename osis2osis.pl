@@ -51,7 +51,7 @@ open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis c
 while (<COMF>) {
   if ($_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|CCTable|CCScript|sourceProject|sfm2all_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+  elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|CCTable|CCScript|sourceProject|sfm2all_\w+|CONFIG_\w+|CONFIGCONVERT_\w+|CONFIGdontCONVERT_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
     if ($2) {
       my $par = $1;
       my $val = $3;
@@ -86,9 +86,16 @@ while (<COMF>) {
     my $fname = $CCIN; $fname =~ s/^.*\///;
     
     if ($fname eq "config.conf") {
+      # By default, all entries are converted except entries beginning with Copyright and Distribution.
+      # CONFIGCONVERT_<entry> will force conversion of that entry.
+      # CONFIGdontCONVERT_<entry> will force that entry to NOT be converted.
       my $confP = &readConf($CCIN);
-      my @convertThese = ('Abbreviation', 'Description', 'About');
-      foreach my $e (@convertThese) {$confP->{$e} = &string_convert($confP->{$e}, $CCTable, $CCScript);}
+      foreach my $e (keys %{$confP}) {
+        if (${"CONFIGCONVERT_$e"} && ${"CONFIGdontCONVERT_$e"}) {&Log("ERROR: Both CONFIGCONVERT_ and CONFIGdontCONVERT_ are specified for \"$e\"\n");}
+        if (($e !~ /^(Copyright|Distribution)/ || ${"CONFIGCONVERT_$e"}) && !${${"CONFIGdontCONVERT_$e"}}) {
+          $confP->{$e} = &string_convert($confP->{$e}, $CCTable, $CCScript);
+        }
+      }
       $confP->{'ModuleName'} = $INPD; $confP->{'ModuleName'} =~ s/^.*?([^\/]+)$/$1/;
       foreach my $ent (keys %{$confP}) {if (${"CONFIG_$ent"}) {$confP->{$ent} = ${"CONFIG_$ent"};}}
       &writeConf($CCOUT, $confP);

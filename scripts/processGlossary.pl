@@ -58,7 +58,7 @@ sub aggregateRepeatedEntries($) {
         
         # get glossary and its title: $title is first <title type="main">
         my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
-        my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":"<title level=\"2\">$n)</title>");
+        my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":'');
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
@@ -96,11 +96,11 @@ sub aggregateRepeatedEntries($) {
         my $xAggDiv = $xDupDiv->cloneNode(1);
         $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
         if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
-        $xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($title), $xAggDiv->firstChild);
+        if ($title) {$xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($title), $xAggDiv->firstChild);}
         my @kw = $XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $xAggDiv);
         if (@kw && @kw[0] && @kw == 1) {
           # remove keyword and any resultant empty ancestors
-          my $p = @kw[0]; do {my $n = $p->parentNode; $p->unbindNode(); $p = $n;} while ($p && $p->textContent =~ /^[\s\n]*$/);
+          my $p = @kw[0]; do {my $nx = $p->parentNode; $p->unbindNode(); $p = $nx;} while ($p && $p->textContent =~ /^[\s\n]*$/);
           if (!$haveKey) {
             $haveKey = 1;
             $glossDiv->appendChild(@kw[0]);
@@ -108,6 +108,12 @@ sub aggregateRepeatedEntries($) {
         }
         else {
           &Log("ERROR aggregateRepeatedEntries: keyword aggregation failed.\n");
+        }
+        if (!$title) {
+          my @par = $XPC->findnodes('*[1]', $xAggDiv);
+          if (@par && @par[0]) {
+            @par[0]->insertBefore($XML_PARSER->parse_balanced_chunk('<hi type="super"><hi type="bold">'.$n.') </hi></hi>'), @par[0]->firstChild);
+          }
         }
         $glossDiv->appendChild($xAggDiv);
         
