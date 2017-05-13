@@ -97,7 +97,8 @@ class OsisInput(InputFormatPlugin):
         # Transform the input OSIS files to XHTML
         for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
             shutil.copy(afile, '.')
-        shutil.copy("%s/osis2xhtml.xsl" % inputDir, '.')
+        with open("./osis2xhtml.xsl", "w") as text_file:
+          text_file.write(get_resources('osis2xhtml.xsl'))
         p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
         if p.returncode != 0:
