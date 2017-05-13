@@ -2514,7 +2514,7 @@ sub osisXSLT($$$$) {
   my $out = shift;
   my $customPreprocessorDirName = shift;
  
-  if (!$osis) {return '';}
+  if (!$osis) {return 'saxonb-xslt';} # for dependency checker
   
   if ($customPreprocessorDirName) {
     my $preprocessor = "$INPD/$customPreprocessorDirName/preprocess.xsl";
