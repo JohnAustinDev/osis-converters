@@ -120,7 +120,8 @@ else {
  exit;
 }
 
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE";
+# Note: EPUB only: --preserve-cover-aspect-ratio
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE --preserve-cover-aspect-ratio --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" ";
 # Start forming the command string
 
 # Check if the CSS file exists
@@ -134,7 +135,7 @@ else {
   print "WARNING: Proceding without CSS file as no file found\n"
 }
 
-$COMMAND .= '--level1-toc "//h:div[@toclevel=\'1\']" --level2-toc "//h:div[@toclevel=\'2\']" --level3-toc "//h:div[@toclevel=\'3\']"';
+$COMMAND .= '--level1-toc "//*[@toclevel=\'1\']" --level2-toc "//*[@toclevel=\'2\']" --level3-toc "//*[@toclevel=\'3\']"';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {
