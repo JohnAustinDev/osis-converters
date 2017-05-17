@@ -120,32 +120,34 @@ else {
  exit;
 }
 
-# Note: EPUB only: --preserve-cover-aspect-ratio
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE --preserve-cover-aspect-ratio --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" ";
 # Start forming the command string
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\"";
 
 # Check if the CSS file exists
 $CSSFILE = "e$IPTYPE.css";
 if (! -e $CSSFILE) {$CSSFILE = "./css/e$IPTYPE.css";}
 if (-e $CSSFILE) {
   $CSSFILE = File::Spec->rel2abs($CSSFILE);
-  $COMMAND .= " --css-file ".&escfile($CSSFILE)." ";
+  $COMMAND .= " --css-file ".&escfile($CSSFILE);
 }
 else {
   print "WARNING: Proceding without CSS file as no file found\n"
 }
 
-$COMMAND .= '--level1-toc "//*[@toclevel=\'1\']" --level2-toc "//*[@toclevel=\'2\']" --level3-toc "//*[@toclevel=\'3\']"';
+$COMMAND .= ' --level1-toc "//*[@toclevel=\'1\']" --level2-toc "//*[@toclevel=\'2\']" --level3-toc "//*[@toclevel=\'3\']"';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {
   $COMMAND .= " --cover ".&escfile($COVER);
 }
 
-# Add options for FB2 output
+# Add options for FB2 and EPUB output
 if (lc $OPTYPE eq "fb2")
 {
   $COMMAND .= ' --fb2 religion --sectionize toc';
+}
+elsif (lc $OPTYPE eq "epub") {
+  $COMMAND .= " --preserve-cover-aspect-ratio --dont-split-on-page-breaks --epub-inline-toc"; #--flow-size 0
 }
 
 # Debug keeps eBook intermediate files
