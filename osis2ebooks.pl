@@ -179,7 +179,7 @@ sub setupAndMakeEbook($$$) {
     else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
     my $filter = '0';
     if ($outf) {
-      copy($outf, "$tmp/$companion.xml");
+      &osisXSLT($outf, '', "$tmp/$companion.xml", "$companion/eBook");
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
