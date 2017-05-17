@@ -99,7 +99,7 @@ class OsisInput(InputFormatPlugin):
             shutil.copy(afile, '.')
         with open("./osis2xhtml.xsl", "w") as text_file:
           text_file.write(get_resources('osis2xhtml.xsl'))
-        p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "tocnumber=%s" % self.context.config.toc, "optionalBreaks='false'", "epub3='%s'" % self.context.config.epub3, "outputfmt='%s'" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
+        p = Popen(["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "tocnumber=%s" % self.context.config.toc, "optionalBreaks=false", "epub3=%s" % self.context.config.epub3, "outputfmt=%s" % self.context.outputFmt], stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
         if p.returncode != 0:
             print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)

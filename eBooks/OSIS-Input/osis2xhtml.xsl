@@ -59,20 +59,21 @@
           <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
           <link href="../ebible.css" type="text/css" rel="stylesheet"/>
         </head>
-        <body class="calibre"><xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
+        <body class="calibre">
+          <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', $outputfmt, tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
+              <apply-templates mode="xhtml"     select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
               <hr xmlns="http://www.w3.org/1999/xhtml"/>
-              <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])]"/>
+              <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
             </when>
             <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_bookGroup-introduction_'))">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
+              <apply-templates mode="xhtml"     select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
               <hr xmlns="http://www.w3.org/1999/xhtml"/>
               <apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
             </when>
             <otherwise>
-              <apply-templates mode="xhtml" select="node()"/>
+              <apply-templates mode="xhtml"     select="node()"/>
               <hr xmlns="http://www.w3.org/1999/xhtml"/>
               <apply-templates mode="footnotes" select="node()"/>
             </otherwise>
@@ -110,7 +111,7 @@
     <if test="$doWriteChapterNumber">
       <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::osis:chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
-    <if test="self::*[preceding-sibling::*[1][self::osis:verse[@sID and @osisID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf]]]"><call-template name="WriteVerseNumber"/></if>
+    <if test="self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf]]]"><call-template name="WriteVerseNumber"/></if>
   </template>
   
   <!-- By default, text is just copied -->
@@ -130,7 +131,7 @@
   <!-- Remove these elements entirely (title type x-chapterLabel are not output, because they are dynamically handled by the chapter template) -->
   <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='x-chapterLabel' or @type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
   
-  <!-- Remove these tags (keep their content) -->
+  <!-- Remove these tags (keep their content). Paragraphs tags containing keywords are dropped so resulting HTML will validate -->
   <template match="osis:name | osis:seg | osis:p[descendant::osis:seg[@type='keyword']]" mode="xhtml">
     <xsl:apply-templates mode="xhtml" select="node()"/>
   </template>
@@ -166,12 +167,12 @@
   <!-- Glossary keywords -->
   <template match="osis:seg[@type='keyword']" mode="xhtml" priority="2">
     <call-template name="WriteTableOfContentsEntry"/>
-    <variable name="osisID" select="if (contains(@osisID, ':')) then @osisID else concat(//osis:osisText[1]/@osisIDWork, ':', @osisID)"/>
+    <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <choose>
       <!-- mobi -->
       <when test="lower-case($outputfmt)='mobi'">
         <xsl:call-template name="class"/>
-        <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisID}">
+        <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisIDid}">
           <xsl:apply-templates mode="xhtml" select="node()"/>
         </dfn>
       </when>
@@ -186,7 +187,7 @@
       <otherwise>
         <article xmlns="http://www.w3.org/1999/xhtml">
           <xsl:call-template name="class"/>
-          <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisID}">
+          <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisIDid}">
             <xsl:apply-templates mode="xhtml" select="node()"/>
           </dfn>
         </article>
@@ -336,6 +337,18 @@
     <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></p>
   </template>
   
+  <template match="osis:note" mode="xhtml">
+    <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
+    <choose>
+      <when test="lower-case($epub3)!='false'">
+        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a href="#{$osisIDid}" epub:type="noteref">*</a></sup>
+      </when>
+      <otherwise>
+        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a href="#{$osisIDid}" id="Ref{$osisIDid}">*</a></sup>
+      </otherwise>
+    </choose>
+  </template>
+  
   <template match="osis:p" mode="xhtml">
     <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml" select="node()"/></p>
   </template>
@@ -351,45 +364,29 @@
     </p>
   </template>
   
-  <template match="osis:note" mode="xhtml">
-    <choose>
-      <when test="lower-case($epub3)!='false'">
-        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a epub:type="noteref" href="#{replace(@osisID, '!', '_')}">*</a></sup>
-      </when>
-      <otherwise>
-        <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a href="#{replace(@osisID, '!', '_')}" id="Ref{replace(@osisID, '!', '_')}">*</a></sup>
-      </otherwise>
-    </choose>
-  </template>
-  
   <template match="osis:rdg" mode="xhtml">
     <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></span>
   </template>
   
-  <!-- IMPORTANT: hrefs written here are framents only and do NOT include the file! This XSLT cannot easily 
-  predict what file targets will end up in. So for these links to work, the file must be added by a postprocessor. -->
+  <!-- IMPORTANT: hrefs written here are fragments only and do NOT include the file! This XSLT cannot 
+  easily predict what file targets will end up in. So for these links to work, the file needs to be  
+  added by a postprocessor. Postprocessing also allows all work prefixes to be ignored by this XSLT. 
+  But this requires that the same id never appears in more than one work -->
   <template match="osis:reference" mode="xhtml">
+    <variable name="osisRefid" select="replace(replace(@osisRef, '^[^:]*:', ''), '!', '_')"/>
     <choose>
       <when test="lower-case($outputfmt)!='fb2'">
-        <choose>
-          <when test="starts-with(@type, 'x-gloss')">
-            <variable name="osisRef" select="if (contains(@osisRef, ':')) then @osisRef else concat(//osis:osisText[1]/@osisRefWork, ':', @osisRef)"/>
-            <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisRef}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
-          </when>
-          <otherwise>
-            <variable name="osisRefA">
-              <variable name="osisRef" select="replace(@osisRef, '^[^:]*:', '')"/>
-              <choose>
-                <when test="contains($osisRef, '!')"><value-of select="replace($osisRef, '!', '_')"/></when>
-                <otherwise>
-                  <variable name="osisRefStart" select="tokenize($osisRef, '\-')[1]"/>
-                  <value-of select="if (count(tokenize($osisRefStart, '\.'))=1) then concat($osisRefStart, '.1.1') else (if (count(tokenize($osisRefStart, '\.'))=2) then concat($osisRefStart, '.1') else $osisRefStart)"/>
-                </otherwise>
-              </choose>
-            </variable>
-            <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisRefA}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
-          </otherwise>
-        </choose>
+        <variable name="osisRefA">
+          <choose>
+            <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')"><value-of select="$osisRefid"/></when> <!-- refs containing "!" point to a specific note -->
+            <otherwise>
+              <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/> <!-- other refs are to Scripture, so jump to first verse of range -->
+              <variable name="spec" select="count(tokenize($osisRefStart, '\.'))"/>
+              <value-of select="if ($spec=1) then concat($osisRefStart, '.1.1') else (if ($spec=2) then concat($osisRefStart, '.1') else $osisRefStart)"/>
+            </otherwise>
+          </choose>
+        </variable>
+        <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisRefA}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
       </when>
       <otherwise>%&amp;x-glossary-link&amp;%<xsl:apply-templates mode="xhtml" select="node()"/></otherwise>
     </choose>
@@ -466,12 +463,12 @@
         <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
         <xsl:attribute name="id" select="tokenize(., '/')[last()]"/>
         <xsl:attribute name="media-type">
-          <xsl:choose xmlns="http://www.w3.org/1999/XSL/Transform">
+          <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
             <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
             <when test="ends-with(lower-case(.), 'png')">image/png</when>
             <otherwise>application/octet-stream</otherwise>
-          </xsl:choose>
+          </choose>
         </xsl:attribute>
       </item>
     </for-each>
