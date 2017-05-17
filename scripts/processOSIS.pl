@@ -17,6 +17,7 @@ elsif ($MODDRV =~ /LD/) {
   &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
   &writeEntryOsisIDs("$TMPDIR/".$MOD."_1.xml");
 }
+&writeFootnoteIDs("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
 my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();
 $osisDocString =~ s/\n+/\n/gm;
 open(OUTF, ">$TMPDIR/".$MOD."_1.xml");

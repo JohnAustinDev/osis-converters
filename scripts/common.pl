@@ -30,6 +30,9 @@ $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary 
 $OSISSCHEMA = "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
+$FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
+$FNREFEND = "</reference>";
+$FNREFEXT = "!note.n";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
@@ -2213,7 +2216,8 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
 }
 
 
-# Check all reference links, and report any errors
+# Check all reference links, and report any errors. This CANNOT USE
+# splitOSIS() even though it's slow, since targets are checked.
 sub checkReferenceLinks($) {
   my $in_osis = shift;
   
@@ -2919,6 +2923,57 @@ sub writeWorkElement($$$) {
   my $w = $work->toString(); 
   $w =~ s/\n+/\n/g;
   &Log("Wrote to header: \n$w\n");
+}
+
+sub writeFootnoteIDs() {
+  my $osis = shift;
+  my $confP = shift;
+  
+  my $type;
+  if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary';}
+  elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible';}
+  else {return;}
+  
+  &Log("\nWriting footnote osisIDs:\n", 1);
+  
+  my @files = &splitOSIS($osis);
+  foreach my $file (@files) {
+    my $xml = $XML_PARSER->parse_file($file);
+    
+    my $myMod = &getModFromNode($xml);
+    
+    my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
+    foreach my $f (@allFootnotes) {
+      my $osisID;
+      
+      if ($type eq 'x-bible') {
+        $osisID = &bibleContext($f);
+        if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
+          &Log("ERROR: Bad context for footnote osisID: \"$osisID\"\n");
+          next;
+        }
+      }
+      else {$osisID = &glossaryContext($f);}
+      
+      # Reserve and write an osisID for each footnote. 
+      my $n = 1;
+      my $id = "$myMod:$osisID$FNREFEXT$n";
+      while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$myMod:$osisID$FNREFEXT$n";}
+      $OSISID_FOOTNOTE{$id}++;
+      
+      if ($f->getAttribute('osisID')) {
+        &Log("WARNING: Overwriting footnote osisID \"".$f->getAttribute('osisID')."\" with \"$osisID$FNREFEXT$n\"\n");
+      }
+
+      $f->setAttribute('osisID', "$osisID$FNREFEXT$n");
+    }
+    
+    open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
+    print OUTF $xml->toString();
+    close(OUTF);
+  }
+  
+  &joinOSIS($osis);
 }
 
 

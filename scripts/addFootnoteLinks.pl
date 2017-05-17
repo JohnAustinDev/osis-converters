@@ -52,10 +52,6 @@
 #        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
 #        disassociate the left ref from footnote association.
 
-$RefStart = "<reference type=\"x-note\" osisRef=\"TARGET\">";
-$RefEnd = "</reference>";
-$RefExt = "!note.n";
-
 require("$SCRD/scripts/processGlossary.pl");
 
 %OSISID_FOOTNOTE;
@@ -187,10 +183,12 @@ sub addFootnoteLinks($$) {
       $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getBibleVersificationFromNode($xmls{$file});
     }
   }
-  if ($myRefSystem =~ /^(Bible|Dict)/) {
+  if ($myRefSystem =~ /^(Bible)/) {
     foreach my $file (sort keys %xmls) {
-      &footnoteXML($xmls{$file}, $myMod, $myRefSystem); # Do this first to collect/write all footnote osisID values before processing
+      &footnoteXML($xmls{$file}, $myMod); # Do this first to collect/write all footnote osisID values before processing
     }
+  }
+  if ($myRefSystem =~ /^(Bible|Dict)/) {
     foreach my $file (sort keys %xmls) {
       &processXML($xmls{$file}, $myMod, $myRefSystem);
       open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
@@ -233,41 +231,14 @@ sub addFootnoteLinks($$) {
   &Log("FINISHED!\n\n");
 }
 
-sub footnoteXML($$$) {
+sub footnoteXML($$) {
   my $xml = shift;
   my $footnoteModuleName = shift;
-  my $refSystem = shift;
   
   # add osisIDs to every footnote
   my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
   foreach my $f (@allFootnotes) {
-    my $osisID;
-    my $bibleContext;
-    
-    if ($refSystem =~ /^Bible/) {
-      $bibleContext = &bibleContext($f);
-      $osisID = $bibleContext;
-      if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
-        &Log("ERROR: Bad context for footnote osisID: \"$osisID\"\n");
-        next;
-      }
-    }
-    else {
-      $osisID = &glossaryContext($f)."$RefExt$n";
-      next;
-    }
-    
-    # Reserve and write an osisID for each footnote. 
-    my $n = 1;
-    my $id = "$footnoteModuleName:$osisID$RefExt$n";
-    while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$footnoteModuleName:$osisID$RefExt$n";}
-    $OSISID_FOOTNOTE{$id}++;
-    
-    if ($f->getAttribute('osisID')) {
-      &Log("WARNING: Overwriting footnote osisID \"".$f->getAttribute('osisID')."\" with \"$osisID$RefExt$n\"\n");
-    }
-    
-    $f->setAttribute('osisID', "$osisID$RefExt$n");
+    my $bibleContext = &bibleContext($f);
     
     # Verses may be linked and so a note's annotateRef will be read in 
     # such case to determine the coverage of each footnote.
@@ -420,9 +391,9 @@ sub addFootnoteLinks2TextNode($$$) {
   my $keyRefInfo = 1;
   my $skipSanityCheck = 0;
   
-  while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$RefStart$2$RefEnd$5/i) {
+  while ($text =~ s/^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b(.*?)$/$1$FNREFSTART$2$FNREFEND$5/i) {
     my $beg = $1;
-    my $term = "$RefStart$2$RefEnd";
+    my $term = "$FNREFSTART$2$FNREFEND";
     my $end = $5;
     
     my $refType;
@@ -514,7 +485,7 @@ sub addFootnoteLinks2TextNode($$$) {
     if (!$skipTargetReplacement && $beg =~ /((($commonTerms)($suffixTerms)*|($ordTerms)($suffixTerms)*|\s)+)$/) {
       my $terms = $1;
       my $initialTerms = $terms;
-      while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$RefStart$1$RefEnd/) {
+      while ($terms =~ s/\b(?<!\>)(($ordTerms)($suffixTerms)*)\b/$FNREFSTART$1$FNREFEND/) {
         my $ordTermKey = $2;
         
         my $osisID = &convertOrdinal($TERM_ORDINAL{$ordTermKey}, \@osisRefs, $textNode, $myMod, $xml);
@@ -551,7 +522,7 @@ sub addFootnoteLinks2TextNode($$$) {
       my $c = 0;
       while ($text =~ s/(\bosisRef=")(?!\d+=)([^"]*")(.*?)$/$1$keyRefInfo=$2$3/) {
         $c++;
-        my $or = $2; if ($or =~ /\Q$RefExt\E(\d+)"/) {$or = $1;} else {$or = "?";}
+        my $or = $2; if ($or =~ /\Q$FNREFEXT\E(\d+)"/) {$or = $1;} else {$or = "?";}
         $refInfo{$keyRefInfo++} = "$refType-".($c == 1 ? 'single':'multi')."-$or";
       }
     }
@@ -561,7 +532,7 @@ sub addFootnoteLinks2TextNode($$$) {
     }
   }
   
-  $text =~ s/$RefStart([^<]*)$RefEnd/$1/g; # undo any failed conversions
+  $text =~ s/$FNREFSTART([^<]*)$FNREFEND/$1/g; # undo any failed conversions
   
   # Expand adjacent associated link-texts so links are touching one another (this way front ends can aggregate them)
   my @alks = split(/(\b(?:$footnoteTerms)(?:$suffixTerms)*)\b/, $text);
@@ -678,11 +649,11 @@ sub convertOrdinal($\@$$$) {
   # Assumes prev/next will always be in the same verse! These are always relative to textNode's footnote, so @osisRefs are ignored
   elsif ($ord eq 'prev') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
-    if ($osisID && $osisID =~ /^(.*?)\Q$RefExt\E(\d+)$/) {
+    if ($osisID && $osisID =~ /^(.*?)\Q$FNREFEXT\E(\d+)$/) {
       my $pref = $1;
       my $pord = $2;
       $pord--;
-      my $nid = $textMod.':'.$pref.$RefExt.$pord;
+      my $nid = $textMod.':'.$pref.$FNREFEXT.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
       }
@@ -691,11 +662,11 @@ sub convertOrdinal($\@$$$) {
   }
   elsif ($ord eq 'next') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
-    if ($osisID && $osisID =~ /^(.*?)\Q$RefExt\E(\d+)$/) {
+    if ($osisID && $osisID =~ /^(.*?)\Q$FNREFEXT\E(\d+)$/) {
       my $pref = $1;
       my $nord = $2;
       $nord++;
-      my $nid = $textMod.':'.$pref.$RefExt.$nord;
+      my $nid = $textMod.':'.$pref.$FNREFEXT.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
         &Log("ERROR $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
       }
