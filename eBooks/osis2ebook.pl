@@ -141,13 +141,16 @@ if ($COVER and $COVER ne "") {
   $COMMAND .= " --cover ".&escfile($COVER);
 }
 
-# Add options for FB2 and EPUB output
+# Add options for specific output formats
 if (lc $OPTYPE eq "fb2")
 {
   $COMMAND .= ' --fb2 religion --sectionize toc';
 }
 elsif (lc $OPTYPE eq "epub") {
-  $COMMAND .= " --preserve-cover-aspect-ratio --dont-split-on-page-breaks --epub-inline-toc"; #--flow-size 0
+  $COMMAND .= " --output-profile sony --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
+}
+elsif (lc $OPTYPE eq "mobi") {
+  $COMMAND .= " --output-profile kindle";
 }
 
 # Debug keeps eBook intermediate files
