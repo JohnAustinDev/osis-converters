@@ -2825,11 +2825,13 @@ sub getOSIS_Work($$$) {
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
-  $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'}.($confP->{'Version'} ? ' (e-Version: '.$confP->{'Version'}.')':'');
+  $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'};
   &mapLocalizedElem(30, 'subject', 'Description', $confP, $osisWorkP);
   $osisWorkP->{'040:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040:date'}{'event'} = 'eversion';
   &mapLocalizedElem(50, 'description', 'About', $confP, $osisWorkP);
+  $osisWorkP->{'058:description'}{'textContent'} = $confP->{'Version'};
+  $osisWorkP->{'058:description'}{'type'} = 'x-Version';
   &mapLocalizedElem(60, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
   &mapLocalizedElem(70, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
   &mapLocalizedElem(80, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
@@ -2887,7 +2889,7 @@ sub mapLocalizedElem($$$$$) {
       $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'xml:lang'} = $lang;
     }
     $index++;
-    if (($index % 10) == 0) {&Log("ERROR mapLocalizedConf: Too many \"$workElement\" language variants.\n");}
+    if (($index % 10) == 6) {&Log("ERROR mapLocalizedConf: Too many \"$workElement\" language variants.\n");}
   }
 }
 
