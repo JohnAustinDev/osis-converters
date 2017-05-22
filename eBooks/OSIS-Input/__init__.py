@@ -99,7 +99,10 @@ class OsisInput(InputFormatPlugin):
             shutil.copy(afile, '.')
         with open("./osis2xhtml.xsl", "w") as text_file:
           text_file.write(get_resources('osis2xhtml.xsl'))
-        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "tocnumber=%s" % self.context.config.toc, "outputfmt=%s" % self.context.outputFmt]
+        cssfiles = []
+        for afile in glob.glob("%s/css/*.css" % inputDir):                                                                                                                                   
+            cssfiles.append(os.path.basename(afile))
+        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "css=%s" % (",").join(cssfiles), "tocnumber=%s" % self.context.config.toc, "outputfmt=%s" % self.context.outputFmt]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
@@ -110,38 +113,6 @@ class OsisInput(InputFormatPlugin):
             os.remove(afile)
             
         parser = etree.XMLParser(remove_blank_text=True)
-        
-        # Add file names to href attributes, since XSLT cannot easily predict these during transformation
-        xhtml = {}
-        allID = {}
-        # open all xhtml documents and save file->target information
-        for dirpath, dirnames, filenames in walk('./xhtml'):
-            for somexhtml in filenames:
-                xhtml[somexhtml] = etree.parse("./xhtml/%s" % somexhtml, parser)
-                ids = xhtml[somexhtml].xpath("//@id")
-                for someID in ids:
-                    allID[someID] = somexhtml
-        # search each xhtml document for hrefs pointing to other files, and prepend the file to those href values
-        for somexhtml in xhtml:
-            for elem in xhtml[somexhtml].xpath("//*[@href]"):
-                foundID = '';
-                s = elem.attrib['href'].split('#')
-                if len(s) > 1:
-                    if s[1] in allID:
-                        foundID = s[1]
-                    else:
-                        for someID in allID:
-                            if someID.startswith(s[1] + '.'):
-                                foundID = someID
-                                break
-                    if not foundID:
-                        print "ERROR: href '%s' of '%s' does not exist!" % (unicode(elem.attrib['href']).encode('utf8'), somexhtml)
-                    elif (allID[foundID] != somexhtml):
-                        elem.attrib['href'] = './' + allID[foundID] + '#' + foundID
-        # save each xhtml document
-        for somexhtml in xhtml:
-            xhtmlfile = open("./xhtml/%s" % somexhtml, "w")
-            xhtmlfile.write(etree.tostring(xhtml[somexhtml], encoding='utf-8', pretty_print=True))
                     
         # Add files which are not discoverable in the OSIS file to the manifest
         contentopf = etree.parse('content.opf', parser)

@@ -126,10 +126,10 @@ sub setupAndMakeEbook($$$) {
   
   # copy css
   my $css = "$SCRD/eBooks/css";
-  if (-e "$INPD/eBook/css") {$css = "$INPD/eBook/css";}
-  elsif (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
+  if (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
   elsif (-e "$INPD/../../defaults/eBook/css") {$css = "$INPD/../../defaults/eBook/css";}
   copy_dir($css, "$tmp/css");
+  if (-e "$INPD/eBook/css") {copy_dir("$INPD/eBook/css", "$tmp/css", 1);}
   
   # copy images
   if (-d "$INPD/images") {&copy_dir("$INPD/images", "$tmp/images", 1, 1);}
