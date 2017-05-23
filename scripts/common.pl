@@ -1276,6 +1276,92 @@ sub pruneFileOSIS($$$$) {
   close(OUTF);
 }
 
+# Filter out Scripture reference links that are outside the scope of scripRefOsis
+sub filterScriptureReferences($$) {
+  my $osis = shift;
+  my $scripRefOsis = shift;
+  
+  my $osis1 = $osis; $osis1 =~ s/^.*\///; my $scripRefOsis1 = $scripRefOsis; $scripRefOsis1 =~ s/^.*\///;
+  &Log("\nFiltering Scripture references in \"$osis1\" that target outside \"$scripRefOsis1\".\n", 2);
+  my %filteredBooks;
+  my $total = 0;
+  
+  my $scripRefXml = $XML_PARSER->parse_file($scripRefOsis);
+  my @booknames = $XPC->findnodes('//osis:div[@type="book"]/@osisID', $scripRefXml);
+  my %scopeBookNames;
+  foreach my $bn (@booknames) {$scopeBookNames{$bn->getValue()}++;}
+  my $refWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $scripRefXml)}[0]->getValue();
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @links = $XPC->findnodes('//osis:reference[@osisRef and not(@type="x-glosslink" or @type="x-glossary")]', $xml);
+  foreach my $link (@links) {
+    if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
+      my $book = $3;
+      my $work = ($1 ? $2:@{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue());
+      if ($work eq $refWork && exists($scopeBookNames{$book})) {next;}
+      my @children = $link->childNodes();
+      foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
+      $link->unbindNode();
+      $total++;
+      $filteredBooks{$book}++;
+      #&Log("Filtered: \"$work\", \"$book\"\n", 1);
+    }
+  }
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
+  
+  &Log("$MOD REPORT: \"$total\" Scripture references filtered. (targeting ".keys(%filteredBooks)." different books)\n\n", 2);
+  return $total;
+}
+
+# Filter out glossary reference links that are outside the scope of glossRefOsis
+sub filterGlossaryReferences($@) {
+  my $osis = shift;
+  my @glossRefOsis = shift;
+  
+  my @glossRefOsis1;
+  my %refsInScope;
+  foreach my $refxml (@glossRefOsis) {
+    my $refxml1 = $refxml; $refxml1 =~ s/^.*\///; push(@glossRefOsis1, $refxml1);
+    my $glossRefXml = $XML_PARSER->parse_file($refxml);
+    my $work = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $glossRefXml)}[0]->getValue();
+    my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
+    my %ids;
+    foreach my $osisID (@osisIDs) {
+      my $id = $osisID->getValue();
+      $id =~ s/^(\Q$work\E)://;
+      $ids{$id}++;
+    }
+    $refsInScope{$work} = \%ids;
+  }
+  
+  my $osis1 = $osis; $osis1 =~ s/^.*\///; 
+  &Log("\nFiltering glossary references in \"$osis1\" that target outside \"".join(", ", @glossRefOsis1)."\".\n", 2);
+  my $total = 0;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
+  foreach my $link (@links) {
+    if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {
+      my $osisRef = $3;
+      my $work = ($1 ? $2:@{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue());
+      if (exists($refsInScope{$work}{$osisRef})) {next;}
+      my @children = $link->childNodes();
+      foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
+      $link->unbindNode();
+      $total++;
+      #&Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
+    }
+  }
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
+  
+  &Log("$MOD REPORT: \"$total\" glossary references filtered.\n\n", 2);
+  return $total;
+}
+
 
 sub convertExplicitGlossaryElements(\@) {
   my $indexElementsP = shift;
