@@ -72,8 +72,9 @@ if ($CREATE_SEPARATE_BOOKS) {
 
 # REPORT results
 &Log("\n$MOD REPORT: EBook files created (".scalar(keys %EBOOKREPORT)." instances):\n");
-my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered');
-foreach my $c (@order) {$cm{$c} = length(@order[$c]);}
+my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
+my %cm;
+foreach my $c (@order) {$cm{$c} = length($c);}
 foreach my $n (sort keys %EBOOKREPORT) {
   $EBOOKREPORT{$n}{'Name'} = $n;
   if (!$cm{$n} || length($EBOOKREPORT{$n}) > $cm{$n}) {$cm{$n} = length($EBOOKREPORT{$n});}
@@ -169,6 +170,7 @@ sub setupAndMakeEbook($$$) {
   }
   
   my @skipCompanions;
+  my @companionDictFiles;
   foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
     # copy companion OSIS file
     my $outf;
@@ -192,6 +194,7 @@ sub setupAndMakeEbook($$$) {
           $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = 'all';
           next;
         }
+        else {push(@companionDictFiles, "$tmp/$companion.xml");}
       }
     }
     
@@ -227,6 +230,17 @@ sub setupAndMakeEbook($$$) {
     open(OUTF, ">$tmp/$MOD.xml");
     print OUTF $xml->toString();
     close(OUTF);
+  }
+  
+  # filter out any and all references pointing to targets outside our final OSIS file scopes
+  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
+  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
+  if (!$scopeIsCompleteOSIS) {$EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml");}
+  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", @companionDictFiles);
+  
+  foreach my $c (@companionDictFiles) {
+    if (!$scopeIsCompleteOSIS) {$EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml");}
+    $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, @companionDictFiles);
   }
 
   # run the converter

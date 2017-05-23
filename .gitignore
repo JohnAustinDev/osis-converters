@@ -1,5 +1,6 @@
 scripts/CrossReferences
 scripts/GoBibleCreator*
+kindlegen
 paths.pl
 .vagrant
 Vagrantfile
