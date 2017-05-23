@@ -90,7 +90,7 @@
           <title><xsl:value-of select="$filename"/></title>
           <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
           <xsl:for-each select="tokenize($css, '\s*,\s*')">
-          <link href="../{.}" type="text/css" rel="stylesheet"/>
+            <xsl:if test="ends-with(lower-case(.), 'css')"><link href="../{.}" type="text/css" rel="stylesheet"/></xsl:if>
           </xsl:for-each>
         </head>
         <body class="calibre">
@@ -273,8 +273,6 @@
     </if>
   </template>
   
-
-  <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO HTML MARKUP AS DESIRED -->
   <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
   <template name="class">
     <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
@@ -285,12 +283,12 @@
   <!-- This template may be called from: p and l. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
   <template name="WriteEmbededChapterVerse">
     <variable name="mySelf" select="."/>
-    <variable name="isInVerse" select="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID"/>
+    <variable name="isInVerse" select="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"/>
     <variable name="doWriteChapterNumber" select="if (not($isInVerse)) then '' else (generate-id(preceding::osis:chapter[@sID][1]/following::osis:*[self::osis:p or self::osis:l][1]) = generate-id($mySelf))"/>
     <if test="$doWriteChapterNumber">
       <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::osis:chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
-    <if test="$isInVerse and self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf]]]"><call-template name="WriteVerseNumber"/></if>
+    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf]]])"><call-template name="WriteVerseNumber"/></if>
   </template>
   
   <!-- This template may be called from: p and l. -->
@@ -306,6 +304,8 @@
     </sup>
   </template>
   
+
+  <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO HTML MARKUP AS DESIRED -->
   <!-- By default, text is just copied -->
   <template match="text()" mode="xhtml"><copy/></template>
   
@@ -568,6 +568,20 @@
             <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
             <xsl:with-param name="figures-already-in-manifest" select="//osis:figure/@src" tunnel="yes"/>
           </xsl:apply-templates>
+          <xsl:for-each select="tokenize($css, '\s*,\s*')">
+            <xsl:choose>
+              <xsl:when test="ends-with(lower-case(.), 'css')">
+                <item href="{.}" id="{.}" media-type="text/css"/>
+              </xsl:when>
+              <xsl:when test="ends-with(lower-case(.), 'ttf')">
+                <item href="./{.}" id="{.}" media-type="application/x-font-ttf"/>
+              </xsl:when>
+              <xsl:when test="ends-with(lower-case(.), 'otf')">
+                <item href="./{.}" id="{.}" media-type="application/vnd.ms-opentype"/>
+              </xsl:when>
+              <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
+            </xsl:choose>
+          </xsl:for-each>
         </manifest>
         <spine toc="ncx">
           <xsl:apply-templates select="node()">

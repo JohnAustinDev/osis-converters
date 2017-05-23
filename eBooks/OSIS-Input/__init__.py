@@ -17,17 +17,15 @@ from os import walk
 class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
-    description = 'Convert IBT OSIS files to ebooks'
+    description = 'Convert IBT OSIS xml files to ebooks'
     version = (2, 3, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
-    supported_platforms = ['windows', 'linux']
+    supported_platforms = ['linux']
 
     options = set([
     OptionRecommendation(name='config_file', recommended_value='convert.txt',
             help=_('Config file containing Bible book names etc.')),
-        OptionRecommendation(name='css_file', recommended_value='',
-            help=_('Cascading style sheet file')),
         OptionRecommendation(name='output_fmt', recommended_value='epub',
             help=_('Output file format'))
     ])
@@ -43,66 +41,33 @@ class OsisInput(InputFormatPlugin):
         # EPUB3 only relevant for epub
         if self.context.outputFmt != 'epub':
             self.config.epub3 = False
-        #
-        # Get CSS file, if any
-        fontFiles = []
-        cssPath = self.opts.css_file
-        if cssPath is not '':
-            filePos = cssPath.rfind('/') + 1
-            if filePos == 0:
-                # Maybe this is Windows and backslashes are used
-                filePos = cssPath.rfind('\\') + 1
-            if filePos != 0:
-                # If it's in a css directory, copy everything there to the current directory, to get fonts etc.
-                if cssPath.endswith('/css/', 0, filePos):
-                    for cssDirFile in glob.glob('%s*' % cssPath[:filePos]):
-                        print 'Copying css directory file: %s' % cssDirFile
-                        shutil.copy(cssDirFile, '.')
-                        if not cssDirFile.endswith('.css'):
-                            dirFilePos = cssDirFile.rfind('/') + 1
-                            fileName = cssDirFile[dirFilePos:]
-                            fontFiles.append(fileName)
-                # Otherwise copy the css file to the current directory
-                else:
-                    print 'Copying css file: %s' % cssPath
-                    shutil.copy(cssPath, '.')
-                self.context.cssFile = cssPath[filePos:]  
-            #
-            # Check CSS file definitions 
-            cfile = codecs.open(self.context.cssFile, 'r', encoding="utf-8")
-            css = cfile.read()
-            #
-            # Check for definition of the x-chapter-number class
-            searchRes = string.find(css, '.x-chapter-number')
-            if searchRes != -1:
-                self.context.chNumClassDefined = True
-            #
-            # Check for definition of the of the canonical class
-            searchRes = string.find(css, '.canonical')
-            if searchRes != -1:
-                self.context.canonicalClassDefined = True
-            cfile.close()
             
-        # Get the directory of the OSIS file
+        # Get the directory of our input files
         filePath = stream.name
         filePos = filePath.rfind('/')
         inputDir = filePath[:filePos]
+        inputOSIS = filePath[(filePos+1):]
         
-        # copy images
+        # Copy css
+        cssFileNames = []
+        for afile in glob.glob("%s/css/*" % inputDir):
+            shutil.copy(afile, '.')                                                                                                                              
+            cssFileNames.append(os.path.basename(afile))
+            
+        # Copy images
         for afile in glob.glob("%s/images/*.*" % inputDir):
             if not os.path.exists('./images'):
                 os.makedirs('./images')                                                                                                                                 
             shutil.copy(afile, './images')
             
-        # Transform the input OSIS files to XHTML
+        # Copy OSIS files
         for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
             shutil.copy(afile, '.')
+            
+        # Transform the OSIS files to XHTML
         with open("./osis2xhtml.xsl", "w") as text_file:
           text_file.write(get_resources('osis2xhtml.xsl'))
-        cssfiles = []
-        for afile in glob.glob("%s/css/*.css" % inputDir):                                                                                                                                   
-            cssfiles.append(os.path.basename(afile))
-        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % stream.name, "-o:content.opf", "css=%s" % (",").join(cssfiles), "tocnumber=%s" % self.context.config.toc, "outputfmt=%s" % self.context.outputFmt]
+        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % inputOSIS, "-o:content.opf", "css=%s" % (",").join(sorted(cssFileNames)), "tocnumber=%s" % self.context.config.toc, "outputfmt=%s" % options.output_fmt]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
@@ -111,29 +76,6 @@ class OsisInput(InputFormatPlugin):
         os.remove('osis2xhtml.xsl')
         for afile in glob.glob("./*.xml"):                                                                                                                                   
             os.remove(afile)
-            
-        parser = etree.XMLParser(remove_blank_text=True)
-                    
-        # Add files which are not discoverable in the OSIS file to the manifest
-        contentopf = etree.parse('content.opf', parser)
-        namespace = {'opf': 'http://www.idpf.org/2007/opf'}
-        manifest = contentopf.xpath("opf:manifest", namespaces=namespace)[0]
-        for dirpath, dirnames, filenames in walk('.'):
-            for name in filenames:
-                if not contentopf.xpath("//opf:manifest/opf:item[@href='%s']" % name, namespaces=namespace):
-                    ext = os.path.splitext(name)[1].lower()
-                    elem = 'none'
-                    if ext == '.css':
-                        elem = etree.fromstring('<item href="%s" id="css" media-type="text/css"/>' % name)
-                    elif ext == '.ttf':
-                        elem = etree.fromstring('<item href="./%s" id="font_%s" media-type="application/x-font-ttf"/>' % (name, name))
-                    elif ext == '.otf':
-                        elem = etree.fromstring('<item href="./%s" id="font%s" media-type="application/vnd.ms-opentype"/>' % (name, name))
-                    if elem != 'none':
-                        print "Adding file %s to content.opf" % name
-                        manifest.append(elem)
-        opffile = open('content.opf', "w")
-        opffile.write(etree.tostring(contentopf, encoding='utf-8', pretty_print=True))
         
         return os.path.abspath('content.opf')
 

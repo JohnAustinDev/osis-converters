@@ -123,17 +123,6 @@ else {
 # Start forming the command string
 $COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --output-fmt $OPTYPE --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\"";
 
-# Check if the CSS file exists
-$CSSFILE = "e$IPTYPE.css";
-if (! -e $CSSFILE) {$CSSFILE = "./css/e$IPTYPE.css";}
-if (-e $CSSFILE) {
-  $CSSFILE = File::Spec->rel2abs($CSSFILE);
-  $COMMAND .= " --css-file ".&escfile($CSSFILE);
-}
-else {
-  print "WARNING: Proceding without CSS file as no file found\n"
-}
-
 $COMMAND .= ' --level1-toc "//*[@toclevel=\'1\']" --level2-toc "//*[@toclevel=\'2\']" --level3-toc "//*[@toclevel=\'3\']"';
 
 # Add cover image if required
@@ -144,7 +133,7 @@ if ($COVER and $COVER ne "") {
 # Add options for specific output formats
 if (lc $OPTYPE eq "fb2")
 {
-  $COMMAND .= ' --fb2 religion --sectionize toc';
+  $COMMAND .= ' --fb2 religion --sectionize files';
 }
 elsif (lc $OPTYPE eq "epub") {
   $COMMAND .= " --output-profile sony --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
@@ -180,7 +169,7 @@ print "$COMMAND\n";
 system $COMMAND;
 
 # Perform post-processing for FB2
-if (lc $OPTYPE eq "fb2")
+if (0 && lc $OPTYPE eq "fb2")
 {
   # Create temporary file name
   $TEMPF = $OPF;
@@ -194,6 +183,14 @@ if (lc $OPTYPE eq "fb2")
   system $COMMAND;
   unlink $TEMPF;
 }
+
+if (lc $OPTYPE eq "fb2") {
+  $COMMAND = "zip ".&escfile("$OPF.zip")." ".&escfile($OPF);
+  print "$COMMAND\n";
+  &Log("$COMMAND\n");
+  system $COMMAND; 
+}
+
 1;
 
 
