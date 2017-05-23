@@ -194,6 +194,7 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
       elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
       elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
+      elsif ($_ =~ /^FIX:\s*(.*?(?:Linking|Extended)\:[^=]+) = (.*?)$/) {$fix{$1} = $2; next;}
       elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
       elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
         my $lb = $2;
@@ -559,7 +560,14 @@ sub addLinks(\$$$) {
 
       # Fix if on fix list
       foreach $fx (keys %fix) {
-        if ($fx eq $extref) {
+        my $fx2 = $fx;
+        my $rightContext = 1;
+        if ($fx =~ /^(.*?) (?:Linking|Extended)\: (.*)$/) {
+          my $loc = $1;
+          $fx2 = $2;
+          if ($loc ne $LOCATION) {$rightContext = 0;}
+        }
+        if ($rightContext && $fx2 eq $extref) {
           $repExtref = $fix{$fx};
           if ($repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
             &Log("$LOCATION NOTE: Fixed \"$pextref\" - on FIX list.\n");
@@ -1107,7 +1115,82 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
       if (!$$lvP) {$$lvP = -1;}
     }
   }
+  
+  # Book? ChapTerm c VerseTerm v
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?($chapTerms)($suffixTerms)*\s*(\d+)\s*($verseTerms)($suffixTerms)*\s*(\d+))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
 
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $$typeP = "T11 (Book? ChapTerm c VerseTerm v)";
+      $lowestIndex = $index;
+      $shortestMatch = length($ref);
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $ref =~ /($chapTerms)($suffixTerms)*\s*(\d+)\s*($verseTerms)($suffixTerms)*\s*(\d+)/si;
+        $$chP = $3;
+        $$vsP = $6;
+        $$lvP = -1;
+        $$barenumsP = "verses";
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+  
+  # Book? ChapTerm c 
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?($chapTerms)\s*(\d+))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tch = $7;
+
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T12 (Book? ChapTerm c)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = $tch;
+        $$vsP = -1;
+        $$lvP = -1;
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+  
+  # Book|CurrentChap? VerseTerms v 
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?($verseTerms)\s*(\d+))/si)) {
+    my $pre = $1;
+    my $ref = $2;
+    my $tbook = $4;
+    my $tvs = $7;
+
+    my $index = length($pre);
+    if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
+      $matchedTerm = $ref;
+      $shortestMatch = length($ref);
+      $$typeP = "T13 (Book|CurrentChap? VerseTerms v)";
+      $lowestIndex = $index;
+      if (!$matchleft) {
+        $$bkP = $tbook;
+        $$chP = "";
+        $$vsP = $tvs;
+        $$lvP = -1;
+        $$barenumsP = "verses";
+        if ($$bkP =~ /($currentChapTerms)/si) {
+          $$bkP = "";
+        }
+      }
+      else {$$uhbkP = &unhandledBook($pre, \$tbook);}
+    }
+  }
+  
+  
   if ($matchedTerm && !$matchleft) {
     if (!$$bkP) {$$bkP = $contextBK;}
     if (!$$chP) {$$chP = $contextCH;}
