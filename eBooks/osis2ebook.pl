@@ -159,6 +159,21 @@ if ($DEBUG)
   $COMMAND .= ' --debug-pipeline='.&escfile("$RUNDIR/debug");
 }
 
+# Run KindleGen for mobi when possible
+if (lc $OPTYPE eq "mobi") {
+  if (-e "$SCRD/kindlegen/kindlegen") {
+    my $inf = $INPF;
+    $inf =~ s/\.[^\.]+$/\.epub/;
+    if (-e $inf) {
+      my $outname = $inf;
+      $outname =~ s/^.*\/([^\/]+)\.[^\.\/]+$/$1.mobi/;
+      $COMMAND = &escfile("$SCRD/kindlegen/kindlegen")." ".&escfile($inf)." -c2 -o \"$outname\" -verbose";
+    }
+    else {&Log("WARNING: Using Calibre MOBI conversion because an epub input file was not found at: \"$inf\"\n");}
+  }
+  else {&Log("WARNING: Using Calibre MOBI conversion. To use the better KindleGen converter for MOBI conversion, install it in osis-converters/kindlegen. It is available for free download from Amazon.\n", 1);}
+}
+
 # Run conversion command
 print "$COMMAND\n";
 &Log("$COMMAND\n");
