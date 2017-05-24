@@ -12,10 +12,10 @@
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="tocnumber" select="2"/>    <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="outputfmt" select="epub"/> <!-- Target eBook format of conversion -->
-  <param name="css" select="ebible.css"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="20"/> <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
+  <param name="tocnumber" select="2"/>               <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
+  <param name="outputfmt" select="epub"/>            <!-- Target eBook format of conversion -->
+  <param name="css" select="ebible.css,module.css"/> <!-- Comma separated list of css files -->
+  <param name="glossthresh" select="20"/>            <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   <strip-space elements="*"/>
@@ -138,15 +138,15 @@
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <variable name="symbol"><call-template name="getFootnoteSymbol"/></variable>
     <aside xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}">
-      <p><a href="#textsym.{$osisIDid}"><xsl:call-template name="class"/><xsl:value-of select="$symbol"/></a> <xsl:apply-templates mode="xhtml" select="node()"/></p>
+      <p><a href="#textsym.{$osisIDid}"><xsl:call-template name="class"/><span class="xsl-footnote-head"><xsl:value-of select="$symbol"/></span></a> <xsl:apply-templates mode="xhtml" select="node()"/></p>
     </aside>
   </template>
   
   <!-- This template may be called from any note. It returns a symbol for that specific note -->
   <template name="getFootnoteSymbol">
     <choose>
-      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID">*</when> <!-- notes in verses are just '*' -->
-      <otherwise>[<call-template name="getFootnoteNumber"/>]</otherwise>
+      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID"><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-symbol">*</span></when> <!-- notes in verses are just '*' -->
+      <otherwise><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-number">[<xsl:call-template name="getFootnoteNumber"/>]</span></otherwise>
     </choose>
   </template>
   
@@ -462,7 +462,7 @@
   
   <template match="osis:note" mode="xhtml">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <sup xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><a href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="getFootnoteSymbol"/></a></sup>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="class"/><xsl:call-template name="getFootnoteSymbol"/></a>
   </template>
   
   <template match="osis:p" mode="xhtml">
