@@ -125,15 +125,14 @@ sub setupAndMakeEbook($$$) {
     %EBOOKCONV = &ebookReadConf("$tmp/convert.txt");
   }
   
-  # copy css
+  # copy css directory (css directory is the last of the following)
   my $css = "$SCRD/eBooks/css";
   if (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
   elsif (-e "$INPD/../../defaults/eBook/css") {$css = "$INPD/../../defaults/eBook/css";}
+  elsif (-e "$INPD/eBook/css-default") {$css = "$INPD/eBook/css-default";}
   copy_dir($css, "$tmp/css");
+  # module css is added to default css directory
   if (-e "$INPD/eBook/css") {copy_dir("$INPD/eBook/css", "$tmp/css", 1);}
-  
-  # copy images
-  if (-d "$INPD/images") {&copy_dir("$INPD/images", "$tmp/images", 1, 1);}
   
   # copy cover
   my $cover;
@@ -200,25 +199,6 @@ sub setupAndMakeEbook($$$) {
     
     $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = $companion;
     $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
-    
-    # copy companion images
-    my $compDir = &findCompanionDirectory($companion);
-    if (!$compDir) {next;}
-    if (-d "$compDir/images") {
-      if (-e "$tmp/images") {
-        if (opendir(IDIR, "$compDir/images")) {
-          my @images = readdir(IDIR);
-          closedir(IDIR);
-          foreach my $image (@images) {
-            if (-d "$compDir/images/$image" || ! -e "$tmp/images/$image") {next;}
-            if (-e "$tmp/images/$image" && !`diff "$tmp/images/$image" "$compDir/images/$image"`) {next;}
-            &Log("ERROR: Different images cannot have the same name in both module and companion:\"$compDir/images/$image\" and \"$INPD/images/$image\".\n");
-          }
-        }
-        else {&Log("ERROR: Cannot open image directory \"$compDir/images\"\n");}
-      }
-      &copy_dir("$compDir/images", "$tmp/images", 1, 1);
-    }
   }
   if (@skipCompanions) {
     # remove work elements of skipped companions or else the eBook converter will crash
@@ -230,6 +210,13 @@ sub setupAndMakeEbook($$$) {
     open(OUTF, ">$tmp/$MOD.xml");
     print OUTF $xml->toString();
     close(OUTF);
+  }
+  
+  # copy over only those images referenced in our OSIS files
+  &copyReferencedImages("$tmp/$MOD.xml", $INPD, "$tmp/images");
+  foreach my $osis (@companionDictFiles) {
+    my $companion = $osis; $companion =~ s/^.*\/([^\/\.]+)\.[^\.]+$/$1/;
+    &copyReferencedImages($osis, &findCompanionDirectory($companion), "$tmp/images");
   }
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
