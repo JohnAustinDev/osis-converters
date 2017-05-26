@@ -564,6 +564,56 @@ sub copyDefaultFiles($$$$) {
 }
 
 
+# Copy all images found in the OSIS or TEI file from projdir to outdir. 
+# If any images are copied, 1 is returned, otherwise 0;
+sub copyReferencedImages($$$) {
+  my $osis_or_tei = shift;
+  my $projdir = shift;
+  my $outdir = shift;
+  
+  &Log("\n--- COPYING images in \"$osis_or_tei\"\n");
+  
+  $projdir =~ s/\/\s*$//;
+  $outdir =~ s/\/\s*$//;
+  
+  my %copied; return scalar(keys(%copied));
+  
+  my $xml = $XML_PARSER->parse_file($osis_or_tei);
+  my @images = $XPC->findnodes('//*[local-name()="figure"]/@src', $xml);
+  foreach my $image (@images) {
+    my $i = $image->getValue();
+    if ($copied{"$outdir/$i"}) {next;}
+    if ($i !~ s/^\.\///) {
+      &Log("ERROR copyReferencedImages: Image src path \"$i\" should be relative path (should begin with '.').\n");
+    }
+    if (!$projdir || !$outdir) {
+      &Log("ERROR copyReferencedImages: Images exist in \"$osis_or_tei\" but a directory path is empty: projdir=\"$projdir\", outdir=\"$outdir\".\n");
+      next;
+    }
+    if (!-e $projdir) {
+      &Log("ERROR copyReferencedImages: Missing project directory \"$projdir\".\n");
+      next;
+    }
+    if (!-e "$projdir/$i") {
+      &Log("ERROR copyReferencedImages: Image \"$i\" not found in \"$projdir/$i\"!\n");
+      next;
+    }
+    if (-e "$outdir/$i" && !$copied{"$outdir/$i"}) {
+      &Log("WARNING copyReferencedImages: Multiple modules reference image \"$outdir/$i\". Only the last version copied of this image will appear everywhere in the final output.\n");
+    }
+    my $ofile = "$outdir/$i";
+    my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
+    if (!-e $odir) {`mkdir -p "$odir"`;}
+    
+    &copy("$projdir/$i", "$ofile");
+    $copied{"$outdir/$i"}++;
+  }
+  
+  &Log("\n");
+  return scalar(keys(%copied));
+}
+
+
 sub getDefaultFile($) {
   my $filename = shift;
   
