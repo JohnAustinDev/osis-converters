@@ -45,10 +45,25 @@ sub aggregateRepeatedEntries($) {
     
     # cycle through each entry text that has duplicates
     foreach my $uck (keys %duplicates) {
-      my $haveKey = 0;
+      
+      # show glossary titles only if all glossaries have titles to show. Title is first <title type="main">
+      my %glossaryTitles;
+      my $titles = 1;
       my $n = 1;
+      foreach my $dk (sort sortSubEntriesByScope @{$duplicates{$uck}}) {
+        my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
+        my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":'');
+        if ($title) {$glossaryTitles{$dk->unique_key} = $title;}
+        else {
+          $titles = 0;
+          break;
+        }
+        $n++;
+      }
       
       # cycle through each duplicate keyword element
+      my $haveKey = 0;
+      my $n = 1;
       my @prevGlos;
       foreach my $dk (sort sortSubEntriesByScope @{$duplicates{$uck}}) {
         # create new x-duplicate div to mark this duplicate entry
@@ -56,9 +71,7 @@ sub aggregateRepeatedEntries($) {
         $xDupDiv->setAttribute('type', 'x-duplicate-keyword'); # holds entries whose keyword is not unique
         my $glossScope = &getGlossaryScope($dk); # save this before dk might be cloned/edited
         
-        # get glossary and its title: $title is first <title type="main">
-        my @titleElem = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]/descendant::osis:title[@type="main"][1]', $dk);
-        my $title = (@titleElem && @titleElem[0] ? "<title level=\"2\">$n) " . @titleElem[0]->textContent . "</title>":'');
+        # get glossary
         my $myGlossary = @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $dk)}[0];
         if (@prevGlos) {foreach my $pg (@prevGlos) {if ($pg->isEqual($myGlossary)) {&Log("WARNING: duplicate keywords within same glossary div: ".$dk->textContent()."\n");}}}
         push (@prevGlos, $myGlossary);
@@ -96,7 +109,7 @@ sub aggregateRepeatedEntries($) {
         my $xAggDiv = $xDupDiv->cloneNode(1);
         $xAggDiv->setAttribute('type', 'x-aggregate-subentry'); # holds individual entries within an aggregate entry
         if ($glossScope) {$xAggDiv->setAttribute('osisRef', $glossScope);}
-        if ($title) {$xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($title), $xAggDiv->firstChild);}
+        if ($titles) {$xAggDiv->insertBefore($XML_PARSER->parse_balanced_chunk($glossaryTitles{$dk->unique_key}), $xAggDiv->firstChild);}
         my @kw = $XPC->findnodes('./descendant::osis:seg[@type="keyword"]', $xAggDiv);
         if (@kw && @kw[0] && @kw == 1) {
           # remove keyword and any resultant empty ancestors
@@ -109,7 +122,7 @@ sub aggregateRepeatedEntries($) {
         else {
           &Log("ERROR aggregateRepeatedEntries: keyword aggregation failed.\n");
         }
-        if (!$title) {
+        if (!$titles) {
           my @par = $XPC->findnodes('*[1]', $xAggDiv);
           if (@par && @par[0]) {
             @par[0]->insertBefore($XML_PARSER->parse_balanced_chunk('<hi type="super"><hi type="bold">'.$n.') </hi></hi>'), @par[0]->firstChild);
