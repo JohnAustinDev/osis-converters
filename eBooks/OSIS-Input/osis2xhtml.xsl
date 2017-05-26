@@ -8,14 +8,14 @@
  
   <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES AND CORRESPONDING CONTENT.OPF FILE
   This transform may be tested from command line (and outputs will appear in the current directory): 
-  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2 outputfmt='epub'
+  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2 'outputfmt=epub'
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="tocnumber" select="2"/>               <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="outputfmt" select="epub"/>            <!-- Target eBook format of conversion -->
-  <param name="css" select="ebible.css,module.css"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="20"/>            <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
+  <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
+  <param name="outputfmt" select="'epub'"/>            <!-- Target eBook format of conversion -->
+  <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
+  <param name="glossthresh" select="20"/>              <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   <strip-space elements="*"/>
@@ -59,10 +59,10 @@
       <when test="ancestor-or-self::osis:div[@type='glossary']">
         <choose>
           <when test="not(descendant-or-self::osis:seg[@type='keyword']) and count(preceding::osis:seg[@type='keyword']) = count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:seg[@type='keyword'])">
-            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::osis:div[@type='glossary']))"/>
+            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::osis:div[@type='glossary']) + 1)"/>
           </when>
           <otherwise>
-            <value-of select="concat($osisIDWork, '_glosskey_', count(preceding::osis:seg[@type='keyword']))"/>
+            <value-of select="concat($osisIDWork, '_glosskey_', count(preceding::osis:seg[@type='keyword']) + 1)"/>
           </otherwise>
         </choose>
       </when>
@@ -70,7 +70,7 @@
         <value-of select="concat($osisIDWork, '_', ancestor-or-self::osis:div[@type='book']/@osisID)"/>
       </when>
       <when test="ancestor-or-self::osis:div[@type='bookGroup']">
-        <value-of select="concat($osisIDWork,'_bookGroup-introduction_', count(preceding::osis:div[@type='bookGroup']))"/>
+        <value-of select="concat($osisIDWork,'_bookGroup-introduction_', count(preceding::osis:div[@type='bookGroup']) + 1)"/>
       </when>
       <when test="ancestor-or-self::osis:osisText">
         <value-of select="concat($osisIDWork,'_module-introduction')"/>
