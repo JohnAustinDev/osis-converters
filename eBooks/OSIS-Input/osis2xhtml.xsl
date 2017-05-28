@@ -145,7 +145,7 @@
   <!-- This template may be called from any note. It returns a symbol for that specific note -->
   <template name="getFootnoteSymbol">
     <choose>
-      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID"><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-symbol">*</span></when> <!-- notes in verses are just '*' -->
+      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-symbol">*</span></when> <!-- notes in verses are just '*' -->
       <otherwise><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-number">[<xsl:call-template name="getFootnoteNumber"/>]</span></otherwise>
     </choose>
   </template>
@@ -280,15 +280,17 @@
     <attribute name="class"><value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/></attribute>
   </template>
   
-  <!-- This template may be called from: p and l. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
+  <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
   <template name="WriteEmbededChapterVerse">
     <variable name="mySelf" select="."/>
-    <variable name="isInVerse" select="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"/>
+    <variable name="isInVerse" select="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID"/>
     <variable name="doWriteChapterNumber" select="if (not($isInVerse)) then '' else (generate-id(preceding::osis:chapter[@sID][1]/following::osis:*[self::osis:p or self::osis:l][1]) = generate-id($mySelf))"/>
     <if test="$doWriteChapterNumber">
       <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::osis:chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
-    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf]]])"><call-template name="WriteVerseNumber"/></if>
+    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf][preceding-sibling::*[1][self::osis:verse[@sID]]]]])">
+      <call-template name="WriteVerseNumber"/>
+    </if>
   </template>
   
   <!-- This template may be called from: p and l. -->
@@ -324,13 +326,13 @@
   <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
   
   <!-- Remove these tags (keep their content). Paragraphs tags containing keywords are dropped so resulting HTML will validate -->
-  <template match="osis:name | osis:seg | osis:p[descendant::osis:seg[@type='keyword']]" mode="xhtml">
+  <template match="osis:name | osis:seg | osis:reference[ancestor::osis:title[@type='scope']] | osis:p[descendant::osis:seg[@type='keyword']]" mode="xhtml">
     <xsl:apply-templates mode="xhtml" select="node()"/>
   </template>
   
   <!-- Verses -->
   <template match="osis:verse[@sID]" mode="xhtml">
-    <if test="not(self::osis:verse[following-sibling::*[1][self::osis:p or self::osis:lg or self::osis:l]])"> <!-- skip verses followed by p, lg or l, since their templates write verse numbers inside themselves using WriteEmbededChapterVerse-->
+    <if test="not(self::osis:verse[following-sibling::*[1][self::osis:p or self::osis:lg or self::osis:l or self::osis:title[@canonical='true']]])"> <!-- skip verses followed by p, lg, l or canonical title, since their templates write verse numbers inside themselves using WriteEmbededChapterVerse-->
       <call-template name="WriteVerseNumber"/>
     </if>
   </template>
@@ -378,6 +380,7 @@
     <variable name="level" select="if (@level) then @level else '1'"/>
     <element name="h{$level}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
+      <if test="@canonical='true'"><call-template name="WriteEmbededChapterVerse"/></if>
       <apply-templates mode="xhtml" select="node()"/>
     </element>
   </template>
