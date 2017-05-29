@@ -213,10 +213,10 @@ sub setupAndMakeEbook($$$) {
   }
   
   # copy over only those images referenced in our OSIS files
-  &copyReferencedImages("$tmp/$MOD.xml", $INPD, "$tmp/images");
+  &copyReferencedImages("$tmp/$MOD.xml", $INPD, $tmp);
   foreach my $osis (@companionDictFiles) {
     my $companion = $osis; $companion =~ s/^.*\/([^\/\.]+)\.[^\.]+$/$1/;
-    &copyReferencedImages($osis, &findCompanionDirectory($companion), "$tmp/images");
+    &copyReferencedImages($osis, &findCompanionDirectory($companion), $tmp);
   }
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
