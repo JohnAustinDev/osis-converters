@@ -34,37 +34,45 @@ $OSISFILE = "$OUTDIR/$MOD.xml";
 
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
+  my $processing = $OSISFILE;
+  my $outtype = 'osis';
+  
+  # run xslt if OSIS came from usfm2osis.py
+  my $xsl = '';
+  if ($MODDRV =~ /Text/) {
+    $xsl = 'osis2sword.xsl';
+  }
+  elsif ($MODDRV =~ /LD/) {
+    $xsl = 'osis2tei.xsl';
+    $outtype = "tei";
+    require "$SCRD/scripts/processGlossary.pl";
+    &removeDuplicateEntries($OSISFILE);
+  }
+  if ($xsl) {
+    $processing = "$TMPDIR/1_$outtype_xslts_out.xml";
+    &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, $processing, 'sword');
+  }
+  
   # uppercase dictionary keys were necessary to avoid requiring ICU.
   # XSLT cannot be used to do this because a custom uc2() Perl function is needed.
   if ($UPPERCASE_DICTIONARY_KEYS) {
-    my $xml = $XML_PARSER->parse_file($OSISFILE);
+    my $xml = $XML_PARSER->parse_file($processing);
     if ($MODDRV =~ /LD/) {
-      my @keywords = $XPC->findnodes('//'.$KEYWORD.'/text()', $xml);
-      foreach my $keyword (@keywords) {$keyword->setData(&uc2($keyword->data));}
+      my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
+      foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
     }
-    my @dictrefs = $XPC->findnodes('//osis:reference[@type=\'x-glossary\']/@osisRef|//osis:reference[@type=\'x-glosslink\']/@osisRef', $xml);
+    my @dictrefs = $XPC->findnodes('//*[local-name()="reference"][starts-with(@type, "x-gloss")]/@osisRef', $xml);
     foreach my $dictref (@dictrefs) {
-      my $mod; my $e = &osisRef2Entry($dictref->value, \$mod);
+      my $mod; my $e = &osisRef2Entry($dictref->getValue(), \$mod);
       $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
     }
-    open(OSIS2, ">$TMPDIR/osis_ucdict.xml");
+    $processing = "$TMPDIR/2_$outtype_ucdict_out.xml";
+    open(OSIS2, ">$processing");
     print OSIS2 $xml->toString();
     close(OSIS2);
-    $OSISFILE = "$TMPDIR/osis_ucdict.xml";
   }
   
-  # run xslt if OSIS came from usfm2osis.py
-  my $xsl = ''; my $out = '';
-  if ($MODDRV =~ /Text/) {$xsl = 'osis2sword.xsl'; $out = "osis";}
-  elsif ($MODDRV =~ /LD/) {
-    require "$SCRD/scripts/processGlossary.pl";
-    &removeDuplicateEntries($OSISFILE);
-    $xsl = 'osis2tei.xsl'; $out = "tei";
-  }
-  if ($xsl) {
-    &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, "$TMPDIR/$out.xml", 'sword');
-    $OSISFILE = "$TMPDIR/$out.xml";
-  }
+  $OSISFILE = $processing;
 }
 
 if (&copyReferencedImages($OSISFILE, $INPD, "$SWOUT/$MODPATH")) {
