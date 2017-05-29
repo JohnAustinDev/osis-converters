@@ -49,7 +49,7 @@ if ($IS_usfm2osis) {
     &removeDuplicateEntries($OSISFILE);
   }
   if ($xsl) {
-    $processing = "$TMPDIR/1_$outtype_xslts_out.xml";
+    $processing = "$TMPDIR/1_".$outtype."_xslts_out.xml";
     &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, $processing, 'sword');
   }
   
@@ -66,7 +66,7 @@ if ($IS_usfm2osis) {
       my $mod; my $e = &osisRef2Entry($dictref->getValue(), \$mod);
       $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
     }
-    $processing = "$TMPDIR/2_$outtype_ucdict_out.xml";
+    $processing = "$TMPDIR/2_".$outtype."_ucdict_out.xml";
     open(OSIS2, ">$processing");
     print OSIS2 $xml->toString();
     close(OSIS2);
