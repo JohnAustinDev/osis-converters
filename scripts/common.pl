@@ -3100,7 +3100,7 @@ sub writeFootnoteIDs() {
       while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$myMod:$osisID$FNREFEXT$n";}
       $OSISID_FOOTNOTE{$id}++;
       
-      if ($f->getAttribute('osisID')) {
+      if ($f->getAttribute('osisID') && $f->getAttribute('osisID') ne "$osisID$FNREFEXT$n") {
         &Log("WARNING: Overwriting footnote osisID \"".$f->getAttribute('osisID')."\" with \"$osisID$FNREFEXT$n\"\n");
       }
 
