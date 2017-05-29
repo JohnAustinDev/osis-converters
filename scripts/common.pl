@@ -576,7 +576,7 @@ sub copyReferencedImages($$$) {
   $projdir =~ s/\/\s*$//;
   $outdir =~ s/\/\s*$//;
   
-  my %copied; return scalar(keys(%copied));
+  my %copied;
   
   my $xml = $XML_PARSER->parse_file($osis_or_tei);
   my @images = $XPC->findnodes('//*[local-name()="figure"]/@src', $xml);
@@ -607,9 +607,10 @@ sub copyReferencedImages($$$) {
     
     &copy("$projdir/$i", "$ofile");
     $copied{"$outdir/$i"}++;
+    &Log("NOTE: Copied image \"$ofile\"\n");
   }
   
-  &Log("\n");
+  &Log("REPORT $MOD: Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".\n\n");
   return scalar(keys(%copied));
 }
 
