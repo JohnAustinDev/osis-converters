@@ -65,6 +65,7 @@ while (<COMF>) {
     $CCIN = File::Spec->rel2abs($CCIN, $INPD);
     $CCOUT="./$sp";
     $CCOUT = File::Spec->rel2abs($CCOUT, $INPD);
+    if ($CCOUT =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
     
     &Log("\nINFO: Processing CC $CCIN\n");
     if (! -e $CCIN) {&Log("ERROR Could not find \"$CCIN\" with \"$_\"\n"); next;}
