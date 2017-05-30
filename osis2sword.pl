@@ -34,7 +34,8 @@ $OSISFILE = "$OUTDIR/$MOD.xml";
 
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
-  my $processing = $OSISFILE;
+  my $processing = "$TMPDIR/1_osis.xml";
+  copy($OSISFILE, $processing);
   my $outtype = 'osis';
   
   # run xslt if OSIS came from usfm2osis.py
@@ -46,11 +47,12 @@ if ($IS_usfm2osis) {
     $xsl = 'osis2tei.xsl';
     $outtype = "tei";
     require "$SCRD/scripts/processGlossary.pl";
-    &removeDuplicateEntries($OSISFILE);
+    &removeDuplicateEntries($processing);
   }
   if ($xsl) {
-    $processing = "$TMPDIR/1_".$outtype."_xslts_out.xml";
-    &osisXSLT($OSISFILE, $MODULETOOLS_BIN.$xsl, $processing, 'sword');
+    my $p = "$TMPDIR/2_".$outtype."_xslts.xml";
+    &osisXSLT($processing, $MODULETOOLS_BIN.$xsl, $p, 'sword');
+    $processing = $p;
   }
   
   # uppercase dictionary keys were necessary to avoid requiring ICU.
@@ -66,10 +68,11 @@ if ($IS_usfm2osis) {
       my $mod; my $e = &osisRef2Entry($dictref->getValue(), \$mod);
       $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
     }
-    $processing = "$TMPDIR/2_".$outtype."_ucdict_out.xml";
-    open(OSIS2, ">$processing");
+    my $p = "$TMPDIR/3_".$outtype."_ucdict.xml";
+    open(OSIS2, ">$p");
     print OSIS2 $xml->toString();
     close(OSIS2);
+    $processing = $p;
   }
   
   $OSISFILE = $processing;

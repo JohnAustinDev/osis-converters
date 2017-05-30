@@ -2672,7 +2672,7 @@ sub osisXSLT($$$$) {
       &Log("\n--- Running Pre-Processor XSLT...\n");
       
       my $outtmp = $out;
-      if ($outtmp !~ s/^(.*?\/)([^\/]+)$/$1preprocessed_$2/) {&Log("ERROR: No substitution: \"$out\"\n"); die;}
+      if ($outtmp !~ s/^(.*?\/[^\/]+)(\.[^\.]*)$/$1_custom$2/) {&Log("ERROR: No substitution: \"$out\"\n"); die;}
       my $cmd = "saxonb-xslt -xsl:" . &escfile($preprocessor) . " -s:" . &escfile($osis) . " -o:" . &escfile($outtmp);
       &Log("$cmd\n");
       system($cmd);
