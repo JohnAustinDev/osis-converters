@@ -1271,7 +1271,8 @@ sub sortSearchTermKeys($$) {
 # element (including its introduction if there is one) is dropped.
 # If a pruned book contains a peripheral which also pertains to a kept 
 # book, that peripheral is moved to the first kept book, so as to retain 
-# the peripheral.
+# the peripheral. If there is only one bookGroup left, the remaining one
+# will lose its TOC milestone to so as to reduce an unnecessary TOC level.
 sub pruneFileOSIS($$$$) {
   my $inosis = shift;
   my $outosis = shift;
@@ -1321,6 +1322,14 @@ sub pruneFileOSIS($$$$) {
     }
   }
   else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
+  
+  # remove any TOC entry from a lone bookGroup, so we won't have unnecessary TOC levels
+  my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
+  if (scalar(@grps) == 1 && @grps[0]) {
+    # NOTE: This is currently hardwired to toc2 type milestones but this should be selectable...
+    my @ms = $XPC->findnodes('child::osis:milestone[@type="x-usfm-toc2"] | child::*[1][not(osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc2"]', @grps[0]);
+    if (@ms && @ms[0]) {@ms[0]->unbindNode();}
+  }
   
   open(OUTF, ">$outosis");
   print OUTF $inxml->toString();

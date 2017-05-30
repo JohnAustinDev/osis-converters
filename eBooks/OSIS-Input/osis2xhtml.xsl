@@ -82,7 +82,6 @@
   <template name="WriteFile">
     <param name="filename"/>
     <message select="concat('PROCESSING:', $filename)"/>
-    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
     <result-document method="xml" href="xhtml/{$filename}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
@@ -95,7 +94,6 @@
         </head>
         <body class="calibre">
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', $outputfmt, tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
-          <xsl:if test="self::osis:osisText and $isBible"><xsl:call-template name="WriteInlineTOCRoot"/></xsl:if>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
             <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
@@ -233,15 +231,20 @@
   
   <!-- WriteInlineTOCRoot may be called from: Bible osisText or milestone[x-usfm-toc] -->
   <template name="WriteInlineTOCRoot">
-    <call-template name="WriteInlineTOC"/>
+    <call-template name="WriteInlineTOC"><with-param name="isRoot" select="true()"/></call-template>
     <for-each select="//osis:work[child::osis:type[@type='x-glossary']]/@osisWork">
-      <for-each select="doc(concat(., '.xml'))//osis:osisText[1]"><call-template name="WriteInlineTOC"/></for-each>
+      <for-each select="doc(concat(., '.xml'))//osis:osisText[1]">
+        <call-template name="WriteInlineTOC"><with-param name="isRoot" select="true()"/></call-template>
+      </for-each>
     </for-each>
   </template>
   
   <!-- WriteInlineTOC may be called from: Bible osisText or milestone[x-usfm-toc] -->
   <template name="WriteInlineTOC">
-    <variable name="toplevel"><call-template name="getTocLevel"/></variable>
+    <param name="isRoot"/>
+    <variable name="toplevel">
+      <choose><when test="$isRoot=true()">0</when><otherwise><call-template name="getTocLevel"/></otherwise></choose>
+    </variable>
     <if test="$toplevel &#60; 3">
       <variable name="topElement" select="."/>
       <variable name="subentries" select="if ($toplevel=0) then //osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] else ancestor::osis:div[@type='book' or @type='bookGroup'][1]//osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] | ancestor::osis:div[@type='book'][1]//osis:chapter[@sID] | ancestor::osis:div[@type='glossary'][1]//osis:seg[@type='keyword']"/>
@@ -456,6 +459,9 @@
   
   <template match="osis:milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
     <call-template name="WriteTableOfContentsEntry"/>
+    <if test="not(preceding::osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])">
+      <if test="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"><call-template name="WriteInlineTOCRoot"/></if>
+    </if>
     <call-template name="WriteInlineTOC"/>
   </template>
   
