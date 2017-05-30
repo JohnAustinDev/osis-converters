@@ -306,8 +306,9 @@ sub ebookUpdateConf($$$) {
       my $k = $abk->getAttribute('osisID');
       if ($conv{$k}) {$title .= $sep.$conv{$k};}
       else {
-        my @t = $XPC->findnodes('//text()[1]/ancestor::osis:title', $abk);
-        if (@t) {$title .= $sep.@t[0]->textContent;}
+        # NOTE: This is currently hardwired to toc2 type milestones but this should be selectable...
+        my @t = $XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc2"]/@n', $abk);
+        if (@t) {$title .= $sep.@t[0]->getValue();}
       }
       if ($title) {$sep = "\n";}
     }
