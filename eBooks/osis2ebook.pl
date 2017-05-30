@@ -136,10 +136,10 @@ if (lc $OPTYPE eq "fb2")
   $COMMAND .= ' --fb2 religion --sectionize files';
 }
 elsif (lc $OPTYPE eq "epub") {
-  $COMMAND .= " --output-profile sony --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
+  $COMMAND .= " --output-profile tablet --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
 }
 elsif (lc $OPTYPE eq "mobi") {
-  $COMMAND .= " --output-profile kindle";
+  $COMMAND .= " --output-profile tablet";
 }
 
 # Debug keeps eBook intermediate files
@@ -148,7 +148,12 @@ if ($DEBUG)
   $COMMAND .= ' --debug-pipeline='.&escfile("$RUNDIR/debug");
 }
 
-# Run KindleGen for mobi when possible
+# Run KindleGen for mobi when possible. 
+# Note: Calibre rasterizes MOBI images which compresses them very well.  
+# But the aspect ratio of maps is not retained (which is unacceptable).
+# KindleGen includes proper font (unlike Calibre) and images retain their 
+# aspect ratio. However, KindleGen's images are 2x the size of EPUB and 
+# FB2 for some unknown reason.
 if (lc $OPTYPE eq "mobi") {
   if (-e "$SCRD/kindlegen/kindlegen") {
     my $inf = $INPF;
