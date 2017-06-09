@@ -123,6 +123,7 @@ sub setupAndMakeEbook($$$) {
   if (!$scopeIsCompleteOSIS) {
     $titleOverride = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml", $titleOverride);
     %EBOOKCONV = &ebookReadConf("$tmp/convert.txt");
+    &updateOSISTitle("$tmp/$MOD.xml", $titleOverride);
   }
   
   # copy css directory (css directory is the last of the following)
@@ -343,5 +344,20 @@ sub ebookReadConf($) {
   else {&Log("ERROR: Could not read ebookReadConf \"$convtxt\"\n"); die;}
   
   return %conv;
+}
+
+sub updateOSISTitle($$) {
+  my $osis = shift;
+  my $title = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @t = $XPC->findnodes('//osis:type[@type="x-bible"][1]/ancestor::osis:work[1]//osis:title[1]', $xml);
+  if ($title && @t && @t[0]) {
+    @t[0]->appendText(': ' . $title);
+    &Log("NOTE: Updated OSIS title to:\"".@t[0]->toString()."\"\n", 2);
+    open(OUTF, ">$osis");
+    print OUTF $xml->toString();
+    close(OUTF);
+  }
 }
 1;
