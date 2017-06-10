@@ -134,17 +134,17 @@
   <template match="osis:note[@type='crossReference']" mode="footnotes"/>
   <template match="osis:note" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <variable name="symbol"><call-template name="getFootnoteSymbol"/></variable>
     <aside xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}">
-      <p><a href="#textsym.{$osisIDid}"><xsl:call-template name="class"/><span class="xsl-footnote-head"><xsl:value-of select="$symbol"/></span></a> <xsl:apply-templates mode="xhtml" select="node()"/></p>
+      <p><a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a> <xsl:apply-templates mode="xhtml" select="node()"/></p>
     </aside>
   </template>
   
   <!-- This template may be called from any note. It returns a symbol for that specific note -->
   <template name="getFootnoteSymbol">
+    <param name="classes"/>
     <choose>
-      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-symbol">*</span></when> <!-- notes in verses are just '*' -->
-      <otherwise><span xmlns="http://www.w3.org/1999/xhtml" class="xsl-note-number">[<xsl:call-template name="getFootnoteNumber"/>]</span></otherwise>
+      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"><attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>*</when> <!-- notes in verses are just '*' -->
+      <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>[<xsl:call-template name="getFootnoteNumber"/>]</otherwise>
     </choose>
   </template>
   
@@ -278,9 +278,13 @@
   
   <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
   <template name="class">
+    <attribute name="class"><call-template name="classValue"/></attribute>
+  </template>
+  
+  <template name="classValue">
     <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
     <variable name="osisTagClass" select="concat('osis-', local-name())"/>
-    <attribute name="class"><value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/></attribute>
+    <value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/>
   </template>
   
   <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
@@ -304,9 +308,9 @@
     <for-each select="tokenize($osisID, '\s+')">
       <span xmlns="http://www.w3.org/1999/xhtml"><xsl:attribute name="id" select="."/></span>
     </for-each>
-    <sup xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
+    <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
       <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
-    </sup>
+    </span>
   </template>
   
 
@@ -471,7 +475,7 @@
   
   <template match="osis:note" mode="xhtml">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="class"/><xsl:call-template name="getFootnoteSymbol"/></a>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template></a>
   </template>
   
   <template match="osis:p" mode="xhtml">
