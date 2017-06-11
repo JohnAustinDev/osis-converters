@@ -17,9 +17,9 @@
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
   
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
-  <strip-space elements="*"/>
-  <!-- <preserve-space elements="*"/> -->
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no"/>
+  <!-- <strip-space elements="*"/>
+  <preserve-space elements="p a div span"/> -->
   
   <!-- Pass over all nodes that don't match another template (output nothing) -->
   <template match="node()"><apply-templates select="node()"/></template>
@@ -134,9 +134,12 @@
   <template match="osis:note[@type='crossReference']" mode="footnotes"/>
   <template match="osis:note" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <aside xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}">
-      <p><a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a> <xsl:apply-templates mode="xhtml" select="node()"/></p>
-    </aside>
+    <div xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}" class="xsl-footnote">
+      <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a>
+      <xsl:value-of select="' '"/>
+      <xsl:apply-templates mode="xhtml" select="node()"/>
+    </div>
+    <text>&#xa;</text>
   </template>
   
   <!-- This template may be called from any note. It returns a symbol for that specific note -->
