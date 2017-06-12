@@ -17,9 +17,8 @@
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
   
+  <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement here -->
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no"/>
-  <!-- <strip-space elements="*"/>
-  <preserve-space elements="p a div span"/> -->
   
   <!-- Pass over all nodes that don't match another template (output nothing) -->
   <template match="node()"><apply-templates select="node()"/></template>
@@ -97,28 +96,28 @@
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
             <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
-              <apply-templates mode="xhtml"     select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
+              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
                 <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
               </div>
             </when>
             <!-- bookGroup-introduction -->
             <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_bookGroup-introduction_'))">
-              <apply-templates mode="xhtml"     select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
+              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
                 <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
               </div>
             </when>
             <!-- glossintro and glosskey -->
             <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_gloss'))">
-              <apply-templates mode="xhtml"     select="current-group()"/>
+              <apply-templates mode="xhtml" select="current-group()"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
                 <xsl:apply-templates mode="footnotes" select="current-group()"/>
               </div>
             </when>
             <!-- book -->
             <otherwise>
-              <apply-templates mode="xhtml"     select="node()"/>
+              <apply-templates mode="xhtml" select="node()"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
                 <xsl:apply-templates mode="footnotes" select="node()"/>
               </div>
@@ -139,7 +138,15 @@
       <xsl:value-of select="' '"/>
       <xsl:apply-templates mode="xhtml" select="node()"/>
     </div>
-    <text>&#xa;</text>
+    <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
+  </template>
+  
+  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
+  <template name="class"><attribute name="class"><call-template name="classValue"/></attribute></template>
+  <template name="classValue">
+    <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
+    <variable name="osisTagClass" select="concat('osis-', local-name())"/>
+    <value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/>
   </template>
   
   <!-- This template may be called from any note. It returns a symbol for that specific note -->
@@ -279,17 +286,6 @@
     </if>
   </template>
   
-  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
-  <template name="class">
-    <attribute name="class"><call-template name="classValue"/></attribute>
-  </template>
-  
-  <template name="classValue">
-    <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
-    <variable name="osisTagClass" select="concat('osis-', local-name())"/>
-    <value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/>
-  </template>
-  
   <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
   <template name="WriteEmbededChapterVerse">
     <variable name="mySelf" select="."/>
@@ -318,13 +314,13 @@
   
 
   <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO HTML MARKUP AS DESIRED -->
-  <!-- By default, text is just copied -->
+  <!-- By default, text is copied -->
   <template match="text()" mode="xhtml"><copy/></template>
   
   <!-- By default, attributes are dropped -->
   <template match="@*" mode="xhtml"/>
   
-  <!-- By default, elements just get their namespace changed from OSIS to HTML, plus a class added-->
+  <!-- By default, elements get their namespace changed from OSIS to HTML, and a class attribute is added-->
   <template match="*" mode="xhtml">
     <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
@@ -335,8 +331,8 @@
   <!-- Remove these elements entirely -->
   <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
   
-  <!-- Remove these tags (keep their content). Paragraphs tags containing keywords are dropped so resulting HTML will validate -->
-  <template match="osis:name | osis:seg | osis:reference[ancestor::osis:title[@type='scope']] | osis:p[descendant::osis:seg[@type='keyword']]" mode="xhtml">
+  <!-- Remove these tags (keeping their content). Paragraphs tags certain elements are dropped so that resulting HTML will validate -->
+  <template match="osis:name | osis:seg | osis:reference[ancestor::osis:title[@type='scope']] | osis:p[descendant::osis:seg[@type='keyword']] | osis:p[descendant::osis:figure]" mode="xhtml">
     <xsl:apply-templates mode="xhtml" select="node()"/>
   </template>
   
@@ -413,13 +409,15 @@
   </template>
   
   <template match="osis:figure" mode="xhtml">
-    <img xmlns="http://www.w3.org/1999/xhtml">
-      <xsl:call-template name="class"/>
-      <xsl:attribute name="src">
-        <xsl:value-of select="if (starts-with(@src, './')) then concat('.', @src) else (if (starts-with(@src, '/')) then concat('..', @src) else concat('../', @src))"/>
-      </xsl:attribute>
-    </img>
-    <xsl:apply-templates mode="xhtml" select="node()"/>
+    <figure xmlns="http://www.w3.org/1999/xhtml">
+      <img>
+        <xsl:call-template name="class"/>
+        <xsl:attribute name="src">
+          <xsl:value-of select="if (starts-with(@src, './')) then concat('.', @src) else (if (starts-with(@src, '/')) then concat('..', @src) else concat('../', @src))"/>
+        </xsl:attribute>
+      </img>
+      <xsl:apply-templates mode="xhtml" select="node()"/>
+    </figure>
   </template>
 
   <xsl:template match="osis:head">
