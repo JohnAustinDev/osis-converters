@@ -61,6 +61,23 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 &normalizeRefsIds($OUTOSIS);
 # MOD.xml is after addCrossRefs.pl
 
+# Run postprocess.(pl|xsl) if they exist
+if (-e "$INPD/postprocess.xsl") {
+  &Log("\nRunning OSIS postprocess.xsl\n", 1);
+  my $cmd = "saxonb-xslt -xsl:" . &escfile("$INPD/postprocess.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out");
+  &Log("$cmd\n");
+  system($cmd);
+  unlink($OUTOSIS);
+  copy("$OUTOSIS.out", $OUTOSIS);
+}
+
+if (-e "$INPD/postprocess.pl") {
+  &Log("\nRunning OSIS postprocess.pl\n", 1);
+  my $cmd = "$INPD/postprocess.pl " . &escfile($OUTOSIS);
+  &Log($cmd."\n");
+  system($cmd);
+}
+
 # Do a tmp Pretty Print for referencing during the conversion process
 my $xml = $XML_PARSER->parse_file($OUTOSIS);
 &prettyPrintOSIS($xml);
