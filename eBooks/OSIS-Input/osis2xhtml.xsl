@@ -186,7 +186,8 @@
   <!-- Table of Contents -->
   <!-- WriteTableOfContentsEntry may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="WriteTableOfContentsEntry">
-    <h1 xmlns="http://www.w3.org/1999/xhtml" class="xsl-toc-entry" id="{generate-id(.)}">
+    <h1 xmlns="http://www.w3.org/1999/xhtml" id="{generate-id(.)}">
+      <xsl:attribute name="class" select="concat('xsl-toc-entry', (if (self::osis:chapter) then ' x-chapterLabel' else ''))"/>
       <xsl:attribute name="toclevel"><xsl:call-template name="getTocLevel"/></xsl:attribute>
       <xsl:call-template name="getTocTitle"/>
     </h1>
@@ -260,8 +261,9 @@
       <variable name="subentries" select="if ($toplevel=0) then //osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] else ancestor::osis:div[@type='book' or @type='bookGroup'][1]//osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] | ancestor::osis:div[@type='book'][1]//osis:chapter[@sID] | ancestor::osis:div[@type='glossary'][1]//osis:seg[@type='keyword']"/>
       <variable name="showFullGloss" select="count($subentries[@type='keyword']) &#60; $glossthresh"/>
       <if test="count($subentries)">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-inline-toc">
-          <for-each xmlns="http://www.w3.org/1999/XSL/Transform" select="$subentries">
+        <element name="{if (ancestor::osis:div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
+          <attribute name="class" select="'xsl-inline-toc'"/>
+          <for-each select="$subentries">
             <variable name="sublevel"><call-template name="getTocLevel"/></variable>
             <variable name="previousKeyword" select="preceding::osis:seg[@type='keyword'][1]/string()"/>
             <variable name="skipKeyword">
@@ -271,17 +273,19 @@
               </choose>
             </variable>
             <if test="$skipKeyword=false() and ($sublevel = $toplevel+1) and (generate-id(.) != generate-id($topElement))">
-              <a xmlns="http://www.w3.org/1999/xhtml">
-                <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
-                <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-                  <when test="self::osis:chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
-                  <when test="boolean($showFullGloss)=false() and self::osis:seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
-                  <otherwise><call-template xmlns="http://www.w3.org/1999/XSL/Transform" name="getTocTitle"/></otherwise>
-                </choose>
-              </a>
+              <li xmlns="http://www.w3.org/1999/xhtml">
+                <a>
+                  <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
+                  <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+                    <when test="self::osis:chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
+                    <when test="boolean($showFullGloss)=false() and self::osis:seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
+                    <otherwise><call-template xmlns="http://www.w3.org/1999/XSL/Transform" name="getTocTitle"/></otherwise>
+                  </choose>
+                </a>
+              </li>
             </if>
           </for-each>
-        </div>
+        </element>
       </if>
     </if>
   </template>
@@ -328,8 +332,8 @@
     </element>
   </template>
   
-  <!-- Remove these elements entirely -->
-  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
+  <!-- Remove these elements entirely (x-chapterLabel is output by WriteTableOfContentsEntry)-->
+  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='x-chapterLabel'] | osis:title[@type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
   
   <!-- Remove these tags (keeping their content). Paragraphs tags certain elements are dropped so that resulting HTML will validate -->
   <template match="osis:name | osis:seg | osis:reference[ancestor::osis:title[@type='scope']] | osis:p[descendant::osis:seg[@type='keyword']] | osis:p[descendant::osis:figure]" mode="xhtml">
