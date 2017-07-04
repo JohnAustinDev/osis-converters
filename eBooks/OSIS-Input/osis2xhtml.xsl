@@ -8,12 +8,11 @@
  
   <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES AND CORRESPONDING CONTENT.OPF FILE
   This transform may be tested from command line (and outputs will appear in the current directory): 
-  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2 'outputfmt=epub'
+  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
   <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="outputfmt" select="'epub'"/>            <!-- Target eBook format of conversion -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
   
@@ -92,7 +91,7 @@
           </xsl:for-each>
         </head>
         <body class="calibre">
-          <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', $outputfmt, tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
+          <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
             <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
@@ -356,33 +355,12 @@
   <template match="osis:seg[@type='keyword']" mode="xhtml" priority="2">
     <call-template name="WriteTableOfContentsEntry"/>
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <choose>
-      <!-- mobi -->
-      <when test="lower-case($outputfmt)='mobi'">
-        <div xmlns="http://www.w3.org/1999/xhtml" >
-          <xsl:call-template name="class"/>
-          <dfn id="{$osisIDid}">
-            <xsl:apply-templates mode="xhtml" select="node()"/>
-          </dfn>
-        </div>
-      </when>
-      <!-- fb2 -->
-      <when test="lower-case($outputfmt)='fb2'">
-        <h4 xmlns="http://www.w3.org/1999/xhtml">
-          <xsl:call-template name="class"/>
-          <xsl:apply-templates mode="xhtml" select="node()"/>
-        </h4>
-      </when>
-      <!-- epub -->
-      <otherwise>
-        <article xmlns="http://www.w3.org/1999/xhtml">
-          <xsl:call-template name="class"/>
-          <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisIDid}">
-            <xsl:apply-templates mode="xhtml" select="node()"/>
-          </dfn>
-        </article>
-      </otherwise>
-    </choose>
+    <article xmlns="http://www.w3.org/1999/xhtml">
+      <xsl:call-template name="class"/>
+      <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisIDid}">
+        <xsl:apply-templates mode="xhtml" select="node()"/>
+      </dfn>
+    </article>
   </template>
   
   <!-- Titles -->
@@ -519,22 +497,17 @@
       </choose>
     </variable>
     <variable name="osisRefid" select="replace($osisRef, '!', '_')"/>
-    <choose>
-      <when test="lower-case($outputfmt)!='fb2'">
-        <variable name="osisRefA">
-          <choose>
-            <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')"><value-of select="$osisRefid"/></when>  <!-- refs containing "!" point to a specific note -->
-            <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
-              <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
-              <variable name="spec" select="count(tokenize($osisRefStart, '\.'))"/>
-              <value-of select="if ($spec=1) then concat($osisRefStart, '.1.1') else (if ($spec=2) then concat($osisRefStart, '.1') else $osisRefStart)"/>
-            </otherwise>
-          </choose>
-        </variable>
-        <a xmlns="http://www.w3.org/1999/xhtml" href="{concat($file, '.xhtml', '#', $osisRefA)}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
-      </when>
-      <otherwise>%&amp;x-glossary-link&amp;%<xsl:apply-templates mode="xhtml" select="node()"/></otherwise>
-    </choose>
+    <variable name="osisRefA">
+      <choose>
+        <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')"><value-of select="$osisRefid"/></when>  <!-- refs containing "!" point to a specific note -->
+        <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
+          <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
+          <variable name="spec" select="count(tokenize($osisRefStart, '\.'))"/>
+          <value-of select="if ($spec=1) then concat($osisRefStart, '.1.1') else (if ($spec=2) then concat($osisRefStart, '.1') else $osisRefStart)"/>
+        </otherwise>
+      </choose>
+    </variable>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="{concat($file, '.xhtml', '#', $osisRefA)}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
   </template>
   
   <template match="osis:row" mode="xhtml">

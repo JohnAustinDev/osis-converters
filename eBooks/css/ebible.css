@@ -1,143 +1,298 @@
-.toc-entry {display: none;}
-
-.divineName { font-variant: small-caps; }
-.small, .sub, .sup  { font-size: .83em; }
-.sub             { vertical-align: sub; }
-.sup             { vertical-align: super; }
-.overline   { text-decoration: overline; }
-.wordsOfJesus { color:red;}
-
-.poetic-line {
-  text-indent:-1.5em;
-  padding-left:1.5em;
+img {
+  object-fit: contain;
+}
+body {
+  font-family: "DejaVu Serif", Georgia, Serif;
+  color: #000000;
+  line-height:1.2; /* minimum line-height is always 1.2 for MOBI */
+  text-align: left;
+  /*
+  adobe-hyphenate: manual;
+  -webkit-hyphens: manual;
+  -moz-hyphens: manual;
+  -ms-hyphens: manual;
+  -epub-hyphens: manual;
+  hyphens: manual;
+  */
+}
+body * {
+  line-height: inherit;
+}
+body.book {
+  text-align: left; /* or "justify" when hyphens are available */
+}
+body.book .xsl-footnote-section {
+  text-align: left;
+}
+.main.x-introduction {
+  text-align:center;
+}
+h1.x-introduction, h2.x-introduction, h3.x-introduction {
+  font-size:1.2em;
+}
+h1.x-introduction {
+  margin-top:2em;
+}
+h2.x-introduction, h3.x-introduction {
+  text-align: left;
+  font-weight:bold;
+  font-style:normal;
+}
+h1, h2, h3 {
+  page-break-after: avoid;
+  font-weight:bold;
+  color:#004400;
+  text-align: center;
+  clear:both;
+  margin-top:1em;
+  adobe-hyphenate: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
+  -epub-hyphens: none;
+  hyphens: none;
+}
+h1, .osis-seg.keyword {
+  font-size:1.2em;
+}
+h2, h3 {
+  font-size:1.1em;
+  font-weight:normal;
+  font-style:italic;
+}
+ul {
+  list-style: none;
 }
 
-.poetic-line.x-to-next-level {
+/* OSIS tag classes (OSIS tags output by usfm2osis.py) */
+.osis-p  {text-indent:1.5em; margin: 0px; padding-left:0px;}
+.osis-foreign,
+.osis-transChange,
+.osis-rdg,
+.osis-catchWord,
+.osis-hi.italic {font-style:italic;}
+.osis-hi.bold,
+.osis-hi.emphasis {font-weight:bold;}
+.osis-hi.line-through {text-decoration: line-through;}
+.osis-hi.sub {vertical-align: sub; font-size: smaller;}
+.osis-hi.super {font-size:0.675em; line-height: 1.2; vertical-align: super; vertical-align: 35%;}
+.osis-hi.underline {text-decoration: underline;}
+.osis-hi.small-caps {font-variant:small-caps}
+.osis-reference {
+  text-decoration: underline;
+  color:blue;
+}
+.osis-lg {
+  margin-left:1.5em;
+}
+.osis-l {
+  text-indent:-1.5em;
+  margin-left:1.5em;
+}
+.osis-note {
+  text-decoration:none;
+}
+.osis-lb {
+  margin:1em;
+}
+.osis-lb.x-optional {
+  margin:0px;
+}
+.osis-seg.keyword {
+  font-weight: bold;
+  page-break-after: avoid;
+  color:#004400;
+}
+.osis-milestone.pb  {
+  page-break-before: always;
+}
+
+/* More specific classes introduced by usfm2osis.py */
+.x-quote,
+.x-description {font-style:italic;}
+.x-noindent {text-indent: 0;}
+.x-center {text-align:center; text-indent:0; padding-left:0;}
+.x-noindent-indented {text-indent: 0; padding-left:1.5em;}
+.x-noindent-quote {text-indent:0px; font-style:italic;}
+.x-right {text-align:right;}
+.x-embedded-opening, .x-embedded-closing {text-indent:0px; padding-left:1.5em;}
+.x-embedded {text-indent:1.5em; padding-left:1.5em;}
+.x-indented-1 {padding-left:1.5em;}
+.x-indented-2 {padding-left:3em;}
+.x-indented-3 {padding-left:4em;}
+.x-indented-4 {padding-left:5em;}
+.x-indented-5 {padding-left:6em;}
+.x-level-1 {text-indent:1.5em;}
+.x-level-2 {text-indent:3em;}
+.x-level-3 {text-indent:4em;}
+.x-level-4 {text-indent:5em;}
+.x-level-5 {text-indent:6em;}
+.x-nobreak {margin-top:0px}
+.x-indented-hanging {padding-left:3em; text-indent:-1.5em}
+.x-nobreakNext {margin-bottom:0px}
+.x-nobreakNext-indented {margin-bottom:0px; text-indent:1.5em;}
+.x-alternate {
+  font-style:italic;
+  font-size:0.675em;
+  line-height: 1.2;
+  vertical-align: super;
+  vertical-align: 35%;
+}
+.acrostic {
+  text-align:center;
+  font-size:larger;
+  font-style:italic;
+}
+.selah {
+  text-align:right;
+  font-style:italic;
+}
+.x-speaker {
+  font-size:larger;
+  font-style:italic;
+}
+.parallel {
+  font-size:1em;
+  font-style:italic;
+}
+.source {
+  text-align:right;
+  font-style:italic;
+}
+.head {
+  font-weight:bold;
+  font-size:1em;
+}
+.scope {
+  text-align:center;
+  font-style:italic;
+}
+.x-chapterLabel {
+  text-decoration: underline;
+}
+.osis-title.psalm {
+  color:inherit;
+  font-size:1em;
+  font-weight:normal;
+  font-style:italic;
+  text-align: left;
+  margin-bottom:1em;
+  margin-left:1.5em;
+}
+/* other classes from usfm2osis.py:
+.outline, .book, .bridge, .majorSection, 
+.section, .subSection, .x-subSubSection, 
+.x-end, .x-p, .annotateRef, .otPassage,
+.study, .crossReference, .x-sidebar, 
+*/
+
+/* Classes introduced by osis-converters */
+.osis-reference.x-glossary,
+.osis-reference.x-glosslink {
+  color: #000000;
+}
+.osis-l.x-to-next-level {
   text-indent:-3em;
   padding-left:3em;
 }
 
-.x-noindent {
-	text-indent: 0;
+/* Classes introduced by osis2xhtml.xsl */
+/* .xsl-selah */
+.xsl-verse-number {
+  font-size:0.675em;
+  line-height: 1.2;
+  vertical-align: super;
+  vertical-align: 35%;
+  color:#004400;
+  margin-right:0.2em;
 }
-
-.x-indent-0 {
-	margin-left: 0;
-}
-.x-indented-1,
-.x-indent-1 {
-	margin-left: 1.5em;	
-}
-.x-indented-2,
-.x-indent-2 {
-	margin-left: 3em;		
-}
-.x-indented-3,
-.x-indent-3 {
-	margin-left: 4.5em;
-}
-.x-indented-4,
-.x-indent-4{
-	margin-left: 6em;
-}
-.x-right{
-	text-align: right;
-}
-
-h1, h2, h3 {
-  clear: both;
-  page-break-after: avoid;
-}
-
-h3, h4 {
-  margin-bottom: 0;
-  margin-top: 0;
-}
-
-h1, h2 {
-  margin-bottom: 1em;
-  margin-top: 1em;
-  font-weight: bold;
-  text-align: center;
-}
-
-p, div {
-  margin-top: 0;
-  margin-bottom:0;
-}
-
-
-p {
-	text-indent: 1em
-}
-
-dfn {
-	font-weight: bold;
-}
-
-table {
-	border: 0;
-}
-
-.first-para {
-	text-indent: 0
-}
-
-.first-line {
-	text-indent: 0
-}
-
-.canonical {
-  font-style:italic;
-}
-
-.book-subtitle {
-  text-align: center;
-}
-
-.x-chapter-title {
-  text-decoration: underline;
-}
-
-.x-chapter-number {
-  font-size: 3em; 
-  float: left; 
-  margin-right: 5px;
-  text-indent: 0  
-}
-
-.x-introduction {
-	background-color:#ebebeb
-}
-
-.x-glossary-link {
-	background-color: #f0ffff;
-	text-decoration: none;
-	color: black;
-}
-
-.heading {
-  font-weight: bold;
-  text-align: center;
-}
-
-.alt-var {
-  font-style: italic;
-}
-
-.foreign {
-  font-style: italic;
-}
-
-.transChange {
-  font-style: italic;
-}
-
-.glossary-entry {
-  margin-bottom: 1em;
-  margin-top: 1em;
-}
-
-.page-break  {
+.xsl-toc-entry {
   page-break-before: always;
+}
+.xsl-toc-entry:not(.x-chapterLabel),
+body:not(.Ps) .x-chapterLabel {
+  /* display:none causes hyperlinks to fail in calibre ebook viewer and mobi */
+  visibility: hidden;
+  height:0px;
+  padding: 0px 0px 0px 0px;
+  margin: 0px 0px 0px 0px;
+}
+.xsl-chapter-number {
+  font-size: 2em; 
+  font-weight:bold;
+  color:#004400;
+  float: left; 
+  margin: -0.1em 0.2em 0 0;
+  text-indent: 0;  
+}
+.osis-l > .xsl-chapter-number {
+  position:relative;
+  left:-0.6em;
+}
+.Ps .xsl-chapter-number {
+  display:none;
+}
+
+.xsl-footnote {
+  margin-top:1em;
+}
+.xsl-note-number:not(.xsl-footnote-head) {
+  font-size:0.675em;
+  line-height: 1.2;
+  vertical-align: super;
+  vertical-align: 35%;
+}
+.xsl-inline-toc {
+  display:block;
+  list-style-type:none;
+  border:2px solid #555555;
+  background-color:#f1f1f1;
+  text-align:center;
+  padding:0.5em;
+  margin:1em 0;
+  text-indent: 0; /* the toc sometimes appears in a paragraph */
+}
+.xsl-inline-toc li {
+  display:inline-block;
+  border:1px solid blue;
+  text-align:center;
+  min-width:2em;
+  border-radius:4px;
+  padding:0.3em 0.5em;
+  margin:0.2em 0.1em;
+}
+.xsl-inline-toc a {
+  color:blue;
+  text-decoration:underline;
+}
+.xsl-footnote-section hr:last-child {
+  display:none;
+}
+
+/* Keep a figure with its caption */
+figure {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin: 1em 0 0 0;
+}
+
+/* Fixes for legacy RMSDK */
+article, aside, figure, figcaption, 
+footer, header, main, nav, section {
+  display: block;
+}
+
+/* Utilize otf features (EPUB) */
+body {
+  font-kerning: normal;
+  font-variant: common-ligatures oldstyle-nums proportional-nums;
+  font-feature-settings: "kern", "liga", "clig", "onum", "pnum";
+}
+h1, h2, h3 {
+  font-variant: common-ligatures lining-nums proportional-nums;
+  font-feature-settings: "kern", "liga", "clig", "lnum", "pnum";
+}
+table {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "kern", "lnum", "tnum";
 }

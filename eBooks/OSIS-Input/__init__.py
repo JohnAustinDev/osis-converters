@@ -1,10 +1,6 @@
 from calibre.customize.conversion import InputFormatPlugin, OptionRecommendation
 from calibre_plugins.osis_input.config import ConversionConfig
 from calibre_plugins.osis_input.context import ConvertContext
-from calibre_plugins.osis_input.writer import HtmlWriter
-from calibre_plugins.osis_input.bible import BibleHandler
-from calibre_plugins.osis_input.glossary import GlossaryHandler
-from xml.sax import make_parser
 import shutil
 import glob
 import codecs
@@ -17,17 +13,15 @@ from os import walk
 class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
-    description = 'Convert IBT OSIS xml files to ebooks'
-    version = (2, 3, 0)
+    description = 'Convert IBT OSIS xml files to epub'
+    version = (3, 0, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['linux']
 
     options = set([
     OptionRecommendation(name='config_file', recommended_value='convert.txt',
-            help=_('Config file containing Bible book names etc.')),
-        OptionRecommendation(name='output_fmt', recommended_value='epub',
-            help=_('Output file format'))
+            help=_('Config file'))
     ])
 
     def convert(self, stream, options, file_ext, log, accelerators):
@@ -36,11 +30,6 @@ class OsisInput(InputFormatPlugin):
         self.opts = options
         self.config = ConversionConfig(self.opts.config_file)
         self.context = ConvertContext(self.config)
-        self.context.outputFmt = self.opts.output_fmt
-        #
-        # EPUB3 only relevant for epub
-        if self.context.outputFmt != 'epub':
-            self.config.epub3 = False
             
         # Get the directory of our input files
         filePath = stream.name
@@ -67,7 +56,7 @@ class OsisInput(InputFormatPlugin):
         # Transform the OSIS files to XHTML
         with open("./osis2xhtml.xsl", "w") as text_file:
           text_file.write(get_resources('osis2xhtml.xsl'))
-        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % inputOSIS, "-o:content.opf", "css=%s" % (",").join(sorted(cssFileNames)), "tocnumber=%s" % self.context.config.toc, "outputfmt=%s" % options.output_fmt]
+        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % inputOSIS, "-o:content.opf", "css=%s" % (",").join(sorted(cssFileNames)), "tocnumber=%s" % self.context.config.toc]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
