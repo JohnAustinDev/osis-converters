@@ -52,7 +52,7 @@ h1, h2, h3 {
   -epub-hyphens: none;
   hyphens: none;
 }
-h1, .osis-seg.keyword {
+h1, dfn {
   font-size:1.2em;
 }
 h2, h3 {
@@ -97,11 +97,6 @@ ul {
 }
 .osis-lb.x-optional {
   margin:0px;
-}
-.osis-seg.keyword {
-  font-weight: bold;
-  page-break-after: avoid;
-  color:#004400;
 }
 .osis-milestone.pb  {
   page-break-before: always;
@@ -209,7 +204,7 @@ ul {
 .xsl-toc-entry {
   page-break-before: always;
 }
-.xsl-toc-entry:not(.x-chapterLabel),
+.xsl-toc-entry.xsl-milestone,
 body:not(.Ps) .x-chapterLabel {
   /* display:none causes hyperlinks to fail in calibre ebook viewer and mobi */
   visibility: hidden;
@@ -232,7 +227,11 @@ body:not(.Ps) .x-chapterLabel {
 .Ps .xsl-chapter-number {
   display:none;
 }
-
+dfn {
+  font-weight: bold;
+  page-break-after: avoid;
+  color:#004400;
+}
 .xsl-footnote {
   margin-top:1em;
 }

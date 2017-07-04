@@ -109,10 +109,12 @@
             </when>
             <!-- glossintro and glosskey -->
             <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_gloss'))">
-              <apply-templates mode="xhtml" select="current-group()"/>
-              <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="current-group()"/>
-              </div>
+              <article xmlns="http://www.w3.org/1999/xhtml">
+                <xsl:apply-templates mode="xhtml" select="current-group()"/>
+                <div class="xsl-footnote-section"><hr/>
+                  <xsl:apply-templates mode="footnotes" select="current-group()"/>
+                </div>
+              </article>
             </when>
             <!-- book -->
             <otherwise>
@@ -185,11 +187,13 @@
   <!-- Table of Contents -->
   <!-- WriteTableOfContentsEntry may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="WriteTableOfContentsEntry">
-    <h1 xmlns="http://www.w3.org/1999/xhtml" id="{generate-id(.)}">
-      <xsl:attribute name="class" select="concat('xsl-toc-entry', (if (self::osis:chapter) then ' x-chapterLabel' else ''))"/>
-      <xsl:attribute name="toclevel"><xsl:call-template name="getTocLevel"/></xsl:attribute>
-      <xsl:call-template name="getTocTitle"/>
-    </h1>
+    <param name="element"/>
+    <element name="{if ($element) then $element else 'h1'}" namespace="http://www.w3.org/1999/xhtml">
+      <attribute name="id" select="generate-id(.)"/>
+      <attribute name="class" select="concat('xsl-toc-entry', (if (self::osis:chapter) then ' x-chapterLabel' else (if (self::osis:seg) then ' xsl-keyword' else ' xsl-milestone')))"/>
+      <attribute name="toclevel"><call-template name="getTocLevel"/></attribute>
+      <call-template name="getTocTitle"/>
+    </element>
   </template>
   
   <!-- getTocLevel may be called from: Bible osisText, milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
@@ -353,14 +357,8 @@
   
   <!-- Glossary keywords -->
   <template match="osis:seg[@type='keyword']" mode="xhtml" priority="2">
-    <call-template name="WriteTableOfContentsEntry"/>
-    <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <article xmlns="http://www.w3.org/1999/xhtml">
-      <xsl:call-template name="class"/>
-      <dfn xmlns="http://www.w3.org/1999/xhtml" id="{$osisIDid}">
-        <xsl:apply-templates mode="xhtml" select="node()"/>
-      </dfn>
-    </article>
+    <span id="{replace(replace(@osisID, '^[^:]*:', ''), '!', '_')}" xmlns="http://www.w3.org/1999/xhtml"></span>
+    <call-template name="WriteTableOfContentsEntry"><with-param name="element" select="'dfn'"/></call-template>
   </template>
   
   <!-- Titles -->
