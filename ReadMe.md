@@ -1,16 +1,16 @@
-#osis-converters
+# osis-converters
 Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to 
 [OSIS](http://www.crosswire.org/osis/), 
 [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, 
 [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
 EPUB, MOBI, and FB2 files.
 
-##setup:
+## setup:
 **Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
 [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
 [Git with GitBash](https://git-scm.com/downloads)
 
-##use:
+## use:
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
 the directory: `/some-path/MODULE_NAME/sfm/`
 
@@ -35,7 +35,7 @@ also essentially serves as osis-converters' documentation.
 
 -----
 
-##Comparison of OSIS files to CrossWire OSIS
+## Comparison of OSIS files to CrossWire OSIS
 
 Osis-converters now utilizes CrossWire's usfm2osis.py script for the
 initial USFM to OSIS conversion (when possible). Additionally, the OSIS 
@@ -47,21 +47,21 @@ Optional CSS classes supported by xulsword are:
 * x-parallel-passage (for parallel passages cross references)
 * x-ref-cb (for reference title links found in Children's Bibles) 
 
-##Comparison of .conf files to CrossWire .conf
+## Comparison of .conf files to CrossWire .conf
 
 These xulsword specific .conf file entries may be inluded:
 
 * `LangSortOrder = AaBbCcDdEe...` is used by xulsword to sort the keys of
 a dictionary/glossary in original alphabetical order.
 
-##Comparison of IMP files to CrossWire IMP
+## Comparison of IMP files to CrossWire IMP
 
 Osis-converters now generates TEI dictionaries according to CrossWire's
 recommendations, so use of IMP is now deprecated. CrossWire encourages 
 the use of [TEI P5](http://www.crosswire.org/wiki/TEI_Dictionaries) for 
 dictionary markup.
 
-##Deprecated (no longer output by osis-converters)
+## Deprecated (no longer output by osis-converters)
 
 * `TabLabel` conf entry was replaced by the standard entry: `Abbreviation`.
 * `GlobalOptionFilter = OSISDictionary` was replaced by the standard 
