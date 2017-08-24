@@ -1397,7 +1397,7 @@ sub filterGlossaryReferences($@) {
   }
   
   my $osis1 = $osis; $osis1 =~ s/^.*\///; 
-  &Log("\nFiltering glossary references in \"$osis1\" that target outside \"".join(", ", @glossRefOsis1)."\".\n", 2);
+  &Log("\nFiltering glossary references in \"$osis1\" that target outside \"".join(", ", @glossRefOsis1)."\".\n", 1);
   my $total = 0;
   
   my $xml = $XML_PARSER->parse_file($osis);
@@ -1411,14 +1411,14 @@ sub filterGlossaryReferences($@) {
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
       $link->unbindNode();
       $total++;
-      #&Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
+      &Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
     }
   }
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" glossary references filtered.\n\n", 2);
+  &Log("$MOD REPORT: \"$total\" glossary references filtered.\n\n", 1);
   return $total;
 }
 
