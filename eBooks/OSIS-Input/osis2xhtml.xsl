@@ -205,7 +205,7 @@
     <variable name="toclevelOSIS">
       <choose>
         <when test="$isBible">
-          <variable name="bookGroupLevel" select="count(ancestor::osis:div[@type='bookGroup']/*[1][self::osis:div]/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)][1])"/>
+          <variable name="bookGroupLevel" select="count(ancestor::osis:div[@type='bookGroup']/*[1][self::osis:div[not(@type='book')]]/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)][1])"/>
           <choose>
             <when test="self::osis:osisText">0</when>
             <when test="self::osis:chapter[@sID]"><value-of select="2 + $bookGroupLevel"/></when>
@@ -372,9 +372,9 @@
   </template>
   
   <!-- Parallel passage titles become secondary titles !-->
-  <xsl:template match="osis:title[@type='parallel']">
+  <template match="osis:title[@type='parallel']" mode="xhtml">
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></h2>
-  </xsl:template>
+  </template>
   
   <template match="osis:catchWord | osis:foreign | osis:hi | osis:rdg | osis:transChange" mode="xhtml">
     <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></span>
@@ -400,9 +400,9 @@
     </figure>
   </template>
 
-  <xsl:template match="osis:head">
+  <template match="osis:head" mode="xhtml">
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></h2>
-  </xsl:template>
+  </template>
   
   <template match="osis:item" mode="xhtml">
     <li xmlns="http://www.w3.org/1999/xhtml"><call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></li>
