@@ -3125,6 +3125,62 @@ sub writeFootnoteIDs() {
 }
 
 
+sub writeTOC($) {
+  my $osis = shift;
+  
+  &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  
+  my @tocTags = $XPC->findnodes('//osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $xml);
+  my @tocDefaultTags = $XPC->findnodes('//osis:milestone[@n][@type="x-usfm-toc2"]', $xml);
+  
+  if (@tocTags) {
+    &Log("NOTE: Found ".scalar(@tocTags)." table of content milestone tags:\n");
+    foreach my $t (@tocTags) {
+      &Log($t->toString()."\n");
+    }
+    if (!@tocDefaultTags) {
+      &Log("WARNING: No <milestone type=\"x-usfm-toc2\"> tags were found. They either must be added, or else the eBook convert.txt file must contain \"TOC=1\" or \"TOC=3\" to choose a different set of Table Of Content tags to use for eBook TOCs.\n");
+    }
+    return;
+  }
+  
+  &Log("WARNING: No Table Of Content tags were found. Default tags will be added where necessary.\n");
+  
+  # Create TOC entries for all top level divs with titles, and for all books
+  my @topDivTitles = $XPC->findnodes('//osis:osisText[1]/osis:div[not(@type="book")]/osis:title[@type="main"][1]', $xml);
+  foreach my $t (@topDivTitles) {
+    my $tag = '<milestone type="x-usfm-toc2" n="'.$t->textContent.'"/>';
+    &Log("Note: Inserting div \"$tag\" in Table Of Contents\n");
+    $t->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $t->parentNode->firstChild);
+  }
+  
+  my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $bk (@bks) {
+    # Get the book name from the first applicable title
+    my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
+    if (!@title || !@title[0]) {
+      @title = $XPC->findnodes('./osis:title[@type="main"]', $bk);
+    }
+    my $name;
+    if (!@title || !@title[0]) {
+      $name = $bk->getAttribute("osisID");
+      &Log("ERROR writeTOC: Could not locate book name for \"$name\" in OSIS file.\n");
+    }
+    else {$name = @title[0]->textContent;}
+    
+    my $tag = "<milestone type=\"x-usfm-toc2\" n=\"$name\"/>";
+    &Log("Note: Inserting book \"$tag\" in Table Of Contents\n");
+    $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
+  }
+  
+  open(OUTF, ">$osis") or die "writeTOC could not open file: \"$osis\".\n";
+  print OUTF $xml->toString();
+  close(OUTF);
+}
+
+
 $IS_SEG_INLINE  = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') ne 'keyword');};
 $IS_SEG_COMPACT = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') eq 'keyword');};
 sub prettyPrintOSIS($) {
@@ -3274,7 +3330,7 @@ sub joinOSIS($) {
 sub normalizeRefsIds($) {
   my $osis = shift;
   
-  &Log("Normalizing osisRef and osisID attributes in OSIS file \"$osis\".\n");
+  &Log("\nNormalizing osisRef and osisID attributes in OSIS file \"$osis\".\n");
   
   my @files = &splitOSIS($osis);
   

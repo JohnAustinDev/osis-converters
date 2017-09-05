@@ -18,6 +18,7 @@ elsif ($MODDRV =~ /LD/) {
   &writeEntryOsisIDs("$TMPDIR/".$MOD."_1.xml");
 }
 &writeFootnoteIDs("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
+&writeTOC("$TMPDIR/".$MOD."_1.xml");
 my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();
 $osisDocString =~ s/\n+/\n/gm;
 open(OUTF, ">$TMPDIR/".$MOD."_1.xml");
