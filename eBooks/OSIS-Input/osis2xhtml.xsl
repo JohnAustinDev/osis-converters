@@ -25,8 +25,8 @@
   <!-- Separate the OSIS file into separate xhtml files based on this template -->
   <template match="osis:osisText | osis:div[@type='bookGroup'] | osis:div[@type='book'] | osis:div[@type='glossary']">
     <choose>
-      <when test="self::osis:div[@type='glossary']"> <!-- since glossary entries are not containers, for-each-group must be used to separate each entry into separate files -->
-        <for-each-group select="node()" group-adjacent="count(following::osis:seg[@type='keyword'])"><call-template name="ProcessFile"/></for-each-group>
+      <when test="self::osis:div[@type='glossary']"> <!-- Glossary entries are not containers, so for-each-group must be used to separate each entry into its own file -->
+        <for-each-group select=".//node()[count(descendant::osis:seg[@type='keyword']) &#60; 2]" group-by="count(following::osis:seg[@type='keyword'])"><call-template name="ProcessFile"/></for-each-group>
       </when>
       <otherwise><call-template name="ProcessFile"/></otherwise>
     </choose>
@@ -55,12 +55,13 @@
     <variable name="osisIDWork" select="ancestor-or-self::osis:osisText/@osisIDWork"/>
     <choose>
       <when test="ancestor-or-self::osis:div[@type='glossary']">
+        <variable name="numGlossKeys" select="count(//osis:seg[@type='keyword'])"/>
         <choose>
-          <when test="not(descendant-or-self::osis:seg[@type='keyword']) and count(preceding::osis:seg[@type='keyword']) = count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:seg[@type='keyword'])">
+          <when test="count(descendant-or-self::osis:seg[@type='keyword']) != 1 and count(preceding::osis:seg[@type='keyword']) = count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:seg[@type='keyword'])">
             <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::osis:div[@type='glossary']) + 1)"/>
           </when>
           <otherwise>
-            <value-of select="concat($osisIDWork, '_glosskey_', count(preceding::osis:seg[@type='keyword']) + 1)"/>
+            <value-of select="concat($osisIDWork, '_glosskey_', $numGlossKeys - count(following::osis:seg[@type='keyword']))"/>
           </otherwise>
         </choose>
       </when>
@@ -110,7 +111,8 @@
             <!-- glossintro and glosskey -->
             <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_gloss'))">
               <article xmlns="http://www.w3.org/1999/xhtml">
-                <xsl:apply-templates mode="xhtml" select="current-group()"/>
+                <!-- Select only those nodes whose parent element is not in the current-group, because apply-templates is recursive -->
+                <xsl:for-each select="current-group()[count(index-of(current-group(), ./..))=0]"><xsl:apply-templates mode="xhtml" select="."/></xsl:for-each>
                 <div class="xsl-footnote-section"><hr/>
                   <xsl:apply-templates mode="footnotes" select="current-group()"/>
                 </div>
