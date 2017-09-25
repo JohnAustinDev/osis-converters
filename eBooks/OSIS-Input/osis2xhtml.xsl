@@ -60,7 +60,7 @@
     </choose>
   </template>
   
-  <!-- This template may be called from any element. It returns the output file name that contains the element -->
+  <!-- This template may be called from any element that appears only within a single file. It returns the output file name that contains the element -->
   <template name="getFileName">
     <variable name="osisIDWork" select="ancestor-or-self::osis:osisText/@osisIDWork"/>
     <choose>
@@ -219,7 +219,7 @@
   <!-- getTocLevel may be called from: Bible osisText, milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="getTocLevel">
     <!-- Determine TOC hierarchy from OSIS hierarchy, but if the level is explicitly specified, that value is always 
-    used (and this is done by prepending "[levelN] " to the "n" attribute value of a milestone toc tag). -->
+    used (and this is done by prepending "[levelN] " to the "n" attribute value). -->
     <variable name="toclevelEXPLICIT" select="if (matches(@n, '^\[level\d\] ')) then substring(@n, 7, 1) else '0'"/>
     <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
     <variable name="toclevelOSIS">
@@ -506,9 +506,10 @@
         <otherwise>
           <variable name="target" select="if ($workid = ancestor::osis:osisText[1]/@osisRefWork) then ancestor::osis:osisText[1]//*[@osisID=$osisRef] else doc(concat($workid, '.xml'))//*[@osisID=$osisRef]"/>
           <choose>
+            <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
             <when test="count($target)=1"><for-each select="$target"><call-template name="getFileName"/></for-each></when>
             <otherwise>
-              <message>ERROR: Target osisID not found, or multiple found: workID="<value-of select="$workid"/>", elementID="<value-of select="$osisRef"/>"</message>
+              <message>ERROR: Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message>
             </otherwise>
           </choose>
         </otherwise>
