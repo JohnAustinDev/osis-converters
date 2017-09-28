@@ -18,25 +18,30 @@
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
   
-  <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement here -->
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no"/>
+  <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
+  <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
+  
+  <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement for xhtml outputs -->
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml" use-character-maps="xhtml-entities"/>
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
   
   <variable name="mainInputOSIS" select="/"/>
+
+  <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook, and all input OSIS files must reside in the same directory -->
+  <variable name="referencedOsisDocs" select="//work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
 
   <!-- ROOT NODE TEMPLATE FOR ALL INPUT OSIS FILES -->
   <template match="/">
     <param name="currentTask" select="'write-xhtml'" tunnel="yes"/><!-- The tasks are: write-xhtml, write-manifest and write-spine -->
-    
+   
     <!-- Do the currentTask for this OSIS file -->
     <message><text>&#xa;</text><value-of select="concat(tokenize(document-uri(.), '/')[last()], ': ', $currentTask)"/></message>
     <apply-templates><with-param name="currentDoc" select="/" tunnel="yes"/></apply-templates>
     
-    <!-- If we're doing write-xhtml on the main input OSIS file, then convert referenced documents, and output the package element -->
+    <!-- If we're doing write-xhtml on the main input OSIS file, then convert referenced documents and output content.opf as well -->
     <if test="generate-id(.) = generate-id($mainInputOSIS) and $currentTask = 'write-xhtml'">
       <variable name="osisIDWork" select="//osisText/@osisIDWork"/>
       
-      <!-- Note: the main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook -->
-      <variable name="referencedOsisDocs" select="//work[@osisWork != $osisIDWork]/doc(concat(@osisWork, '.xml'))"/>
       <for-each select="$referencedOsisDocs"><!-- this recursively calls the current template on each referenceOsisDocs -->
         <apply-templates select="."><with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/></apply-templates>
       </for-each>
@@ -94,7 +99,6 @@
         </spine>
       </package>
     </if>
-
   </template>
   
   <!-- Pass over all nodes that don't match another template (output nothing) -->
@@ -168,7 +172,7 @@
     <param name="filename"/>
     <message select="concat('WRITING:', $filename)"/>
     <variable name="osisIDWork" select="ancestor-or-self::osisText/@osisIDWork"/>
-    <result-document method="xml" href="xhtml/{$filename}.xhtml">
+    <result-document format="xhtml" method="xml" href="xhtml/{$filename}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
           <meta name="generator" content="OSIS"/>
@@ -396,10 +400,8 @@
   <!-- WriteMainRootTOC may be called from: Main input OSIS file's osisText or milestone[x-usfm-toc] -->
   <template name="WriteMainRootTOC">
     <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
-    <for-each select="//work[child::type[@type='x-glossary']]/@osisWork">
-      <for-each select="doc(concat(., '.xml'))//osisText">
-        <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
-      </for-each>
+    <for-each select="$referencedOsisDocs//osisText">
+      <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
     </for-each>
   </template>
   
@@ -635,7 +637,7 @@
           <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/><!-- this faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
         </when>
         <otherwise>
-          <variable name="target" select="if ($workid = ancestor::osisText/@osisRefWork) then ancestor::osisText//*[@osisID=$osisRef] else doc(concat($workid, '.xml'))//*[@osisID=$osisRef]"/>
+          <variable name="target" select="($mainInputOSIS | $referencedOsisDocs)//osisText[@osisRefWork = $workid]//*[@osisID = $osisRef]"/>
           <choose>
             <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
             <when test="count($target)=1"><for-each select="$target"><call-template name="getFileName"/></for-each></when>
