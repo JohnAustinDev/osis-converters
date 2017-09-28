@@ -1,53 +1,131 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <stylesheet version="2.0"
+ xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:html="http://www.w3.org/1999/xhtml"
- xmlns:epub="http://www.idpf.org/2007/ops"
- xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
+ xmlns:epub="http://www.idpf.org/2007/ops">
  
   <!-- TRANSFORM AN OSIS FILE INTO A SET OF CALIBRE PLUGIN INPUT XHTML FILES AND CORRESPONDING CONTENT.OPF FILE
   This transform may be tested from command line (and outputs will appear in the current directory): 
-  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:input-osis.xml -o:content.opf tocnumber=2
+  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:main_input_osis.xml -o:content.opf
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
   <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="20"/>              <!-- Glossary divs with this number or more glossary entries will only appear by first letter in the inline TOC -->
+  <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
   
   <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement here -->
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no"/>
   
+  <variable name="mainInputOSIS" select="/"/>
+
+  <!-- ROOT NODE TEMPLATE FOR ALL INPUT OSIS FILES -->
+  <template match="/">
+    <param name="currentTask" select="'write-xhtml'" tunnel="yes"/><!-- The tasks are: write-xhtml, write-manifest and write-spine -->
+    
+    <!-- Do the currentTask for this OSIS file -->
+    <message><text>&#xa;</text><value-of select="concat(tokenize(document-uri(.), '/')[last()], ': ', $currentTask)"/></message>
+    <apply-templates><with-param name="currentDoc" select="/" tunnel="yes"/></apply-templates>
+    
+    <!-- If we're doing write-xhtml on the main input OSIS file, then convert referenced documents, and output the package element -->
+    <if test="generate-id(.) = generate-id($mainInputOSIS) and $currentTask = 'write-xhtml'">
+      <variable name="osisIDWork" select="//osisText/@osisIDWork"/>
+      
+      <!-- Note: the main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook -->
+      <variable name="referencedOsisDocs" select="//work[@osisWork != $osisIDWork]/doc(concat(@osisWork, '.xml'))"/>
+      <for-each select="$referencedOsisDocs"><!-- this recursively calls the current template on each referenceOsisDocs -->
+        <apply-templates select="."><with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/></apply-templates>
+      </for-each>
+      
+      <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
+        <metadata 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+            xmlns:opf="http://www.idpf.org/2007/opf" 
+            xmlns:dcterms="http://purl.org/dc/terms/" 
+            xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
+            xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:publisher><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:publisher>
+          <dc:title><xsl:value-of select="//work[@osisWork = $osisIDWork]/title/text()"/></dc:title>
+          <dc:language><xsl:value-of select="//work[@osisWork = $osisIDWork]/language/text()"/></dc:language>
+          <dc:identifier scheme="ISBN"><xsl:value-of select="//work[@osisWork = $osisIDWork]/identifier[@type='ISBN']/text()"/></dc:identifier>
+          <dc:creator opf:role="aut"><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:creator>
+        </metadata>
+        <manifest>
+          <xsl:for-each select=". | $referencedOsisDocs">
+            <xsl:apply-templates select="."><xsl:with-param name="currentTask" select="'write-manifest'" tunnel="yes"/></xsl:apply-templates>
+          </xsl:for-each>
+          <xsl:for-each select="distinct-values((//figure/@src, $referencedOsisDocs//figure/@src))">
+            <item>
+              <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
+              <xsl:attribute name="id" select="tokenize(., '/')[last()]"/>
+              <xsl:attribute name="media-type">
+                <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+                  <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
+                  <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
+                  <when test="ends-with(lower-case(.), 'png')">image/png</when>
+                  <otherwise>application/octet-stream</otherwise>
+                </choose>
+              </xsl:attribute>
+            </item>
+          </xsl:for-each>
+          <xsl:for-each select="tokenize($css, '\s*,\s*')">
+            <xsl:choose>
+              <xsl:when test="ends-with(lower-case(.), 'css')">
+                <item href="{.}" id="{.}" media-type="text/css"/>
+              </xsl:when>
+              <xsl:when test="ends-with(lower-case(.), 'ttf')">
+                <item href="./{.}" id="{.}" media-type="application/x-font-ttf"/>
+              </xsl:when>
+              <xsl:when test="ends-with(lower-case(.), 'otf')">
+                <item href="./{.}" id="{.}" media-type="application/vnd.ms-opentype"/>
+              </xsl:when>
+              <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
+            </xsl:choose>
+          </xsl:for-each>
+        </manifest>
+        <spine toc="ncx">
+          <xsl:for-each select=". | $referencedOsisDocs">
+            <xsl:apply-templates select="."><xsl:with-param name="currentTask" select="'write-spine'" tunnel="yes"/></xsl:apply-templates>
+          </xsl:for-each>
+        </spine>
+      </package>
+    </if>
+
+  </template>
+  
   <!-- Pass over all nodes that don't match another template (output nothing) -->
-  <template match="node()"><apply-templates select="node()"/></template>
+  <template match="node()"><apply-templates/></template>
   
   <!-- Separate the OSIS file into separate xhtml files based on this template -->
-  <template match="osis:osisText | osis:div[@type='bookGroup'] | osis:div[@type='book'] | osis:div[@type='glossary']">
+  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type='glossary']">
     <choose>
-      <when test="self::osis:div[@type='glossary']">
-        <!-- Having each glossary entry in its own file ensures that links and article tags all work properly across various eBook readers -->
-        <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node() return count($i/following::osis:seg[@type='keyword'])">
+      <when test="self::div[@type='glossary']">
+        <!-- Put each glossary entry in its own file to ensure that links and article tags all work properly across various eBook readers -->
+        <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node() return count($i/following::seg[@type='keyword'])">
           <sort select="current-grouping-key()" order="descending" data-type="number"/>
           <call-template name="ProcessFile"/>
         </for-each-group>
       </when>
       <otherwise><call-template name="ProcessFile"/></otherwise>
     </choose>
-    <apply-templates select="node()"/>
+    <apply-templates/>
   </template>
   
   <!-- ProcessFile may be called with any element that should initiate a new output file above. It writes the file's contents and adds it to manifest and spine -->
   <template name="ProcessFile">
-    <param name="contentopf" tunnel="yes"/> <!-- this allows writing to content.opf on subsequent passes when contentopf param is set -->
+    <!-- A currentTask param is used in lieu of XSLT's mode feature here. This is necessary because identical template selectors are required for multiple 
+    modes (ie. a single template element should handle multiple modes), yet template content must also vary by mode (something XSLT 2.0 modes alone can't do) -->
+    <param name="currentTask" tunnel="yes"/>
     <variable name="filename"><call-template name="getFileName"><with-param name="glossaryGroupingKey" select="current-grouping-key()"/></call-template></variable>
     <choose>
-      <when test="$contentopf='manifest'">
+      <when test="$currentTask = 'write-manifest'">
         <item xmlns="http://www.idpf.org/2007/opf" href="xhtml/{$filename}.xhtml" id="id.{$filename}" media-type="application/xhtml+xml"/>
       </when>
-      <when test="$contentopf='spine'">
+      <when test="$currentTask = 'write-spine'">
         <itemref xmlns="http://www.idpf.org/2007/opf" idref="id.{$filename}"/>
       </when>
       <otherwise>
@@ -56,38 +134,40 @@
     </choose>
   </template>
   
-  <!-- This template may be called from any element that appears only within a single file. It returns the output file name that contains the element -->
+  <!-- This template may be called from any element. It returns the output file name that contains the element -->
+  <!-- If the element is part of a glossary, and is associated with multiple files (groups) then glossaryGroupingKey must be supplied to specify which group this call pertains to -->
   <template name="getFileName">
-    <param name="glossaryGroupingKey" select="'none'"/><!-- necessary for glossary current-group() elements, since they may be part of multiple groups -->
-    <variable name="osisIDWork" select="ancestor-or-self::osis:osisText/@osisIDWork"/>
+    <param name="glossaryGroupingKey" select="'none'"/>
+    <variable name="osisIDWork" select="ancestor-or-self::osisText/@osisIDWork"/>
     <choose>
-      <when test="ancestor-or-self::osis:div[@type='glossary']">
+      <when test="ancestor-or-self::div[@type='glossary']">
         <choose>
-          <when test="count(preceding::osis:seg[@type='keyword']) = count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:seg[@type='keyword']) and not(descendant-or-self::osis:seg[@type='keyword'])">
-            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::osis:div[@type='glossary']) + 1)"/>
+          <when test="count(preceding::seg[@type='keyword']) = count(ancestor::div[@type='glossary'][1]/preceding::seg[@type='keyword']) and not(descendant-or-self::seg[@type='keyword'])">
+            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::div[@type='glossary']) + 1)"/>
           </when>
           <otherwise>
             <value-of select="concat($osisIDWork, '_glosskey_', 
-                count(//osis:seg[@type='keyword']) - (if ($glossaryGroupingKey castable as xs:integer) then $glossaryGroupingKey else count(following::osis:seg[@type='keyword'])))"/>
+                count(//seg[@type='keyword']) - (if ($glossaryGroupingKey castable as xs:integer) then $glossaryGroupingKey else count(following::seg[@type='keyword'])))"/>
           </otherwise>
         </choose>
       </when>
-      <when test="ancestor-or-self::osis:div[@type='book']">
-        <value-of select="concat($osisIDWork, '_', ancestor-or-self::osis:div[@type='book']/@osisID)"/>
+      <when test="ancestor-or-self::div[@type='book']">
+        <value-of select="concat($osisIDWork, '_', ancestor-or-self::div[@type='book']/@osisID)"/>
       </when>
-      <when test="ancestor-or-self::osis:div[@type='bookGroup']">
-        <value-of select="concat($osisIDWork,'_bookGroup-introduction_', count(preceding::osis:div[@type='bookGroup']) + 1)"/>
+      <when test="ancestor-or-self::div[@type='bookGroup']">
+        <value-of select="concat($osisIDWork,'_bookGroup-introduction_', count(preceding::div[@type='bookGroup']) + 1)"/>
       </when>
-      <when test="ancestor-or-self::osis:osisText">
+      <when test="ancestor-or-self::osisText">
         <value-of select="concat($osisIDWork,'_module-introduction')"/>
       </when>
     </choose>
   </template>
 
-  <!-- Write each xhtml file's contents (choosing which child nodes to write and which to drop) -->
+  <!-- Write each xhtml file's contents, selecting which input child nodes to convert (unselected nodes are dropped) -->
   <template name="WriteFile">
     <param name="filename"/>
-    <message select="concat('PROCESSING:', $filename)"/>
+    <message select="concat('WRITING:', $filename)"/>
+    <variable name="osisIDWork" select="ancestor-or-self::osisText/@osisIDWork"/>
     <result-document method="xml" href="xhtml/{$filename}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
@@ -102,35 +182,35 @@
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
-            <when test="$filename=concat(ancestor-or-self::osis:osisText/@osisIDWork,'_module-introduction')">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
+            <when test="$filename=concat($osisIDWork,'_module-introduction')">
+              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:header)][not(ancestor-or-self::osis:div[@type='bookGroup'])][not(ancestor-or-self::osis:div[@type='glossary'])]"/>
+                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
               </div>
             </when>
             <!-- bookGroup-introduction -->
-            <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_bookGroup-introduction_'))">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
+            <when test="starts-with($filename, concat($osisIDWork,'_bookGroup-introduction_'))">
+              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::div[@type='book'])]"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::osis:div[@type='book'])]"/>
+                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::div[@type='book'])]"/>
               </div>
             </when>
             <!-- glossintro -->
-            <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_glossintro_'))">
-              <call-template name="writeGlossaryNodes"><with-param name="filter" select="'none'" tunnel="yes"/></call-template>
+            <when test="starts-with($filename, concat($osisIDWork,'_glossintro_'))">
+              <call-template name="convertGlossaryGroup"><with-param name="filter" select="'none'" tunnel="yes"/></call-template>
             </when>
             <!-- glosskey -->
-            <when test="starts-with($filename, concat(ancestor-or-self::osis:osisText/@osisIDWork,'_glosskey_'))">
+            <when test="starts-with($filename, concat($osisIDWork,'_glosskey_'))">
               <article xmlns="http://www.w3.org/1999/xhtml">
-                <xsl:call-template name="writeGlossaryNodes"><xsl:with-param name="filter" select="'in-article'" tunnel="yes"/></xsl:call-template>
+                <xsl:call-template name="convertGlossaryGroup"><xsl:with-param name="filter" select="'in-article'" tunnel="yes"/></xsl:call-template>
               </article>
-              <call-template name="writeGlossaryNodes"><with-param name="filter" select="'after-article'" tunnel="yes"/></call-template>
+              <call-template name="convertGlossaryGroup"><with-param name="filter" select="'after-article'" tunnel="yes"/></call-template>
             </when>
             <!-- book -->
             <otherwise>
-              <apply-templates mode="xhtml" select="node()"/>
+              <apply-templates mode="xhtml"/>
               <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="node()"/>
+                <xsl:apply-templates mode="footnotes"/>
               </div>
             </otherwise>
           </choose>
@@ -139,7 +219,7 @@
     </result-document>
   </template>
   
-  <template name="writeGlossaryNodes">
+  <template name="convertGlossaryGroup">
     <!-- Filter the current-group, first to remove descendant nodes from other groups, then based on output context -->
     <variable name="glossaryFilter1"><apply-templates mode="glossaryFilter1" select="current-group()"/></variable>
     <variable name="glossaryFilter2"><apply-templates mode="glossaryFilter2" select="$glossaryFilter1"/></variable>
@@ -150,11 +230,11 @@
   </template>
   <!-- Filter out any descendants which are part of a different group -->
   <template match="node()" mode="glossaryFilter1" priority="3">
-    <if test="descendant-or-self::node()[count(following::osis:seg[@type='keyword']) = current-grouping-key()]">
+    <if test="descendant-or-self::node()[count(following::seg[@type='keyword']) = current-grouping-key()]">
       <copy>
         <for-each select="@*"><copy/></for-each>
         <!-- These element copies retain a reference to their source node, since the source node's context may be required later in the transform -->
-        <if test="self::osis:milestone | self::osis:seg | self::osis:note | self::osis:chapter | self::osis:reference">
+        <if test="self::milestone | self::seg | self::note | self::chapter | self::reference">
           <attribute name="contextNode" select="generate-id()"/>
         </if>
         <apply-templates mode="#current"/>
@@ -167,10 +247,10 @@
     <variable name="keep">
       <choose>
         <when test="$filter = 'in-article'">
-          <value-of     select="not(ancestor-or-self::osis:div[1][not(descendant::osis:seg[@type='keyword'])])"/>
+          <value-of     select="not(ancestor-or-self::div[1][not(descendant::seg[@type='keyword'])])"/>
         </when>
         <when test="$filter = 'after-article'">
-          <value-of select="boolean(ancestor-or-self::osis:div[1][not(descendant::osis:seg[@type='keyword'])])"/>
+          <value-of select="boolean(ancestor-or-self::div[1][not(descendant::seg[@type='keyword'])])"/>
         </when>
         <otherwise>true</otherwise>
       </choose>
@@ -182,7 +262,7 @@
       </copy>
     </if>
   </template>
-  <!-- Nodes having @contextNode were copied to temporary documents, yet may require the source node's context, so this template takes care of that -->
+  <!-- Nodes having @contextNode were copied to a temporary document (variable) yet may require the source node's context, so this template takes care of that -->
   <template match="*[@contextNode]" mode="xhtml footnotes" priority="10">
     <param name="currentDoc" tunnel="yes"/>
     <for-each select="$currentDoc//node()[current()/@contextNode = generate-id(.)]">
@@ -191,14 +271,14 @@
   </template>
   
   <!-- Place footnotes at the bottom of the file -->
-  <template match="node()" mode="footnotes"><apply-templates mode="footnotes" select="node()"/></template>
-  <template match="osis:note[@type='crossReference']" mode="footnotes"/>
-  <template match="osis:note" mode="footnotes">
+  <template match="node()" mode="footnotes"><apply-templates mode="footnotes"/></template>
+  <template match="note[@type='crossReference']" mode="footnotes"/>
+  <template match="note" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <div xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}" class="xsl-footnote">
       <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a>
       <xsl:value-of select="' '"/>
-      <xsl:apply-templates mode="xhtml" select="node()"/>
+      <xsl:apply-templates mode="xhtml"/>
     </div>
     <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
   </template>
@@ -215,7 +295,7 @@
   <template name="getFootnoteSymbol">
     <param name="classes"/>
     <choose>
-      <when test="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID or count(ancestor::osis:title[@canonical='true'])"><attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>*</when> <!-- notes in verses are just '*' -->
+      <when test="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])"><attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>*</when> <!-- notes in verses are just '*' -->
       <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>[<xsl:call-template name="getFootnoteNumber"/>]</otherwise>
     </choose>
   </template>
@@ -223,24 +303,24 @@
   <!-- This template may be called from any note. It returns the number of that note within its output file -->
   <template name="getFootnoteNumber">
     <choose>
-      <when test="ancestor::osis:div[@type='glossary']">
+      <when test="ancestor::div[@type='glossary']">
         <choose>
-          <when test="not(descendant-or-self::osis:seg[@type='keyword']) and count(preceding::osis:seg[@type='keyword']) = count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:seg[@type='keyword'])">
-            <value-of select="count(preceding::osis:note[not(@type='crossReference')]) - count(ancestor::osis:div[@type='glossary'][1]/preceding::osis:note[not(@type='crossReference')]) + 1"/>
+          <when test="not(descendant-or-self::seg[@type='keyword']) and count(preceding::seg[@type='keyword']) = count(ancestor::div[@type='glossary'][1]/preceding::seg[@type='keyword'])">
+            <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='glossary'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
           </when>
           <otherwise>
-            <value-of select="count(preceding::osis:note[not(@type='crossReference')]) - count(preceding::osis:seg[@type='keyword'][1]/preceding::osis:note[not(@type='crossReference')]) + 1"/>
+            <value-of select="count(preceding::note[not(@type='crossReference')]) - count(preceding::seg[@type='keyword'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
           </otherwise>
         </choose>
       </when>
-      <when test="ancestor::osis:div[@type='book']">
-        <value-of select="count(preceding::osis:note[not(@type='crossReference')]) - count(ancestor::osis:div[@type='book'][1]/preceding::osis:note[not(@type='crossReference')]) + 1"/>
+      <when test="ancestor::div[@type='book']">
+        <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='book'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
       </when>
-      <when test="ancestor::osis:div[@type='bookGroup']">
-        <value-of select="count(preceding::osis:note[not(@type='crossReference')]) - count(ancestor::osis:div[@type='bookGroup'][1]/preceding::osis:note[not(@type='crossReference')]) + 1"/>
+      <when test="ancestor::div[@type='bookGroup']">
+        <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='bookGroup'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
       </when>
-      <when test="ancestor::osis:osisText">
-        <value-of select="count(preceding::osis:note[not(@type='crossReference')]) + 1"/>
+      <when test="ancestor::osisText">
+        <value-of select="count(preceding::note[not(@type='crossReference')]) + 1"/>
       </when>
     </choose>    
   </template>
@@ -249,10 +329,10 @@
   <!-- WriteTableOfContentsEntry may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="WriteTableOfContentsEntry">
     <param name="element"/>
-    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
+    <variable name="isBible" select="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <element name="{if ($element) then $element else 'h1'}" namespace="http://www.w3.org/1999/xhtml">
       <attribute name="id" select="generate-id(.)"/>
-      <attribute name="class" select="concat('xsl-toc-entry', (if (self::osis:chapter) then ' x-chapterLabel' else (if (self::osis:seg) then ' xsl-keyword' else ' xsl-milestone')))"/>
+      <attribute name="class" select="concat('xsl-toc-entry', (if (self::chapter) then ' x-chapterLabel' else (if (self::seg) then ' xsl-keyword' else ' xsl-milestone')))"/>
       <attribute name="toclevel" select="oc:getTocLevel(., $isBible)"/>
       <call-template name="getTocTitle"/>
     </element>
@@ -270,17 +350,17 @@
         <when test="$isBible">
           <variable name="bookGroupLevel" select="if (oc:getBookGroupTocNode($x)) then 1 else 0"/>
           <choose>
-            <when test="$x[self::osis:osisText]">0</when>
-            <when test="$x[self::osis:chapter[@sID]]"><value-of select="2 + $bookGroupLevel"/></when>
-            <when test="$x[ancestor::osis:div[@type='book']]"><value-of select="1 + $bookGroupLevel"/></when>
+            <when test="$x[self::osisText]">0</when>
+            <when test="$x[self::chapter[@sID]]"><value-of select="2 + $bookGroupLevel"/></when>
+            <when test="$x[ancestor::div[@type='book']]"><value-of select="1 + $bookGroupLevel"/></when>
             <otherwise><value-of select="1"/></otherwise>
           </choose>
         </when>
         <otherwise>
           <!-- A glossary div initiates a TOC level if it has a toc milestone child OR else it has a non-div child with a toc milestone child -->
-          <variable name="glossaryLevel" select="count($x/ancestor::osis:div[child::osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] or child::*[not(osis:div)]/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)]])"/>
+          <variable name="glossaryLevel" select="count($x/ancestor::div[child::milestone[@type=concat('x-usfm-toc', $tocnumber)] or child::*[not(div)]/milestone[@type=concat('x-usfm-toc', $tocnumber)]])"/>
           <choose>
-            <when test="$x[self::osis:seg[@type='keyword']]"><value-of select="1 + $glossaryLevel"/></when>
+            <when test="$x[self::seg[@type='keyword']]"><value-of select="1 + $glossaryLevel"/></when>
             <otherwise><value-of select="$glossaryLevel"/></otherwise>
           </choose>
         </otherwise>
@@ -293,55 +373,55 @@
   <function name="oc:getBookGroupTocNode">
     <param name="x"/>
     <!-- A bookGroup may have a child TOC milestone, or it may have a first child that is a div, but that is not a book div, containing a TOC milestone (and probably bookGroup introductory stuff) -->
-    <sequence select="$x/ancestor-or-self::osis:div[@type='bookGroup']/(osis:milestone[@type=concat('x-usfm-toc', $tocnumber)] | *[1][self::osis:div[not(@type='book')]]/osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])[1]"/>
+    <sequence select="$x/ancestor-or-self::div[@type='bookGroup']/(milestone[@type=concat('x-usfm-toc', $tocnumber)] | *[1][self::div[not(@type='book')]]/milestone[@type=concat('x-usfm-toc', $tocnumber)])[1]"/>
   </function>
   
   <!-- getTocTitle may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="getTocTitle">
     <variable name="toclevelEXPLICIT" select="if (matches(@n, '^\[level\d\] ')) then substring(@n, 7, 1) else '0'"/>
     <choose>
-      <when test="self::osis:milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="if ($toclevelEXPLICIT != '0') then substring(@n, 10) else @n"/></when>
-      <when test="self::osis:chapter[@sID]">
+      <when test="self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="if ($toclevelEXPLICIT != '0') then substring(@n, 10) else @n"/></when>
+      <when test="self::chapter[@sID]">
         <choose>
-          <when test="following-sibling::*[1][self::osis:title[@type='x-chapterLabel']]"><value-of select="string(following-sibling::osis:title[@type='x-chapterLabel'][1])"/></when>
-          <when test="following-sibling::*[1][self::osis:div]/osis:title[@type='x-chapterLabel']"><value-of select="string(following-sibling::*[1][self::osis:div]/osis:title[@type='x-chapterLabel'][1])"/></when>
+          <when test="following-sibling::*[1][self::title[@type='x-chapterLabel']]"><value-of select="string(following-sibling::title[@type='x-chapterLabel'][1])"/></when>
+          <when test="following-sibling::*[1][self::div]/title[@type='x-chapterLabel']"><value-of select="string(following-sibling::*[1][self::div]/title[@type='x-chapterLabel'][1])"/></when>
           <otherwise><value-of select="tokenize(@sID, '\.')[last()]"/></otherwise>
         </choose>
       </when>
-      <when test="self::osis:seg[@type='keyword']"><value-of select="string()"/></when>
+      <when test="self::seg[@type='keyword']"><value-of select="string()"/></when>
       <otherwise><value-of select="position()"/></otherwise>
     </choose>
   </template>
   
-  <!-- WriteBibleRootTOC may be called from: Bible osisText or milestone[x-usfm-toc] -->
-  <template name="WriteBibleRootTOC">
+  <!-- WriteMainRootTOC may be called from: Main input OSIS file's osisText or milestone[x-usfm-toc] -->
+  <template name="WriteMainRootTOC">
     <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
-    <for-each select="//osis:work[child::osis:type[@type='x-glossary']]/@osisWork">
-      <for-each select="doc(concat(., '.xml'))//osis:osisText[1]">
+    <for-each select="//work[child::type[@type='x-glossary']]/@osisWork">
+      <for-each select="doc(concat(., '.xml'))//osisText">
         <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
       </for-each>
     </for-each>
   </template>
   
-  <!-- WriteInlineTOC may be called from: Bible osisText or milestone[x-usfm-toc] -->
+  <!-- WriteInlineTOC may be called from: osisText or milestone[x-usfm-toc] -->
   <template name="WriteInlineTOC">
     <param name="isOsisRootTOC"/>
-    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
+    <variable name="isBible" select="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else oc:getTocLevel(., $isBible)"/>
     <if test="$toplevel &#60; 3">
       <variable name="container" select="if ($isOsisRootTOC = true()) then (/) else 
-          if (generate-id(.) = generate-id(oc:getBookGroupTocNode(.))) then ancestor::osis:div[@type='bookGroup'] else ancestor::osis:div[1]"/>
+          if (generate-id(.) = generate-id(oc:getBookGroupTocNode(.))) then ancestor::div[@type='bookGroup'] else ancestor::div[1]"/>
       <variable name="subentries" 
-          select="($container//osis:chapter[@sID] | $container//osis:seg[@type='keyword'] | $container//osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])[generate-id(current()) != generate-id(.)][oc:getTocLevel(., $isBible) = $toplevel + 1]"/>
+          select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])[generate-id(current()) != generate-id(.)][oc:getTocLevel(., $isBible) = $toplevel + 1]"/>
       <if test="count($subentries)">
         <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
-        <element name="{if (ancestor::osis:div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
+        <element name="{if (ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
           <attribute name="class" select="'xsl-inline-toc'"/>
           <for-each select="$subentries">
-            <variable name="previousKeyword" select="preceding::osis:seg[@type='keyword'][1]/string()"/>
+            <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
             <variable name="skipKeyword">
               <choose>
-                <when test="boolean($showFullGloss) or not(self::osis:seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
+                <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
                 <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
               </choose>
             </variable>
@@ -350,8 +430,8 @@
                 <a>
                   <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
                   <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-                    <when test="self::osis:chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
-                    <when test="boolean($showFullGloss)=false() and self::osis:seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
+                    <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
+                    <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
                     <otherwise><call-template xmlns="http://www.w3.org/1999/XSL/Transform" name="getTocTitle"/></otherwise>
                   </choose>
                 </a>
@@ -366,12 +446,12 @@
   <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
   <template name="WriteEmbededChapterVerse">
     <variable name="mySelf" select="."/>
-    <variable name="isInVerse" select="preceding::osis:verse[1]/@sID = following::osis:verse[1]/@eID or preceding::osis:verse[1]/@sID = descendant::osis:verse[1]/@eID"/>
-    <variable name="doWriteChapterNumber" select="if (not($isInVerse)) then '' else (generate-id(preceding::osis:chapter[@sID][1]/following::osis:*[self::osis:p or self::osis:l][1]) = generate-id($mySelf))"/>
+    <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
+    <variable name="doWriteChapterNumber" select="if (not($isInVerse)) then '' else (generate-id(preceding::chapter[@sID][1]/following::*[self::p or self::l][1]) = generate-id($mySelf))"/>
     <if test="$doWriteChapterNumber">
-      <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::osis:chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
+      <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
-    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::osis:verse[@sID]] | self::osis:l[parent::osis:lg[child::osis:l[1] = $mySelf][preceding-sibling::*[1][self::osis:verse[@sID]]]]])">
+    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[child::l[1] = $mySelf][preceding-sibling::*[1][self::verse[@sID]]]]])">
       <call-template name="WriteVerseNumber"/>
     </if>
   </template>
@@ -406,59 +486,60 @@
   </template>
   
   <!-- Remove these elements entirely (x-chapterLabel is output by WriteTableOfContentsEntry)-->
-  <template match="osis:verse[@eID] | osis:chapter[@eID] | osis:index | osis:milestone | osis:title[@type='x-chapterLabel'] | osis:title[@type='runningHead'] | osis:note[@type='crossReference']" mode="xhtml"/>
+  <template match="verse[@eID] | chapter[@eID] | index | milestone | title[@type='x-chapterLabel'] | title[@type='runningHead'] | note[@type='crossReference']" mode="xhtml"/>
   
-  <!-- Remove these tags (keeping their content). Paragraphs tags certain elements are dropped so that resulting HTML will validate -->
-  <template match="osis:name | osis:seg | osis:reference[ancestor::osis:title[@type='scope']] | osis:p[descendant::osis:seg[@type='keyword']] | osis:p[descendant::osis:figure]" mode="xhtml">
-    <xsl:apply-templates mode="xhtml" select="node()"/>
+  <!-- Remove these tags (keeping their content). Paragraphs tags containing certain elements are dropped so that resulting HTML will validate -->
+  <template match="name | seg | reference[ancestor::title[@type='scope']] | p[descendant::seg[@type='keyword']] | p[descendant::figure]" mode="xhtml">
+    <xsl:apply-templates mode="xhtml"/>
   </template>
   
   <!-- Verses -->
-  <template match="osis:verse[@sID]" mode="xhtml">
-    <if test="not(self::osis:verse[following-sibling::*[1][self::osis:p or self::osis:lg or self::osis:l or self::osis:title[@canonical='true']]])"> <!-- skip verses followed by p, lg, l or canonical title, since their templates write verse numbers inside themselves using WriteEmbededChapterVerse-->
+  <template match="verse[@sID]" mode="xhtml">
+    <!-- skip verses followed by p, lg, l or canonical title, since their templates will write verse numbers inside themselves using WriteEmbededChapterVerse-->
+    <if test="not(self::verse[following-sibling::*[1][self::p or self::lg or self::l or self::title[@canonical='true']]])">
       <call-template name="WriteVerseNumber"/>
     </if>
   </template>
   
   <!-- Chapters -->
-  <template match="osis:chapter[@sID and @osisID]" mode="xhtml">
+  <template match="chapter[@sID and @osisID]" mode="xhtml">
     <call-template name="WriteTableOfContentsEntry"/>
   </template>
   
   <!-- Glossary keywords -->
-  <template match="osis:seg[@type='keyword']" mode="xhtml" priority="2">
+  <template match="seg[@type='keyword']" mode="xhtml" priority="2">
     <span id="{replace(replace(@osisID, '^[^:]*:', ''), '!', '_')}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <call-template name="WriteTableOfContentsEntry"><with-param name="element" select="'dfn'"/></call-template>
   </template>
   
   <!-- Titles -->
-  <template match="osis:title" mode="xhtml">
+  <template match="title" mode="xhtml">
     <variable name="level" select="if (@level) then @level else '1'"/>
     <element name="h{$level}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
       <if test="@canonical='true'"><call-template name="WriteEmbededChapterVerse"/></if>
-      <apply-templates mode="xhtml" select="node()"/>
+      <apply-templates mode="xhtml"/>
     </element>
   </template>
   
   <!-- Parallel passage titles become secondary titles !-->
-  <template match="osis:title[@type='parallel']" mode="xhtml">
-    <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></h2>
+  <template match="title[@type='parallel']" mode="xhtml">
+    <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
   </template>
   
-  <template match="osis:catchWord | osis:foreign | osis:hi | osis:rdg | osis:transChange" mode="xhtml">
-    <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></span>
+  <template match="catchWord | foreign | hi | rdg | transChange" mode="xhtml">
+    <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
   </template>
   
-  <template match="osis:cell" mode="xhtml">
-    <td xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml" select="node()"/></td>
+  <template match="cell" mode="xhtml">
+    <td xmlns="http://www.w3.org/1999/xhtml"><xsl:apply-templates mode="xhtml"/></td>
   </template>
   
-  <template match="osis:caption" mode="xhtml">
-    <figcaption xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></figcaption>
+  <template match="caption" mode="xhtml">
+    <figcaption xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></figcaption>
   </template>
   
-  <template match="osis:figure" mode="xhtml">
+  <template match="figure" mode="xhtml">
     <figure xmlns="http://www.w3.org/1999/xhtml">
       <img>
         <xsl:call-template name="class"/>
@@ -466,96 +547,95 @@
           <xsl:value-of select="if (starts-with(@src, './')) then concat('.', @src) else (if (starts-with(@src, '/')) then concat('..', @src) else concat('../', @src))"/>
         </xsl:attribute>
       </img>
-      <xsl:apply-templates mode="xhtml" select="node()"/>
+      <xsl:apply-templates mode="xhtml"/>
     </figure>
   </template>
 
-  <template match="osis:head" mode="xhtml">
-    <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></h2>
+  <template match="head" mode="xhtml">
+    <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
   </template>
   
-  <template match="osis:item" mode="xhtml">
-    <li xmlns="http://www.w3.org/1999/xhtml"><call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></li>
+  <template match="item" mode="xhtml">
+    <li xmlns="http://www.w3.org/1999/xhtml"><call-template name="class"/><xsl:apply-templates mode="xhtml"/></li>
   </template>
   
-  <template match="osis:lb" mode="xhtml">
+  <template match="lb" mode="xhtml">
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/></div>
-    <apply-templates mode="xhtml" select="node()"/>
+    <apply-templates mode="xhtml"/>
   </template>
   
   <!-- usfm2osis.py follows the OSIS manual recommendation for selah as a line element which differs from the USFM recommendation for selah.
   According to USFM 2.35 spec, selah is: "A character style. This text is frequently right aligned, and rendered on the same line as the previous poetic text..." !-->
-  <template match="osis:l" mode="xhtml">
+  <template match="l" mode="xhtml">
     <choose>
       <when test="@type = 'selah'"/>
-      <when test="following-sibling::osis:l[1]/@type = 'selah'">
-        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml" select="node()"/>
+      <when test="following-sibling::l[1]/@type = 'selah'">
+        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
           <i class="xsl-selah">
             <xsl:text> </xsl:text>
-            <xsl:value-of select="following-sibling::osis:l[1]"/>
+            <xsl:value-of select="following-sibling::l[1]"/>
             <xsl:text> </xsl:text>
-            <xsl:value-of select="following-sibling::osis:l[2][@type = 'selah']"/>
+            <xsl:value-of select="following-sibling::l[2][@type = 'selah']"/>
           </i>
         </div>
       </when>
       <otherwise>
-        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/></div>
       </otherwise>
     </choose>
   </template>
   
-  <template match="osis:lg" mode="xhtml">
-    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></div>
+  <template match="lg" mode="xhtml">
+    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></div>
   </template>
   
-  <template match="osis:list" mode="xhtml">
-    <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></ul>
+  <template match="list" mode="xhtml">
+    <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
   </template>
   
-  <template match="osis:milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
-    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
+  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
     <call-template name="WriteTableOfContentsEntry"/>
-    <if test="$isBible and not(preceding::osis:milestone[@type=concat('x-usfm-toc', $tocnumber)])">
-      <call-template name="WriteBibleRootTOC"/>
+    <if test="generate-id(/) = generate-id($mainInputOSIS) and not(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
+      <call-template name="WriteMainRootTOC"/>
     </if>
     <call-template name="WriteInlineTOC"/>
   </template>
   
-  <template match="osis:milestone[@type='pb']" mode="xhtml" priority="2">
-    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></p>
+  <template match="milestone[@type='pb']" mode="xhtml" priority="2">
+    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></p>
   </template>
   
-  <template match="osis:note" mode="xhtml">
+  <template match="note" mode="xhtml">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template></a>
   </template>
   
-  <template match="osis:p" mode="xhtml">
-    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml" select="node()"/></p>
+  <template match="p" mode="xhtml">
+    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/></p>
   </template>
   
   <!-- This splits paragraphs that contain a page-break -->
-  <template match="osis:p[child::osis:milestone[@type='pb']]" mode="xhtml">
+  <template match="p[child::milestone[@type='pb']]" mode="xhtml">
     <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/>
-      <xsl:apply-templates mode="xhtml" select="node()[following-sibling::osis:milestone[@type='pb']]"/>
+      <xsl:apply-templates mode="xhtml" select="node()[following-sibling::milestone[@type='pb']]"/>
     </p>
-    <xsl:apply-templates mode="xhtml" select="node()[osis:milestone[@type='pb']]"/>
+    <xsl:apply-templates mode="xhtml" select="node()[milestone[@type='pb']]"/>
     <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/>
-      <xsl:apply-templates mode="xhtml" select="node()[not(osis:milestone[@type='pb'])][not(following-sibling::osis:milestone[@type='pb'])]"/>
+      <xsl:apply-templates mode="xhtml" select="node()[not(milestone[@type='pb'])][not(following-sibling::milestone[@type='pb'])]"/>
     </p>
   </template>
   
-  <template match="osis:reference" mode="xhtml">
+  <template match="reference" mode="xhtml">
     <variable name="osisRef" select="replace(@osisRef, '^[^:]*:', '')"/>
     <variable name="file">
-      <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osis:osisText/@osisRefWork"/>
-      <variable name="refIsBible" select="//osis:work[@osisWork = $workid][child::osis:type[@type='x-bible']]"/>
+      <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
+      <variable name="refIsBible" select="//work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
         <when test="$refIsBible">
-          <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/>  <!-- faster than getFileName (it only works for Bible refs because the file can be determined from the osisRef value alone) -->
+          <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/><!-- this faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
         </when>
         <otherwise>
-          <variable name="target" select="if ($workid = ancestor::osis:osisText[1]/@osisRefWork) then ancestor::osis:osisText[1]//*[@osisID=$osisRef] else doc(concat($workid, '.xml'))//*[@osisID=$osisRef]"/>
+          <variable name="target" select="if ($workid = ancestor::osisText/@osisRefWork) then ancestor::osisText//*[@osisID=$osisRef] else doc(concat($workid, '.xml'))//*[@osisID=$osisRef]"/>
           <choose>
             <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
             <when test="count($target)=1"><for-each select="$target"><call-template name="getFileName"/></for-each></when>
@@ -577,101 +657,11 @@
         </otherwise>
       </choose>
     </variable>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="{concat($file, '.xhtml', '#', $osisRefA)}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></a>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="{concat($file, '.xhtml', '#', $osisRefA)}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
   </template>
   
-  <template match="osis:row" mode="xhtml">
-    <tr xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml" select="node()"/></tr>
-  </template>
-  
-  
-  <!-- THE FOLLOWING TEMPLATES PROCESS REFERENCED GLOSSARY MODULES -->
-  <template match="node()|@*" mode="glossaries">
-    <apply-templates select="node()" mode="glossaries"/>
-  </template>
-  
-  <template match="osis:work[child::osis:type[@type='x-glossary']]" mode="glossaries">
-    <apply-templates select="doc(concat(@osisWork, '.xml'))"/>
-  </template>
-    
-    
-  <!-- THE FOLLOWING TEMPLATE FOR THE ROOT NODE CONTROLS OVERALL CONVERSION FLOW -->
-  <template match="/">
-    <param name="contentopf" tunnel="yes"/>
-    <variable name="isBible" select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork][child::osis:type[@type='x-bible']]"/>
-    
-    <apply-templates select="node()"><with-param name="currentDoc" select="/" tunnel="yes"/></apply-templates>
-    
-    <if test="not($isBible) and $contentopf='manifest'">
-      <xsl:call-template name="figure-manifest"/>
-    </if>
-    
-    <if test="$isBible">
-      <apply-templates select="node()" mode="glossaries"/>
-      <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
-        <metadata 
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-            xmlns:opf="http://www.idpf.org/2007/opf" 
-            xmlns:dcterms="http://purl.org/dc/terms/" 
-            xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
-            xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <dc:publisher><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:publisher[@type='x-CopyrightHolder']/text()"/></dc:publisher>
-          <dc:title><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:title/text()"/></dc:title>
-          <dc:language><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:language/text()"/></dc:language>
-          <dc:identifier scheme="ISBN"><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:identifier[@type='ISBN']/text()"/></dc:identifier>
-          <dc:creator opf:role="aut"><xsl:value-of select="//osis:work[@osisWork = //osis:osisText[1]/@osisIDWork]/osis:publisher[@type='x-CopyrightHolder']/text()"/></dc:creator>
-        </metadata>
-        <manifest>
-          <xsl:apply-templates select="node()">
-            <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
-          </xsl:apply-templates>
-          <xsl:apply-templates select="node()" mode="glossaries">
-            <xsl:with-param name="contentopf" select="'manifest'" tunnel="yes"/>
-            <xsl:with-param name="figures-already-in-manifest" select="//osis:figure/@src" tunnel="yes"/>
-          </xsl:apply-templates>
-          <xsl:for-each select="tokenize($css, '\s*,\s*')">
-            <xsl:choose>
-              <xsl:when test="ends-with(lower-case(.), 'css')">
-                <item href="{.}" id="{.}" media-type="text/css"/>
-              </xsl:when>
-              <xsl:when test="ends-with(lower-case(.), 'ttf')">
-                <item href="./{.}" id="{.}" media-type="application/x-font-ttf"/>
-              </xsl:when>
-              <xsl:when test="ends-with(lower-case(.), 'otf')">
-                <item href="./{.}" id="{.}" media-type="application/vnd.ms-opentype"/>
-              </xsl:when>
-              <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
-            </xsl:choose>
-          </xsl:for-each>
-        </manifest>
-        <spine toc="ncx">
-          <xsl:apply-templates select="node()">
-            <xsl:with-param name="contentopf" select="'spine'" tunnel="yes"/>
-          </xsl:apply-templates>
-          <xsl:apply-templates select="node()" mode="glossaries">
-            <xsl:with-param name="contentopf" select="'spine'" tunnel="yes"/>
-          </xsl:apply-templates>
-        </spine>
-      </package>
-    </if>
-  </template>
-  
-  <template name="figure-manifest">
-    <param name="figures-already-in-manifest" select="()" tunnel="yes"/>
-    <for-each select="distinct-values((distinct-values(//osis:figure/@src), distinct-values($figures-already-in-manifest)))">
-      <item xmlns="http://www.idpf.org/2007/opf">
-        <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
-        <xsl:attribute name="id" select="tokenize(., '/')[last()]"/>
-        <xsl:attribute name="media-type">
-          <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-            <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
-            <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
-            <when test="ends-with(lower-case(.), 'png')">image/png</when>
-            <otherwise>application/octet-stream</otherwise>
-          </choose>
-        </xsl:attribute>
-      </item>
-    </for-each>
+  <template match="row" mode="xhtml">
+    <tr xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></tr>
   </template>
   
 </stylesheet>
