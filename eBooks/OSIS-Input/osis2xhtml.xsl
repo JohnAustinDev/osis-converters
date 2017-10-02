@@ -342,59 +342,62 @@
     </element>
   </template>
   
-  <!-- getTocLevel may be called from: Bible osisText, milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
+  <!-- getTocLevel may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword]. TOC hierarchy is determined from OSIS hierarchy. But 
+  an explicit TOC level and title may always be specified by supplying an "n" attribute having a value of the form: "[levelN]X" where N is a single  
+  digit integer specifying the TOC level and X is the title string. If N is 0, its fallback value is used, if X is '' its fallback value is used. -->
   <function name="oc:getTocLevel">
     <param name="x"/>
     <param name="isBible"/>
-    <!-- Determine TOC hierarchy from OSIS hierarchy, but if the level is explicitly specified, that value is always 
-    used (and this is done by prepending "[levelN] " to the "n" attribute value). -->
-    <variable name="toclevelEXPLICIT" select="if (matches($x/@n, '^\[level\d\] ')) then substring($x/@n, 7, 1) else '0'"/>
+    <variable name="toclevelEXPLICIT" select="if (matches($x/@n, '^\[level\d\]')) then substring($x/@n, 7, 1) else '0'"/>
     <variable name="toclevelOSIS">
+      <variable name="parentTocNodes" select="if ($isBible) then oc:getBibleParentTocNodes($x) else oc:getGlossParentTocNodes($x)"/>
       <choose>
-        <when test="$isBible">
-          <variable name="bookGroupLevel" select="if (oc:getBookGroupTocNode($x)) then 1 else 0"/>
-          <choose>
-            <when test="$x[self::osisText]">0</when>
-            <when test="$x[self::chapter[@sID]]"><value-of select="2 + $bookGroupLevel"/></when>
-            <when test="$x[ancestor::div[@type='book']]"><value-of select="1 + $bookGroupLevel"/></when>
-            <otherwise><value-of select="1"/></otherwise>
-          </choose>
-        </when>
-        <otherwise>
-          <!-- A glossary div initiates a TOC level if it has a toc milestone child OR else it has a non-div child with a toc milestone child -->
-          <variable name="glossaryLevel" select="count($x/ancestor::div[child::milestone[@type=concat('x-usfm-toc', $tocnumber)] or child::*[not(div)]/milestone[@type=concat('x-usfm-toc', $tocnumber)]])"/>
-          <choose>
-            <when test="$x[self::seg[@type='keyword']]"><value-of select="1 + $glossaryLevel"/></when>
-            <otherwise><value-of select="$glossaryLevel"/></otherwise>
-          </choose>
-        </otherwise>
+        <when test="$parentTocNodes[generate-id(.) = generate-id($x)]"><value-of select="count($parentTocNodes)"/></when>
+        <when test="$x[self::seg[@type='keyword'] | self::chapter[@sID] | self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]"><value-of select="1 + count($parentTocNodes)"/></when>
+        <otherwise><value-of select="1"/></otherwise>
       </choose>
     </variable>
-    <value-of select="if ($toclevelEXPLICIT != '0') then $toclevelEXPLICIT else $toclevelOSIS"/>
+    <value-of select="if ($toclevelEXPLICIT = '0') then $toclevelOSIS else $toclevelEXPLICIT"/>
   </function>
   
-  <!-- getBookGroupTocNode may be called from any element -->
-  <function name="oc:getBookGroupTocNode">
+  <!-- getBibleParentTocNodes may be called from any element -->
+  <function name="oc:getBibleParentTocNodes">
     <param name="x"/>
-    <!-- A bookGroup may have a child TOC milestone, or it may have a first child that is a div, but that is not a book div, containing a TOC milestone (and probably bookGroup introductory stuff) -->
-    <sequence select="$x/ancestor-or-self::div[@type='bookGroup']/(milestone[@type=concat('x-usfm-toc', $tocnumber)] | *[1][self::div[not(@type='book')]]/milestone[@type=concat('x-usfm-toc', $tocnumber)])[1]"/>
+    <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child or a first child div, which isn't a bookGroup or book, that has one. 
+    Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
+    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $tocnumber)][1] |
+        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $tocnumber)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $tocnumber)][1] |
+        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $tocnumber)][1]"/>
+  </function>
+  
+  <!-- getGlossParentTocNodes may be called from any element -->
+  <function name="oc:getGlossParentTocNodes">
+    <param name="x"/>
+    <!-- A chapter is always a TOC parent, and so is any div in the glossary if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
+    The first such toc milestone descendant determines the div's TOC entry name; any following such children will be TOC sub-entries of the first. -->
+    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $tocnumber)] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $tocnumber)] | 
+        $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
   </function>
   
   <!-- getTocTitle may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="getTocTitle">
-    <variable name="toclevelEXPLICIT" select="if (matches(@n, '^\[level\d\] ')) then substring(@n, 7, 1) else '0'"/>
-    <choose>
-      <when test="self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="if ($toclevelEXPLICIT != '0') then substring(@n, 10) else @n"/></when>
-      <when test="self::chapter[@sID]">
-        <choose>
-          <when test="following-sibling::*[1][self::title[@type='x-chapterLabel']]"><value-of select="string(following-sibling::title[@type='x-chapterLabel'][1])"/></when>
-          <when test="following-sibling::*[1][self::div]/title[@type='x-chapterLabel']"><value-of select="string(following-sibling::*[1][self::div]/title[@type='x-chapterLabel'][1])"/></when>
-          <otherwise><value-of select="tokenize(@sID, '\.')[last()]"/></otherwise>
-        </choose>
-      </when>
-      <when test="self::seg[@type='keyword']"><value-of select="string()"/></when>
-      <otherwise><value-of select="position()"/></otherwise>
-    </choose>
+    <!-- Determine TOC title from the particular OSIS element or its context, but see note above oc:getTocLevel() about the override option. -->
+    <variable name="tocTitleEXPLICIT" select="if (matches(@n, '^\[level\d\]')) then substring(@n, 9) else ''"/>
+    <variable name="tocTitleOSIS">
+      <choose>
+        <when test="self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="@n"/></when>
+        <when test="self::chapter[@sID]">
+          <choose>
+            <when test="following-sibling::*[1][self::title[@type='x-chapterLabel']]"><value-of select="string(following-sibling::title[@type='x-chapterLabel'][1])"/></when>
+            <when test="following-sibling::*[1][self::div]/title[@type='x-chapterLabel']"><value-of select="string(following-sibling::*[1][self::div]/title[@type='x-chapterLabel'][1])"/></when>
+            <otherwise><value-of select="tokenize(@sID, '\.')[last()]"/></otherwise>
+          </choose>
+        </when>
+        <when test="self::seg[@type='keyword']"><value-of select="string()"/></when>
+        <otherwise><value-of select="position()"/></otherwise>
+      </choose>
+    </variable>
+    <value-of select="if ($tocTitleEXPLICIT = '') then $tocTitleOSIS else $tocTitleEXPLICIT"/>
   </template>
   
   <!-- WriteMainRootTOC may be called from: Main input OSIS file's osisText or milestone[x-usfm-toc] -->
@@ -405,18 +408,31 @@
     </for-each>
   </template>
   
-  <!-- WriteInlineTOC may be called from: osisText or milestone[x-usfm-toc] -->
+  <!-- WriteInlineTOC may be called from: milestone[x-usfm-toc], or osisText if isOsisRootTOC is true(), or chapter[@sID] for non-Bibles -->
   <template name="WriteInlineTOC">
     <param name="isOsisRootTOC"/>
     <variable name="isBible" select="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else oc:getTocLevel(., $isBible)"/>
     <if test="$toplevel &#60; 3">
-      <variable name="container" select="if ($isOsisRootTOC = true()) then (/) else 
-          if (generate-id(.) = generate-id(oc:getBookGroupTocNode(.))) then ancestor::div[@type='bookGroup'] else ancestor::div[1]"/>
-      <variable name="subentries" 
-          select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])[generate-id(current()) != generate-id(.)][oc:getTocLevel(., $isBible) = $toplevel + 1]"/>
+      <variable name="subentries" as="element()*">
+        <choose>
+          <when test="self::chapter[@sID]">
+            <sequence select="(following::seg[@type='keyword'] | following::milestone[@type=concat('x-usfm-toc', $tocnumber)]) except 
+                following::chapter[@eID][@eID = current()/@sID]/following::*"/>
+          </when>
+          <otherwise>
+            <variable name="container" as="node()" select="if ($isOsisRootTOC = true()) then (/) else
+                if (parent::div[not(preceding-sibling::*)][not(@type = ('bookGroup', 'book'))][parent::div[@type = ('bookGroup', 'book')]]) 
+                then parent::div/parent::div 
+                else ancestor::div[1]"/>
+            <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
+                [generate-id(.) != generate-id(current())][oc:getTocLevel(., $isBible) = $toplevel + 1]"/>
+          </otherwise>
+        </choose>
+      </variable>
       <if test="count($subentries)">
-        <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
+        <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or 
+            count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
         <element name="{if (ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
           <attribute name="class" select="'xsl-inline-toc'"/>
           <for-each select="$subentries">
@@ -506,6 +522,8 @@
   <!-- Chapters -->
   <template match="chapter[@sID and @osisID]" mode="xhtml">
     <call-template name="WriteTableOfContentsEntry"/>
+    <!-- non-Bible chapters also get inline TOC -->
+    <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']"><call-template name="WriteInlineTOC"/></if>
   </template>
   
   <!-- Glossary keywords -->
