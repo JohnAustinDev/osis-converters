@@ -1382,6 +1382,7 @@ sub filterGlossaryReferences($@) {
   my @glossRefOsis1;
   my %refsInScope;
   foreach my $refxml (@glossRefOsis) {
+    if (!$refxml) {next;} # uninitialized arrays have a single empty value
     my $refxml1 = $refxml; $refxml1 =~ s/^.*\///; push(@glossRefOsis1, $refxml1);
     my $glossRefXml = $XML_PARSER->parse_file($refxml);
     my $work = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $glossRefXml)}[0]->getValue();
@@ -1396,7 +1397,7 @@ sub filterGlossaryReferences($@) {
   }
   
   my $osis1 = $osis; $osis1 =~ s/^.*\///; 
-  &Log("\nFiltering glossary references in \"$osis1\" that target outside \"".join(", ", @glossRefOsis1)."\".\n", 1);
+  &Log("\nFiltering glossary references in \"$osis1\"".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'').".\n", 1);
   my $total = 0;
   
   my $xml = $XML_PARSER->parse_file($osis);
