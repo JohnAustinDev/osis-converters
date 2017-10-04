@@ -1095,28 +1095,6 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
     }
   }
 
-  # num1 ... num2?
-  if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/si)) {
-    $matchedTerm = $2;
-    $$typeP = "T10 (num1 ... num2?)";
-    my $num1 = $3;
-    my $num2 = $5;
-    $$bkP = "";
-    $$chP = "";
-    if ($contextBK =~ /($oneChapterBooks)/) {$$barenumsP = "verses"; $$chP = 1;}
-    if ($$barenumsP eq "chapters") {
-      $$chP = $num1;
-      $$vsP = $num2;
-      $$lvP = -1;
-      if (!$$vsP) {$$vsP = -1;}
-    }
-    elsif ($$barenumsP eq "verses") {
-      $$vsP = $num1;
-      $$lvP = $num2;
-      if (!$$lvP) {$$lvP = -1;}
-    }
-  }
-  
   # Book? ChapTerm c VerseTerm v
   if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms)($suffixTerms)*\s*)?($chapTerms)($suffixTerms)*\s*(\d+)\s*($verseTerms)($suffixTerms)*\s*(\d+))/si)) {
     my $pre = $1;
@@ -1191,6 +1169,27 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
     }
   }
   
+  # num1 ... num2?
+  if ((!$matchleft && !$$typeP) && ($$tP =~ /^($PREM)((\d+)($refTerms)*(\d+)?)/si)) {
+    $matchedTerm = $2;
+    $$typeP = "T10 (num1 ... num2?)";
+    my $num1 = $3;
+    my $num2 = $5;
+    $$bkP = "";
+    $$chP = "";
+    if ($contextBK =~ /($oneChapterBooks)/) {$$barenumsP = "verses"; $$chP = 1;}
+    if ($$barenumsP eq "chapters") {
+      $$chP = $num1;
+      $$vsP = $num2;
+      $$lvP = -1;
+      if (!$$vsP) {$$vsP = -1;}
+    }
+    elsif ($$barenumsP eq "verses") {
+      $$vsP = $num1;
+      $$lvP = $num2;
+      if (!$$lvP) {$$lvP = -1;}
+    }
+  }
   
   if ($matchedTerm && !$matchleft) {
     if (!$$bkP) {$$bkP = $contextBK;}
