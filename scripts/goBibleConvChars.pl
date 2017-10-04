@@ -86,7 +86,7 @@ sub goBibleConvChars($\@) {
       # Change jar name if "simple"
       if ($type eq "simple") {$_ =~ s/(^\s*Collection:\s*.*?)\s*$/$1_s\n/;} # change name of collection
       
-      WriteGB($_);
+      WriteGB($_, $file, $line);
     }
     close(OUTF);
     close(INF);
@@ -108,11 +108,14 @@ sub goBibleConvChars($\@) {
   &Log("\n");
 }
 
-sub WriteGB($) {
+sub WriteGB($$$) {
   my $print = shift;
+  my $f = shift;
+  my $l = shift;
+  $f =~ s/^.*?([^\/]+)$/$1/;
   for ($i=0; substr($print, $i, 1); $i++) {
     my $c = substr($print, $i, 1);
-    if (ord($c) > $maxUnicode) {$highUnicode{$c} = $highUnicode{$c}.$file."-".$line."-".$i." ";}
+    if (ord($c) > $maxUnicode) {$highUnicode{$c} = $highUnicode{$c}.$f.":".$l.":".$i." ";}
   }
   print OUTF $print;
 }
