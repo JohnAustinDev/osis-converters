@@ -233,7 +233,7 @@
     </div>
   </template>
   <!-- Filter out any descendants which are part of a different group -->
-  <template match="node()" mode="glossaryFilter1" priority="3">
+  <template match="node()" mode="glossaryFilter1">
     <if test="descendant-or-self::node()[count(following::seg[@type='keyword']) = current-grouping-key()]">
       <copy>
         <for-each select="@*"><copy/></for-each>
@@ -274,10 +274,9 @@
     </for-each>
   </template>
   
-  <!-- Place footnotes at the bottom of the file -->
+  <!-- Write footnotes -->
   <template match="node()" mode="footnotes"><apply-templates mode="footnotes"/></template>
-  <template match="note[@type='crossReference']" mode="footnotes"/>
-  <template match="note" mode="footnotes">
+  <template match="note[not(@type) or @type != 'crossReference']" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <div xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}" class="xsl-footnote">
       <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a>
@@ -329,7 +328,23 @@
     </choose>    
   </template>
   
-  <!-- Table of Contents -->
+  <!-- Table of Contents
+  There are two TOCs: 1) the standard eBook TOC, and 2) the inline TOC which appears inline with the text as a series of links.
+  The following OSIS elements, by default, will generate both a standard TOC and an inline TOC entry:
+      milestone[@type='x-usfm-tocN'] (from USFM \tocN tags, where N corresponds to this XSLT's $tocnumber param) - The TOC entry name normally comes from the "n" attribute value
+      chapter[@sID] (from USFM \c tags) - The TOC entry name normally comes from a following title[@type='x-chapterLabel'] (USFM \cl or \cp) element
+      seg[@type='keyword'] (from USFM \k ...\k* tags) - The TOC entry name normally comes from the child text nodes
+      
+  By default, TOC hierarchy is determined from OSIS hierarchy. However an explicit TOC level and title may be specified for any entry.
+  An explicit title can be specified using the "n" attribute, which may also be prepended with special bracketted INSTRUCTIONS.
+  EXAMPLE: <milestone type="x-usfm-toc2" n="[level1][no_inline_toc]My Title"/>.
+  
+  The recognized INSTRUCTIONS which may appear at the beginning of the "n" attribute value of any TOC generating element are:
+  [levelN] where N is 1, 2 or 3, to specify the TOC level.
+  [no_toc] means no entry for this element should appear in any TOC (neither standard nor inline TOC)
+  [no_inline_toc] means no entry for this should appear in the inline TOC (but will appear in the stardard TOC) 
+  Any TEXT following these instructions will be used for the TOC entry name, overriding the default name -->
+  
   <!-- WriteTableOfContentsEntry may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="WriteTableOfContentsEntry">
     <param name="element"/>
@@ -337,18 +352,16 @@
     <element name="{if ($element) then $element else 'h1'}" namespace="http://www.w3.org/1999/xhtml">
       <attribute name="id" select="generate-id(.)"/>
       <attribute name="class" select="concat('xsl-toc-entry', (if (self::chapter) then ' x-chapterLabel' else (if (self::seg) then ' xsl-keyword' else ' xsl-milestone')))"/>
-      <attribute name="toclevel" select="oc:getTocLevel(., $isBible)"/>
+      <if test="not(matches(@n, '^(\[[^\]]*\])*\[no_toc\]'))"><attribute name="toclevel" select="oc:getTocLevel(., $isBible)"/></if>
       <call-template name="getTocTitle"/>
     </element>
   </template>
   
-  <!-- getTocLevel may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword]. TOC hierarchy is determined from OSIS hierarchy. But 
-  an explicit TOC level and title may always be specified by supplying an "n" attribute having a value of the form: "[levelN]X" where N is a single  
-  digit integer specifying the TOC level and X is the title string. If N is 0, its fallback value is used, if X is '' its fallback value is used. -->
+  <!-- getTocLevel may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <function name="oc:getTocLevel">
     <param name="x"/>
     <param name="isBible"/>
-    <variable name="toclevelEXPLICIT" select="if (matches($x/@n, '^\[level\d\]')) then substring($x/@n, 7, 1) else '0'"/>
+    <variable name="toclevelEXPLICIT" select="if (matches($x/@n, '^(\[[^\]]*\])*\[level(\d)\].*$')) then replace($x/@n, '^(\[[^\]]*\])*\[level(\d)\].*$', '$2') else '0'"/>
     <variable name="toclevelOSIS">
       <variable name="parentTocNodes" select="if ($isBible) then oc:getBibleParentTocNodes($x) else oc:getGlossParentTocNodes($x)"/>
       <choose>
@@ -381,8 +394,7 @@
   
   <!-- getTocTitle may be called from: milestone[x-usfm-toc], chapter[sID] or seg[keyword] -->
   <template name="getTocTitle">
-    <!-- Determine TOC title from the particular OSIS element or its context, but see note above oc:getTocLevel() about the override option. -->
-    <variable name="tocTitleEXPLICIT" select="if (matches(@n, '^\[level\d\]')) then substring(@n, 9) else ''"/>
+    <variable name="tocTitleEXPLICIT" select="if (matches(@n, '^(\[[^\]]*\])+')) then replace(@n, '^(\[[^\]]*\])+', '') else if (@n) then @n else ''"/>
     <variable name="tocTitleOSIS">
       <choose>
         <when test="self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="@n"/></when>
@@ -400,7 +412,7 @@
     <value-of select="if ($tocTitleEXPLICIT = '') then $tocTitleOSIS else $tocTitleEXPLICIT"/>
   </template>
   
-  <!-- WriteMainRootTOC may be called from: Main input OSIS file's osisText or milestone[x-usfm-toc] -->
+  <!-- WriteMainRootTOC may be called from: milestone[x-usfm-toc] -->
   <template name="WriteMainRootTOC">
     <call-template name="WriteInlineTOC"><with-param name="isOsisRootTOC" select="true()"/></call-template>
     <for-each select="$referencedOsisDocs//osisText">
@@ -408,7 +420,7 @@
     </for-each>
   </template>
   
-  <!-- WriteInlineTOC may be called from: milestone[x-usfm-toc], or osisText if isOsisRootTOC is true(), or chapter[@sID] for non-Bibles -->
+  <!-- WriteInlineTOC may be called from: milestone[x-usfm-toc], or chapter[@sID] (for non-Bibles) -->
   <template name="WriteInlineTOC">
     <param name="isOsisRootTOC"/>
     <variable name="isBible" select="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
@@ -439,6 +451,7 @@
             <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
             <variable name="skipKeyword">
               <choose>
+                <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
                 <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
                 <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
               </choose>
