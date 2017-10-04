@@ -841,6 +841,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   my $matchedTerm = "";
   my $contextBK = ($bkP ? $$bkP:$none);
   my $contextCH = ($chP ? $$chP:0);
+  if ($contextBK =~ /^($oneChapterBooks)$/i) {$contextCH = 1;}
   my $PREM = ($matchleft ? ".*?\\W":".*?");
 
   $$tP = " ".$$tP; # allow $PREM to match to beginning of string!
