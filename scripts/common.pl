@@ -3133,31 +3133,21 @@ sub writeTOC($) {
   my $xml = $XML_PARSER->parse_file($osis);
   
   my @tocTags = $XPC->findnodes('//osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $xml);
-  my @tocDefaultTags = $XPC->findnodes('//osis:milestone[@n][@type="x-usfm-toc2"]', $xml);
   
   if (@tocTags) {
     &Log("NOTE: Found ".scalar(@tocTags)." table of content milestone tags:\n");
     foreach my $t (@tocTags) {
       &Log($t->toString()."\n");
     }
-    if (!@tocDefaultTags) {
-      &Log("WARNING: No <milestone type=\"x-usfm-toc2\"> tags were found. They either must be added, or else the eBook convert.txt file must contain \"TOC=1\" or \"TOC=3\" to choose a different set of Table Of Content tags to use for eBook TOCs.\n");
-    }
-    return;
   }
   
-  &Log("WARNING: No Table Of Content tags were found. Default tags will be added where necessary.\n");
-  
-  # Create TOC entries for all top level divs with titles, and for all books
-  my @topDivTitles = $XPC->findnodes('//osis:osisText[1]/osis:div[not(@type="book")]/osis:title[@type="main"][1]', $xml);
-  foreach my $t (@topDivTitles) {
-    my $tag = '<milestone type="x-usfm-toc2" n="'.$t->textContent.'"/>';
-    &Log("Note: Inserting div \"$tag\" in Table Of Contents\n");
-    $t->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $t->parentNode->firstChild);
-  }
-  
+  # Insure there are TOC entries for all books
   my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $bk (@bks) {
+    # Is there a TOC entry?
+    my @e = $XPC->findnodes('./osis:milestone[@n][starts-with(@type, "x-usfm-toc")] | ./*[1][self::osis:div]/osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $bk);
+    if (@e && @e[0]) {next;}
+    
     # Get the book name from the first applicable title
     my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
     if (!@title || !@title[0]) {
