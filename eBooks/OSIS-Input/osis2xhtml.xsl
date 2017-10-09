@@ -335,7 +335,7 @@
       chapter[@sID] (from USFM \c tags) - The TOC entry name normally comes from a following title[@type='x-chapterLabel'] (USFM \cl or \cp) element
       seg[@type='keyword'] (from USFM \k ...\k* tags) - The TOC entry name normally comes from the child text nodes
       
-  By default, TOC hierarchy is determined from OSIS hierarchy. However an explicit TOC level and title may be specified for any entry.
+  By default, TOC hierarchy is determined from OSIS hierarchy. However an explicit TOC level and/or explicit title may be specified for any entry.
   An explicit title can be specified using the "n" attribute, which may also be prepended with special bracketted INSTRUCTIONS.
   EXAMPLE: <milestone type="x-usfm-toc2" n="[level1][no_inline_toc]My Title"/>.
   
@@ -594,11 +594,10 @@
   
   <template match="lb" mode="xhtml">
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/></div>
-    <apply-templates mode="xhtml"/>
   </template>
   
   <!-- usfm2osis.py follows the OSIS manual recommendation for selah as a line element which differs from the USFM recommendation for selah.
-  According to USFM 2.35 spec, selah is: "A character style. This text is frequently right aligned, and rendered on the same line as the previous poetic text..." !-->
+  According to USFM 2.4 spec, selah is: "A character style. This text is frequently right aligned, and rendered on the same line as the previous poetic text..." !-->
   <template match="l" mode="xhtml">
     <choose>
       <when test="@type = 'selah'"/>
@@ -640,11 +639,15 @@
   
   <template match="note" mode="xhtml">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template></a>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref">
+      <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template>
+    </a>
   </template>
   
   <template match="p" mode="xhtml">
-    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/></p>
+    <p xmlns="http://www.w3.org/1999/xhtml">
+      <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
+    </p>
   </template>
   
   <!-- This splits paragraphs that contain a page-break -->
