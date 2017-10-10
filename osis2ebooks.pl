@@ -173,12 +173,7 @@ sub setupAndMakeEbook($$$) {
   my @companionDictFiles;
   foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
     # copy companion OSIS file
-    my $outf;
-    my $outd = $OUTDIR;
-    $outd =~ s/$MOD/$companion/;
-    if (-e "$outd/$companion.xml") {$outf = "$outd/$companion.xml";}
-    elsif (-e "$INPD/$companion/output/$companion.xml") {$outf = "$INPD/$companion/output/$companion.xml";}
-    else {&Log("ERROR: Companion dictionary \"$companion\" was specified in config.conf, but its OSIS file was not found.\n");}
+    my $outf = &getProjectOsisFile($companion);
     my $filter = '0';
     if ($outf) {
       &osisXSLT($outf, '', "$tmp/$companion.xml", "$companion/eBook");

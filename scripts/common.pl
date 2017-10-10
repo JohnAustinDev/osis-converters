@@ -1568,6 +1568,23 @@ sub getOSISHeaderValueFromNode($$$$) {
   return @r[0]->textContent;
 }
 
+sub getProjectOsisFile($) {
+  my $mod = shift;
+
+  my $osis = '';
+  
+  if ($mod eq $MOD) {
+    $osis = "$OUTDIR/$MOD.xml";
+    return (-e $osis ? $osis:'');
+  }
+  
+  my $dir = $OUTDIR; $dir =~ s/\/$MOD\//\/$mod\//;
+  if (-e "$dir/$mod.xml") {$osis = "$dir/$mod.xml";}
+  elsif (-e "$INPD/$mod/output/$mod.xml") {$osis = "$INPD/$mod/output/$mod.xml";}
+  else {&Log("WARNING: Output project OSIS file \"$mod\" could not be found.\n");}
+  return $osis;
+}
+
 
 # Searches and replaces $$tP text for a single dictionary link, according 
 # to the $DWF file, and logs any result. If a match is found, the proper 
@@ -2239,6 +2256,7 @@ sub osisRef2array($) {
 
 # Check an osisRef segment (which cannot contain "-") against the verse system or dictionary words.
 # Returns 0 if invalid, 1 if valid, or -1 if it cannot be determined
+my %VALIDATE_OSISREF_CACHE;
 sub validOsisRefSegment($$\$\$\$\$\$) {
   my $osisRef = shift;
   my $osis = shift;    # optional OSIS file root node, but without it some refs cannot be validated
@@ -2307,6 +2325,15 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
   $$typeP = $1;
     
   if ($$typeP eq 'Dict') {
+    # don't complain if this is a NAVMENU keyword which is missing from DictionaryWords.xml
+    if ($$modP && !$VALIDATE_OSISREF_CACHE{$$modP}) {
+      my $file = &getProjectOsisFile($$modP);
+      if ($file) {$VALIDATE_OSISREF_CACHE{$$modP} = $XML_PARSER->parse_file($file);}
+    }
+    if ($VALIDATE_OSISREF_CACHE{$$modP}) {
+      my @kw = $XPC->findnodes("//osis:seg[\@type='keyword'][\@osisID='$osisRef']", $VALIDATE_OSISREF_CACHE{$$modP});
+      if (@kw && @kw[0] && @{$XPC->findnodes('ancestor::osis:div[@type="glossary"][@osisRef="NAVMENU"]', @kw[0])}[0]) {return 1;}
+    }
     if (!$DWF) {return -1;}
     my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$$modP:$osisRef']", $DWF);
     if (!@tst || !@tst[0]) {
@@ -2366,6 +2393,8 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
 # splitOSIS() even though it's slow, since targets are checked.
 sub checkReferenceLinks($) {
   my $in_osis = shift;
+  
+  undef(%VALIDATE_OSISREF_CACHE);
   
   &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
