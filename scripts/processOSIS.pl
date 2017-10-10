@@ -62,6 +62,24 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 &normalizeRefsIds($OUTOSIS);
 # MOD.xml is after addCrossRefs.pl
 
+# If the project includes a glossary, add glossary navigational menus, and also intro nav menus if there is an glossary div with osisRef="INT"
+my $osis = $XML_PARSER->parse_file($OUTOSIS);
+my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
+if ($projectGlossary) {
+  &Log("\nRunning OSIS navigation menu XSLT\n", 1);
+  # Create the Introduction menus only if it can be confirmed that the project glossary contains a glossary div wth osisRef="INT"
+  my $glossContainsINT = '';
+  my $glossf = &getProjectOsisFile($projectGlossary->value);
+  if ($glossf) {
+    my $gloss = (@{$XPC->findnodes('//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type="x-bible"]', $osis)}[0] ? $osis:$XML_PARSER->parse_file($glossf));
+    $glossContainsINT = @{$XPC->findnodes('//osis:div[@type="glossary"][@osisRef="INT"]', $gloss)}[0];
+  }
+  my $cmd = "saxonb-xslt -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
+  &Log("$cmd\n".`$cmd`."\n");
+  unlink($OUTOSIS);
+  copy("$OUTOSIS.out", $OUTOSIS);
+}
+
 # Run postprocess.(pl|xsl) if they exist
 if (-e "$INPD/postprocess.xsl") {
   &Log("\nRunning OSIS postprocess.xsl\n", 1);
