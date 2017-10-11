@@ -1375,9 +1375,10 @@ sub filterScriptureReferences($$) {
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
-sub filterGlossaryReferences($@) {
+sub filterGlossaryReferences($@$) {
   my $osis = shift;
   my @glossRefOsis = shift;
+  my $filterNavMenu = shift;
   
   my @glossRefOsis1;
   my %refsInScope;
@@ -1401,6 +1402,14 @@ sub filterGlossaryReferences($@) {
   my $total = 0;
   
   my $xml = $XML_PARSER->parse_file($osis);
+  
+  # filter out x-navmenu lists if they aren't wanted
+  if ($filterNavMenu) {
+    my @navs = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $xml);
+    foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
+  }
+  
+  # filter out references outside our scope
   my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
   foreach my $link (@links) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {

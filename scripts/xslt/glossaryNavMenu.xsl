@@ -23,7 +23,7 @@
   <!-- this glossary entry will be created as the glossary navigation menu -->
   <xsl:param name="uiDictionary" select="concat('- ', //header/work[child::type[@type='x-glossary']]/title[1])"/>
   
-  <xsl:variable name="MOD" select="//work[child::type[@type='x-glossary']][1]/@osisWork"/>
+  <xsl:param name="MOD" select="//work[child::type[@type='x-glossary']][1]/@osisWork"/>
   
   <xsl:template match="node()|@*" mode="identity">
     <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
@@ -36,7 +36,7 @@
   <xsl:template match="node()|@*">
     <xsl:variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
-        (child::node()[descendant-or-self::text()[normalize-space()]][1] | descendant::chapter[@sID][1])[1]
+        (node()[descendant-or-self::text()[normalize-space()]][1] | descendant::chapter[@sID][1])[1]
         [generate-id(.) = generate-id(current())]"/>
     <xsl:variable name="appendNavMenu" select="
     self::node()[descendant-or-self::text()[normalize-space()]]
@@ -66,10 +66,37 @@
     </xsl:choose>
   </xsl:template>
   
+  <xsl:template name="navmenu">
+    <xsl:param name="skip"/>
+    <list subType="x-navmenu">
+      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $osisRefIntro">
+        <item>
+          <p type="x-right" subType="x-introduction">
+            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
+              <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
+            </reference>
+          </p>
+        </item>
+      </xsl:if>
+      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
+        <item>
+          <p type="x-right" subType="x-introduction">
+            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
+              <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/>
+            </reference>
+          </p>
+        </item>
+      </xsl:if>
+      <lb/>
+      <lb/>
+    </list>
+  </xsl:template>
+  
   <!-- Create glossary navigation menus and put them in a glossary div -->
   <xsl:template match="osisText">
     <xsl:copy>
       <xsl:apply-templates select="node()|@*"/>
+      
       <xsl:if test="//work[@osisWork = current()/@osisIDWork]/type[@type='x-glossary']">
         <div type="glossary" osisRef="NAVMENU">
           
@@ -140,30 +167,12 @@
     </xsl:copy>
   </xsl:template>
   
-  <xsl:template name="navmenu">
-    <xsl:param name="skip"/>
-    <list type="x-navmenu">
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $osisRefIntro">
-        <item>
-          <p type="x-right" subType="x-introduction">
-            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
-              <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
-            </reference>
-          </p>
-        </item>
-      </xsl:if>
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
-        <item>
-          <p type="x-right" subType="x-introduction">
-            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
-              <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/>
-            </reference>
-          </p>
-        </item>
-      </xsl:if>
-      <lb/>
-      <lb/>
-    </list>
+  <!-- Add a special subType to Bible introductions if the glossary also includes the introduction -->
+  <xsl:template match="div[@type='introduction'][not(@subType)]">
+    <xsl:copy>
+      <xsl:if test="$osisRefIntro"><xsl:attribute name="subType" select="'x-glossary-duplicate'"/></xsl:if>
+      <xsl:apply-templates select="node()|@*"/>
+    </xsl:copy>
   </xsl:template>
   
 </xsl:stylesheet>
