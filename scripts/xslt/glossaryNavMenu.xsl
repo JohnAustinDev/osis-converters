@@ -55,10 +55,12 @@
       <xsl:when test="$prependNavMenu">
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
+        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="ancestor::div[@type='book']/@osisID"/></xsl:message>
       </xsl:when>
       <xsl:when test="$appendNavMenu">
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:call-template name="navmenu"/>
+        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="preceding::seg[@type='keyword'][1]"/></xsl:message>
       </xsl:when>
       <xsl:otherwise>
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
@@ -98,10 +100,12 @@
       <xsl:apply-templates select="node()|@*"/>
       
       <xsl:if test="//work[@osisWork = current()/@osisIDWork]/type[@type='x-glossary']">
+        <xsl:message>NOTE: Added NAVMENU glossary</xsl:message>
         <div type="glossary" osisRef="NAVMENU">
           
           <!-- Create a uiIntroduction main entry -->
           <xsl:if test="$osisRefIntro and //div[@type='glossary'][@osisRef=$osisRefIntro]">
+            <xsl:message>NOTE: Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:message>
             <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@osisRef = $osisRefIntro]//seg[@type='keyword']"/>
             <seg type="keyword" osisID="{oc:encodeOsisRef($uiIntroduction)}"><xsl:value-of select="$uiIntroduction"/></seg>
             <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'introduction'"/></xsl:call-template>
@@ -109,6 +113,7 @@
             <lb/>
             <lb/>
             <xsl:for-each select="$introSubEntries">
+              <xsl:message>NOTE: Added introduction sub-menu: <xsl:value-of select="."/></xsl:message>
               <p type="x-noindent"><reference osisRef="{$MOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
                 <lb/>
               </p>
@@ -116,6 +121,7 @@
           </xsl:if>
           
            <!-- Create a uiDictionary main entry, and its sub-entries -->
+          <xsl:message>NOTE: Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:message>
           <xsl:variable name="dictEntries" select="//div[@type='glossary'][not(@osisRef)]//seg[@type='keyword']"/>
           <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($dictEntries[1], 1, 1)), '-', upper-case(substring($dictEntries[last()], 1, 1)))"/>
           <p>
@@ -124,11 +130,13 @@
             </seg>
           </p>
           <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'dictionary'"/></xsl:call-template>
+          <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/></xsl:message>
           <reference osisRef="{$MOD}:{oc:encodeOsisRef($allEntriesTitle)}" type="x-glosslink" subType="x-target_self">
             <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
           </reference>
           <xsl:for-each select="$dictEntries">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
+              <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:message>
               <reference osisRef="{$MOD}:_45_{upper-case(substring(text(), 1, 1))}" type="x-glosslink" subType="x-target_self" >
                 <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
               </reference>
@@ -168,9 +176,12 @@
   </xsl:template>
   
   <!-- Add a special subType to Bible introductions if the glossary also includes the introduction -->
-  <xsl:template match="div[@type='introduction'][not(@subType)]">
+  <xsl:template match="div[@type='introduction'][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
-      <xsl:if test="$osisRefIntro"><xsl:attribute name="subType" select="'x-glossary-duplicate'"/></xsl:if>
+      <xsl:if test="$osisRefIntro">
+        <xsl:message>NOTE: Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:message>
+        <xsl:attribute name="subType" select="'x-glossary-duplicate'"/>
+      </xsl:if>
       <xsl:apply-templates select="node()|@*"/>
     </xsl:copy>
   </xsl:template>

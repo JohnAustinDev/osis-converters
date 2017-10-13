@@ -62,24 +62,6 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 &normalizeRefsIds($OUTOSIS);
 # MOD.xml is after addCrossRefs.pl
 
-# If the project includes a glossary, add glossary navigational menus, and also intro nav menus if there is an glossary div with osisRef="INT"
-my $osis = $XML_PARSER->parse_file($OUTOSIS);
-my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
-if ($projectGlossary) {
-  &Log("\nRunning OSIS navigation menu XSLT\n", 1);
-  # Create the Introduction menus only if it can be confirmed that the project glossary contains a glossary div wth osisRef="INT"
-  my $glossContainsINT = '';
-  my $glossf = &getProjectOsisFile($projectGlossary->value);
-  if ($glossf) {
-    my $gloss = (@{$XPC->findnodes('//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type="x-bible"]', $osis)}[0] ? $osis:$XML_PARSER->parse_file($glossf));
-    $glossContainsINT = @{$XPC->findnodes('//osis:div[@type="glossary"][@osisRef="INT"]', $gloss)}[0];
-  }
-  my $cmd = "saxonb-xslt -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
-  &Log("$cmd\n".`$cmd`."\n");
-  unlink($OUTOSIS);
-  copy("$OUTOSIS.out", $OUTOSIS);
-}
-
 # Run postprocess.(pl|xsl) if they exist
 if (-e "$INPD/postprocess.xsl") {
   &Log("\nRunning OSIS postprocess.xsl\n", 1);
@@ -97,6 +79,54 @@ if (-e "$INPD/postprocess.pl") {
   system($cmd);
 }
 
+# Checks occur as late as possible in the flow
+&checkReferenceLinks($OUTOSIS);
+
+# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with osisRef="INT" also add intro nav menus.
+my $osis = $XML_PARSER->parse_file($OUTOSIS);
+my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
+my $projectBible = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-bible"]]/@osisWork', $osis)}[0];
+if ($projectBible && $projectGlossary) {
+  # Create the Introduction menus only if it can be confirmed that the project glossary contains a glossary div wth osisRef="INT"
+  my $glossContainsINT = '';
+  my $glossf = &getProjectOsisFile($projectGlossary->value);
+  if ($glossf) {
+    $glossContainsINT = @{$XPC->findnodes('//osis:div[@type="glossary"][@osisRef="INT"]', $XML_PARSER->parse_file($glossf))}[0];
+  }
+  # Tell the user about the nav menu feature if it's available and not being used
+  if ($glossf && !$glossContainsINT) {
+    my $biblef = &getProjectOsisFile($projectBible->value);
+    if ($biblef) {
+      if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
+        my $bmod = $projectBible->value; my $gmod = $projectGlossary->value;
+        &Log("
+NOTE: Module $bmod contains <div type=\"introduction\"> material which \
+      could be more useful if placed into glossary module $gmod. This can \
+      easily be done by including the INT USFM file in the glossary with  \
+      scope INT and using an EVAL_REGEX to turn the headings into glossary \
+      keys. A menu system will then automatically be created to make the  \
+      introduction material available in every book and keyword. Just add \
+      code like this to $gmod/CF_usfm2osis.txt: \
+EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ \
+EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm \
+RUN:./INT.SFM\n");
+      }
+    }
+  }
+
+  &Log("\nRunning glossaryNavMenu.xsl to add glossary navigation menus".($glossContainsINT ? ", and introduction menus,":'')." to OSIS file.\n", 1);
+  my $cmd = "saxonb-xslt -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
+  &Log("$cmd\n");
+  my $out = `$cmd`; $out =~ s/&#(\d+);/my $r = chr($1);/eg;
+  &Log("$out\n");
+  unlink($OUTOSIS);
+  copy("$OUTOSIS.out", $OUTOSIS);
+}
+
+&checkFigureLinks($OUTOSIS);
+&checkIntroductionTags($OUTOSIS);
+&validateOSIS($OUTOSIS);
+
 # Do a tmp Pretty Print for referencing during the conversion process
 my $xml = $XML_PARSER->parse_file($OUTOSIS);
 &prettyPrintOSIS($xml);
@@ -104,8 +134,4 @@ open(OUTF, ">$TMPDIR/".$MOD."_PrettyPrint.xml");
 print OUTF $xml->toString();
 close(OUTF);
 
-&checkFigureLinks($OUTOSIS);
-&checkReferenceLinks($OUTOSIS);
-&checkIntroductionTags($OUTOSIS);
-&validateOSIS($OUTOSIS);
 &Log("\nend time: ".localtime()."\n");
