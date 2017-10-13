@@ -298,8 +298,13 @@
   <template name="getFootnoteSymbol">
     <param name="classes"/>
     <choose>
-      <when test="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])"><attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>*</when> <!-- notes in verses are just '*' -->
-      <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>[<xsl:call-template name="getFootnoteNumber"/>]</otherwise>
+      <when test="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])">
+        <attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>
+          *
+        </when>
+      <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>
+        [<xsl:call-template name="getFootnoteNumber"/>]
+      </otherwise>
     </choose>
   </template>
   
@@ -495,9 +500,9 @@
     <for-each select="tokenize($osisID, '\s+')">
       <span xmlns="http://www.w3.org/1999/xhtml"><xsl:attribute name="id" select="."/></span>
     </for-each>
-    <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
+    <sup xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
       <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
-    </span>
+    </sup>
   </template>
   
 
@@ -521,7 +526,7 @@
   
   <!-- Remove these tags (keeping their content). Paragraphs tags containing certain elements are dropped so that resulting HTML will validate -->
   <template match="name | seg | reference[ancestor::title[@type='scope']] | p[descendant::seg[@type='keyword']] | p[descendant::figure]" mode="xhtml">
-    <xsl:apply-templates mode="xhtml"/>
+    <apply-templates mode="xhtml"/>
   </template>
   
   <!-- Verses -->
@@ -536,7 +541,10 @@
   <template match="chapter[@sID and @osisID]" mode="xhtml">
     <call-template name="WriteTableOfContentsEntry"/>
     <!-- non-Bible chapters also get inline TOC -->
-    <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']"><call-template name="WriteInlineTOC"/></if>
+    <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']">
+      <call-template name="WriteInlineTOC"/>
+      <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="getTocTitle"/></h1>
+    </if>
   </template>
   
   <!-- Glossary keywords -->
@@ -639,9 +647,11 @@
   
   <template match="note" mode="xhtml">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref">
-      <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template>
-    </a>
+    <sup xmlns="http://www.w3.org/1999/xhtml">
+      <a href="#{$osisIDid}" id="textsym.{$osisIDid}" epub:type="noteref">
+        <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/></xsl:with-param></xsl:call-template>
+      </a>
+    </sup>
   </template>
   
   <template match="p" mode="xhtml">

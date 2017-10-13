@@ -63,6 +63,7 @@ h2, h3 {
 ul {
   list-style: none;
 }
+sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 
 /* OSIS tag classes (OSIS tags output by usfm2osis.py) */
 .osis-p  {text-indent:1.5em; margin: 0px; padding-left:0px;}
@@ -75,7 +76,7 @@ ul {
 .osis-hi.emphasis {font-weight:bold;}
 .osis-hi.line-through {text-decoration: line-through;}
 .osis-hi.sub {vertical-align: sub; font-size: smaller;}
-.osis-hi.super {font-size:0.675em; line-height: 1.2; vertical-align: super; vertical-align: 35%;}
+.osis-hi.super {font-size:0.675em; line-height: 1.2; vertical-align: inherit; vertical-align: 35%;}
 .osis-hi.underline {text-decoration: underline;}
 .osis-hi.small-caps {font-variant:small-caps}
 .osis-reference {
@@ -130,7 +131,7 @@ ul {
   font-style:italic;
   font-size:0.675em;
   line-height: 1.2;
-  vertical-align: super;
+  vertical-align: inherit;
   vertical-align: 35%;
 }
 .acrostic {
@@ -196,7 +197,7 @@ ul {
 .xsl-verse-number {
   font-size:0.675em;
   line-height: 1.2;
-  vertical-align: super;
+  vertical-align: inherit;
   vertical-align: 35%;
   color:#004400;
   margin-right:0.2em;
@@ -212,6 +213,7 @@ body:not(.Ps) .x-chapterLabel {
   padding: 0px 0px 0px 0px;
   margin: 0px 0px 0px 0px;
 }
+.xsl-nonBibleChapterLabel {}
 .xsl-chapter-number {
   font-size: 2em; 
   font-weight:bold;
@@ -238,7 +240,7 @@ dfn {
 .xsl-note-number:not(.xsl-footnote-head) {
   font-size:0.675em;
   line-height: 1.2;
-  vertical-align: super;
+  vertical-align: inherit;
   vertical-align: 35%;
 }
 .xsl-inline-toc {
