@@ -500,17 +500,8 @@ sub checkAndWriteDefaults($) {
     
     # eBooks
     if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
-      if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
-      print CONV "Language=".$confdataP->{'Lang'}."\n";
-      print CONV "Publisher=".$confdataP->{'CopyrightHolder'}."\n";
-      print CONV "Title=".$confdataP->{'Description'}."\n";
-      # sort books to versification order just to make them easier to manually check/update
-      my ($canonP, $bookOrderP, $testamentP);
-      &getCanon(($confdataP->{'Versification'} ? $confdataP->{'Versification'}:'KJV'), \$canonP, \$bookOrderP, \$testamentP);
-      foreach my $f (sort {$bookOrderP->{$USFM{'bible'}{$a}{'osisBook'}} <=> $bookOrderP->{$USFM{'bible'}{$b}{'osisBook'}}} keys %{$USFM{'bible'}}) {
-        print CONV $USFM{'bible'}{$f}{'osisBook'}.'='.$USFM{'bible'}{$f}{'h'}."\n";
-      }
-      close(CONV);
+      #if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
+      #close(CONV);
     }
   }
   
@@ -1266,18 +1257,35 @@ sub sortSearchTermKeys($$) {
 }
 
 
-# Copy inosis to outosis, while pruning books according to scope. 
+# Copy inosis to outosis, while pruning books according to scope. Any
+# changes made during the process are noted in the log file with a NOTE.
+#
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
+#
 # If a pruned book contains a peripheral which also pertains to a kept 
 # book, that peripheral is moved to the first kept book, so as to retain 
-# the peripheral. If there is only one bookGroup left, the remaining one
-# will lose its TOC milestone to so as to reduce an unnecessary TOC level.
-sub pruneFileOSIS($$$$) {
+# the peripheral.
+#
+# If there is only one bookGroup left, the remaining one will lose its 
+# TOC milestone to so as to reduce an unnecessary TOC level.
+#
+# If the ebookTitleP is non-empty, its value will be used as the ebook 
+# title, otherwise the ebook title will be taken from the OSIS file, but 
+# appended to it will be the list of books remaining after filtering IF 
+# any were filtered out. The final ebook title will then be written to  
+# the outosis file.
+#
+# The ebookPartTitleP is overwritten by the list of books left after
+# filtering, or else the ebook title itself if no books were filtered out.
+sub pruneFileOSIS($$$$$\$\$) {
   my $inosis = shift;
   my $outosis = shift;
   my $scope = shift;
   my $vsys = shift;
+  my $bookTitleTocNum = shift;
+  my $ebookTitleP = shift;
+  my $ebookPartTitleP= shift;
   
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
   $typeRE =~ s/\-/\\-/g;
@@ -1285,11 +1293,13 @@ sub pruneFileOSIS($$$$) {
   my $inxml = $XML_PARSER->parse_file($inosis);
   
   my $bookOrderP;
+  my $booksFiltered = 0;
   if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
     my @lostIntros;
     my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
     # remove books not in scope
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+    my @filteredBooks;
     foreach my $bk (@books) {
       my $id = $bk->getAttribute('osisID');
       if (!exists($scopeBookNames{$id})) {
@@ -1299,11 +1309,20 @@ sub pruneFileOSIS($$$$) {
           push(@lostIntros, $div);
         }
         $bk->unbindNode();
+        push(@filteredBooks, $id);
+        $booksFiltered++;
       }
+    }
+    if (@filteredBooks) {
+      &Log("NOTE: Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".\n", 1);
     }
     # remove bookGroup if it has no books left (even if it contains other peripheral material)
     my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode();}
+    my $msg = 0;
+    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
+    if ($msg) {
+      &Log("NOTE: Filtered \"$msg\" bookGroups which contained no books.\n", 1);
+    }
     # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
     my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (reverse(@lostIntros)) {
@@ -1315,7 +1334,7 @@ sub pruneFileOSIS($$$$) {
           $remainingBook->insertBefore($intro, $remainingBook->firstChild);
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-          &Log("NOTE: Moved peripheral: $t1 to $t2\n");
+          &Log("NOTE: Moved peripheral: $t1 to $t2\n", 1);
           next INTRO;
         }
       }
@@ -1323,11 +1342,35 @@ sub pruneFileOSIS($$$$) {
   }
   else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
   
-  # remove any TOC entry from a lone bookGroup, so we won't have unnecessary TOC levels
+  # remove the TOC entry from the bookGroup, unless there are other bookGroups, to prevent unnecessary TOC levels
   my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
   if (scalar(@grps) == 1 && @grps[0]) {
     my @ms = $XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[starts-with(@type, "x-usfm-toc")]', @grps[0]);
-    if (@ms && @ms[0]) {@ms[0]->unbindNode();}
+    if (@ms && @ms[0]) {
+      @ms[0]->unbindNode();
+      my $n = (@ms[0]->getAttribute('n') ? @ms[0]->getAttribute('n'):'NO-TITLE');
+      &Log("NOTE: Removed TOC milestone from bookGroup titled \"$n\" because there is only one bookGroup in the OSIS file.\n", 1);
+    }
+  }
+  
+  # determine titles
+  my $osisTitle = @{$XPC->findnodes('//osis:type[@type="x-bible"][1]/ancestor::osis:work[1]//osis:title[1]', $inxml)}[0];
+  if (!$$ebookTitleP) {$$ebookTitleP = $osisTitle->textContent;}
+  if ($booksFiltered) {
+    my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+    my @bookNames;
+    foreach my $b (@books) {
+      my @t = $XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b);
+      if (@t[0]) {push(@bookNames, @t[0]->getValue());}
+    }
+    $$ebookPartTitleP = join(', ', @bookNames);
+  }
+  else {$$ebookPartTitleP = $$ebookTitleP;}
+  if ($booksFiltered) {$$ebookTitleP .= ": $$ebookPartTitleP";}
+  if ($$ebookTitleP ne $osisTitle->textContent) {
+    foreach my $c ($osisTitle->childNodes()) {$c->unbindNode();}
+    $osisTitle->appendText($$ebookTitleP);
+    &Log('NOTE: Updated OSIS title to "'.$osisTitle->textContent."\"\n", 1);
   }
   
   open(OUTF, ">$outosis");
@@ -1341,7 +1384,7 @@ sub filterScriptureReferences($$) {
   my $scripRefOsis = shift;
   
   my $osis1 = $osis; $osis1 =~ s/^.*\///; my $scripRefOsis1 = $scripRefOsis; $scripRefOsis1 =~ s/^.*\///;
-  &Log("\nFiltering Scripture references in \"$osis1\" that target outside \"$scripRefOsis1\".\n", 2);
+  &Log("\nFiltering Scripture references in \"$osis1\" that target outside \"$scripRefOsis1\".\n", 1);
   my %filteredBooks;
   my $total = 0;
   
@@ -1352,11 +1395,12 @@ sub filterScriptureReferences($$) {
   my $refWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $scripRefXml)}[0]->getValue();
   
   my $xml = $XML_PARSER->parse_file($osis);
+  my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
   my @links = $XPC->findnodes('//osis:reference[@osisRef and not(@type="x-glosslink" or @type="x-glossary")]', $xml);
   foreach my $link (@links) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
       my $book = $3;
-      my $work = ($1 ? $2:@{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue());
+      my $work = ($1 ? $2:$osisRefWork);
       if ($work eq $refWork && exists($scopeBookNames{$book})) {next;}
       my @children = $link->childNodes();
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
@@ -1370,7 +1414,7 @@ sub filterScriptureReferences($$) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" Scripture references filtered. (targeting ".keys(%filteredBooks)." different books)\n\n", 2);
+  &Log("$MOD REPORT: \"$total\" Scripture references filtered. (targeting ".keys(%filteredBooks)." different books)\n\n", 1);
   return $total;
 }
 
@@ -1420,7 +1464,7 @@ sub filterGlossaryReferences($@$) {
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
       $link->unbindNode();
       $total++;
-      &Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
+      #&Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
     }
   }
   open(OUTF, ">$osis");
@@ -1582,15 +1626,25 @@ sub getProjectOsisFile($) {
 
   my $osis = '';
   
+  # self
   if ($mod eq $MOD) {
     $osis = "$OUTDIR/$MOD.xml";
     return (-e $osis ? $osis:'');
   }
   
   my $dir = $OUTDIR; $dir =~ s/\/$MOD\//\/$mod\//;
+  
+  # explicit output location
   if (-e "$dir/$mod.xml") {$osis = "$dir/$mod.xml";}
+  # Bible looking for dict
   elsif (-e "$INPD/$mod/output/$mod.xml") {$osis = "$INPD/$mod/output/$mod.xml";}
-  else {&Log("WARNING: Output project OSIS file \"$mod\" could not be found.\n");}
+  # dict looking for Bible
+  elsif (-e "$INPD/../output/$mod.xml") {$osis = "$INPD/../output/$mod.xml";}
+  # not found
+  elsif (!$GETPROJECTOSISFILE_WARN{$mod}) {
+    &Log("WARNING: Output project OSIS file \"$mod\" could not be found.\n");
+    $GETPROJECTOSISFILE_WARN{$mod}++;
+  }
   return $osis;
 }
 
@@ -3168,6 +3222,11 @@ sub writeTOC($) {
   
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
+  my %ebookconv;
+  if (-e "$INPD/eBook/convert.txt") {%ebookconv = &ebookReadConf("$INPD/eBook/convert.txt");}
+  my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
+  &Log("NOTE: Using \"\\toc$toc\" USFM tags to determine eBook TOC.\n");
+  
   my $xml = $XML_PARSER->parse_file($osis);
   
   my @tocTags = $XPC->findnodes('//osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $xml);
@@ -3179,12 +3238,22 @@ sub writeTOC($) {
     }
   }
   
-  # Insure there are TOC entries for all books
+  # Insure there are TOC entries for each book
   my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $bk (@bks) {
     # Is there a TOC entry?
-    my @e = $XPC->findnodes('./osis:milestone[@n][starts-with(@type, "x-usfm-toc")] | ./*[1][self::osis:div]/osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $bk);
+    my @e = $XPC->findnodes('./osis:milestone[@n][@type="x-usfm-toc'.$toc.'"] | ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$toc.'"]', $bk);
     if (@e && @e[0]) {next;}
+    
+    if (!$WRITETOC_MSG) {
+      &Log("
+WARNING: At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are used to \
+        generate the eBook table of contents. If your eBook TOCs do not render with proper book \
+        names and/or hierarchy, then you must add \\toc$toc tags to the USFM using EVAL_REGEX. \
+        Or, if you wish to use a different \\toc tag, you must add a TOC=N config setting to: \
+        $MOD/eBook/convert.txt (where N is the \\toc tag number you wish to use.)\n\n");
+      $WRITETOC_MSG++;
+    }
     
     # Get the book name from the first applicable title
     my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
@@ -3198,14 +3267,30 @@ sub writeTOC($) {
     }
     else {$name = @title[0]->textContent;}
     
-    my $tag = "<milestone type=\"x-usfm-toc2\" n=\"$name\"/>";
-    &Log("Note: Inserting book \"$tag\" in Table Of Contents\n");
+    my $tag = "<milestone type=\"x-usfm-toc$toc\" n=\"$name\"/>";
+    &Log("Note: Inserting into \"".$bk->getAttribute('osisID')."\": $tag for Table Of Contents\n");
     $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
   }
   
   open(OUTF, ">$osis") or die "writeTOC could not open file: \"$osis\".\n";
   print OUTF $xml->toString();
   close(OUTF);
+}
+
+sub ebookReadConf($) {
+  my $convtxt = shift;
+  
+  my %conv;
+  if (open(CONV, "<encoding(UTF-8)", $convtxt)) {
+    while(<CONV>) {
+      if ($_ =~ /^#/) {next;}
+      elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {$conv{$1} = $2;}
+    }
+    close(CONV);
+  }
+  else {&Log("ERROR: Could not read ebookReadConf \"$convtxt\"\n"); die;}
+  
+  return %conv;
 }
 
 
@@ -3479,7 +3564,7 @@ sub normalizeRefsAndIds($$\%) {
 sub validateOSIS($) {
   my $osis = shift;
   
-  # validate new OSIS file against schema
+  # validate new OSIS file against OSIS schema
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
   $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
@@ -3487,8 +3572,13 @@ sub validateOSIS($) {
   my $res = `$cmd`;
   &Log("$res\n");
   
-  # Generate error if file does not validate
-  if ($res !~ /^\Q$osis validates\E$/) {&Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");}
+  # Generate error if file fails to validate
+  if (!$res || $res =~ /^\s*$/) {
+    &Log("ERROR: \"$osis\" validation problem. No success or failure message was returned from the xmllint validator!\n");
+  }
+  elsif ($res !~ /^\Q$osis validates\E$/) {
+    &Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");
+  }
   
   &Log("END OSIS VALIDATION\n");
 }

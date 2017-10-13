@@ -1,35 +1,36 @@
 from calibre.customize.conversion import InputFormatPlugin, OptionRecommendation
-from calibre_plugins.osis_input.config import ConversionConfig
-from calibre_plugins.osis_input.context import ConvertContext
+from subprocess import Popen, PIPE
+import re
 import shutil
 import glob
 import codecs
-import string
 import os
-from subprocess import Popen, PIPE
-from lxml import etree
-from os import walk
 
 class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS xml files to epub'
-    version = (3, 0, 0)
+    version = (3, 1, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['linux']
 
     options = set([
-    OptionRecommendation(name='config_file', recommended_value='convert.txt',
-            help=_('Config file'))
+    OptionRecommendation(name='config_file', recommended_value='convert.txt', help=_('Config file'))
     ])
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        #
-        # Get config
-        self.opts = options
-        self.config = ConversionConfig(self.opts.config_file)
-        self.context = ConvertContext(self.config)
+        
+        # Read convert.txt
+        cfile = codecs.open(options.config_file, 'r', encoding="utf-8")  
+        config = cfile.read().strip()
+        config = re.sub(r"#.*", "", config)
+        
+        # TOC - a number from 1 to 3 selecting \toc1, \toc2 or \toc3 USFM tags to use creating the eBook TOC
+        TOC = 2
+        m = re.search(r"^\s*TOC=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            TOC = m.group(1).strip()
             
         # Get the directory of our input files
         filePath = stream.name
@@ -56,7 +57,14 @@ class OsisInput(InputFormatPlugin):
         # Transform the OSIS files to XHTML
         with open("./osis2xhtml.xsl", "w") as text_file:
           text_file.write(get_resources('osis2xhtml.xsl'))
-        command = ["saxonb-xslt", "-ext:on", "-xsl:osis2xhtml.xsl", "-s:%s" % inputOSIS, "-o:content.opf", "css=%s" % (",").join(sorted(cssFileNames)), "tocnumber=%s" % self.context.config.toc]
+        command = ["saxonb-xslt", 
+            "-ext:on", 
+            "-xsl:osis2xhtml.xsl", 
+            "-s:%s" % inputOSIS, 
+            "-o:content.opf", 
+            "css=%s" % (",").join(sorted(cssFileNames)), 
+            "tocnumber=%s" % TOC
+        ]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
@@ -67,9 +75,4 @@ class OsisInput(InputFormatPlugin):
             os.remove(afile)
         
         return os.path.abspath('content.opf')
-
-
-
-    
-    
-    
+        

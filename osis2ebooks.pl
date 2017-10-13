@@ -36,17 +36,13 @@ $EBOOKNAME;
 # get scope and vsys of OSIS file
 &setConfGlobals(&updateConfData($ConfEntryP, $OSISFILE));
 
-# make eBooks from the entire OSIS file
 %EBOOKCONV = &ebookReadConf("$INPD/eBook/convert.txt");
-# This script supports the following special settings in convert.txt:
-#  CreateFullBible=(0|1)        - Run/skip full Bible build
-#  CreateSeparateBooks=(0|1)    - Run/skip individual book builds
-#  CreateFullPublicationN=scope - Create extra full publication (N is a number)
-#  TitleFullPublicationN=text   - Title of extra full publication N (if cover image is not supplied)
+
 $CREATE_FULL_BIBLE = (!defined($EBOOKCONV{'CreateFullBible'}) || $EBOOKCONV{'CreateFullBible'} !~ /^(false|0)$/i);
 $CREATE_SEPARATE_BOOKS = (!defined($EBOOKCONV{'CreateSeparateBooks'}) || $EBOOKCONV{'CreateSeparateBooks'} !~ /^(false|0)$/i);
 @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %EBOOKCONV) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
 
+# make an eBook with the entire OSIS file
 if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook($ConfEntryP->{"Scope"}, 'Full', '', $ConfEntryP);}
 
 # make eBooks for any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
@@ -60,12 +56,13 @@ if (@CREATE_FULL_PUBLICATIONS) {
 if ($CREATE_SEPARATE_BOOKS) {
   $thisXML = $XML_PARSER->parse_file($OSISFILE);
   @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
-  foreach my $aBook (@allBooks) {
+  BOOK: foreach my $aBook (@allBooks) {
     my $bk = $aBook->getAttribute('osisID');
+    # don't create this ebook if an identical ebook has already been created
     foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-      # don't create single ebook if an identical single ebook publication has already been created
-      if ($bk && $bk eq $EBOOKCONV{'CreateFullPublication'.$x}) {$bk = '';}
+      if ($bk && $bk eq $EBOOKCONV{'CreateFullPublication'.$x}) {next BOOK;}
     }
+    if ($CREATE_FULL_BIBLE && $ConfEntryP->{"Scope"} eq $bk) {next BOOK;}
     if ($bk) {&setupAndMakeEbook($bk, 'Part', '', $ConfEntryP);}
   }
 }
@@ -108,23 +105,20 @@ sub setupAndMakeEbook($$$) {
     &Log("ERROR: eBooks \"$EBOOKNAME\" were already created!\n");
   }
   
-  my $scopeIsCompleteOSIS = ($scope eq $confP->{"Scope"});
-  
   &Log("\n");
   
   my $tmp = "$TMPDIR/$scope";
   make_path($tmp);
-    
-  if ($scopeIsCompleteOSIS) {copy($OSISFILE, "$tmp/$MOD.xml");}
-  else {&pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $confP->{"Versification"});}
+  
+  my $ebookTitle = ($titleOverride ? $titleOverride:$EBOOKCONV{'Title'}); # title will usually still be '' at this point
+  my $ebookTitlePart;
+  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $confP->{"Versification"}, 
+    ($EBOOKCONV{'TitleTOC'} ? $EBOOKCONV{'TitleTOC'}:'2'), 
+    \$ebookTitle, 
+    \$ebookTitlePart);
   
   # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
-  if (!$scopeIsCompleteOSIS) {
-    $titleOverride = &ebookUpdateConf("$tmp/convert.txt", "$tmp/$MOD.xml", $titleOverride);
-    %EBOOKCONV = &ebookReadConf("$tmp/convert.txt");
-    &updateOSISTitle("$tmp/$MOD.xml", $titleOverride);
-  }
   
   # copy css directory (css directory is the last of the following)
   my $css = "$SCRD/eBooks/css";
@@ -144,17 +138,17 @@ sub setupAndMakeEbook($$$) {
   if (!-e "$INPD/eBook/$covname") {$covname = 'cover.jpg';}
   if (-e "$INPD/eBook/$covname") {
     $cover = "$tmp/cover.jpg";
-    if (!$scopeIsCompleteOSIS && $type eq 'Part') {
+    if ($type eq 'Part') {
       # add specific title to the top of the eBook cover image
-      $EBOOKREPORT{$EBOOKNAME}{'Title'} = $titleOverride;
+      $EBOOKREPORT{$EBOOKNAME}{'Title'} = $ebookTitlePart;
       $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
-      my $pointsize = (4/3)*$imagewidth/length($titleOverride);
+      my $pointsize = (4/3)*$imagewidth/length($ebookTitlePart);
       if ($pointsize > 40) {$pointsize = 40;}
       elsif ($pointsize < 10) {$pointsize = 10;}
       my $padding = 20;
       my $barheight = $pointsize + (2*$padding) - 10;
-      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$titleOverride' \"$cover\"";
+      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$ebookTitlePart' \"$cover\"";
       &Log("$cmd\n");
       `$cmd`;
     }
@@ -165,7 +159,7 @@ sub setupAndMakeEbook($$$) {
     }
   }
   else {
-    $EBOOKREPORT{$EBOOKNAME}{'Title'} = $EBOOKCONV{'Title'};
+    $EBOOKREPORT{$EBOOKNAME}{'Title'} = $ebookTitle;
     $EBOOKREPORT{$EBOOKNAME}{'Cover'} = 'random-cover';
   }
   
@@ -218,17 +212,17 @@ sub setupAndMakeEbook($$$) {
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
-  if (!$scopeIsCompleteOSIS) {$EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml");}
+  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml");
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", @companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
-    if (!$scopeIsCompleteOSIS) {$EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml");}
+    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml");
     $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, @companionDictFiles, 1);
   }
 
   # run the converter
   &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp, $type);
-  # mobi is disabled because it currently runs too slowly, and fb2 is disabled until a decend FB2 converter is written
+  # mobi is disabled because it currently runs too slowly, and fb2 is disabled until a decent FB2 converter is written
   # &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp, $type);
   # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp, $type);
 }
@@ -287,73 +281,4 @@ sub makeEbook($$$$$$) {
   else {&Log("ERROR: No output file: $out\n");}
 }
 
-sub ebookUpdateConf($$$) {
-  my $convtxt = shift;
-  my $osis = shift;
-  my $title = shift;
-  
-  my %conv = &ebookReadConf($convtxt);
-  
-  if (!$title) {
-    my $sep = "";
-    
-    my $xml = $XML_PARSER->parse_file($osis);
-    my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-    foreach my $abk (@bks) {
-      my $k = $abk->getAttribute('osisID');
-      if ($conv{$k}) {$title .= $sep.$conv{$k};}
-      else {
-        # NOTE: This is currently hardwired to toc2 type milestones but this should be selectable...
-        my @t = $XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc2"]/@n', $abk);
-        if (@t) {$title .= $sep.@t[0]->getValue();}
-      }
-      if ($title) {$sep = "\n";}
-    }
-  }
-  my $t = $title; $t =~ s/\n/, /g;
-  $conv{'Title'} .= ": $t";
-  
-  # delete Group1 and Group2 entries
-  if (defined($conv{'Group1'})) {delete($conv{'Group1'});}
-  if (defined($conv{'Group2'})) {delete($conv{'Group2'});}
-  
-  if (open(CONV, ">encoding(UTF-8)", $convtxt)) {
-    foreach my $k (sort keys %conv) {print CONV "$k=".$conv{$k}."\n";}
-    close(CONV);
-  }
-  else {&Log("ERROR: Could not write ebookUpdateConf \"$convtxt\"\n"); die;}
-  
-  return $title;
-}
-
-sub ebookReadConf($) {
-  my $convtxt = shift;
-  
-  my %conv;
-  if (open(CONV, "<encoding(UTF-8)", $convtxt)) {
-    while(<CONV>) {
-      if ($_ =~ /^#/) {next;}
-      elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {$conv{$1} = $2;}
-    }
-    close(CONV);
-  }
-  else {&Log("ERROR: Could not read ebookReadConf \"$convtxt\"\n"); die;}
-  
-  return %conv;
-}
-
-sub updateOSISTitle($$) {
-  my $osis = shift;
-  my $title = shift;
-  
-  my $xml = $XML_PARSER->parse_file($osis);
-  my @t = $XPC->findnodes('//osis:type[@type="x-bible"][1]/ancestor::osis:work[1]//osis:title[1]', $xml);
-  if ($title && @t && @t[0]) {
-    @t[0]->appendText(': ' . $title);
-    &Log("NOTE: Updated OSIS title to:\"".@t[0]->toString()."\"\n", 2);
-    open(OUTF, ">$osis");
-    print OUTF $xml->toString();
-    close(OUTF);
-  }
-}
 1;
