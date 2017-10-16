@@ -86,7 +86,7 @@ if (-e "$INPD/postprocess.pl") {
 my $osis = $XML_PARSER->parse_file($OUTOSIS);
 my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
 my $projectBible = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-bible"]]/@osisWork', $osis)}[0];
-if ($projectBible && $projectGlossary) {
+if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary->value."/navigation.sfm")) {
   # Create the Introduction menus only if it can be confirmed that the project glossary contains a glossary div wth osisRef="INT"
   my $glossContainsINT = '';
   my $glossf = &getProjectOsisFile($projectGlossary->value);

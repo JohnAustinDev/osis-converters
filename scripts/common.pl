@@ -1632,7 +1632,7 @@ sub getProjectOsisFile($) {
     return (-e $osis ? $osis:'');
   }
   
-  my $dir = $OUTDIR; $dir =~ s/\/$MOD\//\/$mod\//;
+  my $dir = $OUTDIR; $dir =~ s/\b$MOD\b/$mod/;
   
   # explicit output location
   if (-e "$dir/$mod.xml") {$osis = "$dir/$mod.xml";}
