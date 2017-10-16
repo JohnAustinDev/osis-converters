@@ -1450,7 +1450,7 @@ sub filterGlossaryReferences($@$) {
   # filter out x-navmenu lists if they aren't wanted
   if ($filterNavMenu) {
     my @navs = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $xml);
-    #foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
+    foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
   }
   
   # filter out references outside our scope
