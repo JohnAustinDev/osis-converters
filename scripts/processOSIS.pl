@@ -87,26 +87,25 @@ my $osis = $XML_PARSER->parse_file($OUTOSIS);
 my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
 my $projectBible = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-bible"]]/@osisWork', $osis)}[0];
 if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary->value."/navigation.sfm")) {
-  # Create the Introduction menus only if it can be confirmed that the project glossary contains a glossary div wth osisRef="INT"
-  my $glossContainsINT = '';
-  my $glossf = &getProjectOsisFile($projectGlossary->value);
-  if ($glossf) {
-    $glossContainsINT = @{$XPC->findnodes('//osis:div[@type="glossary"][@osisRef="INT"]', $XML_PARSER->parse_file($glossf))}[0];
-  }
-  # Tell the user about the nav menu feature if it's available and not being used
-  if ($glossf && !$glossContainsINT) {
+  # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
+  my $gloss = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."CF_usfm2osis.txt";
+  my $glossContainsINT = `grep "scope == INT" $gloss`;
+
+  # Tell the user about the introduction nav menu feature if it's available and not being used
+  if (!$glossContainsINT) {
     my $biblef = &getProjectOsisFile($projectBible->value);
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
         my $bmod = $projectBible->value; my $gmod = $projectGlossary->value;
         &Log("
-NOTE: Module $bmod contains <div type=\"introduction\"> material which \
-      could be more useful if placed into glossary module $gmod. This can \
-      easily be done by including the INT USFM file in the glossary with  \
-      scope INT and using an EVAL_REGEX to turn the headings into glossary \
-      keys. A menu system will then automatically be created to make the  \
-      introduction material available in every book and keyword. Just add \
-      code like this to $gmod/CF_usfm2osis.txt: \
+NOTE: Module $bmod contains <div type=\"introduction\"> material and it 
+      appears you have not duplicated that material in the glossary. This \
+      introductory material could be more useful if copied into glossary \
+      module $gmod. This can easily be done by including the INT USFM file \
+      in the glossary with scope INT and using an EVAL_REGEX to turn the \
+      headings into glossary keys. A menu system will then automatically \
+      be created to make the introduction material available in every \
+      book and keyword. Just add code like this to $gmod/CF_usfm2osis.txt: \
 EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ \
 EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm \
 RUN:./INT.SFM\n");
@@ -122,12 +121,13 @@ RUN:./INT.SFM\n");
   unlink($OUTOSIS);
   copy("$OUTOSIS.out", $OUTOSIS);
   
-  if (!-e "$INPD/sword/css") {
+  my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."sword/css";
+  if (!-e $css) {
     &Log("
 WARNING: For the navigation menu to look best in SWORD, you should use 
-         some module css in the project. Here is how it can be done:
+         glossary module css. Here is how it can be done:
          1) Edit \"".$projectGlossary->value."/config.conf\" to add the config entry: \"PreferredCSSXHTML=swmodule.css\"
-         2) Open or create the css file: \"".$projectGlossary->value."/sword/css/swmodule.css\"
+         2) Open or create the css file: \"$css/swmodule.css\"
          3) Add the following css: \".x-navmenu .x-prevnext-link span {font-size:3em; text-decoration:none;}\"\n");
   }
   
