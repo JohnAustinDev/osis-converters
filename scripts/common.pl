@@ -1450,7 +1450,7 @@ sub filterGlossaryReferences($@$) {
   # filter out x-navmenu lists if they aren't wanted
   if ($filterNavMenu) {
     my @navs = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $xml);
-    foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
+    #foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
   }
   
   # filter out references outside our scope
@@ -2612,23 +2612,12 @@ sub logDictLinks() {
       &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
     }
   }
-  &Log("\n");
   
-  $total = 0;
-  foreach my $osisRef (sort keys %EntryHits) {$total += $EntryHits{$osisRef};}
-  
-  &Log("$MOD REPORT: Words/phrases converted into links using $DICTIONARY_WORDS: ($total instances)\n");
-  &Log("NOTE: The following list must be looked over carefully. Glossary entries are matched\n"); 
-  &Log("in the text using the match elements in the $DICTIONARY_WORDS file.\n");
-  &Log("\n");
-  &Log("GLOSSARY_ENTRY: LINK_TEXT, MODNAME(s), NUMBER_OF_LINKS\n");
   my %ematch;
   foreach my $rep (sort keys %Replacements) {
-    &Log("$rep, ".$Replacements{$rep}."\n");
     if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&Log("ERROR: Bad rep match \"$rep\"\n"); next;}
     $ematch{"$3:$1"}{$2} += $Replacements{$rep};
   }
-  &Log("\n\n");
 
   # get fields and their lengths
   my %kl;
@@ -2642,8 +2631,10 @@ sub logDictLinks() {
     
     my $asp = '';
     if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
+    my $st = $ent; $st =~ s/^\w*\://;
     foreach my $as (sort {$ematch{$ent}{$b} <=> $ematch{$ent}{$a}} keys %{$ematch{$ent}}) {
-      $asp .= $as."(".$ematch{$ent}{$as}.") ";
+      my $tp = ($st eq $as ? '':(lc($st) eq lc($as) ? '':'*'));
+      $asp .= $as."(".$ematch{$ent}{$as}."$tp) ";
     }
     if (length($asp) > $mas) {$mas = length($asp);}
     $kas{$ent} = $asp;
@@ -2663,7 +2654,12 @@ sub logDictLinks() {
     
     $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
-  &Log("$MOD REPORT: Links created: ($gt instances)\n$p");
+  &Log(" \
+NOTE: The following listing should be looked over to be sure text is \
+correctly linked to the glossary. Glossary entries are matched in the \
+text using the match elements found in the $DICTIONARY_WORDS file. \
+\n");
+  &Log("$MOD REPORT: Links created: ($gt instances)\n* is textual difference other than capitalization\n$p");
   
 }
 
@@ -3268,7 +3264,7 @@ WARNING: At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$
     else {$name = @title[0]->textContent;}
     
     my $tag = "<milestone type=\"x-usfm-toc$toc\" n=\"$name\"/>";
-    &Log("Note: Inserting into \"".$bk->getAttribute('osisID')."\": $tag for Table Of Contents\n");
+    &Log("Note: Inserting \\toc$toc into \"".$bk->getAttribute('osisID')."\" as $tag\n");
     $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
   }
   
