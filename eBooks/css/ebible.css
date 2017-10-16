@@ -90,6 +90,9 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   text-indent:-1.5em;
   margin-left:1.5em;
 }
+.osis-item {
+  margin-bottom:1em;
+}
 .osis-note {
   text-decoration:none;
 }
@@ -191,6 +194,14 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   text-indent:-3em;
   padding-left:3em;
 }
+.x-navmenu .osis-item {
+  margin-bottom:0;
+}
+.x-navmenu .x-prevnext-link .x-glosslink {
+  font-size:3em;
+  text-decoration:none;
+}
+
 
 /* Classes introduced by osis2xhtml.xsl */
 /* .xsl-selah */

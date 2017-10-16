@@ -71,8 +71,22 @@
   <xsl:template name="navmenu">
     <xsl:param name="skip"/>
     <list subType="x-navmenu">
+      <xsl:variable name="prev" select="preceding::seg[@type='keyword'][generate-id(ancestor::div[@type='glossary'][1]) = generate-id(current()/ancestor::div[@type='glossary'][1])][2]"/>
+      <xsl:variable name="next" select="following::seg[@type='keyword'][generate-id(ancestor::div[@type='glossary'][1]) = generate-id(current()/ancestor::div[@type='glossary'][1])][1]"/>
+      <xsl:if test="ancestor-or-self::div[@type='glossary'] and not(matches($skip, 'prevnext')) and ($prev or $next)">
+        <item subType="x-prevnext-link">
+          <p type="x-right" subType="x-introduction">
+            <xsl:if test="$prev">
+              <reference osisRef="{$MOD}:{oc:encodeOsisRef($prev)}" type="x-glosslink" subType="x-target_self"> ← </reference>
+            </xsl:if>
+            <xsl:if test="$next">
+              <reference osisRef="{$MOD}:{oc:encodeOsisRef($next)}" type="x-glosslink" subType="x-target_self"> → </reference>
+            </xsl:if>
+          </p>
+        </item>
+      </xsl:if>
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $osisRefIntro">
-        <item>
+        <item subType="x-introduction-link">
           <p type="x-right" subType="x-introduction">
             <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
@@ -81,7 +95,7 @@
         </item>
       </xsl:if>
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
-        <item>
+        <item subType="x-dictionary-link">
           <p type="x-right" subType="x-introduction">
             <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/>
@@ -148,7 +162,7 @@
               <xsl:value-of select="$allEntriesTitle"/>
             </seg>
           </p>
-          <xsl:call-template name="navmenu"/>
+          <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>
           <xsl:for-each select="$dictEntries">
             <reference osisRef="{$MOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="text()"/>
@@ -163,7 +177,7 @@
                   <xsl:value-of select="concat('-', upper-case(substring(text(), 1, 1)))"/>
                 </seg>
               </p>
-              <xsl:call-template name="navmenu"/>
+              <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>
             </xsl:if>
             <reference osisRef="{$MOD}:{@osisID}" type="x-glosslink" subType="x-target_self" >
               <xsl:value-of select="text()"/>

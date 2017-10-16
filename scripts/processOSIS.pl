@@ -121,6 +121,16 @@ RUN:./INT.SFM\n");
   &Log("$out\n");
   unlink($OUTOSIS);
   copy("$OUTOSIS.out", $OUTOSIS);
+  
+  if (!-e "$INPD/sword/css") {
+    &Log("
+WARNING: For the navigation menu to look best in SWORD, you should use 
+         some module css in the project. Here is how it can be done:
+         1) Edit \"".$projectGlossary->value."/config.conf\" to add the config entry: \"PreferredCSSXHTML=swmodule.css\"
+         2) Open or create the css file: \"".$projectGlossary->value."/sword/css/swmodule.css\"
+         3) Add the following css: \".x-navmenu .x-prevnext-link span {font-size:3em; text-decoration:none;}\"\n");
+  }
+  
 }
 
 &checkFigureLinks($OUTOSIS);
