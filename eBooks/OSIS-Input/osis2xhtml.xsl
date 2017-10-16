@@ -597,7 +597,7 @@
   </template>
   
   <template match="item" mode="xhtml">
-    <li xmlns="http://www.w3.org/1999/xhtml"><call-template name="class"/><xsl:apply-templates mode="xhtml"/></li>
+    <li xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></li>
   </template>
   
   <template match="lb" mode="xhtml">
