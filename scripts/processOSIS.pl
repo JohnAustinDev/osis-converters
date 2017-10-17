@@ -113,13 +113,13 @@ RUN:./INT.SFM\n");
     }
   }
 
-  &Log("\nRunning glossaryNavMenu.xsl to add glossary navigation menus".($glossContainsINT ? ", and introduction menus,":'')." to OSIS file.\n", 1);
+  &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   my $cmd = "saxonb-xslt -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
   &Log("$cmd\n");
   my $out = `$cmd`; $out =~ s/&#(\d+);/my $r = chr($1);/eg;
   &Log("$out\n");
-  unlink($OUTOSIS);
   copy("$OUTOSIS.out", $OUTOSIS);
+  unlink("$OUTOSIS.out");
   
   my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."sword/css";
   if (!-e $css) {
