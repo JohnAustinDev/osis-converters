@@ -609,13 +609,16 @@
   <template match="l" mode="xhtml">
     <choose>
       <when test="@type = 'selah'"/>
-      <when test="following-sibling::l[1]/@type = 'selah'">
-        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
+      <when test="following-sibling::l[1][@type='selah']">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <xsl:call-template name="class"/>
+          <xsl:call-template name="WriteEmbededChapterVerse"/>
+          <xsl:apply-templates mode="xhtml"/>
           <i class="xsl-selah">
-            <xsl:text> </xsl:text>
-            <xsl:value-of select="following-sibling::l[1]"/>
-            <xsl:text> </xsl:text>
-            <xsl:value-of select="following-sibling::l[2][@type = 'selah']"/>
+            <xsl:for-each select="following-sibling::l[@type='selah']
+                [count(preceding-sibling::l[@type='selah'][. &#62;&#62; current()]) = count(preceding-sibling::l[. &#62;&#62; current()])]">
+              <xsl:text> </xsl:text><xsl:apply-templates select="child::node()" mode="xhtml"/>
+            </xsl:for-each>
           </i>
         </div>
       </when>
