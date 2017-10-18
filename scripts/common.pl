@@ -68,6 +68,21 @@ sub init($) {
     close(PATHS);
   }
   require "$SCRD/paths.pl";
+  
+  &initLibXML();
+  
+  # Read BookNames.xml, if available
+  if (-e "$INPD/sfm/BookNames.xml") {
+    my $bknames = $XML_PARSER->parse_file("$INPD/sfm/BookNames.xml");
+    my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
+    foreach my $bkelem (@bkelems) {
+      my $bk = getOsisName($bkelem->getAttribute('code'), 1);
+      if (!$bk) {next;}
+      $BOOKNAMES{$bk}{'abbr'} = $bkelem->getAttribute('abbr');
+      $BOOKNAMES{$bk}{'short'} = $bkelem->getAttribute('short');
+      $BOOKNAMES{$bk}{'long'} = $bkelem->getAttribute('long');
+    }
+  }
 
   &checkAndWriteDefaults($INPD);
   
@@ -96,11 +111,6 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       
   # if all dependencies are not met, this asks to run in Vagrant
   &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
-  
-  # init non-standard Perl modules now...
-  use Sword;
-  use HTML::Entities;
-  &initLibXML();
   
   $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
   if (-e $TMPDIR) {remove_tree($TMPDIR);}
@@ -347,6 +357,8 @@ sub validateDictionaryXML($) {
 
 
 sub initLibXML() {
+  use Sword;
+  use HTML::Entities;
   use XML::LibXML;
   $XPC = XML::LibXML::XPathContext->new;
   $XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
@@ -3213,6 +3225,7 @@ sub writeFootnoteIDs() {
 }
 
 
+# Check for TOC entries, and write as much book TOC information as possible
 sub writeTOC($) {
   my $osis = shift;
   
@@ -3234,38 +3247,54 @@ sub writeTOC($) {
     }
   }
   
-  # Insure there are TOC entries for each book
+  # Insure there are as many as possible TOC entries for each book
   my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $bk (@bks) {
-    # Is there a TOC entry?
-    my @e = $XPC->findnodes('./osis:milestone[@n][@type="x-usfm-toc'.$toc.'"] | ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$toc.'"]', $bk);
-    if (@e && @e[0]) {next;}
-    
-    if (!$WRITETOC_MSG) {
-      &Log("
-WARNING: At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are used to \
-        generate the eBook table of contents. If your eBook TOCs do not render with proper book \
-        names and/or hierarchy, then you must add \\toc$toc tags to the USFM using EVAL_REGEX. \
-        Or, if you wish to use a different \\toc tag, you must add a TOC=N config setting to: \
-        $MOD/eBook/convert.txt (where N is the \\toc tag number you wish to use.)\n\n");
-      $WRITETOC_MSG++;
+    for (my $t=1; $t<=3; $t++) {
+      # Is there a TOC entry if this type? If not, add one if we know what it should be
+      my @e = $XPC->findnodes('./osis:milestone[@n][@type="x-usfm-toc'.$t.'"] | ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$t.'"]', $bk);
+      if (@e && @e[0]) {next;}
+      
+      if ($t eq $toc && !$WRITETOC_MSG) {
+        &Log("
+  WARNING: At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are being used to \
+          generate the eBook table of contents. If your eBook TOCs do not render with proper book \
+          names and/or hierarchy, then you must add \\toc$toc tags to the USFM using EVAL_REGEX. \
+          Or, if you wish to use a different \\toc tag, you must add a TOC=N config setting to: \
+          $MOD/eBook/convert.txt (where N is the \\toc tag number you wish to use.)\n\n");
+        $WRITETOC_MSG++;
+      }
+      
+      my $name;
+      my $type;
+      
+      # Try and get the book name from BookNames.xml
+      if (%BOOKNAMES) {
+        my @attrib = ('', 'long', 'short', 'abbr');
+        $name = $BOOKNAMES{$bk->getAttribute('osisID')}{@attrib[$t]};
+        if ($name) {$type = @attrib[$t];}
+      }
+      
+      # Otherwise try and get the default TOC from the first applicable title
+      if (!$name && $t eq $toc) {
+        my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
+        if (!@title || !@title[0]) {
+          @title = $XPC->findnodes('./osis:title[@type="main"]', $bk);
+        }
+        if (!@title || !@title[0]) {
+          $name = $bk->getAttribute("osisID");
+          $type = "osisID";
+          &Log("ERROR writeTOC: Could not locate book name for \"$name\" in OSIS file.\n");
+        }
+        else {$name = @title[0]->textContent; $type = 'title';}
+      }
+      
+      if ($name) {
+        my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\"/>";
+        &Log("Note: Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $tag\n");
+        $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
+      }
     }
-    
-    # Get the book name from the first applicable title
-    my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
-    if (!@title || !@title[0]) {
-      @title = $XPC->findnodes('./osis:title[@type="main"]', $bk);
-    }
-    my $name;
-    if (!@title || !@title[0]) {
-      $name = $bk->getAttribute("osisID");
-      &Log("ERROR writeTOC: Could not locate book name for \"$name\" in OSIS file.\n");
-    }
-    else {$name = @title[0]->textContent;}
-    
-    my $tag = "<milestone type=\"x-usfm-toc$toc\" n=\"$name\"/>";
-    &Log("Note: Inserting \\toc$toc into \"".$bk->getAttribute('osisID')."\" as $tag\n");
-    $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
   }
   
   open(OUTF, ">$osis") or die "writeTOC could not open file: \"$osis\".\n";

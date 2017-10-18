@@ -117,6 +117,56 @@ presentational text, it will be added. An example OSIS cross-reference:
 
   ########################################################################
   &Log("READING CROSS REFERENCE FILE \"$CrossRefFile\".\n");
+  
+  my %localization;
+  if ($BOOKNAMES || @{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc3"]]', $OSIS)}[0]) {
+    $localization{'hasLocalization'}++;
+    my $ssf;
+    if (opendir(SFM, "$INPD/sfm")) {
+      my @fs = readdir(SFM);
+      foreach my $f (@fs) {
+        if (-d $f) {next;}
+        $ssf = `grep "<RangeIndicator>" "$INPD/sfm/$f"`;
+        if ($ssf) {
+          $ssf = $XML_PARSER->parse_file("$INPD/sfm/$f");
+          last;
+        }
+      }
+      closedir(SFM);
+    }
+    
+    my %elems = (
+      'RangeIndicator' => '-', 
+      'SequenceIndicator' => ',', 
+      'ReferenceFinalPunctuation' => '.', 
+      'ChapterNumberSeparator' => '; ', 
+      'ChapterRangeSeparator' => '—', 
+      'ChapterVerseSeparator' => ':'
+    );
+    
+    foreach my $k (keys %elems) {
+      $v = $elems{$k};
+      if ($ssf) {
+        my $kv = @{$XPC->findnodes("$k", $ssf)}[0];
+        if ($kv && $kv->textContent) {$v = $kv->textContent;}
+      }
+      $localization{$k} = $v;
+    }
+    
+    my @books = split(' ', $OT_BOOKS . ' ' . $NT_BOOKS);
+    foreach my $book (@books) {
+      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]//osis:milestone[@type="x-usfm-toc3"][1]/@n', $OSIS)}[0];
+      if ($abbr) {$abbr = $abbr->value;}
+      if ($BOOKNAMES{$book}{'abbr'}) {
+        if (!$abbr) {$abbr = $BOOKNAMES{$book}{'abbr'};}
+        elsif ($abbr ne $BOOKNAMES{$book}{'abbr'}) {
+          &Log("WARNING: OSIS abbreviation \"$abbr\" differs from SSF abbreviation \"".$BOOKNAMES{$book}{'abbr'}."\"\n");
+        }
+      }
+      if ($abbr) {$localization{$book} = $abbr;}
+      else {&Log("WARNING: Missing translation for \"$book\"\n");}
+    }
+  }
 
   # XML is the prefered cross-reference source format, but TXT is still supported
   if ($CrossRefFile =~ /\.xml$/) {
@@ -150,7 +200,7 @@ presentational text, it will be added. An example OSIS cross-reference:
 
       if (&filterNote($note, $b)) {next;}
       if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
-      &insertNote($note, \%{$Verse{"$b.$c.$v"}});
+      &insertNote($note, \%{$Verse{"$b.$c.$v"}}, \%localization);
     }
   }
   else {
@@ -179,7 +229,7 @@ presentational text, it will be added. An example OSIS cross-reference:
 
       if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
 
-      &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}});
+      &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}}, \%localization);
     }
     close (NFLE);
     unlink("$CrossRefFile.tmp");
@@ -200,8 +250,9 @@ presentational text, it will be added. An example OSIS cross-reference:
 sub insertNote($\$) {
   my $noteP = shift;
   my $verseP = shift;
+  my $localeP = shift;
   
-  # add non-localized readable reference text (required by some front ends)
+  # add readable reference text (required by some front ends and eBooks)
   my @refs = $XPC->findnodes("osis:reference", $noteP);
   for (my $i=0; $i<@refs; $i++) {
     my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
@@ -209,7 +260,12 @@ sub insertNote($\$) {
     $new =~ s/^.*?://;
     $osisRef->setValue($new);
     if (!@{$XPC->findnodes('./text()', @refs[$i])}) {
-      @refs[$i]->insertAfter(XML::LibXML::Text->new(sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','))), undef);
+      my $t;
+      if ($localeP->{'hasLocalization'}) {
+        $t = ($i==0 ? '':' ') . &translateRef($osisRef, $localeP) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
+      }
+      else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
+      @refs[$i]->insertAfter(XML::LibXML::Text->new($t), undef);
     }
   }
   
@@ -279,6 +335,44 @@ sub filterNote($$) {
   }
   
   return 0;
+}
+
+sub translateRef($$) {
+  my $attrib = shift;
+  my $localeP = shift;
+  
+  my $t = $attrib->value;
+  if ($t =~ /^([\w\.]+)(\-([\w\.]+))?$/) {
+    my $r1 = $1; my $r2 = ($2 ? $3:'');
+    $t = &translateSingleRef($r1, $localeP);
+    if ($r2) {$t .= $localeP->{'RangeIndicator'} . &translateSingleRef($r2, $localeP);}
+  }
+  else {
+    &Log("ERROR translateRef: malformed osisRef \"".$attrib->value."\"\n");
+  }
+  
+  return $t;
+}
+
+sub translateSingleRef($$) {
+  my $osisRefSingle = shift;
+  my $localeP = shift;
+
+  my $t = $osisRefSingle;
+  if ($t =~ /^([^\.]+)(\.([^\.]+)(\.([^\.]+))?)?/) {
+    my $b = $1; my $c = ($2 ? $3:''); my $v = ($4 ? $5:'');
+    if ($localeP->{$b}) {
+      $t = $localeP->{$b} . ($c ? ' ' . $c . ($v ? $localeP->{'ChapterVerseSeparator'} . $v:''):'');
+    }
+    else {
+      &Log("ERROR translateSingleRef: no translation available for \"$b\"\n");
+    }
+  }
+  else {
+    &Log("ERROR translateSingleRef: malformed osisRef \"".$osisRefSingle."\"\n");
+  }
+  
+  return $t;
 }
 
 1;
