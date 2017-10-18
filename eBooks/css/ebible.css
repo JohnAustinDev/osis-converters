@@ -204,7 +204,10 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 
 
 /* Classes introduced by osis2xhtml.xsl */
-/* .xsl-selah */
+.xsl-selah {
+  float:right;
+  margin-left:3em;
+}
 .xsl-verse-number {
   font-size:0.675em;
   line-height: 1.2;
