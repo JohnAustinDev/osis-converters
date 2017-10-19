@@ -119,7 +119,9 @@ presentational text, it will be added. An example OSIS cross-reference:
   &Log("READING CROSS REFERENCE FILE \"$CrossRefFile\".\n");
   
   my %localization;
-  if ($BOOKNAMES || @{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc3"]]', $OSIS)}[0]) {
+  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc3"]]', $OSIS);
+  if ($BOOKNAMES || @toc3[0]) {
+    &Log("NOTE: Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc3 tags=\"".scalar(@toc3)."\").\n");
     $localization{'hasLocalization'}++;
     my $ssf;
     if (opendir(SFM, "$INPD/sfm")) {
@@ -129,6 +131,7 @@ presentational text, it will be added. An example OSIS cross-reference:
         $ssf = `grep "<RangeIndicator>" "$INPD/sfm/$f"`;
         if ($ssf) {
           $ssf = $XML_PARSER->parse_file("$INPD/sfm/$f");
+          &Log("NOTE: Reading localized Scripture reference settings from \"$INPD/sfm/$f\"\n");
           last;
         }
       }
@@ -141,7 +144,8 @@ presentational text, it will be added. An example OSIS cross-reference:
       'ReferenceFinalPunctuation' => '.', 
       'ChapterNumberSeparator' => '; ', 
       'ChapterRangeSeparator' => '—', 
-      'ChapterVerseSeparator' => ':'
+      'ChapterVerseSeparator' => ':',
+      'BookSequenceSeparator' => '; '
     );
     
     foreach my $k (keys %elems) {
@@ -160,7 +164,7 @@ presentational text, it will be added. An example OSIS cross-reference:
       if ($BOOKNAMES{$book}{'abbr'}) {
         if (!$abbr) {$abbr = $BOOKNAMES{$book}{'abbr'};}
         elsif ($abbr ne $BOOKNAMES{$book}{'abbr'}) {
-          &Log("WARNING: OSIS abbreviation \"$abbr\" differs from SSF abbreviation \"".$BOOKNAMES{$book}{'abbr'}."\"\n");
+          &Log("WARNING: OSIS abbreviation \"$abbr\" differs from SSF abbreviation \"".$BOOKNAMES{$book}{'abbr'}."\"; will use OSIS abbreviation.\n");
         }
       }
       if ($abbr) {$localization{$book} = $abbr;}
@@ -186,6 +190,12 @@ presentational text, it will be added. An example OSIS cross-reference:
     }
     foreach my $note (@notes) {
       if (ref($note) ne "XML::LibXML::Element") {next;}
+      
+      # normalize white space (NOTE: the resulting $note has default namespace (not osis))
+      my $strip = $note->toString();
+      $strip =~ s/[\s\n]+</</g; $strip =~ s/>[\s\n]+/>/g;
+      $note = @{$XML_PARSER->parse_balanced_chunk($strip)->childNodes}[0];
+  
       # place note in first verse of multi-verse osisRef spans
       my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
       my $or = $osisRef->getValue();
@@ -200,6 +210,11 @@ presentational text, it will be added. An example OSIS cross-reference:
 
       if (&filterNote($note, $b)) {next;}
       if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
+      
+      if ($localization{'hasLocalization'}) {
+        my $anotateRef = "<reference osisRef=\"".$osisRef->value."\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
+        $note->insertBefore($XML_PARSER->parse_balanced_chunk($anotateRef), $note->firstChild);
+      }
       &insertNote($note, \%{$Verse{"$b.$c.$v"}}, \%localization);
     }
   }
@@ -241,7 +256,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   print OUTF $OSIS->toString();
   close(OUTF);
 
-  &Log("$MOD REPORT: Placed $NumNotes cross-reference notes.\n\n");
+  &Log("$MOD REPORT: Placed $NumNotes".($localization{'hasLocalization'} ? ' localized':'')." cross-reference notes.\n\n");
   
   return 1;
 }
@@ -253,7 +268,7 @@ sub insertNote($\$) {
   my $localeP = shift;
   
   # add readable reference text (required by some front ends and eBooks)
-  my @refs = $XPC->findnodes("osis:reference", $noteP);
+  my @refs = $XPC->findnodes("reference", $noteP);
   for (my $i=0; $i<@refs; $i++) {
     my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
     my $new = $osisRef->getValue();
@@ -268,12 +283,7 @@ sub insertNote($\$) {
       @refs[$i]->insertAfter(XML::LibXML::Text->new($t), undef);
     }
   }
-  
-  # make markup pretty
-  my $strip = $noteP->toString();
-  $strip =~ s/[\n\s]+(<[^>]*>)/$1/g;
-  $noteP = @{$XML_PARSER->parse_balanced_chunk($strip)->childNodes}[0];
-  
+
   # insert in the right place
   if ($noteP->toString() =~ /x-parallel-passage/) {
     my $nt = @{$XPC->findnodes('following::text()[1]', $verseP->{'start'})}[0];

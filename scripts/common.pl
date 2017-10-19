@@ -75,6 +75,9 @@ sub init($) {
   if (-e "$INPD/sfm/BookNames.xml") {
     my $bknames = $XML_PARSER->parse_file("$INPD/sfm/BookNames.xml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
+    if (@bkelems[0]) {
+      &Log("NOTE: Reading localized book names from \"$INPD/sfm/BookNames.xml\"\n");
+    }
     foreach my $bkelem (@bkelems) {
       my $bk = getOsisName($bkelem->getAttribute('code'), 1);
       if (!$bk) {next;}
