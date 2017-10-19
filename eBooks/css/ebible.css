@@ -21,7 +21,8 @@ body * {
 body.book {
   text-align: left; /* or "justify" when hyphens are available */
 }
-body.book .xsl-footnote-section {
+body.book .xsl-footnote-section,
+body.book .xsl-crossref-section {
   text-align: left;
 }
 .main.x-introduction {
@@ -248,14 +249,21 @@ dfn {
   page-break-after: avoid;
   color:#004400;
 }
-.xsl-footnote {
+.xsl-footnote,
+.xsl-crossref {
   margin-top:1em;
 }
-.xsl-note-number:not(.xsl-footnote-head) {
+.xsl-note-number:not(.xsl-note-head) {
   font-size:0.675em;
   line-height: 1.2;
   vertical-align: inherit;
   vertical-align: 35%;
+}
+.xsl-fnote-symbol,
+.xsl-footnote xsl-note-number {}
+.xsl-crnote-symbol,
+.xsl-crossref xsl-note-number {
+  vertical-align: 20%;
 }
 .xsl-inline-toc {
   display:block;
@@ -280,7 +288,8 @@ dfn {
   color:blue;
   text-decoration:underline;
 }
-.xsl-footnote-section hr:last-child {
+.xsl-footnote-section hr:last-child,
+.xsl-crossref-section hr:last-child {
   display:none;
 }
 

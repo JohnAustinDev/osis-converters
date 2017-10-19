@@ -187,17 +187,15 @@
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
             <when test="$filename=concat($osisIDWork,'_module-introduction')">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
-              <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
-              </div>
+              <variable name="keepnodes" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
+              <apply-templates mode="xhtml" select="$keepnodes"/>
+              <call-template name="noteSections"><with-param name="nodes" select="$keepnodes"/></call-template>
             </when>
             <!-- bookGroup-introduction -->
             <when test="starts-with($filename, concat($osisIDWork,'_bookGroup-introduction_'))">
-              <apply-templates mode="xhtml" select="node()[not(ancestor-or-self::div[@type='book'])]"/>
-              <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes" select="node()[not(ancestor-or-self::div[@type='book'])]"/>
-              </div>
+              <variable name="keepnodes" select="node()[not(ancestor-or-self::div[@type='book'])]"/>
+              <apply-templates mode="xhtml" select="$keepnodes"/>
+              <call-template name="noteSections"><with-param name="nodes" select="$keepnodes"/></call-template>
             </when>
             <!-- glossintro -->
             <when test="starts-with($filename, concat($osisIDWork,'_glossintro_'))">
@@ -212,10 +210,9 @@
             </when>
             <!-- book -->
             <otherwise>
-              <apply-templates mode="xhtml"/>
-              <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-                <xsl:apply-templates mode="footnotes"/>
-              </div>
+              <variable name="keepnodes" select="."/>
+              <apply-templates mode="xhtml" select="$keepnodes"/>
+              <call-template name="noteSections"><with-param name="nodes" select="$keepnodes"/></call-template>
             </otherwise>
           </choose>
         </body>
@@ -228,9 +225,7 @@
     <variable name="glossaryFilter1"><apply-templates mode="glossaryFilter1" select="current-group()"/></variable>
     <variable name="glossaryFilter2"><apply-templates mode="glossaryFilter2" select="$glossaryFilter1"/></variable>
     <apply-templates mode="xhtml" select="$glossaryFilter2"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section"><hr/>
-      <xsl:apply-templates mode="footnotes" select="$glossaryFilter2"/>
-    </div>
+    <call-template name="noteSections"><with-param name="nodes" select="$glossaryFilter2"/></call-template>
   </template>
   <!-- Filter out any descendants which are part of a different group -->
   <template match="node()" mode="glossaryFilter1">
@@ -274,37 +269,47 @@
     </for-each>
   </template>
   
-  <!-- Write footnotes -->
-  <template match="node()" mode="footnotes"><apply-templates mode="footnotes"/></template>
+  <!-- Write footnote and cross reference sections -->
+  <template name="noteSections">
+    <param name="nodes"/>
+    <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section">
+      <hr/>
+      <xsl:apply-templates mode="footnotes" select="$nodes"/>
+    </div>
+    <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-crossref-section">
+      <hr/>
+      <xsl:apply-templates mode="crossrefs" select="$nodes"/>
+    </div>
+  </template>
+              
+  <template match="node()" mode="footnotes crossrefs"><apply-templates mode="#current"/></template>
   <template match="note[not(@type) or @type != 'crossReference']" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <div xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}" class="xsl-footnote">
-      <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-footnote-head</xsl:with-param></xsl:call-template></a>
+      <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-note-head</xsl:with-param></xsl:call-template></a>
+      <xsl:value-of select="' '"/>
+      <xsl:apply-templates mode="xhtml"/>
+    </div>
+    <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
+  </template>
+  <template match="note[@type='crossReference']" mode="crossrefs">
+    <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
+    <div xmlns="http://www.w3.org/1999/xhtml" epub:type="footnote" id="{$osisIDid}" class="xsl-crossref">
+      <a href="#textsym.{$osisIDid}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes"><xsl:call-template name="classValue"/> xsl-note-head</xsl:with-param></xsl:call-template></a>
       <xsl:value-of select="' '"/>
       <xsl:apply-templates mode="xhtml"/>
     </div>
     <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
   </template>
   
-  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
-  <template name="class"><attribute name="class"><call-template name="classValue"/></attribute></template>
-  <template name="classValue">
-    <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
-    <variable name="osisTagClass" select="concat('osis-', local-name())"/>
-    <value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/>
-  </template>
-  
-  <!-- This template may be called from any note. It returns a symbol for that specific note -->
+  <!-- This template may be called from any note. It returns a symbol or number based on that note's type and context -->
   <template name="getFootnoteSymbol">
     <param name="classes"/>
+    <variable name="inVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])"/>
     <choose>
-      <when test="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])">
-        <attribute name="class" select="string-join(($classes, 'xsl-note-symbol'), ' ')"/>
-          *
-        </when>
-      <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>
-        [<xsl:call-template name="getFootnoteNumber"/>]
-      </otherwise>
+      <when test="$inVerse and not(@type='crossReference')"><attribute name="class" select="string-join(($classes, 'xsl-fnote-symbol'), ' ')"/>*</when>
+      <when test="$inVerse"><attribute name="class" select="string-join(($classes, 'xsl-crnote-symbol'), ' ')"/>+</when>
+      <otherwise><attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>[<xsl:call-template name="getFootnoteNumber"/>]</otherwise>
     </choose>
   </template>
   
@@ -314,21 +319,21 @@
       <when test="ancestor::div[@type='glossary']">
         <choose>
           <when test="not(descendant-or-self::seg[@type='keyword']) and count(preceding::seg[@type='keyword']) = count(ancestor::div[@type='glossary'][1]/preceding::seg[@type='keyword'])">
-            <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='glossary'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
+            <value-of select="count(preceding::note) - count(ancestor::div[@type='glossary'][1]/preceding::note) + 1"/>
           </when>
           <otherwise>
-            <value-of select="count(preceding::note[not(@type='crossReference')]) - count(preceding::seg[@type='keyword'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
+            <value-of select="count(preceding::note) - count(preceding::seg[@type='keyword'][1]/preceding::note) + 1"/>
           </otherwise>
         </choose>
       </when>
       <when test="ancestor::div[@type='book']">
-        <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='book'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
+        <value-of select="count(preceding::note) - count(ancestor::div[@type='book'][1]/preceding::note) + 1"/>
       </when>
       <when test="ancestor::div[@type='bookGroup']">
-        <value-of select="count(preceding::note[not(@type='crossReference')]) - count(ancestor::div[@type='bookGroup'][1]/preceding::note[not(@type='crossReference')]) + 1"/>
+        <value-of select="count(preceding::note) - count(ancestor::div[@type='bookGroup'][1]/preceding::note) + 1"/>
       </when>
       <when test="ancestor::osisText">
-        <value-of select="count(preceding::note[not(@type='crossReference')]) + 1"/>
+        <value-of select="count(preceding::note) + 1"/>
       </when>
     </choose>    
   </template>
@@ -479,6 +484,14 @@
     </if>
   </template>
   
+  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
+  <template name="class"><attribute name="class"><call-template name="classValue"/></attribute></template>
+  <template name="classValue">
+    <variable name="levelClass" select="if (@level) then concat('level-', @level) else ''"/>
+    <variable name="osisTagClass" select="concat('osis-', local-name())"/>
+    <value-of select="normalize-space(string-join(($osisTagClass, @type, @subType, $levelClass), ' '))"/>
+  </template>
+  
   <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
   <template name="WriteEmbededChapterVerse">
     <variable name="mySelf" select="."/>
@@ -522,7 +535,7 @@
   </template>
   
   <!-- Remove these elements entirely (x-chapterLabel is output by WriteTableOfContentsEntry)-->
-  <template match="verse[@eID] | chapter[@eID] | index | milestone | title[@type='x-chapterLabel'] | title[@type='runningHead'] | note[@type='crossReference']" mode="xhtml"/>
+  <template match="verse[@eID] | chapter[@eID] | index | milestone | title[@type='x-chapterLabel'] | title[@type='runningHead']" mode="xhtml"/>
   
   <!-- Remove these tags (keeping their content). Paragraphs tags containing certain elements are dropped so that resulting HTML will validate -->
   <template match="name | seg | reference[ancestor::title[@type='scope']] | p[descendant::seg[@type='keyword']] | p[descendant::figure]" mode="xhtml">
