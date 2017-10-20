@@ -259,10 +259,11 @@ dfn {
   vertical-align: inherit;
   vertical-align: 35%;
 }
-.xsl-fnote-symbol,
-.xsl-footnote xsl-note-number {}
-.xsl-crnote-symbol,
-.xsl-crossref xsl-note-number {
+.xsl-fnote-symbol {
+  font-size:1.6em;
+  vertical-align: -10%;
+}
+.xsl-crnote-symbol {
   vertical-align: 20%;
 }
 .xsl-inline-toc {
