@@ -289,7 +289,7 @@ sub insertNote($\$) {
   if ($noteP->toString() =~ /x-parallel-passage/) {
     my $nt = @{$XPC->findnodes('following::text()[1]', $verseP->{'start'})}[0];
     while ($nt) {
-      if (my $title = @{$XPC->findnodes('ancestor::osis:title', $nt)}[0] || $nt =~ /^\s*$/) {$nt = @{$XPC->findnodes('following::text()[1]', $nt)}[0];} # next text
+      if ($nt =~ /^\s*$/ || (my $title = @{$XPC->findnodes('ancestor::osis:title', $nt)}[0])) {$nt = @{$XPC->findnodes('following::text()[1]', $nt)}[0];} # next text
       elsif (my $note = @{$XPC->findnodes('ancestor::osis:note', $nt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
       elsif (my $reference = @{$XPC->findnodes('ancestor::osis:reference', $nt)}[0]) {$reference->parentNode->insertBefore($noteP, $reference); last;} #insert before
       else {$nt->parentNode->insertBefore($noteP, $nt); last;}
@@ -300,10 +300,9 @@ sub insertNote($\$) {
   else {
     my $pt = @{$XPC->findnodes('preceding::text()[1]', $verseP->{'end'})}[0];
     while ($pt) {
-      if (my $title = @{$XPC->findnodes('ancestor::osis:title', $pt)}[0] || $pt =~ /^\s*$/) {$pt = @{$XPC->findnodes('preceding::text()[1]', $pt)}[0];} # next text
+      if ($pt =~ /^\s*$/ || (my $title = @{$XPC->findnodes('ancestor::osis:title | ancestor::osis:l[@type="selah"]', $pt)}[0])) {$pt = @{$XPC->findnodes('preceding::text()[1]', $pt)}[0];} # next text
       elsif (my $note = @{$XPC->findnodes('ancestor::osis:note', $pt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
       elsif (my $reference = @{$XPC->findnodes('ancestor::osis:reference', $pt)}[0]) {$reference->parentNode->insertAfter($noteP, $reference); last;} # insert after
-      elsif (my $selah = @{$XPC->findnodes('ancestor::osis:l[@type="selah"]', $pt)}[0] || $pt =~ /^\s*$/) {$pt = @{$XPC->findnodes('preceding::text()[1]', $pt)}[0];} # next text
       else {
         my $punc = '';
         my $txt = $pt->nodeValue();
