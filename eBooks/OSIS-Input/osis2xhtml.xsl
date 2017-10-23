@@ -411,8 +411,9 @@
         <when test="self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="@n"/></when>
         <when test="self::chapter[@sID]">
           <choose>
-            <when test="following-sibling::*[1][self::title[@type='x-chapterLabel']]"><value-of select="string(following-sibling::title[@type='x-chapterLabel'][1])"/></when>
-            <when test="following-sibling::*[1][self::div]/title[@type='x-chapterLabel']"><value-of select="string(following-sibling::*[1][self::div]/title[@type='x-chapterLabel'][1])"/></when>
+            <when test="following::title[@type='x-chapterLabel'][1][following::chapter[1][@eID=current()/@sID]]">
+              <value-of select="string(following::title[@type='x-chapterLabel'][1][following::chapter[1][@eID=current()/@sID]])"/>
+            </when>
             <otherwise><value-of select="tokenize(@sID, '\.')[last()]"/></otherwise>
           </choose>
         </when>
