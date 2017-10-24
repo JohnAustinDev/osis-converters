@@ -420,7 +420,8 @@ sub sortDictKeys($$) {
 
 # check that the entries in an imp or osis dictionary source file are included in 
 # the global dictionaryWords file. If the difference is only in capitalization,
-# which occurs when converting from DictionaryWords.txt to DictionaryWords.xml,
+# and all the OSIS file's keywords are unique according to a case-sensitive comparison,
+# (which occurs when converting from DictionaryWords.txt to DictionaryWords.xml)
 # then fix these, and update the dictionaryWords file.
 sub compareToDictionaryWordsXML($) {
   my $imp_or_osis = shift;
@@ -432,6 +433,16 @@ sub compareToDictionaryWordsXML($) {
   
   my @sourceEntries = &getDictKeys($imp_or_osis);
   
+  my $allowUpdate = 1; my %noCaseKeys;
+  foreach my $es (@sourceEntries) {
+    if ($noCaseKeys{lc($es)}) {
+      &Log("NOTE: Will not update case-only discrepancies in $DICTIONARY_WORDS.\n");
+      $allowUpdate = 0;
+      last;
+    }
+    $noCaseKeys{lc($es)}++;
+  }
+  
   my @dwfEntries = $XPC->findnodes('//dw:entry[@osisRef]/@osisRef', $DWF);
   
   my $allmatch = 1; my $mod;
@@ -440,11 +451,11 @@ sub compareToDictionaryWordsXML($) {
     foreach my  $edr (@dwfEntries) {
       my $ed = &osisRef2Entry($edr->value, \$mod);
       if ($es eq $ed) {$match = 1; last;}
-      elsif (&uc2($es) eq &uc2($ed)) {
+      elsif ($allowUpdate && &uc2($es) eq &uc2($ed)) {
         $match = 1;
         $update++;
         $edr->setValue(entry2osisRef($mod, $es));
-        my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
+        my $name = @{$XPC->findnodes('../child::dw:name[1]/text()', $edr)}[0];
         if (&uc2($name) ne &uc2($es)) {&Log("ERROR: \"$name\" does not correspond to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
         else {$name->setData($es);}
         last;
