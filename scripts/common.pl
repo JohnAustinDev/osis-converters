@@ -2221,20 +2221,18 @@ sub bibleContext($) {
 sub glossaryContext($) {
   my $node = shift;
   
-  # is node in a glossary?
-  my @glossElem = $XPC->findnodes('./ancestor::osis:div[@type="glossary"]', $node);
-  if (!@glossElem || !@glossElem[0]) {return '';}
+  # is node in a div?
+  my $glossElem = @{$XPC->findnodes('./ancestor::osis:div[@type][1]', $node)}[0];
+  if (!$glossElem) {return '';}
 
-  # get preceding keyword
-  my @x = $XPC->findnodes('preceding::osis:seg[@type="keyword"]', $node);
-  my $prevkw = (@x && @x[0] ? @x[$#x]:'');
+  # get preceding keyword in div
+  my $prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];
   
   # is node 'within' preceding keyword?
   if ($prevkw) {
-    my $gn = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $node)}[0];
-    my $gk = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="glossary"]', $prevkw)}[0];
-    if (!$gk) {&Log("ERROR glossaryContext: Unexpected - previous keyword is not part of a glossary\n");}
-    if ($gn && $gk && $gn->isSameNode($gk)) {
+    my $gk = @{$XPC->findnodes('./ancestor::osis:div[@type][1]', $prevkw)}[0];
+    if (!$gk) {&Log("ERROR glossaryContext: Unexpected - previous keyword is not part of a typed div\n");}
+    if ($glossElem && $gk && $glossElem->isSameNode($gk)) {
       if (!$prevkw->getAttribute('osisID')) {
         &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
         return '';
@@ -2244,8 +2242,7 @@ sub glossaryContext($) {
   }
   
   # if not, then use BEFORE
-  my @x = $XPC->findnodes('following::osis:seg[@type="keyword"]', $node);
-  my $nextkw = (@x && @x[0] ? @x[0]:'');
+  my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
   if (!$nextkw) {return "BEFORE-unknown";}
   
   if (!$nextkw->getAttribute('osisID')) {

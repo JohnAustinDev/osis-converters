@@ -3,6 +3,10 @@ sub aggregateRepeatedEntries($) {
   
   my $xml = $XML_PARSER->parse_file($osis);
   
+  foreach my $report (@{$XPC->findnodes('//osis:div[@type and not(ancestor-or-self::osis:div[@type="glossary"])]', $xml)}) {
+    &Log("\nWARNING: The div with type=\"".$report->getAttribute('type')."\" will NOT appear in the SWORD glossary module, because only \"\\id GLO\" type USFM files will appear in the SWORD glossary module.\n");
+  }
+  
   &Log("\n\nDetecting and applying glossary scopes to OSIS file \"$osis\".\n");
   my @gdivs = $XPC->findnodes('//osis:div[@type="glossary"]', $xml);
   foreach my $gdiv (@gdivs) {
@@ -23,7 +27,7 @@ sub aggregateRepeatedEntries($) {
   &Log("\nAggregating duplicate keywords in OSIS file \"$osis\".\n\n");
   
   # Find any duplicate entries (case insensitive)
-  my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+  my @keys = $XPC->findnodes('//osis:div[@type="glossary"]//osis:seg[@type="keyword"]', $xml);
   my %entries, %duplicates;
   foreach my $k (@keys) {
     my $uck = uc($k->textContent);
@@ -337,7 +341,7 @@ sub writeDefaultDictionaryWordsXML($) {
   my $in_file = shift; # could be osis or imp
   
   my $osis = ($in_file =~ /\.(xml|osis)$/i ? $XML_PARSER->parse_file($in_file):'');
-  my @osisKW = ($osis ? $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]', $osis):'');
+  my @osisKW = ($osis ? $XPC->findnodes('//osis:seg[@type="keyword"][ancestor::osis:div[@type="glossary"]][not(ancestor::osis:div[@subType="x-aggregate"])]', $osis):'');
   
   # read keywords. For OSIS files, ignore those marked x-duplicate-keyword (but keep aggregate keywords)
   my @keywords = &getDictKeys($in_file, './ancestor::osis:div[@type="x-duplicate-keyword"]');
@@ -441,7 +445,7 @@ sub compareToDictionaryWordsXML($) {
         $update++;
         $edr->setValue(entry2osisRef($mod, $es));
         my $name = @{$XPC->findnodes('../child::name[1]/text()', $edr)}[0];
-        if (&uc2($name) ne &uc2($es)) {&Log("ERROR: \"$name\" does not corresponding to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
+        if (&uc2($name) ne &uc2($es)) {&Log("ERROR: \"$name\" does not correspond to \"$es\" in osisRef \"$edr\" of $DICTIONARY_WORDS\n");}
         else {$name->setData($es);}
         last;
       }
@@ -470,7 +474,7 @@ sub getDictKeys($$) {
   my @keywords;
   if ($in_file =~ /\.(xml|osis)$/i) {
     my $xml = $XML_PARSER->parse_file($in_file);
-    my @keys = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
+    my @keys = $XPC->findnodes('//osis:seg[@type="keyword"][ancestor::osis:div[@type="glossary"]]', $xml);
     foreach my $kw (@keys) {
       if ($skip && $XPC->findnodes($skip, $kw)) {next;}
       push(@keywords, $kw->textContent());
@@ -558,7 +562,7 @@ sub writeEntryOsisIDs($) {
   &Log("\n\nWriting glossary osisID's to OSIS file \"$osis\".\n");
   
   my %osisIDS;
-  my @kws = $XPC->findnodes("//$KEYWORD", $xml);
+  my @kws = $XPC->findnodes('//osis:seg[@type="keyword"]', $xml);
   foreach $kw (@kws) {
     my $suf = '';
     if (@{$XPC->findnodes('ancestor::osis:div[@type="x-duplicate-keyword"]', $kw)}) {
