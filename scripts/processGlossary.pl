@@ -310,10 +310,10 @@ sub dictWordsHeader() {
   IMPORTANT: default is false for boolean attributes
   onlyNewTestament=\"true|false\"
   onlyOldTestament=\"true|false\"
-  dontLink=\"true|false\" to specify matched text should NOT get linked to the entry
-  multiple=\"true|false\" to allow more than one identical link per entry or chapter
+  dontLink=\"true|false\" to specify matched text should NOT get linked to ANY entry
+  multiple=\"true|false\" to allow match elements to link more than once per entry or chapter
   notExplicit=\"true|false\" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
-  onlyExplicit=\"true|false\" selects if match(es) should only be applied to explicitly marked glossary entries in the text
+  onlyExplicit=\"true|false\" selects if match(es) should ONLY be applied to explicitly marked glossary entries in the text
   
   Non-Boolean:
   IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
@@ -326,9 +326,9 @@ sub dictWordsHeader() {
   XPATH=\"xpath expression\" to be applied on each text node to keep text nodes that return non-null
   notXPATH=\"xpath expression\" to be applied on each text node to skip text nodes that return non-null
 
-  ENTRY ELEMENTS MAY CONTAIN THE FOLLOWING ATTRIBUTES:
-  <entry osisRef=\"osisRef location(s) of this entry's source target(s)\"
-         noOutboundLinks=\"true|false: set true if entry should not contain any see-also links\">
+  ENTRY ELEMENTS MAY ALSO CONTAIN THE FOLLOWING SPECIAL ATTRIBUTES:
+  <entry osisRef=\"The osisID of a keyword to link to. This attribute is required.\"
+         noOutboundLinks=\"true|false: Set to true if the target keyword should not contain see-also links.\">
 
   Match patterns can be any perl match regex. The last matching 
   parenthetical group, or else a group named 'link' with (?'link'...), 
