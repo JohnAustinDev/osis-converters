@@ -359,7 +359,14 @@ sub translateRef($$) {
   if ($t =~ /^([\w\.]+)(\-([\w\.]+))?$/) {
     my $r1 = $1; my $r2 = ($2 ? $3:'');
     $t = &translateSingleRef($r1, $localeP);
-    if ($r2) {$t .= $localeP->{'RangeIndicator'} . &translateSingleRef($r2, $localeP);}
+    if ($r2) {
+      my $t2 = &translateSingleRef($r2, $localeP);
+      if ($t =~ /^(.*?)\d+$/) {
+        my $baseRE = "^$1(\\d+)\$";
+        if ($t2 =~ /$baseRE/) {$t2 = $1;}
+      }
+      $t .= $localeP->{'RangeIndicator'} . $t2;
+    }
   }
   else {
     &Log("ERROR translateRef: malformed osisRef \"".$attrib->value."\"\n");
