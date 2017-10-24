@@ -134,11 +134,12 @@ sub setupAndMakeEbook($$$) {
   # Cover name is a jpg image named $scope if it exists, or else an 
   # existing jpg image whose name (which is a scope) includes $scope. 
   # Or it's just 'cover.jpg' by default
-  my $covname = &findCover("$INPD/eBook", $scope, $confP->{"Versification"});
+  my $titleType = $type;
+  my $covname = &findCover("$INPD/eBook", $scope, $confP->{"Versification"}, \$titleType);
   if (!-e "$INPD/eBook/$covname") {$covname = 'cover.jpg';}
   if (-e "$INPD/eBook/$covname") {
     $cover = "$tmp/cover.jpg";
-    if ($type eq 'Part') {
+    if ($titleType eq 'Part') {
       # add specific title to the top of the eBook cover image
       $EBOOKREPORT{$EBOOKNAME}{'Title'} = $ebookTitlePart;
       $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
@@ -221,19 +222,20 @@ sub setupAndMakeEbook($$$) {
   }
 
   # run the converter
-  &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp, $type);
+  &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);
   # mobi is disabled because it currently runs too slowly, and fb2 is disabled until a decent FB2 converter is written
-  # &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp, $type);
-  # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp, $type);
+  # &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp);
+  # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
 }
 
 # Look for a cover image in $dir matching $scope and return it if found. 
 # The image file name may or may not be prepended with $MOD_, and may use
 # either " " or "_" as scope delimiter.
-sub findCover($$) {
+sub findCover($$\$) {
   my $dir = shift;
   my $scope = shift;
   my $vsys = shift;
+  my $titleTypeP = shift;
   
   if (opendir(EBD, $dir)) {
     my @fs = readdir(EBD);
@@ -245,22 +247,29 @@ sub findCover($$) {
       my $m = $MOD.'_';
       if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
       $fscope =~ s/_/ /g;
-      if ($scope eq $fscope) {return $f;}
+      if ($scope eq $fscope) {
+        $$titleTypeP = "Full"; 
+        return $f;
+      }
       # if scopes are not a perfect match, then the scope of the eBook is assumed to be a single book!
-      for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {if ($scope eq $s) {return $f;}}
+      for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {
+        if ($scope eq $s) {
+          $$titleTypeP = "Part";
+          return $f;
+        }
+      }
     }
   }
   
   return NULL;
 }
 
-sub makeEbook($$$$$$) {
+sub makeEbook($$$$$) {
   my $osis = shift;
   my $format = shift; # “epub”, “mobi” or “fb2”
   my $cover = shift; # path to cover image
   my $scope = shift;
   my $tmp = shift;
-  my $type = shift;
   
   &Log("--- CREATING $format FROM $osis FOR $scope\n", 1);
   
