@@ -445,15 +445,16 @@ sub checkAndWriteDefaults($) {
     if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
       if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
       foreach my $f (keys %{$USFM{$type}}) {
-      
+        my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
+        
         # peripherals need a target location in the OSIS file added to their ID
         if ($USFM{$type}{$f}{'peripheralID'}) {
           print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
           if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
-            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
+            print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
           }
           else {
-            print CFF "EVAL_REGEX(PERIPH):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+            print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
           }
           my $xpath = "location == osis:header";
           if (@{$USFM{$type}{$f}{'periphType'}}) {
@@ -468,10 +469,7 @@ sub checkAndWriteDefaults($) {
           print CFF "/m\n";
         }
 
-        my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
         print CFF "RUN:$r\n";
-        
-        if ($USFM{$type}{$f}{'peripheralID'}) {print CFF "EVAL_REGEX(PERIPH):\n\n";}
       }
       close(CFF);
     }
@@ -1469,7 +1467,7 @@ sub filterGlossaryReferences($@$) {
   
   # filter out references outside our scope
   my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
-  my @total; my $total;
+  my @total; my $total = 0;
   foreach my $link (@links) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {
       my $osisRef = $3;

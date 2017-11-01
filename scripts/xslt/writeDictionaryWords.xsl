@@ -82,7 +82,7 @@
   <template name="writeEntry">
     <entry osisRef="{if (starts-with(@osisID, concat($MOD, ':'))) then @osisID else concat($MOD, ':', @osisID)}" xmlns="http://github.com/JohnAustinDev/osis-converters">
       <name><xsl:value-of select="."/></name>
-      <match>/\\b(\\Q"<xsl:value-of select="."/>"\\E)\\b/i</match>
+      <match>/\b(\Q<xsl:value-of select="."/>\E)\b/i</match>
     </entry>
   </template>
   
