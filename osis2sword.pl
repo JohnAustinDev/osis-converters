@@ -34,9 +34,19 @@ $OSISFILE = "$OUTDIR/$MOD.xml";
 
 $IS_usfm2osis = &is_usfm2osis($OSISFILE);
 if ($IS_usfm2osis) {
-  my $processing = "$TMPDIR/1_osis.xml";
-  copy($OSISFILE, $processing);
   my $outtype = 'osis';
+  
+  # Forward glossary links targetting a member of an aggregated entry to the aggregated entry
+  my $processing = "$TMPDIR/1_osis.xml";
+  my $xml = $XML_PARSER->parse_file($OSISFILE);
+  foreach my $gk ($XPC->findnodes('//reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml)) {
+    my $osisID = $gk->value;
+    $osisID =~ s/\.dup\d+$//;
+    $gk->setValue($osisID);
+  }
+  open(OSIS2, ">$processing");
+  print OSIS2 $xml->toString();
+  close(OSIS2);
   
   # run xslt if OSIS came from usfm2osis.py
   my $xsl = '';
@@ -56,7 +66,7 @@ if ($IS_usfm2osis) {
   }
   
   # uppercase dictionary keys were necessary to avoid requiring ICU.
-  # XSLT cannot be used to do this because a custom uc2() Perl function is needed.
+  # XSLT was not used to do this because a custom uc2() Perl function is needed.
   if ($UPPERCASE_DICTIONARY_KEYS) {
     my $xml = $XML_PARSER->parse_file($processing);
     if ($MODDRV =~ /LD/) {
