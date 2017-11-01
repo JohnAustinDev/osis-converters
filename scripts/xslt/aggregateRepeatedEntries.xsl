@@ -57,26 +57,17 @@
           <message>ERROR: Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div!</message>
         </if>
       </if>
-      <!-- Separate each glossary entry into its own div. The following group-by must match what will be used in the groupCopy test attribute. -->
+      <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   
+      the end of the keyword's first ancestor div. The following group-by must match what is used in groupCopy template's test attribute. -->
       <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node()
           return count($i/following::seg[@type='keyword']) + count($i/following::chapter) - count($i/preceding::div[descendant::seg[@type='keyword']])">
         <sort select="current-grouping-key()" order="descending" data-type="number"/>
         <variable name="groupCopy"><apply-templates mode="groupCopy" select="current-group()"/></variable>
-        <variable name="isGlossaryIntro" select="position()=1 and not($groupCopy[1][descendant-or-self::seg[@type='keyword']])"/>
         <choose>
-          <when test="$groupCopy/node()[normalize-space()][not(self::comment())]"><text>
+          <when test="$groupCopy[1][descendant-or-self::seg[@type='keyword']]">
+            <variable name="isDuplicate" select="$duplicate_keywords[lower-case(string()) = lower-case($groupCopy[1]/descendant-or-self::seg[@type='keyword'][1])]"/><text>
 </text>     <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace">
-              <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-                <when test="$isGlossaryIntro">
-                  <attribute name="type" select="'x-glossary-introduction'"/>
-                </when>
-                <when test="$duplicate_keywords[lower-case(string()) = lower-case($groupCopy[1]/descendant-or-self::seg[@type='keyword'][1])]">
-                  <attribute name="type" select="'x-keyword-duplicate'"/>
-                </when>
-                <otherwise>
-                  <attribute name="type" select="'x-keyword'"/>
-                </otherwise>
-              </choose>
+              <xsl:attribute name="type">x-keyword<xsl:if test="$isDuplicate">-duplicate</xsl:if></xsl:attribute>
               <xsl:apply-templates select="$groupCopy" mode="#current"/>
             </div>
           </when>
