@@ -2216,40 +2216,38 @@ sub bibleContext($) {
 }
 
 # return special Glossary context reference for $node:
-# BEFORE-keyword = Node is not part of any keyword but next one is keyword
+# BEFORE_keyword = Node is not part of any keyword but next one is keyword
 # keyword = Node is part of keyword's entry
 sub glossaryContext($) {
   my $node = shift;
   
-  # is node in a div?
-  my $glossElem = @{$XPC->findnodes('./ancestor::osis:div[@type][1]', $node)}[0];
-  if (!$glossElem) {return '';}
+  # is node in a type div?
+  my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div[@type][last()]', $node)}[0];
+  if (!$typeDiv) {return '';}
 
-  # get preceding keyword in div
+  # get preceding keyword
   my $prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];
   
-  # is node 'within' preceding keyword?
   if ($prevkw) {
-    my $gk = @{$XPC->findnodes('./ancestor::osis:div[@type][1]', $prevkw)}[0];
-    if (!$gk) {&Log("ERROR glossaryContext: Unexpected - previous keyword is not part of a typed div\n");}
-    if ($glossElem && $gk && $glossElem->isSameNode($gk)) {
-      if (!$prevkw->getAttribute('osisID')) {
-        &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
-        return '';
+    foreach my $kw ($XPC->findnodes('//osis:seg[@type="keyword"]', $typeDiv)) {
+      if ($kw->isSameNode($prevkw)) {
+        if (!$prevkw->getAttribute('osisID')) {
+          &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
+        }
+        return $prevkw->getAttribute('osisID');
       }
-      return $prevkw->getAttribute('osisID');
     }
   }
   
   # if not, then use BEFORE
   my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
-  if (!$nextkw) {return "BEFORE-unknown";}
+  if (!$nextkw) {return "BEFORE_unknown";}
   
   if (!$nextkw->getAttribute('osisID')) {
     &Log("ERROR glossaryContext: Next keyword has no osisID \"$nextkw\"\n");
     return '';
   }
-  return 'BEFORE-'.$nextkw->getAttribute('osisID');
+  return 'BEFORE_'.$nextkw->getAttribute('osisID');
 }
 
 
@@ -2773,7 +2771,7 @@ sub osisXSLT($$$$) {
       
       my $outtmp = $out;
       if ($outtmp !~ s/^(.*?\/[^\/]+)(\.[^\.]*)$/$1_custom$2/) {&Log("ERROR: No substitution: \"$out\"\n"); die;}
-      my $cmd = "saxonb-xslt -xsl:" . &escfile($preprocessor) . " -s:" . &escfile($osis) . " -o:" . &escfile($outtmp);
+      my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile($preprocessor) . " -s:" . &escfile($osis) . " -o:" . &escfile($outtmp);
       &Log("$cmd\n");
       system($cmd);
       
@@ -2785,7 +2783,7 @@ sub osisXSLT($$$$) {
   if ($xsl) {
     &Log("\n--- Running XSLT...\n");
     if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
-    $cmd = "saxonb-xslt -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+    $cmd = "saxonb-xslt -ext:on -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
   }
   else {
     $cmd = 'cp '.&escfile($osis).' '.&escfile($out);
