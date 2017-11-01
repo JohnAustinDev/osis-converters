@@ -1458,7 +1458,6 @@ sub filterGlossaryReferences($@$) {
   
   my $osis1 = $osis; $osis1 =~ s/^.*\///; 
   &Log("\nFiltering glossary references in \"$osis1\"".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'').".\n", 1);
-  my $total = 0;
   
   my $xml = $XML_PARSER->parse_file($osis);
   
@@ -1470,6 +1469,7 @@ sub filterGlossaryReferences($@$) {
   
   # filter out references outside our scope
   my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
+  my @total; my $total;
   foreach my $link (@links) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {
       my $osisRef = $3;
@@ -1478,15 +1478,18 @@ sub filterGlossaryReferences($@$) {
       my @children = $link->childNodes();
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
       $link->unbindNode();
+      $total{$osisRef}++;
       $total++;
-      #&Log("Filtered: \"$work\", \"$osisRef\"\n", 1);
     }
   }
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" glossary references filtered.\n\n", 1);
+  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n", 1);
+  foreach my $r (keys %total) {
+    &Log(&decodeOsisRef($r)."\n");
+  }
   return $total;
 }
 

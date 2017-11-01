@@ -39,11 +39,21 @@ if ($IS_usfm2osis) {
   # Forward glossary links targetting a member of an aggregated entry to the aggregated entry
   my $processing = "$TMPDIR/1_osis.xml";
   my $xml = $XML_PARSER->parse_file($OSISFILE);
-  foreach my $gk ($XPC->findnodes('//reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml)) {
+  my @gks = $XPC->findnodes('//osis:reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml);
+  foreach my $gk (@gks) {
     my $osisID = $gk->value;
     $osisID =~ s/\.dup\d+$//;
     $gk->setValue($osisID);
   }
+  &Log("$MOD REPORT: Forwarded ".scalar(@gks)." link(s) to their aggregated entries.\n");
+  
+  # Remove x-glossary-duplicate
+  foreach my $d ($XPC->findnodes('//osis:div[@type="introduction" and @subType="x-glossary-duplicate"]', $xml)) {
+    my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
+    &Log("NOTE: Removed x-glossary-duplicate div beginning with: $beg\n");
+    $d->unbindNode();
+  }
+  
   open(OSIS2, ">$processing");
   print OSIS2 $xml->toString();
   close(OSIS2);
