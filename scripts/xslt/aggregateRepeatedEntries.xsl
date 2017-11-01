@@ -32,7 +32,7 @@
   <!-- Root template -->
   <template match="/">
     <for-each select="//div[@type and not(ancestor-or-self::div[@type='glossary'])]">
-      <message>&#10;WARNING: The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear in the SWORD glossary module.</message>
+      <message>WARNING: The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear there.</message>
     </for-each>
     <variable name="separateKeywords"><apply-templates mode="separateKeywordMode"/></variable>
     <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>

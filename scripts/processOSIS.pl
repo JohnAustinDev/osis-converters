@@ -14,14 +14,14 @@ elsif ($MODDRV =~ /LD/) {
   $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl") ;
   $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1.xml");
   $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
-  &Log("$cmd\n"); &Log(`$cmd 2>&1`."\n");
+  &Log("\n$cmd\n"); &Log(`$cmd 2>&1`."\n");
   
   $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/writeDictionaryWords.xsl") ;
   $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
   $cmd .= " -o:" . &escfile($DEFAULT_DICTIONARY_WORDS);
   $cmd .= " notXPATH_default='$DICTIONARY_NotXPATH_Default'";
-  &Log("$cmd\n"); &Log(`$cmd 2>&1`."\n");
+  &Log("\n$cmd\n"); &Log(`$cmd 2>&1`."\n");
   
   require("$SCRD/scripts/processGlossary.pl");
   &loadDictionaryWordsXML(1);
@@ -127,9 +127,7 @@ RUN:./INT.SFM\n");
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
-  &Log("$cmd\n");
-  my $out = `$cmd`; $out =~ s/&#(\d+);/my $r = chr($1);/eg;
-  &Log("$out\n");
+  &Log("\n$cmd\n"); &Log(`$cmd 2>&1`."\n");
   copy("$OUTOSIS.out", $OUTOSIS);
   unlink("$OUTOSIS.out");
   

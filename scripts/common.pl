@@ -3615,6 +3615,8 @@ sub Log($$) {
   my $p = shift; # log message
   my $flag = shift;
   
+  $p =~ s/&#(\d+);/my $r = chr($1);/eg;
+  
   if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /error/i) {
     print encode("utf8", $p);
   }
