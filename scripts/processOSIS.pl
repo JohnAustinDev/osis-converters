@@ -10,12 +10,24 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &checkUpdateIntros("$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {
+  $cmd = "saxonb-xslt -ext:on";
+  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl") ;
+  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1.xml");
+  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
+  &Log("$cmd\n"); &Log(`$cmd 2>&1`."\n");
+  
+  $cmd = "saxonb-xslt -ext:on";
+  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/writeDictionaryWords.xsl") ;
+  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
+  $cmd .= " -o:" . &escfile($DEFAULT_DICTIONARY_WORDS);
+  $cmd .= " notXPATH_default='$DICTIONARY_NotXPATH_Default'";
+  &Log("$cmd\n"); &Log(`$cmd 2>&1`."\n");
+  
   require("$SCRD/scripts/processGlossary.pl");
-  &aggregateRepeatedEntries("$TMPDIR/".$MOD."_1.xml");
-  &writeDefaultDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
   &loadDictionaryWordsXML(1);
-  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
-  &writeEntryOsisIDs("$TMPDIR/".$MOD."_1.xml");
+  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1b.xml");
+  copy("$TMPDIR/".$MOD."_1b.xml", "$TMPDIR/".$MOD."_1.xml");
+  unlink("$TMPDIR/".$MOD."_1b.xml");
 }
 &writeFootnoteIDs("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
 &writeTOC("$TMPDIR/".$MOD."_1.xml");
@@ -65,7 +77,7 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 # Run postprocess.(pl|xsl) if they exist
 if (-e "$INPD/postprocess.xsl") {
   &Log("\nRunning OSIS postprocess.xsl\n", 1);
-  my $cmd = "saxonb-xslt -xsl:" . &escfile("$INPD/postprocess.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out");
+  my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile("$INPD/postprocess.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out");
   &Log("$cmd\n");
   system($cmd);
   unlink($OUTOSIS);
@@ -114,7 +126,7 @@ RUN:./INT.SFM\n");
   }
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
-  my $cmd = "saxonb-xslt -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
+  my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
   &Log("$cmd\n");
   my $out = `$cmd`; $out =~ s/&#(\d+);/my $r = chr($1);/eg;
   &Log("$out\n");

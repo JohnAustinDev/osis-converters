@@ -87,7 +87,7 @@ sub convertDWF($\@\%$) {
   }
 
   open(DWORDS, ">:encoding(UTF-8)", $out_file) or die;
-  print DWORDS &dictWordsHeader();
+  #print DWORDS &dictWordsHeader();
   print DWORDS "<dictionaryWords version=\"1.0\" xmlns=\"$DICTIONARY_WORDS_NAMESPACE\">\n<div multiple=\"false\" notXPATH=\"$DICTIONARY_NotXPATH_Default\">\n\n";
   foreach my $e (sort {$b <=> $a} keys %prints) {print DWORDS $prints{$e};}
   print DWORDS "</div>\n</dictionaryWords>";

@@ -31,36 +31,21 @@
   
   <!-- insert navmenu links:
   1) before the first text node of each book or the first chapter[@sID] of each book, whichever comes first
-  2) after each glossary keyword's previous text node (except for the first keyword in each glossary div)
-  3) after the last text node of each glossary div that contains keywords-->
+  2) at the end of each div[starts-with(@type, 'x-keyword')] -->
   <xsl:template match="node()|@*">
     <xsl:variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
         (node()[descendant-or-self::text()[normalize-space()]][1] | descendant::chapter[@sID][1])[1]
         [generate-id(.) = generate-id(current())]"/>
-    <xsl:variable name="appendNavMenu" select="
-    self::node()[descendant-or-self::text()[normalize-space()]]
-        [ancestor::div[@type='glossary']//seg[@type='keyword']]
-        [following::text()[normalize-space()][1]
-            [parent::seg[@type='keyword'][generate-id(.) != generate-id((ancestor::div[@type='glossary']//seg[@type='keyword'])[1])]]
-        ]
-    or
-    self::node()[descendant-or-self::text()[normalize-space()]]
-        [ancestor::div[@type='glossary']//seg[@type='keyword']]
-        [not(following::text()[normalize-space()]) or following::text()[normalize-space()][1]
-            [generate-id(ancestor::div[@type='glossary'][1]) != generate-id(current()/ancestor::div[@type='glossary'][1])]
-        ]
-    "/>
     <xsl:choose>
       <xsl:when test="$prependNavMenu">
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="ancestor::div[@type='book']/@osisID"/></xsl:message>
       </xsl:when>
-      <xsl:when test="$appendNavMenu">
-        <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
-        <xsl:call-template name="navmenu"/>
-        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="preceding::seg[@type='keyword'][1]"/></xsl:message>
+      <xsl:when test="self::div[starts-with(@type, 'x-keyword')]">
+        <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/><xsl:call-template name="navmenu"/></xsl:copy>
+        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="descendant::seg[@type='keyword'][1]"/></xsl:message>
       </xsl:when>
       <xsl:otherwise>
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
