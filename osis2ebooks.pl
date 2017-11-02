@@ -214,11 +214,11 @@ sub setupAndMakeEbook($$$) {
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml");
-  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", @companionDictFiles, 1);
+  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
     $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml");
-    $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, @companionDictFiles, 1);
+    $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
   }
 
   # run the converter

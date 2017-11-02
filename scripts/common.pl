@@ -1432,15 +1432,14 @@ sub filterScriptureReferences($$) {
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
-sub filterGlossaryReferences($@$) {
+sub filterGlossaryReferences($\@$) {
   my $osis = shift;
-  my @glossRefOsis = shift;
+  my $glossRefOsisP = shift;
   my $filterNavMenu = shift;
   
   my @glossRefOsis1;
   my %refsInScope;
-  foreach my $refxml (@glossRefOsis) {
-    if (!$refxml) {next;} # uninitialized arrays have a single empty value
+  foreach my $refxml (@{$glossRefOsisP}) {
     my $refxml1 = $refxml; $refxml1 =~ s/^.*\///; push(@glossRefOsis1, $refxml1);
     my $glossRefXml = $XML_PARSER->parse_file($refxml);
     my $work = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $glossRefXml)}[0]->getValue();
