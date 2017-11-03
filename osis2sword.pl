@@ -102,6 +102,10 @@ if (&copyReferencedImages($OSISFILE, $INPD, "$SWOUT/$MODPATH")) {
   $ConfEntryP->{'Feature'} = ($ConfEntryP->{'Feature'} ? $ConfEntryP->{'Feature'}."<nx/>":"")."Images";
 }
 
+if ($ConfEntryP->{"Font"} && $FONTS) {
+  &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
+}
+
 $msv = "1.6.1";
 if ($VERSESYS && $VERSESYS ne "KJV") {
   system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
@@ -162,7 +166,6 @@ else {
 	die;
 }
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
-if ($ConfEntryP->{"Font"}) {&Log("\n$MOD REPORT: Font \"".$ConfEntryP->{"Font"}."\" has been specified for this module. You may want to package this font with your module.\n");}
 if ($ConfEntryP->{"PreferredCSSXHTML"} && ! -e "$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}) {
   &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");
 }

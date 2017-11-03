@@ -129,6 +129,30 @@ sub setupAndMakeEbook($$$) {
   # module css is added to default css directory
   if (-e "$INPD/eBook/css") {copy_dir("$INPD/eBook/css", "$tmp/css", 1);}
   
+  # if font is specified, include it
+  if ($FONTS && $confP->{"Font"}) {
+    &copyFont($confP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
+    if (open(CSS, ">$tmp/css/font.css")) {
+      my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
+      foreach my $f (keys %{$FONT_FILES{$confP->{"Font"}}}) {
+        my $format = $font_format{lc($FONT_FILES{$confP->{"Font"}}{$f}{'ext'})};
+        if (!$format) {&Log("WARNNG: Font \"$f\" has an unknown format; src format will not be specified.\n");}
+        print CSS '
+@font-face {
+  font-family:font1;
+  src: url(\'./'.$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
+  font-weight: '.($FONT_FILES{$confP->{"Font"}}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; font-style: '.($FONT_FILES{$confP->{"Font"}}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
+}
+';
+      }
+      print CSS '
+body {font-family: font1;}
+';
+      close(CSS);
+    }
+    else {&Log("ERROR: Could not write font css to \"$tmp/css/font.css\"\n");}
+  }
+  
   # copy cover
   my $cover;
   # Cover name is a jpg image named $scope if it exists, or else an 
@@ -277,8 +301,7 @@ sub makeEbook($$$$$) {
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
   my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
-  &Log($cmd."\n");
-  system($cmd);
+  &Log($cmd."\n"); &Log(`$cmd 2>&1`."\n");
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {

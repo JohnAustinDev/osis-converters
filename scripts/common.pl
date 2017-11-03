@@ -131,8 +131,66 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");
     }
   }
+  
+  if ($ConfEntryP->{'Font'}) {&checkFont($ConfEntryP->{'Font'});}
 }
 
+sub checkFont($) {
+  my $font = shift;
+  
+  # After this routine is run, font features can use "if ($FONT)" to check 
+  # font support, and can use FONT_FILES whenever fonts files are needed.
+  
+  %FONT_FILES;
+  
+  if ($FONTS && -e "/home/vagrant") {
+    open(CSH, "<$SCRD/Vagrantfile") || die "Could not open Vagrantfile";
+    while(<CSH>) {
+      if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
+        $SHARE_HOST = $1;
+        $SHARE_VIRT = $2;
+      }
+    }
+    $FONTS = File::Spec->abs2rel($FONTS, $SHARE_HOST);
+    $FONTS = File::Spec->rel2abs($FONTS, $SHARE_VIRT);
+  }
+
+  if ($FONTS && ! -e $FONTS) {
+    &Log("ERROR: paths.pl specifies FONTS as \"$FONTS\" but this path does not exist! FONTS will be unset!\n");
+    $FONTS = '';
+  }
+
+  if ($FONTS) {
+    # The Font value is a font internal name, which may have multiple font files associated with it.
+    # Font files should be named according to the excpectations below.
+    opendir(DIR, $FONTS);
+    my @fonts = readdir(DIR);
+    closedir(DIR);
+    my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic');
+    foreach my $f (@fonts) {
+      if ($f =~ /^\./) {next;}
+      if ($f =~ /^(.*?)(\-([ribRIB]))?\.([^\.]+)$/) {
+        my $n = $1; my $t = ($2 ? $3:'R'); my $ext = $4;
+        if ($n eq $font) {
+          $FONT_FILES{$font}{$f}{'style'} = $styles{uc($t)};
+          $FONT_FILES{$font}{$f}{'ext'} = $ext;
+        }
+      }
+      else {&Log("\nWARNING: Font \"$f\" file name could not be parsed. Ignoring...\n\n");}
+    }
+    if (scalar(%FONT_FILES)) {
+      foreach my $f (sort keys(%{$FONT_FILES{$font}})) {
+        &Log("NOTE: Using font file \"$f\" as ".$FONT_FILES{$font}{$f}{'style'}." font for \"$font\".\n\n");
+      }
+    }
+    else {
+      &Log("ERROR: No font file(s) for \"$font\" were found in \"$FONTS\"\n");
+    }
+  }
+  else {
+    &Log("\nWARNING: The config.conf specifies font \"$font\", but no FONTS directory has been specified in $SCRD/paths.pl. Therefore, this setting will be ignored!\n\n");
+  }
+}
 
 sub getOUTDIR($) {
   my $inpd = shift;
@@ -565,6 +623,32 @@ sub copyDefaultFiles($$$$) {
   }
   
   return $created;
+}
+
+sub copyFont($$$$$) {
+  my $fontname = shift;
+  my $fontdir = shift;
+  my $fontP = shift;
+  my $outdir = shift;
+  my $dontRenameRegularFile = shift;
+  
+  &Log("\n--- COPYING font \"$fontname\"\n");
+  
+  $outdir =~ s/\/\s*$//;
+  `mkdir -p "$outdir"`;
+  
+  my $copied = 0;
+  foreach my $f (keys %{$fontP->{$fontname}}) {
+    my $fdest = $f;
+    if (!$dontRenameRegularFile && $fontP->{$fontname}{$f}{'style'} eq 'regular') {
+      $fdest =~ s/^.*\.([^\.]+)$/$fontname.$1/;
+    }
+    &copy("$fontdir/$f", "$outdir/$fdest");
+    $copied++;
+    &Log("NOTE: Copied font \"$outdir/$fdest\"\n");
+  }
+  
+  &Log("REPORT $MOD: Copied \"$copied\" font file(s) to \"$outdir\".\n\n");
 }
 
 
