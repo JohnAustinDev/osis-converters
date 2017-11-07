@@ -119,9 +119,10 @@ presentational text, it will be added. An example OSIS cross-reference:
   &Log("READING CROSS REFERENCE FILE \"$CrossRefFile\".\n");
   
   my %localization;
-  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc3"]]', $OSIS);
+  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
+  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $OSIS);
   if ($BOOKNAMES || @toc3[0]) {
-    &Log("NOTE: Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc3 tags=\"".scalar(@toc3)."\").\n");
+    &Log("NOTE: Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc".$tocxr." tags=\"".scalar(@toc3)."\").\n");
     $localization{'hasLocalization'}++;
     my $ssf;
     if (opendir(SFM, "$INPD/sfm")) {
@@ -157,19 +158,36 @@ presentational text, it will be added. An example OSIS cross-reference:
       $localization{$k} = $v;
     }
     
+    my $nametype = ('', 'long', 'short', 'abbr')[$tocxr];
     my @books = split(' ', $OT_BOOKS . ' ' . $NT_BOOKS);
     foreach my $book (@books) {
-      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]//osis:milestone[@type="x-usfm-toc3"][1]/@n', $OSIS)}[0];
+      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]//osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $OSIS)}[0];
       if ($abbr) {$abbr = $abbr->value;}
-      if ($BOOKNAMES{$book}{'abbr'}) {
-        if (!$abbr) {$abbr = $BOOKNAMES{$book}{'abbr'};}
-        elsif ($abbr ne $BOOKNAMES{$book}{'abbr'}) {
-          &Log("WARNING: OSIS abbreviation \"$abbr\" differs from SSF abbreviation \"".$BOOKNAMES{$book}{'abbr'}."\"; will use OSIS abbreviation.\n");
+      if ($BOOKNAMES{$book}{$nametype}) {
+        if (!$abbr) {$abbr = $BOOKNAMES{$book}{$nametype};}
+        elsif ($abbr ne $BOOKNAMES{$book}{$nametype}) {
+          &Log("WARNING: OSIS toc$tocxr name \"$abbr\" differs from SSF $nametype name \"".$BOOKNAMES{$book}{$nametype}."\"; will use OSIS name.\n");
         }
       }
       if ($abbr) {$localization{$book} = $abbr;}
       else {&Log("WARNING: Missing translation for \"$book\"\n");}
     }
+  }
+  else {
+    &Log(decode('utf8', "
+WARNING: Unable to localize cross-references! This means eBooks will show cross-references
+         as '1', '2'... which is unhelpful. To localize cross-references, you should add 
+         a file called BookNames.xml to $INPD/sfm containing book abbreviations like this:
+<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<BookNames>
+  <book code=\"1SA\" abbr=\"1Şam\" />
+  <book code=\"2SA\" abbr=\"2Şam\" />
+</BookNames>
+         If you do not know the book abbreviations, then add to $INPD/CF_usfm2osis.txt
+         the following: \"SET_tocCrossRefs:2\" to use \\toc2 short names instead of 
+         abbreviations (or 1 will use \\toc1 long names, but this is not recommended). 
+         If the required \\tocN tags are specified in the USFM files, you  do not 
+         need BookNames.xml.\n\n"));
   }
 
   # XML is the prefered cross-reference source format, but TXT is still supported
@@ -256,7 +274,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   print OUTF $OSIS->toString();
   close(OUTF);
 
-  &Log("$MOD REPORT: Placed $NumNotes".($localization{'hasLocalization'} ? ' localized':'')." cross-reference notes.\n\n");
+  &Log("$MOD REPORT: Placed $NumNotes ".($localization{'hasLocalization'} ? 'localized':'numbered')." cross-reference notes.\n\n");
   
   return 1;
 }
