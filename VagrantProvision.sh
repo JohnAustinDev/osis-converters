@@ -8,17 +8,16 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-if [ -e /vagrant ]; then VUSER="vagrant"; else VUSER=$USER; fi
+if [ -e /vagrant ]; then VUSER="ubuntu"; else VUSER=$USER; fi
+if [ -e /vagrant ]; then VHOME="/home/ubuntu"; else VHOME=$HOME; fi
 if [ -e /vagrant ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
-if [ -e /vagrant ]; then VHOME="/home/vagrant"; else VHOME=$HOME; fi
 if [ ! -e $VHOME/.osis-converters ]; then mkdir $VHOME/.osis-converters; fi
 if [ ! -e $VHOME/.osis-converters/src ]; then mkdir $VHOME/.osis-converters/src; fi
 
 sudo apt-get update
-sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix
+sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
 
 # XML::LibXML
-sudo cpanm XML::LibXML
 sudo cpanm XML::LibXML::PrettyPrint
 sudo cpanm HTML::Entities
 
@@ -26,7 +25,7 @@ sudo cpanm HTML::Entities
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
-  wget -nv -O- https://raw.githubusercontent.com/kovidgoyal/calibre/master/setup/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
+  wget -nv -O- https://download.calibre-ebook.com/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
 echo sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
 sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
@@ -37,34 +36,6 @@ if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
   wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gobible/GoBibleCreator.245.zip
   unzip GoBibleCreator.245.zip
   rm GoBibleCreator.245.zip
-fi
-
-# u2o is for u2o.py testing
-if [ ! -e $VHOME/.osis-converters/src/u2o ]; then
-  cd $VHOME/.osis-converters/src
-  git clone https://github.com/adyeths/u2o.git
-else
-  cd $VHOME/.osis-converters/src/u2o
-  git stash
-  git pull
-fi
-chmod a+x "$VHOME/.osis-converters/src/u2o/u2o.py"
-
-# python3 is only for u2o.py testing
-if [ ! `which python3` ]; then
-  #sudo apt-get install -y python3
-  #sudo pip3 install lxml
-  # u2o.py does not work with Python 3.0 - 3.2.x and the stock VM [Ubuntu Precise] uses 3.2.3. So build 3.4.3 from source...
-  cd $VHOME/.osis-converters/src
-  wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
-  tar -xzf Python-3.4.3.tgz
-  rm Python-3.4.3.tgz
-  cd Python-3.4.3
-  sudo apt-get install -y libbz2-dev libxml2-dev libxslt-dev python-dev
-  ./configure --prefix=/usr
-  make
-  sudo make install
-  sudo pip3 install lxml
 fi
 
 # Module-tools
@@ -135,4 +106,4 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   sudo ldconfig
 fi
 
-if [ -e /vagrant ]; then chown -R vagrant:vagrant /home/vagrant/.osis-converters; fi
+if [ -e /vagrant ]; then sudo chown -R $VUSER:$VUSER $VHOME/.osis-converters; fi

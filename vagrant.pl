@@ -8,6 +8,7 @@ use File::Spec;
 
 $Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
 $ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
+$VAGRANT_USER = 'ubuntu';
 
 # ProjectDir must be relative to INDIR_ROOT
 # INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
@@ -27,10 +28,11 @@ if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-conv
 
 $Status = (-e "./.vagrant" ? `vagrant status`:'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
+elsif (&rebuildNeeded(\@Shares)) {print `vagrant destroy -f`; &vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
-$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/vagrant/INDIR_ROOT$ProjectDir\"";
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/$VAGRANT_USER/INDIR_ROOT$ProjectDir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}
@@ -44,7 +46,7 @@ sub vagrantShare($$) {
   # If the host is Windows, $host must be a native path!
   $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
   $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
-  return "config.vm.synced_folder \"$host\", \"/home/vagrant/$client\"";
+  return "config.vm.synced_folder \"$host\", \"/home/$VAGRANT_USER/$client\"";
 }
 
 sub vagrantUp(\@) {
@@ -80,4 +82,11 @@ sub matchingShares(\@) {
     foreach my $share (@$sharesP) {if ($_ =~ /^\Q$share\E$/) {delete($shares{$share});}}
   }
   return (keys(%shares) == 0 ? 1:0);
+}
+
+sub rebuildNeeded() {
+  my $is  = `grep "config.vm.box " ./Vagrantfile_tpl`;
+  my $was = `grep "config.vm.box " ./Vagrantfile`;
+  
+  return ($is ne $was);
 }
