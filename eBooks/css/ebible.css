@@ -34,6 +34,9 @@ h1.x-introduction, h2.x-introduction, h3.x-introduction {
 h1.x-introduction {
   margin-top:2em;
 }
+.xsl-toc-entry.osis-milestone + h1.x-introduction {
+  margin-top:1em;
+}
 h2.x-introduction, h3.x-introduction {
   text-align: left;
   font-weight:bold;
@@ -220,8 +223,8 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .xsl-toc-entry {
   page-break-before: always;
 }
-.xsl-toc-entry.xsl-milestone,
-body:not(.Ps) .x-chapterLabel {
+.xsl-toc-entry.osis-milestone,
+body:not(.Ps) .xsl-toc-entry.osis-chapter {
   /* display:none causes hyperlinks to fail in calibre ebook viewer and mobi */
   visibility: hidden;
   height:0px;
@@ -295,7 +298,7 @@ dfn {
 }
 
 /* Keep a figure with its caption */
-figure {
+div.osis-figure {
   page-break-inside: avoid;
   break-inside: avoid;
   margin: 1em 0 0 0;

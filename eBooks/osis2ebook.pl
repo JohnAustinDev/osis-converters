@@ -123,7 +123,7 @@ else {
 # Start forming the command string
 $COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --embed-all-fonts --subset-embedded-fonts";
 
-$COMMAND .= ' --level1-toc "//*[@toclevel=\'1\']" --level2-toc "//*[@toclevel=\'2\']" --level3-toc "//*[@toclevel=\'3\']"';
+$COMMAND .= ' --level1-toc "//*[@title=\'toclevel-1\']" --level2-toc "//*[@title=\'toclevel-2\']" --level3-toc "//*[@title=\'toclevel-3\']"';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {

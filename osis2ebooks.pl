@@ -147,7 +147,9 @@ sub setupAndMakeEbook($$$) {
       }
       print CSS '
 body {font-family: font1;}
+
 ';
+      if (open(FCSS, "<$FONTS/".$confP->{"Font"}.".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
       close(CSS);
     }
     else {&Log("ERROR: Could not write font css to \"$tmp/css/font.css\"\n");}
@@ -174,8 +176,7 @@ body {font-family: font1;}
       my $padding = 20;
       my $barheight = $pointsize + (2*$padding) - 10;
       my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$ebookTitlePart' \"$cover\"";
-      &Log("$cmd\n");
-      `$cmd`;
+      &shell($cmd, 2);
     }
     else {
       $EBOOKREPORT{$EBOOKNAME}{'Title'} = 'no-title';
@@ -301,10 +302,21 @@ sub makeEbook($$$$$) {
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
   my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
-  &Log($cmd."\n"); &Log(`$cmd 2>&1`."\n");
+  &shell($cmd);
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
+    if ($format eq 'epub') {
+      $cmd = "epubcheck \"$out\"";
+      my $result = &shell($cmd);
+      if ($result =~ /^\s*$/) {
+        &Log("ERROR: epubcheck did not return anything- reason unknown\n");
+      }
+      elsif ($result !~ /\bno errors\b/i) {
+        &Log("ERROR: epubcheck validation failed for \"$out\"\n");
+      }
+      else {&Log("NOTE: Epub validates!: \"$out\"\n");}
+    }
     copy($out, "$EBOUT/$EBOOKNAME.$format");
     if (!$EBOOKREPORT{$EBOOKNAME}{'Format'}) {$EBOOKREPORT{$EBOOKNAME}{'Format'} = ();}
     push(@{$EBOOKREPORT{$EBOOKNAME}{'Format'}}, $format);

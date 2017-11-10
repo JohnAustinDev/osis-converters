@@ -3715,7 +3715,10 @@ sub shell($$) {
   my $flag = shift; # same as Log flag
   
   &Log("\n$cmd\n", $flag);
-  &Log(decode('utf8', `$cmd 2>&1`)."\n", $flag);
+  my $result = decode('utf8', `$cmd 2>&1`);
+  &Log($result."\n", $flag);
+  
+  return $result;
 }
 
 1;
