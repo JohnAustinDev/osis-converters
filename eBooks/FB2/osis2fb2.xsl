@@ -7,10 +7,11 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
- xmlns:runtime="java:java.lang.Runtime"
  exclude-result-prefixes="#all">
  
-  <!-- TRANSFORM AN OSIS FILE, AND ITS REFERENCES, INTO AN FB2 FILE
+  <xsl:import href="../../scripts/xslt/functions.xsl"/>
+ 
+  <!-- TRANSFORM A BIBLE OSIS FILE, AND ITS REFERENCE FILES, INTO AN FB2 FILE
   To run this transform from the command line: 
   $ saxonb-xslt -ext:on -xsl:osis2fb2.xsl -s:main.osis.xml -o:output.fb2
   -->
@@ -23,16 +24,14 @@
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   
   <variable name="mainInputOSIS" select="/"/>
-  <variable name="readBinaryResource" select="'./tmp_osis2fb2.xsl.rbr.sh'" as="xs:string"/>
-  <variable name="tmpResult" select="'./tmp_osis2fb2.xsl.txt'" as="xs:string"/>
 
   <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook, and all input OSIS files must reside in the same directory -->
-  <variable name="referencedOsisDocs" select="(/) | //work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
+  <variable name="referencedOsisDocs" select="(/) | //work[@osisWork != //osisText/@osisIDWork]/doc(concat($DOCDIR, @osisWork, '.xml'))"/>
   <variable name="allOsisFiles" select="$mainInputOSIS | $referencedOsisDocs"/>
 
   <!-- ROOT NODE TEMPLATE FOR MAIN INPUT OSIS FILE -->
   <template match="/">
-    <call-template name="prepareRunTime"/>
+    <call-template name="oc:prepareRunTime"/>
     
     <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
       
@@ -75,7 +74,7 @@
         </binary>
       </xsl:for-each>
     </FictionBook>
-    <call-template name="cleanupRunTime"/>
+    <call-template name="oc:cleanupRunTime"/>
   </template>
   
   <!-- This template is called after writing the first body element -->
@@ -117,48 +116,6 @@
         <value-of select="count(preceding::note) + 1"/>
       </when>
     </choose>    
-  </template>
-
-  <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:
-  - Only Java functions are supported by saxon
-  - Java exec() immediately returns a process ID, making another blocking method a necessity
-  - There seems to be no other way to return data from Java exec() other than having it write to a file
-  - XSLT's unparsed-text-available() is its only file existence check, and it only works on text files (not binaries)
-  - Bash shell scripting provides functionality, but XSLT requires it be written while the context is outside of any temporary trees -->
-  <function name="oc:read-binary-resource">
-    <param name="resource" as="xs:string"/>
-    <message>NOTE: Deleting tmpResult <value-of select="$tmpResult"/>: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', '-r', $tmpResult))"/></message>
-    <call-template name="sleep"/>
-    <if test="unparsed-text-available($tmpResult)"><call-template name="sleep"><with-param name="ms" select="500"/></call-template></if>
-    <if test="unparsed-text-available($tmpResult)"><message select="concat('ERROR: ', $readBinaryResource, ' failed to delete temporary file for: ', $resource)"/></if>
-    <message>NOTE: readBinaryResource <value-of select="$resource"/>: <value-of select="runtime:exec(runtime:getRuntime(), ($readBinaryResource, $resource))"/></message>
-    <call-template name="sleep"/>
-    <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="500"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))"><message select="concat('ERROR: ', $readBinaryResource, ' failed to create an output file when reading: ', $resource)"/></if>
-    <variable name="result">
-      <if test="unparsed-text-available($tmpResult)"><value-of select="unparsed-text($tmpResult)"/></if>
-    </variable>
-    <if test="starts-with($result, 'nofile')"><message select="concat('ERROR: ', $readBinaryResource, ' failed to locate binary file: ', $resource)"/></if>
-    <if test="not(starts-with($result, 'nofile'))"><value-of select="$result"/></if>
-  </function>
-  <template name="prepareRunTime">
-    <result-document href="{$readBinaryResource}" method="text">#!/bin/bash
-if [ -f $1 ]; then
-  base64 $1 > <value-of select="$tmpResult"/>
-else
-  echo nofile > <value-of select="$tmpResult"/>
-fi
-  </result-document>
-    <message>NOTE: Writing executable: <value-of select="$readBinaryResource"/>: <value-of select="runtime:exec(runtime:getRuntime(), ('chmod', '+x', $readBinaryResource))"/></message>
-  </template>
-  <template name="cleanupRunTime">
-    <message>NOTE: Deleting readBinaryResource <value-of select="$readBinaryResource"/>: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', $readBinaryResource))"/></message>
-    <message>NOTE: Deleting tmpResult <value-of select="$tmpResult"/>: <value-of select="runtime:exec(runtime:getRuntime(), ('rm', $tmpResult))"/></message>
-  </template>
-  <template name="sleep" xmlns:thread="java.lang.Thread">
-    <param name="ms" select="10"/>
-    <if test="$ms!=10"><message select="concat('WARNING: Sleeping ', $ms, 'ms')"/></if>
-    <message select="thread:sleep($ms)"/>     
   </template>
   
 </stylesheet>
