@@ -1,3 +1,6 @@
+a {
+  color: initial;
+}
 img {
   object-fit: contain;
 }
@@ -84,8 +87,9 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-hi.underline {text-decoration: underline;}
 .osis-hi.small-caps {font-variant:small-caps}
 .osis-reference {
-  text-decoration: underline;
-  color:blue;
+  border-bottom: 0.15em dotted #388E3C;
+  padding-bottom: 0.07em;
+  text-decoration: none;
 }
 .osis-lg {
   margin-left:1.5em;
@@ -203,7 +207,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 }
 .x-navmenu .x-prevnext-link .x-glosslink {
   font-size:3em;
-  text-decoration:none;
+  border-bottom: initial;
 }
 
 
@@ -217,7 +221,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   line-height: 1.2;
   vertical-align: inherit;
   vertical-align: 35%;
-  color:#004400;
+  color:#388E3C;
   margin-right:0.2em;
 }
 .xsl-toc-entry {
@@ -255,6 +259,11 @@ dfn {
 .xsl-footnote,
 .xsl-crossref {
   margin-top:1em;
+}
+.xsl-note-number,
+.xsl-fnote-symbol,
+.xsl-crnote-symbol {
+  color:#388E3C;
 }
 .xsl-note-number:not(.xsl-note-head) {
   font-size:0.675em;
