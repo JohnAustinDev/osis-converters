@@ -36,6 +36,7 @@ $FNREFEXT = "!note.n";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
+@USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]";
 $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
@@ -133,6 +134,11 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   }
   
   if ($ConfEntryP->{'Font'}) {&checkFont($ConfEntryP->{'Font'});}
+  
+  my $spaces = `find $INPD/images -type f -name "* *" -print`;
+  if ($spaces) {
+    &Log("\nERROR: Image filenames must not contain spaces:\n$spaces\n");
+  }
 }
 
 sub checkFont($) {
@@ -2306,14 +2312,15 @@ sub glossaryContext($) {
   my $node = shift;
   
   # is node in a type div?
-  my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div[@type][last()]', $node)}[0];
+  my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
+  my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div['.join(' or ', @typeXPATH).'][last()]', $node)}[0];
   if (!$typeDiv) {return '';}
 
   # get preceding keyword
   my $prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];
   
   if ($prevkw) {
-    foreach my $kw ($XPC->findnodes('//osis:seg[@type="keyword"]', $typeDiv)) {
+    foreach my $kw ($XPC->findnodes('.//osis:seg[@type="keyword"]', $typeDiv)) {
       if ($kw->isSameNode($prevkw)) {
         if (!$prevkw->getAttribute('osisID')) {
           &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
