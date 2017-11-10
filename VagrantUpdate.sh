@@ -11,10 +11,10 @@ was="$(grep 'config.vm.box ' ./Vagrantfile)";
 
 if [ "$is" != "$was" ]; then 
   echo 
-  echo CANNOT UPDATE VIRTUAL MACHINE. Vagrant configuration has changed.
-  echo You need to run:
-  echo \$ Vagrant destroy
-  echo \$ Vagrant up
+  echo CANNOT UPDATE EXISTING VIRTUAL MACHINE. Vagrant configuration has changed.
+  echo Run:
+  echo \$ vagrant halt
+  echo Then run osis-converters, and a new VM should be built.
   exit
 fi
 
