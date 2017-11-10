@@ -374,7 +374,7 @@
     <attribute name="id" select="generate-id($tocElement)"/>
     <attribute name="class" select="normalize-space(string-join(('xsl-toc-entry', me:getClasses($tocElement)), ' '))"/>
     <if test="not(matches($tocElement/@n, '^(\[[^\]]*\])*\[no_toc\]'))">
-      <attribute name="title" select="concat('toclevel-', me:getTocLevel($tocElement, $tocElement/ancestor::work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']))"/>
+      <attribute name="title" select="concat('toclevel-', me:getTocLevel($tocElement))"/>
     </if>
   </function>
   
@@ -410,7 +410,7 @@
   <!-- getTocLevel returns an integer which is the TOC hierarchy level of tocElement -->
   <function name="me:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
-    <param name="isBible"/>
+    <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
       <message terminate="yes">ERROR: getTocLevel(): <value-of select="me:printTag($tocElement)"/> is not a TOC element!</message>
     </if>
@@ -462,11 +462,11 @@
   <function name="me:getInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
     <param name="isOsisRootTOC"/>             <!-- set this only for the main (root) toc -->
-    <variable name="isBible" select="$tocElement/ancestor::work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
+    <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($isOsisRootTOC) and not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
       <message terminate="yes">ERROR: getInlineTOC(): <value-of select="me:printTag($tocElement)"/> is not a TOC milestone or non-Bible chapter element!</message>
     </if>
-    <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else me:getTocLevel($tocElement, $isBible)"/>
+    <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else me:getTocLevel($tocElement)"/>
     <if test="$toplevel &#60; 3">
       <variable name="subentries" as="element()*">
         <choose>
@@ -480,7 +480,7 @@
                 then $tocElement/parent::div/parent::div 
                 else $tocElement/ancestor::div[1]"/>
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
-                [generate-id(.) != generate-id($tocElement)][me:getTocLevel(., $isBible) = $toplevel + 1]"/>
+                [generate-id(.) != generate-id($tocElement)][me:getTocLevel(.) = $toplevel + 1]"/>
           </otherwise>
         </choose>
       </variable>
@@ -788,10 +788,12 @@
     <value-of select="replace(replace($s, '^([^\p{L}_])', 'x$1'), '[^\w\d_\-\.]', '-')"/>
   </function>
   
-  <function name="me:printTag" as="text()+">
+  <function name="me:printTag" as="text()">
     <param name="elem" as="element()"/>
-    <value-of select="concat('element=', $elem/name(), ', ')"/>
-    <for-each select="$elem/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
+    <value-of>
+      <value-of select="concat('element=', $elem/name(), ', ')"/>
+      <for-each select="$elem/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
+    </value-of>
   </function>
   
 </stylesheet>
