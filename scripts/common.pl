@@ -2961,8 +2961,7 @@ sub zipModule($$) {
   &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
   chdir($moddir);
   my $cmd = "zip -r ".&escfile($zipfile)." ".&escfile("./*");
-  &Log($cmd, 1);
-  `$cmd`;
+  &shell($cmd, 1);
   chdir($SCRD);
 }
 
@@ -3736,6 +3735,14 @@ sub encodePrintPaths($) {
     $t =~ s/\Q$rp\E/\$$path/g;
   }
   return $t;
+}
+
+sub shell($$) {
+  my $cmd = shift;
+  my $flag = shift; # same as Log flag
+  
+  &Log("\n$cmd\n", $flag);
+  &Log(decode('utf8', `$cmd 2>&1`)."\n", $flag);
 }
 
 1;
