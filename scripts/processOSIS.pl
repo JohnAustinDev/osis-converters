@@ -150,10 +150,10 @@ WARNING: For the navigation menu to look best in SWORD, you should use
 &validateOSIS($OUTOSIS);
 
 # Do a tmp Pretty Print for referencing during the conversion process
-my $xml = $XML_PARSER->parse_file($OUTOSIS);
-&prettyPrintOSIS($xml);
-open(OUTF, ">$TMPDIR/".$MOD."_PrettyPrint.xml");
-print OUTF $xml->toString();
-close(OUTF);
+$cmd = "saxonb-xslt -ext:on";
+$cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/prettyPrint.xsl");
+$cmd .= " -s:" . &escfile($OUTOSIS);
+$cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_PrettyPrint.xml");
+&shell($cmd);
 
 &Log("\nend time: ".localtime()."\n");

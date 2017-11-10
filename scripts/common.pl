@@ -3407,33 +3407,6 @@ sub ebookReadConf($) {
 }
 
 
-$IS_SEG_INLINE  = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') ne 'keyword');};
-$IS_SEG_COMPACT = sub {my $n = shift; if ($n->nodeName ne 'seg') {return undef;} return ($n->getAttribute('type') eq 'keyword');};
-sub prettyPrintOSIS($) {
-  my $osisDoc = shift;
-  
-  use XML::LibXML::PrettyPrint;
-  
-  my @preserveWhiteSpace = qw(a abbr catchWord date divineName foreign hi index inscription lb mentioned milestone name note q reference salute signed speaker titlePage transChange w);
-  
-  my @inline = ('header', $IS_SEG_INLINE);
-  push(@inline, @preserveWhiteSpace);
-  
-  my $pp = XML::LibXML::PrettyPrint->new(
-    element => {
-      #block    => [elements-are-block-by-default],
-      inline   => \@inline, # inline elements also preserve whitespace
-      compact  => [qw/title caption l item/, $IS_SEG_COMPACT], # compact does NOT preserve whitespace
-      #preserve_whitespace => \@preserveWhiteSpace
-    }
-  );
-  
-  $pp->pretty_print($osisDoc, -2);
-  
-  return $osisDoc;
-}
-
-
 # Split an OSIS file into separate book OSIS files, plus 1 non-book OSIS 
 # file (one that contains everything else). This is intended for use with 
 # joinOSIS to allow parsing smaller files for a big speedup. The only 
