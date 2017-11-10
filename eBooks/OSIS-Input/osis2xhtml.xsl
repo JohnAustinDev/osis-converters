@@ -30,6 +30,9 @@
 
   <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook, and all input OSIS files must reside in the same directory -->
   <variable name="referencedOsisDocs" select="//work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
+  
+  <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
+  <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
 
   <!-- ROOT NODE TEMPLATE FOR ALL INPUT OSIS FILES -->
   <template match="/">
@@ -106,10 +109,10 @@
   <template match="node()"><apply-templates/></template>
   
   <!-- Separate the OSIS file into separate xhtml files based on this template -->
-  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type='glossary']">
+  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type=$usfmType]">
     <choose>
-      <when test="self::div[@type='glossary']">
-        <!-- Put each glossary entry in its own file to ensure that links and article tags all work properly across various eBook readers -->
+      <when test="self::div[@type=$usfmType]">
+        <!-- Put each usfmType entry in its own file to ensure that links and article tags all work properly across various eBook readers -->
         <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node() return count($i/following::seg[@type='keyword'])">
           <sort select="current-grouping-key()" order="descending" data-type="number"/>
           <call-template name="ProcessFile"/>
@@ -140,15 +143,15 @@
   </template>
   
   <!-- This template may be called from any element. It returns the output file name that contains the element -->
-  <!-- If the element is part of a glossary, and is associated with multiple files (groups) then glossaryGroupingKey must be supplied to specify which group this call pertains to -->
+  <!-- If the element is part of a usfmType, and is associated with multiple files (groups) then glossaryGroupingKey must be supplied to specify which group this call pertains to -->
   <template name="getFileName">
     <param name="glossaryGroupingKey" select="'none'"/>
     <variable name="osisIDWork" select="ancestor-or-self::osisText/@osisIDWork"/>
     <choose>
-      <when test="ancestor-or-self::div[@type='glossary']">
+      <when test="ancestor-or-self::div[@type=$usfmType]">
         <choose>
-          <when test="count(preceding::seg[@type='keyword']) = count(ancestor::div[@type='glossary'][1]/preceding::seg[@type='keyword']) and not(descendant-or-self::seg[@type='keyword'])">
-            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::div[@type='glossary']) + 1)"/>
+          <when test="count(preceding::seg[@type='keyword']) = count(ancestor::div[@type=$usfmType][1]/preceding::seg[@type='keyword']) and not(descendant-or-self::seg[@type='keyword'])">
+            <value-of select="concat($osisIDWork, '_glossintro_', count(preceding::div[@type=$usfmType]) + 1)"/>
           </when>
           <otherwise>
             <value-of select="concat($osisIDWork, '_glosskey_', 
@@ -184,11 +187,14 @@
           </xsl:for-each>
         </head>
         <body class="calibre">
-          <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(('calibre', tokenize($filename, '_')[2], @type, @subType)), ' '))"/>
+          <xsl:variable name="usfmFileNum" select="if (ancestor::div[@type=$usfmType][1]) then concat('gn-', count(preceding::div[@type=$usfmType]) + 1) else ''"/>
+          <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
+              ('calibre', tokenize($filename, '_')[1], tokenize($filename, '_')[2], concat('n-', tokenize($filename, '_')[3]), @type, @subType, $usfmFileNum)
+          ), ' '))"/>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
             <when test="$filename=concat($osisIDWork,'_module-introduction')">
-              <variable name="keepnodes" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type='glossary'])]"/>
+              <variable name="keepnodes" select="node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type=$usfmType])]"/>
               <apply-templates mode="xhtml" select="$keepnodes"/>
               <call-template name="noteSections"><with-param name="nodes" select="$keepnodes"/></call-template>
             </when>
@@ -320,10 +326,10 @@
   <!-- This template may be called from any note. It returns the number of that note within its output file -->
   <template name="getFootnoteNumber">
     <choose>
-      <when test="ancestor::div[@type='glossary']">
+      <when test="ancestor::div[@type=$usfmType]">
         <choose>
-          <when test="not(descendant-or-self::seg[@type='keyword']) and count(preceding::seg[@type='keyword']) = count(ancestor::div[@type='glossary'][1]/preceding::seg[@type='keyword'])">
-            <value-of select="count(preceding::note) - count(ancestor::div[@type='glossary'][1]/preceding::note) + 1"/>
+          <when test="not(descendant-or-self::seg[@type='keyword']) and count(preceding::seg[@type='keyword']) = count(ancestor::div[@type=$usfmType][1]/preceding::seg[@type='keyword'])">
+            <value-of select="count(preceding::note) - count(ancestor::div[@type=$usfmType][1]/preceding::note) + 1"/>
           </when>
           <otherwise>
             <value-of select="count(preceding::note) - count(preceding::seg[@type='keyword'][1]/preceding::note) + 1"/>
@@ -433,7 +439,7 @@
   <!-- getGlossParentTocNodes may be called from any element -->
   <function name="me:getGlossParentTocNodes" as="element()*">
     <param name="x" as="element()"/>
-    <!-- A chapter is always a TOC parent, and so is any div in the glossary if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
+    <!-- A chapter is always a TOC parent, and so is any div in the usfmType if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
     The first such toc milestone descendant determines the div's TOC entry name; any following such children will be TOC sub-entries of the first. -->
     <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $tocnumber)] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $tocnumber)] | 
         $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
