@@ -149,7 +149,7 @@ sub checkFont($) {
   
   %FONT_FILES;
   
-  if ($FONTS && -e "/home/vagrant") {
+  if ($FONTS && -e "/vagrant") {
     open(CSH, "<$SCRD/Vagrantfile") || die "Could not open Vagrantfile";
     while(<CSH>) {
       if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
@@ -203,9 +203,9 @@ sub getOUTDIR($) {
   
   my $outdir = $OUTDIR;
   
-  if (-e "/home/vagrant") {
-    if (-e "/home/vagrant/OUTDIR" && `mountpoint /home/vagrant/OUTDIR` =~ /is a mountpoint/) {
-      $outdir = "/home/vagrant/OUTDIR"; # Vagrant share
+  if (-e "/vagrant") {
+    if (-e "/home/$VAGRANT_USER/OUTDIR" && `mountpoint /home/$VAGRANT_USER/OUTDIR` =~ /is a mountpoint/) {
+      $outdir = "/home/$VAGRANT_USER/OUTDIR"; # Vagrant share
     }
     else {$outdir = '';}
   }
@@ -293,7 +293,7 @@ sub initOutputFiles($$$$) {
 
   my $delete;
   foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
-  if ($delete && !$automode && !-e "/home/vagrant") {
+  if ($delete && !$automode && !-e "/vagrant") {
     print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
     $in = <>; 
     if ($in !~ /^\s*y\s*$/i) {exit;} 
@@ -325,7 +325,7 @@ sub checkDependencies($$$$) {
   $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
   
   foreach my $p (keys %path) {
-    if (-e "/home/vagrant" && $$p) {
+    if (-e "/vagrant" && $$p) {
       if (!$quiet) {
         if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
         else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}

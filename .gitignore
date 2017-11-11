@@ -4,4 +4,5 @@ kindlegen
 paths.pl
 .vagrant
 Vagrantfile
+ubuntu-*
 

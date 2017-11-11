@@ -5,6 +5,7 @@
 # host and vagrant client, and to call osis-converters on the client.
 
 use File::Spec;
+use Encode;
 
 $Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
 $ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
@@ -26,10 +27,10 @@ push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
 if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
 
-$Status = (-e "./.vagrant" ? `vagrant status`:'');
+$Status = (-e "./.vagrant" ? &shell("vagrant status", 1):'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
-elsif (&rebuildNeeded(\@Shares)) {print `vagrant destroy -f`; &vagrantUp(\@Shares);}
-elsif (!&matchingShares(\@Shares)) {print `vagrant halt`; &vagrantUp(\@Shares);}
+elsif (&rebuildNeeded(\@Shares)) {&shell("vagrant destroy -f"); &vagrantUp(\@Shares);}
+elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt"); &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
 $cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/$VAGRANT_USER/INDIR_ROOT$ProjectDir\"";
@@ -55,17 +56,18 @@ sub vagrantUp(\@) {
   # Create input/output filesystem shares
   open(TPL, "<./Vagrantfile_tpl") || die "\nERROR: Cannot open \"./Vagrantfile_tpl\"\n";
   open(VAG, ">./Vagrantfile") || die "\nERROR: Cannot open \"./Vagrantfile\"\n";
-  if (!-e "./.vagrant") {`mkdir ./.vagrant`;}
+  if (!-e "./.vagrant") {&shell("mkdir ./.vagrant");}
   while (<TPL>) {
     print VAG $_;
     if ($_ =~ /\Q"VagrantProvision.sh"\E/) {foreach my $share (@$sharesP) {print VAG "$share\n";}}
   }
   close(VAG);
   close(TPL);
-  print "Starting Vagrant...\n";
-  print "The first use of Vagrant will automatically download and build a virtual\n";
-  print "machine having osis-converters fully installed. This build will take some\n";
-  print "time. Subsequent use of Vagrant will run much faster.\n\n";
+  print "
+Starting Vagrant...
+The first use of Vagrant will automatically download and build a virtual
+machine having osis-converters fully installed. This build will take some
+time. Subsequent use of Vagrant will run much faster.\n\n";
   open(VUP, "vagrant up |");
   while(<VUP>) {print $_;}
   close(VUP);
@@ -85,8 +87,19 @@ sub matchingShares(\@) {
 }
 
 sub rebuildNeeded() {
-  my $is  = `grep "config.vm.box " ./Vagrantfile_tpl`;
-  my $was = `grep "config.vm.box " ./Vagrantfile`;
+  my $is  = &shell("grep \"config.vm.box \" ./Vagrantfile_tpl", 1);
+  my $was = &shell("grep \"config.vm.box \" ./Vagrantfile", 1);
   
   return ($is ne $was);
+}
+
+sub shell($$) {
+  my $cmd = shift;
+  my $quiet = shift;
+  
+  if (!$quiet) {print "$cmd\n";}
+  my $result = decode('utf8', `$cmd 2>&1`);
+  if (!$quiet) {print "$result\n";}
+  
+  return $result;
 }
