@@ -42,6 +42,7 @@ $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
+$HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 
 require("$SCRD/scripts/getScope.pl");
 require("$SCRD/scripts/toVersificationBookOrder.pl");
@@ -204,8 +205,8 @@ sub getOUTDIR($) {
   my $outdir = $OUTDIR;
   
   if (-e "/vagrant") {
-    if (-e "/home/$VAGRANT_USER/OUTDIR" && `mountpoint /home/$VAGRANT_USER/OUTDIR` =~ /is a mountpoint/) {
-      $outdir = "/home/$VAGRANT_USER/OUTDIR"; # Vagrant share
+    if (-e "$HOME_DIR/OUTDIR" && `mountpoint $HOME_DIR/OUTDIR` =~ /is a mountpoint/) {
+      $outdir = "$HOME_DIR/OUTDIR"; # Vagrant share
     }
     else {$outdir = '';}
   }
@@ -332,9 +333,8 @@ sub checkDependencies($$$$) {
       }
       $$p = '';
     }
-    my $home = `echo \$HOME`; chomp($home);
-    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$home/.osis-converters/GoBibleCreator.245";} # Default location
-    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$home/.osis-converters/src/Module-tools/bin";} # Default location
+    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$HOME_DIR/.osis-converters/GoBibleCreator.245";} # Default location
+    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$HOME_DIR/.osis-converters/src/Module-tools/bin";} # Default location
     if ($$p) {
       if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
       $$p =~ s/[\\\/]+\s*$//;

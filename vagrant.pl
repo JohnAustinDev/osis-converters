@@ -9,7 +9,7 @@ use Encode;
 
 $Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
 $ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
-$VAGRANT_USER = 'ubuntu';
+$VAGRANT_HOME = '/home/ubuntu';
 
 # ProjectDir must be relative to INDIR_ROOT
 # INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
@@ -33,7 +33,7 @@ elsif (&rebuildNeeded(\@Shares)) {&shell("vagrant destroy -f"); &vagrantUp(\@Sha
 elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt"); &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
-$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel /home/$VAGRANT_USER/INDIR_ROOT$ProjectDir\"";
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel $VAGRANT_HOME/INDIR_ROOT$ProjectDir\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}
@@ -47,7 +47,7 @@ sub vagrantShare($$) {
   # If the host is Windows, $host must be a native path!
   $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
   $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
-  return "config.vm.synced_folder \"$host\", \"/home/$VAGRANT_USER/$client\"";
+  return "config.vm.synced_folder \"$host\", \"$VAGRANT_HOME/$client\"";
 }
 
 sub vagrantUp(\@) {
