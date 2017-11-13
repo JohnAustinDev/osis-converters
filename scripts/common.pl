@@ -465,7 +465,9 @@ sub checkAndWriteDefaults($) {
   my $confdataP = &readConf("$dir/config.conf");
   
   # read sfm files
+  $SCAN_USFM_SKIPPED = '';
   %USFM; &scanUSFM("$dir/sfm", \%USFM);
+  if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
   
   # get my type
   my $type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);
@@ -508,7 +510,7 @@ sub checkAndWriteDefaults($) {
     # CF_usfm2osis.txt
     if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
       if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
-      foreach my $f (keys %{$USFM{$type}}) {
+      foreach my $f (sort keys %{$USFM{$type}}) {
         my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
         
         # peripherals need a target location in the OSIS file added to their ID
@@ -808,7 +810,7 @@ sub scanUSFM_file($) {
     else {
       $info{'type'} = 'other';
       $info{'doConvert'} = 0;
-      &Log("WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n");
+      $SCAN_USFM_SKIPPED .= "WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n";
     }
     &Log("NOTE:");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
