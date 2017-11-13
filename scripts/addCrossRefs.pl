@@ -230,7 +230,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
       if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
       
       if ($localization{'hasLocalization'}) {
-        my $anotateRef = "<reference osisRef=\"".$osisRef->value."\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
+        my $anotateRef = "<reference osisRef=\"$b.$c.$v\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
         $note->insertBefore($XML_PARSER->parse_balanced_chunk($anotateRef), $note->firstChild);
       }
       &insertNote($note, \%{$Verse{"$b.$c.$v"}}, \%localization);
@@ -310,8 +310,8 @@ sub insertNote($\$) {
       if ($nt =~ /^\s*$/ || (my $title = @{$XPC->findnodes('ancestor::osis:title[not(@canonical="true")]', $nt)}[0])) { # next text
         $nt = @{$XPC->findnodes('following::text()[1]', $nt)}[0];
       }
-      elsif (my $note = @{$XPC->findnodes('ancestor::osis:note', $nt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
-      elsif (my $reference = @{$XPC->findnodes('ancestor::osis:reference', $nt)}[0]) {$reference->parentNode->insertBefore($noteP, $reference); last;} #insert before
+      elsif (my $note = @{$XPC->findnodes('ancestor::*[local-name()="note"]', $nt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
+      elsif (my $reference = @{$XPC->findnodes('ancestor::*[local-name()="reference"]', $nt)}[0]) {$reference->parentNode->insertBefore($noteP, $reference); last;} #insert before
       else {$nt->parentNode->insertBefore($noteP, $nt); last;}
     }
     if ($nt) {$NumNotes++;}
@@ -323,8 +323,8 @@ sub insertNote($\$) {
       if ($pt =~ /^\s*$/ || (my $title = @{$XPC->findnodes('ancestor::osis:title[not(@canonical="true")] | ancestor::osis:l[@type="selah"]', $pt)}[0])) { # next text
         $pt = @{$XPC->findnodes('preceding::text()[1]', $pt)}[0];
       }
-      elsif (my $note = @{$XPC->findnodes('ancestor::osis:note', $pt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
-      elsif (my $reference = @{$XPC->findnodes('ancestor::osis:reference', $pt)}[0]) {$reference->parentNode->insertAfter($noteP, $reference); last;} # insert after
+      elsif (my $note = @{$XPC->findnodes('ancestor::*[local-name()="note"]', $pt)}[0]) {$note->parentNode->insertAfter($noteP, $note); last;} # insert after
+      elsif (my $reference = @{$XPC->findnodes('ancestor::*[local-name()="reference"]', $pt)}[0]) {$reference->parentNode->insertAfter($noteP, $reference); last;} # insert after
       else {
         my $punc = '';
         my $txt = $pt->nodeValue();

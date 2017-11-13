@@ -209,7 +209,10 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   font-size:3em;
   border-bottom: initial;
 }
-
+.osis-reference.x-not-found {
+  border-bottom: 0.15em dotted #FFDDDD;
+  padding-bottom: 0.07em;
+}
 
 /* Classes introduced by osis2xhtml.xsl */
 .xsl-selah {

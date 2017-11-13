@@ -544,7 +544,7 @@
     <variable name="first" select="tokenize($osisID, '\s+')[1]"/>
     <variable name="last" select="tokenize($osisID, '\s+')[last()]"/>
     <for-each select="tokenize($osisID, '\s+')">
-      <span xmlns="http://www.w3.org/1999/xhtml"><xsl:attribute name="id" select="."/></span>
+      <span xmlns="http://www.w3.org/1999/xhtml"><xsl:attribute name="id" select="concat('v_', .)"/></span>
     </for-each>
     <sup xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
       <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
@@ -743,6 +743,12 @@
     </p>
   </template>
   
+  <template match="reference[@subType='x-not-found']" mode="xhtml">
+    <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/>
+      <xsl:apply-templates mode="xhtml"/>
+    </span>
+  </template>
+  
   <template match="reference" mode="xhtml">
     <variable name="osisRef" select="replace(@osisRef, '^[^:]*:', '')"/>
     <variable name="file">
@@ -771,6 +777,7 @@
         <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
           <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
           <variable name="spec" select="count(tokenize($osisRefStart, '\.'))"/>
+          <value-of select="'v_'"/>
           <value-of select="if ($spec=1) then concat($osisRefStart, '.1.1') else (if ($spec=2) then concat($osisRefStart, '.1') else $osisRefStart)"/>
         </otherwise>
       </choose>

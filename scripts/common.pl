@@ -1507,9 +1507,7 @@ sub filterScriptureReferences($$) {
       my $book = $3;
       my $work = ($1 ? $2:$osisRefWork);
       if ($work eq $refWork && exists($scopeBookNames{$book})) {next;}
-      my @children = $link->childNodes();
-      foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
-      $link->unbindNode();
+      $link->setAttribute('subType', 'x-not-found');
       $total++;
       $filteredBooks{$book}++;
       #&Log("Filtered: \"$work\", \"$book\"\n", 1);
