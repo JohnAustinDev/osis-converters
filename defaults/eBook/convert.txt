@@ -40,3 +40,4 @@
 # (default is 2)
 #TitleTOC=1
 #
+#NoEpub3Markup=true

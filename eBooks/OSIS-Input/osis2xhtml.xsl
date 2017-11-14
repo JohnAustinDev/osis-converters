@@ -17,7 +17,8 @@
   <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
-  <param name="epub3"/>                                <!-- Output EPUB3 markup -->
+  <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
+  <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
@@ -189,7 +190,7 @@
         <body class="calibre">
           <xsl:variable name="usfmFileNum" select="if (ancestor::div[@type=$usfmType][1]) then concat('gn-', count(preceding::div[@type=$usfmType]) + 1) else ''"/>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', tokenize($filename, '_')[1], tokenize($filename, '_')[2], concat('n-', tokenize($filename, '_')[3]), @type, @subType, $usfmFileNum)
+              ('calibre', tokenize($filename, '_')[1], tokenize($filename, '_')[2], (if (tokenize($filename, '_')[3]) then concat('n-', tokenize($filename, '_')[3]) else ''), @type, @subType, $usfmFileNum)
           ), ' '))"/>
           <choose xmlns="http://www.w3.org/1999/XSL/Transform">
             <!-- module-introduction -->
@@ -210,7 +211,7 @@
             </when>
             <!-- glosskey -->
             <when test="starts-with($filename, concat($osisIDWork,'_glosskey_'))">
-              <element name="{if ($epub3) then 'article' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
+              <element name="{if ($html5 = 'true') then 'article' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
                 <call-template name="convertGlossaryGroup"><with-param name="filter" select="'in-article'" tunnel="yes"/></call-template>
               </element>
               <call-template name="convertGlossaryGroup"><with-param name="filter" select="'after-article'" tunnel="yes"/></call-template>
@@ -292,9 +293,11 @@
   <template match="node()" mode="footnotes crossrefs"><apply-templates mode="#current"/></template>
   <template match="note[not(@type) or @type != 'crossReference']" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-footnote">
-      <xsl:if test="$epub3"><xsl:attribute name="type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
-      <a href="#textsym.{me:id($osisIDid)}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template></a>
+    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="'xsl-footnote'">
+      <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+      <a href="#textsym.{me:id($osisIDid)}">
+        <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
+      </a>
       <xsl:value-of select="' '"/>
       <xsl:apply-templates mode="xhtml"/>
     </div>
@@ -302,9 +305,11 @@
   </template>
   <template match="note[@type='crossReference']" mode="crossrefs">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-crossref">
-      <xsl:if test="$epub3"><xsl:attribute name="type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
-      <a href="#textsym.{me:id($osisIDid)}"><xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template></a>
+    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="'xsl-crossref'">
+      <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+      <a href="#textsym.{me:id($osisIDid)}">
+        <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
+      </a>
       <xsl:value-of select="' '"/>
       <xsl:apply-templates mode="xhtml"/>
     </div>
@@ -631,7 +636,7 @@
   </template>
   
   <template match="caption" mode="xhtml">
-    <element name="{if ($epub3) then 'figcaption' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
+    <element name="{if ($html5 = 'true') then 'figcaption' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/><apply-templates mode="xhtml"/>
     </element>
   </template>
@@ -642,7 +647,7 @@
   </template>
   
   <template match="figure" mode="xhtml">
-    <element name="{if ($epub3) then 'figure' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
+    <element name="{if ($html5 = 'true') then 'figure' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
       <img xmlns="http://www.w3.org/1999/xhtml">
         <xsl:attribute name="src">
@@ -720,7 +725,7 @@
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <sup xmlns="http://www.w3.org/1999/xhtml">
       <a href="#{me:id($osisIDid)}" id="textsym.{me:id($osisIDid)}">
-        <xsl:if test="$epub3"><xsl:attribute name="type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/></xsl:if>
+        <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/></xsl:if>
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="me:getClasses(.)"/></xsl:call-template>
       </a>
     </sup>

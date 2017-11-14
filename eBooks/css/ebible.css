@@ -87,8 +87,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-hi.underline {text-decoration: underline;}
 .osis-hi.small-caps {font-variant:small-caps}
 .osis-reference {
-  border-bottom: 0.15em dotted #388E3C;
-  padding-bottom: 0.07em;
+  border-bottom: dotted #388E3C;
   text-decoration: none;
 }
 .osis-lg {
@@ -210,8 +209,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   border-bottom: initial;
 }
 .osis-reference.x-not-found {
-  border-bottom: 0.15em dotted #FFDDDD;
-  padding-bottom: 0.07em;
+  border-bottom: dotted #FFDDDD;
 }
 
 /* Classes introduced by osis2xhtml.xsl */

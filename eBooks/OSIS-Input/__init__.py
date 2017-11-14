@@ -32,6 +32,12 @@ class OsisInput(InputFormatPlugin):
         if m:
             TOC = m.group(1).strip()
             
+        # NoEpub3Markup - true means don't use epub3 markup
+        NoEpub3Markup = 'false'
+        m = re.search(r"^\s*NoEpub3Markup=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            NoEpub3Markup = m.group(1).strip()
+            
         # Get the directory of our input files
         filePath = stream.name
         filePos = filePath.rfind('/')
@@ -63,7 +69,8 @@ class OsisInput(InputFormatPlugin):
             "-s:%s" % inputOSIS, 
             "-o:content.opf", 
             "css=%s" % (",").join(sorted(cssFileNames)), 
-            "tocnumber=%s" % TOC
+            "tocnumber=%s" % TOC,
+            "epub3=%s" % ('false' if NoEpub3Markup == 'true' else 'true')
         ]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)

@@ -3713,11 +3713,11 @@ sub encodePrintPaths($) {
 
 sub shell($$) {
   my $cmd = shift;
-  my $flag = shift; # same as Log flag
+  my $flag = shift; # same as Log flag, but additionally, 3 means don't log the output
   
   &Log("\n$cmd\n", $flag);
   my $result = decode('utf8', `$cmd 2>&1`);
-  &Log($result."\n", $flag);
+  if ($flag != 3) {&Log($result."\n", $flag);}
   
   return $result;
 }

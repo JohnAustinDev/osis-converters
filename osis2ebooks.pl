@@ -307,13 +307,23 @@ sub makeEbook($$$$$) {
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
     if ($format eq 'epub') {
+      my $epub3Markup = (!($EBOOKCONV{'NoEpub3Markup'} =~ /^(true)$/i));
       $cmd = "epubcheck \"$out\"";
-      my $result = &shell($cmd);
+      my $result = &shell($cmd, ($epub3Markup ? 3:0));
       if ($result =~ /^\s*$/) {
         &Log("ERROR: epubcheck did not return anything- reason unknown\n");
       }
       elsif ($result !~ /\bno errors\b/i) {
-        &Log("ERROR: epubcheck validation failed for \"$out\"\n");
+        my $failed = 1;
+        if ($epub3Markup) {
+          $result =~ s/^[^\n]*attribute "epub:type" not allowed here[^\n]*\n//mg;
+          if ($result =~ /ERROR/) {&Log($result);}
+          else {
+            $failed = 0;
+            &Log("NOTE: Epub validates, other than the existence of epub:type: \"$out\"\n");
+          }
+        }
+        if ($failed) {&Log("ERROR: epubcheck validation failed for \"$out\"\n");}
       }
       else {&Log("NOTE: Epub validates!: \"$out\"\n");}
     }

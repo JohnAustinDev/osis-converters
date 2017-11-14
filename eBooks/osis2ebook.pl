@@ -16,14 +16,20 @@
 # The css file, if present, must be in the same directory and named ebible.css when processing a Bible.
 # The output file is created in the same directory and has the same name as the input file with the appropriate extension (.epub, .fb2)
 
+$INPD    = shift;
+$LOGFILE = shift;
+$RUNDIR  = shift;
+$INPF    = shift;
+$OPTYPE  = shift;
+$IPTYPE  = shift;
+$COVER   = shift;
 
-$INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init(1);
 
 use File::Spec;
-$RUNDIR = shift;
+
 if ($RUNDIR) {
   $RUNDIR =~ s/[\\\/]\s*$//;
   if ($RUNDIR =~ /^\./) {$RUNDIR = File::Spec->rel2abs($INPD);}
@@ -41,7 +47,6 @@ else {
   exit;
 }
 
-$INPF = shift;
 if ($INPF) {
   if (-e $INPF) {
 	chdir($INPF);
@@ -62,7 +67,6 @@ print "Input file is $INPF\n";
 $CBD = File::Spec->rel2abs( __FILE__ );
 $CBD =~ s/[\\\/][^\\\/]+$//;
 
-$OPTYPE = shift;
 if ($OPTYPE) {
   # Form output file name by replacing file extension
   $OPF = $INPF;
@@ -74,8 +78,6 @@ else {
   &printUsage();
   exit;
 }
-
-$IPTYPE = shift;
 
 if ($IPTYPE){
   $typetmp = ucfirst($IPTYPE);
@@ -100,7 +102,6 @@ if ($IPTYPE){
   $IPTYPE = "bible"
 }
 
-$COVER = shift;
 if ($COVER) {
   if (-e $COVER) {
     $COVER = File::Spec->rel2abs($COVER);
