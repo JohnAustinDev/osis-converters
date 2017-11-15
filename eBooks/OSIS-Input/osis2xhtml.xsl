@@ -450,26 +450,49 @@
         $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
   </function>
   
-  <function name="me:getInlineMSTOC" as="element()*">
-    <param name="milestoneElement" as="element()"/>
-    <if test="not($milestoneElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)]])">
-      <message terminate="yes">ERROR: getInlineMSTOC(): <value-of select="me:printTag($milestoneElement)"/> is not a TOC milestone element!</message>
-    </if>
-    <!-- if this is the first milestone in a Bible, then include the root TOC -->
-    <if test="generate-id(root($milestoneElement)) = generate-id($mainInputOSIS) and not($milestoneElement/preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
-      <sequence select="me:getInlineTOC($milestoneElement, true())"/>
-      <for-each select="$referencedOsisDocs//osisText"><sequence select="me:getInlineTOC(., true())"/></for-each>
-    </if>
-    <sequence select="me:getInlineTOC($milestoneElement, false())"/>
-  </function>
-  
-  <!-- me:getInlineTOC returns inline TOC nodes for a TOC element -->
   <function name="me:getInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
-    <param name="isOsisRootTOC"/>             <!-- set this only for the main (root) toc -->
+    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID]])">
+      <message terminate="yes">ERROR: getInlineTOC(): <value-of select="me:printTag($tocElement)"/> should not generate an inline TOC!</message>
+    </if>
+    <variable name="isMain" select="$tocElement/self::milestone[@type=concat('x-usfm-toc', $tocnumber)] and
+        generate-id(root($tocElement)) = generate-id($mainInputOSIS) and 
+        not($tocElement/preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)])"/>
+    <variable name="listElements">
+      <!-- if this is the first milestone in a Bible, then include the root TOC -->
+      <if test="$isMain">
+        <sequence select="me:getInlineGroupTOC($tocElement, true())"/>
+        <for-each select="$referencedOsisDocs//osisText"><sequence select="me:getInlineGroupTOC(., true())"/></for-each>
+      </if>
+      <sequence select="me:getInlineGroupTOC($tocElement, false())"/>
+    </variable>
+    <if test="count($listElements/*[local-name() = 'li'])">
+      <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup')]) = 1"/>
+      <variable name="hasOddNumberOfIntros" select="count($listElements/*[local-name() = 'li'][not(contains(@class, 'book'))][not(preceding::*[local-name() = 'li'][contains(@class, 'book')])]) mod 2 = 1"/>
+      <variable name="maxChars" select="max($listElements/*[local-name() = 'li']/string-length(string()))"/>
+      <element name="div" namespace="http://www.w3.org/1999/xhtml">
+        <attribute name="class">xsl-inline-toc<if test="$isSingleBookGroup"> xsl-single-bookGroup</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if></attribute>
+        <if test="$isMain"><attribute name="id">root-toc</attribute></if>
+        <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
+          <if test="$isMain">
+            <!-- ebible.css has: 100% = 4px + 12px + maxChars + 12px + 4px + 12px + maxChars + 12px + 4px , so: max-width of parent = 100% = 60px + 2*maxChars, but 2 scales too low so increase it -->
+            <attribute name="style" select="concat('max-width:calc(60px + ', (2.3*$maxChars), 'ch)')"/>
+          </if>
+          <element name="{if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
+            <sequence select="$listElements"/>
+          </element>
+        </element>
+      </element>
+    </if>
+  </function>
+  
+  <!-- me:getInlineGroupTOC returns inline TOC nodes for a TOC element -->
+  <function name="me:getInlineGroupTOC" as="element()*">
+    <param name="tocElement" as="element()"/>
+    <param name="isOsisRootTOC"/><!-- set this only for the main (root) toc -->
     <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($isOsisRootTOC) and not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
-      <message terminate="yes">ERROR: getInlineTOC(): <value-of select="me:printTag($tocElement)"/> is not a TOC milestone or non-Bible chapter element!</message>
+      <message terminate="yes">ERROR: getInlineGroupTOC(): <value-of select="me:printTag($tocElement)"/> is not a TOC milestone or non-Bible chapter element!</message>
     </if>
     <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else me:getTocLevel($tocElement)"/>
     <if test="$toplevel &#60; 3">
@@ -492,31 +515,30 @@
       <if test="count($subentries)">
         <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or 
             count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
-        <element name="{if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
-          <attribute name="class" select="'xsl-inline-toc'"/>
-          <for-each select="$subentries">
-            <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
-            <variable name="skipKeyword">
-              <choose>
-                <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
-                <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
-                <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
-              </choose>
-            </variable>
-            <if test="$skipKeyword = false()">
-              <li xmlns="http://www.w3.org/1999/xhtml">
-                <a>
-                  <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
-                  <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-                    <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
-                    <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
-                    <otherwise><value-of select="me:getTocTitle(.)"/></otherwise>
-                  </choose>
-                </a>
-              </li>
-            </if>
-          </for-each>
-        </element>
+        <for-each select="$subentries">
+          <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
+          <variable name="skipKeyword">
+            <choose>
+              <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
+              <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
+              <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
+            </choose>
+          </variable>
+          <if test="$skipKeyword = false()">
+            <variable name="entryType" select="./ancestor::div[@type=('book', 'bookGroup', $usfmType)][1]/@type" as="node()?"/>
+            <li xmlns="http://www.w3.org/1999/xhtml">
+              <xsl:attribute name="class" select="concat('xsl-', if ($entryType) then $entryType else 'introduction')"/>
+              <a>
+                <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
+                <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+                  <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
+                  <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
+                  <otherwise><value-of select="me:getTocTitle(.)"/></otherwise>
+                </choose>
+              </a>
+            </li>
+          </if>
+        </for-each>
       </if>
     </if>
   </function>
@@ -593,7 +615,7 @@
     <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
     <!-- non-Bible chapters also get inline TOC -->
     <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']">
-      <sequence select="me:getInlineTOC(., false())"/>
+      <sequence select="me:getInlineTOC(.)"/>
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>
     </if>
   </template>
@@ -714,7 +736,7 @@
         [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')])][1]]">
       <call-template name="title"/>
     </for-each>
-    <sequence select="me:getInlineMSTOC(.)"/>
+    <sequence select="me:getInlineTOC(.)"/>
   </template>
   
   <template match="milestone[@type='pb']" mode="xhtml" priority="2">
