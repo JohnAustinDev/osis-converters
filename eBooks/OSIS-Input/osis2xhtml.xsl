@@ -480,7 +480,7 @@
               <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
             </when>
             <when test="$listElements/*[local-name() = 'li'][@class = 'xsl-book-link']">
-              <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
+              <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
             </when>
           </choose>
           <element name="{if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
