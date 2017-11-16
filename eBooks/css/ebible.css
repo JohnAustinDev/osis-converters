@@ -37,7 +37,8 @@ h1.x-introduction, h2.x-introduction, h3.x-introduction {
 h1.x-introduction {
   margin-top:2em;
 }
-.xsl-toc-entry.osis-milestone + h1.x-introduction {
+.xsl-toc-entry.osis-milestone + h1.x-introduction,
+.x-introduction + h1.x-introduction {
   margin-top:1em;
 }
 h2.x-introduction, h3.x-introduction {
@@ -86,9 +87,8 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-hi.super {font-size:0.675em; line-height: 1.2; vertical-align: inherit; vertical-align: 35%;}
 .osis-hi.underline {text-decoration: underline;}
 .osis-hi.small-caps {font-variant:small-caps}
-.osis-reference {
+.osis-reference:not(.x-not-found) {
   text-decoration: underline;
-  text-decoration-color: #388E3C;
 }
 .osis-lg {
   margin-left:1.5em;
@@ -208,9 +208,6 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
   font-size:3em;
   border-bottom: initial;
 }
-.osis-reference.x-not-found {
-  border-bottom: dotted #FFDDDD;
-}
 
 /* Classes introduced by osis2xhtml.xsl */
 .xsl-selah {
@@ -290,64 +287,52 @@ ol, ul {
   padding-left: 0px;
   -webkit-padding-start: 0px;
 }
-#root-toc {
+.xsl-inline-toc {
   text-align:center;
 }
-#root-toc > div {
+.xsl-inline-toc > div {
   margin: 0 auto 0 auto;
 }
-#root-toc li {
+.xsl-inline-toc li {
   box-sizing: border-box;
   display:inline-block;
-  width: calc(50% - 8px); /* 8px = 3/2 * 4px(margin) + 2px(fluff) */
   border-radius: 4px;
-  padding: 6px 12px;
-  margin: 4px;
+  padding: 8px 12px;
+  margin: 6px;
   background: #E0E0E0;
+  overflow: hidden;
 }
-#root-toc li a {
+.xsl-inline-toc li a {
   color: #083F0E;
 }
-#root-toc li.xsl-bookGroup,
-#root-toc li.xsl-book {
+.xsl-inline-toc li.xsl-bookGroup-link,
+.xsl-inline-toc li.xsl-book-link,
+.xsl-inline-toc li.xsl-chapter-link {
   background: #388E3C;
-  width: calc(100% - 8px); /* 8px = 2 * 4px(margin) */
 }
-#root-toc li.xsl-bookGroup a,
-#root-toc li.xsl-book a {
+.xsl-inline-toc li.xsl-bookGroup-link a,
+.xsl-inline-toc li.xsl-book-link a,
+.xsl-inline-toc li.xsl-chapter-link a {
   color: white;
-}
-#root-toc:not(.xsl-single-bookGroup) li.xsl-bookGroup {
-  width: calc(50% - 8px); /* 8px = 3/2 * 4px(margin) + 2px(fluff) */
-}
-#root-toc.xsl-odd-intros li:not(:last-child):first-child {
-  margin: 4px 8px;
-}
-
-/* Regular inline TOCs 
-.xsl-inline-toc {
-  display:block;
-  list-style-type:none;
-  border:2px solid #555555;
-  background-color:#f1f1f1;
-  text-align:center;
-  padding:0.5em;
-  margin:1em 0;
+  font-weight: bold;
 }
 .xsl-inline-toc li {
-  display:inline-block;
-  border:1px solid blue;
-  text-align:center;
-  min-width:2em;
-  border-radius:4px;
-  padding:0.3em 0.5em;
-  margin:0.2em 0.1em;
+  width:100%;
 }
-.xsl-inline-toc a {
-  color:blue;
-  text-decoration:underline;
+#root-toc li {
+  width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
 }
-*/
+#root-toc li.xsl-bookGroup-link,
+#root-toc li.xsl-book-link {
+  width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */
+}
+#root-toc:not(.xsl-single-bookGroup) li.xsl-bookGroup-link {
+  width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
+}
+#root-toc.xsl-odd-intros li:not(:last-child):first-child {
+  margin-left: 11px;
+  margin-right: 11px;
+}
 
 /* Keep a figure with its caption */
 div.osis-figure {

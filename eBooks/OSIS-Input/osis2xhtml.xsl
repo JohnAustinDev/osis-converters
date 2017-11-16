@@ -467,17 +467,22 @@
       <sequence select="me:getInlineGroupTOC($tocElement, false())"/>
     </variable>
     <if test="count($listElements/*[local-name() = 'li'])">
-      <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup')]) = 1"/>
+      <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup-link')]) = 1"/>
       <variable name="hasOddNumberOfIntros" select="count($listElements/*[local-name() = 'li'][not(contains(@class, 'book'))][not(preceding::*[local-name() = 'li'][contains(@class, 'book')])]) mod 2 = 1"/>
-      <variable name="maxChars" select="max($listElements/*[local-name() = 'li']/string-length(string()))"/>
+      <variable name="chars" select="max($listElements/*[local-name() = 'li']/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
       <element name="div" namespace="http://www.w3.org/1999/xhtml">
         <attribute name="class">xsl-inline-toc<if test="$isSingleBookGroup"> xsl-single-bookGroup</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if></attribute>
         <if test="$isMain"><attribute name="id">root-toc</attribute></if>
         <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
-          <if test="$isMain">
-            <!-- ebible.css has: 100% = 4px + 12px + maxChars + 12px + 4px + 12px + maxChars + 12px + 4px , so: max-width of parent = 100% = 60px + 2*maxChars, but 2 scales too low so increase it -->
-            <attribute name="style" select="concat('max-width:calc(60px + ', (2.3*$maxChars), 'ch)')"/>
-          </if>
+          <choose>
+            <when test="$isMain">
+              <!-- ebible.css has: 100% = 6px + 12px + maxChars + 12px + 6px + 12px + maxChars + 12px + 6px , so: max-width of parent = 100% = 66px + 2*maxChars, but 2 scales too low so increase it -->
+              <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
+            </when>
+            <when test="$listElements/*[local-name() = 'li'][@class = 'xsl-book-link']">
+              <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
+            </when>
+          </choose>
           <element name="{if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol'}" namespace="http://www.w3.org/1999/xhtml">
             <sequence select="$listElements"/>
           </element>
@@ -515,29 +520,37 @@
       <if test="count($subentries)">
         <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or 
             count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
-        <for-each select="$subentries">
-          <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
-          <variable name="skipKeyword">
-            <choose>
-              <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
-              <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
-              <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
-            </choose>
-          </variable>
-          <if test="$skipKeyword = false()">
-            <variable name="entryType" select="./ancestor::div[@type=('book', 'bookGroup', $usfmType)][1]/@type" as="node()?"/>
-            <li xmlns="http://www.w3.org/1999/xhtml">
-              <xsl:attribute name="class" select="concat('xsl-', if ($entryType) then $entryType else 'introduction')"/>
-              <a>
-                <xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
-                <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+        <variable name="tmptitles" as="element(me:tmp)*"><!-- tmptitles is used to generate all titles before writing any of them, so that we can get the max length first -->
+          <for-each select="$subentries">
+            <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
+            <variable name="skipKeyword">
+              <choose>
+                <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
+                <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
+                <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
+              </choose>
+            </variable>
+            <if test="$skipKeyword = false()">
+              <me:tmp source="{generate-id(.)}">
+                <choose>
                   <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
                   <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
                   <otherwise><value-of select="me:getTocTitle(.)"/></otherwise>
                 </choose>
-              </a>
-            </li>
-          </if>
+              </me:tmp>
+            </if>
+          </for-each>
+        </variable>
+        <variable name="maxChars" select="max($tmptitles/string-length(string()))"/>
+        <for-each select="root($tocElement)//node()[generate-id(.) = $tmptitles/@source]">
+          <variable name="entryType" select="./ancestor::div[@type=('book', 'bookGroup', $usfmType)][1]/@type" as="node()?"/>
+          <li xmlns="http://www.w3.org/1999/xhtml">
+            <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
+            <xsl:if test="not($isOsisRootTOC) and $maxChars &#60;= 32"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
+            <a><xsl:attribute name="href"><xsl:call-template name="getFileName"/>.xhtml#<xsl:value-of select="generate-id(.)"/></xsl:attribute>
+              <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
+            </a>
+          </li>
         </for-each>
       </if>
     </if>
@@ -631,9 +644,8 @@
     <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]" as="element(milestone)?"/>
     <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][1]/ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
-    <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')]
-        [(if (@level) then @level else '1') &#62;= (if (preceding::title[1]/@level) then preceding::title[1]/@level else '1')]
-        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')])][1]]" as="element(title)*"/>
+    <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
+        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]" as="element(title)*"/>
     <if test="not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
   </template>
   <template name="title">
@@ -731,9 +743,8 @@
     <variable name="tocms" select="."/>
     <!-- Move main titles above the inline TOC. The following variable and for-each selection must be identical to those in the title template. -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][1]/ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
-    <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')]
-        [(if (@level) then @level else '1') &#62;= (if (preceding::title[1]/@level) then preceding::title[1]/@level else '1')]
-        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')])][1]]">
+    <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
+        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
       <call-template name="title"/>
     </for-each>
     <sequence select="me:getInlineTOC(.)"/>
