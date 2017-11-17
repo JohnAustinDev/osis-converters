@@ -1483,21 +1483,31 @@ sub pruneFileOSIS($$$$$\$\$) {
   close(OUTF);
 }
 
-# Filter out Scripture reference links that are outside the scope of scripRefOsis
-sub filterScriptureReferences($$) {
+# Tag Scripture reference links that are outside the scope of notFoundOsis,
+# and remove links which target outside of $removeOsis
+sub filterScriptureReferences($$$) {
   my $osis = shift;
-  my $scripRefOsis = shift;
+  my $notFoundOsis = shift;
+  my $removeOsis = shift;
   
-  my $osis1 = $osis; $osis1 =~ s/^.*\///; my $scripRefOsis1 = $scripRefOsis; $scripRefOsis1 =~ s/^.*\///;
-  &Log("\nFiltering Scripture references in \"$osis1\" that target outside \"$scripRefOsis1\".\n", 1);
-  my %filteredBooks;
-  my $total = 0;
+  my $osis1 = $osis; $osis1 =~ s/^.*\///; my $notFoundOsis1 = $notFoundOsis; $notFoundOsis1 =~ s/^.*\///; my $removeOsis1 = $removeOsis; $removeOsis1 =~ s/^.*\///;
+  &Log("\nTagging Scripture references in \"$osis1\" that target outside \"$notFoundOsis1\", removing those that target outside \"$removeOsis1\".\n", 1);
   
-  my $scripRefXml = $XML_PARSER->parse_file($scripRefOsis);
-  my @booknames = $XPC->findnodes('//osis:div[@type="book"]/@osisID', $scripRefXml);
-  my %scopeBookNames;
-  foreach my $bn (@booknames) {$scopeBookNames{$bn->getValue()}++;}
-  my $refWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $scripRefXml)}[0]->getValue();
+  my %filteredBooks1;
+  my $total1 = 0;
+  my $xml1 = $XML_PARSER->parse_file($notFoundOsis);
+  my @booknames = $XPC->findnodes('//osis:div[@type="book"]/@osisID', $xml1);
+  my %scopeBookNames1;
+  foreach my $bn (@booknames) {$scopeBookNames1{$bn->getValue()}++;}
+  my $refWork1 = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml1)}[0]->getValue();
+  
+  my %filteredBooks2;
+  my $total2 = 0;
+  my $xml2 = $XML_PARSER->parse_file($removeOsis);
+  my @booknames = $XPC->findnodes('//osis:div[@type="book"]/@osisID', $xml2);
+  my %scopeBookNames2;
+  foreach my $bn (@booknames) {$scopeBookNames2{$bn->getValue()}++;}
+  my $refWork2 = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml2)}[0]->getValue();
   
   my $xml = $XML_PARSER->parse_file($osis);
   my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
@@ -1506,19 +1516,36 @@ sub filterScriptureReferences($$) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
       my $book = $3;
       my $work = ($1 ? $2:$osisRefWork);
-      if ($work eq $refWork && exists($scopeBookNames{$book})) {next;}
+      if ($work eq $refWork1 && exists($scopeBookNames1{$book})) {next;}
+      if ($refWork2 && 
+         ($work ne $refWork2 || !exists($scopeBookNames2{$book})) && 
+         @{$XPC->findnodes('./ancestor::osis:note[@type="crossReference"]', $link)}[0]) {
+        $link->unbindNode();
+        $total2++;
+        $filteredBooks2{$book}++;
+        #&Log("Removed: \"$work\", \"$book\"\n", 1);
+        next;
+      }
       $link->setAttribute('subType', 'x-not-found');
-      $total++;
-      $filteredBooks{$book}++;
-      #&Log("Filtered: \"$work\", \"$book\"\n", 1);
+      $total1++;
+      $filteredBooks1{$book}++;
+      #&Log("Tagged: \"$work\", \"$book\"\n", 1);
     }
   }
+  
+  # remove any cross-references with nothing left in them
+  my $total3 = 0;
+  my @links = $XPC->findnodes('//osis:note[@type="crossReference"][not(descendant::osis:reference[@type != "annotateRef" or not(@type)])]', $xml);
+  foreach my $link (@links) {$link->unbindNode(); $total3++;}
+  
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" Scripture references filtered. (targeting ".keys(%filteredBooks)." different books)\n\n", 1);
-  return $total;
+  &Log("$MOD REPORT: \"$total1\" Scripture references tagged as x-not-found. (targeting ".keys(%filteredBooks1)." different books)\n", 1);
+  &Log("$MOD REPORT: \"$total2\" Scripture references removed. (targeting ".keys(%filteredBooks2)." different books)\n", 1);
+  &Log("$MOD REPORT: \"$total3\" Resulting empty cross-references removed.\n\n", 1);
+  return ($total1 + $total2);
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
