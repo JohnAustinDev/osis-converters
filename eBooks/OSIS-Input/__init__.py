@@ -38,6 +38,12 @@ class OsisInput(InputFormatPlugin):
         if m:
             NoEpub3Markup = m.group(1).strip()
             
+        # BrokenLinkURL
+        BrokenLinkURL = 'none'
+        m = re.search(r"^\s*BrokenLinkURL=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            BrokenLinkURL = m.group(1).strip()
+            
         # Get the directory of our input files
         filePath = stream.name
         filePos = filePath.rfind('/')
@@ -70,7 +76,8 @@ class OsisInput(InputFormatPlugin):
             "-o:content.opf", 
             "css=%s" % (",").join(sorted(cssFileNames)), 
             "tocnumber=%s" % TOC,
-            "epub3=%s" % ('false' if NoEpub3Markup == 'true' else 'true')
+            "epub3=%s" % ('false' if NoEpub3Markup == 'true' else 'true'),
+            "brokenLinkURL=%s" % BrokenLinkURL
         ]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)

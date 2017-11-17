@@ -87,7 +87,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-hi.super {font-size:0.675em; line-height: 1.2; vertical-align: inherit; vertical-align: 35%;}
 .osis-hi.underline {text-decoration: underline;}
 .osis-hi.small-caps {font-variant:small-caps}
-.osis-reference:not(.x-not-found) {
+a.osis-reference {
   text-decoration: underline;
 }
 .osis-lg {
@@ -109,7 +109,8 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-lb.x-optional {
   margin:0px;
 }
-.osis-milestone.pb  {
+.osis-milestone.pb,
+#brokenLinkURL {
   page-break-before: always;
 }
 
@@ -279,6 +280,9 @@ dfn {
 .xsl-footnote-section hr:last-child,
 .xsl-crossref-section hr:last-child {
   display:none;
+}
+a.x-not-found {
+  color: #888888;
 }
 
 /* Main inline TOC */

@@ -19,6 +19,7 @@
   <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
   <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
+  <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
@@ -223,6 +224,15 @@
               <call-template name="noteSections"><with-param name="nodes" select="$keepnodes"/></call-template>
             </otherwise>
           </choose>
+          <xsl:if test="$brokenLinkURL != 'none' and self::div[@type='book'][@osisID = $mainInputOSIS//div[@type='book'][1]/@osisID]">
+            <div class="xsl-crossref-section">
+              <hr/>          
+              <div id="brokenLinkURL" class="xsl-crossref">
+                <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+                <span class="xsl-note-head xsl-crnote-symbol">+</span><xsl:value-of select="' '"/><xsl:value-of select="$brokenLinkURL"/>
+              </div>
+            </div>
+          </xsl:if>
         </body>
       </html>
     </result-document>
@@ -293,7 +303,7 @@
   <template match="node()" mode="footnotes crossrefs"><apply-templates mode="#current"/></template>
   <template match="note[not(@type) or @type != 'crossReference']" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="'xsl-footnote'">
+    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-footnote">
       <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
       <a href="#textsym.{me:id($osisIDid)}">
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
@@ -305,7 +315,7 @@
   </template>
   <template match="note[@type='crossReference']" mode="crossrefs">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="'xsl-crossref'">
+    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-crossref">
       <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
       <a href="#textsym.{me:id($osisIDid)}">
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
@@ -782,9 +792,15 @@
   </template>
   
   <template match="reference[@subType='x-not-found']" mode="xhtml">
-    <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/>
-      <xsl:apply-templates mode="xhtml"/>
-    </span>
+    <choose>
+      <when test="$brokenLinkURL = 'none'">
+        <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
+      </when>
+      <when test="$brokenLinkURL != 'none'"><!-- the href below is a quick/easy way of running getFileName -->
+        <variable name="href" select="concat($mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS//div[@type='book'][1]/@osisID, '.xhtml#brokenLinkURL')"/>
+        <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+      </when>
+    </choose>
   </template>
   
   <template match="reference" mode="xhtml">

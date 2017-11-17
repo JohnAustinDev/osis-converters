@@ -40,4 +40,11 @@
 # (default is 2)
 #TitleTOC=1
 #
+# By default, epubs are EPUB2 having epub:type attributes for footnotes.
+# The epub:type attributes are part of the EPUB3 spec, but allow note
+# popups in some readers.
 #NoEpub3Markup=true
+#
+# Separate book eBooks often have broken links to missing books. So this
+# URL, if supplied, will alert users where to get the full eBook.
+#BrokenLinkURL=https://location/of/another/eBook
