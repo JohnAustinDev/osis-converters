@@ -248,8 +248,8 @@ body {font-family: font1;}
 
   # run the converter
   &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);
-  # mobi is disabled because it currently runs too slowly, and fb2 is disabled until a decent FB2 converter is written
-  # &makeEbook("$tmp/$MOD.xml", 'mobi', $cover, $scope, $tmp);
+  &makeEbook("$tmp/$MOD.xml", 'azw3', $cover, $scope, $tmp);
+  # fb2 is disabled until a decent FB2 converter is written
   # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
 }
 
@@ -291,7 +291,7 @@ sub findCover($$\$) {
 
 sub makeEbook($$$$$) {
   my $osis = shift;
-  my $format = shift; # “epub”, “mobi” or “fb2”
+  my $format = shift; # “epub”, "azw3" or “fb2”
   my $cover = shift; # path to cover image
   my $scope = shift;
   my $tmp = shift;
