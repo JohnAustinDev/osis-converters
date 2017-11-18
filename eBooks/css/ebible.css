@@ -39,7 +39,7 @@ h1.x-introduction {
 }
 .xsl-toc-entry.osis-milestone + h1.x-introduction,
 .x-introduction + h1.x-introduction {
-  margin-top:1em;
+  margin-top:0.4em;
 }
 h2.x-introduction, h3.x-introduction {
   text-align: left;
@@ -52,7 +52,7 @@ h1, h2, h3 {
   color:#004400;
   text-align: center;
   clear:both;
-  margin-top:1em;
+  margin: 0.4em 0 0.2em;
   adobe-hyphenate: none;
   -webkit-hyphens: none;
   -moz-hyphens: none;
