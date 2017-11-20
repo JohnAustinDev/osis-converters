@@ -2760,7 +2760,7 @@ sub logDictLinks() {
     
     my $asp = '';
     if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
-    my $st = $ent; $st =~ s/^\w*\://;
+    my $st = $ent; $st =~ s/^\w*\://; $st =~ s/\.dup\d+$//;
     foreach my $as (sort {$ematch{$ent}{$b} <=> $ematch{$ent}{$a}} keys %{$ematch{$ent}}) {
       my $tp = ($st eq $as ? '':(lc($st) eq lc($as) ? '':'*'));
       $asp .= $as."(".$ematch{$ent}{$as}."$tp) ";
