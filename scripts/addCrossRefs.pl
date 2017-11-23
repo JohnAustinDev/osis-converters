@@ -128,7 +128,7 @@ presentational text, it will be added. An example OSIS cross-reference:
     if (opendir(SFM, "$INPD/sfm")) {
       my @fs = readdir(SFM);
       foreach my $f (@fs) {
-        if (-d $f) {next;}
+        if (-d "$INPD/sfm/$f") {next;}
         $ssf = `grep "<RangeIndicator>" "$INPD/sfm/$f"`;
         if ($ssf) {
           $ssf = $XML_PARSER->parse_file("$INPD/sfm/$f");
@@ -274,7 +274,13 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
   print OUTF $OSIS->toString();
   close(OUTF);
 
-  &Log("$MOD REPORT: Placed $NumNotes ".($localization{'hasLocalization'} ? 'localized':'numbered')." cross-reference notes.\n\n");
+  &Log("\n$MOD REPORT: Placed $NumNotes cross-reference notes.\n");
+  if ($ADD_CROSS_REF_BAD) {
+    &Log("WARNING: $ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.\n\n");
+  }
+  else {
+    &Log("NOTE: $ADD_CROSS_REF_LOC individual reference links were localized.\n\n");
+  }
   
   return 1;
 }
@@ -286,7 +292,7 @@ sub insertNote($\$) {
   my $localeP = shift;
   
   # add readable reference text (required by some front ends and eBooks)
-  my @refs = $XPC->findnodes("reference", $noteP);
+  my @refs = $XPC->findnodes('reference[not(@type="annotateRef")]', $noteP);
   for (my $i=0; $i<@refs; $i++) {
     my $osisRef = @{$XPC->findnodes('./@osisRef', @refs[$i])}[0];
     my $new = $osisRef->getValue();
@@ -295,7 +301,9 @@ sub insertNote($\$) {
     if (!@{$XPC->findnodes('./text()', @refs[$i])}) {
       my $t;
       if ($localeP->{'hasLocalization'}) {
-        $t = ($i==0 ? '':' ') . &translateRef($osisRef, $localeP) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
+        my $tr = &translateRef($osisRef, $localeP);
+        if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
+        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
       }
       else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
       @refs[$i]->insertAfter(XML::LibXML::Text->new($t), undef);
@@ -377,13 +385,16 @@ sub translateRef($$) {
   if ($t =~ /^([\w\.]+)(\-([\w\.]+))?$/) {
     my $r1 = $1; my $r2 = ($2 ? $3:'');
     $t = &translateSingleRef($r1, $localeP);
-    if ($r2) {
+    if ($t && $r2) {
       my $t2 = &translateSingleRef($r2, $localeP);
-      if ($t =~ /^(.*?)\d+$/) {
-        my $baseRE = "^$1(\\d+)\$";
-        if ($t2 =~ /$baseRE/) {$t2 = $1;}
+      if ($t2) {
+        if ($t =~ /^(.*?)\d+$/) {
+          my $baseRE = "^$1(\\d+)\$";
+          if ($t2 =~ /$baseRE/) {$t2 = $1;}
+        }
+        $t .= $localeP->{'RangeIndicator'} . $t2;
       }
-      $t .= $localeP->{'RangeIndicator'} . $t2;
+      else {$t = '';}
     }
   }
   else {
@@ -403,9 +414,7 @@ sub translateSingleRef($$) {
     if ($localeP->{$b}) {
       $t = $localeP->{$b} . ($c ? ' ' . $c . ($v ? $localeP->{'ChapterVerseSeparator'} . $v:''):'');
     }
-    else {
-      &Log("ERROR translateSingleRef: no translation available for \"$b\"\n");
-    }
+    else {$t = '';}
   }
   else {
     &Log("ERROR translateSingleRef: malformed osisRef \"".$osisRefSingle."\"\n");
