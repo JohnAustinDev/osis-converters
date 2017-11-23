@@ -3140,8 +3140,8 @@ sub writeOsisHeaderWork($) {
   my %workElements;
   &getOSIS_Work(\%workElements, $confP, $isbn);
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
-  if ($workElements{'100:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+  if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
+    $workElements{'190000:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -3190,74 +3190,87 @@ sub getOSIS_Work($$$) {
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
-  $osisWorkP->{'000:title'}{'textContent'} = $confP->{'Abbreviation'};
-  &mapLocalizedElem(30, 'subject', 'Description', $confP, $osisWorkP);
-  $osisWorkP->{'040:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
-  $osisWorkP->{'040:date'}{'event'} = 'eversion';
-  &mapLocalizedElem(50, 'description', 'About', $confP, $osisWorkP);
-  $osisWorkP->{'058:description'}{'textContent'} = $confP->{'Version'};
-  $osisWorkP->{'058:description'}{'type'} = 'x-Version';
-  &mapLocalizedElem(60, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
-  &mapLocalizedElem(70, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
-  &mapLocalizedElem(80, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
-  &mapLocalizedElem(90, 'publisher', 'ShortPromo', $confP, $osisWorkP);
-  $osisWorkP->{'100:type'} = \%type;
-  $osisWorkP->{'110:format'}{'textContent'} = 'text/xml';
-  $osisWorkP->{'110:format'}{'type'} = 'x-MIME';
-  $osisWorkP->{'120:identifier'}{'textContent'} = $isbnID;
-  $osisWorkP->{'120:identifier'}{'type'} = 'ISBN';
-  $osisWorkP->{'121:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
-  $osisWorkP->{'121:identifier'}{'type'} = 'OSIS';
-  $osisWorkP->{'130:source'}{'textContent'} = ($isbn ? "ISBN: $isbn":'');
-  $osisWorkP->{'140:language'}{'textContent'} = $confP->{'Lang'};
-  &mapLocalizedElem(170, 'rights', 'Copyright', $confP, $osisWorkP);
-  &mapLocalizedElem(180, 'rights', 'DistributionNotes', $confP, $osisWorkP);
-  $osisWorkP->{'220:refSystem'}{'textContent'} = $refSystem;
+  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{'Abbreviation'};
+  &mapLocalizedElem(30000, 'subject', 'Description', $confP, $osisWorkP, 1);
+  $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
+  $osisWorkP->{'040000:date'}{'event'} = 'eversion';
+  &mapLocalizedElem(50000, 'description', 'About', $confP, $osisWorkP, 1);
+  &mapSwordConfig(50008, 'description', $confP, $osisWorkP);
+  &mapLocalizedElem(60000, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
+  &mapLocalizedElem(70000, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
+  &mapLocalizedElem(80000, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
+  &mapLocalizedElem(90000, 'publisher', 'ShortPromo', $confP, $osisWorkP);
+  $osisWorkP->{'100000:type'} = \%type;
+  $osisWorkP->{'110000:format'}{'textContent'} = 'text/xml';
+  $osisWorkP->{'110000:format'}{'type'} = 'x-MIME';
+  $osisWorkP->{'120000:identifier'}{'textContent'} = $isbnID;
+  $osisWorkP->{'120000:identifier'}{'type'} = 'ISBN';
+  $osisWorkP->{'121000:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
+  $osisWorkP->{'121000:identifier'}{'type'} = 'OSIS';
+  $osisWorkP->{'130000:source'}{'textContent'} = ($isbn ? "ISBN: $isbn":'');
+  $osisWorkP->{'140000:language'}{'textContent'} = $confP->{'Lang'};
+  &mapLocalizedElem(170000, 'rights', 'Copyright', $confP, $osisWorkP);
+  &mapLocalizedElem(180000, 'rights', 'DistributionNotes', $confP, $osisWorkP);
+  $osisWorkP->{'220000:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
-#    '000:title' => '',
-#    '010:contributor' => '',
-#    '020:creator' => '',
-#    '030+:subject' => '',
-#    '040:date' => '',
-#    '050+:description' => '',
-#    '060-090+:publisher' => '',
-#    '100:type' => '',
-#    '110:format' => '',
-#    '120-121:identifier' => '',
-#    '130:source' => '',
-#    '140:language' => '',
-#    '150:relation' => '',
-#    '160:coverage' => '',
-#    '170-180+:rights' => '',
-#    '190:scope' => '',
-#    '200:castList' => '',
-#    '210:teiHeader' => '',
-#    '220:refSystem' => ''
+#    '000000:title' => '',
+#    '010000:contributor' => '',
+#    '020000:creator' => '',
+#    '030000+:subject' => '',
+#    '040000:date' => '',
+#    '050000+:description' => '',
+#    '060000-090000+:publisher' => '',
+#    '100000:type' => '',
+#    '110000:format' => '',
+#    '120000-121000:identifier' => '',
+#    '130000:source' => '',
+#    '140000:language' => '',
+#    '150000:relation' => '',
+#    '160000:coverage' => '',
+#    '170000-180000+:rights' => '',
+#    '190000:scope' => '',
+#    '200000:castList' => '',
+#    '210000:teiHeader' => '',
+#    '220000:refSystem' => ''
   
   return;
 }
 
-sub mapLocalizedElem($$$$$) {
+sub mapLocalizedElem($$$$$$) {
   my $index = shift;
   my $workElement = shift;
   my $confEntry = shift;
   my $confP = shift;
   my $osisWorkP = shift;
+  my $skipTypeAttribute = shift;
   
   foreach my $k (sort {length($a) <=> length($b)} keys %{$confP}) {
     if ($k !~ /^$confEntry(_([\w\-]+))?$/) {next;}
     my $lang = ($1 ? $2:'');
-    $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'textContent'} = $confP->{$k};
-    $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'type'} = "x-$k";
+    $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'textContent'} = $confP->{$k};
+    if (!$skipTypeAttribute) {$osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'type'} = "x-$k";}
     if ($lang) {
-      $osisWorkP->{sprintf("%03i:%s", $index, $workElement)}{'xml:lang'} = $lang;
+      $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'xml:lang'} = $lang;
     }
     $index++;
     if (($index % 10) == 6) {&Log("ERROR mapLocalizedConf: Too many \"$workElement\" language variants.\n");}
   }
 }
 
+sub mapSwordConfig($$$$) {
+  my $index = shift;
+  my $elementName = shift;
+  my $confP = shift;
+  my $osisWorkP = shift;
+  
+  foreach my $confEntry (sort keys %{$confP}) {
+    $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $confP->{$confEntry};
+    $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "x-sword-config-$confEntry";
+    $index++;
+    if (($index % 10000) == 9999) {&Log("ERROR mapLocalizedConf: Too many \"description\" sword-config entries.\n");}
+  }
+}
 
 sub writeWorkElement($$$) {
   my $attributesP = shift;
