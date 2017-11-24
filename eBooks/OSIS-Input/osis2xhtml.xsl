@@ -463,8 +463,8 @@
     <value-of select="if ($toclevelEXPLICIT = '0') then $toclevelOSIS else $toclevelEXPLICIT"/>
   </function>
   
-  <!-- getBibleParentTocNodes may be called from any element -->
-  <function name="me:getBibleParentTocNodes" as="element()*">
+  <!-- getBibleParentTocNodes may be called with any element -->
+  <function name="me:getBibleParentTocNodes" as="element(milestone)*">
     <param name="x" as="element()"/>
     <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child or a first child div, which isn't a bookGroup or book, that has one. 
     Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
@@ -575,7 +575,7 @@
         </variable>
         <variable name="maxChars" select="max($tmptitles/string-length(string()))"/>
         <for-each select="root($tocElement)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="entryType" select="./ancestor::div[@type=('book', 'bookGroup', $usfmType)][1]/@type" as="node()?"/>
+          <variable name="entryType" select="./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="node()?"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
             <xsl:if test="not($isOsisRootTOC) and $maxChars &#60;= 32"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
@@ -675,7 +675,8 @@
   <template match="title" mode="xhtml">
     <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]" as="element(milestone)?"/>
     <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template -->
-    <variable name="title" select="$tocms/following::text()[normalize-space()][1]/ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
+    <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
+        ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
     <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
         [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]" as="element(title)*"/>
     <if test="not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
@@ -774,7 +775,8 @@
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="me:getTocTitle(.)"/></i></small></div>
     <variable name="tocms" select="."/>
     <!-- Move main titles above the inline TOC. The following variable and for-each selection must be identical to those in the title template. -->
-    <variable name="title" select="$tocms/following::text()[normalize-space()][1]/ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
+    <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
+        ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
     <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
         [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
       <call-template name="title"/>
