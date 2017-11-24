@@ -48,7 +48,8 @@ if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook($ConfEntryP->{"Scope"}, 'Full', '', 
 # make eBooks for any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
 if (@CREATE_FULL_PUBLICATIONS) {
   foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-    &setupAndMakeEbook($EBOOKCONV{'CreateFullPublication'.$x}, 'Full', $EBOOKCONV{'TitleFullPublication'.$x}, $ConfEntryP);
+    my $scope = $EBOOKCONV{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
+    &setupAndMakeEbook($scope, 'Full', $EBOOKCONV{'TitleFullPublication'.$x}, $ConfEntryP);
   }
 }
 
