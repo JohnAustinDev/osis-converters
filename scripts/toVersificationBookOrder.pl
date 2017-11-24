@@ -392,7 +392,14 @@ sub placeIntroduction($$) {
   my $intro = shift;
   my $dest = shift;
   if ($dest->nodeName =~ /\:?header$/) {$dest->parentNode()->insertAfter($intro, $dest);}
-  elsif ($dest->hasChildNodes()) {$dest->insertBefore($intro, $dest->firstChild);}
+  elsif ($dest->hasChildNodes()) {
+    # place as first non-toc and non-runningHead element in destination container
+    my $before = $dest->firstChild();
+    while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $before)}[0]) {
+      $before = $before->nextSibling();
+    }
+    $dest->insertBefore($intro, $before);
+  }
   else {$dest->parentNode()->insertAfter($intro, $dest);}
 }
 1;

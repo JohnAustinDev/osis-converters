@@ -30,12 +30,12 @@
   </xsl:template>
   
   <!-- insert navmenu links:
-  1) before the first text node of each book or the first chapter[@sID] of each book, whichever comes first
+  1) before the first applicable text node of each book or the first chapter[@sID] of each book, whichever comes first
   2) at the end of each div[starts-with(@type, 'x-keyword')] -->
   <xsl:template match="node()|@*">
     <xsl:variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
-        (node()[descendant-or-self::text()[normalize-space()]][1] | descendant::chapter[@sID][1])[1]
+        (node()[descendant-or-self::text()[normalize-space()][not(ancestor::title[@type='runningHead'])]][1] | descendant::chapter[@sID][1])[1]
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
       <xsl:when test="$prependNavMenu">
