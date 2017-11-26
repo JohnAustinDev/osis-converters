@@ -203,6 +203,9 @@ body {font-family: font1;}
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);
+        &Log("NOTE: filterGlossaryToScope filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter))."\n");
+        my $aggfilter = &filterAggregateEntries("$tmp/$companion.xml", $scope);
+        &Log("NOTE: filterAggregateEntries filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter))."\n");
         if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           unlink("$tmp/$companion.xml");

@@ -49,8 +49,6 @@ sub filterGlossaryToScope($$) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &removeAggregateEntries($osis);
-  
   return (@removed ? join(',', @removed):'0');
 }
 
@@ -65,6 +63,35 @@ sub removeDuplicateEntries($) {
   close(OUTF);
   
   &Log("$MOD REPORT: ".@dels." instance(s) of x-keyword-duplicate div removal.\n");
+}
+
+# Returns scopes of filtered entries, or else '-1' if all were filtered or '0' if none were filtered
+sub filterAggregateEntries($$) {
+  my $osis = shift;
+  my $scope = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @check = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]/osis:div[@type="x-aggregate-subentry"]', $xml);
+  my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+  
+  my @removed; my $removeCount = 0;
+  foreach my $subentry (@check) {
+    my $osisRef = $subentry->getAttribute('osisRef');
+    if ($osisRef && !&myGlossaryContext($scope, &scopeToBooks($osisRef, $bookOrderP))) {
+      $subentry->unbindNode();
+      my %scopes = map {$_ => 1} @removed;
+      if (!$scopes{$osisRef}) {push(@removed, $osisRef);}
+      $removeCount++;
+    }
+  }
+    
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
+  
+  if ($removeCount == scalar(@check)) {&removeAggregateEntries($osis);}
+  
+  return ($removeCount == scalar(@check) ? '-1':(@removed ? join(',', @removed):'0'));
 }
 
 sub removeAggregateEntries($) {

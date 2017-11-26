@@ -20,6 +20,11 @@
   <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
+Dont do this: (too complex- maybe don't support glossary as chapter?)
+  <param name="glossaryAsLastChapter"/>                <!-- Comma separated list of glossary scopes (without ranges) to include as last chapter, or 'all' -->
+  <param name="glossaryAfterBible"/>                   <!-- Comma separated list of glossary scopes (without ranges) to include after the Bible books, or 'all' -->
+  <param name="glossaryAggregate" select="'yes'"/>     <!-- 'Yes' to include an aggregated glossary after the Bible books -->
+  <param name="glossaryLinkOrder" select="'aggregate,chapter,bible'"/><!-- Order of glossary locations to search when looking for glossary link targets -->
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
