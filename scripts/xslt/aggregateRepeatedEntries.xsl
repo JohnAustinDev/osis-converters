@@ -120,29 +120,33 @@
     <copy><apply-templates select="node()|@*" mode="#current"/>
     <!-- Write x-aggregate div -->
     <if test="$duplicate_keywords">
-      <div type="glossary" subType="x-aggregate" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace">
-        <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]" xmlns="http://www.w3.org/1999/XSL/Transform">
-          <copy><apply-templates select="@*" mode="#current"/>
-            <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
-            <apply-templates select="node()" mode="#current"/>
-          </copy>
-          <variable name="subentry_keywords" select="//seg[@type='keyword'][ancestor::div[@type='glossary']][lower-case(string()) = lower-case(string(current()))]"/>
-          <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
+      <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+        <attribute name="type" select="'glossary'"/><attribute name="subType" select="'x-aggregate'"/>
+        <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
+          <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+            <attribute name="type" select="'x-keyword-aggregate'"/>
             <copy><apply-templates select="@*" mode="#current"/>
-              <attribute name="type" select="'x-aggregate-subentry'"/>
-              <if test="parent::*/@osisRef"><attribute name="osisRef" select="parent::*/@osisRef"/></if>
-              <variable name="title" select="ancestor::div[@type='glossary']//title[@type='main'][1]"/>
-              <if test="$title">
-                <title level="2" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
-              </if>
-              <if test="not($title)">
-                <hi type="super" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><hi type="bold"><xsl:value-of select="position()"/>) </hi></hi>
-              </if>
-              <apply-templates mode="write-aggregates"/>
+              <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
+              <apply-templates select="node()" mode="#current"/>
             </copy>
-          </for-each>
+            <variable name="subentry_keywords" select="//seg[@type='keyword'][ancestor::div[@type='glossary']][lower-case(string()) = lower-case(string(current()))]"/>
+            <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
+              <copy><apply-templates select="@*" mode="#current"/>
+                <attribute name="type" select="'x-aggregate-subentry'"/>
+                <if test="parent::*/@osisRef"><attribute name="osisRef" select="parent::*/@osisRef"/></if>
+                <variable name="title" select="ancestor::div[@type='glossary']//title[@type='main'][1]"/>
+                <if test="$title">
+                  <title level="2" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
+                </if>
+                <if test="not($title)">
+                  <hi type="super" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><hi type="bold"><xsl:value-of select="position()"/>) </hi></hi>
+                </if>
+                <apply-templates mode="write-aggregates"/>
+              </copy>
+            </for-each>
+          </element>
         </for-each>
-      </div>
+      </element>
     </if>
     </copy>
   </template>

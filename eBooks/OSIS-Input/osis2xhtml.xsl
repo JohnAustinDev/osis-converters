@@ -20,6 +20,7 @@
   <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
+  <param name="aggregateGlossaries" select="'no'"/>   <!-- 'yes' to aggregate glossaries into one, or 'no' to use them as is -->
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
@@ -36,102 +37,113 @@
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
 
-  <!-- ROOT NODE TEMPLATE FOR ALL INPUT OSIS FILES -->
+  <!-- MAIN OSIS ROOT TEMPLATE -->
   <template match="/">
-    <param name="currentTask" select="'write-xhtml'" tunnel="yes"/><!-- The tasks are: write-xhtml, write-manifest and write-spine -->
-   
-    <!-- Do the currentTask for this OSIS file -->
-    <message><text>&#xa;</text><value-of select="concat(tokenize(document-uri(.), '/')[last()], ': ', $currentTask)"/></message>
-    <apply-templates><with-param name="currentDoc" select="/" tunnel="yes"/></apply-templates>
+    <variable name="osisIDWork" select="//osisText/@osisIDWork"/>
     
-    <!-- If we're doing write-xhtml on the main input OSIS file, then convert referenced documents and output content.opf as well -->
-    <if test="generate-id(.) = generate-id($mainInputOSIS) and $currentTask = 'write-xhtml'">
-      <variable name="osisIDWork" select="//osisText/@osisIDWork"/>
-      
-      <for-each select="$referencedOsisDocs"><!-- this recursively calls the current template on each referenceOsisDocs -->
-        <apply-templates select="."><with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/></apply-templates>
-      </for-each>
-      
-      <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
-        <metadata 
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-            xmlns:opf="http://www.idpf.org/2007/opf" 
-            xmlns:dcterms="http://purl.org/dc/terms/" 
-            xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
-            xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <dc:publisher><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:publisher>
-          <dc:title><xsl:value-of select="//work[@osisWork = $osisIDWork]/title/text()"/></dc:title>
-          <dc:language><xsl:value-of select="//work[@osisWork = $osisIDWork]/language/text()"/></dc:language>
-          <dc:identifier scheme="ISBN"><xsl:value-of select="//work[@osisWork = $osisIDWork]/identifier[@type='ISBN']/text()"/></dc:identifier>
-          <dc:creator opf:role="aut"><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:creator>
-        </metadata>
-        <manifest>
-          <xsl:for-each select=". | $referencedOsisDocs">
-            <xsl:apply-templates select="."><xsl:with-param name="currentTask" select="'write-manifest'" tunnel="yes"/></xsl:apply-templates>
-          </xsl:for-each>
-          <xsl:for-each select="distinct-values((//figure/@src, $referencedOsisDocs//figure/@src))">
-            <item>
-              <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
-              <xsl:attribute name="id" select="me:id(tokenize(., '/')[last()])"/>
-              <xsl:attribute name="media-type">
-                <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-                  <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
-                  <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
-                  <when test="ends-with(lower-case(.), 'png')">image/png</when>
-                  <otherwise>application/octet-stream</otherwise>
-                </choose>
-              </xsl:attribute>
-            </item>
-          </xsl:for-each>
-          <xsl:for-each select="tokenize($css, '\s*,\s*')">
-            <xsl:choose>
-              <xsl:when test="ends-with(lower-case(.), 'css')">
-                <item href="{.}" id="{me:id(.)}" media-type="text/css"/>
-              </xsl:when>
-              <xsl:when test="ends-with(lower-case(.), 'ttf')">
-                <item href="./{.}" id="{me:id(.)}" media-type="application/x-font-ttf"/>
-              </xsl:when>
-              <xsl:when test="ends-with(lower-case(.), 'otf')">
-                <item href="./{.}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
-              </xsl:when>
-              <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
-            </xsl:choose>
-          </xsl:for-each>
-        </manifest>
-        <spine toc="ncx">
-          <xsl:for-each select=". | $referencedOsisDocs">
-            <xsl:apply-templates select="."><xsl:with-param name="currentTask" select="'write-spine'" tunnel="yes"/></xsl:apply-templates>
-          </xsl:for-each>
-        </spine>
-      </package>
-    </if>
+    <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
+      <metadata 
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+          xmlns:opf="http://www.idpf.org/2007/opf" 
+          xmlns:dcterms="http://purl.org/dc/terms/" 
+          xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
+          xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:publisher><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:publisher>
+        <dc:title><xsl:value-of select="//work[@osisWork = $osisIDWork]/title/text()"/></dc:title>
+        <dc:language><xsl:value-of select="//work[@osisWork = $osisIDWork]/language/text()"/></dc:language>
+        <dc:identifier scheme="ISBN"><xsl:value-of select="//work[@osisWork = $osisIDWork]/identifier[@type='ISBN']/text()"/></dc:identifier>
+        <dc:creator opf:role="aut"><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:creator>
+      </metadata>
+      <manifest>
+        <xsl:call-template name="processProject"><xsl:with-param name="currentTask" select="'write-manifest'" tunnel="yes"/></xsl:call-template>
+        <xsl:for-each select="distinct-values((//figure/@src, $referencedOsisDocs//figure/@src))">
+          <item>
+            <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
+            <xsl:attribute name="id" select="me:id(tokenize(., '/')[last()])"/>
+            <xsl:attribute name="media-type">
+              <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+                <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
+                <when test="ends-with(lower-case(.), 'gif')">image/gif</when>
+                <when test="ends-with(lower-case(.), 'png')">image/png</when>
+                <otherwise>application/octet-stream</otherwise>
+              </choose>
+            </xsl:attribute>
+          </item>
+        </xsl:for-each>
+        <xsl:for-each select="tokenize($css, '\s*,\s*')">
+          <xsl:choose>
+            <xsl:when test="ends-with(lower-case(.), 'css')">
+              <item href="{.}" id="{me:id(.)}" media-type="text/css"/>
+            </xsl:when>
+            <xsl:when test="ends-with(lower-case(.), 'ttf')">
+              <item href="./{.}" id="{me:id(.)}" media-type="application/x-font-ttf"/>
+            </xsl:when>
+            <xsl:when test="ends-with(lower-case(.), 'otf')">
+              <item href="./{.}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
+            </xsl:when>
+            <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
+          </xsl:choose>
+        </xsl:for-each>
+      </manifest>
+      <spine toc="ncx">
+        <xsl:call-template name="processProject"><xsl:with-param name="currentTask" select="'write-spine'" tunnel="yes"/></xsl:call-template>
+      </spine>
+    </package>
+    
+    <call-template name="processProject"><with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/></call-template>
+    
+  </template>
+  
+  <template name="processProject">
+    <param name="currentTask" tunnel="yes"/>
+    <message><text>&#xa;</text><value-of select="concat('processProject: currentTask = ', $currentTask)"/></message>
+    <for-each select="$mainInputOSIS"><apply-templates/></for-each>
+    <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
   </template>
   
   <!-- Pass over all nodes that don't match another template (output nothing) -->
   <template match="node()"><apply-templates/></template>
   
   <!-- Separate the OSIS file into separate xhtml files based on this template -->
-  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type=$usfmType]">
+  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type=$usfmType][generate-id($mainInputOSIS) != generate-id(root(.))][not(@type='glossary' and @subType='x-aggregate')]">
     <choose>
       <when test="self::div[@type=$usfmType]">
-        <!-- Put each usfmType entry in its own file to ensure that links and article tags all work properly across various eBook readers -->
-        <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node() return count($i/following::seg[@type='keyword'])">
-          <sort select="current-grouping-key()" order="descending" data-type="number"/>
-          <call-template name="ProcessFile"/>
+        <!-- Put each usfmType div and its child keywords in separate files to ensure that links and article tags all work properly across various eBook readers -->
+        <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count(self::div[starts-with(@type, 'x-keyword')])">
+          <if test="not($aggregateGlossaries = 'yes') or not(self::div[starts-with(@type, 'x-keyword')])">
+            <call-template name="ProcessFile">
+              <with-param name="fileNodes" select="current-group()"/>
+            </call-template>
+          </if>
         </for-each-group>
       </when>
-      <otherwise><call-template name="ProcessFile"/></otherwise>
+      <when test="self::div[@type='book']">
+        <call-template name="ProcessFile">
+          <with-param name="fileNodes" select="node()"/>
+        </call-template>
+      </when>
+      <when test="self::div[@type='bookGroup']">
+        <call-template name="ProcessFile">
+          <with-param name="fileNodes" select="node()[not(self::div[@type='book'])]"/>
+        </call-template>
+      </when>
+      <otherwise>
+        <call-template name="ProcessFile">
+          <with-param name="fileNodes" select="node()[not(self::header)][not(self::div[@type='bookGroup'])][not(self::div[@type=$usfmType][generate-id($mainInputOSIS) != generate-id(root(.))])]"/>
+        </call-template>
+      </otherwise>
     </choose>
     <apply-templates/>
   </template>
   
   <!-- ProcessFile may be called with any element that should initiate a new output file above. It writes the file's contents and adds it to manifest and spine -->
   <template name="ProcessFile">
+    <param name="fileNodes" as="node()*"/>
     <!-- A currentTask param is used in lieu of XSLT's mode feature here. This is necessary because identical template selectors are required for multiple 
     modes (ie. a single template element should handle multiple modes), yet template content must also vary by mode (something XSLT 2.0 modes alone can't do) -->
     <param name="currentTask" tunnel="yes"/>
-    <variable name="fileName" select="me:getFileName(., current-grouping-key())"/>
-    <variable name="fileNodes" select="me:getFileNodes(., $fileName, current-group(), current-grouping-key())"/>
+    
+    <variable name="fileName" select="me:getFileName(.)"/>  
     <if test="$fileNodes//text()[normalize-space()]">
       <choose>
         <when test="$currentTask = 'write-manifest'">
@@ -148,66 +160,28 @@
   </template>
   
   <!-- This template may be called from any element. It returns the output file name that contains the element -->
-  <!-- If the element is part of a usfmType, and is associated with multiple files (groups) then glossaryGroupingKey must be supplied to specify which group this call pertains to -->
   <function name="me:getFileName" as="xs:string">
     <param name="contextNode" as="node()"/>
-    <param name="glossaryGroupingKey" as="xs:integer?"/>
     <variable name="osisIDWork" select="root($contextNode)//osisText[1]/@osisIDWork"/>
     <choose>
       <when test="$contextNode/ancestor-or-self::div[@type='book']">
         <value-of select="concat($osisIDWork, '_', $contextNode/ancestor-or-self::div[@type='book']/@osisID)"/>
       </when>
       <when test="$contextNode/ancestor-or-self::div[@type='bookGroup']">
-        <value-of select="concat($osisIDWork,'_bookGroup-introduction_', count($contextNode/preceding::div[@type='bookGroup']) + 1)"/>
+        <value-of select="concat($osisIDWork, '_bookGroup-introduction_', count($contextNode/preceding::div[@type='bookGroup']) + 1)"/>
       </when>
       <when test="root($contextNode)//work[@osisWork = root($contextNode)//osisText[1]/@osisIDWork]/type[@type='x-bible']">
-        <value-of select="concat($osisIDWork,'_module-introduction')"/>
+        <value-of select="concat($osisIDWork, '_module-introduction')"/>
       </when>
       <when test="$contextNode/ancestor-or-self::div[@type=$usfmType]">
-        <choose>
-          <when test="count($contextNode/preceding::seg[@type='keyword']) = count($contextNode/ancestor::div[@type=$usfmType][1]/preceding::seg[@type='keyword']) and not($contextNode/descendant-or-self::seg[@type='keyword'])">
-            <value-of select="concat($osisIDWork, '_glossintro_', count($contextNode/preceding::div[@type=$usfmType]) + 1)"/>
-          </when>
-          <otherwise>
-            <value-of select="concat($osisIDWork, '_glosskey_', 
-                count(root($contextNode)//seg[@type='keyword']) - (if ($glossaryGroupingKey castable as xs:integer) then $glossaryGroupingKey else count($contextNode/following::seg[@type='keyword'])))"/>
-          </otherwise>
-        </choose>
+        <variable name="group" select="0.5 + count($contextNode/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($contextNode/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
+        <value-of select="concat($osisIDWork, '_glosskey_', (count($contextNode/preceding::div[@type=$usfmType]) + 1), '_', $group)"/>
       </when>
-      <otherwise><value-of select="concat($osisIDWork,'_module-introduction')"/></otherwise>
-    </choose>
-  </function>
-  
-  <!-- getFileNodes may be called with any element that should initiate a new output file above. It returns all nodes which are to be written to the file -->
-  <function name="me:getFileNodes" as="node()*">
-    <param name="conextNode" as="node()"/>
-    <param name="fileName" as="xs:string"/>
-    <param name="currentGroup" as="node()*"/>
-    <param name="currentGroupingKey" as="xs:integer?"/>
-    <variable name="osisIDWork" select="root($conextNode)//osisText[1]/@osisIDWork"/>
-    <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-      <!-- module-introduction -->
-      <when test="$fileName=concat($osisIDWork,'_module-introduction')">
-        <sequence select="$conextNode/node()[not(ancestor-or-self::header)][not(ancestor-or-self::div[@type='bookGroup'])][not(ancestor-or-self::div[@type=$usfmType])]"/>
-      </when>
-      <!-- bookGroup-introduction -->
-      <when test="starts-with($fileName, concat($osisIDWork,'_bookGroup-introduction_'))">
-        <sequence select="$conextNode/node()[not(ancestor-or-self::div[@type='book'])]"/>
-      </when>
-      <!-- glossintro -->
-      <when test="starts-with($fileName, concat($osisIDWork,'_glossintro_'))">
-        <apply-templates mode="glossaryFilter1" select="$currentGroup"><with-param name="currentGroupingKey" select="$currentGroupingKey"/></apply-templates>
-      </when>
-      <!-- glosskey -->
-      <when test="starts-with($fileName, concat($osisIDWork,'_glosskey_'))">
-        <apply-templates mode="glossaryFilter1" select="$currentGroup"><with-param name="currentGroupingKey" select="$currentGroupingKey"/></apply-templates>
-      </when>
-      <!-- book -->
-      <otherwise><sequence select="$conextNode/node()"/></otherwise>
+      <otherwise><value-of select="concat($osisIDWork,'_unexpected')"/></otherwise>
     </choose>
   </function>
 
-  <!-- Write each xhtml file's contents, selecting which input child nodes to convert (unselected nodes are dropped) -->
+  <!-- Write each xhtml file's contents -->
   <template name="WriteFile">
     <param name="fileName"/>
     <param name="fileNodes"/>
@@ -223,29 +197,14 @@
             <xsl:if test="ends-with(lower-case(.), 'css')"><link href="../{.}" type="text/css" rel="stylesheet"/></xsl:if>
           </xsl:for-each>
         </head>
-        <body class="calibre">
+        <body>
           <xsl:variable name="usfmFileNum" select="if (ancestor::div[@type=$usfmType][1]) then concat('gn-', count(preceding::div[@type=$usfmType]) + 1) else ''"/>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
               ('calibre', tokenize($fileName, '_')[1], tokenize($fileName, '_')[2], (if (tokenize($fileName, '_')[3]) then concat('n-', tokenize($fileName, '_')[3]) else ''), @type, @subType, $usfmFileNum)
           ), ' '))"/>
-          <choose xmlns="http://www.w3.org/1999/XSL/Transform">
-            <!-- glossintro -->
-            <when test="starts-with($fileName, concat($osisIDWork,'_glossintro_'))">
-              <call-template name="convertGlossaryGroup"><with-param name="fileNodes" select="$fileNodes"/><with-param name="filter" select="'none'" tunnel="yes"/></call-template>
-            </when>
-            <!-- glosskey -->
-            <when test="starts-with($fileName, concat($osisIDWork,'_glosskey_'))">
-              <element name="{if ($html5 = 'true') then 'article' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
-                <call-template name="convertGlossaryGroup"><with-param name="fileNodes" select="$fileNodes"/><with-param name="filter" select="'in-article'" tunnel="yes"/></call-template>
-              </element>
-              <call-template name="convertGlossaryGroup"><with-param name="fileNodes" select="$fileNodes"/><with-param name="filter" select="'after-article'" tunnel="yes"/></call-template>
-            </when>
-            <!-- module-introduction, bookGroup-introduction and book -->
-            <otherwise>
-              <apply-templates mode="xhtml" select="$fileNodes"/>
-              <call-template name="noteSections"><with-param name="nodes" select="$fileNodes"/></call-template>
-            </otherwise>
-          </choose>
+          <xsl:apply-templates mode="xhtml" select="$fileNodes"/>
+          <xsl:call-template name="noteSections"><xsl:with-param name="nodes" select="$fileNodes"/></xsl:call-template>
+          <!-- If there are links to brokenLinkURL then add a crossref section at the end of the first book, to show that URL -->
           <xsl:if test="$brokenLinkURL != 'none' and self::div[@type='book'][@osisID = $mainInputOSIS//div[@type='book'][1]/@osisID]">
             <div class="xsl-crossref-section">
               <hr/>          
@@ -258,55 +217,6 @@
         </body>
       </html>
     </result-document>
-  </template>
-  
-  <template name="convertGlossaryGroup">
-    <param name="fileNodes"/>
-    <variable name="glossaryFilter2"><apply-templates mode="glossaryFilter2" select="$fileNodes"/></variable>
-    <apply-templates mode="xhtml" select="$glossaryFilter2"/>
-    <call-template name="noteSections"><with-param name="nodes" select="$glossaryFilter2"/></call-template>
-  </template>
-  <!-- Filter out any descendants which are part of a different group -->
-  <template match="node()" mode="glossaryFilter1">
-    <param name="currentGroupingKey" as="xs:integer"/>
-    <if test="descendant-or-self::node()[count(following::seg[@type='keyword']) = $currentGroupingKey]">
-      <copy>
-        <for-each select="@*"><copy/></for-each>
-        <!-- These element copies retain a reference to their source node, since the source node's context may be required later in the transform -->
-        <if test="self::milestone | self::seg | self::note | self::chapter | self::reference">
-          <attribute name="contextNode" select="generate-id()"/>
-        </if>
-        <apply-templates mode="#current"><with-param name="currentGroupingKey" select="$currentGroupingKey"/></apply-templates>
-      </copy>
-    </if>
-  </template>
-  <!-- Article material does not cross any div boundary, so end article elements accordingly -->
-  <template match="node()" mode="glossaryFilter2">
-    <param name="filter" tunnel="yes"/>
-    <variable name="keep">
-      <choose>
-        <when test="$filter = 'in-article'">
-          <value-of     select="not(ancestor-or-self::div[1][not(descendant::seg[@type='keyword'])])"/>
-        </when>
-        <when test="$filter = 'after-article'">
-          <value-of select="boolean(ancestor-or-self::div[1][not(descendant::seg[@type='keyword'])])"/>
-        </when>
-        <otherwise>true</otherwise>
-      </choose>
-    </variable>
-    <if test="$keep = true()">
-      <copy>
-        <for-each select="@*"><copy/></for-each>
-        <apply-templates mode="#current"/>
-      </copy>
-    </if>
-  </template>
-  <!-- Nodes having @contextNode were copied to a temporary document (variable) yet may require the source node's context, so this template takes care of that -->
-  <template match="*[@contextNode]" mode="xhtml footnotes" priority="10">
-    <param name="currentDoc" tunnel="yes"/>
-    <for-each select="$currentDoc//node()[current()/@contextNode = generate-id(.)]">
-      <apply-templates select="." mode="#current"/>
-    </for-each>
   </template>
   
   <!-- Write footnote and cross reference sections -->
@@ -579,7 +489,7 @@
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
             <xsl:if test="not($isOsisRootTOC) and $maxChars &#60;= 32"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
-            <a><xsl:attribute name="href" select="concat(me:getFileName(., null), '.xhtml#', generate-id(.))"/>
+            <a><xsl:attribute name="href" select="concat(me:getFileName(.), '.xhtml#', generate-id(.))"/>
               <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
             </a>
           </li>
@@ -840,7 +750,7 @@
           <variable name="target" select="($mainInputOSIS | $referencedOsisDocs)//osisText[@osisRefWork = $workid]//*[@osisID = $osisRef]"/>
           <choose>
             <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
-            <when test="count($target)=1"><value-of select="me:getFileName($target, null)"/></when>
+            <when test="count($target)=1"><value-of select="me:getFileName($target)"/></when>
             <otherwise>
               <message>ERROR: Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message>
             </otherwise>
@@ -882,7 +792,9 @@
           <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
         </value-of>
       </when>
-      <otherwise>non-element:<value-of select="$node"/></otherwise>
+      <when test="$node/self::text()"><value-of select="'text-node'"/></when>
+      <when test="$node/self::comment()"><value-of select="'comment-node'"/></when>
+      <otherwise><value-of select="'node'"/></otherwise>
     </choose>
   </function>
   
