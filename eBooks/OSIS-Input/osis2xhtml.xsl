@@ -5,6 +5,7 @@
  xmlns:me="http://github.com/JohnAustinDev/osis-converters/osis2xhtml"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns:html="http://www.w3.org/1999/xhtml"
  xmlns:epub="http://www.idpf.org/2007/ops">
  
@@ -20,7 +21,8 @@
   <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
-  <param name="aggregateGlossaries" select="'no'"/>   <!-- 'yes' to aggregate glossaries into one, or 'no' to use them as is -->
+  <param name="combineGlossaries" select="'yes'"/>     <!-- 'yes' to combine glossaries into one, or 'no' to use them as is -->
+  <param name="combinedGlossaryName" select="'Glossary'"/>  
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
@@ -39,7 +41,22 @@
 
   <!-- MAIN OSIS ROOT TEMPLATE -->
   <template match="/">
-    <variable name="osisIDWork" select="//osisText/@osisIDWork"/>
+    <variable name="osisIDWork" select="/descendant::osisText[1]/@osisIDWork"/>
+    
+    <variable name="combinedGlossary">
+      <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
+      <if test="$combineGlossaries = 'yes' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
+        <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
+      </if>
+    </variable>
+    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' all keywords into a single glossary.')"/>
+    
+    <variable name="xhtmlFiles" as="xs:string*">
+      <call-template name="processProject">
+        <with-param name="currentTask" select="'get-filenames'" tunnel="yes"/>
+        <with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"/>
+      </call-template>
+    </variable>
     
     <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
       <metadata 
@@ -55,7 +72,7 @@
         <dc:creator opf:role="aut"><xsl:value-of select="//work[@osisWork = $osisIDWork]/publisher[@type='x-CopyrightHolder']/text()"/></dc:creator>
       </metadata>
       <manifest>
-        <xsl:call-template name="processProject"><xsl:with-param name="currentTask" select="'write-manifest'" tunnel="yes"/></xsl:call-template>
+        <xsl:for-each select="$xhtmlFiles"><item href="xhtml/{.}.xhtml" id="{me:id(.)}" media-type="application/xhtml+xml"/></xsl:for-each>
         <xsl:for-each select="distinct-values((//figure/@src, $referencedOsisDocs//figure/@src))">
           <item>
             <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
@@ -85,55 +102,81 @@
           </xsl:choose>
         </xsl:for-each>
       </manifest>
-      <spine toc="ncx">
-        <xsl:call-template name="processProject"><xsl:with-param name="currentTask" select="'write-spine'" tunnel="yes"/></xsl:call-template>
-      </spine>
+      <spine toc="ncx"><xsl:for-each select="$xhtmlFiles"><itemref idref="{me:id(.)}"/></xsl:for-each></spine>
     </package>
     
-    <call-template name="processProject"><with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/></call-template>
+    <call-template name="processProject">
+      <with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/>
+      <with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"></with-param>
+    </call-template>
     
   </template>
   
   <template name="processProject">
     <param name="currentTask" tunnel="yes"/>
-    <message><text>&#xa;</text><value-of select="concat('processProject: currentTask = ', $currentTask)"/></message>
+    <param name="combinedGlossary" tunnel="yes"/>
+    <message><value-of select="concat('processProject: currentTask = ', $currentTask)"/></message>
     <for-each select="$mainInputOSIS"><apply-templates/></for-each>
+    <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
   </template>
   
-  <!-- Pass over all nodes that don't match another template (output nothing) -->
-  <template match="node()"><apply-templates/></template>
+  <!-- Write a single glossary that combines all other glossaries together. Note: x-keyword-duplicate entries are dropped because they are included in the x-aggregate glossary -->
+  <template name="WriteCombinedGlossary">
+    <param name="combinedKeywords" as="element(div)+"/>
+    <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
+      <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryName}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
+      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryName"/></title>
+      <for-each select="$combinedKeywords">
+        <sort select="me:getAlphaIndex(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="number" order="ascending"/>
+        <copy-of select="."/>
+      </for-each>
+    </element>
+  </template>
+  <function name="me:getAlphaIndex" as="xs:integer">
+    <param name="text" as="xs:string"/>
+    <param name="order" as="xs:string?"/>
+    <if test="not($order)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
+    <variable name="before" select="substring-before(concat(' ', $order), substring($text, 1, 1))"/>
+    <if test="not($before)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character "<value-of select="substring($text, 1, 1)"/>".</message></if>
+    <sequence select="string-length($before)"/>
+  </function>
   
-  <!-- Separate the OSIS file into separate xhtml files based on this template -->
-  <template match="osisText | div[@type='bookGroup'] | div[@type='book'] | div[@type=$usfmType][generate-id($mainInputOSIS) != generate-id(root(.))][not(@type='glossary' and @subType='x-aggregate')]">
-    <choose>
-      <when test="self::div[@type=$usfmType]">
-        <!-- Put each usfmType div and its child keywords in separate files to ensure that links and article tags all work properly across various eBook readers -->
-        <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count(self::div[starts-with(@type, 'x-keyword')])">
-          <if test="not($aggregateGlossaries = 'yes') or not(self::div[starts-with(@type, 'x-keyword')])">
-            <call-template name="ProcessFile">
-              <with-param name="fileNodes" select="current-group()"/>
-            </call-template>
-          </if>
-        </for-each-group>
-      </when>
-      <when test="self::div[@type='book']">
-        <call-template name="ProcessFile">
-          <with-param name="fileNodes" select="node()"/>
-        </call-template>
-      </when>
-      <when test="self::div[@type='bookGroup']">
-        <call-template name="ProcessFile">
-          <with-param name="fileNodes" select="node()[not(self::div[@type='book'])]"/>
-        </call-template>
-      </when>
-      <otherwise>
-        <call-template name="ProcessFile">
-          <with-param name="fileNodes" select="node()[not(self::header)][not(self::div[@type='bookGroup'])][not(self::div[@type=$usfmType][generate-id($mainInputOSIS) != generate-id(root(.))])]"/>
-        </call-template>
-      </otherwise>
-    </choose>
+  <!-- THE OSIS FILE IS SEPARATED INTO INDIVIDUAL XHTML FILES BY THE FOLLOWING TEMPLATES WITH ProcessFile-->
+  <template match="node()"><apply-templates/></template>
+  <template match="div[@type='glossary'][@subType='x-aggregate']" priority="3"/>
+  
+  <template match="osisText">
+    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(self::header or self::div[starts-with(@type, 'book')] or self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)])]"/></call-template>
     <apply-templates/>
+  </template>
+  
+  <template match="div[@type='bookGroup']">
+    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(self::div[@type='book'])]"/></call-template>
+    <apply-templates/>
+  </template>
+  
+  <template match="div[@type='book'] | div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)]">
+    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()"/></call-template>
+  </template>
+  
+  <template match="div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)]" priority="2">
+    <param name="currentTask" tunnel="yes"/>
+    <param name="combinedGlossary" tunnel="yes"/>
+    <!-- Put each keyword in a separate file to ensure that links and article tags all work properly across various eBook readers -->
+    <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count(self::div[starts-with(@type, 'x-keyword')])">
+      <choose>
+        <when test="not(count($combinedGlossary/*)) or ancestor::div[@root-name]">
+          <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
+        </when>
+        <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
+        <otherwise>
+          <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s): ')"/>
+            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/></for-each><text>&#xa;</text>
+          </message>
+        </otherwise>
+      </choose>
+    </for-each-group>
   </template>
   
   <!-- ProcessFile may be called with any element that should initiate a new output file above. It writes the file's contents and adds it to manifest and spine -->
@@ -146,12 +189,7 @@
     <variable name="fileName" select="me:getFileName(.)"/>  
     <if test="$fileNodes//text()[normalize-space()]">
       <choose>
-        <when test="$currentTask = 'write-manifest'">
-          <item xmlns="http://www.idpf.org/2007/opf" href="xhtml/{$fileName}.xhtml" id="{me:id($fileName)}" media-type="application/xhtml+xml"/>
-        </when>
-        <when test="$currentTask = 'write-spine'">
-          <itemref xmlns="http://www.idpf.org/2007/opf" idref="{me:id($fileName)}"/>
-        </when>
+        <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
         <otherwise>
           <call-template name="WriteFile"><with-param name="fileName" select="$fileName"/><with-param name="fileNodes" select="$fileNodes"/></call-template>
         </otherwise>
@@ -159,34 +197,35 @@
     </if>
   </template>
   
-  <!-- This template may be called from any element. It returns the output file name that contains the element -->
+  <!-- This template may be called from any node. It returns the output file name that contains the node -->
   <function name="me:getFileName" as="xs:string">
-    <param name="contextNode" as="node()"/>
-    <variable name="osisIDWork" select="root($contextNode)//osisText[1]/@osisIDWork"/>
+    <param name="node" as="node()"/>
+    <variable name="root" select="if (root($node)/descendant::osisText[1]/@osisIDWork) then root($node)/descendant::osisText[1]/@osisIDWork else $node/ancestor-or-self::*[@root-name]/@root-name"/>
+    <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]"/>
     <choose>
-      <when test="$contextNode/ancestor-or-self::div[@type='book']">
-        <value-of select="concat($osisIDWork, '_', $contextNode/ancestor-or-self::div[@type='book']/@osisID)"/>
+      <when test="$node/ancestor-or-self::div[@type='book'][last()]">
+        <value-of select="concat($root, '_', $node/ancestor-or-self::div[@type='book']/@osisID)"/>
       </when>
-      <when test="$contextNode/ancestor-or-self::div[@type='bookGroup']">
-        <value-of select="concat($osisIDWork, '_bookGroup-introduction_', count($contextNode/preceding::div[@type='bookGroup']) + 1)"/>
+      <when test="$node/ancestor-or-self::div[@type='bookGroup'][last()]">
+        <value-of select="concat($root, '_bookGroup-introduction_bg', count($node/preceding::div[@type='bookGroup']) + 1)"/>
       </when>
-      <when test="root($contextNode)//work[@osisWork = root($contextNode)//osisText[1]/@osisIDWork]/type[@type='x-bible']">
-        <value-of select="concat($osisIDWork, '_module-introduction')"/>
+      <when test="$node/ancestor-or-self::div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]">
+        <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
+        <value-of select="concat($root, '_glosskey_g', (count($node/preceding::div[@type=$usfmType]) + 1), '_k', $group)"/>
       </when>
-      <when test="$contextNode/ancestor-or-self::div[@type=$usfmType]">
-        <variable name="group" select="0.5 + count($contextNode/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($contextNode/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
-        <value-of select="concat($osisIDWork, '_glosskey_', (count($contextNode/preceding::div[@type=$usfmType]) + 1), '_', $group)"/>
+      <when test="$refUsfmType">
+        <value-of select="concat($root, '_', $refUsfmType/@type, '_g', (count($node/preceding::div[@type=$usfmType]) + 1))"/>
       </when>
-      <otherwise><value-of select="concat($osisIDWork,'_unexpected')"/></otherwise>
+      <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
   </function>
 
   <!-- Write each xhtml file's contents -->
   <template name="WriteFile">
-    <param name="fileName"/>
-    <param name="fileNodes"/>
+    <param name="fileName" as="xs:string"/>
+    <param name="fileNodes" as="node()+"/>
+    <variable name="contextNode" select="$fileNodes[1]"/>
     <message select="concat('WRITING:', $fileName)"/>
-    <variable name="osisIDWork" select="ancestor-or-self::osisText/@osisIDWork"/>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
@@ -198,14 +237,12 @@
           </xsl:for-each>
         </head>
         <body>
-          <xsl:variable name="usfmFileNum" select="if (ancestor::div[@type=$usfmType][1]) then concat('gn-', count(preceding::div[@type=$usfmType]) + 1) else ''"/>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', tokenize($fileName, '_')[1], tokenize($fileName, '_')[2], (if (tokenize($fileName, '_')[3]) then concat('n-', tokenize($fileName, '_')[3]) else ''), @type, @subType, $usfmFileNum)
-          ), ' '))"/>
+              ('calibre', for $x in tokenize($fileName, '_') return $x, $contextNode/@type, $contextNode/@subType)), ' '))"/>
           <xsl:apply-templates mode="xhtml" select="$fileNodes"/>
           <xsl:call-template name="noteSections"><xsl:with-param name="nodes" select="$fileNodes"/></xsl:call-template>
           <!-- If there are links to brokenLinkURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$brokenLinkURL != 'none' and self::div[@type='book'][@osisID = $mainInputOSIS//div[@type='book'][1]/@osisID]">
+          <xsl:if test="$brokenLinkURL != 'none' and $contextNode[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="brokenLinkURL" class="xsl-crossref">
@@ -394,6 +431,7 @@
   
   <function name="me:getInlineTOC" as="element()*">
     <param name="tocElement" as="element()"/>
+    <param name="combinedGlossary" as="document-node()?"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID]])">
       <message terminate="yes">ERROR: getInlineTOC(): <value-of select="me:printNode($tocElement)"/> should not generate an inline TOC!</message>
     </if>
@@ -403,10 +441,11 @@
     <variable name="listElements">
       <!-- if this is the first milestone in a Bible, then include the root TOC -->
       <if test="$isMain">
-        <sequence select="me:getInlineGroupTOC($tocElement, true())"/>
-        <for-each select="$referencedOsisDocs//osisText"><sequence select="me:getInlineGroupTOC(., true())"/></for-each>
+        <sequence select="me:getInlineGroupTOC($tocElement, true(), count($combinedGlossary/*) != 0)"/>
+        <if test="count($combinedGlossary/*)"><sequence select="me:getInlineGroupTOC($combinedGlossary, true(), count($combinedGlossary/*) != 0)"/></if>
+        <for-each select="$referencedOsisDocs"><sequence select="me:getInlineGroupTOC(., true(), count($combinedGlossary/*) != 0)"/></for-each>
       </if>
-      <sequence select="me:getInlineGroupTOC($tocElement, false())"/>
+      <sequence select="me:getInlineGroupTOC($tocElement, false(), count($combinedGlossary/*) != 0)"/>
     </variable>
     <if test="count($listElements/*[local-name() = 'li'])">
       <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup-link')]) = 1"/>
@@ -434,28 +473,32 @@
   </function>
   
   <!-- me:getInlineGroupTOC returns inline TOC nodes for a TOC element -->
-  <function name="me:getInlineGroupTOC" as="element()*">
-    <param name="tocElement" as="element()"/>
-    <param name="isOsisRootTOC"/><!-- set this only for the main (root) toc -->
-    <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
-    <if test="not($isOsisRootTOC) and not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
-      <message terminate="yes">ERROR: getInlineGroupTOC(): <value-of select="me:printNode($tocElement)"/> is not a TOC milestone or non-Bible chapter element!</message>
+  <function name="me:getInlineGroupTOC" as="element(html:li)*">
+    <param name="tocNode" as="node()"/>
+    <param name="isOsisRootTOC" as="xs:boolean"/>
+    <param name="combinedGlossary" as="xs:boolean"/>
+    <variable name="isBible" select="root($tocNode)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
+    <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
+      <message terminate="yes">ERROR: getInlineGroupTOC(): <value-of select="me:printNode($tocNode)"/> is not a TOC milestone or non-Bible chapter element!</message>
     </if>
-    <variable name="toplevel" select="if ($isOsisRootTOC = true()) then 0 else me:getTocLevel($tocElement)"/>
+    <variable name="toplevel" select="if ($isOsisRootTOC) then 0 else me:getTocLevel($tocNode)"/>
     <if test="$toplevel &#60; 3">
       <variable name="subentries" as="element()*">
         <choose>
-          <when test="$tocElement/self::chapter[@sID]">
-            <sequence select="($tocElement/following::seg[@type='keyword'] | $tocElement/following::milestone[@type=concat('x-usfm-toc', $tocnumber)]) except 
-                $tocElement/following::chapter[@eID][@eID = $tocElement/@sID]/following::*"/>
+          <when test="$tocNode/self::chapter[@sID]">
+            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)]) except 
+                $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
           <otherwise>
-            <variable name="container" as="node()?" select="if ($isOsisRootTOC = true()) then (root($tocElement)) else
-                if ($tocElement/parent::div[not(preceding-sibling::*)][not(@type = ('bookGroup', 'book'))][parent::div[@type = ('bookGroup', 'book')]]) 
-                then $tocElement/parent::div/parent::div 
-                else $tocElement/ancestor::div[1]"/>
+            <variable name="container" as="node()?" select="if ($isOsisRootTOC) then (root($tocNode)) else
+                if ($tocNode/parent::div[not(preceding-sibling::*)][not(@type = ('bookGroup', 'book'))][parent::div[@type = ('bookGroup', 'book')]]) 
+                then $tocNode/parent::div/parent::div 
+                else $tocNode/ancestor::div[1]"/>
+            <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, 
+            keywords outside the combinedGlossary if combining (matches logic in "separate xhtml files" template) -->
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
-                [generate-id(.) != generate-id($tocElement)][me:getTocLevel(.) = $toplevel + 1]"/>
+                [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
+                [$isBible or not($combinedGlossary) or ancestor::div[@root-name]]"/>
           </otherwise>
         </choose>
       </variable>
@@ -484,7 +527,7 @@
           </for-each>
         </variable>
         <variable name="maxChars" select="max($tmptitles/string-length(string()))"/>
-        <for-each select="root($tocElement)//node()[generate-id(.) = $tmptitles/@source]">
+        <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
           <variable name="entryType" select="./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="node()?"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
@@ -570,15 +613,21 @@
     <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
     <!-- non-Bible chapters also get inline TOC -->
     <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']">
-      <sequence select="me:getInlineTOC(.)"/>
+      <sequence select="me:getInlineTOC(., ())"/>
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>
     </if>
   </template>
   
   <!-- Glossary keywords -->
   <template match="seg[@type='keyword']" mode="xhtml" priority="2">
+    <param name="combinedGlossary" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
+    <variable name="glossaryTitle" select="$referencedOsisDocs//div[@type='glossary'][descendant::*[@osisID = current()/@osisID]]/descendant::title[@type='main'][1]/string()"/>
+    <if test="@osisID and count($combinedGlossary/*) != 0 and $glossaryTitle">
+      <variable name="osisTitle"><osis:title level="3" subType="x-glossary-title"><value-of select="$glossaryTitle"/></osis:title></variable>
+      <for-each select="$osisTitle"><apply-templates select="." mode="xhtml"/></for-each>
+    </if>
   </template>
   
   <!-- Titles -->
@@ -681,6 +730,7 @@
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
+    <param name="combinedGlossary" tunnel="yes"/>
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="me:getTocTitle(.)"/></i></small></div>
     <variable name="tocms" select="."/>
@@ -691,7 +741,7 @@
         [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
       <call-template name="title"/>
     </for-each>
-    <sequence select="me:getInlineTOC(.)"/>
+    <sequence select="me:getInlineTOC(., $combinedGlossary)"/>
   </template>
   
   <template match="milestone[@type='pb']" mode="xhtml" priority="2">
@@ -731,23 +781,30 @@
         <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
       </when>
       <when test="$brokenLinkURL != 'none'"><!-- the href below is a quick/easy way of running getFileName -->
-        <variable name="href" select="concat($mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS//div[@type='book'][1]/@osisID, '.xhtml#brokenLinkURL')"/>
+        <variable name="href" select="concat($mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS/descendant::div[@type='book'][1]/@osisID, '.xhtml#brokenLinkURL')"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
       </when>
     </choose>
   </template>
   
   <template match="reference" mode="xhtml">
-    <variable name="osisRef" select="replace(@osisRef, '^[^:]*:', '')"/>
+    <param name="combinedGlossary" tunnel="yes"/>
+    <variable name="osisRef1" select="replace(@osisRef, '^[^:]*:', '')"/>
+    <variable name="osisRef" select="if (count($combinedGlossary/*)) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
     <variable name="file">
       <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
-      <variable name="refIsBible" select="//work[@osisWork = $workid]/type[@type='x-bible']"/>
+      <variable name="refIsBible" select="$mainInputOSIS//work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
         <when test="$refIsBible">
-          <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/><!-- this faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
+          <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/><!-- this is faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
         </when>
-        <otherwise>
-          <variable name="target" select="($mainInputOSIS | $referencedOsisDocs)//osisText[@osisRefWork = $workid]//*[@osisID = $osisRef]"/>
+        <otherwise><!-- references to non-bible -->
+          <variable name="target" as="node()?">
+            <choose>
+              <when test="count($combinedGlossary/*)"><sequence select="$combinedGlossary//*[tokenize(@osisID, ' ') = $osisRef]"/></when>
+              <otherwise><sequence select="($mainInputOSIS | $referencedOsisDocs)//osisText[@osisRefWork = $workid]//*[tokenize(@osisID, ' ') = $osisRef]"/></otherwise>
+            </choose>
+          </variable>
           <choose>
             <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
             <when test="count($target)=1"><value-of select="me:getFileName($target)"/></when>
@@ -786,15 +843,18 @@
   <function name="me:printNode" as="text()">
     <param name="node" as="node()"/>
     <choose>
-      <when test="$node/self::element()">
+      <when test="$node[self::element()]">
         <value-of>element:
           <value-of select="concat('element=', $node/name(), ', ')"/>
           <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
         </value-of>
       </when>
-      <when test="$node/self::text()"><value-of select="'text-node'"/></when>
-      <when test="$node/self::comment()"><value-of select="'comment-node'"/></when>
-      <otherwise><value-of select="'node'"/></otherwise>
+      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
+      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
     </choose>
   </function>
   
