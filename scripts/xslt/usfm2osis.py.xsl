@@ -21,7 +21,7 @@
   them at the beginning of a file, before any paragraphs, and so it does not close paragraphs 
   upon TOC markers as it should. So this fixes it. -->
   <template match="p[descendant::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <variable name="keepChildren" select="./node()[. &#60;&#60; current()//milestone[starts-with(@type, 'x-usfm-toc')][1]]"/>
+    <variable name="keepChildren" select="./node()[. &#60;&#60; current()/descendant::milestone[starts-with(@type, 'x-usfm-toc')][1]]"/>
     <if test="$keepChildren">
       <copy><apply-templates select="@*"/>
         <for-each select="$keepChildren"><apply-templates select="."/></for-each>

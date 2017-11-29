@@ -23,7 +23,7 @@
   <!-- this glossary entry will be created as the glossary navigation menu -->
   <xsl:param name="uiDictionary" select="concat('- ', //header/work[child::type[@type='x-glossary']]/title[1])"/>
   
-  <xsl:param name="MOD" select="//work[child::type[@type='x-glossary']][1]/@osisWork"/>
+  <xsl:param name="MOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
   
   <xsl:template match="node()|@*" mode="identity">
     <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>

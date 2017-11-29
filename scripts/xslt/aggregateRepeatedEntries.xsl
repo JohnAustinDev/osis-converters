@@ -134,7 +134,7 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@osisRef"><attribute name="osisRef" select="parent::*/@osisRef"/></if>
-                <variable name="title" select="ancestor::div[@type='glossary']//title[@type='main'][1]"/>
+                <variable name="title" select="ancestor::div[@type='glossary'][1]/descendant::title[@type='main'][1]"/>
                 <if test="$title">
                   <title level="2" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
                 </if>

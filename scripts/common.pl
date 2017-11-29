@@ -1459,7 +1459,7 @@ sub pruneFileOSIS($$$$$\$\$) {
   }
   
   # determine titles
-  my $osisTitle = @{$XPC->findnodes('//osis:type[@type="x-bible"][1]/ancestor::osis:work[1]//osis:title[1]', $inxml)}[0];
+  my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
   if (!$$ebookTitleP) {$$ebookTitleP = $osisTitle->textContent;}
   if ($booksFiltered) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);

@@ -161,7 +161,7 @@ presentational text, it will be added. An example OSIS cross-reference:
     my $nametype = ('', 'long', 'short', 'abbr')[$tocxr];
     my @books = split(' ', $OT_BOOKS . ' ' . $NT_BOOKS);
     foreach my $book (@books) {
-      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]//osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $OSIS)}[0];
+      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $OSIS)}[0];
       if ($abbr) {$abbr = $abbr->value;}
       if ($BOOKNAMES{$book}{$nametype}) {
         if (!$abbr) {$abbr = $BOOKNAMES{$book}{$nametype};}
