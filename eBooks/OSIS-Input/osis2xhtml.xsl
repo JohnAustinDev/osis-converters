@@ -21,7 +21,7 @@
   <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
-  <param name="combineGlossaries" select="'yes'"/>     <!-- 'yes' to combine glossaries into one, or 'no' to use them as is -->
+  <param name="multipleGlossaries" select="'false'"/>  <!-- 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
   <param name="combinedGlossaryName" select="'Glossary'"/>  
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
@@ -45,11 +45,11 @@
     
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
-      <if test="$combineGlossaries = 'yes' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
+      <if test="$multipleGlossaries = 'false' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>
-    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' all keywords into a single glossary.')"/>
+    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary.')"/>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">

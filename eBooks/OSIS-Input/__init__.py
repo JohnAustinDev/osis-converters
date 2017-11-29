@@ -38,6 +38,12 @@ class OsisInput(InputFormatPlugin):
         if m:
             NoEpub3Markup = m.group(1).strip()
             
+        # MultipleGlossaries - true means don't combine multiple glossaries into one
+        MultipleGlossaries = 'false'
+        m = re.search(r"^\s*MultipleGlossaries=(.+)", config, re.MULTILINE|re.IGNORECASE)
+        if m:
+            MultipleGlossaries = m.group(1).strip()
+            
         # BrokenLinkURL
         BrokenLinkURL = 'none'
         m = re.search(r"^\s*BrokenLinkURL=(.+)", config, re.MULTILINE|re.IGNORECASE)
@@ -77,7 +83,8 @@ class OsisInput(InputFormatPlugin):
             "css=%s" % (",").join(sorted(cssFileNames)), 
             "tocnumber=%s" % TOC,
             "epub3=%s" % ('false' if NoEpub3Markup == 'true' else 'true'),
-            "brokenLinkURL=%s" % BrokenLinkURL
+            "brokenLinkURL=%s" % BrokenLinkURL,
+            "multipleGlossaries=%s" % MultipleGlossaries
         ]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
