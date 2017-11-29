@@ -284,6 +284,13 @@ dfn {
 a.x-not-found {
   color: #888888;
 }
+.x-glossary-title {}
+.x-glossary-head {
+  display: inline;
+  vertical-align: super;
+  font-weight: bold;
+  font-style: italic;
+}
 
 /* Main inline TOC */
 ol, ul {

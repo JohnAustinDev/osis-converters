@@ -136,10 +136,10 @@
                 <if test="parent::*/@osisRef"><attribute name="osisRef" select="parent::*/@osisRef"/></if>
                 <variable name="title" select="ancestor::div[@type='glossary'][1]/descendant::title[@type='main'][1]"/>
                 <if test="$title">
-                  <title level="2" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
+                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
                 </if>
                 <if test="not($title)">
-                  <hi type="super" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><hi type="bold"><xsl:value-of select="position()"/>) </hi></hi>
+                  <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
                 </if>
                 <apply-templates mode="write-aggregates"/>
               </copy>
