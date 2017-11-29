@@ -2247,6 +2247,9 @@ sub myContext($$) {
   return 0;
 }
 
+# $test can be:
+#   keyword 
+#   encoded osisRef which may include multiple ranges
 sub myGlossaryContext($\@) {
   my $test = shift;
   my $contextP = shift;

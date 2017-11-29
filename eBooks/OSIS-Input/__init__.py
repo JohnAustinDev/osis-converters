@@ -83,7 +83,8 @@ class OsisInput(InputFormatPlugin):
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
         if p.returncode != 0:
-            print "ERROR: XSLT failed with output=%s, error=%s, return=%s" % (output, err, p.returncode)
+            print "ERROR: XSLT failed!:"
+        print err
         os.remove('osis2xhtml.xsl')
         for afile in glob.glob("./*.xml"):                                                                                                                                   
             os.remove(afile)
