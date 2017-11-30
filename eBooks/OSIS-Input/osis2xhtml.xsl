@@ -15,14 +15,19 @@
   -->
  
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
-  <param name="epub3" select="'true'"/>                <!-- Output EPUB3 footnotes -->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
-  <param name="brokenLinkURL" select="'none'"/>        <!-- Optional URL to show for broken links -->
-  <param name="multipleGlossaries" select="'false'"/>  <!-- 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
-  <param name="combinedGlossaryName" select="'Glossary'"/>  
+  <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
+  <variable name="tocnumber" select="if (/descendant::*[@type='x-ebook-config-TOC'][1]) then /descendant::*[@type='x-ebook-config-TOC'][1] else 2"/>
+  <!-- Output EPUB3 footnotes -->
+  <variable name="epub3" select="if (/descendant::*[@type='x-ebook-config-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
+  <!-- Optional URL to show for broken links -->
+  <variable name="brokenLinkURL" select="if (/descendant::*[@type='x-ebook-config-BrokenLinkURL'][1]) then /descendant::*[@type='x-ebook-config-BrokenLinkURL'][1] else 'none'"/>
+  <!-- Set multipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
+  <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-ebook-config-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
+  <!-- Set name to use for the combined glossary -->
+  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1] else 'Glossary'"/>
   
   <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
   <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
@@ -125,8 +130,8 @@
   <template name="WriteCombinedGlossary">
     <param name="combinedKeywords" as="element(div)+"/>
     <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
-      <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryName}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
-      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryName"/></title>
+      <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
+      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
         <sort select="me:getAlphaIndex(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="number" order="ascending"/>
         <copy-of select="."/>

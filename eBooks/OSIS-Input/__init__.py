@@ -25,30 +25,6 @@ class OsisInput(InputFormatPlugin):
         cfile = codecs.open(options.config_file, 'r', encoding="utf-8")  
         config = cfile.read().strip()
         config = re.sub(r"#.*", "", config)
-        
-        # TOC - a number from 1 to 3 selecting \toc1, \toc2 or \toc3 USFM tags to use creating the eBook TOC
-        TOC = 2
-        m = re.search(r"^\s*TOC=(.+)", config, re.MULTILINE|re.IGNORECASE)
-        if m:
-            TOC = m.group(1).strip()
-            
-        # NoEpub3Markup - true means don't use epub3 markup
-        NoEpub3Markup = 'false'
-        m = re.search(r"^\s*NoEpub3Markup=(.+)", config, re.MULTILINE|re.IGNORECASE)
-        if m:
-            NoEpub3Markup = m.group(1).strip()
-            
-        # MultipleGlossaries - true means don't combine multiple glossaries into one
-        MultipleGlossaries = 'false'
-        m = re.search(r"^\s*MultipleGlossaries=(.+)", config, re.MULTILINE|re.IGNORECASE)
-        if m:
-            MultipleGlossaries = m.group(1).strip()
-            
-        # BrokenLinkURL
-        BrokenLinkURL = 'none'
-        m = re.search(r"^\s*BrokenLinkURL=(.+)", config, re.MULTILINE|re.IGNORECASE)
-        if m:
-            BrokenLinkURL = m.group(1).strip()
             
         # Get the directory of our input files
         filePath = stream.name
@@ -80,11 +56,7 @@ class OsisInput(InputFormatPlugin):
             "-xsl:osis2xhtml.xsl", 
             "-s:%s" % inputOSIS, 
             "-o:content.opf", 
-            "css=%s" % (",").join(sorted(cssFileNames)), 
-            "tocnumber=%s" % TOC,
-            "epub3=%s" % ('false' if NoEpub3Markup == 'true' else 'true'),
-            "brokenLinkURL=%s" % BrokenLinkURL,
-            "multipleGlossaries=%s" % MultipleGlossaries
+            "css=%s" % (",").join(sorted(cssFileNames))
         ]
         print "Running XSLT: " + unicode(command).encode('utf8')
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)

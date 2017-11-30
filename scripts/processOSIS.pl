@@ -5,7 +5,9 @@ $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0.xml");
 $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
 &shell($cmd);
 
-&writeOsisHeaderWork("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
+$CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
+%EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
+&writeOsisHeaderWork("$TMPDIR/".$MOD."_1.xml", $ConfEntryP, \%EBOOKCONV);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/toVersificationBookOrder.pl");

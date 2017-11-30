@@ -3092,9 +3092,10 @@ sub emptyvss($) {
 }
 
 
-sub writeOsisHeaderWork($) {
+sub writeOsisHeaderWork($$$) {
   my $osis = shift;
   my $confP = shift;
+  my $convP = shift;
   
   &Log("\nWriting work and companion work elements in OSIS header:\n");
   
@@ -3141,7 +3142,7 @@ sub writeOsisHeaderWork($) {
   # Add work element for self
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
-  &getOSIS_Work(\%workElements, $confP, $isbn);
+  &getOSIS_Work(\%workElements, $confP, $convP, $isbn);
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     $workElements{'190000:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
@@ -3159,7 +3160,7 @@ sub writeOsisHeaderWork($) {
       }
       my %compWorkAttributes = ('osisWork' => $comp);
       my %compWorkElements;
-      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $isbn);
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convP, $isbn);
       &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
     }
   }
@@ -3172,9 +3173,10 @@ sub writeOsisHeaderWork($) {
 }
 
 
-sub getOSIS_Work($$$) {
+sub getOSIS_Work($$$$) {
   my $osisWorkP = shift;
   my $confP = shift;
+  my $convP = shift;
   my $isbn = shift;
   
   my @tm = localtime(time);
@@ -3198,7 +3200,8 @@ sub getOSIS_Work($$$) {
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
   &mapLocalizedElem(50000, 'description', 'About', $confP, $osisWorkP, 1);
-  &mapSwordConfig(50008, 'description', $confP, $osisWorkP);
+  &mapConfig(50008, 'description', 'x-sword-config', $confP, $osisWorkP);
+  &mapConfig(51000, 'description', 'x-ebook-config', $convP, $osisWorkP);
   &mapLocalizedElem(60000, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
   &mapLocalizedElem(70000, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
   &mapLocalizedElem(80000, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
@@ -3261,15 +3264,16 @@ sub mapLocalizedElem($$$$$$) {
   }
 }
 
-sub mapSwordConfig($$$$) {
+sub mapConfig($$$$$) {
   my $index = shift;
   my $elementName = shift;
+  my $prefix = shift;
   my $confP = shift;
   my $osisWorkP = shift;
   
   foreach my $confEntry (sort keys %{$confP}) {
     $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $confP->{$confEntry};
-    $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "x-sword-config-$confEntry";
+    $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$confEntry";
     $index++;
     if (($index % 10000) == 9999) {&Log("ERROR mapLocalizedConf: Too many \"description\" sword-config entries.\n");}
   }

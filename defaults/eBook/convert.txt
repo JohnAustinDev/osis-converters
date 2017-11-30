@@ -11,8 +11,9 @@
 # the OSIS file.
 #Title=My Publication Title
 #
-# By default glossaries are combined into a single glossary, with 
-# aggregated entries. Set this to true to turn off this feature.
+# By default glossaries are combined into a single glossary
+CombinedGlossaryTitle=Glossary
+# Set this to true to turn off the combined glossary feature.
 #MultipleGlossaries=true
 #
 # This selects whether to create a single eBook with everything in the 
