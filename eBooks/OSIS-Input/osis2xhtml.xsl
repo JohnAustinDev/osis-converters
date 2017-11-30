@@ -697,6 +697,9 @@
   </template>
 
   <template match="head" mode="xhtml">
+    <if test="not(parent::list)"><call-template name="head"/></if>
+  </template>
+  <template name="head">
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
   </template>
   
@@ -737,6 +740,7 @@
   </template>
   
   <template match="list" mode="xhtml">
+    <for-each select="child::head"><call-template name="head"/></for-each><!-- EPUB2 validator doesn't allow <h> child tags of ul -->
     <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
   </template>
   
