@@ -107,3 +107,7 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
 fi
 
 if [ -e /vagrant ]; then sudo chown -R $VUSER:$VUSER $VHOME/.osis-converters; fi
+
+# non English hosts may need this:
+sudo su -c "echo LC_ALL=en_US.UTF-8 >> /etc/environment"
+sudo su -c "echo LANG=en_US.UTF-8 >> /etc/environment"
