@@ -211,13 +211,19 @@
       </when>
       <when test="$node/ancestor-or-self::div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]">
         <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
-        <value-of select="concat($root, '_glosskey_g', (count($node/preceding::div[@type=$usfmType]) + 1), '_k', $group)"/>
+        <value-of select="if ($root = 'comb') then concat($root, '_glosskey_k', $group) else concat($root, '_glosskey_div', me:hashUsfmType($refUsfmType), '_k', $group)"/>
       </when>
       <when test="$refUsfmType">
-        <value-of select="concat($root, '_', $refUsfmType/@type, '_g', (count($node/preceding::div[@type=$usfmType]) + 1))"/>
+        <value-of select="concat($root, '_', $refUsfmType/@type, '_div', me:hashUsfmType($refUsfmType))"/>
       </when>
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
+  </function>
+  <function name="me:hashUsfmType" as="xs:string">
+    <param name="usfmType" as="element(div)"/>
+    <variable name="title" select="$usfmType/descendant::title[@type='main'][1]"/>
+    <if test="$title"><value-of select="sum(string-to-codepoints(string($title)))"/></if>
+    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType]) + 1"/></if>
   </function>
 
   <!-- Write each xhtml file's contents -->
