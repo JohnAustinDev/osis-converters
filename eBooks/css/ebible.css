@@ -334,7 +334,7 @@ ol, ul {
   width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
 }
 #root-toc li.xsl-bookGroup-link,
-#root-toc li.xsl-book-link {
+#root-toc > div:not(.xsl-long-list) li.xsl-book-link {
   width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */
 }
 #root-toc > div:not(.xsl-single-bookGroup) li.xsl-bookGroup-link {

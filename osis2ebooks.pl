@@ -251,8 +251,8 @@ body {font-family: font1;}
   }
 
   # run the converter
-  &makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);
-  &makeEbook("$tmp/$MOD.xml", 'azw3', $cover, $scope, $tmp);
+  if ($DEBUG !~ /no.epub/i) {&makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);}
+  if ($DEBUG !~ /no.azw3/i) {&makeEbook("$tmp/$MOD.xml", 'azw3', $cover, $scope, $tmp);}
   # fb2 is disabled until a decent FB2 converter is written
   # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
 }

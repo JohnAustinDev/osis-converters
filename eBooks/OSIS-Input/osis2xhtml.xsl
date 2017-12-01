@@ -376,15 +376,15 @@
   Any TEXT following these instructions will be used for the TOC entry name, overriding the default name -->
   <template name="getMainInlineTOC">
     <param name="combinedGlossary" tunnel="yes"/>
-    <variable name="mainTocListElements">
+    <variable name="listElements">
       <sequence select="me:getTocListItems(root(.), true(), false())"/>
       <if test="count($combinedGlossary/*)"><sequence select="me:getTocListItems($combinedGlossary, true(), true())"/></if>
       <for-each select="$referencedOsisDocs"><sequence select="me:getTocListItems(., true(), count($combinedGlossary/*) != 0)"/></for-each>
     </variable>
-    <if test="count($mainTocListElements/*)">
+    <if test="count($listElements/*)">
       <element name="div" namespace="http://www.w3.org/1999/xhtml">
         <attribute name="id" select="'root-toc'"/>
-        <sequence select="me:getInlineTocDiv($mainTocListElements, 'ol', true())"/>
+        <sequence select="me:getInlineTocDiv($listElements, 'ol', true())"/>
       </element>
     </if>
   </template>
@@ -399,16 +399,24 @@
     <param name="listElements"/>
     <param name="listType"/>
     <param name="isMainTOC"/>
+    <variable name="isLongList" select="count($listElements/*[@class='xsl-book-link']) &#62; 5"/>
     <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup-link')]) = 1"/>
     <variable name="hasOddNumberOfIntros" select="count($listElements/*[local-name() = 'li'][not(contains(@class, 'book'))][not(preceding::*[local-name() = 'li'][contains(@class, 'book')])]) mod 2 = 1"/>
-    <variable name="chars" select="max($listElements/*[local-name() = 'li']/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
+    <variable name="doubleColumnElements" select="$listElements/*[(not($isLongList) and @class='xsl-book-link') or ($isSingleBookGroup and @class='xsl-bookGroup-link')]"/>
+    <variable name="singleColumnElements" select="$listElements/* except $doubleColumnElements"/>
+    <variable name="chars" select="max(($singleColumnElements/string-length(string()), $doubleColumnElements/(string-length(string())*0.5)))"/>
+    <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
     <element name="div" namespace="http://www.w3.org/1999/xhtml">
-      <attribute name="class">xsl-inline-toc<if test="$isSingleBookGroup"> xsl-single-bookGroup</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if></attribute>
+      <attribute name="class">xsl-inline-toc
+        <if test="$isSingleBookGroup"> xsl-single-bookGroup</if>
+        <if test="$hasOddNumberOfIntros"> xsl-odd-intros</if>
+        <if test="$isLongList"> xsl-long-list</if>
+      </attribute>
       <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
         <choose>
           <when test="$isMainTOC and not($listElements/*[contains(@class, 'xsl-chapter')])">
             <!-- ebible.css has: 100% = 6px + 12px + maxChars + 12px + 6px + 12px + maxChars + 12px + 6px , so: max-width of parent = 100% = 66px + 2*maxChars, but 2 scales too low so increase it -->
-            <attribute name="style" select="concat('max-width:calc(66px + ', ((if ($isSingleBookGroup) then 1.25 else 2.5)*$maxChars), 'ch)')"/>
+            <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
           </when>
           <when test="$listElements/*[local-name() = 'li'][@class = 'xsl-book-link']">
             <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
