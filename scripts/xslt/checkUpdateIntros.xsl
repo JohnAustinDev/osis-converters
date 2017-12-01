@@ -103,9 +103,9 @@ OSIS elements, so changes to USFM source are not required.</message>
   <!-- Add element subType and canonical attributes according to SWORD best practice -->
   <template match="*[($addIntroAttrib|$addCanonical)/generate-id() = generate-id(.)] | title[not(ancestor::header)][not(@canonical)]">
     <copy><apply-templates select="@*"/>
-      <if test="$addIntroAttrib/generate-id() = generate-id(.)"><attribute name="subType" select="'x-introduction'"/></if>
       <!-- titles should be canonical=false unless already explicitly set -->
       <if test="$addCanonical/generate-id() = generate-id(.) or self::title"><attribute name="canonical" select="'false'"/></if>
+      <if test="$addIntroAttrib/generate-id() = generate-id(.)"><attribute name="subType" select="'x-introduction'"/></if>
       <apply-templates/>
     </copy>
   </template>

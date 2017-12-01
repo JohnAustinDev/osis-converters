@@ -3251,7 +3251,7 @@ sub mapLocalizedElem($$$$$$) {
   my $osisWorkP = shift;
   my $skipTypeAttribute = shift;
   
-  foreach my $k (sort {length($a) <=> length($b)} keys %{$confP}) {
+  foreach my $k (sort {$a cmp $b} keys %{$confP}) {
     if ($k !~ /^$confEntry(_([\w\-]+))?$/) {next;}
     my $lang = ($1 ? $2:'');
     $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'textContent'} = $confP->{$k};
@@ -3300,8 +3300,8 @@ sub writeWorkElement($$$) {
       if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
       else {$elem->setAttribute($a, $elementsP->{$e}{$a});}
     }
-    #$work->appendTextNode("\n");
   }
+  $work->appendTextNode("\n");
   $header->appendTextNode("\n");
   
   my $w = $work->toString(); 
