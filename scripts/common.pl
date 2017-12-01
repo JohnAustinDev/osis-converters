@@ -3291,8 +3291,8 @@ sub writeWorkElement($$$) {
   # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
   foreach my $e (sort keys %{$elementsP}) {
-  if (!$elementsP->{$e}{'textContent'}) {next;}
-   $work->appendTextNode("\n  ");
+    if (!$elementsP->{$e}{'textContent'}) {next;}
+    $work->appendTextNode("\n  ");
     my $er = $e;
     $er =~ s/^\d+\://;
     my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), NULL);
@@ -3300,7 +3300,7 @@ sub writeWorkElement($$$) {
       if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
       else {$elem->setAttribute($a, $elementsP->{$e}{$a});}
     }
-    $work->appendTextNode("\n");
+    #$work->appendTextNode("\n");
   }
   $header->appendTextNode("\n");
   

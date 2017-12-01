@@ -2,39 +2,41 @@
 $cmd = "saxonb-xslt -ext:on";
 $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/usfm2osis.py.xsl");
 $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0.xml");
-$cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
+$cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
 &shell($cmd);
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
 %EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
-&writeOsisHeaderWork("$TMPDIR/".$MOD."_1.xml", $ConfEntryP, \%EBOOKCONV);
+&writeOsisHeaderWork("$TMPDIR/".$MOD."_0a.xml", $ConfEntryP, \%EBOOKCONV);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/toVersificationBookOrder.pl");
-  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_1.xml");
-  require("$SCRD/scripts/checkUpdateIntros.pl");
-  &checkUpdateIntros("$TMPDIR/".$MOD."_1.xml");
+  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_0a.xml");
+  $cmd = "saxonb-xslt -ext:on";
+  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/checkUpdateIntros.xsl") ;
+  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
+  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
+  &shell($cmd);
 }
 elsif ($MODDRV =~ /LD/) {
   $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl") ;
-  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1.xml");
-  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
+  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
+  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
   &shell($cmd);
   
   $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/writeDictionaryWords.xsl") ;
-  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1b.xml");
+  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1.xml");
   $cmd .= " -o:" . &escfile($DEFAULT_DICTIONARY_WORDS);
   $cmd .= " notXPATH_default='$DICTIONARY_NotXPATH_Default'";
   &shell($cmd);
   
   require("$SCRD/scripts/processGlossary.pl");
   &loadDictionaryWordsXML(1);
-  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1b.xml");
-  copy("$TMPDIR/".$MOD."_1b.xml", "$TMPDIR/".$MOD."_1.xml");
-  unlink("$TMPDIR/".$MOD."_1b.xml");
+  &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
 }
+else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 &writeFootnoteIDs("$TMPDIR/".$MOD."_1.xml", $ConfEntryP);
 &writeTOC("$TMPDIR/".$MOD."_1.xml");
 my $osisDocString = $XML_PARSER->parse_file("$TMPDIR/".$MOD."_1.xml")->toString();
