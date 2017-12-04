@@ -79,13 +79,20 @@
   
   <!-- Copy only nodes having at least one descendant that is part of the current-group -->
   <template match="node()" mode="groupCopy" priority="2">
-    <!-- the following test must match what was used in the group-by attribute of for-each-group -->
-    <if test="descendant-or-self::node()
-        [count(following::seg[@type='keyword']) + count(following::chapter) - count(preceding::div[descendant::seg[@type='keyword']]) = current-grouping-key()]">
-      <copy><apply-templates select="@*"/>
+    <choose>
+      <!-- drop any paragraph that contains this group's keyword, since the keyword will always start a new entry and p containers are very restricted in EPUB2 for example -->
+      <when test="self::p[descendant::seg[@type='keyword']
+          [count(following::seg[@type='keyword']) + count(following::chapter) - count(preceding::div[descendant::seg[@type='keyword']]) = current-grouping-key()]]">
         <apply-templates mode="#current"/>
-      </copy>
-    </if>
+      </when>
+      <!-- the following test must match what was used in the group-by attribute of for-each-group -->
+      <when test="descendant-or-self::node()
+          [count(following::seg[@type='keyword']) + count(following::chapter) - count(preceding::div[descendant::seg[@type='keyword']]) = current-grouping-key()]">
+        <copy><apply-templates select="@*"/>
+          <apply-templates mode="#current"/>
+        </copy>
+      </when>
+    </choose>
   </template>
   
   <!-- Add osisID to keywords -->
