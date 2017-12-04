@@ -188,7 +188,7 @@ sub evalRegex($$) {
     
     foreach my $r (@EVAL_REGEX) {
       if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}
-      if (!$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied \"".$r->{'regex'}."\".\n");}
+      if (!$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied: ".$r->{'regex'}."\n");}
       else {&Log(sprintf("Applied sub (%2i): %s\n", $eval_regex_report{$r->{'regex'}}, $r->{'regex'}));}
     }
   }
