@@ -1372,25 +1372,28 @@ sub sortSearchTermKeys($$) {
 # book, that peripheral is moved to the first kept book, so as to retain 
 # the peripheral.
 #
-# If there is only one bookGroup left, the remaining one will lose its 
-# TOC milestone to so as to reduce an unnecessary TOC level.
+# If there is only one bookGroup left, the remaining one's TOC milestone
+# will become [not_parent] to so as to prevent an unnecessary TOC level.
 #
-# If the ebookTitleP is non-empty, its value will be used as the ebook 
-# title, otherwise the ebook title will be taken from the OSIS file, but 
-# appended to it will be the list of books remaining after filtering IF 
-# any were filtered out. The final ebook title will then be written to  
-# the outosis file.
+# If the ebookTitleP is non-empty, its value will always be used as the  
+# final ebook title. Otherwise the ebook title will be taken from config 
+# Title if present, or else the OSIS file, but appended to it will be the 
+# list of books remaining after filtering IF any were filtered out. The 
+# final ebook title will then be written to the outosis file and returned 
+# in ebookTitleP.
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering, or else the ebook title itself if no books were filtered out.
-sub pruneFileOSIS($$$$$\$\$) {
+sub pruneFileOSIS($$$\%\%\$\$) {
   my $inosis = shift;
   my $outosis = shift;
   my $scope = shift;
-  my $vsys = shift;
-  my $bookTitleTocNum = shift;
+  my $confP = shift;
+  my $convP = shift;
   my $ebookTitleP = shift;
   my $ebookPartTitleP= shift;
+  
+  my $bookTitleTocNum = ($convP{'TitleTOC'} ? $convP{'TitleTOC'}:'2');
   
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
   $typeRE =~ s/\-/\\-/g;
@@ -1399,7 +1402,7 @@ sub pruneFileOSIS($$$$$\$\$) {
   
   my $bookOrderP;
   my $booksFiltered = 0;
-  if (&getCanon($vsys, NULL, \$bookOrderP, NULL)) {
+  if (&getCanon($confP->{'Versification'}, NULL, \$bookOrderP, NULL)) {
     my @lostIntros;
     my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
     # remove books not in scope
@@ -1445,22 +1448,21 @@ sub pruneFileOSIS($$$$$\$\$) {
       }
     }
   }
-  else {&Log("ERROR: Failed to read vsys \"$vsys\", not pruning books in OSIS file!\n");}
+  else {&Log("ERROR: Failed to read vsys \"".$confP->{'Versification'}."\", not pruning books in OSIS file!\n");}
   
-  # remove the TOC entry from the bookGroup, unless there are other bookGroups, to prevent unnecessary TOC levels
+  # change the TOC entry from the bookGroup to not_parent, unless there are other bookGroups, to prevent unnecessary TOC levels
   my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
   if (scalar(@grps) == 1 && @grps[0]) {
     my @ms = $XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[starts-with(@type, "x-usfm-toc")]', @grps[0]);
     if (@ms && @ms[0]) {
-      @ms[0]->unbindNode();
-      my $n = (@ms[0]->getAttribute('n') ? @ms[0]->getAttribute('n'):'NO-TITLE');
-      &Log("NOTE: Removed TOC milestone from bookGroup titled \"$n\" because there is only one bookGroup in the OSIS file.\n", 1);
+      @ms[0]->setAttribute('n', '[not_parent]'.(@ms[0]->getAttribute('n') ? @ms[0]->getAttribute('n'):'NO-TITLE'));
+      &Log("NOTE: Changed TOC milestone from bookGroup to n=\"".@ms[0]->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.\n", 1);
     }
   }
   
   # determine titles
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
-  if (!$$ebookTitleP) {$$ebookTitleP = $osisTitle->textContent;}
+  my $title = ($$ebookTitleP ? $$ebookTitleP:($convP->{'Title'} ? $convP->{'Title'}:$osisTitle->textContent));
   if ($booksFiltered) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
@@ -1470,8 +1472,9 @@ sub pruneFileOSIS($$$$$\$\$) {
     }
     $$ebookPartTitleP = join(', ', @bookNames);
   }
-  else {$$ebookPartTitleP = $$ebookTitleP;}
-  if ($booksFiltered) {$$ebookTitleP .= ": $$ebookPartTitleP";}
+  else {$$ebookPartTitleP = $title;}
+  if ($booksFiltered && !$$ebookTitleP) {$$ebookTitleP = "$title: $$ebookPartTitleP";}
+  else {$$ebookTitleP = $title;}
   if ($$ebookTitleP ne $osisTitle->textContent) {
     foreach my $c ($osisTitle->childNodes()) {$c->unbindNode();}
     $osisTitle->appendText($$ebookTitleP);

@@ -327,20 +327,15 @@ ol, ul {
   color: white;
   font-weight: bold;
 }
-.xsl-inline-toc li {
-  width:100%;
-}
 #root-toc li {
   width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
 }
-#root-toc li.xsl-bookGroup-link,
-#root-toc > div:not(.xsl-long-list) li.xsl-book-link {
+#root-toc .xsl-one-book-column .xsl-bookGroup-link,
+#root-toc .xsl-one-book-column .xsl-book-link {
   width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */
 }
-#root-toc > div:not(.xsl-single-bookGroup) li.xsl-bookGroup-link {
-  width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
-}
-#root-toc > div.xsl-odd-intros li:not(:last-child):first-child {
+#root-toc .xsl-odd-intros li:first-child:not(:last-child),
+#root-toc .xsl-odd-2col-books li[class^="xsl-book"] + li:not(.xsl-book-link):not(.xsl-bookGroup-link) {
   margin-left: 11px;
   margin-right: 11px;
 }

@@ -99,6 +99,8 @@ sub setupAndMakeEbook($$$) {
   my $titleOverride = shift;
   my $confP = shift;
   
+  &Log("\n-----------------------------------------------------\nMAKING EBOOK: scope=$scope, type=$type, titleOverride=$titleOverride\n", 1);
+  
   $EBOOKNAME = $scope;
   if ($type) {$EBOOKNAME .= "_" . $type;}
   $EBOOKNAME =~ s/\s/_/g;
@@ -113,8 +115,9 @@ sub setupAndMakeEbook($$$) {
   
   my $ebookTitle = ($titleOverride ? $titleOverride:$EBOOKCONV{'Title'}); # title will usually still be '' at this point
   my $ebookTitlePart;
-  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope, $confP->{"Versification"}, 
-    ($EBOOKCONV{'TitleTOC'} ? $EBOOKCONV{'TitleTOC'}:'2'), 
+  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope,
+    $confP,
+    \%EBOOKCONV,
     \$ebookTitle, 
     \$ebookTitlePart);
   

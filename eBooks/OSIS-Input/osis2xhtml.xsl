@@ -373,6 +373,7 @@
   [levelN] where N is 1, 2 or 3, to specify the TOC level.
   [no_toc] means no entry for this element should appear in any TOC (neither standard nor inline TOC)
   [no_inline_toc] means no entry for this should appear in the inline TOC (but will appear in the stardard TOC) 
+  [not_parent] means this book or bookGroup TOC element is the first sibling of the following books or chapters, not the parent (which is default).
   Any TEXT following these instructions will be used for the TOC entry name, overriding the default name -->
   <template name="getMainInlineTOC">
     <param name="combinedGlossary" tunnel="yes"/>
@@ -399,26 +400,34 @@
     <param name="listElements"/>
     <param name="listType"/>
     <param name="isMainTOC"/>
-    <variable name="isLongList" select="count($listElements/*[@class='xsl-book-link']) &#62; 5"/>
-    <variable name="isSingleBookGroup" select="count($listElements/*[local-name() = 'li'][contains(@class, 'xsl-bookGroup-link')]) = 1"/>
-    <variable name="hasOddNumberOfIntros" select="count($listElements/*[local-name() = 'li'][not(contains(@class, 'book'))][not(preceding::*[local-name() = 'li'][contains(@class, 'book')])]) mod 2 = 1"/>
-    <variable name="doubleColumnElements" select="$listElements/*[(not($isLongList) and @class='xsl-book-link') or ($isSingleBookGroup and @class='xsl-bookGroup-link')]"/>
-    <variable name="singleColumnElements" select="$listElements/* except $doubleColumnElements"/>
-    <variable name="chars" select="max(($singleColumnElements/string-length(string()), $doubleColumnElements/(string-length(string())*0.5)))"/>
+    <!-- Inline TOCs by default display as lists of inline-block links all sharing equal width, which may occupy the full width of the page. 
+    The two exceptions are: Bible book lists which are limited to three columns, and the main Toc menu, which is broken into three sub-sections:
+    1) introduction links 2) Bible book links, and 3) back material links, and these sections of the Main TOC each display links differently:
+    Introduction: Display in two columns; if there are an odd number of intro links, the first row is a single, centered link.
+    Book: Display as a single column unless there are two testament links, or one testament and more than 4 book links, or more than 5 book links (which are then displayed in two columns).
+    Back: Display in two columns; if there is an odd number of Bible book links displayed as two columns, then the first back material row is a single centered link. -->
+    <variable name="BookIsTwoColumns" select="count($listElements/*[@class='xsl-bookGroup-link']) = 2 or count($listElements/*[starts-with(@class, 'xsl-book')]) &#62; 5"/>
+    <variable name="hasOddNumberOfIntros" select="count($listElements/*[not(starts-with(@class, 'xsl-book'))][not(preceding::*[starts-with(@class, 'xsl-book')])]) mod 2 = 1"/>
+    <variable name="hasOddNumberOf2ColBooks" select="$BookIsTwoColumns and count($listElements/*[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
+    <variable name="twoColumnElements" select="$listElements/*[$BookIsTwoColumns and starts-with(@class, 'xsl-book')]"/>
+    <variable name="oneColumnElements" select="$listElements/* except $twoColumnElements"/>
+    <variable name="chars" select="if ($isMainTOC) then max(($twoColumnElements/string-length(string()), $oneColumnElements/(string-length(string())*0.5))) else max($listElements/string-length(string()))"/>
     <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
     <element name="div" namespace="http://www.w3.org/1999/xhtml">
       <attribute name="class">xsl-inline-toc
-        <if test="$isSingleBookGroup"> xsl-single-bookGroup</if>
+        <if test="not($BookIsTwoColumns)"> xsl-one-book-column</if>
         <if test="$hasOddNumberOfIntros"> xsl-odd-intros</if>
-        <if test="$isLongList"> xsl-long-list</if>
+        <if test="$hasOddNumberOf2ColBooks"> xsl-odd-2col-books</if>
       </attribute>
       <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
         <choose>
-          <when test="$isMainTOC and not($listElements/*[contains(@class, 'xsl-chapter')])">
-            <!-- ebible.css has: 100% = 6px + 12px + maxChars + 12px + 6px + 12px + maxChars + 12px + 6px , so: max-width of parent = 100% = 66px + 2*maxChars, but 2 scales too low so increase it -->
+          <!-- limit main TOC width, because li width is specified as % in css -->
+          <when test="$isMainTOC">
+            <!-- ebible.css 2 column is: 100% = 6px + 12px + maxChars + 12px + 6px + 12px + maxChars + 12px + 6px , so: max-width of parent at 100% = 66px + 2*maxChars (but need fudge since ch, based on '0', isn't determinative)-->
             <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
           </when>
-          <when test="$listElements/*[local-name() = 'li'][@class = 'xsl-book-link']">
+          <!-- limit TOCs containing book names to three columns -->
+          <when test="$listElements/*[@class = 'xsl-book-link']">
             <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
           </when>
         </choose>
@@ -438,7 +447,7 @@
       <message terminate="yes">ERROR: getTocListItems(): <value-of select="me:printNode($tocNode)"/> is not a TOC milestone or non-Bible chapter element!</message>
     </if>
     <variable name="toplevel" select="if ($isOsisRootTOC) then 0 else me:getTocLevel($tocNode)"/>
-    <if test="$toplevel &#60; 3">
+    <if test="$toplevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[not_parent\]'))">
       <variable name="subentries" as="element()*">
         <choose>
           <when test="$tocNode/self::chapter[@sID]">
@@ -481,12 +490,12 @@
             </if>
           </for-each>
         </variable>
-        <variable name="maxChars" select="max($tmptitles/string-length(string()))"/>
+        <variable name="chars" select="max($tmptitles/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
         <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="entryType" select="./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="node()?"/>
+          <variable name="entryType" select="if (matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')) then 'introduction' else ./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="xs:string"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
-            <xsl:if test="not($isOsisRootTOC) and $maxChars &#60;= 32"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
+            <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
             <a><xsl:attribute name="href" select="concat(me:getFileName(.), '.xhtml#', generate-id(.))"/>
               <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
             </a>
@@ -560,11 +569,11 @@
   <!-- getBibleParentTocNodes may be called with any element -->
   <function name="me:getBibleParentTocNodes" as="element(milestone)*">
     <param name="x" as="element()"/>
-    <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child or a first child div, which isn't a bookGroup or book, that has one. 
+    <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child (that isn't n="[not_parent]...) or a first child div, which isn't a bookGroup or book, that has one. 
     Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
-    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $tocnumber)][1] |
-        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $tocnumber)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $tocnumber)][1] |
-        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $tocnumber)][1]"/>
+    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $tocnumber)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
   </function>
   
   <!-- getGlossParentTocNodes may be called from any element -->
