@@ -69,10 +69,13 @@ if ($IS_usfm2osis) {
     require "$SCRD/scripts/processGlossary.pl";
     &removeDuplicateEntries($processing);
   }
+  my $output = "$TMPDIR/2_".$outtype.".preprocessed.xml";
+  &userXSLT("$INPD/sword/preprocess.xsl", $processing, $output);
+  $processing = $output;
   if ($xsl) {
-    my $p = "$TMPDIR/2_".$outtype."_xslts.xml";
-    &osisXSLT($processing, $MODULETOOLS_BIN.$xsl, $p, 'sword');
-    $processing = $p;
+    $output = "$TMPDIR/3_".$outtype."_xslts.xml";
+    &runXSLT($MODULETOOLS_BIN.$xsl, $processing, $output);
+    $processing = $output;
   }
   
   # uppercase dictionary keys were necessary to avoid requiring ICU.

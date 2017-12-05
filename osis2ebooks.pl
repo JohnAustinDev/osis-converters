@@ -27,7 +27,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
-&osisXSLT("$OUTDIR/$MOD.xml", '', "$TMPDIR/".$MOD."_1.xml", 'eBook');
+&userXSLT("$INPD/eBook/preprocess.xsl", "$OUTDIR/$MOD.xml", "$TMPDIR/".$MOD."_1.xml");
 $OSISFILE = "$TMPDIR/".$MOD."_1.xml";
 
 %EBOOKREPORT;
@@ -200,7 +200,7 @@ body {font-family: font1;}
     my $outf = &getProjectOsisFile($companion);
     my $filter = '0';
     if ($outf) {
-      &osisXSLT($outf, '', "$tmp/$companion.xml", "$companion/eBook");
+      &userXSLT("$INPD/$companion/eBook/preprocess.xsl", $outf, "$tmp/$companion.xml");
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.

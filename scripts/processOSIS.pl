@@ -1,9 +1,5 @@
 # MOD_0.xml is raw converter output
-$cmd = "saxonb-xslt -ext:on";
-$cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/usfm2osis.py.xsl");
-$cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0.xml");
-$cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
-&shell($cmd);
+&runXSLT("$SCRD/scripts/xslt/usfm2osis.py.xsl", "$TMPDIR/".$MOD."_0.xml", "$TMPDIR/".$MOD."_0a.xml");
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
 %EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
@@ -12,26 +8,12 @@ $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$I
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/toVersificationBookOrder.pl");
   &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_0a.xml");
-  $cmd = "saxonb-xslt -ext:on";
-  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/checkUpdateIntros.xsl") ;
-  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
-  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
-  &shell($cmd);
+  &runXSLT("$SCRD/scripts/xslt/checkUpdateIntros.xsl", "$TMPDIR/".$MOD."_0a.xml", "$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {
-  $cmd = "saxonb-xslt -ext:on";
-  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl") ;
-  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_0a.xml");
-  $cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_1.xml");
-  &shell($cmd);
-  
-  $cmd = "saxonb-xslt -ext:on";
-  $cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/writeDictionaryWords.xsl") ;
-  $cmd .= " -s:" . &escfile("$TMPDIR/".$MOD."_1.xml");
-  $cmd .= " -o:" . &escfile($DEFAULT_DICTIONARY_WORDS);
-  $cmd .= " notXPATH_default='$DICTIONARY_NotXPATH_Default'";
-  &shell($cmd);
-  
+  &runXSLT("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl", "$TMPDIR/".$MOD."_0a.xml", "$TMPDIR/".$MOD."_1.xml");
+  my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
+  &runXSLT("$SCRD/scripts/xslt/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
   require("$SCRD/scripts/processGlossary.pl");
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML("$TMPDIR/".$MOD."_1.xml");
@@ -83,14 +65,9 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 # MOD.xml is after addCrossRefs.pl
 
 # Run postprocess.(pl|xsl) if they exist
-if (-e "$INPD/postprocess.xsl") {
-  &Log("\nRunning OSIS postprocess.xsl\n", 1);
-  my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile("$INPD/postprocess.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out");
-  &shell($cmd);
-  unlink($OUTOSIS);
-  copy("$OUTOSIS.out", $OUTOSIS);
-}
-
+&userXSLT("$INPD/postprocess.xsl", $OUTOSIS, "$OUTOSIS.out");
+unlink($OUTOSIS);
+copy("$OUTOSIS.out", $OUTOSIS);
 if (-e "$INPD/postprocess.pl") {
   &Log("\nRunning OSIS postprocess.pl\n", 1);
   my $cmd = "$INPD/postprocess.pl " . &escfile($OUTOSIS);
@@ -132,8 +109,8 @@ RUN:./INT.SFM\n");
   }
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
-  my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile("$SCRD/scripts/xslt/glossaryNavMenu.xsl") . " -s:" . &escfile($OUTOSIS) . " -o:" . &escfile("$OUTOSIS.out") . ($glossContainsINT ? " osisRefIntro='INT'":'') . " 2>&1";
-  &shell($cmd);
+  %params = ($glossContainsINT ? ('osisRefIntro' => 'INT'):());
+  &runXSLT("$SCRD/scripts/xslt/glossaryNavMenu.xsl", $OUTOSIS, "$OUTOSIS.out", \%params);
   copy("$OUTOSIS.out", $OUTOSIS);
   unlink("$OUTOSIS.out");
   
@@ -154,10 +131,6 @@ WARNING: For the navigation menu to look best in SWORD, you should use
 &validateOSIS($OUTOSIS);
 
 # Do a tmp Pretty Print for referencing during the conversion process
-$cmd = "saxonb-xslt -ext:on";
-$cmd .= " -xsl:" . &escfile("$SCRD/scripts/xslt/prettyPrint.xsl");
-$cmd .= " -s:" . &escfile($OUTOSIS);
-$cmd .= " -o:" . &escfile("$TMPDIR/".$MOD."_PrettyPrint.xml");
-&shell($cmd);
+&runXSLT("$SCRD/scripts/xslt/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 
 &Log("\nend time: ".localtime()."\n");

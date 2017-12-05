@@ -345,7 +345,7 @@ sub checkDependencies($$$$) {
   $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
   $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
   $path{'MODULETOOLS_BIN'}{'test'} = [&escfile($MODULETOOLS_BIN."usfm2osis.py"), "Usage"];
-  $path{'XSLT2'}{'test'} = [&osisXSLT(), "Usage"];
+  $path{'XSLT2'}{'test'} = ['saxonb-xslt', "Usage"];
   $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
   $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
   
@@ -2880,46 +2880,38 @@ sub is_usfm2osis($) {
   return $usfm2osis;
 }
 
-
-sub osisXSLT($$$$) {
-  my $osis = shift;
+sub userXSLT($$$\%$) {
   my $xsl = shift;
-  my $out = shift;
-  my $customPreprocessorDirName = shift;
- 
-  if (!$osis) {return 'saxonb-xslt';} # for dependency checker
+  my $source = shift;
+  my $output = shift;
+  my $paramsP = shift;
+  my $logFlag = shift;
   
-  if ($customPreprocessorDirName) {
-    my $preprocessor = "$INPD/$customPreprocessorDirName/preprocess.xsl";
-    if (-e $preprocessor) {
-      &Log("\n--- Running Pre-Processor XSLT...\n");
-      
-      my $outtmp = $out;
-      if ($outtmp !~ s/^(.*?\/[^\/]+)(\.[^\.]*)$/$1_custom$2/) {&Log("ERROR: No substitution: \"$out\"\n"); die;}
-      my $cmd = "saxonb-xslt -ext:on -xsl:" . &escfile($preprocessor) . " -s:" . &escfile($osis) . " -o:" . &escfile($outtmp);
-      &Log("$cmd\n");
-      system($cmd);
-      
-      $osis = $outtmp;
-    }
-  }
-
-  my $cmd;
-  if ($xsl) {
-    &Log("\n--- Running XSLT...\n");
-    if (! -e $xsl) {&Log("ERROR: Could not locate required XSL file: \"$xsl\"\n"); die;}
-    $cmd = "saxonb-xslt -ext:on -xsl:" . ($osis ? &escfile($xsl) . " -s:" . &escfile($osis) . " -o:" . &escfile($out):'');
+  if (-e $xsl) {
+    &Log("\n--- Running USER XSLT: $xsl...\n");
+    &runXSLT($xsl, $source, $output, $paramsP, $logFlag);
   }
   else {
-    $cmd = 'cp '.&escfile($osis).' '.&escfile($out);
+    my $cmd = 'cp '.&escfile($source).' '.&escfile($output);
+    &Log("$cmd\n");
+    system($cmd);
   }
-  
-  &Log("$cmd\n");
-  system($cmd);
-  
-  return $cmd;
 }
 
+sub runXSLT($$$\%$) {
+  my $xsl = shift;
+  my $source = shift;
+  my $output = shift;
+  my $paramsP = shift;
+  my $logFlag = shift;
+  
+  my $cmd = "saxonb-xslt -ext:on";
+  $cmd .= " -xsl:" . &escfile($xsl) ;
+  $cmd .= " -s:" . &escfile($source);
+  $cmd .= " -o:" . &escfile($output);
+  foreach my $p (keys %{$paramsP}) {$cmd .= " $p='".$paramsP->{$p}."'";}
+  &shell($cmd, $logFlag);
+}
 
 $ProgressTotal = 0;
 $ProgressTime = 0;

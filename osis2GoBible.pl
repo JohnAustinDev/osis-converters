@@ -42,8 +42,9 @@ $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-&osisXSLT($OSISFILE, $MODULETOOLS_BIN."osis2gobible.xsl", "$TMPDIR/osis.xml", 'GoBible');
-$OSISFILE = "$TMPDIR/$out.xml";
+&userXSLT("$INPD/GoBible/preprocess.xsl", $OSISFILE, "$TMPDIR/osis.preprocessed.xml");
+&runXSLT($MODULETOOLS_BIN."osis2gobible.xsl", "$TMPDIR/osis.preprocessed.xml", "$TMPDIR/osis.xml");
+$OSISFILE = "$TMPDIR/osis.xml";
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
 foreach my $f (@FILES) {if (!-e $f) {&Log("ERROR: Missing required file: $f\n");}}
