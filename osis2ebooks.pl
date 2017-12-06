@@ -29,6 +29,7 @@ require "$SCRD/scripts/common.pl"; &init();
 
 &userXSLT("$INPD/eBook/preprocess.xsl", "$OUTDIR/$MOD.xml", "$TMPDIR/".$MOD."_1.xml");
 $OSISFILE = "$TMPDIR/".$MOD."_1.xml";
+$OSISFILE_XML = $XML_PARSER->parse_file($OSISFILE);
 
 %EBOOKREPORT;
 $EBOOKNAME;
@@ -55,8 +56,7 @@ if (@CREATE_FULL_PUBLICATIONS) {
 
 # also make separate eBooks from each Bible book within the OSIS file
 if ($CREATE_SEPARATE_BOOKS) {
-  $thisXML = $XML_PARSER->parse_file($OSISFILE);
-  @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $thisXML);
+  @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $OSISFILE_XML);
   BOOK: foreach my $aBook (@allBooks) {
     my $bk = $aBook->getAttribute('osisID');
     # don't create this ebook if an identical ebook has already been created
@@ -223,12 +223,8 @@ body {font-family: font1;}
     $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = $companion;
     $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
   }
-  
-  my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
-  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
-  my $hasAllBookAbbreviations = (66 == scalar(@{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $xml)}));
-    
   if (@skipCompanions) {
+    my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
     # remove work elements of skipped companions or else the eBook converter will crash
     foreach my $c (@skipCompanions) {
       my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$c.'"]', $xml);
@@ -245,6 +241,9 @@ body {font-family: font1;}
     my $companion = $osis; $companion =~ s/^.*\/([^\/\.]+)\.[^\.]+$/$1/;
     &copyReferencedImages($osis, &findCompanionDirectory($companion), $tmp);
   }
+  
+  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
+  my $hasAllBookAbbreviations = (66 == scalar(@{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $OSISFILE_XML)}));
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;

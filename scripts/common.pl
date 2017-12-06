@@ -1393,6 +1393,7 @@ sub pruneFileOSIS($$$\%\%\$\$) {
   my $ebookTitleP = shift;
   my $ebookPartTitleP= shift;
   
+  my $tocNum = ($convP{'TOC'} ? $convP{'TOC'}:'2');
   my $bookTitleTocNum = ($convP{'TitleTOC'} ? $convP{'TitleTOC'}:'2');
   
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
@@ -1450,13 +1451,17 @@ sub pruneFileOSIS($$$\%\%\$\$) {
   }
   else {&Log("ERROR: Failed to read vsys \"".$confP->{'Versification'}."\", not pruning books in OSIS file!\n");}
   
-  # change the TOC entry from the bookGroup to not_parent, unless there are other bookGroups, to prevent unnecessary TOC levels
+  # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
   my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
   if (scalar(@grps) == 1 && @grps[0]) {
-    my @ms = $XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[starts-with(@type, "x-usfm-toc")]', @grps[0]);
-    if (@ms && @ms[0]) {
-      @ms[0]->setAttribute('n', '[not_parent]'.(@ms[0]->getAttribute('n') ? @ms[0]->getAttribute('n'):'NO-TITLE'));
-      &Log("NOTE: Changed TOC milestone from bookGroup to n=\"".@ms[0]->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.\n", 1);
+    my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
+    if ($ms) {
+      # don't include in the TOC unless entry has a title and there is a bookGroup intro paragraph with text
+      if (@{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0]) {
+        $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
+        &Log("NOTE: Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.\n", 1);
+      }
+      else {$ms->unbindNode();}
     }
   }
   
@@ -1494,8 +1499,8 @@ sub filterScriptureReferences($$$$) {
   my $removeOsis = shift;
   my $keepAllLinks = shift;
   
-  my $osis1 = $osis; $osis1 =~ s/^.*\///; my $notFoundOsis1 = $notFoundOsis; $notFoundOsis1 =~ s/^.*\///; my $removeOsis1 = $removeOsis; $removeOsis1 =~ s/^.*\///;
-  &Log("\nTagging Scripture references in \"$osis1\" that target outside \"$notFoundOsis1\", ".($keepAllLinks ? 'disabling':'REMOVING')." those that target outside \"$removeOsis1\".\n", 1);
+  &Log("--- FILTERING Scripture references in \"$osis\"\n");
+  &Log(($keepAllLinks ? 'Disabling':'REMOVING')." xr-note child references that target outside \"$removeOsis\" and tagging Scripture references that target outside ".($osis eq $notFoundOsis ? 'itself':"\"$notFoundOsis\"").".\n", 1);
   
   my %filteredBooks1;
   my $total1 = 0;
@@ -1580,8 +1585,8 @@ sub filterGlossaryReferences($\@$) {
     $refsInScope{$work} = \%ids;
   }
   
-  my $osis1 = $osis; $osis1 =~ s/^.*\///; 
-  &Log("\nFiltering glossary references in \"$osis1\"".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'').".\n", 1);
+  &Log("--- FILTERING glossary references in \"$osis\"\n");
+  &Log("REMOVING glossary references".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'')."\n", 1);
   
   my $xml = $XML_PARSER->parse_file($osis);
   
@@ -1611,7 +1616,7 @@ sub filterGlossaryReferences($\@$) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n", 1);
+  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n\n", 1);
   foreach my $r (keys %filteredOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }

@@ -48,7 +48,7 @@
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
   
   <!-- A main Table Of Contents is placed after the first TOC milestone sibling after the OSIS header, or if there isn't such a milestone, add one -->
-  <variable name="addMainTocEntry" select="/descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1] &#62;&#62; /descendant::div[starts-with(@type,'book')][1]"/>
+  <variable name="mainTocMilestone" select="/descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]]"/>
 
   <variable name="mainInputOSIS" select="/"/>
 
@@ -243,7 +243,7 @@
   <template name="WriteFile">
     <param name="fileName" as="xs:string"/>
     <param name="fileNodes" as="node()+"/>
-    <variable name="contextNode" select="$fileNodes[1]"/>
+    <variable name="parentElement" select="$fileNodes[1]/parent::*"/>
     <message select="concat('writing:', $fileName)"/>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
@@ -257,9 +257,9 @@
         </head>
         <body>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', for $x in tokenize($fileName, '_') return $x, $contextNode/@type, $contextNode/@subType)), ' '))"/>
+              ('calibre', for $x in tokenize($fileName, '_') return $x, $parentElement/@type, $parentElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
-          <if test="$addMainTocEntry and $contextNode[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]][generate-id(root(.)) = generate-id($mainInputOSIS)]" 
+          <if test="not($mainTocMilestone) and $parentElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]][generate-id(root(.)) = generate-id($mainInputOSIS)]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
             <variable name="title"><osis:title type="main"><value-of select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/></osis:title></variable>
             <apply-templates select="$title" mode="xhtml"/>
@@ -268,7 +268,7 @@
           <xsl:apply-templates mode="xhtml" select="$fileNodes"/>
           <xsl:call-template name="noteSections"><xsl:with-param name="nodes" select="$fileNodes"/></xsl:call-template>
           <!-- If there are links to brokenLinkURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$brokenLinkURL != 'none' and $contextNode[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <xsl:if test="$brokenLinkURL != 'none' and $parentElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="brokenLinkURL" class="xsl-crossref">
@@ -373,7 +373,7 @@
   [levelN] where N is 1, 2 or 3, to specify the TOC level.
   [no_toc] means no entry for this element should appear in any TOC (neither standard nor inline TOC)
   [no_inline_toc] means no entry for this should appear in the inline TOC (but will appear in the stardard TOC) 
-  [not_parent] means this book or bookGroup TOC element is the first sibling of the following books or chapters, not the parent (which is default).
+  [not_parent] means this book or bookGroup TOC element is the first sibling of the following books or chapters, not the parent (parent is default).
   Any TEXT following these instructions will be used for the TOC entry name, overriding the default name -->
   <template name="getMainInlineTOC">
     <param name="combinedGlossary" tunnel="yes"/>
@@ -409,7 +409,7 @@
     <variable name="BookIsTwoColumns" select="count($listElements/*[@class='xsl-bookGroup-link']) = 2 or count($listElements/*[starts-with(@class, 'xsl-book')]) &#62; 5"/>
     <variable name="hasOddNumberOfIntros" select="count($listElements/*[not(starts-with(@class, 'xsl-book'))][not(preceding::*[starts-with(@class, 'xsl-book')])]) mod 2 = 1"/>
     <variable name="hasOddNumberOf2ColBooks" select="$BookIsTwoColumns and count($listElements/*[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
-    <variable name="twoColumnElements" select="$listElements/*[$BookIsTwoColumns and starts-with(@class, 'xsl-book')]"/>
+    <variable name="twoColumnElements" select="$listElements/*[$BookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
     <variable name="oneColumnElements" select="$listElements/* except $twoColumnElements"/>
     <variable name="chars" select="if ($isMainTOC) then max(($twoColumnElements/string-length(string()), $oneColumnElements/(string-length(string())*0.5))) else max($listElements/string-length(string()))"/>
     <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
@@ -462,6 +462,7 @@
             <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary -->
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
                 [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
+                [not($isOsisRootTOC and $mainTocMilestone and generate-id(.) = generate-id($mainTocMilestone))]
                 [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]"/>
           </otherwise>
         </choose>
@@ -492,7 +493,7 @@
         </variable>
         <variable name="chars" select="max($tmptitles/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
         <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="entryType" select="if (matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')) then 'introduction' else ./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="xs:string"/>
+          <variable name="entryType" select="if (matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')) then 'introduction' else ./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="xs:string?"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
@@ -788,7 +789,7 @@
       <call-template name="title"/>
     </for-each>
     <!-- if this is the first milestone in a Bible, then include the root TOC -->
-    <if test="not($addMainTocEntry) and generate-id(root(.)) = generate-id($mainInputOSIS) and not(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
+    <if test="$mainTocMilestone[generate-id(.) = generate-id(current())]">
       <call-template name="getMainInlineTOC"/>
     </if>
     <sequence select="me:getInlineTOC(.)"/>
