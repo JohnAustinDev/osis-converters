@@ -244,7 +244,7 @@
     <param name="fileName" as="xs:string"/>
     <param name="fileNodes" as="node()+"/>
     <variable name="contextNode" select="$fileNodes[1]"/>
-    <message select="concat('WRITING:', $fileName)"/>
+    <message select="concat('writing:', $fileName)"/>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
@@ -639,8 +639,8 @@
   <!-- Remove these elements entirely (x-chapterLabel is handled by me:getTocTitle())-->
   <template match="verse[@eID] | chapter[@eID] | index | milestone | title[@type='x-chapterLabel'] | title[@type='runningHead']" mode="xhtml"/>
   
-  <!-- Remove these tags (keeping their content). Paragraphs tags containing certain elements are dropped so that resulting HTML will validate -->
-  <template match="name | seg | reference[ancestor::title[@type='scope']] | p[descendant::seg[@type='keyword']] | p[descendant::figure]" mode="xhtml">
+  <!-- Remove these tags (keeping their content) -->
+  <template match="name | seg | reference[ancestor::title[@type='scope']]" mode="xhtml">
     <apply-templates mode="xhtml"/>
   </template>
   
@@ -730,9 +730,6 @@
   </template>
 
   <template match="head" mode="xhtml">
-    <if test="not(parent::list)"><call-template name="head"/></if>
-  </template>
-  <template name="head">
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
   </template>
   
@@ -773,8 +770,10 @@
   </template>
   
   <template match="list" mode="xhtml">
-    <for-each select="child::head"><call-template name="head"/></for-each><!-- EPUB2 validator doesn't allow <h> child tags of ul -->
-    <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
+    <variable name="ul" as="element(html:ul)">
+      <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
+    </variable>
+    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')])"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
@@ -810,20 +809,13 @@
   </template>
   
   <template match="p" mode="xhtml">
-    <p xmlns="http://www.w3.org/1999/xhtml">
-      <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
-    </p>
-  </template>
-  
-  <!-- This splits paragraphs that contain a page-break -->
-  <template match="p[child::milestone[@type='pb']]" mode="xhtml">
-    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/>
-      <xsl:apply-templates mode="xhtml" select="node()[following-sibling::milestone[@type='pb']]"/>
-    </p>
-    <xsl:apply-templates mode="xhtml" select="node()[milestone[@type='pb']]"/>
-    <p xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/>
-      <xsl:apply-templates mode="xhtml" select="node()[not(milestone[@type='pb'])][not(following-sibling::milestone[@type='pb'])]"/>
-    </p>
+    <variable name="p" as="element(html:p)">
+      <p xmlns="http://www.w3.org/1999/xhtml">
+        <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
+      </p>
+    </variable>
+    <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
+    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')])"/>
   </template>
   
   <template match="reference[@subType='x-not-found']" mode="xhtml">
@@ -890,6 +882,48 @@
     <param name="s"/>
     <value-of select="replace(replace($s, '^([^\p{L}_])', 'x$1'), '[^\w\d_\-\.]', '-')"/>
   </function>
+  
+  <!-- Use this function if an xhtml element must not contain other elements (for EPUB2 etc. validation). 
+  Any element in $expel becomes a sibling of the container $element, which is divided and copied accordingly. -->
+  <function name="me:expelElements">
+    <param name="element" as="element()"/>
+    <param name="expel" as="element()*"/>
+    <choose>
+      <when test="count($expel) = 0"><sequence select="$element"/></when>
+      <otherwise>
+        <variable name="pass1">
+          <for-each-group select="$element" group-by="for $i in ./descendant-or-self::node() 
+              return 2*count($i/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($i/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])">
+            <apply-templates select="current-group()" mode="weed1"><with-param name="expel" select="$expel" tunnel="yes"/></apply-templates>
+          </for-each-group>
+        </variable>
+        <variable name="pass2"><apply-templates select="$pass1" mode="weed2"/></variable><!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
+        <if test="count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="$expel/local-name()"/></message></if>
+        <sequence select="$pass2"/>
+      </otherwise>
+    </choose>
+  </function>
+  <template mode="weed1" match="@*"><copy/></template>
+  <template mode="weed1" match="node()">
+    <param name="expel" as="element()+" tunnel="yes"/>
+    <variable name="groupDescendantSelf" select="descendant-or-self::node()
+        [current-grouping-key() = 2*count(preceding::node()[generate-id(.) = $expel/generate-id()]) + count(ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])]"/>
+    <variable name="groupExpelElement" select="$groupDescendantSelf/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
+    <if test="$groupDescendantSelf"><!-- drop the context node if it has no descendants or self in the current group -->
+      <choose>
+        <when test="$groupExpelElement and descendant::*[generate-id(.) = generate-id($groupExpelElement)]"><apply-templates mode="weed1"/></when>
+        <otherwise>
+          <copy>
+            <if test="child::node()[normalize-space()]"><attribute name="container"/></if><!-- used to remove empty generated containers in pass2 -->
+            <apply-templates select="node()|@*" mode="weed1"/>
+          </copy>
+        </otherwise>
+      </choose>
+    </if>
+  </template>
+  <template mode="weed2" match="node()|@*"><copy><apply-templates select="node()|@*" mode="weed2"/></copy></template>
+  <template mode="weed2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
+  <template mode="weed2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
   
   <function name="me:printNode" as="text()">
     <param name="node" as="node()"/>
