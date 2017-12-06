@@ -1488,13 +1488,14 @@ sub pruneFileOSIS($$$\%\%\$\$) {
 
 # Tag Scripture reference links that are outside the scope of notFoundOsis,
 # and remove links which target outside of $removeOsis
-sub filterScriptureReferences($$$) {
+sub filterScriptureReferences($$$$) {
   my $osis = shift;
   my $notFoundOsis = shift;
   my $removeOsis = shift;
+  my $keepAllLinks = shift;
   
   my $osis1 = $osis; $osis1 =~ s/^.*\///; my $notFoundOsis1 = $notFoundOsis; $notFoundOsis1 =~ s/^.*\///; my $removeOsis1 = $removeOsis; $removeOsis1 =~ s/^.*\///;
-  &Log("\nTagging Scripture references in \"$osis1\" that target outside \"$notFoundOsis1\", removing those that target outside \"$removeOsis1\".\n", 1);
+  &Log("\nTagging Scripture references in \"$osis1\" that target outside \"$notFoundOsis1\", ".($keepAllLinks ? 'disabling':'REMOVING')." those that target outside \"$removeOsis1\".\n", 1);
   
   my %filteredBooks1;
   my $total1 = 0;
@@ -1523,6 +1524,10 @@ sub filterScriptureReferences($$$) {
       if ($refWork2 && 
          ($work ne $refWork2 || !exists($scopeBookNames2{$book})) && 
          @{$XPC->findnodes('./ancestor::osis:note[@type="crossReference"]', $link)}[0]) {
+        if ($keepAllLinks) {
+          my @children = $link->childNodes();
+          foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
+        }
         $link->unbindNode();
         $total2++;
         $filteredBooks2{$book}++;
@@ -1538,8 +1543,10 @@ sub filterScriptureReferences($$$) {
   
   # remove any cross-references with nothing left in them
   my $total3 = 0;
-  my @links = $XPC->findnodes('//osis:note[@type="crossReference"][not(descendant::osis:reference[@type != "annotateRef" or not(@type)])]', $xml);
-  foreach my $link (@links) {$link->unbindNode(); $total3++;}
+  if (!$keepAllLinks) {
+    my @links = $XPC->findnodes('//osis:note[@type="crossReference"][not(descendant::osis:reference[@type != "annotateRef" or not(@type)])]', $xml);
+    foreach my $link (@links) {$link->unbindNode(); $total3++;}
+  }
   
   open(OUTF, ">$osis");
   print OUTF $xml->toString();

@@ -223,9 +223,13 @@ body {font-family: font1;}
     $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = $companion;
     $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
   }
+  
+  my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
+  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
+  my $hasAllBookAbbreviations = (66 == scalar(@{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $xml)}));
+    
   if (@skipCompanions) {
     # remove work elements of skipped companions or else the eBook converter will crash
-    my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
     foreach my $c (@skipCompanions) {
       my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$c.'"]', $xml);
       foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
@@ -245,11 +249,11 @@ body {font-family: font1;}
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
-  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml", $OSISFILE);
+  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml", $OSISFILE, $hasAllBookAbbreviations);
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
-    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml", $OSISFILE);
+    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml", $OSISFILE, $hasAllBookAbbreviations);
     $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
   }
 
