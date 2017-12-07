@@ -6,10 +6,6 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT will do the following:
-  1) End paragraphs at TOC milestones
-  -->
-  
   <import href="./functions.xsl"/>
   
   <!-- By default copy everything as is, for all modes -->
@@ -19,7 +15,7 @@
   
   <!-- osis-converters uses \tocN tags for eBook TOC entries, but usfm2osis.py only expects 
   them at the beginning of a file, before any paragraphs, and so it does not close paragraphs 
-  upon TOC markers as it should. So this fixes it. -->
+  upon TOC markers. So this fixes that. -->
   <template match="p[descendant::milestone[starts-with(@type, 'x-usfm-toc')]]">
     <variable name="keepChildren" select="./node()[. &#60;&#60; current()/descendant::milestone[starts-with(@type, 'x-usfm-toc')][1]]"/>
     <if test="$keepChildren">
@@ -30,8 +26,8 @@
     <for-each select="./node() except $keepChildren"><apply-templates select="."/></for-each>
   </template>
   
-  <!-- usfm2osis.py puts scope title content within a reference element, but they should not 
-  actually be reference links. So this fixes them. -->
+  <!-- usfm2osis.py puts scope title content within a reference element, but they are not 
+  actually reference links. So this fixes them. -->
   <template match="reference[ancestor::title[@type='scope']]"><apply-templates/></template>
   
 </stylesheet>
