@@ -2921,7 +2921,11 @@ sub runXSLT($$$\%$) {
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   $cmd .= " -o:" . &escfile($output);
-  foreach my $p (keys %{$paramsP}) {$cmd .= " $p='".$paramsP->{$p}."'";}
+  foreach my $p (keys %{$paramsP}) {
+    my $v = $paramsP->{$p};
+    $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
+    $cmd .= " $p=\"$v\"";
+  }
   &shell($cmd, $logFlag);
 }
 
