@@ -819,7 +819,7 @@
     <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')])"/>
   </template>
   
-  <template match="reference[@subType='x-not-found']" mode="xhtml">
+  <template match="reference[@subType='x-other-resource']" mode="xhtml">
     <choose>
       <when test="$brokenLinkURL = 'none'">
         <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>

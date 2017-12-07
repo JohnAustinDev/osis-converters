@@ -1539,7 +1539,7 @@ sub filterScriptureReferences($$$$) {
         #&Log("Removed: \"$work\", \"$book\"\n", 1);
         next;
       }
-      $link->setAttribute('subType', 'x-not-found');
+      $link->setAttribute('subType', 'x-other-resource');
       $total1++;
       $filteredBooks1{$book}++;
       #&Log("Tagged: \"$work\", \"$book\"\n", 1);

@@ -281,7 +281,7 @@ dfn {
 .xsl-crossref-section hr:last-child {
   display:none;
 }
-a.x-not-found {
+a.x-other-resource {
   color: #888888;
 }
 .x-glossary-title {}
