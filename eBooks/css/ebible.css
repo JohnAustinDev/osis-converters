@@ -110,7 +110,7 @@ a.osis-reference {
   margin:0px;
 }
 .osis-milestone.pb,
-#brokenLinkURL {
+#fullResourceURL {
   page-break-before: always;
 }
 

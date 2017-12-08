@@ -1,6 +1,10 @@
 # Configuration file for eBook conversions (lines beginning with # are 
 # comments)
 
+# Separate book eBooks often have broken links to missing books. So this
+# URL, if supplied, will alert users where to get the full eBook.
+#FullResourceURL=https://location/of/entire-translation/eBook
+
 # NOTE: If a cover jpg image is placed within the eBook directory whose 
 # file name is either "cover.jpg" or else it matches the project scope, 
 # that image will be used as the cover image for relevant eBook(s). 
@@ -49,7 +53,3 @@ CombinedGlossaryTitle=Glossary
 # The epub:type attributes are part of the EPUB3 spec, but allow note
 # popups in some readers.
 #NoEpub3Markup=true
-
-# Separate book eBooks often have broken links to missing books. So this
-# URL, if supplied, will alert users where to get the full eBook.
-#BrokenLinkURL=https://location/of/another/eBook
