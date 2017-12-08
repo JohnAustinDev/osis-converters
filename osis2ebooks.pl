@@ -242,17 +242,14 @@ body {font-family: font1;}
     &copyReferencedImages($osis, &findCompanionDirectory($companion), $tmp);
   }
   
-  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
-  my $hasAllBookAbbreviations = (66 == scalar(@{$XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $OSISFILE_XML)}));
-  
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
-  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", "$tmp/$MOD.xml", $OSISFILE, $hasAllBookAbbreviations);
+  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $OSISFILE);
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
-    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, "$tmp/$MOD.xml", $OSISFILE, $hasAllBookAbbreviations);
+    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $OSISFILE, "$tmp/$MOD.xml");
     $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
   }
 
