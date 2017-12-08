@@ -646,7 +646,7 @@ sub copyFont($$$$$) {
   `mkdir -p "$outdir"`;
   
   my $copied = 0;
-  foreach my $f (keys %{$fontP->{$fontname}}) {
+  foreach my $f (sort keys %{$fontP->{$fontname}}) {
     my $fdest = $f;
     if (!$dontRenameRegularFile && $fontP->{$fontname}{$f}{'style'} eq 'regular') {
       $fdest =~ s/^.*\.([^\.]+)$/$fontname.$1/;
@@ -1863,8 +1863,7 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
       foreach my $n (@ns) {
-        if (!&matchInEntry($m, $n->textContent)) {next;}
-        $minfo{'inEntries'}{$n->textContent}++;
+        if (&matchInEntry($m, $n->textContent)) {$minfo{'inEntries'}{$n->textContent}++;}
       }
       
       # test match pattern, so any errors with it can be found right away
@@ -2159,14 +2158,17 @@ sub contextAttribute2osisRefAttribute($) {
   return $ret;
 }
 
-
+# Return 1 if $name may be referenced by the osisRef of the entry for the match element $m.
+# If so, the match $m will not be applied whenever a text node's glossaryContext is $name.
+# This is necessary to insure an entry will never contain links to itself or a duplicate.
 sub matchInEntry($$) {
   my $m = shift;
-  my $entry = shift;
+  my $name = shift;
   
   my $osisRef = @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef');
+  $osisRef =~ s/\.dup\d+$//;
   foreach my $ref (split(/\s+/, $osisRef)) {
-    if (&osisRef2Entry($ref) eq $entry) {return 1;}
+    if (lc(&osisRef2Entry($ref)) eq lc($name)) {return 1;}
   }
   return 0;
 }
@@ -2812,7 +2814,7 @@ sub logDictLinks() {
     my $asp = '';
     if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
     my $st = $ent; $st =~ s/^\w*\://; $st =~ s/\.dup\d+$//;
-    foreach my $as (sort {$ematch{$ent}{$b} <=> $ematch{$ent}{$a}} keys %{$ematch{$ent}}) {
+    foreach my $as (sort { sprintf("%06i%s", $ematch{$ent}{$b}, $b) cmp sprintf("%06i%s", $ematch{$ent}{$a}, $a) } keys %{$ematch{$ent}}) {
       my $tp = ($st eq $as ? '':(lc($st) eq lc($as) ? '':'*'));
       $asp .= $as."(".$ematch{$ent}{$as}."$tp) ";
     }
@@ -2823,7 +2825,7 @@ sub logDictLinks() {
   # print out the report
   my $gt = 0;
   my $p = '';
-  foreach my $ent (sort {$kl{$b} <=> $kl{$a}} keys %kl) {
+  foreach my $ent (sort {sprintf("%06i%s", $kl{$b}, $b) cmp sprintf("%06i%s", $kl{$a}, $a) } keys %kl) {
     my $t = 0;
     my $ctxp = '';
     foreach my $ctx (sort {$EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a}} keys %{$EntryLink{$ent}}) {
