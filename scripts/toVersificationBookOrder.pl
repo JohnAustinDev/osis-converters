@@ -262,52 +262,76 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
   }
   foreach my $lg (reverse(@mylog)) {&Log($lg);}
   
-  # Don't check that all books/chapters are included in this 
-  # OSIS file, but DO insure that all verses are accounted for and in 
-  # sequential order without any skipping (required by GoBible Creator).
-  my @verses = $XPC->findnodes('//osis:verse[@osisID]', $xml);
-  my $lastbkch=''; my $lastv=0; my $lastVerseTag='';
-  my $vcounter;
-  my %missingVerseReport;
-  foreach my $verse (@verses) {
-    my $insertBefore = 0;
-    my $osisID = $verse->getAttribute('osisID');
-    if ($osisID !~ /^([^\.]+\.\d+)\.(\d+)/) {&Log("ERROR: Can't read vfirst \"$v\"\n");}
-    my $bkch = $1;
-    my $vfirst = (1*$2);
-    if ($bkch ne $lastbkch) {
-      $vcounter = 1;
-      if ($lastbkch) {&checkLastVerse($lastbkch, $lastv, $lastVerseTag, $xml, $canonP, \%missingVerseReport);}
-    }
-    foreach my $v (split(/\s+/, $osisID)) {
-      if ($v !~ /^\Q$bkch\E\.(\d+)(\-(\d+))?$/) {&Log("ERROR: Can't read v \"$v\" in \"$osisID\"\n");}
-      my $vv1 = (1*$1);
-      my $vv2 = ($3 ? (1*$3):$vv1);
-      for (my $vv = $vv1; $vv <= $vv2; $vv++) {
-        if ($vcounter > $vv) {&Log("ERROR: Verse number goes backwards \"$osisID\"\n");}
-        while ($vcounter < $vv) {
-          $insertBefore++; $vcounter++;
+  # Insure that all verses are accounted for and in sequential order 
+  # without any skipping (required by GoBible Creator).
+  my %missingVerseReport; my %extraVerseReport;
+  my @ve = $XPC->findnodes('//osis:verse[@sID]', $xml);
+  my @v = map($_->getAttribute('sID'), @ve);
+  my $x = 0;
+  my $checked = 0;
+BOOK:
+  foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$canonP}) {
+    if (@v[$x] !~ /^$bk\./) {next;}
+    my $ch = 1;
+    foreach my $vmax (@{$canonP->{$bk}}) {
+      for (my $vs = 1; $vs <= $vmax; $vs++) {
+        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
+        if ($ech < $ch || ($ech == $ch && $evs < $vs)) {
+          &Log("ERROR: Chapter/verse ordering problem starting at ".@v[$x]." (expected $ch.$vs)! Aborting!\n");
+          last BOOK;
         }
-        $vcounter++;
+        if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
+          if ($vs == 1) {
+            &Log("ERROR: Missing first verse $bk.$ch.1! Aborting!\n");
+            last BOOK;
+          }
+          my $osisID = @v[$x-1]; $osisID =~ s/^\s*(\S+).*$/$1/;
+          @ve[$x-1]->setAttribute('osisID', @ve[$x-1]->getAttribute('osisID')." $bk.$ch.$vs");
+          $missingVerseReport{$osisID} = @ve[$x-1]->getAttribute('osisID');
+          next;
+        }
+        @v[$x] =~/\.(\d+)\s*$/; $vs = ($1*1);
+        $x++;
       }
+      while (@v[$x] =~ /^\Q$bk.$ch./) {
+        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)\b/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
+        my $alt = "<hi type=\"italic\" subType=\"x-alternate\"><hi type=\"super\">$evs</hi></hi>";
+        @{$XPC->findnodes('//osis:verse[@eID="'.@v[$x].'"]', $xml)}[0]->unbindNode();
+        @ve[$x]->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($alt), @ve[$x]);
+        @ve[$x]->unbindNode();
+        $extraVerseReport{@v[$x]} = $evs;
+        $x++;
+      }
+      $ch++;
     }
-    if ($insertBefore) {&spanVerses($lastVerseTag, $insertBefore, $xml, \%missingVerseReport);}
-    $lastbkch = $bkch;
-    $lastv = ($vcounter-1);
-    $lastVerseTag = $verse;
+    if (@v[$x] =~ /^\Q$bk./) {
+      &Log("ERROR: Extra chapter ".@v[$x]."! Aborting!\n");
+      last BOOK;
+    }
   }
-  &checkLastVerse($lastbkch, $lastv, $lastVerseTag, $xml, $canonP, \%missingVerseReport);
+  if ($x == @v) {&Log("\nNOTE: All verses were checked against verse system $vsys\n");}
+  else {&Log("\nERROR: Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")\n");}
   
   &Log("\n$MOD REPORT: ".(keys %missingVerseReport)." instance(s) of missing verses in the USFM".((keys %missingVerseReport) ? ':':'.')."\n");
   if (%missingVerseReport) {
     &Log("NOTE: There are verses missing from the USFM, which are included in the \n");
     &Log("$vsys verse system. For this reason, the osisIDs of verses previous to these \n");
     &Log("missing verses have been updated to span the missing verses. These instances \n");
-    &Log("should be checked in the USFM to insure this is the intended result. Otherwise \n");
-    &Log("you need to adjust the USFM using EVAL_REGEX to somehow include the missing \n");
-    &Log("verses as required.\n");
+    &Log("should be checked to insure this is the intended result. Otherwise you need \n");
+    &Log("to adjust the USFM using EVAL_REGEX to include the missing verses as required. \n");
     foreach my $m (sort keys %missingVerseReport) {
       &Log(sprintf("WARNING: osisID %12s became %s\n", $m, $missingVerseReport{$m}));
+    }
+  }
+  &Log("\n$MOD REPORT: ".(keys %extraVerseReport)." instance(s) of extra verses in the USFM".((keys %extraVerseReport) ? ':':'.')."\n");
+  if (%extraVerseReport) {
+    &Log("NOTE: There are extra verses in the USFM, which are not included in the \n");
+    &Log("$vsys verse system. For this reason, these verses have been changed to \n");
+    &Log("altnernate verses. These instances should be checked to insure this is \n");
+    &Log("the intended result. Otherwise, you need to adjust the USFM using \n");
+    &Log("EVAL_REGEX to handle the extra verses.\n");
+    foreach my $m (sort keys %extraVerseReport) {
+      &Log(sprintf("WARNING: %12s became alternate: %i\n", $m, $extraVerseReport{$m}));
     }
   }
   
@@ -347,45 +371,6 @@ return
 | adding \"scope == Matt-Rev\" for instance. This is used by single Bible-
 | book eBooks to duplicate peripheral material in multiple eBooks.
 ------------------------------------------------------------------------\n";
-}
-
-sub checkLastVerse($$$$$) {
-  my $lastbkch = shift;
-  my $lastv = shift;
-  my $lastVerseTag = shift;
-  my $xml = shift;
-  my $canonP = shift;
-  my $missingVerseReportP = shift;
-  
-  if ($lastbkch =~ /^([^\.]+)\.(\d+)$/) {
-    my $lbk=$1; my $lch=(1*$2);
-    my $lastmaxv = (1*@{$canonP->{$lbk}}[($lch-1)]);
-    if ($lastv != $lastmaxv) {&spanVerses($lastVerseTag, ($lastmaxv - $lastv), $xml, $missingVerseReportP);}
-  }
-  else {&Log("ERROR: Bad bkch \"$lastbkch\"\n");}
-}
-
-sub spanVerses($$$\%) {
-  my $verse = shift;
-  my $n = shift;
-  my $xml = shift;
-  my $missingVerseReportP = shift;
-  
-  my $osisID = $verse->getAttribute('osisID');
-  
-  if ($n > 0) {
-    if ($osisID !~ /\b([^\.]+\.\d+)\.(\d+)$/) {&Log("ERROR: Bad spanVerses osisID \"$osisID\"\n"); return;}
-    my $bkch = $1;
-    my $v = (1*$2);
-    $missingVerseReportP->{$osisID} = $osisID;
-    my @veid = $XPC->findnodes('//osis:verse[@eID="'.$verse->getAttributeNode('sID')->getValue().'"]', $xml);
-    while ($n--) {
-      $v++;
-      $missingVerseReportP->{$osisID} .= " $bkch.$v";
-      my @ats = ($verse->getAttributeNode('osisID'), $verse->getAttributeNode('sID'), @veid[0]->getAttributeNode('eID'));
-      foreach my $at (@ats) {$at->setValue($at->getValue()." $bkch.$v");}
-    }
-  }
 }
 
 sub placeIntroduction($$) {
