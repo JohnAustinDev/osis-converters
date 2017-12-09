@@ -1494,7 +1494,8 @@ sub pruneFileOSIS($$$\%\%\$\$) {
 # Filter all Scripture reference links in a Bible/Dict osis file: A Dict osis file
 # must have a Bible companionOsis associated with it, to be the target of its  
 # Scripture references. Scripture reference links whose target book isn't in
-# itself or a companion are fixed. There are three ways broken links are handled:
+# itself or a companion, and those missing osisRefs, will be fixed. There are 
+# three ways these broken references are handled:
 # 1) Delete the reference: It must be entirely deleted if it is not human readable.
 #    Cross-reference notes are not readable if they appear as just a number 
 #    (because an abbreviation for the book was not available in the translation).
@@ -1502,7 +1503,7 @@ sub pruneFileOSIS($$$\%\%\$\$) {
 #    FullResourceURL is provided in convert.txt, and the fullOsis resource contains 
 #    the target.
 # 3) Remove hyper-link: This happens if the link is readable, but it could not be
-#    redirected to another resource.
+#    redirected to another resource, or it's missing an osisRef.
 sub filterScriptureReferences($$$) {
   my $osis = shift;
   my $fullOsis = shift;
@@ -1522,26 +1523,27 @@ sub filterScriptureReferences($$$) {
   if ($fullResourceURL) {$fullResourceURL = $fullResourceURL->value;}
   my $mayRedirect = ($fullResourceURL && !$iAmFullOsis);
   
-  &Log("\n--- FILTERING Scripture references in \"$osis\"\n");
-  &Log("Deleting unreadable cross-reference notes and removing hyper-links for references which target outside ".($iAmFullOsis ? 'the translation':"\"$selfOsis\""), 1);
+  &Log("\n--- FILTERING Scripture references in \"$osis\"\n", 1);
+  &Log("Deleting unreadable cross-reference notes and removing hyper-links for references which target outside ".($iAmFullOsis ? 'the translation':"\"$selfOsis\""));
   if ($mayRedirect) {
-    &Log(", unless they may be redirected to \"$fullResourceURL\"", 1);
+    &Log(", unless they may be redirected to \"$fullResourceURL\"");
   }
   elsif (!$iAmFullOsis) {
-    &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in convert.txt", 1);
+    &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in convert.txt");
   }
-  &Log(".\n", 1);
+  &Log(".\n");
 
-  my %delete    = {'xref'=>0,'sref'=>0}; my %deleteBks   = {'xref'=>{},'sref'=>{}};
-  my %redirect  = {'xref'=>0,'sref'=>0}; my %redirectBks = {'xref'=>{},'sref'=>{}};
-  my %remove    = {'xref'=>0,'sref'=>0}; my %removeBks   = {'xref'=>{},'sref'=>{}};
+  # xref = cross-references, sref = scripture-references, nref = no-osisRef-references
+  my %delete    = {'xref'=>0,'sref'=>0, 'nref'=>0}; my %deleteBks   = {'xref'=>{},'sref'=>{},'nref'=>{}};
+  my %redirect  = {'xref'=>0,'sref'=>0, 'nref'=>0}; my %redirectBks = {'xref'=>{},'sref'=>{},'nref'=>{}};
+  my %remove    = {'xref'=>0,'sref'=>0, 'nref'=>0}; my %removeBks   = {'xref'=>{},'sref'=>{},'nref'=>{}};
   
-  my @links = $XPC->findnodes('//osis:reference[@osisRef and not(@type="x-glosslink" or @type="x-glossary")]', $xml_osis);
+  my @links = $XPC->findnodes('//osis:reference[not(@type="x-glosslink" or @type="x-glossary")]', $xml_osis);
   foreach my $link (@links) {
-    if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
-      my $bk = $3;
-      if (exists($selfOsisBooks{$bk})) {next;}
-      my $refType = (@{$XPC->findnodes('ancestor::osis:note[@type="crossReference"][1]', $link)}[0] ? 'xref':'sref');
+    if (!$link->getAttribute('osisRef') || $link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
+      my $bk = ($link->getAttribute('osisRef') ? $3:'');
+      if ($link->getAttribute('osisRef') && exists($selfOsisBooks{$bk})) {next;}
+      my $refType = ($link->getAttribute('osisRef') ? (@{$XPC->findnodes('ancestor::osis:note[@type="crossReference"][1]', $link)}[0] ? 'xref':'sref'):'nref');
       
       # Handle broken link
       if ($link->textContent() =~ /^[\s,\d]*$/) {
@@ -1551,19 +1553,20 @@ sub filterScriptureReferences($$$) {
           &Log("ERROR: An unreadable Scripture reference was left in the text!: \"$link\"\n");
           next;
         }
-        $delete{$refType}++; $deleteBks{$refType}{$bk}++;
+        $delete{$refType}++; if ($bk) {$deleteBks{$refType}{$bk}++;}
       }
-      elsif ($mayRedirect && exists($fullOsisBooks{$bk})) {
+      elsif ($refType ne 'nref' && $mayRedirect && exists($fullOsisBooks{$bk})) {
         # redirect by tagging as x-other-resource
         $link->setAttribute('subType', 'x-other-resource');
-        $redirect{$refType}++; $redirectBks{$refType}{$bk}++;
+        $redirect{$refType}++; if ($bk) {$redirectBks{$refType}{$bk}++;}
       }
       else {
         #remove
         my @children = $link->childNodes();
         foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
+        $link->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
         $link->unbindNode();
-        $remove{$refType}++; $removeBks{$refType}{$bk}++;
+        $remove{$refType}++; if ($bk) {$removeBks{$refType}{$bk}++;}
       }
     }
     else {&Log("ERROR filterScriptureReferences: Unhandled osisRef=\"".$link->getAttribute('osisRef')."\"\n");}
@@ -1581,8 +1584,8 @@ sub filterScriptureReferences($$$) {
   close(OUTF);
   
   foreach my $stat ('redirect', 'remove', 'delete') {
-    foreach my $type ('sref', 'xref') {
-      my $t = ($type eq 'xref' ? 'cross    ':'Scripture');
+    foreach my $type ('sref', 'xref', 'nref') {
+      my $t = ($type eq 'xref' ? 'cross     ':($type eq 'sref' ? 'Scripture ':'no-osisRef'));
       my $s = ($stat eq 'redirect' ? 'Redirected':($stat eq 'remove' ? 'Removed   ':'Deleted   '));
       my $tc; my $bc;
       if ($stat eq 'redirect') {$tc = $redirect{$type}; $bc = scalar(keys(%{$redirectBks{$type}}));}
@@ -1618,8 +1621,8 @@ sub filterGlossaryReferences($\@$) {
     $refsInScope{$work} = \%ids;
   }
   
-  &Log("\n--- FILTERING glossary references in \"$osis\"\n");
-  &Log("REMOVING glossary references".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'')."\n", 1);
+  &Log("\n--- FILTERING glossary references in \"$osis\"\n", 1);
+  &Log("REMOVING glossary references".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'')."\n");
   
   my $xml = $XML_PARSER->parse_file($osis);
   
@@ -1640,6 +1643,7 @@ sub filterGlossaryReferences($\@$) {
       if (exists($refsInScope{$work}{$osisRef})) {next;}
       my @children = $link->childNodes();
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
+      $link->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
       $link->unbindNode();
       $filteredOsisRefs{$osisRef}++;
       $total++;
@@ -1649,7 +1653,7 @@ sub filterGlossaryReferences($\@$) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n", 1);
+  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n");
   foreach my $r (keys %filteredOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }

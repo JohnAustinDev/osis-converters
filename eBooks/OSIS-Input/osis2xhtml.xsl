@@ -33,7 +33,7 @@
   <variable name="epub3" select="if (/descendant::*[@type='x-ebook-config-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
   
   <!-- Optional URL to show for broken links -->
-  <variable name="fullResourceURL" select="if (/descendant::*[@type='x-ebook-config-FullResourceURL'][1]) then /descendant::*[@type='x-ebook-config-FullResourceURL'][1] else 'none'"/>
+  <variable name="fullResourceURL" select="/descendant::*[@type='x-ebook-config-FullResourceURL'][1]/@type"/>
   
   <!-- Set multipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
   <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-ebook-config-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
@@ -268,7 +268,7 @@
           <xsl:apply-templates mode="xhtml" select="$fileNodes"/>
           <xsl:call-template name="noteSections"><xsl:with-param name="nodes" select="$fileNodes"/></xsl:call-template>
           <!-- If there are links to fullResourceURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$fullResourceURL != 'none' and $parentElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <xsl:if test="$fullResourceURL and $parentElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
@@ -821,12 +821,13 @@
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
     <choose>
-      <when test="$fullResourceURL = 'none'">
-        <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
-      </when>
-      <otherwise><!-- the href below is a quick/easy way of running getFileName -->
+      <when test="$fullResourceURL">
+        <!-- the href below is a quick/easy way of running getFileName -->
         <variable name="href" select="concat($mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS/descendant::div[@type='book'][1]/@osisID, '.xhtml#fullResourceURL')"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+      </when>
+      <otherwise>
+        <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
       </otherwise>
     </choose>
   </template>

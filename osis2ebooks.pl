@@ -303,7 +303,7 @@ sub makeEbook($$$$$) {
   my $scope = shift;
   my $tmp = shift;
   
-  &Log("--- CREATING $format FROM $osis FOR $scope\n", 1);
+  &Log("\n--- CREATING $format FROM $osis FOR $scope\n", 1);
   
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
