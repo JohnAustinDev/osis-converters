@@ -1546,13 +1546,9 @@ sub filterScriptureReferences($$$) {
       my $refType = ($link->getAttribute('osisRef') ? (@{$XPC->findnodes('ancestor::osis:note[@type="crossReference"][1]', $link)}[0] ? 'xref':'sref'):'nref');
       
       # Handle broken link
-      if ($link->textContent() =~ /^[\s,\d]*$/) {
-        # delete
-        if ($refType eq 'xref') {$link->unbindNode();}
-        else {
-          &Log("ERROR: An unreadable Scripture reference was left in the text!: \"$link\"\n");
-          next;
-        }
+      if ($refType eq 'xref' && $link->textContent() =~ /^[\s,\d]*$/) {
+        # delete unreadable cross-references
+        $link->unbindNode();
         $delete{$refType}++; if ($bk) {$deleteBks{$refType}{$bk}++;}
       }
       elsif ($refType ne 'nref' && $mayRedirect && exists($fullOsisBooks{$bk})) {
