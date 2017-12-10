@@ -43,6 +43,7 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
+$SFM2ALL_SEPARATE_LOGS = 1;
 
 require("$SCRD/scripts/getScope.pl");
 require("$SCRD/scripts/toVersificationBookOrder.pl");
@@ -104,13 +105,13 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   $OUTDIR = &getOUTDIR($INPD);
   if (!-e $OUTDIR) {make_path($OUTDIR);}
   
-  $AUTOMODE = ($LOGFILE ? 1:0);
-  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_$SCRIPT_NAME.txt";}
-  if (!$AUTOMODE && -e $LOGFILE) {unlink($LOGFILE);}
-  
-  &initOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR, $AUTOMODE);
+  &initOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR);
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
+  
+  my $appendlog = ($LOGFILE ? 1:0);
+  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
+  if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&Log("start time: ".localtime()."\n");}
       
@@ -270,7 +271,6 @@ sub initOutputFiles($$$$) {
   my $script_name = shift;
   my $inpd = shift;
   my $outdir = shift;
-  my $automode = shift;
   
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
@@ -294,11 +294,6 @@ sub initOutputFiles($$$$) {
 
   my $delete;
   foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
-  if ($delete && !$automode && !-e "/vagrant") {
-    print "\n\nARE YOU SURE YOU WANT TO DELETE:\n$delete? (Y/N):"; 
-    $in = <>; 
-    if ($in !~ /^\s*y\s*$/i) {exit;} 
-  }
   foreach my $outfile (@outs) {
     my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
     if (-e $outfile) {

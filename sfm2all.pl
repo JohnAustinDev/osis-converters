@@ -48,16 +48,16 @@ foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
 
 # create each OSIS file and SWORD module, dictionaries last so footnote osisIDs are known during dictionary processing
 foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 1:0)} keys %modules) {
-  if (-e "$dir/CF_osis2osis.txt") {&osis_converters("$SCRD/osis2osis.pl", $dir, $LOGFILE);}
-  else {&osis_converters("$SCRD/sfm2osis.pl", $dir, $LOGFILE);}
-  &osis_converters("$SCRD/osis2sword.pl", $dir, $LOGFILE);
+  if (-e "$dir/CF_osis2osis.txt") {&osis_converters("$SCRD/osis2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}
+  else {&osis_converters("$SCRD/sfm2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}
+  &osis_converters("$SCRD/osis2sword.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
 }
 
 # create any GoBibles and eBooks
 foreach my $dir (keys %modules) {
   if ($modules{$dir} !~ /Text/) {next;}
-  &osis_converters("$SCRD/osis2GoBible.pl", $dir, $LOGFILE);
-  &osis_converters("$SCRD/osis2ebooks.pl", $dir, $LOGFILE);
+  &osis_converters("$SCRD/osis2GoBible.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  &osis_converters("$SCRD/osis2ebooks.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
 }
 
 # run any specified projects
