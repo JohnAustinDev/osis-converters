@@ -66,8 +66,8 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
 # Run postprocess.(pl|xsl) if they exist
 &userXSLT("$INPD/postprocess.xsl", $OUTOSIS, "$OUTOSIS.out");
-unlink($OUTOSIS);
 copy("$OUTOSIS.out", $OUTOSIS);
+unlink("$OUTOSIS.out");
 if (-e "$INPD/postprocess.pl") {
   &Log("\nRunning OSIS postprocess.pl\n", 1);
   my $cmd = "$INPD/postprocess.pl " . &escfile($OUTOSIS);

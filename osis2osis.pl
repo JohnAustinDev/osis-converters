@@ -160,7 +160,7 @@ while (<COMF>) {
       if (! -e $CCScript) {&Log("ERROR Could not find \"$CCScript\" with:\n$_\n"); next;}
     }
     
-    $osis_in = "$TMPDIR/".$MOD."_1.xml";
+    $osis_in = "$TMPDIR/".$MOD."_0.xml";
     &Log("\nINFO: Processing CCOSIS $osis\n");
     &file_convert($osis, $CCTable, $CCScript, $osis_in);
   }
@@ -169,7 +169,7 @@ while (<COMF>) {
     &Log("\nINFO: Processing OSIS_IN $CCIN\n");
     if ($osis_in =~ /^\./) {$osis_in = File::Spec->rel2abs($osis_in, $INPD);}
     if (! -e $osis_in) {die "ERROR: Specified OSIS file $_ not found. Exiting...\n";}
-    copy($osis_in, "$TMPDIR/".$MOD."_1.xml");
+    copy($osis_in, "$TMPDIR/".$MOD."_0.xml");
   }
   else {&Log("ERROR: Unhandled command:\n".$_."in $COMMANDFILE\n\n");}
 }
