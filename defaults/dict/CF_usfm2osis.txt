@@ -1,0 +1,13 @@
+# See /scripts/usfm2osis.pl for command file documentation
+
+#SET_addScripRefLinks:false
+#SET_addDictLinks:false
+#SET_addCrossRefs:false
+#SET_addSeeAlsoLinks:false
+
+#PUNC_AS_LETTER:'`
+#SPECIAL_CAPITALS:i->İ ı->I
+
+#EVAL_REGEX:s///g
+
+#RUN:./sfm/*.sfm

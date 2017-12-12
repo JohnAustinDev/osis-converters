@@ -90,7 +90,7 @@ sub init($) {
     }
   }
 
-  &checkAndWriteDefaults($INPD);
+  &checkAndWriteDefaults($SCRD, $INPD, 0);
   
   $CONFFILE = "$INPD/config.conf";
   
@@ -430,38 +430,47 @@ sub initLibXML() {
 }
 
 
-# If the project config.conf file exists, or if the sfm subdirectory does 
-# not exist, this routine does nothing. Otherwise pertinent non-existing 
-# project input files are copied from the first defaults directory 
-# found in the following order:
+# If only an sfm directory exists in the project, default files are written, 
+# otherwise this routine does nothing. Default files are succesively copied
+# from each of the following folders:
 #
-# - $INPD../defaults
-# - $INPD../../defaults
-# - osis-converters/defaults
+# From osis-converters: $scrd/defaults/(bible|dict)
+# From local project area, either: $inpd/../defaults/bible OR 
+# $inpd/../../defaults/dict
 #
-# and then entries are added to each new input file as applicable.
+# and then specific entries are added to some of those input file as applicable.
 # Returns 0 if no action was taken, 1 otherwise.
-sub checkAndWriteDefaults($) {
-  my $dir = shift;
+sub checkAndWriteDefaults($$$) {
+  my $scrd = shift;
+  my $inpd = shift;
+  my $isCompanion = shift;
+  
+  if (!$isCompanion) {
+    opendir(INPD, $inpd);
+    my @inputs = readdir(INPD);
+    closedir(INPD);
+    foreach my $f (@inputs) {if ($f !~ /^([\.]+|sfm)$/) {return 0;}}
+  }
+  
+  # copy default files
+  &copy_dir("$scrd/defaults/".($isCompanion ? "dict":"bible"), $inpd, 1);
+  &copy_dir(($isCompanion ? "$inpd/../../defaults/dict":"$inpd/../defaults/bible"), $inpd, 1);
 
-  # config.conf and sfm file information
-  if ((!-e "$dir/sfm" && !%USFM) || !&copyDefaultFiles($dir, '.', 'config.conf', 1)) {return 0;}
-
-  my $mod = $dir;
+  my $mod = $inpd;
   $mod =~ s/^.*?([^\\\/]+)$/$1/;
   $mod = uc($mod);
   
   &Log("CREATING DEFAULT FILES FOR PROJECT \"$mod\"\n", 1);
   
-  &setConfFileValue("$dir/config.conf", 'ModuleName', $mod, 1);
-  &setConfFileValue("$dir/config.conf", 'Abbreviation', $mod, 1);
+  &setConfFileValue("$inpd/config.conf", 'ModuleName', $mod, 1);
+  &setConfFileValue("$inpd/config.conf", 'Abbreviation', $mod, 1);
   
   # read my new conf
-  my $confdataP = &readConf("$dir/config.conf");
+  my $confdataP = &readConf("$inpd/config.conf");
   
   # read sfm files
   $SCAN_USFM_SKIPPED = '';
-  %USFM; &scanUSFM("$dir/sfm", \%USFM);
+  %USFM; &scanUSFM("$inpd/sfm", \%USFM);
   if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
   
   # get my type
@@ -471,30 +480,30 @@ sub checkAndWriteDefaults($) {
   if (!$type) {$type = 'other';}
   
   # ModDrv
-  if ($type eq 'dictionary') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawLD4', 1);}
-  if ($type eq 'childrens_bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawGenBook', 1);}
-  if ($type eq 'bible') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'zText', 1);}
-  if ($type eq 'other') {&setConfFileValue("$dir/config.conf", 'ModDrv', 'RawGenBook', 1);}
+  if ($type eq 'dictionary') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawLD4', 1);}
+  if ($type eq 'childrens_bible') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawGenBook', 1);}
+  if ($type eq 'bible') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'zText', 1);}
+  if ($type eq 'other') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawGenBook', 1);}
  
   # Companion
   my $companion;
   if (($type eq 'bible' || $type eq 'childrens_bible') && exists($USFM{'dictionary'})) {
     $companion = $confdataP->{'ModuleName'}.'DICT';
-    if (!-e "$dir/$companion") {
-      make_path("$dir/$companion");
-      &checkAndWriteDefaults("$dir/$companion");
+    if (!-e "$inpd/$companion") {
+      make_path("$inpd/$companion");
+      &checkAndWriteDefaults($scrd, "$inpd/$companion", 1);
     }
-    else {&Log("WARNING: Companion directory \"$dir/$companion\" already exists, skipping defaults check for it.\n");}
+    else {&Log("WARNING: Companion directory \"$inpd/$companion\" already exists, skipping defaults check for it.\n");}
   }
-  my $parent = $dir; $parent =~ s/^.*?[\\\/]([^\\\/]+)[\\\/][^\\\/]+\s*$/$1/;
+  my $parent = $inpd; $parent =~ s/^.*?[\\\/]([^\\\/]+)[\\\/][^\\\/]+\s*$/$1/;
   if ($type eq 'dictionary' && $confdataP->{'ModuleName'} eq $parent.'DICT') {$companion = $parent;}
   if ($companion) {
-    &setConfFileValue("$dir/config.conf", 'Companion', $companion, ', ');
+    &setConfFileValue("$inpd/config.conf", 'Companion', $companion, ', ');
   }
 
   if ($type eq 'childrens_bible') {
     # SFM_Files.txt
-    if (!open (SFMFS, ">encoding(UTF-8)", "$dir/SFM_Files.txt")) {&Log("ERROR: Could not open \"$dir/SFM_Files.txt\"\n"); die;}
+    if (!open (SFMFS, ">encoding(UTF-8)", "$inpd/SFM_Files.txt")) {&Log("ERROR: Could not open \"$inpd/SFM_Files.txt\"\n"); die;}
     foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
       $f =~ s/^.*[\/\\]//;
       print SFMFS "sfm/$f\n";
@@ -503,80 +512,67 @@ sub checkAndWriteDefaults($) {
   }
   else {
     # CF_usfm2osis.txt
-    if (&copyDefaultFiles($dir, '.', 'CF_usfm2osis.txt')) {
-      if (!open (CFF, ">>$dir/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$dir/CF_usfm2osis.txt\"\n"); die;}
-      foreach my $f (sort keys %{$USFM{$type}}) {
-        my $r = File::Spec->abs2rel($f, $dir); if ($r !~ /^\./) {$r = './'.$r;}
-        
-        # peripherals need a target location in the OSIS file added to their ID
-        if ($USFM{$type}{$f}{'peripheralID'}) {
-          print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
-          if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
-            print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
-          }
-          else {
-            print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
-          }
-          my $xpath = "location == osis:header";
-          if (@{$USFM{$type}{$f}{'periphType'}}) {
-            foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
-              my $osisMap = &getOsisMap($periphType);
-              if (!$osisMap) {next;}
-              $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
-            }
-          }
-          $xpath =~ s/([\@\$])/\\$1/g;
-          print CFF $xpath;
-          print CFF "/m\n";
+    if (!open (CFF, ">>$inpd/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$inpd/CF_usfm2osis.txt\"\n"); die;}
+    foreach my $f (sort keys %{$USFM{$type}}) {
+      my $r = File::Spec->abs2rel($f, $inpd); if ($r !~ /^\./) {$r = './'.$r;}
+      
+      # peripherals need a target location in the OSIS file added to their ID
+      if ($USFM{$type}{$f}{'peripheralID'}) {
+        print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
+        if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
+          print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
         }
-
-        print CFF "RUN:$r\n";
+        else {
+          print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+        }
+        my $xpath = "location == osis:header";
+        if (@{$USFM{$type}{$f}{'periphType'}}) {
+          foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
+            my $osisMap = &getOsisMap($periphType);
+            if (!$osisMap) {next;}
+            $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
+          }
+        }
+        $xpath =~ s/([\@\$])/\\$1/g;
+        print CFF $xpath;
+        print CFF "/m\n";
       }
-      close(CFF);
+
+      print CFF "RUN:$r\n";
     }
+    close(CFF);
   }
   
-  # CF_addScripRefLinks.txt
-  &copyDefaultFiles($dir, '.', 'CF_addScripRefLinks.txt');
-  
   if ($type eq 'bible') {
-    $confdataP = &readConf("$dir/config.conf"); # need a re-read after above modifications
+    $confdataP = &readConf("$inpd/config.conf"); # need a re-read after above modifications
   
     # GoBible
-    if (&copyDefaultFiles($dir, 'GoBible', 'collections.txt, icon.png, normalChars.txt, simpleChars.txt, ui.properties')) {
-      if (!open (COLL, ">>encoding(UTF-8)", "$dir/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$dir/GoBible/collections.txt\"\n"); die;}
-      print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
-      print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
-      my $canonP;
-      my $bookOrderP;
-      my $testamentP;
-      if (&getCanon($confdataP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
-        my $col = ''; my $colot = ''; my $colnt = '';
-        foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
-          foreach my $f (keys %{$USFM{'bible'}}) {
-            if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
-            my $b = "Book: $v11nbk\n";
-            $col .= $b;
-            if ($testamentP->{$v11nbk} eq 'OT') {$colot .= $b;}
-            else {$colnt .= $b;}
-          }
-        }
-        my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
-        if ($col) {print COLL "$colhead\n$col\n";}
-        if ($colot && $colnt) {
-          print COLL $colhead."ot\n$colot\n";
-          print COLL $colhead."nt\n$colnt\n";
+    if (!open (COLL, ">>encoding(UTF-8)", "$inpd/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$inpd/GoBible/collections.txt\"\n"); die;}
+    print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
+    print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
+    my $canonP;
+    my $bookOrderP;
+    my $testamentP;
+    if (&getCanon($confdataP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
+      my $col = ''; my $colot = ''; my $colnt = '';
+      foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
+        foreach my $f (keys %{$USFM{'bible'}}) {
+          if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
+          my $b = "Book: $v11nbk\n";
+          $col .= $b;
+          if ($testamentP->{$v11nbk} eq 'OT') {$colot .= $b;}
+          else {$colnt .= $b;}
         }
       }
-      else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
-      close(COLL);
+      my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
+      if ($col) {print COLL "$colhead\n$col\n";}
+      if ($colot && $colnt) {
+        print COLL $colhead."ot\n$colot\n";
+        print COLL $colhead."nt\n$colnt\n";
+      }
     }
-    
-    # eBooks
-    if (&copyDefaultFiles($dir, 'eBook', 'convert.txt')) {
-      #if (!open (CONV, ">>encoding(UTF-8)", "$dir/eBook/convert.txt")) {&Log("ERROR: Could not open \"$dir/eBook/convert.txt\"\n"); die;}
-      #close(CONV);
-    }
+    else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
+    close(COLL);
   }
   
   return 1;
@@ -600,33 +596,6 @@ sub getOsisMap($) {
   return \%h;
 }
 
-
-# If any filename in filenames does not exist in subdir of dest, copy its default file. 
-# Return 1 if all files were missing and were successfully created.
-sub copyDefaultFiles($$$$) {
-  my $dest = shift;
-  my $subdir = shift;
-  my $filenames = shift;
-  my $nowarn = shift;
-  
-  my $created = 1;
-  
-  my @filenames = split(/\s*,\s*/, $filenames);
-  
-  if (!-e "$dest/$subdir") {make_path("$dest/$subdir");}
-  
-  foreach my $filename (@filenames) {
-    if (!$filename) {next;}
-    my $starter = &getDefaultFile("$subdir/$filename");
-    if ($starter && !-e "$dest/$subdir/$filename") {&copy($starter, "$dest/$subdir/$filename");}
-    else {
-      if (!$nowarn) {&Log("WARNING: \"$dest/$subdir/$filename\" already exists, skipping defaults check for it.\n");}
-      $created = 0;
-    }
-  }
-  
-  return $created;
-}
 
 sub copyFont($$$$$) {
   my $fontname = shift;
@@ -704,24 +673,6 @@ sub copyReferencedImages($$$) {
   &Log("REPORT $MOD: Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".\n");
   return scalar(keys(%copied));
 }
-
-
-sub getDefaultFile($) {
-  my $filename = shift;
-  
-  my $d1 = "$SCRD/defaults";
-  my $d2 = "$INPD/../defaults";
-  if (!-e $d2) {"$INPD/../../defaults";}
-  
-  my $starter;
-  if (-e "$d2/$filename") {$starter = "$d2/$filename";}
-  elsif (-e "$d1/$filename") {$starter = "$d1/$filename";}
-  
-  if (!$starter) {&Log("ERROR: problem locating default \"$filename\"\n"); die;}
-  
-  return $starter;
-}
-
 
 sub scanUSFM($\%) {
   my $sfm_dir = shift;
@@ -2841,7 +2792,7 @@ text using the match elements found in the $DICTIONARY_WORDS file. \
 }
 
 
-# copies a directory to a possibly non existing destination directory
+# copies a directoryʻs contents to a possibly non existing destination directory
 sub copy_dir($$$$) {
   my $id = shift;
   my $od = shift;
@@ -2868,7 +2819,7 @@ sub copy_dir($$$$) {
     if ($fs[$i] =~ /^\.+$/) {next;}
     my $if = "$id/".$fs[$i];
     my $of = "$od/".$fs[$i];
-    if (!$noRecurse && -d $if) {&copy_dir($if, $of, $noRecurse, $keep, $skip);}
+    if (!$noRecurse && -d $if) {&copy_dir($if, $of, $overwrite, $noRecurse, $keep, $skip);}
     elsif ($skip && $if =~ /$skip/) {next;}
     elsif (!$keep || $if =~ /$keep/) {
 			if ($overwrite && -e $of) {unlink($of);}
