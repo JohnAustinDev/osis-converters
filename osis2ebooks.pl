@@ -136,6 +136,11 @@ sub setupAndMakeEbook($$$) {
   # if font is specified, include it
   if ($FONTS && $confP->{"Font"}) {
     &copyFont($confP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
+    if (-e "/vagrant") {
+      &shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
+      my $home = &shell("echo \$HOME"); chomp($home);
+      &copyFont($confP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");
+    }
     if (open(CSS, ">$tmp/css/font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
       foreach my $f (keys %{$FONT_FILES{$confP->{"Font"}}}) {
@@ -178,8 +183,18 @@ body {font-family: font1;}
       if ($pointsize > 40) {$pointsize = 40;}
       elsif ($pointsize < 10) {$pointsize = 10;}
       my $padding = 20;
-      my $barheight = $pointsize + (2*$padding) - 10;
-      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize -annotate +0+$padding '$ebookTitlePart' \"$cover\"";
+      my $barheight = $pointsize + (2*$padding);
+      my $font = '';
+      if ($FONTS && $confP->{"Font"}) {
+        foreach my $f (keys %{$FONT_FILES{$confP->{"Font"}}}) {
+          if ($FONT_FILES{$confP->{"Font"}}{$f}{'style'} eq 'regular') {
+            $font = $FONT_FILES{$confP->{"Font"}}{$f}{'fullname'};
+            $font =~ s/ /-/g;
+            last;
+          }
+        }
+      }
+      my $cmd = "convert \"$INPD/eBook/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$ebookTitlePart' \"$cover\"";
       &shell($cmd, 2);
     }
     else {

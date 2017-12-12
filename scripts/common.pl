@@ -182,6 +182,7 @@ sub checkFont($) {
         if ($n eq $font) {
           $FONT_FILES{$font}{$f}{'style'} = $styles{uc($t)};
           $FONT_FILES{$font}{$f}{'ext'} = $ext;
+          $FONT_FILES{$font}{$f}{'fullname'} = &shell('fc-scan --format "%{fullname}" "'."$FONTS/$f".'"');
         }
       }
       else {&Log("\nWARNING: Font \"$f\" file name could not be parsed. Ignoring...\n\n");}
@@ -596,7 +597,8 @@ sub getOsisMap($) {
   return \%h;
 }
 
-
+# Copy fontname (which is part of a filename which may correspond to multiple
+# font files) to fontdir 
 sub copyFont($$$$$) {
   my $fontname = shift;
   my $fontdir = shift;
@@ -3713,7 +3715,7 @@ sub validateOSIS($) {
 # -1 = only log file
 #  0 = log file (+ console unless $NOCONSOLELOG is set)
 #  1 = log file + console (ignoring $NOCONSOLELOG)
-#  2 = only console
+# >1 = only console
 sub Log($$) {
   my $p = shift; # log message
   my $flag = shift;
@@ -3724,7 +3726,7 @@ sub Log($$) {
     print encode("utf8", $p);
   }
   
-  if ($flag == 2) {return;}
+  if ($flag > 1) {return;}
   
   $p = &encodePrintPaths($p);
   
