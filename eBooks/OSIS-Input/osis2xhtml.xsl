@@ -33,7 +33,7 @@
   <variable name="epub3" select="if (/descendant::*[@type='x-ebook-config-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
   
   <!-- Optional URL to show for broken links -->
-  <variable name="fullResourceURL" select="/descendant::*[@type='x-ebook-config-FullResourceURL'][1]/@type"/>
+  <variable name="fullResourceURL" select="/descendant::*[@type='x-ebook-config-FullResourceURL'][1]"/>
   
   <!-- Set multipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
   <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-ebook-config-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
