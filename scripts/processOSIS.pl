@@ -115,13 +115,13 @@ RUN:./INT.SFM\n");
   unlink("$OUTOSIS.out");
   
   my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."sword/css";
-  if ($MODDRV =~ /LD/ && !-e "$INPD/sword/css/swmodule.css") {
+  if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {
     &Log("
 WARNING: For the navigation menu to look best in SWORD, you should use 
          glossary module css. Here is how it may be done:
          1) Edit \"$MOD/config.conf\" to add the config entry: \"PreferredCSSXHTML=swmodule.css\"
          2) Open or create the css file: \"$MOD/sword/css/swmodule.css\"
-         3) Add the css: ".&shell("cat \"$SCRD/defaults/dict/sword/css/swmodule.css\"")."\n");
+         3) Add the css: ".&shell("cat \"$SCRD/defaults/dict/sword/css/swmodule.css\"", 3)."\n");
   }
   
 }

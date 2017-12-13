@@ -182,7 +182,7 @@ sub checkFont($) {
         if ($n eq $font) {
           $FONT_FILES{$font}{$f}{'style'} = $styles{uc($t)};
           $FONT_FILES{$font}{$f}{'ext'} = $ext;
-          $FONT_FILES{$font}{$f}{'fullname'} = &shell('fc-scan --format "%{fullname}" "'."$FONTS/$f".'"');
+          $FONT_FILES{$font}{$f}{'fullname'} = &shell('fc-scan --format "%{fullname}" "'."$FONTS/$f".'"', 3);
         }
       }
       else {&Log("\nWARNING: Font \"$f\" file name could not be parsed. Ignoring...\n\n");}
@@ -3715,7 +3715,7 @@ sub validateOSIS($) {
 # -1 = only log file
 #  0 = log file (+ console unless $NOCONSOLELOG is set)
 #  1 = log file + console (ignoring $NOCONSOLELOG)
-# >1 = only console
+#  2 = only console
 sub Log($$) {
   my $p = shift; # log message
   my $flag = shift;
@@ -3726,7 +3726,7 @@ sub Log($$) {
     print encode("utf8", $p);
   }
   
-  if ($flag > 1) {return;}
+  if ($flag == 2) {return;}
   
   $p = &encodePrintPaths($p);
   
@@ -3756,7 +3756,7 @@ sub shell($$) {
   my $cmd = shift;
   my $flag = shift; # same as Log flag, but additionally, 3 means don't log the output
   
-  &Log("\n$cmd\n", $flag);
+  if ($flag != 3) {&Log("\n$cmd\n", $flag);}
   my $result = decode('utf8', `$cmd 2>&1`);
   if ($flag != 3) {&Log($result."\n", $flag);}
   
