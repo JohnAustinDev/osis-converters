@@ -51,6 +51,26 @@
     </value-of>
   </function>
   
+  <!-- Sort by an arbitrary character order: <sort collation="http://www.w3.org/2005/xpath-functions/collation/codepoint" select="oc:getAlphaIndex(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending"/> -->
+  <function name="oc:getAlphaIndex" as="xs:string">
+    <param name="text" as="xs:string"/>
+    <param name="order" as="xs:string?"/>
+    <if test="not($order)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
+    <variable name="translatedCodePoints" as="xs:integer+">
+      <for-each select="string-to-codepoints($text)">
+        <choose>
+          <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
+            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
+            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+            <value-of select="string-length($before) + 64"/> <!-- 64 starts at character "A" -->
+          </when>
+          <otherwise><value-of select="."/></otherwise>
+        </choose>
+      </for-each>
+    </variable>
+    <value-of select="codepoints-to-string($translatedCodePoints)"/>
+  </function>
+  
   <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:
   - Only Java functions are supported by saxon.
   - Java exec() immediately returns, without blocking, making another blocking method a necessity.
@@ -101,5 +121,23 @@ chmod +r <value-of select="$tmpResult"/>
     <if test="$ms!=10"><message select="concat('WARNING: Sleeping ', $ms, 'ms')"/></if>
     <message select="thread:sleep($ms)"/>     
   </template>
+  
+  <function name="oc:printNode" as="text()">
+    <param name="node" as="node()"/>
+    <choose>
+      <when test="$node[self::element()]">
+        <value-of>element:
+          <value-of select="concat('element=', $node/name(), ', ')"/>
+          <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
+        </value-of>
+      </when>
+      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
+      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
+    </choose>
+  </function>
   
 </stylesheet>

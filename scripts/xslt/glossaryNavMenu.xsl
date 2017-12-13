@@ -7,8 +7,8 @@
  exclude-result-prefixes="#all">
  
   <!-- This XSLT does the following:
-  1) Creates an introduction menu system and puts it in a glossary with osisRef="NAVMENU"
-  2) Creates a glossary menu system with links to each individual glossary entry
+  1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with osisRef="NAVMENU"
+  2) Creates an introduction menu system, if osisRefIntro is given
   3) Inserts navigational links to these into every glossary entry and book introduction
   -->
  
@@ -24,6 +24,8 @@
   <xsl:param name="uiDictionary" select="concat('- ', //header/work[child::type[@type='x-glossary']]/title[1])"/>
   
   <xsl:param name="MOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
+  
+  <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
   <xsl:template match="node()|@*" mode="identity">
     <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
@@ -43,9 +45,9 @@
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="ancestor::div[@type='book']/@osisID"/></xsl:message>
       </xsl:when>
-      <xsl:when test="self::div[starts-with(@type, 'x-keyword')]">
+      <xsl:when test="generate-id(.) = $dictEntries/generate-id()">
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/><xsl:call-template name="navmenu"/></xsl:copy>
-        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="descendant::seg[@type='keyword'][1]"/></xsl:message>
+        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:message>
       </xsl:when>
       <xsl:otherwise>
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
@@ -54,18 +56,20 @@
   </xsl:template>
   
   <xsl:template name="navmenu">
+    <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
+    <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
     <list subType="x-navmenu">
-      <xsl:variable name="prev" select="preceding::seg[@type='keyword'][generate-id(ancestor::div[@type='glossary'][1]) = generate-id(current()/ancestor::div[@type='glossary'][1])][2]"/>
-      <xsl:variable name="next" select="following::seg[@type='keyword'][generate-id(ancestor::div[@type='glossary'][1]) = generate-id(current()/ancestor::div[@type='glossary'][1])][1]"/>
+      <xsl:variable name="prev" select="if ($cgEntry) then $cgEntry/preceding-sibling::*[1]/descendant::seg[@type='keyword'][1] else false()"/>
+      <xsl:variable name="next" select="if ($cgEntry) then $cgEntry/following-sibling::*[1]/descendant::seg[@type='keyword'][1] else false()"/>
       <xsl:if test="ancestor-or-self::div[@type='glossary'] and not(matches($skip, 'prevnext')) and ($prev or $next)">
         <item subType="x-prevnext-link">
           <p type="x-right" subType="x-introduction">
             <xsl:if test="$prev">
-              <reference osisRef="{$MOD}:{oc:encodeOsisRef($prev)}" type="x-glosslink" subType="x-target_self"> ← </reference>
+              <reference osisRef="{$MOD}:{$prev/@osisID}" type="x-glosslink" subType="x-target_self"> ← </reference>
             </xsl:if>
             <xsl:if test="$next">
-              <reference osisRef="{$MOD}:{oc:encodeOsisRef($next)}" type="x-glosslink" subType="x-target_self"> → </reference>
+              <reference osisRef="{$MOD}:{$next/@osisID}" type="x-glosslink" subType="x-target_self"> → </reference>
             </xsl:if>
           </p>
         </item>
@@ -95,8 +99,19 @@
   
   <!-- Create glossary navigation menus and put them in a glossary div -->
   <xsl:template match="osisText">
+    <xsl:variable name="combinedGlossary" as="element(div)">
+      <div type="glossary" subType="x-combinedGlossary">
+        <xsl:for-each select="$dictEntries">
+          <xsl:sort collation="http://www.w3.org/2005/xpath-functions/collation/codepoint" select="oc:getAlphaIndex(.//seg[@type='keyword'], //description[@type='x-sword-config-LangSortOrder'][1])" data-type="text" order="ascending"/>
+          <xsl:copy><xsl:attribute name="realid" select="generate-id(.)"/><xsl:apply-templates/></xsl:copy>
+        </xsl:for-each>
+      </div>
+    </xsl:variable>
+      
     <xsl:copy>
-      <xsl:apply-templates select="node()|@*"/>
+      <xsl:apply-templates select="node()|@*">
+        <xsl:with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"/>
+      </xsl:apply-templates>
       
       <xsl:if test="//work[@osisWork = current()/@osisIDWork]/type[@type='x-glossary']">
         <xsl:message>NOTE: Added NAVMENU glossary</xsl:message>
@@ -121,8 +136,7 @@
           
            <!-- Create a uiDictionary main entry, and its sub-entries -->
           <xsl:message>NOTE: Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:message>
-          <xsl:variable name="dictEntries" select="//div[@type='glossary'][not(@osisRef)]//seg[@type='keyword']"/>
-          <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($dictEntries[1], 1, 1)), '-', upper-case(substring($dictEntries[last()], 1, 1)))"/>
+          <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][1], 1, 1)), '-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][last()], 1, 1)))"/>
           <p>
             <seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
               <xsl:value-of select="$uiDictionary"/>
@@ -133,7 +147,7 @@
           <reference osisRef="{$MOD}:{oc:encodeOsisRef($allEntriesTitle)}" type="x-glosslink" subType="x-target_self">
             <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
           </reference>
-          <xsl:for-each select="$dictEntries">
+          <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
               <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:message>
               <reference osisRef="{$MOD}:_45_{upper-case(substring(text(), 1, 1))}" type="x-glosslink" subType="x-target_self" >
@@ -148,14 +162,14 @@
             </seg>
           </p>
           <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>
-          <xsl:for-each select="$dictEntries">
+          <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <reference osisRef="{$MOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="text()"/>
             </reference>
             <lb/>
           </xsl:for-each>
           
-          <xsl:for-each select="$dictEntries">
+          <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
               <p>
                 <seg type="keyword" osisID="_45_{upper-case(substring(text(), 1, 1))}">
