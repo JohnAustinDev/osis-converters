@@ -137,9 +137,11 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if ($ConfEntryP->{'Font'}) {&checkFont($ConfEntryP->{'Font'});}
   
-  my $spaces = `find $INPD/images -type f -name "* *" -print`;
-  if ($spaces) {
-    &Log("\nERROR: Image filenames must not contain spaces:\n$spaces\n");
+  if (-e "$INPD/images") {
+    my $spaces = &shell("find $INPD/images -type f -name \"* *\" -print", 3);
+    if ($spaces) {
+      &Log("\nERROR: Image filenames must not contain spaces:\n$spaces\n");
+    }
   }
 }
 

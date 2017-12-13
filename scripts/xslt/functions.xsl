@@ -51,24 +51,22 @@
     </value-of>
   </function>
   
-  <!-- Sort by an arbitrary character order: <sort collation="http://www.w3.org/2005/xpath-functions/collation/codepoint" select="oc:getAlphaIndex(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending"/> -->
-  <function name="oc:getAlphaIndex" as="xs:string">
+  <!-- Sort by an arbitrary character order: <sort select="oc:langSortOrder(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
+  <function name="oc:langSortOrder" as="xs:string">
     <param name="text" as="xs:string"/>
-    <param name="order" as="xs:string?"/>
-    <if test="not($order)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
-    <variable name="translatedCodePoints" as="xs:integer+">
+    <param name="order" as="xs:string"/>
+    <value-of>
       <for-each select="string-to-codepoints($text)">
         <choose>
           <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
-            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
-            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
-            <value-of select="string-length($before) + 64"/> <!-- 64 starts at character "A" -->
+            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/> <!-- ⇹ is a random never-used character required in first position -->
+            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+            <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
           </when>
-          <otherwise><value-of select="."/></otherwise>
+          <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
         </choose>
       </for-each>
-    </variable>
-    <value-of select="codepoints-to-string($translatedCodePoints)"/>
+    </value-of>
   </function>
   
   <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:

@@ -101,8 +101,11 @@
   <xsl:template match="osisText">
     <xsl:variable name="combinedGlossary" as="element(div)">
       <div type="glossary" subType="x-combinedGlossary">
+        <xsl:if test="$dictEntries and not(//description[@type='x-sword-config-LangSortOrder'])">
+          <xsl:message terminate="yes">ERROR: Cannot sort glossary entries: 'LangSortOrder' must be specified in config.conf.</xsl:message>
+        </xsl:if>
         <xsl:for-each select="$dictEntries">
-          <xsl:sort collation="http://www.w3.org/2005/xpath-functions/collation/codepoint" select="oc:getAlphaIndex(.//seg[@type='keyword'], //description[@type='x-sword-config-LangSortOrder'][1])" data-type="text" order="ascending"/>
+          <xsl:sort select="oc:langSortOrder(.//seg[@type='keyword'], //description[@type='x-sword-config-LangSortOrder'][1])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
           <xsl:copy><xsl:attribute name="realid" select="generate-id(.)"/><xsl:apply-templates/></xsl:copy>
         </xsl:for-each>
       </div>

@@ -141,18 +141,27 @@
       <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
-        <sort select="me:getAlphaIndex(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="number" order="ascending"/>
+        <sort select="me:langSortOrder(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <copy-of select="."/>
       </for-each>
     </element>
   </template>
-  <function name="me:getAlphaIndex" as="xs:integer">
+  <function name="me:langSortOrder" as="xs:string">
     <param name="text" as="xs:string"/>
     <param name="order" as="xs:string?"/>
-    <if test="not($order)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
-    <variable name="before" select="substring-before(concat(' ', $order), substring($text, 1, 1))"/>
-    <if test="not($before)"><message terminate="yes">ERROR: getAlphaIndex(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character "<value-of select="substring($text, 1, 1)"/>".</message></if>
-    <sequence select="string-length($before)"/>
+    <if test="not($order)"><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
+    <value-of>
+      <for-each select="string-to-codepoints($text)">
+        <choose>
+          <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
+            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
+            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+            <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
+          </when>
+          <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
+        </choose>
+      </for-each>
+    </value-of>
   </function>
   
   <!-- THE OSIS FILE IS SEPARATED INTO INDIVIDUAL XHTML FILES BY THE FOLLOWING TEMPLATES WITH ProcessFile-->
