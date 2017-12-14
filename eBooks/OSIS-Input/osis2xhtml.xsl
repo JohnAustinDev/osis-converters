@@ -604,15 +604,18 @@
     <value-of select="normalize-space(string-join(($osisTagClass, $x/@type, $x/@subType, $levelClass), ' '))"/>
   </function>
   
-  <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse or chapter number -->
-  <template name="WriteEmbededChapterVerse">
-    <variable name="mySelf" select="."/>
+  <!-- This template may be called from: p, l and canonical title -->
+  <template name="WriteEmbededChapter">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
-    <variable name="doWriteChapterNumber" select="if (not($isInVerse)) then '' else (generate-id(preceding::chapter[@sID][1]/following::*[self::p or self::l][1]) = generate-id($mySelf))"/>
-    <if test="$doWriteChapterNumber">
+    <if test="$isInVerse and preceding::chapter[@sID][1][generate-id(following::*[self::p or self::l or self::title[@canonical='true']][1]) = generate-id(current())]">
       <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
-    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[child::l[1] = $mySelf][preceding-sibling::*[1][self::verse[@sID]]]]])">
+  </template>
+  
+  <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse -->
+  <template name="WriteEmbededVerse">
+    <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
+    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[child::l[1] = current()][preceding-sibling::*[1][self::verse[@sID]]]]])">
       <call-template name="WriteVerseNumber"/>
     </if>
   </template>
@@ -695,9 +698,10 @@
     <if test="not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
   </template>
   <template name="title">
+    <if test="@canonical='true'"><call-template name="WriteEmbededChapter"/></if>
     <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
       <xsl:call-template name="class"/>
-      <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededChapterVerse"/></xsl:if>
+      <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
       <xsl:apply-templates mode="xhtml"/>
     </element>
   </template>
@@ -759,7 +763,8 @@
       <when test="following-sibling::l[1][@type='selah']">
         <div xmlns="http://www.w3.org/1999/xhtml">
           <xsl:call-template name="class"/>
-          <xsl:call-template name="WriteEmbededChapterVerse"/>
+          <xsl:call-template name="WriteEmbededChapter"/>
+          <xsl:call-template name="WriteEmbededVerse"/>
           <xsl:apply-templates mode="xhtml"/>
           <i class="xsl-selah">
             <xsl:for-each select="following-sibling::l[@type='selah']
@@ -770,7 +775,7 @@
         </div>
       </when>
       <otherwise>
-        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/></div>
+        <div xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/><xsl:apply-templates mode="xhtml"/></div>
       </otherwise>
     </choose>
   </template>
@@ -821,7 +826,7 @@
   <template match="p" mode="xhtml">
     <variable name="p" as="element(html:p)">
       <p xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapterVerse"/><xsl:apply-templates mode="xhtml"/>
+        <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/><xsl:apply-templates mode="xhtml"/>
       </p>
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->

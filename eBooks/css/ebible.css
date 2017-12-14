@@ -97,6 +97,19 @@ a.osis-reference {
   text-indent:-1.5em;
   margin-left:1.5em;
 }
+.osis-l.level-2 {
+  margin-left:3em;
+}
+.osis-l.level-3 {
+  margin-left:4.5em;
+}
+.osis-l.level-4 {
+  margin-left:6em;
+}
+.osis-l.x-to-next-level {
+  padding-left:1.5em;
+  text-indent:-3em;
+}
 .osis-item {
   margin-bottom:1em;
 }
@@ -198,10 +211,6 @@ a.osis-reference {
 .osis-reference.x-glosslink {
   color: #000000;
 }
-.osis-l.x-to-next-level {
-  text-indent:-3em;
-  padding-left:3em;
-}
 .x-navmenu .osis-item {
   margin-bottom:0;
 }
@@ -240,7 +249,7 @@ body:not(.Ps) .xsl-toc-entry.osis-chapter {
   font-weight:bold;
   color:#004400;
   float: left; 
-  margin: -0.1em 0.2em 0 0;
+  margin: -0.3em 0.2em 0 0;
   text-indent: 0;  
 }
 .osis-l > .xsl-chapter-number {
