@@ -39,7 +39,7 @@
   <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-ebook-config-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
   
   <!-- Set name to use for the combined glossary -->
-  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1] else 'Glossary'"/>
+  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
   
   <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook, and all input OSIS files must reside in the same directory -->
   <variable name="referencedOsisDocs" select="//work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
