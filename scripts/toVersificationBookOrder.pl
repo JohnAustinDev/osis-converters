@@ -294,12 +294,16 @@ BOOK:
         $x++;
       }
       while (@v[$x] =~ /^\Q$bk.$ch./) {
-        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)\b/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
-        my $alt = "<hi type=\"italic\" subType=\"x-alternate\"><hi type=\"super\">$evs</hi></hi>";
-        @{$XPC->findnodes('//osis:verse[@eID="'.@v[$x].'"]', $xml)}[0]->unbindNode();
+        @v[$x] =~ /^([\w\d]+)\.(\d+)\.(\d+).*?(([\w\d]+)\.(\d+)\.(\d+))?$/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3); my $elvs = ($4 ? $7:'');
+        my $alt = "<hi type=\"italic\" subType=\"x-alternate\"><hi type=\"super\">$evs".($elvs ? "-$elvs":'')."</hi></hi>";
+        my $vEnd = @{$XPC->findnodes('//osis:verse[@eID="'.@v[$x].'"]', $xml)}[0];
+        my $vPrevEnd = @{$XPC->findnodes('preceding::osis:verse[@eID][1]', $vEnd)}[0];
+        $vPrevEnd->unbindNode();
+        $vEnd->parentNode()->insertBefore($vPrevEnd, $vEnd);
+        $vEnd->unbindNode();
         @ve[$x]->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($alt), @ve[$x]);
         @ve[$x]->unbindNode();
-        $extraVerseReport{@v[$x]} = $evs;
+        $extraVerseReport{@v[$x]} = "$evs".($elvs ? "-$elvs":'');
         $x++;
       }
       $ch++;
@@ -331,7 +335,7 @@ BOOK:
     &Log("the intended result. Otherwise, you need to adjust the USFM using \n");
     &Log("EVAL_REGEX to handle the extra verses.\n");
     foreach my $m (sort keys %extraVerseReport) {
-      &Log(sprintf("WARNING: %12s became alternate: %i\n", $m, $extraVerseReport{$m}));
+      &Log(sprintf("WARNING: %12s became alternate: %s\n", $m, $extraVerseReport{$m}));
     }
   }
   
