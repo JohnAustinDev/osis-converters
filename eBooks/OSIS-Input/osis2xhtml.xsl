@@ -698,10 +698,9 @@
     <if test="not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
   </template>
   <template name="title">
-    <if test="@canonical='true'"><call-template name="WriteEmbededChapter"/></if>
     <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
       <xsl:call-template name="class"/>
-      <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
+      <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
       <xsl:apply-templates mode="xhtml"/>
     </element>
   </template>
