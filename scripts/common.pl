@@ -2594,6 +2594,7 @@ sub checkReferenceLinks($) {
   &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
+  my $osisMod = @{$XPC->findnodes('/descendant::osis:osisText[1]/@osisIDWork', $osis)}[0]->value;
   
   my @links = $XPC->findnodes('//osis:reference', $osis);
   
@@ -2616,6 +2617,11 @@ sub checkReferenceLinks($) {
       next;
     }
     
+    my $avoidThisGlossEntry = (
+      $linktype eq 'gloss' ? @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $l)}[0]
+      :''
+    );
+    
     my @srefs1 = split(/\s+/, $osisRef);
     foreach my $sref1 (@srefs1) {
       my @srefs = split(/\-/, $sref1);
@@ -2623,7 +2629,11 @@ sub checkReferenceLinks($) {
       foreach my $sref (@srefs) {
         my $type; my $mod;
         my $isValid = &validOsisRefSegment("$m$sref", $osis, '', '', '', \$mod, \$type);
-        if ($isValid == 0) {
+        if ($avoidThisGlossEntry && "$m$sref" eq $osisMod.':'.$avoidThisGlossEntry->getAttribute('osisID')) {
+          &Log("ERROR: Glossary entry $avoidThisGlossEntry contains a link to itself at: \"".$l->textContent."\"\n");
+          $errors{$linktype}++;
+        }
+        elsif ($isValid == 0) {
           &Log("ERROR: Invalid osisRef segment \"$sref\" in link \"$l\"\n");
           $errors{$linktype}++;
         }
@@ -2639,8 +2649,8 @@ sub checkReferenceLinks($) {
     }
   }
 
-  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." unknown or missing targets)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problem(s))\n");
+  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing target(s))\n");
   &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Indeterminent reference links whose targets may or may not be missing.\n");
   &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
 }
