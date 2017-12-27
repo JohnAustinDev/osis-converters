@@ -43,10 +43,10 @@ sub addSeeAlsoLinks($$) {
     my $xml = $XML_PARSER->parse_file($in_file);
     
     # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-    my @glossary = $XPC->findnodes(".//osis:index[\@index='Glossary'][\@level1]", $xml);
+    my @glossary = $XPC->findnodes('.//osis:index[@index="Glossary"][@level1]', $xml);
     &convertExplicitGlossaryElements(\@glossary);
-    
-    my @textNodes = $XPC->findnodes("//text()[not(ancestor::*[local-name() = 'reference'])]", $xml);
+    # must use local-name() = 'reference' here, because added references have no namespace
+    my @textNodes = $XPC->findnodes("//text()[normalize-space()][not(ancestor::*[local-name() = 'reference'])][not(ancestor::osis:header)]", $xml);
     &addDictionaryLinks(\@textNodes, 0, 1);
     
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);

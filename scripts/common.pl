@@ -1795,8 +1795,7 @@ sub addDictionaryLink(\$$$$\@) {
   
   # Cache match related info
   if (!@MATCHES) {
-    my @ms = $XPC->findnodes("//dw:match", $DWF);
-    my @ns = $XPC->findnodes("//dw:name", $DWF);
+    my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
       my %minfo;
       $minfo{'node'} = $m;
@@ -1812,9 +1811,10 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
-      foreach my $n (@ns) {
-        if (&matchInEntry($m, $n->textContent)) {$minfo{'inEntries'}{$n->textContent}++;}
-      }
+      # A <match> element should never be applied to any textnode inside the glossary entry (or entries) which the match pertains to or any duplicate entries thereof.
+      # This is necessary to insure an entry will never contain links to itself or to a duplicate.
+      my @osisRef = split(/\s+/, @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef'));
+      foreach my $ref (@osisRef) {$minfo{'skipRootID'}{&getRootID($ref)}++;}
       
       # test match pattern, so any errors with it can be found right away
       if ($m->textContent !~ /(?<!\\)\(.*(?<!\\)\)/) {
@@ -1848,7 +1848,7 @@ sub addDictionaryLink(\$$$$\@) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ким мени севса ўшани севаман,"));
-#&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|inEntries)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
+#&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
     # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
@@ -1857,7 +1857,7 @@ sub addDictionaryLink(\$$$$\@) {
     }
     else {
       if ($m->{'onlyExplicit'}) {&dbg("01\n"); next;}
-      if ($glossaryContext && $m->{'inEntries'}{$glossaryContext}) {&dbg("05\n"); next;} # never add glossary links to self
+      if ($glossaryContext && $m->{'skipRootID'}{&getRootID($glossaryContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if (!$m->{'multiple'}) {
@@ -1922,6 +1922,13 @@ sub addDictionaryLink(\$$$$\@) {
   }
  
   return $matchedPattern;
+}
+
+sub getRootID($) {
+  my $osisID = shift;
+  
+  $osisID =~ s/(^[^\:]+\:|\.dup\d+$)//g;
+  return lc(&decodeOsisRef($osisID));
 }
 
 # Look for a single match $m in $$textP and set its start/end positions
@@ -2106,21 +2113,6 @@ sub contextAttribute2osisRefAttribute($) {
   }
   
   return $ret;
-}
-
-# Return 1 if $name may be referenced by the osisRef of the entry for the match element $m.
-# If so, the match $m will not be applied whenever a text node's glossaryContext is $name.
-# This is necessary to insure an entry will never contain links to itself or a duplicate.
-sub matchInEntry($$) {
-  my $m = shift;
-  my $name = shift;
-  
-  my $osisRef = @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef');
-  $osisRef =~ s/\.dup\d+$//;
-  foreach my $ref (split(/\s+/, $osisRef)) {
-    if (lc(&osisRef2Entry($ref)) eq lc($name)) {return 1;}
-  }
-  return 0;
 }
 
 
@@ -2336,16 +2328,19 @@ sub bibleContext($) {
   return $context;
 }
 
-# return special Glossary context reference for $node:
-# BEFORE_keyword = Node is not part of any keyword but next one is keyword
-# keyword = Node is part of keyword's entry
+# returns:
+# A keyword osisID if $node is part of a glossary entry.
+# Or else "BEFORE_" is prepended to the following keyword osisID if $node is part of a glossary introduction.
 sub glossaryContext($) {
   my $node = shift;
   
   # is node in a type div?
   my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
   my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div['.join(' or ', @typeXPATH).'][last()]', $node)}[0];
-  if (!$typeDiv) {return '';}
+  if (!$typeDiv) {
+    &Log("ERROR glossaryContext: Node is not part of a glossary: $node\n");
+    return '';
+  }
 
   # get preceding keyword
   my $prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];
@@ -2363,11 +2358,13 @@ sub glossaryContext($) {
   
   # if not, then use BEFORE
   my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
-  if (!$nextkw) {return "BEFORE_unknown";}
+  if (!$nextkw) {
+    &Log("ERROR glossaryContext: There are no entries in the glossary which contains node $node\n");
+    return '';
+  }
   
   if (!$nextkw->getAttribute('osisID')) {
     &Log("ERROR glossaryContext: Next keyword has no osisID \"$nextkw\"\n");
-    return '';
   }
   return 'BEFORE_'.$nextkw->getAttribute('osisID');
 }
@@ -2649,8 +2646,8 @@ sub checkReferenceLinks($) {
     }
   }
 
-  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problem(s))\n");
-  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing target(s))\n");
+  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
   &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Indeterminent reference links whose targets may or may not be missing.\n");
   &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
 }
