@@ -3085,7 +3085,7 @@ sub emptyvss($) {
     
     # report entire missing books separately
     my $missingBKs = '';
-    foreach my $bk (keys %{$bookOrderP}) {
+    foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
       my $whole = @{$canonP->{$bk}}.":".@{$canonP->{$bk}}[@{$canonP->{$bk}}-1];
       if ($r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m) {$missingBKs .= $bk." ";}
     }
