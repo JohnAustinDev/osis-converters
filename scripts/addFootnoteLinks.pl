@@ -129,42 +129,44 @@ sub addFootnoteLinks($$) {
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
   
+  my $bibleOsis;
+  if ($MODDRV =~ /Text/) {$bibleOsis = $in_file;}
   # If this is a glossary with a companion Bible, parse the companion Bible's OSIS to collect its footnote osisID values
-  if ($MODDRV =~ /LD/ && $ConfEntryP->{'Companion'}) {
+  elsif ($MODDRV =~ /LD/ && $ConfEntryP->{'Companion'}) {
     my $cinpd = $INPD; $cinpd =~ s/\/[^\/]+\/?$//;
-    my $cosisFile = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
-    if (-e $cosisFile) {
-      my @files = &splitOSIS($cosisFile);
-      my $cmod;
-      my $crefSystem;
+    $bibleOsis = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
+  }
+  if (-e $bibleOsis) {
+    my @files = &splitOSIS($bibleOsis);
+    my $bmod;
+    my $brefSystem;
+    foreach my $file (@files) {
+      if ($file !~ /other\.osis$/) {next;}
+      my $bosisXml = $XML_PARSER->parse_file($file);
+      $bmod = &getModFromNode($bosisXml);
+      $brefSystem = &getOSISHeaderValueFromNode('refSystem', $bosisXml);
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getBibleVersificationFromNode($bosisXml);
+      last;
+    }
+    if ($brefSystem =~ /^Bible/) {
       foreach my $file (@files) {
-        if ($file !~ /other\.osis$/) {next;}
-        my $cosisXml = $XML_PARSER->parse_file($file);
-        $cmod = &getModFromNode($cosisXml);
-        $crefSystem = &getOSISHeaderValueFromNode('refSystem', $cosisXml);
-        $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$cmod} = &getBibleVersificationFromNode($cosisXml);
-        last;
-      }
-      if ($crefSystem =~ /^Bible/) {
-        foreach my $file (@files) {
-          my $cosisXml = $XML_PARSER->parse_file($file);
-          my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $cosisXml);
-          foreach my $fn (@fns) {
-            my $id = $cmod.':'.$fn->getAttribute('osisID');
-            $OSISID_FOOTNOTE{$id}++;
-            my $bc = &bibleContext($fn);
-            if ($bc) {&recordVersesOfFootnote($fn, $bc, $cmod);}
-            else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in companion \"$cmod\".\n");}
-          }
+        my $bosisXml = $XML_PARSER->parse_file($file);
+        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $bosisXml);
+        foreach my $fn (@fns) {
+          my $id = $bmod.':'.$fn->getAttribute('osisID');
+          $OSISID_FOOTNOTE{$id}++;
+          my $bc = &bibleContext($fn);
+          if ($bc) {&recordVersesOfFootnote($fn, $bc, $bmod);}
+          else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in \"$bmod\".\n");}
         }
-      }
-      else {
-        &Log("ERROR: Companion OSIS should be a Bible but is not\"$cosisFile\"\n");
       }
     }
     else {
-      &Log("ERROR: OSIS is a glossary with a companion, but the companion's OSIS was not found at \"$cosisFile\"!\n");
+      &Log("ERROR: OSIS should be a Bible but is not: \"$bibleOsis\"\n");
     }
+  }
+  else {
+    &Log("ERROR: Bible OSIS was not found at \"$bibleOsis\"!\n");
   }
   
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
@@ -181,11 +183,6 @@ sub addFootnoteLinks($$) {
       $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
       $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
       $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getBibleVersificationFromNode($xmls{$file});
-    }
-  }
-  if ($myRefSystem =~ /^(Bible)/) {
-    foreach my $file (sort keys %xmls) {
-      &footnoteXML($xmls{$file}, $myMod); # Do this first to collect/write all footnote osisID values before processing
     }
   }
   if ($myRefSystem =~ /^(Bible|Dict)/) {
@@ -229,21 +226,6 @@ sub addFootnoteLinks($$) {
   &Log(sprintf("%5i - Single references\n", &stat('single')));
   &Log(sprintf("%5i - Multiple consecutive footnote references\n", &stat('multi')));
   &Log("FINISHED!\n\n");
-}
-
-sub footnoteXML($$) {
-  my $xml = shift;
-  my $footnoteModuleName = shift;
-  
-  # add osisIDs to every footnote
-  my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
-  foreach my $f (@allFootnotes) {
-    my $bibleContext = &bibleContext($f);
-    
-    # Verses may be linked and so a note's annotateRef will be read in 
-    # such case to determine the coverage of each footnote.
-    if ($bibleContext) {&recordVersesOfFootnote($f, $bibleContext, $footnoteModuleName);}
-  }
 }
 
 # Record each separate verse of a footnote's context and annotateRef. 

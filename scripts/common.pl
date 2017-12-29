@@ -44,6 +44,7 @@ $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
+%OSISID_NOTE;
 
 require("$SCRD/scripts/getScope.pl");
 require("$SCRD/scripts/toVersificationBookOrder.pl");
@@ -2496,7 +2497,7 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
         return 0;
       }
     }
-    elsif ($OSISID_FOOTNOTE{"$$modP:$osisRef!$$extP"}) {$validValue = 1;}
+    elsif ($OSISID_NOTE{"$$modP:$osisRef!$$extP"}) {$validValue = 1;}
     else {$validValue = -1;}
   }
   
@@ -3312,7 +3313,7 @@ sub writeWorkElement($$$) {
   &Log("Wrote to header: \n$w\n");
 }
 
-sub writeFootnoteIDs() {
+sub writeNoteIDs() {
   my $osis = shift;
   my $confP = shift;
   
@@ -3321,7 +3322,7 @@ sub writeFootnoteIDs() {
   elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible';}
   else {return;}
   
-  &Log("\nWriting footnote osisIDs:\n", 1);
+  &Log("\nWriting note osisIDs:\n", 1);
   
   my @files = &splitOSIS($osis);
   foreach my $file (@files) {
@@ -3329,33 +3330,36 @@ sub writeFootnoteIDs() {
     
     my $myMod = &getModFromNode($xml);
     
-    my @allFootnotes = $XPC->findnodes('//osis:note[@placement="foot"]', $xml);
-    foreach my $f (@allFootnotes) {
+    my @allNotes = $XPC->findnodes('//osis:note', $xml);
+    foreach my $n (@allNotes) {
       my $osisID;
       
       if ($type eq 'x-bible') {
-        $osisID = &bibleContext($f);
+        $osisID = &bibleContext($n);
         if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
-          &Log("ERROR: Bad context for footnote osisID: \"$osisID\"\n");
+          &Log("ERROR: Bad context for note osisID: \"$osisID\"\n");
           next;
         }
       }
-      else {$osisID = &glossaryContext($f);}
+      else {$osisID = &glossaryContext($n);}
       
-      # Reserve and write an osisID for each footnote. 
-      my $n = 1;
-      my $id = "$myMod:$osisID$FNREFEXT$n";
-      while ($OSISID_FOOTNOTE{$id}) {$n++; $id = "$myMod:$osisID$FNREFEXT$n";}
-      $OSISID_FOOTNOTE{$id}++;
+      # Reserve and write an osisID for each note. 
+      my $i = 1;
+      # The extension has 2 parts: type and instance. Instance is a number prefixed by a single letter.
+      # Generic cross-references, which may be added later on, will have this extension: crossReference.rN
+      my $refext = ($n->getAttribute("placement") == "foot" ? $FNREFEXT:'!' . ($n->getAttribute("type") ? $n->getAttribute("type"):'tnote') . '.t');
+      my $id = "$myMod:$osisID$refext$i";
+      while ($OSISID_NOTE{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
+      $OSISID_NOTE{$id}++;
       
-      if ($f->getAttribute('osisID') && $f->getAttribute('osisID') ne "$osisID$FNREFEXT$n") {
-        &Log("WARNING: Overwriting footnote osisID \"".$f->getAttribute('osisID')."\" with \"$osisID$FNREFEXT$n\"\n");
+      if ($n->getAttribute('osisID') && $n->getAttribute('osisID') ne "$osisID$refext$i") {
+        &Log("WARNING: Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\"\n");
       }
 
-      $f->setAttribute('osisID', "$osisID$FNREFEXT$n");
+      $n->setAttribute('osisID', "$osisID$refext$i");
     }
     
-    open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
+    open(OUTF, ">$file") or die "writeNoteIDs could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
