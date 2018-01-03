@@ -1,6 +1,5 @@
 # See /scripts/addScripRefLinks.pl for command file documentation
 
-FILTER:
 CURRENT_BOOK_TERMS:
 CURRENT_CHAPTER_TERMS:
 CHAPTER_TERMS:

@@ -17,80 +17,108 @@
 # <http://www.gnu.org/licenses/>.
 
 # IMPORTANT TERMINOLOGY:
+# ----------------------
 #   A "reference" is a reference to a contiguous Scripture text. For
 #   example: "Matt 1:1-5".
 #   An "extended reference" is a list of Scripture references. For
 #   example: "John 4:5; 6:7-9, 11, 13; 1 Peter 1:3 and Rev 20:1-5" is
 #   a single extended reference.
 
-# POSSIBLE COMMAND FILE SETTINGS:
-#
-#  (NOTE: settings which are not needed can
-#   be left blank or not included at all)
-#
-#   <OSIS_BOOK_ABBREVIATION>=aTerm - Will associate the Bible book on
+# SPECIAL ARGUMENTS:
+# ------------------
+#   <regex-group> - A perl regular expression group starting and ending
+#       with parentheses. As usual, special Perl chars must be escaped 
+#       by back-slash. For example: (a|b|\(\.)
+#   <osis-book> - An OSIS book abbreviation such as Gen or Exod.
+#   <xpath> - An xpath expression such as: ancestor::osis:div[@type="book"]
+#   <log-file-line> - A "Linking" line from the ouput log file.
+#       
+
+# PROVIDING BOOK NAMES TO THE PASRER:
+# ------------------------------------
+#   <osis-book>=aTerm - Will associate the Bible book on
 #       the left with the matching term on the right. Only one term
 #       per line is allowed, but a single book may appear on numerous
 #       lines, each with another matching term. Longest terms for a
 #       book should be listed before shorter terms for the same book.
 #       NOTE: terms on the right are NOT Perl regular expressions but
 #       are string literals. However, these terms may be preceeded by
-#       PREFIXES or SUFFIXES (see below) and still match the book.
+#       the PREFIXES or SUFFIXES (see below) and still match the book.
 #
-#   CONTEXT_BOOK: OSISBK if-result XPATH - Will override the context 
-#       book for any node with OSISBK if a result is returned by 
-#       XPATH expression.
-#   SKIP_XPATH - An XPATH expression used to skip particular elements
-#       of text when searching for Scripture references. By default,
-#       nothing is skipped.
-#   ONLY_XPATH - An XPATH expression used to select only particular
+
+# FIX OR EXCLUDE PARTICULAR "REFERENCES":
+# --------------------------------------------
+#   FIX:<log-file-line> = <the-fix> - Use this to fix or unlink a
+#       parsed reference. Start by copying the "Linking" line from the 
+#       log file which corresponds to the reference that needs fixing. 
+#       These lines have this form: 
+#
+#       Gen.1.5 Linking: шу бобнинг 8 = Gen.1.8 (T09 (Book|CurrentChap num1-num2?))
+#
+#       Then replace the part after the = with either nothing, to unlink
+#       the reference entirely, or with a fix. The fix is writen in a 
+#       shortened form, like this:
+#       <r Gen.4.5>Genesis 4 verse 5</r> and see <r Exod.2.3>Exodus 2:3</r>
+#   CONTEXT_BOOK: <osis-book> if-result <xpath> - Will override the  
+#       context book to be <osis-book> for any node that returns a result 
+#       when the <xpath> expression is evaluated on it.
+
+# SELECT WHERE TO LOOK FOR REFERENCES:
+# ------------------------------------
+#   SKIP_XPATH:<xpath> - An XPATH expression used to skip particular 
+#       elements of text when searching for Scripture references. By 
+#       default, nothing is skipped.
+#   ONLY_XPATH:<xpath> - An XPATH expression used to select only particular
 #       elements of text to search for Scripture references. By default,
 #       everything is searched.
-#   FILTER - (no longer supported) A Perl regular expression used to
-#       select only particular parts of text to search for Scripture
-#       references. By default, everything is searched.
-#   SKIP_INTRODUCTIONS - Boolean if true introductions are skipped.
-#   CHAPTER_TERMS - A Perl regular expression representing words/phrases
-#       which should be understood as meaning "chapter".
-#   CURRENT_CHAPTER_TERMS - A Perl regular expression representing
-#       words/phrases which should be understood as meaning
-#       "the current chapter".
-#   CURRENT_BOOK_TERMS - A Perl regular expression representing
-#       words/phrases which should be understood as meaning
-#       "the current book"
-#   VERSE_TERMS- A Perl regular expression representing words/phrases
-#       which should be understood as meaning "verse".
-#   COMMON_REF_TERMS - A Perl regular expression representing all
-#       characters commonly found in extended references.
-#   PREFIXES - A Perl regular expression matching possible book
-#       prefixes. For example: quotes or "(" characters.
-#   REF_END_TERMS - A Perl regular expression to match the end of all
-#       extended references.
-#   SUFFIXES - A Perl regular expression matching suffixes which may
-#       appear at the end of book names and chapter/verse terms. Some
-#       Turkic languages have many such suffixes for example.
-#   SEPARATOR_TERMS - A Perl regular expression matching terms used
-#       to separate references in extended references. For
-#       example: ";" and "and".
-#   CHAPTER_TO_VERSE_TERMS - A Perl regular expression matching terms
-#       used to separate chapter from verse in a reference. For
-#       example: ":" is often used.
-#   CONTINUATION_TERMS - A Perl regular expression matching terms
-#       used to show a continuous range of numbers. For example: "-".
-#   DONT_MATCH_IF_NO_VERSE - Set to "true" to ignore references which
+#   SKIP_REFERENCES_FOLLOWING:<regex-group> - A Perl regular expression 
+#       which matches words/terms which should indicate the text 
+#       following them are NOT Scripture references.
+#   DONT_MATCH_IF_NO_VERSE: true - To ignore references which
 #       do not imply a verse, as in: "Luke 5".
-#   SKIP_PSALMS - Set "true" to skip the book of Psalms.
-#   SKIP_REFERENCES_FOLLOWING - A Perl regular expression which matches
-#       words/terms which should indicate the text following them are
-#       NOT Scripture references.
-#   REQUIRE_BOOK - Set to "true" to skip references which do not specify
+#   REQUIRE_BOOK: true - To skip references which do not specify
 #       the book. For example: "see chapter 6 verse 5". Normally, these
 #       references use context to imply their book target.
-#   EXCLUSION - Use to exclude certain references.
-#   LINE_EXCLUSION - (NO LONGER SUPPORTED) Was used to exclude certain 
-#       references on certain lines.
-#   FIX - Used to fix an incorrectly parsed reference.
-#   SKIPVERSE - The osisRef of a verse to skip.
+
+# CONTROL THE PARSING OF REFERENCES IN THE TEXT:
+# -----------------------------------------------
+#   CHAPTER_TERMS:<regex-group> - A Perl regular expression representing
+#        words/phrases which should be understood as meaning "chapter".
+#   CURRENT_CHAPTER_TERMS:<regex-group> - A Perl regular expression 
+#       representing words/phrases which should be understood as meaning
+#       "the current chapter".
+#   CURRENT_BOOK_TERMS:<regex-group> - A Perl regular expression 
+#       representing words/phrases which should be understood as meaning
+#       "the current book"
+#   VERSE_TERMS:<regex-group> - A Perl regular expression representing 
+#       words/phrases which should be understood as meaning "verse".
+#   COMMON_REF_TERMS:<regex-group> - A Perl regular expression representing 
+#       all characters commonly found in extended references.
+#   PREFIXES:<regex-group> - A Perl regular expression matching possible 
+#       book prefixes. For example: ("\() will allow quotes and "(" as 
+#       prefixes.
+#   REF_END_TERMS:<regex-group> - A Perl regular expression to match the 
+#       end of all extended references.
+#   SUFFIXES:<regex-group> - A Perl regular expression matching suffixes
+#       which may appear at the end of book names and chapter/verse 
+#       terms. SomeTurkic languages have many such suffixes for example.
+#   SEPARATOR_TERMS:<regex-group> - A Perl regular expression matching 
+#       terms used to separate references in extended references. For
+#       example: (;|and) will recognize ";" and the word "and".
+#   CHAPTER_TO_VERSE_TERMS:<regex-group> - A Perl regular expression 
+#       matching terms used to separate chapter from verse in a 
+#       reference. For example: (\:)
+#   CONTINUATION_TERMS:<regex-group> - A Perl regular expression matching 
+#       terms used to show a continuous range of numbers. For example: (\-)
+
+# NO LONGER SUPPORTED:
+# --------------------
+#   LINE_EXCLUSION - Use FIX instead.
+#   EXCLUSION - Use FIX instead.
+#   FILTER - Use SKIP_XPATH and/or ONLY_XPATH instead.
+#   SKIP_PSALMS - Use SKIP_XPATH instead.
+#   SKIPVERSE - Use SKIP_XPATH instead.
+#   SKIP_INTRODUCTIONS - Use SKIP_XPATH instead.
 
 $DEBUG_LOCATION = 0;
 
@@ -107,10 +135,8 @@ sub addScripRefLinks($$) {
   %UnhandledWords;
   %noDigitRef;
   %noOSISRef;
-  %exclusion;
-  %exclusionREP;
   %fix;
-  @skipVerse;
+  %fixDone;
 
   my $none = "nOnE";
 
@@ -131,9 +157,7 @@ sub addScripRefLinks($$) {
   $continuationTerms = $none;
   $skipUnhandledBook = $none;
   $mustHaveVerse = 0;
-  $skipPsalms = 0;
   $require_book = 0;
-  $skipintros = 0;
   $sp="\"";
   $numUnhandledWords = 0;
   $numMissedLeftRefs = 0;
@@ -172,8 +196,6 @@ sub addScripRefLinks($$) {
       }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
       elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
-      elsif ($_ =~ /^FILTER:(\s*\((.*?)\)\s*)?$/) {if ($2) {&Log("ERROR: CF_addScripRefLinks.txt: FILTER is no longer supported. Use ONLY_XPATH instead.\n");} next;}
-      elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
       elsif ($_ =~ /^CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chapTerms = $2;} next;}
       elsif ($_ =~ /^CURRENT_CHAPTER_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentChapTerms = $2;} next;}
       elsif ($_ =~ /^CURRENT_BOOK_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentBookTerms = $2;} next;}
@@ -187,15 +209,16 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
       elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}
       elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
-      elsif ($_ =~ /^SKIP_PSALMS:(\s*(.*?)\s*)?$/) {if ($1) {$skipPsalms = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
-      elsif ($_ =~ /^SKIPVERSE:\s*(.*?)\s*$/) {if ($1) {push(@skipVerse, $1);} next;}
-      elsif ($_ =~ /^EXCLUSION:(Linking|Extended)?\s*(.*?): (.*) =/) {$exclusion{$2} .= $sp.$3.$sp; next;}
-      elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
-      elsif ($_ =~ /^LINE_EXCLUSION:(\d+) Linking.*?: (.*?) =/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
-      elsif ($_ =~ /^LINE_EXCLUSION:(\d+)\s+(.*?)\s*$/) {&Log("ERROR CF_addScripRefLinks.txt: LINE_EXCLUSION is no longer supported. Use EXCLUSION instead.\n"); next;}
-      elsif ($_ =~ /^FIX:\s*(.*?(?:Linking|Extended)\:[^=]+) = (.*?)$/) {$fix{$1} = $2; next;}
-      elsif ($_ =~ /^FIX:(Check line (\d+):)?\"([^\"]+)\"=(.*?)$/) {$fix{$3} = $4; next;}
+      elsif ($_ =~ /^FIX:\s*(\S+) Linking: ([^=]+) =\s*(.*)$/) { # must match output of logLink
+        my $location = $1; my $printReference = $2; my $replacement = $3;
+        my $skip = 1;
+        if ($replacement =~ /<\/r>/) {$skip = 0;}
+        elsif ($replacement !~ /^\s*$/) {
+          &Log("ERROR: FIX replacement (after equal sign) must be either nothing to unlink, or of the form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to fix.\n");
+        }
+        $fix{$location}{$printReference} = ($skip ? 'skip':$replacement);
+      }
       elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
         my $lb = $2;
         my $elb = quotemeta($2);
@@ -270,22 +293,16 @@ sub addScripRefLinks($$) {
   else {&Log("(no unknown book names)\n");}
   &Log("\n");
   my $t = 0;
-  foreach my $e (keys %exclusion) {my @tmp = split(/$sp$sp/, $exclusion{$e}); $t += @tmp;}
+  foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} eq 'skip') {$t++;}}}
   &Log("$MOD REPORT: Listing of exclusions: ($t instances)\n");
-  if (scalar(keys %exclusion)) {
-    &reportExclusions(\%exclusion, \%exclusionREP, "verse");
-  }
+  if ($t) {&reportFixes(\%fix, \%fixDone, "skip");}
   else {&Log("(no exclusions were specified in command the file)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Listing of fixes: (".scalar(keys %fix)." instances)\n");
-  if (scalar(keys %fix)) {
-    foreach my $fx (keys %fix) {
-      if ($fix{$fx} !~ /^\s*$/) {
-        &Log("ERROR: Fix \"$fx\" was not applied.\n");
-      }
-    }
-  }
+  my $t = 0;
+  foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} ne 'skip') {$t++;}}}
+  &Log("$MOD REPORT: Listing of fixes: ($t instances)\n");
+  if ($t) {&reportFixes(\%fix, \%fixDone, "fix");}
   else {&Log("(no fixes were specified in the command file)\n");}
   &Log("\n");
 
@@ -402,22 +419,6 @@ sub asrlProcessFile($$) {
     $thisp =~ s/^([^\.]*\.[^\.]*)\..*$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
-    if ($intro && $skipintros) {next;}
-
-    if ($skipPsalms eq "true" && $BK eq "Ps") {
-      if (!$psw) {&Log("\nWARNING: SKIPPING THE BOOK OF PSALMS\n\n");} $psw = 1;
-      next;
-    }
-
-    my $skip = 0;
-    foreach my $av (@skipVerse) {
-      if ($av eq "$BK.$CH.$VS") {
-        &Log("$LOCATION NOTE: Skipping verse $av - on SKIP list\n");
-        $skip = 1; last;
-      }
-    }
-    if ($skip) {next;}
-
     # search for Scripture references in this text node and add newReference tags around them
     my $text = $textNode->data();
     my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
@@ -515,7 +516,6 @@ sub addLinks(\$$$) {
     while (&leftmostTerm($ttP, \$matchedTerm, \$type, \$unhandledBook)) {
 
       if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
-      if (!&termAcceptable($matchedTerm, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($matchedTerm, $ttP); next;}
 
       #  Look at unhandledBook
       if ($unhandledBook) {
@@ -552,33 +552,12 @@ sub addLinks(\$$$) {
         next;
       }
 
-      # Skip if on line Exclusion lists
-      if (!&termAcceptable($extref, "$BK.$CH.$VS", \%exclusion, \%exclusionREP)) {&hideTerm($extref, $ttP); next;}
-
-      my $repExtref = "";
+      # Skip or fix
+      my $repExtref = &fixLink($pextref, "$BK.$CH.$VS", \%fix, \%fixDone);
+      if ($repExtref eq 'skip') {&hideTerm($extref, $ttP); next;}
+      elsif ($repExtref) {goto ADDLINK;}
+      
       my $shouldCheck = 0;
-
-      # Fix if on fix list
-      foreach $fx (keys %fix) {
-        my $fx2 = $fx;
-        my $rightContext = 1;
-        if ($fx =~ /^(.*?) (?:Linking|Extended)\: (.*)$/) {
-          my $loc = $1;
-          $fx2 = $2;
-          if ($loc ne $LOCATION) {$rightContext = 0;}
-        }
-        if ($rightContext && $fx2 eq $extref) {
-          $repExtref = $fix{$fx};
-          if ($repExtref =~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
-            &Log("$LOCATION NOTE: Fixed \"$pextref\" - on FIX list.\n");
-          }
-          else {
-            &Log("$LOCATION ERROR: Fix for \"$pextref\" failed!\n");
-          }
-          $fix{$fx} = "";
-          goto ADDLINK;
-        }
-      }
 
       # Now break ref up into its subrefs, and extract OSIS ref for each subref
       my $tbk = $bk;
@@ -587,7 +566,7 @@ sub addLinks(\$$$) {
       if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
 
       my @subrefArray = split(/($sepTerms)/, $extref);
-      if (@subrefArray > 1) {&Log("$LOCATION Extended: $pextref = \n");}
+      if (@subrefArray > 1) {&logLink($LOCATION, 0, $pextref);}
       foreach my $subref (@subrefArray) {
         my $psubref = $subref; $psubref =~ s/\n/\\n/g;
         if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG3: subref=\"$psubref\"\n");}
@@ -625,7 +604,7 @@ sub addLinks(\$$$) {
         if ($type eq "T09 (num1 ... num2?)") {$shouldCheck = 1;}
 
         $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
-        &Log("$LOCATION Linking: $psubref = $osisRef ($type)\n");
+        &logLink($LOCATION, @subrefArray > 1, $psubref, $osisRef, $type);
       }
 
       ADDLINK:
@@ -641,7 +620,7 @@ sub addLinks(\$$$) {
       if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$pextref\".\n");}
 
       if ($shouldCheck) {
-        $prf = $repExtref;
+        my $prf = $repExtref;
         $prf =~ s/osisRef="([^"]+)"/$1/g;
         $prf =~ s/newReference/r/g;
         $CheckRefs .= "\nCheck location $LOCATION:\"$pextref\"=$prf";
@@ -659,47 +638,66 @@ sub addLinks(\$$$) {
   $$tP = join("", @notags);
 }
 
-sub termAcceptable($$%%) {
-  my $t = shift;
-  my $key = shift;
-  my $excP = shift;
-  my $doneExcP = shift;
-
-  my $tre = quotemeta($t);
-#&Log("DEBUG: t=$t, key=$key, " . $excP->{$key} . " =~ /$sp$tre$sp/ is " . (($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) ? "true":"false") . "\n");
-  if ($excP->{$key} && $excP->{$key} =~ /$sp$tre$sp/) {
-    $doneExcP->{$key} .= $sp.$t.$sp;
-    &Log("$LOCATION NOTE $key: Skipped \"$t\" - on EXCLUDE list.\n");
-    return 0;
-  }
-
-  return 1;
+sub logLink($$$$$) {
+  my $location = shift;
+  my $isSubReference = shift;
+  my $printReference = shift;
+  my $osisRef = shift;
+  my $type = shift;
+  &Log("$location ".($isSubReference ? "sub-reference":"Linking").": $printReference = ");
+  if ($osisRef) {&Log("$osisRef ($type)");}
+  &Log("\n");
 }
 
-sub reportExclusions(%%$) {
-  my $excP = shift;
-  my $doneExcP = shift;
-  my $type = shift;
-
-  if (!(scalar(keys %{$excP}))) {
-    &Log("(no $type exclusions in command file)\n");
-    return;
+sub fixLink($$\%\%) {
+  my $reference = shift;
+  my $location = shift;
+  my $fixP = shift;
+  my $fixDoneP = shift;
+  
+  if (!defined($fixP->{$location}{$reference})) {
+    return '';
   }
+  
+  if ($fixP->{$location}{$reference} eq 'skip') {
+    &Log("$location NOTE: Skipped \"$reference\" - on FIX list.\n");
+    $fixDoneP->{$location}{$reference}++;
+    return 'skip';
+  }
+  
+  my $fixed = $fixP->{$location}{$reference};
+  if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
+    &Log("ERROR: Bad FIX replacement $location $reference: \"$fixed\"\n");
+    return '';
+  }
+  
+  &Log("$location NOTE: Fixed \"$reference\" - on FIX list.\n");
+  $fixDoneP->{$location}{$reference}++;
+  return $fixed;
+}
 
-  my $ok = 1;
-  foreach my $ex (sort keys %$excP) {
-    my @exb = split(/$sp(.*?)$sp/, $excP->{$ex});
-    foreach my $exbv (@exb) {
-      if (!$exbv) {next;}
-      my $exbr = quotemeta($exbv);
-      if ($doneExcP->{$ex} !~ /$sp$exbr$sp/) {
-        &Log("ERROR: Exclusion ".$ex." ".$exbv." was not applied.\n");
-        $ok = 0;
+sub reportFixes(%%$) {
+  my $fixP = shift;
+  my $fixDoneP = shift;
+  my $type = shift;
+  
+  my $t = 0;
+  my $f = 0;
+  foreach my $loc (keys %{$fixP}) {
+    foreach my $ref (keys %{$fixP->{$loc}}) {
+      if ($type eq 'skip' && $fixP->{$loc}{$ref} ne 'skip') {next;}
+      if ($type ne 'skip' && $fixP->{$loc}{$ref} eq 'skip') {next;}
+      if (!defined($fixDoneP->{$loc}{$ref})) {
+        &Log("ERROR: Fix \"$loc\" \"$ref\" was not applied.\n");
+        $f++;
       }
+      else {$t += $fixDoneP->{$loc}{$ref};}
     }
   }
-
-  if ($ok) {&Log("(all $type exclusions where applied)\n");}
+  if ($f == 0) {
+    my $tp = ($type eq 'skip' ? 'exclusions':'fixes');
+    &Log("NOTE: All $tp where applied ($t times)\n");
+  }
 }
 
 sub hideTerm($\$$) {
@@ -724,7 +722,7 @@ sub hideTerm($\$$) {
 sub encodeTerm($) {
   my $t = shift;
   if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
-    &Log("LOCATION ERROR: String already partially encoded \"$t\".\n");
+    &Log("$LOCATION ERROR: String already partially encoded \"$t\".\n");
   }
   $t =~ s/(.)/$1_/gs;
   return "{{{".$t."}}}";
