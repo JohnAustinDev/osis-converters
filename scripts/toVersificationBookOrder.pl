@@ -276,7 +276,7 @@ BOOK:
     foreach my $vmax (@{$canonP->{$bk}}) {
       for (my $vs = 1; $vs <= $vmax; $vs++) {
         @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
-        if ($ech < $ch || ($ech == $ch && $evs < $vs)) {
+        if (($ech != 1 && $ech < $ch) || ($ech == $ch && $evs < $vs)) {
           &Log("ERROR: Chapter/verse ordering problem starting at ".@v[$x]." (expected $ch.$vs)! Aborting!\n");
           last BOOK;
         }
