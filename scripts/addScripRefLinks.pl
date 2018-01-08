@@ -53,12 +53,13 @@
 #       log file which corresponds to the reference that needs fixing. 
 #       These lines have this form: 
 #
-#       Gen.1.5 Linking: шу бобнинг 8 = Gen.1.8 (T09 (Book|CurrentChap num1-num2?))
+#       Gen.1.5 Linking: "шу бобнинг 8" = Gen.1.8 (T09 (Book|CurrentChap num1-num2?))
 #
 #       Then replace the part after the = with either nothing, to unlink
-#       the reference entirely, or with a fix. The fix is writen in a 
-#       shortened form, like this:
-#       <r Gen.4.5>Genesis 4 verse 5</r> and see <r Exod.2.3>Exodus 2:3</r>
+#       the reference entirely, or with a fix. The fix is written in a 
+#       shortened form, with double quotes around it (and double quotes 
+#       in the replacement must be escaped with '\'), like this:
+#       "<r Gen.4.5>Genesis 4 verse 5</r> and see \"Lord\" in <r Exod.2.3>Exodus 2:3</r>"
 #   CONTEXT_BOOK: <osis-book> if-result <xpath> - Will override the  
 #       context book to be <osis-book> for any node that returns a result 
 #       when the <xpath> expression is evaluated on it.
@@ -210,14 +211,20 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}
       elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
-      elsif ($_ =~ /^FIX:\s*(\S+) Linking: ([^=]+) =\s*(.*)$/) { # must match output of logLink
-        my $location = $1; my $printReference = $2; my $replacement = $3;
-        my $skip = 1;
-        if ($replacement =~ /<\/r>/) {$skip = 0;}
-        elsif ($replacement !~ /^\s*$/) {
-          &Log("ERROR: FIX replacement (after equal sign) must be either nothing to unlink, or of the form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to fix.\n");
+      elsif ($_ =~ /^(FIX:\s*(\S+) Linking:\s*(?<!\\)"(.*)(?<!\\)"\s*=)/) { # must match output of logLink
+        my $com = $1; my $location = $2; my $printReference = $3;
+        my $replacement;
+        if ($_ =~ /^\Q$com\E\s*(?<!\\)"(.*<\/r>.*)(?<!\\)"\s*$/) {$replacement = $1;}
+        elsif ($_ !~ /^\Q$com\E\s*$/) {
+          &Log("
+ERROR: FIX replacement (after equal sign) must either be nothing to unlink, 
+       or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to fix. 
+       The replacement must be enclosed by double quotes, and any double
+       quotes in the replacement must be escape with '\'."
+          );
         }
-        $fix{$location}{$printReference} = ($skip ? 'skip':$replacement);
+        $printReference =~ s/\\"/"/g; $replacement =~ s/\\"/"/g; # unescape any escaped double quotes
+        $fix{$location}{$printReference} = ($replacement ? $replacement:'skip');
       }
       elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
         my $lb = $2;
@@ -644,7 +651,9 @@ sub logLink($$$$$) {
   my $printReference = shift;
   my $osisRef = shift;
   my $type = shift;
-  &Log("$location ".($isSubReference ? "sub-reference":"Linking").": $printReference = ");
+  
+  $printReference =~ s/"/\\"/g; # required to support FIX commands
+  &Log("$location ".($isSubReference ? "sub-reference":"Linking").": \"$printReference\" = ");
   if ($osisRef) {&Log("$osisRef ($type)");}
   &Log("\n");
 }
