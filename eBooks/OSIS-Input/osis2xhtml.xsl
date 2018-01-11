@@ -193,7 +193,7 @@
         </when>
         <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
         <otherwise>
-          <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s): ')"/>
+          <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
             <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/></for-each><text>&#xa;</text>
           </message>
         </otherwise>
@@ -615,7 +615,7 @@
   <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse -->
   <template name="WriteEmbededVerse">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
-    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[child::l[1] = current()][preceding-sibling::*[1][self::verse[@sID]]]]])">
+    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[generate-id(child::l[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]]])">
       <call-template name="WriteVerseNumber"/>
     </if>
   </template>
