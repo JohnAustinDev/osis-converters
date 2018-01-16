@@ -15,13 +15,15 @@ sudo apt-get update
 sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
 
 # XML::LibXML
-sudo cpanm XML::LibXML::PrettyPrint
-sudo cpanm HTML::Entities
+cpanm XML::LibXML::PrettyPrint
+cpanm HTML::Entities
 
 # Calibre
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
+  # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
+  mkdir $HOME/.config
   wget -nv -O- https://download.calibre-ebook.com/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
 calibre-customize -b $VCODE/eBooks/OSIS-Input
