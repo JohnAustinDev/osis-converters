@@ -6,6 +6,8 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
+  config.vm.box_check_update = false
+
   # Work around a problem where ssh.forward_agent fails for root
   config.vm.provision :shell do |shell|
     shell.inline = "touch $1 && chmod 0440 $1 && echo $2 > $1"
@@ -18,7 +20,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Every Vagrant virtual environment requires a box to build off of.
   config.vm.box = "ubuntu/xenial64"
-  config.vm.provision :shell, :path => "VagrantProvision.sh"
+  config.vm.provision :shell, :path => "VagrantProvision.sh", privileged: false
   config.ssh.forward_agent = true
   config.ssh.forward_x11 = true
   #config.vm.provider :virtualbox do |vb|

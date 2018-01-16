@@ -9,7 +9,7 @@ use Encode;
 
 $Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
 $ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
-$VAGRANT_HOME = '/home/ubuntu';
+$VAGRANT_HOME = '/home/vagrant';
 
 # ProjectDir must be relative to INDIR_ROOT
 # INDIR_ROOT cannot be just a Windows drive letter (native|emulated).

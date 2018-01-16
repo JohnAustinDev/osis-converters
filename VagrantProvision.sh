@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script should not be run as root (except by Vagrant during initial provisioning)
+# This script should not be run as root
 
 # When this script is run, it should:
 #   Install everything necessary for the VM
@@ -8,11 +8,8 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-if [ -e /vagrant ]; then VUSER="ubuntu"; else VUSER=$USER; fi
-if [ -e /vagrant ]; then VHOME="/home/ubuntu"; else VHOME=$HOME; fi
 if [ -e /vagrant ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
-if [ ! -e $VHOME/.osis-converters ]; then mkdir $VHOME/.osis-converters; fi
-if [ ! -e $VHOME/.osis-converters/src ]; then mkdir $VHOME/.osis-converters/src; fi
+if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update
 sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
@@ -27,26 +24,25 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   wget -nv -O- https://download.calibre-ebook.com/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
-echo sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
-sudo su - $VUSER -c "calibre-customize -b $VCODE/eBooks/OSIS-Input"
+calibre-customize -b $VCODE/eBooks/OSIS-Input
 
 # GoBible Creator
-if [ ! -e  $VHOME/.osis-converters/GoBibleCreator.245 ]; then
-  cd $VHOME/.osis-converters
+if [ ! -e  $HOME/.osis-converters/GoBibleCreator.245 ]; then
+  cd $HOME/.osis-converters
   wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gobible/GoBibleCreator.245.zip
   unzip GoBibleCreator.245.zip
   rm GoBibleCreator.245.zip
 fi
 
 # Module-tools
-if [ ! -e $VHOME/.osis-converters/src/Module-tools/.git ]; then
-  cd $VHOME/.osis-converters/src
+if [ ! -e $HOME/.osis-converters/src/Module-tools/.git ]; then
+  cd $HOME/.osis-converters/src
   if [ -e ./Module-tools ]; then
     rm -rf ./Module-tools
   fi
   git clone https://github.com/JohnAustinDev/Module-tools.git
 else
-  cd $VHOME/.osis-converters/src/Module-tools
+  cd $HOME/.osis-converters/src/Module-tools
   git stash
   git checkout master
   git pull
@@ -54,16 +50,16 @@ fi
 
 # SWORD Tools
 swordRev=3375
-if [ ! -e $VHOME/.osis-converters/src/sword-svn ]; then
+if [ ! -e $HOME/.osis-converters/src/sword-svn ]; then
   svnrev=0
 else
-  cd $VHOME/.osis-converters/src/sword-svn
+  cd $HOME/.osis-converters/src/sword-svn
   svnrev=`svnversion`
 fi
 if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # CLucene
-  if [ ! -e $VHOME/.osis-converters/src/clucene-core-0.9.21b ]; then
-    cd $VHOME/.osis-converters/src
+  if [ ! -e $HOME/.osis-converters/src/clucene-core-0.9.21b ]; then
+    cd $HOME/.osis-converters/src
     wget http://sourceforge.net/projects/clucene/files/clucene-core-stable/0.9.21b/clucene-core-0.9.21b.tar.bz2/download
     tar -xf download 
     rm download
@@ -75,7 +71,7 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   fi
 
   # SWORD engine
-  cd $VHOME/.osis-converters/src
+  cd $HOME/.osis-converters/src
   svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword-svn
   cd sword-svn
   make clean
@@ -87,14 +83,14 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
-  cp "$VCODE/sword-patch/osis2mod.cpp" "$VHOME/.osis-converters/src/sword-svn/utilities/"
+  cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword-svn/utilities/"
   ./autogen.sh
   ./configure --without-bzip2
   make
   sudo make install
   
   # Perl bindings
-  cd $VHOME/.osis-converters/src/sword-svn/bindings/swig/package
+  cd $HOME/.osis-converters/src/sword-svn/bindings/swig/package
   make clean
   libtoolize --force
   ./autogen.sh
@@ -105,8 +101,6 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   sudo make install
   sudo ldconfig
 fi
-
-if [ -e /vagrant ]; then sudo chown -R $VUSER:$VUSER $VHOME/.osis-converters; fi
 
 # non English hosts may need this:
 sudo su -c "echo LC_ALL=en_US.UTF-8 >> /etc/environment"
