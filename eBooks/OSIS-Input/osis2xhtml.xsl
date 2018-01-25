@@ -604,7 +604,7 @@
     <value-of select="normalize-space(string-join(($osisTagClass, $x/@type, $x/@subType, $levelClass), ' '))"/>
   </function>
   
-  <!-- This template may be called from: p, l and canonical title -->
+  <!-- This template may be called from: p, l and canonical title. It writes chapter numbers if the calling element should contain an embedded chapter number -->
   <template name="WriteEmbededChapter">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
     <if test="$isInVerse and preceding::chapter[@sID][1][generate-id(following::*[self::p or self::l or self::title[@canonical='true']][1]) = generate-id(current())]">
@@ -612,11 +612,16 @@
     </if>
   </template>
   
-  <!-- This template may be called from: p, l and canonical title. It writes verse and chapter numbers if the calling element should contain an embedded verse -->
+  <!-- This template may be called from: p, l and canonical title. It writes verse numbers if the calling element should contain an embedded verse number -->
   <template name="WriteEmbededVerse">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
-    <if test="$isInVerse and (self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[generate-id(child::l[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]]])">
-      <call-template name="WriteVerseNumber"/>
+    <if test="$isInVerse">
+      <if test="self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[generate-id(child::l[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]]]">
+        <call-template name="WriteVerseNumber"/>
+      </if>
+      <for-each select="self::*/preceding-sibling::*[1][self::hi[@subType='x-alternate']] | self::l/parent::lg[generate-id(child::l[1]) = generate-id(current())]/preceding-sibling::*[1][self::hi[@subType='x-alternate']]">
+        <apply-templates select="." mode="xhtml"><with-param name="doWrite" select="true()" tunnel="yes"/></apply-templates>
+      </for-each>
     </if>
   </template>
   
@@ -658,12 +663,14 @@
   </template>
   
   <!-- Verses -->
-  <template match="verse[@sID]" mode="xhtml">
-    <!-- skip verses followed by p, lg, l or canonical title, since their templates will write verse numbers inside themselves using WriteEmbededChapterVerse-->
-    <if test="not(self::verse[following-sibling::*[1][self::p or self::lg or self::l or self::title[@canonical='true']]])">
-      <call-template name="WriteVerseNumber"/>
+  <template match="verse[@sID] | hi[@subType='x-alternate']" mode="xhtml" priority="3">
+    <param name="doWrite" tunnel="yes"/>
+    <!-- skip verse numbers immediately followed by p, lg, l or canonical title, since their templates will write verse numbers inside themselves using WriteEmbededVerse-->
+    <if test="$doWrite or not(self::*[following-sibling::*[1][self::p or self::lg or self::l or self::title[@canonical='true']]])">
+      <next-match/>
     </if>
   </template>
+  <template match="verse[@sID]" mode="xhtml"><call-template name="WriteVerseNumber"/></template>
   
   <!-- Chapters -->
   <template match="chapter[@sID and @osisID]" mode="xhtml">
