@@ -15,8 +15,8 @@ sudo apt-get update
 sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
 
 # XML::LibXML
-cpanm XML::LibXML::PrettyPrint
-cpanm HTML::Entities
+sudo cpanm XML::LibXML::PrettyPrint
+sudo cpanm HTML::Entities
 
 # Calibre
 if [ ! `which calibre` ]; then
