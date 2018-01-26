@@ -211,7 +211,7 @@ sub addScripRefLinks($$) {
       elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}
       elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
       elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
-      elsif ($_ =~ /^(FIX:\s*(\S+) Linking:\s*(?<!\\)"(.*)(?<!\\)"\s*=)/) { # must match output of logLink
+      elsif ($_ =~ /^(FIX:\s*(.*?) Linking:\s*(?<!\\)"(.*)(?<!\\)"\s*=)/) { # must match output of logLink
         my $com = $1; my $location = $2; my $printReference = $3;
         my $replacement;
         if ($_ =~ /^\Q$com\E\s*(?<!\\)"(.*<\/r>.*)(?<!\\)"\s*$/) {$replacement = $1;}
