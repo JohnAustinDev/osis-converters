@@ -1712,7 +1712,7 @@ sub getBibleVersificationFromNode($) {
   return $vsys;
 }
 
-sub getModFromNode($) {
+sub getOsisRefWork($) {
   my $node = shift;
 
   return @{$XPC->findnodes('//osis:osisText', $node)}[0]->getAttribute('osisIDWork');
@@ -1729,7 +1729,7 @@ sub getOSISHeaderValueFromNode($$$$) {
   my $mod = shift;
   my $attribsP = shift;
   
-  $mod = ($mod ? $mod:&getModFromNode($node));
+  $mod = ($mod ? $mod:&getOsisRefWork($node));
   
   my $xpath = '//osis:header/osis:work[@osisWork="'.$mod.'"]/osis:'.$name.'';
   if ($attribsP) {
@@ -2447,12 +2447,13 @@ sub osisRef2array($) {
 }
 
 
-# Check an osisRef segment (which cannot contain "-") against the verse system or dictionary words.
+# Check an osisRef segment (non-Scripture refs or Scriptures refs which do not contain "-") 
+# against the target OSIS file, or the verse system or dictionary words.
 # Returns 0 if invalid, 1 if valid, or -1 if it cannot be determined
 my %VALIDATE_OSISREF_CACHE;
 sub validOsisRefSegment($$\$\$\$\$\$) {
   my $osisRef = shift;
-  my $osis = shift;    # optional OSIS file root node, but without it some refs cannot be validated
+  my $osis = shift;    # optional 
   my $bP = shift;      # optional book return
   my $cP = shift;      # optional chapter return
   my $vP = shift;      # optional verse return
@@ -2467,46 +2468,27 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
   my $type; if (!$typeP) {$typeP = \$type;}
   my $ext; if (!$extP) {$extP = \$ext;}
   
-  $validValue = 1; # is either 1 or -1, and is returned only if possibly valid
+  $validValue = 1;
   
   if ($osisRef =~ s/!(.*)$//) {
     $$extP = $1;
   }
   
+  my $osisRefWork = ($osis ? &getOsisRefWork($osis):'');
   if ($osisRef =~ s/^([\w\d]+)\://) {
     $$modP = $1;
   }
   elsif ($osis) {
-    if ($VALIDATE_REF_MOD{$osis->unique_key}) {
-      $$modP = $VALIDATE_REF_MOD{$osis->unique_key};
-    }
-    else {
-      $$modP = @{$XPC->findnodes('//osis:osisText', $osis)}[0]->getAttribute('osisRefWork');
-      if (!$$modP) {
-        &Log("ERROR validOsisRefSegment: OSIS file osisText element doesn't have an osisRefWork attribute.\n");
-      }
-    }
-    
-    $VALIDATE_REF_MOD{$osis->unique_key} = $$modP;
+    $$modP = $osisRefWork;
   }
   
-  if ($$extP) {
-    if ($osis && $$modP && $$modP eq &getModFromNode($osis)) {
-      if (!@{$XPC->findnodes('//*[@osisID="'.$osisRef.'!'.$$extP.'"]', $osis)}) {
-        &Log("ERROR validOsisRefSegment: Reference target osisID \"$osisRef!$$extP\" does not exist.\n");
-        return 0;
-      }
-    }
-    elsif ($OSISID_NOTE{"$$modP:$osisRef!$$extP"}) {$validValue = 1;}
-    else {$validValue = -1;}
-  }
-  
+  # Is the target module a glossary or Scripture modules?
   my $vsys = ($$modP =~ /DICT$/ ? "Dict.$$modP":"Bible.$VERSESYS"); # default, unless osis is provided
   if ($osis) {
     if ($VALIDATE_REF_VSYS{$$modP}) {$vsys = $VALIDATE_REF_VSYS{$$modP};}
     else {
       my @refSystem = $XPC->findnodes('//osis:work[@osisWork="'.$$modP.'"]//osis:refSystem', $osis);
-      if (!@refSystem || !@refSystem[0]) {
+      if (!@refSystem[0]) {
         &Log("ERROR validOsisRefSegment: OSIS file does not specify refSystem of \"$$modP\"!\n");
       }
       else {$vsys = @refSystem[0]->textContent;}
@@ -2516,27 +2498,49 @@ sub validOsisRefSegment($$\$\$\$\$\$) {
   }
   $vsys =~ s/^([^\.]+)\.//;
   $$typeP = $1;
+
+  # If we have $$modP and $osis, then try and validate target directly. But 
+  # don't do this with Scripture reference targets because it is too slow, 
+  # and the verse system check later on is much faster for these.
+  my $targetOsis;
+  if (($$typeP ne 'Bible' || $$extP) && $$modP && $osis) {
+    if ($$modP eq $osisRefWork) {$targetOsis = $osis;}
+    elsif ($VALIDATE_OSISREF_CACHE{$$modP}) {$targetOsis = $VALIDATE_OSISREF_CACHE{$$modP};}
+    else {
+      my $targInpDir = &findCompanionDirectory($$modP);
+      if ($targInpDir) {
+        my $targOutDir = &getOUTDIR($targInpDir);
+        if (-e "$targOutDir/$$modP.xml") {
+          $targetOsis = $XML_PARSER->parse_file("$targOutDir/$$modP.xml");
+          $VALIDATE_OSISREF_CACHE{$$modP} = $targetOsis;
+        }
+      }
+    }
+  }
+  if ($targetOsis) {
+    my $r = $osisRef.($$extP ? '!'.$$extP:'');
+    # xpath 1.0 does not have "matches" so we need to do some extra work
+    my @test = $XPC->findnodes("//*[contains(\@osisID, '$r')]/\@osisID", $targetOsis);
+    foreach my $t (@test) {if ($t->value =~ /\b(\Q$$modP:\E)?\Q$r\E\b/) {return 1;}}
+    &Log("ERROR validOsisRefSegment: Reference target osisID \"$$modP:$r\" does not exist in ".&getOsisRefWork($targetOsis).".\n");
+    return 0;
+  }
+  
+  # Note targets can only be checked directly (above)
+  if ($$extP) {return -1;}
     
+  # Check glossary references
   if ($$typeP eq 'Dict') {
-    # don't complain if this is a NAVMENU keyword which is missing from DictionaryWords.xml
-    if ($$modP && !$VALIDATE_OSISREF_CACHE{$$modP}) {
-      my $file = &getProjectOsisFile($$modP);
-      if ($file) {$VALIDATE_OSISREF_CACHE{$$modP} = $XML_PARSER->parse_file($file);}
-    }
-    if ($VALIDATE_OSISREF_CACHE{$$modP}) {
-      my @kw = $XPC->findnodes("//osis:seg[\@type='keyword'][\@osisID='$osisRef']", $VALIDATE_OSISREF_CACHE{$$modP});
-      if (@kw && @kw[0] && @{$XPC->findnodes('ancestor::osis:div[@type="glossary"][@osisRef="NAVMENU"]', @kw[0])}[0]) {return 1;}
-    }
     if (!$DWF) {return -1;}
     my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$$modP:$osisRef']", $DWF);
-    if (!@tst || !@tst[0]) {
+    if (!@tst[0]) {
       &Log("ERROR validOsisRefSegment: Entry with osisRef=\"$$modP:$osisRef\" was not found in DictionaryWords.xml file.\n");
       return 0;
     }
-    
     return $validValue;
   }
   
+  # Check Scripture references
   if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
     &Log("ERROR validOsisRefSegment: Bad Bible reference \"$osisRef\"\n");
     return 0;
@@ -2592,14 +2596,17 @@ sub checkReferenceLinks($) {
   &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
-  my $osisMod = @{$XPC->findnodes('/descendant::osis:osisText[1]/@osisIDWork', $osis)}[0]->value;
+  my $osisMod = &getOsisRefWork($osis);
   
   my @links = $XPC->findnodes('//osis:reference', $osis);
   
   my %linkcount = ('gloss' => 0, 'scrip' => 0, 'unknown' => 0);
-  my %errors = ('gloss' => 0, 'scrip' => 0);
+  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0);
+  my $lcnt = 0; my $pcnt = 0; my $lpcnt = 0;
   foreach my $l (@links) {
-    my $linktype = ($l->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/ ? 'gloss':'scrip');
+    $lcnt++; $pcnt = int(100*($lcnt/@links)); if ($pcnt != $lpcnt) {&Log("$pcnt%\n", 2);} $lpcnt = $pcnt;
+
+    my $linktype = ($l->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/ ? 'gloss':($l->getAttribute('type') eq 'x-note' ? 'note':'scrip'));
     
     $linkcount{$linktype}++;
     
@@ -2622,7 +2629,8 @@ sub checkReferenceLinks($) {
     
     my @srefs1 = split(/\s+/, $osisRef);
     foreach my $sref1 (@srefs1) {
-      my @srefs = split(/\-/, $sref1);
+      my @srefs = ($sref1);
+      if ($linktype eq 'scrip') {@srefs = split(/\-/, $sref1);}
       my $m = (@srefs[0] =~ s/^([\w\d]+\:)// ? $1:'');
       foreach my $sref (@srefs) {
         my $type; my $mod;
@@ -2648,7 +2656,8 @@ sub checkReferenceLinks($) {
   }
 
   &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." unknown or missing targets)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
+  &Log("$MOD REPORT: \"".$linkcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
   &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Indeterminent reference links whose targets may or may not be missing.\n");
   &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
 }
@@ -3328,7 +3337,7 @@ sub writeNoteIDs() {
   foreach my $file (@files) {
     my $xml = $XML_PARSER->parse_file($file);
     
-    my $myMod = &getModFromNode($xml);
+    my $myMod = &getOsisRefWork($xml);
     
     my @allNotes = $XPC->findnodes('//osis:note', $xml);
     foreach my $n (@allNotes) {

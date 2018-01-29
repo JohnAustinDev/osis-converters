@@ -119,7 +119,7 @@ sub compareToDictionaryWordsXML($) {
   my $update = 0;
   
   my $osis = $XML_PARSER->parse_file($in_osis);
-  my $osismod = &getModFromNode($osis);
+  my $osismod = &getOsisRefWork($osis);
   
   my $allowUpdate = 1; my %noCaseKeys;
   foreach my $es ($XPC->findnodes('//osis:seg[@type="keyword"]/text()', $osis)) {
