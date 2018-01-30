@@ -21,7 +21,20 @@ $INDIR_ROOT = $1;
 
 $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/\\/\//g; $SCRD =~ s/(\/[^\/]+){1}$//;
 chdir $SCRD;
-if (-e "./paths.pl") {require "./paths.pl";}
+
+if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$SCRD/Vagrantcustom")) {
+  print VAGC "# NOTE: You must halt your VM for changes to take effect\n
+config.vm.provider \"virtualbox\" do |vb|
+  # Set the RAM for your Vagrant VM
+  vb.memory = 2560
+end\n";
+  close(VAGC);
+}
+if (!-e "$SCRD/paths.pl" && open(PATHS, ">$SCRD/paths.pl")) {
+  print PATHS "1;\n";
+  close(PATHS);
+}
+require "$SCRD/paths.pl";
 
 push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
@@ -29,7 +42,6 @@ if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-conv
 
 $Status = (-e "./.vagrant" ? &shell("vagrant status", 1):'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
-elsif (&rebuildNeeded(\@Shares)) {&shell("vagrant destroy -f"); &vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt"); &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
@@ -53,16 +65,12 @@ sub vagrantShare($$) {
 sub vagrantUp(\@) {
   my $sharesP = shift;
   
-  # Create input/output filesystem shares
-  open(TPL, "<./Vagrantfile_tpl") || die "\nERROR: Cannot open \"./Vagrantfile_tpl\"\n";
-  open(VAG, ">./Vagrantfile") || die "\nERROR: Cannot open \"./Vagrantfile\"\n";
   if (!-e "./.vagrant") {&shell("mkdir ./.vagrant");}
-  while (<TPL>) {
-    print VAG $_;
-    if ($_ =~ /\Q"VagrantProvision.sh"\E/) {foreach my $share (@$sharesP) {print VAG "$share\n";}}
-  }
+  
+  # Create input/output filesystem shares
+  open(VAG, ">./Vagrantshares") || die "\nERROR: Cannot open \"./Vagrantshares\"\n";
+  foreach my $share (@$sharesP) {print VAG "$share\n";}
   close(VAG);
-  close(TPL);
   print "
 Starting Vagrant...
 The first use of Vagrant will automatically download and build a virtual
@@ -78,19 +86,12 @@ sub matchingShares(\@) {
   my $sharesP = shift;
   
   my %shares; foreach my $sh (@$sharesP) {$shares{$sh}++;}
-  open(CSH, "<./Vagrantfile") || return 0;
+  open(CSH, "<./Vagrantshares") || return 0;
   while(<CSH>) {
     if ($_ =~ /^(\Qconfig.vm.synced_folder\E\s.*)$/) {$shares{$1}++;}
     foreach my $share (@$sharesP) {if ($_ =~ /^\Q$share\E$/) {delete($shares{$share});}}
   }
   return (keys(%shares) == 0 ? 1:0);
-}
-
-sub rebuildNeeded() {
-  my $is  = &shell("grep \"config.vm.box \" ./Vagrantfile_tpl", 1);
-  my $was = &shell("grep \"config.vm.box \" ./Vagrantfile", 1);
-  
-  return ($is ne $was);
 }
 
 sub shell($$) {

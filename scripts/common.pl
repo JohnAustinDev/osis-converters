@@ -66,12 +66,7 @@ sub init($) {
   
   $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
   
-  if (!-e "$SCRD/paths.pl") {
-    if (!open(PATHS, ">$SCRD/paths.pl")) {&Log("Could not open \"$SCRD/paths.pl\". Exiting.\n"); die;}
-    print PATHS "1;\n";
-    close(PATHS);
-  }
-  require "$SCRD/paths.pl";
+  if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   
   &initLibXML();
   
@@ -154,14 +149,14 @@ sub checkFont($) {
   
   %FONT_FILES;
   
-  if ($FONTS && -e "/vagrant") {
-    open(CSH, "<$SCRD/Vagrantfile") || die "Could not open Vagrantfile";
+  if ($FONTS && -e "/vagrant" && open(CSH, "<$SCRD/Vagrantshares")) {
     while(<CSH>) {
       if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
         $SHARE_HOST = $1;
         $SHARE_VIRT = $2;
       }
     }
+    close(CSH);
     $FONTS = File::Spec->abs2rel($FONTS, $SHARE_HOST);
     $FONTS = File::Spec->rel2abs($FONTS, $SHARE_VIRT);
   }

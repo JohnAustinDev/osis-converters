@@ -3,6 +3,7 @@ scripts/GoBibleCreator*
 kindlegen
 paths.pl
 .vagrant
-Vagrantfile
+Vagrantshares
+Vagrantcustom
 ubuntu-*
 

@@ -18,8 +18,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provision :shell, :path => "VagrantProvision.sh", privileged: false
   config.ssh.forward_agent = true
   config.ssh.forward_x11 = true
-  config.vm.provider :virtualbox do |vb|
-    vb.customize ["modifyvm", :id, "--memory", "2560"]
+  
+  # Include a customized vagrant file for customizing things like RAM
+  Vagrantcustom = File.join(File.expand_path(File.dirname(__FILE__)), 'Vagrantcustom')
+  if File.exists?(Vagrantcustom) then
+    eval(IO.read(Vagrantcustom), binding)
+  end
+  
+  # Include an auto-generated file containing VM shares
+  Vagrantshares = File.join(File.expand_path(File.dirname(__FILE__)), 'Vagrantshares')
+  if File.exists?(Vagrantshares) then
+    eval(IO.read(Vagrantshares), binding)
   end
   
   # Default NAT's DNS for Linux VM within MS-Windows VM does not always 
