@@ -3334,7 +3334,8 @@ sub writeNoteIDs() {
     
     my $myMod = &getOsisRefWork($xml);
     
-    my @allNotes = $XPC->findnodes('//osis:note', $xml);
+    # Get all notes excluding generic cross-references added from an external source
+    my @allNotes = $XPC->findnodes('//osis:note[not(contains(@osisID, "!crossReference.r") or contains(@osisID, "!crossReference.p"))]', $xml);
     foreach my $n (@allNotes) {
       my $osisID;
       
@@ -3350,8 +3351,9 @@ sub writeNoteIDs() {
       # Reserve and write an osisID for each note. 
       my $i = 1;
       # The extension has 2 parts: type and instance. Instance is a number prefixed by a single letter.
-      # Generic cross-references, which may be added later on, will have this extension: crossReference.rN
-      my $refext = ($n->getAttribute("placement") == "foot" ? $FNREFEXT:'!' . ($n->getAttribute("type") ? $n->getAttribute("type"):'tnote') . '.t');
+      # Generic cross-references for the verse system are added from another source and will have the 
+      # extensions: crossReference.rN or crossReference.pN (parallel passages).
+      my $refext = ($n->getAttribute("placement") eq "foot" ? $FNREFEXT:'!' . ($n->getAttribute("type") ? $n->getAttribute("type"):'tnote') . '.t');
       my $id = "$myMod:$osisID$refext$i";
       while ($OSISID_NOTE{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
       $OSISID_NOTE{$id}++;
