@@ -608,7 +608,7 @@ sub addLinks(\$$$) {
         if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG4: MatchedTerm=$matchedTerm\n");}
 
         $Types{$type}++;
-        if ($type eq "T09 (num1 ... num2?)") {$shouldCheck = 1;}
+        if ($type eq "T10 (num1 ... num2?)") {$shouldCheck = 1;}
 
         $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
         &logLink($LOCATION, @subrefArray > 1, $psubref, $osisRef, $type);
