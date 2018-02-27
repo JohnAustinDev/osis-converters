@@ -1,0 +1,55 @@
+OSIS-CONVERTERS VERSIFICATION MAPPING:
+The goal is to fit any text into a fixed versification system so that each 
+verse's number can be identified in both the target and the original verse
+system. To make this as easy as possible, only differences between the
+source and target verse systems are specified (default is unity).
+
+VSYS_EXTRA:BK.1.2.3
+Specifies that this translation inserts this range of extra text. This text
+will all be appended to the preceeding extant verse in the verse system.  
+The additional verses, and any regular verses following them in the chapter, 
+will have alternate verse numbers appended before them, which display 
+their number from the source verse system. Likewise, if the range is an
+entire chapter, an alternate chapter number will be displayed before the
+chapter itself and any following chapters in the book.
+
+VSYS_MISSING:BK.1.2.3
+Specifies that this translation does not include this range of text. The 
+preceeding extant verse id will be modified to span the missing range, 
+but in no case exceeding the end of a chapter, and alternate numbers 
+will be appended to any following verses in the chapter. If the range is
+an entire chapter, then an empty chapter is inserted, and alternate
+chapters are displayed for any following chapters (this is necessary for 
+correct mapping to be maintained).
+
+VSYS_MOVE:BK.1.2.3 -> BK.1.2.3
+Specifies that this translation has moved the text that would be found 
+in range A of the target verse system to range B (ranges A and B must be
+the same size). It is processed as a VSYS_MISSING:A followed by a 
+VSYS_ADDITIONAL:B.
+
+SET_customBookOrder:true
+Turns off the toVersificationBookOrder.pl book re-ordering step (maybe 
+rename this script?) and support adding bookGroup divs around existing 
+book order.
+
+NOTES:
+- Each instruction is evaluated in the order it appears in the CF file, so
+any verse in the verse system may be effected by multiple instructions.
+- Verse ranges are in the form OSISBK.chapterNum.verseNum.lastVerseNum
+where lastVerseNum and verseNum are optional. This means up to an entire
+chapter may be specified by a single range.
+- This implementation does not accomodate extra books, or ranges of chapters.
+
+
+
+EXAMPLE:
+Source     Target
+1-10       1-20
+
+VSYS_MISSING:BK.1.5.14
+1. As is
+2. As is
+3. As is
+4-14. As is (verse 4)
+15-20 Here with 5-10 as alternate verse numbers
