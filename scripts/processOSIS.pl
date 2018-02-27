@@ -6,8 +6,8 @@ $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$I
 &writeOsisHeaderWork("$TMPDIR/".$MOD."_0a.xml", $ConfEntryP, \%EBOOKCONV);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  require("$SCRD/scripts/toVersificationBookOrder.pl");
-  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_0a.xml");
+  require("$SCRD/scripts/fitToVerseSystem.pl");
+  &fitToVerseSystem("$TMPDIR/".$MOD."_0a.xml", $VERSESYS, \@VSYS_INSTR, $customBookOrder);
   &runXSLT("$SCRD/scripts/xslt/checkUpdateIntros.xsl", "$TMPDIR/".$MOD."_0a.xml", "$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {

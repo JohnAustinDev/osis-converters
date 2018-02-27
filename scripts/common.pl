@@ -47,7 +47,7 @@ $SFM2ALL_SEPARATE_LOGS = 1;
 %OSISID_NOTE;
 
 require("$SCRD/scripts/getScope.pl");
-require("$SCRD/scripts/toVersificationBookOrder.pl");
+require("$SCRD/scripts/fitToVerseSystem.pl");
 
 sub init($) {
   my $quiet = shift;
@@ -3728,6 +3728,31 @@ sub validateOSIS($) {
   }
   
   &Log("END OSIS VALIDATION\n");
+}
+
+
+# Since Perl LibXML's XPATH-1.0 has nothing like the 2.0 "matches"
+# function, the following becomes necessary...
+sub getVerseTag($$$) {
+  my $bkchvs = shift;
+  my $xml = shift;
+  my $findEID = shift;
+  
+  my $ida = ($findEID ? 'e':'s');
+  
+  my @r = $XPC->findnodes('//osis:verse[@'.$ida.'ID="'.$bkchvs.'"]', $xml);
+  if (@r[0]) {return @r[0];}
+  
+  my @r = $XPC->findnodes('//osis:verse[starts-with(@'.$ida.'ID, "'.$bkchvs.' ")]', $xml);
+  if (@r[0]) {return @r[0];}
+  
+  my @r = $XPC->findnodes('//osis:verse[ends-with(@'.$ida.'ID, " '.$bkchvs.'")]', $xml);
+  if (@r[0]) {return @r[0];}
+  
+  my @r = $XPC->findnodes('//osis:verse[contains(@'.$ida.'ID, " '.$bkchvs.' ")]', $xml);
+  if (@r[0]) {return @r[0];}
+  
+  return NULL;
 }
 
 # Log to console and logfile. $flag can have these values:

@@ -39,6 +39,7 @@
 #   SPECIAL_CAPITALS - Some languages (ie. Turkish) use non-standard 
 #       capitalization which Perl does not handle well. 
 #       Example: SPECIAL_CAPITALS:i->İ ı->I
+#   VSYS_EXTRA, VSYS_MISSING, VSYS_MOVED - see fitToVerseSystem.pl
 
 sub usfm2osis($$) {
   my $cf = shift;
@@ -50,13 +51,19 @@ sub usfm2osis($$) {
 
   #Defaults:
   @EVAL_REGEX;
+  
+  # Variables for versemap feature
+  @VSYS_INSTR = ();
+  my $vsysRE = "$OT_BOOKS $NT_BOOKS";
+  $vsysRE =~ s/\s+/|/g;
+  $vsysRE = "(".$osisBK.")\.(\d+)(\.(\d+)(\.(\d+))?)?";
 
   $line=0;
   while (<COMF>) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|tocCrossRefs|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|customBookOrder|tocCrossRefs|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
@@ -95,6 +102,16 @@ sub usfm2osis($$) {
       }
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
+    }
+    elsif ($_ =~ /^VSYS_(MISSING|EXTRA):(?:\s*(?:$vsysRE)\s*)?$/) {
+      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$2, 'ch'=>$3, 'vs'=>($4 ? $5:NULL), 'lv'=>($6 ? $7:NULL) });
+    }
+    elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$vsysRE)\s*\->\s*(?<to>$vsysRE)\s*)?$/) {
+      my $from = $+{from}; my $to = $+{to};
+      $from =~ /^$vsysRE$/;
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:NULL), 'lv'=>($5 ? $6:NULL) });
+      $to =~ /^$vsysRE$/;
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:NULL), 'lv'=>($5 ? $6:NULL) });
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
