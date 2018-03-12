@@ -56,7 +56,7 @@ sub usfm2osis($$) {
   @VSYS_INSTR = ();
   my $vsysRE = "$OT_BOOKS $NT_BOOKS";
   $vsysRE =~ s/\s+/|/g;
-  $vsysRE = "(".$osisBK.")\.(\d+)(\.(\d+)(\.(\d+))?)?";
+  $vsysRE = "($vsysRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
 
   $line=0;
   while (<COMF>) {
@@ -104,18 +104,23 @@ sub usfm2osis($$) {
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
     elsif ($_ =~ /^VSYS_(MISSING|EXTRA):(?:\s*(?:$vsysRE)\s*)?$/) {
-      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$2, 'ch'=>$3, 'vs'=>($4 ? $5:NULL), 'lv'=>($6 ? $7:NULL) });
+      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$2, 'ch'=>$3, 'vs'=>($4 ? $5:''), 'lv'=>($6 ? $7:'') });
     }
     elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$vsysRE)\s*\->\s*(?<to>$vsysRE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
       $from =~ /^$vsysRE$/;
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:NULL), 'lv'=>($5 ? $6:NULL) });
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:'') });
+      my $vc1 = ($3 && $5 ? $6-$4:0);
       $to =~ /^$vsysRE$/;
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:NULL), 'lv'=>($5 ? $6:NULL) });
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:'') });
+      my $vc2 = ($3 && $5 ? $6-$4:0);
+      if ($vc1 != $vc2) {&Log("ERROR: 'From' and 'To' have different number of verses: $_\n");}
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
   close(COMF);
+  
+  @VSYS_INSTR = sort { &verseSort($a->{'bk'}.'.'.$a->{'ch'}.'.'.$a->{'vs'}, $b->{'bk'}.'.'.$b->{'ch'}.'.'.$b->{'vs'}, 'KJV') } @VSYS_INSTR;
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');

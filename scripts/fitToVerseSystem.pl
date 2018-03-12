@@ -18,47 +18,51 @@
 
 # OSIS-CONVERTERS VERSIFICATION MAPPING:
 # The goal is to fit any Bible translation into a fixed versification 
-# system so that each verse's number can be identified in both the target 
-# and the original verse system. The idea is to make this as easy as 
-# possible, and only differences between the source and target verse 
-# systems need to be specified.
+# system so that each verse can be identified in both the target 
+# and the original verse system. This process should be as easy as 
+# possible for the person running the conversion, so only differences 
+# between the source and target verse systems need to be identified. All
+# verse system changes to the osis file should be easily reversible 
+# (for instance using a simple XSLT) so as to easily recover the  
+# original verse system if ever needed.
 # 
 # VSYS_EXTRA:BK.1.2.3
-# Specifies that this translation inserts this range of extra text. This 
-# text will all be appended to the preceeding extant verse in the verse   
-# system. The additional verses, and any regular verses following them in 
-# the chapter, will have alternate verse numbers appended before them, 
-# which display their number from the source verse system. Likewise, if 
-# the range is an entire chapter, an alternate chapter number will be 
-# displayed before the chapter itself and any following chapters in the 
-# book.
+# Specifies that this translation has inserted this range of extra verses 
+# which are not found in the target verse system. These verses will all 
+# be appended to the preceeding extant verse in the verse system. The 
+# additional verses, and any regular verses following them in the chapter, 
+# will have alternate verse numbers appended before them, which display 
+# their number from the source verse system. Likewise, if the range is an 
+# entire chapter, an alternate chapter number will be displayed before the 
+# chapter itself and any following chapters in the book.
 # 
 # VSYS_MISSING:BK.1.2.3
-# Specifies that this translation does not include this range of text. The 
-# preceeding extant verse id will be modified to span the missing range, 
-# but in no case exceeding the end of a chapter. Then, alternate numbers 
-# will be appended to any following verses in the chapter. If the range is
-# an entire chapter, then an empty chapter is inserted, and alternate
-# chapters are displayed for any following chapters (this is necessary for 
-# correct mapping to be maintained).
+# Specifies that this translation does not include this range of verses of
+# the target verse system. The preceeding extant verse id will be modified 
+# to span the missing range, but in no case exceeding the end of a chapter. 
+# Then, alternate numbers will be appended to any following verses in the 
+# chapter. Entire missing chapters are not supported.
 # 
 # VSYS_MOVED:BK.1.2.3 -> BK.1.2.3
-# Specifies that this translation has moved the text that would be found 
+# Specifies that this translation has moved the verses that would be found 
 # in range A of the target verse system to range B (ranges A and B must be
 # the same size). It is processed as a "VSYS_MISSING:A" followed by a 
 # "VSYS_EXTRA:B".
 # 
 # SET_customBookOrder:true
-# Turns off the book re-ordering step so books remain in processed order.
+# Turns off the book re-ordering step so books will remain in processed order.
 # 
 # NOTES:
-# - Each instruction is evaluated in the order it appears in the CF file, so
-# any verse in the verse system may be effected by multiple instructions.
+# - Each instruction is evaluated in verse system order regardless of
+# their order in the CF_ file.
+# - A verse may be effected by multiple instructions.
 # - Verse ranges are in the form OSISBK.chapterNum.verseNum.lastVerseNum
 # where lastVerseNum and verseNum are optional. This means up to an entire
-# chapter may be specified by a single range.
+# chapter may be specified by a single range (if supported for the
+# particular instruction).
 # - This implementation does not accomodate extra books, or ranges of 
-# chapters.
+# chapters, and whole chapters are only supported with VSYS_EXTRA for
+# chapters at the end of a book.
 
 # The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
 %ID_TYPE_MAP = (
@@ -140,21 +144,16 @@
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
 
-sub fitToVerseSystem($$\@$) {
+sub fitToVerseSystem($$$) {
   my $osis = shift;
   my $vsys = shift;
-  my $instArrayP = shift;
   my $maintainBookOrder = shift;
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nFitting books and peripherals of \"$osis\" into versification = $vsys\n");
+  &Log("\n\nFitting books and peripherals of \"$osis\" into versification $vsys\n");
 
-  my $canonP;
-  my $bookOrderP;
-  my $testamentP;
-  my $bookArrayP;
-  
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
     &Log("ERROR: Not re-ordering books in OSIS file!\n");
     return;
@@ -322,7 +321,7 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
   }
   foreach my $lg (reverse(@mylog)) {&Log($lg);}
   
-  # Apply any alternate VSYS instructions to translation
+  # Apply any alternate VSYS instructions to the translation
   foreach my $argsP (@VSYS_INSTR) {&applyVsysInstruction($argsP, $canonP, $xml);}
   
   # Insure that all verses are accounted for and in sequential order 
@@ -369,15 +368,13 @@ BOOK:
   if ($x == @v) {&Log("\nNOTE: All verses were checked against verse system $vsys\n");}
   else {&Log("\nERROR: Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")\n");}
   
-  &Log("\n$MOD REPORT: $errors verse system errors".($errors ? ':':'.')."\n");
+  &Log("\n$MOD REPORT: $errors verse system problems detected".($errors ? ':':'.')."\n");
   if ($errors) {
     &Log("
-NOTE: This translation does not perfectly fit the $vsys verse system, 
-      and the errors listed above must be fixed. Add the appropriate 
-      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED instructions to 
-      CF_usfm2osis.txt to describe how this translation deviates from 
-      $vsys. Then those verse system differences will automatically be 
-      reconciled and the related errors should go away.\n";
+NOTE: This translation does not fit the $vsys verse system. The errors 
+      listed above must be fixed. Add the appropriate instructions:
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt 
+      (see comments at the top of: ".__FILE__.".\n");
   }
   
   open(OUTF, ">$osis");
@@ -433,10 +430,104 @@ sub placeIntroduction($$) {
   else {$dest->parentNode()->insertAfter($intro, $dest);}
 }
 
-sub applyVsysInstruction($$$) {
+# Read bibleMod and find all osisIDs which have been changed by VSYS 
+# instructions. If there are any, then read the osis file, find all 
+# osisRefs which point to osisIDs that were changed, and correct them
+# by changing those osisRefs to point to the new osisID values.
+sub correctReferencesVSYS($$$) {
+  my $bibleMod = shift;
+  my $confP = shift;
+  my $osis = shift;
+  
+  my $bfile = ($bibleMod eq $MOD ? $osis:&getProjectOsisFile($bibleMod));
+
+  if (! -e $bfile) {
+    &Log("\nWARNING: No OSIS Bible file was found. References effected by VSYS instructions will not be corrected!\n");
+    return;
+  }
+  &Log("\n\nUpdating osisRef attributes of \"$bfile\" that require re-targeting after VSYS instructions:\n");
+  
+  my $count = 0;
+  
+  my $osisXML;
+  my $bibleXML = $XML_PARSER->parse_file($bfile);
+  my @annotateRefs = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateRef]', $bibleXML);
+  my @changedVerses;
+  if (@annotateRefs[0]) {
+    # Get a mapping from original verse system id to target verse-system id
+    my %vmap;
+    foreach my $ar (@annotateRefs) {
+      my @aids = split(/\s+/, $ar->getAttribute('annotateRef'));
+      push(@changedVerses, @aids);
+      my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
+      my $ai = 0; my $oi = 0;
+      while($ai < @aids) {
+        $vmap{@aids[$ai]} = @oids[$oi];
+        $ai++;
+        if (($oi+1) < @oids) {$oi++;}
+      }
+    }
+    @changedVerses = &normalizeOsisID(\@changedVerses, $confP->{'Versification'});
+
+    # Look for osisRefs in the osis file that need updating and update them
+    $osisXML = $XML_PARSER->parse_file($osis);
+    my $lastch;
+    my @checkrefs;
+    foreach my $verse (@changedVerses) {
+      $verse =~ /^(.*?)\.\d+$/;
+      my $ch = $1;
+      if (!$lastch || $lastch ne $ch) {
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')]", $osisXML);
+      }
+      $lastch = $ch;
+      foreach my $e (@checkrefs) {
+        my $changed = 0; # only write a rids attrib if there is a change
+        my $rids = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
+        my @everses = split(/\s+/, $rids);
+        foreach my $ev (@everses) {
+          if ($ev ne $verse) {next;}
+          if ($vmap{$verse}) {
+            $ev = "x.".$vmap{$verse};
+            $changed++;
+          }
+          else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
+        }
+        if ($changed) {$e->setAttribute('rids', join(' ', @everses));}
+      }
+    }
+    my @rids = $XPC->findnodes('//*[@rids]', $osisXML);
+    foreach my $e (@rids) {
+      my @rid = split(/\s+/, $e->getAttribute('rids'));
+      $e->removeAttribute('rids');
+      $e->setAttribute('annotateRef', $e->getAttribute('osisRef'));
+      $e->setAttribute('annotateType', $ALT_VSYS);
+      foreach my $r (@rid) {$r =~ s/^x\.//;}
+      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
+      if ($e->getAttribute('osisRef') ne $newOsisRef) {
+        &Log("NOTE: Updating ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" to \"$newOsisRef\"\n");
+        $e->setAttribute('osisRef', $newOsisRef);
+        $count++;
+      }
+      else {&Log("ERROR: OsisRef change could not be applied!\n");}
+    }
+  }
+  
+  if ($count) {
+    if (open(OUTF, ">$osis")) {
+      print OUTF $osisXML->toString();
+      close(OUTF);
+    }
+    else {&Log("ERROR: Could not open \"$osis\" to write osisRef fixes!\n");}
+  }
+  
+  &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of VSYS intructions.\n");
+}
+
+sub applyVsysInstruction(\%\@$) {
   my $argP = shift;
   my $canonP = shift;
   my $xml = shift;
+  
   my $inst = $argP->{'inst'};
   my $bk = $argP->{'bk'};
   my $ch = $argP->{'ch'};
@@ -444,7 +535,7 @@ sub applyVsysInstruction($$$) {
   my $lv = $argP->{'lv'};
   
   if ($inst eq 'MISSING') {&applyVsysMissing($bk, $ch, $vs, $lv, $canonP, $xml);}
-  if ($inst eq 'EXTRA') {&applyVsysExtra($bk, $ch, $vs, $lv, $canonP, $xml);}
+  elsif ($inst eq 'EXTRA') {&applyVsysExtra($bk, $ch, $vs, $lv, $canonP, $xml);}
   else {&Log("ERROR: applyVsysInstruction($bk, $ch, $vs, $lv): Unknown instruction: \"$inst\"\n");}
 }
 
@@ -456,155 +547,189 @@ sub applyVsysMissing($$$$$$) {
   my $ch = shift;
   my $vs = shift;
   my $lv = shift;
-  my $canonP = shift
+  my $canonP = shift;
   my $xml = shift;
   
-  if (!&isWholeChapter($bk, $ch, \$vs, \$lv, $canonP)) {
-    # For any following verses, advance their verse numbers and add alternate verse numbers
+  &Log("\nNOTE: Applying VSYS_MISSING($bk, $ch, $vs, $lv):\n");
+  
+  if (!&isWholeVsysChapter($bk, $ch, \$vs, \$lv, $canonP)) {
     my $count = (1 + $lv - $vs);
-    for (my $v=$canonP->{$bk}[($ch-1)]; $v>=$vs; $v--) {
-      &altVersifyVerse($bk, $ch, $v, $count, $xml);
+    
+    # For any following verses, advance their verse numbers and add alternate verse numbers
+    my $lastV = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+    for (my $v=$lastV; $v>=$vs; $v--) {
+      &reVersify($bk, $ch, $v, $count, $xml);
     }
     
-    # Add empty verses for those which are missing
-    my $verseTagToModify;
-    if ($vs == 1) {
-      $verseTagToModify = $XML_PARSER->parse_balanced_chunk("<verse osisID=\"\" sID=\"$bk.$ch.1\"/><verse eID=\"$bk.$ch.1\"/>");
-      my $initialVerseTag = @{$XPC->findnodes('//osis:chapter[@osisID="$bk.$ch"]/following::osis:verse[@sID][1]', $xml)}[0];
-      &Log("NOTE: applyVsysMissing($bk, $ch, $vs, $lv): Inserting empty verse before: '".$initialVerseTag->getAttribute('osisID')."\n");
-      $initialVerseTag->parentNode()->insertBefore($verseTagToModify, $initialVerseTag);
+    # Add the missing verses (by listing them in an existing osisID)
+    my $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):($vs+$count)), $xml, 0); # $vs was just changed to ($vs+$count)
+    my @missing;
+    for (my $v = $vs; $v <= $lv; $v++) {
+      &osisIDCheckUnique("$bk.$ch.$v", $xml);
+      push(@missing, "$bk.$ch.$v");
     }
-    else {$verseTagToModify = &getVerseTag("$bk.$ch.".($vs-1), $xml, 0);}
-    my $newOsisID = $verseTagToModify->getAttribute('osisID');
-    while ($vs && $vs <= $lv) {$newOsisID .= ($newOsisID ? ' ':'')."$bk.$ch.$vs"; if ($lv) {$vs++;} else {$vs = NULL;}}
-    &Log("NOTE: applyVsysMissing($bk, $ch, $vs, $lv): Changing verse osisID: '".$verseTagToModify->getAttribute('osisID')."' -> '$newOsisID'\n");
-    &osisIDCheckUnique($newOsisID, $xml);
+    my $newOsisID = ($vs!=1 ? $verseTagToModify->getAttribute('osisID').' ':'').join(' ', @missing).($vs!=1 ? '':' '.$verseTagToModify->getAttribute('osisID'));
+    &Log("NOTE: Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'\n");
     my $endTag = @{$XPC->findnodes('//osis:verse[@eID="'.$verseTagToModify->getAttribute('sID').'"]', $xml)}[0];
     $verseTagToModify->setAttribute('osisID', $newOsisID);
     $verseTagToModify->setAttribute('sID', $newOsisID);
     $endTag->setAttribute('eID', $newOsisID);
   }
   else {
-    &Log("ERROR: applyVsysMissing($bk, $ch, $vs, $lv): An entire missing chapter is not supported.\n");
+    &Log("ERROR: VSYS_MISSING($bk, $ch, $vs, $lv): An entire missing chapter is not supported.\n");
   }
 }
 
-# Used when the translation includes an extra verse not in the verse system. 
-# The verse's verse number is converted into an alternate verse number and
-# the verse as moved within the proceding verse system verse. All 
-# following verses in the chapter are renumbered and alternate verse
-# numbers applied.
-sub applyVsysExtra($$$$$$) {
+# Used when the translation includes extra verses not found in the 
+# target verse system. For extra verses, alternate verse numbers are 
+# inserted and verse tags are converted into milestone elements. Then 
+# they are enclosed within the proceding verse system verse. All 
+# following verses in the chapter must be renumbered: they have 
+# alternate verse numbers inserted and verse tags converted to milestone 
+# elements, and they are enclosed by new verse tags which correspond to 
+# their position in the target verse system.
+sub applyVsysExtra($$$$$$$) {
   my $bk = shift;
   my $ch = shift;
   my $vs = shift;
   my $lv = shift;
   my $canonP = shift;
   my $xml = shift;
+  my $adjusted = shift;
   
-  my $isWholeChapter = &isWholeChapter($bk, $ch, \$vs, \$lv, $canonP);
+  &Log("\nNOTE: Applying VSYS_EXTRA($bk, $ch, $vs, $lv):\n");
   
-  if ($isWholeChapter && $ch != @{$canonP->{$bk}}) {
-    &Log("ERROR: applyVsysExtra($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).\n");
-    return;
+  my $isWholeChapter = ($ch > @{$canonP->{$bk}} ? 1:&isWholeVsysChapter($bk, $ch, \$vs, \$lv, $canonP));
+  
+  # Handle the special case of an extra chapter (like Psalm 151)
+  if ($ch > @{$canonP->{$bk}}) {
+    if ($ch == (@{$canonP->{$bk}} + 1)) {
+      if ($vs || $lv) {
+        &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Cannot specify verses for a chapter outside the verse system (use just '$bk.$ch' instead).\n");
+      }
+      $vs = 1;
+      $lv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+    }
+    else {
+      &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).\n");
+      return;
+    }
   }
   
-  # All verse tags between this startTag and endTag will be removed
+  # All verse tags between this startTag and endTag will become alternate
   my $startTag = (
     $isWholeChapter ?
-    &getVerseTag("$bk.".($ch-1).".".$canonP->{$bk}[($ch-2)], $xml, 0) :
+    &getVerseTag("$bk.".($ch-1).".".&getLastVerseInChapterOSIS($bk, ($ch-1), $xml), $xml, 0) :
     &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):$vs), $xml, 0)
   );
-  my $endTag = (
-    $isWholeChapter ? 
-    &getVerseTag("$bk.$ch.$lv"), $xml, 1) :
-    &getVerseTag("$bk.$ch.".($vs!=1 ? $vl:($vl+1)), $xml, 1)
-  );
+  my $vEndTag = (!$isWholeChapter && $vs==1 ? ($lv+1):$lv);
+  my $endTag = &getVerseTag("$bk.$ch.$vEndTag", $xml, 1);
   
-  # If isWholeChapter, then remove chapter tags and add alternate chapter number
+  # VSYS_EXTRA references the source verse system, which may have been
+  # modified by previous instructions. So adjust our inputs in that case.
+  if (!$adjusted && &getAltID($startTag) =~ /^[^\.]+\.\d+\.(\d+)\b/) {
+    my $arv = $1;
+    $startTag->getAttribute('osisID') =~ /^[^\.]+\.\d+\.(\d+)\b/;
+    my $shift = ($1 - $arv);
+    if ($shift) {
+      &Log("NOTE: This verse was moved, adjusting position: '$shift'.\n");
+      &applyVsysExtra($bk, $ch, ($vs+$shift), ($lv+$shift), $canonP, $xml, 1);
+      return;
+    }
+  }
+ 
+  # If isWholeChapter, then convert chapter tags to alterantes and add alternate chapter number
   if ($isWholeChapter) {
-    my $chapLabel = @{$XPC->findnodes("//osis:title[\@type='x-chapterLabel'][\@canonical='false'][preceding::osis:chapter[\@osisID][1][\@sID='$bk.$ch'][not(preceding::osis:chapter[\@eID='$bk.$ch'])]", $xml)}[0];
+    my $chapLabel = @{$XPC->findnodes("//osis:title[\@type='x-chapterLabel'][not(\@canonical='true')][preceding::osis:chapter[\@osisID][1][\@sID='$bk.$ch'][not(preceding::osis:chapter[\@eID='$bk.$ch'])]]", $xml)}[0];
     if ($chapLabel) {
+      &Log("NOTE: Converting chapter label \"".$chapLabel->textContent."\" to alternate.\n");
+      $chapLabel->setAttribute('type', 'x-chapterLabel-alternate');
       my $alt = $XML_PARSER->parse_balanced_chunk("<hi type=\"italic\" subType=\"x-alternate\"></hi>");
       foreach my $chld ($chapLabel->childNodes) {$alt->insertAfter($chld, undef);}
       $chapLabel->insertAfter($alt, undef);
     }
-    else {&Log("ERROR: applyVsysExtra($bk, $ch, $vs, $lv): Chapter has no chapter label.\n");}
-    &Log("NOTE: applyVsysExtra($bk, $ch, $vs, $lv): Removing chapter tags with sID=eID=\"$bk.$ch\".\n");
-    @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0]->unbindNode();
-    @{$XPC->findnodes("//osis:chapter[\@eID='$bk.$ch']", $xml)}[0]->unbindNode();
+    else {
+      &Log("NOTE: No chapter label was found, adding alternate chapter label \"$ch\".\n");
+      my $alt = $XML_PARSER->parse_balanced_chunk("<title type=\"x-chapterLabel-alternate\"><hi type=\"italic\" subType=\"x-alternate\">$ch</hi></title>");
+      my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];
+      $chStart->parentNode()->insertAfter($alt, $chStart);
+    }
+    my $chEnd = &toAlternate(@{$XPC->findnodes("//osis:chapter[\@eID='$bk.$ch']", $xml)}[0]);
+    $chEnd->setAttribute('eID', "$bk.".($ch-1));
+    &toAlternate(@{$XPC->findnodes("//osis:chapter[\@eID='$bk.".($ch-1)."']", $xml)}[0], 1);
+    &toAlternate(@{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0], 1);
   }
   
-  # Remove verse tags between startTag and endTag and add alternate verse numbers
-  for (my $v=$vl; $v>=$vs; $v--) {&altVersifyVerse($bk, $ch, $v, 0, $xml);}
-  my $ns1 = '//osis:verse[@sID='.$startTag->getAttribute('sID').']/following::osis:verse';
-  my $ns2 = '//osis:verse[@eID='.$endTag->getAttribute('eID').']/preceding::osis:verse';
-  my @remove = $XPC->findnodes("$ns1[count(.|$ns2) = count($ns2)]", $xml);
-  &Log("NOTE: applyVsysExtra($bk, $ch, $vs, $lv): Removing ".@remove." verse tags.\n");
-  foreach my $r (@remove) {$r->unbindNode();}
+  # Convert verse tags between startTag and endTag, add alternate verse numbers
+  my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
+  my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
+  my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
+  foreach my $v (@convert) {&toAlternate($v, 1);}
+  $endTag = &toAlternate($endTag);
   $endTag->setAttribute('eID', $startTag->getAttribute('sID'));
   
-  # If not isWholeChapter, then any following verses get reduced verse number plus alternate verse number
+  # If not isWholeChapter, then any following verses get decremented verse numbers plus an alternate verse number
   if (!$isWholeChapter) {
+    my $lastV = &getLastVerseInChapterOSIS($bk, $ch, $xml);
     my $count = (1 + $lv - $vs);
-    for (my $v=$vs+($vs!=1 ? 1:2); $v<=$canonP->{$bk}[($ch-1)]; $v++) {
-      &altVersifyVerse($bk, $ch, $v, (-1*$count), $xml);
+    for (my $v = $vs + $count + ($vs!=1 ? 0:1); $v <= $lastV; $v++) {
+      &reVersify($bk, $ch, $v, (-1*$count), $xml);
     }
   }
 }
 
 # Markup verse as alternate and increment it by count
-sub altVersifyVerse($$$$$) {
+sub reVersify($$$$$) {
   my $bk = shift;
   my $ch = shift;
   my $vs = shift;
   my $count = shift;
   my $xml = shift;
   
+  &Log("NOTE: reVersify($bk, $ch, $vs, $count):\n");
+  
   my $vTagS = &getVerseTag("$bk.$ch.$vs", $xml, 0);
+  if (!$vTagS) {&Log("\nERROR: reVersify($bk, $ch, $vs, $count): Start tag not found!\n"); return;}
   my $vTagE = &getVerseTag("$bk.$ch.$vs", $xml, 1);
+  if (!$vTagE) {&Log("\nERROR: reVersify($bk, $ch, $vs, $count): End tag not found!\n"); return;}
   
-  # Mark as alternate
-  my $altTextNode = @{$XPC->findnodes('//osis:verse[@osisID="'.$vTagS->getAttribute('osisID').'"]/following-sibling::text()[normalize-space()][1][ancestor::osis:hi[@subType="x-alternate"]]', $xml)}[0];
-  if ($altTextNode) {
-    my $new = $altTextNode->data;
-    if ($new =~ /^(\()(.*?)(\))$/) {
-      my $s=$1; my $v=$1; my $e=$3;
-      my @va = &getVerseArrayFromString();
-      @va[$vs]++;
-      $v = &getVerseStringFromArray(\@va);
-      &Log("NOTE: altVersifyVerse($bk, $ch, $vs, $count): Changing alternate verse \"".$altTextNode->data."\" -> \"$s$v$e\"\n");
-      $altTextNode->setData("$s$v$e");
-    }
-    else {&Log("ERROR: altVersifyVerse($bk, $ch, $vs, $count): Could not parse existing alternate verse \"$new\"\n";}
-  }
-  else {
-    my $alt = $XML_PARSER->parse_balanced_chunk("<hi type=\"italic\" subType=\"x-alternate\"><hi type=\"super\">($vs)</hi></hi>");
-    &Log("NOTE: altVersifyVerse($bk, $ch, $vs, $count): Adding alternate verse \"$vs\"\n");
-    $vTagS->parentNode()->insertAfter($alt, $vTagS);
-  }
-  
-  # Increment
+  my $osisID = $vTagS->getAttribute('osisID');
+  my $newVerseID;
+  my $newID;
   if ($count) {
-    my $oldID = $vTagS->getAttribute('osisID');
-    my @verses = split(/\s+/, $oldID);
-    foreach my $v (@verses) {
-      if ($v =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-        my $b=$1; my $c=$2; my $vn=(1*$3);
-        $vn += $count;
-        $v = "$b.$c.$vn";
-      }
-      else {&Log("ERROR: altVersifyVerse($bk, $ch, $vs, $count): Can't parse verse \"$v\".\n");}
+    my @verses = split(/\s+/, $osisID);
+    $newVerseID = "$bk.$ch.".($vs + $count);
+    foreach my $v (@verses) {if ($v  eq "$bk.$ch.$vs") {$v = $newVerseID;}}
+    $newID = join(' ', @verses);
+  }
+  
+  if (!$vTagS->getAttribute('type') || $vTagS->getAttribute('type') ne $TARG_VSYS) {
+    $vTagS = &toAlternate($vTagS);
+    $vTagE = &toAlternate($vTagE);
+  }
+  elsif (&getAltID($vTagS) eq $newID) {
+    $vTagS = &undoAlternate(&getAltID($vTagS, 1));
+    $vTagE = &undoAlternate(&getAltID($vTagE, 1));
+    $osisID = $vTagS->getAttribute('osisID');
+  }
+  else{&Log("NOTE: Alternate verse already set.\n");}
+  
+  # Increment/Decrement
+  if ($count) {
+    if ($newID ne $osisID) {
+      &Log("NOTE: Changing verse osisID='".$vTagS->getAttribute('osisID')."' to '$newID'.\n");
+      &osisIDCheckUnique($newVerseID, $xml);
+      $vTagS->setAttribute('osisID', $newID);
+      $vTagS->setAttribute('sID', $newID);
+      $vTagS->setAttribute('type', $TARG_VSYS);
+      $vTagE->setAttribute('eID', $newID);
+      $vTagE->setAttribute('type', $TARG_VSYS);
     }
-    my $newID = join(' ', @verses);
-    &Log("NOTE: altVersifyVerse($bk, $ch, $vs, $count): Changing verse osisID: '".$vTagS->getAttribute('osisID')."' -> '$newID'\n");
-    &osisIDCheckUnique($newID, $xml);
-    $vTagS->setAttribute('osisID', $newID);
-    $vTagS->setAttribute('sID', $newID);
-    $vTagE->setAttribute('eID', $newID);
   }
 }
 
+# Report an error if any verse in this hypothetical osisID is already listed 
+# in an existing osisID (to catch multiple verse tags covering the same verses)
 sub osisIDCheckUnique($$) {
   my $osisID = shift;
   my $xml = shift;
@@ -613,53 +738,37 @@ sub osisIDCheckUnique($$) {
   foreach my $v (@verses) {
     my $chv = &getVerseTag($v, $xml, 0);
     if ($chv) {
-      &Log("ERROR: osisIDCheckUnique($osisID): Verse osisID=\"".$chv->getAttribute('osisID')."\" already exists having sID containing \"$v\"!\n");
+      &Log("ERROR: osisIDCheckUnique($osisID): Existing verse osisID=\"".$chv->getAttribute('osisID')."\" includes \"$v\"!\n");
     }
   }
 }
 
-sub getVerseArrayFromString($) {
-  my $s = shift;
+# Reads the osis file to find a chapter's largest verse number
+sub getLastVerseInChapterOSIS($$$) {
+  my $bk = shift;
+  my $ch = shift;
+  my $xml = shift;
   
-  my @va = ();
-  my @segs = split(/\s*,\s*/, $s);
-  foreach my $seg (@segs) {
-    if ($seg =~ /^\s*(\d+)\s*\-\s*(\d+)\s*$/) {
-      my $a=$1; my $b=$2;
-      for (my $x=$a; $x<=$b; $x++) {@va[$x]++;}
-    }
-    else {@va[$seg]++;}
+  my @vs = $XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml);
+  
+  my $lv = 0;
+  foreach my $v (@vs) {if ($v->getAttribute('osisID') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $lv) {$lv = $1;}}
+  if (!$lv) {
+    &Log("ERROR: getLastVerseInChapterOSIS($bk, $ch): Could not find last verse.\n");
+    return '';
   }
-  return @va;
+  
+  return $lv;
 }
 
-sub getVerseStringFromArray(\@) {
-  my $aP = shift;
-  
-  my $s = '';
-  my $lastv = -1;
-  my $inRange = 0;
-  for (my $x=0; $x<@{$aP}; $x++) {
-    if (!@{$aP}[$x]) {next;}
-    if ($lastv == -1) {$s = "$x";}
-    elsif ($lastv == ($x-1)) {$inRange = 1;}
-    else {
-      if ($inRange) {$s .= "-$lastv"; $inRange = 0;}
-      $s .= ", $x";
-    }
-    $lastv = $x;
-  }
-  if ($inRange) {$s .= "-$lastv"};
-  
-  return $s;
-}
-
-sub isWholeChapter($$$$$) {
+# Checks that a 4 part verse range covers an entire chapter in the given
+# verse system. Also normalizes verses so they never contain empty values.
+sub isWholeVsysChapter($$\$\$$) {
   my $bk  = shift;
   my $ch  = shift;
   my $vsP  = shift;
   my $lvP  = shift;
-  my $canonP = shift
+  my $canonP = shift;
   
   my $haveVS = ($$vsP ? 1:0);
   $$vsP = ($haveVS ? $$vsP:1);
@@ -667,5 +776,120 @@ sub isWholeChapter($$$$$) {
 
   return ($$vsP == 1 && $$lvP == $canonP->{$bk}[($ch-1)]);
 }
+
+# Take a verse element and return its alternate id, or '' if there isn't
+# one. If returnElem is set the entire milestone element is returned.
+sub getAltID($$) {
+  my $verseElem = shift;
+  my $returnElem = shift;
+  
+  my $ms = @{$XPC->findnodes("following::*[1][name()='milestone'][\@annotateType='$ALT_VSYS']", $verseElem)}[0];
+  if (!$ms) {return '';}
+  return ($returnElem ? $ms:$ms->getAttribute('annotateRef'));
+}
+
+# This takes a verse or chapter element (start or end) and marks it as
+# part of the alternate verse system, unless already done, by:
+# 1) Converting it to a milestone element 
+# 2) Cloning a target verse system element (unless noTarget is set)
+# 3) Adding an alternate verse number if the element is verse-start 
+# This funtion returns the new target verse system element (if any)
+sub toAlternate($$) {
+  my $elem = shift;
+  my $noTarget = shift;
+  
+  my $telem;
+  my $type = ($elem->getAttribute('sID') ? 'start':($elem->getAttribute('eID') ? 'end':''));
+  my $osisID = ($type eq 'start' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
+  my $isVerseStart = ($type eq 'start' && $elem->nodeName eq 'verse' ? 1:0);
+  
+  &Log("NOTE: To alternate $osisID ".$elem->nodeName." $type");
+  
+  if (&getAltID($elem)) {
+    &Log(", already done");
+    if ($noTarget && $elem->getAttribute('type') eq $TARG_VSYS) {
+      $elem->unbindNode();
+      &Log(", removed target tag");
+    }
+    &Log("\n");
+    return $elem;
+  }
+  
+  if (!$noTarget) {
+    $telem = $elem->cloneNode(1);
+    if ($telem->getAttribute('type')) {&Log("\nERROR: Type already set on $telem\n");}
+    $telem->setAttribute('type', $TARG_VSYS);
+    $elem->parentNode->insertBefore($telem, $elem);
+    &Log(", cloned");
+  }
+  
+  # Convert to milestone
+  if (!$type) {
+    &Log("\nERROR: Element missing sID or eID: $elem\n");
+  }
+  if ($type eq 'start' && $osisID ne $elem->getAttribute('osisID')) {
+    &Log("\nERROR: osisID is different that sID: $osisID != ".$elem->getAttribute('osisID')."\n");
+  }
+  $elem->setAttribute('type', "x-alt-".$elem->nodeName."-$type");
+  $elem->setAttribute('annotateRef', $osisID);
+  $elem->setAttribute('annotateType', $ALT_VSYS);
+  $elem->setNodeName('milestone');
+  if ($elem->hasAttribute('osisID')) {$elem->removeAttribute('osisID');}
+  if ($elem->hasAttribute('sID')) {$elem->removeAttribute('sID');}
+  if ($elem->hasAttribute('eID')) {$elem->removeAttribute('eID');}
+  &Log(", converted");
+  
+  # Add alternate verse number
+  if ($isVerseStart) {
+    if ($osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?$/) {
+      my $newv = ($2 ? "$1-$3":"$1");
+      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate"><hi type="super">('.$newv.')</hi></hi>');
+      $elem->parentNode()->insertAfter($alt, $elem);
+      &Log(", added alternate verse \"$newv\"");
+    }
+    else {&Log("\nERROR: Could not parse \"$osisID\"!\n");}
+  }
+  &Log("\n");
+  
+  return $telem;
+}
+
+# This will take an alternate milestone element (verse or chapter, start 
+# or end) and convert it back to original by undoing everything 
+# toAlternate() did. It returns the original element.
+sub undoAlternate($) {
+  my $ms = shift;
+  
+  &Log("NOTE: Undo alternate ".$ms->getAttribute('type').' '.$ms->getAttribute('annotateRef'));
+  
+  my $avn = @{$XPC->findnodes('following-sibling::*[1][@subType="x-alternate"]', $ms)}[0];
+  if ($avn) {
+    $avn->unbindNode();
+    &Log(", removed alternate verse number");
+  }
+  my $vtag = @{$XPC->findnodes("preceding-sibling::*[1][\@type='$TARG_VSYS']", $ms)}[0];
+  if ($vtag) {
+    $vtag->unbindNode();
+    &Log(", removed verse tag");
+  }
+  if ($ms->getAttribute('type') =~ /^x\-alt\-(chapter|verse)\-(start|end)$/) {
+    my $name = $1; my $type = $2;
+    $ms->setNodeName($name);
+    if ($type eq 'start') {
+      $ms->setAttribute('sID', $ms->getAttribute('annotateRef'));
+      $ms->setAttribute('osisID', $ms->getAttribute('annotateRef'));
+    }
+    else {$ms->setAttribute('eID', $ms->getAttribute('annotateRef'));}
+    $ms->removeAttribute('annotateRef');
+    $ms->removeAttribute('annotateType');
+    $ms->removeAttribute('type');
+  }
+  else {&Log("\nERROR: Can't parse type=\"".$ms->getAttribute('type')."\"\n");}
+  
+  &Log(", converted milestone to verse\n");
+  
+  return $ms;
+}
+
     
 1;

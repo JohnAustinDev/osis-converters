@@ -369,7 +369,7 @@ sub asrlProcessFile($$) {
   my %nodeInfo;
   foreach my $textNode (@allTextNodes) {
     if ($textNode =~ /^\s*$/) {next;}
-    if ($XPC->findnodes('ancestor::*[@type=\'x-chapterLabel\']', $textNode)) {next;}
+    if ($XPC->findnodes('ancestor::*[starts-with(@type, "x-chapterLabel")]', $textNode)) {next;}
     if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
     if ($only_xpath) {
       my @only = $XPC->findnodes($only_xpath, $textNode);
