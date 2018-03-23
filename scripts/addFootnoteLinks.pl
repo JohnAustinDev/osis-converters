@@ -145,7 +145,7 @@ sub addFootnoteLinks($$) {
       my $bosisXml = $XML_PARSER->parse_file($file);
       $bmod = &getOsisRefWork($bosisXml);
       $brefSystem = &getOSISHeaderValueFromNode('refSystem', $bosisXml);
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystem($bosisXml);
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($bosisXml);
       last;
     }
     if ($brefSystem =~ /^Bible/) {
@@ -182,7 +182,7 @@ sub addFootnoteLinks($$) {
       $myMod = &getOsisRefWork($xmls{$file});
       $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
       $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystem($xmls{$file});
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($xmls{$file});
     }
   }
   if ($myRefSystem =~ /^(Bible|Dict)/) {
@@ -687,7 +687,7 @@ sub getFootnotes($) {
   foreach my $or (@{$osisRefsP}) {
     my $osisRef = $or; # never modify array pointer value $or!
     my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
-    my $osisID = &osisRef2osisID($osisRef, $VERSESYS);
+    my $osisID = &osisRef2osisID($osisRef, $MOD);
     foreach my $id (split(/\s+/, $osisID)) {
       push(@verses, "$m:$id");
     }
