@@ -46,8 +46,8 @@ $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
 %OSISID_NOTE;
-$TARG_VSYS = "x-targ-verse-system";
-$ALT_VSYS = "x-alt-verse-system";
+$TARG_VSYS_ARTYPE = "x-targ-verse-system"; # annotateType of annotateRef pointing to target verse system
+$ALT_VSYS_ARTYPE = "x-alt-verse-system";   # annotateType of annotateRef pointing to alternate verse system
 
 require("$SCRD/scripts/getScope.pl");
 require("$SCRD/scripts/fitToVerseSystem.pl");
@@ -975,7 +975,7 @@ sub updateConfData(\%$) {
       
       # get scope
       if ($type eq 'bible' || $type eq 'commentary') {
-        &setConfValue($entryValueP, 'Scope', &getScope($entryValueP->{'Versification'}, $moduleSource), 1);
+        &setConfValue($entryValueP, 'Scope', &getScope($moduleSource), 1);
       }
     }
   }
@@ -1431,14 +1431,20 @@ sub pruneFileOSIS($$$\%\%\$\$) {
   if ($booksFiltered && !$$ebookTitleP) {$$ebookTitleP = "$title: $$ebookPartTitleP";}
   else {$$ebookTitleP = $title;}
   if ($$ebookTitleP ne $osisTitle->textContent) {
-    foreach my $c ($osisTitle->childNodes()) {$c->unbindNode();}
-    $osisTitle->appendText($$ebookTitleP);
+    &changeNodeText($osisTitle, $$ebookTitleP);
     &Log('NOTE: Updated OSIS title to "'.$osisTitle->textContent."\"\n", 1);
   }
   
   open(OUTF, ">$outosis");
   print OUTF $inxml->toString();
   close(OUTF);
+}
+
+sub changeNodeText($$) {
+  my $node = shift;
+  my $new = shift;
+  foreach my $r ($node->childNodes()) {$r->unbindNode();}
+  if ($new) {$node->appendText($new)};
 }
 
 # Filter all Scripture reference links in a Bible/Dict osis file: A Dict osis file
@@ -2614,52 +2620,59 @@ sub checkReferenceLinks($) {
   my $useDictionaryWords = (&getRefSystemOSIS($osis) =~ /^Bible\./ ? 1:0);
   my $osisRefWork = &getOsisRefWork($osis);
   
-  my @links = $XPC->findnodes('//osis:reference', $osis);
+  my @references = $XPC->findnodes('//osis:reference', $osis);
+  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $osis);
+  push(@osisRefs, @references);
   
-  my %linkcount = ('gloss' => 0, 'scrip' => 0, 'note' => 0);
-  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0);
-  my $lcnt = 0; my $pcnt = 0; my $lpcnt = 0;
-  foreach my $l (@links) {
-    $lcnt++; $pcnt = int(100*($lcnt/@links)); if ($pcnt != $lpcnt) {&Log("$pcnt%\n", 2);} $lpcnt = $pcnt;
+  my %refcount = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
+  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
+  my $rcnt = 0; my $pcnt = 0; my $rpcnt = 0;
+  foreach my $r (@osisRefs) {
+    $rcnt++; $pcnt = int(100*($rcnt/@osisRefs)); if ($pcnt != $rpcnt) {&Log("$pcnt%\n", 2);} $rpcnt = $pcnt;
 
-    my $linktype = ($l->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/ ? 'gloss':($l->getAttribute('type') eq 'x-note' ? 'note':'scrip'));
-    my $isGlossLink = ($l->getAttribute('type') =~ /^\Qx-glosslink\E$/);
-    
-    $linkcount{$linktype}++;
-    
-    if (!$l->textContent || $l->textContent =~ /^[\s\n]*$/) {
-      &Log("ERROR Reference link \"$l\" has no text content!\n");
-      $errors{$linktype}++;
-    }
-    
-    if (!$l->getAttribute('osisRef')) {
-      &Log("ERROR: Reference link \"$l\" is missing osisRef attribute!\n");
-      $errors{$linktype}++;
-      next;
-    }
-    
-    my $avoidThisGlossEntry = (
-      $isGlossLink ? @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $l)}[0]:''
+    my $linktype;
+    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$linktype = 'gloss';}
+    elsif ($r->getAttribute('type') eq 'x-note') {$linktype = 'note';}
+    elsif ($r->nodeName eq 'reference') {$linktype = 'scrip';}
+    else {$linktype = 'other';}
+    my $avoidGlossEntry = ($r->getAttribute('type') =~ /^\Qx-glosslink\E$/ ? 
+      @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $r)}[0]:''
     );
     
-    foreach my $osisID (split(/\s+/, &osisRef2osisID($l->getAttribute('osisRef')))) {
+    $refcount{$linktype}++;
+    
+    if ($linktype ne 'other') {
+      if (!$r->textContent || $r->textContent =~ /^[\s\n]*$/) {
+        &Log("ERROR Reference link \"$r\" has no text content!\n");
+        $errors{$linktype}++;
+      }
+      
+      if (!$r->getAttribute('osisRef')) {
+        &Log("ERROR: Reference link \"$r\" is missing osisRef attribute!\n");
+        $errors{$linktype}++;
+        next;
+      }
+    }
+    
+    foreach my $osisID (split(/\s+/, &osisRef2osisID($r->getAttribute('osisRef')))) {
       if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
       my $isValid = $CHECK_LINKS_CACHE{$osisID};
-      if ($avoidThisGlossEntry && $osisID eq $osisRefWork.':'.$avoidThisGlossEntry->getAttribute('osisID')) {
-        &Log("ERROR: Glossary entry $avoidThisGlossEntry contains a link to itself at: \"".$l->textContent."\"\n");
+      if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
+        &Log("ERROR: Glossary entry ".$avoidGlossEntry->getAttribute('osisID')." contains a link to itself: \"".$r."\"\n");
         $errors{$linktype}++;
       }
       elsif (!$isValid) {
-        &Log("ERROR: Invalid osisRef segment \"$osisID\" in link \"$l\"\n");
+        &Log("ERROR: Invalid osisRef segment \"$osisID\" in $r\n");
         $errors{$linktype}++;
       }
     }
   }
 
-  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
-  &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
+  &Log("$MOD REPORT: \"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
+  &Log("$MOD REPORT: \"".$refcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
+  &Log("$MOD REPORT: \"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
+  &Log("$MOD REPORT: \"".@references."\" Grand total reference links.\n");
+  &Log("$MOD REPORT: \"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)\n");
 }
 
 
@@ -2681,9 +2694,8 @@ SEGMENT:
     my $v;
     my $mod;
     my $type;
-    my $ext;
-
-    if ($osisID =~ s/(\!.*)$//) {$ext = $1;}
+    
+    my $ext = ($osisID =~ s/(\!.*)$// ? $1:'');
     my $osisIDWork = $osisIDWorkDefault;
     if ($osisID =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
     if (!$osisIDWork) {
@@ -2691,10 +2703,10 @@ SEGMENT:
       return 0;
     }
     &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
-    my $type = $1; my $verseSystem = $2;
+    my $wktype = $1; my $wkvsys = $2;
    
     # Check for valid Scripture references in the verse system
-    if ($type eq 'Bible') {
+    if (!$ext && $wktype eq 'Bible') {
       if ($osisID =~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
         $b = $1; $c = ($2 ? $3:''); $v = ($4 ? $5:'');
         if ($osisID =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {next SEGMENT;}
@@ -2702,26 +2714,25 @@ SEGMENT:
         if ($osisID =~ /^xALL\./) {next SEGMENT;} # xALL is allowed as matching any book
         if ($OT_BOOKS =~ /\b$b\b/ || $NT_BOOKS =~ /\b$b\b/) {
           my ($canonP, $bookOrderP, $bookArrayP);
-          &getCanon($verseSystem, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+          &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
           
           if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
-            &Log("ERROR: Chapter is not in verse system $verseSystem: \"$b.$c\"\n");
+            &Log("ERROR: Chapter is not in verse system $wkvsys: \"$b.$c\"\n");
             return 0;
           }
           
           if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
-            &Log("ERROR: Verse is not in verse system $verseSystem: \"$b.$c.$v\"\n");
+            &Log("ERROR: Verse is not in verse system $wkvsys: \"$b.$c.$v\"\n");
             return 0;
           }
           next SEGMENT;
         }
       }
-      &Log("ERROR: Book is not is verse system $verseSystem: \"$osisID\"\n");
+      &Log("ERROR: Book is not is verse system $wkvsys: \"$osisID\"\n");
       return 0;
     }
-    
-    if (!$useDictionaryWords) {
-      if (!&existsElementID($osisID, $osisIDWork)) {
+    elsif ($ext || !$useDictionaryWords) {
+      if (!&existsElementID("$osisID$ext", $osisIDWork)) {
         &Log("ERROR: osisID \"$osisID\" was not found in \"$osisIDWork\"\n");
         return 0;
       }
@@ -3236,7 +3247,7 @@ sub writeOsisHeaderWork($\%\%\$\$) {
   &getOSIS_Work(\%workElements, $confP, $convP, $isbn);
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+    $workElements{'190000:scope'}{'textContent'} = &getScope($osis, $confP->{'Versification'});
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -3736,7 +3747,7 @@ sub writeNoteOsisRefs($$) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if (@rs[0]->getAttribute('annotateType') ne $ALT_VSYS && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
+          if (@rs[0]->getAttribute('annotateType') ne $ALT_VSYS_ARTYPE && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
             &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
             $aror = '';
           }

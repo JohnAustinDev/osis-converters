@@ -9,7 +9,7 @@ my $projectGlossary;
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   require("$SCRD/scripts/fitToVerseSystem.pl");
-  &fitToVerseSystem("$TMPDIR/".$MOD."_0a.xml", $VERSESYS, $customBookOrder);
+  &orderBooksPeriphs("$TMPDIR/".$MOD."_0a.xml", $VERSESYS, $customBookOrder);
   &runXSLT("$SCRD/scripts/xslt/checkUpdateIntros.xsl", "$TMPDIR/".$MOD."_0a.xml", "$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {
@@ -40,7 +40,6 @@ if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   else {move("$TMPDIR/".$MOD."_1a.xml", "$TMPDIR/".$MOD."_2.xml");}
 }
 else {copy("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_2.xml");}
-&correctReferencesVSYS($projectBible, $ConfEntryP, "$TMPDIR/".$MOD."_2.xml");
 # MOD_2.xml is after addScripRefLinks.pl
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
@@ -65,6 +64,10 @@ if ($MODDRV =~ /Text/) {
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 &normalizeRefsIds($OUTOSIS);
+if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+  &fitToVerseSystem($OUTOSIS, $VERSESYS);
+}
+&correctReferencesVSYS($OUTOSIS, $projectBible, $ConfEntryP);
 # MOD.xml is after addCrossRefs.pl
 
 # Run postprocess.(pl|xsl) if they exist

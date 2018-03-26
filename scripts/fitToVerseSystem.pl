@@ -144,14 +144,14 @@
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
 
-sub fitToVerseSystem($$$) {
+sub orderBooksPeriphs($$$) {
   my $osis = shift;
   my $vsys = shift;
   my $maintainBookOrder = shift;
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\n\nFitting books and peripherals of \"$osis\" into versification $vsys\n");
+  &Log("\nOrdering books and peripherals of \"$osis\" by versification $vsys\n");
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
@@ -321,6 +321,75 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
   }
   foreach my $lg (reverse(@mylog)) {&Log($lg);}
   
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
+}
+
+sub placementMessage() {
+  if ($AlreadyReportedThis) {return '';}
+  $AlreadyReportedThis = 1;
+return
+"------------------------------------------------------------------------
+| The location of peripheral file contents and, if desired, the location 
+| of each \periph section within the file must be appended to the end of
+| the /id line of each peripheral USFM file, like this:
+|
+| \id INT div-type-or-subType == xpath-expression, div-type-or-subType == xpath-expression,...
+|
+| Where div-type-or-subType is one of the following:
+| \t-The keyword 'location' specifies the location the entire file should go.
+| \t-Any peripheral <div>'s type or subType value specifies the next 
+| \t\t<div> in the converted file sharing that type or subType.
+| \t- Any \periph tag type must be \"IN DOUBLE QUOTES\" and specifies the
+| \t\tnext <div> corresponding to that periph type. If the type is not
+| \t\tpart of the USFM 2.4 specification, it can only be specified by
+| \t\tusing x-unknown WITHOUT QUOTES.
+|
+| Where xpath-expression is one of:
+| \t-The keyword 'remove' to remove it from the OSIS file entirely.
+| \t-The keyword 'osis:header' to place it after the header element.
+| \t-An XPATH expression for the parent element at the top of which
+| \t\tit should be placed. IMPORTANT: You must escape all @ characters 
+| \t\twith \\ to make perl happy. 
+|
+| Optionally, you may also specify the scope of each peripheral file by 
+| adding \"scope == Matt-Rev\" for instance. This is used by single Bible-
+| book eBooks to duplicate peripheral material in multiple eBooks.
+------------------------------------------------------------------------\n";
+}
+
+sub placeIntroduction($$) {
+  my $intro = shift;
+  my $dest = shift;
+  if ($dest->nodeName =~ /\:?header$/) {$dest->parentNode()->insertAfter($intro, $dest);}
+  elsif ($dest->hasChildNodes()) {
+    # place as first non-toc and non-runningHead element in destination container
+    my $before = $dest->firstChild();
+    while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $before)}[0]) {
+      $before = $before->nextSibling();
+    }
+    $dest->insertBefore($intro, $before);
+  }
+  else {$dest->parentNode()->insertAfter($intro, $dest);}
+}
+
+sub fitToVerseSystem($$) {
+  my $osis = shift;
+  my $vsys = shift;
+  
+  if (!$vsys) {$vsys = "KJV";}
+
+  &Log("\nFitting OSIS \"$osis\" to versification $vsys\n");
+
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &Log("ERROR: Not Fitting OSIS versification! No verse system.\n");
+    return;
+  }
+
+  my $xml = $XML_PARSER->parse_file($osis);
+ 
   # Apply any alternate VSYS instructions to the translation
   foreach my $argsP (@VSYS_INSTR) {&applyVsysInstruction($argsP, $canonP, $xml);}
   
@@ -382,62 +451,14 @@ NOTE: This translation does not fit the $vsys verse system. The errors
   close(OUTF);
 }
 
-sub placementMessage() {
-  if ($AlreadyReportedThis) {return '';}
-  $AlreadyReportedThis = 1;
-return
-"------------------------------------------------------------------------
-| The location of peripheral file contents and, if desired, the location 
-| of each \periph section within the file must be appended to the end of
-| the /id line of each peripheral USFM file, like this:
-|
-| \id INT div-type-or-subType == xpath-expression, div-type-or-subType == xpath-expression,...
-|
-| Where div-type-or-subType is one of the following:
-| \t-The keyword 'location' specifies the location the entire file should go.
-| \t-Any peripheral <div>'s type or subType value specifies the next 
-| \t\t<div> in the converted file sharing that type or subType.
-| \t- Any \periph tag type must be \"IN DOUBLE QUOTES\" and specifies the
-| \t\tnext <div> corresponding to that periph type. If the type is not
-| \t\tpart of the USFM 2.4 specification, it can only be specified by
-| \t\tusing x-unknown WITHOUT QUOTES.
-|
-| Where xpath-expression is one of:
-| \t-The keyword 'remove' to remove it from the OSIS file entirely.
-| \t-The keyword 'osis:header' to place it after the header element.
-| \t-An XPATH expression for the parent element at the top of which
-| \t\tit should be placed. IMPORTANT: You must escape all @ characters 
-| \t\twith \\ to make perl happy. 
-|
-| Optionally, you may also specify the scope of each peripheral file by 
-| adding \"scope == Matt-Rev\" for instance. This is used by single Bible-
-| book eBooks to duplicate peripheral material in multiple eBooks.
-------------------------------------------------------------------------\n";
-}
-
-sub placeIntroduction($$) {
-  my $intro = shift;
-  my $dest = shift;
-  if ($dest->nodeName =~ /\:?header$/) {$dest->parentNode()->insertAfter($intro, $dest);}
-  elsif ($dest->hasChildNodes()) {
-    # place as first non-toc and non-runningHead element in destination container
-    my $before = $dest->firstChild();
-    while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $before)}[0]) {
-      $before = $before->nextSibling();
-    }
-    $dest->insertBefore($intro, $before);
-  }
-  else {$dest->parentNode()->insertAfter($intro, $dest);}
-}
-
-# Read bibleMod and find all osisIDs which have been changed by VSYS 
-# instructions. If there are any, then read the osis file, find all 
-# osisRefs which point to osisIDs that were changed, and correct them
-# by changing those osisRefs to point to the new osisID values.
+# Read bibleMod and find all verse osisIDs which have been changed by  
+# VSYS instructions. If there are any, then read the osis file, find all 
+# osisRefs which point to those verse osisIDs that were changed, and 
+# correct them by changing those osisRefs to point to the new osisID 
+# values. It also updates the header scope value.
 sub correctReferencesVSYS($$$) {
-  my $bibleMod = shift;
-  my $confP = shift;
   my $osis = shift;
+  my $bibleMod = shift;
   
   my $bfile = ($bibleMod eq $MOD ? $osis:&getProjectOsisFile($bibleMod));
 
@@ -451,23 +472,19 @@ sub correctReferencesVSYS($$$) {
   
   my $osisXML;
   my $bibleXML = $XML_PARSER->parse_file($bfile);
+  my $vsys = &getVerseSystemOSIS($bibleXML);
   my @annotateRefs = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateRef]', $bibleXML);
   my @changedVerses;
   if (@annotateRefs[0]) {
     # Get a mapping from original verse system id to target verse-system id
     my %vmap;
     foreach my $ar (@annotateRefs) {
+      my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
       my @aids = split(/\s+/, $ar->getAttribute('annotateRef'));
       push(@changedVerses, @aids);
-      my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
-      my $ai = 0; my $oi = 0;
-      while($ai < @aids) {
-        $vmap{@aids[$ai]} = @oids[$oi];
-        $ai++;
-        if (($oi+1) < @oids) {$oi++;}
-      }
+      foreach my $aid (@aids) {$vmap{$aid} = @oids[$#iods];}
     }
-    @changedVerses = &normalizeOsisID(\@changedVerses, $confP->{'Versification'});
+    @changedVerses = &normalizeOsisID(\@changedVerses, $vsys);
 
     # Look for osisRefs in the osis file that need updating and update them
     $osisXML = $XML_PARSER->parse_file($osis);
@@ -477,7 +494,9 @@ sub correctReferencesVSYS($$$) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')]", $osisXML);
+        # Select all elements having osisRef attributes EXCEPT those within crossReferences 
+        # that already match the target verse-system. These should NOT be changed.
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(ancestor::osis:note[\@type='crossReference'][contains(\@osisID, '!crossReference.r')])]", $osisXML);
       }
       $lastch = $ch;
       foreach my $e (@checkrefs) {
@@ -500,7 +519,7 @@ sub correctReferencesVSYS($$$) {
       my @rid = split(/\s+/, $e->getAttribute('rids'));
       $e->removeAttribute('rids');
       $e->setAttribute('annotateRef', $e->getAttribute('osisRef'));
-      $e->setAttribute('annotateType', $ALT_VSYS);
+      $e->setAttribute('annotateType', $ALT_VSYS_ARTYPE);
       foreach my $r (@rid) {$r =~ s/^x\.//;}
       my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
       if ($e->getAttribute('osisRef') ne $newOsisRef) {
@@ -510,6 +529,9 @@ sub correctReferencesVSYS($$$) {
       }
       else {&Log("ERROR: OsisRef change could not be applied!\n");}
     }
+    
+    my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $osisXML)}[0];
+    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($osisXML));}
   }
   
   if ($count) {
@@ -703,7 +725,7 @@ sub reVersify($$$$$) {
     $newID = join(' ', @verses);
   }
   
-  if (!$vTagS->getAttribute('type') || $vTagS->getAttribute('type') ne $TARG_VSYS) {
+  if (!$vTagS->getAttribute('type') || $vTagS->getAttribute('type') ne $TARG_VSYS_ARTYPE) {
     $vTagS = &toAlternate($vTagS);
     $vTagE = &toAlternate($vTagE);
   }
@@ -721,9 +743,9 @@ sub reVersify($$$$$) {
       &osisIDCheckUnique($newVerseID, $xml);
       $vTagS->setAttribute('osisID', $newID);
       $vTagS->setAttribute('sID', $newID);
-      $vTagS->setAttribute('type', $TARG_VSYS);
+      $vTagS->setAttribute('type', $TARG_VSYS_ARTYPE);
       $vTagE->setAttribute('eID', $newID);
-      $vTagE->setAttribute('type', $TARG_VSYS);
+      $vTagE->setAttribute('type', $TARG_VSYS_ARTYPE);
     }
   }
 }
@@ -783,7 +805,7 @@ sub getAltID($$) {
   my $verseElem = shift;
   my $returnElem = shift;
   
-  my $ms = @{$XPC->findnodes("following::*[1][name()='milestone'][\@annotateType='$ALT_VSYS']", $verseElem)}[0];
+  my $ms = @{$XPC->findnodes("following::*[1][name()='milestone'][\@annotateType='$ALT_VSYS_ARTYPE']", $verseElem)}[0];
   if (!$ms) {return '';}
   return ($returnElem ? $ms:$ms->getAttribute('annotateRef'));
 }
@@ -807,7 +829,7 @@ sub toAlternate($$) {
   
   if (&getAltID($elem)) {
     &Log(", already done");
-    if ($noTarget && $elem->getAttribute('type') eq $TARG_VSYS) {
+    if ($noTarget && $elem->getAttribute('type') eq $TARG_VSYS_ARTYPE) {
       $elem->unbindNode();
       &Log(", removed target tag");
     }
@@ -818,7 +840,7 @@ sub toAlternate($$) {
   if (!$noTarget) {
     $telem = $elem->cloneNode(1);
     if ($telem->getAttribute('type')) {&Log("\nERROR: Type already set on $telem\n");}
-    $telem->setAttribute('type', $TARG_VSYS);
+    $telem->setAttribute('type', $TARG_VSYS_ARTYPE);
     $elem->parentNode->insertBefore($telem, $elem);
     &Log(", cloned");
   }
@@ -832,7 +854,7 @@ sub toAlternate($$) {
   }
   $elem->setAttribute('type', "x-alt-".$elem->nodeName."-$type");
   $elem->setAttribute('annotateRef', $osisID);
-  $elem->setAttribute('annotateType', $ALT_VSYS);
+  $elem->setAttribute('annotateType', $ALT_VSYS_ARTYPE);
   $elem->setNodeName('milestone');
   if ($elem->hasAttribute('osisID')) {$elem->removeAttribute('osisID');}
   if ($elem->hasAttribute('sID')) {$elem->removeAttribute('sID');}
@@ -844,7 +866,8 @@ sub toAlternate($$) {
     if ($osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?$/) {
       my $newv = ($2 ? "$1-$3":"$1");
       my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate"><hi type="super">('.$newv.')</hi></hi>');
-      $elem->parentNode()->insertAfter($alt, $elem);
+      my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $elem)}[0];
+      $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       &Log(", added alternate verse \"$newv\"");
     }
     else {&Log("\nERROR: Could not parse \"$osisID\"!\n");}
@@ -862,12 +885,12 @@ sub undoAlternate($) {
   
   &Log("NOTE: Undo alternate ".$ms->getAttribute('type').' '.$ms->getAttribute('annotateRef'));
   
-  my $avn = @{$XPC->findnodes('following-sibling::*[1][@subType="x-alternate"]', $ms)}[0];
+  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/preceding-sibling::*[1][@subType="x-alternate"]', $ms)}[0];
   if ($avn) {
     $avn->unbindNode();
     &Log(", removed alternate verse number");
   }
-  my $vtag = @{$XPC->findnodes("preceding-sibling::*[1][\@type='$TARG_VSYS']", $ms)}[0];
+  my $vtag = @{$XPC->findnodes("preceding-sibling::*[1][\@type='$TARG_VSYS_ARTYPE']", $ms)}[0];
   if ($vtag) {
     $vtag->unbindNode();
     &Log(", removed verse tag");
