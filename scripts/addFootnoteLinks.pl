@@ -145,7 +145,7 @@ sub addFootnoteLinks($$) {
       my $bosisXml = $XML_PARSER->parse_file($file);
       $bmod = &getOsisRefWork($bosisXml);
       $brefSystem = &getOSISHeaderValueFromNode('refSystem', $bosisXml);
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getBibleVersificationFromNode($bosisXml);
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($bosisXml);
       last;
     }
     if ($brefSystem =~ /^Bible/) {
@@ -182,7 +182,7 @@ sub addFootnoteLinks($$) {
       $myMod = &getOsisRefWork($xmls{$file});
       $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
       $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getBibleVersificationFromNode($xmls{$file});
+      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($xmls{$file});
     }
   }
   if ($myRefSystem =~ /^(Bible|Dict)/) {
@@ -330,7 +330,7 @@ sub processXML($$) {
 
     if ($intro && $skipintros) {next;}
     
-    my $text = &addFootnoteLinks2TextNode($textNode, $xml, $myMod);
+    my $text = &addFootnoteLinks2TextNode($textNode, $myMod);
    
     # save changes for later (to avoid messing up line numbers)
     if ($text) {
@@ -359,10 +359,11 @@ sub stat($) {
 # 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH 
 #    EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
-sub addFootnoteLinks2TextNode($$$) {
+sub addFootnoteLinks2TextNode($$) {
   my $textNode = shift;
-  my $xml = shift;
   my $myMod = shift;
+  
+  my $xml = $textNode->ownerDocument;
   
   if ($textNode->data() !~ /\b($footnoteTerms)($suffixTerms)*\b/i) {return '';}
   
@@ -687,8 +688,10 @@ sub getFootnotes($) {
   foreach my $or (@{$osisRefsP}) {
     my $osisRef = $or; # never modify array pointer value $or!
     my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
-    my $ap = &osisRef2array($osisRef);
-    foreach my $a (@{$ap}) {push(@verses, "$m:$a");}
+    my $osisID = &osisRef2osisID($osisRef, $MOD);
+    foreach my $id (split(/\s+/, $osisID)) {
+      push(@verses, "$m:$id");
+    }
   }
 
   # Any "verses" which refer to entire chapters (ie John.3) need separate actual verses spliced into the array

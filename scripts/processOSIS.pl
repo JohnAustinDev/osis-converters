@@ -3,11 +3,13 @@
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
 %EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
-&writeOsisHeaderWork("$TMPDIR/".$MOD."_0a.xml", $ConfEntryP, \%EBOOKCONV);
+my $projectBible;
+my $projectGlossary;
+&writeOsisHeaderWork("$TMPDIR/".$MOD."_0a.xml", $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  require("$SCRD/scripts/toVersificationBookOrder.pl");
-  &toVersificationBookOrder($VERSESYS, "$TMPDIR/".$MOD."_0a.xml");
+  require("$SCRD/scripts/fitToVerseSystem.pl");
+  &orderBooksPeriphs("$TMPDIR/".$MOD."_0a.xml", $VERSESYS, $customBookOrder);
   &runXSLT("$SCRD/scripts/xslt/checkUpdateIntros.xsl", "$TMPDIR/".$MOD."_0a.xml", "$TMPDIR/".$MOD."_1.xml");
 }
 elsif ($MODDRV =~ /LD/) {
@@ -62,6 +64,10 @@ if ($MODDRV =~ /Text/) {
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 &normalizeRefsIds($OUTOSIS);
+if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+  &fitToVerseSystem($OUTOSIS, $VERSESYS);
+}
+&correctReferencesVSYS($OUTOSIS, $projectBible, $ConfEntryP);
 # MOD.xml is after addCrossRefs.pl
 
 # Run postprocess.(pl|xsl) if they exist
@@ -77,21 +83,18 @@ if (-e "$INPD/postprocess.pl") {
 # Checks occur as late as possible in the flow
 &checkReferenceLinks($OUTOSIS);
 
-# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with osisRef="INT" also add intro nav menus.
-my $osis = $XML_PARSER->parse_file($OUTOSIS);
-my $projectGlossary = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]/@osisWork', $osis)}[0];
-my $projectBible = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-bible"]]/@osisWork', $osis)}[0];
-if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary->value."/navigation.sfm")) {
+# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
+if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary."/navigation.sfm")) {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-  my $gloss = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."CF_usfm2osis.txt";
+  my $gloss = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."CF_usfm2osis.txt";
   my $glossContainsINT = `grep "scope == INT" $gloss`;
 
   # Tell the user about the introduction nav menu feature if it's available and not being used
   if (!$glossContainsINT) {
-    my $biblef = &getProjectOsisFile($projectBible->value);
+    my $biblef = &getProjectOsisFile($projectBible);
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
-        my $bmod = $projectBible->value; my $gmod = $projectGlossary->value;
+        my $bmod = $projectBible; my $gmod = $projectGlossary;
         &Log("
 NOTE: Module $bmod contains <div type=\"introduction\"> material and it 
       appears you have not duplicated that material in the glossary. This \
@@ -109,12 +112,12 @@ RUN:./INT.SFM\n");
   }
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
-  %params = ($glossContainsINT ? ('osisRefIntro' => 'INT'):());
+  %params = ($glossContainsINT ? ('introScope' => 'INT'):());
   &runXSLT("$SCRD/scripts/xslt/glossaryNavMenu.xsl", $OUTOSIS, "$OUTOSIS.out", \%params);
   copy("$OUTOSIS.out", $OUTOSIS);
   unlink("$OUTOSIS.out");
   
-  my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary->value.'/':'')."sword/css";
+  my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."sword/css";
   if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {
     &Log("
 WARNING: For the navigation menu to look best in SWORD, you should use 
@@ -123,7 +126,6 @@ WARNING: For the navigation menu to look best in SWORD, you should use
          2) Open or create the css file: \"$MOD/sword/css/swmodule.css\"
          3) Add the css: ".&shell("cat \"$SCRD/defaults/dict/sword/css/swmodule.css\"", 3)."\n");
   }
-  
 }
 
 &checkFigureLinks($OUTOSIS);

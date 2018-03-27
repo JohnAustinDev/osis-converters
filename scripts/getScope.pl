@@ -17,12 +17,15 @@
 # <http://www.gnu.org/licenses/>.
 
 sub getScope($$) {
+  my $osis = shift; # can be osis file OR xml node
   my $vsys = shift;
-  my $osis = shift;
+  
+  my $xml = (ref($osis) ? $osis:$XML_PARSER->parse_file($osis));
   
   my $scope = "";
   
-  if (!$vsys) {$vsys = "KJV";}
+  $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
+  if (!$vsys) {&Log("ERROR: getScope($osis): Could not determine versification!\n");}
 
   &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
@@ -31,8 +34,6 @@ sub getScope($$) {
   my $testamentP;
   
   if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
-    my $xml = $XML_PARSER->parse_file($osis);
-    
     my @verses = $XPC->findnodes('//osis:verse', $xml);
     foreach my $v (@verses) {
       my $osisID = $v->findvalue('./@osisID');

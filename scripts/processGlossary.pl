@@ -2,7 +2,7 @@ sub getEntryScope($) {
   my $e = shift;
 
   my @eDiv = $XPC->findnodes('./ancestor-or-self::osis:div[@type="x-aggregate-subentry"]', $e);
-  if (@eDiv && @eDiv[0]->getAttribute('osisRef')) {return @eDiv[0]->getAttribute('osisRef');}
+  if (@eDiv && @eDiv[0]->getAttribute('scope')) {return @eDiv[0]->getAttribute('scope');}
   
   return &getGlossaryScope($e);
 }
@@ -13,7 +13,7 @@ sub getGlossaryScope($) {
   my @glossDiv = $XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]', $e);
   if (!@glossDiv) {return '';}
 
-  return @glossDiv[0]->getAttribute('osisRef');
+  return @glossDiv[0]->getAttribute('scope');
 }
 
 # Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were filtered
@@ -76,11 +76,11 @@ sub filterAggregateEntries($$) {
   
   my @removed; my $removeCount = 0;
   foreach my $subentry (@check) {
-    my $osisRef = $subentry->getAttribute('osisRef');
-    if ($osisRef && !&myGlossaryContext($scope, &scopeToBooks($osisRef, $bookOrderP))) {
+    my $glossScope = $subentry->getAttribute('scope');
+    if ($glossScope && !&myGlossaryContext($scope, &scopeToBooks($glossScope, $bookOrderP))) {
       $subentry->unbindNode();
       my %scopes = map {$_ => 1} @removed;
-      if (!$scopes{$osisRef}) {push(@removed, $osisRef);}
+      if (!$scopes{$glossScope}) {push(@removed, $glossScope);}
       $removeCount++;
     }
   }

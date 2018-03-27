@@ -26,6 +26,7 @@ use Cwd;
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
+$NO_OUTPUT_DELETE = 0;
 $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 $OSISSCHEMA = "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";
@@ -45,9 +46,11 @@ $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
 %OSISID_NOTE;
+$TARG_VSYS_ARTYPE = "x-targ-verse-system"; # annotateType of annotateRef pointing to target verse system
+$ALT_VSYS_ARTYPE = "x-alt-verse-system";   # annotateType of annotateRef pointing to alternate verse system
 
 require("$SCRD/scripts/getScope.pl");
-require("$SCRD/scripts/toVersificationBookOrder.pl");
+require("$SCRD/scripts/fitToVerseSystem.pl");
 
 sub init($) {
   my $quiet = shift;
@@ -291,15 +294,17 @@ sub initOutputFiles($$$$) {
     $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
   }
 
-  my $delete;
-  foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
-  foreach my $outfile (@outs) {
-    my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
-    if (-e $outfile) {
-      if (!$isDir) {unlink($outfile);}
-      else {remove_tree($outfile);}
+  if (!$NO_OUTPUT_DELETE) {
+    my $delete;
+    foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
+    foreach my $outfile (@outs) {
+      my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
+      if (-e $outfile) {
+        if (!$isDir) {unlink($outfile);}
+        else {remove_tree($outfile);}
+      }
+      if ($isDir) {make_path($outfile);}
     }
-    if ($isDir) {make_path($outfile);}
   }
 }
 
@@ -970,7 +975,7 @@ sub updateConfData(\%$) {
       
       # get scope
       if ($type eq 'bible' || $type eq 'commentary') {
-        &setConfValue($entryValueP, 'Scope', &getScope($entryValueP->{'Versification'}, $moduleSource), 1);
+        &setConfValue($entryValueP, 'Scope', &getScope($moduleSource), 1);
       }
     }
   }
@@ -1270,11 +1275,10 @@ sub getCanon($\%\%\%\@) {
       }
       $CANON_CACHE{$vsys}{'canon'}{$bkname} = $chaps;
     }
-  }
-  
-  @{$CANON_CACHE{$vsys}{'bookArray'}} = ();
-  foreach my $bk (keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
-    @{$CANON_CACHE{$vsys}{'bookArray'}}[$CANON_CACHE{$vsys}{'bookOrder'}{$bk}] = $bk;
+    @{$CANON_CACHE{$vsys}{'bookArray'}} = ();
+    foreach my $bk (keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
+      @{$CANON_CACHE{$vsys}{'bookArray'}}[$CANON_CACHE{$vsys}{'bookOrder'}{$bk}] = $bk;
+    }
   }
   
   if ($canonPP)     {$$canonPP     = \%{$CANON_CACHE{$vsys}{'canon'}};}
@@ -1379,7 +1383,7 @@ sub pruneFileOSIS($$$\%\%\$\$) {
       &Log("NOTE: Filtered \"$msg\" bookGroups which contained no books.\n", 1);
     }
     # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
-    my @remainingBooks = $XPC->findnodes('.//osis:osisText//osis:div[@type="book"]', $inxml);
+    my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (reverse(@lostIntros)) {
       my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
       if (!@{$introBooks}) {next;}
@@ -1427,14 +1431,20 @@ sub pruneFileOSIS($$$\%\%\$\$) {
   if ($booksFiltered && !$$ebookTitleP) {$$ebookTitleP = "$title: $$ebookPartTitleP";}
   else {$$ebookTitleP = $title;}
   if ($$ebookTitleP ne $osisTitle->textContent) {
-    foreach my $c ($osisTitle->childNodes()) {$c->unbindNode();}
-    $osisTitle->appendText($$ebookTitleP);
+    &changeNodeText($osisTitle, $$ebookTitleP);
     &Log('NOTE: Updated OSIS title to "'.$osisTitle->textContent."\"\n", 1);
   }
   
   open(OUTF, ">$outosis");
   print OUTF $inxml->toString();
   close(OUTF);
+}
+
+sub changeNodeText($$) {
+  my $node = shift;
+  my $new = shift;
+  foreach my $r ($node->childNodes()) {$r->unbindNode();}
+  if ($new) {$node->appendText($new)};
 }
 
 # Filter all Scripture reference links in a Bible/Dict osis file: A Dict osis file
@@ -1552,7 +1562,7 @@ sub filterGlossaryReferences($\@$) {
   foreach my $refxml (@{$glossRefOsisP}) {
     my $refxml1 = $refxml; $refxml1 =~ s/^.*\///; push(@glossRefOsis1, $refxml1);
     my $glossRefXml = $XML_PARSER->parse_file($refxml);
-    my $work = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $glossRefXml)}[0]->getValue();
+    my $work = &getOsisIDWork($glossRefXml);
     my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
     my %ids;
     foreach my $osisID (@osisIDs) {
@@ -1581,7 +1591,7 @@ sub filterGlossaryReferences($\@$) {
   foreach my $link (@links) {
     if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {
       my $osisRef = $3;
-      my $work = ($1 ? $2:@{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue());
+      my $work = ($1 ? $2:&getOsisRefWork($xml));
       if (exists($refsInScope{$work}{$osisRef})) {next;}
       my @children = $link->childNodes();
       foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
@@ -1650,7 +1660,7 @@ sub addDictionaryLinks(\@$$) {
     
     if ($isGlossary) {
       if (!$bookOrderP) {
-        &getCanon(&getBibleVersificationFromNode($node), NULL, \$bookOrderP, NULL)
+        &getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)
       }
       $glossaryContext = &decodeOsisRef(&glossaryContext($node));
       if (!$glossaryContext) {next;}
@@ -1699,19 +1709,97 @@ sub addDictionaryLinks(\@$$) {
   }
 }
 
-sub getBibleVersificationFromNode($) {
+# Some of the following routines take either nodes or module names as inputs.
+# NOTE: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
+sub getModNameOSIS($) {
+  my $node = shift; # might already be string mod name- in that case just return it
+  if (!ref($node)) {return $node;}
+  &checkDocumentCache($node);
+  my $k = $node->ownerDocument->URI.$node->unique_key;
+  if (!$DOCUMENT_CACHE{$k}{'getModNameOSIS'}) {
+    $DOCUMENT_CACHE{$k}{'getModNameOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $node)}[0]->getAttribute('osisIDWork');
+  }
+  return $DOCUMENT_CACHE{$k}{'getModNameOSIS'};
+}
+sub getRefSystemOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  if (!$DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'}) {
+    &Log("ERROR: getRefSystemOSIS: No document node for \"$mod\"!\n");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'};
+}
+sub getVerseSystemOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  if ($mod eq $MOD) {return $VERSESYS;}
+  if (!$DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'}) {
+    &Log("ERROR: getVerseSystemOSIS: No document node for \"$mod\"!\n");
+    return $VERSESYS;
+  }
+  return $DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'};
+}
+sub getOsisRefWork($) {return &getModNameOSIS(shift);}
+sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
+sub existsDictionaryWordID($$) {
+  my $osisID = shift;
+  my $osisIDWork = &getModNameOSIS(shift);
+  return existsElementID($osisID, $osisIDWork, 1);
+}
+sub existsElementID($$$) {
+  my $osisID = shift;
+  my $osisIDWork = &getModNameOSIS(shift);
+  my $useDictionaryWordsFile = shift;
+  
+  my $work = ($osisID =~ s/^([^\:]*\:)// ? $1:$osisIDWork);
+  if (!$work) {&Log("ERROR: existsElementID: No osisIDWork \"$osisID\"\n"); return '';}
+  my $search = ($useDictionaryWordsFile ? 'DWF':$work);
+  
+  if (!$DOCUMENT_CACHE{$search}{'xml'}) {
+    my $file = &getProjectOsisFile($search);
+    if (-e $file) {$DOCUMENT_CACHE{$search}{'xml'} = $XML_PARSER->parse_file($file);}
+    else {&Log("ERROR: existsElementID: No \"$search\" xml file to search for \"$osisID\"\n"); return '';}
+  }
+  
+  if (!$DOCUMENT_CACHE{$search}{$osisID}) {
+    $DOCUMENT_CACHE{$search}{$osisID} = 'no';
+    # xpath 1.0 does not have "matches" so we need to do some extra work
+    my $xpath = ($search eq 'DWF' ? 
+      "//*[name()='entry'][contains(\@osisRef, '$osisID')]/\@osisRef" :
+      "//*[contains(\@osisID, '$osisID')]/\@osisID"
+    );
+    my @test = $XPC->findnodes($xpath, $DOCUMENT_CACHE{$search}{'xml'});
+    my $found = 0;
+    foreach my $t (@test) {
+      if ($t->value =~ /(^|\s)(\Q$work:\E)?\Q$osisID\E(\s|$)/) {
+        $DOCUMENT_CACHE{$search}{$osisID} = 'yes';
+        $found++;
+      }
+    }
+    if (!$found) {return '';}
+    if ($found != 1 && $search ne 'DWF') {
+      &Log("ERROR existsElementID: osisID \"$work:$osisID\" appears $found times in $search.\n");
+    }
+  }
+  return ($DOCUMENT_CACHE{$search}{$osisID} eq 'yes');
+}
+sub checkDocumentCache($) {
   my $node = shift;
-
-  my $vsys = @{$XPC->findnodes('//osis:work/osis:type[@type="x-bible"]/following-sibling::osis:refSystem', $node)}[0]->textContent();
-  $vsys =~ s/^Bible.//i;
-  return $vsys;
+  # If the working document URI changes, reload the cache
+  if ($DOCUMENT_CACHE{'myuri'} eq $node->ownerDocument->URI) {return;}
+  undef %DOCUMENT_CACHE;
+  $DOCUMENT_CACHE{'myuri'} = $node->ownerDocument->URI;
+  if (-e "$INPD/$DICTIONARY_WORDS") {$DOCUMENT_CACHE{'DWF'}{'xml'} = $DWF;}
+  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $node)}[0]->getAttribute('osisIDWork');
+  $DOCUMENT_CACHE{$osisIDWork}{'xml'} = $node->ownerDocument;
+  my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $DOCUMENT_CACHE{$osisIDWork}{'xml'});
+  foreach my $work (@works) {
+    my $w = $work->getAttribute('osisWork');
+    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $work)}[0]->textContent;
+    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
+  }
 }
 
-sub getOsisRefWork($) {
-  my $node = shift;
-
-  return @{$XPC->findnodes('//osis:osisText', $node)}[0]->getAttribute('osisIDWork');
-}
 
 # Get any OSIS file header value, where:
 #   name = name of the work element whose value is wanted
@@ -2216,7 +2304,9 @@ sub myContext($$) {
   }
   foreach my $testPart (split(/\s+/, $test2)) {
     if ($testPart =~ /^\s*$/) {next;}
-    if (!$REF_SEG_CACHE{$testPart}) {$REF_SEG_CACHE{$testPart} = &osisRef2array($testPart);}
+    if (!$REF_SEG_CACHE{$testPart}) {
+      $REF_SEG_CACHE{$testPart} = [ map(&osisRef2Entry($_, 0, 1), split(/\s+/, &osisRef2osisID($testPart, $MOD))) ];
+    }
     foreach my $testSegment (@{$REF_SEG_CACHE{$testPart}}) {
       foreach my $contextSegment (&context2array($context)) {
         my $xTestSegmentAfterBK = $testSegment;
@@ -2385,277 +2475,279 @@ sub context2array($) {
 }
 
 
-# return a valid array of non-hyphenated osisRef segments from a singular 
-# osisRef, which may contain a hyphen, but no spaces. Returned refs are 
-# DECODED osisRefs. An ERROR is thrown if an invalid book or reference 
-# is found.
-sub osisRef2array($) {
-  my $osisRef = shift;
+# Returns an equivalent osisID from an osisRef which may contain one or 
+# more hyphenated continuation segments (osisIDs cannot contain 
+# continuations). This routine assumes osisText's osisRefWork and 
+# osisIDWork attribute values are the same.
+sub osisRef2osisID($$) {
+  my $osisRefLong = shift;
+  my $osisRefWorkDefault = shift;
   
-  my @refs = ();
+  my @osisIDs;
   
-  if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@refs, "TESTAMENT_INTRO.0");}
-  elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@refs, "TESTAMENT_INTRO.1");}
+  foreach my $osisRef (split(/\s+/, $osisRefLong)) {
+    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, "TESTAMENT_INTRO.0");}
+    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, "TESTAMENT_INTRO.1");}
 
-  if ($osisRef !~ /^(.*?)\-(.*)$/) {
-    if (!&validOsisRefSegment($osisRef)) {return \@refs;}
-    my $mod;
-    push(@refs, &osisRef2Entry($osisRef, \$mod, 1));
-    return (\@refs); # returns decoded osisRef
-  }
-  my $r1 = $1; my $r2 = $2;
-  
-  my ($b1, $c1, $v1);
-  if (!&validOsisRefSegment($r1, '', \$b1, \$c1, \$v1)) {return \@refs;}
-  my ($b2, $c2, $v2);
-  if (!&validOsisRefSegment($r2, '', \$b2, \$c2, \$v2)) {return \@refs;}
+    if ($osisRef !~ /^(([^\:]*)\:)?(.*?)\-(.*)$/) {push(@osisIDs, $osisRef); next;}
+    my $pwork = $1; my $work = $2; my $r1 = $3; my $r2 = $4;
+    
+    if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $osisRef); next;}
+    my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
+    if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $osisRef); next;}
+    my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
+    
+    my ($canonP, $bookOrderP, $bookArrayP);
+    my $vsys = ($work ? &getVerseSystemOSIS($work):($osisRefWorkDefault ? &getVerseSystemOSIS($osisRefWorkDefault):'KJV'));
+    &getCanon($vsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
 
-  my ($canonP, $bookOrderP, $bookArrayP);
-  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-
-  # iterate from starting verse?
-  if ($v1 > 0) {
-    my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
-    for (my $v=$v1; $v<=$ve; $v++) {push(@refs, "$b1.$c1.$v");}
-  }
-  # iterate from starting chapter?
-  if ($c1 > 0) {
-    my $ce = ($b1 eq $b2 ? ($v2>0 ? ($c2-1):$c2):@{$canonP->{$b1}});
-    for (my $c=($v1>0 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@refs, "$b1.$c");}
-  }
-  # iterate from starting book?
-  if ($b1 ne $b2) {
-    my $bs = ($c1>0 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
-    my $be = ($c2>0 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
-    for (my $b=$bs; $b<=$be; $b++) {push(@refs, @{$bookArrayP}[$b]);}
-    # iterate to ending chapter?
-    if ($c2 > 0) {
-      for (my $c=1; $c<=($v2>0 ? $c2-1:$c2); $c++) {push(@refs, "$b2.$c");}
+    # iterate from starting verse?
+    if ($v1) {
+      my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
+      for (my $v=$v1; $v<=$ve; $v++) {push(@osisIDs, "$pwork$b1.$c1.$v");}
+    }
+    # iterate from starting chapter?
+    if ($c1) {
+      my $ce = ($b1 eq $b2 ? ($v2 ? ($c2-1):$c2):@{$canonP->{$b1}});
+      for (my $c=($v1 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@osisIDs, "$pwork$b1.$c");}
+    }
+    # iterate from starting book?
+    if ($b1 ne $b2) {
+      my $bs = ($c1 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
+      my $be = ($c2 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
+      for (my $b=$bs; $b<=$be; $b++) {push(@osisIDs, $pwork.@{$bookArrayP}[$b]);}
+      # iterate to ending chapter?
+      if ($c2) {
+        for (my $c=1; $c<=($v2 ? $c2-1:$c2); $c++) {push(@osisIDs, "$pwork$b2.$c");}
+      }
+    }
+    # iterate to ending verse?
+    if ($v2 && !($b1 eq $b2 && $c1==$c2)) {
+      for (my $v=1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
     }
   }
-  # iterate to ending verse?
-  if ($v2 > 0 && !($b1 eq $b2 && $c1==$c2)) {
-    for (my $v=1; $v<=$v2; $v++) {push(@refs, "$b2.$c2.$v");}
-  }
 
-  return \@refs;
+  return join(' ', &normalizeOsisID(\@osisIDs));
+}
+
+# Returns an equivalent osisRef from an osisID. The osisRef will contain 
+# one or more hyphenated continuation segments if sequential osisID 
+# verses are present (osisIDs cannot contain continuations). This  
+# routine assumes osisText's osisRefWork and osisIDWork attribute values 
+# are the same, and that no work prefix is different than any given prefix.
+sub osisID2osisRef($) {
+ my $osisID = shift;
+  
+  my $osisRef = '';
+  
+  my @segs = &normalizeOsisID( [ split(/\s+/, $osisID) ] );
+  my $inrange = 0;
+  my $lastwk = '';
+  my $lastch = '';
+  my $lastvs = '';
+  foreach my $seg (@segs) {
+    if ($seg =~ /^([^\:]*\:)?([^\.]+\.\d+)\.(\d+)$/) {
+      my $wk = $1; my $ch = $2; my $vs = $3;
+      if ($lastwk eq $wk && $lastch && $lastch eq $ch && $vs == ($lastvs+1)) {
+        $inrange = 1;
+      }
+      else {
+        if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
+        $osisRef .= " $seg";
+      }
+      $lastwk = $wk;
+      $lastch = $ch;
+      $lastvs = $vs;
+    }
+    else {
+      if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
+      $osisRef .= " $seg";
+      $lastch = '';
+      $lastvs = '';
+    }
+  }
+  if ($inrange) {$osisRef .= "-$lastch.$lastvs";}
+  $osisRef =~ s/^\s*//;
+  
+  return $osisRef;
 }
 
 
-# Check an osisRef segment (non-Scripture refs or Scriptures refs which do not contain "-") 
-# against the target OSIS file, or the verse system or dictionary words.
-# Returns 0 if invalid, 1 if valid, or -1 if it cannot be determined
-my %VALIDATE_OSISREF_CACHE;
-sub validOsisRefSegment($$\$\$\$\$\$) {
-  my $osisRef = shift;
-  my $osis = shift;    # optional 
-  my $bP = shift;      # optional book return
-  my $cP = shift;      # optional chapter return
-  my $vP = shift;      # optional verse return
-  my $modP = shift;    # optional module return
-  my $typeP = shift;   # optional type return
-  my $extP = shift;    # optional extension return
-
-  my $b; if (!$bP) {$bP = \$b;}
-  my $c; if (!$cP) {$cP = \$c;}
-  my $v; if (!$vP) {$vP = \$v;}
-  my $mod; if (!$modP) {$modP = \$mod;}
-  my $type; if (!$typeP) {$typeP = \$type;}
-  my $ext; if (!$extP) {$extP = \$ext;}
-  
-  $validValue = 1;
-  
-  if ($osisRef =~ s/!(.*)$//) {
-    $$extP = $1;
-  }
-  
-  my $osisRefWork = ($osis ? &getOsisRefWork($osis):'');
-  if ($osisRef =~ s/^([\w\d]+)\://) {
-    $$modP = $1;
-  }
-  elsif ($osis) {
-    $$modP = $osisRefWork;
-  }
-  
-  # Is the target module a glossary or Scripture modules?
-  my $vsys = ($$modP =~ /DICT$/ ? "Dict.$$modP":"Bible.$VERSESYS"); # default, unless osis is provided
-  if ($osis) {
-    if ($VALIDATE_REF_VSYS{$$modP}) {$vsys = $VALIDATE_REF_VSYS{$$modP};}
-    else {
-      my @refSystem = $XPC->findnodes('//osis:work[@osisWork="'.$$modP.'"]//osis:refSystem', $osis);
-      if (!@refSystem[0]) {
-        &Log("ERROR validOsisRefSegment: OSIS file does not specify refSystem of \"$$modP\"!\n");
-      }
-      else {$vsys = @refSystem[0]->textContent;}
-    
-      $VALIDATE_REF_VSYS{$$modP} = $vsys;
-    }
-  }
-  $vsys =~ s/^([^\.]+)\.//;
-  $$typeP = $1;
-
-  # If we have $$modP and $osis, then try and validate target directly. But 
-  # don't do this with Scripture reference targets because it is too slow, 
-  # and the verse system check later on is much faster for these.
-  my $targetOsis;
-  if (($$typeP ne 'Bible' || $$extP) && $$modP && $osis) {
-    if ($$modP eq $osisRefWork) {$targetOsis = $osis;}
-    elsif ($VALIDATE_OSISREF_CACHE{$$modP}) {$targetOsis = $VALIDATE_OSISREF_CACHE{$$modP};}
-    else {
-      my $targInpDir = &findCompanionDirectory($$modP);
-      if ($targInpDir) {
-        my $targOutDir = &getOUTDIR($targInpDir);
-        if (-e "$targOutDir/$$modP.xml") {
-          $targetOsis = $XML_PARSER->parse_file("$targOutDir/$$modP.xml");
-          $VALIDATE_OSISREF_CACHE{$$modP} = $targetOsis;
-        }
-      }
-    }
-  }
-  if ($targetOsis) {
-    my $r = $osisRef.($$extP ? '!'.$$extP:'');
-    # xpath 1.0 does not have "matches" so we need to do some extra work
-    my @test = $XPC->findnodes("//*[contains(\@osisID, '$r')]/\@osisID", $targetOsis);
-    foreach my $t (@test) {if ($t->value =~ /\b(\Q$$modP:\E)?\Q$r\E\b/) {return 1;}}
-    &Log("ERROR validOsisRefSegment: Reference target osisID \"$$modP:$r\" does not exist in ".&getOsisRefWork($targetOsis).".\n");
-    return 0;
-  }
-  
-  # Note targets can only be checked directly (above)
-  if ($$extP) {return -1;}
-    
-  # Check glossary references
-  if ($$typeP eq 'Dict') {
-    if (!$DWF) {return -1;}
-    my @tst = $XPC->findnodes("//dw:entry[\@osisRef='$$modP:$osisRef']", $DWF);
-    if (!@tst[0]) {
-      &Log("ERROR validOsisRefSegment: Entry with osisRef=\"$$modP:$osisRef\" was not found in DictionaryWords.xml file.\n");
-      return 0;
-    }
-    return $validValue;
-  }
-  
-  # Check Scripture references
-  if ($osisRef !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
-    &Log("ERROR validOsisRefSegment: Bad Bible reference \"$osisRef\"\n");
-    return 0;
-  }
-   
-  $$bP = $1;
-  $$cP = ($2 ? $3:0);
-  $$vP = ($4 ? $5:0);
-  
-  if ($osisRef =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {
-    $$cP = 0;
-    $vP = 0;
-    return $validValue;
-  }
-  
-  if ($osisRef =~ /^TESTAMENT_INTRO\.(0|1)(\.0)?$/) {
-    $$cP = $1;
-    $vP = 0;
-    return $validValue;
-  }
-  
-  if ($osisRef =~ /^xALL\./) {return $validValue;} # xALL is allowed as matching any book
-  
-  if ($OT_BOOKS !~ /\b$$bP\b/ && $NT_BOOKS !~ /\b$$bP\b/) {
-    &Log("ERROR: Unrecognized OSIS book: \"$$bP\"\n");
-    return 0;
-  }
-  
-  my ($canonP, $bookOrderP, $bookArrayP);
-  &getCanon($vsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-  
-  if ($$cP != 0 && ($$cP < 0 || $$cP > @{$canonP->{$$bP}})) {
-    &Log("ERROR: Chapter is not in verse system $vsys: \"$$bP.$$cP\"\n");
-    return 0;
-  }
-  
-  if ($$vP != 0 && ($$vP < 0 || $$vP > @{$canonP->{$$bP}}[$$cP-1])) {
-    &Log("ERROR: Verse is not in verse system $vsys: \"$$bP.$$cP.$$vP\"\n");
-    return 0;
-  }
-  
-  return $validValue;
+# Takes an array of osisIDs segments, removes duplicates and empty
+# values, and sorts them in verse system order.
+sub normalizeOsisID(\@$) {
+  my $aP = shift;
+  my $vsys = shift;
+  my @avs; my %seen;
+  foreach my $a (@{$aP}) {push(@avs, split(/\s+/, $a));}
+  return sort { verseSort($a, $b, $vsys) } grep(($_ && !$seen{$_}++), @avs);
 }
 
 
-# Check all reference links, and report any errors. This CANNOT USE
-# splitOSIS() even though it's slow, since targets are checked.
+# Sort osisID verse segments (ie. Rom.14.23) in verse system order
+sub verseSort($$$) {
+  my $a = shift;
+  my $b = shift;
+  my $vsys = shift; if (!$vsys) {$vsys = 'KJV';}
+
+  if ($a !~ /^([^\:]*\:)?([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  my $aw = $1; my $abk = $2; my $ach = (1*$4); my $avs = (1*$6);
+  if ($b !~ /^([^\:]*\:)?([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  my $bw = $1; my $bbk = $2; my $bch = (1*$4); my $bvs = (1*$6);
+  
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
+
+  my $r = $aw cmp $bw;
+  if ($r) {return $r;}
+  $r = $bookOrderP->{$abk} <=> $bookOrderP->{$bbk};
+  if ($r) {return $r;}
+  $r = $ach <=> $bch;
+  if ($r) {return $r;}
+  return $avs <=> $bvs;
+}
+
+
+# Check all reference links, and report any errors.
 sub checkReferenceLinks($) {
   my $in_osis = shift;
   
-  undef(%VALIDATE_OSISREF_CACHE);
+  undef(%CHECK_LINKS_CACHE);
   
   &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
-  my $osisMod = &getOsisRefWork($osis);
+  my $useDictionaryWords = (&getRefSystemOSIS($osis) =~ /^Bible\./ ? 1:0);
+  my $osisRefWork = &getOsisRefWork($osis);
   
-  my @links = $XPC->findnodes('//osis:reference', $osis);
+  my @references = $XPC->findnodes('//osis:reference', $osis);
+  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $osis);
+  push(@osisRefs, @references);
   
-  my %linkcount = ('gloss' => 0, 'scrip' => 0, 'unknown' => 0);
-  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0);
-  my $lcnt = 0; my $pcnt = 0; my $lpcnt = 0;
-  foreach my $l (@links) {
-    $lcnt++; $pcnt = int(100*($lcnt/@links)); if ($pcnt != $lpcnt) {&Log("$pcnt%\n", 2);} $lpcnt = $pcnt;
+  my %refcount = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
+  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
+  my $rcnt = 0; my $pcnt = 0; my $rpcnt = 0;
+  foreach my $r (@osisRefs) {
+    $rcnt++; $pcnt = int(100*($rcnt/@osisRefs)); if ($pcnt != $rpcnt) {&Log("$pcnt%\n", 2);} $rpcnt = $pcnt;
 
-    my $linktype = ($l->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/ ? 'gloss':($l->getAttribute('type') eq 'x-note' ? 'note':'scrip'));
-    
-    $linkcount{$linktype}++;
-    
-    if (!$l->textContent || $l->textContent =~ /^[\s\n]*$/) {
-      &Log("ERROR Reference link \"$l\" has no text content!\n");
-      $errors{$linktype}++;
-    }
-    
-    my $osisRef = $l->getAttribute('osisRef');
-    if (!$osisRef) {
-      &Log("ERROR: Reference link \"$l\" is missing osisRef attribute!\n");
-      $errors{$linktype}++;
-      next;
-    }
-    
-    my $avoidThisGlossEntry = (
-      $linktype eq 'gloss' ? @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $l)}[0]
-      :''
+    my $linktype;
+    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$linktype = 'gloss';}
+    elsif ($r->getAttribute('type') eq 'x-note') {$linktype = 'note';}
+    elsif ($r->nodeName eq 'reference') {$linktype = 'scrip';}
+    else {$linktype = 'other';}
+    my $avoidGlossEntry = ($r->getAttribute('type') =~ /^\Qx-glosslink\E$/ ? 
+      @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $r)}[0]:''
     );
     
-    my @srefs1 = split(/\s+/, $osisRef);
-    foreach my $sref1 (@srefs1) {
-      my @srefs = ($sref1);
-      if ($linktype eq 'scrip') {@srefs = split(/\-/, $sref1);}
-      my $m = (@srefs[0] =~ s/^([\w\d]+\:)// ? $1:'');
-      foreach my $sref (@srefs) {
-        my $type; my $mod;
-        my $isValid = &validOsisRefSegment("$m$sref", $osis, '', '', '', \$mod, \$type);
-        if ($avoidThisGlossEntry && "$m$sref" eq $osisMod.':'.$avoidThisGlossEntry->getAttribute('osisID')) {
-          &Log("ERROR: Glossary entry $avoidThisGlossEntry contains a link to itself at: \"".$l->textContent."\"\n");
-          $errors{$linktype}++;
-        }
-        elsif ($isValid == 0) {
-          &Log("ERROR: Invalid osisRef segment \"$sref\" in link \"$l\"\n");
-          $errors{$linktype}++;
-        }
-        elsif ($isValid == -1) {
-          &Log("WARNING: Could not validate: $l\n");
-          $linkcount{'unknown'}++;
-        }
-        elsif ($type eq 'Dict' && $linktype ne 'gloss') {
-          &Log("ERROR: Glossary reference has unexpected type=\"".$l->getAttribute('type')."\" in link \"$l\"\n");
-          $errors{$linktype}++;
-        }
+    $refcount{$linktype}++;
+    
+    if ($linktype ne 'other') {
+      if (!$r->textContent || $r->textContent =~ /^[\s\n]*$/) {
+        &Log("ERROR Reference link \"$r\" has no text content!\n");
+        $errors{$linktype}++;
+      }
+      
+      if (!$r->getAttribute('osisRef')) {
+        &Log("ERROR: Reference link \"$r\" is missing osisRef attribute!\n");
+        $errors{$linktype}++;
+        next;
+      }
+    }
+    
+    foreach my $osisID (split(/\s+/, &osisRef2osisID($r->getAttribute('osisRef')))) {
+      if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
+      my $isValid = $CHECK_LINKS_CACHE{$osisID};
+      if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
+        &Log("ERROR: Glossary entry ".$avoidGlossEntry->getAttribute('osisID')." contains a link to itself: \"".$r."\"\n");
+        $errors{$linktype}++;
+      }
+      elsif (!$isValid) {
+        &Log("ERROR: Invalid osisRef segment \"$osisID\" in $r\n");
+        $errors{$linktype}++;
       }
     }
   }
 
-  &Log("$MOD REPORT: \"".$linkcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
-  &Log("$MOD REPORT: \"".$linkcount{'unknown'}."\" Indeterminent reference links whose targets may or may not be missing.\n");
-  &Log("$MOD REPORT: \"".@links."\" Grand total reference links.\n");
+  &Log("$MOD REPORT: \"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
+  &Log("$MOD REPORT: \"".$refcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
+  &Log("$MOD REPORT: \"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
+  &Log("$MOD REPORT: \"".@references."\" Grand total reference links.\n");
+  &Log("$MOD REPORT: \"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)\n");
 }
+
+
+# Check that the given osisID is valid. Returns 1 if it is valid, 0 
+# otherwise. Any Scripture reference that exists in the target verse 
+# system is valid (even when it is outside the target's scope). When 
+# the target reference system requires direct validation, the target 
+# OSIS file will be searched, unless useDictionaryWords is set, in which 
+# case the DictionaryWords.xml will be searched instead.
+sub validOsisID($$) {
+  my $osisIDLong = shift;
+  my $osisIDWorkDefault = shift; # required if $osisIDLong is not prefixed with it
+  my $useDictionaryWords = shift;
+  
+SEGMENT:
+  foreach my $osisID (split(/\s+/, $osisIDLong)) {
+    my $b;
+    my $c;
+    my $v;
+    my $mod;
+    my $type;
+    
+    my $ext = ($osisID =~ s/(\!.*)$// ? $1:'');
+    my $osisIDWork = $osisIDWorkDefault;
+    if ($osisID =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
+    if (!$osisIDWork) {
+      &Log("ERROR: Could not determine osisIDWork of \"$osisIDLong\"\n");
+      return 0;
+    }
+    &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
+    my $wktype = $1; my $wkvsys = $2;
+   
+    # Check for valid Scripture references in the verse system
+    if (!$ext && $wktype eq 'Bible') {
+      if ($osisID =~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
+        $b = $1; $c = ($2 ? $3:''); $v = ($4 ? $5:'');
+        if ($osisID =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {next SEGMENT;}
+        if ($osisID =~ /^TESTAMENT_INTRO\.(0|1)(\.0)?$/) {next SEGMENT;}
+        if ($osisID =~ /^xALL\./) {next SEGMENT;} # xALL is allowed as matching any book
+        if ($OT_BOOKS =~ /\b$b\b/ || $NT_BOOKS =~ /\b$b\b/) {
+          my ($canonP, $bookOrderP, $bookArrayP);
+          &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+          
+          if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
+            &Log("ERROR: Chapter is not in verse system $wkvsys: \"$b.$c\"\n");
+            return 0;
+          }
+          
+          if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
+            &Log("ERROR: Verse is not in verse system $wkvsys: \"$b.$c.$v\"\n");
+            return 0;
+          }
+          next SEGMENT;
+        }
+      }
+      &Log("ERROR: Book is not is verse system $wkvsys: \"$osisID\"\n");
+      return 0;
+    }
+    elsif ($ext || !$useDictionaryWords) {
+      if (!&existsElementID("$osisID$ext", $osisIDWork)) {
+        &Log("ERROR: osisID \"$osisID\" was not found in \"$osisIDWork\"\n");
+        return 0;
+      }
+    }
+    else {
+      if (!&existsDictionaryWordID($osisID, $osisIDWork)) {
+        &Log("ERROR: osisID \"$osisID\" with default work \"$osisIDWork\" was not found in DictionaryWords.xml\n");
+        return 0;
+      }
+    }
+  }
+    
+  return 1;
+}
+
 
 sub checkFigureLinks($) {
   my $in_osis = shift;
@@ -3100,10 +3192,12 @@ sub emptyvss($) {
 }
 
 
-sub writeOsisHeaderWork($$$) {
+sub writeOsisHeaderWork($\%\%\$\$) {
   my $osis = shift;
   my $confP = shift;
   my $convP = shift;
+  my $bibleP = shift;
+  my $glossaryP = shift;
   
   &Log("\nWriting work and companion work elements in OSIS header:\n");
   
@@ -3111,8 +3205,8 @@ sub writeOsisHeaderWork($$$) {
   
   # What type of document is this?
   my $type;
-  if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary';}
-  elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible';}
+  if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary'; $$glossaryP = $MOD;}
+  elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible'; $$bibleP = $MOD;}
   elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type = 'x-commentary';}
   
@@ -3121,7 +3215,7 @@ sub writeOsisHeaderWork($$$) {
   # references generated by osis-converters include the work in each osisRef.
   my @uds = ('osisRefWork', 'osisIDWork');
   foreach my $ud (@uds) {
-    my @orw = $XPC->findnodes('//osis:osisText[@'.$ud.']', $xml);
+    my @orw = $XPC->findnodes('/osis:osis/osis:osisText[@'.$ud.']', $xml);
     if (!@orw || @orw > 1) {&Log("ERROR: The osisText element's $ud is not being updated to \"$MOD\"\n");}
     else {
       &Log("Updated $ud=\"$MOD\"\n");
@@ -3153,7 +3247,7 @@ sub writeOsisHeaderWork($$$) {
   &getOSIS_Work(\%workElements, $confP, $convP, $isbn);
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($confP->{'Versification'}, $osis);
+    $workElements{'190000:scope'}{'textContent'} = &getScope($osis, $confP->{'Versification'});
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -3161,6 +3255,8 @@ sub writeOsisHeaderWork($$$) {
   if ($ConfEntryP->{'Companion'}) {
     my @comps = split(/\s*,\s*/, $ConfEntryP->{'Companion'});
     foreach my $comp (@comps) {
+      if ($type eq 'x-glossary') {$$bibleP    = $comp;}
+      if ($type eq 'x-bible')    {$$glossaryP = $comp;}
       my $path = &findCompanionDirectory($comp);
       if (!$path) {
         &Log("ERROR: Could not locate Companion \"$comp\" conf from \"$INPD\"\n");
@@ -3651,7 +3747,7 @@ sub writeNoteOsisRefs($$) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl) {
+          if (@rs[0]->getAttribute('annotateType') ne $ALT_VSYS_ARTYPE && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
             &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
             $aror = '';
           }
@@ -3682,7 +3778,7 @@ sub normalizeRefsAndIds($$\%) {
   
   # normalize osisRefs
   my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,7)!='x-gloss']/\@osisRef", $xml);
-  my $osisRefWork = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xml)}[0]->getValue();
+  my $osisRefWork = &getOsisRefWork($xml);
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
     if ($osisRef->getValue() !~ /^$osisRefWork\:/) {next;}
@@ -3695,7 +3791,7 @@ sub normalizeRefsAndIds($$\%) {
   # normalize osisIDs
   if ($refSystem =~ /^Bible/) { # non-Bibles have always included the work prefix in every osisID, so let's keep them
     my @osisIDs = $XPC->findnodes('//@osisID', $xml);
-    my $osisIDWork = @{$XPC->findnodes('//osis:osisText/@osisIDWork', $xml)}[0]->getValue();
+    my $osisIDWork = &getOsisIDWork($xml);
     my $normedID = 0;
     foreach my $osisID (@osisIDs) {
       if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
@@ -3728,6 +3824,27 @@ sub validateOSIS($) {
   }
   
   &Log("END OSIS VALIDATION\n");
+}
+
+
+# Since Perl LibXML's XPATH-1.0 has nothing like the 2.0 "matches"
+# function, the following becomes necessary...
+sub getVerseTag($$$) {
+  my $bkchvs = shift;
+  my $xml = shift;
+  my $findEID = shift;
+  
+  my $ida = ($findEID ? 'e':'s');
+  
+  my @r = $XPC->findnodes('//osis:verse[@'.$ida.'ID="'.$bkchvs.'"]', $xml);
+  if (@r[0]) {return @r[0];}
+  
+  @r = $XPC->findnodes('//osis:verse[contains(@'.$ida.'ID, "'.$bkchvs.'")]', $xml);
+  foreach my $rs (@r) {
+    if ($rs && $rs->getAttribute($ida.'ID') =~ /\b\Q$bkchvs\E\b/) {return $rs;}
+  }
+  
+  return;
 }
 
 # Log to console and logfile. $flag can have these values:
