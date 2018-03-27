@@ -8,7 +8,7 @@
  
   <!-- This XSLT will do the following:
   1) Check and warn about non GLO major divs in the glossary
-  2) Read applicable glossary scope comments and write them to parent glossary osisRef
+  2) Read applicable glossary scope comments and write them to parent glossary scope
   3) Separate all glossary keywords into their own child divs
   4) Assign osisIDs to keywords
   5) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
@@ -49,10 +49,10 @@
   <!-- Separate glossary contents so each entry and the glossary intro is in its own child div -->
   <template match="div[@type='glossary']" mode="separateKeywordMode">
     <copy><apply-templates select="@*"/>
-      <!-- Write applicable comments to osisRef -->
-      <variable name="osisRefComment" select="replace(string(descendant::comment()[1]), '^.*?\sscope\s*==\s*(.+?)\s*$', '$1')"/>
-      <if test="$osisRefComment and $osisRefComment != string(descendant::comment()[1])">
-        <attribute name="osisRef" select="$osisRefComment"/>
+      <!-- Write applicable comments to scope -->
+      <variable name="scopeComment" select="replace(string(descendant::comment()[1]), '^.*?\sscope\s*==\s*(.+?)\s*$', '$1')"/>
+      <if test="$scopeComment and $scopeComment != string(descendant::comment()[1])">
+        <attribute name="scope" select="$scopeComment"/>
         <if test="oc:number-of-matches(string(descendant::comment()[1]), '==') &#62; 1">
           <message>ERROR: Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div!</message>
         </if>
@@ -140,7 +140,7 @@
             <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
-                <if test="parent::*/@osisRef"><attribute name="osisRef" select="parent::*/@osisRef"/></if>
+                <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                 <variable name="title" select="ancestor::div[@type='glossary'][1]/descendant::title[@type='main'][1]"/>
                 <if test="$title">
                   <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>

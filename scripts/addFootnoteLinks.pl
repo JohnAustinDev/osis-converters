@@ -330,7 +330,7 @@ sub processXML($$) {
 
     if ($intro && $skipintros) {next;}
     
-    my $text = &addFootnoteLinks2TextNode($textNode, $xml, $myMod);
+    my $text = &addFootnoteLinks2TextNode($textNode, $myMod);
    
     # save changes for later (to avoid messing up line numbers)
     if ($text) {
@@ -359,10 +359,11 @@ sub stat($) {
 # 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH 
 #    EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
-sub addFootnoteLinks2TextNode($$$) {
+sub addFootnoteLinks2TextNode($$) {
   my $textNode = shift;
-  my $xml = shift;
   my $myMod = shift;
+  
+  my $xml = $textNode->ownerDocument;
   
   if ($textNode->data() !~ /\b($footnoteTerms)($suffixTerms)*\b/i) {return '';}
   

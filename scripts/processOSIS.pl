@@ -83,7 +83,7 @@ if (-e "$INPD/postprocess.pl") {
 # Checks occur as late as possible in the flow
 &checkReferenceLinks($OUTOSIS);
 
-# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with osisRef="INT" also add intro nav menus.
+# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
 if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary."/navigation.sfm")) {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
   my $gloss = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."CF_usfm2osis.txt";
@@ -112,7 +112,7 @@ RUN:./INT.SFM\n");
   }
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
-  %params = ($glossContainsINT ? ('osisRefIntro' => 'INT'):());
+  %params = ($glossContainsINT ? ('introScope' => 'INT'):());
   &runXSLT("$SCRD/scripts/xslt/glossaryNavMenu.xsl", $OUTOSIS, "$OUTOSIS.out", \%params);
   copy("$OUTOSIS.out", $OUTOSIS);
   unlink("$OUTOSIS.out");

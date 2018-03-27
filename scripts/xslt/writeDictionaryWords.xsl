@@ -56,11 +56,11 @@
 </text>
   <dictionaryWords version="1.0" xmlns="http://github.com/JohnAustinDev/osis-converters">
     <div multiple="false"><xsl:attribute name="notXPATH" select="$notXPATH_default"/>
-      <xsl:variable name="keywords_with_context"    select="//seg[@type='keyword'][not(ancestor::div[@subType='x-aggregate'])][ancestor::div[@type][@osisRef]]"/>
+      <xsl:variable name="keywords_with_context"    select="//seg[@type='keyword'][not(ancestor::div[@subType='x-aggregate'])][ancestor::div[@type][@scope]]"/>
       <xsl:variable name="keywords_without_context" select="//seg[@type='keyword'][not(ancestor::div[@subType='x-aggregate'])] except $keywords_with_context"/>
       
       <!-- First, write entries which specify context -->
-      <xsl:for-each-group group-by="ancestor::div[@type][@osisRef][1]/@osisRef" select="$keywords_with_context">
+      <xsl:for-each-group group-by="ancestor::div[@type][@scope][1]/@osisRef" select="$keywords_with_context">
         <div><xsl:attribute name="context" select="current-grouping-key()"/>
           <xsl:for-each select="current-group()">
             <xsl:sort select="string-length(.)" data-type="number" order="descending"/>

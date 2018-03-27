@@ -7,15 +7,15 @@
  exclude-result-prefixes="#all">
  
   <!-- This XSLT does the following:
-  1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with osisRef="NAVMENU"
-  2) Creates an introduction menu system, if osisRefIntro is given
+  1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with scope="NAVMENU"
+  2) Creates an introduction menu system, if introScope is given
   3) Inserts navigational links to these into every glossary entry and book introduction
   -->
  
   <xsl:import href="./functions.xsl"/>
  
-  <!-- osisRef of the glossary div which contains introductory material, if it exists -->
-  <xsl:param name="osisRefIntro"/>
+  <!-- scope of the glossary div which contains introductory material, if it exists -->
+  <xsl:param name="introScope"/>
   
   <!-- this glossary entry will be created as the top level navigation menu if $osisRefIntro exists -->
   <xsl:param name="uiIntroduction" select="concat('-- ', //header/work[child::type[@type='x-bible']]/title[1])"/>
@@ -118,12 +118,12 @@
       
       <xsl:if test="//work[@osisWork = current()/@osisIDWork]/type[@type='x-glossary']">
         <xsl:message>NOTE: Added NAVMENU glossary</xsl:message>
-        <div type="glossary" osisRef="NAVMENU">
+        <div type="glossary" scope="NAVMENU">
           
           <!-- Create a uiIntroduction main entry -->
-          <xsl:if test="$osisRefIntro and //div[@type='glossary'][@osisRef=$osisRefIntro]">
+          <xsl:if test="$introScope and //div[@type='glossary'][@scope=$introScope]">
             <xsl:message>NOTE: Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:message>
-            <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@osisRef = $osisRefIntro]//seg[@type='keyword']"/>
+            <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
             <seg type="keyword" osisID="{oc:encodeOsisRef($uiIntroduction)}"><xsl:value-of select="$uiIntroduction"/></seg>
             <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'introduction'"/></xsl:call-template>
             <title type="main" subType="x-introduction"><xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></title>
