@@ -17,7 +17,7 @@
   <!-- scope of the glossary div which contains introductory material, if it exists -->
   <xsl:param name="introScope"/>
   
-  <!-- this glossary entry will be created as the top level navigation menu if $osisRefIntro exists -->
+  <!-- this glossary entry will be created as the top level navigation menu if $introScope exists -->
   <xsl:param name="uiIntroduction" select="concat('-- ', //header/work[child::type[@type='x-bible']]/title[1])"/>
   
   <!-- this glossary entry will be created as the glossary navigation menu -->
@@ -74,7 +74,7 @@
           </p>
         </item>
       </xsl:if>
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $osisRefIntro">
+      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $introScope">
         <item subType="x-introduction-link">
           <p type="x-right" subType="x-introduction">
             <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
@@ -194,7 +194,7 @@
   <!-- Add a special subType to Bible introductions if the glossary also includes the introduction -->
   <xsl:template match="div[@type='introduction'][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
-      <xsl:if test="$osisRefIntro">
+      <xsl:if test="$introScope">
         <xsl:message>NOTE: Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:message>
         <xsl:attribute name="subType" select="'x-glossary-duplicate'"/>
       </xsl:if>
