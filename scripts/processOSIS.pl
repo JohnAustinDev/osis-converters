@@ -63,6 +63,7 @@ if ($MODDRV =~ /Text/) {
   if (!$success) {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS); }
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
+
 &normalizeRefsIds($OUTOSIS);
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &fitToVerseSystem($OUTOSIS, $VERSESYS);

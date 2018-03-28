@@ -389,9 +389,15 @@ sub fitToVerseSystem($$) {
   }
 
   my $xml = $XML_PARSER->parse_file($osis);
- 
-  # Apply any alternate VSYS instructions to the translation
-  foreach my $argsP (@VSYS_INSTR) {&applyVsysInstruction($argsP, $canonP, $xml);}
+  
+  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="x-alt-verse-system"]', $xml);
+  if (@existing) {
+    &Log("WARNING: There are ".@existing." existing alternate verse tags. This OSIS file has already been fitted so this step will be skipped!\n");
+  }
+  else {
+    # Apply any alternate VSYS instructions to the translation
+    foreach my $argsP (@VSYS_INSTR) {&applyVsysInstruction($argsP, $canonP, $xml);}
+  }
   
   # Insure that all verses are accounted for and in sequential order 
   # without any skipping (required by GoBible Creator).
@@ -473,6 +479,13 @@ sub correctReferencesVSYS($$$) {
   my $osisXML;
   my $bibleXML = $XML_PARSER->parse_file($bfile);
   my $vsys = &getVerseSystemOSIS($bibleXML);
+  
+  my @existing = $XPC->findnodes("//*[\@annotateType='$ALT_VSYS_ARTYPE'][\@annotateRef][\@osisRef]", $bibleXML);
+  if (@existing) {
+    &Log("WARNING: ".@existing." osisRefs have already been updated, so this step will be skipped!\n");
+    return;
+  }
+  
   my @annotateRefs = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateRef]', $bibleXML);
   my @changedVerses;
   if (@annotateRefs[0]) {

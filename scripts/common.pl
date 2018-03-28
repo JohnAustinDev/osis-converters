@@ -45,7 +45,6 @@ $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
-%OSISID_NOTE;
 $TARG_VSYS_ARTYPE = "x-targ-verse-system"; # annotateType of annotateRef pointing to target verse system
 $ALT_VSYS_ARTYPE = "x-alt-verse-system";   # annotateType of annotateRef pointing to alternate verse system
 
@@ -3424,6 +3423,14 @@ sub writeNoteIDs() {
   
   &Log("\nWriting note osisIDs:\n", 1);
   
+  my @existing = $XPC->findnodes('//osis:note[not(contains(@osisID, "!crossReference.r") or contains(@osisID, "!crossReference.p"))][@osisID]', $XML_PARSER->parse_file($osis));
+  if (@existing) {
+    &Log("WARNING: ".@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!\n");
+    return;
+  }
+  
+  my %osisID_note;
+  
   my @files = &splitOSIS($osis);
   foreach my $file (@files) {
     my $xml = $XML_PARSER->parse_file($file);
@@ -3451,14 +3458,14 @@ sub writeNoteIDs() {
       # extensions: crossReference.rN or crossReference.pN (parallel passages).
       my $refext = ($n->getAttribute("placement") eq "foot" ? $FNREFEXT:'!' . ($n->getAttribute("type") ? $n->getAttribute("type"):'tnote') . '.t');
       my $id = "$myMod:$osisID$refext$i";
-      while ($OSISID_NOTE{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
-      $OSISID_NOTE{$id}++;
+      while ($osisID_note{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
       
       if ($n->getAttribute('osisID') && $n->getAttribute('osisID') ne "$osisID$refext$i") {
-        &Log("WARNING: Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\"\n");
+        &Log("ERROR: Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\"!\n");
       }
 
       $n->setAttribute('osisID', "$osisID$refext$i");
+      $osisID_note{"$myMod:$osisID$refext$i"}++;
     }
     
     open(OUTF, ">$file") or die "writeNoteIDs could not open splitOSIS file: \"$file\".\n";
