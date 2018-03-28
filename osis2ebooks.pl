@@ -335,6 +335,8 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
+  &updateOsisFullResourceURL($osis, $format);
+  
   my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
   
@@ -367,6 +369,26 @@ sub makeEbook($$$$$) {
     &Log("Created: $EBOOKNAME.$format\n", 2);
   }
   else {&Log("ERROR: No output file: $out\n");}
+}
+
+sub updateOsisFullResourceURL($$) {
+  my $osis = shift;
+  my $format = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type="x-ebook-config-FullResourceURL"]', $xml);
+  foreach my $u (@update) {
+    my $url = $u->textContent;
+    my $new = $url; $new =~ s/\.([^\.]*)$/.$format/;
+    if ($url ne $new) {
+      &Log("NOTE: Updating FullResourceURL from \"$url\" to \"$new\".\n");
+      &changeNodeText($u, $new);
+    }
+  }
+  
+  open(OUTF, ">$osis");
+  print OUTF $xml->toString();
+  close(OUTF);
 }
 
 1;

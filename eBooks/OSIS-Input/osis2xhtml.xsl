@@ -282,7 +282,9 @@
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
                 <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
-                <span class="xsl-note-head xsl-crnote-symbol">+</span><xsl:value-of select="' '"/><xsl:value-of select="$fullResourceURL"/>
+                <span class="xsl-note-head xsl-crnote-symbol">+</span><xsl:value-of select="' '"/>
+                <xsl:if test="starts-with($fullResourceURL, 'http')"><a href="{$fullResourceURL}"><xsl:value-of select="$fullResourceURL"/></a></xsl:if>
+                <xsl:if test="not(starts-with($fullResourceURL, 'http'))"><xsl:value-of select="$fullResourceURL"/></xsl:if>
               </div>
             </div>
           </xsl:if>
