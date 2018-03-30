@@ -54,6 +54,8 @@ sub usfm2osis($$) {
   
   # Variables for versemap feature
   @VSYS_INSTR = ();
+  %VSYS_MOVES;
+  %VSYS_MISSES;
   my $vsysRE = "$OT_BOOKS $NT_BOOKS";
   $vsysRE =~ s/\s+/|/g;
   $vsysRE = "($vsysRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
@@ -103,11 +105,13 @@ sub usfm2osis($$) {
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
-    elsif ($_ =~ /^VSYS_(MISSING|EXTRA):(?:\s*(?:$vsysRE)\s*)?$/) {
-      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$2, 'ch'=>$3, 'vs'=>($4 ? $5:''), 'lv'=>($6 ? $7:'') });
+    elsif ($_ =~ /^VSYS_(MISSING|EXTRA):(?:\s*($vsysRE)\s*)?$/) {
+      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$3, 'ch'=>$4, 'vs'=>($5 ? $6:''), 'lv'=>($7 ? $8:'') });
+      if ($1 eq 'MISSING') {$VSYS_MISSES{$2}++;}
     }
     elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$vsysRE)\s*\->\s*(?<to>$vsysRE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
+      $VSYS_MOVES{$from} = $to;
       $from =~ /^$vsysRE$/;
       push(@VSYS_INSTR, { 'inst'=>'MISSING', 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:'') });
       my $vc1 = ($3 && $5 ? $6-$4:0);

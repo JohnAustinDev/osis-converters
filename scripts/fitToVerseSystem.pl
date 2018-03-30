@@ -24,7 +24,7 @@
 # between the source and target verse systems need to be identified. All
 # verse system changes to the osis file should be easily reversible 
 # (for instance using a simple XSLT) so as to easily recover the  
-# original verse system if ever needed.
+# original verse system when needed.
 # 
 # VSYS_EXTRA:BK.1.2.3
 # Specifies that this translation has inserted this range of extra verses 
@@ -462,9 +462,11 @@ NOTE: This translation does not fit the $vsys verse system. The errors
 # osisRefs which point to those verse osisIDs that were changed, and 
 # correct them by changing those osisRefs to point to the new osisID 
 # values. It also updates the header scope value.
-sub correctReferencesVSYS($$$) {
+sub correctReferencesVSYS($$$$) {
   my $osis = shift;
   my $bibleMod = shift;
+  my $vsys_movesP = shift;
+  my $vsys_missesP = shift;
   
   my $bfile = ($bibleMod eq $MOD ? $osis:&getProjectOsisFile($bibleMod));
 
@@ -486,62 +488,86 @@ sub correctReferencesVSYS($$$) {
     return;
   }
   
+  # osisID mapping from source verse system to target verse-system 
+  # (used to update references within the translation)
+  my %sourceVerseMap;
   my @annotateRefs = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateRef]', $bibleXML);
-  my @changedVerses;
   if (@annotateRefs[0]) {
-    # Get a mapping from original verse system id to target verse-system id
-    my %vmap;
     foreach my $ar (@annotateRefs) {
       my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
       my @aids = split(/\s+/, $ar->getAttribute('annotateRef'));
-      push(@changedVerses, @aids);
-      foreach my $aid (@aids) {$vmap{$aid} = @oids[$#iods];}
+      foreach my $aid (@aids) {$sourceVerseMap{$aid} = @oids[$#iods];}
     }
-    @changedVerses = &normalizeOsisID(\@changedVerses, $vsys);
-
+  }
+    
+  # osisID mapping from target verse system to source verse-system 
+  # (used to update external references that may have been added to the OSIS file)
+  my %targetVerseMap;
+  if (%{$vsys_movesP}) {
+    foreach my $from (keys %{$vsys_movesP}) {
+      my @f = &context2array($from);
+      my @t = &context2array($vsys_movesP->{$from});
+      if (@f == @t) {
+        for (my $i=0; $i <= $#f; $i++) {
+          my $to = @t[$i];
+          my $ve = &getVerseTag(@t[$i], $bibleXML, 0);
+          if (!$ve) {
+            my @mes = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateType="'.$ALT_VSYS_ARTYPE.'"][contains(@annotateRef, "'.$to.'")]', $bibleXML);
+            foreach my $me (@mes) {
+              if ($me && $me->getAttribute('annotateRef') =~ /\b\Q$to\E\b/) {
+                $ve = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $me)}[0];
+                last;
+              }
+            }
+          }
+          if ($ve) {
+            my @vid = split(' ', $ve->getAttribute('osisID')); 
+            $targetVerseMap{@f[$i]} = @vid[$#vid];
+          }
+        }
+      }
+      else {&Log("ERROR: From and To have different numbers of verses: \"".@f."\" != \"".@t."\"\n");}
+    }
+  }
+  if (%{$vsys_missesP}) {
+    foreach my $from (keys %{$vsys_missesP}) {
+      foreach my $v (&context2array($from)) {$targetVerseMap{$v} = '';}
+    }
+  }
+  
+  if (%sourceVerseMap || %targetVerseMap) {
     # Look for osisRefs in the osis file that need updating and update them
     $osisXML = $XML_PARSER->parse_file($osis);
-    my $lastch;
-    my @checkrefs;
-    foreach my $verse (@changedVerses) {
+    
+    my $lastch = '';
+    my @checkrefs = ();
+    foreach my $verse (&normalizeOsisID([ keys(%sourceVerseMap) ], $vsys)) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         # Select all elements having osisRef attributes EXCEPT those within crossReferences 
-        # that already match the target verse-system. These should NOT be changed.
+        # that already match the target verse-system. Those were checked above.
         @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(ancestor::osis:note[\@type='crossReference'][contains(\@osisID, '!crossReference.r')])]", $osisXML);
       }
       $lastch = $ch;
-      foreach my $e (@checkrefs) {
-        my $changed = 0; # only write a rids attrib if there is a change
-        my $rids = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
-        my @everses = split(/\s+/, $rids);
-        foreach my $ev (@everses) {
-          if ($ev ne $verse) {next;}
-          if ($vmap{$verse}) {
-            $ev = "x.".$vmap{$verse};
-            $changed++;
-          }
-          else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
-        }
-        if ($changed) {$e->setAttribute('rids', join(' ', @everses));}
-      }
+      &addrids(\@checkrefs, $verse, \%sourceVerseMap);
     }
-    my @rids = $XPC->findnodes('//*[@rids]', $osisXML);
-    foreach my $e (@rids) {
-      my @rid = split(/\s+/, $e->getAttribute('rids'));
-      $e->removeAttribute('rids');
-      $e->setAttribute('annotateRef', $e->getAttribute('osisRef'));
-      $e->setAttribute('annotateType', $ALT_VSYS_ARTYPE);
-      foreach my $r (@rid) {$r =~ s/^x\.//;}
-      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
-      if ($e->getAttribute('osisRef') ne $newOsisRef) {
-        &Log("NOTE: Updating ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" to \"$newOsisRef\"\n");
-        $e->setAttribute('osisRef', $newOsisRef);
-        $count++;
+    
+    $lastch = '';
+    @checkrefs = ();
+    foreach my $verse (&normalizeOsisID([ keys(%targetVerseMap) ], $vsys)) {
+      $verse =~ /^(.*?)\.\d+$/;
+      my $ch = $1;
+      if (!$lastch || $lastch ne $ch) {
+        # Select ONLY elements having osisRef attributes within crossReferences 
+        # already matching the target verse-system.
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][ancestor::osis:note[\@type='crossReference'][contains(\@osisID, '!crossReference.r')]]", $osisXML);
       }
-      else {&Log("ERROR: OsisRef change could not be applied!\n");}
+      $lastch = $ch;
+      &addrids(\@checkrefs, $verse, \%targetVerseMap);
     }
+    
+    $count = &applyrids(\@{$XPC->findnodes('//*[@rids]', $osisXML)});
     
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $osisXML)}[0];
     if ($scopeElement) {&changeNodeText($scopeElement, &getScope($osisXML));}
@@ -556,6 +582,64 @@ sub correctReferencesVSYS($$$) {
   }
   
   &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of VSYS intructions.\n");
+}
+
+# If any osisRef in the $checkRefsAP array of osisRefs includes $verse,  
+# then add a rids attribute. The rids attribute contains redirected  
+# verse osisID(s) that will become the updated osisRef value of the 
+# parent element.
+sub addrids(\@$\%) {
+  my $checkRefsAP = shift;
+  my $verse = shift;
+  my $mapHP = shift;
+  
+  foreach my $e (@{$checkRefsAP}) {
+    my $changed = 0; # only write a rids attrib if there is a change
+    my $rids = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
+    my @everses = split(/\s+/, $rids);
+    foreach my $ev (@everses) {
+      if ($ev ne $verse) {next;}
+      if ($mapHP->{$verse}) {
+        $ev = "x.".$mapHP->{$verse};
+        $changed++;
+      }
+      elsif (defined($mapHP->{$verse})) {
+        $ev = '';
+        $changed++;
+      }
+      else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
+    }
+    if ($changed) {$e->setAttribute('rids', join(' ', @everses));}
+  }
+}
+
+sub applyrids(\@) {
+  my $elemAP = shift;
+  
+  my $count = 0;
+  foreach my $e (@{$elemAP}) {
+    my @rid = split(/\s+/, $e->getAttribute('rids'));
+    $e->removeAttribute('rids');
+    if (@rid[0]) {
+      $e->setAttribute('annotateRef', $e->getAttribute('osisRef'));
+      $e->setAttribute('annotateType', $ALT_VSYS_ARTYPE);
+      foreach my $r (@rid) {$r =~ s/^x\.//;}
+      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
+      if ($e->getAttribute('osisRef') ne $newOsisRef) {
+        &Log("NOTE: Updating ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" to \"$newOsisRef\"\n");
+        $e->setAttribute('osisRef', $newOsisRef);
+        $count++;
+      }
+      else {&Log("ERROR: OsisRef change could not be applied!\n");}
+    }
+    else {
+      &Log("NOTE: Removing ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" pointing to missing verse\n");
+      $e->unbindNode();
+      $count++;
+    }
+  }
+  
+  return $count;
 }
 
 sub applyVsysInstruction(\%\@$) {
@@ -590,20 +674,30 @@ sub applyVsysMissing($$$$$$) {
   if (!&isWholeVsysChapter($bk, $ch, \$vs, \$lv, $canonP)) {
     my $count = (1 + $lv - $vs);
     
-    # For any following verses, advance their verse numbers and add alternate verse numbers
-    my $lastV = &getLastVerseInChapterOSIS($bk, $ch, $xml);
-    for (my $v=$lastV; $v>=$vs; $v--) {
-      &reVersify($bk, $ch, $v, $count, $xml);
+    my $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);  
+    # For any following verses, advance their verse numbers and add alternate verse numbers if needed
+    my $followingVerse = @{$XPC->findnodes('./following::osis:verse[@sID][1]', $verseTagToModify)}[0];
+    if ($followingVerse) {
+      $followingVerse = $followingVerse->getAttribute('osisID');
+      $followingVerse =~ s/^[^\.]+\.\d+\.(\d+)\b.*?$/$1/;
+      if ($vs != ($followingVerse-$count) - ($vs!=1 ? 0:1)) {
+        for (my $v=&getLastVerseInChapterOSIS($bk, $ch, $xml); $v>=$vs; $v--) {
+          &reVersify($bk, $ch, $v, $count, $xml);
+        }
+      }
     }
     
     # Add the missing verses (by listing them in an existing osisID)
-    my $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):($vs+$count)), $xml, 0); # $vs was just changed to ($vs+$count)
+    # need to get verseTagToModify again since reVersify converted the old one to a milestone
+    $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);
     my @missing;
     for (my $v = $vs; $v <= $lv; $v++) {
       &osisIDCheckUnique("$bk.$ch.$v", $xml);
       push(@missing, "$bk.$ch.$v");
     }
-    my $newOsisID = ($vs!=1 ? $verseTagToModify->getAttribute('osisID').' ':'').join(' ', @missing).($vs!=1 ? '':' '.$verseTagToModify->getAttribute('osisID'));
+
+    push(@missing, $verseTagToModify->getAttribute('osisID'));
+    my $newOsisID = join(' ', &normalizeOsisID(\@missing));
     &Log("NOTE: Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'\n");
     my $endTag = @{$XPC->findnodes('//osis:verse[@eID="'.$verseTagToModify->getAttribute('sID').'"]', $xml)}[0];
     $verseTagToModify->setAttribute('osisID', $newOsisID);
@@ -721,12 +815,13 @@ sub reVersify($$$$$) {
   my $count = shift;
   my $xml = shift;
   
-  &Log("NOTE: reVersify($bk, $ch, $vs, $count):\n");
+  &Log("NOTE: reVersify($bk, $ch, $vs, $count): ");
   
   my $vTagS = &getVerseTag("$bk.$ch.$vs", $xml, 0);
-  if (!$vTagS) {&Log("\nERROR: reVersify($bk, $ch, $vs, $count): Start tag not found!\n"); return;}
+  if (!$vTagS) {&Log("Start tag not found.\n"); return;}
   my $vTagE = &getVerseTag("$bk.$ch.$vs", $xml, 1);
-  if (!$vTagE) {&Log("\nERROR: reVersify($bk, $ch, $vs, $count): End tag not found!\n"); return;}
+  if (!$vTagE) {&Log("End tag not found!\n"); return;}
+  &Log("\n");
   
   my $osisID = $vTagS->getAttribute('osisID');
   my $newVerseID;
@@ -776,6 +871,24 @@ sub osisIDCheckUnique($$) {
       &Log("ERROR: osisIDCheckUnique($osisID): Existing verse osisID=\"".$chv->getAttribute('osisID')."\" includes \"$v\"!\n");
     }
   }
+}
+
+# Reads the osis file to find a chapter's smallest verse number
+sub getFirstVerseInChapterOSIS($$$) {
+  my $bk = shift;
+  my $ch = shift;
+  my $xml = shift;
+  
+  my @vs = $XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml);
+  
+  my $fv = 200;
+  foreach my $v (@vs) {if ($v->getAttribute('osisID') =~ /^\Q$bk.$ch.\E(\d+)/ && $1 < $fv) {$fv = $1;}}
+  if ($fv == 200) {
+    &Log("ERROR: getFirstVerseInChapterOSIS($bk, $ch): Could not find first verse.\n");
+    return '';
+  }
+  
+  return $fv;
 }
 
 # Reads the osis file to find a chapter's largest verse number

@@ -68,7 +68,7 @@ else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &fitToVerseSystem($OUTOSIS, $VERSESYS);
 }
-&correctReferencesVSYS($OUTOSIS, $projectBible, $ConfEntryP);
+&correctReferencesVSYS($OUTOSIS, $projectBible, \%VSYS_MOVES, \%VSYS_MISSES);
 # MOD.xml is after addCrossRefs.pl
 
 # Run postprocess.(pl|xsl) if they exist
