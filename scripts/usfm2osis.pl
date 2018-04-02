@@ -56,9 +56,9 @@ sub usfm2osis($$) {
   @VSYS_INSTR = ();
   %VSYS_MOVES;
   %VSYS_MISSES;
-  my $vsysRE = "$OT_BOOKS $NT_BOOKS";
-  $vsysRE =~ s/\s+/|/g;
-  $vsysRE = "($vsysRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
+  my $bkRE = "$OT_BOOKS $NT_BOOKS"; $bkRE =~ s/\s+/|/g;
+  $vsysRE = "($bkRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
+  $vsysPRE = "($bkRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
 
   $line=0;
   while (<COMF>) {
@@ -109,16 +109,16 @@ sub usfm2osis($$) {
       push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$3, 'ch'=>$4, 'vs'=>($5 ? $6:''), 'lv'=>($7 ? $8:'') });
       if ($1 eq 'MISSING') {$VSYS_MISSES{$2}++;}
     }
-    elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$vsysRE)\s*\->\s*(?<to>$vsysRE)\s*)?$/) {
+    elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$vsysPRE)\s*\->\s*(?<to>$vsysPRE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
       $VSYS_MOVES{$from} = $to;
-      $from =~ /^$vsysRE$/;
+      $from =~ /^$vsysPRE$/;
       push(@VSYS_INSTR, { 'inst'=>'MISSING', 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:'') });
-      my $vc1 = ($3 && $5 ? $6-$4:0);
-      $to =~ /^$vsysRE$/;
+      my $vc1 = ($3 && $5 && $6 eq 'PART' ? 1:($3 && $5 ? $6-$4:1));
+      $to =~ /^$vsysPRE$/;
       push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:'') });
-      my $vc2 = ($3 && $5 ? $6-$4:0);
-      if ($vc1 != $vc2) {&Log("ERROR: 'From' and 'To' have different number of verses: $_\n");}
+      my $vc2 = ($3 && $5 && $6 eq 'PART' ? 1:($3 && $5 ? $6-$4:1));
+      if ($vc1 != $vc2) {&Log("ERROR: 'From' and 'To' are a different number of verses ($vc1 != $vc2): $_\n");}
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
