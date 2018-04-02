@@ -127,11 +127,13 @@ sub setupAndMakeEbook($$$) {
   
   my $ebookTitle = ($titleOverride ? $titleOverride:$EBOOKCONV{'Title'}); # title will usually still be '' at this point
   my $ebookTitlePart;
-  &pruneFileOSIS($OSISFILE, "$tmp/$MOD.xml", $scope,
+  &pruneFileOSIS($OSISFILE, "$tmp/$MOD-0.xml", $scope,
     $confP,
     \%EBOOKCONV,
     \$ebookTitle, 
     \$ebookTitlePart);
+    
+  &runXSLT("$SCRD/scripts/xslt/osis2alternateVerseSystem.xsl", "$tmp/$MOD-0.xml", "$tmp/$MOD.xml");
   
   # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
