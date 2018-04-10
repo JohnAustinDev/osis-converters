@@ -2607,6 +2607,31 @@ sub verseSort($$$) {
 }
 
 
+sub checkScripRefLinks($) {
+  my $in_osis = shift;
+  
+  &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
+  
+  my $osis = $XML_PARSER->parse_file($in_osis);
+  my %ids;
+  foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $osis)) {
+    foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{$id}++;}
+  }
+  
+  my $good = 0; my $bad = 0;
+  foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
+    foreach my $id (split(/\s+/, &osisRef2osisID($sref->getAttribute('osisRef')))) {
+      if ($ids{$id}) {$good++;}
+      else {
+        $bad++;
+        &Log("ERROR: Scripture reference in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
+      }
+    }
+  }
+  &Log("$MOD REPORT: ".($good+$bad)." Scripture references checked. ($bad problems)\n\n");
+}
+
+
 # Check all reference links, and report any errors.
 sub checkReferenceLinks($) {
   my $in_osis = shift;
@@ -2680,7 +2705,7 @@ sub checkReferenceLinks($) {
 # system is valid (even when it is outside the target's scope). When 
 # the target reference system requires direct validation, the target 
 # OSIS file will be searched, unless useDictionaryWords is set, in which 
-# case the DictionaryWords.xml will be searched instead.
+# case the DictionaryWords.xml may be searched instead.
 sub validOsisID($$) {
   my $osisIDLong = shift;
   my $osisIDWorkDefault = shift; # required if $osisIDLong is not prefixed with it
@@ -2716,13 +2741,19 @@ SEGMENT:
           &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
           
           if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
-            &Log("ERROR: Chapter is not in verse system $wkvsys: \"$b.$c\"\n");
-            return 0;
+            if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
+              &Log("ERROR: Chapter is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c\"\n");
+              return 0;
+            }
+            &Log("WARNING: Chapter is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c\"\n");
           }
           
           if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
-            &Log("ERROR: Verse is not in verse system $wkvsys: \"$b.$c.$v\"\n");
-            return 0;
+            if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
+              &Log("ERROR: Verse is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c.$v\"\n");
+              return 0;
+            }
+            &Log("WARNING: Verse is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c.$v\"\n");
           }
           next SEGMENT;
         }
