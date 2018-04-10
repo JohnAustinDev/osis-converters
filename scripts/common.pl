@@ -3423,7 +3423,7 @@ sub writeNoteIDs() {
   
   &Log("\nWriting note osisIDs:\n", 1);
   
-  my @existing = $XPC->findnodes('//osis:note[not(contains(@osisID, "!crossReference.r") or contains(@osisID, "!crossReference.p"))][@osisID]', $XML_PARSER->parse_file($osis));
+  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $XML_PARSER->parse_file($osis));
   if (@existing) {
     &Log("WARNING: ".@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!\n");
     return;
@@ -3438,7 +3438,7 @@ sub writeNoteIDs() {
     my $myMod = &getOsisRefWork($xml);
     
     # Get all notes excluding generic cross-references added from an external source
-    my @allNotes = $XPC->findnodes('//osis:note[not(contains(@osisID, "!crossReference.r") or contains(@osisID, "!crossReference.p"))]', $xml);
+    my @allNotes = $XPC->findnodes('//osis:note[not(@resp)]', $xml);
     foreach my $n (@allNotes) {
       my $osisID;
       

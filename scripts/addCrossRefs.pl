@@ -39,7 +39,6 @@ sub addCrossRefs($$) {
     "$INPD/../Cross_References/$CrossRefFile.xml",
     "$INPD/../../Cross_References/$CrossRefFile.xml",
     "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
-    "$SCRD/scripts/CrossReferences/CrossRefs_$CrossRefFile.txt"
   );
   foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
   if (!-e $CrossRefFile) {
@@ -190,82 +189,50 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
          need BookNames.xml.\n\n"));
   }
 
-  # XML is the prefered cross-reference source format, but TXT is still supported
-  if ($CrossRefFile =~ /\.xml$/) {
-    $NoteXML = $XML_PARSER->parse_file($CrossRefFile);
-    my @notes = $XPC->findnodes('//osis:note', $NoteXML);
-    # combine all matching notes within a verse
-    my %osisRefs;
-    my @matchAttribs = ('osisRef', 'type', 'subType');
-    for (my $i=0; $i<@notes; $i++) {
-      my $key = '';
-      foreach my $a (@matchAttribs) {$key .= @notes[$i]->findvalue("./\@$a");}
-      if (defined($osisRefs{$key})) {
-        foreach my $ref (@notes[$i]->childNodes()) {@notes[$osisRefs{$key}]->insertAfter($ref, undef);}
-        @notes[$i] = NULL;
-      }
-      else {$osisRefs{$key} = $i;}
+  $NoteXML = $XML_PARSER->parse_file($CrossRefFile);
+  my $sourceName = &getOsisIDWork($NoteXML);
+  my @notes = $XPC->findnodes('//osis:note', $NoteXML);
+  # combine all matching notes within a verse
+  my %osisRefs;
+  my @matchAttribs = ('osisRef', 'type', 'subType');
+  for (my $i=0; $i<@notes; $i++) {
+    my $key = '';
+    foreach my $a (@matchAttribs) {$key .= @notes[$i]->findvalue("./\@$a");}
+    if (defined($osisRefs{$key})) {
+      foreach my $ref (@notes[$i]->childNodes()) {@notes[$osisRefs{$key}]->insertAfter($ref, undef);}
+      @notes[$i] = NULL;
     }
-    foreach my $note (@notes) {
-      if (ref($note) ne "XML::LibXML::Element") {next;}
-      
-      # normalize white space (NOTE: the resulting $note has default namespace (not osis))
-      my $strip = $note->toString();
-      $strip =~ s/[\s\n]+</</g; $strip =~ s/>[\s\n]+/>/g;
-      $note = @{$XML_PARSER->parse_balanced_chunk($strip)->childNodes}[0];
-  
-      # place note in first verse of multi-verse osisRef spans
-      my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
-      my $or = $osisRef->getValue();
-      $or =~ s/^[\w\d]+\://; # remove any work reference from note's osisRef
-      if ($or !~ /^([^\.]+)\.(\d+)\.(\d+)/) {
-        &Log("ERROR: crossReference has unexpected osisRef \"$osisRef\"\n");
-        next;
-      }
-      my $b = $1; my $c = $2; my $v = $3;
-      $osisRef->setValue($or);
-      if ($v == 0) {$v++;}
-
-      if (&filterNote($note, $b)) {next;}
-      if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
-      
-      if ($localization{'hasLocalization'}) {
-        my $anotateRef = "<reference osisRef=\"$b.$c.$v\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
-        $note->insertBefore($XML_PARSER->parse_balanced_chunk($anotateRef), $note->firstChild);
-      }
-      &insertNote($note, \%{$Verse{"$b.$c.$v"}}, \%localization);
-    }
+    else {$osisRefs{$key} = $i;}
   }
-  else {
-    copy($CrossRefFile, "$CrossRefFile.tmp");
-    open(NFLE, "<:encoding(UTF-8)", "$CrossRefFile.tmp") or die "Could not open cross reference file \"$CrossRefFile.tmp\".\n";
-    while (<NFLE>) {
-      $line++; #if (!($line%100)) {print "$line\n";}
-      if ($_ =~ /^\s*$/) {next;}
-      elsif ($_ !~ /^(norm:|para:)?([^\.]+)\.(\d+)\.(\d+):\s*(<note .*?<\/note>)\s*$/) {&Log("WARNING: Skipping unrecognized line, $line: $_"); next;}
-      my $type = $1;
-      my $b = $2;
-      my $c = $3;
-      my $v = $4;
-      my $note = $5;
-      chop($type);
+  foreach my $note (@notes) {
+    if (ref($note) ne "XML::LibXML::Element") {next;}
+    
+    # normalize white space (NOTE: the resulting $note has default namespace (not osis))
+    my $strip = $note->toString();
+    $strip =~ s/[\s\n]+</</g; $strip =~ s/>[\s\n]+/>/g;
+    $note = @{$XML_PARSER->parse_balanced_chunk($strip)->childNodes}[0];
 
-      if (&filterNote(\$note, $b)) {next;}
-      
-      my $osisID = "$b.$c.$v!crossReference." . ($type eq "para" ? "p":"n");
-      my $attribs = "osisRef=\"$b.$c.$v\" osisID=\"$osisID" . ++$REFNUM{$osisID} . "\"";
-      $note =~ s/(type="crossReference")/$1 $attribs/;
-      
-      if ($note !~ /^<note type="crossReference" osisRef="[^\.]+\.\d+\.\d+" osisID="[^\.]+\.\d+\.\d+\!crossReference\.(n|p)\d+"( subType="x-parallel-passage")?>(<reference osisRef="([^\.]+\.\d+(\.\d+)?-?)+"><\/reference>)+<\/note>$/) {
-        &Log("ERROR: Bad cross reference: \"$note\"\n"); next;
-      }
-
-      if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $type:$b.$c.$v: Target not found.\n"); next;}
-
-      &insertNote(@{$XML_PARSER->parse_balanced_chunk($note)->childNodes}[0], \%{$Verse{"$b.$c.$v"}}, \%localization);
+    # place note in first verse of multi-verse osisRef spans
+    my $osisRef = @{$XPC->findnodes('./@osisRef', $note)}[0];
+    my $or = $osisRef->getValue();
+    $or =~ s/^[\w\d]+\://; # remove any work reference from note's osisRef
+    if ($or !~ /^([^\.]+)\.(\d+)\.(\d+)/) {
+      &Log("ERROR: crossReference has unexpected osisRef \"$osisRef\"\n");
+      next;
     }
-    close (NFLE);
-    unlink("$CrossRefFile.tmp");
+    my $b = $1; my $c = $2; my $v = $3;
+    $osisRef->setValue($or);
+    if ($v == 0) {$v++;}
+
+    if (&filterNote($note, $b)) {next;}
+    if (!$Verse{"$b.$c.$v"}) {&Log("ERROR: $b.$c.$v: Target verse not found.\n"); next;}
+    
+    if ($localization{'hasLocalization'}) {
+      my $anotateRef = "<reference osisRef=\"$b.$c.$v\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
+      $note->insertBefore($XML_PARSER->parse_balanced_chunk($anotateRef), $note->firstChild);
+    }
+    $note->setAttribute('resp', "$sourceName-".(!$VERSESYS ? "KJV":$VERSESYS));
+    &insertNote($note, \%{$Verse{"$b.$c.$v"}}, \%localization);
   }
 
   ########################################################################

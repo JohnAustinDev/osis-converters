@@ -558,7 +558,7 @@ sub correctReferencesVSYS($$$$) {
       if (!$lastch || $lastch ne $ch) {
         # Select all elements having osisRef attributes EXCEPT those within externally sourced 
         # crossReferences since they already match the target verse-system.
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(ancestor::osis:note[\@type='crossReference'][contains(\@osisID, '!crossReference.r')])]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(ancestor::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, \%sourceVerseMap);
@@ -571,7 +571,7 @@ sub correctReferencesVSYS($$$$) {
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         # Select ONLY elements having osisRef attributes within externally sourced crossReferences 
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][ancestor::osis:note[\@type='crossReference'][contains(\@osisID, '!crossReference.r')]]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][ancestor::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, \%targetVerseMap);
@@ -634,9 +634,11 @@ sub applyrids(\@) {
       foreach my $r (@rid) {$r =~ s/^x\.//;}
       my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
       if ($e->getAttribute('osisRef') ne $newOsisRef) {
-        my $ie = ($e->nodeName ne 'reference' ? '':(@{$XPC->findnodes('./ancestor::osis:note[@type="crossReference"][contains(@osisID, "!crossReference.r")]', $e)}[0] ? 'external ':'internal '));
-        &Log("NOTE: Updating $ie".$e." osisRef to \"$newOsisRef\"\n");
+        my $origRef = $e->getAttribute('osisRef');
         $e->setAttribute('osisRef', $newOsisRef);
+        my $ie = ($e->nodeName ne 'reference' ? '':(@{$XPC->findnodes('./ancestor::osis:note[@resp]', $e)}[0] ? 'external ':'internal '));
+        my $est = $e; $est =~ s/^(.*?>).*$/$1/;
+        &Log("NOTE: Updated $ie".$e->nodeName." osisRef=$origRef to $est\n");
         $count++;
       }
       else {&Log("ERROR: OsisRef change could not be applied!\n");}
