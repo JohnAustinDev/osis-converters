@@ -2478,22 +2478,32 @@ sub context2array($) {
 # more hyphenated continuation segments (osisIDs cannot contain 
 # continuations). This routine assumes osisText's osisRefWork and 
 # osisIDWork attribute values are the same.
-sub osisRef2osisID($$) {
+sub osisRef2osisID($$$) {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
+  my $alwaysIncludeWork = shift;
   
   my @osisIDs;
   
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
-    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, "TESTAMENT_INTRO.0");}
-    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, "TESTAMENT_INTRO.1");}
-
-    if ($osisRef !~ /^(([^\:]*)\:)?(.*?)\-(.*)$/) {push(@osisIDs, $osisRef); next;}
-    my $pwork = $1; my $work = $2; my $r1 = $3; my $r2 = $4;
+    my $dwork = ($osisRef =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:'');
+    if (!$dwork && $alwaysIncludeWork) {
+      if (!$osisRefWorkDefault) {
+        &Log("ERROR osisRef2osisID: alwaysIncludeWork is set to true but osisRefWorkDefault is false!\n");
+      }
+      else {$dwork = "$osisRefWorkDefault:";}
+    }
     
-    if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $osisRef); next;}
+    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $dwork."TESTAMENT_INTRO.0");}
+    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $dwork."TESTAMENT_INTRO.1");}
+
+    if ($osisRef !~ /^(([^\:]*)\:)?(.*?)\-(.*)$/) {push(@osisIDs, $dwork.$osisRef); next;}
+    my $pwork = $1; my $work = $2; my $r1 = $3; my $r2 = $4;
+    if ($alwaysIncludeWork && !$pwork) {$pwork = $dwork;}
+    
+    if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $dwork.$osisRef); next;}
     my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
-    if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $osisRef); next;}
+    if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $dwork.$osisRef); next;}
     my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
     
     my ($canonP, $bookOrderP, $bookArrayP);
@@ -2607,28 +2617,38 @@ sub verseSort($$$) {
 }
 
 
-sub checkScripRefLinks($) {
+sub checkScripRefLinks($$) {
   my $in_osis = shift;
+  my $bibleMod = shift;
   
   &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
-  my $osis = $XML_PARSER->parse_file($in_osis);
-  my %ids;
-  foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $osis)) {
-    foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{$id}++;}
-  }
+  my $problems = 0; my $checked = 0;
   
-  my $good = 0; my $bad = 0;
-  foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
-    foreach my $id (split(/\s+/, &osisRef2osisID($sref->getAttribute('osisRef')))) {
-      if ($ids{$id}) {$good++;}
-      else {
-        $bad++;
-        &Log("ERROR: Scripture reference in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
+  my $in_bible = ($bibleMod eq $MOD ? $in_osis:&getProjectOsisFile($bibleMod));
+  if (-e $in_bible) {
+    my %ids;
+    foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $XML_PARSER->parse_file($in_bible))) {
+      foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{"$bibleMod:$id"}++;}
+    }
+    
+    my $osis = $XML_PARSER->parse_file($in_osis);
+    foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
+      $checked++;
+      foreach my $id (split(/\s+/, &osisRef2osisID($sref->getAttribute('osisRef'), $bibleMod, 1))) {
+        if (!$ids{$id}) {
+          $problems++;
+          &Log("ERROR: Scripture reference \"$id\" in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
+        }
       }
     }
   }
-  &Log("$MOD REPORT: ".($good+$bad)." Scripture references checked. ($bad problems)\n\n");
+  else {
+    $problems++;
+    &Log("ERROR: Cannot check Scripture reference targets. Unable to locate $bibleMod.xml.\n");
+  }
+  
+  &Log("$MOD REPORT: $checked Scripture references checked. ($problems problems)\n\n");
 }
 
 

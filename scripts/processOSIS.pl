@@ -33,7 +33,7 @@ close(OUTF);
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
   require("$SCRD/scripts/addScripRefLinks.pl");
   &addScripRefLinks("$TMPDIR/".$MOD."_1.xml", "$TMPDIR/".$MOD."_1a.xml");
-  &checkScripRefLinks("$TMPDIR/".$MOD."_1a.xml");
+  &checkScripRefLinks("$TMPDIR/".$MOD."_1a.xml", $projectBible);
   if ($addFootnoteLinks ne '0' && -e "$INPD/CF_addFootnoteLinks.txt") {
     require("$SCRD/scripts/addFootnoteLinks.pl");
     &addFootnoteLinks("$TMPDIR/".$MOD."_1a.xml", "$TMPDIR/".$MOD."_2.xml");
