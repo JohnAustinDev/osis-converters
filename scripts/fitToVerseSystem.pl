@@ -505,7 +505,11 @@ sub correctReferencesVSYS($$$$) {
     foreach my $ar (@annotateRefs) {
       my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
       my @aids = split(/\s+/, $ar->getAttribute('annotateRef'));
-      foreach my $aid (@aids) {$sourceVerseMap{$aid} = @oids[$#iods];}
+AIDS:
+      foreach my $aid (@aids) {
+        foreach my $oid (@oids) {if ($oid eq $aid) {next AIDS;}}
+        $sourceVerseMap{$aid} = @oids[$#iods];
+      }
     }
   }
     
