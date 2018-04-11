@@ -124,7 +124,7 @@ sub usfm2osis($$) {
   }
   close(COMF);
   
-  @VSYS_INSTR = sort { &verseSort($a->{'bk'}.'.'.$a->{'ch'}.'.'.$a->{'vs'}, $b->{'bk'}.'.'.$b->{'ch'}.'.'.$b->{'vs'}, 'KJV') } @VSYS_INSTR;
+  @VSYS_INSTR = sort { &verseSort($a->{'bk'}.'.'.$a->{'ch'}.'.'.$a->{'vs'}, $b->{'bk'}.'.'.$b->{'ch'}.'.'.$b->{'vs'}) } @VSYS_INSTR;
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');

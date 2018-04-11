@@ -490,7 +490,8 @@ sub correctReferencesVSYS($$$$) {
   my $bibleXML = $XML_PARSER->parse_file($bfile);
   my $vsys = &getVerseSystemOSIS($bibleXML);
   
-  my @existing = $XPC->findnodes("//*[\@annotateType='$ALT_VSYS_ARTYPE'][\@annotateRef][\@osisRef]", $bibleXML);
+  my $osisXML = $XML_PARSER->parse_file($osis);
+  my @existing = $XPC->findnodes("//*[\@annotateType='$ALT_VSYS_ARTYPE'][\@annotateRef][\@osisRef]", $osisXML);
   if (@existing) {
     &Log("WARNING: ".@existing." osisRefs have already been updated, so this step will be skipped!\n");
     return;
@@ -548,11 +549,9 @@ sub correctReferencesVSYS($$$$) {
   
   # 3) Look for osisRefs in the osis file that need updating and update them
   if (%sourceVerseMap || %targetVerseMap) {
-    $osisXML = $XML_PARSER->parse_file($osis);
-    
     my $lastch = '';
     my @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%sourceVerseMap) ], $vsys)) {
+    foreach my $verse (&normalizeOsisID([ keys(%sourceVerseMap) ])) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
@@ -566,7 +565,7 @@ sub correctReferencesVSYS($$$$) {
     
     $lastch = '';
     @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%targetVerseMap) ], $vsys)) {
+    foreach my $verse (&normalizeOsisID([ keys(%targetVerseMap) ])) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
@@ -632,7 +631,7 @@ sub applyrids(\@) {
       $e->setAttribute('annotateRef', $e->getAttribute('osisRef'));
       $e->setAttribute('annotateType', $ALT_VSYS_ARTYPE);
       foreach my $r (@rid) {$r =~ s/^x\.//;}
-      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid, 'KJV')));
+      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid)));
       if ($e->getAttribute('osisRef') ne $newOsisRef) {
         my $origRef = $e->getAttribute('osisRef');
         $e->setAttribute('osisRef', $newOsisRef);

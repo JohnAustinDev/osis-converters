@@ -2476,34 +2476,32 @@ sub context2array($) {
 
 # Returns an equivalent osisID from an osisRef which may contain one or 
 # more hyphenated continuation segments (osisIDs cannot contain 
-# continuations). This routine assumes osisText's osisRefWork and 
-# osisIDWork attribute values are the same.
+# continuations). Note: it is assumed that osisRefWork = osisIDWork.
 sub osisRef2osisID($$$) {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
-  my $alwaysIncludeWork = shift;
+  my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
   
   my @osisIDs;
   
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
-    my $dwork = ($osisRef =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:'');
-    if (!$dwork && $alwaysIncludeWork) {
-      if (!$osisRefWorkDefault) {
-        &Log("ERROR osisRef2osisID: alwaysIncludeWork is set to true but osisRefWorkDefault is false!\n");
-      }
-      else {$dwork = "$osisRefWorkDefault:";}
+    my $work = ($osisRefWorkDefault ? $osisRefWorkDefault:'');
+    my $pwork = ($workPrefixFlag =~ /always/i ? "$osisRefWorkDefault:":'');
+    if ($osisRef =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
+    if (!$work && $workPrefixFlag =~ /always/i) {
+      &Log("ERROR osisRef2osisID: workPrefixFlag is set to 'always' but osisRefWorkDefault is null for \"$osisRef\" in \"$osisRefLong\"!\n");
     }
-    
-    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $dwork."TESTAMENT_INTRO.0");}
-    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $dwork."TESTAMENT_INTRO.1");}
+    if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
+  
+    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
+    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
 
-    if ($osisRef !~ /^(([^\:]*)\:)?(.*?)\-(.*)$/) {push(@osisIDs, $dwork.$osisRef); next;}
-    my $pwork = $1; my $work = $2; my $r1 = $3; my $r2 = $4;
-    if ($alwaysIncludeWork && !$pwork) {$pwork = $dwork;}
+    if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, "$pwork$osisRef"); next;}
+    my $r1 = $1; my $r2 = $2;
     
-    if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $dwork.$osisRef); next;}
+    if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
-    if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, $dwork.$osisRef); next;}
+    if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
     
     my ($canonP, $bookOrderP, $bookArrayP);
@@ -2536,41 +2534,50 @@ sub osisRef2osisID($$$) {
     }
   }
 
-  return join(' ', &normalizeOsisID(\@osisIDs));
+  return join(' ', &normalizeOsisID(\@osisIDs, $osisRefWorkDefault, $workPrefixFlag));
 }
 
 # Returns an equivalent osisRef from an osisID. The osisRef will contain 
 # one or more hyphenated continuation segments if sequential osisID 
-# verses are present (osisIDs cannot contain continuations). This  
-# routine assumes osisText's osisRefWork and osisIDWork attribute values 
-# are the same, and that no work prefix is different than any given prefix.
-sub osisID2osisRef($) {
- my $osisID = shift;
+# verses are present (osisIDs cannot contain continuations).
+# Note: it is assumed that osisRefWork = osisIDWork
+sub osisID2osisRef($$$) {
+  my $osisID = shift;
+  my $osisIDWorkDefault = shift;
+  my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
   
   my $osisRef = '';
   
-  my @segs = &normalizeOsisID( [ split(/\s+/, $osisID) ] );
+  my @segs = &normalizeOsisID([ split(/\s+/, $osisID) ], $osisIDWorkDefault, $workPrefixFlag);
   my $inrange = 0;
   my $lastwk = '';
   my $lastch = '';
   my $lastvs = '';
   foreach my $seg (@segs) {
-    if ($seg =~ /^([^\:]*\:)?([^\.]+\.\d+)\.(\d+)$/) {
-      my $wk = $1; my $ch = $2; my $vs = $3;
-      if ($lastwk eq $wk && $lastch && $lastch eq $ch && $vs == ($lastvs+1)) {
+    my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
+    my $pwork = ($workPrefixFlag =~ /always/i ? "$osisIDWorkDefault:":'');
+    if ($seg =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
+    if (!$work && $workPrefixFlag =~ /always/i) {
+      &Log("ERROR osisID2osisRef: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\"!\n");
+    }
+    if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisIDWorkDefault:") {$pwork = '';}
+    
+    if ($seg =~ /^([^\.]+\.\d+)\.(\d+)$/) {
+      my $ch = $1; my $vs = $2;
+      if ($lastwk eq $work && $lastch && $lastch eq $ch && $vs == ($lastvs+1)) {
         $inrange = 1;
       }
       else {
         if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
-        $osisRef .= " $seg";
+        $osisRef .= " $pwork$seg";
       }
-      $lastwk = $wk;
+      $lastwk = $work;
       $lastch = $ch;
       $lastvs = $vs;
     }
     else {
       if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
-      $osisRef .= " $seg";
+      $osisRef .= " $pwork$seg";
       $lastch = '';
       $lastvs = '';
     }
@@ -2582,33 +2589,53 @@ sub osisID2osisRef($) {
 }
 
 
-# Takes an array of osisIDs segments, removes duplicates and empty
-# values, and sorts them in verse system order.
-sub normalizeOsisID(\@$) {
+# Takes an array of osisIDs, splits each into segments, removes duplicates 
+# and empty values, normalizes work prefixes if desired, and sorts each
+# resulting segment in verse system order.
+sub normalizeOsisID(\@$$$) {
   my $aP = shift;
+  my $osisIDWorkDefault = shift;
+  my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
   my $vsys = shift;
-  my @avs; my %seen;
-  foreach my $a (@{$aP}) {push(@avs, split(/\s+/, $a));}
-  return sort { verseSort($a, $b, $vsys) } grep(($_ && !$seen{$_}++), @avs);
+  
+  my @avs;
+  foreach my $osisID (@{$aP}) {
+    foreach my $seg (split(/\s+/, $osisID)) {
+      my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
+      my $pwork = ($workPrefixFlag =~ /always/i ? "$osisIDWorkDefault:":'');
+      if ($seg =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
+      if (!$work && $workPrefixFlag =~ /always/i) {
+        &Log("ERROR normalizeOsisID: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\" in \"$osisID\"!\n");
+      }
+      if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisIDWorkDefault:") {$pwork = '';}
+      push(@avs, "$pwork$seg");
+    }
+  }
+  
+  my %seen;
+  return sort { verseSort($a, $b, $osisIDWorkDefault, $vsys) } grep(($_ && !$seen{$_}++), @avs);
 }
 
 
 # Sort osisID verse segments (ie. Rom.14.23) in verse system order
-sub verseSort($$$) {
+sub verseSort($$$$) {
   my $a = shift;
   my $b = shift;
-  my $vsys = shift; if (!$vsys) {$vsys = 'KJV';}
+  my $osisIDWorkDefault = shift;
+  my $vsys = shift; if (!$vsys) {$vsys = ($VERSESYS ? $VERSESYS:'KJV');}
+  
+  my $awp = ($a =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:($osisIDWorkDefault ? "$osisIDWorkDefault:":''));
+  my $bwp = ($b =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:($osisIDWorkDefault ? "$osisIDWorkDefault:":''));
+  my $r = $awp cmp $bwp;
+  if ($r) {return $r;}
 
-  if ($a !~ /^([^\:]*\:)?([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
-  my $aw = $1; my $abk = $2; my $ach = (1*$4); my $avs = (1*$6);
-  if ($b !~ /^([^\:]*\:)?([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
-  my $bw = $1; my $bbk = $2; my $bch = (1*$4); my $bvs = (1*$6);
+  if ($a !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  my $abk = $1; my $ach = (1*$3); my $avs = (1*$5);
+  if ($b !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  my $bbk = $1; my $bch = (1*$3); my $bvs = (1*$5);
   
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
-
-  my $r = $aw cmp $bw;
-  if ($r) {return $r;}
   $r = $bookOrderP->{$abk} <=> $bookOrderP->{$bbk};
   if ($r) {return $r;}
   $r = $ach <=> $bch;
@@ -2635,7 +2662,7 @@ sub checkScripRefLinks($$) {
     my $osis = $XML_PARSER->parse_file($in_osis);
     foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
       $checked++;
-      foreach my $id (split(/\s+/, &osisRef2osisID($sref->getAttribute('osisRef'), $bibleMod, 1))) {
+      foreach my $id (split(/\s+/, &osisRef2osisID($sref->getAttribute('osisRef'), $bibleMod, 'always'))) {
         if (!$ids{$id}) {
           $problems++;
           &Log("ERROR: Scripture reference \"$id\" in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
