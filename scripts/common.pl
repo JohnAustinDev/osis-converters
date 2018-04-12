@@ -1730,6 +1730,7 @@ sub getRefSystemOSIS($) {
 }
 sub getVerseSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
+  if ($mod eq 'KJV') {return 'KJV';}
   if ($mod eq $MOD) {return $VERSESYS;}
   if (!$DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'}) {
     &Log("ERROR: getVerseSystemOSIS: No document node for \"$mod\"!\n");
@@ -2474,8 +2475,8 @@ sub context2array($) {
 }
 
 
-# Returns an equivalent osisID from an osisRef which may contain one or 
-# more hyphenated continuation segments (osisIDs cannot contain 
+# Returns an equivalent osisID from an osisRef. The osisRef may contain 
+# one or more hyphenated continuation segments (osisIDs cannot contain 
 # continuations). Note: it is assumed that osisRefWork = osisIDWork.
 sub osisRef2osisID($$$) {
   my $osisRefLong = shift;
@@ -2484,6 +2485,10 @@ sub osisRef2osisID($$$) {
   
   my @osisIDs;
   
+  my $vk = new Sword::VerseKey();
+  $vk->setIntros(0);
+  
+  my $logTheResult;
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
     my $work = ($osisRefWorkDefault ? $osisRefWorkDefault:'');
     my $pwork = ($workPrefixFlag =~ /always/i ? "$osisRefWorkDefault:":'');
@@ -2504,42 +2509,52 @@ sub osisRef2osisID($$$) {
     if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
     
-    my ($canonP, $bookOrderP, $bookArrayP);
-    my $vsys = ($work ? &getVerseSystemOSIS($work):($osisRefWorkDefault ? &getVerseSystemOSIS($osisRefWorkDefault):'KJV'));
-    &getCanon($vsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-
-    # iterate from starting verse?
-    if ($v1) {
-      my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
-      for (my $v=$v1; $v<=$ve; $v++) {push(@osisIDs, "$pwork$b1.$c1.$v");}
-    }
-    # iterate from starting chapter?
-    if ($c1) {
-      my $ce = ($b1 eq $b2 ? ($v2 ? ($c2-1):$c2):@{$canonP->{$b1}});
-      for (my $c=($v1 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@osisIDs, "$pwork$b1.$c");}
-    }
-    # iterate from starting book?
-    if ($b1 ne $b2) {
-      my $bs = ($c1 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
-      my $be = ($c2 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
-      for (my $b=$bs; $b<=$be; $b++) {push(@osisIDs, $pwork.@{$bookArrayP}[$b]);}
-      # iterate to ending chapter?
-      if ($c2) {
-        for (my $c=1; $c<=($v2 ? $c2-1:$c2); $c++) {push(@osisIDs, "$pwork$b2.$c");}
+    # The task is to output every verse in the range, not to limit or test the input
+    # with respect to the verse system. But outputing ranges greater than a chapter 
+    # requires knowledge of the verse system, so SWORD is used for this.
+    push(@osisIDs, "$pwork$r1");
+    if ($r1 ne $r2) {
+      $vk->setVersificationSystem($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
+      $vk->setText($r1);
+      $vk->normalize(1);
+      my $index;
+      if ($vk->getOSISRef() eq $r1) {
+        while (1) {
+          $index = $vk->getIndex();
+          $vk->increment();
+          if ($index eq $vk->getIndex() || 
+             ($vk->getOSISBookName() eq $b2 && $vk->getChapter() == $c2)
+          ) {last;}
+          push(@osisIDs, $pwork.$vk->getOSISRef());
+        }
       }
-    }
-    # iterate to ending verse?
-    if ($v2 && !($b1 eq $b2 && $c1==$c2)) {
-      for (my $v=1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
+      else {
+        &Log("WARNING: osisRef2osisID: Verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range might be incorrect: ");
+        for (my $v=$v1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
+        $logTheResult++;
+        next;
+      }
+      
+      if ($index eq $vk->getIndex() || $vk->getOSISBookName() ne $b2 || $vk->getChapter() != $c2) {
+        &Log("WARNING: osisRef2osisID: Verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range might be incorrect: ");
+        push(@osisIDs, "$pwork$r2");
+        $logTheResult++;
+      }
+      else {
+        for (my $v=$vk->getVerse(); $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
+      }
     }
   }
 
-  return join(' ', &normalizeOsisID(\@osisIDs, $osisRefWorkDefault, $workPrefixFlag));
+  my $r = join(' ', &normalizeOsisID(\@osisIDs, $osisRefWorkDefault, $workPrefixFlag));
+  if ($logTheResult) {&Log("'$r' = '$osisRefLong' ?\n");}
+  return $r;
 }
 
 # Returns an equivalent osisRef from an osisID. The osisRef will contain 
 # one or more hyphenated continuation segments if sequential osisID 
-# verses are present (osisIDs cannot contain continuations).
+# verses are present (osisIDs cannot contain continuations). Hyphenated 
+# segments returned will cover at most one chapter.
 # Note: it is assumed that osisRefWork = osisIDWork
 sub osisID2osisRef($$$) {
   my $osisID = shift;
