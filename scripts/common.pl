@@ -2485,8 +2485,8 @@ sub osisRef2osisID($$$) {
   
   my @osisIDs;
   
-  my $vk = new Sword::VerseKey();
-  $vk->setIntros(0);
+  my $vk = new Sword::VerseKey(); my $vkTest = new Sword::VerseKey();
+  $vk->setIntros(0); $vkTest->setIntros(0);
   
   my $logTheResult;
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
@@ -2514,11 +2514,15 @@ sub osisRef2osisID($$$) {
     # requires knowledge of the verse system, so SWORD is used for this.
     push(@osisIDs, "$pwork$r1");
     if ($r1 ne $r2) {
-      $vk->setVersificationSystem($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
-      $vk->setText($r1);
-      $vk->normalize(1);
+      my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
+      $vk->setVersificationSystem($vsys); $vk->setText($r1); $vk->normalize(1);
       my $index;
       if ($vk->getOSISRef() eq $r1) {
+        $vkTest->setVersificationSystem($vsys); $vkTest->setText($r2); $vkTest->normalize(1);
+        if ($vkTest->getIndex() < $vk->getIndex()) {
+          &Log("ERROR osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"\n");
+          next;
+        }
         while (1) {
           $index = $vk->getIndex();
           $vk->increment();
