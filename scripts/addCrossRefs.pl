@@ -242,6 +242,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
   close(OUTF);
 
   &Log("\n$MOD REPORT: Placed $NumNotes cross-reference notes.\n");
+  $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   if ($ADD_CROSS_REF_BAD) {
     &Log("WARNING: $ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.\n\n");
   }
