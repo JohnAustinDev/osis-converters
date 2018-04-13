@@ -3806,28 +3806,32 @@ sub writeMissingNoteOsisRefsFAST($) {
   
   my @files = &splitOSIS($osis);
   
+  my $count = 0;
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &writeMissingNoteOsisRefs($xml, $refSystem);
+    $count = &writeMissingNoteOsisRefs($xml, $refSystem);
     open(OUTF, ">$file") or die "writeMissingNoteOsisRefsFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
   
   &joinOSIS($osis);
+  
+  &Log("$MOD REPORT: Wrote \"$count\" note osisRefs.\n");
 }
 
 # A note's osisRef contains the passage to which a note applies. For 
 # glossaries this is the note's context keyword. For Bibles this is also 
 # the note's context, unless the note contains a reference of type 
-# annotateRef, in which case the note applies to that referenced passage.
+# annotateRef, in which case the note applies to the annotateRef passage.
 sub writeMissingNoteOsisRefs($$) {
   my $xml = shift;
   my $refSystem = shift;
   
   my @notes = $XPC->findnodes('//osis:note[not(@osisRef)]', $xml);
   
+  my $count = 0;
   foreach my $note (@notes) {
     my $osisRef;
     
@@ -3866,10 +3870,13 @@ sub writeMissingNoteOsisRefs($$) {
       $osisRef = &glossaryContext($note);
     }
     
-    else {return;}
+    else {return 0;}
 
     $note->setAttribute('osisRef', $osisRef);
+    $count++;
   }
+  
+  return $count;
 }
 
 sub removeDefaultWorkPrefixesFAST($) {
