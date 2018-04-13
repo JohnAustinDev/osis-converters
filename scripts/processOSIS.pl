@@ -55,6 +55,11 @@ elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS
 else {copy("$TMPDIR/".$MOD."_2.xml", "$TMPDIR/".$MOD."_3.xml");}
 # MOD_3.xml is after addDictLinks.pl or addSeeAlsoLinks.pl
 
+&writeMissingNoteOsisRefsFAST("$TMPDIR/".$MOD."_3.xml");
+if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+  &fitToVerseSystem("$TMPDIR/".$MOD."_3.xml", $VERSESYS);
+}
+
 if ($MODDRV =~ /Text/) {
   my $success = 0;
   if ($addCrossRefs ne '0') {
@@ -65,12 +70,10 @@ if ($MODDRV =~ /Text/) {
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
-&normalizeRefsIds($OUTOSIS);
-if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  &fitToVerseSystem($OUTOSIS, $VERSESYS);
-}
 &correctReferencesVSYS($OUTOSIS, $projectBible, \%VSYS_MOVES, \%VSYS_MISSES);
 # MOD.xml is after addCrossRefs.pl
+
+if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST($OUTOSIS);}
 
 # Run postprocess.(pl|xsl) if they exist
 &userXSLT("$INPD/postprocess.xsl", $OUTOSIS, "$OUTOSIS.out");

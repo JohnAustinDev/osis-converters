@@ -1745,6 +1745,14 @@ sub existsDictionaryWordID($$) {
   my $osisIDWork = &getModNameOSIS(shift);
   return existsElementID($osisID, $osisIDWork, 1);
 }
+sub getBooksOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  if (!$DOCUMENT_CACHE{$mod}{'getBooksOSIS'}) {
+    &Log("ERROR: getBooksOSIS: No document node for \"$mod\"!\n");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$mod}{'getBooksOSIS'};
+}
 sub existsElementID($$$) {
   my $osisID = shift;
   my $osisIDWork = &getModNameOSIS(shift);
@@ -1797,6 +1805,8 @@ sub checkDocumentCache($) {
     $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
     $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $work)}[0]->textContent;
     $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
+    my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $work))) {$books{$bk}++;}
+    $DOCUMENT_CACHE{$w}{'getBooksOSIS'} = \%books;
   }
 }
 
@@ -2532,15 +2542,18 @@ sub osisRef2osisID($$$) {
           push(@osisIDs, $pwork.$vk->getOSISRef());
         }
       }
-      else {
-        &Log("WARNING: osisRef2osisID: Verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range might be incorrect: ");
+      elsif ($b1 eq $b2 && $c1 == $c2) {
         for (my $v=$v1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
-        $logTheResult++;
         next;
+      }
+      else {
+        &Log("ERROR: osisRef2osisID: Verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
+        push(@osisIDs, "$pwork$r2");
+        $logTheResult++;
       }
       
       if ($index eq $vk->getIndex() || $vk->getOSISBookName() ne $b2 || $vk->getChapter() != $c2) {
-        &Log("WARNING: osisRef2osisID: Verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range might be incorrect: ");
+        &Log("ERROR: osisRef2osisID: Verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
         push(@osisIDs, "$pwork$r2");
         $logTheResult++;
       }
@@ -3786,46 +3799,30 @@ sub joinOSIS($) {
 }
 
 
-# Normalize all osisRef and osisID attributes
-sub normalizeRefsIds($) {
+sub writeMissingNoteOsisRefsFAST($) {
   my $osis = shift;
   
-  &Log("\nNormalizing osisRef and osisID attributes in OSIS file \"$osis\".\n");
+  &Log("\nWriting missing note osisRefs in OSIS file \"$osis\".\n");
   
   my @files = &splitOSIS($osis);
-  
-  my %stats = ('osisRef'=>0, 'osisID'=>0);
-  
-  # check that OSIS refSystem is supported
-  my $refSystem;
-  foreach my $file (@files) {
-    if ($file !~ /other\.osis$/) {next;}
-    my $xml = $XML_PARSER->parse_file($file);
-    $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
-    if ($refSystem !~ /^(Bible|Dict)/) {
-      &Log("ERROR normalizeRefsIds: Not yet supporting refSystem \"$refSystem\"\n");
-      return;
-    }
-    last;
-  }
   
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &writeNoteOsisRefs($xml, $refSystem);
-    &normalizeRefsAndIds($xml, $refSystem, \%stats);
-    open(OUTF, ">$file") or die "normalizeRefsIds could not open splitOSIS file: \"$file\".\n";
+    &writeMissingNoteOsisRefs($xml, $refSystem);
+    open(OUTF, ">$file") or die "writeMissingNoteOsisRefsFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
   }
   
   &joinOSIS($osis);
-  
-  &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
-  &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");
 }
 
-sub writeNoteOsisRefs($$) {
+# A note's osisRef contains the passage to which a note applies. For 
+# glossaries this is the note's context keyword. For Bibles this is also 
+# the note's context, unless the note contains a reference of type 
+# annotateRef, in which case the note applies to that referenced passage.
+sub writeMissingNoteOsisRefs($$) {
   my $xml = shift;
   my $refSystem = shift;
   
@@ -3852,12 +3849,12 @@ sub writeNoteOsisRefs($$) {
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
           if (@rs[0]->getAttribute('annotateType') ne $ALT_VSYS_ARTYPE && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
-            &Log("WARNING writeNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
+            &Log("WARNING writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
             $aror = '';
           }
         }
         else {
-          &Log("WARNING writeNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
+          &Log("WARNING writeMissingNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
           $aror = '';
         }
       }
@@ -3875,13 +3872,40 @@ sub writeNoteOsisRefs($$) {
   }
 }
 
-sub normalizeRefsAndIds($$\%) {
+sub removeDefaultWorkPrefixesFAST($) {
+  my $osis = shift;
+  
+  &Log("\nRemoving default work prefixes in OSIS file \"$osis\".\n");
+  
+  my @files = &splitOSIS($osis);
+  
+  my %stats = ('osisRef'=>0, 'osisID'=>0);
+  
+  foreach my $file (@files) {
+    &Log("$file\n", 2);
+    my $xml = $XML_PARSER->parse_file($file);
+    &removeDefaultWorkPrefixes($xml, $refSystem, \%stats);
+    open(OUTF, ">$file") or die "removeDefaultWorkPrefixesFAST could not open splitOSIS file: \"$file\".\n";
+    print OUTF $xml->toString();
+    close(OUTF);
+  }
+  
+  &joinOSIS($osis);
+  
+  &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
+  &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");
+}
+
+# Removes work prefixes of all osisIDs and osisRefs which match their
+# respective osisText osisIDWork or osisRefWork attribute value (in 
+# other words removes work prefixes which are unnecessary).
+sub removeDefaultWorkPrefixes($$\%) {
   my $xml = shift;
   my $refSystem = shift;
   my $statsP = shift;
   
   # normalize osisRefs
-  my @osisRefs = $XPC->findnodes("//*[substring(\@type,1,7)!='x-gloss']/\@osisRef", $xml);
+  my @osisRefs = $XPC->findnodes('//@osisRef', $xml);
   my $osisRefWork = &getOsisRefWork($xml);
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
@@ -3893,17 +3917,15 @@ sub normalizeRefsAndIds($$\%) {
   }
   
   # normalize osisIDs
-  if ($refSystem =~ /^Bible/) { # non-Bibles have always included the work prefix in every osisID, so let's keep them
-    my @osisIDs = $XPC->findnodes('//@osisID', $xml);
-    my $osisIDWork = &getOsisIDWork($xml);
-    my $normedID = 0;
-    foreach my $osisID (@osisIDs) {
-      if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
-      $new = $osisID->getValue();
-      $new =~ s/^$osisIDWork\://;
-      $osisID->setValue($new);
-      $statsP->{'osisID'}++;
-    }
+  my @osisIDs = $XPC->findnodes('//@osisID', $xml);
+  my $osisIDWork = &getOsisIDWork($xml);
+  my $normedID = 0;
+  foreach my $osisID (@osisIDs) {
+    if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
+    $new = $osisID->getValue();
+    $new =~ s/^$osisIDWork\://;
+    $osisID->setValue($new);
+    $statsP->{'osisID'}++;
   }
 }
 
