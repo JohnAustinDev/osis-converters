@@ -518,15 +518,16 @@ AIDS:
   my %targetVerseMap;
   if (%{$vsys_movesP}) {
     foreach my $from (keys %{$vsys_movesP}) {
-      my $partial = ($from =~ s/\.PART$// ? $from:'');
-      my $to = $vsys_movesP->{$from}; $to =~ s/\.PART$//;
+      my $tov = $vsys_movesP->{$from}; $tov =~ s/\.PART$//;
+      my $partial = ($from =~ s/\.PART$// ? "$from ":'');
       my @f = &context2array($from);
-      my @t = &context2array($to);
+      my @t = &context2array($tov);
       if (@f == @t) {
         for (my $i=0; $i <= $#f; $i++) {
           my $to = @t[$i];
-          my $ve = &getVerseTag(@t[$i], $bibleXML, 0);
-          if (!$ve) {
+          my $ve = &getVerseTag($to, $bibleXML, 0);
+          if ($ve) {$targetVerseMap{@f[$i]} = $partial.$to;}
+          else {
             my @mes = $XPC->findnodes('//osis:milestone[@type="x-alt-verse-start"][@annotateType="'.$ALT_VSYS_ARTYPE.'"][contains(@annotateRef, "'.$to.'")]', $bibleXML);
             foreach my $me (@mes) {
               if ($me && $me->getAttribute('annotateRef') =~ /\b\Q$to\E\b/) {
@@ -534,22 +535,24 @@ AIDS:
                 last;
               }
             }
+            if ($ve) {
+              my @vid = split(' ', $ve->getAttribute('osisID')); 
+              $targetVerseMap{@f[$i]} = $partial.@vid[$#vid];
+            }
+            else {&Log("ERROR: Did not locate a verse containing $to\n");}
           }
-          if ($ve) {
-            my @vid = split(' ', $ve->getAttribute('osisID')); 
-            $targetVerseMap{@f[$i]} = @vid[$#vid].$partial;
-          }
-          else {&Log("ERROR: Did not locate a verse containing $to\n");}
         }
       }
       else {&Log("ERROR: From and To have different numbers of verses: \"".@f."\" != \"".@t."\"\n");}
     }
   }
-  if (%{$vsys_missesP}) {
-    foreach my $from (keys %{$vsys_missesP}) {
-      foreach my $v (&context2array($from)) {$targetVerseMap{$v} = '';}
-    }
-  }
+  # The following is commented out to keep external links to missing verses,
+  # since often they are part of a range which would become divided.
+  #if (%{$vsys_missesP}) {
+  #  foreach my $from (keys %{$vsys_missesP}) {
+  #    foreach my $v (&context2array($from)) {$targetVerseMap{$v} = '';}
+  #  }
+  #}
   
   # 3) Look for osisRefs in the osis file that need updating and update them
   if (%sourceVerseMap || %targetVerseMap) {
@@ -610,7 +613,7 @@ sub addrids(\@$\%) {
     foreach my $ev (@everses) {
       if ($ev ne $verse) {next;}
       if ($mapHP->{$verse}) {
-        foreach my $mv (split(/\s+/, $mapHP->{$verse})) {$ev = "x.$mv";}
+        $ev = join(' ', map("x.$_", split(/\s+/, $mapHP->{$verse})));
         $changed++;
       }
       elsif (defined($mapHP->{$verse})) {
@@ -639,12 +642,12 @@ sub applyrids(\@) {
       if ($e->getAttribute('osisRef') ne $newOsisRef) {
         my $origRef = $e->getAttribute('osisRef');
         $e->setAttribute('osisRef', $newOsisRef);
-        my $ie = ($e->nodeName ne 'reference' ? '':(@{$XPC->findnodes('./ancestor::osis:note[@resp]', $e)}[0] ? 'external ':'internal '));
+        my $ie = ($e->nodeName eq 'reference' ? (@{$XPC->findnodes('./ancestor::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
         my $est = $e; $est =~ s/^(.*?>).*$/$1/;
         &Log("NOTE: Updated $ie".$e->nodeName." osisRef=$origRef to $est\n");
         $count++;
       }
-      else {&Log("ERROR: OsisRef change could not be applied!\n");}
+      else {&Log("ERROR: OsisRef update resulted in original value!: $e\n");}
     }
     else {
       &Log("NOTE: Removing ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" pointing to missing verse\n");
@@ -667,9 +670,15 @@ sub applyVsysInstruction(\%\@$) {
   my $vs = $argP->{'vs'};
   my $lv = $argP->{'lv'};
   
+  if (!&getBooksOSIS($xml)->{$bk}) {
+    &Log("\nWARNING: Skipping VSYS_$inst because $bk is not in OSIS file.\n");
+    return 0;
+  }
+  
   if ($inst eq 'MISSING') {&applyVsysMissing($bk, $ch, $vs, $lv, $canonP, $xml);}
   elsif ($inst eq 'EXTRA') {&applyVsysExtra($bk, $ch, $vs, $lv, $canonP, $xml);}
   else {&Log("ERROR: applyVsysInstruction($bk, $ch, $vs, $lv): Unknown instruction: \"$inst\"\n");}
+  return 1;
 }
 
 # Used when verses in the verse system were not included in the translation. 
@@ -817,7 +826,7 @@ sub applyVsysExtra($$$$$$$) {
     &toAlternate(@{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0], 1);
   }
   
-  # Convert verse tags between startTag and endTag, and add alternate verse numbers
+  # Convert verse tags between startTag and endTag, and add alternate verse numbers (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
   my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
   my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
   my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
