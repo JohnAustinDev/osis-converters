@@ -2621,23 +2621,50 @@ sub expandOsisID($$) {
   return join(' ', @verses);
 }
 
+# Return a SWORD verse key with the osisID. If the osisID does not exist
+# in the verse system, then 0 is returned, unless dontCheck is set, in
+# which case the key is returned anyway (however bugs or errors will 
+# appear if such a key is later incremented, so use dontCheck with caution).
+sub getVerseKey($$$) {
+  my $osisID = shift;
+  my $osisIDWorkDefault = shift;
+  my $dontCheck = shift;
+  
+  my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
+  if ($osisID =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1;}
+  my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
+  
+  if (!$dontCheck && !&idInVerseSystem($osisID, $vsys)) {return 0;}
+  
+  my $vk = new Sword::VerseKey();
+  $vk->setVersificationSystem($vsys);
+  $vk->setAutoNormalize(0);
+  $vk->setText($osisID);
+
+  return $vk;
+}
+
 # Returns an equivalent osisRef from an osisID. The osisRef will contain 
 # one or more hyphenated continuation segments if sequential osisID 
-# verses are present (osisIDs cannot contain continuations). Hyphenated 
-# segments returned will cover at most one chapter.
+# verses are present (osisIDs cannot contain continuations). If 
+# onlySpanVerses is set, then hyphenated segments returned may cover at 
+# most one chapter (and in this case, the verse system is irrelevant). 
 # Note: it is assumed that osisRefWork = osisIDWork
-sub osisID2osisRef($$$) {
+sub osisID2osisRef($$$$) {
   my $osisID = shift;
   my $osisIDWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
+  my $onlySpanVerses = shift; # if true, ranges will only span verses (not chapters or books)
   
   my $osisRef = '';
   
   my @segs = &normalizeOsisID([ split(/\s+/, $osisID) ], $osisIDWorkDefault, $workPrefixFlag);
   my $inrange = 0;
   my $lastwk = '';
+  my $lastbk = '';
   my $lastch = '';
   my $lastvs = '';
+  my $vk;
   foreach my $seg (@segs) {
     my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
     my $pwork = ($workPrefixFlag =~ /always/i ? "$osisIDWorkDefault:":'');
@@ -2647,27 +2674,39 @@ sub osisID2osisRef($$$) {
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisIDWorkDefault:") {$pwork = '';}
     
-    if ($seg =~ /^([^\.]+\.\d+)\.(\d+)$/) {
-      my $ch = $1; my $vs = $2;
-      if ($lastwk eq $work && $lastch && $lastch eq $ch && $vs == ($lastvs+1)) {
+    if ($vk) {$vk->increment();}
+    
+    if ($vk && $lastwk eq $work && $vk->getOSISRef() eq $seg) {
+      $inrange = 1;
+      $lastbk = $vk->getOSISBookName();
+      $lastch = $vk->getChapter();
+      $lastvs = $vk->getVerse();
+      next;
+    }
+    elsif ($seg =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+      my $bk = $1; my $ch = $2; my $vs = $3;
+      if ($lastwk eq $work && $lastbk eq $bk && $lastch && $lastch eq $ch && $vs == ($lastvs+1)) {
         $inrange = 1;
       }
       else {
-        if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
+        if ($inrange) {$osisRef .= "-$lastbk.$lastch.$lastvs"; $inrange = 0;}
         $osisRef .= " $pwork$seg";
       }
       $lastwk = $work;
+      $lastbk = $bk;
       $lastch = $ch;
       $lastvs = $vs;
     }
     else {
-      if ($inrange) {$osisRef .= "-$lastch.$lastvs"; $inrange = 0;}
+      if ($inrange) {$osisRef .= "-$lastbk.$lastch.$lastvs"; $inrange = 0;}
       $osisRef .= " $pwork$seg";
+      $lastbk = '';
       $lastch = '';
       $lastvs = '';
     }
+    $vk = ($onlySpanVerses ? '':&getVerseKey($seg, $work));
   }
-  if ($inrange) {$osisRef .= "-$lastch.$lastvs";}
+  if ($inrange) {$osisRef .= "-$lastbk.$lastch.$lastvs";}
   $osisRef =~ s/^\s*//;
   
   return $osisRef;
