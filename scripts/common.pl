@@ -2595,9 +2595,13 @@ sub expandOsisID($$) {
   my $osisID = shift;
   my $vsys = shift;
   
-  if (!&idInVerseSystem($osisID, $vsys)) {return $osisID;}
-  if ($osisID !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {return 0;}
-  my $bk = $1; my $ch = ($2 ? $3:''); my $vs = ($4 ? $5:'');
+  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || !&idInVerseSystem($osisID, $vsys)) {
+    return $osisID;
+  }
+  if ($osisID !~ /^([^\.]+)(\.(\d+))?$/) {
+    return $osisID;
+  }
+  my $bk = $1; my $ch = ($2 ? $3:'');
   
   my @verses;
   my $vk = new Sword::VerseKey();
