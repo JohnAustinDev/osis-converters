@@ -2495,9 +2495,6 @@ sub osisRef2osisID($$$) {
   
   my @osisIDs;
   
-  my $vk = new Sword::VerseKey(); my $vkTest = new Sword::VerseKey();
-  $vk->setIntros(0); $vkTest->setIntros(0);
-  
   my $logTheResult;
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
     my $work = ($osisRefWorkDefault ? $osisRefWorkDefault:'');
@@ -2518,46 +2515,48 @@ sub osisRef2osisID($$$) {
     my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
     if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
+    my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
     
     # The task is to output every verse in the range, not to limit or test the input
     # with respect to the verse system. But outputing ranges greater than a chapter 
     # requires knowledge of the verse system, so SWORD is used for this.
-    push(@osisIDs, "$pwork$r1");
+    push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r1, $vsys))));
     if ($r1 ne $r2) {
-      my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
-      $vk->setVersificationSystem($vsys); $vk->setText($r1); $vk->normalize(1);
-      my $index;
-      if ($vk->getOSISRef() eq $r1) {
-        $vkTest->setVersificationSystem($vsys); $vkTest->setText($r2); $vkTest->normalize(1);
-        if ($vkTest->getIndex() < $vk->getIndex()) {
+      push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r2, $vsys))));
+      my $vk = new Sword::VerseKey();
+      $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system
+      $vk->setVersificationSystem($vsys); 
+      $vk->setText($r1);
+      my $index = $vk->getIndex();
+      if (&idInVerseSystem($r1, $vsys)) {
+        my $idxE = &idInVerseSystem($r2, $vsys);
+        if ($idxE && $idxE < $index) {
           &Log("ERROR osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"\n");
           next;
         }
         while (1) {
-          $index = $vk->getIndex();
           $vk->increment();
           if ($index eq $vk->getIndex() || 
-             ($vk->getOSISBookName() eq $b2 && $vk->getChapter() == $c2)
+             ($vk->getOSISBookName() eq $b2 && (!$c2 || $vk->getChapter() == $c2))
           ) {last;}
           push(@osisIDs, $pwork.$vk->getOSISRef());
+          $index = $vk->getIndex();
         }
       }
-      elsif ($b1 eq $b2 && $c1 == $c2) {
+      elsif ($b1 eq $b2 && $c2 && $c1 == $c2 && $v1 && $v2) {
         for (my $v=$v1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
         next;
       }
       else {
-        &Log("ERROR: osisRef2osisID: Verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
-        push(@osisIDs, "$pwork$r2");
+        &Log("ERROR: osisRef2osisID: Start verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
         $logTheResult++;
       }
-      
-      if ($index eq $vk->getIndex() || $vk->getOSISBookName() ne $b2 || $vk->getChapter() != $c2) {
-        &Log("ERROR: osisRef2osisID: Verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
-        push(@osisIDs, "$pwork$r2");
+           
+      if ($index eq $vk->getIndex() || $vk->getOSISBookName() ne $b2 || ($c2 && $vk->getChapter() != $c2)) {
+        &Log("ERROR: osisRef2osisID: End verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
         $logTheResult++;
       }
-      else {
+      elsif ($v2) {
         for (my $v=$vk->getVerse(); $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
       }
     }
@@ -2566,6 +2565,56 @@ sub osisRef2osisID($$$) {
   my $r = join(' ', &normalizeOsisID(\@osisIDs, $osisRefWorkDefault, $workPrefixFlag));
   if ($logTheResult) {&Log("'$r' = '$osisRefLong' ?\n");}
   return $r;
+}
+
+# Return index if osisID is in verse-system vsys, or 0 otherwise
+sub idInVerseSystem($$) {
+  my $osisID = shift; if (ref($osisID)) {$osisID = $osisID->getOSISRef();}
+  my $vsys = shift;
+ 
+  if ($osisID !~ /^([^\.]+)(\.\d+(\.\d+)?)?$/) {return 0;}
+  my $bk = $1;
+  my $reb = join('|', @bks, split(/\s+/, $OT_BOOKS), split(/\s+/, $NT_BOOKS));
+  if ($bk !~ /\b($reb)\b/) {return 0;}
+
+  my $vk = new Sword::VerseKey();
+  $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system
+  $vk->setVersificationSystem($vsys ? $vsys:'KJV'); 
+  $vk->setText($osisID);
+  my $before = $vk->getOSISRef();
+  $vk->normalize();
+  my $after = $vk->getOSISRef();
+
+  return ($before eq $after ? $vk->getIndex():0);
+}
+
+# Take an osisID of the form BOOK or BOOK.CH (or BOOK.CH.VS but this 
+# only returns itself) and expand it to a list of individual verses of 
+# the form BOOK.CH.VS, according to the verse system vsys.
+sub expandOsisID($$) {
+  my $osisID = shift;
+  my $vsys = shift;
+  
+  if (!&idInVerseSystem($osisID, $vsys)) {return $osisID;}
+  if ($osisID !~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {return 0;}
+  my $bk = $1; my $ch = ($2 ? $3:''); my $vs = ($4 ? $5:'');
+  
+  my @verses;
+  my $vk = new Sword::VerseKey();
+  $vk->setVersificationSystem($vsys ? $vsys:'KJV'); 
+  $vk->setText($osisID);
+  $vk->normalize();
+  
+  push(@verses, $vk->getOSISRef());
+  my $lastIndex = $vk->getIndex();
+  $vk->increment();
+  while ($lastIndex ne $vk->getIndex && $vk->getOSISBookName() eq $bk && (!$ch || $vk->getChapter() == $ch)) {
+    push(@verses, $vk->getOSISRef());
+    $lastIndex = $vk->getIndex();
+    $vk->increment();
+  }
+  
+  return join(' ', @verses);
 }
 
 # Returns an equivalent osisRef from an osisID. The osisRef will contain 
