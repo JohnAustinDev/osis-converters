@@ -2287,8 +2287,8 @@ sub dbg($$) {
 # Return context if there is intersection between context and test, else 0.
 # $context may be a dictionary entry or a bibleContext - see bibleContext()
 # $test can be:
-#   keyword - return context IF it is part of keyword's scope
-#   encoded osisRef - return context IF it intersects osisRef (which may include multiple ranges)
+#   special keyword - OT|NT|xALL return context IF it is part of keyword's scope
+#   osisRef - return context IF it intersects osisRef (which may include multiple ranges)
 # else return 0
 sub myContext($$) {
   my $test = shift;
@@ -2305,7 +2305,7 @@ sub myContext($$) {
   }
   foreach my $testPart (split(/\s+/, $test2)) {
     if (!ref($REF_SEG_CACHE{$testPart})) {
-      $REF_SEG_CACHE{$testPart} = [ map(&osisRef2Entry($_, 0, 1), split(/\s+/, &osisRef2osisID($testPart, $MOD))) ];
+      $REF_SEG_CACHE{$testPart} = [ map(&osisRef2Entry($_, 0, 1), @{&osisRefSegment2array($testPart)}) ];
     }
     foreach my $testSegment (@{$REF_SEG_CACHE{$testPart}}) {
       foreach my $contextSegment (&context2array($context)) {
@@ -2323,6 +2323,71 @@ sub myContext($$) {
   }
 
   return 0;
+}
+
+# Returns an array of non-hyphenated osisRef segments from an osisRef
+# segment. This is similar to osisRef2osisID but osisRefSegment2array 
+# returns an array pointer and the output includes book and chapter 
+# osisID segments in addition to verse osisIDs, which is much quicker 
+# and results in far fewer output segments.
+sub osisRefSegment2array($) {
+  my $osisRef = shift;
+  
+  my @refs = ();
+  
+  if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@refs, "TESTAMENT_INTRO.0");}
+  elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@refs, "TESTAMENT_INTRO.1");}
+
+  if ($osisRef !~ /^(.*?)\-(.*)$/) {
+    push(@refs, $osisRef);
+    return (\@refs);
+  }
+  my $r1 = $1; my $r2 = $2;
+  
+  if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {
+    &Log("ERROR osisRef2array: Bad ref \"$r1\" in segment \"$osisRef\"\n");
+    push(@refs, $r1);
+    push(@refs, $r2);
+    return \@refs;
+  }
+  my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
+  if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {
+    &Log("ERROR osisRef2array: Bad ref \"$r2\" in segment \"$osisRef\"\n");
+    push(@refs, $r1);
+    push(@refs, $r2);
+    return \@refs;
+  }
+  my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
+
+  my ($canonP, $bookOrderP, $bookArrayP);
+  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+
+  # iterate from starting verse?
+  if ($v1 > 0) {
+    my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
+    for (my $v=$v1; $v<=$ve; $v++) {push(@refs, "$b1.$c1.$v");}
+  }
+  # iterate from starting chapter?
+  if ($c1 > 0) {
+    my $ce = ($b1 eq $b2 ? ($v2>0 ? ($c2-1):$c2):@{$canonP->{$b1}});
+    for (my $c=($v1>0 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@refs, "$b1.$c");}
+  }
+  # iterate from starting book?
+  if ($b1 ne $b2) {
+    my $bs = ($c1>0 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
+    my $be = ($c2>0 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
+    for (my $b=$bs; $b<=$be; $b++) {push(@refs, @{$bookArrayP}[$b]);}
+    # iterate to ending chapter?
+    if ($c2 > 0) {
+      for (my $c=1; $c<=($v2>0 ? $c2-1:$c2); $c++) {push(@refs, "$b2.$c");}
+    }
+  }
+  # iterate to ending verse?
+  if ($v2 > 0 && !($b1 eq $b2 && $c1==$c2)) {
+    for (my $v=1; $v<=$v2; $v++) {push(@refs, "$b2.$c2.$v");}
+  }
+
+  return \@refs;
 }
 
 # $test can be:
@@ -2475,9 +2540,11 @@ sub context2array($) {
 }
 
 
-# Returns an equivalent osisID from an osisRef. The osisRef may contain 
-# one or more hyphenated continuation segments (osisIDs cannot contain 
-# continuations). Note: it is assumed that osisRefWork = osisIDWork.
+# Returns an atomized equivalent osisID from an osisRef. By atomized 
+# meaning each segment of the result is a verse ID or keyword ID. The 
+# osisRef may contain one or more hyphenated continuation segments 
+# but osisIDs cannot contain continuations. Note: it is always assumed 
+# that osisRefWork = osisIDWork.
 sub osisRef2osisID($$$) {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
