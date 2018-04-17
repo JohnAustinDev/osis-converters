@@ -39,6 +39,8 @@ sub addSeeAlsoLinks($$) {
     
     &Log("PARSING ".@entries." ENTRIES...\n");
     
+    undef($REF_SEG_CACHE);
+    
     # Process OSIS dictionary input file (from usfm2osis.py)
     my $xml = $XML_PARSER->parse_file($in_file);
     

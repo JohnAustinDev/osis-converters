@@ -262,7 +262,7 @@ ERROR: FIX replacement (after equal sign) must either be nothing to unlink,
   foreach my $file (@files) {
     if ($file !~ /other\.osis$/) {next;}
     my $xml = $XML_PARSER->parse_file($file);
-    $refSystem = &getOSISHeaderValueFromNode('refSystem', $xml);
+    $refSystem = &getRefSystemOSIS($xml);
     last;
   }
   foreach my $file (@files) {&asrlProcessFile($file, $refSystem);}

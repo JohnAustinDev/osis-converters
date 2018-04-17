@@ -31,6 +31,8 @@ sub addDictLinks($$) {
     return;
   }
   
+  undef($REF_SEG_CACHE);
+  
   my @files = &splitOSIS($in_file);
   foreach my $file (@files) {&adlProcessFile($file);}
   &joinOSIS($out_file);

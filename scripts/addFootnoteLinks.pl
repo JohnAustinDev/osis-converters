@@ -144,7 +144,7 @@ sub addFootnoteLinks($$) {
       if ($file !~ /other\.osis$/) {next;}
       my $bosisXml = $XML_PARSER->parse_file($file);
       $bmod = &getOsisRefWork($bosisXml);
-      $brefSystem = &getOSISHeaderValueFromNode('refSystem', $bosisXml);
+      $brefSystem = &getRefSystemOSIS($bosisXml);
       $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($bosisXml);
       last;
     }
@@ -180,7 +180,7 @@ sub addFootnoteLinks($$) {
     $xmls{$file} = $XML_PARSER->parse_file($file);
     if ($file =~ /other\.osis$/) {
       $myMod = &getOsisRefWork($xmls{$file});
-      $myRefSystem = &getOSISHeaderValueFromNode('refSystem', $xmls{$file});
+      $myRefSystem = &getRefSystemOSIS($xmls{$file});
       $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
       $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($xmls{$file});
     }

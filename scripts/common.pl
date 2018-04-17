@@ -234,23 +234,23 @@ sub loadDictionaryWordsXML($) {
   $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
   
   # check for old DWF markup and update
-  my @tst = $XPC->findnodes('//dw:div', $DWF);
-  if (!@tst || !@tst[0]) {
+  my $tst = @{$XPC->findnodes('//dw:div', $DWF)}[0];
+  if (!$tst) {
     &Log("ERROR: Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default!\nAdd 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
     my @ns = $XPC->findnodes('//*', $DWF);
     foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1);}
   }
-  my @tst = $XPC->findnodes('//*[@highlight]', $DWF);
-  if (@tst && @tst[0]) {
+  my $tst = @{$XPC->findnodes('//*[@highlight]', $DWF)}[0];
+  if ($tst) {
     &Log("ERROR: Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"\nRemove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.\n\n");
   }
-  my @tst = $XPC->findnodes('//*[@notXPATH]', $DWF);
-  if (!@tst || !@tst[0]) {
+  my $tst = @{$XPC->findnodes('//*[@notXPATH]', $DWF)}[0];
+  if (!$tst) {
     &Log("ERROR: Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting!\nAdd 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
     @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
   }
-  my @tst = $XPC->findnodes('//*[@withString]', $DWF);
-  if (@tst && @tst[0]) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");}
+  my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
+  if ($tst) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");}
 
 
   if (!my $companionsAlso) {return 1;}
@@ -1632,8 +1632,7 @@ sub convertExplicitGlossaryElements(\@) {
     $tn0->setData($tn0v);
     @tn[0] = XML::LibXML::Text->new($gl);
     $tn0->parentNode->insertAfter(@tn[0], $tn0);
-    my @isGlossary = $XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0]);
-    &addDictionaryLinks(\@tn, 1, (@isGlossary && @isGlossary[0]));
+    &addDictionaryLinks(\@tn, 1, (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0])}[0] ? 1:0));
     if ($before eq $g->parentNode->toString()) {
       &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n");
       $ExplicitGlossary{$gl}{"Failed"}++;
@@ -1713,13 +1712,23 @@ sub addDictionaryLinks(\@$$) {
 sub getModNameOSIS($) {
   my $node = shift; # might already be string mod name- in that case just return it
   if (!ref($node)) {return $node;}
-  &checkDocumentCache($node);
-  my $k = $node->ownerDocument->URI.$node->unique_key;
-  if (!$DOCUMENT_CACHE{$k}{'getModNameOSIS'}) {
-    $DOCUMENT_CACHE{$k}{'getModNameOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $node)}[0]->getAttribute('osisIDWork');
+  
+  # Generate doc data if the root document has not been seen before
+  my $headerDoc = $node->ownerDocument->URI;
+  if (!$DOCUMENT_CACHE{$headerDoc}) {
+    # When splitOSIS() is used, the document containing the header may be different than the current node's document.
+    my $testDoc = $headerDoc;
+    if ($testDoc =~ s/[^\/]+$/other.osis/ && -e $testDoc) {$headerDoc = $testDoc;}
   }
-  return $DOCUMENT_CACHE{$k}{'getModNameOSIS'};
+  if (!$DOCUMENT_CACHE{$headerDoc}) {&initDocumentCache($headerDoc);}
+  
+  if (!$DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'}) {
+    &Log("ERROR: getModNameOSIS: No value for \"$headerDoc\"!\n");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
 }
+
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'}) {
@@ -1790,67 +1799,40 @@ sub existsElementID($$$) {
   }
   return ($DOCUMENT_CACHE{$search}{$osisID} eq 'yes');
 }
-sub checkDocumentCache($) {
-  my $node = shift;
-  # The functions associated with this one use cached header data for a big speedup.
-  # When splitOSIS() is used, the document containing the header may be different than the current node. So fix this here.
-  if (!@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $node)}[0]) {
-    my $headerDoc = $node->ownerDocument->URI;
-    if ($headerDoc =~ s/[^\/]+$/other.osis/ && -e $headerDoc) {$node = $XML_PARSER->parse_file($headerDoc);}
-    else {&Log("ERROR checkDocumentCache: Could not find header document associated with \"$headerDoc\"\n");}
-  }
-  # If the working document URI changes, reload the cache
-  if ($DOCUMENT_CACHE{'myuri'} eq $node->ownerDocument->URI) {return;}
-  undef %DOCUMENT_CACHE;
-  $DOCUMENT_CACHE{'myuri'} = $node->ownerDocument->URI;
+# Associated functions use this cached header data for a big speedup. 
+# The cache is cleared and reloaded the first time a node is referenced 
+# from an OSIS file URL.
+sub initDocumentCache($) {
+  my $headerDoc = shift;
+  
   if (-e "$INPD/$DICTIONARY_WORDS") {$DOCUMENT_CACHE{'DWF'}{'xml'} = $DWF;}
-  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $node)}[0]->getAttribute('osisIDWork');
-  $DOCUMENT_CACHE{$osisIDWork}{'xml'} = $node->ownerDocument;
-  my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $DOCUMENT_CACHE{$osisIDWork}{'xml'});
+  
+  undef($DOCUMENT_CACHE{$headerDoc});
+  my $xml = $XML_PARSER->parse_file($headerDoc);
+  $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
+  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
+  $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
+  
+  # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
+  undef($DOCUMENT_CACHE{$osisIDWork});
+  $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
+  $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
+  $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
+  my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
+  $DOCUMENT_CACHE{$osisIDWork}{'getBooksOSIS'} = \%books;
+  
+  # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
+  my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $xml);
   foreach my $work (@works) {
     my $w = $work->getAttribute('osisWork');
-    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
-    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $work)}[0]->textContent;
-    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
-    my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $work))) {$books{$bk}++;}
-    $DOCUMENT_CACHE{$w}{'getBooksOSIS'} = \%books;
+    if ($w eq $osisIDWork) {next;}
+    undef($DOCUMENT_CACHE{$w});
+    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'}   = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$headerDoc}{'getVerseSystemOSIS'};
+    $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
   }
-}
-
-
-# Get any OSIS file header value, where:
-#   name = name of the work element whose value is wanted
-#   node = any node in the file
-#   mod = (optional) work whose value is wanted. Default is SELF (not any companion).
-#   attribsP = (optional) pointer to hash of work element attribs and values of the work element whose value is wanted
-sub getOSISHeaderValueFromNode($$$$) {
-  my $name = shift;
-  my $node = shift;
-  my $mod = shift;
-  my $attribsP = shift;
-  
-  $mod = ($mod ? $mod:&getOsisRefWork($node));
-  
-  my $xpath = '//osis:header/osis:work[@osisWork="'.$mod.'"]/osis:'.$name.'';
-  if ($attribsP) {
-    my @atts;
-    foreach my $a (sort keys %{$attribsP}) {
-      push(@atts, '@'.$a.'="'.$attribsP->{$a}.'"');
-    }
-    if (@atts) {$xpath .= '['.join(' and ', @atts).']';}
-  }
-  
-  my @r = $XPC->findnodes($xpath, $node);
-  
-  if (!@r || !@r[0]) {
-    &Log("ERROR getOSISHeaderValueFromNode: No value found (xpath=\"$xpath\", node=\"$node\")\n");
-    return '';
-  }
-  elsif (@r > 1) {
-    &Log("WARNING getOSISHeaderValueFromNode: Multiple possible values found but returning only first (xpath=\"$xpath\", node=\"$node\")\n");
-  }
-  
-  return @r[0]->textContent;
 }
 
 sub getProjectOsisFile($) {
@@ -1975,12 +1957,12 @@ sub addDictionaryLink(\$$$$\@) {
         if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}
       }
       if ($m->{'XPATH'}) {
-        my @tst = $XPC->findnodes($m->{'XPATH'}, $textNode);
-        if (!@tst || !@tst[0]) {&dbg("filtered at 70\n"); next;}
+        my $tst = @{$XPC->findnodes($m->{'XPATH'}, $textNode)}[0];
+        if (!$tst) {&dbg("filtered at 70\n"); next;}
       }
       if ($m->{'notXPATH'}) {
-        @tst = $XPC->findnodes($m->{'notXPATH'}, $textNode);
-        if (@tst && @tst[0]) {&dbg("filtered at 80\n"); next;}
+        $tst = @{$XPC->findnodes($m->{'notXPATH'}, $textNode)}[0];
+        if ($tst) {&dbg("filtered at 80\n"); next;}
       }
     }
     
@@ -2260,7 +2242,7 @@ sub getScopedAttribute($$) {
   my $negative = ($a =~ /^not/ ? $a:'not'.ucfirst($a));
     
   my @r = $XPC->findnodes("ancestor-or-self::*[\@$positive or \@$negative]", $m);
-  if (@r && @r[0]) {
+  if (@r[0]) {
     my @ps; my @ns;
     foreach my $re (@r) {
       my $p = $re->getAttribute($positive);
@@ -2286,6 +2268,8 @@ sub getScopedAttribute($$) {
 
 
 sub dbg($$) {
+  return;
+  
   my $p = shift;
   
 #for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
@@ -2300,11 +2284,11 @@ sub dbg($$) {
 }
 
 
-# return context if any part of context is a part of $test, else 0
-# $context may be a dictionary entry or a special Bible range - see bibleContext()
+# Return context if there is intersection between context and test, else 0.
+# $context may be a dictionary entry or a bibleContext - see bibleContext()
 # $test can be:
 #   keyword - return context IF it is part of keyword's scope
-#   encoded osisRef - return context IF it is within scope of osisRef (which may include multiple ranges)
+#   encoded osisRef - return context IF it intersects osisRef (which may include multiple ranges)
 # else return 0
 sub myContext($$) {
   my $test = shift;
@@ -2320,8 +2304,7 @@ sub myContext($$) {
     $test2 = $NT_BOOKS;
   }
   foreach my $testPart (split(/\s+/, $test2)) {
-    if ($testPart =~ /^\s*$/) {next;}
-    if (!$REF_SEG_CACHE{$testPart}) {
+    if (!ref($REF_SEG_CACHE{$testPart})) {
       $REF_SEG_CACHE{$testPart} = [ map(&osisRef2Entry($_, 0, 1), split(/\s+/, &osisRef2osisID($testPart, $MOD))) ];
     }
     foreach my $testSegment (@{$REF_SEG_CACHE{$testPart}}) {
@@ -2370,53 +2353,53 @@ sub bibleContext($) {
   my $context = '';
   
   # get book
-  my @bk = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $node);
-  my $bk = (@bk ? @bk[0]->getAttribute('osisID'):'');
+  my $bk = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $node)}[0];
+  my $bkID = ($bk ? $bk->getAttribute('osisID'):'');
   
   # no book means we might be a Bible or testament introduction (or else an entirely different type of OSIS file)
-  if (!$bk) {
-    my $refSystem = &getOSISHeaderValueFromNode('refSystem', $node);
+  if (!$bkID) {
+    my $refSystem = &getRefSystemOSIS($node);
     if ($refSystem !~ /^Bible/) {
       &Log("ERROR bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"\n");
       return '';
     }
-    my @tst = $XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node);
-    if (@tst && @tst[0]) {
-      return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', @tst[0])}).".0.0";
+    my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node)}[0];
+    if ($tst) {
+      return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', $tst)}).".0.0";
     }
     return "BIBLE_INTRO.0.0.0";
   }
 
-  my @e;
-  if (@bk && $bk) {
+  my $e;
+  if ($bk && $bkID) {
     # find most specific osisID associated with elem (assumes milestone verse/chapter tags and end tags which have no osisID attribute)
-    my @v = $XPC->findnodes('preceding::osis:verse[@osisID][1]', $node);
-    if (@v && @v[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@v = ();}
+    my $v = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $node)}[0];
+    if ($v && $v->getAttribute('osisID') !~ /^\Q$bkID.\E/) {$v = '';}
 
-    my @c = $XPC->findnodes('preceding::osis:chapter[@osisID][1]', $node);
-    if (@c && @c[0]->getAttribute('osisID') !~ /^\Q$bk.\E/) {@c = ();}
+    my $c = @{$XPC->findnodes('preceding::osis:chapter[@osisID][1]', $node)}[0];
+    if ($c && $c->getAttribute('osisID') !~ /^\Q$bkID.\E/) {$c = '';}
     
     # if we have verse and chapter, but verse is not within chapter, use chapter instead
-    if (@v && @v[0]) {
-      if (@c && @c[0]) {
+    if ($v) {
+      if ($c) {
         my $bkch;
-        if (@v[0]->getAttribute('osisID') =~ /^([^\.]*\.[^\.]*)(\.|$)/) {
+        if ($v->getAttribute('osisID') =~ /^([^\.]*\.[^\.]*)(\.|$)/) {
           $bkch = $1;
         }
-        if (!$bkch || @c[0]->getAttribute('osisID') !~ /^\Q$bkch\E(\.|$)/) {
-          @e = @c;
+        if (!$bkch || $c->getAttribute('osisID') !~ /^\Q$bkch\E(\.|$)/) {
+          $e = $c;
         }
       }
-      if (!@e) {@e = @v;}
+      if (!$e) {$e = $v;}
     }
-    else {@e = @c;}
+    else {$e = $c;}
     
-    if (!@e || !@e[0]) {@e = @bk;}
+    if (!$e) {$e = $bk;}
   }
   
   # get context from most specific osisID
-  if (@e) {
-    my $id = @e[0]->getAttribute('osisID');
+  if ($e) {
+    my $id = $e->getAttribute('osisID');
     $context = ($id ? $id:"unk.0.0.0");
     if ($id =~ /^\w+$/) {$context .= ".0.0.0";}
     elsif ($id =~ /^\w+\.\d+$/) {$context .= ".0.0";}
