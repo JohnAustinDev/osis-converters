@@ -1792,6 +1792,13 @@ sub existsElementID($$$) {
 }
 sub checkDocumentCache($) {
   my $node = shift;
+  # The functions associated with this one use cached header data for a big speedup.
+  # When splitOSIS() is used, the document containing the header may be different than the current node. So fix this here.
+  if (!@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $node)}[0]) {
+    my $headerDoc = $node->ownerDocument->URI;
+    if ($headerDoc =~ s/[^\/]+$/other.osis/ && -e $headerDoc) {$node = $XML_PARSER->parse_file($headerDoc);}
+    else {&Log("ERROR checkDocumentCache: Could not find header document associated with \"$headerDoc\"\n");}
+  }
   # If the working document URI changes, reload the cache
   if ($DOCUMENT_CACHE{'myuri'} eq $node->ownerDocument->URI) {return;}
   undef %DOCUMENT_CACHE;
@@ -3902,7 +3909,7 @@ sub writeMissingNoteOsisRefsFAST($) {
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    $count = &writeMissingNoteOsisRefs($xml, $refSystem);
+    $count = &writeMissingNoteOsisRefs($xml);
     open(OUTF, ">$file") or die "writeMissingNoteOsisRefsFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
@@ -3917,11 +3924,11 @@ sub writeMissingNoteOsisRefsFAST($) {
 # glossaries this is the note's context keyword. For Bibles this is also 
 # the note's context, unless the note contains a reference of type 
 # annotateRef, in which case the note applies to the annotateRef passage.
-sub writeMissingNoteOsisRefs($$) {
+sub writeMissingNoteOsisRefs($) {
   my $xml = shift;
-  my $refSystem = shift;
   
   my @notes = $XPC->findnodes('//osis:note[not(@osisRef)]', $xml);
+  my $refSystem = &getRefSystemOSIS($xml);
   
   my $count = 0;
   foreach my $note (@notes) {
@@ -3983,7 +3990,7 @@ sub removeDefaultWorkPrefixesFAST($) {
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    &removeDefaultWorkPrefixes($xml, $refSystem, \%stats);
+    &removeDefaultWorkPrefixes($xml, \%stats);
     open(OUTF, ">$file") or die "removeDefaultWorkPrefixesFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
@@ -3998,9 +4005,8 @@ sub removeDefaultWorkPrefixesFAST($) {
 # Removes work prefixes of all osisIDs and osisRefs which match their
 # respective osisText osisIDWork or osisRefWork attribute value (in 
 # other words removes work prefixes which are unnecessary).
-sub removeDefaultWorkPrefixes($$\%) {
+sub removeDefaultWorkPrefixes($\%) {
   my $xml = shift;
-  my $refSystem = shift;
   my $statsP = shift;
   
   # normalize osisRefs
