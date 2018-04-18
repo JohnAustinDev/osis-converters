@@ -2337,7 +2337,7 @@ sub myContext($$) {
         }
         else {
           # is this contextSegment part of this testSegment?
-          if ($contextSegment =~ /\Q$testSegment\E/i) {return $context;}
+          if ($contextSegment =~ /\Q$testSegment\E(\.|$)/i) {return $context;}
         }
       }
     }
