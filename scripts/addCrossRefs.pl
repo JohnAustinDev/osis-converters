@@ -91,17 +91,17 @@ presentational text, it will be added. An example OSIS cross-reference:
 
   ########################################################################
   &Log("READING OSIS FILE: \"$in_osis\".\n");
-  $OSIS = $XML_PARSER->parse_file($in_osis);
+  my $osis = $XML_PARSER->parse_file($in_osis);
 
   # Save all Book and Verse nodes in the OSIS file to data structures
   %Book;
-  foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $OSIS)) {
+  foreach my $b ($XPC->findnodes('//osis:div[@type="book"]', $osis)) {
     my $bk = $b->findvalue('./@osisID');
     $Book{$bk} = $b;
   }
 
   %Verse;
-  my @verses = $XPC->findnodes('//osis:verse', $OSIS);
+  my @verses = $XPC->findnodes('//osis:verse', $osis);
   foreach my $v (@verses) {
     if ($v->hasChildNodes()) {&Log("ERROR: addCrossRefs.pl expects milestone verse tags\n"); die;}
     my $tt = 'start';
@@ -119,7 +119,7 @@ presentational text, it will be added. An example OSIS cross-reference:
   
   my %localization;
   my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
-  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $OSIS);
+  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $osis);
   if ($BOOKNAMES || @toc3[0]) {
     &Log("NOTE: Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc".$tocxr." tags=\"".scalar(@toc3)."\").\n");
     $localization{'hasLocalization'}++;
@@ -160,7 +160,7 @@ presentational text, it will be added. An example OSIS cross-reference:
     my $nametype = ('', 'long', 'short', 'abbr')[$tocxr];
     my @books = split(' ', $OT_BOOKS . ' ' . $NT_BOOKS);
     foreach my $book (@books) {
-      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $OSIS)}[0];
+      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $osis)}[0];
       if ($abbr) {$abbr = $abbr->value;}
       if ($BOOKNAMES{$book}{$nametype}) {
         if (!$abbr) {$abbr = $BOOKNAMES{$book}{$nametype};}
@@ -237,9 +237,11 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 
   ########################################################################
   &Log("WRITING NEW OSIS FILE: \"$out_osis\".\n");
-  open(OUTF, ">$out_osis");
-  print OUTF $OSIS->toString();
-  close(OUTF);
+  if (open(OUTF, ">$out_osis")) {
+    print OUTF $osis->toString();
+    close(OUTF);
+  }
+  else {&Log("ERROR: Could not open \"$out_osis\" for writing.\n");}
 
   &Log("\n$MOD REPORT: Placed $NumNotes cross-reference notes.\n");
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
