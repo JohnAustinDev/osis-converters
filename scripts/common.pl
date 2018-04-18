@@ -117,8 +117,10 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
   
   $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
-  if (-e $TMPDIR) {remove_tree($TMPDIR);}
-  make_path($TMPDIR);
+  if (!$NO_OUTPUT_DELETE) {
+    if (-e $TMPDIR) {remove_tree($TMPDIR);}
+    make_path($TMPDIR);
+  }
   
   if (!$quiet) {
     &Log("osis-converters git rev: $GITHEAD\n\n");
@@ -1728,7 +1730,6 @@ sub getModNameOSIS($) {
   }
   return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
 }
-
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'}) {
@@ -1746,6 +1747,22 @@ sub getVerseSystemOSIS($) {
     return $VERSESYS;
   }
   return $DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'};
+}
+sub getBibleModOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  if (!$DOCUMENT_CACHE{$mod}{'getBibleModOSIS'}) {
+    &Log("ERROR: getBibleModOSIS: No document node for \"$mod\"!\n");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$mod}{'getBibleModOSIS'};
+}
+sub getDictModOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  if (!$DOCUMENT_CACHE{$mod}{'getDictModOSIS'}) {
+    &Log("ERROR: getDictModOSIS: No document node for \"$mod\"!\n");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$mod}{'getDictModOSIS'};
 }
 sub getOsisRefWork($) {return &getModNameOSIS(shift);}
 sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
@@ -1820,6 +1837,8 @@ sub initDocumentCache($) {
   $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
+  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]', $xml)}[0]->getAttribute('osisWork');
+  $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'}     = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
   my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
   $DOCUMENT_CACHE{$osisIDWork}{'getBooksOSIS'} = \%books;
   
@@ -1830,7 +1849,9 @@ sub initDocumentCache($) {
     if ($w eq $osisIDWork) {next;}
     undef($DOCUMENT_CACHE{$w});
     $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'}   = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
-    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$headerDoc}{'getVerseSystemOSIS'};
+    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
+    $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
+    $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
     $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
   }
 }
@@ -3840,6 +3861,8 @@ sub splitOSIS($) {
   my $in_osis = shift;
   
   &Log("\nsplitOSIS: ".&encodePrintPaths($in_osis).":\n", 2);
+  
+  undef(%DOCUMENT_CACHE); # splitOSIS uses the same file paths over again and DOCUMENT_CACHE is keyed on file path!
   
   my @return;
   
