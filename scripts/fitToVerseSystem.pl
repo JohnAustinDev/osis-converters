@@ -520,8 +520,8 @@ AIDS:
     foreach my $from (keys %{$vsys_movesP}) {
       my $tov = $vsys_movesP->{$from}; $tov =~ s/\.PART$//;
       my $partial = ($from =~ s/\.PART$// ? "$from ":'');
-      my @f = &context2array($from);
-      my @t = &context2array($tov);
+      my @f = &contextArray($from);
+      my @t = &contextArray($tov);
       if (@f == @t) {
         for (my $i=0; $i <= $#f; $i++) {
           my $to = @t[$i];
@@ -550,7 +550,7 @@ AIDS:
   # since often they are part of a range which would become divided.
   #if (%{$vsys_missesP}) {
   #  foreach my $from (keys %{$vsys_missesP}) {
-  #    foreach my $v (&context2array($from)) {$targetVerseMap{$v} = '';}
+  #    foreach my $v (&contextArray($from)) {$targetVerseMap{$v} = '';}
   #  }
   #}
   

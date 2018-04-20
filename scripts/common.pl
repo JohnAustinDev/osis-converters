@@ -37,6 +37,10 @@ $FNREFEXT = "!note.n";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
 $NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
+foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
+  $OSISBOOKS{$bk}++;
+}
+$OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]";
 $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
@@ -1899,6 +1903,9 @@ sub addDictionaryLink(\$$$$\@) {
   
   # Cache match related info
   if (!@MATCHES) {
+    my $notes;
+    $OT_CONTEXTSP =  &getContexts('OT');
+    $NT_CONTEXTSP =  &getContexts('NT');
     my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
       my %minfo;
@@ -1910,7 +1917,9 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'multiple'} = &attributeIsSet('multiple', $m);
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
+      $minfo{'contexts'} = &getContexts($minfo{'context'}, \$notes);
       $minfo{'notContext'} = &getScopedAttribute('notContext', $m);
+      $minfo{'notContexts'} = &getContexts($minfo{'notContext'}, \$notes);
       $minfo{'notXPATH'} = &getScopedAttribute('notXPATH', $m);
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
@@ -1930,6 +1939,7 @@ sub addDictionaryLink(\$$$$\@) {
       
       push(@MATCHES, \%minfo);
     }
+    if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
   }
   
   my $context;
@@ -1943,8 +1953,8 @@ sub addDictionaryLink(\$$$$\@) {
   if ($multiples_context ne $LAST_CONTEXT) {undef %MULTIPLES; &Log("--> $multiples_context\n", 2);}
   $LAST_CONTEXT = $multiples_context;
   
-  my $contextIsOT = &myContext('OT', $context);
-  my $contextIsNT = &myContext('NT', $context);
+  my $contextIsOT = &inContext($context, $OT_CONTEXTSP);
+  my $contextIsNT = &inContext($context, $NT_CONTEXTSP);
   my @contextNote = $XPC->findnodes("ancestor::osis:note", $textNode);
   
   my $a;
@@ -1971,11 +1981,11 @@ sub addDictionaryLink(\$$$$\@) {
         elsif ($MULTIPLES{$m->{'node'}->unique_key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
-        my $gs = scalar(@{$glossaryScopeP}); my $ic = &myContext($m->{'context'}, $context); my $igc = ($gs ? &myGlossaryContext($m->{'context'}, $glossaryScopeP):0);
+        my $gs = scalar(@{$glossaryScopeP}); my $ic = &inContext($context, $m->{'contexts'}); my $igc = ($gs ? &inGlossaryContext($glossaryScopeP, $m->{'contexts'}):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
       }
       if ($m->{'notContext'}) {
-        if (&myContext($m->{'notContext'}, $context)) {&dbg("filtered at 60\n"); next;}
+        if (&inContext($context, $m->{'notContexts'})) {&dbg("filtered at 60\n"); next;}
       }
       if ($m->{'XPATH'}) {
         my $tst = @{$XPC->findnodes($m->{'XPATH'}, $textNode)}[0];
@@ -2305,121 +2315,99 @@ sub dbg($$) {
 }
 
 
-# Return context if there is intersection between context and test, else 0.
-# $context may be a dictionary entry or a bibleContext - see bibleContext()
-# $test can be:
-#   special keyword - OT|NT|xALL return context IF it is part of keyword's scope
-#   osisRef - return context IF it intersects osisRef (which may include multiple ranges)
-# else return 0
-sub myContext($$) {
-  my $test = shift;
-  my $context = shift;
-
-  my $test2 = $test;
-  if ($test eq 'OT') {
-    if ($context =~ /^TESTAMENT_INTRO\.0\./) {return $context;}
-    $test2 = $OT_BOOKS;
-  }
-  elsif ($test eq 'NT') {
-    if ($context =~ /^TESTAMENT_INTRO\.1\./) {return $context;}
-    $test2 = $NT_BOOKS;
-  }
-  foreach my $testPart (split(/\s+/, $test2)) {
-    if (!ref($REF_SEG_CACHE{$testPart})) {
-      $REF_SEG_CACHE{$testPart} = [ map(&osisRef2Entry($_, 0, 1), @{&osisRefSegment2array($testPart)}) ];
+# Takes context/notContext attribute values from DictionaryWords.xml 
+# (which are osisRef values) and converts them into a hash containing 
+# the contextArray members (which compose the attribute value). 
+#
+# See contextArray() which outputs only the following forms:
+# BIBLE_INTRO.0.0.0 = Bible intro
+# TESTAMENT_INTRO.0.0.0 = Old Testament intro
+# TESTAMENT_INTRO.1.0.0 = New Testament intro
+# Gen.0.0.0 = Gen book intro
+# Gen.1.0.0 = Gen chapter 1 intro
+# Gen.1.1 = Genesis 1:1
+#
+# This function also outputs the following possibility for a big speedup
+# Gen
+sub getContexts($\$) {
+  my $refs = shift;
+  my $notesP = shift;
+  
+  my %h;
+  foreach my $ref (split(/\s+/, $refs)) {
+    # Handle whole book
+    if ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++; next;}
+    
+    # Handle keywords OT and NT
+    if ($ref =~ /^(OT|NT)$/) {
+      $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '0':'1').'.0.0'}++;
+      foreach my $bk (split(/\s+/, ($ref eq 'OT' ? $OT_BOOKS:$NT_BOOKS))) {
+        $h{'books'}{$bk}++;
+      }
+      next;
     }
-    foreach my $testSegment (@{$REF_SEG_CACHE{$testPart}}) {
-      foreach my $contextSegment (&context2array($context)) {
-        my $xTestSegmentAfterBK = $testSegment;
-        if ($xTestSegmentAfterBK =~ s/^xALL(?=\.)//) {
-          if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
-          if ($contextSegment =~ /^($AllBooksRE)\Q$xTestSegmentAfterBK\E/i) {return $context;}
-        }
-        else {
-          # is this contextSegment part of this testSegment?
-          if ($contextSegment =~ /\Q$testSegment\E(\.|$)/i) {return $context;}
+    
+    # Handle special case of BOOK1-BOOK2 for a major speedup
+    if ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
+      my $bookOrderP; &getCanon($VERSESYS, NULL, \$bookOrderP, NULL);
+      my $aP = &scopeToBooks($ref, $bookOrderP);
+      foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
+      next;
+    }
+      
+    foreach my $k (split(/\s+/, &osisRef2osisID($ref))) {
+    
+      # Normalize all osisIDs to contextArray form
+      $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d)$/$1.0.0/;
+      $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d\.\d)$/$1.0/;
+      $k =~ s/^([^\.]+\.0)$/$1.0/;
+      
+      # Handle keyword xALL
+      if ($k =~ s/^xALL\b//) {
+        foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
+          $h{'contexts'}{"$bk$k"}++;
         }
       }
+      
+      elsif ($k =~ s/^[A-Za-z]+\://) {$h{'contexts'}{&decodeOsisRef($k)}++;}
+      else {$h{'contexts'}{$k}++;}
     }
   }
+  
+  if ($notesP && $refs && !$ALREADY_NOTED_RESULT{$refs}) {
+    $ALREADY_NOTED_RESULT{$refs}++;
+    $$notesP .= "NOTE: Converted context attribute value to contexts:\n";
+    $$notesP .= "  Context  = $refs\n";
+    $$notesP .= "  Contexts =".join(' ', sort { &osisIDSort($a, $b) } keys(%{$h{'books'}})).' '.join(' ', sort { &osisIDSort($a, $b) } keys(%{$h{'contexts'}}))."\n\n";
+  }
+  
+  return \%h;
+}
 
+# Return context if there is intersection between context and contextsHashP, else 0.
+# $context may be a dictionary entry, bibleContext (see bibleContext()) or book name.
+# $contextsHashP is output hash from getContexts()
+sub inContext($\%) {
+  my $context = shift;
+  my $contextsHashP = shift;
+  
+  foreach my $contextID (&contextArray($context)) {
+    if ($contextsHashP->{'contexts'}{$contextID}) {return $context;}
+    # check book alone
+    if ($contextID =~ s/^([^\.]+).*?$/$1/ && $contextsHashP->{'books'}{$contextID}) {
+      return $context;
+    }
+  }
+  
   return 0;
 }
 
-# Returns an array of non-hyphenated osisRef segments from an osisRef
-# segment. This is similar to osisRef2osisID but osisRefSegment2array 
-# returns an array pointer and the output includes book and chapter 
-# osisID segments in addition to verse osisIDs, which is much quicker 
-# and results in far fewer output segments.
-sub osisRefSegment2array($) {
-  my $osisRef = shift;
-  
-  my @refs = ();
-  
-  if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@refs, "TESTAMENT_INTRO.0");}
-  elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@refs, "TESTAMENT_INTRO.1");}
-
-  if ($osisRef !~ /^(.*?)\-(.*)$/) {
-    push(@refs, $osisRef);
-    return (\@refs);
-  }
-  my $r1 = $1; my $r2 = $2;
-  
-  if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {
-    &Log("ERROR osisRef2array: Bad ref \"$r1\" in segment \"$osisRef\"\n");
-    push(@refs, $r1);
-    push(@refs, $r2);
-    return \@refs;
-  }
-  my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
-  if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {
-    &Log("ERROR osisRef2array: Bad ref \"$r2\" in segment \"$osisRef\"\n");
-    push(@refs, $r1);
-    push(@refs, $r2);
-    return \@refs;
-  }
-  my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
-
-  my ($canonP, $bookOrderP, $bookArrayP);
-  &getCanon($VERSESYS, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-
-  # iterate from starting verse?
-  if ($v1 > 0) {
-    my $ve = (($b1 eq $b2 && $c1==$c2) ? $v2:@{$canonP->{$b1}}[$c1-1]);
-    for (my $v=$v1; $v<=$ve; $v++) {push(@refs, "$b1.$c1.$v");}
-  }
-  # iterate from starting chapter?
-  if ($c1 > 0) {
-    my $ce = ($b1 eq $b2 ? ($v2>0 ? ($c2-1):$c2):@{$canonP->{$b1}});
-    for (my $c=($v1>0 ? ($c1+1):$c1); $c<=$ce; $c++) {push(@refs, "$b1.$c");}
-  }
-  # iterate from starting book?
-  if ($b1 ne $b2) {
-    my $bs = ($c1>0 ? $bookOrderP->{$b1}+1:$bookOrderP->{$b1});
-    my $be = ($c2>0 ? $bookOrderP->{$b2}-1:$bookOrderP->{$b2});
-    for (my $b=$bs; $b<=$be; $b++) {push(@refs, @{$bookArrayP}[$b]);}
-    # iterate to ending chapter?
-    if ($c2 > 0) {
-      for (my $c=1; $c<=($v2>0 ? $c2-1:$c2); $c++) {push(@refs, "$b2.$c");}
-    }
-  }
-  # iterate to ending verse?
-  if ($v2 > 0 && !($b1 eq $b2 && $c1==$c2)) {
-    for (my $v=1; $v<=$v2; $v++) {push(@refs, "$b2.$c2.$v");}
-  }
-
-  return \@refs;
-}
-
-# $test can be:
-#   keyword 
-#   encoded osisRef which may include multiple ranges
-sub myGlossaryContext($\@) {
-  my $test = shift;
-  my $contextP = shift;
+sub inGlossaryContext(\@\%) {
+  my $bookArrayP = shift;
+  my $contextsHashP = shift;
  
-  foreach my $c (@{$contextP}) {
-    if (&myContext($test, $c)) {return $c;}
+  foreach my $bk (@{$bookArrayP}) {
+    if (&inContext($bk, $contextsHashP)) {return $bk;}
   }
   
   return 0;
@@ -2542,22 +2530,23 @@ sub glossaryContext($) {
 }
 
 
-# return array of single verse osisRefs from context, since context may 
-# be a bibleContext covering a range of verses. Returned refs are NOT
-# encoded osisRefs.
-sub context2array($) {
+# Takes a context and if it is a verse range, returns an array containing
+# each verse's osisRef. If it's not a verse range, the returned array
+# contains a single element being the input context, unchanged.
+sub contextArray($) {
   my $context = shift;
   
-  my @refs;
-  if ($context =~ /^(\w+\.\d+)\.(\d+)\.(\d+)$/) {
+  my @out;
+  if ($context =~ /^(BIBLE|TESTAMENT)_INTRO/) {push(@out, $context);}
+  elsif ($context =~ /^(\w+\.\d+)\.(\d+)\.(\d+)$/) {
     my $bc = $1;
     my $v1 = $2;
     my $v2 = $3;
-    for (my $i = $v1; $i <= $v2; $i++) {push(@refs, "$bc.$i");}
+    for (my $i = $v1; $i <= $v2; $i++) {push(@out, "$bc.$i");}
   }
-  else {push(@refs, $context);}
+  else {push(@out, $context);}
   
-  return @refs;
+  return @out;
 }
 
 
@@ -2585,6 +2574,7 @@ sub osisRef2osisID($$$) {
   
     if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
     elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
+    elsif ($OSISBOOKS{$osisRef}) {$osisRef = "$osisRef.1.1-$osisRef";} # a trick to get every verse in the book out
 
     if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $r1 = $1; my $r2 = $2;
@@ -2815,12 +2805,12 @@ sub normalizeOsisID(\@$$$) {
   }
   
   my %seen;
-  return sort { verseSort($a, $b, $osisIDWorkDefault, $vsys) } grep(($_ && !$seen{$_}++), @avs);
+  return sort { osisIDSort($a, $b, $osisIDWorkDefault, $vsys) } grep(($_ && !$seen{$_}++), @avs);
 }
 
 
-# Sort osisID verse segments (ie. Rom.14.23) in verse system order
-sub verseSort($$$$) {
+# Sort osisID segments (ie. Rom.14.23) in verse system order
+sub osisIDSort($$$$) {
   my $a = shift;
   my $b = shift;
   my $osisIDWorkDefault = shift;
@@ -2831,17 +2821,28 @@ sub verseSort($$$$) {
   my $r = $awp cmp $bwp;
   if ($r) {return $r;}
 
-  if ($a !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  my $aNormal = 1; my $bNormal = 1;
+  if ($a !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {$aNormal = 0;}
   my $abk = $1; my $ach = (1*$3); my $avs = (1*$5);
-  if ($b !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {return $a cmp $b;}
+  if ($b !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?(\!.*)?$/) {$bNormal = 0;}
   my $bbk = $1; my $bch = (1*$3); my $bvs = (1*$5);
+  if    ( $aNormal && !$bNormal) {return 1;}
+  elsif (!$aNormal &&  $bNormal) {return -1;}
+  elsif (!$aNormal && !$bNormal) {return $a cmp $b;}
   
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
+  my $abi = (defined($bookOrderP->{$abk}) ? $bookOrderP->{$abk}:-1);
+  my $bbi = (defined($bookOrderP->{$bbk}) ? $bookOrderP->{$bbk}:-1);
+  if    ($abi != -1 && $bbi == -1) {return 1;}
+  elsif ($abi == -1 && $bbi != -1) {return -1;}
+  elsif ($abi == -1 && $bbi == -1) {return $abk cmp $bbk;}
   $r = $bookOrderP->{$abk} <=> $bookOrderP->{$bbk};
   if ($r) {return $r;}
+  
   $r = $ach <=> $bch;
   if ($r) {return $r;}
+  
   return $avs <=> $bvs;
 }
 
