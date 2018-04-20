@@ -2571,19 +2571,19 @@ sub osisRef2osisID($$$) {
       &Log("ERROR osisRef2osisID: workPrefixFlag is set to 'always' but osisRefWorkDefault is null for \"$osisRef\" in \"$osisRefLong\"!\n");
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
+    my $vsys = ($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
   
     if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
     elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
     elsif ($OSISBOOKS{$osisRef}) {$osisRef = "$osisRef.1.1-$osisRef";} # a trick to get every verse in the book out
 
-    if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, "$pwork$osisRef"); next;}
+    if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($osisRef, $vsys)))); next;}
     my $r1 = $1; my $r2 = $2;
     
     if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b1 = $1; my $c1 = ($2 ? $3:''); my $v1 = ($4 ? $5:'');
     if ($r2 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
     my $b2 = $1; my $c2 = ($2 ? $3:''); my $v2 = ($4 ? $5:'');
-    my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
     
     # The task is to output every verse in the range, not to limit or test the input
     # with respect to the verse system. But outputing ranges greater than a chapter 
