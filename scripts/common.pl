@@ -1939,7 +1939,7 @@ sub addDictionaryLink(\$$$$\@) {
       
       push(@MATCHES, \%minfo);
     }
-    if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
+    #if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
   }
   
   my $context;
