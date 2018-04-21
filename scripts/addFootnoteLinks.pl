@@ -683,33 +683,9 @@ sub getOsisIdOfFootnoteNode($) {
 # even if there are linked verses etc..
 sub getFootnotes($) {
   my $osisRefsP = shift;
-
-  my @verses = (); # verses (in order but duplicates are ok) referred to by osisRefs
-  foreach my $or (@{$osisRefsP}) {
-    my $osisRef = $or; # never modify array pointer value $or!
-    my $m = ($osisRef =~ s/^(\w*):// ? $1:'');
-    my $osisID = &osisRef2osisID($osisRef, $MOD);
-    foreach my $id (split(/\s+/, $osisID)) {
-      push(@verses, "$m:$id");
-    }
-  }
-
-  # Any "verses" which refer to entire chapters (ie John.3) need separate actual verses spliced into the array
-  for (my $i=0; $i<@verses; $i++) {
-    if (@verses[$i] !~ /^(\w*):([^\.]*)\.([^\.]*)$/) {next;}
-    my $mod = $1; my $bk = $2; my $ch = $3;
-    my ($canonP, $bookOrderP, $bookArrayP);
-    &getCanon($FNL_MODULE_BIBLE_VERSE_SYSTEMS{$mod}, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-    my @a;
-    for (my $vs = 0; $vs <= $canonP->{$bk}->[$ch-1]; $vs++) { # 0 includes chapter intro (for Pslams esp.)
-      push(@a, "$mod:$bk.$ch.$vs");
-    }
-    splice(@verses, $i, 1, @a);
-    $i = $i-1+@a;
-  }
-
+  
   my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)
-  foreach $verse (@verses) {
+  foreach $verse (split(/\s+/, &osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always'))) {
     my $verseOsisIDsP = $VERSE_FOOTNOTE_IDS{$verse};
     if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
   }

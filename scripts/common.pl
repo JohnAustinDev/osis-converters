@@ -2355,9 +2355,9 @@ sub getContexts($\$) {
       next;
     }
       
-    foreach my $k (split(/\s+/, &osisRef2osisID($ref))) {
+    foreach my $k (split(/\s+/, &osisRef2Contexts($ref))) {
     
-      # Normalize all osisIDs to contextArray form
+      # Normalize to contextArray form
       $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d)$/$1.0.0/;
       $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d\.\d)$/$1.0/;
       $k =~ s/^([^\.]+\.0)$/$1.0/;
@@ -2549,16 +2549,27 @@ sub contextArray($) {
   return @out;
 }
 
-
-# Returns an atomized equivalent osisID from an osisRef. By atomized 
-# meaning each segment of the result is a verse ID or keyword ID. The 
-# osisRef may contain one or more hyphenated continuation segments 
-# but osisIDs cannot contain continuations. Note: it is always assumed 
-# that osisRefWork = osisIDWork.
-sub osisRef2osisID($$$) {
+sub osisRef2Contexts($$$) {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
+  
+  # This call for context includes introductions (even though intros do not have osisIDs)
+  return &osisRef2osisID($osisRefLong, $osisRefWorkDefault, $workPrefixFlag, 1);
+}
+
+
+# Returns an atomized equivalent osisID from an osisRef. By atomized 
+# meaning each segment of the result is an introduction context, verse ID 
+# or keyword ID. The osisRef may contain one or more hyphenated continuation 
+# segments whereas osisIDs cannot contain continuations. If expandIntros is 
+# set, then expanded osisRefs will also include introductions. Note: it is 
+# always assumed that osisRefWork = osisIDWork.
+sub osisRef2osisID($$$$) {
+  my $osisRefLong = shift;
+  my $osisRefWorkDefault = shift;
+  my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
+  my $expandIntros = shift;
   
   my @osisIDs;
   
@@ -2573,11 +2584,16 @@ sub osisRef2osisID($$$) {
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
     my $vsys = ($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
   
-    if ($osisRef eq 'OT') {$osisRef = "Gen-Mal"; push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
-    elsif ($osisRef eq 'NT') {$osisRef = "Matt-Rev"; push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
-    elsif ($OSISBOOKS{$osisRef}) {$osisRef = "$osisRef.1.1-$osisRef";} # a trick to get every verse in the book out
+    if ($osisRef eq 'OT') {
+      $osisRef = "Gen-Mal"; 
+      if ($expandIntros) {push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
+    }
+    elsif ($osisRef eq 'NT') {
+      $osisRef = "Matt-Rev"; 
+      if ($expandIntros) {push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
+    }
 
-    if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($osisRef, $vsys)))); next;}
+    if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($osisRef, $vsys, $expandIntros)))); next;}
     my $r1 = $1; my $r2 = $2;
     
     if ($r1 !~ /^([^\.]+)(\.(\d*)(\.(\d*))?)?/) {push(@osisIDs, "$pwork$osisRef"); next;}
@@ -2588,9 +2604,9 @@ sub osisRef2osisID($$$) {
     # The task is to output every verse in the range, not to limit or test the input
     # with respect to the verse system. But outputing ranges greater than a chapter 
     # requires knowledge of the verse system, so SWORD is used for this.
-    push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r1, $vsys))));
+    push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r1, $vsys, $expandIntros))));
     if ($r1 ne $r2) {
-      push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r2, $vsys))));
+      push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r2, $vsys, $expandIntros))));
       my $vk = new Sword::VerseKey();
       $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system
       $vk->setVersificationSystem($vsys); 
@@ -2607,6 +2623,8 @@ sub osisRef2osisID($$$) {
           if ($index eq $vk->getIndex() || 
              ($vk->getOSISBookName() eq $b2 && (!$c2 || $vk->getChapter() == $c2))
           ) {last;}
+          if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, "$bk.0");}
+          if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
           push(@osisIDs, $pwork.$vk->getOSISRef());
           $index = $vk->getIndex();
         }
@@ -2625,6 +2643,8 @@ sub osisRef2osisID($$$) {
         $logTheResult++;
       }
       elsif ($v2) {
+        if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, "$bk.0");}
+        if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
         for (my $v=$vk->getVerse(); $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
       }
     }
@@ -2658,12 +2678,18 @@ sub idInVerseSystem($$) {
 
 # Take an osisID of the form BOOK or BOOK.CH (or BOOK.CH.VS but this 
 # only returns itself) and expand it to a list of individual verses of 
-# the form BOOK.CH.VS, according to the verse system vsys.
-sub expandOsisID($$) {
+# the form BOOK.CH.VS, according to the verse system vsys. Book
+# introductions, which have the form BOOK.0, are returned unchanged.
+# Expanded osisIDs include book and chapter introductions if 
+# expandIntros is set.
+sub expandOsisID($$$) {
   my $osisID = shift;
   my $vsys = shift;
+  my $expandIntros = shift;
   
-  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || !&idInVerseSystem($osisID, $vsys)) {
+  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || 
+      $osisID =~ /^[^\.]+\.0$/ || 
+      !&idInVerseSystem($osisID, $vsys)) {
     return $osisID;
   }
   if ($osisID !~ /^([^\.]+)(\.(\d+))?$/) {
@@ -2672,15 +2698,20 @@ sub expandOsisID($$) {
   my $bk = $1; my $ch = ($2 ? $3:'');
   
   my @verses;
+  if ($expandIntros && $ch eq '') {push(@verses, "$bk.0");}
   my $vk = new Sword::VerseKey();
   $vk->setVersificationSystem($vsys ? $vsys:'KJV'); 
   $vk->setText($osisID);
   $vk->normalize();
   
+  if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
   push(@verses, $vk->getOSISRef());
   my $lastIndex = $vk->getIndex();
   $vk->increment();
-  while ($lastIndex ne $vk->getIndex && $vk->getOSISBookName() eq $bk && (!$ch || $vk->getChapter() == $ch)) {
+  while ($lastIndex ne $vk->getIndex && 
+         $vk->getOSISBookName() eq $bk && 
+         (!$ch || $vk->getChapter() == $ch)) {
+    if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
     push(@verses, $vk->getOSISRef());
     $lastIndex = $vk->getIndex();
     $vk->increment();
@@ -2717,7 +2748,7 @@ sub getVerseKey($$$) {
 # verses are present (osisIDs cannot contain continuations). If 
 # onlySpanVerses is set, then hyphenated segments returned may cover at 
 # most one chapter (and in this case, the verse system is irrelevant). 
-# Note: it is assumed that osisRefWork = osisIDWork
+# Note: it is always assumed that osisRefWork = osisIDWork
 sub osisID2osisRef($$$$) {
   my $osisID = shift;
   my $osisIDWorkDefault = shift;
