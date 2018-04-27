@@ -2607,6 +2607,10 @@ sub osisRef2osisID($$$$) {
     push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r1, $vsys, $expandIntros))));
     if ($r1 ne $r2) {
       push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r2, $vsys, $expandIntros))));
+      # if r1 is verse 0, it has already been pushed to osisIDs above 
+      # but it cannot be incremented as VerseKey since it's not a valid 
+      # verse. So increment/add it here.
+      if ($r1 =~ s/^([^\.]+\.\d+)\.0$/$1.1/) {push(@osisIDs, "$r1");}
       my $vk = new Sword::VerseKey();
       $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system
       $vk->setVersificationSystem($vsys); 
