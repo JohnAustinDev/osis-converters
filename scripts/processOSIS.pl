@@ -70,7 +70,7 @@ if ($MODDRV =~ /Text/) {
 }
 else {copy("$TMPDIR/".$MOD."_3.xml", $OUTOSIS);}
 
-&correctReferencesVSYS($OUTOSIS, $projectBible, \%VSYS_MOVES, \%VSYS_MISSES);
+&correctReferencesVSYS($OUTOSIS, $projectBible);
 # MOD.xml is after addCrossRefs.pl
 
 if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST($OUTOSIS);}

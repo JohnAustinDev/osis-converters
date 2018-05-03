@@ -49,8 +49,13 @@ $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
-$TARG_VSYS_ARTYPE = "x-targ-verse-system"; # annotateType of annotateRef pointing to target verse system
-$ALT_VSYS_ARTYPE = "x-alt-verse-system";   # annotateType of annotateRef pointing to alternate verse system
+$VSYS{'prefix'} = 'x-vsys';
+$VSYS{'AnnoTypeSource'} = '-source';
+$VSYS{'TypeModified'} = '-fitted';
+$VSYS{'missing'} = '-missing';
+$VSYS{'moved'} = '-moved';
+$VSYS{'start'} = '-start';
+$VSYS{'end'} = '-end';
 
 require("$SCRD/scripts/getScope.pl");
 require("$SCRD/scripts/fitToVerseSystem.pl");
@@ -630,7 +635,7 @@ sub copyFont($$$$$) {
     &Log("NOTE: Copied font \"$outdir/$fdest\"\n");
   }
   
-  &Log("REPORT $MOD: Copied \"$copied\" font file(s) to \"$outdir\".\n\n");
+  &Log("$MOD REPORT: Copied \"$copied\" font file(s) to \"$outdir\".\n\n");
 }
 
 
@@ -680,7 +685,7 @@ sub copyReferencedImages($$$) {
     &Log("NOTE: Copied image \"$ofile\"\n");
   }
   
-  &Log("REPORT $MOD: Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".\n");
+  &Log("$MOD REPORT: Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".\n");
   return scalar(keys(%copied));
 }
 
@@ -4060,7 +4065,7 @@ sub writeMissingNoteOsisRefs($) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if (@rs[0]->getAttribute('annotateType') ne $ALT_VSYS_ARTYPE && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
+          if (@rs[0]->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
             &Log("WARNING writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
             $aror = '';
           }
@@ -4156,14 +4161,26 @@ sub validateOSIS($) {
   &Log("$res\n");
   
   # Generate error if file fails to validate
+  my $valid = 1;
   if (!$res || $res =~ /^\s*$/) {
     &Log("ERROR: \"$osis\" validation problem. No success or failure message was returned from the xmllint validator!\n");
+    $valid = 0;
   }
   elsif ($res !~ /^\Q$osis validates\E$/) {
-    &Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");
+    if ($res =~ s/\Qelement milestone: Schemas validity error : Element '\E.*?\Qmilestone', attribute 'osisRef': The attribute 'osisRef' is not allowed.\E//g) {
+      &Log("
+NOTE: Ignore the above milestone osisRef attribute reports. The schema  
+      here apparently deviates from the OSIS handbook which states that 
+      the osisRef attribute is allowed on any element. The current usage  
+      is both required and sensible.\n");
+    }
+    if ($res !~ /Schemas validity error/) {
+      &Log("NOTE: All of the above validation failures are being allowed.\n");
+    }
+    else {$valid = 0; &Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");}
   }
   
-  &Log("END OSIS VALIDATION\n");
+  &Log("\n$MOD REPORT: OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION\n");
 }
 
 
@@ -4198,7 +4215,7 @@ sub Log($$) {
   
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
-  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /error/i) {
+  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/) {
     print encode("utf8", $p);
   }
   
