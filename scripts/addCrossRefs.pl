@@ -166,19 +166,21 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $INSERT_NOTE_SPEEDUP{@{$XPC->findnodes('following::osis:verse[@eID][1]', $alt)}[0]->getAttribute('eID')}++;
   }
   
+  # discover which verses were moved by translators from their fixed verse-system positions
   my %verseWasMovedTo;
-  # discover which verses were move by translators from their expected vsys positions
-  my $xpath = '//osis:milestone[@type="'.$VSYS{'prefix'}.'-verse'.$VSYS{'start'}.'"][@osisRef][@annotateRef][@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"]';
-  foreach my $moved ($XPC->findnodes($xpath, $xml)) {
+  my $movedP = &getMovedVersesOSIS($osis);
+  foreach my $moved (@{$movedP->{'from'}}) {
+    my @fixedvs = split(/\s+/, $moved->getAttribute('osisRef'));
     my $v = @{$XPC->findnodes('./preceding::osis:verse[@sID][@osisID][1]', $moved)}[0];
-    my @source = split(/\s+/, $moved->getAttribute('osisRef'));
-    for (my $i=0; $i<@source; $i++) {
-      if ($source[$i] =~ s/^(.*?)\-.*$/$1/) {
-        &Log("ERROR: Unexpected multi-verse source location \"".$source[$i]."\"\n");
+    for (my $i=0; $i<@fixedvs; $i++) {
+      if ($fixedvs[$i] =~ s/^(.*?)\-.*$/$1/) {
+        &Log("ERROR: Unexpected osisRef is range \"".$fixedvs[$i]."\"\n");
       }
-      $verseWasMovedTo{$source[$i]}{'dest'} = @{split(/\s+/, $v->getAttribute('osisID'))}[-1];
-      $verseWasMovedTo{$source[$i]}{'valt'} = @{split(/\s+/, $moved->getAttribute('annotateRef'))}[$i];
-      $verseWasMovedTo{$source[$i]}{'valt'} =~ s/^[^\.]+\.\d+\.//; # just save the verse number
+      my @vIDA = split(/\s+/, $v->getAttribute('osisID'));
+      my @valtA = split(/\s+/, &osisRef2osisID($moved->getAttribute('annotateRef')));
+      $verseWasMovedTo{$fixedvs[$i]}{'dest'} = @vIDA[-1];
+      $verseWasMovedTo{$fixedvs[$i]}{'valt'} = @valtA[$i];
+      $verseWasMovedTo{$fixedvs[$i]}{'valt'} =~ s/^[^\.]+\.\d+\.//; # just need to save the verse number
     }
   }
   
@@ -188,12 +190,12 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     
     # decide where to place this note
     my $valt = 0;
-    my $placement = $note->getAttribute('osisRef');
-    $placement =~ s/^(.*?)[\-\s].*$/$1/;
+    my $placement = $note->getAttribute('osisID');
+    $placement =~ s/^(.*?)(\!.*)?$/$1/;
     $placement =~ s/^[^\:]*\://;
     if ($verseWasMovedTo{$placement}) {
-      $placement = $verseWasMovedTo{$placement}{'dest'};
       $valt = $verseWasMovedTo{$placement}{'valt'};
+      $placement = $verseWasMovedTo{$placement}{'dest'};
     }
     
     # check and filter the note placement
@@ -248,7 +250,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # appropriate alternate verse.
 sub insertNote($\$) {
   my $note = shift;
-  my $verse = shift;
+  my $verseHP = shift;
   my $verseNum = shift;
   my $localeP = shift;
   
@@ -272,11 +274,11 @@ sub insertNote($\$) {
   # insert note in the right place
   # NOTE: the crazy looking while loop approach, and not using normalize-space() but rather $nt =~ /^\s*$/, greatly increases processing speed
   if ($note->getAttribute('subType') eq 'x-parallel-passage') {
-    my $start = $verse->{'start'};
+    my $start = $verseHP->{'start'};
     if ($verseNum) {
-      while (my $alt = @{$XPC->findnodes('following::osis:hi[@subType="x-alternate"][1][following::osis:verse[1][@eID="'.$verse->{'end'}->getAttribute('eID').'"]]', $start)}[0]) {
+      while (my $alt = @{$XPC->findnodes('following::osis:hi[@subType="x-alternate"][1][following::osis:verse[1][@eID="'.$verseHP->{'end'}->getAttribute('eID').'"]]', $start)}[0]) {
         $start = $alt;
-        if ($start->textContext =~ /\b$verseNum\b/) {last;}
+        if ($start->textContent =~ /\b$verseNum\b/) {last;}
       }
     }
     my $nt = @{$XPC->findnodes('following::text()[1]', $start)}[0];
@@ -292,10 +294,10 @@ sub insertNote($\$) {
     else {&Log("ERROR: Could not place para note \"".$note->toString()."\"\n");}
   }
   else {
-    my $end = $verse->{'end'};
-    if ($INSERT_NOTE_SPEEDUP{$verse->{'end'}->getAttribute('eID')}) {
-      while (my $alt = @{$XPC->findnodes('preceding::osis:hi[@subType="x-alternate"][1][preceding::osis:verse[1][@sID="'.$verse->{'start'}->getAttribute('sID').'"]]', $end)}[0]) {
-        if (!$alt || ($verseNum && $alt->textContext =~ /\b$verseNum\b/)) {last;}
+    my $end = $verseHP->{'end'};
+    if ($INSERT_NOTE_SPEEDUP{$verseHP->{'end'}->getAttribute('eID')}) {
+      while (my $alt = @{$XPC->findnodes('preceding::osis:hi[@subType="x-alternate"][1][preceding::osis:verse[1][@sID="'.$verseHP->{'start'}->getAttribute('sID').'"]]', $end)}[0]) {
+        if (!$alt || ($verseNum && $alt->textContent =~ /\b$verseNum\b/)) {last;}
         $end = $alt;
       }
     }

@@ -1889,13 +1889,13 @@ sub getMovedVersesOSIS($) {
       }
     }
     
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}   = @from;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}     = @to;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'} = %fromTo;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'} = %toFrom;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}   = \@from;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}     = \@to;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'} = \%fromTo;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'} = \%toFrom;
   }
   
-  return $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'};
+  return \%{$DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}};
 }
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
