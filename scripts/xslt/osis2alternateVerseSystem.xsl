@@ -18,9 +18,7 @@
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
   
-  <!-- Remove x-vsys tags that were added by fitToVerseSystem() -->
-  <template match="milestone[@type='x-vsys-missing']"/>
-  <template match="milestone[@type='x-vsys-moved']"/>
+  <!-- Remove some x-vsys tags that were added by fitToVerseSystem() -->
   <template match="verse[@type='x-vsys-fitted']"/>
   <template match="hi[@subType='x-alternate']">
     <!-- Remove only <hi> that were added by fitToVerseSystem() !-->
@@ -33,13 +31,14 @@
   </template>
   
   <!-- Revert saved x-vsys tags to what they were before fitToVerseSystem() -->
-  <template match="milestone[@annotateType='x-vsys-fitted']" priority="2">
-    <element name="verse" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-      <if test="@type='x-vsys-verse-start'">
+  <template match="milestone[starts-with(@type, 'x-vsys')][ends-with(@type, '-start') or ends-with(@type, '-end')]" priority="2">
+    <variable name="elemName" select="replace(@type, '^x\-vsys\-(.*?)\-(start|end)$', '$1')"/>
+    <element name="{$elemName}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+      <if test="ends-with(@type, '-start')">
         <attribute name="osisID" select="@annotateRef"/>
         <attribute name="sID" select="@annotateRef"/>
       </if>
-      <if test="@type='x-vsys-verse-end'">
+      <if test="ends-with(@type, '-end')">
         <attribute name="eID" select="@annotateRef"/>
       </if>
     </element>
@@ -49,6 +48,8 @@
   <template match="*[@annotateType='x-vsys-source'][@annotateRef]">
     <copy>
       <attribute name="osisRef" select="@annotateRef"/>
+      <attribute name="annotateRef" select="@osisRef"/>
+      <attribute name="annotateType" select="'x-vsys-fixed'"/>
       <apply-templates select="node()|@*[not(name()=('osisRef', 'annotateRef', 'annotateType'))]"/>
     </copy>
   </template>

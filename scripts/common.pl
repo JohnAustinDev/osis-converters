@@ -41,6 +41,8 @@ foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
   $OSISBOOKS{$bk}++;
 }
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
+$VSYS_INSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
+$VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
 @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]";
 $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
@@ -51,9 +53,11 @@ $HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
 $VSYS{'prefix'} = 'x-vsys';
 $VSYS{'AnnoTypeSource'} = '-source';
+$VSYS{'AnnoTypeFixed'} = '-fixed'; # used by osis2alternateVerseSystem.xsl
 $VSYS{'TypeModified'} = '-fitted';
 $VSYS{'missing'} = '-missing';
-$VSYS{'moved'} = '-moved';
+$VSYS{'movedto'} = '-movedto';
+$VSYS{'movedfrom'} = '-movedfrom';
 $VSYS{'start'} = '-start';
 $VSYS{'end'} = '-end';
 
@@ -1825,6 +1829,74 @@ sub existsElementID($$$) {
   }
   return ($DOCUMENT_CACHE{$search}{$osisID} eq 'yes');
 }
+# Returns a hash whose keys include from/to maps of verse osisIDs.
+# Results are cached for speed, and relevant tags are checked for consistency.
+sub getMovedVersesOSIS($) {
+  my $mod = &getModNameOSIS(shift);
+  
+  my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
+  if (!$xml) {
+    &Log("ERROR getMovedVersesOSIS: No xml document node!\n");
+    return NULL;
+  }
+  
+  if (!$DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}) {
+    # Moved verses are recorded in the OSIS file with 3 milestone types, but for each type, annotateRef 
+    # is always the source verse osisID and osisRef is always the fixed-verse-system osisID:
+    # 1) milestone type="x-vsys-verse-start" when a verse was changed to a milestone by fitToVerseSystem()
+    # 2) milestone type="x-vsys-movedfrom" when pre-existing alternate verses were marked up by fitToVerseSystem()
+    # 3) milestone type="x-vsys-movedto" where missing verse placeholders were added by by fitToVerseSystem()
+    my @from   = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.'-verse'.$VSYS{'start'}.'"][@osisRef]', $xml); # ONLY verse-starts WITH osisRef were 'moved'
+    push (@from, $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'"]', $xml));
+    my @to     = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'"]', $xml);
+    
+    my %fromTo;
+    foreach my $f (@from) {
+      if (!$f->getAttribute('osisRef') || !$f->getAttribute('annotateRef') || $f->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
+        &Log("ERROR getMovedVersesOSIS: Unexpected attributes for 'from': $f\n");
+        next;
+      }
+      my @frIDs = split(/\s+/, &osisRef2osisID($f->getAttribute('osisRef')));
+      my @toIDs = split(/\s+/, &osisRef2osisID($f->getAttribute('annotateRef')));
+      if (@frIDs == @toIDs) {
+        for (my $i=0; $i<@frIDs; $i++) {$fromTo{@frIDs[$i]} = @toIDs[$i];}
+      }
+      else {&Log("ERROR: Attribute ranges of 'from' are different sizes: ".$f->getAttribute('osisRef').", ".$f->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
+    }
+    
+    my %toFrom;
+    foreach my $t (@to) {
+      if (!$t->getAttribute('osisRef') || !$t->getAttribute('annotateRef') || $t->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
+        &Log("ERROR getMovedVersesOSIS: Unexpected attributes for 'to': $t\n");
+        next;
+      }
+      my @frIDs = split(/\s+/, &osisRef2osisID($t->getAttribute('osisRef')));
+      my @toIDs = split(/\s+/, &osisRef2osisID($t->getAttribute('annotateRef')));
+      if (@frIDs == @toIDs) {
+        for (my $i=0; $i<@toIDs; $i++) {$toFrom{@toIDs[$i]} = @frIDs[$i];}
+      }
+      else {&Log("ERROR: Attribute ranges of 'to' are different sizes: ".$t->getAttribute('osisRef').", ".$t->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
+    }
+    
+    foreach my $f (keys %fromTo) {
+      if ($toFrom{$fromTo{$f}} ne $f) {
+        &Log("ERROR getMovedVersesOSIS: fromTo is not identical to toFrom (".$toFrom{$fromTo{$f}}." ne ".$f.")\n");
+      }
+    }
+    foreach my $t (keys %toFrom) {
+      if ($fromTo{$toFrom{$t}} ne $t) {
+        &Log("ERROR getMovedVersesOSIS: toFrom is not identical to fromTo (".$fromTo{$toFrom{$t}}." ne ".$t.")\n");
+      }
+    }
+    
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}   = @from;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}     = @to;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'} = %fromTo;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'} = %toFrom;
+  }
+  
+  return $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'};
+}
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
 # from an OSIS file URL.
@@ -2614,53 +2686,55 @@ sub osisRef2osisID($$$$) {
       push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($r2, $vsys, $expandIntros))));
       # if r1 is verse 0, it has already been pushed to osisIDs above 
       # but it cannot be incremented as VerseKey since it's not a valid 
-      # verse. So increment/add it here.
+      # verse. So take care of that situation on the next line.
       if ($r1 =~ s/^([^\.]+\.\d+)\.0$/$1.1/) {push(@osisIDs, "$r1");}
-      my $vk = new Sword::VerseKey();
-      $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system
-      $vk->setVersificationSystem($vsys); 
-      $vk->setText($r1);
-      my $index = $vk->getIndex();
-      if (&idInVerseSystem($r1, $vsys)) {
-        my $idxE = &idInVerseSystem($r2, $vsys);
-        if ($idxE && $idxE < $index) {
-          &Log("ERROR osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"\n");
-          next;
-        }
-        while (1) {
-          $vk->increment();
-          if ($index eq $vk->getIndex() || 
-             ($vk->getOSISBookName() eq $b2 && (!$c2 || $vk->getChapter() == $c2))
-          ) {last;}
-          if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, "$bk.0");}
-          if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
-          push(@osisIDs, $pwork.$vk->getOSISRef());
-          $index = $vk->getIndex();
-        }
-      }
-      elsif ($b1 eq $b2 && $c2 && $c1 == $c2 && $v1 && $v2) {
+      # The end points are now recorded, but all verses in between must be pushed to osisIDs
+      # (duplicates are ok). If b and c are the same in $r1 and $r2 then this is easy:
+      if ($b1 eq $b2 && $c2 && $c1 == $c2) {
         for (my $v=$v1; $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
         next;
       }
-      else {
-        &Log("ERROR: osisRef2osisID: Start verse \"$r1\" is not in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
+      # Otherwise verse key increment must be used until we reach the same book and chapter
+      # as $r2, then simple verse incrementing can be used.
+      my $ir1 = &idInVerseSystem($r1, $vsys);
+      if (!$ir1) {
+        &Log("ERROR: osisRef2osisID: Start verse \"$r1\" is not in \"$vsys\" so this range is likely incorrect: ");
         $logTheResult++;
+        next;
       }
-           
-      if ($index eq $vk->getIndex() || $vk->getOSISBookName() ne $b2 || ($c2 && $vk->getChapter() != $c2)) {
-        &Log("ERROR: osisRef2osisID: End verse \"$r2\" was not found in \"".$vk->getVersificationSystem()."\" so this range is likely incorrect: ");
+      my $ir2 = &idInVerseSystem($b2.($c2 ? ".$c2.1":''), $vsys);
+      if (!$ir2) {
+        &Log("ERROR: osisRef2osisID: End point \"".$b2.($c2 ? ".$c2.1":'')."\" was not found in \"$vsys\" so this range is likely incorrect: ");
         $logTheResult++;
+        next;
       }
-      elsif ($v2) {
-        if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, "$bk.0");}
-        if ($expandIntros && $vk->getVerse() == 1) {push(@verses, "$bk.".$vk->getChapter().".0");}
-        for (my $v=$vk->getVerse(); $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
+      if ($ir2 < $ir1) {
+        &Log("ERROR osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"\n");
+        next;
       }
+      my $vk = new Sword::VerseKey();
+      $vk->setVersificationSystem($vsys); 
+      $vk->setText($b2.($c2 ? ".$c2.1":''));
+      if (!$c2) {$vk->setChapter($vk->getChapterMax()); $c2 = $vk->getChapter();}
+      if (!$v2) {$vk->setVerse($vk->getVerseMax()); $v2 = $vk->getVerse();}
+      $ir2 = $vk->getIndex();
+      $vk->setText($r1);
+      $ir1 = $vk->getIndex();
+      while ($ir1 != $ir2) {
+        if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, $vk->getOSISBookName().".0");}
+        if ($expandIntros && $vk->getVerse() == 1) {push(@verses, $vk->getOSISBookName().".".$vk->getChapter().".0");}
+        push(@osisIDs, $pwork.$vk->getOSISRef());
+        $vk->increment();
+        $ir1 = $vk->getIndex();
+      }
+      if ($expandIntros && $vk->getChapter() == 1 && $vk->getVerse() == 1) {push(@verses, $vk->getOSISBookName().".0");}
+      if ($expandIntros && $vk->getVerse() == 1) {push(@verses, $vk->getOSISBookName().".".$vk->getChapter().".0");}
+      for (my $v=$vk->getVerse(); $v<=$v2; $v++) {push(@osisIDs, "$pwork$b2.$c2.$v");}
     }
   }
 
   my $r = join(' ', &normalizeOsisID(\@osisIDs, $osisRefWorkDefault, $workPrefixFlag));
-  if ($logTheResult) {&Log("'$r' = '$osisRefLong' ?\n");}
+  if ($logTheResult) {&Log(" '$osisRefLong' = '$r' ?\n");}
   return $r;
 }
 
@@ -2846,6 +2920,16 @@ sub normalizeOsisID(\@$$$) {
   
   my %seen;
   return sort { osisIDSort($a, $b, $osisIDWorkDefault, $vsys) } grep(($_ && !$seen{$_}++), @avs);
+}
+
+sub vsysInstSort($$) {
+  my $a = shift;
+  my $b = shift;
+  
+  $a =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
+  $b =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
+
+  return &osisIDSort($a, $b);
 }
 
 

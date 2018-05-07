@@ -54,9 +54,6 @@ sub usfm2osis($$) {
   
   # Variables for versemap feature
   @VSYS_INSTR = ();
-  my $bkRE = "$OT_BOOKS $NT_BOOKS"; $bkRE =~ s/\s+/|/g;
-  $vsysRE = "($bkRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
-  $vsysPRE = "($bkRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
 
   $line=0;
   while (<COMF>) {
@@ -103,24 +100,19 @@ sub usfm2osis($$) {
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
-    elsif ($_ =~ /^VSYS_(MISSING|EXTRA):(?:\s*($vsysRE)\s*)?$/) {
-      push(@VSYS_INSTR, { 'inst'=>$1, 'bk'=>$3, 'ch'=>$4, 'vs'=>($5 ? $6:''), 'lv'=>($7 ? $8:'') });
+    elsif ($_ =~ /^VSYS_((?:MISSING|EXTRA)(?:_ALT)?):(?:\s*($VSYS_INSTR_RE)\s*)?$/) {
+      push(@VSYS_INSTR, { 'inst'=>$1, 'value'=>$2 });
     }
-    elsif ($_ =~ /^VSYS_MOVED((_ALT)?):(\s*(?<from>$vsysPRE)\s*\->\s*(?<to>$vsysPRE)\s*)?$/) {
-      my $from = $+{from}; my $to = $+{to}; my $alt = $1;
-      $from =~ /^$vsysPRE$/;
-      push(@VSYS_INSTR, { 'inst'=>'MISSING'.$alt, 'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:''), 'to'=>$to });
-      my $vc1 = ($3 && $5 && $6 eq 'PART' ? 1:($3 && $5 ? $6-$4:1));
-      $to =~ /^$vsysPRE$/;
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA'.$alt,   'bk'=>$1, 'ch'=>$2, 'vs'=>($3 ? $4:''), 'lv'=>($5 ? $6:''), 'from'=>$from });
-      my $vc2 = ($3 && $5 && $6 eq 'PART' ? 1:($3 && $5 ? $6-$4:1));
-      if ($vc1 != $vc2) {&Log("ERROR: 'From' and 'To' are a different number of verses ($vc1 != $vc2): $_\n");}
+    elsif ($_ =~ /^VSYS_MOVED((_ALT)?):(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
+      my $alt = $1; my $from = $+{from}; my $to = $+{to};
+      push(@VSYS_INSTR, { 'inst'=>'MISSING'.$alt, 'value'=>$from, 'to'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA'.$alt, 'value'=>$to, 'from'=>$from });
     }
     else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
   }
   close(COMF);
   
-  @VSYS_INSTR = sort { &osisIDSort($a->{'bk'}.'.'.$a->{'ch'}.'.'.$a->{'vs'}, $b->{'bk'}.'.'.$b->{'ch'}.'.'.$b->{'vs'}) } @VSYS_INSTR;
+  @VSYS_INSTR = sort { &vsysInstSort($a->{'value'}, $b->{'value'}) } @VSYS_INSTR;
 
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
