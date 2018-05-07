@@ -669,16 +669,16 @@ sub applyrids($\%) {
   return $count;
 }
 
-sub applyVsysInstruction(\%\@$) {
+sub applyVsysInstruction(\%\%$) {
   my $argP = shift;
   my $canonP = shift;
   my $xml = shift;
   
   my $inst = $argP->{'inst'};
   
-  my $valueP = &readValue($argP->{'value'});
-  my $fromP = ($argP->{'from'} ? &readValue($argP->{'from'}):'');
-  my $toP = ($argP->{'to'} ? &readValue($argP->{'to'}):'');
+  my $valueP = &readValue($argP->{'value'}, $xml);
+  my $fromP = ($argP->{'from'} ? &readValue($argP->{'from'}, $xml):'');
+  my $toP = ($argP->{'to'} ? &readValue($argP->{'to'}, $xml):'');
   
   if (($fromP && $fromP->{'count'} != $valueP->{'count'}) || ($toP && $toP->{'count'} != $valueP->{'count'})) {
     &Log("ERROR: 'From' and 'To' are a different number of verses: $inst: ".$argP->{'value'}." -> ".($fromP->{'value'} ? $fromP->{'value'}:$toP->{'value'})."\n");
@@ -702,7 +702,7 @@ sub applyVsysInstruction(\%\@$) {
 
 sub readValue($$) {
   my $value = shift;
-  my $canonP = shift;
+  my $xml = shift;
   
   my %data;
   $data{'value'} = $value;
@@ -715,7 +715,7 @@ sub readValue($$) {
   my $bk = $1; my $ch = $2; my $vs = ($3 ? $4:''); my $lv = ($5 ? $6:'');
   
   $data{'isPartial'} = ($lv =~ s/^PART$/$vs/ ? 1:0);
-  $data{'isWholeChapter'} = &isWholeVsysChapter($bk, $ch, \$vs, \$lv, $canonP);
+  $data{'isWholeChapter'} = &isWholeVsysChapter($bk, $ch, \$vs, \$lv, $xml);
   $data{'bk'} = $bk;
   $data{'ch'} = (1*$ch);
   $data{'vs'} = (1*$vs);
@@ -852,6 +852,10 @@ sub writeEmptyVerseMarker($$$$) {
     $verseEndTag = &getVerseTag("$bkch.$v", $xml, 1);
     $v--;
   } while (!$verseEndTag && $v > 0);
+  if (!$verseEndTag) {
+    my @p = split(/\./, $bkch);
+    $verseEndTag = &getVerseTag("$bkch.".&getFirstVerseInChapterOSIS(@p[0], @p[1], $xml), $xml, 1);
+  }
   
   if ($verseEndTag) {
     $verseEndTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk("<milestone $type osisRef='$verseID'/>"), $verseEndTag);
@@ -940,11 +944,12 @@ sub applyVsysExtra($$$$$) {
   # Handle the special case of an extra chapter (like Psalm 151)
   if ($ch > @{$canonP->{$bk}}) {
     if ($ch == (@{$canonP->{$bk}} + 1)) {
-      if ($vs || $lv) {
+      my $lastv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+      if ($vs != 1 || $lv != $lastv) {
         &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Cannot specify verses for a chapter outside the verse system (use just '$bk.$ch' instead).\n");
       }
       $vs = 1;
-      $lv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+      $lv = $lastv;
     }
     else {
       &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).\n");
@@ -968,7 +973,7 @@ sub applyVsysExtra($$$$$) {
     my $shift = ($1 - $arv);
     if ($shift) {
       &Log("NOTE: This verse was moved, adjusting position: '$shift'.\n");
-      my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'partial'} ? 'PART':($lv+$shift)));
+      my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'partial'} ? 'PART':($lv+$shift)), $xml);
       &applyVsysExtra($newValueP, $canonP, $xml, &mapValue($newValueP, $movedFromP), 1);
       return;
     }
@@ -1051,8 +1056,8 @@ sub reVersify($$$$$) {
     $vTagE = &toAlternate($vTagE);
   }
   elsif (&getAltID($vTagS) eq $newID) {
-    $vTagS = &undoAlternate(&getAltID($vTagS));
-    $vTagE = &undoAlternate(&getAltID($vTagE));
+    $vTagS = &undoAlternate(&getAltID($vTagS, 1));
+    $vTagE = &undoAlternate(&getAltID($vTagE, 1));
     $osisID = $vTagS->getAttribute('osisID');
   }
   else{&Log("NOTE: Alternate verse already set.\n");}
@@ -1169,11 +1174,11 @@ sub undoAlternate($) {
     $vtag->unbindNode();
     &Log(", removed verse tag");
   }
-  my $chvsTypeRE = '^\Q'.$VSYS{'prefix'}.'\E'.'\-(chapter|verse)(\Q'.$VSYS{'start'}.'\E|\Q'.$VSYS{'end'}.'\E)$';
+  my $chvsTypeRE = '^'.$VSYS{'prefix'}.'-(chapter|verse)('.$VSYS{'start'}.'|'.$VSYS{'end'}.')$'; $chvsTypeRE =~ s/-/\\-/g;
   if ($ms->getAttribute('type') =~ /$chvsTypeRE/) {
     my $name = $1; my $type = $2;
     $ms->setNodeName($name);
-    if ($type eq 'start') {
+    if ($type eq '-start') {
       $ms->setAttribute('sID', $ms->getAttribute('annotateRef'));
       $ms->setAttribute('osisID', $ms->getAttribute('annotateRef'));
     }
@@ -1249,13 +1254,15 @@ sub isWholeVsysChapter($$\$\$$) {
   my $ch  = shift;
   my $vsP  = shift;
   my $lvP  = shift;
-  my $canonP = shift;
+  my $xml = shift;
   
+  my $maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+
   my $haveVS = ($$vsP ? 1:0);
   $$vsP = ($haveVS ? $$vsP:1);
-  $$lvP = ($$lvP ? $$lvP:($haveVS ? $$vsP:$canonP->{$bk}[($ch-1)]));
+  $$lvP = ($$lvP ? $$lvP:($haveVS ? $$vsP:$maxv));
 
-  return ($$vsP == 1 && $$lvP == $canonP->{$bk}[($ch-1)]);
+  return ($$vsP == 1 && $$lvP == $maxv);
 }
 
 # Take a verse element and return its alternate id, or '' if there isn't
