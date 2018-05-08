@@ -169,19 +169,9 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
   # discover which verses were moved by translators from their fixed verse-system positions
   my %verseWasMovedTo;
   my $movedP = &getMovedVersesOSIS($osis);
-  foreach my $moved (@{$movedP->{'from'}}) {
-    my @fixedvs = split(/\s+/, $moved->getAttribute('osisRef'));
-    my $v = @{$XPC->findnodes('./preceding::osis:verse[@sID][@osisID][1]', $moved)}[0];
-    for (my $i=0; $i<@fixedvs; $i++) {
-      if ($fixedvs[$i] =~ s/^(.*?)\-.*$/$1/) {
-        &Log("ERROR: Unexpected osisRef is range \"".$fixedvs[$i]."\"\n");
-      }
-      my @vIDA = split(/\s+/, $v->getAttribute('osisID'));
-      my @valtA = split(/\s+/, &osisRef2osisID($moved->getAttribute('annotateRef')));
-      $verseWasMovedTo{$fixedvs[$i]}{'dest'} = @vIDA[-1];
-      $verseWasMovedTo{$fixedvs[$i]}{'valt'} = @valtA[$i];
-      $verseWasMovedTo{$fixedvs[$i]}{'valt'} =~ s/^[^\.]+\.\d+\.//; # just need to save the verse number
-    }
+  foreach my $moved (keys %{$movedP->{'fromTo'}}) {
+    $verseWasMovedTo{$moved}{'dest'} = $movedP->{'fromToFixed'}{$moved};
+    $verseWasMovedTo{$moved}{'valt'} = $movedP->{'fromTo'}{$moved}
   }
   
   my $osisBooksHP = &getBooksOSIS($osis);
@@ -246,13 +236,15 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # Insert the note near the beginning or end of the verse depending on type.
 # Normal cross-references go near the end, but parallel passages go near the 
 # beginning of the verse. Sometimes a verse contains alternate verses within
-# itself, and in this case, verseNum is used to place the note within the 
+# itself, and in this case, altVerse is used to place the note within the 
 # appropriate alternate verse.
 sub insertNote($\$) {
   my $note = shift;
   my $verseHP = shift;
-  my $verseNum = shift;
+  my $altVerse = shift;
   my $localeP = shift;
+  
+  my $verseNum = ($altVerse =~ s/^.*?\.(\d+)$// ? $1:'');
   
   # add readable reference text to the note's references (required by some front ends and eBooks)
   my @refs = $XPC->findnodes('osis:reference[@osisRef][not(@type="annotateRef")]', $note);

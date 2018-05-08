@@ -1850,16 +1850,21 @@ sub getMovedVersesOSIS($) {
     push (@from, $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'"]', $xml));
     my @to     = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'"]', $xml);
     
-    my %fromTo;
+    my %fromTo; my %fromToFixed;
     foreach my $f (@from) {
       if (!$f->getAttribute('osisRef') || !$f->getAttribute('annotateRef') || $f->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
         &Log("ERROR getMovedVersesOSIS: Unexpected attributes for 'from': $f\n");
         next;
       }
+      my $toFixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $f)}[0]->getAttribute('osisID');
+      $toFixed =~ s/^(.*)\s+(\S+)$/$2/;
       my @frIDs = split(/\s+/, &osisRef2osisID($f->getAttribute('osisRef')));
       my @toIDs = split(/\s+/, &osisRef2osisID($f->getAttribute('annotateRef')));
       if (@frIDs == @toIDs) {
-        for (my $i=0; $i<@frIDs; $i++) {$fromTo{@frIDs[$i]} = @toIDs[$i];}
+        for (my $i=0; $i<@frIDs; $i++) {
+          $fromTo{@frIDs[$i]} = @toIDs[$i];
+          $fromToFixed{@frIDs[$i]} = $toFixed;
+        }
       }
       else {&Log("ERROR: Attribute ranges of 'from' are different sizes: ".$f->getAttribute('osisRef').", ".$f->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
     }
@@ -1889,10 +1894,11 @@ sub getMovedVersesOSIS($) {
       }
     }
     
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}   = \@from;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}     = \@to;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'} = \%fromTo;
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'} = \%toFrom;
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}        = \@from;        # elements indicating verse was moved 'from' somewhere else
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}          = \@to;          # elements indicating verse was moved 'to' somewhere else
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'}      = \%fromTo;      # verse ID map from fixed to the source address which is an alternate verse not part of the fixed verse system
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromToFixed'} = \%fromToFixed; # verse ID map from fixed to the fixed address which contains alternate source verses
+    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'}      = \%toFrom;      # verse ID map from source to the fixed address which is empty
   }
   
   return \%{$DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}};

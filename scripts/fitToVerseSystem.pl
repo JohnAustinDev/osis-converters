@@ -539,7 +539,7 @@ AIDS:
     
   # 2) Get osisIDs from the target verse system that need re-mapping to the target verse-system (because of VSYS_MOVED instructions).
   # This map is used to update external references (in the target verse system) that were broken by VSYS_MOVED instructions.
-  my $targetVerseMapP = &getMovedVersesOSIS($bibleXML)->{'fromTo'};
+  my $targetVerseMapP = &getMovedVersesOSIS($bibleXML)->{'fromToFixed'};
 
   # 3) Look for osisRefs in the osis file that need updating and update them
   my %missing;

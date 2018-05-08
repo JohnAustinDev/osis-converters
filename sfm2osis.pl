@@ -46,6 +46,9 @@ elsif(-e "$INPD/CF_paratext2osis.txt") {
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt or CF_paratext2osis.txt.";}
 
-require("$SCRD/scripts/processOSIS.pl");
+if (!$NO_OUTPUT_DELETE) {require("$SCRD/scripts/processOSIS.pl");}
+else {
+  # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true
+}
 
 1;

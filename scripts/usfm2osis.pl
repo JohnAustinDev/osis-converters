@@ -113,7 +113,9 @@ sub usfm2osis($$) {
   close(COMF);
   
   @VSYS_INSTR = sort { &vsysInstSort($a->{'value'}, $b->{'value'}) } @VSYS_INSTR;
-
+  
+  if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
+  
   my $lang = $ConfEntryP->{'Lang'}; $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
   my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -s none -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
