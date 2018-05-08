@@ -63,9 +63,10 @@ require("$SCRD/scripts/processGlossary.pl");
 %FNL_LINKS;
 $OSISREFWORK;
 
-sub addFootnoteLinks($$) {
-  my $in_file = shift;
-  my $out_file = shift;
+sub addFootnoteLinks($) {
+  my $osisP = shift;
+
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addFootnoteLinks$3/;
 
   &Log("\n--- ADDING FOOTNOTE LINKS\n-----------------------------------------------------\n\n", 1);
 
@@ -125,12 +126,12 @@ sub addFootnoteLinks($$) {
   }
   else {&Log("ERROR: Command file required: $commandFile\n"); die;}
 
-  &Log("READING INPUT FILE: \"$in_file\".\n");
-  &Log("WRITING INPUT FILE: \"$out_file\".\n");
+  &Log("READING INPUT FILE: \"$$osisP\".\n");
+  &Log("WRITING INPUT FILE: \"$output\".\n");
   &Log("\n");
   
   my $bibleOsis;
-  if ($MODDRV =~ /Text/) {$bibleOsis = $in_file;}
+  if ($MODDRV =~ /Text/) {$bibleOsis = $$osisP;}
   # If this is a glossary with a companion Bible, parse the companion Bible's OSIS to collect its footnote osisID values
   elsif ($MODDRV =~ /LD/ && $ConfEntryP->{'Companion'}) {
     my $cinpd = $INPD; $cinpd =~ s/\/[^\/]+\/?$//;
@@ -172,7 +173,7 @@ sub addFootnoteLinks($$) {
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
   
-  my @files = &splitOSIS($in_file);
+  my @files = &splitOSIS($$osisP);
   my %xmls;
   my $myMod;
   my $myRefSystem;
@@ -196,7 +197,8 @@ sub addFootnoteLinks($$) {
   else {
     &Log("ERROR addFootnoteLinks: Not yet supporting refSystem \"$myRefSystem\"\n");
   }
-  &joinOSIS($out_file);
+  &joinOSIS($output);
+  $$osisP = $output;
 
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");

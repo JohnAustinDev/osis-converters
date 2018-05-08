@@ -156,13 +156,15 @@
 );
 
 sub orderBooksPeriphs($$$) {
-  my $osis = shift;
+  my $osisP = shift;
   my $vsys = shift;
   my $maintainBookOrder = shift;
   
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1orderBooksPeriphs$3/;
+  
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\nOrdering books and peripherals of \"$osis\" by versification $vsys\n", 1);
+  &Log("\nOrdering books and peripherals of \"$$osisP\" by versification $vsys\n", 1);
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
@@ -170,7 +172,7 @@ sub orderBooksPeriphs($$$) {
     return;
   }
 
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
 
   # remove all books
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
@@ -332,9 +334,10 @@ To position the above material, add location == <XPATH> after the \\id tag.\n"
   }
   foreach my $lg (reverse(@mylog)) {&Log($lg);}
   
-  open(OUTF, ">$osis");
+  open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
+  $$osisP = $output;
 }
 
 sub placeIntroduction($$) {
@@ -386,12 +389,14 @@ return
 }
 
 sub fitToVerseSystem($$) {
-  my $osis = shift;
+  my $osisP = shift;
   my $vsys = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1fitToVerseSystem$3/;
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\nFitting OSIS \"$osis\" to versification $vsys\n", 1);
+  &Log("\nFitting OSIS \"$$osisP\" to versification $vsys\n", 1);
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
@@ -399,7 +404,7 @@ sub fitToVerseSystem($$) {
     return;
   }
 
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   
   my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"]', $xml);
   if (@existing) {
@@ -413,10 +418,11 @@ WARNING: There are ".@existing." fitted tags in the text. This OSIS file
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
     if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
     # Save and re-read osis file now so that new elements will all have osis namespace for later checks
-    open(OUTF, ">$osis");
+    open(OUTF, ">$output");
     print OUTF $xml->toString();
     close(OUTF);
-    $xml = $XML_PARSER->parse_file($osis);
+    $$osisP = $output;
+    $xml = $XML_PARSER->parse_file($$osisP);
   }
   
   my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix'}.'")]])]', $xml);
@@ -496,10 +502,12 @@ NOTE: This translation does not fit the $vsys verse system. The errors
 # 3) Find applicable osisRefs in $osis which point to the osisIDs found 
 #    in #2 and #3, and correct them, plus add source target as annotateRef.
 sub correctReferencesVSYS($$) {
-  my $osis = shift;
+  my $osisP = shift;
   my $bibleMod = shift;
   
-  my $bfile = ($bibleMod eq $MOD ? $osis:&getProjectOsisFile($bibleMod));
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1correctReferencesVSYS$3/;
+  
+  my $bfile = ($bibleMod eq $MOD ? $$osisP:&getProjectOsisFile($bibleMod));
 
   if (! -e $bfile) {
     &Log("\nWARNING: No OSIS Bible file was found. References effected by VSYS instructions will not be corrected!\n");
@@ -514,7 +522,7 @@ sub correctReferencesVSYS($$) {
   my $vsys = &getVerseSystemOSIS($bibleXML);
   
   # Read OSIS file
-  my $osisXML = $XML_PARSER->parse_file($osis);
+  my $osisXML = $XML_PARSER->parse_file($$osisP);
   my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
     &Log("WARNING: ".@existing." references have already been updated, so this step will be skipped!\n");
@@ -555,7 +563,7 @@ AIDS:
       if (!$lastch || $lastch ne $ch) {
         # Select all elements having osisRef attributes EXCEPT those within externally sourced 
         # crossReferences since they already match the target verse-system.
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(ancestor::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, \%sourceVerseMap, \%missing);
@@ -568,7 +576,7 @@ AIDS:
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         # Select ONLY elements having osisRef attributes within externally sourced crossReferences 
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][ancestor::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][ancestor::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, $targetVerseMapP, \%missing);
@@ -579,11 +587,12 @@ AIDS:
   
   # Overwrite OSIS file if anything changed
   if ($count) {
-    if (open(OUTF, ">$osis")) {
+    if (open(OUTF, ">$output")) {
       print OUTF $osisXML->toString();
       close(OUTF);
+      $$osisP = $output;
     }
-    else {&Log("ERROR: Could not open \"$osis\" to write osisRef fixes!\n");}
+    else {&Log("ERROR: Could not open \"$output\" to write osisRef fixes!\n");}
   }
   
   &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of VSYS intructions.\n");

@@ -127,7 +127,16 @@ require("$SCRD/scripts/processGlossary.pl");
 
 sub addScripRefLinks($$) {
   my $in_file = shift;
-  my $out_file = shift;
+  my $out_file = shift; # optional if $in_file is a reference
+  
+  my $osis;
+  if (ref($in_file)) {
+    $osis = $$in_file;
+    if (!$out_file) {
+      $out_file = $osis; $out_file =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addScripRefLinks$3/;
+    }
+  }
+  else {$osis = $in_file;}
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
@@ -253,11 +262,11 @@ ERROR: FIX replacement (after equal sign) must either be nothing to unlink,
   }
   else {&Log("ERROR: Command file required: $commandFile\n"); die;}
 
-  &Log("READING INPUT FILE: \"$in_file\".\n");
+  &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
   
-  my @files = &splitOSIS($in_file);
+  my @files = &splitOSIS($osis);
   my $refSystem;
   foreach my $file (@files) {
     if ($file !~ /other\.osis$/) {next;}
@@ -267,6 +276,7 @@ ERROR: FIX replacement (after equal sign) must either be nothing to unlink,
   }
   foreach my $file (@files) {&asrlProcessFile($file, $refSystem);}
   &joinOSIS($out_file);
+  if (ref($in_file)) {$$in_file = $out_file;}
 
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");

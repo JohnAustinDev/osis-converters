@@ -1730,7 +1730,7 @@ sub getModNameOSIS($) {
   
   # Generate doc data if the root document has not been seen before or was modified
   my $headerDoc = $node->ownerDocument->URI;
-  my $mtime = 'mtime'.(stat($headerDoc))[9];
+  my $mtime = ''; #'mtime'.(stat($headerDoc))[9]; # removed mtime for speedup now that output files are not re-read
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {
     # When splitOSIS() is used, the document containing the header may be different than the current node's document.
     my $testDoc = $headerDoc;
@@ -3393,6 +3393,18 @@ sub is_usfm2osis($) {
   return $usfm2osis;
 }
 
+sub userXSLT2($$\%$) {
+  my $xsl = shift;
+  my $sourceP = shift;
+  my $paramsP = shift;
+  my $logFlag = shift;
+  
+  my $name = $xsl; $name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/;
+  my $output = $$sourceP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
+  &userXSLT($xsl, $$sourceP, $output, $paramsP, $logFlag);
+  $$sourceP = $output;
+}
+
 sub userXSLT($$$\%$) {
   my $xsl = shift;
   my $source = shift;
@@ -3409,6 +3421,18 @@ sub userXSLT($$$\%$) {
     &Log("$cmd\n");
     system($cmd);
   }
+}
+
+sub runXSLT2($$\%$) {
+  my $xsl = shift;
+  my $sourceP = shift;
+  my $paramsP = shift;
+  my $logFlag = shift;
+  
+  my $name = $xsl; $name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/;
+  my $output = $$sourceP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
+  &runXSLT($xsl, $$sourceP, $output, $paramsP, $logFlag);
+  $$sourceP = $output;
 }
 
 sub runXSLT($$$\%$) {
@@ -3604,16 +3628,18 @@ sub emptyvss($) {
 }
 
 
-sub writeOsisHeaderWork($\%\%\$\$) {
-  my $osis = shift;
+sub writeOsisHeader($\%\%\$\$) {
+  my $osisP = shift;
   my $confP = shift;
   my $convP = shift;
   my $bibleP = shift;
   my $glossaryP = shift;
   
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisHeader$3/;
+  
   &Log("\nWriting work and companion work elements in OSIS header:\n");
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   
   # What type of document is this?
   my $type;
@@ -3659,7 +3685,7 @@ sub writeOsisHeaderWork($\%\%\$\$) {
   &getOSIS_Work(\%workElements, $confP, $convP, $isbn);
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($osis, $confP->{'Versification'});
+    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $confP->{'Versification'});
   }
   &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -3681,11 +3707,12 @@ sub writeOsisHeaderWork($\%\%\$\$) {
     }
   }
   
-  if (open(OUTF, ">$osis")) {
+  if (open(OUTF, ">$output")) {
     print OUTF $xml->toString();
     close(OUTF);
+    $$osisP = $output;
   }
-  else {&Log("ERROR: Could not open \"$osis\" to add osisWorks to header!\n");}
+  else {&Log("ERROR: Could not open \"$$osisP\" to add osisWorks to header!\n");}
 }
 
 
@@ -3825,9 +3852,11 @@ sub writeWorkElement($$$) {
   &Log("Wrote to header: \n$w\n");
 }
 
-sub writeNoteIDs() {
-  my $osis = shift;
+sub writeNoteIDs($) {
+  my $osisP = shift;
   my $confP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeNoteIDs$3/;
   
   my $type;
   if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary';}
@@ -3836,7 +3865,7 @@ sub writeNoteIDs() {
   
   &Log("\nWriting note osisIDs:\n", 1);
   
-  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $XML_PARSER->parse_file($osis));
+  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $XML_PARSER->parse_file($$osisP));
   if (@existing) {
     &Log("WARNING: ".@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!\n");
     return;
@@ -3844,7 +3873,7 @@ sub writeNoteIDs() {
   
   my %osisID_note;
   
-  my @files = &splitOSIS($osis);
+  my @files = &splitOSIS($$osisP);
   foreach my $file (@files) {
     my $xml = $XML_PARSER->parse_file($file);
     
@@ -3886,13 +3915,16 @@ sub writeNoteIDs() {
     close(OUTF);
   }
   
-  &joinOSIS($osis);
+  &joinOSIS($output);
+  $$osisP = $output;
 }
 
 
 # Check for TOC entries, and write as much book TOC information as possible
 sub writeTOC($) {
-  my $osis = shift;
+  my $osisP = shift;
+
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeTOC$3/;
   
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
@@ -3901,7 +3933,7 @@ sub writeTOC($) {
   my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
   &Log("NOTE: Using \"\\toc$toc\" USFM tags to determine eBook TOC.\n");
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   
   my @tocTags = $XPC->findnodes('//osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $xml);
   
@@ -3962,9 +3994,12 @@ sub writeTOC($) {
     }
   }
   
-  open(OUTF, ">$osis") or die "writeTOC could not open file: \"$osis\".\n";
-  print OUTF $xml->toString();
+  open(OUTF, ">$output") or die "writeTOC could not open file: \"$output\".\n";
+  my $osisDocString = $xml->toString();
+  $osisDocString =~ s/\n+/\n/gm;
+  print OUTF $osisDocString;
   close(OUTF);
+  $$osisP = $output;
 }
 
 sub ebookReadConf($) {
@@ -4105,11 +4140,13 @@ sub joinOSIS($) {
 
 
 sub writeMissingNoteOsisRefsFAST($) {
-  my $osis = shift;
+  my $osisP = shift;
   
-  &Log("\nWriting missing note osisRefs in OSIS file \"$osis\".\n");
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeMissingNoteOsisRefs$3/;
   
-  my @files = &splitOSIS($osis);
+  &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
+  
+  my @files = &splitOSIS($$osisP);
   
   my $count = 0;
   foreach my $file (@files) {
@@ -4121,7 +4158,8 @@ sub writeMissingNoteOsisRefsFAST($) {
     close(OUTF);
   }
   
-  &joinOSIS($osis);
+  &joinOSIS($output);
+  $$osisP = $output;
   
   &Log("$MOD REPORT: Wrote \"$count\" note osisRefs.\n");
 }
@@ -4185,11 +4223,13 @@ sub writeMissingNoteOsisRefs($) {
 }
 
 sub removeDefaultWorkPrefixesFAST($) {
-  my $osis = shift;
+  my $osisP = shift;
   
-  &Log("\nRemoving default work prefixes in OSIS file \"$osis\".\n");
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDefaultWorkPrefixes$3/;
   
-  my @files = &splitOSIS($osis);
+  &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n");
+  
+  my @files = &splitOSIS($$osisP);
   
   my %stats = ('osisRef'=>0, 'osisID'=>0);
   
@@ -4202,7 +4242,8 @@ sub removeDefaultWorkPrefixesFAST($) {
     close(OUTF);
   }
   
-  &joinOSIS($osis);
+  &joinOSIS($output);
+  $$osisP = $output;
   
   &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
   &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");

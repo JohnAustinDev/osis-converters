@@ -33,9 +33,10 @@
 #    location (and external references to verses in alternate locations 
 #    will later also be modified to target that alternate location by 
 #    correctReferencesVSYS() ).
-sub addCrossRefs($$) {
-  my $in_osis = shift;
-  my $out_osis = shift;
+sub addCrossRefs($) {
+  my $osisP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCrossRefs$3/;
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
@@ -74,7 +75,7 @@ presentational text, it will be added. Example OSIS cross-references:
   }
 
   &Log("READING OSIS FILE: \"$in_osis\".\n");
-  my $osis = $XML_PARSER->parse_file($in_osis);
+  my $osis = $XML_PARSER->parse_file($$osisP);
   &Log("You are including cross references for ".@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:scope', $osis)}[0]->textContent.".\n");
 
   # Any presentational text will be removed from cross-references. Then localized  
@@ -213,12 +214,13 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     &insertNote($note, \%{$verses{$placement}}, $valt, \%localization);
   }
 
-  &Log("WRITING NEW OSIS FILE: \"$out_osis\".\n");
-  if (open(OUTF, ">$out_osis")) {
+  &Log("WRITING NEW OSIS FILE: \"$output\".\n");
+  if (open(OUTF, ">$output")) {
     print OUTF $osis->toString();
     close(OUTF);
+    $$osisP = $output;
   }
-  else {&Log("ERROR: Could not open \"$out_osis\" for writing.\n");}
+  else {&Log("ERROR: Could not open \"$output\" for writing.\n");}
 
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);

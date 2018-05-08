@@ -17,23 +17,23 @@
 # <http://www.gnu.org/licenses/>.
 
 sub addSeeAlsoLinks($$) {
-  my $in_file = shift;
-  my $out_file = shift;
+  my $osisP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addSeeAlsoLinks$3/;
   
   &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
-  &Log("READING INPUT FILE: \"$in_file\".\n");
-  &Log("WRITING OUTPUT FILE: \"$out_file\".\n");
+  &Log("READING INPUT FILE: \"$$osisP\".\n");
+  &Log("WRITING OUTPUT FILE: \"$output\".\n");
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $DWF);
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
-    copy($in_file, $out_file);
   }
   else {
     if (!$IS_usfm2osis) {
-      &Log("ERROR addSeeAlsoLinks: No longer supports imp input files. Convert \"$in_file\" to OSIS/TEI!\n");
+      &Log("ERROR addSeeAlsoLinks: No longer supports imp input files. Convert \"$$osisP\" to OSIS/TEI!\n");
       return;
     }
     
@@ -42,7 +42,7 @@ sub addSeeAlsoLinks($$) {
     undef($REF_SEG_CACHE);
     
     # Process OSIS dictionary input file (from usfm2osis.py)
-    my $xml = $XML_PARSER->parse_file($in_file);
+    my $xml = $XML_PARSER->parse_file($$osisP);
     
     # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
     my @glossary = $XPC->findnodes('.//osis:index[@index="Glossary"][@level1]', $xml);
@@ -54,11 +54,12 @@ sub addSeeAlsoLinks($$) {
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
     &checkCircularEntryCandidates(\@keywords);
    
-    open(OUTF, ">$out_file") or die "Could not open $out_file.\n";
+    open(OUTF, ">$output") or die "Could not open $output.\n";
     print OUTF $xml->toString();
     close(OUTF);
+    $$osisP = $output;
     
-    &checkCircularEntries($out_file);
+    &checkCircularEntries($output);
     &logDictLinks();
   }
 

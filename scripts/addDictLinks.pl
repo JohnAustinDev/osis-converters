@@ -17,25 +17,26 @@
 # <http://www.gnu.org/licenses/>.
 
 sub addDictLinks($$) {
-  my $in_file = shift;
-  my $out_file = shift;
+  my $osisP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addDictLinks$3/;
   
   &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
-  &Log("READING OSIS FILE: \"$in_file\".\n");
-  &Log("WRITING OSIS FILE: \"$out_file\".\n");
+  &Log("READING OSIS FILE: \"$$osisP\".\n");
+  &Log("WRITING OSIS FILE: \"$output\".\n");
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
-    copy($in_file, $out_file);
     return;
   }
   
   undef($REF_SEG_CACHE);
   
-  my @files = &splitOSIS($in_file);
+  my @files = &splitOSIS($$osisP);
   foreach my $file (@files) {&adlProcessFile($file);}
-  &joinOSIS($out_file);
+  &joinOSIS($output);
+  $$osisP = $output;
 
   &logDictLinks();
 }
