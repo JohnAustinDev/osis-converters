@@ -1728,20 +1728,21 @@ sub getModNameOSIS($) {
   my $node = shift; # might already be string mod name- in that case just return it
   if (!ref($node)) {return $node;}
   
-  # Generate doc data if the root document has not been seen before
+  # Generate doc data if the root document has not been seen before or was modified
   my $headerDoc = $node->ownerDocument->URI;
-  if (!$DOCUMENT_CACHE{$headerDoc}) {
+  my $mtime = 'mtime'.(stat($headerDoc))[9];
+  if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {
     # When splitOSIS() is used, the document containing the header may be different than the current node's document.
     my $testDoc = $headerDoc;
     if ($testDoc =~ s/[^\/]+$/other.osis/ && -e $testDoc) {$headerDoc = $testDoc;}
   }
-  if (!$DOCUMENT_CACHE{$headerDoc}) {&initDocumentCache($headerDoc);}
+  if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {&initDocumentCache($headerDoc, $mtime);}
   
-  if (!$DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'}) {
+  if (!$DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'}) {
     &Log("ERROR: getModNameOSIS: No value for \"$headerDoc\"!\n");
     return '';
   }
-  return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
+  return $DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'};
 }
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
@@ -1906,16 +1907,17 @@ sub getMovedVersesOSIS($) {
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
 # from an OSIS file URL.
-sub initDocumentCache($) {
+sub initDocumentCache($$) {
   my $headerDoc = shift;
+  my $mtime = shift;
   
   if (-e "$INPD/$DICTIONARY_WORDS") {$DOCUMENT_CACHE{'DWF'}{'xml'} = $DWF;}
   
-  undef($DOCUMENT_CACHE{$headerDoc});
+  undef($DOCUMENT_CACHE{$headerDoc.$mtime});
   my $xml = $XML_PARSER->parse_file($headerDoc);
-  $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
+  $DOCUMENT_CACHE{$headerDoc.$mtime}{'xml'} = $xml;
   my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
-  $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
+  $DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'} = $osisIDWork;
   
   # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   undef($DOCUMENT_CACHE{$osisIDWork});
