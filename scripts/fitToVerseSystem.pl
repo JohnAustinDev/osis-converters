@@ -529,35 +529,25 @@ sub correctReferencesVSYS($$) {
     return;
   }
   
-  # 1) Get osisIDs from the source verse system that need mapping to the target verse system (because of VSYS instructions).
-  # This map is used to update references within the translation that were broken by VSYS instructions.
-  my %sourceVerseMap;
-  my @annotateRefs = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.'-verse'.$VSYS{'start'}.'"][@annotateRef]', $bibleXML);
-  if (@annotateRefs[0]) {
-    foreach my $ar (@annotateRefs) {
-      my @oids = split(/\s+/, @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $ar)}[0]->getAttribute('osisID'));
-      my @aids = split(/\s+/, $ar->getAttribute('annotateRef'));
-AIDS:
-      foreach my $aid (@aids) {
-        foreach my $oid (@oids) {if ($oid eq $aid) {next AIDS;}}
-        $sourceVerseMap{$aid} = @oids[$#iods];
-      }
-    }
-  }
+  # 1) Get osisIDs from the source verse system that need mapping to the target verse system.
+  # This map is used to update references within the translation that point to alternate verses.
+  my $sourceVerseMapP = &getAltVersesOSIS($bibleXML)->{'alt2Fixed'};
     
   # 2) Get osisIDs from the target verse system that need re-mapping to the target verse-system (because of VSYS_MOVED instructions).
   # This map is used to update external references (in the target verse system) that were broken by VSYS_MOVED instructions.
-  my $targetVerseMapP = &getMovedVersesOSIS($bibleXML)->{'fromToFixed'};
+  my $targetVerseMapP = &getAltVersesOSIS($bibleXML)->{'fixed2Fixed'};
 
-  # 3) Look for osisRefs in the osis file that need updating and update them
+  # References which target verses that are purposefully not included in the translation are removed
   my %missing;
-  foreach my $m ($XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'missing'}.'"]', $bibleXML)) {
+  foreach my $m (@{&getAltVersesOSIS($bibleXML)->{'missing'}}) {
     map($missing{$_}++, split(/\s+/, &osisRef2osisID($m->getAttribute('osisRef'))));
   }
-  if (%sourceVerseMap || %{$targetVerseMapP}) {
+  
+  # 3) Look for osisRefs in the osis file that need updating and update them
+  if (%{$sourceVerseMapP} || %{$targetVerseMapP}) {
     my $lastch = '';
     my @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%sourceVerseMap) ])) {
+    foreach my $verse (&normalizeOsisID([ keys(%{$sourceVerseMapP}) ])) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
@@ -566,7 +556,7 @@ AIDS:
         @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
       }
       $lastch = $ch;
-      &addrids(\@checkrefs, $verse, \%sourceVerseMap, \%missing);
+      &addrids(\@checkrefs, $verse, $sourceVerseMapP, \%missing);
     }
     
     $lastch = '';
@@ -582,7 +572,7 @@ AIDS:
       &addrids(\@checkrefs, $verse, $targetVerseMapP, \%missing);
     }
     
-    $count = &applyrids($osisXML, &getMovedVersesOSIS($bibleXML)->{'fromTo'});
+    $count = &applyrids($osisXML, &getAltVersesOSIS($bibleXML)->{'fixed2Alt'});
   }
   
   # Overwrite OSIS file if anything changed
@@ -612,19 +602,20 @@ sub addrids(\@$\%\%) {
     my $changed = 0; # only write a rids attrib if there is a change
     my $rids = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
     my @everses = split(/\s+/, $rids);
-    if (@everses == 1 && $missingHP->{@everses[0]}) {
-      @everses = ();
-      $changed++;
-    }
-    else {
-      foreach my $ev (@everses) {
-        if ($ev ne $verse) {next;}
-        if ($mapHP->{$verse}) {
+    foreach my $ev (@everses) {
+      if ($ev ne $verse) {next;}
+      if ($mapHP->{$verse}) {
+        if (@everses == 1 && $missingHP->{$mapHP->{$verse}}) {
+          @everses = ();
+          $changed++;
+          last;
+        }
+        else {
           $ev = join(' ', map("x.$_", split(/\s+/, $mapHP->{$verse})));
           $changed++;
         }
-        else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
       }
+      else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
     }
     if ($changed) {$e->setAttribute('rids', join(' ', @everses));}
   }
@@ -999,7 +990,9 @@ sub applyVsysExtra($$$$$) {
     if ($chapLabel) {
       &Log("NOTE: Converting chapter label \"".$chapLabel->textContent."\" to alternate.\n");
       $chapLabel->setAttribute('type', 'x-chapterLabel-alternate');
-      my $alt = $XML_PARSER->parse_balanced_chunk("<hi type=\"italic\" subType=\"x-alternate\"></hi>");
+      my $t = $chapLabel->textContent();
+      &changeNodeText($chapLabel, '');
+      my $alt = $XML_PARSER->parse_balanced_chunk("<hi type=\"italic\" subType=\"x-alternate\">$t</hi>");
       foreach my $chld ($chapLabel->childNodes) {$alt->insertAfter($chld, undef);}
       $chapLabel->insertAfter($alt, undef);
     }
@@ -1090,7 +1083,7 @@ sub reVersify($$$$$) {
 # 1) Converting it to a milestone element 
 # 2) Cloning a target verse system element (unless noTarget is set)
 # 3) Adding an alternate verse number if the element is verse-start (unless noAlt is set)
-# This funtion returns the new target verse system element (if any)
+# This funtion returns the new target verse system element of #2.
 sub toAlternate($$$$) {
   my $elem = shift;
   my $noTarget = shift;
@@ -1172,8 +1165,8 @@ sub undoAlternate($) {
   my $ms = shift;
   
   &Log("NOTE: Undo alternate ".$ms->getAttribute('type').' '.$ms->getAttribute('annotateRef'));
-  
-  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/preceding-sibling::*[1][@subType="x-alternate"]', $ms)}[0];
+
+  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][1]', $ms)}[0];
   if ($avn) {
     $avn->unbindNode();
     &Log(", removed alternate verse number");

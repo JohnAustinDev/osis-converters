@@ -74,7 +74,7 @@ presentational text, it will be added. Example OSIS cross-references:
     return 0;
   }
 
-  &Log("READING OSIS FILE: \"$in_osis\".\n");
+  &Log("READING OSIS FILE: \"$$osisP\".\n");
   my $osis = $XML_PARSER->parse_file($$osisP);
   &Log("You are including cross references for ".@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:scope', $osis)}[0]->textContent.".\n");
 
@@ -169,10 +169,10 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
   
   # discover which verses were moved by translators from their fixed verse-system positions
   my %verseWasMovedTo;
-  my $movedP = &getMovedVersesOSIS($osis);
-  foreach my $moved (keys %{$movedP->{'fromTo'}}) {
-    $verseWasMovedTo{$moved}{'dest'} = $movedP->{'fromToFixed'}{$moved};
-    $verseWasMovedTo{$moved}{'valt'} = $movedP->{'fromTo'}{$moved}
+  my $movedP = &getAltVersesOSIS($osis);
+  foreach my $moved (keys %{$movedP->{'fixed2Alt'}}) {
+    $verseWasMovedTo{$moved}{'dest'} = $movedP->{'fixed2Fixed'}{$moved};
+    $verseWasMovedTo{$moved}{'valt'} = $movedP->{'fixed2Alt'}{$moved}
   }
   
   my $osisBooksHP = &getBooksOSIS($osis);
@@ -291,7 +291,9 @@ sub insertNote($\$) {
     my $end = $verseHP->{'end'};
     if ($INSERT_NOTE_SPEEDUP{$verseHP->{'end'}->getAttribute('eID')}) {
       while (my $alt = @{$XPC->findnodes('preceding::osis:hi[@subType="x-alternate"][1][preceding::osis:verse[1][@sID="'.$verseHP->{'start'}->getAttribute('sID').'"]]', $end)}[0]) {
-        if (!$alt || ($verseNum && $alt->textContent =~ /\b$verseNum\b/)) {last;}
+        if (!$alt || ($verseNum && $alt->textContent =~ /\b$verseNum\b/) || 
+           !@{$XPC->findnodes('preceding::text()[normalize-space()][1][preceding::osis:verse[1][@sID="'.$verseHP->{'start'}->getAttribute('sID').'"]]', $alt)}[0]
+         ) {last;}
         $end = $alt;
       }
     }

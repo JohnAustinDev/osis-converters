@@ -1832,16 +1832,16 @@ sub existsElementID($$$) {
 }
 # Returns a hash whose keys include from/to maps of verse osisIDs.
 # Results are cached for speed, and relevant tags are checked for consistency.
-sub getMovedVersesOSIS($) {
+sub getAltVersesOSIS($) {
   my $mod = &getModNameOSIS(shift);
   
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
-    &Log("ERROR getMovedVersesOSIS: No xml document node!\n");
+    &Log("ERROR getAltVersesOSIS: No xml document node!\n");
     return NULL;
   }
   
-  if (!$DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}) {
+  if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
     # Moved verses are recorded in the OSIS file with 3 milestone types, but for each type, annotateRef 
     # is always the source verse osisID and osisRef is always the fixed-verse-system osisID:
     # 1) milestone type="x-vsys-verse-start" when a verse was changed to a milestone by fitToVerseSystem()
@@ -1851,10 +1851,10 @@ sub getMovedVersesOSIS($) {
     push (@from, $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'"]', $xml));
     my @to     = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'"]', $xml);
     
-    my %fromTo; my %fromToFixed;
+    my %fixed2Alt; my %fixed2Fixed;
     foreach my $f (@from) {
       if (!$f->getAttribute('osisRef') || !$f->getAttribute('annotateRef') || $f->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
-        &Log("ERROR getMovedVersesOSIS: Unexpected attributes for 'from': $f\n");
+        &Log("ERROR getAltVersesOSIS: Unexpected attributes for 'from': $f\n");
         next;
       }
       my $toFixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $f)}[0]->getAttribute('osisID');
@@ -1863,46 +1863,71 @@ sub getMovedVersesOSIS($) {
       my @toIDs = split(/\s+/, &osisRef2osisID($f->getAttribute('annotateRef')));
       if (@frIDs == @toIDs) {
         for (my $i=0; $i<@frIDs; $i++) {
-          $fromTo{@frIDs[$i]} = @toIDs[$i];
-          $fromToFixed{@frIDs[$i]} = $toFixed;
+          $fixed2Alt{@frIDs[$i]} = @toIDs[$i];
+          $fixed2Fixed{@frIDs[$i]} = $toFixed;
         }
       }
       else {&Log("ERROR: Attribute ranges of 'from' are different sizes: ".$f->getAttribute('osisRef').", ".$f->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
     }
     
-    my %toFrom;
+    my %alt2Empty;
     foreach my $t (@to) {
       if (!$t->getAttribute('osisRef') || !$t->getAttribute('annotateRef') || $t->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
-        &Log("ERROR getMovedVersesOSIS: Unexpected attributes for 'to': $t\n");
+        &Log("ERROR getAltVersesOSIS: Unexpected attributes for 'to': $t\n");
         next;
       }
       my @frIDs = split(/\s+/, &osisRef2osisID($t->getAttribute('osisRef')));
       my @toIDs = split(/\s+/, &osisRef2osisID($t->getAttribute('annotateRef')));
       if (@frIDs == @toIDs) {
-        for (my $i=0; $i<@toIDs; $i++) {$toFrom{@toIDs[$i]} = @frIDs[$i];}
+        for (my $i=0; $i<@toIDs; $i++) {$alt2Empty{@toIDs[$i]} = @frIDs[$i];}
       }
       else {&Log("ERROR: Attribute ranges of 'to' are different sizes: ".$t->getAttribute('osisRef').", ".$t->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
     }
     
-    foreach my $f (keys %fromTo) {
-      if ($toFrom{$fromTo{$f}} ne $f) {
-        &Log("ERROR getMovedVersesOSIS: fromTo is not identical to toFrom (".$toFrom{$fromTo{$f}}." ne ".$f.")\n");
+    foreach my $f (keys %fixed2Alt) {
+      if ($alt2Empty{$fixed2Alt{$f}} ne $f) {
+        &Log("ERROR getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (".$alt2Empty{$fixed2Alt{$f}}." ne ".$f.")\n");
       }
     }
-    foreach my $t (keys %toFrom) {
-      if ($fromTo{$toFrom{$t}} ne $t) {
-        &Log("ERROR getMovedVersesOSIS: toFrom is not identical to fromTo (".$fromTo{$toFrom{$t}}." ne ".$t.")\n");
+    foreach my $t (keys %alt2Empty) {
+      if ($fixed2Alt{$alt2Empty{$t}} ne $t) {
+        &Log("ERROR getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (".$fixed2Alt{$alt2Empty{$t}}." ne ".$t.")\n");
       }
     }
     
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'from'}        = \@from;        # elements indicating verse was moved 'from' somewhere else
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'to'}          = \@to;          # elements indicating verse was moved 'to' somewhere else
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromTo'}      = \%fromTo;      # verse ID map from fixed to the source address which is an alternate verse not part of the fixed verse system
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'fromToFixed'} = \%fromToFixed; # verse ID map from fixed to the fixed address which contains alternate source verses
-    $DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}{'toFrom'}      = \%toFrom;      # verse ID map from source to the fixed address which is empty
+    # These are not all moved verses- some might be extra verses, but partial verses are not included
+    my %alt2Fixed;
+    foreach my $alt ($XPC->findnodes('//osis:hi[@subType="x-alternate"][not(ancestor::*[@*="x-chapterLabel-alternate"])]', $xml)) {
+      my $fixed = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $alt)}[0];
+      my $fosisID = $fixed->getAttribute('osisID'); $fosisID =~ s/^.*\s+(\S+)$/$1/;
+      if ($fosisID =~ /([^\.]+)\.(\d+)\.\d+$/) {
+        my $bk = $1; my $ch = $2;
+        # In the special case of an alternate chapter, this alt verse is not in the same chapter as the previous verse!
+        my $altChapter = @{$XPC->findnodes('(preceding::osis:chapter[1] | preceding::*[@*="x-chapterLabel-alternate"][1])[last()][preceding::osis:verse[@osisID="'.$fixed->getAttribute('osisID').'"]]', $alt)}[0];
+        if ($altChapter) {$ch = $altChapter->textContent(); $ch =~ s/\D//g;}
+        my $vs = $alt->textContent();
+        if ($vs =~ s/^[\W]*(\d+)(\s*\D\s*(\d+))?[\W]*$/$1/) {
+          my $lv = ($2 ? $3:$vs);
+          for (my $v = $vs; $v<=$lv; $v++) {$alt2Fixed{"$bk.$ch.$v"} = $fosisID;}
+        }
+        else {&Log("WARNING getAltVersesOSIS: Verse is not a number and so cannot be targetted by references: $alt\n");}
+      }
+    }
+    
+    my @missing = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'missing'}.'"]', $xml);
+    
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'missing'}     = \@missing;     # elements indicating a missing verse
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'from'}        = \@from;        # elements indicating verse was moved 'from' somewhere else
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'to'}          = \@to;          # elements indicating verse was moved 'to' somewhere else
+    
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Alt'}   = \%fixed2Alt;   # verse ID map from fixed to the alternate address which is not part of the fixed verse system
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fixed'} = \%fixed2Fixed; # verse ID map from fixed to the fixed address which contains the alternate verses above
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'alt2Empty'}   = \%alt2Empty;   # verse ID map from alternate to the fixed address where the verse should be (but which is thus empty)
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'alt2Fixed'}   = \%alt2Fixed;   # verse ID map from alternate to the fixed address which contains the alternate verses
+#use Data::Dumper; &Log("DEBUG: getAltVersesOSIS = ".Dumper(\%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}})."\n", 1);
   }
   
-  return \%{$DOCUMENT_CACHE{$mod}{'getMovedVersesOSIS'}};
+  return \%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}};
 }
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
