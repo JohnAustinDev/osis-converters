@@ -21,8 +21,8 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init();
 
 # Get SFM files
 $List = "-l";
@@ -63,7 +63,7 @@ $cmd = "$CBD/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2
 
 # run addScripRefLinks.pl
 if (-e "$INPD/CF_addScripRefLinks.txt") {
-  require("$SCRD/scripts/addScripRefLinks.pl");
+  require("$SCRD/scripts/perl/addScripRefLinks.pl");
   &addScripRefLinks("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 else {

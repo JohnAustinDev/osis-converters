@@ -25,8 +25,8 @@ $IPTYPE  = shift;
 $COVER   = shift;
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init(1);
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init(1);
 
 use File::Spec;
 
@@ -139,34 +139,11 @@ if (lc $OPTYPE eq "fb2")
 elsif (lc $OPTYPE eq "epub") {
   $COMMAND .= " --output-profile tablet --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
 }
-elsif (lc $OPTYPE eq "mobi") {
-  $COMMAND .= " --output-profile tablet";
-}
 
 # Debug keeps eBook intermediate files
 if ($DEBUG)
 {
   $COMMAND .= ' --debug-pipeline='.&escfile("$RUNDIR/debug");
-}
-
-# Run KindleGen for mobi when possible. 
-# Note: Calibre rasterizes MOBI images which compresses them very well.  
-# But the aspect ratio of maps is not retained (which is unacceptable).
-# KindleGen includes proper font (unlike Calibre) and images retain their 
-# aspect ratio. However, KindleGen's images are 2x the size of EPUB and 
-# FB2 for some unknown reason.
-if (lc $OPTYPE eq "mobi") {
-  if (-e "$SCRD/kindlegen/kindlegen") {
-    my $inf = $INPF;
-    $inf =~ s/\.[^\.]+$/\.epub/;
-    if (-e $inf) {
-      my $outname = $inf;
-      $outname =~ s/^.*\/([^\/]+)\.[^\.\/]+$/$1.mobi/;
-      $COMMAND = &escfile("$SCRD/kindlegen/kindlegen")." ".&escfile($inf)." -c2 -o \"$outname\" -verbose";
-    }
-    else {&Log("WARNING: Using Calibre MOBI conversion because an epub input file was not found at: \"$inf\"\n");}
-  }
-  else {&Log("WARNING: Using Calibre MOBI conversion. To use the better KindleGen converter for MOBI conversion, install it in osis-converters/kindlegen. It is available for free download from Amazon.\n", 1);}
 }
 
 # Run conversion command

@@ -45,7 +45,7 @@ sub addCrossRefs($) {
     "$INPD/Cross_References/$CrossRefFile.xml",
     "$INPD/../Cross_References/$CrossRefFile.xml",
     "$INPD/../../Cross_References/$CrossRefFile.xml",
-    "$SCRD/scripts/CrossReferences/$CrossRefFile.xml",
+    "$SCRD/CrossReferences/$CrossRefFile.xml",
   );
   foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
   if (!-e $CrossRefFile) {
@@ -53,7 +53,7 @@ sub addCrossRefs($) {
 WARNING: Could not locate a Cross Reference source file- skipping cross-reference insertion.
 NOTE: Cross Reference source files are OSIS files containing only cross-references.  
 They have the name of their SWORD Versification system, and are typically placed in the 
-osis-converters/scripts/CrossReferences directory. If reference tags do not contain
+osis-converters/CrossReferences directory. If reference tags do not contain
 presentational text, it will be added. Example OSIS cross-references:
 
 <div type=\"book\" osisID=\"Gen\">

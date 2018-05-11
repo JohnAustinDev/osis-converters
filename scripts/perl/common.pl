@@ -61,8 +61,8 @@ $VSYS{'movedfrom'} = '-movedfrom';
 $VSYS{'start'} = '-start';
 $VSYS{'end'} = '-end';
 
-require("$SCRD/scripts/getScope.pl");
-require("$SCRD/scripts/fitToVerseSystem.pl");
+require("$SCRD/scripts/perl/getScope.pl");
+require("$SCRD/scripts/perl/fitToVerseSystem.pl");
 
 sub init($) {
   my $quiet = shift;

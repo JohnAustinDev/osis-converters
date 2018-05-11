@@ -52,7 +52,7 @@
 #        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
 #        disassociate the left ref from footnote association.
 
-require("$SCRD/scripts/processGlossary.pl");
+require("$SCRD/scripts/perl/processGlossary.pl");
 
 %OSISID_FOOTNOTE;
 %VERSE_FOOTNOTE_IDS;

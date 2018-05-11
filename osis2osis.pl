@@ -35,10 +35,10 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init();
 
-require("$SCRD/scripts/simplecc.pl");
+require("$SCRD/scripts/perl/simplecc.pl");
 
 my $osis_in = "";
 my $CCIN;
@@ -175,7 +175,7 @@ while (<COMF>) {
 }
 close(COMF);
 
-if ($osis_in) {require("$SCRD/scripts/processOSIS.pl");}
+if ($osis_in) {require("$SCRD/scripts/perl/processOSIS.pl");}
 
 sub string_convert($$$) {
   my $s = shift;

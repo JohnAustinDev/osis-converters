@@ -27,8 +27,8 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init();
 
 $OSISFILE = "$OUTDIR/$MOD.xml";
 
@@ -66,7 +66,7 @@ if ($IS_usfm2osis) {
   elsif ($MODDRV =~ /LD/) {
     $xsl = 'osis2tei.xsl';
     $outtype = "tei";
-    require "$SCRD/scripts/processGlossary.pl";
+    require "$SCRD/scripts/perl/processGlossary.pl";
     &removeDuplicateEntries($processing);
   }
   my $output = "$TMPDIR/2_".$outtype.".preprocessed.xml";

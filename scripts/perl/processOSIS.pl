@@ -9,7 +9,7 @@ my $projectGlossary;
 &writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  require("$SCRD/scripts/fitToVerseSystem.pl");
+  require("$SCRD/scripts/perl/fitToVerseSystem.pl");
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
   &runXSLT2("$SCRD/scripts/xslt/checkUpdateIntros.xsl", \$OSIS);
 }
@@ -17,7 +17,7 @@ elsif ($MODDRV =~ /LD/) {
   &runXSLT2("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
   &runXSLT("$SCRD/scripts/xslt/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
-  require("$SCRD/scripts/processGlossary.pl");
+  require("$SCRD/scripts/perl/processGlossary.pl");
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML($OSIS);
 }
@@ -28,22 +28,22 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 &writeTOC(\$OSIS);
 
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
-  require("$SCRD/scripts/addScripRefLinks.pl");
+  require("$SCRD/scripts/perl/addScripRefLinks.pl");
   &addScripRefLinks(\$OSIS);
   &checkScripRefLinks($OSIS, $projectBible);
   if ($addFootnoteLinks ne '0' && -e "$INPD/CF_addFootnoteLinks.txt") {
-    require("$SCRD/scripts/addFootnoteLinks.pl");
+    require("$SCRD/scripts/perl/addFootnoteLinks.pl");
     &addFootnoteLinks(\$OSIS);
   }
 }
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
-  require("$SCRD/scripts/addDictLinks.pl");
+  require("$SCRD/scripts/perl/addDictLinks.pl");
   &addDictLinks(\$OSIS);
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
-  require("$SCRD/scripts/addSeeAlsoLinks.pl");
+  require("$SCRD/scripts/perl/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks(\$OSIS);
 }
 
@@ -54,7 +54,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 }
 
 if ($MODDRV =~ /Text/ && $addCrossRefs ne '0') {
-  require("$SCRD/scripts/addCrossRefs.pl");
+  require("$SCRD/scripts/perl/addCrossRefs.pl");
   &addCrossRefs(\$OSIS);
 }
 

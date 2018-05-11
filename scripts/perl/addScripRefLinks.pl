@@ -123,7 +123,7 @@
 
 $DEBUG_LOCATION = 0;
 
-require("$SCRD/scripts/processGlossary.pl");
+require("$SCRD/scripts/perl/processGlossary.pl");
 
 sub addScripRefLinks($$) {
   my $in_file = shift;

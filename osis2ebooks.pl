@@ -24,8 +24,8 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init();
 
 &userXSLT("$INPD/eBook/preprocess.xsl", "$OUTDIR/$MOD.xml", "$TMPDIR/".$MOD."_1.xml");
 $OSISFILE = "$TMPDIR/".$MOD."_1.xml";
@@ -231,7 +231,7 @@ body {font-family: font1;}
     if ($outf) {
       &userXSLT("$INPD/$companion/eBook/preprocess.xsl", $outf, "$tmp/$companion.xml");
       if ($companion =~ /DICT$/) {
-        require "$SCRD/scripts/processGlossary.pl";
+        require "$SCRD/scripts/perl/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);

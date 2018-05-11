@@ -1,6 +1,4 @@
-scripts/CrossReferences
-scripts/GoBibleCreator*
-kindlegen
+CrossReferences
 paths.pl
 .vagrant
 Vagrantshares

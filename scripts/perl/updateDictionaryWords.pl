@@ -26,9 +26,9 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
-require("$SCRD/scripts/processGlossary.pl");
+require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/perl/common.pl"; &init();
+require("$SCRD/scripts/perl/processGlossary.pl");
 
 my @entry, %pattern;
 open(INF, "<:encoding(UTF-8)", "$INPD/DictionaryWords.txt") or die;
