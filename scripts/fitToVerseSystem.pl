@@ -553,7 +553,7 @@ sub correctReferencesVSYS($$) {
       if (!$lastch || $lastch ne $ch) {
         # Select all elements having osisRef attributes EXCEPT those within externally sourced 
         # crossReferences since they already match the target verse-system.
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, $sourceVerseMapP, \%missing);
@@ -566,7 +566,7 @@ sub correctReferencesVSYS($$) {
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         # Select ONLY elements having osisRef attributes within externally sourced crossReferences 
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][ancestor::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
+        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][ancestor-or-self::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
       }
       $lastch = $ch;
       &addrids(\@checkrefs, $verse, $targetVerseMapP, \%missing);
@@ -588,7 +588,7 @@ sub correctReferencesVSYS($$) {
   &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of VSYS intructions.\n");
 }
 
-# If any osisRef in the $checkRefsAP array of osisRefs includes $verse,  
+# If any osisRef in the @checkRefs array of osisRefs includes $verse,  
 # then add a rids attribute. The rids attribute contains redirected  
 # verse osisID(s) that will become the updated osisRef value of the 
 # parent element.
@@ -600,28 +600,28 @@ sub addrids(\@$\%\%) {
   
   foreach my $e (@{$checkRefsAP}) {
     my $changed = 0; # only write a rids attrib if there is a change
-    my $rids = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
-    my @everses = split(/\s+/, $rids);
-    foreach my $ev (@everses) {
-      if ($ev ne $verse) {next;}
+    my $ridsAttrib = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
+    my @rids = split(/\s+/, $ridsAttrib);
+    foreach my $rid (@rids) {
+      if ($rid ne $verse) {next;}
       if ($mapHP->{$verse}) {
-        if (@everses == 1 && $missingHP->{$mapHP->{$verse}}) {
-          @everses = ();
+        if (@rids == 1 && $missingHP->{$mapHP->{$verse}}) {
+          @rids = ();
           $changed++;
           last;
         }
         else {
-          $ev = join(' ', map("x.$_", split(/\s+/, $mapHP->{$verse})));
+          $rid = join(' ', map("x.$_", split(/\s+/, $mapHP->{$verse})));
           $changed++;
         }
       }
       else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
     }
-    if ($changed) {$e->setAttribute('rids', join(' ', @everses));}
+    if ($changed) {$e->setAttribute('rids', join(' ', @rids));}
   }
 }
 
-# Apply rids attributes to parent elements and remove rids attributes.
+# Apply rids attributes to elements and remove rids attributes from them.
 # Also write annotateRefs containing the source verse system targets.
 # References to moved verses also have a rids attibute containing fixed 
 # verse system addresses to be applied to osisRef, but the annotateRef 
