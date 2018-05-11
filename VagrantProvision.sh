@@ -107,3 +107,7 @@ fi
 # non English hosts may need this:
 sudo su -c "echo LC_ALL=en_US.UTF-8 >> /etc/environment"
 sudo su -c "echo LANG=en_US.UTF-8 >> /etc/environment"
+
+# for some reason this began hanging around, so delete it
+sudo rm /var/lib/dpkg/lock
+
