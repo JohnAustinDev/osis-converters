@@ -585,7 +585,7 @@ sub correctReferencesVSYS($$) {
     else {&Log("ERROR: Could not open \"$output\" to write osisRef fixes!\n");}
   }
   
-  &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of VSYS intructions.\n");
+  &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of alternate verses.\n");
 }
 
 # If any osisRef in the @checkRefs array of osisRefs includes $verse,  

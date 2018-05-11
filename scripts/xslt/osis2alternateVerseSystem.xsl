@@ -23,9 +23,9 @@
   <template match="hi[@subType='x-alternate']">
     <!-- Remove only <hi> that were added by fitToVerseSystem() !-->
     <if test="generate-id() != generate-id(
-      preceding::milestone[@annotateType='x-vsys-fitted'][1]/
-      following::text()[normalize-space()][not(ancestor::hi[@subType='x-alternate'])][1]/
-      preceding-sibling::*[1])">
+      preceding::milestone[starts-with(@type, 'x-vsys')][ends-with(@type, '-start')][1]/
+      following::text()[normalize-space()][1]/
+      ancestor-or-self::hi[@subType='x-alternate'][1])">
       <call-template name="identity"/>
     </if>
   </template>

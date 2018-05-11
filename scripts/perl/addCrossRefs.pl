@@ -167,26 +167,22 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $INSERT_NOTE_SPEEDUP{@{$XPC->findnodes('following::osis:verse[@eID][1]', $alt)}[0]->getAttribute('eID')}++;
   }
   
-  # discover which verses were moved by translators from their fixed verse-system positions
-  my %verseWasMovedTo;
   my $movedP = &getAltVersesOSIS($osis);
-  foreach my $moved (keys %{$movedP->{'fixed2Alt'}}) {
-    $verseWasMovedTo{$moved}{'dest'} = $movedP->{'fixed2Fixed'}{$moved};
-    $verseWasMovedTo{$moved}{'valt'} = $movedP->{'fixed2Alt'}{$moved}
-  }
-  
   my $osisBooksHP = &getBooksOSIS($osis);
   foreach my $note ($XPC->findnodes('//osis:note', $xml)) {
     foreach my $t ($note->childNodes()) {if ($t->nodeType == XML::LibXML::XML_TEXT_NODE) {$t->unbindNode();}}
     
     # decide where to place this note
-    my $valt = 0;
-    my $placement = $note->getAttribute('osisID');
-    $placement =~ s/^(.*?)(\!.*)?$/$1/;
-    $placement =~ s/^[^\:]*\://;
-    if ($verseWasMovedTo{$placement}) {
-      $valt = $verseWasMovedTo{$placement}{'valt'};
-      $placement = $verseWasMovedTo{$placement}{'dest'};
+    my $fixed = $note->getAttribute('osisID');
+    $fixed =~ s/^(.*?)(\!.*)?$/$1/;
+    $fixed =~ s/^[^\:]*\://;
+    
+    # map crossReferences which target verses that were moved by translators from their fixed verse-system positions
+    my $placement = $fixed;
+    my $altID = '';
+    if ($movedP->{'fixed2Alt'}{$placement}) {
+      $altID = $movedP->{'fixed2Alt'}{$placement};
+      $placement = $movedP->{'fixed2Fixed'}{$placement};
     }
     
     # check and filter the note placement
@@ -203,15 +199,18 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     if (!$verses{$placement}) {&Log("ERROR: $placement: Target verse not found.\n"); next;}
     
     # add annotateRef so readers know where the note belongs
-    if ($localization{'hasLocalization'}) {
-      my $anotateRef = "<reference osisRef=\"$placement\" type=\"annotateRef\">$c".$localization{'ChapterVerseSeparator'}."$v</reference> ";
-      $note->insertBefore($XML_PARSER->parse_balanced_chunk($anotateRef), $note->firstChild);
+    my $annotateRef = ($altID ? $altID:$placement);
+    if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+      my $bk = $1; my $ch = $2; my $vs = $3;
+      # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
+      my $elem = "<reference osisRef=\"$fixed\" type=\"annotateRef\">$ch".$localization{'ChapterVerseSeparator'}."$vs</reference> ";
+      $note->insertBefore($XML_PARSER->parse_balanced_chunk($elem), $note->firstChild);
     }
     
     # add resp attribute, which identifies this note as an external note
     $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));
     
-    &insertNote($note, \%{$verses{$placement}}, $valt, \%localization);
+    &insertNote($note, \%{$verses{$placement}}, $altID, \%localization);
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
@@ -238,15 +237,15 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # Insert the note near the beginning or end of the verse depending on type.
 # Normal cross-references go near the end, but parallel passages go near the 
 # beginning of the verse. Sometimes a verse contains alternate verses within
-# itself, and in this case, altVerse is used to place the note within the 
+# itself, and in this case, altVerseID is used to place the note within the 
 # appropriate alternate verse.
 sub insertNote($\$) {
   my $note = shift;
   my $verseHP = shift;
-  my $altVerse = shift;
+  my $altVerseID = shift;
   my $localeP = shift;
   
-  my $verseNum = ($altVerse =~ s/^.*?\.(\d+)$// ? $1:'');
+  my $verseNum = ($altVerseID =~ s/^.*?\.(\d+)$// ? $1:'');
   
   # add readable reference text to the note's references (required by some front ends and eBooks)
   my @refs = $XPC->findnodes('osis:reference[@osisRef][not(@type="annotateRef")]', $note);
