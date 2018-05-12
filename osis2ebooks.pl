@@ -133,7 +133,7 @@ sub setupAndMakeEbook($$$) {
     \$ebookTitle, 
     \$ebookTitlePart);
     
-  &runXSLT("$SCRD/scripts/xslt/osis2alternateVerseSystem.xsl", "$tmp/$MOD-0.xml", "$tmp/$MOD.xml");
+  &runXSLT("$SCRD/scripts/xslt/bible/osis2alternateVerseSystem.xsl", "$tmp/$MOD-0.xml", "$tmp/$MOD.xml");
   
   # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
@@ -231,7 +231,7 @@ body {font-family: font1;}
     if ($outf) {
       &userXSLT("$INPD/$companion/eBook/preprocess.xsl", $outf, "$tmp/$companion.xml");
       if ($companion =~ /DICT$/) {
-        require "$SCRD/scripts/perl/processGlossary.pl";
+        require "$SCRD/scripts/perl/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);

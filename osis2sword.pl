@@ -66,7 +66,7 @@ if ($IS_usfm2osis) {
   elsif ($MODDRV =~ /LD/) {
     $xsl = 'osis2tei.xsl';
     $outtype = "tei";
-    require "$SCRD/scripts/perl/processGlossary.pl";
+    require "$SCRD/scripts/perl/dict/processGlossary.pl";
     &removeDuplicateEntries($processing);
   }
   my $output = "$TMPDIR/2_".$outtype.".preprocessed.xml";

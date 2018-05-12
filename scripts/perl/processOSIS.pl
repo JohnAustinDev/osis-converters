@@ -9,15 +9,15 @@ my $projectGlossary;
 &writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  require("$SCRD/scripts/perl/fitToVerseSystem.pl");
+  require("$SCRD/scripts/perl/bible/fitToVerseSystem.pl");
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
-  &runXSLT2("$SCRD/scripts/xslt/checkUpdateIntros.xsl", \$OSIS);
+  &runXSLT2("$SCRD/scripts/xslt/bible/checkUpdateIntros.xsl", \$OSIS);
 }
 elsif ($MODDRV =~ /LD/) {
-  &runXSLT2("$SCRD/scripts/xslt/aggregateRepeatedEntries.xsl", \$OSIS);
+  &runXSLT2("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
-  &runXSLT("$SCRD/scripts/xslt/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
-  require("$SCRD/scripts/perl/processGlossary.pl");
+  &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
+  require("$SCRD/scripts/perl/dict/processGlossary.pl");
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML($OSIS);
 }
@@ -39,11 +39,11 @@ if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
-  require("$SCRD/scripts/perl/addDictLinks.pl");
+  require("$SCRD/scripts/perl/bible/addDictLinks.pl");
   &addDictLinks(\$OSIS);
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
-  require("$SCRD/scripts/perl/addSeeAlsoLinks.pl");
+  require("$SCRD/scripts/perl/dict/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks(\$OSIS);
 }
 
@@ -54,7 +54,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 }
 
 if ($MODDRV =~ /Text/ && $addCrossRefs ne '0') {
-  require("$SCRD/scripts/perl/addCrossRefs.pl");
+  require("$SCRD/scripts/perl/bible/addCrossRefs.pl");
   &addCrossRefs(\$OSIS);
 }
 
@@ -103,7 +103,7 @@ RUN:./INT.SFM\n");
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   %params = ($glossContainsINT ? ('introScope' => 'INT'):());
-  &runXSLT2("$SCRD/scripts/xslt/glossaryNavMenu.xsl", \$OSIS, \%params);
+  &runXSLT2("$SCRD/scripts/xslt/navigationMenu.xsl", \$OSIS, \%params);
   
   my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."sword/css";
   if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {
