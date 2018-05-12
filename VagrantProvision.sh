@@ -26,7 +26,7 @@ if [ ! `which calibre` ]; then
   mkdir $HOME/.config
   wget -nv -O- https://download.calibre-ebook.com/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
 fi
-calibre-customize -b $VCODE/eBooks/OSIS-Input
+calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
 # GoBible Creator
 if [ ! -e  $HOME/.osis-converters/GoBibleCreator.245 ]; then

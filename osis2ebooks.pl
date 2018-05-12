@@ -139,9 +139,9 @@ sub setupAndMakeEbook($$$) {
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
   
   # copy css directory (css directory is the last of the following)
-  my $css = "$SCRD/eBooks/css";
-  if (-e "$INPD/../defaults/eBook/css") {$css = "$INPD/../defaults/eBook/css";}
-  elsif (-e "$INPD/../../defaults/eBook/css") {$css = "$INPD/../../defaults/eBook/css";}
+  my $css = "$SCRD/defaults/bible/eBook/css";
+  if (-e "$INPD/../defaults/bible/eBook/css") {$css = "$INPD/../defaults/bible/eBook/css";}
+  elsif (-e "$INPD/../../defaults/bible/eBook/css") {$css = "$INPD/../../defaults/bible/eBook/css";}
   elsif (-e "$INPD/eBook/css-default") {$css = "$INPD/eBook/css-default";}
   copy_dir($css, "$tmp/css");
   # module css is added to default css directory
@@ -339,7 +339,7 @@ sub makeEbook($$$$$) {
   
   &updateOsisFullResourceURL($osis, $format);
   
-  my $cmd = "$SCRD/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
+  my $cmd = "$SCRD/scripts/perl/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
   
   my $out = "$tmp/$MOD.$format";
