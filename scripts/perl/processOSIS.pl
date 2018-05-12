@@ -1,3 +1,6 @@
+require("$SCRD/scripts/perl/bible/fitToVerseSystem.pl");
+if ($MODDRV =~ /LD/) {require("$SCRD/scripts/perl/dict/processGlossary.pl");}
+
 # MOD_0.xml is raw converter output
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runXSLT2("$SCRD/scripts/xslt/usfm2osis.py.xsl", \$OSIS);
@@ -9,7 +12,6 @@ my $projectGlossary;
 &writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary);
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
-  require("$SCRD/scripts/perl/bible/fitToVerseSystem.pl");
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
   &runXSLT2("$SCRD/scripts/xslt/bible/checkUpdateIntros.xsl", \$OSIS);
 }
@@ -17,7 +19,6 @@ elsif ($MODDRV =~ /LD/) {
   &runXSLT2("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
   &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
-  require("$SCRD/scripts/perl/dict/processGlossary.pl");
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML($OSIS);
 }
