@@ -3424,6 +3424,11 @@ sub userXSLT2($$\%$) {
   my $paramsP = shift;
   my $logFlag = shift;
   
+  if (!-e $xsl) {
+    &Log("NOTE: No user XSLT to run: $xsl\n");
+    return;
+  }
+  
   my $name = $xsl; $name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/;
   my $output = $$sourceP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
   &userXSLT($xsl, $$sourceP, $output, $paramsP, $logFlag);
@@ -3437,15 +3442,16 @@ sub userXSLT($$$\%$) {
   my $paramsP = shift;
   my $logFlag = shift;
   
-  if (-e $xsl) {
-    &Log("\n--- Running USER XSLT: $xsl...\n");
-    &runXSLT($xsl, $source, $output, $paramsP, $logFlag);
-  }
-  else {
+  if (!-e $xsl) {
+    &Log("NOTE: No user XSLT to run: $xsl\n");
     my $cmd = 'cp '.&escfile($source).' '.&escfile($output);
     &Log("$cmd\n");
     system($cmd);
+    return;
   }
+  
+  &Log("\n--- Running USER XSLT: $xsl...\n");
+  &runXSLT($xsl, $source, $output, $paramsP, $logFlag);
 }
 
 sub runXSLT2($$\%$) {
