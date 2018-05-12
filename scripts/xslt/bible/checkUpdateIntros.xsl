@@ -32,7 +32,7 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
     3) Titles set to canonical=false unless already explicitly set
   -->
  
-  <import href="./functions.xsl"/>
+  <import href="../functions.xsl"/>
   
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   

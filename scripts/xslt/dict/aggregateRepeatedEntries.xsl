@@ -14,7 +14,7 @@
   5) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
   -->
  
-  <import href="./functions.xsl"/>
+  <import href="../functions.xsl"/>
   
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   

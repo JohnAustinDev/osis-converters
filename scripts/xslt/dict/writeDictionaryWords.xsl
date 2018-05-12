@@ -8,7 +8,7 @@
  
   <!-- This XSLT writes a default (initial) DictionaryWords.xml file for a glossary OSIS file -->
  
-  <import href="./functions.xsl"/>
+  <import href="../functions.xsl"/>
   
   <param name="notXPATH_default" select="'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]'"/>
   

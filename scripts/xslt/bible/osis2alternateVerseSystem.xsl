@@ -11,7 +11,7 @@
   references are also reverted (including externally added cross-references) so that
   the resulting OSIS file's references are correct according to the custom verse system !-->
  
-  <import href="./functions.xsl"/>
+  <import href="../functions.xsl"/>
   
   <!-- By default copy everything as is -->
   <template match="node()|@*" name="identity" mode="#all">
