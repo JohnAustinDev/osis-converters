@@ -69,6 +69,24 @@
     </value-of>
   </function>
   
+  <function name="oc:printNode" as="text()">
+    <param name="node" as="node()"/>
+    <choose>
+      <when test="$node[self::element()]">
+        <value-of>element:
+          <value-of select="concat('element=', $node/name(), ', ')"/>
+          <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
+        </value-of>
+      </when>
+      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
+      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
+    </choose>
+  </function>
+  
   <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:
   - Only Java functions are supported by saxon.
   - Java exec() immediately returns, without blocking, making another blocking method a necessity.
@@ -119,23 +137,5 @@ chmod +r <value-of select="$tmpResult"/>
     <if test="$ms!=10"><message select="concat('WARNING: Sleeping ', $ms, 'ms')"/></if>
     <message select="thread:sleep($ms)"/>     
   </template>
-  
-  <function name="oc:printNode" as="text()">
-    <param name="node" as="node()"/>
-    <choose>
-      <when test="$node[self::element()]">
-        <value-of>element:
-          <value-of select="concat('element=', $node/name(), ', ')"/>
-          <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
-        </value-of>
-      </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
-      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
-    </choose>
-  </function>
   
 </stylesheet>
