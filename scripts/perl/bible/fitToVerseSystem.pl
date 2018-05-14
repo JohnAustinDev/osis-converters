@@ -1008,16 +1008,23 @@ sub applyVsysExtra($$$$$) {
     &toAlternate(@{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0], 1);
   }
   
-  # Convert verse tags between startTag and endTag, and add alternate verse numbers (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
+  # If vs==1 and movedFromP then we need to add a marker to verse 1 even though the tag itself is not changed
+  if ($vs == 1 && $movedFromP) {
+    my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
+    my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
+    my $m = "<milestone type='$type' osisRef='".$movedFromP->{'map'}{"$bk.$ch.1"}."' annotateRef='$bk.$ch.1' annotateType='$annotateType'/>";
+    $startTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $startTag);
+  }
+  
+  # Convert verse tags between startTag and endTag, and also endTag, to alternate verse numbers (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
   my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
   my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
   my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
-  
-  foreach my $v (@convert) {&toAlternate($v, 1, 0, $movedFromP);}
+  foreach my $v (@convert) {&toAlternate($v, 1, 0, ($vs != 1 ? $movedFromP:0));}
   $endTag = &toAlternate($endTag);
   $endTag->setAttribute('eID', $startTag->getAttribute('sID'));
   
-  # If not isWholeChapter, then any following verses get decremented verse numbers plus an alternate verse number
+  # Following verses get decremented verse numbers plus an alternate verse number (unless isWholeChapter)
   if (!$isWholeChapter) {
     my $lastV = &getLastVerseInChapterOSIS($bk, $ch, $xml);
     my $count = (1 + $lv - $vs);
