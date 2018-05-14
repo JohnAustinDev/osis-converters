@@ -339,7 +339,7 @@ sub makeEbook($$$$$) {
   
   &updateOsisFullResourceURL($osis, $format);
   
-  my $cmd = "$SCRD/scripts/perl/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
+  my $cmd = "$SCRD/scripts/perl/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
   
   my $out = "$tmp/$MOD.$format";

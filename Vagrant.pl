@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# usage: vagrant.pl script input_directory
+# usage: Vagrant.pl script input_directory
 #
 # The purpose of this script is to set the required file shares between
 # host and vagrant client, and to call osis-converters on the client.

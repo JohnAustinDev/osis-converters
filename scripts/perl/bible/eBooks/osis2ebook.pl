@@ -24,7 +24,7 @@ $OPTYPE  = shift;
 $IPTYPE  = shift;
 $COVER   = shift;
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){5}$//;
 require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/perl/common.pl"; &init(1);
 

@@ -51,7 +51,7 @@ sub startVagrant($$$) {
   my $scrd = shift;
   my $script = shift;
   my $inpd = shift;
-  my @args = ("$scrd/vagrant.pl", $script, $inpd);
+  my @args = ("$scrd/Vagrant.pl", $script, $inpd);
   print "@args\n";
   system(@args); # exec does not run with Windows cmd shell
   exit;

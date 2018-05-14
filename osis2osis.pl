@@ -38,7 +38,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/perl/common.pl"; &init();
 
-require("$SCRD/scripts/perl/simplecc.pl");
+require("$SCRD/scripts/utils/simplecc.pl");
 
 my $osis_in = "";
 my $CCIN;

@@ -40,24 +40,22 @@ if (-e "$INPD/Image_Prefix.txt") {
   close(INF);
 }
 
-$CBD = "$SCRD/childrens_bible";
-
 # run preprocessor
 &Log("\n--- PREPROCESSING USFM\n-----------------------------------------------------\n\n", 1);
 $AddFileOpt = (-e "$INPD/SFM_Add.txt" ? "-a \"$INPD/SFM_Add.txt\"":'');
-$cmd = "$CBD/scripts/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
+$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
 &Log($cmd."\n");
 `$cmd`;
 
 # run main conversion script
 &Log("\n--- CONVERTING PARATEXT TO OSIS\n-----------------------------------------------------\n\n", 1);
-$cmd = "$CBD/scripts/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
+$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
 &Log($cmd."\n");
 `$cmd`;
 
 # run postprocessor
 &Log("\n--- POSTPROCESSING OSIS\n-----------------------------------------------------\n\n", 1);
-$cmd = "$CBD/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
+$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
 &Log($cmd."\n");
 `$cmd`;
 

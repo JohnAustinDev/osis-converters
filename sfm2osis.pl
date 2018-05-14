@@ -29,7 +29,7 @@ require "$SCRD/scripts/perl/common.pl"; &init();
 
 # if this is a childrens_bible, run the separate cb script
 if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
-  &osis_converters("$SCRD/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
+  &osis_converters("$SCRD/scripts/perl/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
   exit;
 }
 
