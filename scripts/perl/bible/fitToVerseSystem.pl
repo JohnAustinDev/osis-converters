@@ -756,14 +756,9 @@ sub applyVsysMissingALT($$$) {
   
   &Log("\nNOTE: Applying VSYS_MISSING_ALT: ".$valueP->{'value'}." :\n");
   
-  if ($valueP->{'isPartial'}) {
-    &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
-    return;
-  }
-  
   if (!$valueP->{'isWholeChapter'}) {
     for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
-      &writeEmptyVerseMarker($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP);
+      &writeEmptyVerseMarker($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP, $valueP->{'isPartial'});
     }
   }
   else {&Log("ERROR applyVsysMissingALT: Not supported for entire chapters.\n");}
@@ -782,7 +777,11 @@ sub applyVsysMissing($$$) {
   &Log("\nNOTE: Applying VSYS_MISSING: ".$valueP->{'value'}." :\n");
   
   if ($valueP->{'isPartial'}) {
-    &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
+    &Log("NOTE: Verse reference is partial, so only writing empty verse markers.\n");
+    for (my $v = $vs; $v <= $lv; $v++) {
+      my $a = "$bk.$ch.$v";
+      &writeEmptyVerseMarker("$bk.$ch", $v, $xml, $movedToP, 1);
+    }
     return;
   }
   
@@ -831,19 +830,21 @@ sub applyVsysMissing($$$) {
 # Insert milestone marker to record a missing verse and whether it was moved or not.
 # The VerseID may not apply to an existing verse (since it's probably missing) so the
 # next lowest verse end tag is used.
-sub writeEmptyVerseMarker($$$$) {
+sub writeEmptyVerseMarker($$$$$) {
   my $bkch = shift;
   my $v = shift;
   my $xml = shift;
   my $movedToP = shift;
+  my $isPartial = shift;
   
   my $verseID = "$bkch.$v";
-  if ($movedToP && !$movedToP->{'map'}{$verseID}) {
+  if ($movedToP && !$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}) {
     &Log("ERROR writeEmptyVerseMarker: No source location for $verseID\n");
   }
   
+  my $moveType = $VSYS{'prefix'}.($isPartial ? $VSYS{'partMovedTo'}:$VSYS{'movedto'});
   my $type = ($movedToP ? 
-    'type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'" annotateRef="'.$movedToP->{'map'}{$verseID}.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"' : 
+    'type="'.$moveType.'" annotateRef="'.$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"' : 
     "type='".$VSYS{'prefix'}.$VSYS{'missing'}."'"
   );
   

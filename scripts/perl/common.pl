@@ -57,6 +57,7 @@ $VSYS{'AnnoTypeFixed'} = '-fixed'; # used by osis2alternateVerseSystem.xsl
 $VSYS{'TypeModified'} = '-fitted';
 $VSYS{'missing'} = '-missing';
 $VSYS{'movedto'} = '-movedto';
+$VSYS{'partMovedTo'} = "-partMovedTo";
 $VSYS{'movedfrom'} = '-movedfrom';
 $VSYS{'start'} = '-start';
 $VSYS{'end'} = '-end';
@@ -1841,14 +1842,22 @@ sub getAltVersesOSIS($) {
   }
   
   if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
-    # Moved verses are recorded in the OSIS file with 3 milestone types, but for each type, annotateRef 
-    # is always the source verse osisID and osisRef is always the fixed-verse-system osisID:
+    # For all x-vsys markup, the annotateRef is always the source verse osisID (annotateType="x-vsys-source") 
+    # and osisRef is always the fixed-verse-system osisID:
+    
+    # Moved verses are recorded in the OSIS file with 3 milestone types: 
     # 1) milestone type="x-vsys-verse-start" when a verse was changed to a milestone by fitToVerseSystem()
     # 2) milestone type="x-vsys-movedfrom" when pre-existing alternate verses were marked up by fitToVerseSystem()
     # 3) milestone type="x-vsys-movedto" where missing verse placeholders were added by by fitToVerseSystem()
-    my @from   = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.'-verse'.$VSYS{'start'}.'"][@osisRef]', $xml); # ONLY verse-starts WITH osisRef were 'moved'
-    push (@from, $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'"]', $xml));
-    my @to     = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'"]', $xml);
+    
+    # Movement of part of a verse is recorded as either:
+    # 1) osisRef value ending in !PART which refers to only part of the verse (usually unknown which part)
+    # 2) milestone type="x-vsys-partMovedTo" when only part of the verse was moved
+    
+    my @from    = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.'-verse'.$VSYS{'start'}.'"][@osisRef]', $xml); # ONLY verse-starts WITH osisRef were 'moved'
+    push (@from,  $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'"]', $xml));
+    my @to      = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'movedto'}.'"]', $xml);
+    my @partial = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'partMovedTo'}.'"]', $xml);
     
     my %fixed2Alt; my %fixed2Fixed;
     foreach my $f (@from) {
@@ -1884,13 +1893,18 @@ sub getAltVersesOSIS($) {
     }
     
     foreach my $f (keys %fixed2Alt) {
-      if ($alt2Empty{$fixed2Alt{$f}} ne $f) {
-        &Log("ERROR getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (".$alt2Empty{$fixed2Alt{$f}}." ne ".$f.")\n");
+      if ($f =~ /^(.*?)\!PART$/) {
+        my $a = $1;
+        foreach my $p (@partial) {if ($p->getAttribute('osisRef') eq $a) {$a = ''; last;}}
+        if ($a) {&Log("ERROR getAltVersesOSIS: partial fixed2Alt has no partial marker for $a\n");}
+      }
+      elsif ($alt2Empty{$fixed2Alt{$f}} ne $f) {
+        &Log("ERROR getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (alt2Empty{".$fixed2Alt{$f}."} ne ".$f.")\n");
       }
     }
     foreach my $t (keys %alt2Empty) {
-      if ($fixed2Alt{$alt2Empty{$t}} ne $t) {
-        &Log("ERROR getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (".$fixed2Alt{$alt2Empty{$t}}." ne ".$t.")\n");
+      if ($t !~ /^(.*?)\!PART$/ && $fixed2Alt{$alt2Empty{$t}} ne $t) {
+        &Log("ERROR getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (fixed2Alt{".$alt2Empty{$t}."} ne ".$t.")\n");
       }
     }
     
@@ -1916,6 +1930,7 @@ sub getAltVersesOSIS($) {
     my @missing = $XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{'missing'}.'"]', $xml);
     
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'missing'}     = \@missing;     # elements indicating a missing verse
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'partial'}     = \@partial;     # elements indicating part of a verse was moved
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'from'}        = \@from;        # elements indicating verse was moved 'from' somewhere else
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'to'}          = \@to;          # elements indicating verse was moved 'to' somewhere else
     
@@ -2653,7 +2668,10 @@ sub contextArray($) {
     my $v2 = $3;
     for (my $i = $v1; $i <= $v2; $i++) {push(@out, "$bc.$i");}
   }
-  else {push(@out, $context);}
+  else {
+    $context =~ s/\.(PART)$/!$1/; # special case from fitToVerseSystem
+    push(@out, $context);
+  }
   
   return @out;
 }
@@ -3085,6 +3103,7 @@ sub checkReferenceLinks($) {
     }
     
     foreach my $osisID (split(/\s+/, &osisRef2osisID($r->getAttribute('osisRef')))) {
+      $osisID =~ s/\![^\!]*$//; # pass any extension as valid
       if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
       my $isValid = $CHECK_LINKS_CACHE{$osisID};
       if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
