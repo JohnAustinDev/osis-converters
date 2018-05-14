@@ -756,7 +756,7 @@ sub applyVsysMissingALT($$$) {
   
   &Log("\nNOTE: Applying VSYS_MISSING_ALT: ".$valueP->{'value'}." :\n");
   
-  if ($valueP->{'PART'}) {
+  if ($valueP->{'isPartial'}) {
     &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
     return;
   }
@@ -781,7 +781,7 @@ sub applyVsysMissing($$$) {
   
   &Log("\nNOTE: Applying VSYS_MISSING: ".$valueP->{'value'}." :\n");
   
-  if ($valueP->{'PART'}) {
+  if ($valueP->{'isPartial'}) {
     &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
     return;
   }
@@ -880,7 +880,7 @@ sub applyVsysExtraALT($$$$) {
     return;
   }
   
-  if ($valueP->{'PART'}) {
+  if ($valueP->{'isPartial'}) {
     &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
     return;
   }
@@ -934,7 +934,7 @@ sub applyVsysExtra($$$$$) {
   
   &Log("\nNOTE: Applying VSYS_EXTRA: ".$valueP->{'value'}." :\n");
   
-  if ($valueP->{'PART'}) {
+  if ($valueP->{'isPartial'}) {
     &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
     return;
   }
@@ -973,7 +973,7 @@ sub applyVsysExtra($$$$$) {
     my $shift = ($1 - $arv);
     if ($shift) {
       &Log("NOTE: This verse was moved, adjusting position: '$shift'.\n");
-      my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'partial'} ? 'PART':($lv+$shift)), $xml);
+      my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'isPartial'} ? 'PART':($lv+$shift)), $xml);
       &applyVsysExtra($newValueP, $canonP, $xml, &mapValue($newValueP, $movedFromP), 1);
       return;
     }
