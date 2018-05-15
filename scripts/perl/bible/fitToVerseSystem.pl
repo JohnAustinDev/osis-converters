@@ -603,6 +603,9 @@ sub addrids(\@$\%\%) {
     my $ridsAttrib = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
     my @rids = split(/\s+/, $ridsAttrib);
     foreach my $rid (@rids) {
+      # Never modify osisRef segments with extensions, because non verse elements (osisIDs) 
+      # are never modified by fitToVerseSystem and references to them should thus not be mapped
+      if ($rid =~ /\!/) {next;}
       if ($rid ne $verse) {next;}
       if ($mapHP->{$verse}) {
         if (@rids == 1 && $missingHP->{$mapHP->{$verse}}) {

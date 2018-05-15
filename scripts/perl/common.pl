@@ -3103,7 +3103,6 @@ sub checkReferenceLinks($) {
     }
     
     foreach my $osisID (split(/\s+/, &osisRef2osisID($r->getAttribute('osisRef')))) {
-      $osisID =~ s/\![^\!]*$//; # pass any extension as valid
       if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
       my $isValid = $CHECK_LINKS_CACHE{$osisID};
       if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
@@ -3154,8 +3153,8 @@ SEGMENT:
     &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
     my $wktype = $1; my $wkvsys = $2;
    
-    # Check for valid Scripture references in the verse system
-    if (!$ext && $wktype eq 'Bible') {
+    # Check for valid Scripture references in the verse system (a !PART extension is used by fitToVerseSystem to reference some part of a verse, which should itself exist)
+    if ((!$ext || $ext eq '!PART') && $wktype eq 'Bible') {
       if ($osisID =~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
         $b = $1; $c = ($2 ? $3:''); $v = ($4 ? $5:'');
         if ($osisID =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {next SEGMENT;}
