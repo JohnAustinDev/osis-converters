@@ -1017,7 +1017,7 @@ sub applyVsysExtra($$$$$) {
     my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
     my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
     my $m = "<milestone type='$type' osisRef='".$movedFromP->{'map'}{"$bk.$ch.1"}."' annotateRef='$bk.$ch.1' annotateType='$annotateType'/>";
-    $startTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $startTag);
+    $startTag->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $startTag);
   }
   
   # Convert verse tags between startTag and endTag, and also endTag, to alternate verse numbers (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)

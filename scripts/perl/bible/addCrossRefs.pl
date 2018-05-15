@@ -191,7 +191,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
       next;
     }
     if ($placement !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-      &Log("ERROR: crossReference has unexpected osisRef \"$osisRef\"\n");
+      &Log("ERROR: crossReference has unexpected osisRef \"$placement\"\n");
       next;
     }
     my $b = $1; my $c = $2; my $v = $3;

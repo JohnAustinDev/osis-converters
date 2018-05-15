@@ -1935,7 +1935,7 @@ sub getAltVersesOSIS($) {
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'to'}          = \@to;          # elements indicating verse was moved 'to' somewhere else
     
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Alt'}   = \%fixed2Alt;   # verse ID map from fixed to the alternate address which is not part of the fixed verse system
-    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fixed'} = \%fixed2Fixed; # verse ID map from fixed to the fixed address which contains the alternate verses above
+    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fixed'} = \%fixed2Fixed; # verse ID map from fixed to the fixed address which contains the alternate verses of fixed2Alt
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'alt2Empty'}   = \%alt2Empty;   # verse ID map from alternate to the fixed address where the verse should be (but which is thus empty)
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'alt2Fixed'}   = \%alt2Fixed;   # verse ID map from alternate to the fixed address which contains the alternate verses
 #use Data::Dumper; &Log("DEBUG: getAltVersesOSIS = ".Dumper(\%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}})."\n", 1);
