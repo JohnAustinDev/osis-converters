@@ -178,12 +178,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $fixed =~ s/^[^\:]*\://;
     
     # map crossReferences which target verses that were moved by translators from their fixed verse-system positions
-    my $placement = $fixed;
-    my $altID = '';
-    if ($movedP->{'fixed2Alt'}{$placement}) {
-      $altID = $movedP->{'fixed2Alt'}{$placement};
-      $placement = $movedP->{'fixed2Fixed'}{$placement};
-    }
+    my $placement = ($movedP->{'fixed2Alt'}{$placement} ? $movedP->{'fixed2Fixed'}{$placement}:$fixed);
     
     # check and filter the note placement
     if ($placement =~ /\.0\b/) {
@@ -199,7 +194,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     if (!$verses{$placement}) {&Log("ERROR: $placement: Target verse not found.\n"); next;}
     
     # add annotateRef so readers know where the note belongs
-    my $annotateRef = ($altID ? $altID:$placement);
+    my $annotateRef = ($movedP->{'fixed2Alt'}{$placement} ? $movedP->{'fixed2Alt'}{$placement}:$placement);
     if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
@@ -210,7 +205,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     # add resp attribute, which identifies this note as an external note
     $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));
     
-    &insertNote($note, \%{$verses{$placement}}, $altID, \%localization);
+    &insertNote($note, $placement, \%verses, $movedP, \%localization);
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
@@ -239,13 +234,14 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # beginning of the verse. Sometimes a verse contains alternate verses within
 # itself, and in this case, altVerseID is used to place the note within the 
 # appropriate alternate verse.
-sub insertNote($\$) {
+sub insertNote($$$$) {
   my $note = shift;
-  my $verseHP = shift;
-  my $altVerseID = shift;
+  my $placement = shift;
+  my $verseP = shift;
+  my $movedP = shift;
   my $localeP = shift;
   
-  my $verseNum = ($altVerseID =~ s/^.*?\.(\d+)$// ? $1:'');
+  $verseP = \%{$verseP->{$placement}};
   
   # add readable reference text to the note's references (required by some front ends and eBooks)
   my @refs = $XPC->findnodes('osis:reference[@osisRef][not(@type="annotateRef")]', $note);
@@ -256,7 +252,9 @@ sub insertNote($\$) {
     foreach my $child ($ref->childNodes()) {$child->unbindNode();}
     my $t;
     if ($localeP->{'hasLocalization'}) {
-      my $tr = &translateRef($osisRef, $localeP);
+      # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
+      my $readRef = ($movedP->{'fixed2Alt'}{$osisRef} ? $movedP->{'fixed2Alt'}{$osisRef}:$osisRef);
+      my $tr = &translateRef($readRef, $localeP);
       if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
       $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
     }
@@ -266,10 +264,11 @@ sub insertNote($\$) {
 
   # insert note in the right place
   # NOTE: the crazy looking while loop approach, and not using normalize-space() but rather $nt =~ /^\s*$/, greatly increases processing speed
+  my $verseNum = ($movedP->{'fixed2Alt'}{$placement} =~ /\.(\d+)$/ ? $1:'');
   if ($note->getAttribute('subType') eq 'x-parallel-passage') {
-    my $start = $verseHP->{'start'};
+    my $start = $verseP->{'start'};
     if ($verseNum) {
-      while (my $alt = @{$XPC->findnodes('following::osis:hi[@subType="x-alternate"][1][following::osis:verse[1][@eID="'.$verseHP->{'end'}->getAttribute('eID').'"]]', $start)}[0]) {
+      while (my $alt = @{$XPC->findnodes('following::osis:hi[@subType="x-alternate"][1][following::osis:verse[1][@eID="'.$verseP->{'end'}->getAttribute('eID').'"]]', $start)}[0]) {
         $start = $alt;
         if ($start->textContent =~ /\b$verseNum\b/) {last;}
       }
@@ -287,11 +286,11 @@ sub insertNote($\$) {
     else {&Log("ERROR: Could not place para note \"".$note->toString()."\"\n");}
   }
   else {
-    my $end = $verseHP->{'end'};
-    if ($INSERT_NOTE_SPEEDUP{$verseHP->{'end'}->getAttribute('eID')}) {
-      while (my $alt = @{$XPC->findnodes('preceding::osis:hi[@subType="x-alternate"][1][preceding::osis:verse[1][@sID="'.$verseHP->{'start'}->getAttribute('sID').'"]]', $end)}[0]) {
+    my $end = $verseP->{'end'};
+    if ($INSERT_NOTE_SPEEDUP{$verseP->{'end'}->getAttribute('eID')}) {
+      while (my $alt = @{$XPC->findnodes('preceding::osis:hi[@subType="x-alternate"][1][preceding::osis:verse[1][@sID="'.$verseP->{'start'}->getAttribute('sID').'"]]', $end)}[0]) {
         if (!$alt || ($verseNum && $alt->textContent =~ /\b$verseNum\b/) || 
-           !@{$XPC->findnodes('preceding::text()[normalize-space()][1][preceding::osis:verse[1][@sID="'.$verseHP->{'start'}->getAttribute('sID').'"]]', $alt)}[0]
+           !@{$XPC->findnodes('preceding::text()[normalize-space()][1][preceding::osis:verse[1][@sID="'.$verseP->{'start'}->getAttribute('sID').'"]]', $alt)}[0]
          ) {last;}
         $end = $alt;
       }
