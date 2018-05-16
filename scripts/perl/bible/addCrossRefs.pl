@@ -178,7 +178,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $fixed =~ s/^[^\:]*\://;
     
     # map crossReferences which target verses that were moved by translators from their fixed verse-system positions
-    my $placement = ($movedP->{'fixed2Fixed'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
+    my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
     
     # check and filter the note placement
     if ($placement =~ /\.0\b/) {
@@ -194,7 +194,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     if (!$verses{$placement}) {&Log("ERROR: $placement: Target verse not found.\n"); next;}
     
     # add annotateRef so readers know where the note belongs
-    my $annotateRef = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Alt'}{$fixed}:$placement);
+    my $annotateRef = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Alt'}{$fixed}:$fixed);
     if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
@@ -203,9 +203,8 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     }
     
     # add resp attribute, which identifies this note as an external note
-    $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));
-    
-    &insertNote($note, $placement, \%verses, $movedP, \%localization);
+    $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));  
+    &insertNote($note, $fixed, \%verses, $movedP, \%localization);
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
@@ -236,11 +235,13 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # appropriate alternate verse.
 sub insertNote($$\%\%\%) {
   my $note = shift;
-  my $placement = shift;
+  my $fixed = shift;
   my $verseP = shift;
   my $movedP = shift;
   my $localeP = shift;
   
+  my $verseNum = ($movedP->{'fixed2Alt'}{$fixed} =~ /\.(\d+)$/ ? $1:'');
+  my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
   $verseP = \%{$verseP->{$placement}};
   
   # add readable reference text to the note's references (required by some front ends and eBooks)
@@ -264,7 +265,6 @@ sub insertNote($$\%\%\%) {
 
   # insert note in the right place
   # NOTE: the crazy looking while loop approach, and not using normalize-space() but rather $nt =~ /^\s*$/, greatly increases processing speed
-  my $verseNum = ($movedP->{'fixed2Alt'}{$placement} =~ /\.(\d+)$/ ? $1:'');
   if ($note->getAttribute('subType') eq 'x-parallel-passage') {
     my $start = $verseP->{'start'};
     if ($verseNum) {
