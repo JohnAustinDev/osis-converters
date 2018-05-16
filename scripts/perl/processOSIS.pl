@@ -18,7 +18,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 elsif ($MODDRV =~ /LD/) {
   &runXSLT2("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
-  &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", "$TMPDIR/".$MOD."_1.xml", $DEFAULT_DICTIONARY_WORDS, \%params);
+  &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML($OSIS);
 }
