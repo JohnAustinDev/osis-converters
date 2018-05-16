@@ -178,7 +178,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $fixed =~ s/^[^\:]*\://;
     
     # map crossReferences which target verses that were moved by translators from their fixed verse-system positions
-    my $placement = ($movedP->{'fixed2Alt'}{$placement} ? $movedP->{'fixed2Fixed'}{$placement}:$fixed);
+    my $placement = ($movedP->{'fixed2Fixed'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
     
     # check and filter the note placement
     if ($placement =~ /\.0\b/) {
@@ -194,7 +194,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     if (!$verses{$placement}) {&Log("ERROR: $placement: Target verse not found.\n"); next;}
     
     # add annotateRef so readers know where the note belongs
-    my $annotateRef = ($movedP->{'fixed2Alt'}{$placement} ? $movedP->{'fixed2Alt'}{$placement}:$placement);
+    my $annotateRef = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Alt'}{$fixed}:$placement);
     if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
@@ -234,7 +234,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
 # beginning of the verse. Sometimes a verse contains alternate verses within
 # itself, and in this case, altVerseID is used to place the note within the 
 # appropriate alternate verse.
-sub insertNote($$$$) {
+sub insertNote($$\%\%\%) {
   my $note = shift;
   my $placement = shift;
   my $verseP = shift;
