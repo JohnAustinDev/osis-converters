@@ -1630,7 +1630,7 @@ sub filterGlossaryReferences($\@$) {
   close(OUTF);
   
   &Log("$MOD REPORT: \"$total\" glossary references filtered:\n");
-  foreach my $r (keys %filteredOsisRefs) {
+  foreach my $r (sort keys %filteredOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
   return $total;
