@@ -27,15 +27,15 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/perl/common.pl"; &init();
 
-&userXSLT("$INPD/eBook/preprocess.xsl", "$OUTDIR/$MOD.xml", "$TMPDIR/".$MOD."_1.xml");
-$OSISFILE = "$TMPDIR/".$MOD."_1.xml";
-$OSISFILE_XML = $XML_PARSER->parse_file($OSISFILE);
+&runAnyUserScriptsAt("eBook/preprocess", \$INOSIS);
+
+$INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
 
 %EBOOKREPORT;
 $EBOOKNAME;
 
 # get scope and vsys of OSIS file
-&setConfGlobals(&updateConfData($ConfEntryP, $OSISFILE));
+&setConfGlobals(&updateConfData($ConfEntryP, $INOSIS));
 
 %EBOOKCONV = &ebookReadConf("$INPD/eBook/convert.txt");
 
@@ -56,7 +56,7 @@ if (@CREATE_FULL_PUBLICATIONS) {
 
 # also make separate eBooks from each Bible book within the OSIS file
 if ($CREATE_SEPARATE_BOOKS) {
-  @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $OSISFILE_XML);
+  @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
   BOOK: foreach my $aBook (@allBooks) {
     my $bk = $aBook->getAttribute('osisID');
     # don't create this ebook if an identical ebook has already been created
@@ -123,17 +123,22 @@ sub setupAndMakeEbook($$$) {
   &Log("\n");
   
   my $tmp = "$TMPDIR/$scope";
-  make_path($tmp);
+  make_path("$tmp/tmp/bible");
+  my $osis = "$tmp/tmp/bible/$MOD.xml";
+  &copy($INOSIS, $osis);
   
   my $ebookTitle = ($titleOverride ? $titleOverride:$EBOOKCONV{'Title'}); # title will usually still be '' at this point
   my $ebookTitlePart;
-  &pruneFileOSIS($OSISFILE, "$tmp/$MOD-0.xml", $scope,
+  &pruneFileOSIS(
+    \$osis,
+    $scope,
     $confP,
     \%EBOOKCONV,
     \$ebookTitle, 
-    \$ebookTitlePart);
+    \$ebookTitlePart
+  );
     
-  &runXSLT("$SCRD/scripts/xslt/bible/osis2alternateVerseSystem.xsl", "$tmp/$MOD-0.xml", "$tmp/$MOD.xml");
+  &runXSLT("$SCRD/scripts/xslt/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy convert.txt
   copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
@@ -225,27 +230,32 @@ body {font-family: font1;}
   my @skipCompanions;
   my @companionDictFiles;
   foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
+    if (! -e "$tmp/tmp/dict") {make_path("$tmp/tmp/dict");}
+  
     # copy companion OSIS file
     my $outf = &getProjectOsisFile($companion);
     my $filter = '0';
     if ($outf) {
-      &userXSLT("$INPD/$companion/eBook/preprocess.xsl", $outf, "$tmp/$companion.xml");
+      &copy($outf, "$tmp/tmp/dict/$companion.xml"); $outf = "$tmp/tmp/dict/$companion.xml";
+      &runAnyUserScriptsAt("$companion/eBook/preprocess", \$outf);
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/perl/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
-        $filter = &filterGlossaryToScope("$tmp/$companion.xml", $scope);
+        $filter = &filterGlossaryToScope(\$outf, $scope);
         &Log("NOTE: filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter))."\n");
-        my $aggfilter = &filterAggregateEntries("$tmp/$companion.xml", $scope);
+        my $aggfilter = &filterAggregateEntries(\$outf, $scope);
         &Log("NOTE: filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter))."\n");
         if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
           push(@skipCompanions, $companion);
-          unlink("$tmp/$companion.xml");
           $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = 'no-glossary';
           $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = 'all';
           next;
         }
-        else {push(@companionDictFiles, "$tmp/$companion.xml");}
+        else {
+          &copy($outf, "$tmp/$companion.xml");
+          push(@companionDictFiles, "$tmp/$companion.xml");
+        }
       }
     }
     
@@ -274,11 +284,11 @@ body {font-family: font1;}
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
-  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $OSISFILE);
+  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
   $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
-    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $OSISFILE, "$tmp/$MOD.xml");
+    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
     $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
   }
 

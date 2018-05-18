@@ -116,7 +116,13 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   $OUTDIR = &getOUTDIR($INPD);
   if (!-e $OUTDIR) {make_path($OUTDIR);}
   
-  &initOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR);
+  $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
+  if (!$NO_OUTPUT_DELETE) {
+    if (-e $TMPDIR) {remove_tree($TMPDIR);}
+    make_path($TMPDIR);
+  }
+  
+  &initInputOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR, $TMPDIR);
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
@@ -128,12 +134,6 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       
   # if all dependencies are not met, this asks to run in Vagrant
   &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
-  
-  $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
-  if (!$NO_OUTPUT_DELETE) {
-    if (-e $TMPDIR) {remove_tree($TMPDIR);}
-    make_path($TMPDIR);
-  }
   
   if (!$quiet) {
     &Log("osis-converters git rev: $GITHEAD\n\n");
@@ -283,29 +283,38 @@ sub loadDictionaryWordsXML($) {
 }
 
 
-sub initOutputFiles($$$$) {
+sub initInputOutputFiles($$$$) {
   my $script_name = shift;
   my $inpd = shift;
   my $outdir = shift;
+  my $tmpdir = shift;
   
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
   my @outs;
-  if ($script_name =~ /^(osis2osis|sfm2osis|html2osis|cbsfm2osis)$/i) {
+  if ($script_name =~ /^(osis2osis|sfm2osis)$/) {
     $OUTOSIS = "$outdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
-  if ($script_name =~ /^(osis2sword|imp2sword)$/i) {
+  if ($script_name =~ /^(osis2sword)$/) {
     $OUTZIP = "$outdir/$sub.zip"; push(@outs, $OUTZIP);
     $SWOUT = "$outdir/sword"; push(@outs, $SWOUT);
   }
-  if ($script_name =~ /^osis2GoBible$/i) {
+  if ($script_name =~ /^osis2GoBible$/) {
     $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
-  if ($script_name =~ /^osis2ebooks$/i) {
+  if ($script_name =~ /^osis2ebooks$/) {
     $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
   }
-  if ($script_name =~ /^sfm2imp$/i) {
-    $OUTIMP = "$outdir/$sub.imp"; push(@outs, $OUTIMP);
+
+  if ($script_name =~ /^(osis2sword|osis2GoBible|osis2ebooks)$/) {
+    if (-e "$outdir/$sub.xml") {
+      &copy("$outdir/$sub.xml", "$tmpdir/$sub.xml");
+      $INOSIS = "$tmpdir/$sub.xml";
+    }
+    else {
+      &Log("ERROR: $script_name.pl cannot find an input OSIS file at \"$outdir/$sub.xml\".\n");
+      die;
+    }
   }
 
   if (!$NO_OUTPUT_DELETE) {
@@ -1348,9 +1357,8 @@ sub sortSearchTermKeys($$) {
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering, or else the ebook title itself if no books were filtered out.
-sub pruneFileOSIS($$$\%\%\$\$) {
-  my $inosis = shift;
-  my $outosis = shift;
+sub pruneFileOSIS($$\%\%\$\$) {
+  my $osisP = shift;
   my $scope = shift;
   my $confP = shift;
   my $convP = shift;
@@ -1363,7 +1371,7 @@ sub pruneFileOSIS($$$\%\%\$\$) {
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
   $typeRE =~ s/\-/\\-/g;
   
-  my $inxml = $XML_PARSER->parse_file($inosis);
+  my $inxml = $XML_PARSER->parse_file($$osisP);
   
   my $bookOrderP;
   my $booksFiltered = 0;
@@ -1449,9 +1457,11 @@ sub pruneFileOSIS($$$\%\%\$\$) {
     &Log('NOTE: Updated OSIS title to "'.$osisTitle->textContent."\"\n", 1);
   }
   
-  open(OUTF, ">$outosis");
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
+  open(OUTF, ">$output");
   print OUTF $inxml->toString();
   close(OUTF);
+  $$osisP = $output;
 }
 
 sub changeNodeText($$) {
@@ -3435,52 +3445,73 @@ sub is_usfm2osis($) {
   return $usfm2osis;
 }
 
-sub userXSLT2($$\%$) {
-  my $xsl = shift;
+# Runs an XSLT and/or a Perl script if they have been placed at the
+# appropriate input project path by the user. This allows a project to 
+# apply custom scripts if needed.
+sub runAnyUserScriptsAt($$\%$) {
+  my $pathNoExt = "$INPD/".shift; # path to script, but without extension
   my $sourceP = shift;
   my $paramsP = shift;
   my $logFlag = shift;
   
-  if (!-e $xsl) {
-    &Log("NOTE: No user XSLT to run: $xsl\n");
-    return;
+  if (-e "$pathNoExt.xsl") {
+    &Log("NOTE: Running user XSLT: $pathNoExt.xsl\n");
+    &runScript("$pathNoExt.xsl", $sourceP, $paramsP, $logFlag);
   }
+  else {&Log("NOTE: No user XSLT to run at $pathNoExt.xsl\n");}
   
-  my $name = $xsl; $name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/;
-  my $output = $$sourceP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
-  &userXSLT($xsl, $$sourceP, $output, $paramsP, $logFlag);
-  $$sourceP = $output;
+  if (-e "$pathNoExt.pl") {
+    &Log("NOTE: Running user Perl script: $pathNoExt.pl\n");
+    &runScript("$pathNoExt.pl", $sourceP, $paramsP, $logFlag);
+  }
+  else {&Log("NOTE: No user Perl script to run at $pathNoExt.pl\n");}
 }
 
-sub userXSLT($$$\%$) {
-  my $xsl = shift;
+# Runs a script according to its type (its extension). The sourceP points
+# to the input file. If overwrite is set, the input file is overwritten,
+# otherwise the output file has the name of the script which created it.
+# Upon sucessfull completion, inputP will be updated to point to the 
+# newly created output file.
+sub runScript($$\%$) {
+  my $script = shift;
+  my $inputP = shift;
+  my $paramsP = shift;
+  my $logFlag = shift;
+  my $overwrite = shift;
+  
+  my $name = $script; 
+  my $ext; if ($name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/) {$ext = $2;}
+  else {
+    &Log("ERROR runScript: Bad script name \"$script\"!\n");
+    return 0;
+  }
+  
+  my $output = $$inputP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
+  if ($ext eq 'xsl')   {&runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
+  elsif ($ext eq 'pl') {&runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
+  else {
+    &Log("ERROR runScript: Unsupported script extension \"$script\"!\n");
+    return 0;
+  }
+  
+  if ($overwrite) {&copy($output, $$inputP);}
+  else {$$inputP = $output;} # change inputP to pass output file name back
+  
+  return 1;
+}
+
+sub runPerl($$$\%$) {
+  my $script = shift;
   my $source = shift;
   my $output = shift;
   my $paramsP = shift;
   my $logFlag = shift;
   
-  if (!-e $xsl) {
-    &Log("NOTE: No user XSLT to run: $xsl\n");
-    my $cmd = 'cp '.&escfile($source).' '.&escfile($output);
-    &Log("$cmd\n");
-    system($cmd);
-    return;
-  }
-  
-  &Log("\n--- Running USER XSLT: $xsl...\n");
-  &runXSLT($xsl, $source, $output, $paramsP, $logFlag);
-}
-
-sub runXSLT2($$\%$) {
-  my $xsl = shift;
-  my $sourceP = shift;
-  my $paramsP = shift;
-  my $logFlag = shift;
-  
-  my $name = $xsl; $name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/;
-  my $output = $$sourceP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
-  &runXSLT($xsl, $$sourceP, $output, $paramsP, $logFlag);
-  $$sourceP = $output;
+  # Perl scripts need to have the following arguments
+  # script-name input-file output-file [key1=value1] [key2=value2]...
+  my @args = (&escfile($script), &escfile($source), &escfile($output));
+  map(push(@args, &escfile("$_=".$paramsP->{$_})), keys %{$paramsP});
+  &shell(join(' ', @args), $logFlag);
 }
 
 sub runXSLT($$$\%$) {

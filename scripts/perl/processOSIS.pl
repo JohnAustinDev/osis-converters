@@ -3,7 +3,7 @@ if ($MODDRV =~ /LD/) {require("$SCRD/scripts/perl/dict/processGlossary.pl");}
 
 # MOD_0.xml is raw converter output
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
-&runXSLT2("$SCRD/scripts/xslt/usfm2osis.py.xsl", \$OSIS);
+&runScript("$SCRD/scripts/xslt/usfm2osis.py.xsl", \$OSIS);
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
 %EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
@@ -13,10 +13,10 @@ my $projectGlossary;
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
-  &runXSLT2("$SCRD/scripts/xslt/bible/checkUpdateIntros.xsl", \$OSIS);
+  &runScript("$SCRD/scripts/xslt/bible/checkUpdateIntros.xsl", \$OSIS);
 }
 elsif ($MODDRV =~ /LD/) {
-  &runXSLT2("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
+  &runScript("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
   &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
   &loadDictionaryWordsXML(1);
@@ -64,12 +64,7 @@ if ($MODDRV =~ /Text/ && $addCrossRefs ne '0') {
 if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 
 # Run postprocess.(pl|xsl) if they exist
-&userXSLT2("$INPD/postprocess.xsl", \$OSIS);
-if (-e "$INPD/postprocess.pl") {
-  &Log("\nRunning OSIS postprocess.pl\n", 1);
-  my $cmd = "$INPD/postprocess.pl " . &escfile($OSIS);
-  &shell($cmd);
-}
+&runAnyUserScriptsAt("postprocess", \$OSIS);
 
 # Checks occur as late as possible in the flow
 &checkReferenceLinks($OSIS);
@@ -104,7 +99,7 @@ RUN:./INT.SFM\n");
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   %params = ($glossContainsINT ? ('introScope' => 'INT'):());
-  &runXSLT2("$SCRD/scripts/xslt/navigationMenu.xsl", \$OSIS, \%params);
+  &runScript("$SCRD/scripts/xslt/navigationMenu.xsl", \$OSIS, \%params);
   
   my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."sword/css";
   if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {

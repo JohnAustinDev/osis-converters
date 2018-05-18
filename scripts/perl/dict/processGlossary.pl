@@ -18,13 +18,13 @@ sub getGlossaryScope($) {
 
 # Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were filtered
 sub filterGlossaryToScope($$) {
-  my $osis = shift;
+  my $osisP = shift;
   my $scope = shift;
   
   my @removed;
   my @kept;
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
   foreach my $div (@glossDivs) {
     my $divScope = &getGlossaryScope($div);
@@ -45,32 +45,37 @@ sub filterGlossaryToScope($$) {
 
   if (@removed == @glossDivs) {return '-1';}
   
-  open(OUTF, ">$osis");
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;
+  open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
+  $$osisP = $output;
   
   return (@removed ? join(',', @removed):'0');
 }
 
 sub removeDuplicateEntries($) {
-  my $osis = shift;
+  my $osisP = shift;
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")]', $xml);
   foreach my $del (@dels) {$del->unbindNode();}
-  open(OUTF, ">$osis");
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateEntries$3/;
+  open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
+  $$osisP = $output;
   
   &Log("$MOD REPORT: ".@dels." instance(s) of x-keyword-duplicate div removal.\n");
 }
 
 # Returns scopes of filtered entries, or else '-1' if all were filtered or '0' if none were filtered
 sub filterAggregateEntries($$) {
-  my $osis = shift;
+  my $osisP = shift;
   my $scope = shift;
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   my @check = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]//osis:div[@type="x-aggregate-subentry"]', $xml);
   my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
   
@@ -84,25 +89,79 @@ sub filterAggregateEntries($$) {
       $removeCount++;
     }
   }
-    
-  open(OUTF, ">$osis");
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterAggregateEntries$3/;
+  open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
+  $$osisP = $output;
   
-  if ($removeCount == scalar(@check)) {&removeAggregateEntries($osis);}
+  if ($removeCount == scalar(@check)) {&removeAggregateEntries($$osisP);}
   
   return ($removeCount == scalar(@check) ? '-1':(@removed ? join(',', @removed):'0'));
 }
 
 sub removeAggregateEntries($) {
-  my $osis = shift;
+  my $osisP = shift;
 
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml = $XML_PARSER->parse_file($$osisP);
   my @dels = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]', $xml);
   foreach my $del (@dels) {$del->unbindNode();}
-  open(OUTF, ">$osis");
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeAggregateEntries$3/;
+  open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
+  $$osisP = $output;
+}
+# Forward glossary links targetting a member of an aggregated entry to the aggregated entry
+# Remove x-glossary-duplicate
+sub forwardGlossLinks($) {
+  my $osisP = shift;
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  my @gks = $XPC->findnodes('//osis:reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml);
+  foreach my $gk (@gks) {
+    my $osisID = $gk->value;
+    $osisID =~ s/\.dup\d+$//;
+    $gk->setValue($osisID);
+  }
+  &Log("$MOD REPORT: Forwarded ".scalar(@gks)." link(s) to their aggregated entries.\n");
+
+  
+  foreach my $d ($XPC->findnodes('//osis:div[@type="introduction" and @subType="x-glossary-duplicate"]', $xml)) {
+    my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
+    &Log("NOTE: Removed x-glossary-duplicate div beginning with: $beg\n");
+    $d->unbindNode();
+  }
+
+  my $output = $$osisP; $output =~ s/$MOD\.xml$/forwardGlossLinks.xml/;
+  open(OSIS2, ">$output");
+  print OSIS2 $xml->toString();
+  close(OSIS2);
+  $$osisP = $output;
+}
+
+# uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
+# XSLT was not used to do this because a custom uc2() Perl function is needed.
+sub upperCaseKeys($) {
+  my $osisP = shift;
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  if ($MODDRV =~ /LD/) {
+    my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
+    foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
+  }
+  my @dictrefs = $XPC->findnodes('//*[local-name()="reference"][starts-with(@type, "x-gloss")]/@osisRef', $xml);
+  foreach my $dictref (@dictrefs) {
+    my $mod; my $e = &osisRef2Entry($dictref->getValue(), \$mod);
+    $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
+  }
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
+  open(OSIS2, ">$output");
+  print OSIS2 $xml->toString();
+  close(OSIS2);
+  $$osisP = $output;
 }
 
 # check that the entries in an osis dictionary source file are included in 
