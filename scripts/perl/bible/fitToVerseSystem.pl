@@ -1020,11 +1020,24 @@ sub applyVsysExtra($$$$$) {
     $startTag->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $startTag);
   }
   
-  # Convert verse tags between startTag and endTag, and also endTag, to alternate verse numbers (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
-  my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
-  my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
-  my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
-  foreach my $v (@convert) {&toAlternate($v, 1, 0, ($vs != 1 ? $movedFromP:0));}
+  # Convert verse tags between startTag and endTag to alternate verse numbers
+  # But if there  are no in-between tags, then only modified the IDs.
+  if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
+    $startTag = &toAlternate($startTag, 0, 1, ($vs != 1 ? $movedFromP:0));
+    my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
+    for (my $v = $vs; $v <= $lv; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
+    my $newID = join(' ', &normalizeOsisID([ keys(%ids) ]));
+    $startTag->setAttribute('osisID', $newID);
+    $startTag->setAttribute('sID', $newID);
+  }
+  else {
+    # (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
+    my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
+    my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
+    my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
+    foreach my $v (@convert) {&toAlternate($v, 1, 0, ($vs != 1 ? $movedFromP:0));}
+  }
+  # Also convert endTag to alternate and update eID 
   $endTag = &toAlternate($endTag);
   $endTag->setAttribute('eID', $startTag->getAttribute('sID'));
   
