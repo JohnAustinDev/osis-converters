@@ -3494,7 +3494,11 @@ sub runScript($$\%$) {
     return 0;
   }
   
-  if ($overwrite) {&copy($output, $$inputP);}
+  if (-z $output) {
+    &Log("ERROR runScript: Output file $output has 0 size.\n");
+    return 0;
+  }
+  elsif ($overwrite) {&copy($output, $$inputP);}
   else {$$inputP = $output;} # change inputP to pass output file name back
   
   return 1;
