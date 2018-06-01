@@ -1021,7 +1021,7 @@ sub applyVsysExtra($$$$$) {
   }
   
   # Convert verse tags between startTag and endTag to alternate verse numbers
-  # But if there  are no in-between tags, then only modified the IDs.
+  # But if there  are no in-between tags, then only modify the IDs.
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
     $startTag = &toAlternate($startTag, 0, 1, ($vs != 1 ? $movedFromP:0));
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));

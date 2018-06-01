@@ -30,4 +30,7 @@
   actually reference links. So this fixes them. -->
   <template match="reference[ancestor::title[@type='scope']]"><apply-templates/></template>
   
+  <!-- usfm2osis.py may output notes having n="", so remove these empty n attributes -->
+  <template match="note[@n='']"><copy><apply-templates select="node()|@*[not(name()='n')]" mode="identity"/></copy></template>
+  
 </stylesheet>
