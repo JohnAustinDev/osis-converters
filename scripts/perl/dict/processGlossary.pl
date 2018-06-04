@@ -96,7 +96,7 @@ sub filterAggregateEntries($$) {
   close(OUTF);
   $$osisP = $output;
   
-  if ($removeCount == scalar(@check)) {&removeAggregateEntries($$osisP);}
+  if ($removeCount == scalar(@check)) {&removeAggregateEntries($osisP);}
   
   return ($removeCount == scalar(@check) ? '-1':(@removed ? join(',', @removed):'0'));
 }
