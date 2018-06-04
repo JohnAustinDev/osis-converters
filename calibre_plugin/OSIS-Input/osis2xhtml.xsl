@@ -140,8 +140,8 @@
     <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
       <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
-      <for-each select="$combinedKeywords//seg[@type='keyword'][1]">
-        <sort select="me:langSortOrder(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+      <for-each select="$combinedKeywords">
+        <sort select="me:langSortOrder(.//seg[@type='keyword'][1]/string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <copy-of select="."/>
       </for-each>
     </element>
