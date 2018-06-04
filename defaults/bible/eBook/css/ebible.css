@@ -79,6 +79,7 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 .osis-transChange,
 .osis-rdg,
 .osis-catchWord,
+.osis-signed,
 .osis-hi.italic {font-style:italic;}
 .osis-hi.bold,
 .osis-hi.emphasis {font-weight:bold;}

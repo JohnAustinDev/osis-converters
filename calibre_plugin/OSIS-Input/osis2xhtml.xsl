@@ -62,7 +62,7 @@
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>
-    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary.')"/>
+    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (multipleGlossaries=', $multipleGlossaries, ')')"/>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">
@@ -140,7 +140,7 @@
     <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
       <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
-      <for-each select="$combinedKeywords">
+      <for-each select="$combinedKeywords//seg[@type='keyword'][1]">
         <sort select="me:langSortOrder(string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <copy-of select="."/>
       </for-each>
@@ -149,13 +149,13 @@
   <function name="me:langSortOrder" as="xs:string">
     <param name="text" as="xs:string"/>
     <param name="order" as="xs:string?"/>
-    <if test="not($order)"><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder' must be specified in config.conf.</message></if>
+    <if test="not($order)"><message terminate="yes">ERROR: langSortOrder(): 'LangSortOrder' must be specified in config.conf.</message></if>
     <value-of>
       <for-each select="string-to-codepoints($text)">
         <choose>
           <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
             <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
-            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
             <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
           </when>
           <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
@@ -719,7 +719,8 @@
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
   </template>
   
-  <template match="catchWord | foreign | hi | rdg | transChange" mode="xhtml">
+  <!-- OSIS elements which will become spans with a special class !-->
+  <template match="catchWord | foreign | hi | rdg | transChange | signed" mode="xhtml">
     <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
   </template>
   
