@@ -606,22 +606,31 @@
     <value-of select="normalize-space(string-join(($osisTagClass, $x/@type, $x/@subType, $levelClass), ' '))"/>
   </function>
   
-  <!-- This template may be called from: p, l and canonical title. It writes chapter numbers if the calling element should contain an embedded chapter number -->
+  <!-- This template may be called from: p, l, item and canonical title. It writes chapter numbers if the calling element should contain an embedded chapter number -->
   <template name="WriteEmbededChapter">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
-    <if test="$isInVerse and preceding::chapter[@sID][1][generate-id(following::*[self::p or self::l or self::title[@canonical='true']][1]) = generate-id(current())]">
+    <if test="$isInVerse and preceding::chapter[@sID][1][generate-id(following::*[self::p or self::l or self::item or self::title[@canonical='true']][1]) = generate-id(current())]">
       <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number"><xsl:value-of select="tokenize(preceding::chapter[@sID][1]/@osisID, '\.')[last()]"/></span>
     </if>
   </template>
   
-  <!-- This template may be called from: p, l and canonical title. It writes verse numbers if the calling element should contain an embedded verse number -->
+  <!-- This template may be called from: p, l, item and canonical title. It writes verse numbers if the calling element should contain an embedded verse number -->
   <template name="WriteEmbededVerse">
     <variable name="isInVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID"/>
     <if test="$isInVerse">
-      <if test="self::*[preceding-sibling::*[1][self::verse[@sID]] | self::l[parent::lg[generate-id(child::l[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]]]">
+      <!-- Write any verse -->
+      <if test="self::*[
+          preceding-sibling::*[1][self::verse[@sID]] | 
+          self::l[parent::lg[generate-id(child::l[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]] |
+          self::item[parent::list[generate-id(child::item[1]) = generate-id(current())][preceding-sibling::*[1][self::verse[@sID]]]]
+      ]">
         <call-template name="WriteVerseNumber"/>
       </if>
-      <for-each select="self::*/preceding-sibling::*[1][self::hi[@subType='x-alternate']] | self::l/parent::lg[generate-id(child::l[1]) = generate-id(current())]/preceding-sibling::*[1][self::hi[@subType='x-alternate']]">
+      <!-- Write any alternate verse -->
+      <for-each select="
+          self::*/preceding-sibling::*[1][self::hi[@subType='x-alternate']] | 
+          self::l/parent::lg[generate-id(child::l[1]) = generate-id(current())]/preceding-sibling::*[1][self::hi[@subType='x-alternate']] |
+          self::item/parent::list[generate-id(child::l[1]) = generate-id(current())]/preceding-sibling::*[1][self::hi[@subType='x-alternate']]">
         <apply-templates select="." mode="xhtml"><with-param name="doWrite" select="true()" tunnel="yes"/></apply-templates>
       </for-each>
     </if>
@@ -667,8 +676,8 @@
   <!-- Verses -->
   <template match="verse[@sID] | hi[@subType='x-alternate']" mode="xhtml" priority="3">
     <param name="doWrite" tunnel="yes"/>
-    <!-- skip verse numbers immediately followed by p, lg, l or canonical title, since their templates will write verse numbers inside themselves using WriteEmbededVerse-->
-    <if test="$doWrite or not(self::*[following-sibling::*[1][self::p or self::lg or self::l or self::title[@canonical='true']]])">
+    <!-- skip verse numbers immediately followed by p, lg, l, list, item or canonical title, since their templates will write verse numbers inside themselves using WriteEmbededVerse-->
+    <if test="$doWrite or not(self::*[following-sibling::*[1][self::p or self::lg or self::l or self::list or self::item or self::title[@canonical='true']]])">
       <next-match/>
     </if>
   </template>
@@ -757,7 +766,7 @@
   </template>
   
   <template match="item" mode="xhtml">
-    <li xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></li>
+    <li xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/><xsl:apply-templates mode="xhtml"/></li>
   </template>
   
   <template match="lb" mode="xhtml">
@@ -771,10 +780,7 @@
       <when test="@type = 'selah'"/>
       <when test="following-sibling::l[1][@type='selah']">
         <div xmlns="http://www.w3.org/1999/xhtml">
-          <xsl:call-template name="class"/>
-          <xsl:call-template name="WriteEmbededChapter"/>
-          <xsl:call-template name="WriteEmbededVerse"/>
-          <xsl:apply-templates mode="xhtml"/>
+          <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/><xsl:apply-templates mode="xhtml"/>
           <i class="xsl-selah">
             <xsl:for-each select="following-sibling::l[@type='selah']
                 [count(preceding-sibling::l[@type='selah'][. &#62;&#62; current()]) = count(preceding-sibling::l[. &#62;&#62; current()])]">
