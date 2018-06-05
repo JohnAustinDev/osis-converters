@@ -149,19 +149,24 @@
   <function name="me:langSortOrder" as="xs:string">
     <param name="text" as="xs:string"/>
     <param name="order" as="xs:string?"/>
-    <if test="not($order)"><message terminate="yes">ERROR: langSortOrder(): 'LangSortOrder' must be specified in config.conf.</message></if>
-    <value-of>
-      <for-each select="string-to-codepoints($text)">
-        <choose>
-          <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
-            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
-            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
-            <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
-          </when>
-          <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
-        </choose>
-      </for-each>
-    </value-of>
+    <if test="$order">
+      <value-of>
+        <for-each select="string-to-codepoints($text)">
+          <choose>
+            <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
+              <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
+              <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+              <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
+            </when>
+            <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
+          </choose>
+        </for-each>
+      </value-of>
+    </if>
+    <if test="not($order)">
+      <message>WARNING: langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</message>
+      <value-of select="$text"/>
+    </if>
   </function>
   
   <!-- THE OSIS FILE IS SEPARATED INTO INDIVIDUAL XHTML FILES BY THE FOLLOWING TEMPLATES WITH ProcessFile-->
