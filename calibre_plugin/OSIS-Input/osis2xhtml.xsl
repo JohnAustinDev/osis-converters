@@ -213,8 +213,9 @@
     modes (ie. a single template element should handle multiple modes), yet template content must also vary by mode (something XSLT 2.0 modes alone can't do) -->
     <param name="currentTask" tunnel="yes"/>
     
-    <variable name="fileName" select="me:getFileName(.)"/>  
-    <if test="$fileNodes//text()[normalize-space()]">
+    <variable name="fileName" select="me:getFileName(.)"/>
+    <!-- A lone toc milestone is passed here because it would result in a toc title -->
+    <if test="$fileNodes//text()[normalize-space()] | $fileNodes/descendant-or-self::milestone[@type=concat('x-usfm-toc', $tocnumber)][@n]">
       <choose>
         <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
         <otherwise>
@@ -246,11 +247,15 @@
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
   </function>
+  <function name="me:getGlossaryName" as="xs:string">
+    <param name="glossary" as="element(div)"/>
+    <value-of select="$glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]/@n)[1]"/>
+  </function>
   <function name="me:hashUsfmType" as="xs:string">
     <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="$usfmType/descendant::title[@type='main'][1]"/>
+    <variable name="title" select="me:getGlossaryName($usfmType)"/>
     <if test="$title"><value-of select="sum(string-to-codepoints(string($title)))"/></if>
-    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType]) + 1"/></if>
+    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
 
   <!-- Write each xhtml file's contents -->
@@ -703,7 +708,7 @@
     <param name="combinedGlossary" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
-    <variable name="glossaryTitle" select="$referencedOsisDocs//div[@type='glossary'][descendant::*[@osisID = current()/@osisID]]/descendant::title[@type='main'][1]/string()"/>
+    <variable name="glossaryTitle" select="me:getGlossaryName($referencedOsisDocs//div[@type='glossary'][descendant::*[@osisID = current()/@osisID]][1])" as="xs:string"/>
     <if test="@osisID and count($combinedGlossary/*) != 0 and $glossaryTitle">
       <variable name="osisTitle"><osis:title level="3" subType="x-glossary-title"><value-of select="$glossaryTitle"/></osis:title></variable>
       <for-each select="$osisTitle"><apply-templates select="." mode="xhtml"/></for-each>

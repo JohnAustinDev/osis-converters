@@ -329,6 +329,13 @@ sub initInputOutputFiles($$$$) {
       if ($isDir) {make_path($outfile);}
     }
   }
+  
+  # init SFM files if needed
+  if ($script_name =~ /^sfm2all$/ && -e "$inpd/sfm") {
+    # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
+    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;");
+    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;");
+  }
 }
 
 
@@ -2636,8 +2643,9 @@ sub glossaryContext($) {
     return '';
   }
 
-  # get preceding keyword
-  my $prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];
+  # get preceding keyword or self
+  my $prevkw = @{$XPC->findnodes('ancestor-or-self::osis:seg[@type="keyword"][1]', $node)}[0];
+  if (!$prevkw) {$prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];}
   
   if ($prevkw) {
     foreach my $kw ($XPC->findnodes('.//osis:seg[@type="keyword"]', $typeDiv)) {
