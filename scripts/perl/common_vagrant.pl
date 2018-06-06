@@ -19,7 +19,7 @@ sub init_vagrant() {
   if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   
   # run in Vagrant if $VAGRANT is set, or if opsys is not Linux
-  if (($VAGRANT || "$^O" !~ /linux/i) && !-e "/vagrant") {
+  if ($VAGRANT || "$^O" !~ /linux/i) {
     if (!&vagrantInstalled()) {
       print "ERROR: Vagrant is not installed. Exiting...\n";
       exit;
