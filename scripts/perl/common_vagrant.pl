@@ -11,7 +11,7 @@ sub init_vagrant() {
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
   $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
   if (!-e $INPD) {
-    print "Project directory \"$INPD\" does not exist. Exiting.\n";
+    print "ERROR: Project directory \"$INPD\" does not exist. Exiting...\n";
     exit;
   }
   chdir($INPD);
@@ -20,12 +20,15 @@ sub init_vagrant() {
   
   # run in Vagrant if $VAGRANT is set, or if opsys is not Linux
   if (($VAGRANT || "$^O" !~ /linux/i) && !-e "/vagrant") {
-    if (!&vagrantInstalled()) {exit;}
+    if (!&vagrantInstalled()) {
+      print "ERROR: Vagrant is not installed. Exiting...\n";
+      exit;
+    }
     startVagrant($SCRD, $SCRIPT, $INPD);
     exit;
   }
   
-  print "Running osis-converters WITHOUT vagrant (which is not recommended).\n";
+  print "NOTE: Running osis-converters WITHOUT vagrant (which is not recommended).\n";
 }
 
 sub vagrantInstalled() {
