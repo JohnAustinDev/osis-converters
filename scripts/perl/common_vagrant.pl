@@ -24,6 +24,8 @@ sub init_vagrant() {
     startVagrant($SCRD, $SCRIPT, $INPD);
     exit;
   }
+  
+  print "Running osis-converters WITHOUT vagrant (which is not recommended).\n";
 }
 
 sub vagrantInstalled() {
