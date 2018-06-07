@@ -8,10 +8,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.box_check_update = false
 
-  # Work around a problem where ssh.forward_agent fails for root
   config.vm.provision :shell do |shell|
-    shell.inline = "touch $1 && chmod 0440 $1 && echo $2 > $1"
-    shell.args = %q{/etc/sudoers.d/root_ssh_agent "Defaults    env_keep += \"SSH_AUTH_SOCK\""}
+    shell.inline = "if [ -e /var/lib/dpkg/lock ]; then echo UNLOCKING DPKG && sudo rm /var/lib/dpkg/lock; fi"
   end
 
   config.vm.box = "ubuntu/xenial64"
