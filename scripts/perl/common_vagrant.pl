@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
-# Code here may be run on the host machine (rather than the Vagrant VM) and
-# so should not use any non-standard Perl modules.
+# init_vagrant() will be run on BOTH the host machine and the Vagrant VM. So
+# it should NOT use any non-standard Perl modules.
 
 $VAGRANT = 1; # Vagrant is on by default. To run natively, add "$Vagrant=0;" to paths.pl
 
@@ -18,7 +18,10 @@ sub init_vagrant() {
   
   if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   
-  # run in Vagrant if $VAGRANT is set, or if opsys is not Linux
+  # Return and continue if init_vagrant is being run on an osis-converters VM
+  if (-e "/vagrant/Vagrant.pl") {return;}
+  
+  # Start a new process on the VM if $VAGRANT is set, or if the opsys is not Linux
   if ($VAGRANT || "$^O" !~ /linux/i) {
     if (!&vagrantInstalled()) {
       print "ERROR: Vagrant is not installed. Exiting...\n";

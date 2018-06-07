@@ -14,7 +14,7 @@ $VAGRANT_HOME = '/home/vagrant';
 # ProjectDir must be relative to INDIR_ROOT
 # INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
 # Vagrant cannot create a share to the root of a window's drive.
-if ($ProjectDir !~ s/^((?:\w\:|\/\w)?\/[^\/]+)(.*?)$/$2/) {
+if ($ProjectDir !~ s/^((?:\w\:|\/\w)?\/[^\/]+)//) {
   die "\nERROR: Cannot parse project path \"$ProjectDir\"\n";
 }
 $INDIR_ROOT = $1;
