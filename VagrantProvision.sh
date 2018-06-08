@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# This script should not be run as root
+# This script should NOT be run as root. It was developed on Ubuntu Xenial
 
-# When this script is run, it should:
-#   Install everything necessary for the VM
-#   Update everything necessary for the VM
+# When this script is run on a VM or Linux host, it will:
+#   Install everything necessary for the VM or host (if the host is compatible)
+#   Update everything necessary for the VM or host
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-if [ -e /vagrant ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
+if [ -e /vagrant/Vagrant.pl ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update
@@ -24,7 +24,7 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  wget -nv -O- https://download.calibre-ebook.com/linux-installer.py | sudo python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
+  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
@@ -107,7 +107,4 @@ fi
 # non English hosts may need this:
 sudo su -c "echo LC_ALL=en_US.UTF-8 >> /etc/environment"
 sudo su -c "echo LANG=en_US.UTF-8 >> /etc/environment"
-
-# for some reason this began hanging around, so delete it
-sudo rm /var/lib/dpkg/lock
 

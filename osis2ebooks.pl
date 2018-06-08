@@ -155,7 +155,7 @@ sub setupAndMakeEbook($$$) {
   # if font is specified, include it
   if ($FONTS && $confP->{"Font"}) {
     &copyFont($confP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
-    if (-e "/vagrant") {
+    if (&runningVagrant()) {
       &shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
       my $home = &shell("echo \$HOME", 3); chomp($home);
       &copyFont($confP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");

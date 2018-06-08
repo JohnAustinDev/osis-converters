@@ -49,7 +49,6 @@ $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
-$HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 $SFM2ALL_SEPARATE_LOGS = 1;
 $VSYS{'prefix'} = 'x-vsys';
 $VSYS{'AnnoTypeSource'} = '-source';
@@ -132,8 +131,10 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&Log("start time: ".localtime()."\n");}
       
-  # if all dependencies are not met, this asks to run in Vagrant
-  &checkDependencies($SCRD, $SCRIPT, $INPD, $quiet);
+  if (!&haveDependencies($SCRIPT, $SCRD, $INPD, $quiet)) {
+    print "ERROR: Missing dependencies. Exiting...\n";
+    exit;
+  }
   
   if (!$quiet) {
     &Log("osis-converters git rev: $GITHEAD\n\n");
@@ -166,7 +167,7 @@ sub checkFont($) {
   
   %FONT_FILES;
   
-  if ($FONTS && -e "/vagrant" && open(CSH, "<$SCRD/Vagrantshares")) {
+  if ($FONTS && &runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
     while(<CSH>) {
       if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
         $SHARE_HOST = $1;
@@ -221,7 +222,7 @@ sub getOUTDIR($) {
   
   my $outdir = $OUTDIR;
   
-  if (-e "/vagrant") {
+  if (&runningVagrant()) {
     if (-e "$HOME_DIR/OUTDIR" && `mountpoint $HOME_DIR/OUTDIR` =~ /is a mountpoint/) {
       $outdir = "$HOME_DIR/OUTDIR"; # Vagrant share
     }
@@ -335,70 +336,6 @@ sub initInputOutputFiles($$$$) {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
     &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;");
     &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;");
-  }
-}
-
-
-# Check if dependencies are met and if not, suggest to use Vagrant
-sub checkDependencies($$$$) {
-  my $scrd = shift;
-  my $script = shift;
-  my $inpd = shift;
-  my $quiet = shift;
-
-  my %path;
-  $path{'SWORD_BIN'}{'msg'} = "Install CrossWire's SWORD tools, or specify the path to them by adding:\n\$SWORD_BIN = '/path/to/directory';\nto osis-converters/paths.pl\n";
-  $path{'XMLLINT'}{'msg'} = "Install xmllint, or specify the path to xmllint by adding:\n\$XMLLINT = '/path/to/directory'\nto osis-converters/paths.pl\n";
-  $path{'GO_BIBLE_CREATOR'}{'msg'} = "Install GoBible Creator as ~/.osis-converters/GoBibleCreator.245, or specify the path to it by adding:\n\$GO_BIBLE_CREATOR = '/path/to/directory';\nto osis-converters/paths.pl\n";
-  $path{'MODULETOOLS_BIN'}{'msg'} = "Install CrossWire\'s Module-tools git repo as ~/.osis-converters/src/Module-tools, or specify the path to it by adding:\n\$MODULETOOLS_BIN = '/path/to/bin';\nto osis-converters/paths.pl\n";
-  $path{'XSLT2'}{'msg'} = "Install the required program.\n";
-  $path{'CALIBRE'}{'msg'} = "Install Calibre by following the documentation: osis-converters/eBooks/osis2ebook.docx.\n";
-  
-  foreach my $p (keys %path) {
-    if (-e "/vagrant" && $$p) {
-      if (!$quiet) {
-        if ($p eq 'MODULETOOLS_BIN') {&Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n");}
-        else {&Log("WARN: Ignoring \$$p in paths.pl while running in Vagrant.\n");}
-      }
-      $$p = '';
-    }
-    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$HOME_DIR/.osis-converters/GoBibleCreator.245";} # Default location
-    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$HOME_DIR/.osis-converters/src/Module-tools/bin";} # Default location
-    if ($$p) {
-      if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
-      $$p =~ s/[\\\/]+\s*$//;
-      $$p .= "/";
-    }
-  }
-  
-  $path{'SWORD_BIN'}{'test'} = [&escfile($SWORD_BIN."osis2mod"), "You are running osis2mod"];
-  $path{'XMLLINT'}{'test'} = [&escfile($XMLLINT."xmllint"), "Usage"];
-  $path{'MODULETOOLS_BIN'}{'test'} = [&escfile($MODULETOOLS_BIN."usfm2osis.py"), "Usage"];
-  $path{'XSLT2'}{'test'} = ['saxonb-xslt', "Usage"];
-  $path{'GO_BIBLE_CREATOR'}{'test'} = ["java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage"];
-  $path{'CALIBRE'}{'test'} = ["ebook-convert", "Usage"];
-  
-  my $failMes = '';
-  foreach my $p (keys %path) {
-    if (!exists($path{$p}{'test'})) {next;}
-    my $pass = 0;
-    system($path{$p}{'test'}[0]." >".&escfile("tmp.txt"). " 2>&1");
-    if (!open(TEST, "<tmp.txt")) {&Log("ERROR: could not read test output \"$SCRD/tmp.txt\". Exiting.\n"); die;}
-    my $res = $path{$p}{'test'}[1];
-    while (<TEST>) {if ($_ =~ /\Q$res\E/i) {$pass = 1; last;}}
-    close(TEST); unlink("tmp.txt");
-    if (!$pass) {
-      &Log("\nERROR: Dependency not found or is failing usage test: \"".$path{$p}{'test'}[0]."\"\n", 1);
-      $failMes .= "NOTE: ".$path{$p}{'msg'}."\n";
-    }
-    elsif ($p eq 'MODULETOOLS_BIN') {
-      $MODULETOOLS_GITHEAD = `git --git-dir="$MODULETOOLS_BIN../.git" --work-tree="$MODULETOOLS_BIN../" rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
-      if (!$quiet) {&Log("Module-tools git rev: $MODULETOOLS_GITHEAD");}
-    }
-  }
-  if ($failMes) {
-    &Log("\n$failMes", 1);
-    exit;
   }
 }
 
@@ -3435,14 +3372,6 @@ sub fromUTF8($) {
 }
 
 
-sub escfile($) {
-  my $n = shift;
-  
-  $n =~ s/([ \(\)])/\\$1/g;
-  return $n;
-}
-
-
 sub is_usfm2osis($) {
   my $osis = shift;
   my $usfm2osis = 0;
@@ -4428,54 +4357,13 @@ sub getVerseTag($$$) {
   return;
 }
 
-# Log to console and logfile. $flag can have these values:
-# -1 = only log file
-#  0 = log file (+ console unless $NOCONSOLELOG is set)
-#  1 = log file + console (ignoring $NOCONSOLELOG)
-#  2 = only console
-sub Log($$) {
-  my $p = shift; # log message
-  my $flag = shift;
-  
-  $p =~ s/&#(\d+);/my $r = chr($1);/eg;
-  
-  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/) {
-    print encode("utf8", $p);
-  }
-  
-  if ($flag == 2) {return;}
-  
-  $p = &encodePrintPaths($p);
-  
-  if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
-
-  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
-  if ($LogfileBuffer) {print LOGF $LogfileBuffer; $LogfileBuffer = '';}
-  print LOGF $p;
-  close(LOGF);
-}
-
-sub encodePrintPaths($) {
-  my $t = shift;
-  
-  # encode these local file paths
-  my @paths = ('INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
-  foreach my $path (@paths) {
-    if (!$$path) {next;}
-    my $rp = $$path;
-    $rp =~ s/[\/\\]+$//;
-    $t =~ s/\Q$rp\E/\$$path/g;
-  }
-  return $t;
-}
-
 sub shell($$) {
   my $cmd = shift;
-  my $flag = shift; # same as Log flag, but additionally, 3 means don't log the output
+  my $flag = shift; # same as Log flag
   
-  if ($flag != 3) {&Log("\n$cmd\n", $flag);}
+  &Log("\n$cmd\n", $flag);
   my $result = decode('utf8', `$cmd 2>&1`);
-  if ($flag != 3) {&Log($result."\n", $flag);}
+  &Log($result."\n", $flag);
   
   return $result;
 }
