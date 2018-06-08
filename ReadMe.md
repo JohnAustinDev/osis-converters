@@ -41,8 +41,11 @@ By default, all files created by osis-converters are put in a directory called '
 * REPORT: - Reports certain conversion results in a way that helps you see the big picture and helps you see how things may have changed compared to a previous run.
 
 **sword/** and **MOD.zip** (where MOD will be the module name) - This is the Crosswire SWORD module. It can be used with any SWORD compatible program or device.
+
 **eBook/** - This directory contains EPUBs and other eBooks.
+
 **GoBible/** - This directory contains GoBible Java-ME apps for old style feature phones.
+
 **tmp/** - This directory contains all temporary and debugging files created during the conversion process. These files can be extremely useful when trying to fix errors.
 
 -----
@@ -89,4 +92,5 @@ Bible(s).
 recommendations. CrossWire encourages 
 the use of [TEI P5](http://www.crosswire.org/wiki/TEI_Dictionaries) for 
 dictionary markup.
+
 
