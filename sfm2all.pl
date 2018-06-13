@@ -51,6 +51,7 @@ foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 
 foreach my $dir (keys %modules) {
   if ($modules{$dir} !~ /Text/) {next;}
   &osis_converters("$SCRD/osis2GoBible.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  &osis_converters("$SCRD/osis2html.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
   &osis_converters("$SCRD/osis2ebooks.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
 }
 

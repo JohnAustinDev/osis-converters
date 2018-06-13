@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
-# Copyright 2012 John Austin (gpl.programs.info@gmail.com)
+# Copyright 2018 John Austin (gpl.programs.info@gmail.com)
 #     
 # "osis-converters" is free software: you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License as 
@@ -17,7 +17,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2ebooks.pl [Project_Directory]
+# usage: osis2html.pl [Project_Directory]
 
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
@@ -27,121 +27,55 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
-&runAnyUserScriptsAt("eBook/preprocess", \$INOSIS);
-
-$INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
-
-%EBOOKREPORT;
-$EBOOKNAME;
+&runAnyUserScriptsAt("html/preprocess", \$INOSIS);
 
 # get scope and vsys of OSIS file
 &setConfGlobals(&updateConfData($ConfEntryP, $INOSIS));
 
-%EBOOKCONV = &ebookReadConf("$INPD/eBook/convert.txt");
+%HTMLCONV = &ebookReadConf("$INPD/html/convert.txt");
 
-$CREATE_FULL_BIBLE = (!defined($EBOOKCONV{'CreateFullBible'}) || $EBOOKCONV{'CreateFullBible'} !~ /^(false|0)$/i);
-$CREATE_SEPARATE_BOOKS = (!defined($EBOOKCONV{'CreateSeparateBooks'}) || $EBOOKCONV{'CreateSeparateBooks'} !~ /^(false|0)$/i);
-@CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %EBOOKCONV) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
-
-# make an eBook with the entire OSIS file
-if ($CREATE_FULL_BIBLE) {&setupAndMakeEbook($ConfEntryP->{"Scope"}, 'Full', '', $ConfEntryP);}
-
-# make eBooks for any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
-if (@CREATE_FULL_PUBLICATIONS) {
-  foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-    my $scope = $EBOOKCONV{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
-    &setupAndMakeEbook($scope, 'Full', $EBOOKCONV{'TitleFullPublication'.$x}, $ConfEntryP);
-  }
-}
-
-# also make separate eBooks from each Bible book within the OSIS file
-if ($CREATE_SEPARATE_BOOKS) {
-  @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
-  BOOK: foreach my $aBook (@allBooks) {
-    my $bk = $aBook->getAttribute('osisID');
-    # don't create this ebook if an identical ebook has already been created
-    foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-      if ($bk && $bk eq $EBOOKCONV{'CreateFullPublication'.$x}) {next BOOK;}
-    }
-    if ($CREATE_FULL_BIBLE && $ConfEntryP->{"Scope"} eq $bk) {next BOOK;}
-    if ($bk) {&setupAndMakeEbook($bk, 'Part', '', $ConfEntryP);}
-  }
-}
+&writeHTML($INOSIS, $ConfEntryP);
 
 # REPORT results
-&Log("\n$MOD REPORT: EBook files created (".scalar(keys %EBOOKREPORT)." instances):\n");
+&Log("\n$MOD REPORT: HTML files created (".scalar(keys %HTMLREPORT)." instances):\n");
 my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
 my %cm;
 foreach my $c (@order) {$cm{$c} = length($c);}
-foreach my $n (sort keys %EBOOKREPORT) {
-  $EBOOKREPORT{$n}{'Name'} = $n;
-  if (!$cm{$n} || length($EBOOKREPORT{$n}) > $cm{$n}) {$cm{$n} = length($EBOOKREPORT{$n});}
-  foreach my $c (sort keys %{$EBOOKREPORT{$n}}) {
-    if ($c eq 'Format') {$EBOOKREPORT{$n}{$c} = join(',', @{$EBOOKREPORT{$n}{$c}});}
-    if (length($EBOOKREPORT{$n}{$c}) > $cm{$c}) {$cm{$c} = length($EBOOKREPORT{$n}{$c});}
+foreach my $n (sort keys %HTMLREPORT) {
+  $HTMLREPORT{$n}{'Name'} = $n;
+  if (!$cm{$n} || length($HTMLREPORT{$n}) > $cm{$n}) {$cm{$n} = length($HTMLREPORT{$n});}
+  foreach my $c (sort keys %{$HTMLREPORT{$n}}) {
+    if ($c eq 'Format') {$HTMLREPORT{$n}{$c} = join(',', @{$HTMLREPORT{$n}{$c}});}
+    if (length($HTMLREPORT{$n}{$c}) > $cm{$c}) {$cm{$c} = length($HTMLREPORT{$n}{$c});}
   }
 }
 my $p; foreach my $c (@order) {$p .= "%-".($cm{$c}+4)."s ";} $p .= "\n";
 &Log(sprintf($p, @order));
-foreach my $n (sort keys %EBOOKREPORT) {
-  my @a; foreach my $c (@order) {push(@a, $EBOOKREPORT{$n}{$c});}
+foreach my $n (sort keys %HTMLREPORT) {
+  my @a; foreach my $c (@order) {push(@a, $HTMLREPORT{$n}{$c});}
   &Log(sprintf($p, @a));
 }
 
 &Log("\nend time: ".localtime()."\n");
 
-#if (-e "$TMPDIR/OUT_osis2ebooks.txt") {
-#  &Log("
-#
-#
-#
-#
-#------------------------------------------------------------------------
-#                      EBOOK DETAIL LOG:
-#------------------------------------------------------------------------");
-#  &shell("cat \"$TMPDIR/OUT_osis2ebooks.txt\"");
-#}
-
 ########################################################################
 ########################################################################
 
-sub setupAndMakeEbook($$$) {
-  my $scope = shift;
-  my $type = shift;
-  my $titleOverride = shift;
+sub writeHTML($$) {
+  my $inosis = shift;
   my $confP = shift;
   
-  &Log("\n-----------------------------------------------------\nMAKING EBOOK: scope=$scope, type=$type, titleOverride=$titleOverride\n", 1);
+  my $scope = $confP->{"Scope"};
   
-  $EBOOKNAME = $scope;
-  if ($type) {$EBOOKNAME .= "_" . $type;}
-  $EBOOKNAME =~ s/\s/_/g;
-  if ($EBOOKREPORT{$EBOOKNAME}) {
-    &Log("ERROR: eBooks \"$EBOOKNAME\" were already created!\n");
-  }
-  
+  &Log("\n-----------------------------------------------------\nMAKING HTML\n", 1);
   &Log("\n");
   
-  my $tmp = "$TMPDIR/$scope";
-  make_path("$tmp/tmp/bible");
-  my $osis = "$tmp/tmp/bible/$MOD.xml";
-  &copy($INOSIS, $osis);
-  
-  my $ebookTitle = ($titleOverride ? $titleOverride:$EBOOKCONV{'Title'}); # title will usually still be '' at this point
-  my $ebookTitlePart;
-  &pruneFileOSIS(
-    \$osis,
-    $scope,
-    $confP,
-    \%EBOOKCONV,
-    \$ebookTitle, 
-    \$ebookTitlePart
-  );
-    
-  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
+  my $tmp = $TMPDIR;
+  my $osis = "$tmp/$MOD.xml";
+  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $inosis, $osis);
   
   # update osis header with current convert.txt
-  &writeOsisHeader(\$osis, $ConfEntryP, \%EBOOKCONV);
+  &writeOsisHeader($osis, $ConfEntryP, \%HTMLCONV);
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
@@ -198,8 +132,8 @@ body {font-family: font1;}
     $cover = "$tmp/cover.jpg";
     if ($titleType eq 'Part') {
       # add specific title to the top of the eBook cover image
-      $EBOOKREPORT{$EBOOKNAME}{'Title'} = $ebookTitlePart;
-      $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
+      $HTMLREPORT{$EBOOKNAME}{'Title'} = $ebookTitlePart;
+      $HTMLREPORT{$EBOOKNAME}{'Cover'} = $covname;
       my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
       my $pointsize = (4/3)*$imagewidth/length($ebookTitlePart);
       if ($pointsize > 40) {$pointsize = 40;}
@@ -220,14 +154,14 @@ body {font-family: font1;}
       &shell($cmd, 2);
     }
     else {
-      $EBOOKREPORT{$EBOOKNAME}{'Title'} = 'no-title';
-      $EBOOKREPORT{$EBOOKNAME}{'Cover'} = $covname;
+      $HTMLREPORT{$EBOOKNAME}{'Title'} = 'no-title';
+      $HTMLREPORT{$EBOOKNAME}{'Cover'} = $covname;
       copy("$INPD/eBook/$covname", $cover);
     }
   }
   else {
-    $EBOOKREPORT{$EBOOKNAME}{'Title'} = $ebookTitle;
-    $EBOOKREPORT{$EBOOKNAME}{'Cover'} = 'random-cover';
+    $HTMLREPORT{$EBOOKNAME}{'Title'} = $ebookTitle;
+    $HTMLREPORT{$EBOOKNAME}{'Cover'} = 'random-cover';
   }
   
   my @skipCompanions;
@@ -240,7 +174,7 @@ body {font-family: font1;}
     my $filter = '0';
     if ($outf) {
       &copy($outf, "$tmp/tmp/dict/$companion.xml"); $outf = "$tmp/tmp/dict/$companion.xml";
-      &runAnyUserScriptsAt("$companion/eBook/preprocess", \$outf);
+      &runAnyUserScriptsAt("$companion/html/preprocess", \$outf);
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
@@ -251,8 +185,8 @@ body {font-family: font1;}
         &Log("NOTE: filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter))."\n");
         if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
           push(@skipCompanions, $companion);
-          $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = 'no-glossary';
-          $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = 'all';
+          $HTMLREPORT{$EBOOKNAME}{'Glossary'} = 'no-glossary';
+          $HTMLREPORT{$EBOOKNAME}{'Filtered'} = 'all';
           next;
         }
         else {
@@ -262,44 +196,48 @@ body {font-family: font1;}
       }
     }
     
-    $EBOOKREPORT{$EBOOKNAME}{'Glossary'} = $companion;
-    $EBOOKREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
+    $HTMLREPORT{$EBOOKNAME}{'Glossary'} = $companion;
+    $HTMLREPORT{$EBOOKNAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
   }
   if (@skipCompanions) {
-    my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
+    my $xml = $XML_PARSER->parse_file($osis);
     # remove work elements of skipped companions or else the eBook converter will crash
     foreach my $c (@skipCompanions) {
       my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$c.'"]', $xml);
       foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
     }
-    open(OUTF, ">$tmp/$MOD.xml");
+    open(OUTF, ">$osis");
     print OUTF $xml->toString();
     close(OUTF);
   }
   
   # copy over only those images referenced in our OSIS files
-  &copyReferencedImages("$tmp/$MOD.xml", $INPD, $tmp);
+  &copyReferencedImages($osis, $INPD, $tmp);
   foreach my $osis (@companionDictFiles) {
     my $companion = $osis; $companion =~ s/^.*\/([^\/\.]+)\.[^\.]+$/$1/;
     &copyReferencedImages($osis, &findCompanionDirectory($companion), $tmp);
   }
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
-  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
-  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
-  $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, 1);
+  $HTMLREPORT{$EBOOKNAME}{'ScripRefFilter'} = 0;
+  $HTMLREPORT{$EBOOKNAME}{'GlossRefFilter'} = 0;
+  $HTMLREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($osis, $INOSIS);
+  $HTMLREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($osis, \@companionDictFiles, 1);
   
   foreach my $c (@companionDictFiles) {
-    $EBOOKREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
-    $EBOOKREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
+    $HTMLREPORT{$EBOOKNAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, $osis);
+    $HTMLREPORT{$EBOOKNAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, 1);
   }
 
   # run the converter
-  if ($DEBUG !~ /no.?epub/i) {&makeEbook("$tmp/$MOD.xml", 'epub', $cover, $scope, $tmp);}
-  if ($DEBUG !~ /no.?azw3/i) {&makeEbook("$tmp/$MOD.xml", 'azw3', $cover, $scope, $tmp);}
-  # fb2 is disabled until a decent FB2 converter is written
-  # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
+  &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
+  my @cssFileNames;
+  my %params = ('css' => join(',', @cssFileNames));
+  chdir($tmp);
+  &runXSLT("osis2xhtml.xsl", $osis, "content.opf", \%params);
+  chdir($SCRD);
+
+  copy_dir("$tmp/xhtml", "$HTMLOUT/xhtml");
 }
 
 # Look for a cover image in $dir matching $scope and return it if found. 
@@ -336,74 +274,6 @@ sub findCover($$\$) {
   }
   
   return NULL;
-}
-
-sub makeEbook($$$$$) {
-  my $osis = shift;
-  my $format = shift; # “epub”, "azw3" or “fb2”
-  my $cover = shift; # path to cover image
-  my $scope = shift;
-  my $tmp = shift;
-  
-  &Log("\n--- CREATING $format FROM $osis FOR $scope\n", 1);
-  
-  if (!$format) {$format = 'fb2';}
-  if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
-  
-  &updateOsisFullResourceURL($osis, $format);
-  
-  my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
-  &shell($cmd);
-  
-  my $out = "$tmp/$MOD.$format";
-  if (-e $out) {
-    if ($format eq 'epub') {
-      my $epub3Markup = (!($EBOOKCONV{'NoEpub3Markup'} =~ /^(true)$/i));
-      $cmd = "epubcheck \"$out\"";
-      my $result = &shell($cmd, ($epub3Markup ? 3:0));
-      if ($result =~ /^\s*$/) {
-        &Log("ERROR: epubcheck did not return anything- reason unknown\n");
-      }
-      elsif ($result !~ /\bno errors\b/i) {
-        my $failed = 1;
-        if ($epub3Markup) {
-          $result =~ s/^[^\n]*attribute "epub:type" not allowed here[^\n]*\n//mg;
-          if ($result =~ /ERROR/) {&Log($result);}
-          else {
-            $failed = 0;
-            &Log("NOTE: Epub validates, other than the existence of epub:type: \"$out\"\n");
-          }
-        }
-        if ($failed) {&Log("ERROR: epubcheck validation failed for \"$out\"\n");}
-      }
-      else {&Log("NOTE: Epub validates!: \"$out\"\n");}
-    }
-    copy($out, "$EBOUT/$EBOOKNAME.$format");
-    if (!$EBOOKREPORT{$EBOOKNAME}{'Format'}) {$EBOOKREPORT{$EBOOKNAME}{'Format'} = ();}
-    push(@{$EBOOKREPORT{$EBOOKNAME}{'Format'}}, $format);
-    &Log("Created: $EBOOKNAME.$format\n", 2);
-  }
-  else {&Log("ERROR: No output file: $out\n");}
-}
-
-sub updateOsisFullResourceURL($$) {
-  my $osis = shift;
-  my $format = shift;
-  
-  my $xml = $XML_PARSER->parse_file($osis);
-  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type="x-ebook-config-FullResourceURL"]', $xml);
-  foreach my $u (@update) {
-    my $url = $u->textContent;
-    my $new = $url; $new =~ s/\.([^\.]*)$/.$format/;
-    if ($url ne $new) {
-      &Log("NOTE: Updating FullResourceURL from \"$url\" to \"$new\".\n");
-      &changeNodeText($u, $new);
-    }
-  }
-  
-  open(OUTF, ">$osis");
-  print OUTF $xml->toString();
-  close(OUTF);
 }
 
 1;

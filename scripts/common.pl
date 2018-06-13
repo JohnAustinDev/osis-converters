@@ -306,8 +306,11 @@ sub initInputOutputFiles($$$$) {
   if ($script_name =~ /^osis2ebooks$/) {
     $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
   }
+  if ($script_name =~ /^osis2html$/) {
+    $HTMLOUT = "$outdir/html"; push(@outs, $HTMLOUT);
+  }
 
-  if ($script_name =~ /^(osis2sword|osis2GoBible|osis2ebooks)$/) {
+  if ($script_name =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/) {
     if (-e "$outdir/$sub.xml") {
       &copy("$outdir/$sub.xml", "$tmpdir/$sub.xml");
       $INOSIS = "$tmpdir/$sub.xml";
@@ -3649,13 +3652,18 @@ sub emptyvss($) {
 
 
 sub writeOsisHeader($\%\%\$\$) {
-  my $osisP = shift;
+  my $osis_or_osisP = shift;
   my $confP = shift;
   my $convP = shift;
   my $bibleP = shift;
   my $glossaryP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisHeader$3/;
+  my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
+  my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
+  
+  my $output;
+  if (ref($osis_or_osisP)) {$output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisHeader$3/;}
+  else {$output = $osis;}
   
   &Log("\nWriting work and companion work elements in OSIS header:\n");
   
@@ -3732,7 +3740,7 @@ sub writeOsisHeader($\%\%\$\$) {
   if (open(OUTF, ">$output")) {
     print OUTF $xml->toString();
     close(OUTF);
-    $$osisP = $output;
+    if (ref($osis_or_osisP)) {$$osis_or_osisP = $output;}
   }
   else {&Log("ERROR: Could not open \"$$osisP\" to add osisWorks to header!\n");}
   
@@ -4037,7 +4045,7 @@ sub ebookReadConf($) {
     }
     close(CONV);
   }
-  else {&Log("ERROR: Could not read ebookReadConf \"$convtxt\"\n"); die;}
+  else {&Log("WARNING: Did not find \"$convtxt\"\n");}
   
   return %conv;
 }

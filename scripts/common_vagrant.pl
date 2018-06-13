@@ -96,6 +96,9 @@ sub haveDependencies($$$$) {
   elsif ($script =~ /osis2ebooks/) {
     @deps = ('SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'CALIBRE');
   }
+  elsif ($script =~ /osis2html/) {
+    @deps = ('SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2');
+  }
   elsif ($script =~ /osis2GoBible/) {
     @deps = ('SWORD_PERL', 'GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 'XSLT2');
   }
