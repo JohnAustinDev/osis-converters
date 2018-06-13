@@ -24,24 +24,24 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init();
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 # if this is a childrens_bible, run the separate cb script
 if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
-  &osis_converters("$SCRD/scripts/perl/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
+  &osis_converters("$SCRD/scripts/genbook/childrens_bible/cbsfm2osis.pl", $INPD, $LOGFILE);
   exit;
 }
 
 # use CF_usfm2osis.txt if it exists, otherwise fall back to old CF_paratext2osis.txt
 if (-e "$INPD/CF_usfm2osis.txt") {
   $IS_usfm2osis = 1;
-  require("$SCRD/scripts/perl/usfm2osis.pl");
+  require("$SCRD/scripts/usfm2osis.pl");
   &usfm2osis("$INPD/CF_usfm2osis.txt", "$TMPDIR/".$MOD."_0.xml");
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt.";}
 
-if (!$NO_OUTPUT_DELETE) {require("$SCRD/scripts/perl/processOSIS.pl");}
+if (!$NO_OUTPUT_DELETE) {require("$SCRD/scripts/processOSIS.pl");}
 else {
   # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true
 }

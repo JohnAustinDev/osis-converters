@@ -61,7 +61,7 @@ $VSYS{'movedfrom'} = '-movedfrom';
 $VSYS{'start'} = '-start';
 $VSYS{'end'} = '-end';
 
-require("$SCRD/scripts/perl/bible/getScope.pl");
+require("$SCRD/scripts/bible/getScope.pl");
 
 sub init($) {
   my $quiet = shift;
@@ -3661,6 +3661,8 @@ sub writeOsisHeader($\%\%\$\$) {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
+  my $header;
+  
   # What type of document is this?
   my $type;
   if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary'; $$glossaryP = $MOD;}
@@ -3707,7 +3709,7 @@ sub writeOsisHeader($\%\%\$\$) {
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $confP->{'Versification'});
   }
-  &writeWorkElement(\%workAttributes, \%workElements, $xml);
+  $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
   # Add work element for any companion(s)
   if ($ConfEntryP->{'Companion'}) {
@@ -3723,7 +3725,7 @@ sub writeOsisHeader($\%\%\$\$) {
       my %compWorkAttributes = ('osisWork' => $comp);
       my %compWorkElements;
       &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convP, $isbn);
-      &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
+      $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
     }
   }
   
@@ -3733,6 +3735,8 @@ sub writeOsisHeader($\%\%\$\$) {
     $$osisP = $output;
   }
   else {&Log("ERROR: Could not open \"$$osisP\" to add osisWorks to header!\n");}
+  
+  return $header;
 }
 
 
@@ -3869,7 +3873,7 @@ sub writeWorkElement($$$) {
   
   my $w = $work->toString(); 
   $w =~ s/\n+/\n/g;
-  &Log("Wrote to header: \n$w\n");
+  return $w;
 }
 
 sub writeNoteIDs($) {

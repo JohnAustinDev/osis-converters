@@ -25,8 +25,8 @@
 $INPD = shift; $LOGFILE = shift;
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init();
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 # collect all modules to run
 my %modules;

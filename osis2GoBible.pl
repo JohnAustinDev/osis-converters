@@ -33,8 +33,8 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init();
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
@@ -51,7 +51,7 @@ foreach my $f (@FILES) {if (!-e $f) {&Log("ERROR: Missing required file: $f\n");
 if (!-e "$GOBIBLE/icon.png") {&Log("ERROR: Missing icon file: $GOBIBLE/icon.png");}
 
 &Log("\n--- Converting characters (normal)\n");
-require("$SCRD/scripts/perl/bible/GoBible/goBibleConvChars.pl");
+require("$SCRD/scripts/bible/GoBible/goBibleConvChars.pl");
 &goBibleConvChars("normal", \@FILES);
 copy("$GOBIBLE/icon.png", "$TMPDIR/normal/icon.png");
 &makeGoBible("normal");

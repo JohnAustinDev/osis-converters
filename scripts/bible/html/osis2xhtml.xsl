@@ -660,14 +660,14 @@
   </template>
   
 
-  <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO HTML MARKUP AS DESIRED -->
+  <!-- THE FOLLOWING TEMPLATES CONVERT OSIS INTO XHTML MARKUP AS DESIRED -->
   <!-- By default, text is copied -->
   <template match="text()" mode="xhtml"><copy/></template>
   
   <!-- By default, attributes are dropped -->
   <template match="@*" mode="xhtml"/>
   
-  <!-- By default, elements get their namespace changed from OSIS to HTML, and a class attribute is added-->
+  <!-- By default, elements get their namespace changed from OSIS to XHTML, and a class attribute is added-->
   <template match="*" mode="xhtml">
     <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>

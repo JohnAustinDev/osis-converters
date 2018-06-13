@@ -1,24 +1,24 @@
-require("$SCRD/scripts/perl/bible/fitToVerseSystem.pl");
-if ($MODDRV =~ /LD/) {require("$SCRD/scripts/perl/dict/processGlossary.pl");}
+require("$SCRD/scripts/bible/fitToVerseSystem.pl");
+if ($MODDRV =~ /LD/) {require("$SCRD/scripts/dict/processGlossary.pl");}
 
 # MOD_0.xml is raw converter output
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
-&runScript("$SCRD/scripts/xslt/usfm2osis.py.xsl", \$OSIS);
+&runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
 %EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
 my $projectBible;
 my $projectGlossary;
-&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary);
+&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary)."\n");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
-  &runScript("$SCRD/scripts/xslt/bible/checkUpdateIntros.xsl", \$OSIS);
+  &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
 }
 elsif ($MODDRV =~ /LD/) {
-  &runScript("$SCRD/scripts/xslt/dict/aggregateRepeatedEntries.xsl", \$OSIS);
+  &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
-  &runXSLT("$SCRD/scripts/xslt/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
+  &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
   &loadDictionaryWordsXML(1);
   &compareToDictionaryWordsXML($OSIS);
 }
@@ -29,22 +29,22 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 &writeTOC(\$OSIS);
 
 if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
-  require("$SCRD/scripts/perl/addScripRefLinks.pl");
+  require("$SCRD/scripts/addScripRefLinks.pl");
   &addScripRefLinks(\$OSIS);
   &checkScripRefLinks($OSIS, $projectBible);
   if ($addFootnoteLinks ne '0' && -e "$INPD/CF_addFootnoteLinks.txt") {
-    require("$SCRD/scripts/perl/addFootnoteLinks.pl");
+    require("$SCRD/scripts/addFootnoteLinks.pl");
     &addFootnoteLinks(\$OSIS);
   }
 }
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
-  require("$SCRD/scripts/perl/bible/addDictLinks.pl");
+  require("$SCRD/scripts/bible/addDictLinks.pl");
   &addDictLinks(\$OSIS);
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
-  require("$SCRD/scripts/perl/dict/addSeeAlsoLinks.pl");
+  require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
   &addSeeAlsoLinks(\$OSIS);
 }
 
@@ -55,7 +55,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 }
 
 if ($MODDRV =~ /Text/ && $addCrossRefs ne '0') {
-  require("$SCRD/scripts/perl/bible/addCrossRefs.pl");
+  require("$SCRD/scripts/bible/addCrossRefs.pl");
   &addCrossRefs(\$OSIS);
 }
 
@@ -99,7 +99,7 @@ RUN:./INT.SFM\n");
 
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   %params = ($glossContainsINT ? ('introScope' => 'INT'):());
-  &runScript("$SCRD/scripts/xslt/navigationMenu.xsl", \$OSIS, \%params);
+  &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
   
   my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."sword/css";
   if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {
@@ -119,6 +119,6 @@ copy($OSIS, $OUTOSIS);
 &validateOSIS($OUTOSIS);
 
 # Do a tmp Pretty Print for referencing during the conversion process
-&runXSLT("$SCRD/scripts/xslt/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
+&runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 
 &Log("\nend time: ".localtime()."\n");

@@ -24,8 +24,8 @@
 
 $INPD = shift; $LOGFILE = shift;
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init();
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 &runAnyUserScriptsAt("eBook/preprocess", \$INOSIS);
 
@@ -138,10 +138,13 @@ sub setupAndMakeEbook($$$) {
     \$ebookTitlePart
   );
     
-  &runXSLT("$SCRD/scripts/xslt/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
+  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
-  # copy convert.txt
-  copy("$INPD/eBook/convert.txt", "$tmp/convert.txt");
+  # update osis header with current convert.txt
+  &writeOsisHeader(\$osis, $ConfEntryP, \%EBOOKCONV);
+  
+  # copy osis2xhtml.xsl
+  copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
   
   # copy css directory (css directory is the last of the following)
   my $css = "$SCRD/defaults/bible/eBook/css";
@@ -239,7 +242,7 @@ body {font-family: font1;}
       &copy($outf, "$tmp/tmp/dict/$companion.xml"); $outf = "$tmp/tmp/dict/$companion.xml";
       &runAnyUserScriptsAt("$companion/eBook/preprocess", \$outf);
       if ($companion =~ /DICT$/) {
-        require "$SCRD/scripts/perl/dict/processGlossary.pl";
+        require "$SCRD/scripts/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope(\$outf, $scope);
@@ -349,7 +352,7 @@ sub makeEbook($$$$$) {
   
   &updateOsisFullResourceURL($osis, $format);
   
-  my $cmd = "$SCRD/scripts/perl/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
+  my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
   
   my $out = "$tmp/$MOD.$format";

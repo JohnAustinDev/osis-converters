@@ -20,11 +20,6 @@ class OsisInput(InputFormatPlugin):
     ])
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        
-        # Read convert.txt
-        cfile = codecs.open(options.config_file, 'r', encoding="utf-8")  
-        config = cfile.read().strip()
-        config = re.sub(r"#.*", "", config)
             
         # Get the directory of our input files
         filePath = stream.name
@@ -48,9 +43,10 @@ class OsisInput(InputFormatPlugin):
         for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
             shutil.copy(afile, '.')
             
+        # Copy osis2xhtml.xsl
+        shutil.copy(inputDir + "/osis2xhtml.xsl", '.')
+            
         # Transform the OSIS files to XHTML
-        with open("./osis2xhtml.xsl", "w") as text_file:
-          text_file.write(get_resources('osis2xhtml.xsl'))
         command = ["saxonb-xslt", 
             "-ext:on", 
             "-xsl:osis2xhtml.xsl", 

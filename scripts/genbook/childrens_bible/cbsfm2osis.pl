@@ -20,9 +20,9 @@
 # usage: cbsfm2osis.pl [Project_Directory]
 
 $INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init();
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init();
 
 # Get SFM files
 $List = "-l";
@@ -43,25 +43,25 @@ if (-e "$INPD/Image_Prefix.txt") {
 # run preprocessor
 &Log("\n--- PREPROCESSING USFM\n-----------------------------------------------------\n\n", 1);
 $AddFileOpt = (-e "$INPD/SFM_Add.txt" ? "-a \"$INPD/SFM_Add.txt\"":'');
-$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
+$cmd = "$SCRD/scripts/genbook/childrens_bible/preproc.py $AddFileOpt $List $INPF \"$TMPDIR/".$MOD."_1.sfm\" jpg $PREFIX";
 &Log($cmd."\n");
 `$cmd`;
 
 # run main conversion script
 &Log("\n--- CONVERTING PARATEXT TO OSIS\n-----------------------------------------------------\n\n", 1);
-$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
+$cmd = "$SCRD/scripts/genbook/childrens_bible/usfm2osis.py $MOD -o \"$TMPDIR/".$MOD."_1.xml\" -r -g -x \"$TMPDIR/".$MOD."_1.sfm\"";
 &Log($cmd."\n");
 `$cmd`;
 
 # run postprocessor
 &Log("\n--- POSTPROCESSING OSIS\n-----------------------------------------------------\n\n", 1);
-$cmd = "$SCRD/scripts/perl/childrens_bible/scripts/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
+$cmd = "$SCRD/scripts/genbook/childrens_bible/postproc.py \"$TMPDIR/".$MOD."_1.xml\" \"$TMPDIR/".$MOD."_2.xml\"";
 &Log($cmd."\n");
 `$cmd`;
 
 # run addScripRefLinks.pl
 if (-e "$INPD/CF_addScripRefLinks.txt") {
-  require("$SCRD/scripts/perl/addScripRefLinks.pl");
+  require("$SCRD/scripts/addScripRefLinks.pl");
   &addScripRefLinks("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 else {

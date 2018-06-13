@@ -24,9 +24,9 @@ $OPTYPE  = shift;
 $IPTYPE  = shift;
 $COVER   = shift;
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){5}$//;
-require "$SCRD/scripts/perl/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/perl/common.pl"; &init(1);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//;
+require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
+require "$SCRD/scripts/common.pl"; &init(1);
 
 use File::Spec;
 
@@ -62,10 +62,6 @@ else {
   exit;
 }
 print "Input file is $INPF\n";
-
-# Get directory of perl file
-$CBD = File::Spec->rel2abs( __FILE__ );
-$CBD =~ s/[\\\/][^\\\/]+$//;
 
 if ($OPTYPE) {
   # Form output file name by replacing file extension
@@ -117,12 +113,11 @@ if (-e "convert.txt") {
   $CONFILE = File::Spec->rel2abs("convert.txt");
 }
 else {
- print "Config file convert.txt missing\n";
- exit;
+ $CONFILE = '';
 }
 
 # Start forming the command string
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --config-file ".&escfile($CONFILE)." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --embed-all-fonts --subset-embedded-fonts";
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF).($CONFILE ? " --config-file ".&escfile($CONFILE):"")." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --embed-all-fonts --subset-embedded-fonts";
 
 $COMMAND .= ' --level1-toc "//*[@title=\'toclevel-1\']" --level2-toc "//*[@title=\'toclevel-2\']" --level3-toc "//*[@title=\'toclevel-3\']"';
 
@@ -160,7 +155,7 @@ if (0 && lc $OPTYPE eq "fb2")
   
   # Rename output file to temp file and pre-process to give new output file
   rename $OPF, $TEMPF;
-  $COMMAND = "$CBD/scripts/fb2postproc.py ".&escfile($TEMPF)." ".&escfile($OPF)." ".&escfile($CSSFILE);
+  $COMMAND = "$SCRD/scripts/genbook/childrens_bible/fb2postproc.py ".&escfile($TEMPF)." ".&escfile($OPF)." ".&escfile($CSSFILE);
   print "$COMMAND\n";
   &Log("$COMMAND\n");
   system $COMMAND;
