@@ -24,8 +24,8 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
 fi
+sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
 # GoBible Creator
