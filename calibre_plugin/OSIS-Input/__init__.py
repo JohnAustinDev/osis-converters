@@ -15,10 +15,6 @@ class OsisInput(InputFormatPlugin):
     file_types = set(['xml'])
     supported_platforms = ['linux']
 
-    options = set([
-    OptionRecommendation(name='config_file', recommended_value='convert.txt', help=_('Config file'))
-    ])
-
     def convert(self, stream, options, file_ext, log, accelerators):
             
         # Get the directory of our input files
