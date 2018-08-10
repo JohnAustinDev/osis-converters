@@ -6,7 +6,7 @@ $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
 $CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
-%EBOOKCONV = ($CONVERT_TXT ? &ebookReadConf($CONVERT_TXT):());
+%EBOOKCONV = ($CONVERT_TXT ? &readConvertTxt($CONVERT_TXT):());
 my $projectBible;
 my $projectGlossary;
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary)."\n");

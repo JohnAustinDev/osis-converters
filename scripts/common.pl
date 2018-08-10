@@ -322,8 +322,6 @@ sub initInputOutputFiles($$$$) {
   }
 
   if (!$NO_OUTPUT_DELETE) {
-    my $delete;
-    foreach my $outfile (@outs) {if (-e $outfile) {$delete .= "$outfile\n";}}
     foreach my $outfile (@outs) {
       my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
       if (-e $outfile) {
@@ -3962,7 +3960,7 @@ sub writeTOC($) {
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
   my %ebookconv;
-  if (-e "$INPD/eBook/convert.txt") {%ebookconv = &ebookReadConf("$INPD/eBook/convert.txt");}
+  if (-e "$INPD/eBook/convert.txt") {%ebookconv = &readConvertTxt("$INPD/eBook/convert.txt");}
   my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
   &Log("NOTE: Using \"\\toc$toc\" USFM tags to determine eBook TOC.\n");
   
@@ -4035,7 +4033,7 @@ sub writeTOC($) {
   $$osisP = $output;
 }
 
-sub ebookReadConf($) {
+sub readConvertTxt($) {
   my $convtxt = shift;
   
   my %conv;
@@ -4370,6 +4368,12 @@ sub getVerseTag($$$) {
   return;
 }
 
+# Run a Linux shell script. $flag can have these values:
+# -1 = only log file
+#  0 = log file (+ console unless $NOCONSOLELOG is set)
+#  1 = log file + console (ignoring $NOCONSOLELOG)
+#  2 = only console
+#  3 = don't log anything
 sub shell($$) {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
