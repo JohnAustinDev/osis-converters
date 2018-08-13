@@ -27,6 +27,11 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+if (! -e "$INPD/eBook/convert.txt") {
+  &Log("WARNING: \"$INPD/eBook/convert.txt\" does not exist. Exiting osis2ebooks.pl\n", 1);
+  exit;
+}
+
 require "$SCRD/scripts/convertOSIS.pl";
 &convertOSIS('eBook');
 

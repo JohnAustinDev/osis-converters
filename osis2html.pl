@@ -27,6 +27,11 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
 require "$SCRD/scripts/common.pl"; &init();
 
+if (! -e "$INPD/html/convert.txt") {
+  &Log("WARNING: \"$INPD/html/convert.txt\" does not exist. Exiting osis2html.pl\n", 1);
+  exit;
+}
+
 require "$SCRD/scripts/convertOSIS.pl";
 &convertOSIS('html');
 
