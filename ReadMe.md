@@ -3,7 +3,7 @@ Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to
 [OSIS](http://www.crosswire.org/osis/), 
 [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, 
 [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
-EPUB, MOBI, and FB2 files.
+html, EPUB, MOBI, and FB2 files.
 
 ## setup:
 **Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
@@ -21,6 +21,7 @@ At a Linux or Git Bash prompt:
 Which will output:
 * A SWORD Bible module (from all USFM Bible book files)
 * A SWORD Glossary module (if there are USFM glossary files).
+* An HTML Bible and glossary (if there are USFM glossary files)
 * GoBible Java-ME apps.
 * EPUB, FB2, and MOBI eBook Bibles.
 * Comprehensive OSIS files with glossary, parsed Scripture references, 
@@ -42,16 +43,25 @@ By default, all files created by osis-converters are put in a directory called '
 
 **sword/** and **MOD.zip** (where MOD will be the module name) - This is the Crosswire SWORD module. It can be used with any SWORD compatible program or device.
 
-**eBook/** - This directory contains EPUBs and other eBooks.
+**eBook/** - EPUBs and other eBooks
 
-**GoBible/** - This directory contains GoBible Java-ME apps for old style feature phones.
+**html/** - HTML files
 
-**tmp/** - This directory contains all temporary and debugging files created during the conversion process. These files can be extremely useful when trying to fix errors.
+**GoBible/** - GoBible Java-ME apps for old style feature phones
+
+**tmp/** - Temporary and debugging files created during the conversion process. These files can be extremely useful when trying to fix errors.
 
 -----
 
 # Crosswire OSIS format
-The intention is to follow the [OSIS specification and handbook](https://www.crosswire.org/osis/) as closely as possible as well as [Crosswire best practice](http://wiki.crosswire.org/OSIS_Tutorial). Although there are some deviations:
+The intention is to follow the [OSIS specification and handbook](https://www.crosswire.org/osis/) as closely as possible as well as [Crosswire best practice](http://wiki.crosswire.org/OSIS_Tutorial). Although there are a few minor deviations:
+
+## Comparison of .conf files to CrossWire .conf
+
+These xulsword specific .conf file entries may be inluded:
+
+* `LangSortOrder = AaBbCcDdEe...` is used by xulsword to sort the keys of
+a dictionary/glossary in original alphabetical order.
 
 ## Comparison of OSIS files to CrossWire OSIS
 
@@ -64,13 +74,6 @@ Optional CSS classes supported by [xulsword](https://github.com/JohnAustinDev/xu
 * x-text-image (for images embedded in text)
 * x-parallel-passage (for parallel passages cross references)
 * x-ref-cb (for reference title links found in Children's Bibles) 
-
-## Comparison of .conf files to CrossWire .conf
-
-These xulsword specific .conf file entries may be inluded:
-
-* `LangSortOrder = AaBbCcDdEe...` is used by xulsword to sort the keys of
-a dictionary/glossary in original alphabetical order.
 
 ## Deprecated (no longer output by osis-converters)
 
