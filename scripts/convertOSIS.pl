@@ -109,7 +109,7 @@ sub OSIS_To_ePublication($$$$) {
   
   &Log("\n");
   
-  my $tmp = "$TMPDIR/$scope";
+  my $tmp = $scope; $tmp =~ s/\s/_/g; $tmp = "$TMPDIR/$tmp";
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &copy($INOSIS, $osis);
