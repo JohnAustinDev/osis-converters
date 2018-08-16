@@ -103,13 +103,13 @@
         <xsl:for-each select="tokenize($css, '\s*,\s*')">
           <xsl:choose>
             <xsl:when test="ends-with(lower-case(.), 'css')">
-              <item href="{.}" id="{me:id(.)}" media-type="text/css"/>
+              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="text/css"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'ttf')">
-              <item href="./{.}" id="{me:id(.)}" media-type="application/x-font-ttf"/>
+              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/x-font-ttf"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'otf')">
-              <item href="./{.}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
+              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
             </xsl:when>
             <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
           </xsl:choose>
@@ -239,10 +239,10 @@
       </when>
       <when test="$node/ancestor-or-self::div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]">
         <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
-        <value-of select="if ($root = 'comb') then concat($root, '_glosskey_k', $group) else concat($root, '_glosskey_div', me:hashUsfmType($refUsfmType), '_k', $group)"/>
+        <value-of select="if ($root = 'comb') then concat($refUsfmType/@type, '/', $root, '_k', $group) else concat($refUsfmType/@type, '/', $root, '_p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
       </when>
       <when test="$refUsfmType">
-        <value-of select="concat($root, '_', $refUsfmType/@type, '_div', me:hashUsfmType($refUsfmType))"/>
+        <value-of select="concat($refUsfmType/@type, '/', $root, '_p', me:hashUsfmType($refUsfmType))"/>
       </when>
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
@@ -271,7 +271,7 @@
           <title><xsl:value-of select="$fileName"/></title>
           <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
           <xsl:for-each select="tokenize($css, '\s*,\s*')">
-            <xsl:if test="ends-with(lower-case(.), 'css')"><link href="../{.}" type="text/css" rel="stylesheet"/></xsl:if>
+            <xsl:if test="ends-with(lower-case(.), 'css')"><link href="{me:uri-to-relative($fileNodes[1], .)}" type="text/css" rel="stylesheet"/></xsl:if>
           </xsl:for-each>
         </head>
         <body>
@@ -518,7 +518,7 @@
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
-            <a><xsl:attribute name="href" select="concat(me:getFileName(.), '.xhtml#', generate-id(.))"/>
+            <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
               <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
             </a>
           </li>
@@ -762,9 +762,7 @@
     <element name="{if ($html5 = 'true') then 'figure' else 'div'}" namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
       <img xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:attribute name="src">
-          <xsl:value-of select="if (starts-with(@src, './')) then concat('.', @src) else (if (starts-with(@src, '/')) then concat('..', @src) else concat('../', @src))"/>
-        </xsl:attribute>
+        <xsl:attribute name="src"><xsl:value-of select="me:uri-to-relative(., @src)"/></xsl:attribute>
         <xsl:attribute name="alt" select="@src"/>
       </img>
       <xsl:apply-templates mode="xhtml"/>
@@ -862,8 +860,8 @@
     <choose>
       <when test="$fullResourceURL">
         <!-- the href below is a quick/easy way of running getFileName -->
-        <variable name="href" select="concat($mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS/descendant::div[@type='book'][1]/@osisID, '.xhtml#fullResourceURL')"/>
-        <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+        <variable name="file" select="concat('/xhtml/', $mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS/descendant::div[@type='book'][1]/@osisID, '.xhtml')"/>
+        <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#fullResourceURL'))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
       </when>
       <otherwise>
         <span xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></span>
@@ -880,7 +878,7 @@
       <variable name="refIsBible" select="$mainInputOSIS//work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
         <when test="$refIsBible">
-          <value-of select="concat($workid, '_', tokenize($osisRef, '\.')[1])"/><!-- this is faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
+          <value-of select="concat('/xhtml/', $workid, '_', tokenize($osisRef, '\.')[1], '.xhtml')"/><!-- this is faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
         </when>
         <otherwise><!-- references to non-bible -->
           <variable name="target" as="node()?">
@@ -891,7 +889,7 @@
           </variable>
           <choose>
             <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
-            <when test="count($target)=1"><value-of select="me:getFileName($target)"/></when>
+            <when test="count($target)=1"><value-of select="concat('/xhtml/', me:getFileName($target), '.xhtml')"/></when>
             <otherwise>
               <message>ERROR: Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message>
             </otherwise>
@@ -911,7 +909,7 @@
         </otherwise>
       </choose>
     </variable>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="{concat($file, '.xhtml', '#', $osisRefA)}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#', $osisRefA))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
   </template>
   
   <template match="row" mode="xhtml">
@@ -982,6 +980,49 @@
       <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
       <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
     </choose>
+  </function>
+  
+  <!-- tr:uri-to-relative-path ($base-uri, $rel-uri) this function converts a URI to a relative path using another URI directory as base reference. -->
+  <function name="me:uri-to-relative-path" as="xs:string">
+    <param name="base-uri-file" as="xs:string"/> <!-- the URI reference (file or directory) -->
+    <param name="rel-uri-file" as="xs:string"/>  <!-- the URI to be converted to a relative path (file or directory) -->
+    <variable name="base-uri" select="replace(replace($base-uri-file, '^([^/])', '/$1'), '/[^/]*$', '')"/> <!-- base now begins and ends with '/' or is just '/' -->
+    <variable name="rel-uri" select="replace(replace($rel-uri-file, '^\.+', ''), '^([^/])', '/$1')"/> <!-- any '.'s at the start of rel are IGNORED, and rel now starts with '/' -->
+    <variable name="tkn-base-uri" select="tokenize($base-uri, '/')" as="xs:string+"/>
+    <variable name="tkn-rel-uri" select="tokenize($rel-uri, '/')" as="xs:string+"/>
+    <variable name="uri-parts-max" select="max((count($tkn-base-uri), count($tkn-rel-uri)))" as="xs:integer"/>
+    <!--  count equal URI parts with same index -->
+    <variable name="uri-equal-parts" select="for $i in (1 to $uri-parts-max) 
+      return $i[$tkn-base-uri[$i] eq $tkn-rel-uri[$i]]" as="xs:integer*"/>
+    <choose>
+      <!--  both URIs must share the same URI scheme -->
+      <when test="$uri-equal-parts[1] eq 1">
+        <!-- drop directories that have equal names but are not physically equal, e.g. their value should correspond to the index in the sequence -->
+        <variable name="dir-count-common" select="max(
+          for $i in $uri-equal-parts 
+          return $i[index-of($uri-equal-parts, $i) eq $i]
+          )" as="xs:integer"/>
+        <!-- difference from common to URI parts to common URI parts -->
+        <variable name="delta-base-uri" select="count($tkn-base-uri) - $dir-count-common" as="xs:integer"/>
+        <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>    
+        <variable name="relative-path" select="
+          concat(
+          (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
+          (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
+          )" as="xs:string"/>
+        <value-of select="$relative-path"/>
+      </when>
+      <!-- if both URIs share no equal part (e.g. for the reason of different URI scheme names) then it's not possible to create a relative path. -->
+      <otherwise>
+        <value-of select="$rel-uri"/>
+        <message>ERROR: Indeterminate path:"<xsl:value-of select="$rel-uri"/>" is not relative to "<xsl:value-of select="$base-uri"/>"</message>
+      </otherwise>
+    </choose>
+  </function>
+  <function name="me:uri-to-relative" as="xs:string">
+    <param name="base-node" as="node()"/>   <!-- node's file path is the base -->
+    <param name="rel-uri" as="xs:string"/>  <!-- the URI to be converted to a relative path -->
+    <value-of select="me:uri-to-relative-path(concat('/xhtml/', me:getFileName($base-node), '.xhtml'), $rel-uri)"/>
   </function>
   
 </stylesheet>
