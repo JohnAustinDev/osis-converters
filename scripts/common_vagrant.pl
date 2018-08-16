@@ -103,6 +103,11 @@ sub haveDependencies($$$$) {
     @deps = ('SWORD_PERL', 'GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 'XSLT2');
   }
   
+  # XSLT2 also requires that openjdk 10.0.1 is NOT being used 
+  # because its Unicode character classes fail with saxonb-xslt.
+  my %depsh = map { $_ => 1 } @deps;
+  if ($depsh{'XSLT2'}) {push(@deps, 'JAVA');}
+  
   # All paths must end in / or else be empty. 
   # Paths which are empty must refer to executables in the shell's path
   foreach my $p (@deps) {
@@ -130,6 +135,7 @@ sub haveDependencies($$$$) {
   $test{'GO_BIBLE_CREATOR'} = [ "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage" ];
   $test{'MODULETOOLS_BIN'}  = [ &escfile($MODULETOOLS_BIN."usfm2osis.py"), "Revision: 491" ]; # check version
   $test{'XSLT2'}            = [ 'saxonb-xslt', "Saxon 9" ]; # check major version
+  $test{'JAVA'}             = [ 'java -version', "openjdk version \"10.0.1\"", 1 ]; # NOT openjdk 10.0.1
   $test{'CALIBRE'}          = [ "ebook-convert --version", "calibre 3.2" ]; # check major version
   $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.7.3" ]; # check version
   
@@ -146,9 +152,13 @@ sub haveDependencies($$$$) {
     }
     my $result; {local $/; $result = <TEST>;} close(TEST); unlink("tmp.txt");
     my $need = $test{$p}[1];
-    if ($result !~ /\Q$need\E/im) {
+    if (!$test{$p}[2] && $result !~ /\Q$need\E/im) {
       $failMes .= "\nERROR: Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n";
     }
+    elsif ($test{$p}[2] && $result =~ /\Q$need\E/im) {
+      $failMes .= "\nERROR: Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n";
+    }
+    #&Log("NOTE:  Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result\n");
   }
   
   if ($failMes) {
