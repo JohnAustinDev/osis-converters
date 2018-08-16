@@ -4,7 +4,6 @@ cd $( dirname "${BASH_SOURCE[0]}" )
 
 # Update Calibre and its plugin if it is installed on the host
 if [ ! -z "$(calibre-customize -l | grep 'InputOSIS')" ]; then 
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
   calibre-customize -b ./calibre_plugin/OSIS-Input;
 fi
 
