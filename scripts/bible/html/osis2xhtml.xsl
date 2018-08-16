@@ -921,7 +921,7 @@
   <!-- xml:id must start with a letter or underscore, and can only contain letters, digits, underscores, hyphens, and periods. -->
   <function name="me:id" as="xs:string">
     <param name="s"/>
-    <value-of select="replace(replace($s, '^([^A-Za-z_])', 'x$1'), '[^A-Za-z0-9_\-\.]', '-')"/>
+    <value-of select="replace(replace($s, '^([^\p{L}_])', 'x$1'), '[^\p{L}\d_\-\.]', '-')"/>
   </function>
   
   <!-- Use this function if an xhtml element must not contain other elements (for EPUB2 etc. validation). 
