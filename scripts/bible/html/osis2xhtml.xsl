@@ -19,11 +19,15 @@
   <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
   <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
   
-  <!-- Output Unicode SOFT HYPHEN as "&shy;" in xhtml output files (Note: SOFT HYPHENs are currently being stripped out by the Calibre EPUB output plugin) -->
-  <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map>
+  <!-- Don't convert Unicode SOFT HYPHEN to "&shy;" in xhtml output files. 
+  Because SOFT HYPHENs are currently being stripped out by the Calibre 
+  EPUB output plugin, and they break xhtml in browsers (without first  
+  defining the entity). To reinstate &shy; uncomment the following line and  
+  add 'use-character-maps="xhtml-entities"' to <output name="xhtml"/> below -->
+  <!-- <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map> !-->
   
   <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement for xhtml outputs -->
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml" use-character-maps="xhtml-entities"/>
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml"/>
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
