@@ -124,11 +124,11 @@ sub OSIS_To_ePublication($$$$) {
     \$pubTitle, 
     \$pubTitlePart
   );
-    
-  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # update osis header with current convert.txt
-  &writeOsisHeader(\$osis, $ConfEntryP, \%CONVERT_TXT);
+  &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
+    
+  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
@@ -141,7 +141,7 @@ sub OSIS_To_ePublication($$$$) {
   &copy_dir($css, "$tmp/css");
   if (-e "$INPD/$convertTo/css") {&copy_dir("$INPD/$convertTo/css", "$tmp/css", 1);} # module css is added to default css directory
  
-  # copy font is specified, include it
+  # copy font if specified
   if ($FONTS && $ConfEntryP->{"Font"}) {
     &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
     if (&runningVagrant()) {

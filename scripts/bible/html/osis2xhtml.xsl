@@ -27,21 +27,24 @@
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <variable name="tocnumber" select="if (/descendant::*[@type='x-ebook-config-TOC'][1]) then /descendant::*[@type='x-ebook-config-TOC'][1] else 2"/>
+  <variable name="tocnumber" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
   
   <!-- Output EPUB3 footnotes -->
-  <variable name="epub3" select="if (/descendant::*[@type='x-ebook-config-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
+  <variable name="epub3" select="if (/descendant::*[@type='x-osis2xhtml-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
   
   <!-- Optional URL to show for broken links -->
-  <variable name="fullResourceURL" select="/descendant::*[@type='x-ebook-config-FullResourceURL'][1]"/>
+  <variable name="fullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
   
   <!-- Set multipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
-  <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-ebook-config-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
+  <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
+  
+  <!-- Set chapterFiles to 'true' to output Bible books as separate files for each chapter -->
+  <variable name="chapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>
   
   <!-- Set name to use for the combined glossary -->
-  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-ebook-config-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
+  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
   
-  <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the eBook, and all input OSIS files must reside in the same directory -->
+  <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the project, and all input OSIS files must reside in the same directory -->
   <variable name="referencedOsisDocs" select="//work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
   
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->

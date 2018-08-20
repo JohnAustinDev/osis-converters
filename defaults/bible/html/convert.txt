@@ -1,6 +1,8 @@
 # Configuration file for html conversions (lines beginning with # are 
 # comments)
 
+ChapterFiles=true
+
 # Separate book ePublications often have broken links to missing books. 
 # So this URL, if supplied, will alert users where to get the full eBook.
 #FullResourceURL=https://location/of/entire-translation/eBook

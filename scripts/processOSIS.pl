@@ -5,11 +5,13 @@ if ($MODDRV =~ /LD/) {require("$SCRD/scripts/dict/processGlossary.pl");}
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-$CONVERT_TXT = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
-%EBOOKCONV = ($CONVERT_TXT ? &readConvertTxt($CONVERT_TXT):());
+$c = (-e "$INPD/html/convert.txt" ? "$INPD/html/convert.txt":(-e "$INPD/../html/convert.txt" ? "$INPD/../html/convert.txt":''));
+%HTMLCONV = ($c ? &readConvertTxt($c):());
+$c = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
+%EBOOKCONV = ($c ? &readConvertTxt($c):());
 my $projectBible;
 my $projectGlossary;
-&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \$projectBible, \$projectGlossary)."\n");
+&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL, \$projectBible, \$projectGlossary)."\n");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
