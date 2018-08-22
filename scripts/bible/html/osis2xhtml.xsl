@@ -181,7 +181,11 @@
   <template match="div[@type='glossary'][@subType='x-aggregate']" priority="3"/>
   
   <template match="osisText">
-    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(self::header or self::div[starts-with(@type, 'book')] or self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)])]"/></call-template>
+    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(
+        self::header or 
+        self::div[starts-with(@type, 'book')] or 
+        self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)]
+    )]"/></call-template>
     <apply-templates/>
   </template>
   
@@ -206,7 +210,7 @@
         <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
         <otherwise>
           <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
-            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/></for-each><text>&#xa;</text>
+            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/></for-each>
           </message>
         </otherwise>
       </choose>
@@ -221,8 +225,9 @@
     <param name="currentTask" tunnel="yes"/>
     
     <variable name="fileName" select="me:getFileName(.)"/>
-    <!-- A lone toc milestone is passed here because it would result in a toc title -->
-    <if test="$fileNodes//text()[normalize-space()] | $fileNodes/descendant-or-self::milestone[@type=concat('x-usfm-toc', $tocnumber)][@n]">
+    <if test="$fileNodes[1][self::chapter] (: get-filenames pass can be a single chapter element :) | 
+    $fileNodes//text()[normalize-space()] (: include files with readable text :) | 
+    $fileNodes/descendant-or-self::milestone[@type=concat('x-usfm-toc', $tocnumber)][@n] (: include files with a TOC element because it will result in a readable TOC title :)">
       <choose>
         <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
         <otherwise>
@@ -237,19 +242,25 @@
     <param name="node" as="node()"/>
     <variable name="root" select="if (root($node)/descendant::osisText[1]/@osisIDWork) then root($node)/descendant::osisText[1]/@osisIDWork else $node/ancestor-or-self::*[@root-name]/@root-name"/>
     <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]"/>
+    <variable name="book" select="$node/ancestor-or-self::div[@type='book'][last()]/@osisID"/>
     <choose>
-      <when test="$node/ancestor-or-self::div[@type='book'][last()]">
-        <value-of select="concat($root, '_', $node/ancestor-or-self::div[@type='book']/@osisID)"/>
+      <when test="$book">
+        <variable name="chapter" select="if ($chapterFiles = 'true') then 
+            concat('/', 'ch', count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]))
+            else ''"/>
+        <value-of select="concat($root, '_', $book, $chapter)"/>
       </when>
       <when test="$node/ancestor-or-self::div[@type='bookGroup'][last()]">
         <value-of select="concat($root, '_bookGroup-introduction_bg', count($node/preceding::div[@type='bookGroup']) + 1)"/>
       </when>
       <when test="$node/ancestor-or-self::div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]">
         <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
-        <value-of select="if ($root = 'comb') then concat($refUsfmType/@type, '/', $root, '_k', $group) else concat($refUsfmType/@type, '/', $root, '_p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
+        <value-of select="if ($root = 'comb') then 
+            concat($root, '_glossary', '/', 'k', $group) else 
+            concat($root, '_glossary', '/', 'p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
       </when>
       <when test="$refUsfmType">
-        <value-of select="concat($refUsfmType/@type, '/', $root, '_p', me:hashUsfmType($refUsfmType))"/>
+        <value-of select="concat($root, '_', $refUsfmType/@type, '/', 'p', me:hashUsfmType($refUsfmType))"/>
       </when>
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
@@ -690,6 +701,16 @@
     <apply-templates mode="xhtml"/>
   </template>
   
+  <!-- If an element has a source attribute then it is a copied element pointing to an original element, so process the original element -->
+  <template match="*[@copysource]" mode="#default xhtml footnotes crossrefs" priority="9">
+    <variable name="original" select="$mainInputOSIS//*[generate-id() = current()/@copysource][1]" as="element()?"/>
+    <if test="$original"><for-each select="$original"><apply-templates select="." mode="#current"/></for-each></if>
+    <if test="not($original)">
+      <message>ERROR: The source element of a copied element could not be found: <value-of select="me:printNode(.)"/></message>
+      <next-match/>
+    </if>
+  </template>
+  
   <!-- Verses -->
   <template match="verse[@sID] | hi[@subType='x-alternate']" mode="xhtml" priority="3">
     <param name="doWrite" tunnel="yes"/>
@@ -818,7 +839,7 @@
     <variable name="ul" as="element(html:ul)">
       <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
     </variable>
-    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')])"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
+    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], NULL)"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
@@ -860,7 +881,7 @@
       </p>
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
-    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')])"/>
+    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')], NULL)"/>
   </template>
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
@@ -895,7 +916,7 @@
             </choose>
           </variable>
           <choose>
-            <when test="count($target)=0"><message>ERROR: Target osisID not found: osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message></when>
+            <when test="count($target)=0"><message>ERROR: workID="<value-of select="$workid"/>" and target osisID not found for: <value-of select="me:printNode(.)"/></message></when>
             <when test="count($target)=1"><value-of select="concat('/xhtml/', me:getFileName($target), '.xhtml')"/></when>
             <otherwise>
               <message>ERROR: Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message>
@@ -934,17 +955,22 @@
   <function name="me:expelElements">
     <param name="element" as="element()"/>
     <param name="expel" as="element()*"/>
+    <!-- elements getting the copysource attribute will be replaced by the source element during apply-templates -->
+    <param name="addSourceAttributeTo" as="xs:string*"/>
     <choose>
       <when test="count($expel) = 0"><sequence select="$element"/></when>
       <otherwise>
         <variable name="pass1">
           <for-each-group select="$element" group-by="for $i in ./descendant-or-self::node() 
               return 2*count($i/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($i/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])">
-            <apply-templates select="current-group()" mode="weed1"><with-param name="expel" select="$expel" tunnel="yes"/></apply-templates>
+            <apply-templates select="current-group()" mode="weed1">
+              <with-param name="expel" select="$expel" tunnel="yes"/>
+              <with-param name="addSourceAttributeTo" select="$addSourceAttributeTo" tunnel="yes"/>
+            </apply-templates>
           </for-each-group>
         </variable>
         <variable name="pass2"><apply-templates select="$pass1" mode="weed2"/></variable><!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
-        <if test="count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="$expel/local-name()"/></message></if>
+        <if test="count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="me:printNode($expel)"/></message></if>
         <sequence select="$pass2"/>
       </otherwise>
     </choose>
@@ -952,14 +978,16 @@
   <template mode="weed1" match="@*"><copy/></template>
   <template mode="weed1" match="node()">
     <param name="expel" as="element()+" tunnel="yes"/>
-    <variable name="groupDescendantSelf" select="descendant-or-self::node()
-        [current-grouping-key() = 2*count(preceding::node()[generate-id(.) = $expel/generate-id()]) + count(ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])]"/>
-    <variable name="groupExpelElement" select="$groupDescendantSelf/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
-    <if test="$groupDescendantSelf"><!-- drop the context node if it has no descendants or self in the current group -->
+    <param name="addSourceAttributeTo" as="xs:string*" tunnel="yes"/>
+    <variable name="nodesInGroup" select="descendant-or-self::node()
+        [current-grouping-key() = 2*count(preceding::node()[generate-id(.) = $expel/generate-id()]) + count(ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])]" as="node()*"/>
+    <variable name="expelElement" select="$nodesInGroup/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
+    <if test="$nodesInGroup"><!-- drop the context node if it has no descendants or self in the current group -->
       <choose>
-        <when test="$groupExpelElement and descendant::*[generate-id(.) = generate-id($groupExpelElement)]"><apply-templates mode="weed1"/></when>
+        <when test="$expelElement and descendant::*[generate-id(.) = generate-id($expelElement)]"><apply-templates mode="weed1"/></when>
         <otherwise>
           <copy>
+            <if test="self::*[local-name()=$addSourceAttributeTo]"><attribute name="copysource" select="generate-id()"/></if>
             <if test="child::node()[normalize-space()]"><attribute name="container"/></if><!-- used to remove empty generated containers in pass2 -->
             <apply-templates select="node()|@*" mode="weed1"/>
           </copy>
@@ -975,17 +1003,15 @@
     <param name="node" as="node()"/>
     <choose>
       <when test="$node[self::element()]">
-        <value-of>element:
-          <value-of select="concat('element=', $node/name(), ', ')"/>
-          <for-each select="$node/@*"><value-of select="concat(name(), '=', ., ', ')"/></for-each>
+        <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each><text>&#xa;</text>
         </value-of>
       </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
-      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
+      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node, '&#xa;')"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node, '&#xa;')"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node, '&#xa;')"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node, '&#xa;')"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node, '&#xa;')"/></when>
+      <otherwise><value-of select="concat('other?:', $node, '&#xa;')"/></otherwise>
     </choose>
   </function>
   
