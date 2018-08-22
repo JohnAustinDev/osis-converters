@@ -210,7 +210,7 @@
         <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
         <otherwise>
           <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
-            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/></for-each>
+            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/><text>&#xa;</text></for-each>
           </message>
         </otherwise>
       </choose>
@@ -483,7 +483,7 @@
     <param name="keepOnlyCombinedGlossary" as="xs:boolean"/>
     <variable name="isBible" select="root($tocNode)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
-      <message terminate="yes">ERROR: getTocListItems(): <value-of select="me:printNode($tocNode)"/> is not a TOC milestone or non-Bible chapter element!</message>
+      <message terminate="yes">ERROR: getTocListItems(): Not a TOC milestone or non-Bible chapter element: <value-of select="me:printNode($tocNode)"/></message>
     </if>
     <variable name="toplevel" select="if ($isOsisRootTOC) then 0 else me:getTocLevel($tocNode)"/>
     <if test="$toplevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[not_parent\]'))">
@@ -549,7 +549,7 @@
   <function name="me:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocAttributes(): <value-of select="me:printNode($tocElement)"/> is not a TOC element!</message>
+      <message terminate="yes">ERROR: getTocAttributes(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
     </if>
     <attribute name="id" select="generate-id($tocElement)"/>
     <attribute name="class" select="normalize-space(string-join(('xsl-toc-entry', me:getClasses($tocElement)), ' '))"/>
@@ -562,7 +562,7 @@
   <function name="me:getTocTitle" as="xs:string">
     <param name="tocElement" as="element()"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocTitle(): <value-of select="me:printNode($tocElement)"/> is not a TOC element!</message>
+      <message terminate="yes">ERROR: getTocTitle(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
     </if>
     <variable name="tocTitleEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if ($tocElement/@n) then $tocElement/@n else ''"/>
     <variable name="tocTitleOSIS">
@@ -592,7 +592,7 @@
     <param name="tocElement" as="element()"/>
     <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocLevel(): <value-of select="me:printNode($tocElement)"/> is not a TOC element!</message>
+      <message terminate="yes">ERROR: getTocLevel(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
     </if>
     <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$')) then replace($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$', '$2') else '0'"/>
     <variable name="toclevelOSIS">
@@ -1003,15 +1003,14 @@
     <param name="node" as="node()"/>
     <choose>
       <when test="$node[self::element()]">
-        <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each><text>&#xa;</text>
-        </value-of>
+        <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each></value-of>
       </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node, '&#xa;')"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node, '&#xa;')"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node, '&#xa;')"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node, '&#xa;')"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node, '&#xa;')"/></when>
-      <otherwise><value-of select="concat('other?:', $node, '&#xa;')"/></otherwise>
+      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
+      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
     </choose>
   </function>
   
