@@ -208,6 +208,7 @@ a.osis-reference {
 */
 
 /* Classes introduced by osis-converters */
+.osis-p.continuation {text-indent:0;}
 .osis-reference.x-glossary,
 .osis-reference.x-glosslink {
   color: #000000;

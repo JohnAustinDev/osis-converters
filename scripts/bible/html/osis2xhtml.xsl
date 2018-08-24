@@ -63,6 +63,17 @@
   <template match="/">
     <variable name="osisIDWork" select="/descendant::osisText[1]/@osisIDWork"/>
     
+    <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
+      <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
+      <choose>
+        <when test="$chapterFiles = 'true'">
+          <variable name="removeSectionDivs"><apply-templates select="$markMainTocMilestone" mode="bibleOSIS_removeSectionDivs"/></variable>
+          <apply-templates select="$removeSectionDivs" mode="bibleOSIS_expelChapterTags"/>
+        </when>
+        <otherwise><sequence select="$markMainTocMilestone"/></otherwise>
+      </choose>
+    </variable>
+    
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
       <if test="$multipleGlossaries = 'false' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
@@ -74,6 +85,7 @@
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">
         <with-param name="currentTask" select="'get-filenames'" tunnel="yes"/>
+        <with-param name="bibleOSIS" select="$bibleOSIS" tunnel="yes"></with-param>
         <with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"/>
       </call-template>
     </variable>
@@ -127,6 +139,7 @@
     
     <call-template name="processProject">
       <with-param name="currentTask" select="'write-xhtml'" tunnel="yes"/>
+      <with-param name="bibleOSIS" select="$bibleOSIS" tunnel="yes"></with-param>
       <with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"></with-param>
     </call-template>
     
@@ -134,9 +147,10 @@
   
   <template name="processProject">
     <param name="currentTask" tunnel="yes"/>
+    <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <message><value-of select="concat('processProject: currentTask = ', $currentTask)"/></message>
-    <for-each select="$mainInputOSIS"><apply-templates/></for-each>
+    <message><value-of select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean($combinedGlossary))"/></message>
+    <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
   </template>
@@ -176,6 +190,28 @@
     </if>
   </function>
   
+  <!-- Bible preprocessing templates to speed up processing that requires node copying/modification -->
+  <template match="node()|@*" mode="bibleOSIS_markMainTocMilestone bibleOSIS_removeSectionDivs bibleOSIS_expelChapterTags">
+    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+  </template>
+  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)][generate-id() = generate-id($mainTocMilestone)]" mode="bibleOSIS_markMainTocMilestone">
+    <copy><attribute name="isMainTocMilestone" select="'true'"/><for-each select="@*"><copy-of select="."/></for-each></copy>
+  </template>
+  <template match="div[ends-with(lower-case(@type), 'section')]" mode="bibleOSIS_removeSectionDivs">
+    <apply-templates mode="bibleOSIS_removeSectionDivs"/>
+  </template>
+  <template match="*[parent::div[@type='book']]" mode="bibleOSIS_expelChapterTags">
+    <variable name="book" select="parent::*/@osisID"/>
+    <variable name="expel" select="descendant::chapter[starts-with(@sID, concat($book, '.'))]"/>
+    <choose>
+      <when test="not($expel)"><copy-of select="."/></when>
+      <otherwise>
+        <message>NOTE: Container contains a chapter milestone: <value-of select="me:printNode(.)"/></message>
+        <sequence select="me:expelElements(., $expel)"/>
+      </otherwise>
+    </choose>
+  </template>
+  
   <!-- THE OSIS FILE IS SEPARATED INTO INDIVIDUAL XHTML FILES BY THE FOLLOWING TEMPLATES WITH ProcessFile-->
   <template match="node()"><apply-templates/></template>
   <template match="div[@type='glossary'][@subType='x-aggregate']" priority="3"/>
@@ -195,7 +231,17 @@
   </template>
   
   <template match="div[@type='book'] | div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)]">
-    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()"/></call-template>
+    <choose>
+      <when test="self::div[@type='book'] and $chapterFiles = 'true'">
+        <variable name="book" select="@osisID"/>
+        <for-each-group select="node()" group-adjacent="count(preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count(descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))])">
+          <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
+        </for-each-group>
+      </when>
+      <otherwise>
+        <call-template name="ProcessFile"><with-param name="fileNodes" select="node()"/></call-template>
+      </otherwise>
+    </choose>
   </template>
   
   <template match="div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)]" priority="2">
@@ -246,7 +292,7 @@
     <choose>
       <when test="$book">
         <variable name="chapter" select="if ($chapterFiles = 'true') then 
-            concat('/', 'ch', count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]))
+            concat('/ch', count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]))
             else ''"/>
         <value-of select="concat($root, '_', $book, $chapter)"/>
       </when>
@@ -275,7 +321,18 @@
     <if test="$title"><value-of select="sum(string-to-codepoints(string($title)))"/></if>
     <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
-
+  
+  <!-- This template may be called with a Bible osisRef string. It returns the output file name that contains the Bible reference -->
+  <function name="me:getFileNameOfRef" as="xs:string">
+    <param name="osisRef" as="xs:string"/>
+    <variable name="work" select="$mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
+    <if test="contains($osisRef, ':') and not(starts-with($osisRef, concat($work, ':')))">
+      <message>ERROR: Bible reference <value-of select="$osisRef"/> targets a work other than <value-of select="$work"/></message>
+    </if>
+    <variable name="osisRef2" select="replace($osisRef, '^[^:]*:', '')" as="xs:string"/>
+    <value-of select="concat($work, '_', tokenize($osisRef2, '\.')[1], (if ($chapterFiles = 'true') then concat('/ch', tokenize($osisRef2, '\.')[2]) else ''))"/>
+  </function>
+  
   <!-- Write each xhtml file's contents -->
   <template name="WriteFile">
     <param name="fileName" as="xs:string"/>
@@ -501,7 +558,7 @@
             <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary -->
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
                 [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
-                [not($isOsisRootTOC and $mainTocMilestone and generate-id(.) = generate-id($mainTocMilestone))]
+                [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')]
                 [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]"/>
           </otherwise>
         </choose>
@@ -625,13 +682,13 @@
         $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
   </function>
   
-  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type and subType -->
+  <!-- This template may be called from any element. It adds a class attribute according to tag, level, type, subType and class -->
   <template name="class"><attribute name="class" select="me:getClasses(.)"/></template>
   <function name="me:getClasses" as="xs:string">
     <param name="x" as="element()"/>
     <variable name="levelClass" select="if ($x/@level) then concat('level-', $x/@level) else ''"/>
     <variable name="osisTagClass" select="concat('osis-', $x/local-name())"/>
-    <value-of select="normalize-space(string-join(($osisTagClass, $x/@type, $x/@subType, $levelClass), ' '))"/>
+    <value-of select="normalize-space(string-join(($osisTagClass, $x/@type, $x/@subType, $x/@class, $levelClass), ' '))"/>
   </function>
   
   <!-- This template may be called from: p, l, item and canonical title. It writes chapter numbers if the calling element should contain an embedded chapter number -->
@@ -701,16 +758,6 @@
     <apply-templates mode="xhtml"/>
   </template>
   
-  <!-- If an element has a source attribute then it is a copied element pointing to an original element, so process the original element -->
-  <template match="*[@copysource]" mode="#default xhtml footnotes crossrefs" priority="9">
-    <variable name="original" select="$mainInputOSIS//*[generate-id() = current()/@copysource][1]" as="element()?"/>
-    <if test="$original"><for-each select="$original"><apply-templates select="." mode="#current"/></for-each></if>
-    <if test="not($original)">
-      <message>ERROR: The source element of a copied element could not be found: <value-of select="me:printNode(.)"/></message>
-      <next-match/>
-    </if>
-  </template>
-  
   <!-- Verses -->
   <template match="verse[@sID] | hi[@subType='x-alternate']" mode="xhtml" priority="3">
     <param name="doWrite" tunnel="yes"/>
@@ -724,8 +771,8 @@
   <!-- Chapters -->
   <template match="chapter[@sID and @osisID]" mode="xhtml">
     <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
-    <!-- non-Bible chapters also get inline TOC -->
-    <if test="//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible']">
+    <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
+    <if test="root(.) instance of document-node() and count(//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible'])">
       <sequence select="me:getInlineTOC(.)"/>
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>
     </if>
@@ -839,7 +886,7 @@
     <variable name="ul" as="element(html:ul)">
       <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
     </variable>
-    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], NULL)"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
+    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')])"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
@@ -854,9 +901,7 @@
       <call-template name="title"/>
     </for-each>
     <!-- if this is the first milestone in a Bible, then include the root TOC -->
-    <if test="$mainTocMilestone[generate-id(.) = generate-id(current())]">
-      <call-template name="getMainInlineTOC"/>
-    </if>
+    <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
     <sequence select="me:getInlineTOC(.)"/>
   </template>
   
@@ -881,7 +926,7 @@
       </p>
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
-    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')], NULL)"/>
+    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')])"/>
   </template>
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
@@ -905,9 +950,7 @@
       <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
       <variable name="refIsBible" select="$mainInputOSIS//work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
-        <when test="$refIsBible">
-          <value-of select="concat('/xhtml/', $workid, '_', tokenize($osisRef, '\.')[1], '.xhtml')"/><!-- this is faster than getFileName (but it only works for Bible refs because the file can be determined from the osisRef value directly) -->
-        </when>
+        <when test="$refIsBible"><value-of select="concat('/xhtml/', me:getFileNameOfRef(@osisRef), '.xhtml')"/></when>
         <otherwise><!-- references to non-bible -->
           <variable name="target" as="node()?">
             <choose>
@@ -955,8 +998,6 @@
   <function name="me:expelElements">
     <param name="element" as="element()"/>
     <param name="expel" as="element()*"/>
-    <!-- elements getting the copysource attribute will be replaced by the source element during apply-templates -->
-    <param name="addSourceAttributeTo" as="xs:string*"/>
     <choose>
       <when test="count($expel) = 0"><sequence select="$element"/></when>
       <otherwise>
@@ -965,7 +1006,6 @@
               return 2*count($i/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($i/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])">
             <apply-templates select="current-group()" mode="weed1">
               <with-param name="expel" select="$expel" tunnel="yes"/>
-              <with-param name="addSourceAttributeTo" select="$addSourceAttributeTo" tunnel="yes"/>
             </apply-templates>
           </for-each-group>
         </variable>
@@ -978,23 +1018,28 @@
   <template mode="weed1" match="@*"><copy/></template>
   <template mode="weed1" match="node()">
     <param name="expel" as="element()+" tunnel="yes"/>
-    <param name="addSourceAttributeTo" as="xs:string*" tunnel="yes"/>
-    <variable name="nodesInGroup" select="descendant-or-self::node()
-        [current-grouping-key() = 2*count(preceding::node()[generate-id(.) = $expel/generate-id()]) + count(ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])]" as="node()*"/>
+    <variable name="nodesInGroup" select="descendant-or-self::node()[me:expelGroupingKey(., $expel) = current-grouping-key()]" as="node()*"/>
     <variable name="expelElement" select="$nodesInGroup/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
     <if test="$nodesInGroup"><!-- drop the context node if it has no descendants or self in the current group -->
       <choose>
         <when test="$expelElement and descendant::*[generate-id(.) = generate-id($expelElement)]"><apply-templates mode="weed1"/></when>
         <otherwise>
           <copy>
-            <if test="self::*[local-name()=$addSourceAttributeTo]"><attribute name="copysource" select="generate-id()"/></if>
             <if test="child::node()[normalize-space()]"><attribute name="container"/></if><!-- used to remove empty generated containers in pass2 -->
+            <if test="current-grouping-key() &#62; me:expelGroupingKey(descendant::*[generate-id(.) = $expel/generate-id()][1], $expel)">
+              <attribute name="class" select="'continuation'"/>
+            </if>
             <apply-templates select="node()|@*" mode="weed1"/>
           </copy>
         </otherwise>
       </choose>
     </if>
   </template>
+  <function name="me:expelGroupingKey" as="xs:integer">
+    <param name="node" as="node()?"/>
+    <param name="expel" as="element()+"/>
+    <value-of select="2*count($node/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($node/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])"/>
+  </function>
   <template mode="weed2" match="node()|@*"><copy><apply-templates select="node()|@*" mode="weed2"/></copy></template>
   <template mode="weed2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
   <template mode="weed2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
