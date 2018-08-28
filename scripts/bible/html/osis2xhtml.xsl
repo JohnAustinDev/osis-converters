@@ -217,10 +217,11 @@
   <template match="div[@type='glossary'][@subType='x-aggregate']" priority="3"/>
   
   <template match="osisText">
+    <param name="bibleOSIS" tunnel="yes"/>
     <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(
         self::header or 
         self::div[starts-with(@type, 'book')] or 
-        self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)]
+        self::div[@type=$usfmType][generate-id(root(.)) != generate-id($bibleOSIS)]
     )]"/></call-template>
     <apply-templates/>
   </template>
@@ -230,7 +231,7 @@
     <apply-templates/>
   </template>
   
-  <template match="div[@type='book'] | div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)]">
+  <template match="div[@type='book'] | div[@type=$usfmType][root(.)/osis[1]/osisText[1]/header[1]/work[@osisWork = root(.)/osis[1]/osisText[1]/@osisIDWork]/type[1]/@type != 'x-bible']">
     <choose>
       <when test="self::div[@type='book'] and $chapterFiles = 'true'">
         <variable name="book" select="@osisID"/>
@@ -244,7 +245,7 @@
     </choose>
   </template>
   
-  <template match="div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)]" priority="2">
+  <template match="div[@type='glossary'][root(.)/osis[1]/osisText[1]/header[1]/work[@osisWork = root(.)/osis[1]/osisText[1]/@osisIDWork]/type[1]/@type != 'x-bible']" priority="2">
     <param name="currentTask" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
     <!-- Put each keyword in a separate file to ensure that links and article tags all work properly across various eBook readers -->
@@ -271,8 +272,7 @@
     <param name="currentTask" tunnel="yes"/>
     
     <variable name="fileName" select="me:getFileName(.)"/>
-    <if test="$fileNodes[1][self::chapter] (: get-filenames pass can be a single chapter element :) | 
-    $fileNodes//text()[normalize-space()] (: include files with readable text :) | 
+    <if test="$fileNodes//text()[normalize-space()] (: include files with readable text :) | 
     $fileNodes/descendant-or-self::milestone[@type=concat('x-usfm-toc', $tocnumber)][@n] (: include files with a TOC element because it will result in a readable TOC title :)">
       <choose>
         <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
@@ -287,7 +287,8 @@
   <function name="me:getFileName" as="xs:string">
     <param name="node" as="node()"/>
     <variable name="root" select="if (root($node)/descendant::osisText[1]/@osisIDWork) then root($node)/descendant::osisText[1]/@osisIDWork else $node/ancestor-or-self::*[@root-name]/@root-name"/>
-    <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]"/>
+    <variable name="isBibleNode" select="$root = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
+    <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][last()]"/>
     <variable name="book" select="$node/ancestor-or-self::div[@type='book'][last()]/@osisID"/>
     <choose>
       <when test="$book">
@@ -299,13 +300,13 @@
       <when test="$node/ancestor-or-self::div[@type='bookGroup'][last()]">
         <value-of select="concat($root, '_bookGroup-introduction_bg', count($node/preceding::div[@type='bookGroup']) + 1)"/>
       </when>
-      <when test="$node/ancestor-or-self::div[@type='glossary'][generate-id(root(.)) != generate-id($mainInputOSIS)][last()]">
+      <when test="not($isBibleNode) and $node/ancestor-or-self::div[@type='glossary']">
         <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
         <value-of select="if ($root = 'comb') then 
             concat($root, '_glossary', '/', 'k', $group) else 
             concat($root, '_glossary', '/', 'p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
       </when>
-      <when test="$refUsfmType">
+      <when test="not($isBibleNode) and $refUsfmType">
         <value-of select="concat($root, '_', $refUsfmType/@type, '/', 'p', me:hashUsfmType($refUsfmType))"/>
       </when>
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
@@ -338,6 +339,7 @@
     <param name="fileName" as="xs:string"/>
     <param name="fileNodes" as="node()+"/>
     <variable name="parentElement" select="$fileNodes[1]/parent::*"/>
+    <variable name="isBibleNode" select="root($parentElement)/osis[1]/osisText[1]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
     <message select="concat('writing:', $fileName)"/>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
@@ -353,7 +355,7 @@
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
               ('calibre', for $x in tokenize($fileName, '_') return $x, $parentElement/@type, $parentElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
-          <if test="not($mainTocMilestone) and $parentElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]][generate-id(root(.)) = generate-id($mainInputOSIS)]" 
+          <if test="not($mainTocMilestone) and $isBibleNode and $parentElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
             <variable name="title"><osis:title type="main"><value-of select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/></osis:title></variable>
             <apply-templates select="$title" mode="xhtml"/>
@@ -932,8 +934,7 @@
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
     <choose>
       <when test="$fullResourceURL">
-        <!-- the href below is a quick/easy way of running getFileName -->
-        <variable name="file" select="concat('/xhtml/', $mainInputOSIS//@osisIDWork[1], '_', $mainInputOSIS/descendant::div[@type='book'][1]/@osisID, '.xhtml')"/>
+        <variable name="file" select="concat('/xhtml/', me:getFileNameOfRef($mainInputOSIS/descendant::div[@type='book'][1]/@osisID), '.xhtml')"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#fullResourceURL'))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
       </when>
       <otherwise>
@@ -944,18 +945,19 @@
   
   <template match="reference" mode="xhtml">
     <param name="combinedGlossary" tunnel="yes"/>
+    <param name="bibleOSIS" tunnel="yes"/>
     <variable name="osisRef1" select="replace(@osisRef, '^[^:]*:', '')"/>
     <variable name="osisRef" select="if (count($combinedGlossary/*)) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
     <variable name="file">
       <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
-      <variable name="refIsBible" select="$mainInputOSIS//work[@osisWork = $workid]/type[@type='x-bible']"/>
+      <variable name="refIsBible" select="$mainInputOSIS/osis[1]/osisText[1]/header[1]/work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
         <when test="$refIsBible"><value-of select="concat('/xhtml/', me:getFileNameOfRef(@osisRef), '.xhtml')"/></when>
         <otherwise><!-- references to non-bible -->
           <variable name="target" as="node()?">
             <choose>
               <when test="count($combinedGlossary/*)"><sequence select="$combinedGlossary//*[tokenize(@osisID, ' ') = $osisRef]"/></when>
-              <otherwise><sequence select="($mainInputOSIS | $referencedOsisDocs)//osisText[@osisRefWork = $workid]//*[tokenize(@osisID, ' ') = $osisRef]"/></otherwise>
+              <otherwise><sequence select="($bibleOSIS | $referencedOsisDocs)/osis/osisText[@osisRefWork = $workid]//*[tokenize(@osisID, ' ') = $osisRef]"/></otherwise>
             </choose>
           </variable>
           <choose>
