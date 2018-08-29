@@ -149,7 +149,7 @@
     <param name="currentTask" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <message><value-of select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean($combinedGlossary))"/></message>
+    <message><value-of select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0))"/></message>
     <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
@@ -207,7 +207,7 @@
       <when test="not($expel)"><copy-of select="."/></when>
       <otherwise>
         <message>NOTE: Container contains a chapter milestone: <value-of select="me:printNode(.)"/></message>
-        <sequence select="me:expelElements(., $expel)"/>
+        <sequence select="me:expelElements(., $expel, false())"/>
       </otherwise>
     </choose>
   </template>
@@ -217,11 +217,10 @@
   <template match="div[@type='glossary'][@subType='x-aggregate']" priority="3"/>
   
   <template match="osisText">
-    <param name="bibleOSIS" tunnel="yes"/>
     <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(
         self::header or 
         self::div[starts-with(@type, 'book')] or 
-        self::div[@type=$usfmType][generate-id(root(.)) != generate-id($bibleOSIS)]
+        self::div[@type=$usfmType][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]
     )]"/></call-template>
     <apply-templates/>
   </template>
@@ -231,7 +230,7 @@
     <apply-templates/>
   </template>
   
-  <template match="div[@type='book'] | div[@type=$usfmType][root(.)/osis[1]/osisText[1]/header[1]/work[@osisWork = root(.)/osis[1]/osisText[1]/@osisIDWork]/type[1]/@type != 'x-bible']">
+  <template match="div[@type='book'] | div[@type=$usfmType][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]">
     <choose>
       <when test="self::div[@type='book'] and $chapterFiles = 'true'">
         <variable name="book" select="@osisID"/>
@@ -245,7 +244,7 @@
     </choose>
   </template>
   
-  <template match="div[@type='glossary'][root(.)/osis[1]/osisText[1]/header[1]/work[@osisWork = root(.)/osis[1]/osisText[1]/@osisIDWork]/type[1]/@type != 'x-bible']" priority="2">
+  <template match="div[@type='glossary'][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]" priority="2">
     <param name="currentTask" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
     <!-- Put each keyword in a separate file to ensure that links and article tags all work properly across various eBook readers -->
@@ -272,15 +271,29 @@
     <param name="currentTask" tunnel="yes"/>
     
     <variable name="fileName" select="me:getFileName(.)"/>
-    <if test="$fileNodes//text()[normalize-space()] (: include files with readable text :) | 
-    $fileNodes/descendant-or-self::milestone[@type=concat('x-usfm-toc', $tocnumber)][@n] (: include files with a TOC element because it will result in a readable TOC title :)">
-      <choose>
-        <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
-        <otherwise>
-          <call-template name="WriteFile"><with-param name="fileName" select="$fileName"/><with-param name="fileNodes" select="$fileNodes"/></call-template>
-        </otherwise>
-      </choose>
-    </if>
+    <variable name="fileXHTML"><apply-templates mode="xhtml" select="$fileNodes"/></variable>
+    <!-- Unless the resulting xhtml file contains some text or images, the file will be dropped -->
+    <variable name="keepXHTML" select="boolean($fileXHTML/descendant::text()[normalize-space()] or $fileXHTML/descendant::*[local-name()='img'])"/>
+    <choose>
+      <when test="$keepXHTML">
+        <choose>
+          <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
+          <otherwise>
+            <variable name="fileNotes"><call-template name="noteSections"><with-param name="nodes" select="$fileNodes"/></call-template></variable>
+            <call-template name="WriteFile">
+              <with-param name="fileName" select="$fileName"/>
+              <with-param name="topElement" select="$fileNodes[1]/parent::*"/>
+              <with-param name="fileXHTML" select="$fileXHTML"/>
+              <with-param name="fileNotes" select="$fileNotes"/>
+            </call-template>
+          </otherwise>
+        </choose>
+      </when>
+      <when test="$currentTask = 'get-filenames'">
+        <variable name="dropping" select="$fileXHTML/descendant::node()[not(self::text()) or self::text()[normalize-space()]]"/>
+        <if test="$dropping"><message>WARNING: dropping file containing: <for-each select="$dropping"><value-of select="me:printNode(.)"/>, </for-each></message></if>
+      </when>
+    </choose>
   </template>
   
   <!-- This template may be called from any node. It returns the output file name that contains the node -->
@@ -337,9 +350,10 @@
   <!-- Write each xhtml file's contents -->
   <template name="WriteFile">
     <param name="fileName" as="xs:string"/>
-    <param name="fileNodes" as="node()+"/>
-    <variable name="parentElement" select="$fileNodes[1]/parent::*"/>
-    <variable name="isBibleNode" select="root($parentElement)/osis[1]/osisText[1]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
+    <param name="topElement" as="element()"/>
+    <param name="fileXHTML" as="node()+"/>
+    <param name="fileNotes" as="node()*"/>
+    <variable name="isBibleNode" select="$topElement/ancestor-or-self::osisText[last]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
     <message select="concat('writing:', $fileName)"/>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
@@ -348,23 +362,23 @@
           <title><xsl:value-of select="$fileName"/></title>
           <meta http-equiv="Default-Style" content="text/html; charset=utf-8"/>
           <xsl:for-each select="tokenize($css, '\s*,\s*')">
-            <xsl:if test="ends-with(lower-case(.), 'css')"><link href="{me:uri-to-relative($fileNodes[1], .)}" type="text/css" rel="stylesheet"/></xsl:if>
+            <xsl:if test="ends-with(lower-case(.), 'css')"><link href="{me:uri-to-relative($topElement, .)}" type="text/css" rel="stylesheet"/></xsl:if>
           </xsl:for-each>
         </head>
         <body>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', for $x in tokenize($fileName, '_') return $x, $parentElement/@type, $parentElement/@subType)), ' '))"/>
+              ('calibre', for $x in tokenize($fileName, '_') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
-          <if test="not($mainTocMilestone) and $isBibleNode and $parentElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
+          <if test="not($mainTocMilestone) and $isBibleNode and $topElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
             <variable name="title"><osis:title type="main"><value-of select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/></osis:title></variable>
             <apply-templates select="$title" mode="xhtml"/>
             <call-template name="getMainInlineTOC"/>
           </if>
-          <xsl:apply-templates mode="xhtml" select="$fileNodes"/>
-          <xsl:call-template name="noteSections"><xsl:with-param name="nodes" select="$fileNodes"/></xsl:call-template>
+          <xsl:sequence select="$fileXHTML"/>
+          <xsl:sequence select="$fileNotes"/>
           <!-- If there are links to fullResourceURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$fullResourceURL and $parentElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <xsl:if test="$fullResourceURL and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
@@ -774,7 +788,7 @@
   <template match="chapter[@sID and @osisID]" mode="xhtml">
     <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
-    <if test="root(.) instance of document-node() and count(//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type != 'x-bible'])">
+    <if test="ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork">
       <sequence select="me:getInlineTOC(.)"/>
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>
     </if>
@@ -885,10 +899,11 @@
   </template>
   
   <template match="list" mode="xhtml">
+    <param name="currentTask" tunnel="yes"/>
     <variable name="ul" as="element(html:ul)">
       <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
     </variable>
-    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')])"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
+    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], boolean($currentTask='get-filenames'))"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
@@ -922,13 +937,14 @@
   </template>
   
   <template match="p" mode="xhtml">
+    <param name="currentTask" tunnel="yes"/>
     <variable name="p" as="element(html:p)">
       <p xmlns="http://www.w3.org/1999/xhtml">
         <xsl:call-template name="class"/><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/><xsl:apply-templates mode="xhtml"/>
       </p>
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
-    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')])"/>
+    <sequence select="me:expelElements($p, $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')], boolean($currentTask='get-filenames'))"/>
   </template>
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
@@ -1000,6 +1016,7 @@
   <function name="me:expelElements">
     <param name="element" as="element()"/>
     <param name="expel" as="element()*"/>
+    <param name="quiet" as="xs:boolean"/>
     <choose>
       <when test="count($expel) = 0"><sequence select="$element"/></when>
       <otherwise>
@@ -1012,7 +1029,7 @@
           </for-each-group>
         </variable>
         <variable name="pass2"><apply-templates select="$pass1" mode="weed2"/></variable><!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
-        <if test="count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="me:printNode($expel)"/></message></if>
+        <if test="not($quiet) and count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="me:printNode($expel)"/></message></if>
         <sequence select="$pass2"/>
       </otherwise>
     </choose>
