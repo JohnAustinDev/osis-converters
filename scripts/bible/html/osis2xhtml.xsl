@@ -789,8 +789,8 @@
     <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
     <if test="ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork">
-      <sequence select="me:getInlineTOC(.)"/>
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>
+      <sequence select="me:getInlineTOC(.)"/>
     </if>
   </template>
   
