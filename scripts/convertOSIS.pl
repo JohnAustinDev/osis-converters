@@ -350,7 +350,10 @@ sub makeHTML($$$) {
   &copy_dir("$tmp/xhtml", "$HTMLOUT/$CONV_NAME/xhtml");
   if (-e "$tmp/css") {&copy_dir("$tmp/css", "$HTMLOUT/$CONV_NAME/css");}
   if (-e "$tmp/images") {&copy_dir("$tmp/images", "$HTMLOUT/$CONV_NAME/images");}
-  if ($cover && -e $cover) {&copy($cover, "$HTMLOUT/$CONV_NAME/images");}
+  if ($cover && -e $cover) {
+    if (! -e "$HTMLOUT/$CONV_NAME/images") {mkdir("$HTMLOUT/$CONV_NAME/images");}
+    &copy($cover, "$HTMLOUT/$CONV_NAME/images");
+  }
   if (open(INDX, ">:encoding(UTF-8)", "$HTMLOUT/$CONV_NAME/index.xhtml")) {
     my $tophref = &shell("perl -0777 -ne 'print \"\$1\" if /<manifest[^>]*>.*?<item href=\"([^\"]+)\"/s' \"$tmp/content.opf\"", 3);
     my $header = &shell("perl -0777 -ne 'print \"\$1\" if /^(.*?<\\/head[^>]*>)/s' \"$tmp/$tophref\"", 3);
