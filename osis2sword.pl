@@ -34,7 +34,7 @@ require "$SCRD/scripts/dict/processGlossary.pl";
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
-&forwardGlossLinks(\$INOSIS);
+&links2sword(\$INOSIS);
 
 if ($MODDRV =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
 

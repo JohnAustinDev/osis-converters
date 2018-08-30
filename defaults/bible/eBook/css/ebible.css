@@ -216,8 +216,8 @@ a.osis-reference {
 .x-navmenu .osis-item {
   margin-bottom:0;
 }
-.x-navmenu .x-prevnext-link .x-glosslink {
-  font-size:3em;
+.x-navmenu .x-prevnext-link {
+  font-size:2em;
   border-bottom: initial;
 }
 
@@ -301,6 +301,18 @@ a.x-other-resource {
   vertical-align: super;
   font-weight: bold;
   font-style: italic;
+}
+.NAVMENU dfn::before {
+   content: " ";
+   display:block;
+   width:100%;
+   height:4px;
+   border:1px solid grey;
+   margin:4em 0 1em 0;
+}
+.NAVMENU a.osis-reference {
+  display:inline-block;
+  margin-right:1em;
 }
 
 /* Inline TOC */

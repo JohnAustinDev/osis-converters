@@ -299,7 +299,7 @@
   <!-- This template may be called from any node. It returns the output file name that contains the node -->
   <function name="me:getFileName" as="xs:string">
     <param name="node" as="node()"/>
-    <variable name="root" select="if (root($node)/descendant::osisText[1]/@osisIDWork) then root($node)/descendant::osisText[1]/@osisIDWork else $node/ancestor-or-self::*[@root-name]/@root-name"/>
+    <variable name="root" select="if ($node/ancestor-or-self::osisText) then $node/ancestor-or-self::osisText[last()]/@osisIDWork else $node/ancestor-or-self::*[@root-name]/@root-name"/>
     <variable name="isBibleNode" select="$root = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
     <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][last()]"/>
     <variable name="book" select="$node/ancestor-or-self::div[@type='book'][last()]/@osisID"/>
@@ -367,7 +367,7 @@
         </head>
         <body>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', for $x in tokenize($fileName, '_') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
+              ('calibre', $topElement/ancestor-or-self::*[@scope][1]/@scope, for $x in tokenize($fileName, '[_/]') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
           <if test="not($mainTocMilestone) and $isBibleNode and $topElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
@@ -574,7 +574,7 @@
             <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary -->
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
                 [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
-                [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')]
+                [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')][not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
                 [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]"/>
           </otherwise>
         </choose>
@@ -906,6 +906,10 @@
     <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], boolean($currentTask='get-filenames'))"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
   </template>
   
+  <template match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]" mode="xhtml">
+    <if test="$chapterFiles = 'true'"><next-match/></if>
+  </template>
+  
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="me:getTocTitle(.)"/></i></small></div>
@@ -964,10 +968,13 @@
     <param name="bibleOSIS" tunnel="yes"/>
     <variable name="osisRef1" select="replace(@osisRef, '^[^:]*:', '')"/>
     <variable name="osisRef" select="if (count($combinedGlossary/*)) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
+    <!-- change navmenu introduction links to getIntroFile -->
+    <variable name="isIntroReference" select="self::reference[@type='x-glosslink'][ancestor::item[@subType='x-introduction-link']]"/>
     <variable name="file">
       <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
       <variable name="refIsBible" select="$mainInputOSIS/osis[1]/osisText[1]/header[1]/work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
+        <when test="$isIntroReference"><value-of select="me:getIntroFile($bibleOSIS)"/></when>
         <when test="$refIsBible"><value-of select="concat('/xhtml/', me:getFileNameOfRef(@osisRef), '.xhtml')"/></when>
         <otherwise><!-- references to non-bible -->
           <variable name="target" as="node()?">
@@ -989,6 +996,7 @@
     <variable name="osisRefid" select="replace($osisRef, '!', '_')"/>
     <variable name="osisRefA">
       <choose>
+        <when test="$isIntroReference"/>
         <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')"><value-of select="me:id($osisRefid)"/></when>  <!-- refs containing "!" point to a specific note -->
         <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
           <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
@@ -998,7 +1006,8 @@
         </otherwise>
       </choose>
     </variable>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#', $osisRefA))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+    <variable name="href" select="me:uri-to-relative(., concat($file, '#', $osisRefA))"/>
+    <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
   </template>
   
   <template match="row" mode="xhtml">
@@ -1009,6 +1018,11 @@
   <function name="me:id" as="xs:string">
     <param name="s"/>
     <value-of select="replace(replace($s, '^([^\p{L}_])', 'x$1'), '[^\p{L}\d_\-\.]', '-')"/>
+  </function>
+  
+  <function name="me:getIntroFile" as="xs:string">
+    <param name="bibleOSIS"/>
+    <value-of select="concat('/xhtml/', me:getFileName($bibleOSIS/descendant::text()[normalize-space()][not(ancestor::header)][1]), '.xhtml')"/>
   </function>
   
   <!-- Use this function if an xhtml element must not contain other elements (for EPUB2 etc. validation). 

@@ -17,9 +17,10 @@ sub getGlossaryScope($) {
 }
 
 # Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were filtered
-sub filterGlossaryToScope($$) {
+sub filterGlossaryToScope($$$) {
   my $osisP = shift;
   my $scope = shift;
+  my $filterNavMenu = shift;
   
   my @removed;
   my @kept;
@@ -38,6 +39,9 @@ sub filterGlossaryToScope($$) {
       push(@kept, $divScope);
       next;
     }
+    
+    # keep if this is NAVMENU or INT and we're not filtering them out
+    if (!$filterNavMenu && $divScope =~ /^(NAVMENU|INT)$/) {push(@kept, $divScope); next;}
     
     $div->unbindNode();
     push(@removed, $divScope);
@@ -114,9 +118,10 @@ sub removeAggregateEntries($) {
   close(OUTF);
   $$osisP = $output;
 }
-# Forward glossary links targetting a member of an aggregated entry to the aggregated entry
-# Remove x-glossary-duplicate
-sub forwardGlossLinks($) {
+# Forwards glossary links targetting a member of an aggregated entry to the 
+# aggregated entry because SWORD uses the aggregated entries.
+# Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted for SWORD.
+sub links2sword($) {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
@@ -134,8 +139,14 @@ sub forwardGlossLinks($) {
     &Log("NOTE: Removed x-glossary-duplicate div beginning with: $beg\n");
     $d->unbindNode();
   }
+  
+  my $c = 0;
+  foreach my $d ($XPC->findnodes('//osis:list[@subType="x-navmenu"][following-sibling::*[1][self::chapter[@eID]]]', $xml)) {
+    $d->unbindNode(); $c++;
+  }
+  &Log("NOTE: Removed '$c' x-navmenu elements from Bible chapters\n");
 
-  my $output = $$osisP; $output =~ s/$MOD\.xml$/forwardGlossLinks.xml/;
+  my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   open(OSIS2, ">$output");
   print OSIS2 $xml->toString();
   close(OSIS2);

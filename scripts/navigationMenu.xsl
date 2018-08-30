@@ -4,12 +4,13 @@
  xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
   <!-- This XSLT does the following:
   1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with scope="NAVMENU"
   2) Creates an introduction menu system, if introScope is given
-  3) Inserts navigational links to these into every glossary entry and book introduction
+  3) Inserts navigational links to these into every chapter, glossary entry and book introduction
   -->
  
   <xsl:import href="./functions.xsl"/>
@@ -23,7 +24,7 @@
   <!-- this glossary entry will be created as the glossary navigation menu -->
   <xsl:param name="uiDictionary" select="concat('- ', //header/work[child::type[@type='x-glossary']]/title[1])"/>
   
-  <xsl:param name="MOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
+  <xsl:param name="DICTMOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
   
   <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
@@ -33,21 +34,24 @@
   
   <!-- insert navmenu links:
   1) before the first applicable text node of each book or the first chapter[@sID] of each book, whichever comes first
-  2) at the end of each div[starts-with(@type, 'x-keyword')] -->
+  2) at the end of each div[starts-with(@type, 'x-keyword')]
+  3) before each chapter[@eID] -->
   <xsl:template match="node()|@*">
     <xsl:variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
         (node()[descendant-or-self::text()[normalize-space()][not(ancestor::title[@type='runningHead'])]][1] | descendant::chapter[@sID][1])[1]
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
-      <xsl:when test="$prependNavMenu">
+      <xsl:when test="$prependNavMenu or self::chapter[@eID]">
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
-        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="ancestor::div[@type='book']/@osisID"/></xsl:message>
+        <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
+          <xsl:message>NOTE: Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:message>
+        </xsl:if>
       </xsl:when>
       <xsl:when test="generate-id(.) = $dictEntries/generate-id()">
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/><xsl:call-template name="navmenu"/></xsl:copy>
-        <xsl:message>NOTE: Added navmenu to: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:message>
+        <xsl:message>NOTE: Added navmenu to keyword: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:message>
       </xsl:when>
       <xsl:otherwise>
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
@@ -59,25 +63,47 @@
     <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
+    <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = //work[child::type[@type='x-bible']]/@osisWork"/>
     <list subType="x-navmenu">
-      <xsl:variable name="prev" select="if ($cgEntry) then $cgEntry/preceding-sibling::*[1]/descendant::seg[@type='keyword'][1] else false()"/>
-      <xsl:variable name="next" select="if ($cgEntry) then $cgEntry/following-sibling::*[1]/descendant::seg[@type='keyword'][1] else false()"/>
-      <xsl:if test="ancestor-or-self::div[@type='glossary'] and not(matches($skip, 'prevnext')) and ($prev or $next)">
+      <xsl:if test="$nodeInBibleMod"><xsl:attribute name="canonical" select="'false'"/></xsl:if>
+      <xsl:variable name="prev" select="
+          if ($cgEntry) then $cgEntry/preceding-sibling::*[1]/descendant::seg[@type='keyword'][1] 
+          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], xs:string(xs:integer(tokenize(current()/@eID, '\.')[2])-1)), '.')][1] else false()"/>
+      <xsl:variable name="next" select="
+          if ($cgEntry) then $cgEntry/following-sibling::*[1]/descendant::seg[@type='keyword'][1] 
+          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], xs:string(xs:integer(tokenize(current()/@eID, '\.')[2])+1)), '.')][1] else false()"/>
+      <xsl:if test="ancestor-or-self::div[@type=('glossary', 'book')] and not(matches($skip, 'prevnext')) and ($prev or $next)">
         <item subType="x-prevnext-link">
-          <p type="x-right" subType="x-introduction">
+          <p type="x-right">
+            <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
             <xsl:if test="$prev">
-              <reference osisRef="{$MOD}:{$prev/@osisID}" type="x-glosslink" subType="x-target_self"> ← </reference>
+              <xsl:choose>
+                <xsl:when test="$nodeInBibleMod and self::chapter">
+                  <reference osisRef="{concat(ancestor::osisText[last()]/@osisIDWork, ':', $prev/@osisID)}"> ← </reference>
+                </xsl:when>
+                <xsl:otherwise>
+                  <reference osisRef="{concat($DICTMOD, ':', $prev/@osisID)}" type="x-glosslink" subType="x-target_self"> ← </reference>
+                </xsl:otherwise>
+              </xsl:choose>
             </xsl:if>
             <xsl:if test="$next">
-              <reference osisRef="{$MOD}:{$next/@osisID}" type="x-glosslink" subType="x-target_self"> → </reference>
+              <xsl:choose>
+                <xsl:when test="$nodeInBibleMod and self::chapter">
+                  <reference osisRef="{concat(ancestor::osisText[last()]/@osisIDWork, ':', $next/@osisID)}"> → </reference>
+                </xsl:when>
+                <xsl:otherwise>
+                  <reference osisRef="{concat($DICTMOD, ':', $next/@osisID)}" type="x-glosslink" subType="x-target_self"> → </reference>
+                </xsl:otherwise>
+              </xsl:choose>
             </xsl:if>
           </p>
         </item>
       </xsl:if>
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $introScope">
         <item subType="x-introduction-link">
-          <p type="x-right" subType="x-introduction">
-            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
+          <p type="x-right">
+            <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
+            <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
             </reference>
           </p>
@@ -86,7 +112,7 @@
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
         <item subType="x-dictionary-link">
           <p type="x-right" subType="x-introduction">
-            <reference osisRef="{$MOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
+            <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/>
             </reference>
           </p>
@@ -131,7 +157,7 @@
             <lb/>
             <xsl:for-each select="$introSubEntries">
               <xsl:message>NOTE: Added introduction sub-menu: <xsl:value-of select="."/></xsl:message>
-              <p type="x-noindent"><reference osisRef="{$MOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
+              <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
                 <lb/>
               </p>
             </xsl:for-each>
@@ -147,13 +173,13 @@
           </p>
           <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'dictionary'"/></xsl:call-template>
           <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/></xsl:message>
-          <reference osisRef="{$MOD}:{oc:encodeOsisRef($allEntriesTitle)}" type="x-glosslink" subType="x-target_self">
+          <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allEntriesTitle)}" type="x-glosslink" subType="x-target_self">
             <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
           </reference>
           <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
               <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:message>
-              <reference osisRef="{$MOD}:_45_{upper-case(substring(text(), 1, 1))}" type="x-glosslink" subType="x-target_self" >
+              <reference osisRef="{$DICTMOD}:_45_{upper-case(substring(text(), 1, 1))}" type="x-glosslink" subType="x-target_self" >
                 <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
               </reference>
             </xsl:if>
@@ -166,7 +192,7 @@
           </p>
           <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>
           <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
-            <reference osisRef="{$MOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
+            <reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="text()"/>
             </reference>
             <lb/>
@@ -181,7 +207,7 @@
               </p>
               <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>
             </xsl:if>
-            <reference osisRef="{$MOD}:{@osisID}" type="x-glosslink" subType="x-target_self" >
+            <reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self" >
               <xsl:value-of select="text()"/>
             </reference>
             <lb/>
