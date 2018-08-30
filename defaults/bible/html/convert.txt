@@ -18,9 +18,9 @@ ChapterFiles=true
 #Title=My Publication Title
 
 # By default glossaries are combined into a single glossary
-CombinedGlossaryTitle=Glossary
+#CombinedGlossaryTitle=Glossary
 # Set this to true to turn off the combined glossary feature.
-#MultipleGlossaries=true
+MultipleGlossaries=true
 
 # This selects whether to create a single eBook with everything in the 
 # OSIS file (true/false, default is true)
