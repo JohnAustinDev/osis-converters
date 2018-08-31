@@ -230,7 +230,7 @@ body {font-family: font1;}
         require "$SCRD/scripts/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
-        $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'ebook'));
+        $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'eBook'));
         &Log("NOTE: filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter))."\n");
         my $aggfilter = &filterAggregateEntries(\$outf, $scope);
         &Log("NOTE: filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter))."\n");
@@ -273,11 +273,11 @@ body {font-family: font1;}
   $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} = 0;
   $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} = 0;
   $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, ($convertTo eq 'ebook'));
+  $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, ($convertTo eq 'eBook'));
   
   foreach my $c (@companionDictFiles) {
     $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
-    $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, ($convertTo eq 'ebook'));
+    $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, ($convertTo eq 'eBook'));
   }
 
   # now do the conversion on the temporary directory's files

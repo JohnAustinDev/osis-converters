@@ -26,6 +26,8 @@
   
   <xsl:param name="DICTMOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
   
+  <xsl:param name="BIBLEMOD" select="/descendant::work[child::type[@type='x-bible']][1]/@osisWork"/>
+  
   <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
   <xsl:template match="node()|@*" mode="identity">
@@ -63,15 +65,15 @@
     <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
-    <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = //work[child::type[@type='x-bible']]/@osisWork"/>
+    <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = $BIBLEMOD"/>
     <list subType="x-navmenu">
       <xsl:if test="$nodeInBibleMod"><xsl:attribute name="canonical" select="'false'"/></xsl:if>
       <xsl:variable name="prev" select="
           if ($cgEntry) then $cgEntry/preceding-sibling::*[1]/descendant::seg[@type='keyword'][1] 
-          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], xs:string(xs:integer(tokenize(current()/@eID, '\.')[2])-1)), '.')][1] else false()"/>
+          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], string(number(tokenize(current()/@eID, '\.')[2])-1)), '.')][1] else false()"/>
       <xsl:variable name="next" select="
           if ($cgEntry) then $cgEntry/following-sibling::*[1]/descendant::seg[@type='keyword'][1] 
-          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], xs:string(xs:integer(tokenize(current()/@eID, '\.')[2])+1)), '.')][1] else false()"/>
+          else if (self::chapter[@eID]) then //chapter[@osisID = string-join((tokenize(current()/@eID, '\.')[1], string(number(tokenize(current()/@eID, '\.')[2])+1)), '.')][1] else false()"/>
       <xsl:if test="ancestor-or-self::div[@type=('glossary', 'book')] and not(matches($skip, 'prevnext')) and ($prev or $next)">
         <item subType="x-prevnext-link">
           <p type="x-right">

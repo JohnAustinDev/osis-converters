@@ -2999,7 +2999,8 @@ sub checkScripRefLinks($$) {
       # check beginning and end of range, but not each verse of range (since verses within the range may be purposefully missing)
       my $oref = $sref->getAttribute('osisRef');
       foreach my $id (split(/\-/, $oref)) {
-        if ($id && !$ids{"$bibleMod:$id"}) {
+        $id = ($id =~ /\:/ ? $id:"$bibleMod:$id");
+        if ($id && !$ids{$id}) {
           $problems++;
           &Log("ERROR: Scripture reference \"$id\" in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
         }

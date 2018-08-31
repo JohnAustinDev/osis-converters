@@ -118,40 +118,6 @@ sub removeAggregateEntries($) {
   close(OUTF);
   $$osisP = $output;
 }
-# Forwards glossary links targetting a member of an aggregated entry to the 
-# aggregated entry because SWORD uses the aggregated entries.
-# Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted for SWORD.
-sub links2sword($) {
-  my $osisP = shift;
-  
-  my $xml = $XML_PARSER->parse_file($$osisP);
-  my @gks = $XPC->findnodes('//osis:reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml);
-  foreach my $gk (@gks) {
-    my $osisID = $gk->value;
-    $osisID =~ s/\.dup\d+$//;
-    $gk->setValue($osisID);
-  }
-  &Log("$MOD REPORT: Forwarded ".scalar(@gks)." link(s) to their aggregated entries.\n");
-
-  
-  foreach my $d ($XPC->findnodes('//osis:div[@type="introduction" and @subType="x-glossary-duplicate"]', $xml)) {
-    my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
-    &Log("NOTE: Removed x-glossary-duplicate div beginning with: $beg\n");
-    $d->unbindNode();
-  }
-  
-  my $c = 0;
-  foreach my $d ($XPC->findnodes('//osis:list[@subType="x-navmenu"][following-sibling::*[1][self::chapter[@eID]]]', $xml)) {
-    $d->unbindNode(); $c++;
-  }
-  &Log("NOTE: Removed '$c' x-navmenu elements from Bible chapters\n");
-
-  my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
-  open(OSIS2, ">$output");
-  print OSIS2 $xml->toString();
-  close(OSIS2);
-  $$osisP = $output;
-}
 
 # uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
 # XSLT was not used to do this because a custom uc2() Perl function is needed.
