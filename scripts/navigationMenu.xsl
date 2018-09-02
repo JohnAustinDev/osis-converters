@@ -181,7 +181,7 @@
           <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
               <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:message>
-              <reference osisRef="{$DICTMOD}:_45_{upper-case(substring(text(), 1, 1))}" type="x-glosslink" subType="x-target_self" >
+              <reference osisRef="{$DICTMOD}:_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}" type="x-glosslink" subType="x-target_self" >
                 <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
               </reference>
             </xsl:if>
@@ -203,7 +203,7 @@
           <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
             <xsl:if test="oc:skipGlossaryEntry(.) = false()">
               <p>
-                <seg type="keyword" osisID="_45_{upper-case(substring(text(), 1, 1))}">
+                <seg type="keyword" osisID="_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}">
                   <xsl:value-of select="concat('-', upper-case(substring(text(), 1, 1)))"/>
                 </seg>
               </p>
