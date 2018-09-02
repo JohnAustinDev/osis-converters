@@ -41,6 +41,14 @@ if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
+$INXML = $XML_PARSER->parse_file($INOSIS);
+foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) {$e->unbindNode();}
+$output = $INOSIS; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeNavMenu$3/;
+open(OUTF, ">$output");
+print OUTF $INXML->toString();
+close(OUTF);
+$INOSIS = $output;
+
 &runScript($MODULETOOLS_BIN."osis2gobible.xsl", \$INOSIS);
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
