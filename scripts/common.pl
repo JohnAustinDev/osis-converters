@@ -3296,7 +3296,7 @@ sub logDictLinks() {
   foreach my $ent (sort {sprintf("%06i%s", $kl{$b}, $b) cmp sprintf("%06i%s", $kl{$a}, $a) } keys %kl) {
     my $t = 0;
     my $ctxp = '';
-    foreach my $ctx (sort {$EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a}} keys %{$EntryLink{$ent}}) {
+    foreach my $ctx (sort {&matchResultSort($ent, $a, $b);} keys %{$EntryLink{$ent}}) {
       $t  += $EntryLink{$ent}{$ctx};
       $gt += $EntryLink{$ent}{$ctx};
       $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
@@ -3311,6 +3311,16 @@ text using the match elements found in the $DICTIONARY_WORDS file. \
 \n");
   &Log("$MOD REPORT: Links created: ($gt instances)\n* is textual difference other than capitalization\n$p");
   
+}
+
+sub matchResultSort($$$) {
+  my $ent = shift;
+  my $a = shift;
+  my $b = shift;
+  
+  my $m1 = ($EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a});
+  if ($m1) {return $m1;}
+  return ($a cmp $b);
 }
 
 
