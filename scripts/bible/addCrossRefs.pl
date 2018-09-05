@@ -177,7 +177,7 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     $fixed =~ s/^(.*?)(\!.*)?$/$1/;
     $fixed =~ s/^[^\:]*\://;
     
-    # map crossReferences which target verses that were moved by translators from their fixed verse-system positions
+    # map crossReferences to be placed within verses that were moved by translators from their fixed verse-system positions
     my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
     
     # check and filter the note placement

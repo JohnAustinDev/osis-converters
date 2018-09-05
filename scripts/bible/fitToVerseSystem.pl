@@ -663,7 +663,10 @@ sub applyrids($\%) {
       $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
     }
     else {
-      &Log("NOTE: Removing ".$e->nodeName." osisRef=\"".$e->getAttribute('osisRef')."\" pointing to missing verse\n");
+      my $tag = $e->toString(); $tag =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
+      my $parent = $e->parentNode();
+      $parent = $parent->toString(); $parent =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
+      &Log("NOTE: Removing $tag in $parent pointing to missing verse\n");
       $e->unbindNode();
       $count++;
     }
