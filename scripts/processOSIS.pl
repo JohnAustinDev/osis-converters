@@ -72,13 +72,13 @@ if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 &checkReferenceLinks($OSIS);
 
 # After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
-if ($projectBible && $projectGlossary && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary."/navigation.sfm")) {
+if ($projectBible && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary."/navigation.sfm")) {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-  my $gloss = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."CF_usfm2osis.txt";
-  my $glossContainsINT = `grep "scope == INT" $gloss`;
+  my $gloss = ($projectGlossary ? "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."CF_usfm2osis.txt":'');
+  my $glossContainsINT = ($projectGlossary ? `grep "scope == INT" $gloss`:'');
 
   # Tell the user about the introduction nav menu feature if it's available and not being used
-  if (!$glossContainsINT) {
+  if ($projectGlossary && !$glossContainsINT) {
     my $biblef = &getProjectOsisFile($projectBible);
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
@@ -102,16 +102,6 @@ RUN:./INT.SFM\n");
   &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
   %params = ($glossContainsINT ? ('introScope' => 'INT'):());
   &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
-  
-  my $css = "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."sword/css";
-  if ($MODDRV =~ /LD/ && (!-e "$INPD/sword/css/swmodule.css" || !&shell("grep PreferredCSSXHTML \"$INPD/config.conf\"", 3))) {
-    &Log("
-WARNING: For the navigation menu to look best in SWORD, you should use 
-         glossary module css. Here is how it may be done:
-         1) Edit \"$MOD/config.conf\" to add the config entry: \"PreferredCSSXHTML=swmodule.css\"
-         2) Open or create the css file: \"$MOD/sword/css/swmodule.css\"
-         3) Add the css: ".&shell("cat \"$SCRD/defaults/dict/sword/css/swmodule.css\"", 3)."\n");
-  }
 }
 
 &checkFigureLinks($OSIS);

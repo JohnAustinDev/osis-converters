@@ -11,6 +11,8 @@
   1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with scope="NAVMENU"
   2) Creates an introduction menu system, if introScope is given
   3) Inserts navigational links to these into every chapter, glossary entry and book introduction
+  NOTE: If the introScope parameter is NULL, then no introduction menus/links will be created, and if there is no glossary work listed in the
+  OSIS file, then no glossary navigation menus/links will be created. But Bible chapter navigation menus will always be created.
   -->
  
   <xsl:import href="./functions.xsl"/>
@@ -44,7 +46,7 @@
         (node()[descendant-or-self::text()[normalize-space()][not(ancestor::title[@type='runningHead'])]][1] | descendant::chapter[@sID][1])[1]
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
-      <xsl:when test="$prependNavMenu or self::chapter[@eID]">
+      <xsl:when test="($DICTMOD and $prependNavMenu) or self::chapter[@eID]">
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
@@ -111,7 +113,7 @@
           </p>
         </item>
       </xsl:if>
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
+      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary')) and $DICTMOD">
         <item subType="x-dictionary-link">
           <p type="x-right" subType="x-introduction">
             <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
