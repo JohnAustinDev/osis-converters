@@ -134,8 +134,7 @@ sub addFootnoteLinks($) {
   if ($MODDRV =~ /Text/) {$bibleOsis = $$osisP;}
   # If this is a glossary with a companion Bible, parse the companion Bible's OSIS to collect its footnote osisID values
   elsif ($MODDRV =~ /LD/ && $ConfEntryP->{'Companion'}) {
-    my $cinpd = $INPD; $cinpd =~ s/\/[^\/]+\/?$//;
-    $bibleOsis = &getOUTDIR($cinpd).'/'.$ConfEntryP->{'Companion'}.'.xml';
+    $bibleOsis = &getProjectOsisFile($ConfEntryP->{'Companion'});
   }
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
