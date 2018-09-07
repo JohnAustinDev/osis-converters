@@ -544,7 +544,7 @@ sub correctReferencesVSYS($$) {
   }
   
   # 3) Look for osisRefs in the osis file that need updating and update them
-  if (%{$sourceVerseMapP} || %{$targetVerseMapP}) {
+  if (%{$sourceVerseMapP} || %{$targetVerseMapP} || %missing) {
     my $lastch = '';
     my @checkrefs = ();
     foreach my $verse (&normalizeOsisID([ keys(%{$sourceVerseMapP}) ])) {
@@ -556,12 +556,13 @@ sub correctReferencesVSYS($$) {
         @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
       }
       $lastch = $ch;
-      &addrids(\@checkrefs, $verse, $sourceVerseMapP, \%missing);
+      &addrids(\@checkrefs, $verse, $sourceVerseMapP, 'alt2Fixed');
     }
     
     $lastch = '';
     @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%{$targetVerseMapP}) ])) {
+    my @verses = &normalizeOsisID([ keys(%{$targetVerseMapP}) ]); push(@verses, keys(%missing));
+    foreach my $verse (@verses) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
@@ -569,7 +570,7 @@ sub correctReferencesVSYS($$) {
         @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][ancestor-or-self::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
       }
       $lastch = $ch;
-      &addrids(\@checkrefs, $verse, $targetVerseMapP, \%missing);
+      &addrids(\@checkrefs, $verse, $targetVerseMapP, 'fixed2Fixed', \%missing);
     }
     
     $count = &applyrids($osisXML, &getAltVersesOSIS($bibleXML)->{'fixed2Alt'});
@@ -585,17 +586,18 @@ sub correctReferencesVSYS($$) {
     else {&Log("ERROR: Could not open \"$output\" to write osisRef fixes!\n");}
   }
   
-  &Log("\n$MOD REPORT: \"$count\" osisRefs were updated because of alternate verses.\n");
+  &Log("\n$MOD REPORT: \"$count\" osisRefs were modified because of alternate verses.\n");
 }
 
 # If any osisRef in the @checkRefs array of osisRefs includes $verse,  
 # then add a rids attribute. The rids attribute contains redirected  
 # verse osisID(s) that will become the updated osisRef value of the 
 # parent element.
-sub addrids(\@$\%\%) {
+sub addrids(\@$\%$\%) {
   my $checkRefsAP = shift;
   my $verse = shift;
   my $mapHP = shift;
+  my $mapType = shift;
   my $missingHP = shift;
   
   foreach my $e (@{$checkRefsAP}) {
@@ -606,17 +608,16 @@ sub addrids(\@$\%\%) {
       # Never modify osisRef segments with extensions, because non verse elements (osisIDs) 
       # are never modified by fitToVerseSystem and references to them should thus not be mapped
       if ($rid =~ /\!/) {next;}
-      if ($rid ne $verse) {next;}
-      if ($mapHP->{$verse}) {
-        if (@rids == 1 && $missingHP->{$mapHP->{$verse}}) {
-          @rids = ();
-          $changed++;
-          last;
-        }
-        else {
-          $rid = join(' ', map("x.$_", split(/\s+/, $mapHP->{$verse})));
-          $changed++;
-        }
+      elsif ($rid ne $verse) {next;}
+      elsif ($mapHP->{$verse}) {
+        # Any mapped reference is by definition not missing, so $missingHP is never checked
+        $rid = join(' ', map("$mapType.$_", split(/\s+/, $mapHP->{$verse})));
+        $changed++;
+      }
+      # This references a fixed osisID which is missing, so mark it as such
+      elsif ($mapType =~ /^fixed/i && $missingHP->{$verse}) {
+        $rid = "$mapType.$verse!does-not-exist";
+        $changed++;
       }
       else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
     }
@@ -624,53 +625,74 @@ sub addrids(\@$\%\%) {
   }
 }
 
-# Apply rids attributes to elements and remove rids attributes from them.
-# Also write annotateRefs containing the source verse system targets.
-# References to moved verses also have a rids attibute containing fixed 
-# verse system addresses to be applied to osisRef, but the annotateRef 
-# for these must also be mapped as well (to target the correct location 
-# in the source verse system). So %movedHP is used for that.
+# Applies the rids attribute to an element and removes the rids attribute.
+# Also writes an annotateRef containing the source verse system osisRef.
+# References that were mapped as fixed2Fixed (external) must have their
+# osisRef (which was fixed) mapped to obtain annotateRef (which is source).
+# So %movedHP is used for that. Elements with osisRefs pointing to verses 
+# labeled as 'does-not-exist' are removed.
 sub applyrids($\%) {
   my $xml = shift;
   my $movedHP = shift;
   
+  my ($update, $remove, $map);
   my $count = 0;
   foreach my $e ($XPC->findnodes('//*[@rids]', $xml)) {
-    my @rid = split(/\s+/, $e->getAttribute('rids'));
+    my $rids = $e->getAttribute('rids');
     $e->removeAttribute('rids');
-    if (@rid[0]) {
+    my $tag = $e->toString(); $tag =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
+    
+    my $isExternal = 0;
+    my $removeElement = 1;
+    my @rid;
+    foreach my $r (split(/\s+/, $rids)) {
+      if ($r !~ s/\Q!does-not-exist\E$//) {$removeElement = 0;}
+      if ($r =~ /fixed2Fixed/) {$isExternal = 1;}
+      $r =~ s/^(alt2Fixed|fixed2Fixed)\.//;
+      push(@rid, $r);
+    }
+    if (!$removeElement) {
+      # Add annotateRef and annotateType attributes
       my @annoRefs = split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')));
-      foreach my $ar (@annoRefs) {if ($movedHP->{$ar}) {$ar = $movedHP->{$ar};}}
+      if ($isExternal) {
+        foreach my $ar (@annoRefs) {if ($movedHP->{$ar}) {$ar = $movedHP->{$ar};}}
+      }
       my $annoRef = &osisID2osisRef(join(' ', @annoRefs));
       if ($annoRef =~ /\s+/) {
         &Log("ERROR: Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\".\n");
       }
       if ($e->getAttribute('osisRef') ne $annoRef) {
-        &Log("NOTE: AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." is being mapped from \"".$e->getAttribute('osisRef')."\" to \"$annoRef\"\n");
+        $map .= "NOTE: MAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
       }
-      foreach my $r (@rid) {$r =~ s/^x\.//;}
+      $e->setAttribute('annotateRef', $annoRef);
+      $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
+      
+      # Update osisRef attribute value
       my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid)));
       if ($e->getAttribute('osisRef') ne $newOsisRef) {
         my $origRef = $e->getAttribute('osisRef');
         $e->setAttribute('osisRef', $newOsisRef);
-        my $ie = ($e->nodeName eq 'reference' ? (@{$XPC->findnodes('./ancestor::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
+        my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
         my $est = $e; $est =~ s/^(.*?>).*$/$1/;
-        &Log("NOTE: Updated $ie".$e->nodeName." osisRef=$origRef to $est\n");
+        $update .= "NOTE: UPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
         $count++;
       }
-      else {&Log("ERROR: OsisRef update resulted in original value!: $e\n");}
-      $e->setAttribute('annotateRef', $annoRef);
-      $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
     }
     else {
-      my $tag = $e->toString(); $tag =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
       my $parent = $e->parentNode();
       $parent = $parent->toString(); $parent =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
-      &Log("NOTE: Removing $tag in $parent pointing to missing verse\n");
+      if ($e->getAttribute('type') eq "crossReference") {
+        $remove .= "NOTE: REMOVING cross-reference for missing verse: $tag\n";
+      }
+      else {
+        $remove .= "NOTE: REMOVING tags for missing verse: $tag \n";
+        foreach my $chld ($e->childNodes) {$e->parentNode()->insertBefore($chld, $e);}
+      }
       $e->unbindNode();
       $count++;
     }
   }
+  &Log($map."\n".$update."\n".$remove);
   
   return $count;
 }
