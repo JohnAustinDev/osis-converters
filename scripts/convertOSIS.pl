@@ -35,6 +35,7 @@ sub convertOSIS($) {
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   %CONV_REPORT;
   $CONV_NAME;
+  $FULL_PUB_TITLE = @{$XPC->findnodes("/descendant::osis:work[\@osisWork='$MOD'][1]/osis:title[1]", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
   %CONVERT_TXT = &readConvertTxt("$INPD/$convertTo/convert.txt");
   $CREATE_FULL_BIBLE = (!defined($CONVERT_TXT{'CreateFullBible'}) || $CONVERT_TXT{'CreateFullBible'} !~ /^(false|0)$/i);
   $CREATE_SEPARATE_BOOKS = (!defined($CONVERT_TXT{'CreateSeparateBooks'}) || $CONVERT_TXT{'CreateSeparateBooks'} !~ /^(false|0)$/i);
@@ -338,7 +339,7 @@ sub makeHTML($$$) {
   
   &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
   
-  &updateOsisFullResourceURL($osis, 'html');
+  &updateOsisFullResourceURL($osis, '.html');
   
   my @cssFileNames = split(/\s*\n/, shell("cd $tmp && find . -name '*.css' -print", 3));
   my %params = ('css' => join(',', map { (my $s = $_) =~ s/^\.\///; $s } @cssFileNames));
@@ -390,7 +391,9 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  &updateOsisFullResourceURL($osis, $format);
+  my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__Full':$ConfEntryP->{"Scope"}.'_Full').".$format"; $eBookFullPubName =~ s/\s+/-/g;
+  my $thisEBookName = ($scope eq $ConfEntryP->{"Scope"} ? $eBookFullPubName:"$CONV_NAME.$format");
+  &updateOsisFullResourceURL($osis, $eBookFullPubName);
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
@@ -418,7 +421,7 @@ sub makeEbook($$$$$) {
       }
       else {&Log("NOTE: Epub validates!: \"$out\"\n");}
     }
-    copy($out, "$EBOUT/$CONV_NAME.$format");
+    copy($out, "$EBOUT/$thisEBookName");
     if (!$CONV_REPORT{$CONV_NAME}{'Format'}) {$CONV_REPORT{$CONV_NAME}{'Format'} = ();}
     push(@{$CONV_REPORT{$CONV_NAME}{'Format'}}, $format);
     &Log("Created: $CONV_NAME.$format\n", 2);
@@ -426,16 +429,18 @@ sub makeEbook($$$$$) {
   else {&Log("ERROR: No output file: $out\n");}
 }
 
+# To work with osis2xhtml.xsl, the FullResourceURL must have the full eBook's file name and extension (directory URL comes from convert.txt)
 sub updateOsisFullResourceURL($$) {
   my $osis = shift;
-  my $format = shift;
+  my $fileName = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
-  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type="x-ebook-config-FullResourceURL"]', $xml);
+  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[contains(@type, "FullResourceURL")]', $xml);
   foreach my $u (@update) {
-    if ($format eq 'html') {$u->unbindNode(); next;} # Currently unimplemented for html
+    if ($fileName =~ /\.html$/) {$u->unbindNode(); next;} # Currently unimplemented for html
     my $url = $u->textContent;
-    my $new = $url; $new =~ s/\.([^\.]*)$/.$format/;
+    my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/[^\/]*\.[^\.\/]+$//;}
+    $new = $new.'/'.$fileName;
     if ($url ne $new) {
       &Log("NOTE: Updating FullResourceURL from \"$url\" to \"$new\".\n");
       &changeNodeText($u, $new);

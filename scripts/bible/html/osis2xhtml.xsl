@@ -1120,7 +1120,10 @@
           (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
           (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
           )" as="xs:string"/>
-        <value-of select="$relative-path"/>
+        <choose>
+          <when test="matches($relative-path, '^\./[^/]+#')"><value-of select="concat('#', tokenize($rel-uri-file, '#')[last()])"/></when>
+          <otherwise><value-of select="$relative-path"/></otherwise>
+        </choose>
       </when>
       <!-- if both URIs share no equal part (e.g. for the reason of different URI scheme names) then it's not possible to create a relative path. -->
       <otherwise>

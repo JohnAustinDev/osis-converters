@@ -1444,7 +1444,7 @@ sub filterScriptureReferences($$$) {
   my %fullOsisBooks = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xml_fullOsis)};
   
   my $iAmFullOsis = (join(' ', sort keys %selfOsisBooks) eq join(' ', sort keys %fullOsisBooks));
-  my $fullResourceURL = (@{$XPC->findnodes('/descendant::*[@type="x-ebook-config-FullResourceURL"][1]/@type', $xml_selfOsis)}[0]);
+  my $fullResourceURL = @{$XPC->findnodes('/descendant::*[contains(@type, "FullResourceURL")][1]/@type', $xml_selfOsis)}[0];
   if ($fullResourceURL) {$fullResourceURL = $fullResourceURL->value;}
   my $mayRedirect = ($fullResourceURL && !$iAmFullOsis);
   
