@@ -677,6 +677,11 @@ sub applyrids($\%) {
         $update .= "NOTE: UPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
         $count++;
       }
+      else {
+        # No need for annotateRef if osisRef was not changed
+        if ($e->hasAttribute('annotateRef')) {$e->removeAttribute('annotateRef');}
+        if ($e->hasAttribute('annotateType')) {$e->removeAttribute('annotateType');}
+      }
     }
     else {
       my $parent = $e->parentNode();
