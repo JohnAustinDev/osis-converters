@@ -129,7 +129,7 @@ sub OSIS_To_ePublication($$$$) {
   # update osis header with current convert.txt
   &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
     
-  &runXSLT("$SCRD/scripts/bible/osis2alternateVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
+  &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
