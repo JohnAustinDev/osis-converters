@@ -1121,7 +1121,7 @@
           (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
           )" as="xs:string"/>
         <choose>
-          <when test="matches($relative-path, '^\./[^/]+#')"><value-of select="concat('#', tokenize($rel-uri-file, '#')[last()])"/></when>
+          <when test="starts-with($rel-uri, concat($base-uri, '#'))"><value-of select="concat('#', tokenize($rel-uri, '#')[last()])"/></when>
           <otherwise><value-of select="$relative-path"/></otherwise>
         </choose>
       </when>
