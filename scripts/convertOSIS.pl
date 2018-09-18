@@ -439,7 +439,7 @@ sub updateOsisFullResourceURL($$) {
   foreach my $u (@update) {
     if ($fileName =~ /\.html$/) {$u->unbindNode(); next;} # Currently unimplemented for html
     my $url = $u->textContent;
-    my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/[^\/]*\.[^\.\/]+$//;}
+    my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
     $new = $new.'/'.$fileName;
     if ($url ne $new) {
       &Log("NOTE: Updating FullResourceURL from \"$url\" to \"$new\".\n");
