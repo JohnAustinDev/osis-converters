@@ -167,7 +167,13 @@ sub checkFont($) {
   
   %FONT_FILES;
   
-  if ($FONTS && &runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
+  # FONTS can be a URL in which case download or update the local font cache
+  if ($FONTS =~ /^https?\:/) {
+    if (!-e "$HOME_DIR/.osis-converters/fonts") {mkdir("$HOME_DIR/.osis-converters/fonts");}
+    shell("cd '$HOME_DIR/.osis-converters/fonts' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'");
+    $FONTS = "$HOME_DIR/.osis-converters/fonts";
+  }
+  elsif ($FONTS && &runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
     while(<CSH>) {
       if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
         $SHARE_HOST = $1;
