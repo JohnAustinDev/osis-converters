@@ -22,11 +22,7 @@ sub init_vagrant() {
   
   if (!-e "$SCRD/paths.pl") {
     my $paths = &getDefaultFile('paths.pl');
-    if (!$paths && open(PATHS, ">$SCRD/paths.pl")) {
-      print PATHS "1;\n";
-      close(PATHS);
-    }
-    else {copy($paths, $SCRD);}
+    if ($paths) {copy($paths, $SCRD);}
   }
   if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   

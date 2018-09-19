@@ -4402,7 +4402,9 @@ sub validateOSIS($) {
   $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
   my $res = `$cmd`;
-  &Log("$res\n");
+  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed)\.";
+  my $fix = $res; $fix =~ s/$allow/$1e-r-r-o-r$2/g;
+  &Log("$fix\n");
   
   # Generate error if file fails to validate
   my $valid = 1;
@@ -4411,7 +4413,7 @@ sub validateOSIS($) {
     $valid = 0;
   }
   elsif ($res !~ /^\Q$osis validates\E$/) {
-    if ($res =~ s/\Qelement milestone: Schemas validity error : Element '\E.*?\Qmilestone', attribute 'osisRef': The attribute 'osisRef' is not allowed.\E//g) {
+    if ($res =~ s/$allow//g) {
       &Log("
 NOTE: Ignore the above milestone osisRef attribute reports. The schema  
       here apparently deviates from the OSIS handbook which states that 
