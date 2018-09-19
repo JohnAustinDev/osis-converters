@@ -40,14 +40,7 @@ sub addCrossRefs($) {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $CrossRefFile = (!$VERSESYS ? "KJV":$VERSESYS);
-  my @try = (
-    "$INPD/Cross_References/$CrossRefFile.xml",
-    "$INPD/../Cross_References/$CrossRefFile.xml",
-    "$INPD/../../Cross_References/$CrossRefFile.xml",
-    "$SCRD/CrossReferences/$CrossRefFile.xml",
-  );
-  foreach my $t (@try) {if (-e $t) {$CrossRefFile = $t; last}}
+  my $CrossRefFile = &getDefaultFile("bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml");
   if (!-e $CrossRefFile) {
     &Log("
 WARNING: Could not locate a Cross Reference source file- skipping cross-reference insertion.

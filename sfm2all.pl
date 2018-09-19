@@ -56,7 +56,9 @@ foreach my $dir (keys %modules) {
 }
 
 # run any specified projects
-my $CFfile = (-e "$INPD/CF_usfm2osis.txt" ? "$INPD/CF_usfm2osis.txt":(-e "$INPD/CF_osis2osis.txt" ? "$INPD/CF_osis2osis.txt":''));
+my $defDir = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
+my $CFfile = &getDefaultFile("$defDir/CF_usfm2osis.txt");
+if (!$CFfile) {$CFfile = &getDefaultFile("$defDir/CF_osis2osis.txt");}
 my $sfm2all_RUN;
 if (open(CF, "<encoding(UTF-8)", $CFfile)) {
   while(<CF>) {if ($_ =~ /^SET_sfm2all_RUN:\s*(.*?)\s*$/) {$sfm2all_RUN = $1; last;}}

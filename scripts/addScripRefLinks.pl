@@ -125,7 +125,8 @@ $DEBUG_LOCATION = 0;
 
 require("$SCRD/scripts/dict/processGlossary.pl");
 
-sub addScripRefLinks($$) {
+sub addScripRefLinks($$$) {
+  my $commandFile = shift;
   my $in_file = shift;
   my $out_file = shift; # optional if $in_file is a reference
   
@@ -186,7 +187,6 @@ sub addScripRefLinks($$) {
   $Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
   $Types{"T10 (num1 ... num2?)"} = 0;
 
-  my $commandFile = "$INPD/CF_addScripRefLinks.txt";
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
     &removeRevisionFromCF($commandFile);

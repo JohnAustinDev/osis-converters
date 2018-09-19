@@ -3,7 +3,7 @@
 # init_vagrant() will be run on BOTH the host machine and the Vagrant VM. So
 # it should NOT require any non-standard Perl modules.
 
-use Encode;
+use Encode; use File::Copy;
 
 $VAGRANT = 1; # Vagrant is on by default. To run natively, add "$Vagrant=0;" to paths.pl
 
@@ -20,6 +20,14 @@ sub init_vagrant() {
   }
   chdir($INPD);
   
+  if (!-e "$SCRD/paths.pl") {
+    my $paths = &getDefaultFile('paths.pl');
+    if (!$paths && open(PATHS, ">$SCRD/paths.pl")) {
+      print PATHS "1;\n";
+      close(PATHS);
+    }
+    else {copy($paths, $SCRD);}
+  }
   if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
   
   # Return and continue this process if it is being run on the VM
@@ -72,6 +80,48 @@ sub startVagrant($$$) {
   print "@args\n";
   system(@args); # exec does not run with Windows cmd shell
   exit;
+}
+
+# Look for a default file or directory in the following places, in 
+# order. Return '' if file is not found. The file can also include path 
+# segments. If priority is specified, only the location with that
+# priority will be checked.
+# priority-1) Project directory (if bible|dict subdir matches the project type)
+# priority-2) Project-parent/defaults directory
+# priority-3) osis-converters/defaults directory
+sub getDefaultFile($$) {
+  my $file = shift;
+  my $priority = shift;
+  
+  my $fileType = ($file =~ /^(bible|dict)\// ? $1:'');
+  my $projType = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
+  my $projParent = $INPD.($projType eq 'dict' ? '/../..':'/..');
+  my $pfile = $file; $pfile =~ s/^(bible|dict)\///;
+   
+  my $f;
+  if ((!$priority || $priority == 1) && $fileType eq $projType && -e "$INPD/$pfile") {
+    $f = "$INPD/$pfile";
+    &Log("NOTE getDefaultFile: (1) Found $file at $f\n");
+  }
+  if ((!$priority || $priority == 2) && -e "$projParent/defaults/$file") {
+    if (!$f) {
+      $f = "$projParent/defaults/$file";
+      &Log("NOTE getDefaultFile: (2) Found $file at $f\n");
+    }
+    elsif (&shell("crc32 '$projParent/defaults/$file'", 3) eq &shell("crc32 '$f'", 3)) {
+      &Log("WARNING: Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file\n");
+    }
+  }
+  if ((!$priority || $priority == 3) && -e "$SCRD/defaults/$file") {
+    if (!$f) {
+      $f = "$SCRD/defaults/$file";
+      &Log("NOTE getDefaultFile: (3) Found $file at $f\n");
+    }
+    elsif (&shell("crc32 '$SCRD/defaults/$file'", 3) eq &shell("crc32 '$f'", 3)) {
+      &Log("WARNING: Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file\n");
+    }
+  }
+  return $f;
 }
 
 # Return 1 if dependencies are met for $script and 0 if not

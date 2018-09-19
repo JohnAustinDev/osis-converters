@@ -36,7 +36,7 @@ sub convertOSIS($) {
   %CONV_REPORT;
   $CONV_NAME;
   $FULL_PUB_TITLE = @{$XPC->findnodes("/descendant::osis:work[\@osisWork='$MOD'][1]/osis:title[1]", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
-  %CONVERT_TXT = &readConvertTxt("$INPD/$convertTo/convert.txt");
+  %CONVERT_TXT = &readConvertTxt(&getDefaultFile("bible/$convertTo/convert.txt"));
   $CREATE_FULL_BIBLE = (!defined($CONVERT_TXT{'CreateFullBible'}) || $CONVERT_TXT{'CreateFullBible'} !~ /^(false|0)$/i);
   $CREATE_SEPARATE_BOOKS = (!defined($CONVERT_TXT{'CreateSeparateBooks'}) || $CONVERT_TXT{'CreateSeparateBooks'} !~ /^(false|0)$/i);
   @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %CONVERT_TXT) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
@@ -134,13 +134,8 @@ sub OSIS_To_ePublication($$$$) {
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
   
-  # copy css (css directory is the last of the following)
-  my $css = "$SCRD/defaults/bible/$convertTo/css";
-  if (-e "$INPD/../defaults/bible/$convertTo/css") {$css = "$INPD/../defaults/bible/$convertTo/css";}
-  elsif (-e "$INPD/../../defaults/bible/$convertTo/css") {$css = "$INPD/../../defaults/bible/$convertTo/css";}
-  elsif (-e "$INPD/$convertTo/css-default") {$css = "$INPD/$convertTo/css-default";}
-  &copy_dir($css, "$tmp/css");
-  if (-e "$INPD/$convertTo/css") {&copy_dir("$INPD/$convertTo/css", "$tmp/css", 1);} # module css is added to default css directory
+  # copy css
+  &copy_dir_with_defaults("bible/$convertTo/css", "$tmp/css");
  
   # copy font if specified
   if ($FONTS && $ConfEntryP->{"Font"}) {

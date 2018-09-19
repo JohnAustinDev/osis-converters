@@ -402,16 +402,14 @@ sub initLibXML() {
 }
 
 
-# If only an sfm directory exists in the project, default files are written, 
-# otherwise this routine does nothing. Default files are succesively copied
-# from each of the following folders:
-#
-# From osis-converters: $scrd/defaults/(bible|dict)
-# From local project area, either: $inpd/../defaults/bible OR 
-# $inpd/../../defaults/dict
-#
-# and then specific entries are added to some of those input file as applicable.
-# Returns 0 if no action was taken, 1 otherwise.
+# If only an sfm directory exists in the project, default files are 
+# written and 1 is returned, otherwise this routine does nothing and 0 
+# is returned. Default files which need updating for each project are 
+# copied to the project directory using getDefaultFile() and are then 
+# modified for the project. Other default files, which rarely change 
+# from project to project are not copied to the project directory 
+# because getDefaultFile() is used to retrieve default files and the 
+# more general default will be used.
 sub checkAndWriteDefaults($$$) {
   my $scrd = shift;
   my $inpd = shift;
@@ -425,8 +423,36 @@ sub checkAndWriteDefaults($$$) {
   }
   
   # copy default files
-  &copy_dir("$scrd/defaults/".($isCompanion ? "dict":"bible"), $inpd, 1);
-  &copy_dir(($isCompanion ? "$inpd/../../defaults/dict":"$inpd/../defaults/bible"), $inpd, 1);
+  my @defaults = (
+    'bible/config.conf', 
+    'bible/CF_usfm2osis.txt', 
+    'bible/CF_addScripRefLinks.txt',
+    'bible/eBook/convert.txt', 
+    'bible/html/convert.txt', 
+    'bible/GoBible/*',
+    'dict/config.conf', 
+    'dict/CF_usfm2osis.txt', 
+    'dict/CF_addScripRefLinks.txt'
+  );
+  foreach my $f (@defaults) {
+    my $f_isDirectory = ($f =~ s/\/\*$// ? 1:0); 
+    my $dest = $f;
+    my $type = ($dest =~ s/^(bible|dict)// ? $1:'');
+    $dest = $inpd.$dest;
+    if ($type eq 'bible' && $isCompanion || $type eq 'dict' && !$isCompanion) {next;}
+    
+    my $dparent = $dest; $dparent =~ s/[^\/]+$//;
+    if (!-e $dparent) {make_path($dparent);}
+    if ($f_isDirectory) {&copy_dir_with_defaults($f, $dest, 3); &copy_dir_with_defaults($f, $dest, 2);}
+    else {
+      my $df = &getDefaultFile($f);
+      if (!$df) {
+        &Log("ERROR: No default file found for '$f'\n");
+        next;
+      }
+      copy($df, $dest);
+    }
+  }
 
   my $mod = $inpd;
   $mod =~ s/^.*?([^\\\/]+)$/$1/;
@@ -3362,6 +3388,23 @@ sub copy_dir($$$$) {
 }
 
 
+# copies files from each default directory, starting with lowest to 
+# highest priority, and merging files each time.
+sub copy_dir_with_defaults($$$$$) {
+  my $dir = shift;
+  my $dest = shift;
+  my $priority = shift;
+  my $keep = shift;
+  my $skip = shift;
+  
+  for (my $x=($priority ? $priority:3); $x>=($priority ? $priority:1); $x--) {
+    my $defDir = &getDefaultFile($dir, $x);
+    if (!$defDir) {next;}
+    &copy_dir($defDir, $dest, 1, 0, $keep, $skip);
+  }
+}
+
+
 # deletes files recursively without touching dirs
 sub delete_files($) {
   my $dir = shift;
@@ -3997,7 +4040,7 @@ sub writeTOC($) {
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
   my %ebookconv;
-  if (-e "$INPD/eBook/convert.txt") {%ebookconv = &readConvertTxt("$INPD/eBook/convert.txt");}
+  %ebookconv = &readConvertTxt(&getDefaultFile("bible/eBook/convert.txt"));
   my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
   &Log("NOTE: Using \"\\toc$toc\" USFM tags to determine eBook TOC.\n");
   

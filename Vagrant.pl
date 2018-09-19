@@ -30,11 +30,7 @@ config.vm.provider \"virtualbox\" do |vb|
 end\n";
   close(VAGC);
 }
-if (!-e "$SCRD/paths.pl" && open(PATHS, ">$SCRD/paths.pl")) {
-  print PATHS "1;\n";
-  close(PATHS);
-}
-require "$SCRD/paths.pl";
+if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
 
 push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
 if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}

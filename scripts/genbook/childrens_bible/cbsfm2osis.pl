@@ -60,9 +60,10 @@ $cmd = "$SCRD/scripts/genbook/childrens_bible/postproc.py \"$TMPDIR/".$MOD."_1.x
 `$cmd`;
 
 # run addScripRefLinks.pl
-if (-e "$INPD/CF_addScripRefLinks.txt") {
+my $asrl = &getDefaultFile('bible/CF_addScripRefLinks.txt');
+if ($asrl) {
   require("$SCRD/scripts/addScripRefLinks.pl");
-  &addScripRefLinks("$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
+  &addScripRefLinks($asrl, "$TMPDIR/".$MOD."_2.xml", $OUTOSIS);
 }
 else {
   &Log("Skipping Scripture reference parsing.\n");

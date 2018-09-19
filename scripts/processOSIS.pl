@@ -5,9 +5,9 @@ if ($MODDRV =~ /LD/) {require("$SCRD/scripts/dict/processGlossary.pl");}
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-$c = (-e "$INPD/html/convert.txt" ? "$INPD/html/convert.txt":(-e "$INPD/../html/convert.txt" ? "$INPD/../html/convert.txt":''));
+$c = &getDefaultFile('bible/html/convert.txt');
 %HTMLCONV = ($c ? &readConvertTxt($c):());
-$c = (-e "$INPD/eBook/convert.txt" ? "$INPD/eBook/convert.txt":(-e "$INPD/../eBook/convert.txt" ? "$INPD/../eBook/convert.txt":''));
+$c = &getDefaultFile('bible/eBook/convert.txt');
 %EBOOKCONV = ($c ? &readConvertTxt($c):());
 my $projectBible;
 my $projectGlossary;
@@ -30,9 +30,10 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 
 &writeTOC(\$OSIS);
 
-if ($addScripRefLinks ne '0' && -e "$INPD/CF_addScripRefLinks.txt") {
+my $asrl = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_addScripRefLinks.txt');
+if ($addScripRefLinks ne '0' && $asrl) {
   require("$SCRD/scripts/addScripRefLinks.pl");
-  &addScripRefLinks(\$OSIS);
+  &addScripRefLinks($asrl, \$OSIS);
   &checkScripRefLinks($OSIS, $projectBible);
   if ($addFootnoteLinks ne '0' && -e "$INPD/CF_addFootnoteLinks.txt") {
     require("$SCRD/scripts/addFootnoteLinks.pl");

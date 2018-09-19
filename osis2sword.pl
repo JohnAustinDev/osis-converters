@@ -110,15 +110,15 @@ else {
 	die;
 }
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
-if ($ConfEntryP->{"PreferredCSSXHTML"} && ! -e "$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}) {
-  &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");
-}
-elsif (-e "$INPD/sword/css") {
-  if ($ConfEntryP->{"PreferredCSSXHTML"}) {
-    copy("$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}, "$SWOUT/$MODPATH");
-    &Log("\n--- COPYING PreferredCSSXHTML \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\"\n");
+if ($ConfEntryP->{"PreferredCSSXHTML"}) {
+  my $cssfile = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"});
+  if ($cssfile) {
+    copy($cssfile, "$SWOUT/$MODPATH");
+    &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
   }
-  else {&Log("ERROR: \"$INPD/sword/css\" directory exists, but conf file lacks a PreferredCSSXHTML entry.\n");}
+  else {
+    &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");
+  }
 }
 
 &writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");

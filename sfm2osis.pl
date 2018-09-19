@@ -33,11 +33,11 @@ if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
   exit;
 }
 
-# use CF_usfm2osis.txt if it exists, otherwise fall back to old CF_paratext2osis.txt
-if (-e "$INPD/CF_usfm2osis.txt") {
+my $u2o = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt');
+if ($u2o) {
   $IS_usfm2osis = 1;
   require("$SCRD/scripts/usfm2osis.pl");
-  &usfm2osis("$INPD/CF_usfm2osis.txt", "$TMPDIR/".$MOD."_0.xml");
+  &usfm2osis($u2o, "$TMPDIR/".$MOD."_0.xml");
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt.";}
 
