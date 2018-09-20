@@ -1,6 +1,7 @@
 CrossReferences
 paths.pl
 .vagrant
+.hostinfo
 Vagrantshares
 Vagrantcustom
 ubuntu-*

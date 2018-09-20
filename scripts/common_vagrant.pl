@@ -3,11 +3,11 @@
 # init_vagrant() will be run on BOTH the host machine and the Vagrant VM. So
 # it should NOT require any non-standard Perl modules.
 
-use Encode; use File::Copy;
+use Encode;
+use File::Copy;
+use File::Spec;
 
 $VAGRANT = 1; # Vagrant is on by default. To run natively, add "$Vagrant=0;" to paths.pl
-
-$HOME_DIR = `echo \$HOME`; chomp($HOME_DIR);
 
 sub init_vagrant() {
   if (!$INPD) {$INPD = "."};
@@ -24,7 +24,8 @@ sub init_vagrant() {
     my $paths = &getDefaultFile('paths.pl');
     if ($paths) {copy($paths, $SCRD);}
   }
-  if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
+  
+  &readPaths();
   
   # Return and continue this process if it is being run on the VM
   if (&runningVagrant()) {return;}
@@ -76,6 +77,49 @@ sub startVagrant($$$) {
   print "@args\n";
   system(@args); # exec does not run with Windows cmd shell
   exit;
+}
+
+sub readPaths() {
+  # The following host paths in paths.pl are converted to absolute paths
+  # which are then updated to work on the VM if running in Vagrant.
+  my @pathvars = ('OUTDIR', 'MODULETOOLS_BIN', 'FONTS', 'COVERS');
+
+  if (!-e "$SCRD/paths.pl") {return;}
+  require "$SCRD/paths.pl";
+  
+  if (!&runningVagrant()) {
+    if (open(SHL, ">$SCRD/.hostinfo")) {
+      print SHL "\$HOSTHOME = \"".&expand('$HOME')."\";\n";
+      foreach my $v (@pathvars) {
+        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
+        $$v = &expand($$v);
+        $$v = File::Spec->rel2abs($$v, $SCRD);
+        print SHL "\$$v = \"$$v\";\n";
+      }
+      print SHL "1;\n";
+      close(SHL);
+    }
+    else {die "ERROR: Could not open $SCRD/.hostinfo\n";}
+  }
+  
+  require("$SCRD/.hostinfo");
+
+  if (!&runningVagrant() || !open(CSH, "<$SCRD/Vagrantshares")) {return;}
+  
+  while(<CSH>) {
+    if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
+      $SHARE_HOST = $1;
+      $SHARE_VIRT = $2;
+    }
+  }
+  close(CSH);
+  if ($SHARE_HOST && $SHARE_VIRT) {
+    foreach my $v (@pathvars) {
+      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
+      $$v = File::Spec->abs2rel($$v, $SHARE_HOST);
+      $$v = File::Spec->rel2abs($$v, $SHARE_VIRT);
+    }
+  }
 }
 
 # Look for a default file or directory in the following places, in 
@@ -157,19 +201,10 @@ sub haveDependencies($$$$) {
   # All paths must end in / or else be empty. 
   # Paths which are empty must refer to executables in the shell's path
   foreach my $p (@deps) {
-    if (&runningVagrant() && $$p) {
-      if ($p eq 'MODULETOOLS_BIN') {
-        &Log("NOTE: Using network share to \$$p in paths.pl while running in Vagrant.\n", $logflag);
-      }
-      else {
-        &Log("WARNING: Ignoring \$$p in paths.pl while running in Vagrant.\n", $logflag);
-      }
-      $$p = '';
-    }
-    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = "$HOME_DIR/.osis-converters/GoBibleCreator.245";} # Default location
-    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = "$HOME_DIR/.osis-converters/src/Module-tools/bin";} # Default location
+    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = expand("~/.osis-converters/GoBibleCreator.245");} # Default location
+    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = expand("~/.osis-converters/src/Module-tools/bin");} # Default location
     if ($$p) {
-      if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p);}
+      if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p, $SCRD);}
       $$p =~ s/[\\\/]+\s*$//;
       $$p .= "/";
     }
@@ -227,6 +262,13 @@ NOTE: On Linux systems you can try installing dependencies by running:
 
 sub runningVagrant() {return (-e "/vagrant/Vagrant.pl" ? 1:0);}
 
+sub expand($) {
+  my $path = shift;
+  my $r = `echo $path`;
+  chomp($r);
+  return $r;
+}
+
 sub escfile($) {
   my $n = shift;
   
@@ -276,6 +318,23 @@ sub encodePrintPaths($) {
     $t =~ s/\Q$rp\E/\$$path/g;
   }
   return $t;
+}
+
+# Run a Linux shell script. $flag can have these values:
+# -1 = only log file
+#  0 = log file (+ console unless $NOCONSOLELOG is set)
+#  1 = log file + console (ignoring $NOCONSOLELOG)
+#  2 = only console
+#  3 = don't log anything
+sub shell($$) {
+  my $cmd = shift;
+  my $flag = shift; # same as Log flag
+  
+  &Log("\n$cmd\n", $flag);
+  my $result = decode('utf8', `$cmd 2>&1`);
+  &Log($result."\n", $flag);
+  
+  return $result;
 }
 
 1;

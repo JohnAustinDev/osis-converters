@@ -80,8 +80,6 @@ sub init($) {
   
   $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
   
-  if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
-  
   &initLibXML();
   
   # Read BookNames.xml, if available
@@ -169,20 +167,10 @@ sub checkFont($) {
   
   # FONTS can be a URL in which case download or update the local font cache
   if ($FONTS =~ /^https?\:/) {
-    if (!-e "$HOME_DIR/.osis-converters/fonts") {mkdir("$HOME_DIR/.osis-converters/fonts");}
-    shell("cd '$HOME_DIR/.osis-converters/fonts' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'", 3);
-    $FONTS = "$HOME_DIR/.osis-converters/fonts";
-  }
-  elsif ($FONTS && &runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
-    while(<CSH>) {
-      if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
-        $SHARE_HOST = $1;
-        $SHARE_VIRT = $2;
-      }
-    }
-    close(CSH);
-    $FONTS = File::Spec->abs2rel($FONTS, $SHARE_HOST);
-    $FONTS = File::Spec->rel2abs($FONTS, $SHARE_VIRT);
+    my $p = expand("~/.osis-converters/fonts");
+    if (!-e $p) {mkdir($p);}
+    shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'", 3);
+    $FONTS = $p;
   }
 
   if ($FONTS && ! -e $FONTS) {
@@ -226,17 +214,8 @@ sub checkFont($) {
 sub getOUTDIR($) {
   my $inpd = shift;
   
-  my $outdir = $OUTDIR;
-  
-  if (&runningVagrant()) {
-    if (-e "$HOME_DIR/OUTDIR" && `mountpoint $HOME_DIR/OUTDIR` =~ /is a mountpoint/) {
-      $outdir = "$HOME_DIR/OUTDIR"; # Vagrant share
-    }
-    else {$outdir = '';}
-  }
-
-  if (!$outdir) {$outdir = "$inpd/output";}
-  else {
+  my $outdir = ($OUTDIR ? $OUTDIR:"$inpd/output");
+  if ($outdir !~ /\/output$/) {
     my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
     $outdir =~ s/[\\\/]\s*$//; # remove any trailing slash
     $outdir .= '/'.$sub;

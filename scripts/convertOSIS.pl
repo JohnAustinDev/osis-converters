@@ -169,47 +169,16 @@ body {font-family: font1;}
   }
   
   # copy cover
-  my $cover;
-  # Cover name is a jpg image named $scope if it exists, or else an 
-  # existing jpg image whose name (which is a scope) includes $scope. 
-  # Or it's just 'cover.jpg' by default
-  my $titleType = $type;
-  my $covname = &findCover("$INPD/$convertTo", $scope, $ConfEntryP->{"Versification"}, \$titleType);
-  if (!-e "$INPD/$convertTo/$covname") {$covname = 'cover.jpg';}
-  if (-e "$INPD/$convertTo/$covname") {
-    $cover = "$tmp/cover.jpg";
-    if ($titleType eq 'Part') {
-      # add specific title to the top of the eBook cover image
-      $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitlePart;
-      $CONV_REPORT{$CONV_NAME}{'Cover'} = $covname;
-      my $imagewidth = `identify "$INPD/eBook/$covname"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
-      my $pointsize = (4/3)*$imagewidth/length($pubTitlePart);
-      if ($pointsize > 40) {$pointsize = 40;}
-      elsif ($pointsize < 10) {$pointsize = 10;}
-      my $padding = 20;
-      my $barheight = $pointsize + (2*$padding);
-      my $font = '';
-      if ($FONTS && $ConfEntryP->{"Font"}) {
-        foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
-          if ($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} eq 'regular') {
-            $font = $FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'fullname'};
-            $font =~ s/ /-/g;
-            last;
-          }
-        }
-      }
-      my $cmd = "convert \"$INPD/$convertTo/$covname\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$pubTitlePart' \"$cover\"";
-      &shell($cmd, 2);
-    }
-    else {
-      $CONV_REPORT{$CONV_NAME}{'Title'} = 'no-title';
-      $CONV_REPORT{$CONV_NAME}{'Cover'} = $covname;
-      copy("$INPD/$convertTo/$covname", $cover);
-    }
+  my $titleType = $type; # Full or Part, to be determined also by copyCoverImageTo
+  my $coverName = &copyCoverImageTo("$tmp/cover.jpg", $MOD, $scope, $pubTitlePart, $ConfEntryP->{"Versification"}, $convertTo, \$titleType);
+  my $cover = ($coverName ? "$tmp/cover.jpg":'');
+  if ($coverName) {
+    $CONV_REPORT{$CONV_NAME}{'Cover'} = $coverName;
+    $CONV_REPORT{$CONV_NAME}{'Title'} = ($titleType eq 'Part' ? $pubTitlePart:'no-title');
   }
   else {
-    $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitle;
     $CONV_REPORT{$CONV_NAME}{'Cover'} = 'random-cover';
+    $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitle;
   }
   
   # copy companion OSIS file(s)
@@ -288,11 +257,75 @@ body {font-family: font1;}
   }
 }
 
-# Look for a cover image in $dir matching $scope and return it if found. 
-# The image file name may or may not be prepended with $MOD_, and may use
-# either " " or "_" as scope delimiter.
-sub findCover($$\$) {
+# Copy a cover image for this module and scope to the destination. The 
+# following searches are done to look for a starting cover image (the
+# first found is used):
+# 1) getDefaultFile('cover.jpg')
+# 2) getDefaultFile(<scoped-name>)
+# 3) $COVERS location (if any) looking for <scoped-name>
+# If a cover image is found, it will be determined whether the scope is
+# a sub-set of the image's publication. If so, pubTitlePart will be 
+# appended to the top of the cover image. The final image is copied to
+# the destination. If a cover image is found/copied the name of the 
+# starting cover image is returned, or '' otherwise.
+sub copyCoverImageTo($$$$$$\$) {
+  my $destination = shift; 
+  my $mod = shift;
+  my $scope = shift;
+  my $pubTitlePart = shift;
+  my $vsys = shift;
+  my $convertTo = shift;
+  my $titleTypeP = shift;
+  
+  my $cover = (-e "$INPD/$convertTo/cover.jpg" ? "$INPD/$convertTo/cover.jpg":'');
+  if (!$cover) {$cover = &findCoverInDir("$INPD/$convertTo", $mod, $scope, $vsys, $titleTypeP);}
+  if (!$cover && $COVERS) {
+    if ($COVERS =~ /^https?\:/) {
+      my $p = &expand("~/.osis-converters/covers");
+      if (!-e $p) {mkdir($p);}
+      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$COVERS'", 3);
+      $COVERS = $p;
+    }
+    $cover = &findCoverInDir($COVERS, $mod, $scope, $vsys, $titleTypeP);
+  }
+  if (!$cover) {return '';}
+  
+  if ($$titleTypeP eq 'Part') {
+    # add specific title to the top of the eBook cover image
+    my $imagewidth = `identify "$cover"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
+    my $pointsize = (4/3)*$imagewidth/length($pubTitlePart);
+    if ($pointsize > 40) {$pointsize = 40;}
+    elsif ($pointsize < 10) {$pointsize = 10;}
+    my $padding = 20;
+    my $barheight = $pointsize + (2*$padding);
+    my $font = '';
+    if ($FONTS && $ConfEntryP->{"Font"}) {
+      foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
+        if ($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} eq 'regular') {
+          $font = $FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'fullname'};
+          $font =~ s/ /-/g;
+          last;
+        }
+      }
+    }
+    my $cmd = "convert \"$cover\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$pubTitlePart' \"$destination\"";
+    &shell($cmd, 2);
+  }
+  else {copy($cover, $destination);}
+  &Log("NOTE: Found a source cover image at: '$cover'\n");
+  
+  my $coverName = $cover; $coverName =~ s/^.*\///;
+  return $coverName;
+}
+
+# Look for a cover image in $dir matching $mod and $scope and return it 
+# if found. The image file name may or may not be prepended with $mod_, 
+# and may use either space or underscore as scope delimiter. If a match 
+# is not found, but a cover exists which encompasses it, then that image
+# is selected and $titleTypeP is set to 'Part'.
+sub findCoverInDir($$$$\$) {
   my $dir = shift;
+  my $mod = shift;
   my $scope = shift;
   my $vsys = shift;
   my $titleTypeP = shift;
@@ -304,24 +337,24 @@ sub findCover($$\$) {
     &getCanon($vsys, NULL, \$bookOrderP, NULL);
     foreach my $f (@fs) {
       my $fscope = $f;
-      my $m = $MOD.'_';
+      my $m = $mod.'_';
       if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
       $fscope =~ s/_/ /g;
       if ($scope eq $fscope) {
         $$titleTypeP = "Full"; 
-        return $f;
+        return "$dir/$f";
       }
       # if scopes are not a perfect match, then the scope of the eBook is assumed to be a single book!
       for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {
         if ($scope eq $s) {
           $$titleTypeP = "Part";
-          return $f;
+          return "$dir/$f";
         }
       }
     }
   }
   
-  return NULL;
+  return '';
 }
 
 sub makeHTML($$$) {

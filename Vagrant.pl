@@ -30,11 +30,14 @@ config.vm.provider \"virtualbox\" do |vb|
 end\n";
   close(VAGC);
 }
-if (-e "$SCRD/paths.pl") {require "$SCRD/paths.pl";}
+
+require "$SCRD/scripts/common_vagrant.pl";
+&readPaths();
 
 push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
-if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
-if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
+# The following shares are no longer needed since INDIR_ROOT is used to reach all paths instead
+#if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
+#if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
 
 $Status = (-e "./.vagrant" ? &shell("vagrant status", 1):'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
@@ -90,13 +93,3 @@ sub matchingShares(\@) {
   return (keys(%shares) == 0 ? 1:0);
 }
 
-sub shell($$) {
-  my $cmd = shift;
-  my $quiet = shift;
-  
-  if (!$quiet) {print "$cmd\n";}
-  my $result = decode('utf8', `$cmd 2>&1`);
-  if (!$quiet) {print "$result\n";}
-  
-  return $result;
-}
