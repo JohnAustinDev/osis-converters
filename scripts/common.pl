@@ -170,7 +170,7 @@ sub checkFont($) {
   # FONTS can be a URL in which case download or update the local font cache
   if ($FONTS =~ /^https?\:/) {
     if (!-e "$HOME_DIR/.osis-converters/fonts") {mkdir("$HOME_DIR/.osis-converters/fonts");}
-    shell("cd '$HOME_DIR/.osis-converters/fonts' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'");
+    shell("cd '$HOME_DIR/.osis-converters/fonts' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'", 3);
     $FONTS = "$HOME_DIR/.osis-converters/fonts";
   }
   elsif ($FONTS && &runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
@@ -4408,7 +4408,7 @@ sub validateOSIS($) {
   $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile($XMLLINT."xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
   my $res = `$cmd`;
-  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed)\.";
+  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
   my $fix = $res; $fix =~ s/$allow/$1e-r-r-o-r$2/g;
   &Log("$fix\n");
   

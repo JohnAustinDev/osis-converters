@@ -105,7 +105,7 @@ sub getDefaultFile($$) {
       &Log("NOTE getDefaultFile: (2) Found $file at $f\n");
     }
     elsif (&shell("crc32 '$projParent/defaults/$file'", 3) eq &shell("crc32 '$f'", 3)) {
-      &Log("WARNING: Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file\n");
+      &Log("NOTE: (2) Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file\n");
     }
   }
   if ((!$priority || $priority == 3) && -e "$SCRD/defaults/$file") {
@@ -114,7 +114,7 @@ sub getDefaultFile($$) {
       &Log("NOTE getDefaultFile: (3) Found $file at $f\n");
     }
     elsif (&shell("crc32 '$SCRD/defaults/$file'", 3) eq &shell("crc32 '$f'", 3)) {
-      &Log("WARNING: Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file\n");
+      &Log("NOTE: (3) Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file\n");
     }
   }
   return $f;
