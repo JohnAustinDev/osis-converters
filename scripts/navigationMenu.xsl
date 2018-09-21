@@ -161,6 +161,7 @@
             <xsl:if test="$introScope and //div[@type='glossary'][@scope=$introScope]">
               <xsl:message>NOTE: Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:message>
               <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
+              <xsl:text>&#xa;</xsl:text>
               <div type="x-keyword-navmenu">
                 <seg type="keyword" osisID="{oc:encodeOsisRef($uiIntroduction)}"><xsl:value-of select="$uiIntroduction"/></seg>
                 <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'introduction'"/></xsl:call-template>
@@ -179,6 +180,7 @@
              <!-- Create a uiDictionary main entry, and its sub-entries -->
             <xsl:message>NOTE: Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:message>
             <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][1], 1, 1)), '-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][last()], 1, 1)))"/>
+            <xsl:text>&#xa;</xsl:text>
             <div type="x-keyword-navmenu">
               <p>
                 <seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
@@ -200,6 +202,7 @@
               </xsl:for-each>
             </div>
             
+            <xsl:text>&#xa;</xsl:text>
             <div type="x-keyword-navmenu">
               <p>
                 <seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}">
@@ -232,9 +235,12 @@
               </xsl:for-each>
             </xsl:variable>
             <xsl:for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
+              <xsl:text>&#xa;</xsl:text>
               <div type="x-keyword-navmenu"><xsl:sequence select="current-group()"/></div>
             </xsl:for-each-group>
+            <xsl:text>&#xa;</xsl:text>
           </div>
+          <xsl:text>&#xa;</xsl:text>
         </xsl:copy>
       </xsl:when>
     </xsl:choose>
