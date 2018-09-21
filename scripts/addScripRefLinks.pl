@@ -379,7 +379,8 @@ sub asrlProcessFile($$) {
   my %nodeInfo;
   foreach my $textNode (@allTextNodes) {
     if ($textNode =~ /^\s*$/) {next;}
-    if ($XPC->findnodes('ancestor::*[starts-with(@type, "x-chapterLabel")]', $textNode)) {next;}
+    # Years ago the following line was necessary, but probably is not any longer. Not parsing refs in chapterLabels causes other failures, however.
+    #if ($XPC->findnodes('ancestor::*[starts-with(@type, "x-chapterLabel")]', $textNode)) {next;}
     if ($XPC->findnodes('ancestor::osis:header', $textNode)) {next;}
     if ($only_xpath) {
       my @only = $XPC->findnodes($only_xpath, $textNode);
