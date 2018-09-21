@@ -39,9 +39,9 @@ push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
 #if ($OUTDIR) {push(@Shares, &vagrantShare($OUTDIR, "OUTDIR"));}
 #if ($MODULETOOLS_BIN) {push(@Shares, &vagrantShare($MODULETOOLS_BIN, ".osis-converters/src/Module-tools/bin"));}
 
-$Status = (-e "./.vagrant" ? &shell("vagrant status", 1):'');
+$Status = (-e "./.vagrant" ? &shell("vagrant status", 3):'');
 if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
-elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt"); &vagrantUp(\@Shares);}
+elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt", 3); &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
 $cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel $VAGRANT_HOME/INDIR_ROOT$ProjectDir\"";
@@ -64,7 +64,7 @@ sub vagrantShare($$) {
 sub vagrantUp(\@) {
   my $sharesP = shift;
   
-  if (!-e "./.vagrant") {&shell("mkdir ./.vagrant");}
+  if (!-e "./.vagrant") {&shell("mkdir ./.vagrant", 3);}
   
   # Create input/output filesystem shares
   open(VAG, ">./Vagrantshares") || die "\nERROR: Cannot open \"./Vagrantshares\"\n";
