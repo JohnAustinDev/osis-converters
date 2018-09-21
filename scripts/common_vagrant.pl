@@ -32,7 +32,7 @@ sub init_vagrant() {
   
   # Return and continue this host process for a 40% speedup, if all dependencies for this script are installed
   if ($VAGRANT==0) {
-    if (&haveDependencies($SCRIPT, $SCRD, $INPD, 1)) {
+    if (&haveDependencies($SCRIPT, $SCRD, $INPD)) {
       print "
   NOTE: You are running osis-converters without vagrant because \$VAGRANT=0 
         and proper dependencies have been installed on the host for running:
@@ -79,11 +79,24 @@ sub startVagrant($$$) {
   exit;
 }
 
+# Read the osis-converters/paths.pl file which contains customized paths
+# to things like fonts and executables (it also contains some settings
+# like $DEBUG and $VAGRANT).
 sub readPaths() {
   # The following host paths in paths.pl are converted to absolute paths
   # which are then updated to work on the VM if running in Vagrant.
-  my @pathvars = ('OUTDIR', 'MODULETOOLS_BIN', 'FONTS', 'COVERS');
-
+  my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS');
+  
+  # The following are installed to these locations by VagrantProvision.sh
+  my %exedirs = (
+    'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
+    'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
+    'SWORD_BIN' => ""
+  );
+  
+  # Set default values in case paths.pl doesn't exist or doesn't specify these required paths
+  foreach my $v (keys %exedirs) {$$v = $exedirs{$v};}
+  
   if (!-e "$SCRD/paths.pl") {return;}
   require "$SCRD/paths.pl";
   
@@ -103,6 +116,12 @@ sub readPaths() {
   }
   
   require("$SCRD/.hostinfo");
+  
+  # All executable directory paths should end in / or else be empty.
+  foreach my $v (keys %exedirs) {
+    if (!$$v) {next;}
+    $$v =~ s/([^\/])$/$1\//;
+  }
 
   if (!&runningVagrant() || !open(CSH, "<$SCRD/Vagrantshares")) {return;}
   
@@ -122,10 +141,12 @@ sub readPaths() {
   }
 }
 
-# Look for a default file or directory in the following places, in 
-# order. Return '' if file is not found. The file can also include path 
-# segments. If priority is specified, only the location with that
-# priority will be checked.
+# Look for an osis-converters default file or directory in the following 
+# places, in order. Return '' if file is not found. The file must include 
+# a path that (presently) begins with either 'bible/' for Bible module 
+# files or 'dict/' for dictionary module files. If priority is specified, 
+# only the location with that priority will be checked (1 is highest and
+# 3 is lowest priority).
 # priority-1) Project directory (if bible|dict subdir matches the project type)
 # priority-2) Project-parent/defaults directory
 # priority-3) osis-converters/defaults directory
@@ -198,21 +219,9 @@ sub haveDependencies($$$$) {
   my %depsh = map { $_ => 1 } @deps;
   if ($depsh{'XSLT2'}) {push(@deps, 'JAVA');}
   
-  # All paths must end in / or else be empty. 
-  # Paths which are empty must refer to executables in the shell's path
-  foreach my $p (@deps) {
-    if ($p eq 'GO_BIBLE_CREATOR' && !$$p) {$$p = expand("~/.osis-converters/GoBibleCreator.245");} # Default location
-    if ($p eq 'MODULETOOLS_BIN' && !$$p) {$$p = expand("~/.osis-converters/src/Module-tools/bin");} # Default location
-    if ($$p) {
-      if ($p =~ /^\./) {$$p = File::Spec->rel2abs($$p, $SCRD);}
-      $$p =~ s/[\\\/]+\s*$//;
-      $$p .= "/";
-    }
-  }
-  
   my %test;
   $test{'SWORD_BIN'}        = [ &escfile($SWORD_BIN."osis2mod"), "You are running osis2mod: \$Rev: 3322 \$" ]; # want specific version
-  $test{'XMLLINT'}          = [ &escfile($XMLLINT."xmllint")." --version", "xmllint: using libxml" ]; # who cares what version
+  $test{'XMLLINT'}          = [ "xmllint --version", "xmllint: using libxml" ]; # who cares what version
   $test{'GO_BIBLE_CREATOR'} = [ "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage" ];
   $test{'MODULETOOLS_BIN'}  = [ &escfile($MODULETOOLS_BIN."usfm2osis.py"), "Revision: 491" ]; # check version
   $test{'XSLT2'}            = [ 'saxonb-xslt', "Saxon 9" ]; # check major version
