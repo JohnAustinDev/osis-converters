@@ -87,58 +87,65 @@ sub readPaths() {
   # which are then updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS');
   
-  # The following are installed to these locations by VagrantProvision.sh
+  # If we have paths.pl, read it, but always with its paths as 
+  # interpereted on the host (the purpose of hostinfo). This is 
+  # necessary because to create VM paths we must always start with a
+  # host path.
+  if (-e "$SCRD/paths.pl") {
+    require "$SCRD/paths.pl";
+    
+    if (!&runningVagrant()) {
+      if (open(SHL, ">$SCRD/.hostinfo")) {
+        print SHL "\$HOSTHOME = \"".&expand('$HOME')."\";\n";
+        foreach my $v (@pathvars) {
+          if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
+          $$v = &expand($$v);
+          $$v = File::Spec->rel2abs($$v, $SCRD);
+          print SHL "\$$v = \"$$v\";\n";
+        }
+        print SHL "1;\n";
+        close(SHL);
+      }
+      else {die "ERROR: Could not open $SCRD/.hostinfo\n";}
+    }
+    
+    require("$SCRD/.hostinfo");
+  }
+
+  # Now if we're running in Vagrant, we convert the host paths to VM paths
+  if (&runningVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
+    while(<CSH>) {
+      if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
+        $SHARE_HOST = $1;
+        $SHARE_VIRT = $2;
+      }
+    }
+    close(CSH);
+    if ($SHARE_HOST && $SHARE_VIRT) {
+      foreach my $v (@pathvars) {
+        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
+        $$v = File::Spec->abs2rel($$v, $SHARE_HOST);
+        $$v = File::Spec->rel2abs($$v, $SHARE_VIRT);
+      }
+    }
+  }
+  
+  # The following are installed to certain locations by VagrantProvision.sh
   my %exedirs = (
     'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
     'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
     'SWORD_BIN' => ""
   );
   
-  # Set default values in case paths.pl doesn't exist or doesn't specify these required paths
-  foreach my $v (keys %exedirs) {$$v = $exedirs{$v};}
-  
-  if (!-e "$SCRD/paths.pl") {return;}
-  require "$SCRD/paths.pl";
-  
-  if (!&runningVagrant()) {
-    if (open(SHL, ">$SCRD/.hostinfo")) {
-      print SHL "\$HOSTHOME = \"".&expand('$HOME')."\";\n";
-      foreach my $v (@pathvars) {
-        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
-        $$v = &expand($$v);
-        $$v = File::Spec->rel2abs($$v, $SCRD);
-        print SHL "\$$v = \"$$v\";\n";
-      }
-      print SHL "1;\n";
-      close(SHL);
-    }
-    else {die "ERROR: Could not open $SCRD/.hostinfo\n";}
-  }
-  
-  require("$SCRD/.hostinfo");
+  # Finally set default values when paths.pl doesn't exist or doesn't specify exedirs
+  foreach my $v (keys %exedirs) {$$v = &expand($exedirs{$v});}
   
   # All executable directory paths should end in / or else be empty.
   foreach my $v (keys %exedirs) {
     if (!$$v) {next;}
     $$v =~ s/([^\/])$/$1\//;
   }
-
-  if (!&runningVagrant() || !open(CSH, "<$SCRD/Vagrantshares")) {return;}
-  
-  while(<CSH>) {
-    if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
-      $SHARE_HOST = $1;
-      $SHARE_VIRT = $2;
-    }
-  }
-  close(CSH);
-  if ($SHARE_HOST && $SHARE_VIRT) {
-    foreach my $v (@pathvars) {
-      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
-      $$v = File::Spec->abs2rel($$v, $SHARE_HOST);
-      $$v = File::Spec->rel2abs($$v, $SHARE_VIRT);
-    }
-  }
+  if ($DEBUG) {&Log("DEBUG: ".(&runningVagrant() ? "On virtual machine":"On host")."\n", 1); foreach my $v (@pathvars) {&Log("\t$v = $$v\n", 1);} &Log("\n", 1);}
 }
 
 # Look for an osis-converters default file or directory in the following 
