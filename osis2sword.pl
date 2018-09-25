@@ -36,6 +36,7 @@ require "$SCRD/scripts/dict/processGlossary.pl";
 &links2sword(\$INOSIS);
 
 if ($MODDRV =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
+elsif ($MODDRV =~ /Text/) {&runScript("$SCRD/scripts/bible/osis2fixedVerseSystem.xsl", \$INOSIS);}
 
 my $typePreProcess = ($MODDRV =~ /Text/ ? 'osis2sword.xsl':($MODDRV =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
@@ -66,7 +67,7 @@ if ($VERSESYS && $VERSESYS ne "KJV") {
 }
 
 if ($MODDRV =~ /Text/) {
-	$ConfEntryP->{'Category'} = 'Biblical Texts';
+  $ConfEntryP->{'Category'} = 'Biblical Texts';
   
   if ($MODDRV =~ /zText/) {
     $ConfEntryP->{'CompressType'} = 'ZIP';
