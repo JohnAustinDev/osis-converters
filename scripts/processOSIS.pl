@@ -16,13 +16,28 @@ my $projectGlossary;
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
+  if (-e "$INPD/$DICTIONARY_WORDS") {
+    my $dictosis = ($projectGlossary ? &getProjectOsisFile($projectGlossary):'');
+    if ($dictosis) {
+      &Log("WARNING: $DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.\n");
+      &loadDictionaryWordsXML($dictosis);
+    }
+    else {
+      &loadDictionaryWordsXML();
+      &Log("WARNING: $DICTIONARY_WORDS is present but there is no companion dictionary OSIS file to validate against.\n");
+    }
+  }
 }
 elsif ($MODDRV =~ /LD/) {
   &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
   &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
-  &loadDictionaryWordsXML(1);
-  &compareToDictionaryWordsXML($OSIS);
+  if (! -e "$INPD/$DICTIONARY_WORDS" && -e $DEFAULT_DICTIONARY_WORDS) {
+    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
+  }
+  if (&loadDictionaryWordsXML($OSIS) && $projectBible && -e "$INPD/../../$projectBible" && ! -e "$INPD/../../$projectBible/$DICTIONARY_WORDS") {
+    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/../../$projectBible/$DICTIONARY_WORDS");
+  }
 }
 else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 
@@ -41,8 +56,8 @@ if ($addScripRefLinks ne '0' && $asrl) {
   }
 }
 
-if ($MODDRV =~ /Text/ && $addDictLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
-  if (!$DWF) {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
+if ($MODDRV =~ /Text/ && $addDictLinks ne '0') {
+  if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
   require("$SCRD/scripts/bible/addDictLinks.pl");
   &addDictLinks(\$OSIS);
 }

@@ -140,12 +140,6 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   }
   
   $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
-  if (-e "$INPD/$DICTIONARY_WORDS") {
-    &loadDictionaryWordsXML();
-    if (&validateDictionaryXML($DWF) && !$quiet) {
-      &Log("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");
-    }
-  }
   
   if ($ConfEntryP->{'Font'}) {&checkFont($ConfEntryP->{'Font'});}
   
@@ -224,48 +218,233 @@ sub getOUTDIR($) {
   return $outdir;
 }
 
-# returns true on success
+# Parse the module's DICTIONARY_WORDS to DWF. Check for outdated 
+# DICTIONARY_WORDS markup and update it. Validate DICTIONARY_WORDS 
+# entries against a dictionary OSIS file's keywords. Validate 
+# DICTIONARY_WORDS xml markup. Return 1 on successful parsing and 
+# checking without error, 0 otherwise. 
 sub loadDictionaryWordsXML($) {
-  my $companionsAlso = shift;
+  my $dictosis = shift;
+  my $noupdateMarkup = shift;
+  my $noupdateEntries = shift;
   
-  if (-e $DEFAULT_DICTIONARY_WORDS && ! -e "$INPD/$DICTIONARY_WORDS") {
-    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
-  }
   if (! -e "$INPD/$DICTIONARY_WORDS") {return 0;}
   $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
   
-  # check for old DWF markup and update
+  # Check for old DICTIONARY_WORDS markup and update or report
+  my $errors = 0;
+  my $update = 0;
   my $tst = @{$XPC->findnodes('//dw:div', $DWF)}[0];
   if (!$tst) {
     &Log("ERROR: Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default!\nAdd 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    $errors++;
     my @ns = $XPC->findnodes('//*', $DWF);
-    foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1);}
+    foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1); $update++;}
   }
   my $tst = @{$XPC->findnodes('//*[@highlight]', $DWF)}[0];
   if ($tst) {
     &Log("ERROR: Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"\nRemove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.\n\n");
+    $errors++;
   }
   my $tst = @{$XPC->findnodes('//*[@notXPATH]', $DWF)}[0];
   if (!$tst) {
     &Log("ERROR: Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting!\nAdd 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    $errors++;
     @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
+    $update++; 
   }
   my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
-  if ($tst) {&Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");}
-
-
-  if (!my $companionsAlso) {return 1;}
-  
-  # if companion has no dictionary words file, then create it too
-  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
-    if (!-e "$INPD/../../$companion") {
-      &Log("WARNING: Companion project \"$companion\" of \"$MOD\" could not be located to copy $DICTIONARY_WORDS.\n");
-      next;
-    }
-    if (!-e "$INPD/../../$companion/$DICTIONARY_WORDS") {copy ($DEFAULT_DICTIONARY_WORDS, "$INPD/../../$companion/$DICTIONARY_WORDS");}
+  if ($tst) {
+    $errors++;
+    &Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");
   }
   
-  return 1;
+  # Save any updates back to source dictionary_words_xml and reload
+  if ($update) {
+    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&Log("ERROR: Could not open $dictionary_words_xml.tmp\n"); die;}
+    print OUTF $DWF->toString();
+    close(OUTF);
+    unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
+    &Log("NOTE: Updated $update instance of non-conforming markup in $dictionary_words_xml\n");
+    if (!$noupdateMarkup) {
+      $noupdateMarkup++;
+      return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
+    }
+    else {
+      $errors++;
+      &Log("ERROR: loadDictionaryWordsXML failed to update markup!\n");
+    }
+  }
+  
+  # Compare dictosis to DICTIONARY_WORDS
+  if ($dictosis && &compareDictOsis2DWF($dictosis, "$INPD/$DICTIONARY_WORDS")) {
+    if (!$noupdateEntries) {
+      # If updates were made, reload DWF etc.
+      $noupdateEntries++;
+      return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
+    }
+    else {
+      $errors++;
+      &Log("ERROR: compareDictOsis2DWF failed to update entry osisRef capitalization!\n");
+    }
+  }
+  
+  # Warn if some entries should have multiple match elements
+  my @r = $XPC->findnodes('//dw:entry/dw:name[translate(text(), "_,;[(", "_____") != text()][count(following-sibling::dw:match) = 1]', $DWF);
+  if (!@r[0]) {@r = ();}
+  &Log("\n$MOD REPORT: Compound glossary entry names with a single match element: (".scalar(@r)." instances)\n");
+  if (@r) {
+    &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n");
+    foreach my $r (@r) {&Log($r->textContent."\n");}
+  }
+  
+  my $valid = 0;
+  if ($errors == 0) {$valid = &validateDictionaryXML($DWF);}
+  if ($valid) {&Log("\nNOTE: $INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");}
+  
+  return ($valid && $errors == 0 ? 1:0);
+}
+
+
+# Check that all keywords in dictosis are included as entries in the 
+# dictionary_words_xml file and all entries in dictionary_words_xml have 
+# keywords in dictosis. If the difference is only in capitalization, and 
+# all the OSIS file's keywords are unique according to a case-sensitive 
+# comparison, (which occurs when converting from DictionaryWords.txt to 
+# DictionaryWords.xml) then fix them, update dictionary_words_xml, and 
+# return 1. Otherwise return 0.
+sub compareDictOsis2DWF($$) {
+  my $dictosis = shift; # dictionary osis file to validate entries against
+  my $dictionary_words_xml = shift; # DICTIONARY_WORDS xml file to validate
+  
+  &Log("\n--- CHECKING ENTRIES IN: $dictosis FOR INCLUSION IN: $dictionary_words_xml\n", 1);
+  
+  my $osis = $XML_PARSER->parse_file($dictosis);
+  my $osismod = &getOsisRefWork($osis);
+  my $dwf = $XML_PARSER->parse_file($dictionary_words_xml);
+  
+  # Decide if keyword any capitalization update is possible or not
+  my $allowUpdate = 1; my %noCaseKeys;
+  foreach my $es ($XPC->findnodes('//osis:seg[@type="keyword"]/text()', $osis)) {
+    if ($noCaseKeys{lc($es)}) {
+      &Log("NOTE: Will not update case-only discrepancies in $dictionary_words_xml.\n");
+      $allowUpdate = 0;
+      last;
+    }
+    $noCaseKeys{lc($es)}++;
+  }
+
+  my $update = 0;
+  my $allmatch = 1;
+  my @dwfOsisRefs = $XPC->findnodes('//dw:entry/@osisRef', $dwf);
+  my @dictOsisIDs = $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]/@osisID', $osis);
+  
+  # Check that all dictosis keywords are included as entries in dictionary_words_xml
+  foreach my $osisIDa (@dictOsisIDs) {
+    if (!$osisIDa) {next;}
+    my $osisID = $osisIDa->value;
+    my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
+    
+    my $match = 0;
+    foreach my $dwfOsisRef (@dwfOsisRefs) {
+      if (!$dwfOsisRef) {next;}
+      my $osisRef = $dwfOsisRef->value;
+      my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
+    
+      my $name = @{$XPC->findnodes('parent::dw:entry/dw:name[1]', $dwfOsisRef)}[0];
+      
+      if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
+
+      # Update entry osisRefs that need to be, and can be, updated
+      elsif ($allowUpdate && &uc2($osisIDa->parentNode->textContent) eq &uc2($name->textContent)) {
+        $match = 1;
+        $update++;
+        $dwfOsisRef->setValue(entry2osisRef($osisID_mod, $osisID));
+        foreach my $c ($name->childNodes()) {$c->unbindNode();}
+        $name->appendText($osisIDa->parentNode->textContent);
+        last;
+      }
+    }
+    if (!$match) {&Log("ERROR: Missing entry \"$osisID\" in $dictionary_words_xml\n"); $allmatch = 0;}
+  }
+  
+  # Check that all dictionary_words_xml entries are included as keywords in dictosis
+  foreach my $dwfOsisRef (@dwfOsisRefs) {
+    if (!$dwfOsisRef) {next;}
+    my $osisRef = $dwfOsisRef->value;
+    my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
+    
+    my $match = 0;
+    foreach my $osisIDa (@dictOsisIDs) {
+      if (!$osisIDa) {next;}
+      my $osisID = $osisIDa->value;
+      my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
+      if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
+    }
+    if (!$match) {&Log("ERROR: Extra entry \"$osisRef\" in $dictionary_words_xml\n"); $allmatch = 0;}
+  }
+  
+  # Save any updates back to source dictionary_words_xml
+  if ($update) {
+    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&Log("ERROR: Could not open $dictionary_words_xml.tmp\n"); die;}
+    print OUTF $dwf->toString();
+    close(OUTF);
+    unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
+    &Log("NOTE: Updated $update entries in $dictionary_words_xml\n");
+  }
+  elsif ($allmatch) {&Log("All entries are included.\n");}
+  
+  return ($update ? 1:0);
+}
+
+
+# Brute force validation of dwf returns 1 on successful validation, 0 otherwise
+sub validateDictionaryXML($) {
+  my $dwf = shift;
+  
+  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);
+  foreach my $entry (@entries) {
+    my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
+    foreach my $dict (@dicts) {
+      if ($dict !~ s/^(\w+):.*$/$1/) {&Log("ERROR: osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module\n");}
+    }
+  }
+  
+  my $success = 1;
+  my $x = "//*";
+  my @allowed = ('dictionaryWords', 'div', 'entry', 'name', 'match');
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
+  my @badElem = $XPC->findnodes($x, $dwf);
+  if (@badElem) {
+    foreach my $ba (@badElem) {
+      &Log("\nERROR: Bad DictionaryWords.xml element: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
+  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink', 'notExplicit', 'onlyExplicit');
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
+  my @badAttribs = $XPC->findnodes($x, $dwf);
+  if (@badAttribs) {
+    foreach my $ba (@badAttribs) {
+      &Log("\nERROR: Bad DictionaryWords.xml attribute: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  $x = "//dw:entry/@*";
+  push(@allowed, ('osisRef', 'noOutboundLinks'));
+  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
+  my @badAttribs = $XPC->findnodes($x, $dwf);
+  if (@badAttribs) {
+    foreach my $ba (@badAttribs) {
+      &Log("\nERROR: Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"\n\n");
+      $success = 0;
+    }
+  }
+  
+  return $success;
 }
 
 
@@ -323,55 +502,6 @@ sub initInputOutputFiles($$$$) {
     &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;");
     &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;");
   }
-}
-
-
-sub validateDictionaryXML($) {
-  my $dwf = shift;
-  
-  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);
-  foreach my $entry (@entries) {
-    my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
-    foreach my $dict (@dicts) {
-      if ($dict !~ s/^(\w+):.*$/$1/) {&Log("ERROR: osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module\n");}
-    }
-  }
-  
-  my $success = 1;
-  my $x = "//*";
-  my @allowed = ('dictionaryWords', 'div', 'entry', 'name', 'match');
-  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
-  my @badElem = $XPC->findnodes($x, $dwf);
-  if (@badElem) {
-    foreach my $ba (@badElem) {
-      &Log("\nERROR: Bad DictionaryWords.xml element: \"".$ba->localname()."\"\n\n");
-      $success = 0;
-    }
-  }
-  
-  $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
-  @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink', 'notExplicit', 'onlyExplicit');
-  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
-  my @badAttribs = $XPC->findnodes($x, $dwf);
-  if (@badAttribs) {
-    foreach my $ba (@badAttribs) {
-      &Log("\nERROR: Bad DictionaryWords.xml attribute: \"".$ba->localname()."\"\n\n");
-      $success = 0;
-    }
-  }
-  
-  $x = "//dw:entry/@*";
-  push(@allowed, ('osisRef', 'noOutboundLinks'));
-  foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
-  my @badAttribs = $XPC->findnodes($x, $dwf);
-  if (@badAttribs) {
-    foreach my $ba (@badAttribs) {
-      &Log("\nERROR: Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"\n\n");
-      $success = 0;
-    }
-  }
-  
-  return $success;
 }
 
 
