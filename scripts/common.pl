@@ -365,7 +365,7 @@ sub compareDictOsis2DWF($$) {
         last;
       }
     }
-    if (!$match) {&Log("ERROR: Missing entry \"$osisID\" in $dictionary_words_xml\n"); $allmatch = 0;}
+    if (!$match) {&Log("WARNING: Missing entry \"$osisID\" in $dictionary_words_xml\n"); $allmatch = 0;}
   }
   
   # Check that all dictionary_words_xml entries are included as keywords in dictosis
