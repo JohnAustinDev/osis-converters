@@ -244,7 +244,7 @@
     </choose>
   </template>
   
-  <template match="div[@type='glossary'][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]" priority="2">
+  <template match="div[@type='glossary'][@root-name='comb' or ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]" priority="2">
     <param name="currentTask" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
     <!-- Put each keyword in a separate file to ensure that links and article tags all work properly across various eBook readers -->
