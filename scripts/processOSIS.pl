@@ -57,9 +57,13 @@ if ($addScripRefLinks ne '0' && $asrl) {
 }
 
 if ($MODDRV =~ /Text/ && $addDictLinks ne '0') {
-  if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {&Log("ERROR: $DICTIONARY_WORDS is required to run addDictLinks.pl. Copy it from companion dictionary project.\n"); die;}
-  require("$SCRD/scripts/bible/addDictLinks.pl");
-  &addDictLinks(\$OSIS);
+  if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
+    &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$projectGlossary\", then copy  $projectGlossary/$DICTIONARY_WORDS to $INPD.");
+  }
+  else {
+    require("$SCRD/scripts/bible/addDictLinks.pl");
+    &addDictLinks(\$OSIS);
+  }
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
   require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");

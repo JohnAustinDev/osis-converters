@@ -138,6 +138,12 @@ sub addScripRefLinks($$$) {
     }
   }
   else {$osis = $in_file;}
+  
+  my $fixReplacementMsg = "
+       The FIX replacement (after the equal sign) must either be nothing to
+       unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
+       fix. The replacement must be enclosed by double quotes, and any double
+       quotes in the replacement must be escaped with '\'.";
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
@@ -199,7 +205,7 @@ sub addScripRefLinks($$$) {
       elsif ($_ =~ /^CONTEXT_BOOK:\s*(\S+)\s+(if\-result)\s+(.*?)\s*$/) {
         my $cbk = $1; my $op = $2; my $xp = $3;
         if ($op ne 'if-result' || "$OT_BOOKS $NT_BOOKS" !~ /\b$cbk\b/) {
-          &Log("ERROR: Illegal CONTEXT_BOOK command.\n");
+          &Error("CONTEXT_BOOK \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", "Change it to an abbreviation from this list: $OT_BOOKS $NT_BOOKS");
         }
         else {$xpathIfResultContextBook{$xp} = $cbk;}
         next;
@@ -225,12 +231,7 @@ sub addScripRefLinks($$$) {
         my $replacement;
         if ($_ =~ /^\Q$com\E\s*(?<!\\)"(.*<\/r>.*)(?<!\\)"\s*$/) {$replacement = $1;}
         elsif ($_ !~ /^\Q$com\E\s*$/) {
-          &Log("
-ERROR: FIX replacement (after equal sign) must either be nothing to unlink, 
-       or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to fix. 
-       The replacement must be enclosed by double quotes, and any double
-       quotes in the replacement must be escape with '\'."
-          );
+          &Error("Bad FIX command in CF_addScripRefLinks.pl: $_", $fixReplacementMsg);
         }
         $printReference =~ s/\\"/"/g; $replacement =~ s/\\"/"/g; # unescape any escaped double quotes
         $fix{$location}{$printReference} = ($replacement ? $replacement:'skip');
@@ -242,7 +243,7 @@ ERROR: FIX replacement (after equal sign) must either be nothing to unlink,
         push(@abkn, $elb);
       }
       else {
-        &Log("ERROR: \"$_\" in command file was not handled.\n");
+        &Error("CF_addScripRefLinks.txt line \"$_\" was not handled.", "Check the syntax of this line and remove, change, or comment it out with '#'.");
       }
     }
     close (CF);
@@ -260,7 +261,7 @@ ERROR: FIX replacement (after equal sign) must either be nothing to unlink,
     }
 
   }
-  else {&Log("ERROR: Command file required: $commandFile\n"); die;}
+  else {&ErrorBug("The CF_addScripRefLinks.txt command file is required to run addScripRefLinks.pl and a default file could not be found.", "", 1); return;}
 
   &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
@@ -407,7 +408,7 @@ sub asrlProcessFile($$) {
     if ($refSystem =~ /^Bible/) {
       my $bcontext = &bibleContext($textNode);
       if ($bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
-        &Log("ERROR processXML: Unrecognized textNode Bible context \"$bcontext\"\n");
+        &ErrorBug("Unrecognized Bible context \"$bcontext\" in textNode \"$textNode\"");
         next;
       }
       $BK = $1;
@@ -484,10 +485,10 @@ sub asrlProcessFile($$) {
       $ref->parentNode()->insertBefore($child, $ref);
       if ($child->nodeName ne 'newReference') {next;}
       foreach $a (@attribs) {
-        if ($a !~ /^\s*(.*?)="(.*)"$/) {&Log("ERROR: Bad attribute $a\n");}
+        if ($a !~ /^\s*(.*?)="(.*)"$/) {&ErrorBug("Bad attribute because $a !~ /^\s*(.*?)=\"(.*)\"\$/");}
         my $n = $1; my $v = $2;
         if ($child->hasAttribute($n) && $v ne $child->getAttribute($n)) {
-          &Log("ERROR: reference $n=\"".$v."\" is overwriting newReference $n=\"".$child->getAttribute($n)."\"\n");
+          &ErrorBug("Reference $n=\"".$v."\" is overwriting newReference $n=\"".$child->getAttribute($n)."\"");
         }
         $child->setAttribute($n, $v);
       }
@@ -550,7 +551,11 @@ sub addLinks(\$$$) {
       my $mtENC = quotemeta($matchedTerm);
 
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
-        &Log("$LOCATION ERROR: Left-most term \"$matchedTerm\" Type \"$type\" could not find in \"$$ttP\".\n");
+        &Error("$LOCATION: Left-most term \"$matchedTerm\" Type \"$type\" could not be found  in \"$$ttP\".", "
+        The detected sub-reference could not be located in the text above.
+        This usually happens because REF_END_TERMS could not be found in 
+        the text after the sub-reference. Examine REF_END_TERMS and try 
+        adding a term to match the end of the entire reference above.");
         $numMissedLeftRefs++;
         $missedLeftRefs{$matchedTerm} .= $LOCATION.", ";
         &hideTerm($matchedTerm, $ttP, 1);
@@ -635,7 +640,7 @@ sub addLinks(\$$$) {
       }
       
       my $repExtrefENC = &encodeTerm($repExtref);
-      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&Log("$LOCATION ERROR: Could not replace \"$pextref\".\n");}
+      if ($$ttP !~ s/\Q$extref/$repExtrefENC/) {&ErrorBug("$LOCATION: Could not find \"$pextref\" in \"$$ttP\".");}
 
       if ($shouldCheck) {
         my $prf = $repExtref;
@@ -687,7 +692,7 @@ sub fixLink($$\%\%) {
   
   my $fixed = $fixP->{$location}{$reference};
   if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
-    &Log("ERROR: Bad FIX replacement $location $reference: \"$fixed\"\n");
+    &ErrorBug("Bad FIX replacement $location $reference: \"$fixed\"");
     return '';
   }
   
@@ -708,7 +713,9 @@ sub reportFixes(%%$) {
       if ($type eq 'skip' && $fixP->{$loc}{$ref} ne 'skip') {next;}
       if ($type ne 'skip' && $fixP->{$loc}{$ref} eq 'skip') {next;}
       if (!defined($fixDoneP->{$loc}{$ref})) {
-        &Log("ERROR: Fix \"$loc\" \"$ref\" was not applied.\n");
+        &Error("Fix \"$loc\" \"$ref\" was not applied.", "
+        This FIX was not found in the text. The FIX line should be an exact 
+        copy of a line in OUT_sfm2osis.txt beginning with \"Linking\"$fixReplacementMsg");
         $f++;
       }
       else {$t += $fixDoneP->{$loc}{$ref};}
@@ -736,13 +743,13 @@ sub hideTerm($\$$) {
   }
   if (!$re2) {$re2 = &encodeTerm($mt);}
 
-  if ($$tP !~ s/$re1/$re2/) {&Log("$LOCATION ERROR: Could not hide term \"$mt\" in \"$$tP\".\n");}
+  if ($$tP !~ s/$re1/$re2/) {&ErrorBug("$LOCATION: Could not hide term \"$mt\" because $$tP !~ s/$re1/$re2/");}
 }
 
 sub encodeTerm($) {
   my $t = shift;
   if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
-    &Log("$LOCATION ERROR: String already partially encoded \"$t\".\n");
+    &ErrorBug("$LOCATION: String was already partially encoded \"$t\".");
   }
   $t =~ s/(.)/$1_/gs;
   return "{{{".$t."}}}";
@@ -759,7 +766,7 @@ sub decodeTerms(\$) {
     for (my $i=0; $i<length($et); $i++) {
       my $chr = substr($et, $i, 1);
       if (!($i%2)) {$re2 .= $chr;}
-      elsif ($chr ne "_") {&Log("$LOCATION ERROR: Incorectly encoded reference text \"$re1\".\n");}
+      elsif ($chr ne "_") {&ErrorBug("$LOCATION: Incorectly encoded reference text \"$re1\" because \"$chr\" ne \"_\"");}
     }
 
     $$tP =~ s/\Q$re1/$re2/;
@@ -1219,7 +1226,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
     elsif ($$bkP =~ /($ebookNames)/si)                            {$$bkP = $books{$1};}
     elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/si)    {$$bkP = $contextBK;}
     else {
-      &Log("ERROR: Unexpected book value \"$book\".\n");
+      &ErrorBug("Unexpected book value \"$book\".");
       $$bkP = $contextBK;
     }
   }
@@ -1271,7 +1278,7 @@ sub validOSISref($$$$) {
     $bk1 = $1;
     $ch1 = $2;
     if (!$ch1) {return 0;}
-    if (!$noWarn) {&Log("$LOCATION WARNING: Short osisRef \"$osisRef\" found in \"$linkText\"\n");}
+    if (!$noWarn) {&Warn("$LOCATION: Short osisRef \"$osisRef\" found in \"$linkText\"");}
   }
   else {return 0;}
 

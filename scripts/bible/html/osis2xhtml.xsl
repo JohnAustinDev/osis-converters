@@ -786,7 +786,17 @@
   
   <!-- Chapters -->
   <template match="chapter[@sID and @osisID]" mode="xhtml">
-    <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></h1>
+    <variable name="chapterLabel" select="following::title[@type='x-chapterLabel'][1][following::chapter[1][@eID=current()/@sID]]"/>
+    <h1 xmlns="http://www.w3.org/1999/xhtml">
+      <xsl:sequence select="me:getTocAttributes(.)"/>
+      <!-- x-chapterLabel titles may contain other elements such as footnotes which need to be output -->
+      <choose xmlns="http://www.w3.org/1999/XSL/Transform">
+        <when test="$chapterLabel">
+          <for-each select="$chapterLabel"><apply-templates mode="xhtml"/></for-each>
+        </when>
+        <otherwise><value-of select="me:getTocTitle(.)"/></otherwise>
+      </choose>
+    </h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
     <if test="ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork">
       <h1 class="xsl-nonBibleChapterLabel" xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="me:getTocTitle(.)"/></h1>

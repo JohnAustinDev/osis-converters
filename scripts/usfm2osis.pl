@@ -64,7 +64,7 @@ sub usfm2osis($$) {
       if ($2) {
         my $par = $1;
         my $val = $3;
-        if (defined($$par)) {&Log("ERROR: A particular SET command may only appear once, and it applies everywhere.\n");}
+        if (defined($$par)) {&Error("The SET_$par command may only appear once, and it applies everywhere.", "Remove all but one of the SET_$par commands from $cf");}
         else {
           $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
           &Log("INFO: Setting $par to $val\n");
@@ -83,6 +83,7 @@ sub usfm2osis($$) {
       }
       else {
         my $sf = ($rg && -e "$INPD/$rg" ? 1:0); # Is this group a single file?
+        if ($rg && !$sf) {&Warn("EVAL_REGEX($rg) label \"$rg\" does not apply to a specific file. Therefore it will be applied to all RUN commands that follow.");}
         push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx, 'singleFile' => $sf});
       }
       next;
@@ -108,7 +109,7 @@ sub usfm2osis($$) {
       push(@VSYS_INSTR, { 'inst'=>'MISSING'.$alt, 'value'=>$from, 'to'=>$to });
       push(@VSYS_INSTR, { 'inst'=>'EXTRA'.$alt, 'value'=>$to, 'from'=>$from });
     }
-    else {&Log("ERROR: Unhandled entry \"$_\" in $cf\n");}
+    else {&Error("Unhandled CF_usfm2osis.txt line \"$_\" in $cf", "Remove or fix the syntax of this line.");}
   }
   close(COMF);
   
@@ -125,7 +126,7 @@ sub usfm2osis($$) {
     &Log($cmd . "\n", 1);
     my $result = `$cmd`;
     &Log("$result\n", 1);
-    if ($result =~ /Unhandled/i) {&Log("ERROR: Unhandled in usfm2osis.py output, see above.\n");}
+    if ($result =~ /Unhandled/i) {&Error("Something was unhandled in the usfm2osis.py output.", "See the messages above. The solution may require that EVAL_REGEX instructions be added to CF_usfm2osis.txt.");}
   }
   
   # test/evaluation for u2o.py script
@@ -182,7 +183,7 @@ sub evalRegex($$) {
     
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
-    if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Log("ERROR: could not open \"$f2\"\n"); die;}
+    if (!open(SFM, "<:encoding(UTF-8)", $f2)) {&Error("Could not open SFM file \"$f2\"", "This file was incorrectly specified in a RUN line of CF_usfm2osis.txt. Change or remove it.", 1);}
     my $s = join('', <SFM>); 
     foreach my $r (@EVAL_REGEX) {
       if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}

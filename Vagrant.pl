@@ -15,7 +15,7 @@ $VAGRANT_HOME = '/home/vagrant';
 # INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
 # Vagrant cannot create a share to the root of a window's drive.
 if ($ProjectDir !~ s/^((?:\w\:|\/\w)?\/[^\/]+)//) {
-  die "\nERROR: Cannot parse project path \"$ProjectDir\"\n";
+  die "\nError: Cannot parse project path \"$ProjectDir\"\n";
 }
 $INDIR_ROOT = $1;
 
@@ -67,7 +67,7 @@ sub vagrantUp(\@) {
   if (!-e "./.vagrant") {&shell("mkdir ./.vagrant", 3);}
   
   # Create input/output filesystem shares
-  open(VAG, ">./Vagrantshares") || die "\nERROR: Cannot open \"./Vagrantshares\"\n";
+  open(VAG, ">./Vagrantshares") || die "\nError: Cannot open \"./Vagrantshares\"\n";
   foreach my $share (@$sharesP) {print VAG "$share\n";}
   close(VAG);
   print "

@@ -14,10 +14,7 @@ sub init_vagrant() {
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
   $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
-  if (!-e $INPD) {
-    print "ERROR: Project directory \"$INPD\" does not exist. Exiting...\n";
-    exit;
-  }
+  if (!-e $INPD) {&Error("Project directory \"$INPD\" does not exist.", 'Check your command line.', 1);}
   chdir($INPD);
   
   if (!-e "$SCRD/paths.pl") {
@@ -43,7 +40,11 @@ sub init_vagrant() {
   
   # Otherwise start a new process on the VM and exit this current host process
   if (&vagrantInstalled()) {startVagrant($SCRD, $SCRIPT, $INPD);}
-  else {print "ERROR: Vagrant is not installed and cannot continue on host. Exiting...\n";}
+  else {
+    &Error("Vagrant is not installed and this script cannot continue on this host.", "Install Vagrant and VirtualBox and try again:
+Vagrant (from https://www.vagrantup.com/downloads.html)
+Virtualbox (from https://www.virtualbox.org/wiki/Downloads)", 1);
+  }
   
   exit;
 }
@@ -54,16 +55,6 @@ sub vagrantInstalled() {
   system("vagrant -v >tmp.txt 2>&1");
   if (!open(TEST, "<tmp.txt")) {die;}
   $pass = 0; while (<TEST>) {if ($_ =~ /\Qvagrant\E/i) {$pass = 1; last;}}
-  if (!$pass) {
-    print "
-ERROR: The shell command \"vagrant -v\" did not return \"vagrant\" 
-so Vagrant may not be installed.
-
-osis-converters requires:
-Vagrant (from https://www.vagrantup.com/downloads.html)
-Virtualbox (from https://www.virtualbox.org/wiki/Downloads)\n";
-  }
-  print "\n";
   unlink("tmp.txt");
 
   return $pass;
@@ -106,7 +97,7 @@ sub readPaths() {
         print SHL "1;\n";
         close(SHL);
       }
-      else {die "ERROR: Could not open $SCRD/.hostinfo\n";}
+      else {&ErrorBug("Could not open $SCRD/.hostinfo", "Check that you have write permission in directory $SCRD.");}
     }
     
     require("$SCRD/.hostinfo");
@@ -244,30 +235,30 @@ sub haveDependencies($$$$) {
   my $failMes = '';
   foreach my $p (@deps) {
     if (!exists($test{$p})) {
-      &Log("ERROR checkDependencies: No test for $p!\n");
+      &ErrorBug("No test for \"$p\".");
       return 0;
     }
     system($test{$p}[0]." >".&escfile("tmp.txt"). " 2>&1");
     if (!open(TEST, "<tmp.txt")) {
-      &Log("ERROR: could not read test output \"$SCRD/tmp.txt\"!\n");
+      &ErrorBug("Could not read test output file \"$SCRD/tmp.txt\".");
       return 0;
     }
     my $result; {local $/; $result = <TEST>;} close(TEST); unlink("tmp.txt");
     my $need = $test{$p}[1];
     if (!$test{$p}[2] && $result !~ /\Q$need\E/im) {
-      $failMes .= "\nERROR: Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n";
+      $failMes .= "\nDependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n";
     }
     elsif ($test{$p}[2] && $result =~ /\Q$need\E/im) {
-      $failMes .= "\nERROR: Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n";
+      $failMes .= "\nDependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n";
     }
     #&Log("NOTE:  Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result\n");
   }
   
   if ($failMes) {
-    &Log("\n$failMes\n", $logflag);
+    &Error("\n$failMes\n", $logflag);
     if (!&runningVagrant()) {
       &Log("
-NOTE: On Linux systems you can try installing dependencies by running:
+      SOLUTION: On Linux systems you can try installing dependencies by running:
       $scrd/VagrantProvision.sh\n\n", 1);
     }
     return 0;
@@ -297,6 +288,49 @@ sub escfile($) {
   return $n;
 }
 
+# Report errors that users need to fix
+sub Error($$$) {
+  my $errmsg = shift;
+  my $solmsg = shift;
+  my $doDie = shift;
+
+  &Log("\nERROR: $errmsg\n".($solmsg ? "SOLUTION: $solmsg\n":'')."\n", 1);
+  
+  if ($doDie) {&Log("Exiting...\n", 1); exit;}
+}
+
+# Report errors that are unexpected or need to be seen by osis-converters maintainer
+sub ErrorBug($$) {
+  my $errmsg = shift;
+  my $solmsg = shift;
+  my $doDie = shift;
+  
+  &Log("\nERROR (UNEXPECTED): $errmsg\n".($solmsg ? "SOLUTION: $solmsg\n":''), 1);
+  
+  use Carp qw(cluck longmess);
+  &cluck('Backtrace:');
+  &Log(&longmess()."\n");
+  
+  &Log("Please report the above unexpected ERROR to osis-converters maintainer\n\n", 1);
+  
+  if ($doDie) {&Log("Exiting...\n", 1); exit;}
+}
+
+sub Warn($$) {
+  my $warnmsg = shift;
+  my $checkmsg = shift;
+  my $flag = shift;
+  
+  &Log("\nWARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":'')."\n", 1);
+}
+
+sub Note($$) {
+  my $notemsg = shift;
+  my $flag = shift;
+  
+  &Log("NOTE: $notemsg\n", $flag);
+}
+
 # Log to console and logfile. $flag can have these values:
 # -1 = only log file
 #  0 = log file (+ console unless $NOCONSOLELOG is set)
@@ -311,13 +345,13 @@ sub Log($$) {
   
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
-  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/) {
+  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1) {
     print encode("utf8", $p);
   }
   
   if ($flag == 2) {return;}
   
-  $p = &encodePrintPaths($p);
+  if ($p !~ /ERROR/) {$p = &encodePrintPaths($p);}
   
   if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
 
