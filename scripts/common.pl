@@ -52,7 +52,6 @@ $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
 $VSYS{'prefix'} = 'x-vsys';
 $VSYS{'AnnoTypeSource'} = '-source';
-$VSYS{'AnnoTypeFixed'} = '-fixed'; # used by osis2sourceVerseSystem.xsl
 $VSYS{'TypeModified'} = '-fitted';
 $VSYS{'missing'} = '-missing';
 $VSYS{'movedto'} = '-movedto';
@@ -272,7 +271,7 @@ sub loadDictionaryWordsXML($) {
     }
     else {
       $errors++;
-      &Log("ERROR: loadDictionaryWordsXML failed to update markup!\n");
+      &Log("ERROR: loadDictionaryWordsXML failed to update markup on first pass!\n");
     }
   }
   
@@ -285,7 +284,7 @@ sub loadDictionaryWordsXML($) {
     }
     else {
       $errors++;
-      &Log("ERROR: compareDictOsis2DWF failed to update entry osisRef capitalization!\n");
+      &Log("ERROR: compareDictOsis2DWF failed to update entry osisRef capitalization on first pass!\n");
     }
   }
   
@@ -299,7 +298,7 @@ sub loadDictionaryWordsXML($) {
   }
   
   my $valid = 0;
-  if ($errors == 0) {$valid = &validateDictionaryXML($DWF);}
+  if ($errors == 0) {$valid = &validateDictionaryWordsXML($DWF);}
   if ($valid) {&Log("\nNOTE: $INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");}
   
   return ($valid && $errors == 0 ? 1:0);
@@ -399,7 +398,7 @@ sub compareDictOsis2DWF($$) {
 
 
 # Brute force validation of dwf returns 1 on successful validation, 0 otherwise
-sub validateDictionaryXML($) {
+sub validateDictionaryWordsXML($) {
   my $dwf = shift;
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);

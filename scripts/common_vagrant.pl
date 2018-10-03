@@ -157,6 +157,11 @@ sub readPaths() {
 # priority-1) Project directory (if bible|dict subdir matches the project type)
 # priority-2) Project-parent/defaults directory
 # priority-3) osis-converters/defaults directory
+#
+# NOTE: Soft links in the file path are followed, but soft links that 
+# are valid on the host will NOT be valid on a VM. To work for the VM, 
+# soft links must be valid from the VM's perspective (so they will begin 
+# with /vagrant and be broken on the host, although working on the VM).
 sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
