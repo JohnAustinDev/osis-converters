@@ -12,7 +12,7 @@ if [ -e /vagrant/Vagrant.pl ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update
-sudo apt-get install -y libtool autoconf make pkg-config build-essential libicu-dev unzip cpanminus subversion git zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
+sudo apt-get install -y build-essential cmake libtool libtool-bin autoconf make pkg-config libicu-dev unzip cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
 
 # XML::LibXML
 sudo cpanm XML::LibXML::PrettyPrint
@@ -50,58 +50,42 @@ else
   git pull
 fi
 
-# SWORD Tools
-swordRev=3375
-if [ ! -e $HOME/.osis-converters/src/sword-svn ]; then
+# SWORD 1.8 from subversion
+swordRev=3595
+if [ ! -e $HOME/.osis-converters/src/sword ]; then
   svnrev=0
 else
-  cd $HOME/.osis-converters/src/sword-svn
+  cd $HOME/.osis-converters/src/sword
   svnrev=`svnversion`
 fi
-if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
-  # CLucene
-  if [ ! -e $HOME/.osis-converters/src/clucene-core-0.9.21b ]; then
-    cd $HOME/.osis-converters/src
-    wget http://sourceforge.net/projects/clucene/files/clucene-core-stable/0.9.21b/clucene-core-0.9.21b.tar.bz2/download
-    tar -xf download 
-    rm download
-    cd clucene-core-0.9.21b
-    ./configure --disable-multithreading
-    make
-    sudo make install
-    sudo ldconfig
-  fi
 
-  # SWORD engine
+# Build Sword tools and install Perl bindings
+if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   cd $HOME/.osis-converters/src
-  svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword-svn
-  cd sword-svn
-  make clean
-  # modify Makefile to compile and install emptyvss
-  sed -i -r -e "s|stepdump step2vpl gbfidx modwrite addvs emptyvss|stepdump step2vpl gbfidx modwrite addvs|" ./utilities/Makefile.am
-  sed -i -r -e "s|^bin_PROGRAMS = mod2imp |bin_PROGRAMS = emptyvss mod2imp |" ./utilities/Makefile.am
+  svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword
+  mkdir sword/build
+  cd sword
+  
+  # The setFormattedVA function caused perlswig build to fail and isn't needed
+  perl -0777 -pe 's/(charAt\(unsigned long\);)/$1\n%ignore sword::SWBuf::setFormattedVA(const char *format, va_list argptr);/' ./bindings/swig/swbuf.i > swbuf.i
+  mv swbuf.i ./bindings/swig/swbuf.i
   # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
   sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
   cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword-svn/utilities/"
-  ./autogen.sh
-  ./configure --without-bzip2
+  
+  cd build
+  cmake -G "Unix Makefiles" -D SWORD_BINDINGS=Perl ..
+  make
+  
+  # Install Perl Sword bindings
+  cd bindings/swig/perl
+  rm Makefile
+  mv Makefile.perlswig Makefile
   make
   sudo make install
-  
-  # Perl bindings
-  cd $HOME/.osis-converters/src/sword-svn/bindings/swig/package
-  make clean
-  libtoolize --force
-  ./autogen.sh
-  ./configure
-  make perlswig
-  make perl_make
-  cd perl
-  sudo make install
-  sudo ldconfig
 fi
 
 # non English hosts may need this:

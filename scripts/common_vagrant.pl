@@ -125,7 +125,7 @@ sub readPaths() {
   my %exedirs = (
     'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
     'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
-    'SWORD_BIN' => ""
+    'SWORD_BIN' => "~/.osis-converters/src/sword/build/utilities"
   );
   
   # Finally set default values when paths.pl doesn't exist or doesn't specify exedirs
@@ -223,14 +223,14 @@ sub haveDependencies($$$$) {
   if ($depsh{'XSLT2'}) {push(@deps, 'JAVA');}
   
   my %test;
-  $test{'SWORD_BIN'}        = [ &escfile($SWORD_BIN."osis2mod"), "You are running osis2mod: \$Rev: 3322 \$" ]; # want specific version
+  $test{'SWORD_BIN'}        = [ &escfile($SWORD_BIN."osis2mod"), "You are running osis2mod: \$Rev: 3431 \$" ]; # want specific version
   $test{'XMLLINT'}          = [ "xmllint --version", "xmllint: using libxml" ]; # who cares what version
   $test{'GO_BIBLE_CREATOR'} = [ "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage" ];
   $test{'MODULETOOLS_BIN'}  = [ &escfile($MODULETOOLS_BIN."usfm2osis.py"), "Revision: 491" ]; # check version
   $test{'XSLT2'}            = [ 'saxonb-xslt', "Saxon 9" ]; # check major version
   $test{'JAVA'}             = [ 'java -version', "openjdk version \"10.0.1\"", 1 ]; # NOT openjdk 10.0.1
   $test{'CALIBRE'}          = [ "ebook-convert --version", "calibre 3" ]; # check major version
-  $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.7.3" ]; # check version
+  $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.8.900" ]; # check version
   
   my $failMes = '';
   foreach my $p (@deps) {
@@ -311,7 +311,7 @@ sub ErrorBug($$) {
   &cluck('Backtrace:');
   &Log(&longmess()."\n");
   
-  &Log("Please report the above unexpected ERROR to osis-converters maintainer\n\n", 1);
+  &Log("Please report the above unexpected ERROR to osis-converters maintainer.\n\n", 1);
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
 }
@@ -343,9 +343,10 @@ sub Log($$) {
   
   if ($flag == 3) {return;}
   
+  $p =~ s/&lt;/</g; $p =~ s/&gt;/>/g; $p =~ s/&amp;/&/g;
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
-  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1) {
+  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/) {
     print encode("utf8", $p);
   }
   

@@ -2,7 +2,7 @@
  *
  *  osis2mod.cpp - Utility to import a module in OSIS format
  *
- * $Id: osis2mod.cpp 3322 2015-02-16 21:27:19Z greg.hellings $
+ * $Id: osis2mod.cpp 3431 2016-08-16 22:46:19Z refdoc $
  *
  * Copyright 2003-2014 CrossWire Bible Society (http://www.crosswire.org)
  *      CrossWire Bible Society
@@ -482,7 +482,7 @@ void makeValidRef(VerseKey &key) {
 void writeEntry(SWBuf &text, bool force = false) {
 	char keyOsisID[255];
 
-	static const char* revision = "<milestone type=\"x-importer\" subType=\"x-osis2mod\" n=\"$Rev: 3322 $\"/>";
+	static const char* revision = "<milestone type=\"x-importer\" subType=\"x-osis2mod\" n=\"$Rev: 3431 $\"/>";
 	static bool firstOT = true;
 	static bool firstNT = true;
 
@@ -1216,6 +1216,7 @@ XMLTag transformBSP(XMLTag t) {
 	static std::stack<XMLTag> bspTagStack;
 	static int sID = 1;
 	char buf[11];
+	SWBuf typeAttr = t.getAttribute("type");
 
 	// Support simplification transformations
 	if (t.isEmpty()) {
@@ -1231,11 +1232,10 @@ XMLTag transformBSP(XMLTag t) {
 	if (!t.isEndTag()) {
 		// Transform <p> into <div type="x-p"> and milestone it
 		if (tagName == "p") {
-			SWBuf subType = t.getAttribute("type");
 			t.setText("<div type=\"x-p\" />");
 			sprintf(buf, "gen%d", sID++);
 			t.setAttribute("sID", buf);
-			if (subType.length()) {t.setAttribute("subType", subType);}
+			if (typeAttr.length()) {t.setAttribute("subType", typeAttr);}
 		}
 
 		// Transform <tag> into <tag  sID="">, where tag is a milestoneable element.
@@ -1245,9 +1245,10 @@ XMLTag transformBSP(XMLTag t) {
 		//   abbr       When would this ever cross a boundary?
 		//   seg        as it is used for a divineName hack
 		//   foreign    so that it can be easily italicized
+		//   div type="colophon" so that it can be treated as a block
 		else if (tagName == "chapter" ||
 			 tagName == "closer"  ||
-			 tagName == "div"     ||
+			 (tagName == "div" && typeAttr != "colophon") ||
 			 tagName == "l"       ||
 			 tagName == "lg"      ||
 			 tagName == "q"       ||
@@ -1277,11 +1278,13 @@ XMLTag transformBSP(XMLTag t) {
 			}
 
 			bspTagStack.pop();
+			SWBuf topTypeAttr = topToken.getAttribute("type");
 
 			// Look for the milestoneable container tags handled above.
+			// Have to treat div type="colophon" differently
 			if (tagName == "chapter" ||
 			    tagName == "closer"  ||
-			    tagName == "div"     ||
+			    (tagName == "div" && topTypeAttr != "colophon") ||
 			    tagName == "l"       ||
 			    tagName == "lg"      ||
 			    tagName == "p"       ||
@@ -1434,6 +1437,14 @@ void processOSIS(istream& infile) {
 		CS_SEEN_ENDING_GREATER_THAN
 	} t_commentstate;
 
+	typedef enum {
+		ET_NUM,
+		ET_HEX,
+		ET_CHAR,
+		ET_NONE,
+		ET_ERR
+	} t_entitytype;
+
 	activeOsisID[0] = '\0';
 
 	strcpy(currentOsisID,"N/A");
@@ -1454,6 +1465,13 @@ void processOSIS(istream& infile) {
 	bool inWhitespace = false;
 	bool seeingSpace = false;
 	unsigned char curChar = '\0';
+	SWBuf entityToken;
+	bool inentity = false;
+	t_entitytype entitytype = ET_NONE;
+	unsigned char attrQuoteChar = '\0';
+	bool inattribute = false;
+	unsigned int linePos = 1;
+	unsigned int charPos = 0;
 
 	while (infile.good()) {
 
@@ -1470,16 +1488,221 @@ void processOSIS(istream& infile) {
 		// Does a SWORD module actually require this?
 		if (curChar == '\n') {
 			curChar = ' ';
+			charPos = 0;
+			linePos++;
 		}
+		charPos++;
+
+		// Look for entities:
+		// These are of the form &#dddd;, &xHHHH; or &llll;
+		// where dddd is a sequence of digits
+		//       HHHH is a sequence of [A-Fa-f0-9]
+		//       llll is amp, lt, gt, quot or apos
+		//            but we will look for a sequence of [A-Za-z0-9]
+		// All but &amp;, &lt;, &gt;, &quot;, &apos; will produce a WARNING
+		// In the future:
+		//    &#dddd; and &xHHHH; should be converted to UTF-8,
+		//        with a WARNING if the text is not UTF-8
+		//    &llll; other than the xml standard 5 should produce a WARNING
+
+		// For entity diagnostics track whether the text is an attribute value
+		if (inattribute && (curChar == '\'' || curChar == '"')) {
+			if (attrQuoteChar == curChar) {
+				inattribute = false;
+				attrQuoteChar = '\0';
+			}
+			else {
+				attrQuoteChar = curChar;
+			}
+		}
+		if (intoken && curChar == '=') {
+			inattribute = true;
+			attrQuoteChar = '\0';
+		}
+
+		if (!inentity && curChar == '&') {
+			inentity = true;
+			entitytype = ET_NONE;
+			entityToken = "&";
+			continue;
+		}
+
+		if (inentity) {
+			if (curChar == ';') {
+				inentity = false;
+			}
+			else {
+				switch (entitytype) {
+				    case ET_NONE:
+					// A hex entity cannot start with X in XML, but it can in HTML
+					// Allow for it here and complain later
+					if (curChar == 'x' || curChar == 'X') {
+						entitytype = ET_HEX;
+					}
+					else
+					if (curChar == '#') {
+						entitytype = ET_NUM;
+					}
+					else
+					if ((curChar >= 'A' && curChar <= 'Z') ||
+					    (curChar >= 'a' && curChar <= 'z') ||
+					    (curChar >= '0' && curChar <= '9')) {
+						entitytype = ET_CHAR;
+					}
+					else {
+						inentity = false;
+						entitytype = ET_ERR;
+					}
+					break;
+
+				    case ET_NUM :
+					if (!(curChar >= '0' && curChar <= '9')) {
+						inentity = false;
+						entitytype = ET_ERR;
+					}
+					break;
+				    case ET_HEX :
+					if ((curChar >= 'G' && curChar <= 'Z') ||
+					    (curChar >= 'g' && curChar <= 'z')) {
+						// Starts out as a HEX entity, but it isn't one
+						entitytype = ET_CHAR;
+					}
+					else
+					if (!((curChar >= 'A' && curChar <= 'F') ||
+					      (curChar >= 'a' && curChar <= 'f') ||
+					      (curChar >= '0' && curChar <= '9'))) {
+						inentity = false;
+						entitytype = ET_ERR;
+					}
+					break;
+				    case ET_CHAR :
+					if (!((curChar >= 'A' && curChar <= 'Z') ||
+					      (curChar >= 'a' && curChar <= 'z') ||
+					      (curChar >= '0' && curChar <= '9'))) {
+						inentity = false;
+						entitytype = ET_ERR;
+					}
+					break;
+				    default:
+					cout << "FATAL(ENTITY): unknown entitytype on entity end: " << entitytype << endl;
+					exit(EXIT_BAD_NESTING);
+				}
+			}
+
+			if (entitytype != ET_ERR) {
+				entityToken.append((char) curChar);
+			}
+
+			// It is an entity, perhaps invalid, if curChar is ';', error otherwise
+			// Test to see if we now have an entity or a failure
+			// It may not be a valid entity.
+			if (!inentity) {
+				switch (entitytype) {
+				    case ET_ERR :
+					// Remove the leading &
+					entityToken << 1;
+					cout << "WARNING(PARSE): malformed entity, replacing &" << entityToken << " with &amp;" << entityToken << endl;
+					if (intoken) {
+						token.append("&amp;");
+						token.append(entityToken);
+					}
+					else {
+						text.append("&amp;");
+						text.append(entityToken);
+					}
+					break;
+				    case ET_HEX :
+					if (entityToken[1] != 'x') {
+						cout << "WARNING(PARSE): HEX entity must begin with &x, found " << entityToken << endl;
+					}
+					else {
+						cout << "WARNING(PARSE): SWORD does not search HEX entities, found " << entityToken << endl;
+					}
+					break;
+				    case ET_CHAR :
+					if (strcmp(entityToken, "&amp;")  &&
+				            strcmp(entityToken, "&lt;")   &&
+				            strcmp(entityToken, "&gt;")   &&
+				            strcmp(entityToken, "&quot;") &&
+				            strcmp(entityToken, "&apos;")) {
+						cout << "WARNING(PARSE): XML only supports 5 Character entities &amp;, &lt;, &gt;, &quot; and &apos;, found " << entityToken << endl;
+					}
+					else
+					if (!strcmp(entityToken, "&apos;")) {
+						cout << "WARNING(PARSE): While valid for XML, XHTML does not support &apos;." << endl;
+						if (!inattribute) {
+							cout << "WARNING(PARSE): &apos; is unnecessary outside of attribute values. Replacing with '. " << endl;
+							entityToken = "'";
+						}
+						else {
+							switch (attrQuoteChar) {
+							    case '"' :
+								cout << "WARNING(PARSE): &apos; is unnecessary inside double quoted attribute values. Replacing with '. " << endl;
+								entityToken = "'";
+								break;
+							    case '\'' :
+								cout << "WARNING(PARSE): &apos; is only needed within single quoted attribute values. Considering using double quoted attribute and replacing with '." << endl;
+								break;
+							}
+						}
+					}
+					else
+					if (!strcmp(entityToken, "&quot;")) {
+						cout << "WARNING(PARSE): While valid for XML, &quot; is only needed within double quoted attribute values" << endl;
+						if (!inattribute) {
+							cout << "WARNING(PARSE): &quot; is unnecessary outside of attribute values. Replace with \"." << endl;
+							entityToken = "\"";
+						}
+						else {
+							switch (attrQuoteChar) {
+							    case '"' :
+								cout << "WARNING(PARSE): &quot; is only needed within double quoted attribute values. Considering using single quoted attribute and replacing with \"." << endl;
+								break;
+							    case '\'' :
+								cout << "WARNING(PARSE): &quot; is unnecessary inside single quoted attribute values. Replace with \"." << endl;
+								entityToken = "\"";
+								break;
+							}
+						}
+					}
+					break;
+				    case ET_NUM :
+					cout << "WARNING(PARSE): SWORD does not search numeric entities, found " << entityToken << endl;
+					break;
+				    case ET_NONE :
+				    default:
+					break;
+				}
+
+				// Put the entity into the stream.
+				if (intoken) {
+					token.append(entityToken);
+				}
+				else {
+					text.append(entityToken);
+				}
+
+				if (curChar == ';') {
+					// The character was handled, so go get the next one.
+					continue;
+				}
+			}
+			else {
+				// The character was handled, so go get the next one.
+				continue;
+			}
+		}
+
 
 		if (!intoken && curChar == '<') {
 			intoken = true;
 			token = "<";
+			inattribute = false;
+			attrQuoteChar = '\0';
 			continue;
 		}
 
 		// Handle XML comments starting with "<!--", ending with "-->"
-
 		if (intoken && !incomment) {
 			switch (commentstate) {
 				case CS_NOT_IN_COMMENT :
@@ -1624,7 +1847,7 @@ void processOSIS(istream& infile) {
 
 int main(int argc, char **argv) {
 
-	fprintf(stderr, "You are running osis2mod: $Rev: 3322 $\n");
+	fprintf(stderr, "You are running osis2mod: $Rev: 3431 $\n");
 	
 	if (argc > 1) {
 		for (int i = 1; i < argc; i++) {

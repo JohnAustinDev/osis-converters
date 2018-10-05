@@ -79,8 +79,6 @@ if ($MODDRV =~ /Text/) {
   $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." ".($MODDRV =~ /zText/ ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'').($MODDRV =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
-  
-  &emptyvss($SWOUT);
 }
 elsif ($MODDRV =~ /^RawGenBook$/) {
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $INOSIS);

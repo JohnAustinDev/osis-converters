@@ -3764,61 +3764,6 @@ sub findCompanionDirectory($) {
   return $path;
 }
 
-
-sub emptyvss($) {
-  my $dir = shift;
-  
-  my $canonP;
-  my $bookOrderP;
-  my $testamentP;
-  if (!&getCanon($ConfEntryP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
-    &Log("ERROR: Could not check for empty verses. Cannot read versification \"".$ConfEntryP->{'Versification'}."\"\n");
-    return;
-  }
-  
-  &Log("\n--- TESTING FOR EMPTY VERSES\n");
-  
-  $cmd = &escfile($SWORD_BIN."emptyvss")." 2>&1";
-  $cmd = `$cmd`;
-  if ($cmd =~ /usage/i) {
-    chdir($dir);
-    $cmd = &escfile($SWORD_BIN."emptyvss")." $MOD >> ".&escfile("$TMPDIR/emptyvss.txt");
-    system($cmd);
-    chdir($SCRD);
-    
-    &Log("BEGIN EMPTYVSS OUTPUT\n", -1);
-    my $r = 'failed';
-    if (open(INF, "<$TMPDIR/emptyvss.txt")) {
-      my $lb, $lc, $lv;
-      $r = '';
-      while (<INF>) {
-        if ($_ !~ /^\s*(.*?)(\d+)\:(\d+)\s*$/) {next;}
-        my $b = $1; my $c = (1*$2); my $v = (1*$3);
-        if ($lb) {
-          my $skip = 0;
-          if ($b eq $lb && $c == $lc && $v == ($lv+1)) {$skip = 1;}
-          if ($b eq $lb && $c == ($lc+1) && $v == 1) {$skip = 1;}
-          if (!$skip) {$r .= "-$lb$lc:$lv\n$b$c:$v";}
-        }
-        else {$r = "$b$c:$v";}
-        $lb = $b; $lc = $c; $lv = $v;
-      }
-      if ($lb) {$r .= "-$lb$lc:$lv\n";}
-      close(INF);
-    }
-    $r =~ s/^(.*)-(\1)$/$1/mg;
-    
-    # report entire missing books separately
-    my $missingBKs = '';
-    foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
-      my $whole = @{$canonP->{$bk}}.":".@{$canonP->{$bk}}[@{$canonP->{$bk}}-1];
-      if ($r =~ s/^([^\n]+)\s1\:1\-\1\s\Q$whole\E\n//m) {$missingBKs .= $bk." ";}
-    }
-    &Log("$r\nEntire missing books: ".($missingBKs ? $missingBKs:'none')."\nEND EMPTYVSS OUTPUT\n", -1);
-  }
-  else {&Log("ERROR: Could not check for empty verses. Sword tool \"emptyvss\" could not be found. It may need to be compiled locally.");}
-}
-
 # Deletes existing header work elements, and writes new ones which may
 # include, as meta-data, settings from $confP, $convEBOOKP and $confHhtmlP.
 # The osis file is overwritten if $osis_or_osisP is not a reference,
