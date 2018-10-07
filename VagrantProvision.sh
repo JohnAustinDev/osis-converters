@@ -12,7 +12,8 @@ if [ -e /vagrant/Vagrant.pl ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libtool libtool-bin autoconf make pkg-config libicu-dev unzip cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
+sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config libicu-dev unzip cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
+sudo apt-get install -y libtool-bin
 
 # XML::LibXML
 sudo cpanm XML::LibXML::PrettyPrint
@@ -74,18 +75,18 @@ if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
-  cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword-svn/utilities/"
+  cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword/utilities/"
   
   cd build
   cmake -G "Unix Makefiles" -D SWORD_BINDINGS=Perl ..
-  make
+  make 
+  sudo make install
   
   # Install Perl Sword bindings
   cd bindings/swig/perl
-  rm Makefile
-  mv Makefile.perlswig Makefile
-  make
-  sudo make install
+  perl Makefile.PL
+  make -f Makefile.perlswig
+  sudo make -f Makefile.perlswig install
 fi
 
 # non English hosts may need this:
