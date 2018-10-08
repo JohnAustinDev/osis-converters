@@ -129,7 +129,7 @@ sub readPaths() {
     }
   }
   
-  # The following are installed to certain locations by VagrantProvision.sh
+  # The following are installed to certain locations by provision.sh
   my %exedirs = (
     'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
     'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
@@ -267,7 +267,7 @@ sub haveDependencies($$$$) {
     if (!&runningInVagrant()) {
       &Log("
       SOLUTION: On Linux systems you can try installing dependencies by running:
-      $scrd/VagrantProvision.sh\n\n", 1);
+      $scrd/provision.sh\n\n", 1);
     }
     return 0;
   }

@@ -13,7 +13,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.box = "ubuntu/xenial64"
-  config.vm.provision :shell, :path => "VagrantProvision.sh", privileged: false
+  config.vm.provision :shell, :path => "provision.sh", privileged: false
   config.ssh.forward_agent = true
   config.ssh.forward_x11 = true
   

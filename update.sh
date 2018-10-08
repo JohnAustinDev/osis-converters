@@ -7,7 +7,7 @@ if [ ! -z "$(calibre-customize -l | grep 'InputOSIS')" ]; then
   calibre-customize -b ./calibre_plugin/OSIS-Input;
 fi
 
-# Updates any Virtual Machine by running VagrantProvision.sh on it
+# Updates any Virtual Machine by running provision.sh on it
 if [ ! -z "$(vagrant status | grep 'not created')" ]; then exit; fi
 if [ "$(grep 'Module-tools' Vagrantshares)" != "" ]; then
   sed -i '/Module-tools/d' Vagrantshares
