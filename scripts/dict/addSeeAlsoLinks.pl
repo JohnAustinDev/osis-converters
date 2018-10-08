@@ -32,11 +32,6 @@ sub addSeeAlsoLinks($$) {
     &Log("\n");
   }
   else {
-    if (!$IS_usfm2osis) {
-      &Log("ERROR addSeeAlsoLinks: No longer supports imp input files. Convert \"$$osisP\" to OSIS/TEI!\n");
-      return;
-    }
-    
     &Log("PARSING ".@entries." ENTRIES...\n");
     
     undef($REF_SEG_CACHE);

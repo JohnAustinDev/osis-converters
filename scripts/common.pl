@@ -16,6 +16,10 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+# All code here is expected to be run on a Linux Ubuntu 14 to 18 or 
+# compatible operating system having all osis-converters dependencies 
+# already installed.
+
 use Encode;
 use File::Spec;
 use File::Copy;
@@ -62,9 +66,7 @@ $VSYS{'end'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 
-sub init($) {
-  my $quiet = shift;
-  
+sub start_linux_script() {
   if (!$INPD) {$INPD = "."};
   $INPD =~ s/[\\\/]\s*$//;
   if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
@@ -127,16 +129,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&Log("start time: ".localtime()."\n");}
-      
-  if (!&haveDependencies($SCRIPT, $SCRD, $INPD, $quiet)) {
-    print "ERROR: Missing dependencies. Exiting...\n";
-    exit;
-  }
   
-  if (!$quiet) {
-    &Log("osis-converters git rev: $GITHEAD\n\n");
-    &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
-  }
+  &Log("osis-converters git rev: $GITHEAD\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
   $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
   

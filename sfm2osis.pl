@@ -22,10 +22,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-$INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
 
 # if this is a childrens_bible, run the separate cb script
 if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
@@ -33,11 +30,10 @@ if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
   exit;
 }
 
-my $u2o = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt');
-if ($u2o) {
-  $IS_usfm2osis = 1;
+my $CF_usfm2osis = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt');
+if ($CF_usfm2osis) {
   require("$SCRD/scripts/usfm2osis.pl");
-  &usfm2osis($u2o, "$TMPDIR/".$MOD."_0.xml");
+  &usfm2osis($CF_usfm2osis, "$TMPDIR/".$MOD."_0.xml");
 }
 else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt.";}
 

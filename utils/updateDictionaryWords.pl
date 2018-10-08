@@ -24,10 +24,7 @@
 # a check will be done when the dictionary source is converted and such
 # entries will be corrected then.
 
-$INPD = shift; $LOGFILE = shift;
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init();
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
 require("$SCRD/scripts/dict/processGlossary.pl");
 
 my @entry, %pattern;

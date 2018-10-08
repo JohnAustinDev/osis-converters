@@ -1,25 +1,52 @@
 #!/usr/bin/perl
+# This file is part of "osis-converters".
+# 
+# Copyright 2018 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
+
 # usage: Vagrant.pl script input_directory
-#
-# The purpose of this script is to set the required file shares between
-# host and vagrant client, and to call osis-converters on the client.
+
+# This script might be run on any operating system.
+
+# This script starts osis-converters on a Vagrant VirtualBox virtual 
+# machine. First, it sets the required file shares between the host and 
+# vagrant client, and then it starts osis-converters on the client using 
+# Vagrant.
 
 use File::Spec;
-use Encode;
-
 $Script = File::Spec->rel2abs(shift); $Script =~ s/\\/\//g;
-$ProjectDir = File::Spec->rel2abs(shift); $ProjectDir =~ s/\\/\//g;
+$INPD = File::Spec->rel2abs(shift); $INPD =~ s/\\/\//g;
+$SCRIPT = File::Spec->rel2abs(__FILE__); $SCRIPT =~ s/\\/\//g;
+$SCRD = $SCRIPT;
+if ($SCRD !~ s/(\/osis\-converters)\/.*?$/$1/) {
+  die "Error: Unexpected osis-converters installation directory name\n";
+}
+
 $VAGRANT_HOME = '/home/vagrant';
 
-# ProjectDir must be relative to INDIR_ROOT
-# INDIR_ROOT cannot be just a Windows drive letter (native|emulated).
-# Vagrant cannot create a share to the root of a window's drive.
-if ($ProjectDir !~ s/^((?:\w\:|\/\w)?\/[^\/]+)//) {
-  die "\nError: Cannot parse project path \"$ProjectDir\"\n";
+require "$SCRD/scripts/common_opsys.pl";
+
+# INPD must be made relative to an INDIR_ROOT Vagrant share.
+# INDIR_ROOT cannot be just a Windows drive letter (native or emulated) 
+# because Vagrant cannot create a share to the root of a window's drive.
+if ($INPD !~ s/^((?:\w\:|\/\w)?\/[^\/]+)//) {
+  die "Error: Cannot parse project path \"$INPD\"\n";
 }
 $INDIR_ROOT = $1;
 
-$SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/\\/\//g; $SCRD =~ s/(\/[^\/]+){1}$//;
 chdir $SCRD;
 
 if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$SCRD/Vagrantcustom")) {
@@ -31,7 +58,6 @@ end\n";
   close(VAGC);
 }
 
-require "$SCRD/scripts/common_vagrant.pl";
 &readPaths();
 
 push(@Shares, &vagrantShare($INDIR_ROOT, "INDIR_ROOT"));
@@ -44,52 +70,8 @@ if ($Status !~ /\Qrunning (virtualbox)\E/i) {&vagrantUp(\@Shares);}
 elsif (!&matchingShares(\@Shares)) {&shell("vagrant halt", 3); &vagrantUp(\@Shares);}
 
 my $script_rel = File::Spec->abs2rel($Script, $SCRD);
-$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel $VAGRANT_HOME/INDIR_ROOT$ProjectDir\"";
+$cmd = "vagrant ssh -c \"cd /vagrant && ./$script_rel $VAGRANT_HOME/INDIR_ROOT$INPD\"";
 print "\nStarting Vagrant...\n$cmd\n";
 open(VUP, "$cmd |");
 while(<VUP>) {print $_;}
 close(VUP);
-
-########################################################################
-
-sub vagrantShare($$) {
-  my $host = shift;
-  my $client = shift;
-  # If the host is Windows, $host must be a native path!
-  $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
-  $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
-  return "config.vm.synced_folder \"$host\", \"$VAGRANT_HOME/$client\"";
-}
-
-sub vagrantUp(\@) {
-  my $sharesP = shift;
-  
-  if (!-e "./.vagrant") {&shell("mkdir ./.vagrant", 3);}
-  
-  # Create input/output filesystem shares
-  open(VAG, ">./Vagrantshares") || die "\nError: Cannot open \"./Vagrantshares\"\n";
-  foreach my $share (@$sharesP) {print VAG "$share\n";}
-  close(VAG);
-  print "
-Starting Vagrant...
-The first use of Vagrant will automatically download and build a virtual
-machine having osis-converters fully installed. This build will take some
-time. Subsequent use of Vagrant will run much faster.\n\n";
-  open(VUP, "vagrant up |");
-  while(<VUP>) {print $_;}
-  close(VUP);
-}
-
-# returns 1 if all shares match, 0 otherwise
-sub matchingShares(\@) {
-  my $sharesP = shift;
-  
-  my %shares; foreach my $sh (@$sharesP) {$shares{$sh}++;}
-  open(CSH, "<./Vagrantshares") || return 0;
-  while(<CSH>) {
-    if ($_ =~ /^(\Qconfig.vm.synced_folder\E\s.*)$/) {$shares{$1}++;}
-    foreach my $share (@$sharesP) {if ($_ =~ /^\Q$share\E$/) {delete($shares{$share});}}
-  }
-  return (keys(%shares) == 0 ? 1:0);
-}
-

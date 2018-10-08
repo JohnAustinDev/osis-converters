@@ -140,7 +140,7 @@ sub OSIS_To_ePublication($$$$) {
   # copy font if specified
   if ($FONTS && $ConfEntryP->{"Font"}) {
     &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
-    if (&runningVagrant()) {
+    if (&runningInVagrant()) {
       &shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
       my $home = &shell("echo \$HOME", 3); chomp($home);
       &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");

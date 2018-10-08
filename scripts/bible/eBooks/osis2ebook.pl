@@ -16,19 +16,13 @@
 # The css file, if present, must be in the same directory and named ebible.css when processing a Bible.
 # The output file is created in the same directory and has the same name as the input file with the appropriate extension (.epub, .fb2)
 
-$INPD    = shift;
-$LOGFILE = shift;
-$RUNDIR  = shift;
-$INPF    = shift;
-$OPTYPE  = shift;
-$IPTYPE  = shift;
-$COVER   = shift;
+$RUNDIR  = @ARGV[2];
+$INPF    = @ARGV[3];
+$OPTYPE  = @ARGV[4];
+$IPTYPE  = @ARGV[5];
+$COVER   = @ARGV[6];
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//;
-require "$SCRD/scripts/common_vagrant.pl"; &init_vagrant();
-require "$SCRD/scripts/common.pl"; &init(1);
-
-use File::Spec;
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
 
 if ($RUNDIR) {
   $RUNDIR =~ s/[\\\/]\s*$//;

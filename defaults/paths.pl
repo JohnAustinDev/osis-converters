@@ -1,8 +1,5 @@
 # This file allows customization of osis-converters paths and settings
 
-# Set $VAGRANT=0 to run natively without the VM
-#$VAGRANT=0;
-
 # Set $DEBUG for debugging options
 #$DEBUG='no-azw3';
 

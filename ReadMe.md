@@ -5,14 +5,9 @@ Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to
 [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
 html, EPUB, MOBI, and FB2 files.
 
-## setup:
-**Windows/OS X/Linux**: Install [Vagrant](https://www.vagrantup.com/downloads.html), 
-[VirtualBox](https://www.virtualbox.org/wiki/Downloads) and 
-[Git with GitBash](https://git-scm.com/downloads)
-
 ## use:
 Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
-the directory: `/some-path/MODULE_NAME/sfm/`
+a directory: `/some-path/MODULE_NAME/sfm/`
 
 At a Linux or Git Bash prompt:
 
