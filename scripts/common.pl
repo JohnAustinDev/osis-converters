@@ -84,21 +84,7 @@ sub start_linux_script() {
   
   &initLibXML();
   
-  # Read BookNames.xml, if available
-  if (-e "$INPD/sfm/BookNames.xml") {
-    my $bknames = $XML_PARSER->parse_file("$INPD/sfm/BookNames.xml");
-    my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
-    if (@bkelems[0]) {
-      &Note("Reading localized book names from \"$INPD/sfm/BookNames.xml\"");
-    }
-    foreach my $bkelem (@bkelems) {
-      my $bk = getOsisName($bkelem->getAttribute('code'), 1);
-      if (!$bk) {next;}
-      $BOOKNAMES{$bk}{'abbr'} = $bkelem->getAttribute('abbr');
-      $BOOKNAMES{$bk}{'short'} = $bkelem->getAttribute('short');
-      $BOOKNAMES{$bk}{'long'} = $bkelem->getAttribute('long');
-    }
-  }
+  &readBookNamesXML();
 
   &checkAndWriteDefaults($SCRD, $INPD, 0);
   
@@ -145,6 +131,28 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   }
 }
 
+sub readBookNamesXML() {
+  # Read BookNames.xml, if found, which can be used for localizing Bible book names
+  foreach my $bknxml (split(/\n+/, &shell("find '$INPD/sfm' -name 'BookNames.xml' -print"))) {
+    my $bknames = $XML_PARSER->parse_file("$bknxml");
+    my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
+    if (@bkelems[0]) {
+      &Note("Reading localized book names from \"$bknxml\"");
+    }
+    foreach my $bkelem (@bkelems) {
+      my $bk = getOsisName($bkelem->getAttribute('code'), 1);
+      if (!$bk) {next;}
+      my @ts = ('abbr', 'short', 'long');
+      foreach my $t (@ts) {
+        if ($BOOKNAMES{$bk}{$t} && $BOOKNAMES{$bk}{$t} ne $bkelem->getAttribute($t)) {
+          &Warn("Multiple $t definitions for $bk. Using ".$bkelem->getAttribute($t)." rather than ".$BOOKNAMES{$bk}{$t}, "That the resulting value is correct, and possibly fix the incorrect one.");
+        }
+        $BOOKNAMES{$bk}{$t} = $bkelem->getAttribute($t);
+      }
+    }
+  }
+}
+
 sub timer($) {
   my $do = shift;
  
@@ -152,7 +160,7 @@ sub timer($) {
     &Log("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
   }
-  if ($do =~ /stop/i) {
+  elsif ($do =~ /stop/i) {
     &Log("\nend time: ".localtime()."\n");
     if ($STARTTIME) {
       my $now = DateTime->now();
