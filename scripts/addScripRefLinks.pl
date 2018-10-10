@@ -291,8 +291,8 @@ sub addScripRefLinks($$$) {
   my $aerefs = ($tCheckRefs =~ tr/\n//);
   &Report("Listing of extended refs containing ambiguous number(s): ($aerefs instances)");
   if ($CheckRefs) {
-    &Note("These are cases where a number could be interpreted as either a verse");
-    &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
+    &Warn("<-These are cases where a number could be interpreted as either a verse
+or a chapter depending upon context.", "That these are interperetet correctly.");
     &Log("$CheckRefs\n");
   }
   else {&Log("(no extended refs contain ambiguous numbers)\n");}
@@ -300,10 +300,10 @@ sub addScripRefLinks($$$) {
 
   &Report("Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)");
   if (scalar(keys %UnhandledWords)) {
-    &Note("Bible book references in the following list are resulting in incorrect link ");
-    &Log("targets and should have been specified in the command file. Words which do not \n");
-    &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n");
-    &Log("added to the command file.\n");
+    &Warn("<-Any Bible book names or abbreviations appearing between < > in the following 
+listing are resulting in incorrect Scripture links.", 
+"That you have correctly specified these book names in 
+CF_addScripRefLinks.txt with a line such as: Matt = Matthew");
     foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
       &Log("<$uw> $UnhandledWords{$uw}\n");
     }
@@ -326,8 +326,9 @@ sub addScripRefLinks($$$) {
 
   &Report("Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)");
   if (scalar(keys %missedLeftRefs)) {
-    &Note("These occur when the end of an extended ref cannot be determined. To fix these, check ");
-    &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
+    &Warn("<-This occurs when the end of an extended reference cannot be determined.",
+"That REF_END_TERMS in CF_addScripRefLinks.txt includes the end term for
+these references (see the errors in the log listing above)");
     foreach my $mlr (sort keys %missedLeftRefs) {
       &Log("<$mlr> $missedLeftRefs{$mlr}\n");
     }
@@ -337,8 +338,8 @@ sub addScripRefLinks($$$) {
 
   &Report("Listing of refs without digits which were skipped: ($numNoDigitRef instances)");
   if (scalar(keys %noDigitRef)) {
-    &Note("These occur when an extended ref or a subref contain no numbers. A large number ");
-    &Log("of these may indicate incorrect command file regular expressions.\n");
+    &Warn("<-These occur when an extended reference or a sub-reference contain no numbers.", 
+    "That CF_addScripRefLinks.txt file regular expressions are correct.");
     foreach my $mlr (sort keys %noDigitRef) {
       &Log("$mlr $noDigitRef{$mlr}\n");
     }
@@ -348,8 +349,8 @@ sub addScripRefLinks($$$) {
 
   &Report("Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)");
   if (scalar(keys %noOSISRef)) {
-    &Note("These may indicate a ref which should be an EXCLUSION or a problem ");
-    &Log("with command file regular expressions. \n");
+    &Warn("<-These may indicate references which need FIX or 
+CF_addScripRefLinks.txt regular expression problems.");
     foreach my $mlr (sort keys %noOSISRef) {
       &Log("<$mlr> $noOSISRef{$mlr}\n");
     }

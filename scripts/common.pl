@@ -4144,11 +4144,14 @@ sub writeTOC($) {
       
       if ($t eq $toc && !$WRITETOC_MSG) {
         &Warn("
-          At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are being used to \
-          generate the eBook table of contents. If your eBook TOCs do not render with proper book \
-          names and/or hierarchy, then you must add \\toc$toc tags to the USFM using EVAL_REGEX. \
-          Or, if you wish to use a different \\toc tag, you must add a TOC=N config setting to: \
-          $MOD/eBook/convert.txt (where N is the \\toc tag number you wish to use.)\n\n");
+At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc SFM tag. These \\toc 
+tags are used to generate the eBook table of contents. When possible, 
+such tags will be automatically inserted.","
+That your eBook TOCs render with proper book names and/or hierarchy. If
+not then you can add \\toc$toc tags to the SFM using EVAL_REGEX. Or, 
+if you wish to use a different \\toc tag, you must add a TOC=N config 
+setting to: $MOD/eBook/convert.txt (where N is the \\toc tag number 
+you wish to use.)\n");
         $WRITETOC_MSG++;
       }
       

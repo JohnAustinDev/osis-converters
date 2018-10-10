@@ -389,7 +389,10 @@ sub Warn($$) {
   my $checkmsg = shift;
   my $flag = shift;
   
-  &Log("\nWARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":''), $flag);
+  # Messages beginning with <- will not have a leading line-break
+  my $n = ($warnmsg =~ s/^\<\-// ? '':"\n");
+
+  &Log($n."WARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":''), $flag);
 }
 
 sub Note($$) {

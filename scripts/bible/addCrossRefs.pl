@@ -130,11 +130,11 @@ Example OSIS cross-references:
     }
   }
   else {
-    &Error("
-Unable to localize cross-references. This means eBooks will show cross-
-references as '1', '2'... which is unhelpful.", decode('utf8', "
-To localize cross-references, you should add a file called BookNames.xml 
-to the sfm directory which contains book abbreviations like this:
+    &Error("Unable to localize cross-references. This means eBooks will show 
+cross-references as '1', '2'... which is unhelpful.", decode('utf8', 
+"Cross-references are localized using a file called 
+BookNames.xml in the sfm directory which should contain localized 
+'abbr' abbreviations for all 66 Bible books, like this:
 
 <?xml version=\"1.0\" encoding=\"utf-8\"?>
 <BookNames>
@@ -142,11 +142,11 @@ to the sfm directory which contains book abbreviations like this:
   <book code=\"2SA\" abbr=\"2Şam\" />
 </BookNames>
 
-If you do not know the book abbreviations, then add to CF_usfm2osis.txt
+If you do not know the book abbreviations, but do have SFM files with 
+\\toc2 tags for all 66 Bible books, then you can add to CF_usfm2osis.txt
 the following: \"SET_tocCrossRefs:2\" to use \\toc2 short names instead 
-of abbreviations (or 1 will use \\toc1 long names, but this is not 
-recommended). If the required \\tocN tags are specified in the USFM 
-files, you  do not need BookNames.xml.\n\n"));
+of BookNames.xml abbreviations (or SET_tocCrossRefs:1 will use \\toc1 
+long names, but this is not recommended).\n"));
   }
   
   # for a big speed-up, find all verse tags and add them to a hash with a key for every verse
