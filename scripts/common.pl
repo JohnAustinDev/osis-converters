@@ -133,7 +133,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 
 sub readBookNamesXML() {
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
-  foreach my $bknxml (split(/\n+/, &shell("find '$INPD/sfm' -name 'BookNames.xml' -print"))) {
+  foreach my $bknxml (split(/\n+/, &shell("find '$INPD/sfm' -name 'BookNames.xml' -print", 3))) {
     my $bknames = $XML_PARSER->parse_file("$bknxml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
     if (@bkelems[0]) {
@@ -779,7 +779,7 @@ sub copyReferencedImages($$$) {
     my $i = $image->getValue();
     if ($copied{"$outdir/$i"}) {next;}
     if ($i !~ s/^\.\///) {
-      &Error("copyReferencedImages found a nonrelative path \"$i\".", "Image src paths specified by SFM \fig tags need be relative paths (so they should begin with '.').");
+      &Error("copyReferencedImages found a nonrelative path \"$i\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
     }
     if (!$projdir || !$outdir) {
       &Error("copyReferencedImages: Images exist in \"$osis_or_tei\" but a directory path is empty: projdir=\"$projdir\", outdir=\"$outdir\".");
@@ -3335,7 +3335,7 @@ sub checkFigureLinks($) {
     my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
     my $src = $l->getAttribute('src');
     if (!$src) {
-      &Error("Figure \"$tag\" has no src target", "The source location must be specified by the SFM \fig tag.");
+      &Error("Figure \"$tag\" has no src target", "The source location must be specified by the SFM \\fig tag.");
       $errors++;
       next;
     }
@@ -4143,15 +4143,14 @@ sub writeTOC($) {
       if (@e && @e[0]) {next;}
       
       if ($t eq $toc && !$WRITETOC_MSG) {
-        &Warn("
-At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc SFM tag. These \\toc 
-tags are used to generate the eBook table of contents. When possible, 
-such tags will be automatically inserted.","
-That your eBook TOCs render with proper book names and/or hierarchy. If
-not then you can add \\toc$toc tags to the SFM using EVAL_REGEX. Or, 
-if you wish to use a different \\toc tag, you must add a TOC=N config 
-setting to: $MOD/eBook/convert.txt (where N is the \\toc tag number 
-you wish to use.)\n");
+        &Warn("At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc SFM tag. 
+These \\toc tags are used to generate the eBook table of contents. When 
+possible, such tags will be automatically inserted.",
+"That your eBook TOCs render with proper book names and/or 
+hierarchy. If not then you can add \\toc$toc tags to the SFM using 
+EVAL_REGEX. Or, if you wish to use a different \\toc tag, you must add 
+a TOC=N config setting to: $MOD/eBook/convert.txt (where N is the \\toc 
+tag number you wish to use.)\n");
         $WRITETOC_MSG++;
       }
       
