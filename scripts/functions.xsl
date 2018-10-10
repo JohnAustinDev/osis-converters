@@ -25,13 +25,13 @@
   </function>
   <!-- End of functions copied from xsltfunctions.com -->
 
-  <!-- Only output true if $glossaryEntry first letter matches that of the previous entry --> 
+  <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
   <function name="oc:skipGlossaryEntry">
     <param name="glossaryEntry"/>
     <variable name="previousKeyword" select="$glossaryEntry/preceding::osis:seg[@type='keyword'][1]/string()"/>
     <choose>
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
-      <otherwise><value-of select="boolean(substring($glossaryEntry/text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
+      <otherwise><value-of select="boolean(upper-case(substring($glossaryEntry/text(), 1, 1)) = upper-case(substring($previousKeyword, 1, 1)))"/></otherwise>
     </choose>
   </function>
   
