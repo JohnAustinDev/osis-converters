@@ -197,7 +197,7 @@
               </reference>
               <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
                 <xsl:if test="oc:skipGlossaryEntry(.) = false()">
-                  <xsl:call-template name="Note">Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:with-param></xsl:call-template>
+                  <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:with-param></xsl:call-template>
                   <reference osisRef="{$DICTMOD}:_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}" type="x-glosslink" subType="x-target_self" >
                     <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
                   </reference>
@@ -253,7 +253,7 @@
   <xsl:template match="div[@type='introduction'][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
       <xsl:if test="$introScope">
-        <xsl:call-template name="Note">Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
+        <xsl:call-template name="Note"><xsl:with-param name="msg">Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
         <xsl:attribute name="subType" select="'x-glossary-duplicate'"/>
       </xsl:if>
       <xsl:apply-templates select="node()|@*"/>
