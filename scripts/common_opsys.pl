@@ -23,8 +23,7 @@ sub start_script() {
   &readPaths();
   &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tLOGFILE=$LOGFILE\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n");
   
-  my $isCompatibleLinux = `lsb_release -a 2>&1`;
-  $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
+  my $isCompatibleLinux = `lsb_release -a 2>&1`; $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
   
   # Start script if we're already running on a VM or have dependencies met.
@@ -160,7 +159,7 @@ sub readPaths() {
 # NOTE: Soft links in the file path are followed, but soft links that 
 # are valid on the host will NOT be valid on a VM. To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
-# with /vagrant and be broken on the host, although working on the VM).
+# with /vagrant and be broken on the host, although they work on the VM).
 sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
@@ -173,24 +172,24 @@ sub getDefaultFile($$) {
   my $f;
   if ((!$priority || $priority == 1) && $fileType eq $projType && -e "$INPD/$pfile") {
     $f = "$INPD/$pfile";
-    &Log("NOTE getDefaultFile: (1) Found $file at $f\n");
+    &Note("getDefaultFile: (1) Found $file at $f");
   }
   if ((!$priority || $priority == 2) && -e "$projParent/defaults/$file") {
     if (!$f) {
       $f = "$projParent/defaults/$file";
-      &Log("NOTE getDefaultFile: (2) Found $file at $f\n");
+      &Note("getDefaultFile: (2) Found $file at $f");
     }
     elsif (!&shell("diff '$projParent/defaults/$file' '$f'", 3)) {
-      &Log("NOTE: (2) Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file\n");
+      &Note("(2) Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file");
     }
   }
   if ((!$priority || $priority == 3) && -e "$SCRD/defaults/$file") {
     if (!$f) {
       $f = "$SCRD/defaults/$file";
-      &Log("NOTE getDefaultFile: (3) Found $file at $f\n");
+      &Note("getDefaultFile: (3) Found $file at $f");
     }
     elsif (!&shell("diff '$SCRD/defaults/$file' '$f'", 3)) {
-      &Log("NOTE: (3) Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file\n");
+      &Note("(3) Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
   }
   return $f;
@@ -259,7 +258,7 @@ sub haveDependencies($$$$) {
     elsif ($test{$p}[2] && $result =~ /\Q$need\E/im) {
       $failMes .= "\nDependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n";
     }
-    #&Log("NOTE:  Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result\n");
+    #&Note("Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result");
   }
   
   if ($failMes) {
@@ -362,7 +361,8 @@ sub Error($$$) {
   my $solmsg = shift;
   my $doDie = shift;
 
-  &Log("\nERROR: $errmsg\n".($solmsg ? "SOLUTION: $solmsg\n":'')."\n", 1);
+  &Log("\nERROR: $errmsg\n", 1);
+  if ($solmsg) {&Log("SOLUTION: $solmsg\n");}
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
 }
@@ -373,13 +373,13 @@ sub ErrorBug($$) {
   my $solmsg = shift;
   my $doDie = shift;
   
-  &Log("\nERROR (UNEXPECTED): $errmsg\n".($solmsg ? "SOLUTION: $solmsg\n":''), 1);
+  &Log("\nERROR (UNEXPECTED): $errmsg\n", 1);
+  if ($solmsg) {&Log("SOLUTION: $solmsg\n");}
   
-  use Carp qw(cluck longmess);
-  &cluck('Backtrace:');
-  &Log(&longmess()."\n");
+  use Carp qw(longmess);
+  &Log(&longmess());
   
-  &Log("Please report the above unexpected ERROR to osis-converters maintainer.\n\n", 1);
+  &Log("Report the above unexpected error to osis-converters maintainer.\n\n");
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
 }
@@ -389,7 +389,7 @@ sub Warn($$) {
   my $checkmsg = shift;
   my $flag = shift;
   
-  &Log("\nWARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":'')."\n", 1);
+  &Log("\nWARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":''), $flag);
 }
 
 sub Note($$) {
@@ -404,6 +404,13 @@ sub Debug($$) {
   my $flag = shift;
   
   if ($DEBUG) {&Log("DEBUG: $dbgmsg", $flag);}
+}
+
+sub Report($$) {
+  my $rptmsg = shift;
+  my $flag = shift;
+  
+  &Log("$MOD REPORT: $rptmsg\n", $flag);
 }
 
 # Log to console and logfile. $flag can have these values:

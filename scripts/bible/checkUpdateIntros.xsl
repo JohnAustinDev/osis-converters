@@ -31,8 +31,11 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
     2) Report relevant intro elements which are not subType="x-introduction" and make them such. Also add canonical=false as needed
     3) Titles set to canonical=false unless already explicitly set
   -->
- 
+  
   <import href="../functions.xsl"/>
+  
+  <!-- Call with DEBUG='true' to turn on debug messages -->
+  <param name="DEBUG" select="'false'"/>
   
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
@@ -55,35 +58,33 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
   </template>
   
   <template match="/">
-    <message><text>&#xa;</text><text>&#xa;</text>Checking introductory material in <value-of select="document-uri(.)"/>.</message>
+    <call-template name="Log"><with-param name="msg"><text>&#xa;</text><text>&#xa;</text>Checking introductory material in <value-of select="document-uri(.)"/>.</with-param></call-template>
     
     <!-- Log moved titles -->
     <if test="$moveDivs">
-      <message>NOTE: Section title(s) just before a chapter tag were moved after the chapter tag:</message>
-      <for-each select="$moveDivs"><message select="concat('&#9;', (descendant::*|following::*)[self::chapter[@sID]][1]/@sID, ': ', child::title[1])"/></for-each>
+      <call-template name="Note"><with-param name="msg">Section title(s) just before a chapter tag were moved after the chapter tag:</with-param></call-template>
+      <for-each select="$moveDivs"><call-template name="Log"><with-param name="msg" select="concat('&#9;', (descendant::*|following::*)[self::chapter[@sID]][1]/@sID, ': ', child::title[1])"></with-param></call-template></for-each>
     </if>
     
     <!-- Check and log introduction attributes -->
     <if test="count($addIntroAttrib[@subType != 'x-introduction'])">
-      <message>ERROR: Some introduction elements have a subType that is not x-introduction: <value-of select="distinct-values($addIntroAttrib[@subType != 'x-introduction']/local-name())"/></message>
+      <call-template name="Error"><with-param name="msg">Some introduction elements have a subType that is not x-introduction: <value-of select="distinct-values($addIntroAttrib[@subType != 'x-introduction']/local-name())"/></with-param></call-template>
     </if>
-    <message><text>&#xa;</text>
-      <value-of select="$MOD"/> REPORT: <value-of select="count($addIntroAttrib)"/> instance(s) of non-introduction USFM tags used in introductions<value-of select="if ($addIntroAttrib) then ':' else '.'"/></message>
+    <call-template name="Report"><with-param name="msg"><value-of select="count($addIntroAttrib)"/> instance(s) of non-introduction USFM tags used in introductions.</with-param></call-template>
     <if test="$addIntroAttrib">
-      <message>NOTE: Some USFM tags used for introductory material were not proper introduction
+      <call-template name="Note"><with-param name="msg">Some USFM tags used for introductory material were not proper introduction
 tags. But these have been handled by adding subType="x-introduction" to resulting
-OSIS elements, so changes to USFM source are not required.</message>
+OSIS elements, so changes to USFM source are not required.</with-param></call-template>
       <for-each select="('item', 'l', 'p', 'q', 'title')">
-        <if test="count($addIntroAttrib[local-name()=current()]) != 0"><message>WARNING: Added subType="x-introduction" to <value-of select="concat(count($addIntroAttrib[local-name()=current()]), ' ', .)"/> elements.</message></if>
+        <if test="count($addIntroAttrib[local-name()=current()]) != 0"><call-template name="Warn"><with-param name="msg">Added subType="x-introduction" to <value-of select="concat(count($addIntroAttrib[local-name()=current()]), ' ', .)"/> elements.</with-param></call-template></if>
       </for-each>
     </if>
-    <message><text>&#xa;</text>
-      <value-of select="$MOD"/> REPORT: <value-of select="count($removeIntroAttrib)"/> instance(s) of introduction USFM tags used outside of introductions<value-of select="if ($removeIntroAttrib) then ':' else '.'"/></message>
+    <call-template name="Report"><with-param name="msg"><value-of select="count($removeIntroAttrib)"/> instance(s) of introduction USFM tags used outside of introductions<value-of select="if ($removeIntroAttrib) then ':' else '.'"/></with-param></call-template>
     <if test="$removeIntroAttrib">
-      <message>NOTE: These have been handled by removiong subType="x-introduction" to resulting
-OSIS elements, so changes to USFM source are not required.</message>
+      <call-template name="Note"><with-param name="msg">These have been handled by removiong subType="x-introduction" to resulting
+OSIS elements, so changes to USFM source are not required.</with-param></call-template>
       <for-each select="('item', 'l', 'p', 'q', 'title')">
-        <if test="count($removeIntroAttrib[local-name()=current()]) != 0"><message>WARNING: Removed subType="x-introduction" to <value-of select="concat(count($removeIntroAttrib[local-name()=current()]), ' ', .)"/> elements.</message></if>
+        <if test="count($removeIntroAttrib[local-name()=current()]) != 0"><call-template name="Warn"><with-param name="msg">Removed subType="x-introduction" to <value-of select="concat(count($removeIntroAttrib[local-name()=current()]), ' ', .)"/> elements.</with-param></call-template></if>
       </for-each>
     </if>
     <next-match/>

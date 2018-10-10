@@ -3,6 +3,7 @@
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:me="http://github.com/JohnAustinDev/osis-converters/osis2xhtml"
+ xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
@@ -13,6 +14,8 @@
   This transform may be tested from command line (and outputs will appear in the current directory): 
   $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:main_input_osis.xml -o:content.opf
   -->
+  
+  <import href="./functions.xsl"/>
  
   <!-- Input parameters which may be passed into this XSLT -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
@@ -29,6 +32,9 @@
   <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement for xhtml outputs -->
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml"/>
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
+  
+  <!-- Setting to 'true' turns on debugging messages -->
+  <variable name="DEBUG" select="if (/descendant::*[@type='x-osis2xhtml-DEBUG'][1] = 'true') then 'true' else 'false'"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <variable name="tocnumber" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
@@ -80,7 +86,7 @@
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>
-    <message select="concat('NOTE: ', if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (multipleGlossaries=', $multipleGlossaries, ')')"/>
+    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (multipleGlossaries=', $multipleGlossaries, ')')"/></call-template>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">
@@ -130,7 +136,7 @@
             <xsl:when test="ends-with(lower-case(.), 'otf')">
               <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
             </xsl:when>
-            <xsl:otherwise><xsl:message>ERROR: Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:message></xsl:otherwise>
+            <xsl:otherwise><xsl:call-template name="Error"><xsl:with-param name="msg">Unrecognized type of CSS file:"<xsl:value-of select="."/>"</xsl:with-param></xsl:call-template></xsl:otherwise>
           </xsl:choose>
         </xsl:for-each>
       </manifest>
@@ -149,7 +155,7 @@
     <param name="currentTask" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <message><value-of select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0))"/></message>
+    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0))"/></call-template>
     <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
@@ -176,7 +182,12 @@
           <choose>
             <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
               <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/>
-              <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+              <if test="not($before)"><call-template name="Log"><with-param name="msg" select="$text"/></call-template>
+                <call-template name="Error">
+                  <with-param name="msg">langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</with-param>
+                  <with-param name="die" select="'yes'"/>
+                </call-template>
+              </if>
               <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
             </when>
             <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
@@ -185,7 +196,7 @@
       </value-of>
     </if>
     <if test="not($order)">
-      <message>WARNING: langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</message>
+      <call-template name="Warn"><with-param name="msg">langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</with-param></call-template>
       <value-of select="$text"/>
     </if>
   </function>
@@ -206,7 +217,7 @@
     <choose>
       <when test="not($expel)"><copy-of select="."/></when>
       <otherwise>
-        <message>NOTE: Container contains a chapter milestone: <value-of select="me:printNode(.)"/></message>
+        <call-template name="Note"><with-param name="msg">Container contains a chapter milestone: <value-of select="oc:printNode(.)"/></with-param></call-template>
         <sequence select="me:expelElements(., $expel, false())"/>
       </otherwise>
     </choose>
@@ -255,9 +266,11 @@
         </when>
         <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
         <otherwise>
-          <message><text>&#xa;</text><value-of select="concat('WARNING: The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
-            <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="me:printNode(.)"/><text>&#xa;</text></for-each>
-          </message>
+          <call-template name="Warn">
+            <with-param name="msg"><value-of select="concat('The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
+              <for-each select="current-group()//text()[normalize-space()]"><text>&#xa;</text><value-of select="oc:printNode(.)"/><text>&#xa;</text></for-each>
+            </with-param>
+          </call-template>
         </otherwise>
       </choose>
     </for-each-group>
@@ -291,7 +304,11 @@
       </when>
       <when test="$currentTask = 'get-filenames'">
         <variable name="dropping" select="$fileXHTML/descendant::node()[not(self::text()) or self::text()[normalize-space()]]"/>
-        <if test="$dropping"><message>WARNING: dropping file containing: <for-each select="$dropping"><value-of select="me:printNode(.)"/>, </for-each></message></if>
+        <if test="$dropping">
+          <call-template name="Warn">
+            <with-param name="msg">dropping file containing: <for-each select="$dropping"><value-of select="oc:printNode(.)"/>, </for-each></with-param>
+          </call-template>
+        </if>
       </when>
     </choose>
   </template>
@@ -341,7 +358,9 @@
     <param name="osisRef" as="xs:string"/>
     <variable name="work" select="$mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
     <if test="contains($osisRef, ':') and not(starts-with($osisRef, concat($work, ':')))">
-      <message>ERROR: Bible reference <value-of select="$osisRef"/> targets a work other than <value-of select="$work"/></message>
+      <call-template name="Error">
+        <with-param name="msg">Bible reference <value-of select="$osisRef"/> targets a work other than <value-of select="$work"/></with-param>
+      </call-template>
     </if>
     <variable name="osisRef2" select="replace($osisRef, '^[^:]*:', '')" as="xs:string"/>
     <value-of select="concat($work, '_', tokenize($osisRef2, '\.')[1], (if ($chapterFiles = 'true') then concat('/ch', tokenize($osisRef2, '\.')[2]) else ''))"/>
@@ -354,7 +373,7 @@
     <param name="fileXHTML" as="node()+"/>
     <param name="fileNotes" as="node()*"/>
     <variable name="isBibleNode" select="$topElement/ancestor-or-self::osisText[last]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
-    <message select="concat('writing:', $fileName)"/>
+    <call-template name="Log"><with-param name="msg" select="concat('writing:', $fileName)"/></call-template>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
@@ -556,7 +575,10 @@
     <param name="keepOnlyCombinedGlossary" as="xs:boolean"/>
     <variable name="isBible" select="root($tocNode)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
-      <message terminate="yes">ERROR: getTocListItems(): Not a TOC milestone or non-Bible chapter element: <value-of select="me:printNode($tocNode)"/></message>
+      <call-template name="Error">
+        <with-param name="msg">getTocListItems(): Not a TOC milestone or non-Bible chapter element: <value-of select="oc:printNode($tocNode)"/></with-param>
+        <with-param name="die" select="'yes'"/>
+      </call-template>
     </if>
     <variable name="toplevel" select="if ($isOsisRootTOC) then 0 else me:getTocLevel($tocNode)"/>
     <if test="$toplevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[not_parent\]'))">
@@ -622,7 +644,10 @@
   <function name="me:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocAttributes(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
+      <call-template name="Error">
+        <with-param name="msg">getTocAttributes(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
+        <with-param name="die" select="'yes'"/>
+      </call-template>
     </if>
     <attribute name="id" select="generate-id($tocElement)"/>
     <attribute name="class" select="normalize-space(string-join(('xsl-toc-entry', me:getClasses($tocElement)), ' '))"/>
@@ -635,7 +660,10 @@
   <function name="me:getTocTitle" as="xs:string">
     <param name="tocElement" as="element()"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocTitle(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
+      <call-template name="Error">
+        <with-param name="msg">getTocTitle(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
+        <with-param name="die" select="'yes'"/>
+      </call-template>
     </if>
     <variable name="tocTitleEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if ($tocElement/@n) then $tocElement/@n else ''"/>
     <variable name="tocTitleOSIS">
@@ -653,7 +681,9 @@
         <otherwise>
           <variable name="errtitle" select="concat($tocElement/name(), ' ', count($tocElement/preceding::*[name()=$tocElement/name()]))"/>
           <value-of select="$errtitle"/>
-          <message>ERROR: Could not determine TOC title of "<value-of select="$errtitle"/>"</message>
+          <call-template name="Error">
+            <with-param name="msg">Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
+          </call-template>
         </otherwise>
       </choose>
     </variable>
@@ -665,7 +695,10 @@
     <param name="tocElement" as="element()"/>
     <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
-      <message terminate="yes">ERROR: getTocLevel(): Not a TOC element: <value-of select="me:printNode($tocElement)"/></message>
+      <call-template name="Error">
+        <with-param name="msg">getTocLevel(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
+        <with-param name="die" select="'yes'"/>
+      </call-template>
     </if>
     <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$')) then replace($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$', '$2') else '0'"/>
     <variable name="toclevelOSIS">
@@ -994,10 +1027,16 @@
             </choose>
           </variable>
           <choose>
-            <when test="count($target)=0"><message>ERROR: workID="<value-of select="$workid"/>" and target osisID not found for: <value-of select="me:printNode(.)"/></message></when>
+            <when test="count($target)=0">
+              <call-template name="Error">
+                <with-param name="msg">workID="<value-of select="$workid"/>" and target osisID not found for: <value-of select="oc:printNode(.)"/></with-param>
+              </call-template>
+            </when>
             <when test="count($target)=1"><value-of select="concat('/xhtml/', me:getFileName($target), '.xhtml')"/></when>
             <otherwise>
-              <message>ERROR: Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</message>
+              <call-template name="Error">
+                <with-param name="msg">Multiple targets with same osisID (<value-of select="count($target)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</with-param>
+              </call-template>
             </otherwise>
           </choose>
         </otherwise>
@@ -1053,7 +1092,9 @@
           </for-each-group>
         </variable>
         <variable name="pass2"><apply-templates select="$pass1" mode="weed2"/></variable><!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
-        <if test="not($quiet) and count($element/node())+1 != count($pass2/node())"><message>NOTE: expelling: <value-of select="me:printNode($expel)"/></message></if>
+        <if test="not($quiet) and count($element/node())+1 != count($pass2/node())">
+          <call-template name="Note"><with-param name="msg">expelling: <value-of select="oc:printNode($expel)"/></with-param></call-template>
+        </if>
         <sequence select="$pass2"/>
       </otherwise>
     </choose>
@@ -1086,21 +1127,6 @@
   <template mode="weed2" match="node()|@*"><copy><apply-templates select="node()|@*" mode="weed2"/></copy></template>
   <template mode="weed2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
   <template mode="weed2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
-  
-  <function name="me:printNode" as="text()">
-    <param name="node" as="node()"/>
-    <choose>
-      <when test="$node[self::element()]">
-        <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each></value-of>
-      </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
-      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
-    </choose>
-  </function>
   
   <!-- tr:uri-to-relative-path ($base-uri, $rel-uri) this function converts a URI to a relative path using another URI directory as base reference. -->
   <function name="me:uri-to-relative-path" as="xs:string">
@@ -1138,7 +1164,9 @@
       <!-- if both URIs share no equal part (e.g. for the reason of different URI scheme names) then it's not possible to create a relative path. -->
       <otherwise>
         <value-of select="$rel-uri"/>
-        <message>ERROR: Indeterminate path:"<xsl:value-of select="$rel-uri"/>" is not relative to "<xsl:value-of select="$base-uri"/>"</message>
+        <call-template name="Error">
+          <with-param name="msg">Indeterminate path:"<xsl:value-of select="$rel-uri"/>" is not relative to "<xsl:value-of select="$base-uri"/>"</with-param>
+        </call-template>
       </otherwise>
     </choose>
   </function>

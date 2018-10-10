@@ -92,7 +92,10 @@ sub addFootnoteLinks($) {
           my $ots = $2;
           my @ots = split(/\|/, $ots);
           foreach my $ot (@ots) {
-            if ($ot !~ /^(\d+|last|next|prev):(.*)$/) {&Log("ERROR: Malformed entry in ORDINAL_TERMS: \"$ot\"\n"); next;}
+            if ($ot !~ /^(\d+|last|next|prev):(.*)$/) {
+              &Error("Malformed entry in ORDINAL_TERMS: \"$ot\"", "Change the value in CF_addFootnoteLinks.txt. Allowed values are 'last', 'next', 'prev' or a number.");
+              next;
+            }
             $TERM_ORDINAL{$2} = $1;
           }
         } 
@@ -100,11 +103,20 @@ sub addFootnoteLinks($) {
       }
       elsif ($_ =~ /^FIX:(.*+)$/) {
         my $fix = $1;
-        if ($fix !~ s/\bLOCATION='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find LOCATION='book.ch.vs' in FIX statement: $_\n"); next;}
+        if ($fix !~ s/\bLOCATION='(.*?)(?<!\\)'//) {
+          &Error("Could not find LOCATION='book.ch.vs' in FIX statement: $_", "Change this FIX statement in CF_addFootnoteLinks.txt. See top of addFootnoteLinks.pl.");
+          next;
+        }
         my $location = $1;
-        if ($fix !~ s/\bAT='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find AT='reference text' in FIX statement: $_\n"); next;}
+        if ($fix !~ s/\bAT='(.*?)(?<!\\)'//) {
+          &Error("Could not find AT='reference text' in FIX statement: $_", "Change this FIX statement in CF_addFootnoteLinks.txt. See top of addFootnoteLinks.pl.");
+          next;
+        }
         my $at = $1; $at =~ s/\\'/'/g;
-        if ($fix !~ s/\b(REPLACEMENT)='(.*?)(?<!\\)'//) {&Log("ERROR: Could not find REPLACEMENT='exact-replacement' in FIX statement: $_\n"); next;}
+        if ($fix !~ s/\b(REPLACEMENT)='(.*?)(?<!\\)'//) {
+          &Error("Could not find REPLACEMENT='exact-replacement' in FIX statement: $_", "Change this FIX statement in CF_addFootnoteLinks.txt. See top of addFootnoteLinks.pl.");
+          next;
+        }
         my $type = $1; my $value = $2;
         $FNL_FIX{$location}{$at} = "$type:$value";
         next;
@@ -119,12 +131,12 @@ sub addFootnoteLinks($) {
       elsif ($_ =~ /^STOP_REFERENCE:(\s*\((.*?)\)\s*)?$/) {if ($1) {$stopreference = $2;} next;}
       #elsif ($_ =~ /^EXCLUSION:\s*([^:]+)\s*:\s*(.*?)\s*$/) {$exclusion{$1} .= $sp.$2.$sp; next;}
       else {
-        &Log("ERROR: \"$_\" in command file was not handled.\n");
+        &Error("\"$_\" in command file CF_addFootnoteLinks.txt was not handled.", "Change or remove this entry. See top of addFootnoteLinks.pl.");
       }
     }
     close (CF);
   }
-  else {&Log("ERROR: Command file required: $commandFile\n"); die;}
+  else {&Error("Command file required: $commandFile", "Add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
 
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   &Log("WRITING INPUT FILE: \"$output\".\n");
@@ -157,16 +169,16 @@ sub addFootnoteLinks($) {
           $OSISID_FOOTNOTE{$id}++;
           my $bc = &bibleContext($fn);
           if ($bc) {&recordVersesOfFootnote($fn, $bc, $bmod);}
-          else {&Log("ERROR: Could not determine bibleContext of footnote \"$fn\" in \"$bmod\".\n");}
+          else {&ErrorBug("Could not determine bibleContext of footnote \"$fn\" in \"$bmod\".");}
         }
       }
     }
     else {
-      &Log("ERROR: OSIS should be a Bible but is not: \"$bibleOsis\"\n");
+      &ErrorBug("OSIS should be a Bible but is not: \"$bibleOsis\".");
     }
   }
   else {
-    &Log("ERROR: Bible OSIS was not found at \"$bibleOsis\"!\n");
+    &ErrorBug("Bible OSIS was not found at \"$bibleOsis\".");
   }
   
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
@@ -194,7 +206,7 @@ sub addFootnoteLinks($) {
     }
   }
   else {
-    &Log("ERROR addFootnoteLinks: Not yet supporting refSystem \"$myRefSystem\"\n");
+    &ErrorBug("addFootnoteLinks: Not yet supporting refSystem \"$myRefSystem\"");
   }
   &joinOSIS($output);
   $$osisP = $output;
@@ -205,15 +217,21 @@ sub addFootnoteLinks($) {
   &Log("#################################################################\n");
   &Log("\n");
   
-  foreach my $k (keys %FNL_FIX) {foreach my $t (keys %{$FNL_FIX{$k}}) {if ($FNL_FIX{$k}{$t} ne 'done') {&Log("ERROR: FIX: LOCATION='$k' was not applied!\n");}}}
+  foreach my $k (keys %FNL_FIX) {
+    foreach my $t (keys %{$FNL_FIX{$k}}) {
+      if ($FNL_FIX{$k}{$t} ne 'done') {
+        &Error("FIX: LOCATION='$k' was not applied!", "Change or remove this FIX statement.");
+      }
+    }
+  }
   &Log("\n");
   
-  &Log("$MOD REPORT: Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):\n");
+  &Report("Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):");
   my $x = 0; foreach my $p (sort keys %FNL_LINKS) {if (length($p) > $x) {$x = length($p);}}
   foreach my $p (sort keys %FNL_LINKS) {&Log(sprintf("%-".$x."s (%i)\n", $p, $FNL_LINKS{$p}));}
   &Log("\n");
     
-  &Log("$MOD REPORT: Grand Total Footnote links: (".&stat()." instances)\n");
+  &Report("Grand Total Footnote links: (".&stat()." instances)");
   &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));
   &Log(sprintf("%5i - Referenced to current verse\n", &stat('self')));
   &Log(sprintf("%5i - Fixed references\n", &stat('fix')));
@@ -248,21 +266,21 @@ sub recordVersesOfFootnote($$$) {
       # points to verses outside this link, these are ignored.
       my @annotateRef = $XPC->findnodes('.//osis:reference[@type="annotateRef"][1]', $f);
       if (@annotateRef && @annotateRef[0]) {
-        if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&Log("ERROR recordVersesOfFootnote: Bad verse \"$verse\"!\n"); next;}
+        if ($verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)$/) {&ErrorBug("recordVersesOfFootnote: Bad verse $verse !~ /^[^\.]*\.([^\.]*)\.([^\.]*)\$/"); next;}
         my $chv = $1; my $vsv = $2;
         my $ar = @annotateRef[0]->textContent;
         if ($ar =~ /^((\d+):)?(\d+)(\-(\d+))?$/) {
           my $ch = $2; my $v1 = $3; my $v2 = $5;
           if (!$v2) {$v2 = $v1;}
           if ($ch && $ch ne $chv) {
-            &Log("ERROR recordVersesOfFootnote: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\"!\n");
+            &ErrorBug("recordVersesOfFootnote: Footnote's annotateRef \"$ar\" has different chapter than footnote's verses \"$bibleContext\".");
           }
           if ($vsv < $v1 || $vsv > $v2) {
-            &Log("NOTE: recordVersesOfFootnote Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".\n");
+            &Note("recordVersesOfFootnote Determined that verse \"$verse\" of linked verse \"$bibleContext\" does not apply to footnote because annotateRef is \"$ar\".");
             next;
           }
         }
-        else {&Log("ERROR recordVersesOfFootnote: Unexpected annotateRef \"$ar\"!\n");}
+        else {&ErrorBug("recordVersesOfFootnote: Unexpected annotateRef \"$ar\".");}
       }
     }
     my $key = $footnoteModuleName.':'.$verse;
@@ -294,7 +312,7 @@ sub processXML($$) {
         my $t = @skipped[0]->toString();
         if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
           $reportedSkipped{$1}++;
-          &Log("NOTE: SKIP_XPATH skipping \"$1\".\n");
+          &Note("SKIP_XPATH skipping \"$1\".");
         }
         next;
       }
@@ -309,7 +327,7 @@ sub processXML($$) {
     if ($refSystem =~ /^Bible/) {
       my $bcontext = &bibleContext($textNode);
       if ($bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
-        &Log("ERROR processXML: Unrecognized textNode Bible context \"$bcontext\"\n");
+        &ErrorBug("processXML: Unrecognized textNode Bible context: $bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)\$");
         next;
       }
       $BK = $1;
@@ -408,7 +426,7 @@ sub addFootnoteLinks2TextNode($$) {
       my $orig = $bbrefs;
       if ($stopreference && $bbrefs =~ s/^.*$stopreference//) {
         $orig =~ s/<[^>]*>//g; my $new = $bbrefs; $new =~ s/<[^>]*>//g;
-        &Log("NOTE: $BK.$CH.$VS: STOP_REFERENCE shortened reference from \"$orig\" to \"$new\"\n");
+        &Note("$BK.$CH.$VS: STOP_REFERENCE shortened reference from \"$orig\" to \"$new\"");
       }
       while ($bbrefs =~ s/^.*?osisRef="([^"]*)"//) {
         my $a = $1;
@@ -427,7 +445,7 @@ sub addFootnoteLinks2TextNode($$) {
         if ("$beg$term" =~ /\Q$t\E/) {
           my $value = $FNL_FIX{"$BK.$CH.$VS"}{$t};
           if ($value !~ s/^(REPLACEMENT)://) {
-            &Log("ERROR $BK.$CH.$VS: FIX Bad command value \"$value\"\n");
+            &ErrorBug("$BK.$CH.$VS: FIX Bad command value: $value !~ s/^(REPLACEMENT)://");
             next;
           }
           my $type = $1;
@@ -441,11 +459,11 @@ sub addFootnoteLinks2TextNode($$) {
             }
             else {
               if ($value =~ /^(.*)\b(?<!\>)(($footnoteTerms)($suffixTerms)*)\b/) { # copied from main while loop, this check is to ensure it does not go endless!
-                &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\"!\n");
+                &ErrorBug("$BK.$CH.$VS: FIX \"$t\" - BAD Fix REPLACEMENT=\"$value\" must have reference start tag before \"$2\".");
                 next;
               }
               if ($text !~ s/\Q$t\E/$value/) {
-                &Log("ERROR $BK.$CH.$VS: FIX \"$t\" - REPLACEMENT failed!\n");
+                &ErrorBug("$BK.$CH.$VS: FIX \"$t\" - REPLACEMENT failed.");
                 next;
               }
               $skipTargetReplacement = 1;
@@ -453,15 +471,15 @@ sub addFootnoteLinks2TextNode($$) {
             }
           }
 
-          &Log("NOTE $BK.$CH.$VS: Applied FIX \"$t\"\n");
+          &Note("$BK.$CH.$VS: Applied FIX \"$t\"");
           $refType = 'fix';
           $FNL_FIX{"$BK.$CH.$VS"}{$t} = 'done';
           last;
         }
       }
     }
-    else {
-      &Log("ERROR $BK.$CH.$VS: Could not find target footnote verse: $beg$term\n");
+    if (!@osisRefs[0] && !$skipTargetReplacement) {
+      &Error("$BK.$CH.$VS: Could not find target footnote verse: $beg$term", "If this is not a footnote link, use a FIX instruction in CF_addFootnoteLinks.txt to SKIP it, or adjust COMMON_TERMS and/or CURRENT_VERSE_TERMS to locate the target verse.");
       next;
     }
     
@@ -478,16 +496,16 @@ sub addFootnoteLinks2TextNode($$) {
           $refInfo{$keyRefInfo++} = "$refType-multi-".$TERM_ORDINAL{$ordTermKey};
         }
         else {
-          &Log("ERROR: $BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef ".join(' ', @osisRefs).", textNode=".$textNode->data()."\n");
+          &ErrorBug("$BK.$CH.$VS: Failed to convert associated ordinal: term=$ordTermKey, ord=".$TERM_ORDINAL{$ordTermKey}.", osisRef ".join(' ', @osisRefs).", textNode=".$textNode->data());
         }
       }
       if ($terms ne $initialTerms) {
         my $initialBeg = $beg;
         if ($beg !~ s/\Q$initialTerms\E$/$terms/) {
-          &Log("ERROR $BK.$CH.$VS: Associated ordinal beg term(s) were not replaced!\n");
+          &ErrorBug("$BK.$CH.$VS: Associated ordinal beg term(s) were not replaced.");
         }
         if ($text !~ s/^\Q$initialBeg\E/$beg/) {
-          &Log("ERROR $BK.$CH.$VS: Associated ordinal text term(s) were not replaced!\n");
+          &ErrorBug("$BK.$CH.$VS: Associated ordinal text term(s) were not replaced.");
         }
       }
     }
@@ -499,7 +517,7 @@ sub addFootnoteLinks2TextNode($$) {
         $refInfo{$keyRefInfo++} = "$refType-single-".($ordinal ? $ordinal:'d');
       }
       else {
-        &Log("ERROR: $BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRefs ".join(' ', @osisRefs).", textNode=".$textNode->data()."\n");
+        &ErrorBug("$BK.$CH.$VS: Failed to convert ordinal: ord=$ordinal, osisRefs ".join(' ', @osisRefs).", textNode=".$textNode->data());
       }
     }
     elsif (!$skipFixIndexing) {
@@ -512,7 +530,7 @@ sub addFootnoteLinks2TextNode($$) {
     }
      
     if (!$skipSanityCheck && $text =~ /\b(TARGET)\b/) {
-      &Log("ERROR $BK.$CH.$VS: Footnote link problem: $text\n");
+      &ErrorBug("$BK.$CH.$VS: Footnote link problem: $text");
     }
   }
   
@@ -531,15 +549,15 @@ sub addFootnoteLinks2TextNode($$) {
   # Sanity checks (shouldn't be needed but makes me feel better)
   my $test = $text; $test =~ s/<[^>]*>//g;
   if (!$skipSanityCheck && $text eq $textNode->data()) {
-    &Log("ERROR $BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).\n");
+    &ErrorBug("$BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).");
     return '';
   }
   elsif (!$skipSanityCheck && $text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
-    &Log("ERROR $BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text\n");
+    &ErrorBug("$BK.$CH.$VS: Footnote text was changed, but no links were created!:\n\t\tBEFORE=".$textNode->data()."\n\t\tAFTER =$text");
     return '';
   }
   elsif ($textNode->data() ne $test) {
-    &Log("ERROR $BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test\n");
+    &ErrorBug("$BK.$CH.$VS: A text node was corrupted!:\n\t\tORIGINAL=".$textNode->data()."\n\t\tPARSED  =$test");
     return '';
   }
   else {
@@ -554,10 +572,10 @@ sub addFootnoteLinks2TextNode($$) {
       $FNL_STATS{$refInfo{$key}}++;
       $FNL_LINKS{$linkText}++;
       if (!$OSISID_FOOTNOTE{$ref}) {
-        &Log("ERROR $BK.$CH.$VS: Footnote with osisID=\"$ref\" does not exist!\n");
+        &ErrorBug("$BK.$CH.$VS: Footnote with osisID=\"$ref\" does not exist.");
       }
       elsif ($OSISID_FOOTNOTE{$ref} > 1) {
-        &Log("ERROR $BK.$CH.$VS: Multiple footnotes with osisID=\"$ref\"!\n");
+        &ErrorBug("$BK.$CH.$VS: Multiple footnotes with osisID=\"$ref\".");
       }
     }
   }
@@ -600,13 +618,13 @@ sub convertOrdinal($\@$$$) {
     my $fnOsisIdsP = &getFootnotes($osisRefsP);
     
     if (!@{$fnOsisIdsP} || !@{$fnOsisIdsP}[0]) {
-      &Log("ERROR $BK.$CH.$VS: The text targets a footnote in osisRefs \"".join(' ', @{$osisRefsP})."\" but there are no footnotes there!\n");
+      &ErrorBug("$BK.$CH.$VS: The text targets a footnote in osisRefs \"".join(' ', @{$osisRefsP})."\" but there are no footnotes there.");
       return 0;
     }
 
     if ($ord eq 'last') {
       if (@{$fnOsisIdsP} == 1) {
-        &Log("ERROR $BK.$CH.$VS: The 'last' ordinal was used for osisRefs \"".join(' ', @{$osisRefsP})."\" which contain only one footnote. This doesn't make sense.\n");
+        &ErrorBug("$BK.$CH.$VS: The 'last' ordinal was used for osisRefs \"".join(' ', @{$osisRefsP})."\" which contain only one footnote. This doesn't make sense.");
       }
       return @{$fnOsisIdsP}[$#{$fnOsisIdsP}];
     }
@@ -620,10 +638,10 @@ sub convertOrdinal($\@$$$) {
           $haveRef = $nr;
         }
         $txt =~ s/<[^>]*>//g;
-        &Log("WARNING $BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference(s) \"".join(' ', @{$osisRefsP})."\" contain \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text: \"$txt\".\n");
+        &Warn("$BK.$CH.$VS: ONLY THE FIRST FOOTNOTE IS LINKED even though the target reference(s) \"".join(' ', @{$osisRefsP})."\" contain \"".@{$fnOsisIdsP}."\" footnotes pointed to by the text: \"$txt\".");
       }
       if (!@{$fnOsisIdsP}[($ord-1)]) {
-        &Log("ERROR $BK.$CH.$VS: The text targets footnote \"$ord\" of osisRefs \"".join(' ', @{$osisRefsP})."\" but such a footnote does not exist!\n");
+        &ErrorBug("$BK.$CH.$VS: The text targets footnote \"$ord\" of osisRefs \"".join(' ', @{$osisRefsP})."\" but such a footnote does not exist.");
         return 0;
       }
       return @{$fnOsisIdsP}[($ord-1)];
@@ -639,7 +657,7 @@ sub convertOrdinal($\@$$$) {
       $pord--;
       my $nid = $textMod.':'.$pref.$FNREFEXT.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
-        &Log("ERROR $BK.$CH.$VS: Footnote has no previous sibling \"$nid\"\n");
+        &ErrorBug("$BK.$CH.$VS: Footnote has no previous sibling \"$nid\"");
       }
       else {return $nid;}
     }
@@ -652,13 +670,13 @@ sub convertOrdinal($\@$$$) {
       $nord++;
       my $nid = $textMod.':'.$pref.$FNREFEXT.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
-        &Log("ERROR $BK.$CH.$VS: Footnote has no next sibling: \"$nid\"\n");
+        &ErrorBug("$BK.$CH.$VS: Footnote has no next sibling: \"$nid\"");
       }
       else {return $nid;}
     }    
   }
   else {
-    &Log("ERROR $BK.$CH.$VS: Unhandled ordinal type \"$ord\". This footnote is broken.\n");
+    &ErrorBug("$BK.$CH.$VS: Unhandled ordinal type \"$ord\". This footnote is broken.");
   }
   
   return 0;
@@ -671,7 +689,7 @@ sub getOsisIdOfFootnoteNode($) {
   
   my @fn = $XPC->findnodes('ancestor-or-self::osis:note[@placement="foot"][1]', $node);
   if (!@fn || !@fn[0]) {
-    &Log("ERROR $BK.$CH.$VS: Node must be (in) a footnote!: $node\n");
+    &ErrorBug("$BK.$CH.$VS: Node must be (in) a footnote: $node");
     return '';
   }
   

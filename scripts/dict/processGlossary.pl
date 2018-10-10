@@ -71,7 +71,7 @@ sub removeDuplicateEntries($) {
   close(OUTF);
   $$osisP = $output;
   
-  &Log("$MOD REPORT: ".@dels." instance(s) of x-keyword-duplicate div removal.\n");
+  &Report(@dels." instance(s) of x-keyword-duplicate div removal.");
 }
 
 # Returns scopes of filtered entries, or else '-1' if all were filtered or '0' if none were filtered

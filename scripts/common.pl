@@ -26,6 +26,7 @@ use File::Copy;
 use File::Path qw(make_path remove_tree);
 use File::Find;
 use Cwd;
+use DateTime;
 
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
@@ -88,7 +89,7 @@ sub start_linux_script() {
     my $bknames = $XML_PARSER->parse_file("$INPD/sfm/BookNames.xml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
     if (@bkelems[0]) {
-      &Log("NOTE: Reading localized book names from \"$INPD/sfm/BookNames.xml\"\n");
+      &Note("Reading localized book names from \"$INPD/sfm/BookNames.xml\"");
     }
     foreach my $bkelem (@bkelems) {
       my $bk = getOsisName($bkelem->getAttribute('code'), 1);
@@ -104,11 +105,10 @@ sub start_linux_script() {
   $CONFFILE = "$INPD/config.conf";
   
   if (!-e $CONFFILE) {
-    &Log("ERROR: Could not find or create a \"$CONFFILE\" file.
+    &Error("Could not find or create a \"$CONFFILE\" file.
 \"$INPD\" may not be an osis-converters project directory.
 A project directory must, at minimum, contain an \"sfm\" subdirectory.
-\n".encode("utf8", $LogfileBuffer)."\n");
-    die;
+\n".encode("utf8", $LogfileBuffer), '', 1);
   }
   
   $OUTDIR = &getOUTDIR($INPD);
@@ -128,7 +128,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
   if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
   
-  if ($SCRIPT_NAME !~ /osis2ebook/) {&Log("start time: ".localtime()."\n");}
+  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');}
   
   &Log("osis-converters git rev: $GITHEAD\n\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
@@ -140,9 +140,28 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   if (-e "$INPD/images") {
     my $spaces = &shell("find $INPD/images -type f -name \"* *\" -print", 3);
     if ($spaces) {
-      &Log("\nERROR: Image filenames must not contain spaces:\n$spaces\n");
+      &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
+}
+
+sub timer($) {
+  my $do = shift;
+ 
+  if ($do =~ /start/i) {
+    &Log("start time: ".localtime()."\n");
+    $STARTTIME = DateTime->now();
+  }
+  if ($do =~ /stop/i) {
+    &Log("\nend time: ".localtime()."\n");
+    if ($STARTTIME) {
+      my $now = DateTime->now();
+      my $e = $now->subtract_datetime($STARTTIME);
+      &Log("elapsed time: ".($e->hours ? $e->hours." hours ":'').($e->minutes ? $e->minutes." minutes ":'').$e->seconds." seconds\n", 1);
+    }
+    $STARTTIME = '';
+  }
+  else {&Log("\ncurrent time: ".localtime()."\n");}
 }
 
 sub checkFont($) {
@@ -162,7 +181,7 @@ sub checkFont($) {
   }
 
   if ($FONTS && ! -e $FONTS) {
-    &Log("ERROR: paths.pl specifies FONTS as \"$FONTS\" but this path does not exist! FONTS will be unset!\n");
+    &Error("paths.pl specifies FONTS as \"$FONTS\" but this path does not exist. FONTS will be unset.", "Change the value of FONTS in paths.pl to point to an existing path or URL.");
     $FONTS = '';
   }
 
@@ -183,19 +202,19 @@ sub checkFont($) {
           $FONT_FILES{$font}{$f}{'fullname'} = &shell('fc-scan --format "%{fullname}" "'."$FONTS/$f".'"', 3);
         }
       }
-      else {&Log("\nWARNING: Font \"$f\" file name could not be parsed. Ignoring...\n\n");}
+      else {&Warn("\nFont \"$f\" file name could not be parsed. Ignoring...\n");}
     }
     if (scalar(%FONT_FILES)) {
       foreach my $f (sort keys(%{$FONT_FILES{$font}})) {
-        &Log("NOTE: Using font file \"$f\" as ".$FONT_FILES{$font}{$f}{'style'}." font for \"$font\".\n\n");
+        &Note("Using font file \"$f\" as ".$FONT_FILES{$font}{$f}{'style'}." font for \"$font\".\n");
       }
     }
     else {
-      &Log("ERROR: No font file(s) for \"$font\" were found in \"$FONTS\"\n");
+      &Error("No font file(s) for \"$font\" were found in \"$FONTS\"", "Add the required font to this directory, or change FONTS in paths.pl to the correct path or URL.");
     }
   }
   else {
-    &Log("\nWARNING: The config.conf specifies font \"$font\", but no FONTS directory has been specified in $SCRD/paths.pl. Therefore, this setting will be ignored!\n\n");
+    &Warn("\nThe config.conf specifies font \"$font\", but no FONTS directory has been specified in $SCRD/paths.pl. Therefore, this setting will be ignored!\n");
   }
 }
 
@@ -230,19 +249,19 @@ sub loadDictionaryWordsXML($) {
   my $update = 0;
   my $tst = @{$XPC->findnodes('//dw:div', $DWF)}[0];
   if (!$tst) {
-    &Log("ERROR: Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default!\nAdd 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    &Error("Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default.", "Add 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\".");
     $errors++;
     my @ns = $XPC->findnodes('//*', $DWF);
     foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1); $update++;}
   }
   my $tst = @{$XPC->findnodes('//*[@highlight]', $DWF)}[0];
   if ($tst) {
-    &Log("ERROR: Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"\nRemove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.\n\n");
+    &Error("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
     $errors++;
   }
   my $tst = @{$XPC->findnodes('//*[@notXPATH]', $DWF)}[0];
   if (!$tst) {
-    &Log("ERROR: Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting!\nAdd 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\" to remove this error.\n\n");
+    &Error("Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting.", "Add 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\".");
     $errors++;
     @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
     $update++; 
@@ -250,23 +269,23 @@ sub loadDictionaryWordsXML($) {
   my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
   if ($tst) {
     $errors++;
-    &Log("ERROR: \"withString\" attribute is no longer supported. Remove it from: $DICTIONARY_WORDS\n");
+    &Error("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
   }
   
   # Save any updates back to source dictionary_words_xml and reload
   if ($update) {
-    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&Log("ERROR: Could not open $dictionary_words_xml.tmp\n"); die;}
+    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&ErrorBug("Could not open $dictionary_words_xml.tmp", '', 1);}
     print OUTF $DWF->toString();
     close(OUTF);
     unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
-    &Log("NOTE: Updated $update instance of non-conforming markup in $dictionary_words_xml\n");
+    &Note("Updated $update instance of non-conforming markup in $dictionary_words_xml");
     if (!$noupdateMarkup) {
       $noupdateMarkup++;
       return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
     }
     else {
       $errors++;
-      &Log("ERROR: loadDictionaryWordsXML failed to update markup on first pass!\n");
+      &ErrorBug("loadDictionaryWordsXML failed to update markup on first pass.");
     }
   }
   
@@ -279,22 +298,23 @@ sub loadDictionaryWordsXML($) {
     }
     else {
       $errors++;
-      &Log("ERROR: compareDictOsis2DWF failed to update entry osisRef capitalization on first pass!\n");
+      &ErrorBug("compareDictOsis2DWF failed to update entry osisRef capitalization on first pass");
     }
   }
   
   # Warn if some entries should have multiple match elements
   my @r = $XPC->findnodes('//dw:entry/dw:name[translate(text(), "_,;[(", "_____") != text()][count(following-sibling::dw:match) = 1]', $DWF);
   if (!@r[0]) {@r = ();}
-  &Log("\n$MOD REPORT: Compound glossary entry names with a single match element: (".scalar(@r)." instances)\n");
+  &Log("\n");
+  &Report("Compound glossary entry names with a single match element: (".scalar(@r)." instances)");
   if (@r) {
-    &Log("NOTE: Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.\n");
+    &Note("Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.");
     foreach my $r (@r) {&Log($r->textContent."\n");}
   }
   
   my $valid = 0;
   if ($errors == 0) {$valid = &validateDictionaryWordsXML($DWF);}
-  if ($valid) {&Log("\nNOTE: $INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n\n");}
+  if ($valid) {&Note("\n$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n");}
   
   return ($valid && $errors == 0 ? 1:0);
 }
@@ -321,7 +341,7 @@ sub compareDictOsis2DWF($$) {
   my $allowUpdate = 1; my %noCaseKeys;
   foreach my $es ($XPC->findnodes('//osis:seg[@type="keyword"]/text()', $osis)) {
     if ($noCaseKeys{lc($es)}) {
-      &Log("NOTE: Will not update case-only discrepancies in $dictionary_words_xml.\n");
+      &Note("Will not update case-only discrepancies in $dictionary_words_xml.");
       $allowUpdate = 0;
       last;
     }
@@ -359,7 +379,7 @@ sub compareDictOsis2DWF($$) {
         last;
       }
     }
-    if (!$match) {&Log("WARNING: Missing entry \"$osisID\" in $dictionary_words_xml\n"); $allmatch = 0;}
+    if (!$match) {&Warn("Missing entry \"$osisID\" in $dictionary_words_xml", "That you don't want any links to this entry."); $allmatch = 0;}
   }
   
   # Check that all dictionary_words_xml entries are included as keywords in dictosis
@@ -375,16 +395,16 @@ sub compareDictOsis2DWF($$) {
       my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
       if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
     }
-    if (!$match) {&Log("ERROR: Extra entry \"$osisRef\" in $dictionary_words_xml\n"); $allmatch = 0;}
+    if (!$match) {&Error("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in ${MOD}DICT."); $allmatch = 0;}
   }
   
   # Save any updates back to source dictionary_words_xml
   if ($update) {
-    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&Log("ERROR: Could not open $dictionary_words_xml.tmp\n"); die;}
+    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&ErrorBug("Could not open $dictionary_words_xml.tmp", '', 1);}
     print OUTF $dwf->toString();
     close(OUTF);
     unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
-    &Log("NOTE: Updated $update entries in $dictionary_words_xml\n");
+    &Note("Updated $update entries in $dictionary_words_xml");
   }
   elsif ($allmatch) {&Log("All entries are included.\n");}
   
@@ -400,7 +420,7 @@ sub validateDictionaryWordsXML($) {
   foreach my $entry (@entries) {
     my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
     foreach my $dict (@dicts) {
-      if ($dict !~ s/^(\w+):.*$/$1/) {&Log("ERROR: osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module\n");}
+      if ($dict !~ s/^(\w+):.*$/$1/) {&Error("osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module", "Add the dictionary module name followed by ':' to the osisRef value.");}
     }
   }
   
@@ -411,7 +431,7 @@ sub validateDictionaryWordsXML($) {
   my @badElem = $XPC->findnodes($x, $dwf);
   if (@badElem) {
     foreach my $ba (@badElem) {
-      &Log("\nERROR: Bad DictionaryWords.xml element: \"".$ba->localname()."\"\n\n");
+      &Error("Bad DictionaryWords.xml element: \"".$ba->localname()."\"", "Only the following elements are allowed: ".join(' ', @allowed));
       $success = 0;
     }
   }
@@ -422,7 +442,7 @@ sub validateDictionaryWordsXML($) {
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
-      &Log("\nERROR: Bad DictionaryWords.xml attribute: \"".$ba->localname()."\"\n\n");
+      &Error("\nBad DictionaryWords.xml attribute: \"".$ba->localname()."\"", "Only the following attributes are allowed: ".join(' ', @allowed));
       $success = 0;
     }
   }
@@ -433,7 +453,7 @@ sub validateDictionaryWordsXML($) {
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
-      &Log("\nERROR: Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"\n\n");
+      &Error("Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"", "The entry element may contain these attributes: ".join(' ', @allowed));
       $success = 0;
     }
   }
@@ -474,8 +494,7 @@ sub initInputOutputFiles($$$$) {
       $INOSIS = "$tmpdir/$sub.xml";
     }
     else {
-      &Log("ERROR: $script_name.pl cannot find an input OSIS file at \"$outdir/$sub.xml\".\n");
-      die;
+      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$outdir/$sub.xml\".", '', 1);
     }
   }
 
@@ -556,7 +575,7 @@ sub checkAndWriteDefaults($$$) {
     else {
       my $df = &getDefaultFile($f);
       if (!$df) {
-        &Log("ERROR: No default file found for '$f'\n");
+        &ErrorBug("No default file found for '$f'");
         next;
       }
       copy($df, $dest);
@@ -600,7 +619,7 @@ sub checkAndWriteDefaults($$$) {
       make_path("$inpd/$companion");
       &checkAndWriteDefaults($scrd, "$inpd/$companion", 1);
     }
-    else {&Log("WARNING: Companion directory \"$inpd/$companion\" already exists, skipping defaults check for it.\n");}
+    else {&Warn("Companion directory \"$inpd/$companion\" already exists, skipping defaults check for it.");}
   }
   my $parent = $inpd; $parent =~ s/^.*?[\\\/]([^\\\/]+)[\\\/][^\\\/]+\s*$/$1/;
   if ($type eq 'dictionary' && $confdataP->{'ModuleName'} eq $parent.'DICT') {$companion = $parent;}
@@ -610,7 +629,7 @@ sub checkAndWriteDefaults($$$) {
 
   if ($type eq 'childrens_bible') {
     # SFM_Files.txt
-    if (!open (SFMFS, ">encoding(UTF-8)", "$inpd/SFM_Files.txt")) {&Log("ERROR: Could not open \"$inpd/SFM_Files.txt\"\n"); die;}
+    if (!open (SFMFS, ">encoding(UTF-8)", "$inpd/SFM_Files.txt")) {&ErrorBug("Could not open \"$inpd/SFM_Files.txt\"", '', 1);}
     foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
       $f =~ s/^.*[\/\\]//;
       print SFMFS "sfm/$f\n";
@@ -619,7 +638,7 @@ sub checkAndWriteDefaults($$$) {
   }
   else {
     # CF_usfm2osis.txt
-    if (!open (CFF, ">>$inpd/CF_usfm2osis.txt")) {&Log("ERROR: Could not open \"$inpd/CF_usfm2osis.txt\"\n"); die;}
+    if (!open (CFF, ">>$inpd/CF_usfm2osis.txt")) {&ErrorBug("Could not open \"$inpd/CF_usfm2osis.txt\"", '', 1);}
     foreach my $f (sort keys %{$USFM{$type}}) {
       my $r = File::Spec->abs2rel($f, $inpd); if ($r !~ /^\./) {$r = './'.$r;}
       
@@ -654,7 +673,7 @@ sub checkAndWriteDefaults($$$) {
     $confdataP = &readConf("$inpd/config.conf"); # need a re-read after above modifications
   
     # GoBible
-    if (!open (COLL, ">>encoding(UTF-8)", "$inpd/GoBible/collections.txt")) {&Log("ERROR: Could not open \"$inpd/GoBible/collections.txt\"\n"); die;}
+    if (!open (COLL, ">>encoding(UTF-8)", "$inpd/GoBible/collections.txt")) {&ErrorBug("Could not open \"$inpd/GoBible/collections.txt\"", '', 1);}
     print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
     print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
     my $canonP;
@@ -678,7 +697,7 @@ sub checkAndWriteDefaults($$$) {
         print COLL $colhead."nt\n$colnt\n";
       }
     }
-    else {&Log("ERROR: Could not get versification for \"".$confdataP->{'Versification'}."\"\n");}
+    else {&ErrorBug("GoBible collections.txt: getCanon(".$confdataP->{'Versification'}.") failed.");}
     close(COLL);
   }
   
@@ -690,7 +709,7 @@ sub getOsisMap($) {
   my $pt = shift;
 
   my $name = $PERIPH_TYPE_MAP{$pt};
-  if (!$name) {&Log("ERROR: Unrecognized peripheral name \"$pt\"\n"); return NULL;}
+  if (!$name) {&Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . keys %PERIPH_TYPE_MAP); return NULL;}
   if ($name eq 'introduction') {$name = $PERIPH_SUBTYPE_MAP{$pt};}
 
   my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
@@ -725,10 +744,10 @@ sub copyFont($$$$$) {
     }
     &copy("$fontdir/$f", "$outdir/$fdest");
     $copied++;
-    &Log("NOTE: Copied font \"$outdir/$fdest\"\n");
+    &Note("Copied font \"$outdir/$fdest\"");
   }
   
-  &Log("$MOD REPORT: Copied \"$copied\" font file(s) to \"$outdir\".\n\n");
+  &Report("Copied \"$copied\" font file(s) to \"$outdir\".\n");
 }
 
 
@@ -752,22 +771,22 @@ sub copyReferencedImages($$$) {
     my $i = $image->getValue();
     if ($copied{"$outdir/$i"}) {next;}
     if ($i !~ s/^\.\///) {
-      &Log("ERROR copyReferencedImages: Image src path \"$i\" should be relative path (should begin with '.').\n");
+      &Error("copyReferencedImages found a nonrelative path \"$i\".", "Image src paths specified by SFM \fig tags need be relative paths (so they should begin with '.').");
     }
     if (!$projdir || !$outdir) {
-      &Log("ERROR copyReferencedImages: Images exist in \"$osis_or_tei\" but a directory path is empty: projdir=\"$projdir\", outdir=\"$outdir\".\n");
+      &Error("copyReferencedImages: Images exist in \"$osis_or_tei\" but a directory path is empty: projdir=\"$projdir\", outdir=\"$outdir\".");
       next;
     }
     if (!-e $projdir) {
-      &Log("ERROR copyReferencedImages: Missing project directory \"$projdir\".\n");
+      &Error("copyReferencedImages: Missing project directory \"$projdir\".");
       next;
     }
     if (!-e "$projdir/$i") {
-      &Log("ERROR copyReferencedImages: Image \"$i\" not found in \"$projdir/$i\"!\n");
+      &Error("copyReferencedImages: Image \"$i\" not found in \"$projdir/$i\"", "Add the image to this image directory.");
       next;
     }
     if (-e "$outdir/$i" && !$copied{"$outdir/$i"}) {
-      &Log("WARNING copyReferencedImages: Multiple modules reference image \"$outdir/$i\". Only the last version copied of this image will appear everywhere in the final output.\n");
+      &Warn("copyReferencedImages: Multiple modules reference image \"$outdir/$i\". Only the last version copied of this image will appear everywhere in the final output.");
     }
     my $ofile = "$outdir/$i";
     my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
@@ -775,10 +794,10 @@ sub copyReferencedImages($$$) {
     
     &copy("$projdir/$i", "$ofile");
     $copied{"$outdir/$i"}++;
-    &Log("NOTE: Copied image \"$ofile\"\n");
+    &Note("Copied image \"$ofile\"");
   }
   
-  &Log("$MOD REPORT: Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".\n");
+  &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
   return scalar(keys(%copied));
 }
 
@@ -787,7 +806,7 @@ sub scanUSFM($\%) {
   my $sfmP = shift;
   
   if (!opendir(SFMS, $sfm_dir)) {
-    &Log("WARNING: unable to read default sfm directory: \"$sfm_dir\"\n");
+    &Warn("unable to read default sfm directory: \"$sfm_dir\"");
     return;
   }
   
@@ -810,22 +829,22 @@ sub scanUSFM_file($) {
   
   &Log("Scanning SFM file: \"$f\"\n");
   
-  if (!open(SFM, "<:encoding(UTF-8)", $f)) {&Log("ERROR: could not read \"$f\"\n"); die;}
+  if (!open(SFM, "<:encoding(UTF-8)", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
   my $id;
   my @tags = ('h', 'imt', 'is', 'mt');
   while(<SFM>) {
     if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
       my $i = $1; 
       if ($id) {
-        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Log("WARNING: ambiguous id tags: \"$id\", \"$i\"\n");}
+        if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Warn("ambiguous id tags: \"$id\", \"$i\"");}
         next;
       }
       $id = $i;
-      &Log("NOTE: id is $id\n");
+      &Note("id is $id");
     }
     foreach my $t (@tags) {
       if ($_ =~ /^\\($t\d*) \s*(.*?)\s*$/) {
-        if ($info{$t}) {&Log("NOTE: ignoring SFM $1 intro tag which is \"".$2."\"\n"); next;}
+        if ($info{$t}) {&Note("ignoring SFM $1 intro tag which is \"".$2."\""); next;}
         $info{$t} = $2;
       }
     }
@@ -866,7 +885,7 @@ sub scanUSFM_file($) {
       $info{'doConvert'} = 0;
       $SCAN_USFM_SKIPPED .= "WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n";
     }
-    &Log("NOTE:");
+    &Note(" ");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
     &Log("\n");
   }
@@ -887,7 +906,7 @@ sub setConfFileValue($$$$) {
   my $confEntriesP = &readConf($conf);
   
   if (!&setConfValue($confEntriesP, $param, $value, $flag)) {
-    &Log("WARNING: \"$param\" does not have value \"$value\" in \"$conf\"\n"); 
+    &Warn("\"$param\" does not have value \"$value\" in \"$conf\""); 
     return;
   }
   
@@ -978,7 +997,7 @@ sub writeConf($\%$$) {
   foreach my $e (sort keys %{$entryValueP}) {
     if ($starterP && $starterP->{$e}) {
       if ($starterP->{$e} eq $entryValueP->{$e}) {next;} # this also skips ModuleName and other non-real conf entries, or else throws an error
-      else {&Log("ERROR: Conflicting entry: \"$e\" in config.conf. Remove this entry.");}
+      else {&Error("Conflicting entry: \"$e\" in config.conf.", "Remove all but one of these entries.");}
     }
     foreach my $val (split(/<nx\/>/, $entryValueP->{$e})) {
       if ($val eq '' || $used{"$e$val"}) {next;}
@@ -1005,13 +1024,12 @@ sub updateConfData(\%$) {
   my $moduleSource = shift;
   
   if (!$entryValueP->{"ModDrv"}) {
-		&Log("ERROR: ModDrv must be specified in config.conf.\n");
-		die;
+		&Error("No ModDrv value.", "Specify ModDrv in config.conf.", '', 1);
 	}
   
   if ($entryValueP->{"Versification"}) {
     if (!&isValidVersification($entryValueP->{"Versification"})) {
-      &Log("ERROR: Unrecognized versification system \"".$entryValueP->{"Versification"}."\".\n");
+      &Error("Unrecognized versification system \"".$entryValueP->{"Versification"}."\".", "Change Versification in config.conf to a recognized SWORD verse system.");
     }
   }
   
@@ -1032,12 +1050,12 @@ sub updateConfData(\%$) {
 	elsif ($moddrv eq "zLD") {$dp = "./modules/lexdict/zld/".lc($mod)."/".lc($mod);}
 	elsif ($moddrv eq "RawGenBook") {$dp = "./modules/genbook/rawgenbook/".lc($mod)."/".lc($mod);}
 	else {
-		&Log("ERROR: ModDrv \"".$entryValueP->{"ModDrv"}."\" is unrecognized.\n");
+		&Error("ModDrv \"".$entryValueP->{"ModDrv"}."\" is unrecognized.", "Change it to a recognized SWORD module type.");
 	}
   # At this time (Jan 2017) JSword does not yet support zText4
   if ($moddrv =~ /^(raw)(text|com)$/i || $moddrv =~ /^rawld$/i) {
-    my $msg = "ERROR: ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.\n";
-    if (!$AlreadyReported{$msg}) {&Log($msg);}
+    my $msg = "ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.";
+    if (!$AlreadyReported{$msg}) {&Error($msg);}
     $AlreadyReported{$msg}++;
   }
   &setConfValue($entryValueP, 'DataPath', $dp, 1);
@@ -1048,7 +1066,7 @@ sub updateConfData(\%$) {
   elsif ($moddrv =~ /Com/) {$type = 'commentary';}
   
   if (!&setConfValue($entryValueP, 'Encoding', "UTF-8", 2)) {
-    &Log("ERROR: Only UTF-8 encoding is supported by osis-converters\n");
+    &Error("Only UTF-8 encoding is supported by osis-converters", "All SFM files must be UTF-8 encoded and Encoding=UTF-8 should be specified in config.conf.", 1);
   }
   
   if ($moduleSource) {
@@ -1060,13 +1078,13 @@ sub updateConfData(\%$) {
     }
     
     &setConfValue($entryValueP, 'SourceType', $sourceType, 2); # '2' allows config.conf to enforce SourceType
-    if ($entryValueP->{"SourceType"} !~ /^(OSIS|TEI)$/) {&Log("ERROR: Only OSIS and TEI are supported by osis-converters\n");}
-    if ($entryValueP->{"SourceType"} eq 'TEI') {&Log("WARNING: Some front-ends may not fully support TEI yet\n");}
+    if ($entryValueP->{"SourceType"} !~ /^(OSIS|TEI)$/) {&Error("Unsupported SourceType: ".$entryValueP->{"SourceType"}, "Only OSIS and TEI are supported by osis-converters", 1);}
+    if ($entryValueP->{"SourceType"} eq 'TEI') {&Warn("Some front-ends may not fully support TEI yet");}
     
     if ($entryValueP->{"SourceType"} eq 'OSIS') {
       my @vers = $XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML);
       if (!@vers || !@vers[0]->value) {
-        if ($sourceType eq 'OSIS') {&Log("ERROR: Unable to determine OSIS version from \"$moduleSource\"\n");}
+        if ($sourceType eq 'OSIS') {&Error("Unable to determine OSIS version from \"$moduleSource\"", "Specify xsi:schemaLocation of OSIS file osis element.");}
       }
       else {
         my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
@@ -1111,7 +1129,7 @@ sub readConf($) {
   my $conf = shift;
   
   my %entryValue;
-  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&Log("ERROR: Could not open $conf\n"); die;}
+  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&ErrorBug("readConf could not open $conf", '', 1);}
   my $contiuation;
   while(<CONF>) {
     if    ($_ =~ /^#/) {next;}
@@ -1131,8 +1149,7 @@ sub readConf($) {
   close(CONF);
 
   if (!$entryValue{"ModuleName"}) {
-		&Log("ERROR: Module name must be specified at top of config.conf like: [MYMOD]\n");
-		die;
+		&Error("No module name in config.conf.", "Specify the module name on the first line of config.conf like this: [$MOD]", 1);
 	}
   
   return \%entryValue;
@@ -1168,7 +1185,7 @@ sub getLangSortOrder($) {
     $last = &uc2($l);
   }
   if ($res) {&Log("INFO: LangSortOrder=$res\n");}
-  else {&Log("WARNING: Could not determine LangSortOrder\n");}
+  else {&Warn("Could not determine LangSortOrder");}
   return $res;
 }
 
@@ -1194,7 +1211,7 @@ sub removeRevisionFromCF($) {
   my $changed = 0;
   my $msg = "# osis-converters rev-";
   if (open(RCMF, "<:encoding(UTF-8)", $f)) {
-    if (!open(OCMF, ">:encoding(UTF-8)", "$f.tmp")) {&Log("ERROR: Could not open \"$f.tmp\".\n"); die;}
+    if (!open(OCMF, ">:encoding(UTF-8)", "$f.tmp")) {&ErrorBug("removeRevisionFromCF could not open \"$f.tmp\".", '', 1);}
     my $l = 0;
     while(<RCMF>) {
       $l++;
@@ -1213,7 +1230,7 @@ sub removeRevisionFromCF($) {
     }
     else {unlink("$f.tmp");}
   }
-  else {&Log("ERROR: Could not add revision to command file.\n");}
+  else {&ErrorBug("removeRevisionFromCF could not add revision to command file.");}
 }
 
 
@@ -1347,7 +1364,7 @@ sub getOsisName($$) {
   elsif ($bnm eq "TIT") {$bookName="Titus";}
   elsif ($bnm eq "ZEC") {$bookName="Zech";}
   elsif ($bnm eq "ZEP") {$bookName="Zeph";}
-  elsif (!$quiet) {&Log("ERROR: Unrecognized Bookname:\"$bnm\"!\n");}
+  elsif (!$quiet) {&Error("Unrecognized Bookname:\"$bnm\"", "Only Paratext and OSIS Bible book abbreviations are recognized.");}
 
   return $bookName;
 }
@@ -1373,7 +1390,7 @@ sub getCanon($\%\%\%\@) {
       $CANON_CACHE{$vsys}{'testament'}{$bkname} = ($t == 1 ? "OT":"NT");
       my $chaps = [];
       for (my $ch = 1; $ch <= $vk->chapterCount($t, $bkt); $ch++) {
-        # NOTE: CHAPTER 1 IN ARRAY IS INDEX 0!!!
+        # Note: CHAPTER 1 IN ARRAY IS INDEX 0!!!
         push(@{$chaps}, $vk->verseCount($t, $bkt, $ch));
       }
       $CANON_CACHE{$vsys}{'canon'}{$bkname} = $chaps;
@@ -1416,7 +1433,7 @@ sub sortSearchTermKeys($$) {
 
 
 # Copy inosis to outosis, while pruning books according to scope. Any
-# changes made during the process are noted in the log file with a NOTE.
+# changes made during the process are noted in the log file with a note.
 #
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
@@ -1475,14 +1492,14 @@ sub pruneFileOSIS($$\%\%\$\$) {
       }
     }
     if (@filteredBooks) {
-      &Log("NOTE: Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".\n", 1);
+      &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
     }
     # remove bookGroup if it has no books left (even if it contains other peripheral material)
     my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
     my $msg = 0;
     foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
     if ($msg) {
-      &Log("NOTE: Filtered \"$msg\" bookGroups which contained no books.\n", 1);
+      &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
     }
     # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
@@ -1495,13 +1512,13 @@ sub pruneFileOSIS($$\%\%\$\$) {
           $remainingBook->insertBefore($intro, $remainingBook->firstChild);
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-          &Log("NOTE: Moved peripheral: $t1 to $t2\n", 1);
+          &Note("Moved peripheral: $t1 to $t2", 1);
           next INTRO;
         }
       }
     }
   }
-  else {&Log("ERROR: Failed to read vsys \"".$confP->{'Versification'}."\", not pruning books in OSIS file!\n");}
+  else {&ErrorBug("pruneFileOSOS getCanon(".$confP->{'Versification'}.") failed, not pruning books in OSIS file");}
   
   # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
   my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
@@ -1511,7 +1528,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
       # don't include in the TOC unless entry has a title and there is a bookGroup intro paragraph with text
       if (@{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0]) {
         $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
-        &Log("NOTE: Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.\n", 1);
+        &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
       }
       else {$ms->unbindNode();}
     }
@@ -1534,7 +1551,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
   else {$$ebookTitleP = $title;}
   if ($$ebookTitleP ne $osisTitle->textContent) {
     &changeNodeText($osisTitle, $$ebookTitleP);
-    &Log('NOTE: Updated OSIS title to "'.$osisTitle->textContent."\"\n", 1);
+    &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
@@ -1625,7 +1642,7 @@ sub filterScriptureReferences($$$) {
         $remove{$refType}++; if ($bk) {$removeBks{$refType}{$bk}++;}
       }
     }
-    else {&Log("ERROR filterScriptureReferences: Unhandled osisRef=\"".$link->getAttribute('osisRef')."\"\n");}
+    else {&Error("filterScriptureReferences: Unhandled osisRef=\"".$link->getAttribute('osisRef')."\"");}
   }
   
   # remove any cross-references with nothing left in them
@@ -1647,10 +1664,10 @@ sub filterScriptureReferences($$$) {
       if ($stat eq 'redirect') {$tc = $redirect{$type}; $bc = scalar(keys(%{$redirectBks{$type}}));}
       if ($stat eq 'remove')   {$tc = $remove{$type};   $bc = scalar(keys(%{$removeBks{$type}}));}
       if ($stat eq 'delete')   {$tc = $delete{$type};   $bc = scalar(keys(%{$deleteBks{$type}}));}
-      &Log(sprintf("$MOD REPORT: $s %5i $t references - targeting %2i different book(s)\n", $tc, $bc));
+      &Report(sprintf("$s %5i $t references - targeting %2i different book(s)", $tc, $bc));
     }
   }
-  &Log("$MOD REPORT: \"$deletedXRs\" Resulting empty cross-reference notes were deleted.\n");
+  &Report("\"$deletedXRs\" Resulting empty cross-reference notes were deleted.");
   
   return ($delete{'sref'} + $redirect{'sref'} + $remove{'sref'});
 }
@@ -1709,7 +1726,7 @@ sub filterGlossaryReferences($\@$) {
   print OUTF $xml->toString();
   close(OUTF);
   
-  &Log("$MOD REPORT: \"$total\" glossary references filtered:\n");
+  &Report("\"$total\" glossary references filtered:");
   foreach my $r (sort keys %filteredOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
@@ -1727,7 +1744,7 @@ sub convertExplicitGlossaryElements(\@) {
     my $gl = $g->getAttribute("level1");
     my @tn = $XPC->findnodes("preceding::text()[1]", $g);
     if (@tn != 1 || @tn[0]->data !~ /\Q$gl\E$/) {
-      &Log("ERROR: Could not locate preceding text node for explicit glossary entry \"$g\".\n");
+      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$g\".");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
@@ -1739,7 +1756,7 @@ sub convertExplicitGlossaryElements(\@) {
     $tn0->parentNode->insertAfter(@tn[0], $tn0);
     &addDictionaryLinks(\@tn, 1, (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0])}[0] ? 1:0));
     if ($before eq $g->parentNode->toString()) {
-      &Log("ERROR: Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."\n");
+      &ErrorBug("Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
@@ -1752,7 +1769,7 @@ sub convertExplicitGlossaryElements(\@) {
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
 sub addDictionaryLinks(\@$$) {
-  my $eP = shift; # array of text-nodes or text-node parent elements (NOTE: node element child elements are not touched)
+  my $eP = shift; # array of text-nodes or text-node parent elements (Note: node element child elements are not touched)
   my $isExplicit = shift; # true if the node was marked in the text as a glossary link
   my $isGlossary = shift; # true if the node is in a glossary (See-Also linking)
   
@@ -1802,7 +1819,7 @@ sub addDictionaryLinks(\@$$) {
       my $check = $text;
       $check =~ s/<[^>]*>//g;
       if ($check ne $textchild->data()) {
-        &Log("ERROR addDictionaryLinks: Bible text was changed during glossary linking!!\nBEFORE=".$textchild->data()."\nAFTER =$check\n");
+        &ErrorBug("addDictionaryLinks: Bible text changed during glossary linking!\nBEFORE=".$textchild->data()."\nAFTER =$check", '', 1);
       }
       
       $text =~ s/(^|\s)&(\s|$)/&amp;/g;
@@ -1813,7 +1830,7 @@ sub addDictionaryLinks(\@$$) {
 }
 
 # Some of the following routines take either nodes or module names as inputs.
-# NOTE: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
+# Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
 sub getModNameOSIS($) {
   my $node = shift; # might already be string mod name- in that case just return it
   if (!ref($node)) {return $node;}
@@ -1829,7 +1846,7 @@ sub getModNameOSIS($) {
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {&initDocumentCache($headerDoc, $mtime);}
   
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'}) {
-    &Log("ERROR: getModNameOSIS: No value for \"$headerDoc\"!\n");
+    &ErrorBug("getModNameOSIS: No value for \"$headerDoc\"!");
     return '';
   }
   return $DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'};
@@ -1837,7 +1854,7 @@ sub getModNameOSIS($) {
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'}) {
-    &Log("ERROR: getRefSystemOSIS: No document node for \"$mod\"!\n");
+    &ErrorBug("getRefSystemOSIS: No document node for \"$mod\"!");
     return '';
   }
   return $DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'};
@@ -1847,7 +1864,7 @@ sub getVerseSystemOSIS($) {
   if ($mod eq 'KJV') {return 'KJV';}
   if ($mod eq $MOD) {return $VERSESYS;}
   if (!$DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'}) {
-    &Log("ERROR: getVerseSystemOSIS: No document node for \"$mod\"!\n");
+    &ErrorBug("getVerseSystemOSIS: No document node for \"$mod\"!");
     return $VERSESYS;
   }
   return $DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'};
@@ -1855,7 +1872,7 @@ sub getVerseSystemOSIS($) {
 sub getBibleModOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getBibleModOSIS'}) {
-    &Log("ERROR: getBibleModOSIS: No document node for \"$mod\"!\n");
+    &ErrorBug("getBibleModOSIS: No document node for \"$mod\"!");
     return '';
   }
   return $DOCUMENT_CACHE{$mod}{'getBibleModOSIS'};
@@ -1863,7 +1880,7 @@ sub getBibleModOSIS($) {
 sub getDictModOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getDictModOSIS'}) {
-    &Log("ERROR: getDictModOSIS: No document node for \"$mod\"!\n");
+    &ErrorBug("getDictModOSIS: No document node for \"$mod\"!");
     return '';
   }
   return $DOCUMENT_CACHE{$mod}{'getDictModOSIS'};
@@ -1878,7 +1895,7 @@ sub existsDictionaryWordID($$) {
 sub getBooksOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if (!$DOCUMENT_CACHE{$mod}{'getBooksOSIS'}) {
-    &Log("ERROR: getBooksOSIS: No document node for \"$mod\"!\n");
+    &ErrorBug("getBooksOSIS: No document node for \"$mod\"!");
     return '';
   }
   return $DOCUMENT_CACHE{$mod}{'getBooksOSIS'};
@@ -1889,13 +1906,13 @@ sub existsElementID($$$) {
   my $useDictionaryWordsFile = shift;
   
   my $work = ($osisID =~ s/^([^\:]*\:)// ? $1:$osisIDWork);
-  if (!$work) {&Log("ERROR: existsElementID: No osisIDWork \"$osisID\"\n"); return '';}
+  if (!$work) {&ErrorBug("existsElementID: No osisIDWork \"$osisID\""); return '';}
   my $search = ($useDictionaryWordsFile ? 'DWF':$work);
   
   if (!$DOCUMENT_CACHE{$search}{'xml'}) {
     my $file = &getProjectOsisFile($search);
     if (-e $file) {$DOCUMENT_CACHE{$search}{'xml'} = $XML_PARSER->parse_file($file);}
-    else {&Log("ERROR: existsElementID: No \"$search\" xml file to search for \"$osisID\"\n"); return '';}
+    else {&ErrorBug("existsElementID: No \"$search\" xml file to search for \"$osisID\""); return '';}
   }
   
   if (!$DOCUMENT_CACHE{$search}{$osisID}) {
@@ -1915,7 +1932,7 @@ sub existsElementID($$$) {
     }
     if (!$found) {return '';}
     if ($found != 1 && $search ne 'DWF') {
-      &Log("ERROR existsElementID: osisID \"$work:$osisID\" appears $found times in $search.\n");
+      &Error("existsElementID: osisID \"$work:$osisID\" appears $found times in $search.", "All osisID values in $work must be unique values.");
     }
   }
   return ($DOCUMENT_CACHE{$search}{$osisID} eq 'yes');
@@ -1927,7 +1944,7 @@ sub getAltVersesOSIS($) {
   
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
-    &Log("ERROR getAltVersesOSIS: No xml document node!\n");
+    &ErrorBug("getAltVersesOSIS: No xml document node!");
     return NULL;
   }
   
@@ -1952,7 +1969,7 @@ sub getAltVersesOSIS($) {
     my %fixed2Alt; my %fixed2Fixed;
     foreach my $f (@from) {
       if (!$f->getAttribute('osisRef') || !$f->getAttribute('annotateRef') || $f->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
-        &Log("ERROR getAltVersesOSIS: Unexpected attributes for 'from': $f\n");
+        &ErrorBug("getAltVersesOSIS: Unexpected attributes for 'from': $f");
         next;
       }
       my $toFixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $f)}[0]->getAttribute('osisID');
@@ -1965,13 +1982,13 @@ sub getAltVersesOSIS($) {
           $fixed2Fixed{@frIDs[$i]} = $toFixed;
         }
       }
-      else {&Log("ERROR: Attribute ranges of 'from' are different sizes: ".$f->getAttribute('osisRef').", ".$f->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
+      else {&ErrorBug("Attribute ranges of 'from' are different sizes: ".$f->getAttribute('osisRef').", ".$f->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")");}
     }
     
     my %alt2Empty;
     foreach my $t (@to) {
       if (!$t->getAttribute('osisRef') || !$t->getAttribute('annotateRef') || $t->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}) {
-        &Log("ERROR getAltVersesOSIS: Unexpected attributes for 'to': $t\n");
+        &ErrorBug("getAltVersesOSIS: Unexpected attributes for 'to': $t");
         next;
       }
       my @frIDs = split(/\s+/, &osisRef2osisID($t->getAttribute('osisRef')));
@@ -1979,22 +1996,22 @@ sub getAltVersesOSIS($) {
       if (@frIDs == @toIDs) {
         for (my $i=0; $i<@toIDs; $i++) {$alt2Empty{@toIDs[$i]} = @frIDs[$i];}
       }
-      else {&Log("ERROR: Attribute ranges of 'to' are different sizes: ".$t->getAttribute('osisRef').", ".$t->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")\n");}
+      else {&ErrorBug("Attribute ranges of 'to' are different sizes: ".$t->getAttribute('osisRef').", ".$t->getAttribute('annotateRef')." (".@frIDs." != ".@toIDs.")");}
     }
     
     foreach my $f (keys %fixed2Alt) {
       if ($f =~ /^(.*?)\!PART$/) {
         my $a = $1;
         foreach my $p (@partial) {if ($p->getAttribute('osisRef') eq $a) {$a = ''; last;}}
-        if ($a) {&Log("ERROR getAltVersesOSIS: partial fixed2Alt has no partial marker for $a\n");}
+        if ($a) {&ErrorBug("getAltVersesOSIS: partial fixed2Alt has no partial marker for $a");}
       }
       elsif ($alt2Empty{$fixed2Alt{$f}} ne $f) {
-        &Log("ERROR getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (alt2Empty{".$fixed2Alt{$f}."} ne ".$f.")\n");
+        &ErrorBug("getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (alt2Empty{".$fixed2Alt{$f}."} ne ".$f.")");
       }
     }
     foreach my $t (keys %alt2Empty) {
       if ($t !~ /^(.*?)\!PART$/ && $fixed2Alt{$alt2Empty{$t}} ne $t) {
-        &Log("ERROR getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (fixed2Alt{".$alt2Empty{$t}."} ne ".$t.")\n");
+        &ErrorBug("getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (fixed2Alt{".$alt2Empty{$t}."} ne ".$t.")");
       }
     }
     
@@ -2013,7 +2030,7 @@ sub getAltVersesOSIS($) {
           my $lv = ($2 ? $3:$vs);
           for (my $v = $vs; $v<=$lv; $v++) {$alt2Fixed{"$bk.$ch.$v"} = $fosisID;}
         }
-        else {&Log("WARNING getAltVersesOSIS: Verse is not a number and so cannot be targetted by references: $alt\n");}
+        else {&Warn("getAltVersesOSIS: Verse is not a number and so cannot be targetted by references: $alt", "Scripture references targetting this verse will not work, unless EVAL_REGEX is used to change the verse tag to just a number.");}
       }
     }
     
@@ -2096,7 +2113,7 @@ sub getProjectOsisFile($) {
   elsif (-e "$INPD/../output/$mod.xml") {$osis = "$INPD/../output/$mod.xml";}
   # not found
   elsif (!$GETPROJECTOSISFILE_WARN{$mod}) {
-    &Log("WARNING: Output project OSIS file \"$mod\" could not be found.\n");
+    &Warn("Output project OSIS file \"$mod\" could not be found.");
     $GETPROJECTOSISFILE_WARN{$mod}++;
   }
   return $osis;
@@ -2146,7 +2163,7 @@ sub addDictionaryLink(\$$$$\@) {
       
       # test match pattern, so any errors with it can be found right away
       if ($m->textContent !~ /(?<!\\)\(.*(?<!\\)\)/) {
-        &Log("ERROR: Skipping match \"$m\" becauase it is missing capture parentheses!\n");
+        &Error("Skipping match \"$m\" becauase it is missing capture parentheses", "Add parenthesis around the match text which should be linked.");
         next;
       }
       my $test = "testme"; my $is; my $ie;
@@ -2215,7 +2232,7 @@ sub addDictionaryLink(\$$$$\@) {
     my $is; my $ie;
     if (&glossaryMatch($textP, $m->{'node'}, \$is, \$ie)) {next;}
     if ($is == $ie) {
-      &Log("ERROR: Match result was zero width!: \"".$m->{'node'}->textContent."\"\n");
+      &ErrorBug("Match result was zero width!: \"".$m->{'node'}->textContent."\"");
       next;
     }
     
@@ -2271,7 +2288,7 @@ sub glossaryMatch(\$$\$\$) {
   
   my $p = $m->textContent;
   if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
-    &Log("ERROR: Bad match regex: \"$p\"\n");
+    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
     &dbg("80\n");
     return 2;
   }
@@ -2293,7 +2310,7 @@ sub glossaryMatch(\$$\$\$) {
     $t = &uc2($t);
   }
   if ($pf =~ /(\w+)/) {
-    &Log("ERROR: Regex flag \"$1\" not supported in \"".$m->textContent."\"");
+    &Error("Regex flag \"$1\" not supported in \"".$m->textContent."\"", "Only Perl regex flags are supported.");
   }
  
   # finally do the actual MATCHING...
@@ -2334,7 +2351,7 @@ sub contextAttribute2osisRefAttribute($) {
   foreach my $part (@parts) {
     if ($part =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1)) {next;}
     if ($reportParatextWarnings) {
-      &Log("WARNING: Attribute part \"$part\" might be a failed Paratext reference in \"$val\".\n");
+      &Warn("Attribute part \"$part\" might be a failed Paratext reference in \"$val\".");
     }
     return $val;
   }
@@ -2350,7 +2367,7 @@ sub contextAttribute2osisRefAttribute($) {
       $bk1 = &getOsisName($bk1, 1);
       $bk2 = &getOsisName($bk2, 1);
       if (!$bk1 || !$bk2) {
-        &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$val\"!\n");
+        &Error("contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$val\".");
         return $val;
       }
       push(@pOsisRefs, "$bk1-$bk2");
@@ -2374,7 +2391,7 @@ sub contextAttribute2osisRefAttribute($) {
       }
       # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
       elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
-        &Log("ERROR contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\"!\n");
+        &Error("contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\".");
         return $val;
       }
       $bk = $1;
@@ -2391,7 +2408,7 @@ sub contextAttribute2osisRefAttribute($) {
       
       my $bk = &getOsisName($bk, 1);
       if (!$bk) {
-        &Log("ERROR contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\"!\n");
+        &Error("contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\".");
         return $val;
       }
       
@@ -2438,7 +2455,7 @@ sub contextAttribute2osisRefAttribute($) {
   my $ret = join(' ', @osisRefs);
   if ($ret ne $val) {
     $CONVERTED_P2O{$val} = $ret;
-    &Log("NOTE: Converted Paratext context attribute to OSIS:\n\tParatext: $p1\n\tOSIS:     $p2\n\n");
+    &Note("Converted Paratext context attribute to OSIS:\n\tParatext: $p1\n\tOSIS:     $p2\n");
   }
   
   return $ret;
@@ -2452,7 +2469,7 @@ sub osisRef2Entry($\$$) {
   
   if ($osisRef !~ /^(\w+):(.*)$/) {
     if ($loose) {return &decodeOsisRef($osisRef);}
-    &Log("ERROR: problem with osisRef \"$osisRef\"\n");
+    &Error("osisRef2Entry loose=0, problem with osisRef: $osisRef !~ /^(\w+):(.*)\$/");
   }
   if ($modP) {$$modP = $1;}
   return &decodeOsisRef($2);
@@ -2649,7 +2666,7 @@ sub bibleContext($) {
   if (!$bkID) {
     my $refSystem = &getRefSystemOSIS($node);
     if ($refSystem !~ /^Bible/) {
-      &Log("ERROR bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"\n");
+      &ErrorBug("bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"");
       return '';
     }
     my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node)}[0];
@@ -2696,7 +2713,7 @@ sub bibleContext($) {
     elsif ($id =~ /^(\w+\.\d+\.\d+) .*\w+\.\d+\.(\d+)$/) {$context = "$1.$2";}
   }
   else {
-    &Log("ERROR: Could not determine context of \"$node\"\n");
+    &ErrorBug("bibleContext could not determine context of \"$node\"");
     return 0;
   }
   
@@ -2713,7 +2730,7 @@ sub glossaryContext($) {
   my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
   my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div['.join(' or ', @typeXPATH).'][last()]', $node)}[0];
   if (!$typeDiv) {
-    &Log("ERROR glossaryContext: Node is not part of a glossary: $node\n");
+    &ErrorBug("glossaryContext: Node is not part of a glossary: $node");
     return '';
   }
 
@@ -2725,7 +2742,7 @@ sub glossaryContext($) {
     foreach my $kw ($XPC->findnodes('.//osis:seg[@type="keyword"]', $typeDiv)) {
       if ($kw->isSameNode($prevkw)) {
         if (!$prevkw->getAttribute('osisID')) {
-          &Log("ERROR glossaryContext: Previous keyword has no osisID \"$prevkw\"\n");
+          &ErrorBug("glossaryContext: Previous keyword has no osisID \"$prevkw\"");
         }
         return $prevkw->getAttribute('osisID');
       }
@@ -2735,12 +2752,12 @@ sub glossaryContext($) {
   # if not, then use BEFORE
   my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
   if (!$nextkw) {
-    &Log("ERROR glossaryContext: There are no entries in the glossary which contains node $node\n");
+    &ErrorBug("glossaryContext: There are no entries in the glossary which contains node $node");
     return '';
   }
   
   if (!$nextkw->getAttribute('osisID')) {
-    &Log("ERROR glossaryContext: Next keyword has no osisID \"$nextkw\"\n");
+    &ErrorBug("glossaryContext: Next keyword has no osisID \"$nextkw\"");
   }
   return 'BEFORE_'.$nextkw->getAttribute('osisID');
 }
@@ -2798,7 +2815,7 @@ sub osisRef2osisID($$$$) {
     my $pwork = ($workPrefixFlag =~ /always/i ? "$osisRefWorkDefault:":'');
     if ($osisRef =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
     if (!$work && $workPrefixFlag =~ /always/i) {
-      &Log("ERROR osisRef2osisID: workPrefixFlag is set to 'always' but osisRefWorkDefault is null for \"$osisRef\" in \"$osisRefLong\"!\n");
+      &Error("osisRef2osisID: workPrefixFlag is set to 'always' but osisRefWorkDefault is null for \"$osisRef\" in \"$osisRefLong\"!");
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
     my $vsys = ($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
@@ -2840,18 +2857,18 @@ sub osisRef2osisID($$$$) {
       # as $r2, then simple verse incrementing can be used.
       my $ir1 = &idInVerseSystem($r1, $vsys);
       if (!$ir1) {
-        &Log("ERROR: osisRef2osisID: Start verse \"$r1\" is not in \"$vsys\" so this range is likely incorrect: ");
+        &Error("osisRef2osisID: Start verse \"$r1\" is not in \"$vsys\" so the following range is likely incorrect: ");
         $logTheResult++;
         next;
       }
       my $ir2 = &idInVerseSystem($b2.($c2 ? ".$c2.1":''), $vsys);
       if (!$ir2) {
-        &Log("ERROR: osisRef2osisID: End point \"".$b2.($c2 ? ".$c2.1":'')."\" was not found in \"$vsys\" so this range is likely incorrect: ");
+        &Error("osisRef2osisID: End point \"".$b2.($c2 ? ".$c2.1":'')."\" was not found in \"$vsys\" so the following range is likely incorrect: ");
         $logTheResult++;
         next;
       }
       if ($ir2 < $ir1) {
-        &Log("ERROR osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"\n");
+        &Error("osisRef2osisID: Range end is before start: \"$osisRef\". Changing to \"$r1\"");
         next;
       }
       my $vk = new Sword::VerseKey();
@@ -2994,7 +3011,7 @@ sub osisID2osisRef($$$$) {
     my $pwork = ($workPrefixFlag =~ /always/i ? "$osisIDWorkDefault:":'');
     if ($seg =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
     if (!$work && $workPrefixFlag =~ /always/i) {
-      &Log("ERROR osisID2osisRef: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\"!\n");
+      &ErrorBug("osisID2osisRef: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\"!");
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisIDWorkDefault:") {$pwork = '';}
     
@@ -3053,7 +3070,7 @@ sub normalizeOsisID(\@$$$) {
       my $pwork = ($workPrefixFlag =~ /always/i ? "$osisIDWorkDefault:":'');
       if ($seg =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1; $pwork = "$1:";}
       if (!$work && $workPrefixFlag =~ /always/i) {
-        &Log("ERROR normalizeOsisID: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\" in \"$osisID\"!\n");
+        &ErrorBug("normalizeOsisID: workPrefixFlag is set to 'always' but osisIDWorkDefault is null for \"$seg\" in \"$osisID\"!");
       }
       if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisIDWorkDefault:") {$pwork = '';}
       push(@avs, "$pwork$seg");
@@ -3137,17 +3154,17 @@ sub checkScripRefLinks($$) {
         $id = ($id =~ /\:/ ? $id:"$bibleMod:$id");
         if ($id && !$ids{$id}) {
           $problems++;
-          &Log("ERROR: Scripture reference \"$id\" in source text targets a missing verse. Maybe this should not be a hyperlink?: ".$sref."\n");
+          &Error("Scripture reference \"$id\" in source text targets a missing verse.", "Maybe this should not be a hyperlink?: ".$sref."");
         }
       }
     }
   }
   else {
     $problems++;
-    &Log("ERROR: Cannot check Scripture reference targets. Unable to locate $bibleMod.xml.\n");
+    &Error("Cannot check Scripture reference targets because unable to locate $bibleMod.xml.", "Run sfm2osis.pl on $bibleMod to generate an OSIS file.");
   }
   
-  &Log("$MOD REPORT: $checked Scripture references checked. ($problems problems)\n\n");
+  &Report("$checked Scripture references checked. ($problems problems)\n");
 }
 
 
@@ -3186,12 +3203,12 @@ sub checkReferenceLinks($) {
     
     if ($linktype ne 'other') {
       if (!$r->textContent || $r->textContent =~ /^[\s\n]*$/) {
-        &Log("ERROR Reference link \"$r\" has no text content!\n");
+        &Error("Reference link \"$r\" has no text content.");
         $errors{$linktype}++;
       }
       
       if (!$r->getAttribute('osisRef')) {
-        &Log("ERROR: Reference link \"$r\" is missing osisRef attribute!\n");
+        &Error("Reference link \"$r\" is missing osisRef attribute.");
         $errors{$linktype}++;
         next;
       }
@@ -3201,21 +3218,21 @@ sub checkReferenceLinks($) {
       if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
       my $isValid = $CHECK_LINKS_CACHE{$osisID};
       if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
-        &Log("ERROR: Glossary entry ".$avoidGlossEntry->getAttribute('osisID')." contains a link to itself: \"".$r."\"\n");
+        &ErrorBug("Glossary entry ".$avoidGlossEntry->getAttribute('osisID')." contains a link to itself: \"".$r."\"");
         $errors{$linktype}++;
       }
       elsif (!$isValid) {
-        &Log("ERROR: Invalid osisRef segment \"$osisID\" in $r\n");
+        &Error("Invalid osisRef segment \"$osisID\" in $r");
         $errors{$linktype}++;
       }
     }
   }
 
-  &Log("$MOD REPORT: \"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)\n");
-  &Log("$MOD REPORT: \"".$refcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)\n");
-  &Log("$MOD REPORT: \"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)\n");
-  &Log("$MOD REPORT: \"".@references."\" Grand total reference links.\n");
-  &Log("$MOD REPORT: \"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)\n");
+  &Report("\"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)");
+  &Report("\"".$refcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)");
+  &Report("\"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)");
+  &Report("\"".@references."\" Grand total reference links.");
+  &Report("\"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)");
 }
 
 
@@ -3242,7 +3259,7 @@ SEGMENT:
     my $osisIDWork = $osisIDWorkDefault;
     if ($osisID =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
     if (!$osisIDWork) {
-      &Log("ERROR: Could not determine osisIDWork of \"$osisIDLong\"\n");
+      &Error("Could not determine osisIDWork of \"$osisIDLong\"");
       return 0;
     }
     &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
@@ -3261,34 +3278,34 @@ SEGMENT:
           
           if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
             if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
-              &Log("ERROR: Chapter is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c\"\n");
+              &Error("Chapter is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c\"");
               return 0;
             }
-            &Log("WARNING: Chapter is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c\"\n");
+            &Warn("Chapter is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c\"");
           }
           
           if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
             if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
-              &Log("ERROR: Verse is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c.$v\"\n");
+              &Error("Verse is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c.$v\"");
               return 0;
             }
-            &Log("WARNING: Verse is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c.$v\"\n");
+            &Warn("Verse is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c.$v\"");
           }
           next SEGMENT;
         }
       }
-      &Log("ERROR: Book is not is verse system $wkvsys: \"$osisID\"\n");
+      &Error("Book is not is verse system $wkvsys: \"$osisID\"");
       return 0;
     }
     elsif ($ext || !$useDictionaryWords) {
       if (!&existsElementID("$osisID$ext", $osisIDWork)) {
-        &Log("ERROR: osisID \"$osisID\" was not found in \"$osisIDWork\"\n");
+        &Error("osisID \"$osisID\" was not found in \"$osisIDWork\"");
         return 0;
       }
     }
     else {
       if (!&existsDictionaryWordID($osisID, $osisIDWork)) {
-        &Log("ERROR: osisID \"$osisID\" with default work \"$osisIDWork\" was not found in DictionaryWords.xml\n");
+        &Error("osisID \"$osisID\" with default work \"$osisIDWork\" was not found in DictionaryWords.xml");
         return 0;
       }
     }
@@ -3310,20 +3327,20 @@ sub checkFigureLinks($) {
     my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
     my $src = $l->getAttribute('src');
     if (!$src) {
-      &Log("ERROR: Figure \"$tag\" has no src target!\n");
+      &Error("Figure \"$tag\" has no src target", "The source location must be specified by the SFM \fig tag.");
       $errors++;
       next;
     }
     if (! -e "$INPD/$src") {
-      &Log("ERROR checkFigureLinks: Figure \"$tag\" src target does not exist!\n");
+      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist!");
       $errors++;
     }
     if ($src != /^\.\/images\//) {
-      &Log("ERROR checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions!\n");
+      &Error("checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions!");
     }
   }
 
-  &Log("$MOD REPORT: \"".@links."\" figure targets found and checked. ($errors unknown or missing targets)\n");
+  &Report("\"".@links."\" figure targets found and checked. ($errors unknown or missing targets)");
 }
 
 sub checkIntroductionTags($) {
@@ -3335,14 +3352,14 @@ sub checkIntroductionTags($) {
   foreach my $t (@warnTags) {
     my $tag = $t;
     $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
-    &Log("ERROR: Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.\n");
+    &Error("Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.", "Replace this tag here with the corresponding introduction tag.");
   }
 }
 
 # Print log info for a word file
 sub logDictLinks() {
   &Log("\n\n");
-  &Log("$MOD REPORT: Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)\n");
+  &Report("Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)");
   my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
   foreach my $eg (sort keys %ExplicitGlossary) {
     my @txt;
@@ -3367,9 +3384,9 @@ sub logDictLinks() {
   }
   
   &Log("\n\n");
-  &Log("$MOD REPORT: Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)\n");
+  &Report("Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)");
   if ($nolink) {
-    &Log("NOTE: You may want to link to these entries using a different word or phrase. To do this, edit the\n");
+    &Note("You may want to link to these entries using a different word or phrase. To do this, edit the");
     &Log("$DICTIONARY_WORDS file.\n");
     &Log($nolink);
   }
@@ -3389,9 +3406,9 @@ sub logDictLinks() {
       if (length(@name[0]->textContent) > $mlen) {$mlen = length(@name[0]->textContent);}
       $total++;
     }
-    else {&Log("ERROR: No <name> for <match> \"$m\" in $DICTIONARY_WORDS\n");}
+    else {&Error("No <name> for <match> \"$m\" in $DICTIONARY_WORDS", "Each group of match elements must be preceded by a name element.");}
   }
-  &Log("$MOD REPORT: Unused match elements in $DICTIONARY_WORDS: ($total instances)\n");
+  &Report("Unused match elements in $DICTIONARY_WORDS: ($total instances)");
   foreach my $k (sort keys %unused) {
     foreach my $m (@{$unused{$k}}) {
       &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
@@ -3400,7 +3417,7 @@ sub logDictLinks() {
   
   my %ematch;
   foreach my $rep (sort keys %Replacements) {
-    if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&Log("ERROR: Bad rep match \"$rep\"\n"); next;}
+    if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&ErrorBug("logDictLinks bad rep match: $rep !~ /^(.*?): (.*?), (\w+)\$/"); next;}
     $ematch{"$3:$1"}{$2} += $Replacements{$rep};
   }
 
@@ -3415,7 +3432,7 @@ sub logDictLinks() {
     $kl{$ent} = $t;
     
     my $asp = '';
-    if (!$ematch{$ent}) {&Log("ERROR: missing ematch key \"$ent\"\n");}
+    if (!$ematch{$ent}) {&ErrorBug("missing ematch key \"$ent\"");}
     my $st = $ent; $st =~ s/^\w*\://; $st =~ s/\.dup\d+$//;
     foreach my $as (sort { sprintf("%06i%s", $ematch{$ent}{$b}, $b) cmp sprintf("%06i%s", $ematch{$ent}{$a}, $a) } keys %{$ematch{$ent}}) {
       my $tp = ($st eq $as ? '':(lc($st) eq lc($as) ? '':'*'));
@@ -3439,12 +3456,11 @@ sub logDictLinks() {
     
     $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
   }
-  &Log(" \
-NOTE: The following listing should be looked over to be sure text is \
-correctly linked to the glossary. Glossary entries are matched in the \
-text using the match elements found in the $DICTIONARY_WORDS file. \
-\n");
-  &Log("$MOD REPORT: Links created: ($gt instances)\n* is textual difference other than capitalization\n$p");
+  &Note("
+The following listing should be looked over to be sure text is
+correctly linked to the glossary. Glossary entries are matched in the
+text using the match elements found in the $DICTIONARY_WORDS file.\n");
+  &Report("Links created: ($gt instances)\n* is textual difference other than capitalization\n$p");
   
 }
 
@@ -3469,11 +3485,11 @@ sub copy_dir($$$$) {
   my $skip = shift; # a regular expression matching files to be skipped (null means skip none). $skip overrules $keep
 
   if (!-e $id || !-d $id) {
-    &Log("ERROR copy_dir: Source does not exist or is not a direcory: $id\n");
+    &Error("copy_dir: Source does not exist or is not a direcory: $id");
     return 0;
   }
   if (!$overwrite && -e $od) {
-    &Log("ERROR copy_dir: Destination already exists: $od\n");
+    &Error("copy_dir: Destination already exists: $od");
     return 0;
   }
  
@@ -3542,7 +3558,7 @@ sub fromUTF8($) {
 sub is_usfm2osis($) {
   my $osis = shift;
   my $usfm2osis = 0;
-  if (!open(TEST, "<$osis")) {&Log("ERROR: Could not open $osis\n"); die;}
+  if (!open(TEST, "<$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
   while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
   close(TEST);
   if ($usfm2osis) {&Log("\n--- OSIS file was created by usfm2osis.py.\n");}
@@ -3559,16 +3575,16 @@ sub runAnyUserScriptsAt($$\%$) {
   my $logFlag = shift;
   
   if (-e "$pathNoExt.xsl") {
-    &Log("NOTE: Running user XSLT: $pathNoExt.xsl\n");
+    &Note("Running user XSLT: $pathNoExt.xsl");
     &runScript("$pathNoExt.xsl", $sourceP, $paramsP, $logFlag);
   }
-  else {&Log("NOTE: No user XSLT to run at $pathNoExt.xsl\n");}
+  else {&Note("No user XSLT to run at $pathNoExt.xsl");}
   
   if (-e "$pathNoExt.pl") {
-    &Log("NOTE: Running user Perl script: $pathNoExt.pl\n");
+    &Note("Running user Perl script: $pathNoExt.pl");
     &runScript("$pathNoExt.pl", $sourceP, $paramsP, $logFlag);
   }
-  else {&Log("NOTE: No user Perl script to run at $pathNoExt.pl\n");}
+  else {&Note("No user Perl script to run at $pathNoExt.pl");}
 }
 
 # Runs a script according to its type (its extension). The sourceP points
@@ -3586,7 +3602,7 @@ sub runScript($$\%$) {
   my $name = $script; 
   my $ext; if ($name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/) {$ext = $2;}
   else {
-    &Log("ERROR runScript: Bad script name \"$script\"!\n");
+    &ErrorBug("runScript: Bad script name \"$script\"!");
     return 0;
   }
   
@@ -3594,12 +3610,12 @@ sub runScript($$\%$) {
   if ($ext eq 'xsl')   {&runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
   elsif ($ext eq 'pl') {&runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
   else {
-    &Log("ERROR runScript: Unsupported script extension \"$script\"!\n");
+    &ErrorBug("runScript: Unsupported script extension \"$script\"!");
     return 0;
   }
   
   if (-z $output) {
-    &Log("ERROR runScript: Output file $output has 0 size.\n");
+    &Error("runScript: Output file $output has 0 size.");
     return 0;
   }
   elsif ($overwrite) {&copy($output, $$inputP);}
@@ -3638,6 +3654,7 @@ sub runXSLT($$$\%$) {
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
   }
+  if ($DEBUG) {$cmd .= " DEBUG=\"true\"";}
   &shell($cmd, $logFlag);
 }
 
@@ -3683,7 +3700,7 @@ sub copy_images_to_module($$) {
 				chomp;
 				if ($_ =~ /^\./) {$_ = "$imgFile/$_";}
 				if (-e $_) {&copy_images_to_module($_, $dest);}
-				else {&Log("ERROR: Image directory listed in \"$imgFile/$imagePaths\" was not found: \"$_\"\n");}
+				else {&Error("Image directory listed in \"$imgFile/$imagePaths\" was not found: \"$_\"");}
 			}
 			close(IIF);
 		}
@@ -3729,17 +3746,17 @@ sub fragmentToString($$) {
   my $rootTag = shift;
   
   my $rootTagName = $rootTag;
-  if ($rootTagName !~ s/^\s*<(\w+).*$/$1/) {&Log("ERROR: Bad tag \"$rootTag\" in fragmentToString()\n");}
+  if ($rootTagName !~ s/^\s*<(\w+).*$/$1/) {&ErrorBug("fragmentToString bad rootTagName: $rootTagName !~ s/^\s*<(\w+).*\$/\$1/");}
   
   my $dom = XML::LibXML::Document->new("1.0", "UTF-8");
   $dom->insertBefore($doc_frag, NULL);
   my $doc = $dom->toString();
   
   # remove xml declaration
-  if ($doc !~ s/^\s*<\?xml[^>]*\?>[\s\n]*//) {&Log("ERROR: problem removing xml declaration \"$doc\" fragmentToString()\n");}
+  if ($doc !~ s/^\s*<\?xml[^>]*\?>[\s\n]*//) {&ErrorBug("fragmentToString problem removing xml declaration: $doc !~ s/^\s*<\?xml[^>]*\?>[\s\n]*//");}
   
   # remove root tags
-  if ($doc !~ s/(^$rootTag|<\/$rootTagName>[\s\n]*$)//g) {&Log("ERROR: problem removing root tags \"$doc\" fragmentToString()\n");} 
+  if ($doc !~ s/(^$rootTag|<\/$rootTagName>[\s\n]*$)//g) {&ErrorBug("fragmentToString problem removing root tags: $doc !~ s/(^$rootTag|<\/$rootTagName>[\s\n]*\$)//g");} 
   
   return $doc;
 }
@@ -3802,7 +3819,7 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
   my @uds = ('osisRefWork', 'osisIDWork');
   foreach my $ud (@uds) {
     my @orw = $XPC->findnodes('/osis:osis/osis:osisText[@'.$ud.']', $xml);
-    if (!@orw || @orw > 1) {&Log("ERROR: The osisText element's $ud is not being updated to \"$MOD\"\n");}
+    if (!@orw || @orw > 1) {&ErrorBug("The osisText element's $ud is not being updated to \"$MOD\"");}
     else {
       &Log("Updated $ud=\"$MOD\"\n");
       @orw[0]->setAttribute($ud, $MOD);
@@ -3846,7 +3863,7 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
       if ($type eq 'x-bible')    {$$glossaryP = $comp;}
       my $path = &findCompanionDirectory($comp);
       if (!$path) {
-        &Log("ERROR: Could not locate Companion \"$comp\" conf from \"$INPD\"\n");
+        &Error("Could not locate $comp project directory as specified in $INPD/config.conf.");
         next;
       }
       my %compWorkAttributes = ('osisWork' => $comp);
@@ -3862,7 +3879,7 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
     close(OUTF);
     if (ref($osis_or_osisP)) {$$osis_or_osisP = $output;}
   }
-  else {&Log("ERROR: Could not open \"$$osisP\" to add osisWorks to header!\n");}
+  else {&Error("Could not open \"$$osisP\" to add osisWorks to header.", '', 1);}
   
   return $header;
 }
@@ -3888,7 +3905,7 @@ sub getOSIS_Work($$$$$$) {
   if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{'ModuleName'};}
   my $isbnID = $isbn;
   $isbnID =~ s/[\- ]//g;
-  foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13) {&Log("ERROR: ISBN number \"$n\" is not 13 digits!\n");}}
+  foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13) {&Error("ISBN number \"$n\" is not 13 digits", "Check that the ISBN number is correct.");}}
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
@@ -3965,7 +3982,7 @@ sub mapLocalizedElem($$$$$$) {
       $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'xml:lang'} = $lang;
     }
     $index++;
-    if (($index % 10) == 6) {&Log("ERROR mapLocalizedConf: Too many \"$workElement\" language variants.\n");}
+    if (($index % 10) == 6) {&ErrorBug("mapLocalizedConf: Too many \"$workElement\" language variants.");}
   }
 }
 
@@ -3978,7 +3995,7 @@ sub mapConfig($$$$$$) {
   my $osisWorkP = shift;
   
   foreach my $confEntry (sort keys %{$confP}) {
-    if ($index > $maxindex) {&Log("ERROR mapLocalizedConf: Too many \"description\" sword-config entries.\n");}
+    if ($index > $maxindex) {&ErrorBug("mapLocalizedConf: Too many \"description\" sword-config entries.");}
     else {
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $confP->{$confEntry};
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$confEntry";
@@ -4032,7 +4049,7 @@ sub writeNoteIDs($) {
   
   my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $XML_PARSER->parse_file($$osisP));
   if (@existing) {
-    &Log("WARNING: ".@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!\n");
+    &Warn(@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!");
     return;
   }
   
@@ -4052,7 +4069,7 @@ sub writeNoteIDs($) {
       if ($type eq 'x-bible') {
         $osisID = &bibleContext($n);
         if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
-          &Log("ERROR: Bad context for note osisID: \"$osisID\"\n");
+          &ErrorBug("Bad context for note osisID: $osisID !~ s/^(\w+\.\d+\.\d+)\.\d+\$/\$1/");
           next;
         }
       }
@@ -4068,7 +4085,7 @@ sub writeNoteIDs($) {
       while ($osisID_note{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
       
       if ($n->getAttribute('osisID') && $n->getAttribute('osisID') ne "$osisID$refext$i") {
-        &Log("ERROR: Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\"!\n");
+        &ErrorBug("Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\".");
       }
 
       $n->setAttribute('osisID', "$osisID$refext$i");
@@ -4096,14 +4113,14 @@ sub writeTOC($) {
   my %ebookconv;
   %ebookconv = &readConvertTxt(&getDefaultFile("bible/eBook/convert.txt"));
   my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
-  &Log("NOTE: Using \"\\toc$toc\" USFM tags to determine eBook TOC.\n");
+  &Note("Using \"\\toc$toc\" USFM tags to determine eBook TOC.");
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my @tocTags = $XPC->findnodes('//osis:milestone[@n][starts-with(@type, "x-usfm-toc")]', $xml);
   
   if (@tocTags) {
-    &Log("NOTE: Found ".scalar(@tocTags)." table of content milestone tags:\n");
+    &Note("Found ".scalar(@tocTags)." table of content milestone tags:");
     foreach my $t (@tocTags) {
       &Log($t->toString()."\n");
     }
@@ -4118,8 +4135,8 @@ sub writeTOC($) {
       if (@e && @e[0]) {next;}
       
       if ($t eq $toc && !$WRITETOC_MSG) {
-        &Log("
-  WARNING: At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are being used to \
+        &Warn("
+          At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc USFM tag. These \\toc tags are being used to \
           generate the eBook table of contents. If your eBook TOCs do not render with proper book \
           names and/or hierarchy, then you must add \\toc$toc tags to the USFM using EVAL_REGEX. \
           Or, if you wish to use a different \\toc tag, you must add a TOC=N config setting to: \
@@ -4146,7 +4163,7 @@ sub writeTOC($) {
         if (!@title || !@title[0]) {
           $name = $bk->getAttribute("osisID");
           $type = "osisID";
-          &Log("ERROR writeTOC: Could not locate book name for \"$name\" in OSIS file.\n");
+          &Error("writeTOC: Could not locate book name for \"$name\" in OSIS file.");
         }
         else {$name = @title[0]->textContent; $type = 'title';}
       }
@@ -4178,7 +4195,7 @@ sub readConvertTxt($) {
     }
     close(CONV);
   }
-  else {&Log("WARNING: Did not find \"$convtxt\"\n");}
+  else {&Warn("Did not find \"$convtxt\"");}
   
   return %conv;
 }
@@ -4281,7 +4298,7 @@ sub joinOSIS($) {
   foreach my $f (sort @files) {
     if ($f eq "other.osis" || $f =~ /^\./) {next;}
     if ($f !~ /^(\d+) (\d+) (.*?)\.osis$/) {
-      &Log("ERROR: joinOSIS bad file name \"$f\"\n");
+      &ErrorBug("joinOSIS bad file name \"$f\"");
     }
     my $x = $1;
     my $bookGroup = $2;
@@ -4289,11 +4306,11 @@ sub joinOSIS($) {
     $bkxml = $XML_PARSER->parse_file("$tmp/$f");
     my @bookNode = $XPC->findnodes('//osis:div[@type="book"]', $bkxml);
     if (@bookNode != 1) {
-      &Log("ERROR: joinOSIS file \"$f\" does not have just a single book!\n");
+      &ErrorBug("joinOSIS file \"$f\" does not have just a single book.");
     }
     my @bookGroupNode = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
     if (!@bookGroupNode || !@bookGroupNode[$bookGroup]) {
-      &Log("ERROR: bookGroup \"$bookGroup\" for joinOSIS file \"$f\" not found!\n");
+      &ErrorBug("bookGroup \"$bookGroup\" for joinOSIS file \"$f\" not found.");
     }
     @bookGroupNode[$bookGroup]->appendChild(@bookNode[0]);
   }
@@ -4326,7 +4343,7 @@ sub writeMissingNoteOsisRefsFAST($) {
   &joinOSIS($output);
   $$osisP = $output;
   
-  &Log("$MOD REPORT: Wrote \"$count\" note osisRefs.\n");
+  &Report("Wrote \"$count\" note osisRefs.");
 }
 
 # A note's osisRef contains the passage to which a note applies. For 
@@ -4361,12 +4378,12 @@ sub writeMissingNoteOsisRefs($) {
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
           if (@rs[0]->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
-            &Log("WARNING writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"\n");
+            &Warn("writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"");
             $aror = '';
           }
         }
         else {
-          &Log("WARNING writeMissingNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"\n");
+          &Warn("writeMissingNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"");
           $aror = '';
         }
       }
@@ -4410,8 +4427,8 @@ sub removeDefaultWorkPrefixesFAST($) {
   &joinOSIS($output);
   $$osisP = $output;
   
-  &Log("$MOD REPORT: Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.\n");
-  &Log("$MOD REPORT: Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.\n");
+  &Report("Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.");
+  &Report("Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.");
 }
 
 # Removes work prefixes of all osisIDs and osisRefs which match their
@@ -4463,24 +4480,25 @@ sub validateOSIS($) {
   # Generate error if file fails to validate
   my $valid = 1;
   if (!$res || $res =~ /^\s*$/) {
-    &Log("ERROR: \"$osis\" validation problem. No success or failure message was returned from the xmllint validator!\n");
+    &Error("\"$osis\" validation problem. No success or failure message was returned from the xmllint validator.", "Check your Internet connection, or try again later.");
     $valid = 0;
   }
   elsif ($res !~ /^\Q$osis validates\E$/) {
     if ($res =~ s/$allow//g) {
-      &Log("
-NOTE: Ignore the above milestone osisRef attribute reports. The schema  
+      &Note("
+      Ignore the above milestone osisRef attribute reports. The schema  
       here apparently deviates from the OSIS handbook which states that 
       the osisRef attribute is allowed on any element. The current usage  
       is both required and sensible.\n");
     }
     if ($res !~ /Schemas validity error/) {
-      &Log("NOTE: All of the above validation failures are being allowed.\n");
+      &Note("All of the above validation failures are being allowed.");
     }
-    else {$valid = 0; &Log("ERROR: \"$osis\" does not validate! See message(s) above.\n");}
+    else {$valid = 0; &Error("\"$osis\" does not validate! See message(s) above.");}
   }
   
-  &Log("\n$MOD REPORT: OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION\n");
+  &Log("\n");
+  &Report("OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION");
 }
 
 

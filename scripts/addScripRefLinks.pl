@@ -289,18 +289,18 @@ sub addScripRefLinks($$$) {
   # report other collected data
   my $tCheckRefs = $CheckRefs;
   my $aerefs = ($tCheckRefs =~ tr/\n//);
-  &Log("$MOD REPORT: Listing of extended refs containing ambiguous number(s): ($aerefs instances)\n");
+  &Report("Listing of extended refs containing ambiguous number(s): ($aerefs instances)");
   if ($CheckRefs) {
-    &Log("NOTE: These are cases where a number could be interpreted as either a verse\n");
+    &Note("These are cases where a number could be interpreted as either a verse");
     &Log("or a chapter depending upon context. These should be spot checked for accuracy.");
     &Log("$CheckRefs\n");
   }
   else {&Log("(no extended refs contain ambiguous numbers)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)\n");
+  &Report("Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)");
   if (scalar(keys %UnhandledWords)) {
-    &Log("NOTE: Bible book references in the following list are resulting in incorrect link \n");
+    &Note("Bible book references in the following list are resulting in incorrect link ");
     &Log("targets and should have been specified in the command file. Words which do not \n");
     &Log("actually refer to Bible books (\"Koran\" for instance) should have an EXCLUSION\n");
     &Log("added to the command file.\n");
@@ -312,21 +312,21 @@ sub addScripRefLinks($$$) {
   &Log("\n");
   my $t = 0;
   foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} eq 'skip') {$t++;}}}
-  &Log("$MOD REPORT: Listing of exclusions: ($t instances)\n");
+  &Report("Listing of exclusions: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "skip");}
   else {&Log("(no exclusions were specified in command the file)\n");}
   &Log("\n");
 
   my $t = 0;
   foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} ne 'skip') {$t++;}}}
-  &Log("$MOD REPORT: Listing of fixes: ($t instances)\n");
+  &Report("Listing of fixes: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "fix");}
   else {&Log("(no fixes were specified in the command file)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)\n");
+  &Report("Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)");
   if (scalar(keys %missedLeftRefs)) {
-    &Log("NOTE: These occur when the end of an extended ref cannot be determined. To fix these, check \n");
+    &Note("These occur when the end of an extended ref cannot be determined. To fix these, check ");
     &Log("instances in the log above- modifying REF_END_TERMS in the command file is the usual adjustment.\n");
     foreach my $mlr (sort keys %missedLeftRefs) {
       &Log("<$mlr> $missedLeftRefs{$mlr}\n");
@@ -335,9 +335,9 @@ sub addScripRefLinks($$$) {
   else {&Log("(no unlocated left refs)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Listing of refs without digits which were skipped: ($numNoDigitRef instances)\n");
+  &Report("Listing of refs without digits which were skipped: ($numNoDigitRef instances)");
   if (scalar(keys %noDigitRef)) {
-    &Log("NOTE: These occur when an extended ref or a subref contain no numbers. A large number \n");
+    &Note("These occur when an extended ref or a subref contain no numbers. A large number ");
     &Log("of these may indicate incorrect command file regular expressions.\n");
     foreach my $mlr (sort keys %noDigitRef) {
       &Log("$mlr $noDigitRef{$mlr}\n");
@@ -346,9 +346,9 @@ sub addScripRefLinks($$$) {
   else {&Log("(no refs without digits found)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)\n");
+  &Report("Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)");
   if (scalar(keys %noOSISRef)) {
-    &Log("NOTE: These may indicate a ref which should be an EXCLUSION or a problem \n");
+    &Note("These may indicate a ref which should be an EXCLUSION or a problem ");
     &Log("with command file regular expressions. \n");
     foreach my $mlr (sort keys %noOSISRef) {
       &Log("<$mlr> $noOSISRef{$mlr}\n");
@@ -357,7 +357,7 @@ sub addScripRefLinks($$$) {
   else {&Log("(no subrefs with OSIS ref problems found)\n");}
   &Log("\n");
 
-  &Log("$MOD REPORT: Grand Total Scripture Reference links: ($newLinks instances)\n");
+  &Report("Grand Total Scripture Reference links: ($newLinks instances)");
   $newLinks = 0;
   foreach my $type (sort keys %Types) {
     &Log(sprintf("%5d - %s\n", $Types{$type}, $type));
@@ -393,7 +393,7 @@ sub asrlProcessFile($$) {
         my $t = @skipped[0]->toString();
         if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
           $reportedSkipped{$1}++;
-          &Log("NOTE: SKIP_XPATH skipping \"$1\".\n");
+          &Note("SKIP_XPATH skipping \"$1\".");
         }
         next;
       }
@@ -539,12 +539,12 @@ sub addLinks(\$$$) {
       #  Look at unhandledBook
       if ($unhandledBook) {
         if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
-#          &Log("$LOCATION WARNING: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+#          &Warn("$LOCATION: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
         elsif (!$contextBookOK) {
-#          &Log("$LOCATION WARNING: \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).\n");
+#          &Warn("$LOCATION : \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
         }
       }
 
@@ -570,7 +570,7 @@ sub addLinks(\$$$) {
       if ($extref !~ /\d+/) {
         $numNoDigitRef++;
         $noDigitRef{"<$extref> (extref)"} .= $LOCATION.", ";
-        &Log("$LOCATION WARNING: Skipped \"$pextref\" - no DIGITS.\n");
+        &Warn("$LOCATION: Skipped \"$pextref\" - no DIGITS.");
         &hideTerm($matchedTerm, $ttP);
         next;
       }
@@ -607,7 +607,7 @@ sub addLinks(\$$$) {
           $numNoDigitRef++;
           $noDigitRef{"<$subref> (subref)"} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$LOCATION WARNING: Skipped subref \"$psubref\" - no DIGITS.\n");
+          &Warn("$LOCATION: Skipped subref \"$psubref\" - no DIGITS.");
           next;
         }
 
@@ -617,7 +617,7 @@ sub addLinks(\$$$) {
           $numNoOSISRef++;
           $noOSISRef{$subref} .= $LOCATION.", ";
           $repExtref .= $subref;
-          &Log("$LOCATION WARNING: Skipping subref \"$psubref\", osisref is \"$osisRef\".\n");
+          &Warn("$LOCATION: Skipping subref \"$psubref\", osisref is \"$osisRef\".\n");
           next;
         }
 
@@ -685,7 +685,7 @@ sub fixLink($$\%\%) {
   }
   
   if ($fixP->{$location}{$reference} eq 'skip') {
-    &Log("$location NOTE: Skipped \"$reference\" - on FIX list.\n");
+    &Note("$location: Skipped \"$reference\" - on FIX list.");
     $fixDoneP->{$location}{$reference}++;
     return 'skip';
   }
@@ -696,7 +696,7 @@ sub fixLink($$\%\%) {
     return '';
   }
   
-  &Log("$location NOTE: Fixed \"$reference\" - on FIX list.\n");
+  &Note("$location: Fixed \"$reference\" - on FIX list.");
   $fixDoneP->{$location}{$reference}++;
   return $fixed;
 }
@@ -723,7 +723,7 @@ sub reportFixes(%%$) {
   }
   if ($f == 0) {
     my $tp = ($type eq 'skip' ? 'exclusions':'fixes');
-    &Log("NOTE: All $tp where applied ($t times)\n");
+    &Note("All $tp where applied ($t times)");
   }
 }
 

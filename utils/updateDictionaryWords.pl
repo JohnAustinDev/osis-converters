@@ -33,7 +33,7 @@ while(<INF>) {
   if ($_ =~ /^#/ || $_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^DE(\d+):\s*(.*?)\s*$/) {@entry[$1] = $2;}
   elsif ($_ =~ /^DL(\d+):\s*(.*?)\s*$/) {$pattern{@entry[$1]}{$2}++;}
-  else {&Log("ERROR: Could not parse \"$_\"\n", 1);}
+  else {&Error("Could not parse \"$_\"", 1);}
 }
 close(INF);
 &convertDWF(\@entry, \%pattern, 0, "$OUTDIR/DictionaryWords.xml");
@@ -63,13 +63,13 @@ sub convertDWF($\@\%$) {
       my $reflags = "i";
       while ($p =~ s/<([^<>]*)>\s*$//) {
         my $inst = $1;
-        if ($inst =~ /^\s*verse must contain "(.*)"\s*$/) {&Log("ERROR: \"verse must contain\" is no longer supported\n");}
+        if ($inst =~ /^\s*verse must contain "(.*)"\s*$/) {&Error("\"verse must contain\" is no longer supported", "Use attribute XPATH=\"<xpath-expression>\" instead");}
         elsif ($inst =~ /^\s*only New Testament\s*$/i) {$attribs .= " onlyNewTestament=\"true\"";}
         elsif ($inst =~ /^\s*only Old Testament\s*$/i) {$attribs .= " onlyOldTestament=\"true\"";}
         elsif ($inst =~ /^\s*only book\(s\)\:\s*(.*)\s*$/i) {$attribs .= " context=\"$1\"";}
         elsif ($inst =~ /^\s*not in book\(s\)\:\s*(.*)\s*$/i) {$attribs .= " notContext=\"$1\"";}
         elsif ($inst =~ /^\s*case sensitive\s*$/i) {$reflags = '';}
-        else {&Log("ERROR: Unhandled instruction \"<$inst>\"\n");}
+        else {&Error("Unhandled instruction \"<$inst>\"");}
       }
       
       my $p1 = &getPattern($p, $dict_backwardCompat);

@@ -23,7 +23,7 @@
 sub convertOSIS($) {
   my $convertTo = shift;
   if ($convertTo !~ /^(eBook|html)$/) {
-    &Log("ERROR convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported!\n");
+    &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
   }
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
@@ -67,7 +67,8 @@ sub convertOSIS($) {
   }
 
   # REPORT results
-  &Log("\n$MOD REPORT: ".uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):\n");
+  &Log("\n");
+  &Report(uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):");
   my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
   my %cm;
   foreach my $c (@order) {$cm{$c} = length($c);}
@@ -105,7 +106,7 @@ sub OSIS_To_ePublication($$$$) {
   $CONV_NAME = $scope . "_" . $type;
   $CONV_NAME =~ s/\s/_/g;
   if ($CONV_REPORT{$CONV_NAME}) {
-    &Log("ERROR: $convertTo \"$CONV_NAME\" already created!\n");
+    &ErrorBug("$convertTo \"$CONV_NAME\" already created!");
   }
   
   &Log("\n");
@@ -127,12 +128,14 @@ sub OSIS_To_ePublication($$$$) {
   );
   
   # update osis header with current convert.txt
+  if ($DEBUG) {$CONVERT_TXT{'DEBUG'} = 'true';}
   &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
     
   &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
+  copy("$SCRD/scripts/functions.xsl", $tmp);
   
   # copy css
   &copy_dir_with_defaults("bible/$convertTo/css", "$tmp/css");
@@ -165,7 +168,7 @@ body {font-family: font1;}
       if (open(FCSS, "<$FONTS/".$ConfEntryP->{"Font"}.".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
       close(CSS);
     }
-    else {&Log("ERROR: Could not write font css to \"$tmp/css/font.css\"\n");}
+    else {&ErrorBug("Could not write font css to \"$tmp/css/font.css\"");}
   }
   
   # copy cover
@@ -196,9 +199,9 @@ body {font-family: font1;}
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
         # This means any non Bible scopes (like SWORD) are also filtered out.
         $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'eBook'));
-        &Log("NOTE: filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter))."\n");
+        &Note("filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter)));
         my $aggfilter = &filterAggregateEntries(\$outf, $scope);
-        &Log("NOTE: filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter))."\n");
+        &Note("filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
         if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
           push(@skipCompanions, $companion);
           $CONV_REPORT{$CONV_NAME}{'Glossary'} = 'no-glossary';
@@ -312,7 +315,7 @@ sub copyCoverImageTo($$$$$$\$) {
     &shell($cmd, 2);
   }
   else {copy($cover, $destination);}
-  &Log("NOTE: Found a source cover image at: '$cover'\n");
+  &Note("Found a source cover image at: '$cover'");
   
   my $coverName = $cover; $coverName =~ s/^.*\///;
   return $coverName;
@@ -402,7 +405,7 @@ sub makeHTML($$$) {
     close(INDX);
   }
   else {
-    &Log("ERROR makeHTML: Could not open \"$HTMLOUT/$CONV_NAME/index.xhtml\" for writing\n");
+    &ErrorBug("makeHTML: Could not open \"$HTMLOUT/$CONV_NAME/index.xhtml\" for writing");
   }
 }
 
@@ -433,7 +436,7 @@ sub makeEbook($$$$$) {
       $cmd = "epubcheck \"$out\"";
       my $result = &shell($cmd, ($epub3Markup ? 3:0));
       if ($result =~ /^\s*$/) {
-        &Log("ERROR: epubcheck did not return anything- reason unknown\n");
+        &ErrorBug("epubcheck did not return anything- reason unknown");
       }
       elsif ($result !~ /\bno errors\b/i) {
         my $failed = 1;
@@ -442,19 +445,19 @@ sub makeEbook($$$$$) {
           if ($result =~ /ERROR/) {&Log($result);}
           else {
             $failed = 0;
-            &Log("NOTE: Epub validates, other than the existence of epub:type: \"$out\"\n");
+            &Note("Epub validates, other than the existence of epub:type: \"$out\"");
           }
         }
-        if ($failed) {&Log("ERROR: epubcheck validation failed for \"$out\"\n");}
+        if ($failed) {&Error("epubcheck validation failed for \"$out\"");}
       }
-      else {&Log("NOTE: Epub validates!: \"$out\"\n");}
+      else {&Note("Epub validates!: \"$out\"");}
     }
     copy($out, "$EBOUT/$thisEBookName");
     if (!$CONV_REPORT{$CONV_NAME}{'Format'}) {$CONV_REPORT{$CONV_NAME}{'Format'} = ();}
     push(@{$CONV_REPORT{$CONV_NAME}{'Format'}}, $format);
     &Log("Created: $CONV_NAME.$format\n", 2);
   }
-  else {&Log("ERROR: No output file: $out\n");}
+  else {&Error("No output file: $out");}
 }
 
 # To work with osis2xhtml.xsl, the FullResourceURL must have the full eBook's file name and extension (directory URL comes from convert.txt)
@@ -470,7 +473,7 @@ sub updateOsisFullResourceURL($$) {
     my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
     $new = $new.'/'.$fileName;
     if ($url ne $new) {
-      &Log("NOTE: Updating FullResourceURL from \"$url\" to \"$new\".\n");
+      &Note("Updating FullResourceURL from \"$url\" to \"$new\".");
       &changeNodeText($u, $new);
     }
   }

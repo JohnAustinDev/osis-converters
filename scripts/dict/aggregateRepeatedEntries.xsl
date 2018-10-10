@@ -16,6 +16,9 @@
  
   <import href="../functions.xsl"/>
   
+  <!-- Call with DEBUG='true' to turn on debug messages -->
+  <param name="DEBUG" select="'false'"/>
+  
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
   <!-- Get a list of applicable keywords which are NOT unique (by a case insensitive comparison) -->
@@ -32,17 +35,17 @@
   <!-- Root template -->
   <template match="/">
     <for-each select="//div[@type and not(ancestor-or-self::div[@type='glossary'])]">
-      <message>WARNING: The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear there.</message>
+      <call-template name="Warn"><with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear there.</with-param></call-template>
     </for-each>
     <variable name="separateKeywords"><apply-templates mode="separateKeywordMode"/></variable>
     <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>
     <apply-templates select="$writeOsisIDs" mode="writeMode"/>
     <if test="$duplicate_keywords">
-      <message><value-of select="$MOD"/> REPORT: <value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</message>
-      <for-each select="$duplicate_keywords"><message select="string()"/></for-each>
+      <call-template name="Report"><with-param name="msg"><value-of select="count($duplicate_keywords)"/>instance(s) of duplicate keywords were found and aggregated:</with-param></call-template>
+      <for-each select="$duplicate_keywords"><call-template name="Log"><with-param name="msg" select="string()"/></call-template></for-each>
     </if>
     <if test="not($duplicate_keywords)">
-      <message><value-of select="$MOD"/> REPORT: 0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).</message>
+      <call-template name="Report"><with-param name="msg">0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).</with-param></call-template>
     </if>
   </template>
   
@@ -54,7 +57,10 @@
       <if test="$scopeComment and $scopeComment != string(descendant::comment()[1])">
         <attribute name="scope" select="$scopeComment"/>
         <if test="oc:number-of-matches(string(descendant::comment()[1]), '==') &#62; 1">
-          <message>ERROR: Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div!</message>
+          <call-template name="Error">
+            <with-param name="msg">Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div.</with-param>
+            <with-param name="exp">The \id line of an SFM file likely has multiple "scope == &#60;value&#62;" assignments. Remove all but one assignment.</with-param>
+          </call-template>
         </if>
       </if>
       <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   

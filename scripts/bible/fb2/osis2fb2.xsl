@@ -40,7 +40,9 @@
           <if test="unparsed-text-available(.)">
             <text>&#xa;</text><value-of select="unparsed-text(.)"/>
           </if>
-          <if test="not(unparsed-text-available(.))"><xsl:message select="concat('ERROR: Could not find CSS file: ', .)"/></if>
+          <if test="not(unparsed-text-available(.))">
+            <call-template name="Error"><with-param name="msg" select="concat('Could not find CSS file: ', .)"/></call-template>
+          </if>
         </for-each>
       </stylesheet>
       

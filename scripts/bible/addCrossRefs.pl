@@ -42,19 +42,20 @@ sub addCrossRefs($) {
   
   my $CrossRefFile = &getDefaultFile("bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml");
   if (!-e $CrossRefFile) {
-    &Log("
-WARNING: Could not locate a Cross Reference source file- skipping cross-reference insertion.
-NOTE: Cross Reference source files are OSIS files containing only cross-references.  
-They have the name of their SWORD Versification system, and are typically placed in the 
-osis-converters/CrossReferences directory. If reference tags do not contain
-presentational text, it will be added. Example OSIS cross-references:
+    &Warn("Could not locate a Cross Reference source file. Skipping cross-reference insertion.", "
+Cross Reference source files are OSIS files that contain only cross-
+references. They have the name of their SWORD Versification system, and 
+are typically placed in the following directory:
+osis-converters/defaults/bible/CrossReferences/SynodlaProt.xml
+If reference tags do not contain presentational text, it will be added. 
+Example OSIS cross-references:
 
 <div type=\"book\" osisID=\"Gen\">
   <chapter osisID=\"Gen.1\">
   
     <note type=\"crossReference\" osisRef=\"Gen.1.27\" osisID=\"Gen.1.27!crossReference.r1\">
-      <reference osisRef=\"SynodalProt:Matt.19.4\"/>
-      <reference osisRef=\"SynodalProt:Mark.10.6\"/>
+      <reference osisRef=\"Matt.19.4\"/>
+      <reference osisRef=\"Mark.10.6\"/>
     </note>
     
     <note type=\"crossReference\" subType=\"x-parallel-passage\" osisRef=\"Gen.36.1\" osisID=\"Gen.36.1!crossReference.p1\">
@@ -77,7 +78,7 @@ presentational text, it will be added. Example OSIS cross-references:
   my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
   my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $osis);
   if ($BOOKNAMES || @toc3[0]) {
-    &Log("NOTE: Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc".$tocxr." tags=\"".scalar(@toc3)."\").\n");
+    &Note("Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc".$tocxr." tags=\"".scalar(@toc3)."\").");
     $localization{'hasLocalization'}++;
     my $ssf;
     if (opendir(SFM, "$INPD/sfm")) {
@@ -87,7 +88,7 @@ presentational text, it will be added. Example OSIS cross-references:
         $ssf = `grep "<RangeIndicator>" "$INPD/sfm/$f"`;
         if ($ssf) {
           $ssf = $XML_PARSER->parse_file("$INPD/sfm/$f");
-          &Log("NOTE: Reading localized Scripture reference settings from \"$INPD/sfm/$f\"\n");
+          &Note("Reading localized Scripture reference settings from \"$INPD/sfm/$f\"");
           last;
         }
       }
@@ -121,28 +122,31 @@ presentational text, it will be added. Example OSIS cross-references:
       if ($BOOKNAMES{$book}{$nametype}) {
         if (!$abbr) {$abbr = $BOOKNAMES{$book}{$nametype};}
         elsif ($abbr ne $BOOKNAMES{$book}{$nametype}) {
-          &Log("WARNING: OSIS toc$tocxr name \"$abbr\" differs from SSF $nametype name \"".$BOOKNAMES{$book}{$nametype}."\"; will use OSIS name.\n");
+          &Warn("OSIS toc$tocxr name \"$abbr\" differs from SSF $nametype name \"".$BOOKNAMES{$book}{$nametype}."\"; The OSIS name will be used.");
         }
       }
       if ($abbr) {$localization{$book} = $abbr;}
-      else {&Log("WARNING: Missing translation for \"$book\"\n");}
+      else {&Warn("Missing translation for \"$book\"");}
     }
   }
   else {
-    &Log(decode('utf8', "
-WARNING: Unable to localize cross-references! This means eBooks will show cross-references
-         as '1', '2'... which is unhelpful. To localize cross-references, you should add 
-         a file called BookNames.xml to $INPD/sfm containing book abbreviations like this:
+    &Error(decode('utf8', "
+Unable to localize cross-references. This means eBooks will show cross-
+references as '1', '2'... which is unhelpful.", "
+To localize cross-references, you should add a file called BookNames.xml 
+to the sfm directory which contains book abbreviations like this:
+
 <?xml version=\"1.0\" encoding=\"utf-8\"?>
 <BookNames>
   <book code=\"1SA\" abbr=\"1Şam\" />
   <book code=\"2SA\" abbr=\"2Şam\" />
 </BookNames>
-         If you do not know the book abbreviations, then add to $INPD/CF_usfm2osis.txt
-         the following: \"SET_tocCrossRefs:2\" to use \\toc2 short names instead of 
-         abbreviations (or 1 will use \\toc1 long names, but this is not recommended). 
-         If the required \\tocN tags are specified in the USFM files, you  do not 
-         need BookNames.xml.\n\n"));
+
+If you do not know the book abbreviations, then add to CF_usfm2osis.txt
+the following: \"SET_tocCrossRefs:2\" to use \\toc2 short names instead 
+of abbreviations (or 1 will use \\toc1 long names, but this is not 
+recommended). If the required \\tocN tags are specified in the USFM 
+files, you  do not need BookNames.xml.\n\n"));
   }
   
   # for a big speed-up, find all verse tags and add them to a hash with a key for every verse
@@ -175,16 +179,16 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     
     # check and filter the note placement
     if ($placement =~ /\.0\b/) {
-      &Log("ERROR: Cross reference notes should not be placed in an introduction \"$placement\"\n");
+      &ErrorBug("Cross reference notes should not be placed in an introduction: $placement =~ /\.0\b/");
       next;
     }
     if ($placement !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-      &Log("ERROR: crossReference has unexpected osisRef \"$placement\"\n");
+      &ErrorBug("CrossReference has unexpected placement: $placement !~ /^([^\.]+)\.(\d+)\.(\d+)\$/");
       next;
     }
     my $b = $1; my $c = $2; my $v = $3;
     if (!$osisBooksHP->{$b}) {next;}
-    if (!$verses{$placement}) {&Log("ERROR: $placement: Target verse not found.\n"); next;}
+    if (!$verses{$placement}) {next;}
     
     # add annotateRef so readers know where the note belongs
     my $annotateRef = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Alt'}{$fixed}:$fixed);
@@ -206,16 +210,19 @@ WARNING: Unable to localize cross-references! This means eBooks will show cross-
     close(OUTF);
     $$osisP = $output;
   }
-  else {&Log("ERROR: Could not open \"$output\" for writing.\n");}
+  else {&ErrorBug("Could not open \"$output\" for writing.");}
 
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);
-  &Log("\n$MOD REPORT: Placed $ADD_CROSS_REF_NUM cross-reference notes.\n");
+  &Log("\n");
+  &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
   if ($ADD_CROSS_REF_BAD) {
-    &Log("WARNING: $ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.\n\n");
+    &Error("$ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.", "
+Add the missing book abbreviations with either a \toc2 tag in the SFM
+file, or else with another entry in the BookNames.xml file.");
   }
   else {
-    &Log("NOTE: $ADD_CROSS_REF_LOC individual reference links were localized.\n\n");
+    &Note("$ADD_CROSS_REF_LOC individual reference links were localized.\n");
   }
   
   return 1;
@@ -276,7 +283,7 @@ sub insertNote($$\%\%\%) {
       else {$nt->parentNode->insertBefore($note, $nt); last;}
     }
     if ($nt) {$ADD_CROSS_REF_NUM++;}
-    else {&Log("ERROR: Could not place para note \"".$note->toString()."\"\n");}
+    else {&ErrorBug("Failed to place parallel passage reference note: \"".$note->toString()."\".");}
   }
   else {
     my $end = $verseP->{'end'};
@@ -308,7 +315,7 @@ sub insertNote($$\%\%\%) {
       }
     }
     if ($pt) {$ADD_CROSS_REF_NUM++;}
-    else {&Log("ERROR: Could not place norm note \"".$note->toString()."\"\n");}
+    else {&ErrorBug("Failed to place cross reference note: \"".$note->toString()."\".");}
   }
 }
 
@@ -333,7 +340,7 @@ sub translateRef($$) {
     }
   }
   else {
-    &Log("ERROR translateRef: malformed osisRef \"$osisRef\"\n");
+    &ErrorBug("Malformed osisRef: $osisRef !~ /^([\w\.]+)(\-([\w\.]+))?\$/");
   }
   
   return $t;
@@ -352,7 +359,7 @@ sub translateSingleRef($$) {
     else {$t = '';}
   }
   else {
-    &Log("ERROR translateSingleRef: malformed osisRef \"".$osisRefSingle."\"\n");
+    &ErrorBug("Malformed osisRef: $osisRefSingle !~ /^([^\.]+)(\.([^\.]+)(\.([^\.]+))?)?/");
   }
   
   return $t;

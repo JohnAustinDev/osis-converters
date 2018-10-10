@@ -9,6 +9,8 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
+  <param name="DEBUG" select="'false'"/> 
+ 
   <!-- Copied from xsltfunctions.com -->
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
@@ -60,7 +62,14 @@
         <choose>
           <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
             <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/> <!-- ⇹ is a random never-used character required in first position -->
-            <if test="not($before)"><message select="$text"/><message terminate="yes">ERROR: langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</message></if>
+            <if test="not($before)">
+              <call-template name="Log"><with-param name="msg" select="$text"/></call-template>
+              <call-template name="ErrorBug">
+                <with-param name="die" select="'yes'"/>
+                <with-param name="msg">langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</with-param>
+                <with-param name="exp">Add the missing character to the config.conf file's LangSortOrder entry. Place it where it belongs in the order of characters.</with-param>
+              </call-template>
+            </if>
             <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
           </when>
           <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
@@ -75,11 +84,11 @@
       <when test="$node[self::element()]">
         <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each></value-of>
       </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node:', $node)"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node:', $node)"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node:', name($node), ' = ', $node)"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node:', $node)"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction:', $node)"/></when>
+      <when test="$node[self::text()]"><value-of select="concat('text-node: ', $node)"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node: ', $node)"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::document-node()]"><value-of select="concat('document-node: ', base-uri($node))"/></when>
+      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction: ', $node)"/></when>
       <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
     </choose>
   </function>
@@ -104,11 +113,11 @@
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="100"/></call-template></if>
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="1000"/></call-template></if>
     <if test="not(unparsed-text-available($tmpResult))"><call-template name="sleep"><with-param name="ms" select="10000"/></call-template></if>
-    <if test="not(unparsed-text-available($tmpResult))"><message select="'ERROR: Failed writing tmpResult'"/></if>
+    <if test="not(unparsed-text-available($tmpResult))"><call-template name="Error"><with-param name="msg" select="'Failed writing tmpResult'"/></call-template></if>
     <variable name="result">
       <if test="unparsed-text-available($tmpResult)"><value-of select="unparsed-text($tmpResult)"/></if>
     </variable>
-    <if test="starts-with($result, 'nofile')"><message select="concat('ERROR: Failed to locate: ', $resource)"/></if>
+    <if test="starts-with($result, 'nofile')"><call-template name="Error"><with-param name="msg" select="concat('Failed to locate: ', $resource)"/></call-template></if>
     <if test="not(starts-with($result, 'nofile'))"><value-of select="$result"/></if>
   </function>
   <template name="oc:prepareRunTime">
@@ -131,8 +140,54 @@ chmod +r <value-of select="$tmpResult"/>
   </template>
   <template name="sleep" xmlns:thread="java.lang.Thread">
     <param name="ms" select="10"/>
-    <if test="$ms!=10"><message select="concat('WARNING: Sleeping ', $ms, 'ms')"/></if>
+    <if test="$ms!=10"><call-template name="Warn"><with-param name="msg" select="concat('Sleeping ', $ms, 'ms')"/></call-template></if>
     <message select="thread:sleep($ms)"/>     
+  </template>
+  
+  <!-- The following messaging functions match those in common_opsys.pl for reporting consistency -->
+  <template name="Error">
+    <param name="msg"/>
+    <param name="exp"/>
+    <param name="die" select="'no'"/>
+    <message terminate="{$die}">
+      <text>&#xa;</text>ERROR: <value-of select="$msg"/><text>&#xa;</text>
+      <if test="$exp">SOLUTION: <value-of select="$exp"/><text>&#xa;</text></if>
+    </message>
+  </template>
+  <template name="ErrorBug">
+    <param name="msg"/>
+    <param name="exp"/>
+    <param name="die" select="'no'"/>
+    <message terminate="{$die}">
+      <text>&#xa;</text>ERROR (UNEXPECTED): <value-of select="$msg"/><text>&#xa;</text>
+      <if test="$exp">SOLUTION: <value-of select="$exp"/><text>&#xa;</text></if>
+      <text>Backtrace: </text><value-of select="oc:printNode(.)"/><text>&#xa;</text>
+      <text>Please report the above unexpected ERROR to osis-converters maintainer.</text><text>&#xa;</text>
+    </message>
+  </template>
+  <template name="Warn">
+    <param name="msg"/>
+    <param name="exp"/>
+    <message>
+      <text>&#xa;</text>WARNING: <value-of select="$msg"/>
+      <if test="$exp">CHECK: <value-of select="$exp"/></if>
+    </message>
+  </template>
+  <template name="Note">
+    <param name="msg"/>
+    <message>NOTE: <value-of select="$msg"/></message>
+  </template>
+  <template name="Debug">
+    <param name="msg"/>
+    <if test="$DEBUG = 'true'"><message>DEBUG: <value-of select="$msg"/></message></if>
+  </template>
+  <template name="Report">
+    <param name="msg"/>
+    <message><value-of select="//osis:osisText[1]/@osisIDWork"/> REPORT: <value-of select="$msg"/></message>
+  </template>
+  <template name="Log">
+    <param name="msg"/>
+    <message><value-of select="$msg"/></message>
   </template>
   
 </stylesheet>

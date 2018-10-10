@@ -34,7 +34,7 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
 
 $GOBIBLE = "$INPD/GoBible";
-if (!-e $GOBIBLE) {print "ERROR: Missing GoBible directory: $GOBIBLE. Exiting.\n"; exit;}
+if (!-e $GOBIBLE) {&Error("Missing GoBible directory: $GOBIBLE", "Copy the default/bible/GoBible directory to $INPD", 1);}
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
@@ -52,8 +52,8 @@ $INOSIS = $output;
 &copy($INOSIS, "$TMPDIR/osis.xml");
 
 @FILES = ("$GOBIBLE/ui.properties", "$GOBIBLE/collections.txt", "$TMPDIR/osis.xml");
-foreach my $f (@FILES) {if (!-e $f) {&Log("ERROR: Missing required file: $f\n");}}
-if (!-e "$GOBIBLE/icon.png") {&Log("ERROR: Missing icon file: $GOBIBLE/icon.png");}
+foreach my $f (@FILES) {if (!-e $f) {&Error("Missing required file: $f", "Copy the default file from defaults/bible/GoBible to $INPD.");}}
+if (!-e "$GOBIBLE/icon.png") {&Error("Missing icon file: $GOBIBLE/icon.png", "Copy the default file from defaults/bible/GoBible to $INPD.");}
 
 &Log("\n--- Converting characters (normal)\n");
 require("$SCRD/scripts/bible/GoBible/goBibleConvChars.pl");
@@ -67,7 +67,7 @@ if (-e "$GOBIBLE/simpleChars.txt") {
   copy("$GOBIBLE/icon.png", "$TMPDIR/simple/icon.png");
   &makeGoBible("simple");
 }
-else {&Log("WARNING: Skipping simplified character apps; no $GOBIBLE/simpleChars.txt file\n");}
+else {&Warn("Skipping simplified character apps because there is no simpleChars.txt file.", "Copy the default file from defaults/bible/GoBible to $INPD.");}
 
 sub makeGoBible($) {
   my $type = shift;
@@ -91,6 +91,6 @@ sub makeGoBible($) {
   chdir($SCRD);
 }
 
-&Log("\nend time: ".localtime()."\n");
+&timer('stop');
 
 1;

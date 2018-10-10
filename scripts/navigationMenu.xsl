@@ -16,6 +16,9 @@
   -->
  
   <xsl:import href="./functions.xsl"/>
+  
+  <!-- Call with DEBUG='true' to turn on debug messages -->
+  <param name="DEBUG" select="'false'"/>
  
   <!-- scope of the glossary div which contains introductory material, if it exists -->
   <xsl:param name="introScope"/>
@@ -50,12 +53,12 @@
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
-          <xsl:message>NOTE: Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:message>
+          <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:with-param></xsl:call-template>
         </xsl:if>
       </xsl:when>
       <xsl:when test="generate-id(.) = $dictEntries/generate-id()">
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/><xsl:call-template name="navmenu"/></xsl:copy>
-        <xsl:message>NOTE: Added navmenu to keyword: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:message>
+        <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu to keyword: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:with-param></xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
@@ -142,7 +145,7 @@
           <xsl:variable name="combinedGlossary" as="element(div)">
             <div type="glossary" subType="x-combinedGlossary">
               <xsl:if test="$dictEntries and not(//description[@type='x-sword-config-LangSortOrder'])">
-                <xsl:message terminate="yes">ERROR: Cannot sort glossary entries: 'LangSortOrder' must be specified in config.conf.</xsl:message>
+                <xsl:call-template name="Error"><xsl:with-param name="die" select="'yes'"/><xsl:with-param name="msg">Cannot sort glossary entries: 'LangSortOrder' must be specified in config.conf.</xsl:with-param></xsl:call-template>
               </xsl:if>
               <xsl:for-each select="$dictEntries">
                 <xsl:sort select="oc:langSortOrder(.//seg[@type='keyword'], //description[@type='x-sword-config-LangSortOrder'][1])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
@@ -154,12 +157,12 @@
             <xsl:with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"/>
           </xsl:apply-templates>
           
-          <xsl:message>NOTE: Added NAVMENU glossary</xsl:message>
+          <xsl:call-template name="Note"><xsl:with-param name="msg">Added NAVMENU glossary</xsl:with-param></xsl:call-template>
           <div type="glossary" scope="NAVMENU">
             
             <!-- Create a uiIntroduction main entry -->
             <xsl:if test="$introScope and //div[@type='glossary'][@scope=$introScope]">
-              <xsl:message>NOTE: Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:message>
+              <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
               <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
               <xsl:text>&#xa;</xsl:text>
               <div type="x-keyword-navmenu">
@@ -169,7 +172,7 @@
                 <lb/>
                 <lb/>
                 <xsl:for-each select="$introSubEntries">
-                  <xsl:message>NOTE: Added introduction sub-menu: <xsl:value-of select="."/></xsl:message>
+                  <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction sub-menu: <xsl:value-of select="."/></xsl:with-param></xsl:call-template>
                   <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
                     <lb/>
                   </p>
@@ -178,7 +181,7 @@
             </xsl:if>
             
              <!-- Create a uiDictionary main entry, and its sub-entries -->
-            <xsl:message>NOTE: Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:message>
+            <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
             <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][1], 1, 1)), '-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][last()], 1, 1)))"/>
             <xsl:text>&#xa;</xsl:text>
             <div type="x-keyword-navmenu">
@@ -188,13 +191,13 @@
                 </seg>
               </p>
               <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'dictionary'"/></xsl:call-template>
-              <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/></xsl:message>
+              <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary sub-menu: <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
               <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allEntriesTitle)}" type="x-glosslink" subType="x-target_self">
                 <xsl:value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
               </reference>
               <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
                 <xsl:if test="oc:skipGlossaryEntry(.) = false()">
-                  <xsl:message>NOTE: Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:message>
+                  <xsl:call-template name="Note">Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:with-param></xsl:call-template>
                   <reference osisRef="{$DICTMOD}:_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}" type="x-glosslink" subType="x-target_self" >
                     <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
                   </reference>
@@ -250,7 +253,7 @@
   <xsl:template match="div[@type='introduction'][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
       <xsl:if test="$introScope">
-        <xsl:message>NOTE: Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:message>
+        <xsl:call-template name="Note">Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
         <xsl:attribute name="subType" select="'x-glossary-duplicate'"/>
       </xsl:if>
       <xsl:apply-templates select="node()|@*"/>

@@ -168,7 +168,7 @@ sub orderBooksPeriphs($$$) {
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &Log("ERROR: Not re-ordering books in OSIS file!\n");
+    &ErrorBug("Cannot re-order books in OSIS file because getCanon($vsys) failed.");
     return;
   }
 
@@ -222,7 +222,7 @@ sub orderBooksPeriphs($$$) {
   }
   
   foreach my $bk (@books) {
-    if ($bk ne '') {&Log("ERROR: Book \"$bk\" not found in $vsys Canon\n");}
+    if ($bk ne '') {&ErrorBug("Book \"$bk\" was not found in $vsys Canon.");}
   }
   
   foreach my $bookGroup (@bookGroups) {
@@ -239,9 +239,9 @@ sub orderBooksPeriphs($$$) {
     my @commentNode = $XPC->findnodes('child::node()[2][self::comment()]', $periph);
 
     if (!@commentNode || @commentNode[0] !~ /\s\S+ == \S+/) {
-      push(@mylog, "ERROR: Removing periph(s)! You must specify the location where each peripheral file should be placed within the OSIS file.\n");
+      push(@mylog, "Error: Removing periph(s)! You must specify the location where each peripheral file should be placed within the OSIS file.");
       push(@mylog, &placementMessage());
-      push(@mylog, "REMOVED:\n$periph\n");
+      push(@mylog, "REMOVED:\n$periph");
     }
     else {
       my $comment = @commentNode[0];
@@ -255,7 +255,7 @@ sub orderBooksPeriphs($$$) {
         my $part = $parts[$x-1] . $parts[$x];
         $part =~ s/^,\s*//;
         if ($part !~ /^(\S+|"[^"]+") == (.*?)$/) {
-          push(@mylog, "ERROR: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt\n");
+          push(@mylog, "Error: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt");
         }
         my $emsg = "as specified by \"$part\"";
         my $int = $1;
@@ -265,7 +265,7 @@ sub orderBooksPeriphs($$$) {
           if (!$periph->getAttribute('osisRef')) {
             $periph->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
           }
-          else {push(@mylog, "ERROR: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"\n");}
+          else {push(@mylog, "Error: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"");}
           next;
         }
         
@@ -275,7 +275,7 @@ sub orderBooksPeriphs($$$) {
           $xpath = '//'.$xpath;
           @targXpath = $XPC->findnodes($xpath, $xml);
           if (!@targXpath) {
-            push(@mylog, "ERROR: Removing periph! Could not locate xpath:\"$xpath\" $emsg\n");
+            push(@mylog, "Error: Removing periph! Could not locate xpath:\"$xpath\" $emsg");
             next;
           }
         }
@@ -294,13 +294,13 @@ sub orderBooksPeriphs($$$) {
           elsif (defined($PERIPH_TYPE_MAP_R{$int})) {$type = $int;}
           elsif (defined($PERIPH_SUBTYPE_MAP_R{$int})) {$type = "introduction"; $subType = $int;}
           else {
-            push(@mylog, "ERROR: Could not place periph! Unable to map \"$int\" to a div element $emsg.\n");
+            push(@mylog, "Error: Could not place periph! Unable to map \"$int\" to a div element $emsg.");
             next;
           }
           my $srcXpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
           my @ptag = $XPC->findnodes($srcXpath, $periph);
           if (!@ptag) {
-            push(@mylog, "ERROR: Could not place periph! Did not find \"$srcXpath\" $emsg\n");
+            push(@mylog, "Error: Could not place periph! Did not find \"$srcXpath\" $emsg.");
             next;
           }
           @ptag[$#ptag]->unbindNode();
@@ -308,9 +308,9 @@ sub orderBooksPeriphs($$$) {
         }
         if ($xpath) {
           my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-          push(@mylog, "NOTE: Placing $tg as specified by \"$int\" == \"$xpath\"\n");
+          push(@mylog, "Note: Placing $tg as specified by \"$int\" == \"$xpath\".");
         }
-        else {push(@mylog, "NOTE: Removing \"$int\" $emsg\n");}
+        else {push(@mylog, "Note: Removing \"$int\" $emsg.");}
       }
     }
     if (!$placedPeriph) {
@@ -318,21 +318,25 @@ sub orderBooksPeriphs($$$) {
       my @tst2 = $XPC->findnodes('.//text()[normalize-space()]', $periph);
       if ((@tst && @tst[0]) || (@tst2 && @tst2[0])) {
         push(@mylog,
-"ERROR: The placement location for the following peripheral material was 
+"Error: The placement location for the following peripheral material was 
 not specified and its position may be incorrect:
 $periph
-To position the above material, add location == <XPATH> after the \\id tag.\n"
+To position the above material, add location == <XPATH> after the \\id tag."
         );
         push(@mylog, &placementMessage());
       }
       else {
         $periph->unbindNode();
         my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-        push(@mylog, "NOTE: Removing empty div \"$tg\"\n");
+        push(@mylog, "Note: Removing empty div \"$tg\".");
       }
     }
   }
-  foreach my $lg (reverse(@mylog)) {&Log($lg);}
+  foreach my $lg (reverse(@mylog)) {
+    if ($lg =~ s/^\s*Error\:\s*//) {&Error($lg);}
+    elsif ($lg =~ s/^\s*Note\:\s*//) {&Note($lg);}
+    else {&Log($lg);}
+  }
   
   open(OUTF, ">$output");
   print OUTF $xml->toString();
@@ -400,7 +404,7 @@ sub fitToVerseSystem($$) {
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &Log("ERROR: Not Fitting OSIS versification! No verse system.\n");
+    &ErrorBug("Not Fitting OSIS versification because getCanon($vsys) failed.");
     return;
   }
 
@@ -408,9 +412,9 @@ sub fitToVerseSystem($$) {
   
   my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"]', $xml);
   if (@existing) {
-    &Log("
-WARNING: There are ".@existing." fitted tags in the text. This OSIS file 
-         has already been fitted so this step will be skipped!\n");
+    &Warn("
+There are ".@existing." fitted tags in the text. This OSIS file has 
+already been fitted so this step will be skipped!");
   }
   elsif (@VSYS_INSTR) {
     # Apply alternate VSYS instructions to the translation
@@ -427,11 +431,11 @@ WARNING: There are ".@existing." fitted tags in the text. This OSIS file
   
   my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix'}.'")]])]', $xml);
   if (@nakedAltTags) {
-    &Log("
-WARNING: The following alternate verse tags were found. If these represent 
-         verses which normally appear somewhere else in the $vsys verse 
-         system, then a VSYS_MOVED_ALT instruction should be added to 
-         CF_usfm2osis.txt to correct external cross-references:\n");
+    &Warn("The following alternate verse tags were found.",
+"If these represent verses which normally appear somewhere else in the 
+$vsys verse system, then a VSYS_MOVED_ALT instruction should be 
+added to CF_usfm2osis.txt to allow correction of external cross-
+references:");
     foreach my $at (@nakedAltTags) {
       my $verse = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $at)}[0];
       &Log($verse." ".$at."\n");
@@ -445,6 +449,8 @@ WARNING: The following alternate verse tags were found. If these represent
   my $x = 0;
   my $checked = 0;
   my $errors = 0;
+  
+  my $comments = "(see comments at the top of: ".__FILE__.")";
 
 BOOK:
   foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {
@@ -454,12 +460,12 @@ BOOK:
       for (my $vs = 1; $vs <= $vmax; $vs++) {
         @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
         if (($ech != 1 && $ech < $ch) || ($ech == $ch && $evs < $vs)) {
-          &Log("ERROR: Chapter/verse ordering problem at ".@v[$x]." (expected $ch.$vs)!\n");
+          &Error("Chapter/verse ordering problem at ".@v[$x]." (expected $ch.$vs)", "Check your SFM for out of order chapter/verses and fix them.");
           $errors++;
           next;
         }
         if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
-          &Log("ERROR: Missing verse $bk.$ch.$vs!\n");
+          &Error("Missing verse $bk.$ch.$vs.", "If this verse is suppoed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt $comments.");
           $errors++;
           next;
         }
@@ -467,28 +473,29 @@ BOOK:
         $x++;
       }
       while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Log("ERROR: Extra verse ".@v[$x]."!\n");
+        &Error("Extra verse ".@v[$x].".", "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt $comments.");
         $errors++;
         $x++;
       }
       $ch++;
     }
     while (@v[$x] =~ /^\Q$bk./) {
-      &Log("ERROR: Extra chapter ".@v[$x]."!\n");
+      &Error("Extra chapter ".@v[$x].".", "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt $comments.");
       $errors++;
       $x++;
     }
   }
-  if ($x == @v) {&Log("\nNOTE: All verses were checked against verse system $vsys\n");}
-  else {&Log("\nERROR: Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")\n");}
+  if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
+  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].").");}
   
-  &Log("\n$MOD REPORT: $errors verse system problems detected".($errors ? ':':'.')."\n");
+  &Log("\n");
+  &Report("$errors verse system problems detected".($errors ? ':':'.'));
   if ($errors) {
-    &Log("
-NOTE: This translation does not fit the $vsys verse system. The errors 
+    &Note("
+      This translation does not fit the $vsys verse system. The errors 
       listed above must be fixed. Add the appropriate instructions:
       VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt 
-      (see comments at the top of: ".__FILE__.".\n");
+      $explanation.");
   }
 }
 
@@ -510,7 +517,7 @@ sub correctReferencesVSYS($$) {
   my $bfile = ($bibleMod eq $MOD ? $$osisP:&getProjectOsisFile($bibleMod));
 
   if (! -e $bfile) {
-    &Log("\nWARNING: No OSIS Bible file was found. References effected by VSYS instructions will not be corrected!\n");
+    &Warn("No OSIS Bible file was found. References effected by VSYS instructions will not be corrected.");
     return;
   }
   &Log("\n\nUpdating osisRef attributes of \"$bfile\" that require re-targeting after VSYS instructions:\n", 1);
@@ -525,7 +532,7 @@ sub correctReferencesVSYS($$) {
   my $osisXML = $XML_PARSER->parse_file($$osisP);
   my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
-    &Log("WARNING: ".@existing." references have already been updated, so this step will be skipped!\n");
+    &Warn(@existing." references have already been updated, so this step will be skipped.");
     return;
   }
   
@@ -583,10 +590,11 @@ sub correctReferencesVSYS($$) {
       close(OUTF);
       $$osisP = $output;
     }
-    else {&Log("ERROR: Could not open \"$output\" to write osisRef fixes!\n");}
+    else {&ErrorBug("Could not open \"$output\" to write osisRef fixes.");}
   }
   
-  &Log("\n$MOD REPORT: \"$count\" osisRefs were modified because of alternate verses.\n");
+  &Log("\n");
+  &Report("\"$count\" osisRefs were modified because of alternate verses.");
 }
 
 # If any osisRef in the @checkRefs array of osisRefs includes $verse,  
@@ -619,7 +627,7 @@ sub addrids(\@$\%$\%) {
         $rid = "$mapType.$verse!does-not-exist";
         $changed++;
       }
-      else {&Log("\nERROR: Could not map \"$verse\" to verse system!\n");}
+      else {&ErrorBug("Could not map \"$verse\" to verse system.");}
     }
     if ($changed) {$e->setAttribute('rids', join(' ', @rids));}
   }
@@ -659,10 +667,10 @@ sub applyrids($\%) {
       }
       my $annoRef = &osisID2osisRef(join(' ', @annoRefs));
       if ($annoRef =~ /\s+/) {
-        &Log("ERROR: Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\".\n");
+        &ErrorBug("Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\".");
       }
       if ($e->getAttribute('osisRef') ne $annoRef) {
-        $map .= "NOTE: MAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
+        $map .= "\tMAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
       }
       $e->setAttribute('annotateRef', $annoRef);
       $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
@@ -674,7 +682,7 @@ sub applyrids($\%) {
         $e->setAttribute('osisRef', $newOsisRef);
         my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
         my $est = $e; $est =~ s/^(.*?>).*$/$1/;
-        $update .= "NOTE: UPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
+        $update .= "\tUPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
         $count++;
       }
       else {
@@ -687,17 +695,19 @@ sub applyrids($\%) {
       my $parent = $e->parentNode();
       $parent = $parent->toString(); $parent =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
       if ($e->getAttribute('type') eq "crossReference") {
-        $remove .= "NOTE: REMOVING cross-reference for missing verse: $tag\n";
+        $remove .= "\tREMOVING cross-reference for missing verse: $tag\n";
       }
       else {
-        $remove .= "NOTE: REMOVING tags for missing verse: $tag \n";
+        $remove .= "\tREMOVING tags for missing verse: $tag \n";
         foreach my $chld ($e->childNodes) {$e->parentNode()->insertBefore($chld, $e);}
       }
       $e->unbindNode();
       $count++;
     }
   }
-  &Log($map."\n".$update."\n".$remove);
+  if ($map)    {&Note("\n$map\n");}
+  if ($update) {&Note("\n$update\n");}
+  if ($remove) {&Note("\n$remove\n");}
   
   return $count;
 }
@@ -714,12 +724,12 @@ sub applyVsysInstruction(\%\%$) {
   my $toP = ($argP->{'to'} ? &readValue($argP->{'to'}, $xml):'');
   
   if (($fromP && $fromP->{'count'} != $valueP->{'count'}) || ($toP && $toP->{'count'} != $valueP->{'count'})) {
-    &Log("ERROR: 'From' and 'To' are a different number of verses: $inst: ".$argP->{'value'}." -> ".($fromP->{'value'} ? $fromP->{'value'}:$toP->{'value'})."\n");
+    &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'value'}." -> ".($fromP->{'value'} ? $fromP->{'value'}:$toP->{'value'}).".");
     return 0;
   }
   
   if (!&getBooksOSIS($xml)->{$valueP->{'bk'}}) {
-    &Log("\nWARNING: Skipping VSYS_$inst because ".$valueP->{'bk'}." is not in OSIS file.\n");
+    &Warn("Skipping VSYS_$inst because ".$valueP->{'bk'}." is not in the OSIS file.", "Is this instruction correct?");
     return 0;
   }
   
@@ -728,7 +738,7 @@ sub applyVsysInstruction(\%\%$) {
   elsif ($inst eq 'MISSING_ALT') {&applyVsysMissingALT($valueP, $xml, &mapValue($valueP, $toP));}
   elsif ($inst eq 'EXTRA_ALT') {&applyVsysExtraALT($valueP, $canonP, $xml, &mapValue($valueP, $fromP));}
   
-  else {&Log("ERROR: applyVsysInstruction(".$valueP->{'value'}."): Unknown instruction: \"$inst\"\n");}
+  else {&ErrorBug("applyVsysInstruction(".$valueP->{'value'}.") was given an unknown instruction: \"$inst\".");}
   
   return 1;
 }
@@ -742,7 +752,7 @@ sub readValue($$) {
   
   # read and preprocess value
   if ($value !~ /^$VSYS_PINSTR_RE$/) {
-    &Log("ERROR readValue: Could not parse \"$value\"\n");
+    &ErrorBug("readValue: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
     return \%data;
   }
   my $bk = $1; my $ch = $2; my $vs = ($3 ? $4:''); my $lv = ($5 ? $6:'');
@@ -772,7 +782,7 @@ sub mapValue($$) {
   my @fromvs = &contextArray($fromP->{'value'});
   my @tovs = &contextArray($toP->{'value'});
   if (@fromvs != @tovs) {
-    &Log("ERROR mapValue: Count mismatch: ".$fromP->{'value'}.", ".$toP->{'value'}." (".@fromvs." != ".@tovs.")\n");
+    &ErrorBug("mapValue: Count mismatch: ".$fromP->{'value'}.", ".$toP->{'value'}." (".@fromvs." != ".@tovs.")");
   }
   
   for (my $i=0; $i<@fromvs; $i++) {$map{'map'}{@fromvs[$i]} = @tovs[$i];}
@@ -787,14 +797,14 @@ sub applyVsysMissingALT($$$) {
   my $xml = shift;
   my $movedToP = shift;
   
-  &Log("\nNOTE: Applying VSYS_MISSING_ALT: ".$valueP->{'value'}." :\n");
+  &Log("\n"); &Note("Applying VSYS_MISSING_ALT: ".$valueP->{'value'}." :");
   
   if (!$valueP->{'isWholeChapter'}) {
     for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
       &writeEmptyVerseMarker($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP, $valueP->{'isPartial'});
     }
   }
-  else {&Log("ERROR applyVsysMissingALT: Not supported for entire chapters.\n");}
+  else {&ErrorBug("applyVsysMissingALT: Not supported for entire chapters.");}
 }
 
 # Used when verses in the verse system were not included in the translation. 
@@ -807,10 +817,10 @@ sub applyVsysMissing($$$) {
   my $movedToP = shift;
   my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
-  &Log("\nNOTE: Applying VSYS_MISSING: ".$valueP->{'value'}." :\n");
+  &Log("\n"); &Note("Applying VSYS_MISSING: ".$valueP->{'value'}." :");
   
   if ($valueP->{'isPartial'}) {
-    &Log("NOTE: Verse reference is partial, so only writing empty verse markers.\n");
+    &Note("Verse reference is partial, so only writing empty verse markers.");
     for (my $v = $vs; $v <= $lv; $v++) {
       my $a = "$bk.$ch.$v";
       &writeEmptyVerseMarker("$bk.$ch", $v, $xml, $movedToP, 1);
@@ -848,7 +858,7 @@ sub applyVsysMissing($$$) {
 
     push(@missing, $verseTagToModify->getAttribute('osisID'));
     my $newOsisID = join(' ', &normalizeOsisID(\@missing));
-    &Log("NOTE: Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'\n");
+    &Note("Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'");
     $verseTagToModify = &toAlternate($verseTagToModify, 0, 1);
     $endTag = &toAlternate($endTag, 0, 1);
     $verseTagToModify->setAttribute('osisID', $newOsisID);
@@ -856,7 +866,7 @@ sub applyVsysMissing($$$) {
     $endTag->setAttribute('eID', $newOsisID);
   }
   else {
-    &Log("ERROR: VSYS_MISSING($bk, $ch, $vs, $lv): An entire missing chapter is not supported.\n");
+    &ErrorBug("VSYS_MISSING($bk, $ch, $vs, $lv): An entire missing chapter is not supported.");
   }
 }
 
@@ -872,7 +882,7 @@ sub writeEmptyVerseMarker($$$$$) {
   
   my $verseID = "$bkch.$v";
   if ($movedToP && !$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}) {
-    &Log("ERROR writeEmptyVerseMarker: No source location for $verseID\n");
+    &ErrorBug("writeEmptyVerseMarker: No source location for $verseID");
   }
   
   my $moveType = $VSYS{'prefix'}.($isPartial ? $VSYS{'partMovedTo'}:$VSYS{'movedto'});
@@ -894,7 +904,7 @@ sub writeEmptyVerseMarker($$$$$) {
   if ($verseEndTag) {
     $verseEndTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk("<milestone $type osisRef='$verseID'/>"), $verseEndTag);
   }
-  else {&Log("ERROR writeEmptyVerseMarker: Starting verse tag not found for \"$verseID\"\n");}
+  else {&ErrorBug("writeEmptyVerseMarker: Starting verse tag not found for $verseID");}
 }
 
 # Used when the translation includes extra verses in a chapter compared 
@@ -907,15 +917,15 @@ sub applyVsysExtraALT($$$$) {
   my $xml = shift;
   my $movedFromP = shift;
   
-  &Log("\nNOTE: Applying VSYS_EXTRA_ALT: ".$valueP->{'value'}." :\n");
+  &Log("\n"); &Note("Applying VSYS_EXTRA_ALT: ".$valueP->{'value'}." :");
   
   if (!$movedFromP) {
-    &Log("NOTE: These verses were not moved from somewhere else, so nothing to do here.\n");
+    &Note("These verses were not moved from somewhere else, so nothing to do here.");
     return;
   }
   
   if ($valueP->{'isPartial'}) {
-    &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
+    &Note("Verse reference is partial, so nothing to do here.");
     return;
   }
   
@@ -932,11 +942,11 @@ sub applyVsysExtraALT($$$$) {
         my $annotateRef = @{$XPC->findnodes('preceding::osis:verse[1][@sID]', $alt)}[0];
         if ($annotateRef) {my @tmp = split(/\s+/, $annotateRef->getAttribute('osisID')); $annotateRef = @tmp[-1];}
         if (!$annotateRef) {
-          &Log("ERROR applyVsysExtraALT: Could not find verse containing $alt\n");
+          &ErrorBug("applyVsysExtraALT: Could not find verse containing $alt");
           last;
         }
         if (!$movedFromP->{'map'}{$a}) {
-          &Log("ERROR applyVsysExtraALT: Verse $a not found in movedFrom $alt\n");
+          &ErrorBug("applyVsysExtraALT: Verse $a not found in movedFrom $alt");
           last;
         }
         my $m = "<milestone type='$type' osisRef='".$movedFromP->{'map'}{$a}."' annotateRef='$annotateRef' annotateType='$annotateType'/>";
@@ -944,10 +954,10 @@ sub applyVsysExtraALT($$$$) {
         $success++;
         last;
       }
-      if (!$success) {&Log("ERROR applyVsysExtraALT: Couldn't mark alternate verse $v\n");}
+      if (!$success) {&ErrorBug("applyVsysExtraALT: Couldn't mark alternate verse $v");}
     }
   }
-  else {&Log("ERROR applyVsysExtraALT: Not supported for entire chapters.\n");}
+  else {&ErrorBug("applyVsysExtraALT: Not supported for entire chapters.");}
 }
 
 # Used when the translation includes extra verses in a chapter compared
@@ -966,10 +976,10 @@ sub applyVsysExtra($$$$$) {
   my $adjusted = shift;
   my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
-  &Log("\nNOTE: Applying VSYS_EXTRA: ".$valueP->{'value'}." :\n");
+  &Log("\n"); &Note("Applying VSYS_EXTRA: ".$valueP->{'value'}." :");
   
   if ($valueP->{'isPartial'}) {
-    &Log("NOTE: Verse reference is partial, so nothing to do here.\n");
+    &Note("Verse reference is partial, so nothing to do here.");
     return;
   }
   
@@ -980,13 +990,13 @@ sub applyVsysExtra($$$$$) {
     if ($ch == (@{$canonP->{$bk}} + 1)) {
       my $lastv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
       if ($vs != 1 || $lv != $lastv) {
-        &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Cannot specify verses for a chapter outside the verse system (use just '$bk.$ch' instead).\n");
+        &Error("VSYS_EXTRA($bk, $ch, $vs, $lv): Cannot specify verses for a chapter outside the verse system.", "Use just '$bk.$ch' instead.");
       }
       $vs = 1;
       $lv = $lastv;
     }
     else {
-      &Log("ERROR: VSYS_EXTRA($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).\n");
+      &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).");
       return;
     }
   }
@@ -1006,7 +1016,7 @@ sub applyVsysExtra($$$$$) {
     $startTag->getAttribute('osisID') =~ /^[^\.]+\.\d+\.(\d+)\b/;
     my $shift = ($1 - $arv);
     if ($shift) {
-      &Log("NOTE: This verse was moved, adjusting position: '$shift'.\n");
+      &Note("This verse was moved, adjusting position: '$shift'.");
       my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'isPartial'} ? 'PART':($lv+$shift)), $xml);
       &applyVsysExtra($newValueP, $canonP, $xml, &mapValue($newValueP, $movedFromP), 1);
       return;
@@ -1014,7 +1024,7 @@ sub applyVsysExtra($$$$$) {
   }
   
   if (!$startTag || !$endTag) {
-    &Log("ERROR VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag (=$startTag) or end-tag (=$endTag).\n");
+    &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag (=$startTag) or end-tag (=$endTag).");
     return;
   }
  
@@ -1022,7 +1032,7 @@ sub applyVsysExtra($$$$$) {
   if ($isWholeChapter) {
     my $chapLabel = @{$XPC->findnodes("//osis:title[\@type='x-chapterLabel'][not(\@canonical='true')][preceding::osis:chapter[\@osisID][1][\@sID='$bk.$ch'][not(preceding::osis:chapter[\@eID='$bk.$ch'])]]", $xml)}[0];
     if ($chapLabel) {
-      &Log("NOTE: Converting chapter label \"".$chapLabel->textContent."\" to alternate.\n");
+      &Note("Converting chapter label \"".$chapLabel->textContent."\" to alternate.");
       $chapLabel->setAttribute('type', 'x-chapterLabel-alternate');
       my $t = $chapLabel->textContent();
       &changeNodeText($chapLabel, '');
@@ -1031,7 +1041,7 @@ sub applyVsysExtra($$$$$) {
       $chapLabel->insertAfter($alt, undef);
     }
     else {
-      &Log("NOTE: No chapter label was found, adding alternate chapter label \"$ch\".\n");
+      &Note("No chapter label was found, adding alternate chapter label \"$ch\".");
       my $alt = $XML_PARSER->parse_balanced_chunk("<title type=\"x-chapterLabel-alternate\"><hi type=\"italic\" subType=\"x-alternate\">$ch</hi></title>");
       my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];
       $chStart->parentNode()->insertAfter($alt, $chStart);
@@ -1089,7 +1099,7 @@ sub reVersify($$$$$) {
   my $count = shift;
   my $xml = shift;
   
-  &Log("NOTE: reVersify($bk, $ch, $vs, $count): ");
+  &Log("reVersify($bk, $ch, $vs, $count): ");
   
   my $vTagS = &getVerseTag("$bk.$ch.$vs", $xml, 0);
   if (!$vTagS) {&Log("Start tag not found.\n"); return;}
@@ -1116,12 +1126,12 @@ sub reVersify($$$$$) {
     $vTagE = &undoAlternate(&getAltID($vTagE, 1));
     $osisID = $vTagS->getAttribute('osisID');
   }
-  else{&Log("NOTE: Alternate verse already set.\n");}
+  else{&Note("Alternate verse already set.");}
   
   # Increment/Decrement
   if ($count) {
     if ($newID ne $osisID) {
-      &Log("NOTE: Changing verse osisID='".$vTagS->getAttribute('osisID')."' to '$newID'.\n");
+      &Note("Changing verse osisID='".$vTagS->getAttribute('osisID')."' to '$newID'.");
       &osisIDCheckUnique($newVerseID, $xml);
       $vTagS->setAttribute('osisID', $newID);
       $vTagS->setAttribute('sID', $newID);
@@ -1152,7 +1162,7 @@ sub toAlternate($$$$) {
   my $osisID = ($type eq 'start' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
   my $isVerseStart = ($type eq 'start' && $elem->nodeName eq 'verse' ? 1:0);
   
-  &Log("NOTE: To alternate $osisID ".$elem->nodeName." $type");
+  &Log("toAlternate[$osisID, ".$elem->nodeName.", $type]");
   
   if (&getAltID($elem)) {
     &Log(", already done");
@@ -1166,7 +1176,7 @@ sub toAlternate($$$$) {
   
   if (!$noTarget) {
     $telem = $elem->cloneNode(1);
-    if ($telem->getAttribute('type')) {&Log("\nERROR: Type already set on $telem\n");}
+    if ($telem->getAttribute('type')) {&ErrorBug("Type already set on $telem");}
     $telem->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
     $elem->parentNode->insertBefore($telem, $elem);
     &Log(", cloned");
@@ -1174,16 +1184,16 @@ sub toAlternate($$$$) {
   
   # Convert to milestone
   if (!$type) {
-    &Log("\nERROR: Element missing sID or eID: $elem\n");
+    &ErrorBug("Element missing sID or eID: $elem");
   }
   if ($type eq 'start' && $osisID ne $elem->getAttribute('osisID')) {
-    &Log("\nERROR: osisID is different that sID: $osisID != ".$elem->getAttribute('osisID')."\n");
+    &ErrorBug("osisID is different than sID: $osisID != ".$elem->getAttribute('osisID'));
   }
   $elem->setAttribute('type', $VSYS{'prefix'}.'-'.$elem->nodeName.$VSYS{$type});
   if ($type eq 'start' && $movedFromP) {
     my @vids;
     foreach my $v (split(/\s+/, $osisID)) {
-      if (!$movedFromP->{'map'}{$v}) {&Log("\nERROR: No movedFrom mapped value for $v\n");}
+      if (!$movedFromP->{'map'}{$v}) {&ErrorBug("No movedFrom mapped value for $v");}
       push(@vids, $movedFromP->{'map'}{$v});
     }
     $elem->setAttribute('osisRef', &osisID2osisRef(join(' ', @vids)));
@@ -1205,7 +1215,7 @@ sub toAlternate($$$$) {
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       &Log(", added alternate verse \"$newv\"");
     }
-    else {&Log("\nERROR: Could not parse \"$osisID\"!\n");}
+    else {&ErrorBug("Could not parse: $osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?\$/");}
   }
   &Log("\n");
   
@@ -1218,7 +1228,7 @@ sub toAlternate($$$$) {
 sub undoAlternate($) {
   my $ms = shift;
   
-  &Log("NOTE: Undo alternate ".$ms->getAttribute('type').' '.$ms->getAttribute('annotateRef'));
+  &Log("undoAlternate[".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').']');
 
   my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][1]', $ms)}[0];
   if ($avn) {
@@ -1244,7 +1254,7 @@ sub undoAlternate($) {
     $ms->removeAttribute('type');
     if ($ms->hasAttribute('osisRef')) {$ms->removeAttribute('osisRef');}
   }
-  else {&Log("\nERROR: Can't parse type=\"".$ms->getAttribute('type')."\"\n");}
+  else {&ErrorBug("Can't parse: ".$ms->getAttribute('type')." !~ /$chvsTypeRE/");}
   
   &Log(", converted milestone to verse\n");
   
@@ -1262,7 +1272,7 @@ sub osisIDCheckUnique($$) {
   foreach my $v (@verses) {
     my $chv = &getVerseTag($v, $xml, 0);
     if ($chv) {
-      &Log("ERROR: osisIDCheckUnique($osisID): Existing verse osisID=\"".$chv->getAttribute('osisID')."\" includes \"$v\"!\n");
+      &ErrorBug("osisIDCheckUnique($osisID): Existing verse osisID=\"".$chv->getAttribute('osisID')."\" includes \"$v\"");
     }
   }
 }
@@ -1278,7 +1288,7 @@ sub getFirstVerseInChapterOSIS($$$) {
   my $fv = 200;
   foreach my $v (@vs) {if ($v->getAttribute('osisID') =~ /^\Q$bk.$ch.\E(\d+)/ && $1 < $fv) {$fv = $1;}}
   if ($fv == 200) {
-    &Log("ERROR: getFirstVerseInChapterOSIS($bk, $ch): Could not find first verse.\n");
+    &ErrorBug("getFirstVerseInChapterOSIS($bk, $ch): Could not find first verse.");
     return '';
   }
   
@@ -1296,7 +1306,7 @@ sub getLastVerseInChapterOSIS($$$) {
   my $lv = 0;
   foreach my $v (@vs) {if ($v->getAttribute('osisID') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $lv) {$lv = $1;}}
   if (!$lv) {
-    &Log("ERROR: getLastVerseInChapterOSIS($bk, $ch): Could not find last verse.\n");
+    &ErrorBug("getLastVerseInChapterOSIS($bk, $ch): Could not find last verse.");
     return '';
   }
   

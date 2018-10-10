@@ -41,6 +41,7 @@ class OsisInput(InputFormatPlugin):
             
         # Copy osis2xhtml.xsl
         shutil.copy(inputDir + "/osis2xhtml.xsl", '.')
+        shutil.copy(inputDir + "/functions.xsl", '.')
             
         # Transform the OSIS files to XHTML
         command = ["saxonb-xslt", 
@@ -57,6 +58,7 @@ class OsisInput(InputFormatPlugin):
             print "ERROR: XSLT failed!:"
         print err
         os.remove('osis2xhtml.xsl')
+        os.remove('functions.xsl')
         for afile in glob.glob("./*.xml"):                                                                                                                                   
             os.remove(afile)
         

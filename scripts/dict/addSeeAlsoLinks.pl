@@ -95,7 +95,7 @@ sub checkCircularEntryCandidates(\@) {
 
     $text =~ s/\s//sg;
     if (length($text) < 80 && $single_osisRef) {
-      &Log("NOTE: circular reference candidate link to \"".&osisRef2Entry($single_osisRef)."\" from short entry \"$entryName\"\n");
+      &Note("circular reference candidate link to \"".&osisRef2Entry($single_osisRef)."\" from short entry \"$entryName\"");
       $CheckCircular{$entryName} = $single_osisRef;
     }
   }
@@ -113,7 +113,7 @@ sub checkCircularEntries($) {
     my $longLinks = $EntryLinkList{&osisRef2Entry($osisRefLong)};
     if (!$longLinks || $longLinks !~ /(^|\s)\Q$osisRefShort\E(\s|$)/) {
       my @a; foreach my $or (split(/\s/, $longLinks)) {if ($or) {push(@a, &osisRef2Entry($or));}}
-      &Log("NOTE: short entry was not circular: ".&osisRef2Entry($osisRefShort)." (target only contains links to: ".(@a ? join(", ", @a):'nothing').").\n"); 
+      &Note("short entry was not circular: ".&osisRef2Entry($osisRefShort)." (target only contains links to: ".(@a ? join(", ", @a):'nothing').")."); 
       next;
     }
     $circulars{$osisRefShort} = $osisRefLong;
@@ -121,9 +121,10 @@ sub checkCircularEntries($) {
   
   my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
-  &Log("\n$MOD REPORT: Found $n circular cross references in \"$out_file\".\n");
+  &Log("\n");
+  &Report("Found $n circular cross references in \"$out_file\".");
   if ($addDictLinks !~ /^check$/i && $n > 0) {
-    &Log("NOTE: Some short entries only say: \"See long entry\". In such cases it is\n");
+    &Note("Some short entries only say: \"See long entry\". In such cases it is");
     &Log("often nice if the long entry does not link to the short \"dummy\" entry.\n");
     &Log("These circular references can be eliminated with 'notContext' attributes in $DICTIONARY_WORDS, like this:\n");
     foreach my $osisRefShort (sort keys %circulars) {

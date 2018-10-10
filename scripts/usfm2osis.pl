@@ -83,7 +83,7 @@ sub usfm2osis($$) {
       }
       else {
         my $sf = ($rg && -e "$INPD/$rg" ? 1:0); # Is this group a single file?
-        if ($rg && !$sf) {&Warn("EVAL_REGEX($rg) label \"$rg\" does not apply to a specific file. Therefore it will be applied to all RUN commands that follow.");}
+        if ($rg && !$sf) {&Warn("EVAL_REGEX($rg):$rx", "Label \"$rg\" does not apply to a specific file. So this will be applied to all following RUN commands until/unless canceled by: EVAL_REGEX($rg):");}
         push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx, 'singleFile' => $sf});
       }
       next;
@@ -171,7 +171,7 @@ sub evalRegex($$) {
       my $m2 = ($n ? "_$n":'');
       $df =~ s/$m1(\.[^\.]+)$/$m2$1/;
     }
-    if ($n) {&Log("WARNING: running copy $n of $f\n");}
+    if ($n) {&Warn("Running copy $n of $f.", "Is it intentional that an SFM file is being RUN and modified multiple times?");}
     copy($f, $df);
     push (@files, $df);
   }

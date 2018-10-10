@@ -25,7 +25,7 @@ sub getScope($$) {
   my $scope = "";
   
   $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
-  if (!$vsys) {&Log("ERROR: getScope($osis): Could not determine versification!\n");}
+  if (!$vsys) {&ErrorBug("Could not determine versification of ".(ref($osis) ? 'osis document':$osis).".");}
 
   &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
@@ -114,10 +114,10 @@ sub getScope($$) {
       $scope .= $sep.$sub;
       $sep = " ";
     }
-    if ($s !~ /^\s*$/) {&Log("ERROR: While processing scope \"$s\"\n");}
+    if ($s !~ /^\s*$/) {&ErrorBug("While processing scope: $s !~ /^\s*\$/\n");}
     #if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
   }
-  else {&Log("ERROR: Could not check scope in OSIS file!\n");}
+  else {&ErrorBug("Could not check scope in OSIS file because getCanon failed.");}
   
   &Log("Scope is: $scope\n");
  
@@ -127,7 +127,7 @@ sub getScope($$) {
 sub recordEmptyVerses($\%) {
   my $id = shift;
   my $eP = shift;
-  if ($id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?$/) {&Log("ERROR: Could not understand \"$id\" in recordEmptyVerses\n"); return;}
+  if ($id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?$/) {&ErrorBug("Could not parse id: $id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?\$/"); return;}
   my $bk = $1;
   my $ch = $2;
   my $v1 = $3;

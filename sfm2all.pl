@@ -30,7 +30,7 @@ $modules{$INPD} = $ConfEntryP->{'ModDrv'};
 
 foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
   if (!-e "$INPD/$companion/config.conf") {
-    &Log("ERROR: config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion.\n"); 
+    &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
     next;
   }
   $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
@@ -69,6 +69,6 @@ if ($sfm2all_RUN) {
   }
 }
 
-&Log("\nend time: ".localtime()."\n");
+&timer('stop');
 
 1;

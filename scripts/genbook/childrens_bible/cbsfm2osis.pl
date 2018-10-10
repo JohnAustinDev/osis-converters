@@ -25,8 +25,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 $List = "-l";
 $INPF = "$INPD/SFM_Files.txt";
 if (! -e $INPF) {
-  &Log("ERROR: Must list sfm files in \"$INPF\", one file per line, in proper sequence.\n");
-  exit;
+  &Error("File does not exist: '$INPF'", "You must list sfm files in '$INPF', one file per line, in proper sequence.", 1);
 }
 
 # Get any prefix to be added to additional language specific picture file names
@@ -75,7 +74,7 @@ else {
 $reference = "$OUTDIR/../RUSCB/RUSCB.xml";
 if ($reference) {
   if (-e $reference) {&checkStructure($OUTOSIS, $reference);}
-  else {&Log("ERROR: Reference \"$reference\" not found!\n");}
+  else {&ErrorBug("Reference \"$reference\" not found.");}
 }
 
 #&validateOSIS($OUTOSIS);
@@ -96,13 +95,14 @@ sub checkImages($) {
   my @goodTargets;
   foreach my $figure (@figures) {
     my $src = $figure->getAttribute('src');
-    if (!$src) {push(@badTargets, $figure); &Log("ERROR: Figure has no target: line ".$figure->line_number()."\n");}
-    elsif (!&srcPath($src) || ! -e &srcPath($src)) {push(@badTargets, $figure); &Log("ERROR: Figure target not found \"".&srcPath($src)."\": line ".$figure->line_number()."\n");}
+    if (!$src) {push(@badTargets, $figure); &Error("Figure is missing src attribute: line ".$figure->line_number());}
+    elsif (!&srcPath($src) || ! -e &srcPath($src)) {push(@badTargets, $figure); &Error("Figure target not found \"".&srcPath($src)."\": line ".$figure->line_number());}
     else {push(@goodTargets, $figure);}
   }
-  &Log("\n$MOD REPORT: ". @figures . " figures found in the OSIS file.\n");
-  &Log("$MOD REPORT: ". @goodTargets . " figures have valid targets.\n");
-  &Log("$MOD REPORT: ". @badTargets . " figure(s) have missing targets.\n");
+  &Log("\n");
+  &Report( @figures . " figures found in the OSIS file.");
+  &Report("". @goodTargets . " figures have valid targets.");
+  &Report("". @badTargets . " figure(s) have missing targets.");
 
   # if there are any missing targets, remove the corresponding figures
   my @removedTargets;
@@ -110,14 +110,14 @@ sub checkImages($) {
     &Log("\n");
     foreach my $f (@badTargets) {
       push(@removedTargets, $f->parentNode->removeChild($f));
-      &Log("WARNING: Removed figure with missing target: \"".$f."\"\n");
+      &Warn("Removed figure with missing target: \"".$f."\"");
     }
     &Log("\n");
     my $t = $xml->toString();
     if (open(OSIS, ">$inosis")) {print OSIS $t; close(OSIS);}
-    else {&Log("ERROR: Could not remove bad figures from \"$inosis\"\n"); @removedTargets = ();}
+    else {&Error("Could not remove bad figures from \"$inosis\""); @removedTargets = ();}
   }
-  &Log("$MOD REPORT: ". @removedTargets . " figure(s) with missing targets were removed from the OSIS file.\n\n");
+  &Report(@removedTargets . " figure(s) with missing targets were removed from the OSIS file.\n");
 }
 
 sub srcPath($) {
@@ -137,7 +137,7 @@ sub checkStructure($$) {
 
   my $inmod = $inosis; $inmod =~ s/^.*?([^\/\\]+)$/$1/;
   my $refmod = $refosis; $refmod =~ s/^.*?([^\/\\]+)$/$1/;
-  if ($inmod eq $refmod) {&Log("WARNING: Not checking structure: OSIS file is $inmod, same as reference file.\n"); return;}
+  if ($inmod eq $refmod) {&Warn("Not checking structure: OSIS file is $inmod, same as reference file."); return;}
 
   &Log("\n--- CHECKING STRUCTURE\nOSIS      -> $inosis\nReference -> $refosis\n-----------------------------------------------------\n\n", 1);
   
@@ -147,20 +147,20 @@ sub checkStructure($$) {
   my @refMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $ref);
   if (@refMS) {
     my @inMS = $XPC->findnodes("//osis:div[\@type='majorSection']", $in);
-    &Log("$MOD REPORT: OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".\n");
+    &Report("OSIS has ".@inMS." majorSection divs, and reference has ".@refMS.".");
     my $j = 0;
     for (my $i=0; $i<@refMS && $j<@inMS; $i++) {
       $i = &nextParent($i, \@refMS);
       $j = &nextParent($j, \@inMS);
       if ($i >= 99) {}
-      elsif ($j >= 99) {&Log("ERROR: Could not locate parent majorSection in OSIS.\n");}
+      elsif ($j >= 99) {&Error("Could not locate parent majorSection in OSIS.");}
       else {&compareSection(@inMS[$j], @refMS[$i]);}
       $j++;
     }
   }
-  else {&Log("ERROR: Reference \"$refosis\" has no <div type='majorSection'> tags.\n");}
+  else {&Error("Reference \"$refosis\" has no <div type='majorSection'> tags.");}
 
-  &Log("$MOD REPORT: Structure comparison to reference:\n");
+  &Report("Structure comparison to reference:");
   foreach my $ix (sort {$a <=> $b} keys(%StructReport)) {
     &Log(sprintf("%03i % 64s % 64s\n", $ix, $StructReport{$ix}{'name_in'}, $StructReport{$ix}{'name_ref'}));
   }
@@ -183,15 +183,15 @@ sub compareSection($$) {
   my $inMS = shift;
   my $refMS = shift;
 
-  if (!$inMS->getAttribute('osisID')) {&Log("ERROR: OSIS section line ".$inMS->line_number()." has no osisID.\n");}
-  if (!$refMS->getAttribute('osisID')) {&Log("ERROR: reference section line ".$refMS->line_number()." has no osisID.\n");} 
+  if (!$inMS->getAttribute('osisID')) {&Error("OSIS section line ".$inMS->line_number()." has no osisID.");}
+  if (!$refMS->getAttribute('osisID')) {&Error("reference section line ".$refMS->line_number()." has no osisID.");} 
   $StructReport{++$StructIndex}{'name_in'} = $inMS->getAttribute('osisID');
   $StructReport{$StructIndex}{'name_ref'} = $refMS->getAttribute('osisID');
 
   my @inSS = $XPC->findnodes('./osis:div[@type]', $inMS);
   my @refSS = $XPC->findnodes('./osis:div[@type]', $refMS);
 
-  if (@inSS != @refSS) {&Log("ERROR: Mismatch: ".$inMS->getAttribute('osisID')."(".@inSS.") != ".$refMS->getAttribute('osisID')."(".@refSS.")\n");}
+  if (@inSS != @refSS) {&Error("Mismatch: ".$inMS->getAttribute('osisID')."(".@inSS.") != ".$refMS->getAttribute('osisID')."(".@refSS.")");}
   elsif (!@refSS) {return;}
   else {
     my $ii;

@@ -41,7 +41,7 @@ my $CCIN;
 my $CCOUT;
 
 $COMMANDFILE = "$INPD/CF_osis2osis.txt";
-if (! -e $COMMANDFILE) {die "ERROR: Cannot proceed without command file: $COMMANDFILE.";}
+if (! -e $COMMANDFILE) {&Error("Cannot proceed without command file: $COMMANDFILE.", '', 1);}
 
 open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis command file $COMMANDFILE\n";
 while (<COMF>) {
@@ -64,20 +64,20 @@ while (<COMF>) {
     if ($CCOUT =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
     
     &Log("\nINFO: Processing CC $CCIN\n");
-    if (! -e $CCIN) {&Log("ERROR Could not find \"$CCIN\" with \"$_\"\n"); next;}
+    if (! -e $CCIN) {&Error("Could not find \"$CCIN\" with \"$_\""); next;}
     if (!$CCTable && !$CCScript) {
-      &Log("ERROR: Cannot do CC command:\n".$_."You must first specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>\n\n");
+      &Error("Cannot do CC command:\n".$_, "You must first specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>");
       next;
     }
 
     if ($CCTable) {
       if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
-      if (! -e $CCTable) {&Log("ERROR Could not find \"$CCTable\" with:\n$_\n"); next;}
+      if (! -e $CCTable) {&Error("Could not find \"$CCTable\" with:\n$_"); next;}
     }
     
     if ($CCScript) {
       if ($CCScript =~ /^\./) {$CCScript = File::Spec->rel2abs($CCScript, $INPD);}
-      if (! -e $CCScript) {&Log("ERROR Could not find \"$CCScript\" with:\n$_\n"); next;}
+      if (! -e $CCScript) {&Error("Could not find \"$CCScript\" with:\n$_"); next;}
     }
     
     my $fname = $CCIN; $fname =~ s/^.*\///;
@@ -88,7 +88,7 @@ while (<COMF>) {
       # CONFIGdontCONVERT_<entry> will force that entry to NOT be converted.
       my $confP = &readConf($CCIN);
       foreach my $e (keys %{$confP}) {
-        if (${"CONFIGCONVERT_$e"} && ${"CONFIGdontCONVERT_$e"}) {&Log("ERROR: Both CONFIGCONVERT_ and CONFIGdontCONVERT_ are specified for \"$e\"\n");}
+        if (${"CONFIGCONVERT_$e"} && ${"CONFIGdontCONVERT_$e"}) {&Error("Both CONFIGCONVERT_ and CONFIGdontCONVERT_ are specified for \"$e\"", "Only one of these can be specified for $e");}
         if (($e !~ /^(Copyright|Distribution)/ || ${"CONFIGCONVERT_$e"}) && !${${"CONFIGdontCONVERT_$e"}}) {
           $confP->{$e} = &string_convert($confP->{$e}, $CCTable, $CCScript);
         }
@@ -99,10 +99,10 @@ while (<COMF>) {
       &setConfGlobals(&updateConfData(&readConf($CCOUT)));
     }
     elsif ($fname eq "collections.txt") {
-      if (!$sourceProject) {&Log("ERROR: Unable to update collections.txt! To remedy this, specify SET_sourceProject in $COMMANDFILE\n"); next;}
+      if (!$sourceProject) {&Error("Unable to update collections.txt.", "Specify SET_sourceProject in $COMMANDFILE"); next;}
       my $newMod = lc($MOD);
-      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&Log("ERROR: Could not open collections.txt input \"$CCIN\"\n"); next;}
-      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&Log("ERROR: Coult not open collections.txt output \"$CCOUT\"\n"); next;}
+      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open collections.txt input \"$CCIN\""); next;}
+      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open collections.txt output \"$CCOUT\""); next;}
       my %col;
       while(<CI>) {
         if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
@@ -111,12 +111,12 @@ while (<COMF>) {
       }
       close(CO);
       close(CI);
-      if (!%col) {&Log("ERROR: Did not update Collection names in collections.txt\n");}
+      if (!%col) {&ErrorBug("Did not update Collection names in collections.txt");}
       else {foreach my $c (sort keys %col) {&Log("Updated Collection \"$c\" to \"".$col{$c}."\"\n");}}
     }
     elsif ($fname eq "convert.txt") {
-      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&Log("ERROR: Could not open convert.txt input \"$CCIN\"\n"); next;}
-      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&Log("ERROR: Coult not open convert.txt output \"$CCOUT\"\n"); next;}
+      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open convert.txt input \"$CCIN\""); next;}
+      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open convert.txt output \"$CCOUT\""); next;}
       while(<CI>) {
         if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
           my $e=$1; my $v=$2;
@@ -134,7 +134,7 @@ while (<COMF>) {
   }
   elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
     my $osis = $1;
-    if (!$sourceProject) {&Log("ERROR: Unable to run CCOSIS! To remedy this, specify SET_sourceProject in $COMMANDFILE\n"); next;}
+    if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $COMMANDFILE"); next;}
     if ($osis =~ /\.xml$/i) {
       if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $INPD);}
     }
@@ -142,18 +142,18 @@ while (<COMF>) {
       if ($OUTDIR eq "$INPD/output") {$osis = "$INPD/../$osis/output/$osis.xml";}
       else {$osis = "$OUTDIR/../$osis/$osis.xml";}
     }
-    if (! -e $osis) {&Log("ERROR Could not find \"$osis\" with:\n".$_."You may need to specify OUTDIR in paths.pl.\n"); next;}
+    if (! -e $osis) {&Error("Could not find \"$osis\" with:\n".$_, "You may need to specify OUTDIR in paths.pl."); next;}
     
-    if (!$CCTable && !$CCScript) {&Log("ERROR: Cannot do CCOSIS command:\n".$_."You must first specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>\n\n"); next;}
+    if (!$CCTable && !$CCScript) {&Error("Cannot do CCOSIS command:\n".$_, "First specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>"); next;}
     
     if ($CCTable) {
       if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
-      if (! -e $CCTable) {&Log("ERROR Could not find \"$CCTable\" with:\n$_\n"); next;}
+      if (! -e $CCTable) {&Error("Could not find \"$CCTable\" with:\n$_"); next;}
     }
     
     if ($CCScript) {
       if ($CCScript =~ /^\./) {$CCScript = File::Spec->rel2abs($CCScript, $INPD);}
-      if (! -e $CCScript) {&Log("ERROR Could not find \"$CCScript\" with:\n$_\n"); next;}
+      if (! -e $CCScript) {&Error("Could not find \"$CCScript\" with:\n$_"); next;}
     }
     
     $osis_in = "$TMPDIR/".$MOD."_0.xml";
@@ -164,10 +164,10 @@ while (<COMF>) {
     $osis_in = $1;
     &Log("\nINFO: Processing OSIS_IN $CCIN\n");
     if ($osis_in =~ /^\./) {$osis_in = File::Spec->rel2abs($osis_in, $INPD);}
-    if (! -e $osis_in) {die "ERROR: Specified OSIS file $_ not found. Exiting...\n";}
+    if (! -e $osis_in) {&Error("Specified OSIS file $_ not found.", '', 1);}
     copy($osis_in, "$TMPDIR/".$MOD."_0.xml");
   }
-  else {&Log("ERROR: Unhandled command:\n".$_."in $COMMANDFILE\n\n");}
+  else {&Error("Unhandled command:\n".$_."in $COMMANDFILE", "Change or remove thiis command.");}
 }
 close(COMF);
 
@@ -200,7 +200,7 @@ sub string_convert($$$) {
 
     return $r;
   }
-  else {&Log("ERROR osis2osis.pl: No string_convert method\n");}
+  else {&ErrorBug("osis2osis.pl: No string_convert method");}
 }
 
 sub file_convert($$$$) {
@@ -215,7 +215,7 @@ sub file_convert($$$$) {
     &Log("INFO: Performing file_convert with \"$cmd\"\n");
     `$cmd`;
   }
-  else {&Log("ERROR osis2osis.pl: No file_convert method\n");}
+  else {&ErrorBug("osis2osis.pl: No file_convert method");}
 }
 
 1;

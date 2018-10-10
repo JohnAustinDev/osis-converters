@@ -102,8 +102,7 @@ elsif ($MODDRV =~ /LD/) {
   }
 }
 else {
-	&Log("ERROR: Unhandled module type \"$MODDRV\".\n");
-	die;
+	&ErrorBug("Unhandled module type \"$MODDRV\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
 }
 $CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 if ($ConfEntryP->{"PreferredCSSXHTML"}) {
@@ -113,7 +112,10 @@ if ($ConfEntryP->{"PreferredCSSXHTML"}) {
     &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
   }
   else {
-    &Log("ERROR: The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".\n");
+    &Error("The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".", 
+    "Add a module specific CSS file (perhaps copied from 
+defaults/<type>/sword/swmodule.css) to the specified directory, or 
+remove PreferredCSSXHTML from config.conf");
   }
 }
 
@@ -126,7 +128,7 @@ open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);
 
-&Log("\nend time: ".localtime()."\n");
+&timer('stop');
 
 # Forwards glossary links targetting a member of an aggregated entry to the 
 # aggregated entry because SWORD uses the aggregated entries.
@@ -141,12 +143,12 @@ sub links2sword($) {
     $osisID =~ s/\.dup\d+$//;
     $gk->setValue($osisID);
   }
-  &Log("$MOD REPORT: Forwarded ".scalar(@gks)." link(s) to their aggregated entries.\n");
+  &Report("Forwarded ".scalar(@gks)." link(s) to their aggregated entries.");
 
   
   foreach my $d ($XPC->findnodes('//osis:div[@type="introduction" and @subType="x-glossary-duplicate"]', $xml)) {
     my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
-    &Log("NOTE: Removed x-glossary-duplicate div beginning with: $beg\n");
+    &Note("Removed x-glossary-duplicate div beginning with: $beg");
     $d->unbindNode();
   }
   
@@ -154,7 +156,7 @@ sub links2sword($) {
   foreach my $d ($XPC->findnodes('//osis:list[@subType="x-navmenu"][following-sibling::*[1][self::osis:chapter[@eID]]]', $xml)) {
     $d->unbindNode(); $c++;
   }
-  &Log("NOTE: Removed '$c' x-navmenu elements from Bible chapters\n");
+  &Note("Removed '$c' x-navmenu elements from Bible chapters");
 
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   open(OSIS2, ">$output");

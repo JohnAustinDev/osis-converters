@@ -19,12 +19,12 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   if (-e "$INPD/$DICTIONARY_WORDS") {
     my $dictosis = ($projectGlossary ? &getProjectOsisFile($projectGlossary):'');
     if ($dictosis) {
-      &Log("WARNING: $DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.\n");
+      &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
       &loadDictionaryWordsXML($dictosis);
     }
     else {
       &loadDictionaryWordsXML();
-      &Log("WARNING: $DICTIONARY_WORDS is present but there is no companion dictionary OSIS file to validate against.\n");
+      &Warn("$DICTIONARY_WORDS is present but there is no companion dictionary OSIS file to validate against.");
     }
   }
 }
@@ -103,8 +103,8 @@ if ($projectBible && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
         my $bmod = $projectBible; my $gmod = $projectGlossary;
-        &Log("
-NOTE: Module $bmod contains <div type=\"introduction\"> material and it 
+        &Note("
+      Module $bmod contains <div type=\"introduction\"> material and it 
       appears you have not duplicated that material in the glossary. This \
       introductory material could be more useful if copied into glossary \
       module $gmod. This can easily be done by including the INT USFM file \
@@ -114,12 +114,13 @@ NOTE: Module $bmod contains <div type=\"introduction\"> material and it
       book and keyword. Just add code like this to $gmod/CF_usfm2osis.txt: \
 EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ \
 EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm \
-RUN:./INT.SFM\n");
+RUN:./INT.SFM");
       }
     }
   }
 
-  &Log("\nNOTE: Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.\n", 1);
+  &Log("\n");
+  &Note("Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
   %params = ($glossContainsINT ? ('introScope' => 'INT'):());
   &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
 }
@@ -133,4 +134,5 @@ copy($OSIS, $OUTOSIS);
 # Do a tmp Pretty Print for referencing during the conversion process
 &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 
-&Log("\nend time: ".localtime()."\n");
+&timer('stop');
+1;

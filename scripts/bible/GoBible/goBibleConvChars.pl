@@ -102,7 +102,7 @@ sub goBibleConvChars($\@) {
   }
   if ($type eq "simple") {
     if ($error eq "false") {&Log("Good! No such chars were found.\n");}
-    else {&Log("WARNING: The high code point Unicode chars above were found.\n");}
+    else {&Warn("The high code point Unicode chars above were found.");}
   }
   else {&Log("\n");}
   &Log("\n");

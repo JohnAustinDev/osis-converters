@@ -26,7 +26,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require "$SCRD/scripts/convertOSIS.pl";
 &convertOSIS('html');
 
-&Log("\nend time: ".localtime()."\n");
+&timer('stop');
 
 #if (-e "$TMPDIR/OUT_osis2html.txt") {
 #  &Log("

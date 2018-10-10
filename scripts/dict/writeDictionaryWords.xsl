@@ -10,6 +10,9 @@
  
   <import href="../functions.xsl"/>
   
+  <!-- Call with DEBUG='true' to turn on debug messages -->
+  <param name="DEBUG" select="'false'"/>
+  
   <param name="notXPATH_default" select="'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]'"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
@@ -87,7 +90,7 @@
         <match>/\b(\Q<xsl:value-of select="."/>\E)\b/i</match>
       </xsl:for-each>
       <xsl:if test="count($matches) &#62; 1">
-        <xsl:message>NOTE: writeDictionaryWords: Writing <xsl:value-of select="count($matches)"/> matches for entry "<xsl:value-of select="."/>"</xsl:message>
+        <xsl:call-template name="Debug"><xsl:with-param name="msg">writeDictionaryWords: Writing <xsl:value-of select="count($matches)"/> matches for entry "<xsl:value-of select="."/>"</xsl:with-param></xsl:call-template>
       </xsl:if>
     </entry>
   </template>

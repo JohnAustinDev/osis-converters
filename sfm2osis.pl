@@ -35,7 +35,7 @@ if ($CF_usfm2osis) {
   require("$SCRD/scripts/usfm2osis.pl");
   &usfm2osis($CF_usfm2osis, "$TMPDIR/".$MOD."_0.xml");
 }
-else {die "ERROR: Cannot proceed without a command file: CF_usfm2osis.txt.";}
+else {&Error("Cannot proceed without a command file: CF_usfm2osis.txt.", "This file is generated automatically in new project directories which are empty except for the 'sfm' directory.", 1);}
 
 if (!$NO_OUTPUT_DELETE) {require("$SCRD/scripts/processOSIS.pl");}
 else {
