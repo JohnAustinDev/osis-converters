@@ -130,9 +130,9 @@ Example OSIS cross-references:
     }
   }
   else {
-    &Error(decode('utf8', "
+    &Error("
 Unable to localize cross-references. This means eBooks will show cross-
-references as '1', '2'... which is unhelpful.", "
+references as '1', '2'... which is unhelpful.", decode('utf8', "
 To localize cross-references, you should add a file called BookNames.xml 
 to the sfm directory which contains book abbreviations like this:
 
