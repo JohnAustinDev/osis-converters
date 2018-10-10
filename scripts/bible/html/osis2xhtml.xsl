@@ -295,7 +295,7 @@
             <variable name="fileNotes"><call-template name="noteSections"><with-param name="nodes" select="$fileNodes"/></call-template></variable>
             <call-template name="WriteFile">
               <with-param name="fileName" select="$fileName"/>
-              <with-param name="topElement" select="$fileNodes[1]/parent::*"/>
+              <with-param name="firstElement" select="$fileNodes[1]"/>
               <with-param name="fileXHTML" select="$fileXHTML"/>
               <with-param name="fileNotes" select="$fileNotes"/>
             </call-template>
@@ -369,10 +369,11 @@
   <!-- Write each xhtml file's contents -->
   <template name="WriteFile">
     <param name="fileName" as="xs:string"/>
-    <param name="topElement" as="element()"/>
+    <param name="firstElement" as="node()"/>
     <param name="fileXHTML" as="node()+"/>
     <param name="fileNotes" as="node()*"/>
-    <variable name="isBibleNode" select="$topElement/ancestor-or-self::osisText[last]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
+    <variable name="topElement" select="$firstElement/parent::*" as="element()"/>
+    <variable name="isBibleNode" select="$topElement/ancestor-or-self::osisText[last()]/@osisIDWork = $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork"/>
     <call-template name="Log"><with-param name="msg" select="concat('writing:', $fileName)"/></call-template>
     <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
@@ -388,7 +389,7 @@
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
               ('calibre', $topElement/ancestor-or-self::*[@scope][1]/@scope, for $x in tokenize($fileName, '[_/]') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
-          <if test="not($mainTocMilestone) and $isBibleNode and $topElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
+          <if test="not($mainTocMilestone) and $isBibleNode and $firstElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
             <variable name="title"><osis:title type="main"><value-of select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/></osis:title></variable>
             <apply-templates select="$title" mode="xhtml"/>
@@ -509,7 +510,7 @@
   <template name="getMainInlineTOC">
     <param name="combinedGlossary" tunnel="yes"/>
     <variable name="listElements">
-      <sequence select="me:getTocListItems(root(.), true(), false())"/>
+      <sequence select="me:getTocListItems(., true(), false())"/>
       <if test="count($combinedGlossary/*)"><sequence select="me:getTocListItems($combinedGlossary, true(), true())"/></if>
       <for-each select="$referencedOsisDocs"><sequence select="me:getTocListItems(., true(), count($combinedGlossary/*) != 0)"/></for-each>
     </variable>
