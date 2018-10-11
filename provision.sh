@@ -18,6 +18,8 @@ sudo apt-get install -y libtool-bin
 # XML::LibXML
 sudo cpanm XML::LibXML::PrettyPrint
 sudo cpanm HTML::Entities
+# DateTime is not included in Mint
+sudo cpanm DateTime
 
 # Calibre
 if [ ! `which calibre` ]; then
