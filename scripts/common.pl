@@ -134,6 +134,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 sub readBookNamesXML() {
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
   foreach my $bknxml (split(/\n+/, &shell("find '$INPD/sfm' -name 'BookNames.xml' -print", 3))) {
+    if (! -e "$bknxml") {next;}
     my $bknames = $XML_PARSER->parse_file("$bknxml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
     if (@bkelems[0]) {
