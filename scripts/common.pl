@@ -31,7 +31,6 @@ use DateTime;
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
-$NO_OUTPUT_DELETE = 0;
 $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 $OSISSCHEMA = "http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd";
 $INDENT = "<milestone type=\"x-p-indent\" />";

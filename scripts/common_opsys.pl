@@ -21,7 +21,7 @@ sub start_script() {
   }
   
   &readPaths();
-  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tLOGFILE=$LOGFILE\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n");
+  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tLOGFILE=$LOGFILE\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n");
   
   my $isCompatibleLinux = `lsb_release -a 2>&1`; $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
