@@ -135,7 +135,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 # Enforce the only supported module configuration and naming convention
 sub checkProjectConfiguration() {
   if ($MODDRV =~ /LD/) {
-    my $mainMod = $INPD;
+    my $main = $INPD;
     if ($main !~ s/^.*?\/([^\/]+)\/$MOD$/$1/) {
       &Error("Unsupported project configuration.", "The top project directory must be a Bible project.", 1);
     }
