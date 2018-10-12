@@ -263,8 +263,8 @@ body {font-family: font1;}
 # Copy a cover image for this module and scope to the destination. The 
 # following searches are done to look for a starting cover image (the
 # first found is used):
-# 1) getDefaultFile('cover.jpg')
-# 2) getDefaultFile(<scoped-name>)
+# 1) $INDP/$convertTo/cover.jpg
+# 2) $INDP/$convertTo/<scoped-name>
 # 3) $COVERS location (if any) looking for <scoped-name>
 # If a cover image is found, it will be determined whether the scope is
 # a sub-set of the image's publication. If so, pubTitlePart will be 

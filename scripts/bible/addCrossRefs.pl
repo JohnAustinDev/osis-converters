@@ -40,7 +40,7 @@ sub addCrossRefs($) {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $CrossRefFile = &getDefaultFile("bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml");
+  my $CrossRefFile = &getDefaultFile("bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml", -1);
   if (!-e $CrossRefFile) {
     &Warn("Could not locate a Cross Reference source file. Skipping cross-reference insertion.", "
 Cross Reference source files are OSIS files that contain only cross-

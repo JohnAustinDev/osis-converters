@@ -30,16 +30,14 @@ if ($MODDRV =~ /RawGenBook/ && $MOD =~ /CB$/i) {
   exit;
 }
 
-my $CF_usfm2osis = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt');
-if ($CF_usfm2osis) {
-  require("$SCRD/scripts/usfm2osis.pl");
-  &usfm2osis($CF_usfm2osis, "$TMPDIR/".$MOD."_0.xml");
-}
-else {&Error("Cannot proceed without a command file: CF_usfm2osis.txt.", "This file is generated automatically in new project directories which are empty except for the 'sfm' directory.", 1);}
+require("$SCRD/scripts/usfm2osis.pl");
+&usfm2osis(&getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), "$TMPDIR/".$MOD."_0.xml");
 
-if (!$NO_OUTPUT_DELETE) {require("$SCRD/scripts/processOSIS.pl");}
-else {
+if ($NO_OUTPUT_DELETE) {
   # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true
+  exit;
 }
+
+require("$SCRD/scripts/processOSIS.pl");
 
 1;

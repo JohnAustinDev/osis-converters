@@ -15,10 +15,7 @@ use File::Spec;
 sub start_script() {
   chdir($INPD);
   
-  if (!-e "$SCRD/paths.pl") {
-    my $paths = &getDefaultFile('paths.pl');
-    if ($paths) {copy($paths, $SCRD);}
-  }
+  if (!-e "$SCRD/paths.pl") {copy(&getDefaultFile('paths.pl'), $SCRD);}
   
   &readPaths();
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
@@ -148,31 +145,37 @@ sub readPaths() {
 }
 
 # Look for an osis-converters default file or directory in the following 
-# places, in order. Return '' if file is not found. The file must include 
-# a path that (presently) begins with either 'bible/' for Bible module 
-# files or 'dict/' for dictionary module files. If priority is specified, 
-# only the location with that priority will be checked (1 is highest and
-# 3 is lowest priority).
-# priority-1) Project directory (if bible|dict subdir matches the project type)
-# priority-2) Project-parent/defaults directory
-# priority-3) osis-converters/defaults directory
+# places, in order. If a default file is not found, return either '' or 
+# throw a stop error if priority was 0 (or null etc.). The file must  
+# include a path that (presently) begins with either 'bible/' for Bible  
+# module files or 'dict/' for dictionary module files. If priority 1, 2 
+# or 3 is specified, only the location with that priority will be 
+# checked:
+# priority  location
+#    1      Project directory (if bible|dict subdir matches the project type)
+#    2      main-project-parent/defaults directory
+#    3      osis-converters/defaults directory
+#
+# NOTE: priority -1 will check all locations but will not throw an error 
+# upon failure.
 #
 # NOTE: Soft links in the file path are followed, but soft links that 
 # are valid on the host will NOT be valid on a VM. To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
 # with /vagrant and be broken on the host, although they work on the VM).
-sub getDefaultFile($$) {
+sub getDefaultFile($$$) {
   my $file = shift;
   my $priority = shift;
+  my $inpd = shift; if (!$inpd) {$inpd = $INPD;}
   
   my $fileType = ($file =~ /^(bible|dict)\// ? $1:'');
-  my $projType = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
-  my $projParent = $INPD.($projType eq 'dict' ? '/../..':'/..');
+  my $projType = ($inpd =~ /DICT\/?\s*$/ ? 'dict':'bible');
+  my $projParent = $inpd.($projType eq 'dict' ? '/../..':'/..');
   my $pfile = $file; $pfile =~ s/^(bible|dict)\///;
    
   my $f;
-  if ((!$priority || $priority == 1) && $fileType eq $projType && -e "$INPD/$pfile") {
-    $f = "$INPD/$pfile";
+  if ((!$priority || $priority == 1) && $fileType eq $projType && -e "$inpd/$pfile") {
+    $f = "$inpd/$pfile";
     &Note("getDefaultFile: (1) Found $file at $f");
   }
   if ((!$priority || $priority == 2) && -e "$projParent/defaults/$file") {
@@ -192,6 +195,9 @@ sub getDefaultFile($$) {
     elsif (!&shell("diff '$SCRD/defaults/$file' '$f'", 3)) {
       &Note("(3) Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
+  }
+  if (!$priority && !$f) {
+    &ErrorBug("Default file $file could not be found in any default path.", 'Add this file to the osis-converters/defaults directory.', 1);
   }
   return $f;
 }

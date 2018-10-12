@@ -101,8 +101,8 @@ while (<COMF>) {
     elsif ($fname eq "collections.txt") {
       if (!$sourceProject) {&Error("Unable to update collections.txt.", "Specify SET_sourceProject in $COMMANDFILE"); next;}
       my $newMod = lc($MOD);
-      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open collections.txt input \"$CCIN\""); next;}
-      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open collections.txt output \"$CCOUT\""); next;}
+      if (!open(CI, "<:encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open collections.txt input \"$CCIN\""); next;}
+      if (!open(CO, ">:encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open collections.txt output \"$CCOUT\""); next;}
       my %col;
       while(<CI>) {
         if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
@@ -115,8 +115,8 @@ while (<COMF>) {
       else {foreach my $c (sort keys %col) {&Log("Updated Collection \"$c\" to \"".$col{$c}."\"\n");}}
     }
     elsif ($fname eq "convert.txt") {
-      if (!open(CI, "<encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open convert.txt input \"$CCIN\""); next;}
-      if (!open(CO, ">encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open convert.txt output \"$CCOUT\""); next;}
+      if (!open(CI, "<:encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open convert.txt input \"$CCIN\""); next;}
+      if (!open(CO, ">:encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open convert.txt output \"$CCOUT\""); next;}
       while(<CI>) {
         if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
           my $e=$1; my $v=$2;
@@ -186,13 +186,13 @@ sub string_convert($$$) {
     $tmp .= "/tmp_string_convert";
     `mkdir $tmp`;
     
-    open(TMP, ">encoding(UTF-8)", "$tmp/string_convert_in.txt") || die;
+    open(TMP, ">:encoding(UTF-8)", "$tmp/string_convert_in.txt") || die;
     print TMP "$s";
     close(TMP);
     
     `"$ccscript" "$tmp/string_convert_in.txt" "$tmp/string_convert_out.txt"`;
     
-    open(TMP, "<encoding(UTF-8)", "$tmp/string_convert_out.txt") || die;
+    open(TMP, "<:encoding(UTF-8)", "$tmp/string_convert_out.txt") || die;
     my $r = join('', <TMP>); 
     close(TMP);
    

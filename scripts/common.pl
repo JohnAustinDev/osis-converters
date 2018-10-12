@@ -39,8 +39,8 @@ $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-$OT_BOOKS = "1Chr 1Kgs 1Sam 2Chr 2Kgs 2Sam Amos Dan Deut Eccl Esth Exod Ezek Ezra Gen Hab Hag Hos Isa Judg Jer Job Joel Jonah Josh Lam Lev Mal Mic Nah Neh Num Obad Prov Ps Ruth Song Titus Zech Zeph";
-$NT_BOOKS = "1Cor 1John 1Pet 1Thess 1Tim 2Cor 2John 2Pet 2Thess 2Tim 3John Acts Col Eph Gal Heb Jas John Jude Luke Matt Mark Phlm Phil Rev Rom Titus";
+$OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
+$NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
 foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
   $OSISBOOKS{$bk}++;
 }
@@ -81,13 +81,13 @@ sub start_linux_script() {
   
   $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
   
+  $CONFFILE = "$INPD/config.conf";
+  
   &initLibXML();
   
   &readBookNamesXML();
 
-  &checkAndWriteDefaults($SCRD, $INPD, 0);
-  
-  $CONFFILE = "$INPD/config.conf";
+  &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
   
   if (!-e $CONFFILE) {
     &Error("Could not find or create a \"$CONFFILE\" file.
@@ -131,8 +131,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 }
 
 sub readBookNamesXML() {
+  my $main = $INPD; if ($main =~ /DICT$/) {$main .= "/..";}
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
-  foreach my $bknxml (split(/\n+/, &shell("find '$INPD/sfm' -name 'BookNames.xml' -print", 3))) {
+  foreach my $bknxml (split(/\n+/, &shell("find '$main/sfm' -name 'BookNames.xml' -print", 3))) {
     if (! -e "$bknxml") {next;}
     my $bknames = $XML_PARSER->parse_file("$bknxml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
@@ -520,8 +521,8 @@ sub initInputOutputFiles($$$$) {
   # init SFM files if needed
   if ($script_name =~ /^sfm2all$/ && -e "$inpd/sfm") {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
-    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;");
-    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;");
+    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3);
+    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3);
   }
 }
 
@@ -538,28 +539,18 @@ sub initLibXML() {
 }
 
 
-# If only an sfm directory exists in the project, default files are 
-# written and 1 is returned, otherwise this routine does nothing and 0 
-# is returned. Default files which need updating for each project are 
-# copied to the project directory using getDefaultFile() and are then 
-# modified for the project. Other default files, which rarely change 
-# from project to project are not copied to the project directory 
-# because getDefaultFile() is used to retrieve default files and the 
-# more general default will be used.
-sub checkAndWriteDefaults($$$) {
-  my $scrd = shift;
-  my $inpd = shift;
-  my $isCompanion = shift;
+# If any 'projectDefaults' file is missing, the default file will be 
+# copied to the project directory using getDefaultFile(). If a copied 
+# file is a 'customDefaults' file, then it will also be customized for 
+# the project. Note that not all control files are included in the 
+# 'projectDefaults' list, such as those which rarely change from project 
+# to project. This is because all default files are read at runtime by 
+# getDefaultFile(). So these may be copied and customized manually by 
+# the user, as needed.
+sub checkAndWriteDefaults() {
   
-  if (!$isCompanion) {
-    opendir(INPD, $inpd);
-    my @inputs = readdir(INPD);
-    closedir(INPD);
-    foreach my $f (@inputs) {if ($f !~ /^([\.]+|sfm)$/) {return 0;}}
-  }
-  
-  # copy default files
-  my @defaults = (
+  # Project default control files
+  my @projectDefaults = (
     'bible/config.conf', 
     'bible/CF_usfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
@@ -570,146 +561,250 @@ sub checkAndWriteDefaults($$$) {
     'dict/CF_usfm2osis.txt', 
     'dict/CF_addScripRefLinks.txt'
   );
-  foreach my $f (@defaults) {
+  
+  # Default control files which are automatically customized to save the user's time and energy
+  my @customDefaults = (
+    'bible/config.conf', 
+    'bible/CF_usfm2osis.txt', 
+    'bible/CF_addScripRefLinks.txt',
+    'bible/GoBible/collections.txt',
+    'dict/config.conf', 
+    'dict/CF_usfm2osis.txt', 
+    'dict/CF_addScripRefLinks.txt'
+  );
+  
+  # Copy projectDefaults files that are missing
+  my $modName = $INPD; $modName =~ s/^.*\/([^\/]+)\/?$/$1/;
+  my $modType = ($modName =~ /DICT$/ ? 'dictionary':($modName =~ /CB$/ ? 'childrens_bible':'bible'));
+  my $doCustomizeConf = 0;
+  my @customizeDefaults;
+  foreach my $f (@projectDefaults) {
     my $f_isDirectory = ($f =~ s/\/\*$// ? 1:0); 
     my $dest = $f;
-    my $type = ($dest =~ s/^(bible|dict)// ? $1:'');
-    $dest = $inpd.$dest;
-    if ($type eq 'bible' && $isCompanion || $type eq 'dict' && !$isCompanion) {next;}
+    my $ftype = ($dest =~ s/^(bible|dict)\/// ? $1:'');
+    $dest = "$INPD/$dest";
+    if ($ftype ne $modType) {next;}
     
     my $dparent = $dest; $dparent =~ s/[^\/]+$//;
     if (!-e $dparent) {make_path($dparent);}
-    if ($f_isDirectory) {&copy_dir_with_defaults($f, $dest, 3); &copy_dir_with_defaults($f, $dest, 2);}
-    else {
-      my $df = &getDefaultFile($f);
-      if (!$df) {
-        &ErrorBug("No default file found for '$f'");
-        next;
+    
+    if ($f_isDirectory && (! -e $dest || ! &shell("ls -A '$dest'", 3))) {
+      &Note("Copying missing default directory $f to $modName.");
+      &copy_dir_with_defaults($f, $dest, 3);
+      &copy_dir_with_defaults($f, $dest, 2);
+    }
+    # If the user has added CF_osis2osis.txt then never add a default CF_usfm2osis.txt file
+    elsif ($f =~ /CF_usfm2osis\.txt$/ && -e "$INPD/CF_osis2osis.txt") {next;}
+    elsif (! -e $dest) {
+      &Note("Copying missing default file $f to $modName.");
+      copy(&getDefaultFile($f), $dest);
+      foreach my $cd (@customDefaults) {
+        if ($cd eq $f) {
+          push(@customizeDefaults, $dest);
+          # only do conf customization to a default conf!
+          if ($dest =~ /\/config\.conf$/) {$doCustomizeConf++;}
+          last;
+        }
       }
-      copy($df, $dest);
     }
   }
-
-  my $mod = $inpd;
-  $mod =~ s/^.*?([^\\\/]+)$/$1/;
-  $mod = uc($mod);
+  if (!@customizeDefaults) {return;}
   
-  &Log("CREATING DEFAULT FILES FOR PROJECT \"$mod\"\n", 1);
-  
-  &setConfFileValue("$inpd/config.conf", 'ModuleName', $mod, 1);
-  &setConfFileValue("$inpd/config.conf", 'Abbreviation', $mod, 1);
-  
-  # read my new conf
-  my $confdataP = &readConf("$inpd/config.conf");
-  
+  # Customize the default files which need it
   # read sfm files
   $SCAN_USFM_SKIPPED = '';
-  %USFM; &scanUSFM("$inpd/sfm", \%USFM);
+  %USFM;
+  my $isDict = ($modType eq 'dictionary');
+  my $pathMainMod = ($isDict ? "$INPD/..":$INPD);
+  &scanUSFM("$pathMainMod/sfm", \%USFM);
   if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
   
-  # get my type
-  my $type = (exists($USFM{'dictionary'}) && $confdataP->{'ModuleName'} =~ /DICT$/ ? 'dictionary':0);
-  if (!$type) {$type = ($confdataP->{'ModuleName'} =~ /^\w\w\w\w?CB$/ ? 'childrens_bible':0);}
-  if (!$type) {$type = (exists($USFM{'bible'}) ? 'bible':0);}
-  if (!$type) {$type = 'other';}
-  
-  # ModDrv
-  if ($type eq 'dictionary') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawLD4', 1);}
-  if ($type eq 'childrens_bible') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawGenBook', 1);}
-  if ($type eq 'bible') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'zText', 1);}
-  if ($type eq 'other') {&setConfFileValue("$inpd/config.conf", 'ModDrv', 'RawGenBook', 1);}
- 
-  # Companion
-  my $companion;
-  if (($type eq 'bible' || $type eq 'childrens_bible') && exists($USFM{'dictionary'})) {
-    $companion = $confdataP->{'ModuleName'}.'DICT';
-    if (!-e "$inpd/$companion") {
-      make_path("$inpd/$companion");
-      &checkAndWriteDefaults($scrd, "$inpd/$companion", 1);
-    }
-    else {&Warn("Companion directory \"$inpd/$companion\" already exists, skipping defaults check for it.");}
+  if ($doCustomizeConf) {
+    &Note("Customizing $CONFFILE...");
+    &customize_conf($CONFFILE, $modName, $modType);
   }
-  my $parent = $inpd; $parent =~ s/^.*?[\\\/]([^\\\/]+)[\\\/][^\\\/]+\s*$/$1/;
-  if ($type eq 'dictionary' && $confdataP->{'ModuleName'} eq $parent.'DICT') {$companion = $parent;}
-  if ($companion) {
-    &setConfFileValue("$inpd/config.conf", 'Companion', $companion, ', ');
+  
+  # read my conf
+  my $confP = &readConf($CONFFILE);
+
+  # sfm2all.pl requires any DICT conf(s) are written when the main conf is written
+  if ($doCustomizeConf && !$isDict && $confP->{'Companion'}) {
+    foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
+      if (!-e "$INPD/$companion/config.conf") {
+        if (! -e "$INPD/$companion") {mkdir("$INPD/$companion");}
+        &Note("Copying and customizing companion default config.conf for $companion.");
+        copy(&getDefaultFile('dict/config.conf', 0, "$INPD/$companion"), "$INPD/$companion");
+        &customize_conf("$INPD/$companion/config.conf", $companion, 'dictionary');
+      }
+    }
   }
 
-  if ($type eq 'childrens_bible') {
+  if ($modType eq 'childrens_bible') {
     # SFM_Files.txt
-    if (!open (SFMFS, ">encoding(UTF-8)", "$inpd/SFM_Files.txt")) {&ErrorBug("Could not open \"$inpd/SFM_Files.txt\"", '', 1);}
+    if (!open (SFMFS, ">:encoding(UTF-8)", "$INPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$INPD/SFM_Files.txt\"", '', 1);}
     foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
       $f =~ s/^.*[\/\\]//;
       print SFMFS "sfm/$f\n";
     }
     close(SFMFS);
   }
-  else {
-    # CF_usfm2osis.txt
-    if (!open (CFF, ">>$inpd/CF_usfm2osis.txt")) {&ErrorBug("Could not open \"$inpd/CF_usfm2osis.txt\"", '', 1);}
-    foreach my $f (sort keys %{$USFM{$type}}) {
-      my $r = File::Spec->abs2rel($f, $inpd); if ($r !~ /^\./) {$r = './'.$r;}
-      
-      # peripherals need a target location in the OSIS file added to their ID
-      if ($USFM{$type}{$f}{'peripheralID'}) {
-        print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
-        if (defined($ID_TYPE_MAP{$USFM{$type}{$f}{'peripheralID'}})) {
-          print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$type}{$f}{'peripheralID'}.".*)\$/\$1 ";
-        }
-        else {
-          print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$type}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
-        }
-        my $xpath = "location == osis:header";
-        if (@{$USFM{$type}{$f}{'periphType'}}) {
-          foreach my $periphType (@{$USFM{$type}{$f}{'periphType'}}) {
-            my $osisMap = &getOsisMap($periphType);
-            if (!$osisMap) {next;}
-            $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
-          }
-        }
-        $xpath =~ s/([\@\$])/\\$1/g;
-        print CFF $xpath;
-        print CFF "/m\n";
-      }
+  
+  foreach my $cdf (@customizeDefaults) {
+    if ($cdf =~ /config\.conf$/) {next;} # config.conf was already handled, to update confdataP
+    &Note("Customizing $cdf...");
+    if ($cdf =~ /CF_usfm2osis\.txt$/)           {&customize_usfm2osis($cdf, $modType);}
+    elsif ($cdf =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($cdf);}
+    elsif ($cdf =~ /collections\.txt$/)         {&customize_collections($cdf, $confP);}
+    else {&ErrorBug("Unknown customization: $cdf", "Write a customization function for this file.", 1);}
+  }
+}
 
-      print CFF "RUN:$r\n";
+sub customize_conf($$$) {
+  my $conf = shift;
+  my $modName = shift;
+  my $modType = shift;
+  
+  # ModuleName
+  &setConfFileValue($conf, 'ModuleName', $modName, 1);
+  
+  # Abbreviation
+  &setConfFileValue($conf, 'Abbreviation', $modName, 1);
+  
+  # ModDrv
+  if ($modType eq 'dictionary') {&setConfFileValue($conf, 'ModDrv', 'RawLD4', 1);}
+  if ($modType eq 'childrens_bible') {&setConfFileValue($conf, 'ModDrv', 'RawGenBook', 1);}
+  if ($modType eq 'bible') {&setConfFileValue($conf, 'ModDrv', 'zText', 1);}
+  if ($modType eq 'other') {&setConfFileValue($conf, 'ModDrv', 'RawGenBook', 1);}
+ 
+  # Companion
+  if ($modType eq 'dictionary' || exists($USFM{'dictionary'})) {
+    my $companion = $modName;
+    if ($modType eq 'dictionary') {$companion =~ s/DICT$//;}
+    else {$companion .= 'DICT';}
+    &setConfFileValue($conf, 'Companion', $companion, ', ');
+  }
+}
+
+sub customize_addScripRefLinks($) {
+  my $cf = shift;
+  
+  # Collect all available Bible book abbreviations
+  my %abbrevs;
+  # from BookNames.xml (%BOOKNAMES)
+  foreach my $bk (keys %BOOKNAMES) {
+    foreach my $type (keys %{$BOOKNAMES{$bk}}) {
+      $abbrevs{$BOOKNAMES{$bk}{$type}} = $bk;
     }
-    close(CFF);
+  }
+  # from SFM files (%USFM)
+  foreach my $f (keys %{$USFM{'bible'}}) {
+    foreach my $t (keys %{$USFM{'bible'}{$f}}) {
+      if ($t !~ /^toc\d$/) {next;}
+      $abbrevs{$USFM{'bible'}{$f}{$t}} = $USFM{'bible'}{$f}{'osisBook'};
+    }
   }
   
-  if ($type eq 'bible') {
-    $confdataP = &readConf("$inpd/config.conf"); # need a re-read after above modifications
+  # Write them to CF_addScripRefLinks.txt in the most user friendly way possible
+  @allbks = split(/\s+/, $OT_BOOKS); push(@bks, split(/\s+/, $NT_BOOKS));
+  if (!open(CFT, ">:encoding(UTF-8)", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
+  if (!open (CFF, "<:encoding(UTF-8)", $cf)) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  while(<CFF>) {
+    if ($_ =~ /^#(\S+)\s*=\s*$/) {
+      my $osis = $1;
+      my $p = &getAllAbbrevsString($osis, \%abbrevs);
+      if ($p) {
+        print CFT $p;
+        next;
+      }
+    }
+    print CFT $_;
+  }
+  close(CFF);
+  foreach my $osis (@allbks) {print CFT &getAllAbbrevsString($osis, \%abbrevs);}
+  close(CFT);
+  unlink($cf);
+  move("$cf.tmp", $cf);
+}
+sub getAllAbbrevsString($\%) {
+  my $osis = shift;
+  my $abbrP = shift;
   
-    # GoBible
-    if (!open (COLL, ">>encoding(UTF-8)", "$inpd/GoBible/collections.txt")) {&ErrorBug("Could not open \"$inpd/GoBible/collections.txt\"", '', 1);}
-    print COLL "Info: (".$confdataP->{'Version'}.") ".$confdataP->{'Description'}."\n";
-    print COLL "Application-Name: ".$confdataP->{'Abbreviation'}."\n";
-    my $canonP;
-    my $bookOrderP;
-    my $testamentP;
-    if (&getCanon($confdataP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
-      my $col = ''; my $colot = ''; my $colnt = '';
-      foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
-        foreach my $f (keys %{$USFM{'bible'}}) {
-          if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
-          my $b = "Book: $v11nbk\n";
-          $col .= $b;
-          if ($testamentP->{$v11nbk} eq 'OT') {$colot .= $b;}
-          else {$colnt .= $b;}
+  my $p = '';
+  foreach my $abbr (sort { length($b) <=> length($a) } keys %{$abbrP}) {
+    if ($abbrP->{$abbr} ne $osis || $abbr =~ /^\s*$/) {next;}
+    my $a = $abbr; $a =~ s/([\.\:\-])/\\$1/g;
+    $p .= sprintf("%-6s = %s\n", $osis, $a);
+    $abbrP->{$abbr} = ''; # only print each abbrev once
+  }
+  
+  return $p;
+}
+
+sub customize_usfm2osis($) {
+  my $cf = shift;
+  my $modType = shift;
+  
+  if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  foreach my $f (sort keys %{$USFM{$modType}}) {
+    my $r = File::Spec->abs2rel($f, $INPD); if ($r !~ /^\./) {$r = './'.$r;}
+    
+    # peripherals need a target location in the OSIS file added to their ID
+    if ($USFM{$modType}{$f}{'peripheralID'}) {
+      print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
+      if (defined($ID_TYPE_MAP{$USFM{$modType}{$f}{'peripheralID'}})) {
+        print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$modType}{$f}{'peripheralID'}.".*)\$/\$1 ";
+      }
+      else {
+        print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+      }
+      my $xpath = "location == osis:header";
+      if (@{$USFM{$modType}{$f}{'periphType'}}) {
+        foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
+          my $osisMap = &getOsisMap($periphType);
+          if (!$osisMap) {next;}
+          $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
         }
       }
-      my $colhead = "Collection: ".lc($confdataP->{'ModuleName'});
-      if ($col) {print COLL "$colhead\n$col\n";}
-      if ($colot && $colnt) {
-        print COLL $colhead."ot\n$colot\n";
-        print COLL $colhead."nt\n$colnt\n";
+      $xpath =~ s/([\@\$])/\\$1/g;
+      print CFF $xpath;
+      print CFF "/m\n";
+    }
+
+    print CFF "RUN:$r\n";
+  }
+  close(CFF);
+}
+
+sub customize_collections($$) {
+  my $collections = shift;
+  my $confP = shift;
+  
+  if (!open (COLL, ">>:encoding(UTF-8)", $collections)) {&ErrorBug("Could not open \"$collections\"", '', 1);}
+  print COLL "Info: (".$confP->{'Version'}.") ".$confP->{'Description'}."\n";
+  print COLL "Application-Name: ".$confP->{'Abbreviation'}."\n";
+  my $canonP;
+  my $bookOrderP;
+  my $testamentP;
+  if (&getCanon($confP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
+    my $col = ''; my $colot = ''; my $colnt = '';
+    foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
+      foreach my $f (keys %{$USFM{'bible'}}) {
+        if ($USFM{'bible'}{$f}{'osisBook'} ne $v11nbk) {next;}
+        my $b = "Book: $v11nbk\n";
+        $col .= $b;
+        if ($testamentP->{$v11nbk} eq 'OT') {$colot .= $b;}
+        else {$colnt .= $b;}
       }
     }
-    else {&ErrorBug("GoBible collections.txt: getCanon(".$confdataP->{'Versification'}.") failed.");}
-    close(COLL);
+    my $colhead = "Collection: ".lc($confP->{'ModuleName'});
+    if ($col) {print COLL "$colhead\n$col\n";}
+    if ($colot && $colnt) {
+      print COLL $colhead."ot\n$colot\n";
+      print COLL $colhead."nt\n$colnt\n";
+    }
   }
-  
-  return 1;
+  else {&ErrorBug("GoBible collections.txt: getCanon(".$confP->{'Versification'}.") failed.");}
+  close(COLL);
 }
 
 
@@ -839,7 +934,10 @@ sub scanUSFM_file($) {
   
   if (!open(SFM, "<:encoding(UTF-8)", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
   my $id;
-  my @tags = ('h', 'imt', 'is', 'mt');
+  # Only the first of each of the following tag roots (by root meaning 
+  # the tag followed by any digit) within an SFM file, will be 
+  # recorded.
+  my @tags = ('h', 'imt', 'is', 'mt', 'toc1', 'toc2', 'toc3');
   while(<SFM>) {
     if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
       my $i = $1; 
@@ -852,8 +950,10 @@ sub scanUSFM_file($) {
     }
     foreach my $t (@tags) {
       if ($_ =~ /^\\($t\d*) \s*(.*?)\s*$/) {
-        if ($info{$t}) {&Note("ignoring SFM $1 intro tag which is \"".$2."\""); next;}
-        $info{$t} = $2;
+        my $ts = $1; my $tv = $2;
+        $tv =~ s/\/\// /g; $tv =~ s/ +/ /g; # Remove forced line breaks and extra spaces from titles/names/etc.
+        if ($info{$t}) {&Note("ignoring SFM $ts tag which is \"".$tv."\""); next;}
+        $info{$t} = $tv;
       }
     }
     if ($_ =~ /^\\periph\s+(.*?)\s*$/) {
@@ -873,14 +973,14 @@ sub scanUSFM_file($) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /^(FRT|INT|OTH)$/i) {
+    elsif ($id =~ /^(FRT|INT|OTH|FIN)/i) {
       $info{'type'} = 'bible';
       $info{'peripheralID'} = $id;
     }
     elsif ($id =~ /(GLO|DIC|BAK|CNC|TDX|NDX)/i) {
       $info{'type'} = 'dictionary';
     }
-    elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)$/i) { # Strange IDs associated with Children's Bibles
+    elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)/i) { # Strange IDs associated with Children's Bibles
       $info{'type'} = 'bible';
     }
     elsif ($id =~ /^\s*(\w{3})\b/) {
@@ -891,7 +991,7 @@ sub scanUSFM_file($) {
     else {
       $info{'type'} = 'other';
       $info{'doConvert'} = 0;
-      $SCAN_USFM_SKIPPED .= "WARNING: SFM file \"$f\" has no ID and is being SKIPPED!\n";
+      $SCAN_USFM_SKIPPED .= "ERROR: SFM file \"$f\" has an unrecognized ID \"$id\" and is being SKIPPED!\n";
     }
     &Note(" ");
     foreach my $k (sort keys %info) {&Log(" $k=[".$info{$k}."]");}
@@ -4198,7 +4298,7 @@ sub readConvertTxt($) {
   my $convtxt = shift;
   
   my %conv;
-  if (open(CONV, "<encoding(UTF-8)", $convtxt)) {
+  if (open(CONV, "<:encoding(UTF-8)", $convtxt)) {
     while(<CONV>) {
       if ($_ =~ /^#/) {next;}
       elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {$conv{$1} = $2;}

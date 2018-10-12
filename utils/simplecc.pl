@@ -89,8 +89,8 @@ sub simplecc($$$) {
     close(OUT);
   }
   else {
-    open(OUT, ">encoding(UTF-8)", "$ccout") || die;
-    open(IN, "<encoding(UTF-8)", "$ccin") || die;
+    open(OUT, ">:encoding(UTF-8)", "$ccout") || die;
+    open(IN, "<:encoding(UTF-8)", "$ccin") || die;
     print OUT &simplecc_convert(join('', <IN>), $cctable);
     close(IN);
     close(OUT);
@@ -100,7 +100,7 @@ sub simplecc($$$) {
 sub readcc($) {
   my $cctable = shift;
   
-  open (CC, "<encoding(UTF-8)", "$cctable") || die;
+  open (CC, "<:encoding(UTF-8)", "$cctable") || die;
   while(<CC>) {
     if ($_ =~ /^(c|begin|store)/ || $_ =~ /^\s*$/) {next;}
     elsif (/^\s*["'](.*?)["']\s*>\s*["'](.*?)["']\s*(c\s+|$)/) {$CCDATA{$cctable}{sprintf("%06i%s", $., $1)} = $2;}

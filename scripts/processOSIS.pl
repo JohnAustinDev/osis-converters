@@ -45,14 +45,31 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 
 &writeTOC(\$OSIS);
 
-my $asrl = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_addScripRefLinks.txt');
-if ($addScripRefLinks ne '0' && $asrl) {
+if ($addScripRefLinks ne '0') {
+  my $type = ($MODDRV =~ /LD/ ? 'dict':'bible');
   require("$SCRD/scripts/addScripRefLinks.pl");
-  &addScripRefLinks($asrl, \$OSIS);
+  &addScripRefLinks(&getDefaultFile("$type/CF_addScripRefLinks.txt"), \$OSIS);
   &checkScripRefLinks($OSIS, $projectBible);
-  if ($addFootnoteLinks ne '0' && -e "$INPD/CF_addFootnoteLinks.txt") {
-    require("$SCRD/scripts/addFootnoteLinks.pl");
-    &addFootnoteLinks(\$OSIS);
+}
+
+if ($addFootnoteLinks ne '0') {
+  if ($addScripRefLinks eq '0') {
+    &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
+"Change these values in CF_usfm2osis.txt. If you need to parse footnote 
+links, you need to parse Scripture references first, using 
+CF_addScripRefLinks.txt.");
+  }
+  else {
+    my $CF_addFootnoteLinks = &getDefaultFile("$type/CF_addFootnoteLinks.txt", -1);
+    if ($CF_addFootnoteLinks) {
+      require("$SCRD/scripts/addFootnoteLinks.pl");
+      &addFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
+    }
+    else {&Error("CF_addFootnoteLinks.txt is missing", 
+"Remove or comment out SET_addFootnoteLinks in CF_usfm2osis.txt if your 
+translation does not include links to footnotes. If it does include 
+links to footnotes, then add and configure a CF_addFootnoteLinks.txt 
+file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 

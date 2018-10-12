@@ -63,7 +63,8 @@ require("$SCRD/scripts/dict/processGlossary.pl");
 %FNL_LINKS;
 $OSISREFWORK;
 
-sub addFootnoteLinks($) {
+sub addFootnoteLinks($$) {
+  my $commandFile = shift;
   my $osisP = shift;
 
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addFootnoteLinks$3/;
@@ -79,7 +80,6 @@ sub addFootnoteLinks($) {
   $currentVerseTerms = '';
   $suffixTerms = '';
   $stopreference = '';
-  my $commandFile = "$INPD/CF_addFootnoteLinks.txt";
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
     open(CF, "<:encoding(UTF-8)", $commandFile);
@@ -136,7 +136,7 @@ sub addFootnoteLinks($) {
     }
     close (CF);
   }
-  else {&Error("Command file required: $commandFile", "Add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
+  else {&ErrorBug("Command file required: $commandFile", "Add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
 
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   &Log("WRITING INPUT FILE: \"$output\".\n");

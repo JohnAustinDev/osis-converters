@@ -104,21 +104,13 @@ elsif ($MODDRV =~ /LD/) {
 else {
 	&ErrorBug("Unhandled module type \"$MODDRV\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
 }
-$CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
+
 if ($ConfEntryP->{"PreferredCSSXHTML"}) {
-  my $cssfile = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"});
-  if ($cssfile) {
-    copy($cssfile, "$SWOUT/$MODPATH");
-    &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
-  }
-  else {
-    &Error("The conf file specifies PreferredCSSXHTML but it was not found at \"$INPD/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}."\".", 
-    "Add a module specific CSS file (perhaps copied from 
-defaults/<type>/sword/swmodule.css) to the specified directory, or 
-remove PreferredCSSXHTML from config.conf");
-  }
+  copy(&getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}), "$SWOUT/$MODPATH");
+  &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }
 
+$CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
 &writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");
 
 &zipModule($OUTZIP, $SWOUT);
