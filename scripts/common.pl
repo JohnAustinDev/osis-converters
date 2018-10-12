@@ -616,6 +616,15 @@ sub checkAndWriteDefaults() {
       &Note("Copying missing default directory $f to $modName.");
       &copy_dir_with_defaults($f, $dest, 3);
       &copy_dir_with_defaults($f, $dest, 2);
+      foreach my $fdest (split(/\n+/, &shell("find '$dest' -type f -print", 3))) {
+        my $path = $fdest; $path =~ s/^\Q$INPD/$modType/;
+        foreach my $cd (@customDefaults) {
+          if ($cd eq $path) {
+            push(@customizeDefaults, $fdest);
+            last;
+          }
+        }
+      }
     }
     # If the user has added CF_osis2osis.txt then never add a default CF_usfm2osis.txt file
     elsif ($f =~ /CF_usfm2osis\.txt$/ && -e "$INPD/CF_osis2osis.txt") {next;}
@@ -673,9 +682,9 @@ sub checkAndWriteDefaults() {
   }
   
   foreach my $cdf (@customizeDefaults) {
-    if ($cdf =~ /config\.conf$/) {next;} # config.conf was already handled, to update confdataP
+    if ($cdf =~ /config\.conf$/) {next;} # config.conf was already handled, to update confP
     &Note("Customizing $cdf...");
-    if ($cdf =~ /CF_usfm2osis\.txt$/)           {&customize_usfm2osis($cdf, $modType);}
+    if    ($cdf =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($cdf, $modType);}
     elsif ($cdf =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($cdf);}
     elsif ($cdf =~ /collections\.txt$/)         {&customize_collections($cdf, $confP);}
     else {&ErrorBug("Unknown customization: $cdf", "Write a customization function for this file.", 1);}
