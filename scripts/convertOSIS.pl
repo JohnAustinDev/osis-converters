@@ -184,10 +184,11 @@ body {font-family: font1;}
     $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitle;
   }
   
-  # copy companion OSIS file(s)
+  # copy companion OSIS file
   my @skipCompanions;
   my @companionDictFiles;
-  foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+  if ($ConfEntryP->{'Companion'}) {
+    my $companion = $ConfEntryP->{'Companion'};
     if (! -e "$tmp/tmp/dict") {make_path("$tmp/tmp/dict");}
     my $outf = &getProjectOsisFile($companion);
     my $filter = '0';

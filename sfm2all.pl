@@ -28,7 +28,8 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 my %modules;
 $modules{$INPD} = $ConfEntryP->{'ModDrv'};
 
-foreach my $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+if ($ConfEntryP->{'Companion'}) {
+  my $companion = $ConfEntryP->{'Companion'};
   if (!-e "$INPD/$companion/config.conf") {
     &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
     next;

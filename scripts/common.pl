@@ -109,6 +109,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  &checkProjectConfiguration();
+  
   my $appendlog = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
   if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
@@ -127,6 +129,28 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     if ($spaces) {
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
+  }
+}
+
+# Enforce the only supported module configuration and naming convention
+sub checkProjectConfiguration() {
+  if ($MODDRV =~ /LD/) {
+    my $mainMod = $INPD;
+    if ($main !~ s/^.*?\/([^\/]+)\/$MOD$/$1/) {
+      &Error("Unsupported project configuration.", "The top project directory must be a Bible project.", 1);
+    }
+    if ($MOD ne $main.'DICT') {
+      &Error("The name for this project's sub-directory $INPD must be '$main"."DICT'.", 
+"Change the name of this sub-directory and edit config.conf to change  
+the module name between [] at the top, as well as the Companion entry.", 1);
+    }
+  }
+  elsif ($ConfEntryP->{'Companion'} && $ConfEntryP->{'Companion'} ne $MOD.'DICT') {
+    &Error("There can only be one companion module, and it must be named '".$MOD."DICT.", 
+"All reference materials for this project will be written to a single 
+OSIS file and SWORD module. This OSIS/SWORD file may contain multiple 
+glossaries, dictionaries, maps, tables, etc. etc.. But its name must be 
+'$MOD"."DICT'.", 1);
   }
 }
 
@@ -629,13 +653,12 @@ sub checkAndWriteDefaults() {
 
   # sfm2all.pl requires any DICT conf(s) are written when the main conf is written
   if ($doCustomizeConf && !$isDict && $confP->{'Companion'}) {
-    foreach my $companion (split(/\s*,\s*/, $confP->{'Companion'})) {
-      if (!-e "$INPD/$companion/config.conf") {
-        if (! -e "$INPD/$companion") {mkdir("$INPD/$companion");}
-        &Note("Copying and customizing companion default config.conf for $companion.");
-        copy(&getDefaultFile('dict/config.conf', 0, "$INPD/$companion"), "$INPD/$companion");
-        &customize_conf("$INPD/$companion/config.conf", $companion, 'dictionary');
-      }
+    my $companion = $confP->{'Companion'};
+    if (!-e "$INPD/$companion/config.conf") {
+      if (! -e "$INPD/$companion") {mkdir("$INPD/$companion");}
+      &Note("Copying and customizing companion default config.conf for $companion.");
+      copy(&getDefaultFile('dict/config.conf', 0, "$INPD/$companion"), "$INPD/$companion");
+      &customize_conf("$INPD/$companion/config.conf", $companion, 'dictionary');
     }
   }
 
@@ -3963,23 +3986,21 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
   }
   $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
-  # Add work element for any companion(s)
+  # Add work element for any companion
   if ($confP->{'Companion'}) {
-    my @comps = split(/\s*,\s*/, $confP->{'Companion'});
-    foreach my $comp (@comps) {
-      if ($type eq 'x-glossary') {$$bibleP    = $comp;}
-      if ($type eq 'x-bible')    {$$glossaryP = $comp;}
-      my $path = &findCompanionDirectory($comp);
-      if (!$path) {
-        &Error("Could not locate $comp project directory as specified in $INPD/config.conf.");
-        next;
-      }
-      my %compWorkAttributes = ('osisWork' => $comp);
-      my %compWorkElements;
-      if ($type ne 'x-bible') {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);}
-      else {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL, NULL, NULL, $isbn);}
-      $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
+    my $comp = $confP->{'Companion'};
+    if ($type eq 'x-glossary') {$$bibleP    = $comp;}
+    if ($type eq 'x-bible')    {$$glossaryP = $comp;}
+    my $path = &findCompanionDirectory($comp);
+    if (!$path) {
+      &Error("Could not locate $comp project directory as specified in $INPD/config.conf.");
+      next;
     }
+    my %compWorkAttributes = ('osisWork' => $comp);
+    my %compWorkElements;
+    if ($type ne 'x-bible') {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);}
+    else {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL, NULL, NULL, $isbn);}
+    $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
   }
   
   if (open(OUTF, ">$output")) {
