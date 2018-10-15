@@ -32,7 +32,6 @@ if ($ConfEntryP->{'Companion'}) {
   my $companion = $ConfEntryP->{'Companion'};
   if (!-e "$INPD/$companion/config.conf") {
     &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
-    next;
   }
   $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
 }

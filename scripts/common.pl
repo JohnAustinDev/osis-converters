@@ -563,14 +563,15 @@ sub initLibXML() {
 }
 
 
-# If any 'projectDefaults' file is missing, the default file will be 
-# copied to the project directory using getDefaultFile(). If a copied 
-# file is a 'customDefaults' file, then it will also be customized for 
-# the project. Note that not all control files are included in the 
-# 'projectDefaults' list, such as those which rarely change from project 
-# to project. This is because all default files are read at runtime by 
-# getDefaultFile(). So these may be copied and customized manually by 
-# the user, as needed.
+# If any 'projectDefaults' files are missing from the entire project 
+# (including the DICT sub-project if there is one), those default files 
+# will be copied to the proper directory using getDefaultFile(). If a 
+# copied file is a 'customDefaults' file, then it will also be 
+# customized for the project. Note that not all control files are 
+# included in the 'projectDefaults' list, such as those which rarely 
+# change from project to project. This is because all default files are 
+# read at runtime by getDefaultFile(). So these may be copied and 
+# customized as needed, manually by the user.
 sub checkAndWriteDefaults() {
   
   # Project default control files
@@ -586,115 +587,100 @@ sub checkAndWriteDefaults() {
     'dict/CF_addScripRefLinks.txt'
   );
   
-  # Default control files which are automatically customized to save the user's time and energy
+  # These are default control files which are automatically customized 
+  # to save the user's time and energy. These files are processed in 
+  # order, and config.conf files must come first because the 
+  # customization of the others depends on config.conf contents.
   my @customDefaults = (
-    'bible/config.conf', 
-    'bible/CF_usfm2osis.txt', 
-    'bible/CF_addScripRefLinks.txt',
-    'bible/GoBible/collections.txt',
-    'dict/config.conf', 
-    'dict/CF_usfm2osis.txt', 
-    'dict/CF_addScripRefLinks.txt'
+    'config.conf', 
+    'CF_usfm2osis.txt', 
+    'CF_addScripRefLinks.txt',
+    'GoBible/collections.txt',
   );
   
+  # Always process the main project, regardless of which module we started with
+  my $mainINPD = $INPD; $mainINPD =~ s/\/\S+DICT$//;
+  
+  # Determine if there is any sub-project dictionary (the fastest way possible)
+  my $haveDICT = ($mainINPD ne $INPD ? 1:0);
+  if (!$haveDICT) {
+    if (-e "$mainINPD/config.conf") {
+      if (&readConf("$mainINPD/config.conf")->{'Companion'}) {$haveDICT = 1;}
+    }
+    else {
+      if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
+      if (exists($USFM{'dictionary'})) {$haveDICT = 1;}
+    }
+  }
+  
   # Copy projectDefaults files that are missing
-  my $modName = $INPD; $modName =~ s/^.*\/([^\/]+)\/?$/$1/;
-  my $modType = ($modName =~ /DICT$/ ? 'dictionary':($modName =~ /CB$/ ? 'childrens_bible':'bible'));
-  my $doCustomizeConf = 0;
-  my @customizeDefaults;
-  foreach my $f (@projectDefaults) {
-    my $f_isDirectory = ($f =~ s/\/\*$// ? 1:0); 
-    my $dest = $f;
-    my $ftype = ($dest =~ s/^(bible|dict)\/// ? $1:'');
-    $dest = "$INPD/$dest";
-    if ($ftype ne $modType) {next;}
+  my $projName = $mainINPD; $projName =~ s/^.*\/([^\/]+)\/?$/$1/;
+  my $projType = ($projName =~ /\w{3,}CB$/ ? 'childrens_bible':'bible');
+  my @newDefaultFiles;
+  foreach my $df (@projectDefaults) {
+    my $df_isDirectory = ($df =~ s/\/\*$// ? 1:0); 
+    my $dest = $df;
+    my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:'');
+    $dest = "$mainINPD/".($dftype eq 'dict' ? $projName.'DICT/':'')."$dest";
+    if ($dftype eq 'dict') {
+      if (!$haveDICT) {next;}
+    }
+    elsif ($dftype ne $projType) {next;}
     
     my $dparent = $dest; $dparent =~ s/[^\/]+$//;
     if (!-e $dparent) {make_path($dparent);}
     
-    if ($f_isDirectory && (! -e $dest || ! &shell("ls -A '$dest'", 3))) {
-      &Note("Copying missing default directory $f to $modName.");
-      &copy_dir_with_defaults($f, $dest, 3);
-      &copy_dir_with_defaults($f, $dest, 2);
-      foreach my $fdest (split(/\n+/, &shell("find '$dest' -type f -print", 3))) {
-        my $path = $fdest; $path =~ s/^\Q$INPD/$modType/;
-        foreach my $cd (@customDefaults) {
-          if ($cd eq $path) {
-            push(@customizeDefaults, $fdest);
-            last;
-          }
-        }
-      }
+    if ($df_isDirectory && (! -e $dest || ! &shell("ls -A '$dest'", 3))) {
+      &Note("Copying missing default directory $df to $dest.");
+      &copy_dir_with_defaults($df, $dest);
+      push(@newDefaultFiles, split(/\n+/, &shell("find '$dest' -type f -print", 3)));
     }
     # If the user has added CF_osis2osis.txt then never add a default CF_usfm2osis.txt file
-    elsif ($f =~ /CF_usfm2osis\.txt$/ && -e "$INPD/CF_osis2osis.txt") {next;}
+    elsif ($df =~ /CF_usfm2osis\.txt$/ && -e "$mainINPD/".($dftype eq 'dict' ? '/'.$projName.'DICT/':'')."CF_osis2osis.txt") {
+      next;
+    }
     elsif (! -e $dest) {
-      &Note("Copying missing default file $f to $modName.");
-      copy(&getDefaultFile($f), $dest);
-      foreach my $cd (@customDefaults) {
-        if ($cd eq $f) {
-          push(@customizeDefaults, $dest);
-          # only do conf customization to a default conf!
-          if ($dest =~ /\/config\.conf$/) {$doCustomizeConf++;}
-          last;
-        }
+      &Note("Copying missing default file $df to $dest.");
+      copy(&getDefaultFile($df), $dest);
+      push(@newDefaultFiles, $dest);
+    }
+  }
+  
+  # Custommize any new default files which need it (in order)
+  foreach my $dc (@customDefaults) {
+    foreach my $file (@newDefaultFiles) {
+      if ($file =~ /\/\Q$dc\E$/) {
+        my $modName = ($file =~ /\/$projName\/($projName)DICT\// ? $projName.'DICT':$projName);
+        my $modType = ($modName eq $projName ? $projType:'dictionary');
+        
+        &Note("Customizing $file...");
+        if    ($file =~ /config\.conf$/)             {&customize_conf($file, $modName, $modType, $haveDICT);}
+        elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($mainINPD, $file, $modType);}
+        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($mainINPD, $file);}
+        elsif ($file =~ /collections\.txt$/)         {&customize_collections($mainINPD, $file);}
+        else {&ErrorBug("Unknown customization type $dc for $file", "Write a customization function for this type of file.", 1);}
       }
     }
   }
-  if (!@customizeDefaults) {return;}
   
-  # Customize the default files which need it
-  # read sfm files
-  $SCAN_USFM_SKIPPED = '';
-  %USFM;
-  my $isDict = ($modType eq 'dictionary');
-  my $pathMainMod = ($isDict ? "$INPD/..":$INPD);
-  &scanUSFM("$pathMainMod/sfm", \%USFM);
-  if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
-  
-  if ($doCustomizeConf) {
-    &Note("Customizing $CONFFILE...");
-    &customize_conf($CONFFILE, $modName, $modType);
-  }
-  
-  # read my conf
-  my $confP = &readConf($CONFFILE);
-
-  # sfm2all.pl requires any DICT conf(s) are written when the main conf is written
-  if ($doCustomizeConf && !$isDict && $confP->{'Companion'}) {
-    my $companion = $confP->{'Companion'};
-    if (!-e "$INPD/$companion/config.conf") {
-      if (! -e "$INPD/$companion") {mkdir("$INPD/$companion");}
-      &Note("Copying and customizing companion default config.conf for $companion.");
-      copy(&getDefaultFile('dict/config.conf', 0, "$INPD/$companion"), "$INPD/$companion");
-      &customize_conf("$INPD/$companion/config.conf", $companion, 'dictionary');
-    }
-  }
-
-  if ($modType eq 'childrens_bible') {
+  # Special file for childrens_bible
+  if ($projType eq 'childrens_bible' && ! -e "$mainINPD/SFM_Files.txt") {
     # SFM_Files.txt
-    if (!open (SFMFS, ">:encoding(UTF-8)", "$INPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$INPD/SFM_Files.txt\"", '', 1);}
+    if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
+    if (!open (SFMFS, ">:encoding(UTF-8)", "$mainINPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$mainINPD/SFM_Files.txt\"", '', 1);}
     foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
       $f =~ s/^.*[\/\\]//;
       print SFMFS "sfm/$f\n";
     }
     close(SFMFS);
   }
-  
-  foreach my $cdf (@customizeDefaults) {
-    if ($cdf =~ /config\.conf$/) {next;} # config.conf was already handled, to update confP
-    &Note("Customizing $cdf...");
-    if    ($cdf =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($cdf, $modType);}
-    elsif ($cdf =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($cdf);}
-    elsif ($cdf =~ /collections\.txt$/)         {&customize_collections($cdf, $confP);}
-    else {&ErrorBug("Unknown customization: $cdf", "Write a customization function for this file.", 1);}
-  }
 }
 
-sub customize_conf($$$) {
+sub customize_conf($$$$) {
   my $conf = shift;
   my $modName = shift;
   my $modType = shift;
+  my $haveDICT = shift;
   
   # ModuleName
   &setConfFileValue($conf, 'ModuleName', $modName, 1);
@@ -709,7 +695,7 @@ sub customize_conf($$$) {
   if ($modType eq 'other') {&setConfFileValue($conf, 'ModDrv', 'RawGenBook', 1);}
  
   # Companion
-  if ($modType eq 'dictionary' || exists($USFM{'dictionary'})) {
+  if ($haveDICT) {
     my $companion = $modName;
     if ($modType eq 'dictionary') {$companion =~ s/DICT$//;}
     else {$companion .= 'DICT';}
@@ -717,8 +703,11 @@ sub customize_conf($$$) {
   }
 }
 
-sub customize_addScripRefLinks($) {
+sub customize_addScripRefLinks($$) {
+  my $mainINPD = shift;
   my $cf = shift;
+  
+  if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
   
   # Collect all available Bible book abbreviations
   my %abbrevs;
@@ -772,9 +761,12 @@ sub getAllAbbrevsString($\%) {
   return $p;
 }
 
-sub customize_usfm2osis($) {
+sub customize_usfm2osis($$$) {
+  my $mainINPD = shift;
   my $cf = shift;
   my $modType = shift;
+  
+  if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
   
   if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
   foreach my $f (sort keys %{$USFM{$modType}}) {
@@ -808,16 +800,18 @@ sub customize_usfm2osis($) {
 }
 
 sub customize_collections($$) {
+  my $mainINPD = shift;
   my $collections = shift;
-  my $confP = shift;
+  
+  my $bibleConfP = &readConf("$mainINPD/config.conf");
   
   if (!open (COLL, ">>:encoding(UTF-8)", $collections)) {&ErrorBug("Could not open \"$collections\"", '', 1);}
-  print COLL "Info: (".$confP->{'Version'}.") ".$confP->{'Description'}."\n";
-  print COLL "Application-Name: ".$confP->{'Abbreviation'}."\n";
+  print COLL "Info: (".$bibleConfP->{'Version'}.") ".$bibleConfP->{'Description'}."\n";
+  print COLL "Application-Name: ".$bibleConfP->{'Abbreviation'}."\n";
   my $canonP;
   my $bookOrderP;
   my $testamentP;
-  if (&getCanon($confP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
+  if (&getCanon($bibleConfP->{'Versification'}, \$canonP, \$bookOrderP, \$testamentP)) {
     my $col = ''; my $colot = ''; my $colnt = '';
     foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
       foreach my $f (keys %{$USFM{'bible'}}) {
@@ -828,14 +822,14 @@ sub customize_collections($$) {
         else {$colnt .= $b;}
       }
     }
-    my $colhead = "Collection: ".lc($confP->{'ModuleName'});
+    my $colhead = "Collection: ".lc($bibleConfP->{'ModuleName'});
     if ($col) {print COLL "$colhead\n$col\n";}
     if ($colot && $colnt) {
       print COLL $colhead."ot\n$colot\n";
       print COLL $colhead."nt\n$colnt\n";
     }
   }
-  else {&ErrorBug("GoBible collections.txt: getCanon(".$confP->{'Versification'}.") failed.");}
+  else {&ErrorBug("GoBible collections.txt: getCanon(".$bibleConfP->{'Versification'}.") failed.");}
   close(COLL);
 }
 
@@ -940,9 +934,10 @@ sub scanUSFM($\%) {
   my $sfm_dir = shift;
   my $sfmP = shift;
   
+  $SCAN_USFM_SKIPPED = '';
+  
   if (!opendir(SFMS, $sfm_dir)) {
-    &Warn("unable to read default sfm directory: \"$sfm_dir\"");
-    return;
+    &Error("Unable to read default sfm directory: \"$sfm_dir\"", '', 1);
   }
   
   my @sfms = readdir(SFMS); closedir(SFMS);
@@ -955,6 +950,8 @@ sub scanUSFM($\%) {
     if (!$sfmInfoP->{'doConvert'}) {next;}
     $sfmP->{$sfmInfoP->{'type'}}{$f} = $sfmInfoP;
   }
+  
+  if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
 }
 
 sub scanUSFM_file($) {
@@ -1289,7 +1286,7 @@ sub readConf($) {
   close(CONF);
 
   if (!$entryValue{"ModuleName"}) {
-		&Error("No module name in config.conf.", "Specify the module name on the first line of config.conf like this: [$MOD]", 1);
+		&Error("No module name in config.conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
 	}
   
   return \%entryValue;
@@ -3653,18 +3650,21 @@ sub copy_dir($$$$) {
 }
 
 
-# copies files from each default directory, starting with lowest to 
+# Copies files from each default directory, starting with lowest to 
 # highest priority, and merging files each time.
-sub copy_dir_with_defaults($$$$$) {
+sub copy_dir_with_defaults($$$$) {
   my $dir = shift;
   my $dest = shift;
-  my $priority = shift;
   my $keep = shift;
   my $skip = shift;
   
-  for (my $x=($priority ? $priority:3); $x>=($priority ? $priority:1); $x--) {
+  for (my $x=3; $x>=($isDefaultDest ? 2:1); $x--) {
     my $defDir = &getDefaultFile($dir, $x);
     if (!$defDir) {next;}
+    # Never copy a directory over itself
+    my ($dev1, $ino1) = stat $defDir;
+    my ($dev2, $ino2) = stat $dest;
+    if ($dev1 eq $dev2 && $ino1 eq $ino2) {next;}
     &copy_dir($defDir, $dest, 1, 0, $keep, $skip);
   }
 }
