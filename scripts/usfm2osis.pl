@@ -66,7 +66,7 @@ sub usfm2osis($$) {
         my $val = $3;
         if (defined($$par)) {&Error("The SET_$par command may only appear once, and it applies everywhere.", "Remove all but one of the SET_$par commands from $cf");}
         else {
-          $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
+          $$par = ($val && $val !~ /^(0|false)$/i ? $val:'');
           &Log("INFO: Setting $par to $val\n");
         }
       }

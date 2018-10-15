@@ -502,7 +502,7 @@ BOOK:
 # Read bibleMod and the osis file and:
 # 1) Find all verse osisIDs in $bibleMod which were changed by VSYS 
 #    instructions. These are used for updating source osisRefs, but 
-#    these do NOT effect osisRefs of addCrossRefs() references. 
+#    these do NOT effect osisRefs of runAddCrossRefs() references. 
 # 2) Find all verse osisIDs in $bibleMod which were moved by the 
 #    translators with respect to the chosen fixed verse system. These
 #    are used for updating external osisRefs.

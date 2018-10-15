@@ -16,7 +16,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-sub addSeeAlsoLinks($$) {
+sub runAddSeeAlsoLinks($$) {
   my $osisP = shift;
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addSeeAlsoLinks$3/;

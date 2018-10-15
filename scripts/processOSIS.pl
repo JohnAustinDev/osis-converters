@@ -45,15 +45,15 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 
 &writeTOC(\$OSIS);
 
-if ($addScripRefLinks ne '0') {
+if ($addScripRefLinks) {
   my $type = ($MODDRV =~ /LD/ ? 'dict':'bible');
   require("$SCRD/scripts/addScripRefLinks.pl");
-  &addScripRefLinks(&getDefaultFile("$type/CF_addScripRefLinks.txt"), \$OSIS);
+  &runAddScripRefLinks(&getDefaultFile("$type/CF_addScripRefLinks.txt"), \$OSIS);
   &checkScripRefLinks($OSIS, $projectBible);
 }
 
-if ($addFootnoteLinks ne '0') {
-  if ($addScripRefLinks eq '0') {
+if ($addFootnoteLinks) {
+  if (!$addScripRefLinks) {
     &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
 "Change these values in CF_usfm2osis.txt. If you need to parse footnote 
 links, you need to parse Scripture references first, using 
@@ -63,7 +63,7 @@ CF_addScripRefLinks.txt.");
     my $CF_addFootnoteLinks = &getDefaultFile("$type/CF_addFootnoteLinks.txt", -1);
     if ($CF_addFootnoteLinks) {
       require("$SCRD/scripts/addFootnoteLinks.pl");
-      &addFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
+      &runAddFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
     }
     else {&Error("CF_addFootnoteLinks.txt is missing", 
 "Remove or comment out SET_addFootnoteLinks in CF_usfm2osis.txt if your 
@@ -73,18 +73,18 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 
-if ($MODDRV =~ /Text/ && $addDictLinks ne '0') {
+if ($MODDRV =~ /Text/ && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
     &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$projectGlossary\", then copy  $projectGlossary/$DICTIONARY_WORDS to $INPD.");
   }
   else {
     require("$SCRD/scripts/bible/addDictLinks.pl");
-    &addDictLinks(\$OSIS);
+    &runAddDictLinks(\$OSIS);
   }
 }
-elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks ne '0' && -e "$INPD/$DICTIONARY_WORDS") {
+elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
   require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
-  &addSeeAlsoLinks(\$OSIS);
+  &runAddSeeAlsoLinks(\$OSIS);
 }
 
 &writeMissingNoteOsisRefsFAST(\$OSIS);
@@ -93,9 +93,9 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &fitToVerseSystem(\$OSIS, $VERSESYS);
 }
 
-if ($MODDRV =~ /Text/ && $addCrossRefs ne '0') {
+if ($MODDRV =~ /Text/ && $addCrossRefs) {
   require("$SCRD/scripts/bible/addCrossRefs.pl");
-  &addCrossRefs(\$OSIS);
+  &runAddCrossRefs(\$OSIS);
 }
 
 &correctReferencesVSYS(\$OSIS, $projectBible);

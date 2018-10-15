@@ -33,7 +33,7 @@
 #    location (and external references to verses in alternate locations 
 #    will later also be modified to target that alternate location by 
 #    correctReferencesVSYS() ).
-sub addCrossRefs($) {
+sub runAddCrossRefs($) {
   my $osisP = shift;
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCrossRefs$3/;

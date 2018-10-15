@@ -63,7 +63,7 @@ require("$SCRD/scripts/dict/processGlossary.pl");
 %FNL_LINKS;
 $OSISREFWORK;
 
-sub addFootnoteLinks($$) {
+sub runAddFootnoteLinks($$) {
   my $commandFile = shift;
   my $osisP = shift;
 

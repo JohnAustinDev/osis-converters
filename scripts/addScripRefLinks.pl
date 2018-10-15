@@ -125,7 +125,7 @@ $DEBUG_LOCATION = 0;
 
 require("$SCRD/scripts/dict/processGlossary.pl");
 
-sub addScripRefLinks($$$) {
+sub runAddScripRefLinks($$$) {
   my $commandFile = shift;
   my $in_file = shift;
   my $out_file = shift; # optional if $in_file is a reference
