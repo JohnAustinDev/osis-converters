@@ -495,7 +495,7 @@ BOOK:
       This translation does not fit the $vsys verse system. The errors 
       listed above must be fixed. Add the appropriate instructions:
       VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt 
-      $explanation.");
+      $comments.");
   }
 }
 

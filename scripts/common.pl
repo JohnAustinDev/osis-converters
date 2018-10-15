@@ -109,6 +109,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  my @setDefaults = ('addScripRefLinks', 'addFootnoteLinks', 'addDictLinks', 'addCrossRefs', 'addSeeAlsoLinks');
+  foreach my $s (@setDefaults) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
+  
   &checkProjectConfiguration();
   
   my $appendlog = ($LOGFILE ? 1:0);
