@@ -602,7 +602,7 @@ sub checkAndWriteDefaults() {
   );
   
   # Always process the main project, regardless of which module we started with
-  my $mainINPD = $INPD; $mainINPD =~ s/\/\S+DICT$//;
+  my $mainINPD = $INPD; $mainINPD =~ s/\/[^\/\s]+DICT$//;
   
   # Determine if there is any sub-project dictionary (the fastest way possible)
   my $haveDICT = ($mainINPD ne $INPD ? 1:0);
