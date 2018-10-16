@@ -16,64 +16,99 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# OSIS-CONVERTERS VERSIFICATION MAPPING:
-# The goal is to fit any Bible translation into a fixed versification 
-# system so that each verse can be identified in both the target 
-# and the original verse system. This process should be as easy as 
-# possible for the person running the conversion, so only differences 
-# between the source and target verse systems need to be identified. All
-# verse system changes to the osis file should be easily reversible 
-# (for instance using a simple XSLT) so as to easily recover the  
-# original verse system when needed.
-# 
-# VSYS_EXTRA:BK.1.2.3
-# Specifies that this translation has inserted this range of extra verses 
-# which are not found in the target verse system. These verses will all 
-# be appended to the preceeding extant verse in the verse system. The 
-# additional verses, and any regular verses following them in the chapter, 
-# will have alternate verse numbers appended before them, which display 
-# their number from the source verse system. Likewise, if the range is an 
-# entire chapter, an alternate chapter number will be displayed before the 
-# chapter itself and any following chapters in the book.
-# 
-# VSYS_MISSING:BK.1.2.3
-# Specifies that this translation does not include this range of verses of
-# the target verse system. The preceeding extant verse id will be modified 
-# to span the missing range, but in no case exceeding the end of a chapter. 
-# Then, alternate numbers will be appended to any following verses in the 
-# chapter. Entire missing chapters are not supported.
-# 
-# VSYS_MOVED:BK.1.2.3 -> BK.4.5.6 (or either address may be: BK.1.2.PART)
-# Specifies that this translation has moved the verses that would be found 
-# in range A of the target verse system to range B (ranges A and B must be
-# the same size). It is processed as a "VSYS_MISSING:A" followed by a 
-# "VSYS_EXTRA:B". The last-verse portion of A or B may also be the
-# keyword "PART", meaning that the reference applies to only part of the
-# specified verse. The VSYS_MOVED instruction also updates the osisRef
-# attribute of externally sourced Scripture references to point to their
-# moved location in the translation.
-#
-# VSYS_MOVED_ALT: Same as VSYS_MOVED but this should be used when alternate
-# verse markup (<hi subType="x-alternate">) is used for the moved verses,
-# rather than regular verse markers. This instruction will correct 
-# external cross-references targetting the alternate verses, but will 
-# not change the OSIS markup of the alternate verses.
-# 
-# SET_customBookOrder:true
-# Turns off the book re-ordering step so books will remain in processed order.
-# 
-# NOTES:
-# - Each instruction is evaluated in verse system order regardless of
-# their order in the CF_ file.
-# - A verse may be effected by multiple instructions.
-# - Verse ranges are in the form OSISBK.chapterNum.verseNum.lastVerseNum
-# where lastVerseNum and verseNum are optional. This means up to an entire
-# chapter may be specified by a single range (if supported for the
-# particular instruction).
-# - This implementation does not accomodate extra books, or ranges of 
-# chapters, and whole chapters are only supported with VSYS_EXTRA for
-# chapters at the end of a book, where the chapter was not moved there
-# from elsewhere.
+$fitToVerseSystemDoc = "
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+OSIS-CONVERTERS VERSIFICATION MAPPING:
+The goal is to fit a source Bible translation having a custom verse 
+system into a known fixed versification system so that every verse of 
+the source system is identified in the known system. Both the fixed and 
+the source verse systems are recorded together in a single OSIS file. 
+This process should be as easy as possible for the person running the 
+conversion, so only differences between the source and fixed verse 
+systems need to be identified. Thus the Bible translation can be easily
+read from the OSIS file (for instance using a simple XSLT) having either 
+the source or fixed verse system, while at the same time keeping all 
+Scripture references correct according to the chosen verse system.
+
+IMPORANT:
+In the following descriptions, this:
+BK.1.2.3
+means this:
+Bible book 'BK' chapter '1' verse '2' through '3', or, BK 1:2-3
+
+VSYS_EXTRA: BK.1.2.3
+Specifies that this translation has inserted this range of extra verses 
+which are not found in the target verse system. These additional verses 
+will all be appended to the preceeding extant verse in the fixed verse 
+system. The additional verses, and any regular verses following them in 
+the chapter, will have alternate verse numbers appended before them, 
+which will display their verse number from the source verse system. 
+Likewise, if the range is an entire chapter, an alternate chapter number 
+will be displayed before the chapter itself and any following chapters 
+in the book.
+
+VSYS_EXTRA_ALT:
+Same as VSYS_EXTRA but use this if alternate verse markers are already 
+being used for the extra verses. Translators sometimes do this when they
+append verses from another verse system at the end of a chapter.
+
+VSYS_MISSING: BK.1.2.3
+Specifies that this translation does not include this range of verses of
+the target verse system. The preceeding extant verse id will be modified 
+to span the missing range, but in no case exceeding the end of a 
+chapter. Then, alternate numbers will be appended to any following 
+verses in the chapter. Entire missing chapters are not supported.
+
+VSYS_MISSING_ALT:
+Same as VSYS_MISSING but use this if regular verse markers are already
+included in the text (however the verses are just empty). This will just
+remove external Scripture cross-references to the removed verse.
+
+VSYS_MISSING_FN:
+Same as VSYS_MISSING but use this if a footnote was included in the 
+verse before the missing verse which addresses the missing verse. This 
+will forward references to the missing verse to the previous verse 
+which has the footnote.
+
+VSYS_MOVED: BK.1.2.3 -> BK.4.5.6 (or alternatively BK.1.2.PART meaning a 
+part of a verse) specifies that this translation has moved the verses 
+that would be found in range A of the target verse system to range B 
+(ranges A and B must be the same size). It is processed as a 
+\"VSYS_MISSING:A\" followed by a \"VSYS_EXTRA:B\". The last-verse 
+portion of A or B may also be the keyword \"PART\", meaning that the 
+reference applies to only part of the specified verse. The VSYS_MOVED 
+instruction also updates the osisRef attribute of externally sourced 
+Scripture cross-references to point to their moved location in the 
+translation.
+
+VSYS_MOVED_ALT: 
+Same as VSYS_MOVED but this should be used when alternate
+verse markup (<hi subType=\"x-alternate\">) was already used for the 
+moved verses (rather than regular verse markers). This instruction will 
+correct external cross-references targetting the alternate verses, but 
+will not change the OSIS markup of the alternate verses.
+
+SET_customBookOrder:true
+Turns off the book re-ordering step so books will remain in processed 
+order.
+
+NOTES:
+- Each instruction is evaluated in verse system order regardless of
+their order in the CF_ file.
+- A verse may be effected by multiple instructions.
+- Verse ranges are in the form OSISBK.chapterNum.verseNum.lastVerseNum
+where lastVerseNum and verseNum are optional. This means up to an entire
+chapter may be specified by a single range (if supported for the
+particular instruction).
+- This implementation does not accomodate extra books, or ranges of 
+chapters, and whole chapters are only supported with VSYS_EXTRA for
+chapters at the end of a book, where the chapter was simply appended 
+(such as Psalm 151 of Synodal).
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+";
 
 # The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
 %ID_TYPE_MAP = (
@@ -449,8 +484,6 @@ references:");
   my $x = 0;
   my $checked = 0;
   my $errors = 0;
-  
-  my $comments = "(see comments at the top of: ".__FILE__.")";
 
 BOOK:
   foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {
@@ -465,7 +498,8 @@ BOOK:
           next;
         }
         if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
-          &Error("Missing verse $bk.$ch.$vs.", "If this verse is suppoed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt $comments.");
+          &Error("Missing verse $bk.$ch.$vs.", "If this verse is supposed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+          $fitToVerseSystemDoc = '';
           $errors++;
           next;
         }
@@ -473,14 +507,16 @@ BOOK:
         $x++;
       }
       while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Error("Extra verse ".@v[$x].".", "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt $comments.");
+        &Error("Extra verse ".@v[$x].".", "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+        $fitToVerseSystemDoc = '';
         $errors++;
         $x++;
       }
       $ch++;
     }
     while (@v[$x] =~ /^\Q$bk./) {
-      &Error("Extra chapter ".@v[$x].".", "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt $comments.");
+      &Error("Extra chapter ".@v[$x].".", "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+      $fitToVerseSystemDoc = '';
       $errors++;
       $x++;
     }
@@ -494,8 +530,8 @@ BOOK:
     &Note("
       This translation does not fit the $vsys verse system. The errors 
       listed above must be fixed. Add the appropriate instructions:
-      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt 
-      $comments.");
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+    $fitToVerseSystemDoc = '';
   }
 }
 
@@ -670,7 +706,7 @@ sub applyrids($\%) {
         &ErrorBug("Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\".");
       }
       if ($e->getAttribute('osisRef') ne $annoRef) {
-        $map .= "\tMAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
+        $map .= "MAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
       }
       $e->setAttribute('annotateRef', $annoRef);
       $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
@@ -682,7 +718,7 @@ sub applyrids($\%) {
         $e->setAttribute('osisRef', $newOsisRef);
         my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
         my $est = $e; $est =~ s/^(.*?>).*$/$1/;
-        $update .= "\tUPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
+        $update .= "UPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
         $count++;
       }
       else {
@@ -695,10 +731,10 @@ sub applyrids($\%) {
       my $parent = $e->parentNode();
       $parent = $parent->toString(); $parent =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
       if ($e->getAttribute('type') eq "crossReference") {
-        $remove .= "\tREMOVING cross-reference for missing verse: $tag\n";
+        $remove .= "REMOVING cross-reference for missing verse: $tag\n";
       }
       else {
-        $remove .= "\tREMOVING tags for missing verse: $tag \n";
+        $remove .= "REMOVING tags for missing verse: $tag \n";
         foreach my $chld ($e->childNodes) {$e->parentNode()->insertBefore($chld, $e);}
       }
       $e->unbindNode();

@@ -42,7 +42,7 @@
 #       lines, each with another matching term. Longest terms for a
 #       book should be listed before shorter terms for the same book.
 #       NOTE: terms on the right are NOT Perl regular expressions but
-#       are string literals. However, these terms may be preceeded by
+#       are string literals. However, these terms may be surrounded by
 #       the PREFIXES or SUFFIXES (see below) and still match the book.
 #
 
@@ -193,6 +193,7 @@ sub runAddScripRefLinks($$$) {
   $Types{"T09 (Book|CurrentChap num1-num2?)"} = 0;
   $Types{"T10 (num1 ... num2?)"} = 0;
 
+  my %bookNamesWithPerlChars;
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
     &removeRevisionFromCF($commandFile);
@@ -240,6 +241,7 @@ sub runAddScripRefLinks($$$) {
         my $lb = $2;
         my $elb = quotemeta($2);
         $books{$lb}=$1;
+        if ($2 =~ /[\.\?\*]/) {$bookNamesWithPerlChars{$2}++;}
         push(@abkn, $elb);
       }
       else {
@@ -247,6 +249,16 @@ sub runAddScripRefLinks($$$) {
       }
     }
     close (CF);
+    
+    if (%bookNamesWithPerlChars) {
+    &Warn("Book name terms to the right of '=' in CF_addScripRefLinks.txt 
+are NOT Perl regular expressions but are string literals (however, these 
+terms may have PREFIXES before or SUFFIXES after the name and still 
+match).", "If you are trying to use regular expressions in the following 
+book terms, they will not work as regex. So add each book name that you 
+wish to match on a separate line:\n".
+(join(', ', sort keys %bookNamesWithPerlChars)));
+    }
 
     if (@abkn) {
       $ebookNames = '';
@@ -390,12 +402,8 @@ sub asrlProcessFile($$) {
     }
     if ($skip_xpath) {
       my @skipped = $XPC->findnodes($skip_xpath, $textNode);
-      if (@skipped && @skipped[0]) {
-        my $t = @skipped[0]->toString();
-        if ($t =~ /(<[^>]*>)/ && !$reportedSkipped{$1}) {
-          $reportedSkipped{$1}++;
-          &Note("SKIP_XPATH skipping \"$1\".");
-        }
+      if (@skipped[0]) {
+        &Note("SKIP_XPATH is skipping: \"".substr($textNode, 0, 128)."\".");
         next;
       }
     }
@@ -519,11 +527,11 @@ sub asrlProcessFile($$) {
 # 4) PARSE EACH SUBREF SEPARATELY, EACH INHERITING MISSING VALUES FROM THE PREVIOUS SUBREF
 # 5) REASSEMBLE THE EXTENDED REFERENCE USING OSIS LINKS
 # 6) REPEAT FROM STEP 1 UNTIL NO MORE REFERENCES ARE FOUND
-sub addLinks(\$$$) {
+sub addLinks(\$$$$) {
   my $tP = shift;
   my $bk = shift;
   my $ch = shift;
-  my $contextBookOK = shift;
+  my $isAnnotateRef = shift;
 
 #&Log("$LOCATION: addLinks $bk, $ch, $$tP\n");
 
@@ -539,12 +547,12 @@ sub addLinks(\$$$) {
 
       #  Look at unhandledBook
       if ($unhandledBook) {
-        if (!$contextBookOK && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
+        if (!$isAnnotateRef && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
 #          &Warn("$LOCATION: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
-        elsif (!$contextBookOK) {
+        elsif (!$isAnnotateRef) {
 #          &Warn("$LOCATION : \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
         }
       }
@@ -628,11 +636,11 @@ sub addLinks(\$$$) {
         if ($type eq "T10 (num1 ... num2?)") {$shouldCheck = 1;}
 
         $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
-        &logLink($LOCATION, @subrefArray > 1, $psubref, $osisRef, $type);
+        &logLink($LOCATION, @subrefArray > 1, $psubref, $osisRef, "$type $unhandledBook");
       }
 
       ADDLINK:
-      if ($unhandledBook) {
+      if ($unhandledBook && !$isAnnotateRef) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;

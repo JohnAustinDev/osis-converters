@@ -2146,12 +2146,12 @@ sub getAltVersesOSIS($) {
         if ($a) {&ErrorBug("getAltVersesOSIS: partial fixed2Alt has no partial marker for $a");}
       }
       elsif ($alt2Empty{$fixed2Alt{$f}} ne $f) {
-        &ErrorBug("getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (alt2Empty{".$fixed2Alt{$f}."} ne ".$f.")");
+        &ErrorBug("getAltVersesOSIS: fixed2Alt is not identical to alt2Empty (alt2Empty{".$fixed2Alt{$f}."}(".$alt2Empty{$fixed2Alt{$f}}.") ne ".$f.")");
       }
     }
     foreach my $t (keys %alt2Empty) {
       if ($t !~ /^(.*?)\!PART$/ && $fixed2Alt{$alt2Empty{$t}} ne $t) {
-        &ErrorBug("getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (fixed2Alt{".$alt2Empty{$t}."} ne ".$t.")");
+        &ErrorBug("getAltVersesOSIS: alt2Empty is not identical to fixed2Alt (fixed2Alt{".$alt2Empty{$t}."}(".$fixed2Alt{$alt2Empty{$t}}.") ne ".$t.")");
       }
     }
     
@@ -3280,11 +3280,19 @@ sub checkScripRefLinks($$) {
   
   my $in_bible = ($bibleMod eq $MOD ? $in_osis:&getProjectOsisFile($bibleMod));
   if (-e $in_bible) {
+    my $bible = $XML_PARSER->parse_file($in_bible);
+    # Get all books found in the Bible
+    my %bks;
+    foreach my $bk ($XPC->findnodes('//osis:div[@type="book"]', $bible)) {
+      $bks{$bk->getAttribute('osisID')}++;
+    }
+    # Get all chapter and verse osisIDs
     my %ids;
-    foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $XML_PARSER->parse_file($in_bible))) {
+    foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $bible)) {
       foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{"$bibleMod:$id"}++;}
     }
     
+    # Check Scripture references in the original text (not those added by addCrossRefs)
     my $osis = $XML_PARSER->parse_file($in_osis);
     foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
       $checked++;
@@ -3292,7 +3300,16 @@ sub checkScripRefLinks($$) {
       my $oref = $sref->getAttribute('osisRef');
       foreach my $id (split(/\-/, $oref)) {
         $id = ($id =~ /\:/ ? $id:"$bibleMod:$id");
-        if ($id && !$ids{$id}) {
+        my $bk = ($id =~ /\:([^\.]+)/ ? $1:'');
+        if (!$bk) {
+          &ErrorBug("Reference has no book: \"$id\" in $sref.");
+        }
+        elsif (!$bks{$bk}) {
+          &Warn("<-Removing hyperlink to missing book: $sref");
+          foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
+          $sref->unbindNode();
+        }
+        elsif (!$ids{$id}) {
           $problems++;
           &Error("Scripture reference \"$id\" in source text targets a missing verse.", "Maybe this should not be a hyperlink?: ".$sref."");
         }
