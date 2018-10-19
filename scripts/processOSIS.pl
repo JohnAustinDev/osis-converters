@@ -1,6 +1,8 @@
 require("$SCRD/scripts/bible/fitToVerseSystem.pl");
 if ($MODDRV =~ /LD/) {require("$SCRD/scripts/dict/processGlossary.pl");}
 
+my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_bible'));
+
 # MOD_0.xml is raw converter output
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
@@ -46,9 +48,8 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 &writeTOC(\$OSIS);
 
 if ($addScripRefLinks) {
-  my $type = ($MODDRV =~ /LD/ ? 'dict':'bible');
   require("$SCRD/scripts/addScripRefLinks.pl");
-  &runAddScripRefLinks(&getDefaultFile("$type/CF_addScripRefLinks.txt"), \$OSIS);
+  &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
   &checkSourceScripRefLinks($OSIS, $projectBible);
 }
 
@@ -60,7 +61,7 @@ links, you need to parse Scripture references first, using
 CF_addScripRefLinks.txt.");
   }
   else {
-    my $CF_addFootnoteLinks = &getDefaultFile("$type/CF_addFootnoteLinks.txt", -1);
+    my $CF_addFootnoteLinks = &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
     if ($CF_addFootnoteLinks) {
       require("$SCRD/scripts/addFootnoteLinks.pl");
       &runAddFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
