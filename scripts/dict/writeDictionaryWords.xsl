@@ -4,6 +4,7 @@
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
   <!-- This XSLT writes a default (initial) DictionaryWords.xml file for a glossary OSIS file -->
@@ -63,7 +64,7 @@
       <xsl:variable name="keywords_without_context" select="//seg[@type='keyword'][not(ancestor::div[@subType='x-aggregate'])] except $keywords_with_context"/>
       
       <!-- First, write entries which specify context -->
-      <xsl:for-each-group group-by="ancestor::div[@type][@scope][1]/@osisRef" select="$keywords_with_context">
+      <xsl:for-each-group group-by="ancestor::div[@type][@scope][1]/@scope" select="$keywords_with_context">
         <div><xsl:attribute name="context" select="current-grouping-key()"/>
           <xsl:for-each select="current-group()">
             <xsl:sort select="string-length(.)" data-type="number" order="descending"/>
@@ -85,7 +86,8 @@
   <template name="writeEntry">
     <entry osisRef="{if (starts-with(@osisID, concat($MOD, ':'))) then @osisID else concat($MOD, ':', @osisID)}" xmlns="http://github.com/JohnAustinDev/osis-converters">
       <name><xsl:value-of select="."/></name>
-      <xsl:variable name="matches" select="tokenize(., '\s*[,;\[\]\(\)]\s*')"/>
+      <xsl:variable name="matchesTmp" select="tokenize(., '\s*[,;\[\]\(\)]\s*')"/>
+      <xsl:variable name="matches" as="xs:string+"><xsl:for-each select="$matchesTmp"><xsl:if test="."><xsl:sequence select="."/></xsl:if></xsl:for-each></xsl:variable>
       <xsl:for-each select="$matches">
         <match>/\b(\Q<xsl:value-of select="."/>\E)\b/i</match>
       </xsl:for-each>

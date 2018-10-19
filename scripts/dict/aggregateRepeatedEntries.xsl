@@ -41,7 +41,7 @@
     <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>
     <apply-templates select="$writeOsisIDs" mode="writeMode"/>
     <if test="$duplicate_keywords">
-      <call-template name="Report"><with-param name="msg"><value-of select="count($duplicate_keywords)"/>instance(s) of duplicate keywords were found and aggregated:</with-param></call-template>
+      <call-template name="Report"><with-param name="msg"><value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</with-param></call-template>
       <for-each select="$duplicate_keywords"><call-template name="Log"><with-param name="msg" select="string()"/></call-template></for-each>
     </if>
     <if test="not($duplicate_keywords)">
