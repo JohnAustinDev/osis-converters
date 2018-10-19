@@ -31,7 +31,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 
 $GOBIBLE = "$INPD/GoBible";
 if (!-e $GOBIBLE) {&Error("Missing GoBible directory: $GOBIBLE", "Copy the default/bible/GoBible directory to $INPD", 1);}

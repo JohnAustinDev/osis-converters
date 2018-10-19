@@ -23,11 +23,14 @@
 # variables are initialized or cleaned up and then the script is 
 # started.
 
-# This script must be called with the following line (and don't bother
-# trying to shorten it since 'require' only handles absolute paths, and
-# File::Spec->rel2abs(__FILE__) is the only way to get the script's
-# absolute path, and it must work on both host opsys and Vagrant):
-# use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/](osis\-converters|vagrant))[\\\/].*?$/$1/; require "$SCRD/scripts/bootstrap.pl";
+# This script must be called with the following line, having X replaced 
+# by the calling script's proper sub-directory depth (and don't bother
+# trying to shorten anything since 'require' only handles absolute 
+# paths, and File::Spec->rel2abs(__FILE__) is the only way to get the 
+# script's absolute path, and it must work on both host opsys and 
+# Vagrant and the osis-converters installation directory name is 
+# unknown):
+# use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl";
 
 use File::Spec;
 
