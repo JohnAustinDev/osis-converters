@@ -22,14 +22,15 @@ $fitToVerseSystemDoc = "
 OSIS-CONVERTERS VERSIFICATION MAPPING:
 The goal is to fit a source Bible translation having a custom verse 
 system into a known fixed versification system so that every verse of 
-the source system is identified in the known system. Both the fixed and 
-the source verse systems are recorded together in a single OSIS file. 
-This process should be as easy as possible for the person running the 
-conversion, so only differences between the source and fixed verse 
-systems need to be identified. Thus the Bible translation can be easily
-read from the OSIS file (for instance using a simple XSLT) having either 
-the source or fixed verse system, while at the same time keeping all 
-Scripture references correct according to the chosen verse system.
+the source system is identified according to the known system. Both the 
+fixed and the source verse systems are recorded together in a single 
+OSIS file. This process should be as easy as possible for the person 
+running the conversion, so only differences between the source and fixed 
+verse systems need to be identified, using the small set of instructions
+described below. Also the Bible translation can be easily read from the 
+OSIS file (for instance using a simple XSLT) with either the source or 
+fixed verse system, while at the same time all Scripture references will 
+be correct according to the chosen verse system.
 
 IMPORANT:
 In the following descriptions, this:
@@ -48,46 +49,53 @@ Likewise, if the range is an entire chapter, an alternate chapter number
 will be displayed before the chapter itself and any following chapters 
 in the book.
 
-VSYS_EXTRA_ALT:
-Same as VSYS_EXTRA but use this if alternate verse markers are already 
-being used for the extra verses. Translators sometimes do this when they
-append verses from another verse system at the end of a chapter.
-
 VSYS_MISSING: BK.1.2.3
 Specifies that this translation does not include this range of verses of
-the target verse system. The preceeding extant verse id will be modified 
+the fixed verse system. The preceeding extant verse id will be modified 
 to span the missing range, but in no case exceeding the end of a 
 chapter. Then, alternate numbers will be appended to any following 
 verses in the chapter. Entire missing chapters are not supported.
 
-VSYS_MISSING_ALT:
-Same as VSYS_MISSING but use this if regular verse markers are already
-included in the text (however the verses are just empty). This will just
-remove external Scripture cross-references to the removed verse.
-
-VSYS_MISSING_FN:
-Same as VSYS_MISSING but use this if a footnote was included in the 
-verse before the missing verse which addresses the missing verse. This 
-will forward references to the missing verse to the previous verse 
-which has the footnote.
-
 VSYS_MOVED: BK.1.2.3 -> BK.4.5.6 (or alternatively BK.1.2.PART meaning a 
 part of a verse) specifies that this translation has moved the verses 
-that would be found in range A of the target verse system to range B 
-(ranges A and B must be the same size). It is processed as a 
-\"VSYS_MISSING:A\" followed by a \"VSYS_EXTRA:B\". The last-verse 
-portion of A or B may also be the keyword \"PART\", meaning that the 
+that would be found in range A of the fixed verse system to range B.
+Ranges A and B must be the same size. It is processed as a 
+'VSYS_MISSING: A' followed by a 'VSYS_EXTRA: B'. The last-verse 
+portion of A or B may also be the keyword 'PART', meaning that the 
 reference applies to only part of the specified verse. The VSYS_MOVED 
 instruction also updates the osisRef attribute of externally sourced 
 Scripture cross-references to point to their moved location in the 
 translation.
 
 VSYS_MOVED_ALT: 
-Same as VSYS_MOVED but this should be used when alternate
-verse markup (<hi subType=\"x-alternate\">) was already used for the 
-moved verses (rather than regular verse markers). This instruction will 
-correct external cross-references targetting the alternate verses, but 
-will not change the OSIS markup of the alternate verses.
+Similar to VSYS_MOVED but this should be used when alternate verse 
+markup like '\va 2\va*' was already used for the moved verses (rather  
+than regular verse markers, which is the more common case). This 
+instruction will not change the OSIS markup of the alternate verses. It 
+is the same as 'VSYS_MISSING: A' followed by 'VSYS_FROM_TO: A -> B'.
+
+VSYS_MISSING_FN:
+Same as VSYS_MISSING but it only accepts a single verse and is only used 
+if a footnote was included in the verse before the missing verse which 
+addresses the missing verses. This will forward references to the 
+missing verses to the previous verse which has the footnote. This 
+instruction is the same as a VSYS_MISSING followed by a VSYS_FROM_TO 
+instruction.
+
+VSYS_EMPTY: BK.1.2.3
+Use this if regular verse markers are included in the text, however the 
+verses are left empty. This will just remove external Scripture 
+cross-references to the removed verse.
+
+VSYS_FROM_TO: BK.1.2.3 -> BK.4.5.6
+This does not effect any verse or alternate verse markup or locations. 
+It only forwards external references from their expected address in the 
+fixed verse system to a different location in the source verse system.
+It would be used if a verse is marked in the text but is left empty,
+while there is a footnote about it in the previous verse (but see 
+VSYS_MISSING_FN which is the more comom case). VSYS_FROM_TO is usually 
+NOT the right instruction for most use cases (but it is used more 
+internally).
 
 SET_customBookOrder:true
 Turns off the book re-ordering step so books will remain in processed 
@@ -343,7 +351,7 @@ sub orderBooksPeriphs($$$) {
         }
         if ($xpath) {
           my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-          push(@mylog, "Note: Placing $tg as specified by \"$int\" == \"$xpath\".");
+          push(@mylog, "Note: Placing $tg as specified by \"$int\" == \"$xpath\"");
         }
         else {push(@mylog, "Note: Removing \"$int\" $emsg.");}
       }
@@ -363,7 +371,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
       else {
         $periph->unbindNode();
         my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-        push(@mylog, "Note: Removing empty div \"$tg\".");
+        push(@mylog, "Note: Removing empty div: $tg");
       }
     }
   }
@@ -507,7 +515,7 @@ BOOK:
         $x++;
       }
       while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Error("Extra verse ".@v[$x].".", "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+        &Error("Extra verse: ".@v[$x], "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
         $fitToVerseSystemDoc = '';
         $errors++;
         $x++;
@@ -515,14 +523,14 @@ BOOK:
       $ch++;
     }
     while (@v[$x] =~ /^\Q$bk./) {
-      &Error("Extra chapter ".@v[$x].".", "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+      &Error("Extra chapter: ".@v[$x], "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
       $fitToVerseSystemDoc = '';
       $errors++;
       $x++;
     }
   }
   if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
-  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].").");}
+  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")");}
   
   &Log("\n");
   &Report("$errors verse system problems detected".($errors ? ':':'.'));
@@ -630,7 +638,7 @@ sub correctReferencesVSYS($$) {
   }
   
   &Log("\n");
-  &Report("\"$count\" osisRefs were modified because of alternate verses.");
+  &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
 
 # If any osisRef in the @checkRefs array of osisRefs includes $verse,  
@@ -703,7 +711,12 @@ sub applyrids($\%) {
       }
       my $annoRef = &osisID2osisRef(join(' ', @annoRefs));
       if ($annoRef =~ /\s+/) {
-        &ErrorBug("Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\".");
+        # Sometimes mapped ranges might be split up due to missing verses
+        $annoRef = &fillGapsInOsisRef($annoRef);
+        if ($annoRef =~ /\s+/) {
+          &ErrorBug("Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\"");
+        }
+        else {&Note("Filled gaps in mapped osisRef: $annoRef");}
       }
       if ($e->getAttribute('osisRef') ne $annoRef) {
         $map .= "MAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
@@ -748,33 +761,49 @@ sub applyrids($\%) {
   return $count;
 }
 
+# Take an osisRef's starting and ending point, and if they are in the
+# same chapter, return an osisRef that covers the entire range between
+# them. This can be used to 'heal' missing verses in mapped ranges.
+sub fillGapsInOsisRef() {
+  my $osisRef = shift;
+  
+  my @id = split(/\s+/, &osisRef2osisID($osisRef));
+  @id[0]    =~ /^([^\.]+\.\d+\.)\d+$/; my $chf = $1;
+  @id[$#id] =~ /^([^\.]+\.\d+\.)\d+$/; my $chl = $1;
+  if ($chf eq $chl) {return @id[0].'-'.@id[$#id];}
+  return $osisRef;
+}
+
 sub applyVsysInstruction(\%\%$) {
   my $argP = shift;
   my $canonP = shift;
   my $xml = shift;
   
+  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}.", ops=".$argP->{'ops'}."\n");
+
   my $inst = $argP->{'inst'};
   
-  my $valueP = &readValue($argP->{'value'}, $xml);
-  my $fromP = ($argP->{'from'} ? &readValue($argP->{'from'}, $xml):'');
-  my $toP = ($argP->{'to'} ? &readValue($argP->{'to'}, $xml):'');
+  # NOTE: 'fixed' always refers to the known fixed verse system, 
+  # and 'source' always refers to the customized source verse system
+  my $fixedP  = ($argP->{'fixed'}  ? &readValue($argP->{'fixed'},  $xml):'');
+  my $sourceP = ($argP->{'source'} ? &readValue($argP->{'source'}, $xml):'');
   
-  if (($fromP && $fromP->{'count'} != $valueP->{'count'}) || ($toP && $toP->{'count'} != $valueP->{'count'})) {
-    &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'value'}." -> ".($fromP->{'value'} ? $fromP->{'value'}:$toP->{'value'}).".");
+  if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
+    &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'fixed'}." -> ".$argP->{'source'});
     return 0;
   }
   
-  if (!&getBooksOSIS($xml)->{$valueP->{'bk'}}) {
-    &Warn("Skipping VSYS_$inst because ".$valueP->{'bk'}." is not in the OSIS file.", "Is this instruction correct?");
+  my $test = ($fixedP->{'bk'} ? $fixedP->{'bk'}:$sourceP->{'bk'});
+  if (!&getBooksOSIS($xml)->{$test}) {
+    &Warn("Skipping VSYS_$inst because $test is not in the OSIS file.", "Is this instruction correct?");
     return 0;
   }
   
-  if    ($inst eq 'MISSING') {&applyVsysMissing($valueP, $xml, &mapValue($valueP, $toP));}
-  elsif ($inst eq 'EXTRA') {&applyVsysExtra($valueP, $canonP, $xml, &mapValue($valueP, $fromP));}
-  elsif ($inst eq 'MISSING_ALT') {&applyVsysMissingALT($valueP, $xml, &mapValue($valueP, $toP));}
-  elsif ($inst eq 'EXTRA_ALT') {&applyVsysExtraALT($valueP, $canonP, $xml, &mapValue($valueP, $fromP));}
-  
-  else {&ErrorBug("applyVsysInstruction(".$valueP->{'value'}.") was given an unknown instruction: \"$inst\".");}
+  if    ($inst eq 'MISSING') {&applyVsysMissing($fixedP, $xml, &mapValue($fixedP, $sourceP));}
+  elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml, &mapValue($sourceP, $fixedP));}
+  elsif ($inst eq 'FROM')    {&applyVsysFrom($sourceP, $canonP, $xml, &mapValue($sourceP, $fixedP));}
+  elsif ($inst eq 'TO')      {&applyVsysTo($fixedP, $xml, &mapValue($fixedP, $sourceP));}
+  else {&ErrorBug("applyVsysInstruction did nothing: $inst");}
   
   return 1;
 }
@@ -826,21 +855,136 @@ sub mapValue($$) {
   return \%map;
 }
 
-# Used for empty verses that have verse tags in the translation, but no 
-# verse contents. It just inserts moved/missing verse markers.
-sub applyVsysMissingALT($$$) {
+# This only adds milestone markers indicating where material in the 
+# source verse system was moved from with respect to the fixed verse  
+# system. The location of the milestone is before an alternate verse 
+# number when there is one (the usual case), otherwise it will be at the 
+# end of the verse.
+sub applyVsysFrom($$$$) {
+  my $sourceP = shift;
+  my $canonP = shift;
+  my $xml = shift;
+  my $source2FromP = shift;
+  
+  if (!$source2FromP) {
+    &Note("These verses were not moved from somewhere else, so nothing to do here.");
+    return;
+  }
+  
+  if ($sourceP->{'isPartial'}) {
+    &Note("Verse reference is partial, so nothing to do here.");
+    return;
+  }
+  
+  my $isWholeChapter = ($sourceP->{'ch'} > @{$canonP->{$sourceP->{'bk'}}} ? 1:$sourceP->{'isWholeChapter'});
+  if ($isWholeChapter) {
+    &Error("applyVsysFrom: Not supported for entire chapters.", "Check your VSYS instructions in CF_usfm2osis.txt");
+    return;
+  }
+  
+  my $note = "[applyVsysFrom]";
+  my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
+  my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
+  for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'lv'}; $v++) {
+    my $success = 0;
+    my $a = $sourceP->{'bk'}.".".$sourceP->{'ch'}.".$v";
+    my @altsInChapter = $XPC->findnodes(
+      '//osis:div[@type="book"][@osisID="'.$sourceP->{'bk'}.'"]//osis:hi[@subType="x-alternate"]'.
+      '[preceding::osis:chapter[1][@sID="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"]]'.
+      '[following::osis:chapter[1][@eID="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"]]' 
+    , $xml);
+    foreach my $alt (@altsInChapter) {
+      if ($alt->textContent !~ /\b$v\b/) {next;}
+      my $annotateRef = @{$XPC->findnodes('preceding::osis:verse[1][@sID]', $alt)}[0];
+      if ($annotateRef) {my @tmp = split(/\s+/, $annotateRef->getAttribute('osisID')); $annotateRef = @tmp[-1];}
+      if (!$annotateRef) {
+        &ErrorBug("applyVsysFrom: Could not find verse containing $alt");
+        last;
+      }
+      if (!$source2FromP->{'map'}{$a}) {
+        &ErrorBug("applyVsysFrom: Verse $a not found in movedFrom $alt");
+        last;
+      }
+      my $m = "<milestone type='$type' osisRef='".$source2FromP->{'map'}{$a}."' annotateRef='$annotateRef' annotateType='$annotateType'/>";
+      $alt->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $alt);
+      $success++;
+      last;
+    }
+    if (!$success) {
+      $note .= "[no alt verse $v]";
+      my $verseEnd = &getVerseTag($a, $xml, 1);
+      if ($verseEnd) {
+        my $m = "<milestone type='$type' osisRef='".$source2FromP->{'map'}{$a}."' annotateRef='$a' annotateType='$annotateType'/>";
+        $verseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $verseEnd);
+        $success++;
+      }
+      else {&ErrorBug("applyVsysFrom: Verse was not found: $a");}
+    }
+    if (!$success) {&ErrorBug("applyVsysFrom: Couldn't mark verse $v");}
+    else {$note .= "[milestone FROM $v]";}
+  }
+  
+  &Note($note);
+  return;
+}
+
+# This only adds milestone tags indicating where material in the source
+# verse system is missing, or was moved to, with respect to the fixed 
+# verse system.
+sub applyVsysTo($$$) {
   my $valueP = shift;
   my $xml = shift;
   my $movedToP = shift;
   
-  &Log("\n"); &Note("Applying VSYS_MISSING_ALT: ".$valueP->{'value'}." :");
+  my $note = "[applyVsysFrom]";
   
-  if (!$valueP->{'isWholeChapter'}) {
-    for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
-      &writeEmptyVerseMarker($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP, $valueP->{'isPartial'});
-    }
+  if ($valueP->{'isWholeChapter'}) {&ErrorBug("applyVsysTo: Not supported for entire chapters."); return $note;}
+  
+  for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
+    $note .= &writeMovedToMilestone($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP, $valueP->{'isPartial'});
   }
-  else {&ErrorBug("applyVsysMissingALT: Not supported for entire chapters.");}
+  
+  &Note($note);
+  return;
+}
+
+# Insert milestone marker to record a missing verse and whether it was moved or not.
+# The VerseID may not apply to an existing verse (since it's probably missing) so the
+# next lowest verse end tag is used.
+sub writeMovedToMilestone($$$$$) {
+  my $bkch = shift;
+  my $v = shift;
+  my $xml = shift;
+  my $movedToP = shift;
+  my $isPartial = shift;
+  
+  my $verseID = "$bkch.$v";
+  if ($movedToP && !$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}) {
+    &ErrorBug("writeMovedToMilestone: No source location for $verseID");
+  }
+  
+  my $moveType = $VSYS{'prefix'}.($isPartial ? $VSYS{'partMovedTo'}:$VSYS{'movedto'});
+  my $type = ($movedToP ? 
+    'type="'.$moveType.'" annotateRef="'.$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"' : 
+    "type='".$VSYS{'prefix'}.$VSYS{'missing'}."'"
+  );
+  
+  my $verseEndTag;
+  do {
+    $verseEndTag = &getVerseTag("$bkch.$v", $xml, 1);
+    $v--;
+  } while (!$verseEndTag && $v > 0);
+  if (!$verseEndTag) {
+    my @p = split(/\./, $bkch);
+    $verseEndTag = &getVerseTag("$bkch.".&getFirstVerseInChapterOSIS(@p[0], @p[1], $xml), $xml, 1);
+  }
+  
+  if ($verseEndTag) {
+    $verseEndTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk("<milestone $type osisRef='$verseID'/>"), $verseEndTag);
+  }
+  else {&ErrorBug("writeMovedToMilestone: Starting verse tag not found for $verseID");}
+  
+  return "[milestone TO $v]";
 }
 
 # Used when verses in the verse system were not included in the translation. 
@@ -851,15 +995,14 @@ sub applyVsysMissing($$$) {
   my $valueP = shift;
   my $xml = shift;
   my $movedToP = shift;
-  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
-  &Log("\n"); &Note("Applying VSYS_MISSING: ".$valueP->{'value'}." :");
+  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
   if ($valueP->{'isPartial'}) {
     &Note("Verse reference is partial, so only writing empty verse markers.");
     for (my $v = $vs; $v <= $lv; $v++) {
       my $a = "$bk.$ch.$v";
-      &writeEmptyVerseMarker("$bk.$ch", $v, $xml, $movedToP, 1);
+      &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP, 1);
     }
     return;
   }
@@ -889,7 +1032,7 @@ sub applyVsysMissing($$$) {
       my $a = "$bk.$ch.$v";
       &osisIDCheckUnique($a, $xml);
       push(@missing, $a);
-      &writeEmptyVerseMarker("$bk.$ch", $v, $xml, $movedToP);
+      &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP);
     }
 
     push(@missing, $verseTagToModify->getAttribute('osisID'));
@@ -906,96 +1049,6 @@ sub applyVsysMissing($$$) {
   }
 }
 
-# Insert milestone marker to record a missing verse and whether it was moved or not.
-# The VerseID may not apply to an existing verse (since it's probably missing) so the
-# next lowest verse end tag is used.
-sub writeEmptyVerseMarker($$$$$) {
-  my $bkch = shift;
-  my $v = shift;
-  my $xml = shift;
-  my $movedToP = shift;
-  my $isPartial = shift;
-  
-  my $verseID = "$bkch.$v";
-  if ($movedToP && !$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}) {
-    &ErrorBug("writeEmptyVerseMarker: No source location for $verseID");
-  }
-  
-  my $moveType = $VSYS{'prefix'}.($isPartial ? $VSYS{'partMovedTo'}:$VSYS{'movedto'});
-  my $type = ($movedToP ? 
-    'type="'.$moveType.'" annotateRef="'.$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"' : 
-    "type='".$VSYS{'prefix'}.$VSYS{'missing'}."'"
-  );
-  
-  my $verseEndTag;
-  do {
-    $verseEndTag = &getVerseTag("$bkch.$v", $xml, 1);
-    $v--;
-  } while (!$verseEndTag && $v > 0);
-  if (!$verseEndTag) {
-    my @p = split(/\./, $bkch);
-    $verseEndTag = &getVerseTag("$bkch.".&getFirstVerseInChapterOSIS(@p[0], @p[1], $xml), $xml, 1);
-  }
-  
-  if ($verseEndTag) {
-    $verseEndTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk("<milestone $type osisRef='$verseID'/>"), $verseEndTag);
-  }
-  else {&ErrorBug("writeEmptyVerseMarker: Starting verse tag not found for $verseID");}
-}
-
-# Used when the translation includes extra verses in a chapter compared 
-# to the target verse system, which are NOT marked up with verse tags, 
-# but rather as alternate verse numbers. This only adds milestone tags 
-# recording where the alternate verses were moved from.
-sub applyVsysExtraALT($$$$) {
-  my $valueP = shift;
-  my $canonP = shift;
-  my $xml = shift;
-  my $movedFromP = shift;
-  
-  &Log("\n"); &Note("Applying VSYS_EXTRA_ALT: ".$valueP->{'value'}." :");
-  
-  if (!$movedFromP) {
-    &Note("These verses were not moved from somewhere else, so nothing to do here.");
-    return;
-  }
-  
-  if ($valueP->{'isPartial'}) {
-    &Note("Verse reference is partial, so nothing to do here.");
-    return;
-  }
-  
-  my $isWholeChapter = ($valueP->{'ch'} > @{$canonP->{$valueP->{'bk'}}} ? 1:$valueP->{'isWholeChapter'});
-  if (!$isWholeChapter) {
-    my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
-    my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
-    for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
-      my $success = 0;
-      my $a = $valueP->{'bk'}.".".$valueP->{'ch'}.".$v";
-      my @altsInChapter = $XPC->findnodes('//osis:div[@type="book"][@osisID="'.$valueP->{'bk'}.'"]//osis:hi[@subType="x-alternate"][preceding::osis:chapter[1][@sID="'.$valueP->{'bk'}.'.'.$valueP->{'ch'}.'"]][following::osis:chapter[1][@eID="'.$valueP->{'bk'}.'.'.$valueP->{'ch'}.'"]]', $xml);
-      foreach my $alt (@altsInChapter) {
-        if ($alt->textContent !~ /\b$v\b/) {next;}
-        my $annotateRef = @{$XPC->findnodes('preceding::osis:verse[1][@sID]', $alt)}[0];
-        if ($annotateRef) {my @tmp = split(/\s+/, $annotateRef->getAttribute('osisID')); $annotateRef = @tmp[-1];}
-        if (!$annotateRef) {
-          &ErrorBug("applyVsysExtraALT: Could not find verse containing $alt");
-          last;
-        }
-        if (!$movedFromP->{'map'}{$a}) {
-          &ErrorBug("applyVsysExtraALT: Verse $a not found in movedFrom $alt");
-          last;
-        }
-        my $m = "<milestone type='$type' osisRef='".$movedFromP->{'map'}{$a}."' annotateRef='$annotateRef' annotateType='$annotateType'/>";
-        $alt->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $alt);
-        $success++;
-        last;
-      }
-      if (!$success) {&ErrorBug("applyVsysExtraALT: Couldn't mark alternate verse $v");}
-    }
-  }
-  else {&ErrorBug("applyVsysExtraALT: Not supported for entire chapters.");}
-}
-
 # Used when the translation includes extra verses in a chapter compared
 # to the target verse system, which are marked up as regular verses. For 
 # these extra verses, alternate verse numbers are inserted and verse 
@@ -1010,9 +1063,8 @@ sub applyVsysExtra($$$$$) {
   my $xml = shift;
   my $movedFromP = shift;
   my $adjusted = shift;
-  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
-  &Log("\n"); &Note("Applying VSYS_EXTRA: ".$valueP->{'value'}." :");
+  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
   
   if ($valueP->{'isPartial'}) {
     &Note("Verse reference is partial, so nothing to do here.");
@@ -1060,7 +1112,7 @@ sub applyVsysExtra($$$$$) {
   }
   
   if (!$startTag || !$endTag) {
-    &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag (=$startTag) or end-tag (=$endTag).");
+    &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag (=$startTag) or end-tag (=$endTag)");
     return;
   }
  
@@ -1135,13 +1187,12 @@ sub reVersify($$$$$) {
   my $count = shift;
   my $xml = shift;
   
-  &Log("reVersify($bk, $ch, $vs, $count): ");
+  my $note = "reVersify($bk, $ch, $vs, $count)";
   
   my $vTagS = &getVerseTag("$bk.$ch.$vs", $xml, 0);
-  if (!$vTagS) {&Log("Start tag not found.\n"); return;}
+  if (!$vTagS) {$note .= "[Start tag not found]"; &Note($note); return;}
   my $vTagE = &getVerseTag("$bk.$ch.$vs", $xml, 1);
-  if (!$vTagE) {&Log("End tag not found!\n"); return;}
-  &Log("\n");
+  if (!$vTagE) {$note .= "[End tag not found]"; &Note($note); return;}
   
   my $osisID = $vTagS->getAttribute('osisID');
   my $newVerseID;
@@ -1162,12 +1213,12 @@ sub reVersify($$$$$) {
     $vTagE = &undoAlternate(&getAltID($vTagE, 1));
     $osisID = $vTagS->getAttribute('osisID');
   }
-  else{&Note("Alternate verse already set.");}
+  else {$note .= "[Alternate verse already set]";}
   
   # Increment/Decrement
   if ($count) {
     if ($newID ne $osisID) {
-      &Note("Changing verse osisID='".$vTagS->getAttribute('osisID')."' to '$newID'.");
+      $note .= "[Changing verse osisID from ".$vTagS->getAttribute('osisID')." to $newID]";
       &osisIDCheckUnique($newVerseID, $xml);
       $vTagS->setAttribute('osisID', $newID);
       $vTagS->setAttribute('sID', $newID);
@@ -1176,6 +1227,7 @@ sub reVersify($$$$$) {
       $vTagE->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
     }
   }
+  &Note($note); 
 }
 
 # This takes a verse or chapter element (start or end) and marks it as
@@ -1198,15 +1250,15 @@ sub toAlternate($$$$) {
   my $osisID = ($type eq 'start' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
   my $isVerseStart = ($type eq 'start' && $elem->nodeName eq 'verse' ? 1:0);
   
-  &Log("toAlternate[$osisID, ".$elem->nodeName.", $type]");
+  my $note = "toAlternate($osisID, ".$elem->nodeName.", $type)";
   
   if (&getAltID($elem)) {
-    &Log(", already done");
+    $note .= "[already done]";
     if ($noTarget && $elem->getAttribute('type') eq $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
       $elem->unbindNode();
-      &Log(", removed target tag");
+      $note .= "[removed target tag]";
     }
-    &Log("\n");
+    &Note($note);
     return $elem;
   }
   
@@ -1215,7 +1267,7 @@ sub toAlternate($$$$) {
     if ($telem->getAttribute('type')) {&ErrorBug("Type already set on $telem");}
     $telem->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
     $elem->parentNode->insertBefore($telem, $elem);
-    &Log(", cloned");
+    $note .= "[cloned]";
   }
   
   # Convert to milestone
@@ -1240,7 +1292,7 @@ sub toAlternate($$$$) {
   if ($elem->hasAttribute('osisID')) {$elem->removeAttribute('osisID');}
   if ($elem->hasAttribute('sID')) {$elem->removeAttribute('sID');}
   if ($elem->hasAttribute('eID')) {$elem->removeAttribute('eID');}
-  &Log(", converted");
+  $note .= "[converted]";
   
   # Add alternate verse number
   if (!$noAlt && $isVerseStart) {
@@ -1249,12 +1301,12 @@ sub toAlternate($$$$) {
       my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate"><hi type="super">('.$newv.')</hi></hi>');
       my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $elem)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
-      &Log(", added alternate verse \"$newv\"");
+      $note .= "[added alternate verse \"$newv\"]";
     }
     else {&ErrorBug("Could not parse: $osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?\$/");}
   }
-  &Log("\n");
   
+  &Note($note);
   return $telem;
 }
 
@@ -1264,17 +1316,17 @@ sub toAlternate($$$$) {
 sub undoAlternate($) {
   my $ms = shift;
   
-  &Log("undoAlternate[".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').']');
+  my $note = "undoAlternate(".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').')';
 
   my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][1]', $ms)}[0];
   if ($avn) {
     $avn->unbindNode();
-    &Log(", removed alternate verse number");
+    $note .= "[removed alternate verse number]";
   }
   my $vtag = @{$XPC->findnodes('preceding-sibling::*[1][@type="'.$VSYS{'prefix'}.$VSYS{'TypeModified'}.'"]', $ms)}[0];
   if ($vtag) {
     $vtag->unbindNode();
-    &Log(", removed verse tag");
+    $note .= "[removed verse tag]";
   }
   my $chvsTypeRE = '^'.$VSYS{'prefix'}.'-(chapter|verse)('.$VSYS{'start'}.'|'.$VSYS{'end'}.')$'; $chvsTypeRE =~ s/-/\\-/g;
   if ($ms->getAttribute('type') =~ /$chvsTypeRE/) {
@@ -1292,7 +1344,8 @@ sub undoAlternate($) {
   }
   else {&ErrorBug("Can't parse: ".$ms->getAttribute('type')." !~ /$chvsTypeRE/");}
   
-  &Log(", converted milestone to verse\n");
+  $note .= "[converted milestone to verse]";
+  &Note($note);
   
   return $ms;
 }

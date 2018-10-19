@@ -60,7 +60,7 @@ sub usfm2osis($$) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|customBookOrder|tocCrossRefs|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|customBookOrder|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
@@ -85,7 +85,7 @@ sub usfm2osis($$) {
       }
       else {
         my $sf = ($rg && -e "$INPD/$rg" ? 1:0); # Is this group a single file?
-        if ($rg && !$sf) {&Warn("EVAL_REGEX($rg):$rx", "Label \"$rg\" does not apply to a specific file. So this will be applied to all following RUN commands until/unless canceled by: EVAL_REGEX($rg):");}
+        if ($rg && !$sf) {&Warn("EVAL_REGEX($rg):$rx", "Label \"$rg\" does not apply to a specific file. So this will be applied to all following RUN commands until/unless canceled by: 'EVAL_REGEX($rg):'");}
         push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx, 'singleFile' => $sf});
       }
       next;
@@ -103,19 +103,56 @@ sub usfm2osis($$) {
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
-    elsif ($_ =~ /^VSYS_((?:MISSING|EXTRA)(?:_ALT)?):(?:\s*($VSYS_INSTR_RE)\s*)?$/) {
-      push(@VSYS_INSTR, { 'inst'=>$1, 'value'=>$2 });
+    
+    # VSYS INSTRUCTIONS used in fitToVerseSystem.pl
+    elsif ($_ =~ /^VSYS_MISSING:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
+      my $value = $+{val};
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
     }
-    elsif ($_ =~ /^VSYS_MOVED((_ALT)?):(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
-      my $alt = $1; my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING'.$alt, 'value'=>$from, 'to'=>$to });
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA'.$alt, 'value'=>$to, 'from'=>$from });
+    elsif ($_ =~ /^VSYS_EXTRA:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
+      my $value = $+{val};
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA', 'source'=>$value });
     }
+    elsif ($_ =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
+      my $from = $+{from}; my $to = $+{to};
+      push(@VSYS_INSTR, { 'inst'=>'FROM', 'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'TO',   'fixed'=>$from, 'source'=>$to });
+    }
+    elsif ($_ =~ /^VSYS_EMPTY:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
+      my $value = $+{val};
+      push(@VSYS_INSTR, { 'inst'=>'TO', 'fixed'=>$value, 'source'=>'' });
+    }
+    elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
+      my $from = $+{from}; my $to = $+{to};
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'fixed'=>$from, 'source'=>$to });
+    }
+    elsif ($_ =~ /^VSYS_MOVED_ALT:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
+      my $from = $+{from}; my $to = $+{to};
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'FROM',    'fixed'=>$from, 'source'=>$to });
+    }
+    elsif ($_ =~ /^VSYS_MISSING_FN:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
+      my $value = $+{val};
+      my $msg = "VSYS_MISSING_FN is used when a previous verse holds a footnote about the missing verse.";
+      my $vp = $value;
+      if ($vp =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+        my $bk = $1; my $ch = $2; my $vs = (1*$3);
+        my $to = "$bk.$ch.".($vs-1);
+        if ($vs > 1) {
+          push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value, 'source'=>$to });
+          push(@VSYS_INSTR, { 'inst'=>'FROM',    'fixed'=>$value, 'source'=>$to });
+        }
+        else {&Error("VSYS_MISSING_FN cannot be used with verse 1: $_", "$msg Use different instruction(s) in CF_usfm2osis.txt.");}
+      }
+      else {&Error("VSYS_MISSING_FN must be used with a single verse: $_", "$msg In CF_usfm2osis.txt, change it to the form: BK.1.2 or use different instruction(s)");}
+    }
+    
     else {&Error("Unhandled CF_usfm2osis.txt line \"$_\" in $cf", "Remove or fix the syntax of this line.");}
   }
   close(COMF);
-  
-  @VSYS_INSTR = sort { &vsysInstSort($a->{'value'}, $b->{'value'}) } @VSYS_INSTR;
+
+  @VSYS_INSTR = sort { &vsysInstSort($a, $b) } @VSYS_INSTR;
   
   if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
   
@@ -143,6 +180,30 @@ sub usfm2osis($$) {
     #&Log("Failure of u2o.py above does not effect other osis-converters conversions.\n", 1);
   }
   return $osis;
+}
+
+sub vsysInstSort($$) {
+  my $a = shift;
+  my $b = shift;
+  
+  my $av = $a->{'fixed'};
+  my $bv = $b->{'fixed'};
+  $av =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
+  $bv =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
+  
+  my $r = &osisIDSort($av, $bv);
+  if ($r) {return $r;}
+  
+  my @order = ('MISSING', 'EXTRA', 'FROM', 'TO');
+  my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
+  my $bi; for ($bi=0; $bi<@order; $bi++) {if (@order[$bi] eq $b->{'inst'}) {last;}}
+  if ($ai == @order || $bi == @order) {
+    &ErrorBug("Unknown VSYS sub-instruction: '".$a->{'inst'}."' or '".$b->{'inst'}."'");
+  }
+  $r = $ai <=> $bi;
+
+  if (!$r) {&ErrorBug("Indeterminent VSYS instruction sort: av=$av, bv=$bv, ai=$ai, bi=$bi");}
+  return $r;
 }
 
 sub evalRegex($$) {

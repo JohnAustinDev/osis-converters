@@ -40,14 +40,17 @@ sub runAddCrossRefs($) {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $CrossRefFile = &getDefaultFile("bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml", -1);
+  my $def = "bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml";
+  my $CrossRefFile = &getDefaultFile($def, -1);
   if (!-e $CrossRefFile) {
-    &Warn("Could not locate a Cross Reference source file. Skipping cross-reference insertion.", "
-Cross Reference source files are OSIS files that contain only cross-
-references. They have the name of their SWORD Versification system, and 
-are typically placed in the following directory:
-osis-converters/defaults/bible/CrossReferences/SynodlaProt.xml
-If reference tags do not contain presentational text, it will be added. 
+    &Warn("Could not locate a Cross Reference source file: $def.", "
+The cross reference source file is an OSIS file that contains only 
+cross-references for the necessary verse system: $VERSESYS. Without 
+one, cross-references will not be added to the text. It should be 
+typically placed in the following directory:
+osis-converters/defaults/bible/CrossReferences/$VERSESYS.xml
+The reference tags in the file do not need to contain presentational 
+text, because it would be replaced with localized text anyway. 
 Example OSIS cross-references:
 
 <div type=\"book\" osisID=\"Gen\">
@@ -67,71 +70,8 @@ Example OSIS cross-references:
 ");
     return 0;
   }
-
-  &Log("READING OSIS FILE: \"$$osisP\".\n");
-  my $osis = $XML_PARSER->parse_file($$osisP);
-  &Log("You are including cross references for ".@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:scope', $osis)}[0]->textContent.".\n");
-
-  # Any presentational text will be removed from cross-references. Then localized  
-  # note text will be added using Paratext meta-data and/or \toc tags.
-  my %localization;
-  my $tocxr = ($tocCrossRefs ? (1*$tocCrossRefs):3);
-  my @toc3 = $XPC->findnodes('//osis:div[@type="book"][descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"]]', $osis);
-  if ($BOOKNAMES || @toc3[0]) {
-    &Note("Applying localization to all cross references (count of BOOKNAMES=\"".scalar(%BOOKNAMES)."\", count of book toc".$tocxr." tags=\"".scalar(@toc3)."\").");
-    $localization{'hasLocalization'}++;
-    my $ssf;
-    if (opendir(SFM, "$INPD/sfm")) {
-      my @fs = readdir(SFM);
-      foreach my $f (@fs) {
-        if (-d "$INPD/sfm/$f") {next;}
-        $ssf = `grep "<RangeIndicator>" "$INPD/sfm/$f"`;
-        if ($ssf) {
-          $ssf = $XML_PARSER->parse_file("$INPD/sfm/$f");
-          &Note("Reading localized Scripture reference settings from \"$INPD/sfm/$f\"");
-          last;
-        }
-      }
-      closedir(SFM);
-    }
-    
-    my %elems = (
-      'RangeIndicator' => '-', 
-      'SequenceIndicator' => ',', 
-      'ReferenceFinalPunctuation' => '.', 
-      'ChapterNumberSeparator' => '; ', 
-      'ChapterRangeSeparator' => '—', 
-      'ChapterVerseSeparator' => ':',
-      'BookSequenceSeparator' => '; '
-    );
-    
-    foreach my $k (keys %elems) {
-      $v = $elems{$k};
-      if ($ssf) {
-        my $kv = @{$XPC->findnodes("$k", $ssf)}[0];
-        if ($kv && $kv->textContent) {$v = $kv->textContent;}
-      }
-      $localization{$k} = $v;
-    }
-    
-    my $nametype = ('', 'long', 'short', 'abbr')[$tocxr];
-    my @books = split(' ', $OT_BOOKS . ' ' . $NT_BOOKS);
-    foreach my $book (@books) {
-      my $abbr = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$tocxr.'"][1]/@n', $osis)}[0];
-      if ($abbr) {$abbr = $abbr->value;}
-      if ($BOOKNAMES{$book}{$nametype}) {
-        if (!$abbr) {$abbr = $BOOKNAMES{$book}{$nametype};}
-        elsif ($abbr ne $BOOKNAMES{$book}{$nametype}) {
-          &Warn("OSIS toc$tocxr name \"$abbr\" differs from SSF $nametype name \"".$BOOKNAMES{$book}{$nametype}."\"; The OSIS name will be used.");
-        }
-      }
-      if ($abbr) {$localization{$book} = $abbr;}
-      else {&Warn("Missing translation for \"$book\"");}
-    }
-  }
-  else {
-    &Error("Unable to localize cross-references. This means eBooks will show 
-cross-references as '1', '2'... which is unhelpful.", decode('utf8', 
+  
+  my $bookNamesMsg = decode('utf8', 
 "Cross-references are localized using a file called 
 BookNames.xml in the sfm directory which should contain localized 
 'abbr' abbreviations for all 66 Bible books, like this:
@@ -142,11 +82,86 @@ BookNames.xml in the sfm directory which should contain localized
   <book code=\"2SA\" abbr=\"2Şam\" />
 </BookNames>
 
-If you do not know the book abbreviations, but do have SFM files with 
-\\toc2 tags for all 66 Bible books, then you can add to CF_usfm2osis.txt
-the following: \"SET_tocCrossRefs:2\" to use \\toc2 short names instead 
-of BookNames.xml abbreviations (or SET_tocCrossRefs:1 will use \\toc1 
-long names, but this is not recommended).\n"));
+");
+
+  &Log("READING OSIS FILE: \"$$osisP\".\n");
+  my $osis = $XML_PARSER->parse_file($$osisP);
+  &Log("You are including cross references for ".@{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:scope', $osis)}[0]->textContent.".\n");
+
+  # Any presentational text will be removed from cross-references. Then localized  
+  # note text will be added using Paratext meta-data and/or \toc tags.
+  my %localization;
+  my @files = split(/\n/, &shell("find \"$INPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
+  if (@files[0]) {$ssf = $XML_PARSER->parse_file(@files[0]);}
+
+  my %elems = (
+    'RangeIndicator' => '-', 
+    'SequenceIndicator' => ',', 
+    'ReferenceFinalPunctuation' => '.', 
+    'ChapterNumberSeparator' => '; ', 
+    'ChapterRangeSeparator' => decode('utf8', '—'), 
+    'ChapterVerseSeparator' => ':',
+    'BookSequenceSeparator' => '; '
+  );
+  
+  foreach my $k (keys %elems) {
+    $v = $elems{$k};
+    if ($ssf) {
+      my $kv = @{$XPC->findnodes("$k", $ssf)}[0];
+      if ($kv && $kv->textContent) {
+        $v = $kv->textContent;
+        &Note("<>Found localized Scripture reference settings in \"".@files[0]."\"");
+      }
+    }
+    $localization{$k} = $v;
+  }
+  foreach my $x (sort keys %elems) {&Note("$x = '".$localization{$x}."'");}
+  
+  # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES
+  my $countLocalizedNames = 0;
+  my @bntypes = ('long', 'short', 'abbr');
+  my @books = split(/\s+/, $OT_BOOKS.' '.$NT_BOOKS);
+  foreach my $book (@books) {
+    my %osisName;
+    for (my $x=1; $x<=3; $x++) {
+      $osisName{'toc'.$x} = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$x.'"][1]/@n', $osis)}[0];
+    }
+    my $shortName;
+    if (!$osisName{'toc3'} && !$BOOKNAMES{$book}{@bntypes[2]}) {
+      &Warn("No localized book abbreviation for \"$book\".",
+"");
+    }
+    for (my $x=1; $x<=3; $x++) {
+      if (!$osisName{'toc'.$x}) {next;}
+      if ($shortName && length($shortName) < length($osisName{'toc'.$x})) {next;}
+      $shortName = $osisName{'toc'.$x};
+    }
+    for (my $x=0; $x<@bntypes; $x++) {
+      if (!$BOOKNAMES{$book}{@bntypes[$x]}) {next;}
+      if ($shortName && length($shortName) < length($BOOKNAMES{$book}{@bntypes[$x]})) {next;}
+      $shortName = $BOOKNAMES{$book}{@bntypes[$x]};
+    }
+    if ($shortName) {
+      $countLocalizedNames++;
+      $localization{$book} = $shortName;
+      &Note("$book = $shortName");
+    }
+    else {&Warn("Missing translation for \"$book\".", 
+"<>That all 66 Bible books have, preferably, the 'abbr' attribute set 
+in BookNames.xml. Or else another attribute in BookNames.xml will be 
+used, if available, or else \\toc1, \\toc2 or \\toc3 tags in SFM files
+will be used. Since none of these were found for some books, some 
+cross-references will be unreadable.\n$bookNamesMsg");}
+  }
+  
+  if ($countLocalizedNames == 66) {
+    $localization{'hasLocalization'}++;
+    &Note("Applying localization to all cross references.");
+  }
+  else {
+    &Warn(
+"Unable to localize all book names. This means eBooks will show 
+cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
   }
   
   # for a big speed-up, find all verse tags and add them to a hash with a key for every verse
@@ -218,8 +233,8 @@ long names, but this is not recommended).\n"));
   &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
   if ($ADD_CROSS_REF_BAD) {
     &Error("$ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.", "
-Add the missing book abbreviations with either a \toc2 tag in the SFM
-file, or else with another entry in the BookNames.xml file.");
+Add the missing book abbreviations with either a \\toc3 tag in the SFM
+file, or else with an 'abbr' entry in the BookNames.xml file.");
   }
   else {
     &Note("$ADD_CROSS_REF_LOC individual reference links were localized.\n");

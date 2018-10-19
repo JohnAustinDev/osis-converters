@@ -49,7 +49,7 @@ if ($addScripRefLinks) {
   my $type = ($MODDRV =~ /LD/ ? 'dict':'bible');
   require("$SCRD/scripts/addScripRefLinks.pl");
   &runAddScripRefLinks(&getDefaultFile("$type/CF_addScripRefLinks.txt"), \$OSIS);
-  &checkScripRefLinks($OSIS, $projectBible);
+  &checkSourceScripRefLinks($OSIS, $projectBible);
 }
 
 if ($addFootnoteLinks) {

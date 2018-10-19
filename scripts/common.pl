@@ -45,7 +45,7 @@ foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
   $OSISBOOKS{$bk}++;
 }
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
-$VSYS_INSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
+$VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
 $VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
 @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]";
@@ -109,10 +109,16 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
-  my @setDefaults = ('addScripRefLinks', 'addFootnoteLinks', 'addDictLinks', 'addCrossRefs', 'addSeeAlsoLinks');
-  foreach my $s (@setDefaults) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
-  
   &checkProjectConfiguration();
+  
+  # Set default to 'on' for the following OSIS processing steps
+  $addCrossRefs = "on_by_default";
+  my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
+  foreach my $s (@CF_files) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
+  if (-e "$INPD/$DICTIONARY_WORDS") {
+    my $set = ($MOD =~ /DICT$/ ? 'addSeeAlsoLinks':'addDictLinks');
+    $$set = 'on_by_default';
+  }
   
   my $appendlog = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
@@ -3221,16 +3227,6 @@ sub normalizeOsisID(\@$$$) {
   return sort { osisIDSort($a, $b, $osisIDWorkDefault, $vsys) } grep(($_ && !$seen{$_}++), @avs);
 }
 
-sub vsysInstSort($$) {
-  my $a = shift;
-  my $b = shift;
-  
-  $a =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
-  $b =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
-
-  return &osisIDSort($a, $b);
-}
-
 
 # Sort osisID segments (ie. Rom.14.23) in verse system order
 sub osisIDSort($$$$) {
@@ -3269,8 +3265,12 @@ sub osisIDSort($$$$) {
   return $avs <=> $bvs;
 }
 
-
-sub checkScripRefLinks($$) {
+# Check all Scripture reference links in the source text. This does not
+# look for or check any externally supplied cross-references. This check
+# is run before fitToVerseSystem(), so it is checking that the source
+# text's references are consistent with itself. Any broken links found
+# here are either mis-parsed, or are errors in the source text.
+sub checkSourceScripRefLinks($$) {
   my $in_osis = shift;
   my $bibleMod = shift;
   
@@ -3302,16 +3302,25 @@ sub checkScripRefLinks($$) {
         $id = ($id =~ /\:/ ? $id:"$bibleMod:$id");
         my $bk = ($id =~ /\:([^\.]+)/ ? $1:'');
         if (!$bk) {
-          &ErrorBug("Reference has no book: \"$id\" in $sref.");
+          &ErrorBug("Failed to parse reference from book: $id !~ /\:([^\.]+)/ in $sref.");
         }
         elsif (!$bks{$bk}) {
-          &Warn("<-Removing hyperlink to missing book: $sref");
+          &Warn("<-Removing hyperlink to missing book: $sref", 
+"<>Apparently not all 66 Bible books have been included in this project, but 
+there are references in the source text to missing books. So these 
+hyperlinks are being removed for now until the other books are added to 
+the translation.");
           foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
           $sref->unbindNode();
         }
         elsif (!$ids{$id}) {
           $problems++;
-          &Error("Scripture reference \"$id\" in source text targets a missing verse.", "Maybe this should not be a hyperlink?: ".$sref."");
+          &Error(
+"Scripture reference in source text targets a nonexistant verse: \"$id\"", 
+"Maybe this should not have been parsed as a Scripture 
+reference, or maybe it was mis-parsed by CF_addScripRefLinks.txt? Or 
+else this is a problem with the source text: 
+".$sref);
         }
       }
     }
@@ -3365,7 +3374,10 @@ sub checkReferenceLinks($) {
       }
       
       if (!$r->getAttribute('osisRef')) {
-        &Error("Reference link \"$r\" is missing osisRef attribute.");
+        &Error("Reference link is missing an osisRef attribute: \"$r\"", 
+"Maybe this should not be marked as a reference? Reference tags in OSIS 
+require a valid target. When there isn't a valid target, then a 
+different USFM tag should be used instead.");
         $errors{$linktype}++;
         next;
       }

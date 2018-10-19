@@ -36,7 +36,11 @@ if ($ConfEntryP->{'Companion'}) {
   $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
 }
 
-# create each OSIS file and SWORD module, dictionaries last so footnote osisIDs are known during dictionary processing
+# create each OSIS file and SWORD module.
+# NOTE: any dictionary module must be last so footnote osisIDs may be  
+# known during dictionary processing, even though this means the default 
+# run of the project can never perform addDictLinks (and who cares, 
+# since it wouldn't be useful anwyway).
 foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 1:0)} keys %modules) {
   if (-e "$dir/CF_osis2osis.txt") {&osis_converters("$SCRD/osis2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}
   else {&osis_converters("$SCRD/sfm2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}

@@ -174,11 +174,12 @@ sub getDefaultFile($$$) {
   my $pfile = $file; $pfile =~ s/^(bible|dict)\///;
    
   my $f;
-  if ((!$priority || $priority == 1) && $fileType eq $projType && -e "$inpd/$pfile") {
+  my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
+  if (($checkAll || $priority == 1) && $fileType eq $projType && -e "$inpd/$pfile") {
     $f = "$inpd/$pfile";
     &Note("getDefaultFile: (1) Found $file at $f");
   }
-  if ((!$priority || $priority == 2) && -e "$projParent/defaults/$file") {
+  if (($checkAll || $priority == 2) && -e "$projParent/defaults/$file") {
     if (!$f) {
       $f = "$projParent/defaults/$file";
       &Note("getDefaultFile: (2) Found $file at $f");
@@ -187,7 +188,7 @@ sub getDefaultFile($$$) {
       &Note("(2) Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file");
     }
   }
-  if ((!$priority || $priority == 3) && -e "$SCRD/defaults/$file") {
+  if (($checkAll || $priority == 3) && -e "$SCRD/defaults/$file") {
     if (!$f) {
       $f = "$SCRD/defaults/$file";
       &Note("getDefaultFile: (3) Found $file at $f");
@@ -396,17 +397,39 @@ sub Warn($$) {
   my $checkmsg = shift;
   my $flag = shift;
   
-  # Messages beginning with <- will not have a leading line-break
-  my $n = ($warnmsg =~ s/^\<\-// ? '':"\n");
+  # Terms beginning with <- will not have a leading line-break
+  my $n1 = ($warnmsg =~ s/^<\-// ? '':"\n");
+  my $n2 = ($checkmsg =~ s/^<\-// ? '':"\n");
+  
+  # If either term begins with -> there will be no ending line-break
+  my $endbreak = ($warnmsg =~ s/^\->// ? '':"\n");
+  $endbreak = ($checkmsg =~ s/^\->// || !$endbreak ? '':"\n");
+  
+  # Messages beginning with <> will only be output once
+  if ($warnmsg  =~ s/^<>//) {if ($WARN_MSG{$warnmsg})    {$warnmsg='';}  else {$WARN_MSG{$warnmsg}++;}}
+  if ($checkmsg =~ s/^<>//) {if ($WARN_CHECK{$checkmsg}) {$checkmsg='';} else {$WARN_CHECK{$checkmsg}++;}}
 
-  &Log($n."WARNING: $warnmsg\n".($checkmsg ? "CHECK: $checkmsg\n":''), $flag);
+  if ($warnmsg) {
+    &Log($n1."WARNING: $warnmsg", $flag);
+  }
+  if ($checkmsg) {
+    &Log($n2."CHECK: $checkmsg", $flag);
+  }
+  if ($endbreak && ($warnmsg || $checkmsg)) {&Log("\n");}
 }
 
 sub Note($$) {
   my $notemsg = shift;
   my $flag = shift;
   
-  &Log("NOTE: $notemsg\n", $flag);
+  # If message begins with -> there will be no ending line-break
+  my $endbreak = ($notemsg =~ s/^\->// ? '':"\n");
+  
+  # Messages beginning with <> will only be output once
+  if ($notemsg  =~ s/^<>//) {if ($NOTE_MSG{$notemsg}) {$notemsg='';} else {$NOTE_MSG{$notemsg}++;}}
+  if (!$notemsg) {return;}
+  
+  &Log("NOTE: $notemsg$endbreak", $flag);
 }
 
 sub Debug($$) {
