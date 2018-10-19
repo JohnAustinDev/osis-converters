@@ -124,7 +124,8 @@ BookNames.xml in the sfm directory which should contain localized
   foreach my $book (@books) {
     my %osisName;
     for (my $x=1; $x<=3; $x++) {
-      $osisName{'toc'.$x} = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$x.'"][1]/@n', $osis)}[0];
+      my $n = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$book.'"]/descendant::osis:milestone[@type="x-usfm-toc'.$x.'"][1]/@n', $osis)}[0];
+      if ($n) {$osisName{'toc'.$x} = $n->value;}
     }
     my $shortName;
     if (!$osisName{'toc3'} && !$BOOKNAMES{$book}{@bntypes[2]}) {
