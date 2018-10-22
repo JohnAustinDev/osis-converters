@@ -38,47 +38,52 @@ BK.1.2.3
 means this:
 Bible book 'BK' chapter '1' verse '2' through '3', or, BK 1:2-3
 
+VSYS_MOVED: BK.1.2.3 -> BK.4.5.6
+Specifies that this translation has moved the verses that would be found 
+in a range of the fixed verse system to a different position in the 
+source verse system, indicated by the range to the right of '->'. The 
+two ranges must be the same size. It is processed as a 
+VSYS_MISSING: <fixed-vsys-range> followed by
+VSYS_EXTRA: <source-vsys-range>. The end verse portion of either range 
+may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
+reference applies to only part of the specified verse. The VSYS_MOVED 
+instruction also updates the hyperlink targets of externally sourced 
+Scripture cross-references so that they correctly point to their moved 
+location in the source translation.
+
 VSYS_EXTRA: BK.1.2.3
-Specifies that this translation has inserted this range of extra verses 
-which are not found in the target verse system. These additional verses 
-will all be appended to the preceeding extant verse in the fixed verse 
-system. The additional verses, and any regular verses following them in 
-the chapter, will have alternate verse numbers appended before them, 
-which will display their verse number from the source verse system. 
-Likewise, if the range is an entire chapter, an alternate chapter number 
-will be displayed before the chapter itself and any following chapters 
-in the book.
+Specifies that this translation has inserted a range of verses of the 
+source verse system which are not found in the target verse system. 
+These additional verses will all be appended to the preceeding extant 
+verse in the fixed verse system. The additional verses, and any regular 
+verses following them in the chapter, will have alternate verse numbers 
+appended before them, to display their verse number according to the 
+source verse system. The range may be an entire chapter if it occurs at
+the end of a book (like Psalm 151), in which case an alternate chapter 
+number will be inserted and the chapter will be appended to the last
+verse of the previous chapter.
 
 VSYS_MISSING: BK.1.2.3
-Specifies that this translation does not include this range of verses of
+Specifies that this translation does not include a range of verses of
 the fixed verse system. The preceeding extant verse id will be modified 
 to span the missing range, but in no case exceeding the end of a 
-chapter. Then, alternate numbers will be appended to any following 
-verses in the chapter. Entire missing chapters are not supported.
-
-VSYS_MOVED: BK.1.2.3 -> BK.4.5.6 (or alternatively BK.1.2.PART meaning a 
-part of a verse) specifies that this translation has moved the verses 
-that would be found in range A of the fixed verse system to range B.
-Ranges A and B must be the same size. It is processed as a 
-'VSYS_MISSING: A' followed by a 'VSYS_EXTRA: B'. The last-verse 
-portion of A or B may also be the keyword 'PART', meaning that the 
-reference applies to only part of the specified verse. The VSYS_MOVED 
-instruction also updates the osisRef attribute of externally sourced 
-Scripture cross-references to point to their moved location in the 
-translation.
+chapter. Alternate numbers will be appended to any following verses in 
+the chapter to display their verse number according to the source verse 
+system. Entire missing chapters are not supported.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
-markup like '\va 2\va*' was already used for the moved verses (rather  
-than regular verse markers, which is the more common case). This 
-instruction will not change the OSIS markup of the alternate verses. It 
-is the same as 'VSYS_MISSING: A' followed by 'VSYS_FROM_TO: A -> B'.
+markup like '\va 2\va*' has already been used by the translators for the 
+moved verses (rather than regular verse markers, which is the more 
+common case). This instruction will not change the OSIS markup of the 
+alternate verses. It is the same as 'VSYS_MISSING: A' followed by 
+'VSYS_FROM_TO: A -> B'.
 
 VSYS_MISSING_FN:
 Same as VSYS_MISSING but it only accepts a single verse and is only used 
 if a footnote was included in the verse before the missing verse which 
-addresses the missing verses. This will forward references to the 
-missing verses to the previous verse which has the footnote. This 
+addresses the missing verse. This will forward references to the 
+missing verses to the previous verse which contains the footnote. This 
 instruction is the same as a VSYS_MISSING followed by a VSYS_FROM_TO 
 instruction.
 
@@ -94,7 +99,7 @@ fixed verse system to a different location in the source verse system.
 It would be used if a verse is marked in the text but is left empty,
 while there is a footnote about it in the previous verse (but see 
 VSYS_MISSING_FN which is the more comom case). VSYS_FROM_TO is usually 
-NOT the right instruction for most use cases (but it is used more 
+NOT the right instruction for most use cases (because it is used more 
 internally).
 
 SET_customBookOrder:true
@@ -102,13 +107,9 @@ Turns off the book re-ordering step so books will remain in processed
 order.
 
 NOTES:
-- Each instruction is evaluated in verse system order regardless of
-their order in the CF_ file.
+- Each instruction is evaluated in fixed verse system order regardless 
+of their order in the CF_ file.
 - A verse may be effected by multiple instructions.
-- Verse ranges are in the form OSISBK.chapterNum.verseNum.lastVerseNum
-where lastVerseNum and verseNum are optional. This means up to an entire
-chapter may be specified by a single range (if supported for the
-particular instruction).
 - This implementation does not accomodate extra books, or ranges of 
 chapters, and whole chapters are only supported with VSYS_EXTRA for
 chapters at the end of a book, where the chapter was simply appended 
