@@ -76,6 +76,10 @@ sub start_linux_script() {
     exit;
   }
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
+  
+  $MAININPD = $INPD;
+  if ($MAININPD =~ s/\/([^\/]+DICT)$//) {$DICTINPD = "$MAININPD/$1";}
+  else {$DICTINPD = $INPD.'DICT';}
 
   $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
   
@@ -608,29 +612,27 @@ sub checkAndWriteDefaults() {
   );
   
   # Always process the main project, regardless of which module we started with
-  my $mainINPD = $INPD; $mainINPD =~ s/\/[^\/\s]+DICT$//;
-  
   # Determine if there is any sub-project dictionary (the fastest way possible)
-  my $haveDICT = ($mainINPD ne $INPD ? 1:0);
+  my $haveDICT = ($MAININPD ne $INPD ? 1:0);
   if (!$haveDICT) {
-    if (-e "$mainINPD/config.conf") {
-      if (&readConf("$mainINPD/config.conf")->{'Companion'}) {$haveDICT = 1;}
+    if (-e "$MAININPD/config.conf") {
+      if (&readConf("$MAININPD/config.conf")->{'Companion'}) {$haveDICT = 1;}
     }
     else {
-      if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
+      if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
       if (exists($USFM{'dictionary'})) {$haveDICT = 1;}
     }
   }
   
   # Copy projectDefaults files that are missing
-  my $projName = $mainINPD; $projName =~ s/^.*\/([^\/]+)\/?$/$1/;
+  my $projName = $MAININPD; $projName =~ s/^.*\/([^\/]+)\/?$/$1/;
   my $projType = ($projName =~ /\w{3,}CB$/ ? 'childrens_bible':'bible');
   my @newDefaultFiles;
   foreach my $df (@projectDefaults) {
     my $df_isDirectory = ($df =~ s/\/\*$// ? 1:0); 
     my $dest = $df;
     my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:'');
-    $dest = "$mainINPD/".($dftype eq 'dict' ? $projName.'DICT/':'')."$dest";
+    $dest = "$MAININPD/".($dftype eq 'dict' ? $projName.'DICT/':'')."$dest";
     if ($dftype eq 'dict') {
       if (!$haveDICT) {next;}
     }
@@ -645,7 +647,7 @@ sub checkAndWriteDefaults() {
       push(@newDefaultFiles, split(/\n+/, &shell("find '$dest' -type f -print", 3)));
     }
     # If the user has added CF_osis2osis.txt then never add a default CF_usfm2osis.txt file
-    elsif ($df =~ /CF_usfm2osis\.txt$/ && -e "$mainINPD/".($dftype eq 'dict' ? '/'.$projName.'DICT/':'')."CF_osis2osis.txt") {
+    elsif ($df =~ /CF_usfm2osis\.txt$/ && -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
       next;
     }
     elsif (! -e $dest) {
@@ -664,19 +666,19 @@ sub checkAndWriteDefaults() {
         
         &Note("Customizing $file...");
         if    ($file =~ /config\.conf$/)             {&customize_conf($file, $modName, $modType, $haveDICT);}
-        elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($mainINPD, $file, $modType);}
-        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($mainINPD, $file);}
-        elsif ($file =~ /collections\.txt$/)         {&customize_collections($mainINPD, $file);}
+        elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($file, $modType);}
+        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file);}
+        elsif ($file =~ /collections\.txt$/)         {&customize_collections($file);}
         else {&ErrorBug("Unknown customization type $dc for $file", "Write a customization function for this type of file.", 1);}
       }
     }
   }
   
   # Special file for childrens_bible
-  if ($projType eq 'childrens_bible' && ! -e "$mainINPD/SFM_Files.txt") {
+  if ($projType eq 'childrens_bible' && ! -e "$MAININPD/SFM_Files.txt") {
     # SFM_Files.txt
-    if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
-    if (!open (SFMFS, ">:encoding(UTF-8)", "$mainINPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$mainINPD/SFM_Files.txt\"", '', 1);}
+    if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
+    if (!open (SFMFS, ">:encoding(UTF-8)", "$MAININPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$MAININPD/SFM_Files.txt\"", '', 1);}
     foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
       $f =~ s/^.*[\/\\]//;
       print SFMFS "sfm/$f\n";
@@ -712,11 +714,10 @@ sub customize_conf($$$$) {
   }
 }
 
-sub customize_addScripRefLinks($$) {
-  my $mainINPD = shift;
+sub customize_addScripRefLinks($) {
   my $cf = shift;
   
-  if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
+  if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
   # Collect all available Bible book abbreviations
   my %abbrevs;
@@ -770,12 +771,11 @@ sub getAllAbbrevsString($\%) {
   return $p;
 }
 
-sub customize_usfm2osis($$$) {
-  my $mainINPD = shift;
+sub customize_usfm2osis($$) {
   my $cf = shift;
   my $modType = shift;
   
-  if (!%USFM) {&scanUSFM("$mainINPD/sfm", \%USFM);}
+  if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
   if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
   foreach my $f (sort keys %{$USFM{$modType}}) {
@@ -808,11 +808,10 @@ sub customize_usfm2osis($$$) {
   close(CFF);
 }
 
-sub customize_collections($$) {
-  my $mainINPD = shift;
+sub customize_collections($) {
   my $collections = shift;
   
-  my $bibleConfP = &readConf("$mainINPD/config.conf");
+  my $bibleConfP = &readConf("$MAININPD/config.conf");
   
   if (!open (COLL, ">>:encoding(UTF-8)", $collections)) {&ErrorBug("Could not open \"$collections\"", '', 1);}
   print COLL "Info: (".$bibleConfP->{'Version'}.") ".$bibleConfP->{'Description'}."\n";

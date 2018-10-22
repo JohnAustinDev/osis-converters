@@ -167,10 +167,6 @@ sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
   
-  my $dictINPD = "$INPD/$MOD".'DICT';
-  my $mainINPD = $INPD;
-  if ($mainINPD =~ s/\/([^\/]+DICT)$//) {$dictINPD = "$mainINPD/$1";}
-  
   my $moduleFile = $file;
   my $fileType = ($moduleFile =~ s/^(bible|dict)\/// ? $1:'');
   my $modType = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
@@ -179,7 +175,7 @@ sub getDefaultFile($$) {
   my $defaultFile;
   my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
   
-  my $projectDefaultFile = ($fileType eq 'dict' ? $dictINPD:$mainINPD).'/'.$moduleFile;
+  my $projectDefaultFile = ($fileType eq 'dict' ? $DICTINPD:$MAININPD).'/'.$moduleFile;
   if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
     $defaultFile = $projectDefaultFile;
     &Note("getDefaultFile: (1) Found $file at $defaultFile");
@@ -487,6 +483,8 @@ sub encodePrintPaths($) {
   
   # encode these local file paths
   my @paths = ('INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
+  push(@paths, ($INPD eq MAININPD ? 'DICTINPD':'MAININPD'));
+  
   foreach my $path (@paths) {
     if (!$$path) {next;}
     my $rp = $$path;
