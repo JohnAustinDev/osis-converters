@@ -146,11 +146,11 @@ sub readPaths() {
 
 # Look for an osis-converters default file or directory in the following 
 # places, in order. If a default file is not found, return either '' or 
-# throw a stop error if priority was 0 (or null etc.). The file must  
+# throw a stop error if priority was 0 (or null etc.). The file may  
 # include a path that (presently) begins with either 'bible/' for Bible  
-# module files or 'dict/' for dictionary module files. If priority 1, 2 
-# or 3 is specified, only the location with that priority will be 
-# checked:
+# module default files or 'dict/' for dictionary module default files. 
+# If priority 1, 2 or 3 is specified, only the location with that 
+# priority will be checked:
 # priority  location
 #    1      Project directory (if bible|dict subdir matches the project type)
 #    2      main-project-parent/defaults directory
@@ -163,44 +163,49 @@ sub readPaths() {
 # are valid on the host will NOT be valid on a VM. To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
 # with /vagrant and be broken on the host, although they work on the VM).
-sub getDefaultFile($$$) {
+sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
-  my $inpd = shift; if (!$inpd) {$inpd = $INPD;}
   
-  my $fileType = ($file =~ /^(bible|dict)\// ? $1:'');
-  my $projType = ($inpd =~ /DICT\/?\s*$/ ? 'dict':'bible');
-  my $projParent = $inpd.($projType eq 'dict' ? '/../..':'/..');
-  my $pfile = $file; $pfile =~ s/^(bible|dict)\///;
-   
-  my $f;
+  my $dictINPD = "$INPD/$MOD".'DICT';
+  my $mainINPD = $INPD;
+  if ($mainINPD =~ s/\/([^\/]+DICT)$//) {$dictINPD = "$mainINPD/$1";}
+  
+  my $moduleFile = $file;
+  my $fileType = ($moduleFile =~ s/^(bible|dict)\/// ? $1:'');
+  my $modType = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
+  my $mainParent = $inpd.($modType eq 'dict' ? '/../..':'/..');
+  
+  my $defaultFile;
   my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
-  if (($checkAll || $priority == 1) && $fileType eq $projType && -e "$inpd/$pfile") {
-    $f = "$inpd/$pfile";
-    &Note("getDefaultFile: (1) Found $file at $f");
+  
+  my $projectDefaultFile = ($fileType eq 'dict' ? $dictINPD:$mainINPD).'/'.$moduleFile;
+  if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
+    $defaultFile = $projectDefaultFile;
+    &Note("getDefaultFile: (1) Found $file at $defaultFile");
   }
-  if (($checkAll || $priority == 2) && -e "$projParent/defaults/$file") {
-    if (!$f) {
-      $f = "$projParent/defaults/$file";
-      &Note("getDefaultFile: (2) Found $file at $f");
+  if (($checkAll || $priority == 2) && -e "$mainParent/defaults/$file") {
+    if (!$defaultFile) {
+      $defaultFile = "$mainParent/defaults/$file";
+      &Note("getDefaultFile: (2) Found $file at $defaultFile");
     }
-    elsif (!&shell("diff '$projParent/defaults/$file' '$f'", 3)) {
-      &Note("(2) Default file $f is not needed because it is identical to the more general default file at $projParent/defaults/$file");
+    elsif (!&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3)) {
+      &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
     }
   }
   if (($checkAll || $priority == 3) && -e "$SCRD/defaults/$file") {
-    if (!$f) {
-      $f = "$SCRD/defaults/$file";
-      &Note("getDefaultFile: (3) Found $file at $f");
+    if (!$defaultFile) {
+      $defaultFile = "$SCRD/defaults/$file";
+      &Note("getDefaultFile: (3) Found $file at $defaultFile");
     }
-    elsif (!&shell("diff '$SCRD/defaults/$file' '$f'", 3)) {
-      &Note("(3) Default file $f is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
+    elsif (!&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3)) {
+      &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
   }
-  if (!$priority && !$f) {
+  if (!$priority && !$defaultFile) {
     &ErrorBug("Default file $file could not be found in any default path.", 'Add this file to the osis-converters/defaults directory.', 1);
   }
-  return $f;
+  return $defaultFile;
 }
 
 # Return 1 if dependencies are met for $script and 0 if not

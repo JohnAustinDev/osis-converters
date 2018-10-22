@@ -142,12 +142,7 @@ sub runAddFootnoteLinks($$) {
   &Log("WRITING INPUT FILE: \"$output\".\n");
   &Log("\n");
   
-  my $bibleOsis;
-  if ($MODDRV =~ /Text/) {$bibleOsis = $$osisP;}
-  # If this is a glossary with a companion Bible, parse the companion Bible's OSIS to collect its footnote osisID values
-  elsif ($MODDRV =~ /LD/ && $ConfEntryP->{'Companion'}) {
-    $bibleOsis = &getProjectOsisFile($ConfEntryP->{'Companion'});
-  }
+  my $bibleOsis = &getProjectOsisFile($MOD =~ /^(.*?)DICT$/ ? $1:$MOD);
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
     my $bmod;
@@ -178,7 +173,11 @@ sub runAddFootnoteLinks($$) {
     }
   }
   else {
-    &ErrorBug("Bible OSIS was not found at \"$bibleOsis\".");
+    &Error("Bible OSIS file was not found.", 
+"The addFootnoteLinks script requires that the Bible OSIS file is 
+generated before generating the DICT OSIS file. Run sfm2osis.pl on the 
+Bible module to generate a valid OSIS file, and then try generating the 
+DICT OSIS file again.");
   }
   
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
