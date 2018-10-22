@@ -124,9 +124,11 @@ sub checkCircularEntries($) {
   &Log("\n");
   &Report("Found $n circular cross references in \"$out_file\".");
   if ($addDictLinks !~ /^check$/i && $n > 0) {
-    &Note("Some short entries only say: \"See long entry\". In such cases it is");
-    &Log("often nice if the long entry does not link to the short \"dummy\" entry.\n");
-    &Log("These circular references can be eliminated with 'notContext' attributes in $DICTIONARY_WORDS, like this:\n");
+    &Warn(
+"The above $n short entries only say: \"See longer entry\".", 
+"In most such cases the long entry should not link back to the short 
+entry. These circular references can be eliminated with the following
+'notContext' attributes added to $DICTIONARY_WORDS, like this:");
     foreach my $osisRefShort (sort keys %circulars) {
       my $osisRefLong = $circulars{$osisRefShort};
       &Log("<entry osisRef=\"$osisRefShort\" notContext=\"".$osisRefLong."\">\n");

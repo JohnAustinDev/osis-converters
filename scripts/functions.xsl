@@ -56,26 +56,32 @@
   <!-- Sort by an arbitrary character order: <sort select="oc:langSortOrder(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
   <function name="oc:langSortOrder" as="xs:string">
     <param name="text" as="xs:string"/>
-    <param name="order" as="xs:string"/>
-    <value-of>
-      <for-each select="string-to-codepoints($text)">
-        <choose>
-          <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
-            <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/> <!-- ⇹ is a random never-used character required in first position -->
-            <if test="not($before)">
-              <call-template name="Log"><with-param name="msg" select="$text"/></call-template>
-              <call-template name="ErrorBug">
-                <with-param name="die" select="'yes'"/>
-                <with-param name="msg">langSortOrder(): Cannot sort aggregate glossary; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</with-param>
-                <with-param name="exp">Add the missing character to the config.conf file's LangSortOrder entry. Place it where it belongs in the order of characters.</with-param>
-              </call-template>
-            </if>
-            <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
-          </when>
-          <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
-        </choose>
-      </for-each>
-    </value-of>
+    <param name="order" as="xs:string?"/>
+    <if test="$order">
+      <value-of>
+        <for-each select="string-to-codepoints($text)">
+          <choose>
+            <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
+              <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/> <!-- ⇹ is a random never-used character required in first position -->
+              <if test="not($before)">
+                <call-template name="Log"><with-param name="msg" select="$text"/></call-template>
+                <call-template name="Error">
+                  <with-param name="msg">langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</with-param>
+                  <with-param name="exp">Add the missing character to the config.conf file's LangSortOrder entry. Place it where it belongs in the order of characters.</with-param>
+                  <with-param name="die" select="'yes'"/>
+                </call-template>
+              </if>
+              <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
+            </when>
+            <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
+          </choose>
+        </for-each>
+      </value-of>
+    </if>
+    <if test="not($order)">
+      <call-template name="Warn"><with-param name="msg">langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order. To reorder characters, specify the language's character order in config.conf with an entry like this: LangSortOrder=AaBbCcDdEe... etc.</with-param></call-template>
+      <value-of select="$text"/>
+    </if>
   </function>
   
   <function name="oc:printNode" as="text()">

@@ -360,7 +360,7 @@ sub loadDictionaryWordsXML($) {
   
   my $valid = 0;
   if ($errors == 0) {$valid = &validateDictionaryWordsXML($DWF);}
-  if ($valid) {&Note("\n$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n");}
+  if ($valid) {&Note("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n");}
   
   return ($valid && $errors == 0 ? 1:0);
 }
@@ -1329,8 +1329,10 @@ sub getLangSortOrder($) {
     $res .= &uc2($l).&lc2($l);
     $last = &uc2($l);
   }
-  if ($res) {&Log("INFO: LangSortOrder=$res\n");}
-  else {&Warn("Could not determine LangSortOrder");}
+  if ($res) {&Note("LangSortOrder=$res\n");}
+  else {&Warn("Could not determine LangSortOrder", 
+"Specify the language's character order in config.conf with an 
+entry like this: LangSortOrder=AaBbCcDdEe... etc.");}
   return $res;
 }
 
@@ -3305,10 +3307,10 @@ sub checkSourceScripRefLinks($$) {
         }
         elsif (!$bks{$bk}) {
           &Warn("<-Removing hyperlink to missing book: $sref", 
-"<>Apparently not all 66 Bible books have been included in this project, but 
-there are references in the source text to missing books. So these 
-hyperlinks are being removed for now until the other books are added to 
-the translation.");
+"<>Apparently not all 66 Bible books have been included in this 
+project, but there are references in the source text to missing books. 
+So these hyperlinks are being removed for now until the other books are 
+added to the translation.");
           foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
           $sref->unbindNode();
         }
@@ -3500,11 +3502,11 @@ sub checkFigureLinks($) {
       next;
     }
     if (! -e "$INPD/$src") {
-      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist!");
+      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist.");
       $errors++;
     }
     if ($src != /^\.\/images\//) {
-      &Error("checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions!");
+      &Error("checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions.");
     }
   }
 

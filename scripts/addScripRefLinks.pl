@@ -237,11 +237,11 @@ sub runAddScripRefLinks($$$) {
         $printReference =~ s/\\"/"/g; $replacement =~ s/\\"/"/g; # unescape any escaped double quotes
         $fix{$location}{$printReference} = ($replacement ? $replacement:'skip');
       }
-      elsif ($_ =~ /^([\S]+)\s*=\s*(.*)\s*$/) {
+      elsif ($_ =~ /^([\S]+)\s*=\s*(.+?)\s*$/) {
         my $lb = $2;
-        my $elb = quotemeta($2);
+        my $elb = quotemeta($lb);
         $books{$lb}=$1;
-        if ($2 =~ /[\.\?\*]/) {$bookNamesWithPerlChars{$2}++;}
+        if ($lb && $lb =~ /[\.\?\*]/) {$bookNamesWithPerlChars{$lb}++;}
         push(@abkn, $elb);
       }
       else {
@@ -250,14 +250,14 @@ sub runAddScripRefLinks($$$) {
     }
     close (CF);
     
-    if (%bookNamesWithPerlChars) {
-    &Warn("Book name terms to the right of '=' in CF_addScripRefLinks.txt 
+    if (scalar keys %bookNamesWithPerlChars) {
+      &Warn("Book name terms to the right of '=' in CF_addScripRefLinks.txt 
 are NOT Perl regular expressions but are string literals (however, these 
 terms may have PREFIXES before or SUFFIXES after the name and still 
 match).", "If you are trying to use regular expressions in the following 
 book terms, they will not work as regex. So add each book name that you 
-wish to match on a separate line:\n".
-(join(', ', sort keys %bookNamesWithPerlChars)));
+wish to match on a separate line:");
+      foreach my $bname (sort keys %bookNamesWithPerlChars) {&Log("$bname\n");}
     }
 
     if (@abkn) {

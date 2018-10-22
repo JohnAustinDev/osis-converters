@@ -145,7 +145,7 @@
           <xsl:variable name="combinedGlossary" as="element(div)">
             <div type="glossary" subType="x-combinedGlossary">
               <xsl:if test="$dictEntries and not(//description[@type='x-sword-config-LangSortOrder'])">
-                <xsl:call-template name="Error"><xsl:with-param name="die" select="'yes'"/><xsl:with-param name="msg">Cannot sort glossary entries: 'LangSortOrder' must be specified in config.conf.</xsl:with-param></xsl:call-template>
+                <xsl:call-template name="Error"><xsl:with-param name="msg">Cannot sort glossary entries: 'LangSortOrder' must be specified in config.conf with an entry like this: LangSortOrder=AaBbCcDdEe... etc.</xsl:with-param></xsl:call-template>
               </xsl:if>
               <xsl:for-each select="$dictEntries">
                 <xsl:sort select="oc:langSortOrder(.//seg[@type='keyword'], //description[@type='x-sword-config-LangSortOrder'][1])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>

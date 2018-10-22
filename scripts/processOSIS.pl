@@ -110,10 +110,9 @@ if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 &checkReferenceLinks($OSIS);
 
 # After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
-if ($projectBible && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary."/navigation.sfm")) {
+if ($projectBible && !(-e "$DICTINPD/navigation.sfm")) {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-  my $gloss = ($projectGlossary ? "$INPD/".($MODDRV =~ /Text/ ? $projectGlossary.'/':'')."CF_usfm2osis.txt":'');
-  my $glossContainsINT = ($projectGlossary ? `grep "scope == INT" $gloss`:'');
+  my $glossContainsINT = ($projectGlossary ? `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`:'');
 
   # Tell the user about the introduction nav menu feature if it's available and not being used
   if ($projectGlossary && !$glossContainsINT) {
@@ -121,17 +120,18 @@ if ($projectBible && !(-e "$INPD/navigation.sfm" || -e "$INPD/".$projectGlossary
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
         my $bmod = $projectBible; my $gmod = $projectGlossary;
-        &Note("
-      Module $bmod contains <div type=\"introduction\"> material and it 
-      appears you have not duplicated that material in the glossary. This \
-      introductory material could be more useful if copied into glossary \
-      module $gmod. This can easily be done by including the INT USFM file \
-      in the glossary with scope INT and using an EVAL_REGEX to turn the \
-      headings into glossary keys. A menu system will then automatically \
-      be created to make the introduction material available in every \
-      book and keyword. Just add code like this to $gmod/CF_usfm2osis.txt: \
-EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ \
-EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm \
+        &Note(
+"Module $bmod contains module introduction material (located before 
+the first bookGroup, which applies to the entire module). It appears 
+you have not duplicated this material in the glossary. This introductory 
+material could be more useful if copied into glossary module $gmod. 
+Typically this is done by including the INT USFM file in the glossary 
+with scope INT and using an EVAL_REGEX to turn the headings into 
+glossary keys. A menu system will then automatically be created to make 
+the introduction material available in every book and keyword. Just add 
+code something like this to $gmod/CF_usfm2osis.txt: 
+EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ 
+EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
 RUN:./INT.SFM");
       }
     }
