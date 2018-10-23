@@ -553,24 +553,22 @@ BOOK:
 #    are used for updating external osisRefs.
 # 3) Find applicable osisRefs in $osis which point to the osisIDs found 
 #    in #2 and #3, and correct them, plus add source target as annotateRef.
-sub correctReferencesVSYS($$) {
+sub correctReferencesVSYS($) {
   my $osisP = shift;
-  my $bibleMod = shift;
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1correctReferencesVSYS$3/;
   
-  my $bfile = ($bibleMod eq $MOD ? $$osisP:&getProjectOsisFile($bibleMod));
-
-  if (! -e $bfile) {
+  my $in_bible = ($INPD eq $MAININPD ? $$osisP:&getProjectOsisFile($MAINMOD));
+  if (! -e $in_bible) {
     &Warn("No OSIS Bible file was found. References effected by VSYS instructions will not be corrected.");
     return;
   }
-  &Log("\n\nUpdating osisRef attributes of \"$bfile\" that require re-targeting after VSYS instructions:\n", 1);
+  &Log("\n\nUpdating osisRef attributes of \"$in_bible\" that require re-targeting after VSYS instructions:\n", 1);
   
   my $count = 0;
   
   # Read Bible file
-  my $bibleXML = $XML_PARSER->parse_file($bfile);
+  my $bibleXML = $XML_PARSER->parse_file($in_bible);
   my $vsys = &getVerseSystemOSIS($bibleXML);
   
   # Read OSIS file

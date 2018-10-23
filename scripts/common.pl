@@ -81,7 +81,6 @@ sub start_linux_script() {
   if ($MAININPD =~ s/\/([^\/]+DICT)$//) {$DICTINPD = "$MAININPD/$1";}
   else {$DICTINPD = $INPD.'DICT';}
   $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
-  $DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;
 
   $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
   
@@ -94,6 +93,9 @@ sub start_linux_script() {
   &readBookNamesXML();
 
   &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
+  
+  # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
+  if (-e $DICTINPD) {$DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;}
   
   if (!-e $CONFFILE) {
     &Error("Could not find or create a \"$CONFFILE\" file.
@@ -121,10 +123,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   $addCrossRefs = "on_by_default";
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
   foreach my $s (@CF_files) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
-  if (-e "$INPD/$DICTIONARY_WORDS") {
-    my $set = ($MOD =~ /DICT$/ ? 'addSeeAlsoLinks':'addDictLinks');
-    $$set = 'on_by_default';
-  }
+  if ($INPD eq $DICTINPD) {$addSeeAlsoLinks = 'on_by_default';}
+  elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
   
   my $appendlog = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
@@ -3273,15 +3273,14 @@ sub osisIDSort($$$$) {
 # is run before fitToVerseSystem(), so it is checking that the source
 # text's references are consistent with itself. Any broken links found
 # here are either mis-parsed, or are errors in the source text.
-sub checkSourceScripRefLinks($$) {
+sub checkSourceScripRefLinks($) {
   my $in_osis = shift;
-  my $bibleMod = shift;
   
   &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
   my $problems = 0; my $checked = 0;
   
-  my $in_bible = ($bibleMod eq $MOD ? $in_osis:&getProjectOsisFile($bibleMod));
+  my $in_bible = ($INPD eq $MAININPD ? $in_osis:&getProjectOsisFile($MAINMOD));
   if (-e $in_bible) {
     my $bible = $XML_PARSER->parse_file($in_bible);
     # Get all books found in the Bible
@@ -3292,7 +3291,7 @@ sub checkSourceScripRefLinks($$) {
     # Get all chapter and verse osisIDs
     my %ids;
     foreach my $v ($XPC->findnodes('//osis:verse[@osisID] | //osis:chapter[@osisID]', $bible)) {
-      foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{"$bibleMod:$id"}++;}
+      foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {$ids{"$MAINMOD:$id"}++;}
     }
     
     # Check Scripture references in the original text (not those added by addCrossRefs)
@@ -3302,7 +3301,7 @@ sub checkSourceScripRefLinks($$) {
       # check beginning and end of range, but not each verse of range (since verses within the range may be purposefully missing)
       my $oref = $sref->getAttribute('osisRef');
       foreach my $id (split(/\-/, $oref)) {
-        $id = ($id =~ /\:/ ? $id:"$bibleMod:$id");
+        $id = ($id =~ /\:/ ? $id:"$MAINMOD:$id");
         my $bk = ($id =~ /\:([^\.]+)/ ? $1:'');
         if (!$bk) {
           &ErrorBug("Failed to parse reference from book: $id !~ /\:([^\.]+)/ in $sref.");
@@ -3330,7 +3329,7 @@ else this is a problem with the source text:
   }
   else {
     $problems++;
-    &Error("Cannot check Scripture reference targets because unable to locate $bibleMod.xml.", "Run sfm2osis.pl on $bibleMod to generate an OSIS file.");
+    &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis.pl on $MAINMOD to generate an OSIS file.");
   }
   
   &Report("$checked Scripture references checked. ($problems problems)\n");
@@ -3955,18 +3954,13 @@ sub findCompanionDirectory($) {
 # include, as meta-data, settings from $confP, $convEBOOKP and $confHhtmlP.
 # The osis file is overwritten if $osis_or_osisP is not a reference,
 # otherwise a new output file is written and the reference is updated to
-# point to it. The $bibleP and $glossaryP references are updated with the
-# module names of the project's first discovered Bible or glossary module 
-# name, if they may be determined from the ModDrv and Companion settings
-# of  $confP.
-sub writeOsisHeader($\%\%\%\%\$\$) {
+# point to it.
+sub writeOsisHeader($\%\%\%\%) {
   my $osis_or_osisP = shift;
   my $confP = shift;
   my $convEBOOKP = shift;
   my $convHTMLP = shift;
   my $convOSIS2HTMLP = shift;
-  my $bibleP = shift;
-  my $glossaryP = shift;
   
   my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
   my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
@@ -3983,9 +3977,7 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
   
   # What type of document is this?
   my $type;
-  if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary'; $$glossaryP = $MOD;}
-  elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible'; $$bibleP = $MOD;}
-  elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
+  if ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type = 'x-commentary';}
   
   # Both osisIDWork and osisRefWork defaults are set to the current work.
@@ -4033,8 +4025,6 @@ sub writeOsisHeader($\%\%\%\%\$\$) {
   # Add work element for any companion
   if ($confP->{'Companion'}) {
     my $comp = $confP->{'Companion'};
-    if ($type eq 'x-glossary') {$$bibleP    = $comp;}
-    if ($type eq 'x-bible')    {$$glossaryP = $comp;}
     my $path = &findCompanionDirectory($comp);
     if (!$path) {
       &Error("Could not locate $comp project directory as specified in $INPD/config.conf.");

@@ -11,15 +11,13 @@ $c = &getDefaultFile('bible/html/convert.txt');
 %HTMLCONV = ($c ? &readConvertTxt($c):());
 $c = &getDefaultFile('bible/eBook/convert.txt');
 %EBOOKCONV = ($c ? &readConvertTxt($c):());
-my $projectBible;
-my $projectGlossary;
-&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL, \$projectBible, \$projectGlossary)."\n");
+&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
-  if (-e "$INPD/$DICTIONARY_WORDS") {
-    my $dictosis = ($projectGlossary ? &getProjectOsisFile($projectGlossary):'');
+  if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
+    my $dictosis = &getProjectOsisFile($DICTMOD);
     if ($dictosis) {
       &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
       &loadDictionaryWordsXML($dictosis);
@@ -32,13 +30,17 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
 }
 elsif ($MODDRV =~ /LD/) {
   &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
-  my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
-  &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
-  if (! -e "$INPD/$DICTIONARY_WORDS" && -e $DEFAULT_DICTIONARY_WORDS) {
-    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
-  }
-  if (&loadDictionaryWordsXML($OSIS) && $projectBible && -e "$INPD/../../$projectBible" && ! -e "$INPD/../../$projectBible/$DICTIONARY_WORDS") {
-    copy($DEFAULT_DICTIONARY_WORDS, "$INPD/../../$projectBible/$DICTIONARY_WORDS");
+  if ($addSeeAlsoLinks) {
+    my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
+    &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
+    # write INPD DictionaryWords.txt if needed
+    if (-e $DEFAULT_DICTIONARY_WORDS && ! -e "$INPD/$DICTIONARY_WORDS") {
+      copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
+    }
+    # write MAINMOD DictionaryWords.txt if needed
+    if (&loadDictionaryWordsXML($OSIS) && $MAINMOD && ! -e "$MAININPD/$DICTIONARY_WORDS") {
+      copy($DEFAULT_DICTIONARY_WORDS, "$MAININPD/$DICTIONARY_WORDS");
+    }
   }
 }
 else {die "Unhandled ModDrv \"$MODDRV\"\n";}
@@ -50,7 +52,7 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 if ($addScripRefLinks) {
   require("$SCRD/scripts/addScripRefLinks.pl");
   &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
-  &checkSourceScripRefLinks($OSIS, $projectBible);
+  &checkSourceScripRefLinks($OSIS);
 }
 
 if ($addFootnoteLinks) {
@@ -74,9 +76,9 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 
-if ($MODDRV =~ /Text/ && $addDictLinks) {
+if ($DICTMOD && $MODDRV =~ /Text/ && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
-    &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$projectGlossary\", then copy  $projectGlossary/$DICTIONARY_WORDS to $INPD.");
+    &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
   }
   else {
     require("$SCRD/scripts/bible/addDictLinks.pl");
@@ -99,7 +101,7 @@ if ($MODDRV =~ /Text/ && $addCrossRefs) {
   &runAddCrossRefs(\$OSIS);
 }
 
-&correctReferencesVSYS(\$OSIS, $projectBible);
+&correctReferencesVSYS(\$OSIS);
 
 if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 
@@ -110,26 +112,25 @@ if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 &checkReferenceLinks($OSIS);
 
 # After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
-if ($projectBible && !(-e "$DICTINPD/navigation.sfm")) {
+if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-  my $glossContainsINT = ($projectGlossary ? `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`:'');
+  my $glossContainsINT = `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
 
   # Tell the user about the introduction nav menu feature if it's available and not being used
-  if ($projectGlossary && !$glossContainsINT) {
-    my $biblef = &getProjectOsisFile($projectBible);
+  if ($MAINMOD && !$glossContainsINT) {
+    my $biblef = &getProjectOsisFile($MAINMOD);
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
-        my $bmod = $projectBible; my $gmod = $projectGlossary;
         &Note(
-"Module $bmod contains module introduction material (located before 
+"Module $MAINMOD contains module introduction material (located before 
 the first bookGroup, which applies to the entire module). It appears 
 you have not duplicated this material in the glossary. This introductory 
-material could be more useful if copied into glossary module $gmod. 
+material could be more useful if copied into glossary module $DICTMOD. 
 Typically this is done by including the INT USFM file in the glossary 
 with scope INT and using an EVAL_REGEX to turn the headings into 
 glossary keys. A menu system will then automatically be created to make 
 the introduction material available in every book and keyword. Just add 
-code something like this to $gmod/CF_usfm2osis.txt: 
+code something like this to $DICTMOD/CF_usfm2osis.txt: 
 EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ 
 EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
 RUN:./INT.SFM");
