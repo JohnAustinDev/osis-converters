@@ -80,6 +80,8 @@ sub start_linux_script() {
   $MAININPD = $INPD;
   if ($MAININPD =~ s/\/([^\/]+DICT)$//) {$DICTINPD = "$MAININPD/$1";}
   else {$DICTINPD = $INPD.'DICT';}
+  $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+  $DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;
 
   $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
   

@@ -142,7 +142,7 @@ sub runAddFootnoteLinks($$) {
   &Log("WRITING INPUT FILE: \"$output\".\n");
   &Log("\n");
   
-  my $bibleOsis = &getProjectOsisFile($MOD =~ /^(.*?)DICT$/ ? $1:$MOD);
+  my $bibleOsis = ($MODDRV !~ /LD/ ? $$osisP:&getProjectOsisFile($MAINMOD));
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
     my $bmod;
