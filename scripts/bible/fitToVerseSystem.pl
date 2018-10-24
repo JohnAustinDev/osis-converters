@@ -186,8 +186,9 @@ chapters at the end of a book, where the chapter was simply appended
 %PERIPH_SUBTYPE_MAP_R = reverse %PERIPH_SUBTYPE_MAP;
 
 %USFM_DEFAULT_PERIPH_TARGET = (
-  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction' => 'osis:header',
-  'Foreword|Preface|Chronology|Weights and Measures|Map Index|NT Quotes from LXX|Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
+  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction|Foreword|Preface|Chronology|Weights and Measures|Map Index' => 'place-according-to-scope',
+  'Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
+  'NT Quotes from LXX' => 'osis:div[@type="bookGroup"][last()]',
   'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
   'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
   'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
@@ -289,7 +290,7 @@ sub orderBooksPeriphs($$$) {
     }
     else {
       my $comment = @commentNode[0];
-      #<!-- id comment - (FRT) titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
+      #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
       $comment =~ s/^<\!\-\-.*?(?=\s(?:\S+|"[^"]+") ==)//; # strip beginning stuff
       $comment =~ s/\s*\-\->$//; # strip end stuff
       
@@ -306,6 +307,7 @@ sub orderBooksPeriphs($$$) {
         my $xpath = $2;
         $int =~ s/"//g; # strip possible quotes
         if ($int eq 'scope') {
+          $xpath =~ s/"//g; # strip possible quotes
           if (!$periph->getAttribute('osisRef')) {
             $periph->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
           }
@@ -316,8 +318,7 @@ sub orderBooksPeriphs($$$) {
         my @targXpath = ();
         if ($xpath =~ /^remove$/i) {$xpath = '';}
         else {
-          $xpath = '//'.$xpath;
-          @targXpath = $XPC->findnodes($xpath, $xml);
+          @targXpath = $XPC->findnodes('//'.$xpath, $xml);
           if (!@targXpath) {
             push(@mylog, "Error: Removing periph! Could not locate xpath:\"$xpath\" $emsg");
             next;
@@ -408,9 +409,9 @@ sub placementMessage() {
   $AlreadyReportedThis = 1;
 return
 "------------------------------------------------------------------------
-| The location of peripheral file contents and, if desired, the location 
-| of each \periph section within the file must be appended to the end of
-| the /id line of each peripheral USFM file, like this:
+| The destination location of peripheral file contents and, if desired,
+| of each \periph section, must be appended to the end of the peripheral 
+| USFM file's \id line, like this:
 |
 | \id INT div-type-or-subType == xpath-expression, div-type-or-subType == xpath-expression,...
 |

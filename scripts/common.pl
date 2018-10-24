@@ -785,6 +785,7 @@ sub customize_usfm2osis($$) {
   
   if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
   foreach my $f (sort keys %{$USFM{$modType}}) {
+    my $scope = $USFM{$modType}{$f}{'scope'};
     my $r = File::Spec->abs2rel($f, $INPD); if ($r !~ /^\./) {$r = './'.$r;}
     
     # peripherals need a target location in the OSIS file added to their ID
@@ -796,16 +797,17 @@ sub customize_usfm2osis($$) {
       else {
         print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
       }
-      my $xpath = "location == osis:header";
+      my $xpath = &getOsisMap('location', $scope);
       if (@{$USFM{$modType}{$f}{'periphType'}}) {
         foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
-          my $osisMap = &getOsisMap($periphType);
+          my $osisMap = &getOsisMap($periphType, $scope);
           if (!$osisMap) {next;}
-          $xpath .= ", \"$periphType\" == ".$osisMap->{'xpath'};
+          $xpath .= ", $osisMap";
         }
       }
       $xpath =~ s/([\@\$])/\\$1/g;
       print CFF $xpath;
+      if ($scope) {print CFF ", scope == $scope";}
       print CFF "/m\n";
     }
 
@@ -847,22 +849,48 @@ sub customize_collections($) {
   close(COLL);
 }
 
-
+# Given an official peripheral description and scope, return the
+# CF_usfm2osis.txt code for default placement of the peripheral within 
+# an OSIS file. When $pt is 'location' (an entire file) it is placed
+# in the proper bookGroup, or the first book of $scope, or else 
+# osis:header
 sub getOsisMap($) {
   my $pt = shift;
+  my $scope = shift;
+  
+  my $scopePath = 'osis:header';
+  if ($scope) {
+    if ($scope eq 'Matt-Rev') {$scopePath = 'osis:div[@type="bookGroup"][last()]';}
+    elsif ($scope eq 'Gen-Mal') {$scopePath = 'osis:div[@type="bookGroup"][1]';}
+    else {
+      $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:'');
+      if (!$scopePath || !$OSISBOOKS{$scopePath}) {
+        &Error("USFM file's scope \"$scope\" is not recognized.", 
+"Make sure the sfm sub-directory is named using a proper OSIS 
+book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
+        $scopePath = 'osis:header';
+      }
+      else {$scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]';}
+    }
+  }
+  if ($pt eq 'location') {return "location == $scopePath";}
 
-  my $name = $PERIPH_TYPE_MAP{$pt};
-  if (!$name) {&Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . keys %PERIPH_TYPE_MAP); return NULL;}
-  if ($name eq 'introduction') {$name = $PERIPH_SUBTYPE_MAP{$pt};}
+  my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$pt};
+  if (!$periphTypeDescriptor) {
+    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . keys %PERIPH_TYPE_MAP);
+    return NULL;
+  }
+  if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
 
   my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
   foreach my $t (keys %USFM_DEFAULT_PERIPH_TARGET) {
     if ($pt !~ /^($t)$/i) {next;}
     $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
+    if ($xpath eq 'place-according-to-scope') {$xpath = $scopePath;}
     last;
   }
-  my %h = ( 'name' => $name, 'xpath' => $xpath );
-  return \%h;
+  
+  return "\"$pt\" == $xpath";
 }
 
 # Copy fontname (which is part of a filename which may correspond to multiple
@@ -976,6 +1004,10 @@ sub scanUSFM_file($) {
   &Log("Scanning SFM file: \"$f\"\n");
   
   if (!open(SFM, "<:encoding(UTF-8)", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
+  
+  $info{'scope'} = ($f =~ /\/sfm\/([^\/]+)\/[^\/]+$/ ? $1:'');
+  if ($info{'scope'}) {$info{'scope'} =~ s/_/ /g;}
+  
   my $id;
   # Only the first of each of the following tag roots (by root meaning 
   # the tag followed by any digit) within an SFM file, will be 

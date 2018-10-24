@@ -121,6 +121,7 @@ if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
     my $biblef = &getProjectOsisFile($MAINMOD);
     if ($biblef) {
       if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
+        &Log("\n");
         &Note(
 "Module $MAINMOD contains module introduction material (located before 
 the first bookGroup, which applies to the entire module). It appears 
