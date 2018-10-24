@@ -77,10 +77,14 @@ sub start_linux_script() {
   }
   chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
   
+  # Set MAININPD, MAINMOD, and DICTINPD (DICTMOD is set after checkAndWriteDefaults())
   $MAININPD = $INPD;
-  if ($MAININPD =~ s/\/([^\/]+DICT)$//) {$DICTINPD = "$MAININPD/$1";}
-  else {$DICTINPD = $INPD.'DICT';}
   $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+  if ($MAININPD =~ s/\/([^\/]+DICT)$//) {
+    $DICTINPD = "$MAININPD/$1";
+    $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+  }
+  else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
 
   $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
   
