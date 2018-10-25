@@ -353,7 +353,7 @@ sub orderBooksPeriphs($$$) {
         }
         if ($xpath) {
           my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-          push(@mylog, "Note: Placing $tg as specified by \"$int\" == \"$xpath\"");
+          push(@mylog, "Note: Placing $int == $xpath for $tg");
         }
         else {push(@mylog, "Note: Removing \"$int\" $emsg.");}
       }
@@ -409,31 +409,35 @@ sub placementMessage() {
   $AlreadyReportedThis = 1;
 return
 "------------------------------------------------------------------------
-| The destination location of peripheral file contents and, if desired,
-| of each \periph section, must be appended to the end of the peripheral 
-| USFM file's \id line, like this:
+| The destination location of peripheral files and, if desired, of each 
+| \periph section within these files, must be appended to the end of 
+| each peripheral USFM file's \id line, like this:
 |
-| \id INT div-type-or-subType == xpath-expression, div-type-or-subType == xpath-expression,...
+| \id INT location == <xpath-expression>, <div-type> == <xpath-expression>, <div-type> == <xpath-expression>, ...
 |
-| Where div-type-or-subType is one of the following:
-| \t-The keyword 'location' specifies the location the entire file should go.
-| \t-Any peripheral <div>'s type or subType value specifies the next 
-| \t\t<div> in the converted file sharing that type or subType.
-| \t- Any \periph tag type must be \"IN DOUBLE QUOTES\" and specifies the
-| \t\tnext <div> corresponding to that periph type. If the type is not
-| \t\tpart of the USFM 2.4 specification, it can only be specified by
-| \t\tusing x-unknown WITHOUT QUOTES.
+| Where 'location' is used to specify where the entire file should go.
 |
-| Where xpath-expression is one of:
+| Where <div-type> is one of the following:
+| \t-A peripheral OSIS div type or subType will select the next div 
+| \t\tin the converted OSIS file having that type or subType.
+| \t- A USFM \periph type within double quotes (and don't forget the 
+| \t\tquotes) will select the next OSIS div of that periph type. 
+| \t- If the div you want to select is not part of the USFM 2.4 
+| \t\tspecification, it can only be specified with: 
+| \t\tx-unknown == <xpath-expression>.
+|
+| Where <xpath-expression> is one of:
 | \t-The keyword 'remove' to remove it from the OSIS file entirely.
-| \t-The keyword 'osis:header' to place it after the header element.
-| \t-An XPATH expression for the parent element at the top of which
-| \t\tit should be placed. IMPORTANT: You must escape all @ characters 
-| \t\twith \\ to make perl happy. 
+| \t-The keyword 'osis:header' to place it after the header element,
+| \t\twhich is the location for full Bible introductory material.
+| \t-An XPATH expression selecting the parent element at the top of 
+| \t\twhich it should be placed, such as: 
+| \t\tosis:div[\@osisID=\"Ruth\"]
+| \t\tto place it at the beginning of the book of Ruth.
 |
 | Optionally, you may also specify the scope of each peripheral file by 
-| adding \"scope == Matt-Rev\" for instance. This is used by single Bible-
-| book eBooks to duplicate peripheral material in multiple eBooks.
+| adding \"scope == Matt-Rev\" for instance. This is used by single
+| Bible-book eBooks to duplicate peripheral material where needed.
 ------------------------------------------------------------------------\n";
 }
 
