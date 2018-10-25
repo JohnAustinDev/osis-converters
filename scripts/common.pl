@@ -41,8 +41,10 @@ $FNREFEXT = "!note.n";
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
 $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
-foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
-  $OSISBOOKS{$bk}++;
+{ my $bn = 1;
+  foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
+    $OSISBOOKS{$bk} = $bn; $bn++;
+  }
 }
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 $VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
@@ -777,6 +779,42 @@ sub getAllAbbrevsString($\%) {
   return $p;
 }
 
+# Sort USFM files by scope, type (and if type is book, then book order 
+# in KJV), then filename
+sub usfmFileSort($$$) {
+  my $fa = shift;
+  my $fb = shift;
+  my $infoP = shift;
+  
+  my $scopea = $infoP->{$fa}{'scope'};
+  my $scopeb = $infoP->{$fb}{'scope'};
+  
+  # sort by scope exists or not
+  my $r = ($scopea ? 1:0) <=> ($scopeb ? 1:0);
+  if ($r) {return $r;}
+  
+  # sort by first book of scope
+  $scopea =~ s/^([^\s\-]+).*?$/$1/;
+  $scopeb =~ s/^([^\s\-]+).*?$/$1/;
+  $r = $OSISBOOKS{$scopea} <=> $OSISBOOKS{$scopeb};
+  if ($r) {return $r;}
+  
+  # sort by type, bible books last
+  my $typea = $infoP->{$fa}{'type'};
+  my $typeb = $infoP->{$fb}{'type'};
+  $r = ($typea eq 'bible' ? 0:1) <=> ($typeb eq 'bible' ? 0:1);
+  if ($r) {return $r;}
+  
+  # if we have bible books, sort by order in KJV
+  if ($typea eq 'bible') {
+    $r = $OSISBOOKS{$infoP->{$fa}{'osisBook'}} <=> $OSISBOOKS{$infoP->{$fb}{'osisBook'}};
+    if ($r) {return $r;}
+  }
+
+  # finally sort by file name
+  return $fa cmp $fb;
+}
+
 sub customize_usfm2osis($$) {
   my $cf = shift;
   my $modType = shift;
@@ -784,7 +822,7 @@ sub customize_usfm2osis($$) {
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
   if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
-  foreach my $f (sort keys %{$USFM{$modType}}) {
+  foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
     my $scope = $USFM{$modType}{$f}{'scope'};
     my $r = File::Spec->abs2rel($f, $INPD); if ($r !~ /^\./) {$r = './'.$r;}
     
