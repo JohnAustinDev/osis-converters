@@ -822,13 +822,21 @@ sub customize_usfm2osis($$) {
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
   if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
+  my $lastScope;
   foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
     my $scope = $USFM{$modType}{$f}{'scope'};
+    if ($scope ne $lastScope) {
+      print CFF "\n";
+      if ($scope) {print CFF "# $scope\n";}
+    }
+    $lastScope = $scope;
+    
     my $r = File::Spec->abs2rel($f, $INPD); if ($r !~ /^\./) {$r = './'.$r;}
     
     # peripherals need a target location in the OSIS file added to their ID
     if ($USFM{$modType}{$f}{'peripheralID'}) {
-      print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
+      #print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
       if (defined($ID_TYPE_MAP{$USFM{$modType}{$f}{'peripheralID'}})) {
         print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$modType}{$f}{'peripheralID'}.".*)\$/\$1 ";
       }
