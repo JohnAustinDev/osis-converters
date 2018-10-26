@@ -89,7 +89,7 @@
     <variable name="inVerse" select="preceding::verse[1]/@sID = following::verse[1]/@eID or preceding::verse[1]/@sID = descendant::verse[1]/@eID or count(ancestor::title[@canonical='true'])"/>
     <choose>
       <when test="$inVerse and not(@type='crossReference')">*</when>
-      <when test="$inVerse and @subType='x-parallel-passage'">⚫</when>
+      <when test="$inVerse and @subType='x-parallel-passage'">•</when>
       <when test="$inVerse">+</when>
       <otherwise>[<xsl:call-template name="getFootnoteNumber"/>]</otherwise>
     </choose>

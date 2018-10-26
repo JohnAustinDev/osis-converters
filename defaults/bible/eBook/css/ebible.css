@@ -281,12 +281,19 @@ dfn {
   vertical-align: inherit;
   vertical-align: 35%;
 }
+.xsl-fnote-symbol,
+.xsl-crnote-symbol {
+  font-family:'arial';
+  font-size-adjust:0.55;
+}
+.xsl-crnote-symbol.x-parallel-passage  {
+  font-size:2em;
+}
 .xsl-fnote-symbol {
   font-size:1.6em;
-  vertical-align: -10%;
 }
 .xsl-crnote-symbol {
-  vertical-align: 20%;
+  font-size:1.4em;
 }
 .xsl-footnote-section hr:last-child,
 .xsl-crossref-section hr:last-child {
