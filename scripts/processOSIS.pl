@@ -7,10 +7,8 @@ my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-$c = &getDefaultFile('bible/html/convert.txt');
-%HTMLCONV = ($c ? &readConvertTxt($c):());
-$c = &getDefaultFile('bible/eBook/convert.txt');
-%EBOOKCONV = ($c ? &readConvertTxt($c):());
+%HTMLCONV = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
+%EBOOKCONV = &readConvertTxt(&getDefaultFile('bible/eBook/convert.txt'));
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {

@@ -169,13 +169,13 @@ sub getDefaultFile($$) {
   
   my $moduleFile = $file;
   my $fileType = ($moduleFile =~ s/^(bible|dict)\/// ? $1:'');
-  my $modType = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
-  my $mainParent = $inpd.($modType eq 'dict' ? '/../..':'/..');
+  my $modType = ($MOD eq $DICTMOD ? 'dict':'bible');
   
   my $defaultFile;
   my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
   
   my $projectDefaultFile = ($fileType eq 'dict' ? $DICTINPD:$MAININPD).'/'.$moduleFile;
+  my $mainParent = "$MAININPD/..";
   if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
     $defaultFile = $projectDefaultFile;
     &Note("getDefaultFile: (1) Found $file at $defaultFile");

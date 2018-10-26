@@ -251,12 +251,15 @@ sub runAddScripRefLinks($$$) {
     close (CF);
     
     if (scalar keys %bookNamesWithPerlChars) {
-      &Warn("Book name terms to the right of '=' in CF_addScripRefLinks.txt 
-are NOT Perl regular expressions but are string literals (however, these 
-terms may have PREFIXES before or SUFFIXES after the name and still 
-match).", "If you are trying to use regular expressions in the following 
-book terms, they will not work as regex. So add each book name that you 
-wish to match on a separate line:");
+      &Warn(
+"Terms to the right of '=' in book name assignments in 
+CF_addScripRefLinks.txt are NOT Perl regular expressions but are string 
+literals (however, these terms may have PREFIXES before or SUFFIXES 
+after the name and still match).", 
+"If you are using punctuation in the follwing book terms then all is 
+well. But if you are trying to use regular expressions in the following 
+book terms, they will not work as regex, but instead add each book name 
+that you wish to match on a separate line:");
       foreach my $bname (sort keys %bookNamesWithPerlChars) {&Log("$bname\n");}
     }
 

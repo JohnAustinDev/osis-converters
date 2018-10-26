@@ -49,9 +49,9 @@
   XPATH="xpath expression" to be applied on each text node to keep text nodes that return non-null
   notXPATH="xpath expression" to be applied on each text node to skip text nodes that return non-null
 
-  ENTRY ELEMENTS MAY ALSO CONTAIN THE FOLLOWING SPECIAL ATTRIBUTES:
+  ENTRY ELEMENTS MAY ALSO CONTAIN THE FOLLOWING ATTRIBUTES:
   &#60;entry osisRef="The osisID of a keyword to link to. This attribute is required."
-         noOutboundLinks="true|false: Set to true if the target keyword should not contain see-also links."&#62;
+         noOutboundLinks="true|false: Set to true and the entry's text with not contain links to other entries."&#62;
 
   Match patterns can be any perl match regex. The last matching 
   parenthetical group, or else a group named 'link' with (?'link'...), 

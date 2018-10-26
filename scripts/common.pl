@@ -374,13 +374,13 @@ sub loadDictionaryWordsXML($) {
 }
 
 
-# Check that all keywords in dictosis are included as entries in the 
-# dictionary_words_xml file and all entries in dictionary_words_xml have 
-# keywords in dictosis. If the difference is only in capitalization, and 
-# all the OSIS file's keywords are unique according to a case-sensitive 
-# comparison, (which occurs when converting from DictionaryWords.txt to 
-# DictionaryWords.xml) then fix them, update dictionary_words_xml, and 
-# return 1. Otherwise return 0.
+# Check that all keywords in dictosis, except those in the NAVMENU, are 
+# included as entries in the dictionary_words_xml file and all entries 
+# in dictionary_words_xml have keywords in dictosis. If the difference 
+# is only in capitalization, and all the OSIS file's keywords are unique 
+# according to a case-sensitive comparison, (which occurs when 
+# converting from DictionaryWords.txt to DictionaryWords.xml) then fix 
+# them, update dictionary_words_xml, and return 1. Otherwise return 0.
 sub compareDictOsis2DWF($$) {
   my $dictosis = shift; # dictionary osis file to validate entries against
   my $dictionary_words_xml = shift; # DICTIONARY_WORDS xml file to validate
@@ -407,9 +407,9 @@ sub compareDictOsis2DWF($$) {
   my @dwfOsisRefs = $XPC->findnodes('//dw:entry/@osisRef', $dwf);
   my @dictOsisIDs = $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]/@osisID', $osis);
   
-  # Check that all dictosis keywords are included as entries in dictionary_words_xml
+  # Check that all dictosis keywords (except NAVEMNU keywords) are included as entries in dictionary_words_xml
   foreach my $osisIDa (@dictOsisIDs) {
-    if (!$osisIDa) {next;}
+    if (!$osisIDa || @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"][@scope="NAVMENU"][1]', $osisIDa)}[0]) {next;}
     my $osisID = $osisIDa->value;
     my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
     
@@ -1987,7 +1987,13 @@ sub convertExplicitGlossaryElements(\@) {
     $tn0->parentNode->insertAfter(@tn[0], $tn0);
     &addDictionaryLinks(\@tn, 1, (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0])}[0] ? 1:0));
     if ($before eq $g->parentNode->toString()) {
-      &ErrorBug("Failed to convert explicit glossary index: $g\n\tText Node=".@tn[0]->data."");
+      &Error("Failed to convert explicit glossary index: $g at text node=".@tn[0]->data."", 
+"Add the proper entry to DictionaryWords.xml to match this text 
+and create a hyperlink to the correct glossary entry. If desired you can 
+use the attribute 'onlyExplicit' to match this term only where it is 
+explicitly marked in the text as a glossary index, and nowhere else. 
+Without the onlyExplicit attribute, you are able to hyperlink the term 
+everywhere it appears in the text.");
       $ExplicitGlossary{$gl}{"Failed"}++;
       next;
     }
@@ -3049,7 +3055,8 @@ sub osisRef2osisID($$$$) {
       &Error("osisRef2osisID: workPrefixFlag is set to 'always' but osisRefWorkDefault is null for \"$osisRef\" in \"$osisRefLong\"!");
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
-    my $vsys = ($work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV'));
+    my $bible = $work; $bible =~ s/DICT$//;
+    my $vsys = ($work ? &getVerseSystemOSIS($bible):($VERSESYS ? $VERSESYS:'KJV'));
   
     if ($osisRef eq 'OT') {
       $osisRef = "Gen-Mal"; 
@@ -3391,9 +3398,9 @@ sub checkSourceScripRefLinks($) {
         elsif (!$bks{$bk}) {
           &Warn("<-Removing hyperlink to missing book: $sref", 
 "<>Apparently not all 66 Bible books have been included in this 
-project, but there are references in the source text to missing books. 
-So these hyperlinks are being removed for now until the other books are 
-added to the translation.");
+project, but there are references in the source text to these missing 
+books. So these hyperlinks will be removed for now until the other books 
+are added to the translation.");
           foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
           $sref->unbindNode();
         }

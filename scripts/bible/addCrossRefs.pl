@@ -43,7 +43,7 @@ sub runAddCrossRefs($) {
   my $def = "bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml";
   my $CrossRefFile = &getDefaultFile($def, -1);
   if (!-e $CrossRefFile) {
-    &Warn("Could not locate a Cross Reference source file: $def.", "
+    &Warn("Could not locate a Cross Reference source file: $def", "
 The cross reference source file is an OSIS file that contains only 
 cross-references for the necessary verse system: $VERSESYS. Without 
 one, cross-references will not be added to the text. It should be 
@@ -117,7 +117,7 @@ BookNames.xml in the sfm directory which should contain localized
   }
   foreach my $x (sort keys %elems) {&Note("$x = '".$localization{$x}."'");}
   
-  # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES
+  # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES when equal length
   my $countLocalizedNames = 0;
   my @bntypes = ('long', 'short', 'abbr');
   my @books = split(/\s+/, $OT_BOOKS.' '.$NT_BOOKS);
@@ -128,10 +128,6 @@ BookNames.xml in the sfm directory which should contain localized
       if ($n) {$osisName{'toc'.$x} = $n->value;}
     }
     my $shortName;
-    if (!$osisName{'toc3'} && !$BOOKNAMES{$book}{@bntypes[2]}) {
-      &Warn("No localized book abbreviation for \"$book\".",
-"");
-    }
     for (my $x=1; $x<=3; $x++) {
       if (!$osisName{'toc'.$x}) {next;}
       if ($shortName && length($shortName) < length($osisName{'toc'.$x})) {next;}
@@ -143,6 +139,15 @@ BookNames.xml in the sfm directory which should contain localized
       $shortName = $BOOKNAMES{$book}{@bntypes[$x]};
     }
     if ($shortName) {
+      if (!$osisName{'toc3'} && !$BOOKNAMES{$book}{@bntypes[2]}) {
+        &Warn("A localized book abbreviation for \"$book\" was not found in a \\toc3 USFM tag or 'abbr' attribute of BookNames.xml file.", 
+"<>A Longer book name will be used instead. This will increase
+the length of externally added cross-reference notes considerably. If 
+you want to shorten them, supply either an 'abbr' attribute value to 
+BookNames.xml or add a \\toc3 USFM tag to the top of the USFM file, with 
+the abbreviation.");
+      }
+    
       $countLocalizedNames++;
       $localization{$book} = $shortName;
       &Note("$book = $shortName");
