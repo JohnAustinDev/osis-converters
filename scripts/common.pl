@@ -226,11 +226,12 @@ sub checkFont($) {
   
   %FONT_FILES;
   
-  # FONTS can be a URL in which case download or update the local font cache
+  # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {
     my $p = expand("~/.osis-converters/fonts");
     if (!-e $p) {mkdir($p);}
-    shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*','*.tmp' '$FONTS'", 3);
+    shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$FONTS'", 3);
+    &wgetSyncDel($p);
     $FONTS = $p;
   }
 
@@ -270,6 +271,29 @@ sub checkFont($) {
   else {
     &Warn("\nThe config.conf specifies font \"$font\", but no FONTS directory has been specified in $SCRD/paths.pl. Therefore, this setting will be ignored!\n");
   }
+}
+
+# Delete any local files that were not just downloaded by wget
+sub wgetSyncDel($) {
+  my $p = shift;
+  
+  $p =~ s/\/\s*$//;
+  if ($p !~ /\/\Q.osis-converters\E\//) {return;} # careful with deletes
+  my $dname = $p; $dname =~ s/^.*\///;
+  my $html = $XML_PARSER->load_html(location  => "$p/$dname.tmp", recover => 1);
+  if ($html) {
+    my @files = $html->findnodes('//tr//a');
+    my @files = map($_->textContent() , @files);
+    opendir(PD, $p) or &ErrorBug("Could not open dir $p", '', 1);
+    my @locfiles = readdir(PD); closedir(PD);
+    foreach my $lf (@locfiles) {
+      if (-d "$p/$lf") {next;}
+      my $del = 1; foreach my $f (@files) {if ($f eq $lf) {$del = 0;}}
+      if ($del) {unlink("$p/$lf");}
+    }
+  }
+  else {&ErrorBug("The $dname.tmp HTML was undreadable: $p/$dname.tmp");}
+  shell("cd '$p' && rm *.tmp", 3);
 }
 
 sub getOUTDIR($) {
