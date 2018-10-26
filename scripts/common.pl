@@ -3652,21 +3652,31 @@ sub logDictLinks() {
   my $mlen = 0;
   foreach my $m (@matches) {
     if ($MatchesUsed{$m->unique_key}) {next;}
-    my @name = $XPC->findnodes('./preceding-sibling::dw:name[1]', $m);
-    if (@name && @name[0]) {
-    if (!$unused{@name[0]->textContent}) {$unused{@name[0]->textContent} = ();}
-      push(@{$unused{@name[0]->textContent}}, $m->toString());
-      if (length(@name[0]->textContent) > $mlen) {$mlen = length(@name[0]->textContent);}
+    my $entry = @{$XPC->findnodes('./ancestor::dw:entry[1]', $m)}[0];
+    if ($entry) {
+      my $osisRef = $entry->getAttribute('osisRef'); $osisRef =~ s/^\Q$DICTMOD\E://;
+      if (!$unused{$osisRef}) {
+        $unused{$osisRef} = ();
+      }
+      push(@{$unused{$osisRef}}, $m->toString());
+      if (length($osisRef) > $mlen) {$mlen = length($osisRef);}
       $total++;
     }
-    else {&Error("No <name> for <match> \"$m\" in $DICTIONARY_WORDS", "Each group of match elements must be preceded by a name element.");}
+    else {&Error("No <entry> containing $m in $DICTIONARY_WORDS", "Match elements may only appear inside entry elements.");}
   }
   &Report("Unused match elements in $DICTIONARY_WORDS: ($total instances)");
-  foreach my $k (sort keys %unused) {
-    foreach my $m (@{$unused{$k}}) {
-      &Log(sprintf("%-".$mlen."s %s\n", $k, $m));
+  if ($total > 50) {
+    &Warn("Large numbers of unused match elements can slow down the parser.", 
+"When you are sure they are not needed, and parsing is slow, then you  
+can remove unused match elements from DictionaryWords.xml by running:
+osis-converters/utils/removeUnusedMatchElements.pl $INPD");
+  }
+  foreach my $osisRef (sort keys %unused) {
+    foreach my $m (@{$unused{$osisRef}}) {
+      &Log(sprintf("%-".$mlen."s %s\n", $osisRef, $m));
     }
   }
+  &Log("\n");
   
   my %ematch;
   foreach my $rep (sort keys %Replacements) {
