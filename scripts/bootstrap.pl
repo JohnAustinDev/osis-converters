@@ -35,14 +35,14 @@
 use File::Spec;
 
 $INPD = shift;
-$LOGFILE = shift;
+$LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
 
 $INPD = File::Spec->rel2abs($INPD);
 $INPD =~ s/\\/\//g;
 $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images)(\/.*?$|$)//; # allow using a subdir as project dir
 if (!-e $INPD) {die "Error: Project directory \"$INPD\" does not exist. Check your command line.\n";}
   
-if ($LOGFILE) {
+if ($LOGFILE && $LOGFILE ne 'none') {
   $LOGFILE = File::Spec->rel2abs($LOGFILE);
   $LOGFILE =~ s/\\/\//g;
 }

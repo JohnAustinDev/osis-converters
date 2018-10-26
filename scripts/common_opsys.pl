@@ -462,11 +462,11 @@ sub Log($$) {
   $p =~ s/&lt;/</g; $p =~ s/&gt;/>/g; $p =~ s/&amp;/&/g;
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
-  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/) {
+  if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /ERROR/ || $LOGFILE eq 'none') {
     print encode("utf8", $p);
   }
   
-  if ($flag == 2) {return;}
+  if ($flag == 2 || $LOGFILE eq 'none') {return;}
   
   if ($p !~ /ERROR/ && !$DEBUG) {$p = &encodePrintPaths($p);}
   
