@@ -3390,7 +3390,14 @@ sub checkSourceScripRefLinks($) {
   
   my $problems = 0; my $checked = 0;
   
-  my $in_bible = ($INPD eq $MAININPD ? $in_osis:&getProjectOsisFile($MAINMOD));
+  my $in_bible = ($INPD eq $MAININPD ? $in_osis:'');
+  if (!$in_bible) {
+    # The Bible OSIS needs to be put into the source verse system for this check
+    $in_bible = "$TMPDIR/$MAINMOD.xml";
+    &copy(&getProjectOsisFile($MAINMOD), $in_bible);
+    &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$in_bible);
+  }
+  
   if (-e $in_bible) {
     my $bible = $XML_PARSER->parse_file($in_bible);
     # Get all books found in the Bible
