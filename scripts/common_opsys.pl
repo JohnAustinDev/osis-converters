@@ -23,7 +23,7 @@ sub start_script() {
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
   &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n");
   
-  my $isCompatibleLinux = `lsb_release -a 2>&1`; # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
+  my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
   
   # Start script if we're already running on a VM or have dependencies met.
@@ -125,7 +125,10 @@ sub readPaths() {
     
   # The following are installed to certain locations by provision.sh
   if ($^O =~ /linux/i) {
-    foreach my $v (keys %exedirs) {$$v = &expandLinuxPath($exedirs{$v});}
+    foreach my $v (keys %exedirs) {
+      if ($$v) {next;}
+      $$v = &expandLinuxPath($exedirs{$v});
+    }
   }
   
   # All executable directory paths should end in / or else be empty.
@@ -177,7 +180,7 @@ sub getDefaultFile($$) {
       $defaultFile = "$mainParent/defaults/$file";
       &Note("getDefaultFile: (2) Found $file at $defaultFile");
     }
-    elsif (!&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3)) {
+    elsif ($^O =~ /linux/i && !&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3)) {
       &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
     }
   }
@@ -186,7 +189,7 @@ sub getDefaultFile($$) {
       $defaultFile = "$SCRD/defaults/$file";
       &Note("getDefaultFile: (3) Found $file at $defaultFile");
     }
-    elsif (!&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3)) {
+    elsif ($^O =~ /linux/i && !&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3)) {
       &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
   }
@@ -272,11 +275,6 @@ sub haveDependencies($$$$) {
     return 0;
   }
   
-  $MODULETOOLS_GITHEAD = `cd "$MODULETOOLS_BIN" && git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
-  &Log("Module-tools git rev: $MODULETOOLS_GITHEAD", $logflag);
-  
-  &Log("Using ".`calibre --version`."\n", $logflag);
-  
   return 1;
 }
 
@@ -357,7 +355,7 @@ sub vagrantShare($$) {
 sub vagrantUp(\@) {
   my $sharesP = shift;
   
-  if (!-e "./.vagrant") {&shell("mkdir ./.vagrant", 3);}
+  if (!-e "./.vagrant") {mkdir("./.vagrant");}
   
   # Create input/output filesystem shares
   open(VAG, ">./Vagrantshares") || die "\nError: Cannot open \"./Vagrantshares\"\n";
@@ -528,7 +526,8 @@ sub encodePrintPaths($) {
 
 sub expandLinuxPath($) {
   my $path = shift;
-  my $r = `echo $path`;
+  if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", '', 1);}
+  my $r = &shell("echo $path", 3);
   chomp($r);
   return $r;
 }

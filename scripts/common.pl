@@ -80,7 +80,9 @@ sub start_linux_script() {
   }
   else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
 
-  $GITHEAD = `git rev-parse HEAD 2>tmp.txt`; unlink("tmp.txt");
+  $GITHEAD = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($GITHEAD);
+  
+  $MODULETOOLS_GITHEAD = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($MODULETOOLS_GITHEAD);
   
   $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
   
@@ -130,7 +132,9 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');}
   
-  &Log("osis-converters git rev: $GITHEAD\n\n");
+  &Log("\nUsing ".`calibre --version`);
+  &Log("osis-converters git rev: $GITHEAD\n");
+  &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
   $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
