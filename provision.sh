@@ -8,7 +8,7 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-if [ -e /vagrant/Vagrant.pl ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
+if [ -e /vagrant/Vagrantfile ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update

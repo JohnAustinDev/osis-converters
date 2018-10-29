@@ -39,7 +39,7 @@ $LOGFILE = shift; # the special value of 'none' will print to the console with n
 
 $INPD = File::Spec->rel2abs($INPD);
 $INPD =~ s/\\/\//g;
-$INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images)(\/.*?$|$)//; # allow using a subdir as project dir
+$INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//; # allow using a subdir as project dir
 if (!-e $INPD) {die "Error: Project directory \"$INPD\" does not exist. Check your command line.\n";}
   
 if ($LOGFILE && $LOGFILE ne 'none') {

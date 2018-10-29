@@ -9,6 +9,8 @@ use Encode;
 use File::Copy;
 use File::Spec;
 
+$VAGRANT_HOME = '/home/vagrant';
+
 # Initializes more global path variables, checks operating system and 
 # dependencies. This function may start the script, re-start the script 
 # using Vagrant, or bail.
@@ -19,7 +21,7 @@ sub start_script() {
   
   &readPaths();
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
-  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tLOGFILE=$LOGFILE\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n");
+  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n");
   
   my $isCompatibleLinux = `lsb_release -a 2>&1`; # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
@@ -45,7 +47,7 @@ sub start_script() {
   if ($VAGRANT) {
     if (&vagrantInstalled()) {
       &Note("\nVagrant will be used because \$VAGRANT is set.\n");
-      &startVagrant($SCRD, $SCRIPT, $INPD);
+      &start_vagrant_script();
     }
     else {
       &Error("You have \$VAGRANT=1; in osis-converters/paths.pl but Vagrant is not installed.", $vagrantInstallMessage);
@@ -68,7 +70,7 @@ will run slower and use more memory.");
   
   # Then we must use Vagrant
   if (&vagrantInstalled()) {
-    &startVagrant($SCRD, $SCRIPT, $INPD);
+    &start_vagrant_script();
     return;
   }
   
@@ -80,61 +82,51 @@ will run slower and use more memory.");
 # like $DEBUG).
 sub readPaths() {
   # The following host paths in paths.pl are converted to absolute paths
-  # which are then updated to work on the VM if running in Vagrant.
+  # which are later updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS');
   
-  # If we have paths.pl, read it, but always with its paths as 
-  # interpereted on the host (the purpose of hostinfo). This is 
-  # necessary because to create VM paths we must always start with a
-  # host path.
   if (-e "$SCRD/paths.pl") {
     require "$SCRD/paths.pl";
     
     if (!&runningInVagrant()) {
+      # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
+      foreach my $v (@pathvars) {
+        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
+        if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
+        if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
+      }
       if (open(SHL, ">$SCRD/.hostinfo")) {
-        print SHL "\$HOSTHOME = \"".&expand('$HOME')."\";\n";
         foreach my $v (@pathvars) {
-          if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
-          $$v = &expand($$v);
-          $$v = File::Spec->rel2abs($$v, $SCRD);
-          print SHL "\$$v = \"$$v\";\n";
+          if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
+          my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
+          print SHL "\$$v = \"$rel2vhs\";\n";
         }
         print SHL "1;\n";
         close(SHL);
       }
-      else {&ErrorBug("Could not open $SCRD/.hostinfo", "Check that you have write permission in directory $SCRD.");}
+      else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work.", "Check that you have write permission in directory $SCRD.");}
     }
-    
-    require("$SCRD/.hostinfo");
-  }
-
-  # Now if we're running in Vagrant, we convert the host paths to VM paths
-  if (&runningInVagrant() && open(CSH, "<$SCRD/Vagrantshares")) {
-    while(<CSH>) {
-      if ($_ =~ /config\.vm\.synced_folder\s+"([^"]*)"\s*,\s*"([^"]*INDIR_ROOT[^"]*)"/) {
-        $SHARE_HOST = $1;
-        $SHARE_VIRT = $2;
-      }
-    }
-    close(CSH);
-    if ($SHARE_HOST && $SHARE_VIRT) {
+    else {
+      # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
+      require("$SCRD/.hostinfo");
       foreach my $v (@pathvars) {
-        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;} 
-        $$v = File::Spec->abs2rel($$v, $SHARE_HOST);
-        $$v = File::Spec->rel2abs($$v, $SHARE_VIRT);
+        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
+        $$v = "$VAGRANT_HOME/INDIR_ROOT/$$v";
       }
     }
   }
   
-  # The following are installed to certain locations by provision.sh
+  # Finally set default values when paths.pl doesn't exist or doesn't specify exedirs
   my %exedirs = (
     'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
     'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
     'SWORD_BIN' => "~/.osis-converters/src/sword/build/utilities"
   );
-  
-  # Finally set default values when paths.pl doesn't exist or doesn't specify exedirs
-  foreach my $v (keys %exedirs) {$$v = &expand($exedirs{$v});}
+    
+  # The following are installed to certain locations by provision.sh
+  if ($^O =~ /linux/i) {
+    foreach my $v (keys %exedirs) {$$v = &expandLinuxPath($exedirs{$v});}
+  }
   
   # All executable directory paths should end in / or else be empty.
   foreach my $v (keys %exedirs) {
@@ -293,6 +285,16 @@ sub haveDependencies($$$$) {
 # Vagrant related functions
 ########################################################################
 
+# The host share directory cannot be just a Windows drive letter (native 
+# or emulated) because Vagrant cannot create a share to the root of a 
+# window's drive.
+sub vagrantHostShare() {
+  if ($INPD !~ /^((?:\w\:|\/\w)?\/[^\/]+)/) {
+    die "Error: Cannot parse project path \"$INPD\"\n";
+  }
+  return $1;
+}
+
 sub vagrantInstalled() {
   print "\n";
   my $pass;
@@ -304,18 +306,43 @@ sub vagrantInstalled() {
   return $pass;
 }
 
-sub startVagrant($$$) {
-  my $scrd = shift;
-  my $script = shift;
-  my $inpd = shift;
-  my @args = ("$scrd/Vagrant.pl", $script, $inpd);
-  print "@args\n";
-  system(@args); # exec does not run with Windows cmd shell
-  exit;
+sub start_vagrant_script() {
+  if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$SCRD/Vagrantcustom")) {
+    print VAGC "# NOTE: You must halt your VM for changes to take effect\n
+  config.vm.provider \"virtualbox\" do |vb|
+    # Set the RAM for your Vagrant VM
+    vb.memory = 2560
+  end\n";
+    close(VAGC);
+  }
+  
+  chdir $SCRD; # Required for the following vagrant commands to work
+
+  # Make sure Vagrant is up, and with the right share(s)
+  my @shares;
+  push(@shares, &vagrantShare(&vagrantHostShare(), "$VAGRANT_HOME/INDIR_ROOT"));
+  $status = (-e "./.vagrant" ? &shell("vagrant status", 3):'');
+  if ($status !~ /\Qrunning (virtualbox)\E/i) {
+    &vagrantUp(\@shares);
+  }
+  elsif (!&matchingShares(\@shares)) {
+    &shell("vagrant halt", 3);
+    &vagrantUp(\@shares);
+  }
+
+  my $scriptRel = "/vagrant/".File::Spec->abs2rel($SCRIPT, $SCRD);
+  my $inpdRel = File::Spec->abs2rel($INPD, &vagrantHostShare());
+  my $cmd = "vagrant ssh -c \"'$scriptRel' '$VAGRANT_HOME/INDIR_ROOT/$inpdRel'\"";
+  print "\nStarting Vagrant with...\n$cmd\n";
+  
+  # Continue printing to console while Vagrant ssh remains open
+  open(VUP, "$cmd |");
+  while(<VUP>) {print $_;}
+  close(VUP);
 }
 
 sub runningInVagrant() {
-  return (-e "/vagrant/Vagrant.pl" ? 1:0);
+  return (-e "/vagrant/Vagrantfile" ? 1:0);
 }
 
 sub vagrantShare($$) {
@@ -324,7 +351,7 @@ sub vagrantShare($$) {
   # If the host is Windows, $host must be a native path!
   $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
   $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
-  return "config.vm.synced_folder \"$host\", \"$VAGRANT_HOME/$client\"";
+  return "config.vm.synced_folder \"$host\", \"$client\"";
 }
 
 sub vagrantUp(\@) {
@@ -437,7 +464,7 @@ sub Debug($$) {
   my $dbgmsg = shift;
   my $flag = shift;
   
-  if ($DEBUG) {&Log("DEBUG: $dbgmsg", $flag);}
+  if ($DEBUG) {&Log("DEBUG: $dbgmsg", ($flag ? $flag:1));}
 }
 
 sub Report($$) {
@@ -499,7 +526,7 @@ sub encodePrintPaths($) {
 # Utility functions
 ########################################################################
 
-sub expand($) {
+sub expandLinuxPath($) {
   my $path = shift;
   my $r = `echo $path`;
   chomp($r);

@@ -69,15 +69,7 @@ $VSYS{'end'} = '-end';
 require("$SCRD/scripts/bible/getScope.pl");
 
 sub start_linux_script() {
-  if (!$INPD) {$INPD = "."};
-  $INPD =~ s/[\\\/]\s*$//;
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-  $INPD =~ s/[\\\/](sfm|GoBible|eBook)$//; # allow using a subdir as project dir
-  if (!-e $INPD) {
-    print "Project directory \"$INPD\" does not exist. Exiting.\n";
-    exit;
-  }
-  chdir($SCRD); # had to wait until absolute $INPD was set by rel2abs
+  chdir($SCRD);
   
   # Set MAININPD, MAINMOD, and DICTINPD (DICTMOD is set after checkAndWriteDefaults())
   $MAININPD = $INPD;
@@ -151,6 +143,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
+  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tOUTDIR=$OUTDIR\n\tTMPDIR=$TMPDIR\n");
 }
 
 # Enforce the only supported module configuration and naming convention
@@ -228,7 +221,7 @@ sub checkFont($) {
   
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {
-    my $p = expand("~/.osis-converters/fonts");
+    my $p = expandLinuxPath("~/.osis-converters/fonts");
     if (!-e $p) {mkdir($p);}
     shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$FONTS'", 3);
     &wgetSyncDel($p);

@@ -285,7 +285,7 @@ sub copyCoverImageTo($$$$$$\$) {
   if (!$cover) {$cover = &findCoverInDir("$INPD/$convertTo", $mod, $scope, $vsys, $titleTypeP);}
   if (!$cover && $COVERS) {
     if ($COVERS =~ /^https?\:/) {
-      my $p = &expand("~/.osis-converters/cover");
+      my $p = &expandLinuxPath("~/.osis-converters/cover");
       if (!-e $p) {mkdir($p);}
       shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$COVERS'", 3);
       &wgetSyncDel($p);
