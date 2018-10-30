@@ -101,7 +101,7 @@ sub readPaths() {
         foreach my $v (@pathvars) {
           if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
           my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
-          print SHL "\$$v = \"$rel2vhs\";\n";
+          print SHL "\$$v = '$rel2vhs';\n";
         }
         print SHL "1;\n";
         close(SHL);
