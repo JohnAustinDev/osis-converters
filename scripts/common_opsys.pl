@@ -21,7 +21,7 @@ sub start_script() {
   
   &readPaths();
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
-  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tINPD=$INPD\n\tSCRIPT=$SCRIPT\n\tSCRD=$SCRD\n\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n");
+  &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
   
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
@@ -136,7 +136,12 @@ sub readPaths() {
     if (!$$v) {next;}
     $$v =~ s/([^\/])$/$1\//;
   }
-  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n".eval { my $r; foreach my $v (@pathvars) {$r .= "\t$v = $$v\n";} $r .= "\n"; $r; }, 1);
+  
+  my $dbgmsg = "paths.pl ".(&runningInVagrant() ? "on virtual machine":"on host").":\n";
+  foreach my $v (@pathvars) {$dbgmsg .= "\t$v = $$v\n";}
+  $dbgmsg .= "\tvagantHostShare=".&vagrantHostShare()."\n";
+  $dbgmsg .= "\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n";
+  &Debug($dbgmsg, 1);
 }
 
 # Look for an osis-converters default file or directory in the following 

@@ -53,6 +53,18 @@ $SCRIPT =~ s/\\/\//g;
 $SCRD = File::Spec->rel2abs($SCRD);
 $SCRD =~ s/\\/\//g;
 
+# Set MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
+# checkAndWriteDefaults() in case a new dictionary is discovered in the 
+# USFM). 
+$MAININPD = $INPD;
+$MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+if ($MAININPD =~ s/\/([^\/]+DICT)$//) {
+  $DICTINPD = "$MAININPD/$1";
+  $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+}
+else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
+if (-e $DICTINPD) {$DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;}
+
 require "$SCRD/scripts/common_opsys.pl";
 &start_script();
 

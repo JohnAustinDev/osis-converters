@@ -70,15 +70,6 @@ require("$SCRD/scripts/bible/getScope.pl");
 
 sub start_linux_script() {
   chdir($SCRD);
-  
-  # Set MAININPD, MAINMOD, and DICTINPD (DICTMOD is set after checkAndWriteDefaults())
-  $MAININPD = $INPD;
-  $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
-  if ($MAININPD =~ s/\/([^\/]+DICT)$//) {
-    $DICTINPD = "$MAININPD/$1";
-    $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
-  }
-  else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
 
   $GITHEAD = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($GITHEAD);
   
@@ -147,7 +138,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
-  &Debug((&runningInVagrant() ? "On virtual machine":"On host")."\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tOUTDIR=$OUTDIR\n\tTMPDIR=$TMPDIR\n");
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n");
 }
 
 # Enforce the only supported module configuration and naming convention
