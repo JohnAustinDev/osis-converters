@@ -68,7 +68,7 @@ $VSYS{'end'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 
-sub start_linux_script() {
+sub init_linux_script() {
   chdir($SCRD);
 
   $GITHEAD = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($GITHEAD);

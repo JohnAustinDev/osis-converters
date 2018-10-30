@@ -12,9 +12,9 @@ use File::Spec;
 $VAGRANT_HOME = '/home/vagrant';
 
 # Initializes more global path variables, checks operating system and 
-# dependencies. This function may start the script, re-start the script 
-# using Vagrant, or bail.
-sub start_script() {
+# dependencies, and restarts with Vagrant if necessary. If checking and
+# initialization is successful 1 is returned so the script can commence.
+sub init_opsys() {
   chdir($INPD);
   
   if (!-e "$SCRD/paths.pl") {copy(&getDefaultFile('paths.pl'), $SCRD);}
@@ -26,16 +26,17 @@ sub start_script() {
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
   
-  # Start script if we're already running on a VM or have dependencies met.
+  # Start the script if we're already running on a VM and/or have dependencies met.
   if (&runningInVagrant() || ($haveAllDependencies && !$VAGRANT)) {
     if ($haveAllDependencies) {
       require "$SCRD/scripts/common.pl";
-      &start_linux_script();
+      &init_linux_script();
+      return 1;
     }
     elsif (&runningInVagrant()) {
       &ErrorBug("The Vagrant virtual machine does not have the necessary dependancies installed.");
+      return 0;
     }
-    return;
   }
   
   my $vagrantInstallMessage = "
@@ -47,12 +48,12 @@ sub start_script() {
   if ($VAGRANT) {
     if (&vagrantInstalled()) {
       &Note("\nVagrant will be used because \$VAGRANT is set.\n");
-      &start_vagrant_script();
+      &restart_with_vagrant();
     }
     else {
       &Error("You have \$VAGRANT=1; in osis-converters/paths.pl but Vagrant is not installed.", $vagrantInstallMessage);
     }
-    return;
+    return 0;
   }
   
   # OKAY then, to meet dependancies check if we may use Vagrant and report
@@ -65,16 +66,17 @@ osis-converters\$ sudo provision.sh
 osis-converters/paths.pl
 NOTE: Option #2 requires that Vagrant and VirtualBox be installed and 
 will run slower and use more memory.");
-    return;
+    return 0;
   }
   
-  # Then we must use Vagrant
+  # Then we must use Vagrant, if it's installed
   if (&vagrantInstalled()) {
-    &start_vagrant_script();
-    return;
+    &restart_with_vagrant();
+    return 0;
   }
   
-  &Error("You are not running osis-converters on Linux Ubuntu 14 to 18.", $vagrantInstallMessage);
+  &Error("You are not running osis-converters on compatible Linux and do not have vagrant/VirtualBox installed.", $vagrantInstallMessage);
+  return 0;
 }
 
 # Read the osis-converters/paths.pl file which contains customized paths
@@ -309,7 +311,7 @@ sub vagrantInstalled() {
   return $pass;
 }
 
-sub start_vagrant_script() {
+sub restart_with_vagrant() {
   if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$SCRD/Vagrantcustom")) {
     print VAGC "# NOTE: You must halt your VM for changes to take effect\n
   config.vm.provider \"virtualbox\" do |vb|
@@ -401,7 +403,7 @@ sub Error($$$) {
   my $doDie = shift;
 
   &Log("\nERROR: $errmsg\n", 1);
-  if ($solmsg) {&Log("SOLUTION: $solmsg\n");}
+  if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
 }
@@ -413,7 +415,7 @@ sub ErrorBug($$) {
   my $doDie = shift;
   
   &Log("\nERROR (UNEXPECTED): $errmsg\n", 1);
-  if ($solmsg) {&Log("SOLUTION: $solmsg\n");}
+  if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
   
   use Carp qw(longmess);
   &Log(&longmess());

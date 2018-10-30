@@ -65,7 +65,10 @@ if ($MAININPD =~ s/\/([^\/]+DICT)$//) {
 else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
 if (-e $DICTINPD) {$DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;}
 
+# Allow running MAININPD-only scripts from a DICT sub-project
+if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
+
 require "$SCRD/scripts/common_opsys.pl";
-&start_script();
+if (!&init_opsys()) {exit;}
 
 1;
