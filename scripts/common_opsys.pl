@@ -101,6 +101,7 @@ sub readPaths() {
         foreach my $v (@pathvars) {
           if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
           my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
+          $rel2vhs =~ s/\\/\//g; # this relative path is for the Linux VM
           print SHL "\$$v = '$rel2vhs';\n";
         }
         print SHL "1;\n";
@@ -335,8 +336,8 @@ sub restart_with_vagrant() {
     &vagrantUp(\@shares);
   }
 
-  my $scriptRel = "/vagrant/".File::Spec->abs2rel($SCRIPT, $SCRD);
-  my $inpdRel = File::Spec->abs2rel($INPD, &vagrantHostShare());
+  my $scriptRel = "/vagrant/".File::Spec->abs2rel($SCRIPT, $SCRD); $scriptRel =~ s/\\/\//g;
+  my $inpdRel = File::Spec->abs2rel($INPD, &vagrantHostShare()); $inpdRel =~ s/\\/\//g;
   my $cmd = "vagrant ssh -c \"'$scriptRel' '$VAGRANT_HOME/INDIR_ROOT/$inpdRel'\"";
   print "\nStarting Vagrant with...\n$cmd\n";
   
