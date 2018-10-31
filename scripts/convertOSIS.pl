@@ -195,6 +195,7 @@ body {font-family: font1;}
     if ($outf) {
       &copy($outf, "$tmp/tmp/dict/$companion.xml"); $outf = "$tmp/tmp/dict/$companion.xml";
       &runAnyUserScriptsAt("$companion/$convertTo/preprocess", \$outf);
+      &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$outf);
       if ($companion =~ /DICT$/) {
         require "$SCRD/scripts/dict/processGlossary.pl";
         # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
