@@ -177,6 +177,12 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     if (!$seID) {$type = 'end'; $seID = $v->getAttribute('eID');}
     foreach my $osisIDV (split(/\s+/, $seID)) {$verses{$osisIDV}{$type} = $v;}
   }
+  
+  # get all books found in the Bible
+  my %books;
+  foreach my $bk ($XPC->findnodes('//osis:div[@type="book"]', $osis)) {
+    $books{$bk->getAttribute('osisID')}++;
+  }
 
   &Log("READING CROSS REFERENCE FILE \"$CrossRefFile\".\n");
   my $xml = $XML_PARSER->parse_file($CrossRefFile);
@@ -220,6 +226,38 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       $note->insertBefore($XML_PARSER->parse_balanced_chunk($elem), $note->firstChild);
     }
     
+    # add readable reference text to the note's references (required by some front ends and eBooks)
+    # and remove hyperlinks for references whose osisRefs are not included in the translation yet
+    my @refs = $XPC->findnodes('osis:reference[@osisRef][not(@type="annotateRef")]', $note);
+    for (my $i=0; $i<@refs; $i++) {
+      my $ref = @refs[$i];
+      my $osisRef = $ref->getAttribute('osisRef');
+      my $book = $osisRef; $book =~ s/^([^\.]+)\..*?$/$1/;
+      if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
+      foreach my $child ($ref->childNodes()) {$child->unbindNode();}
+      my $t;
+      if ($localeP->{'hasLocalization'}) {
+        # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
+        my $readRef = ($movedP->{'fixed2Alt'}{$osisRef} ? $movedP->{'fixed2Alt'}{$osisRef}:$osisRef);
+        my $tr = &translateRef($readRef, $localeP);
+        if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
+        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
+      }
+      else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
+      
+      $t = XML::LibXML::Text->new($t);
+      if ($books{$book}) {$ref->insertAfter($t, undef);}
+      else {
+        &Warn("<>Removing hyperlinks to missing book: $book",
+"<>Apparently not all 66 Bible books have been included in this 
+project, but there are externally added cross references to these missing 
+books. So these hyperlinks will be removed for now until the other books 
+are added to the translation.");
+        $ref->parentNode->insertAfter($t, $ref);
+        $ref->unbindNode();
+      }
+    }
+      
     # add resp attribute, which identifies this note as an external note
     $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));  
     &insertNote($note, $fixed, \%verses, $movedP, \%localization);
@@ -264,25 +302,6 @@ sub insertNote($$\%\%\%) {
   my $verseNum = ($movedP->{'fixed2Alt'}{$fixed} =~ /\.(\d+)$/ ? $1:'');
   my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
   $verseP = \%{$verseP->{$placement}};
-  
-  # add readable reference text to the note's references (required by some front ends and eBooks)
-  my @refs = $XPC->findnodes('osis:reference[@osisRef][not(@type="annotateRef")]', $note);
-  for (my $i=0; $i<@refs; $i++) {
-    my $ref = @refs[$i];
-    my $osisRef = $ref->getAttribute('osisRef');
-    if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
-    foreach my $child ($ref->childNodes()) {$child->unbindNode();}
-    my $t;
-    if ($localeP->{'hasLocalization'}) {
-      # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
-      my $readRef = ($movedP->{'fixed2Alt'}{$osisRef} ? $movedP->{'fixed2Alt'}{$osisRef}:$osisRef);
-      my $tr = &translateRef($readRef, $localeP);
-      if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
-      $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
-    }
-    else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
-    $ref->insertAfter(XML::LibXML::Text->new($t), undef);
-  }
 
   # insert note in the right place
   # NOTE: the crazy looking while loop approach, and not using normalize-space() but rather $nt =~ /^\s*$/, greatly increases processing speed

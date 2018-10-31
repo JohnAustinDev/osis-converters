@@ -3379,7 +3379,7 @@ sub checkSourceScripRefLinks($) {
   
   &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
-  my $problems = 0; my $checked = 0;
+  my $changes = 0; my $problems = 0; my $checked = 0;
   
   my $in_bible = ($INPD eq $MAININPD ? $in_osis:'');
   if (!$in_bible) {
@@ -3389,6 +3389,7 @@ sub checkSourceScripRefLinks($) {
     &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$in_bible);
   }
   
+  my $osis;
   if (-e $in_bible) {
     my $bible = $XML_PARSER->parse_file($in_bible);
     # Get all books found in the Bible
@@ -3403,7 +3404,7 @@ sub checkSourceScripRefLinks($) {
     }
     
     # Check Scripture references in the original text (not those added by addCrossRefs)
-    my $osis = $XML_PARSER->parse_file($in_osis);
+    $osis = $XML_PARSER->parse_file($in_osis);
     foreach my $sref ($XPC->findnodes('//osis:reference[not(starts-with(@type, "x-gloss"))][not(ancestor::osis:note[@resp])][@osisRef]', $osis)) {
       $checked++;
       # check beginning and end of range, but not each verse of range (since verses within the range may be purposefully missing)
@@ -3422,6 +3423,7 @@ books. So these hyperlinks will be removed for now until the other books
 are added to the translation.");
           foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
           $sref->unbindNode();
+          $changes++;
         }
         elsif (!$ids{$id}) {
           $problems++;
@@ -3440,12 +3442,139 @@ else this is a problem with the source text:
     &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis.pl on $MAINMOD to generate an OSIS file.");
   }
   
+  if ($osis && $changes) {
+    if (open(OSIS, ">$in_osis")) {
+      print OSIS $osis->toString();
+      close(OSIS);
+    }
+    else {&ErrorBug("Could not overwrite $in_osis");}
+  }
+  
   &Report("$checked Scripture references checked. ($problems problems)\n");
 }
 
-
-# Check all reference links, and report any errors.
+# Check that targets of all references in the OSIS file exist. This 
+# includes both the fixed and the source verse system references. It 
+# is assumed that the Bible OSIS file is created before the Dict OSIS 
+# file. Therefore, references in a Bible which target the Dict are not 
+# checked until the Dict is created, when they will be checked along 
+# with the Dict's references.
 sub checkReferenceLinks($) {
+  my $osis = shift;
+  
+  &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $osis...\n");
+  
+  my %osisID;
+  my %refcount = ('total' => 0, 'gloss' => 0, 'scripFixed' => 0, 'scripSource' => 0, 'note' => 0, 'other' => 0);
+  my %errors   = ('total' => 0, 'gloss' => 0, 'scripFixed' => 0, 'scripSource' => 0, 'note' => 0, 'other' => 0);
+  
+  my $inXML = $XML_PARSER->parse_file($osis);
+  &readOsisIDs(\%osisID, $inXML);
+  my $bibleOSIS;
+  my $bibleXML;
+  if ($MOD eq $MAINMOD) {
+    $bibleOSIS = $osis;
+    $bibleXML = $inXML;
+  }
+  else {
+    $bibleOSIS = "$TMPDIR/x$MAINMOD.xml";
+    &copy(&getProjectOsisFile($MAINMOD), $bibleOSIS);
+    $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
+    &readOsisIDs(\%osisID, $bibleXML);
+  }
+  &checkReferenceLinks2($inXML, $bibleXML, 'scripFixed', \%refcount, \%errors, \%osisID);
+  if ($MOD ne $MAINMOD) {
+    &checkReferenceLinks2($bibleXML, $bibleXML, 'scripFixed', \%refcount, \%errors, \%osisID);
+  }
+  
+  &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$osis);
+  $inXML = $XML_PARSER->parse_file($osis);
+  if ($MOD eq $MAINMOD) {$bibleOSIS = $osis; $bibleXML = $inXML;}
+  else {
+    &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$bibleOSIS);
+    $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
+  }
+  &checkReferenceLinks2($inXML, $bibleXML, 'scripSource', \%refcount, \%errors, \%osisID);
+
+  if (!$isBible) {
+    &Report("\"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)");
+  }
+  &Report("\"".$refcount{'scripFixed'}."\" Fixed vsys Scripture reference links checked. (".$errors{'scripFixed'}." problems)");
+  &Report("\"".$refcount{'scripSource'}."\" Source vsys Scripture reference links checked. (".$errors{'scripSource'}." problems)");
+  &Report("\"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)");
+  &Report("\"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)");
+  &Report("\"".($refcount{'total'} + $errors{'total'})."\" Grand total reference links. (".$errors{'total'}." problems)");
+}
+
+sub readOsisIDs(\%$) {
+  my $osisIDP = shift;
+  my $xml = shift;
+  
+  my $mod = &getOsisIDWork($xml);
+  foreach my $elem ($XPC->findnodes('//*[@osisID]', $xml)) {
+    my $id = $elem->getAttribute('osisID');
+    foreach my $i (split(/\s+/, $id)) {$osisIDP->{$mod}{$i}++;}
+  }
+}
+
+sub checkReferenceLinks2($$$\%\%\%) {
+  my $inxml = shift;
+  my $bxml = shift;
+  my $scripType = shift;
+  my $refcountP = shift;
+  my $errorsP = shift;
+  my $osisIDP = shift;
+  
+  my $isBible = (&getRefSystemOSIS($inxml) =~ /^Bible\./ ? 1:0);
+  my $osisRefWork = &getOsisRefWork($inxml);
+  
+  my @references = $XPC->findnodes('//osis:reference', $xml);
+  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $xml);
+  push(@osisRefs, @references);
+  
+  foreach my $r (@osisRefs) {
+    my $rtag = $r->toString(); $rtag =~ s/^(<[^>]*>).*?$/$1/;
+    
+    my $type;
+    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$type = 'gloss';}
+    elsif ($r->getAttribute('type') eq 'x-note') {$type = 'note';}
+    elsif ($r->nodeName eq 'reference') {$type = $scripType;}
+    else {$type = 'other';}
+    
+    my $osisRef = $r->getAttribute('osisRef');
+    if (!$osisRef) {
+    &Error("Reference link is missing an osisRef attribute: \"$r\"", 
+"Maybe this should not be marked as a reference? Reference tags in OSIS 
+require a valid target. When there isn't a valid target, then a 
+different USFM tag should be used instead.");
+      $errors{$type}++;
+      next;
+    }
+    my $rwork = ($osisRef =~ s/^(\w+):// ? $1:$osisRefWork);
+    if ($MOD eq $MAINMOD && $rwork ne $MAINMOD) {next;} # This will be checked when the sub-module is checked
+    elsif ($isBible && $MOD ne $MAINMOD && $rwork eq $MAINMOD) {next;} # This was checked when the main-module was checked
+    
+    my $failed = 0;
+    foreach my $orp (split(/[\s\-]+/, $osisRef)) {
+      if (!$osisIDP->{$rwork}{$orp}) {$failed = 1; last;}
+    }
+    
+    if ($failed) {
+      $errorsP->{$type}++;
+      if ($scripType ne 'scripSource') {$errorsP->{'total'}++;} # Don't double count scrip-refs in total
+      &Error("Reference osisRef not found: \"$rtag\"");
+    }
+    else {
+      $refcountP->{$type}++; 
+      if ($scripType ne 'scripSource') {$refcountP->{'total'}++;} # Don't double count scrip-refs in total
+    }
+  }
+}
+
+
+# CURRENTLY THIS IS UNUSED!!
+# Check all reference links, and report any errors.
+sub checkReferenceLinkValidity($) {
   my $in_osis = shift;
   
   undef(%CHECK_LINKS_CACHE);
@@ -3514,7 +3643,7 @@ different USFM tag should be used instead.");
   &Report("\"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)");
 }
 
-
+# CURRENTLY THIS IS UNUSED!!
 # Check that the given osisID is valid. Returns 1 if it is valid, 0 
 # otherwise. Any Scripture reference that exists in the target verse 
 # system is valid (even when it is outside the target's scope). When 

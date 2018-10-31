@@ -568,7 +568,7 @@ sub correctReferencesVSYS($) {
     &Warn("No OSIS Bible file was found. References effected by VSYS instructions will not be corrected.");
     return;
   }
-  &Log("\n\nUpdating osisRef attributes of \"$in_bible\" that require re-targeting after VSYS instructions:\n", 1);
+  &Log("\n\nUpdating osisRef attributes of \"$$osisP\" that require re-targeting after VSYS instructions:\n", 1);
   
   my $count = 0;
   
@@ -783,7 +783,7 @@ sub applyVsysInstruction(\%\%$) {
   my $canonP = shift;
   my $xml = shift;
   
-  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}.", ops=".$argP->{'ops'}."\n");
+  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}."\n");
 
   my $inst = $argP->{'inst'};
   
@@ -1011,46 +1011,41 @@ sub applyVsysMissing($$$) {
     return;
   }
   
-  if (!$valueP->{'isWholeChapter'}) {
-    my $count = (1 + $lv - $vs);
-    
-    my $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);  
-    # For any following verses, advance their verse numbers and add alternate verse numbers if needed
-    my $followingVerse = @{$XPC->findnodes('./following::osis:verse[@sID][1]', $verseTagToModify)}[0];
-    if ($followingVerse) {
-      $followingVerse = $followingVerse->getAttribute('osisID');
-      $followingVerse =~ s/^[^\.]+\.\d+\.(\d+)\b.*?$/$1/;
-      if ($vs != ($followingVerse-$count) - ($vs!=1 ? 0:1)) {
-        for (my $v=&getLastVerseInChapterOSIS($bk, $ch, $xml); $v>=$vs; $v--) {
-          &reVersify($bk, $ch, $v, $count, $xml);
-        }
+  my $count = (1 + $lv - $vs);
+  
+  my $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);  
+  # For any following verses, advance their verse numbers and add alternate verse numbers if needed
+  my $followingVerse = @{$XPC->findnodes('./following::osis:verse[@sID][1]', $verseTagToModify)}[0];
+  if ($followingVerse) {
+    $followingVerse = $followingVerse->getAttribute('osisID');
+    $followingVerse =~ s/^[^\.]+\.\d+\.(\d+)\b.*?$/$1/;
+    if ($vs != ($followingVerse-$count) - ($vs!=1 ? 0:1)) {
+      for (my $v=&getLastVerseInChapterOSIS($bk, $ch, $xml); $v>=$vs; $v--) {
+        &reVersify($bk, $ch, $v, $count, $xml);
       }
     }
-    
-    # Add the missing verses (by listing them in an existing osisID)
-    # need to get verseTagToModify again since reVersify converted the old one to a milestone
-    $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);
-    my $endTag = @{$XPC->findnodes('//osis:verse[@eID="'.$verseTagToModify->getAttribute('sID').'"]', $xml)}[0];
-    my @missing;
-    for (my $v = $vs; $v <= $lv; $v++) {
-      my $a = "$bk.$ch.$v";
-      &osisIDCheckUnique($a, $xml);
-      push(@missing, $a);
-      &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP);
-    }
+  }
+  
+  # Add the missing verses (by listing them in an existing osisID)
+  # need to get verseTagToModify again since reVersify converted the old one to a milestone
+  $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);
+  my $endTag = @{$XPC->findnodes('//osis:verse[@eID="'.$verseTagToModify->getAttribute('sID').'"]', $xml)}[0];
+  my @missing;
+  for (my $v = $vs; $v <= $lv; $v++) {
+    my $a = "$bk.$ch.$v";
+    &osisIDCheckUnique($a, $xml);
+    push(@missing, $a);
+    &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP);
+  }
 
-    push(@missing, $verseTagToModify->getAttribute('osisID'));
-    my $newOsisID = join(' ', &normalizeOsisID(\@missing));
-    &Note("Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'");
-    $verseTagToModify = &toAlternate($verseTagToModify, 0, 1);
-    $endTag = &toAlternate($endTag, 0, 1);
-    $verseTagToModify->setAttribute('osisID', $newOsisID);
-    $verseTagToModify->setAttribute('sID', $newOsisID);
-    $endTag->setAttribute('eID', $newOsisID);
-  }
-  else {
-    &ErrorBug("VSYS_MISSING($bk, $ch, $vs, $lv): An entire missing chapter is not supported.");
-  }
+  push(@missing, $verseTagToModify->getAttribute('osisID'));
+  my $newOsisID = join(' ', &normalizeOsisID(\@missing));
+  &Note("Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'");
+  $verseTagToModify = &toAlternate($verseTagToModify, 0, 1);
+  $endTag = &toAlternate($endTag, 0, 1);
+  $verseTagToModify->setAttribute('osisID', $newOsisID);
+  $verseTagToModify->setAttribute('sID', $newOsisID);
+  $endTag->setAttribute('eID', $newOsisID);
 }
 
 # Used when the translation includes extra verses in a chapter compared
@@ -1153,7 +1148,7 @@ sub applyVsysExtra($$$$$) {
   }
   
   # Convert verse tags between startTag and endTag to alternate verse numbers
-  # But if there  are no in-between tags, then only modify the IDs.
+  # But if there are no in-between tags, then only modify the IDs.
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
     $startTag = &toAlternate($startTag, 0, 1, ($vs != 1 ? $movedFromP:0));
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
@@ -1244,7 +1239,7 @@ sub toAlternate($$$$) {
   my $elem = shift;
   my $noTarget = shift;
   my $noAlt = shift;
-  my $movedFromP = shift;
+  my $source2FixedP = shift;
   
   # Typical alternate markup example:
   # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/><hi type="italic" subType="x-alternate"><hi type="super">(25)</hi></hi>
@@ -1282,11 +1277,11 @@ sub toAlternate($$$$) {
     &ErrorBug("osisID is different than sID: $osisID != ".$elem->getAttribute('osisID'));
   }
   $elem->setAttribute('type', $VSYS{'prefix'}.'-'.$elem->nodeName.$VSYS{$type});
-  if ($type eq 'start' && $movedFromP) {
+  if ($type eq 'start' && $source2FixedP) {
     my @vids;
     foreach my $v (split(/\s+/, $osisID)) {
-      if (!$movedFromP->{'map'}{$v}) {&ErrorBug("No movedFrom mapped value for $v");}
-      push(@vids, $movedFromP->{'map'}{$v});
+      if (!$source2FixedP->{'map'}{$v}) {&ErrorBug("No movedFrom mapped value for $v");}
+      push(@vids, $source2FixedP->{'map'}{$v});
     }
     $elem->setAttribute('osisRef', &osisID2osisRef(join(' ', @vids)));
   }
