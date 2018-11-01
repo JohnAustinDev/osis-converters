@@ -236,12 +236,12 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
       foreach my $child ($ref->childNodes()) {$child->unbindNode();}
       my $t;
-      if ($localeP->{'hasLocalization'}) {
+      if ($localization{'hasLocalization'}) {
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
         my $readRef = ($movedP->{'fixed2Alt'}{$osisRef} ? $movedP->{'fixed2Alt'}{$osisRef}:$osisRef);
-        my $tr = &translateRef($readRef, $localeP);
+        my $tr = &translateRef($readRef, \%localization);
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
-        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localeP->{'SequenceIndicator'});
+        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});
       }
       else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
       
@@ -260,7 +260,7 @@ are added to the translation.");
       
     # add resp attribute, which identifies this note as an external note
     $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));  
-    &insertNote($note, $fixed, \%verses, $movedP, \%localization);
+    &insertNote($note, $fixed, \%verses, $movedP);
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
@@ -297,7 +297,6 @@ sub insertNote($$\%\%\%) {
   my $fixed = shift;
   my $verseP = shift;
   my $movedP = shift;
-  my $localeP = shift;
   
   my $verseNum = ($movedP->{'fixed2Alt'}{$fixed} =~ /\.(\d+)$/ ? $1:'');
   my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
