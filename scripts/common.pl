@@ -3453,57 +3453,60 @@ else this is a problem with the source text:
   &Report("$checked Scripture references checked. ($problems problems)\n");
 }
 
-# Check that targets of all references in the OSIS file exist. This 
-# includes both the fixed and the source verse system references. It 
-# is assumed that the Bible OSIS file is created before the Dict OSIS 
-# file. Therefore, references in a Bible which target the Dict are not 
-# checked until the Dict is created, when they will be checked along 
-# with the Dict's references.
+# Check that the targets of all references in a project Bible and Dict 
+# (if present) OSIS file exist. This includes both the fixed and the 
+# source verse system references. It is assumed that the Bible OSIS file 
+# is created before the Dict OSIS file. Therefore, references in a Bible 
+# which target the Dict are not checked until the Dict is created, when 
+# they will be checked along with the Dict's references.
 sub checkReferenceLinks($) {
   my $osis = shift;
   
-  &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $osis...\n");
+  my %osisID; my %refcount; my %errors;
   
-  my %osisID;
-  my %refcount = ('total' => 0, 'gloss' => 0, 'scripFixed' => 0, 'scripSource' => 0, 'note' => 0, 'other' => 0);
-  my %errors   = ('total' => 0, 'gloss' => 0, 'scripFixed' => 0, 'scripSource' => 0, 'note' => 0, 'other' => 0);
-  
+  &Log("\nCHECKING OSISREF TARGETS IN $osis...\n");
   my $inXML = $XML_PARSER->parse_file($osis);
+  my $inIsBible = (&getRefSystemOSIS($inXML) =~ /^Bible\./ ? 1:0);
   &readOsisIDs(\%osisID, $inXML);
   my $bibleOSIS;
   my $bibleXML;
-  if ($MOD eq $MAINMOD) {
+  if ($inIsBible) {
     $bibleOSIS = $osis;
     $bibleXML = $inXML;
   }
   else {
-    $bibleOSIS = "$TMPDIR/x$MAINMOD.xml";
+    $bibleOSIS = "$TMPDIR/chrl_$MAINMOD.xml";
     &copy(&getProjectOsisFile($MAINMOD), $bibleOSIS);
     $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
     &readOsisIDs(\%osisID, $bibleXML);
   }
-  &checkReferenceLinks2($inXML, $bibleXML, 'scripFixed', \%refcount, \%errors, \%osisID);
-  if ($MOD ne $MAINMOD) {
-    &checkReferenceLinks2($bibleXML, $bibleXML, 'scripFixed', \%refcount, \%errors, \%osisID);
-  }
+  # Check reference links in OSIS file (fixed vsys) NOT including glossary links if OSIS is a Bible
+  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, ($inIsBible ? -1:0));
+  &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
   
+  # If OSIS is NOT a Bible, now check glossary reference links in the Bible OSIS
+  if (!$inIsBible) {
+    &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN $bibleOSIS...\n");
+    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 1);
+    &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
+  }
+
+  undef(%osisID); # re-read source vsys OSIS files
   &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$osis);
+  &Log("\nCHECKING SOURCE VSYS NON-GLOSSARY OSISREF TARGETS IN $osis");
   $inXML = $XML_PARSER->parse_file($osis);
-  if ($MOD eq $MAINMOD) {$bibleOSIS = $osis; $bibleXML = $inXML;}
+  &readOsisIDs(\%osisID, $inXML);
+  if ($inIsBible) {$bibleOSIS = $osis; $bibleXML = $inXML;}
   else {
     &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$bibleOSIS);
+    &Log(" AGAINST $bibleOSIS");
     $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
+    &readOsisIDs(\%osisID, $bibleXML);
   }
-  &checkReferenceLinks2($inXML, $bibleXML, 'scripSource', \%refcount, \%errors, \%osisID);
-
-  if (!$isBible) {
-    &Report("\"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)");
-  }
-  &Report("\"".$refcount{'scripFixed'}."\" Fixed vsys Scripture reference links checked. (".$errors{'scripFixed'}." problems)");
-  &Report("\"".$refcount{'scripSource'}."\" Source vsys Scripture reference links checked. (".$errors{'scripSource'}." problems)");
-  &Report("\"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)");
-  &Report("\"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)");
-  &Report("\"".($refcount{'total'} + $errors{'total'})."\" Grand total reference links. (".$errors{'total'}." problems)");
+  &Log("...\n");
+  # Check reference links in OSIS (source vsys) NOT including glossary links which are unchanged between fixed/source
+  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, -1);
+  &reportReferences(\%refcount, \%errors);
 }
 
 sub readOsisIDs(\%$) {
@@ -3517,29 +3520,43 @@ sub readOsisIDs(\%$) {
   }
 }
 
-sub checkReferenceLinks2($$$\%\%\%) {
+sub reportReferences(\%\%) {
+  my $refcntP = shift;
+  my $errorsP = shift;
+  
+  my $total = 0; my $errtot = 0;
+  foreach my $type (sort keys (%{$refcntP})) {
+    &Report("\"".$refcntP->{$type}."\" ${type}s checked. (".($errorsP->{$type} ? $errorsP->{$type}:0)." problems)");
+    $total += $refcntP->{$type}; $errtot += $errorsP->{$type};
+  }
+  &Report("\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");
+}
+
+sub checkReferenceLinks2($$\%\%\%$) {
   my $inxml = shift;
-  my $bxml = shift;
-  my $scripType = shift;
   my $refcountP = shift;
   my $errorsP = shift;
   my $osisIDP = shift;
-  
-  my $isBible = (&getRefSystemOSIS($inxml) =~ /^Bible\./ ? 1:0);
+  my $glossaryFlag = shift; # < 0 means check all refs except glossary refs
+                            # = 0 means check all refs
+                            # > 0 means check only glossary refs
   my $osisRefWork = &getOsisRefWork($inxml);
   
-  my @references = $XPC->findnodes('//osis:reference', $xml);
-  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $xml);
+  my @references = $XPC->findnodes('//osis:reference', $inxml);
+  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $inxml);
   push(@osisRefs, @references);
   
+  my $glosstype = 'glossary osisRef';
   foreach my $r (@osisRefs) {
     my $rtag = $r->toString(); $rtag =~ s/^(<[^>]*>).*?$/$1/;
     
     my $type;
-    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$type = 'gloss';}
-    elsif ($r->getAttribute('type') eq 'x-note') {$type = 'note';}
-    elsif ($r->nodeName eq 'reference') {$type = $scripType;}
-    else {$type = 'other';}
+    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$type = $glosstype;}
+    elsif ($r->getAttribute('type') eq 'x-note') {$type = 'osisRefs to note';}
+    else {$type = $r->nodeName.' osisRef';}
+    
+    if    ($type eq $glosstype && $glossaryFlag < 0) {next;}
+    elsif ($type ne $glosstype && $glossaryFlag > 0) {next;}
     
     my $osisRef = $r->getAttribute('osisRef');
     if (!$osisRef) {
@@ -3551,22 +3568,16 @@ different USFM tag should be used instead.");
       next;
     }
     my $rwork = ($osisRef =~ s/^(\w+):// ? $1:$osisRefWork);
-    if ($MOD eq $MAINMOD && $rwork ne $MAINMOD) {next;} # This will be checked when the sub-module is checked
-    elsif ($isBible && $MOD ne $MAINMOD && $rwork eq $MAINMOD) {next;} # This was checked when the main-module was checked
     
-    my $failed = 0;
+    my $failed = '';
     foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-      if (!$osisIDP->{$rwork}{$orp}) {$failed = 1; last;}
+      if (!$osisIDP->{$rwork}{$orp}) {$failed .= "$rwork:$orp ";}
     }
     
+    $refcountP->{$type}++;
     if ($failed) {
       $errorsP->{$type}++;
-      if ($scripType ne 'scripSource') {$errorsP->{'total'}++;} # Don't double count scrip-refs in total
-      &Error("Reference osisRef not found: \"$rtag\"");
-    }
-    else {
-      $refcountP->{$type}++; 
-      if ($scripType ne 'scripSource') {$refcountP->{'total'}++;} # Don't double count scrip-refs in total
+      &Error("$type $failed not found: \"$rtag\"");
     }
   }
 }
@@ -4010,9 +4021,10 @@ sub runAnyUserScriptsAt($$\%$) {
 
 # Runs a script according to its type (its extension). The sourceP points
 # to the input file. If overwrite is set, the input file is overwritten,
-# otherwise the output file has the name of the script which created it.
-# Upon sucessfull completion, inputP will be updated to point to the 
-# newly created output file.
+# otherwise the output file has the name of the script which created it
+# unless a file with that name already exists, at which time _n is 
+# appended to have a unique name. Upon sucessfull completion, inputP 
+# will be updated to point to the newly created output file.
 sub runScript($$\%$) {
   my $script = shift;
   my $inputP = shift;
@@ -4028,6 +4040,8 @@ sub runScript($$\%$) {
   }
   
   my $output = $$inputP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
+  my $fp = "$1$name"; my $fe = $3; my $n = 0;
+  while (-e $output) {$n++; $output = $fp.'_'.$n.$fe;}
   if ($ext eq 'xsl')   {&runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
   elsif ($ext eq 'pl') {&runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
   else {
@@ -4658,7 +4672,7 @@ sub splitOSIS($) {
   if (!$isBible) {return @return;}
   
   # Prepare an osis file which has only a single book in it
-  $xml = $XML_PARSER->parse_file($in_osis);
+  my $xml = $XML_PARSER->parse_file($in_osis);
   
   # remove books, except the first book (doing this before removing outside material speeds things up a huge amount!)
   my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
@@ -4705,7 +4719,7 @@ sub joinOSIS($) {
   closedir(JOSIS);
   
   if (!-e "$tmp/other.osis") {die "joinOSIS must have file \"$tmp/other.osis\"!\n";}
-  $xml = $XML_PARSER->parse_file("$tmp/other.osis");
+  my $xml = $XML_PARSER->parse_file("$tmp/other.osis");
   
   foreach my $f (sort @files) {
     if ($f eq "other.osis" || $f =~ /^\./) {next;}

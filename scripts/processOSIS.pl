@@ -106,10 +106,7 @@ if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 # Run postprocess.(pl|xsl) if they exist
 &runAnyUserScriptsAt("postprocess", \$OSIS);
 
-# Checks occur as late as possible in the flow
-&checkReferenceLinks($OSIS);
-
-# After checking references, if the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
+# If the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
 if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
   my $glossContainsINT = `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
@@ -143,6 +140,8 @@ RUN:./INT.SFM");
   &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
 }
 
+# Checks occur as late as possible in the flow
+&checkReferenceLinks($OSIS);
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
 
