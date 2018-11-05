@@ -191,7 +191,6 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     $INSERT_NOTE_SPEEDUP{@{$XPC->findnodes('following::osis:verse[@eID][1]', $alt)}[0]->getAttribute('eID')}++;
   }
   
-  my $movedP = &getAltVersesOSIS($osis);
   my $osisBooksHP = &getBooksOSIS($osis);
   foreach my $note ($XPC->findnodes('//osis:note', $xml)) {
     foreach my $t ($note->childNodes()) {if ($t->nodeType == XML::LibXML::XML_TEXT_NODE) {$t->unbindNode();}}
@@ -202,7 +201,8 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     $fixed =~ s/^[^\:]*\://;
     
     # map crossReferences to be placed within verses that were moved by translators from their fixed verse-system positions
-    my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
+    my $placement = &getAltVersesOSIS($osis)->{'fixed2Fitted'}{$fixed};
+    if (!$placement) {$placement = $fixed;}
     
     # check and filter the note placement
     if ($placement =~ /\.0\b/) {
@@ -218,7 +218,8 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     if (!$verses{$placement}) {next;}
     
     # add annotateRef so readers know where the note belongs
-    my $annotateRef = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Alt'}{$fixed}:$fixed);
+    my $annotateRef = &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed}; $annotateRef =~ s/!PART$//;
+    if (!$annotateRef) {$annotateRef = $fixed};
     if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
@@ -238,7 +239,8 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       my $t;
       if ($localization{'hasLocalization'}) {
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
-        my $readRef = ($movedP->{'fixed2Alt'}{$osisRef} ? $movedP->{'fixed2Alt'}{$osisRef}:$osisRef);
+        my $readRef = &getAltVersesOSIS($osis)->{'fixed2Source'}{$osisRef}; $readRef =~ s/!PART$//;
+        if (!$readRef) {$readRef = $osisRef;}
         my $tr = &translateRef($readRef, \%localization);
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
         $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});
@@ -260,7 +262,8 @@ are added to the translation.");
       
     # add resp attribute, which identifies this note as an external note
     $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));  
-    &insertNote($note, $fixed, \%verses, $movedP);
+    
+    &insertNote($note, \%{$verses{$placement}}, &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed});
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
@@ -290,17 +293,14 @@ file, or else with an 'abbr' entry in the BookNames.xml file.");
 # Insert the note near the beginning or end of the verse depending on type.
 # Normal cross-references go near the end, but parallel passages go near the 
 # beginning of the verse. Sometimes a verse contains alternate verses within
-# itself, and in this case, altVerseID is used to place the note within the 
+# itself, and in this case, verseNum is used to place the note within the 
 # appropriate alternate verse.
-sub insertNote($$\%\%\%) {
+sub insertNote($\%$) {
   my $note = shift;
-  my $fixed = shift;
   my $verseP = shift;
-  my $movedP = shift;
+  my $sourceID = shift;
   
-  my $verseNum = ($movedP->{'fixed2Alt'}{$fixed} =~ /\.(\d+)$/ ? $1:'');
-  my $placement = ($movedP->{'fixed2Alt'}{$fixed} ? $movedP->{'fixed2Fixed'}{$fixed}:$fixed);
-  $verseP = \%{$verseP->{$placement}};
+  my $verseNum = ($sourceID && $sourceID =~ /\.(\d+)(!PART)?$/ ? $1:'');
 
   # insert note in the right place
   # NOTE: the crazy looking while loop approach, and not using normalize-space() but rather $nt =~ /^\s*$/, greatly increases processing speed

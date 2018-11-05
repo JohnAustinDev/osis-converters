@@ -115,22 +115,22 @@ sub usfm2osis($$) {
     }
     elsif ($_ =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'FROM', 'fixed'=>$from, 'source'=>$to });
-      push(@VSYS_INSTR, { 'inst'=>'TO',   'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
     }
     elsif ($_ =~ /^VSYS_EMPTY:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
       my $value = $+{val};
-      push(@VSYS_INSTR, { 'inst'=>'TO', 'fixed'=>$value, 'source'=>'' });
+      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$value, 'source'=>'' });
     }
     elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from, 'source'=>$to });
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
     }
     elsif ($_ =~ /^VSYS_MOVED_ALT:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from, 'source'=>$to });
-      push(@VSYS_INSTR, { 'inst'=>'FROM',    'fixed'=>$from, 'source'=>$to });
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
+      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
     }
     elsif ($_ =~ /^VSYS_MISSING_FN:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
       my $value = $+{val};
@@ -140,8 +140,8 @@ sub usfm2osis($$) {
         my $bk = $1; my $ch = $2; my $vs = (1*$3);
         my $to = "$bk.$ch.".($vs-1);
         if ($vs > 1) {
-          push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value, 'source'=>$to });
-          push(@VSYS_INSTR, { 'inst'=>'FROM',    'fixed'=>$value, 'source'=>$to });
+          push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
+          push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$value, 'source'=>"$to.PART" });
         }
         else {&Error("VSYS_MISSING_FN cannot be used with verse 1: $_", "$msg Use different instruction(s) in CF_usfm2osis.txt.");}
       }
@@ -153,6 +153,7 @@ sub usfm2osis($$) {
   close(COMF);
 
   @VSYS_INSTR = sort { &vsysInstSort($a, $b) } @VSYS_INSTR;
+#  foreach my $p (@VSYS_INSTR) {&Log($p->{'inst'}.', fixed='.$p->{'fixed'}.', source='.$p->{'source'}."\n", 1);}
   
   if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
   
@@ -186,21 +187,35 @@ sub vsysInstSort($$) {
   my $a = shift;
   my $b = shift;
   
-  my $av = $a->{'fixed'};
-  my $bv = $b->{'fixed'};
-  $av =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
-  $bv =~ s/^([^\.]+\.\d+\.\d+).*?$/$1/;
-  
-  my $r = &osisIDSort($av, $bv);
-  if ($r) {return $r;}
-  
-  my @order = ('MISSING', 'EXTRA', 'FROM', 'TO');
+  my $r;
+  my @order = ('MISSING', 'EXTRA', 'FROM_TO');
   my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
   my $bi; for ($bi=0; $bi<@order; $bi++) {if (@order[$bi] eq $b->{'inst'}) {last;}}
   if ($ai == @order || $bi == @order) {
     &ErrorBug("Unknown VSYS sub-instruction: '".$a->{'inst'}."' or '".$b->{'inst'}."'");
   }
+  my $axi = ($ai == 1 ? 0:$ai); my $bxi = ($bi == 1 ? 0:$bi); # missing vs extra waits till end
+  
+  # make FROM_TO last
+  $r = $axi <=> $bxi;
+  if ($r) {return $r;}
+  
+  my $av = ($a->{'fixed'} ? $a->{'fixed'}:$a->{'source'});
+  my $bv = ($b->{'fixed'} ? $b->{'fixed'}:$b->{'source'});
+  $av =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $av2 = ($2 ? (1*$3):0);
+  $bv =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $bv2 = ($2 ? (1*$3):0);
+  
+  # otherwise verse system order
+  $r = &osisIDSort($av, $bv);
+  if ($r) {return $r;}
+  
+  # otherwise by last verse
+  $r = $av2 <=> $bv2;
+  if ($r) {return $r;}
+  
+  # otherwise by @order
   $r = $ai <=> $bi;
+  if ($r) {return $r;}
 
   if (!$r) {&ErrorBug("Indeterminent VSYS instruction sort: av=$av, bv=$bv, ai=$ai, bi=$bi");}
   return $r;

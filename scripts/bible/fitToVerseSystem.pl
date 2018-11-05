@@ -19,7 +19,7 @@
 $fitToVerseSystemDoc = "
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
-OSIS-CONVERTERS VERSIFICATION MAPPING:
+OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS:
 The goal is to fit a source Bible translation having a custom verse 
 system into a known fixed versification system so that every verse of 
 the source system is identified according to the known system. Both the 
@@ -94,13 +94,12 @@ cross-references to the removed verse.
 
 VSYS_FROM_TO: BK.1.2.3 -> BK.4.5.6
 This does not effect any verse or alternate verse markup or locations. 
-It only forwards external references from their expected address in the 
-fixed verse system to a different location in the source verse system.
-It would be used if a verse is marked in the text but is left empty,
-while there is a footnote about it in the previous verse (but see 
-VSYS_MISSING_FN which is the more comom case). VSYS_FROM_TO is usually 
-NOT the right instruction for most use cases (because it is used more 
-internally).
+It only allows references to be forwarded from their expected address 
+in the fixed verse system to a different location. It would be used if 
+a verse is marked in the text but is left empty, while there is a 
+footnote about it in the previous verse (but see VSYS_MISSING_FN which 
+is the more comom case). VSYS_FROM_TO is usually NOT the right 
+instruction for most use cases (because it is used more internally).
 
 SET_customBookOrder:true
 Turns off the book re-ordering step so books will remain in processed 
@@ -114,6 +113,64 @@ of their order in the CF_ file.
 chapters, and whole chapters are only supported with VSYS_EXTRA for
 chapters at the end of a book, where the chapter was simply appended 
 (such as Psalm 151 of Synodal).
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+";
+
+$verseSystemDoc = "
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+OSIS-CONVERTERS VERSIFICATION SYSTEM:
+Special milestone markers are added to the OSIS file to facilitate 
+reference mapping between the source, fixed and fitted verse systems:
+source: The custom source verse system created by the translators. 
+        Because it is a unique and customized verse system, by itself 
+        there is no way to link its verses with external texts or 
+        cross-references.
+fixed:  A known, unchanging, verse system which is most similar to the 
+        source verse system. Because it is a known verse system, its 
+        verses can be linked to any other known external text or 
+        cross-reference.
+fitted: A fusion between the source and fixed verse systems arrived at 
+        by applying OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS. The 
+        fitted verse system maintains the exact form of the custom verse 
+        system, but also exactly fits within the fixed verse system. It 
+        will have 'missing' verses or 'extra' alternate verses appended 
+        to the end of a verse if there are differences between the 
+        source and fixed verse systems. These differences usually 
+        represent moved, split, or joined verses. The OSIS file can then
+        be extracted in either the source or the fixed verse system 
+        such that all internal and external references remain correct.
+        
+The fitted verse system requires that applicable reference links have 
+two osisRef attributes, one for the fixed verse system (osisRef) and 
+another for the source (annotateRef with annotateType = source). To 
+facilitate this, the following maps are provided:
+1) fixed2Source: Given a verse in the fixed verse system, get the id of 
+   the source verse system verse which corresponds to it. This is needed 
+   to map a readable externally supplied cross-reference in the fixed 
+   verse system to the moved location in the source verse system. 
+   Example: A fixed verse system cross-reference targets Romans 14:24, 
+   but in the source verse system this verse is at Romans 16:25.
+2) source2Fitted: Given a verse in the source verse system, get the id 
+   of the fitted (fixed verse system) verse which contains it. This is 
+   needed to map source references to their location in the fitted verse 
+   system. Example: Source verse Rom.16.25 might correspond to a 
+   different location in the fixed verse system, but in the fitted 
+   (fixed) verse system it is appended to the end of Rom.16.24 (the last 
+   verse of the fixed verse system's chapter).
+3) fixed2Fitted: Given a verse in the fixed verse system, get the id of 
+   the fitted (also a fixed verse system) verse which contains it. This  
+   is used to map externally supplied cross-references for the fixed 
+   verse system to their actual location in the fitted verse system. 
+   Example: A fixed verse system cross-reference targets Rom.14.24, 
+   but in the fitted OSIS file, this verse is appended to the end of 
+   Rom.16.24. This is a convenience map since it is the same 
+   as source2Fitted{fixed2Source{verse}}
+4) missing: If a fixed verse system verse is left out of the translation
+   and is not even included in a footnote, then there will be no cross
+   references pointing to it.
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
 
@@ -552,9 +609,9 @@ BOOK:
 # Read bibleMod and the osis file and:
 # 1) Find all verse osisIDs in $bibleMod which were changed by VSYS 
 #    instructions. These are used for updating source osisRefs, but 
-#    these do NOT effect osisRefs of runAddCrossRefs() references. 
+#    these do not effect osisRefs of runAddCrossRefs() references. 
 # 2) Find all verse osisIDs in $bibleMod which were moved by the 
-#    translators with respect to the chosen fixed verse system. These
+#    translators with respect to the fixed verse system. These
 #    are used for updating external osisRefs.
 # 3) Find applicable osisRefs in $osis which point to the osisIDs found 
 #    in #2 and #3, and correct them, plus add source target as annotateRef.
@@ -570,8 +627,6 @@ sub correctReferencesVSYS($) {
   }
   &Log("\n\nUpdating osisRef attributes of \"$$osisP\" that require re-targeting after VSYS instructions:\n", 1);
   
-  my $count = 0;
-  
   # Read Bible file
   my $bibleXML = $XML_PARSER->parse_file($in_bible);
   my $vsys = &getVerseSystemOSIS($bibleXML);
@@ -583,54 +638,33 @@ sub correctReferencesVSYS($) {
     &Warn(@existing." references have already been updated, so this step will be skipped.");
     return;
   }
-  
-  # 1) Get osisIDs from the source verse system that need mapping to the target verse system.
-  # This map is used to update references within the translation that point to alternate verses.
-  my $sourceVerseMapP = &getAltVersesOSIS($bibleXML)->{'alt2Fixed'};
-    
-  # 2) Get osisIDs from the target verse system that need re-mapping to the target verse-system (because of VSYS_MOVED instructions).
-  # This map is used to update external references (in the target verse system) that were broken by VSYS_MOVED instructions.
-  my $targetVerseMapP = &getAltVersesOSIS($bibleXML)->{'fixed2Fixed'};
 
-  # References which target verses that are purposefully not included in the translation are removed
-  my %missing;
-  foreach my $m (@{&getAltVersesOSIS($bibleXML)->{'missing'}}) {
-    map($missing{$_}++, split(/\s+/, &osisRef2osisID($m->getAttribute('osisRef'))));
-  }
-  
-  # 3) Look for osisRefs in the osis file that need updating and update them
-  if (%{$sourceVerseMapP} || %{$targetVerseMapP} || %missing) {
+  # Look for osisRefs in the osis file that need updating and update them
+  my @maps = ('source2Fitted', 'fixed2Fitted', 'fixedMissing');
+  my $altVersesOSISP = &getAltVersesOSIS($bibleXML);
+  foreach my $m (@maps) {
     my $lastch = '';
     my @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%{$sourceVerseMapP}) ])) {
+    foreach my $verse (&normalizeOsisID([ keys(%{$altVersesOSISP->{$m}}) ])) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
-        # Select all elements having osisRef attributes EXCEPT those within externally sourced 
-        # crossReferences since they already match the target verse-system.
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]", $osisXML);
+        my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))]";
+        if ($m =~ /^source/) {
+          $xpath .= "[not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]";
+        }
+        else {
+          $xpath .= "[ancestor-or-self::osis:note[\@type='crossReference'][\@resp]]";
+        }
+        @checkrefs = $XPC->findnodes($xpath, $osisXML);
       }
       $lastch = $ch;
-      &addrids(\@checkrefs, $verse, $sourceVerseMapP, 'alt2Fixed');
+      &addrids(\@checkrefs, $verse, $m, $altVersesOSISP);
     }
-    
-    $lastch = '';
-    @checkrefs = ();
-    my @verses = &normalizeOsisID([ keys(%{$targetVerseMapP}) ]); push(@verses, keys(%missing));
-    foreach my $verse (@verses) {
-      $verse =~ /^(.*?)\.\d+$/;
-      my $ch = $1;
-      if (!$lastch || $lastch ne $ch) {
-        # Select ONLY elements having osisRef attributes within externally sourced crossReferences 
-        @checkrefs = $XPC->findnodes("//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))][ancestor-or-self::osis:note[\@type='crossReference'][\@resp]]", $osisXML);
-      }
-      $lastch = $ch;
-      &addrids(\@checkrefs, $verse, $targetVerseMapP, 'fixed2Fixed', \%missing);
-    }
-    
-    $count = &applyrids($osisXML, &getAltVersesOSIS($bibleXML)->{'fixed2Alt'});
   }
   
+  my $count = &applyrids($osisXML);
+
   # Overwrite OSIS file if anything changed
   if ($count) {
     if (open(OUTF, ">$output")) {
@@ -645,120 +679,92 @@ sub correctReferencesVSYS($) {
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
 
-# If any osisRef in the @checkRefs array of osisRefs includes $verse,  
-# then add a rids attribute. The rids attribute contains redirected  
-# verse osisID(s) that will become the updated osisRef value of the 
-# parent element.
-sub addrids(\@$\%$\%) {
+# Look for references to $verse in $checkRefsAP array, and any matching 
+# references will be updated. The rids attribute will eventually become 
+# the updated osisRef and the annotateRef attribute will hold the source 
+# verse system reference.
+sub addrids(\@$$\%) {
   my $checkRefsAP = shift;
   my $verse = shift;
-  my $mapHP = shift;
-  my $mapType = shift;
-  my $missingHP = shift;
+  my $map = shift; # source2Fitted, fixed2Fitted or fixedMissing
+  my $altVersesOSISP = shift;
   
+  my @attribs = ('osisRef', 'annotateRef', 'rids');
   foreach my $e (@{$checkRefsAP}) {
-    my $changed = 0; # only write a rids attrib if there is a change
-    my $ridsAttrib = ($e->hasAttribute('rids') ? $e->getAttribute('rids'):&osisRef2osisID($e->getAttribute('osisRef')));
-    my @rids = split(/\s+/, $ridsAttrib);
-    foreach my $rid (@rids) {
-      # Never modify osisRef segments with extensions, because non verse elements (osisIDs) 
-      # are never modified by fitToVerseSystem and references to them should thus not be mapped
-      if ($rid =~ /\!/) {next;}
-      elsif ($rid ne $verse) {next;}
-      elsif ($mapHP->{$verse}) {
-        # Any mapped reference is by definition not missing, so $missingHP is never checked
-        $rid = join(' ', map("$mapType.$_", split(/\s+/, $mapHP->{$verse})));
-        $changed++;
-      }
-      # This references a fixed osisID which is missing, so mark it as such
-      elsif ($mapType =~ /^fixed/i && $missingHP->{$verse}) {
-        $rid = "$mapType.$verse!does-not-exist";
-        $changed++;
-      }
-      else {&ErrorBug("Could not map \"$verse\" to verse system.");}
+    my (@attribs);
+    foreach my $a (@attribs) {
+      my @ar = (split(/\s+/, &osisRef2osisID($e->getAttribute($a))));
+      $$a = \@ar;
     }
-    if ($changed) {$e->setAttribute('rids', join(' ', @rids));}
+    foreach my $ref (@$osisRef) {
+      my $v = $verse;
+      my $vIsPartial = ($v =~ s/!PART$// ? 1:0);
+      if ($ref ne $v) {next;}
+      elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
+      
+      # map source references to fitted
+      if ($map eq 'source2Fitted') {
+        if ($vIsPartial) {push(@$rids, $v);}
+        push(@$rids, $altVersesOSISP->{'source2Fitted'}{$verse});
+        push(@$annotateRef, $v);
+      }
+      # map externally added references to fitted
+      elsif ($map eq 'fixed2Fitted') {
+        if ($vIsPartial) {push(@$rids, $v);}
+        push(@$rids, $altVersesOSISP->{'fixed2Fitted'}{$verse});
+        push(@$annotateRef, $altVersesOSISP->{'fixed2Source'}{$verse});
+      }
+      elsif ($map eq 'fixedMissing') {
+        if ($vIsPartial) {push(@$rids, $v);}
+      }
+      else {&ErrorBug("Unexpected map $map.");}
+      
+      $ref = '';
+    }
+    foreach my $a (@attribs) {
+      my $val = &osisID2osisRef(join(' ', &normalizeOsisID($$a)));
+      if ($val ne $e->getAttribute($a)) {$e->setAttribute($a, $val);}
+    }
+    $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
   }
 }
 
-# Applies the rids attribute to an element and removes the rids attribute.
-# Also writes an annotateRef containing the source verse system osisRef.
-# References that were mapped as fixed2Fixed (external) must have their
-# osisRef (which was fixed) mapped to obtain annotateRef (which is source).
-# So %movedHP is used for that. Elements with osisRefs pointing to verses 
-# labeled as 'does-not-exist' are removed.
+# Merges the osisRef and rids attributes of all elements having the rids 
+# attribute, then rids is removed. If an element's osisRef is empty, the
+# reference tags are entirely removed.
 sub applyrids($\%) {
   my $xml = shift;
-  my $movedHP = shift;
   
-  my ($update, $remove, $map);
+  my ($update, $remove);
   my $count = 0;
   foreach my $e ($XPC->findnodes('//*[@rids]', $xml)) {
-    my $rids = $e->getAttribute('rids');
+    $count++;
+    my $tag = $e->toString(); $tag =~ s/^(<[^>]*>).*?$/$1/s;
+    my @rids = split(/\s+/, &osisRef2osisID($e->getAttribute('rids')));
     $e->removeAttribute('rids');
-    my $tag = $e->toString(); $tag =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
-    
-    my $isExternal = 0;
-    my $removeElement = 1;
-    my @rid;
-    foreach my $r (split(/\s+/, $rids)) {
-      if ($r !~ s/\Q!does-not-exist\E$//) {$removeElement = 0;}
-      if ($r =~ /fixed2Fixed/) {$isExternal = 1;}
-      $r =~ s/^(alt2Fixed|fixed2Fixed)\.//;
-      push(@rid, $r);
-    }
-    if (!$removeElement) {
-      # Add annotateRef and annotateType attributes
-      my @annoRefs = split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')));
-      if ($isExternal) {
-        foreach my $ar (@annoRefs) {if ($movedHP->{$ar}) {$ar = $movedHP->{$ar};}}
-      }
-      my $annoRef = &osisID2osisRef(join(' ', @annoRefs));
-      if ($annoRef =~ /\s+/) {
-        # Sometimes mapped ranges might be split up due to missing verses
-        $annoRef = &fillGapsInOsisRef($annoRef);
-        if ($annoRef =~ /\s+/) {
-          &ErrorBug("Mapped reference has multiple segments \"".$e->getAttribute('osisRef')."\" --> \"$annoRef\"");
-        }
-        else {&Note("Filled gaps in mapped osisRef: $annoRef");}
-      }
-      if ($e->getAttribute('osisRef') ne $annoRef) {
-        $map .= "MAPPING external AnnotateRef type ".$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}." ".$e->getAttribute('osisRef')." -> $annoRef\n";
-      }
-      $e->setAttribute('annotateRef', $annoRef);
-      $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
-      
-      # Update osisRef attribute value
-      my $newOsisRef = &osisID2osisRef(join(' ', &normalizeOsisID(\@rid)));
-      if ($e->getAttribute('osisRef') ne $newOsisRef) {
-        my $origRef = $e->getAttribute('osisRef');
-        $e->setAttribute('osisRef', $newOsisRef);
-        my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
-        my $est = $e; $est =~ s/^(.*?>).*$/$1/;
-        $update .= "UPDATING $ie".$e->nodeName." osisRef $origRef -> $newOsisRef\n";
-        $count++;
-      }
-      else {
-        # No need for annotateRef if osisRef was not changed
-        if ($e->hasAttribute('annotateRef')) {$e->removeAttribute('annotateRef');}
-        if ($e->hasAttribute('annotateType')) {$e->removeAttribute('annotateType');}
-      }
+    my @osisRef = split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')));
+    push(@osisRef, @rids);
+    my $newOsisRef = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(@osisRef))));
+   
+    if ($newOsisRef) {
+      my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
+      $update .= "UPDATING $ie".$e->nodeName." osisRef ".$e->getAttribute('osisRef')." -> $newOsisRef\n";
+      $e->setAttribute('osisRef', $newOsisRef);
     }
     else {
       my $parent = $e->parentNode();
       $parent = $parent->toString(); $parent =~ s/^[^<]*(<[^>]+?>).*$/$1/s;
       if ($e->getAttribute('type') eq "crossReference") {
-        $remove .= "REMOVING cross-reference for missing verse: $tag\n";
+        $remove .= "REMOVING cross-reference for empty verse: $tag\n";
       }
       else {
-        $remove .= "REMOVING tags for missing verse: $tag \n";
+        $remove .= "REMOVING tags for empty verse: $tag \n";
         foreach my $chld ($e->childNodes) {$e->parentNode()->insertBefore($chld, $e);}
       }
       $e->unbindNode();
-      $count++;
     }
   }
-  if ($map)    {&Note("\n$map\n");}
+  
   if ($update) {&Note("\n$update\n");}
   if ($remove) {&Note("\n$remove\n");}
   
@@ -789,8 +795,8 @@ sub applyVsysInstruction(\%\%$) {
   
   # NOTE: 'fixed' always refers to the known fixed verse system, 
   # and 'source' always refers to the customized source verse system
-  my $fixedP  = ($argP->{'fixed'}  ? &readValue($argP->{'fixed'},  $xml):'');
-  my $sourceP = ($argP->{'source'} ? &readValue($argP->{'source'}, $xml):'');
+  my $fixedP  = ($argP->{'fixed'}  ? &parseVsysArgument($argP->{'fixed'},  $xml):'');
+  my $sourceP = ($argP->{'source'} ? &parseVsysArgument($argP->{'source'}, $xml):'');
   
   if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
     &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'fixed'}." -> ".$argP->{'source'});
@@ -803,16 +809,15 @@ sub applyVsysInstruction(\%\%$) {
     return 0;
   }
   
-  if    ($inst eq 'MISSING') {&applyVsysMissing($fixedP, $xml, &mapValue($fixedP, $sourceP));}
-  elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml, &mapValue($sourceP, $fixedP));}
-  elsif ($inst eq 'FROM')    {&applyVsysFrom($sourceP, $canonP, $xml, &mapValue($sourceP, $fixedP));}
-  elsif ($inst eq 'TO')      {&applyVsysTo($fixedP, $xml, &mapValue($fixedP, $sourceP));}
+  if    ($inst eq 'MISSING') {&applyVsysMissing($fixedP, $xml);}
+  elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml);}
+  elsif ($inst eq 'FROM_TO') {&applyVsysFromTo($fixedP, $sourceP, $xml);}
   else {&ErrorBug("applyVsysInstruction did nothing: $inst");}
   
   return 1;
 }
 
-sub readValue($$) {
+sub parseVsysArgument($$) {
   my $value = shift;
   my $xml = shift;
   
@@ -821,7 +826,7 @@ sub readValue($$) {
   
   # read and preprocess value
   if ($value !~ /^$VSYS_PINSTR_RE$/) {
-    &ErrorBug("readValue: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
+    &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
     return \%data;
   }
   my $bk = $1; my $ch = $2; my $vs = ($3 ? $4:''); my $lv = ($5 ? $6:'');
@@ -837,177 +842,120 @@ sub readValue($$) {
   return \%data
 }
 
-# Returns a map of from -> to verse osisIDs
-sub mapValue($$) {
-  my $fromP = shift;
-  my $toP = shift;
-  
-  if (!$toP) {return '';}
-  
-  my %map;
-  $map{'from'} = $fromP;
-  $map{'to'} = $toP;
-  
-  my @fromvs = &contextArray($fromP->{'value'});
-  my @tovs = &contextArray($toP->{'value'});
-  if (@fromvs != @tovs) {
-    &ErrorBug("mapValue: Count mismatch: ".$fromP->{'value'}.", ".$toP->{'value'}." (".@fromvs." != ".@tovs.")");
-  }
-  
-  for (my $i=0; $i<@fromvs; $i++) {$map{'map'}{@fromvs[$i]} = @tovs[$i];}
-  
-  return \%map;
-}
-
-# This only adds milestone markers indicating where material in the 
-# source verse system was moved from with respect to the fixed verse  
-# system. The location of the milestone is before an alternate verse 
-# number when there is one (the usual case), otherwise it will be at the 
-# end of the verse.
-sub applyVsysFrom($$$$) {
+# This does not modify any verse tags. It only inserts milestone markers
+# which later can be used to map Scripture references between the source
+# and the fixed verse systems. For all VSYS markup, annotateRef always 
+# refers to the source verse system osisID (assuming annotateType = 
+# x-vsys-source as it should). And osisRef always refers to the fixed 
+# verse system osisID.
+# Types of milestones inserted are:
+# $VSYS{'movedto'}, $VSYS{'missing'} and $VSYS{'movedfrom'} 
+sub applyVsysFromTo($$$) {
+  my $fixedP = shift;
   my $sourceP = shift;
-  my $canonP = shift;
   my $xml = shift;
-  my $source2FromP = shift;
   
-  if (!$source2FromP) {
-    &Note("These verses were not moved from somewhere else, so nothing to do here.");
-    return;
-  }
-  
-  if ($sourceP->{'isPartial'}) {
-    &Note("Verse reference is partial, so nothing to do here.");
-    return;
-  }
-  
-  my $isWholeChapter = ($sourceP->{'ch'} > @{$canonP->{$sourceP->{'bk'}}} ? 1:$sourceP->{'isWholeChapter'});
-  if ($isWholeChapter) {
-    &Error("applyVsysFrom: Not supported for entire chapters.", "Check your VSYS instructions in CF_usfm2osis.txt");
-    return;
-  }
-  
-  my $note = "[applyVsysFrom]";
-  my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
-  my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
-  for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'lv'}; $v++) {
-    my $success = 0;
-    my $a = $sourceP->{'bk'}.".".$sourceP->{'ch'}.".$v";
-    my @altsInChapter = $XPC->findnodes(
-      '//osis:div[@type="book"][@osisID="'.$sourceP->{'bk'}.'"]//osis:hi[@subType="x-alternate"]'.
-      '[preceding::osis:chapter[1][@sID="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"]]'.
-      '[following::osis:chapter[1][@eID="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"]]' 
-    , $xml);
-    foreach my $alt (@altsInChapter) {
-      if ($alt->textContent !~ /\b$v\b/) {next;}
-      my $annotateRef = @{$XPC->findnodes('preceding::osis:verse[1][@sID]', $alt)}[0];
-      if ($annotateRef) {my @tmp = split(/\s+/, $annotateRef->getAttribute('osisID')); $annotateRef = @tmp[-1];}
-      if (!$annotateRef) {
-        &ErrorBug("applyVsysFrom: Could not find verse containing $alt");
-        last;
-      }
-      if (!$source2FromP->{'map'}{$a}) {
-        &ErrorBug("applyVsysFrom: Verse $a not found in movedFrom $alt");
-        last;
-      }
-      my $m = "<milestone type='$type' osisRef='".$source2FromP->{'map'}{$a}."' annotateRef='$annotateRef' annotateType='$annotateType'/>";
-      $alt->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $alt);
-      $success++;
-      last;
+  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
+  for (my $v=$vs; $v<=$lv; $v++) {
+    my $annotateRef = ($sourceP ? $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.($sourceP->{'vs'} + $v - $vs):'');
+    if ($sourceP && $sourceP->{'isPartial'}) {$annotateRef .= "!PART";}
+    
+    # Insert a movedto or missing marker at the end of the verse
+    my $fixedVerseEnd = &getVerseTag("$bk.$ch.$v", $xml, 1);
+    if (!$fixedVerseEnd) {
+      &ErrorBug("Could not find FROM_TO verse $bk.$ch.$v");
+      next;
     }
-    if (!$success) {
-      $note .= "[no alt verse $v]";
-      my $verseEnd = &getVerseTag($a, $xml, 1);
-      if ($verseEnd) {
-        my $m = "<milestone type='$type' osisRef='".$source2FromP->{'map'}{$a}."' annotateRef='$a' annotateType='$annotateType'/>";
-        $verseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $verseEnd);
-        $success++;
-      }
-      else {&ErrorBug("applyVsysFrom: Verse was not found: $a");}
+    my $type = (!$sourceP ? 'missing':'movedto');
+    my $osisRef = "$bk.$ch.$v";
+    if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
+    my $m = '<milestone type="'.$VSYS{'prefix'}.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
+    if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'" ';}
+    $m .= '/>';
+    $fixedVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $fixedVerseEnd);
+    
+    # Insert a movedfrom milestone at the end of the destination 
+    # alternate verse, which should be either a milestone verse end (if 
+    # the source was originally a regular verse) or else a hi with 
+    # subType=x-alternate (if it was originally an alternate verse).
+    my $ar = ($annotateRef =~ /^(.*?)!PART$/ ? $1:$annotateRef);
+    my $altVerseEnd = &getSourceVerseTag($ar, $xml, 1);
+    if (!$altVerseEnd) {$altVerseEnd = &getSourceAltVerseTag($ar, $xml, 1);}
+    if (!$altVerseEnd) {
+      &ErrorBug("Could not find FROM_TO destination alternate verse $ar");
+      next;
     }
-    if (!$success) {&ErrorBug("applyVsysFrom: Couldn't mark verse $v");}
-    else {$note .= "[milestone FROM $v]";}
+    $osisRef = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $altVerseEnd)}[0];
+    if (!$osisRef || !$osisRef->getAttribute('osisID')) {
+      &ErrorBug("Could not find FROM_TO destination verse osisID: ".($osisRef ? 'no osisID':'no verse'));
+      next;
+    }
+    $osisRef = $osisRef->getAttribute('osisID');
+    $osisRef =~ s/^.*?\s+(\S+)$/$1/;
+    $m = '<milestone type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"/>';
+    $altVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $altVerseEnd);
   }
-  
-  &Note($note);
-  return;
 }
 
-# This only adds milestone tags indicating where material in the source
-# verse system is missing, or was moved to, with respect to the fixed 
-# verse system.
-sub applyVsysTo($$$) {
-  my $valueP = shift;
+# Find the source verse system verse tag (a milestone) associated with 
+# an alternate $vid. Failure returns nothing.
+sub getSourceVerseTag($$$) {
+  my $vid = shift;
   my $xml = shift;
-  my $movedToP = shift;
+  my $isEnd = shift;
   
-  my $note = "[applyVsysFrom]";
-  
-  if ($valueP->{'isWholeChapter'}) {&ErrorBug("applyVsysTo: Not supported for entire chapters."); return $note;}
-  
-  for (my $v=$valueP->{'vs'}; $v<=$valueP->{'lv'}; $v++) {
-    $note .= &writeMovedToMilestone($valueP->{'bk'}.".".$valueP->{'ch'}, $v, $xml, $movedToP, $valueP->{'isPartial'});
+  my @svts = $XPC->findnodes('//*[@type="'.$VSYS{'prefix'}.'-verse'.($isEnd ? $VSYS{'end'}:$VSYS{'start'}).'"]', $xml);
+  foreach my $svt (@svts) {
+    my $ref = $svt->getAttribute('annotateRef');
+    foreach my $idp (split(/\s+/, &osisRef2osisID($ref))) {
+      if ($idp eq $vid) {return $svt;}
+    }
   }
-  
-  &Note($note);
-  return;
+  return '';
 }
 
-# Insert milestone marker to record a missing verse and whether it was moved or not.
-# The VerseID may not apply to an existing verse (since it's probably missing) so the
-# next lowest verse end tag is used.
-sub writeMovedToMilestone($$$$$) {
-  my $bkch = shift;
-  my $v = shift;
+# Find the source verse system alternate verse tag associated with an
+# alternate $vid. Failure returns nothing.
+sub getSourceAltVerseTag($$$) {
+  my $vid = shift;
   my $xml = shift;
-  my $movedToP = shift;
-  my $isPartial = shift;
+  my $isEnd = shift;
   
-  my $verseID = "$bkch.$v";
-  if ($movedToP && !$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}) {
-    &ErrorBug("writeMovedToMilestone: No source location for $verseID");
+  if ($vid !~ /^([^\.]+)\.([^\.]+)\.([^\.]+)$/) {
+    &ErrorBug("Could not parse $vid !~ /^([^\.]+)\.([^\.]+)\.([^\.]+)\$/");
+    return '';
+  }
+  my $bk = 1; my $ch = $2; my $vs = $3;
+  my @altsInChapter = $XPC->findnodes(
+    '//osis:div[@type="book"][@osisID="'.$bk.'"]//osis:hi[@subType="x-alternate"]'.
+    '[preceding::osis:chapter[1][@sID="'.$bk.'.'.$ch.'"]]'.
+    '[following::osis:chapter[1][@eID="'.$bk.'.'.$ch.'"]]', $xml);
+  foreach my $alt (@altsInChapter) {
+    if ($alt->textContent !~ /\b$vs\b/) {next;}
+    if (!$isEnd) {return $alt;}
+    my $end = @{$XPC->findnodes('following::*[ancestor::div[@osisID="'.$bk.'"]]
+        [self::osis:verse[@eID][1] or self::osis:hi[@subType="x-alternate"][1] or self::milestone[@type="'.$VSYS{'prefix'}.'verse'.$VSYS{'end'}.'"][1]]
+        [1]', $alt)}[0];
+    if ($end) {return $end;}
+    &ErrorBug("Could not find end of $alt");
   }
   
-  my $moveType = $VSYS{'prefix'}.($isPartial ? $VSYS{'partMovedTo'}:$VSYS{'movedto'});
-  my $type = ($movedToP ? 
-    'type="'.$moveType.'" annotateRef="'.$movedToP->{'map'}{$verseID.($isPartial ? '!PART':'')}.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"' : 
-    "type='".$VSYS{'prefix'}.$VSYS{'missing'}."'"
-  );
-  
-  my $verseEndTag;
-  do {
-    $verseEndTag = &getVerseTag("$bkch.$v", $xml, 1);
-    $v--;
-  } while (!$verseEndTag && $v > 0);
-  if (!$verseEndTag) {
-    my @p = split(/\./, $bkch);
-    $verseEndTag = &getVerseTag("$bkch.".&getFirstVerseInChapterOSIS(@p[0], @p[1], $xml), $xml, 1);
-  }
-  
-  if ($verseEndTag) {
-    $verseEndTag->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk("<milestone $type osisRef='$verseID'/>"), $verseEndTag);
-  }
-  else {&ErrorBug("writeMovedToMilestone: Starting verse tag not found for $verseID");}
-  
-  return "[milestone TO $v]";
+  return '';
 }
 
-# Used when verses in the verse system were not included in the translation. 
-# It inserts empty verses and milestone markers where the verses should be,  
-# and renumbers the following verses in the chapter, also inserting alternate 
-# verse numbers there.
+# Used when verses in the verse system were not included in the 
+# translation. It modifies the previous verse osisID to include the 
+# empty verses and renumbers the following verses in the chapter, also 
+# inserting alternate verse numbers there. If the 'missing' verse was
+# moved somewhere else (the usual case) that is marked-up by FROM_TO.
 sub applyVsysMissing($$$) {
-  my $valueP = shift;
+  my $fixedP = shift;
   my $xml = shift;
-  my $movedToP = shift;
   
-  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
+  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   
-  if ($valueP->{'isPartial'}) {
-    &Note("Verse reference is partial, so only writing empty verse markers.");
-    for (my $v = $vs; $v <= $lv; $v++) {
-      my $a = "$bk.$ch.$v";
-      &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP, 1);
-    }
+  if ($fixedP->{'isPartial'}) {
+    &Note("Verse reference is partial, so nothing to do here.");
     return;
   }
   
@@ -1035,7 +983,6 @@ sub applyVsysMissing($$$) {
     my $a = "$bk.$ch.$v";
     &osisIDCheckUnique($a, $xml);
     push(@missing, $a);
-    &writeMovedToMilestone("$bk.$ch", $v, $xml, $movedToP);
   }
 
   push(@missing, $verseTagToModify->getAttribute('osisID'));
@@ -1049,28 +996,27 @@ sub applyVsysMissing($$$) {
 }
 
 # Used when the translation includes extra verses in a chapter compared
-# to the target verse system, which are marked up as regular verses. For 
-# these extra verses, alternate verse numbers are inserted and verse 
-# tags are converted into milestone elements. Then they are enclosed 
-# within the proceding verse system verse. If the extra verses were 
-# moved by translators from somewhere else, the milestone's osisRef 
-# attribute will contain this location. All following verses in the 
-# chapter are renumbered and alternate verses inserted.
-sub applyVsysExtra($$$$$) {
-  my $valueP = shift;
+# to the target verse system (and which are marked up as regular 
+# verses). For these extra verses, alternate verse numbers are inserted 
+# and verse tags are converted into milestone elements. Then they are 
+# enclosed within the proceding verse system verse. All following verses 
+# in the chapter are renumbered and alternate verses inserted. If the 
+# extra verses were moved by translators from somewhere else (the usual 
+# case) this is marked-up by FROM_TO. 
+sub applyVsysExtra($$$$) {
+  my $sourceP = shift;
   my $canonP = shift;
   my $xml = shift;
-  my $movedFromP = shift;
   my $adjusted = shift;
   
-  my $bk = $valueP->{'bk'}; my $ch = $valueP->{'ch'}; my $vs = $valueP->{'vs'}; my $lv = $valueP->{'lv'};
+  my $bk = $sourceP->{'bk'}; my $ch = $sourceP->{'ch'}; my $vs = $sourceP->{'vs'}; my $lv = $sourceP->{'lv'};
   
-  if ($valueP->{'isPartial'}) {
+  if ($sourceP->{'isPartial'}) {
     &Note("Verse reference is partial, so nothing to do here.");
     return;
   }
   
-  my $isWholeChapter = ($ch > @{$canonP->{$bk}} ? 1:$valueP->{'isWholeChapter'});
+  my $isWholeChapter = ($ch > @{$canonP->{$bk}} ? 1:$sourceP->{'isWholeChapter'});
   
   # Handle the special case of an extra chapter (like Psalm 151)
   if ($ch > @{$canonP->{$bk}}) {
@@ -1104,8 +1050,8 @@ sub applyVsysExtra($$$$$) {
     my $shift = ($1 - $arv);
     if ($shift) {
       &Note("This verse was moved, adjusting position: '$shift'.");
-      my $newValueP = &readValue($bk.'.'.$ch.'.'.($vs+$shift).'.'.($valueP->{'isPartial'} ? 'PART':($lv+$shift)), $xml);
-      &applyVsysExtra($newValueP, $canonP, $xml, &mapValue($newValueP, $movedFromP), 1);
+      my $newSourceArgumentP = &parseVsysArgument($bk.'.'.$ch.'.'.($vs+$shift).'.'.($sourceP->{'isPartial'} ? 'PART':($lv+$shift)), $xml);
+      &applyVsysExtra($newSourceArgumentP, $canonP, $xml, 1);
       return;
     }
   }
@@ -1115,7 +1061,7 @@ sub applyVsysExtra($$$$$) {
     return;
   }
  
-  # If isWholeChapter, then convert chapter tags to alterantes and add alternate chapter number
+  # If isWholeChapter, then convert chapter tags to alternates and add alternate chapter number
   if ($isWholeChapter) {
     my $chapLabel = @{$XPC->findnodes("//osis:title[\@type='x-chapterLabel'][not(\@canonical='true')][preceding::osis:chapter[\@osisID][1][\@sID='$bk.$ch'][not(preceding::osis:chapter[\@eID='$bk.$ch'])]]", $xml)}[0];
     if ($chapLabel) {
@@ -1139,18 +1085,10 @@ sub applyVsysExtra($$$$$) {
     &toAlternate(@{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0], 1);
   }
   
-  # If vs==1 and movedFromP then we need to add a marker to verse 1 even though the tag itself is not changed
-  if ($vs == 1 && $movedFromP) {
-    my $type = $VSYS{'prefix'}.$VSYS{'movedfrom'};
-    my $annotateType = $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'};
-    my $m = "<milestone type='$type' osisRef='".$movedFromP->{'map'}{"$bk.$ch.1"}."' annotateRef='$bk.$ch.1' annotateType='$annotateType'/>";
-    $startTag->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $startTag);
-  }
-  
   # Convert verse tags between startTag and endTag to alternate verse numbers
   # But if there are no in-between tags, then only modify the IDs.
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
-    $startTag = &toAlternate($startTag, 0, 1, ($vs != 1 ? $movedFromP:0));
+    $startTag = &toAlternate($startTag, 0, 1);
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
     for (my $v = $vs; $v <= $lv; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
     my $newID = join(' ', &normalizeOsisID([ keys(%ids) ]));
@@ -1162,7 +1100,7 @@ sub applyVsysExtra($$$$$) {
     my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
     my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
     my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
-    foreach my $v (@convert) {&toAlternate($v, 1, 0, ($vs != 1 ? $movedFromP:0));}
+    foreach my $v (@convert) {&toAlternate($v, 1, 0);}
   }
   # Also convert endTag to alternate and update eID 
   $endTag = &toAlternate($endTag);
@@ -1239,7 +1177,6 @@ sub toAlternate($$$$) {
   my $elem = shift;
   my $noTarget = shift;
   my $noAlt = shift;
-  my $source2FixedP = shift;
   
   # Typical alternate markup example:
   # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/><hi type="italic" subType="x-alternate"><hi type="super">(25)</hi></hi>
@@ -1277,14 +1214,6 @@ sub toAlternate($$$$) {
     &ErrorBug("osisID is different than sID: $osisID != ".$elem->getAttribute('osisID'));
   }
   $elem->setAttribute('type', $VSYS{'prefix'}.'-'.$elem->nodeName.$VSYS{$type});
-  if ($type eq 'start' && $source2FixedP) {
-    my @vids;
-    foreach my $v (split(/\s+/, $osisID)) {
-      if (!$source2FixedP->{'map'}{$v}) {&ErrorBug("No movedFrom mapped value for $v");}
-      push(@vids, $source2FixedP->{'map'}{$v});
-    }
-    $elem->setAttribute('osisRef', &osisID2osisRef(join(' ', @vids)));
-  }
   $elem->setAttribute('annotateRef', $osisID);
   $elem->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
   $elem->setNodeName('milestone');
@@ -1339,7 +1268,6 @@ sub undoAlternate($) {
     $ms->removeAttribute('annotateRef');
     $ms->removeAttribute('annotateType');
     $ms->removeAttribute('type');
-    if ($ms->hasAttribute('osisRef')) {$ms->removeAttribute('osisRef');}
   }
   else {&ErrorBug("Can't parse: ".$ms->getAttribute('type')." !~ /$chvsTypeRE/");}
   

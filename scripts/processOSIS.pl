@@ -1,5 +1,10 @@
 require("$SCRD/scripts/bible/fitToVerseSystem.pl");
-if ($MODDRV =~ /LD/) {require("$SCRD/scripts/dict/processGlossary.pl");}
+require("$SCRD/scripts/dict/processGlossary.pl");
+require("$SCRD/scripts/addScripRefLinks.pl");
+require("$SCRD/scripts/addFootnoteLinks.pl");
+require("$SCRD/scripts/bible/addDictLinks.pl");
+require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
+require("$SCRD/scripts/bible/addCrossRefs.pl");
 
 my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_bible'));
 
@@ -48,7 +53,6 @@ else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 &writeTOC(\$OSIS);
 
 if ($addScripRefLinks) {
-  require("$SCRD/scripts/addScripRefLinks.pl");
   &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
   &checkSourceScripRefLinks($OSIS);
 }
@@ -63,7 +67,6 @@ CF_addScripRefLinks.txt.");
   else {
     my $CF_addFootnoteLinks = &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
     if ($CF_addFootnoteLinks) {
-      require("$SCRD/scripts/addFootnoteLinks.pl");
       &runAddFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
     }
     else {&Error("CF_addFootnoteLinks.txt is missing", 
@@ -78,13 +81,9 @@ if ($DICTMOD && $MODDRV =~ /Text/ && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
     &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
   }
-  else {
-    require("$SCRD/scripts/bible/addDictLinks.pl");
-    &runAddDictLinks(\$OSIS);
-  }
+  else {&runAddDictLinks(\$OSIS);}
 }
 elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
-  require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
   &runAddSeeAlsoLinks(\$OSIS);
 }
 
@@ -94,10 +93,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &fitToVerseSystem(\$OSIS, $VERSESYS);
 }
 
-if ($MODDRV =~ /Text/ && $addCrossRefs) {
-  require("$SCRD/scripts/bible/addCrossRefs.pl");
-  &runAddCrossRefs(\$OSIS);
-}
+if ($MODDRV =~ /Text/ && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
 &correctReferencesVSYS(\$OSIS);
 
