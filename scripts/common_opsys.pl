@@ -247,7 +247,7 @@ sub haveDependencies($$$$) {
   $test{'GO_BIBLE_CREATOR'} = [ "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage" ];
   $test{'MODULETOOLS_BIN'}  = [ &escfile($MODULETOOLS_BIN."usfm2osis.py"), "Revision: 491" ]; # check version
   $test{'XSLT2'}            = [ 'saxonb-xslt', "Saxon 9" ]; # check major version
-  $test{'JAVA'}             = [ 'java -version', "openjdk version \"10.0.1\"", 1 ]; # NOT openjdk 10.0.1
+  $test{'JAVA'}             = [ 'java -version', "openjdk version \"10.", 1 ]; # NOT openjdk 10.
   $test{'CALIBRE'}          = [ "ebook-convert --version", "calibre 3" ]; # check major version
   $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.8.900" ]; # check version
   
