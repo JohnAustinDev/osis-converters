@@ -12,6 +12,7 @@ if [ -e /vagrant/Vagrantfile ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 
 sudo apt-get update
+sudo apt-get install -y openjdk-8-jdk
 sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config libicu-dev unzip cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck
 sudo apt-get install -y libtool-bin
 
