@@ -51,25 +51,30 @@ instruction also updates the hyperlink targets of externally sourced
 Scripture cross-references so that they correctly point to their moved 
 location in the source translation.
 
-VSYS_EXTRA: BK.1.2.3
-Specifies that this translation has inserted a range of verses of the 
-source verse system which are not found in the target verse system. 
-These additional verses will all be appended to the preceeding extant 
-verse in the fixed verse system. The additional verses, and any regular 
-verses following them in the chapter, will have alternate verse numbers 
-appended before them, to display their verse number according to the 
-source verse system. The range may be an entire chapter if it occurs at
-the end of a book (like Psalm 151), in which case an alternate chapter 
-number will be inserted and the chapter will be appended to the last
-verse of the previous chapter.
-
 VSYS_MISSING: BK.1.2.3
 Specifies that this translation does not include a range of verses of
-the fixed verse system. The preceeding extant verse id will be modified 
-to span the missing range, but in no case exceeding the end of a 
-chapter. Alternate numbers will be appended to any following verses in 
-the chapter to display their verse number according to the source verse 
-system. Entire missing chapters are not supported.
+the fixed verse system. So the fitted verse system will have the 
+preceeding extant verse id modified to span the missing range, but in no 
+case exceeding the end of a chapter. Also, if there are source verse(s) 
+already sharing the verse number(s) of the missing verse(s), then these, 
+as well as any following verses in the chapter will be renumbered upward 
+by the number of missing verses, and alternate verse numbers will be 
+appended to them displaying their original source verse system number. 
+Entire missing chapters are not supported.
+
+VSYS_EXTRA: BK.1.2.3
+Specifies that the source verse system includes an extra range of verses 
+which are not there in the fixed verse system. So for the fitted verse 
+system, the additional verse(s) will be converted to alternate verse(s) 
+and appended to the preceding extant verse in the fixed verse system. 
+Also, if there are any verses following the extra verses in the source 
+verse system, then they will be renumbered downward by the number of 
+extra verses, and alternate verse numbers will be appended to display  
+their original verse number(s) in the source verse system. The range may 
+be an entire chapter if it occurs at the end of a book (like Psalm 151),   
+in which case an alternate chapter number will be inserted and the   
+entire extra chapter will be appended to the last verse of the previous 
+extant chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
@@ -94,12 +99,15 @@ cross-references to the removed verse.
 
 VSYS_FROM_TO: BK.1.2.3 -> BK.4.5.6
 This does not effect any verse or alternate verse markup or locations. 
-It only allows references to be forwarded from their expected address 
-in the fixed verse system to a different location. It would be used if 
-a verse is marked in the text but is left empty, while there is a 
-footnote about it in the previous verse (but see VSYS_MISSING_FN which 
-is the more comom case). VSYS_FROM_TO is usually NOT the right 
-instruction for most use cases (because it is used more internally).
+It only allows references in the source and fixed verse systems to have 
+their addresses forwarded to their location in the fitted verse system 
+and to each other. It also allows the human readable portion of external 
+cross-references to be updated to their locations in the source verse 
+system. It could be used if a verse is marked in the text but is left 
+empty, while there is a footnote about it in the previous verse (but see 
+VSYS_MISSING_FN which is the more common case). VSYS_FROM_TO is usually 
+not the right instruction for most use cases, but it is used most often 
+internally.
 
 SET_customBookOrder:true
 Turns off the book re-ordering step so books will remain in processed 
@@ -691,7 +699,6 @@ sub addrids(\@$$\%) {
   
   my @attribs = ('osisRef', 'annotateRef', 'rids');
   foreach my $e (@{$checkRefsAP}) {
-    my (@attribs);
     foreach my $a (@attribs) {
       my @ar = (split(/\s+/, &osisRef2osisID($e->getAttribute($a))));
       $$a = \@ar;
@@ -702,6 +709,9 @@ sub addrids(\@$$\%) {
       if ($ref ne $v) {next;}
       elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
       
+      $e->setAttribute('osisRefOrig', $e->getAttribute('osisRef'));
+      $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
+  
       # map source references to fitted
       if ($map eq 'source2Fitted') {
         if ($vIsPartial) {push(@$rids, $v);}
@@ -712,7 +722,8 @@ sub addrids(\@$$\%) {
       elsif ($map eq 'fixed2Fitted') {
         if ($vIsPartial) {push(@$rids, $v);}
         push(@$rids, $altVersesOSISP->{'fixed2Fitted'}{$verse});
-        push(@$annotateRef, $altVersesOSISP->{'fixed2Source'}{$verse});
+        my $ar = $altVersesOSISP->{'fixed2Source'}{$verse}; $ar =~ s/!PART$//;
+        push(@$annotateRef, $ar);
       }
       elsif ($map eq 'fixedMissing') {
         if ($vIsPartial) {push(@$rids, $v);}
@@ -725,13 +736,13 @@ sub addrids(\@$$\%) {
       my $val = &osisID2osisRef(join(' ', &normalizeOsisID($$a)));
       if ($val ne $e->getAttribute($a)) {$e->setAttribute($a, $val);}
     }
-    $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
   }
 }
 
 # Merges the osisRef and rids attributes of all elements having the rids 
-# attribute, then rids is removed. If an element's osisRef is empty, the
-# reference tags are entirely removed.
+# attribute, then rids is removed. Also merges osisRef into annotateRef.
+# If an element's osisRef is empty, the reference tags are entirely 
+# removed.
 sub applyrids($\%) {
   my $xml = shift;
   
@@ -740,16 +751,23 @@ sub applyrids($\%) {
   foreach my $e ($XPC->findnodes('//*[@rids]', $xml)) {
     $count++;
     my $tag = $e->toString(); $tag =~ s/^(<[^>]*>).*?$/$1/s;
-    my @rids = split(/\s+/, &osisRef2osisID($e->getAttribute('rids')));
+    my @annotateRef = (split(/\s+/, &osisRef2osisID($e->getAttribute('annotateRef'))));
+    my @rids = (split(/\s+/, &osisRef2osisID($e->getAttribute('rids'))));
     $e->removeAttribute('rids');
-    my @osisRef = split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')));
+    my $osisRefOrig = $e->getAttribute('osisRefOrig');
+    $e->removeAttribute('osisRefOrig');
+    my @osisRef = (split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef'))));
+    push(@annotateRef, @osisRef);
     push(@osisRef, @rids);
-    my $newOsisRef = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(@osisRef))));
+
+    my $osisRefNew     = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@osisRef))));
+    my $annotateRefNew = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@annotateRef))));
+    $e->setAttribute('annotateRef', $annotateRefNew);
    
-    if ($newOsisRef) {
+    if ($osisRefNew) {
       my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
-      $update .= "UPDATING $ie".$e->nodeName." osisRef ".$e->getAttribute('osisRef')." -> $newOsisRef\n";
-      $e->setAttribute('osisRef', $newOsisRef);
+      $update .= sprintf("UPDATING %s %10s osisRef: %32s -> %-32s annotateRef: %-32s\n", $ie, $e->nodeName, $osisRefOrig, $osisRefNew, $e->getAttribute('annotateRef'));
+      $e->setAttribute('osisRef', $osisRefNew);
     }
     else {
       my $parent = $e->parentNode();
@@ -778,9 +796,9 @@ sub fillGapsInOsisRef() {
   my $osisRef = shift;
   
   my @id = split(/\s+/, &osisRef2osisID($osisRef));
-  @id[0]    =~ /^([^\.]+\.\d+\.)\d+$/; my $chf = $1;
-  @id[$#id] =~ /^([^\.]+\.\d+\.)\d+$/; my $chl = $1;
-  if ($chf eq $chl) {return @id[0].'-'.@id[$#id];}
+  @id[0]    =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chf = $1; my $vf = $2;
+  @id[$#id] =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chl = $1; my $vl = $2;
+  if ($chf eq $chl && $vf ne $vl) {return @id[0].'-'.@id[$#id];}
   return $osisRef;
 }
 

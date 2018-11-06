@@ -35,19 +35,6 @@ require("$SCRD/scripts/usfm2osis.pl");
 
 if ($NO_OUTPUT_DELETE) {
   # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true
-require("$SCRD/scripts/bible/fitToVerseSystem.pl");
-require("$SCRD/scripts/dict/processGlossary.pl");
-require("$SCRD/scripts/addScripRefLinks.pl");
-require("$SCRD/scripts/addFootnoteLinks.pl");
-require("$SCRD/scripts/bible/addDictLinks.pl");
-require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
-require("$SCRD/scripts/bible/addCrossRefs.pl");
-
-  #$OSIS = "$TMPDIR/writeMissingNoteOsisRefs.xml";
-  #&fitToVerseSystem(\$OSIS, $VERSESYS);
-  $OSIS = "$TMPDIR/fitToVerseSystem.xml";
-  &runAddCrossRefs(\$OSIS);
-  
   exit;
 }
 
