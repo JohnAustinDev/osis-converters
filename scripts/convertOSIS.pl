@@ -208,7 +208,6 @@ body {font-family: font1;}
           push(@skipCompanions, $companion);
           $CONV_REPORT{$CONV_NAME}{'Glossary'} = 'no-glossary';
           $CONV_REPORT{$CONV_NAME}{'Filtered'} = 'all';
-          next;
         }
         else {
           &copy($outf, "$tmp/$companion.xml");
