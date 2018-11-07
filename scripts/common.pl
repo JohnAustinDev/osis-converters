@@ -85,7 +85,7 @@ sub init_linux_script() {
   &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-  if (-e $DICTINPD) {$DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;}
+  $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
   
   if (!-e $CONFFILE) {
     &Error("Could not find or create a \"$CONFFILE\" file.

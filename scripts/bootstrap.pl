@@ -55,15 +55,18 @@ $SCRD =~ s/\\/\//g;
 
 # Set MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
 # checkAndWriteDefaults() in case a new dictionary is discovered in the 
-# USFM). 
-$MAININPD = $INPD;
-$MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
-if ($MAININPD =~ s/\/([^\/]+DICT)$//) {
-  $DICTINPD = "$MAININPD/$1";
+# USFM).
+if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
+  $MAININPD = $1; 
+  $DICTINPD = $INPD;
   $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
 }
-else {$DICTINPD = "$INPD/$MAINMOD".'DICT';}
-if (-e $DICTINPD) {$DICTMOD = $DICTINPD; $DICTMOD =~ s/^.*\///;}
+else {
+  $MAININPD = $INPD;
+  $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+  $DICTINPD = "$MAININPD/${MAINMOD}DICT";
+}
+$DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
 
 # Allow running MAININPD-only scripts from a DICT sub-project
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
