@@ -11,10 +11,10 @@
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
   
-  <!-- This XSLT takes an OSIS Bible file and removes any externally 
-  added cross-reference notes which do not contain hyperlinks other
-  that annotateRef. These linkless cross-reference notes ocurr when a 
-  translation includes a small number of books. !-->
+  <!-- Remove any externally added cross-reference notes which do not
+  contain hyperlinks (other that annotateRef). These linkless cross-
+  reference notes can occur when a translation includes a small number 
+  of books. !-->
   <template match="note[@type='crossReference'][@resp][not(descendant::reference[@type!='annotateRef'][@osisRef])]"/>
 
 </stylesheet>

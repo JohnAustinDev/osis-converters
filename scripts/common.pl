@@ -350,7 +350,7 @@ sub loadDictionaryWordsXML($) {
     }
     else {
       $errors++;
-      &ErrorBug("loadDictionaryWordsXML failed to update markup on first pass.");
+      &Error("loadDictionaryWordsXML failed to update markup. Update $DICTIONARY_WORDS manually.", "Sometimes the $DICTIONARY_WORDS can only be updated manually.");
     }
   }
   
