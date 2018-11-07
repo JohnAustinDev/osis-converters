@@ -33,7 +33,10 @@ require "$SCRD/scripts/dict/processGlossary.pl";
 &links2sword(\$INOSIS);
 
 if ($MODDRV =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
-elsif ($MODDRV =~ /Text/) {&runScript("$SCRD/scripts/bible/osis2fixedVerseSystem.xsl", \$INOSIS);}
+elsif ($MODDRV =~ /Text/) {
+  &runScript("$SCRD/scripts/bible/osis2fixedVerseSystem.xsl", \$INOSIS);
+  &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
+}
 
 my $typePreProcess = ($MODDRV =~ /Text/ ? 'osis2sword.xsl':($MODDRV =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
