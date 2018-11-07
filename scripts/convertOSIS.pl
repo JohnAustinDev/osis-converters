@@ -265,9 +265,9 @@ body {font-family: font1;}
 # Copy a cover image for this module and scope to the destination. The 
 # following searches are done to look for a starting cover image (the
 # first found is used):
-# 1) $INDP/$convertTo/cover.jpg
-# 2) $INDP/$convertTo/<scoped-name>
-# 3) $COVERS location (if any) looking for <scoped-name>
+# 1) $INDP/$convertTo/<scoped-name>
+# 2) $COVERS location (if any) looking for <scoped-name>
+# 3) $INDP/$convertTo/cover.jpg
 # If a cover image is found, it will be determined whether the scope is
 # a sub-set of the image's publication. If so, pubTitlePart will be 
 # appended to the top of the cover image. The final image is copied to
@@ -282,8 +282,7 @@ sub copyCoverImageTo($$$$$$\$) {
   my $convertTo = shift;
   my $titleTypeP = shift;
   
-  my $cover = (-e "$INPD/$convertTo/cover.jpg" ? "$INPD/$convertTo/cover.jpg":'');
-  if (!$cover) {$cover = &findCoverInDir("$INPD/$convertTo", $mod, $scope, $vsys, $titleTypeP);}
+  my $cover = &findCoverInDir("$INPD/$convertTo", $mod, $scope, $vsys, $titleTypeP);
   if (!$cover && $COVERS) {
     if ($COVERS =~ /^https?\:/) {
       my $p = &expandLinuxPath("~/.osis-converters/cover");
@@ -294,6 +293,7 @@ sub copyCoverImageTo($$$$$$\$) {
     }
     $cover = &findCoverInDir($COVERS, $mod, $scope, $vsys, $titleTypeP);
   }
+  if (!$cover) {$cover = (-e "$INPD/$convertTo/cover.jpg" ? "$INPD/$convertTo/cover.jpg":'');}
   if (!$cover) {return '';}
   
   if ($$titleTypeP eq 'Part') {
