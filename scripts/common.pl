@@ -238,6 +238,9 @@ sub checkFont($) {
       if ($f =~ /^\./) {next;}
       if ($f =~ /^(.*?)(\-([ribRIB]))?\.([^\.]+)$/) {
         my $n = $1; my $t = ($2 ? $3:'R'); my $ext = $4;
+        if ($2 && uc($3) eq 'R') {
+          &Error("Regular font $f should not have the $2 extension.", "Change the name of the font file from $f to $n.$ext");
+        }
         if ($n eq $font) {
           $FONT_FILES{$font}{$f}{'style'} = $styles{uc($t)};
           $FONT_FILES{$font}{$f}{'ext'} = $ext;
