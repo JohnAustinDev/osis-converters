@@ -4171,9 +4171,10 @@ sub writeOsisHeader($\%\%\%\%) {
   my $header;
   
   # What type of document is this?
-  my $type;
-  if ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
+  my $type = 'x-bible';
+  if ($confP->{'ModDrv'} =~ /GenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type = 'x-commentary';}
+  elsif ($confP->{'ModDrv'} =~ /LD/) {$type = 'x-glossary';}
   
   # Both osisIDWork and osisRefWork defaults are set to the current work.
   # However, the osisRefWork default isn't normally important since   
@@ -4209,8 +4210,12 @@ sub writeOsisHeader($\%\%\%\%) {
   # Add work element for self
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
-  if ($type eq 'x-bible') {&getOSIS_Work(\%workElements, $confP, $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);}
-  else {&getOSIS_Work(\%workElements, $confP, NULL, NULL, NULL, $isbn);}
+  if ($type eq 'x-bible') {
+    &getOSIS_Work(\%workElements, $confP, $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
+  }
+  else {
+    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       NULL,            $isbn);
+  }
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $confP->{'Versification'});
@@ -4227,8 +4232,12 @@ sub writeOsisHeader($\%\%\%\%) {
     }
     my %compWorkAttributes = ('osisWork' => $comp);
     my %compWorkElements;
-    if ($type ne 'x-bible') {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);}
-    else {&getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL, NULL, NULL, $isbn);}
+    if ($type eq 'x-bible') {
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL,        NULL,        NULL,           $isbn);
+    }
+    else {
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
+    }
     $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
   }
   
