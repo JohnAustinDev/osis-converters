@@ -47,9 +47,10 @@ if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$MODPATH")) {
   $ConfEntryP->{'Feature'} = ($ConfEntryP->{'Feature'} ? $ConfEntryP->{'Feature'}."<nx/>":"")."Images";
 }
 
-if ($ConfEntryP->{"Font"} && $FONTS) {
-  &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
-}
+# The fonts folder is not a standard SWORD feature
+#if ($ConfEntryP->{"Font"} && $FONTS) {
+#  &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
+#}
 
 $msv = "1.6.1";
 if ($VERSESYS && $VERSESYS ne "KJV") {
