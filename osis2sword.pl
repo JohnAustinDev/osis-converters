@@ -34,7 +34,7 @@ require "$SCRD/scripts/dict/processGlossary.pl";
 
 if ($MODDRV =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
 elsif ($MODDRV =~ /Text/) {
-  &runScript("$SCRD/scripts/bible/osis2fixedVerseSystem.xsl", \$INOSIS);
+  &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
 }
 
