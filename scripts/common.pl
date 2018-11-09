@@ -3410,7 +3410,7 @@ sub checkReferenceLinks($) {
   
   # If OSIS is NOT a Bible, now check glossary reference links in the Bible OSIS
   if (!$inIsBible) {
-    &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN $bibleOSIS...\n");
+    &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN BIBLE OSIS $bibleOSIS...\n");
     &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 1);
     &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
   }
@@ -3505,7 +3505,18 @@ different USFM tag should be used instead.");
     
     my $failed = '';
     foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-      if (!$osisIDP->{$rwork}{$orp}) {$failed .= "$rwork:$orp ";}
+      my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
+      if (!$osisIDP->{$rwork}{"$orp$ext"}) {
+        if (!$osisIDP->{$rwork}{$orp}) {
+          $failed .= "$rwork:$orp$ext ";
+        }
+        else {
+          &Warn("$type $rwork:$orp$ext extension not found.", 
+"<>Although the root osisID exists in the OSIS file, the extension 
+id does not. This is allowed if the specific location which the 
+extension references exists but is unknown, such as !PART.");
+        }
+      }
     }
     
     $refcountP->{$type}++;
@@ -4735,6 +4746,11 @@ sub writeMissingNoteOsisRefs($) {
       $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
       my $con_vf = $1;
       my $con_vl = $2;
+      
+      if ($con_vf eq '0' || $con_vl eq '0') {
+        &Warn("Not writting introduction note osisRef: ".&bibleContext($note), "<>Since introductions do not have their own osisIDs, these osisRefs have no valid target.");
+        next;
+      }
       
       # let annotateRef override context if it makes sense
       my $aror;
