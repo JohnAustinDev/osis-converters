@@ -51,17 +51,7 @@
     </copy>
   </template>
   
-  <!-- Remove x-vsys tags that were added by fitToVerseSystem() -->
-  <template match="verse[@type='x-vsys-fitted']"/>
-  
-  <!-- Remove only those <hi> tags that were added by fitToVerseSystem() !-->
-  <template match="hi[@subType='x-alternate']">
-    <if test="generate-id() != generate-id(
-      preceding::milestone[starts-with(@type, 'x-vsys')][ends-with(@type, '-start')][1]/
-      following::text()[normalize-space()][1]/
-      ancestor-or-self::hi[@subType='x-alternate'][1])">
-      <call-template name="identity"/>
-    </if>
-  </template>
+  <!-- Remove verses (real and alternate) that were added by fitToVerseSystem() -->
+  <template match="*[@resp='fitToVerseSystem']"/>
 
 </stylesheet>

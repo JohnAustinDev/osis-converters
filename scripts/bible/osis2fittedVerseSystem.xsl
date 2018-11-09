@@ -8,20 +8,23 @@
  
   <!-- This XSLT takes an OSIS Bible file which was fitted to a SWORD standard verse  
   system by fitToVerseSystem() and removes all source verse system markup so that
-  the resulting OSIS file only contains the fitted (also called fixed) verse system !-->
+  the resulting OSIS file only contains the fitted verse system !-->
   
   <!-- By default copy everything as is -->
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
   
-  <!-- Remove x-vsys milestones -->
+  <!-- Remove all x-vsys milestones -->
   <template match="milestone[starts-with(@type, 'x-vsys')]"/>
   
   <!-- Remove x-vsys-source annotateRefs -->
   <template match="@annotateRef[parent::*[@annotateType= 'x-vsys-source']]"/>
   
-  <!-- Remove x-vsys attributes -->
+  <!-- Remove all x-vsys attributes -->
   <template match="@*[starts-with(., 'x-vsys-')]"/>
+  
+  <!-- Remove fitToVerseSystem markers -->
+  <template match="@resp['fitToVerseSystem']"/>
 
 </stylesheet>

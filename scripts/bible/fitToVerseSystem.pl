@@ -42,25 +42,33 @@ VSYS_MOVED: BK.1.2.3 -> BK.4.5.6
 Specifies that this translation has moved the verses that would be found 
 in a range of the fixed verse system to a different position in the 
 source verse system, indicated by the range to the right of '->'. The 
-two ranges must be the same size. It is processed as a 
-VSYS_MISSING: <fixed-vsys-range> followed by
-VSYS_EXTRA: <source-vsys-range>. The end verse portion of either range 
-may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
-reference applies to only part of the specified verse. The VSYS_MOVED 
-instruction also updates the hyperlink targets of externally sourced 
-Scripture cross-references so that they correctly point to their moved 
-location in the source translation.
+two ranges must be the same size. It is processed as: 
+VSYS_MISSING: <fixed-vsys-range> 
+then:
+VSYS_EXTRA: <source-vsys-range>
+followed by: 
+VSYS_FROM_TO <fixed-vsys-range> <source-vsys-range> 
+The end verse portion of either range may be the keyword 'PART' (such as 
+Gen.4.7.PART), meaning that the reference applies to only part of the 
+specified verse. Furthermore the VSYS_MOVED instruction also updates the 
+hyperlink targets of externally supplied Scripture cross-references so 
+that they correctly point to their moved location in the source and 
+fitted verse systems.
 
 VSYS_MISSING: BK.1.2.3
 Specifies that this translation does not include a range of verses of
 the fixed verse system. So the fitted verse system will have the 
 preceeding extant verse id modified to span the missing range, but in no 
-case exceeding the end of a chapter. Also, if there are source verse(s) 
-already sharing the verse number(s) of the missing verse(s), then these, 
-as well as any following verses in the chapter will be renumbered upward 
-by the number of missing verses, and alternate verse numbers will be 
-appended to them displaying their original source verse system number. 
-Entire missing chapters are not supported.
+case exceeding the end of a chapter. Any externally supplied cross-
+references to the missing verses will then be removed. Also, if there 
+are source verse(s) already sharing the verse number(s) of the missing 
+verse(s), then these, as well as any following verses in the chapter 
+will be renumbered upward by the number of missing verses, and alternate 
+verse numbers will be appended to them displaying their original source 
+verse system number. Additionally in the case of renumbered verses, 
+externally supplied Scripture cross-reference to these verses are 
+updated so as to be correct for both the source and fitted verse 
+systems. Entire missing chapters are not supported.
 
 VSYS_EXTRA: BK.1.2.3
 Specifies that the source verse system includes an extra range of verses 
@@ -68,13 +76,16 @@ which are not there in the fixed verse system. So for the fitted verse
 system, the additional verse(s) will be converted to alternate verse(s) 
 and appended to the preceding extant verse in the fixed verse system. 
 Also, if there are any verses following the extra verses in the source 
-verse system, then they will be renumbered downward by the number of 
+verse system, then these will be renumbered downward by the number of 
 extra verses, and alternate verse numbers will be appended to display  
-their original verse number(s) in the source verse system. The range may 
-be an entire chapter if it occurs at the end of a book (like Psalm 151),   
-in which case an alternate chapter number will be inserted and the   
-entire extra chapter will be appended to the last verse of the previous 
-extant chapter.
+their original verse number(s) in the source verse system. Additionally 
+in the case of renumbered verses, externally supplied Scripture cross-
+reference to these verses are updated so as to be correct for both the 
+source and fitted verse systems. The extra verse range may be an entire 
+chapter if it occurs at the end of a book (like Psalm 151), in which 
+case an alternate chapter number will be inserted and the entire extra 
+chapter will be appended to the last verse of the previous extant 
+chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
@@ -95,7 +106,7 @@ instruction.
 VSYS_EMPTY: BK.1.2.3
 Use this if regular verse markers are included in the text, however the 
 verses are left empty. This will just remove external Scripture 
-cross-references to the removed verse.
+cross-references to the removed verse(s).
 
 VSYS_FROM_TO: BK.1.2.3 -> BK.4.5.6
 This does not effect any verse or alternate verse markup or locations. 
@@ -143,13 +154,14 @@ fixed:  A known, unchanging, verse system which is most similar to the
 fitted: A fusion between the source and fixed verse systems arrived at 
         by applying OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS. The 
         fitted verse system maintains the exact form of the custom verse 
-        system, but also exactly fits within the fixed verse system. It 
-        will have 'missing' verses or 'extra' alternate verses appended 
-        to the end of a verse if there are differences between the 
-        source and fixed verse systems. These differences usually 
-        represent moved, split, or joined verses. The OSIS file can then
-        be extracted in either the source or the fixed verse system 
-        such that all internal and external references remain correct.
+        system, but also exactly fits within the fixed verse system. The
+        resulting fitted verse system will have 'missing' verses or 
+        'extra' alternate verses appended to the end of a verse if there 
+        are differences between the source and fixed verse systems. 
+        These differences usually represent moved, split, or joined 
+        verses. The OSIS file can then be extracted in either the source 
+        or the fixed verse system in such a way that all internal and  
+        external reference hyperlinks are made correct and functional.
         
 The fitted verse system requires that applicable reference links have 
 two osisRef attributes, one for the fixed verse system (osisRef) and 
@@ -531,16 +543,16 @@ There are ".@existing." fitted tags in the text. This OSIS file has
 already been fitted so this step will be skipped!");
   }
   elsif (@VSYS_INSTR) {
-    # Apply alternate VSYS instructions to the translation
-    foreach my $argsP (@VSYS_INSTR) {&applyVsysInstruction($argsP, $canonP, $xml);}
+    # Apply alternate VSYS instructions to the translation (first do the fitting, then mark moved verses)
+    foreach my $argsP (@VSYS_INSTR) {
+      if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+    }
+    $xml = &writeReadXML($xml, $output);
+    &addMovedMarkers($canonP, $xml);
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
     if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
-    # Save and re-read osis file now so that new elements will all have osis namespace for later checks
-    open(OUTF, ">$output");
-    print OUTF $xml->toString();
-    close(OUTF);
+    $xml = &writeReadXML($xml, $output);
     $$osisP = $output;
-    $xml = $XML_PARSER->parse_file($$osisP);
   }
   
   my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix'}.'")]])]', $xml);
@@ -612,6 +624,17 @@ BOOK:
       VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt. $fitToVerseSystemDoc");
     $fitToVerseSystemDoc = '';
   }
+}
+
+# Newly written elements may not have the right name-spaces until the file is re-read!
+sub writeReadXML($$) {
+  my $tree = shift;
+  my $file = shift;
+  
+  open(OUTF, ">$file");
+  print OUTF $tree->toString();
+  close(OUTF);
+  return $XML_PARSER->parse_file($file);
 }
 
 # Read bibleMod and the osis file and:
@@ -766,7 +789,7 @@ sub applyrids($\%) {
    
     if ($osisRefNew) {
       my $ie = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external ':'internal '):'');
-      $update .= sprintf("UPDATING %s %10s osisRef: %32s -> %-32s annotateRef: %-32s\n", $ie, $e->nodeName, $osisRefOrig, $osisRefNew, $e->getAttribute('annotateRef'));
+      $update .= sprintf("UPDATING %s %-10s osisRef: %32s -> %-32s annotateRef: %-32s\n", $ie, $e->nodeName, $osisRefOrig, $osisRefNew, $e->getAttribute('annotateRef'));
       $e->setAttribute('osisRef', $osisRefNew);
     }
     else {
@@ -858,6 +881,36 @@ sub parseVsysArgument($$) {
   $data{'count'} = 1+($lv-$vs);
   
   return \%data
+}
+
+sub addMovedMarkers($$) {
+  my $canonP = shift;
+  my $xml = shift;
+  
+  foreach my $argsP (@VSYS_INSTR) {
+    if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+  }
+  
+  # VSYS_MISSING and VSYS_EXTRA may adust source verse numbers up or down
+  # respectively to arrive at their fitted verse numbers. These need to be
+  # marked as moved so that external cross-references can be updated.
+  my @alts = $XPC->findnodes('//osis:hi[@subType="x-alternate"][@resp="fitToVerseSystem"]', $xml);
+  foreach my $alt (@alts) {
+    my $vsource = $alt->textContent(); $vsource =~ s/^\D*(\d+).*?$/$1/;
+    my $vfixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $alt)}[0];
+    if (!$vfixed || $vfixed->getAttribute('type') ne $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
+      &ErrorBug("Problem with fitted alternate verse source: $vfixed<>$alt");
+      next;
+    }
+    $vfixed = $vfixed->getAttribute('osisID');
+    my $ch = ($vfixed =~ /^([^\.]+\.\d+)/ ? $1:'');
+    $vsource = "$ch.$vsource";
+    if (!$ch || $vfixed eq $vsource) {
+      &ErrorBug("Empty chapter $ch, or fitted alternate same as source: $vfixed eq $vsource");
+      next;
+    }
+    &applyVsysFromTo(&parseVsysArgument($vfixed, $xml), &parseVsysArgument($vsource, $xml), $xml);
+  }
 }
 
 # This does not modify any verse tags. It only inserts milestone markers
@@ -1018,9 +1071,7 @@ sub applyVsysMissing($$$) {
 # verses). For these extra verses, alternate verse numbers are inserted 
 # and verse tags are converted into milestone elements. Then they are 
 # enclosed within the proceding verse system verse. All following verses 
-# in the chapter are renumbered and alternate verses inserted. If the 
-# extra verses were moved by translators from somewhere else (the usual 
-# case) this is marked-up by FROM_TO. 
+# in the chapter are renumbered and alternate verses inserted.
 sub applyVsysExtra($$$$) {
   my $sourceP = shift;
   my $canonP = shift;
@@ -1105,8 +1156,8 @@ sub applyVsysExtra($$$$) {
   
   # Convert verse tags between startTag and endTag to alternate verse numbers
   # But if there are no in-between tags, then only modify the IDs.
+  $startTag = &toAlternate($startTag, 0, 1);
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
-    $startTag = &toAlternate($startTag, 0, 1);
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
     for (my $v = $vs; $v <= $lv; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
     my $newID = join(' ', &normalizeOsisID([ keys(%ids) ]));
@@ -1186,18 +1237,19 @@ sub reVersify($$$$$) {
 }
 
 # This takes a verse or chapter element (start or end) and marks it as
-# part of the alternate verse system, unless already done, by:
-# 1) Converting it to a milestone element 
-# 2) Cloning a target verse system element (unless noTarget is set)
+# modified during fitting, unless already done, by:
+# 1) Cloning itself for further adjustment and use by the fitted verse system (unless remove is set)
+# 2) Converting the original element into a milestone element 
 # 3) Adding an alternate verse number if the element is verse-start (unless noAlt is set)
 # This funtion returns the new target verse system element of #2.
-sub toAlternate($$$$) {
+sub toAlternate($$$) {
   my $elem = shift;
-  my $noTarget = shift;
+  my $remove = shift;
   my $noAlt = shift;
   
   # Typical alternate markup example:
-  # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/><hi type="italic" subType="x-alternate"><hi type="super">(25)</hi></hi>
+  # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/>
+  #<hi type="italic" subType="x-alternate" resp="fitToVerseSystem"><hi type="super">(25)</hi></hi>
   
   my $telem;
   my $type = ($elem->getAttribute('sID') ? 'start':($elem->getAttribute('eID') ? 'end':''));
@@ -1208,7 +1260,7 @@ sub toAlternate($$$$) {
   
   if (&getAltID($elem)) {
     $note .= "[already done]";
-    if ($noTarget && $elem->getAttribute('type') eq $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
+    if ($remove && $elem->getAttribute('type') eq $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
       $elem->unbindNode();
       $note .= "[removed target tag]";
     }
@@ -1216,7 +1268,7 @@ sub toAlternate($$$$) {
     return $elem;
   }
   
-  if (!$noTarget) {
+  if (!$remove) {
     $telem = $elem->cloneNode(1);
     if ($telem->getAttribute('type')) {&ErrorBug("Type already set on $telem");}
     $telem->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
@@ -1244,7 +1296,7 @@ sub toAlternate($$$$) {
   if (!$noAlt && $isVerseStart) {
     if ($osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?$/) {
       my $newv = ($2 ? "$1-$3":"$1");
-      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate"><hi type="super">('.$newv.')</hi></hi>');
+      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="fitToVerseSystem"><hi type="super">('.$newv.')</hi></hi>');
       my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $elem)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       $note .= "[added alternate verse \"$newv\"]";
@@ -1264,7 +1316,7 @@ sub undoAlternate($) {
   
   my $note = "undoAlternate(".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').')';
 
-  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][1]', $ms)}[0];
+  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][@resp="fitToVerseSystem"][1]', $ms)}[0];
   if ($avn) {
     $avn->unbindNode();
     $note .= "[removed alternate verse number]";

@@ -188,16 +188,15 @@ sub vsysInstSort($$) {
   my $b = shift;
   
   my $r;
-  my @order = ('MISSING', 'EXTRA', 'FROM_TO');
+  my @order = ('MISSING', 'EXTRA', 'FROM_TO'); # NOTE that FROM_TO are run separately after all other instructions anyway
   my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
   my $bi; for ($bi=0; $bi<@order; $bi++) {if (@order[$bi] eq $b->{'inst'}) {last;}}
   if ($ai == @order || $bi == @order) {
     &ErrorBug("Unknown VSYS sub-instruction: '".$a->{'inst'}."' or '".$b->{'inst'}."'");
   }
-  my $axi = ($ai == 1 ? 0:$ai); my $bxi = ($bi == 1 ? 0:$bi); # missing vs extra waits till end
   
-  # make FROM_TO last
-  $r = $axi <=> $bxi;
+  # order by instruction
+  $r = $ai <=> $bi;
   if ($r) {return $r;}
   
   my $av = ($a->{'fixed'} ? $a->{'fixed'}:$a->{'source'});
@@ -211,10 +210,6 @@ sub vsysInstSort($$) {
   
   # otherwise by last verse
   $r = $av2 <=> $bv2;
-  if ($r) {return $r;}
-  
-  # otherwise by @order
-  $r = $ai <=> $bi;
   if ($r) {return $r;}
 
   if (!$r) {&ErrorBug("Indeterminent VSYS instruction sort: av=$av, bv=$bv, ai=$ai, bi=$bi");}
