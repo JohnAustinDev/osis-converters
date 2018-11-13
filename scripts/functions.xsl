@@ -91,6 +91,23 @@
     <value-of select="$glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocn)][1]/@n)[1]"/>
   </function>
   
+  <function name="oc:titleCase" as="xs:string?">
+    <param name="title" as="xs:string?"/>
+    <param name="titleCase" as="xs:integer"/>
+    <choose>
+      <when test="$titleCase = 1"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
+      <when test="$titleCase = 2"><value-of select="upper-case($title)"/></when>
+      <otherwise><value-of select="$title"/></otherwise>
+    </choose>
+  </function>
+  
+  <function name="oc:capitalize-first" as="xs:string*">
+    <param name="words" as="xs:string*"/>
+    <for-each select="$words">
+      <sequence select="concat(upper-case(substring(.,1,1)), lower-case(substring(.,2)))"/>
+    </for-each>
+  </function>
+  
   <function name="oc:printNode" as="text()">
     <param name="node" as="node()"/>
     <choose>

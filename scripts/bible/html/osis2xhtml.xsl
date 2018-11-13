@@ -39,6 +39,9 @@
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <variable name="tocnumber" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
   
+  <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
+  <variable name="titleCase" select="if (/descendant::*[@type='x-osis2xhtml-TitleCase'][1]) then /descendant::*[@type='x-osis2xhtml-TitleCase'][1] else 1"/>
+  
   <!-- Output EPUB3 footnotes -->
   <variable name="epub3" select="if (/descendant::*[@type='x-osis2xhtml-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
   
@@ -608,7 +611,7 @@
             <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
             <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
-              <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
+              <xsl:value-of select="oc:titleCase($tmptitles[@source = generate-id(current())]/string(), $titleCase)"/>
             </a>
           </li>
         </for-each>
@@ -663,7 +666,7 @@
         </otherwise>
       </choose>
     </variable>
-    <value-of select="if ($tocTitleEXPLICIT = '') then $tocTitleOSIS else $tocTitleEXPLICIT"/>
+    <value-of select="if ($tocTitleEXPLICIT = '') then oc:titleCase($tocTitleOSIS, $titleCase) else oc:titleCase($tocTitleEXPLICIT, $titleCase)"/>
   </function>
   
   <!-- getTocLevel returns an integer which is the TOC hierarchy level of tocElement -->
