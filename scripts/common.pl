@@ -3442,8 +3442,8 @@ sub removeMissingOsisRefs($) {
   my @badrefs = $XPC->findnodes('//osis:reference[not(@osisRef)]', $xml);
   if (!@badrefs[0]) {return;}
   
-  &Error("There are @badrefs reference element(s) without osisRef attributes. These reference tags will be removed!", 
-"Scripture references will not be parsed for osisRefs if 
+  &Error("There are ".@badrefs." reference element(s) without osisRef attributes. These reference tags will be removed!", 
+"Scripture references will not be parsed for osisRefs when 
 SET_addScripRefLinks is set to false in CF_usfm2osis.txt.");
   
   foreach my $r (@badrefs) {
@@ -4775,7 +4775,7 @@ sub writeMissingNoteOsisRefs($) {
       my $con_vl = $2;
       
       if ($con_vf eq '0' || $con_vl eq '0') {
-        &Warn("Not writting introduction note osisRef: ".&bibleContext($note), "<>Since introductions do not have their own osisIDs, these osisRefs have no valid target.");
+        &Warn("Not writting introduction note osisRef: ".&bibleContext($note), "<>Since introductions do not have their own osisIDs, these osisRefs have no valid target and should be unnecessary.");
         next;
       }
       
