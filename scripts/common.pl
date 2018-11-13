@@ -3433,6 +3433,33 @@ sub checkReferenceLinks($) {
   &reportReferences(\%refcount, \%errors);
 }
 
+sub removeMissingOsisRefs($) {
+  my $osisP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeMissingOsisRefs$3/;
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  my @badrefs = $XPC->findnodes('//osis:reference[not(@osisRef)]', $xml);
+  if (!@badrefs[0]) {return;}
+  
+  &Error("There are @badrefs reference element(s) without osisRef attributes. These reference tags will be removed!", 
+"Scripture references will not be parsed for osisRefs if 
+SET_addScripRefLinks is set to false in CF_usfm2osis.txt.");
+  
+  foreach my $r (@badrefs) {
+    my @children = $r->childNodes();
+    foreach my $child (@children) {$r->parentNode()->insertBefore($child, $r);}
+    $r->unbindNode();
+  }
+  
+  if (open(UPD, ">$output")) {
+    print UPD $xml->toString();
+    close(UPD);
+    $$osisP = $output;
+  }
+  else {&ErrorBug("Could not open $output");}
+}
+
 sub readOsisIDs(\%$) {
   my $osisIDP = shift;
   my $xml = shift;

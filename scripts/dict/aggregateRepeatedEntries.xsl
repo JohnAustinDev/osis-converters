@@ -19,6 +19,7 @@
   <!-- Call with DEBUG='true' to turn on debug messages -->
   <param name="DEBUG" select="'false'"/>
   
+  <variable name="tocnumber" select="if (/descendant::*[@type='x-ebook-config-TOC'][1]) then /descendant::*[@type='x-ebook-config-TOC'][1] else 2"/>
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
   <!-- Get a list of applicable keywords which are NOT unique (by a case insensitive comparison) -->
@@ -147,9 +148,9 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="title" select="ancestor::div[@type='glossary'][1]/descendant::title[@type='main'][1]"/>
+                <variable name="title" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1], $tocnumber)"/>
                 <if test="$title">
-                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="string($title)"/></title>
+                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$title"/></title>
                 </if>
                 <if test="not($title)">
                   <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>

@@ -56,6 +56,7 @@ if ($addScripRefLinks) {
   &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
   &checkSourceScripRefLinks($OSIS);
 }
+else {&removeMissingOsisRefs(\$OSIS);}
 
 if ($addFootnoteLinks) {
   if (!$addScripRefLinks) {

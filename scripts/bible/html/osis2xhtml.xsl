@@ -169,9 +169,15 @@
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
         <sort select="oc:langSortOrder(.//seg[@type='keyword'][1]/string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
-        <copy-of select="."/>
+        <apply-templates select="." mode="writeCombinedGlossary"/>
       </for-each>
     </element>
+  </template>
+  <template match="node()|@*" mode="writeCombinedGlossary">
+    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+    <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]">
+      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1], $tocnumber)"/></osis:title>
+    </if>
   </template>
   
   <!-- Bible preprocessing templates to speed up processing that requires node copying/modification -->
@@ -315,14 +321,10 @@
       <otherwise><value-of select="concat($root, '_module-introduction')"/></otherwise>
     </choose>
   </function>
-  <function name="me:getGlossaryName" as="xs:string">
-    <param name="glossary" as="element(div)"/>
-    <value-of select="$glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]/@n)[1]"/>
-  </function>
   <function name="me:hashUsfmType" as="xs:string">
     <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="me:getGlossaryName($usfmType)"/>
-    <if test="$title"><value-of select="sum(string-to-codepoints(string($title)))"/></if>
+    <variable name="title" select="oc:getGlossaryName($usfmType, $tocnumber)"/>
+    <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
     <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
   
@@ -585,7 +587,7 @@
               <choose>
                 <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
                 <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
-                <otherwise><value-of select="boolean(substring(text(), 1, 1) = substring($previousKeyword, 1, 1))"/></otherwise>
+                <otherwise><value-of select="boolean(upper-case(substring(text(), 1, 1)) = upper-case(substring($previousKeyword, 1, 1)))"/></otherwise>
               </choose>
             </variable>
             <if test="$skipKeyword = false()">
@@ -816,11 +818,6 @@
     <param name="combinedGlossary" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
-    <variable name="glossaryTitle" select="me:getGlossaryName($referencedOsisDocs//div[@type='glossary'][descendant::*[@osisID = current()/@osisID]][1])" as="xs:string"/>
-    <if test="@osisID and count($combinedGlossary/*) != 0 and $glossaryTitle">
-      <variable name="osisTitle"><osis:title level="3" subType="x-glossary-title"><value-of select="$glossaryTitle"/></osis:title></variable>
-      <for-each select="$osisTitle"><apply-templates select="." mode="xhtml"/></for-each>
-    </if>
   </template>
   
   <!-- Titles -->

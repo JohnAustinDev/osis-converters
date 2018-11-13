@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <stylesheet version="2.0"
+ xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:runtime="java:java.lang.Runtime"
  xmlns:uri="java:java.net.URI"
@@ -28,7 +29,7 @@
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
   <function name="oc:skipGlossaryEntry">
     <param name="glossaryEntry"/>
-    <variable name="previousKeyword" select="$glossaryEntry/preceding::osis:seg[@type='keyword'][1]/string()"/>
+    <variable name="previousKeyword" select="$glossaryEntry/preceding::seg[@type='keyword'][1]/string()"/>
     <choose>
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
       <otherwise><value-of select="boolean(upper-case(substring($glossaryEntry/text(), 1, 1)) = upper-case(substring($previousKeyword, 1, 1)))"/></otherwise>
@@ -82,6 +83,12 @@
       <call-template name="Warn"><with-param name="msg">langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order. To reorder characters, specify the language's character order in config.conf with an entry like this: LangSortOrder=AaBbCcDdEe... etc.</with-param></call-template>
       <value-of select="$text"/>
     </if>
+  </function>
+  
+  <function name="oc:getGlossaryName" as="xs:string">
+    <param name="glossary" as="element(div)?"/>
+    <param name="tocn" as="xs:integer"/>
+    <value-of select="$glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocn)][1]/@n)[1]"/>
   </function>
   
   <function name="oc:printNode" as="text()">
@@ -189,7 +196,7 @@ chmod +r <value-of select="$tmpResult"/>
   </template>
   <template name="Report">
     <param name="msg"/>
-    <message><value-of select="//osis:osisText[1]/@osisIDWork"/> REPORT: <value-of select="$msg"/></message>
+    <message><value-of select="//osisText[1]/@osisIDWork"/> REPORT: <value-of select="$msg"/></message>
   </template>
   <template name="Log">
     <param name="msg"/>
