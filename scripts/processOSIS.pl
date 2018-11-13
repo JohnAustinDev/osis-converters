@@ -1,4 +1,3 @@
-require("$SCRD/scripts/bible/fitToVerseSystem.pl");
 require("$SCRD/scripts/dict/processGlossary.pl");
 require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/addFootnoteLinks.pl");

@@ -66,6 +66,7 @@ $VSYS{'start'} = '-start';
 $VSYS{'end'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
+require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
 
 sub init_linux_script() {
   chdir($SCRD);
@@ -1683,9 +1684,9 @@ sub sortSearchTermKeys($$) {
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
 #
-# If a pruned book contains a peripheral which also pertains to a kept 
-# book, that peripheral is moved to the first kept book, so as to retain 
-# the peripheral.
+# If any book (kept or pruned) contains peripheral(s) which pertain to 
+# any kept book, the peripheral(s) are move up and appended to the 
+# bookGroup introduction of the kept book, so as to retain the peripheral.
 #
 # If there is only one bookGroup left, the remaining one's TOC milestone
 # will become [not_parent] to so as to prevent an unnecessary TOC level.
@@ -1718,7 +1719,9 @@ sub pruneFileOSIS($$\%\%\$\$) {
   my $bookOrderP;
   my $booksFiltered = 0;
   if (&getCanon($confP->{'Versification'}, NULL, \$bookOrderP, NULL)) {
-    my @lostIntros;
+    my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")]', $inxml);
+    foreach my $d (@multiBookDivs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
+    
     my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
     # remove books not in scope
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
@@ -1726,11 +1729,6 @@ sub pruneFileOSIS($$\%\%\$\$) {
     foreach my $bk (@books) {
       my $id = $bk->getAttribute('osisID');
       if (!exists($scopeBookNames{$id})) {
-        my @divs = $XPC->findnodes('./osis:div[@type]', $bk);
-        foreach my $div (@divs) {
-          if ($div->getAttribute('type') !~ /$typeRE/i) {next;}
-          push(@lostIntros, $div);
-        }
         $bk->unbindNode();
         push(@filteredBooks, $id);
         $booksFiltered++;
@@ -1746,18 +1744,19 @@ sub pruneFileOSIS($$\%\%\$\$) {
     if ($msg) {
       &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
     }
-    # move each lost book intro to the first applicable book, or leave it out if there is no applicable book
+    # move multi-book intros before first kept book
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-    INTRO: foreach my $intro (reverse(@lostIntros)) {
+    INTRO: foreach my $intro (reverse(@multiBookDivs)) {
+      if (!$intro) {next;} # some are purposefully NULL
       my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
       if (!@{$introBooks}) {next;}
       foreach $introbk (@{$introBooks}) {
         foreach my $remainingBook (@remainingBooks) {
           if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-          $remainingBook->insertBefore($intro, $remainingBook->firstChild);
+          $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-          &Note("Moved peripheral: $t1 to $t2", 1);
+          &Note("Moved peripheral: $t1 before $t2", 1);
           next INTRO;
         }
       }
@@ -3443,8 +3442,7 @@ sub removeMissingOsisRefs($) {
   if (!@badrefs[0]) {return;}
   
   &Error("There are ".@badrefs." reference element(s) without osisRef attributes. These reference tags will be removed!", 
-"Scripture references will not be parsed for osisRefs when 
-SET_addScripRefLinks is set to false in CF_usfm2osis.txt.");
+"Make sure SET_addScripRefLinks is set to 'true' in CF_usfm2osis.txt, so that reference osisRefs will be parsed.");
   
   foreach my $r (@badrefs) {
     my @children = $r->childNodes();
