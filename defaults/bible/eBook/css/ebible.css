@@ -346,12 +346,12 @@ ol, ul {
 .xsl-inline-toc li a {
   color: #083F0E;
 }
-.xsl-inline-toc li.xsl-bookGroup-link,
+#root-toc .xsl-inline-toc li.xsl-bookGroup-link,
 .xsl-inline-toc li.xsl-book-link,
 .xsl-inline-toc li.xsl-chapter-link {
   background: #388E3C;
 }
-.xsl-inline-toc li.xsl-bookGroup-link a,
+#root-toc .xsl-inline-toc li.xsl-bookGroup-link a,
 .xsl-inline-toc li.xsl-book-link a,
 .xsl-inline-toc li.xsl-chapter-link a {
   color: white;
