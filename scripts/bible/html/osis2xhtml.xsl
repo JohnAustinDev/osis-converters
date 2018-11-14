@@ -179,7 +179,8 @@
   <template match="node()|@*" mode="writeCombinedGlossary">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
     <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]">
-      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title>
+      <osis:title level="3" subType="x-glossary-scope"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title>
+      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1])"/></osis:title>
     </if>
   </template>
   

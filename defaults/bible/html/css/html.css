@@ -302,7 +302,10 @@ dfn {
 a.x-other-resource {
   color: #888888;
 }
-.x-glossary-title {}
+.x-glossary-scope {}
+.x-glossary-title {
+  font-size:smaller;
+}
 .x-glossary-head {
   display: inline;
   vertical-align: super;

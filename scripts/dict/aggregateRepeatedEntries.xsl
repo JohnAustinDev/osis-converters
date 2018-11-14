@@ -144,7 +144,11 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="title" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
+                <variable name="scope" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
+                <variable name="title" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1])"/>
+                <if test="$scope">
+                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$scope"/></title>
+                </if>
                 <if test="$title">
                   <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$title"/></title>
                 </if>

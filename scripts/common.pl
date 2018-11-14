@@ -1728,7 +1728,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
     return;
   }
   
-  my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")]', $inxml);
+  my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")][ancestor::osis:div[@type="book"]]', $inxml);
   foreach my $d (@multiBookDivs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
   
   # remove books not in scope
@@ -1760,18 +1760,23 @@ sub pruneFileOSIS($$\%\%\$\$) {
     if (scalar(@grps) == 1 && @grps[0]) {
       my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
       if ($ms) {
-        # don't include in the TOC unless entry has a title and there is a bookGroup intro paragraph with text
-        if (@{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0]) {
+        my $firstIntroPara = @{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0];
+        my $fipMS = ($firstIntroPara ? @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', $firstIntroPara)}[0]:'');
+        if ($firstIntroPara && $fipMS->unique_key eq $ms->unique_key) {
           $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
           &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
         }
-        else {$ms->unbindNode();}
+        else {
+          # don't include in the TOC if there is no intro p or the first intro p is under different TOC entry
+          &Note("Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
+          $ms->unbindNode();
+        }
       }
     }
     
-    # move multi-book intros before first kept book. NOTE: It's possible
-    # this could result in a non-standard OSIS file with bookGroup intro
-    # material located between books.
+    # move multi-book book intros before first kept book. NOTE: It's 
+    # possible this could result in a non-standard OSIS file with 
+    # bookGroup intro material located between books.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (reverse(@multiBookDivs)) {
       if (!$intro) {next;} # some are purposefully NULL
