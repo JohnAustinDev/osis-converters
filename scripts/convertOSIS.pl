@@ -40,6 +40,8 @@ sub convertOSIS($) {
   $CREATE_FULL_BIBLE = (!defined($CONVERT_TXT{'CreateFullBible'}) || $CONVERT_TXT{'CreateFullBible'} !~ /^(false|0)$/i);
   $CREATE_SEPARATE_BOOKS = (!defined($CONVERT_TXT{'CreateSeparateBooks'}) || $CONVERT_TXT{'CreateSeparateBooks'} !~ /^(false|0)$/i);
   @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %CONVERT_TXT) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
+  $TOCNUMBER = ($CONVERT_TXT{'TOC'} ? $CONVERT_TXT{'TOC'}:$DEFAULT_TOCNUMBER);
+  $TITLECASE = ($CONVERT_TXT{'TitleCase'} ? $CONVERT_TXT{'TitleCase'}:$DEFAULT_TITLECASE);
 
   # convert the entire OSIS file
   if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $ConfEntryP->{"Scope"});}

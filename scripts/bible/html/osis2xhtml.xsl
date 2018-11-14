@@ -179,7 +179,7 @@
   <template match="node()|@*" mode="writeCombinedGlossary">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
     <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]">
-      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1], $tocnumber)"/></osis:title>
+      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title>
     </if>
   </template>
   
@@ -326,7 +326,7 @@
   </function>
   <function name="me:hashUsfmType" as="xs:string">
     <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="oc:getGlossaryName($usfmType, $tocnumber)"/>
+    <variable name="title" select="oc:getGlossaryName($usfmType)"/>
     <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
     <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
@@ -369,7 +369,11 @@
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
           <if test="not($mainTocMilestone) and $isBibleNode and $firstElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
-            <variable name="title"><osis:title type="main"><value-of select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/></osis:title></variable>
+            <variable name="pubname" select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/>
+            <variable name="title">
+              <osis:milestone type="{concat('x-usfm-toc', $tocnumber)}" n="{$pubname}"/>
+              <osis:title type="main"><value-of select="$pubname"/></osis:title>
+            </variable>
             <apply-templates select="$title" mode="xhtml"/>
             <call-template name="getMainInlineTOC"/>
           </if>
@@ -524,11 +528,7 @@
     <variable name="chars" select="if ($isMainTOC) then max(($twoColumnElements/string-length(string()), $oneColumnElements/(string-length(string())*0.5))) else max($listElements/string-length(string()))"/>
     <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
     <element name="div" namespace="http://www.w3.org/1999/xhtml">
-      <attribute name="class">xsl-inline-toc
-        <if test="not($BookIsTwoColumns)"> xsl-one-book-column</if>
-        <if test="$hasOddNumberOfIntros"> xsl-odd-intros</if>
-        <if test="$hasOddNumberOf2ColBooks"> xsl-odd-2col-books</if>
-      </attribute>
+      <attribute name="class">xsl-inline-toc<if test="not($BookIsTwoColumns)"> xsl-one-book-column</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if><if test="$hasOddNumberOf2ColBooks"> xsl-odd-2col-books</if></attribute>
       <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
         <choose>
           <!-- limit main TOC width, because li width is specified as % in css -->
@@ -606,12 +606,22 @@
         </variable>
         <variable name="chars" select="max($tmptitles/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
         <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="entryType" select="if (matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')) then 'introduction' else ./(ancestor::div[@type=('book', 'bookGroup')][1] | ancestor::div[@type=$usfmType][1])[1]/@type" as="xs:string?"/>
+          <variable name="bkgp" select="ancestor::div[@type=('book', 'bookGroup')][1]"/>
+          <variable name="divType" select="($bkgp | ancestor::div[@type=$usfmType][1][generate-id(.)!=generate-id($bkgp/*[1])])[last()]/@type"/>
+          <variable name="tocButtonType">
+            <choose>
+              <when test="self::chapter">chapter</when>
+              <when test="self::seg">keyword</when>
+              <when test="matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')">introduction</when>
+              <when test="$divType"><value-of select="$divType"/></when>
+              <otherwise>introduction</otherwise>
+            </choose>
+          </variable>
           <li xmlns="http://www.w3.org/1999/xhtml">
-            <xsl:attribute name="class" select="concat('xsl-', if (self::chapter) then 'chapter' else if (self::seg) then 'keyword' else if ($entryType) then $entryType else 'introduction', '-link')"/>
+            <xsl:attribute name="class" select="concat('xsl-', $tocButtonType, '-link')"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
             <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
-              <xsl:value-of select="oc:titleCase($tmptitles[@source = generate-id(current())]/string(), $titleCase)"/>
+              <xsl:value-of select="oc:titleCase($tmptitles[@source = generate-id(current())]/string())"/>
             </a>
           </li>
         </for-each>
@@ -666,7 +676,7 @@
         </otherwise>
       </choose>
     </variable>
-    <value-of select="if ($tocTitleEXPLICIT = '') then oc:titleCase($tocTitleOSIS, $titleCase) else oc:titleCase($tocTitleEXPLICIT, $titleCase)"/>
+    <value-of select="if ($tocTitleEXPLICIT = '') then oc:titleCase($tocTitleOSIS) else oc:titleCase($tocTitleEXPLICIT)"/>
   </function>
   
   <!-- getTocLevel returns an integer which is the TOC hierarchy level of tocElement -->

@@ -56,6 +56,8 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
+$DEFAULT_TOCNUMBER = 2;
+$DEFAULT_TITLECASE = 1;
 $VSYS{'prefix'} = 'x-vsys';
 $VSYS{'AnnoTypeSource'} = '-source';
 $VSYS{'TypeModified'} = '-fitted';
@@ -786,7 +788,7 @@ sub getAllAbbrevsString($\%) {
   my $p = '';
   foreach my $abbr (sort { length($b) <=> length($a) } keys %{$abbrP}) {
     if ($abbrP->{$abbr} ne $osis || $abbr =~ /^\s*$/) {next;}
-    my $a = $abbr; $a =~ s/([\.\:\-])/\\$1/g;
+    my $a = $abbr;
     $p .= sprintf("%-6s = %s\n", $osis, $a);
     $abbrP->{$abbr} = ''; # only print each abbrev once
   }
@@ -847,7 +849,7 @@ sub customize_usfm2osis($$) {
     }
     $lastScope = $scope;
     
-    my $r = File::Spec->abs2rel($f, $INPD); if ($r !~ /^\./) {$r = './'.$r;}
+    my $r = File::Spec->abs2rel($f, $MAININPD); if ($r !~ /^\./) {$r = './'.$r;}
     
     # peripherals need a target location in the OSIS file added to their ID
     if ($USFM{$modType}{$f}{'peripheralID'}) {
@@ -1685,11 +1687,14 @@ sub sortSearchTermKeys($$) {
 # element (including its introduction if there is one) is dropped.
 #
 # If any book (kept or pruned) contains peripheral(s) which pertain to 
-# any kept book, the peripheral(s) are move up and appended to the 
-# bookGroup introduction of the kept book, so as to retain the peripheral.
+# any kept book, the peripheral(s) are kept. Peripheral(s) pertaining to
+# more than one book will be moved up out of the book they're in (if in 
+# a book) and appended to the bookGroup introduction of the first 
+# applicable kept book, so as to retain the peripheral.
 #
 # If there is only one bookGroup left, the remaining one's TOC milestone
-# will become [not_parent] to so as to prevent an unnecessary TOC level.
+# will become [not_parent] to so as to prevent an unnecessary TOC level,
+# or, if the Testament intro is empty, it will be entirely removed.
 #
 # If the ebookTitleP is non-empty, its value will always be used as the  
 # final ebook title. Otherwise the ebook title will be taken from config 
@@ -1718,51 +1723,37 @@ sub pruneFileOSIS($$\%\%\$\$) {
   
   my $bookOrderP;
   my $booksFiltered = 0;
-  if (&getCanon($confP->{'Versification'}, NULL, \$bookOrderP, NULL)) {
-    my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")]', $inxml);
-    foreach my $d (@multiBookDivs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
-    
-    my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
-    # remove books not in scope
-    my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
-    my @filteredBooks;
-    foreach my $bk (@books) {
-      my $id = $bk->getAttribute('osisID');
-      if (!exists($scopeBookNames{$id})) {
-        $bk->unbindNode();
-        push(@filteredBooks, $id);
-        $booksFiltered++;
-      }
-    }
-    if (@filteredBooks) {
-      &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
-    }
-    # remove bookGroup if it has no books left (even if it contains other peripheral material)
-    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-    my $msg = 0;
-    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
-    if ($msg) {
-      &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
-    }
-    # move multi-book intros before first kept book
-    my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-    INTRO: foreach my $intro (reverse(@multiBookDivs)) {
-      if (!$intro) {next;} # some are purposefully NULL
-      my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
-      if (!@{$introBooks}) {next;}
-      foreach $introbk (@{$introBooks}) {
-        foreach my $remainingBook (@remainingBooks) {
-          if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-          $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
-          my $t1 = $intro; $t1 =~ s/>.*$/>/s;
-          my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-          &Note("Moved peripheral: $t1 before $t2", 1);
-          next INTRO;
-        }
-      }
+  if (!&getCanon($confP->{'Versification'}, '', \$bookOrderP, '')) {
+    &ErrorBug("pruneFileOSOS getCanon(".$confP->{'Versification'}.") failed, not pruning books in OSIS file");
+    return;
+  }
+  
+  my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")]', $inxml);
+  foreach my $d (@multiBookDivs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
+  
+  # remove books not in scope
+  my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
+  my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
+  my @filteredBooks;
+  foreach my $bk (@books) {
+    my $id = $bk->getAttribute('osisID');
+    if (!exists($scopeBookNames{$id})) {
+      $bk->unbindNode();
+      push(@filteredBooks, $id);
+      $booksFiltered++;
     }
   }
-  else {&ErrorBug("pruneFileOSOS getCanon(".$confP->{'Versification'}.") failed, not pruning books in OSIS file");}
+  if (@filteredBooks) {
+    &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
+  }
+  
+  # remove bookGroup if it has no books left (even if it contains other peripheral material)
+  my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+  my $msg = 0;
+  foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
+  if ($msg) {
+    &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
+  }
   
   # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
   my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
@@ -1775,6 +1766,26 @@ sub pruneFileOSIS($$\%\%\$\$) {
         &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
       }
       else {$ms->unbindNode();}
+    }
+  }
+  
+  # move multi-book intros before first kept book. NOTE: It's possible
+  # this could result in a non-standard OSIS file with bookGroup intro
+  # material located between books.
+  my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
+  INTRO: foreach my $intro (reverse(@multiBookDivs)) {
+    if (!$intro) {next;} # some are purposefully NULL
+    my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+    if (!@{$introBooks}) {next;}
+    foreach $introbk (@{$introBooks}) {
+      foreach my $remainingBook (@remainingBooks) {
+        if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
+        $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
+        my $t1 = $intro; $t1 =~ s/>.*$/>/s;
+        my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
+        &Note("Moved peripheral: $t1 before $t2", 1);
+        next INTRO;
+      }
     }
   }
   
@@ -4060,6 +4071,8 @@ sub runXSLT($$$\%$) {
     $cmd .= " $p=\"$v\"";
   }
   if ($DEBUG) {$cmd .= " DEBUG=\"true\"";}
+  if ($TOCNUMBER) {$cmd .= " tocnumber=$TOCNUMBER";}
+  if ($TITLECASE) {$cmd .= " titleCase=$TITLECASE";}
   &shell($cmd, $logFlag);
 }
 

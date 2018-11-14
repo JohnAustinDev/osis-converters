@@ -16,9 +16,6 @@
   -->
  
   <xsl:import href="./functions.xsl"/>
-  
-  <!-- Call with DEBUG='true' to turn on debug messages -->
-  <param name="DEBUG" select="'false'"/>
  
   <!-- scope of the glossary div which contains introductory material, if it exists -->
   <xsl:param name="introScope"/>

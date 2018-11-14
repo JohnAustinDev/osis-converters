@@ -7,12 +7,15 @@ require("$SCRD/scripts/bible/addCrossRefs.pl");
 
 my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_bible'));
 
+%HTMLCONV  = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
+%EBOOKCONV = &readConvertTxt(&getDefaultFile('bible/eBook/convert.txt'));
+$TOCNUMBER = ($EBOOKCONV{'TOC'} ? $EBOOKCONV{'TOC'}:$DEFAULT_TOCNUMBER);
+$TITLECASE = ($EBOOKCONV{'TitleCase'} ? $EBOOKCONV{'TitleCase'}:$DEFAULT_TITLECASE);
+
 # MOD_0.xml is raw converter output
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-%HTMLCONV = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
-%EBOOKCONV = &readConvertTxt(&getDefaultFile('bible/eBook/convert.txt'));
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {

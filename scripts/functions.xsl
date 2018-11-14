@@ -10,9 +10,24 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
-  <param name="DEBUG" select="'false'"/> 
+  <!-- The following params are globals which should be defined before 
+  this file is imported. Globals are really nice since it's a pain to
+  pass around unnecessary variables in XSLT. This is how osis-converters 
+  does it:
+  1) runScript() and runXSLT() will pass the current value of the 
+     corresponding Perl globals.
+  2) if the calling XSLT is started another way, such as osis2xhtml.xsl 
+     which is called by the Calibre OSIS-input plugin, then that calling 
+     XSLT should read the values from the OSIS file header.
+  3) if nothing sets them, they will have the default values below -->
+  
+  <!-- Setting to 'true' turns on debugging messages -->
+  <param name="DEBUG" select="'false'"/>
+  <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
+  <param name="tocnumber" select="2"/>
+  <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
+  <param name="titleCase" select="0"/>
  
-  <!-- Copied from xsltfunctions.com -->
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
     <param name="pattern" as="xs:string"/>
@@ -24,7 +39,6 @@
     <param name="nodeToFind" as="node()"/>
     <sequence select="for $seq in (1 to count($nodes)) return $seq[$nodes[$seq] is $nodeToFind]"/>
   </function>
-  <!-- End of functions copied from xsltfunctions.com -->
 
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
   <function name="oc:skipGlossaryEntry">
@@ -87,13 +101,20 @@
   
   <function name="oc:getGlossaryName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
-    <param name="tocn" as="xs:integer"/>
-    <value-of select="$glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocn)][1]/@n)[1]"/>
+    <value-of select="oc:titleCase($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]/@n)[1])"/>
+  </function>
+  
+  <function name="oc:getGlossaryScopeName" as="xs:string">
+    <param name="glossary" as="element(div)?"/>
+    <variable name="createFullPublication" 
+      select="if ($glossary/@scope) then root($glossary)//header//description[contains(@type, 'CreateFullPublication')][text()=$glossary/@scope]/@type else ''"/>
+    <variable name="pubn" select="if ($createFullPublication) then substring($createFullPublication[1], string-length($createFullPublication[1]), 1) else ''"/>
+    <variable name="titleFullPublications" select="if ($pubn) then root($glossary)//header//description[contains(@type, concat('TitleFullPublication', $pubn))] else ''"/>
+    <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else oc:getGlossaryName($glossary)"/>
   </function>
   
   <function name="oc:titleCase" as="xs:string?">
     <param name="title" as="xs:string?"/>
-    <param name="titleCase" as="xs:integer"/>
     <choose>
       <when test="$titleCase = 1"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
       <when test="$titleCase = 2"><value-of select="upper-case($title)"/></when>
@@ -103,8 +124,8 @@
   
   <function name="oc:capitalize-first" as="xs:string*">
     <param name="words" as="xs:string*"/>
-    <for-each select="$words">
-      <sequence select="concat(upper-case(substring(.,1,1)), lower-case(substring(.,2)))"/>
+    <for-each select="$words"><!-- but don't modify roman numerals! -->
+      <sequence select="if (matches(., '^[IiVvLlXx]+$')) then . else concat(upper-case(substring(.,1,1)), lower-case(substring(.,2)))"/>
     </for-each>
   </function>
   

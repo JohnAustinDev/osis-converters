@@ -15,11 +15,7 @@
   -->
  
   <import href="../functions.xsl"/>
-  
-  <!-- Call with DEBUG='true' to turn on debug messages -->
-  <param name="DEBUG" select="'false'"/>
-  
-  <variable name="tocnumber" select="if (/descendant::*[@type='x-ebook-config-TOC'][1]) then /descendant::*[@type='x-ebook-config-TOC'][1] else 2"/>
+
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
   <!-- Get a list of applicable keywords which are NOT unique (by a case insensitive comparison) -->
@@ -148,7 +144,7 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="title" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1], $tocnumber)"/>
+                <variable name="title" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
                 <if test="$title">
                   <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$title"/></title>
                 </if>

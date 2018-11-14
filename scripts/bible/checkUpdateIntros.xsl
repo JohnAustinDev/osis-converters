@@ -34,9 +34,6 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
   
   <import href="../functions.xsl"/>
   
-  <!-- Call with DEBUG='true' to turn on debug messages -->
-  <param name="DEBUG" select="'false'"/>
-  
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
   <variable name="moveDivs" as="element(div)*" select="descendant::div[matches(@type, 'section', 'i')]

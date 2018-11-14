@@ -11,9 +11,6 @@
  
   <import href="../functions.xsl"/>
   
-  <!-- Call with DEBUG='true' to turn on debug messages -->
-  <param name="DEBUG" select="'false'"/>
-  
   <param name="notXPATH_default" select="'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]'"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
