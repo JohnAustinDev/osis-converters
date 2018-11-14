@@ -598,7 +598,7 @@
                 <choose>
                   <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
                   <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
-                  <otherwise><value-of select="me:getTocTitle(.)"/></otherwise>
+                  <otherwise><value-of select="oc:titleCase(me:getTocTitle(.))"/></otherwise>
                 </choose>
               </me:tmp>
             </if>
@@ -621,7 +621,7 @@
             <xsl:attribute name="class" select="concat('xsl-', $tocButtonType, '-link')"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
             <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
-              <xsl:value-of select="oc:titleCase($tmptitles[@source = generate-id(current())]/string())"/>
+              <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
             </a>
           </li>
         </for-each>
@@ -676,7 +676,7 @@
         </otherwise>
       </choose>
     </variable>
-    <value-of select="if ($tocTitleEXPLICIT = '') then oc:titleCase($tocTitleOSIS) else oc:titleCase($tocTitleEXPLICIT)"/>
+    <value-of select="if ($tocTitleEXPLICIT = '') then $tocTitleOSIS else $tocTitleEXPLICIT"/>
   </function>
   
   <!-- getTocLevel returns an integer which is the TOC hierarchy level of tocElement -->
@@ -939,7 +939,7 @@
   
   <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
-    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="me:getTocTitle(.)"/></i></small></div>
+    <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></i></small></div>
     <variable name="tocms" select="."/>
     <!-- Move main titles above the inline TOC. The following variable and for-each selection must be identical to those in the title template. -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/

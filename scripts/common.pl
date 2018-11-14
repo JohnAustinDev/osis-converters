@@ -1743,48 +1743,49 @@ sub pruneFileOSIS($$\%\%\$\$) {
       $booksFiltered++;
     }
   }
-  if (@filteredBooks) {
+  
+  if ($booksFiltered) {
     &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
-  }
-  
-  # remove bookGroup if it has no books left (even if it contains other peripheral material)
-  my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
-  my $msg = 0;
-  foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
-  if ($msg) {
-    &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
-  }
-  
-  # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
-  my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
-  if (scalar(@grps) == 1 && @grps[0]) {
-    my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
-    if ($ms) {
-      # don't include in the TOC unless entry has a title and there is a bookGroup intro paragraph with text
-      if (@{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0]) {
-        $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
-        &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
-      }
-      else {$ms->unbindNode();}
+
+    # remove bookGroup if it has no books left (even if it contains other peripheral material)
+    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+    my $msg = 0;
+    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
+    if ($msg) {
+      &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
     }
-  }
-  
-  # move multi-book intros before first kept book. NOTE: It's possible
-  # this could result in a non-standard OSIS file with bookGroup intro
-  # material located between books.
-  my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-  INTRO: foreach my $intro (reverse(@multiBookDivs)) {
-    if (!$intro) {next;} # some are purposefully NULL
-    my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
-    if (!@{$introBooks}) {next;}
-    foreach $introbk (@{$introBooks}) {
-      foreach my $remainingBook (@remainingBooks) {
-        if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-        $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
-        my $t1 = $intro; $t1 =~ s/>.*$/>/s;
-        my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-        &Note("Moved peripheral: $t1 before $t2", 1);
-        next INTRO;
+    
+    # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
+    my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
+    if (scalar(@grps) == 1 && @grps[0]) {
+      my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
+      if ($ms) {
+        # don't include in the TOC unless entry has a title and there is a bookGroup intro paragraph with text
+        if (@{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0]) {
+          $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
+          &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
+        }
+        else {$ms->unbindNode();}
+      }
+    }
+    
+    # move multi-book intros before first kept book. NOTE: It's possible
+    # this could result in a non-standard OSIS file with bookGroup intro
+    # material located between books.
+    my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
+    INTRO: foreach my $intro (reverse(@multiBookDivs)) {
+      if (!$intro) {next;} # some are purposefully NULL
+      my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+      if (!@{$introBooks}) {next;}
+      foreach $introbk (@{$introBooks}) {
+        foreach my $remainingBook (@remainingBooks) {
+          if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
+          $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
+          my $t1 = $intro; $t1 =~ s/>.*$/>/s;
+          my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
+          &Note("Moved peripheral: $t1 before $t2", 1);
+          next INTRO;
+        }
       }
     }
   }
