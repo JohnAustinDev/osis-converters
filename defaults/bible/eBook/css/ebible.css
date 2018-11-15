@@ -123,6 +123,9 @@ a.osis-reference {
 .osis-lb.x-optional {
   margin:0px;
 }
+.osis-figure {
+  text-align:center;
+}
 .osis-milestone.pb,
 #fullResourceURL {
   page-break-before: always;
