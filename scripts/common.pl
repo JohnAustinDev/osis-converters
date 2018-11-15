@@ -1778,7 +1778,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
     # possible this could result in a non-standard OSIS file with 
     # bookGroup intro material located between books.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-    INTRO: foreach my $intro (reverse(@multiBookDivs)) {
+    INTRO: foreach my $intro (@multiBookDivs) {
       if (!$intro) {next;} # some are purposefully NULL
       my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
       if (!@{$introBooks}) {next;}

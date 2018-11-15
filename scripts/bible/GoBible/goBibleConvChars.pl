@@ -102,7 +102,12 @@ sub goBibleConvChars($\@) {
   }
   if ($type eq "simple") {
     if ($error eq "false") {&Log("Good! No such chars were found.\n");}
-    else {&Warn("The high code point Unicode chars above were found.");}
+    else {&Error("The high code point Unicode chars above were found.",
+"You need to add these characters to the GoBible/simpleChars.txt
+file, and map them to lower order Unicode characters (below $maxUnicode) 
+which look as similar as possible to the original character. Then these 
+characters will be replaced when building the 'simple' apps, and will 
+not appear as boxes on feature phones.");}
   }
   else {&Log("\n");}
   &Log("\n");
