@@ -36,8 +36,8 @@
 
 # PROVIDING BOOK NAMES TO THE PASRER:
 # ------------------------------------
-#   <osis-book>=aTerm - Will associate the Bible book on
-#       the left with the matching term on the right. Only one term
+#   <osis-book>=Name - Will associate the Bible book on the left with
+#       the matching name/abbreviation on the right. Only one term
 #       per line is allowed, but a single book may appear on numerous
 #       lines, each with another matching term. Longest terms for a
 #       book should be listed before shorter terms for the same book.
