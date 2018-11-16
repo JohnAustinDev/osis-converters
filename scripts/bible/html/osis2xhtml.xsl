@@ -546,9 +546,9 @@
             <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
           </when>
         </choose>
-        <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml">
-          <sequence select="$listElements"/>
-        </element>
+        <for-each-group select="$listElements/*" group-adjacent="if (not($isMainTOC)) then @class else '1'">
+          <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
+        </for-each-group>
       </element>
     </element>
   </function>
