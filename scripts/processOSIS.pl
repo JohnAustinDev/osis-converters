@@ -94,6 +94,7 @@ elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
 
 if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &fitToVerseSystem(\$OSIS, $VERSESYS);
+  &checkVerseSystem($OSIS, $VERSESYS);
 }
 
 if ($MODDRV =~ /Text/ && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}

@@ -264,15 +264,15 @@ facilitate this, the following maps are provided:
 
 %USFM_DEFAULT_PERIPH_TARGET = (
   'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction|Foreword|Preface|Chronology|Weights and Measures|Map Index' => 'place-according-to-scope',
-  'Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]',
-  'NT Quotes from LXX' => 'osis:div[@type="bookGroup"][last()]',
+  'Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]/node()[1]',
+  'NT Quotes from LXX' => 'osis:div[@type="bookGroup"][last()]/node()[1]',
   'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen"]',
   'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
   'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
   'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]',
+  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]/node()[1]',
   'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
-  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
+  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]/node()[1]',
   'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
@@ -307,8 +307,8 @@ sub orderBooksPeriphs($$$) {
     $xpath .= $sep.'//osis:div[@type="'.$type.'"][not(@subType)]';
     $sep = '|';
   }
-  my @periphs = $XPC->findnodes($xpath, $xml);
-  foreach my $periph (@periphs) {$periph->unbindNode();}
+  my @periphFiles = $XPC->findnodes($xpath, $xml);
+  foreach my $periphFile (@periphFiles) {$periphFile->unbindNode();}
   
   # create empty bookGroups
   my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
@@ -352,133 +352,154 @@ sub orderBooksPeriphs($$$) {
   }
 
   # place all peripheral files, and separately any \periph sections they may contain, each to their proper places
-  my @mylog;
-  for (my $i=@periphs-1; $i >= 0; $i--) {
-    my $periph = @periphs[$i];
-    my $placedPeriph;
+  foreach my $periphFile (@periphFiles) {
+    my $placedPeriphFile;
 
     # read the first comment to find desired target location(s) and scope, if any
-    my @commentNode = $XPC->findnodes('child::node()[2][self::comment()]', $periph);
+    my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $periphFile)}[0];
 
-    if (!@commentNode || @commentNode[0] !~ /\s\S+ == \S+/) {
-      push(@mylog, "Error: Removing periph(s)! You must specify the location where each peripheral file should be placed within the OSIS file.");
-      push(@mylog, &placementMessage());
-      push(@mylog, "REMOVED:\n$periph");
+    if (!$commentNode || $commentNode !~ /\s\S+ == \S+/) {
+      &Error("Removing periph(s)!", "You must specify the location where each peripheral file should be placed within the OSIS file.");
+      &Log(&placementMessage());
+      &Warn("REMOVED:\n$periphFile");
     }
     else {
-      my $comment = @commentNode[0];
+      my $comment = $commentNode->textContent;
       #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
-      $comment =~ s/^<\!\-\-.*?(?=\s(?:\S+|"[^"]+") ==)//; # strip beginning stuff
-      $comment =~ s/\s*\-\->$//; # strip end stuff
-      
-      # process comment parts in reverse order to acheive expected element order
+      $comment =~ s/^.*?(?=\s(?:\S+|"[^"]+") ==)//; $comment =~ s/\s*$//;  # strip beginning/end stuff 
       my @parts = split(/(,\s*(?:\S+|"[^"]+") == )/, ", $comment");
-      for (my $x=@parts-1; $x>0; $x -= 2) {
-        my $part = $parts[$x-1] . $parts[$x];
-        $part =~ s/^,\s*//;
-        if ($part !~ /^(\S+|"[^"]+") == (.*?)$/) {
-          push(@mylog, "Error: Unhandled location or scope assignment \"$part\" in \"".@commentNode[0]."\" in CF_usfm2osis.txt");
-        }
-        my $emsg = "as specified by \"$part\"";
-        my $int = $1;
-        my $xpath = $2;
-        $int =~ s/"//g; # strip possible quotes
-        if ($int eq 'scope') {
-          $xpath =~ s/"//g; # strip possible quotes
-          if (!$periph->getAttribute('osisRef')) {
-            $periph->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
-          }
-          else {push(@mylog, "Error: Introduction comment specifies scope == $int, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"");}
+      for (my $x=1; $x < @parts; $x += 2) { # start at $x=1 because 0 is always just a leading comma
+        my $command = @parts[$x] . @parts[($x+1)];
+        $command =~ s/^,\s*//;
+        if ($command !~ /^(\S+|"[^"]+") == (.*?)$/) {
+          &Error("Unhandled location or scope assignment \"$command\" in \"$commentNode\" in CF_usfm2osis.txt");
           next;
         }
-        
-        my @targXpath = ();
+        my $left = $1;
+        my $xpath = $2;
+  
+        $left =~ s/"//g; # strip possible quotes
+        if ($left eq 'scope') {
+          $xpath =~ s/"//g; # strip possible quotes
+          if (!$periphFile->getAttribute('osisRef')) {
+            $periphFile->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
+          }
+          else {&Error("Introduction comment specifies scope == $xpath, but introduction already has osisRef=\"".$periphFile->getAttribute('osisRef')."\"");}
+          next;
+        }       
+        if ($xpath eq "osis:header") {
+          $xpath = "osis:header/following-sibling::node()[1]";
+          &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
+"This xpath was previously interpereted as 'place after the header' but 
+it now means 'place as preceding sibling of the header' which is not 
+what you want. To retain the old meaning, change osis:header to $xpath");
+          &Warn("Changing osis:header to $xpath");
+        }
+        elsif ($xpath =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
+          $xpath .= "/node()[1]";
+          &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
+"This xpath was previously interpereted as 'place as first child of the 
+bookGroup' but it now is interpereted as 'place as the preceding sibling 
+of the bookGroup' which is probably not what you want. To retain the old 
+meaning, change it to $xpath");
+          &Warn("Changing $command to $left == $xpath");
+        }
+     
+        my $beforeNode;
         if ($xpath =~ /^remove$/i) {$xpath = '';}
         else {
-          @targXpath = $XPC->findnodes('//'.$xpath, $xml);
-          if (!@targXpath) {
-            push(@mylog, "Error: Removing periph! Could not locate xpath:\"$xpath\" $emsg");
+          $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
+          if (!$beforeNode) {
+            &Error("Removing periph! Could not locate xpath:\"$xpath\" in command $command");
             next;
           }
         }
-        if ($int eq 'location') {
-          $placedPeriph = 1;
-          if ($xpath) {&placeIntroduction($periph, @targXpath[$#targXpath]);}
+        
+        if ($left eq 'location') {
+          $placedPeriphFile = 1;
+          if ($xpath) {&placeIntroduction($periphFile, $beforeNode);}
         }
         else {
-          my $type;
-          my $subType;
-          if ($int eq 'x-unknown') {$type = $int;}
-          elsif (defined($PERIPH_TYPE_MAP{$int})) {
-            $type = $PERIPH_TYPE_MAP{$int};
-            $subType = $PERIPH_SUBTYPE_MAP{$int};
-          }
-          elsif (defined($PERIPH_TYPE_MAP_R{$int})) {$type = $int;}
-          elsif (defined($PERIPH_SUBTYPE_MAP_R{$int})) {$type = "introduction"; $subType = $int;}
-          else {
-            push(@mylog, "Error: Could not place periph! Unable to map \"$int\" to a div element $emsg.");
-            next;
-          }
-          my $srcXpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
-          my @ptag = $XPC->findnodes($srcXpath, $periph);
-          if (!@ptag) {
-            push(@mylog, "Error: Could not place periph! Did not find \"$srcXpath\" $emsg.");
-            next;
-          }
-          @ptag[$#ptag]->unbindNode();
-          if ($xpath) {&placeIntroduction(@ptag[$#ptag], @targXpath[$#targXpath]);}
+          my $periph = &findThisPeriph($periphFile, $left, $command);
+          if (!$periph) {next;}
+          $periph->unbindNode();
+          if ($xpath) {&placeIntroduction($periph, $beforeNode);}
         }
+        
         if ($xpath) {
-          my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-          push(@mylog, "Note: Placing $int == $xpath for $tg");
+          my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
+          &Note("Placing $left == $xpath for $tg");
         }
-        else {push(@mylog, "Note: Removing \"$int\" $emsg.");}
+        else {&Note("Removing \"$left\" in command $command.");}
       }
     }
-    if (!$placedPeriph) {
-      my @tst = $XPC->findnodes('.//*', $periph);
-      my @tst2 = $XPC->findnodes('.//text()[normalize-space()]', $periph);
-      if ((@tst && @tst[0]) || (@tst2 && @tst2[0])) {
-        push(@mylog,
-"Error: The placement location for the following peripheral material was 
+    
+    if (!$placedPeriphFile) {
+      my $tst = @{$XPC->findnodes('.//*', $periphFile)}[0];
+      my $tst2 = @{$XPC->findnodes('.//text()[normalize-space()]', $periphFile)}[0];
+      if ($tst || $tst2) {
+        &Error(
+"The placement location for the following peripheral material was 
 not specified and its position may be incorrect:
-$periph
+$periphFile
 To position the above material, add location == <XPATH> after the \\id tag."
         );
-        push(@mylog, &placementMessage());
+        &Log(&placementMessage());
       }
       else {
-        $periph->unbindNode();
-        my $tg = $periph->toString(); $tg =~ s/>.*$/>/s;
-        push(@mylog, "Note: Removing empty div: $tg");
+        $periphFile->unbindNode();
+        my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
+        &Note("Removing empty div: $tg");
       }
     }
   }
-  foreach my $lg (reverse(@mylog)) {
-    if ($lg =~ s/^\s*Error\:\s*//) {&Error($lg);}
-    elsif ($lg =~ s/^\s*Note\:\s*//) {&Note($lg);}
-    else {&Log($lg);}
-  }
-  
+
   open(OUTF, ">$output");
   print OUTF $xml->toString();
   close(OUTF);
   $$osisP = $output;
 }
 
-sub placeIntroduction($$) {
-  my $intro = shift;
-  my $dest = shift;
-  if ($dest->nodeName =~ /\:?header$/) {$dest->parentNode()->insertAfter($intro, $dest);}
-  elsif ($dest->hasChildNodes()) {
-    # place as first non-toc and non-runningHead element in destination container
-    my $before = $dest->firstChild();
-    while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $before)}[0]) {
-      $before = $before->nextSibling();
-    }
-    $dest->insertBefore($intro, $before);
+sub findThisPeriph($$$) {
+  my $parent = shift;
+  my $left = shift;
+  my $command = shift;
+  
+  my $type;
+  my $subType;
+  if ($left eq 'x-unknown') {$type = $left;}
+  elsif (defined($PERIPH_TYPE_MAP{$left})) {
+    $type = $PERIPH_TYPE_MAP{$left};
+    $subType = $PERIPH_SUBTYPE_MAP{$left};
   }
-  else {$dest->parentNode()->insertAfter($intro, $dest);}
+  elsif (defined($PERIPH_TYPE_MAP_R{$left})) {$type = $left;}
+  elsif (defined($PERIPH_SUBTYPE_MAP_R{$left})) {$type = "introduction"; $subType = $left;}
+  else {
+    &Error("Could not place periph! Unable to map $left to a div element in $command.");
+    return '';
+  }
+  my $xpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
+  my $periph = @{$XPC->findnodes($xpath, $parent)}[0];
+  if (!$periph) {
+    &Error("Could not place periph! Did not find \"$xpath\"in $command.");
+    return '';
+  }
+  
+  return $periph;
+}
+
+# Insert $periph node before $beforeNode. But when $beforeNode is a toc 
+# or runningHead element, then insert $periph before the following non-
+# toc, non-runningHead node instead.
+sub placeIntroduction($$) {
+  my $periph = shift;
+  my $beforeNode = shift;
+
+  # place as first non-toc and non-runningHead element in destination container
+  while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $beforeNode)}[0]) {
+    $beforeNode = $beforeNode->nextSibling();
+  }
+  $beforeNode->parentNode->insertBefore($periph, $beforeNode);
 }
 
 sub placementMessage() {
@@ -536,14 +557,16 @@ sub fitToVerseSystem($$) {
 
   my $xml = $XML_PARSER->parse_file($$osisP);
   
+  # Check if this osis file has already been fitted, and bail if so
   my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"]', $xml);
   if (@existing) {
     &Warn("
 There are ".@existing." fitted tags in the text. This OSIS file has 
 already been fitted so this step will be skipped!");
   }
+  
+  # Apply VSYS instructions to the translation (first do the fitting, then mark moved verses)
   elsif (@VSYS_INSTR) {
-    # Apply alternate VSYS instructions to the translation (first do the fitting, then mark moved verses)
     foreach my $argsP (@VSYS_INSTR) {
       if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
     }
@@ -555,6 +578,7 @@ already been fitted so this step will be skipped!");
     $$osisP = $output;
   }
   
+  # Warn that these alternate verse tags in source could require further VSYS intructions
   my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix'}.'")]])]', $xml);
   if (@nakedAltTags) {
     &Warn("The following alternate verse tags were found.",
@@ -566,6 +590,19 @@ references:");
       my $verse = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $at)}[0];
       &Log($verse." ".$at."\n");
     }
+  }
+}
+
+sub checkVerseSystem($$) {
+  my $bibleosis = shift;
+  my $vsys = shift;
+  
+  my $xml = $XML_PARSER->parse_file($bibleosis);
+  
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &ErrorBug("Leaving checkVerseSystem() because getCanon($vsys) failed.");
+    return;
   }
   
   # Insure that all verses are accounted for and in sequential order 

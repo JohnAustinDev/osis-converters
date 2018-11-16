@@ -915,7 +915,7 @@ sub customize_collections($) {
 # Given an official peripheral description and scope, return the
 # CF_usfm2osis.txt code for default placement of the peripheral within 
 # an OSIS file. When $pt is 'location' (an entire file) it is placed
-# in the proper bookGroup, or the first book of $scope, or else 
+# in the proper bookGroup, or before the first book of $scope, or else 
 # osis:header
 sub getOsisMap($) {
   my $pt = shift;
@@ -923,15 +923,15 @@ sub getOsisMap($) {
   
   my $scopePath = 'osis:header';
   if ($scope) {
-    if ($scope eq 'Matt-Rev') {$scopePath = 'osis:div[@type="bookGroup"][last()]';}
-    elsif ($scope eq 'Gen-Mal') {$scopePath = 'osis:div[@type="bookGroup"][1]';}
+    if ($scope eq 'Matt-Rev') {$scopePath = 'osis:div[@type="bookGroup"][last()]/node()[1]';}
+    elsif ($scope eq 'Gen-Mal') {$scopePath = 'osis:div[@type="bookGroup"][1]/node()[1]';}
     else {
       $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:'');
       if (!$scopePath || !$OSISBOOKS{$scopePath}) {
         &Error("USFM file's scope \"$scope\" is not recognized.", 
 "Make sure the sfm sub-directory is named using a proper OSIS 
 book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
-        $scopePath = 'osis:header';
+        $scopePath = 'osis:header/following-sibling::node()[1]';
       }
       else {$scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]';}
     }
@@ -945,7 +945,7 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
   }
   if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
 
-  my $xpath = 'osis:div[@type="book"]'; # default is introduction to first book
+  my $xpath = 'osis:div[@type="book"]/node()[1]'; # default is introduction to first book
   foreach my $t (keys %USFM_DEFAULT_PERIPH_TARGET) {
     if ($pt !~ /^($t)$/i) {next;}
     $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
@@ -1680,17 +1680,18 @@ sub sortSearchTermKeys($$) {
 }
 
 
-# Copy inosis to outosis, while pruning books according to scope. Any
-# changes made during the process are noted in the log file with a note.
+# Copy inosis to outosis, while pruning books and other bookGroup child 
+# elements according to scope. Any changes made during the process are 
+# noted in the log file with a note.
 #
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
 #
 # If any book (kept or pruned) contains peripheral(s) which pertain to 
-# any kept book, the peripheral(s) are kept. Peripheral(s) pertaining to
-# more than one book will be moved up out of the book they're in (if in 
-# a book) and appended to the bookGroup introduction of the first 
-# applicable kept book, so as to retain the peripheral.
+# any kept book, the peripheral(s) are kept. If peripheral(s) pertaining 
+# to more than one book are within a book, they will be moved up out of 
+# the book they're in and inserted before the first applicable kept 
+# book, so as to retain the peripheral.
 #
 # If there is only one bookGroup left, the remaining one's TOC milestone
 # will become [not_parent] to so as to prevent an unnecessary TOC level,
@@ -1728,8 +1729,11 @@ sub pruneFileOSIS($$\%\%\$\$) {
     return;
   }
   
-  my @multiBookDivs = $XPC->findnodes('//osis:div[contains(@osisRef, " ") or contains(@osisRef, "-")][ancestor::osis:div[@type="book"]]', $inxml);
-  foreach my $d (@multiBookDivs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
+  my @scopedPeriphs = $XPC->findnodes('//osis:div[@osisRef][parent::osis:div[starts-with(@type, "book")]]', $inxml);
+  foreach my $d (@scopedPeriphs) {
+    if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}
+    else {$d->unbindNode();}
+  }
   
   # remove books not in scope
   my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
@@ -1774,12 +1778,10 @@ sub pruneFileOSIS($$\%\%\$\$) {
       }
     }
     
-    # move multi-book book intros before first kept book. NOTE: It's 
-    # possible this could result in a non-standard OSIS file with 
-    # bookGroup intro material located between books.
+    # move multi-book book intros before first kept book.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-    INTRO: foreach my $intro (@multiBookDivs) {
-      if (!$intro) {next;} # some are purposefully NULL
+    INTRO: foreach my $intro (@scopedPeriphs) {
+      if (!$intro) {next;} # some are purposefully ''
       my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
       if (!@{$introBooks}) {next;}
       foreach $introbk (@{$introBooks}) {
@@ -1792,6 +1794,8 @@ sub pruneFileOSIS($$\%\%\$\$) {
           next INTRO;
         }
       }
+      my $t1 = $intro; $t1 =~ s/>.*$/>/s;
+      &Note("Removed peripheral: $t1");
     }
   }
   
@@ -4628,9 +4632,10 @@ sub readConvertTxt($) {
 # Split an OSIS file into separate book OSIS files, plus 1 non-book OSIS 
 # file (one that contains everything else). This is intended for use with 
 # joinOSIS to allow parsing smaller files for a big speedup. The only 
-# assumption this routine makes is that bookGroup elements contain non-book 
-# (intro) material only at the beginning (never between or after book 
-# elements). If there are no book divs, everything is put in other.osis.
+# assumption this routine makes is that bookGroup elements only contain 
+# non-element children, such as text nodes, at the beginning of the 
+# bookGroup (never between or after book div elements). If there are no 
+# book divs, everything is put in other.osis.
 sub splitOSIS($) {
   my $in_osis = shift;
   
@@ -4652,6 +4657,12 @@ sub splitOSIS($) {
   my $isBible = (@bookElements && @bookElements[0]);
   
   if ($isBible) {
+    # Mark bookGroup child elements which are between books, so their locations can later be restored
+    my @bookGroupChildElements = $XPC->findnodes('//*[parent::osis:div[@type="bookGroup"]][preceding-sibling::osis:div[@type="book"]][following-sibling::osis:div[@type="book"]]', $xml);
+    foreach my $bgce (@bookGroupChildElements) {
+      $bgce->setAttribute('beforeBook', @{$XPC->findnodes('following-sibling::osis:div[@type="book"][1]', $bgce)}[0]->getAttribute('osisID'));
+    }
+    
     # Get books, remove them all, and save all remaining stuff as other.osis
     foreach my $book (@bookElements) {
       my $osisID = $book->getAttribute('osisID');
@@ -4737,6 +4748,13 @@ sub joinOSIS($) {
       &ErrorBug("bookGroup \"$bookGroup\" for joinOSIS file \"$f\" not found.");
     }
     @bookGroupNode[$bookGroup]->appendChild(@bookNode[0]);
+  }
+  
+  # Move maked bookGroupChildElements to their original inter-book locations
+  foreach my $bb ($XPC->findnodes('//*[@beforeBook]', $xml)) {
+    $beforeBook = $bb->getAttribute('beforeBook');
+    $bb->removeAttribute('beforeBook');
+    $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
   }
   
   open(OUTF, ">$out_osis") or die "joinOSIS could not open \"$out_osis\".\n";
