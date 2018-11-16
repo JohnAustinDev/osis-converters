@@ -504,7 +504,7 @@
     <if test="count($listElements/*)">
       <element name="div" namespace="http://www.w3.org/1999/xhtml">
         <attribute name="id" select="'root-toc'"/>
-        <sequence select="me:getInlineTocDiv($listElements, 'ol', true())"/>
+        <sequence select="me:getInlineTocDiv($listElements/*, 'ol', true())"/>
       </element>
     </if>
   </template>
@@ -512,24 +512,24 @@
   <function name="me:getInlineTOC" as="element(html:div)*">
     <param name="tocElement" as="element()"/>
     <variable name="listElements"><sequence select="me:getTocListItems($tocElement, false(), false())"/></variable>
-    <if test="count($listElements/*)"><sequence select="me:getInlineTocDiv($listElements, if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol', false())"/></if>
+    <if test="count($listElements/*)"><sequence select="me:getInlineTocDiv($listElements/*, if ($tocElement/ancestor::div[@type='book']) then 'ul' else 'ol', false())"/></if>
   </function>
   
   <function name="me:getInlineTocDiv" as="element(html:div)">
-    <param name="listElements"/>
-    <param name="listType"/>
-    <param name="isMainTOC"/>
+    <param name="listElements" as="element(html:li)*"/>
+    <param name="listType" as="xs:string"/>
+    <param name="isMainTOC" as="xs:boolean"/>
     <!-- Inline TOCs by default display as lists of inline-block links all sharing equal width, which may occupy the full width of the page. 
     The two exceptions are: Bible book lists which are limited to three columns, and the main Toc menu, which is broken into three sub-sections:
     1) introduction links 2) Bible book links, and 3) back material links, and these sections of the Main TOC each display links differently:
     Introduction: Display in two columns; if there are an odd number of intro links, the first row is a single, centered link.
     Book: Display as a single column unless there are two testament links, or one testament and more than 4 book links, or more than 5 book links (which are then displayed in two columns).
     Back: Display in two columns; if there is an odd number of Bible book links displayed as two columns, then the first back material row is a single centered link. -->
-    <variable name="BookIsTwoColumns" select="count($listElements/*[@class='xsl-bookGroup-link']) = 2 or count($listElements/*[starts-with(@class, 'xsl-book')]) &#62; 5"/>
-    <variable name="hasOddNumberOfIntros" select="count($listElements/*[not(starts-with(@class, 'xsl-book'))][not(preceding::*[starts-with(@class, 'xsl-book')])]) mod 2 = 1"/>
-    <variable name="hasOddNumberOf2ColBooks" select="$BookIsTwoColumns and count($listElements/*[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
-    <variable name="twoColumnElements" select="$listElements/*[$BookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
-    <variable name="oneColumnElements" select="$listElements/* except $twoColumnElements"/>
+    <variable name="BookIsTwoColumns" select="count($listElements[@class='xsl-bookGroup-link']) = 2 or count($listElements[starts-with(@class, 'xsl-book')]) &#62; 5"/>
+    <variable name="hasOddNumberOfIntros" select="count($listElements[not(starts-with(@class, 'xsl-book'))][not(preceding::*[starts-with(@class, 'xsl-book')])]) mod 2 = 1"/>
+    <variable name="hasOddNumberOf2ColBooks" select="$BookIsTwoColumns and count($listElements[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
+    <variable name="twoColumnElements" select="$listElements[$BookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
+    <variable name="oneColumnElements" select="$listElements except $twoColumnElements"/>
     <variable name="chars" select="if ($isMainTOC) then max(($twoColumnElements/string-length(string()), $oneColumnElements/(string-length(string())*0.5))) else max($listElements/string-length(string()))"/>
     <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
     <element name="div" namespace="http://www.w3.org/1999/xhtml">
@@ -542,11 +542,11 @@
             <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
           </when>
           <!-- limit TOCs containing book names to three columns -->
-          <when test="$listElements/*[@class = 'xsl-book-link']">
+          <when test="$listElements[@class = 'xsl-book-link']">
             <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/><!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
           </when>
         </choose>
-        <for-each-group select="$listElements/*" group-adjacent="if (not($isMainTOC)) then @class else '1'">
+        <for-each-group select="$listElements" group-adjacent="if (not($isMainTOC)) then @class else '1'">
           <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
         </for-each-group>
       </element>
