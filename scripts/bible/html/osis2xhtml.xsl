@@ -220,11 +220,15 @@
   </template>
   
   <template match="div[@type='bookGroup']">
-    <call-template name="ProcessFile"><with-param name="fileNodes" select="node()[not(self::div[@type='book'])]"/></call-template>
-    <apply-templates/>
+    <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[@type='book']) + 0.5*count(self::div[@type='book'])">
+      <choose>
+        <when test="self::div[@type='book']"><call-template name="osisbook"/></when>
+        <otherwise><call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template></otherwise>
+      </choose>
+    </for-each-group>
   </template>
   
-  <template match="div[@type='book'] | div[@type=$usfmType][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]">
+  <template name="osisbook" match="div[@type='book'] | div[@type=$usfmType][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]">
     <choose>
       <when test="self::div[@type='book'] and $chapterFiles = 'true'">
         <variable name="book" select="@osisID"/>
@@ -310,8 +314,8 @@
             else ''"/>
         <value-of select="concat($root, '_', $book, $chapter)"/>
       </when>
-      <when test="$node/ancestor-or-self::div[@type='bookGroup'][last()]">
-        <value-of select="concat($root, '_bookGroup-introduction_bg', count($node/preceding::div[@type='bookGroup']) + 1)"/>
+      <when test="$node/ancestor-or-self::div[@type='bookGroup']">
+        <value-of select="concat($root, '_bookGroup-introduction_', $node/following::div[@type='book'][1]/@osisID)"/>
       </when>
       <when test="not($isBibleNode) and $node/ancestor-or-self::div[@type='glossary']">
         <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
