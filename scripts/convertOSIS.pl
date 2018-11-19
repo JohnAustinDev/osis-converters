@@ -426,7 +426,7 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   my $s = $scope; $s =~ s/_/ /g;
-  my $FullOrTran = (&shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l") && ! -d "$MAININPD/sfm/$s" ? 'Tran':'Full');
+  my $FullOrTran = (&shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3) && ! -d "$MAININPD/sfm/$s" ? 'Tran':'Full');
   my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__'.$FullOrTran:$ConfEntryP->{"Scope"}.'_'.$FullOrTran).".$format"; $eBookFullPubName =~ s/\s+/-/g;
   my $thisEBookName = ($scope eq $ConfEntryP->{"Scope"} ? $eBookFullPubName:"$CONV_NAME.$format");
   &updateOsisFullResourceURL($osis, $eBookFullPubName);
