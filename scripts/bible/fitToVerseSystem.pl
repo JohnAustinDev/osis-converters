@@ -388,20 +388,22 @@ sub orderBooksPeriphs($$$) {
           next;
         }       
         if ($xpath eq "osis:header") {
-          $xpath = "osis:header/following-sibling::node()[1]";
+          $ORDER_PERIPHS_COMPATIBILITY_MODE++;
+          $xpath = "osis:div[\@type='bookGroup'][1]";
           &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
 "This xpath was previously interpereted as 'place after the header' but 
-it now means 'place as preceding sibling of the header' which is not 
-what you want. To retain the old meaning, change osis:header to $xpath");
-          &Warn("Changing osis:header to $xpath");
+it now means 'place as preceding sibling of the header'. Also, the 
+peripherals are now processed in the order they appear in the CF file. 
+To retain the old meaning, change osis:header to $xpath");
+          &Warn("Changing osis:header to $xpath and switching to compatibility mode.");
         }
-        elsif ($xpath =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
-          $xpath .= "/node()[1]";
+        elsif ($ORDER_PERIPHS_COMPATIBILITY_MODE && $xpath =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
+          $xpath .= "/osis:div[\@type='book'][1]";
           &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
 "This xpath was previously interpereted as 'place as first child of the 
 bookGroup' but it now is interpereted as 'place as the preceding sibling 
-of the bookGroup' which is probably not what you want. To retain the old 
-meaning, change it to $xpath");
+of the bookGroup'. Also, the peripherals are now processed in the order 
+they appear in the CF file. To retain the old meaning, change it to $xpath");
           &Warn("Changing $command to $left == $xpath");
         }
      
