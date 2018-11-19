@@ -126,9 +126,10 @@ close(CONF);
 
 &timer('stop');
 
-# Forwards glossary links targetting a member of an aggregated entry to the 
-# aggregated entry because SWORD uses the aggregated entries.
-# Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted for SWORD.
+# Forwards glossary links targetting a member of an aggregated entry to 
+# the aggregated entry because SWORD uses the aggregated entries. 
+# Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted 
+# for SWORD. If a jpg image is also available in png, switch it to png.
 sub links2sword($) {
   my $osisP = shift;
   
@@ -153,6 +154,16 @@ sub links2sword($) {
     $d->unbindNode(); $c++;
   }
   &Note("Removed '$c' x-navmenu elements from Bible chapters");
+  
+  my @jpgs = $XPC->findnodes('//osis:figure[contains(@src, ".jpg") or contains(@src, ".JPG")]', $xml);
+  foreach my $jpg (@jpgs) {
+    my $src = $jpg->getAttribute('src');
+    $src =~ /^(.*)(\.jpg)$/i; my $pnm = $1; my $ext = $2;
+    if (-e "$INPD/$pnm.png") {
+      $jpg->setAttribute('src', "$pnm.png");
+      &Note("Changing jpg image to png: ".$jpg->getAttribute('src'));
+    }
+  }
 
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   open(OSIS2, ">$output");
