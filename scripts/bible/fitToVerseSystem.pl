@@ -941,7 +941,7 @@ sub addMovedMarkers($$) {
       &ErrorBug("Problem with fitted alternate verse source: $vfixed<>$alt");
       next;
     }
-    $vfixed = $vfixed->getAttribute('osisID');
+    $vfixed = $vfixed->getAttribute('osisID'); $vfixed =~ s/^.*\s+//;
     my $ch = ($vfixed =~ /^([^\.]+\.\d+)/ ? $1:'');
     $vsource = "$ch.$vsource";
     if (!$ch || $vfixed eq $vsource) {
