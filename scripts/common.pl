@@ -1916,6 +1916,7 @@ sub filterScriptureReferences($$$) {
     foreach my $link (@links) {$link->unbindNode(); $deletedXRs++;}
   }
   
+  $DOCUMENT_CACHE{$osis} = '';
   open(OUTF, ">$osis");
   print OUTF $xml_osis->toString();
   close(OUTF);
@@ -1986,6 +1987,8 @@ sub filterGlossaryReferences($\@$) {
       $total++;
     }
   }
+
+  $DOCUMENT_CACHE{$osis} = '';
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);
@@ -2107,7 +2110,8 @@ sub getModNameOSIS($) {
   
   # Generate doc data if the root document has not been seen before or was modified
   my $headerDoc = $node->ownerDocument->URI;
-  my $mtime = ''; #'mtime'.(stat($headerDoc))[9]; # removed mtime for speedup now that output files are not re-read
+
+  my $mtime = ''; #'mtime'.(stat($headerDoc))[9]; # mtime is only SECOND resolution which is worse than useless
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {
     # When splitOSIS() is used, the document containing the header may be different than the current node's document.
     my $testDoc = $headerDoc;
@@ -3386,6 +3390,7 @@ else this is a problem with the source text:
   }
   
   if ($osis && $changes) {
+    $DOCUMENT_CACHE{$in_osis} = '';
     if (open(OSIS, ">$in_osis")) {
       print OSIS $osis->toString();
       close(OSIS);
@@ -4299,6 +4304,7 @@ sub writeOsisHeader($\%\%\%\%) {
     $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
   }
   
+  $DOCUMENT_CACHE{$output} = '';
   if (open(OUTF, ">$output")) {
     print OUTF $xml->toString();
     close(OUTF);
@@ -4517,6 +4523,7 @@ sub writeNoteIDs($) {
       $osisID_note{"$myMod:$osisID$refext$i"}++;
     }
     
+    $DOCUMENT_CACHE{$file} = '';
     open(OUTF, ">$file") or die "writeNoteIDs could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
@@ -4673,6 +4680,7 @@ sub splitOSIS($) {
   }
   
   push(@return, "$tmp/other.osis");
+  $DOCUMENT_CACHE{@return[$#return]} = '';
   open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
   print OUTF $xml->toString();
   close(OUTF);
@@ -4705,6 +4713,7 @@ sub splitOSIS($) {
     }
     
     push(@return, sprintf("%s/%02i %i %s.osis", $tmp, $x, $bookGroup{$bk}, $bk));
+    $DOCUMENT_CACHE{@return[$#return]} = '';
     open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
     print OUTF $xml->toString();
     close(OUTF);
@@ -4756,6 +4765,7 @@ sub joinOSIS($) {
     $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
   }
   
+  $DOCUMENT_CACHE{$out_osis} = '';
   open(OUTF, ">$out_osis") or die "joinOSIS could not open \"$out_osis\".\n";
   print OUTF $xml->toString();
   close(OUTF);
@@ -4776,6 +4786,7 @@ sub writeMissingNoteOsisRefsFAST($) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
     $count = &writeMissingNoteOsisRefs($xml);
+    $DOCUMENT_CACHE{$file} = '';
     open(OUTF, ">$file") or die "writeMissingNoteOsisRefsFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);
@@ -4865,6 +4876,7 @@ sub removeDefaultWorkPrefixesFAST($) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
     &removeDefaultWorkPrefixes($xml, \%stats);
+    $DOCUMENT_CACHE{$file} = '';
     open(OUTF, ">$file") or die "removeDefaultWorkPrefixesFAST could not open splitOSIS file: \"$file\".\n";
     print OUTF $xml->toString();
     close(OUTF);

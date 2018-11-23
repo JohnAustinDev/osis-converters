@@ -517,6 +517,7 @@ sub asrlProcessFile($$) {
   }
 
   # write to out_file
+  $DOCUMENT_CACHE{$osis} = '';
   open(OUTF, ">$osis") or die "Could not open $osis.\n";
   print OUTF $xml->toString();
   close(OUTF);

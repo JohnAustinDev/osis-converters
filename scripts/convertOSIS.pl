@@ -483,6 +483,7 @@ sub updateOsisFullResourceURL($$) {
     }
   }
   
+  $DOCUMENT_CACHE{$osis} = '';
   open(OUTF, ">$osis");
   print OUTF $xml->toString();
   close(OUTF);

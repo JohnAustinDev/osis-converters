@@ -670,6 +670,7 @@ sub writeReadXML($$) {
   my $tree = shift;
   my $file = shift;
   
+  $DOCUMENT_CACHE{$file} = '';
   open(OUTF, ">$file");
   print OUTF $tree->toString();
   close(OUTF);
@@ -1025,7 +1026,11 @@ sub getSourceVerseTag($$$) {
 }
 
 # Find the source verse system alternate verse tag associated with an
-# alternate $vid. Failure returns nothing.
+# alternate $vid. Failure returns nothing. Beware that this requires
+# an alternate verse number which is the source verse system's verse 
+# number BUT translators sometimes use the fixed verse system's number 
+# for the alternate verse number instead, in which case this will not 
+# find the desired verse.
 sub getSourceAltVerseTag($$$) {
   my $vid = shift;
   my $xml = shift;
@@ -1035,7 +1040,7 @@ sub getSourceAltVerseTag($$$) {
     &ErrorBug("Could not parse $vid !~ /^([^\.]+)\.([^\.]+)\.([^\.]+)\$/");
     return '';
   }
-  my $bk = 1; my $ch = $2; my $vs = $3;
+  my $bk = $1; my $ch = $2; my $vs = $3;
   my @altsInChapter = $XPC->findnodes(
     '//osis:div[@type="book"][@osisID="'.$bk.'"]//osis:hi[@subType="x-alternate"]'.
     '[preceding::osis:chapter[1][@sID="'.$bk.'.'.$ch.'"]]'.
@@ -1043,7 +1048,7 @@ sub getSourceAltVerseTag($$$) {
   foreach my $alt (@altsInChapter) {
     if ($alt->textContent !~ /\b$vs\b/) {next;}
     if (!$isEnd) {return $alt;}
-    my $end = @{$XPC->findnodes('following::*[ancestor::div[@osisID="'.$bk.'"]]
+    my $end = @{$XPC->findnodes('following::*[ancestor::osis:div[@osisID="'.$bk.'"]]
         [self::osis:verse[@eID][1] or self::osis:hi[@subType="x-alternate"][1] or self::milestone[@type="'.$VSYS{'prefix'}.'verse'.$VSYS{'end'}.'"][1]]
         [1]', $alt)}[0];
     if ($end) {return $end;}
