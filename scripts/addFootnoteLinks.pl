@@ -550,7 +550,7 @@ sub addFootnoteLinks2TextNode($$) {
   # Sanity checks (shouldn't be needed but makes me feel better)
   my $test = $text; $test =~ s/<[^>]*>//g;
   if (!$skipSanityCheck && $text eq $textNode->data()) {
-    &ErrorBug("$BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).");
+    &Error("$BK.$CH.$VS: Failed to create any footnote link(s) from existing footnote term(s).", "Fixing previous error(s) should fix this one as well.");
     return '';
   }
   elsif (!$skipSanityCheck && $text !~ /<reference [^>]*osisRef="([^"]*)"[^>]*>([^<]*)<\/reference>/) {
