@@ -1046,7 +1046,7 @@ sub getSourceAltVerseTag($$$) {
     '[preceding::osis:chapter[1][@sID="'.$bk.'.'.$ch.'"]]'.
     '[following::osis:chapter[1][@eID="'.$bk.'.'.$ch.'"]]', $xml);
   foreach my $alt (@altsInChapter) {
-    if ($alt->textContent !~ /\b$vs\b/) {next;}
+    if ($alt->textContent !~ /\b$vs\w?\b/) {next;}
     if (!$isEnd) {return $alt;}
     my $end = @{$XPC->findnodes('following::*[ancestor::osis:div[@osisID="'.$bk.'"]]
         [self::osis:verse[@eID][1] or self::osis:hi[@subType="x-alternate"][1] or self::milestone[@type="'.$VSYS{'prefix'}.'verse'.$VSYS{'end'}.'"][1]]
