@@ -55,8 +55,12 @@ The intention is to follow the [OSIS specification and handbook](https://www.cro
 
 These xulsword specific .conf file entries may be inluded:
 
-* `LangSortOrder = AaBbCcDdEe...` is used by xulsword to sort the keys of
+* `LangSortOrder = AaBbCcDdEe...` Is used by xulsword to sort the keys of
 a dictionary/glossary in original alphabetical order.
+* `AudioCode = SOMECODE` Sometimes multiple modules will use the same 
+audio files, such as when a translation has multiple modules with 
+different scripts. This allows all these modules to reference the same 
+audio files.
 
 ## Comparison of OSIS files to CrossWire OSIS
 
@@ -82,10 +86,8 @@ to facilitate simpler and quicker runtime detection of v11n coverage.
 `Companion` config entry.
 * `ReferenceBible = <BibleModName>` was used by xulsword to prefer the 
 listed Bible module when showing Scripture reference previews found in 
-the module. Now, the reference Bible will is included within each 
-reference's osisRef, like this: `osisRef="MyRefBible:Matt.1.1"`. The
-standard `Companion` config entry is also set to the default reference 
-Bible(s).
+the module. Now, the reference Bible is included within each 
+reference's osisRef, like this: `osisRef="MyRefBible:Matt.1.1"`.
 * IMP format is no longer used. Osis-converters now generates TEI dictionaries according to CrossWire's
 recommendations. CrossWire encourages 
 the use of [TEI P5](http://www.crosswire.org/wiki/TEI_Dictionaries) for 
