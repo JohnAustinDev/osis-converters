@@ -2289,6 +2289,45 @@ sub initDocumentCache($$) {
   }
 }
 
+# Take in osisRef and map the whole thing. Mapping gaps are healed and
+# PART verses are greedy (part means whole).
+sub mapOsisRef($$$) {
+  my $osisRef = shift;
+  my $map = shift;
+  my $mapP = shift;
+  
+  my @mappedOsisRefs;
+  foreach my $ref (split(/\s+/, $osisRef)) {
+    my @mappedOsisIDs;
+    foreach my $osisID (split(/\s+/, &osisRef2osisID($ref))) {
+      my $id = ($mapP->{$map}{$osisID} ? $mapP->{$map}{$osisID}:$osisID);
+      $id =~ s/!PART$//; # if part is included, include the whole thing
+      push(@mappedOsisIDs, $id);
+      if ($mapP->{$map}{"$osisID!PART"}) { # if part is mapped, include the whole thing
+        my $idp = $mapP->{$map}{"$osisID!PART"};
+        $idp =~ s/!PART$//; # if part is included, include the whole thing
+        push(@mappedOsisIDs, $idp);
+      }
+    }
+    push(@mappedOsisRefs, &fillGapsInOsisRef(join(' ', &normalizeOsisID(\@mappedOsisIDs))));
+  }
+
+  return join(' ', @mappedOsisRefs);
+}
+
+# Take an osisRef's starting and ending point, and if they are in the
+# same chapter, return an osisRef that covers the entire range between
+# them. This can be used to 'heal' missing verses in mapped ranges.
+sub fillGapsInOsisRef() {
+  my $osisRef = shift;
+  
+  my @id = split(/\s+/, &osisRef2osisID($osisRef));
+  @id[0]    =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chf = $1; my $vf = $2;
+  @id[$#id] =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chl = $1; my $vl = $2;
+  if ($chf eq $chl && $vf ne $vl) {return @id[0].'-'.@id[$#id];}
+  return $osisRef;
+}
+
 sub getProjectOsisFile($) {
   my $mod = shift;
 

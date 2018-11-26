@@ -854,19 +854,6 @@ sub applyrids($\%) {
   return $count;
 }
 
-# Take an osisRef's starting and ending point, and if they are in the
-# same chapter, return an osisRef that covers the entire range between
-# them. This can be used to 'heal' missing verses in mapped ranges.
-sub fillGapsInOsisRef() {
-  my $osisRef = shift;
-  
-  my @id = split(/\s+/, &osisRef2osisID($osisRef));
-  @id[0]    =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chf = $1; my $vf = $2;
-  @id[$#id] =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chl = $1; my $vl = $2;
-  if ($chf eq $chl && $vf ne $vl) {return @id[0].'-'.@id[$#id];}
-  return $osisRef;
-}
-
 sub applyVsysInstruction(\%\%$) {
   my $argP = shift;
   my $canonP = shift;
@@ -1286,8 +1273,8 @@ sub toAlternate($$$) {
   
   my $telem;
   my $type = ($elem->getAttribute('sID') ? 'start_vs':($elem->getAttribute('eID') ? 'end_vs':''));
-  my $osisID = ($type eq 'start' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
-  my $isVerseStart = ($type eq 'start' && $elem->nodeName eq 'verse' ? 1:0);
+  my $osisID = ($type eq 'start_vs' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
+  my $isVerseStart = ($type eq 'start_vs' && $elem->nodeName eq 'verse' ? 1:0);
   
   my $note = "toAlternate($osisID, ".$elem->nodeName.", $type)";
   
@@ -1313,7 +1300,7 @@ sub toAlternate($$$) {
   if (!$type) {
     &ErrorBug("Element missing sID or eID: $elem");
   }
-  if ($type eq 'start' && $osisID ne $elem->getAttribute('osisID')) {
+  if ($type eq 'start_vs' && $osisID ne $elem->getAttribute('osisID')) {
     &ErrorBug("osisID is different than sID: $osisID != ".$elem->getAttribute('osisID'));
   }
   $elem->setAttribute('type', $VSYS{'prefix_vs'}.'-'.$elem->nodeName.$VSYS{$type});
