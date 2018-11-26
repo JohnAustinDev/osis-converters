@@ -199,8 +199,8 @@ sub vsysInstSort($$) {
   $r = $ai <=> $bi;
   if ($r) {return $r;}
   
-  my $av = ($a->{'fixed'} ? $a->{'fixed'}:$a->{'source'});
-  my $bv = ($b->{'fixed'} ? $b->{'fixed'}:$b->{'source'});
+  my $av = ($a->{'source'} ? $a->{'source'}:$a->{'fixed'});
+  my $bv = ($b->{'source'} ? $b->{'source'}:$b->{'fixed'});
   $av =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $av2 = ($2 ? (1*$3):0);
   $bv =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $bv2 = ($2 ? (1*$3):0);
   

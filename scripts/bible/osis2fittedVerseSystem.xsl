@@ -24,7 +24,7 @@
   <!-- Remove all x-vsys attributes -->
   <template match="@*[starts-with(., 'x-vsys-')]"/>
   
-  <!-- Remove fitToVerseSystem markers -->
-  <template match="@resp['fitToVerseSystem']"/>
+  <!-- Remove x-vsys resp attributes -->
+  <template match="@resp['x-vsys']"/>
 
 </stylesheet>

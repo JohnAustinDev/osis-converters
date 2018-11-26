@@ -58,14 +58,15 @@ $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
 $DEFAULT_TOCNUMBER = 2;
 $DEFAULT_TITLECASE = 1;
-$VSYS{'prefix'} = 'x-vsys';
-$VSYS{'AnnoTypeSource'} = '-source';
-$VSYS{'TypeModified'} = '-fitted';
-$VSYS{'missing'} = '-missing';
-$VSYS{'movedto'} = '-movedto';
-$VSYS{'movedfrom'} = '-movedfrom';
-$VSYS{'start'} = '-start';
-$VSYS{'end'} = '-end';
+$VSYS{'prefix_vs'} = 'x-vsys';
+$VSYS{'resp_vs'} = $VSYS{'prefix_vs'};
+$VSYS{'AnnoTypeSource'} = $VSYS{'prefix_vs'}.'-source';
+$VSYS{'missing_vs'} = $VSYS{'prefix_vs'}.'-missing';
+$VSYS{'movedto_vs'} = $VSYS{'prefix_vs'}.'-movedto';
+$VSYS{'fitted_vs'} = $VSYS{'prefix_vs'}.'-fitted';
+$VSYS{'start_vs'} = '-start';
+$VSYS{'end_vs'} = '-end';
+
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
@@ -2223,13 +2224,13 @@ sub getAltVersesOSIS($) {
   if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
     # VSYS changes are recorded in the OSIS file with milestone elements written by applyVsysFromTo()
     my @maps = (
-      ['fixed2Source',      'movedto',       'osisRef',     'annotateRef'],
-      ['fixedMissing',      'missing',       'osisRef',     ''],
-      ['source2Fitted',     'movedfrom',     'annotateRef', 'osisRef'],
+      ['fixed2Source',  'movedto_vs', 'osisRef',     'annotateRef'],
+      ['fixedMissing',  'missing_vs', 'osisRef',     ''],
+      ['source2Fitted', 'fitted_vs',  'annotateRef', 'osisRef'],
     );
     foreach my $map (@maps) {
       my %hash;
-      foreach my $e ($XPC->findnodes('//osis:milestone[@type="'.$VSYS{'prefix'}.$VSYS{@$map[1]}.'"]', $xml)) {
+      foreach my $e ($XPC->findnodes('//osis:milestone[@type="'.$VSYS{@$map[1]}.'"]', $xml)) {
         $hash{$e->getAttribute(@$map[2])} = $e->getAttribute(@$map[3]);
       }
       $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{@$map[0]} = \%hash;
@@ -4834,7 +4835,7 @@ sub writeMissingNoteOsisRefs($) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if (@rs[0]->getAttribute('annotateType') ne $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
+          if (@rs[0]->getAttribute('annotateType') ne $VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
             &Warn("writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"");
             $aror = '';
           }

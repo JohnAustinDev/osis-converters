@@ -52,6 +52,6 @@
   </template>
   
   <!-- Remove verses (real and alternate) that were added by fitToVerseSystem() -->
-  <template match="*[@resp='fitToVerseSystem']"/>
+  <template match="*[@resp='x-vsys']"/>
 
 </stylesheet>

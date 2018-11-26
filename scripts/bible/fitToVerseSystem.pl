@@ -560,7 +560,7 @@ sub fitToVerseSystem($$) {
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   # Check if this osis file has already been fitted, and bail if so
-  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"]', $xml);
+  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]', $xml);
   if (@existing) {
     &Warn("
 There are ".@existing." fitted tags in the text. This OSIS file has 
@@ -573,7 +573,9 @@ already been fitted so this step will be skipped!");
       if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
     }
     $xml = &writeReadXML($xml, $output);
-    &addMovedMarkers($canonP, $xml);
+    foreach my $argsP (@VSYS_INSTR) {
+      if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+    }
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
     if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
     $xml = &writeReadXML($xml, $output);
@@ -581,7 +583,7 @@ already been fitted so this step will be skipped!");
   }
   
   # Warn that these alternate verse tags in source could require further VSYS intructions
-  my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix'}.'")]])]', $xml);
+  my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix_vs'}.'")]])]', $xml);
   if (@nakedAltTags) {
     &Warn("The following alternate verse tags were found.",
 "If these represent verses which normally appear somewhere else in the 
@@ -704,7 +706,7 @@ sub correctReferencesVSYS($) {
   
   # Read OSIS file
   my $osisXML = $XML_PARSER->parse_file($$osisP);
-  my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"][@annotateRef][@osisRef]', $osisXML);
+  my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
     &Warn(@existing." references have already been updated, so this step will be skipped.");
     return;
@@ -720,7 +722,7 @@ sub correctReferencesVSYS($) {
       $verse =~ /^(.*?)\.\d+$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
-        my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix'}."'))]";
+        my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
         if ($m =~ /^source/) {
           $xpath .= "[not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]";
         }
@@ -773,7 +775,7 @@ sub addrids(\@$$\%) {
       elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
       
       $e->setAttribute('osisRefOrig', $e->getAttribute('osisRef'));
-      $e->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
+      $e->setAttribute('annotateType', $VSYS{'AnnoTypeSource'});
   
       # map source references to fitted
       if ($map eq 'source2Fitted') {
@@ -879,7 +881,7 @@ sub applyVsysInstruction(\%\%$) {
   my $fixedP  = ($argP->{'fixed'}  ? &parseVsysArgument($argP->{'fixed'},  $xml):'');
   my $sourceP = ($argP->{'source'} ? &parseVsysArgument($argP->{'source'}, $xml):'');
   
-  if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
+  if (!$fixedP->{'isAltParent'} && $fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
     &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'fixed'}." -> ".$argP->{'source'});
     return 0;
   }
@@ -905,6 +907,8 @@ sub parseVsysArgument($$) {
   my %data;
   $data{'value'} = $value;
   
+  if ($value eq 'alt-parent') {return { 'isAltParent' => '1' };}
+  
   # read and preprocess value
   if ($value !~ /^$VSYS_PINSTR_RE$/) {
     &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
@@ -923,36 +927,6 @@ sub parseVsysArgument($$) {
   return \%data
 }
 
-sub addMovedMarkers($$) {
-  my $canonP = shift;
-  my $xml = shift;
-  
-  foreach my $argsP (@VSYS_INSTR) {
-    if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
-  }
-  
-  # VSYS_MISSING and VSYS_EXTRA may adust source verse numbers up or down
-  # respectively to arrive at their fitted verse numbers. These need to be
-  # marked as moved so that external cross-references can be updated.
-  my @alts = $XPC->findnodes('//osis:hi[@subType="x-alternate"][@resp="fitToVerseSystem"]', $xml);
-  foreach my $alt (@alts) {
-    my $vsource = $alt->textContent(); $vsource =~ s/^\D*(\d+).*?$/$1/;
-    my $vfixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $alt)}[0];
-    if (!$vfixed || $vfixed->getAttribute('type') ne $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
-      &ErrorBug("Problem with fitted alternate verse source: $vfixed<>$alt");
-      next;
-    }
-    $vfixed = $vfixed->getAttribute('osisID'); $vfixed =~ s/^.*\s+//;
-    my $ch = ($vfixed =~ /^([^\.]+\.\d+)/ ? $1:'');
-    $vsource = "$ch.$vsource";
-    if (!$ch || $vfixed eq $vsource) {
-      &ErrorBug("Empty chapter $ch, or fitted alternate same as source: $vfixed eq $vsource");
-      next;
-    }
-    &applyVsysFromTo(&parseVsysArgument($vfixed, $xml), &parseVsysArgument($vsource, $xml), $xml);
-  }
-}
-
 # This does not modify any verse tags. It only inserts milestone markers
 # which later can be used to map Scripture references between the source
 # and the fixed verse systems. For all VSYS markup, annotateRef always 
@@ -960,15 +934,31 @@ sub addMovedMarkers($$) {
 # x-vsys-source as it should). And osisRef always refers to the fixed 
 # verse system osisID.
 # Types of milestones inserted are:
-# $VSYS{'movedto'}, $VSYS{'missing'} and $VSYS{'movedfrom'} 
+# $VSYS{'movedto_vs'}, $VSYS{'missing_vs'} and $VSYS{'fitted_vs'} 
 sub applyVsysFromTo($$$) {
   my $fixedP = shift;
   my $sourceP = shift;
   my $xml = shift;
   
+  # If fixed was marked as alt-parent, then find the fixed alt-parent now
+  if ($fixedP->{'isAltParent'}) {
+    my $alt = &getSourceAltVerseTag($sourceP->{'value'}, $xml);
+    if ($alt) {
+      my $vfixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $alt)}[0];
+      if (!$vfixed || $vfixed->getAttribute('resp') ne $VSYS{'resp_vs'}) {
+        &ErrorBug("Problem with fitted alternate verse source: $vfixed<>$alt");
+        return;
+      }
+      $vfixed = $vfixed->getAttribute('osisID'); $vfixed =~ s/^.*\s+//;
+      $fixedP = &parseVsysArgument($vfixed, $xml);
+    }
+    else {&ErrorBug("Could not find alternate verse: ".$sourceP->{'value'});}
+  }
+  
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   for (my $v=$vs; $v<=$lv; $v++) {
-    my $annotateRef = ($sourceP ? $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.($sourceP->{'vs'} + $v - $vs):'');
+    my $baseAnnotateRef = ($sourceP ? $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.($sourceP->{'vs'} + $v - $vs):'');
+    my $annotateRef = $baseAnnotateRef;
     if ($sourceP && $sourceP->{'isPartial'}) {$annotateRef .= "!PART";}
     
     # Insert a movedto or missing marker at the end of the verse
@@ -977,23 +967,22 @@ sub applyVsysFromTo($$$) {
       &ErrorBug("Could not find FROM_TO verse $bk.$ch.$v");
       next;
     }
-    my $type = (!$sourceP ? 'missing':'movedto');
+    my $type = (!$sourceP ? 'missing_vs':'movedto_vs');
     my $osisRef = "$bk.$ch.$v";
     if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
-    my $m = '<milestone type="'.$VSYS{'prefix'}.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
-    if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'" ';}
+    my $m = '<milestone type="'.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
+    if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" ';}
     $m .= '/>';
     $fixedVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $fixedVerseEnd);
     
-    # Insert a movedfrom milestone at the end of the destination 
+    # Insert a fitted milestone at the end of the destination 
     # alternate verse, which should be either a milestone verse end (if 
     # the source was originally a regular verse) or else a hi with 
     # subType=x-alternate (if it was originally an alternate verse).
-    my $ar = ($annotateRef =~ /^(.*?)!PART$/ ? $1:$annotateRef);
-    my $altVerseEnd = &getSourceVerseTag($ar, $xml, 1);
-    if (!$altVerseEnd) {$altVerseEnd = &getSourceAltVerseTag($ar, $xml, 1);}
+    my $altVerseEnd = &getSourceVerseTag($baseAnnotateRef, $xml, 1);
+    if (!$altVerseEnd) {$altVerseEnd = &getSourceAltVerseTag($baseAnnotateRef, $xml, 1);}
     if (!$altVerseEnd) {
-      &ErrorBug("Could not find FROM_TO destination alternate verse $ar");
+      &ErrorBug("Could not find FROM_TO destination alternate verse $baseAnnotateRef");
       next;
     }
     $osisRef = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $altVerseEnd)}[0];
@@ -1003,7 +992,7 @@ sub applyVsysFromTo($$$) {
     }
     $osisRef = $osisRef->getAttribute('osisID');
     $osisRef =~ s/^.*?\s+(\S+)$/$1/;
-    $m = '<milestone type="'.$VSYS{'prefix'}.$VSYS{'movedfrom'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'prefix'}.$VSYS{'AnnoTypeSource'}.'"/>';
+    $m = '<milestone type="'.$VSYS{'fitted_vs'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'"/>';
     $altVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $altVerseEnd);
   }
 }
@@ -1015,7 +1004,7 @@ sub getSourceVerseTag($$$) {
   my $xml = shift;
   my $isEnd = shift;
   
-  my @svts = $XPC->findnodes('//*[@type="'.$VSYS{'prefix'}.'-verse'.($isEnd ? $VSYS{'end'}:$VSYS{'start'}).'"]', $xml);
+  my @svts = $XPC->findnodes('//*[@type="'.$VSYS{'prefix_vs'}.'-verse'.($isEnd ? $VSYS{'end_vs'}:$VSYS{'start_vs'}).'"]', $xml);
   foreach my $svt (@svts) {
     my $ref = $svt->getAttribute('annotateRef');
     foreach my $idp (split(/\s+/, &osisRef2osisID($ref))) {
@@ -1049,7 +1038,7 @@ sub getSourceAltVerseTag($$$) {
     if ($alt->textContent !~ /\b$vs\w?\b/) {next;}
     if (!$isEnd) {return $alt;}
     my $end = @{$XPC->findnodes('following::*[ancestor::osis:div[@osisID="'.$bk.'"]]
-        [self::osis:verse[@eID][1] or self::osis:hi[@subType="x-alternate"][1] or self::milestone[@type="'.$VSYS{'prefix'}.'verse'.$VSYS{'end'}.'"][1]]
+        [self::osis:verse[@eID][1] or self::osis:hi[@subType="x-alternate"][1] or self::milestone[@type="'.$VSYS{'prefix_vs'}.'verse'.$VSYS{'end_vs'}.'"][1]]
         [1]', $alt)}[0];
     if ($end) {return $end;}
     &ErrorBug("Could not find end of $alt");
@@ -1254,7 +1243,7 @@ sub reVersify($$$$$) {
     $newID = join(' ', @verses);
   }
   
-  if (!$vTagS->getAttribute('type') || $vTagS->getAttribute('type') ne $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
+  if (!$vTagS->hasAttribute('resp') || $vTagS->getAttribute('resp') ne $VSYS{'resp_vs'}) {
     $vTagS = &toAlternate($vTagS);
     $vTagE = &toAlternate($vTagE);
   }
@@ -1272,9 +1261,9 @@ sub reVersify($$$$$) {
       &osisIDCheckUnique($newVerseID, $xml);
       $vTagS->setAttribute('osisID', $newID);
       $vTagS->setAttribute('sID', $newID);
-      $vTagS->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
+      $vTagS->setAttribute('resp', $VSYS{'resp_vs'});
       $vTagE->setAttribute('eID', $newID);
-      $vTagE->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
+      $vTagE->setAttribute('resp', $VSYS{'resp_vs'});
     }
   }
   &Note($note); 
@@ -1296,7 +1285,7 @@ sub toAlternate($$$) {
   #<hi type="italic" subType="x-alternate" resp="fitToVerseSystem"><hi type="super">(25)</hi></hi>
   
   my $telem;
-  my $type = ($elem->getAttribute('sID') ? 'start':($elem->getAttribute('eID') ? 'end':''));
+  my $type = ($elem->getAttribute('sID') ? 'start_vs':($elem->getAttribute('eID') ? 'end_vs':''));
   my $osisID = ($type eq 'start' ? $elem->getAttribute('sID'):$elem->getAttribute('eID'));
   my $isVerseStart = ($type eq 'start' && $elem->nodeName eq 'verse' ? 1:0);
   
@@ -1304,7 +1293,7 @@ sub toAlternate($$$) {
   
   if (&getAltID($elem)) {
     $note .= "[already done]";
-    if ($remove && $elem->getAttribute('type') eq $VSYS{'prefix'}.$VSYS{'TypeModified'}) {
+    if ($remove && $elem->getAttribute('resp') eq $VSYS{'resp_vs'}) {
       $elem->unbindNode();
       $note .= "[removed target tag]";
     }
@@ -1315,7 +1304,7 @@ sub toAlternate($$$) {
   if (!$remove) {
     $telem = $elem->cloneNode(1);
     if ($telem->getAttribute('type')) {&ErrorBug("Type already set on $telem");}
-    $telem->setAttribute('type', $VSYS{'prefix'}.$VSYS{'TypeModified'});
+    $telem->setAttribute('resp', $VSYS{'resp_vs'});
     $elem->parentNode->insertBefore($telem, $elem);
     $note .= "[cloned]";
   }
@@ -1327,9 +1316,9 @@ sub toAlternate($$$) {
   if ($type eq 'start' && $osisID ne $elem->getAttribute('osisID')) {
     &ErrorBug("osisID is different than sID: $osisID != ".$elem->getAttribute('osisID'));
   }
-  $elem->setAttribute('type', $VSYS{'prefix'}.'-'.$elem->nodeName.$VSYS{$type});
+  $elem->setAttribute('type', $VSYS{'prefix_vs'}.'-'.$elem->nodeName.$VSYS{$type});
   $elem->setAttribute('annotateRef', $osisID);
-  $elem->setAttribute('annotateType', $VSYS{'prefix'}.$VSYS{'AnnoTypeSource'});
+  $elem->setAttribute('annotateType', $VSYS{'AnnoTypeSource'});
   $elem->setNodeName('milestone');
   if ($elem->hasAttribute('osisID')) {$elem->removeAttribute('osisID');}
   if ($elem->hasAttribute('sID')) {$elem->removeAttribute('sID');}
@@ -1338,12 +1327,18 @@ sub toAlternate($$$) {
   
   # Add alternate verse number
   if (!$noAlt && $isVerseStart) {
-    if ($osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?$/) {
-      my $newv = ($2 ? "$1-$3":"$1");
-      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="fitToVerseSystem"><hi type="super">('.$newv.')</hi></hi>');
+    if ($osisID =~ /^([^\.]+\.\d+)\.(\d+)\b.*?(\.(\d+))?$/) {
+      my $ch = $1; my $vs = $2; my $lv = ($3 ? $4:$vs);
+      my $newv = ($vs ne $lv ? "$vs-$lv":"$vs");
+      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'"><hi type="super">('.$newv.')</hi></hi>');
       my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $elem)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       $note .= "[added alternate verse \"$newv\"]";
+      for (my $v=$vs; $v<=$lv; $v++) {
+        my $skip = 0;
+        foreach my $argsP (@VSYS_INSTR) {if ($argsP->{'source'} eq "$ch.$v") {$skip++; last;}}
+        if (!$skip) {push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>'alt-parent', 'source'=>"$ch.$v" });}
+      }
     }
     else {&ErrorBug("Could not parse: $osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?\$/");}
   }
@@ -1360,17 +1355,21 @@ sub undoAlternate($) {
   
   my $note = "undoAlternate(".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').')';
 
-  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][@resp="fitToVerseSystem"][1]', $ms)}[0];
+  my $ach; my $avs; my $alv;
+  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][@resp="'.$VSYS{'resp_vs'}.'"][1]', $ms)}[0];
   if ($avn) {
+    $ach = @{$XPC->findnodes('preceding::osis:chapter[@sID][1]', $avn)}[0]->getAttribute('osisID');
+    $avs = $avn->textContent; $avs =~ s/^\((.*?)\)$/$1/;
+    $alv = ($avs =~ s/^(\d+)\-(\d+)$/$1/ ? $2:$avs);
     $avn->unbindNode();
     $note .= "[removed alternate verse number]";
   }
-  my $vtag = @{$XPC->findnodes('preceding-sibling::*[1][@type="'.$VSYS{'prefix'}.$VSYS{'TypeModified'}.'"]', $ms)}[0];
+  my $vtag = @{$XPC->findnodes('preceding-sibling::*[1][@resp="'.$VSYS{'resp_vs'}.'"]', $ms)}[0];
   if ($vtag) {
     $vtag->unbindNode();
     $note .= "[removed verse tag]";
   }
-  my $chvsTypeRE = '^'.$VSYS{'prefix'}.'-(chapter|verse)('.$VSYS{'start'}.'|'.$VSYS{'end'}.')$'; $chvsTypeRE =~ s/-/\\-/g;
+  my $chvsTypeRE = '^'.$VSYS{'prefix_vs'}.'-(chapter|verse)('.$VSYS{'start_vs'}.'|'.$VSYS{'end_vs'}.')$'; $chvsTypeRE =~ s/-/\\-/g;
   if ($ms->getAttribute('type') =~ /$chvsTypeRE/) {
     my $name = $1; my $type = $2;
     $ms->setNodeName($name);
@@ -1387,6 +1386,15 @@ sub undoAlternate($) {
   
   $note .= "[converted milestone to verse]";
   &Note($note);
+  
+  for (my $v=$avs; $v<=$alv; $v++) {
+    for (my $x=0; $x<@VSYS_INSTR; $x++) {
+      if (@VSYS_INSTR[$x]->{'source'} eq "$ach.$v" && @VSYS_INSTR[$x]->{'fixed'} eq "alt-parent") {
+        splice(@VSYS_INSTR, $x, 1);
+        $x--;
+      }
+    }
+  }
   
   return $ms;
 }
@@ -1467,7 +1475,7 @@ sub getAltID($$) {
   my $verseElem = shift;
   my $returnElem = shift;
   
-  my $ms = @{$XPC->findnodes('following::*[1][name()="milestone"][starts-with(@type, "'.$VSYS{'prefix'}.'-verse")]', $verseElem)}[0];
+  my $ms = @{$XPC->findnodes('following::*[1][name()="milestone"][starts-with(@type, "'.$VSYS{'prefix_vs'}.'-verse")]', $verseElem)}[0];
   if (!$ms) {return '';}
   return ($returnElem ? $ms:$ms->getAttribute('annotateRef'));
 }
