@@ -110,7 +110,8 @@ else {
 }
 
 if ($ConfEntryP->{"PreferredCSSXHTML"}) {
-  copy(&getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"}), "$SWOUT/$MODPATH");
+  my $cssfile = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"});
+  copy($cssfile, "$SWOUT/$MODPATH");
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }
 
