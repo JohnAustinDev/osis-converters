@@ -719,7 +719,7 @@ sub correctReferencesVSYS($) {
     my $lastch = '';
     my @checkrefs = ();
     foreach my $verse (&normalizeOsisID([ keys(%{$altVersesOSISP->{$m}}) ])) {
-      $verse =~ /^(.*?)\.\d+$/;
+      $verse =~ /^(.*?)\.\d+(!PART)?$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
@@ -761,6 +761,9 @@ sub addrids(\@$$\%) {
   my $verse = shift;
   my $map = shift; # source2Fitted, fixed2Fitted or fixedMissing
   my $altVersesOSISP = shift;
+ 
+  my $vnop = $verse;
+  my $vIsPartial = ($vnop =~ s/!PART$// ? 1:0);
   
   my @attribs = ('osisRef', 'annotateRef', 'rids');
   foreach my $e (@{$checkRefsAP}) {
@@ -769,9 +772,7 @@ sub addrids(\@$$\%) {
       $$a = \@ar;
     }
     foreach my $ref (@$osisRef) {
-      my $v = $verse;
-      my $vIsPartial = ($v =~ s/!PART$// ? 1:0);
-      if ($ref ne $v) {next;}
+      if ($ref ne $vnop) {next;}
       elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
       
       $e->setAttribute('osisRefOrig', $e->getAttribute('osisRef'));
@@ -779,19 +780,18 @@ sub addrids(\@$$\%) {
   
       # map source references to fitted
       if ($map eq 'source2Fitted') {
-        if ($vIsPartial) {push(@$rids, $v);}
+        if ($vIsPartial) {push(@$rids, $vnop);}
         push(@$rids, $altVersesOSISP->{'source2Fitted'}{$verse});
-        push(@$annotateRef, $v);
+        push(@$annotateRef, $vnop);
       }
       # map externally added references to fitted
       elsif ($map eq 'fixed2Fitted') {
-        if ($vIsPartial) {push(@$rids, $v);}
+        if ($vIsPartial) {push(@$rids, $vnop);}
         push(@$rids, $altVersesOSISP->{'fixed2Fitted'}{$verse});
-        my $ar = $altVersesOSISP->{'fixed2Source'}{$verse}; $ar =~ s/!PART$//;
-        push(@$annotateRef, $ar);
+        push(@$annotateRef, &mapOsisRef($altVersesOSISP, 'fixed2Source', $verse));
       }
       elsif ($map eq 'fixedMissing') {
-        if ($vIsPartial) {push(@$rids, $v);}
+        if ($vIsPartial) {push(@$rids, $vnop);}
       }
       else {&ErrorBug("Unexpected map $map.");}
       
