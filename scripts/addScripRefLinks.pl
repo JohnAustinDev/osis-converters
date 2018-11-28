@@ -516,11 +516,7 @@ sub asrlProcessFile($$) {
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
   }
 
-  # write to out_file
-  $DOCUMENT_CACHE{$osis} = '';
-  open(OUTF, ">$osis") or die "Could not open $osis.\n";
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, $osis);
 }
 
 ##########################################################################

@@ -266,12 +266,7 @@ are added to the translation.");
   }
 
   &Log("WRITING NEW OSIS FILE: \"$output\".\n");
-  if (open(OUTF, ">$output")) {
-    print OUTF $osis->toString();
-    close(OUTF);
-    $$osisP = $output;
-  }
-  else {&ErrorBug("Could not open \"$output\" for writing.");}
+  &writeXMLFile($osis, $output, $osisP);
 
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);

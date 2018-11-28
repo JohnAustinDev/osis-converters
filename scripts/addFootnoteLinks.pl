@@ -199,11 +199,7 @@ DICT OSIS file again.");
   if ($myRefSystem =~ /^(Bible|Dict)/) {
     foreach my $file (sort keys %xmls) {
       &processXML($xmls{$file}, $myMod, $myRefSystem);
-      
-      $DOCUMENT_CACHE{$file} = '';
-      open(OUTF, ">$file") or die "addFootnoteLinks could not open splitOSIS file: \"$file\".\n";
-      print OUTF $xmls{$file}->toString();
-      close(OUTF);
+      &writeXMLFile($xmls{$file}, $file);
     }
   }
   else {

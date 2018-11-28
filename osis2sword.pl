@@ -167,10 +167,7 @@ sub links2sword($) {
   }
 
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
-  open(OSIS2, ">$output");
-  print OSIS2 $xml->toString();
-  close(OSIS2);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
 }
 
 1;

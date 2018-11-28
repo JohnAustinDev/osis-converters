@@ -346,9 +346,7 @@ sub loadDictionaryWordsXML($) {
   
   # Save any updates back to source dictionary_words_xml and reload
   if ($update) {
-    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&ErrorBug("Could not open $dictionary_words_xml.tmp", '', 1);}
-    print OUTF $DWF->toString();
-    close(OUTF);
+    &writeXMLFile($DWF, "$dictionary_words_xml.tmp");
     unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
     &Note("Updated $update instance of non-conforming markup in $dictionary_words_xml");
     if (!$noupdateMarkup) {
@@ -472,9 +470,7 @@ sub compareDictOsis2DWF($$) {
   
   # Save any updates back to source dictionary_words_xml
   if ($update) {
-    if (!open(OUTF, ">$dictionary_words_xml.tmp")) {&ErrorBug("Could not open $dictionary_words_xml.tmp", '', 1);}
-    print OUTF $dwf->toString();
-    close(OUTF);
+    &writeXMLFile($dwf, "$dictionary_words_xml.tmp");
     unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
     &Note("Updated $update entries in $dictionary_words_xml");
   }
@@ -1195,6 +1191,22 @@ sub setConfValue($$$$) {
   return 1;
 }
 
+sub writeXMLFile($$$) {
+  my $xml = shift;
+  my $file = shift;
+  my $fileP = shift;
+  
+  if (open(XML, ">$file")) {
+    $DOCUMENT_CACHE{$file} = '';
+    print XML $xml->toString();
+    close(XML);
+    if ($fileP) {
+      if (ref($fileP)) {$$fileP = $file;}
+      else {&ErrorBug("File pointer is required, not a pointer: $fileP");}
+    }
+  }
+  else {&ErrorBug("Could not open XML file for writing: $file");}
+}
 
 sub osis_converters($$$) {
   my $script = shift;
@@ -1820,10 +1832,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
   }
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
-  open(OUTF, ">$output");
-  print OUTF $inxml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($inxml, $output, $osisP);
 }
 
 sub changeNodeText($$) {
@@ -1917,10 +1926,7 @@ sub filterScriptureReferences($$$) {
     foreach my $link (@links) {$link->unbindNode(); $deletedXRs++;}
   }
   
-  $DOCUMENT_CACHE{$osis} = '';
-  open(OUTF, ">$osis");
-  print OUTF $xml_osis->toString();
-  close(OUTF);
+  &writeXMLFile($xml_osis, $osis);
   
   foreach my $stat ('redirect', 'remove', 'delete') {
     foreach my $type ('sref', 'xref', 'nref') {
@@ -1989,10 +1995,7 @@ sub filterGlossaryReferences($\@$) {
     }
   }
 
-  $DOCUMENT_CACHE{$osis} = '';
-  open(OUTF, ">$osis");
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, $osis);
   
   &Report("\"$total\" glossary references filtered:");
   foreach my $r (sort keys %filteredOsisRefs) {
@@ -3426,14 +3429,7 @@ else this is a problem with the source text:
     &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis.pl on $MAINMOD to generate an OSIS file.");
   }
   
-  if ($osis && $changes) {
-    $DOCUMENT_CACHE{$in_osis} = '';
-    if (open(OSIS, ">$in_osis")) {
-      print OSIS $osis->toString();
-      close(OSIS);
-    }
-    else {&ErrorBug("Could not overwrite $in_osis");}
-  }
+  if ($osis && $changes) {&writeXMLFile($osis, $in_osis);}
   
   &Report("$checked Scripture references checked. ($problems problems)\n");
 }
@@ -3512,12 +3508,7 @@ sub removeMissingOsisRefs($) {
     $r->unbindNode();
   }
   
-  if (open(UPD, ">$output")) {
-    print UPD $xml->toString();
-    close(UPD);
-    $$osisP = $output;
-  }
-  else {&ErrorBug("Could not open $output");}
+  &writeXMLFile($xml, $output, $osisP);
 }
 
 sub readOsisIDs(\%$) {
@@ -4341,13 +4332,7 @@ sub writeOsisHeader($\%\%\%\%) {
     $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
   }
   
-  $DOCUMENT_CACHE{$output} = '';
-  if (open(OUTF, ">$output")) {
-    print OUTF $xml->toString();
-    close(OUTF);
-    if (ref($osis_or_osisP)) {$$osis_or_osisP = $output;}
-  }
-  else {&Error("Could not open \"$$osisP\" to add osisWorks to header.", '', 1);}
+  &writeXMLFile($xml, $output, (ref($osis_or_osisP) ? $osis_or_osisP:''));
   
   return $header;
 }
@@ -4560,10 +4545,7 @@ sub writeNoteIDs($) {
       $osisID_note{"$myMod:$osisID$refext$i"}++;
     }
     
-    $DOCUMENT_CACHE{$file} = '';
-    open(OUTF, ">$file") or die "writeNoteIDs could not open splitOSIS file: \"$file\".\n";
-    print OUTF $xml->toString();
-    close(OUTF);
+    &writeXMLFile($xml, $file);
   }
   
   &joinOSIS($output);
@@ -4717,10 +4699,7 @@ sub splitOSIS($) {
   }
   
   push(@return, "$tmp/other.osis");
-  $DOCUMENT_CACHE{@return[$#return]} = '';
-  open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, @return[$#return]);
   
   if (!$isBible) {return @return;}
   
@@ -4750,10 +4729,8 @@ sub splitOSIS($) {
     }
     
     push(@return, sprintf("%s/%02i %i %s.osis", $tmp, $x, $bookGroup{$bk}, $bk));
-    $DOCUMENT_CACHE{@return[$#return]} = '';
-    open(OUTF, ">".@return[$#return]) or die "splitOSIS could not open ".@return[$#return]."\n";
-    print OUTF $xml->toString();
-    close(OUTF);
+    
+    &writeXMLFile($xml, @return[$#return]);
     
     foreach my $book (@bookElements) {if ($book->getAttribute('osisID') eq $bk) {$book->unbindNode();}}
     
@@ -4802,10 +4779,7 @@ sub joinOSIS($) {
     $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
   }
   
-  $DOCUMENT_CACHE{$out_osis} = '';
-  open(OUTF, ">$out_osis") or die "joinOSIS could not open \"$out_osis\".\n";
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, $out_osis);
 }
 
 
@@ -4823,10 +4797,7 @@ sub writeMissingNoteOsisRefsFAST($) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
     $count = &writeMissingNoteOsisRefs($xml);
-    $DOCUMENT_CACHE{$file} = '';
-    open(OUTF, ">$file") or die "writeMissingNoteOsisRefsFAST could not open splitOSIS file: \"$file\".\n";
-    print OUTF $xml->toString();
-    close(OUTF);
+    &writeXMLFile($xml, $file);
   }
   
   &joinOSIS($output);
@@ -4913,10 +4884,7 @@ sub removeDefaultWorkPrefixesFAST($) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
     &removeDefaultWorkPrefixes($xml, \%stats);
-    $DOCUMENT_CACHE{$file} = '';
-    open(OUTF, ">$file") or die "removeDefaultWorkPrefixesFAST could not open splitOSIS file: \"$file\".\n";
-    print OUTF $xml->toString();
-    close(OUTF);
+    &writeXMLFile($xml, $file);
   }
   
   &joinOSIS($output);

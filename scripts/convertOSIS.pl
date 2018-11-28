@@ -228,9 +228,7 @@ body {font-family: font1;}
       my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$c.'"]', $xml);
       foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
     }
-    open(OUTF, ">$tmp/$MOD.xml");
-    print OUTF $xml->toString();
-    close(OUTF);
+    &writeXMLFile($xml, "$tmp/$MOD.xml");
   }
   
   # copy over only those images referenced in our OSIS files
@@ -483,10 +481,7 @@ sub updateOsisFullResourceURL($$) {
     }
   }
   
-  $DOCUMENT_CACHE{$osis} = '';
-  open(OUTF, ">$osis");
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, $osis);
 }
 
 1;

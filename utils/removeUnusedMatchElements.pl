@@ -57,10 +57,8 @@ else {&Note("All $expected unused match elements were located.");}
 
 move($dwfPath, "$dwfPath.old");
 
-if (open(DW, ">$dwfPath")) {
-  print DW $xml->toString();
-  &Report("Removed $count unused match elements from $dwfPath.");
-}
-else {&ErrorBug("Could not open $dwfPath.", 'Check permissions or path', 1);}
+&writeXMLFile($xml, $dwfPath);
+
+&Report("Removed $count unused match elements from $dwfPath.");
 
 1;

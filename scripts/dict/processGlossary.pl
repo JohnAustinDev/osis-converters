@@ -50,10 +50,7 @@ sub filterGlossaryToScope($$$) {
   if (@removed == @glossDivs) {return '-1';}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;
-  open(OUTF, ">$output");
-  print OUTF $xml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
   
   return (@removed ? join(',', @removed):'0');
 }
@@ -66,10 +63,7 @@ sub removeDuplicateEntries($) {
   foreach my $del (@dels) {$del->unbindNode();}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateEntries$3/;
-  open(OUTF, ">$output");
-  print OUTF $xml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
   
   &Report(@dels." instance(s) of x-keyword-duplicate div removal.");
 }
@@ -95,10 +89,7 @@ sub filterAggregateEntries($$) {
   }
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterAggregateEntries$3/;
-  open(OUTF, ">$output");
-  print OUTF $xml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
   
   if ($removeCount == scalar(@check)) {&removeAggregateEntries($osisP);}
   
@@ -113,10 +104,7 @@ sub removeAggregateEntries($) {
   foreach my $del (@dels) {$del->unbindNode();}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeAggregateEntries$3/;
-  open(OUTF, ">$output");
-  print OUTF $xml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
 }
 
 # uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
@@ -135,10 +123,7 @@ sub upperCaseKeys($) {
     $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
   }
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
-  open(OSIS2, ">$output");
-  print OSIS2 $xml->toString();
-  close(OSIS2);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
 }
 
 1;

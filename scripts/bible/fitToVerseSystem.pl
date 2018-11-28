@@ -456,10 +456,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
     }
   }
 
-  open(OUTF, ">$output");
-  print OUTF $xml->toString();
-  close(OUTF);
-  $$osisP = $output;
+  &writeXMLFile($xml, $output, $osisP);
 }
 
 sub findThisPeriph($$$) {
@@ -601,14 +598,7 @@ sub correctReferencesVSYS($) {
   my $count = &applyrids($osisXML);
 
   # Overwrite OSIS file if anything changed
-  if ($count) {
-    if (open(OUTF, ">$output")) {
-      print OUTF $osisXML->toString();
-      close(OUTF);
-      $$osisP = $output;
-    }
-    else {&ErrorBug("Could not open \"$output\" to write osisRef fixes.");}
-  }
+  if ($count) {&writeXMLFile($osisXML, $output, $osisP);}
   
   &Log("\n");
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
@@ -854,10 +844,7 @@ sub writeReadXML($$) {
   my $tree = shift;
   my $file = shift;
   
-  $DOCUMENT_CACHE{$file} = '';
-  open(OUTF, ">$file");
-  print OUTF $tree->toString();
-  close(OUTF);
+  &writeXMLFile($tree, $file);
   return $XML_PARSER->parse_file($file);
 }
 

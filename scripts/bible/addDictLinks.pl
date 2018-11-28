@@ -57,11 +57,7 @@ sub adlProcessFile($) {
   # books and book intros
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $book (@books) {&processContainer($book);}
-  
-  $DOCUMENT_CACHE{$osis} = '';
-  open(OUTF, ">$osis") or die "addDictLinks processFile could not open $osis.\n";
-  print OUTF $xml->toString();
-  close(OUTF);
+  &writeXMLFile($xml, $osis);
 }
 
 sub processContainer($) {

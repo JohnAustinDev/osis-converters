@@ -49,10 +49,7 @@ sub runAddSeeAlsoLinks($$) {
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
     &checkCircularEntryCandidates(\@keywords);
    
-    open(OUTF, ">$output") or die "Could not open $output.\n";
-    print OUTF $xml->toString();
-    close(OUTF);
-    $$osisP = $output;
+    &writeXMLFile($xml, $output, $osisP);
     
     &checkCircularEntries($output);
     &logDictLinks();
