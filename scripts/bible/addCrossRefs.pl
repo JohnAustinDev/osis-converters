@@ -240,7 +240,6 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       if ($localization{'hasLocalization'}) {
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
         my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
-        if ($readRef =~ s/(\s+.*)$//) {&Warn("Truncating external reference range: from '$readRef$1' to '$readRef'", "Ranges that cross chapter boundaries are not always supported, so they are truncated.");}
         my $tr = &translateRef($readRef, \%localization, $VERSESYS);
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
         $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});

@@ -2290,7 +2290,7 @@ sub initDocumentCache($$) {
 }
 
 # Take in osisRef and map the whole thing. Mapping gaps are healed and
-# PART verses are greedy (part means whole).
+# PART verses are always treated as whole verses.
 sub mapOsisRef($$$) {
   my $mapP = shift;
   my $map = shift;
@@ -2304,27 +2304,25 @@ sub mapOsisRef($$$) {
       $idin =~ s/!PART$//;
       my $id = $idin;
       if    ($mapP->{$map}{$idin})        {$id = $mapP->{$map}{$idin};}
-      elsif ($mapP->{$map}{"$idin!PART"}) {$id = $mapP->{$map}{"$idin!PART"};}
+      elsif ($mapP->{$map}{"$idin!PART"}) {$id = $mapP->{$map}{"$idin!PART"}; push(@mappedOsisIDs, $idin);}
       $id =~ s/!PART$//; # if part is included, include the whole thing
       push(@mappedOsisIDs, $id);
     }
-    push(@mappedOsisRefs, &fillGapsInOsisRef(join(' ', &normalizeOsisID(\@mappedOsisIDs))));
+    push(@mappedOsisRefs, &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@mappedOsisIDs)))));
   }
 
   return join(' ', @mappedOsisRefs);
 }
 
-# Take an osisRef's starting and ending point, and if they are in the
-# same chapter, return an osisRef that covers the entire range between
-# them. This can be used to 'heal' missing verses in mapped ranges.
+# Take an osisRef's starting and ending point, and return an osisRef 
+# that covers the entire range between them. This can be used to 'heal' 
+# missing verses in mapped ranges.
 sub fillGapsInOsisRef() {
   my $osisRef = shift;
   
   my @id = split(/\s+/, &osisRef2osisID($osisRef));
-  @id[0]    =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chf = $1; my $vf = $2;
-  @id[$#id] =~ /^([^\.]+\.\d+\.)(\d+)$/; my $chl = $1; my $vl = $2;
-  if ($chf eq $chl && $vf ne $vl) {return @id[0].'-'.@id[$#id];}
-  return $osisRef;
+  if ($#id == 0) {return $osisRef;}
+  return @id[0].'-'.@id[$#id];
 }
 
 sub getProjectOsisFile($) {
@@ -3093,7 +3091,7 @@ sub osisRef2osisID($$$$) {
       # as $r2, then simple verse incrementing can be used.
       my $ir1 = &idInVerseSystem($r1, $vsys);
       if (!$ir1) {
-        &Error("osisRef2osisID: Start verse \"$r1\" is not in \"$vsys\" so the following range is likely incorrect: ");
+        &Warn("osisRef2osisID: Start verse \"$r1\" is not in \"$vsys\" so the following range may be incorrect: ");
         $logTheResult++;
         next;
       }
