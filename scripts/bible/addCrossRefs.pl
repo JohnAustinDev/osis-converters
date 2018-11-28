@@ -369,7 +369,7 @@ sub translateRef($$) {
     if ($vsys && $r1 =~ /^([^\.]+)\.(\d+)\.(\d+)/) {
       my $b1 = $1; my $c1 = $2; my $v1 = $3;
       my $canonP; my $bookOrderP; my $testamentP; &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
-      if ($osisRef eq "$b1.$c1.$v1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {$r1 = "$b1.$c1"; $r2 = '';}
+      if ($osisRef eq "$b1.$c1.1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {$r1 = "$b1.$c1"; $r2 = '';}
     }
     $t = &translateSingleRef($r1, $localeP);
     if ($t && $r2) {
