@@ -669,14 +669,14 @@ sub addrids(\@$$\%) {
 # Merges the osisRef and rids attributes of all elements having the rids 
 # attribute, then rids is removed. Also merges osisRef into annotateRef.
 # If an element's osisRef is empty, the reference tags are entirely 
-# removed.
+# removed. If the osisRef is unchanged, and the annotateRef is the same
+# as the osisRef, then the element is left unchaged.
 sub applyrids($\%) {
   my $xml = shift;
   
   my ($update, $remove);
   my $count = 0;
   foreach my $e ($XPC->findnodes('//*[@rids]', $xml)) {
-    $count++;
     my $tag = $e->toString(); $tag =~ s/^(<[^>]*>).*?$/$1/s;
     my @annotateRef = (split(/\s+/, &osisRef2osisID($e->getAttribute('annotateRef'))));
     my @rids = (split(/\s+/, &osisRef2osisID($e->getAttribute('rids'))));
@@ -686,9 +686,16 @@ sub applyrids($\%) {
     my @osisRef = (split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef'))));
     push(@annotateRef, @osisRef);
     push(@osisRef, @rids);
-
     my $osisRefNew     = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@osisRef))));
     my $annotateRefNew = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@annotateRef))));
+    
+    if ($osisRefOrig eq $osisRefNew && $osisRefOrig eq $annotateRefNew) {
+      $e->setAttribute('osisRef', $osisRefOrig);
+      $e->removeAttribute('annotateType');
+      next;
+    }
+    
+    $count++;
     $e->setAttribute('annotateRef', $annotateRefNew);
    
     if ($osisRefNew) {
