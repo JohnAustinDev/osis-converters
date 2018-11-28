@@ -541,144 +541,6 @@ return
 ------------------------------------------------------------------------\n";
 }
 
-sub fitToVerseSystem($$) {
-  my $osisP = shift;
-  my $vsys = shift;
-  
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1fitToVerseSystem$3/;
-  
-  if (!$vsys) {$vsys = "KJV";}
-
-  &Log("\nFitting OSIS \"$$osisP\" to versification $vsys\n", 1);
-
-  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &ErrorBug("Not Fitting OSIS versification because getCanon($vsys) failed.");
-    return;
-  }
-
-  my $xml = $XML_PARSER->parse_file($$osisP);
-  
-  # Check if this osis file has already been fitted, and bail if so
-  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]', $xml);
-  if (@existing) {
-    &Warn("
-There are ".@existing." fitted tags in the text. This OSIS file has 
-already been fitted so this step will be skipped!");
-  }
-  
-  # Apply VSYS instructions to the translation (first do the fitting, then mark moved verses)
-  elsif (@VSYS_INSTR) {
-    foreach my $argsP (@VSYS_INSTR) {
-      if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
-    }
-    $xml = &writeReadXML($xml, $output);
-    foreach my $argsP (@VSYS_INSTR) {
-      if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
-    }
-    my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
-    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
-    $xml = &writeReadXML($xml, $output);
-    $$osisP = $output;
-  }
-  
-  # Warn that these alternate verse tags in source could require further VSYS intructions
-  my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix_vs'}.'")]])]', $xml);
-  if (@nakedAltTags) {
-    &Warn("The following alternate verse tags were found.",
-"If these represent verses which normally appear somewhere else in the 
-$vsys verse system, then a VSYS_MOVED_ALT instruction should be 
-added to CF_usfm2osis.txt to allow correction of external cross-
-references:");
-    foreach my $at (@nakedAltTags) {
-      my $verse = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $at)}[0];
-      &Log($verse." ".$at."\n");
-    }
-  }
-}
-
-sub checkVerseSystem($$) {
-  my $bibleosis = shift;
-  my $vsys = shift;
-  
-  my $xml = $XML_PARSER->parse_file($bibleosis);
-  
-  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &ErrorBug("Leaving checkVerseSystem() because getCanon($vsys) failed.");
-    return;
-  }
-  
-  # Insure that all verses are accounted for and in sequential order 
-  # without any skipping (required by GoBible Creator).
-  my @ve = $XPC->findnodes('//osis:verse[@sID]', $xml);
-  my @v = map($_->getAttribute('sID'), @ve);
-  my $x = 0;
-  my $checked = 0;
-  my $errors = 0;
-
-BOOK:
-  foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {
-    if (@v[$x] !~ /^$bk\./) {next;}
-    my $ch = 1;
-    foreach my $vmax (@{$canonP->{$bk}}) {
-      for (my $vs = 1; $vs <= $vmax; $vs++) {
-        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
-        if (($ech != 1 && $ech < $ch) || ($ech == $ch && $evs < $vs)) {
-          &Error("Chapter/verse ordering problem at ".@v[$x]." (expected $ch.$vs)", "Check your SFM for out of order chapter/verses and fix them.");
-          $errors++;
-          next;
-        }
-        if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
-          &Error("Missing verse $bk.$ch.$vs.", "If this verse is supposed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
-          $fitToVerseSystemDoc = '';
-          $errors++;
-          next;
-        }
-        @v[$x] =~/\.(\d+)\s*$/; $vs = ($1*1);
-        $x++;
-      }
-      while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Error("Extra verse: ".@v[$x], "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
-        $fitToVerseSystemDoc = '';
-        $errors++;
-        $x++;
-      }
-      $ch++;
-    }
-    while (@v[$x] =~ /^\Q$bk./) {
-      &Error("Extra chapter: ".@v[$x], "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
-      $fitToVerseSystemDoc = '';
-      $errors++;
-      $x++;
-    }
-  }
-  if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
-  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")");}
-  
-  &Log("\n");
-  &Report("$errors verse system problems detected".($errors ? ':':'.'));
-  if ($errors) {
-    &Note("
-      This translation does not fit the $vsys verse system. The errors 
-      listed above must be fixed. Add the appropriate instructions:
-      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt. $fitToVerseSystemDoc");
-    $fitToVerseSystemDoc = '';
-  }
-}
-
-# Newly written elements may not have the right name-spaces until the file is re-read!
-sub writeReadXML($$) {
-  my $tree = shift;
-  my $file = shift;
-  
-  $DOCUMENT_CACHE{$file} = '';
-  open(OUTF, ">$file");
-  print OUTF $tree->toString();
-  close(OUTF);
-  return $XML_PARSER->parse_file($file);
-}
-
 # Read bibleMod and the osis file and:
 # 1) Find all verse osisIDs in $bibleMod which were changed by VSYS 
 #    instructions. These are used for updating source osisRefs, but 
@@ -854,6 +716,144 @@ sub applyrids($\%) {
   return $count;
 }
 
+sub fitToVerseSystem($$) {
+  my $osisP = shift;
+  my $vsys = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1fitToVerseSystem$3/;
+  
+  if (!$vsys) {$vsys = "KJV";}
+
+  &Log("\nFitting OSIS \"$$osisP\" to versification $vsys\n", 1);
+
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &ErrorBug("Not Fitting OSIS versification because getCanon($vsys) failed.");
+    return;
+  }
+
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  # Check if this osis file has already been fitted, and bail if so
+  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]', $xml);
+  if (@existing) {
+    &Warn("
+There are ".@existing." fitted tags in the text. This OSIS file has 
+already been fitted so this step will be skipped!");
+  }
+  
+  # Apply VSYS instructions to the translation (first do the fitting, then mark moved verses)
+  elsif (@VSYS_INSTR) {
+    foreach my $argsP (@VSYS_INSTR) {
+      if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+    }
+    $xml = &writeReadXML($xml, $output);
+    foreach my $argsP (@VSYS_INSTR) {
+      if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+    }
+    my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
+    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
+    $xml = &writeReadXML($xml, $output);
+    $$osisP = $output;
+  }
+  
+  # Warn that these alternate verse tags in source could require further VSYS intructions
+  my @nakedAltTags = $XPC->findnodes('//osis:hi[@subType="x-alternate"][not(preceding::*[1][self::osis:milestone[starts-with(@type, "'.$VSYS{'prefix_vs'}.'")]])]', $xml);
+  if (@nakedAltTags) {
+    &Warn("The following alternate verse tags were found.",
+"If these represent verses which normally appear somewhere else in the 
+$vsys verse system, then a VSYS_MOVED_ALT instruction should be 
+added to CF_usfm2osis.txt to allow correction of external cross-
+references:");
+    foreach my $at (@nakedAltTags) {
+      my $verse = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $at)}[0];
+      &Log($verse." ".$at."\n");
+    }
+  }
+}
+
+sub checkVerseSystem($$) {
+  my $bibleosis = shift;
+  my $vsys = shift;
+  
+  my $xml = $XML_PARSER->parse_file($bibleosis);
+  
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &ErrorBug("Leaving checkVerseSystem() because getCanon($vsys) failed.");
+    return;
+  }
+  
+  # Insure that all verses are accounted for and in sequential order 
+  # without any skipping (required by GoBible Creator).
+  my @ve = $XPC->findnodes('//osis:verse[@sID]', $xml);
+  my @v = map($_->getAttribute('sID'), @ve);
+  my $x = 0;
+  my $checked = 0;
+  my $errors = 0;
+
+BOOK:
+  foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {
+    if (@v[$x] !~ /^$bk\./) {next;}
+    my $ch = 1;
+    foreach my $vmax (@{$canonP->{$bk}}) {
+      for (my $vs = 1; $vs <= $vmax; $vs++) {
+        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
+        if (($ech != 1 && $ech < $ch) || ($ech == $ch && $evs < $vs)) {
+          &Error("Chapter/verse ordering problem at ".@v[$x]." (expected $ch.$vs)", "Check your SFM for out of order chapter/verses and fix them.");
+          $errors++;
+          next;
+        }
+        if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
+          &Error("Missing verse $bk.$ch.$vs.", "If this verse is supposed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+          $fitToVerseSystemDoc = '';
+          $errors++;
+          next;
+        }
+        @v[$x] =~/\.(\d+)\s*$/; $vs = ($1*1);
+        $x++;
+      }
+      while (@v[$x] =~ /^\Q$bk.$ch./) {
+        &Error("Extra verse: ".@v[$x], "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+        $fitToVerseSystemDoc = '';
+        $errors++;
+        $x++;
+      }
+      $ch++;
+    }
+    while (@v[$x] =~ /^\Q$bk./) {
+      &Error("Extra chapter: ".@v[$x], "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+      $fitToVerseSystemDoc = '';
+      $errors++;
+      $x++;
+    }
+  }
+  if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
+  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")");}
+  
+  &Log("\n");
+  &Report("$errors verse system problems detected".($errors ? ':':'.'));
+  if ($errors) {
+    &Note("
+      This translation does not fit the $vsys verse system. The errors 
+      listed above must be fixed. Add the appropriate instructions:
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+    $fitToVerseSystemDoc = '';
+  }
+}
+
+# Newly written elements may not have the right name-spaces until the file is re-read!
+sub writeReadXML($$) {
+  my $tree = shift;
+  my $file = shift;
+  
+  $DOCUMENT_CACHE{$file} = '';
+  open(OUTF, ">$file");
+  print OUTF $tree->toString();
+  close(OUTF);
+  return $XML_PARSER->parse_file($file);
+}
+
 sub applyVsysInstruction(\%\%$) {
   my $argP = shift;
   my $canonP = shift;
@@ -868,7 +868,7 @@ sub applyVsysInstruction(\%\%$) {
   my $fixedP  = ($argP->{'fixed'}  ? &parseVsysArgument($argP->{'fixed'},  $xml):'');
   my $sourceP = ($argP->{'source'} ? &parseVsysArgument($argP->{'source'}, $xml):'');
   
-  if (!$fixedP->{'isAltParent'} && $fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
+  if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
     &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'fixed'}." -> ".$argP->{'source'});
     return 0;
   }
@@ -893,9 +893,7 @@ sub parseVsysArgument($$) {
   
   my %data;
   $data{'value'} = $value;
-  
-  if ($value eq 'alt-parent') {return { 'isAltParent' => '1' };}
-  
+
   # read and preprocess value
   if ($value !~ /^$VSYS_PINSTR_RE$/) {
     &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
@@ -926,21 +924,6 @@ sub applyVsysFromTo($$$) {
   my $fixedP = shift;
   my $sourceP = shift;
   my $xml = shift;
-  
-  # If fixed was marked as alt-parent, then find the fixed alt-parent now
-  if ($fixedP->{'isAltParent'}) {
-    my $alt = &getSourceAltVerseTag($sourceP->{'value'}, $xml);
-    if ($alt) {
-      my $vfixed = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $alt)}[0];
-      if (!$vfixed || $vfixed->getAttribute('resp') ne $VSYS{'resp_vs'}) {
-        &ErrorBug("Problem with fitted alternate verse source: $vfixed<>$alt");
-        return;
-      }
-      $vfixed = $vfixed->getAttribute('osisID'); $vfixed =~ s/^.*\s+//;
-      $fixedP = &parseVsysArgument($vfixed, $xml);
-    }
-    else {&ErrorBug("Could not find alternate verse: ".$sourceP->{'value'});}
-  }
   
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   for (my $v=$vs; $v<=$lv; $v++) {
@@ -1205,7 +1188,7 @@ sub applyVsysExtra($$$$) {
   }
 }
 
-# Markup verse as alternate and increment it by count
+# Markup verse as alternate, increment it by count, and mark it as moved
 sub reVersify($$$$$) {
   my $bk = shift;
   my $ch = shift;
@@ -1233,11 +1216,17 @@ sub reVersify($$$$$) {
   if (!$vTagS->hasAttribute('resp') || $vTagS->getAttribute('resp') ne $VSYS{'resp_vs'}) {
     $vTagS = &toAlternate($vTagS);
     $vTagE = &toAlternate($vTagE);
+    if ($count) {
+      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>"$bk.$ch.".($vs+$count), 'source'=>"$bk.$ch.$vs" });
+    }
   }
   elsif (&getAltID($vTagS) eq $newID) {
     $vTagS = &undoAlternate(&getAltID($vTagS, 1));
     $vTagE = &undoAlternate(&getAltID($vTagE, 1));
     $osisID = $vTagS->getAttribute('osisID');
+    for (my $i=0; $i<@VSYS_INSTR; $i++) {
+      if (@VSYS_INSTR[$i]->{'source'} eq "$bk.$ch.$vs") {splice(@VSYS_INSTR, $i, 1); last;}
+    }
   }
   else {$note .= "[Alternate verse already set]";}
   
@@ -1321,11 +1310,6 @@ sub toAlternate($$$) {
       my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $elem)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       $note .= "[added alternate verse \"$newv\"]";
-      for (my $v=$vs; $v<=$lv; $v++) {
-        my $skip = 0;
-        foreach my $argsP (@VSYS_INSTR) {if ($argsP->{'source'} eq "$ch.$v") {$skip++; last;}}
-        if (!$skip) {push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>'alt-parent', 'source'=>"$ch.$v" });}
-      }
     }
     else {&ErrorBug("Could not parse: $osisID =~ /^[^\.]+\.\d+\.(\d+)\b.*?(\.(\d+))?\$/");}
   }
@@ -1373,15 +1357,6 @@ sub undoAlternate($) {
   
   $note .= "[converted milestone to verse]";
   &Note($note);
-  
-  for (my $v=$avs; $v<=$alv; $v++) {
-    for (my $x=0; $x<@VSYS_INSTR; $x++) {
-      if (@VSYS_INSTR[$x]->{'source'} eq "$ach.$v" && @VSYS_INSTR[$x]->{'fixed'} eq "alt-parent") {
-        splice(@VSYS_INSTR, $x, 1);
-        $x--;
-      }
-    }
-  }
   
   return $ms;
 }
