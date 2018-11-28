@@ -241,7 +241,7 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
         my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
         if ($readRef =~ s/(\s+.*)$//) {&Warn("Truncating external reference range: from '$readRef$1' to '$readRef'", "Ranges that cross chapter boundaries are not always supported, so they are truncated.");}
-        my $tr = &translateRef($readRef, \%localization);
+        my $tr = &translateRef($readRef, \%localization, $VERSESYS);
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
         $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});
       }
@@ -361,10 +361,16 @@ sub insertNote($\%$) {
 sub translateRef($$) {
   my $osisRef = shift;
   my $localeP = shift;
+  my $vsys = shift;
   
   my $t = '';
   if ($osisRef =~ /^([\w\.]+)(\-([\w\.]+))?$/) {
     my $r1 = $1; my $r2 = ($2 ? $3:'');
+    if ($vsys && $r1 =~ /^([^\.]+)\.(\d+)\.(\d+)/) {
+      my $b1 = $1; my $c1 = $2; my $v1 = $3;
+      my $canonP; my $bookOrderP; my $testamentP; &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
+      if ($osisRef eq "$b1.$c1.$v1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {$r1 = "$b1.$c1"; $r2 = '';}
+    }
     $t = &translateSingleRef($r1, $localeP);
     if ($t && $r2) {
       my $t2 = &translateSingleRef($r2, $localeP);
