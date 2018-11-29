@@ -70,7 +70,7 @@
   
   <!-- Sort by an arbitrary character order: <sort select="oc:langSortOrder(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
   <function name="oc:langSortOrder" as="xs:string">
-    <param name="text" as="xs:string"/>
+    <param name="text" as="xs:string?"/>
     <param name="order" as="xs:string?"/>
     <if test="$order">
       <value-of>

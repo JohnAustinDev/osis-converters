@@ -48,7 +48,8 @@ elsif ($MODDRV =~ /LD/) {
     }
   }
   if ($reorderGlossaryEntries) {
-    &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, ('glossaryRegex' => $reorderGlossaryEntries));
+    my %params = ('glossaryRegex' => $reorderGlossaryEntries);
+    &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
   }
 }
 else {die "Unhandled ModDrv \"$MODDRV\"\n";}
