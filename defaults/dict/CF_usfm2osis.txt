@@ -1,13 +1,42 @@
-# See /scripts/usfm2osis.pl for command file documentation
+# See /scripts/usfm2osis.pl for more command file documentation
 
+# When a CF_addScripRefLinks.txt is present, then Scripture references
+# in the text will be parsed into hyperlinks. Setting to false will skip
+# this step.
 #SET_addScripRefLinks:false
-#SET_addDictLinks:false
-#SET_addCrossRefs:false
+
+# When a DictionaryWords.xml file is present, then glossary see-also 
+# hyperlinks will be parsed in the text. Setting to false will skip 
+# this step.
 #SET_addSeeAlsoLinks:false
 
+# Setting to a regex will reorder entries within any/all glossaries 
+# having matching names. They are reordered according to LangSortOrder 
+# in the config.conf file. This is useful when there are multiple 
+# scripts, which will each need different orders for their entries.
+#SET_reorderGlossaryEntries:regex_matching_glossary_names
+
+# If you add a configured CF_addFootnoteLinks.txt control file, then 
+# links to footnotes will be parsed in the text.
+#SET_addFootnoteLinks:false
+
+# Use when a punctuation character should be treated as a letter.
 #PUNC_AS_LETTER:'`
+
+# Use when Perl uc() and lc() do not produce the correct upper/lower 
+# case conversion.
 #SPECIAL_CAPITALS:i->İ ı->I
 
+# Use to make modifications to USFM files before conversion. The keyword
+# EVAL_REGEX may be immediately followed by a label within parenthesis 
+# which will label that EVAL_REGEX for either later cancelling, or, if 
+# the label is the path to a particular USFM file then the regex will 
+# only be applied to that particular file. Cancellation can also be done 
+# by "EVAL_REGEX(label):"
 #EVAL_REGEX:s///g
 
+# Use to add a USFM file to the conversion. Bible modules will have their
+# books reordered according to the chosen versification scheme (unless 
+# SET_customBookOrder is true). The contents of a Dict module will always 
+# be the order in which files are run.
 #RUN:./sfm/*.sfm

@@ -47,6 +47,9 @@ elsif ($MODDRV =~ /LD/) {
       copy($DEFAULT_DICTIONARY_WORDS, "$MAININPD/$DICTIONARY_WORDS");
     }
   }
+  if ($reorderGlossaryEntries) {
+    &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, ('glossaryRegex' => $reorderGlossaryEntries));
+  }
 }
 else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 

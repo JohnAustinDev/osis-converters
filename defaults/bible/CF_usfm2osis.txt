@@ -1,13 +1,54 @@
-# See /scripts/usfm2osis.pl for command file documentation
+# See /scripts/usfm2osis.pl for more command file documentation
 
+# When a CF_addScripRefLinks.txt is present, then Scripture references
+# in the text will be parsed into hyperlinks. Setting to false will skip
+# this step.
 #SET_addScripRefLinks:false
-#SET_addDictLinks:false
-#SET_addCrossRefs:false
-#SET_addSeeAlsoLinks:false
 
+# When a DictionaryWords.xml file is present, then glossary hyperlinks
+# will be parsed in the text. Setting to false will skip this step.
+#SET_addDictLinks:false
+
+# The addCrossRefs step adds external cross-references to the text. 
+# Setting to false will skip this step.
+#SET_addCrossRefs:false
+
+# Use with osis2osis.pl to provide the source module whose OSIS file 
+# will be used as the starting point for the convsersion. This is used 
+# when producing multiple modules with different scripts.
+#SET_sourceProject:MODNAME
+
+# Use when one conversion should start another upon completion. This will 
+# chain multiple projects together so that sfm2all.pl converts them each 
+# in sequence. This is used when producing multiple modules with 
+# different scripts.
+#sfm2all_RUN:MODNAME
+
+# Setting to true allows the book order to remain in the order they are 
+# run in this file, rather than according to the chosen versification.
+#SET_customBookOrder:true
+
+# If you add a configured CF_addFootnoteLinks.txt control file, then 
+# links to footnotes will be parsed in the text.
+#SET_addFootnoteLinks:false
+
+# Use when a punctuation character should be treated as a letter.
 #PUNC_AS_LETTER:'`
+
+# Use when Perl uc() and lc() do not produce the correct upper/lower 
+# case conversion.
 #SPECIAL_CAPITALS:i->İ ı->I
 
+# Use to make modifications to USFM files before conversion. The keyword
+# EVAL_REGEX may be immediately followed by a label within parenthesis 
+# which will label that EVAL_REGEX for either later cancelling, or, if 
+# the label is the path to a particular USFM file then the regex will 
+# only be applied to that particular file. Cancellation can also be done 
+# by "EVAL_REGEX(label):"
 #EVAL_REGEX:s///g
 
+# Use to add a USFM file to the conversion. Bible modules will have their
+# books reordered according to the chosen versification scheme (unless 
+# SET_customBookOrder is true). The contents of a Dict module will always 
+# be the order in which files are run.
 #RUN:./sfm/*.sfm

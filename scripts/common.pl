@@ -465,7 +465,7 @@ sub compareDictOsis2DWF($$) {
       my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
       if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
     }
-    if (!$match) {&Error("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in ${MOD}DICT."); $allmatch = 0;}
+    if (!$match) {&Error("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD."); $allmatch = 0;}
   }
   
   # Save any updates back to source dictionary_words_xml
