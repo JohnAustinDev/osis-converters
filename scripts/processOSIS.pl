@@ -34,6 +34,28 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   }
 }
 elsif ($MODDRV =~ /LD/) {
+  if (!$ConfEntryP->{'KeySort'}) {
+    &Error("KeySort is missing from config.conf", '
+This required config entry facilitates correct sorting of glossary 
+keys. EXAMPLE:
+KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}
+This entry allows sorting in any desired order by character collation. 
+Square brackets are used to separate any arbitrary JDK 1.4 case  
+sensitive regular expressions which are to be treated as single 
+characters during the sort comparison. Likewise, curly brackets should 
+be used around any similar regular expression(s) which are to be ignored  
+during the sort comparison. Every other square or curly bracket must be 
+escaped by backslash. This means the string to ignore all brackets or 
+parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
+  }
+  if (!$ConfEntryP->{'LangSortOrder'}) {
+    &Error("LangSortOrder is missing from config.conf", "
+Although this config entry has been replaced by KeySort and is 
+deprecated and no longer used by osis-converters, for now it is still 
+required to prevent the breaking of older programs. Its value is just 
+that of KeySort, but bracketed groups of regular expressions are not 
+allowed and must be removed.");
+  }
   &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
   if ($addSeeAlsoLinks) {
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);

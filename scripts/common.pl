@@ -1333,7 +1333,8 @@ sub updateConfData(\%$) {
     my $sourceType = ($XPC->findnodes('tei:TEI', $moduleSourceXML) ? 'TEI':'OSIS');
     
     if ($sourceType eq 'TEI') {
-      &setConfValue($entryValueP, 'LangSortOrder', &getLangSortOrder($moduleSourceXML), 2);
+      &setConfValue($entryValueP, 'KeySort', &getApproximateLangSortOrder($moduleSourceXML), 2);
+      &setConfValue($entryValueP, 'LangSortOrder', &getApproximateLangSortOrder($moduleSourceXML), 2);
     }
     
     &setConfValue($entryValueP, 'SourceType', $sourceType, 2); # '2' allows config.conf to enforce SourceType
@@ -1431,7 +1432,7 @@ sub setConfGlobals(\%) {
 }
 
 
-sub getLangSortOrder($) {
+sub getApproximateLangSortOrder($) {
   my $tei = shift;
   
   my $res = '';
@@ -1443,10 +1444,7 @@ sub getLangSortOrder($) {
     $res .= &uc2($l).&lc2($l);
     $last = &uc2($l);
   }
-  if ($res) {&Note("LangSortOrder=$res\n");}
-  else {&Warn("Could not determine LangSortOrder", 
-"Specify the language's character order in config.conf with an 
-entry like this: LangSortOrder=AaBbCcDdEe... etc.");}
+
   return $res;
 }
 

@@ -55,8 +55,15 @@ The intention is to follow the [OSIS specification and handbook](https://www.cro
 
 These xulsword specific .conf file entries may be inluded:
 
-* `LangSortOrder = AaBbCcDdEe...` Is used by xulsword to sort the keys of
-a dictionary/glossary in original alphabetical order.
+* `KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}`
+Is used by xulsword to sort the keys of a dictionary/glossary in any 
+desired order by character collation. Square brackets are used to 
+separate any arbitrary JDK 1.4 case sensitive regular expressions which 
+are to be treated as single characters during the sort comparison. 
+Likewise, curly brackets should be used around any similar regular 
+expression(s) which are to be ignored during the sort comparison. Every 
+other square or curly bracket (including those within regular expressions)
+must be escaped by backslash.
 * `AudioCode = SOMECODE` Sometimes multiple modules will use the same 
 audio files, such as when a translation has multiple modules with 
 different scripts. This allows all these modules to reference the same 
@@ -76,6 +83,9 @@ Optional CSS classes supported by [xulsword](https://github.com/JohnAustinDev/xu
 
 ## Deprecated (no longer output by osis-converters)
 
+* `LangSortOrder = AaBbCcDdEe...` Was used by xulsword to sort the keys of
+a dictionary/glossary in original alphabetical order. This has been replaced
+by KeySort.
 * `TabLabel` conf entry was replaced by the standard entry: `Abbreviation`.
 * `GlobalOptionFilter = OSISDictionary` was replaced by the standard 
 `OSISReferenceLinks` filter.

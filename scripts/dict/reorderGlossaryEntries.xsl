@@ -6,7 +6,7 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT will find all glossaries matching glossaryRegex and re-order their keywords according to LangSortOrder -->
+  <!-- This XSLT will find all glossaries matching glossaryRegex and re-order their keywords according to KeySort -->
 
   <import href="../functions.xsl"/>
   
@@ -29,7 +29,7 @@
         select="node()" 
         group-adjacent="2*count(preceding::seg[@type='keyword']) + 
         (if (generate-id(descendant-or-self::seg[@type='keyword'][1]) = generate-id(ancestor::div[@type='glossary'][1]/descendant::seg[@type='keyword'][1])) then 1 else 0)">
-        <sort select="oc:langSortOrder(current-group()/descendant-or-self::seg[@type='keyword'][1]/string(), root(.)//description[@type='x-sword-config-LangSortOrder'][ancestor::work/@osisWork = root(.)/descendant::osisText[1]/@osisIDWork])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+        <sort select="oc:keySort(current-group()/descendant-or-self::seg[@type='keyword'][1]/string())" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <apply-templates select="current-group()"/>
       </for-each-group>
     </copy>

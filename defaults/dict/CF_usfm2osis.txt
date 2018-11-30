@@ -11,7 +11,7 @@
 #SET_addSeeAlsoLinks:false
 
 # Setting to a regex will reorder entries within any/all glossaries 
-# having matching names. They are reordered according to LangSortOrder 
+# having matching names. They are reordered according to KeySort 
 # in the config.conf file. This is useful when there are multiple 
 # scripts, which will each need different orders for their entries.
 #SET_reorderGlossaryEntries:regex_matching_glossary_names

@@ -8,6 +8,7 @@
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+ xmlns:me="http://github.com/JohnAustinDev/osis-converters/functions.xsl"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
   <!-- The following params are globals which should be defined before 
@@ -27,6 +28,8 @@
   <param name="tocnumber" select="2"/>
   <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
   <param name="titleCase" select="0"/>
+  <!-- String describing how to sort glossary keys -->
+  <param name="keySort" select="//description[@type='x-sword-config-KeySort'][1]"/>
  
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
@@ -68,35 +71,78 @@
     </value-of>
   </function>
   
-  <!-- Sort by an arbitrary character order: <sort select="oc:langSortOrder(string(), x-sword-config-LangSortOrder)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
-  <function name="oc:langSortOrder" as="xs:string">
+  <!-- Sort by an arbitrary character order: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
+  <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
-    <param name="order" as="xs:string?"/>
-    <if test="$order">
-      <value-of>
-        <for-each select="string-to-codepoints($text)">
-          <choose>
-            <when test="matches(codepoints-to-string(.), '[ \p{L}]')">
-              <variable name="before" select="substring-before(concat('⇹ ', $order), codepoints-to-string(.))"/> <!-- ⇹ is a random never-used character required in first position -->
-              <if test="not($before)">
-                <call-template name="Log"><with-param name="msg" select="$text"/></call-template>
+    <if test="$keySort and $text">
+      <variable name="ignoreRegex" as="xs:string">
+        <variable name="ignores" as="xs:string*">
+          <analyze-string select="oc:encodeKS($keySort)" regex="{'\{([^\}]*)\}'}">
+            <matching-substring><sequence select="regex-group(1)"/></matching-substring>
+          </analyze-string>
+        </variable>
+        <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
+      </variable>
+      <variable name="charRegexes" as="element(me:regex)*">
+        <analyze-string select="oc:encodeKS($keySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
+          <matching-substring>
+            <if test="not(regex-group(3))">
+              <me:regex>
+                <attribute name="regex" select="oc:decodeKS(if (regex-group(2)) then substring(., 2, string-length(.)-2) else .)"/>
+                <attribute name="position" select="position()"/>
+              </me:regex>
+            </if>
+          </matching-substring>
+        </analyze-string>
+      </variable>
+      <variable name="long2shortCharRegexes" as="element(me:regex)*">
+        <for-each select="$charRegexes">     
+          <sort select="string-length(.//@regex)" data-type="number" order="descending"/> 
+          <copy-of select="."/>
+        </for-each>
+      </variable>
+      <variable name="long2shortCharRegexeMono" select="concat('(', string-join($long2shortCharRegexes/@regex, '|'), ')')" as="xs:string"/>
+      <variable name="textKeep" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+      <variable name="result" as="xs:string">
+        <value-of>
+        <analyze-string select="$textKeep" regex="{$long2shortCharRegexeMono}">
+          <matching-substring>
+            <variable name="subst" select="."/>
+            <for-each select="$long2shortCharRegexes">
+              <if test="matches($subst, concat('^', @regex, '$'))">
+                <value-of select="codepoints-to-string(xs:integer(number(@position) + 64))"/> <!-- 64 starts at character "A" -->
+              </if>
+            </for-each>
+          </matching-substring>
+          <non-matching-substring>
+            <choose>
+              <when test="matches(., '\p{L}')">
                 <call-template name="Error">
-                  <with-param name="msg">langSortOrder(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'LangSortOrder=<value-of select="$order"/>' is missing the character <value-of select="concat('&quot;', codepoints-to-string(.), '&quot; (codepoint: ', ., ')')"/>.</with-param>
-                  <with-param name="exp">Add the missing character to the config.conf file's LangSortOrder entry. Place it where it belongs in the order of characters.</with-param>
+                  <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$keySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
+                  <with-param name="exp">Add the missing character to the config.conf file's KeySort entry. Place it where it belongs in the order of characters.</with-param>
                   <with-param name="die" select="'yes'"/>
                 </call-template>
-              </if>
-              <value-of select="codepoints-to-string(string-length($before) + 64)"/> <!-- 64 starts at character "A" -->
-            </when>
-            <otherwise><value-of select="codepoints-to-string(.)"/></otherwise>
-          </choose>
-        </for-each>
-      </value-of>
+              </when>
+              <otherwise><value-of select="."/></otherwise>
+            </choose>
+          </non-matching-substring>
+        </analyze-string>
+        </value-of>
+      </variable>
+      <value-of select="$result"/>
     </if>
-    <if test="not($order)">
-      <call-template name="Warn"><with-param name="msg">langSortOrder(): 'LangSortOrder' is not specified in config.conf. Glossary entries will be ordered in Unicode order. To reorder characters, specify the language's character order in config.conf with an entry like this: LangSortOrder=AaBbCcDdEe... etc.</with-param></call-template>
+    <if test="not($keySort)">
+      <call-template name="Warn"><with-param name="msg">keySort(): 'KeySort' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</with-param></call-template>
       <value-of select="$text"/>
     </if>
+  </function>
+  <function name="oc:encodeKS" as="xs:string">
+    <param name="str" as="xs:string"/>
+    <value-of select="replace(replace(replace(replace($str, '\\\[', '_91_'), '\\\]', '_93_'), '\\\{', '_123_'), '\\\}', '_125_')"/>
+  </function>
+  <function name="oc:decodeKS" as="xs:string">
+    <param name="str" as="xs:string"/>
+    <value-of select="replace(replace(replace(replace($str, '_91_', '['), '_93_', ']'), '_123_', '{'), '_125_', '}')"/>
   </function>
   
   <function name="oc:getGlossaryName" as="xs:string">
