@@ -10,10 +10,11 @@
 # this step.
 #SET_addSeeAlsoLinks:false
 
-# Setting to a regex will reorder entries within any/all glossaries 
-# having matching names. They are reordered according to KeySort 
-# in the config.conf file. This is useful when there are multiple 
-# scripts, which will each need different orders for their entries.
+# Setting to a regex will reorder entries within glossaries having 
+# matching names. Setting to 'true' will reorder glossary entries in all 
+# glossaries. They are reordered according to KeySort in the config.conf 
+# file. This is useful when there are multiple scripts, which will each 
+# need different orders for their entries.
 #SET_reorderGlossaryEntries:regex_matching_glossary_names
 
 # If you add a configured CF_addFootnoteLinks.txt control file, then 

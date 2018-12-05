@@ -34,6 +34,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   }
 }
 elsif ($MODDRV =~ /LD/) {
+
   if (!$ConfEntryP->{'KeySort'}) {
     &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
@@ -48,6 +49,7 @@ during the sort comparison. Every other square or curly bracket must be
 escaped by backslash. This means the string to ignore all brackets or 
 parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
   }
+  
   if (!$ConfEntryP->{'LangSortOrder'}) {
     &Error("LangSortOrder is missing from config.conf", "
 Although this config entry has been replaced by KeySort and is 
@@ -56,7 +58,10 @@ required to prevent the breaking of older programs. Its value is just
 that of KeySort, but bracketed groups of regular expressions are not 
 allowed and must be removed.");
   }
-  &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
+  
+  my @keywordDivs = $XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', $XML_PARSER->parse_file($OSIS));
+  if (!@keywordDivs[0]) {&runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);}
+  
   if ($addSeeAlsoLinks) {
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
@@ -69,10 +74,12 @@ allowed and must be removed.");
       copy($DEFAULT_DICTIONARY_WORDS, "$MAININPD/$DICTIONARY_WORDS");
     }
   }
+  
   if ($reorderGlossaryEntries) {
     my %params = ('glossaryRegex' => $reorderGlossaryEntries);
     &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
   }
+  
 }
 else {die "Unhandled ModDrv \"$MODDRV\"\n";}
 
@@ -135,7 +142,7 @@ if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 # If the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
 if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-  my $glossContainsINT = `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
+  my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
 
   # Tell the user about the introduction nav menu feature if it's available and not being used
   if ($MAINMOD && !$glossContainsINT) {
@@ -161,9 +168,13 @@ RUN:./INT.SFM");
   }
 
   &Log("\n");
-  &Note("Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
-  %params = ($glossContainsINT ? ('introScope' => 'INT'):());
-  &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
+  my @navmenus = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $XML_PARSER->parse_file($OSIS));
+  if (!@navmenus[0]) {
+    &Note("Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
+    %params = ($glossContainsINT ? ('introScope' => 'INT'):());
+    &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
+  }
+  else {&Warn("This OSIS file already has ".@navmenus." navmenus and so this step will be skipped!");}
 }
 
 # Checks occur as late as possible in the flow

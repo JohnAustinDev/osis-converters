@@ -78,15 +78,20 @@ sub init_linux_script() {
   
   $MODULETOOLS_GITHEAD = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($MODULETOOLS_GITHEAD);
   
-  $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
-  
-  $CONFFILE = "$INPD/config.conf";
-  
   &initLibXML();
   
   &readBookNamesXML();
 
-  &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
+  if ($SCRIPT_NAME =~ /osis2osis/) {
+    &runOsis2osis('preinit', $INPD);
+    my $dictinpd = "$MAININPD/${MAINMOD}DICT";
+    if ($INPD !~ /DICT$/ && -e "$dictinpd/CF_osis2osis.txt") {
+      &runOsis2osis('preinit', $dictinpd);
+    }
+  }
+  else {
+    &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
+  }
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
   $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
@@ -4316,7 +4321,7 @@ sub writeOsisHeader($\%\%\%\%) {
     my $comp = $confP->{'Companion'};
     my $path = &findCompanionDirectory($comp);
     if (!$path) {
-      &Error("Could not locate $comp project directory as specified in $INPD/config.conf.");
+      &Error("Could not locate config.conf of $comp project directory as specified in $INPD/config.conf.");
       next;
     }
     my %compWorkAttributes = ('osisWork' => $comp);

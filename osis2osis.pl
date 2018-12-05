@@ -19,203 +19,322 @@
 
 # usage: osis2osis.pl [Bible_Directory]
 
-# Run this script to create an OSIS file from a source OSIS file. 
-# There are three possible steps in the process:
-# 1) parse and add Scripture reference links to introductions, 
-# titles, and footnotes. 2) parse and add dictionary links to words 
-# which are described in a separate dictionary module. 3) insert cross 
-# reference links into the OSIS file.
-#
-# Begin by updating the config.conf and CF_osis2osis.txt command 
-# file located in the Bible_Directory (see those files for more info). 
-# Then check the log file: Bible_Directory/OUT_osis2osis.txt.
- 
-# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
-# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
-
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require("$SCRD/utils/simplecc.pl");
 
-my $osis_in = "";
-my $CCIN;
-my $CCOUT;
+if (&runOsis2osis('postinit', $INPD) eq "$TMPDIR/${MOD}_0.xml") {
+  require("$SCRD/scripts/processOSIS.pl");
+}
+else {&ErrorBug("runOsis2osis failed to write OSIS file.");}
 
-$COMMANDFILE = "$INPD/CF_osis2osis.txt";
-if (! -e $COMMANDFILE) {&Error("Cannot proceed without command file: $COMMANDFILE.", '', 1);}
+########################################################################
+########################################################################
 
-open(COMF, "<:encoding(UTF-8)", $COMMANDFILE) || die "Could not open osis2osis command file $COMMANDFILE\n";
-while (<COMF>) {
-  if ($_ =~ /^\s*$/) {next;}
-  elsif ($_ =~ /^#/) {next;}
-  elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|CCTable|CCScript|sourceProject|sfm2all_\w+|CONFIG_\w+|CONFIGCONVERT_\w+|CONFIGdontCONVERT_\w+|CONVERT_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
-    if ($2) {
-      my $par = $1;
-      my $val = $3;
-      $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
-      &Log("INFO: Setting $par to $val\n");
-    }
+
+sub runOsis2osis($$) {
+  $O2O_CurrentContext = shift;
+  my $cfdir = shift;
+  if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
+    &ErrorBug("runOsis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
+    return;
   }
-  elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
-    my $sp = $1;
-    $CCIN = ($sourceProject =~ /^\./ ? "$sourceProject/$sp":"../$sourceProject/$sp");
-    $CCIN = File::Spec->rel2abs($CCIN, $INPD);
-    $CCOUT="./$sp";
-    $CCOUT = File::Spec->rel2abs($CCOUT, $INPD);
-    if ($CCOUT =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
-    
-    &Log("\nINFO: Processing CC $CCIN\n");
-    if (! -e $CCIN) {&Error("Could not find \"$CCIN\" with \"$_\""); next;}
-    if (!$CCTable && !$CCScript) {
-      &Error("Cannot do CC command:\n".$_, "You must first specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>");
-      next;
-    }
+  
+  &Log("\n-----------------------------------------------------\nSTARTING runOsis2osis context=$O2O_CurrentContext, directory=$cfdir)\n\n");
 
-    if ($CCTable) {
-      if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
-      if (! -e $CCTable) {&Error("Could not find \"$CCTable\" with:\n$_"); next;}
-    }
-    
-    if ($CCScript) {
-      if ($CCScript =~ /^\./) {$CCScript = File::Spec->rel2abs($CCScript, $INPD);}
-      if (! -e $CCScript) {&Error("Could not find \"$CCScript\" with:\n$_"); next;}
-    }
-    
-    my $fname = $CCIN; $fname =~ s/^.*\///;
-    
-    if ($fname eq "config.conf") {
-      # By default, all entries are converted except entries beginning with Copyright and Distribution.
-      # CONFIGCONVERT_<entry> will force conversion of that entry.
-      # CONFIGdontCONVERT_<entry> will force that entry to NOT be converted.
-      my $confP = &readConf($CCIN);
-      foreach my $e (keys %{$confP}) {
-        if (${"CONFIGCONVERT_$e"} && ${"CONFIGdontCONVERT_$e"}) {&Error("Both CONFIGCONVERT_ and CONFIGdontCONVERT_ are specified for \"$e\"", "Only one of these can be specified for $e");}
-        if (($e !~ /^(Copyright|Distribution)/ || ${"CONFIGCONVERT_$e"}) && !${${"CONFIGdontCONVERT_$e"}}) {
-          $confP->{$e} = &string_convert($confP->{$e}, $CCTable, $CCScript);
-        }
-      }
-      $confP->{'ModuleName'} = $INPD; $confP->{'ModuleName'} =~ s/^.*?([^\/]+)$/$1/;
-      foreach my $ent (keys %{$confP}) {if (${"CONFIG_$ent"}) {$confP->{$ent} = ${"CONFIG_$ent"};}}
-      &writeConf($CCOUT, $confP);
-      &setConfGlobals(&updateConfData(&readConf($CCOUT)));
-    }
-    elsif ($fname eq "collections.txt") {
-      if (!$sourceProject) {&Error("Unable to update collections.txt.", "Specify SET_sourceProject in $COMMANDFILE"); next;}
-      my $newMod = lc($MOD);
-      if (!open(CI, "<:encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open collections.txt input \"$CCIN\""); next;}
-      if (!open(CO, ">:encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open collections.txt output \"$CCOUT\""); next;}
-      my %col;
-      while(<CI>) {
-        if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
-        else {$_ = &string_convert($_, $CCTable, $CCScript);}
-        print CO $_;
-      }
-      close(CO);
-      close(CI);
-      if (!%col) {&ErrorBug("Did not update Collection names in collections.txt");}
-      else {foreach my $c (sort keys %col) {&Log("Updated Collection \"$c\" to \"".$col{$c}."\"\n");}}
-    }
-    elsif ($fname eq "convert.txt") {
-      if (!open(CI, "<:encoding(UTF-8)", $CCIN)) {&ErrorBug("Could not open convert.txt input \"$CCIN\""); next;}
-      if (!open(CO, ">:encoding(UTF-8)", $CCOUT)) {&ErrorBug("Coult not open convert.txt output \"$CCOUT\""); next;}
-      while(<CI>) {
-        if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
-          my $e=$1; my $v=$2;
-          if ($e !~ /^(Language|Publisher|BookTitlesInOSIS|Epub3|TestamentGroups)$/) {
-            $_ = "$e=".&string_convert($v, $CCTable, $CCScript)."\n";
+  my $commandFile = "$cfdir/CF_osis2osis.txt";
+  if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
+
+  $O2O_CurrentMode = 'MODE_Copy';
+
+  my $newOSIS;
+  open(COMF, "<:encoding(UTF-8)", $commandFile) || die "Could not open osis2osis command file $commandFile\n";
+  while (<COMF>) {
+    if ($_ =~ /^\s*$/) {next;}
+    elsif ($_ =~ /^#/) {next;}
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_CCTable|MODE_Script|MODE_Sub|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+      if ($2) {
+        my $par = $1;
+        my $val = $3;
+        $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
+        &Note("Setting $par to $val");
+        if ($par =~ /^(MODE_CCTable|MODE_Script|MODE_Sub|MODE_Copy)$/) {
+          $O2O_CurrentMode = $par;
+          &Note("Setting conversion mode to $par");
+          if ($par ne 'MODE_Copy') {
+            if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $cfdir);}
+            if (! -e $$par) {&Error("File does not exist: $$par", "Check the SET_$par command path."); next;}
+            if ($par eq 'MODE_Sub') {require($MODE_Sub);}
           }
-          if (${"CONVERT_$e"}) {$_ = "$e=".${"CONVERT_$e"}."\n";}
         }
-        print CO $_;
+        elsif ($par eq 'SKIP_STRINGS_MATCHING') {
+          $$par = decode('utf8', $$par);
+        }
+        elsif ($par =~ /^CONFIG_(?!CONVERT)(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
+        elsif ($par =~ /^CONVERT_(.*)$/) {$O2O_CONVERTS{$1} = $$par;}
       }
-      close(CO);
-      close(CI);
     }
-    else {&file_convert($CCIN, $CCTable, $CCScript, $CCOUT);}
+    elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
+      my $sp = $1;
+      if ($O2O_CurrentContext ne 'preinit') {next;}
+      if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile"); next;}
+      my $spin = $sp; $spin =~ s/(^|\/)[^\/]+DICT\//$1$sourceProjectDICT\//;
+      my $ccin = "$sourceProject/$spin";
+      if ($sourceProject =~ /^\./) {
+        $ccin = File::Spec->rel2abs($ccin, $cfdir);
+      }
+      else {
+        if ($sourceProject =~ /(^|\/)([^\/]+)DICT$/) {
+          $ccin = "$MAININPD/../$2/$ccin";
+        }
+        else {
+          $ccin = "$MAININPD/../$ccin";
+        }
+      }
+      my $ccout="$cfdir/$sp";
+      if ($ccout =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
+      
+      &Note("CC processing mode $O2O_CurrentMode, $ccin -> $ccout");
+      if (! -e $ccin) {&Error("File does not exist: $ccin", "Check your CC command path and sourceProject."); next;}
+      
+      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($ccin, $ccout);}
+      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$ccin\" \"$ccout\"");}
+      else {&convertFileStrings($ccin, $ccout);}
+    }
+    elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
+      my $osis = $1;
+      if ($O2O_CurrentContext ne 'postinit') {next;}
+      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile"); next;}
+      if ($osis =~ /sourceProject/i) {$osis = $sourceProject;}
+      if ($osis =~ /\.xml$/i) {
+        if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $cfdir);}
+      }
+      else {
+        if ($OUTDIR eq "$INPD/output") {
+          if ($sourceProject =~ /(^|\/)([^\/]+)DICT$/) {
+            $osis = "$MAININPD/../$2/$osis/output/$osis.xml";
+          }
+          else {
+            $osis = "$MAININPD/../$osis/output/$osis.xml";
+          }
+        }
+        else {$osis = "$OUTDIR/../$osis/$osis.xml";}
+      }
+      
+      $newOSIS = "$TMPDIR/${MOD}_0.xml";
+      &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $newOSIS");
+      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in paths.pl."); next;}
+      
+      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $newOSIS);}
+      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$osis\" \"$newOSIS\"");}
+      else {&convertFileStrings($osis, $newOSIS);}
+    }
+    else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
   }
-  elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
-    my $osis = $1;
-    if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $COMMANDFILE"); next;}
-    if ($osis =~ /\.xml$/i) {
-      if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $INPD);}
-    }
-    else {
-      if ($OUTDIR eq "$INPD/output") {$osis = "$INPD/../$osis/output/$osis.xml";}
-      else {$osis = "$OUTDIR/../$osis/$osis.xml";}
-    }
-    if (! -e $osis) {&Error("Could not find \"$osis\" with:\n".$_, "You may need to specify OUTDIR in paths.pl."); next;}
-    
-    if (!$CCTable && !$CCScript) {&Error("Cannot do CCOSIS command:\n".$_, "First specify SET_CCTable:<cctable-path>, or SET_CCScript:<script-path>"); next;}
-    
-    if ($CCTable) {
-      if ($CCTable =~ /^\./) {$CCTable = File::Spec->rel2abs($CCTable, $INPD);}
-      if (! -e $CCTable) {&Error("Could not find \"$CCTable\" with:\n$_"); next;}
-    }
-    
-    if ($CCScript) {
-      if ($CCScript =~ /^\./) {$CCScript = File::Spec->rel2abs($CCScript, $INPD);}
-      if (! -e $CCScript) {&Error("Could not find \"$CCScript\" with:\n$_"); next;}
-    }
-    
-    $osis_in = "$TMPDIR/".$MOD."_0.xml";
-    &Log("\nINFO: Processing CCOSIS $osis\n");
-    &file_convert($osis, $CCTable, $CCScript, $osis_in);
-  }
-  elsif ($_ =~ /^OSIS_IN:\s*(.*?)\s*$/) {
-    $osis_in = $1;
-    &Log("\nINFO: Processing OSIS_IN $CCIN\n");
-    if ($osis_in =~ /^\./) {$osis_in = File::Spec->rel2abs($osis_in, $INPD);}
-    if (! -e $osis_in) {&Error("Specified OSIS file $_ not found.", '', 1);}
-    copy($osis_in, "$TMPDIR/".$MOD."_0.xml");
-  }
-  else {&Error("Unhandled command:\n".$_."in $COMMANDFILE", "Change or remove thiis command.");}
+  close(COMF);
+  
+  return $newOSIS;
 }
-close(COMF);
 
-if ($osis_in) {require("$SCRD/scripts/processOSIS.pl");}
+sub convertFileStrings($$) {
+  my $ccin = shift;
+  my $ccout = shift;
+  
+  my $fname = $ccin; $fname =~ s/^.*\///;
+  
+  # OSIS XML
+  if ($fname =~ /\.xml/) {
+    my $xml = $XML_PARSER->parse_file($ccin);
+    
+    # Convert milestone n (except initial [command] part)
+    my @attributes2Convert = $XPC->findnodes('//osis:milestone/@n', $xml);
+    foreach my $attr (@attributes2Convert) {
+      my $value = $attr->getValue();
+      my $com = ($value =~ s/^((\[[^\]]*\])+)// ? $1:'');
+      $attr->setValue($com.&convertStringByMode($value));
+    }
+    &Note("Converted ".@attributes2Convert." milestone n attributes.");
+    
+    # Convert glossary osisRefs and IDs
+    my @a = $XPC->findnodes('//*[@osisRef][contains(@type, "x-gloss")]/@osisRef', $xml);
+    my @b = $XPC->findnodes('//osis:seg[@type="keyword"][@osisID]/@osisID', $xml);
+    my @glossIDs2Convert; push(@glossIDs2Convert, @a, @b);
+    foreach my $id (@glossIDs2Convert) {
+      my $idvalue = $id->getValue();
+      my $work = ($idvalue =~ s/^([^:]+:)// ? $1:'');
+      my $dup = ($idvalue =~ s/(\.dup\d+)$// ? $1:'');
+      $id->setValue($work.&convertID($idvalue).$dup);
+    }
+    &Note("Converted ".@glossIDs2Convert." glossary osisRef values.");
+    
+    # Convert osisRef and ID work prefixes
+    my $w = $sourceProject; $w =~ s/DICT$//;
+    my @ids = $XPC->findnodes('//*[contains(@osisRef, "'.$w.':") or contains(@osisRef, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {my $new = $id->getAttribute('osisRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisRef', $new);}
+    my @ids = $XPC->findnodes('//*[contains(@osisID, "'.$w.':") or contains(@osisID, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {my $new = $id->getAttribute('osisID'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisID', $new);}
+    
+    # Convert all text nodes after Header (unless skipped)
+    my @textNodes = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/following::text()', $xml);
+    foreach my $t (@textNodes) {$t->setData(&convertStringByMode($t->data));}
+    &Note("Converted ".@textNodes." text nodes.");
+    
+    &writeXMLFile($xml, $ccout);
+  }
+  
+  # config.conf
+  elsif ($fname eq "config.conf") {
+    # By default, only entries (Abbreviation|About|Description|CopyrightHolder_<lang-base>) are converted.
+    # CONFIG_<entry> will replace an entry with a new value.
+    # CONFIG_CONVERT_<entry> will convert that entry.
+    # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
+    my $confP = &readConf($ccin);
+    my $langBase = $confP->{'Lang'}; $langBase =~ s/\-.*$//;
+    foreach my $e (keys %{$confP}) {
+      my $new = $confP->{$e};
+      my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
+      my $lcmsp = lc($mainsp);
+      if ($new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg || $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g) {
+        &Note("Modifying entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
+        $confP->{$e} = $new;
+      }
+    }
+    foreach my $e (keys %{$confP}) {
+      if (($e =~ /^(Abbreviation|About|Description|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
+        my $new = &convertStringByMode($confP->{$e});
+        &Note("Converting entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
+        $confP->{$e} = $new;
+      }
+    }
+    foreach my $e (keys %O2O_CONFIGS) {
+      &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
+      $confP->{$e} = $O2O_CONFIGS{$e};
+    }
+    &writeConf($ccout, $confP);
+    &setConfGlobals(&updateConfData(&readConf($ccout)));
+  }
+  
+  # collections.txt
+  elsif ($fname eq "collections.txt") {
+    my $newMod = lc($MOD);
+    if (!open(INF, "<:encoding(UTF-8)", $ccin)) {&Error("Could not open collections.txt input $ccin"); return;}
+    if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open collections.txt output $ccout"); return;}
+    my %col;
+    while(<INF>) {
+      if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
+      elsif ($_ =~ /^(Info|Application-Name)\s*(:.*$)/) {
+        my $entry = $1; my $value = $2;
+        my $newValue = &convertStringByMode($value);
+        $_ = "$entry$newValue\n";
+        &Note("Converted entry $entry\n\t\twas: $value\n\t\tis:  $newValue");
+      }
+      print OUTF $_;
+    }
+    close(INF);
+    close(OUTF);
+    if (!%col) {&Error("Did not update Collection names in collections.txt");}
+    else {foreach my $c (sort keys %col) {&Note("Updated Collection $c to ".$col{$c});}}
+  }
+  
+  # convert.txt
+  elsif ($fname eq "convert.txt") {
+    if (!open(INF, "<:encoding(UTF-8)", $ccin)) {&Error("Could not open convert.txt input $ccin"); return;}
+    if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open convert.txt output $ccout"); return;}
+    while(<INF>) {
+      if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
+        my $e=$1; my $v=$2;
+        if ($e =~ /^(Title|TitleFullPublication\d+)$/) {
+          my $newv = &convertStringByMode($v);
+          $_ = "$e=$newv\n";
+          &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  $newv");
+        }
+        if (${"CONVERT_$e"}) {
+          $_ = "$e=".${"CONVERT_$e"}."\n";
+          $O2O_CONVERTS{$e} = '';
+          &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  ".${"CONVERT_$e"});
+        }
+      }
+      print OUTF $_;
+    }
+    foreach my $e (keys %O2O_CONVERTS) {
+      if (!$e) {next;}
+      print OUTF "$e=".$O2O_CONVERTS{$e}."\n";
+      &Note("Setting entry $e to: ".$O2O_CONVERTS{$e});
+    }
+    close(INF);
+    close(OUTF);
+  }
+  
+  # USFM files
+  elsif ($fname =~ /\.sfm$/) {
+    if (!open(INF,  "<:encoding(UTF-8)", $ccin)) {&Error("Could not open SFM input $ccin"); return;}
+    if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open SFM output $ccout"); return;}
+    while(<INF>) {
+      if ($_ !~ /^\\id/) {
+        my @parts = split(/(\\[\w\d]+)/, $_);
+        foreach my $part (@parts) {
+          if ($part =~ /^(\\[\w\d]+)$/) {next;}
+          $part = &convertStringByMode($part);
+        }
+        $_ = join(//, @parts);
+      }
+      print OUTF $_;
+    }
+    close(INF);
+    close(OUTF);
+  }
+  
+  # other
+  else {
+    &Warn("Converting unknown file type $fname.", "All text in the file will be converted.");
+    if (!open(INF,  "<:encoding(UTF-8)", $ccin)) {&Error("Could not open input $ccin"); return;}
+    if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open output $ccout"); return;}
+    while(<INF>) {print OUTF &convertStringByMode($_);}
+    close(INF);
+    close(OUTF);
+  }
+}
 
-sub string_convert($$$) {
+sub convertID($) {
+  my $osisref = shift;
+  
+  my $decoded = &decodeOsisRef($osisref);
+  my $converted = &convertStringByMode($decoded);
+  my $encoded = &encodeOsisRef($converted);
+  
+  #print encode("utf8", "$osisref, $decoded, $converted, $encoded\n");
+  return $encoded;
+}
+
+sub convertStringByMode($) {
   my $s = shift;
-  my $cctable = shift;
-  my $ccscript = shift;
   
-  if ($cctable) {return &simplecc_convert($s, $cctable);}
-  elsif ($ccscript) {
-    &Log("INFO: Performing string_convert of \"$s\" with \"$ccscript\"\n");
-    my $tmp = $ccscript;
-    $tmp =~ s/\/[^\/]*$//;
-    $tmp .= "/tmp_string_convert";
-    `mkdir $tmp`;
-    
-    open(TMP, ">:encoding(UTF-8)", "$tmp/string_convert_in.txt") || die;
-    print TMP "$s";
-    close(TMP);
-    
-    `"$ccscript" "$tmp/string_convert_in.txt" "$tmp/string_convert_out.txt"`;
-    
-    open(TMP, "<:encoding(UTF-8)", "$tmp/string_convert_out.txt") || die;
-    my $r = join('', <TMP>); 
-    close(TMP);
-   
-    `rm -rf $tmp`;
-
-    return $r;
+  if ($O2O_CurrentMode eq 'MODE_Sub' && !exists(&convertString)) {
+      &Error("<>Function convertString() must be defined when using MODE_Sub.", "
+<>In MODE_Sub you must define a Perl function called 
+convertString(). Then you must tell osis-converters where to find it
+using SET_MODE_Sub:<include-file.pl>");
+    return $s;
   }
-  else {&ErrorBug("osis2osis.pl: No string_convert method");}
+  
+  if ($s =~ /$SKIP_NODES_MATCHING/) {return $s;}
+  
+  my @subs = split(/($SKIP_STRINGS_MATCHING)/, $s);
+  foreach my $sub (@subs) {
+    if ($sub =~ /$SKIP_STRINGS_MATCHING/) {next;}
+    $sub = &convertStringByMode2($sub);
+  }
+  return join('', @subs);
 }
-
-sub file_convert($$$$) {
-  my $in = shift;
-  my $cctable = shift;
-  my $ccscript = shift;
-  my $out = shift;
+sub convertStringByMode2($) {
+  my $s = shift;
   
-  if ($cctable) {&simplecc($in, $cctable, $out);}
-  elsif ($ccscript) {
-    my $cmd = "\"$ccscript\" \"$in\" \"$out\"";
-    &Log("INFO: Performing file_convert with \"$cmd\"\n");
-    `$cmd`;
+  if ($O2O_CurrentMode eq 'MODE_Sub') {
+    return &convertString($s);
   }
-  else {&ErrorBug("osis2osis.pl: No file_convert method");}
+  elsif ($O2O_CurrentMode eq 'MODE_CCTable')  {
+    return &simplecc_convert($s, $MODE_CCTable);
+  }
+  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by convertStringByMode()");}
 }
 
 1;

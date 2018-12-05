@@ -1,0 +1,53 @@
+# This command file is used only when one project is to be built from
+# another project's OSIS file (such as when there are multiple scripts 
+# for a translation).
+
+# Provide the source project
+SET_sourceProject:SRCPRJ
+
+# Typically these don't need to be run again, so turn them off:
+SET_addScripRefLinks:false
+SET_addFootnoteLinks:false
+SET_addDictLinks:false
+SET_addCrossRefs:false
+
+# Select a conversion method. Enable one of the following methods:
+# 1) A custom script to include which contains the convertString()
+# subroutine which is used to convert each string.
+SET_MODE_Sub:./<include-name>.pl
+# 2) A cc-table to read which will be used to convert each string.
+#SET_MODE_CCTable:./<cc-table>
+# 3) A custom script to call on each CC:file and CCOSIS:file that follows. 
+# When this method is used, commands such as CONFIG_<entry> etc. have no
+# effect, since the custom script is expected to handle everything.
+#SET_MODE_Script:./<script-name>.pl
+# 4) Do no conversion, just copy the file
+#SET_MODE_Copy:true
+
+# SET_CONFIG_<entry> commands are used to write entries in config.conf files
+SET_CONFIG_Lang=<lang-script>
+#SET_CONFIG_KeySort=AaBbCcDdEe...
+
+# SET_CONFIG_CONVERT_<entry> commands are used to convert other entries in 
+# config.conf files. By default, only the following entries are converted: 
+# (Abbreviation|About|Description|CopyrightHolder_<lang-base>)
+#SET_CONFIG_CONVERT_ShortPromo:true
+
+# Some strings should not be converted, and should be skipped this way:
+SET_SKIP_STRINGS_MATCHING:(www\.myurl\.com|ISBN)
+
+# Some text nodes should not be converted, and should be skipped this way:
+SET_SKIP_NODES_MATCHING:(www\.myurl\.com|ISBN)
+
+# CC:file commands run the chosen conversion method selected previously
+# on sourceProject files to obtain converted versions of the files.
+CC:./config.conf
+CC:./eBook/convert.txt
+CC:./html/convert.txt
+CC:./GoBible/collections.txt
+
+# This command causes the OSIS file to be converted using the conversion
+# method selected previously. With the 'sourceProject' argument, the 
+# sourceProject OSIS file will be located and converted, otherwise a 
+# path to the OSIS file can be supplied.
+CCOSIS:(<path>|'sourceProject')

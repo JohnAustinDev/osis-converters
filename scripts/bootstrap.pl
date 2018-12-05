@@ -53,6 +53,8 @@ $SCRIPT =~ s/\\/\//g;
 $SCRD = File::Spec->rel2abs($SCRD);
 $SCRD =~ s/\\/\//g;
 
+$SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
+
 # Set MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
 # checkAndWriteDefaults() in case a new dictionary is discovered in the 
 # USFM).
@@ -72,6 +74,9 @@ $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
 
 require "$SCRD/scripts/common_opsys.pl";
+
+$CONFFILE = "$INPD/config.conf";
+
 if (!&init_opsys()) {exit;}
 
 1;

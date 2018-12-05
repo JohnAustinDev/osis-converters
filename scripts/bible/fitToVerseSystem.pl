@@ -384,7 +384,9 @@ sub orderBooksPeriphs($$$) {
           if (!$periphFile->getAttribute('osisRef')) {
             $periphFile->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
           }
-          else {&Error("Introduction comment specifies scope == $xpath, but introduction already has osisRef=\"".$periphFile->getAttribute('osisRef')."\"");}
+          elsif ($periphFile->getAttribute('osisRef') ne $xpath) {
+            &Error("Introduction comment specifies scope == $xpath, but introduction already has osisRef=\"".$periphFile->getAttribute('osisRef')."\"");
+          }
           next;
         }       
         if ($xpath eq "osis:header") {

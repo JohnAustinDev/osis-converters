@@ -40,12 +40,13 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
       [(descendant::*|following::*)[self::chapter[@sID]][1] &#60;&#60; (descendant::text()|following::text())[normalize-space()][not(ancestor-or-self::title)][1]]"/>
       
   <!-- title|item|p|l|q are the introduction elements output by usfm2osis.py -->
-  <variable name="introElements" as="element()*" select="//(title|item|p|l|q)[not(ancestor::header)]
+  <variable name="introElements" as="element()*" select="//(title|item|p|l|q)[not(ancestor::header)][not(ancestor::div[@scope='NAVMENU'])][not(ancestor::*[@subType='x-navmenu'])]
       [. &#60;&#60; (ancestor::div[starts-with(@type, 'book')][1]|ancestor::osisText)[last()]/(descendant::div[starts-with(@type, 'book')]|descendant::chapter[@sID])[1]]"/>
       
   <variable name="addIntroAttrib" as="element()*" select="$introElements[not(@subType) or @subType != 'x-introduction'][not(generate-id(.) = $moveDivs/title[1]/generate-id())]"/>
       
-  <variable name="removeIntroAttrib" as="element()*" select="//(title|item|p|l|q)[@subType='x-introduction'] except $introElements"/>
+  <variable name="removeIntroAttrib" as="element()*" select="//(title|item|p|l|q)[not(ancestor::header)][not(ancestor::div[@scope='NAVMENU'])][not(ancestor::*[@subType='x-navmenu'])]
+      [@subType='x-introduction'] except $introElements"/>
   
   <variable name="addCanonical" as="element()*" select="$introElements[not(@canonical)][ancestor::div[@type='book'][@canonical = 'true']]"/>
 
@@ -65,7 +66,7 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
     
     <!-- Check and log introduction attributes -->
     <if test="count($addIntroAttrib[@subType != 'x-introduction'])">
-      <call-template name="Error"><with-param name="msg">Some introduction elements have a subType that is not x-introduction: <value-of select="distinct-values($addIntroAttrib[@subType != 'x-introduction']/local-name())"/></with-param></call-template>
+      <call-template name="Error"><with-param name="msg">Some introduction elements have a subType that is not x-introduction: <for-each select="$addIntroAttrib[@subType != 'x-introduction']"><text>&#xa;</text><value-of select="oc:printNode(.)"/></for-each></with-param></call-template>
     </if>
     <call-template name="Report"><with-param name="msg"><value-of select="count($addIntroAttrib)"/> instance(s) of non-introduction USFM tags used in introductions.</with-param></call-template>
     <if test="$addIntroAttrib">
