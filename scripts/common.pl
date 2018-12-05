@@ -119,11 +119,13 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &checkProjectConfiguration();
   
   # Set default to 'on' for the following OSIS processing steps
-  $addCrossRefs = "on_by_default";
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
   foreach my $s (@CF_files) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
-  if ($INPD eq $DICTINPD) {$addSeeAlsoLinks = 'on_by_default';}
-  elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
+  if ($SCRIPT_NAME !~ /osis2osis/) {
+    $addCrossRefs = "on_by_default";
+    if ($INPD eq $DICTINPD) {$addSeeAlsoLinks = 'on_by_default';}
+    elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
+  }
   
   my $appendlog = ($LOGFILE ? 1:0);
   if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}

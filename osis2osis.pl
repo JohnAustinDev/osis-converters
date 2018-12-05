@@ -44,30 +44,39 @@ sub runOsis2osis($$) {
   my $commandFile = "$cfdir/CF_osis2osis.txt";
   if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
 
+  # This subroutine is run two times, for possibly two modules, so settings should never carry over.
+  my @wipeGlobals;
   $O2O_CurrentMode = 'MODE_Copy';
-
+  undef(%O2O_CONFIGS);
+  undef(%O2O_CONVERTS);
+  
   my $newOSIS;
   open(COMF, "<:encoding(UTF-8)", $commandFile) || die "Could not open osis2osis command file $commandFile\n";
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_CCTable|MODE_Script|MODE_Sub|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
+        
+        # be sure to wipe subroutine specific globals after we're done, so they don't carry over to next call
+        if ($par !~ /(sfm2all_\w+|DEBUG|addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder)/) {
+          push(@wipeGlobals, $par);
+        }
         $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Note("Setting $par to $val");
-        if ($par =~ /^(MODE_CCTable|MODE_Script|MODE_Sub|MODE_Copy)$/) {
+        if ($par =~ /^(MODE_CCTable|MODE_Script|MODE_Transcode|MODE_Copy)$/) {
           $O2O_CurrentMode = $par;
           &Note("Setting conversion mode to $par");
           if ($par ne 'MODE_Copy') {
             if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $cfdir);}
             if (! -e $$par) {&Error("File does not exist: $$par", "Check the SET_$par command path."); next;}
-            if ($par eq 'MODE_Sub') {require($MODE_Sub);}
+            if ($par eq 'MODE_Transcode') {require($MODE_Transcode);}
           }
         }
-        elsif ($par eq 'SKIP_STRINGS_MATCHING') {
-          $$par = decode('utf8', $$par);
+        elsif ($par =~ /(SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING)/) {
+          $$par =~ s/(?<!\\)\((?!\?)/(?:/g; # Change groups to non-capture!
         }
         elsif ($par =~ /^CONFIG_(?!CONVERT)(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
         elsif ($par =~ /^CONVERT_(.*)$/) {$O2O_CONVERTS{$1} = $$par;}
@@ -133,6 +142,7 @@ sub runOsis2osis($$) {
     else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
   }
   close(COMF);
+  foreach my $par (@wipeGlobals) {$$par = '';}
   
   return $newOSIS;
 }
@@ -152,7 +162,7 @@ sub convertFileStrings($$) {
     foreach my $attr (@attributes2Convert) {
       my $value = $attr->getValue();
       my $com = ($value =~ s/^((\[[^\]]*\])+)// ? $1:'');
-      $attr->setValue($com.&convertStringByMode($value));
+      $attr->setValue($com.&transcodeStringByMode($value));
     }
     &Note("Converted ".@attributes2Convert." milestone n attributes.");
     
@@ -177,8 +187,12 @@ sub convertFileStrings($$) {
     
     # Convert all text nodes after Header (unless skipped)
     my @textNodes = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/following::text()', $xml);
-    foreach my $t (@textNodes) {$t->setData(&convertStringByMode($t->data));}
+    foreach my $t (@textNodes) {$t->setData(&transcodeStringByMode($t->data));}
     &Note("Converted ".@textNodes." text nodes.");
+    
+    # Translate src attributes (for images etc.)
+    my @srcs = $XPC->findnodes('//@src', $xml);
+    foreach my $src (@srcs) {$src->setValue(&translateStringByMode($src->getValue()));}
     
     &writeXMLFile($xml, $ccout);
   }
@@ -202,7 +216,7 @@ sub convertFileStrings($$) {
     }
     foreach my $e (keys %{$confP}) {
       if (($e =~ /^(Abbreviation|About|Description|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
-        my $new = &convertStringByMode($confP->{$e});
+        my $new = &transcodeStringByMode($confP->{$e});
         &Note("Converting entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
         $confP->{$e} = $new;
       }
@@ -225,7 +239,7 @@ sub convertFileStrings($$) {
       if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
       elsif ($_ =~ /^(Info|Application-Name)\s*(:.*$)/) {
         my $entry = $1; my $value = $2;
-        my $newValue = &convertStringByMode($value);
+        my $newValue = &transcodeStringByMode($value);
         $_ = "$entry$newValue\n";
         &Note("Converted entry $entry\n\t\twas: $value\n\t\tis:  $newValue");
       }
@@ -245,7 +259,7 @@ sub convertFileStrings($$) {
       if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
         my $e=$1; my $v=$2;
         if ($e =~ /^(Title|TitleFullPublication\d+)$/) {
-          my $newv = &convertStringByMode($v);
+          my $newv = &transcodeStringByMode($v);
           $_ = "$e=$newv\n";
           &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  $newv");
         }
@@ -275,7 +289,7 @@ sub convertFileStrings($$) {
         my @parts = split(/(\\[\w\d]+)/, $_);
         foreach my $part (@parts) {
           if ($part =~ /^(\\[\w\d]+)$/) {next;}
-          $part = &convertStringByMode($part);
+          $part = &transcodeStringByMode($part);
         }
         $_ = join(//, @parts);
       }
@@ -290,7 +304,7 @@ sub convertFileStrings($$) {
     &Warn("Converting unknown file type $fname.", "All text in the file will be converted.");
     if (!open(INF,  "<:encoding(UTF-8)", $ccin)) {&Error("Could not open input $ccin"); return;}
     if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open output $ccout"); return;}
-    while(<INF>) {print OUTF &convertStringByMode($_);}
+    while(<INF>) {print OUTF &transcodeStringByMode($_);}
     close(INF);
     close(OUTF);
   }
@@ -300,45 +314,67 @@ sub convertID($) {
   my $osisref = shift;
   
   my $decoded = &decodeOsisRef($osisref);
-  my $converted = &convertStringByMode($decoded);
+  my $converted = &transcodeStringByMode($decoded);
   my $encoded = &encodeOsisRef($converted);
   
   #print encode("utf8", "$osisref, $decoded, $converted, $encoded\n");
   return $encoded;
 }
 
-sub convertStringByMode($) {
+sub translateStringByMode($) {
   my $s = shift;
   
-  if ($O2O_CurrentMode eq 'MODE_Sub' && !exists(&convertString)) {
-      &Error("<>Function convertString() must be defined when using MODE_Sub.", "
-<>In MODE_Sub you must define a Perl function called 
-convertString(). Then you must tell osis-converters where to find it
-using SET_MODE_Sub:<include-file.pl>");
+  if (exists(&translate)) {return &translate($s);}
+  elsif ($O2O_CurrentMode eq 'MODE_Transcode') {
+      &Warn("<>Function translate() is usally defined when using MODE_Transcode, but it is not.", "
+<>In MODE_Transcode you can define a Perl function called 
+translate() which will translate src attributes and other metadata. To 
+use it, you must tell osis-converters where to find it by using 
+SET_MODE_Transcode:<include-file.pl>");
+    return $s;
+  }
+  elsif ($O2O_CurrentMode eq 'MODE_CCTable') {return &transcodeStringByMode($s);}
+  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by translateStringByMode()");}
+}
+
+sub transcodeStringByMode($) {
+  my $s = shift;
+  
+  if ($O2O_CurrentMode eq 'MODE_Transcode' && !exists(&transcode)) {
+      &Error("<>Function transcode() must be defined when using MODE_Transcode.", "
+<>In MODE_Transcode you must define a Perl function called 
+transcode(). Then you must tell osis-converters where to find it
+using SET_MODE_Transcode:<include-file.pl>");
     return $s;
   }
   
-  if ($SKIP_NODES_MATCHING && $s =~ /$SKIP_NODES_MATCHING/) {return $s;}
+  if ($SKIP_NODES_MATCHING && $s =~ /$SKIP_NODES_MATCHING/) {
+    &Note("Skipping node: $s");
+    return $s;
+  }
   
-  if (!$SKIP_STRINGS_MATCHING) {return &convertStringByMode2($s);}
+  if (!$SKIP_STRINGS_MATCHING) {return &transcodeStringByMode2($s);}
   
   my @subs = split(/($SKIP_STRINGS_MATCHING)/, $s);
   foreach my $sub (@subs) {
-    if ($sub =~ /$SKIP_STRINGS_MATCHING/) {next;}
-    $sub = &convertStringByMode2($sub);
+    if ($sub =~ /$SKIP_STRINGS_MATCHING/) {
+      &Note("Skipping string: $sub");
+      next;
+    }
+    $sub = &transcodeStringByMode2($sub);
   }
   return join('', @subs);
 }
-sub convertStringByMode2($) {
+sub transcodeStringByMode2($) {
   my $s = shift;
   
-  if ($O2O_CurrentMode eq 'MODE_Sub') {
-    return &convertString($s);
+  if ($O2O_CurrentMode eq 'MODE_Transcode') {
+    return &transcode($s);
   }
   elsif ($O2O_CurrentMode eq 'MODE_CCTable')  {
     return &simplecc_convert($s, $MODE_CCTable);
   }
-  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by convertStringByMode()");}
+  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by transcodeStringByMode()");}
 }
 
 1;
