@@ -90,15 +90,17 @@ sub runOsis2osis($$) {
           $ccin = "$MAININPD/../$ccin";
         }
       }
-      my $ccout="$cfdir/$sp";
-      if ($ccout =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
       
-      &Note("CC processing mode $O2O_CurrentMode, $ccin -> $ccout");
-      if (! -e $ccin) {&Error("File does not exist: $ccin", "Check your CC command path and sourceProject."); next;}
-      
-      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($ccin, $ccout);}
-      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$ccin\" \"$ccout\"");}
-      else {&convertFileStrings($ccin, $ccout);}
+      foreach my $in (glob $ccin) {
+        my $opath = $in; $opath =~ s/^.*?\/$sourceProject\///; $opath =~ s/^$sourceProject(DICT)/$MAINMOD$1/;
+        my $out="$cfdir/$opath";
+        &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
+        if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject."); next;}
+        if ($out =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
+        if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($in, $out);}
+        elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$in\" \"$out\"");}
+        else {&convertFileStrings($in, $out);}
+      }
     }
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
