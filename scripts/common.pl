@@ -82,20 +82,10 @@ sub init_linux_script() {
   &initLibXML();
   
   &readBookNamesXML();
-  if ($SCRIPT_NAME =~ /sfm2all/) {
-    if (-e "$DICTINPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $DICTINPD);}
-    if (-e "$MAININPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $MAININPD);} 
-    else {&checkAndWriteDefaults();}
-  }
-  elsif ($SCRIPT_NAME =~ /osis2osis/) {
-    &runOsis2osis('preinit', $INPD);
-    if ($INPD !~ /DICT$/ && -e "$DICTINPD/CF_osis2osis.txt") {
-      &runOsis2osis('preinit', $DICTINPD);
-    }
-  }
-  else {
-    &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
-  }
+  
+  if ($INPD !~ /DICT$/ && -e "$DICTINPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $DICTINPD);}
+  if (-e "$MAININPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $MAININPD);}
+  else {&checkAndWriteDefaults();} # do this after readBookNamesXML() so %BOOKNAMES is set
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
   $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');

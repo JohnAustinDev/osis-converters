@@ -181,6 +181,7 @@ sub convertFileStrings($$) {
     # Translate src attributes (for images etc.)
     my @srcs = $XPC->findnodes('//@src', $xml);
     foreach my $src (@srcs) {$src->setValue(&translateStringByMode($src->getValue()));}
+    &Note("Translated ".@srcs." src attributes.");
     
     &writeXMLFile($xml, $ccout);
   }
