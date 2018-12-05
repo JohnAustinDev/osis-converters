@@ -84,7 +84,7 @@ sub init_linux_script() {
   &readBookNamesXML();
   
   if ($INPD !~ /DICT$/ && -e "$DICTINPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $DICTINPD);}
-  if (-e "$MAININPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $MAININPD);}
+  if (-e "$INPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $INPD);}
   else {&checkAndWriteDefaults();} # do this after readBookNamesXML() so %BOOKNAMES is set
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value

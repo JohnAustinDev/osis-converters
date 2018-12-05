@@ -70,7 +70,11 @@ if ($sfm2all_RUN) {
   foreach my $cp (@runProjects) {
     if ($cp =~ /^\./) {$cp = File::Spec->rel2abs($cp, $INPD);}
     else {$cp = "$INPD/../$cp"}
-    if (-e $cp) {`"$SCRD/sfm2all.pl" "$cp"`;} # Run as a separate process with its own separate logfile
+    if (-e $cp) {
+      my $cmd = "\"$SCRD/sfm2all.pl\" \"$cp\"";
+      &Log("\n-----------------------------------------------------\nRUNNING $cmd\n\n");
+      `$cmd`; # Run as a separate process with its own separate logfile
+    }
   }
 }
 

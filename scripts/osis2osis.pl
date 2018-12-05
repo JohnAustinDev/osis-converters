@@ -27,13 +27,13 @@ sub runOsis2osis($$) {
     return;
   }
   
-  &Log("\n-----------------------------------------------------\nSTARTING runOsis2osis context=$O2O_CurrentContext, directory=$cfdir)\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING runOsis2osis context=$O2O_CurrentContext, directory=$cfdir\n\n");
 
   my $commandFile = "$cfdir/CF_osis2osis.txt";
   if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
 
   # This subroutine is run two times, for possibly two modules, so settings should never carry over.
-  my @wipeGlobals;
+  my @wipeGlobals = ('sourceProjectPath');
   $O2O_CurrentMode = 'MODE_Copy';
   undef(%O2O_CONFIGS);
   undef(%O2O_CONVERTS);
@@ -68,27 +68,34 @@ sub runOsis2osis($$) {
         }
         elsif ($par =~ /^CONFIG_(?!CONVERT)(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
         elsif ($par =~ /^CONVERT_(.*)$/) {$O2O_CONVERTS{$1} = $$par;}
+        elsif ($par eq 'sourceProject') {
+          # osis2osis depends on sourceProject OSIS file, and also on it's sfm hierarchy, so copy that
+          $sourceProjectPath = $$par;
+          if ($sourceProjectPath =~ /^\./) {
+            $sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $cfdir);
+          }
+          else {
+            if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
+              $sourceProjectPath = "$MAININPD/../$2/$$par";
+            }
+            else {
+              $sourceProjectPath = "$MAININPD/../$$par";
+            }
+          }
+          if (! -d $sourceProjectPath) {
+            &Error("sourceProject $sourceProjectPath does not exist.", "'SET_sourceProject:$$par' must be the name of, or path to, an existing project.", 1);
+          }
+          if ($sourceProjectPath !~ /DICT$/) {&makeDirs("$sourceProjectPath/sfm", $INPD);}
+        }
       }
     }
     elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
       my $sp = $1;
       if ($O2O_CurrentContext ne 'preinit') {next;}
       if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile"); next;}
-      my $spin = $sp; $spin =~ s/(^|\/)[^\/]+DICT\//$1$sourceProjectDICT\//;
-      my $ccin = "$sourceProject/$spin";
-      if ($sourceProject =~ /^\./) {
-        $ccin = File::Spec->rel2abs($ccin, $cfdir);
-      }
-      else {
-        if ($sourceProject =~ /(^|\/)([^\/]+)DICT$/) {
-          $ccin = "$MAININPD/../$2/$ccin";
-        }
-        else {
-          $ccin = "$MAININPD/../$ccin";
-        }
-      }
+      my $spin = $sp; $spin =~ s/(^|\/)[^\/]+DICT\//$1${sourceProject}DICT\//;
       
-      foreach my $in (glob $ccin) {
+      foreach my $in (glob "$sourceProjectPath/$spin") {
         my $opath = $in; $opath =~ s/^.*?\/$sourceProject\///; $opath =~ s/^$sourceProject(DICT)/$MAINMOD$1/;
         my $out="$cfdir/$opath";
         &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
@@ -133,6 +140,26 @@ sub runOsis2osis($$) {
   foreach my $par (@wipeGlobals) {$$par = '';}
   
   return $newOSIS;
+}
+
+sub makeDirs($$) {
+  my $indir = shift;
+  my $dest = shift;
+  
+  my $d = $indir; $d =~ s/\/$//; $d =~ s/^.*\///;
+  if (-d $indir && ! -e "$dest/$d") {
+    mkdir("$dest/$d");
+    &Note("Making empty sfm directory $dest/$d");
+  }
+  if (opendir(DIR, $indir)) {
+    my @subdirs = readdir(DIR);
+    closedir(DIR);
+    foreach my $subdir (@subdirs) {
+      if ($subdir !~ /^\./ && -d "$indir/$subdir") {
+        &makeDirs("$indir/$subdir", "$dest/$d");
+      }
+    }
+  }
 }
 
 sub convertFileStrings($$) {
