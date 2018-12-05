@@ -84,9 +84,10 @@
         <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
       </variable>
       <variable name="charRegexes" as="element(me:regex)*">
+        <!-- split KeySort string into 3 groups: chr | [] | {} -->
         <analyze-string select="oc:encodeKS($keySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
           <matching-substring>
-            <if test="not(regex-group(3))">
+            <if test="not(regex-group(3))"><!-- if group(3) is non empty, this is an ignore group -->
               <me:regex>
                 <attribute name="regex" select="oc:decodeKS(if (regex-group(2)) then substring(., 2, string-length(.)-2) else .)"/>
                 <attribute name="position" select="position()"/>
@@ -95,9 +96,10 @@
           </matching-substring>
         </analyze-string>
       </variable>
+      <!-- re-order from longest regex to shortest -->
       <variable name="long2shortCharRegexes" as="element(me:regex)*">
         <for-each select="$charRegexes">     
-          <sort select="string-length(.//@regex)" data-type="number" order="descending"/> 
+          <sort select="string-length(./@regex)" data-type="number" order="descending"/> 
           <copy-of select="."/>
         </for-each>
       </variable>
@@ -120,7 +122,6 @@
                 <call-template name="Error">
                   <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$keySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
                   <with-param name="exp">Add the missing character to the config.conf file's KeySort entry. Place it where it belongs in the order of characters.</with-param>
-                  <with-param name="die" select="'yes'"/>
                 </call-template>
               </when>
               <otherwise><value-of select="."/></otherwise>

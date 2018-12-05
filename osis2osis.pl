@@ -316,7 +316,9 @@ using SET_MODE_Sub:<include-file.pl>");
     return $s;
   }
   
-  if ($s =~ /$SKIP_NODES_MATCHING/) {return $s;}
+  if ($SKIP_NODES_MATCHING && $s =~ /$SKIP_NODES_MATCHING/) {return $s;}
+  
+  if (!$SKIP_STRINGS_MATCHING) {return &convertStringByMode2($s);}
   
   my @subs = split(/($SKIP_STRINGS_MATCHING)/, $s);
   foreach my $sub (@subs) {
