@@ -70,6 +70,7 @@ $VSYS{'end_vs'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
+require("$SCRD/scripts/osis2osis.pl");
 
 sub init_linux_script() {
   chdir($SCRD);
@@ -81,12 +82,15 @@ sub init_linux_script() {
   &initLibXML();
   
   &readBookNamesXML();
-
-  if ($SCRIPT_NAME =~ /osis2osis/) {
+  if ($SCRIPT_NAME =~ /sfm2all/) {
+    if (-e "$DICTINPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $DICTINPD);}
+    if (-e "$MAININPD/CF_osis2osis.txt") {&runOsis2osis('preinit', $MAININPD);} 
+    else {&checkAndWriteDefaults();}
+  }
+  elsif ($SCRIPT_NAME =~ /osis2osis/) {
     &runOsis2osis('preinit', $INPD);
-    my $dictinpd = "$MAININPD/${MAINMOD}DICT";
-    if ($INPD !~ /DICT$/ && -e "$dictinpd/CF_osis2osis.txt") {
-      &runOsis2osis('preinit', $dictinpd);
+    if ($INPD !~ /DICT$/ && -e "$DICTINPD/CF_osis2osis.txt") {
+      &runOsis2osis('preinit', $DICTINPD);
     }
   }
   else {
