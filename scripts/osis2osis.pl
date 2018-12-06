@@ -32,7 +32,7 @@ sub runOsis2osis($$) {
   my $commandFile = "$cfdir/CF_osis2osis.txt";
   if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
 
-  # This subroutine is run two times, for possibly two modules, so settings should never carry over.
+  # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
   my @wipeGlobals = ('sourceProjectPath');
   $O2O_CurrentMode = 'MODE_Copy';
   undef(%O2O_CONFIGS);
@@ -90,14 +90,13 @@ sub runOsis2osis($$) {
       }
     }
     elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
-      my $sp = $1;
+      my $ccpath = $1;
       if ($O2O_CurrentContext ne 'preinit') {next;}
       if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile"); next;}
-      my $spin = $sp; $spin =~ s/(^|\/)[^\/]+DICT\//$1${sourceProject}DICT\//;
+      my $inpath = $ccpath; $inpath =~ s/^(\.\/)[^\/]+DICT\//$1${sourceProject}DICT\//; # special case of CCing a DICT file from the MAIN CC_osis2osis.txt file
       
-      foreach my $in (glob "$sourceProjectPath/$spin") {
-        my $opath = $in; $opath =~ s/^.*?\/$sourceProject\///; $opath =~ s/^$sourceProject(DICT)/$MAINMOD$1/;
-        my $out="$cfdir/$opath";
+      foreach my $in (glob "$sourceProjectPath/$inpath") {
+        my $out = $in; $out =~ s/\Q$sourceProjectPath\E\//$cfdir\//; $out =~ s/^\/${sourceProject}DICT\//\/$DICTMOD\//;
         &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
         if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject."); next;}
         if ($out =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}

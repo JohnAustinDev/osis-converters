@@ -29,12 +29,12 @@ CombinedGlossaryTitle=Glossary
 #CreateSeparateBooks=false
 
 # CreateFullPublicationN tells osis-converters to create another eBook 
-# containing everything pertaining to the given scope. N is any integer 
-# (there can be multiple publications). NOTE: if a cover image for any
-# publication is placed in the eBook directory having a title which
-# matches this scope, it will be used as the cover for the eBook. See
-# example in the note above.
-#CreateFullPublication1=Matt-Rev
+# containing everything pertaining to the given SWORD scope. N is any 
+# integer (there can be multiple publications). NOTE: if a cover image 
+# for any publication is placed in the eBook directory having a title 
+# which matches this scope, it will be used as the cover for the eBook. 
+# See example in the note above.
+#CreateFullPublication1=Ruth Esther Jonah
 
 # TitleFullPublicationN gives the title for the publication created by 
 # CreateFullPublicationN=scope (see above).
