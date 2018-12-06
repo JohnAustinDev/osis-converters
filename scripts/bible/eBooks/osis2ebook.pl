@@ -111,7 +111,7 @@ else {
 }
 
 # Start forming the command string
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF).($CONFILE ? " --config-file ".&escfile($CONFILE):"")." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --embed-all-fonts --subset-embedded-fonts";
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF).($CONFILE ? " --config-file ".&escfile($CONFILE):"")." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --subset-embedded-fonts";
 
 $COMMAND .= ' --level1-toc "//*[@title=\'toclevel-1\']" --level2-toc "//*[@title=\'toclevel-2\']" --level3-toc "//*[@title=\'toclevel-3\']"';
 

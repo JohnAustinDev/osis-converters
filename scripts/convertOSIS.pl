@@ -145,11 +145,14 @@ sub OSIS_To_ePublication($$$$) {
   # copy font if specified
   if ($FONTS && $ConfEntryP->{"Font"}) {
     &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
-    if (&runningInVagrant()) {
-      &shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
-      my $home = &shell("echo \$HOME", 3); chomp($home);
-      &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");
-    }
+    # The following allows Calibre to embed fonts (which must be installed locally) when 
+    # the '--embed-all-fonts' flag is used with ebook-convert. This has been commented out
+    # (and the flag removed from ebook-convert) because embeded fonts are unnecessary 
+    # when font files are explicitly provided, and embeding never worked right anyway.
+    #&shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
+    #my $home = &shell("echo \$HOME", 3); chomp($home);
+    #&Note("Calibre can only embed fonts that are installed. Installing ".$ConfEntryP->{"Font"}." to host.");
+    #&copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");
     if (open(CSS, ">$tmp/css/font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
       foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {

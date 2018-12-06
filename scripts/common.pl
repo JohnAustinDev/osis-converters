@@ -238,10 +238,10 @@ sub checkFont($) {
     opendir(DIR, $FONTS);
     my @fonts = readdir(DIR);
     closedir(DIR);
-    my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic');
+    my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic', 'BI' => 'bold italic', 'IB' => 'bold italic');
     foreach my $f (@fonts) {
       if ($f =~ /^\./) {next;}
-      if ($f =~ /^(.*?)(\-([ribRIB]))?\.([^\.]+)$/) {
+      if ($f =~ /^(.*?)(\-([ribRIB]{1,2}))?\.([^\.]+)$/) {
         my $n = $1; my $t = ($2 ? $3:'R'); my $ext = $4;
         if ($2 && uc($3) eq 'R') {
           &Error("Regular font $f should not have the $2 extension.", "Change the name of the font file from $f to $n.$ext");
@@ -976,7 +976,7 @@ sub copyFont($$$$$) {
     }
     &copy("$fontdir/$f", "$outdir/$fdest");
     $copied++;
-    &Note("Copied font \"$outdir/$fdest\"");
+    &Note("Copied font file $f to \"$outdir/$fdest\"");
   }
   
   &Report("Copied \"$copied\" font file(s) to \"$outdir\".\n");
