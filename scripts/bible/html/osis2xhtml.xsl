@@ -130,11 +130,12 @@
         </xsl:for-each>
         <xsl:for-each select="tokenize($css, '\s*,\s*')">
           <xsl:choose>
+            <!-- In the manifest, css file paths are absolute (do not start with . or /) but font files are relative (begin with .) -->
             <xsl:when test="ends-with(lower-case(.), 'css')">
               <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="text/css"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'ttf')">
-              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/x-font-ttf"/>
+              <item href="{if (starts-with(., './')) then . else concat('./', .)}" id="{me:id(.)}" media-type="application/x-font-truetype"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'otf')">
               <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
