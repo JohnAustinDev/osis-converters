@@ -273,7 +273,7 @@ sub convertFileStrings($$) {
     while(<INF>) {
       if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
         my $e=$1; my $v=$2;
-        if ($e =~ /^(Title|TitleFullPublication\d+)$/) {
+        if ($e =~ /^(CombinedGlossaryTitle|TitleFullPublication\d+|Title)$/) {
           my $newv = &transcodeStringByMode($v);
           $_ = "$e=$newv\n";
           &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  $newv");
