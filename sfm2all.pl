@@ -73,7 +73,9 @@ if ($sfm2all_RUN) {
     if (-e $cp) {
       my $cmd = "\"$SCRD/sfm2all.pl\" \"$cp\"";
       &Log("\n-----------------------------------------------------\nRUNNING $cmd\n\n");
-      `$cmd`; # Run as a separate process with its own separate logfile
+      open(SFM2ALL, "$cmd |");
+      while(<SFM2ALL>) {print $_;}
+      close(SFM2ALL);
     }
   }
 }
