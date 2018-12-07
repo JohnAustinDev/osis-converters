@@ -2033,7 +2033,7 @@ sub convertExplicitGlossaryElements(\@) {
     &addDictionaryLinks(\@tn, 1, (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0])}[0] ? 1:0));
     if ($before eq $g->parentNode->toString()) {
       &Error("Failed to convert explicit glossary index: $g at text node=".@tn[0]->data."", 
-"Add the proper entry to DictionaryWords.xml to match this text 
+"<>Add the proper entry to DictionaryWords.xml to match this text 
 and create a hyperlink to the correct glossary entry. If desired you can 
 use the attribute 'onlyExplicit' to match this term only where it is 
 explicitly marked in the text as a glossary index, and nowhere else. 

@@ -5,6 +5,10 @@ require("$SCRD/scripts/bible/addDictLinks.pl");
 require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 require("$SCRD/scripts/bible/addCrossRefs.pl");
 
+# MOD_0.xml is raw converter output
+$OSIS = "$TMPDIR/".$MOD."_0.xml";
+&runAnyUserScriptsAt("preprocess", \$OSIS);
+
 my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_bible'));
 
 %HTMLCONV  = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
@@ -12,8 +16,6 @@ my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_
 $TOCNUMBER = ($EBOOKCONV{'TOC'} ? $EBOOKCONV{'TOC'}:$DEFAULT_TOCNUMBER);
 $TITLECASE = ($EBOOKCONV{'TitleCase'} ? $EBOOKCONV{'TitleCase'}:$DEFAULT_TITLECASE);
 
-# MOD_0.xml is raw converter output
-$OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");

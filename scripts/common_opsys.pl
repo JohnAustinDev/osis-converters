@@ -402,6 +402,9 @@ sub Error($$$) {
   my $errmsg = shift;
   my $solmsg = shift;
   my $doDie = shift;
+  
+  # Solution msgs beginning with <> will only be output once
+  if ($solmsg =~ s/^<>//) {if ($ERR_CHECK{$solmsg}) {$solmsg='';} else {$ERR_CHECK{$solmsg}++;}}
 
   &Log("\nERROR: $errmsg\n", 1);
   if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
@@ -414,6 +417,9 @@ sub ErrorBug($$) {
   my $errmsg = shift;
   my $solmsg = shift;
   my $doDie = shift;
+  
+  # Solution msgs beginning with <> will only be output once
+  if ($solmsg =~ s/^<>//) {if ($ERR_CHECK{$solmsg}) {$solmsg='';} else {$ERR_CHECK{$solmsg}++;}}
   
   &Log("\nERROR (UNEXPECTED): $errmsg\n", 1);
   if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
