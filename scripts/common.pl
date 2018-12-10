@@ -2448,10 +2448,10 @@ sub addDictionaryLink(\$$$$\@) {
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if (!$m->{'multiple'}) {
-        if (@contextNote > 0) {if ($MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
+        if (@contextNote > 0) {if ($MULTIPLES{$m->{'osisRef'} . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
         # $removeLater disallows links within any phrase that was previously skipped as a multiple.
         # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
-        elsif ($MULTIPLES{$m->{'node'}->unique_key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
+        elsif ($MULTIPLES{$m->{'osisRef'}}) {&dbg("filtered at 40\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
         my $gs = scalar(@{$glossaryScopeP}); my $ic = &inContext($context, $m->{'contexts'}); my $igc = ($gs ? &inGlossaryContext($glossaryScopeP, $m->{'contexts'}):0);
@@ -2501,8 +2501,8 @@ sub addDictionaryLink(\$$$$\@) {
         $Replacements{$e.": ".$match.", ".$dict}++;
       }
 
-      if (@contextNote > 0) {$MULTIPLES{$m->{'node'}->unique_key . ',' .@contextNote[$#contextNote]->unique_key}++;}
-      else {$MULTIPLES{$m->{'node'}->unique_key}++;}
+      if (@contextNote > 0) {$MULTIPLES{$m->{'osisRef'} . ',' .@contextNote[$#contextNote]->unique_key}++;}
+      else {$MULTIPLES{$m->{'osisRef'}}++;}
     }
     
     last;
