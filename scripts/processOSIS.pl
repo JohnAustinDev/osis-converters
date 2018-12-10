@@ -180,7 +180,17 @@ RUN:./INT.SFM");
 }
 
 # Checks occur as late as possible in the flow
-&checkReferenceLinks($OSIS);
+if ($MODDRV !~ /LD/ || -e &getProjectOsisFile($MAINMOD)) {
+  &checkReferenceLinks($OSIS);
+}
+else {
+  &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
+"The Bible module OSIS file must be created before the dictionary 
+module OSIS file, so that all reference links can be checked. Create the
+Bible module OSIS file, then run this dictionary module again to check 
+all references and remove this error.");
+}
+
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
 
