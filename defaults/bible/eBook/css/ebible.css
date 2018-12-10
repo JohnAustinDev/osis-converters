@@ -259,7 +259,7 @@ body:not(.Ps) .xsl-toc-entry.osis-chapter {
 }
 .osis-l > .xsl-chapter-number {
   position:relative;
-  left:-0.6em;
+  left:-1.5em; /* so that float left never overlaps text */
 }
 .Ps .xsl-chapter-number {
   display:none;
