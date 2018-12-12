@@ -2438,16 +2438,13 @@ sub addDictionaryLink(\$$$$\@) {
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
-    # Explicitly marked phrases should always be linked, unless match is designated as notExplicit="true"
-    if ($isExplicit) {
-      if ($m->{'notExplicit'}) {&dbg("00\n"); next;}
-    }
+    if ($isExplicit && $m->{'notExplicit'}) {&dbg("00\n"); next;}
+    elsif (!$isExplicit && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
     else {
-      if ($m->{'onlyExplicit'}) {&dbg("01\n"); next;}
       if ($glossaryContext && $m->{'skipRootID'}{&getRootID($glossaryContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
-      if (!$m->{'multiple'}) {
+      if (!$isExplicit && !$m->{'multiple'}) {
         if (@contextNote > 0) {if ($MULTIPLES{$m->{'osisRef'} . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
         # $removeLater disallows links within any phrase that was previously skipped as a multiple.
         # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
