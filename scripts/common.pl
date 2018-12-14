@@ -3416,7 +3416,7 @@ sub checkSourceScripRefLinks($) {
           &ErrorBug("Failed to parse reference from book: $id !~ /\:([^\.]+)/ in $sref.");
         }
         elsif (!$bks{$bk}) {
-          &Warn("<-Marking hyperlink to missing book: $bk", 
+          &Warn("<>Marking hyperlinks to missing book: $bk", 
 "<>Apparently not all 66 Bible books have been included in this 
 project, but there are references in the source text to these missing 
 books. So these hyperlinks will be marked as x-external until the 
