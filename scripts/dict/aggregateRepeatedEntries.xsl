@@ -8,10 +8,11 @@
  
   <!-- This XSLT will do the following:
   1) Check and warn about non GLO major divs in the glossary
-  2) Read applicable glossary scope comments and write them to parent glossary scope
-  3) Separate all glossary keywords into their own child divs
-  4) Assign osisIDs to keywords
-  5) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
+  2) Check and error if there are glossary keywords outside of a glossary
+  3) Read applicable glossary scope comments and write them to parent glossary scope
+  4) Separate all glossary keywords into their own child divs
+  5) Assign osisIDs to keywords
+  6) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
   -->
  
   <import href="../functions.xsl"/>
@@ -31,6 +32,12 @@
   
   <!-- Root template -->
   <template match="/">
+    <for-each select="//seg[@type='keyword'][not(ancestor::div[@type='glossary'])]">
+      <call-template name="Error">
+        <with-param name="msg">Keywords must be in a GLO (glossary) div: <value-of select="."/></with-param>
+        <with-param name="exp">Either change the keyword into a regular title, or change the \id USFM tag file-type of the containing file to GLO.</with-param>
+      </call-template>
+    </for-each>
     <for-each select="//div[@type and not(ancestor-or-self::div[@type='glossary'])]">
       <call-template name="Warn"><with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear there.</with-param></call-template>
     </for-each>
