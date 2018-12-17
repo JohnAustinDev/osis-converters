@@ -1724,6 +1724,10 @@ sub sortSearchTermKeys($$) {
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering, or else the ebook title itself if no books were filtered out.
+#
+# Reference hyperlinks with subType="x-external" are removed because
+# these targets do not exist in the translation yet and will result in
+# broken links.
 sub pruneFileOSIS($$\%\%\$\$) {
   my $osisP = shift;
   my $scope = shift;
@@ -1835,6 +1839,13 @@ sub pruneFileOSIS($$\%\%\$\$) {
     &changeNodeText($osisTitle, $$ebookTitleP);
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
+  
+  my @rhot = $XPC->findnodes('//osis:reference[@subType="x-external"]', $inxml);
+  foreach my $r (@rhot) {
+    foreach my $chld ($r->childNodes) {$r->parentNode()->insertBefore($chld, $r);}
+    $r->unbindNode();
+  }
+  if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.");}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
   &writeXMLFile($inxml, $output, $osisP);
@@ -3406,13 +3417,15 @@ sub checkSourceScripRefLinks($) {
           &ErrorBug("Failed to parse reference from book: $id !~ /\:([^\.]+)/ in $sref.");
         }
         elsif (!$bks{$bk}) {
-          &Warn("<-Removing hyperlink to missing book: $sref", 
+          &Warn("<>Marking hyperlinks to missing book: $bk", 
 "<>Apparently not all 66 Bible books have been included in this 
 project, but there are references in the source text to these missing 
-books. So these hyperlinks will be removed for now until the other books 
-are added to the translation.");
-          foreach my $chld ($sref->childNodes) {$sref->parentNode()->insertBefore($chld, $sref);}
-          $sref->unbindNode();
+books. So these hyperlinks will be marked as x-external until the 
+other books are added to the translation.");
+          if ($sref->getAttribute('subType') && $sref->getAttribute('subType') ne 'x-external') {
+            &ErrorBug("Overwriting subType ".$sref->getAttribute('subType')." with x-external in $sref");
+          }
+          $sref->setAttribute('subType', 'x-external');
           $changes++;
         }
         elsif (!$ids{$id}) {
@@ -3584,18 +3597,20 @@ different USFM tag should be used instead.");
       }
     }
     
-    my $failed = '';
-    foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-      my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
-      if (!$osisIDP->{$rwork}{"$orp$ext"}) {
-        if (!$osisIDP->{$rwork}{$orp}) {
-          $failed .= "$rwork:$orp$ext ";
-        }
-        else {
-          &Warn("$type $rwork:$orp$ext extension not found.", 
-"<>Although the root osisID exists in the OSIS file, the extension 
-id does not. This is allowed if the specific location which the 
-extension references exists but is unknown, such as !PART.");
+    my $failed = ''; # don't try and check external targets
+    if ($r->getAttribute('subType') ne 'x-external') {
+      foreach my $orp (split(/[\s\-]+/, $osisRef)) {
+        my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
+        if (!$osisIDP->{$rwork}{"$orp$ext"}) {
+          if (!$osisIDP->{$rwork}{$orp}) {
+            $failed .= "$rwork:$orp$ext ";
+          }
+          else {
+            &Warn("$type $rwork:$orp$ext extension not found.", 
+  "<>Although the root osisID exists in the OSIS file, the extension 
+  id does not. This is allowed if the specific location which the 
+  extension references exists but is unknown, such as !PART.");
+          }
         }
       }
     }

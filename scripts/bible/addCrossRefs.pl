@@ -247,15 +247,17 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
       
       $t = XML::LibXML::Text->new($t);
-      if ($books{$book}) {$ref->insertAfter($t, undef);}
-      else {
-        &Warn("<>Removing hyperlinks to missing book: $book",
+      $ref->insertAfter($t, undef);
+      if (!$books{$book}) {
+        &Warn("<>Marking hyperlinks to missing book: $book",
 "<>Apparently not all 66 Bible books have been included in this 
 project, but there are externally added cross references to these missing 
-books. So these hyperlinks will be removed for now until the other books 
-are added to the translation.");
-        $ref->parentNode->insertAfter($t, $ref);
-        $ref->unbindNode();
+books. So these hyperlinks will be marked as x-external until the 
+other books are added to the translation.");
+        if ($ref->getAttribute('subType') && $ref->getAttribute('subType') ne 'x-external') {
+          &ErrorBug("Overwriting subType ".$ref->getAttribute('subType')." with x-external in $ref");
+        }
+        $ref->setAttribute('subType', 'x-external');
       }
     }
       
