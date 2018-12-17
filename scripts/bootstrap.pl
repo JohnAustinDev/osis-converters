@@ -73,6 +73,15 @@ $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
 # Allow running MAININPD-only scripts from a DICT sub-project
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
 
+if (uc($MAINMOD) ne $MAINMOD) {
+  print 
+"ERROR: Module name $MAINMOD should be all capitals. Change the 
+directory name to ".uc($MAINMOD)."  and change the name in config.conf 
+(if config.conf exists). Then try again.
+Exiting...";
+  exit;
+}
+
 require "$SCRD/scripts/common_opsys.pl";
 
 $CONFFILE = "$INPD/config.conf";
