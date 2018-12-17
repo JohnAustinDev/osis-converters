@@ -2066,7 +2066,8 @@ sub addDictionaryLinks(\@$$) {
       }
       $glossaryContext = &decodeOsisRef(&glossaryContext($node));
       if (!$glossaryContext) {next;}
-      $glossaryScopeP = &scopeToBooks(&getEntryScope($node), $bookOrderP);
+      my @gs = ( &getEntryScope($node) );
+      $glossaryScopeP = (@gs[0] =~ /[\-\s]/ ? &scopeToBooks(@gs[0], $bookOrderP):\@gs);
       if (!$NoOutboundLinks{'haveBeenRead'}) {
         foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
           foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
@@ -2769,18 +2770,18 @@ sub getScopedAttribute($$) {
 
 
 sub dbg($$) {
-  return;
+
   
-  my $p = shift;
-  
-#for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
-  
-  if (!@DICT_DEBUG_THIS) {return 0;}
-  for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {
-    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
-  }
-  
-  &Log($p);
+#  my $p = shift;
+#  
+##for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
+#  
+#  if (!@DICT_DEBUG_THIS) {return 0;}
+#  for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {
+#    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
+#  }
+#  
+#  &Log($p);
   return 1;
 }
 
@@ -3756,6 +3757,25 @@ SEGMENT:
   }
     
   return 1;
+}
+
+
+sub checkUniqueOsisIDs($) {
+  my $in_osis = shift;
+  
+  &Log("\nCHECKING OSISIDS ARE UNIQUE IN $in_osis...\n");
+  
+  my $osis = $XML_PARSER->parse_file($in_osis);
+  my @osisIDs = $XPC->findnodes('//@osisID', $osis);
+  my %ids;
+  foreach my $id (@osisIDs) {$ids{$id->value}++;}
+  foreach my $k (keys %ids) {
+    if ($ids{$k} > 1) {
+      &Error("osisID attribute value is not unique: $k (".$ids{$k}.")", "There are multiple elements with this osisID, and this is not allowed.");
+    }
+  }
+  
+  &Report("Found ".@osisIDs." unique osisIDs");
 }
 
 

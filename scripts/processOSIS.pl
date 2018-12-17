@@ -191,6 +191,7 @@ Bible module OSIS file, then run this dictionary module again to check
 all references and remove this error.");
 }
 
+&checkUniqueOsisIDs($OSIS);
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
 
