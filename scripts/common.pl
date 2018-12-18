@@ -2399,7 +2399,7 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'onlyExplicit'} = &attributeIsSet('onlyExplicit', $m);
       $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
       $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
-      $minfo{'multiple'} = &attributeIsSet('multiple', $m);
+      $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; if ($minfo{'multiple'}) {$minfo{'multiple'} = $minfo{'multiple'}->value;}
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
       $minfo{'contexts'} = &getContexts($minfo{'context'}, \$notes);
@@ -2450,17 +2450,20 @@ sub addDictionaryLink(\$$$$\@) {
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
+    my $filterMultiples = (!$isExplicit && $m->{'multiple'} !~ /^true$/i);
+    my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
+    
     if ($isExplicit && $m->{'notExplicit'}) {&dbg("00\n"); next;}
     elsif (!$isExplicit && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
     else {
       if ($glossaryContext && $m->{'skipRootID'}{&getRootID($glossaryContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
-      if (!$isExplicit && !$m->{'multiple'}) {
-        if (@contextNote > 0) {if ($MULTIPLES{$m->{'osisRef'} . ',' .@contextNote[$#contextNote]->unique_key}) {&dbg("filtered at 35\n"); next;}}
+      if ($filterMultiples) {
+        if (@contextNote > 0) {if ($MULTIPLES{$key}) {&dbg("filtered at 35\n"); next;}}
         # $removeLater disallows links within any phrase that was previously skipped as a multiple.
         # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
-        elsif ($MULTIPLES{$m->{'osisRef'}}) {&dbg("filtered at 40\n"); $removeLater = 1;}
+        elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
         my $gs = scalar(@{$glossaryScopeP}); my $ic = &inContext($context, $m->{'contexts'}); my $igc = ($gs ? &inGlossaryContext($glossaryScopeP, $m->{'contexts'}):0);
@@ -2510,14 +2513,23 @@ sub addDictionaryLink(\$$$$\@) {
         $Replacements{$e.": ".$match.", ".$dict}++;
       }
 
-      if (@contextNote > 0) {$MULTIPLES{$m->{'osisRef'} . ',' .@contextNote[$#contextNote]->unique_key}++;}
-      else {$MULTIPLES{$m->{'osisRef'}}++;}
+      if ($filterMultiples) {$MULTIPLES{$key}++;}
     }
     
     last;
   }
  
   return $matchedPattern;
+}
+
+sub getMultiplesKey($$\@) {
+  my $m = shift;
+  my $multiple = shift;
+  my $contextNoteP = shift;
+  
+  my $base = ($multiple eq 'match-per-chapter' ? $m->{'node'}->unique_key:$m->{'osisRef'});
+  if (@{$contextNoteP} > 0) {return $base . ',' .@{$contextNoteP}[$#$contextNoteP]->unique_key;}
+  else {return $base;}
 }
 
 sub getRootID($) {

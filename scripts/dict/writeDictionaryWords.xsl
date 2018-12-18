@@ -31,7 +31,7 @@
   onlyNewTestament="true|false"
   onlyOldTestament="true|false"
   dontLink="true|false" to specify matched text should NOT get linked to ANY entry
-  multiple="true|false" to allow match elements to link more than once per entry or chapter
+  multiple="false|match-per-chapter|true" to allow match elements to link more than once per entry or chapter (default false is entry-per-chapter)
   notExplicit="true|false" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
   onlyExplicit="true|false" selects if match(es) should ONLY be applied to explicitly marked glossary entries in the text
 
