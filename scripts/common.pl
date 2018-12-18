@@ -2776,6 +2776,8 @@ sub getScopedAttribute($$) {
     }
   }
   
+  if ($a eq 'context' && $ret =~ /\bALL\b/) {return '';}
+  
   return $ret;
 }
 
