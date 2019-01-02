@@ -896,7 +896,7 @@ sub customize_usfm2osis($$) {
       print CFF "/m\n";
     }
 
-    print CFF "RUN:$r\n";
+    print CFF "RUN:".($modType ne 'bible' ? '.':'')."$r\n";
   }
   close(CFF);
 }
