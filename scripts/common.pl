@@ -890,7 +890,7 @@ sub customize_usfm2osis($$) {
           $xpath .= ", $osisMap";
         }
       }
-      $xpath =~ s/([\@\$])/\\$1/g;
+      $xpath =~ s/([\@\$\/])/\\$1/g;
       print CFF $xpath;
       if ($scope) {print CFF ", scope == $scope";}
       print CFF "/m\n";
