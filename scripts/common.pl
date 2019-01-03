@@ -4427,7 +4427,9 @@ sub getOSIS_Work($$$$$$) {
   if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{'ModuleName'};}
   my $isbnID = $isbn;
   $isbnID =~ s/[\- ]//g;
-  foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13) {&Error("ISBN number \"$n\" is not 13 digits", "Check that the ISBN number is correct.");}}
+  foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13 && length($n) != 10) {
+    &Error("ISBN number \"$n\" is not 10 or 13 digits", "Check that the ISBN number is correct.");
+  }}
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
