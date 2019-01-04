@@ -208,7 +208,10 @@ sub runAddScripRefLinks($$$) {
         if ($op ne 'if-result' || "$OT_BOOKS $NT_BOOKS" !~ /\b$cbk\b/) {
           &Error("CONTEXT_BOOK \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", "Change it to an abbreviation from this list: $OT_BOOKS $NT_BOOKS");
         }
-        else {$xpathIfResultContextBook{$xp} = $cbk;}
+        else {
+          &Note("CONTEXT_BOOK will be $cbk for nodes returning true for $xp");
+          $xpathIfResultContextBook{$xp} = $cbk;
+        }
         next;
       }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
