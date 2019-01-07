@@ -263,6 +263,7 @@ body {font-family: font1;}
       push(@pubs, $CONVERT_TXT{"CreateFullPublication$n"});
       $n++;
     }
+    my @covers = ();
     foreach my $s (@pubs) {
       if ($s eq $scope) {next;}
       my $titleType = 'Full';
@@ -282,8 +283,27 @@ body {font-family: font1;}
       &Note("Inserting cover image into Tran: $sn.jpg");
       # The ' ' between figure tags is a Unicode non-breaking space to prevent osis2xhtml.xsl from moving titles above the figure
       $firstIntToc->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk("<figure type='x-cover' src='./images/$sn.jpg'></figure>"), $firstIntToc);
+      push(@covers, "\"$tmp/images/$sn.jpg\"");
     }
     if ($updated) {&writeXMLFile($xml, "$tmp/$MOD.xml");}
+    # Also create a composite cover from the publication covers
+    if (@covers && $CONV_REPORT{$CONV_NAME}{'Cover'} eq 'random-cover') {
+      my $imgw = 500; my $imgh = 0;
+      my $xs = 100; my $ys = 100;
+      my $xw = $imgw - ((@covers-1)*$xs);
+      my $cmd;
+      for (my $j=0; $j<@covers; $j++) {
+        my $dimP = &imageDimension(@covers[$j]);
+        $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+        if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
+        $cmd .= " \\( ".@covers[$j]." -resize ${xw}x${sh} \\) -geometry +".($j*$xs)."+".($j*$ys)." -composite";
+      }
+      $cmd = "convert -size ${imgw}x${imgh} xc:white $cmd ";
+      $cmd .= &imageCaption($imgw, $pubTitle)." ";
+      $cmd .= "\"$tmp/cover.jpg\"";
+      &Note("Creating a single montage cover from ".@covers." publication cover images.");
+      &shell($cmd);
+    }
   }
 
   # now do the conversion on the temporary directory's files
@@ -334,23 +354,8 @@ sub copyCoverImageTo($$$$$$\$) {
   
   if ($$titleTypeP eq 'Part') {
     # add specific title to the top of the eBook cover image
-    my $imagewidth = `identify "$cover"`; $imagewidth =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $imagewidth = (1*$imagewidth);
-    my $pointsize = (4/3)*$imagewidth/length($pubTitlePart);
-    if ($pointsize > 40) {$pointsize = 40;}
-    elsif ($pointsize < 10) {$pointsize = 10;}
-    my $padding = 20;
-    my $barheight = $pointsize + (2*$padding);
-    my $font = '';
-    if ($FONTS && $ConfEntryP->{"Font"}) {
-      foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
-        if ($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} eq 'regular') {
-          $font = $FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'fullname'};
-          $font =~ s/ /-/g;
-          last;
-        }
-      }
-    }
-    my $cmd = "convert \"$cover\" -gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$pubTitlePart' \"$destination\"";
+    my $dimP = &imageDimension($cover);
+    my $cmd = "convert \"$cover\" ".&imageCaption($dimP->{'w'}, $pubTitlePart)." \"$destination\"";
     &shell($cmd, 2);
   }
   else {copy($cover, $destination);}
@@ -358,6 +363,39 @@ sub copyCoverImageTo($$$$$$\$) {
   
   my $coverName = $cover; $coverName =~ s/^.*\///;
   return $coverName;
+}
+
+sub imageDimension($) {
+  my $image = shift;
+  
+  my %dim;
+  my $r = `identify "$image"`;
+  $dim{'w'} = $r; $dim{'w'} =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $dim{'w'} = (1*$dim{'w'});
+  $dim{'h'} = $r; $dim{'h'} =~ s/^.*?\bJPEG \d+x(\d+)\b.*$/$1/; $dim{'h'} = (1*$dim{'h'});
+  
+  return \%dim;
+}
+
+sub imageCaption($$) {
+  my $width = shift;
+  my $title = shift;
+  
+  my $pointsize = (4/3)*$width/length($title);
+  if ($pointsize > 40) {$pointsize = 40;}
+  elsif ($pointsize < 10) {$pointsize = 10;}
+  my $padding = 20;
+  my $barheight = $pointsize + (2*$padding);
+  my $font = '';
+  if ($FONTS && $ConfEntryP->{"Font"}) {
+    foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
+      if ($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} eq 'regular') {
+        $font = $FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'fullname'};
+        $font =~ s/ /-/g;
+        last;
+      }
+    }
+  }
+  return "-gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$title'";
 }
 
 # Look for a cover image in $dir matching $mod and $scope and return it 
