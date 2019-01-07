@@ -303,6 +303,8 @@ body {font-family: font1;}
       $cmd .= "\"$tmp/cover.jpg\"";
       &Note("Creating a single montage cover from ".@covers." publication cover images.");
       &shell($cmd);
+      $cover = "$tmp/cover.jpg";
+      $CONV_REPORT{$CONV_NAME}{'Cover'} = 'composite';
     }
   }
 
