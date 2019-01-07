@@ -223,6 +223,13 @@ a.osis-reference {
   font-size:2em;
   border-bottom: initial;
 }
+.osis-figure.x-cover {
+  height:60%
+}
+.osis-figure.x-cover img {
+  height:100%;
+  text-align:center;
+}
 
 /* Classes introduced by osis2xhtml.xsl */
 .xsl-selah {

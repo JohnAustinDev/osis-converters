@@ -251,6 +251,40 @@ body {font-family: font1;}
     $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
     $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, ($convertTo eq 'eBook'));
   }
+  
+  # If this OSIS file contains multiple publications, insert a cover for each, if available.
+  if (&isTran($scope)) {
+    &Log("\n--- INSERTING cover images for full translation in \"$tmp/$MOD.xml\"\n", 1);
+    my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
+    my $updated;
+    my @pubs = ();
+    my $n=1; 
+    while ($CONVERT_TXT{"CreateFullPublication$n"}) {
+      push(@pubs, $CONVERT_TXT{"CreateFullPublication$n"});
+      $n++;
+    }
+    foreach my $s (@pubs) {
+      if ($s eq $scope) {next;}
+      my $titleType = 'Full';
+      my $sn = $s; $sn =~ s/\s+/_/g;
+      if (! -e "$tmp/images") {mkdir("$tmp/images");}
+      my $coverName = &copyCoverImageTo("$tmp/images/$sn.jpg", $MOD, $s, $pubTitlePart, $ConfEntryP->{"Versification"}, $convertTo, \$titleType);
+      if ($titleType ne 'Full') {
+        unlink("$tmp/images/$sn.jpg");
+        next;
+      }
+      my $firstIntToc = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$s.'"][1]/osis:milestone[@type="x-usfm-toc'.($CONVERT_TXT{'TOC'} ? $CONVERT_TXT{'TOC'}:'2').'"]', $xml)}[0];
+      if (!$firstIntToc) {
+        unlink("$tmp/images/$sn.jpg");
+        next;
+      }
+      $updated++;
+      &Note("Inserting cover image into Tran: $sn.jpg");
+      # The ' ' between figure tags is a Unicode non-breaking space to prevent osis2xhtml.xsl from moving titles above the figure
+      $firstIntToc->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk("<figure type='x-cover' src='./images/$sn.jpg'></figure>"), $firstIntToc);
+    }
+    if ($updated) {&writeXMLFile($xml, "$tmp/$MOD.xml");}
+  }
 
   # now do the conversion on the temporary directory's files
   if ($convertTo eq 'html') {
@@ -414,6 +448,13 @@ sub makeHTML($$$) {
   }
 }
 
+sub isTran($) {
+  my $scope = shift;
+  my $subdirs = &shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3); chomp($a); $a--;
+  my $nosubdir = (! -d "$MAININPD/sfm/$scope");
+  return ($subdirs && $nosubdir ? 1:0);
+}
+
 sub makeEbook($$$$$) {
   my $tmp = shift;
   my $format = shift; # “epub”, "azw3" or “fb2”
@@ -427,7 +468,7 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   my $s = $scope; $s =~ s/_/ /g;
-  my $FullOrTran = (&shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3) && ! -d "$MAININPD/sfm/$s" ? 'Tran':'Full');
+  my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
   my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__'.$FullOrTran:$ConfEntryP->{"Scope"}.'_'.$FullOrTran).".$format"; $eBookFullPubName =~ s/\s+/-/g;
   my $thisEBookName = ($scope eq $ConfEntryP->{"Scope"} ? $eBookFullPubName:"$CONV_NAME.$format");
   &updateOsisFullResourceURL($osis, $eBookFullPubName);

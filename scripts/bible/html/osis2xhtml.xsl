@@ -847,7 +847,7 @@
         ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
     <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
         [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]" as="element(title)*"/>
-    <if test="not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
+    <if test="$tocms/following::osis:figure[1] &#60;&#60; $title or not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
   </template>
   <template name="title">
     <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
@@ -950,10 +950,12 @@
     <!-- Move main titles above the inline TOC. The following variable and for-each selection must be identical to those in the title template. -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
         ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
-    <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
-        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
-      <call-template name="title"/>
-    </for-each>
+    <if test="not($tocms/following::osis:figure[1] &#60;&#60; $title)">
+      <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
+          [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
+        <call-template name="title"/>
+      </for-each>
+    </if>
     <!-- if this is the first milestone in a Bible, then include the root TOC -->
     <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
     <sequence select="me:getInlineTOC(.)"/>
