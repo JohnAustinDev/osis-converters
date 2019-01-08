@@ -25,13 +25,13 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
   if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
     my $dictosis = &getProjectOsisFile($DICTMOD);
-    if ($dictosis) {
+    if ($dictosis && $DEBUG) {
       &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
       &loadDictionaryWordsXML($dictosis);
     }
     else {
       &loadDictionaryWordsXML();
-      &Warn("$DICTIONARY_WORDS is present but there is no companion dictionary OSIS file to validate against.");
+      &Warn("$DICTIONARY_WORDS is present but will not be validate against the DICT OSIS file, which may not be not up to date.");
     }
   }
 }
