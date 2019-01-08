@@ -1,13 +1,13 @@
 # Configuration file for eBook conversions (lines beginning with # are 
 # comments)
 
-# Separate book eBooks often have broken links to missing books. So this
-# URL, if supplied, will alert users where to get the full eBook.
+# Separate book ePublications often have broken links to missing books. 
+# So this URL, if supplied, will alert users where to get the full publication.
 #FullResourceURL=https://location/of/entire-translation/eBook
 
-# NOTE: If a cover jpg image is placed within the eBook directory whose 
+# NOTE: If a cover jpg image is placed within the input directory whose 
 # file name is either "cover.jpg" or else it matches the project scope, 
-# that image will be used as the cover image for relevant eBook(s). 
+# that image will be used as the cover image for relevant ePublication(s).
 # EXAMPLE: TKL/eBook/TKL_Gen-Rev.jpg
 # EXAMPLE: TKL/eBook/cover.jpg
 
@@ -20,11 +20,11 @@ CombinedGlossaryTitle=Glossary
 # Set this to true to turn off the combined glossary feature.
 #MultipleGlossaries=true
 
-# This selects whether to create a single eBook with everything in the 
+# This selects whether to create a single output with everything in the 
 # OSIS file (true/false, default is true)
 #CreateFullBible=false
 
-# This selects whether to create separate eBooks for each Bible 
+# This selects whether to create separate outputs for each Bible 
 # book (true/false, default is true)
 #CreateSeparateBooks=false
 
@@ -49,11 +49,11 @@ CombinedGlossaryTitle=Glossary
 #TitleCase=0
 
 # This is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 
-# USFM tags be used to generate titles for separate-Bible-book eBooks 
+# USFM tags be used to generate titles for separate-Bible-ePublications 
 # (default is 2)
 #TitleTOC=1
 
-# By default, epubs are EPUB2 having epub:type attributes for footnotes.
+# By default, output is EPUB2 having epub:type attributes for footnotes.
 # The epub:type attributes are part of the EPUB3 spec, but allow note
-# popups in some readers.
+# popups in some eBook readers.
 #NoEpub3Markup=true

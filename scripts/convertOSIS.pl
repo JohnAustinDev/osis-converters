@@ -47,7 +47,7 @@ sub convertOSIS($) {
   if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $ConfEntryP->{"Scope"});}
 
   # convert any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
-  if (@CREATE_FULL_PUBLICATIONS) {
+  if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
     foreach my $x (@CREATE_FULL_PUBLICATIONS) {
       my $scope = $CONVERT_TXT{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
       &OSIS_To_ePublication($convertTo, $scope, 0, $CONVERT_TXT{'TitleFullPublication'.$x});
