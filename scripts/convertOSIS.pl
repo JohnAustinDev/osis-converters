@@ -534,7 +534,7 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP));
+  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP).".$forrmat");
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
