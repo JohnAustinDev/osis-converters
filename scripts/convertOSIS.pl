@@ -105,8 +105,7 @@ sub OSIS_To_ePublication($$$$) {
   
   &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=$type, titleOverride=$titleOverride\n", 1);
   
-  $CONV_NAME = $scope . "_" . $type;
-  $CONV_NAME =~ s/\s/_/g;
+  $CONV_NAME = &getEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP, $type);
   if ($CONV_REPORT{$CONV_NAME}) {
     &ErrorBug("$convertTo \"$CONV_NAME\" already created!");
   }
@@ -495,6 +494,33 @@ sub isTran($) {
   return ($subdirs && $nosubdir ? 1:0);
 }
 
+sub getEbookName($$$$) {
+  my $scope = shift;
+  my $fullPubTitle = shift;
+  my $confP = shift;
+  my $type = shift;
+  
+  my $title = $scope . "_" . $type;
+  $title =~ s/\s/_/g;
+  
+  return ($scope eq $confP->{"Scope"} ? &getFullEbookName($scope, $fullPubTitle, $confP):$title);
+}
+
+sub getFullEbookName($$$) {
+  my $scope = shift;
+  my $fullPubTitle = shift;
+  my $confP = shift;
+  
+  my $s = $scope; $s =~ s/_/ /g;
+  my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
+  my $ms = $confP->{"Scope"};
+  $ms =~ s/\s/_/g;
+  my $eBookFullPubName = ($fullPubTitle ? $fullPubTitle.'__':$ms.'_').$FullOrTran;
+  $eBookFullPubName =~ s/\s+/-/g;
+  
+  return $eBookFullPubName;
+}
+
 sub makeEbook($$$$$) {
   my $tmp = shift;
   my $format = shift; # “epub”, "azw3" or “fb2”
@@ -507,11 +533,8 @@ sub makeEbook($$$$$) {
   
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
-  my $s = $scope; $s =~ s/_/ /g;
-  my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
-  my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__'.$FullOrTran:$ConfEntryP->{"Scope"}.'_'.$FullOrTran).".$format"; $eBookFullPubName =~ s/\s+/-/g;
-  my $thisEBookName = ($scope eq $ConfEntryP->{"Scope"} ? $eBookFullPubName:"$CONV_NAME.$format");
-  &updateOsisFullResourceURL($osis, $eBookFullPubName);
+  
+  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP));
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
@@ -539,7 +562,7 @@ sub makeEbook($$$$$) {
       }
       else {&Note("Epub validates!: \"$out\"");}
     }
-    copy($out, "$EBOUT/$thisEBookName");
+    copy($out, "$EBOUT/$CONV_NAME.$format");
     if (!$CONV_REPORT{$CONV_NAME}{'Format'}) {$CONV_REPORT{$CONV_NAME}{'Format'} = ();}
     push(@{$CONV_REPORT{$CONV_NAME}{'Format'}}, $format);
     &Log("Created: $CONV_NAME.$format\n", 2);

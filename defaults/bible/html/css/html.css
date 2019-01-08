@@ -194,6 +194,9 @@ a.osis-reference {
 .x-chapterLabel {
   text-decoration: underline;
 }
+.x-chapterLabel-alternate {
+  display:none;
+}
 .osis-title.psalm {
   color:inherit;
   font-size:1em;
