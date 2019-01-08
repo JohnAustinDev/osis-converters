@@ -1187,9 +1187,9 @@ sub setConfFileValue($$$$) {
 # Checks, and optionally updates, a param in confEntriesP.
 # Returns 1 if the value is there, otherwise 0.
 # Flag values are:
-# 0 = check-only 
 # 1 = overwrite existing
 # 2 = don't modify existing
+# 3 = check-only 
 # "additional" = append additional param
 # string = append to existing param with string separator
 sub setConfValue($$$$) {
@@ -1199,7 +1199,7 @@ sub setConfValue($$$$) {
   my $flag = shift;
  
   my $sep = '';
-  if ($flag != 0 && $flag != 1 && $flag != 2) {
+  if ($flag != 1 && $flag != 2 && $flag != 3) {
     if ($flag eq 'additional') {$sep = "<nx/>";}
     else {$sep = $flag;}
   }
@@ -1207,7 +1207,7 @@ sub setConfValue($$$$) {
   if ($flag != 1 && $confEntriesP->{$param} && $confEntriesP->{$param} =~ /(^|\Q$sep\E)\Q$value\E(\Q$sep\E|$)/) {return 1;}
   if (!$confEntriesP->{$param} && !$value) {return 1;}
   
-  if ($flag == 0 || ($flag == 2 && $confEntriesP->{$param})) {return 0;}
+  if ($flag == 3 || ($flag == 2 && $confEntriesP->{$param})) {return 0;}
   
   if ($flag == 1) {$confEntriesP->{$param} = $value;}
   elsif (!$confEntriesP->{$param}) {$confEntriesP->{$param} = $value;}

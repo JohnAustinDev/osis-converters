@@ -131,6 +131,7 @@ close(CONF);
 # the aggregated entry because SWORD uses the aggregated entries. 
 # Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted 
 # for SWORD. If a jpg image is also available in png, switch it to png.
+# Also removes subType="x-external" attributes from references.
 sub links2sword($) {
   my $osisP = shift;
   
@@ -165,6 +166,9 @@ sub links2sword($) {
       &Note("Changing jpg image to png: ".$jpg->getAttribute('src'));
     }
   }
+  
+  my @exts = $XPC->findnodes('//osis:reference[@subType="x-external"]/@subType', $xml);
+  foreach my $ext (@exts) {$ext->unbindNode();}
 
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   &writeXMLFile($xml, $output, $osisP);
