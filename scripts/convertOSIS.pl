@@ -288,21 +288,32 @@ body {font-family: font1;}
     # Also create a composite cover from the publication covers
     if (@covers && $CONV_REPORT{$CONV_NAME}{'Cover'} eq 'random-cover') {
       my $imgw = 500; my $imgh = 0;
-      my $xs = 100; my $ys = 100;
+      my $xs = (20 + 40*(5-@covers)); my $ys = $xs;
       my $xw = $imgw - ((@covers-1)*$xs);
-      my $cmd;
       for (my $j=0; $j<@covers; $j++) {
         my $dimP = &imageDimension(@covers[$j]);
         $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
         if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
-        $cmd .= " \\( ".@covers[$j]." -resize ${xw}x${sh} \\) -geometry +".($j*$xs)."+".($j*$ys)." -composite";
       }
-      $cmd = "convert -size ${imgw}x${imgh} xc:white $cmd ";
-      $cmd .= &imageCaption($imgw, $pubTitle)." ";
-      $cmd .= "\"$tmp/cover.jpg\"";
-      &Note("Creating a single montage cover from ".@covers." publication cover images.");
-      &shell($cmd);
+      my $dissolve = "%100"; # in the end dissolve wasn't that great, so disable for now
+      my $temp = "$tmp/tmp.png";
+      my $out = "$tmp/cover.png"; # png allows dissolve to work right
       $cover = "$tmp/cover.jpg";
+      for (my $j=0; $j<@covers; $j++) {
+        my $dimP = &imageDimension(@covers[$j]);
+        $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+        &shell("convert -resize ${xw}x${sh} ".@covers[$j]." \"$temp\"");
+        if ($j == 0) {
+          &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"");
+        }
+        else {
+          &shell("composite".($j != (@covers-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"");
+        }
+      }
+      &shell("convert \"$out\" -background white -flatten \"$cover\"");
+      if (-e $temp) {unlink($temp);}
+      if (-e $out) {unlink($out);}
+      
       $CONV_REPORT{$CONV_NAME}{'Cover'} = 'composite';
     }
   }
