@@ -310,7 +310,7 @@ body {font-family: font1;}
           &shell("composite".($j != (@covers-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"");
         }
       }
-      &shell("convert \"$out\" -background white -flatten \"$cover\"");
+      &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $pubTitle)." \"$cover\"");
       if (-e $temp) {unlink($temp);}
       if (-e $out) {unlink($out);}
       
@@ -367,7 +367,7 @@ sub copyCoverImageTo($$$$$$\$) {
   if ($$titleTypeP eq 'Part') {
     # add specific title to the top of the eBook cover image
     my $dimP = &imageDimension($cover);
-    my $cmd = "convert \"$cover\" ".&imageCaption($dimP->{'w'}, $pubTitlePart)." \"$destination\"";
+    my $cmd = "convert \"$cover\" ".&imageCaption($dimP->{'w'}, $pubTitlePart, 'LightGray')." \"$destination\"";
     &shell($cmd, 2);
   }
   else {copy($cover, $destination);}
@@ -388,9 +388,10 @@ sub imageDimension($) {
   return \%dim;
 }
 
-sub imageCaption($$) {
+sub imageCaption($$$) {
   my $width = shift;
   my $title = shift;
+  my $background = shift; if (!$background) {$background = "White";}
   
   my $pointsize = (4/3)*$width/length($title);
   if ($pointsize > 40) {$pointsize = 40;}
@@ -407,7 +408,7 @@ sub imageCaption($$) {
       }
     }
   }
-  return "-gravity North -background LightGray -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$title'";
+  return "-gravity North -background $background -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$title'";
 }
 
 # Look for a cover image in $dir matching $mod and $scope and return it 
