@@ -1355,9 +1355,9 @@ sub updateConfData(\%$) {
   
   if ($moduleSource) {
     my $moduleSourceXML = $XML_PARSER->parse_file($moduleSource);
-    my $sourceType = ($XPC->findnodes('tei:TEI', $moduleSourceXML) ? 'TEI':'OSIS');
+    my $sourceType = 'OSIS'; # NOTE: osis2tei.xsl still produces a TEI file having OSIS markup!
     
-    if ($sourceType eq 'TEI') {
+    if ($moddrv =~ /LD/) {
       &setConfValue($entryValueP, 'KeySort', &getApproximateLangSortOrder($moduleSourceXML), 2);
       &setConfValue($entryValueP, 'LangSortOrder', &getApproximateLangSortOrder($moduleSourceXML), 2);
     }
@@ -1367,12 +1367,9 @@ sub updateConfData(\%$) {
     if ($entryValueP->{"SourceType"} eq 'TEI') {&Warn("Some front-ends may not fully support TEI yet");}
     
     if ($entryValueP->{"SourceType"} eq 'OSIS') {
-      my @vers = $XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML);
-      if (!@vers || !@vers[0]->value) {
-        if ($sourceType eq 'OSIS') {&Error("Unable to determine OSIS version from \"$moduleSource\"", "Specify xsi:schemaLocation of OSIS file osis element.");}
-      }
-      else {
-        my $vers = @vers[0]->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
+      my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML)}[0];
+      if ($vers) {
+        $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
         &setConfValue($entryValueP, 'OSISVersion', $vers, 1);
       }
       if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {

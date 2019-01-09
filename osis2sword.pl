@@ -28,6 +28,7 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require "$SCRD/scripts/dict/processGlossary.pl";
 
+$STARTOSIS = $INOSIS;
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
 &links2sword(\$INOSIS);
@@ -91,6 +92,14 @@ elsif ($MODDRV =~ /^RawGenBook$/) {
 	chdir($SCRD);
 }
 elsif ($MODDRV =~ /LD/) {
+  # Input file is now TEI with OSIS markup. So get the OSISVersion from the original OSIS file.
+  my $sxml = $XML_PARSER->parse_file($STARTOSIS);
+  my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $sxml)}[0];
+  if ($vers) {
+    $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
+    $ConfEntryP->{'OSISVersion'} = $vers;
+  }
+  
   &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $INOSIS);
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$VERSESYS.")\n");
   $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
