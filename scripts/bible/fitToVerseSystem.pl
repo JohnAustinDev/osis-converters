@@ -400,7 +400,7 @@ To retain the old meaning, change osis:header to $xpath");
           &Warn("Changing osis:header to $xpath and switching to compatibility mode.");
         }
         elsif ($ORDER_PERIPHS_COMPATIBILITY_MODE && $xpath =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
-          $xpath .= "/osis:div[\@type='book'][1]";
+          $xpath .= "/node()[1]";
           &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
 "This xpath was previously interpereted as 'place as first child of the 
 bookGroup' but it now is interpereted as 'place as the preceding sibling 
@@ -1164,11 +1164,11 @@ sub applyVsysExtra($$$$) {
     $startTag->setAttribute('sID', $newID);
   }
   else {
-    # (THIS FINDNODES METHOD IS ULTRA SLOW BUT WORKS)
-    my $ns1 = '//osis:verse[@sID="'.$startTag->getAttribute('sID').'"]/following::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
-    my $ns2 = '//osis:verse[@eID="'.$endTag->getAttribute('eID').'"]/preceding::osis:verse[ancestor::osis:div[@type="book"][@osisID="'.$bk.'"]]';
-    my @convert = $XPC->findnodes($ns1.'[count(.|'.$ns2.') = count('.$ns2.')]', $xml);
-    foreach my $v (@convert) {&toAlternate($v, 1, 0);}
+    my $v = $startTag;
+    do {
+      if ($v->unique_key ne $startTag->unique_key) {&toAlternate($v, 1, 0);}
+      $v = @{$XPC->findnodes('following::osis:verse[1]', $v)}[0];
+    } while ($v && $v->unique_key ne $endTag->unique_key);
   }
   # Also convert endTag to alternate and update eID 
   $endTag = &toAlternate($endTag);
