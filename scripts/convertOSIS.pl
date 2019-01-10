@@ -302,15 +302,15 @@ body {font-family: font1;}
       for (my $j=0; $j<@covers; $j++) {
         my $dimP = &imageDimension(@covers[$j]);
         $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
-        &shell("convert -resize ${xw}x${sh} ".@covers[$j]." \"$temp\"");
+        &shell("convert -resize ${xw}x${sh} ".@covers[$j]." \"$temp\"", 3);
         if ($j == 0) {
-          &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"");
+          &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
         }
         else {
-          &shell("composite".($j != (@covers-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"");
+          &shell("composite".($j != (@covers-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
         }
       }
-      &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $pubTitle)." \"$cover\"");
+      &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $pubTitle)." \"$cover\"", 3);
       if (-e $temp) {unlink($temp);}
       if (-e $out) {unlink($out);}
       
@@ -546,7 +546,7 @@ sub makeEbook($$$$$) {
   if (!$format) {$format = 'fb2';}
   if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
-  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP).".$forrmat");
+  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP).".$format");
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);

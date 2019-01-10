@@ -220,7 +220,7 @@ sub convertFileStrings($$) {
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
     my $confP = &readConf($ccin);
     my $langBase = $confP->{'Lang'}; $langBase =~ s/\-.*$//;
-    foreach my $e (keys %{$confP}) {
+    foreach my $e (sort keys %{$confP}) {
       my $new = $confP->{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
@@ -229,14 +229,14 @@ sub convertFileStrings($$) {
         $confP->{$e} = $new;
       }
     }
-    foreach my $e (keys %{$confP}) {
+    foreach my $e (sort keys %{$confP}) {
       if (($e =~ /^(Abbreviation|About|Description|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
         my $new = &transcodeStringByMode($confP->{$e});
         &Note("Converting entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
         $confP->{$e} = $new;
       }
     }
-    foreach my $e (keys %O2O_CONFIGS) {
+    foreach my $e (sort keys %O2O_CONFIGS) {
       &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
       $confP->{$e} = $O2O_CONFIGS{$e};
     }
@@ -286,7 +286,7 @@ sub convertFileStrings($$) {
       }
       print OUTF $_;
     }
-    foreach my $e (keys %O2O_CONVERTS) {
+    foreach my $e (sort keys %O2O_CONVERTS) {
       if (!$e) {next;}
       print OUTF "$e=".$O2O_CONVERTS{$e}."\n";
       &Note("Setting entry $e to: ".$O2O_CONVERTS{$e});
