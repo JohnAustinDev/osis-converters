@@ -170,6 +170,8 @@ sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
   
+  $file =~ s/^childrens_(bible)/$1/;
+  
   my $moduleFile = $file;
   my $fileType = ($moduleFile =~ s/^(bible|dict)\/// ? $1:'');
   my $modType = ($MOD eq $DICTMOD ? 'dict':'bible');

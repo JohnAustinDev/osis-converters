@@ -9,7 +9,7 @@ require("$SCRD/scripts/bible/addCrossRefs.pl");
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':'childrens_bible'));
+my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':($MODDRV =~ /Com/ ? 'commentary':'childrens_bible')));
 
 %HTMLCONV  = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
 %EBOOKCONV = &readConvertTxt(&getDefaultFile('bible/eBook/convert.txt'));
@@ -20,7 +20,7 @@ $TITLECASE = ($EBOOKCONV{'TitleCase'} ? $EBOOKCONV{'TitleCase'}:$DEFAULT_TITLECA
 
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");
 
-if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+if ($modType =~ /^(bible|commentary)$/) {
   &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
   if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
@@ -35,7 +35,7 @@ if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
     }
   }
 }
-elsif ($MODDRV =~ /LD/) {
+elsif ($modType eq 'dict') {
 
   if (!$ConfEntryP->{'KeySort'}) {
     &Error("KeySort is missing from config.conf", '
@@ -83,7 +83,8 @@ allowed and must be removed.");
   }
   
 }
-else {die "Unhandled ModDrv \"$MODDRV\"\n";}
+elsif ($modType eq 'childrens_bible') {&runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);}
+else {die "Unhandled modType (ModDrv=$MODDRV)\n";}
 
 &writeNoteIDs(\$OSIS, $ConfEntryP);
 
@@ -115,28 +116,28 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 
-if ($DICTMOD && $MODDRV =~ /Text/ && $addDictLinks) {
+if ($DICTMOD && $modType =~ /^(bible|commentary)$/ && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
     &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
   }
   else {&runAddDictLinks(\$OSIS);}
 }
-elsif ($MODDRV =~ /LD/ && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
+elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
   &runAddSeeAlsoLinks(\$OSIS);
 }
 
 &writeMissingNoteOsisRefsFAST(\$OSIS);
 
-if ($MODDRV =~ /Text/ || $MODDRV =~ /Com/) {
+if ($modType =~ /^(bible|commentary)$/) {
   &fitToVerseSystem(\$OSIS, $VERSESYS);
   &checkVerseSystem($OSIS, $VERSESYS);
 }
 
-if ($MODDRV =~ /Text/ && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
+if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
-&correctReferencesVSYS(\$OSIS);
+if ($modType =~ /^(bible|commentary)$/) {&correctReferencesVSYS(\$OSIS);}
 
-if ($MODDRV =~ /Text/) {&removeDefaultWorkPrefixesFAST(\$OSIS);}
+if ($modType eq 'bible') {&removeDefaultWorkPrefixesFAST(\$OSIS);}
 
 # Run postprocess.(pl|xsl) if they exist
 &runAnyUserScriptsAt("postprocess", \$OSIS);
@@ -180,7 +181,7 @@ RUN:./INT.SFM");
 }
 
 # Checks occur as late as possible in the flow
-if ($MODDRV !~ /LD/ || -e &getProjectOsisFile($MAINMOD)) {
+if ($modType ne 'dict' || -e &getProjectOsisFile($MAINMOD)) {
   &checkReferenceLinks($OSIS);
 }
 else {

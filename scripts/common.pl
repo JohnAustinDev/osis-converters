@@ -2302,9 +2302,9 @@ sub initDocumentCache($$) {
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
   $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
   $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
-  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]', $xml)}[0]->getAttribute('osisWork');
+  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
   my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
   $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'}     = ($dict ? $dict->getAttribute('osisWork'):'');
   my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
@@ -3492,7 +3492,7 @@ sub checkReferenceLinks($) {
   
   &Log("\nCHECKING OSISREF TARGETS IN $osis...\n");
   my $inXML = $XML_PARSER->parse_file($osis);
-  my $inIsBible = (&getRefSystemOSIS($inXML) =~ /^Bible\./ ? 1:0);
+  my $inIsBible = (&getRefSystemOSIS($inXML) !~ /^Dict\./ ? 1:0);
   &readOsisIDs(\%osisID, $inXML);
   my $bibleOSIS;
   my $bibleXML;
@@ -4329,7 +4329,7 @@ sub writeOsisHeader($\%\%\%\%) {
   
   # What type of document is this?
   my $type = 'x-bible';
-  if ($confP->{'ModDrv'} =~ /GenBook/ && $mod =~ /CB$/i) {$type = 'x-childrens-bible';}
+  if ($confP->{'ModDrv'} =~ /GenBook/ && $MOD =~ /CB$/i) {$type = 'x-childrens-bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type = 'x-commentary';}
   elsif ($confP->{'ModDrv'} =~ /LD/) {$type = 'x-glossary';}
   
@@ -4416,7 +4416,7 @@ sub getOSIS_Work($$$$$$) {
   my %type;
   if    ($confP->{'ModDrv'} =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
   elsif ($confP->{'ModDrv'} =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
-  elsif ($confP->{'ModDrv'} =~ /RawGenBook/ && $mod =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
+  elsif ($confP->{'ModDrv'} =~ /GenBook/ && $MOD =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
   elsif ($confP->{'ModDrv'} =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
   my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-childrens-bible' ? 'GenBook':($type{'type'} eq 'x-commentary' ? 'Comm':'Bible')));
   my $refSystem = "Bible.".$confP->{'Versification'};
@@ -5004,8 +5004,11 @@ sub validateOSIS($) {
   $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
   my $res = `$cmd`;
-  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
-  my $fix = $res; $fix =~ s/$allow/$1e-r-r-o-r$2/g;
+  my $allow1 = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
+  my $fix = $res;
+  $fix =~ s/$allow1/$1e-r-r-o-r$2/g;
+  my $allow2 = "(element div: Schemas validity )error( \: Element '.*?div', attribute 'osisID'\:.*?(is not accepted by the pattern|is not a valid value of the list type|is not a valid value of the atomic type))";
+  $fix =~ s/$allow2/$1e-r-r-o-r$2/g;
   &Log("$fix\n");
   
   # Generate error if file fails to validate
@@ -5015,12 +5018,17 @@ sub validateOSIS($) {
     $valid = 0;
   }
   elsif ($res !~ /^\Q$osis validates\E$/) {
-    if ($res =~ s/$allow//g) {
+    if ($res =~ s/$allow1//g) {
       &Note("
       Ignore the above milestone osisRef attribute reports. The schema  
       here apparently deviates from the OSIS handbook which states that 
       the osisRef attribute is allowed on any element. The current usage  
       is both required and sensible.\n");
+    }
+    if ($res =~ s/$allow2//g) {
+      &Note("
+      Children's Bibles require Unicode osisIDs to import into SWORD. So
+      there are schema errors which are being allowed.\n");
     }
     if ($res !~ /Schemas validity error/) {
       &Note("All of the above validation failures are being allowed.");
