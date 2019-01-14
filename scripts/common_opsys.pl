@@ -407,8 +407,11 @@ sub Error($$$) {
   
   # Solution msgs beginning with <> will only be output once
   if ($solmsg =~ s/^<>//) {if ($ERR_CHECK{$solmsg}) {$solmsg='';} else {$ERR_CHECK{$solmsg}++;}}
+  
+  # Terms beginning with <- will not have a leading line-break
+  my $n1 = ($errmsg =~ s/^<\-// ? '':"\n");
 
-  &Log("\nERROR: $errmsg\n", 1);
+  &Log($n1."ERROR: $errmsg\n", 1);
   if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
