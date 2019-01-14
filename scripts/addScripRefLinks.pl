@@ -432,6 +432,9 @@ sub asrlProcessFile($$) {
       $LV = $4;
       $intro = ($VS ? 0:1);
     }
+    elsif ($refSystem !~ /^Dict/) {
+      $CH = &chBibleContext($textNode);
+    }
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}

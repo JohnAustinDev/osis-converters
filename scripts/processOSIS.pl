@@ -86,9 +86,10 @@ allowed and must be removed.");
 elsif ($modType eq 'childrens_bible') {&runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);}
 else {die "Unhandled modType (ModDrv=$MODDRV)\n";}
 
-&writeNoteIDs(\$OSIS, $ConfEntryP);
-
-&writeTOC(\$OSIS);
+if ($modType ne 'childrens_bible') {
+  &writeNoteIDs(\$OSIS, $ConfEntryP);
+  &writeTOC(\$OSIS);
+}
 
 if ($addScripRefLinks) {
   &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
@@ -195,6 +196,7 @@ all references and remove this error.");
 &checkUniqueOsisIDs($OSIS);
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
+if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 
 copy($OSIS, $OUTOSIS); 
 &validateOSIS($OUTOSIS);

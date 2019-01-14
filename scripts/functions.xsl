@@ -53,7 +53,7 @@
     </choose>
   </function>
   
-  <!-- Encode any string value into a legal OSIS osisRef -->
+  <!-- Encode any UTF8 string value into a legal OSIS osisRef -->
   <function name="oc:encodeOsisRef">
     <param name="r"/>
     <value-of>
@@ -63,6 +63,24 @@
             <when test=". = ';'"> </when>
             <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., '[^\p{L}\p{N}_]')">
               <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
+            </when>
+            <otherwise><value-of select="."/></otherwise>
+          </choose>
+        </matching-substring>
+      </analyze-string>
+    </value-of>
+  </function>
+  
+  <!-- Decode a oc:encodeOsisRef osisRef to UTF8 -->
+  <function name="oc:decodeOsisRef">
+    <param name="osisRef"/>
+    <value-of>
+      <analyze-string select="$osisRef" regex="(_\d+_|.)">
+        <matching-substring>
+          <choose>
+            <when test="matches(., '_\d+_')">
+              <variable name="codepoint" select="xs:integer(number(replace(., '_(\d+)_', '$1')))"/>
+              <value-of select="codepoints-to-string($codepoint)"/>
             </when>
             <otherwise><value-of select="."/></otherwise>
           </choose>

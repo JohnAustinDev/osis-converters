@@ -38,6 +38,10 @@ elsif ($MODDRV =~ /Text/) {
   &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
 }
+if ($MODDRV =~ /GenBook/) {
+  &checkChildrensBibleStructure($INOSIS);
+  &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
+}
 
 my $typePreProcess = ($MODDRV =~ /Text/ ? 'osis2sword.xsl':($MODDRV =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}

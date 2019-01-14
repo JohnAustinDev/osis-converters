@@ -3041,6 +3041,26 @@ sub glossaryContext($) {
   return 'BEFORE_'.$nextkw->getAttribute('osisID');
 }
 
+# return childrens Bible context reference for $node, which is simply the
+# chapter name.
+sub chBibleContext($) {
+  my $node = shift;
+  
+  my $context = '';
+  
+  # get book
+  my $chapter = @{$XPC->findnodes('ancestor::osis:div[@osisID][1]', $node)}[0];
+  if (!$chapter) {
+    &Error("Children's Bible text node is not within a GenBook chapter: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
+    return '';
+  }
+  if (!$chapter->getAttribute('osisID')) {
+    &Error("Children's Bible text node chapter has no osisID: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
+    return '';
+  }
+  return $chapter->getAttribute('osisID');
+}
+
 
 # Takes a context and if it is a verse range, returns an array containing
 # each verse's osisRef. If it's not a verse range, the returned array
@@ -3829,6 +3849,7 @@ sub checkFigureLinks($) {
   &Log("\nCHECKING OSIS FIGURE TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
+  my $isCB = (&getRefSystemOSIS($osis) =~ /^Book\w+CB$/ ? 1:0);
   my @links = $XPC->findnodes('//osis:figure', $osis);
   my $errors = 0;
   foreach my $l (@links) {
@@ -3839,7 +3860,13 @@ sub checkFigureLinks($) {
       $errors++;
       next;
     }
-    if (! -e "$INPD/$src") {
+    my $cbimg = ($isCB && $l->getAttribute('subType') eq 'x-text-image' ? $src:'');
+    $cbimg  = ($cbimg =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
+    if ($cbimg && ! -e $cbimg) {
+      &Error("checkFigureLinks: CB_Common figure \"$tag\" src target does not exist at $cbimg.");
+      $errors++;
+    }
+    elsif (! -e "$INPD/$src") {
       &Error("checkFigureLinks: Figure \"$tag\" src target does not exist.");
       $errors++;
     }
@@ -3862,6 +3889,61 @@ sub checkIntroductionTags($) {
     $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
     &Error("Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.", "Replace this tag here with the corresponding introduction tag.");
   }
+}
+
+# Children's Bibles all have the same structure so they can be viewed in parallel. So
+# check that structure now and return 1 if all is well:
+# <div type="book">
+#   <div type="majorSection" osisID="Book Introduction">This is the book introduction</div>
+#   <div type="majorSection" osisID="Old Testament">
+#     This is the testament intro (maybe just a title)
+#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#   </div>
+#   <div type="majorSection" osisID="New Testament">
+#     This is the testament intro (maybe just a title)
+#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#   </div>
+#   <div type="majorSection" osisID="Maps and pictures">
+#     This is the Maps and pictures introduction (maybe just a title)
+#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#   </div>
+# </div> 
+sub checkChildrensBibleStructure($) {
+  my $osis = shift;
+  
+  &Log("\nCHECKING CHILDREN'S BIBLE STRUCTURE IN $osis...\n");
+    
+  my @sectionChaps = (0, 133, 113, 23);
+  
+  $success = 1;
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @books = $XPC->findnodes('/osis:osis/osis:osisText/osis:div', $xml);
+  if (@books != 1) {&Error("Number of books divs is ".@books, "There should be a single div type='book'"); $success = 0;}
+  if (@books[0]->getAttribute('type') ne 'book') {&Error("Book div type is '".@books[0]->getAttribute('type')."'", "The type should be 'book'"), $success = 0;}
+  my @sections = $XPC->findnodes('child::osis:div', @books[0]);
+  if (@sections != @sectionChaps) {&Error("Number of sections is ".@sections, "There should be ".@sectionChaps." sections: book introduction, Old Testament, New Testament and images."), $success = 0;}
+  for (my $x=0; $x<@sectionChaps; $x++) {
+    &Note("Checking section #".($x+1).":");
+    if (!&checkCBsection(@sections[$x], @sectionChaps[$x])) {$success = 0;}
+  }
+  
+  if ($success) {&Note("There are no problems with the Children's Bible structure.");}
+  
+  return $success;
+}
+sub checkCBsection($$) {
+  my $s = shift;
+  my $numchaps = shift;
+  
+  foreach my $s (@sections) {if ($s->getAttribute('type') !~ /section/i) {&Error("Section type is '".$s->getAttribute('type')."'", "Section type should be 'majorSection'."), return 0;}}
+  
+  my @intro = $XPC->findnodes('descendant::text()[normalize-space()][1][not(ancestor::osis:div[@type="chapter"])]', $s);
+  if (!@intro[0]) {&Error("<-Section introduction has no text.", "The introduction should be at least a title."), return 0;}
+  
+  my @chaps = $XPC->findnodes('child::osis:div[@type="chapter"]', $s);
+  if (@chaps != $numchaps) {&Error("<-Section has ".@chaps." chapters.", "There should be $numchaps chapters."), return 0;}
+  
+  return 1;
 }
 
 # Print log info for a word file
@@ -4746,7 +4828,7 @@ sub splitOSIS($) {
   my %bookGroup;
   
   my $xml = $XML_PARSER->parse_file($in_osis);
-  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  my @bookElements = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[@type="book"]', $xml);
   my $isBible = (@bookElements && @bookElements[0]);
   
   if ($isBible) {
@@ -5004,11 +5086,9 @@ sub validateOSIS($) {
   $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
   my $res = `$cmd`;
-  my $allow1 = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
+  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
   my $fix = $res;
-  $fix =~ s/$allow1/$1e-r-r-o-r$2/g;
-  my $allow2 = "(element div: Schemas validity )error( \: Element '.*?div', attribute 'osisID'\:.*?(is not accepted by the pattern|is not a valid value of the list type|is not a valid value of the atomic type))";
-  $fix =~ s/$allow2/$1e-r-r-o-r$2/g;
+  $fix =~ s/$allow/$1e-r-r-o-r$2/g;
   &Log("$fix\n");
   
   # Generate error if file fails to validate
@@ -5018,17 +5098,12 @@ sub validateOSIS($) {
     $valid = 0;
   }
   elsif ($res !~ /^\Q$osis validates\E$/) {
-    if ($res =~ s/$allow1//g) {
+    if ($res =~ s/$allow//g) {
       &Note("
       Ignore the above milestone osisRef attribute reports. The schema  
       here apparently deviates from the OSIS handbook which states that 
       the osisRef attribute is allowed on any element. The current usage  
       is both required and sensible.\n");
-    }
-    if ($res =~ s/$allow2//g) {
-      &Note("
-      Children's Bibles require Unicode osisIDs to import into SWORD. So
-      there are schema errors which are being allowed.\n");
     }
     if ($res !~ /Schemas validity error/) {
       &Note("All of the above validation failures are being allowed.");
