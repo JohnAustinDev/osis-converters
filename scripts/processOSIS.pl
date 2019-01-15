@@ -83,7 +83,10 @@ allowed and must be removed.");
   }
   
 }
-elsif ($modType eq 'childrens_bible') {&runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);}
+elsif ($modType eq 'childrens_bible') {
+  &runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);
+  &checkAdjustCBImages(\$OSIS);
+}
 else {die "Unhandled modType (ModDrv=$MODDRV)\n";}
 
 if ($modType ne 'childrens_bible') {

@@ -73,13 +73,13 @@
   </template>
   <template match="chapter"/>
   
-  <!-- Add chapter images after title -->
+  <!-- Add chapter images after title if there isn't one -->
   <template match="title[@type = 'x-chapterLabel']">
     <copy><apply-templates select="node()|@*"/></copy>
     <variable name="chapid" select="preceding-sibling::*[1][local-name() = 'chapter']/@osisID"/>
     <variable name="imgnum" select="if (matches($chapid, '^X\-OTHER\.\d+$')) then replace($chapid, '^X\-OTHER\.(\d+)$', '$1') else ''"/>
-    <if test="$imgnum">
-      <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" subType="x-text-image" src="./images/{$imgnum}.jpg"></figure>
+    <if test="$imgnum and not(following-sibling::*[1][local-name()='figure'])">
+      <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" subType="x-text-image" src="./images/{format-number(xs:integer(number($imgnum)), '000')}.jpg"></figure>
     </if>
   </template>
   <template match="title/@type[. = 'x-chapterLabel']"/>

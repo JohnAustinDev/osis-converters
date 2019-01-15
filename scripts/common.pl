@@ -71,6 +71,7 @@ $VSYS{'end_vs'} = '-end';
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
 require("$SCRD/scripts/osis2osis.pl");
+require("$SCRD/scripts/common_cb.pl");
 
 sub init_linux_script() {
   chdir($SCRD);
@@ -702,18 +703,6 @@ sub checkAndWriteDefaults() {
       }
     }
   }
-  
-  # Special file for childrens_bible
-  if ($projType eq 'childrens_bible' && ! -e "$MAININPD/SFM_Files.txt") {
-    # SFM_Files.txt
-    if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
-    if (!open (SFMFS, ">:encoding(UTF-8)", "$MAININPD/SFM_Files.txt")) {&ErrorBug("Could not open \"$MAININPD/SFM_Files.txt\"", '', 1);}
-    foreach my $f (sort keys %{$USFM{'childrens_bible'}}) {
-      $f =~ s/^.*[\/\\]//;
-      print SFMFS "sfm/$f\n";
-    }
-    close(SFMFS);
-  }
 }
 
 sub customize_conf($$$$) {
@@ -1022,34 +1011,30 @@ sub copyReferencedImages($$$) {
   my %copied;
   
   my $xml = $XML_PARSER->parse_file($osis_or_tei);
-  my @images = $XPC->findnodes('//*[local-name()="figure"]/@src', $xml);
+  my @images = $XPC->findnodes('//*[local-name()="figure"]', $xml);
   foreach my $image (@images) {
-    my $i = $image->getValue();
-    if ($copied{"$outdir/$i"}) {next;}
-    if ($i !~ s/^\.\///) {
-      &Error("copyReferencedImages found a nonrelative path \"$i\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
+    my $src = $image->getAttribute('src');
+    if ($src !~ s/^\.\///) {
+      &Error("copyReferencedImages found a nonrelative path \"$src\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
     }
-    if (!$projdir || !$outdir) {
-      &Error("copyReferencedImages: Images exist in \"$osis_or_tei\" but a directory path is empty: projdir=\"$projdir\", outdir=\"$outdir\".");
+    my $localsrc = &getFigureLocalPath($image, $projdir);
+    if (!$outdir) {
+      &Error("copyReferencedImages: Images exist in \"$osis_or_tei\" but outdir=\"$outdir\" does not exist.");
       next;
     }
-    if (!-e $projdir) {
-      &Error("copyReferencedImages: Missing project directory \"$projdir\".");
+    if (! -e $localsrc) {
+      &Error("copyReferencedImages: Image \"$src\" not found at \"$localsrc\"", "Add the image to this image path.");
       next;
     }
-    if (!-e "$projdir/$i") {
-      &Error("copyReferencedImages: Image \"$i\" not found in \"$projdir/$i\"", "Add the image to this image directory.");
-      next;
+    if (-e "$outdir/$src") {
+      &Warn("copyReferencedImages: Multiple modules reference image \"$outdir/$src\". Only the last version copied of this image will appear everywhere in the final output.");
     }
-    if (-e "$outdir/$i" && !$copied{"$outdir/$i"}) {
-      &Warn("copyReferencedImages: Multiple modules reference image \"$outdir/$i\". Only the last version copied of this image will appear everywhere in the final output.");
-    }
-    my $ofile = "$outdir/$i";
+    my $ofile = "$outdir/$src";
     my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
     if (!-e $odir) {`mkdir -p "$odir"`;}
     
-    &copy("$projdir/$i", "$ofile");
-    $copied{"$outdir/$i"}++;
+    &copy($localsrc, $ofile);
+    $copied{"$outdir/$src"}++;
     &Note("Copied image \"$ofile\"");
   }
   
@@ -3041,27 +3026,6 @@ sub glossaryContext($) {
   return 'BEFORE_'.$nextkw->getAttribute('osisID');
 }
 
-# return childrens Bible context reference for $node, which is simply the
-# chapter name.
-sub chBibleContext($) {
-  my $node = shift;
-  
-  my $context = '';
-  
-  # get book
-  my $chapter = @{$XPC->findnodes('ancestor::osis:div[@osisID][1]', $node)}[0];
-  if (!$chapter) {
-    &Error("Children's Bible text node is not within a GenBook chapter: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
-    return '';
-  }
-  if (!$chapter->getAttribute('osisID')) {
-    &Error("Children's Bible text node chapter has no osisID: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
-    return '';
-  }
-  return $chapter->getAttribute('osisID');
-}
-
-
 # Takes a context and if it is a verse range, returns an array containing
 # each verse's osisRef. If it's not a verse range, the returned array
 # contains a single element being the input context, unchanged.
@@ -3854,23 +3818,17 @@ sub checkFigureLinks($) {
   my $errors = 0;
   foreach my $l (@links) {
     my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
-    my $src = $l->getAttribute('src');
-    if (!$src) {
-      &Error("Figure \"$tag\" has no src target", "The source location must be specified by the SFM \\fig tag.");
+    my $srcpath = &getFigureLocalPath($l);
+    if (!$srcpath) {
+      &Error("Could not determine figure local path of $l");
       $errors++;
       next;
     }
-    my $cbimg = ($isCB && $l->getAttribute('subType') eq 'x-text-image' ? $src:'');
-    $cbimg  = ($cbimg =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
-    if ($cbimg && ! -e $cbimg) {
-      &Error("checkFigureLinks: CB_Common figure \"$tag\" src target does not exist at $cbimg.");
+    if (! -e $srcpath) {
+      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist at $srcpath.");
       $errors++;
     }
-    elsif (! -e "$INPD/$src") {
-      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist.");
-      $errors++;
-    }
-    if ($src != /^\.\/images\//) {
+    if ($l->getAttribute('src') !~ /^\.\/images\//) {
       &Error("checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions.");
     }
   }
@@ -3889,61 +3847,6 @@ sub checkIntroductionTags($) {
     $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
     &Error("Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.", "Replace this tag here with the corresponding introduction tag.");
   }
-}
-
-# Children's Bibles all have the same structure so they can be viewed in parallel. So
-# check that structure now and return 1 if all is well:
-# <div type="book">
-#   <div type="majorSection" osisID="Book Introduction">This is the book introduction</div>
-#   <div type="majorSection" osisID="Old Testament">
-#     This is the testament intro (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
-#   </div>
-#   <div type="majorSection" osisID="New Testament">
-#     This is the testament intro (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
-#   </div>
-#   <div type="majorSection" osisID="Maps and pictures">
-#     This is the Maps and pictures introduction (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
-#   </div>
-# </div> 
-sub checkChildrensBibleStructure($) {
-  my $osis = shift;
-  
-  &Log("\nCHECKING CHILDREN'S BIBLE STRUCTURE IN $osis...\n");
-    
-  my @sectionChaps = (0, 133, 113, 23);
-  
-  $success = 1;
-  my $xml = $XML_PARSER->parse_file($osis);
-  my @books = $XPC->findnodes('/osis:osis/osis:osisText/osis:div', $xml);
-  if (@books != 1) {&Error("Number of books divs is ".@books, "There should be a single div type='book'"); $success = 0;}
-  if (@books[0]->getAttribute('type') ne 'book') {&Error("Book div type is '".@books[0]->getAttribute('type')."'", "The type should be 'book'"), $success = 0;}
-  my @sections = $XPC->findnodes('child::osis:div', @books[0]);
-  if (@sections != @sectionChaps) {&Error("Number of sections is ".@sections, "There should be ".@sectionChaps." sections: book introduction, Old Testament, New Testament and images."), $success = 0;}
-  for (my $x=0; $x<@sectionChaps; $x++) {
-    &Note("Checking section #".($x+1).":");
-    if (!&checkCBsection(@sections[$x], @sectionChaps[$x])) {$success = 0;}
-  }
-  
-  if ($success) {&Note("There are no problems with the Children's Bible structure.");}
-  
-  return $success;
-}
-sub checkCBsection($$) {
-  my $s = shift;
-  my $numchaps = shift;
-  
-  foreach my $s (@sections) {if ($s->getAttribute('type') !~ /section/i) {&Error("Section type is '".$s->getAttribute('type')."'", "Section type should be 'majorSection'."), return 0;}}
-  
-  my @intro = $XPC->findnodes('descendant::text()[normalize-space()][1][not(ancestor::osis:div[@type="chapter"])]', $s);
-  if (!@intro[0]) {&Error("<-Section introduction has no text.", "The introduction should be at least a title."), return 0;}
-  
-  my @chaps = $XPC->findnodes('child::osis:div[@type="chapter"]', $s);
-  if (@chaps != $numchaps) {&Error("<-Section has ".@chaps." chapters.", "There should be $numchaps chapters."), return 0;}
-  
-  return 1;
 }
 
 # Print log info for a word file
