@@ -2180,6 +2180,14 @@ sub getDictModOSIS($) {
   }
   return $DOCUMENT_CACHE{$mod}{'getDictModOSIS'};
 }
+sub isChildrensBible($) {
+  my $mod = &getModNameOSIS(shift);
+  if (!$DOCUMENT_CACHE{$mod}{'isChildrensBible'}) {
+    &ErrorBug("isChildrensBible: No document node for \"$mod\"!");
+    return '';
+  }
+  return $DOCUMENT_CACHE{$mod}{'isChildrensBible'};
+}
 sub getOsisRefWork($) {return &getModNameOSIS(shift);}
 sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
 sub existsDictionaryWordID($$) {
@@ -2287,6 +2295,7 @@ sub initDocumentCache($$) {
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
   $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
   $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'isChildrensBible'}   = ($DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
   $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
@@ -3813,19 +3822,18 @@ sub checkFigureLinks($) {
   &Log("\nCHECKING OSIS FIGURE TARGETS IN $in_osis...\n");
   
   my $osis = $XML_PARSER->parse_file($in_osis);
-  my $isCB = (&getRefSystemOSIS($osis) =~ /^Book\w+CB$/ ? 1:0);
   my @links = $XPC->findnodes('//osis:figure', $osis);
   my $errors = 0;
   foreach my $l (@links) {
     my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
-    my $srcpath = &getFigureLocalPath($l);
-    if (!$srcpath) {
+    my $localPath = &getFigureLocalPath($l);
+    if (!$localPath) {
       &Error("Could not determine figure local path of $l");
       $errors++;
       next;
     }
-    if (! -e $srcpath) {
-      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist at $srcpath.");
+    if (! -e $localPath) {
+      &Error("checkFigureLinks: Figure \"$tag\" src target does not exist at $localPath.");
       $errors++;
     }
     if ($l->getAttribute('src') !~ /^\.\/images\//) {

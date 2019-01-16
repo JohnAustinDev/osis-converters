@@ -181,8 +181,7 @@ sub getFigureLocalPath($$) {
     &Error("Figure \"$f\" has no src target", "The source location must be specified by the SFM \\fig tag.");
     return '';
   }
-  my $isCB = (&getRefSystemOSIS($f) =~ /^Book\w+CB$/ ? 1:0);
-  if (!$isCB || $f->getAttribute('subType') ne 'x-text-image') {return "$projdir/$src";}
+  if (!&isChildrensBible($f) || $f->getAttribute('subType') ne 'x-text-image') {return "$projdir/$src";}
   
   my $ret  = ($src =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
   return $ret;

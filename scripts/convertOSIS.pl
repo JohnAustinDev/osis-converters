@@ -43,28 +43,31 @@ sub convertOSIS($) {
   $TOCNUMBER = ($CONVERT_TXT{'TOC'} ? $CONVERT_TXT{'TOC'}:$DEFAULT_TOCNUMBER);
   $TITLECASE = ($CONVERT_TXT{'TitleCase'} ? $CONVERT_TXT{'TitleCase'}:$DEFAULT_TITLECASE);
 
-  # convert the entire OSIS file
-  if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $ConfEntryP->{"Scope"});}
+  if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
+  else {
+    # convert the entire OSIS file
+    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $ConfEntryP->{"Scope"});}
 
-  # convert any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
-  if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
-    foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-      my $scope = $CONVERT_TXT{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
-      &OSIS_To_ePublication($convertTo, $scope, 0, $CONVERT_TXT{'TitleFullPublication'.$x});
-    }
-  }
-
-  # convert each Bible book within the OSIS file
-  if ($CREATE_SEPARATE_BOOKS) {
-    @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
-    BOOK: foreach my $aBook (@allBooks) {
-      my $bk = $aBook->getAttribute('osisID');
-      # don't create this ebook if an identical ebook has already been created
+    # convert any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
+    if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
       foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-        if ($bk && $bk eq $CONVERT_TXT{'CreateFullPublication'.$x}) {next BOOK;}
+        my $scope = $CONVERT_TXT{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
+        &OSIS_To_ePublication($convertTo, $scope, 0, $CONVERT_TXT{'TitleFullPublication'.$x});
       }
-      if ($CREATE_FULL_BIBLE && $ConfEntryP->{"Scope"} eq $bk) {next BOOK;}
-      if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}
+    }
+
+    # convert each Bible book within the OSIS file
+    if ($CREATE_SEPARATE_BOOKS) {
+      @allBooks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
+      BOOK: foreach my $aBook (@allBooks) {
+        my $bk = $aBook->getAttribute('osisID');
+        # don't create this ebook if an identical ebook has already been created
+        foreach my $x (@CREATE_FULL_PUBLICATIONS) {
+          if ($bk && $bk eq $CONVERT_TXT{'CreateFullPublication'.$x}) {next BOOK;}
+        }
+        if ($CREATE_FULL_BIBLE && $ConfEntryP->{"Scope"} eq $bk) {next BOOK;}
+        if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}
+      }
     }
   }
 
@@ -119,14 +122,16 @@ sub OSIS_To_ePublication($$$$) {
   
   my $pubTitle = ($titleOverride ? $titleOverride:$CONVERT_TXT{'Title'}); # title will usually still be '' at this point
   my $pubTitlePart;
-  &pruneFileOSIS(
-    \$osis,
-    $scope,
-    $ConfEntryP,
-    \%CONVERT_TXT,
-    \$pubTitle, 
-    \$pubTitlePart
-  );
+  if ($scope) {
+    &pruneFileOSIS(
+      \$osis,
+      $scope,
+      $ConfEntryP,
+      \%CONVERT_TXT,
+      \$pubTitle, 
+      \$pubTitlePart
+    );
+  }
   
   # update osis header with current convert.txt
   if ($DEBUG) {$CONVERT_TXT{'DEBUG'} = 'true';}
@@ -501,6 +506,7 @@ sub makeHTML($$$) {
 
 sub isTran($) {
   my $scope = shift;
+  if (!$scope) {return 0;}
   my $subdirs = &shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3); chomp($a); $a--;
   my $nosubdir = (! -d "$MAININPD/sfm/$scope");
   return ($subdirs && $nosubdir ? 1:0);
