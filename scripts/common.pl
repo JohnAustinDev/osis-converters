@@ -38,6 +38,7 @@ $LB = "<lb />";
 $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
+$COVER_TOC = 2;
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
 $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
@@ -997,7 +998,7 @@ sub copyFont($$$$$) {
 
 
 # Copy all images found in the OSIS or TEI file from projdir to outdir. 
-# If any images are copied, 1 is returned, otherwise 0;
+# If any images are found, 1 is returned, otherwise 0;
 sub copyReferencedImages($$$) {
   my $osis_or_tei = shift;
   my $projdir = shift;
@@ -1017,21 +1018,19 @@ sub copyReferencedImages($$$) {
     if ($src !~ s/^\.\///) {
       &Error("copyReferencedImages found a nonrelative path \"$src\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
     }
+    
     my $localsrc = &getFigureLocalPath($image, $projdir);
-    if (!$outdir) {
-      &Error("copyReferencedImages: Images exist in \"$osis_or_tei\" but outdir=\"$outdir\" does not exist.");
-      next;
-    }
     if (! -e $localsrc) {
       &Error("copyReferencedImages: Image \"$src\" not found at \"$localsrc\"", "Add the image to this image path.");
       next;
     }
-    if (-e "$outdir/$src") {
-      &Warn("copyReferencedImages: Multiple modules reference image \"$outdir/$src\". Only the last version copied of this image will appear everywhere in the final output.");
-    }
+    
     my $ofile = "$outdir/$src";
     my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
     if (!-e $odir) {`mkdir -p "$odir"`;}
+    if (-e $ofile) {
+      &Warn("Image already exists at destination and will not be overwritten: $ofile", "If $localsrc is different than $ofile then you must change the name of one of the images.");
+    }
     
     &copy($localsrc, $ofile);
     $copied{"$outdir/$src"}++;
@@ -1040,6 +1039,240 @@ sub copyReferencedImages($$$) {
   
   &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
   return scalar(keys(%copied));
+}
+
+# Reads an OSIS file and looks for or creates cover images for the full
+# OSIS file as well as any sub-publications within it. All referenced
+# images will be located in $MAININPD/images
+sub addCoverImages($) {
+  my $osisP = shift;
+  
+  &Log("\n--- INSERTING COVER IMAGES INTO \"$$osisP\"\n", 1);
+  
+  my $coverWidth = 500;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCoverImages$3/;
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  my $mod = &getModNameOSIS($xml);
+  my $updated;
+  
+  my $imgdir = "$MAININPD/images"; if (! -e $imgdir) {mkdir($imgdir);}
+  
+  # Find any sub-publication cover image(s) and insert them into the OSIS file
+  my %done;
+  my @pubcovers = ();
+  foreach my $osisRef (map($_->getAttribute('osisRef'), $XPC->findnodes('//osis:div[@type][@osisRef]', $xml))) {
+    if ($done{$osisRef}) {next;} else {$done{$osisRef}++;}
+    my $scope = $osisRef; $scope =~ s/\s+/_/g;
+    my $pubImagePath = &getCoverImageFromScope($mod, $scope);
+    if (!$pubImagePath) {next;}
+    push (@pubcovers, $pubImagePath);
+    my $imgpath = "$imgdir/$scope.jpg";
+    if ($pubImagePath ne $imgpath) {&shell("convert -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
+    &Note("Found sub-publication cover image: $imgpath");
+    if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {$updated++;}
+  }
+  
+  # Find or create a main publication cover and insert it into the OSIS file
+  my $scope = (&isChildrensBible($xml) ? 'Chbl':@{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)}[0]->textContent);
+  $scope =~ s/\s+/_/g;
+  my $subType = 'full';
+  my $pubImagePath = &getCoverImageFromScope($mod, $scope);
+  if (!$pubImagePath && -e "$INPD/images/cover.jpg") {$pubImagePath = "$INPD/images/cover.jpg";}
+  elsif (!$pubImagePath && -e "$INPD/eBook/cover.jpg") {$pubImagePath = "$INPD/eBook/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
+  elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {$pubImagePath = "$INPD/html/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
+  my $imgpath = "$imgdir/$scope.jpg";
+  if ($pubImagePath eq $imgpath) {
+    &Note("Found full publication cover image: $imgpath");
+  }
+  elsif ($pubImagePath) {
+    &shell("convert -resize ${$coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);
+    &Note("Copying full publication cover image from $pubImagePath to: $imgpath");
+  }
+  elsif (@pubcovers) {
+    my $title = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:title", $xml)}[0]->textContent;
+    my $font = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:description[\@type='x-sword-config-Font']", $xml)}[0];
+    $font = ($font ? $font->textContent:'');
+    if (&createCompositeCoverImage($imgpath, $mod, $scope, \@pubcovers, $title, $font)) {
+      $pubImagePath = $imgpath;
+      $subType = 'comp';
+      &Note("Created full publication cover image from ".@pubcovers." sub-publication images with title $title: $imgpath");
+    }
+  }
+  if ($pubImagePath && &insertPubCover(&getCoverFigure($scope, $subType), $xml)) {$updated++;}
+  
+  if ($updated) {&writeXMLFile($xml, $output, $osisP);}
+}
+
+# Returns the full path of a cover image for this module and scope, if
+# one can be found. The following searches are done to look for a cover 
+# image (the first found is used):
+# 1) $INDP/images/<scoped-name>
+# 2) $COVERS location (if any) looking for <scoped-name>
+sub getCoverImageFromScope($$) {
+  my $mod = shift;
+  my $scope = shift;
+  
+  $scope =~ s/\s+/_/g;
+  
+  my $cover = &findCover("$INPD/images", $mod, $scope);
+  if (!$cover && $COVERS) {
+    if ($COVERS =~ /^https?\:/) {
+      my $p = &expandLinuxPath("~/.osis-converters/cover");
+      if (!-e $p) {mkdir($p);}
+      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$COVERS'", 3);
+      &wgetSyncDel($p);
+      $COVERS = $p;
+    }
+    $cover = &findCover($COVERS, $mod, $scope);
+  }
+  
+  return $cover;
+}
+
+# Look for a cover image in $dir matching $mod and $scope and return it 
+# if found. The image file name may or may not be prepended with $mod_, 
+# and may use either space or underscore as scope delimiter.
+sub findCover($$$) {
+  my $dir = shift;
+  my $mod = shift;
+  my $scope = shift;
+  
+  $scope =~ s/\s+/_/g;
+  
+  if (opendir(EBD, $dir)) {
+    my @fs = readdir(EBD);
+    closedir(EBD);
+    foreach my $f (@fs) {
+      my $fscope = $f;
+      my $m = $mod.'_';
+      if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
+      if ($scope eq $fscope) {return "$dir/$f";}
+    }
+  }
+  
+  return '';
+}
+
+sub createCompositeCoverImage($$$\@$) {
+  my $cover = shift;
+  my $mod = shift;
+  my $scope = shift;
+  my $coversAP = shift;
+  my $title = shift;
+  my $font = shift;
+  
+  my $imgw = 500; my $imgh = 0;
+  my $xs = (20 + 40*(5-@{$coversAP})); my $ys = $xs;
+  my $xw = $imgw - ((@{$coversAP}-1)*$xs);
+  for (my $j=0; $j<@{$coversAP}; $j++) {
+    my $dimP = &imageDimension(@{$coversAP}[$j]);
+    $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+    if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
+  }
+  my $dissolve = "%100"; # in the end dissolve wasn't that great, so disable for now
+  my $temp = "$TMPDIR/tmp.png";
+  my $out = "$TMPDIR/cover.png"; # png allows dissolve to work right
+  for (my $j=0; $j<@{$coversAP}; $j++) {
+    my $dimP = &imageDimension(@{$coversAP}[$j]);
+    $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+    &shell("convert -resize ${xw}x${sh} ".@{$coversAP}[$j]." \"$temp\"", 3);
+    if ($j == 0) {
+      &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
+    }
+    else {
+      &shell("composite".($j != (@{$coversAP}-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
+    }
+  }
+  &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);
+  if (-e $temp) {unlink($temp);}
+  if (-e $out) {unlink($out);}
+  
+  return (-e $cover ? 1:0);
+}
+
+sub imageDimension($) {
+  my $image = shift;
+  
+  my %dim;
+  my $r = &shell("identify \"$image\"", 3);
+  $dim{'w'} = $r; $dim{'w'} =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $dim{'w'} = (1*$dim{'w'});
+  $dim{'h'} = $r; $dim{'h'} =~ s/^.*?\bJPEG \d+x(\d+)\b.*$/$1/; $dim{'h'} = (1*$dim{'h'});
+  
+  return \%dim;
+}
+
+sub imageCaption($$$) {
+  my $width = shift;
+  my $title = shift;
+  my $font = shift;
+  my $background = shift; if (!$background) {$background = "White";}
+  
+  my $pointsize = (4/3)*$width/length($title);
+  if ($pointsize > 40) {$pointsize = 40;}
+  elsif ($pointsize < 10) {$pointsize = 10;}
+  my $padding = 20;
+  my $barheight = $pointsize + (2*$padding);
+  my $foundfont = '';
+  if ($font) {
+    foreach my $f (keys %{$FONT_FILES{$font}}) {
+      if ($FONT_FILES{$font}{$f}{'style'} eq 'regular') {
+        $foundfont = $FONT_FILES{$font}{$f}{'fullname'};
+        $foundfont =~ s/ /-/g;
+        last;
+      }
+    }
+  }
+  return "-gravity North -background $background -splice 0x$barheight -pointsize $pointsize ".($foundfont ? "-font $foundfont ":'')."-annotate +0+$padding '$title'";
+}
+
+sub insertSubpubCover($$$) {
+  my $scope = shift;
+  my $figure = shift;
+  my $xml = shift;
+
+  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.$COVER_TOC.'"]', $xml)}[0];
+  if ($insertAfter) {
+    $insertAfter->parentNode->insertAfter($figure, $insertAfter);
+    &Note("Inserted sub-publication cover image after milestone: $scope");
+    return 1;
+  }
+
+  my $insertFirstChild = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]', $xml)}[0];
+  if ($insertFirstChild) {
+    $insertFirstChild->insertBefore($figure, $insertFirstChild->firstChild);
+    &Note("Inserted sub-publication cover image as first child of: $scope");
+    return 1;
+  }
+
+  return 0;
+}
+
+# The cover figure must be within a div to pass validation. Place it as
+# the first child of the first div if it is not book(Group). Otherwise
+# also create a new div of type x-cover.
+sub insertPubCover($$) {
+  my $figure = shift;
+  my $xml = shift;
+
+  my $div = (
+    &isChildrensBible($xml) ? 
+    @{$XPC->findnodes('//osis:div[1]', $xml)}[0] :
+    @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"][not(contains(@type, "book"))]', $xml)}[0]
+  );
+  if ($div) {$div->insertBefore($figure, $div->firstChild);}
+  else {
+    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover'>".$figure->toString()."</div>");
+    my $header = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $xml)}[0];
+    $header->parentNode->insertAfter($div, $header);
+  }
+}
+
+sub getCoverFigure($$) {
+  my $scopename = shift;
+  my $type = shift;
+  
+  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$scopename.jpg'> </figure>");
 }
 
 sub scanUSFM($\%) {
@@ -1715,6 +1948,10 @@ sub sortSearchTermKeys($$) {
 # will become [not_parent] to so as to prevent an unnecessary TOC level,
 # or, if the Testament intro is empty, it will be entirely removed.
 #
+# If a sub-publication cover matches the scope, it will be moved to 
+# replace the main cover. Or when pruning to a single book that matches
+# a sub-publication cover, it will be moved to relace the main cover.
+#
 # If the ebookTitleP is non-empty, its value will always be used as the  
 # final ebook title. Otherwise the ebook title will be taken from config 
 # Title if present, or else the OSIS file, but appended to it will be the 
@@ -1816,7 +2053,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
         }
       }
       my $t1 = $intro; $t1 =~ s/>.*$/>/s;
-      &Note("Removed peripheral: $t1");
+      &Note("Removed peripheral: $t1", 1);
     }
   }
   
@@ -1845,7 +2082,31 @@ sub pruneFileOSIS($$\%\%\$\$) {
     foreach my $chld ($r->childNodes) {$r->parentNode()->insertBefore($chld, $r);}
     $r->unbindNode();
   }
-  if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.");}
+  if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.", 1);}
+  
+  my $s = $scope; $s =~ s/\s+/_/g;
+  my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
+  if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
+    foreach $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][\@src]", $inxml)) {
+      my $sc = $figure->getAttribute('src'); $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
+      my $bkP = &scopeToBooks($sc, $bookOrderP);
+      foreach my $bk (@{$bkP}) {if ($bk eq $scope) {$subPubCover = $figure;}}
+    }
+  }
+  if ($subPubCover) {
+    $subPubCover->unbindNode();
+    $subPubCover->setAttribute('subType', 'x-full-publication');
+    my $cover = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"]/osis:figure[@type="x-cover"]', $inxml)}[0];
+    if ($cover) {
+      &Note("Replacing original cover image with sub-publication cover: ".$subPubCover->getAttribute('src'), 1);
+      $cover->parentNode->insertAfter($subPubCover, $cover);
+      $cover->unbindNode();
+    }
+    else {
+      &Note("Moving sub-publication cover ".$subPubCover->getAttribute('src')." to publication cover position.", 1);
+      &insertPubCover($subPubCover, $inxml);
+    }
+  }
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
   &writeXMLFile($inxml, $output, $osisP);
@@ -2182,7 +2443,7 @@ sub getDictModOSIS($) {
 }
 sub isChildrensBible($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'isChildrensBible'}) {
+  if (!exists($DOCUMENT_CACHE{$mod}{'isChildrensBible'})) {
     &ErrorBug("isChildrensBible: No document node for \"$mod\"!");
     return '';
   }
@@ -2311,6 +2572,7 @@ sub initDocumentCache($$) {
     if ($w eq $osisIDWork) {next;}
     undef($DOCUMENT_CACHE{$w});
     $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'}   = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $DOCUMENT_CACHE{$w}{'isChildrensBible'}   = ($DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
     $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
     $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
     $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
@@ -3825,7 +4087,7 @@ sub checkFigureLinks($) {
   my @links = $XPC->findnodes('//osis:figure', $osis);
   my $errors = 0;
   foreach my $l (@links) {
-    my $tag = $l; $tag =~ s/^(<[^>]*>).*$/$1/s;
+    my $tag = $l->toString(); $tag =~ s/^(<[^>]*>).*$/$1/s;
     my $localPath = &getFigureLocalPath($l);
     if (!$localPath) {
       &Error("Could not determine figure local path of $l");

@@ -184,6 +184,9 @@ RUN:./INT.SFM");
   else {&Warn("This OSIS file already has ".@navmenus." navmenus and so this step will be skipped!");}
 }
 
+# Add any cover images to the OSIS file
+if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
+
 # Checks occur as late as possible in the flow
 if ($modType ne 'dict' || -e &getProjectOsisFile($MAINMOD)) {
   &checkReferenceLinks($OSIS);

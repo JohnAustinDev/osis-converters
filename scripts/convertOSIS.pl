@@ -136,6 +136,17 @@ sub OSIS_To_ePublication($$$$) {
   # update osis header with current convert.txt
   if ($DEBUG) {$CONVERT_TXT{'DEBUG'} = 'true';}
   &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
+  
+  my $cover = &copyCoverTo(\$osis, "$tmp/cover.jpg");
+  if ($cover) {
+    if ($isPartial) {&shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, $ConfEntryP->{"Font"}, 'LightGray')." \"$cover\"", 3);}
+    $CONV_REPORT{$CONV_NAME}{'Cover'} = $cover; $CONV_REPORT{$CONV_NAME}{'Cover'} =~ s/^.*\///;
+    $CONV_REPORT{$CONV_NAME}{'Title'} = ($isPartial ? $pubTitlePart:'no-title');
+  }
+  else {
+    $CONV_REPORT{$CONV_NAME}{'Cover'} = 'random-cover';
+    $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitle;
+  }
     
   &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
@@ -178,19 +189,6 @@ body {font-family: font1;}
       close(CSS);
     }
     else {&ErrorBug("Could not write font css to \"$tmp/css/font.css\"");}
-  }
-  
-  # copy cover
-  my $titleType = $type; # Full or Part, to be determined also by copyCoverImageTo
-  my $coverName = &copyCoverImageTo("$tmp/cover.jpg", $MOD, $scope, $pubTitlePart, $ConfEntryP->{"Versification"}, $convertTo, \$titleType);
-  my $cover = ($coverName ? "$tmp/cover.jpg":'');
-  if ($coverName) {
-    $CONV_REPORT{$CONV_NAME}{'Cover'} = $coverName;
-    $CONV_REPORT{$CONV_NAME}{'Title'} = ($titleType eq 'Part' ? $pubTitlePart:'no-title');
-  }
-  else {
-    $CONV_REPORT{$CONV_NAME}{'Cover'} = 'random-cover';
-    $CONV_REPORT{$CONV_NAME}{'Title'} = $pubTitle;
   }
   
   # copy companion OSIS file
@@ -255,73 +253,6 @@ body {font-family: font1;}
     $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
     $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, ($convertTo eq 'eBook'));
   }
-  
-  # If this OSIS file contains multiple publications, insert a cover for each, if available.
-  if (&isTran($scope)) {
-    &Log("\n--- INSERTING cover images for full translation in \"$tmp/$MOD.xml\"\n", 1);
-    my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
-    my $updated;
-    my @pubs = ();
-    my $n=1; 
-    while ($CONVERT_TXT{"CreateFullPublication$n"}) {
-      push(@pubs, $CONVERT_TXT{"CreateFullPublication$n"});
-      $n++;
-    }
-    my @covers = ();
-    foreach my $s (@pubs) {
-      if ($s eq $scope) {next;}
-      my $titleType = 'Full';
-      my $sn = $s; $sn =~ s/\s+/_/g;
-      if (! -e "$tmp/images") {mkdir("$tmp/images");}
-      my $coverName = &copyCoverImageTo("$tmp/images/$sn.jpg", $MOD, $s, $pubTitlePart, $ConfEntryP->{"Versification"}, $convertTo, \$titleType);
-      if ($titleType ne 'Full') {
-        unlink("$tmp/images/$sn.jpg");
-        next;
-      }
-      my $firstIntToc = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$s.'"][1]/osis:milestone[@type="x-usfm-toc'.($CONVERT_TXT{'TOC'} ? $CONVERT_TXT{'TOC'}:'2').'"]', $xml)}[0];
-      if (!$firstIntToc) {
-        unlink("$tmp/images/$sn.jpg");
-        next;
-      }
-      $updated++;
-      &Note("Inserting cover image into Tran: $sn.jpg");
-      # The ' ' between figure tags is a Unicode non-breaking space to prevent osis2xhtml.xsl from moving titles above the figure
-      $firstIntToc->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk("<figure type='x-cover' src='./images/$sn.jpg'></figure>"), $firstIntToc);
-      push(@covers, "\"$tmp/images/$sn.jpg\"");
-    }
-    if ($updated) {&writeXMLFile($xml, "$tmp/$MOD.xml");}
-    # Also create a composite cover from the publication covers
-    if (@covers && $CONV_REPORT{$CONV_NAME}{'Cover'} eq 'random-cover') {
-      my $imgw = 500; my $imgh = 0;
-      my $xs = (20 + 40*(5-@covers)); my $ys = $xs;
-      my $xw = $imgw - ((@covers-1)*$xs);
-      for (my $j=0; $j<@covers; $j++) {
-        my $dimP = &imageDimension(@covers[$j]);
-        $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
-        if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
-      }
-      my $dissolve = "%100"; # in the end dissolve wasn't that great, so disable for now
-      my $temp = "$tmp/tmp.png";
-      my $out = "$tmp/cover.png"; # png allows dissolve to work right
-      $cover = "$tmp/cover.jpg";
-      for (my $j=0; $j<@covers; $j++) {
-        my $dimP = &imageDimension(@covers[$j]);
-        $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
-        &shell("convert -resize ${xw}x${sh} ".@covers[$j]." \"$temp\"", 3);
-        if ($j == 0) {
-          &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
-        }
-        else {
-          &shell("composite".($j != (@covers-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
-        }
-      }
-      &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $pubTitle)." \"$cover\"", 3);
-      if (-e $temp) {unlink($temp);}
-      if (-e $out) {unlink($out);}
-      
-      $CONV_REPORT{$CONV_NAME}{'Cover'} = 'composite';
-    }
-  }
 
   # now do the conversion on the temporary directory's files
   if ($convertTo eq 'html') {
@@ -335,124 +266,29 @@ body {font-family: font1;}
   }
 }
 
-# Copy a cover image for this module and scope to the destination. The 
-# following searches are done to look for a starting cover image (the
-# first found is used):
-# 1) $INDP/$convertTo/<scoped-name>
-# 2) $COVERS location (if any) looking for <scoped-name>
-# 3) $INDP/$convertTo/cover.jpg
-# If a cover image is found, it will be determined whether the scope is
-# a sub-set of the image's publication. If so, pubTitlePart will be 
-# appended to the top of the cover image. The final image is copied to
-# the destination. If a cover image is found/copied the name of the 
-# starting cover image is returned, or '' otherwise.
-sub copyCoverImageTo($$$$$$\$) {
-  my $destination = shift; 
-  my $mod = shift;
-  my $scope = shift;
-  my $pubTitlePart = shift;
-  my $vsys = shift;
-  my $convertTo = shift;
-  my $titleTypeP = shift;
+# Remove the cover div element from the OSIS file and copy the referenced
+# image to $coverpath. If there is no div element, or the referenced image
+# cannot be found, the empty string is returned, otherwise $coverpath is returned.
+sub copyCoverTo($$) {
+  my $osisP = shift;
+  my $coverpath = shift;
   
-  my $cover = &findCoverInDir("$INPD/$convertTo", $mod, $scope, $vsys, $titleTypeP);
-  if (!$cover && $COVERS) {
-    if ($COVERS =~ /^https?\:/) {
-      my $p = &expandLinuxPath("~/.osis-converters/cover");
-      if (!-e $p) {mkdir($p);}
-      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$COVERS'", 3);
-      &wgetSyncDel($p);
-      $COVERS = $p;
-    }
-    $cover = &findCoverInDir($COVERS, $mod, $scope, $vsys, $titleTypeP);
-  }
-  if (!$cover) {$cover = (-e "$INPD/$convertTo/cover.jpg" ? "$INPD/$convertTo/cover.jpg":'');}
-  if (!$cover) {return '';}
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  my $figure = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"]/osis:figure[@type="x-cover"]', $xml)}[0];
+  if (!$figure) {return '';}
   
-  if ($$titleTypeP eq 'Part') {
-    # add specific title to the top of the eBook cover image
-    my $dimP = &imageDimension($cover);
-    my $cmd = "convert \"$cover\" ".&imageCaption($dimP->{'w'}, $pubTitlePart, 'LightGray')." \"$destination\"";
-    &shell($cmd, 2);
-  }
-  else {copy($cover, $destination);}
-  &Note("Found a source cover image at: '$cover'");
+  my $result;
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1copyCoverTo$3/;
+  $figure->unbindNode();
+  &writeXMLFile($xml, $output, $osisP);
   
-  my $coverName = $cover; $coverName =~ s/^.*\///;
-  return $coverName;
-}
-
-sub imageDimension($) {
-  my $image = shift;
-  
-  my %dim;
-  my $r = `identify "$image"`;
-  $dim{'w'} = $r; $dim{'w'} =~ s/^.*?\bJPEG (\d+)x\d+\b.*$/$1/; $dim{'w'} = (1*$dim{'w'});
-  $dim{'h'} = $r; $dim{'h'} =~ s/^.*?\bJPEG \d+x(\d+)\b.*$/$1/; $dim{'h'} = (1*$dim{'h'});
-  
-  return \%dim;
-}
-
-sub imageCaption($$$) {
-  my $width = shift;
-  my $title = shift;
-  my $background = shift; if (!$background) {$background = "White";}
-  
-  my $pointsize = (4/3)*$width/length($title);
-  if ($pointsize > 40) {$pointsize = 40;}
-  elsif ($pointsize < 10) {$pointsize = 10;}
-  my $padding = 20;
-  my $barheight = $pointsize + (2*$padding);
-  my $font = '';
-  if ($FONTS && $ConfEntryP->{"Font"}) {
-    foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
-      if ($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} eq 'regular') {
-        $font = $FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'fullname'};
-        $font =~ s/ /-/g;
-        last;
-      }
-    }
-  }
-  return "-gravity North -background $background -splice 0x$barheight -pointsize $pointsize ".($font ? "-font $font ":'')."-annotate +0+$padding '$title'";
-}
-
-# Look for a cover image in $dir matching $mod and $scope and return it 
-# if found. The image file name may or may not be prepended with $mod_, 
-# and may use either space or underscore as scope delimiter. If a match 
-# is not found, but a cover exists which encompasses it, then that image
-# is selected and $titleTypeP is set to 'Part'.
-sub findCoverInDir($$$$\$) {
-  my $dir = shift;
-  my $mod = shift;
-  my $scope = shift;
-  my $vsys = shift;
-  my $titleTypeP = shift;
-  
-  if (opendir(EBD, $dir)) {
-    my @fs = readdir(EBD);
-    closedir(EBD);
-    my $bookOrderP;
-    &getCanon($vsys, NULL, \$bookOrderP, NULL);
-    foreach my $f (@fs) {
-      my $fscope = $f;
-      my $m = $mod.'_';
-      if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
-      $fscope =~ s/_/ /g;
-      if ($scope eq $fscope) {
-        $$titleTypeP = "Full"; 
-        return "$dir/$f";
-      }
-      # if scopes are not a perfect match, then the scope of the eBook is assumed to be a single book!
-      for my $s (@{&scopeToBooks($fscope, $bookOrderP)}) {
-        if ($scope eq $s) {
-          $$titleTypeP = "Part";
-          return "$dir/$f";
-        }
-      }
-    }
+  my $source = "$MAININPD/".$figure->getAttribute('src');
+  if (-e $source && -f $source) {
+    &copy($source, $coverpath);
+    $result = $coverpath;
   }
   
-  return '';
+  return $result;
 }
 
 sub makeHTML($$$) {
@@ -550,7 +386,6 @@ sub makeEbook($$$$$) {
   &Log("\n--- CREATING $format FROM $osis FOR $scope\n", 1);
   
   if (!$format) {$format = 'fb2';}
-  if (!$cover) {$cover = (-e "$INPD/eBook/cover.jpg" ? &escfile("$INPD/eBook/cover.jpg"):'');}
   
   &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP).".$format");
   
