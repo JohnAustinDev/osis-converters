@@ -63,8 +63,12 @@
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
   
+  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:type[@type='x-childrens-bible']"/>
+  
   <!-- A main Table Of Contents is placed after the first TOC milestone sibling after the OSIS header, or if there isn't such a milestone, add one -->
-  <variable name="mainTocMilestone" select="/descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]]"/>
+  <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
+      /descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
+      /descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]"/>
 
   <variable name="mainInputOSIS" select="/"/>
 
@@ -75,7 +79,7 @@
     <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
       <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
       <choose>
-        <when test="$chapterFiles = 'true'">
+        <when test="$chapterFiles = 'true' or $isChildrensBible">
           <variable name="removeSectionDivs"><apply-templates select="$markMainTocMilestone" mode="bibleOSIS_removeSectionDivs"/></variable>
           <apply-templates select="$removeSectionDivs" mode="bibleOSIS_expelChapterTags"/>
         </when>
@@ -159,7 +163,7 @@
     <param name="currentTask" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0))"/></call-template>
+    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0), ', isChildrensBible=', $isChildrensBible)"/></call-template>
     <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
@@ -231,6 +235,11 @@
   
   <template name="osisbook" match="div[@type='book'] | div[@type=$usfmType][ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]">
     <choose>
+      <when test="$isChildrensBible">
+        <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[@type='chapter']) + 0.5*count(self::div[@type='chapter'])">
+          <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
+        </for-each-group>
+      </when>
       <when test="self::div[@type='book'] and $chapterFiles = 'true'">
         <variable name="book" select="@osisID"/>
         <for-each-group select="node()" group-adjacent="count(preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count(descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))])">
@@ -309,6 +318,9 @@
     <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][last()]"/>
     <variable name="book" select="$node/ancestor-or-self::div[@type='book'][last()]/@osisID"/>
     <choose>
+      <when test="$isChildrensBible">
+        <value-of select="concat($root, '_Chbl_c', 0.5 + count($node/preceding::div[@type='chapter']) + 0.5*count($node/ancestor-or-self::div[@type='chapter']))"/>
+      </when>
       <when test="$book">
         <variable name="chapter" select="if ($chapterFiles = 'true') then 
             concat('/ch', count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]))
@@ -569,6 +581,14 @@
     <if test="$toplevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[not_parent\]'))">
       <variable name="subentries" as="element()*">
         <choose>
+          <when test="$isChildrensBible and $isOsisRootTOC">
+            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, '[level1]')][generate-id(.) != generate-id($tocNode)]"/>
+          </when>
+          <when test="$isChildrensBible">
+            <variable name="followingTocs" select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, concat('[level',($toplevel+1),']'))]"/>
+            <variable name="nextSibling"   select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, substring($tocNode/@n, 1, 8))][1]"/>
+            <sequence select="if ($nextSibling) then $followingTocs[. &#60;&#60; $nextSibling] else $followingTocs"/>
+          </when>
           <when test="$tocNode/self::chapter[@sID]">
             <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)]) except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>

@@ -234,6 +234,35 @@ a.osis-reference {
   text-align:center;
 }
 
+/* Children's Bible CSS added by osis-converters */
+.x-text-image {
+  float:right;
+  margin-right:10px;
+  max-width:50%;
+}
+.x-text-image img {
+  margin:0px 0px 0.5em 1em;
+  border:3px outset black;
+  border-radius:8px;
+}
+.x-p-first {
+  display:block;
+}
+.x-p-first:first-letter,
+.x-p-first .line:first-child:first-letter,
+.x-p-first .item:first-child:first-letter {
+  font-size:4em; 
+  float:left; 
+  margin:-20px 10px -20px 0; 
+}
+.x-p-first .osis-l:first-child {
+  text-indent:0em;
+  padding-left:0em;
+}
+.x-ref-cb {
+  font-size:smaller;
+}
+
 /* Classes introduced by osis2xhtml.xsl */
 .xsl-selah {
   float:right;

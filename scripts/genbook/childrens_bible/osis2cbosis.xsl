@@ -29,7 +29,7 @@
   <template match="osisText" mode="addSections">
     <copy><apply-templates select="@*" mode="#current"/>
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
-      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book">
+      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis:osis/osis:osisText/osis:header/osis:work/osis:title)}">
         <xsl:for-each-group select="node()[not(local-name()='header')]"
             group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)]) + count(self::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
           <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'Book Introduction'"/>
@@ -39,6 +39,11 @@
         </xsl:for-each-group>
       </div>
     </copy>
+  </template>
+  
+  <!-- Specify explicit TOC levels -->
+  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]/@n">
+    <attribute name="n" select="concat('[level', (count(ancestor-or-self::div[@type=('book','majorSection','chapter')])-1), ']', .)"/>
   </template>
   
   <!-- Convert milestone chapter tags into containers -->
@@ -51,7 +56,7 @@
             <variable name="title">
               <choose>
                 <when test="current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']]">
-                  <value-of select="oc:encodeOsisRef(current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']])"/>
+                  <value-of select="current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']]"/>
                 </when>
                 <otherwise>
                   <value-of select="@osisID"/>
@@ -62,8 +67,9 @@
                 </otherwise>
               </choose>
             </variable>
-            <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" 
-                type="chapter"><xsl:attribute name="osisID" select="$title"/>
+            <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="chapter">
+              <xsl:attribute name="osisID" select="oc:encodeOsisRef($title)"/>
+              <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level2]{$title}"/>
               <xsl:apply-templates select="current-group()"/>
             </div>
           </otherwise>
@@ -97,7 +103,7 @@
 
   <template match="p | lg">
     <copy>
-      <if test="generate-id(text()[1]) = generate-id(preceding::chapter[@sID][1]/following::text()[normalize-space()][not(ancestor::title)][not(ancestor::figure)][1])">
+      <if test="generate-id(descendant::text()[normalize-space()][1]) = generate-id(preceding::chapter[@sID][1]/following::text()[normalize-space()][not(ancestor::title)][not(ancestor::figure)][1])">
         <attribute name="subType" select="'x-p-first'"/>
       </if>
       <apply-templates select="node()|@*"/>

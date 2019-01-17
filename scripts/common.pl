@@ -4622,11 +4622,11 @@ sub writeOsisHeader($\%\%\%\%) {
   # Add work element for self
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
-  if ($type eq 'x-bible') {
-    &getOSIS_Work(\%workElements, $confP, $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
+  if ($type eq 'x-glossary') {
+    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       NULL,            $isbn);
   }
   else {
-    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       NULL,            $isbn);
+    &getOSIS_Work(\%workElements, $confP, $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
   }
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
@@ -4819,6 +4819,7 @@ sub writeNoteIDs($) {
   my $type;
   if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary';}
   elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible';}
+  elsif ($confP->{'ModDrv'} =~ /GenBook/) {$type = 'x-childrens-bible';}
   else {return;}
   
   &Log("\nWriting note osisIDs:\n", 1);
@@ -4848,6 +4849,9 @@ sub writeNoteIDs($) {
           &ErrorBug("Bad context for note osisID: $osisID !~ s/^(\w+\.\d+\.\d+)\.\d+\$/\$1/");
           next;
         }
+      }
+      elsif ($type eq 'x-childrens-bible') {
+        $osisID = &chBibleContext($n);
       }
       else {$osisID = &glossaryContext($n);}
       

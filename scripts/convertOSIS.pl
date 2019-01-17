@@ -115,7 +115,7 @@ sub OSIS_To_ePublication($$$$) {
   
   &Log("\n");
   
-  my $tmp = $scope; $tmp =~ s/\s/_/g; $tmp = "$TMPDIR/$tmp";
+  my $tmp = $scope; $tmp =~ s/\s/_/g; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &copy($INOSIS, $osis);
@@ -287,6 +287,9 @@ sub copyCoverTo($$) {
     &copy($source, $coverpath);
     $result = $coverpath;
   }
+  else {&Error("Cover image $source does not exist!", "Add the cover image to the path, or try re-running sfm2osis.pl to retrive cover images.");}
+  
+  &Log("\n--- COPYING COVER IMAGE $source\n", 1);
   
   return $result;
 }

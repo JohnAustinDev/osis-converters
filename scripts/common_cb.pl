@@ -91,6 +91,9 @@ sub checkCBsection($$) {
   return $success;
 }
 
+# Even though CBs have identical structure, images are named differently.
+# This replaces them with the standard image names. Also, the letter.jpg
+# is a special image.
 sub checkAdjustCBImages($$) {
   my $osisP = shift;
   my $checkOnly = shift;
@@ -144,6 +147,12 @@ sub checkAdjustCBImages($$) {
     }
   }
   
+  my $letter = @{$XPC->findnodes('//osis:figure[@src="./images/letter.jpg"][1]', $xml)}[0];
+  if ($letter) {
+    $letter->setAttribute('subType', 'x-letter-image');
+    &Note("Added subType='x-letter-image' to letter.jpg");
+  }
+  
   if (!$checkOnly) {&writeXMLFile($xml, $output, $osisP);}
   
   return $success;
@@ -181,8 +190,14 @@ sub getFigureLocalPath($$) {
     &Error("Figure \"$f\" has no src target", "The source location must be specified by the SFM \\fig tag.");
     return '';
   }
-  if (!&isChildrensBible($f) || $f->getAttribute('subType') ne 'x-text-image') {return "$projdir/$src";}
+  if (&isChildrensBible($f) && $f->getAttribute('subType') eq 'x-text-image') {
+    my $ret  = ($src =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
+    return $ret;
+  }
+  elsif (&isChildrensBible($f) && $f->getAttribute('subType') eq 'x-letter-image') {
+    my $ret  = ($src eq './images/letter.jpg' ? "$MAININPD/../CB_Common/images/ibt/letter.jpg":'');
+    return $ret;
+  }
   
-  my $ret  = ($src =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
-  return $ret;
+  return "$projdir/$src";
 }

@@ -89,8 +89,9 @@ elsif ($modType eq 'childrens_bible') {
 }
 else {die "Unhandled modType (ModDrv=$MODDRV)\n";}
 
+&writeNoteIDs(\$OSIS, $ConfEntryP);
+
 if ($modType ne 'childrens_bible') {
-  &writeNoteIDs(\$OSIS, $ConfEntryP);
   &writeTOC(\$OSIS);
 }
 
