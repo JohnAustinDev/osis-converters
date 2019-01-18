@@ -66,7 +66,7 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
     
     <!-- Check and log introduction attributes -->
     <if test="count($addIntroAttrib[@subType != 'x-introduction'])">
-      <call-template name="Error"><with-param name="msg">Some introduction elements have a subType that is not x-introduction: <for-each select="$addIntroAttrib[@subType != 'x-introduction']"><text>&#xa;</text><value-of select="oc:printNode(.)"/></for-each></with-param></call-template>
+      <call-template name="Warn"><with-param name="msg">Some introduction elements have a subType that is not x-introduction: <for-each select="$addIntroAttrib[@subType != 'x-introduction']"><text>&#xa;</text><value-of select="oc:printNode(.)"/></for-each></with-param></call-template>
     </if>
     <call-template name="Report"><with-param name="msg"><value-of select="count($addIntroAttrib)"/> instance(s) of non-introduction USFM tags used in introductions.</with-param></call-template>
     <if test="$addIntroAttrib">
