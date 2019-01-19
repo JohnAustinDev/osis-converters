@@ -8,7 +8,7 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
   
-  <!-- This stylesheet converts osis into Children's Bible osis markup -->
+  <!-- This stylesheet converts usfm2osis.py osis into osis-converters Children's Bible osis markup -->
  
   <import href="../../functions.xsl"/>
   
@@ -20,13 +20,13 @@
   </template>
  
   <template match="/">
-    <!-- Re-section the entire OSIS file by removing all divs, then using only toc2 cb-section markers and chapter tags -->
-    <variable name="pass1"><apply-templates select="." mode="removeDivs"/></variable>
-    <variable name="pass2"><apply-templates select="$pass1/node()" mode="addSections"/></variable>
+    <!-- Re-section the entire OSIS file by removing all divs, then using only toc milestones (as well as later on chapter @sID milestones) to re-structure with new divs-->
+    <variable name="pass1"><apply-templates select="." mode="removeAllDivs"/></variable>
+    <variable name="pass2"><apply-templates select="$pass1/node()" mode="resection"/></variable>
     <apply-templates select="$pass2/node()"/>
   </template>
-  <template match="div" mode="removeDivs"><apply-templates mode="#current"/></template>
-  <template match="osisText" mode="addSections">
+  <template match="div" mode="removeAllDivs"><apply-templates mode="#current"/></template>
+  <template match="osisText" mode="resection">
     <copy><apply-templates select="@*" mode="#current"/>
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
       <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis:osis/osis:osisText/osis:header/osis:work/osis:title)}">
@@ -46,7 +46,7 @@
     <attribute name="n" select="concat('[level', (count(ancestor-or-self::div[@type=('book','majorSection','chapter')])-1), ']', .)"/>
   </template>
   
-  <!-- Convert milestone chapter tags into containers -->
+  <!-- Convert chapter @sID milestone tags into div[@type='chapter'] containers -->
   <template match="*[child::chapter[@sID]]">
     <copy><apply-templates select="@*"/>
       <for-each-group select="node()" group-adjacent="count(preceding-sibling::chapter[@sID]) + count(self::chapter[@sID])">
@@ -79,7 +79,7 @@
   </template>
   <template match="chapter"/>
   
-  <!-- Add chapter images after title if there isn't one -->
+  <!-- Add a figure element after each chapterLabel of chapters with numbered @osisIDs (unless there already is one) -->
   <template match="title[@type = 'x-chapterLabel']">
     <copy><apply-templates select="node()|@*"/></copy>
     <variable name="chapid" select="preceding-sibling::*[1][local-name() = 'chapter']/@osisID"/>
@@ -90,7 +90,7 @@
   </template>
   <template match="title/@type[. = 'x-chapterLabel']"/>
   
-  <!-- Add special Children's Bible classes -->
+  <!-- Add the osis-converters Children's Bible CSS classes: x-ref-cb, x-text-image and x-p-first -->
   <template match="title[@type='parallel'][count(@*)=1]">
     <title xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" 
         type="parallel" level="2" subType="x-right"><hi type="italic" subType="x-ref-cb"><xsl:apply-templates select="node()"/></hi></title>

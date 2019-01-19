@@ -80,10 +80,10 @@ sub checkCBsection($$) {
   my $numchaps = @CB_SECTION_CHAPS[($secnum-1)];
   
   my $success = 1;
-  if ($s->getAttribute('type') !~ /section/i) {&Error("Section type is '".$s->getAttribute('type')."'", "Section type should be 'majorSection'."), $success = 0;}
+  if ($s->getAttribute('type') ne 'majorSection') {&Error("Section type is '".$s->getAttribute('type')."'", "Section type should be 'majorSection'."), $success = 0;}
   
   my @intro = $XPC->findnodes('descendant::text()[normalize-space()][1][not(ancestor::osis:div[@type="chapter"])]', $s);
-  if (!@intro[0]) {&Error("<-Section introduction has no text.", "The introduction should be at least a title."), $success = 0;}
+  if (!@intro[0]) {&Error("<-Section introduction has no text.", "The introduction should at least be a title."), $success = 0;}
   
   my @chaps = $XPC->findnodes('child::osis:div[@type="chapter"]', $s);
   if (@chaps != $numchaps) {&Error("<-Section has ".@chaps." chapters.", "There should be $numchaps chapters."), $success = 0;}
@@ -91,9 +91,9 @@ sub checkCBsection($$) {
   return $success;
 }
 
-# Even though CBs have identical structure, images are named differently.
+# Even though CBs have identical structure, images may be named differently.
 # This replaces them with the standard image names. Also, the letter.jpg
-# is a special image.
+# is marked as a special image.
 sub checkAdjustCBImages($$) {
   my $osisP = shift;
   my $checkOnly = shift;
@@ -125,21 +125,14 @@ sub checkAdjustCBImages($$) {
         my $correctnum = $CB_IMAGES{$cbk};
         if ("$fnum" ne "$correctnum") {
           if ($correctnum eq 'text') {
-            if ($checkOnly) {
-              &Error("Children's Bible ".$hs{$s}." chapter ".($ch+1)." (osisID=".@chs[$ch]->getAttribute('osisID').") has a figure element.", "This chapter should not have a figure element unless the image is of text.");
-              $success = 0;
-            }
-            else {
-              &Warn("Children's Bible ".$hs{$s}." chapter ".($ch+1)." (osisID=".@chs[$ch]->getAttribute('osisID').") figure element is being removed.", "This chapter should not have a figure element unless the image is of text.");
-              @figs[0]->unbindNode();
-            }
+            &Warn("Children's Bible ".$hs{$s}." chapter ".($ch+1)." (osisID=".@chs[$ch]->getAttribute('osisID').") has figure element ".@figs[0]." where text should be.", "This chapter should not have an image unless the image is of text.");
           }
           elsif ($checkOnly) {
             &Error("Children's Bible image is $fnum but it should be $correctnum.", "This image is not correct according to the structure.");
             $success = 0;
           }
           else {
-            &Warn("Updating Children's Bible image from $fnum to $correctnum.", "If this Children's Bible has the correct structure, this change should be correct.");
+            &Warn("Updating Children's Bible image from $fnum to $correctnum.", "If this Children's Bible has the correct structure, this change should correct the image name.");
             @figs[0]->setAttribute('src', "$ip/$correctnum.jpg");
           }
         }
@@ -179,7 +172,7 @@ sub chBibleContext($) {
 }
 
 # Children's Bible figure src have special local paths, so handle them here.
-# Return 0 on failure or 1 on success.
+# Return '' on failure or the local path to the image on success.
 sub getFigureLocalPath($$) {
   my $f = shift;
   my $projdir = shift;
