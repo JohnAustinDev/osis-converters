@@ -124,7 +124,8 @@ sub checkAdjustCBImages($$) {
         my $ip = ($fnum =~ s/^(.*?)\/([^\/\.]+)\.jpg$/$2/ ? "$1":'');
         my $correctnum = $CB_IMAGES{$cbk};
         if ("$fnum" ne "$correctnum") {
-          if ($correctnum eq 'text') {
+          if (-e "$MAININPD/".@figs[0]->getAttribute('src')) {}
+          elsif ($correctnum eq 'text') {
             &Warn("Children's Bible ".$hs{$s}." chapter ".($ch+1)." (osisID=".@chs[$ch]->getAttribute('osisID').") has figure element ".@figs[0]." where text should be.", "This chapter should not have an image unless the image is of text.");
           }
           elsif ($checkOnly) {
@@ -183,6 +184,10 @@ sub getFigureLocalPath($$) {
     &Error("Figure \"$f\" has no src target", "The source location must be specified by the SFM \\fig tag.");
     return '';
   }
+  
+  # If an image exists in the project's image directory, don't use a CB_Common image
+  if (-e "$projdir/$src") {return "$projdir/$src";}
+  
   if (&isChildrensBible($f) && $f->getAttribute('subType') eq 'x-text-image') {
     my $ret  = ($src =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
     return $ret;
