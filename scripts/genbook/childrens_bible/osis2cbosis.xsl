@@ -29,13 +29,16 @@
   <template match="osisText" mode="resection">
     <copy><apply-templates select="@*" mode="#current"/>
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
-      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis:osis/osis:osisText/osis:header/osis:work/osis:title)}">
+      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book">
         <xsl:for-each-group select="node()[not(local-name()='header')]"
             group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)]) + count(self::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
           <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'Book Introduction'"/>
-          <xsl:if test="not($id = 'Book Introduction') or current-group()[normalize-space()]">
-            <div type="majorSection" osisID="{oc:encodeOsisRef($id)}"><xsl:apply-templates select="current-group()" mode="#current"/></div>
-          </xsl:if>
+          <xsl:choose>
+            <xsl:when test="not($id = 'Book Introduction') or current-group()[normalize-space()]">
+              <div type="majorSection" osisID="{oc:encodeOsisRef($id)}"><xsl:apply-templates select="current-group()" mode="#current"/></div>
+            </xsl:when>
+            <xsl:otherwise><xsl:apply-templates select="current-group()" mode="#current"/></xsl:otherwise>
+          </xsl:choose>
         </xsl:for-each-group>
       </div>
     </copy>
@@ -54,21 +57,22 @@
           <when test="current-grouping-key() = 0"><apply-templates select="current-group()"/></when>
           <otherwise>
             <variable name="title">
+              <variable name="myChapterLabel" select="current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']]" as="element(title)?"/>
               <choose>
-                <when test="current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']]">
-                  <value-of select="current-group()[1]/following::*[1][self::title[@type='x-chapterLabel']]"/>
-                </when>
+                <when test="$myChapterLabel"><value-of select="$myChapterLabel"/></when>
                 <otherwise>
                   <value-of select="@osisID"/>
                   <call-template name="Error">
                     <with-param name="msg">No Chapter label for chapter sID="<value-of select="current-group()[1]/@osisID"/>".</with-param>
-                    <with-param name="exp">All Children's Bible chapter start milestone tags must be following by a title of type="x-chapterLabel".</with-param>
+                    <with-param name="exp">All Children's Bible chapter start milestone tags must be followed by a title of type="x-chapterLabel".</with-param>
                   </call-template>
                 </otherwise>
               </choose>
             </variable>
             <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="chapter">
-              <xsl:attribute name="osisID" select="oc:encodeOsisRef($title)"/>
+              <xsl:variable name="osisID" select="if (count(preceding::title[@type='x-chapterLabel'][string() = $title/string()]) = 0) then $title else 
+                  concat($title, ' (',1+count(preceding::title[@type='x-chapterLabel'][string() = $title/string()]),')')"/>
+              <xsl:attribute name="osisID" select="oc:encodeOsisRef($osisID)"/>
               <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level2]{$title}"/>
               <xsl:apply-templates select="current-group()"/>
             </div>
@@ -78,6 +82,9 @@
     </copy>
   </template>
   <template match="chapter"/>
+  
+  <!-- Remove verse tags -->
+  <template match="verse"/>
   
   <!-- Add a figure element after each chapterLabel of chapters with numbered @osisIDs (unless there already is one) -->
   <template match="title[@type = 'x-chapterLabel']">
@@ -97,8 +104,7 @@
   </template>
 
   <template match="figure[@src][@size='col']">
-    <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" 
-        subType="x-text-image"><xsl:apply-templates select="node()|@*"/></figure>
+    <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" subType="x-text-image"><xsl:apply-templates select="node()|@*"/></figure>
   </template>
 
   <template match="p | lg">

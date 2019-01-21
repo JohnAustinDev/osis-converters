@@ -1086,7 +1086,7 @@ sub addCoverImages($) {
     &Note("Found full publication cover image: $imgpath");
   }
   elsif ($pubImagePath) {
-    &shell("convert -resize ${$coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);
+    &shell("convert -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);
     &Note("Copying full publication cover image from $pubImagePath to: $imgpath");
   }
   elsif (@pubcovers) {
@@ -3881,19 +3881,22 @@ different USFM tag should be used instead.");
       }
     }
     
-    my $failed = ''; # don't try and check external targets
-    if ($r->getAttribute('subType') ne 'x-external') {
-      foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-        my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
+    my $failed = '';
+    foreach my $orp (split(/[\s\-]+/, $osisRef)) {
+      my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
+      if ($r->getAttribute('subType') eq 'x-external') {
+        if (!&inVersesystem($orp, $rwork)) {$failed .= "$rwork:$orp$ext ";}
+      }
+      else {
         if (!$osisIDP->{$rwork}{"$orp$ext"}) {
           if (!$osisIDP->{$rwork}{$orp}) {
             $failed .= "$rwork:$orp$ext ";
           }
           else {
             &Warn("$type $rwork:$orp$ext extension not found.", 
-  "<>Although the root osisID exists in the OSIS file, the extension 
-  id does not. This is allowed if the specific location which the 
-  extension references exists but is unknown, such as !PART.");
+"<>Although the root osisID exists in the OSIS file, the extension 
+id does not. This is allowed if the specific location which the 
+extension references exists but is unknown, such as !PART.");
           }
         }
       }
@@ -3907,157 +3910,44 @@ different USFM tag should be used instead.");
   }
 }
 
-
-# CURRENTLY THIS IS UNUSED!!
-# Check all reference links, and report any errors.
-sub checkReferenceLinkValidity($) {
-  my $in_osis = shift;
+sub inVersesystem($$) {
+  my $osisID = shift;
+  my $workid = shift;
   
-  undef(%CHECK_LINKS_CACHE);
-  
-  &Log("\nCHECKING REFERENCE OSISREF TARGETS IN $in_osis...\n");
-  
-  my $osis = $XML_PARSER->parse_file($in_osis);
-  my $useDictionaryWords = (&getRefSystemOSIS($osis) =~ /^Bible\./ ? 1:0);
-  my $osisRefWork = &getOsisRefWork($osis);
-  
-  my @references = $XPC->findnodes('//osis:reference', $osis);
-  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $osis);
-  push(@osisRefs, @references);
-  
-  my %refcount = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
-  my %errors = ('gloss' => 0, 'scrip' => 0, 'note' => 0, 'other' => 0);
-  my $rcnt = 0; my $pcnt = 0; my $rpcnt = 0;
-  foreach my $r (@osisRefs) {
-    $rcnt++; $pcnt = int(100*($rcnt/@osisRefs)); if ($pcnt != $rpcnt) {&Log("$pcnt%\n", 2);} $rpcnt = $pcnt;
-
-    my $linktype;
-    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$linktype = 'gloss';}
-    elsif ($r->getAttribute('type') eq 'x-note') {$linktype = 'note';}
-    elsif ($r->nodeName eq 'reference') {$linktype = 'scrip';}
-    else {$linktype = 'other';}
-    my $avoidGlossEntry = ($r->getAttribute('type') =~ /^\Qx-glosslink\E$/ ? 
-      @{$XPC->findnodes('ancestor::osis:div[starts-with(@type, "x-keyword")]/descendant::osis:seg[@type="keyword"][1]', $r)}[0]:''
-    );
-    
-    $refcount{$linktype}++;
-    
-    if ($linktype ne 'other') {
-      if (!$r->textContent || $r->textContent =~ /^[\s\n]*$/) {
-        &Error("Reference link \"$r\" has no text content.");
-        $errors{$linktype}++;
-      }
-      
-      if (!$r->getAttribute('osisRef')) {
-        &Error("Reference link is missing an osisRef attribute: \"$r\"", 
-"Maybe this should not be marked as a reference? Reference tags in OSIS 
-require a valid target. When there isn't a valid target, then a 
-different USFM tag should be used instead.");
-        $errors{$linktype}++;
-        next;
-      }
+  foreach my $id (split(/\s+/, $osisID)) {
+    my $ext = ($id =~ s/(\!.*)$// ? $1:'');
+    my $osisIDWork = $workid;
+    my $wktype = 'Bible';
+    my $wkvsys = $VERSESYS;
+    if ($id =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
+    if ($osisIDWork && $osisIDWork !~ /^bible$/i) {
+      &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
+      $wktype = $1; $wkvsys = $2;
     }
     
-    foreach my $osisID (split(/\s+/, &osisRef2osisID($r->getAttribute('osisRef')))) {
-      if (!$CHECK_LINKS_CACHE{$osisID}) {$CHECK_LINKS_CACHE{$osisID} = &validOsisID($osisID, $osisRefWork, $useDictionaryWords);}
-      my $isValid = $CHECK_LINKS_CACHE{$osisID};
-      if ($avoidGlossEntry && $osisID eq $osisRefWork.':'.$avoidGlossEntry->getAttribute('osisID')) {
-        &ErrorBug("Glossary entry ".$avoidGlossEntry->getAttribute('osisID')." contains a link to itself: \"".$r."\"");
-        $errors{$linktype}++;
-      }
-      elsif (!$isValid) {
-        &Error("Invalid osisRef segment \"$osisID\" in $r");
-        $errors{$linktype}++;
-      }
-    }
-  }
-
-  &Report("\"".$refcount{'gloss'}."\" Glossary links checked. (".$errors{'gloss'}." problems)");
-  &Report("\"".$refcount{'scrip'}."\" Scripture reference links checked. (".$errors{'scrip'}." problems)");
-  &Report("\"".$refcount{'note'}."\" Note links checked. (".$errors{'note'}." problems)");
-  &Report("\"".@references."\" Grand total reference links.");
-  &Report("\"".$refcount{'other'}."\" Non-reference osisRefs checked. (".$errors{'other'}." problems)");
-}
-
-# CURRENTLY THIS IS UNUSED!!
-# Check that the given osisID is valid. Returns 1 if it is valid, 0 
-# otherwise. Any Scripture reference that exists in the target verse 
-# system is valid (even when it is outside the target's scope). When 
-# the target reference system requires direct validation, the target 
-# OSIS file will be searched, unless useDictionaryWords is set, in which 
-# case the DictionaryWords.xml may be searched instead.
-sub validOsisID($$) {
-  my $osisIDLong = shift;
-  my $osisIDWorkDefault = shift; # required if $osisIDLong is not prefixed with it
-  my $useDictionaryWords = shift;
-  
-SEGMENT:
-  foreach my $osisID (split(/\s+/, $osisIDLong)) {
-    my $b;
-    my $c;
-    my $v;
-    my $mod;
-    my $type;
-    
-    my $ext = ($osisID =~ s/(\!.*)$// ? $1:'');
-    my $osisIDWork = $osisIDWorkDefault;
-    if ($osisID =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
-    if (!$osisIDWork) {
-      &Error("Could not determine osisIDWork of \"$osisIDLong\"");
+    if ($id !~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
+      &Error("Could not parse osisID $id.");
       return 0;
     }
-    &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
-    my $wktype = $1; my $wkvsys = $2;
-   
-    # Check for valid Scripture references in the verse system (a !PART extension is used by fitToVerseSystem to reference some part of a verse, which should itself exist)
-    if ((!$ext || $ext eq '!PART') && $wktype eq 'Bible') {
-      if ($osisID =~ /^([\w\d]+)(\.(\d+)(\.(\d+))?)?$/) {
-        $b = $1; $c = ($2 ? $3:''); $v = ($4 ? $5:'');
-        if ($osisID =~ /^BIBLE_INTRO(\.0(\.0)?)?$/) {next SEGMENT;}
-        if ($osisID =~ /^TESTAMENT_INTRO\.(0|1)(\.0)?$/) {next SEGMENT;}
-        if ($osisID =~ /^xALL\./) {next SEGMENT;} # xALL is allowed as matching any book
-        if ($OT_BOOKS =~ /\b$b\b/ || $NT_BOOKS =~ /\b$b\b/) {
-          my ($canonP, $bookOrderP, $bookArrayP);
-          &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
-          
-          if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
-            if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
-              &Error("Chapter is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c\"");
-              return 0;
-            }
-            &Warn("Chapter is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c\"");
-          }
-          
-          if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
-            if (!&existsElementID("$b.$c.$v", $osisIDWork)) {
-              &Error("Verse is not in verse system $wkvsys, and verse is not in OSIS file: \"$b.$c.$v\"");
-              return 0;
-            }
-            &Warn("Verse is not in verse system $wkvsys, but verse is in OSIS file: \"$b.$c.$v\"");
-          }
-          next SEGMENT;
-        }
-      }
-      &Error("Book is not is verse system $wkvsys: \"$osisID\"");
+    my $b = $1; my $c = ($2 ? $3:''); my $v = ($4 ? $5:'');
+    if ($OT_BOOKS !~ /\b$b\b/ && $NT_BOOKS !~ /\b$b\b/)  {
+      &Error("Unrecognized OSIS book abbreviation $b in osisID $id.");
       return 0;
     }
-    elsif ($ext || !$useDictionaryWords) {
-      if (!&existsElementID("$osisID$ext", $osisIDWork)) {
-        &Error("osisID \"$osisID\" was not found in \"$osisIDWork\"");
-        return 0;
-      }
+    my ($canonP, $bookOrderP, $bookArrayP);
+    &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+    if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
+      &Error("Chapter $c of osisID $id is outside of verse system $wkvsys.");
+      return 0;
     }
-    else {
-      if (!&existsDictionaryWordID($osisID, $osisIDWork)) {
-        &Error("osisID \"$osisID\" with default work \"$osisIDWork\" was not found in DictionaryWords.xml");
-        return 0;
-      }
+    if ($v && ($v < 0 || $v > @{$canonP->{$b}}[$c-1])) {
+      &Error("Verse $v of osisID $id is outside of verse system $wkvsys.");
+      return 0;
     }
   }
-    
+  
   return 1;
 }
-
 
 sub checkUniqueOsisIDs($) {
   my $in_osis = shift;
@@ -5113,7 +5003,7 @@ sub joinOSIS($) {
 sub writeMissingNoteOsisRefsFAST($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeMissingNoteOsisRefs$3/;
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeMissingNoteOsisRefsFast$3/;
   
   &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
   

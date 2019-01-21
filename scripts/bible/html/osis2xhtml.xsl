@@ -862,11 +862,12 @@
   <!-- Titles -->
   <template match="title" mode="xhtml">
     <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]" as="element(milestone)?"/>
-    <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template -->
+    <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template. See TOC milsetone template. -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
         ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
     <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
-        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]" as="element(title)*"/>
+        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]
+        [preceding::*[not(self::div)][1][self::title][@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]]" as="element(title)*"/>
     <if test="$tocms/following::osis:figure[1] &#60;&#60; $title or not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
   </template>
   <template name="title">
@@ -971,8 +972,10 @@
     <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
         ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
     <if test="not($tocms/following::osis:figure[1] &#60;&#60; $title)">
+      <!-- Include any following same-level consecutive titles that come before the first (non-title) text node -->
       <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
-          [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]">
+          [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]
+          [preceding::*[not(self::div)][1][self::title][@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]]">
         <call-template name="title"/>
       </for-each>
     </if>
