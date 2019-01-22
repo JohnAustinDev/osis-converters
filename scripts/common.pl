@@ -3914,7 +3914,7 @@ extension references exists but is unknown, such as !PART.");
     $refcountP->{$type}++;
     if ($failed) {
       $errorsP->{$type}++;
-      &Error("$type $failed not found: \"$rtag\"");
+      &Error("$type $failed not found: ".$r->toString());
     }
   }
 }
