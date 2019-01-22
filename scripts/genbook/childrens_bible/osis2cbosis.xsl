@@ -72,6 +72,12 @@
             <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="chapter">
               <xsl:variable name="osisID" select="if (count(preceding::title[@type='x-chapterLabel'][string() = $title/string()]) = 0) then $title else 
                   concat($title, ' (',1+count(preceding::title[@type='x-chapterLabel'][string() = $title/string()]),')')"/>
+              <xsl:if test="$title != $osisID">
+                <xsl:call-template name="Warn">
+                  <xsl:with-param name="msg" select="concat('Changing title &quot;', $title, '&quot; to &quot;', $osisID, '&quot; to prevent duplicate titles.')"/>
+                  <xsl:with-param name="exp">If this title is followed immediately by another title, they should probably be merged into a single title.</xsl:with-param>
+                </xsl:call-template>
+              </xsl:if>
               <xsl:attribute name="osisID" select="oc:encodeOsisRef($osisID)"/>
               <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level2]{$title}"/>
               <xsl:apply-templates select="current-group()"/>

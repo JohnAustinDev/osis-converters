@@ -286,7 +286,7 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="exp"/>
     <message>
       <text>&#xa;</text>WARNING: <value-of select="$msg"/>
-      <if test="$exp">CHECK: <value-of select="$exp"/></if>
+      <if test="$exp"><text>&#xa;</text>CHECK: <value-of select="$exp"/></if>
     </message>
   </template>
   <template name="Note">
