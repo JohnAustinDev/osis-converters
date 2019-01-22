@@ -654,7 +654,9 @@ sub checkAndWriteDefaults() {
   my $haveDICT = ($MAININPD ne $INPD ? 1:0);
   if (!$haveDICT) {
     if (-e "$MAININPD/config.conf") {
-      if (&readConf("$MAININPD/config.conf")->{'Companion'}) {$haveDICT = 1;}
+      if (my $comps = &readConf("$MAININPD/config.conf")->{'Companion'}) {
+        foreach my $c (split(/\s*,\s*/, $comps)) {if ($c =~ /DICT$/) {$haveDICT = 1;}}
+      }
     }
     else {
       if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}

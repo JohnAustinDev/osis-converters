@@ -29,11 +29,13 @@ my %modules;
 $modules{$INPD} = $ConfEntryP->{'ModDrv'};
 
 if ($ConfEntryP->{'Companion'}) {
-  my $companion = $ConfEntryP->{'Companion'};
-  if (!-e "$INPD/$companion/config.conf") {
-    &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
+  foreach $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+    if ($companion !~ /DICT$/) {next;}
+    if (!-e "$INPD/$companion/config.conf") {
+      &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
+    }
+    $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
   }
-  $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
 }
 
 # create each OSIS file and SWORD module.
