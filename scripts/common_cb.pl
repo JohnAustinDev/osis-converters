@@ -21,7 +21,8 @@
 
 # Children's Bibles all have the same structure so they can be viewed in parallel. So
 # check that structure now and return 1 if all is well:
-# <div type="book">
+# <div type="book" osisID="English Children's Bible">
+#   <figure cover/><figure letter/>
 #   <div type="majorSection" osisID="Book Introduction">This is the book introduction</div>
 #   <div type="majorSection" osisID="Old Testament">
 #     This is the testament intro (maybe just a title)

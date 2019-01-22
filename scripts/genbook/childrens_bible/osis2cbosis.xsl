@@ -29,7 +29,7 @@
   <template match="osisText" mode="resection">
     <copy><apply-templates select="@*" mode="#current"/>
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
-      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book">
+      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/title/string())}">
         <xsl:for-each-group select="node()[not(local-name()='header')]"
             group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)]) + count(self::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
           <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'Book Introduction'"/>
