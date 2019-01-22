@@ -166,6 +166,13 @@ sub checkProjectConfiguration() {
 the module name between [] at the top, as well as the Companion entry.", 1);
     }
   }
+  elsif ($MODDRV =~ /GenBook/) {
+    if ($MOD !~ /CB$/) {
+      &Error("The only GenBook type modules currently supported are
+Children's Bibles, and their module names should be uppercase language
+code followed by 'CB'.", 1);
+    }
+  }
   elsif ($ConfEntryP->{'Companion'} && $ConfEntryP->{'Companion'} ne $MOD.'DICT') {
     &Error("There can only be one companion module, and it must be named '".$MOD."DICT.", 
 "All reference materials for this project will be written to a single 
