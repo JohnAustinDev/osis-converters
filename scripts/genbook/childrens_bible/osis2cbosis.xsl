@@ -32,12 +32,18 @@
       <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/title/string())}">
         <xsl:for-each-group select="node()[not(local-name()='header')]"
             group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)]) + count(self::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
-          <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'Book Introduction'"/>
+          <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'noName'"/>
           <xsl:choose>
-            <xsl:when test="not($id = 'Book Introduction') or current-group()[normalize-space()]">
-              <div type="majorSection" osisID="{oc:encodeOsisRef($id)}"><xsl:apply-templates select="current-group()" mode="#current"/></div>
+            <xsl:when test="$id = 'noName' and current-group()[normalize-space()]">
+              <xsl:call-template name="Error">
+                <xsl:with-param name="msg">Children's Bible sections that contain text must begin with a milestone TOC to supply a name.</xsl:with-param>
+                <xsl:with-param name="exp">Add to the beginning of this section some USFM like: \toc2 Section Name</xsl:with-param>
+              </xsl:call-template>
             </xsl:when>
-            <xsl:otherwise><xsl:apply-templates select="current-group()" mode="#current"/></xsl:otherwise>
+            <xsl:when test="$id = 'noName' and not(current-group()[normalize-space()])">
+              <xsl:apply-templates select="current-group()" mode="#current"/>
+            </xsl:when>
+            <xsl:otherwise><div type="majorSection" osisID="{oc:encodeOsisRef($id)}"><xsl:apply-templates select="current-group()" mode="#current"/></div></xsl:otherwise>
           </xsl:choose>
         </xsl:for-each-group>
       </div>

@@ -23,7 +23,7 @@
 # check that structure now and return 1 if all is well:
 # <div type="book" osisID="English Children's Bible">
 #   <figure cover/><figure letter/>
-#   <div type="majorSection" osisID="Book Introduction">This is the book introduction</div>
+#   <div type="majorSection" osisID="About this Book">This is the book introduction</div>
 #   <div type="majorSection" osisID="Old Testament">
 #     This is the testament intro (maybe just a title)
 #     <div type="chapter" osisID="Chapter"></div> (x of these)
