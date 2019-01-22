@@ -191,11 +191,11 @@ body {font-family: font1;}
     else {&ErrorBug("Could not write font css to \"$tmp/css/font.css\"");}
   }
   
-  # copy companion OSIS file
+  # copy companion OSIS DICT
   my @skipCompanions;
   my @companionDictFiles;
-  if ($ConfEntryP->{'Companion'}) {
-    my $companion = $ConfEntryP->{'Companion'};
+  if ($DICTMOD) {
+    my $companion = $DICTMOD;
     if (! -e "$tmp/tmp/dict") {make_path("$tmp/tmp/dict");}
     my $outf = &getProjectOsisFile($companion);
     my $filter = '0';
