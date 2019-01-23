@@ -140,9 +140,14 @@ sub OSIS_To_ePublication($$$$) {
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
   if (!$coverSource) {$cover = '';}
+  $CONV_REPORT{$CONV_NAME}{'Cover'} = '';
   if ($cover) {
-    if ($isPartial) {&shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, $ConfEntryP->{"Font"}, 'LightGray')." \"$cover\"", 3);}
-    $CONV_REPORT{$CONV_NAME}{'Cover'} = $coverSource; $CONV_REPORT{$CONV_NAME}{'Cover'} =~ s/^.*\///;
+    if ($isPartial) {
+      &shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, $ConfEntryP->{"Font"}, 'LightGray')." \"$cover\"", 3);
+      $CONV_REPORT{$CONV_NAME}{'Cover'} = ' ('.$pubTitlePart.')';
+    }
+    my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
+    $CONV_REPORT{$CONV_NAME}{'Cover'} = $coverSourceName . $CONV_REPORT{$CONV_NAME}{'Cover'}; 
     $CONV_REPORT{$CONV_NAME}{'Title'} = ($isPartial ? $pubTitlePart:'no-title');
   }
   else {

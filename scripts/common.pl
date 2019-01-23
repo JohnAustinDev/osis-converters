@@ -197,8 +197,19 @@ sub readBookNamesXML() {
       if (!$bk) {next;}
       my @ts = ('abbr', 'short', 'long');
       foreach my $t (@ts) {
+        if (!$bkelem->hasAttribute($t) || $bkelem->getAttribute($t) =~ /^\s*$/) {next;}
         if ($BOOKNAMES{$bk}{$t} && $BOOKNAMES{$bk}{$t} ne $bkelem->getAttribute($t)) {
-          &Warn("Multiple $t definitions for $bk. Using ".$bkelem->getAttribute($t)." rather than ".$BOOKNAMES{$bk}{$t}, "That the resulting value is correct, and possibly fix the incorrect one.");
+          my $new = $bkelem->getAttribute($t);
+          if (
+            ($t eq 'short' && length($new) > length($BOOKNAMES{$bk}{$t})) || 
+            ($t eq 'long' && length($new) < length($BOOKNAMES{$bk}{$t}))
+          ) {
+            $new = $BOOKNAMES{$bk}{$t};
+            &Warn("Multiple $t definitions for $bk. Keeping $new rather than ".$bkelem->getAttribute($t).".", "That the resulting value is correct, and possibly fix the incorrect one.");
+          }
+          else {
+            &Warn("Multiple $t definitions for $bk. Using $new rather than ".$BOOKNAMES{$bk}{$t}, "That the resulting value is correct, and possibly fix the incorrect one.");
+          }
         }
         $BOOKNAMES{$bk}{$t} = $bkelem->getAttribute($t);
       }
@@ -961,8 +972,8 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
 
   my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$pt};
   if (!$periphTypeDescriptor) {
-    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . keys %PERIPH_TYPE_MAP);
-    return NULL;
+    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(' ', keys %PERIPH_TYPE_MAP));
+    return '';
   }
   if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
 
@@ -1360,11 +1371,11 @@ sub scanUSFM_file($) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /^(FRT|INT|OTH|FIN)/i) {
+    elsif ($id =~ /^(FRT|INT|OTH)/i) {
       $info{'type'} = 'bible';
       $info{'peripheralID'} = $id;
     }
-    elsif ($id =~ /(GLO|DIC|BAK|CNC|TDX|NDX)/i) {
+    elsif ($id =~ /(GLO|DIC|BAK|FIN|CNC|TDX|NDX)/i) {
       $info{'type'} = 'dictionary';
     }
     elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)/i) { # Strange IDs associated with Children's Bibles
@@ -1372,7 +1383,7 @@ sub scanUSFM_file($) {
     }
     elsif ($id =~ /^\s*(\w{3})\b/) {
       $info{'peripheralID'} = $1;
-      $info{'type'} = 'bible'; # This has some kind of SFM-like id, so just treat it like a Bible peripheral
+      $info{'type'} = 'dictionary'; # This has some kind of SFM-like id, so just treat it like a dictionary peripheral
     }
     # others are currently unhandled by osis-converters
     else {
@@ -2516,7 +2527,7 @@ sub getAltVersesOSIS($) {
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
     &ErrorBug("getAltVersesOSIS: No xml document node!");
-    return NULL;
+    return '';
   }
   
   if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
