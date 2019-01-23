@@ -137,10 +137,12 @@ sub OSIS_To_ePublication($$$$) {
   if ($DEBUG) {$CONVERT_TXT{'DEBUG'} = 'true';}
   &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
   
-  my $cover = &copyCoverTo(\$osis, "$tmp/cover.jpg");
+  my $cover = "$tmp/cover.jpg";
+  my $coverSource = &copyCoverTo(\$osis, $cover);
+  if (!$coverSource) {$cover = '';}
   if ($cover) {
     if ($isPartial) {&shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, $ConfEntryP->{"Font"}, 'LightGray')." \"$cover\"", 3);}
-    $CONV_REPORT{$CONV_NAME}{'Cover'} = $cover; $CONV_REPORT{$CONV_NAME}{'Cover'} =~ s/^.*\///;
+    $CONV_REPORT{$CONV_NAME}{'Cover'} = $coverSource; $CONV_REPORT{$CONV_NAME}{'Cover'} =~ s/^.*\///;
     $CONV_REPORT{$CONV_NAME}{'Title'} = ($isPartial ? $pubTitlePart:'no-title');
   }
   else {
@@ -268,7 +270,8 @@ body {font-family: font1;}
 
 # Remove the cover div element from the OSIS file and copy the referenced
 # image to $coverpath. If there is no div element, or the referenced image
-# cannot be found, the empty string is returned, otherwise $coverpath is returned.
+# cannot be found, the empty string is returned, otherwise the path to the
+# referenced image is returned.
 sub copyCoverTo($$) {
   my $osisP = shift;
   my $coverpath = shift;
@@ -285,7 +288,7 @@ sub copyCoverTo($$) {
   my $source = "$MAININPD/".$figure->getAttribute('src');
   if (-e $source && -f $source) {
     &copy($source, $coverpath);
-    $result = $coverpath;
+    $result = $source;
   }
   else {&Error("Cover image $source does not exist!", "Add the cover image to the path, or try re-running sfm2osis.pl to retrive cover images.");}
   
