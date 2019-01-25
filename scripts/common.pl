@@ -2721,9 +2721,6 @@ sub addDictionaryLink(\$$$$\@) {
     $NT_CONTEXTSP =  &getContexts('NT');
     my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
-      my @wds = split(/\s+/, $m->textContent);
-      if (@wds > $MAX_MATCH_WORDS) {$MAX_MATCH_WORDS = @wds; &Note("Setting MAX_MATCH_WORDS to $MAX_MATCH_WORDS");}
-      
       my %minfo;
       $minfo{'node'} = $m;
       $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
