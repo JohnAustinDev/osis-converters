@@ -67,14 +67,17 @@ allowed and must be removed.");
   if ($addSeeAlsoLinks) {
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
+    $params{'anyEnding'} = 'true';
+    &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS.".bible.xml", \%params);
     # write INPD DictionaryWords.txt if needed
     if (-e $DEFAULT_DICTIONARY_WORDS && ! -e "$INPD/$DICTIONARY_WORDS") {
-      copy($DEFAULT_DICTIONARY_WORDS, "$INPD/$DICTIONARY_WORDS");
+      $DWF_DEFAULT_COPIES{$DEFAULT_DICTIONARY_WORDS} = "$INPD/$DICTIONARY_WORDS";
     }
     # write MAINMOD DictionaryWords.txt if needed
     if (&loadDictionaryWordsXML($OSIS) && $MAINMOD && ! -e "$MAININPD/$DICTIONARY_WORDS") {
-      copy($DEFAULT_DICTIONARY_WORDS, "$MAININPD/$DICTIONARY_WORDS");
+      $DWF_DEFAULT_COPIES{$DEFAULT_DICTIONARY_WORDS.".bible.xml"} = "$MAININPD/$DICTIONARY_WORDS";
     }
+    if (%DWF_DEFAULT_COPIES) {&copyDefaultDWF();}
   }
   
   if ($reorderGlossaryEntries) {
@@ -129,6 +132,7 @@ if ($DICTMOD && $modType =~ /^(bible|commentary)$/ && $addDictLinks) {
 }
 elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
   &runAddSeeAlsoLinks(\$OSIS);
+  if (%DWF_DEFAULT_COPIES) {&copyDefaultDWF();}
 }
 
 &writeMissingNoteOsisRefsFAST(\$OSIS);

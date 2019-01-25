@@ -11,6 +11,8 @@
  
   <import href="../functions.xsl"/>
   
+  <param name="anyEnding" select="'false'"/>
+  
   <param name="notXPATH_default" select="'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]'"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
@@ -86,7 +88,17 @@
       <xsl:variable name="matchesTmp" select="tokenize(., '\s*[,;\[\]\(\)]\s*')"/>
       <xsl:variable name="matches" as="xs:string+"><xsl:for-each select="$matchesTmp"><xsl:if test="."><xsl:sequence select="."/></xsl:if></xsl:for-each></xsl:variable>
       <xsl:for-each select="$matches">
-        <match>/\b(\Q<xsl:value-of select="."/>\E)\b/i</match>
+        <xsl:choose>
+          <xsl:when test="$anyEnding = 'true'">
+            <variable xmlns="http://www.w3.org/1999/XSL/Transform" name="words">
+              <for-each select="tokenize(., '\s+')"><sequence select="concat('\Q', ., '\E', '\S*')"/></for-each>
+            </variable>
+            <match><xsl:value-of select="concat('/\b(', string-join($words, ' '), ')\b/i')"/></match>
+          </xsl:when>
+          <xsl:otherwise>
+            <match>/\b(\Q<xsl:value-of select="."/>\E)\b/i</match>
+          </xsl:otherwise>
+        </xsl:choose>
       </xsl:for-each>
       <xsl:if test="count($matches) &#62; 1">
         <xsl:call-template name="Debug"><xsl:with-param name="msg">writeDictionaryWords: Writing <xsl:value-of select="count($matches)"/> matches for entry "<xsl:value-of select="."/>"</xsl:with-param></xsl:call-template>
