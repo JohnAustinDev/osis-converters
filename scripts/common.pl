@@ -39,6 +39,7 @@ $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
 $COVER_TOC = 2;
+$MAX_MATCH_WORDS = 3;
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
 $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
@@ -360,10 +361,7 @@ sub loadDictionaryWordsXML($) {
   }
   my $tst = @{$XPC->findnodes('//*[@notXPATH]', $DWF)}[0];
   if (!$tst) {
-    &Error("Required attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\", continuing with default setting.", "Add 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' to \"$INPD/$DICTIONARY_WORDS\".");
-    $errors++;
-    @{$XPC->findnodes('//*', $DWF)}[0]->setAttribute("notXPATH", $DICTIONARY_NotXPATH_Default);
-    $update++; 
+    &Warn("DictionaryWords attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\". This is unusual.", "The usual setting is 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' in \"$INPD/$DICTIONARY_WORDS\".");
   }
   my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
   if ($tst) {
@@ -2305,46 +2303,83 @@ sub filterGlossaryReferences($\@$) {
 sub convertExplicitGlossaryElements(\@) {
   my $indexElementsP = shift;
   
-  my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
-
-  foreach my $g (@{$indexElementsP}) {
-    my $before = $g->parentNode->toString();
-    my $gl = $g->getAttribute("level1");
-    my @tn = $XPC->findnodes("preceding::text()[1]", $g);
-    if (@tn != 1 || @tn[0]->data !~ /\Q$gl\E$/) {
-      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$g\".");
-      $ExplicitGlossary{$gl}{"Failed"}++;
+  foreach my $index (@{$indexElementsP}) {
+    my $level = $index->getAttribute("level1");
+    my $cxstring = &getIndexContextString($index);
+    my $before = $index->parentNode->toString();
+    
+    my $result;
+    my @pt = $XPC->findnodes("preceding::text()[1]", $index);
+    if (@pt != 1 || @pt[0]->data !~ /\Q$level\E$/) {
+      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$index\".");
+      &recordExplicitGlossFail($index, $level, $cxstring);
       next;
     }
-    # adjust @tn so index target is a separate text node
-    my $tn0 = @tn[0];
-    my $tn0v = $tn0->data; $tn0v =~ s/\Q$gl\E$//;
-    $tn0->setData($tn0v);
-    @tn[0] = XML::LibXML::Text->new($gl);
-    $tn0->parentNode->insertAfter(@tn[0], $tn0);
-    &addDictionaryLinks(\@tn, 1, (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', @tn[0])}[0] ? 1:0));
-    if ($before eq $g->parentNode->toString()) {
-      &Error("Failed to convert explicit glossary index: $g at text node=".@tn[0]->data."", 
+    my $tn = @pt[0];
+    
+    # Check preceding text node
+    if ($tn->data !~ /\Q$level\E$/) {
+      &ErrorBug("Index tag $index in ".$index->parentNode->toString()." is not preceded by '$level'.");
+      &recordExplicitGlossFail($index, $level, $cxstring);
+      next;
+    }
+    
+    # Find, write and record the matching reference
+    my @tns; push(@tns, $tn);
+    &addDictionaryLinks(\@tns, "$level:CXSTRING:$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
+    if ($before eq $index->parentNode->toString()) {
+      &recordExplicitGlossFail($index, $level, $cxstring);
+      next;
+    }
+    my $osisRef = @{$XPC->findnodes("preceding::reference[1]", $index)}[0]->getAttribute("osisRef");
+    $ExplicitGlossary{$level}{&decodeOsisRef($osisRef)}++;
+    
+    # Remove index element if successful
+    $index->parentNode->removeChild($index);
+  }
+}
+
+sub recordExplicitGlossFail($$$) {
+  my $index = shift;
+  my $level = shift;
+  my $cxstring = shift;
+
+  $ExplicitGlossary{$level}{"Failed"}{'count'}++;
+  $ExplicitGlossary{$level}{"Failed"}{'context'}{$cxstring}++;
+  
+  &Error("Failed to convert explicit glossary index: $index", 
 "<>Add the proper entry to DictionaryWords.xml to match this text 
 and create a hyperlink to the correct glossary entry. If desired you can 
 use the attribute 'onlyExplicit' to match this term only where it is 
 explicitly marked in the text as a glossary index, and nowhere else. 
 Without the onlyExplicit attribute, you are able to hyperlink the term 
 everywhere it appears in the text.");
-      $ExplicitGlossary{$gl}{"Failed"}++;
-      next;
-    }
-    $ExplicitGlossary{$gl}{&decodeOsisRef(@{$XPC->findnodes("preceding::reference[1]", $g)}[0]->getAttribute("osisRef"))}++;
-    $g->parentNode->removeChild($g);
-  }
 }
 
+sub getIndexContextString($) {
+  my $i = shift;
+  
+  my $context = '';
+  do {
+    $i = @{$XPC->findnodes("preceding-sibling::text()[1]", $i)}[0];
+    if ($i) {$context = $i->data.$context;}
+    $context =~ s/\s+/ /gs;
+    my $n =()= $context =~ /\S+/g;
+  } while ($i && $n < $MAX_MATCH_WORDS);
+  
+  my $m = ($MAX_MATCH_WORDS-1);
+  $context =~ s/^.*?(\S+(\s+\S+){1,$m})$/$1/;
+  
+  if (!$context || $context =~ /^\s*$/) {&Error("Could not determine context before $i");}
+  
+  return $context;
+}
 
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
 sub addDictionaryLinks(\@$$) {
   my $eP = shift; # array of text-nodes or text-node parent elements (Note: node element child elements are not touched)
-  my $isExplicit = shift; # true if the node was marked in the text as a glossary link
+  my $ifExplicit = shift; # text context if the node was marked in the text as a glossary link
   my $isGlossary = shift; # true if the node is in a glossary (See-Also linking)
   
   my $bookOrderP;
@@ -2384,7 +2419,9 @@ sub addDictionaryLinks(\@$$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $isExplicit, $glossaryContext, $glossaryScopeP)) {$done = 0;}
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $glossaryContext, $glossaryScopeP)) {
+            if (!$ifExplicit) {$done = 0;}
+          }
         }
         $text = join('', @parts);
       } while(!$done);
@@ -2671,7 +2708,7 @@ sub getProjectOsisFile($) {
 sub addDictionaryLink(\$$$$\@) {
   my $textP = shift;
   my $textNode = shift;
-  my $isExplicit = shift; # true if the node was marked in the text as a glossary link
+  my $explicitContext = shift; # context string if the node was marked in the text as a glossary link
   my $glossaryContext = shift; # for SeeAlso links only
   my $glossaryScopeP = shift; # for SeeAlso links only
 
@@ -2684,6 +2721,9 @@ sub addDictionaryLink(\$$$$\@) {
     $NT_CONTEXTSP =  &getContexts('NT');
     my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
+      my @wds = split(/\s+/, $m->textContent);
+      if (@wds > $MAX_MATCH_WORDS) {$MAX_MATCH_WORDS = @wds; &Note("Setting MAX_MATCH_WORDS to $MAX_MATCH_WORDS");}
+      
       my %minfo;
       $minfo{'node'} = $m;
       $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
@@ -2741,11 +2781,11 @@ sub addDictionaryLink(\$$$$\@) {
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
     &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
-    my $filterMultiples = (!$isExplicit && $m->{'multiple'} !~ /^true$/i);
+    my $filterMultiples = (!$explicitContext && $m->{'multiple'} !~ /^true$/i);
     my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
     
-    if ($isExplicit && $m->{'notExplicit'}) {&dbg("00\n"); next;}
-    elsif (!$isExplicit && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
+    if ($explicitContext && $m->{'notExplicit'}) {&dbg("00\n"); next;}
+    elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
     else {
       if ($glossaryContext && $m->{'skipRootID'}{&getRootID($glossaryContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
@@ -2774,7 +2814,7 @@ sub addDictionaryLink(\$$$$\@) {
     }
     
     my $is; my $ie;
-    if (&glossaryMatch($textP, $m->{'node'}, \$is, \$ie)) {next;}
+    if (&glossaryMatch($textP, $m->{'node'}, \$is, \$ie, $explicitContext)) {next;}
     if ($is == $ie) {
       &ErrorBug("Match result was zero width!: \"".$m->{'node'}->textContent."\"");
       next;
@@ -2833,11 +2873,14 @@ sub getRootID($) {
 # Look for a single match $m in $$textP and set its start/end positions
 # if one is found. Returns 0 if a match was found; or else 1 if no 
 #  match was found, or 2 on error.
-sub glossaryMatch(\$$\$\$) {
+sub glossaryMatch(\$$\$\$$) {
   my $textP = shift;
   my $m = shift;
   my $isP = shift;
   my $ieP = shift;
+  my $explicitContext = shift;
+  
+  my $index; my $cxstring; if ($explicitContext =~ /^(.*?)\:CXSTRING\:(.*)$/) {$index = $1; $cxstring = $2;}
   
   my $p = $m->textContent;
   if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
@@ -2856,7 +2899,7 @@ sub glossaryMatch(\$$\$\$) {
   $pm = decode_entities($pm);
   
   # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
-  my $t = $$textP;
+  my $t = ($explicitContext ? $cxstring:$$textP);
   my $i = $pf =~ s/i//;
   $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
   if ($i) {
@@ -2867,10 +2910,9 @@ sub glossaryMatch(\$$\$\$) {
   }
  
   # finally do the actual MATCHING...
+  if ($explicitContext) {$pm .= '$';}
   &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
-  if ($t !~ /$pm/) {
-    return 1;
-  }
+  if ($t !~ /$pm/) {return 1;}
 
   $$isP = $-[$#+];
   $$ieP = $+[$#+];
@@ -2885,7 +2927,12 @@ sub glossaryMatch(\$$\$\$) {
     $$ieP = $+[$i];
   }
   
-  &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, ".$+{'link'}.".\n");
+  if ($explicitContext) {
+    $$isP = length($$textP) - length($index);
+    $$ieP = length($$textP);
+  }
+  
+  &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, '".substr($$textP, $$isP, ($$ieP-$$isP))."'\n");
   
   return 0;
 }
@@ -3086,10 +3133,8 @@ sub getScopedAttribute($$) {
 
 
 sub dbg($$) {
+  my $p = shift;
 
-  
-#  my $p = shift;
-#  
 ##for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
 #  
 #  if (!@DICT_DEBUG_THIS) {return 0;}
@@ -3097,7 +3142,7 @@ sub dbg($$) {
 #    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
 #  }
 #  
-#  &Log($p);
+#  &Debug($p);
   return 1;
 }
 
@@ -4034,11 +4079,51 @@ sub logDictLinks() {
   &Log("\n\n");
   &Report("Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)");
   my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
+  my %cons;
   foreach my $eg (sort keys %ExplicitGlossary) {
     my @txt;
-    foreach my $tg (sort keys %{$ExplicitGlossary{$eg}}) {push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}.")");}
-    &Log(sprintf("%-".$mxl."s was linked to %s", $eg, join(", ", @txt)) . "\n");
+    foreach my $tg (sort keys %{$ExplicitGlossary{$eg}}) {
+      if ($tg eq 'Failed') {
+        my @contexts = keys %{$ExplicitGlossary{$eg}{$tg}{'context'}};
+        my $mlen = 0;
+        foreach my $c (@contexts) {
+          if (length($c) > $mlen) {$mlen = length($c);}
+          my $ctx = $c; $ctx =~ s/^\s+//; $ctx =~ s/\s+$//;
+          $cons{lc($ctx)}++;
+        }
+        foreach my $c (@contexts) {$c = sprintf("%".($mlen+5)."s", $c);}
+        push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}{'count'}.")\n".join("\n", @contexts)."\n");
+      }
+      else {
+        push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}.")");
+      }
+    }
+    my $msg = join(", ", @txt);
+    &Log(sprintf("%-".$mxl."s ".($msg !~ /failed/i ? "was linked to ":'')."%s", $eg, $msg) . "\n");
   }
+  # Report each unique context ending for failures, since these may represent entries that are missing from the glossary
+  my %uniqueConEnd;
+  foreach my $c (keys %cons) {
+    my $toLastWord;
+    for (my $i=2; $i<=length($c) && $c !~ /^\s*$/; $i++) {
+      my $end = substr($c, -$i, $i);
+      my $keep = 1;
+      if (substr($end,0,1) =~ /\s/) {$toLastWord = substr($end, 1, length($end)-1);}
+      foreach my $c2 (keys %cons) {
+        if ($c2 eq $c) {next;}
+        if ($c2 =~ /\Q$end\E$/i) {$keep = 0; last;}
+      }
+      if ($keep) {
+        my $uce = $c;
+        if ($toLastWord) {$uce = $toLastWord;}
+        else {$uce =~ s/^.*\s//};
+        $uniqueConEnd{$uce}++; $i=length($c);
+      }
+    }
+  }
+  &Log("\n");
+  &Report("There were ".%uniqueConEnd." unique failed explicit entry contexts".(%uniqueConEnd ? ':':'.'));
+  foreach my $uce (sort { length($b) <=> length($a) } keys %uniqueConEnd) {&Log("$uce\n");}
   
   my $nolink = "";
   my $numnolink = 0;
