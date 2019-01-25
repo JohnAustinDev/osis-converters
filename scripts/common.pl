@@ -2754,6 +2754,9 @@ sub addDictionaryLink(\$$$$\@) {
       if (&glossaryMatch(\$test, $m, \$is, \$ie) == 2) {next;}
       
       push(@MATCHES, \%minfo);
+      
+      my @wds = split(/\s+/, $minfo{'name'});
+      if (@wds > $MAX_MATCH_WORDS) {$MAX_MATCH_WORDS = @wds; &Note("Setting MAX_MATCH_WORDS to $MAX_MATCH_WORDS");}
     }
     #if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
   }
