@@ -2326,7 +2326,7 @@ sub convertExplicitGlossaryElements(\@) {
     
     # Find, write and record the matching reference
     my @tns; push(@tns, $tn);
-    &addDictionaryLinks(\@tns, "$level:CXSTRING:$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
+    &addDictionaryLinks(\@tns, "$level$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
     if ($before eq $index->parentNode->toString()) {
       &recordExplicitGlossFail($index, $level, $cxstring);
       next;
@@ -2343,9 +2343,11 @@ sub recordExplicitGlossFail($$$) {
   my $index = shift;
   my $level = shift;
   my $cxstring = shift;
+  
+  my $str = $cxstring; $str =~ s/^(\:CXBEFORE\:|\:CXAFTER\:)$//g;
 
   $ExplicitGlossary{$level}{"Failed"}{'count'}++;
-  $ExplicitGlossary{$level}{"Failed"}{'context'}{$cxstring}++;
+  $ExplicitGlossary{$level}{"Failed"}{'context'}{$str}++;
   
   &Error("Failed to convert explicit glossary index: $index", 
 "<>Add the proper entry to DictionaryWords.xml to match this text 
@@ -2356,23 +2358,45 @@ Without the onlyExplicit attribute, you are able to hyperlink the term
 everywhere it appears in the text.");
 }
 
+# This returns the context surrounding an index milestone, which is 
+# often necessary to determine the intended index target. Since this 
+# error is commonly seen for example when level1 should be "Ark of the 
+# Covenant": 
+# "This is some Bible text concerning the Ark of the Covenant<index level1="Covenant"/>"
+# The index alone does not result in the intended match, but using
+# context gives us an excellent chance of correcting this common mistake. 
+# The risk of unintentionally making a 'too-specific' match may exist, 
+# but this is unlikely and would probably not be incorrect anyway.
 sub getIndexContextString($) {
   my $i = shift;
   
-  my $context = '';
+  my $cbefore = '';
+  my $tn = $i;
   do {
-    $i = @{$XPC->findnodes("preceding-sibling::text()[1]", $i)}[0];
-    if ($i) {$context = $i->data.$context;}
-    $context =~ s/\s+/ /gs;
-    my $n =()= $context =~ /\S+/g;
-  } while ($i && $n < $MAX_MATCH_WORDS);
+    $tn = @{$XPC->findnodes("(preceding-sibling::text()[1] | preceding-sibling::*[1][not(self::osis:title) and not(self::osis:p) and not(self::osis:div)]//text()[last()])[last()]", $tn)}[0];
+    if ($tn) {$cbefore = $tn->data.$cbefore;}
+    $cbefore =~ s/\s+/ /gs;
+    my $n =()= $cbefore =~ /\S+/g;
+  } while ($tn && $n < $MAX_MATCH_WORDS);
   
   my $m = ($MAX_MATCH_WORDS-1);
-  $context =~ s/^.*?(\S+(\s+\S+){1,$m})$/$1/;
+  $cbefore =~ s/^.*?(\S+(\s+\S+){1,$m})$/$1/;
   
-  if (!$context || $context =~ /^\s*$/) {&Error("Could not determine context before $i");}
+  if (!$cbefore || $cbefore =~ /^\s*$/) {&Error("Could not determine context before $i");}
   
-  return $context;
+  my $cafter = '';
+  my $tn = $i;
+  do {
+    $tn = @{$XPC->findnodes("(following-sibling::text()[1] | following-sibling::*[1][not(self::osis:title) and not(self::osis:p) and not(self::osis:div)]//text()[1])[1]", $tn)}[0];
+    if ($tn) {$cafter .= $tn->data;}
+    $cafter =~ s/\s+/ /gs;
+    my $n =()= $cafter =~ /\S+/g;
+  } while ($tn && $n < $MAX_MATCH_WORDS);
+  
+  my $m = ($MAX_MATCH_WORDS-1);
+  $cafter =~ s/^(\s*\S+(\s+\S+){1,$m}).*?$/$1/;
+  
+  return ":CXBEFORE:$cbefore:CXAFTER:$cafter";
 }
 
 # Add dictionary links as described in $DWF to the nodes pointed to 
@@ -2880,7 +2904,8 @@ sub glossaryMatch(\$$\$\$$) {
   my $ieP = shift;
   my $explicitContext = shift;
   
-  my $index; my $cxstring; if ($explicitContext =~ /^(.*?)\:CXSTRING\:(.*)$/) {$index = $1; $cxstring = $2;}
+  my $index; my $cxbefore; my $cxafter;
+  if ($explicitContext =~ /^(.*?)\:CXBEFORE\:(.*?)\:CXAFTER\:(.*)$/) {$index = $1; $cxbefore = $2; $cxafter = $3;}
   
   my $p = $m->textContent;
   if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
@@ -2899,7 +2924,7 @@ sub glossaryMatch(\$$\$\$$) {
   $pm = decode_entities($pm);
   
   # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
-  my $t = ($explicitContext ? $cxstring:$$textP);
+  my $t = ($explicitContext ? "$cxbefore$cxafter":$$textP);
   my $i = $pf =~ s/i//;
   $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
   if ($i) {
@@ -2910,7 +2935,6 @@ sub glossaryMatch(\$$\$\$$) {
   }
  
   # finally do the actual MATCHING...
-  if ($explicitContext) {$pm .= '$';}
   &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
   if ($t !~ /$pm/) {return 1;}
 
@@ -2925,6 +2949,11 @@ sub glossaryMatch(\$$\$\$$) {
     }
     $$isP = $-[$i];
     $$ieP = $+[$i];
+  }
+  
+  if ($explicitContext && substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP)) !~ /\Q$index\E/i) {
+    &dbg("but match did not include the index: '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' !~ /\Q$index\E/i\n"); 
+    return 1;
   }
   
   if ($explicitContext) {
