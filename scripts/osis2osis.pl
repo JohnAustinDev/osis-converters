@@ -101,7 +101,7 @@ sub runOsis2osis($$) {
         if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject."); next;}
         if ($out =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
         if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($in, $out);}
-        elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$in\" \"$out\"");}
+        elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$in\" \"$out\"");}
         else {&convertFileStrings($in, $out);}
       }
     }
@@ -130,7 +130,7 @@ sub runOsis2osis($$) {
       if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in paths.pl."); next;}
       
       if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $newOSIS);}
-      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$cfdir/$MODE_Script\" \"$osis\" \"$newOSIS\"");}
+      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$osis\" \"$newOSIS\"");}
       else {&convertFileStrings($osis, $newOSIS);}
     }
     else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
