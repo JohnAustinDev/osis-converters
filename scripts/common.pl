@@ -2951,8 +2951,8 @@ sub glossaryMatch(\$$\$\$$) {
     $$ieP = $+[$i];
   }
   
-  if ($explicitContext && substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP)) !~ /\Q$index\E/i) {
-    &dbg("but match did not include the index: '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' !~ /\Q$index\E/i\n");
+  if ($explicitContext && ($$isP > (length($cxbefore)-1) || (length($cxbefore)-1) > $$ieP)) {
+    &dbg("but match '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' did not include the index '$index'\n");
     if ($cxbefore !~ s/^\s*\S+//) {return 1;}
     return &glossaryMatch($textP, $m, \$is, \$ie, "$index:CXBEFORE:$cxbefore:CXAFTER:$cxafter");
   }
