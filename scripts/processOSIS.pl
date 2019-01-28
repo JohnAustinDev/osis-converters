@@ -31,7 +31,7 @@ if ($modType =~ /^(bible|commentary)$/) {
     }
     else {
       &loadDictionaryWordsXML();
-      &Warn("$DICTIONARY_WORDS is present but will not be validate against the DICT OSIS file, which may not be not up to date.");
+      &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
     }
   }
 }

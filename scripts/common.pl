@@ -2344,7 +2344,7 @@ sub recordExplicitGlossFail($$$) {
   my $level = shift;
   my $cxstring = shift;
   
-  my $str = $cxstring; $str =~ s/^(\:CXBEFORE\:|\:CXAFTER\:)$//g;
+  my $str = $cxstring; $str =~ s/^(.*?)\:CXBEFORE\:(.*?)\:CXAFTER\:(.*)$/$2<index\/>$3/;
 
   $ExplicitGlossary{$level}{"Failed"}{'count'}++;
   $ExplicitGlossary{$level}{"Failed"}{'context'}{$str}++;
@@ -2952,8 +2952,9 @@ sub glossaryMatch(\$$\$\$$) {
   }
   
   if ($explicitContext && substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP)) !~ /\Q$index\E/i) {
-    &dbg("but match did not include the index: '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' !~ /\Q$index\E/i\n"); 
-    return 1;
+    &dbg("but match did not include the index: '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' !~ /\Q$index\E/i\n");
+    if ($cxbefore !~ s/^\s*\S+//) {return 1;}
+    return &glossaryMatch($textP, $m, \$is, \$ie, "$index:CXBEFORE:$cxbefore:CXAFTER:$cxafter");
   }
   
   if ($explicitContext) {
@@ -4117,7 +4118,7 @@ sub logDictLinks() {
         my $mlen = 0;
         foreach my $c (@contexts) {
           if (length($c) > $mlen) {$mlen = length($c);}
-          my $ctx = $c; $ctx =~ s/^\s+//; $ctx =~ s/\s+$//;
+          my $ctx = $c; $ctx =~ s/^\s+//; $ctx =~ s/\s+$//; $ctx =~ s/<index\/>.*$//;
           $cons{lc($ctx)}++;
         }
         foreach my $c (@contexts) {$c = sprintf("%".($mlen+5)."s", $c);}
@@ -4127,7 +4128,7 @@ sub logDictLinks() {
         push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}.")");
       }
     }
-    my $msg = join(", ", @txt);
+    my $msg = join(", ", sort { ($a =~ /failed/i ? 0:1) <=> ($b =~ /failed/i ? 0:1) } @txt);
     &Log(sprintf("%-".$mxl."s ".($msg !~ /failed/i ? "was linked to ":'')."%s", $eg, $msg) . "\n");
   }
   # Report each unique context ending for failures, since these may represent entries that are missing from the glossary
