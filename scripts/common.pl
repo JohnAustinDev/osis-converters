@@ -119,6 +119,8 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
+  &checkRequiredConfEntries($ConfEntryP);
+  
   &checkProjectConfiguration();
   
   # Set default to 'on' for the following OSIS processing steps
@@ -1687,6 +1689,71 @@ sub setConfGlobals(\%) {
   $MODPATH = &dataPath2RealPath($entryValueP->{"DataPath"});
   
   return $entryValueP;
+}
+
+
+sub checkRequiredConfEntries($) {
+  my $confP = shift;
+  
+  if ($confP->{'Abbreviation'} eq $MOD) {
+    &Error("You must provide the config.conf 'Abbreviation' setting with an abbreviated name for module $MOD.",
+"This field allows for the localization of the module name. It is meant to be short. It might be just the name of the language.");
+  }
+  
+  if ($confP->{'About'} eq 'ABOUT') {
+    &Error("You must provide the config.conf 'About' setting with information about module $MOD.",
+"This can be a lengthier description and may include copyright, 
+source, etc. information, possibly duplicating information in other 
+elements.");
+  }
+  
+  if ($confP->{'Description'} eq 'DESCRIPTION') {
+    &Error("You must provide the config.conf 'Description' setting with a short description about module $MOD.",
+"This is a short (1 line) title for the module.");
+  }
+  
+  if ($confP->{'Lang'} eq 'LANG') {
+    &Error("You must provide the config.conf 'Lang' setting as the ISO-639 code for this language.",
+"Use the shortest available ISO-639 code. If there may be multiple 
+scripts then follow the languge code with '-' and an ISO-15924 4 letter 
+script code, such as: 'Cyrl', 'Latn' or 'Arab'.");
+  }
+}
+
+
+sub checkRequiredEbookConvEntries($$) {
+  my $convP = shift;
+  my $osis = shift;
+  
+  if ($DICTMOD && $convP->{'CombinedGlossaryTitle'} eq 'Glossary') {
+    &Error("CombinedGlossaryTitle is not specified.",
+"You must provide the eBook/convert.txt setting 
+'CombinedGlossaryTitle' as the localized name for the combined glossary. 
+All glossary, map, table and other reference material may then
+appear beneath this localized heading.");
+  }
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my @subpubs = ();
+  foreach my $osisRef (map($_->getAttribute('osisRef'), $XPC->findnodes('//osis:div[@type][@osisRef]', $xml))) {
+    push(@subpubs, $osisRef);
+  }
+  if (@subpubs && (!$convP->{'TitleFullPublication1'} || !$convP->{'CreateFullPublication1'})) {
+    &Error("TitleFullPublicationN and/or CreateFullPublicationN is not specified.",
+"You must provide eBook/convert.txt 'TitleFullPublicationN' 
+and 'CreateFullPublicationN'. This project apparently 
+contains sub-publications. Localized names must be provided for each 
+of them, like this:
+
+TitleFullPublication1=A Localized Publication Name
+TitleFullPublication2=Another Localized Publication Name
+
+Also, corresponding scope entries for each sub-publication are 
+required, like this:
+
+CreateFullPublication1=Matt-Rev
+CreateFullPublication2=Ruth Esther Jonah\n\n");
+  }
 }
 
 

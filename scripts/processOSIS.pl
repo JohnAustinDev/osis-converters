@@ -34,6 +34,7 @@ if ($modType =~ /^(bible|commentary)$/) {
       &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
     }
   }
+  &checkRequiredEbookConvEntries(\%EBOOKCONV, $OSIS);
 }
 elsif ($modType eq 'dict') {
 
