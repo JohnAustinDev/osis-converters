@@ -285,11 +285,11 @@ sub copyCoverTo($$) {
   my $figure = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"]/osis:figure[@type="x-cover"]', $xml)}[0];
   if (!$figure) {return '';}
   
-  my $result;
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1copyCoverTo$3/;
   $figure->unbindNode();
   &writeXMLFile($xml, $output, $osisP);
   
+  my $result;
   my $source = "$MAININPD/".$figure->getAttribute('src');
   if (-e $source && -f $source) {
     &copy($source, $coverpath);
