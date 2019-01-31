@@ -49,7 +49,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
 }
 @SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
 @SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption'); # These are special SWORD entries for osis-converters modules
-@OC_CONFIGS = ('TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'MultipleGlossaries', 'CombinedGlossaryTitle');
+@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle');
 @SWORD_LOCALIZABLE_CONFIGS = ('CopyrightHolder', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'Copyright', 'DistributionNotes');
 %CONFIG_DEFAULTS = (
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
@@ -59,7 +59,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
   'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
   'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
-  'MultipleGlossaries' => 'false',  'doc:MultipleGlossaries' => 'Set this to true to turn off the combined glossary feature.',
+  'CombineGlossaries' => 'true',    'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one.',
   'CombinedGlossaryTitle' => '',    'doc:CombinedGlossaryTitle' => 'By default, glossaries are combined into a single glossary with this title.',
   'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.'
 );
@@ -130,6 +130,11 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR, $TMPDIR);
   
+  if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
+    &Warn("UPDATE: Found outdated convert.txt. Updating...");
+    &removeConvertTXT();
+  }
+  
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
   &checkRequiredConfEntries();
@@ -167,6 +172,63 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     }
   }
   &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n");
+}
+sub removeConvertTXT() {
+  my $neweb = &updateConvertTXT("$MAININPD/eBook/convert.txt");
+  if ($neweb) {$neweb = "\n$neweb";}
+  my $newhm = &updateConvertTXT("$MAININPD/html/convert.txt");
+  if ($newhm) {$newhm = "\n[osis2html]\n$newhm";}
+  my $new = $neweb.$newhm;
+  if (!$new) {return;}
+  if (!open(ACON, ">>:encoding(UTF-8)", $CONFFILE)) {
+    &ErrorBug("removeConvertTXT could not append to $CONFFILE");
+    return;
+  }
+  print ACON $new;
+  &Warn("<-UPDATE: Appending to config.conf:\n$new");
+  close(ACON);
+}
+sub updateConvertTXT($) {
+  my $convtxt = shift;
+  
+  if (! -e $convtxt) {return '';}
+  
+  my $new = '';
+  if (open(CONV, "<:encoding(UTF-8)", $convtxt)) {
+    while(<CONV>) {
+      if ($_ =~ /^#/) {next;}
+      elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {
+        my $e = $1; my $v = $2;
+        my $warn;
+        if ($e eq 'MultipleGlossaries') {
+          $warn = "Changing $e=$v to";
+          $e = 'CombineGlossaries';
+          $v = ($v && $v !~ /^(false|0)$/i ? 'false':'true');
+          &Warn("<-$warn $e=$v");
+        }
+        elsif ($e =~ /^CreateFullPublication(\d+)/) {
+          my $n = $1;
+          $warn = "Changing $e=$v to ";
+          $e = 'ScopeSubPublication'.$n;
+          &Warn("<-$warn $e=$v");
+        }
+        elsif ($e =~ /^TitleFullPublication(\d+)/) {
+          my $n = $1;
+          $warn = "Changing $e=$v to ";
+          $e = 'TitleSubPublication'.$n;
+          &Warn("<-$warn $e=$v");
+        }
+        $new .= "$e=$v\n";
+      }
+    }
+    close(CONV);
+  }
+  else {&Warn("Did not find \"$convtxt\"");}
+  
+  &Warn("<-UPDATE: Removing outdated convert.txt: $convtxt");
+  unlink($convtxt);
+  
+  return $new;
 }
 
 # Enforce the only supported module configuration and naming convention
@@ -1800,8 +1862,10 @@ sub setConfGlobals(\%) {
         $entryValueP->{$e} = $CONFIG_DEFAULTS{$e};
       }
     }
-    else {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
+    elsif ($e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
   }
+  
+  foreach my $e (sort keys %{$entryValueP}) {&Debug("Config.conf $e = ".$entryValueP->{$e}."\n");}
   
   return $entryValueP;
 }
@@ -1853,8 +1917,8 @@ script code, such as: 'Cyrl', 'Latn' or 'Arab'.");
 sub checkRequiredEbookConfEntries($) {
   my $osis = shift;
   
-  if ($DICTMOD && &conf('MultipleGlossaries') !~ /^true$/i && &conf('CombinedGlossaryTitle') eq 'Glossary') {
-    &Error("MultipleGlossaries is 'false' but CombinedGlossaryTitle is not specified.",
+  if ($DICTMOD && &conf('CombineGlossaries') !~ /^(false|0)$/i && &conf('CombinedGlossaryTitle') eq 'Glossary') {
+    &Error("CombineGlossaries is 'true' but CombinedGlossaryTitle is not localized.",
 "You must provide the config.conf setting 
 'CombinedGlossaryTitle' as the localized name for the combined glossary. 
 All glossary, map, table and other reference material may then
@@ -4637,28 +4701,34 @@ sub runXSLT($$$\%$) {
   my $logFlag = shift;
   
   # Globals must be passed to XSLT
-  my %p;
-  foreach my $c (keys %{$CONF}) {
-    $c =~ s/^.*?\+//;
-    if (!$p{$c}) {$p{$c} = &conf($c);}
-  }
+  my $cP = &currentConf();
 
   # Params will supercede global value of same name
   foreach my $c (keys %{$paramsP}) {
-    $p{$c} = $paramsP->{$c};
+    $cP->{$c} = $paramsP->{$c};
   }
   
   my $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   $cmd .= " -o:" . &escfile($output);
-  foreach my $p (keys %{$paramsP}) {
-    my $v = $paramsP->{$p};
+  foreach my $p (keys %{$cP}) {
+    my $v = $cP->{$p};
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
   }
   if ($DEBUG) {$cmd .= " DEBUG=\"true\"";}
   &shell($cmd, $logFlag);
+}
+
+# The currentConf is a copy of all config entries and their values in the current context (SCRIPT_NAME)
+sub currentConf() {
+  my %p;
+  foreach my $c (keys %{$CONF}) {
+    $c =~ s/^.*?\+//;
+    if (!$p{$c}) {$p{$c} = &conf($c);}
+  }
+  return \%p;
 }
 
 $ProgressTotal = 0;

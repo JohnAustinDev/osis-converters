@@ -49,7 +49,7 @@
   <variable name="FullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
   
   <!-- Set MultipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
-  <variable name="MultipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
+  <variable name="MultipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-CombineGlossaries'][1] = 'false') then 'true' else 'false'"/>
   
   <!-- Set ChapterFiles to 'true' to output Bible books as separate files for each chapter -->
   <variable name="ChapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>

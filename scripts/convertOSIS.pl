@@ -128,18 +128,10 @@ sub OSIS_To_ePublication($$$$) {
     );
   }
   
-  # update osis header with current config.conf to pass to osis2xhtml.xsl
-  my %osis2xhtml = (
-    'TOC' => &conf('TOC'),
-    'TitleCase' => &conf('TitleCase'),
-    'NoEpub3Markup' => &conf('NoEpub3Markup'),
-    'FullResourceURL' => &conf('FullResourceURL'),
-    'MultipleGlossaries' => &conf('MultipleGlossaries'),
-    'ChapterFiles' => &conf('ChapterFiles'),
-    'CombinedGlossaryTitle' => &conf('CombinedGlossaryTitle'),
-    'DEBUG' => ($DEBUG ? 'true':'')
-  );
-  &writeOsisHeader(\$osis, $CONF, \%osis2xhtml, 'x-osis2xhtml');
+  # update osis header with current config.conf marked for use by osis2xhtml
+  my $osis2xhtmlP = &currentConf();
+  $osis2xhtmlP->{'DEBUG'} = ($DEBUG ? 'true':'false');
+  &writeOsisHeader(\$osis, $CONF, $osis2xhtmlP, 'x-osis2xhtml');
   
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
