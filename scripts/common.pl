@@ -49,7 +49,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
 }
 @SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
 @SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption'); # These are special SWORD entries for osis-converters modules
-@OC_CONFIGS = ('TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'MultipleGlossaries');
+@OC_CONFIGS = ('TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'MultipleGlossaries', 'CombinedGlossaryTitle');
 @SWORD_LOCALIZABLE_CONFIGS = ('CopyrightHolder', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'Copyright', 'DistributionNotes');
 %CONFIG_DEFAULTS = (
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
@@ -60,6 +60,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
   'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
   'MultipleGlossaries' => 'false',  'doc:MultipleGlossaries' => 'Set this to true to turn off the combined glossary feature.',
+  'CombinedGlossaryTitle' => '',    'doc:CombinedGlossaryTitle' => 'By default, glossaries are combined into a single glossary with this title.',
   'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.'
 );
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
