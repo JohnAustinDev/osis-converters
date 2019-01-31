@@ -34,7 +34,7 @@ sub filterGlossaryToScope($$$) {
     if (!$divScope) {push(@kept, $divScope); next;}
   
     # keep if any book within the glossary scope matches $scope
-    my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+    my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
     if (&inGlossaryContext(&scopeToBooks($divScope, $bookOrderP), &getContexts($scope))) {
       push(@kept, $divScope);
       next;
@@ -75,7 +75,7 @@ sub filterAggregateEntries($$) {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my @check = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]//osis:div[@type="x-aggregate-subentry"]', $xml);
-  my $bookOrderP; &getCanon($ConfEntryP->{"Versification"}, NULL, \$bookOrderP, NULL);
+  my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
   
   my @removed; my $removeCount = 0;
   foreach my $subentry (@check) {
@@ -113,7 +113,7 @@ sub upperCaseKeys($) {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
-  if ($MODDRV =~ /LD/) {
+  if (&conf('ModDrv') =~ /LD/) {
     my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
     foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
   }

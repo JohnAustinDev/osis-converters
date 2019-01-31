@@ -487,8 +487,8 @@ sub asrlProcessFile($$) {
 
   # complete osisRef attributes by adding the target Bible
   my $refmod = "Bible";
-  if ($MOD && $MODDRV =~ /Text/) {$refmod = '';} # A Bible's default osisRef is correct as is
-  elsif ($ConfEntryP->{"Companion"}) {$refmod = $ConfEntryP->{"Companion"}; $refmod =~ s/,.*$//;}
+  if ($MOD && &conf('ModDrv') =~ /Text/) {$refmod = '';} # A Bible's default osisRef is correct as is
+  elsif (&conf("Companion")) {$refmod = &conf("Companion"); $refmod =~ s/,.*$//;}
   if ($refmod) {
     my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
     foreach my $new (@news) {$new->setValue("$refmod:".$new->getValue());}
@@ -1298,7 +1298,7 @@ sub validOSISref($$$$) {
   else {return 0;}
 
   my $vk = new Sword::VerseKey();
-  $vk->setVersificationSystem($VERSESYS);
+  $vk->setVersificationSystem(&conf('Versification'));
   my $bok1 = $vk->getBookNumberByOSISName($bk1) != -1;
   my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) != -1);
 

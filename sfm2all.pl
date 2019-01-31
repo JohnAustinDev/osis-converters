@@ -26,10 +26,10 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 
 # collect all modules to run
 my %modules;
-$modules{$INPD} = $ConfEntryP->{'ModDrv'};
+$modules{$INPD} = &conf('ModDrv');
 
-if ($ConfEntryP->{'Companion'}) {
-  foreach $companion (split(/\s*,\s*/, $ConfEntryP->{'Companion'})) {
+if (&conf('Companion')) {
+  foreach $companion (split(/\s*,\s*/, &conf('Companion'))) {
     if ($companion !~ /DICT$/) {next;}
     if (!-e "$INPD/$companion/config.conf") {
       &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 

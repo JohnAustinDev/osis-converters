@@ -25,11 +25,11 @@
   <!-- Setting to 'true' turns on debugging messages -->
   <param name="DEBUG" select="'false'"/>
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="tocnumber" select="2"/>
+  <param name="TOC" select="2"/>
   <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
-  <param name="titleCase" select="0"/>
+  <param name="TitleCase" select="0"/>
   <!-- String describing how to sort glossary keys -->
-  <param name="keySort" select="//description[@type='x-sword-config-KeySort'][1]"/>
+  <param name="KeySort" select="//description[@type='x-config-KeySort'][1]"/>
  
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
@@ -92,10 +92,10 @@
   <!-- Sort by an arbitrary character order: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
   <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
-    <if test="$keySort and $text">
+    <if test="$KeySort and $text">
       <variable name="ignoreRegex" as="xs:string">
         <variable name="ignores" as="xs:string*">
-          <analyze-string select="oc:encodeKS($keySort)" regex="{'\{([^\}]*)\}'}">
+          <analyze-string select="oc:encodeKS($KeySort)" regex="{'\{([^\}]*)\}'}">
             <matching-substring><sequence select="regex-group(1)"/></matching-substring>
           </analyze-string>
         </variable>
@@ -103,7 +103,7 @@
       </variable>
       <variable name="charRegexes" as="element(me:regex)*">
         <!-- split KeySort string into 3 groups: chr | [] | {} -->
-        <analyze-string select="oc:encodeKS($keySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
+        <analyze-string select="oc:encodeKS($KeySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
           <matching-substring>
             <if test="not(regex-group(3))"><!-- if group(3) is non empty, this is an ignore group -->
               <me:regex>
@@ -138,7 +138,7 @@
             <choose>
               <when test="matches(., '\p{L}')">
                 <call-template name="Error">
-                  <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$keySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
+                  <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$KeySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
                   <with-param name="exp">Add the missing character to the config.conf file's KeySort entry. Place it where it belongs in the order of characters.</with-param>
                 </call-template>
               </when>
@@ -150,7 +150,7 @@
       </variable>
       <value-of select="$result"/>
     </if>
-    <if test="not($keySort)">
+    <if test="not($KeySort)">
       <call-template name="Warn"><with-param name="msg">keySort(): 'KeySort' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</with-param></call-template>
       <value-of select="$text"/>
     </if>
@@ -166,23 +166,23 @@
   
   <function name="oc:getGlossaryName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
-    <value-of select="oc:titleCase($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]/@n)[1])"/>
+    <value-of select="oc:titleCase($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1])"/>
   </function>
   
   <function name="oc:getGlossaryScopeName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <variable name="createFullPublication" 
-      select="if ($glossary/@scope) then root($glossary)//header//description[contains(@type, 'CreateFullPublication')][text()=$glossary/@scope]/@type else ''"/>
+      select="if ($glossary/@scope) then root($glossary)//header//description[contains(@type, 'ScopeSubPublication')][text()=$glossary/@scope]/@type else ''"/>
     <variable name="pubn" select="if ($createFullPublication) then substring($createFullPublication[1], string-length($createFullPublication[1]), 1) else ''"/>
-    <variable name="titleFullPublications" select="if ($pubn) then root($glossary)//header//description[contains(@type, concat('TitleFullPublication', $pubn))] else ''"/>
+    <variable name="titleFullPublications" select="if ($pubn) then root($glossary)//header//description[contains(@type, concat('TitleSubPublication', $pubn))] else ''"/>
     <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else oc:getGlossaryName($glossary)"/>
   </function>
   
   <function name="oc:titleCase" as="xs:string?">
     <param name="title" as="xs:string?"/>
     <choose>
-      <when test="$titleCase = 1"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
-      <when test="$titleCase = 2"><value-of select="upper-case($title)"/></when>
+      <when test="$TitleCase = 1"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
+      <when test="$TitleCase = 2"><value-of select="upper-case($title)"/></when>
       <otherwise><value-of select="$title"/></otherwise>
     </choose>
   </function>

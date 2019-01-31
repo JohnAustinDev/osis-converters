@@ -25,7 +25,7 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 
 require("$SCRD/scripts/usfm2osis.pl");
-&usfm2osis(&getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), "$TMPDIR/".$MOD."_0.xml");
+&usfm2osis(&getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), "$TMPDIR/".$MOD."_0.xml");
 
 if ($NO_OUTPUT_DELETE) {
   # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true

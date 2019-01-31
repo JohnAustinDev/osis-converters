@@ -12,7 +12,7 @@
 
 
 # This script requires Calibre to be installed, with the osis-input plugin.
-# It creates an epub or fb2 ebook from an osis.xml input file and config file convert.txt located in the specified directory.
+# It creates an epub or fb2 ebook from an osis.xml input file.
 # The css file, if present, must be in the same directory and named ebible.css when processing a Bible.
 # The output file is created in the same directory and has the same name as the input file with the appropriate extension (.epub, .fb2)
 
@@ -102,16 +102,8 @@ if ($COVER) {
   }
 }
 
-# Check that config file exists
-if (-e "convert.txt") {
-  $CONFILE = File::Spec->rel2abs("convert.txt");
-}
-else {
- $CONFILE = '';
-}
-
 # Start forming the command string
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF).($CONFILE ? " --config-file ".&escfile($CONFILE):"")." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --subset-embedded-fonts";
+$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --subset-embedded-fonts";
 
 $COMMAND .= ' --level1-toc "//*[@title=\'toclevel-1\']" --level2-toc "//*[@title=\'toclevel-2\']" --level3-toc "//*[@title=\'toclevel-3\']"';
 

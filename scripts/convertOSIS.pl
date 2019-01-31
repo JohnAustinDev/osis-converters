@@ -19,7 +19,6 @@
 
 # Converts an OSIS file into possibly a number of different ePublications 
 # of type $convertTo, where each ePublication covers a different Bible-scope. 
-# All conversion settings are provided by a Project_Directory/$convertTo/convert.txt file.
 sub convertOSIS($) {
   my $convertTo = shift;
   if ($convertTo !~ /^(eBook|html)$/) {
@@ -28,31 +27,28 @@ sub convertOSIS($) {
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
   
-  # update globals from the OSIS file's metadata, namely $ConfEntryP, $MOD etc.
-  &setConfGlobals(&updateConfData($ConfEntryP, $INOSIS));
+  # update globals from the OSIS file's metadata, namely $CONF, $MOD etc.
+  &setConfGlobals(&updateConfData($CONF, $INOSIS));
 
   # globals used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   %CONV_REPORT;
   $CONV_NAME;
   $FULL_PUB_TITLE = @{$XPC->findnodes("/descendant::osis:work[\@osisWork='$MOD'][1]/osis:title[1]", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
-  %CONVERT_TXT = &readConvertTxt(&getDefaultFile("bible/$convertTo/convert.txt"));
-  $CREATE_FULL_BIBLE = (!defined($CONVERT_TXT{'CreateFullBible'}) || $CONVERT_TXT{'CreateFullBible'} !~ /^(false|0)$/i);
-  $CREATE_SEPARATE_BOOKS = (!defined($CONVERT_TXT{'CreateSeparateBooks'}) || $CONVERT_TXT{'CreateSeparateBooks'} !~ /^(false|0)$/i);
-  @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %CONVERT_TXT) {if ($k =~ /^CreateFullPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
-  $TOCNUMBER = ($CONVERT_TXT{'TOC'} ? $CONVERT_TXT{'TOC'}:$DEFAULT_TOCNUMBER);
-  $TITLECASE = ($CONVERT_TXT{'TitleCase'} ? $CONVERT_TXT{'TitleCase'}:$DEFAULT_TITLECASE);
+  $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
+  $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
+  @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %{$CONF}) {if ($k =~ /ScopeSubPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
   else {
     # convert the entire OSIS file
-    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $ConfEntryP->{"Scope"});}
+    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, &conf("Scope"));}
 
-    # convert any print publications that are part of the OSIS file (as specified in convert.txt: CreateFullPublicationN=scope)
+    # convert any print publications that are part of the OSIS file (as specified in config.conf: ScopeSubPublication=scope)
     if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
       foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-        my $scope = $CONVERT_TXT{'CreateFullPublication'.$x}; $scope =~ s/_/ /g;
-        &OSIS_To_ePublication($convertTo, $scope, 0, $CONVERT_TXT{'TitleFullPublication'.$x});
+        my $scope = &conf('ScopeSubPublication'.$x); $scope =~ s/_/ /g;
+        &OSIS_To_ePublication($convertTo, $scope, 0, &conf('TitleSubPublication'.$x));
       }
     }
 
@@ -63,9 +59,9 @@ sub convertOSIS($) {
         my $bk = $aBook->getAttribute('osisID');
         # don't create this ebook if an identical ebook has already been created
         foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-          if ($bk && $bk eq $CONVERT_TXT{'CreateFullPublication'.$x}) {next BOOK;}
+          if ($bk && $bk eq &conf('ScopeSubPublication'.$x)) {next BOOK;}
         }
-        if ($CREATE_FULL_BIBLE && $ConfEntryP->{"Scope"} eq $bk) {next BOOK;}
+        if ($CREATE_FULL_BIBLE && &conf("Scope") eq $bk) {next BOOK;}
         if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}
       }
     }
@@ -108,7 +104,7 @@ sub OSIS_To_ePublication($$$$) {
   
   &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=$type, titleOverride=$titleOverride\n", 1);
   
-  $CONV_NAME = &getEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP, $type);
+  $CONV_NAME = &getEbookName($scope, $FULL_PUB_TITLE, $CONF, $type);
   if ($CONV_REPORT{$CONV_NAME}) {
     &ErrorBug("$convertTo \"$CONV_NAME\" already created!");
   }
@@ -120,22 +116,30 @@ sub OSIS_To_ePublication($$$$) {
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &copy($INOSIS, $osis);
   
-  my $pubTitle = ($titleOverride ? $titleOverride:$CONVERT_TXT{'Title'}); # title will usually still be '' at this point
+  my $pubTitle = $titleOverride;
   my $pubTitlePart;
   if ($scope) {
     &pruneFileOSIS(
       \$osis,
       $scope,
-      $ConfEntryP,
-      \%CONVERT_TXT,
+      $CONF,
       \$pubTitle, 
       \$pubTitlePart
     );
   }
   
-  # update osis header with current convert.txt
-  if ($DEBUG) {$CONVERT_TXT{'DEBUG'} = 'true';}
-  &writeOsisHeader(\$osis, $ConfEntryP, NULL, NULL, \%CONVERT_TXT);
+  # update osis header with current config.conf to pass to osis2xhtml.xsl
+  my %osis2xhtml = (
+    'TOC' => &conf('TOC'),
+    'TitleCase' => &conf('TitleCase'),
+    'NoEpub3Markup' => &conf('NoEpub3Markup'),
+    'FullResourceURL' => &conf('FullResourceURL'),
+    'MultipleGlossaries' => &conf('MultipleGlossaries'),
+    'ChapterFiles' => &conf('ChapterFiles'),
+    'CombinedGlossaryTitle' => &conf('CombinedGlossaryTitle'),
+    'DEBUG' => ($DEBUG ? 'true':'')
+  );
+  &writeOsisHeader(\$osis, $CONF, \%osis2xhtml, 'x-osis2xhtml');
   
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
@@ -143,7 +147,7 @@ sub OSIS_To_ePublication($$$$) {
   $CONV_REPORT{$CONV_NAME}{'Cover'} = '';
   if ($cover) {
     if ($isPartial) {
-      &shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, $ConfEntryP->{"Font"}, 'LightGray')." \"$cover\"", 3);
+      &shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, &conf("Font"), 'LightGray')." \"$cover\"", 3);
       $CONV_REPORT{$CONV_NAME}{'Cover'} = ' ('.$pubTitlePart.')';
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
@@ -165,26 +169,26 @@ sub OSIS_To_ePublication($$$$) {
   &copy_dir_with_defaults("bible/$convertTo/css", "$tmp/css");
  
   # copy font if specified
-  if ($FONTS && $ConfEntryP->{"Font"}) {
-    &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$tmp/css", 1);
+  if ($FONTS && &conf("Font")) {
+    &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$tmp/css", 1);
     # The following allows Calibre to embed fonts (which must be installed locally) when 
     # the '--embed-all-fonts' flag is used with ebook-convert. This has been commented out
     # (and the flag removed from ebook-convert) because embeded fonts are unnecessary 
     # when font files are explicitly provided, and embeding never worked right anyway.
     #&shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
     #my $home = &shell("echo \$HOME", 3); chomp($home);
-    #&Note("Calibre can only embed fonts that are installed. Installing ".$ConfEntryP->{"Font"}." to host.");
-    #&copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$home/.fonts");
+    #&Note("Calibre can only embed fonts that are installed. Installing ".&conf("Font")." to host.");
+    #&copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$home/.fonts");
     if (open(CSS, ">$tmp/css/font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
-      foreach my $f (keys %{$FONT_FILES{$ConfEntryP->{"Font"}}}) {
-        my $format = $font_format{lc($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'ext'})};
+      foreach my $f (keys %{$FONT_FILES{&conf("Font")}}) {
+        my $format = $font_format{lc($FONT_FILES{&conf("Font")}{$f}{'ext'})};
         if (!$format) {&Log("WARNNG: Font \"$f\" has an unknown format; src format will not be specified.\n");}
         print CSS '
 @font-face {
   font-family:font1;
   src: url(\''.($convertTo eq 'eBook' ? './':'/css/').$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
-  font-weight: '.($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; font-style: '.($FONT_FILES{$ConfEntryP->{"Font"}}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
+  font-weight: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; font-style: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
 }
 ';
       }
@@ -192,7 +196,7 @@ sub OSIS_To_ePublication($$$$) {
 body {font-family: font1;}
 
 ';
-      if (open(FCSS, "<$FONTS/".$ConfEntryP->{"Font"}.".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
+      if (open(FCSS, "<$FONTS/".&conf("Font").".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
       close(CSS);
     }
     else {&ErrorBug("Could not write font css to \"$tmp/css/font.css\"");}
@@ -398,7 +402,7 @@ sub makeEbook($$$$$) {
   
   if (!$format) {$format = 'fb2';}
   
-  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $ConfEntryP).".$format");
+  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $CONF).".$format");
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
@@ -406,15 +410,15 @@ sub makeEbook($$$$$) {
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
     if ($format eq 'epub') {
-      my $epub3Markup = (!($CONVERT_TXT{'NoEpub3Markup'} =~ /^(true)$/i));
+      my $noEpub3Markup = (&conf('NoEpub3Markup') =~ /^true$/i);
       $cmd = "epubcheck \"$out\"";
-      my $result = &shell($cmd, ($epub3Markup ? 3:0));
+      my $result = &shell($cmd, 3);
       if ($result =~ /^\s*$/) {
         &ErrorBug("epubcheck did not return anything- reason unknown");
       }
       elsif ($result !~ /\bno errors\b/i) {
         my $failed = 1;
-        if ($epub3Markup) {
+        if (!$noEpub3Markup) {
           $result =~ s/^[^\n]*attribute "epub:type" not allowed here[^\n]*\n//mg;
           if ($result =~ /ERROR/) {&Log($result);}
           else {
@@ -434,7 +438,7 @@ sub makeEbook($$$$$) {
   else {&Error("No output file: $out");}
 }
 
-# To work with osis2xhtml.xsl, the FullResourceURL must have the full eBook's file name and extension (directory URL comes from convert.txt)
+# To work with osis2xhtml.xsl, the FullResourceURL must have the full eBook's file name and extension (directory URL comes from config.conf)
 sub updateOsisFullResourceURL($$) {
   my $osis = shift;
   my $fileName = shift;

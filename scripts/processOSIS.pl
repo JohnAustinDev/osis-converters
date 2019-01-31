@@ -9,19 +9,14 @@ require("$SCRD/scripts/bible/addCrossRefs.pl");
 $OSIS = "$TMPDIR/".$MOD."_0.xml";
 &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-my $modType = ($MODDRV =~ /LD/ ? 'dict':($MODDRV =~ /Text/ ? 'bible':($MODDRV =~ /Com/ ? 'commentary':'childrens_bible')));
-
-%HTMLCONV  = &readConvertTxt(&getDefaultFile('bible/html/convert.txt'));
-%EBOOKCONV = &readConvertTxt(&getDefaultFile('bible/eBook/convert.txt'));
-$TOCNUMBER = ($EBOOKCONV{'TOC'} ? $EBOOKCONV{'TOC'}:$DEFAULT_TOCNUMBER);
-$TITLECASE = ($EBOOKCONV{'TitleCase'} ? $EBOOKCONV{'TitleCase'}:$DEFAULT_TITLECASE);
+my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bible':(&conf('ModDrv') =~ /Com/ ? 'commentary':'childrens_bible')));
 
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $ConfEntryP, \%EBOOKCONV, \%HTMLCONV, NULL)."\n");
+&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $CONF)."\n");
 
 if ($modType =~ /^(bible|commentary)$/) {
-  &orderBooksPeriphs(\$OSIS, $VERSESYS, $customBookOrder);
+  &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
   if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
     my $dictosis = &getProjectOsisFile($DICTMOD);
@@ -34,11 +29,11 @@ if ($modType =~ /^(bible|commentary)$/) {
       &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
     }
   }
-  &checkRequiredEbookConvEntries(\%EBOOKCONV, $OSIS);
+  &checkRequiredEbookConfEntries($OSIS);
 }
 elsif ($modType eq 'dict') {
 
-  if (!$ConfEntryP->{'KeySort'}) {
+  if (!&conf('KeySort')) {
     &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
 keys. EXAMPLE:
@@ -53,7 +48,7 @@ escaped by backslash. This means the string to ignore all brackets or
 parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
   }
   
-  if (!$ConfEntryP->{'LangSortOrder'}) {
+  if (!&conf('LangSortOrder')) {
     &Error("LangSortOrder is missing from config.conf", "
 Although this config entry has been replaced by KeySort and is 
 deprecated and no longer used by osis-converters, for now it is still 
@@ -91,9 +86,9 @@ elsif ($modType eq 'childrens_bible') {
   &runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);
   &checkAdjustCBImages(\$OSIS);
 }
-else {die "Unhandled modType (ModDrv=$MODDRV)\n";}
+else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 
-&writeNoteIDs(\$OSIS, $ConfEntryP);
+&writeNoteIDs(\$OSIS, $CONF);
 
 if ($modType ne 'childrens_bible') {
   &writeTOC(\$OSIS);
@@ -139,8 +134,8 @@ elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
 &writeMissingNoteOsisRefsFAST(\$OSIS);
 
 if ($modType =~ /^(bible|commentary)$/) {
-  &fitToVerseSystem(\$OSIS, $VERSESYS);
-  &checkVerseSystem($OSIS, $VERSESYS);
+  &fitToVerseSystem(\$OSIS, &conf('Versification'));
+  &checkVerseSystem($OSIS, &conf('Versification'));
 }
 
 if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}

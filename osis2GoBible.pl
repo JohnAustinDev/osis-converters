@@ -77,7 +77,7 @@ sub makeGoBible($) {
   &Log($cmd."\n");
   system($cmd);
 
-  &Log("\n--- Copying module to MKS directory $MOD".$ConfEntryP->{"Version"}."\n");
+  &Log("\n--- Copying module to MKS directory $MOD".&conf("Version")."\n");
   chdir("$TMPDIR/$type");
   opendir(DIR, "./");
   my @f = readdir(DIR);

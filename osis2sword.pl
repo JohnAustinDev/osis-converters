@@ -33,32 +33,32 @@ $STARTOSIS = $INOSIS;
 
 &links2sword(\$INOSIS);
 
-if ($MODDRV =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
-elsif ($MODDRV =~ /Text/) {
+if (&conf('ModDrv') =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
+elsif (&conf('ModDrv') =~ /Text/) {
   &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
 }
-if ($MODDRV =~ /GenBook/) {
+if (&conf('ModDrv') =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
   &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
 }
 
-my $typePreProcess = ($MODDRV =~ /Text/ ? 'osis2sword.xsl':($MODDRV =~ /LD/ ? 'osis2tei.xsl':''));
+my $typePreProcess = (&conf('ModDrv') =~ /Text/ ? 'osis2sword.xsl':(&conf('ModDrv') =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
 
 if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
 if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$MODPATH")) {
-  $ConfEntryP->{'Feature'} = ($ConfEntryP->{'Feature'} ? $ConfEntryP->{'Feature'}."<nx/>":"")."Images";
+  $CONF->{'Feature'} = (&conf('Feature') ? &conf('Feature')."<nx/>":"")."Images";
 }
 
 # The fonts folder is not a standard SWORD feature
-#if ($ConfEntryP->{"Font"} && $FONTS) {
-#  &copyFont($ConfEntryP->{"Font"}, $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
+#if (&conf("Font") && $FONTS) {
+#  &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
 #}
 
 $msv = "1.6.1";
-if ($VERSESYS && $VERSESYS ne "KJV") {
+if (&conf('Versification') ne "KJV") {
   system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
   open(OUTF, "<:encoding(UTF-8)", "$TMPDIR/osis2mod_vers.txt") || die "Could not open $TMPDIR/osis2mod_vers.txt\n";
   while(<OUTF>) {
@@ -68,45 +68,38 @@ if ($VERSESYS && $VERSESYS ne "KJV") {
   }
   close(OUTF);
   unlink("$TMPDIR/osis2mod_vers.txt");
-  if ($VERSESYS eq "SynodalProt") {$msv = "1.7.0";}
-  $ConfEntryP->{'MinimumVersion'} = $msv;
+  if (&conf('Versification') eq "SynodalProt") {$msv = "1.7.0";}
+  $CONF->{'MinimumVersion'} = $msv;
 }
 
-if ($MODDRV =~ /Text/) {
-  $ConfEntryP->{'Category'} = 'Biblical Texts';
-  
-  if ($MODDRV =~ /zText/) {
-    $ConfEntryP->{'CompressType'} = 'ZIP';
-    $ConfEntryP->{'BlockType'} = 'BOOK';
-  }
-
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $INOSIS);
-  &Log("\n--- CREATING $MOD SWORD MODULE (".$VERSESYS.")\n");
-  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." ".($MODDRV =~ /zText/ ? ' -z z':'').($VERSESYS ? " -v $VERSESYS":'').($MODDRV =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
+if (&conf('ModDrv') =~ /Text/) {
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
+  &Log("\n--- CREATING $MOD SWORD MODULE (".&conf('Versification').")\n");
+  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." ".(&conf('ModDrv') =~ /zText/ ? ' -z z':'')." -v ".&conf('Versification').(&conf('ModDrv') =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
 }
-elsif ($MODDRV =~ /^RawGenBook$/) {
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $INOSIS);
-	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$VERSESYS.")\n");
+elsif (&conf('ModDrv') =~ /^RawGenBook$/) {
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
+	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".&conf('Versification').")\n");
 	$cmd = &escfile($SWORD_BIN."xml2gbs")." $INOSIS $MODLC >> ".&escfile($LOGFILE);
 	&Log("$cmd\n", -1);
 	chdir("$SWOUT/$MODPATH");
 	system($cmd);
 	chdir($SCRD);
 }
-elsif ($MODDRV =~ /LD/) {
+elsif (&conf('ModDrv') =~ /LD/) {
   # Input file is now TEI with OSIS markup. So get the OSISVersion from the original OSIS file.
   my $sxml = $XML_PARSER->parse_file($STARTOSIS);
   my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $sxml)}[0];
   if ($vers) {
     $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
-    $ConfEntryP->{'OSISVersion'} = $vers;
+    $CONF->{'OSISVersion'} = $vers;
   }
   
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $ConfEntryP, $CONFFILE, $INOSIS);
-  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$VERSESYS.")\n");
-  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." -s ".($MODDRV eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
+  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".&conf('Versification').")\n");
+  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." -s ".(&conf('ModDrv') eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
   # tei2mod creates module files called "dict" which are non-standard, so fix
@@ -119,11 +112,11 @@ elsif ($MODDRV =~ /LD/) {
   }
 }
 else {
-	&ErrorBug("Unhandled module type \"$MODDRV\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
+	&ErrorBug("Unhandled module type \"".&conf('ModDrv')."\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
 }
 
-if ($ConfEntryP->{"PreferredCSSXHTML"}) {
-  my $cssfile = &getDefaultFile(($MODDRV =~ /LD/ ? 'dict':'bible')."/sword/css/".$ConfEntryP->{"PreferredCSSXHTML"});
+if (&conf("PreferredCSSXHTML")) {
+  my $cssfile = &getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible')."/sword/css/".&conf("PreferredCSSXHTML"));
   copy($cssfile, "$SWOUT/$MODPATH");
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }

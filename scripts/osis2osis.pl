@@ -214,7 +214,7 @@ sub convertFileStrings($$) {
   
   # config.conf
   elsif ($fname eq "config.conf") {
-    # By default, only entries (Abbreviation|About|Description|CopyrightHolder_<lang-base>) are converted.
+    # By default, only entries (Abbreviation|About|Description|CombinedGlossaryTitle|TitleSubPublication\d+|CopyrightHolder_<lang-base>) are converted.
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
@@ -230,7 +230,8 @@ sub convertFileStrings($$) {
       }
     }
     foreach my $e (sort keys %{$confP}) {
-      if (($e =~ /^(Abbreviation|About|Description|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
+      if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
+      elsif (($e =~ /^(Abbreviation|About|Description|CombinedGlossaryTitle|TitleSubPublication\d+|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
         my $new = &transcodeStringByMode($confP->{$e});
         &Note("Converting entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
         $confP->{$e} = $new;
@@ -264,35 +265,6 @@ sub convertFileStrings($$) {
     close(OUTF);
     if (!%col) {&Error("Did not update Collection names in collections.txt");}
     else {foreach my $c (sort keys %col) {&Note("Updated Collection $c to ".$col{$c});}}
-  }
-  
-  # convert.txt
-  elsif ($fname eq "convert.txt") {
-    if (!open(INF, "<:encoding(UTF-8)", $ccin)) {&Error("Could not open convert.txt input $ccin"); return;}
-    if (!open(OUTF, ">:encoding(UTF-8)", $ccout)) {&Error("Could not open convert.txt output $ccout"); return;}
-    while(<INF>) {
-      if ($_ =~ /^([\w\d]+)\s*=\s*(.*?)\s*$/) {
-        my $e=$1; my $v=$2;
-        if ($e =~ /^(CombinedGlossaryTitle|TitleFullPublication\d+|Title)$/) {
-          my $newv = &transcodeStringByMode($v);
-          $_ = "$e=$newv\n";
-          &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  $newv");
-        }
-        if (${"CONVERT_$e"}) {
-          $_ = "$e=".${"CONVERT_$e"}."\n";
-          $O2O_CONVERTS{$e} = '';
-          &Note("Converted entry $e\n\t\twas: $v\n\t\tis:  ".${"CONVERT_$e"});
-        }
-      }
-      print OUTF $_;
-    }
-    foreach my $e (sort keys %O2O_CONVERTS) {
-      if (!$e) {next;}
-      print OUTF "$e=".$O2O_CONVERTS{$e}."\n";
-      &Note("Setting entry $e to: ".$O2O_CONVERTS{$e});
-    }
-    close(INF);
-    close(OUTF);
   }
   
   # USFM files

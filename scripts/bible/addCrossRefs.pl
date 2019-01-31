@@ -40,15 +40,15 @@ sub runAddCrossRefs($) {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $def = "bible/Cross_References/".(!$VERSESYS ? "KJV":$VERSESYS).".xml";
+  my $def = "bible/Cross_References/".&conf('Versification').".xml";
   my $CrossRefFile = &getDefaultFile($def, -1);
   if (!-e $CrossRefFile) {
     &Warn("Could not locate a Cross Reference source file: $def", "
 The cross reference source file is an OSIS file that contains only 
-cross-references for the necessary verse system: $VERSESYS. Without 
+cross-references for the necessary verse system: ".&conf('Versification').". Without 
 one, cross-references will not be added to the text. It should be 
 typically placed in the following directory:
-osis-converters/defaults/bible/CrossReferences/$VERSESYS.xml
+osis-converters/defaults/bible/CrossReferences/".&conf('Versification').".xml
 The reference tags in the file do not need to contain presentational 
 text, because it would be replaced with localized text anyway. 
 Example OSIS cross-references:
@@ -240,7 +240,7 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       if ($localization{'hasLocalization'}) {
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
         my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
-        my $tr = &translateRef($readRef, \%localization, $VERSESYS);
+        my $tr = &translateRef($readRef, \%localization, &conf('Versification'));
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
         $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});
       }

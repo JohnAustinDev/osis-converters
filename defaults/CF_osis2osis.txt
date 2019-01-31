@@ -37,8 +37,6 @@ SET_SKIP_NODES_MATCHING:(www\.myurl\.com|ISBN)
 # on sourceProject files to obtain converted versions of the files.
 CC:./config.conf
 CC:./GoBible/*
-CC:./eBook/convert.txt
-CC:./html/convert.txt
 
 # This command causes the OSIS file to be converted using the conversion
 # method selected previously. With the 'sourceProject' argument, the 

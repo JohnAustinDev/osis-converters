@@ -13,7 +13,7 @@
   <import href="../../functions.xsl"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <variable name="tocnumber" select="2"/>
+  <param name="TOC" select="2"/>
   
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
@@ -31,8 +31,8 @@
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
       <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/title/string())}">
         <xsl:for-each-group select="node()[not(local-name()='header')]"
-            group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)]) + count(self::milestone[@type=concat('x-usfm-toc', $tocnumber)])">
-          <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]) then current-group()[1]/@n else 'noName'"/>
+            group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $TOC)]) + count(self::milestone[@type=concat('x-usfm-toc', $TOC)])">
+          <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $TOC)]]) then current-group()[1]/@n else 'noName'"/>
           <xsl:choose>
             <xsl:when test="$id = 'noName' and current-group()[normalize-space()]">
               <xsl:call-template name="Error">
@@ -51,7 +51,7 @@
   </template>
   
   <!-- Specify explicit TOC levels -->
-  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]/@n">
+  <template match="milestone[@type=concat('x-usfm-toc', $TOC)]/@n">
     <attribute name="n" select="concat('[level', (count(ancestor-or-self::div[@type=('book','majorSection','chapter')])-1), ']', .)"/>
   </template>
   
@@ -85,7 +85,7 @@
                 </xsl:call-template>
               </xsl:if>
               <xsl:attribute name="osisID" select="oc:encodeOsisRef($osisID)"/>
-              <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level2]{$title}"/>
+              <milestone type="{concat('x-usfm-toc', $TOC)}" n="[level2]{$title}"/>
               <xsl:apply-templates select="current-group()"/>
             </div>
           </otherwise>

@@ -37,25 +37,25 @@
   <variable name="DEBUG" select="if (/descendant::*[@type='x-osis2xhtml-DEBUG'][1] = 'true') then 'true' else 'false'"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <variable name="tocnumber" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
+  <variable name="TOC" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
   
   <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
-  <variable name="titleCase" select="if (/descendant::*[@type='x-osis2xhtml-TitleCase'][1]) then /descendant::*[@type='x-osis2xhtml-TitleCase'][1] else 1"/>
+  <variable name="TitleCase" select="if (/descendant::*[@type='x-osis2xhtml-TitleCase'][1]) then /descendant::*[@type='x-osis2xhtml-TitleCase'][1] else 1"/>
   
   <!-- Output EPUB3 footnotes -->
   <variable name="epub3" select="if (/descendant::*[@type='x-osis2xhtml-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
   
   <!-- Optional URL to show for broken links -->
-  <variable name="fullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
+  <variable name="FullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
   
-  <!-- Set multipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
-  <variable name="multipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
+  <!-- Set MultipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
+  <variable name="MultipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-MultipleGlossaries'][1] = 'true') then 'true' else 'false'"/>
   
-  <!-- Set chapterFiles to 'true' to output Bible books as separate files for each chapter -->
-  <variable name="chapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>
+  <!-- Set ChapterFiles to 'true' to output Bible books as separate files for each chapter -->
+  <variable name="ChapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>
   
   <!-- Set name to use for the combined glossary -->
-  <variable name="combinedGlossaryTitle" select="if (/descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
+  <variable name="CombinedGlossaryTitle" select="if (/descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
   
   <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:type[@type='x-childrens-bible']"/>
   
@@ -67,8 +67,8 @@
   
   <!-- A main Table Of Contents is placed after the first TOC milestone sibling after the OSIS header, or if there isn't such a milestone, add one -->
   <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
-      /descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
-      /descendant::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]"/>
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
 
   <variable name="mainInputOSIS" select="/"/>
 
@@ -79,7 +79,7 @@
     <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
       <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
       <choose>
-        <when test="$chapterFiles = 'true' or $isChildrensBible">
+        <when test="$ChapterFiles = 'true' or $isChildrensBible">
           <variable name="removeSectionDivs"><apply-templates select="$markMainTocMilestone" mode="bibleOSIS_removeSectionDivs"/></variable>
           <apply-templates select="$removeSectionDivs" mode="bibleOSIS_expelChapterTags"/>
         </when>
@@ -89,11 +89,11 @@
     
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
-      <if test="$multipleGlossaries = 'false' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
+      <if test="$MultipleGlossaries = 'false' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>
-    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (multipleGlossaries=', $multipleGlossaries, ')')"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (MultipleGlossaries=', $MultipleGlossaries, ')')"/></call-template>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">
@@ -173,8 +173,8 @@
   <template name="WriteCombinedGlossary">
     <param name="combinedKeywords" as="element(div)+"/>
     <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
-      <milestone type="{concat('x-usfm-toc', $tocnumber)}" n="[level1]{$combinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
-      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$combinedGlossaryTitle"/></title>
+      <milestone type="{concat('x-usfm-toc', $TOC)}" n="[level1]{$CombinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
+      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$CombinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
         <sort select="oc:keySort(.//seg[@type='keyword'][1]/string())" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <apply-templates select="." mode="writeCombinedGlossary"/>
@@ -193,7 +193,7 @@
   <template match="node()|@*" mode="bibleOSIS_markMainTocMilestone bibleOSIS_removeSectionDivs bibleOSIS_expelChapterTags">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
-  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)][generate-id() = generate-id($mainTocMilestone)]" mode="bibleOSIS_markMainTocMilestone">
+  <template match="milestone[@type=concat('x-usfm-toc', $TOC)][generate-id() = generate-id($mainTocMilestone)]" mode="bibleOSIS_markMainTocMilestone">
     <copy><attribute name="isMainTocMilestone" select="'true'"/><for-each select="@*"><copy-of select="."/></for-each></copy>
   </template>
   <template match="div[ends-with(lower-case(@type), 'section')]" mode="bibleOSIS_removeSectionDivs">
@@ -240,7 +240,7 @@
           <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
         </for-each-group>
       </when>
-      <when test="self::div[@type='book'] and $chapterFiles = 'true'">
+      <when test="self::div[@type='book'] and $ChapterFiles = 'true'">
         <variable name="book" select="@osisID"/>
         <for-each-group select="node()" group-adjacent="count(preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count(descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))])">
           <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
@@ -322,7 +322,7 @@
         <value-of select="concat($root, '_Chbl_c', 0.5 + count($node/preceding::div[@type='chapter']) + 0.5*count($node/ancestor-or-self::div[@type='chapter']))"/>
       </when>
       <when test="$book">
-        <variable name="chapter" select="if ($chapterFiles = 'true') then 
+        <variable name="chapter" select="if ($ChapterFiles = 'true') then 
             concat('/ch', count($node/preceding::chapter[starts-with(@sID, concat($book, '.'))]) + count($node/descendant-or-self::chapter[starts-with(@sID, concat($book, '.'))]))
             else ''"/>
         <value-of select="concat($root, '_', $book, $chapter)"/>
@@ -359,7 +359,7 @@
       </call-template>
     </if>
     <variable name="osisRef2" select="replace($osisRef, '^[^:]*:', '')" as="xs:string"/>
-    <value-of select="concat($work, '_', tokenize($osisRef2, '\.')[1], (if ($chapterFiles = 'true') then concat('/ch', tokenize($osisRef2, '\.')[2]) else ''))"/>
+    <value-of select="concat($work, '_', tokenize($osisRef2, '\.')[1], (if ($ChapterFiles = 'true') then concat('/ch', tokenize($osisRef2, '\.')[2]) else ''))"/>
   </function>
   
   <!-- Write each xhtml file's contents -->
@@ -389,7 +389,7 @@
               xmlns="http://www.w3.org/1999/XSL/Transform">
             <variable name="pubname" select="//osis:work[child::osis:type[@type='x-bible']][1]/title[1]"/>
             <variable name="title">
-              <osis:milestone type="{concat('x-usfm-toc', $tocnumber)}" n="{$pubname}"/>
+              <osis:milestone type="{concat('x-usfm-toc', $TOC)}" n="{$pubname}"/>
               <osis:title type="main"><value-of select="$pubname"/></osis:title>
             </variable>
             <apply-templates select="$title" mode="xhtml"/>
@@ -397,15 +397,15 @@
           </if>
           <xsl:sequence select="$fileXHTML"/>
           <xsl:sequence select="$fileNotes"/>
-          <!-- If there are links to fullResourceURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$fullResourceURL and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <!-- If there are links to FullResourceURL then add a crossref section at the end of the first book, to show that URL -->
+          <xsl:if test="$FullResourceURL and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
                 <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
                 <span class="xsl-note-head xsl-crnote-symbol">+</span><xsl:value-of select="' '"/>
-                <xsl:if test="starts-with($fullResourceURL, 'http')"><a href="{$fullResourceURL}"><xsl:value-of select="$fullResourceURL"/></a></xsl:if>
-                <xsl:if test="not(starts-with($fullResourceURL, 'http'))"><xsl:value-of select="$fullResourceURL"/></xsl:if>
+                <xsl:if test="starts-with($FullResourceURL, 'http')"><a href="{$FullResourceURL}"><xsl:value-of select="$FullResourceURL"/></a></xsl:if>
+                <xsl:if test="not(starts-with($FullResourceURL, 'http'))"><xsl:value-of select="$FullResourceURL"/></xsl:if>
               </div>
             </div>
           </xsl:if>
@@ -493,7 +493,7 @@
   <!-- Table of Contents
   There are two TOCs: 1) the standard eBook TOC, and 2) the inline TOC which appears inline with the text as a series of links.
   The following OSIS elements, by default, will generate both a standard TOC and an inline TOC entry:
-      milestone[@type='x-usfm-tocN'] (from USFM \tocN tags, where N corresponds to this XSLT's $tocnumber param) - The TOC entry name normally comes from the "n" attribute value
+      milestone[@type='x-usfm-tocN'] (from USFM \tocN tags, where N corresponds to this XSLT's $TOC param) - The TOC entry name normally comes from the "n" attribute value
       chapter[@sID] (from USFM \c tags) - The TOC entry name normally comes from a following title[@type='x-chapterLabel'] (USFM \cl or \cp) element
       seg[@type='keyword'] (from USFM \k ...\k* tags) - The TOC entry name normally comes from the child text nodes
       
@@ -571,7 +571,7 @@
     <param name="isOsisRootTOC" as="xs:boolean"/>
     <param name="keepOnlyCombinedGlossary" as="xs:boolean"/>
     <variable name="isBible" select="root($tocNode)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
-    <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or (not($isBible) and self::chapter[@sID])])">
+    <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $TOC)] or (not($isBible) and self::chapter[@sID])])">
       <call-template name="Error">
         <with-param name="msg">getTocListItems(): Not a TOC milestone or non-Bible chapter element: <value-of select="oc:printNode($tocNode)"/></with-param>
         <with-param name="die" select="'yes'"/>
@@ -582,15 +582,15 @@
       <variable name="subentries" as="element()*">
         <choose>
           <when test="$isChildrensBible and $isOsisRootTOC">
-            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, '[level1]')][generate-id(.) != generate-id($tocNode)]"/>
+            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, '[level1]')][generate-id(.) != generate-id($tocNode)]"/>
           </when>
           <when test="$isChildrensBible">
-            <variable name="followingTocs" select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, concat('[level',($toplevel+1),']'))]"/>
-            <variable name="nextSibling"   select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)][starts-with(@n, substring($tocNode/@n, 1, 8))][1]"/>
+            <variable name="followingTocs" select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, concat('[level',($toplevel+1),']'))]"/>
+            <variable name="nextSibling"   select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, substring($tocNode/@n, 1, 8))][1]"/>
             <sequence select="if ($nextSibling) then $followingTocs[. &#60;&#60; $nextSibling] else $followingTocs"/>
           </when>
           <when test="$tocNode/self::chapter[@sID]">
-            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $tocnumber)]) except 
+            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)]) except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
           <otherwise>
@@ -599,7 +599,7 @@
                 then $tocNode/parent::div/parent::div 
                 else $tocNode/ancestor::div[1]"/>
             <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary -->
-            <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $tocnumber)])
+            <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $TOC)])
                 [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
                 [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')][not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
                 [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]"/>
@@ -658,7 +658,7 @@
   <!-- me:getTocAttributes returns attribute nodes for a TOC element -->
   <function name="me:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
-    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
+    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $TOC)] or self::chapter[@sID] or self::seg[@type='keyword']])">
       <call-template name="Error">
         <with-param name="msg">getTocAttributes(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
         <with-param name="die" select="'yes'"/>
@@ -674,7 +674,7 @@
   <!-- me:getTocTitle returns the title text of tocElement -->
   <function name="me:getTocTitle" as="xs:string">
     <param name="tocElement" as="element()"/>
-    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
+    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $TOC)] or self::chapter[@sID] or self::seg[@type='keyword']])">
       <call-template name="Error">
         <with-param name="msg">getTocTitle(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
         <with-param name="die" select="'yes'"/>
@@ -683,7 +683,7 @@
     <variable name="tocTitleEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if ($tocElement/@n) then $tocElement/@n else ''"/>
     <variable name="tocTitleOSIS">
       <choose>
-        <when test="$tocElement/self::milestone[@type=concat('x-usfm-toc', $tocnumber) and @n]"><value-of select="$tocElement/@n"/></when>
+        <when test="$tocElement/self::milestone[@type=concat('x-usfm-toc', $TOC) and @n]"><value-of select="$tocElement/@n"/></when>
         <when test="$tocElement/self::chapter[@sID]">
           <choose>
             <when test="$tocElement/following::title[@type='x-chapterLabel'][1][following::chapter[1][@eID=$tocElement/@sID]]">
@@ -709,7 +709,7 @@
   <function name="me:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
     <variable name="isBible" select="root($tocElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
-    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $tocnumber)] or self::chapter[@sID] or self::seg[@type='keyword']])">
+    <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $TOC)] or self::chapter[@sID] or self::seg[@type='keyword']])">
       <call-template name="Error">
         <with-param name="msg">getTocLevel(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
         <with-param name="die" select="'yes'"/>
@@ -720,7 +720,7 @@
       <variable name="parentTocNodes" select="if ($isBible) then me:getBibleParentTocNodes($tocElement) else me:getGlossParentTocNodes($tocElement)"/>
       <choose>
         <when test="$parentTocNodes[generate-id(.) = generate-id($tocElement)]"><value-of select="count($parentTocNodes)"/></when>
-        <when test="$tocElement[self::seg[@type='keyword'] | self::chapter[@sID] | self::milestone[@type=concat('x-usfm-toc', $tocnumber)]]"><value-of select="1 + count($parentTocNodes)"/></when>
+        <when test="$tocElement[self::seg[@type='keyword'] | self::chapter[@sID] | self::milestone[@type=concat('x-usfm-toc', $TOC)]]"><value-of select="1 + count($parentTocNodes)"/></when>
         <otherwise><value-of select="1"/></otherwise>
       </choose>
     </variable>
@@ -732,9 +732,9 @@
     <param name="x" as="element()"/>
     <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child (that isn't n="[not_parent]...) or a first child div, which isn't a bookGroup or book, that has one. 
     Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
-    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $tocnumber)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $tocnumber)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
+    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $TOC)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
   </function>
   
   <!-- getGlossParentTocNodes may be called from any element -->
@@ -742,7 +742,7 @@
     <param name="x" as="element()"/>
     <!-- A chapter is always a TOC parent, and so is any div in the usfmType if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
     The first such toc milestone descendant determines the div's TOC entry name; any following such children will be TOC sub-entries of the first. -->
-    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $tocnumber)] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $tocnumber)] | 
+    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $TOC)] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $TOC)] | 
         $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
   </function>
   
@@ -861,7 +861,7 @@
   
   <!-- Titles -->
   <template match="title" mode="xhtml">
-    <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $tocnumber)][1]" as="element(milestone)?"/>
+    <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]" as="element(milestone)?"/>
     <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template. See TOC milsetone template. -->
     <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
         ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
@@ -961,10 +961,10 @@
   </template>
   
   <template match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]" mode="xhtml">
-    <if test="$chapterFiles = 'true'"><next-match/></if>
+    <if test="$ChapterFiles = 'true'"><next-match/></if>
   </template>
   
-  <template match="milestone[@type=concat('x-usfm-toc', $tocnumber)]" mode="xhtml" priority="2">
+  <template match="milestone[@type=concat('x-usfm-toc', $TOC)]" mode="xhtml" priority="2">
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></i></small></div>
     <variable name="tocms" select="."/>
@@ -1011,7 +1011,7 @@
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
     <choose>
-      <when test="$fullResourceURL">
+      <when test="$FullResourceURL">
         <variable name="file" select="concat('/xhtml/', me:getFileNameOfRef($mainInputOSIS/descendant::div[@type='book'][1]/@osisID), '.xhtml')"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#fullResourceURL'))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
       </when>

@@ -38,7 +38,6 @@ $LB = "<lb />";
 $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
-$COVER_TOC = 2;
 $MAX_MATCH_WORDS = 3;
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
@@ -48,6 +47,21 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
     $OSISBOOKS{$bk} = $bn; $bn++;
   }
 }
+@SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
+@SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption'); # These are special SWORD entries for osis-converters modules
+@OC_CONFIGS = ('TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'MultipleGlossaries');
+@SWORD_LOCALIZABLE_CONFIGS = ('CopyrightHolder', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'Copyright', 'DistributionNotes');
+%CONFIG_DEFAULTS = (
+  'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
+  'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
+  'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
+  'CreateFullBible' => 'true',      'doc:CreateFullBible' => 'selects whether to create a single ePublication with everything in the OSIS file (true/false)',
+  'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
+  'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
+  'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
+  'MultipleGlossaries' => 'false',  'doc:MultipleGlossaries' => 'Set this to true to turn off the combined glossary feature.',
+  'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.'
+);
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 $VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
 $VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
@@ -58,8 +72,6 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
-$DEFAULT_TOCNUMBER = 2;
-$DEFAULT_TITLECASE = 1;
 $VSYS{'prefix_vs'} = 'x-vsys';
 $VSYS{'resp_vs'} = $VSYS{'prefix_vs'};
 $VSYS{'AnnoTypeSource'} = $VSYS{'prefix_vs'}.'-source';
@@ -119,7 +131,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &setConfGlobals(&updateConfData(&readConf($CONFFILE)));
   
-  &checkRequiredConfEntries($ConfEntryP);
+  &checkRequiredConfEntries();
   
   &checkProjectConfiguration();
   
@@ -145,7 +157,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
   
-  if ($ConfEntryP->{'Font'}) {&checkFont($ConfEntryP->{'Font'});}
+  if (&conf('Font')) {&checkFont(&conf('Font'));}
   
   if (-e "$INPD/images") {
     my $spaces = &shell("find $INPD/images -type f -name \"* *\" -print", 3);
@@ -158,7 +170,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 
 # Enforce the only supported module configuration and naming convention
 sub checkProjectConfiguration() {
-  if ($MODDRV =~ /LD/) {
+  if (&conf('ModDrv') =~ /LD/) {
     my $main = $INPD;
     if ($main !~ s/^.*?\/([^\/]+)\/$MOD$/$1/) {
       &Error("Unsupported project configuration.", "The top project directory must be a Bible project.", 1);
@@ -169,14 +181,14 @@ sub checkProjectConfiguration() {
 the module name between [] at the top, as well as the Companion entry.", 1);
     }
   }
-  elsif ($MODDRV =~ /GenBook/) {
+  elsif (&conf('ModDrv') =~ /GenBook/) {
     if ($MOD !~ /CB$/) {
       &Error("The only GenBook type modules currently supported are
 Children's Bibles, and their module names should be uppercase language
 code followed by 'CB'.", 1);
     }
   }
-  elsif ($ConfEntryP->{'Companion'} && $ConfEntryP->{'Companion'} ne $MOD.'DICT') {
+  elsif (&conf('Companion') && &conf('Companion') ne $MOD.'DICT') {
     &Error("There can only be one companion module, and it must be named '".$MOD."DICT.", 
 "All reference materials for this project will be written to a single 
 OSIS file and SWORD module. This OSIS/SWORD file may contain multiple 
@@ -641,8 +653,6 @@ sub checkAndWriteDefaults() {
     'bible/config.conf', 
     'bible/CF_usfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
-    'bible/eBook/convert.txt', 
-    'bible/html/convert.txt', 
     'bible/GoBible/*',
     'dict/config.conf', 
     'dict/CF_usfm2osis.txt', 
@@ -769,6 +779,21 @@ sub customize_conf($$$$) {
     &setConfFileValue($conf, 'Companion', $companion, 1);
   }
   else {&setConfFileValue($conf, 'Companion', '', 1);}
+  
+  # ScopeSubPublication & TitleSubPublicationN
+  my $pubn = 1;
+  if (opendir(SFM, "$MAININPD/sfm")) {
+    my @subs = readdir(SFM);
+    closedir(SFM);
+    foreach my $sub (@subs) {
+      if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
+      my $scope = $sub; $scope =~ s/_/ /g;
+      &setConfFileValue($conf, 'ScopeSubPublication'.$pubn, $scope, 1);
+      &setConfFileValue($conf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn", 1);
+      $pubn++;
+    }
+  }
+  else {&ErrorBug("customize_conf could not open $MAININPD/sfm");}
 }
 
 sub customize_addScripRefLinks($) {
@@ -1111,7 +1136,7 @@ sub addCoverImages($) {
   }
   elsif (@pubcovers) {
     my $title = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:title", $xml)}[0]->textContent;
-    my $font = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:description[\@type='x-sword-config-Font']", $xml)}[0];
+    my $font = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:description[\@type='x-config-Font']", $xml)}[0];
     $font = ($font ? $font->textContent:'');
     if (&createCompositeCoverImage($imgpath, $mod, $scope, \@pubcovers, $title, $font)) {
       $pubImagePath = $imgpath;
@@ -1251,7 +1276,7 @@ sub insertSubpubCover($$$) {
   my $figure = shift;
   my $xml = shift;
 
-  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.$COVER_TOC.'"]', $xml)}[0];
+  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $xml)}[0];
   if ($insertAfter) {
     $insertAfter->parentNode->insertAfter($figure, $insertAfter);
     &Note("Inserted sub-publication cover image after milestone: $scope");
@@ -1489,11 +1514,12 @@ sub osis_converters($$$) {
 # updated according to the module source if provided). If $conf is in 
 # a mods.d directory, it also creates the module directory if it doesn't 
 # exist, so that it's ready for writing.
-sub writeConf($\%$$) {
+sub writeConf($\%$$$) {
   my $conf = shift;
   my $entryValueP = shift;
   my $starterConf = shift;
   my $moduleSource = shift;
+  my $swordOnly = shift;
   
   if ($moduleSource) {$entryValueP = &updateConfData($entryValueP, $moduleSource);}
   
@@ -1505,26 +1531,34 @@ sub writeConf($\%$$) {
     $moddir = $confdir; $moddir =~ s/([\\\/][^\\\/]+){1}$//;
   }
   
-  my $starterP;
-  if ($starterConf) {
-    $starterP = &readConf($starterConf);
-    copy($starterConf, $conf);
-  }
-  elsif (-e $conf) {unlink($conf);}
+  my $starterP = ($starterConf ? &readConf($starterConf):'');
 
   my %used;
-  open(CONF, ">>:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
-  if ($starterConf) {print CONF "\n\n#Autogenerated by osis-converters:\n";}
-  else {print CONF "[".$entryValueP->{'ModuleName'}."]\n"; $entryValueP->{'ModuleName'} = '';}
-  foreach my $e (sort keys %{$entryValueP}) {
-    if ($starterP && $starterP->{$e}) {
-      if ($starterP->{$e} eq $entryValueP->{$e}) {next;} # this also skips ModuleName and other non-real conf entries, or else throws an error
-      else {&Error("Conflicting entry: \"$e\" in config.conf.", "Remove all but one of these entries.");}
-    }
-    foreach my $val (split(/<nx\/>/, $entryValueP->{$e})) {
-      if ($val eq '' || $used{"$e$val"}) {next;}
-      print CONF $e."=".$val."\n";
-      $used{"$e$val"}++;
+  open(CONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
+  my $section = '';
+  my $inAutoGen = 0;
+  foreach my $e (sort { &confEntrySort($a, $b, $starterP); } keys %{$entryValueP}) {
+    my $e2 = $e;
+    my $s = ($e2 =~ s/^(.*?)\+// ? $1:'');
+    if ($e eq 'ModuleName') {print CONF "[".$entryValueP->{$e}."]\n";}
+    elsif (!$swordOnly && $s ne $section) {print CONF "\n[".$s."]\n"; $section = $s; $inAutoGen = 0;}
+    else {
+      if (!$inAutoGen && !$starterP->{$e}) {
+        print CONF "\n\n#Autogenerated by osis-converters:\n";
+        $inAutoGen++;
+      }
+      if ($swordOnly && (($s && $s ne $SCRIPT_NAME) || !&isConfig($e2, 1))) {
+        &Warn("Config entry $e will not be written to SWORD conf.", "This is normal unless the entry should be included in SWORD config.conf.");
+        next;
+      }
+      if ($starterP && $starterP->{$e} && $starterP->{$e} ne $entryValueP->{$e}) {
+        &ErrorBug("Modified config entry '$e': config.conf = ".$starterP->{$e}." but current = ".$entryValueP->{$e});
+      }
+      foreach my $val (split(/<nx\/>/, $entryValueP->{$e})) {
+        if ($val eq '' || $used{"$e$val"}) {next;}
+        print CONF $e2."=".$val."\n";
+        $used{"$e$val"}++;
+      }
     }
   }
   close(CONF);
@@ -1538,9 +1572,53 @@ sub writeConf($\%$$) {
   
   return $entryValueP;
 }
+sub confEntrySort($$) {
+  my $a = shift;
+  my $b = shift;
+  my $starterP = shift;
+    
+  # Module name first
+  if ($a eq 'ModuleName') {return -1;}
+  if ($b eq 'ModuleName') {return 1;}
+  
+  # Then by section
+  my $a2 = $a; my $b2 = $b;
+  my $as = ($a2 =~ s/(.*?)\+// ? $1:'');
+  my $bs = ($b2 =~ s/(.*?)\+// ? $1:'');
+  my $r = $as cmp $bs;
+  if ($r) {return $r;}
+  
+  # Then by in starterP or not
+  my $ain = ($starterP->{$a} ? 1:0);
+  my $bin = ($starterP->{$b} ? 1:0);
+  my $r = $bin <=> $ain;
+  if ($r) {return $r;}
+  
+  # Then by entry
+  return $a2 cmp $b2;
+}
+
+sub isConfig($$) {
+  my $e = shift;
+  my $swordOnly = shift;
+
+  my @a;
+  push(@a, @SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+  if (!$swordOnly) {push(@a, @OC_CONFIGS);}
+  
+  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {push(@a, 'MATCHES:'.$e.'(_\w+)');}
+  foreach my $sc (@a) {
+    if ($sc =~ /^MATCHES\:(.*?)$/) {
+      my $re = $1;
+      if ($e =~ /^$re$/) {return 1;}
+    }
+    elsif ($e eq $sc) {return 1;}
+  }
+  return 0;
+}
 
 
-# Update certain conf %entryValue data according to the module's source file
+# Update certain SWORD conf %entryValue data according to the module's source file
 sub updateConfData(\%$) {
   my $entryValueP = shift;
   my $moduleSource = shift;
@@ -1554,6 +1632,7 @@ sub updateConfData(\%$) {
       &Error("Unrecognized versification system \"".$entryValueP->{"Versification"}."\".", "Change Versification in config.conf to a recognized SWORD verse system.");
     }
   }
+  else {&setConfValue($entryValueP, 'Versification', 'KJV');}
   
 	my $dp;
   my $moddrv = $entryValueP->{"ModDrv"};
@@ -1589,6 +1668,14 @@ sub updateConfData(\%$) {
   
   if (!&setConfValue($entryValueP, 'Encoding', "UTF-8", 2)) {
     &Error("Only UTF-8 encoding is supported by osis-converters", "All SFM files must be UTF-8 encoded and Encoding=UTF-8 should be specified in config.conf.", 1);
+  }
+  
+  if ($moddrv =~ /Text/) {
+    &setConfValue($entryValueP, 'Category', 'Biblical Texts');
+    if ($moddrv =~ /zText/) {
+      &setConfValue($entryValueP, 'CompressType', 'ZIP');
+      &setConfValue($entryValueP, 'BlockType', 'BOOK');
+    }
   }
   
   if ($moduleSource) {
@@ -1644,18 +1731,38 @@ sub updateConfData(\%$) {
 }
 
 
-# Reads a conf file and returns a hash of its contents.
+# Reads a conf file and returns a hash of its contents. The conf file must
+# start with [module_name] on the first line, followed by either CrossWire
+# SWORD config entries (see https://wiki.crosswire.org/DevTools:conf_Files)
+# or osis-converters specific entries. All of these entries apply to the 
+# entire project. Config entries may also be set for specific parts of 
+# the conversion process only. This is done by starting a new config 
+# section with [SCRIPT_NAME]. Then the following entries will only apply 
+# to that part of the conversion process. It is possible for a particular
+# script to overwrite the value of a general entry, and then this value 
+# will only apply during that particular part of the conversion process.
+#
+# If there are multiple entries with the same name in the same section,
+# then their values will be serialized and separated by <nx/>.
+#
+# For a value to continue from one line to the next, continued lines 
+# must end with '\'.
 sub readConf($) {
   my $conf = shift;
   
   my %entryValue;
   if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&ErrorBug("readConf could not open $conf", '', 1);}
   my $contiuation;
+  my $section = '';
   while(<CONF>) {
     if    ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {$entryValue{'ModuleName'} = $1; next;}
+    elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
+      if ($. == 1) {$entryValue{'ModuleName'} = $1;}
+      else {$section = $1;}
+    }
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       my $entry = $1; my $value = $2;
+      $entry = ($section ? "$section+":'').$entry;
       if ($entryValue{$entry} ne '') {$entryValue{$entry} .= "<nx/>".$value;}
       else {$entryValue{$entry} = $value;}
       $continuation = ($_ =~ /\\\n/ ? $entry:'');
@@ -1679,40 +1786,57 @@ sub readConf($) {
 sub setConfGlobals(\%) {
   my $entryValueP = shift;
 
-  # Globals (mostly for brevity)
-  $ConfEntryP = $entryValueP;
-  $MOD = $ConfEntryP->{'ModuleName'};
+  # Globals
+  $CONF = $entryValueP;
+  $MOD = $entryValueP->{'ModuleName'};
   $MODLC = lc($MOD);
-  $MODDRV = $ConfEntryP->{'ModDrv'};
-  $VERSESYS = $ConfEntryP->{'Versification'};
-  
   $MODPATH = &dataPath2RealPath($entryValueP->{"DataPath"});
+  
+  # Config Defaults
+  foreach my $e (@OC_CONFIGS) {
+    if (exists($CONFIG_DEFAULTS{$e})) {$entryValueP->{$e} = $CONFIG_DEFAULTS{$e};}
+    else {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
+  }
   
   return $entryValueP;
 }
 
 
-sub checkRequiredConfEntries($) {
-  my $confP = shift;
+sub conf($) {
+  my $entry = shift;
   
-  if ($confP->{'Abbreviation'} eq $MOD) {
-    &Error("You must provide the config.conf 'Abbreviation' setting with an abbreviated name for module $MOD.",
-"This field allows for the localization of the module name. It is meant to be short. It might be just the name of the language.");
+  if (!&isConfig($entry)) {
+    &ErrorBug("Unrecognized config request: $entry");
   }
   
-  if ($confP->{'About'} eq 'ABOUT') {
+  if ($CONF->{$SCRIPT_NAME.'+'.$entry}) {
+    return $CONF->{$SCRIPT_NAME.'+'.$entry};
+  }
+  elsif ($CONF->{$entry}) {return $CONF->{$entry};}
+
+  return '';
+}
+
+
+sub checkRequiredConfEntries($) {
+  if (&conf('Abbreviation') eq $MOD) {
+    &Warn("Currently the config.conf 'Abbreviation' setting is '$MOD'.",
+"This is normally a short user-readable abbreviation for the module, but the module name itself may be acceptable sometimes too.");
+  }
+  
+  if (&conf('About') eq 'ABOUT') {
     &Error("You must provide the config.conf 'About' setting with information about module $MOD.",
 "This can be a lengthier description and may include copyright, 
 source, etc. information, possibly duplicating information in other 
 elements.");
   }
   
-  if ($confP->{'Description'} eq 'DESCRIPTION') {
+  if (&conf('Description') eq 'DESCRIPTION') {
     &Error("You must provide the config.conf 'Description' setting with a short description about module $MOD.",
 "This is a short (1 line) title for the module.");
   }
   
-  if ($confP->{'Lang'} eq 'LANG') {
+  if (&conf('Lang') eq 'LANG') {
     &Error("You must provide the config.conf 'Lang' setting as the ISO-639 code for this language.",
 "Use the shortest available ISO-639 code. If there may be multiple 
 scripts then follow the languge code with '-' and an ISO-15924 4 letter 
@@ -1721,13 +1845,12 @@ script code, such as: 'Cyrl', 'Latn' or 'Arab'.");
 }
 
 
-sub checkRequiredEbookConvEntries($$) {
-  my $convP = shift;
+sub checkRequiredEbookConfEntries($) {
   my $osis = shift;
   
-  if ($DICTMOD && $convP->{'CombinedGlossaryTitle'} eq 'Glossary') {
-    &Error("CombinedGlossaryTitle is not specified.",
-"You must provide the eBook/convert.txt setting 
+  if ($DICTMOD && &conf('MultipleGlossaries') !~ /^true$/i && &conf('CombinedGlossaryTitle') eq 'Glossary') {
+    &Error("MultipleGlossaries is 'false' but CombinedGlossaryTitle is not specified.",
+"You must provide the config.conf setting 
 'CombinedGlossaryTitle' as the localized name for the combined glossary. 
 All glossary, map, table and other reference material may then
 appear beneath this localized heading.");
@@ -1738,21 +1861,14 @@ appear beneath this localized heading.");
   foreach my $osisRef (map($_->getAttribute('osisRef'), $XPC->findnodes('//osis:div[@type][@osisRef]', $xml))) {
     push(@subpubs, $osisRef);
   }
-  if (@subpubs && (!$convP->{'TitleFullPublication1'} || !$convP->{'CreateFullPublication1'})) {
-    &Error("TitleFullPublicationN and/or CreateFullPublicationN is not specified.",
-"You must provide eBook/convert.txt 'TitleFullPublicationN' 
-and 'CreateFullPublicationN'. This project apparently 
-contains sub-publications. Localized names must be provided for each 
-of them, like this:
+  if (@subpubs && &conf('TitleSubPublication1') eq 'Title of Sub-Publication 1') {
+    &Error("TitleSubPublication1 is not specified.",
+"You must provide config.conf 'TitleSubPublication1'. This project 
+apparently contains sub-publications. Localized names must be provided 
+for each of them, like this:
 
-TitleFullPublication1=A Localized Publication Name
-TitleFullPublication2=Another Localized Publication Name
-
-Also, corresponding scope entries for each sub-publication are 
-required, like this:
-
-CreateFullPublication1=Matt-Rev
-CreateFullPublication2=Ruth Esther Jonah\n\n");
+TitleSubPublication1=A Localized Publication Name
+TitleSubPublication2=Another Localized Publication Name\n\n");
   }
 }
 
@@ -2050,16 +2166,15 @@ sub sortSearchTermKeys($$) {
 # Reference hyperlinks with subType="x-external" are removed because
 # these targets do not exist in the translation yet and will result in
 # broken links.
-sub pruneFileOSIS($$\%\%\$\$) {
+sub pruneFileOSIS($$\%\$\$) {
   my $osisP = shift;
   my $scope = shift;
   my $confP = shift;
-  my $convP = shift;
   my $ebookTitleP = shift;
   my $ebookPartTitleP= shift;
   
-  my $tocNum = ($convP{'TOC'} ? $convP{'TOC'}:'2');
-  my $bookTitleTocNum = ($convP{'TitleTOC'} ? $convP{'TitleTOC'}:'2');
+  my $tocNum = &conf('TOC');
+  my $bookTitleTocNum = &conf('TitleTOC');
   
   my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
   $typeRE =~ s/\-/\\-/g;
@@ -2144,7 +2259,7 @@ sub pruneFileOSIS($$\%\%\$\$) {
   
   # determine titles
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
-  my $title = ($$ebookTitleP ? $$ebookTitleP:($convP->{'Title'} ? $convP->{'Title'}:$osisTitle->textContent));
+  my $title = ($$ebookTitleP ? $$ebookTitleP:$osisTitle->textContent);
   if ($booksFiltered) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
@@ -2213,7 +2328,7 @@ sub changeNodeText($$) {
 #    Cross-reference notes are not readable if they appear as just a number 
 #    (because an abbreviation for the book was not available in the translation).
 # 2) Redirect: Partial eBooks can redirect to a full eBook if the link is readable,
-#    FullResourceURL is provided in convert.txt, and the fullOsis resource contains 
+#    FullResourceURL is provided in config.conf, and the fullOsis resource contains 
 #    the target.
 # 3) Remove hyper-link: This happens if the link is readable, but it could not be
 #    redirected to another resource, or it's missing an osisRef.
@@ -2242,7 +2357,7 @@ sub filterScriptureReferences($$$) {
     &Log(", unless they may be redirected to \"$fullResourceURL\"");
   }
   elsif (!$iAmFullOsis) {
-    &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in convert.txt");
+    &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
   }
   &Log(".\n");
 
@@ -2499,7 +2614,7 @@ sub addDictionaryLinks(\@$$) {
     my $container = ($node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode():$node);
     if ($node->nodeType == XML::LibXML::XML_TEXT_NODE) {push(@textchildren, $node);}
     else {@textchildren = $XPC->findnodes('child::text()', $container);}
-    if ($MODDRV =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
+    if (&conf('ModDrv') =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
     my $text, $matchedPattern;
     foreach my $textchild (@textchildren) {
       $text = $textchild->data();
@@ -2566,10 +2681,10 @@ sub getRefSystemOSIS($) {
 sub getVerseSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if ($mod eq 'KJV') {return 'KJV';}
-  if ($mod eq $MOD) {return $VERSESYS;}
+  if ($mod eq $MOD) {return &conf('Versification');}
   if (!$DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'}) {
     &ErrorBug("getVerseSystemOSIS: No document node for \"$mod\"!");
-    return $VERSESYS;
+    return &conf('Versification');
   }
   return $DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'};
 }
@@ -2914,7 +3029,7 @@ sub addDictionaryLink(\$$$$\@) {
     $MatchesUsed{$m->{'node'}->unique_key}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
-    my $attribs = "osisRef=\"$osisRef\" type=\"".($MODDRV =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
+    my $attribs = "osisRef=\"$osisRef\" type=\"".(&conf('ModDrv') =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
     substr($$textP, $ie, 0, "</reference>");
@@ -3128,8 +3243,8 @@ sub contextAttribute2osisRefAttribute($) {
       }
       else {
         my $canonP;
-        # Bug warning - this assumes $VERSESYS is verse system of osisRef  
-        &getCanon($VERSESYS, \$canonP, NULL, NULL, NULL);
+        # Bug warning - this assumes &conf('Versification') is verse system of osisRef  
+        &getCanon(&conf('Versification'), \$canonP, NULL, NULL, NULL);
         my $ch1lv = ($lch == $ch ? $lvs:@{$canonP->{$bk}}[($ch-1)]);
         push(@pOsisRefs, "$bk.$ch.$vs".($ch1lv != $vs ? "-$bk.$ch.$ch1lv":''));
         if ($lch != $ch) {
@@ -3278,7 +3393,7 @@ sub getContexts($\$) {
     
     # Handle special case of BOOK1-BOOK2 for a major speedup
     if ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
-      my $bookOrderP; &getCanon($VERSESYS, NULL, \$bookOrderP, NULL);
+      my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
       my $aP = &scopeToBooks($ref, $bookOrderP);
       foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
       next;
@@ -3515,7 +3630,7 @@ sub osisRef2osisID($$$$) {
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
     my $bible = $work; $bible =~ s/DICT$//;
-    my $vsys = ($work ? &getVerseSystemOSIS($bible):($VERSESYS ? $VERSESYS:'KJV'));
+    my $vsys = ($work ? &getVerseSystemOSIS($bible):&conf('Versification'));
   
     if ($osisRef eq 'OT') {
       $osisRef = "Gen-Mal"; 
@@ -3670,7 +3785,7 @@ sub getVerseKey($$$) {
   
   my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
   if ($osisID =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1;}
-  my $vsys = $work ? &getVerseSystemOSIS($work):($VERSESYS ? $VERSESYS:'KJV');
+  my $vsys = $work ? &getVerseSystemOSIS($work):&conf('Versification');
   
   if (!$dontCheck && !&idInVerseSystem($osisID, $vsys)) {return 0;}
   
@@ -3784,7 +3899,7 @@ sub osisIDSort($$$$) {
   my $a = shift;
   my $b = shift;
   my $osisIDWorkDefault = shift;
-  my $vsys = shift; if (!$vsys) {$vsys = ($VERSESYS ? $VERSESYS:'KJV');}
+  my $vsys = shift; if (!$vsys) {$vsys = &conf('Versification');}
   
   my $awp = ($a =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:($osisIDWorkDefault ? "$osisIDWorkDefault:":''));
   my $bwp = ($b =~ s/^([^\:]*\:)(.*)$/$2/ ? $1:($osisIDWorkDefault ? "$osisIDWorkDefault:":''));
@@ -4080,7 +4195,7 @@ sub inVersesystem($$) {
     my $ext = ($id =~ s/(\!.*)$// ? $1:'');
     my $osisIDWork = $workid;
     my $wktype = 'Bible';
-    my $wkvsys = $VERSESYS;
+    my $wkvsys = &conf('Versification');
     if ($id =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
     if ($osisIDWork && $osisIDWork !~ /^bible$/i) {
       &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
@@ -4516,6 +4631,18 @@ sub runXSLT($$$\%$) {
   my $paramsP = shift;
   my $logFlag = shift;
   
+  # Globals must be passed to XSLT
+  my %p;
+  foreach my $c (keys %{$CONF}) {
+    $c =~ s/^.*?\+//;
+    if (!$p{$c}) {$p{$c} = &conf($c);}
+  }
+
+  # Params will supercede global value of same name
+  foreach my $c (keys %{$paramsP}) {
+    $p{$c} = $paramsP->{$c};
+  }
+  
   my $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
@@ -4526,8 +4653,6 @@ sub runXSLT($$$\%$) {
     $cmd .= " $p=\"$v\"";
   }
   if ($DEBUG) {$cmd .= " DEBUG=\"true\"";}
-  if ($TOCNUMBER) {$cmd .= " tocnumber=$TOCNUMBER";}
-  if ($TITLECASE) {$cmd .= " titleCase=$TITLECASE";}
   &shell($cmd, $logFlag);
 }
 
@@ -4650,16 +4775,14 @@ sub findCompanionDirectory($) {
 }
 
 # Deletes existing header work elements, and writes new ones which may
-# include, as meta-data, settings from $confP, $convEBOOKP and $confHhtmlP.
-# The osis file is overwritten if $osis_or_osisP is not a reference,
-# otherwise a new output file is written and the reference is updated to
-# point to it.
-sub writeOsisHeader($\%\%\%\%) {
+# include, as meta-data, settings from $CONF. The osis file is 
+# overwritten if $osis_or_osisP is not a reference, otherwise a new 
+# output file is written and the reference is updated to point to it.
+sub writeOsisHeader($\%\%$) {
   my $osis_or_osisP = shift;
   my $confP = shift;
-  my $convEBOOKP = shift;
-  my $convHTMLP = shift;
-  my $convOSIS2HTMLP = shift;
+  my $extraConfP = shift;
+  my $extraPrefix = shift;
   
   my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
   my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
@@ -4681,8 +4804,6 @@ sub writeOsisHeader($\%\%\%\%) {
   elsif ($confP->{'ModDrv'} =~ /LD/) {$type = 'x-glossary';}
   
   # Both osisIDWork and osisRefWork defaults are set to the current work.
-  # However, the osisRefWork default isn't normally important since   
-  # references generated by osis-converters include the work in each osisRef.
   my @uds = ('osisRefWork', 'osisIDWork');
   foreach my $ud (@uds) {
     my @orw = $XPC->findnodes('/osis:osis/osis:osisText[@'.$ud.']', $xml);
@@ -4715,10 +4836,10 @@ sub writeOsisHeader($\%\%\%\%) {
   my %workAttributes = ('osisWork' => $MOD);
   my %workElements;
   if ($type eq 'x-glossary') {
-    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       NULL,            $isbn);
+    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       $isbn);
   }
   else {
-    &getOSIS_Work(\%workElements, $confP, $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
+    &getOSIS_Work(\%workElements, $confP, $extraConfP, $extraPrefix, $isbn);
   }
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
@@ -4737,10 +4858,10 @@ sub writeOsisHeader($\%\%\%\%) {
     my %compWorkAttributes = ('osisWork' => $comp);
     my %compWorkElements;
     if ($type eq 'x-bible') {
-      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL,        NULL,        NULL,           $isbn);
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL,        NULL,        $isbn);
     }
     else {
-      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $convEBOOKP, $convHTMLP, $convOSIS2HTMLP, $isbn);
+      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $extraConfP, $extraPrefix, $isbn);
     }
     $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
   }
@@ -4751,12 +4872,11 @@ sub writeOsisHeader($\%\%\%\%) {
 }
 
 
-sub getOSIS_Work($$$$$$) {
+sub getOSIS_Work($$$$$) {
   my $osisWorkP = shift;
   my $confP = shift;
-  my $convEBOOKP = shift;
-  my $convHTMLP = shift;
-  my $convOSIS2HTMLP = shift;
+  my $extraConfP = shift;
+  my $extraPrefix = shift;
   my $isbn = shift;
   
   my @tm = localtime(time);
@@ -4782,15 +4902,9 @@ sub getOSIS_Work($$$$$$) {
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
   &mapLocalizedElem(50000, 'description', 'About', $confP, $osisWorkP, 1);
-  &mapConfig(50008, 50999, 'description', 'x-sword-config', $confP, $osisWorkP);
-  if ($convEBOOKP) { 
-    &mapConfig(51000, 53999, 'description', 'x-ebook-config', $convEBOOKP, $osisWorkP);
-  }
-  if ($convHTMLP) {
-    &mapConfig(54000, 56999,'description', 'x-html-config', $convHTMLP, $osisWorkP);
-  }
-  if ($convOSIS2HTMLP) {
-    &mapConfig(57000, 59999,'description', 'x-osis2xhtml', $convOSIS2HTMLP, $osisWorkP);
+  &mapConfig(50008, 56999, 'description', 'x-config', $confP, $osisWorkP);
+  if ($extraConfP) {
+    &mapConfig(57000, 59999,'description', $extraPrefix, $extraConfP, $osisWorkP);
   }
   &mapLocalizedElem(60000, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
   &mapLocalizedElem(70000, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
@@ -4863,7 +4977,7 @@ sub mapConfig($$$$$$) {
   my $osisWorkP = shift;
   
   foreach my $confEntry (sort keys %{$confP}) {
-    if ($index > $maxindex) {&ErrorBug("mapLocalizedConf: Too many \"description\" sword-config entries.");}
+    if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" config entries.");}
     else {
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $confP->{$confEntry};
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$confEntry";
@@ -4980,9 +5094,7 @@ sub writeTOC($) {
   
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
-  my %ebookconv;
-  %ebookconv = &readConvertTxt(&getDefaultFile("bible/eBook/convert.txt"));
-  my $toc = ($ebookconv{'TOC'} ? $ebookconv{'TOC'}:2);
+  my $toc = &conf('TOC');
   &Note("Using \"\\toc$toc\" USFM tags to determine eBook TOC.");
   
   my $xml = $XML_PARSER->parse_file($$osisP);
@@ -5011,7 +5123,7 @@ possible, such tags will be automatically inserted.",
 "That your eBook TOCs render with proper book names and/or 
 hierarchy. If not then you can add \\toc$toc tags to the SFM using 
 EVAL_REGEX. Or, if you wish to use a different \\toc tag, you must add 
-a TOC=N config setting to: $MOD/eBook/convert.txt (where N is the \\toc 
+a TOC=N config setting to: $MOD/config.conf (where N is the \\toc 
 tag number you wish to use.)\n");
         $WRITETOC_MSG++;
       }
@@ -5054,22 +5166,6 @@ tag number you wish to use.)\n");
   print OUTF $osisDocString;
   close(OUTF);
   $$osisP = $output;
-}
-
-sub readConvertTxt($) {
-  my $convtxt = shift;
-  
-  my %conv;
-  if (open(CONV, "<:encoding(UTF-8)", $convtxt)) {
-    while(<CONV>) {
-      if ($_ =~ /^#/) {next;}
-      elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {$conv{$1} = $2;}
-    }
-    close(CONV);
-  }
-  else {&Warn("Did not find \"$convtxt\"");}
-  
-  return %conv;
 }
 
 

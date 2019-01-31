@@ -17,7 +17,7 @@
   -->
   
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="tocnumber" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
+  <param name="TOC" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
   <param name="glossthresh" select="20"/>
   
