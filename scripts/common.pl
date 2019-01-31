@@ -1795,7 +1795,11 @@ sub setConfGlobals(\%) {
   
   # Config Defaults
   foreach my $e (@OC_CONFIGS) {
-    if (exists($CONFIG_DEFAULTS{$e})) {$entryValueP->{$e} = $CONFIG_DEFAULTS{$e};}
+    if (exists($CONFIG_DEFAULTS{$e})) {
+      if (!exists($entryValueP->{$e})) {
+        $entryValueP->{$e} = $CONFIG_DEFAULTS{$e};
+      }
+    }
     else {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
   }
   
