@@ -155,7 +155,10 @@ sub scopeToBooks($\%) {
     if ($bks =~ s/\-(.*)$//) {$bke = $1;}
 
     if ($v11nbk =~ /^$bks$/i) {$keep = $bke;}
-    if ($keep) {push(@bookList, $v11nbk);}
+    if ($keep) {
+      if ($v11nbk !~ /($OSISBOOKSRE)/) {&Error("scopeToBooks unrecognized OSIS book abbreviation: $v11nbk");}
+      push(@bookList, $v11nbk);
+    }
     if ($v11nbk =~ /^$keep$/i) {$keep = ''; $i++;}
   }
   return \@bookList;

@@ -15,8 +15,8 @@ my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bi
 
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $CONF)."\n");
 
-# Bible/Commentary module
-if ($modType =~ /^(bible|commentary)$/) {
+# Bible module
+if ($modType eq 'bible') {
   &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
   
@@ -32,8 +32,6 @@ if ($modType =~ /^(bible|commentary)$/) {
       &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
     }
   }
-  
-  &checkRequiredEbookConfEntries($OSIS);
 }
 # Dictionary module
 elsif ($modType eq 'dict') {
@@ -98,7 +96,7 @@ else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 &writeNoteIDs(\$OSIS, $CONF);
 
 if ($modType ne 'childrens_bible') {
-  &writeTOC(\$OSIS);
+  &writeTOC(\$OSIS, $modType);
 }
 
 if ($addScripRefLinks) {
@@ -127,7 +125,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 
-if ($DICTMOD && $modType =~ /^(bible|commentary)$/ && $addDictLinks) {
+if ($DICTMOD && $modType eq 'bible' && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
     &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
   }
@@ -140,14 +138,14 @@ elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
 
 &writeMissingNoteOsisRefsFAST(\$OSIS);
 
-if ($modType =~ /^(bible|commentary)$/) {
+if ($modType eq 'bible') {
   &fitToVerseSystem(\$OSIS, &conf('Versification'));
   &checkVerseSystem($OSIS, &conf('Versification'));
 }
 
 if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
-if ($modType =~ /^(bible|commentary)$/) {
+if ($modType eq 'bible') {
   &correctReferencesVSYS(\$OSIS);
   &removeDefaultWorkPrefixesFAST(\$OSIS);
 }
