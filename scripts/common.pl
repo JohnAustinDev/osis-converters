@@ -48,8 +48,8 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   }
 }
 @SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
-@SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption'); # These are special SWORD entries for osis-converters modules
-@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle');
+@SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption', 'AudioCode'); # These are special SWORD entries for osis-converters modules
+@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle');
 @SWORD_LOCALIZABLE_CONFIGS = ('CopyrightHolder', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'Copyright', 'DistributionNotes');
 %CONFIG_DEFAULTS = (
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
@@ -61,7 +61,14 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
   'CombineGlossaries' => 'true',    'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one.',
   'CombinedGlossaryTitle' => '',    'doc:CombinedGlossaryTitle' => 'By default, glossaries are combined into a single glossary with this title.',
-  'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.'
+  'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
+  'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
+  'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
+  'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
+  'osis2html+ChapterFiles' => 'true',
+  'osis2html+CombineGlossaries' => 'false',
+  'osis2html+CreateSeparateBooks' => 'false',
+  'osis2html+NoEpub3Markup' => 'true'
 );
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 $VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
@@ -852,11 +859,33 @@ sub customize_conf($$$$) {
       if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
       my $scope = $sub; $scope =~ s/_/ /g;
       &setConfFileValue($conf, 'ScopeSubPublication'.$pubn, $scope, 1);
-      &setConfFileValue($conf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn", 1);
+      &setConfFileValue($conf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
       $pubn++;
     }
   }
   else {&ErrorBug("customize_conf could not open $MAININPD/sfm");}
+  
+  # Default settings
+  my $text = '';
+  foreach my $c (@OC_CONFIGS) {
+    if (!($CONFIG_DEFAULTS{"doc:$c"})) {next;}
+    $text .= "\n# $c ".$CONFIG_DEFAULTS{"doc:$c"}."\n".$c.'='.$CONFIG_DEFAULTS{$c}."\n";
+  }
+  $text .= "\n";
+  my $section;
+  foreach my $k (sort keys %CONFIG_DEFAULTS) {
+    if ($k !~ /^([^\+]+)\+(.*)$/) {next;}
+    my $s = $1; my $e = $2;
+    if ($s ne $section) {$text .= "[$s]\n"; $section = $s;}
+    $text .= "$e=".$CONFIG_DEFAULTS{$k}."\n";
+  }
+  if ($text) {
+    if (open(MCF, ">>:encoding(UTF-8)", $conf)) {
+      print MCF $text;
+      close(MCF);
+    }
+    else {&ErrorBug("customize_conf could not open config file $conf");}
+  }
 }
 
 sub customize_addScripRefLinks($) {
@@ -1542,14 +1571,17 @@ sub setConfValue($$$$) {
   return 1;
 }
 
-sub writeXMLFile($$$) {
+sub writeXMLFile($$$$) {
   my $xml = shift;
   my $file = shift;
   my $fileP = shift;
+  my $clean = shift;
   
   if (open(XML, ">$file")) {
     $DOCUMENT_CACHE{$file} = '';
-    print XML $xml->toString();
+    my $t = $xml->toString();
+    if ($clean) {$t =~ s/\n+/\n/g;}
+    print XML $t;
     close(XML);
     if ($fileP) {
       if (ref($fileP)) {$$fileP = $file;}
@@ -1917,7 +1949,7 @@ script code, such as: 'Cyrl', 'Latn' or 'Arab'.");
 sub checkRequiredEbookConfEntries($) {
   my $osis = shift;
   
-  if ($DICTMOD && &conf('CombineGlossaries') !~ /^(false|0)$/i && &conf('CombinedGlossaryTitle') eq 'Glossary') {
+  if ($DICTMOD && &conf('CombineGlossaries') !~ /^(false|0)$/i && &conf('CombinedGlossaryTitle') =~ / DEF$/) {
     &Error("CombineGlossaries is 'true' but CombinedGlossaryTitle is not localized.",
 "You must provide the config.conf setting 
 'CombinedGlossaryTitle' as the localized name for the combined glossary. 
@@ -1930,8 +1962,8 @@ appear beneath this localized heading.");
   foreach my $osisRef (map($_->getAttribute('osisRef'), $XPC->findnodes('//osis:div[@type][@osisRef]', $xml))) {
     push(@subpubs, $osisRef);
   }
-  if (@subpubs && &conf('TitleSubPublication1') eq 'Title of Sub-Publication 1') {
-    &Error("TitleSubPublication1 is not specified.",
+  if (@subpubs && &conf('TitleSubPublication1') =~ / DEF$/) {
+    &Error("TitleSubPublication1 is not localized.",
 "You must provide config.conf 'TitleSubPublication1'. This project 
 apparently contains sub-publications. Localized names must be provided 
 for each of them, like this:
@@ -5229,18 +5261,33 @@ tag number you wish to use.)\n");
       
       if ($name) {
         my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\"/>";
-        &Log("Note: Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $tag\n");
+        &Note("Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $tag\n");
         $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
       }
     }
   }
   
-  open(OUTF, ">$output") or die "writeTOC could not open file: \"$output\".\n";
-  my $osisDocString = $xml->toString();
-  $osisDocString =~ s/\n+/\n/gm;
-  print OUTF $osisDocString;
-  close(OUTF);
-  $$osisP = $output;
+  # Add Testament TOC entries if they are not already there, using OldTestamentTitle and NewTestamentTitle
+  foreach my $missingTOC_Testament ($XPC->findnodes('//osis:div[@type="bookGroup"][descendant::osis:div[@type="book"]]
+    [not(descendant::osis:milestone
+        [@type="x-usfm-toc'.&conf('TOC').'"]
+        [not(ancestor::osis:div[@type="book"])]
+        [not(ancestor-or-self::*[parent::osis:div[@type="bookGroup"]][1]/preceding-sibling::osis:div[@type="book"])]
+      )]', $xml
+  )) {
+    if (!$missingTOC_Testament) {next;}
+    my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $missingTOC_Testament)}[0]->value;
+    my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
+    my $testamentTitle = &conf($whichTestament.'TestamentTitle');
+    if ($testamentTitle =~ / DEF$/) {
+      &Error("Testament title is not localized: $testamentTitle", "Supply the localized name for the $whichTestament Testament in the config.conf file's ${whichTestament}TestamentTitle entry.");
+    }
+    my $toc = $XML_PARSER->parse_balanced_chunk('<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/><title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>');
+    $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
+    &Note("Inserting $whichTestament Testament TOC label: $testamentTitle");
+  }
+  
+  &writeXMLFile($xml, $output, $osisP, 1);
 }
 
 

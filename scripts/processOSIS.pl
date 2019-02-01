@@ -15,9 +15,12 @@ my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bi
 
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $CONF)."\n");
 
+# Bible/Commentary module
 if ($modType =~ /^(bible|commentary)$/) {
   &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
+  
+  # load DictionaryWords.xml if needed
   if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
     my $dictosis = &getProjectOsisFile($DICTMOD);
     if ($dictosis && $DEBUG) {
@@ -29,8 +32,10 @@ if ($modType =~ /^(bible|commentary)$/) {
       &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
     }
   }
+  
   &checkRequiredEbookConfEntries($OSIS);
 }
+# Dictionary module
 elsif ($modType eq 'dict') {
 
   if (!&conf('KeySort')) {
@@ -60,6 +65,7 @@ allowed and must be removed.");
   my @keywordDivs = $XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', $XML_PARSER->parse_file($OSIS));
   if (!@keywordDivs[0]) {&runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);}
   
+  # write default DictionaryWords.xml templates
   if ($addSeeAlsoLinks) {
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
@@ -82,6 +88,7 @@ allowed and must be removed.");
   }
   
 }
+# Children's Bible module
 elsif ($modType eq 'childrens_bible') {
   &runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);
   &checkAdjustCBImages(\$OSIS);
@@ -140,9 +147,10 @@ if ($modType =~ /^(bible|commentary)$/) {
 
 if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
-if ($modType =~ /^(bible|commentary)$/) {&correctReferencesVSYS(\$OSIS);}
-
-if ($modType eq 'bible') {&removeDefaultWorkPrefixesFAST(\$OSIS);}
+if ($modType =~ /^(bible|commentary)$/) {
+  &correctReferencesVSYS(\$OSIS);
+  &removeDefaultWorkPrefixesFAST(\$OSIS);
+}
 
 # Run postprocess.(pl|xsl) if they exist
 &runAnyUserScriptsAt("postprocess", \$OSIS);
@@ -203,12 +211,14 @@ all references and remove this error.");
 &checkUniqueOsisIDs($OSIS);
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
-if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
+if ($modType eq 'childrens_bible') {
+  &checkChildrensBibleStructure($OSIS);
+}
 
 copy($OSIS, $OUTOSIS); 
 &validateOSIS($OUTOSIS);
 
-# Do a tmp Pretty Print for referencing during the conversion process
+# Do a tmp Pretty Print for debug referencing during the conversion process
 &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 
 &timer('stop');
