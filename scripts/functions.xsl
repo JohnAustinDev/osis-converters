@@ -167,7 +167,7 @@
   <!-- When a glossary has a TOC entry or main title, then get that title -->
   <function name="oc:getGlossaryName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
-    <value-of select="oc:titleCase($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1])"/>
+    <value-of select="oc:titleCase(replace($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1], '^(\[[^\]]*\])+', ''))"/>
   </function>
   
   <!-- When a glossary has a scope which is the same as a Sub-Publication's scope, then get the localized title of that Sub-Publication -->
