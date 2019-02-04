@@ -50,7 +50,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
 @SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
 @SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption', 'AudioCode'); # These are special SWORD entries for osis-converters modules
 @OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
-@SWORD_LOCALIZABLE_CONFIGS = ('CopyrightHolder', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'Copyright', 'DistributionNotes');
+@SWORD_LOCALIZABLE_CONFIGS = ('MATCHES:History_[\d\.]+', 'Abbreviation', 'Description', 'About', 'Copyright', 'CopyrightHolder', 'CopyrightDate', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'ShortCopyright', 'DistributionNotes');
 %CONFIG_DEFAULTS = (
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
   'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
@@ -1719,7 +1719,10 @@ sub isConfig($$) {
   push(@a, @SWORD_CONFIGS, @SWORD_OC_CONFIGS);
   if (!$swordOnly) {push(@a, @OC_CONFIGS);}
   
-  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {push(@a, 'MATCHES:'.$e.'(_\w+)');}
+  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {
+    if ($e =~ /^MATCHES\:/) {push(@a, $e.'(_\w+)');}
+    else {push(@a, 'MATCHES:'.$e.'(_\w+)');}
+  }
   foreach my $sc (@a) {
     if ($sc =~ /^MATCHES\:(.*?)$/) {
       my $re = $1;
