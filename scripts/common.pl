@@ -49,7 +49,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
 }
 @SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
 @SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption', 'AudioCode'); # These are special SWORD entries for osis-converters modules
-@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
+@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'MATCHES:GlossaryTitle\d','TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
 @SWORD_LOCALIZABLE_CONFIGS = ('MATCHES:History_[\d\.]+', 'Abbreviation', 'Description', 'About', 'Copyright', 'CopyrightHolder', 'CopyrightDate', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'ShortCopyright', 'DistributionNotes');
 %CONFIG_DEFAULTS = (
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
@@ -1933,7 +1933,7 @@ sub setConfGlobals(\%$) {
     }
   }
   
-  foreach my $e (sort keys %{$entryValueP}) {&Debug("Config.conf $e = ".$entryValueP->{$e}."\n");}
+  #foreach my $e (sort keys %{$entryValueP}) {&Debug("Config.conf $e = ".$entryValueP->{$e}."\n");}
   
   return $entryValueP;
 }
@@ -5312,7 +5312,40 @@ tag number you wish to use.)\n");
     }
   }
   elsif ($modType eq 'dict') {
-  
+    my $maxkw = 7;
+    # Any glossary (a div containing keywords) which has more than $maxkw keywords gets added to the TOC (unless it has level1 TOC entries already or it's already in the TOC)
+    my @needTOC = $XPC->findnodes('//osis:div[count(descendant::osis:seg[@type="keyword"]) > '.$maxkw.']
+        [not(descendant::*[contains(@n, "[level1]")])]
+        [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
+    my $n = 0;
+    foreach my $glossDiv (@needTOC) {
+      my $hasTitle = 1;
+      my $glossTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $glossDiv)}[0];
+      if ($glossTitle) {$glossTitle = $glossTitle->textContent;}
+      else {
+        $hasTitle = 0;
+        $glossTitle = &conf('GlossaryTitle'.++$n);
+      }
+      if (!$glossTitle) {
+        $glossTitle = "Glossary #$n";
+        &Error("The glossary with title '$glossTitle' needs a localized title.",
+"Any glossary with more than $maxkw keywords which does not 
+contain a Table Of Contents entry marked as [level1] will automatically 
+be added to the TOC. You must provide the localized glossary title for 
+this TOC entry by adding the following to config.conf: 
+GlossaryTitle$n=The Localized Glossary Title. 
+If you really do not want a title for this glossary to appear in the 
+TOC, but rather want its keywords only to appear, then you can do that, 
+and eliminate this error, by adding the following USFM to the beginning 
+of the glossary:
+\\toc".&conf('TOC')." [no_toc]");
+      }
+      my $toc = $XML_PARSER->parse_balanced_chunk('
+<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'"/>'.($hasTitle ? '':'
+<title level="1" type="main">'.$glossTitle.'</title>'));
+      $glossDiv->insertBefore($toc, $glossDiv->firstChild);
+      &Note("Inserting glossary TOC label: $glossTitle");
+    }
   }
   
   &writeXMLFile($xml, $output, $osisP, 1);

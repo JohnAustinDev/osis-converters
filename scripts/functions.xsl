@@ -164,18 +164,20 @@
     <value-of select="replace(replace(replace(replace($str, '_91_', '['), '_93_', ']'), '_123_', '{'), '_125_', '}')"/>
   </function>
   
+  <!-- When a glossary has a TOC entry or main title, then get that title -->
   <function name="oc:getGlossaryName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <value-of select="oc:titleCase($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1])"/>
   </function>
   
+  <!-- When a glossary has a scope which is the same as a Sub-Publication's scope, then get the localized title of that Sub-Publication -->
   <function name="oc:getGlossaryScopeName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <variable name="createFullPublication" 
       select="if ($glossary/@scope) then root($glossary)//header//description[contains(@type, 'ScopeSubPublication')][text()=$glossary/@scope]/@type else ''"/>
     <variable name="pubn" select="if ($createFullPublication) then substring($createFullPublication[1], string-length($createFullPublication[1]), 1) else ''"/>
     <variable name="titleFullPublications" select="if ($pubn) then root($glossary)//header//description[contains(@type, concat('TitleSubPublication', $pubn))] else ''"/>
-    <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else oc:getGlossaryName($glossary)"/>
+    <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else ''"/>
   </function>
   
   <function name="oc:titleCase" as="xs:string?">

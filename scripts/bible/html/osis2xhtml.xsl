@@ -67,8 +67,8 @@
   
   <!-- A main Table Of Contents is placed after the first TOC milestone sibling after the OSIS header, or if there isn't such a milestone, add one -->
   <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
-      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
-      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]"/>
 
   <variable name="mainInputOSIS" select="/"/>
 
@@ -582,15 +582,15 @@
       <variable name="subentries" as="element()*">
         <choose>
           <when test="$isChildrensBible and $isOsisRootTOC">
-            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, '[level1]')][generate-id(.) != generate-id($tocNode)]"/>
+            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//milestone[@type=concat('x-usfm-toc', $TOC)][contains(@n, '[level1]')][generate-id(.) != generate-id($tocNode)]"/>
           </when>
           <when test="$isChildrensBible">
-            <variable name="followingTocs" select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, concat('[level',($toplevel+1),']'))]"/>
-            <variable name="nextSibling"   select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][starts-with(@n, substring($tocNode/@n, 1, 8))][1]"/>
+            <variable name="followingTocs" select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][contains(@n, concat('[level',($toplevel+1),']'))]"/>
+            <variable name="nextSibling"   select="$tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][contains(@n, substring($tocNode/@n, 1, 8))][1]"/>
             <sequence select="if ($nextSibling) then $followingTocs[. &#60;&#60; $nextSibling] else $followingTocs"/>
           </when>
           <when test="$tocNode/self::chapter[@sID]">
-            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)]) except 
+            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_inline_toc]'))][not(contains(@n, '[no_toc]'))]) except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
           <otherwise>
@@ -598,11 +598,11 @@
                 if ($tocNode/parent::div[not(preceding-sibling::*)][not(@type = ('bookGroup', 'book'))][parent::div[@type = ('bookGroup', 'book')]]) 
                 then $tocNode/parent::div/parent::div 
                 else $tocNode/ancestor::div[1]"/>
-            <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary -->
+            <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary or milestone tocs with [no_toc]-->
             <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $TOC)])
                 [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
                 [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')][not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
-                [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]"/>
+                [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])][not(self::*[contains(@n, '[no_toc]')])]"/>
           </otherwise>
         </choose>
       </variable>
@@ -732,9 +732,9 @@
     <param name="x" as="element()"/>
     <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child (that isn't n="[not_parent]...) or a first child div, which isn't a bookGroup or book, that has one. 
     Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
-    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $TOC)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
+    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $TOC)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
+        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
   </function>
   
   <!-- getGlossParentTocNodes may be called from any element -->
@@ -742,7 +742,7 @@
     <param name="x" as="element()"/>
     <!-- A chapter is always a TOC parent, and so is any div in the usfmType if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
     The first such toc milestone descendant determines the div's TOC entry name; any following such children will be TOC sub-entries of the first. -->
-    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $TOC)] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $TOC)] | 
+    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))] | 
         $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
   </function>
   
