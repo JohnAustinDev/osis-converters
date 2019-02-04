@@ -225,6 +225,24 @@ sub updateConvertTXT($) {
           $e = 'TitleSubPublication'.$n;
           &Warn("<-$warn $e=$v");
         }
+        elsif ($e =~ /^Group1\s*$/) {
+          my $n = $1;
+          $warn = "Changing $e=$v to ";
+          $e = 'OldTestamentTitle';
+          &Warn("<-$warn $e=$v");
+        }
+        elsif ($e =~ /^Group2\s*$/) {
+          my $n = $1;
+          $warn = "Changing $e=$v to ";
+          $e = 'NewTestamentTitle';
+          &Warn("<-$warn $e=$v");
+        }
+        elsif ($e =~ /^Title\s*$/) {
+          my $n = $1;
+          $warn = "Changing $e=$v to ";
+          $e = 'TranslationTitle';
+          &Warn("<-$warn $e=$v");
+        }
         $new .= "$e=$v\n";
       }
     }
