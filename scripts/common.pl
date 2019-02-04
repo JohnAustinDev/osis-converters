@@ -1921,12 +1921,12 @@ sub setConfGlobals(\%$) {
     foreach my $k (keys %CONFIG_DEFAULTS) {
       if (!$DICTMOD && $k eq 'CombinedGlossaryTitle') {next;}
       if ($k =~ /[\:\+]/ || $CONFIG_DEFAULTS{$k} !~ / DEF$/ || $entryValueP->{$k} ne $CONFIG_DEFAULTS{$k}) {next;}
-      &Error("Title is not localized: ".$CONFIG_DEFAULTS{$k}, "Supply the localized name in config.conf as: $k=Localized Title");
+      &Warn("Title config entry '$k' is not localized: ".$CONFIG_DEFAULTS{$k}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: $k=Localized Title");
     }
     my $n=0;
     while (exists($entryValueP->{'TitleSubPublication'.++$n})) {
       if ($entryValueP->{'TitleSubPublication'.$n} && $entryValueP->{'TitleSubPublication'.$n} !~ / DEF$/) {next;}
-      &Error("Sub publication title is not localized: ".$entryValueP->{'TitleSubPublication'.$n}, "Supply the localized name in config.conf as: TitleSubPublication$n=Localized Title");
+      &Warn("Sub publication title config entry 'TitleSubPublication$n' is not localized: ".$entryValueP->{'TitleSubPublication'.$n}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: TitleSubPublication$n=Localized Title");
     }
   }
   
