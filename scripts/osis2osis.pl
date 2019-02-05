@@ -19,9 +19,11 @@
 
 # usage: osis2osis.pl [Bible_Directory]
 
-sub runOsis2osis($$) {
+sub runOsis2osis($$$) {
   $O2O_CurrentContext = shift;
   my $cfdir = shift;
+  my $output = shift;
+  
   if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
     &ErrorBug("runOsis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
     return;
@@ -92,6 +94,7 @@ sub runOsis2osis($$) {
     elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
       my $ccpath = $1;
       if ($O2O_CurrentContext ne 'preinit') {next;}
+      if ($NO_OUTPUT_DELETE) {$newOSIS = $output; next;}
       if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile"); next;}
       my $inpath = $ccpath; $inpath =~ s/^(\.\/)[^\/]+DICT\//$1${sourceProject}DICT\//; # special case of CCing a DICT file from the MAIN CC_osis2osis.txt file
       
@@ -108,6 +111,7 @@ sub runOsis2osis($$) {
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
       if ($O2O_CurrentContext ne 'postinit') {next;}
+      if ($NO_OUTPUT_DELETE) {$newOSIS = $output; next;}
       if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile"); next;}
       if ($osis =~ /sourceProject/i) {$osis = $sourceProject;}
       if ($osis =~ /\.xml$/i) {
@@ -125,7 +129,7 @@ sub runOsis2osis($$) {
         else {$osis = "$OUTDIR/../$osis/$osis.xml";}
       }
       
-      $newOSIS = "$TMPDIR/${MOD}_0.xml";
+      $newOSIS = $output;
       &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $newOSIS");
       if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in paths.pl."); next;}
       

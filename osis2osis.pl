@@ -22,8 +22,13 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require("$SCRD/utils/simplecc.pl");
 
-if (&runOsis2osis('postinit', $INPD) eq "$TMPDIR/${MOD}_0.xml") {
+$OSIS = "$TMPDIR/osis2osis.xml";
+if (&runOsis2osis('postinit', $INPD, $OSIS) eq $OSIS) {
   require("$SCRD/scripts/processOSIS.pl");
+  if ($NO_OUTPUT_DELETE) {
+    # debug code to run on tmp files previously created by processOSIS.pl can be run here when NO_OUTPUT_DELETE = true
+    
+  }
 }
 else {&ErrorBug("runOsis2osis failed to write OSIS file.");}
 

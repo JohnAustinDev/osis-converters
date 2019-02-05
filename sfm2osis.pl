@@ -18,20 +18,18 @@
 # <http://www.gnu.org/licenses/>.
 
 # usage: sfm2osis.pl [Project_Directory]
- 
-# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
-# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
-
 require("$SCRD/scripts/usfm2osis.pl");
-&usfm2osis(&getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), "$TMPDIR/".$MOD."_0.xml");
 
-if ($NO_OUTPUT_DELETE) {
-  # debug code to run on previously created output tmp files can be run here when NO_OUTPUT_DELETE = true
-  exit;
+$OSIS = "$TMPDIR/usfm2osis.xml";
+if (&usfm2osis(&getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), $OSIS) eq $OSIS) {
+  require("$SCRD/scripts/processOSIS.pl");
+  if ($NO_OUTPUT_DELETE) {
+    # debug code to run on tmp files previously created by processOSIS.pl can be run here when NO_OUTPUT_DELETE = true
+    
+  }
 }
-
-require("$SCRD/scripts/processOSIS.pl");
+else {&ErrorBug("usfm2osis failed to write OSIS file.");}
 
 1;

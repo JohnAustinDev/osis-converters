@@ -155,7 +155,7 @@ sub usfm2osis($$) {
   @VSYS_INSTR = sort { &vsysInstSort($a, $b) } @VSYS_INSTR;
 #  foreach my $p (@VSYS_INSTR) {&Log($p->{'inst'}.', fixed='.$p->{'fixed'}.', source='.$p->{'source'}."\n", 1);}
   
-  if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
+  if ($NO_OUTPUT_DELETE) {return $osis;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
   
   my $lang = &conf('Lang'); $lang =~ s/-.*$//;
   $lang = ($lang ? " -l $lang":'');
@@ -180,6 +180,7 @@ sub usfm2osis($$) {
     &Log(`$cmd` . "\n", 1);
     #&Log("Failure of u2o.py above does not effect other osis-converters conversions.\n", 1);
   }
+  
   return $osis;
 }
 

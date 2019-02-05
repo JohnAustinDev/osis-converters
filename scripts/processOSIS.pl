@@ -4,18 +4,21 @@ require("$SCRD/scripts/addFootnoteLinks.pl");
 require("$SCRD/scripts/bible/addDictLinks.pl");
 require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 require("$SCRD/scripts/bible/addCrossRefs.pl");
+if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
 
-# MOD_0.xml is raw converter output
-$OSIS = "$TMPDIR/".$MOD."_0.xml";
+# This script expects the input OSIS file to be already located at path $OSIS
+
+# Run user supplied preprocess.pl and/or preprocess.xsl if present
 &runAnyUserScriptsAt("preprocess", \$OSIS);
 
 my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bible':(&conf('ModDrv') =~ /Com/ ? 'commentary':'childrens_bible')));
 
+# Apply any fixups needed to usfm2osis.py output which are osis-converters specific
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
 &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $CONF)."\n");
 
-# Bible module
+# Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
 if ($modType eq 'bible') {
   &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
   &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
@@ -33,7 +36,7 @@ if ($modType eq 'bible') {
     }
   }
 }
-# Dictionary module
+# Dictionary OSIS: aggregate repeated entries (required for SWORD) and re-order entries if desired
 elsif ($modType eq 'dict') {
 
   if (!&conf('KeySort')) {
@@ -86,25 +89,27 @@ allowed and must be removed.");
   }
   
 }
-# Children's Bible module
+# Children's Bible OSIS: specific to osis-converters Children's Bibles
 elsif ($modType eq 'childrens_bible') {
   &runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);
   &checkAdjustCBImages(\$OSIS);
 }
 else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 
+# Every note tag needs a unique osisID assigned to it
 &writeNoteIDs(\$OSIS, $CONF);
 
-if ($modType ne 'childrens_bible') {
-  &writeTOC(\$OSIS, $modType);
-}
+# Add any missing Table of Contents milestones and titles as required for eBooks, html etc.
+&writeTOC(\$OSIS, $modType);
 
+# Parse Scripture references from the text and check them
 if ($addScripRefLinks) {
   &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
   &checkSourceScripRefLinks($OSIS);
 }
 else {&removeMissingOsisRefs(\$OSIS);}
 
+# Parse links to footnotes if a text includes them
 if ($addFootnoteLinks) {
   if (!$addScripRefLinks) {
     &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
@@ -125,6 +130,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 }
 
+# Parse glossary references from Bible and Dict modules 
 if ($DICTMOD && $modType eq 'bible' && $addDictLinks) {
   if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
     &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
@@ -136,24 +142,28 @@ elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
   if (%DWF_DEFAULT_COPIES) {&copyDefaultDWF();}
 }
 
+# Every note should have an osisRef pointing to where the note refers
 &writeMissingNoteOsisRefsFAST(\$OSIS);
 
+# Fit the custom verse system into a known fixed verse system and then check against it
 if ($modType eq 'bible') {
   &fitToVerseSystem(\$OSIS, &conf('Versification'));
   &checkVerseSystem($OSIS, &conf('Versification'));
 }
 
+# Add external cross-referenes to Bibles
 if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
+# If there are differences between the custom and fixed verse systems, then some references need to be updated
 if ($modType eq 'bible') {
   &correctReferencesVSYS(\$OSIS);
   &removeDefaultWorkPrefixesFAST(\$OSIS);
 }
 
-# Run postprocess.(pl|xsl) if they exist
+# Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
 &runAnyUserScriptsAt("postprocess", \$OSIS);
 
-# If the project includes a glossary, add glossary navigational menus, and if there is a glossary div with scope="INT" also add intro nav menus.
+# If the project includes a glossary, add glossary navigational menus, and if there is also a glossary div with scope="INT" add intro nav menus as well.
 if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
   # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
   my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
@@ -194,10 +204,8 @@ RUN:./INT.SFM");
 # Add any cover images to the OSIS file
 if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
 
-# Checks occur as late as possible in the flow
-if ($modType ne 'dict' || -e &getProjectOsisFile($MAINMOD)) {
-  &checkReferenceLinks($OSIS);
-}
+# Checks are done now, as late as possible in the flow
+if ($modType ne 'dict' || -e &getProjectOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
 else {
   &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
 "The Bible module OSIS file must be created before the dictionary 
@@ -205,13 +213,10 @@ module OSIS file, so that all reference links can be checked. Create the
 Bible module OSIS file, then run this dictionary module again to check 
 all references and remove this error.");
 }
-
 &checkUniqueOsisIDs($OSIS);
 &checkFigureLinks($OSIS);
 &checkIntroductionTags($OSIS);
-if ($modType eq 'childrens_bible') {
-  &checkChildrensBibleStructure($OSIS);
-}
+if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 
 copy($OSIS, $OUTOSIS); 
 &validateOSIS($OUTOSIS);
