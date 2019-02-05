@@ -1176,6 +1176,7 @@ sub copyReferencedImages($$$) {
     my $src = $image->getAttribute('src');
     if ($src !~ s/^\.\///) {
       &Error("copyReferencedImages found a nonrelative path \"$src\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
+      next;
     }
     
     my $localsrc = &getFigureLocalPath($image, $projdir);
@@ -1187,12 +1188,13 @@ sub copyReferencedImages($$$) {
     my $ofile = "$outdir/$src";
     my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
     if (!-e $odir) {`mkdir -p "$odir"`;}
-    if (-e $ofile) {
+    if (-e $ofile && !$copied{"$localsrc:$ofile"}) {
       &Warn("Image already exists at destination and will not be overwritten: $ofile", "If $localsrc is different than $ofile then you must change the name of one of the images.");
     }
+    if ($copied{"$localsrc:$ofile"}) {next;}
     
     &copy($localsrc, $ofile);
-    $copied{"$outdir/$src"}++;
+    $copied{"$localsrc:$ofile"}++;
     &Note("Copied image \"$ofile\"");
   }
   
