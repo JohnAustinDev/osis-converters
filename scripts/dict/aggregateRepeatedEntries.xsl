@@ -159,7 +159,7 @@
                 <if test="$title">
                   <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$title"/></title>
                 </if>
-                <if test="not($title)">
+                <if test="not($scope) and not($title)">
                   <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
                 </if>
                 <apply-templates mode="write-aggregates"/>
