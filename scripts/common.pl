@@ -1016,32 +1016,35 @@ sub customize_usfm2osis($$) {
     }
     $lastScope = $scope;
     
-    my $r = File::Spec->abs2rel($f, $MAININPD); if ($r !~ /^\./) {$r = './'.$r;}
+    my $r = File::Spec->abs2rel($f, $MAININPD);
+    $r = ($modType eq 'dictionary' ? '.':'').($r !~ /^\./ ? './':'').$r;
     
     # peripherals need a target location in the OSIS file added to their ID
     if ($USFM{$modType}{$f}{'peripheralID'}) {
       #print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
       if (defined($ID_TYPE_MAP{$USFM{$modType}{$f}{'peripheralID'}})) {
-        print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$modType}{$f}{'peripheralID'}.".*)\$/\$1 ";
+        print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$modType}{$f}{'peripheralID'}.".*)\$/\$1";
       }
       else {
-        print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2 ";
+        print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2";
       }
-      my $xpath = &getOsisMap('location', $scope);
-      if (@{$USFM{$modType}{$f}{'periphType'}}) {
-        foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
-          my $osisMap = &getOsisMap($periphType, $scope);
-          if (!$osisMap) {next;}
-          $xpath .= ", $osisMap";
+      if ($modType eq 'bible') {
+        my $xpath = &getOsisMap('location', $scope);
+        if (@{$USFM{$modType}{$f}{'periphType'}}) {
+          foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
+            my $osisMap = &getOsisMap($periphType, $scope);
+            if (!$osisMap) {next;}
+            $xpath .= ", $osisMap";
+          }
         }
+        $xpath =~ s/([\@\$\/])/\\$1/g;
+        print CFF $xpath;
       }
-      $xpath =~ s/([\@\$\/])/\\$1/g;
-      print CFF $xpath;
       if ($scope) {print CFF ", scope == $scope";}
       print CFF "/m\n";
     }
 
-    print CFF "RUN:".($modType ne 'bible' ? '.':'')."$r\n";
+    print CFF "RUN:$r\n";
   }
   close(CFF);
 }
@@ -1512,6 +1515,7 @@ sub scanUSFM_file($) {
     }
     elsif ($id =~ /(GLO|DIC|BAK|FIN|CNC|TDX|NDX)/i) {
       $info{'type'} = 'dictionary';
+      $info{'peripheralID'} = $1;
     }
     elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)/i) { # Strange IDs associated with Children's Bibles
       $info{'type'} = 'bible';
@@ -5347,6 +5351,8 @@ of the glossary:
       &Note("Inserting glossary TOC label: $glossTitle");
     }
   }
+  elsif ($modType eq 'childrens_bible') {return;}
+  
   
   &writeXMLFile($xml, $output, $osisP, 1);
 }
