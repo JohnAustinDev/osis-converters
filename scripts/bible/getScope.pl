@@ -21,23 +21,22 @@ sub getScope($$) {
   my $vsys = shift;
   
   my $xml = (ref($osis) ? $osis:$XML_PARSER->parse_file($osis));
+  my $osisf = (ref($osis) ? $$osis:$osis);
   
   my $scope = "";
   
   $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
-  if (!$vsys) {&ErrorBug("Could not determine versification of ".(ref($osis) ? 'osis document':$osis).".");}
+  if (!$vsys) {&ErrorBug("Could not determine versification of $osisf.");}
 
-  &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
+  &Log("\n\nDETECTING SCOPE: Versification=$vsys OSIS=$osisf\n");
 
-  my $canonP;
-  my $bookOrderP;
-  my $testamentP;
-  
+  my %haveVerse;
+  my $canonP; my $bookOrderP; my $testamentP;
   if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
     my @verses = $XPC->findnodes('//osis:verse', $xml);
     foreach my $v (@verses) {
-      my $osisID = $v->findvalue('./@osisID');
-      @osisID = split(/\s+/, $osisID);
+      my $osisIDs = $v->findvalue('./@osisID');
+      my @osisID = split(/\s+/, $osisIDs);
       foreach my $id (@osisID) {$haveVerse{$id}++;}
     }
 

@@ -80,6 +80,7 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
+$ROC = 'x-oc'; # meaning osis-converters is responsible for adding this element
 $VSYS{'prefix_vs'} = 'x-vsys';
 $VSYS{'resp_vs'} = $VSYS{'prefix_vs'};
 $VSYS{'AnnoTypeSource'} = $VSYS{'prefix_vs'}.'-source';
@@ -1229,6 +1230,10 @@ sub addCoverImages($) {
     if ($pubImagePath ne $imgpath) {&shell("convert -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
     &Note("Found sub-publication cover image: $imgpath");
     if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {$updated++;}
+    else {&Warn("<-Failed to find introduction with scope $osisRef to insert the cover image.",
+"If you want the cover image to appear in the OSIS file, there 
+needs to be a USFM \\id or \\periph tag that contains scope==$osisRef
+on the same line");}
   }
   
   # Find or create a main publication cover and insert it into the OSIS file
@@ -1389,6 +1394,7 @@ sub insertSubpubCover($$$) {
   my $figure = shift;
   my $xml = shift;
 
+  $scope =~ s/_/ /g;
   my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $xml)}[0];
   if ($insertAfter) {
     $insertAfter->parentNode->insertAfter($figure, $insertAfter);
@@ -1420,7 +1426,7 @@ sub insertPubCover($$) {
   );
   if ($div) {$div->insertBefore($figure, $div->firstChild);}
   else {
-    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover'>".$figure->toString()."</div>");
+    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover' resp='$ROC'>".$figure->toString()."</div>");
     my $header = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $xml)}[0];
     $header->parentNode->insertAfter($div, $header);
   }
@@ -1430,7 +1436,7 @@ sub getCoverFigure($$) {
   my $scopename = shift;
   my $type = shift;
   
-  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$scopename.jpg'> </figure>");
+  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$scopename.jpg' resp='$ROC'> </figure>");
 }
 
 sub scanUSFM($\%) {
@@ -2335,14 +2341,19 @@ sub pruneFileOSIS($$\%\$\$) {
     if (scalar(@grps) == 1 && @grps[0]) {
       my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
       if ($ms) {
+        my $resp = @{$XPC->findnodes('ancestor-or-self::*[@resp="'.$ROC.'"][last()]', $ms)}[0];
         my $firstIntroPara = @{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0];
         my $fipMS = ($firstIntroPara ? @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', $firstIntroPara)}[0]:'');
-        if ($firstIntroPara && $fipMS->unique_key eq $ms->unique_key) {
+        if (!$resp && $firstIntroPara && $fipMS->unique_key eq $ms->unique_key) {
           $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
           &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
         }
+        # don't include in the TOC if there is no intro p or the first intro p is under different TOC entry
+        elsif ($resp) {
+          &Note("Removed auto-generated TOC milestone from bookGroup because there is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
+          $resp->unbindNode();
+        }
         else {
-          # don't include in the TOC if there is no intro p or the first intro p is under different TOC entry
           &Note("Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
           $ms->unbindNode();
         }
@@ -2390,6 +2401,7 @@ sub pruneFileOSIS($$\%\$\$) {
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
   
+  # remove references beyond OSIS file
   my @rhot = $XPC->findnodes('//osis:reference[@subType="x-external"]', $inxml);
   foreach my $r (@rhot) {
     foreach my $chld ($r->childNodes) {$r->parentNode()->insertBefore($chld, $r);}
@@ -2397,6 +2409,7 @@ sub pruneFileOSIS($$\%\$\$) {
   }
   if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.", 1);}
   
+  # move matching sub-publication cover to top
   my $s = $scope; $s =~ s/\s+/_/g;
   my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
   if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
@@ -2420,6 +2433,10 @@ sub pruneFileOSIS($$\%\$\$) {
       &insertPubCover($subPubCover, $inxml);
     }
   }
+  if ($scope && !$subPubCover) {&Warn("A Sub-Publication cover was not found for $scope.", 
+"If a custom cover image is desired for $scope then add a file 
+./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? 'Alternatively you may add 
+an image whose filename is any scope that contains $scope':''));}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
   &writeXMLFile($inxml, $output, $osisP);
@@ -5274,7 +5291,7 @@ tag number you wish to use.)\n");
         }
         
         if ($name) {
-          my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\"/>";
+          my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\" resp=\"$ROC\"/>";
           &Note("Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $tag\n");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
         }
@@ -5288,7 +5305,8 @@ tag number you wish to use.)\n");
     if (!$mainTOC) {
       my $translationTitle = &conf('TranslationTitle');
       my $toc = $XML_PARSER->parse_balanced_chunk('
-<div type="introduction"><milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$translationTitle.'"/>
+<div type="introduction" resp="'.$ROC.'">
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$translationTitle.'"/>
   <title level="1" type="main" subType="x-introduction" canonical="false">'.$translationTitle.'</title>
 </div>');
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
@@ -5309,8 +5327,10 @@ tag number you wish to use.)\n");
       my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
       my $testamentTitle = &conf($whichTestament.'TestamentTitle');
       my $toc = $XML_PARSER->parse_balanced_chunk('
-<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
-<title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>');
+<div type="introduction" resp="'.$ROC.'">
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
+  <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
+</div>');
       $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
       &Note("Inserting $whichTestament Testament TOC label: $testamentTitle");
     }
@@ -5345,8 +5365,10 @@ of the glossary:
 \\toc".&conf('TOC')." [no_toc]");
       }
       my $toc = $XML_PARSER->parse_balanced_chunk('
-<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'"/>'.($hasTitle ? '':'
-<title level="1" type="main">'.$glossTitle.'</title>'));
+<div type="introduction" resp="'.$ROC.'">
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'"/>'.($hasTitle ? '':'
+  <title level="1" type="main">'.$glossTitle.'</title>').'
+</div>');
       $glossDiv->insertBefore($toc, $glossDiv->firstChild);
       &Note("Inserting glossary TOC label: $glossTitle");
     }

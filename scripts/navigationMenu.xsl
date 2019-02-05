@@ -68,7 +68,7 @@
     <xsl:param name="skip"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
     <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = $BIBLEMOD"/>
-    <list subType="x-navmenu">
+    <list subType="x-navmenu" resp="x-oc">
       <xsl:if test="$nodeInBibleMod"><xsl:attribute name="canonical" select="'false'"/></xsl:if>
       <xsl:variable name="prev" select="
           if ($cgEntry) then $cgEntry/preceding-sibling::*[1]/descendant::seg[@type='keyword'][1] 
@@ -152,7 +152,7 @@
           </xsl:apply-templates>
           
           <xsl:call-template name="Note"><xsl:with-param name="msg">Added NAVMENU glossary</xsl:with-param></xsl:call-template>
-          <div type="glossary" scope="NAVMENU">
+          <div type="glossary" scope="NAVMENU" resp="x-oc">
             
             <!-- Create a uiIntroduction main entry -->
             <xsl:if test="$introScope and //div[@type='glossary'][@scope=$introScope]">
