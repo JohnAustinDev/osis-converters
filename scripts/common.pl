@@ -1229,7 +1229,7 @@ sub addCoverImages($) {
     if (!$pubImagePath) {next;}
     push (@pubcovers, $pubImagePath);
     my $imgpath = "$imgdir/$scope.jpg";
-    if ($pubImagePath ne $imgpath) {&shell("convert -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
+    if ($pubImagePath ne $imgpath) {&shell("convert -colorspace sRGB -type truecolor -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
     &Note("Found sub-publication cover image: $imgpath");
     if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {$updated++;}
     else {&Warn("<-Failed to find introduction with scope $osisRef to insert the cover image.",
@@ -1251,7 +1251,7 @@ on the same line");}
     &Note("Found full publication cover image: $imgpath");
   }
   elsif ($pubImagePath) {
-    &shell("convert -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);
+    &shell("convert -colorspace sRGB -type truecolor -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);
     &Note("Copying full publication cover image from $pubImagePath to: $imgpath");
   }
   elsif (@pubcovers) {
@@ -1349,7 +1349,7 @@ sub createCompositeCoverImage($$$\@$) {
       &shell("composite".($j != (@{$coversAP}-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
     }
   }
-  &shell("convert \"$out\" -background white -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);
+  &shell("convert \"$out\" -colorspace sRGB -type truecolor -background white -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);
   if (-e $temp) {unlink($temp);}
   if (-e $out) {unlink($out);}
   
@@ -1918,8 +1918,7 @@ sub conf($) {
   elsif ($isConf eq 'system') {
     &ErrorBug("This config request is from the special [system] section.", "Use \$$entry rather than &conf('$entry') to access [system] section values.");
   }
-  
-  if ($CONF->{$SCRIPT_NAME.'+'.$entry}) {
+  elsif (exists($CONF->{$SCRIPT_NAME.'+'.$entry})) {
     return $CONF->{$SCRIPT_NAME.'+'.$entry};
   }
   elsif ($CONF->{$entry}) {return $CONF->{$entry};}

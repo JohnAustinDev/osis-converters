@@ -37,7 +37,7 @@ sub convertOSIS($) {
   $FULL_PUB_TITLE = @{$XPC->findnodes("/descendant::osis:work[\@osisWork='$MOD'][1]/osis:title[1]", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
   $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
-  @CREATE_FULL_PUBLICATIONS = (); foreach my $k (sort keys %{$CONF}) {if ($k =~ /ScopeSubPublication(\d+)$/) {push(@CREATE_FULL_PUBLICATIONS, $1);}}
+  @CREATE_FULL_PUBLICATIONS = (); my $n=0; while (my $p = &conf('ScopeSubPublication'.(++$n))) {push(@CREATE_FULL_PUBLICATIONS, $n);}
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
   else {
