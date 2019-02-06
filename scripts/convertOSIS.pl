@@ -129,7 +129,7 @@ sub OSIS_To_ePublication($$$$) {
   }
   
   # update osis header with current config.conf marked for use by osis2xhtml
-  my $osis2xhtmlP = &currentConf();
+  my $osis2xhtmlP = &copyConf();
   $osis2xhtmlP->{'DEBUG'} = ($DEBUG ? 'true':'false');
   &writeOsisHeader(\$osis, $CONF, $osis2xhtmlP, 'x-osis2xhtml');
   

@@ -10,6 +10,7 @@ use File::Copy;
 use File::Spec;
 
 $VAGRANT_HOME = '/home/vagrant';
+@OC_SYSTEM = ('REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'DEBUG', 'VAGRANT'); # Variables which may be set in the config.conf [system] section
 
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
@@ -17,9 +18,14 @@ $VAGRANT_HOME = '/home/vagrant';
 sub init_opsys() {
   chdir($INPD);
   
-  if (!-e "$SCRD/paths.pl") {copy(&getDefaultFile('paths.pl'), $SCRD);}
+  if (-e "$SCRD/paths.pl") {
+    &Warn("UPDATE: Removing outdated file: $SCRD/paths.pl");
+    unlink("$SCRD/paths.pl");
+  }
+  my $conf = &getDefaultFile('bible/config.conf');
+  &update_pathspl($conf);
+  &readPaths($conf);
   
-  &readPaths();
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
   &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
   
@@ -51,7 +57,7 @@ sub init_opsys() {
       &restart_with_vagrant();
     }
     else {
-      &Error("You have \$VAGRANT=1; in osis-converters/paths.pl but Vagrant is not installed.", $vagrantInstallMessage);
+      &Error("You have VAGRANT=1 in config.conf but Vagrant is not installed.", $vagrantInstallMessage);
     }
     return 0;
   }
@@ -62,8 +68,8 @@ sub init_opsys() {
 You are running a compatible version of Linux, so you have two options:
 1) Install the necessary dependancies by running: 
 osis-converters\$ sudo provision.sh
-2) Run with Vagrant by adding '\$VAGRANT=1;' to this file: 
-osis-converters/paths.pl
+2) Run with Vagrant by adding 'VAGRANT=1' to the [system] section 
+of config.conf.
 NOTE: Option #2 requires that Vagrant and VirtualBox be installed and 
 will run slower and use more memory.");
     return 0;
@@ -79,47 +85,78 @@ will run slower and use more memory.");
   return 0;
 }
 
-# Read the osis-converters/paths.pl file which contains customized paths
-# to things like fonts and executables (it also contains some settings
-# like $DEBUG).
-sub readPaths() {
-  # The following host paths in paths.pl are converted to absolute paths
-  # which are later updated to work on the VM if running in Vagrant.
-  my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS');
+# This is only needed to update old osis-converters projects that lack [system] config.conf sections
+sub update_pathspl($) {
+  my $cf = shift;
   
-  if (-e "$SCRD/paths.pl") {
-    require "$SCRD/paths.pl";
+  if (!$cf) {&ErrorBug("update_pathspl could not find any config.conf.", '', 1);}
+  if (open(CXF, "<:encoding(UTF-8)", $cf)) {
+    while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
+    close(CXF);
+  }
+  else {&ErrorBug("update_pathspl could not open $cf for reading.");}
     
-    if (!&runningInVagrant()) {
-      # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
-      foreach my $v (@pathvars) {
-        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-        if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
-        if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
+  if (open(CXF, ">>:encoding(UTF-8)", $cf)) {
+    &Warn("UPDATE: config.conf has no [system] section. Updating...");
+    my $df = &getDefaultFile('bible/config.conf', 2);
+    if (!$df) {$df = &getDefaultFile('bible/config.conf', 3);}
+    my $sys = '';
+    if (open(DCF, "<:encoding(UTF-8)", $df)) {
+      while(<DCF>) {
+        if ($sys && $_ =~ /^\[/) {last;}
+        if ($sys || $_ =~ /^\[system\]/) {$sys .= $_;}
       }
-      if (open(SHL, ">$SCRD/.hostinfo")) {
-        foreach my $v (@pathvars) {
-          if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-          my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
-          $rel2vhs =~ s/\\/\//g; # this relative path is for the Linux VM
-          print SHL "\$$v = '$rel2vhs';\n";
-        }
-        print SHL "1;\n";
-        close(SHL);
-      }
-      else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work.", "Check that you have write permission in directory $SCRD.");}
+      close(DCF);
     }
-    else {
-      # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
-      require("$SCRD/.hostinfo");
+    else {&ErrorBug("update_pathspl could not open $df for reading");}
+    &Warn("<-UPDATE: Appending to $cf:\n$sys");
+    print CXF "\n$sys";
+    close(CXF);
+  }
+  else {&ErrorBug("update_pathspl could not open $cf for appending");}
+}
+
+# Read the config file 'system' section file which contains customized 
+# paths to things like fonts and executables (it also contains some 
+# settings like $DEBUG).
+sub readPaths($) {
+  my $conf = shift;
+  
+  # The following host paths are converted to absolute paths which are 
+  # later updated to work on the VM if running in Vagrant.
+  my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
+  
+  &setSystemVars(&readConf($conf));
+  
+  if (!&runningInVagrant()) {
+    # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
+    foreach my $v (@pathvars) {
+      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
+      if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
+      if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
+    }
+    if (open(SHL, ">$SCRD/.hostinfo")) {
       foreach my $v (@pathvars) {
         if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-        $$v = "$VAGRANT_HOME/INDIR_ROOT/$$v";
+        my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
+        $rel2vhs =~ s/\\/\//g; # this relative path is for the Linux VM
+        print SHL "\$$v = '$rel2vhs';\n";
       }
+      print SHL "1;\n";
+      close(SHL);
+    }
+    else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work.", "Check that you have write permission in directory $SCRD.");}
+  }
+  else {
+    # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
+    require("$SCRD/.hostinfo");
+    foreach my $v (@pathvars) {
+      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
+      $$v = "$VAGRANT_HOME/INDIR_ROOT/$$v";
     }
   }
   
-  # Finally set default values when paths.pl doesn't exist or doesn't specify exedirs
+  # Finally set default values when config.conf doesn't specify exedirs
   my %exedirs = (
     'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
     'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
@@ -140,11 +177,77 @@ sub readPaths() {
     $$v =~ s/([^\/])$/$1\//;
   }
   
-  my $dbgmsg = "paths.pl ".(&runningInVagrant() ? "on virtual machine":"on host").":\n";
+  my $dbgmsg = "system configs ".(&runningInVagrant() ? "on virtual machine":"on host").":\n";
   foreach my $v (@pathvars) {$dbgmsg .= "\t$v = $$v\n";}
   $dbgmsg .= "\tvagantHostShare=".&vagrantHostShare()."\n";
   $dbgmsg .= "\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n";
   &Debug($dbgmsg, 1);
+}
+
+# Reads a conf file and returns a hash of its contents. The conf file must
+# start with [module_name] on the first line, followed by either CrossWire
+# SWORD config entries (see https://wiki.crosswire.org/DevTools:conf_Files)
+# or osis-converters specific entries. All of these entries apply to the 
+# entire project. Config entries may also be set for specific parts of 
+# the conversion process only. This is done by starting a new config 
+# section with [SCRIPT_NAME]. Then the following entries will only apply 
+# to that part of the conversion process. It is possible for a particular
+# script to overwrite the value of a general entry, and then this value 
+# will only apply during that particular part of the conversion process.
+#
+# If there are multiple entries with the same name in the same section,
+# then their values will be serialized and separated by <nx/>.
+#
+# For a value to continue from one line to the next, continued lines 
+# must end with '\'.
+sub readConf($) {
+  my $conf = shift;
+  
+  my %entryValue;
+  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&ErrorBug("readConf could not open $conf", '', 1);}
+  my $contiuation;
+  my $section = '';
+  while(<CONF>) {
+    if    ($_ =~ /^#/) {next;}
+    elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
+      if ($. == 1) {$entryValue{'ModuleName'} = $1;}
+      else {$section = $1;}
+    }
+    elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
+      my $entry = $1; my $value = $2;
+      $entry = ($section ? "$section+":'').$entry;
+      if ($entryValue{$entry} ne '') {$entryValue{$entry} .= "<nx/>".$value;}
+      else {$entryValue{$entry} = $value;}
+      $continuation = ($_ =~ /\\\n/ ? $entry:'');
+    }
+    else {
+      chomp;
+      if ($continuation) {$entryValue{$continuation} .= "\n$_";}
+      $continuation = ($_ =~ /\\$/ ? $continuation:'');
+    }
+  }
+  close(CONF);
+
+  if (!$entryValue{"ModuleName"}) {
+		&Error("No module name in config.conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
+	}
+  
+  return \%entryValue;
+}
+
+sub setSystemVars($) {
+  my $confP = shift;
+  
+  foreach my $ce (keys %{$confP}) {
+    if ($ce !~ /^system\+(.*)$/) {next;}
+    my $e = $1;
+    my $ok = 0;
+    foreach my $v (@OC_SYSTEM) {if ($v eq $e) {$ok++;}}
+    if ($ok) {$$e = $confP->{$ce};}
+    else {&Error("Unrecognized config.conf [system] entry: $e.", 
+"Only the following entries are recognized in the config.conf 
+system section: ".join(' ', @OC_SYSTEM));}
+  }
 }
 
 # Look for an osis-converters default file or directory in the following 
@@ -165,7 +268,7 @@ sub readPaths() {
 # NOTE: Soft links in the file path are followed, but soft links that 
 # are valid on the host will NOT be valid on a VM. To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
-# with /vagrant and be broken on the host, although they work on the VM).
+# with /vagrant and be broken on the host, although they work from the VM).
 sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;

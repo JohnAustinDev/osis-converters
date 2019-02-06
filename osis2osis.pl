@@ -26,8 +26,8 @@ $OSIS = "$TMPDIR/osis2osis.xml";
 if (&runOsis2osis('postinit', $INPD, $OSIS) eq $OSIS) {
   require("$SCRD/scripts/processOSIS.pl");
   if ($NO_OUTPUT_DELETE) {
-    # debug code to run on tmp files previously created by processOSIS.pl can be run here when NO_OUTPUT_DELETE = true
-    
+   # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
+   # YOUR DEBUG CODE GOES HERE 
   }
 }
 else {&ErrorBug("runOsis2osis failed to write OSIS file.");}

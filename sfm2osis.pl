@@ -26,8 +26,8 @@ $OSIS = "$TMPDIR/usfm2osis.xml";
 if (&usfm2osis(&getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), $OSIS) eq $OSIS) {
   require("$SCRD/scripts/processOSIS.pl");
   if ($NO_OUTPUT_DELETE) {
-    # debug code to run on tmp files previously created by processOSIS.pl can be run here when NO_OUTPUT_DELETE = true
-    
+    # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
+    # YOUR DEBUG CODE GOES HERE
   }
 }
 else {&ErrorBug("usfm2osis failed to write OSIS file.");}

@@ -131,7 +131,7 @@ sub runOsis2osis($$$) {
       
       $newOSIS = $output;
       &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $newOSIS");
-      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in paths.pl."); next;}
+      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in the [system] section of config.conf."); next;}
       
       if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $newOSIS);}
       elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$osis\" \"$newOSIS\"");}
