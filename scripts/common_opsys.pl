@@ -98,6 +98,12 @@ sub update_pathspl($) {
     
   if (open(CXF, ">>:encoding(UTF-8)", $cf)) {
     &Warn("UPDATE: config.conf has no [system] section. Updating...");
+    &Note("The paths.pl file which was used for various path variables
+and settings has now been replaced by the [system] section of the
+config.conf file. The paths.pl file will be deleted. Your config.conf
+will have a new [system] section. This means you may need to comment out 
+or change the OUTPUT entry in config.conf if your output files appear in
+an unexpected place.");
     my $df = &getDefaultFile('bible/config.conf', 2);
     if (!$df) {$df = &getDefaultFile('bible/config.conf', 3);}
     my $sys = '';
