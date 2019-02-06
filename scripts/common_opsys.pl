@@ -22,7 +22,7 @@ sub init_opsys() {
     &Warn("UPDATE: Removing outdated file: $SCRD/paths.pl");
     unlink("$SCRD/paths.pl");
   }
-  my $conf = &getDefaultFile('bible/config.conf');
+  my $conf = &getDefaultFile('bible/config.conf', 1);
   &update_pathspl($conf);
   &readPaths($conf);
   
@@ -89,7 +89,7 @@ will run slower and use more memory.");
 sub update_pathspl($) {
   my $cf = shift;
   
-  if (!$cf) {&ErrorBug("update_pathspl could not find any config.conf.", '', 1);}
+  if (!$cf) {return;}
   if (open(CXF, "<:encoding(UTF-8)", $cf)) {
     while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
     close(CXF);
@@ -132,7 +132,7 @@ sub readPaths($) {
   # later updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
-  &setSystemVars(&readConf($conf));
+  if ($conf) {&setSystemVars(&readConf($conf));}
   
   if (!&runningInVagrant()) {
     # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
