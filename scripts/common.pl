@@ -1228,15 +1228,21 @@ sub copyReferencedImages($$$) {
 # images will be located in $MAININPD/images
 sub addCoverImages($) {
   my $osisP = shift;
-  
-  &Log("\n--- INSERTING COVER IMAGES INTO \"$$osisP\"\n", 1);
-  
+
   my $coverWidth = 500;
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCoverImages$3/;
   my $xml = $XML_PARSER->parse_file($$osisP);
   my $mod = &getModNameOSIS($xml);
   my $updated;
+  
+  if (@{$XPC->findnodes('//osis:figure[@type="x-cover"]', $xml)}[0]) {
+    &Note("OSIS file already has x-cover image(s): $$osisP. Skipping addCoverImages()");
+    return;
+  }
+  
+  &Log("\n--- INSERTING COVER IMAGES INTO \"$$osisP\"\n", 1);
+  
   
   my $imgdir = "$MAININPD/images"; if (! -e $imgdir) {mkdir($imgdir);}
   
@@ -5326,6 +5332,7 @@ tag number you wish to use.)\n");
     my $maxkw = 7;
     # Any glossary (a div containing keywords) which has more than $maxkw keywords gets added to the TOC (unless it has level1 TOC entries already or it's already in the TOC)
     my @needTOC = $XPC->findnodes('//osis:div[count(descendant::osis:seg[@type="keyword"]) > '.$maxkw.']
+        [not(@subType = "x-aggregate")][not(@resp="x-oc")]
         [not(descendant::*[contains(@n, "[level1]")])]
         [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
     my $n = 0;
