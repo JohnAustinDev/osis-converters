@@ -835,7 +835,7 @@ sub customize_conf($$$$) {
   my $haveDICT = shift;
   
   # Save any comments in default config.conf because they are stripped 
-  # by setConfFileValue. These comments are added back at the end.
+  # by setConfFileValue. These comments are added back at the end of customize_conf().
   my $comments = '';
   if (open(MCF, "<:encoding(UTF-8)", $conf)) {
     while(<MCF>) {
@@ -848,7 +848,9 @@ sub customize_conf($$$$) {
   # Abbreviation
   &setConfFileValue($conf, 'Abbreviation', $modName, 1);
   
-  # Entries from any $modName config.conf that is located in REPOSITORY
+  # Now start over if there is any existing $modName conf that is 
+  # located in REPOSITORY. Entries in the repo conf that were added by 
+  # osis-converters are dropped, so that they will be added afresh.
   if ($REPOSITORY) {
     my $cfile = $REPOSITORY.'/'.lc($modName).".conf";
     my $ctext = &shell("wget \"$cfile\" -q -O -", 3);
@@ -895,6 +897,17 @@ sub customize_conf($$$$) {
     }
   }
   else {&ErrorBug("customize_conf could not open $MAININPD/sfm");}
+  
+  # FullResourceURL
+  my $c = &readConf($conf);
+  if ($c->{"system+EBOOKS"}) {
+    if ($c->{"system+EBOOKS"} =~ /^https?\:/) {
+      my $ebdir = $c->{"system+EBOOKS"}."/$modName/$modName";
+      my $r = &shell("wget \"$ebdir\" -q -O -", 3);
+      if ($r) {&setConfFileValue($conf, 'FullResourceURL', $ebdir, 1);}
+    }
+    else {&Warn("The [system] config.conf entry should be a URL: EBOOKS=".$c->{"system+EBOOKS"}, "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");}
+  }
   
   # Documentation, default settings and default config.conf comments
   my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n";
@@ -1050,20 +1063,26 @@ sub customize_usfm2osis($$) {
       else {
         print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2";
       }
+      
+      my @instructions;
+      if ($scope) {push(@instructions, "scope == $scope");} # scope is first instruction because it only effects following instructions
       if ($modType eq 'bible') {
-        my $xpath = &getOsisMap('location', $scope);
+        push(@instructions, &getOsisMap('location', $scope));
         if (@{$USFM{$modType}{$f}{'periphType'}}) {
           foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
             my $osisMap = &getOsisMap($periphType, $scope);
             if (!$osisMap) {next;}
-            $xpath .= ", $osisMap";
+            push(@instructions, $osisMap);
           }
         }
-        $xpath =~ s/([\@\$\/])/\\$1/g;
-        print CFF $xpath;
       }
-      if ($scope) {print CFF ", scope == $scope";}
-      print CFF "/m\n";
+      if (@instructions) {
+        splice(@instructions, 0, 0, ''); # to add leading separator with join
+        my $line = join(", ", @instructions);
+        $line =~ s/([\@\$\/])/\\$1/g; # escape these so Perl won't interperet them as special chars on the replacement side s//X/
+        print CFF "$line/m\n";
+      }
+      
     }
 
     print CFF "RUN:$r\n";
@@ -1453,11 +1472,15 @@ sub insertPubCover($$) {
     @{$XPC->findnodes('//osis:div[1]', $xml)}[0] :
     @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"][not(contains(@type, "book"))]', $xml)}[0]
   );
-  if ($div) {$div->insertBefore($figure, $div->firstChild);}
+  if ($div) {
+    $div->insertBefore($figure, $div->firstChild);
+    &Note("Inserted publication cover image as first child of existing div type=".($div->hasAttribute('type') ? $div->getAttribute('type'):'NO-TYPE'));
+  }
   else {
     my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover' resp='$ROC'>".$figure->toString()."</div>");
     my $header = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $xml)}[0];
     $header->parentNode->insertAfter($div, $header);
+    &Note("Inserted publication x-cover div after header.");
   }
 }
 
@@ -2298,7 +2321,6 @@ sub pruneFileOSIS($$\%\$\$) {
   }
   
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@osisRef][parent::osis:div[starts-with(@type, "book")]]', $inxml);
-  foreach my $d (@scopedPeriphs) {if ($d->getAttribute('type') !~ /$typeRE/i) {$d = '';}}
   
   # remove books not in scope
   my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
@@ -2316,7 +2338,7 @@ sub pruneFileOSIS($$\%\$\$) {
   if ($booksFiltered) {
     &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
     
-    foreach my $d (@scopedPeriphs) {if ($d) {$d->unbindNode();}}
+    foreach my $d (@scopedPeriphs) {$d->unbindNode();}
 
     # remove bookGroup if it has no books left (even if it contains other peripheral material)
     my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
@@ -2353,7 +2375,6 @@ sub pruneFileOSIS($$\%\$\$) {
     # move multi-book book intros before first kept book.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (@scopedPeriphs) {
-      if (!$intro) {next;} # some are purposefully ''
       my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
       if (!@{$introBooks}) {next;}
       foreach $introbk (@{$introBooks}) {
@@ -5285,13 +5306,13 @@ tag number you wish to use.)\n");
         
         if ($name) {
           my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\" resp=\"$ROC\"/>";
-          &Note("Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $tag\n");
+          &Note("Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $name");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
         }
       }
     }
     
-    # Add translation main TOC entry if it's not already there
+    # Add translation main TOC entry and title if not already there
     my $mainTOC = @{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]
       [not(ancestor::osis:div[starts-with(@type, "book")])]
       [not(preceding::osis:div[starts-with(@type, "book")])][1]', $xml)}[0];
@@ -5299,15 +5320,15 @@ tag number you wish to use.)\n");
       my $translationTitle = &conf('TranslationTitle');
       my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$translationTitle.'"/>
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$translationTitle.'"/>
   <title level="1" type="main" subType="x-introduction" canonical="false">'.$translationTitle.'</title>
 </div>');
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
       $insertBefore->parentNode->insertBefore($toc, $insertBefore);
-      &Note("Inserting top TOC label: $translationTitle");
+      &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
     }
     
-    # Add Testament TOC entries if they are not already there, using OldTestamentTitle and NewTestamentTitle
+    # Add Testament TOC entries and titles if they are not already there, using OldTestamentTitle and NewTestamentTitle
     foreach my $missingTOC_Testament ($XPC->findnodes('//osis:div[@type="bookGroup"][descendant::osis:div[@type="book"]]
       [not(descendant::osis:milestone
           [@type="x-usfm-toc'.&conf('TOC').'"]
@@ -5325,7 +5346,29 @@ tag number you wish to use.)\n");
   <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
 </div>');
       $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
-      &Note("Inserting $whichTestament Testament TOC label: $testamentTitle");
+      &Note("Inserting $whichTestament Testament TOC entry and title within new introduction div as: $testamentTitle");
+    }
+    
+    # Add Sub-Publication introduction TOC entries if not already there
+    my @subPubIntros = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[not(@type="book")]
+        [not(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])]) or boolean(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])][1][self::osis:div[@type="book"]])]
+        [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
+    foreach my $div (@subPubIntros) {
+      my $tocentry = ($div->hasAttribute('osisRef') ? &getScopeTitle($div->getAttribute('osisRef')):'');
+      if (!$tocentry) {
+        my $nextbkn = @{$XPC->findnodes('following::osis:div[@type="book"][1]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n', $div)}[0];
+        if ($nextbkn) {$tocentry = $nextbkn->value(); $tocentry =~ s/^\[[^\]]*\]//;}
+      }
+      if (!$tocentry) {
+        my $nexttitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
+        if ($nexttitle) {$tocentry = $nexttitle->textContent();}
+      }
+      if ($tocentry) {
+        my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"[not_parent]$tocentry\" resp=\"$ROC\"/>";
+        &Note("Inserting Sub-Publication TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
+        $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
+      }
+      else {&Note("Could not insert Sub-Publication TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
     }
   }
   elsif ($modType eq 'dict') {
@@ -5364,13 +5407,23 @@ of the glossary:
   <title level="1" type="main">'.$glossTitle.'</title>').'
 </div>');
       $glossDiv->insertBefore($toc, $glossDiv->firstChild);
-      &Note("Inserting glossary TOC label: $glossTitle");
+      &Note("Inserting glossary TOC entry and title within new introduction div as: $glossTitle");
     }
   }
   elsif ($modType eq 'childrens_bible') {return;}
   
   
   &writeXMLFile($xml, $output, $osisP, 1);
+}
+
+sub getScopeTitle($) {
+  my $scope = shift;
+  
+  my $n = 0;
+  while (my $s = &conf('ScopeSubPublication'.(++$n))) {
+    if ($s eq $scope) {return &conf('TitleSubPublication'.($n));}
+  }
+  return '';
 }
 
 

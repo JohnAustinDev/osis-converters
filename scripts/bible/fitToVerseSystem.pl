@@ -352,8 +352,11 @@ sub orderBooksPeriphs($$$) {
   }
 
   # place all peripheral files, and separately any \periph sections they may contain, each to their proper places
+  my %xpathOriginalBeforeNodes;
   foreach my $periphFile (@periphFiles) {
     my $placedPeriphFile;
+    my $scope;
+    my $instructionNum = 0;
 
     # read the first comment to find desired target location(s) and scope, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $periphFile)}[0];
@@ -377,15 +380,18 @@ sub orderBooksPeriphs($$$) {
         }
         my $left = $1;
         my $xpath = $2;
+        
+        $instructionNum++;
   
         $left =~ s/"//g; # strip possible quotes
         if ($left eq 'scope') {
           $xpath =~ s/"//g; # strip possible quotes
-          if (!$periphFile->getAttribute('osisRef')) {
-            $periphFile->setAttribute('osisRef', $xpath); # $xpath is not an xpath in this case but rather a scope
-          }
-          elsif ($periphFile->getAttribute('osisRef') ne $xpath) {
-            &Error("Introduction comment specifies scope == $xpath, but introduction already has osisRef=\"".$periphFile->getAttribute('osisRef')."\"");
+          $scope = $xpath;
+          if ($instructionNum != 1) {
+            &Warn("The 'scope ==' instruction only effects those xpath instructions which follow it: ".$commentNode->textContent,
+"Here the scope instruction appears after other instructions.  
+Make sure this is what you really want, or move the scope instruction 
+first in line.");
           }
           next;
         }       
@@ -409,32 +415,35 @@ they appear in the CF file. To retain the old meaning, change it to $xpath");
           &Warn("Changing $command to $left == $xpath");
         }
      
-        my $beforeNode;
-        if ($xpath =~ /^remove$/i) {$xpath = '';}
-        else {
-          $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
+        if ($xpath =~ /^remove$/i) {
+          &Note("Removing \"$left\" in command $command.");
+          next;
+        }
+        
+        # All identical xpath searches must return the same originally found node. 
+        # Otherwise sequential order would be reversed with insertBefore */node()[1].
+        if (!exists($xpathOriginalBeforeNodes{$xpath})) {
+          my $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
           if (!$beforeNode) {
             &Error("Removing periph! Could not locate xpath:\"$xpath\" in command $command");
             next;
           }
+          $xpathOriginalBeforeNodes{$xpath} = $beforeNode;
         }
         
         if ($left eq 'location') {
           $placedPeriphFile = 1;
-          if ($xpath) {&placeIntroduction($periphFile, $beforeNode);}
+          &placeIntroduction($periphFile, $xpathOriginalBeforeNodes{$xpath}, $scope);
         }
         else {
           my $periph = &findThisPeriph($periphFile, $left, $command);
           if (!$periph) {next;}
           $periph->unbindNode();
-          if ($xpath) {&placeIntroduction($periph, $beforeNode);}
+          &placeIntroduction($periph, $xpathOriginalBeforeNodes{$xpath}, $scope);
         }
         
-        if ($xpath) {
-          my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
-          &Note("Placing $left == $xpath for $tg");
-        }
-        else {&Note("Removing \"$left\" in command $command.");}
+        my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
+        &Note("Placing $left == $xpath for $tg");
       }
     }
     
@@ -492,9 +501,19 @@ sub findThisPeriph($$$) {
 # Insert $periph node before $beforeNode. But when $beforeNode is a toc 
 # or runningHead element, then insert $periph before the following non-
 # toc, non-runningHead node instead.
-sub placeIntroduction($$) {
+sub placeIntroduction($$$) {
   my $periph = shift;
   my $beforeNode = shift;
+  my $scope = shift;
+  
+  if ($scope) {
+    if (!$periph->getAttribute('osisRef')) {
+      $periph->setAttribute('osisRef', $scope);
+    }
+    elsif ($periph->getAttribute('osisRef') ne $scope) {
+      &Error("Introduction comment specifies scope == $scope, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"");
+    }
+  }
 
   # place as first non-toc and non-runningHead element in destination container
   while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $beforeNode)}[0]) {

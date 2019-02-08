@@ -10,7 +10,7 @@ use File::Copy;
 use File::Spec;
 
 $VAGRANT_HOME = '/home/vagrant';
-@OC_SYSTEM = ('REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'DEBUG', 'VAGRANT'); # Variables which may be set in the config.conf [system] section
+@OC_SYSTEM = ('REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'EBOOKS', 'DEBUG', 'VAGRANT'); # Variables which may be set in the config.conf [system] section
 
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and

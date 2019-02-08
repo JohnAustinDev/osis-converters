@@ -126,7 +126,7 @@ $DEBUG_LOCATION = 0;
 require("$SCRD/scripts/dict/processGlossary.pl");
 
 sub runAddScripRefLinks($$$) {
-  my $commandFile = shift;
+  my $modType = shift;
   my $in_file = shift;
   my $out_file = shift; # optional if $in_file is a reference
   
@@ -147,6 +147,8 @@ sub runAddScripRefLinks($$$) {
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
+  my $commandFile = &getDefaultFile("$modType/CF_addScripRefLinks.txt");
+  
   # Globals
   %books;
   %UnhandledWords;

@@ -104,7 +104,7 @@ else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 
 # Parse Scripture references from the text and check them
 if ($addScripRefLinks) {
-  &runAddScripRefLinks(&getDefaultFile("$modType/CF_addScripRefLinks.txt"), \$OSIS);
+  &runAddScripRefLinks($modType, \$OSIS);
   &checkSourceScripRefLinks($OSIS);
 }
 else {&removeMissingOsisRefs(\$OSIS);}

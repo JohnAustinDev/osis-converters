@@ -225,6 +225,9 @@ body {font-family: font1;}
         }
       }
     }
+    else {&Error("OSIS file for dictionary module $DICTMOD could not be found.", 
+"Run sfm2osis.pl on the dictionary module, to create an OSIS 
+file for it, and then run this script again.");}
     
     $CONV_REPORT{$CONV_NAME}{'Glossary'} = $companion;
     $CONV_REPORT{$CONV_NAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
