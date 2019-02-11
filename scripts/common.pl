@@ -1395,7 +1395,7 @@ sub createCompositeCoverImage($$$\@$) {
       &shell("composite".($j != (@{$coversAP}-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
     }
   }
-  &shell("convert \"$out\" -colorspace sRGB -type truecolor -background white -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);
+  &shell("convert \"$out\" -colorspace sRGB -background White -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);
   if (-e $temp) {unlink($temp);}
   if (-e $out) {unlink($out);}
   
@@ -1413,11 +1413,11 @@ sub imageDimension($) {
   return \%dim;
 }
 
-sub imageCaption($$$) {
+sub imageCaption($$$$) {
   my $width = shift;
   my $title = shift;
   my $font = shift;
-  my $background = shift; if (!$background) {$background = "White";}
+  my $background = shift; if ($background) {$background =  " -background $background";}
   
   my $pointsize = (4/3)*$width/length($title);
   if ($pointsize > 40) {$pointsize = 40;}
@@ -1434,7 +1434,7 @@ sub imageCaption($$$) {
       }
     }
   }
-  return "-gravity North -background $background -splice 0x$barheight -pointsize $pointsize ".($foundfont ? "-font $foundfont ":'')."-annotate +0+$padding '$title'";
+  return "-gravity North$background -splice 0x$barheight -pointsize $pointsize ".($foundfont ? "-font $foundfont ":'')."-annotate +0+$padding '$title'";
 }
 
 sub insertSubpubCover($$$) {
