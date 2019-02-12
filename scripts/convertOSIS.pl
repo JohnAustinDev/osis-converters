@@ -118,7 +118,7 @@ sub OSIS_To_ePublication($$$$) {
   
   my $pubTitle = $titleOverride;
   my $pubTitlePart;
-  if ($scope) {
+  if ($scope) { # Children's Bibles have no scope
     &pruneFileOSIS(
       \$osis,
       $scope,
@@ -350,10 +350,12 @@ sub makeHTML($$$) {
   }
 }
 
+# Returns 1 if $scope covers the entire translation (the entire project) 
+# which also includes sub-publications. Returns 0 otherwise.
 sub isTran($) {
   my $scope = shift;
-  if (!$scope) {return 0;}
   my $subdirs = &shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3); chomp($a); $a--;
+  if (!$scope) {return ($subdirs ? 1:0);}
   my $nosubdir = (! -d "$MAININPD/sfm/$scope");
   return ($subdirs && $nosubdir ? 1:0);
 }

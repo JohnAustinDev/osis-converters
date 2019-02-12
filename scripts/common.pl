@@ -59,7 +59,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
   'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
   'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
-  'CombineGlossaries' => 'true',    'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one.',
+  'CombineGlossaries' => '',        'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one, or false to keep them each as a separate glossary.',
   'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
   'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
@@ -5047,7 +5047,7 @@ sub getOSIS_Work($$$$$) {
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
-  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{'Abbreviation'};
+  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{'TranslationTitle'};
   &mapLocalizedElem(30000, 'subject', 'Description', $confP, $osisWorkP, 1);
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
@@ -5402,10 +5402,8 @@ of the glossary:
 \\toc".&conf('TOC')." [no_toc]");
       }
       my $toc = $XML_PARSER->parse_balanced_chunk('
-<div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'"/>'.($hasTitle ? '':'
-  <title level="1" type="main">'.$glossTitle.'</title>').'
-</div>');
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'" resp="'.$ROC.'"/>'.($hasTitle ? '':'
+  <title level="1" type="main" resp="'.$ROC.'">'.$glossTitle.'</title>'));
       $glossDiv->insertBefore($toc, $glossDiv->firstChild);
       &Note("Inserting glossary TOC entry and title within new introduction div as: $glossTitle");
     }

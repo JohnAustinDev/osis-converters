@@ -406,7 +406,9 @@ ol, ul {
   width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
 }
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,
-#root-toc .xsl-one-book-column .xsl-book-link {
+#root-toc .xsl-one-book-column .xsl-book-link,
+#root-toc div:not(.xsl-one-book-column) .xsl-glossary-link,
+#root-toc div:not(.xsl-one-book-column) .xsl-keyword-link {
   width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */
 }
 #root-toc .xsl-odd-intros li:first-child:not(:last-child),

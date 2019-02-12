@@ -48,9 +48,6 @@
   <!-- Optional URL to show for broken links -->
   <variable name="FullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
   
-  <!-- Set MultipleGlossaries 'false' to combine multiple glossaries into one, or 'true' to use them as is -->
-  <variable name="MultipleGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-CombineGlossaries'][1] = 'false') then 'true' else 'false'"/>
-  
   <!-- Set ChapterFiles to 'true' to output Bible books as separate files for each chapter -->
   <variable name="ChapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>
   
@@ -61,7 +58,11 @@
   
   <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the project, and all input OSIS files must reside in the same directory -->
   <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
-  
+    
+  <!-- Set CombineGlossaries 'true' to combine multiple glossaries into one, or 'false' to include them as separate glossaries -->
+  <variable name="CombineGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-CombineGlossaries']) then /descendant::*[@type='x-osis2xhtml-CombineGlossaries'][1]/string() else 
+      (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
+      
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
   
@@ -89,11 +90,11 @@
     
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
-      <if test="$MultipleGlossaries = 'false' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
+      <if test="$CombineGlossaries = 'true' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>
-    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (MultipleGlossaries=', $MultipleGlossaries, ')')"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (CombineGlossaries=', $CombineGlossaries, ')')"/></call-template>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">

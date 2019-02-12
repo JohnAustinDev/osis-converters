@@ -172,7 +172,7 @@ if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
   if ($MAINMOD && !$glossContainsINT) {
     my $biblef = &getProjectOsisFile($MAINMOD);
     if ($biblef) {
-      if (@{$XPC->findnodes('//osis:div[@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
+      if (@{$XPC->findnodes('//osis:div[not(@resp="x-oc")][@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
         &Log("\n");
         &Note(
 "Module $MAINMOD contains module introduction material (located before 
