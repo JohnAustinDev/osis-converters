@@ -1,5 +1,23 @@
 #!/usr/bin/perl
-#
+# This file is part of "osis-converters".
+# 
+# Copyright 2019 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
+
+
 # This script might be loaded on any operating system. So code here
 # should be as operating system agnostic as possible and should not 
 # rely on non-standard Perl modules. The functions in this file are
@@ -190,16 +208,24 @@ sub readPaths($) {
   &Debug($dbgmsg, 1);
 }
 
-# Reads a conf file and returns a hash of its contents. The conf file must
-# start with [module_name] on the first line, followed by either CrossWire
-# SWORD config entries (see https://wiki.crosswire.org/DevTools:conf_Files)
-# or osis-converters specific entries. All of these entries apply to the 
-# entire project. Config entries may also be set for specific parts of 
-# the conversion process only. This is done by starting a new config 
-# section with [SCRIPT_NAME]. Then the following entries will only apply 
-# to that part of the conversion process. It is possible for a particular
-# script to overwrite the value of a general entry, and then this value 
-# will only apply during that particular part of the conversion process.
+# Reads a conf file (or conf files - see DICT below) and returns a hash 
+# of the contents. The conf file must start with [module_name] on the 
+# first line, followed by either CrossWire SWORD config entries (see 
+# https://wiki.crosswire.org/DevTools:conf_Files) or osis-converters 
+# specific entries. All of these entries apply to the entire project. 
+# Config entries may also be set only for specific parts of the 
+# conversion process. This is done by starting a new config section with 
+# [SCRIPT_NAME]. Then the following entries will only apply to that part 
+# of the conversion process. It is possible for a particular script to 
+# overwrite the value of a general entry, and then this value will only 
+# apply during that particular part of the conversion process. The 
+# [system] section is special in that it allows the direct setting of 
+# global variables used by Perl. But it is read only once during  
+# bootstrapping by setSystemVars() and NOT again by setConfGlobals() as 
+# for the other config entries.
+#
+# DICT conf files of typical DICT modules which are a sub-project of a  
+# main project, are read after reading the main project's conf file.
 #
 # If there are multiple entries with the same name in the same section,
 # then their values will be serialized and separated by <nx/>.
@@ -210,35 +236,74 @@ sub readConf($) {
   my $conf = shift;
   
   my %entryValue;
-  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {&ErrorBug("readConf could not open $conf", '', 1);}
+  
+  my $parentPath;
+  if ($conf =~ /^(.*?\/([^\/]+))\/\2DICT\/config\.conf\s*$/) {
+    $parentPath = $1;
+    if (!&readConfFile("$parentPath/config.conf", \%entryValue)) {
+      &Error("Could not read parent project conf file: $parentPath");
+    }
+  }
+  my $rewriteMsg;
+  if (!&readConfFile($conf, \%entryValue, \$rewriteMsg)) {
+    &Error("Could not read conf file: $parentPath");
+  }
+  if ($rewriteMsg) {
+    &Log("\n");
+    &Note("The following config.conf entries in $conf 
+are unnecessary and can be removed from there, because they are already 
+set to the same value in $parentPath/config.conf:\n$rewriteMsg");
+  }
+
+  return \%entryValue;
+}
+
+# read a conf file and return 1 if successful or else 0
+sub readConfFile($$$) {
+  my $conf = shift;
+  my $entryValueHP = shift;
+  my $rewriteMsgP = shift;
+  
+  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {return 0;}
   my $contiuation;
   my $section = '';
+  my %data;
   while(<CONF>) {
     if    ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
-      if ($. == 1) {$entryValue{'ModuleName'} = $1;}
+      if ($. == 1) {$data{'ModuleName'} = $1;}
       else {$section = $1;}
     }
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       my $entry = $1; my $value = $2;
       $entry = ($section ? "$section+":'').$entry;
-      if ($entryValue{$entry} ne '') {$entryValue{$entry} .= "<nx/>".$value;}
-      else {$entryValue{$entry} = $value;}
+      if ($data{$entry} ne '') {$data{$entry} .= "<nx/>".$value;}
+      else {$data{$entry} = $value;}
       $continuation = ($_ =~ /\\\n/ ? $entry:'');
     }
     else {
       chomp;
-      if ($continuation) {$entryValue{$continuation} .= "\n$_";}
+      if ($continuation) {$data{$continuation} .= "\n$_";}
       $continuation = ($_ =~ /\\$/ ? $continuation:'');
     }
   }
   close(CONF);
-
-  if (!$entryValue{"ModuleName"}) {
+  
+  my @noneed; # to log any unnecessary config.conf entries
+  foreach my $new (sort keys %data) {
+    if ($new ne 'ModuleName' && $data{$new} eq $entryValueHP->{$new}) {
+      push(@noneed, { 'e' => $new, 'v' => $data{$new} });
+    }
+    $entryValueHP->{$new} = $data{$new};
+  }
+  
+  if ($rewriteMsgP) {$$rewriteMsgP = join("\n", map($_->{'e'}.'='.$_->{'v'}, @noneed));}
+  
+  if (!$entryValueHP->{"ModuleName"}) {
 		&Error("No module name in config.conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
 	}
   
-  return \%entryValue;
+  return 1;
 }
 
 sub setSystemVars($) {

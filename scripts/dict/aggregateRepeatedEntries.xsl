@@ -9,7 +9,7 @@
   <!-- This XSLT will do the following:
   1) Check and warn about non GLO major divs in the glossary
   2) Check and error if there are glossary keywords outside of a glossary
-  3) Read applicable glossary scope comments and write them to parent glossary scope
+  3) Read applicable glossary scope comments and write them to parent glossary scope, and add any scope-title
   4) Separate all glossary keywords into their own child divs
   5) Assign osisIDs to keywords
   6) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
@@ -65,6 +65,11 @@
             <with-param name="msg">Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div.</with-param>
             <with-param name="exp">The \id line of an SFM file likely has multiple "scope == &#60;value&#62;" assignments. Remove all but one assignment.</with-param>
           </call-template>
+        </if>
+        <variable name="glossaryScopeName" select="oc:getGlossaryScopeName2(., $scopeComment)"/>
+        <if test="$glossaryScopeName">
+          <title level="3" subType="x-glossary-scopename" resp="x-oc" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeName"/></title>
+          <call-template name="Note"><with-param name="msg">Adding glossary scope name '<value-of select="$glossaryScopeName"/>' to <value-of select="@type"/> div with scope="<value-of select="$scopeComment"/>".</with-param></call-template>
         </if>
       </if>
       <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   
@@ -138,7 +143,7 @@
     <!-- Write x-aggregate div -->
     <if test="$duplicate_keywords">
       <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-        <attribute name="type" select="'glossary'"/><attribute name="subType" select="'x-aggregate'"/>
+        <attribute name="type" select="'glossary'"/><attribute name="subType" select="'x-aggregate'"/><attribute name="resp" select="'x-oc'"/>
         <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
           <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
             <attribute name="type" select="'x-keyword-aggregate'"/>
@@ -151,15 +156,15 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="scope" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
-                <variable name="title" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1])"/>
-                <if test="$scope">
-                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$scope"/></title>
+                <variable name="glossaryScopeName" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
+                <variable name="glossaryName" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1])"/>
+                <if test="$glossaryScopeName">
+                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeName"/></title>
                 </if>
-                <if test="$title">
-                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$title"/></title>
+                <if test="$glossaryName">
+                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryName"/></title>
                 </if>
-                <if test="not($scope) and not($title)">
+                <if test="not($glossaryScopeName) and not($glossaryName)">
                   <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
                 </if>
                 <apply-templates mode="write-aggregates"/>

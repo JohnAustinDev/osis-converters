@@ -173,8 +173,13 @@
   <!-- When a glossary has a scope which is the same as a Sub-Publication's scope, then get the localized title of that Sub-Publication -->
   <function name="oc:getGlossaryScopeName" as="xs:string">
     <param name="glossary" as="element(div)?"/>
+    <value-of select="oc:getGlossaryScopeName2($glossary, $glossary/@scope)"/>
+  </function>
+  <function name="oc:getGlossaryScopeName2" as="xs:string">
+    <param name="glossary" as="element(div)?"/>
+    <param name="scope" as="xs:string?"/>
     <variable name="createFullPublication" 
-      select="if ($glossary/@scope) then root($glossary)//header//description[contains(@type, 'ScopeSubPublication')][text()=$glossary/@scope]/@type else ''"/>
+      select="if ($scope) then root($glossary)//header//description[contains(@type, 'ScopeSubPublication')][text()=$scope]/@type else ''"/>
     <variable name="pubn" select="if ($createFullPublication) then substring($createFullPublication[1], string-length($createFullPublication[1]), 1) else ''"/>
     <variable name="titleFullPublications" select="if ($pubn) then root($glossary)//header//description[contains(@type, concat('TitleSubPublication', $pubn))] else ''"/>
     <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else ''"/>

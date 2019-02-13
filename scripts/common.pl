@@ -805,7 +805,8 @@ sub checkAndWriteDefaults() {
     }
     elsif (! -e $dest) {
       &Note("Copying missing default file $df to $dest.");
-      copy(&getDefaultFile($df), $dest);
+      my $src = &getDefaultFile($df, -1);
+      if (-e $src) {copy($src, $dest);}
       push(@newDefaultFiles, $dest);
     }
   }
@@ -837,7 +838,7 @@ sub customize_conf($$$$) {
   # Save any comments in default config.conf because they are stripped 
   # by setConfFileValue. These comments are added back at the end of customize_conf().
   my $comments = '';
-  if (open(MCF, "<:encoding(UTF-8)", $conf)) {
+  if ($modType ne 'dictionary' && open(MCF, "<:encoding(UTF-8)", $conf)) {
     while(<MCF>) {
       if ($comments) {$comments .= $_;}
       elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-THIS_LINE/) {$comments = "\n";}
@@ -882,6 +883,8 @@ sub customize_conf($$$$) {
     &setConfFileValue($conf, 'Companion', $companion, 1);
   }
   else {&setConfFileValue($conf, 'Companion', '', 1);}
+  
+  if ($modType eq 'dictionary') {return;}
   
   # ScopeSubPublication & TitleSubPublicationN
   my $pubn = 1;
@@ -4928,9 +4931,8 @@ sub findCompanionDirectory($) {
 # include, as meta-data, settings from $CONF. The osis file is 
 # overwritten if $osis_or_osisP is not a reference, otherwise a new 
 # output file is written and the reference is updated to point to it.
-sub writeOsisHeader($\%\%$) {
+sub writeOsisHeader($\%$) {
   my $osis_or_osisP = shift;
-  my $confP = shift;
   my $extraConfP = shift;
   my $extraPrefix = shift;
   
@@ -4945,14 +4947,6 @@ sub writeOsisHeader($\%\%$) {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
-  my $header;
-  
-  # What type of document is this?
-  my $type = 'x-bible';
-  if ($confP->{'ModDrv'} =~ /GenBook/ && $MOD =~ /CB$/i) {$type = 'x-childrens-bible';}
-  elsif ($confP->{'ModDrv'} =~ /Com/) {$type = 'x-commentary';}
-  elsif ($confP->{'ModDrv'} =~ /LD/) {$type = 'x-glossary';}
-  
   # Both osisIDWork and osisRefWork defaults are set to the current work.
   my @uds = ('osisRefWork', 'osisIDWork');
   foreach my $ud (@uds) {
@@ -4961,7 +4955,6 @@ sub writeOsisHeader($\%\%$) {
     else {
       &Log("Updated $ud=\"$MOD\"\n");
       @orw[0]->setAttribute($ud, $MOD);
-      #if ($type eq 'x-bible') {@orw[0]->setAttribute('canonical', 'true');}
     }
   }
   
@@ -4970,7 +4963,7 @@ sub writeOsisHeader($\%\%$) {
     $we->unbindNode();
   }
   
-  # Search for any ISBN number(s) in osis file
+  # Search for any ISBN number(s) in the osis file
   my @isbns;
   my $isbn;
   my @tns = $XPC->findnodes('//text()', $xml);
@@ -4982,38 +4975,28 @@ sub writeOsisHeader($\%\%$) {
   }
   $isbn = join(', ', @isbns);
   
-  # Add work element for self
-  my %workAttributes = ('osisWork' => $MOD);
+  my $header;
+    
+  # Add work element for MAINMOD
+  my %mainconf;
+  if (-e "$MAININPD/config.conf") {&readConfFile("$MAININPD/config.conf", \%mainconf);}
   my %workElements;
-  if ($type eq 'x-glossary') {
-    &getOSIS_Work(\%workElements, $confP, NULL,        NULL,       $isbn);
-  }
-  else {
-    &getOSIS_Work(\%workElements, $confP, $extraConfP, $extraPrefix, $isbn);
-  }
+  &getOSIS_Work(\%workElements, \%mainconf, $extraConfP, $extraPrefix, ($MOD eq $MAINMOD ? $isbn:''));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $confP->{'Versification'});
+    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $mainconf{'Versification'});
   }
+  my %workAttributes = ('osisWork' => $MAINMOD);
   $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
-  # Add work element for any companion
-  if ($confP->{'Companion'}) {
-    my $comp = $confP->{'Companion'};
-    my $path = &findCompanionDirectory($comp);
-    if (!$path) {
-      &Error("Could not locate config.conf of $comp project directory as specified in $INPD/config.conf.");
-      next;
-    }
-    my %compWorkAttributes = ('osisWork' => $comp);
-    my %compWorkElements;
-    if ($type eq 'x-bible') {
-      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), NULL,        NULL,        $isbn);
-    }
-    else {
-      &getOSIS_Work(\%compWorkElements, &readConf("$path/config.conf"), $extraConfP, $extraPrefix, $isbn);
-    }
-    $header .= &writeWorkElement(\%compWorkAttributes, \%compWorkElements, $xml);
+  # Add work element for DICTMOD
+  if ($DICTMOD) {
+    my %dictconf;
+    if (-e "$DICTINPD/config.conf") {&readConfFile("$DICTINPD/config.conf", \%dictconf);}
+    my %workElements;
+    &getOSIS_Work(\%workElements, \%dictconf, NULL, NULL, ($MOD ne $MAINMOD ? $isbn:''));
+    my %workAttributes = ('osisWork' => $DICTMOD);
+    $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   }
   
   &writeXMLFile($xml, $output, (ref($osis_or_osisP) ? $osis_or_osisP:''));

@@ -16,7 +16,7 @@ my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bi
 # Apply any fixups needed to usfm2osis.py output which are osis-converters specific
 &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
-&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS, $CONF)."\n");
+&Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
 
 # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
 if ($modType eq 'bible') {
@@ -210,8 +210,7 @@ else {
   &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
 "The Bible module OSIS file must be created before the dictionary 
 module OSIS file, so that all reference links can be checked. Create the
-Bible module OSIS file, then run this dictionary module again to check 
-all references and remove this error.");
+Bible module OSIS file, then run this dictionary module again.");
 }
 &checkUniqueOsisIDs($OSIS);
 &checkFigureLinks($OSIS);

@@ -16,7 +16,7 @@ sub getGlossaryScope($) {
   return @glossDiv[0]->getAttribute('scope');
 }
 
-# Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were filtered
+# Returns names of filtered divs, or else '-1' if all would be filtered or '0' if none would be filtered
 sub filterGlossaryToScope($$$) {
   my $osisP = shift;
   my $scope = shift;
@@ -27,6 +27,7 @@ sub filterGlossaryToScope($$$) {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
+  my %glossScopes;
   foreach my $div (@glossDivs) {
     my $divScope = &getGlossaryScope($div);
     
@@ -36,23 +37,36 @@ sub filterGlossaryToScope($$$) {
     # keep if any book within the glossary scope matches $scope
     my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
     if (&inGlossaryContext(&scopeToBooks($divScope, $bookOrderP), &getContexts($scope))) {
+      if ($div->getAttribute('resp') eq $ROC) {$glossScopes{$divScope}++;}
       push(@kept, $divScope);
       next;
     }
     
     # keep if this is NAVMENU or INT and we're not filtering them out
-    if (!$filterNavMenu && $divScope =~ /^(NAVMENU|INT)$/) {push(@kept, $divScope); next;}
+    if (!$filterNavMenu && $divScope =~ /^(NAVMENU|INT)$/) {
+      if ($div->getAttribute('resp') eq $ROC) {$glossScopes{$divScope}++;}
+      push(@kept, $divScope);
+      next;
+    }
     
     $div->unbindNode();
     push(@removed, $divScope);
   }
 
+  if (!@removed) {return '0';}
   if (@removed == @glossDivs) {return '-1';}
+  
+  # If only one sub-publication is left, x-oc glossary scope titles are unnecessary
+  if (keys %glossScopes == 1) {
+    foreach my $gsn ($XPC->findnodes('//osis:title[@subType="x-glossary-scopename"][@resp="'.$ROC.'"]', $xml)) {
+      $gsn->unbindNode();
+    }
+  }
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;
   &writeXMLFile($xml, $output, $osisP);
   
-  return (@removed ? join(',', @removed):'0');
+  return join(',', @removed);
 }
 
 sub removeDuplicateEntries($) {

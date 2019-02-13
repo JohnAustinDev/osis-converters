@@ -344,7 +344,8 @@ dfn {
 a.x-other-resource {
   color: #888888;
 }
-.x-glossary-scope {}
+.x-glossary-scope,
+.x-glossary-scopename {}
 .x-glossary-title {
   font-size:smaller;
 }
