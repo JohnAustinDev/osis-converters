@@ -29,6 +29,8 @@ sub convertOSIS($) {
   
   # update globals from the OSIS file's metadata, namely $CONF, $MOD etc.
   &setConfGlobals(&updateConfData($CONF, $INOSIS));
+  
+  &Log("Wrote to header: \n".&writeOsisHeader(\$INOSIS)."\n");
 
   # globals used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
@@ -128,11 +130,6 @@ sub OSIS_To_ePublication($$$$) {
     );
   }
   
-  # update osis header with current config.conf marked for use by osis2xhtml
-  my $osis2xhtmlP = &copyConf();
-  $osis2xhtmlP->{'DEBUG'} = ($DEBUG ? 'true':'false');
-  &writeOsisHeader(\$osis, $osis2xhtmlP, 'x-osis2xhtml');
-  
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
   if (!$coverSource) {$cover = '';}
@@ -195,69 +192,59 @@ body {font-family: font1;}
   }
   
   # copy companion OSIS DICT
-  my @skipCompanions;
-  my @companionDictFiles;
+  my $dictTmpOsis; # even if $DICTMOD is set, $dictTmpOsis will be unset when all glossaries are filtered from $DICTMOD
   if ($DICTMOD) {
-    my $companion = $DICTMOD;
     if (! -e "$tmp/tmp/dict") {make_path("$tmp/tmp/dict");}
-    my $outf = &getProjectOsisFile($companion);
+    my $outf = &getProjectOsisFile($DICTMOD);
     my $filter = '0';
     if ($outf) {
-      &copy($outf, "$tmp/tmp/dict/$companion.xml"); $outf = "$tmp/tmp/dict/$companion.xml";
-      &runAnyUserScriptsAt("$companion/$convertTo/preprocess", \$outf);
+      &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
+      &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
       &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$outf);
-      if ($companion =~ /DICT$/) {
-        require "$SCRD/scripts/dict/processGlossary.pl";
-        # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
-        # This means any non Bible scopes (like SWORD) are also filtered out.
-        $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'eBook'));
-        &Note("filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter)));
-        my $aggfilter = &filterAggregateEntries(\$outf, $scope);
-        &Note("filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
-        if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
-          push(@skipCompanions, $companion);
-          $CONV_REPORT{$CONV_NAME}{'Glossary'} = 'no-glossary';
-          $CONV_REPORT{$CONV_NAME}{'Filtered'} = 'all';
-        }
-        else {
-          &copy($outf, "$tmp/$companion.xml");
-          push(@companionDictFiles, "$tmp/$companion.xml");
-        }
+      require "$SCRD/scripts/dict/processGlossary.pl";
+      # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
+      # This means any non Bible scopes (like SWORD) are also filtered out.
+      $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'eBook'));
+      &Note("filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter)));
+      my $aggfilter = &filterAggregateEntries(\$outf, $scope);
+      &Note("filterAggregateEntries('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
+      if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
+        $CONV_REPORT{$CONV_NAME}{'Glossary'} = 'no-glossary';
+        $CONV_REPORT{$CONV_NAME}{'Filtered'} = 'all';
+      }
+      else {
+        $dictTmpOsis = "$tmp/$DICTMOD.xml";
+        &copy($outf, $dictTmpOsis);
       }
     }
     else {&Error("OSIS file for dictionary module $DICTMOD could not be found.", 
 "Run sfm2osis.pl on the dictionary module, to create an OSIS 
 file for it, and then run this script again.");}
     
-    $CONV_REPORT{$CONV_NAME}{'Glossary'} = $companion;
+    $CONV_REPORT{$CONV_NAME}{'Glossary'} = $DICTMOD;
     $CONV_REPORT{$CONV_NAME}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
   }
-  if (@skipCompanions) {
+  if (!$dictTmpOsis) {
     my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
     # remove work elements of skipped companions or else the eBook converter will crash
-    foreach my $c (@skipCompanions) {
-      my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$c.'"]', $xml);
-      foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
-    }
+    my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$DICTMOD.'"]', $xml);
+    foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
     &writeXMLFile($xml, "$tmp/$MOD.xml");
   }
   
   # copy over only those images referenced in our OSIS files
   &copyReferencedImages("$tmp/$MOD.xml", $INPD, $tmp);
-  foreach my $osis (@companionDictFiles) {
-    my $companion = $osis; $companion =~ s/^.*\/([^\/\.]+)\.[^\.]+$/$1/;
-    &copyReferencedImages($osis, &findCompanionDirectory($companion), $tmp);
-  }
+  if ($dictTmpOsis) {&copyReferencedImages($dictTmpOsis, $DICTINPD, $tmp);}
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
   $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} = 0;
   $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} = 0;
   $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", \@companionDictFiles, ($convertTo eq 'eBook'));
+  $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis, ($convertTo eq 'eBook'));
   
-  foreach my $c (@companionDictFiles) {
-    $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences($c, $INOSIS, "$tmp/$MOD.xml");
-    $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($c, \@companionDictFiles, ($convertTo eq 'eBook'));
+  if ($dictTmpOsis) {
+    $CONV_REPORT{$CONV_NAME}{'ScripRefFilter'} += &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
+    $CONV_REPORT{$CONV_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis, ($convertTo eq 'eBook'));
   }
 
   # now do the conversion on the temporary directory's files

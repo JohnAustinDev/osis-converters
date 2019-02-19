@@ -11,9 +11,9 @@
  
   <import href="../functions.xsl"/>
   
-  <param name="anyEnding" select="'false'"/>
+  <param name="anyEnding" select="oc:sarg('anyEnding', /, 'false')"/>
   
-  <param name="notXPATH_default" select="'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]'"/>
+  <param name="notXPATH_default" select="oc:sarg('notXPATH_default', /, 'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]')"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   

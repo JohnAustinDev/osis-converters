@@ -10,26 +10,74 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:me="http://github.com/JohnAustinDev/osis-converters/functions.xsl"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace">
- 
-  <!-- The following params are globals which should be defined before 
-  this file is imported. Globals are really nice since it's a pain to
-  pass around unnecessary variables in XSLT. This is how osis-converters 
-  does it:
-  1) runScript() and runXSLT() will pass the current value of the 
-     corresponding Perl globals.
-  2) if the calling XSLT is started another way, such as osis2xhtml.xsl 
-     which is called by the Calibre OSIS-input plugin, then that calling 
-     XSLT should read the values from the OSIS file header.
-  3) if nothing sets them, they will have the default values below -->
   
-  <!-- Setting to 'true' turns on debugging messages -->
-  <param name="DEBUG" select="'false'"/>
-  <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="TOC" select="2"/>
-  <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
-  <param name="TitleCase" select="0"/>
-  <!-- String describing how to sort glossary keys -->
-  <param name="KeySort" select="//description[@type='x-config-KeySort'][1]"/>
+  <!-- If script-specific config context is desired from oc:conf(), then the calling script must pass this SCRIPT_NAME parameter -->
+  <param name="SCRIPT_NAME"/>
+  
+  <!-- If DICT-specific config context is desired from oc:conf(), then either the OSIS file header 
+  and osisText elements must be marked-up as x-glossary type, OR the calling script must pass in DICTMOD -->
+  <param name="DICTMOD" select="/osis/osisText/header/work[@osisWork=/osis/osisText/@osisIDWork][child::type[@type='x-glossary']]/@osisWork"/>
+  
+  <!-- The following config entries require a properly marked-up OSIS header, OR 
+  the calling script must pass in their values (otherwise an error is thrown for oc:conf()) -->
+  <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
+  <param name="TOC" select="oc:conf('TOC', /)"/>
+  <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
+  <param name="KeySort" select="oc:conf('KeySort', /)"/>
+  
+  <!-- Return a contextualized config entry value by reading the OSIS header (error is thrown if requested param is not there) -->
+  <function name="oc:conf" as="xs:string?">
+    <param name="entry" as="xs:string"/>
+    <param name="anynode" as="node()"/>
+    <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'no')"/>
+    <choose>
+      <when test="$result"><value-of select="$result"/></when>
+      <otherwise>
+        <call-template name="Error">
+          <with-param name="msg">Config parameter was not specified in OSIS header and was not passed to functions.xsl: <value-of select="$entry"/> (SCRIPT_NAME=<value-of select="$SCRIPT_NAME"/>, isDICTMOD=<value-of select="$DICTMOD"/>)</with-param>
+          <with-param name="die">yes</with-param>
+        </call-template>
+      </otherwise>
+    </choose>
+  </function>
+  
+  <!-- Return a contextualized script argument value by reading the OSIS header (the required default value is returned if param is not found) -->
+  <function name="oc:sarg" as="xs:string?">
+    <param name="entry" as="xs:string"/>
+    <param name="anynode" as="node()"/>
+    <param name="default" as="xs:string?"/>
+    <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'yes')"/>
+    <choose>
+      <when test="$result"><value-of select="$result"/></when>
+      <otherwise><value-of select="$default"/></otherwise>
+    </choose>
+  </function>
+    
+  <!-- Return a config system value by reading the OSIS header (nothing is returned if requested param is not found) -->
+  <function name="oc:csys" as="xs:string?">
+    <param name="entry" as="xs:string"/>
+    <param name="anynode" as="node()"/>
+    <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/work[1]/description[@type=concat('x-config-system+', $entry)][1]/text()"/>
+  </function>
+  
+  <!-- Return a contextualized config or argument value by reading the OSIS header -->
+  <function name="oc:osisHeaderContext" as="xs:string?">
+    <param name="entry" as="xs:string"/>
+    <param name="anynode" as="node()"/>
+    <param name="isarg" as="xs:string"/> <!-- either 'yes' this is a script argument or 'no' this is a regular config entry -->
+    <variable name="entry2" select="concat((if ($isarg = 'yes') then 'ARG_' else ''), $entry)"/>
+    <choose>
+      <when test="$SCRIPT_NAME and boolean($anynode/root()/osis/osisText/header/work/description[@type=concat('x-config-', $SCRIPT_NAME, '+', $entry2)])">
+        <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/work[1]/description[@type=concat('x-config-', $SCRIPT_NAME, '+', $entry2)][1]/text()"/>
+      </when>
+      <when test="$DICTMOD and boolean($anynode/root()/osis/osisText/header/work/description[@type=concat('x-config-', $entry2)])">
+        <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/(work/description[@type=concat('x-config-', $entry2)])[last()]/text()"/>
+      </when>
+      <when test="$anynode/root()/osis/osisText/header/work/description[@type=concat('x-config-', $entry2)]">
+        <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/(work/description[@type=concat('x-config-', $entry2)])[1]/text()"/>
+      </when>
+    </choose>
+  </function>
  
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
@@ -188,8 +236,8 @@
   <function name="oc:titleCase" as="xs:string?">
     <param name="title" as="xs:string?"/>
     <choose>
-      <when test="$TitleCase = 1"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
-      <when test="$TitleCase = 2"><value-of select="upper-case($title)"/></when>
+      <when test="$TitleCase = '1'"><value-of select="string-join(oc:capitalize-first(tokenize($title, '\s+')), ' ')"/></when>
+      <when test="$TitleCase = '2'"><value-of select="upper-case($title)"/></when>
       <otherwise><value-of select="$title"/></otherwise>
     </choose>
   </function>

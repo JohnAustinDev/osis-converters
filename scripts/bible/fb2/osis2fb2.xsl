@@ -17,9 +17,9 @@
   -->
   
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="TOC" select="2"/>                 <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="20"/>
+  <param name="TOC" select="oc:conf('TOC', /)"/>
+  <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/>
+  <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   

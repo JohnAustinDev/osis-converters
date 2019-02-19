@@ -18,13 +18,13 @@
   <xsl:import href="./functions.xsl"/>
  
   <!-- scope of the glossary div which contains introductory material, if it exists -->
-  <xsl:param name="introScope"/>
+  <xsl:param name="introScope" select="oc:sarg('introScope', /, '')"/>
   
   <!-- this glossary entry will be created as the top level navigation menu if $introScope exists -->
-  <xsl:param name="uiIntroduction" select="concat('-- ', //header/work[child::type[@type='x-bible']]/title[1])"/>
+  <xsl:param name="uiIntroduction" select="oc:sarg('uiIntroduction', /, concat('-- ', //header/work[child::type[@type='x-bible']]/title[1]))"/>
   
   <!-- this glossary entry will be created as the glossary navigation menu -->
-  <xsl:param name="uiDictionary" select="concat('- ', //header/work[child::type[@type='x-glossary']]/title[1])"/>
+  <xsl:param name="uiDictionary" select="oc:sarg('uiDictionary', /, concat('- ', //header/work[child::type[@type='x-glossary']]/title[1]))"/>
   
   <xsl:param name="DICTMOD" select="/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
   

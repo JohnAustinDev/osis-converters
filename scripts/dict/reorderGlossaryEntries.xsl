@@ -10,7 +10,7 @@
 
   <import href="../functions.xsl"/>
   
-  <param name="glossaryRegex"/>
+  <param name="glossaryRegex" select="oc:sarg('glossaryRegex', /, '')"/>
   
   <!-- By default copy everything as is, for all modes -->
   <template match="node()|@*" name="identity" mode="#all">

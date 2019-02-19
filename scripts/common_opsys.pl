@@ -28,8 +28,32 @@ use File::Copy;
 use File::Spec;
 
 $VAGRANT_HOME = '/home/vagrant';
+@SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
+@SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption', 'AudioCode'); # These are special SWORD entries for osis-converters modules
+@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'MATCHES:GlossaryTitle\d', 'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
 @OC_SYSTEM = ('REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'EBOOKS', 'DEBUG', 'VAGRANT'); # Variables which may be set in the config.conf [system] section
-
+@SWORD_LOCALIZABLE_CONFIGS = ('MATCHES:History_[\d\.]+', 'Abbreviation', 'Description', 'About', 'Copyright', 'CopyrightHolder', 'CopyrightDate', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'ShortCopyright', 'DistributionNotes');
+@CONTINUABLE_CONFIGS = ('About', 'Copyright', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'DistributionNotes', 'TextSource');
+%MULTIVALUE_CONFIGS = ('GlobalOptionFilter' => '</nx>', 'Feature' => '</nx>', 'Obsoletes' => '</nx>', 'AudioCode' => ','); # </nx> means multiple values must appear as multiple entries, rather than as a single entry using a separator
+%CONFIG_DEFAULTS = (
+  'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
+  'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
+  'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
+  'CreateFullBible' => 'true',      'doc:CreateFullBible' => 'selects whether to create a single ePublication with everything in the OSIS file (true/false)',
+  'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
+  'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
+  'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
+  'CombineGlossaries' => '',        'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one, or false to keep them each as a separate glossary.',
+  'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
+  'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
+  'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
+  'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
+  'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
+  'osis2html+ChapterFiles' => 'true',
+  'osis2html+CombineGlossaries' => 'false',
+  'osis2html+CreateSeparateBooks' => 'false',
+  'osis2html+NoEpub3Markup' => 'true'
+);
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
 # initialization is successful 1 is returned so the script can commence.
@@ -150,7 +174,7 @@ sub readPaths($) {
   # later updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
-  if ($conf) {&setSystemVars(&readConf($conf));}
+  if ($conf) {&setSystemVars(&readConf());}
   
   if (!&runningInVagrant()) {
     # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
@@ -208,57 +232,42 @@ sub readPaths($) {
   &Debug($dbgmsg, 1);
 }
 
-# Reads a conf file (or conf files - see DICT below) and returns a hash 
-# of the contents. The conf file must start with [module_name] on the 
+# Reads the config.conf file and returns a hash of its contents. 
+# The config.conf file must start with [<main_module_name>] on the 
 # first line, followed by either CrossWire SWORD config entries (see 
 # https://wiki.crosswire.org/DevTools:conf_Files) or osis-converters 
 # specific entries. All of these entries apply to the entire project. 
 # Config entries may also be set only for specific parts of the 
 # conversion process. This is done by starting a new config section with 
-# [SCRIPT_NAME]. Then the following entries will only apply to that part 
-# of the conversion process. It is possible for a particular script to 
-# overwrite the value of a general entry, and then this value will only 
-# apply during that particular part of the conversion process. The 
+# [<script_name>]. Then the following entries will only apply to that  
+# part of the conversion process. It is possible for a particular script  
+# to overwrite the value of a general entry, and then this value will  
+# only apply during that particular part of the conversion process. The 
 # [system] section is special in that it allows the direct setting of 
 # global variables used by Perl. But it is read only once during  
 # bootstrapping by setSystemVars() and NOT again by setConfGlobals() as 
 # for the other config entries.
 #
-# DICT conf files of typical DICT modules which are a sub-project of a  
-# main project, are read after reading the main project's conf file.
+# If the main project has a DICT sub-project, then its config entries 
+# should be specified in a [<DICTMOD>] section.
 #
 # If there are multiple entries with the same name in the same section,
 # then their values will be serialized and separated by <nx/>.
 #
 # For a value to continue from one line to the next, continued lines 
 # must end with '\'.
-sub readConf($) {
-  my $conf = shift;
-  
+sub readConf() {
   my %entryValue;
-  
-  my $parentPath;
-  if ($conf =~ /^(.*?\/([^\/]+))\/\2DICT\/config\.conf\s*$/) {
-    $parentPath = $1;
-    if (!&readConfFile("$parentPath/config.conf", \%entryValue)) {
-      &Error("Could not read parent project conf file: $parentPath");
-    }
+  if (!&readConfFile($CONFFILE, \%entryValue)) {
+    &Error("Could not read config.conf file: $CONFFILE");
   }
-  my $rewriteMsg;
-  if (!&readConfFile($conf, \%entryValue, \$rewriteMsg)) {
-    &Error("Could not read conf file: $parentPath");
-  }
-  if ($rewriteMsg) {
-    &Log("\n");
-    &Note("The following config.conf entries in $conf 
-are unnecessary and can be removed from there, because they are already 
-set to the same value in $parentPath/config.conf:\n$rewriteMsg");
-  }
-
   return \%entryValue;
 }
 
-# read a conf file and return 1 if successful or else 0
+# Read a conf file and return 1 if successful or else 0. Add the conf
+# file's entries to entryValueHP. If the rewriteMsgP pointer is provided
+# then write to it any entries in conf which were already present with 
+# the same value in the entryValueHP hash.
 sub readConfFile($$$) {
   my $conf = shift;
   my $entryValueHP = shift;
@@ -272,7 +281,10 @@ sub readConfFile($$$) {
     if    ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       if ($. == 1) {$data{'ModuleName'} = $1;}
-      else {$section = $1;}
+      else {
+        $section = $1;
+        if ($DICTMOD && $section eq $DICTMOD) {$data{"$DICTMOD+ModuleName"} = $section;}
+      }
     }
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       my $entry = $1; my $value = $2;
@@ -306,6 +318,28 @@ sub readConfFile($$$) {
   return 1;
 }
 
+sub setConfGlobals($) {
+  my $confP = shift;
+  
+  # Perl variables from the [system] section of config.conf are only 
+  # set by setSystemVars() and they are NOT set by setConfGlobals().
+
+  # Globals
+  $CONF = $confP;
+  $MODPATH = &dataPath2RealPath(&conf('DataPath'));
+  
+  # Config Defaults
+  foreach my $e (@OC_CONFIGS) {
+    if (exists($CONFIG_DEFAULTS{$e})) {
+      if (!exists($confP->{$e})) {$confP->{$e} = $CONFIG_DEFAULTS{$e};}
+    }
+    elsif ($e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
+  }
+  
+  #use Data::Dumper; &Debug(Dumper($entryValueP)."\n");
+  return $confP;
+}
+
 sub setSystemVars($) {
   my $confP = shift;
   
@@ -319,6 +353,82 @@ sub setSystemVars($) {
 "Only the following entries are recognized in the config.conf 
 system section: ".join(' ', @OC_SYSTEM));}
   }
+}
+
+# Whereas $CONF is just the raw data of the config.conf file. This 
+# function returns the current value of a config parameter according to  
+# the present script and module context. It also checks that the
+# request is allowable.
+sub conf($) {
+  my $entry = shift;
+  
+  my $key = '';
+  my $isConf = &isValidConfig($entry);
+  if (!$isConf) {
+    &ErrorBug("Unrecognized config request: $entry");
+  }
+  elsif ($isConf eq 'system') {
+    &ErrorBug("This config request is from the special [system] section.", "Use \$$entry rather than &conf('$entry') to access [system] section values.");
+  }
+  elsif (exists($CONF->{$SCRIPT_NAME.'+'.$entry})) {
+    $key = $SCRIPT_NAME.'+'.$entry;
+  }
+  elsif ($DICTMOD && $MOD eq $DICTMOD && exists($CONF->{$DICTMOD.'+'.$entry})) {
+    $key = $DICTMOD.'+'.$entry;
+  }
+  elsif ($CONF->{$entry}) {$key = $entry;}
+
+  #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
+
+  return ($key ? $CONF->{$key}:'');
+}
+
+sub dataPath2RealPath($) {
+  my $datapath = shift;
+  $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
+  $datapath =~ s/[\\\/]\s*$//; # remove ending slash
+  $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
+  return $datapath;
+}
+
+# Returns 0 if $e is not a valid config entry. Returns 'sword' if it
+# is a valid SWORD config.conf entry. Returns 'system' if it is a valid 
+# [system] config.conf entry. Returns 1 otherwise (valid, but not special)
+# Although the section is not required, supplying it, like: system+FONTS
+# allows more complete checking.
+sub isValidConfig($) {
+  my $e = shift;
+  
+  my $s = ($e =~ s/^(.*?)\+// ? $1:''); # so that section is not required
+  
+  foreach my $ce (@OC_SYSTEM) {
+    if ($e eq $ce) {
+      if ($s && $s ne 'system') {return 0;}
+      return 'system';
+    }
+  }
+  if ($s eq 'system') {return 0;}
+
+  my @a; push(@a, @SWORD_CONFIGS, @SWORD_OC_CONFIGS, @OC_CONFIGS);
+  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {
+    if ($e =~ /^MATCHES\:/) {push(@a, $e.'(_\w+)');}
+    else {push(@a, 'MATCHES:'.$e.'(_\w+)');}
+  }
+  
+  foreach my $sc (@a) {
+    my $r=0;
+    if ($sc =~ /^MATCHES\:(.*?)$/) {
+      my $re = $1;
+      if ($e =~ /^$re$/) {$r++;}
+    }
+    elsif ($e eq $sc) {$r++;}
+    if ($r) {
+      foreach my $ce (@OC_CONFIGS) {if ($e eq $ce) {return 1;}}
+      return 'sword';
+    }
+  }
+  
+  return 0;
 }
 
 # Look for an osis-converters default file or directory in the following 
@@ -592,7 +702,7 @@ sub Error($$$) {
 }
 
 # Report errors that are unexpected or need to be seen by osis-converters maintainer
-sub ErrorBug($$) {
+sub ErrorBug($$$) {
   my $errmsg = shift;
   my $solmsg = shift;
   my $doDie = shift;

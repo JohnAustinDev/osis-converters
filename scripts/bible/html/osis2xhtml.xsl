@@ -18,49 +18,23 @@
   <import href="./functions.xsl"/>
  
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="css" select="'ebible.css,module.css'"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="20"/>              <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
-  <param name="html5" select="'false'"/>               <!-- Output HTML5 markup -->
-  
-  <!-- Don't convert Unicode SOFT HYPHEN to "&shy;" in xhtml output files. 
-  Because SOFT HYPHENs are currently being stripped out by the Calibre 
-  EPUB output plugin, and they break xhtml in browsers (without first  
-  defining the entity). To reinstate &shy; uncomment the following line and  
-  add 'use-character-maps="xhtml-entities"' to <output name="xhtml"/> below -->
-  <!-- <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map> !-->
-  
-  <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement for xhtml outputs -->
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml"/>
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
-  
-  <!-- Setting to 'true' turns on debugging messages -->
-  <variable name="DEBUG" select="if (/descendant::*[@type='x-osis2xhtml-DEBUG'][1] = 'true') then 'true' else 'false'"/>
-  
-  <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <variable name="TOC" select="if (/descendant::*[@type='x-osis2xhtml-TOC'][1]) then /descendant::*[@type='x-osis2xhtml-TOC'][1] else 2"/>
-  
-  <!-- TOC title standardization: 0=as-is, 1=Like This, 2=LIKE THIS -->
-  <variable name="TitleCase" select="if (/descendant::*[@type='x-osis2xhtml-TitleCase'][1]) then /descendant::*[@type='x-osis2xhtml-TitleCase'][1] else 1"/>
-  
-  <!-- Output EPUB3 footnotes -->
-  <variable name="epub3" select="if (/descendant::*[@type='x-osis2xhtml-NoEpub3Markup'][1] = 'true') then 'false' else 'true'"/>
-  
-  <!-- Optional URL to show for broken links -->
-  <variable name="FullResourceURL" select="/descendant::*[@type='x-osis2xhtml-FullResourceURL'][1]"/>
-  
-  <!-- Set ChapterFiles to 'true' to output Bible books as separate files for each chapter -->
-  <variable name="ChapterFiles" select="if (/descendant::*[@type='x-osis2xhtml-ChapterFiles'][1] = 'true') then 'true' else 'false'"/>
-  
-  <!-- Set name to use for the combined glossary -->
-  <variable name="CombinedGlossaryTitle" select="if (/descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1]) then /descendant::*[@type='x-osis2xhtml-CombinedGlossaryTitle'][1] else //work[descendant::type[@type='x-glossary']]/title[1]"/>
-  
-  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:type[@type='x-childrens-bible']"/>
+  <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/> <!-- Comma separated list of css files -->
+  <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>    <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
+  <param name="html5" select="oc:sarg('html5', /, 'false')"/>             <!-- Output HTML5 markup -->
   
   <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the project, and all input OSIS files must reside in the same directory -->
+  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:type[@type='x-childrens-bible']"/>
   <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
     
-  <!-- Set CombineGlossaries 'true' to combine multiple glossaries into one, or 'false' to include them as separate glossaries -->
-  <variable name="CombineGlossaries" select="if (/descendant::*[@type='x-osis2xhtml-CombineGlossaries']) then /descendant::*[@type='x-osis2xhtml-CombineGlossaries'][1]/string() else 
+  <!-- config entries -->
+  <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
+  <param name="TOC" select="oc:conf('TOC', /)"/>
+  <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
+  <param name="NoEpub3Markup" select="oc:conf('NoEpub3Markup', /)"/>
+  <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/>
+  <param name="ChapterFiles" select="oc:conf('ChapterFiles', /)"/>
+  <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
+  <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
       (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
@@ -72,6 +46,17 @@
       /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]"/>
 
   <variable name="mainInputOSIS" select="/"/>
+  
+  <!-- Don't convert Unicode SOFT HYPHEN to "&shy;" in xhtml output files. 
+  Because SOFT HYPHENs are currently being stripped out by the Calibre 
+  EPUB output plugin, and they break xhtml in browsers (without first  
+  defining the entity). To reinstate &shy; uncomment the following line and  
+  add 'use-character-maps="xhtml-entities"' to <output name="xhtml"/> below -->
+  <!-- <character-map name="xhtml-entities"><output-character character="&#xad;" string="&#38;shy;"/></character-map> !-->
+  
+  <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! So indent="no" is a requirement for xhtml outputs -->
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml"/>
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/><!-- this default output is for the content.opf output file -->
 
   <!-- MAIN OSIS ROOT TEMPLATE -->
   <template match="/">
@@ -399,11 +384,11 @@
           <xsl:sequence select="$fileXHTML"/>
           <xsl:sequence select="$fileNotes"/>
           <!-- If there are links to FullResourceURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$FullResourceURL and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <xsl:if test="$FullResourceURL and $FullResourceURL != 'false' and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
-                <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+                <xsl:if test="$NoEpub3Markup = 'false'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
                 <span class="xsl-note-head xsl-crnote-symbol">+</span><xsl:value-of select="' '"/>
                 <xsl:if test="starts-with($FullResourceURL, 'http')"><a href="{$FullResourceURL}"><xsl:value-of select="$FullResourceURL"/></a></xsl:if>
                 <xsl:if test="not(starts-with($FullResourceURL, 'http'))"><xsl:value-of select="$FullResourceURL"/></xsl:if>
@@ -432,7 +417,7 @@
   <template match="note[not(@type) or @type != 'crossReference']" mode="footnotes">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-footnote">
-      <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+      <xsl:if test="$NoEpub3Markup = 'false'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
       <a href="#textsym.{me:id($osisIDid)}">
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
       </a>
@@ -444,7 +429,7 @@
   <template match="note[@type='crossReference']" mode="crossrefs">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-crossref">
-      <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
+      <xsl:if test="$NoEpub3Markup = 'false'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/></xsl:if>
       <a href="#textsym.{me:id($osisIDid)}">
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/></xsl:call-template>
       </a>
@@ -608,7 +593,7 @@
         </choose>
       </variable>
       <if test="count($subentries)">
-        <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; $glossthresh) or 
+        <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
             count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
         <variable name="tmptitles" as="element(me:tmp)*"><!-- tmptitles is used to generate all titles before writing any of them, so that we can get the max length first -->
           <for-each select="$subentries">
@@ -993,7 +978,7 @@
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <sup xmlns="http://www.w3.org/1999/xhtml">
       <a href="#{me:id($osisIDid)}" id="textsym.{me:id($osisIDid)}">
-        <xsl:if test="$epub3 = 'true'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/></xsl:if>
+        <xsl:if test="$NoEpub3Markup = 'false'"><xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/></xsl:if>
         <xsl:call-template name="getFootnoteSymbol"><xsl:with-param name="classes" select="me:getClasses(.)"/></xsl:call-template>
       </a>
     </sup>
@@ -1012,7 +997,7 @@
   
   <template match="reference[@subType='x-other-resource']" mode="xhtml">
     <choose>
-      <when test="$FullResourceURL">
+      <when test="$FullResourceURL and $FullResourceURL != 'false'">
         <variable name="file" select="concat('/xhtml/', me:getFileNameOfRef($mainInputOSIS/descendant::div[@type='book'][1]/@osisID), '.xhtml')"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{me:uri-to-relative(., concat($file, '#fullResourceURL'))}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
       </when>

@@ -222,31 +222,31 @@ sub convertFileStrings($$) {
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
-    my $confP = &readConf($ccin);
-    my $langBase = $confP->{'Lang'}; $langBase =~ s/\-.*$//;
-    foreach my $e (sort keys %{$confP}) {
-      my $new = $confP->{$e};
+    my %confH; &readConfFile($ccin, \%confH);
+    my $langBase = $confH{'Lang'}; $langBase =~ s/\-.*$//;
+    foreach my $e (sort keys %confH) {
+      my $new = $confH{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
       if ($new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg || $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g) {
-        &Note("Modifying entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
-        $confP->{$e} = $new;
+        &Note("Modifying entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
+        $confH{$e} = $new;
       }
     }
-    foreach my $e (sort keys %{$confP}) {
+    foreach my $e (sort keys %confH) {
       if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
       elsif (($e =~ /^(Abbreviation|About|Description|CombinedGlossaryTitle|TitleSubPublication\d+|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
-        my $new = &transcodeStringByMode($confP->{$e});
-        &Note("Converting entry $e\n\t\twas: ".$confP->{$e}."\n\t\tis:  ".$new);
-        $confP->{$e} = $new;
+        my $new = &transcodeStringByMode($confH{$e});
+        &Note("Converting entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
+        $confH{$e} = $new;
       }
     }
     foreach my $e (sort keys %O2O_CONFIGS) {
       &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
-      $confP->{$e} = $O2O_CONFIGS{$e};
+      $confH{$e} = $O2O_CONFIGS{$e};
     }
-    &writeConf($ccout, $confP);
-    &setConfGlobals(&updateConfData(&readConf($ccout)));
+    &writeConf($ccout, \%confH);
+    &setConfGlobals(&updateConfData(&readConf()));
   }
   
   # collections.txt

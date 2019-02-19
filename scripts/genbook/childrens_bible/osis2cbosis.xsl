@@ -13,7 +13,7 @@
   <import href="../../functions.xsl"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
-  <param name="TOC" select="2"/>
+  <param name="TOC" select="oc:conf('TOC', /)"/>
   
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>

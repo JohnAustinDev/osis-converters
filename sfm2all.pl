@@ -31,10 +31,16 @@ $modules{$INPD} = &conf('ModDrv');
 if (&conf('Companion')) {
   foreach $companion (split(/\s*,\s*/, &conf('Companion'))) {
     if ($companion !~ /DICT$/) {next;}
-    if (!-e "$INPD/$companion/config.conf") {
-      &ErrorBug("config.conf of companion project \"$companion\" of \"$MOD\" could not be located for conversion."); 
+    if (!-e "$INPD/$companion") {
+      &Error("Companion project \"$companion\" of \"$MOD\" could not be located for conversion.", 
+"There should be a $companion subdirectory of $MOD which 
+contains command files and resources for the DICT module."); 
     }
-    $modules{"$INPD/$companion"} = &readConf("$INPD/$companion/config.conf")->{'ModDrv'};
+    if (!&conf("$companion+ModDrv")) {
+      &Error("ModDrv of companion project \"$companion\" is not specified in $CONFFILE.", 
+"Specify the ModDrv entry in the [$companion] section of $CONFFILE.");
+    }
+    else {$modules{"$INPD/$companion"} = &conf("$companion+ModDrv");}
   }
 }
 

@@ -47,29 +47,6 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
     $OSISBOOKS{$bk} = $bn; $bn++;
   }
 }
-@SWORD_CONFIGS = ('MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", "Version", "MinimumVersion", "Category", "LCSH", "Lang", "InstallSize", "Obsoletes", "OSISVersion", "Companion", "Copyright", 'CopyrightHolder', "CopyrightDate", "CopyrightNotes", "CopyrightContactName", "CopyrightContactNotes", "CopyrightContactAddress", "CopyrightContactEmail", "ShortPromo", "ShortCopyright", "DistributionLicense", "DistributionNotes", "TextSource", "UnlockURL");
-@SWORD_OC_CONFIGS = ('Scope', 'KeySort', 'LangSortOrder', 'SearchOption', 'AudioCode'); # These are special SWORD entries for osis-converters modules
-@OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'MATCHES:GlossaryTitle\d','TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
-@SWORD_LOCALIZABLE_CONFIGS = ('MATCHES:History_[\d\.]+', 'Abbreviation', 'Description', 'About', 'Copyright', 'CopyrightHolder', 'CopyrightDate', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'ShortCopyright', 'DistributionNotes');
-%CONFIG_DEFAULTS = (
-  'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
-  'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
-  'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
-  'CreateFullBible' => 'true',      'doc:CreateFullBible' => 'selects whether to create a single ePublication with everything in the OSIS file (true/false)',
-  'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
-  'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
-  'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
-  'CombineGlossaries' => '',        'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one, or false to keep them each as a separate glossary.',
-  'FullResourceURL' => '',          'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
-  'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
-  'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
-  'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
-  'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
-  'osis2html+ChapterFiles' => 'true',
-  'osis2html+CombineGlossaries' => 'false',
-  'osis2html+CreateSeparateBooks' => 'false',
-  'osis2html+NoEpub3Markup' => 'true'
-);
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 $VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
 $VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
@@ -119,7 +96,8 @@ sub init_linux_script() {
   }
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-  $DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
+  my %c; &readConfFile("$MAININPD/config.conf", \%c); my $cn = "${MAINMOD}DICT";
+  $DICTMOD = (%c{'Companion'} =~ /\b$cn\b/ ? $cn:'');
   
   if (!-e $CONFFILE) {
     &Error("Could not find or create a \"$CONFFILE\" file.
@@ -143,7 +121,13 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     &update_removeConvertTXT();
   }
   
-  &setConfGlobals(&updateConfData(&readConf($CONFFILE)), 1);
+  if ($DICTMOD && -e "$DICTINPD/config.conf") {
+    &update_dictConfig($CONFFILE);
+  }
+  
+  &setConfGlobals(&updateConfData(&readConf()));
+  
+  &checkConfGlobals();
   
   &checkRequiredConfEntries();
   
@@ -255,13 +239,50 @@ sub updateConvertTXT($) {
   else {&Warn("Did not find \"$convtxt\"");}
   
   &Warn("<-UPDATE: Removing outdated convert.txt: $convtxt");
+  &Note("The file: $convtxt which was used for 
+various settings has now been replaced by a section in the config.conf 
+file. The convert.txt file will be deleted. Your config.conf will have 
+a new section with that information.");
   unlink($convtxt);
   
   return $new;
 }
 
+# This is only needed to update old osis-converters projects
+sub update_dictConfig($) {
+  my $mconf = shift;
+
+  &Warn("UPDATE: Found outdated DICT config.conf. Updating...");
+  my %mainConf;
+  &readConfFile($mconf, \%mainConf);
+  my %dictConf;
+  my $dconf = "$DICTINPD/config.conf";
+  &readConfFile($dconf, \%dictConf);
+  &Warn("<-UPDATE: Removing outdated DICT config.conf: $dconf");
+  unlink($dconf);
+  &Note("The file: $dconf which was used for 
+DICT settings has now been replaced by a section in the config.conf 
+file. The DICT config.conf file will be deleted. Your config.conf will 
+have new section with that information.");
+  my %newConf;
+  foreach my $de (sort keys %dictConf) {
+    if ($mainConf->{$de} eq $dictConf{$de}) {next;}
+    $newConf{"$DICTMOD+$de"} = $dictConf{$de};
+  }
+
+  return &writeConf($mconf, \%newConf, $mconf);
+}
+
 # Enforce the only supported module configuration and naming convention
 sub checkProjectConfiguration() {
+  if (uc($MAINMOD) ne $MAINMOD) {
+    print 
+  "ERROR: Module name $MAINMOD should be all capitals. Change the 
+  directory name to ".uc($MAINMOD)."  and change the name in config.conf 
+  (if config.conf exists). Then try again.
+  Exiting...";
+    exit;
+  }
   if (&conf('ModDrv') =~ /LD/) {
     my $main = $INPD;
     if ($main !~ s/^.*?\/([^\/]+)\/$MOD$/$1/) {
@@ -746,7 +767,6 @@ sub checkAndWriteDefaults() {
     'bible/CF_usfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
     'bible/GoBible/*',
-    'dict/config.conf', 
     'dict/CF_usfm2osis.txt', 
     'dict/CF_addScripRefLinks.txt'
   );
@@ -767,7 +787,7 @@ sub checkAndWriteDefaults() {
   my $haveDICT = ($MAININPD ne $INPD ? 1:0);
   if (!$haveDICT) {
     if (-e "$MAININPD/config.conf") {
-      if (my $comps = &readConf("$MAININPD/config.conf")->{'Companion'}) {
+      if (my $comps = &readConf()->{'Companion'}) {
         foreach my $c (split(/\s*,\s*/, $comps)) {if ($c =~ /DICT$/) {$haveDICT = 1;}}
       }
     }
@@ -834,28 +854,31 @@ sub customize_conf($$$$) {
   my $modName = shift;
   my $modType = shift;
   my $haveDICT = shift;
-  
-  # Save any comments in default config.conf because they are stripped 
-  # by setConfFileValue. These comments are added back at the end of customize_conf().
+
+  if ($modType eq 'dictionary') {
+    &ErrorBug("The 'dictionary' modType does not have its own config.conf file, but customize_conf was called with modType='dictionary'.", '', 1);
+  }
+ 
+  # Save any comments at the end of the default config.conf so they can 
+  # be added back after writing the new conf file.
   my $comments = '';
-  if ($modType ne 'dictionary' && open(MCF, "<:encoding(UTF-8)", $conf)) {
+  if (open(MCF, "<:encoding(UTF-8)", $conf)) {
     while(<MCF>) {
       if ($comments) {$comments .= $_;}
-      elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-THIS_LINE/) {$comments = "\n";}
+      elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-NEXT-LINE/) {$comments = "\n";}
     }
     close(MCF);
   }
-  
-  # Abbreviation
-  &setConfFileValue($conf, 'Abbreviation', $modName, 1);
-  
-  # Now start over if there is any existing $modName conf that is 
-  # located in REPOSITORY. Entries in the repo conf that were added by 
-  # osis-converters are dropped, so that they will be added afresh.
+ 
+  # If there is any existing $modName conf that is located in REPOSITORY 
+  # then start with that instead. This SWORD conf will only have one 
+  # section, and any entries in the repo conf that were added by osis-
+  # converters will be dropped.
   if ($REPOSITORY) {
     my $cfile = $REPOSITORY.'/'.lc($modName).".conf";
     my $ctext = &shell("wget \"$cfile\" -q -O -", 3);
-    $ctext =~ s/\n\Q$AGBOC\E.*$//s;
+    $ctext =~ s/^(.*?)\n\Q$AGBOC\E.*$/$1/s; # strip all after AGBOC
+    $ctext =~ s/^(.+?)\n\[[^\]]+\].*$/$1/s; # strip all after next section
     if ($ctext) {
       &Note("Default conf was located in REPOSITORY: $cfile", 1); &Log("$ctext\n\n");
       if (open(CNF, ">:encoding(UTF-8)", $conf)) {
@@ -865,26 +888,21 @@ sub customize_conf($$$$) {
       else {&ErrorBug("Could not open conf $conf");}
     }
   }
+  # The current $conf file is now either a copy from the SWORD 
+  # REPOSITORY (minus the oc-added stuff) or the default config.conf
+  
+  my %newConf; &readConfFile($conf, \%newConf); 
+
+  # Abbreviation
+  &setConfValue(\%newConf, 'Abbreviation', $modName, 1);
   
   # ModuleName
-  &setConfFileValue($conf, 'ModuleName', $modName, 1);
+  &setConfValue(\%newConf, 'ModuleName', $modName, 1);
   
   # ModDrv
-  if ($modType eq 'dictionary') {&setConfFileValue($conf, 'ModDrv', 'RawLD4', 1);}
-  if ($modType eq 'childrens_bible') {&setConfFileValue($conf, 'ModDrv', 'RawGenBook', 1);}
-  if ($modType eq 'bible') {&setConfFileValue($conf, 'ModDrv', 'zText', 1);}
-  if ($modType eq 'other') {&setConfFileValue($conf, 'ModDrv', 'RawGenBook', 1);}
- 
-  # Companion
-  if ($haveDICT) {
-    my $companion = $modName;
-    if ($modType eq 'dictionary') {$companion =~ s/DICT$//;}
-    else {$companion .= 'DICT';}
-    &setConfFileValue($conf, 'Companion', $companion, 1);
-  }
-  else {&setConfFileValue($conf, 'Companion', '', 1);}
-  
-  if ($modType eq 'dictionary') {return;}
+  if ($modType eq 'childrens_bible') {&setConfValue(\%newConf, 'ModDrv', 'RawGenBook', 1);}
+  if ($modType eq 'bible') {&setConfValue(\%newConf, 'ModDrv', 'zText', 1);}
+  if ($modType eq 'other') {&setConfValue(\%newConf, 'ModDrv', 'RawGenBook', 1);}
   
   # ScopeSubPublication & TitleSubPublicationN
   my $pubn = 1;
@@ -894,26 +912,40 @@ sub customize_conf($$$$) {
     foreach my $sub (@subs) {
       if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
       my $scope = $sub; $scope =~ s/_/ /g;
-      &setConfFileValue($conf, 'ScopeSubPublication'.$pubn, $scope, 1);
-      &setConfFileValue($conf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
+      &setConfValue(\%newConf, 'ScopeSubPublication'.$pubn, $scope, 1);
+      &setConfValue(\%newConf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
       $pubn++;
     }
   }
   else {&ErrorBug("customize_conf could not open $MAININPD/sfm");}
   
   # FullResourceURL
-  my $c = &readConf($conf);
-  if ($c->{"system+EBOOKS"}) {
-    if ($c->{"system+EBOOKS"} =~ /^https?\:/) {
-      my $ebdir = $c->{"system+EBOOKS"}."/$modName/$modName";
+  my %c; &readConfFile($conf, \%c);
+  if ($c{"system+EBOOKS"}) {
+    if ($c{"system+EBOOKS"} =~ /^https?\:/) {
+      my $ebdir = $c{"system+EBOOKS"}."/$modName/$modName";
       my $r = &shell("wget \"$ebdir\" -q -O -", 3);
-      if ($r) {&setConfFileValue($conf, 'FullResourceURL', $ebdir, 1);}
+      if ($r) {&setConfValue(\%newConf, 'FullResourceURL', $ebdir, 1);}
     }
-    else {&Warn("The [system] config.conf entry should be a URL: EBOOKS=".$c->{"system+EBOOKS"}, "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");}
+    else {&Warn("The [system] config.conf entry should be a URL: EBOOKS=".$c{"system+EBOOKS"}, "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");}
   }
   
-  # Documentation, default settings and default config.conf comments
-  my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n";
+  # Companion + [DICTMOD] section
+  if ($haveDICT) {
+    my $companion = $modName.'DICT';
+    &setConfValue(\%newConf, 'Companion', $companion, 1);
+    &setConfValue(\%newConf, "$companion+Companion", $modName, 1);
+    &setConfValue(\%newConf, "$companion+ModDrv", 'RawLD4', 1);
+  }
+  else {&setConfValue(\%newConf, 'Companion', '', 1);}
+  
+  &writeConf($conf, \%newConf);
+  
+  # Now append the following to the new config.conf:
+  # - documentation comments
+  # - any [<section>] settings from the default config.conf
+  # - comments from default config.conf
+  my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n[$modName]\n";
   foreach my $c (@OC_CONFIGS) {
     if (!($CONFIG_DEFAULTS{"doc:$c"})) {next;}
     $defs .= "# $c ".$CONFIG_DEFAULTS{"doc:$c"}."\n#".$c.'='.$CONFIG_DEFAULTS{$c}."\n\n";
@@ -928,7 +960,7 @@ sub customize_conf($$$$) {
   my $newconf = '';
   if (open(MCF, "<:encoding(UTF-8)", $conf)) {
     while(<MCF>) {
-      if ($. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n";}
+      if ($defs && $. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n"; $defs = '';}
       $newconf .= $_;
     }
     $newconf .= $comments;
@@ -1096,7 +1128,7 @@ sub customize_usfm2osis($$) {
 sub customize_collections($) {
   my $collections = shift;
   
-  my $bibleConfP = &readConf("$MAININPD/config.conf");
+  my $bibleConfP = &readConf();
   
   if (!open (COLL, ">>:encoding(UTF-8)", $collections)) {&ErrorBug("Could not open \"$collections\"", '', 1);}
   print COLL "Info: (".$bibleConfP->{'Version'}.") ".$bibleConfP->{'Description'}."\n";
@@ -1601,35 +1633,12 @@ sub scanUSFM_file($) {
   return \%info;
 }
 
-
-# Checks, and optionally updates, a param in conf file and returns 1 if value is there, otherwise 0.
-sub setConfFileValue($$$$) {
-  my $conf = shift;
-  my $param = shift;
-  my $value = shift;
-  my $flag = shift; # see &setConfValue()
-  
-  my $confEntriesP = &readConf($conf);
-  
-  if (!&setConfValue($confEntriesP, $param, $value, $flag)) {
-    &Warn("\"$param\" does not have value \"$value\" in \"$conf\""); 
-    return;
-  }
-  
-  if ($flag eq "0") {return;}
-  
-  &writeConf($conf, $confEntriesP);
-}
-
-
 # Checks, and optionally updates, a param in confEntriesP.
 # Returns 1 if the value is there, otherwise 0.
 # Flag values are:
+# 0 or empty = check only
 # 1 = overwrite existing
-# 2 = don't modify existing
-# 3 = check-only 
-# "additional" = append additional param
-# string = append to existing param with string separator
+# 2 = add to existing value (either another entry with the same name or separated by a separator)
 sub setConfValue($$$$) {
   my $confEntriesP = shift;
   my $param = shift;
@@ -1637,20 +1646,21 @@ sub setConfValue($$$$) {
   my $flag = shift;
  
   my $sep = '';
-  if ($flag != 1 && $flag != 2 && $flag != 3) {
-    if ($flag eq 'additional') {$sep = "<nx/>";}
-    else {$sep = $flag;}
+  foreach my $ec (sort keys %MULTIVALUE_CONFIGS) {if ($param eq $ec) {$sep = $MULTIVALUE_CONFIGS{$ec};}}
+  
+  if ($value eq $confEntriesP->{$param}) {return 1;}
+  if ($flag != 1 && $sep && $confEntriesP->{$param} =~ /(^|\s*\Q$sep\E\s*)\Q$value\E(\s*\Q$sep\E\s*|$)/) {return 1;}
+  if ($flag == 2 && !$sep) {&ErrorBug("Param '$param' cannot have multiple values, yet setConfValue flag=$flag", '', 1);}
+  
+  if (!$flag) {return 0;}
+  elsif ($flag == 1) {
+    $confEntriesP->{$param} = $value;
   }
-  
-  if ($flag != 1 && $confEntriesP->{$param} && $confEntriesP->{$param} =~ /(^|\Q$sep\E)\Q$value\E(\Q$sep\E|$)/) {return 1;}
-  if (!$confEntriesP->{$param} && !$value) {return 1;}
-  
-  if ($flag == 3 || ($flag == 2 && $confEntriesP->{$param})) {return 0;}
-  
-  if ($flag == 1) {$confEntriesP->{$param} = $value;}
-  elsif (!$confEntriesP->{$param}) {$confEntriesP->{$param} = $value;}
-  else {$confEntriesP->{$param} .= $sep.$value;}
-  
+  elsif ($flag == 2) {
+    if ($confEntriesP->{$param}) {$confEntriesP->{$param} .= $sep.$value;}
+    else {$confEntriesP->{$param} = $value;}
+  }
+  else {&ErrorBug("Unexpected setConfValue flag='$flag'", '', 1);}
   return 1;
 }
 
@@ -1687,11 +1697,19 @@ sub osis_converters($$$) {
 }
 
 
-# Write $conf file by starting with $starterConf (if provided) and 
-# writing necessary entries from %entryValue (after it has been 
-# updated according to the module source if provided). If $conf is in 
-# a mods.d directory, it also creates the module directory if it doesn't 
-# exist, so that it's ready for writing.
+# Write a new $conf file by starting with $starterConf and adding any 
+# new entries from %entryValue hash, after entryValue has been updated 
+# according to the module source if provided. Note that all comments 
+# are removed from $starterConf but the $swordOnly $conf file will 
+# only have one comment: the $AGBOC which denotes the extra entries 
+# added by %entryValue.
+#
+# If $swordOnly is true then only SWORD config entries will be written
+# and only the initial [MODNAME] section is written.
+#
+# If $swordOnly and $conf is in a mods.d directory, it also creates the 
+# module directory path specified in the config.conf if it doesn't 
+# already exist.
 sub writeConf($\%$$$) {
   my $conf = shift;
   my $entryValueP = shift;
@@ -1709,32 +1727,33 @@ sub writeConf($\%$$$) {
     $moddir = $confdir; $moddir =~ s/([\\\/][^\\\/]+){1}$//;
   }
   
-  my $starterP = ($starterConf ? &readConf($starterConf):'');
+  my %starter; if ($starterConf) {&readConfFile($starterConf, \%starter);}
 
   my %used;
   open(CONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
   my $section = '';
   my $inAutoGen = 0;
-  foreach my $e (sort { &confEntrySort($a, $b, $starterP); } keys %{$entryValueP}) {
+  foreach my $e (sort { &confEntrySort($a, $b, \%starter); } keys %{{%{$entryValueP},%starter}} ) {
+    my $v = (exists($entryValueP->{$e}) ? $entryValueP->{$e}:$starter{$e});
     my $e2 = $e;
     my $s = ($e2 =~ s/^(.*?)\+// ? $1:'');
-    if ($e eq 'ModuleName') {
-      print CONF "[".$entryValueP->{$e}."]\n";
+    if ($e2 eq 'ModuleName') {
+      if ($e eq 'ModuleName') {print CONF "[$v]\n";}
       next;
     }
     elsif (!$swordOnly && $s ne $section) {print CONF "\n[".$s."]\n"; $section = $s; $inAutoGen = 0;}
-    if ($starterConf && !$inAutoGen && !exists($starterP->{$e})) {
+    if ($swordOnly && $starterConf && !$inAutoGen && !exists($starter{$e})) {
       print CONF "$AGBOC\n";
       $inAutoGen++;
     }
-    if ($swordOnly && (($s && $s ne $SCRIPT_NAME) || &isConfig($e2) ne 'sword')) {
+    if ($swordOnly && (($s && $s ne $SCRIPT_NAME) || &isValidConfig($e) ne 'sword')) {
       &Warn("Config entry $e will not be written to SWORD conf.", "This is normal unless the entry should be included in SWORD config.conf.");
       next;
     }
-    if ($starterP && exists($starterP->{$e}) && $starterP->{$e} ne $entryValueP->{$e}) {
-      &ErrorBug("Modified config entry '$e': config.conf = '".$starterP->{$e}."' but current = '".$entryValueP->{$e}."'");
+    if ($starterConf && exists($starter{$e}) && exists($entryValueP->{$e}) && $starter{$e} ne $entryValueP->{$e}) {
+      &ErrorBug("Modified config entry '$e': config.conf = '".$starter{$e}."' but current = '".$entryValueP->{$e}."'");
     }
-    foreach my $val (split(/<nx\/>/, $entryValueP->{$e})) {
+    foreach my $val (split(/<nx\/>/, $v)) {
       if ($used{"$e$val"}) {next;}
       print CONF $e2."=".$val."\n";
       $used{"$e$val"}++;
@@ -1742,9 +1761,9 @@ sub writeConf($\%$$$) {
   }
   close(CONF);
 
-  my $entryValueP = &readConf($conf);
+  my $entryValueP = &readConf();
   
-  if ($moddir) {
+  if ($moddir && $swordOnly) {
     my $realPath = &dataPath2RealPath($entryValueP->{'DataPath'});
     if (!-e "$moddir/$realPath") {make_path("$moddir/$realPath");}
   }
@@ -1775,36 +1794,6 @@ sub confEntrySort($$) {
   
   # Then by entry
   return $a2 cmp $b2;
-}
-
-# Returns 0 if $e is not a valid config entry. Returns 'sword' if it
-# is a valid SWORD config.conf entry. Returns 'system' if it is a valid 
-# [system] config.conf entry. Returns 1 otherwise (valid, but not special)
-sub isConfig($) {
-  my $e = shift;
-  
-  foreach my $ce (@OC_SYSTEM) {if ($e eq $ce) {return 'system';}}
-
-  my @a; push(@a, @SWORD_CONFIGS, @SWORD_OC_CONFIGS, @OC_CONFIGS);
-  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {
-    if ($e =~ /^MATCHES\:/) {push(@a, $e.'(_\w+)');}
-    else {push(@a, 'MATCHES:'.$e.'(_\w+)');}
-  }
-  
-  foreach my $sc (@a) {
-    my $r=0;
-    if ($sc =~ /^MATCHES\:(.*?)$/) {
-      my $re = $1;
-      if ($e =~ /^$re$/) {$r++;}
-    }
-    elsif ($e eq $sc) {$r++;}
-    if ($r) {
-      foreach my $ce (@OC_CONFIGS) {if ($e eq $ce) {return 1;}}
-      return 'sword';
-    }
-  }
-  
-  return 0;
 }
 
 
@@ -1856,15 +1845,15 @@ sub updateConfData(\%$) {
   elsif ($moddrv =~ /Text/) {$type = 'bible';}
   elsif ($moddrv =~ /Com/) {$type = 'commentary';}
   
-  if (!&setConfValue($entryValueP, 'Encoding', "UTF-8", 2)) {
+  if (!&setConfValue($entryValueP, 'Encoding', "UTF-8", 1)) {
     &Error("Only UTF-8 encoding is supported by osis-converters", "All SFM files must be UTF-8 encoded and Encoding=UTF-8 should be specified in config.conf.", 1);
   }
   
   if ($moddrv =~ /Text/) {
-    &setConfValue($entryValueP, 'Category', 'Biblical Texts');
+    &setConfValue($entryValueP, 'Category', 'Biblical Texts', 1);
     if ($moddrv =~ /zText/) {
-      &setConfValue($entryValueP, 'CompressType', 'ZIP');
-      &setConfValue($entryValueP, 'BlockType', 'BOOK');
+      &setConfValue($entryValueP, 'CompressType', 'ZIP', 1);
+      &setConfValue($entryValueP, 'BlockType', 'BOOK', 1);
     }
   }
   
@@ -1873,11 +1862,11 @@ sub updateConfData(\%$) {
     my $sourceType = 'OSIS'; # NOTE: osis2tei.xsl still produces a TEI file having OSIS markup!
     
     if ($moddrv =~ /LD/) {
-      &setConfValue($entryValueP, 'KeySort', &getApproximateLangSortOrder($moduleSourceXML), 2);
-      &setConfValue($entryValueP, 'LangSortOrder', &getApproximateLangSortOrder($moduleSourceXML), 2);
+      &setConfValue($entryValueP, 'KeySort', &getApproximateLangSortOrder($moduleSourceXML), 1);
+      &setConfValue($entryValueP, 'LangSortOrder', &getApproximateLangSortOrder($moduleSourceXML), 1);
     }
     
-    &setConfValue($entryValueP, 'SourceType', $sourceType, 2); # '2' allows config.conf to enforce SourceType
+    &setConfValue($entryValueP, 'SourceType', $sourceType, 1);
     if ($entryValueP->{"SourceType"} !~ /^(OSIS|TEI)$/) {&Error("Unsupported SourceType: ".$entryValueP->{"SourceType"}, "Only OSIS and TEI are supported by osis-converters", 1);}
     if ($entryValueP->{"SourceType"} eq 'TEI') {&Warn("Some front-ends may not fully support TEI yet");}
     
@@ -1888,7 +1877,7 @@ sub updateConfData(\%$) {
         &setConfValue($entryValueP, 'OSISVersion', $vers, 1);
       }
       if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
-        &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On', 'additional');
+        &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On', 2);
       }
       
       # get scope
@@ -1899,9 +1888,9 @@ sub updateConfData(\%$) {
   }
 
   if ($entryValueP->{"SourceType"} eq "OSIS") {
-    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISFootnotes', 'additional');
-    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISHeadings', 'additional');
-    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISScripref', 'additional');
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISFootnotes', 2);
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISHeadings', 2);
+    &setConfValue($entryValueP, 'GlobalOptionFilter', 'OSISScripref', 2);
   }
   else {
     &setConfValue($entryValueP, 'OSISVersion', '', 1);
@@ -1920,64 +1909,20 @@ sub updateConfData(\%$) {
   return $entryValueP;
 }
 
-sub setConfGlobals(\%$) {
-  my $entryValueP = shift;
-  my $doChecks = shift;
-  
-  # Perl variables from the [system] section of config.conf are only 
-  # read once during bootstrapping by setSystemVars() and they are 
-  # NOT set again by setConfGlobals().
-
-  # Globals
-  $CONF = $entryValueP;
-  $MOD = $entryValueP->{'ModuleName'};
-  $MODLC = lc($MOD);
-  $MODPATH = &dataPath2RealPath($entryValueP->{"DataPath"});
-  
-  # Config Defaults
-  foreach my $e (@OC_CONFIGS) {
-    if (exists($CONFIG_DEFAULTS{$e})) {
-      if (!exists($entryValueP->{$e})) {
-        $entryValueP->{$e} = $CONFIG_DEFAULTS{$e};
-      }
-    }
-    elsif ($e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
-  }
-  
-  if ($doChecks && $INPD ne $DICTINPD) {
+sub checkConfGlobals() {
+  if ($INPD ne $DICTINPD) {
     # Check for UI that needs localization
     foreach my $k (keys %CONFIG_DEFAULTS) {
       if (!$DICTMOD && $k eq 'CombinedGlossaryTitle') {next;}
-      if ($k =~ /[\:\+]/ || $CONFIG_DEFAULTS{$k} !~ / DEF$/ || $entryValueP->{$k} ne $CONFIG_DEFAULTS{$k}) {next;}
+      if ($k =~ /[\:\+]/ || $CONFIG_DEFAULTS{$k} !~ / DEF$/ || $CONF->{$k} ne $CONFIG_DEFAULTS{$k}) {next;}
       &Warn("Title config entry '$k' is not localized: ".$CONFIG_DEFAULTS{$k}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: $k=Localized Title");
     }
     my $n=0;
-    while (exists($entryValueP->{'TitleSubPublication'.++$n})) {
-      if ($entryValueP->{'TitleSubPublication'.$n} && $entryValueP->{'TitleSubPublication'.$n} !~ / DEF$/) {next;}
-      &Warn("Sub publication title config entry 'TitleSubPublication$n' is not localized: ".$entryValueP->{'TitleSubPublication'.$n}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: TitleSubPublication$n=Localized Title");
+    while (exists($CONF->{'TitleSubPublication'.++$n})) {
+      if ($CONF->{'TitleSubPublication'.$n} && $CONF->{'TitleSubPublication'.$n} !~ / DEF$/) {next;}
+      &Warn("Sub publication title config entry 'TitleSubPublication$n' is not localized: ".$CONF->{'TitleSubPublication'.$n}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: TitleSubPublication$n=Localized Title");
     }
   }
-  
-  #foreach my $e (sort keys %{$entryValueP}) {&Debug("Config.conf $e = ".$entryValueP->{$e}."\n");}
-  
-  return $entryValueP;
-}
-
-
-sub conf($) {
-  my $entry = shift;
-  
-  my $isConf = &isConfig($entry);
-  if (!$isConf) {&ErrorBug("Unrecognized config request: $entry");}
-  elsif ($isConf eq 'system') {
-    &ErrorBug("This config request is from the special [system] section.", "Use \$$entry rather than &conf('$entry') to access [system] section values.");
-  }
-  elsif (exists($CONF->{$SCRIPT_NAME.'+'.$entry})) {
-    return $CONF->{$SCRIPT_NAME.'+'.$entry};
-  }
-  elsif ($CONF->{$entry}) {return $CONF->{$entry};}
-
-  return '';
 }
 
 
@@ -2022,15 +1967,6 @@ sub getApproximateLangSortOrder($) {
   }
 
   return $res;
-}
-
-
-sub dataPath2RealPath($) {
-  my $datapath = shift;
-  $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
-  $datapath =~ s/[\\\/]\s*$//; # remove ending slash
-  $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
-  return $datapath;
 }
 
 
@@ -2566,29 +2502,26 @@ sub filterScriptureReferences($$$) {
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
-sub filterGlossaryReferences($\@$) {
+sub filterGlossaryReferences($$$) {
   my $osis = shift;
-  my $glossRefOsisP = shift;
+  my $glossRefOsis = shift;
   my $filterNavMenu = shift;
   
-  my @glossRefOsis1;
   my %refsInScope;
-  foreach my $refxml (@{$glossRefOsisP}) {
-    my $refxml1 = $refxml; $refxml1 =~ s/^.*\///; push(@glossRefOsis1, $refxml1);
-    my $glossRefXml = $XML_PARSER->parse_file($refxml);
-    my $work = &getOsisIDWork($glossRefXml);
-    my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
-    my %ids;
-    foreach my $osisID (@osisIDs) {
-      my $id = $osisID->getValue();
-      $id =~ s/^(\Q$work\E)://;
-      $ids{$id}++;
-    }
-    $refsInScope{$work} = \%ids;
+  my $glossMod = $glossRefOsis; $glossMod =~ s/^.*\///;
+  my $glossRefXml = $XML_PARSER->parse_file($glossRefOsis);
+  my $work = &getOsisIDWork($glossRefXml);
+  my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
+  my %ids;
+  foreach my $osisID (@osisIDs) {
+    my $id = $osisID->getValue();
+    $id =~ s/^(\Q$work\E)://;
+    $ids{$id}++;
   }
+  $refsInScope{$work} = \%ids;
   
   &Log("\n--- FILTERING glossary references in \"$osis\"\n", 1);
-  &Log("REMOVING glossary references".(@glossRefOsis1[0] ? " that target outside \"".join(", ", @glossRefOsis1)."\"":'')."\n");
+  &Log("REMOVING glossary references".($glossMod ? " that target outside \"$glossMod\"":'')."\n");
   
   my $xml = $XML_PARSER->parse_file($osis);
   
@@ -4775,39 +4708,19 @@ sub runXSLT($$$\%$) {
   my $paramsP = shift;
   my $logFlag = shift;
   
-  # Globals must be passed to XSLT
-  my $cP = &copyConf();
-
-  # Params will supercede global value of same name
-  foreach my $c (keys %{$paramsP}) {
-    $cP->{$c} = $paramsP->{$c};
-  }
-  
   my $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   $cmd .= " -o:" . &escfile($output);
-  foreach my $p (keys %{$cP}) {
-    my $v = $cP->{$p};
+  foreach my $p (keys %{$paramsP}) {
+    my $v = $paramsP->{$p};
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
   }
-  if ($DEBUG) {$cmd .= " DEBUG=\"true\"";}
-  &shell($cmd, $logFlag);
+  $cmd .= " SCRIPT_NAME=\"$SCRIPT_NAME\"";
+  &shell($cmd, 3);
 }
 
-# The copyConf is a copy of config entries and their values according to the current context (SCRIPT_NAME)
-sub copyConf($) {
-  my $includeSystem = shift;
-  
-  my %p;
-  foreach my $c (keys %{$CONF}) {
-    my $section = ($c =~ s/^(.*?)\+// ? $1:'');
-    if (!$includeSystem && $section eq 'system') {next;}
-    if (!$p{$c}) {$p{$c} = &conf($c);}
-  }
-  return \%p;
-}
 
 $ProgressTotal = 0;
 $ProgressTime = 0;
@@ -4913,28 +4826,12 @@ sub fragmentToString($$) {
 }
 
 
-# Look for the named companion's config.conf directory, or return '' if not found
-sub findCompanionDirectory($) {
-  my $comp = shift;
-
-  if (!$comp || $comp !~ /^\S+/) {return '';}
-  
-  my $path = "$INPD/$comp";
-  if (! -e "$path/config.conf") {$path = "$INPD/../$comp";}
-  if (! -e "$path/config.conf") {$path = "$INPD/../../$comp";}
-  if (! -e "$path/config.conf") {return '';}
-
-  return $path;
-}
-
-# Deletes existing header work elements, and writes new ones which may
-# include, as meta-data, settings from $CONF. The osis file is 
+# Deletes existing header work elements, and writes new ones which
+# include, as meta-data, all settings from config.conf. The osis file is 
 # overwritten if $osis_or_osisP is not a reference, otherwise a new 
 # output file is written and the reference is updated to point to it.
-sub writeOsisHeader($\%$) {
+sub writeOsisHeader($) {
   my $osis_or_osisP = shift;
-  my $extraConfP = shift;
-  my $extraPrefix = shift;
   
   my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
   my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
@@ -4978,23 +4875,19 @@ sub writeOsisHeader($\%$) {
   my $header;
     
   # Add work element for MAINMOD
-  my %mainconf;
-  if (-e "$MAININPD/config.conf") {&readConfFile("$MAININPD/config.conf", \%mainconf);}
   my %workElements;
-  &getOSIS_Work(\%workElements, \%mainconf, $extraConfP, $extraPrefix, ($MOD eq $MAINMOD ? $isbn:''));
+  &getOSIS_Work($MAINMOD, \%workElements, $CONF, ($MOD eq $MAINMOD ? $isbn:''));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, $mainconf{'Versification'});
+    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, &conf('Versification'));
   }
   my %workAttributes = ('osisWork' => $MAINMOD);
   $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
   # Add work element for DICTMOD
   if ($DICTMOD) {
-    my %dictconf;
-    if (-e "$DICTINPD/config.conf") {&readConfFile("$DICTINPD/config.conf", \%dictconf);}
     my %workElements;
-    &getOSIS_Work(\%workElements, \%dictconf, NULL, NULL, ($MOD ne $MAINMOD ? $isbn:''));
+    &getOSIS_Work($DICTMOD, \%workElements, $CONF, ($MOD ne $MAINMOD ? $isbn:''));
     my %workAttributes = ('osisWork' => $DICTMOD);
     $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   }
@@ -5004,24 +4897,30 @@ sub writeOsisHeader($\%$) {
   return $header;
 }
 
-
-sub getOSIS_Work($$$$$) {
+# Write all work children elements for modname to osisWorkP. The modname 
+# must be either the value of $MAINMOD or $DICTMOD. Note that each raw 
+# conf value is written to the work element matching its section (context 
+# specific values from &conf are not written). This means that retreiving 
+# the usual context specific value from the header data requires 
+# searching both MAIN and DICT work elements. 
+sub getOSIS_Work($$$$) {
+  my $modname = shift; 
   my $osisWorkP = shift;
   my $confP = shift;
-  my $extraConfP = shift;
-  my $extraPrefix = shift;
   my $isbn = shift;
   
+  my $section = ($modname eq $DICTMOD ? "$DICTMOD+":'');
+ 
   my @tm = localtime(time);
   my %type;
-  if    ($confP->{'ModDrv'} =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
-  elsif ($confP->{'ModDrv'} =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
-  elsif ($confP->{'ModDrv'} =~ /GenBook/ && $MOD =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
-  elsif ($confP->{'ModDrv'} =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
+  if    ($confP->{$section.'ModDrv'} =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
+  elsif ($confP->{$section.'ModDrv'} =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
+  elsif ($confP->{$section.'ModDrv'} =~ /GenBook/ && $MOD =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
+  elsif ($confP->{$section.'ModDrv'} =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
   my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-childrens-bible' ? 'GenBook':($type{'type'} eq 'x-commentary' ? 'Comm':'Bible')));
-  my $refSystem = "Bible.".$confP->{'Versification'};
-  if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.".$confP->{'ModuleName'};}
-  if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{'ModuleName'};}
+  my $refSystem = "Bible.".$confP->{$section.'Versification'};
+  if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.".$confP->{$section.'ModuleName'};}
+  if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book".$confP->{$section.'ModuleName'};}
   my $isbnID = $isbn;
   $isbnID =~ s/[\- ]//g;
   foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13 && length($n) != 10) {
@@ -5030,30 +4929,27 @@ sub getOSIS_Work($$$$$) {
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
-  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{'TranslationTitle'};
-  &mapLocalizedElem(30000, 'subject', 'Description', $confP, $osisWorkP, 1);
+  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{$section.'TranslationTitle'};
+  &mapLocalizedElem(30000, 'subject', $section.'Description', $confP, $osisWorkP, 1);
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
-  &mapLocalizedElem(50000, 'description', 'About', $confP, $osisWorkP, 1);
-  &mapConfig(50008, 56999, 'description', 'x-config', $confP, $osisWorkP);
-  if ($extraConfP) {
-    &mapConfig(57000, 59999,'description', $extraPrefix, $extraConfP, $osisWorkP);
-  }
-  &mapLocalizedElem(60000, 'publisher', 'CopyrightHolder', $confP, $osisWorkP);
-  &mapLocalizedElem(70000, 'publisher', 'CopyrightContactAddress', $confP, $osisWorkP);
-  &mapLocalizedElem(80000, 'publisher', 'CopyrightContactEmail', $confP, $osisWorkP);
-  &mapLocalizedElem(90000, 'publisher', 'ShortPromo', $confP, $osisWorkP);
+  &mapLocalizedElem(50000, 'description', $section.'About', $confP, $osisWorkP, 1);
+  &mapConfig(50008, 59999, 'description', 'x-config', $confP, $osisWorkP, $modname);
+  &mapLocalizedElem(60000, 'publisher', $section.'CopyrightHolder', $confP, $osisWorkP);
+  &mapLocalizedElem(70000, 'publisher', $section.'CopyrightContactAddress', $confP, $osisWorkP);
+  &mapLocalizedElem(80000, 'publisher', $section.'CopyrightContactEmail', $confP, $osisWorkP);
+  &mapLocalizedElem(90000, 'publisher', $section.'ShortPromo', $confP, $osisWorkP);
   $osisWorkP->{'100000:type'} = \%type;
   $osisWorkP->{'110000:format'}{'textContent'} = 'text/xml';
   $osisWorkP->{'110000:format'}{'type'} = 'x-MIME';
   $osisWorkP->{'120000:identifier'}{'textContent'} = $isbnID;
   $osisWorkP->{'120000:identifier'}{'type'} = 'ISBN';
-  $osisWorkP->{'121000:identifier'}{'textContent'} = "$idf.".$confP->{'ModuleName'};
+  $osisWorkP->{'121000:identifier'}{'textContent'} = "$idf.".$confP->{$section.'ModuleName'};
   $osisWorkP->{'121000:identifier'}{'type'} = 'OSIS';
   $osisWorkP->{'130000:source'}{'textContent'} = ($isbn ? "ISBN: $isbn":'');
-  $osisWorkP->{'140000:language'}{'textContent'} = $confP->{'Lang'};
-  &mapLocalizedElem(170000, 'rights', 'Copyright', $confP, $osisWorkP);
-  &mapLocalizedElem(180000, 'rights', 'DistributionNotes', $confP, $osisWorkP);
+  $osisWorkP->{'140000:language'}{'textContent'} = $confP->{$section.'Lang'};
+  &mapLocalizedElem(170000, 'rights', $section.'Copyright', $confP, $osisWorkP);
+  &mapLocalizedElem(180000, 'rights', $section.'DistributionNotes', $confP, $osisWorkP);
   $osisWorkP->{'220000:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
@@ -5101,18 +4997,22 @@ sub mapLocalizedElem($$$$$$) {
   }
 }
 
-sub mapConfig($$$$$$) {
+sub mapConfig($$$$$$$) {
   my $index = shift;
   my $maxindex = shift;
   my $elementName = shift;
   my $prefix = shift;
   my $confP = shift;
   my $osisWorkP = shift;
+  my $modname = shift;
   
   foreach my $confEntry (sort keys %{$confP}) {
-    if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" config entries.");}
+    if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" $prefix entries.");}
+    elsif ($modname && $confEntry =~ /DICT\+/ && $modname ne $DICTMOD) {next;}
+    elsif ($modname && $confEntry !~ /DICT\+/ && $modname eq $DICTMOD) {next;}
     else {
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $confP->{$confEntry};
+      $confEntry =~ s/[^\-]+DICT\+//;
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$confEntry";
       $index++;
     }

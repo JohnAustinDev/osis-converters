@@ -33,6 +33,7 @@
 # use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl";
 
 use File::Spec;
+require "$SCRD/scripts/common_opsys.pl";
 
 $INPD = shift;
 $LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
@@ -55,9 +56,11 @@ $SCRD =~ s/\\/\//g;
 
 $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
 
-# Set MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
+# Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
 # checkAndWriteDefaults() in case a new dictionary is discovered in the 
 # USFM).
+$MOD = $INPD; $MOD =~ s/^.*\///;
+$MODLC = lc($MOD);
 if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
   $MAININPD = $1; 
   $DICTINPD = $INPD;
@@ -68,23 +71,13 @@ else {
   $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
   $DICTINPD = "$MAININPD/${MAINMOD}DICT";
 }
-$DICTMOD = (-e "$DICTINPD/config.conf" ? "${MAINMOD}DICT":'');
+$CONFFILE = "$MAININPD/config.conf";
+$CONF = {}; &readConfFile($CONFFILE, $CONF);
+$DICTMOD = ($CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
+&setConfGlobals($CONF);
 
 # Allow running MAININPD-only scripts from a DICT sub-project
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
-
-if (uc($MAINMOD) ne $MAINMOD) {
-  print 
-"ERROR: Module name $MAINMOD should be all capitals. Change the 
-directory name to ".uc($MAINMOD)."  and change the name in config.conf 
-(if config.conf exists). Then try again.
-Exiting...";
-  exit;
-}
-
-require "$SCRD/scripts/common_opsys.pl";
-
-$CONFFILE = "$INPD/config.conf";
 
 if (!&init_opsys()) {exit;}
 
