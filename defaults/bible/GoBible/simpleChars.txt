@@ -1,2 +1,21 @@
-Replace-these-chars: ‘„’“—–‎―»«
-With-these-chars:    """"-- -""
+Replace-these-chars: ' «´»ÄÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥҪҫҮүҰұҲҳҶҷҺһӀӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓ‑–—―‘’“”„•‹›○◦
+With-these-chars:    ' "'"ACEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНнСcYvYvХхЧчhhIЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл----'''"'*""-·
+
+Replace-this-group: ᴴ‌‎
+With-this-group:    н
+Replace-this-group: Ӕ
+With-this-group:    AE
+Replace-this-group: ӕ
+With-this-group:    ae
+Replace-this-group: Ō
+With-this-group:    O
+Replace-this-group: ā
+With-this-group:    a
+Replace-this-group: ē
+With-this-group:    e
+Replace-this-group: ō
+With-this-group:    o
+Replace-this-group: ӣ
+With-this-group:    и
+Replace-this-group: э̄
+With-this-group:    э

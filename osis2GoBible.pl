@@ -55,11 +55,11 @@ if (!-e "$GOBIBLE/icon.png") {&Error("Missing icon file: $GOBIBLE/icon.png", "Co
 
 &Log("\n--- Converting characters (normal)\n");
 require("$SCRD/scripts/bible/GoBible/goBibleConvChars.pl");
-&goBibleConvChars("normal", \@FILES);
+$highOrderChars = &goBibleConvChars("normal", \@FILES);
 copy("$GOBIBLE/icon.png", "$TMPDIR/normal/icon.png");
 &makeGoBible("normal");
 
-if (-e "$GOBIBLE/simpleChars.txt") {
+if ($highOrderChars) {
   &Log("\n--- Converting characters (simple)\n");
   &goBibleConvChars("simple", \@FILES);
   copy("$GOBIBLE/icon.png", "$TMPDIR/simple/icon.png");

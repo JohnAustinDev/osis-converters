@@ -26,7 +26,7 @@ sub goBibleConvChars($\@) {
   my @FROM,
   my @TO;
  
-  if (open(INF, "<:encoding(UTF-8)", $GOBIBLE."/".$type."Chars.txt")) {
+  if (open(INF, "<:encoding(UTF-8)", &getDefaultFile("bible/GoBible/".$type."Chars.txt"))) {
     while(<INF>) {
       if ($_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
         $CHARS = $1;
@@ -111,6 +111,8 @@ not appear as boxes on feature phones.");}
   }
   else {&Log("\n");}
   &Log("\n");
+  
+  return join(' ', (sort keys %highUnicode));
 }
 
 sub WriteGB($$$) {
