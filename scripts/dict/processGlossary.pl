@@ -117,9 +117,9 @@ sub removeAggregateEntries($) {
 # uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
 # XSLT was not used to do this because a custom uc2() Perl function is needed.
 sub upperCaseKeys($) {
-  my $osisP = shift;
+  my $osis_or_teiP = shift;
   
-  my $xml = $XML_PARSER->parse_file($$osisP);
+  my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
   if (&conf('ModDrv') =~ /LD/) {
     my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
     foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
@@ -129,8 +129,8 @@ sub upperCaseKeys($) {
     my $mod; my $e = &osisRef2Entry($dictref->getValue(), \$mod);
     $dictref->setValue(&entry2osisRef($mod, &uc2($e)));
   }
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
-  &writeXMLFile($xml, $output, $osisP);
+  my $output = $$osis_or_teiP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
+  &writeXMLFile($xml, $output, $osis_or_teiP);
 }
 
 1;

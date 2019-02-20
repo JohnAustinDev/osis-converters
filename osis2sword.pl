@@ -97,7 +97,7 @@ elsif (&conf('ModDrv') =~ /LD/) {
     $CONF->{'OSISVersion'} = $vers;
   }
   
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
+  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $STARTOSIS, 1);
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".&conf('Versification').")\n");
   $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." -s ".(&conf('ModDrv') eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
