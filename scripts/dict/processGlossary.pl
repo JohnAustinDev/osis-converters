@@ -56,13 +56,6 @@ sub filterGlossaryToScope($$$) {
   if (!@removed) {return '0';}
   if (@removed == @glossDivs) {return '-1';}
   
-  # If only one sub-publication is left, x-oc glossary scope titles are unnecessary
-  if (keys %glossScopes == 1) {
-    foreach my $gsn ($XPC->findnodes('//osis:title[@subType="x-glossary-scopename"][@resp="'.$ROC.'"]', $xml)) {
-      $gsn->unbindNode();
-    }
-  }
-  
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;
   &writeXMLFile($xml, $output, $osisP);
   

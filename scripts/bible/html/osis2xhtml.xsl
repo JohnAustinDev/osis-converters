@@ -62,6 +62,8 @@
   <template match="/">
     <variable name="osisIDWork" select="/descendant::osisText[1]/@osisIDWork"/>
     
+    <call-template name="Log"><with-param name="msg" select="concat('Args: css=', $css, ', glossthresh=', $glossthresh, ', html5=', $html5, '. Config: DEBUG=', $DEBUG, ', TOC=', $TOC, ', TitleCase=', $TitleCase, ', NoEpub3Markup=', $NoEpub3Markup, ', FullResourceURL=', $FullResourceURL, ', ChapterFiles=', $ChapterFiles, ', CombinedGlossaryTitle=', $CombinedGlossaryTitle, ', CombineGlossaries=', $CombineGlossaries)"/></call-template>
+
     <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
       <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
       <choose>
@@ -169,10 +171,13 @@
   </template>
   <template match="node()|@*" mode="writeCombinedGlossary">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
-    <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]">
-      <osis:title level="3" subType="x-glossary-scope"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title>
-      <osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1])"/></osis:title>
-    </if>
+    <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]"><call-template name="keywordDisambiguationHeading"/></if>
+  </template>
+  <template name="keywordDisambiguationHeading">
+    <param name="noScope"/>
+    <param name="noName"/>
+    <if test="not($noScope)"><osis:title level="3" subType="x-glossary-scope"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title></if>
+    <if test="not($noName)"><osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1])"/></osis:title></if>
   </template>
   
   <!-- Bible preprocessing templates to speed up processing that requires node copying/modification -->
@@ -841,8 +846,14 @@
   <!-- Glossary keywords -->
   <template match="seg[@type='keyword']" mode="xhtml" priority="2">
     <param name="combinedGlossary" tunnel="yes"/>
+    <param name="currentTask" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
+    <if test="$currentTask = 'write-xhtml' and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+      <variable name="kdh"><call-template name="keywordDisambiguationHeading"/></variable>
+      <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
+      <call-template name="Note"><with-param name="msg">Adding level-1 TOC keyword's GlossaryScopeName to disambiguate: <value-of select="./text()"/></with-param></call-template>
+    </if>
   </template>
   
   <!-- Titles -->
@@ -951,6 +962,8 @@
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $TOC)]" mode="xhtml" priority="2">
+    <param name="combinedGlossary" tunnel="yes"/>
+    <param name="currentTask" tunnel="yes"/>
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></i></small></div>
     <variable name="tocms" select="."/>
@@ -967,6 +980,11 @@
     </if>
     <!-- if this is the first milestone in a Bible, then include the root TOC -->
     <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
+    <if test="$currentTask = 'write-xhtml' and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+      <variable name="kdh"><call-template name="keywordDisambiguationHeading"><with-param name="noName" select="'true'"/></call-template></variable>
+      <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
+      <call-template name="Note"><with-param name="msg">Adding level-1 TOC milestone's GlossaryScopeName to disambiguate: <value-of select="./@n"/></with-param></call-template>
+    </if>
     <sequence select="me:getInlineTOC(.)"/>
   </template>
   

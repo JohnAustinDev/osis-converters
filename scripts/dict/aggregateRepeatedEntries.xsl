@@ -66,11 +66,6 @@
             <with-param name="exp">The \id line of an SFM file likely has multiple "scope == &#60;value&#62;" assignments. Remove all but one assignment.</with-param>
           </call-template>
         </if>
-        <variable name="glossaryScopeName" select="oc:getGlossaryScopeName2(., $scopeComment)"/>
-        <if test="$glossaryScopeName">
-          <title level="3" subType="x-glossary-scopename" resp="x-oc" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeName"/></title>
-          <call-template name="Note"><with-param name="msg">Adding glossary scope name '<value-of select="$glossaryScopeName"/>' to <value-of select="@type"/> div with scope="<value-of select="$scopeComment"/>".</with-param></call-template>
-        </if>
       </if>
       <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   
       the end of the keyword's first ancestor div. The following group-by must match what is used in groupCopy template's test attribute. -->
