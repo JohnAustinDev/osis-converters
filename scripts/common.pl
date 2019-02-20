@@ -2509,16 +2509,18 @@ sub filterGlossaryReferences($$$) {
   
   my %refsInScope;
   my $glossMod = $glossRefOsis; $glossMod =~ s/^.*\///;
-  my $glossRefXml = $XML_PARSER->parse_file($glossRefOsis);
-  my $work = &getOsisIDWork($glossRefXml);
-  my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
-  my %ids;
-  foreach my $osisID (@osisIDs) {
-    my $id = $osisID->getValue();
-    $id =~ s/^(\Q$work\E)://;
-    $ids{$id}++;
+  if ($glossRefOsis) {
+    my $glossRefXml = $XML_PARSER->parse_file($glossRefOsis);
+    my $work = &getOsisIDWork($glossRefXml);
+    my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
+    my %ids;
+    foreach my $osisID (@osisIDs) {
+      my $id = $osisID->getValue();
+      $id =~ s/^(\Q$work\E)://;
+      $ids{$id}++;
+    }
+    $refsInScope{$work} = \%ids;
   }
-  $refsInScope{$work} = \%ids;
   
   &Log("\n--- FILTERING glossary references in \"$osis\"\n", 1);
   &Log("REMOVING glossary references".($glossMod ? " that target outside \"$glossMod\"":'')."\n");
@@ -4718,7 +4720,7 @@ sub runXSLT($$$\%$) {
     $cmd .= " $p=\"$v\"";
   }
   $cmd .= " SCRIPT_NAME=\"$SCRIPT_NAME\"";
-  &shell($cmd, 3);
+  &shell($cmd, $logFlag);
 }
 
 

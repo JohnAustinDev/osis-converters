@@ -30,7 +30,8 @@ sub convertOSIS($) {
   # update globals from the OSIS file's metadata, namely $CONF, $MOD etc.
   &setConfGlobals(&updateConfData($CONF, $INOSIS));
   
-  &Log("Wrote to header: \n".&writeOsisHeader(\$INOSIS)."\n");
+  &Log("Updating OSIS header.\n");
+  &writeOsisHeader(\$INOSIS);
 
   # globals used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
@@ -430,10 +431,12 @@ sub updateOsisFullResourceURL($$) {
   my $xml = $XML_PARSER->parse_file($osis);
   my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[contains(@type, "FullResourceURL")]', $xml);
   foreach my $u (@update) {
-    if ($fileName =~ /\.html$/) {$u->unbindNode(); next;} # Currently unimplemented for html
-    my $url = $u->textContent;
-    my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
-    $new = $new.'/'.$fileName;
+    my $new = 'false';
+    if ($fileName !~ /\.html$/) {
+      my $url = $u->textContent;
+      my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
+      $new = $new.'/'.$fileName;
+    }
     if ($url ne $new) {
       &Note("Updating FullResourceURL from \"$url\" to \"$new\".");
       &changeNodeText($u, $new);
