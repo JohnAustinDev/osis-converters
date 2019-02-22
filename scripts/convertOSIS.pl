@@ -41,11 +41,12 @@ sub convertOSIS($) {
   $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
   @CREATE_FULL_PUBLICATIONS = (); my $n=0; while (my $p = &conf('ScopeSubPublication'.(++$n))) {push(@CREATE_FULL_PUBLICATIONS, $n);}
+  $CONV_SCOPE = &getScopeOSIS($INOSIS_XML);
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
   else {
     # convert the entire OSIS file
-    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, &conf("Scope"));}
+    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $CONV_SCOPE);}
 
     # convert any print publications that are part of the OSIS file (as specified in config.conf: ScopeSubPublication=scope)
     if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
@@ -64,7 +65,7 @@ sub convertOSIS($) {
         foreach my $x (@CREATE_FULL_PUBLICATIONS) {
           if ($bk && $bk eq &conf('ScopeSubPublication'.$x)) {next BOOK;}
         }
-        if ($CREATE_FULL_BIBLE && &conf("Scope") eq $bk) {next BOOK;}
+        if ($CREATE_FULL_BIBLE && $CONV_SCOPE eq $bk) {next BOOK;}
         if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}
       }
     }
