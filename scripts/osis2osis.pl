@@ -246,7 +246,7 @@ sub convertFileStrings($$) {
       $confH{$e} = $O2O_CONFIGS{$e};
     }
     &writeConf($ccout, \%confH);
-    &setConfGlobals(&updateConfData(&readConf()));
+    &setConfGlobals(&readConf());
   }
   
   # collections.txt

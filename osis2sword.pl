@@ -28,37 +28,37 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require "$SCRD/scripts/dict/processGlossary.pl";
 
-$STARTOSIS = $INOSIS;
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
+
+$Sconf = &getSwordConfFromOSIS($INOSIS);
+$SModDrv = $Sconf->{'ModDrv'};
+$SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
 
 &links2sword(\$INOSIS);
 
-if (&conf('ModDrv') =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
-elsif (&conf('ModDrv') =~ /Text/) {
+if ($SModDrv =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
+elsif ($SModDrv =~ /Text/) {
   &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
 }
-if (&conf('ModDrv') =~ /GenBook/) {
+if ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
   &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
 }
 
-my $typePreProcess = (&conf('ModDrv') =~ /Text/ ? 'osis2sword.xsl':(&conf('ModDrv') =~ /LD/ ? 'osis2tei.xsl':''));
+my $typePreProcess = ($SModDrv =~ /Text/ ? 'osis2sword.xsl':($SModDrv =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
 
 if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
-if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$MODPATH")) {
-  $CONF->{'Feature'} = (&conf('Feature') ? &conf('Feature')."<nx/>":"")."Images";
+# Copy images and set Feature conf entry
+if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$SModPath")) {
+  $Sconf->{'Feature'} = ($Sconf->{'Feature'} ? $Sconf->{'Feature'}."<nx/>":"")."Images";
 }
 
-# The fonts folder is not a standard SWORD feature
-#if (&conf("Font") && $FONTS) {
-#  &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$SWOUT/fonts", 0);
-#}
-
+# Set MinimumVersion conf entry
 $msv = "1.6.1";
-if (&conf('Versification') ne "KJV") {
+if ($Sconf->{'Versification'} ne "KJV") {
   system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
   open(OUTF, "<:encoding(UTF-8)", "$TMPDIR/osis2mod_vers.txt") || die "Could not open $TMPDIR/osis2mod_vers.txt\n";
   while(<OUTF>) {
@@ -68,70 +68,72 @@ if (&conf('Versification') ne "KJV") {
   }
   close(OUTF);
   unlink("$TMPDIR/osis2mod_vers.txt");
-  if (&conf('Versification') eq "SynodalProt") {$msv = "1.7.0";}
-  $CONF->{'MinimumVersion'} = $msv;
+  if ($Sconf->{'Versification'} eq "SynodalProt") {$msv = "1.7.0";}
+  $Sconf->{'MinimumVersion'} = $msv;
 }
 
-if (&conf('ModDrv') =~ /Text/) {
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
-  &Log("\n--- CREATING $MOD SWORD MODULE (".&conf('Versification').")\n");
-  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." ".(&conf('ModDrv') =~ /zText/ ? ' -z z':'')." -v ".&conf('Versification').(&conf('ModDrv') =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
+# Write the SWORD module
+if ($SModDrv =~ /Text/) {
+  &Log("\n--- CREATING $MOD SWORD MODULE (".$Sconf->{'Versification'}.")\n");
+  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$Sconf->{'Versification'}.($SModDrv =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
 }
-elsif (&conf('ModDrv') =~ /^RawGenBook$/) {
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $INOSIS, 1);
-	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".&conf('Versification').")\n");
-	$cmd = &escfile($SWORD_BIN."xml2gbs")." $INOSIS $MODLC >> ".&escfile($LOGFILE);
+elsif ($SModDrv =~ /^RawGenBook$/) {
+	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$Sconf->{'Versification'}.")\n");
+	$cmd = &escfile($SWORD_BIN."xml2gbs")." $INOSIS ".lc($MOD)." >> ".&escfile($LOGFILE);
 	&Log("$cmd\n", -1);
-	chdir("$SWOUT/$MODPATH");
+	chdir("$SWOUT/$SModPath");
 	system($cmd);
 	chdir($SCRD);
 }
-elsif (&conf('ModDrv') =~ /LD/) {
-  # Input file is now TEI with OSIS markup. So get the OSISVersion from the original OSIS file.
-  my $sxml = $XML_PARSER->parse_file($STARTOSIS);
-  my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $sxml)}[0];
-  if ($vers) {
-    $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
-    $CONF->{'OSISVersion'} = $vers;
-  }
-  
-  &writeConf("$SWOUT/mods.d/$MODLC.conf", $CONF, $CONFFILE, $STARTOSIS, 1);
-  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".&conf('Versification').")\n");
-  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$MODPATH")." ".&escfile($INOSIS)." -s ".(&conf('ModDrv') eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
+elsif ($SModDrv =~ /LD/) {
+  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$Sconf->{'Versification'}.")\n");
+  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." -s ".($SModDrv eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
   &Log("$cmd\n", -1);
   system($cmd);
   # tei2mod creates module files called "dict" which are non-standard, so fix
-  opendir(MODF, "$SWOUT/$MODPATH");
+  opendir(MODF, "$SWOUT/$SModPath");
   my @mf = readdir(MODF);
   closedir(MODF);
   foreach my $m (@mf) {
   if ($m !~ /^dict\.(.*?)$/) {next;}
-    rename("$SWOUT/$MODPATH/$m", "$SWOUT/$MODPATH/$MODLC.$1");
+    rename("$SWOUT/$SModPath/$m", "$SWOUT/$SModPath/".lc($MOD).".$1");
   }
 }
 else {
-	&ErrorBug("Unhandled module type \"".&conf('ModDrv')."\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
+	&ErrorBug("Unhandled module type \"$SModDrv\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
 }
 
-if (&conf("PreferredCSSXHTML")) {
-  my $cssfile = &getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible')."/sword/css/".&conf("PreferredCSSXHTML"));
-  copy($cssfile, "$SWOUT/$MODPATH");
+# Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry
+if ($Sconf->{'PreferredCSSXHTML'}) {
+  my $cssfile = &getDefaultFile(($SModDrv =~ /LD/ ? 'dict':'bible')."/sword/css/".$Sconf->{'PreferredCSSXHTML'});
+  copy($cssfile, "$SWOUT/$SModPath");
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }
 
-$CONFFILE = "$SWOUT/mods.d/$MODLC.conf";
-&writeInstallSizeToConf($CONFFILE, "$SWOUT/$MODPATH");
+# Set InstallSize conf entry
+{
+  my $installSize = 0;             
+  find(sub { $installSize += -s if -f $_ }, "$SWOUT/$SModPath");
+  $Sconf->{'InstallSize'} = $installSize;
+}
 
+# Write the SWORD config.conf file
+$SwordConfFile = "$SWOUT/mods.d/".lc($MOD).".conf";
+if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
+&writeConf($SwordConfFile, $Sconf);
 &zipModule($OUTZIP, $SWOUT);
 
 &Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
-open(CONF, "<:encoding(UTF-8)", $CONFFILE) || die "Could not open $CONFFILE\n";
+open(CONF, "<:encoding(UTF-8)", $SwordConfFile) || die "Could not open $SwordConfFile\n";
 while(<CONF>) {&Log("$_", 1);}
 close(CONF);
 
 &timer('stop');
+
+########################################################################
+########################################################################
 
 # Forwards glossary links targetting a member of an aggregated entry to 
 # the aggregated entry because SWORD uses the aggregated entries. 
@@ -179,5 +181,14 @@ sub links2sword($) {
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   &writeXMLFile($xml, $output, $osisP);
 }
+
+sub dataPath2RealPath($) {
+  my $datapath = shift;
+  $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
+  $datapath =~ s/[\\\/]\s*$//; # remove ending slash
+  $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path
+  return $datapath;
+}
+
 
 1;

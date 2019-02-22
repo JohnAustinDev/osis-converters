@@ -60,7 +60,6 @@ $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
 # checkAndWriteDefaults() in case a new dictionary is discovered in the 
 # USFM).
 $MOD = $INPD; $MOD =~ s/^.*\///;
-$MODLC = lc($MOD);
 if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
   $MAININPD = $1; 
   $DICTINPD = $INPD;
