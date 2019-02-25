@@ -5204,6 +5204,10 @@ tag number you wish to use.)\n");
         [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
     my $n = 0;
     foreach my $glossDiv (@needTOC) {
+      if ($glossDiv->getAttribute('scope')) {
+        my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
+        if (!@{&scopeToBooks($glossDiv->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
+      }
       my $hasTitle = 1;
       my $glossTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $glossDiv)}[0];
       if ($glossTitle) {$glossTitle = $glossTitle->textContent;}
