@@ -34,12 +34,13 @@
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 
 $maxUnicode = 1103; # Default value: highest Russian Cyrillic Uncode code point
-$averageBookSize = 28000;
+%BookSizes;
 
 $GOBIBLE = "$INPD/GoBible";
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
+# Remove navigation menus
 $INXML = $XML_PARSER->parse_file($INOSIS);
 foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) {$e->unbindNode();}
 $output = $INOSIS; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeNavMenu$3/;
@@ -48,36 +49,40 @@ $output = $INOSIS; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeNavMenu$3/
 &runScript($MODULETOOLS_BIN."osis2gobible.xsl", \$INOSIS);
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-my $collectionsP = &getInitialCollection($MAINMOD, &getScopeOSIS($INXML), &conf('Versification'));
+my $collectionsP = &getFullCollection($MAINMOD, &getScopeOSIS($INXML), &conf('Versification'));
 
-my %results;
-my @types = ('normal', 'simple');
-foreach my $type (@types) {
-  if ($type eq 'simple') {
-    my @a; push(@a, (keys %{$collectionsP}));
-    foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
-  }
-#use Data::Dumper; &Log("type=$type\n".Dumper($collectionsP)."\n", 1);
-  &makeGoBible($type, "$TMPDIR/$type", $collectionsP, ($type eq 'normal' ? 5:0), \%results);
-}
-
-# Log the results
 my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
 my $scope = &getScopeOSIS($INXML);
-my $scopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
+$ScopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
+
+my %results;
+
+# Make 'normal' character set
+&makeGoBibles('normal', "$TMPDIR/normal", $collectionsP, 5, \%results);
+&copyGoBibles("$TMPDIR/normal", $GBOUT);
+
+my @a; push(@a, (keys %{$collectionsP}));
+foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
+#use Data::Dumper; &Log("type=$type\n".Dumper($collectionsP)."\n", 1);
+
+# Make 'simple' character set, using the collections arrived at by 'normal'
+&makeGoBibles('simple', "$TMPDIR/simple", $collectionsP, 0, \%results);
+&copyGoBibles("$TMPDIR/simple", $GBOUT);
+
+# Log results
+my $colSizeP = &readCollectionSizes($GBOUT);
 foreach my $type (sort keys %results) {
-  my $numcols; my $total; my $collist;
+  my $numcols; my $totalFull; my $totalShort; my @collist;
   foreach my $col (sort keys %{$results{$type}}) {
     $numcols++;
-    $total += scalar @{$results{$type}{$col}};
-    $collist .= sprintf("%-10s = %s\n", $col, join(' ', @{$results{$type}{$col}}));
+    if ($col !~ /(nt|ot)\d+/) {$totalFull += scalar @{$results{$type}{$col}};}
+    else {$totalShort += scalar @{$results{$type}{$col}};}
+    push(@collist, sprintf("%s (%i kb)", $col, $colSizeP->{$col}/1000));
   }
-  if ($total ne $scopeTotal) {
-    &Error("GoBible did not output $scopeTotal books as excected from scope: $scope. ($total book(s) were output).", "See GoBible output logged above.");
+  if ($totalFull ne $ScopeTotal || ($totalShort && $totalShort ne $ScopeTotal)) {
+    &Error("GoBible did not output $ScopeTotal books as excected from scope: $scope. ($totalFull book(s) in full JAR".($totalShort ? " and $totalShort in short JAR files":'').").", "See GoBible output logged above.");
   }
-  &Report(
-"Created $numcols $type GoBible jar files(s) containing 
-a total of $total book(s). (Scope has $scopeTotal books):\n$collist", 1);
+  &Report("Created $numcols $type GoBible jar files(s) containing a total of $totalFull book(s) in a full JAR file and $totalShort book(s) in short JAR files. (Scope also has $ScopeTotal books):\n".join(", ", @collist), 1);
 }
 
 &timer('stop');
@@ -85,15 +90,17 @@ a total of $total book(s). (Scope has $scopeTotal books):\n$collist", 1);
 ########################################################################
 ########################################################################
 
-sub makeGoBible($$$$$) {
+sub makeGoBibles($$$$$) {
   my $type = shift;
   my $dir = shift;
   my $collectionsP = shift;
   my $resize = shift;
   my $resultsP = shift;
   
+  my $colext = ($type eq 'simple' ? '_s':'');
+  
   if ($type !~ /^(normal|simple)$/ || $dir !~ /\/$type$/) {
-    &ErrorBug("makeGoBible type must be 'normal' or 'simple': dir=$dir, type=$type");
+    &ErrorBug("makeGoBibles type must be 'normal' or 'simple': dir=$dir, type=$type");
     return;
   }
   
@@ -101,58 +108,82 @@ sub makeGoBible($$$$$) {
   if (-e $dir) {remove_tree($dir);}
   mkdir $dir;
   
+  my $clt = &getDefaultFile('bible/GoBible/collections.txt', 1);
+  if ($clt) {
+    &Warn("A GoBible/collections.txt was found in input directory $MAININPD so it will now be deleted.",
+"This file is now auto-generated internally by osis-converters.");
+    unlink($clt);
+  }
+  
+  # Gather and prepare GoBible input files
   copy(&getDefaultFile('bible/GoBible/icon.png'), "$dir/icon.png");
   if (-e "$dir/../collections.txt") {unlink "$dir/../collections.txt";}
-  &writeCollectionsFile("$dir/../collections.txt", $collectionsP);
+  my $colfile = &writeCollectionsFile("$dir/../collections.txt", $collectionsP);
   if (-e "$dir/../osis.xml") {unlink "$dir/../osis.xml";}
   &copy($INOSIS, "$dir/../osis.xml");
-  @FILES = (&getDefaultFile("bible/GoBible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
-  &goBibleConvChars($type, \@FILES, $dir);
+  my @files = (&getDefaultFile("bible/GoBible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
+  &goBibleConvChars($type, \@files, $dir);
   if (-e $GO_BIBLE_CREATOR."GoBibleCore/ui.properties") {unlink $GO_BIBLE_CREATOR."GoBibleCore/ui.properties";}
   &copy("$dir/ui.properties", $GO_BIBLE_CREATOR."GoBibleCore/ui.properties");
-  my $log = &shell("java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$dir/collections.txt"));
-
-  chdir($dir);
-  if (!opendir(DIR, "./")) {&ErrorBug("makeGoBible could not open $dir for reading"); return;}
-  my @f = readdir(DIR);
-  closedir(DIR);
   
-  my %tooBig;
-  for (my $i=0; $i < @f; $i++) {
-    if ($f[$i] !~ /^(.*?).jar$/i) {next;}
-    my $col = $1;
-    my $size = (-s "$dir/".$f[$i]);
-    if ($size > 512000) {
-      if ($col =~ /(ot|nt)\d+(_s)?/) {&Note("The small jar file ".$f[$i]." is larger than 512kb ($size)");}
-      $tooBig{$col} = $size;
+  # Run GoBible Creator
+  my $log = &shell("java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$dir/collections.txt"), 3);
+
+  # Read and check size of resulting JAR files
+  my $colSizeP = &readCollectionSizes($dir);
+  my $maxsize = 512000;
+  my $needReRun = 0;
+  foreach my $col (sort keys %{$colSizeP}) {
+    if ($colSizeP->{$col} > $maxsize) {
+      $needReRun++;
+      if ($col =~ /(ot|nt)\d+$colext/) {
+        &Note(sprintf("The small jar file $col is larger than 512kb (%i)", $colSizeP->{$col}/1000), 1);
+      }
     }
   }
-  if (scalar keys %tooBig > 1) {
-    if (exists($tooBig{lc($MAINMOD)})) {delete($tooBig{lc($MAINMOD)});}
-    elsif (exists($tooBig{lc($MAINMOD)."_s"})) {delete($tooBig{lc($MAINMOD)."_s"});}
+
+  # Check if another run is needed and prepare for it
+  if ($needReRun) {
+    if (scalar keys %{$collectionsP} == 1) {
+      &calculateBookSizes("$dir/osis.xml", $colSizeP->{lc($MAINMOD).$colext}, \%BookSizes);
+      &createCollectionsOTNT($collectionsP, $colext);
+      $colSizeP = &calculateCollectionSizes($collectionsP, \%BookSizes);
+    }
+    elsif ($needReRun == 1) {$needReRun = 0;}
   }
-  if (scalar keys %tooBig) {
+   
+  # Re-run GoBible if necessary/possible
+  if ($needReRun) {
     if ($resize--) {
-      &adjustCollectionSizes($collectionsP, \%tooBig);
-      &makeGoBible($type, $dir, $collectionsP, $resize, $resultsP);
+      &adjustCollectionSizes($collectionsP, $colSizeP, $colext, \%BookSizes, $maxsize);
+      &Note("Re-running GoBible Creator (countdown=$resize)", 1);
+      &makeGoBibles($type, $dir, $collectionsP, $resize, $resultsP);
       return;
     }
     &ErrorBug("At least one small JAR file is greater than 512kb.", "Small jar files should be smaller than 512kb, but osis-converters failed to acheive this.");
   }
-  &Log("\n$log\n");
   
-  &Log("\n--- Copying module to MKS directory $MOD".&conf("Version")."\n");
-  for (my $i=0; $i < @f; $i++) {
-    if ($f[$i] !~ /\.(jar|jad)$/i) {next;}
-    copy("$dir/".$f[$i], "$GBOUT/".$f[$i]);
-  }
-  chdir($SCRD);
+  &Log("\n$log\n$colfile\n");
   
   &checkGoBibleLog($log, $resultsP);
   return;
 }
 
-sub getInitialCollection($$$) {
+sub copyGoBibles($$) {
+  my $dfrom = shift;
+  my $dto = shift;
+  
+  &Log("\n--- Copying module to MKS directory $dto\n");
+  if (!opendir(DIR, $dfrom)) {&ErrorBug("copyGoBibles could not open $dfrom for reading"); return;}
+  my @f = readdir(DIR);
+  closedir(DIR);
+  for (my $i=0; $i < @f; $i++) {
+    if ($f[$i] !~ /\.(jar|jad)$/i) {next;}
+    copy("$dfrom/".$f[$i], "$dto/".$f[$i]);
+  }
+}
+
+sub getFullCollection($$$) {
   my $modname = shift;
   my $scope = shift;
   my $v11n = shift;
@@ -168,6 +199,8 @@ sub writeCollectionsFile($$) {
   my $fdest = shift;
   my $collectionsP = shift;
   
+  my $colfile;
+  
   # Get localized book names from OSIS file
   my %localbk;
   foreach my $tocm ($XPC->findnodes('//osis:div[@type="book"]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $INXML)) {
@@ -179,9 +212,6 @@ sub writeCollectionsFile($$) {
   if (!open(INC, "<:encoding(UTF-8)", $coltxt)) {
     &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", '', 1);
   }
-  if (!open (COLL, ">:encoding(UTF-8)", $fdest)) {
-    &ErrorBug("writeCollectionsFile could not open $fdest for writing.", '', 1);
-  }
   
   # Write Book-Name-Map for all books in localbk and coltxt
   while (<INC>) {
@@ -192,69 +222,148 @@ sub writeCollectionsFile($$) {
         $localbk{$bk} = '';
       }
     }
-    print COLL $_;
+    $colfile .= $_;
   }
-  foreach my $bk (keys %localbk) {if ($localbk{$bk}) {print COLL "Book-Name-Map: $bk, ".$localbk{$bk}."\n";}}
+  foreach my $bk (keys %localbk) {if ($localbk{$bk}) {$colfile .= "Book-Name-Map: $bk, ".$localbk{$bk}."\n";}}
   
-  print COLL "Info: (".&conf('Version').") ".&conf('Description')."\n";
-  print COLL "Application-Name: ".&conf('Abbreviation')."\n";
+  $colfile .= "Info: (".&conf('Version').") ".&conf('Description')."\n";
+  $colfile .= "Application-Name: ".&conf('Abbreviation')."\n";
   
   # Write collections according to collectionsP
   foreach my $col (sort keys (%{$collectionsP})) {
-    print COLL "\nCollection: $col\n";
+    $colfile .= "\nCollection: $col\n";
     foreach my $bk (@{$collectionsP->{$col}}) {
-      print COLL "Book: $bk\n";
+      $colfile .= "Book: $bk\n";
     }
   }
-  close(COLL);
   close(INC);
   
+  if (!open (COLL, ">:encoding(UTF-8)", $fdest)) {
+    &ErrorBug("writeCollectionsFile could not open $fdest for writing.", '', 1);
+  }
+  print COLL $colfile;
+  close(COLL);
+  
 #&Debug("writeCollectionsFile $fdest:\n".&shell("cat \"$fdest\"")."\n");
+  return $colfile;
 }
 
-sub adjustCollectionSizes($$) {
+sub readCollectionSizes($) {
+  my $dir = shift;
+  
+  if (!opendir(DIR, $dir)) {&ErrorBug("readCollectionSizes could not open $dir for reading"); return;}
+  my @f = readdir(DIR);
+  closedir(DIR);
+  
+  my %colSize;
+  for (my $i=0; $i < @f; $i++) {
+    if ($f[$i] !~ /^(.*?).jar$/i) {next;}
+    my $col = $1;
+    $colSize{$col} = (-s "$dir/".$f[$i]);
+  }
+  
+  return \%colSize;
+}
+
+sub calculateBookSizes($$$) {
+  my $osis = shift;
+  my $fullsize = shift;
+  my $bookSizesP = shift;
+  
+  my $xml = $XML_PARSER->parse_file($osis);
+  my %bookChars;
+  my $totalChars = 0;
+  my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  foreach my $bke (@books) {
+    my $bk = $bke->getAttribute('osisID');
+    $bookChars{$bk} = length($bke->textContent());
+    $totalChars += $bookChars{$bk};
+  }
+  foreach my $bke (@books) {
+    my $bk = $bke->getAttribute('osisID');
+    $bookSizesP->{$bk} = int($fullsize * $bookChars{$bk}/$totalChars);
+  }
+}
+
+# Add to the full JAR file new OT and NT and JAR files
+sub createCollectionsOTNT($$) {
   my $collectionsP = shift;
-  my $tooBigP = shift;
+  my $colext = shift;
   
-  my $mod; my $simple;
-  foreach my $k (keys %{$collectionsP}) {
-    if ($k =~ /^(.*?)(nt|ot)?\d*(_s)?$/) {$mod = $1; $simple = $3;}
-    last;
-  }
+  my $ot1 = lc($MAINMOD).'ot1'.$colext;
+  my $nt1 = lc($MAINMOD).'nt1'.$colext;
   
-  # One key means full Bible is too big, so split into ot and nt, first
+  if (exists($collectionsP->{$ot1})) {delete $collectionsP->{$ot1};}
+  if (exists($collectionsP->{$nt1})) {delete $collectionsP->{$nt1};}
+  
   my %cols;
-  if (scalar keys %{$collectionsP} == 1) {
-    my $k; my $c;
-    foreach $c (keys %{$collectionsP}) {
-      foreach my $b (@{$collectionsP->{$c}}) {
-        $k = $mod.(NT_BOOKS =~ /\b$b\b/ ? 'nt':'ot').'1'.$simple;
-        $cols{$k}++;
-        if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
-        push(@{$collectionsP->{$k}}, $b);
-      }
-      last; # yes, collectionsP started with 1 key, but may have more by now
-    }
-    if (scalar keys %cols == 2) {return;} # since books were split between testaments, maybe we're ok now
-    $tooBigP->{$k} = delete($tooBigP->{$c}); # so that next steps will effect new collection rather than full one
+  my $k;
+  foreach my $b (@{$collectionsP->{lc($MAINMOD).$colext}}) {
+    $k = ($NT_BOOKS =~ /\b$b\b/ ? $nt1:$ot1);
+    $cols{$k}++;
+    if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
+    push(@{$collectionsP->{$k}}, $b);
   }
+}
+
+# Read collectionsP and calculate the size of each collection based on 
+# bookSizesP.
+sub calculateCollectionSizes($$) {
+  my $collectionsP = shift;
+  my $bookSizesP = shift;
   
-  # Push x books from each tooBig collection to the next collection
-  foreach my $col (keys %{$tooBigP}) {
-    my $bigsize = $tooBigP->{$col};
-    my $nmove =  printf("%.0f", ($bigsize - 512000)/$averageBookSize);
-    $col =~ /((ot\d+|nt\d+)?)((_s)?)/;
-    my $n = $1; my $s = $3;
-    $n =~ s/(ot|nt)//;
-    if (!$n) {$n = 1;} else {$n++;}
-    if ($s ne $simple) {&ErrorBug("adjustCollectionSizes type mismatch: '$s' != '$simple'");}
-    my $lastX = $#{$collectionsP->{$col}};
-    for (my $x=$lastX; $x>($lastX-$nmove); $x--) {
-      my $bk = pop(@{$collectionsP->{$col}});
-      my $k = $mod.(NT_BOOKS =~ /\b$bk\b/ ? 'nt':'ot').$n.$simple;
-      if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
-      unshift(@{$collectionsP->{$k}}, $bk);
+  my %colSize;
+  foreach my $col (sort keys %{$collectionsP}) {
+    foreach my $bk (@{$collectionsP->{$col}}) {
+      $colSize{$col} += $bookSizesP->{$bk};
     }
+  }
+
+  return \%colSize;
+}
+
+# Shift books in collectionsP collections so that no collection other 
+# than the full-Bible collection, is larger than maxColSize.
+sub adjustCollectionSizes($$$$) {
+  my $collectionsP = shift;
+  my $colSizeP = shift;
+  my $colext = shift;
+  my $bookSizesP = shift;
+  my $maxColSize = shift;
+  
+  my $hasOversize;
+  do {
+    &shiftBookFromOversizedCollections($collectionsP, $colSizeP, $colext, $maxColSize);
+    $colSizeP = &calculateCollectionSizes($collectionsP, $bookSizesP);
+    $hasOversize = 0;
+    foreach my $col (keys %{$colSizeP}) {
+      if ($col eq lc($MAINMOD).$colext) {next;}
+      if ($colSizeP->{$col} > $maxColSize) {$hasOversize++;}
+    }
+  } while ($hasOversize);
+  my $note = "Adjusted collection sizes:\n";
+  foreach my $col (sort keys %{$collectionsP}) {
+    $note .= sprintf("%-10s (%7i kb) %s\n", $col, ($colSizeP->{$col}/1000), join(' ', @{$collectionsP->{$col}}));
+  }
+  &Note($note, 2);
+}
+
+# Move a book from each over-sized collection to the next collection
+sub shiftBookFromOversizedCollections($$$$) {
+  my $collectionsP = shift;
+  my $colSizeP = shift;
+  my $colext = shift;
+  my $maxColSize = shift;
+
+  foreach my $col (keys %{$collectionsP}) {
+    if ($col eq lc($MAINMOD).$colext) {next;}
+    if ($colSizeP->{$col} <= $maxColSize) {next;}
+    if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", '', 1);}
+    my $n = $2;
+    my $bk = pop(@{$collectionsP->{$col}});
+    my $k = lc($MAINMOD).($NT_BOOKS =~ /\b$bk\b/ ? 'nt':'ot').($n+1).$colext;
+    if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
+    unshift(@{$collectionsP->{$k}}, $bk);
   }
 }
 

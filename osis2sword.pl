@@ -33,6 +33,7 @@ require "$SCRD/scripts/dict/processGlossary.pl";
 $Sconf = &getSwordConfFromOSIS($INOSIS);
 $SModDrv = $Sconf->{'ModDrv'};
 $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
+if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 &links2sword(\$INOSIS);
 
@@ -49,7 +50,7 @@ if ($SModDrv =~ /GenBook/) {
 my $typePreProcess = ($SModDrv =~ /Text/ ? 'osis2sword.xsl':($SModDrv =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
 
-if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
+if ($SModDrv =~ /LD/ && $UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
 # Copy images and set Feature conf entry
 if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$SModPath")) {

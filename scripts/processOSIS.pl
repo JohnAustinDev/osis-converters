@@ -97,7 +97,7 @@ elsif ($modType eq 'childrens_bible') {
 else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 
 # Every note tag needs a unique osisID assigned to it
-&writeNoteIDs(\$OSIS, $CONF);
+&writeNoteIDs(\$OSIS);
 
 # Add any missing Table of Contents milestones and titles as required for eBooks, html etc.
 &writeTOC(\$OSIS, $modType);

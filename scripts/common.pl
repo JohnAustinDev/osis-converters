@@ -264,7 +264,8 @@ DICT settings has now been replaced by a section in the config.conf
 file. The DICT config.conf file will be deleted. Your config.conf will 
 have new section with that information.");
   foreach my $de (sort keys %dictConf) {
-    if ($mainConf->{$de} eq $dictConf{$de}) {next;}
+    if ($de eq 'ModuleName') {next;}
+    if ($mainConf{$de} eq $dictConf{$de}) {next;}
     $mainConf{"$DICTMOD+$de"} = $dictConf{$de};
   }
 
@@ -4972,7 +4973,7 @@ sub writeWorkElement($$$) {
   # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
   foreach my $e (sort keys %{$elementsP}) {
-    if (!$elementsP->{$e}{'textContent'}) {next;}
+    if (!exists($elementsP->{$e}{'textContent'})) {next;}
     $work->appendTextNode("\n  ");
     my $er = $e;
     $er =~ s/^\d+\://;
@@ -4992,14 +4993,13 @@ sub writeWorkElement($$$) {
 
 sub writeNoteIDs($) {
   my $osisP = shift;
-  my $confP = shift;
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeNoteIDs$3/;
   
   my $type;
-  if    ($confP->{'ModDrv'} =~ /LD/)   {$type = 'x-glossary';}
-  elsif ($confP->{'ModDrv'} =~ /Text/) {$type = 'x-bible';}
-  elsif ($confP->{'ModDrv'} =~ /GenBook/) {$type = 'x-childrens-bible';}
+  if    (&conf('ModDrv') =~ /LD/)   {$type = 'x-glossary';}
+  elsif (&conf('ModDrv') =~ /Text/) {$type = 'x-bible';}
+  elsif (&conf('ModDrv') =~ /GenBook/) {$type = 'x-childrens-bible';}
   else {return;}
   
   &Log("\nWriting note osisIDs:\n", 1);
