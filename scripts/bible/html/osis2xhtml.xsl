@@ -849,7 +849,8 @@
     <param name="currentTask" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
-    <if test="$currentTask = 'write-xhtml' and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+    <if test="$currentTask = 'write-xhtml' and not(ancestor::div[@resp='x-oc']) and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and 
+        count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"/></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC keyword's GlossaryScopeName to disambiguate: <value-of select="./text()"/></with-param></call-template>
@@ -1112,7 +1113,7 @@
         </variable>
         <variable name="pass2"><apply-templates select="$pass1" mode="weed2"/></variable><!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
         <if test="not($quiet) and count($element/node())+1 != count($pass2/node())">
-          <call-template name="Note"><with-param name="msg">expelling: <value-of select="oc:printNode($expel)"/></with-param></call-template>
+          <call-template name="Note"><with-param name="msg">expelling<for-each select="$expel">: <value-of select="oc:printNode(.)"/></for-each></with-param></call-template>
         </if>
         <sequence select="$pass2"/>
       </otherwise>
