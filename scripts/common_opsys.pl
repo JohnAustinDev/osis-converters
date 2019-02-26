@@ -356,7 +356,7 @@ sub setSystemVars($) {
 system section: ".join(' ', @OC_SYSTEM));}
   }
   
-  $DEBUG = 1; # use this to force on when debugging config.conf
+  #$DEBUG = 1; # can use this to force on when debugging config.conf
 }
 
 # Whereas $CONF is just the raw data of the config.conf file. This 
