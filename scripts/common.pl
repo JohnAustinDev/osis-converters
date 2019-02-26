@@ -4868,7 +4868,7 @@ sub getOSIS_Work($$$$) {
   
   # map conf info to OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
-  $osisWorkP->{'000000:title'}{'textContent'} = $confP->{$section.'TranslationTitle'};
+  $osisWorkP->{'000000:title'}{'textContent'} = ($modname eq $DICTMOD ? &conf('CombinedGlossaryTitle'):&conf('TranslationTitle'));
   &mapLocalizedElem(30000, 'subject', $section.'Description', $confP, $osisWorkP, 1);
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
