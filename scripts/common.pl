@@ -485,10 +485,6 @@ sub loadDictionaryWordsXML($) {
     &Error("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
     $errors++;
   }
-  my $tst = @{$XPC->findnodes('//*[@notXPATH]', $DWF)}[0];
-  if (!$tst) {
-    &Warn("DictionaryWords attribute: \"notXPATH\" was not found in \"$INPD/$DICTIONARY_WORDS\". This is unusual.", "The usual setting is 'notXPATH=\"$DICTIONARY_NotXPATH_Default\"' in \"$INPD/$DICTIONARY_WORDS\".");
-  }
   my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
   if ($tst) {
     $errors++;
@@ -2193,6 +2189,7 @@ sub pruneFileOSIS($$\%\$\$) {
   $typeRE =~ s/\-/\\-/g;
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
+  my $fullScope = &getScopeOSIS($inxml);
   
   my $bookOrderP;
   my $booksFiltered = 0;
@@ -2325,7 +2322,7 @@ sub pruneFileOSIS($$\%\$\$) {
       &insertPubCover($subPubCover, $inxml);
     }
   }
-  if ($scope && !$subPubCover) {&Warn("A Sub-Publication cover was not found for $scope.", 
+  if ($scope && $scope ne $fullScope && !$subPubCover) {&Warn("A Sub-Publication cover was not found for $scope.", 
 "If a custom cover image is desired for $scope then add a file 
 ./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? 'Alternatively you may add 
 an image whose filename is any scope that contains $scope':''));}
@@ -4320,7 +4317,7 @@ sub checkIntroductionTags($) {
 # Print log info for a word file
 sub logDictLinks() {
   &Log("\n\n");
-  &Report("Glossary entries that were explicitly marked in the SFM: (". (scalar keys %ExplicitGlossary) . " instances)");
+  &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %ExplicitGlossary) . " variations)");
   my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
   my %cons;
   foreach my $eg (sort keys %ExplicitGlossary) {

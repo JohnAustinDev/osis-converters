@@ -72,7 +72,7 @@ foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
 # Log results
 my $colSizeP = &readCollectionSizes($GBOUT);
 foreach my $type (sort keys %results) {
-  my $numcols; my $totalFull; my $totalShort; my @collist;
+  my $numcols = 0; my $totalFull = 0; my $totalShort = 0; my @collist;
   foreach my $col (sort keys %{$results{$type}}) {
     $numcols++;
     if ($col !~ /(nt|ot)\d+/) {$totalFull += scalar @{$results{$type}{$col}};}

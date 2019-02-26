@@ -21,14 +21,14 @@ sub getScope($$) {
   my $vsys = shift;
   
   my $xml = (ref($osis) ? $osis:$XML_PARSER->parse_file($osis));
-  my $osisf = (ref($osis) ? $$osis:$osis);
+  my $osisf = (ref($osis) ? 'xml document node':'osis file');
   
   my $scope = "";
   
   $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
   if (!$vsys) {&ErrorBug("Could not determine versification of $osisf.");}
 
-  &Log("\n\nDETECTING SCOPE: Versification=$vsys OSIS=$osisf\n");
+  &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
   my %haveVerse;
   my $canonP; my $bookOrderP; my $testamentP;

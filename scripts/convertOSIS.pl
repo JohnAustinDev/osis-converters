@@ -37,16 +37,16 @@ sub convertOSIS($) {
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   %CONV_REPORT;
   $CONV_NAME;
-  $FULL_PUB_TITLE = @{$XPC->findnodes("/descendant::osis:work[\@osisWork='$MOD'][1]/osis:title[1]", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
+  $FULL_PUB_TITLE = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
   $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
   @CREATE_FULL_PUBLICATIONS = (); my $n=0; while (my $p = &conf('ScopeSubPublication'.(++$n))) {push(@CREATE_FULL_PUBLICATIONS, $n);}
-  $CONV_SCOPE = &getScopeOSIS($INOSIS_XML);
+  $FULLSCOPE = &getScopeOSIS($INOSIS_XML);
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
   else {
     # convert the entire OSIS file
-    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $CONV_SCOPE);}
+    if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $FULLSCOPE);}
 
     # convert any print publications that are part of the OSIS file (as specified in config.conf: ScopeSubPublication=scope)
     if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
@@ -65,7 +65,7 @@ sub convertOSIS($) {
         foreach my $x (@CREATE_FULL_PUBLICATIONS) {
           if ($bk && $bk eq &conf('ScopeSubPublication'.$x)) {next BOOK;}
         }
-        if ($CREATE_FULL_BIBLE && $CONV_SCOPE eq $bk) {next BOOK;}
+        if ($CREATE_FULL_BIBLE && $FULLSCOPE eq $bk) {next BOOK;}
         if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}
       }
     }
@@ -106,14 +106,12 @@ sub OSIS_To_ePublication($$$$) {
   
   my $type = ($isPartial ? 'Part':'Full');
   
-  &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=$type, titleOverride=$titleOverride\n", 1);
-  
-  $CONV_NAME = &getEbookName($scope, $FULL_PUB_TITLE, $CONF, $type);
+  $CONV_NAME = &getEbookName($titleOverride, $scope, $type);
   if ($CONV_REPORT{$CONV_NAME}) {
     &ErrorBug("$convertTo \"$CONV_NAME\" already created!");
   }
   
-  &Log("\n");
+  &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=".($type eq 'Part' ? $type:(&isTran($scope) ? 'Tran':'Full')).", name=$CONV_NAME\n\n", 1);
   
   my $tmp = $scope; $tmp =~ s/\s/_/g; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
   make_path("$tmp/tmp/bible");
@@ -342,35 +340,35 @@ sub makeHTML($$$) {
 # Returns 1 if $scope covers the entire translation (the entire project) 
 # which also includes sub-publications. Returns 0 otherwise.
 sub isTran($) {
-  my $scope = shift;
+  my $scope = shift; $scope =~ s/\s+/_/g;
+  
   my $subdirs = &shell("find '$MAININPD/sfm' -maxdepth 1 -type d | wc -l", 3); chomp($a); $a--;
   if (!$scope) {return ($subdirs ? 1:0);}
   my $nosubdir = (! -d "$MAININPD/sfm/$scope");
   return ($subdirs && $nosubdir ? 1:0);
 }
 
-sub getEbookName($$$$) {
+sub getEbookName($$$) {
+  my $title = shift;
   my $scope = shift;
-  my $fullPubTitle = shift;
-  my $confP = shift;
   my $type = shift;
+
+  if ($scope eq $FULLSCOPE) {return &getFullEbookName($scope);}
   
-  my $title = $scope . "_" . $type;
-  $title =~ s/\s/_/g;
+  my $filename = ($title ? $title:$scope . "_" . $type);
+  $filename =~ s/\s/_/g;
   
-  return ($scope eq $confP->{"Scope"} ? &getFullEbookName($scope, $fullPubTitle, $confP):$title);
+  return $filename;
 }
 
-sub getFullEbookName($$$) {
+sub getFullEbookName($) {
   my $scope = shift;
-  my $fullPubTitle = shift;
-  my $confP = shift;
   
   my $s = $scope; $s =~ s/_/ /g;
   my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
-  my $ms = $confP->{"Scope"};
+  my $ms = $FULLSCOPE;
   $ms =~ s/\s/_/g;
-  my $eBookFullPubName = ($fullPubTitle ? $fullPubTitle.'__':$ms.'_').$FullOrTran;
+  my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__':$ms.'_').$FullOrTran;
   $eBookFullPubName =~ s/\s+/-/g;
   
   return $eBookFullPubName;
@@ -388,7 +386,7 @@ sub makeEbook($$$$$) {
   
   if (!$format) {$format = 'fb2';}
   
-  &updateOsisFullResourceURL($osis, &getFullEbookName($scope, $FULL_PUB_TITLE, $CONF).".$format");
+  &updateOsisFullResourceURL($osis, &getFullEbookName($scope).".$format");
   
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
   &shell($cmd);
@@ -430,12 +428,15 @@ sub updateOsisFullResourceURL($$) {
   my $fileName = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
-  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[contains(@type, "FullResourceURL")]', $xml);
+  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type = "x-config-FullResourceURL"]', $xml);
   foreach my $u (@update) {
-    my $new = 'false';
-    if ($fileName !~ /\.html$/) {
-      my $url = $u->textContent;
-      my $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
+    my $url = $u->textContent;
+    my $new;
+    if ($fileName =~ /\.html$/) {
+      $new = 'false';
+    }
+    else {
+      $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
       $new = $new.'/'.$fileName;
     }
     if ($url ne $new) {
