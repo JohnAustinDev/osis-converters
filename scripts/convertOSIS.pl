@@ -106,7 +106,7 @@ sub OSIS_To_ePublication($$$$) {
   
   my $type = ($isPartial ? 'Part':'Full');
   
-  $CONV_NAME = &getEbookName($titleOverride, $scope, $type);
+  $CONV_NAME = &getEbookName($scope, $type);
   if ($CONV_REPORT{$CONV_NAME}) {
     &ErrorBug("$convertTo \"$CONV_NAME\" already created!");
   }
@@ -348,14 +348,13 @@ sub isTran($) {
   return ($subdirs && $nosubdir ? 1:0);
 }
 
-sub getEbookName($$$) {
-  my $title = shift;
+sub getEbookName($$) {
   my $scope = shift;
   my $type = shift;
 
   if ($scope eq $FULLSCOPE) {return &getFullEbookName($scope);}
   
-  my $filename = ($title ? $title:$scope . "_" . $type);
+  my $filename = $scope . "_" . $type;
   $filename =~ s/\s/_/g;
   
   return $filename;
