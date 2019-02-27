@@ -105,6 +105,7 @@ sub OSIS_To_ePublication($$$$) {
   my $titleOverride = shift; # Use this ePublication title in lieu of any other
   
   my $type = ($isPartial ? 'Part':'Full');
+  my $isChildrensBible = ($scope ? 0:1); # Children's Bibles have no scope
   
   $CONV_NAME = &getEbookName($scope, $type);
   if ($CONV_REPORT{$CONV_NAME}) {
@@ -120,7 +121,7 @@ sub OSIS_To_ePublication($$$$) {
   
   my $pubTitle = $titleOverride;
   my $pubTitlePart;
-  if ($scope) { # Children's Bibles have no scope
+  if (!$isChildrensBible) {
     &pruneFileOSIS(
       \$osis,
       $scope,
@@ -154,9 +155,14 @@ sub OSIS_To_ePublication($$$$) {
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
   copy("$SCRD/scripts/functions.xsl", $tmp);
   
-  # copy css
-  &copy_dir_with_defaults("bible/$convertTo/css", "$tmp/css");
- 
+  # copy css file(s): always copy html.css and then if needed also copy $convertTo.css if it exists
+  mkdir("$tmp/css");
+  my $css = &getDefaultFile(($isChildrensBible ? 'childrens_bible':'bible')."/html/css/html.css", -1);
+  if ($css) {&copy($css, "$tmp/css/00html.css");}
+  if ($convertTo ne 'html') {
+    $css = &getDefaultFile(($isChildrensBible ? 'childrens_bible':'bible')."/$convertTo/css/$convertTo.css", -1);
+    if ($css) {&copy($css, "$tmp/css/01$convertTo.css");}
+  }
   # copy font if specified
   if ($FONTS && &conf("Font")) {
     &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$tmp/css", 1);
@@ -168,7 +174,7 @@ sub OSIS_To_ePublication($$$$) {
     #my $home = &shell("echo \$HOME", 3); chomp($home);
     #&Note("Calibre can only embed fonts that are installed. Installing ".&conf("Font")." to host.");
     #&copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$home/.fonts");
-    if (open(CSS, ">$tmp/css/font.css")) {
+    if (open(CSS, ">$tmp/css/10font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
       foreach my $f (keys %{$FONT_FILES{&conf("Font")}}) {
         my $format = $font_format{lc($FONT_FILES{&conf("Font")}{$f}{'ext'})};
@@ -188,7 +194,7 @@ body {font-family: font1;}
       if (open(FCSS, "<$FONTS/".&conf("Font").".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
       close(CSS);
     }
-    else {&ErrorBug("Could not write font css to \"$tmp/css/font.css\"");}
+    else {&ErrorBug("Could not write font css to \"$tmp/css/10font.css\"");}
   }
   
   # copy companion OSIS DICT

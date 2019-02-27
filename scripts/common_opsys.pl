@@ -451,7 +451,9 @@ sub isValidConfig($) {
 # places, in order. If a default file is not found, return either '' or 
 # throw a stop error if priority was 0 (or null etc.). The file may  
 # include a path that (presently) begins with either 'bible/' for Bible  
-# module default files or 'dict/' for dictionary module default files. 
+# module default files or 'dict/' for dictionary module default files,
+# or 'childrens_bible/' for childrens' Bibles. The fallback for
+# 'childrens_bible' calls is 'bible' if the former does not exist. 
 # If priority 1, 2 or 3 is specified, only the location with that 
 # priority will be checked:
 # priority  location
@@ -459,22 +461,19 @@ sub isValidConfig($) {
 #    2      main-project-parent/defaults directory
 #    3      osis-converters/defaults directory
 #
-# NOTE: priority -1 will check all locations but will not throw an error 
-# upon failure.
+# NOTE: priority -1 will check all locations in order but will not throw 
+# an error upon failure to locate a file.
 #
 # NOTE: Soft links in the file path are followed, but soft links that 
-# are valid on the host will NOT be valid on a VM. To work for the VM, 
+# are valid on the host will NOT be valid on a VM! To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
-# with /vagrant and be broken on the host, although they work from the VM).
+# with /vagrant and will be broken on the host, but will work on the VM).
 sub getDefaultFile($$) {
   my $file = shift;
   my $priority = shift;
   
-  $file =~ s/^childrens_(bible)/$1/;
-  
   my $moduleFile = $file;
-  my $fileType = ($moduleFile =~ s/^(bible|dict)\/// ? $1:'');
-  my $modType = ($MOD eq $DICTMOD ? 'dict':'bible');
+  my $fileType = ($moduleFile =~ s/^(childrens_bible|bible|dict)\/// ? $1:'');
   
   my $defaultFile;
   my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
@@ -503,6 +502,7 @@ sub getDefaultFile($$) {
       &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
   }
+  if ($fileType eq 'childrens_bible' && !$defaultFile) {return &getDefaultFile("bible/$moduleFile", $priority);}
   if (!$priority && !$defaultFile) {
     &ErrorBug("Default file $file could not be found in any default path.", 'Add this file to the osis-converters/defaults directory.', 1);
   }
