@@ -386,6 +386,11 @@ sub conf($$) {
   elsif ($c->{$entry}) {$key = $entry;}
   
   #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
+  if (!$key || $c->{$key} eq '' || ($entry =~ /Title/ && $c->{$key} =~ /DEF$/)) {
+    if ($entry !~ /SubPublication/) {
+      &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the config.conf file.");
+    }
+  }
 
   return ($key ? $c->{$key}:'');
 }

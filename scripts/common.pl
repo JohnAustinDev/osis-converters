@@ -1853,11 +1853,6 @@ sub checkConfGlobals() {
   
   if ($INPD ne $DICTINPD) {
     # Check for UI that needs localization
-    foreach my $k (keys %CONFIG_DEFAULTS) {
-      if (!$DICTMOD && $k eq 'CombinedGlossaryTitle') {next;}
-      if ($k =~ /[\:\+]/ || $CONFIG_DEFAULTS{$k} !~ / DEF$/ || $CONF->{$k} ne $CONFIG_DEFAULTS{$k}) {next;}
-      &Error("Title config entry '$k' is not localized: ".$CONFIG_DEFAULTS{$k}, "Localize the title in config.conf with: $k=Localized Title");
-    }
     my $n=0;
     while (exists($CONF->{'TitleSubPublication'.++$n})) {
       if ($CONF->{'TitleSubPublication'.$n} && $CONF->{'TitleSubPublication'.$n} !~ / DEF$/) {next;}
@@ -2716,7 +2711,7 @@ sub osisCache($$) {
     &ErrorBug("$func: Could not find header for $modname in $osis.", '', 1);
     return '';
   }
-  if (!$DOCUMENT_CACHE{$modname}{$func}) {
+  if (!exists($DOCUMENT_CACHE{$modname}{$func})) {
     &ErrorBug("$func: Failed in $osis.", '', 1);
   }
   
@@ -2762,12 +2757,7 @@ sub getDictModOSIS($) {
 }
 sub isChildrensBible($) {
   my $mod = &getModNameOSIS(shift);
-  my $return = &osisCache('isChildrensBible', $mod);
-  if (!$return) {
-    &ErrorBug("isChildrensBible: No document node for \"$mod\"!");
-    return '';
-  }
-  return $return;
+  return &osisCache('isChildrensBible', $mod);
 }
 sub getOsisRefWork($) {return &getModNameOSIS(shift);}
 sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
