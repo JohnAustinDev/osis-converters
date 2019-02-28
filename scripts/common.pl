@@ -1856,7 +1856,7 @@ sub checkConfGlobals() {
     foreach my $k (keys %CONFIG_DEFAULTS) {
       if (!$DICTMOD && $k eq 'CombinedGlossaryTitle') {next;}
       if ($k =~ /[\:\+]/ || $CONFIG_DEFAULTS{$k} !~ / DEF$/ || $CONF->{$k} ne $CONFIG_DEFAULTS{$k}) {next;}
-      &Warn("Title config entry '$k' is not localized: ".$CONFIG_DEFAULTS{$k}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: $k=Localized Title");
+      &Error("Title config entry '$k' is not localized: ".$CONFIG_DEFAULTS{$k}, "Localize the title in config.conf with: $k=Localized Title");
     }
     my $n=0;
     while (exists($CONF->{'TitleSubPublication'.++$n})) {
@@ -4927,7 +4927,7 @@ sub getOSIS_Work($$$$) {
   $osisWorkP->{'120000:identifier'}{'type'} = 'ISBN';
   $osisWorkP->{'121000:identifier'}{'textContent'} = "$idf.".$confP->{$section.'ModuleName'};
   $osisWorkP->{'121000:identifier'}{'type'} = 'OSIS';
-  $osisWorkP->{'130000:source'}{'textContent'} = ($isbn ? "ISBN: $isbn":'');
+  if ($isbn) {$osisWorkP->{'130000:source'}{'textContent'} = "ISBN: $isbn";}
   $osisWorkP->{'140000:language'}{'textContent'} = $confP->{$section.'Lang'};
   &mapLocalizedElem(170000, 'rights', $section.'Copyright', $confP, $osisWorkP);
   &mapLocalizedElem(180000, 'rights', $section.'DistributionNotes', $confP, $osisWorkP);
