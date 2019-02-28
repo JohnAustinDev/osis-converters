@@ -2681,7 +2681,10 @@ sub getModNameOSIS($) {
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {
     # When splitOSIS() is used, the document containing the header may be different than the current node's document.
     my $testDoc = $headerDoc;
-    if ($testDoc =~ s/[^\/]+$/other.osis/ && -e $testDoc) {$headerDoc = $testDoc;}
+    if ($testDoc =~ s/[^\/]+$/other.osis/ && -e $testDoc) {
+      $headerDoc = $testDoc;
+      $node = $XML_PARSER->parse_file($headerDoc);
+    }
   }
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {&initDocumentCache($headerDoc, $mtime, $node);}
   
