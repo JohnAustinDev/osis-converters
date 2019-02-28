@@ -20,24 +20,30 @@
   </template>
  
   <template match="/">
-    <!-- Re-section the entire OSIS file by removing all divs, then using only toc milestones (as well as later on chapter @sID milestones) to re-structure with new divs-->
-    <variable name="pass1"><apply-templates select="." mode="removeAllDivs"/></variable>
-    <variable name="pass2"><apply-templates select="$pass1/node()" mode="resection"/></variable>
-    <apply-templates select="$pass2/node()"/>
+    <!-- Re-section the entire OSIS file by removing all divs, then using only toc milestones (as well as later on chapter @osisID milestones) to re-structure with new divs-->
+    <variable name="pass1"><apply-templates select="." mode="fixChapterIDs"/></variable>
+    <variable name="pass2"><apply-templates select="$pass1/node()" mode="removeAllDivs"/></variable>
+    <variable name="pass3"><apply-templates select="$pass2/node()" mode="resection"/></variable>
+    <apply-templates select="$pass3/node()"/>
   </template>
+  <template match="chapter[@osisID][matches(@osisID, '^X\-OTHER\.[/\d-]+$')][following::node()[1][self::text()][matches(., '^\s*\d+(\-text)?\s*$')]]" mode="fixChapterIDs">
+    <copy><apply-templates select="@*" mode="#current"/><attribute name="osisID" select="concat('X-OTHER.', replace(following::node()[1], '^\s*(\d+(\-text)?)\s*$', '$1'))"/></copy>
+  </template>
+  <template match="text()[matches(., '^\s*\d+\s*$')][preceding::node()[1][self::chapter[matches(@osisID, '^X\-OTHER\.[/\d-]+$')]]]" mode="fixChapterIDs"/>
   <template match="div" mode="removeAllDivs"><apply-templates mode="#current"/></template>
   <template match="osisText" mode="resection">
     <copy><apply-templates select="@*" mode="#current"/>
       <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
       <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/title/string())}">
-        <xsl:for-each-group select="node()[not(local-name()='header')]"
+        <xsl:for-each-group select="node()[not(local-name()='header')][not(self::comment())]"
             group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $TOC)]) + count(self::milestone[@type=concat('x-usfm-toc', $TOC)])">
-          <xsl:variable name="id" select="if (current-group()[1][@n][self::milestone[@type=concat('x-usfm-toc', $TOC)]]) then current-group()[1]/@n else 'noName'"/>
+          <xsl:variable name="id" select="if (current-group()[self::*][1][@n][self::milestone[@type=concat('x-usfm-toc', $TOC)]]) then 
+              current-group()[self::*][1]/@n else 'noName'"/>
           <xsl:choose>
             <xsl:when test="$id = 'noName' and current-group()[normalize-space()]">
               <xsl:call-template name="Error">
                 <xsl:with-param name="msg">Children's Bible sections that contain text must begin with a milestone TOC to supply a name.</xsl:with-param>
-                <xsl:with-param name="exp">Add to the beginning of this section some USFM like: \toc2 Section Name</xsl:with-param>
+                <xsl:with-param name="exp">The section which starts with node: '<xsl:value-of select="oc:printNode(current-group()[normalize-space()][1])"/>' should begin with USFM like: \toc2 Section Name</xsl:with-param>
               </xsl:call-template>
             </xsl:when>
             <xsl:when test="$id = 'noName' and not(current-group()[normalize-space()])">
@@ -55,10 +61,10 @@
     <attribute name="n" select="concat('[level', (count(ancestor-or-self::div[@type=('book','majorSection','chapter')])-1), ']', .)"/>
   </template>
   
-  <!-- Convert chapter @sID milestone tags into div[@type='chapter'] containers -->
-  <template match="*[child::chapter[@sID]]">
+  <!-- Convert chapter @osisID milestone tags into div[@type='chapter'] containers -->
+  <template match="*[child::chapter[@osisID]]">
     <copy><apply-templates select="@*"/>
-      <for-each-group select="node()" group-adjacent="count(preceding-sibling::chapter[@sID]) + count(self::chapter[@sID])">
+      <for-each-group select="node()" group-adjacent="count(preceding-sibling::chapter[@osisID]) + count(self::chapter[@osisID])">
         <choose>
           <when test="current-grouping-key() = 0"><apply-templates select="current-group()"/></when>
           <otherwise>
@@ -69,7 +75,7 @@
                 <otherwise>
                   <value-of select="@osisID"/>
                   <call-template name="Error">
-                    <with-param name="msg">No Chapter label for chapter sID="<value-of select="current-group()[1]/@osisID"/>".</with-param>
+                    <with-param name="msg">No Chapter label for chapter osisID="<value-of select="current-group()[1]/@osisID"/>".</with-param>
                     <with-param name="exp">All Children's Bible chapter start milestone tags must be followed by a title of type="x-chapterLabel".</with-param>
                   </call-template>
                 </otherwise>
@@ -102,9 +108,18 @@
   <template match="title[@type = 'x-chapterLabel']">
     <copy><apply-templates select="node()|@*"/></copy>
     <variable name="chapid" select="preceding-sibling::*[1][local-name() = 'chapter']/@osisID"/>
-    <variable name="imgnum" select="if (matches($chapid, '^X\-OTHER\.\d+$')) then replace($chapid, '^X\-OTHER\.(\d+)$', '$1') else ''"/>
-    <if test="$imgnum and not(following-sibling::*[1][local-name()='figure'])">
-      <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" subType="x-text-image" src="./images/{format-number(xs:integer(number($imgnum)), '000')}.jpg"></figure>
+    <variable name="image" as="xs:string">
+      <choose>
+        <when test="matches($chapid, '^X\-OTHER\.\d+$')">
+          <variable name="imgnum"><value-of select="replace($chapid, '^X\-OTHER\.(\d+)$', '$1')"/></variable>
+          <value-of select="format-number(xs:integer(number($imgnum)), '000')"/>
+        </when>
+        <when test="matches($chapid, '^X\-OTHER\.\d+\-text$')"><value-of select="replace($chapid, '^X\-OTHER\.(\d+\-text)$', '$1')"/></when>
+        <otherwise><value-of select="''"/></otherwise>
+      </choose>
+    </variable>
+    <if test="$image and not(following-sibling::*[1][local-name()='figure'])">
+      <figure xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" subType="x-text-image" src="./images/{$image}.jpg"></figure>
     </if>
   </template>
   <template match="title/@type[. = 'x-chapterLabel']"/>
@@ -121,7 +136,7 @@
 
   <template match="p | lg">
     <copy>
-      <if test="generate-id(descendant::text()[normalize-space()][1]) = generate-id(preceding::chapter[@sID][1]/following::text()[normalize-space()][not(ancestor::title)][not(ancestor::figure)][1])">
+      <if test="generate-id(descendant::text()[normalize-space()][1]) = generate-id(preceding::chapter[@osisID][1]/following::text()[normalize-space()][not(ancestor::title)][not(ancestor::figure)][1])">
         <attribute name="subType" select="'x-p-first'"/>
       </if>
       <apply-templates select="node()|@*"/>

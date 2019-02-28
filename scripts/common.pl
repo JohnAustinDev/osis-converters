@@ -759,10 +759,13 @@ sub checkAndWriteDefaults() {
   # Project default control files
   my @projectDefaults = (
     'bible/config.conf', 
+    'childrens_bible/config.conf',
     'bible/CF_usfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
     'dict/CF_usfm2osis.txt', 
-    'dict/CF_addScripRefLinks.txt'
+    'dict/CF_addScripRefLinks.txt',
+    'childrens_bible/CF_usfm2osis.txt', 
+    'childrens_bible/CF_addScripRefLinks.txt'
   );
   
   # These are default control files which are automatically customized 
@@ -2680,55 +2683,88 @@ sub getModNameOSIS($) {
     my $testDoc = $headerDoc;
     if ($testDoc =~ s/[^\/]+$/other.osis/ && -e $testDoc) {$headerDoc = $testDoc;}
   }
-  if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {&initDocumentCache($headerDoc, $mtime);}
+  if (!$DOCUMENT_CACHE{$headerDoc.$mtime}) {&initDocumentCache($headerDoc, $mtime, $node);}
   
   if (!$DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'}) {
-    &ErrorBug("getModNameOSIS: No value for \"$headerDoc\"!");
+    &ErrorBug("getModNameOSIS: No value for \"$headerDoc\"!", '', 1);
     return '';
   }
   return $DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'};
 }
+sub osisCache($$) {
+  my $func = shift;
+  my $modname = shift;
+  
+  # First check the current document cache
+  if ($DOCUMENT_CACHE{$modname}{$func}) {
+    return $DOCUMENT_CACHE{$modname}{$func};
+  }
+  
+  # So it's not in the cache and we don't have an OSIS document for 
+  # $modname. Then read and cache the value from the current OSIS document.
+  my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
+  &Note("$func: $modname is not in DOCUMENT_CACHE. Reading value directly from $osis (which is slower).");
+  if (! -e $osis) {
+    &ErrorBug("$func: No current osis file to read.", '', 1);
+    return '';
+  }
+  my $found = &getModNameOSIS($XML_PARSER->parse_file($osis));
+  if (!$found) {
+    &ErrorBug("$func: Could not find header for $modname in $osis.", '', 1);
+    return '';
+  }
+  if (!$DOCUMENT_CACHE{$modname}{$func}) {
+    &ErrorBug("$func: Failed in $osis.", '', 1);
+  }
+  
+  return $DOCUMENT_CACHE{$modname}{$func};
+}
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'}) {
+  my $return = &osisCache('getRefSystemOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getRefSystemOSIS: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'getRefSystemOSIS'};
+  return $return;
 }
 sub getVerseSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
   if ($mod eq 'KJV') {return 'KJV';}
   if ($mod eq $MOD) {return &conf('Versification');}
-  if (!$DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'}) {
+  my $return = &osisCache('getVerseSystemOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getVerseSystemOSIS: No document node for \"$mod\"!");
     return &conf('Versification');
   }
-  return $DOCUMENT_CACHE{$mod}{'getVerseSystemOSIS'};
+  return $return;
 }
 sub getBibleModOSIS($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'getBibleModOSIS'}) {
+  my $return = &osisCache('getBibleModOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getBibleModOSIS: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'getBibleModOSIS'};
+  return $return;
 }
 sub getDictModOSIS($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'getDictModOSIS'}) {
+  my $return = &osisCache('getDictModOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getDictModOSIS: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'getDictModOSIS'};
+  return $return;
 }
 sub isChildrensBible($) {
   my $mod = &getModNameOSIS(shift);
-  if (!exists($DOCUMENT_CACHE{$mod}{'isChildrensBible'})) {
+  my $return = &osisCache('isChildrensBible', $mod);
+  if (!$return) {
     &ErrorBug("isChildrensBible: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'isChildrensBible'};
+  return $return;
 }
 sub getOsisRefWork($) {return &getModNameOSIS(shift);}
 sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
@@ -2739,19 +2775,21 @@ sub existsDictionaryWordID($$) {
 }
 sub getBooksOSIS($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'getBooksOSIS'}) {
+  my $return = &osisCache('getBooksOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getBooksOSIS: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'getBooksOSIS'};
+  return $return;
 }
 sub getScopeOSIS($) {
   my $mod = &getModNameOSIS(shift);
-  if (!$DOCUMENT_CACHE{$mod}{'getScopeOSIS'}) {
+  my $return = &osisCache('getScopeOSIS', $mod);
+  if (!$return) {
     &ErrorBug("getScopeOSIS: No document node for \"$mod\"!");
     return '';
   }
-  return $DOCUMENT_CACHE{$mod}{'getScopeOSIS'};
+  return $return;
 }
 sub existsElementID($$$) {
   my $osisID = shift;
@@ -2828,14 +2866,15 @@ sub getAltVersesOSIS($) {
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
 # from an OSIS file URL.
-sub initDocumentCache($$) {
+sub initDocumentCache($$$) {
   my $headerDoc = shift;
   my $mtime = shift;
+  my $node = shift;
   
   if (-e "$INPD/$DICTIONARY_WORDS") {$DOCUMENT_CACHE{'DWF'}{'xml'} = $DWF;}
   
-  undef($DOCUMENT_CACHE{$headerDoc.$mtime});
-  my $xml = $XML_PARSER->parse_file($headerDoc);
+  undef($DOCUMENT_CACHE);
+  my $xml = $node->ownerDocument;
   $DOCUMENT_CACHE{$headerDoc.$mtime}{'xml'} = $xml;
   my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
   $DOCUMENT_CACHE{$headerDoc.$mtime}{'getModNameOSIS'} = $osisIDWork;
@@ -4225,7 +4264,7 @@ sub inVersesystem($$) {
     my $wktype = 'Bible';
     my $wkvsys = &conf('Versification');
     if ($id =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
-    if ($osisIDWork && $osisIDWork !~ /^bible$/i) {
+    if (!&isChildrensBible($MOD) && $osisIDWork && $osisIDWork !~ /^bible$/i) {
       &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
       $wktype = $1; $wkvsys = $2;
     }

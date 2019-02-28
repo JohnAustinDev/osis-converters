@@ -115,7 +115,7 @@ sub checkAdjustCBImages($$) {
       }
       my $cbk = $hs{$s}.'.'.($ch+1);
       if (!@figs[0]) {
-        if($CB_IMAGES{$cbk} ne 'text') {
+        if ($CB_IMAGES{$cbk} ne 'text') {
           &Error("Children's Bible ".$hs{$s}." chapter ".($ch+1)." (osisID=".@chs[$ch]->getAttribute('osisID').") is missing its figure element.", "This chapter is supposed to have a figure element, but it does not.");
           $success = 0;
         }

@@ -41,7 +41,7 @@ sub convertOSIS($) {
   $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
   @CREATE_FULL_PUBLICATIONS = (); my $n=0; while (my $p = &conf('ScopeSubPublication'.(++$n))) {push(@CREATE_FULL_PUBLICATIONS, $n);}
-  $FULLSCOPE = &getScopeOSIS($INOSIS_XML);
+  $FULLSCOPE = (&isChildrensBible($INOSIS_XML) ? '':&getScopeOSIS($INOSIS_XML));
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
   else {
