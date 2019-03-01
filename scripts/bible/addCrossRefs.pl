@@ -92,7 +92,13 @@ BookNames.xml in the sfm directory which should contain localized
   # note text will be added using Paratext meta-data and/or \toc tags.
   my %localization;
   my @files = split(/\n/, &shell("find \"$INPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
-  if (@files[0]) {$ssf = $XML_PARSER->parse_file(@files[0]);}
+  foreach my $file (@files) {
+    if ($file && -e $file && -r $file) {
+      &Note("Reading Settings.xml file: $file", 1);
+      $ssf = $XML_PARSER->parse_file($file);
+      last;
+    }
+  }
 
   my %elems = (
     'RangeIndicator' => '-', 
