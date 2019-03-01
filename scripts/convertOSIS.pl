@@ -406,9 +406,9 @@ sub makeEbook($$$$$) {
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile($biglog);
   &shell($cmd);
   
-  my $ercnt = &shell("grep -i -c 'error' '$biglog'");
+  my $ercnt = &shell("grep -i -c 'error' '$biglog'", 3); $ercnt =~ s/^\D*(\d+).*?$/$1/s;
   if ($ercnt) {&Error("Error(s) occured during eBook processing.", "See log file: $biglog");}
-  &Report("There were $ercnt problems reported during eBook processing.");
+  &Report("There were \"$ercnt\" problems reported in the eBook long log file: $biglog");
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
