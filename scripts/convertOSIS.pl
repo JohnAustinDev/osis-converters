@@ -402,8 +402,13 @@ sub makeEbook($$$$$) {
   
   &updateOsisFullResourceURL($osis, &getFullEbookName($scope).".$format");
   
-  my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile("$TMPDIR/OUT_osis2ebooks.txt");
+  my $biglog = "$TMPDIR/OUT_osis2ebooks.txt"; # keep a separate log since it is huge and only report if there are errors or not in the main log file
+  my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile($biglog);
   &shell($cmd);
+  
+  my $ercnt = &shell("grep -i -c 'error' '$biglog'");
+  if ($ercnt) {&Error("Error(s) occured during eBook processing.", "See log file: $biglog");}
+  &Report("There were $ercnt problems reported during eBook processing.");
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {

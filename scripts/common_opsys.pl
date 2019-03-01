@@ -385,14 +385,28 @@ sub conf($$) {
   }
   elsif ($c->{$entry}) {$key = $entry;}
   
-  #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
-  if (!$key || $c->{$key} eq '' || ($entry =~ /Title/ && $c->{$key} =~ /DEF$/)) {
-    if ($entry !~ /SubPublication/) {
-      &Error("Failed to find a value for config.conf entry $entry.", "Add $entry=<value> to the config.conf file, and the value cannot be an empty string for this config entry.");
-    }
+  if (!$key && $entry !~ /SubPublication/) {
+    &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
   }
+  #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
+  
+  &isValidConfigValue($key, $c);
 
   return ($key ? $c->{$key}:'');
+}
+
+sub isValidConfigValue($$) {
+  my $fullEntry = shift;
+  my $confP = shift;
+  
+  my $entry = $fullEntry; $entry =~ s/^[^\+]*\+//;
+  if ($fullEntry =~ /Title/ && $confP->{$fullEntry} =~ / DEF$/) {
+    &Error("Found default value '".$confP->{$fullEntry}."' for config.conf title entry $fullEntry.", "Add $entry=<localized-title> to the config.conf file.");
+    #use Carp qw(longmess); &Log("Here is the stack trace where $entry was requested:\n".&longmess(), 1);
+    return 0;
+  }
+  
+  return 1;
 }
 
 

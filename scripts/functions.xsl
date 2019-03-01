@@ -31,6 +31,7 @@
     <param name="anynode" as="node()"/>
     <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'no')"/>
     <choose>
+      <when test="$result and oc:isValidConfigValue($entry, $result)"><value-of select="$result"/></when>
       <when test="$result"><value-of select="$result"/></when>
       <otherwise>
         <call-template name="Error">
@@ -76,6 +77,21 @@
       <when test="$anynode/root()/osis/osisText/header/work/description[@type=concat('x-config-', $entry2)]">
         <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/(work/description[@type=concat('x-config-', $entry2)])[1]/text()"/>
       </when>
+    </choose>
+  </function>
+  
+  <function name="oc:isValidConfigValue" as="xs:boolean">
+    <param name="entry" as="xs:string"/>
+    <param name="value" as="xs:string"/>
+    <choose>
+      <when test="matches($entry, 'Title', 'i') and matches($value, ' DEF$')">
+        <value-of select="false()"/>
+        <call-template name="Error">
+          <with-param name="msg">XSLT found default value '<value-of select="$value"/>' for config.conf title entry <value-of select="$entry"/>.</with-param>
+          <with-param name="exp">Add <value-of select="$entry"/>=[localized-title] to the config.conf file.</with-param>
+        </call-template>
+      </when>
+      <otherwise><value-of select="true()"/></otherwise>
     </choose>
   </function>
  
