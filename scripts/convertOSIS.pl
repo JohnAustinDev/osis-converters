@@ -358,7 +358,9 @@ sub getEbookName($$) {
   my $scope = shift;
   my $type = shift;
 
-  if ($scope eq $FULLSCOPE) {return &getFullEbookName($scope);}
+  if ($scope eq $FULLSCOPE || &isChildrensBible($INOSIS_XML)) {
+    return &getFullEbookName($scope);
+  }
   
   my $filename = $scope . "_" . $type;
   $filename =~ s/\s/_/g;
@@ -369,14 +371,21 @@ sub getEbookName($$) {
 sub getFullEbookName($) {
   my $scope = shift;
   
-  my $s = $scope; $s =~ s/_/ /g;
-  my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
-  my $ms = $FULLSCOPE;
-  $ms =~ s/\s/_/g;
-  my $eBookFullPubName = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__':$ms.'_').$FullOrTran;
-  $eBookFullPubName =~ s/\s+/-/g;
+  my $returnNameWithoutExt;
+  if (&isChildrensBible($INOSIS_XML)) {
+    $returnNameWithoutExt = $FULL_PUB_TITLE.'__Chbl';
+  }
+  else {
+    my $s = $scope; $s =~ s/_/ /g;
+    my $FullOrTran = (&isTran($s) ? 'Tran':'Full');
+    my $ms = $FULLSCOPE;
+    $ms =~ s/\s/_/g;
+    $returnNameWithoutExt = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE.'__':$ms.'_').$FullOrTran;
+  }
   
-  return $eBookFullPubName;
+  $returnNameWithoutExt =~ s/\s+/-/g;
+  
+  return $returnNameWithoutExt;
 }
 
 sub makeEbook($$$$$) {
@@ -433,13 +442,14 @@ sub updateOsisFullResourceURL($$) {
   my $fileName = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
-  my @update = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type = "x-config-FullResourceURL"]', $xml);
-  foreach my $u (@update) {
+  my $update;
+  foreach my $u ($XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type = "x-config-FullResourceURL"]', $xml)) {
     my $url = $u->textContent;
     my $new;
     if ($fileName =~ /\.html$/) {
       $new = 'false';
     }
+    elsif (!$url || $url eq 'false') {$new = 'false';}
     else {
       $new = $url; if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
       $new = $new.'/'.$fileName;
@@ -447,10 +457,11 @@ sub updateOsisFullResourceURL($$) {
     if ($url ne $new) {
       &Note("Updating FullResourceURL from \"$url\" to \"$new\".");
       &changeNodeText($u, $new);
+      $update++;
     }
   }
   
-  &writeXMLFile($xml, $osis);
+  if ($update) {&writeXMLFile($xml, $osis);}
 }
 
 1;

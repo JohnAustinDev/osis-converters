@@ -1841,6 +1841,9 @@ sub getSwordConfFromOSIS($) {
 
 
 sub checkConfGlobals() {
+  if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL') ne 'false') {
+    &Error("For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", "Children's Bibles do not currently support this feature so it must be turned off.");
+  }
   foreach my $entry (keys %{$CONF}) {
     my $isConf = &isValidConfig($entry);
     if (!$isConf) {

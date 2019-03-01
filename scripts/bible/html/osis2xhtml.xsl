@@ -31,7 +31,7 @@
   <param name="TOC" select="oc:conf('TOC', /)"/>
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="NoEpub3Markup" select="oc:conf('NoEpub3Markup', /)"/>
-  <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/>
+  <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/><!-- '' or 'false' turns this feature off -->
   <param name="ChapterFiles" select="oc:conf('ChapterFiles', /)"/>
   <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
