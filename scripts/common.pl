@@ -2704,7 +2704,6 @@ sub osisCache($$) {
   # So it's not in the cache and we don't have an OSIS document for 
   # $modname. Then read and cache the value from the current OSIS document.
   my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
-  &Note("$func: $modname is not in DOCUMENT_CACHE. Reading value directly from $osis (which is slower).");
   if (! -e $osis) {
     &ErrorBug("$func: No current osis file to read.", '', 1);
     return '';
@@ -2715,7 +2714,7 @@ sub osisCache($$) {
     return '';
   }
   if (!exists($DOCUMENT_CACHE{$modname}{$func})) {
-    &ErrorBug("$func: Failed in $osis.", '', 1);
+    &ErrorBug("initDocumentCache failed to set DOCUMENT_CACHE{$modname}{$func} while reading $osis.", '', 1);
   }
   
   return $DOCUMENT_CACHE{$modname}{$func};

@@ -388,7 +388,7 @@ sub conf($$) {
   #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
   if (!$key || $c->{$key} eq '' || ($entry =~ /Title/ && $c->{$key} =~ /DEF$/)) {
     if ($entry !~ /SubPublication/) {
-      &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the config.conf file.");
+      &Error("Failed to find a value for config.conf entry $entry.", "Add $entry=<value> to the config.conf file, and the value cannot be an empty string for this config entry.");
     }
   }
 
