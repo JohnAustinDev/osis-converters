@@ -70,7 +70,6 @@ $VSYS{'end_vs'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
-require("$SCRD/scripts/osis2osis.pl");
 require("$SCRD/scripts/common_cb.pl");
 
 sub init_linux_script() {
@@ -84,10 +83,9 @@ sub init_linux_script() {
   
   &readBookNamesXML();
   
-  if ($SCRIPT_NAME =~ /(osis2osis|sfm2all)/ && $INPD !~ /DICT$/ && -e "$DICTINPD/CF_osis2osis.txt") {
-    &runOsis2osis('preinit', $DICTINPD);
-  }
+  # If appropriate, do either runOsis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis provides input control files in lieu of defaults)
   if ($SCRIPT_NAME =~ /(osis2osis|sfm2all)/ && -e "$INPD/CF_osis2osis.txt") {
+    require("$SCRD/scripts/osis2osis.pl");
     &runOsis2osis('preinit', $INPD);
   }
   elsif ($SCRIPT_NAME =~ /sfm2all/) {
@@ -105,16 +103,16 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
 \n".encode("utf8", $LogfileBuffer), '', 1);
   }
   
-  $OUTDIR = &getOUTDIR($INPD);
-  if (!-e $OUTDIR) {make_path($OUTDIR);}
+  $MOD_OUTDIR = &getModuleOutputDir();
+  if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
-  $TMPDIR = "$OUTDIR/tmp/$SCRIPT_NAME";
+  $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
   if (!$NO_OUTPUT_DELETE) {
     if (-e $TMPDIR) {remove_tree($TMPDIR);}
     make_path($TMPDIR);
   }
   
-  &initInputOutputFiles($SCRIPT_NAME, $INPD, $OUTDIR, $TMPDIR);
+  &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
   if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
     &update_removeConvertTXT();
@@ -142,7 +140,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   }
   
   my $appendlog = ($LOGFILE ? 1:0);
-  if (!$LOGFILE) {$LOGFILE = "$OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
+  if (!$LOGFILE) {$LOGFILE = "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
   if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');}
@@ -152,7 +150,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
-  $DEFAULT_DICTIONARY_WORDS = "$OUTDIR/DictionaryWords_autogen.xml";
+  $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
   if (&conf('Font')) {&checkFont(&conf('Font'));}
   
@@ -162,7 +160,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n");
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n");
 }
 # This is only needed to update old osis-converters projects
 sub update_removeConvertTXT() {
@@ -444,18 +442,6 @@ sub wgetSyncDel($) {
   shell("cd '$p' && rm *.tmp", 3);
 }
 
-sub getOUTDIR($) {
-  my $inpd = shift;
-  
-  my $outdir = ($OUTDIR ? $OUTDIR:"$inpd/output");
-  if ($outdir !~ /\/output$/) {
-    my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
-    $outdir =~ s/[\\\/]\s*$//; # remove any trailing slash
-    $outdir .= '/'.$sub;
-  }
-
-  return $outdir;
-}
 
 # Parse the module's DICTIONARY_WORDS to DWF. Check for outdated 
 # DICTIONARY_WORDS markup and update it. Validate DICTIONARY_WORDS 
@@ -680,36 +666,36 @@ sub validateDictionaryWordsXML($) {
 sub initInputOutputFiles($$$$) {
   my $script_name = shift;
   my $inpd = shift;
-  my $outdir = shift;
+  my $modOutdir = shift;
   my $tmpdir = shift;
   
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
   my @outs;
   if ($script_name =~ /^(osis2osis|sfm2osis)$/) {
-    $OUTOSIS = "$outdir/$sub.xml"; push(@outs, $OUTOSIS);
+    $OUTOSIS = "$modOutdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
   if ($script_name =~ /^(osis2sword)$/) {
-    $OUTZIP = "$outdir/$sub.zip"; push(@outs, $OUTZIP);
-    $SWOUT = "$outdir/sword"; push(@outs, $SWOUT);
+    $OUTZIP = "$modOutdir/$sub.zip"; push(@outs, $OUTZIP);
+    $SWOUT = "$modOutdir/sword"; push(@outs, $SWOUT);
   }
   if ($script_name =~ /^osis2GoBible$/) {
-    $GBOUT = "$outdir/GoBible/$sub"; push(@outs, $GBOUT);
+    $GBOUT = "$modOutdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
   if ($script_name =~ /^osis2ebooks$/) {
-    $EBOUT = "$outdir/eBook"; push(@outs, $EBOUT);
+    $EBOUT = "$modOutdir/eBook"; push(@outs, $EBOUT);
   }
   if ($script_name =~ /^osis2html$/) {
-    $HTMLOUT = "$outdir/html"; push(@outs, $HTMLOUT);
+    $HTMLOUT = "$modOutdir/html"; push(@outs, $HTMLOUT);
   }
 
   if ($script_name =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/) {
-    if (-e "$outdir/$sub.xml") {
-      &copy("$outdir/$sub.xml", "$tmpdir/$sub.xml");
+    if (-e "$modOutdir/$sub.xml") {
+      &copy("$modOutdir/$sub.xml", "$tmpdir/$sub.xml");
       $INOSIS = "$tmpdir/$sub.xml";
     }
     else {
-      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$outdir/$sub.xml\".", '', 1);
+      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", '', 1);
     }
   }
 
@@ -1242,9 +1228,11 @@ sub copyReferencedImages($$$) {
 
 # Reads an OSIS file and looks for or creates cover images for the full
 # OSIS file as well as any sub-publications within it. All referenced
-# images will be located in $MAININPD/images
-sub addCoverImages($) {
+# images will be located in $MAININPD/images. If replaceExisting is set,
+# then pre-existing cover images are removed first.
+sub addCoverImages($$) {
   my $osisP = shift;
+  my $replaceExisting = shift;
 
   my $coverWidth = 500;
   
@@ -1253,9 +1241,13 @@ sub addCoverImages($) {
   my $mod = &getModNameOSIS($xml);
   my $updated;
   
-  if (@{$XPC->findnodes('//osis:figure[@type="x-cover"]', $xml)}[0]) {
-    &Note("OSIS file already has x-cover image(s): $$osisP. Skipping addCoverImages()");
-    return;
+  my @existing = $XPC->findnodes('//osis:figure[@type="x-cover"]', $xml);
+  if (@existing[0]) {
+    if (!$replaceExisting) {
+      &Note("OSIS file already has x-cover image(s): $$osisP. Skipping addCoverImages()");
+      return;
+    }
+    foreach my $ex (@existing) {$ex->unbindNode();}
   }
   
   &Log("\n--- INSERTING COVER IMAGES INTO \"$$osisP\"\n", 1);
@@ -2670,7 +2662,16 @@ sub addDictionaryLinks(\@$$) {
 # Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
 sub getModNameOSIS($) {
   my $node = shift; # might already be string mod name- in that case just return it
-  if (!ref($node)) {return $node;}
+  if (!ref($node)) {
+    my $modname = $node; # node is not a ref() so it's a modname
+    if (!$DOCUMENT_CACHE{$modname}) {
+      my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
+      if (! -e $osis) {&ErrorBug("getModNameOSIS: No current osis file to read for $modname.", '', 1);}
+      &initDocumentCache($XML_PARSER->parse_file($osis));
+      if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getModNameOSIS: header of osis $osis does not include modname $modname.", '', 1);}
+    }
+    return $modname;
+  }
   
   # Generate doc data if the root document has not been seen before
   my $headerDoc = $node->ownerDocument->URI;
@@ -2692,32 +2693,16 @@ sub getModNameOSIS($) {
   
   return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
 }
+# IMPORTANT: the osisCache lookup can ONLY be called on $modname after 
+# a call to getModNameOSIS($modname), since getModNameOSIS($modname) 
+# is where the cache is written.
 sub osisCache($$) {
   my $func = shift;
   my $modname = shift;
-  
-  # First check the current document cache
-  if ($DOCUMENT_CACHE{$modname}{$func}) {
-    return $DOCUMENT_CACHE{$modname}{$func};
-  }
-  
-  # So it's not in the cache and we don't have an OSIS document for 
-  # $modname. Then read and cache the value from the current OSIS document.
-  my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
-  if (! -e $osis) {
-    &ErrorBug("$func: No current osis file to read.", '', 1);
-    return '';
-  }
-  my $found = &getModNameOSIS($XML_PARSER->parse_file($osis));
-  if (!$found) {
-    &ErrorBug("$func: Could not find header for $modname in $osis.", '', 1);
-    return '';
-  }
-  if (!exists($DOCUMENT_CACHE{$modname}{$func})) {
-    &ErrorBug("initDocumentCache failed to set DOCUMENT_CACHE{$modname}{$func} while reading $osis.", '', 1);
-  }
-  
-  return $DOCUMENT_CACHE{$modname}{$func};
+
+  if (exists($DOCUMENT_CACHE{$modname}{$func})) {return $DOCUMENT_CACHE{$modname}{$func};}
+  &Error("DOCUMENT_CACHE failure: $modname $func\n");
+  return '';
 }
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
@@ -2793,15 +2778,20 @@ sub existsElementID($$$) {
   
   my $work = ($osisID =~ s/^([^\:]*\:)// ? $1:$osisIDWork);
   if (!$work) {&ErrorBug("existsElementID: No osisIDWork \"$osisID\""); return '';}
-  my $search = ($useDictionaryWordsFile ? 'DWF':$work);
   
+  my $search = ($useDictionaryWordsFile ? 'DWF':$work);
   if (!$DOCUMENT_CACHE{$search}{'xml'}) {
-    my $file = &getProjectOsisFile($search);
-    if (-e $file) {$DOCUMENT_CACHE{$search}{'xml'} = $XML_PARSER->parse_file($file);}
+    my $file = ($search eq 'DWF' ? "$INPD/$DICTIONARY_WORDS":&getModuleOsisFile($search));
+    if (-e $file) {
+      my $sxml = $XML_PARSER->parse_file($file);
+      if ($search eq 'DWF') {$DOCUMENT_CACHE{'DWF'}{'xml'} = $sxml;}
+      else {&initDocumentCache($sxml);}
+    }
     else {&ErrorBug("existsElementID: No \"$search\" xml file to search for \"$osisID\""); return '';}
   }
   
   if (!$DOCUMENT_CACHE{$search}{$osisID}) {
+    &Debug("Cache failed for existsElementID: module=$search, osisID=$osisID\n");
     $DOCUMENT_CACHE{$search}{$osisID} = 'no';
     # xpath 1.0 does not have "matches" so we need to do some extra work
     my $xpath = ($search eq 'DWF' ? 
@@ -2834,6 +2824,7 @@ sub getAltVersesOSIS($) {
   
   if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
     $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'exists'}++;
+    &Debug("Cache failed for getAltVersesOSIS: $mod\n");
     
     # VSYS changes are recorded in the OSIS file with milestone elements written by applyVsysFromTo()
     my @maps = (
@@ -2866,17 +2857,19 @@ sub getAltVersesOSIS($) {
 sub initDocumentCache($) {
   my $xml = shift; # a document node
   
-  if (-e "$INPD/$DICTIONARY_WORDS") {$DOCUMENT_CACHE{'DWF'}{'xml'} = $DWF;}
+  my $dbg = "initDocumentCache: ";
   
   my $headerDoc = $xml->URI;
   undef($DOCUMENT_CACHE{$headerDoc});
   $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
+  $dbg .= "document=$headerDoc ";
   my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
   $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
   
   # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   undef($DOCUMENT_CACHE{$osisIDWork});
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
+  $dbg .= "mainmod=$osisIDWork ";
   $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
   $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'isChildrensBible'}   = ($DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
@@ -2896,13 +2889,15 @@ sub initDocumentCache($) {
     my $w = $work->getAttribute('osisWork');
     if ($w eq $osisIDWork) {next;}
     undef($DOCUMENT_CACHE{$w});
-    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'}   = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
-    $DOCUMENT_CACHE{$w}{'isChildrensBible'}   = ($DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
+    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $dbg .= "companion=$w ";
+    $DOCUMENT_CACHE{$w}{'isChildrensBible'} = ($DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
     $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
     $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
     $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
     $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
   }
+  &Debug("$dbg\n");
 }
 
 # Take in osisRef and map the whole thing. Mapping gaps are healed and
@@ -2941,31 +2936,31 @@ sub fillGapsInOsisRef() {
   return @id[0].'-'.@id[$#id];
 }
 
-sub getProjectOsisFile($) {
-  my $mod = shift;
+sub getModuleOutputDir($) {
+  my $mod = shift; if (!$mod) {$mod = $MOD;}
+  
+  my $moddir;
+  if ($OUTDIR) {$moddir = "$OUTDIR/$mod";}
+  else {
+    my $parentDir = "$MAININPD/..";
+    if ($mod =~ /^(.*?)DICT$/) {$moddir = "$parentDir/$1/$mod/output";}
+    else {$moddir = "$parentDir/$mod/output";}
+  }
 
-  my $osis = '';
+  return $moddir;
+}
+
+# Returns the path to mod's OSIS file if it exists, or, when reportFunc 
+# is 'quiet' (whether the OSIS file exists or not). Otherwise returns ''.
+sub getModuleOsisFile($$) {
+  my $mod = shift; if (!$mod) {$mod = $MOD;}
+  my $reportFunc = shift;
   
-  # self
-  if ($mod eq $MOD) {
-    $osis = "$OUTDIR/$MOD.xml";
-    return (-e $osis ? $osis:'');
-  }
+  my $mof = &getModuleOutputDir($mod)."/$mod.xml";
+  if ($reportFunc eq 'quiet' || -e $mof) {return $mof;}
   
-  my $dir = $OUTDIR; $dir =~ s/\b$MOD\b/$mod/;
-  
-  # explicit output location
-  if (-e "$dir/$mod.xml") {$osis = "$dir/$mod.xml";}
-  # Bible looking for dict
-  elsif (-e "$INPD/$mod/output/$mod.xml") {$osis = "$INPD/$mod/output/$mod.xml";}
-  # dict looking for Bible
-  elsif (-e "$INPD/../output/$mod.xml") {$osis = "$INPD/../output/$mod.xml";}
-  # not found
-  elsif (!$GETPROJECTOSISFILE_WARN{$mod}) {
-    &Warn("Output project OSIS file \"$mod\" could not be found.");
-    $GETPROJECTOSISFILE_WARN{$mod}++;
-  }
-  return $osis;
+  if ($reportFunc) {&$reportFunc("Module OSIS file does not exist: $mof");}
+  return '';
 }
 
 
@@ -3105,11 +3100,11 @@ sub addDictionaryLink(\$$$$\@) {
       $logContext =~ s/\..*$//; # keep book/entry only
       $EntryLink{&decodeOsisRef($m->{'osisRef'})}{$logContext}++;
       
-      my $dict;
+      my $tmod;
       foreach my $sref (split(/\s+/, $m->{'osisRef'})) {
         if (!$sref) {next;}
-        my $e = &osisRef2Entry($sref, \$dict);
-        $Replacements{$e.": ".$match.", ".$dict}++;
+        my $e = &osisRef2Entry($sref, \$tmod);
+        $Replacements{$e."mATCh=".$match."tARGMOd=".$tmod}++;
       }
 
       if ($filterMultiples) {$MULTIPLES{$key}++;}
@@ -4009,7 +4004,7 @@ sub checkSourceScripRefLinks($) {
   if (!$in_bible) {
     # The Bible OSIS needs to be put into the source verse system for this check
     $in_bible = "$TMPDIR/$MAINMOD.xml";
-    &copy(&getProjectOsisFile($MAINMOD), $in_bible);
+    &copy(&getModuleOsisFile($MAINMOD, 'Error'), $in_bible);
     &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$in_bible);
   }
   
@@ -4096,7 +4091,7 @@ sub checkReferenceLinks($) {
   }
   else {
     $bibleOSIS = "$TMPDIR/chrl_$MAINMOD.xml";
-    &copy(&getProjectOsisFile($MAINMOD), $bibleOSIS);
+    &copy(&getModuleOsisFile($MAINMOD, 'Error'), $bibleOSIS);
     $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
     &readOsisIDs(\%osisID, $bibleXML);
   }
@@ -4459,7 +4454,10 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
   
   my %ematch;
   foreach my $rep (sort keys %Replacements) {
-    if ($rep !~ /^(.*?): (.*?), (\w+)$/) {&ErrorBug("logDictLinks bad rep match: $rep !~ /^(.*?): (.*?), (\w+)\$/"); next;}
+    if ($rep !~ /^(.*?)mATCh=(.*?)tARGMOd=(\w+)$/) {
+      &ErrorBug("logDictLinks bad rep match: $rep !~ /^(.*?)mATCh=(.*?)tARGMOd=(\w+)\$/");
+      next;
+    }
     $ematch{"$3:$1"}{$2} += $Replacements{$rep};
   }
 
@@ -5571,13 +5569,15 @@ sub validateOSIS($) {
   $fix =~ s/$allow/$1e-r-r-o-r$2/g;
   &Log("$fix\n");
   
+  if ($res =~ /failed to load external entity/i) {&Error("The validator failed to load an external entity.", "Maybe there is a problem with the Internet connection, or with one of the input files to the validator.");}
+  
   # Generate error if file fails to validate
-  my $valid = 1;
-  if (!$res || $res =~ /^\s*$/) {
+  my $valid = 0;
+  if ($res =~ /^\Q$osis validates\E$/) {$valid = 1;}
+  elsif (!$res || $res =~ /^\s*$/) {
     &Error("\"$osis\" validation problem. No success or failure message was returned from the xmllint validator.", "Check your Internet connection, or try again later.");
-    $valid = 0;
   }
-  elsif ($res !~ /^\Q$osis validates\E$/) {
+  else {
     if ($res =~ s/$allow//g) {
       &Note("
       Ignore the above milestone osisRef attribute reports. The schema  
@@ -5587,8 +5587,9 @@ sub validateOSIS($) {
     }
     if ($res !~ /Schemas validity error/) {
       &Note("All of the above validation failures are being allowed.");
+      $valid = 1;
     }
-    else {$valid = 0; &Error("\"$osis\" does not validate! See message(s) above.");}
+    else {&Error("\"$osis\" does not validate! See message(s) above.");}
   }
   
   &Log("\n");

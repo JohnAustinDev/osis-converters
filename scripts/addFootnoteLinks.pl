@@ -142,7 +142,7 @@ sub runAddFootnoteLinks($$) {
   &Log("WRITING INPUT FILE: \"$output\".\n");
   &Log("\n");
   
-  my $bibleOsis = (&conf('ModDrv') !~ /LD/ ? $$osisP:&getProjectOsisFile($MAINMOD));
+  my $bibleOsis = (&conf('ModDrv') !~ /LD/ ? $$osisP:&getModuleOsisFile($MAINMOD));
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
     my $bmod;

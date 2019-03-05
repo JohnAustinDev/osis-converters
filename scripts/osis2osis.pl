@@ -19,10 +19,11 @@
 
 # usage: osis2osis.pl [Bible_Directory]
 
-sub runOsis2osis($$$) {
+sub runOsis2osis($$) {
   $O2O_CurrentContext = shift;
   my $cfdir = shift;
-  my $output = shift;
+
+  my @outmods = ();
   
   if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
     &ErrorBug("runOsis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
@@ -45,7 +46,7 @@ sub runOsis2osis($$$) {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_\w+|CONFIG_\w+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
@@ -71,37 +72,36 @@ sub runOsis2osis($$$) {
         elsif ($par =~ /^CONFIG_(?!CONVERT)(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
         elsif ($par =~ /^CONVERT_(.*)$/) {$O2O_CONVERTS{$1} = $$par;}
         elsif ($par eq 'sourceProject') {
+          if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
+            &Error("SET_sourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SET_sourceProject of $commandFile.", 1);
+          }
           # osis2osis depends on sourceProject OSIS file, and also on it's sfm hierarchy, so copy that
           $sourceProjectPath = $$par;
-          if ($sourceProjectPath =~ /^\./) {
-            $sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $cfdir);
-          }
-          else {
-            if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
-              $sourceProjectPath = "$MAININPD/../$2/$$par";
-            }
-            else {
-              $sourceProjectPath = "$MAININPD/../$$par";
-            }
-          }
+          if ($sourceProjectPath =~ /^\./) {$sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $cfdir);}
+          else {$sourceProjectPath = "$MAININPD/../$$par";}
           if (! -d $sourceProjectPath) {
-            &Error("sourceProject $sourceProjectPath does not exist.", "'SET_sourceProject:$$par' must be the name of, or path to, an existing project.", 1);
+            &Error("sourceProject $sourceProjectPath does not exist.", "'SET_sourceProject:$$par' must be the name of, or path to, an existing project (not a DICT).", 1);
           }
-          if ($sourceProjectPath !~ /DICT$/) {&makeDirs("$sourceProjectPath/sfm", $INPD);}
+          &makeDirs("$sourceProjectPath/sfm", $MAININPD);
         }
       }
     }
     elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
       my $ccpath = $1;
       if ($O2O_CurrentContext ne 'preinit') {next;}
-      if ($NO_OUTPUT_DELETE) {$newOSIS = $output; next;}
-      if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile"); next;}
-      my $inpath = $ccpath; $inpath =~ s/^(\.\/)[^\/]+DICT\//$1${sourceProject}DICT\//; # special case of CCing a DICT file from the MAIN CC_osis2osis.txt file
-      
-      foreach my $in (glob "$sourceProjectPath/$inpath") {
-        my $out = $in; $out =~ s/\Q$sourceProjectPath\E\//$cfdir\//; $out =~ s/^\/${sourceProject}DICT\//\/$DICTMOD\//;
+      if ($NO_OUTPUT_DELETE) {next;}
+      if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile", 1);}
+      my $inpath;
+      if ($ccpath =~ /^\./) {&Error("Paths in CC: instructions cannot start with '.':$_", "The path is for intended getDefaultFile() of sourceProject.", 1);}
+      my $glob = ($ccpath =~ s/^(.*?)(\/[^\/]*\*[^\/]*)$/$1/ ? $2:'');
+      $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
+      foreach my $in (glob $inpath.$glob) {
+        my $out = $in;
+        $out =~ s/\Q$sourceProjectPath\E\//$cfdir\//;
+        my $from = $sourceProject.'DICT'; my $to = $MAINMOD.'DICT';
+        $out =~ s/\/$from\//\/$to\//g;
         &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
-        if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject."); next;}
+        if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject.", 1);}
         if ($out =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
         if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($in, $out);}
         elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$in\" \"$out\"");}
@@ -111,38 +111,31 @@ sub runOsis2osis($$$) {
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
       if ($O2O_CurrentContext ne 'postinit') {next;}
-      if ($NO_OUTPUT_DELETE) {$newOSIS = $output; next;}
-      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile"); next;}
+      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
       if ($osis =~ /sourceProject/i) {$osis = $sourceProject;}
       if ($osis =~ /\.xml$/i) {
         if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $cfdir);}
       }
-      else {
-        if ($OUTDIR eq "$INPD/output") {
-          if ($sourceProject =~ /(^|\/)([^\/]+)DICT$/) {
-            $osis = "$MAININPD/../$2/$osis/output/$osis.xml";
-          }
-          else {
-            $osis = "$MAININPD/../$osis/output/$osis.xml";
-          }
-        }
-        else {$osis = "$OUTDIR/../$osis/$osis.xml";}
-      }
+      else {$osis = &getModuleOsisFile($osis, 'Error');}
       
-      $newOSIS = $output;
-      &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $newOSIS");
-      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in the [system] section of config.conf."); next;}
+      my $outmod = $MAINMOD.($osis =~ /DICT\.xml$/ ? 'DICT':'');
+      if (! -e "$TMPDIR/$outmod") {&make_path("$TMPDIR/$outmod");}
+      my $outfile = "$TMPDIR/$outmod/$outmod.xml";
+      if ($NO_OUTPUT_DELETE) {push(@outmods, $outmod); next;}
       
-      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $newOSIS);}
-      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$osis\" \"$newOSIS\"");}
-      else {&convertFileStrings($osis, $newOSIS);}
+      &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $oufile");
+      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in the [system] section of config.conf, or create the source project OSIS file(s).", 1);}   
+      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $outfile);}
+      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$osis\" \"$outfile\"");}
+      else {&convertFileStrings($osis, $outfile);}
+      push(@outmods, $outmod);
     }
     else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
   }
   close(COMF);
   foreach my $par (@wipeGlobals) {$$par = '';}
   
-  return $newOSIS;
+  return @outmods;
 }
 
 sub makeDirs($$) {
@@ -218,33 +211,52 @@ sub convertFileStrings($$) {
   
   # config.conf
   elsif ($fname eq "config.conf") {
-    # By default, only entries (Abbreviation|About|Description|CombinedGlossaryTitle|TitleSubPublication\d+|CopyrightHolder_<lang-base>) are converted.
+    # Entries in @OC_LOCALIZABLE_CONFIGS are converted.
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
     my %confH; &readConfFile($ccin, \%confH);
-    my $langBase = $confH{'Lang'}; $langBase =~ s/\-.*$//;
+    my $origMainmod = $confH{'ModuleName'};
+    
+    # replace module names in all config keys
+    foreach my $e (keys %confH) {
+      my $e2 = $e; if ($e2 !~ s/^${origMainmod}DICT\+/${MAINMOD}DICT\+/) {next;}
+      $confH{$e2} = delete $confH{$e};
+    }
+    
+    # replace module names in all config values
     foreach my $e (sort keys %confH) {
       my $new = $confH{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
-      if ($new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg || $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g) {
+      my $m1 = $new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg;
+      my $m2 = $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g;
+      if ($m1 || $m2) {
         &Note("Modifying entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
         $confH{$e} = $new;
       }
     }
+    
+    # convert appropriate entry values
+    my @regexs; push(@regexs, @OC_LOCALIZABLE_CONFIGS); foreach my $regex (@regexs) {$regex =~ s/^MATCHES\://;}
     foreach my $e (sort keys %confH) {
       if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
-      elsif (($e =~ /^(Abbreviation|About|Description|CombinedGlossaryTitle|TitleSubPublication\d+|CopyrightHolder_$langBase)/ || ${"CONFIG_CONVERT_$e"})) {
+      my $doConvert = (${"CONFIG_CONVERT_$e"} ? 1:0); # -1 means don't, 0 means keep checking but don't, 1 means do
+      if (!$doConvert) {foreach my $regex (@regexs) {if ($e =~ /$regex/) {$doConvert = 1;}}}
+      if ($doConvert) {
         my $new = &transcodeStringByMode($confH{$e});
         &Note("Converting entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
         $confH{$e} = $new;
       }
     }
+    
+    # set requested values
     foreach my $e (sort keys %O2O_CONFIGS) {
       &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
       $confH{$e} = $O2O_CONFIGS{$e};
     }
+    
+    # apply new conf entries/values
     &writeConf($ccout, \%confH);
     &setConfGlobals(&readConf());
   }

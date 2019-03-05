@@ -5,7 +5,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 
 $dwfPath = "$INPD/$DICTIONARY_WORDS";
 
-$alog = "$OUTDIR/OUT_sfm2osis_$MOD.txt";
+$alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
 $msg = "Rerun sfm2osis.pl on $MOD to create a new log file, and then rerun this script on $MOD.";
 if (!open(OUT, "<:encoding(UTF-8)", $alog)) {
   &Error("The log file $alog is required to run this script.", $msg, 1);

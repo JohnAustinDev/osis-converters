@@ -34,6 +34,7 @@ $VAGRANT_HOME = '/home/vagrant';
 @OC_CONFIGS = ('MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 'MATCHES:GlossaryTitle\d', 'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle');
 @OC_SYSTEM = ('REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'EBOOKS', 'DEBUG', 'VAGRANT'); # Variables which may be set in the config.conf [system] section
 @SWORD_LOCALIZABLE_CONFIGS = ('MATCHES:History_[\d\.]+', 'Abbreviation', 'Description', 'About', 'Copyright', 'CopyrightHolder', 'CopyrightDate', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'CopyrightContactEmail', 'ShortPromo', 'ShortCopyright', 'DistributionNotes');
+@OC_LOCALIZABLE_CONFIGS = ('MATCHES:TitleSubPublication\d', 'MATCHES:GlossaryTitle\d', 'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,'TranslationTitle', 'Abbreviation', 'Description', 'About');
 @CONTINUABLE_CONFIGS = ('About', 'Copyright', 'CopyrightNotes', 'CopyrightContactName', 'CopyrightContactNotes', 'CopyrightContactAddress', 'DistributionNotes', 'TextSource');
 %MULTIVALUE_CONFIGS = ('GlobalOptionFilter' => '<nx/>', 'Feature' => '<nx/>', 'Obsoletes' => '<nx/>', 'AudioCode' => ','); # </nx> means multiple values must appear as multiple entries, rather than as a single entry using a separator
 %CONFIG_DEFAULTS = (
@@ -487,9 +488,12 @@ sub isValidConfig($) {
 # are valid on the host will NOT be valid on a VM! To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
 # with /vagrant and will be broken on the host, but will work on the VM).
-sub getDefaultFile($$) {
+sub getDefaultFile($$$) {
   my $file = shift;
   my $priority = shift;
+  my $maininpd = shift; $maininpd = ($maininpd ? $maininpd:$MAININPD);
+  
+  my $mainmod = $maininpd; $mainmod =~ s/^.*?\/([^\/]+)\/?$/$1/;
   
   my $moduleFile = $file;
   my $fileType = ($moduleFile =~ s/^(childrens_bible|bible|dict)\/// ? $1:'');
@@ -497,8 +501,8 @@ sub getDefaultFile($$) {
   my $defaultFile;
   my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
   
-  my $projectDefaultFile = ($fileType eq 'dict' ? $DICTINPD:$MAININPD).'/'.$moduleFile;
-  my $mainParent = "$MAININPD/..";
+  my $projectDefaultFile = ($fileType eq 'dict' ? "$maininpd/${mainmod}DICT":$maininpd).'/'.$moduleFile;
+  my $mainParent = "$maininpd/..";
   if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
     $defaultFile = $projectDefaultFile;
     &Note("getDefaultFile: (1) Found $file at $defaultFile");

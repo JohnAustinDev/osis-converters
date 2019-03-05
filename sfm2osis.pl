@@ -21,15 +21,22 @@
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require("$SCRD/scripts/usfm2osis.pl");
+require("$SCRD/scripts/processOSIS.pl");
 
 $OSIS = "$TMPDIR/usfm2osis.xml";
-if (&usfm2osis(&getDefaultFile((&conf('ModDrv') =~ /LD/ ? 'dict':'bible').'/CF_usfm2osis.txt'), $OSIS) eq $OSIS) {
-  require("$SCRD/scripts/processOSIS.pl");
-  if ($NO_OUTPUT_DELETE) {
-    # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
-    # YOUR DEBUG CODE GOES HERE
-  }
+my $commandFile = "$INPD/CF_usfm2osis.txt";
+if (! -e $commandFile) {
+  &Error("Cannot run sfm2osis.pl unless there is a CF_usfm2osis.txt command file located at $INPD.", 
+  "To run sfm2osis.pl, first run sfm2all.pl to create a default CF_usfm2osis.txt file.", 1);
 }
-else {&ErrorBug("usfm2osis failed to write OSIS file.");}
+&usfm2osis($commandFile, $OSIS);
+&runProcessOSIS($OSIS);
+
+if ($NO_OUTPUT_DELETE) {
+  # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
+  # YOUR DEBUG CODE GOES HERE
+}
+
+&timer('stop');
 
 1;

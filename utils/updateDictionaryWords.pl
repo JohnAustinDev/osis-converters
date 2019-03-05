@@ -36,8 +36,8 @@ while(<INF>) {
   else {&Error("Could not parse \"$_\"", 1);}
 }
 close(INF);
-&convertDWF(\@entry, \%pattern, 0, "$OUTDIR/DictionaryWords.xml");
-&convertDWF(\@entry, \%pattern, 1, "$OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml");
+&convertDWF(\@entry, \%pattern, 0, "$MOD_OUTDIR/DictionaryWords.xml");
+&convertDWF(\@entry, \%pattern, 1, "$MOD_OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml");
 
 &Log("\nOUTPUT FILES CREATED:\n", 1);
 &Log("OUTDIR/DictionaryWords.xml\n", 1);

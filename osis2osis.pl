@@ -21,16 +21,32 @@
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 require("$SCRD/utils/simplecc.pl");
+require("$SCRD/scripts/processOSIS.pl");
+require("$SCRD/scripts/osis2osis.pl");
 
-$OSIS = "$TMPDIR/osis2osis.xml";
-if (&runOsis2osis('postinit', $INPD, $OSIS) eq $OSIS) {
-  require("$SCRD/scripts/processOSIS.pl");
+my $commandFile = "$MAININPD/CF_osis2osis.txt";
+if (! -e $commandFile) {&Error("Cannot run osis2osis.pl without a CF_osis2osis.txt command file located at: $MAININPD.", '', 1);}
+
+my @outmods = &runOsis2osis('postinit', $MAININPD);
+if (!@outmods) {&ErrorBug("runOsis2osis failed to write OSIS file(s).", '', 1);}
+
+foreach my $outmod (@outmods) {
+  undef($DOCUMENT_CACHE); # DWF will change, so reset cache
+  
+  $MOD = $outmod;
+  $INPD = ($outmod =~ /DICT$/ ? $DICTINPD:$MAININPD);
+  $OSIS = "$TMPDIR/$outmod/$outmod.xml"; # written by runOsis2osis() above
+  if (! -e &getModuleOutputDir($outmod)) {&make_path(&getModuleOutputDir($outmod));}
+  $OUTOSIS = &getModuleOsisFile($outmod, 'quiet');
+  &runReprocessOSIS($outmod);
+  
   if ($NO_OUTPUT_DELETE) {
    # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
    # YOUR DEBUG CODE GOES HERE 
   }
 }
-else {&ErrorBug("runOsis2osis failed to write OSIS file.");}
+
+&timer('stop');
 
 ;1
 

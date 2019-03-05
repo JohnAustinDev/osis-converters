@@ -573,7 +573,7 @@ sub correctReferencesVSYS($) {
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1correctReferencesVSYS$3/;
   
-  my $in_bible = ($INPD eq $MAININPD ? $$osisP:&getProjectOsisFile($MAINMOD));
+  my $in_bible = ($INPD eq $MAININPD ? $$osisP:&getModuleOsisFile($MAINMOD));
   if (! -e $in_bible) {
     &Warn("No OSIS Bible file was found. References effected by VSYS instructions will not be corrected.");
     return;
