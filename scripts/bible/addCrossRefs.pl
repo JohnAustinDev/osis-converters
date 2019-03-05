@@ -378,7 +378,7 @@ sub translateRef($$) {
       my $t2 = &translateSingleRef($r2, $localeP);
       if ($t2) {
         if ($t =~ /^(.*?)\d+$/) {
-          my $baseRE = "^$1(\\d+)\$";
+          my $baseRE = "^\Q$1\E(\\d+)\$";
           if ($t2 =~ /$baseRE/) {$t2 = $1;}
         }
         $t .= $localeP->{'RangeIndicator'} . $t2;
