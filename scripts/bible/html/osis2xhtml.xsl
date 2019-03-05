@@ -33,9 +33,9 @@
   <param name="NoEpub3Markup" select="oc:conf('NoEpub3Markup', /)"/>
   <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/><!-- '' or 'false' turns this feature off -->
   <param name="ChapterFiles" select="oc:conf('ChapterFiles', /)"/>
-  <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
       (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
+  <param name="CombinedGlossaryTitle" select="if (CombineGlossaries eq 'true') then oc:conf('CombinedGlossaryTitle', /) else ''"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
