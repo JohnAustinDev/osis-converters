@@ -56,7 +56,8 @@ $VAGRANT_HOME = '/home/vagrant';
   'osis2html+ChapterFiles' => 'true',
   'osis2html+CombineGlossaries' => 'false',
   'osis2html+CreateSeparateBooks' => 'false',
-  'osis2html+NoEpub3Markup' => 'true'
+  'osis2html+NoEpub3Markup' => 'true',
+  'Font' => ''
 );
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
@@ -402,7 +403,7 @@ sub isValidConfigValue($$) {
   
   my $entry = $fullEntry; $entry =~ s/^[^\+]*\+//;
   if ($fullEntry =~ /Title/ && $confP->{$fullEntry} =~ / DEF$/) {
-    &Error("Found default value '".$confP->{$fullEntry}."' for config.conf title entry $fullEntry.", "Add $entry=<localized-title> to the config.conf file.");
+    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'", "Add $entry=<localized-title> to the config.conf file.");
     #use Carp qw(longmess); &Log("Here is the stack trace where $entry was requested:\n".&longmess(), 1);
     return 0;
   }
