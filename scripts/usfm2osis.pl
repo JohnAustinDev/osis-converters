@@ -245,7 +245,9 @@ sub evalRegex($$) {
       my $m2 = ($n ? "_$n":'');
       $df =~ s/$m1(\.[^\.]+)$/$m2$1/;
     }
-    if ($n) {&Warn("Running copy $n of $f.", "Is it intentional that an SFM file is being RUN and modified multiple times?");}
+    if ($n && !$NO_OUTPUT_DELETE) {
+      &Warn("Running copy $n of $f.", "Is it intentional that an SFM file is being RUN and modified multiple times?");
+    }
     copy($f, $df);
     push (@files, $df);
   }
