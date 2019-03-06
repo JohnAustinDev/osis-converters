@@ -979,26 +979,106 @@ sub customize_addScripRefLinks($) {
     }
   }
   
-  # Write them to CF_addScripRefLinks.txt in the most user friendly way possible
-  @allbks = split(/\s+/, $OT_BOOKS); push(@bks, split(/\s+/, $NT_BOOKS));
-  if (!open(CFT, ">:encoding(UTF-8)", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
-  if (!open (CFF, "<:encoding(UTF-8)", $cf)) {&ErrorBug("Could not open \"$cf\"", '', 1);}
-  while(<CFF>) {
-    if ($_ =~ /^#(\S+)\s*=\s*$/) {
-      my $osis = $1;
-      my $p = &getAllAbbrevsString($osis, \%abbrevs);
-      if ($p) {
-        print CFT $p;
-        next;
-      }
+  # Collect Scripture reference markup settings
+  my %cfSettings = (
+    '00 CURRENT_BOOK_TERMS' => [],
+    '01 CURRENT_CHAPTER_TERMS' => [],
+    '02 CHAPTER_TERMS' => [],
+    '03 VERSE_TERMS' => [],
+    '04 SEPARATOR_TERMS' => [',', ';'],
+    '06 REF_END_TERMS' => ['\.', '\s', '\)', '<', '$'],
+    '07 CHAPTER_TO_VERSE_TERMS' => ['\:'],
+    '08 CONTINUATION_TERMS' => ['\-'],
+    '09 PREFIXES' => [],
+    '10 SUFFIXES' => ['\.']
+  );
+  my $paratextSettingsP = &readParatextReferenceSettings();
+  my %cf2paratext = ( # mapping from osis-converters CF_addScripRefLinks.txt settings to Paratext settings
+    '02 CHAPTER_TERMS' => ['ChapterRangeSeparator', 'ChapterNumberSeparator'],
+    '04 SEPARATOR_TERMS' => ['SequenceIndicator', 'ChapterNumberSeparator'],
+    '06 REF_END_TERMS' => ['ReferenceFinalPunctuation'],
+    '07 CHAPTER_TO_VERSE_TERMS' => ['ChapterVerseSeparator'],
+    '08 CONTINUATION_TERMS' => ['RangeIndicator', 'ChapterRangeSeparator']
+  );
+  foreach my $cfs (keys %cfSettings) {
+    if (!exists($cf2paratext{$cfs})) {next;}
+    my @val;
+    foreach my $ps (@{$cf2paratext{$cfs}}) {
+      if (!$paratextSettingsP->{$ps}) {next;}
+      push(@val, $paratextSettingsP->{$ps});
     }
-    print CFT $_;
+    if (@val) {
+      if ($cfs eq '06 REF_END_TERMS') {push(@val, @{$cfSettings{$cfs}});}
+      my %seen; my @uniq = grep !$seen{$_}++, @val;
+      &Note("Setting default CF_addScripRefLinks.txt $cfs from '".&toCFRegex($cfSettings{$cfs})."' to '".&toCFRegex(\@uniq)."'");
+      $cfSettings{$cfs} = \@uniq;
+    }
   }
-  close(CFF);
+  my @comRefTerms; push(@comRefTerms, @{$cfSettings{'04 SEPARATOR_TERMS'}}, @{$cfSettings{'07 CHAPTER_TO_VERSE_TERMS'}}, @{$cfSettings{'08 CONTINUATION_TERMS'}}, @{$cfSettings{'09 PREFIXES'}}, @{$cfSettings{'10 SUFFIXES'}});
+  $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
+  
+  # Write to CF_addScripRefLinks.txt in the most user friendly way possible
+  if (!open(CFT, ">:encoding(UTF-8)", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
+  foreach my $cfs (sort keys %cfSettings) {
+    my $pcfs = $cfs; $pcfs =~ s/^\d\d //;
+    print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
+  }
+  print CFT "\n";
+  @allbks = split(/\s+/, $OT_BOOKS); push(@bks, split(/\s+/, $NT_BOOKS));
   foreach my $osis (@allbks) {print CFT &getAllAbbrevsString($osis, \%abbrevs);}
   close(CFT);
   unlink($cf);
   move("$cf.tmp", $cf);
+}
+sub toCFRegex($) {
+  my $aP = shift;
+  
+  my @sorted = sort { length $a <=> length $b } @{$aP};
+  return '('.join('|', @sorted).')';
+}
+sub readParatextReferenceSettings() {
+  my @files = split(/\n/, &shell("find \"$MAININPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
+  my $settingsFilePATH;
+  my $settingsFileXML;
+  foreach my $file (@files) {
+    if ($file && -e $file && -r $file) {
+      &Note("Reading Settings.xml file: $file", 1);
+      $settingsFilePATH = $file;
+      last;
+    }
+  }
+  if ($settingsFilePATH) {$settingsFileXML = $XML_PARSER->parse_file($settingsFilePATH);}
+
+  # First set the defaults
+  my %settings = (
+    'RangeIndicator' => '\-', 
+    'SequenceIndicator' => ',', 
+    'ReferenceFinalPunctuation' => '\.', 
+    'ChapterNumberSeparator' => '; ', 
+    'ChapterRangeSeparator' => decode('utf8', '—'), 
+    'ChapterVerseSeparator' => '\:',
+    'BookSequenceSeparator' => '; '
+  );
+  
+  # Now overwrite defaults with anything in settingsFileXML
+  foreach my $k (keys %settings) {
+    my $default = $settings{$k};
+    if ($settingsFileXML) {
+      my $kv = @{$XPC->findnodes("$k", $settingsFileXML)}[0];
+      if ($kv && $kv->textContent) {
+        my $v = quotemeta($kv->textContent);
+        &Note("<>Found localized Scripture reference settings in $settingsFilePATH");
+        if ($v ne $default) {
+          &Note("Setting Paratext $k from '".$settings{$k}."' to '$v' according to $settingsFilePATH");
+          $settings{$k} = $v;
+        }
+      }
+    }
+  }
+  
+  #use Data::Dumper; &Debug("Paratext settings = ".Dumper(\%settings)."\n", 1); 
+  
+  return \%settings;
 }
 sub getAllAbbrevsString($\%) {
   my $osis = shift;
@@ -1071,7 +1151,7 @@ sub customize_usfm2osis($$) {
     my $r = File::Spec->abs2rel($f, $MAININPD);
     $r = ($modType eq 'dictionary' ? '.':'').($r !~ /^\./ ? './':'').$r;
     
-    # peripherals need a target location in the OSIS file added to their ID
+    # peripherals need a target location in the OSIS file listed after their ID
     if ($USFM{$modType}{$f}{'peripheralID'}) {
       #print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
       if (defined($ID_TYPE_MAP{$USFM{$modType}{$f}{'peripheralID'}})) {
@@ -1111,12 +1191,12 @@ sub customize_usfm2osis($$) {
 # CF_usfm2osis.txt code for default placement of the peripheral within 
 # an OSIS file. When $pt is 'location' (an entire file) it is placed
 # in the proper bookGroup, or before the first book of $scope, or else 
-# osis:header
+# after the osis:header.
 sub getOsisMap($) {
   my $pt = shift;
   my $scope = shift;
   
-  my $scopePath = 'osis:header';
+  my $scopePath = 'osis:header/following-sibling::node()[1]';
   if ($scope) {
     if ($scope eq 'Matt-Rev') {$scopePath = 'osis:div[@type="bookGroup"][last()]/node()[1]';}
     elsif ($scope eq 'Gen-Mal') {$scopePath = 'osis:div[@type="bookGroup"][1]/node()[1]';}

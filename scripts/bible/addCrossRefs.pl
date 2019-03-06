@@ -90,38 +90,8 @@ BookNames.xml in the sfm directory which should contain localized
 
   # Any presentational text will be removed from cross-references. Then localized  
   # note text will be added using Paratext meta-data and/or \toc tags.
-  my %localization;
-  my @files = split(/\n/, &shell("find \"$INPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
-  foreach my $file (@files) {
-    if ($file && -e $file && -r $file) {
-      &Note("Reading Settings.xml file: $file", 1);
-      $ssf = $XML_PARSER->parse_file($file);
-      last;
-    }
-  }
-
-  my %elems = (
-    'RangeIndicator' => '-', 
-    'SequenceIndicator' => ',', 
-    'ReferenceFinalPunctuation' => '.', 
-    'ChapterNumberSeparator' => '; ', 
-    'ChapterRangeSeparator' => decode('utf8', '—'), 
-    'ChapterVerseSeparator' => ':',
-    'BookSequenceSeparator' => '; '
-  );
-  
-  foreach my $k (keys %elems) {
-    $v = $elems{$k};
-    if ($ssf) {
-      my $kv = @{$XPC->findnodes("$k", $ssf)}[0];
-      if ($kv && $kv->textContent) {
-        $v = $kv->textContent;
-        &Note("<>Found localized Scripture reference settings in \"".@files[0]."\"");
-      }
-    }
-    $localization{$k} = $v;
-  }
-  foreach my $x (sort keys %elems) {&Note("$x = '".$localization{$x}."'");}
+  my %localization = ( &readParatextReferenceSettings() );
+  foreach my $x (sort keys %localization) {&Note("$x = '".$localization{$x}."'");}
   
   # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES when equal length
   my $countLocalizedNames = 0;
