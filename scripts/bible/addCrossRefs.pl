@@ -90,8 +90,8 @@ BookNames.xml in the sfm directory which should contain localized
 
   # Any presentational text will be removed from cross-references. Then localized  
   # note text will be added using Paratext meta-data and/or \toc tags.
-  my %localization = ( &readParatextReferenceSettings() );
-  foreach my $x (sort keys %localization) {&Note("$x = '".$localization{$x}."'");}
+  my $localizationP = &readParatextReferenceSettings();
+  foreach my $x (sort keys %{$localizationP}) {&Note("Using Paratext setting $x = '".$localizationP->{$x}."'");}
   
   # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES when equal length
   my $countLocalizedNames = 0;
@@ -125,7 +125,7 @@ the abbreviation.");
       }
     
       $countLocalizedNames++;
-      $localization{$book} = $shortName;
+      $localizationP->{$book} = $shortName;
       &Note("$book = $shortName");
     }
     else {&Warn("Missing translation for \"$book\".", 
@@ -137,7 +137,7 @@ cross-references will be unreadable.\n$bookNamesMsg");}
   }
   
   if ($countLocalizedNames == 66) {
-    $localization{'hasLocalization'}++;
+    $localizationP->{'hasLocalization'}++;
     &Note("Applying localization to all cross references.");
   }
   else {
@@ -196,10 +196,10 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     # add annotateRef so readers know where the note belongs
     my $annotateRef = &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed}; $annotateRef =~ s/!PART$//;
     if (!$annotateRef) {$annotateRef = $fixed};
-    if ($localization{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+    if ($localizationP->{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
-      my $elem = "<reference osisRef=\"$fixed\" type=\"annotateRef\">$ch".$localization{'ChapterVerseSeparator'}."$vs</reference> ";
+      my $elem = "<reference osisRef=\"$fixed\" type=\"annotateRef\">$ch".$localizationP->{'ChapterVerseSeparator'}."$vs</reference> ";
       $note->insertBefore($XML_PARSER->parse_balanced_chunk($elem), $note->firstChild);
     }
     
@@ -213,12 +213,12 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
       foreach my $child ($ref->childNodes()) {$child->unbindNode();}
       my $t;
-      if ($localization{'hasLocalization'}) {
+      if ($localizationP->{'hasLocalization'}) {
         # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
         my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
-        my $tr = &translateRef($readRef, \%localization, &conf('Versification'));
+        my $tr = &translateRef($readRef, $localizationP, &conf('Versification'));
         if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
-        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localization{'SequenceIndicator'});
+        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localizationP->{'SequenceIndicator'});
       }
       else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
       

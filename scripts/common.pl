@@ -993,6 +993,7 @@ sub customize_addScripRefLinks($) {
     '10 SUFFIXES' => ['\.']
   );
   my $paratextSettingsP = &readParatextReferenceSettings();
+  foreach my $k (sort keys %{$paratextSettingsP}) {$paratextSettingsP->{$k} = quotemeta($paratextSettingsP->{$k});}
   my %cf2paratext = ( # mapping from osis-converters CF_addScripRefLinks.txt settings to Paratext settings
     '02 CHAPTER_TERMS' => ['ChapterRangeSeparator', 'ChapterNumberSeparator'],
     '04 SEPARATOR_TERMS' => ['SequenceIndicator', 'ChapterNumberSeparator'],
@@ -1052,12 +1053,12 @@ sub readParatextReferenceSettings() {
 
   # First set the defaults
   my %settings = (
-    'RangeIndicator' => '\-', 
+    'RangeIndicator' => '-', 
     'SequenceIndicator' => ',', 
-    'ReferenceFinalPunctuation' => '\.', 
+    'ReferenceFinalPunctuation' => '.', 
     'ChapterNumberSeparator' => '; ', 
     'ChapterRangeSeparator' => decode('utf8', '—'), 
-    'ChapterVerseSeparator' => '\:',
+    'ChapterVerseSeparator' => ':',
     'BookSequenceSeparator' => '; '
   );
   
@@ -1067,7 +1068,7 @@ sub readParatextReferenceSettings() {
     if ($settingsFileXML) {
       my $kv = @{$XPC->findnodes("$k", $settingsFileXML)}[0];
       if ($kv && $kv->textContent) {
-        my $v = quotemeta($kv->textContent);
+        my $v = $kv->textContent;
         &Note("<>Found localized Scripture reference settings in $settingsFilePATH");
         if ($v ne $default) {
           &Note("Setting Paratext $k from '".$settings{$k}."' to '$v' according to $settingsFilePATH");
@@ -1178,9 +1179,9 @@ sub customize_usfm2osis($$) {
         splice(@instructions, 0, 0, ''); # to add leading separator with join
         my $line = join(", ", @instructions);
         $line =~ s/([\@\$\/])/\\$1/g; # escape these so Perl won't interperet them as special chars on the replacement side s//X/
-        print CFF "$line/m\n";
+        print CFF "$line/m";
       }
-      
+      print CFF "\n";
     }
 
     print CFF "RUN:$r\n";
