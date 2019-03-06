@@ -1024,8 +1024,9 @@ sub customize_addScripRefLinks($) {
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
   }
   print CFT "\n";
-  @allbks = split(/\s+/, $OT_BOOKS); push(@bks, split(/\s+/, $NT_BOOKS));
-  foreach my $osis (@allbks) {print CFT &getAllAbbrevsString($osis, \%abbrevs);}
+  foreach my $osis ( split(/\s+/, $OT_BOOKS), split(/\s+/, $NT_BOOKS) ) {
+    print CFT &getAllAbbrevsString($osis, \%abbrevs);
+  }
   close(CFT);
   unlink($cf);
   move("$cf.tmp", $cf);
