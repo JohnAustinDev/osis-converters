@@ -73,10 +73,12 @@ else {
 $CONFFILE = "$MAININPD/config.conf";
 $CONF = {}; &readConfFile($CONFFILE, $CONF);
 $DICTMOD = ($CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
-&setConfGlobals($CONF);
 
 # Allow running MAININPD-only scripts from a DICT sub-project
-if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {$INPD = $MAININPD;}
+if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
+  $INPD = $MAININPD;
+  $MOD = $MAINMOD;
+}
 
 if ($INPD eq $DICTINPD && -e "$INPD/CF_osis2osis.txt") {
   &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
@@ -85,6 +87,8 @@ should still be placed in the main module directory. If you want to run
 sfm2osis.pl on the main module, then ALSO include a CF_usfm2osis.txt 
 file in the main module directory.", 1);
 }
+
+&setConfGlobals($CONF);
 
 if (!&init_opsys()) {exit;}
 

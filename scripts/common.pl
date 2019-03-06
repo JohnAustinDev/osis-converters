@@ -1179,9 +1179,9 @@ sub customize_usfm2osis($$) {
         splice(@instructions, 0, 0, ''); # to add leading separator with join
         my $line = join(", ", @instructions);
         $line =~ s/([\@\$\/])/\\$1/g; # escape these so Perl won't interperet them as special chars on the replacement side s//X/
-        print CFF "$line/m";
+        print CFF "$line";
       }
-      print CFF "\n";
+      print CFF "/m\n";
     }
 
     print CFF "RUN:$r\n";
