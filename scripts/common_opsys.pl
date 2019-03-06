@@ -385,7 +385,7 @@ sub conf($$) {
   elsif ($DICTMOD && $MOD eq $DICTMOD && exists($c->{$DICTMOD.'+'.$entry})) {
     $key = $DICTMOD.'+'.$entry;
   }
-  elsif ($c->{$entry}) {$key = $entry;}
+  elsif (exists($c->{$entry})) {$key = $entry;}
   
   if (!$key && $entry !~ /SubPublication/) {
     &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
