@@ -99,8 +99,8 @@ sub runProcessOSIS($) {
   }
   else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
 
-  # Every note tag needs a unique osisID assigned to it
-  &writeNoteIDs(\$OSIS);
+  # Every note tag needs a unique osisID assigned to it, as do some other elements
+  &writeOsisIDs(\$OSIS);
 
   # Add any missing Table of Contents milestones and titles as required for eBooks, html etc.
   &writeTOC(\$OSIS, $modType);

@@ -243,8 +243,8 @@
     </xsl:choose>
   </xsl:template>
   
-  <!-- Add a special subType to Bible introductions if the glossary also includes the introduction -->
-  <xsl:template match="div[@type='introduction'][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
+  <!-- Add a special subType to Paratext Bible introductions if the glossary also includes the introduction -->
+  <xsl:template match="div[@type='introduction'][not(@resp='x-oc')][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
       <xsl:if test="$introScope">
         <xsl:call-template name="Note"><xsl:with-param name="msg">Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>

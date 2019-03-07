@@ -2944,7 +2944,7 @@ sub initDocumentCache($) {
   my $headerDoc = $xml->URI;
   undef($DOCUMENT_CACHE{$headerDoc});
   $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
-  $dbg .= "document=$headerDoc ";
+  my $shd = $headerDoc; $shd =~ s/^.*\///; $dbg .= "document=$shd ";
   my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
   $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
   
@@ -3681,8 +3681,13 @@ sub glossaryContext($) {
   my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
   my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div['.join(' or ', @typeXPATH).'][last()]', $node)}[0];
   if (!$typeDiv) {
-    &ErrorBug("glossaryContext: Node is not part of a glossary: $node");
+    &ErrorBug("glossaryContext: Node is not part of a recognized container div: $node");
     return '';
+  }
+  
+  # if non-glossary use container osisID
+  if ($typeDiv && $typeDiv->getAttribute('type') ne 'glossary' && $typeDiv->hasAttribute('osisID')) {
+    return $typeDiv->getAttribute('osisID');
   }
 
   # get preceding keyword or self
@@ -5102,10 +5107,11 @@ sub writeWorkElement($$$) {
   return $w;
 }
 
-sub writeNoteIDs($) {
+# Write unique osisIDs to any elements that still need them
+sub writeOsisIDs($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeNoteIDs$3/;
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisIDs$3/;
   
   my $type;
   if    (&conf('ModDrv') =~ /LD/)   {$type = 'x-glossary';}
@@ -5128,6 +5134,13 @@ sub writeNoteIDs($) {
     my $xml = $XML_PARSER->parse_file($file);
     
     my $myMod = &getOsisRefWork($xml);
+    
+    # Add osisID to DICT container divs
+    my $n; my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
+    foreach my $div (@{$XPC->findnodes('//osis:div['.join(' or ', @typeXPATH).'][last()]', $xml)}) {
+      if ($div->hasAttribute('osisID')) {next;}
+      $div->setAttribute('osisID', 'div.'.++$n.'.'.$div->getAttribute('type'));
+    }
     
     # Get all notes excluding generic cross-references added from an external source
     my @allNotes = $XPC->findnodes('//osis:note[not(@resp)]', $xml);

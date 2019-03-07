@@ -850,7 +850,7 @@ sub encodePrintPaths($) {
   my $t = shift;
   
   # encode these local file paths
-  my @paths = ('INPD', 'OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
+  my @paths = ('MAININPD', 'MOD_OUTDIR', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE', 'SCRD');
   push(@paths, ($INPD eq MAININPD ? 'DICTINPD':'MAININPD'));
   
   foreach my $path (@paths) {
