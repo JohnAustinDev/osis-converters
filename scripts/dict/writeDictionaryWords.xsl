@@ -13,7 +13,7 @@
   
   <param name="anyEnding" select="oc:sarg('anyEnding', /, 'false')"/>
   
-  <param name="notXPATH_default" select="oc:sarg('notXPATH_default', /, 'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb or self::osis:hi]')"/>
+  <param name="notXPATH_default" select="oc:sarg('notXPATH_default', /, 'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]')"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   
@@ -85,7 +85,7 @@
   <template name="writeEntry">
     <entry osisRef="{if (starts-with(@osisID, concat($MOD, ':'))) then @osisID else concat($MOD, ':', @osisID)}" xmlns="http://github.com/JohnAustinDev/osis-converters">
       <name><xsl:value-of select="."/></name>
-      <xsl:variable name="matchesTmp" select="tokenize(., '\s*[,;\[\]\(\)]\s*')"/>
+      <xsl:variable name="matchesTmp" select="tokenize(., '\s*[,;\[\]\(\)/]\s*')"/><!-- these are seen as separators between keyword variants -->
       <xsl:variable name="matches" as="xs:string+"><xsl:for-each select="$matchesTmp"><xsl:if test="."><xsl:sequence select="."/></xsl:if></xsl:for-each></xsl:variable>
       <xsl:for-each select="$matches">
         <xsl:choose>
