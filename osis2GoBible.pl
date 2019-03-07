@@ -35,6 +35,8 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 
 $maxUnicode = 1103; # Default value: highest Russian Cyrillic Uncode code point
 %BookSizes;
+$BookOverhead = 1000;
+$JarOverhead = 40000;
 
 $GOBIBLE = "$INPD/GoBible";
 
@@ -70,7 +72,7 @@ foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
 &copyGoBibles("$TMPDIR/simple", $GBOUT);
 
 # Log results
-my $colSizeP = &readCollectionSizes($GBOUT);
+my $colSizeP = &readJarFileSizes($GBOUT);
 foreach my $type (sort keys %results) {
   my $numcols = 0; my $totalFull = 0; my $totalShort = 0; my @collist;
   foreach my $col (sort keys %{$results{$type}}) {
@@ -129,8 +131,9 @@ sub makeGoBibles($$$$$) {
   # Run GoBible Creator
   my $log = &shell("java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$dir/collections.txt"), 3);
 
-  # Read and check size of resulting JAR files
-  my $colSizeP = &readCollectionSizes($dir);
+  # Read, compare, and check size of resulting JAR files
+  my $colSizeP = &readJarFileSizes($dir);
+  my $colCalcP = (%BookSizes ? &calculateCollectionSizes($collectionsP, \%BookSizes):'');
   my $maxsize = 512000;
   my $needReRun = 0;
   foreach my $col (sort keys %{$colSizeP}) {
@@ -140,11 +143,14 @@ sub makeGoBibles($$$$$) {
         &Note(sprintf("The small jar file $col is larger than 512kb (%i)", $colSizeP->{$col}/1000), 1);
       }
     }
+    my $size = ($colSizeP->{$col}/1000);
+    my $calc = ($colCalcP ? ($colCalcP->{$col}/1000):0);
+    &Report(sprintf("$col actual-size=%i, calc-size=%i, err=%i\n", $size, $calc, (100*($calc/$size))));
   }
 
   # Check if another run is needed and prepare for it
   if ($needReRun) {
-    if (scalar keys %{$collectionsP} == 1) {
+    if (scalar keys %{$collectionsP} == 1) { # on the first pass, there is always only 1 collection
       &calculateBookSizes("$dir/osis.xml", $colSizeP->{lc($MAINMOD).$colext}, \%BookSizes);
       &createCollectionsOTNT($collectionsP, $colext);
       $colSizeP = &calculateCollectionSizes($collectionsP, \%BookSizes);
@@ -248,10 +254,10 @@ sub writeCollectionsFile($$) {
   return $colfile;
 }
 
-sub readCollectionSizes($) {
+sub readJarFileSizes($) {
   my $dir = shift;
   
-  if (!opendir(DIR, $dir)) {&ErrorBug("readCollectionSizes could not open $dir for reading"); return;}
+  if (!opendir(DIR, $dir)) {&ErrorBug("readJarFileSizes could not open $dir for reading"); return;}
   my @f = readdir(DIR);
   closedir(DIR);
   
@@ -260,6 +266,7 @@ sub readCollectionSizes($) {
     if ($f[$i] !~ /^(.*?).jar$/i) {next;}
     my $col = $1;
     $colSize{$col} = (-s "$dir/".$f[$i]);
+    #&Note("Actual size of $col is ".($colSize{$col}/1000)." kb\n");
   }
   
   return \%colSize;
@@ -281,7 +288,8 @@ sub calculateBookSizes($$$) {
   }
   foreach my $bke (@books) {
     my $bk = $bke->getAttribute('osisID');
-    $bookSizesP->{$bk} = int($fullsize * $bookChars{$bk}/$totalChars);
+    $bookSizesP->{$bk} = int(($fullsize-$JarOverhead-($BookOverhead*@books)) * $bookChars{$bk}/$totalChars);
+    &Note("Calculated size of $bk is ".$bookSizesP->{$bk}." kb\n");
   }
 }
 
@@ -314,9 +322,11 @@ sub calculateCollectionSizes($$) {
   
   my %colSize;
   foreach my $col (sort keys %{$collectionsP}) {
+    $colSize{$col} = $JarOverhead;
     foreach my $bk (@{$collectionsP->{$col}}) {
-      $colSize{$col} += $bookSizesP->{$bk};
+      $colSize{$col} += $BookOverhead + $bookSizesP->{$bk};
     }
+    #&Note("Calculated size of $col is ".($colSize{$col}/1000)." kb\n");
   }
 
   return \%colSize;
@@ -343,7 +353,7 @@ sub adjustCollectionSizes($$$$) {
   } while ($hasOversize);
   my $note = "Adjusted collection sizes:\n";
   foreach my $col (sort keys %{$collectionsP}) {
-    $note .= sprintf("%-10s (%7i kb) %s\n", $col, ($colSizeP->{$col}/1000), join(' ', @{$collectionsP->{$col}}));
+    $note .= sprintf("%-10s (calc size:%4i kb) %s\n", $col, ($colSizeP->{$col}/1000), join(' ', @{$collectionsP->{$col}}));
   }
   &Note($note, 2);
 }
