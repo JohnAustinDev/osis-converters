@@ -94,7 +94,7 @@ sub init_linux_script() {
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
   my %c; &readConfFile("$MAININPD/config.conf", \%c); my $cn = "${MAINMOD}DICT";
-  $DICTMOD = (%c{'Companion'} =~ /\b$cn\b/ ? $cn:'');
+  $DICTMOD = ($c{'Companion'} =~ /\b$cn\b/ ? $cn:'');
   
   if (!-e $CONFFILE) {
     &Error("Could not find or create a \"$CONFFILE\" file.
