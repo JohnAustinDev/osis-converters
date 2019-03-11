@@ -2260,9 +2260,6 @@ sub pruneFileOSIS($$\%\$\$) {
   my $tocNum = &conf('TOC');
   my $bookTitleTocNum = &conf('TitleTOC');
   
-  my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
-  $typeRE =~ s/\-/\\-/g;
-  
   my $inxml = $XML_PARSER->parse_file($$osisP);
   my $fullScope = &getScopeOSIS($inxml);
   
@@ -2345,7 +2342,7 @@ sub pruneFileOSIS($$\%\$\$) {
     }
   }
   
-  # determine titles
+  # determine pruned OSIS file's new title
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
   my $title = ($$ebookTitleP ? $$ebookTitleP:$osisTitle->textContent);
   if ($booksFiltered) {
@@ -2365,7 +2362,7 @@ sub pruneFileOSIS($$\%\$\$) {
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
   
-  # remove references beyond OSIS file
+  # remove references beyond pruned OSIS file
   my @rhot = $XPC->findnodes('//osis:reference[@subType="x-external"]', $inxml);
   foreach my $r (@rhot) {
     foreach my $chld ($r->childNodes) {$r->parentNode()->insertBefore($chld, $r);}
@@ -5320,44 +5317,57 @@ tag number you wish to use.)\n");
     }
   }
   elsif ($modType eq 'dict') {
-    my $maxkw = 7;
-    # Any glossary (a div containing keywords) which has more than $maxkw keywords gets added to the TOC (unless it has level1 TOC entries already or it's already in the TOC)
-    my @needTOC = $XPC->findnodes('//osis:div[count(descendant::osis:seg[@type="keyword"]) > '.$maxkw.']
-        [not(@subType = "x-aggregate")][not(@resp="x-oc")]
+    my $maxkw = &conf("ARG_AutoMaxTOC1"); $maxkw = ($maxkw ne '' ? $maxkw:7);
+    # Any Paratext div which does not have a TOC entry already and does 
+    # not have sub-entries that are specified as level1-TOC, should get 
+    # a level1-TOC entry, so that its main contents will be available 
+    # there. Such a TOC entry is not added, however, if the div is a 
+    # glossary (that is, a div containing keywords) that has less than 
+    # ARG_AutoMaxTOC1 keywords, in which case the sub-entries themselves 
+    # may be left without a preceding level1-TOC entry so that they will 
+    # appear as level1-TOC themselves.
+    my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
+    $typeRE =~ s/\-/\\-/g;
+  
+    my @needTOC = $XPC->findnodes('//osis:div[not(@subType = "x-aggregate")]
+        [not(@resp="x-oc")]
         [not(descendant::*[contains(@n, "[level1]")])]
         [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
-    my $n = 0;
-    foreach my $glossDiv (@needTOC) {
-      if ($glossDiv->getAttribute('scope')) {
+        
+    my %n;
+    foreach my $div (@needTOC) {
+      if (!$div->hasAttribute('type') || $div->getAttribute('type') !~ /$typeRE/) {next;}
+      my $type = $div->getAttribute('type');
+      if ($maxkw && $type eq 'glossary' && @{$XPC->findnodes('descendant::osis:seg[@type="keyword"]', $div)} <= $maxkw) {next;}
+      if ($div->getAttribute('scope')) {
         my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
-        if (!@{&scopeToBooks($glossDiv->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
+        if (!@{&scopeToBooks($div->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
       }
-      my $hasTitle = 1;
-      my $glossTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $glossDiv)}[0];
-      if ($glossTitle) {$glossTitle = $glossTitle->textContent;}
+      
+      my $hasTitle = 1; my $confentry;
+      my $divTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
+      if ($divTitle) {$divTitle = $divTitle->textContent;}
       else {
         $hasTitle = 0;
-        $glossTitle = &conf('GlossaryTitle'.++$n);
+        $confentry = 'ARG_'.ucfirst($type).'Title'.++$n{$type};
+        $divTitle = &conf($confentry);
+        if ($divTitle eq 'SKIP') {next;}
       }
-      if (!$glossTitle) {
-        $glossTitle = "Glossary #$n";
-        &Error("The glossary with title '$glossTitle' needs a localized title.",
-"Any glossary with more than $maxkw keywords which does not 
-contain a Table Of Contents entry marked as [level1] will automatically 
-be added to the TOC. You must provide the localized glossary title for 
-this TOC entry by adding the following to config.conf: 
-GlossaryTitle$n=The Localized Glossary Title. 
-If you really do not want a title for this glossary to appear in the 
-TOC, but rather want its keywords only to appear, then you can do that, 
-and eliminate this error, by adding the following USFM to the beginning 
-of the glossary:
-\\toc".&conf('TOC')." [no_toc]");
+      if (!$divTitle) {
+        $divTitle = ucfirst($type)." #$n";
+        &Error("The Paratext div with title '$divTitle' needs a localized title.",
+"A level1 TOC entry for this div has been automatically created, but it 
+needs a title. You must provide the localized title for this TOC entry 
+by adding the following to config.conf: 
+$confentry=The Localized Title. 
+If you really do not want this title to appear in the TOC, then set
+the localized title to 'SKIP'.");
       }
       my $toc = $XML_PARSER->parse_balanced_chunk('
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$glossTitle.'" resp="'.$ROC.'"/>'.($hasTitle ? '':'
-  <title level="1" type="main" resp="'.$ROC.'">'.$glossTitle.'</title>'));
-      $glossDiv->insertBefore($toc, $glossDiv->firstChild);
-      &Note("Inserting glossary TOC entry and title within new introduction div as: $glossTitle");
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$divTitle.'" resp="'.$ROC.'"/>'.($hasTitle ? '':'
+  <title level="1" type="main" resp="'.$ROC.'">'.$divTitle.'</title>'));
+      $div->insertBefore($toc, $div->firstChild);
+      &Note("Inserting glossary TOC entry and title within new introduction div as: $divTitle");
     }
   }
   elsif ($modType eq 'childrens_bible') {return;}

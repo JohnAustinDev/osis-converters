@@ -107,7 +107,13 @@
         <item subType="x-introduction-link">
           <p type="x-right">
             <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
-            <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
+            <xsl:variable name="introSubEntries" select="root()//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
+            <xsl:variable name="osisRef" select="concat($DICTMOD, ':', 
+              (if (count($introSubEntries) = 1) then 
+                oc:encodeOsisRef($introSubEntries) else 
+                oc:encodeOsisRef($uiIntroduction)
+              ))"/>
+            <reference osisRef="{$osisRef}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
             </reference>
           </p>
@@ -165,12 +171,14 @@
                 <title type="main" subType="x-introduction"><xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></title>
                 <lb/>
                 <lb/>
-                <xsl:for-each select="$introSubEntries">
-                  <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction sub-menu: <xsl:value-of select="."/></xsl:with-param></xsl:call-template>
-                  <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
-                    <lb/>
-                  </p>
-                </xsl:for-each>
+                <xsl:if test="count($introSubEntries) &#62; 1">
+                  <xsl:for-each select="$introSubEntries">
+                    <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction sub-menu: <xsl:value-of select="."/></xsl:with-param></xsl:call-template>
+                    <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
+                      <lb/>
+                    </p>
+                  </xsl:for-each>
+                </xsl:if>
               </div>
             </xsl:if>
             
