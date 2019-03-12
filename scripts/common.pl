@@ -5354,7 +5354,7 @@ tag number you wish to use.)\n");
         if ($divTitle eq 'SKIP') {next;}
       }
       if (!$divTitle) {
-        $divTitle = ucfirst($type)." #$n";
+        $divTitle = ucfirst($type)." #".$n{$type};
         &Error("The Paratext div with title '$divTitle' needs a localized title.",
 "A level1 TOC entry for this div has been automatically created, but it 
 needs a title. You must provide the localized title for this TOC entry 

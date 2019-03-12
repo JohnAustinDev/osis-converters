@@ -32,7 +32,7 @@
   
   <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
-  <xsl:template match="node()|@*" mode="identity">
+  <xsl:template name="identity" match="node()|@*" mode="identity">
     <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
   </xsl:template>
   
@@ -47,7 +47,8 @@
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
       <xsl:when test="($DICTMOD and $prependNavMenu) or self::chapter[@eID]">
-        <xsl:call-template name="navmenu"/>
+
+        <xsl:call-template name="navmenu"><xsl:with-param name="introDuplicate" select="$introScope and $prependNavMenu and not(preceding::div[@type='book'])"/></xsl:call-template>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:with-param></xsl:call-template>
@@ -66,6 +67,7 @@
   <xsl:template name="navmenu">
     <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
+    <xsl:param name="introDuplicate"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
     <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = $BIBLEMOD"/>
     <list subType="x-navmenu" resp="x-oc">
@@ -105,15 +107,10 @@
       </xsl:if>
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $introScope">
         <item subType="x-introduction-link">
+          <xsl:if test="$introDuplicate"><xsl:attribute name="resp" select="'duplicate'"/></xsl:if>
           <p type="x-right">
             <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
-            <xsl:variable name="introSubEntries" select="root()//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
-            <xsl:variable name="osisRef" select="concat($DICTMOD, ':', 
-              (if (count($introSubEntries) = 1) then 
-                oc:encodeOsisRef($introSubEntries) else 
-                oc:encodeOsisRef($uiIntroduction)
-              ))"/>
-            <reference osisRef="{$osisRef}" type="x-glosslink" subType="x-target_self">
+            <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
             </reference>
           </p>
@@ -171,14 +168,21 @@
                 <title type="main" subType="x-introduction"><xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></title>
                 <lb/>
                 <lb/>
-                <xsl:if test="count($introSubEntries) &#62; 1">
-                  <xsl:for-each select="$introSubEntries">
-                    <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction sub-menu: <xsl:value-of select="."/></xsl:with-param></xsl:call-template>
-                    <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
-                      <lb/>
-                    </p>
-                  </xsl:for-each>
-                </xsl:if>
+                <xsl:choose>
+                  <xsl:when test="count($introSubEntries) = 1">
+                    <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction menu contents: <xsl:value-of select="$introSubEntries"/></xsl:with-param></xsl:call-template>
+                    <title><xsl:value-of select="$introSubEntries"/></title>
+                    <xsl:for-each select="$introSubEntries/following-sibling::node()"><xsl:call-template name="identity"/></xsl:for-each>
+                  </xsl:when>
+                  <xsl:otherwise>
+                    <xsl:for-each select="$introSubEntries">
+                      <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction menu link: <xsl:value-of select="."/></xsl:with-param></xsl:call-template>
+                      <p type="x-noindent"><reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" type="x-glosslink" subType="x-target_self"><xsl:value-of select="."/></reference>
+                        <lb/>
+                      </p>
+                    </xsl:for-each>
+                  </xsl:otherwise>
+                </xsl:choose>
               </div>
             </xsl:if>
             
@@ -255,8 +259,8 @@
   <xsl:template match="div[@type='introduction'][not(@resp='x-oc')][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
     <xsl:copy>
       <xsl:if test="$introScope">
-        <xsl:call-template name="Note"><xsl:with-param name="msg">Added subType="x-glossary-duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
-        <xsl:attribute name="subType" select="'x-glossary-duplicate'"/>
+        <xsl:call-template name="Note"><xsl:with-param name="msg">Added resp="duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
+        <xsl:attribute name="resp" select="'duplicate'"/>
       </xsl:if>
       <xsl:apply-templates select="node()|@*"/>
     </xsl:copy>

@@ -138,7 +138,7 @@ close(CONF);
 
 # Forwards glossary links targetting a member of an aggregated entry to 
 # the aggregated entry because SWORD uses the aggregated entries. 
-# Removes x-glossary-duplicate and chapter nevmenus, which aren't wanted 
+# Removes some duplicate and chapter nevmenus, which aren't wanted 
 # for SWORD. If a jpg image is also available in png, switch it to png.
 # Also removes subType="x-external" attributes from references.
 sub links2sword($) {
@@ -153,10 +153,10 @@ sub links2sword($) {
   }
   &Report("Forwarded ".scalar(@gks)." link(s) to their aggregated entries.");
 
-  
-  foreach my $d ($XPC->findnodes('//osis:div[@type="introduction" and @subType="x-glossary-duplicate"]', $xml)) {
+  my $bibleIntroLinks = &conf("ARG_BibleIntroLinks"); $bibleIntroLinks = ($bibleIntroLinks eq 'true' ? 1:0);
+  foreach my $d ($XPC->findnodes('//osis:'.($bibleIntroLinks ? 'div':'item').'[@resp="duplicate"]', $xml)) {
     my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
-    &Note("Removed x-glossary-duplicate div beginning with: $beg");
+    &Note("Removed duplicate ".($bibleIntroLinks ? 'div':'item')." beginning with: $beg");
     $d->unbindNode();
   }
   
