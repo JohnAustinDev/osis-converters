@@ -5140,9 +5140,22 @@ sub writeOsisIDs($) {
     
     # Add osisID to DICT container divs
     my $n; my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
-    foreach my $div (@{$XPC->findnodes('//osis:div['.join(' or ', @typeXPATH).'][last()]', $xml)}) {
+    foreach my $div (@{$XPC->findnodes('//osis:div['.join(' or ', @typeXPATH).']', $xml)}) {
       if ($div->hasAttribute('osisID')) {next;}
-      $div->setAttribute('osisID', 'div.'.++$n.'.'.$div->getAttribute('type'));
+      
+      my $title;
+      my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
+      if ($elem) {$title = 'milestone.'.&encodeOsisRef($elem->getAttribute('n'));}
+      else {
+        $elem = @{$XPC->findnodes('descendant::osis:title[1]', $div)}[0];
+        if ($elem) {$title = 'title.'.&encodeOsisRef($elem->textContent);}
+        else {
+          $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];
+          if ($elem) {$title = 'keyword.'.&encodeOsisRef($elem->textContent);}
+        }
+      }
+      if (!$title) {$title = $n++};
+      $div->setAttribute('osisID', $div->getAttribute('type').'.'.$title);
     }
     
     # Get all notes excluding generic cross-references added from an external source
