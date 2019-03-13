@@ -365,9 +365,11 @@ system section: ".join(' ', @OC_SYSTEM));}
 # function returns the current value of a config parameter according to  
 # the present script and module context. It also checks that the
 # request is allowable.
-sub conf($$) {
+sub conf($$$$) {
   my $entry = shift;
-  my $altconfP = shift;
+  my $altconfP = shift; # optional
+  my $mod = shift; $mod = ($mod ? $mod:$MOD); #optional
+  my $allowmissing = shift; #optional
   
   my $c = ($altconfP ? $altconfP:$CONF);
   
@@ -382,12 +384,12 @@ sub conf($$) {
   elsif (exists($c->{$SCRIPT_NAME.'+'.$entry})) {
     $key = $SCRIPT_NAME.'+'.$entry;
   }
-  elsif ($DICTMOD && $MOD eq $DICTMOD && exists($c->{$DICTMOD.'+'.$entry})) {
-    $key = $DICTMOD.'+'.$entry;
+  elsif ($DICTMOD && $mod eq $DICTMOD && exists($c->{$mod.'+'.$entry})) {
+    $key = $mod.'+'.$entry;
   }
   elsif (exists($c->{$entry})) {$key = $entry;}
   
-  if (!$key && $entry !~ /(^ARG_|SubPublication)/) {
+  if (!$allowmissing && !$key && $entry !~ /(^ARG_|SubPublication)/) {
     &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
   }
   #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");

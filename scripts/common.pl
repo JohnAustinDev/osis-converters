@@ -4915,23 +4915,11 @@ sub writeOsisHeader($) {
     $we->unbindNode();
   }
   
-  # Search for any ISBN number(s) in the osis file
-  my @isbns;
-  my $isbn;
-  my @tns = $XPC->findnodes('//text()', $xml);
-  foreach my $tn (@tns) {
-    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
-      $isbn = $2;
-      push(@isbns, $isbn);
-    }
-  }
-  $isbn = join(', ', @isbns);
-  
   my $header;
     
   # Add work element for MAINMOD
   my %workElements;
-  &getOSIS_Work($MAINMOD, \%workElements, $CONF, ($MOD eq $MAINMOD ? $isbn:''));
+  &getOSIS_Work($MAINMOD, \%workElements, $CONF, &searchForISBN($MAINMOD, ($MOD eq $MAINMOD ? $xml:'')));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, &conf('Versification'));
@@ -4942,7 +4930,7 @@ sub writeOsisHeader($) {
   # Add work element for DICTMOD
   if ($DICTMOD) {
     my %workElements;
-    &getOSIS_Work($DICTMOD, \%workElements, $CONF, ($MOD ne $MAINMOD ? $isbn:''));
+    &getOSIS_Work($DICTMOD, \%workElements, $CONF, &searchForISBN($DICTMOD, ($MOD eq $DICTMOD ? $xml:'')));
     my %workAttributes = ('osisWork' => $DICTMOD);
     $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   }
@@ -4950,6 +4938,24 @@ sub writeOsisHeader($) {
   &writeXMLFile($xml, $output, (ref($osis_or_osisP) ? $osis_or_osisP:''));
   
   return $header;
+}
+
+# Search for any ISBN number(s) in the osis file or config.conf.
+sub searchForISBN($$) {
+  my $mod = shift;
+  my $xml = shift;
+  
+  my %isbns; my $isbn;
+  my @checktxt = ($xml ? $XPC->findnodes('//text()', $xml):());
+  my @checkconfs = ('About', 'Description', 'ShortPromo', 'TextSource', 'LCSH');
+  foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, '', $mod, 1));}
+  foreach my $tn (@checktxt) {
+    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
+      $isbn = $2;
+      $isbns{$isbn}++;
+    }
+  }
+  return join(', ', keys %isbns);
 }
 
 # Write all work children elements for modname to osisWorkP. The modname 
