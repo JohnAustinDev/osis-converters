@@ -387,7 +387,7 @@ sub conf($$) {
   }
   elsif (exists($c->{$entry})) {$key = $entry;}
   
-  if (!$key && $entry !~ /^(ARG_|SubPublication)/) {
+  if (!$key && $entry !~ /(^ARG_|SubPublication)/) {
     &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
   }
   #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
