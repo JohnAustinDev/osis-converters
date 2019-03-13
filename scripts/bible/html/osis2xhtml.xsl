@@ -63,8 +63,6 @@
   <template match="/">
     <variable name="osisIDWork" select="/descendant::osisText[1]/@osisIDWork"/>
     
-    <call-template name="Log"><with-param name="msg" select="concat('ARGS:&#xa;css=', $css, '&#xa;glossthresh=', $glossthresh, '&#xa;html5=', $html5, '.&#xa;CONFIG:&#xa;DEBUG=', $DEBUG, '&#xa;TOC=', $TOC, '&#xa;TitleCase=', $TitleCase, '&#xa;NoEpub3Markup=', $NoEpub3Markup, '&#xa;FullResourceURL=', $FullResourceURL, '&#xa;ChapterFiles=', $ChapterFiles, '&#xa;CombinedGlossaryTitle=', $CombinedGlossaryTitle, '&#xa;CombineGlossaries=', $CombineGlossaries, '&#xa;MainTocMaxBackChars=', $MainTocMaxBackChars, '&#xa;CONTEXT:&#xa;SCRIPT_NAME=', $SCRIPT_NAME, '&#xa;DICTMOD=', $DICTMOD)"/></call-template>
-
     <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
       <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
       <choose>

@@ -30,6 +30,7 @@
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
     <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'no')"/>
+    <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading config.conf: ', $entry, ' = ', $result)"/></call-template>
     <choose>
       <when test="$result and oc:isValidConfigValue($entry, $result)"><value-of select="$result"/></when>
       <when test="$result"><value-of select="$result"/></when>
@@ -47,18 +48,24 @@
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
     <param name="default" as="xs:string?"/>
-    <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'yes')"/>
-    <choose>
-      <when test="$result"><value-of select="$result"/></when>
-      <otherwise><value-of select="$default"/></otherwise>
-    </choose>
+    <variable name="result0" select="oc:osisHeaderContext($entry, $anynode, 'yes')"/>
+    <variable name="result">
+      <choose>
+        <when test="$result0"><value-of select="$result0"/></when>
+        <otherwise><value-of select="$default"/></otherwise>
+      </choose>
+    </variable>
+    <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading config.conf: ARG_', $entry, ' = ', $result)"/></call-template>
+    <value-of select="$result"/>
   </function>
     
   <!-- Return a config system value by reading the OSIS header (nothing is returned if requested param is not found) -->
   <function name="oc:csys" as="xs:string?">
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
-    <value-of select="$anynode/root()/osis[1]/osisText[1]/header[1]/work[1]/description[@type=concat('x-config-system+', $entry)][1]/text()"/>
+    <variable name="result" select="$anynode/root()/osis[1]/osisText[1]/header[1]/work[1]/description[@type=concat('x-config-system+', $entry)][1]/text()"/>
+    <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading system variable: ', $entry, ' = ', $result)"/></call-template>
+    <value-of select="$result"/>
   </function>
   
   <!-- Return a contextualized config or argument value by reading the OSIS header -->
