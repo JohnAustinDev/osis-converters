@@ -30,6 +30,7 @@
   
   <xsl:param name="BIBLEMOD" select="/descendant::work[child::type[@type='x-bible']][1]/@osisWork"/>
   
+  <!-- this must be identical to the combinedKeywords variable of osis2xhtml.xsl, or else the html combinedGlossary navmenus could end up with broken links -->
   <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
   <xsl:template name="identity" match="node()|@*" mode="identity">
@@ -144,7 +145,7 @@
         <xsl:copy>
           <xsl:variable name="combinedGlossary" as="element(div)">
             <div type="glossary" subType="x-combinedGlossary">
-              <xsl:for-each select="$dictEntries">
+              <xsl:for-each select="$dictEntries"><!-- The following sort should be the same as that in osis2xhtml.xsl WriteCombinedGlossary -->
                 <xsl:sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
                 <xsl:copy><xsl:attribute name="realid" select="generate-id(.)"/><xsl:apply-templates/></xsl:copy>
               </xsl:for-each>

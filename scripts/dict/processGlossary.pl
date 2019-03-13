@@ -54,6 +54,12 @@ sub filterGlossaryToScope($$$) {
   }
 
   if (!@removed) {return '0';}
+  
+  # since at least one keyword was filtered out, some built in keyword navmenus are now wrong, so just remove them all to be sure
+  foreach my $nm ($XPC->findnodes('//osis:div[starts-with(@type, "x-keyword")]/descendant::osis:item[@subType="x-prevnext-link"]', $xml)) {
+    $nm->unbindNode();
+  }
+
   if (@removed == @glossDivs) {return '-1';}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;

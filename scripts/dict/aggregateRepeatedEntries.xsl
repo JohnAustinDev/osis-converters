@@ -16,6 +16,8 @@
   -->
  
   <import href="../functions.xsl"/>
+  
+  <param name="TOC" select="oc:conf('TOC', /)"/>
 
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
@@ -38,8 +40,11 @@
         <with-param name="exp">Either change the keyword into a regular title, or change the \id USFM tag file-type of the containing file to GLO.</with-param>
       </call-template>
     </for-each>
-    <for-each select="//div[@type and not(ancestor-or-self::div[@type='glossary'])]">
-      <call-template name="Warn"><with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module, because only "\id GLO" type USFM files will appear there.</with-param></call-template>
+    <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary']">
+      <call-template name="Warn">
+        <with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module. It contains:&#xa;<value-of select="string-join(distinct-values(descendant::title | descendant::milestone[@type=concat('x-usfm-toc', $TOC)]/@n), '&#xa;')"/></with-param>
+        <with-param name="exp">Only "\id GLO" type USFM files will appear in the SWORD glossary module.</with-param>
+      </call-template>
     </for-each>
     <variable name="separateKeywords"><apply-templates mode="separateKeywordMode"/></variable>
     <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>

@@ -164,7 +164,7 @@
       <milestone type="{concat('x-usfm-toc', $TOC)}" n="[level1]{$CombinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$CombinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
-        <sort select="oc:keySort(.//seg[@type='keyword'][1]/string())" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+        <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <apply-templates select="." mode="writeCombinedGlossary"/>
       </for-each>
     </element>
