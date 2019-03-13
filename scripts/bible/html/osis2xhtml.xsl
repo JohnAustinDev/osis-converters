@@ -630,7 +630,7 @@
               <when test="self::chapter">chapter</when>
               <when test="self::seg">keyword</when>
               <when test="matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')">introduction</when>
-              <when test="$divType='glossary'">glossary</when>
+              <when test="matches($divType, '^(glossary|bookGroup|book)$')"><value-of select="$divType"/></when>
               <when test="$divType">other</when>
               <otherwise>introduction</otherwise>
             </choose>
