@@ -36,6 +36,7 @@
   <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
       (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
   <param name="CombinedGlossaryTitle" select="if (CombineGlossaries eq 'true') then oc:conf('CombinedGlossaryTitle', /) else ''"/>
+  <param name="MainTocMaxBackChars" select="xs:integer(number(oc:sarg('MainTocMaxBackChars', /, '18')))"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
@@ -62,7 +63,7 @@
   <template match="/">
     <variable name="osisIDWork" select="/descendant::osisText[1]/@osisIDWork"/>
     
-    <call-template name="Log"><with-param name="msg" select="concat('ARGS: css=', $css, ', glossthresh=', $glossthresh, ', html5=', $html5, '.&#xa;CONFIG: DEBUG=', $DEBUG, ', TOC=', $TOC, ', TitleCase=', $TitleCase, ', NoEpub3Markup=', $NoEpub3Markup, ', FullResourceURL=', $FullResourceURL, ', ChapterFiles=', $ChapterFiles, ', CombinedGlossaryTitle=', $CombinedGlossaryTitle, ', CombineGlossaries=', $CombineGlossaries)"/></call-template>
+    <call-template name="Log"><with-param name="msg" select="concat('ARGS:&#xa;css=', $css, '&#xa;glossthresh=', $glossthresh, '&#xa;html5=', $html5, '.&#xa;CONFIG:&#xa;DEBUG=', $DEBUG, '&#xa;TOC=', $TOC, '&#xa;TitleCase=', $TitleCase, '&#xa;NoEpub3Markup=', $NoEpub3Markup, '&#xa;FullResourceURL=', $FullResourceURL, '&#xa;ChapterFiles=', $ChapterFiles, '&#xa;CombinedGlossaryTitle=', $CombinedGlossaryTitle, '&#xa;CombineGlossaries=', $CombineGlossaries, '&#xa;MainTocMaxBackChars=', $MainTocMaxBackChars, '&#xa;CONTEXT:&#xa;SCRIPT_NAME=', $SCRIPT_NAME, '&#xa;DICTMOD=', $DICTMOD)"/></call-template>
 
     <variable name="bibleOSIS"><!-- Do Bible preprocessing all at once for a BIG processing speedup as opposed to per-book preprocessing -->
       <variable name="markMainTocMilestone"><apply-templates select="/" mode="bibleOSIS_markMainTocMilestone"/></variable>
@@ -526,18 +527,21 @@
     <!-- Inline TOCs by default display as lists of inline-block links all sharing equal width, which may occupy the full width of the page. 
     The two exceptions are: Bible book lists which are limited to three columns, and the main Toc menu, which is broken into three sub-sections:
     1) introduction links 2) Bible book links, and 3) back material links, and these sections of the Main TOC each display links differently:
-    Introduction: Display in two columns; if there are an odd number of intro links, the first row is a single, centered link.
-    Book: Display as a single column unless there are two testament links, or one testament and more than 4 book links, or more than 5 book links (which are then displayed in two columns).
-    Back: Display in two columns; if there is an odd number of Bible book links displayed as two columns, then the first back material row is a single centered link. -->
-    <variable name="BookIsTwoColumns" select="count($listElements[@class='xsl-bookGroup-link']) = 2 or count($listElements[starts-with(@class, 'xsl-book')]) &#62; 5"/>
+    Introduction: Display max two columns; if there are an odd number of intro links, the first row is a single, centered link.
+    Book: Display as a single column unless there are two testament links, or one testament and more than 4 book links, or more than 5 book 
+    links (which are then displayed in two columns). Back: Display max two columns unless maxChars is greater than a MainTocMaxBackChars
+    (which are then displayed single column); if there is an odd number of Bible book links displayed as two columns, then the first back 
+    material row is a single centered link. -->
+    <variable name="bookIsTwoColumns" select="count($listElements[@class='xsl-bookGroup-link']) = 2 or count($listElements[starts-with(@class, 'xsl-book')]) &#62; 5"/>
     <variable name="hasOddNumberOfIntros" select="count($listElements[not(starts-with(@class, 'xsl-book'))][not(preceding::*[starts-with(@class, 'xsl-book')])]) mod 2 = 1"/>
-    <variable name="hasOddNumberOf2ColBooks" select="$BookIsTwoColumns and count($listElements[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
-    <variable name="twoColumnElements" select="$listElements[$BookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
+    <variable name="hasOddNumberOf2ColBooks" select="$bookIsTwoColumns and count($listElements[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
+    <variable name="twoColumnElements" select="$listElements[$bookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
     <variable name="oneColumnElements" select="$listElements except $twoColumnElements"/>
     <variable name="chars" select="if ($isMainTOC) then max(($twoColumnElements/string-length(string()), $oneColumnElements/(string-length(string())*0.5))) else max($listElements/string-length(string()))"/>
     <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
+    <variable name="backIsOneColumn" select="$maxChars &#62; $MainTocMaxBackChars"/>
     <element name="div" namespace="http://www.w3.org/1999/xhtml">
-      <attribute name="class">xsl-inline-toc<if test="not($BookIsTwoColumns)"> xsl-one-book-column</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if><if test="$hasOddNumberOf2ColBooks"> xsl-odd-2col-books</if></attribute>
+      <attribute name="class">xsl-inline-toc<if test="not($bookIsTwoColumns)"> xsl-one-book-column</if><if test="$backIsOneColumn"> xsl-one-back-column</if><if test="$hasOddNumberOfIntros"> xsl-odd-intros</if><if test="$hasOddNumberOf2ColBooks"> xsl-odd-2col-books</if></attribute>
       <element name="div" namespace="http://www.w3.org/1999/xhtml"><!-- this div allows margin auto to center, which doesn't work with ul/ol -->
         <choose>
           <!-- limit main TOC width, because li width is specified as % in css -->

@@ -408,9 +408,9 @@ ol, ul {
 }
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,
 #root-toc .xsl-one-book-column .xsl-book-link,
-#root-toc > div:not(.xsl-one-book-column) .xsl-glossary-link,
-#root-toc > div:not(.xsl-one-book-column) .xsl-keyword-link,
-#root-toc > div:not(.xsl-one-book-column) .xsl-other-link {
+#root-toc .xsl-one-back-column .xsl-glossary-link,
+#root-toc .xsl-one-back-column .xsl-keyword-link,
+#root-toc .xsl-one-back-column .xsl-other-link {
   width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */
 }
 #root-toc .xsl-odd-intros li:first-child:not(:last-child),
