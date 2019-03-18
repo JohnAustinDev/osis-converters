@@ -37,6 +37,7 @@ $maxUnicode = 1103; # Default value: highest Russian Cyrillic Uncode code point
 %BookSizes;
 $BookOverhead = 1000;
 $JarOverhead = 40000;
+$MaxTries = 10;
 
 $GOBIBLE = "$INPD/GoBible";
 
@@ -60,7 +61,7 @@ $ScopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
 my %results;
 
 # Make 'normal' character set
-&makeGoBibles('normal', "$TMPDIR/normal", $collectionsP, 5, \%results);
+&makeGoBibles('normal', "$TMPDIR/normal", $collectionsP, $MaxTries, \%results);
 &copyGoBibles("$TMPDIR/normal", $GBOUT);
 
 my @a; push(@a, (keys %{$collectionsP}));
