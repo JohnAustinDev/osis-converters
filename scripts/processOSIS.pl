@@ -24,73 +24,47 @@ sub runProcessOSIS($) {
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
   if ($modType eq 'bible') {
     &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
-    &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);
-    
-    # load DictionaryWords.xml if needed
-    if ($DICTMOD && $addDictLinks && -e "$INPD/$DICTIONARY_WORDS") {
-      my $dictosis = &getModuleOsisFile($DICTMOD);
-      if ($dictosis && $DEBUG) {
-        &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
-        &loadDictionaryWordsXML($dictosis);
-      }
-      else {
-        &loadDictionaryWordsXML();
-        &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
-      }
-    }
+    &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);   
   }
   # Dictionary OSIS: aggregate repeated entries (required for SWORD) and re-order entries if desired
   elsif ($modType eq 'dict') {
-
     if (!&conf('KeySort')) {
       &Error("KeySort is missing from config.conf", '
-  This required config entry facilitates correct sorting of glossary 
-  keys. EXAMPLE:
-  KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}
-  This entry allows sorting in any desired order by character collation. 
-  Square brackets are used to separate any arbitrary JDK 1.4 case  
-  sensitive regular expressions which are to be treated as single 
-  characters during the sort comparison. Likewise, curly brackets should 
-  be used around any similar regular expression(s) which are to be ignored  
-  during the sort comparison. Every other square or curly bracket must be 
-  escaped by backslash. This means the string to ignore all brackets or 
-  parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
+This required config entry facilitates correct sorting of glossary 
+keys. EXAMPLE:
+KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}
+This entry allows sorting in any desired order by character collation. 
+Square brackets are used to separate any arbitrary JDK 1.4 case  
+sensitive regular expressions which are to be treated as single 
+characters during the sort comparison. Likewise, curly brackets should 
+be used around any similar regular expression(s) which are to be ignored  
+during the sort comparison. Every other square or curly bracket must be 
+escaped by backslash. This means the string to ignore all brackets or 
+parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
     }
     
     if (!&conf('LangSortOrder')) {
       &Error("LangSortOrder is missing from config.conf", "
-  Although this config entry has been replaced by KeySort and is 
-  deprecated and no longer used by osis-converters, for now it is still 
-  required to prevent the breaking of older programs. Its value is just 
-  that of KeySort, but bracketed groups of regular expressions are not 
-  allowed and must be removed.");
+Although this config entry has been replaced by KeySort and is 
+deprecated and no longer used by osis-converters, for now it is still 
+required to prevent the breaking of older programs. Its value is just 
+that of KeySort, but bracketed groups of regular expressions are not 
+allowed and must be removed.");
     }
     
     my @keywordDivs = $XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', $XML_PARSER->parse_file($OSIS));
     if (!@keywordDivs[0]) {&runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);}
     
     # write default DictionaryWords.xml templates
-    if ($addSeeAlsoLinks) {
-      my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
-      &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
-      $params{'anyEnding'} = 'true';
-      &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS.".bible.xml", \%params);
-      # write INPD DictionaryWords.txt if needed
-      if (-e $DEFAULT_DICTIONARY_WORDS && ! -e "$INPD/$DICTIONARY_WORDS") {
-        $DWF_DEFAULT_COPIES{$DEFAULT_DICTIONARY_WORDS} = "$INPD/$DICTIONARY_WORDS";
-      }
-      # write MAINMOD DictionaryWords.txt if needed
-      if (&loadDictionaryWordsXML($OSIS) && $MAINMOD && ! -e "$MAININPD/$DICTIONARY_WORDS") {
-        $DWF_DEFAULT_COPIES{$DEFAULT_DICTIONARY_WORDS.".bible.xml"} = "$MAININPD/$DICTIONARY_WORDS";
-      }
-      if (%DWF_DEFAULT_COPIES) {&copyDefaultDWF();}
-    }
+    my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
+    &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
+    $params{'anyEnding'} = 'true';
+    &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS.".bible.xml", \%params);
     
     if ($reorderGlossaryEntries) {
       my %params = ('glossaryRegex' => $reorderGlossaryEntries);
       &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
     }
-    
   }
   # Children's Bible OSIS: specific to osis-converters Children's Bibles
   elsif ($modType eq 'childrens_bible') {
@@ -98,6 +72,32 @@ sub runProcessOSIS($) {
     &checkAdjustCBImages(\$OSIS);
   }
   else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
+  
+  # Copy new DictionaryWords.xml if needed
+  if ($modType eq 'dict' && -e $DEFAULT_DICTIONARY_WORDS && ! -e "$DICTINPD/$DICTIONARY_WORDS") {
+    copy($DEFAULT_DICTIONARY_WORDS, "$DICTINPD/$DICTIONARY_WORDS");
+    &Note("Copying default $DICTIONARY_WORDS $DEFAULT_DICTIONARY_WORDS to $DICTINPD/$DICTIONARY_WORDS");
+  }
+  if ($modType eq 'dict' && -e "$DEFAULT_DICTIONARY_WORDS.bible.xml" && ! -e "$MAININPD/$DICTIONARY_WORDS") {
+    copy("$DEFAULT_DICTIONARY_WORDS.bible.xml", "$MAININPD/$DICTIONARY_WORDS");
+    &Note("Copying default $DICTIONARY_WORDS $DEFAULT_DICTIONARY_WORDS.bible.xml to $MAININPD/$DICTIONARY_WORDS");
+  }
+  
+  # Load DictionaryWords.xml
+  if ($modType eq 'dict' && $addSeeAlsoLinks) {
+    $DWF = &loadDictionaryWordsXML($OSIS);
+  }
+  elsif ($modType eq 'bible' && $DICTMOD && -e "$MAININPD/$DICTIONARY_WORDS") {
+    my $dictosis = &getModuleOsisFile($DICTMOD);
+    if ($dictosis && $DEBUG) {
+      &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
+      $DWF = &loadDictionaryWordsXML($dictosis);
+    }
+    else {
+      &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
+      $DWF = &loadDictionaryWordsXML();
+    }
+  }
 
   # Every note tag needs a unique osisID assigned to it, as do some other elements
   &writeOsisIDs(\$OSIS);
@@ -140,9 +140,8 @@ sub runProcessOSIS($) {
     }
     else {&runAddDictLinks(\$OSIS);}
   }
-  elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$INPD/$DICTIONARY_WORDS") {
+  elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$DICTINPD/$DICTIONARY_WORDS") {
     &runAddSeeAlsoLinks(\$OSIS);
-    if (%DWF_DEFAULT_COPIES) {&copyDefaultDWF();}
   }
 
   # Every note should have an osisRef pointing to where the note refers
@@ -215,16 +214,25 @@ sub runProcessOSIS($) {
   module OSIS file, so that all reference links can be checked. Create the
   Bible module OSIS file, then run this dictionary module again.");
   }
+  
+  &checkAndValidate();
+
+  # Do a tmp Pretty Print for debug referencing during the conversion process
+  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
+}
+
+
+sub checkAndValidate() {
+  undef($DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
+  
   &checkUniqueOsisIDs($OSIS);
   &checkFigureLinks($OSIS);
   &checkIntroductionTags($OSIS);
+  if ($DWF) {&checkDictionaryWordsContexts($OSIS, $DWF);}
   if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 
   copy($OSIS, $OUTOSIS); 
   &validateOSIS($OUTOSIS);
-
-  # Do a tmp Pretty Print for debug referencing during the conversion process
-  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 }
 
 
@@ -262,13 +270,8 @@ sub runReprocessOSIS($) {
   module OSIS file, so that all reference links can be checked. Create the
   Bible module OSIS file, then run this dictionary module again.");
   }
-  &checkUniqueOsisIDs($OSIS);
-  &checkFigureLinks($OSIS);
-  &checkIntroductionTags($OSIS);
-  if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
-
-  copy($OSIS, $OUTOSIS); 
-  &validateOSIS($OUTOSIS);
+  
+  &checkAndValidate();
 
   # Do a tmp Pretty Print for debug referencing during the conversion process
   &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/$modname_PrettyPrint.xml");

@@ -70,7 +70,8 @@ $VSYS{'end_vs'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
-require("$SCRD/scripts/common_cb.pl");
+require("$SCRD/scripts/common_childrensBible.pl");
+require("$SCRD/scripts/common_context.pl");
 
 sub init_linux_script() {
   chdir($SCRD);
@@ -446,32 +447,32 @@ sub wgetSyncDel($) {
 # Parse the module's DICTIONARY_WORDS to DWF. Check for outdated 
 # DICTIONARY_WORDS markup and update it. Validate DICTIONARY_WORDS 
 # entries against a dictionary OSIS file's keywords. Validate 
-# DICTIONARY_WORDS xml markup. Return 1 on successful parsing and 
-# checking without error, 0 otherwise. 
-sub loadDictionaryWordsXML($) {
+# DICTIONARY_WORDS xml markup. Return DWF on successful parsing and 
+# checking without error, '' otherwise. 
+sub loadDictionaryWordsXML($$$) {
   my $dictosis = shift;
   my $noupdateMarkup = shift;
   my $noupdateEntries = shift;
   
-  if (! -e "$INPD/$DICTIONARY_WORDS") {return 0;}
-  $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+  if (! -e "$INPD/$DICTIONARY_WORDS") {return '';}
+  my $dwf = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
   
   # Check for old DICTIONARY_WORDS markup and update or report
   my $errors = 0;
   my $update = 0;
-  my $tst = @{$XPC->findnodes('//dw:div', $DWF)}[0];
+  my $tst = @{$XPC->findnodes('//dw:div', $dwf)}[0];
   if (!$tst) {
     &Error("Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default.", "Add 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\".");
     $errors++;
-    my @ns = $XPC->findnodes('//*', $DWF);
+    my @ns = $XPC->findnodes('//*', $dwf);
     foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1); $update++;}
   }
-  my $tst = @{$XPC->findnodes('//*[@highlight]', $DWF)}[0];
+  my $tst = @{$XPC->findnodes('//*[@highlight]', $dwf)}[0];
   if ($tst) {
     &Error("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
     $errors++;
   }
-  my $tst = @{$XPC->findnodes('//*[@withString]', $DWF)}[0];
+  my $tst = @{$XPC->findnodes('//*[@withString]', $dwf)}[0];
   if ($tst) {
     $errors++;
     &Error("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
@@ -479,7 +480,7 @@ sub loadDictionaryWordsXML($) {
   
   # Save any updates back to source dictionary_words_xml and reload
   if ($update) {
-    &writeXMLFile($DWF, "$dictionary_words_xml.tmp");
+    &writeXMLFile($dwf, "$dictionary_words_xml.tmp");
     unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
     &Note("Updated $update instance of non-conforming markup in $dictionary_words_xml");
     if (!$noupdateMarkup) {
@@ -506,7 +507,7 @@ sub loadDictionaryWordsXML($) {
   }
   
   # Warn if some entries should have multiple match elements
-  my @r = $XPC->findnodes('//dw:entry/dw:name[translate(text(), "_,;[(", "_____") != text()][count(following-sibling::dw:match) = 1]', $DWF);
+  my @r = $XPC->findnodes('//dw:entry/dw:name[translate(text(), "_,;[(", "_____") != text()][count(following-sibling::dw:match) = 1]', $dwf);
   if (!@r[0]) {@r = ();}
   &Log("\n");
   &Report("Compound glossary entry names with a single match element: (".scalar(@r)." instances)");
@@ -516,10 +517,10 @@ sub loadDictionaryWordsXML($) {
   }
   
   my $valid = 0;
-  if ($errors == 0) {$valid = &validateDictionaryWordsXML($DWF);}
+  if ($errors == 0) {$valid = &validateDictionaryWordsXML($dwf);}
   if ($valid) {&Note("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n");}
   
-  return ($valid && $errors == 0 ? 1:0);
+  return ($valid && $errors == 0 ? $dwf:'');
 }
 
 
@@ -2680,15 +2681,15 @@ sub addDictionaryLinks(\@$$) {
   
   my $bookOrderP;
   foreach my $node (@$eP) {
-    my $glossaryContext;
+    my $dictmodContext;
     my $glossaryScopeP;
     
     if ($isGlossary) {
       if (!$bookOrderP) {
         &getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)
       }
-      $glossaryContext = &decodeOsisRef(&glossaryContext($node));
-      if (!$glossaryContext) {next;}
+      $dictmodContext = &otherModContext($node);
+      if (!$dictmodContext) {next;}
       my @gs = ( &getEntryScope($node) );
       $glossaryScopeP = (@gs[0] =~ /[\-\s]/ ? &scopeToBooks(@gs[0], $bookOrderP):\@gs);
       if (!$NoOutboundLinks{'haveBeenRead'}) {
@@ -2697,7 +2698,7 @@ sub addDictionaryLinks(\@$$) {
         }
         $NoOutboundLinks{'haveBeenRead'}++;
       }
-      if ($NoOutboundLinks{&entry2osisRef($MOD, $glossaryContext)}) {return;}
+      if ($NoOutboundLinks{&entry2osisRef($MOD, $dictmodContext)}) {return;}
     }
   
     my @textchildren;
@@ -2715,7 +2716,7 @@ sub addDictionaryLinks(\@$$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $glossaryContext, $glossaryScopeP)) {
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $dictmodContext, $glossaryScopeP)) {
             if (!$ifExplicit) {$done = 0;}
           }
         }
@@ -2736,6 +2737,7 @@ sub addDictionaryLinks(\@$$) {
     }
   }
 }
+
 
 # Some of the following routines take either nodes or module names as inputs.
 # Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
@@ -2821,17 +2823,8 @@ sub getDictModOSIS($) {
   }
   return $return;
 }
-sub isChildrensBible($) {
-  my $mod = &getModNameOSIS(shift);
-  return &osisCache('isChildrensBible', $mod);
-}
 sub getOsisRefWork($) {return &getModNameOSIS(shift);}
 sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
-sub existsDictionaryWordID($$) {
-  my $osisID = shift;
-  my $osisIDWork = &getModNameOSIS(shift);
-  return existsElementID($osisID, $osisIDWork, 1);
-}
 sub getBooksOSIS($) {
   my $mod = &getModNameOSIS(shift);
   my $return = &osisCache('getBooksOSIS', $mod);
@@ -2849,48 +2842,6 @@ sub getScopeOSIS($) {
     return '';
   }
   return $return;
-}
-sub existsElementID($$$) {
-  my $osisID = shift;
-  my $osisIDWork = &getModNameOSIS(shift);
-  my $useDictionaryWordsFile = shift;
-  
-  my $work = ($osisID =~ s/^([^\:]*\:)// ? $1:$osisIDWork);
-  if (!$work) {&ErrorBug("existsElementID: No osisIDWork \"$osisID\""); return '';}
-  
-  my $search = ($useDictionaryWordsFile ? 'DWF':$work);
-  if (!$DOCUMENT_CACHE{$search}{'xml'}) {
-    my $file = ($search eq 'DWF' ? "$INPD/$DICTIONARY_WORDS":&getModuleOsisFile($search));
-    if (-e $file) {
-      my $sxml = $XML_PARSER->parse_file($file);
-      if ($search eq 'DWF') {$DOCUMENT_CACHE{'DWF'}{'xml'} = $sxml;}
-      else {&initDocumentCache($sxml);}
-    }
-    else {&ErrorBug("existsElementID: No \"$search\" xml file to search for \"$osisID\""); return '';}
-  }
-  
-  if (!$DOCUMENT_CACHE{$search}{$osisID}) {
-    &Debug("Cache failed for existsElementID: module=$search, osisID=$osisID\n");
-    $DOCUMENT_CACHE{$search}{$osisID} = 'no';
-    # xpath 1.0 does not have "matches" so we need to do some extra work
-    my $xpath = ($search eq 'DWF' ? 
-      "//*[name()='entry'][contains(\@osisRef, '$osisID')]/\@osisRef" :
-      "//*[contains(\@osisID, '$osisID')]/\@osisID"
-    );
-    my @test = $XPC->findnodes($xpath, $DOCUMENT_CACHE{$search}{'xml'});
-    my $found = 0;
-    foreach my $t (@test) {
-      if ($t->value =~ /(^|\s)(\Q$work:\E)?\Q$osisID\E(\s|$)/) {
-        $DOCUMENT_CACHE{$search}{$osisID} = 'yes';
-        $found++;
-      }
-    }
-    if (!$found) {return '';}
-    if ($found != 1 && $search ne 'DWF') {
-      &Error("existsElementID: osisID \"$work:$osisID\" appears $found times in $search.", "All osisID values in $work must be unique values.");
-    }
-  }
-  return ($DOCUMENT_CACHE{$search}{$osisID} eq 'yes');
 }
 sub getAltVersesOSIS($) {
   my $mod = &getModNameOSIS(shift);
@@ -2930,9 +2881,21 @@ sub getAltVersesOSIS($) {
   
   return \%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}};
 }
+sub isChildrensBible($) {
+  my $mod = &getModNameOSIS(shift);
+  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\w+CB$/ ? 1:0);
+}
+sub isBible($) {
+  my $mod = &getModNameOSIS(shift);
+  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Bible/ ? 1:0);
+}
+sub isDict($) {
+  my $mod = &getModNameOSIS(shift);
+  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Dict/ ? 1:0);
+}
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
-# from an OSIS file URL.
+# from an OSIS file URI.
 sub initDocumentCache($) {
   my $xml = shift; # a document node
   
@@ -2951,7 +2914,6 @@ sub initDocumentCache($) {
   $dbg .= "mainmod=$osisIDWork ";
   $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
   $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'isChildrensBible'}   = ($DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
   $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
@@ -2970,7 +2932,6 @@ sub initDocumentCache($) {
     undef($DOCUMENT_CACHE{$w});
     $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
     $dbg .= "companion=$w ";
-    $DOCUMENT_CACHE{$w}{'isChildrensBible'} = ($DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} =~ /^Book\w+CB$/ ? 1:0);
     $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
     $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
     $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
@@ -3051,7 +3012,7 @@ sub addDictionaryLink(\$$$$\@) {
   my $textP = shift;
   my $textNode = shift;
   my $explicitContext = shift; # context string if the node was marked in the text as a glossary link
-  my $glossaryContext = shift; # for SeeAlso links only
+  my $dictmodContext = shift; # for SeeAlso links only
   my $glossaryScopeP = shift; # for SeeAlso links only
 
   my $matchedPattern = '';
@@ -3059,8 +3020,8 @@ sub addDictionaryLink(\$$$$\@) {
   # Cache match related info
   if (!@MATCHES) {
     my $notes;
-    $OT_CONTEXTSP =  &getContexts('OT');
-    $NT_CONTEXTSP =  &getContexts('NT');
+    $OT_CONTEXTSP =  &getAtomizedAttributeContexts('OT');
+    $NT_CONTEXTSP =  &getAtomizedAttributeContexts('NT');
     my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
       my %minfo;
@@ -3072,9 +3033,9 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; if ($minfo{'multiple'}) {$minfo{'multiple'} = $minfo{'multiple'}->value;}
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
-      $minfo{'contexts'} = &getContexts($minfo{'context'}, \$notes);
+      $minfo{'contexts'} = &getAtomizedAttributeContexts($minfo{'context'}, \$notes);
       $minfo{'notContext'} = &getScopedAttribute('notContext', $m);
-      $minfo{'notContexts'} = &getContexts($minfo{'notContext'}, \$notes);
+      $minfo{'notContexts'} = &getAtomizedAttributeContexts($minfo{'notContext'}, \$notes);
       $minfo{'notXPATH'} = &getScopedAttribute('notXPATH', $m);
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
@@ -3102,7 +3063,7 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $context;
   my $multiples_context;
-  if ($glossaryContext) {$context = $glossaryContext; $multiples_context = $glossaryContext;}
+  if ($dictmodContext) {$context = $dictmodContext; $multiples_context = $dictmodContext;}
   else {
     $context = &bibleContext($textNode);
     $multiples_context = $context;
@@ -3129,7 +3090,7 @@ sub addDictionaryLink(\$$$$\@) {
     if ($explicitContext && $m->{'notExplicit'}) {&dbg("00\n"); next;}
     elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
     else {
-      if ($glossaryContext && $m->{'skipRootID'}{&getRootID($glossaryContext)}) {&dbg("05\n"); next;} # never add glossary links to self
+      if ($dictmodContext && $m->{'skipRootID'}{&getRootID($dictmodContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if ($filterMultiples) {
@@ -3492,258 +3453,6 @@ sub dbg($$) {
 #  
 #  &Debug($p);
   return 1;
-}
-
-
-# Takes context/notContext attribute values from DictionaryWords.xml 
-# (which are osisRef values) and converts them into a hash containing 
-# the contextArray members (which compose the attribute value). 
-#
-# See contextArray() which outputs only the following forms:
-# BIBLE_INTRO.0.0.0 = Bible intro
-# TESTAMENT_INTRO.0.0.0 = Old Testament intro
-# TESTAMENT_INTRO.1.0.0 = New Testament intro
-# Gen.0.0.0 = Gen book intro
-# Gen.1.0.0 = Gen chapter 1 intro
-# Gen.1.1 = Genesis 1:1
-#
-# This function also outputs the following possibility for a big speedup
-# Gen
-sub getContexts($\$) {
-  my $refs = shift;
-  my $notesP = shift;
-  
-  my %h;
-  foreach my $ref (split(/\s+/, $refs)) {
-    # Handle whole book
-    if ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++; next;}
-    
-    # Handle keywords OT and NT
-    if ($ref =~ /^(OT|NT)$/) {
-      $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '0':'1').'.0.0'}++;
-      foreach my $bk (split(/\s+/, ($ref eq 'OT' ? $OT_BOOKS:$NT_BOOKS))) {
-        $h{'books'}{$bk}++;
-      }
-      next;
-    }
-    
-    # Handle special case of BOOK1-BOOK2 for a major speedup
-    if ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
-      my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
-      my $aP = &scopeToBooks($ref, $bookOrderP);
-      foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
-      next;
-    }
-      
-    foreach my $k (split(/\s+/, &osisRef2Contexts($ref))) {
-    
-      # Normalize to contextArray form
-      $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d)$/$1.0.0/;
-      $k =~ s/^((BIBLE|TESTAMENT)_INTRO\.\d\.\d)$/$1.0/;
-      $k =~ s/^([^\.]+\.0)$/$1.0/;
-      
-      # Handle keyword xALL
-      if ($k =~ s/^xALL\b//) {
-        foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
-          $h{'contexts'}{"$bk$k"}++;
-        }
-      }
-      
-      elsif ($k =~ s/^[A-Za-z]+\://) {$h{'contexts'}{&decodeOsisRef($k)}++;}
-      else {$h{'contexts'}{$k}++;}
-    }
-  }
-  
-  if ($notesP && $refs && !$ALREADY_NOTED_RESULT{$refs}) {
-    $ALREADY_NOTED_RESULT{$refs}++;
-    $$notesP .= "NOTE: Converted context attribute value to contexts:\n";
-    $$notesP .= "  Context  = $refs\n";
-    $$notesP .= "  Contexts =".join(' ', sort { &osisIDSort($a, $b) } keys(%{$h{'books'}})).' '.join(' ', sort { &osisIDSort($a, $b) } keys(%{$h{'contexts'}}))."\n\n";
-  }
-  
-  return \%h;
-}
-
-# Return context if there is intersection between context and contextsHashP, else 0.
-# $context may be a dictionary entry, bibleContext (see bibleContext()) or book name.
-# $contextsHashP is output hash from getContexts()
-sub inContext($\%) {
-  my $context = shift;
-  my $contextsHashP = shift;
-  
-  foreach my $contextID (&contextArray($context)) {
-    if ($contextsHashP->{'contexts'}{$contextID}) {return $context;}
-    # check book alone
-    if ($contextID =~ s/^([^\.]+).*?$/$1/ && $contextsHashP->{'books'}{$contextID}) {
-      return $context;
-    }
-  }
-  
-  return 0;
-}
-
-sub inGlossaryContext(\@\%) {
-  my $bookArrayP = shift;
-  my $contextsHashP = shift;
- 
-  foreach my $bk (@{$bookArrayP}) {
-    if (&inContext($bk, $contextsHashP)) {return $bk;}
-  }
-  
-  return 0;
-}
-
-# return special Bible context reference for $node:
-# BIBLE_INTRO.0.0.0 = Bible intro
-# TESTAMENT_INTRO.0.0.0 = Old Testament intro
-# TESTAMENT_INTRO.1.0.0 = New Testament intro
-# Gen.0.0.0 = Gen book intro
-# Gen.1.0.0 = Gen chapter 1 intro
-# Gen.1.1.1 = Genesis 1:1
-# Gen.1.1.3 = Genesis 1:1-3
-sub bibleContext($) {
-  my $node = shift;
-  
-  my $context = '';
-  
-  # get book
-  my $bk = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'book\'][@osisID][1]', $node)}[0];
-  my $bkID = ($bk ? $bk->getAttribute('osisID'):'');
-  
-  # no book means we might be a Bible or testament introduction (or else an entirely different type of OSIS file)
-  if (!$bkID) {
-    my $refSystem = &getRefSystemOSIS($node);
-    if ($refSystem !~ /^Bible/) {
-      &ErrorBug("bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"");
-      return '';
-    }
-    my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node)}[0];
-    if ($tst) {
-      return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', $tst)}).".0.0";
-    }
-    return "BIBLE_INTRO.0.0.0";
-  }
-
-  my $e;
-  if ($bk && $bkID) {
-    # find most specific osisID associated with elem (assumes milestone verse/chapter tags and end tags which have no osisID attribute)
-    my $v = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $node)}[0];
-    if ($v && $v->getAttribute('osisID') !~ /^\Q$bkID.\E/) {$v = '';}
-
-    my $c = @{$XPC->findnodes('preceding::osis:chapter[@osisID][1]', $node)}[0];
-    if ($c && $c->getAttribute('osisID') !~ /^\Q$bkID.\E/) {$c = '';}
-    
-    # if we have verse and chapter, but verse is not within chapter, use chapter instead
-    if ($v) {
-      if ($c) {
-        my $bkch;
-        if ($v->getAttribute('osisID') =~ /^([^\.]*\.[^\.]*)(\.|$)/) {
-          $bkch = $1;
-        }
-        if (!$bkch || $c->getAttribute('osisID') !~ /^\Q$bkch\E(\.|$)/) {
-          $e = $c;
-        }
-      }
-      if (!$e) {$e = $v;}
-    }
-    else {$e = $c;}
-    
-    if (!$e) {$e = $bk;}
-  }
-  
-  # get context from most specific osisID
-  if ($e) {
-    my $id = $e->getAttribute('osisID');
-    $context = ($id ? $id:"unk.0.0.0");
-    if ($id =~ /^\w+$/) {$context .= ".0.0.0";}
-    elsif ($id =~ /^\w+\.\d+$/) {$context .= ".0.0";}
-    elsif ($id =~ /^\w+\.\d+\.(\d+)$/) {$context .= ".$1";}
-    elsif ($id =~ /^(\w+\.\d+\.\d+) .*\w+\.\d+\.(\d+)$/) {$context = "$1.$2";}
-  }
-  else {
-    &ErrorBug("bibleContext could not determine context of \"$node\"");
-    return 0;
-  }
-  
-  return $context;
-}
-
-# returns:
-# A keyword osisID if $node is part of a glossary entry.
-# Or else "BEFORE_" is prepended to the following keyword osisID if $node is part of a glossary introduction.
-sub glossaryContext($) {
-  my $node = shift;
-  
-  # is node in a type div?
-  my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
-  my $typeDiv = @{$XPC->findnodes('./ancestor::osis:div['.join(' or ', @typeXPATH).'][last()]', $node)}[0];
-  if (!$typeDiv) {
-    &ErrorBug("glossaryContext: Node is not part of a recognized container div: $node");
-    return '';
-  }
-  
-  # if non-glossary use container osisID
-  if ($typeDiv && $typeDiv->getAttribute('type') ne 'glossary' && $typeDiv->hasAttribute('osisID')) {
-    return $typeDiv->getAttribute('osisID');
-  }
-
-  # get preceding keyword or self
-  my $prevkw = @{$XPC->findnodes('ancestor-or-self::osis:seg[@type="keyword"][1]', $node)}[0];
-  if (!$prevkw) {$prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];}
-  
-  if ($prevkw) {
-    foreach my $kw ($XPC->findnodes('.//osis:seg[@type="keyword"]', $typeDiv)) {
-      if ($kw->isSameNode($prevkw)) {
-        if (!$prevkw->getAttribute('osisID')) {
-          &ErrorBug("glossaryContext: Previous keyword has no osisID \"$prevkw\"");
-        }
-        return $prevkw->getAttribute('osisID');
-      }
-    }
-  }
-  
-  # if not, then use BEFORE
-  my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
-  if (!$nextkw) {
-    &ErrorBug("glossaryContext: There are no entries in the glossary which contains node $node");
-    return '';
-  }
-  
-  if (!$nextkw->getAttribute('osisID')) {
-    &ErrorBug("glossaryContext: Next keyword has no osisID \"$nextkw\"");
-  }
-  return 'BEFORE_'.$nextkw->getAttribute('osisID');
-}
-
-# Takes a context and if it is a verse range, returns an array containing
-# each verse's osisRef. If it's not a verse range, the returned array
-# contains a single element being the input context, unchanged.
-sub contextArray($) {
-  my $context = shift;
-  
-  my @out;
-  if ($context =~ /^(BIBLE|TESTAMENT)_INTRO/) {push(@out, $context);}
-  elsif ($context =~ /^(\w+\.\d+)\.(\d+)\.(\d+)$/) {
-    my $bc = $1;
-    my $v1 = $2;
-    my $v2 = $3;
-    for (my $i = $v1; $i <= $v2; $i++) {push(@out, "$bc.$i");}
-  }
-  else {
-    $context =~ s/\.(PART)$/!$1/; # special case from fitToVerseSystem
-    push(@out, $context);
-  }
-  
-  return @out;
-}
-
-sub osisRef2Contexts($$$) {
-  my $osisRefLong = shift;
-  my $osisRefWorkDefault = shift;
-  my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
-  
-  # This call for context includes introductions (even though intros do not have osisIDs)
-  return &osisRef2osisID($osisRefLong, $osisRefWorkDefault, $workPrefixFlag, 1);
 }
 
 
@@ -5145,35 +4854,23 @@ sub writeOsisIDs($) {
       
       my $title;
       my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
-      if ($elem) {$title = 'milestone.'.&encodeOsisRef($elem->getAttribute('n'));}
+      if ($elem) {$title = 'milestone_'.&encodeOsisRef($elem->getAttribute('n'));}
       else {
         $elem = @{$XPC->findnodes('descendant::osis:title[1]', $div)}[0];
-        if ($elem) {$title = 'title.'.&encodeOsisRef($elem->textContent);}
+        if ($elem) {$title = 'title_'.&encodeOsisRef($elem->textContent);}
         else {
           $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];
-          if ($elem) {$title = 'keyword.'.&encodeOsisRef($elem->textContent);}
+          if ($elem) {$title = 'keyword_'.&encodeOsisRef($elem->textContent);}
         }
       }
-      if (!$title) {$title = $n++};
-      $div->setAttribute('osisID', $div->getAttribute('type').'.'.$title);
+      if (!$title) {$title = ++$n};
+      $div->setAttribute('osisID', $div->getAttribute('type').'_'.$title);
     }
     
     # Get all notes excluding generic cross-references added from an external source
     my @allNotes = $XPC->findnodes('//osis:note[not(@resp)]', $xml);
     foreach my $n (@allNotes) {
-      my $osisID;
-      
-      if ($type eq 'x-bible') {
-        $osisID = &bibleContext($n);
-        if ($osisID !~ s/^(\w+\.\d+\.\d+)\.\d+$/$1/) {
-          &ErrorBug("Bad context for note osisID: $osisID !~ s/^(\w+\.\d+\.\d+)\.\d+\$/\$1/");
-          next;
-        }
-      }
-      elsif ($type eq 'x-childrens-bible') {
-        $osisID = &chBibleContext($n);
-      }
-      else {$osisID = &glossaryContext($n);}
+      my $osisID = getNodeOsisID($n);
       
       # Reserve and write an osisID for each note. 
       my $i = 1;
@@ -5572,7 +5269,7 @@ sub writeMissingNoteOsisRefs($) {
   foreach my $note (@notes) {
     my $osisRef;
     
-    if ($refSystem =~ /^Bible/) {
+    if (&isBible($xml)) {
       # get notes's context
       my $con_bc = &bibleContext($note);
       $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
@@ -5609,7 +5306,7 @@ sub writeMissingNoteOsisRefs($) {
     }
     
     elsif ($refSystem =~ /^Dict/) {
-      $osisRef = &glossaryContext($note);
+      $osisRef = &getNodeOsisID($note);
     }
     
     else {return 0;}

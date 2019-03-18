@@ -255,7 +255,7 @@ sub recordVersesOfFootnote($$$) {
   
   my $c = $bibleContext; $c =~ s/^([^\.]*)\..*$/$1/; if ($c ne $AFL_LC) {&Log("recordVersesOfFootnote() \"$c\"\n", 2);} $AFL_LC = $c;
   
-  my @verses = &contextArray($bibleContext);
+  my @verses = &atomizeContext($bibleContext);
   foreach my $verse (@verses) {
     if (@verses > 1) {
       # This footnote is in a linked verse. See if annotateRef tells
@@ -336,7 +336,7 @@ sub processXML($$) {
     else {
       my $entryScope = &getEntryScope($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &decodeOsisRef(&glossaryContext($textNode));
+      $CH = &decodeOsisRef(&otherModContext($textNode));
     }
 
     # display progress
@@ -701,7 +701,7 @@ sub getFootnotes($) {
   my $osisRefsP = shift;
   
   my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)
-  foreach $verse (split(/\s+/, &osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always'))) {
+  foreach $verse (&osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always')) {
     my $verseOsisIDsP = $VERSE_FOOTNOTE_IDS{$verse};
     if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
   }

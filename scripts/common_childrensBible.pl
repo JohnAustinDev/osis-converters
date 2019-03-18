@@ -153,26 +153,6 @@ sub checkAdjustCBImages($$) {
   return $success;
 }
 
-# return childrens Bible context reference for $node, which is simply the
-# chapter name.
-sub chBibleContext($) {
-  my $node = shift;
-  
-  my $context = '';
-  
-  # get book
-  my $chapter = @{$XPC->findnodes('ancestor::osis:div[@osisID][1]', $node)}[0];
-  if (!$chapter) {
-    &Error("Children's Bible text node is not within a GenBook chapter: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
-    return '';
-  }
-  if (!$chapter->getAttribute('osisID')) {
-    &Error("Children's Bible text node chapter has no osisID: $node", "All GenBook material must be located within a div whose osisID is the GenBook key.");
-    return '';
-  }
-  return $chapter->getAttribute('osisID');
-}
-
 # Children's Bible figure src have special local paths, so handle them here.
 # Return '' on failure or the local path to the image on success.
 sub getFigureLocalPath($$) {

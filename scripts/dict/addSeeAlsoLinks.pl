@@ -52,6 +52,7 @@ sub runAddSeeAlsoLinks($$) {
     &writeXMLFile($xml, $output, $osisP);
     
     if (my $resHP = &checkCircularEntries($output)) {
+      my $dwfIsDefault = &isDictDWFDefault(); # check before changing
       my $dxml = $XML_PARSER->parse_file($DEFAULT_DICTIONARY_WORDS);
       foreach my $osisRef (keys %{$resHP}) {
         my $entry = @{$XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $dxml)}[0];
@@ -59,12 +60,14 @@ sub runAddSeeAlsoLinks($$) {
         &Note("Setting entry $osisRef notContext=\"".$entry->getAttribute('notContext')."\" in $DEFAULT_DICTIONARY_WORDS");
       }
       &writeXMLFile($dxml, $DEFAULT_DICTIONARY_WORDS);
+      if ($dwfIsDefault) {&copy("$DEFAULT_DICTIONARY_WORD", "$DICTINPD/$DICTIONARY_WORDS");}
       &Error("Circular entry links were found.", 
-"If this is a first run, then simply run again and these should 
-disappear because the circular entries have been addressed in the
-default $DICTIONARY_WORDS file, which is copied to the project input
-directory on the first run. Otherwise, you can apply the notContext 
-attributes listed above to $DICTIONARY_WORDS yourself.");
+($dwfIsDefault ? 
+"Run sfm2osis.pl again and these should disappear because the 
+circular entries have now been addressed in the default ":
+"Apply the notContext attributes listed above 
+to ").$DICTIONARY_WORDS." file."
+      );
     }
     
     &logDictLinks();
@@ -135,7 +138,7 @@ sub checkCircularEntries($) {
   
   &Log("\n");
   &Report("Found $n circular cross references in \"$out_file\".");
-  if (!%DWF_DEFAULT_COPIES && $addDictLinks !~ /^check$/i && $n > 0) {
+  if (!&isDictDWFDefault() && $addDictLinks !~ /^check$/i && $n > 0) {
     &Warn(
 "The above $n short entries only say: \"See longer entry\".", 
 "In most such cases the long entry should not link back to the short 
@@ -151,14 +154,9 @@ entry. These circular references can be eliminated with the following
   return (%circulars ? \%circulars:'');
 }
 
-sub copyDefaultDWF() {
-  foreach my $src (keys %DWF_DEFAULT_COPIES) {
-    copy($src, $DWF_DEFAULT_COPIES{$src});
-    &Note("Copying default $DICTIONARY_WORDS $src to ".$DWF_DEFAULT_COPIES{$src});
-    if ($DWF_DEFAULT_COPIES{$src} eq "$INPD/$DICTIONARY_WORDS") {
-      $DWF = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
-    }
-  }
+# Return true if the current DICT DWF file is same as the current default DICT DWF file
+sub isDictDWFDefault() {
+  return (&shell("diff \"$DICTINPD/$DICTIONARY_WORDS\" \"$DEFAULT_DICTIONARY_WORDS\"", 3) ? 0:1);
 }
 
 1;

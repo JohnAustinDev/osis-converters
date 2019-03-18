@@ -43,7 +43,7 @@
   accumalated. Also, 'context' and 'XPATH' attributes CANCEL the effect   
   of ancestor 'notContext' and 'notXPATH' attributes respectively.
 
-  context="space separated list of osisRefs or comma separated list of Paratext refs" in which to create links. Or an empty value, or ALL, means all contexts.
+  context="space separated list of osisRefs or comma separated list of Paratext refs" in which to create links. Or an empty value, or ALL, means all Bible books.
   notContext="space separated list of osisRefs or comma separated list of Paratext refs" in which not to create links
   XPATH="xpath expression" to be applied on each text node to keep text nodes that return non-null
   notXPATH="xpath expression" to be applied on each text node to skip text nodes that return non-null

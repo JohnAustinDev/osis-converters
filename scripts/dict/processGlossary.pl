@@ -36,7 +36,7 @@ sub filterGlossaryToScope($$$) {
   
     # keep if any book within the glossary scope matches $scope
     my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
-    if (&inGlossaryContext(&scopeToBooks($divScope, $bookOrderP), &getContexts($scope))) {
+    if (&inGlossaryContext(&scopeToBooks($divScope, $bookOrderP), &getAtomizedAttributeContexts($scope))) {
       if ($div->getAttribute('resp') eq $ROC) {$glossScopes{$divScope}++;}
       push(@kept, $divScope);
       next;
@@ -93,7 +93,7 @@ sub filterAggregateEntries($$) {
   my @removed; my $removeCount = 0;
   foreach my $subentry (@check) {
     my $glossScope = $subentry->getAttribute('scope');
-    if ($glossScope && !&inGlossaryContext(&scopeToBooks($glossScope, $bookOrderP), &getContexts($scope))) {
+    if ($glossScope && !&inGlossaryContext(&scopeToBooks($glossScope, $bookOrderP), &getAtomizedAttributeContexts($scope))) {
       $subentry->unbindNode();
       my %scopes = map {$_ => 1} @removed;
       if (!$scopes{$glossScope}) {push(@removed, $glossScope);}
