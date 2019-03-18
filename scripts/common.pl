@@ -4856,7 +4856,7 @@ sub writeOsisIDs($) {
       my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
       if ($elem) {$title = 'milestone_'.&encodeOsisRef($elem->getAttribute('n'));}
       else {
-        $elem = @{$XPC->findnodes('descendant::osis:title[1]', $div)}[0];
+        $elem = @{$XPC->findnodes('descendant::osis:title[@type != "runningHead"][1]', $div)}[0];
         if ($elem) {$title = 'title_'.&encodeOsisRef($elem->textContent);}
         else {
           $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];

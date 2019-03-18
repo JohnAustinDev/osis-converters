@@ -193,7 +193,7 @@ sub bibleContext($) {
   my $cn = ($c ? $1:0);
   
   my $v = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $node)}[0];
-  if (!($v && $v->getAttribute('osisID') =~ /^\Q$bk.$cn.\E(\d+)$/)) {$v = '';}
+  if (!($v && $v->getAttribute('osisID') =~ /(^|\s)\Q$bk.$cn.\E(\d+)$/)) {$v = '';}
   
   my $e = ($v ? $v:($c ? $c:$bkdiv));
 
