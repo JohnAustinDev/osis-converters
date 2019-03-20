@@ -695,8 +695,8 @@ sub getOsisIdOfFootnoteNode($) {
 
 # Takes an array of Scripture mod:osisRefs, whose elements may contain 
 # ranges, and returns sequential osisIDs of all footnotes contained 
-# within each osisRef. Each footnote will only appear in the list once, 
-# even if there are linked verses etc..
+# within each referenced verse. Each footnote will only appear in the 
+# list once, even if there are linked verses etc..
 sub getFootnotes($) {
   my $osisRefsP = shift;
   

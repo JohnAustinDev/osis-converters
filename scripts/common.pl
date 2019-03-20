@@ -3246,23 +3246,25 @@ sub glossaryMatch(\$$\$\$$) {
   return 0;
 }
 
-# Takes the context or notContext attribute value from DWF and determines
-# whether it is a Paratext reference list or not. If it is, it's converted
-# to a valid osisRef. If there are any errors, the value is returned unchanged.
-sub contextAttribute2osisRefAttribute($) {
-  my $val = shift;
+# Converts a comma separated list of Paratext references (which are 
+# supported by context and notContext attributes of DWF) and converts
+# them into an osisRef. If $paratextRefList is not a valid Paratext 
+# reference list, then $paratextRefList is returned unchaged. If there 
+# are any errors, $paratextRefList is returned unchanged.
+sub paratextRefList2osisRef($) {
+  my $paratextRefList = shift;
   
-  if ($CONVERTED_P2O{$val}) {return $CONVERTED_P2O{$val};}
+  if ($CONVERTED_P2O{$paratextRefList}) {return $CONVERTED_P2O{$paratextRefList};}
   
   my @parts;
-  @parts = split(/\s*,\s*/, $val);
-  my $reportParatextWarnings = (($val =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1) ? 1:0) || (scalar(@parts) > 3));
+  @parts = split(/\s*,\s*/, $paratextRefList);
+  my $reportParatextWarnings = (($paratextRefList =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1) ? 1:0) || (scalar(@parts) > 3));
   foreach my $part (@parts) {
     if ($part =~ /^([\d\w]\w\w)\b/ && &getOsisName($1, 1)) {next;}
     if ($reportParatextWarnings) {
-      &Warn("Attribute part \"$part\" might be a failed Paratext reference in \"$val\".");
+      &Warn("Attribute part \"$part\" might be a failed Paratext reference in \"$paratextRefList\".");
     }
-    return $val;
+    return $paratextRefList;
   }
   
   my $p1; my $p2;
@@ -3276,8 +3278,8 @@ sub contextAttribute2osisRefAttribute($) {
       $bk1 = &getOsisName($bk1, 1);
       $bk2 = &getOsisName($bk2, 1);
       if (!$bk1 || !$bk2) {
-        &Error("contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$val\".");
-        return $val;
+        &Error("contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$paratextRefList\".");
+        return $paratextRefList;
       }
       push(@pOsisRefs, "$bk1-$bk2");
     }
@@ -3300,8 +3302,8 @@ sub contextAttribute2osisRefAttribute($) {
       }
       # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
       elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
-        &Error("contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$val\".");
-        return $val;
+        &Error("contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$paratextRefList\".");
+        return $paratextRefList;
       }
       $bk = $1;
       $bkP = $2;
@@ -3317,8 +3319,8 @@ sub contextAttribute2osisRefAttribute($) {
       
       my $bk = &getOsisName($bk, 1);
       if (!$bk) {
-        &Error("contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$val\".");
-        return $val;
+        &Error("contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$paratextRefList\".");
+        return $paratextRefList;
       }
       
       if (!$bkP) {
@@ -3362,8 +3364,8 @@ sub contextAttribute2osisRefAttribute($) {
   }
   
   my $ret = join(' ', @osisRefs);
-  if ($ret ne $val) {
-    $CONVERTED_P2O{$val} = $ret;
+  if ($ret ne $paratextRefList) {
+    $CONVERTED_P2O{$paratextRefList} = $ret;
     &Note("Converted Paratext context attribute to OSIS:\n\tParatext: $p1\n\tOSIS:     $p2\n");
   }
   
@@ -3397,47 +3399,6 @@ sub attributeIsSet($$) {
   my $m = shift;
   
   return scalar(@{$XPC->findnodes("ancestor-or-self::*[\@$a][1][\@$a='true']", $m)});
-}
-
-
-# Scoped attributes are hierarchical and cummulative. They occur in both
-# positive and negative (not) forms. A positive attribute cancels any
-# negative forms of that attribute occuring higher in the hierarchy.
-sub getScopedAttribute($$) {
-  my $a = shift;
-  my $m = shift;
-  
-  my $ret = '';
-  
-  my $positive = ($a =~ /^not(.*?)\s*$/ ? lcfirst($1):$a);
-  if ($positive =~ /^xpath$/i) {$positive = uc($positive);}
-  my $negative = ($a =~ /^not/ ? $a:'not'.ucfirst($a));
-    
-  my @r = $XPC->findnodes("ancestor-or-self::*[\@$positive or \@$negative]", $m);
-  if (@r[0]) {
-    my @ps; my @ns;
-    foreach my $re (@r) {
-      my $p = $re->getAttribute($positive);
-      if ($p) {
-        if ($positive eq 'context') {$p = &contextAttribute2osisRefAttribute($p);}
-        push(@ps, $p);
-        @ns = ();
-      }
-      my $n = $re->getAttribute($negative);
-      if ($n) {
-        if ($positive eq 'context') {$n = &contextAttribute2osisRefAttribute($n);}
-        push(@ns, $n);
-      }
-    }
-    my $retP = ($a eq $positive ? \@ps:\@ns);
-    if (@{$retP} && @{$retP}[0]) {
-      $ret = join(($a =~ /XPATH/ ? '|':' '), @{$retP});
-    }
-  }
-  
-  if ($a eq 'context' && $ret =~ /\bALL\b/) {return '';}
-  
-  return $ret;
 }
 
 
@@ -4087,7 +4048,7 @@ sub checkUniqueOsisIDs($) {
   foreach my $id (@osisIDs) {$ids{$id->value}++;}
   foreach my $k (keys %ids) {
     if ($ids{$k} > 1) {
-      &Error("osisID attribute value is not unique: $k (".$ids{$k}.")", "There are multiple elements with this osisID, and this is not allowed.");
+      &Error("osisID attribute value is not unique: $k (".$ids{$k}.")", "There are multiple elements with the same osisID, which is not allowed.");
     }
   }
   
@@ -4833,45 +4794,47 @@ sub writeOsisIDs($) {
   
   &Log("\nWriting note osisIDs:\n", 1);
   
-  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $XML_PARSER->parse_file($$osisP));
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $xml);
   if (@existing) {
     &Warn(@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!");
     return;
   }
   
-  my %osisID_note;
+  my $myMod = &getOsisRefWork($xml);
   
-  my @files = &splitOSIS($$osisP);
-  foreach my $file (@files) {
-    my $xml = $XML_PARSER->parse_file($file);
-    
-    my $myMod = &getOsisRefWork($xml);
-    
-    # Add osisID to DICT container divs
-    my $n; my @typeXPATH; foreach my $sb (@USFM2OSIS_PY_SPECIAL_BOOKS) {push(@typeXPATH, "\@type='$sb'");}
-    foreach my $div (@{$XPC->findnodes('//osis:div['.join(' or ', @typeXPATH).']', $xml)}) {
-      if ($div->hasAttribute('osisID')) {next;}
-      
-      my $title;
-      my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
-      if ($elem) {$title = 'milestone_'.&encodeOsisRef($elem->getAttribute('n'));}
+  # Add osisID to DICT container divs
+  my $n;
+  foreach my $div (@{$XPC->findnodes('//osis:div[not(@osisID)][not(@resp="x-oc")][not(starts-with(@type, "x-keyword"))][not(starts-with(@type, "x-aggregate"))][not(contains(@type, "ection"))]', $xml)}) {
+    my $title;
+    my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
+    if ($elem) {$title = 'milestone_'.&encodeOsisRef($elem->getAttribute('n'));}
+    else {
+      $elem = @{$XPC->findnodes('descendant::osis:title[@type != "runningHead"][1]', $div)}[0];
+      if ($elem) {$title = 'title_'.&encodeOsisRef($elem->textContent);}
       else {
-        $elem = @{$XPC->findnodes('descendant::osis:title[@type != "runningHead"][1]', $div)}[0];
-        if ($elem) {$title = 'title_'.&encodeOsisRef($elem->textContent);}
-        else {
-          $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];
-          if ($elem) {$title = 'keyword_'.&encodeOsisRef($elem->textContent);}
-        }
+        $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];
+        if ($elem) {$title = 'keyword_'.&encodeOsisRef($elem->textContent);}
       }
-      if (!$title) {$title = ++$n};
-      $div->setAttribute('osisID', $div->getAttribute('type').'_'.$title);
     }
-    
-    # Get all notes excluding generic cross-references added from an external source
-    my @allNotes = $XPC->findnodes('//osis:note[not(@resp)]', $xml);
-    foreach my $n (@allNotes) {
-      my $osisID = getNodeOsisID($n);
-      
+    if (!$title) {$title = ++$n};
+    $div->setAttribute('osisID', &dashCamelCase($div->getAttribute('type')).'_'.$title);
+    &Note("Adding osisID ".$div->getAttribute('osisID'));
+  }
+  
+  # Write these osisID changes before any further steps
+  my $tmpf = "$$osisP.2.xml";
+  &writeXMLFile($xml, $tmpf);
+  
+  # Get all notes (excluding generic cross-references added from an external source) and write osisIDs
+  my %osisID_note;
+  my @splitosis = &splitOSIS($tmpf); # splitOSIS offers a massive speedup here!
+  foreach my $sosis (@splitosis) {
+    my $xml = $XML_PARSER->parse_file($sosis);
+    foreach my $n ($XPC->findnodes('//osis:note[not(@resp)]', $xml)) {
+      my @ids = &atomizeContext(&getNodeContext($n));
+      my $osisID = @ids[0];
       # Reserve and write an osisID for each note. 
       my $i = 1;
       # The extension has 2 parts: type and instance. Instance is a number prefixed by a single letter.
@@ -4888,12 +4851,17 @@ sub writeOsisIDs($) {
       $n->setAttribute('osisID', "$osisID$refext$i");
       $osisID_note{"$myMod:$osisID$refext$i"}++;
     }
-    
-    &writeXMLFile($xml, $file);
+    &writeXMLFile($xml, $sosis);
   }
-  
   &joinOSIS($output);
   $$osisP = $output;
+}
+
+sub dashCamelCase($) {
+  my $id = shift;
+  my @p = split(/\-/, $id);
+  for (my $x=1; $x<@p; $x++) {@p[$x] = ucfirst(@p[$x]);}
+  return join('', @p);
 }
 
 
@@ -5065,12 +5033,12 @@ tag number you wish to use.)\n");
       if ($divTitle) {$divTitle = $divTitle->textContent;}
       else {
         $hasTitle = 0;
-        $confentry = 'ARG_'.ucfirst($type).'Title'.++$n{$type};
+        $confentry = 'ARG_'.$div->getAttribute('osisID');
         $divTitle = &conf($confentry);
         if ($divTitle eq 'SKIP') {next;}
       }
       if (!$divTitle) {
-        $divTitle = ucfirst($type)." #".$n{$type};
+        $divTitle = $div->getAttribute('osisID');
         &Error("The Paratext div with title '$divTitle' needs a localized title.",
 "A level1 TOC entry for this div has been automatically created, but it 
 needs a title. You must provide the localized title for this TOC entry 
@@ -5267,49 +5235,45 @@ sub writeMissingNoteOsisRefs($) {
   
   my $count = 0;
   foreach my $note (@notes) {
-    my $osisRef;
+    my $osisRef = &getNodeOsisID($note);
     
-    if (&isBible($xml)) {
+    # Check if Bible annotateRef should override verse context
+    my $con_bc; my $con_vf; my $con_vl;
+    if (&isBible($xml) && $osisRef =~ /^($OSISBOOKSRE)\.\d+\.\d+$/) {
       # get notes's context
-      my $con_bc = &bibleContext($note);
-      $con_bc =~ s/\.([^\.]+)\.([^\.]+)$//;
-      my $con_vf = $1;
-      my $con_vl = $2;
-      
-      if ($con_vf eq '0' || $con_vl eq '0') {
-        &Warn("Not writting introduction note osisRef: ".&bibleContext($note), "<>Since introductions do not have their own osisIDs, these osisRefs have no valid target and should be unnecessary.");
-        next;
+      $con_bc = &bibleContext($note);
+      if ($con_bc !~ /^(($OSISBOOKSRE)\.\d+)(\.(\d+)(\.(\d+))?)?$/) {$con_bc = '';}
+      else {
+        $con_bc = $1;
+        $con_vf = $4;
+        $con_vl = $6;
+        if ($con_vf == 0 || $con_vl == 0) {$con_bc = '';}
       }
-      
+    }
+    if ($con_bc) {
       # let annotateRef override context if it makes sense
       my $aror;
-      my @rs = $XPC->findnodes('descendant::osis:reference[1][@type="annotateRef" and @osisRef]', $note);
-      if (@rs && @rs[0]) {
-        $aror = @rs[0]->getAttribute('osisRef');
+      my $rs = @{$XPC->findnodes('descendant::osis:reference[1][@type="annotateRef" and @osisRef]', $note)}[0];
+      if ($rs) {
+        $aror = $rs->getAttribute('osisRef');
         $aror =~ s/^[\w\d]+\://;
         if ($aror =~ /^([^\.]+\.\d+)(\.(\d+)(-\1\.(\d+))?)?$/) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if (@rs[0]->getAttribute('annotateType') ne $VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
-            &Warn("writeMissingNoteOsisRefs: Note's annotateRef \"".@rs[0]."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"");
+          if ($rs->getAttribute('annotateType') ne $VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
+            &Warn("writeMissingNoteOsisRefs: Note's annotateRef \"".$rs."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"");
             $aror = '';
           }
         }
         else {
-          &Warn("writeMissingNoteOsisRefs: Unexpected annotateRef osisRef found \"".@rs[0]."\"");
+          &Warn("writeMissingNoteOsisRefs: Unexpected annotateRef osisRef found \"".$rs."\"");
           $aror = '';
         }
       }
       
       $osisRef = ($aror ? $aror:"$con_bc.$con_vf".($con_vl != $con_vf ? "-$con_bc.$con_vl":''));
     }
-    
-    elsif ($refSystem =~ /^Dict/) {
-      $osisRef = &getNodeOsisID($note);
-    }
-    
-    else {return 0;}
 
     $note->setAttribute('osisRef', $osisRef);
     $count++;

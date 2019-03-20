@@ -115,10 +115,10 @@ allowed and must be removed.");
   # Parse links to footnotes if a text includes them
   if ($addFootnoteLinks) {
     if (!$addScripRefLinks) {
-      &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
-  "Change these values in CF_usfm2osis.txt. If you need to parse footnote 
-  links, you need to parse Scripture references first, using 
-  CF_addScripRefLinks.txt.");
+    &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
+"Change these values in CF_usfm2osis.txt. If you need to parse footnote 
+links, you need to parse Scripture references first, using 
+CF_addScripRefLinks.txt.");
     }
     else {
       my $CF_addFootnoteLinks = &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
@@ -126,10 +126,10 @@ allowed and must be removed.");
         &runAddFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
       }
       else {&Error("CF_addFootnoteLinks.txt is missing", 
-  "Remove or comment out SET_addFootnoteLinks in CF_usfm2osis.txt if your 
-  translation does not include links to footnotes. If it does include 
-  links to footnotes, then add and configure a CF_addFootnoteLinks.txt 
-  file to convert footnote references in the text into working hyperlinks.");}
+"Remove or comment out SET_addFootnoteLinks in CF_usfm2osis.txt if your 
+translation does not include links to footnotes. If it does include 
+links to footnotes, then add and configure a CF_addFootnoteLinks.txt 
+file to convert footnote references in the text into working hyperlinks.");}
     }
   }
 
@@ -177,18 +177,18 @@ allowed and must be removed.");
         if (@{$XPC->findnodes('//osis:div[not(@resp="x-oc")][@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
           &Log("\n");
           &Note(
-  "Module $MAINMOD contains module introduction material (located before 
-  the first bookGroup, which applies to the entire module). It appears 
-  you have not duplicated this material in the glossary. This introductory 
-  material could be more useful if copied into glossary module $DICTMOD. 
-  Typically this is done by including the INT USFM file in the glossary 
-  with scope INT and using an EVAL_REGEX to turn the headings into 
-  glossary keys. A menu system will then automatically be created to make 
-  the introduction material available in every book and keyword. Just add 
-  code something like this to $DICTMOD/CF_usfm2osis.txt: 
-  EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ 
-  EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
-  RUN:./INT.SFM");
+"Module $MAINMOD contains module introduction material (located before 
+the first bookGroup, which applies to the entire module). It appears 
+you have not duplicated this material in the glossary. This introductory 
+material could be more useful if copied into glossary module $DICTMOD. 
+Typically this is done by including the INT USFM file in the glossary 
+with scope INT and using an EVAL_REGEX to turn the headings into 
+glossary keys. A menu system will then automatically be created to make 
+the introduction material available in every book and keyword. Just add 
+code something like this to $DICTMOD/CF_usfm2osis.txt: 
+EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ 
+EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
+RUN:./INT.SFM");
         }
       }
     }
@@ -209,10 +209,10 @@ allowed and must be removed.");
   # Checks are done now, as late as possible in the flow
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
   else {
-    &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
-  "The Bible module OSIS file must be created before the dictionary 
-  module OSIS file, so that all reference links can be checked. Create the
-  Bible module OSIS file, then run this dictionary module again.");
+  &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
+"The Bible module OSIS file must be created before the dictionary 
+module OSIS file, so that all reference links can be checked. Create the
+Bible module OSIS file, then run this dictionary module again.");
   }
   
   &checkAndValidate();
@@ -265,10 +265,10 @@ sub runReprocessOSIS($) {
   # Checks are done now, as late as possible in the flow
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
   else {
-    &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
-  "The Bible module OSIS file must be created before the dictionary 
-  module OSIS file, so that all reference links can be checked. Create the
-  Bible module OSIS file, then run this dictionary module again.");
+  &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
+"The Bible module OSIS file must be created before the dictionary 
+module OSIS file, so that all reference links can be checked. Create the
+Bible module OSIS file, then run this dictionary module again.");
   }
   
   &checkAndValidate();

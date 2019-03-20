@@ -22,32 +22,39 @@
 
 # getAtomizedAttributeContexts() takes context/notContext attribute values from 
 # DictionaryWords.xml and converts them into a hash containing all the 
-# atomized context values (see checkAtomicContext() function) which 
-# compose the attribute value, and a list of entire included books. 
-# NOTE: For a big speedup, entire books are returned separately.
+# atomized context values (see checkAndNormalizeAtomicContext() function) 
+# which compose the attribute value, and a list of entire included books. 
+# NOTE: For a big speedup, entire books and 'all' are returned separately.
 #
 # context/notContext attribute values are space separated instances of 
-# either atomized context values or, for brevity, any of the following 
-# shortened forms:
+# either atomized context values or, for brevity and convenience, one of 
+# the following:
 # - Bible osisRef (which is any combination of: OSISBK.CH.VS or OSISBK.CH.VS-OSISBK.CH.VS) 
-#   plus may begin with OSISBK = 'ALL' meadning all Bible books
+#   plus it may begin with OSISBK = 'ALL' meadning all Bible books
+# - Comma separated list of Paratext references, such as: GEN 1:2-4, EXO 5:6
 # - Other special keywords:
+#   ALL = Any context, can be used to cancel a higher level attribute
 #   OT = Old Testament (including introductions)
 #   NT = New Testament (including introductions)
 #   BIBLE_INTRO or BIBLE_INTRO.0 = Bible introduction
-#   TESTAMENT_INTRO.0 or TESTAMENT_INTRO.1 = OT or NT introduction, respectively
+#   TESTAMENT_INTRO.1 or TESTAMENT_INTRO.2 = OT or NT introduction, respectively
 sub getAtomizedAttributeContexts($\$) {
   my $attrValue = shift;
   my $notesP = shift;
   
+  my $osisRef = &paratextRefList2osisRef($attrValue);
+  
   my %h;
-  foreach my $ref (split(/\s+/, $attrValue)) {
+  foreach my $ref (split(/\s+/, $osisRef)) {
+    # Handle 'ALL'
+    if ($ref eq 'ALL') {undef(%h); $h{'all'}++; return \%h;}
+    
     # Handle whole book
     if ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++; next;}
     
     # Handle keywords OT and NT
     if ($ref =~ /^(OT|NT)$/) {
-      $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '0':'1').'.0'}++;
+      $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '1':'2').'.0'}++;
       foreach my $bk (split(/\s+/, ($ref eq 'OT' ? $OT_BOOKS:$NT_BOOKS))) {
         $h{'books'}{$bk}++;
       }
@@ -82,6 +89,46 @@ sub getAtomizedAttributeContexts($\$) {
   return \%h;
 }
 
+# Scoped attributes are hierarchical and cummulative. They occur in both
+# positive and negative (not) forms. A positive attribute cancels any
+# negative forms of that attribute occuring higher in the hierarchy.
+sub getScopedAttribute($$) {
+  my $a = shift;
+  my $m = shift;
+  
+  my $ret = '';
+  
+  my $positive = ($a =~ /^not(.*?)\s*$/ ? lcfirst($1):$a);
+  if ($positive =~ /^xpath$/i) {$positive = uc($positive);}
+  my $negative = ($a =~ /^not/ ? $a:'not'.ucfirst($a));
+    
+  my @r = $XPC->findnodes("ancestor-or-self::*[\@$positive or \@$negative]", $m);
+  if (@r[0]) {
+    my @ps; my @ns;
+    foreach my $re (@r) {
+      my $p = $re->getAttribute($positive);
+      if ($p) {
+        if ($positive eq 'context') {$p = &paratextRefList2osisRef($p);}
+        push(@ps, $p);
+        @ns = ();
+      }
+      my $n = $re->getAttribute($negative);
+      if ($n) {
+        if ($positive eq 'context') {$n = &paratextRefList2osisRef($n);}
+        push(@ns, $n);
+      }
+    }
+    my $retP = ($a eq $positive ? \@ps:\@ns);
+    if (@{$retP} && @{$retP}[0]) {
+      $ret = join(($a =~ /XPATH/ ? '|':' '), @{$retP});
+    }
+  }
+  
+  if ($a eq 'context' && $ret =~ /\bALL\b/) {return '';}
+  
+  return $ret;
+}
+
 # Takes any valid osisRef and returns an equivalent array of atomized contexts.
 sub osisRef2Contexts($$$) {
   my $osisRefLong = shift;
@@ -90,7 +137,7 @@ sub osisRef2Contexts($$$) {
   
   # This call to osisRef2osisID includes introductions (even though intros do not have osisIDs, they have context values)
   my @cs = (split(/\s+/, &osisRef2osisID($osisRefLong, $osisRefWorkDefault, $workPrefixFlag, 1)));
-  foreach my $c (@cs) {$c = &checkAtomicContext($c)};
+  foreach my $c (@cs) {$c = &checkAndNormalizeAtomicContext($c)};
   
   return @cs;
 }
@@ -116,17 +163,17 @@ sub atomizeContext($) {
     my $v1 = $2;
     my $v2 = $4;
     if ($v2 eq 'PART') {push(@out, "$bc.$v1!PART");} # special case from fitToVerseSystem
-    elsif ($v2) {
+    elsif ($v2 ne '') {
       for (my $i = $v1; $i <= $v2; $i++) {
         push(@out, "$bc.$i");
       }
     }
     else {push(@out, $context);}
   }
-  elsif ($context =~ /\./) {foreach my $c (split('.', $context)) {push(@out, $c);}}
+  elsif ($context =~ /\./) {foreach my $c (split(/\.(?!dup)/, $context)) {push(@out, $c);}}
   else {push(@out, $context);}
   
-  foreach my $a (@out) {$a = &checkAtomicContext($a)};
+  foreach my $a (@out) {$a = &checkAndNormalizeAtomicContext($a);}
 
   return @out;
 }
@@ -138,12 +185,13 @@ sub getNodeOsisID($) {
 
   my $context = &getNodeContext($node);
   
-  # Bible introduction contexts don't have matching osisIDs.
+  # Introduction contexts don't have matching osisIDs.
   # The BEFORE_keyword does not correspond to a real osisID.
-  # So use 'other' method for these
-  if (&isBible($node) && $context =~ /\.0$/ || &isDict($node) && $context =~ /^BEFORE_/) {
-    $context = &otherModContext($node);
+  # So use 'other' method for these.
+  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
+    $context = &otherModContext($node); # container osisIDs (requires atomizeContext)
   }
+  elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
   
   my @acs = &atomizeContext($context);
   if (!@acs[0]) {
@@ -158,8 +206,8 @@ sub getNodeOsisID($) {
 # would be 3 parts for a Bible) so it may represent a range of verses.
 # Possible forms:
 # BIBLE_INTRO.0.0.0 = Bible intro
-# TESTAMENT_INTRO.0.0.0 = Old Testament intro
-# TESTAMENT_INTRO.1.0.0 = New Testament intro
+# TESTAMENT_INTRO.1.0.0 = Old Testament intro
+# TESTAMENT_INTRO.2.0.0 = New Testament intro
 # Gen.0.0.0 = Gen book intro
 # Gen.1.0.0 = Gen chapter 1 intro
 # Gen.1.1.1 = Genesis 1:1
@@ -182,7 +230,7 @@ sub bibleContext($) {
     }
     my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node)}[0];
     if ($tst) {
-      return "TESTAMENT_INTRO.".(0+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', $tst)}).".0.0";
+      return "TESTAMENT_INTRO.".(1+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', $tst)}).".0.0";
     }
     return "BIBLE_INTRO.0.0.0";
   }
@@ -199,7 +247,7 @@ sub bibleContext($) {
 
   # get context from most specific osisID
   if ($e) {
-    my $id = $e->getAttribute('osisID');
+    my $id = $e->getAttribute('osisID'); $id =~ s/^.*\s+//;
     $context = ($id ? $id:"unk.0.0.0");
     if ($id =~ /^\w+$/) {$context .= ".0.0.0";}
     elsif ($id =~ /^\w+\.\d+$/) {$context .= ".0.0";}
@@ -256,7 +304,7 @@ sub otherModContext($) {
   
   # then return ancestor osisIDs
   my @c;
-  foreach $osisID ($XPC->findnodes('./ancestor-or-self::osis:*[@osisID]', $node)) {
+  foreach $osisID ($XPC->findnodes('./ancestor::osis:*[@osisID]', $node)) {
     if ($osisID->getAttribute('osisID') =~ /^\s*$/) {next;}
     push(@c, $osisID->getAttribute('osisID'));
   }
@@ -273,6 +321,8 @@ sub otherModContext($) {
 sub inContext($\%) {
   my $context = shift;
   my $contextsHashP = shift;
+  
+  if ($contextsHashP->{'all'}) {return $context;}
   
   foreach my $atom (&atomizeContext($context)) {
     if ($contextsHashP->{'contexts'}{$atom}) {return $context;}
@@ -304,36 +354,42 @@ sub inGlossaryContext(\@\%) {
 #
 # Atomized context values are defined as one of the following:
 # BIBLE_INTRO.0.0 = Bible intro
-# TESTAMENT_INTRO.0.0 = Old Testament intro
-# TESTAMENT_INTRO.1.0 = New Testament intro
+# TESTAMENT_INTRO.1.0 = Old Testament intro
+# TESTAMENT_INTRO.2.0 = New Testament intro
 # (OSISBK).0.0 = book introduction of OSISBK
 # (OSISBK).CH.0 = chapter 1 introduction OSISBK
 # (OSISBK).CH.VS = verse OSISBK CH:VS
 # BEFORE_osisID = glossary introduction before keyword with osisID
 # osisID = any container element or keyword osisID
-sub checkAtomicContext($$) {
+sub checkAndNormalizeAtomicContext($$) {
   my $context = shift;
   my $quiet = shift;
   
+  $context =~ s/![^!]*$//; # remove any extension
+  my $pre = ($context =~ /^(\w+\:)/ ? $1:'');
   my $work = ($context =~ s/^(\w+)\:// ? $1:$MOD);
   
   my $before = '';
-  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|$OSISBOOKSRE)(\.(\d+)(\.(\d+))?)?$/) {
-    my $bk = $1; my $ch = $3; my $vs = $5;
-    if ($bk eq 'TESTAMENT_INTRO' && $ch != 1 && $ch != 2) {
-      if (!$quiet) {&Error("checkAtomicContext: TESTAMENT_INTRO is '$ch'.", 'It must be 1 or 2.');}
+  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|$OSISBOOKSRE)(\.(\d+)(\.(\d+)(\.(\d+))?)?)?$/) {
+    my $bk = $1; my $ch = $3; my $vs = $5; my $vl = $7;
+    if ($vl && $vs != $vl) {
+      &ErrorBug("checkAndNormalizeAtomicContext: A multi-verse Bible context is not a valid atomized context: $context");
       return '';
     }
-    if ($bk eq 'TESTAMENT_INTRO') {return "$bk.$ch.0";}
-    elsif ($bk eq 'BIBLE_INTRO') {return "$bk.0.0";}
+    if ($bk eq 'TESTAMENT_INTRO' && $ch != 1 && $ch != 2) {
+      if (!$quiet) {&Error("checkAndNormalizeAtomicContext: TESTAMENT_INTRO is '$ch'.", 'It must be 1 or 2.');}
+      return '';
+    }
+    if ($bk eq 'TESTAMENT_INTRO') {return "$pre$bk.$ch.0";}
+    elsif ($bk eq 'BIBLE_INTRO') {return "$pre$bk.0.0";}
     else {
       if ($ch eq '0') {$vs = '0';}
-      if ($ch eq '' && $vs eq '') {return $bk;} # This OSISBK is also an osisID
+      if ($ch eq '' && $vs eq '') {return "$pre$bk";} # This OSISBK is also an osisID
       if ($ch && $vs eq '') {
-        &ErrorBug("checkAtomicContext: A whole chapter is not a valid atomized context: $context");
+        &ErrorBug("checkAndNormalizeAtomicContext: A whole chapter is not a valid atomized context: $context");
         return '';
       }
-      return "$bk.$ch.$vs";
+      return "$pre$bk.$ch.$vs";
     }
   }
   
@@ -341,7 +397,7 @@ sub checkAtomicContext($$) {
   if ($context =~ s/^BEFORE_//) {$before = 'BEFORE_';}
   
   if ($context =~ /[^\p{L}\p{N}_\.]/) {
-    if (!$quiet) {&Error("checkAtomicContext: Illegal character in context: $before$context", "Only chars [\p{L}\p{N}_] are allowed.");}
+    if (!$quiet) {&Error("checkAndNormalizeAtomicContext: Illegal character in context: $before$context", "Only chars [\p{L}\p{N}_] are allowed.");}
     return '';
   }
   
@@ -349,12 +405,12 @@ sub checkAtomicContext($$) {
         !&existsElementID($context, $CONTEXT_CHECK_XML) && 
         !&existsScope($context, $CONTEXT_CHECK_XML)
       ) {
-    &Error("checkAtomicContext: osisID/scope '$context' was not found.");
+    &Error("checkAndNormalizeAtomicContext: osisID/scope '$context' was not found.");
     $CONTEXT_CHECK_ERR++;
     return '';
   }
   
-  return "$before$context";
+  return "$pre$before$context";
 }
 
 sub checkDictionaryWordsContexts($$) {
