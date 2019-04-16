@@ -178,6 +178,7 @@ sub runAddFootnoteLinks($$) {
 generated before generating the DICT OSIS file. Run sfm2osis.pl on the 
 Bible module to generate a valid OSIS file, and then try generating the 
 DICT OSIS file again.");
+    return;
   }
   
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "LOCATION", "OSISREF", 'TYPE', 'LINK-TEXT'));
@@ -334,9 +335,9 @@ sub processXML($$) {
       $intro = ($VS ? 0:1);
     }
     else {
-      my $entryScope = &getEntryScope($textNode);
+      my $entryScope = &getGlossaryScopeAttribute($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &decodeOsisRef(&otherModContext($textNode));
+      $CH = &decodeOsisRef(&otherModContext($textNode, 1));
     }
 
     # display progress

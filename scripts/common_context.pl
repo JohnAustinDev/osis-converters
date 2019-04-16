@@ -20,7 +20,7 @@
 # compatible operating system having all osis-converters dependencies 
 # already installed.
 
-# getAtomizedAttributeContexts() takes context/notContext attribute values from 
+# getContextAttributeHash() takes context/notContext attribute values from 
 # DictionaryWords.xml and converts them into a hash containing all the 
 # atomized context values (see checkAndNormalizeAtomicContext() function) 
 # which compose the attribute value, and a list of entire included books. 
@@ -38,7 +38,7 @@
 #   NT = New Testament (including introductions)
 #   BIBLE_INTRO or BIBLE_INTRO.0 = Bible introduction
 #   TESTAMENT_INTRO.1 or TESTAMENT_INTRO.2 = OT or NT introduction, respectively
-sub getAtomizedAttributeContexts($\$) {
+sub getContextAttributeHash($\$) {
   my $attrValue = shift;
   my $notesP = shift;
   
@@ -73,10 +73,10 @@ sub getAtomizedAttributeContexts($\$) {
     if ($ref =~ s/^ALL\b//) {
       foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
         if (!$ref) {$h{'books'}{$bk}++;}
-        else {foreach my $k (&osisRef2Contexts("$bk$ref")) {$h{'contexts'}{$k}++;}};
+        else {foreach my $k (&osisRef2Contexts("$bk$ref", $MOD, 'not-default')) {$h{'contexts'}{$k}++;}};
       }
     }
-    else {foreach my $k (&osisRef2Contexts($ref)) {$h{'contexts'}{$k}++;}}
+    else {foreach my $k (&osisRef2Contexts($ref, $MOD, 'not-default')) {$h{'contexts'}{$k}++;}}
   }
   
   if ($notesP && $attrValue && !$ALREADY_NOTED_RESULT{$attrValue}) {
@@ -142,64 +142,12 @@ sub osisRef2Contexts($$$) {
   return @cs;
 }
 
-# Return a single string representing the context of any node
+# Return a string representing the most specific context of a node in 
+# any kind of document. For possible return values see bibleContext() 
+# and otherModContext())
 sub getNodeContext($) {
   my $node = shift;
-  
-  return (&isBible($node) ? &bibleContext($node):&otherModContext($node));
-}
-
-# Returns an array of atomized context values from a getNodeContext(),
-# bibleContext() or otherModContext() string.
-sub atomizeContext($) {
-  my $context = shift;
-  
-  my @out;
-  if ($context =~ /^(BIBLE|TESTAMENT)_INTRO/) { # from bibleContext()
-    push(@out, $context);
-  }
-  elsif ($context =~ /^(\w+\.\d+)\.(\d+)(\.(\d+|PART))?$/) { # from bibleContext()
-    my $bc = $1;
-    my $v1 = $2;
-    my $v2 = $4;
-    if ($v2 eq 'PART') {push(@out, "$bc.$v1!PART");} # special case from fitToVerseSystem
-    elsif ($v2 ne '') {
-      for (my $i = $v1; $i <= $v2; $i++) {
-        push(@out, "$bc.$i");
-      }
-    }
-    else {push(@out, $context);}
-  }
-  elsif ($context =~ /\./) {foreach my $c (split(/\.(?!dup)/, $context)) {push(@out, $c);}}
-  else {push(@out, $context);}
-  
-  foreach my $a (@out) {$a = &checkAndNormalizeAtomicContext($a);}
-
-  return @out;
-}
-
-# Return the most specific osisID associated with a node's context 
-# within its document.
-sub getNodeOsisID($) {
-  my $node = shift;
-
-  my $context = &getNodeContext($node);
-  
-  # Introduction contexts don't have matching osisIDs.
-  # The BEFORE_keyword does not correspond to a real osisID.
-  # So use 'other' method for these.
-  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
-    $context = &otherModContext($node); # container osisIDs (requires atomizeContext)
-  }
-  elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
-  
-  my @acs = &atomizeContext($context);
-  if (!@acs[0]) {
-    &Error("getNodeOsisID: Could not atomize context of node: $node\n(context=$context)");
-    return '';
-  }
-  
-  return @acs[0];
+  return (&isBible($node) ? &bibleContext($node):&otherModContext($node, 1));
 }
 
 # Return a 4 part Bible context for $node, which is not atomic (atomic 
@@ -262,20 +210,26 @@ sub bibleContext($) {
   return $context;
 }
 
-# Return a multi-part, osisID based, context for $node, which is not 
-# atomic (atomic would always be 1 part for 'other') so it may represent 
-# a series of '.' separated ancestor osisIDs (most specific first). If 
-# the node is part of a glossary then the keyword's osisID is returned 
-# (even though a keyword is not a container itself) or if the node is 
-# part of an introduction before a keyword, its context will be 
+# Returns the osisID-based context for $node. If the node lies within 
+# multiple containers having osisIDs, the return value will be a '+' 
+# separated list of the ancestor osisIDs (most specific first). Thus the
+# return value may contain multiple osisIDs and so is not necessarily 
+# atomic (atomic is always a single part for 'other' modules).
+# If the node is part of a glossary then the keyword's osisID is used, 
+# even though a keyword is not a container itself. Or, if the node is 
+# part of an introduction before a keyword, the keyword's osisID will be 
 # prepended with 'BEFORE_'.
-sub otherModContext($) {
+sub otherModContext($$) {
   my $node = shift;
+  my $specificOsisID = shift; # return only the most specific container osisID
+  
+  my @c;
   
   # is node in a glossary?
   my $glossaryDiv = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"][last()]', $node)}[0];
   if ($glossaryDiv) {
     # get preceding keyword or self
+    my $inKeyword = 0;
     my $prevkw = @{$XPC->findnodes('ancestor-or-self::osis:seg[@type="keyword"][1]', $node)}[0];
     if (!$prevkw) {$prevkw = @{$XPC->findnodes('preceding::osis:seg[@type="keyword"][1]', $node)}[0];}
     
@@ -285,39 +239,97 @@ sub otherModContext($) {
           if (!$prevkw->getAttribute('osisID')) {
             &ErrorBug("otherModContext: Previous keyword has no osisID \"$prevkw\"");
           }
-          return $prevkw->getAttribute('osisID');
+          push(@c, $prevkw->getAttribute('osisID'));
+          $inKeyword++;
+          last;
         }
       }
     }
     
-    # if not, then use BEFORE
-    my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
-    if (!$nextkw) {
-      &ErrorBug("otherModContext: There are no entries in the glossary which contains node $node");
-      return '';
+    if (!$inKeyword) {
+      # if not, then use BEFORE
+      my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
+      if (!$nextkw) {
+        &ErrorBug("otherModContext: There are no entries in the glossary which contains node $node");
+      }
+      elsif (!$nextkw->getAttribute('osisID')) {
+        &ErrorBug("otherModContext: Next keyword has no osisID \"$nextkw\"");
+      }
+      else {
+        push(@c, 'BEFORE_'.$nextkw->getAttribute('osisID'));
+      }
     }
-    if (!$nextkw->getAttribute('osisID')) {
-      &ErrorBug("otherModContext: Next keyword has no osisID \"$nextkw\"");
-    }
-    return 'BEFORE_'.$nextkw->getAttribute('osisID');
   }
   
   # then return ancestor osisIDs
-  my @c;
-  foreach $osisID ($XPC->findnodes('./ancestor::osis:*[@osisID]', $node)) {
+  my @ancestors = $XPC->findnodes('./ancestor::osis:*[@osisID]', $node);
+  foreach $osisID (reverse @ancestors) {
     if ($osisID->getAttribute('osisID') =~ /^\s*$/) {next;}
     push(@c, $osisID->getAttribute('osisID'));
   }
-  my $context = join('.', reverse @c);
-  if (!$context) {&Error("otherModContext: There is no ancestor-or-self with an osisID for node $node");}
+  if (!@c) {&Error("otherModContext: There is no ancestor-or-self with an osisID for node $node");}
   
-  return $context;
+  if ($specificOsisID) {return @c[0];}
+  else {return join('+', @c);}
 }
 
-# Return context if there is intersection between a node's context and 
-# and an attribute's contextsHashP, else return 0.
-# $context is a string from getNodeContext()
-# $contextsHashP is a hash from getAtomizedAttributeContexts()
+# Returns an array of atomized context values from a '+' separated list 
+# of getNodeContext(), bibleContext() or otherModContext() strings.
+sub atomizeContext($) {
+  my $context = shift;
+  
+  my @out;
+  foreach my $seg (split(/\+/, $context)) {
+    if ($seg =~ /^(BIBLE|TESTAMENT)_INTRO/) { # from bibleContext()
+      push(@out, $seg);
+    }
+    elsif ($seg =~ /^(\w+\.\d+)\.(\d+)\.(\d+)$/) { # from bibleContext()
+      my $bc = $1;
+      my $v1 = (1*$2);
+      my $v2 = (1*$3);
+      if ($v2 < $v1) {$v2 = $v1;}
+      for (my $i = $v1; $i <= $v2; $i++) {
+        push(@out, "$bc.$i");
+      }
+    }
+    else {push(@out, $seg);}
+  }
+  
+  foreach my $a (@out) {$a = &checkAndNormalizeAtomicContext($a);}
+
+  return @out;
+}
+
+# Return the most specific osisID associated with a node's context. The 
+# osisID will be either that of a containing element or of a glossary 
+# keyword.
+sub getNodeContextOsisID($) {
+  my $node = shift;
+
+  my $context = &getNodeContext($node);
+  
+  # Introduction contexts don't have matching osisIDs.
+  # The BEFORE_keyword does not correspond to a real osisID.
+  # So use 'other' method for these.
+  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
+    $context = &otherModContext($node, 1); # container osisIDs (requires atomizeContext)
+  }
+  elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
+  
+  my @acs = &atomizeContext($context);
+  if (!@acs[0]) {
+    &Error("getNodeContextOsisID: Could not atomize context of node: $node\n(context=$context)");
+    return '';
+  }
+  
+  return @acs[0];
+}
+
+# Return context if there is intersection between a context string and 
+# an attribute's contextsHashP, else return 0.
+# $context is a string as from getNodeContext()
+# $contextsHashP is a hash as from getContextAttributeHash() which may
+# include the special keys 'books' or 'all' for a big speedup.
 sub inContext($\%) {
   my $context = shift;
   my $contextsHashP = shift;
@@ -326,7 +338,7 @@ sub inContext($\%) {
   
   foreach my $atom (&atomizeContext($context)) {
     if ($contextsHashP->{'contexts'}{$atom}) {return $context;}
-    # check book separately for big speedup (see getAtomizedAttributeContexts)
+    # check book separately for big speedup (see getContextAttributeHash)
     if ($atom =~ s/^([^\.]+).*?$/$1/ && $contextsHashP->{'books'}{$atom}) {
       return $context;
     }
@@ -335,17 +347,20 @@ sub inContext($\%) {
   return 0;
 }
 
-# Return first book of $bookArrayP which is within context $contextsHashP
-# Or else return 0.
-sub inGlossaryContext(\@\%) {
-  my $bookArrayP = shift;
-  my $contextsHashP = shift;
- 
-  foreach my $bk (@{$bookArrayP}) {
-    if (&inContext($bk, $contextsHashP)) {return $bk;}
+# Return a context string as the '+' separated list of osisID's which 
+# comprise a scope attribute's value.
+sub getScopeAttributeContext($$) {
+  my $scopeAttrib = shift;
+  my $bookOrderP = shift;
+  
+  my @ids;
+  foreach my $s (split(/\s+/, $scopeAttrib)) {
+    if ($s !~ /\-/) {push(@ids, $s);}
+    elsif (!$bookOrderP) {&ErrorBug("getScopeAttributeContext must have bookOrderP to expand scope ranges.");}
+    else {push(@ids, &scopeToBooks($s, $bookOrderP));}
   }
   
-  return 0;
+  return join('+', @ids);
 }
 
 # Take a context and check its form. Returns nothing if it's invalid or
@@ -427,11 +442,11 @@ sub checkDictionaryWordsContexts($$) {
   my $numatt = 0;
   foreach my $ec ($XPC->findnodes('//*[@context]', $dwf)) {
     $numatt++;
-    &getAtomizedAttributeContexts($ec->getAttribute('context'));
+    &getContextAttributeHash($ec->getAttribute('context'));
   }
   foreach my $ec ($XPC->findnodes('//*[@notContext]', $dwf)) {
     $numatt++;
-    &getAtomizedAttributeContexts($ec->getAttribute('notContext'));
+    &getContextAttributeHash($ec->getAttribute('notContext'));
   }
   
   $CONTEXT_CHECK_XML = ''; # This turns off osisID existence checking
@@ -485,10 +500,10 @@ sub existsScope($$) {
     }
     if (!$found) {
       my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
-      my $aP = &scopeToBooks($scope, $bookOrderP);
+      my $context = &getScopeAttributeContext($scope, $bookOrderP);
       foreach my $t (@test) {
-        my $hashP = &getAtomizedAttributeContexts($t->getAttribute('scope'));
-        if (&inGlossaryContext($aP, $hashP)) {
+        my $hashP = &getContextAttributeHash($t->getAttribute('scope'));
+        if (&inContext($context, $hashP)) {
           $SCOPE_CACHE{$xml->URI}{$scope} = 'yes';
           $found++;
         }

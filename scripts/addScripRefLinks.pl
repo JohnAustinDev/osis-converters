@@ -438,9 +438,9 @@ sub asrlProcessFile($$) {
       $CH = &chBibleContext($textNode);
     }
     else {
-      my $entryScope = &getEntryScope($textNode);
+      my $entryScope = &getGlossaryScopeAttribute($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &decodeOsisRef(&otherModContext($textNode));
+      $CH = &decodeOsisRef(&otherModContext($textNode, 1));
     }
     
     # override context book if requested

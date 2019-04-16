@@ -2675,30 +2675,30 @@ sub getIndexContextString($) {
 # Add dictionary links as described in $DWF to the nodes pointed to 
 # by $eP array pointer. Expected node types are element or text.
 sub addDictionaryLinks(\@$$) {
-  my $eP = shift; # array of text-nodes or text-node parent elements (Note: node element child elements are not touched)
+  my $eP = shift; # array of text-nodes or text-node parent elements from a document (Note: node element child elements are not touched)
   my $ifExplicit = shift; # text context if the node was marked in the text as a glossary link
-  my $isGlossary = shift; # true if the node is in a glossary (See-Also linking)
+  my $isGlossary = shift; # true if the nodes are in a glossary (See-Also linking)
   
   my $bookOrderP;
   foreach my $node (@$eP) {
-    my $dictmodContext;
-    my $glossaryScopeP;
+    my $glossaryNodeContext;
+    my $glossaryScopeContext;
     
     if ($isGlossary) {
-      if (!$bookOrderP) {
-        &getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)
+      if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)}
+      $glossaryNodeContext = &getNodeContext($node);
+      if (!$glossaryNodeContext) {next;}
+      my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
+        push(@gs, ($gsp =~ /\-/ ? &scopeToBooks($gsp, $bookOrderP):$gsp));
       }
-      $dictmodContext = &otherModContext($node);
-      if (!$dictmodContext) {next;}
-      my @gs = ( &getEntryScope($node) );
-      $glossaryScopeP = (@gs[0] =~ /[\-\s]/ ? &scopeToBooks(@gs[0], $bookOrderP):\@gs);
+      $glossaryScopeContext = join('+', @gs);
       if (!$NoOutboundLinks{'haveBeenRead'}) {
         foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
           foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
         }
         $NoOutboundLinks{'haveBeenRead'}++;
       }
-      if ($NoOutboundLinks{&entry2osisRef($MOD, $dictmodContext)}) {return;}
+      if ($NoOutboundLinks{&entry2osisRef($MOD, $glossaryNodeContext)}) {return;}
     }
   
     my @textchildren;
@@ -2716,7 +2716,7 @@ sub addDictionaryLinks(\@$$) {
         my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
         foreach my $part (@parts) {
           if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $dictmodContext, $glossaryScopeP)) {
+          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $glossaryNodeContext, $glossaryScopeContext)) {
             if (!$ifExplicit) {$done = 0;}
           }
         }
@@ -3012,16 +3012,16 @@ sub addDictionaryLink(\$$$$\@) {
   my $textP = shift;
   my $textNode = shift;
   my $explicitContext = shift; # context string if the node was marked in the text as a glossary link
-  my $dictmodContext = shift; # for SeeAlso links only
-  my $glossaryScopeP = shift; # for SeeAlso links only
+  my $glossaryNodeContext = shift; # for SeeAlso links only
+  my $glossaryScopeContext = shift; # for SeeAlso links only
 
   my $matchedPattern = '';
   
   # Cache match related info
   if (!@MATCHES) {
     my $notes;
-    $OT_CONTEXTSP =  &getAtomizedAttributeContexts('OT');
-    $NT_CONTEXTSP =  &getAtomizedAttributeContexts('NT');
+    $OT_CONTEXTSP =  &getContextAttributeHash('OT');
+    $NT_CONTEXTSP =  &getContextAttributeHash('NT');
     my @ms = $XPC->findnodes('//dw:match', $DWF);
     foreach my $m (@ms) {
       my %minfo;
@@ -3033,9 +3033,9 @@ sub addDictionaryLink(\$$$$\@) {
       $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; if ($minfo{'multiple'}) {$minfo{'multiple'} = $minfo{'multiple'}->value;}
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
-      $minfo{'contexts'} = &getAtomizedAttributeContexts($minfo{'context'}, \$notes);
+      $minfo{'contexts'} = &getContextAttributeHash($minfo{'context'}, \$notes);
       $minfo{'notContext'} = &getScopedAttribute('notContext', $m);
-      $minfo{'notContexts'} = &getAtomizedAttributeContexts($minfo{'notContext'}, \$notes);
+      $minfo{'notContexts'} = &getContextAttributeHash($minfo{'notContext'}, \$notes);
       $minfo{'notXPATH'} = &getScopedAttribute('notXPATH', $m);
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
@@ -3063,7 +3063,7 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $context;
   my $multiples_context;
-  if ($dictmodContext) {$context = $dictmodContext; $multiples_context = $dictmodContext;}
+  if ($glossaryNodeContext) {$context = $glossaryNodeContext; $multiples_context = $glossaryNodeContext;}
   else {
     $context = &bibleContext($textNode);
     $multiples_context = $context;
@@ -3090,7 +3090,7 @@ sub addDictionaryLink(\$$$$\@) {
     if ($explicitContext && $m->{'notExplicit'}) {&dbg("00\n"); next;}
     elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
     else {
-      if ($dictmodContext && $m->{'skipRootID'}{&getRootID($dictmodContext)}) {&dbg("05\n"); next;} # never add glossary links to self
+      if ($glossaryNodeContext && $m->{'skipRootID'}{&getRootID($glossaryNodeContext)}) {&dbg("05\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
       if ($filterMultiples) {
@@ -3100,7 +3100,9 @@ sub addDictionaryLink(\$$$$\@) {
         elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
-        my $gs = scalar(@{$glossaryScopeP}); my $ic = &inContext($context, $m->{'contexts'}); my $igc = ($gs ? &inGlossaryContext($glossaryScopeP, $m->{'contexts'}):0);
+        my $gs  = ($glossaryScopeContext ? 1:0);
+        my $ic  = &inContext($context, $m->{'contexts'});
+        my $igc = ($gs ? &inContext($glossaryScopeContext, $m->{'contexts'}):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
       }
       if ($m->{'notContext'}) {
@@ -5235,7 +5237,7 @@ sub writeMissingNoteOsisRefs($) {
   
   my $count = 0;
   foreach my $note (@notes) {
-    my $osisRef = &getNodeOsisID($note);
+    my $osisRef = &getNodeContextOsisID($note);
     
     # Check if Bible annotateRef should override verse context
     my $con_bc; my $con_vf; my $con_vl;
