@@ -435,7 +435,7 @@ sub asrlProcessFile($$) {
       $intro = ($VS ? 0:1);
     }
     elsif ($refSystem !~ /^Dict/) {
-      $CH = &chBibleContext($textNode);
+      $CH = &getNodeContext($textNode);
     }
     else {
       my $entryScope = &getGlossaryScopeAttribute($textNode);
