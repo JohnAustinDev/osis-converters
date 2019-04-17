@@ -373,9 +373,7 @@ sub checkFont($) {
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {
     my $p = expandLinuxPath("~/.osis-converters/fonts");
-    if (!-e $p) {mkdir($p);}
-    shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$FONTS'", 3);
-    &wgetSyncDel($p);
+    &updateURLCache($p, $FONTS);
     $FONTS = $p;
   }
 
@@ -420,15 +418,45 @@ sub checkFont($) {
   }
 }
 
+# Cache files from a URL to a local path
+sub updateURLCache($$) {
+  my $p = shift;
+  my $url = shift;
+  
+  $success = 0;
+  if ($p && $url) {
+    if (!-e $p) {mkdir($p);}
+    use Net::Ping;
+    my $net = Net::Ping->new;
+    my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
+    my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
+    if ($r) {
+      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$url'", 3);
+      $success = &wgetSyncDel($p);
+    }
+  }
+  
+  if ($success) {
+    &Note("Updated local directory $p from URL $url");
+  }
+  else {
+    &Warn("checkFont() could not update $p from $url.", "That there is an Internet connection and that $url is a valid URL.");
+  }
+  
+  return $success;
+}
+
 # Delete any local files that were not just downloaded by wget
 sub wgetSyncDel($) {
   my $p = shift;
   
+  my $success = 0;
   $p =~ s/\/\s*$//;
-  if ($p !~ /\/\Q.osis-converters\E\//) {return;} # careful with deletes
+  if ($p !~ /\/\Q.osis-converters\E\//) {return 0;} # careful with deletes
   my $dname = $p; $dname =~ s/^.*\///;
   my $html = $XML_PARSER->load_html(location  => "$p/$dname.tmp", recover => 1);
   if ($html) {
+    $success++;
     my @files = $html->findnodes('//tr//a');
     my @files = map($_->textContent() , @files);
     opendir(PD, $p) or &ErrorBug("Could not open dir $p", '', 1);
@@ -441,6 +469,8 @@ sub wgetSyncDel($) {
   }
   else {&ErrorBug("The $dname.tmp HTML was undreadable: $p/$dname.tmp");}
   shell("cd '$p' && rm *.tmp", 3);
+  
+  return $success;
 }
 
 
@@ -1403,9 +1433,7 @@ sub getCoverImageFromScope($$) {
   if (!$cover && $COVERS) {
     if ($COVERS =~ /^https?\:/) {
       my $p = &expandLinuxPath("~/.osis-converters/cover");
-      if (!-e $p) {mkdir($p);}
-      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$COVERS'", 3);
-      &wgetSyncDel($p);
+      &updateURLCache($p, $COVERS);
       $COVERS = $p;
     }
     $cover = &findCover($COVERS, $mod, $scope);
