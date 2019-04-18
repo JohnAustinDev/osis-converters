@@ -39,8 +39,8 @@ if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 if ($SModDrv =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
 elsif ($SModDrv =~ /Text/) {
+  &runScript("$SCRD/scripts/bible/swordText.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
-  &runScript("$SCRD/scripts/bible/removeLinklessCrossRefs.xsl", \$INOSIS);
 }
 if ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
