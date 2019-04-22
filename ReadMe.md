@@ -68,6 +68,12 @@ must be escaped by backslash.
 audio files, such as when a translation has multiple modules with 
 different scripts. This allows all these modules to reference the same 
 audio files.
+* `Scope = Gen-Deut Matt-John Rev` Is used to list Bible module 
+contents, and it follows osisRef rules. Note that Scope interperetation 
+is versification dependant, since different verse systems may have 
+different book orders and numbers of chapters and verses. The Scope 
+config entry is important for use cases when the content needs to be 
+determined before the text itself can be loaded and read.
 
 ## Comparison of OSIS files to CrossWire OSIS
 
