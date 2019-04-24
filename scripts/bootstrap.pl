@@ -72,7 +72,7 @@ else {
 }
 $CONFFILE = "$MAININPD/config.conf";
 $CONF = {}; &readConfFile($CONFFILE, $CONF);
-$DICTMOD = ($CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
+$DICTMOD = ($INPD eq $DICTINPD || $CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
 
 # Allow running MAININPD-only scripts from a DICT sub-project
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {

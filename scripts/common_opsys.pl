@@ -57,7 +57,8 @@ $VAGRANT_HOME = '/home/vagrant';
   'osis2html+CombineGlossaries' => 'false',
   'osis2html+CreateSeparateBooks' => 'false',
   'osis2html+NoEpub3Markup' => 'true',
-  'Font' => ''
+  'Font' => '',
+  'Companion' => ''
 );
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
@@ -333,11 +334,12 @@ sub setConfGlobals($) {
   $CONF = $confP;
   
   # Config Defaults
-  foreach my $e (@OC_CONFIGS) {
+  my $ocConfRE = '('.join('|', @OC_CONFIGS).')';
+  foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
     if (exists($CONFIG_DEFAULTS{$e})) {
       if (!exists($confP->{$e})) {$confP->{$e} = $CONFIG_DEFAULTS{$e};}
     }
-    elsif ($e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
+    elsif ($e =~ /$ocConfRE/ && $e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
   }
   
   #use Data::Dumper; &Debug(Dumper($entryValueP)."\n");
