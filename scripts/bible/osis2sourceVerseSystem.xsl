@@ -2,7 +2,6 @@
 <stylesheet version="2.0"
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
- xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
@@ -12,8 +11,6 @@
   that the resulting OSIS file's references are correct according to the custom verse 
   system. Also, markup associated with only the fixed verse system is removed, leaving 
   just the source verse system. !-->
- 
-  <import href="../functions.xsl"/>
   
   <!-- By default copy everything as is -->
   <template match="node()|@*" name="identity" mode="#all">
