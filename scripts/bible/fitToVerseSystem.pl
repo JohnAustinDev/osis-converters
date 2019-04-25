@@ -344,7 +344,7 @@ sub orderBooksPeriphs($$$) {
   }
   
   foreach my $bk (@books) {
-    if ($bk ne '') {&ErrorBug("Book \"$bk\" was not found in $vsys Canon.");}
+    if ($bk ne '') {&ErrorBug("Book \"".$bk->getAttribute('osisID')."\" was not found in $vsys Canon.");}
   }
   
   foreach my $bookGroup (@bookGroups) {

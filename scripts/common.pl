@@ -1248,7 +1248,7 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
 
   my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$pt};
   if (!$periphTypeDescriptor) {
-    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(' ', keys %PERIPH_TYPE_MAP));
+    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(', ', keys %PERIPH_TYPE_MAP));
     return '';
   }
   if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
