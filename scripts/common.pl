@@ -499,13 +499,13 @@ sub loadDictionaryWordsXML($$$) {
   }
   my $tst = @{$XPC->findnodes('//*[@highlight]', $dwf)}[0];
   if ($tst) {
-    &Error("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
+    &Warn("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
     $errors++;
   }
   my $tst = @{$XPC->findnodes('//*[@withString]', $dwf)}[0];
   if ($tst) {
     $errors++;
-    &Error("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
+    &Warn("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
   }
   
   # Save any updates back to source dictionary_words_xml and reload
@@ -629,7 +629,7 @@ sub compareDictOsis2DWF($$) {
       my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
       if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
     }
-    if (!$match) {&Error("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD."); $allmatch = 0;}
+    if (!$match) {&Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD."); $allmatch = 0;}
   }
   
   # Save any updates back to source dictionary_words_xml
