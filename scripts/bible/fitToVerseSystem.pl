@@ -344,7 +344,14 @@ sub orderBooksPeriphs($$$) {
   }
   
   foreach my $bk (@books) {
-    if ($bk ne '') {&ErrorBug("Book \"".$bk->getAttribute('osisID')."\" was not found in $vsys Canon.");}
+    if ($bk ne '') {
+      if ($bk->getAttribute('osisID') =~ /($OSISBOOKSRE)/i) {
+        &Error("Book \"".$bk->getAttribute('osisID')."\" occurred multiple times, so one instance was dropped!", "CF_usfm2osis.txt may have RUN this book multiple times.");
+      }
+      else {
+        &Error("Book \"".$bk->getAttribute('osisID')."\" was not found in $vsys Canon, so it was dropped!", "The id tag of the book's source SFM file may be incorrect.");
+      }
+    }
   }
   
   foreach my $bookGroup (@bookGroups) {

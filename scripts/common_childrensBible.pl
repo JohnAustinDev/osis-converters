@@ -158,25 +158,33 @@ sub checkAdjustCBImages($$) {
 sub getFigureLocalPath($$) {
   my $f = shift;
   my $projdir = shift;
-  $projdir = ($projdir ? $projdir:$INPD);
   
-  my $src = $f->getAttribute('src');
-  if (!$src) {
+  my $imgdir = ($projdir ? $projdir:$INPD).'/images';
+  
+  if (!$f->hasAttribute('src')) {
     &Error("Figure \"$f\" has no src target", "The source location must be specified by the SFM \\fig tag.");
     return '';
   }
   
+  my $srcname = $f->getAttribute('src');
+  if ($srcname !~ s/^\.*\/?images\///) {
+    &Error("Figure \"$f\" src is not within the 'images' directory", "The source location must be within an 'images' directory.");
+    return '';
+  }
+  
   # If an image exists in the project's image directory, don't use a CB_Common image
-  if (-e "$projdir/$src") {return "$projdir/$src";}
+  if (-e "$imgdir/$srcname") {return "$imgdir/$srcname";}
   
-  if (&isChildrensBible($f) && $f->getAttribute('subType') eq 'x-text-image') {
-    my $ret  = ($src =~ /^\.\/images\/(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
-    return $ret;
-  }
-  elsif (&isChildrensBible($f) && $f->getAttribute('subType') eq 'x-letter-image') {
-    my $ret  = ($src eq './images/letter.jpg' ? "$MAININPD/../CB_Common/images/ibt/letter.jpg":'');
-    return $ret;
+  if (&isChildrensBible($f)) {
+    if ($f->getAttribute('subType') eq 'x-text-image') {
+      my $ret  = ($srcname =~ /^(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
+      return $ret;
+    }
+    elsif ($f->getAttribute('subType') eq 'x-letter-image') {
+      my $ret  = ($srcname eq 'letter.jpg' ? "$MAININPD/../CB_Common/images/ibt/letter.jpg":'');
+      return $ret;
+    }
   }
   
-  return "$projdir/$src";
+  return "$imgdir/$srcname";
 }

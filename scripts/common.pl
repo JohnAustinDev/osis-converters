@@ -1188,10 +1188,10 @@ sub customize_usfm2osis($$) {
     if ($USFM{$modType}{$f}{'peripheralID'}) {
       #print CFF "\n# Use location == <xpath> to place this peripheral in the proper location in the OSIS file\n";
       if (defined($ID_TYPE_MAP{$USFM{$modType}{$f}{'peripheralID'}})) {
-        print CFF "EVAL_REGEX($r):s/^(\\\\id ".$USFM{$modType}{$f}{'peripheralID'}.".*)\$/\$1";
+        print CFF "EVAL_REGEX($r):s/^(\\\\id ".quotemeta($USFM{$modType}{$f}{'peripheralID'}).".*)\$/\$1";
       }
       else {
-        print CFF "EVAL_REGEX($r):s/^(\\\\id )".$USFM{$modType}{$f}{'peripheralID'}."(.*)\$/\$1FRT\$2";
+        print CFF "EVAL_REGEX($r):s/^(\\\\id )".quotemeta($USFM{$modType}{$f}{'peripheralID'})."(.*)\$/\$1FRT\$2";
       }
       
       my @instructions;
@@ -1208,8 +1208,7 @@ sub customize_usfm2osis($$) {
       }
       if (@instructions) {
         splice(@instructions, 0, 0, ''); # to add leading separator with join
-        my $line = join(", ", @instructions);
-        $line =~ s/([\@\$\/])/\\$1/g; # escape these so Perl won't interperet them as special chars on the replacement side s//X/
+        my $line = quotemeta(join(", ", @instructions)); # escape these so Perl won't interperet them as special chars on the replacement side s//X/
         print CFF "$line";
       }
       print CFF "/m\n";
@@ -4835,21 +4834,8 @@ sub writeOsisIDs($) {
   my $myMod = &getOsisRefWork($xml);
   
   # Add osisID to DICT container divs
-  my $n;
-  foreach my $div (@{$XPC->findnodes('//osis:div[not(@osisID)][not(@resp="x-oc")][not(starts-with(@type, "x-keyword"))][not(starts-with(@type, "x-aggregate"))][not(contains(@type, "ection"))]', $xml)}) {
-    my $title;
-    my $elem = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
-    if ($elem) {$title = 'milestone_'.&encodeOsisRef($elem->getAttribute('n'));}
-    else {
-      $elem = @{$XPC->findnodes('descendant::osis:title[@type != "runningHead"][1]', $div)}[0];
-      if ($elem) {$title = 'title_'.&encodeOsisRef($elem->textContent);}
-      else {
-        $elem = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $div)}[0];
-        if ($elem) {$title = 'keyword_'.&encodeOsisRef($elem->textContent);}
-      }
-    }
-    if (!$title) {$title = ++$n};
-    $div->setAttribute('osisID', &dashCamelCase($div->getAttribute('type')).'_'.$title);
+  foreach my $div (@{$XPC->findnodes('//osis:div[@type][not(@osisID)][not(@resp="x-oc")][not(starts-with(@type, "book"))][not(starts-with(@type, "x-keyword"))][not(starts-with(@type, "x-aggregate"))][not(contains(@type, "ection"))]', $xml)}) {
+    $div->setAttribute('osisID', &dashCamelCase($div->getAttribute('type')).'_'.&ochash($div->toString()));
     &Note("Adding osisID ".$div->getAttribute('osisID'));
   }
   
@@ -4885,6 +4871,12 @@ sub writeOsisIDs($) {
   }
   &joinOSIS($output);
   $$osisP = $output;
+}
+
+sub ochash($) {
+  my $s = shift;
+  use Digest::MD5 qw(md5 md5_hex md5_base64);
+  return substr(md5_hex(encode('utf8', $s)), 0, 4);
 }
 
 sub dashCamelCase($) {
