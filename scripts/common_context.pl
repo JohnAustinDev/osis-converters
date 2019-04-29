@@ -357,7 +357,7 @@ sub getScopeAttributeContext($$) {
   foreach my $s (split(/\s+/, $scopeAttrib)) {
     if ($s !~ /\-/) {push(@ids, $s);}
     elsif (!$bookOrderP) {&ErrorBug("getScopeAttributeContext must have bookOrderP to expand scope ranges.");}
-    else {push(@ids, &scopeToBooks($s, $bookOrderP));}
+    else {push(@ids, @{&scopeToBooks($s, $bookOrderP)});}
   }
   
   return join('+', @ids);

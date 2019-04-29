@@ -312,7 +312,7 @@ that you wish to match on a separate line:");
   &Report("Listing of extended refs containing ambiguous number(s): ($aerefs instances)");
   if ($CheckRefs) {
     &Warn("<-These are cases where a number could be interpreted as either a verse
-or a chapter depending upon context.", "That these are interperetet correctly.");
+or a chapter depending upon context.", "That these are interpereted correctly.");
     &Log("$CheckRefs\n");
   }
   else {&Log("(no extended refs contain ambiguous numbers)\n");}
