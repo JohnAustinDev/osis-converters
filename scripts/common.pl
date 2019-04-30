@@ -5045,7 +5045,7 @@ tag number you wish to use.)\n");
     foreach my $div (@needTOC) {
       if (!$div->hasAttribute('type') || $div->getAttribute('type') !~ /$typeRE/) {next;}
       my $type = $div->getAttribute('type');
-      if ($maxkw && $type eq 'glossary' && @{$XPC->findnodes('descendant::osis:seg[@type="keyword"]', $div)} <= $maxkw) {next;}
+      if ($maxkw && @{$XPC->findnodes('descendant::osis:seg[@type="keyword"]', $div)} <= $maxkw) {next;}
       if ($div->getAttribute('scope')) {
         my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
         if (!@{&scopeToBooks($div->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
