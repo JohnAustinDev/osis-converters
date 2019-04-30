@@ -368,6 +368,7 @@ sub orderBooksPeriphs($$$) {
     # read the first comment to find desired target location(s) and scope, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $periphFile)}[0];
 
+    my @removedElements = ();
     if (!$commentNode || $commentNode !~ /\s\S+ == \S+/) {
       &Error("Removing periph(s)!", "You must specify the location where each peripheral file should be placed within the OSIS file.");
       &Log(&placementMessage());
@@ -421,37 +422,36 @@ of the bookGroup'. Also, the peripherals are now processed in the order
 they appear in the CF file. To retain the old meaning, change it to $xpath");
           &Warn("Changing $command to $left == $xpath");
         }
-     
-        if ($xpath =~ /^remove$/i) {
-          &Note("Removing \"$left\" in command $command.");
-          next;
-        }
         
-        # All identical xpath searches must return the same originally found node. 
-        # Otherwise sequential order would be reversed with insertBefore */node()[1].
-        if (!exists($xpathOriginalBeforeNodes{$xpath})) {
-          my $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
-          if (!$beforeNode) {
-            &Error("Removing periph! Could not locate xpath:\"$xpath\" in command $command");
-            next;
-          }
-          $xpathOriginalBeforeNodes{$xpath} = $beforeNode;
-        }
+        my $removing = ($xpath =~ /^remove$/i ? 1:0);
+        my $elem = ($left eq 'location' ? $periphFile:&findThisPeriph($periphFile, $left, $command));
         
-        if ($left eq 'location') {
-          $placedPeriphFile = 1;
-          &placeIntroduction($periphFile, $xpathOriginalBeforeNodes{$xpath}, $scope);
-        }
+        if (!$elem) {next;}
+        elsif ($left eq 'location') {$placedPeriphFile = 1;}
+        else {$elem->unbindNode();}
+        
+        if ($removing) {push(@removedElements, $elem);}
         else {
-          my $periph = &findThisPeriph($periphFile, $left, $command);
-          if (!$periph) {next;}
-          $periph->unbindNode();
-          &placeIntroduction($periph, $xpathOriginalBeforeNodes{$xpath}, $scope);
+          # All identical xpath searches must return the same originally found node. 
+          # Otherwise sequential order would be reversed with insertBefore */node()[1].
+          if (!exists($xpathOriginalBeforeNodes{$xpath})) {
+            my $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
+            if (!$beforeNode) {
+              &Error("Removing periph! Could not locate xpath:\"$xpath\" in command $command");
+              next;
+            }
+            $xpathOriginalBeforeNodes{$xpath} = $beforeNode;
+          }
+          &placeIntroduction($elem, $xpathOriginalBeforeNodes{$xpath}, $scope);
+          my $tg = $elem->toString(); $tg =~ s/>.*$/>/s;
+          &Note("Placing  $left == $xpath for $tg");
         }
-        
-        my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
-        &Note("Placing $left == $xpath for $tg");
       }
+    }
+    
+    foreach my $e (@removedElements) {
+      my $e2 = $e->toString(); $e2 =~ s/<\!\-\-.*?\-\->//sg; $e2 =~ s/[\s]+/ /sg; $e2 =~ s/.{60,80}\K(?=\s)/\n/sg;
+      &Note("Removing: $e2\n");
     }
     
     if (!$placedPeriphFile) {
