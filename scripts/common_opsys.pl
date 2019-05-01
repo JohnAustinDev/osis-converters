@@ -412,6 +412,11 @@ sub isValidConfigValue($$) {
     return 0;
   }
   
+  if ($confP->{$fullEntry} =~ /<nx\/>/ && $MULTIVALUE_CONFIGS{$entry} ne '<nx/>') {
+    &Error("It is not allowed to have multiple '$entry' entries in config.conf: ".$confP->{$fullEntry},"Remove all but one '$entry' entries from config.conf.");
+    return 0;
+  }
+  
   return 1;
 }
 
