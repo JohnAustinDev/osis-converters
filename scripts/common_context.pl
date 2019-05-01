@@ -249,13 +249,7 @@ sub otherModContext($$) {
     if (!$inKeyword) {
       # if not, then use BEFORE
       my $nextkw = @{$XPC->findnodes('following::osis:seg[@type="keyword"]', $node)}[0];
-      if (!$nextkw) {
-        &ErrorBug("otherModContext: There are no entries in the glossary which contains node $node");
-      }
-      elsif (!$nextkw->getAttribute('osisID')) {
-        &ErrorBug("otherModContext: Next keyword has no osisID \"$nextkw\"");
-      }
-      else {
+      if ($nextkw && $nextkw->hasAttribute('osisID')) {
         push(@c, 'BEFORE_'.$nextkw->getAttribute('osisID'));
       }
     }
