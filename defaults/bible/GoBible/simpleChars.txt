@@ -1,8 +1,6 @@
-Replace-these-chars: ' «´»ÄÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥҪҫҮүҰұҲҳҶҷҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓ‑–—―‘’“”„•‹›○◦
-With-these-chars:    ' "'"ACEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНнСcYvYvХхЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл----'''"'*""-·
+Replace-these-chars: ' «´»ÄÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥᴴҪҫҮүҰұҲҳҶҷҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓ‑–—―‘’“”„•‹›○◦
+With-these-chars:    ' "'"ACEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНннСcYvYvХхЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл----'''"'*""-·
 
-Replace-this-group: ᴴ‌‎
-With-this-group:    н
 Replace-this-group: Ӕ
 With-this-group:    AE
 Replace-this-group: ӕ
