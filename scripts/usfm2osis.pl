@@ -41,6 +41,17 @@
 #       Example: SPECIAL_CAPITALS:i->İ ı->I
 #   VSYS_EXTRA, VSYS_MISSING, VSYS_MOVED - see fitToVerseSystem.pl
 
+$EVAL_REGEX_MSG = 
+"IMPORTANT for EVAL_REGEX:
+EVAL_REGEX instructions only effect RUN statements which come later on 
+in CF_usfm2osis.txt. Also note that:
+EVAL_REGEX(someText):s/before/after/
+is only effective until an empty
+EVAL_REGEX(someText):
+statement is encountered, which will cancel all previous 
+EVAL_REGEX(someText) statements. OR, if someText is a file path, then it 
+will only apply when that particular file is later run.";
+
 sub usfm2osis($$) {
   my $cf = shift;
   my $osis = shift;
@@ -166,9 +177,19 @@ sub usfm2osis($$) {
     &Log($cmd . "\n", 1);
     my $result = `$cmd`;
     &Log("$result\n", 1);
-    if ($result =~ /Unhandled/i) {&Error("Something was unhandled in the usfm2osis.py output.", "See the messages above. The solution may require that EVAL_REGEX instructions be added to CF_usfm2osis.txt.");}
+    if ($result =~ /Unhandled/i) {
+      &Error("Some SFM was unhandled while generating the usfm2osis.py output.", 
+"See 'Unhandled' message(s) above, which are in reference to:
+$osis 
+This problem is usually due to SFM which is not USFM 2.4 compliant. See 
+the USFM 2.4 specification here: 
+http://ubs-icap.org/chm/usfm/2.4/index.html 
+Or sometimes it is due to a bug or 'feature' of CrossWire's usfm2osis.py 
+script or the USFM or OSIS specifications. The solution probably
+requires that EVAL_REGEX instructions be added to CF_usfm2osis.txt
+to update or remove offending SFM tags. $EVAL_REGEX_MSG");}
   }
-  
+  &Log("\n");
   # test/evaluation for u2o.py script
   my $home = `echo \$HOME`; chomp($home);
   my $osis2 = "$MOD_OUTDIR/u2o_evaluation.xml";

@@ -3880,13 +3880,13 @@ sub checkReferenceLinks($) {
     &readOsisIDs(\%osisID, $bibleXML);
   }
   # Check reference links in OSIS file (fixed vsys) NOT including glossary links if OSIS is a Bible
-  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, ($inIsBible ? -1:0));
+  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, 1, ($inIsBible ? -1:0));
   &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
   
   # If OSIS is NOT a Bible, now check glossary reference links in the Bible OSIS
   if (!$inIsBible) {
     &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN BIBLE OSIS $bibleOSIS...\n");
-    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 1);
+    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 0, 1);
     &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
   }
 
@@ -3904,7 +3904,7 @@ sub checkReferenceLinks($) {
   }
   &Log("...\n");
   # Check reference links in OSIS (source vsys) NOT including glossary links which are unchanged between fixed/source
-  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, -1);
+  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, 1, -1);
   &reportReferences(\%refcount, \%errors);
 }
 
@@ -3957,6 +3957,7 @@ sub checkReferenceLinks2($$\%\%\%$) {
   my $refcountP = shift;
   my $errorsP = shift;
   my $osisIDP = shift;
+  my $warnError = shift;
   my $glossaryFlag = shift; # < 0 means check all refs except glossary refs
                             # = 0 means check all refs
                             # > 0 means check only glossary refs
@@ -4023,7 +4024,8 @@ extension references exists but is unknown, such as !PART.");
     $refcountP->{$type}++;
     if ($failed) {
       $errorsP->{$type}++;
-      &Error("$type $failed not found: ".$r->toString());
+      if (!$warnError) {&Warn("$type $failed not found: ".$r->toString());}
+      else {&Error("$type $failed not found: ".$r->toString());}
     }
   }
 }
