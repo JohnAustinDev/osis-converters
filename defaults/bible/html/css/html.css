@@ -392,23 +392,26 @@ ol, ul {
 .xsl-inline-toc li a {
   color: #083F0E;
 }
-.xsl-inline-toc li.xsl-bookGroup-link,
-.xsl-inline-toc li.xsl-book-link,
-.xsl-inline-toc li.xsl-chapter-link {
-  background: #388E3C;
+.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link,
+.x-bible .xsl-inline-toc li.xsl-bookGroup-link,
+.x-bible .xsl-inline-toc li.xsl-book-link,
+.x-bible .xsl-inline-toc li.xsl-chapter-link {
+  background: #388E3C; /* green buttons */
 }
-.xsl-inline-toc li.xsl-bookGroup-link a,
-.xsl-inline-toc li.xsl-book-link a,
-.xsl-inline-toc li.xsl-chapter-link a {
+.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link a,
+.x-bible .xsl-inline-toc li.xsl-bookGroup-link a,
+.x-bible .xsl-inline-toc li.xsl-book-link a,
+.x-bible .xsl-inline-toc li.xsl-chapter-link a {
   color: white;
   font-weight: bold;
 }
 #root-toc li {
   width: calc(50% - 14px); /* 8px = 3/2 * 6px(margin) + 5px(fluff) */
 }
+#root-toc .xsl-one-book-column .xsl-bookSubGroup-link,
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,
 #root-toc .xsl-one-book-column .xsl-book-link,
-#root-toc .xsl-one-back-column .xsl-glossary-link,
+#root-toc .xsl-one-back-column .xsl-glossary-link, /* really is -back- and not -book- */
 #root-toc .xsl-one-back-column .xsl-keyword-link,
 #root-toc .xsl-one-back-column .xsl-other-link {
   width: calc(100% - 12px); /* 12px = 2 * 6px(margin) */

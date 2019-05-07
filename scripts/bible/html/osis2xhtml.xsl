@@ -373,7 +373,7 @@
         </head>
         <body>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
-              ('calibre', $topElement/ancestor-or-self::*[@scope][1]/@scope, for $x in tokenize($fileName, '[_/]') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
+              ('calibre', root($firstElement)//work[@osisWork = ancestor::osisText/@osisIDWork]/type/@type, $topElement/ancestor-or-self::*[@scope][1]/@scope, for $x in tokenize($fileName, '[_/]') return $x, $topElement/@type, $topElement/@subType)), ' '))"/>
           <!-- If our main OSIS file doesn't have a main TOC milestone, add one -->
           <if test="not($mainTocMilestone) and $isBibleNode and $firstElement[preceding::node()[normalize-space()][not(ancestor::header)][1][self::header]]" 
               xmlns="http://www.w3.org/1999/XSL/Transform">
@@ -588,14 +588,23 @@
           </when>
           <otherwise>
             <variable name="container" as="node()?" select="if ($isOsisRootTOC) then (root($tocNode)) else
-                if ($tocNode/parent::div[not(preceding-sibling::*)][not(@type = ('bookGroup', 'book'))][parent::div[@type = ('bookGroup', 'book')]]) 
+                if ($tocNode/parent::div[not(@type = ('bookGroup', 'book'))][not(preceding-sibling::*) or parent::div[@type = 'bookGroup']][parent::div[@type = ('bookGroup', 'book')]]) 
                 then $tocNode/parent::div/parent::div 
                 else $tocNode/ancestor::div[1]"/>
-            <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary or milestone tocs with [no_toc]-->
-            <sequence select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $TOC)])
-                [generate-id(.) != generate-id($tocNode)][me:getTocLevel(.) = $toplevel + 1][not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
-                [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')][not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
-                [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])][not(self::*[contains(@n, '[no_toc]')])]"/>
+            <!-- Container TOC hierarchy may be: 1,2,3,3,2,3,3,1,2,3,3 etc. so we need to group by level, concatenate, and choose only the first sub-group -->
+            <for-each-group group-adjacent="me:getTocLevel(.)" select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $TOC)])
+                [. &#62;&#62; $tocNode][me:getTocLevel(.) &#60;= $toplevel + 1]">
+              <if test="position() = 1">
+                <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary or milestone tocs with [no_toc]-->
+                <sequence select="current-group()
+                    [not(. intersect $tocNode)]
+                    [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
+                    [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')]
+                    [not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
+                    [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]
+                    [not(self::*[contains(@n, '[no_toc]')])]"/>
+              </if>
+            </for-each-group>
           </otherwise>
         </choose>
       </variable>
@@ -625,16 +634,15 @@
         </variable>
         <variable name="chars" select="max($tmptitles/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
         <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="bkgp" select="ancestor::div[@type=('book', 'bookGroup')][1]"/>
-          <variable name="divType" select="($bkgp | ancestor::div[@type=$usfmType][1][generate-id(.)!=generate-id($bkgp/*[1])])[last()]/@type"/>
           <variable name="tocButtonType">
+            <variable name="intros" select="me:getBookGroupIntroductions(.)"/>
             <choose>
               <when test="self::chapter">chapter</when>
               <when test="self::seg">keyword</when>
-              <when test="matches(./@n, '^(\[[^\]+]\])*\[not_parent\]')">introduction</when>
-              <when test="matches($divType, '^(glossary|bookGroup|book)$')"><value-of select="$divType"/></when>
-              <when test="$divType">other</when>
-              <otherwise>introduction</otherwise>
+              <when test="count($intros) = 1 and . intersect $intros">bookGroup</when>
+              <when test=". intersect $intros">bookSubGroup</when>
+              <when test="parent::div[@type = ('glossary', 'bookGroup', 'book')]"><value-of select="parent::div/@type"/></when>
+              <otherwise>other</otherwise>
             </choose>
           </variable>
           <li xmlns="http://www.w3.org/1999/xhtml">
@@ -712,32 +720,65 @@
     <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$')) then replace($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$', '$2') else '0'"/>
     <variable name="toclevelOSIS">
       <variable name="parentTocNodes" select="if ($isBible) then me:getBibleParentTocNodes($tocElement) else me:getGlossParentTocNodes($tocElement)"/>
-      <choose>
-        <when test="$parentTocNodes[generate-id(.) = generate-id($tocElement)]"><value-of select="count($parentTocNodes)"/></when>
-        <when test="$tocElement[self::seg[@type='keyword'] | self::chapter[@sID] | self::milestone[@type=concat('x-usfm-toc', $TOC)]]"><value-of select="1 + count($parentTocNodes)"/></when>
-        <otherwise><value-of select="1"/></otherwise>
-      </choose>
+      <value-of select="1 + count($parentTocNodes)"/>
     </variable>
     <value-of select="if ($toclevelEXPLICIT = '0') then $toclevelOSIS else $toclevelEXPLICIT"/>
   </function>
   
-  <!-- getBibleParentTocNodes may be called with any element -->
+  <!-- getBibleParentTocNodes may be called with any element and returns milestone* -->
   <function name="me:getBibleParentTocNodes" as="element(milestone)*">
     <param name="x" as="element()"/>
-    <!-- A bookGroup or book div is a TOC parent if it has a TOC milestone child (that isn't n="[not_parent]...) or a first child div, which isn't a bookGroup or book, that has one. 
-    Any other div is also a TOC parent if it contains a TOC milestone child which isn't already a bookGroup/book TOC entry. -->
-    <sequence select="$x/ancestor-or-self::div[@type = ('bookGroup', 'book')]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div[@type = ('bookGroup', 'book')][not(child::milestone[@type=concat('x-usfm-toc', $TOC)])]/*[1][self::div][not(@type = ('bookGroup', 'book'))]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1] |
-        $x/ancestor-or-self::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(matches(@n, '^(\[[^\]+]\])*\[not_parent\]'))][1]"/>
+    <!-- A preceding TOC milestone is a 'parent TOC node' if it corresponds to:
+      Any TOC entry div containing x.
+      OR: the introduction div for the bookGroup which contains x (whenever x is in a bookGroup)
+      OR: the first preceding non-book child div of the bookGroup (whenever x is in a book) -->
+    <variable name="ancestor_div_TOC_milestones" as="element(milestone)*"
+        select="$x/ancestor-or-self::div/(child::milestone[@type=concat('x-usfm-toc', $TOC)] | child::*[1][not(self::div)]/child::milestone[@type=concat('x-usfm-toc', $TOC)])[1]" />
+   
+    <sequence select="$x/preceding::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][not(contains(@n, '[not_parent]'))]
+         [. intersect ($ancestor_div_TOC_milestones | me:getBookGroupIntroductions($x))]"/>
   </function>
   
-  <!-- getGlossParentTocNodes may be called from any element -->
+  <!-- getGlossParentTocNodes may be called with any element and returns (milestone|chapter[@sID])* -->
   <function name="me:getGlossParentTocNodes" as="element()*">
     <param name="x" as="element()"/>
-    <!-- A chapter is always a TOC parent, and so is any div in the usfmType if it has one or more toc milestone children OR else it has a non-div first child with one or more toc milestone children.
-    The first such toc milestone descendant determines the div's TOC entry name; any following such children will be TOC sub-entries of the first. -->
-    <sequence select="$x/ancestor::div/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))] | $x/ancestor::div/*[1][not(div)]/milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))] | 
-        $x/preceding::chapter[@sID][not(@sID = $x/preceding::chapter/@eID)]"/>
+    <!-- A preceding TOC milestone or chapter[@sID] is a 'parent TOC node' if it corresponds to:
+      Any TOC entry div containing x.
+      OR: Any 'ancestor' chapter where x is between sID-eID chapter milestones -->
+    <variable name="ancestor_div_TOC_milestones" as="element(milestone)*"
+        select="$x/ancestor-or-self::div/(child::milestone[@type=concat('x-usfm-toc', $TOC)] | child::*[1][not(self::div)]/child::milestone[@type=concat('x-usfm-toc', $TOC)])[1]" />
+        
+    <variable name="ancestor_TOC_chapters" as="element(chapter)*"
+        select="$x/preceding::chapter[@sID][@sID = $x/following::chapter/@eID]" />
+        
+    <sequence select="($x/preceding::milestone[@type=concat('x-usfm-toc', $TOC)] | $x/preceding::chapter[@sID])[not(contains(@n, '[no_toc]'))][not(contains(@n, '[not_parent]'))]
+        [. intersect ($ancestor_div_TOC_milestones | $ancestor_TOC_chapters)]" />
+  </function>
+  
+  <!-- Returns the milestone TOC parent(s) of any bookGroup node, which may be one or both of:
+       A testament introduction (whenever x is in a bookGroup): the first child div of the bookGroup when it is either the only non-book TOC div or else is immediately followed by another pre-books TOC div.
+       A book-sub-group introduction (whenever x is in a book): the first preceding non-book bookGroup child div of the book containing x -->
+  <function name="me:getBookGroupIntroductions" as="element(milestone)*">
+    <param name="x" as="node()"/>
+
+    <variable name="ancestor_bookGroup" as="element(div)?" 
+        select="$x/ancestor-or-self::div[@type='bookGroup'][1]"/>
+    
+    <variable name="TOC_milestones_in_bookGroup" as="element(milestone)*" 
+        select="$ancestor_bookGroup/descendant::milestone[@type=concat('x-usfm-toc', $TOC)]"/>
+    
+    <variable name="nonBook_TOC_children_of_bookGroup" as="element(milestone)*" 
+        select="$TOC_milestones_in_bookGroup[parent::div[not(@type='book')][parent::div[@type='bookGroup']]]"/>
+        
+    <variable name="precOrSelf_nonBook_bookGroup_TOC_milestone" as="element(milestone)?" 
+        select="($nonBook_TOC_children_of_bookGroup[. &#60;&#60; $x] | $nonBook_TOC_children_of_bookGroup[. intersect $x])[last()]"/>
+        
+    <variable name="testament_introduction_TOC_milestone" as="element(milestone)?" 
+        select="$ancestor_bookGroup/child::div[1][@type != 'book']
+        [count($nonBook_TOC_children_of_bookGroup) = 1 or following-sibling::div[1][@type != 'book'][. intersect $TOC_milestones_in_bookGroup/parent::div]]
+        /descendant::milestone[. intersect $TOC_milestones_in_bookGroup][1]"/>
+        
+    <sequence select="($testament_introduction_TOC_milestone | $precOrSelf_nonBook_bookGroup_TOC_milestone)"/>
   </function>
   
   <!-- This template may be called from any element. It adds a class attribute according to tag, level, type, subType and class -->
@@ -990,6 +1031,11 @@
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC milestone's GlossaryScopeName to disambiguate: <value-of select="./@n"/></with-param></call-template>
     </if>
     <sequence select="me:getInlineTOC(.)"/>
+  </template>
+  
+  <template match="milestone[@type=concat('x-usfm-toc', $TOC)][preceding-sibling::seg[@type='keyword']]" mode="xhtml" priority="3">
+    <param name="currentTask" tunnel="yes"/><if test="$currentTask = 'write-xhtml'">
+    <call-template name="Note"><with-param name="msg">Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling::seg[@type='keyword'][1]"/>: <value-of select="oc:printNode(.)"/></with-param></call-template></if>
   </template>
   
   <template match="milestone[@type='pb']" mode="xhtml" priority="2">

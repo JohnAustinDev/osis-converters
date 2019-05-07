@@ -4914,7 +4914,7 @@ sub writeTOC($$) {
   }
   
   if ($modType eq 'bible') {
-    # Insure there are as many as possible TOC entries for each book
+    # Insure there are as many possible TOC entries for each book
     my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
     foreach my $bk (@bks) {
       for (my $t=1; $t<=3; $t++) {
@@ -4966,7 +4966,7 @@ tag number you wish to use.)\n");
       }
     }
     
-    # Add translation main TOC entry and title if not already there
+    # Add translation main TOC entry and title if not there already
     my $mainTOC = @{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]
       [not(ancestor::osis:div[starts-with(@type, "book")])]
       [not(preceding::osis:div[starts-with(@type, "book")])][1]', $xml)}[0];
@@ -4981,48 +4981,55 @@ tag number you wish to use.)\n");
       $insertBefore->parentNode->insertBefore($toc, $insertBefore);
       &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
     }
-    
-    # Add Testament TOC entries and titles if they are not already there, using OldTestamentTitle and NewTestamentTitle
-    foreach my $missingTOC_Testament ($XPC->findnodes('//osis:div[@type="bookGroup"][descendant::osis:div[@type="book"]]
-      [not(descendant::osis:milestone
-          [@type="x-usfm-toc'.&conf('TOC').'"]
-          [not(ancestor::osis:div[@type="book"])]
-          [not(ancestor-or-self::*[parent::osis:div[@type="bookGroup"]][1]/preceding-sibling::osis:div[@type="book"])]
-        )]', $xml
-    )) {
-      if (!$missingTOC_Testament) {next;}
-      my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $missingTOC_Testament)}[0]->value;
-      my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
-      my $testamentTitle = &conf($whichTestament.'TestamentTitle');
-      my $toc = $XML_PARSER->parse_balanced_chunk('
-<div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
-  <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
-</div>');
-      $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
-      &Note("Inserting $whichTestament Testament TOC entry and title within new introduction div as: $testamentTitle");
-    }
-    
-    # Add Sub-Publication introduction TOC entries if not already there
+        
+    # Add Testament sub-section introduction TOC entries if not there already.
+    # Added entries will be [not_parent] IF there already exists a Testament TOC entry.
     my @subPubIntros = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[not(@type="book")]
         [not(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])]) or boolean(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])][1][self::osis:div[@type="book"]])]
         [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
     foreach my $div (@subPubIntros) {
       my $tocentry = ($div->hasAttribute('osisRef') ? &getScopeTitle($div->getAttribute('osisRef')):'');
       if (!$tocentry) {
-        my $nextbkn = @{$XPC->findnodes('following::osis:div[@type="book"][1]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n', $div)}[0];
-        if ($nextbkn) {$tocentry = $nextbkn->value(); $tocentry =~ s/^\[[^\]]*\]//;}
-      }
-      if (!$tocentry) {
         my $nexttitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
         if ($nexttitle) {$tocentry = $nexttitle->textContent();}
       }
-      if ($tocentry) {
-        my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"[not_parent]$tocentry\" resp=\"$ROC\"/>";
-        &Note("Inserting Sub-Publication TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
+      if (!$tocentry) {
+        my $nextbkn = @{$XPC->findnodes('following::osis:div[@type="book"][1]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n', $div)}[0];
+        if ($nextbkn) {$tocentry = $nextbkn->value(); $tocentry =~ s/^\[[^\]]*\]//;}
+      }
+      if ($tocentry) { 
+        my $testamentTOC = @{$XPC->findnodes('parent::div[@type="bookGroup"][child::milestone[@type="x-usfm-toc'.&conf('TOC').'"]]', $div)}[0];
+        if (!$testamentTOC) {
+          $testamentTOC = @{$XPC->findnodes('parent::div[@type="bookGroup"]/child::*[1][self::div[@type != "book"]]/milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $div)}[0];
+        }
+        my $notParent = ($testamentTOC ? '[not_parent]':'');
+        my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent$tocentry\" resp=\"$ROC\"/>";
+        &Note("Inserting Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
         $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
       }
-      else {&Note("Could not insert Sub-Publication TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
+      else {&Note("Could not insert Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
+    }
+    
+    # Add Old/New Testament TOC entries and titles using OldTestamentTitle and NewTestamentTitle if:
+    # + there is more than one Testament (bookGroup)
+    # + the Testament has more than one book
+    # + there are no Testament or sub-section TOCs already
+    if (@{$XPC->findnodes('//osis:div[@type="bookGroup"]', $xml)} > 1) {
+      foreach my $missingTOC_Testament ($XPC->findnodes('//osis:div[@type="bookGroup"][count(descendant::osis:div[@type="book"]) > 1]
+        [not(descendant::*[local-name()="milestone"][@type="x-usfm-toc'.&conf('TOC').'"][not(ancestor::osis:div[@type="book"])])]', $xml
+      )) {
+        if (!$missingTOC_Testament) {next;}
+        my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $missingTOC_Testament)}[0]->value;
+        my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
+        my $testamentTitle = &conf($whichTestament.'TestamentTitle');
+        my $toc = $XML_PARSER->parse_balanced_chunk('
+  <div type="introduction" resp="'.$ROC.'">
+    <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
+    <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
+  </div>');
+        $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
+        &Note("Inserting $whichTestament Testament TOC entry and title within new introduction div as: $testamentTitle");
+      }
     }
   }
   elsif ($modType eq 'dict') {

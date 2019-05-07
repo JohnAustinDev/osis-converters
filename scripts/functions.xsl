@@ -273,8 +273,9 @@
   </function>
   
   <function name="oc:printNode" as="text()">
-    <param name="node" as="node()"/>
+    <param name="node" as="node()?"/>
     <choose>
+      <when test="not($node)">NULL</when>
       <when test="$node[self::element()]">
         <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each></value-of>
       </when>
@@ -373,7 +374,7 @@ chmod +r <value-of select="$tmpResult"/>
   </template>
   <template name="Debug">
     <param name="msg"/>
-    <if test="$DEBUG = 'true'"><message>DEBUG: <value-of select="$msg"/></message></if>
+    <if test="$DEBUG"><message>DEBUG: <value-of select="$msg"/></message></if>
   </template>
   <template name="Report">
     <param name="msg"/>
