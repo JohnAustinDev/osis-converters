@@ -1,2 +1,2 @@
-Replace-these-chars: —–‎―
-With-these-chars:    -- -
+Replace-these-chars: — –‎―
+With-these-chars:    - - -

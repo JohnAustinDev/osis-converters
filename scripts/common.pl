@@ -2252,14 +2252,17 @@ sub sortSearchTermKeys($$) {
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
 #
-# If any book (kept or pruned) contains peripheral(s) which pertain to 
-# any kept book, the peripheral(s) are kept. If peripheral(s) pertaining 
-# to more than one book are within a book, they will be moved up out of 
-# the book they're in and inserted before the first applicable kept 
-# book, so as to retain the peripheral.
+# If any book (kept or pruned) contains or is preceded by peripheral(s) 
+# which pertain to any kept book, the peripheral(s) are kept. If 
+# peripheral(s) pertaining to more than one book are within a book, they 
+# will be moved up out of the book they're in and inserted before the 
+# first applicable kept book, so as to retain the peripheral.
+#
+# If any bookSubGroup introduction is not immediately followed by a book 
+# (after book pruning) then that bookSubGroup introduction is removed.
 #
 # If there is only one bookGroup left, the remaining one's TOC milestone
-# will become [not_parent] to so as to prevent an unnecessary TOC level,
+# will become [not_parent] so as to prevent an unnecessary TOC level,
 # or, if the Testament intro is empty, it will be entirely removed.
 #
 # If a sub-publication cover matches the scope, it will be moved to 
