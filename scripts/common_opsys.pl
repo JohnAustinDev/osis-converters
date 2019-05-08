@@ -83,8 +83,6 @@ sub init_opsys() {
   # Start the script if we're already running on a VM and/or have dependencies met.
   if (&runningInVagrant() || ($haveAllDependencies && !$VAGRANT)) {
     if ($haveAllDependencies) {
-      require "$SCRD/scripts/common.pl";
-      &init_linux_script();
       return 1;
     }
     elsif (&runningInVagrant()) {

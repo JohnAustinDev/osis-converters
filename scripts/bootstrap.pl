@@ -92,4 +92,7 @@ file in the main module directory.", 1);
 
 if (!&init_opsys()) {exit;}
 
+require "$SCRD/scripts/common.pl";
+&init_linux_script();
+
 1;
