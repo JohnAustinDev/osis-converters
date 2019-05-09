@@ -389,6 +389,7 @@ sub checkFont($) {
     my @fonts = readdir(DIR);
     closedir(DIR);
     my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic', 'BI' => 'bold italic', 'IB' => 'bold italic');
+    foreach my $s (keys %styles) {if ($font =~ /\-$s$/i) {&Error("The Font config.conf entry should not specify the font style.", "Remove '-$s' from FONT=$font in config.conf");}}
     foreach my $f (@fonts) {
       if ($f =~ /^\./) {next;}
       if ($f =~ /^(.*?)(\-([ribRIB]{1,2}))?\.([^\.]+)$/) {
@@ -919,18 +920,11 @@ sub customize_conf($$$$) {
   
   # ScopeSubPublication & TitleSubPublicationN
   my $pubn = 1;
-  if (opendir(SFM, "$MAININPD/sfm")) {
-    my @subs = readdir(SFM);
-    closedir(SFM);
-    foreach my $sub (@subs) {
-      if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
-      my $scope = $sub; $scope =~ s/_/ /g;
-      &setConfValue(\%newConf, 'ScopeSubPublication'.$pubn, $scope, 1);
-      &setConfValue(\%newConf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
-      $pubn++;
-    }
+  foreach my $scope (&getSubPublications()) {
+    &setConfValue(\%newConf, 'ScopeSubPublication'.$pubn, $scope, 1);
+    &setConfValue(\%newConf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
+    $pubn++;
   }
-  else {&ErrorBug("customize_conf could not open $MAININPD/sfm");}
   
   # FullResourceURL
   my %c; &readConfFile($conf, \%c);
@@ -987,6 +981,22 @@ sub customize_conf($$$$) {
     }
     else {&ErrorBug("customize_conf could not open config file $conf");}
   }
+}
+
+sub getSubPublications() {
+  my @subpub;
+  if (opendir(SFM, "$MAININPD/sfm")) {
+    my @subs = readdir(SFM);
+    closedir(SFM);
+    foreach my $sub (@subs) {
+      if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
+      my $scope = $sub; $scope =~ s/_/ /g;
+      push(@subpub, $scope);
+    }
+  }
+  else {&ErrorBug("getSubPublications could not open $MAININPD/sfm");}
+  
+  return @subpub;
 }
 
 sub customize_addScripRefLinks($) {
@@ -1364,7 +1374,6 @@ sub addCoverImages($$) {
   }
   
   &Log("\n--- INSERTING COVER IMAGES INTO \"$$osisP\"\n", 1);
-  
   
   my $imgdir = "$MAININPD/images"; if (! -e $imgdir) {mkdir($imgdir);}
   
@@ -3889,7 +3898,7 @@ sub checkReferenceLinks($) {
   # If OSIS is NOT a Bible, now check glossary reference links in the Bible OSIS
   if (!$inIsBible) {
     &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN BIBLE OSIS $bibleOSIS...\n");
-    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 0, 1);
+    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 1, 1);
     &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
   }
 
@@ -3960,7 +3969,7 @@ sub checkReferenceLinks2($$\%\%\%$) {
   my $refcountP = shift;
   my $errorsP = shift;
   my $osisIDP = shift;
-  my $warnError = shift;
+  my $throwError = shift;
   my $glossaryFlag = shift; # < 0 means check all refs except glossary refs
                             # = 0 means check all refs
                             # > 0 means check only glossary refs
@@ -4027,7 +4036,7 @@ extension references exists but is unknown, such as !PART.");
     $refcountP->{$type}++;
     if ($failed) {
       $errorsP->{$type}++;
-      if (!$warnError) {&Warn("$type $failed not found: ".$r->toString());}
+      if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
       else {&Error("$type $failed not found: ".$r->toString());}
     }
   }

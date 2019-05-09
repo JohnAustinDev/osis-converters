@@ -207,6 +207,18 @@ RUN:./INT.SFM");
   if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
 
   # Checks are done now, as late as possible in the flow
+  &checkAndValidate($modType);
+
+  # Do a tmp Pretty Print for debug referencing during the conversion process
+  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
+}
+
+
+sub checkAndValidate($) {
+  my $modType = shift;
+  
+  undef($DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
+  
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
   else {
   &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
@@ -214,16 +226,6 @@ RUN:./INT.SFM");
 module OSIS file, so that all reference links can be checked. Create the
 Bible module OSIS file, then run this dictionary module again.");
   }
-  
-  &checkAndValidate();
-
-  # Do a tmp Pretty Print for debug referencing during the conversion process
-  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
-}
-
-
-sub checkAndValidate() {
-  undef($DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
   
   &checkUniqueOsisIDs($OSIS);
   &checkFigureLinks($OSIS);
@@ -263,15 +265,7 @@ sub runReprocessOSIS($) {
   if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
 
   # Checks are done now, as late as possible in the flow
-  if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
-  else {
-  &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
-"The Bible module OSIS file must be created before the dictionary 
-module OSIS file, so that all reference links can be checked. Create the
-Bible module OSIS file, then run this dictionary module again.");
-  }
-  
-  &checkAndValidate();
+  &checkAndValidate($modType);
 
   # Do a tmp Pretty Print for debug referencing during the conversion process
   &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/$modname_PrettyPrint.xml");

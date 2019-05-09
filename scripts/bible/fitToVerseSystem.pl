@@ -473,6 +473,21 @@ To position the above material, add location == <XPATH> after the \\id tag."
       }
     }
   }
+  
+  &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
+  # Check that all sub-publications are marked
+  foreach my $scope (&getSubPublications()) {
+    if (!@{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"]', $xml)}[0]) {
+      &Warn("No div osisRef was found for sub-publication $scope.");
+      if ($scope !~ /[\s\-]/) {
+        my $bk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$scope.'"][not(@osisRef)]', $xml)}[0];
+        if ($bk) {
+          $bk->setAttribute('osisRef', $scope);
+          &Note("Added div osisRef to book $scope.");
+        }
+      }
+    }
+  }
 
   &writeXMLFile($xml, $output, $osisP);
 }
