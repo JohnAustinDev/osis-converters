@@ -4155,7 +4155,7 @@ sub checkCharacters($) {
   foreach my $chr (sort { ord($a) <=> ord($b) } keys %allChars) {
     if (ord($chr) <= $MAX_UNICODE) {next;}
     my $x; for ($x=0; $x<@from; $x++) {
-      if (@from[$x] eq $chr) {&Note("High Unicode character(s) found: ".ord($chr)." '$chr' <> '".@to[$x]."'"); last;}
+      if (@from[$x] eq $chr) {&Note("High Unicode character found: ".ord($chr)." '$chr' <> '".@to[$x]."'"); last;}
     }
     if (@from[$x] ne $chr) {
       &ErrorBug("There is no simpleChars.txt replacement for the high Unicode character: '$chr'", "This character, and its low order replacement, should be added to: $SCRIPT/defaults/bible/GoBible/simpleChars.txt");
