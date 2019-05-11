@@ -39,6 +39,7 @@ $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
 $MAX_MATCH_WORDS = 3;
+$MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
 $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
@@ -4138,6 +4139,59 @@ sub checkIntroductionTags($) {
     my $tag = $t;
     $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
     &Error("Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.", "Replace this tag here with the corresponding introduction tag.");
+  }
+}
+
+sub checkCharacters($) {
+  my $osis = shift;
+  
+  # Get all characters used anywhere in the OSIS file
+  my $chars = &shell("cat '$osis' | sed 's/./&\\n/g' | LC_COLLATE=C sort -u | tr -d '\\n'", 3);
+  &Log("\n"); &Report("Characters used in OSIS file: $chars (".length($chars)." chars)");
+  
+  # Check for high Unicode character replacements needed for GoBible/simpleChars.txt
+  my %allChars; for my $c (split(//, $chars)) {$allChars{$c}++;}
+  my @from; my @to; &readReplacementChars(&getDefaultFile("bible/GoBible/simpleChars.txt"), \@from, \@to);
+  foreach my $chr (sort { ord($a) <=> ord($b) } keys %allChars) {
+    if (ord($chr) <= $MAX_UNICODE) {next;}
+    my $x; for ($x=0; $x<@from; $x++) {
+      if (@from[$x] eq $chr) {&Note("High Unicode character(s) found: ".ord($chr)." '$chr' <> '".@to[$x]."'"); last;}
+    }
+    if (@from[$x] ne $chr) {
+      &ErrorBug("There is no simpleChars.txt replacement for the high Unicode character: '$chr'", "This character, and its low order replacement, should be added to: $SCRIPT/defaults/bible/GoBible/simpleChars.txt");
+    }
+  }
+}
+
+sub readReplacementChars($\@\@) {
+  my $replacementsFile = shift;
+  my $fromAP = shift;
+  my $toAP = shift;
+
+  if (open(INF, "<:encoding(UTF-8)", $replacementsFile)) {
+    while(<INF>) {
+      if ($fromAP && $_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
+        my $chars = $1;
+        for ($i=0; substr($chars, $i, 1); $i++) {
+          push(@{$fromAP}, substr($chars, $i, 1));
+        }
+      }
+      if ($toAP && $_ =~ /With-these-chars:\s*(.*?)\s*$/) {
+        my $chars = $1;
+        for ($i=0; substr($chars, $i, 1); $i++) {
+          push(@{$toAP}, substr($chars, $i, 1));
+        }
+      }
+      if ($fromAP && $_ =~ /Replace-this-group:\s*(.*?)\s*$/) {
+        my $chars = $1;
+        push(@{$fromAP}, $chars);
+      }
+      if ($toAP && $_ =~ /With-this-group:\s*(.*?)\s*$/) {
+        my $chars = $1;
+        push(@{$toAP}, $chars);
+      }
+    }
+    close(INF);
   }
 }
 

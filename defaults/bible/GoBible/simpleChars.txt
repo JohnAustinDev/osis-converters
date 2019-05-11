@@ -17,3 +17,7 @@ Replace-this-group: ӣ
 With-this-group:    и
 Replace-this-group: э̄
 With-this-group:    э
+Replace-this-group: →
+With-this-group:    ->
+Replace-this-group: ←
+With-this-group:    <-

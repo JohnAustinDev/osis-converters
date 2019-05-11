@@ -230,6 +230,7 @@ Bible module OSIS file, then run this dictionary module again.");
   &checkUniqueOsisIDs($OSIS);
   &checkFigureLinks($OSIS);
   &checkIntroductionTags($OSIS);
+  &checkCharacters($OSIS);
   if ($DWF) {&checkDictionaryWordsContexts($OSIS, $DWF);}
   if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 

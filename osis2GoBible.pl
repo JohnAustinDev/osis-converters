@@ -33,7 +33,6 @@
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
 
-$maxUnicode = 1103; # Default value: highest Russian Cyrillic Uncode code point
 %BookSizes;
 $BookOverhead = 1000;
 $JarOverhead = 40000;
@@ -399,43 +398,16 @@ sub goBibleConvChars($$$) {
   
   &Log("\n--- Converting characters ($type)\n");
   
-  undef(%highUnicode);
-  my @FROM,
-  my @TO;
- 
-  if (open(INF, "<:encoding(UTF-8)", &getDefaultFile("bible/GoBible/".$type."Chars.txt"))) {
-    while(<INF>) {
-      if ($_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
-        $CHARS = $1;
-        for ($i=0; substr($CHARS, $i, 1); $i++) {
-          push(@FROM, substr($CHARS, $i, 1));
-        }
-      }
-      if ($_ =~ /With-these-chars:\s*(.*?)\s*$/) {
-        $CHARS = $1;
-        for ($i=0; substr($CHARS, $i, 1); $i++) {
-          push(@TO, substr($CHARS, $i, 1));
-        }
-      }
-      if ($_ =~ /Replace-this-group:\s*(.*?)\s*$/) {
-        $CHARS = $1;
-        push(@FROM, $CHARS);
-      }
-      if ($_ =~ /With-this-group:\s*(.*?)\s*$/) {
-        $CHARS = $1;
-        push(@TO, $CHARS);
-      }
-      if ($_ =~ /Max-Unicode-Code-Point:\s*(\d+)\s*$/) {$maxUnicode = ($1*1);}
-    }
-    close(INF);
-
-    &Log("Converting the following chars:\n");
-    for ($i=0; $i<@FROM; $i++) {&Log(@FROM[$i]."<>".@TO[$i]."\n");}
-  }
+  my @FROM, my @TO;
+  &readReplacementChars(&getDefaultFile("bible/GoBible/".$type."Chars.txt"), \@FROM, \@TO);
+  
+  &Log("Converting the following chars:\n");
+  for ($i=0; $i<@{@FROM}; $i++) {&Log(@{$FROM}[$i]."<>".@{$TO}[$i]."\n");}
 
   &Log("Converting chars in following files:\n");
   make_path($destdir);
 
+  my %highUnicode;
   foreach my $file (@$aP) {
     open(INF, "<:encoding(UTF-8)", $file) || die "Could not open $file.\n";
     $leaf = $file;
@@ -460,7 +432,7 @@ sub goBibleConvChars($$$) {
         $_ =~ s/\Q$r\E/$s/g; # simplify the character set      
       }
       
-      WriteGB($_, $file, $line);
+      WriteGB($_, $file, $line, \%highUnicode);
     }
     close(OUTF);
     close(INF);
@@ -468,7 +440,7 @@ sub goBibleConvChars($$$) {
   &Log("\n");
 
   # Log whether any high Unicode chars
-  &Log("Listing $type unicode chars higher than $maxUnicode:\n");
+  &Log("Listing $type unicode chars higher than $MAX_UNICODE:\n");
   $error = "false";
   foreach $key (keys %highUnicode) {
     if ($type eq "simple") {$error = "true"; &Log(" ".$key." :".$highUnicode{$key}."\n");}
@@ -478,7 +450,7 @@ sub goBibleConvChars($$$) {
     if ($error eq "false") {&Log("Good! No such chars were found.\n");}
     else {&Error("The high code point Unicode chars above were found.",
 "You need to add these characters to the GoBible/simpleChars.txt
-file, and map them to lower order Unicode characters (below $maxUnicode) 
+file, and map them to lower order Unicode characters (below $MAX_UNICODE) 
 which look as similar as possible to the original character. Then these 
 characters will be replaced when building the 'simple' apps, and will 
 not appear as boxes on feature phones.");}
@@ -489,14 +461,16 @@ not appear as boxes on feature phones.");}
   return join(' ', (sort keys %highUnicode));
 }
 
-sub WriteGB($$$) {
+sub WriteGB($$$\%) {
   my $print = shift;
   my $f = shift;
   my $l = shift;
+  my $highUnicodeP = shift;
+  
   $f =~ s/^.*?([^\/]+)$/$1/;
   for ($i=0; substr($print, $i, 1); $i++) {
     my $c = substr($print, $i, 1);
-    if (ord($c) > $maxUnicode) {$highUnicode{$c} = $highUnicode{$c}.$f.":".$l.":".$i." ";}
+    if (ord($c) > $MAX_UNICODE) {$highUnicodeP->{$c} = $highUnicodeP->{$c}.$f.":".$l.":".$i." ";}
   }
   print OUTF $print;
 }
