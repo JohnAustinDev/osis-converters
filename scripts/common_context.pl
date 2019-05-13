@@ -405,8 +405,8 @@ sub checkAndNormalizeAtomicContext($$) {
   # Then this is an osisID based context
   if ($context =~ s/^BEFORE_//) {$before = 'BEFORE_';}
   
-  if ($context =~ /[^\p{L}\p{N}_\.]/) {
-    if (!$quiet) {&Error("checkAndNormalizeAtomicContext: Illegal character in context: $before$context", "Only chars [\p{L}\p{N}_] are allowed.");}
+  if ($context =~ /[^\p{gc=L}\p{gc=N}_\.]/) {
+    if (!$quiet) {&Error("checkAndNormalizeAtomicContext: Illegal character in context: $before$context", "Only chars [\p{gc=L}\p{gc=N}_] are allowed.");}
     return '';
   }
   

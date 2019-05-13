@@ -113,7 +113,26 @@
     <param name="nodeToFind" as="node()"/>
     <sequence select="for $seq in (1 to count($nodes)) return $seq[$nodes[$seq] is $nodeToFind]"/>
   </function>
-
+  
+  <function name="oc:uniregex" as="xs:string">
+    <param name="regex" as="xs:string"/>
+    <choose>
+      <when test="oc:unicode_Category_Regex_Support('')"><value-of select="replace($regex, '\{gc=', '{')"/></when>
+      <when test="oc:unicode_Category_Regex_Support('gc=')"><value-of select="$regex"/></when>
+      <otherwise>
+        <call-template name="ErrorBug">
+          <with-param name="msg">Your Java installation does not support Unicode character properties in regular expressions! This script will be aborted!</with-param>
+          <with-param name="die" select="'yes'"/>
+        </call-template>
+      </otherwise>
+    </choose>
+  </function>
+  <function name="oc:unicode_Category_Regex_Support" as="xs:boolean">
+    <param name="gc" as="xs:string?"/>
+    <variable name="unicodeLetters" select="'ᴴЦ'"/>
+    <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
+  </function>
+  
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
   <function name="oc:skipGlossaryEntry">
     <param name="glossaryEntry"/>
@@ -132,7 +151,7 @@
         <matching-substring>
           <choose>
             <when test=". = ';'"> </when>
-            <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., '[^\p{L}\p{N}_]')">
+            <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]'))">
               <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
             </when>
             <otherwise><value-of select="."/></otherwise>
@@ -207,7 +226,7 @@
           </matching-substring>
           <non-matching-substring>
             <choose>
-              <when test="matches(., '\p{L}')">
+              <when test="matches(., oc:uniregex('\p{gc=L}'))">
                 <call-template name="Error">
                   <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$KeySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
                   <with-param name="exp">Add the missing character to the config.conf file's KeySort entry. Place it where it belongs in the order of characters.</with-param>

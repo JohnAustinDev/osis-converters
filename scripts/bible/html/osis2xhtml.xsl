@@ -1135,7 +1135,7 @@
   <!-- xml:id must start with a letter or underscore, and can only contain letters, digits, underscores, hyphens, and periods. -->
   <function name="me:id" as="xs:string">
     <param name="s"/>
-    <value-of select="replace(replace($s, '^([^\p{L}_])', 'x$1'), '[^\p{L}\d_\-\.]', '-')"/>
+    <value-of select="replace(replace($s, oc:uniregex('^([^\p{gc=L}_])'), 'x$1'), oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
   </function>
   
   <function name="me:getIntroFile" as="xs:string">

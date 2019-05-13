@@ -609,9 +609,11 @@ sub compareDictOsis2DWF($$) {
       elsif ($allowUpdate && &uc2($osisIDa->parentNode->textContent) eq &uc2($name->textContent)) {
         $match = 1;
         $update++;
+        my $origOsisRef = $dwfOsisRef->value;
         $dwfOsisRef->setValue(entry2osisRef($osisID_mod, $osisID));
         foreach my $c ($name->childNodes()) {$c->unbindNode();}
         $name->appendText($osisIDa->parentNode->textContent);
+        &Warn("DICT mod keyword and DictionaryWords entry name are identical, but osisID != osisRef. UPDATING DictionaryWords osisRef from $origOsisRef to $osisID", "<>This happens when an old version of DictionaryWords.xml is being upgraded. Otherwise, there could be bug or some problem with this osisRef.");
         last;
       }
     }
@@ -2060,11 +2062,11 @@ sub removeRevisionFromCF($) {
 sub encodeOsisRef($) {
   my $r = shift;
 
-  # Apparently \p{L} and \p{N} work different in different regex implementations.
+  # Apparently \p{gc=L} and \p{gc=N} work different in different regex implementations.
   # So some schema checkers don't validate high order Unicode letters.
   $r =~ s/(.)/my $x = (ord($1) > 1103 ? "_".ord($1)."_":$1)/eg;
   
-  $r =~ s/([^\p{L}\p{N}_])/my $x="_".ord($1)."_"/eg;
+  $r =~ s/([^\p{gc=L}\p{gc=N}_])/my $x="_".ord($1)."_"/eg;
   $r =~ s/;/ /g;
   return $r;
 }
@@ -4552,7 +4554,7 @@ sub runXSLT($$$\%$) {
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
   }
-  $cmd .= " SCRIPT_NAME=\"$SCRIPT_NAME\"";
+  $cmd .= " SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
   &shell($cmd, $logFlag);
 }
 
