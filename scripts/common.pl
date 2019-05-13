@@ -2314,7 +2314,7 @@ sub pruneFileOSIS($$\%\$\$) {
     return;
   }
   
-  my @scopedPeriphs = $XPC->findnodes('//osis:div[@osisRef][parent::osis:div[starts-with(@type, "book")]]', $inxml);
+  my @scopedPeriphs = $XPC->findnodes('//osis:div[not(self::osis:div[starts-with(@type, "book")])][@osisRef][parent::osis:div[starts-with(@type, "book")]]', $inxml);
   
   # remove books not in scope
   my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
@@ -2335,7 +2335,7 @@ sub pruneFileOSIS($$\%\$\$) {
     foreach my $d (@scopedPeriphs) {$d->unbindNode();}
 
     # remove bookGroup if it has no books left (even if it contains other peripheral material)
-    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(osis:div[@type="book"])]', $inxml);
+    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(child::osis:div[@type="book"])]', $inxml);
     my $msg = 0;
     foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
     if ($msg) {
