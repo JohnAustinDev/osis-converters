@@ -50,19 +50,32 @@ contains command files and resources for the DICT module.");
 # run of the project can never perform addDictLinks (and who cares, 
 # since it wouldn't be useful anwyway).
 foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 1:0)} keys %modules) {
-  if (-e "$dir/CF_usfm2osis.txt") {&osis_converters("$SCRD/sfm2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}
-  else {&osis_converters("$SCRD/osis2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));}
-  &osis_converters("$SCRD/osis2sword.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  my $mod = ($modules{$dir} =~ /LD/ ? $DICTMOD:$MAINMOD);
+  if (-e "$dir/CF_usfm2osis.txt") {
+    if (&conf('ARG_sfm2all_skip', $mod, 'sfm2osis') ne 'true') {
+      &osis_converters("$SCRD/sfm2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    }
+  }
+  elsif (&conf('ARG_sfm2all_skip', $mod, 'osis2osis') ne 'true') {
+    &osis_converters("$SCRD/osis2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  }
+  if (&conf('ARG_sfm2all_skip', $mod, 'osis2sword') ne 'true') {
+    &osis_converters("$SCRD/osis2sword.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  }
 }
 
 # create any GoBibles and eBooks
 foreach my $dir (keys %modules) {
   if ($modules{$dir} =~ /LD/) {next;}
-  if ($modules{$dir} =~ /Text/) {
+  if ($modules{$dir} =~ /Text/ && &conf('ARG_sfm2all_skip', $MAINMOD, 'osis2GoBible') ne 'true') {
     &osis_converters("$SCRD/osis2GoBible.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
   }
-  &osis_converters("$SCRD/osis2html.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
-  &osis_converters("$SCRD/osis2ebooks.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2html') ne 'true') {
+    &osis_converters("$SCRD/osis2html.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  }
+  if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2ebooks') ne 'true') {
+    &osis_converters("$SCRD/osis2ebooks.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+  }
 }
 
 # run any other projects specified by SET_sfm2all_RUN

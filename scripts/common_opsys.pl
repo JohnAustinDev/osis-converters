@@ -365,14 +365,17 @@ system section: ".join(' ', @OC_SYSTEM));}
 # function returns the current value of a config parameter according to  
 # the present script and module context. It also checks that the
 # request is allowable.
-sub conf($$$$) {
+sub conf($$$$$) {
   my $entry = shift;
-  my $altconfP = shift; # optional
-  my $mod = shift; $mod = ($mod ? $mod:$MOD); #optional
-  my $allowmissing = shift; #optional
+  my $mod = shift;          #optional ($MOD)
+  my $script_name = shift;  #optional ($SCRIPT_NAME)
+  my $confP = shift;        #optional ($CONF)
+  my $allowmissing = shift; #optional ('')
   
-  my $c = ($altconfP ? $altconfP:$CONF);
-  
+  my $confP = ($confP ? $confP:$CONF);
+  $mod = ($mod ? $mod:$MOD);
+  $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
+ 
   my $key = '';
   my $isConf = &isValidConfig($entry);
   if (!$isConf) {
@@ -381,22 +384,22 @@ sub conf($$$$) {
   elsif ($isConf eq 'system') {
     &ErrorBug("Config request $entry is from the special [system] section.", "Use \$$entry rather than &conf('$entry') to access [system] section values.");
   }
-  elsif (exists($c->{$SCRIPT_NAME.'+'.$entry})) {
-    $key = $SCRIPT_NAME.'+'.$entry;
+  elsif (exists($confP->{$script_name.'+'.$entry})) {
+    $key = $script_name.'+'.$entry;
   }
-  elsif ($DICTMOD && $mod eq $DICTMOD && exists($c->{$mod.'+'.$entry})) {
+  elsif ($DICTMOD && $mod eq $DICTMOD && exists($confP->{$mod.'+'.$entry})) {
     $key = $mod.'+'.$entry;
   }
-  elsif (exists($c->{$entry})) {$key = $entry;}
+  elsif (exists($confP->{$entry})) {$key = $entry;}
   
   if (!$allowmissing && !$key && $entry !~ /(^ARG_|SubPublication)/) {
     &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
   }
-  #&Debug("entry=$entry, config-key=$key, value=".$c->{$key}."\n");
+  #&Debug("entry=$entry, config-key=$key, value=".$confP->{$key}."\n");
   
-  &isValidConfigValue($key, $c);
+  &isValidConfigValue($key, $confP);
 
-  return ($key ? $c->{$key}:'');
+  return ($key ? $confP->{$key}:'');
 }
 
 sub isValidConfigValue($$) {

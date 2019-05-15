@@ -1858,7 +1858,7 @@ sub getSwordConfFromOSIS($) {
       &Warn("Config entry $elit will not be written to SWORD conf.", "This is normal unless the entry should be included in SWORD config.conf.");
       next;
     }
-    $swordConf{$e} = &conf($elit, $entryValueP);
+    $swordConf{$e} = &conf($elit, '', '', $entryValueP);
   }
   
   my $moddrv = $swordConf{"ModDrv"};
@@ -4718,7 +4718,7 @@ sub searchForISBN($$) {
   my %isbns; my $isbn;
   my @checktxt = ($xml ? $XPC->findnodes('//text()', $xml):());
   my @checkconfs = ('About', 'Description', 'ShortPromo', 'TextSource', 'LCSH');
-  foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, '', $mod, 1));}
+  foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, $mod, '', '', 1));}
   foreach my $tn (@checktxt) {
     if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
       $isbn = $2;
