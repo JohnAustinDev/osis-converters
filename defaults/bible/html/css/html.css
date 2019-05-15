@@ -1,5 +1,5 @@
 a {
-  color: initial;
+  color: inherit;
 }
 img {
   object-fit: contain;
@@ -215,10 +215,6 @@ a.osis-reference {
 
 /* Classes introduced by osis-converters */
 .osis-p.continuation {text-indent:0;}
-.osis-reference.x-glossary,
-.osis-reference.x-glosslink {
-  color: #000000;
-}
 .x-navmenu .osis-item {
   margin-bottom:0;
 }
@@ -392,14 +388,14 @@ ol, ul {
 .xsl-inline-toc li a {
   color: #083F0E;
 }
-.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link,
-.x-bible .xsl-inline-toc li.xsl-bookGroup-link,
+.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link:not(.not_parent),
+.x-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent),
 .x-bible .xsl-inline-toc li.xsl-book-link,
 .x-bible .xsl-inline-toc li.xsl-chapter-link {
   background: #388E3C; /* green buttons */
 }
-.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link a,
-.x-bible .xsl-inline-toc li.xsl-bookGroup-link a,
+.x-bible .xsl-inline-toc li.xsl-bookSubGroup-link:not(.not_parent) a,
+.x-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent) a,
 .x-bible .xsl-inline-toc li.xsl-book-link a,
 .x-bible .xsl-inline-toc li.xsl-chapter-link a {
   color: white;

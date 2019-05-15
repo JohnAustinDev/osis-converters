@@ -275,6 +275,18 @@
     <value-of select="if ($titleFullPublications) then $titleFullPublications[1]/text() else ''"/>
   </function>
   
+  <function name="oc:getTocInstructions" as="xs:string*">
+    <param name="tocElement" as="element()?"/>
+    <variable name="result" as="xs:string*">
+      <if test="$tocElement/@n">
+        <analyze-string select="$tocElement/@n" regex="\[([^\]]*)\]"> 
+          <matching-substring><value-of select="regex-group(1)"/></matching-substring>
+        </analyze-string>
+      </if>
+    </variable>
+    <value-of select="distinct-values($result)"/>
+  </function>
+  
   <function name="oc:titleCase" as="xs:string?">
     <param name="title" as="xs:string?"/>
     <choose>

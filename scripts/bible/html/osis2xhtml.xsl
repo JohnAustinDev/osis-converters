@@ -35,7 +35,7 @@
   <param name="ChapterFiles" select="oc:conf('ChapterFiles', /)"/>
   <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
       (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
-  <param name="CombinedGlossaryTitle" select="if (CombineGlossaries eq 'true') then oc:conf('CombinedGlossaryTitle', /) else ''"/>
+  <param name="CombinedGlossaryTitle" select="if ($CombineGlossaries eq 'true') then oc:conf('CombinedGlossaryTitle', /) else ''"/>
   <param name="MainTocMaxBackChars" select="xs:integer(number(oc:sarg('MainTocMaxBackChars', /, '18')))"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
@@ -645,8 +645,9 @@
               <otherwise>other</otherwise>
             </choose>
           </variable>
+          <variable name="instructionClasses" select="string-join((oc:getTocInstructions(.)), ' ')" as="xs:string?"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
-            <xsl:attribute name="class" select="concat('xsl-', $tocButtonType, '-link')"/>
+            <xsl:attribute name="class" select="concat('xsl-', $tocButtonType, '-link', (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
             <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
               <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>

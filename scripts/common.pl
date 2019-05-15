@@ -2374,7 +2374,7 @@ sub pruneFileOSIS($$\%\$\$) {
       foreach $introbk (@{$introBooks}) {
         foreach my $remainingBook (@remainingBooks) {
           if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-          $remainingBook->parentNode()->insertBefore($intro, $remainingBook);
+          $remainingBook->parentNode->insertBefore($intro, $remainingBook);
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
           &Note("Moved peripheral: $t1 before $t2", 1);
@@ -2409,7 +2409,7 @@ sub pruneFileOSIS($$\%\$\$) {
   # remove references beyond pruned OSIS file
   my @rhot = $XPC->findnodes('//osis:reference[@subType="x-external"]', $inxml);
   foreach my $r (@rhot) {
-    foreach my $chld ($r->childNodes) {$r->parentNode()->insertBefore($chld, $r);}
+    foreach my $chld ($r->childNodes) {$r->parentNode->insertBefore($chld, $r);}
     $r->unbindNode();
   }
   if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.", 1);}
@@ -2522,8 +2522,8 @@ sub filterScriptureReferences($$$) {
       else {
         #remove
         my @children = $link->childNodes();
-        foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
-        $link->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
+        foreach my $child (@children) {$link->parentNode->insertBefore($child, $link);}
+        $link->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
         $link->unbindNode();
         $remove{$refType}++; if ($bk) {$removeBks{$refType}{$bk}++;}
       }
@@ -2598,8 +2598,8 @@ sub filterGlossaryReferences($$$) {
       my $work = ($1 ? $2:&getOsisRefWork($xml));
       if (exists($refsInScope{$work}{$osisRef})) {next;}
       my @children = $link->childNodes();
-      foreach my $child (@children) {$link->parentNode()->insertBefore($child, $link);}
-      $link->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
+      foreach my $child (@children) {$link->parentNode->insertBefore($child, $link);}
+      $link->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
       $link->unbindNode();
       $filteredOsisRefs{$osisRef}++;
       $total++;
@@ -2732,7 +2732,7 @@ sub addDictionaryLinks(\@$$) {
       $glossaryNodeContext = &getNodeContext($node);
       if (!$glossaryNodeContext) {next;}
       my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
-        push(@gs, ($gsp =~ /\-/ ? &scopeToBooks($gsp, $bookOrderP):$gsp));
+        push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, $bookOrderP)}:$gsp));
       }
       $glossaryScopeContext = join('+', @gs);
       if (!$NoOutboundLinks{'haveBeenRead'}) {
@@ -2745,7 +2745,7 @@ sub addDictionaryLinks(\@$$) {
     }
   
     my @textchildren;
-    my $container = ($node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode():$node);
+    my $container = ($node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode:$node);
     if ($node->nodeType == XML::LibXML::XML_TEXT_NODE) {push(@textchildren, $node);}
     else {@textchildren = $XPC->findnodes('child::text()', $container);}
     if (&conf('ModDrv') =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
@@ -2775,7 +2775,7 @@ sub addDictionaryLinks(\@$$) {
       }
       
       $text =~ s/(^|\s)&(\s|$)/&amp;/g;
-      $textchild->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
+      $textchild->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
       $textchild->unbindNode();
     }
   }
@@ -3125,7 +3125,7 @@ sub addDictionaryLink(\$$$$\@) {
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ким мени севса ўшани севаман,"));
 #&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
-    &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode()->nodeType, $context, $textNode, $$textP, $m->{'node'}));
+    &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode->nodeType, $context, $textNode, $$textP, $m->{'node'}));
     
     my $filterMultiples = (!$explicitContext && $m->{'multiple'} !~ /^true$/i);
     my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
@@ -3937,7 +3937,7 @@ sub removeMissingOsisRefs($) {
   
   foreach my $r (@badrefs) {
     my @children = $r->childNodes();
-    foreach my $child (@children) {$r->parentNode()->insertBefore($child, $r);}
+    foreach my $child (@children) {$r->parentNode->insertBefore($child, $r);}
     $r->unbindNode();
   }
   
@@ -5050,52 +5050,84 @@ tag number you wish to use.)\n");
       &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
     }
         
-    # Add Testament sub-section introduction TOC entries if not there already.
-    # Added entries will be [not_parent] IF there already exists a Testament TOC entry.
-    my @subPubIntros = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[not(@type="book")]
-        [not(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])]) or boolean(preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])][1][self::osis:div[@type="book"]])]
-        [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml);
-    foreach my $div (@subPubIntros) {
-      my $tocentry = ($div->hasAttribute('osisRef') ? &getScopeTitle($div->getAttribute('osisRef')):'');
-      if (!$tocentry) {
-        my $nexttitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
-        if ($nexttitle) {$tocentry = $nexttitle->textContent();}
-      }
-      if (!$tocentry) {
-        my $nextbkn = @{$XPC->findnodes('following::osis:div[@type="book"][1]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n', $div)}[0];
-        if ($nextbkn) {$tocentry = $nextbkn->value(); $tocentry =~ s/^\[[^\]]*\]//;}
-      }
-      if ($tocentry) { 
-        my $testamentTOC = @{$XPC->findnodes('parent::div[@type="bookGroup"][child::milestone[@type="x-usfm-toc'.&conf('TOC').'"]]', $div)}[0];
-        if (!$testamentTOC) {
-          $testamentTOC = @{$XPC->findnodes('parent::div[@type="bookGroup"]/child::*[1][self::div[@type != "book"]]/milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $div)}[0];
+    # Check each bookGroup's bookGroup introduction and bookSubGroup introduction 
+    # divs (if any), and add TOC entries and/or [not_parent] marksers as appropriate. 
+    # NOTE: Each bookGroup may have one or both of these: bookGroup introduction
+    # and/or bookSubGroup introduction(s) (see below how these are distinguished).
+    my @bookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+    foreach my $bookGroup (@bookGroups) {
+      # The bookGroup introduction is defined as first child div of the bookGroup when it 
+      # is either the only non-book TOC div or else is immediately followed by another non-book
+       
+      # TOC div. Is there already a bookGroup introduction TOC (in other words not autogenerated)?
+      my $bookGroupIntroTOCM = @{$XPC->findnodes('child::*[1][self::osis:div[not(@type="book")]]
+      [boolean(following-sibling::*[1][self::osis:div[not(@type="book")]]) or boolean(count(current()/osis:div[not(@type="book")]) = 1)]
+      /child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $bookGroup)}[0];
+      
+      # bookGroup child TOC entries will be made [not_parent] IF there already 
+      # exists a bookGroup introduction TOC entry (otherwise chapters would end 
+      # up as useless level4 which do not appear in eBook readers).
+      if ($bookGroupIntroTOCM) {
+        foreach my $m ($XPC->findnodes('child::osis:div[not(@type="book")][count(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]) = 1]/
+            osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $bookGroup)) {
+          if ($m->getAttribute('n') !~ /\Q[not_parent]\E/ && $m->parentNode->unique_key ne $bookGroupIntroTOCM->parentNode->unique_key) {
+            $m->setAttribute('n', '[not_parent]'.$m->getAttribute('n'));
+            &Note("Modifying sub-section TOC to: '".$m->getAttribute('n')."' because a Testament introduction TOC already exists: '".$bookGroupIntroTOCM->getAttribute('n')."'.");
+          }
         }
-        my $notParent = ($testamentTOC ? '[not_parent]':'');
-        my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent$tocentry\" resp=\"$ROC\"/>";
-        &Note("Inserting Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
-        $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
       }
-      else {&Note("Could not insert Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
-    }
-    
-    # Add Old/New Testament TOC entries and titles using OldTestamentTitle and NewTestamentTitle if:
-    # + there is more than one Testament (bookGroup)
-    # + the Testament has more than one book
-    # + there are no Testament or sub-section TOCs already
-    if (@{$XPC->findnodes('//osis:div[@type="bookGroup"]', $xml)} > 1) {
-      foreach my $missingTOC_Testament ($XPC->findnodes('//osis:div[@type="bookGroup"][count(descendant::osis:div[@type="book"]) > 1]
-        [not(descendant::*[local-name()="milestone"][@type="x-usfm-toc'.&conf('TOC').'"][not(ancestor::osis:div[@type="book"])])]', $xml
-      )) {
-        if (!$missingTOC_Testament) {next;}
-        my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $missingTOC_Testament)}[0]->value;
+        
+      # bookSubGroupAuto TOCs are are defined as non-book bookGroup child divs 
+      # having osisRefs, which are either preceded by a book or are the 1st 
+      # or 2nd children of their bookGroup, excluding any bookGroup introduction. 
+      # Each bookSubGroupAuto will appear in the TOC.
+      my @bookSubGroupAuto = $XPC->findnodes(
+          'child::osis:div[not(@type="book")][@osisRef][preceding-sibling::*[not(self::*[@resp="'.$ROC.'"])][1][self::osis:div[@type="book"]]] |
+           child::*[not(self::*[@resp="'.$ROC.'"])][position()=1 or position()=2][self::osis:div[not(@type="book")][@osisRef]]'
+      , $bookGroup);
+      for (my $x=0; $x<@bookSubGroupAuto; $x++) {
+        if (@bookSubGroupAuto[$x]->unique_key eq $bookGroupIntroTOCM->parentNode->unique_key) {
+          splice(@bookSubGroupAuto, $x--, 1);
+        }
+      }
+     
+      foreach my $div (@bookSubGroupAuto) {
+        # Add bookSubGroup TOC milestones when there isn't one yet
+        if (@{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $div)}[0]) {next;}
+        my $tocentry = ($div->hasAttribute('osisRef') ? &getScopeTitle($div->getAttribute('osisRef')):'');
+        if (!$tocentry) {
+          my $nexttitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
+          if ($nexttitle) {$tocentry = $nexttitle->textContent();}
+        }
+        if (!$tocentry) {
+          my $nextbkn = @{$XPC->findnodes('following::osis:div[@type="book"][1]/descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n', $div)}[0];
+          if ($nextbkn) {$tocentry = $nextbkn->value(); $tocentry =~ s/^\[[^\]]*\]//;}
+        }
+        if ($tocentry) {
+          # New bookSubGroup TOCs will be [not_parent] if there is already a bookGroup introduction
+          my $notParent = ($bookGroupIntroTOCM ? '[not_parent]':'');
+          my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent$tocentry\" resp=\"$ROC\"/>";
+          &Note("Inserting Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
+          $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
+        }
+        else {&Note("Could not insert Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
+      }
+
+      # Add bookGroup introduction TOC entries (and titles using OldTestamentTitle and NewTestamentTitle) if:
+      # + there is more than one bookGroup
+      # + the bookGroup has more than one book
+      # + there are no bookSubGroups in the bookGroup
+      # + there is no bookGroup introduction already
+      if (@bookGroups > 1 && @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
+        my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
         my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
         my $testamentTitle = &conf($whichTestament.'TestamentTitle');
         my $toc = $XML_PARSER->parse_balanced_chunk('
-  <div type="introduction" resp="'.$ROC.'">
-    <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
-    <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
-  </div>');
-        $missingTOC_Testament->insertBefore($toc, $missingTOC_Testament->firstChild);
+<div type="introduction" resp="'.$ROC.'">
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
+  <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
+</div>');
+        $bookGroup->insertBefore($toc, $bookGroup->firstChild);
         &Note("Inserting $whichTestament Testament TOC entry and title within new introduction div as: $testamentTitle");
       }
     }
