@@ -5087,7 +5087,7 @@ tag number you wish to use.)\n");
            child::*[not(self::*[@resp="'.$ROC.'"])][position()=1 or position()=2][self::osis:div[not(@type="book")][@osisRef]]'
       , $bookGroup);
       for (my $x=0; $x<@bookSubGroupAuto; $x++) {
-        if (@bookSubGroupAuto[$x]->unique_key eq $bookGroupIntroTOCM->parentNode->unique_key) {
+        if (@bookSubGroupAuto[$x] && $bookGroupIntroTOCM && @bookSubGroupAuto[$x]->unique_key eq $bookGroupIntroTOCM->parentNode->unique_key) {
           splice(@bookSubGroupAuto, $x--, 1);
         }
       }
