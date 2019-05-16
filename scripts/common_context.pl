@@ -50,32 +50,31 @@ sub getContextAttributeHash($\$) {
     if ($ref eq 'ALL') {undef(%h); $h{'all'}++; return \%h;}
     
     # Handle whole book
-    if ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++; next;}
+    elsif ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++;}
     
     # Handle keywords OT and NT
-    if ($ref =~ /^(OT|NT)$/) {
+    elsif ($ref =~ /^(OT|NT)$/) {
       $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '1':'2').'.0'}++;
       foreach my $bk (split(/\s+/, ($ref eq 'OT' ? $OT_BOOKS:$NT_BOOKS))) {
         $h{'books'}{$bk}++;
       }
-      next;
     }
     
     # Handle special case of BOOK1-BOOK2 for a major speedup
-    if ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
+    elsif ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
       my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
       my $aP = &scopeToBooks($ref, $bookOrderP);
       foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
-      next;
     }
     
     # Handle keyword ALL
-    if ($ref =~ s/^ALL\b//) {
+    elsif ($ref =~ s/^ALL\b//) {
       foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
         if (!$ref) {$h{'books'}{$bk}++;}
         else {foreach my $k (&osisRef2Contexts("$bk$ref", $MOD, 'not-default')) {$h{'contexts'}{$k}++;}};
       }
     }
+    
     else {foreach my $k (&osisRef2Contexts($ref, $MOD, 'not-default')) {$h{'contexts'}{$k}++;}}
   }
   
@@ -140,6 +139,48 @@ sub osisRef2Contexts($$$) {
   foreach my $c (@cs) {$c = &checkAndNormalizeAtomicContext($c)};
   
   return @cs;
+}
+
+# Takes any valid osisID and returns an array with itself and any
+# containing DIVIDs. If includeIntro is set, any introduction atomic 
+# context is also included.
+sub osisID2Contexts($$) {
+  my $osisID = shift;
+  my $includeIntro = shift;
+
+  my @ids = ();
+  
+  # Assume osisID is always in $MOD, since context arguments alwasys? apply to the current module.
+  my $scope = &getScopeOSIS($MOD);
+  my @ancdivs = $XPC->findnodes("descendant::*[\@osisID='$osisID']/ancestor::osis:div[\@osisID]", $DOCUMENT_CACHE{$MOD}{'xml'});
+
+  # Include introduction?
+  if ($includeIntro) {
+    if (!@ancdivs) {push(@ids, 'BIBLE_INTRO.0.0.0');}
+    else {
+      foreach my $d (@ancdivs) {
+        # NOTE: chapter intros are currently not returned, for a speedup
+        if ($d->getAttribute('type') eq 'book') {
+          if (@{$XPC->findnodes('following::osis:chapter[@sID="'.$d->getAttribute('osisID').'.1"]', $d)}[0]) {
+            push(@ids, $d->getAttribute('osisID').'.0.0.0');
+          }
+          last;
+        }
+        elsif ($d->getAttribute('type') eq 'bookGroup') {
+          my $n = 1 + @{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $d)};
+          push(@ids, "TESTAMENT_INTRO.$n.0.0");
+          last;
+        }
+      }
+    }
+  }
+  
+  # Include ancestor DIVIDs
+  foreach my $d (@ancdivs) {push(@ids, $d->getAttribute('osisID'));}
+  
+  push(@ids, $osisID);
+  
+  return @ids;
 }
 
 # Return a string representing the most specific context of a node in 

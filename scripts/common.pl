@@ -2765,18 +2765,34 @@ sub addDictionaryLinks(\@$$) {
         }
         $text = join('', @parts);
       } while(!$done);
-      $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/g;
+      $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/sg;
+      
+#&Debug("BEFORE=".$textchild->data()."\nAFTER =".$text."\n\n");
       
       # sanity check
       my $check = $text;
-      $check =~ s/<[^>]*>//g;
+      $check =~ s/<\/?reference[^>]*>//g;
       if ($check ne $textchild->data()) {
         &ErrorBug("addDictionaryLinks: Bible text changed during glossary linking!\nBEFORE=".$textchild->data()."\nAFTER =$check", '', 1);
       }
       
-      $text =~ s/(^|\s)&(\s|$)/&amp;/g;
-      $textchild->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($text), $textchild);
-      $textchild->unbindNode();
+      # apply new reference tags back to DOM
+      foreach my $childnode (split(/(<reference[^>]*>.*?<\/reference[^>]*>)/s, $text)) {
+        my $newRefElement = '';
+        my $t = $childnode; 
+        if ($t =~ s/(<reference[^>]*>)(.*?)(<\/reference[^>]*>)/$2/s) {
+          my $refelem = "$1 $3";
+          $newRefElement = $XML_PARSER->parse_balanced_chunk($refelem);
+        }
+        my $newTextNode = XML::LibXML::Text->new($t);
+        if ($newRefElement) {
+          $newRefElement->firstChild->insertBefore($newTextNode, NULL);
+          $newRefElement->firstChild->removeChild($newRefElement->firstChild->firstChild); # remove the originally necessary ' ' in $refelem 
+        }
+        my $newChildNode = ($newRefElement ? $newRefElement:$newTextNode);
+        $textchild->parentNode->insertBefore($newChildNode, $textchild);
+      }
+      $textchild->unbindNode(); 
     }
   }
 }
@@ -3123,41 +3139,41 @@ sub addDictionaryLink(\$$$$\@) {
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = ($textNode); @DICT_DEBUG_THIS = (decode("utf8", "Ким мени севса ўшани севаман,"));
-#&dbg("\nMatch: ".$m->{'node'}->textContent."\n"); foreach my $k (keys %{$m}) {if ($k !~ /^(node|skipRootID)$/) {&dbg("\t\t$k = ".$m->{$k}."\n");}} &dbg("\n");
-    &dbg(sprintf("\nNode(type %s, %s): %s\nText: %s\nMatch: %s\n", $textNode->parentNode->nodeType, $context, $textNode, $$textP, $m->{'node'}));
+#@DICT_DEBUG = ($textNode->data); @DICT_DEBUG_THIS = (decode("utf8", "Хөрмәтле укучылар, < Борынгы Шерык > сезнең игътибарга Изге Язманың хәзерге татар телендә беренче тапкыр нәшер ителгән тулы җыентыгын тәкъдим итәбез."));
+#my $nodedata; foreach my $k (keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
+#&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $textNode->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
     
     my $filterMultiples = (!$explicitContext && $m->{'multiple'} !~ /^true$/i);
     my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
     
-    if ($explicitContext && $m->{'notExplicit'}) {&dbg("00\n"); next;}
-    elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("01\n"); next;}
+    if ($explicitContext && $m->{'notExplicit'}) {&dbg("filtered at 00\n\n"); next;}
+    elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("filtered at 01\n\n"); next;}
     else {
-      if ($glossaryNodeContext && $m->{'skipRootID'}{&getRootID($glossaryNodeContext)}) {&dbg("05\n"); next;} # never add glossary links to self
-      if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n"); next;}
-      if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n"); next;}
+      if ($glossaryNodeContext && $m->{'skipRootID'}{&getRootID($glossaryNodeContext)}) {&dbg("05\n\n"); next;} # never add glossary links to self
+      if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n\n"); next;}
+      if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n\n"); next;}
       if ($filterMultiples) {
-        if (@contextNote > 0) {if ($MULTIPLES{$key}) {&dbg("filtered at 35\n"); next;}}
+        if (@contextNote > 0) {if ($MULTIPLES{$key}) {&dbg("filtered at 35\n\n"); next;}}
         # $removeLater disallows links within any phrase that was previously skipped as a multiple.
         # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
-        elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n"); $removeLater = 1;}
+        elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
         my $gs  = ($glossaryScopeContext ? 1:0);
         my $ic  = &inContext($context, $m->{'contexts'});
         my $igc = ($gs ? &inContext($glossaryScopeContext, $m->{'contexts'}):0);
-        if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50\n"); next;}
+        if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50 (gs=$gs, ic=$ic, igc=$igc)\n\n"); next;}
       }
       if ($m->{'notContext'}) {
-        if (&inContext($context, $m->{'notContexts'})) {&dbg("filtered at 60\n"); next;}
+        if (&inContext($context, $m->{'notContexts'})) {&dbg("filtered at 60\n\n"); next;}
       }
       if ($m->{'XPATH'}) {
         my $tst = @{$XPC->findnodes($m->{'XPATH'}, $textNode)}[0];
-        if (!$tst) {&dbg("filtered at 70\n"); next;}
+        if (!$tst) {&dbg("filtered at 70\n\n"); next;}
       }
       if ($m->{'notXPATH'}) {
         $tst = @{$XPC->findnodes($m->{'notXPATH'}, $textNode)}[0];
-        if ($tst) {&dbg("filtered at 80\n"); next;}
+        if ($tst) {&dbg("filtered at 80\n\n"); next;}
       }
     }
     
@@ -3447,17 +3463,16 @@ sub attributeIsSet($$) {
 }
 
 
-sub dbg($$) {
+sub dbg($) {
   my $p = shift;
-
-##for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {&Log(@DICT_DEBUG_THIS[$i]." ne ".@DICT_DEBUG[$i]."\n", 1);}
-#  
-#  if (!@DICT_DEBUG_THIS) {return 0;}
-#  for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {
-#    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
-#  }
-#  
-#  &Debug($p);
+  if (!$DEBUG) {return 0;}
+  
+  if (!@DICT_DEBUG_THIS) {return 0;}
+  for (my $i=0; $i < @DICT_DEBUG_THIS; $i++) {
+    if (@DICT_DEBUG_THIS[$i] ne @DICT_DEBUG[$i]) {return 0;}
+  }
+  
+  &Debug($p);
   return 1;
 }
 
@@ -3586,21 +3601,23 @@ sub idInVerseSystem($$) {
   return ($before eq $after ? $vk->getIndex():0);
 }
 
-# Take an osisID of the form BOOK or BOOK.CH (or BOOK.CH.VS but this 
-# only returns itself) and expand it to a list of individual verses of 
-# the form BOOK.CH.VS, according to the verse system vsys. Book
+# Take an osisID of the form DIVID, BOOK or BOOK.CH (or BOOK.CH.VS but 
+# this only returns itself) and expand it to a list of individual verses 
+# of the form BOOK.CH.VS, according to the verse system vsys. Book
 # introductions, which have the form BOOK.0, are returned unchanged.
-# Expanded osisIDs include book and chapter introductions if 
+# When osisID is a DIVID it returns itself and all ancestor DIVIDs. All 
+# expanded osisIDs also include book and chapter introductions if 
 # expandIntros is set.
 sub expandOsisID($$$) {
   my $osisID = shift;
   my $vsys = shift;
   my $expandIntros = shift;
   
-  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || 
-      $osisID =~ /^[^\.]+\.0$/ || 
-      !&idInVerseSystem($osisID, $vsys)) {
+  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || $osisID =~ /^[^\.]+\.0$/) {
     return $osisID;
+  }
+  if (!&idInVerseSystem($osisID, $vsys)) {
+    return join(' ', &osisID2Contexts($osisID, $expandIntros));
   }
   if ($osisID !~ /^([^\.]+)(\.(\d+))?$/) {
     return $osisID;
