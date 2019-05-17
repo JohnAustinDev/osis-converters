@@ -2833,6 +2833,54 @@ sub getModNameOSIS($) {
   
   return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
 }
+# Associated functions use this cached header data for a big speedup. 
+# The cache is cleared and reloaded the first time a node is referenced 
+# from an OSIS file URI.
+sub initDocumentCache($) {
+  my $xml = shift; # must be a document node
+  
+  my $dbg = "initDocumentCache: ";
+  
+  my $headerDoc = $xml->URI;
+  undef($DOCUMENT_CACHE{$headerDoc});
+  $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
+  my $shd = $headerDoc; $shd =~ s/^.*\///; $dbg .= "document=$shd ";
+  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
+  $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
+  
+  # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
+  undef($DOCUMENT_CACHE{$osisIDWork});
+  $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
+  $dbg .= "selfmod=$osisIDWork ";
+  $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
+  $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
+  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
+  my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
+  $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'}     = ($dict ? $dict->getAttribute('osisWork'):'');
+  my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
+  $DOCUMENT_CACHE{$osisIDWork}{'getBooksOSIS'} = \%books;
+  my $scope = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[1]/osis:scope', $xml)}[0];
+  $DOCUMENT_CACHE{$osisIDWork}{'getScopeOSIS'} = ($scope ? $scope->textContent():'');
+  
+  # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
+  my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $xml);
+  foreach my $work (@works) {
+    my $w = $work->getAttribute('osisWork');
+    if ($w eq $osisIDWork) {next;}
+    undef($DOCUMENT_CACHE{$w});
+    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $dbg .= "compmod=$w ";
+    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
+    $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
+    $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
+    $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
+  }
+  &Debug("$dbg\n");
+  
+  return $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'};
+}
 # IMPORTANT: the osisCache lookup can ONLY be called on $modname after 
 # a call to getModNameOSIS($modname), since getModNameOSIS($modname) 
 # is where the cache is written.
@@ -2843,6 +2891,16 @@ sub osisCache($$) {
   if (exists($DOCUMENT_CACHE{$modname}{$func})) {return $DOCUMENT_CACHE{$modname}{$func};}
   &Error("DOCUMENT_CACHE failure: $modname $func\n");
   return '';
+}
+sub getModXmlOSIS($) {
+  my $mod = shift;
+  my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
+  if (!$xml) {
+    undef($DOCUMENT_CACHE{$mod});
+    &getModNameOSIS($mod);
+    $xml = $DOCUMENT_CACHE{$mod}{'xml'};
+  }
+  return $xml;
 }
 sub getRefSystemOSIS($) {
   my $mod = &getModNameOSIS(shift);
@@ -2951,52 +3009,6 @@ sub isBible($) {
 sub isDict($) {
   my $mod = &getModNameOSIS(shift);
   return (&osisCache('getRefSystemOSIS', $mod) =~ /^Dict/ ? 1:0);
-}
-# Associated functions use this cached header data for a big speedup. 
-# The cache is cleared and reloaded the first time a node is referenced 
-# from an OSIS file URI.
-sub initDocumentCache($) {
-  my $xml = shift; # a document node
-  
-  my $dbg = "initDocumentCache: ";
-  
-  my $headerDoc = $xml->URI;
-  undef($DOCUMENT_CACHE{$headerDoc});
-  $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
-  my $shd = $headerDoc; $shd =~ s/^.*\///; $dbg .= "document=$shd ";
-  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
-  $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
-  
-  # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
-  undef($DOCUMENT_CACHE{$osisIDWork});
-  $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
-  $dbg .= "mainmod=$osisIDWork ";
-  $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
-  $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
-  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
-  my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
-  $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'}     = ($dict ? $dict->getAttribute('osisWork'):'');
-  my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
-  $DOCUMENT_CACHE{$osisIDWork}{'getBooksOSIS'} = \%books;
-  my $scope = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[1]/osis:scope', $xml)}[0];
-  $DOCUMENT_CACHE{$osisIDWork}{'getScopeOSIS'} = ($scope ? $scope->textContent():'');
-  
-  # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
-  my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $xml);
-  foreach my $work (@works) {
-    my $w = $work->getAttribute('osisWork');
-    if ($w eq $osisIDWork) {next;}
-    undef($DOCUMENT_CACHE{$w});
-    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
-    $dbg .= "companion=$w ";
-    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
-    $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
-    $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
-    $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
-  }
-  &Debug("$dbg\n");
 }
 
 # Take in osisRef and map the whole thing. Mapping gaps are healed and
@@ -3930,7 +3942,7 @@ sub checkReferenceLinks($) {
   if ($inIsBible) {$bibleOSIS = $osis; $bibleXML = $inXML;}
   else {
     &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$bibleOSIS);
-    &Log(" AGAINST $bibleOSIS");
+    &Log(" AGAINST $bibleOSIS\n");
     $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
     &readOsisIDs(\%osisID, $bibleXML);
   }

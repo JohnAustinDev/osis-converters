@@ -150,9 +150,8 @@ sub osisID2Contexts($$) {
 
   my @ids = ();
   
-  # Assume osisID is always in $MOD, since context arguments alwasys? apply to the current module.
-  my $scope = &getScopeOSIS($MOD);
-  my @ancdivs = $XPC->findnodes("descendant::*[\@osisID='$osisID']/ancestor::osis:div[\@osisID]", $DOCUMENT_CACHE{$MOD}{'xml'});
+  # Assume osisID is always in $MOD, since context arguments always(?) apply to the current module.
+  my @ancdivs = $XPC->findnodes("descendant::*[\@osisID='$osisID']/ancestor::osis:div[\@osisID]", &getModXmlOSIS($MOD));
 
   # Include introduction?
   if ($includeIntro) {
