@@ -3625,13 +3625,14 @@ sub expandOsisID($$$) {
   my $vsys = shift;
   my $expandIntros = shift;
   
-  if ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || $osisID =~ /^[^\.]+\.0$/) {
+  if ($osisID =~ /\!/) {return $osisID;}
+  elsif ($osisID =~ /^[^\.]+\.\d+\.\d+$/ || $osisID =~ /^[^\.]+\.0$/) {
     return $osisID;
   }
-  if (!&idInVerseSystem($osisID, $vsys)) {
+  elsif (!&idInVerseSystem($osisID, $vsys)) {
     return join(' ', &osisID2Contexts($osisID, $expandIntros));
   }
-  if ($osisID !~ /^([^\.]+)(\.(\d+))?$/) {
+  elsif ($osisID !~ /^([^\.]+)(\.(\d+))?$/) {
     return $osisID;
   }
   my $bk = $1; my $ch = ($2 ? $3:'');
