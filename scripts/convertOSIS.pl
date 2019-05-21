@@ -433,12 +433,84 @@ sub makeEbook($$$$$) {
       }
       else {&Note("Epub validates!: \"$out\"");}
     }
-    copy($out, "$EBOUT/$CONV_NAME.$format");
+    # include any sub-directory used by the EBOOK destination URL
+    my $subdir = ($EBOOKS =~ /^https?\:\/\// ? &getEbookSubdir($scope, &getHttpFileList("$EBOOKS/$MAINMOD/$MAINMOD")):'');
+    my $outdir = $EBOUT.($subdir ? "/$subdir":''); if (!-e $outdir) {&make_path($outdir);}
+    copy($out, "$outdir/$CONV_NAME.$format");
+    &Note("Created: $outdir/$CONV_NAME.$format\n", 1);
+    # include any cover small image along with the eBook
+    if (-e $cover) {
+      &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$cover\" \"$outdir/image.jpg\"", 3);
+      &Note("Created: $outdir/image.jpg\n", 1);
+    }
     if (!$CONV_REPORT{$CONV_NAME}{'Format'}) {$CONV_REPORT{$CONV_NAME}{'Format'} = ();}
     push(@{$CONV_REPORT{$CONV_NAME}{'Format'}}, $format);
-    &Log("Created: $CONV_NAME.$format\n", 2);
   }
   else {&Error("No output file: $out");}
+}
+
+sub getHttpFileList($) {
+  my $url = shift;
+  
+  my @list;
+  
+  my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/;
+  my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1;
+
+  my $tmp = "$TMPDIR/getHttpFileList";
+  mkdir($tmp);
+  use Net::Ping;
+  my $net = Net::Ping->new;
+  my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
+  my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
+  if ($r) {
+    &shell("wget -P \"$tmp\" -r -np -nH --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
+    &readHttpFileDir($tmp, \@list);
+  }
+  if ($tmp =~ /\Q.osis-converters/) {remove_tree($tmp);}
+  
+  return \@list;
+}
+
+sub readHttpFileDir($\@) {
+  my $dir = shift;
+  my $filesAP = shift;
+  
+  if (!opendir(DIR, $dir)) {
+    &ErrorBug("readHttpFileDir could not open $dir!");
+    return;
+  }
+  my @subs = readdir(DIR);
+  closedir(DIR);
+  foreach my $sub (@subs) {
+    if ($sub =~ /^\./ || $sub =~ /(robots\.txt\.tmp)/) {next;}
+    elsif (-d "$dir/$sub") {&readHttpFileDir("$dir/$sub", $filesAP); next;}
+    elsif ($sub ne 'index.html') {&ErrorBug("readHttpFileDir encounteed an unexpected file $sub in $dir."); next;}
+    my $html = $XML_PARSER->load_html(location  => "$dir/$sub", recover => 1);
+    if (!$html) {&ErrorBug("readHttpFileDir could not parse $dir/$sub"); next;}
+    foreach my $a ($html->findnodes('//tr//a')) {
+      if ($a->textContent() !~ /\.[^\.\/]+$/) {next;} # keep only links to files with extensions
+      push(@{$filesAP}, "$dir/".$a->textContent());
+      my $d = $dir; $d =~ s/^\Q$TMPDIR\E\/getHttpFileList\///; &Debug("Found $EBOOKS file: $d/".$a->textContent()."\n", 1);
+    }
+  }
+}
+
+sub getEbookSubdir($\@) {
+  my $scope = shift;
+  my $filesAP = shift;
+  
+  foreach my $path (@{$filesAP}) {
+    my $s = $scope; $s =~ s/\s+/_/g; $s = quotemeta($s);
+    # tmp/osis2ebooks/getHttpFileList/BEZ/2005/Prov_Full.azw3
+    if ($path =~ /getHttpFileList\/[^\/]+\/(.*?)\/([^\/]+__)?$s(_|\.)[^\/]+$/i) {
+      my $sd = $1;
+      &Debug("Found $EBOOKS sub-directory containing files with scope '$scope': $sd\n", 1);
+      return $sd;
+    }
+  }
+
+  return '';
 }
 
 # To work with osis2xhtml.xsl, the FullResourceURL must have the full eBook's file name and extension (directory URL comes from config.conf)
