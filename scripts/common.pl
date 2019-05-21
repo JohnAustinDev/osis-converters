@@ -4190,7 +4190,7 @@ sub checkCharacters($) {
       if (@from[$x] eq $chr) {&Note("High Unicode character found: ".ord($chr)." '$chr' <> '".@to[$x]."'"); last;}
     }
     if (@from[$x] ne $chr) {
-      &ErrorBug("There is no simpleChars.txt replacement for the high Unicode character: '$chr'", "This character, and its low order replacement, should be added to: $SCRIPT/defaults/bible/GoBible/simpleChars.txt");
+      &Warn("There is no simpleChars.txt replacement for the high Unicode character: '$chr'", "This character, and its low order replacement, may be added to: $SCRIPT/defaults/bible/GoBible/simpleChars.txt to remove this warning.");
     }
   }
 }
