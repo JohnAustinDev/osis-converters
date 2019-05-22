@@ -464,7 +464,7 @@ sub getHttpFileList($) {
   my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
   my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
   if ($r) {
-    &shell("wget -P \"$tmp\" -r -np -nH --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
+    &shell("wget -P \"$tmp\" -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
     &readHttpFileDir($tmp, \@list);
   }
   if ($tmp =~ /\Q.osis-converters/) {remove_tree($tmp);}
@@ -483,6 +483,7 @@ sub readHttpFileDir($\@) {
   my @subs = readdir(DIR);
   closedir(DIR);
   foreach my $sub (@subs) {
+    $sub = decode_utf8($sub);
     if ($sub =~ /^\./ || $sub =~ /(robots\.txt\.tmp)/) {next;}
     elsif (-d "$dir/$sub") {&readHttpFileDir("$dir/$sub", $filesAP); next;}
     elsif ($sub ne 'index.html') {&ErrorBug("readHttpFileDir encounteed an unexpected file $sub in $dir."); next;}
