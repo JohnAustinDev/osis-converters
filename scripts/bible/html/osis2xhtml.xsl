@@ -553,7 +553,9 @@
           </when>
         </choose>
         <for-each-group select="$listElements" group-adjacent="if (not($isMainTOC)) then @class else '1'">
-          <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
+          <if test="count(current-group())">
+            <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
+          </if>
         </for-each-group>
       </element>
     </element>
