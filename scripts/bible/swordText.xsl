@@ -17,7 +17,7 @@
   contain hyperlinks (other than annotateRef). These linkless cross-
   reference notes can occur when a translation includes a small number 
   of books. !-->
-  <template match="note[@type='crossReference'][@resp][not(descendant::reference[@type!='annotateRef'][@osisRef])]"/>
+  <template match="note[@type='crossReference'][@resp][not(descendant::reference[not(@type='annotateRef')][@osisRef])]"/>
   
   <!-- Remove any added titles, which need not appear in SWORD intros -->
   <template match="title[@canonical='false'][ancestor::div[@resp='x-oc']]"/>
