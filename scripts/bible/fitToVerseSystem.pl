@@ -32,7 +32,7 @@ OSIS file (for instance using a simple XSLT) with either the source or
 fixed verse system, while at the same time all Scripture references will 
 be correct according to the chosen verse system.
 
-IMPORANT:
+IMPORTANT:
 In the following descriptions, this:
 BK.1.2.3
 means this:
@@ -476,16 +476,16 @@ To position the above material, add location == <XPATH> after the \\id tag."
   
   &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
   # Check that all sub-publications are marked
+  my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
   foreach my $scope (&getSubPublications()) {
     if (!@{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"]', $xml)}[0]) {
       &Warn("No div osisRef was found for sub-publication $scope.");
-      if ($scope !~ /[\s\-]/) {
-        my $bk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.$scope.'"][not(@osisRef)]', $xml)}[0];
-        if ($bk) {
-          $bk->setAttribute('osisRef', $scope);
-          &Note("Added div osisRef to book $scope.");
-        }
-      }
+      my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, $bookOrderP)}[0].'"]', $xml)}[0];
+      my $tocms = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $firstbk)}[0];
+      my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
+      my $div = $XML_PARSER->parse_balanced_chunk('<div type="introduction" osisRef="'.$scope.'" resp="'.$ROC.'"> </div>');
+      $before->parentNode->insertBefore($div, $before);
+      &Note("Added empty introduction div with osisRef=\"$scope\" within book ".$firstbk->getAttribute('osisID').' '.($tocms ? 'after TOC milestone.':'as first child.'));
     }
   }
 
