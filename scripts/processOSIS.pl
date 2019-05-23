@@ -162,9 +162,6 @@ file to convert footnote references in the text into working hyperlinks.");}
     &removeDefaultWorkPrefixesFAST(\$OSIS);
   }
 
-  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
-  &runAnyUserScriptsAt("postprocess", \$OSIS);
-
   # If the project includes a glossary, add glossary navigational menus, and if there is also a glossary div with scope="INT" add intro nav menus as well.
   if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
     # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
@@ -205,6 +202,9 @@ RUN:./INT.SFM");
 
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
+  
+  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
+  &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
   &checkAndValidate($modType);
@@ -259,11 +259,11 @@ sub runReprocessOSIS($) {
 
   &checkVerseSystem($OSIS, &conf('Versification'));
 
-  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
-  &runAnyUserScriptsAt("postprocess", \$OSIS);
-
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
+
+  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
+  &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
   &checkAndValidate($modType);

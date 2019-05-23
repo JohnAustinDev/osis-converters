@@ -92,7 +92,7 @@ sub runOsis2osis($$) {
       if ($NO_OUTPUT_DELETE) {next;}
       if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile", 1);}
       my $inpath;
-      if ($ccpath =~ /^\./) {&Error("Paths in CC: instructions cannot start with '.':$_", "The path is for intended getDefaultFile() of sourceProject.", 1);}
+      if ($ccpath =~ /^\./) {&Error("Paths in CC: instructions cannot start with '.':$_", "The path is intended for use by getDefaultFile() of sourceProject.", 1);}
       my $glob = ($ccpath =~ s/^(.*?)(\/[^\/]*\*[^\/]*)$/$1/ ? $2:'');
       $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
       foreach my $in (glob $inpath.$glob) {
@@ -258,6 +258,7 @@ sub convertFileStrings($$) {
     
     # apply new conf entries/values
     &writeConf($ccout, \%confH);
+    &readPaths($ccout);
     &setConfGlobals(&readConf());
   }
   
@@ -375,6 +376,7 @@ sub transcodeStringByMode2($) {
     return &transcode($s);
   }
   elsif ($O2O_CurrentMode eq 'MODE_CCTable')  {
+    require("$SCRD/utils/simplecc.pl");
     return &simplecc_convert($s, $MODE_CCTable);
   }
   else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by transcodeStringByMode()");}
