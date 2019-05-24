@@ -1855,7 +1855,7 @@ sub getSwordConfFromOSIS($) {
     my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
     # skip sections other than SCRIPT_NAME and possibly DICT (if context is DICT then don't skip it) and also skip non-sword entries
     if (($s && $s ne $SCRIPT_NAME && $s ne $MOD) || &isValidConfig($elit) ne 'sword') {
-      &Note("Config entry $elit will not be written to SWORD conf (this is normal unless the entry should be included in the SWORD config.conf).");
+      &Note("Config entry $elit will not be written to SWORD conf.");
       next;
     }
     $swordConf{$e} = &conf($elit, '', '', $entryValueP);

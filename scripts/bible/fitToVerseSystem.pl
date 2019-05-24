@@ -444,7 +444,7 @@ they appear in the CF file. To retain the old meaning, change it to $xpath");
           }
           &placeIntroduction($elem, $xpathOriginalBeforeNodes{$xpath}, $scope);
           my $tg = $elem->toString(); $tg =~ s/>.*$/>/s;
-          &Note("Placing  $left == $xpath for $tg");
+          &Note("Placing $left == $xpath for $tg");
         }
       }
     }

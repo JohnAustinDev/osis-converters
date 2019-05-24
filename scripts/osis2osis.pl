@@ -214,7 +214,7 @@ sub convertFileStrings($$) {
     # Entries in @OC_LOCALIZABLE_CONFIGS are converted.
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
-    # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW
+    # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW (except AudioCode!)
     my %confH; &readConfFile($ccin, \%confH);
     my $origMainmod = $confH{'ModuleName'};
     
@@ -226,6 +226,7 @@ sub convertFileStrings($$) {
     
     # replace module names in all config values
     foreach my $e (sort keys %confH) {
+      if ($e eq 'AudioCode') {next;}
       my $new = $confH{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
