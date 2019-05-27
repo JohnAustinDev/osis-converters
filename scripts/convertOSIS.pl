@@ -439,8 +439,9 @@ sub makeEbook($$$$$) {
     copy($out, "$outdir/$CONV_NAME.$format");
     &Note("Created: $outdir/$CONV_NAME.$format\n", 1);
     # include any cover small image along with the eBook
-    if (-e $cover) {
-      &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$cover\" \"$outdir/image.jpg\"", 3);
+    my $s = $scope; $s =~ s/ /_/g; my $pubcover = "$MAININPD/images/$s.jpg";
+    if (-e $pubcover) {
+      &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$pubcover\" \"$outdir/image.jpg\"", 3);
       &Note("Created: $outdir/image.jpg\n", 1);
     }
     if (!$CONV_REPORT{$CONV_NAME}{'Format'}) {$CONV_REPORT{$CONV_NAME}{'Format'} = ();}
