@@ -1002,7 +1002,10 @@
     <variable name="ul" as="element(html:ul)">
       <ul xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></ul>
     </variable>
-    <sequence select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], boolean($currentTask='get-filenames'))"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
+    <variable name="ul2" select="me:expelElements($ul, $ul/*[contains(@class, 'osis-head')], boolean($currentTask='get-filenames'))"/><!-- OSIS allows list to contain head children, but EPUB2 validator doesn't allow <h> child tags of ul -->
+    <for-each select="$ul2">
+      <if test="not(boolean(self::html:ul) and not(count(child::*)))"><sequence select="."/></if>
+    </for-each>
   </template>
   
   <template match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]" mode="xhtml">
