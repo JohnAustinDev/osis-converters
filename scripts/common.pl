@@ -2615,40 +2615,74 @@ sub filterGlossaryReferences($$$) {
   return $total;
 }
 
+sub usfm3GetAttribute($$$) {
+  my $value = shift;
+  my $attribute = shift;
+  my $default = shift;
+  
+  if (!$attribute) {$attribute = $default;}
+  
+  my $atl = $value;
+  if ($atl =~ s/^.*?\|//) {
+    my $aname = $default;
+    while ($atl =~ s/\s*([^\s="]+)\s*=\s*"([^"]*)"//) {
+      $aname = $1;
+      $aval = $2;
+      if ($aname eq $attribute) {return $aval;}
+    }
+    return ($aname eq $attribute ? $atl:'');
+  }
+  
+  return '';
+}
 
 sub convertExplicitGlossaryElements(\@) {
   my $indexElementsP = shift;
   
   foreach my $index (@{$indexElementsP}) {
-    my $level = $index->getAttribute("level1");
+    my $linktext = $index->getAttribute("level1");
+    my $entryname = ($linktext =~ s/\|.*$// ? &usfm3GetAttribute($index->getAttribute("level1"), 'lemma', 'lemma'):'');
     my $cxstring = &getIndexContextString($index);
-    my $before = $index->parentNode->toString();
+    my $original = $index->parentNode->toString();
     
     my $result;
     my @pt = $XPC->findnodes("preceding::text()[1]", $index);
-    if (@pt != 1 || @pt[0]->data !~ /\Q$level\E$/) {
-      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$index\".");
-      &recordExplicitGlossFail($index, $level, $cxstring);
+    if (@pt != 1 || @pt[0]->data !~ /\Q$linktext\E$/) {
+      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$index\" ($linktext !~ ".@pt[0]->data);
+      &recordExplicitGlossFail($index, $linktext, $cxstring);
       next;
     }
     my $tn = @pt[0];
     
     # Check preceding text node
-    if ($tn->data !~ /\Q$level\E$/) {
-      &ErrorBug("Index tag $index in ".$index->parentNode->toString()." is not preceded by '$level'.");
-      &recordExplicitGlossFail($index, $level, $cxstring);
+    my $t = $tn->data;
+    if ($t !~ s/\Q$linktext\E$//) {
+      &ErrorBug("Index tag $index in ".$index->parentNode->toString()." is not preceded by '$linktext'.");
+      &recordExplicitGlossFail($index, $linktext, $cxstring);
       next;
     }
     
-    # Find, write and record the matching reference
-    my @tns; push(@tns, $tn);
-    &addDictionaryLinks(\@tns, "$level$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
-    if ($before eq $index->parentNode->toString()) {
-      &recordExplicitGlossFail($index, $level, $cxstring);
+    if ($entryname) {
+      # Write reference
+      my $newRefElement = $XML_PARSER->parse_balanced_chunk(
+        '<reference osisRef="'.$DICTMOD.':'.&encodeOsisRef($entryname).'" type="x-glosslink">'.$linktext.'</reference>'
+      );
+      $index->parentNode->insertBefore($newRefElement, $index);
+      $tn->setData($t);
+    }
+    else {
+      # Find and write the matching reference
+      my @tns; push(@tns, $tn);
+      &addDictionaryLinks(\@tns, "$linktext$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
+    }
+    
+    # Check and record the reference
+    if ($original eq $index->parentNode->toString()) {
+      &recordExplicitGlossFail($index, $linktext, $cxstring);
       next;
     }
     my $osisRef = @{$XPC->findnodes("preceding::reference[1]", $index)}[0]->getAttribute("osisRef");
-    $ExplicitGlossary{$level}{&decodeOsisRef($osisRef)}++;
+    $ExplicitGlossary{$linktext}{&decodeOsisRef($osisRef)}++;
     
     # Remove index element if successful
     $index->parentNode->removeChild($index);
