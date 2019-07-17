@@ -1402,12 +1402,18 @@ on the same line");}
   # Find or create a main publication cover and insert it into the OSIS file
   my $scope = (&isChildrensBible($xml) ? 'Chbl':@{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)}[0]->textContent);
   $scope =~ s/\s+/_/g;
-  my $subType = 'full';
   my $pubImagePath = &getCoverImageFromScope($mod, $scope);
+  # Composite cover image names always end with _comp.jpg
+  my $subType = ($pubImagePath && $pubImagePath =~ /_(comp)\.[^\.]+$/ ? $1:'full');
   if (!$pubImagePath && -e "$INPD/images/cover.jpg") {$pubImagePath = "$INPD/images/cover.jpg";}
   elsif (!$pubImagePath && -e "$INPD/eBook/cover.jpg") {$pubImagePath = "$INPD/eBook/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
   elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {$pubImagePath = "$INPD/html/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
-  my $imgpath = "$imgdir/$scope.jpg";
+  my $iname = $scope;
+  if ($pubImagePath) {
+    if ($pubImagePath !~ /\/([^\/\.]+)\.[^\/\.]+$/) {&ErrorBug("Bad pubImagePath: $pubImagePath !~ /\\/([^\\/]*)\\.[^\\/\\.]+\$/", '', 1);}
+    $iname = $1;
+  }
+  my $imgpath = "$imgdir/$iname.jpg";
   if ($pubImagePath eq $imgpath) {
     &Note("Found full publication cover image: $imgpath");
   }
@@ -1419,13 +1425,17 @@ on the same line");}
     my $title = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:title", $xml)}[0]->textContent;
     my $font = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:description[\@type='x-config-Font']", $xml)}[0];
     $font = ($font ? $font->textContent:'');
-    if (&createCompositeCoverImage($imgpath, $mod, $scope, \@pubcovers, $title, $font)) {
-      $pubImagePath = $imgpath;
-      $subType = 'comp';
-      &Note("Created full publication cover image from ".@pubcovers." sub-publication images with title $title: $imgpath");
+
+    # Composite cover image names should end with _comp.jpg
+    my $inew = "$imgdir/${scope}_comp.jpg";
+    if (&createCompositeCoverImage($inew, $mod, $scope, \@pubcovers, $title, $font)) {
+      $subType = "comp";
+      $iname = "${scope}_comp";
+      $pubImagePath = $inew;
+      &Note("Created full publication cover image from ".@pubcovers." sub-publication images with title $title: $inew");
     }
   }
-  if ($pubImagePath && &insertPubCover(&getCoverFigure($scope, $subType), $xml)) {$updated++;}
+  if ($pubImagePath && &insertPubCover(&getCoverFigure($iname, $subType), $xml)) {$updated++;}
   
   if ($updated) {&writeXMLFile($xml, $output, $osisP);}
 }
@@ -1471,6 +1481,7 @@ sub findCover($$$) {
       my $fscope = $f;
       my $m = $mod.'_';
       if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
+      $fscope =~ s/_comp$//; # remove any composite marker to get scope
       if ($scope eq $fscope) {return "$dir/$f";}
     }
   }
@@ -1598,10 +1609,10 @@ sub insertPubCover($$) {
 }
 
 sub getCoverFigure($$) {
-  my $scopename = shift;
-  my $type = shift;
-  
-  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$scopename.jpg' resp='$ROC'> </figure>");
+  my $iname = shift;
+  my $type = shift;  
+
+  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$iname.jpg' resp='$ROC'> </figure>");
 }
 
 sub scanUSFM($\%) {
@@ -2665,7 +2676,7 @@ sub convertExplicitGlossaryElements(\@) {
     if ($entryname) {
       # Write reference
       my $newRefElement = $XML_PARSER->parse_balanced_chunk(
-        '<reference osisRef="'.$DICTMOD.':'.&encodeOsisRef($entryname).'" type="x-glosslink">'.$linktext.'</reference>'
+        '<reference osisRef="'.$DICTMOD.':'.&encodeOsisRef($entryname).'" type="x-gloss'.($MOD eq $DICTMOD ? 'link':'ary').'">'.$linktext.'</reference>'
       );
       $index->parentNode->insertBefore($newRefElement, $index);
       $tn->setData($t);

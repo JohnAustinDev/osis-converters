@@ -140,7 +140,8 @@ close(CONF);
 # the aggregated entry because SWORD uses the aggregated entries. 
 # Removes some duplicate and chapter nevmenus, which aren't wanted 
 # for SWORD. If a jpg image is also available in png, switch it to png.
-# Also removes subType="x-external" attributes from references.
+# Also removes subType="x-external" attributes from references, and
+# composite cover images.
 sub links2sword($) {
   my $osisP = shift;
   
@@ -178,6 +179,10 @@ sub links2sword($) {
   
   my @exts = $XPC->findnodes('//osis:reference[@subType="x-external"]/@subType', $xml);
   foreach my $ext (@exts) {$ext->unbindNode();}
+  
+  # Remove composite cover images from SWORD modules (because SWORD intro types are combined by some programs like xulsword)
+  my @comps = $XPC->findnodes('//osis:figure[@subType="x-comp-publication"]', $xml);
+  foreach my $comp (@comps) {$comp->unbindNode();}
 
   my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
   &writeXMLFile($xml, $output, $osisP);
