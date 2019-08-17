@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
-# Copyright 2012 John Austin (gpl.programs.info@gmail.com)
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
 #     
 # "osis-converters" is free software: you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License as 
@@ -17,25 +17,18 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: sfm2osis.pl [Project_Directory]
+# usage: sfm2all.pl [Project_Directory]
+ 
+# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
+# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
-require("$SCRD/scripts/usfm2osis.pl");
-require("$SCRD/scripts/processOSIS.pl");
 
-$OSIS = "$TMPDIR/usfm2osis.xml";
-my $commandFile = "$INPD/CF_usfm2osis.txt";
-if (! -e $commandFile) {
-  &Error("Cannot run sfm2osis.pl unless there is a CF_usfm2osis.txt command file located at $INPD.", 
-  "To run sfm2osis.pl, first run sfm2all.pl to create a default CF_usfm2osis.txt file.", 1);
-}
-&usfm2osis($commandFile, $OSIS);
-&runProcessOSIS($OSIS);
+# bootstrap.pl runs init_linux_script() which will create missing default control files
 
-if ($NO_OUTPUT_DELETE) {
-  # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
-  # YOUR DEBUG CODE GOES HERE
-}
+# then reload Perl globals from the new config.conf [system] section
+&setConfGlobals($CONF);
+&init_opsys();
 
 &timer('stop');
 

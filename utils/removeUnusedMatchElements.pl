@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 @ARGV[1] = 'none'; # no log file, just print to screen
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl";
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
 $dwfPath = "$INPD/$DICTIONARY_WORDS";
 

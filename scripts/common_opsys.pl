@@ -556,6 +556,9 @@ sub haveDependencies($$$$) {
   if ($script =~ /(sfm2all)/) {
     @deps = ('SWORD_PERL', 'SWORD_BIN', 'XMLLINT', 'GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 'XSLT2', 'CALIBRE');
   }
+  elsif ($script =~ /(sfm2defaults)/) {
+    @deps = ('SWORD_PERL', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2');
+  }
   elsif ($script =~ /(sfm2osis|osis2osis)/) {
     @deps = ('SWORD_PERL', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2');
   }

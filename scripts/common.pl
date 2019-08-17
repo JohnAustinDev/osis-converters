@@ -90,7 +90,7 @@ sub init_linux_script() {
     require("$SCRD/scripts/osis2osis.pl");
     &runOsis2osis('preinit', $INPD);
   }
-  elsif ($SCRIPT_NAME =~ /sfm2all/) {
+  elsif ($SCRIPT_NAME =~ /sfm2defaults/) {
     &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
   }
   
@@ -746,7 +746,7 @@ sub initInputOutputFiles($$$$) {
   }
   
   # init SFM files if needed
-  if ($script_name =~ /^sfm2all$/ && -e "$inpd/sfm") {
+  if ($script_name =~ /^sfm2defaults$/ && -e "$inpd/sfm") {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
     &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3);
     &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3);

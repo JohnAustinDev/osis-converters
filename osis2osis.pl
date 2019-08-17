@@ -19,7 +19,7 @@
 
 # usage: osis2osis.pl [Bible_Directory]
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 require("$SCRD/utils/simplecc.pl");
 require("$SCRD/scripts/processOSIS.pl");
 require("$SCRD/scripts/osis2osis.pl");

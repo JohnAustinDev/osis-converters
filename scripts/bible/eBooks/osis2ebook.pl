@@ -22,7 +22,7 @@ $OPTYPE  = @ARGV[4];
 $IPTYPE  = @ARGV[5];
 $COVER   = @ARGV[6];
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/bootstrap.pl";
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
 if ($RUNDIR) {
   $RUNDIR =~ s/[\\\/]\s*$//;

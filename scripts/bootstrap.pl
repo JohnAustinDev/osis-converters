@@ -30,7 +30,7 @@
 # script's absolute path, and it must work on both host opsys and 
 # Vagrant and the osis-converters installation directory name is 
 # unknown):
-# use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl";
+# use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
 use File::Spec;
 require "$SCRD/scripts/common_opsys.pl";
@@ -75,7 +75,7 @@ $CONF = {}; &readConfFile($CONFFILE, $CONF);
 $DICTMOD = ($INPD eq $DICTINPD || $CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
 
 # Allow running MAININPD-only scripts from a DICT sub-project
-if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
+if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|sfm2defaults|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
   $INPD = $MAININPD;
   $MOD = $MAINMOD;
 }
@@ -93,6 +93,5 @@ file in the main module directory.", 1);
 if (!&init_opsys()) {exit;}
 
 require "$SCRD/scripts/common.pl";
-&init_linux_script();
 
 1;
