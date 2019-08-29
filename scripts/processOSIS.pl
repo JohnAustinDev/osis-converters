@@ -36,10 +36,12 @@ KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][
 This entry allows sorting in any desired order by character collation. 
 Square brackets are used to separate any arbitrary JDK 1.4 case  
 sensitive regular expressions which are to be treated as single 
-characters during the sort comparison. Likewise, curly brackets should 
-be used around any similar regular expression(s) which are to be ignored  
-during the sort comparison. Every other square or curly bracket must be 
-escaped by backslash. This means the string to ignore all brackets or 
+characters during the sort comparison. Also, a single set of curly 
+brackets can be used around a regular expression which matches all 
+characters/patterns to be ignored during the sort comparison. IMPORTANT: 
+EVERY square or curly bracket within any regular expression must have an 
+ADDITIONAL \ added before it. This is required so the KeySort value can 
+be parsed correctly. This means the string to ignore all brackets and 
 parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
     }
     

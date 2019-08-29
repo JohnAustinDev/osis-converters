@@ -189,7 +189,7 @@
             
              <!-- Create a uiDictionary main entry, and its sub-entries -->
             <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
-            <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][1], 1, 1)), '-', upper-case(substring($combinedGlossary/descendant::seg[@type='keyword'][last()], 1, 1)))"/>
+            <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(oc:longestStartingMatchKS($combinedGlossary/descendant::seg[@type='keyword'][1])), '-', upper-case(oc:longestStartingMatchKS($combinedGlossary/descendant::seg[@type='keyword'][last()])))"/>
             <xsl:text>&#xa;</xsl:text>
             <div type="x-keyword-navmenu">
               <p>
@@ -204,9 +204,9 @@
               </reference>
               <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
                 <xsl:if test="oc:skipGlossaryEntry(.) = false()">
-                  <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary sub-menu: <xsl:value-of select="upper-case(substring(text(), 1, 1))"/></xsl:with-param></xsl:call-template>
-                  <reference osisRef="{$DICTMOD}:_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}" type="x-glosslink" subType="x-target_self" >
-                    <xsl:value-of select="upper-case(substring(text(), 1, 1))"/>
+                  <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary sub-menu: <xsl:value-of select="upper-case(oc:longestStartingMatchKS(text()))"/></xsl:with-param></xsl:call-template>
+                  <reference osisRef="{$DICTMOD}:_45_{oc:encodeOsisRef(upper-case(oc:longestStartingMatchKS(text())))}" type="x-glosslink" subType="x-target_self" >
+                    <xsl:value-of select="upper-case(oc:longestStartingMatchKS(text()))"/>
                   </reference>
                 </xsl:if>
               </xsl:for-each>
@@ -232,8 +232,8 @@
               <xsl:for-each select="$combinedGlossary//seg[@type='keyword']">
                 <xsl:if test="oc:skipGlossaryEntry(.) = false()">
                   <p>
-                    <seg type="keyword" osisID="_45_{oc:encodeOsisRef(upper-case(substring(text(), 1, 1)))}">
-                      <xsl:value-of select="concat('-', upper-case(substring(text(), 1, 1)))"/>
+                    <seg type="keyword" osisID="_45_{oc:encodeOsisRef(upper-case(oc:longestStartingMatchKS(text())))}">
+                      <xsl:value-of select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
                     </seg>
                   </p>
                   <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'prevnext'"/></xsl:call-template>

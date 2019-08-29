@@ -183,34 +183,10 @@
   <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
     <if test="$KeySort and $text">
-      <variable name="ignoreRegex" as="xs:string">
-        <variable name="ignores" as="xs:string*">
-          <analyze-string select="oc:encodeKS($KeySort)" regex="{'\{([^\}]*)\}'}">
-            <matching-substring><sequence select="regex-group(1)"/></matching-substring>
-          </analyze-string>
-        </variable>
-        <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
-      </variable>
-      <variable name="charRegexes" as="element(me:regex)*">
-        <!-- split KeySort string into 3 groups: chr | [] | {} -->
-        <analyze-string select="oc:encodeKS($KeySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
-          <matching-substring>
-            <if test="not(regex-group(3))"><!-- if group(3) is non empty, this is an ignore group -->
-              <me:regex>
-                <attribute name="regex" select="oc:decodeKS(if (regex-group(2)) then substring(., 2, string-length(.)-2) else .)"/>
-                <attribute name="position" select="position()"/>
-              </me:regex>
-            </if>
-          </matching-substring>
-        </analyze-string>
-      </variable>
+      <variable name="ignoreRegex" select="oc:getIgnoreRegex()" as="xs:string"/>
+      <variable name="charRegexes" select="oc:getCharRegexes()" as="element(me:regex)*"/>
       <!-- re-order from longest regex to shortest -->
-      <variable name="long2shortCharRegexes" as="element(me:regex)*">
-        <for-each select="$charRegexes">     
-          <sort select="string-length(./@regex)" data-type="number" order="descending"/> 
-          <copy-of select="."/>
-        </for-each>
-      </variable>
+      <variable name="long2shortCharRegexes" select="oc:getLong2shortCharRegexes($charRegexes)" as="element(me:regex)*"/>
       <variable name="long2shortCharRegexeMono" select="concat('(', string-join($long2shortCharRegexes/@regex, '|'), ')')" as="xs:string"/>
       <variable name="textKeep" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
       <variable name="result" as="xs:string">
@@ -252,6 +228,50 @@
   <function name="oc:decodeKS" as="xs:string">
     <param name="str" as="xs:string"/>
     <value-of select="replace(replace(replace(replace($str, '_91_', '['), '_93_', ']'), '_123_', '{'), '_125_', '}')"/>
+  </function>
+  <function name="oc:getIgnoreRegex" as="xs:string">
+    <variable name="ignores" as="xs:string*">
+      <analyze-string select="oc:encodeKS($KeySort)" regex="{'\{([^\}]*)\}'}">
+        <matching-substring><sequence select="regex-group(1)"/></matching-substring>
+        </analyze-string>
+    </variable>
+    <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
+  </function>
+  <function name="oc:getCharRegexes" as="element(me:regex)*">
+    <!-- split KeySort string into 3 groups: chr | [] | {} -->
+    <analyze-string select="oc:encodeKS($KeySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
+      <matching-substring>
+        <if test="not(regex-group(3))"><!-- if group(3) is non empty, this is an ignore group -->
+          <me:regex>
+            <attribute name="regex" select="oc:decodeKS(if (regex-group(2)) then substring(., 2, string-length(.)-2) else .)"/>
+            <attribute name="position" select="position()"/>
+          </me:regex>
+        </if>
+      </matching-substring>
+    </analyze-string>
+  </function>
+  <function name="oc:getLong2shortCharRegexes" as="element(me:regex)*">
+    <param name="charRegexes" as="element(me:regex)*"/>
+    <for-each select="$charRegexes">     
+      <sort select="string-length(./@regex)" data-type="number" order="descending"/> 
+      <copy-of select="."/>
+    </for-each>
+  </function>
+  
+  <!-- Find the longest KeySort match at the beginning of a string, or else the first character. -->
+  <function name="oc:longestStartingMatchKS" as="xs:string">
+    <param name="text" as="xs:string"/>
+    <choose>
+      <when test="not($text)"><value-of select="''"/></when>
+      <when test="$KeySort">
+        <variable name="charRegexes" select="oc:getCharRegexes()" as="element(me:regex)*"/>
+        <variable name="ignoreRegex" select="oc:getIgnoreRegex()" as="xs:string"/>
+        <variable name="textKeep" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+        <variable name="result" select="replace($textKeep, concat('^(', string-join(oc:getLong2shortCharRegexes($charRegexes)/@regex, '|'), ').*?$'), '$1')"/>
+        <value-of select="if ($result != $textKeep) then $result else substring($textKeep, 1, 1)"/>
+      </when>
+      <otherwise><value-of select="substring($text, 1, 1)"/></otherwise>
+    </choose>
   </function>
   
   <!-- When a glossary has a TOC entry or main title, then get that title -->
