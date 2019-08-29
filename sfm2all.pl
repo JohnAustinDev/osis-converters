@@ -22,16 +22,13 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
+# First, run sfm2defaults.pl to create any missing default input control files
+my $inpd = @ARGV[0]; my $logfile = @ARGV[0]; # save ARGV to use for sfm2all.pl
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; # to load common.pl
+&osis_converters("$SCRD/sfm2defaults.pl", $inpd, $logfile);
 
-$MOD_OUTDIR = &getModuleOutputDir();
-if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
-$LOGFILE = "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";
-
-# create any missing default input control files
-&osis_converters("$SCRD/sfm2defaults.pl", $MAININPD, $LOGFILE);
-
-&init_linux_script();
+@ARGV = ($inpd, $logfile);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
 # collect all modules to run
 my %modules;

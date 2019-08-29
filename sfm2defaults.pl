@@ -17,18 +17,14 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: sfm2all.pl [Project_Directory]
+# usage: sfm2defaults.pl [Project_Directory]
  
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
-# bootstrap.pl runs init_linux_script() which will create missing default control files
-
-# then reload Perl globals from the new config.conf [system] section
-&setConfGlobals($CONF);
-&init_opsys();
+# init_linux_script() with $SCRIPT_NAME =~ /sfm2defaults/ will create missing default control files
 
 &timer('stop');
 

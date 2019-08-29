@@ -81,12 +81,17 @@ sub init_linux_script() {
   
   $MODULETOOLS_GITHEAD = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($MODULETOOLS_GITHEAD);
   
+  &Log("\nUsing ".`calibre --version`);
+  &Log("osis-converters git rev: $GITHEAD\n");
+  &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
+  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  
   &initLibXML();
   
   &readBookNamesXML();
   
   # If appropriate, do either runOsis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis provides input control files in lieu of defaults)
-  if ($SCRIPT_NAME =~ /(osis2osis|sfm2all)/ && -e "$INPD/CF_osis2osis.txt") {
+  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /(osis2osis|sfm2all)/) {
     require("$SCRD/scripts/osis2osis.pl");
     &runOsis2osis('preinit', $INPD);
   }
@@ -116,10 +121,12 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
+  # update old convert.txt configuration
   if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
     &update_removeConvertTXT();
   }
   
+  # update old /DICT/config.conf configuration
   if ($DICTMOD && -e "$DICTINPD/config.conf") {
     &update_dictConfig($CONFFILE);
   }
@@ -128,9 +135,15 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &checkConfGlobals();
   
-  &checkRequiredConfEntries();
-  
   &checkProjectConfiguration();
+  
+  if ($SCRIPT_NAME !~ /sfm2defaults/) {&checkRequiredConfEntries();}
+  
+  # If $LOGFILE is not specified then start a new one named $SCRIPT_NAME.
+  # Otherwise append to $LOGFILE.
+  my $append2LOGFILE = ($LOGFILE ? 1:0);
+  if (!$LOGFILE) {$LOGFILE = "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
+  if (!$append2LOGFILE && -e $LOGFILE) {unlink($LOGFILE);}
   
   # Set default to 'on' for the following OSIS processing steps
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
@@ -141,16 +154,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
   }
   
-  my $appendlog = ($LOGFILE ? 1:0);
-  if (!$LOGFILE) {$LOGFILE = "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
-  if (!$appendlog && -e $LOGFILE) {unlink($LOGFILE);}
-  
-  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');}
-  
-  &Log("\nUsing ".`calibre --version`);
-  &Log("osis-converters git rev: $GITHEAD\n");
-  &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
-  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
@@ -162,6 +166,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
+  
   &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n");
 }
 # This is only needed to update old osis-converters projects

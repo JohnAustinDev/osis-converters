@@ -19,9 +19,10 @@
 
 # This script might be loaded on any operating system.
 
-# This is the starting point for osis-converter scripts. Global path 
-# variables are initialized or cleaned up and then the script is 
-# started.
+# This script uses 2 passed parameters (the 2nd is optional): $INPD, $LOGFILE
+
+# This is the starting point for osis-converter scripts. The opsys is checked,
+# Global variables are initialized or cleaned up, and common.pl is loaded.
 
 # This script must be called with the following line, having X replaced 
 # by the calling script's proper sub-directory depth (and don't bother
@@ -36,6 +37,9 @@ use File::Spec;
 require "$SCRD/scripts/common_opsys.pl";
 
 $INPD = shift;
+
+# If $LOGFILE is not passed then a new clean one will be started, named $SCRIPT_NAME, during init_linux_script().
+# If $LOGFILE is passed, that one will be appended to, or, if the passed value is 'none', there will be no log file.
 $LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
 
 $INPD = File::Spec->rel2abs($INPD);
@@ -90,7 +94,7 @@ file in the main module directory.", 1);
 
 &setConfGlobals($CONF);
 
-if (!&init_opsys()) {exit;}
+if (!&init_opsys()) {exit;} # init_opsys also sets Perl global vars with config.conf [system] section entries
 
 require "$SCRD/scripts/common.pl";
 
