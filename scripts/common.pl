@@ -123,12 +123,14 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   # update old convert.txt configuration
   if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
-    &update_removeConvertTXT();
+    &update_removeConvertTXT($CONFFILE);
+    &readConfFile($CONFFILE, $CONF);
   }
-  
+
   # update old /DICT/config.conf configuration
   if ($DICTMOD && -e "$DICTINPD/config.conf") {
-    &update_dictConfig($CONFFILE);
+    &update_removeDictConfig("$DICTINPD/config.conf", $CONFFILE);
+    &readConfFile($CONFFILE, $CONF);
   }
   
   &setConfGlobals(&readConf());
@@ -170,29 +172,27 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n");
 }
 # This is only needed to update old osis-converters projects
-sub update_removeConvertTXT() {
-  &Warn("UPDATE: Found outdated convert.txt. Updating...");
-  my $neweb = &updateConvertTXT("$MAININPD/eBook/convert.txt");
-  if ($neweb) {$neweb = "\n$neweb";}
-  my $newhm = &updateConvertTXT("$MAININPD/html/convert.txt");
-  if ($newhm) {$newhm = "\n[osis2html]\n$newhm";}
-  my $new = $neweb.$newhm;
-  if (!$new) {return;}
-  if (!open(ACON, ">>:encoding(UTF-8)", $CONFFILE)) {
-    &ErrorBug("update_removeConvertTXT could not append to $CONFFILE");
+sub update_removeConvertTXT($) {
+  my $confFile = shift;
+  
+  &Warn("UPDATE: Found outdated convert.txt. Updating $confFile...");
+  my %confP; if (!&readConfFile($confFile, \%confP)) {
+    &Error("Could not read config.conf file: $confFile");
     return;
   }
-  print ACON $new;
-  &Warn("<-UPDATE: Appending to config.conf:\n$new");
-  close(ACON);
+  
+  &updateConvertTXT("$MAININPD/eBook/convert.txt", \%confP);
+  &updateConvertTXT("$MAININPD/html/convert.txt", \%confP, 'osis2html');
+  return &writeConf($confFile, \%confP);
 }
 # This is only needed to update old osis-converters projects
-sub updateConvertTXT($) {
+sub updateConvertTXT($$$) {
   my $convtxt = shift;
+  my $confP = shift;
+  my $section = shift;
   
   if (! -e $convtxt) {return '';}
   
-  my $new = '';
   if (open(CONV, "<:encoding(UTF-8)", $convtxt)) {
     while(<CONV>) {
       if ($_ =~ /^#/) {next;}
@@ -235,7 +235,7 @@ sub updateConvertTXT($) {
           $e = 'TranslationTitle';
           &Warn("<-$warn $e=$v");
         }
-        $new .= "$e=$v\n";
+        $confP->{($section ? "$section+":"$MAINMOD+").$e} = $v;
       }
     }
     close(CONV);
@@ -248,20 +248,16 @@ various settings has now been replaced by a section in the config.conf
 file. The convert.txt file will be deleted. Your config.conf will have 
 a new section with that information.");
   unlink($convtxt);
-  
-  return $new;
 }
 
 # This is only needed to update old osis-converters projects
-sub update_dictConfig($) {
-  my $mconf = shift;
+sub update_removeDictConfig($$) {
+  my $dconf = shift;
+  my $confFile = shift;
 
   &Warn("UPDATE: Found outdated DICT config.conf. Updating...");
-  my %mainConf;
-  &readConfFile($mconf, \%mainConf);
-  my %dictConf;
-  my $dconf = "$DICTINPD/config.conf";
-  &readConfFile($dconf, \%dictConf);
+  my %mainConf; &readConfFile($confFile, \%mainConf);
+  my %dictConf; &readConfFile($dconf, \%dictConf);
   &Warn("<-UPDATE: Removing outdated DICT config.conf: $dconf");
   unlink($dconf);
   &Note("The file: $dconf which was used for 
@@ -269,12 +265,13 @@ DICT settings has now been replaced by a section in the config.conf
 file. The DICT config.conf file will be deleted. Your config.conf will 
 have new section with that information.");
   foreach my $de (sort keys %dictConf) {
-    if ($de eq 'ModuleName') {next;}
-    if ($mainConf{$de} eq $dictConf{$de}) {next;}
+    if ($de =~ /(^|\+)(ModuleName)$/) {next;}
+    my $de2 = $de; $de2 =~ s/^$MAINMOD\+//;
+    if ($mainConf{$de2} eq $dictConf{$de} || $mainConf{"$MAINMOD+$de2"} eq $dictConf{$de}) {next;}
     $mainConf{"$DICTMOD+$de"} = $dictConf{$de};
   }
 
-  return &writeConf($mconf, \%mainConf);
+  return &writeConf($confFile, \%mainConf);
 }
 
 # Enforce the only supported module configuration and naming convention
@@ -1818,7 +1815,7 @@ sub writeConf($$) {
   if (!-e $confdir) {make_path($confdir);}
   
   open(CONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
-  my $section = '';
+  my $section = ''; my %used;
   foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
     my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
     if ($s eq $MAINMOD) {$s = '';}

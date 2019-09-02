@@ -285,15 +285,12 @@ sub readConfFile($$$) {
     if    ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       if ($. == 1) {$data{'ModuleName'} = $1;}
-      else {
-        $section = $1;
-        if ($DICTMOD && $section eq $DICTMOD) {$data{"$DICTMOD+ModuleName"} = $section;}
-      }
+      else {$section = $1;}
     }
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       my $entry = $1; my $value = $2;
       $entry = ($section && $section ne $data{'ModuleName'} ? "$section+":'').$entry;
-      if ($data{$entry} ne '') {$data{$entry} .= "<nx/>".$value;}
+      if ($data{$entry} ne '' && $entry !~ /\bModuleName$/) {$data{$entry} .= "<nx/>".$value;}
       else {$data{$entry} = $value;}
       $continuation = ($_ =~ /\\\n/ ? $entry:'');
     }
