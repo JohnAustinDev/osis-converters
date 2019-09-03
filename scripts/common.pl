@@ -1082,6 +1082,8 @@ sub toCFRegex($) {
   my $aP = shift;
   
   my @sorted = sort { length $a <=> length $b } @{$aP};
+  # remove training spaces from segments
+  foreach my $s (@sorted) {if ($s =~ s/(\S)\\?\s+$/$1/) {&Note("Removed trailing space from $s");}}
   return '('.join('|', @sorted).')';
 }
 sub readParatextReferenceSettings() {
