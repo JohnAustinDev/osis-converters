@@ -284,8 +284,9 @@ sub readConfFile($$$) {
   while(<CONF>) {
     if    ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
+      $section = ($1 eq $MAINMOD ? '':$1);
       if ($. == 1) {$data{'ModuleName'} = $1;}
-      else {$section = $1;}
+      if ($DICTMOD && $section eq $DICTMOD) {$data{"$DICTMOD+ModuleName"} = $DICTMOD;}
     }
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
       my $entry = $1; my $value = $2;
