@@ -23,10 +23,9 @@
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 # First, run sfm2defaults.pl to create any missing default input control files
-my $inpd = @ARGV[0]; my $logfile = @ARGV[0]; # save ARGV to use for sfm2all.pl
+my $inpd = @ARGV[0]; my $logfile = @ARGV[1]; # save ARGV to use for sfm2all.pl
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; # to load common.pl
-&osis_converters("$SCRD/sfm2defaults.pl", $inpd, $logfile);
-
+&osis_converters("$SCRD/sfm2defaults.pl", $INPD, $logfile);
 @ARGV = ($inpd, $logfile);
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 

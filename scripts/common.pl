@@ -1781,7 +1781,7 @@ sub writeXMLFile($$$$) {
 
 sub osis_converters($$$) {
   my $script = shift;
-  my $project_dir = shift;
+  my $project_dir = shift; # THIS MUST BE AN ABSOLUTE PATH!
   my $logfile = shift;
   
   my $cmd = &escfile($script)." ".&escfile($project_dir).($logfile ? " ".&escfile($logfile):'');
