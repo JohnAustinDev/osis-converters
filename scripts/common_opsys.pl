@@ -282,19 +282,37 @@ sub readConfFile($$$) {
   my $section = '';
   my %data;
   while(<CONF>) {
+    # ignore comment lines
     if    ($_ =~ /^#/) {next;}
+    
+    # handle section headings
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       $section = ($1 eq $MAINMOD ? '':$1);
+      # read a ModuleName entry for the 1st section and $DICTMOD section
       if ($. == 1) {$data{'ModuleName'} = $1;}
       if ($DICTMOD && $section eq $DICTMOD) {$data{"$DICTMOD+ModuleName"} = $DICTMOD;}
     }
+    
+    # handle config entries
     elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
-      my $entry = $1; my $value = $2;
-      $entry = ($section && $section ne $data{'ModuleName'} ? "$section+":'').$entry;
-      if ($data{$entry} ne '' && $entry !~ /\bModuleName$/) {$data{$entry} .= "<nx/>".$value;}
-      else {$data{$entry} = $value;}
-      $continuation = ($_ =~ /\\\n/ ? $entry:'');
+      my $entryName = $1; my $value = $2;
+      my $entryFull = ($section && $section ne $data{'ModuleName'} ? "$section+":'').$entryName;
+      if (!exists($data{$entryFull})) {$data{$entryFull} = $value;}
+      else {
+        # if this entry supports multiple values, then append another value
+        if (exists($MULTIVALUE_CONFIGS{$entryName})) {
+          $data{$entryFull} .= $MULTIVALUE_CONFIGS{$entryName}.$value;
+        }
+        # otherwise overwrite previous value
+        else {
+          &Warn("The config.conf entry '$entryFull' appears more than once: was=".$data{$entryFull}.", is now=$value.");
+          $data{$entryFull} = $value;
+        }
+      }
+      $continuation = ($_ =~ /\\\n/ ? $entryFull:'');
     }
+    
+    # otherwise this line is part of the last line
     else {
       chomp;
       if ($continuation) {$data{$continuation} .= "\n$_";}
