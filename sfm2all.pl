@@ -22,13 +22,10 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-# First, run sfm2defaults.pl to create any missing default input control files
-my $s2a_inpd = @ARGV[0]; my $s2a_logfile = @ARGV[1]; # save ARGV to use for sfm2all.pl
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; my $s2a_script = $SCRIPT; my $s2a_scrd = $SCRD; require "$SCRD/scripts/bootstrap.pl"; # to load common.pl
-&osis_converters("$SCRD/sfm2defaults.pl", $INPD, $s2a_logfile);
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
-# Second, continue by starting sfm2all.pl
-@ARGV = ($s2a_inpd, $s2a_logfile); $SCRIPT = $s2a_script; $SCRD = $s2a_scrd; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+# run sfm2defaults.pl to create any missing default input control files
+&osis_converters("$SCRD/sfm2defaults.pl", $INPD, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
 
 # collect all modules to run
 my %modules;
@@ -59,14 +56,14 @@ foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 
   my $mod = ($modules{$dir} =~ /LD/ ? $DICTMOD:$MAINMOD);
   if (-e "$dir/CF_usfm2osis.txt") {
     if (&conf('ARG_sfm2all_skip', $mod, 'sfm2osis') ne 'true') {
-      &osis_converters("$SCRD/sfm2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+      &osis_converters("$SCRD/sfm2osis.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
     }
   }
   elsif (&conf('ARG_sfm2all_skip', $mod, 'osis2osis') ne 'true') {
-    &osis_converters("$SCRD/osis2osis.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    &osis_converters("$SCRD/osis2osis.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $mod, 'osis2sword') ne 'true') {
-    &osis_converters("$SCRD/osis2sword.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    &osis_converters("$SCRD/osis2sword.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
 }
 
@@ -74,13 +71,13 @@ foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 
 foreach my $dir (keys %modules) {
   if ($modules{$dir} =~ /LD/) {next;}
   if ($modules{$dir} =~ /Text/ && &conf('ARG_sfm2all_skip', $MAINMOD, 'osis2GoBible') ne 'true') {
-    &osis_converters("$SCRD/osis2GoBible.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    &osis_converters("$SCRD/osis2GoBible.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2html') ne 'true') {
-    &osis_converters("$SCRD/osis2html.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    &osis_converters("$SCRD/osis2html.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2ebooks') ne 'true') {
-    &osis_converters("$SCRD/osis2ebooks.pl", $dir, (!$SFM2ALL_SEPARATE_LOGS ? $LOGFILE:''));
+    &osis_converters("$SCRD/osis2ebooks.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
 }
 

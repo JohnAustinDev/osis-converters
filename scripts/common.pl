@@ -88,7 +88,7 @@ sub init_linux_script() {
   
   &initLibXML();
   
-  &readBookNamesXML();
+  %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
   # If appropriate, do either runOsis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis provides input control files in lieu of defaults)
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /(osis2osis|sfm2all)/) {
@@ -96,7 +96,7 @@ sub init_linux_script() {
     &runOsis2osis('preinit', $INPD);
   }
   elsif ($SCRIPT_NAME =~ /sfm2defaults/) {
-    &checkAndWriteDefaults(); # do this after readBookNamesXML() so %BOOKNAMES is set
+    &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
   }
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
@@ -141,11 +141,7 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   if ($SCRIPT_NAME !~ /sfm2defaults/) {&checkRequiredConfEntries();}
   
-  # If $LOGFILE is not specified then start a new one named $SCRIPT_NAME.
-  # Otherwise append to $LOGFILE.
-  my $append2LOGFILE = ($LOGFILE ? 1:0);
-  if (!$LOGFILE) {$LOGFILE = "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt";}
-  if (!$append2LOGFILE && -e $LOGFILE) {unlink($LOGFILE);}
+  $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
   
   # Set default to 'on' for the following OSIS processing steps
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
@@ -274,6 +270,24 @@ have new section with that information.");
   return &writeConf($confFile, \%mainConf);
 }
 
+# If $logfileIn is not specified then start a new one at $logfileDef.
+# If $logfileIn is specified then append to $logfileIn.
+sub initLogFile($$) {
+  my $logfileIn = shift;
+  my $logfileDef = shift;
+  
+  my $logfile = ($logfileIn ? $logfileIn:$logfileDef);
+  
+  # delete old log if $logfileIn was not specified
+  if (!$logfileIn && -e $logfile) {unlink($logfile);}
+  
+  # create parent directory if it doesn't exist yet
+  my $logfileParent = $logfile; $logfileParent =~ s/\/[^\/]+\/?$//;
+  if (!-e $logfileParent) {&make_path($logfileParent);}
+  
+  return $logfile;
+}
+
 # Enforce the only supported module configuration and naming convention
 sub checkProjectConfiguration() {
   if (uc($MAINMOD) ne $MAINMOD) {
@@ -311,7 +325,9 @@ glossaries, dictionaries, maps, tables, etc. etc.. But its name must be
   }
 }
 
-sub readBookNamesXML() {
+sub readBookNamesXML($) {
+  my $booknamesHP = shift;
+  
   my $main = $INPD; if ($main =~ /DICT$/) {$main .= "/..";}
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
   foreach my $bknxml (split(/\n+/, &shell("find '$main/sfm' -name 'BookNames.xml' -print", 3))) {
@@ -327,20 +343,20 @@ sub readBookNamesXML() {
       my @ts = ('abbr', 'short', 'long');
       foreach my $t (@ts) {
         if (!$bkelem->hasAttribute($t) || $bkelem->getAttribute($t) =~ /^\s*$/) {next;}
-        if ($BOOKNAMES{$bk}{$t} && $BOOKNAMES{$bk}{$t} ne $bkelem->getAttribute($t)) {
+        if ($booknamesHP->{$bk}{$t} && $booknamesHP->{$bk}{$t} ne $bkelem->getAttribute($t)) {
           my $new = $bkelem->getAttribute($t);
           if (
-            ($t eq 'short' && length($new) > length($BOOKNAMES{$bk}{$t})) || 
-            ($t eq 'long' && length($new) < length($BOOKNAMES{$bk}{$t}))
+            ($t eq 'short' && length($new) > length($booknamesHP->{$bk}{$t})) || 
+            ($t eq 'long' && length($new) < length($booknamesHP->{$bk}{$t}))
           ) {
-            $new = $BOOKNAMES{$bk}{$t};
+            $new = $booknamesHP->{$bk}{$t};
             &Warn("Multiple $t definitions for $bk. Keeping '$new' rather than '".$bkelem->getAttribute($t)."'.", "That the resulting value is correct, and possibly fix the incorrect one.");
           }
           else {
-            &Warn("Multiple $t definitions for $bk. Using '$new' rather than '".$BOOKNAMES{$bk}{$t}."'.", "That the resulting value is correct, and possibly fix the incorrect one.");
+            &Warn("Multiple $t definitions for $bk. Using '$new' rather than '".$booknamesHP->{$bk}{$t}."'.", "That the resulting value is correct, and possibly fix the incorrect one.");
           }
         }
-        $BOOKNAMES{$bk}{$t} = $bkelem->getAttribute($t);
+        $booknamesHP->{$bk}{$t} = $bkelem->getAttribute($t);
       }
     }
   }
@@ -777,7 +793,8 @@ sub initLibXML() {
 # change from project to project. This is because all default files are 
 # read at runtime by getDefaultFile(). So these may be copied and 
 # customized as needed, manually by the user.
-sub checkAndWriteDefaults() {
+sub checkAndWriteDefaults($) {
+  my $booknamesHP = shift;
   
   # Project default control files
   my @projectDefaults = (
@@ -860,7 +877,7 @@ sub checkAndWriteDefaults() {
         &Note("Customizing $file...");
         if    ($file =~ /config\.conf$/)             {&customize_conf($file, $modName, $modType, $haveDICT);}
         elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($file, $modType);}
-        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file);}
+        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file, $booknamesHP);}
         else {&ErrorBug("Unknown customization type $dc for $file", "Write a customization function for this type of file.", 1);}
       }
     }
@@ -1004,17 +1021,18 @@ sub getSubPublications() {
   return @subpub;
 }
 
-sub customize_addScripRefLinks($) {
+sub customize_addScripRefLinks($$) {
   my $cf = shift;
+  my $booknamesHP = shift;
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
   # Collect all available Bible book abbreviations
   my %abbrevs;
-  # from BookNames.xml (%BOOKNAMES)
-  foreach my $bk (keys %BOOKNAMES) {
-    foreach my $type (keys %{$BOOKNAMES{$bk}}) {
-      $abbrevs{$BOOKNAMES{$bk}{$type}} = $bk;
+  # $booknamesHP is from BookNames.xml
+  foreach my $bk (keys %{$booknamesHP}) {
+    foreach my $type (keys %{$booknamesHP->{$bk}}) {
+      $abbrevs{$booknamesHP->{$bk}{$type}} = $bk;
     }
   }
   # from SFM files (%USFM)

@@ -20,7 +20,7 @@
 # usage: osis2osis.pl [Bible_Directory]
 
 sub runOsis2osis($$) {
-  $O2O_CurrentContext = shift;
+  $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
   my $cfdir = shift;
 
   my @outmods = ();
