@@ -568,6 +568,19 @@ sub addLinks(\$$$$) {
       my $mtENC = quotemeta($matchedTerm);
 
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
+        # Skip if this error is marked to be skipped
+        my $repExtref = &fixLink($matchedTerm, "$BK.$CH.$VS", \%fix, \%fixDone);
+        if ($repExtref) {
+          if ($repExtref ne 'skip') {
+            &Error("Links with errors can only be skipped.", "The FIX instruction in CF_addScripRefLink.pl must not have anything after the equal sign.");
+          }
+          &hideTerm($matchedTerm, $ttP, 1);
+          next;
+        }
+        
+        # Log this link (even though there is an error) so that the user can skip it if desired
+        &logLink($LOCATION, 0, $matchedTerm, 'unknown', $type);
+        
         &Error("$LOCATION: Left-most term \"$matchedTerm\" Type \"$type\" could not be found  in \"$$ttP\".", "
         The detected sub-reference could not be located in the text above.
         This usually happens because REF_END_TERMS could not be found in 
