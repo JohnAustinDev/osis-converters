@@ -120,9 +120,9 @@ sub usfm2osis($$) {
       my $value = $+{val};
       push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
     }
-    elsif ($_ =~ /^VSYS_EXTRA:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
-      my $value = $+{val};
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA', 'source'=>$value });
+    elsif ($_ =~ /^VSYS_EXTRA:(?:\s*(?<to>$VSYS_INSTR_RE)\s*<\-\s*(?<from>$VSYS_UNIVERSE_RE)\s*)?$/) {
+      my $to = $+{to}; my $from = $+{from};
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA', 'source'=>$to, 'universal'=>$from });
     }
     elsif ($_ =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
       my $from = $+{from}; my $to = $+{to};

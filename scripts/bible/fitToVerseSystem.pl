@@ -42,18 +42,12 @@ VSYS_MOVED: BK.1.2.3 -> BK.4.5.6
 Specifies that this translation has moved the verses that would be found 
 in a range of the fixed verse system to a different position in the 
 source verse system, indicated by the range to the right of '->'. The 
-two ranges must be the same size. It is processed as: 
-VSYS_MISSING: <fixed-vsys-range> 
-then:
-VSYS_EXTRA: <source-vsys-range>
-followed by: 
-VSYS_FROM_TO <fixed-vsys-range> <source-vsys-range> 
-The end verse portion of either range may be the keyword 'PART' (such as 
-Gen.4.7.PART), meaning that the reference applies to only part of the 
-specified verse. Furthermore the VSYS_MOVED instruction also updates the 
-hyperlink targets of externally supplied Scripture cross-references so 
-that they correctly point to their moved location in the source and 
-fitted verse systems.
+two ranges must be the same size. The end verse portion of either range 
+may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
+reference applies to only part of the specified verse. Furthermore the 
+VSYS_MOVED instruction also updates the hyperlink targets of externally 
+supplied Scripture cross-references so that they correctly point to 
+their moved location in the source and fitted verse systems.
 
 VSYS_MISSING: BK.1.2.3
 Specifies that this translation does not include a range of verses of
@@ -62,30 +56,34 @@ preceeding extant verse id modified to span the missing range, but in no
 case exceeding the end of a chapter. Any externally supplied cross-
 references to the missing verses will then be removed. Also, if there 
 are source verse(s) already sharing the verse number(s) of the missing 
-verse(s), then these, as well as any following verses in the chapter 
-will be renumbered upward by the number of missing verses, and alternate 
-verse numbers will be appended to them displaying their original source 
-verse system number. Additionally in the case of renumbered verses, 
-externally supplied Scripture cross-reference to these verses are 
-updated so as to be correct for both the source and fitted verse 
-systems. Entire missing chapters are not supported.
-
-VSYS_EXTRA: BK.1.2.3
-Specifies that the source verse system includes an extra range of verses 
-which are not there in the fixed verse system. So for the fitted verse 
-system, the additional verse(s) will be converted to alternate verse(s) 
-and appended to the preceding extant verse in the fixed verse system. 
-Also, if there are any verses following the extra verses in the source 
-verse system, then these will be renumbered downward by the number of 
-extra verses, and alternate verse numbers will be appended to display  
-their original verse number(s) in the source verse system. Additionally 
-in the case of renumbered verses, externally supplied Scripture cross-
+verse(s), then the fixed verse system will have these, as well as any 
+following verses in the chapter renumbered upward by the number of 
+missing verses, and alternate verse numbers will be appended to them 
+displaying their original source verse system number. Additionally in 
+the case of renumbered verses, externally supplied Scripture cross-
 reference to these verses are updated so as to be correct for both the 
-source and fitted verse systems. The extra verse range may be an entire 
-chapter if it occurs at the end of a book (like Psalm 151), in which 
-case an alternate chapter number will be inserted and the entire extra 
-chapter will be appended to the last verse of the previous extant 
-chapter.
+source and fitted verse systems. Entire missing chapters are not 
+supported.
+
+VSYS_EXTRA: BK.1.2.3 <- VERSIFICATION:BK.1.2.3
+Specifies that the source verse system includes an extra range of verses 
+which do not exist in the fixed verse system. The left side verse range 
+specifies the extra verses in the source verse system, and the right 
+side range is a universal address for those extra verses, which is only 
+used to record where the extra verses originated from. So for the fitted 
+verse system, the additional verse(s) will be converted to alternate 
+verse(s) and appended to the preceding extant verse in the fixed verse 
+system. Also, if there are any verses following the extra verses in the 
+source verse system, then these will be renumbered downward by the 
+number of extra verses, and alternate verse numbers will be appended to 
+display their original verse number(s) in the source verse system. 
+Additionally in the case of renumbered verses, externally supplied 
+Scripture cross-reference to these verses are updated so as to be 
+correct for both the source and fitted verse systems. The extra verse 
+range may be an entire chapter if it occurs at the end of a book (like 
+Psalm 151), in which case an alternate chapter number will be inserted 
+and the entire extra chapter will be appended to the last verse of the 
+previous extant chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
@@ -117,7 +115,7 @@ cross-references to be updated to their locations in the source verse
 system. It could be used if a verse is marked in the text but is left 
 empty, while there is a footnote about it in the previous verse (but see 
 VSYS_MISSING_FN which is the more common case). VSYS_FROM_TO is usually 
-not the right instruction for most use cases, but it is used most often 
+not the right instruction for most use cases; it is used most often 
 internally.
 
 SET_customBookOrder:true
