@@ -219,7 +219,7 @@ sub convertFileStrings($$) {
     my $origMainmod = $confH{'ModuleName'};
     
     # replace module names in all config keys
-    foreach my $e (keys %confH) {
+    foreach my $e (sort keys %confH) {
       my $e2 = $e; if ($e2 !~ s/^${origMainmod}DICT\+/${MAINMOD}DICT\+/) {next;}
       $confH{$e2} = delete $confH{$e};
     }

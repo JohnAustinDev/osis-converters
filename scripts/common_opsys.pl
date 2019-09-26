@@ -217,14 +217,14 @@ sub readPaths($) {
     
   # The following are installed to certain locations by provision.sh
   if ($^O =~ /linux/i) {
-    foreach my $v (keys %exedirs) {
+    foreach my $v (sort keys %exedirs) {
       if ($$v) {next;}
       $$v = &expandLinuxPath($exedirs{$v});
     }
   }
   
   # All executable directory paths should end in / or else be empty.
-  foreach my $v (keys %exedirs) {
+  foreach my $v (sort keys %exedirs) {
     if (!$$v) {next;}
     $$v =~ s/([^\/])$/$1\//;
   }
@@ -363,7 +363,7 @@ sub setConfGlobals($) {
 sub setSystemVars($) {
   my $confP = shift;
   
-  foreach my $ce (keys %{$confP}) {
+  foreach my $ce (sort keys %{$confP}) {
     if ($ce !~ /^system\+(.*)$/) {next;}
     my $e = $1;
     my $ok = 0;

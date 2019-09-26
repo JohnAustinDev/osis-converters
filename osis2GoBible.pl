@@ -63,7 +63,7 @@ my %results;
 &makeGoBibles('normal', "$TMPDIR/normal", $collectionsP, $MaxTries, \%results);
 &copyGoBibles("$TMPDIR/normal", $GBOUT);
 
-my @a; push(@a, (keys %{$collectionsP}));
+my @a; push(@a, (sort keys %{$collectionsP}));
 foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
 #use Data::Dumper; &Log("type=$type\n".Dumper($collectionsP)."\n", 1);
 
@@ -230,7 +230,7 @@ sub writeCollectionsFile($$) {
     }
     $colfile .= $_;
   }
-  foreach my $bk (keys %localbk) {if ($localbk{$bk}) {$colfile .= "Book-Name-Map: $bk, ".$localbk{$bk}."\n";}}
+  foreach my $bk (sort keys %localbk) {if ($localbk{$bk}) {$colfile .= "Book-Name-Map: $bk, ".$localbk{$bk}."\n";}}
   
   $colfile .= "Info: (".&conf('Version').") ".&conf('Description')."\n";
   $colfile .= "Application-Name: ".&conf('Abbreviation')."\n";
@@ -346,7 +346,7 @@ sub adjustCollectionSizes($$$$) {
     &shiftBookFromOversizedCollections($collectionsP, $colSizeP, $colext, $maxColSize);
     $colSizeP = &calculateCollectionSizes($collectionsP, $bookSizesP);
     $hasOversize = 0;
-    foreach my $col (keys %{$colSizeP}) {
+    foreach my $col (sort keys %{$colSizeP}) {
       if ($col eq lc($MAINMOD).$colext) {next;}
       if ($colSizeP->{$col} > $maxColSize) {$hasOversize++;}
     }
@@ -365,7 +365,7 @@ sub shiftBookFromOversizedCollections($$$$) {
   my $colext = shift;
   my $maxColSize = shift;
 
-  foreach my $col (keys %{$collectionsP}) {
+  foreach my $col (sort keys %{$collectionsP}) {
     if ($col eq lc($MAINMOD).$colext) {next;}
     if ($colSizeP->{$col} <= $maxColSize) {next;}
     if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", '', 1);}

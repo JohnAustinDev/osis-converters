@@ -54,7 +54,7 @@ sub runAddSeeAlsoLinks($$) {
     if (my $resHP = &checkCircularEntries($output)) {
       my $dwfIsDefault = &isDictDWFDefault(); # check before changing
       my $dxml = $XML_PARSER->parse_file($DEFAULT_DICTIONARY_WORDS);
-      foreach my $osisRef (keys %{$resHP}) {
+      foreach my $osisRef (sort keys %{$resHP}) {
         my $entry = @{$XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $dxml)}[0];
         $entry->setAttribute('notContext', ($entry->hasAttribute('notContext') ? $entry->getAttribute('notContext').' ':'').$resHP->{$osisRef});
         &Note("Setting entry $osisRef notContext=\"".$entry->getAttribute('notContext')."\" in $DEFAULT_DICTIONARY_WORDS");

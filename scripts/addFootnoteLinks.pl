@@ -215,8 +215,8 @@ DICT OSIS file again.");
   &Log("#################################################################\n");
   &Log("\n");
   
-  foreach my $k (keys %FNL_FIX) {
-    foreach my $t (keys %{$FNL_FIX{$k}}) {
+  foreach my $k (sort keys %FNL_FIX) {
+    foreach my $t (sort keys %{$FNL_FIX{$k}}) {
       if ($FNL_FIX{$k}{$t} ne 'done') {
         &Error("FIX: LOCATION='$k' was not applied!", "Change or remove this FIX statement.");
       }
@@ -357,7 +357,7 @@ sub processXML($$) {
   }
 
   # replace the old text nodes with the new
-  foreach my $n (keys %nodeInfo) {
+  foreach my $n (sort keys %nodeInfo) {
     $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
     $nodeInfo{$n}{'node'}->unbindNode();
   }
@@ -366,7 +366,7 @@ sub processXML($$) {
 sub stat($) {
   my $re = shift;
   my $t = 0;
-  for my $k (keys %FNL_STATS) {if (!$re || $k =~ /$re/) {$t += $FNL_STATS{$k};}}
+  for my $k (sort keys %FNL_STATS) {if (!$re || $k =~ /$re/) {$t += $FNL_STATS{$k};}}
   return $t;
 }
 
@@ -385,7 +385,7 @@ sub addFootnoteLinks2TextNode($$) {
   if ($textNode->data() !~ /\b($footnoteTerms)($suffixTerms)*\b/i) {return '';}
   
   my $text = $textNode->data();
-  my $ordTerms = join("|", keys(%TERM_ORDINAL));
+  my $ordTerms = join("|", sort keys(%TERM_ORDINAL));
   
   my %refInfo;
   my $keyRefInfo = 1;
@@ -438,7 +438,7 @@ sub addFootnoteLinks2TextNode($$) {
     }
     # FIX implementation...
     elsif (exists($FNL_FIX{"$BK.$CH.$VS"})) {
-      foreach my $t (keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
+      foreach my $t (sort keys %{$FNL_FIX{"$BK.$CH.$VS"}}) {
         if ($FNL_FIX{"$BK.$CH.$VS"}{$t} eq 'done') {next;}
         if ("$beg$term" =~ /\Q$t\E/) {
           my $value = $FNL_FIX{"$BK.$CH.$VS"}{$t};

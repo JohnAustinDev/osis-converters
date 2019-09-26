@@ -410,7 +410,7 @@ sub checkFont($) {
     my @fonts = readdir(DIR);
     closedir(DIR);
     my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic', 'BI' => 'bold italic', 'IB' => 'bold italic');
-    foreach my $s (keys %styles) {if ($font =~ /\-$s$/i) {&Error("The Font config.conf entry should not specify the font style.", "Remove '-$s' from FONT=$font in config.conf");}}
+    foreach my $s (sort keys %styles) {if ($font =~ /\-$s$/i) {&Error("The Font config.conf entry should not specify the font style.", "Remove '-$s' from FONT=$font in config.conf");}}
     foreach my $f (@fonts) {
       if ($f =~ /^\./) {next;}
       if ($f =~ /^(.*?)(\-([ribRIB]{1,2}))?\.([^\.]+)$/) {
@@ -1032,14 +1032,14 @@ sub customize_addScripRefLinks($$) {
   # Collect all available Bible book abbreviations
   my %abbrevs;
   # $booknamesHP is from BookNames.xml
-  foreach my $bk (keys %{$booknamesHP}) {
-    foreach my $type (keys %{$booknamesHP->{$bk}}) {
+  foreach my $bk (sort keys %{$booknamesHP}) {
+    foreach my $type (sort keys %{$booknamesHP->{$bk}}) {
       $abbrevs{$booknamesHP->{$bk}{$type}} = $bk;
     }
   }
   # from SFM files (%USFM)
-  foreach my $f (keys %{$USFM{'bible'}}) {
-    foreach my $t (keys %{$USFM{'bible'}{$f}}) {
+  foreach my $f (sort keys %{$USFM{'bible'}}) {
+    foreach my $t (sort keys %{$USFM{'bible'}{$f}}) {
       if ($t !~ /^toc\d$/) {next;}
       $abbrevs{$USFM{'bible'}{$f}{$t}} = $USFM{'bible'}{$f}{'osisBook'};
     }
@@ -1067,7 +1067,7 @@ sub customize_addScripRefLinks($$) {
     '07 CHAPTER_TO_VERSE_TERMS' => ['ChapterVerseSeparator'],
     '08 CONTINUATION_TERMS' => ['RangeIndicator', 'ChapterRangeSeparator']
   );
-  foreach my $cfs (keys %cfSettings) {
+  foreach my $cfs (sort keys %cfSettings) {
     if (!exists($cf2paratext{$cfs})) {next;}
     my @val;
     foreach my $ps (@{$cf2paratext{$cfs}}) {
@@ -1131,7 +1131,7 @@ sub readParatextReferenceSettings() {
   );
   
   # Now overwrite defaults with anything in settingsFileXML
-  foreach my $k (keys %settings) {
+  foreach my $k (sort keys %settings) {
     my $default = $settings{$k};
     if ($settingsFileXML) {
       my $kv = @{$XPC->findnodes("$k", $settingsFileXML)}[0];
@@ -1285,13 +1285,13 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
 
   my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$pt};
   if (!$periphTypeDescriptor) {
-    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(', ', keys %PERIPH_TYPE_MAP));
+    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(', ', sort keys %PERIPH_TYPE_MAP));
     return '';
   }
   if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
 
   my $xpath = 'osis:div[@type="book"]/node()[1]'; # default is introduction to first book
-  foreach my $t (keys %USFM_DEFAULT_PERIPH_TARGET) {
+  foreach my $t (sort keys %USFM_DEFAULT_PERIPH_TARGET) {
     if ($pt !~ /^($t)$/i) {next;}
     $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
     if ($xpath eq 'place-according-to-scope') {$xpath = $scopePath;}
@@ -1574,7 +1574,7 @@ sub imageCaption($$$$) {
   my $barheight = $pointsize + (2*$padding);
   my $foundfont = '';
   if ($font) {
-    foreach my $f (keys %{$FONT_FILES{$font}}) {
+    foreach my $f (sort keys %{$FONT_FILES{$font}}) {
       if ($FONT_FILES{$font}{$f}{'style'} eq 'regular') {
         $foundfont = $FONT_FILES{$font}{$f}{'fullname'};
         $foundfont =~ s/ /-/g;
@@ -1994,7 +1994,7 @@ sub checkConfGlobals() {
   if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL') ne 'false') {
     &Error("For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", "Children's Bibles do not currently support this feature so it must be turned off.");
   }
-  foreach my $entry (keys %{$CONF}) {
+  foreach my $entry (sort keys %{$CONF}) {
     my $isConf = &isValidConfig($entry);
     if (!$isConf) {
       &Error("Unrecognized config entry: $entry", "Either this entry is not needed, or else it is named incorrectly.");
@@ -2256,7 +2256,7 @@ sub getCanon($\%\%\%\@) {
       $CANON_CACHE{$vsys}{'canon'}{$bkname} = $chaps;
     }
     @{$CANON_CACHE{$vsys}{'bookArray'}} = ();
-    foreach my $bk (keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
+    foreach my $bk (sort keys %{$CANON_CACHE{$vsys}{'bookOrder'}}) {
       @{$CANON_CACHE{$vsys}{'bookArray'}}[$CANON_CACHE{$vsys}{'bookOrder'}{$bk}] = $bk;
     }
   }
@@ -3057,7 +3057,7 @@ sub getAltVersesOSIS($) {
     }
     
     # fixed2Fitted is a convenience map since it is the same as source2Fitted{fixed2Source{verse}}
-    foreach my $fixed (keys (%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Source'}})) {
+    foreach my $fixed (sort keys (%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Source'}})) {
       my $source = $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Source'}{$fixed};
       $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fitted'}{$fixed} = $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'source2Fitted'}{$source};
     }
@@ -3221,7 +3221,7 @@ sub addDictionaryLink(\$$$$\@) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = ($textNode->data); @DICT_DEBUG_THIS = (decode("utf8", "Хөрмәтле укучылар, < Борынгы Шерык > сезнең игътибарга Изге Язманың хәзерге татар телендә беренче тапкыр нәшер ителгән тулы җыентыгын тәкъдим итәбез."));
-#my $nodedata; foreach my $k (keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
+#my $nodedata; foreach my $k (sort keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
 #&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $textNode->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
     
     my $filterMultiples = (!$explicitContext && $m->{'multiple'} !~ /^true$/i);
@@ -4192,7 +4192,7 @@ sub checkUniqueOsisIDs($) {
   my @osisIDs = $XPC->findnodes('//@osisID', $osis);
   my %ids;
   foreach my $id (@osisIDs) {$ids{$id->value}++;}
-  foreach my $k (keys %ids) {
+  foreach my $k (sort keys %ids) {
     if ($ids{$k} > 1) {
       &Error("osisID attribute value is not unique: $k (".$ids{$k}.")", "There are multiple elements with the same osisID, which is not allowed.");
     }
@@ -4306,7 +4306,7 @@ sub logDictLinks() {
     my @txt;
     foreach my $tg (sort keys %{$ExplicitGlossary{$eg}}) {
       if ($tg eq 'Failed') {
-        my @contexts = keys %{$ExplicitGlossary{$eg}{$tg}{'context'}};
+        my @contexts = sort keys %{$ExplicitGlossary{$eg}{$tg}{'context'}};
         my $mlen = 0;
         foreach my $c (@contexts) {
           if (length($c) > $mlen) {$mlen = length($c);}
@@ -4325,13 +4325,13 @@ sub logDictLinks() {
   }
   # Report each unique context ending for failures, since these may represent entries that are missing from the glossary
   my %uniqueConEnd;
-  foreach my $c (keys %cons) {
+  foreach my $c (sort keys %cons) {
     my $toLastWord;
     for (my $i=2; $i<=length($c) && $c !~ /^\s*$/; $i++) {
       my $end = substr($c, -$i, $i);
       my $keep = 1;
       if (substr($end,0,1) =~ /\s/) {$toLastWord = substr($end, 1, length($end)-1);}
-      foreach my $c2 (keys %cons) {
+      foreach my $c2 (sort keys %cons) {
         if ($c2 eq $c) {next;}
         if ($c2 =~ /\Q$end\E$/i) {$keep = 0; last;}
       }
@@ -4356,7 +4356,7 @@ sub logDictLinks() {
   }
   foreach my $e (sort keys %entriesH) {
     my $match = 0;
-    foreach my $dh (keys %EntryHits) {
+    foreach my $dh (sort keys %EntryHits) {
       my $xe = $e; $xe =~ s/^No <match> element(s)\://g;
       if ($xe eq $dh) {$match = 1;}
     }
@@ -4421,7 +4421,7 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
   my $mas = 0;
   foreach my $ent (sort keys %EntryLink) {
     if (length($ent) > $mkl) {$mkl = length($ent);}
-    my $t = 0; foreach my $ctx (keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
+    my $t = 0; foreach my $ctx (sort keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
     $kl{$ent} = $t;
     
     my $asp = '';
@@ -4825,7 +4825,7 @@ sub searchForISBN($$) {
       $isbns{$isbn}++;
     }
   }
-  return join(', ', keys %isbns);
+  return join(', ', sort keys %isbns);
 }
 
 # Write all work children elements for modname to osisWorkP. The modname 
@@ -5244,7 +5244,7 @@ tag number you wish to use.)\n");
     # ARG_AutoMaxTOC1 keywords, in which case the sub-entries themselves 
     # may be left without a preceding level1-TOC entry so that they will 
     # appear as level1-TOC themselves.
-    my $typeRE = '^('.join('|', keys(%PERIPH_TYPE_MAP_R), keys(%ID_TYPE_MAP_R)).')$';
+    my $typeRE = '^('.join('|', sort keys(%PERIPH_TYPE_MAP_R), sort keys(%ID_TYPE_MAP_R)).')$';
     $typeRE =~ s/\-/\\-/g;
   
     my @needTOC = $XPC->findnodes('//osis:div[not(@subType = "x-aggregate")]

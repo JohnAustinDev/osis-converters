@@ -68,7 +68,7 @@ foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 
 }
 
 # create any GoBibles and eBooks
-foreach my $dir (keys %modules) {
+foreach my $dir (sort keys %modules) {
   if ($modules{$dir} =~ /LD/) {next;}
   if ($modules{$dir} =~ /Text/ && &conf('ARG_sfm2all_skip', $MAINMOD, 'osis2GoBible') ne 'true') {
     &osis_converters("$SCRD/osis2GoBible.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));

@@ -331,14 +331,14 @@ CF_addScripRefLinks.txt with a line such as: Matt = Matthew");
   else {&Log("(no unknown book names)\n");}
   &Log("\n");
   my $t = 0;
-  foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} eq 'skip') {$t++;}}}
+  foreach my $loc (sort keys %fix) {foreach my $ref (sort keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} eq 'skip') {$t++;}}}
   &Report("Listing of exclusions: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "skip");}
   else {&Log("(no exclusions were specified in command the file)\n");}
   &Log("\n");
 
   my $t = 0;
-  foreach my $loc (keys %fix) {foreach my $ref (keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} ne 'skip') {$t++;}}}
+  foreach my $loc (sort keys %fix) {foreach my $ref (sort keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} ne 'skip') {$t++;}}}
   &Report("Listing of fixes: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "fix");}
   else {&Log("(no fixes were specified in the command file)\n");}
@@ -444,7 +444,7 @@ sub asrlProcessFile($$) {
     }
     
     # override context book if requested
-    foreach my $xpath (keys %xpathIfResultContextBook) {
+    foreach my $xpath (sort keys %xpathIfResultContextBook) {
       my @r = $XPC->findnodes($xpath, $textNode);
       if (!@r || !@r[0]) {next;}
       $BK = $xpathIfResultContextBook{$xpath};
@@ -482,7 +482,7 @@ sub asrlProcessFile($$) {
   }
 
   # replace the old text nodes with the new
-  foreach my $n (keys %nodeInfo) {
+  foreach my $n (sort keys %nodeInfo) {
     $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
     $nodeInfo{$n}{'node'}->unbindNode();
   }
@@ -739,8 +739,8 @@ sub reportFixes(%%$) {
   
   my $t = 0;
   my $f = 0;
-  foreach my $loc (keys %{$fixP}) {
-    foreach my $ref (keys %{$fixP->{$loc}}) {
+  foreach my $loc (sort keys %{$fixP}) {
+    foreach my $ref (sort keys %{$fixP->{$loc}}) {
       if ($type eq 'skip' && $fixP->{$loc}{$ref} ne 'skip') {next;}
       if ($type ne 'skip' && $fixP->{$loc}{$ref} eq 'skip') {next;}
       if (!defined($fixDoneP->{$loc}{$ref})) {

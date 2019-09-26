@@ -176,7 +176,7 @@ sub OSIS_To_ePublication($$$$) {
     #&copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$home/.fonts");
     if (open(CSS, ">$tmp/css/10font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
-      foreach my $f (keys %{$FONT_FILES{&conf("Font")}}) {
+      foreach my $f (sort keys %{$FONT_FILES{&conf("Font")}}) {
         my $format = $font_format{lc($FONT_FILES{&conf("Font")}{$f}{'ext'})};
         if (!$format) {&Log("WARNNG: Font \"$f\" has an unknown format; src format will not be specified.\n");}
         print CSS '

@@ -36,7 +36,7 @@ if (!%unusedMatches) {&Log("\nThere are no unused match elements to remove. Exit
 $count = 0;
 $xml = $XML_PARSER->parse_file($dwfPath);
 @matchElements = $XPC->findnodes("//dw:match", $xml);
-foreach my $osisRef (keys %unusedMatches) {
+foreach my $osisRef (sort keys %unusedMatches) {
   # Because of chars like ' xpath had trouble finding unusedMatch, but this munge does it:
   foreach $unusedMatch (@{$unusedMatches{$osisRef}}) {
     my $ingoingCount = $count;

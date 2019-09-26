@@ -618,7 +618,7 @@ sub correctReferencesVSYS($) {
   foreach my $m (@maps) {
     my $lastch = '';
     my @checkrefs = ();
-    foreach my $verse (&normalizeOsisID([ keys(%{$altVersesOSISP->{$m}}) ])) {
+    foreach my $verse (&normalizeOsisID([ sort keys(%{$altVersesOSISP->{$m}}) ])) {
       $verse =~ /^(.*?)\.\d+(!PART)?$/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
@@ -1198,7 +1198,7 @@ sub applyVsysExtra($$$$) {
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
     for (my $v = $vs; $v <= $lv; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
-    my $newID = join(' ', &normalizeOsisID([ keys(%ids) ]));
+    my $newID = join(' ', &normalizeOsisID([ sort keys(%ids) ]));
     $startTag->setAttribute('osisID', $newID);
     $startTag->setAttribute('sID', $newID);
   }
