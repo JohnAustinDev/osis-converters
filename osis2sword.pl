@@ -60,15 +60,8 @@ if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$SModPath")) {
 # Set MinimumVersion conf entry
 $msv = "1.6.1";
 if ($Sconf->{'Versification'} ne "KJV") {
-  system(&escfile($SWORD_BIN."osis2mod")." 2> ".&escfile("$TMPDIR/osis2mod_vers.txt"));
-  open(OUTF, "<:encoding(UTF-8)", "$TMPDIR/osis2mod_vers.txt") || die "Could not open $TMPDIR/osis2mod_vers.txt\n";
-  while(<OUTF>) {
-    if ($_ =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {
-      $msv = "1.6.2"; last;
-    }
-  }
-  close(OUTF);
-  unlink("$TMPDIR/osis2mod_vers.txt");
+  my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3);
+  if ($vers =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {$msv = "1.6.2";}
   if ($Sconf->{'Versification'} eq "SynodalProt") {$msv = "1.7.0";}
   $Sconf->{'MinimumVersion'} = $msv;
 }
@@ -76,23 +69,17 @@ if ($Sconf->{'Versification'} ne "KJV") {
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE (".$Sconf->{'Versification'}.")\n");
-  $cmd = &escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$Sconf->{'Versification'}.($SModDrv =~ /Text4/ ? ' -s 4':'')." >> ".&escfile($LOGFILE);
-  &Log("$cmd\n", -1);
-  system($cmd);
+  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$Sconf->{'Versification'}.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$Sconf->{'Versification'}.")\n");
-	$cmd = &escfile($SWORD_BIN."xml2gbs")." $INOSIS ".lc($MOD)." >> ".&escfile($LOGFILE);
-	&Log("$cmd\n", -1);
 	chdir("$SWOUT/$SModPath");
-	system($cmd);
+  &shell(&escfile($SWORD_BIN."xml2gbs")." $INOSIS ".lc($MOD), -1);
 	chdir($SCRD);
 }
 elsif ($SModDrv =~ /LD/) {
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$Sconf->{'Versification'}.")\n");
-  $cmd = &escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." -s ".($SModDrv eq "RawLD" ? "2":"4")." >> ".&escfile($LOGFILE);
-  &Log("$cmd\n", -1);
-  system($cmd);
+  &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
   opendir(MODF, "$SWOUT/$SModPath");
   my @mf = readdir(MODF);

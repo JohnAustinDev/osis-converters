@@ -442,7 +442,7 @@ sub goBibleConvChars($$$) {
   # Log whether any high Unicode chars
   &Log("Listing $type unicode chars higher than $MAX_UNICODE:\n");
   $error = "false";
-  foreach $key (keys %highUnicode) {
+  foreach $key (sort keys %highUnicode) {
     if ($type eq "simple") {$error = "true"; &Log(" ".$key." :".$highUnicode{$key}."\n");}
     else {&Log($key." ");}
   }

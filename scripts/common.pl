@@ -4633,7 +4633,7 @@ sub runPerl($$$\%$) {
   # Perl scripts need to have the following arguments
   # script-name input-file output-file [key1=value1] [key2=value2]...
   my @args = (&escfile($script), &escfile($source), &escfile($output));
-  map(push(@args, &escfile("$_=".$paramsP->{$_})), keys %{$paramsP});
+  map(push(@args, &escfile("$_=".$paramsP->{$_})), sort keys %{$paramsP});
   &shell(join(' ', @args), $logFlag);
 }
 
@@ -4648,7 +4648,7 @@ sub runXSLT($$$\%$) {
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   $cmd .= " -o:" . &escfile($output);
-  foreach my $p (keys %{$paramsP}) {
+  foreach my $p (sort keys %{$paramsP}) {
     my $v = $paramsP->{$p};
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
@@ -4718,10 +4718,11 @@ sub zipModule($$) {
   my $moddir = shift;
   
   &Log("\n--- COMPRESSING MODULE TO A ZIP FILE.\n");
-  chdir($moddir);
   my $cmd = "zip -r ".&escfile($zipfile)." ".&escfile("./*");
-  &shell($cmd, 1);
+  chdir($moddir);
+  my $result = &shell($cmd, 3); # capture result so that output lines can be sorted before logging
   chdir($SCRD);
+  &Log("$cmd\n", 1); @lines = split("\n", $result); $result = join("\n", sort @lines); &Log($result, 1);
 }
 
 
