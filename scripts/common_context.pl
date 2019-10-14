@@ -454,7 +454,7 @@ sub checkAndNormalizeAtomicContext($$) {
         !&existsElementID($context, $CONTEXT_CHECK_XML) && 
         !&existsScope($context, $CONTEXT_CHECK_XML)
       ) {
-    &Error("checkAndNormalizeAtomicContext: osisID/scope '$context' was not found.");
+    &Error("There is no osisID or scope attribute having the value '$context' in ".$CONTEXT_CHECK_XML->URI." (checkAndNormalizeAtomicContext).", "This is likely caused by a reference to '$context' in ".($DWF ? $DWF->URI:$DICTIONARY_WORDS));
     $CONTEXT_CHECK_ERR++;
     return '';
   }

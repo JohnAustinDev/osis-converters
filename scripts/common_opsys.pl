@@ -71,8 +71,8 @@ sub init_opsys() {
     unlink("$SCRD/paths.pl");
   }
   my $conf = &getDefaultFile('bible/config.conf', 1);
-  &update_pathspl($conf);
-  &readPaths($conf);
+  &update_configSystemSection($conf); # update old config.conf files that are missing the [system] section
+  &readSystemPaths($conf);
   
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
   &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
@@ -132,7 +132,7 @@ will run slower and use more memory.");
 }
 
 # This is only needed to update old osis-converters projects that lack [system] config.conf sections
-sub update_pathspl($) {
+sub update_configSystemSection($) {
   my $cf = shift;
   
   if (!$cf) {return;}
@@ -140,7 +140,7 @@ sub update_pathspl($) {
     while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
     close(CXF);
   }
-  else {&ErrorBug("update_pathspl could not open $cf for reading.");}
+  else {&ErrorBug("update_configSystemSection could not open $cf for reading.");}
     
   if (open(CXF, ">>:encoding(UTF-8)", $cf)) {
     &Warn("UPDATE: config.conf has no [system] section. Updating...");
@@ -160,22 +160,22 @@ an unexpected place.");
       }
       close(DCF);
     }
-    else {&ErrorBug("update_pathspl could not open $df for reading");}
+    else {&ErrorBug("update_configSystemSection could not open $df for reading");}
     &Warn("<-UPDATE: Appending to $cf:\n$sys");
     print CXF "\n$sys";
     close(CXF);
   }
-  else {&ErrorBug("update_pathspl could not open $cf for appending");}
+  else {&ErrorBug("update_configSystemSection could not open $cf for appending");}
 }
 
 # Read the config file 'system' section file which contains customized 
 # paths to things like fonts and executables (it also contains some 
 # settings like $DEBUG).
-sub readPaths($) {
+sub readSystemPaths($) {
   my $conf = shift;
   
-  # The following host paths are converted to absolute paths which are 
-  # later updated to work on the VM if running in Vagrant.
+  # The following host paths are converted to absolute paths which may 
+  # later be updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
   if ($conf) {&setSystemVars(&readConf());}

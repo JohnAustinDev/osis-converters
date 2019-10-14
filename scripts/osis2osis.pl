@@ -259,7 +259,7 @@ sub convertFileStrings($$) {
     
     # apply new conf entries/values
     &writeConf($ccout, \%confH);
-    &readPaths($ccout);
+    &readSystemPaths($ccout);
     &setConfGlobals(&readConf());
   }
   
