@@ -27,6 +27,9 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 # run sfm2defaults.pl to create any missing default input control files
 &osis_converters("$SCRD/sfm2defaults.pl", $INPD, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
 
+# re-read possibly updated config.conf file
+&setConfGlobals(&readConf());
+
 # collect all modules to run
 my %modules;
 $modules{$INPD} = &conf('ModDrv');

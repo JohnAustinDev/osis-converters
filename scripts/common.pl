@@ -99,13 +99,23 @@ sub init_linux_script() {
   }
   elsif ($SCRIPT_NAME =~ /sfm2defaults/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
+    
+    # update old convert.txt configuration
+    if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
+      &update_removeConvertTXT($CONFFILE);
+    }
+
+    # update old /DICT/config.conf configuration
+    if ($DICTMOD && -e "$DICTINPD/config.conf") {
+      &update_removeDictConfig("$DICTINPD/config.conf", $CONFFILE);
+    }
   }
   
   # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
   my %c; &readConfFile("$MAININPD/config.conf", \%c); my $cn = "${MAINMOD}DICT";
   $DICTMOD = ($INPD eq $DICTINPD || $c{'Companion'} =~ /\b$cn\b/ ? $cn:'');
   
-  if (!-e $CONFFILE) {
+  if (!-e $CONFFILE && !-e "$MAININPD/sfm") {
     &Error("Could not find or create a \"$CONFFILE\" file.
 \"$INPD\" may not be an osis-converters project directory.
 A project directory must, at minimum, contain an \"sfm\" subdirectory.
@@ -123,27 +133,18 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
-  # update old convert.txt configuration
-  if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
-    &update_removeConvertTXT($CONFFILE);
-    &readConfFile($CONFFILE, $CONF);
-  }
-
-  # update old /DICT/config.conf configuration
-  if ($DICTMOD && -e "$DICTINPD/config.conf") {
-    &update_removeDictConfig("$DICTINPD/config.conf", $CONFFILE);
-    &readConfFile($CONFFILE, $CONF);
-  }
-  
-  &setConfGlobals(&readConf());
-  
-  &checkConfGlobals();
-  
-  &checkProjectConfiguration();
-  
-  if ($SCRIPT_NAME !~ /sfm2defaults/) {&checkRequiredConfEntries();}
-  
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
+  
+  if ($SCRIPT_NAME !~ /(sfm2all)/) { # sfm2all reads config.conf after it runs sfm2defaults.pl
+    
+    &setConfGlobals(&readConf());
+    
+    &checkConfGlobals();
+    
+    &checkProjectConfiguration();
+    
+    &checkRequiredConfEntries();
+  }
   
   # Set default to 'on' for the following OSIS processing steps
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
@@ -1207,7 +1208,7 @@ sub customize_usfm2osis($$) {
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
-  if (!open (CFF, ">>$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  if (!open (CFF, ">>:encoding(UTF-8)", "$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
   print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
   my $lastScope;
   foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
