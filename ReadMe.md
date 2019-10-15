@@ -11,6 +11,7 @@ a directory: `/some-path/MODULE_NAME/sfm/`
 
 At a Linux or Git Bash prompt:
 
+    osis-converters$ ./update.pl /some-path/MODULE_NAME
     osis-converters$ ./sfm2all.pl /some-path/MODULE_NAME
 
 Which will output:

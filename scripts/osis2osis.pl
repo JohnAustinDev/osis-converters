@@ -259,8 +259,10 @@ sub convertFileStrings($$) {
     
     # apply new conf entries/values
     &writeConf($ccout, \%confH);
-    &readSystemPaths($ccout);
-    &setConfGlobals(&readConf());
+    
+    # re-read project config.conf (which is probably $cout)
+    &readSetCONF();
+    
   }
   
   # collections.txt

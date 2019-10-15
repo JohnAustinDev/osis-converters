@@ -75,11 +75,12 @@ else {
   $DICTINPD = "$MAININPD/${MAINMOD}DICT";
 }
 $CONFFILE = "$MAININPD/config.conf";
-$CONF = {}; &readConfFile($CONFFILE, $CONF);
-$DICTMOD = ($INPD eq $DICTINPD || $CONF{'Companion'} =~ /\b${MAINMOD}DICT\b/ ? "${MAINMOD}DICT":'');
+&readSetCONF();
+# $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
+my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
 
 # Allow running MAININPD-only scripts from a DICT sub-project
-if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|sfm2defaults|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
+if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
   $INPD = $MAININPD;
   $MOD = $MAINMOD;
 }
@@ -91,8 +92,6 @@ should still be placed in the main module directory. If you want to run
 sfm2osis.pl on the main module, then ALSO include a CF_usfm2osis.txt 
 file in the main module directory.", 1);
 }
-
-&setConfGlobals($CONF);
 
 if (!&init_opsys()) {exit;} # init_opsys also sets Perl global vars with config.conf [system] section entries
 

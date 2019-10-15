@@ -2,7 +2,7 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-# Update Calibre and its plugin if it is installed on the host
+# Update Calibre plugin if it is installed on the host
 if [ ! -z "$(calibre-customize -l | grep 'InputOSIS')" ]; then 
   calibre-customize -b ./calibre_plugin/OSIS-Input;
 fi

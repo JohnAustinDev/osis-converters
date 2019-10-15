@@ -70,9 +70,9 @@ sub init_opsys() {
     &Warn("UPDATE: Removing outdated file: $SCRD/paths.pl");
     unlink("$SCRD/paths.pl");
   }
-  my $conf = &getDefaultFile('bible/config.conf', 1);
-  &update_configSystemSection($conf); # update old config.conf files that are missing the [system] section
-  &readSystemPaths($conf);
+
+  &update_configSystemSection(); # update old config.conf files that are missing the [system] section
+  &applySystemCONF(); # this can only be run in init_opsys() without breaking Vagrant VM [system] paths
   
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
   &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
@@ -133,16 +133,14 @@ will run slower and use more memory.");
 
 # This is only needed to update old osis-converters projects that lack [system] config.conf sections
 sub update_configSystemSection($) {
-  my $cf = shift;
-  
-  if (!$cf) {return;}
-  if (open(CXF, "<:encoding(UTF-8)", $cf)) {
+  if (!$CONFFILE || !-e $CONFFILE) {return;}
+  if (open(CXF, "<:encoding(UTF-8)", $CONFFILE)) {
     while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
     close(CXF);
   }
-  else {&ErrorBug("update_configSystemSection could not open $cf for reading.");}
+  else {&ErrorBug("update_configSystemSection could not open $CONFFILE for reading.");}
     
-  if (open(CXF, ">>:encoding(UTF-8)", $cf)) {
+  if (open(CXF, ">>:encoding(UTF-8)", $CONFFILE)) {
     &Warn("UPDATE: config.conf has no [system] section. Updating...");
     &Note("The paths.pl file which was used for various path variables
 and settings has now been replaced by the [system] section of the
@@ -161,24 +159,33 @@ an unexpected place.");
       close(DCF);
     }
     else {&ErrorBug("update_configSystemSection could not open $df for reading");}
-    &Warn("<-UPDATE: Appending to $cf:\n$sys");
+    &Warn("<-UPDATE: Appending to $CONFFILE:\n$sys");
     print CXF "\n$sys";
     close(CXF);
   }
-  else {&ErrorBug("update_configSystemSection could not open $cf for appending");}
+  else {&ErrorBug("update_configSystemSection could not open $CONFFILE for appending");}
 }
 
-# Read the config file 'system' section file which contains customized 
+# Apply the config file 'system' section file which contains customized 
 # paths to things like fonts and executables (it also contains some 
-# settings like $DEBUG).
-sub readSystemPaths($) {
-  my $conf = shift;
-  
+# settings like $DEBUG). NOTE: applySystemCONF() can only be run from 
+# init_opsys(), because two passes are necessary to set proper paths
+# when Vagrant is being used.
+sub applySystemCONF() {
   # The following host paths are converted to absolute paths which may 
   # later be updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
-  if ($conf) {&setSystemVars(&readConf());}
+  foreach my $ce (sort keys %{$CONF}) {
+    if ($ce !~ /^system\+(.*)$/) {next;}
+    my $e = $1;
+    my $ok = 0;
+    foreach my $v (@OC_SYSTEM) {if ($v eq $e) {$ok++;}}
+    if ($ok) {$$e = $CONF->{$ce};}
+    else {&Error("Unrecognized config.conf [system] entry: $e.", 
+"Only the following entries are recognized in the config.conf 
+system section: ".join(' ', @OC_SYSTEM));}
+  }
   
   if (!&runningInVagrant()) {
     # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
@@ -236,7 +243,11 @@ sub readSystemPaths($) {
   &Debug($dbgmsg, 1);
 }
 
-# Reads the config.conf file and returns a hash of its contents. 
+# Read a config.conf file. Return 1 if successful or else 0. Add the conf
+# file's entries to entryValueHP. If the rewriteMsgP pointer is provided
+# then write to it any entries in conf which were already present with 
+# the same value in the entryValueHP hash.
+#
 # The config.conf file must start with [<main_module_name>] on the 
 # first line, followed by either CrossWire SWORD config entries (see 
 # https://wiki.crosswire.org/DevTools:conf_Files) or osis-converters 
@@ -248,9 +259,8 @@ sub readSystemPaths($) {
 # to overwrite the value of a general entry, and then this value will  
 # only apply during that particular part of the conversion process. The 
 # [system] section is special in that it allows the direct setting of 
-# global variables used by Perl. But it is read only once during  
-# bootstrapping by setSystemVars() and NOT again by setConfGlobals() as 
-# for the other config entries.
+# global variables used by Perl. But it is applied by applySystemCONF() 
+# and NOT by readSetCONF() as for the other config entries.
 #
 # If the main project has a DICT sub-project, then its config entries 
 # should be specified in a [<DICTMOD>] section.
@@ -260,37 +270,27 @@ sub readSystemPaths($) {
 #
 # For a value to continue from one line to the next, continued lines 
 # must end with '\'.
-sub readConf() {
-  my %entryValue;
-  if (!&readConfFile($CONFFILE, \%entryValue)) {
-    &Error("Could not read config.conf file: $CONFFILE");
-  }
-  return \%entryValue;
-}
-
-# Read a conf file and return 1 if successful or else 0. Add the conf
-# file's entries to entryValueHP. If the rewriteMsgP pointer is provided
-# then write to it any entries in conf which were already present with 
-# the same value in the entryValueHP hash.
 sub readConfFile($$$) {
   my $conf = shift;
   my $entryValueHP = shift;
   my $rewriteMsgP = shift;
   
-  if (!open(CONF, "<:encoding(UTF-8)", $conf)) {return 0;}
+  if (!open(XCONF, "<:encoding(UTF-8)", $conf)) {return 0;}
   my $contiuation;
   my $section = '';
   my %data;
-  while(<CONF>) {
+
+  while(<XCONF>) {
     # ignore comment lines
     if    ($_ =~ /^#/) {next;}
     
     # handle section headings
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
-      $section = ($1 eq $MAINMOD ? '':$1);
-      # read a ModuleName entry for the 1st section and $DICTMOD section
-      if ($. == 1) {$data{'ModuleName'} = $1;}
-      if ($DICTMOD && $section eq $DICTMOD) {$data{"$DICTMOD+ModuleName"} = $DICTMOD;}
+      my $s = $1;
+      $section = ($s eq $MAINMOD ? '':$s);
+      # read a ModuleName entry for the 1st section and $data{'ModuleName'}."DICT" section
+      if ($. == 1) {$data{'ModuleName'} = $s;}
+      elsif ($s eq $data{'ModuleName'}."DICT") {$data{"$s+ModuleName"} = $data{'ModuleName'}."DICT";}
     }
     
     # handle config entries
@@ -305,7 +305,7 @@ sub readConfFile($$$) {
         }
         # otherwise overwrite previous value
         else {
-          &Warn("The config.conf entry '$entryFull' appears more than once: was=".$data{$entryFull}.", is now=$value.");
+          &Warn("The config.conf entry '$entryFull' appears more than once: was=".$data{$entryFull}.", is now=$value. $_");
           $data{$entryFull} = $value;
         }
       }
@@ -319,7 +319,7 @@ sub readConfFile($$$) {
       $continuation = ($_ =~ /\\$/ ? $continuation:'');
     }
   }
-  close(CONF);
+  close(XCONF);
   
   my @noneed; # to log any unnecessary config.conf entries
   foreach my $new (sort keys %data) {
@@ -335,46 +335,30 @@ sub readConfFile($$$) {
 		&Error("No module name in $conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
 	}
   
+  #use Data::Dumper; &Log(Dumper($entryValueHP)."\n", 1);
   return 1;
 }
 
-sub setConfGlobals($) {
-  my $confP = shift;
-  
+sub readSetCONF() {
   # Perl variables from the [system] section of config.conf are only 
-  # set by setSystemVars() and they are NOT set by setConfGlobals().
+  # set by applySystemCONF() and they are NOT set by readSetCONF().
 
-  # Globals
-  $CONF = $confP;
+  $CONF = {};
+  if (!&readConfFile($CONFFILE, $CONF)) {
+    if ($SCRIPT_NAME =~ /^update$/) {&Warn("No config.conf file: $CONFFILE");}
+    else {&Error("Could not read config.conf file: $CONFFILE");}
+  }
   
   # Config Defaults
   my $ocConfRE = '('.join('|', @OC_CONFIGS).')';
   foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
     if (exists($CONFIG_DEFAULTS{$e})) {
-      if (!exists($confP->{$e})) {$confP->{$e} = $CONFIG_DEFAULTS{$e};}
+      if (!exists($CONF->{$e})) {$CONF->{$e} = $CONFIG_DEFAULTS{$e};}
     }
     elsif ($e =~ /$ocConfRE/ && $e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
   }
   
-  #use Data::Dumper; &Debug(Dumper($entryValueP)."\n");
-  return $confP;
-}
-
-sub setSystemVars($) {
-  my $confP = shift;
-  
-  foreach my $ce (sort keys %{$confP}) {
-    if ($ce !~ /^system\+(.*)$/) {next;}
-    my $e = $1;
-    my $ok = 0;
-    foreach my $v (@OC_SYSTEM) {if ($v eq $e) {$ok++;}}
-    if ($ok) {$$e = $confP->{$ce};}
-    else {&Error("Unrecognized config.conf [system] entry: $e.", 
-"Only the following entries are recognized in the config.conf 
-system section: ".join(' ', @OC_SYSTEM));}
-  }
-  
-  #$DEBUG = 1; # can use this to force on when debugging config.conf
+  #use Data::Dumper; &Debug(Dumper($CONF)."\n");
 }
 
 # Whereas $CONF is just the raw data of the config.conf file. This 
@@ -572,7 +556,7 @@ sub haveDependencies($$$$) {
   if ($script =~ /(sfm2all)/) {
     @deps = ('SWORD_PERL', 'SWORD_BIN', 'XMLLINT', 'GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 'XSLT2', 'CALIBRE');
   }
-  elsif ($script =~ /(sfm2defaults)/) {
+  elsif ($script =~ /(update)/) {
     @deps = ('SWORD_PERL', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2');
   }
   elsif ($script =~ /(sfm2osis|osis2osis)/) {

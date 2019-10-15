@@ -28,7 +28,7 @@ sub convertOSIS($) {
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
   
   # update globals from the OSIS file's metadata, namely $CONF, $MOD etc.
-  &setConfGlobals(&readConf());
+  &readSetCONF(); # why?
   
   &Log("Updating OSIS header.\n");
   &writeOsisHeader(\$INOSIS);

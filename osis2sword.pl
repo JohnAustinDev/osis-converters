@@ -114,9 +114,9 @@ if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
 &zipModule($OUTZIP, $SWOUT);
 
 &Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
-open(CONF, "<:encoding(UTF-8)", $SwordConfFile) || die "Could not open $SwordConfFile\n";
-while(<CONF>) {&Log("$_", 1);}
-close(CONF);
+open(XCONF, "<:encoding(UTF-8)", $SwordConfFile) || die "Could not open $SwordConfFile\n";
+while(<XCONF>) {&Log("$_", 1);}
+close(XCONF);
 
 &timer('stop');
 

@@ -88,16 +88,18 @@ sub init_linux_script() {
   &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
+  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
+  
   &initLibXML();
   
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
-  # If appropriate, do either runOsis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis provides input control files in lieu of defaults)
+  # If appropriate, do either runOsis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis also creates input control files)
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /(osis2osis|sfm2all)/) {
     require("$SCRD/scripts/osis2osis.pl");
     &runOsis2osis('preinit', $INPD);
   }
-  elsif ($SCRIPT_NAME =~ /sfm2defaults/) {
+  elsif ($SCRIPT_NAME =~ /update/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
     
     # update old convert.txt configuration
@@ -109,17 +111,14 @@ sub init_linux_script() {
     if ($DICTMOD && -e "$DICTINPD/config.conf") {
       &update_removeDictConfig("$DICTINPD/config.conf", $CONFFILE);
     }
+    
+    &readSetCONF();
+    # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
+    my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
   }
   
-  # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-  my %c; &readConfFile("$MAININPD/config.conf", \%c); my $cn = "${MAINMOD}DICT";
-  $DICTMOD = ($INPD eq $DICTINPD || $c{'Companion'} =~ /\b$cn\b/ ? $cn:'');
-  
-  if (!-e $CONFFILE && !-e "$MAININPD/sfm") {
-    &Error("Could not find or create a \"$CONFFILE\" file.
-\"$INPD\" may not be an osis-converters project directory.
-A project directory must, at minimum, contain an \"sfm\" subdirectory.
-\n".encode("utf8", $LogfileBuffer), '', 1);
+  if (!-e $CONFFILE) {
+    &Error("There is no config.conf file: \"$CONFFILE\".", "\"$INPD\" may not be an osis-converters project directory. If it is, then run update.pl to create a config.conf file.\n", 1);
   }
   
   $MOD_OUTDIR = &getModuleOutputDir();
@@ -135,17 +134,6 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
   
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
   
-  if ($SCRIPT_NAME !~ /(sfm2all)/) { # sfm2all reads config.conf after it runs sfm2defaults.pl
-    
-    &setConfGlobals(&readConf());
-    
-    &checkConfGlobals();
-    
-    &checkProjectConfiguration();
-    
-    &checkRequiredConfEntries();
-  }
-  
   # Set default to 'on' for the following OSIS processing steps
   my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
   foreach my $s (@CF_files) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
@@ -155,9 +143,17 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
     elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
   }
   
-  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
-  
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
+  
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n");
+  
+  if ($SCRIPT_NAME =~ /^update$/) {return;}
+  
+  &checkConfGlobals();
+    
+  &checkProjectConfiguration();
+    
+  &checkRequiredConfEntries();
   
   if (&conf('Font')) {&checkFont(&conf('Font'));}
   
@@ -167,8 +163,6 @@ A project directory must, at minimum, contain an \"sfm\" subdirectory.
       &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
     }
   }
-  
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n");
 }
 # This is only needed to update old osis-converters projects
 sub update_removeConvertTXT($) {
@@ -767,7 +761,7 @@ sub initInputOutputFiles($$$$) {
   }
   
   # init SFM files if needed
-  if ($script_name =~ /^sfm2defaults$/ && -e "$inpd/sfm") {
+  if ($script_name =~ /^update$/ && -e "$inpd/sfm") {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
     &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3);
     &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3);
@@ -825,8 +819,8 @@ sub checkAndWriteDefaults($) {
   # Determine if there is any sub-project dictionary (the fastest way possible)
   my $haveDICT = ($MAININPD ne $INPD ? 1:0);
   if (!$haveDICT) {
-    if (-e "$MAININPD/config.conf") {
-      if (my $comps = &readConf()->{'Companion'}) {
+    if ($CONFFILE && -e $CONFFILE) {
+      if (my $comps = $CONF->{'Companion'}) {
         foreach my $c (split(/\s*,\s*/, $comps)) {if ($c =~ /DICT$/) {$haveDICT = 1;}}
       }
     }
@@ -1837,24 +1831,25 @@ sub writeConf($$) {
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
   if (!-e $confdir) {make_path($confdir);}
   
-  open(CONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
+  open(XCONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
+  print XCONF "[$MAINMOD]\n";
   my $section = ''; my %used;
   foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
     my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
     if ($s eq $MAINMOD) {$s = '';}
-    if ($elit eq 'ModuleName') {
-      print CONF "[".$entryValueP->{$elit}."]\n";
-      next;
+    if ($s && $s ne $section) {
+      print XCONF "\n[$s]\n";
+      $section = $s;
     }
-    if ($s ne $section) {print CONF "\n[".$s."]\n"; $section = $s;}
+    if ($elit =~ /(^|\+)ModuleName$/) {next;}
     foreach my $val (split(/<nx\/>/, $entryValueP->{$elit})) {
       if ($used{$elit.$val}) {next;}
-      print CONF $e."=".$val."\n";
+      print XCONF $e."=".$val."\n";
       $used{$elit.$val}++;
     }
   }
-  close(CONF);
-  
+  close(XCONF);
+
   return &readConfFile($conf, $entryValueP);
 }
 sub confEntrySort($$) {
