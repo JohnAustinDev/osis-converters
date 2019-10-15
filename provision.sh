@@ -22,13 +22,14 @@ sudo cpanm HTML::Entities
 # DateTime is not included in Mint
 sudo cpanm DateTime
 
-# Calibre
+# Calibre 3
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
+  #sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
+  sudo -v && sudo calibre-uninstall && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=3.48.0
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 

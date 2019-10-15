@@ -78,7 +78,7 @@ sub init_opsys() {
   &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
   
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
-  my $haveAllDependencies = ($isCompatibleLinux && &haveDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
+  my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
   
   # Start the script if we're already running on a VM and/or have dependencies met.
   if (&runningInVagrant() || ($haveAllDependencies && !$VAGRANT)) {
@@ -544,7 +544,7 @@ sub getDefaultFile($$$) {
 }
 
 # Return 1 if dependencies are met for $script and 0 if not
-sub haveDependencies($$$$) {
+sub checkDependencies($$$$) {
   my $script = shift;
   my $scrd = shift;
   my $inpd = shift;
