@@ -862,9 +862,10 @@ sub Log($$) {
 sub encodePrintPaths($) {
   my $t = shift;
   
+  # $LOCAL needs to be a global, but it cannot be changed by config.conf
+  if ($^O =~ /linux/i) {$LOCAL = &expandLinuxPath('~/.osis-converters'); }
+  
   # encode these local file paths, from longest to shortest
-  $LOCAL = &expandLinuxPath('~/.osis-converters'); # $LOCAL needs to be a global, but it cannot be changed by config.conf
-
   my @paths = ('SCRD', 'MAININPD', 'MOD_OUTDIR', 'LOCAL', 'SWORD_BIN', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2', 'GO_BIBLE_CREATOR', 'CALIBRE');
   foreach my $path (sort { length $$b <=> length $$a } @paths) {
     if (!$$path) {next;}
