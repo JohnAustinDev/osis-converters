@@ -4235,7 +4235,7 @@ sub checkIntroductionTags($) {
   foreach my $t (@warnTags) {
     my $tag = $t;
     $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
-    &Error("Tag on line: ".$t->line_number().", \"$tag\" was used in an introduction that could trigger a bug in osis2mod.cpp, dropping introduction text.", "Replace this tag here with the corresponding introduction tag.");
+    &Error("The non-introduction tag on line: ".$t->line_number().", \"$tag\" was used in an introduction. This could trigger a bug in osis2mod.cpp, dropping introduction text.", 'Replace this tag with the proper \imt introduction title tag.');
   }
 }
 
