@@ -446,7 +446,7 @@ sub updateURLCache($$) {
     use Net::Ping;
     my $net = Net::Ping->new;
     my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
-    my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
+    my $r; use Try::Tiny; try {$r = $net->ping($d, 5);} catch {$r = 0;};
     if ($r) {
       shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$url'", 3);
       $success = &wgetSyncDel($p);
