@@ -82,7 +82,7 @@ sub runAddFootnoteLinks($$) {
   $stopreference = '';
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
-    open(CF, "<:encoding(UTF-8)", $commandFile);
+    open(CF, "<$READLAYER", $commandFile);
     while (<CF>) {
       $_ =~ s/\s+$//;
 

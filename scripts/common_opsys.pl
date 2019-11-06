@@ -134,13 +134,13 @@ will run slower and use more memory.");
 # This is only needed to update old osis-converters projects that lack [system] config.conf sections
 sub update_configSystemSection($) {
   if (!$CONFFILE || !-e $CONFFILE) {return;}
-  if (open(CXF, "<:encoding(UTF-8)", $CONFFILE)) {
+  if (open(CXF, "<$READLAYER", $CONFFILE)) {
     while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
     close(CXF);
   }
   else {&ErrorBug("update_configSystemSection could not open $CONFFILE for reading.");}
     
-  if (open(CXF, ">>:encoding(UTF-8)", $CONFFILE)) {
+  if (open(CXF, ">>$WRITELAYER", $CONFFILE)) {
     &Warn("UPDATE: config.conf has no [system] section. Updating...");
     &Note("The paths.pl file which was used for various path variables
 and settings has now been replaced by the [system] section of the
@@ -151,7 +151,7 @@ an unexpected place.");
     my $df = &getDefaultFile('bible/config.conf', 2);
     if (!$df) {$df = &getDefaultFile('bible/config.conf', 3);}
     my $sys = '';
-    if (open(DCF, "<:encoding(UTF-8)", $df)) {
+    if (open(DCF, "<$READLAYER", $df)) {
       while(<DCF>) {
         if ($sys && $_ =~ /^\[/) {last;}
         if ($sys || $_ =~ /^\[system\]/) {$sys .= $_;}
@@ -194,7 +194,7 @@ system section: ".join(' ', @OC_SYSTEM));}
       if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
       if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
     }
-    if (open(SHL, ">$SCRD/.hostinfo")) {
+    if (open(SHL, ">$WRITELAYER", "$SCRD/.hostinfo")) {
       foreach my $v (@pathvars) {
         if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
         my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
@@ -275,7 +275,7 @@ sub readConfFile($$$) {
   my $entryValueHP = shift;
   my $rewriteMsgP = shift;
   
-  if (!open(XCONF, "<:encoding(UTF-8)", $conf)) {return 0;}
+  if (!open(XCONF, "<$READLAYER", $conf)) {return 0;}
   my $contiuation;
   my $section = '';
   my %data;
@@ -597,7 +597,7 @@ sub checkDependencies($$$$) {
       return 0;
     }
     system($test{$p}[0]." >".&escfile("tmp.txt"). " 2>&1");
-    if (!open(TEST, "<tmp.txt")) {
+    if (!open(TEST, "<$READLAYER", "tmp.txt")) {
       &ErrorBug("Could not read test output file \"$SCRD/tmp.txt\".");
       return 0;
     }
@@ -644,7 +644,7 @@ sub vagrantInstalled() {
   print "\n";
   my $pass;
   system("vagrant -v >tmp.txt 2>&1");
-  if (!open(TEST, "<tmp.txt")) {die;}
+  if (!open(TEST, "<$READLAYER", "tmp.txt")) {die;}
   $pass = 0; while (<TEST>) {if ($_ =~ /\Qvagrant\E/i) {$pass = 1; last;}}
   unlink("tmp.txt");
 
@@ -652,7 +652,7 @@ sub vagrantInstalled() {
 }
 
 sub restart_with_vagrant() {
-  if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$SCRD/Vagrantcustom")) {
+  if (!-e "$SCRD/Vagrantcustom" && open(VAGC, ">$WRITELAYER", "$SCRD/Vagrantcustom")) {
     print VAGC "# NOTE: You must halt your VM for changes to take effect\n
   config.vm.provider \"virtualbox\" do |vb|
     # Set the RAM for your Vagrant VM
@@ -705,7 +705,7 @@ sub vagrantUp(\@) {
   if (!-e "./.vagrant") {mkdir("./.vagrant");}
   
   # Create input/output filesystem shares
-  open(VAG, ">./Vagrantshares") || die "\nError: Cannot open \"./Vagrantshares\"\n";
+  open(VAG, ">$WRITELAYER", "./Vagrantshares") || die "\nError: Cannot open \"./Vagrantshares\"\n";
   foreach my $share (@$sharesP) {print VAG "$share\n";}
   close(VAG);
   print "
@@ -723,7 +723,7 @@ sub matchingShares(\@) {
   my $sharesP = shift;
   
   my %shares; foreach my $sh (@$sharesP) {$shares{$sh}++;}
-  open(CSH, "<./Vagrantshares") || return 0;
+  open(CSH, "<$READLAYER", "./Vagrantshares") || return 0;
   while(<CSH>) {
     if ($_ =~ /^(\Qconfig.vm.synced_folder\E\s.*)$/) {$shares{$1}++;}
     foreach my $share (@$sharesP) {if ($_ =~ /^\Q$share\E$/) {delete($shares{$share});}}
@@ -853,7 +853,7 @@ sub Log($$) {
   
   if (!$LOGFILE) {$LogfileBuffer .= $p; return;}
 
-  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
+  open(LOGF, ">>$WRITELAYER", $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
   if ($LogfileBuffer) {print LOGF $LogfileBuffer; $LogfileBuffer = '';}
   print LOGF $p;
   close(LOGF);

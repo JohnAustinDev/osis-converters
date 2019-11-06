@@ -36,6 +36,9 @@
 use File::Spec;
 require "$SCRD/scripts/common_opsys.pl";
 
+$WRITELAYER = ":encoding(UTF-8)";
+$READLAYER = ":encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
+
 $INPD = shift;
 
 # If $LOGFILE is not passed then a new clean one will be started, named $SCRIPT_NAME, during init_linux_script().

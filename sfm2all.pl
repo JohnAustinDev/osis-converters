@@ -84,7 +84,7 @@ my $CFfile = &getDefaultFile("$defDir/CF_usfm2osis.txt", 1);
 if (!$CFfile) {$CFfile = &getDefaultFile("$defDir/CF_osis2osis.txt", 1);}
 if (!$CFfile) {&Error("The project must have either CF_usfm2osis.txt or CF_osis2osis.txt to run sfm2all.pl", '', 1);}
 my $sfm2all_RUN;
-if (open(CF, "<:encoding(UTF-8)", $CFfile)) {
+if (open(CF, "<$READLAYER", $CFfile)) {
   while(<CF>) {if ($_ =~ /^SET_sfm2all_RUN:\s*(.*?)\s*$/) {$sfm2all_RUN = $1; last;}}
   close(CF);
 }

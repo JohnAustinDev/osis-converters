@@ -145,7 +145,7 @@ sub init_linux_script() {
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n");
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n\tREADLAYER=$READLAYER\n");
   
   if ($SCRIPT_NAME =~ /^update$/) {return;}
   
@@ -186,7 +186,7 @@ sub updateConvertTXT($$$) {
   
   if (! -e $convtxt) {return '';}
   
-  if (open(CONV, "<:encoding(UTF-8)", $convtxt)) {
+  if (open(CONV, "<$READLAYER", $convtxt)) {
     while(<CONV>) {
       if ($_ =~ /^#/) {next;}
       elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {
@@ -894,7 +894,7 @@ sub customize_conf($$$$) {
   # Save any comments at the end of the default config.conf so they can 
   # be added back after writing the new conf file.
   my $comments = '';
-  if (open(MCF, "<:encoding(UTF-8)", $conf)) {
+  if (open(MCF, "<$READLAYER", $conf)) {
     while(<MCF>) {
       if ($comments) {$comments .= $_;}
       elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-NEXT-LINE/) {$comments = "\n";}
@@ -914,7 +914,7 @@ sub customize_conf($$$$) {
     $ctext =~ s/^($swautogen)\s*=[^\n]*\n//mg; # strip @SWORD_AUTOGEN entries
     if ($ctext) {
       &Note("Default conf was located in REPOSITORY: $cfile", 1); &Log("$ctext\n\n");
-      if (open(CNF, ">:encoding(UTF-8)", $conf)) {
+      if (open(CNF, ">$WRITELAYER", $conf)) {
         print CNF $ctext;
         close(CNF);
       }
@@ -984,7 +984,7 @@ sub customize_conf($$$$) {
     $defs .= "$e=".$CONFIG_DEFAULTS{$k}."\n";
   }
   my $newconf = '';
-  if (open(MCF, "<:encoding(UTF-8)", $conf)) {
+  if (open(MCF, "<$READLAYER", $conf)) {
     while(<MCF>) {
       if ($defs && $. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n"; $defs = '';}
       $newconf .= $_;
@@ -994,7 +994,7 @@ sub customize_conf($$$$) {
   }
   else {&ErrorBug("customize_conf could not open config file $conf");}
   if ($newconf) {
-    if (open(MCF, ">:encoding(UTF-8)", $conf)) {
+    if (open(MCF, ">$WRITELAYER", $conf)) {
       print MCF $newconf;
       close(MCF);
     }
@@ -1080,7 +1080,7 @@ sub customize_addScripRefLinks($$) {
   $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
   
   # Write to CF_addScripRefLinks.txt in the most user friendly way possible
-  if (!open(CFT, ">:encoding(UTF-8)", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
+  if (!open(CFT, ">$WRITELAYER", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
   foreach my $cfs (sort keys %cfSettings) {
     my $pcfs = $cfs; $pcfs =~ s/^\d\d //;
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
@@ -1202,7 +1202,7 @@ sub customize_usfm2osis($$) {
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
-  if (!open (CFF, ">>:encoding(UTF-8)", "$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  if (!open (CFF, ">>$WRITELAYER", "$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
   print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
   my $lastScope;
   foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
@@ -1665,7 +1665,7 @@ sub scanUSFM_file($) {
   
   &Log("Scanning SFM file: \"$f\"\n");
   
-  if (!open(SFM, "<:encoding(UTF-8)", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
+  if (!open(SFM, "<$READLAYER", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
   
   $info{'scope'} = ($f =~ /\/sfm\/([^\/]+)\/[^\/]+$/ ? $1:'');
   if ($info{'scope'}) {$info{'scope'} =~ s/_/ /g;}
@@ -1831,7 +1831,7 @@ sub writeConf($$) {
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
   if (!-e $confdir) {make_path($confdir);}
   
-  open(XCONF, ">:encoding(UTF-8)", $conf) || die "Could not open conf $conf\n";
+  open(XCONF, ">$WRITELAYER", $conf) || die "Could not open conf $conf\n";
   print XCONF "[$MAINMOD]\n";
   my $section = ''; my %used;
   foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
@@ -2066,8 +2066,8 @@ sub removeRevisionFromCF($) {
   
   my $changed = 0;
   my $msg = "# osis-converters rev-";
-  if (open(RCMF, "<:encoding(UTF-8)", $f)) {
-    if (!open(OCMF, ">:encoding(UTF-8)", "$f.tmp")) {&ErrorBug("removeRevisionFromCF could not open \"$f.tmp\".", '', 1);}
+  if (open(RCMF, "<$READLAYER", $f)) {
+    if (!open(OCMF, ">$WRITELAYER", "$f.tmp")) {&ErrorBug("removeRevisionFromCF could not open \"$f.tmp\".", '', 1);}
     my $l = 0;
     while(<RCMF>) {
       $l++;
@@ -4265,7 +4265,7 @@ sub readReplacementChars($\@\@) {
   my $fromAP = shift;
   my $toAP = shift;
 
-  if (open(INF, "<:encoding(UTF-8)", $replacementsFile)) {
+  if (open(INF, "<$READLAYER", $replacementsFile)) {
     while(<INF>) {
       if ($fromAP && $_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
         my $chars = $1;
@@ -4550,7 +4550,7 @@ sub fromUTF8($) {
 sub is_usfm2osis($) {
   my $osis = shift;
   my $usfm2osis = 0;
-  if (!open(TEST, "<$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
+  if (!open(TEST, "<$READLAYER", "$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
   while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
   close(TEST);
   if ($usfm2osis) {&Log("\n--- OSIS file was created by usfm2osis.py.\n");}
@@ -4666,7 +4666,7 @@ sub logProgress($$) {
       $ProgressTime = time;
       $ProgressTotal = 0;
       copy($msg, "$msg.progress.tmp");
-      if (open(PRGF, "<:encoding(UTF-8)", "$msg.progress.tmp")) {
+      if (open(PRGF, "<$READLAYER", "$msg.progress.tmp")) {
         while(<PRGF>) {$ProgressTotal++;}
         close(PRGF);
       }
@@ -4690,7 +4690,7 @@ sub copy_images_to_module($$) {
 		my $imagePaths = "INCLUDE IMAGE PATHS.txt";
 		&copy_dir($imgFile, "$dest/images", 1, 0, 0, quotemeta($imagePaths));
 		if (-e "$imgFile/$imagePaths") { # then copy any additional images located in $imagePaths file
-			open(IIF, "<$imgFile/$imagePaths") || die "Could not open \"$imgFile/$imagePaths\"\n";
+			open(IIF, "<$READLAYER", "$imgFile/$imagePaths") || die "Could not open \"$imgFile/$imagePaths\"\n";
 			while (<IIF>) {
 				if ($_ =~ /^\s*#/) {next;}
 				chomp;

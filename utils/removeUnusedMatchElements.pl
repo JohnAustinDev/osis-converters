@@ -7,7 +7,7 @@ $dwfPath = "$INPD/$DICTIONARY_WORDS";
 
 $alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
 $msg = "Rerun sfm2osis.pl on $MOD to create a new log file, and then rerun this script on $MOD.";
-if (!open(OUT, "<:encoding(UTF-8)", $alog)) {
+if (!open(OUT, "<$READLAYER", $alog)) {
   &Error("The log file $alog is required to run this script.", $msg, 1);
 }
 

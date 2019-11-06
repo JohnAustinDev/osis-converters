@@ -199,7 +199,7 @@ sub runAddScripRefLinks($$$) {
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
     &removeRevisionFromCF($commandFile);
-    open(CF, "<:encoding(UTF-8)", $commandFile);
+    open(CF, "<$READLAYER", $commandFile);
     my @abkn;
     while (<CF>) {
       $_ =~ s/\s+$//;
