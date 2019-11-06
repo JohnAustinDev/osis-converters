@@ -4681,33 +4681,6 @@ sub logProgress($$) {
 }
 
 
-sub copy_images_to_module($$) {
-	my $imgFile = shift;
-  my $dest = shift;
-  
-	&Log("\n--- COPYING $MOD image(s) \"$imgFile\"\n");
-	if (-d $imgFile) {
-		my $imagePaths = "INCLUDE IMAGE PATHS.txt";
-		&copy_dir($imgFile, "$dest/images", 1, 0, 0, quotemeta($imagePaths));
-		if (-e "$imgFile/$imagePaths") { # then copy any additional images located in $imagePaths file
-			open(IIF, "<$READLAYER", "$imgFile/$imagePaths") || die "Could not open \"$imgFile/$imagePaths\"\n";
-			while (<IIF>) {
-				if ($_ =~ /^\s*#/) {next;}
-				chomp;
-				if ($_ =~ /^\./) {$_ = "$imgFile/$_";}
-				if (-e $_) {&copy_images_to_module($_, $dest);}
-				else {&Error("Image directory listed in \"$imgFile/$imagePaths\" was not found: \"$_\"");}
-			}
-			close(IIF);
-		}
-	}
-	else {
-		if (-e "$dest/images/$imgFile") {unlink("$dest/images/$imgFile");} 
-		copy($imgFile, "$dest/images");
-	}
-}
-
-
 # make a zipped copy of a module
 sub zipModule($$) {
   my $zipfile = shift;
