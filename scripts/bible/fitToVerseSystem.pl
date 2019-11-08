@@ -780,7 +780,7 @@ There are ".@existing." fitted tags in the text. This OSIS file has
 already been fitted so this step will be skipped!");
   }
   
-  # Apply VSYS instructions to the translation (first do the fitting, then mark moved verses)
+  # Apply VSYS instructions to the translation (first do the fitting, then mark moved and extra verses)
   elsif (@VSYS_INSTR) {
     foreach my $argsP (@VSYS_INSTR) {
       if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
@@ -894,14 +894,22 @@ sub applyVsysInstruction(\%\%$) {
   my $canonP = shift;
   my $xml = shift;
   
-  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}."\n");
+  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}.($argP->{'universal'} ? ", universal=".$argP->{'universal'}:'')."\n");
 
   my $inst = $argP->{'inst'};
   
-  # NOTE: 'fixed' always refers to the known fixed verse system, 
+  # NOTE: 'fixed' always refers to a known fixed verse system, 
   # and 'source' always refers to the customized source verse system
-  my $fixedP  = ($argP->{'fixed'}  ? &parseVsysArgument($argP->{'fixed'},  $xml):'');
-  my $sourceP = ($argP->{'source'} ? &parseVsysArgument($argP->{'source'}, $xml):'');
+  my $sourceP = ''; my $fixedP = '';
+  if ($argP->{'source'}) {
+    $sourceP = &parseVsysArgument($argP->{'source'},    $xml, 'source');
+  }
+  if ($argP->{'fixed'}) {
+    $fixedP  = &parseVsysArgument($argP->{'fixed'},     $xml, 'fixed');
+  }
+  elsif ($argP->{'universal'}) {
+    $fixedP  = &parseVsysArgument($argP->{'universal'}, $xml, 'universal');
+  }
   
   if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
     &Error("'From' and 'To' are a different number of verses: $inst: ".$argP->{'fixed'}." -> ".$argP->{'source'});
@@ -922,19 +930,35 @@ sub applyVsysInstruction(\%\%$) {
   return 1;
 }
 
-sub parseVsysArgument($$) {
+sub parseVsysArgument($$$) {
   my $value = shift;
   my $xml = shift;
+  my $vsysType = shift;
   
   my %data;
   $data{'value'} = $value;
 
   # read and preprocess value
-  if ($value !~ /^$VSYS_PINSTR_RE$/) {
-    &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
-    return \%data;
+  my $bk; my $ch; my $vs; my $lv;
+  if ($vsysType eq 'universal') {
+    if ($value !~ /^$VSYS_UNIVERSE_RE$/) {
+      &ErrorBug("parseVsysArgument: Could not parse universal: $value !~ /^$VSYS_UNIVERSE_RE\$/");
+      return \%data;
+    }
+    $data{'vsys'} = $1;
+    $bk = $2; $ch = $3; $vs = ($4 ? $5:''); $lv = ($6 ? $7:'');
+    if ($data{'vsys'} !~ /^($SWORD_VERSE_SYSTEMS)$/) {
+      &Error("parseVsysArgument: Unrecognized verse system: '".$data{'vsys'}."'", "Use a recognized SWORD verse system: $SWORD_VERSE_SYSTEMS");
+    }
   }
-  my $bk = $1; my $ch = $2; my $vs = ($3 ? $4:''); my $lv = ($5 ? $6:'');
+  else {
+    if ($value !~ /^$VSYS_PINSTR_RE$/) {
+      &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
+      return \%data;
+    }
+    $data{'vsys'} = ($vsysType eq 'source' ? 'source':($vsysType eq 'fixed' ? &getVerseSystemOSIS($xml):''));
+    $bk = $1; $ch = $2; $vs = ($3 ? $4:''); $lv = ($5 ? $6:'');
+  }
   
   $data{'isPartial'} = ($lv =~ s/^PART$/$vs/ ? 1:0);
   $data{'isWholeChapter'} = &isWholeVsysChapter($bk, $ch, \$vs, \$lv, $xml);
@@ -949,18 +973,55 @@ sub parseVsysArgument($$) {
 
 # This does not modify any verse tags. It only inserts milestone markers
 # which later can be used to map Scripture references between the source
-# and the fixed verse systems. For all VSYS markup, annotateRef always 
-# refers to the source verse system osisID (assuming annotateType = 
-# x-vsys-source as it should). And osisRef always refers to the fixed 
-# verse system osisID.
+# and known fixed verse systems. For all VSYS markup, osisRef always 
+# refers to the xml file's fixed verse system. But annotateRef may refer 
+# to a source verse system osisID or to a universal address (depending 
+# on annotateType = x-vsys-source or x-vsys-universal). 
 # Types of milestones inserted are:
-# $VSYS{'movedto_vs'}, $VSYS{'missing_vs'} and $VSYS{'fitted_vs'} 
+# $VSYS{'movedto_vs'}, $VSYS{'missing_vs'}, $VSYS{'extra_vs'} and $VSYS{'fitted_vs'} 
 sub applyVsysFromTo($$$) {
   my $fixedP = shift;
   my $sourceP = shift;
   my $xml = shift;
   
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
+  
+  # If the fixed vsys is universal (different than $xml) then just insert extra_vs marker(s) after the extra source element(s) and return
+  if ('Bible.'.$fixedP->{'vsys'} ne &getRefSystemOSIS($xml)) {
+    if ($sourceP->{'isWholeChapter'}) {
+      my $xpath = '//*
+        [@type="'.$VSYS{'prefix_vs'}.'-chapter'.$VSYS{'start_vs'}.'"]
+        [@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]
+        [@annotateRef="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"][1]';
+      my $sch = @{$XPC->findnodes($xpath, $xml)}[0];
+      if ($sch) {
+        my $osisID = @{$XPC->findnodes('./preceding::osis:verse[@sID][1]', $sch)}[0];
+        if (!$osisID) {&ErrorBug("Could not find enclosing verse for element:\n".$sch);}
+        else {$osisID = $osisID->getAttribute('osisID');}
+        my $m = '<milestone type="'.$VSYS{'extra_vs'}.'" osisRef="'.$osisID.'" annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />';
+        $sch->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $sch);
+      }
+      else {&ErrorBug("Could not find source element:\n$xpath");}
+    }
+    else {
+      for (my $v=$vs; $v<=$lv; $v++) {
+        my $sourcevs = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$v;
+        my $svs = &getSourceVerseTag($sourcevs, $xml, 0);
+        if ($svs) {
+          my $osisID = @{$XPC->findnodes('./preceding::osis:verse[@sID][1]', $svs)}[0];
+          if (!$osisID) {&ErrorBug("Could not find enclosing verse for source verse: ".$sourcevs);}
+          else {$osisID = $osisID->getAttribute('osisID'); $osisID =~ s/^.*\s+//;}
+          my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $vs);
+          my $m = '<milestone type="'.$VSYS{'extra_vs'}.'" osisRef="'.$osisID.'" annotateRef="'.$univref.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />';
+          $svs->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $svs);
+        }
+        else {&ErrorBug("Could not find source verse: $sourcevs");}
+      }
+    }
+    
+    return;
+  }
+  
   for (my $v=$vs; $v<=$lv; $v++) {
     my $baseAnnotateRef = ($sourceP ? $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.($sourceP->{'vs'} + $v - $vs):'');
     my $annotateRef = $baseAnnotateRef;
@@ -1157,7 +1218,7 @@ sub applyVsysExtra($$$$) {
     my $shift = ($1 - $arv);
     if ($shift) {
       &Note("This verse was moved, adjusting position: '$shift'.");
-      my $newSourceArgumentP = &parseVsysArgument($bk.'.'.$ch.'.'.($vs+$shift).'.'.($sourceP->{'isPartial'} ? 'PART':($lv+$shift)), $xml);
+      my $newSourceArgumentP = &parseVsysArgument($bk.'.'.$ch.'.'.($vs+$shift).'.'.($sourceP->{'isPartial'} ? 'PART':($lv+$shift)), $xml, 'source');
       &applyVsysExtra($newSourceArgumentP, $canonP, $xml, 1);
       return;
     }
@@ -1448,14 +1509,18 @@ sub getLastVerseInChapterOSIS($$$) {
   return $lv;
 }
 
-# Checks that a 4 part verse range covers an entire chapter in the given
-# verse system. Also normalizes verses so they never contain empty values.
+# Checks that a 4 part verse range covers an entire chapter in the xml 
+# file. Also when possible finds verse numbers when they're missing.
 sub isWholeVsysChapter($$\$\$$) {
   my $bk  = shift;
   my $ch  = shift;
   my $vsP  = shift;
   my $lvP  = shift;
   my $xml = shift;
+  
+  if (!@{$XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml)}[0]) {
+    return (!$$vsP);
+  }
   
   my $maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
 
