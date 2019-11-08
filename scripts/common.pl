@@ -49,7 +49,7 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
   }
 }
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
-$SWORD_VERSE_SYSTEMS = "German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
+$SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
 $VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
 $VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
 $VSYS_UNIVERSE_RE = "($SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
@@ -62,13 +62,13 @@ $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
 $ROC = 'x-oc'; # meaning osis-converters is responsible for adding this element
 $VSYS{'prefix_vs'} = 'x-vsys';
-$VSYS{'resp_vs'} = $VSYS{'prefix_vs'};
-$VSYS{'AnnoTypeSource'} = $VSYS{'prefix_vs'}.'-source';
+$VSYS{'resp_vs'}           = $VSYS{'prefix_vs'};
+$VSYS{'AnnoTypeSource'}    = $VSYS{'prefix_vs'}.'-source';
 $VSYS{'AnnoTypeUniversal'} = $VSYS{'prefix_vs'}.'-universal';
-$VSYS{'missing_vs'} = $VSYS{'prefix_vs'}.'-missing';
-$VSYS{'movedto_vs'} = $VSYS{'prefix_vs'}.'-movedto';
-$VSYS{'extra_vs'} = $VSYS{'prefix_vs'}.'-extra';
-$VSYS{'fitted_vs'} = $VSYS{'prefix_vs'}.'-fitted';
+$VSYS{'missing_vs'}        = $VSYS{'prefix_vs'}.'-missing';
+$VSYS{'movedto_vs'}        = $VSYS{'prefix_vs'}.'-movedto';
+$VSYS{'extra_vs'}          = $VSYS{'prefix_vs'}.'-extra';
+$VSYS{'fitted_vs'}         = $VSYS{'prefix_vs'}.'-fitted';
 $VSYS{'start_vs'} = '-start';
 $VSYS{'end_vs'} = '-end';
 

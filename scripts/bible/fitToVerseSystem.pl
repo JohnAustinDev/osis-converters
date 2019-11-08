@@ -984,6 +984,8 @@ sub applyVsysFromTo($$$) {
   my $sourceP = shift;
   my $xml = shift;
   
+  if (!$fixedP || !$sourceP) {return;}
+  
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   
   # If the fixed vsys is universal (different than $xml) then just insert extra_vs marker(s) after the extra source element(s) and return
@@ -1004,14 +1006,14 @@ sub applyVsysFromTo($$$) {
       else {&ErrorBug("Could not find source element:\n$xpath");}
     }
     else {
-      for (my $v=$vs; $v<=$lv; $v++) {
+      for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'lv'}; $v++) {
         my $sourcevs = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$v;
         my $svs = &getSourceVerseTag($sourcevs, $xml, 0);
         if ($svs) {
           my $osisID = @{$XPC->findnodes('./preceding::osis:verse[@sID][1]', $svs)}[0];
           if (!$osisID) {&ErrorBug("Could not find enclosing verse for source verse: ".$sourcevs);}
           else {$osisID = $osisID->getAttribute('osisID'); $osisID =~ s/^.*\s+//;}
-          my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $vs);
+          my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
           my $m = '<milestone type="'.$VSYS{'extra_vs'}.'" osisRef="'.$osisID.'" annotateRef="'.$univref.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />';
           $svs->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $svs);
         }
@@ -1122,6 +1124,8 @@ sub applyVsysMissing($$$) {
   my $fixedP = shift;
   my $xml = shift;
   
+  if (!$fixedP) {return;}
+  
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   
   if ($fixedP->{'isPartial'}) {
@@ -1176,6 +1180,8 @@ sub applyVsysExtra($$$$) {
   my $canonP = shift;
   my $xml = shift;
   my $adjusted = shift;
+  
+  if (!$sourceP) {return;}
   
   my $bk = $sourceP->{'bk'}; my $ch = $sourceP->{'ch'}; my $vs = $sourceP->{'vs'}; my $lv = $sourceP->{'lv'};
   
