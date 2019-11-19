@@ -1833,12 +1833,14 @@ sub writeConf($$) {
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
   if (!-e $confdir) {make_path($confdir);}
   
+  my $modname = $entryValueP->{'ModuleName'};
+  
   open(XCONF, ">$WRITELAYER", $conf) || die "Could not open conf $conf\n";
-  print XCONF "[$MAINMOD]\n";
+  print XCONF "[$modname]\n";
   my $section = ''; my %used;
   foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
     my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
-    if ($s eq $MAINMOD) {$s = '';}
+    if ($s eq $modname) {$s = '';}
     if ($s && $s ne $section) {
       print XCONF "\n[$s]\n";
       $section = $s;
