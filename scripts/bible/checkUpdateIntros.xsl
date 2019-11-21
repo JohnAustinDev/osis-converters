@@ -29,39 +29,65 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
   <!-- This XSLT will do the following:
     1) Move section titles just before chapter tags to after the chapter tags, because they are not introductory and are associated with the next chapter
     2) Report relevant intro elements which are not subType="x-introduction" and make them such. Also add canonical=false as needed
-    3) Titles set to canonical=false unless already explicitly set
+    3) Report relevant body elements which are subType="x-introduction" and remove the subType attribute from them.
+    4) Titles are set to canonical=false unless already explicitly set
   -->
   
   <import href="../functions.xsl"/>
   
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
-  <variable name="moveDivs" as="element(div)*" select="descendant::div[matches(@type, 'section', 'i')]
-      [(descendant::*|following::*)[self::chapter[@sID]][1] &#60;&#60; (descendant::text()|following::text())[normalize-space()][not(ancestor-or-self::title)][1]]"/>
+  <!-- All section divs which immediately precede a chapter start tag (and so need to be part of the chapter rather than the introduction) -->
+  <variable name="movedSectionDivs" as="element(div)*" select="
+    //div[matches(@type, 'section', 'i')]
+    [
+      (descendant::*|following::*)[self::chapter[@sID]][1] 
+      &#60;&#60; 
+      (descendant::text()|following::text())[normalize-space()][not(ancestor-or-self::title)][1]
+    ]"/>
       
-  <!-- title|item|p|l|q are the introduction elements output by usfm2osis.py -->
-  <variable name="introElements" as="element()*" select="//(title|item|p|l|q)[not(ancestor::header)][not(ancestor::div[@scope='NAVMENU'])][not(ancestor::*[@subType='x-navmenu'])]
-      [. &#60;&#60; (ancestor::div[starts-with(@type, 'book')][1]|ancestor::osisText)[last()]/(descendant::div[starts-with(@type, 'book')]|descendant::chapter[@sID])[1]]"/>
-      
-  <variable name="addIntroAttrib" as="element()*" select="$introElements[not(@subType) or @subType != 'x-introduction'][not(generate-id(.) = $moveDivs/title[1]/generate-id())]"/>
-      
-  <variable name="removeIntroAttrib" as="element()*" select="//(title|item|p|l|q)[not(ancestor::header)][not(ancestor::div[@scope='NAVMENU'])][not(ancestor::*[@subType='x-navmenu'])]
-      [@subType='x-introduction'] except $introElements"/>
+  <!-- All introduction elements output by usfm2osis.py (title|item|p|l|q) which are located in an introductory position -->
+  <variable name="introElements" as="element()*" select="
+    //(title|item|p|l|q)
+    [not(ancestor::header)]
+    [not(ancestor::div[@scope='NAVMENU'])]
+    [not(ancestor::*[@subType='x-navmenu'])]
+    [not(. &#62;&#62; ./ancestor::div[@type='book'][1]/descendant::chapter[@sID][1])]"/>
   
-  <variable name="addCanonical" as="element()*" select="$introElements[not(@canonical)][ancestor::div[@type='book'][@canonical = 'true']]"/>
+  <!-- All introduction elements which need to have subType="x-introduction" added to them -->
+  <variable name="addIntroAttrib" as="element()*" select="
+    $introElements
+    [not(@subType) or @subType != 'x-introduction']
+    [not(generate-id(.) = $movedSectionDivs/title[1]/generate-id())]"/>
+      
+  <!-- All elements which are not introduction elements and need to have subType="x-introduction" removed -->
+  <variable name="removeIntroAttrib" as="element()*" select="
+    //(title|item|p|l|q)
+    [not(ancestor::header)]
+    [not(ancestor::div[@scope='NAVMENU'])]
+    [not(ancestor::*[@subType='x-navmenu'])]
+    [@subType='x-introduction'] 
+    except $introElements"/>
+  
+  <!-- All introduction elements within canonical divs which need to be marked as non-canonical -->
+  <variable name="addCanonicalFalse" as="element()*" select="
+    $introElements
+    [not(@canonical)]
+    [ancestor::div[@type='book'][@canonical = 'true']]"/>
 
   <!-- By default copy everything as is, for all modes -->
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
   
+  <!-- Report everything that is to be done -->
   <template match="/">
     <call-template name="Log"><with-param name="msg"><text>&#xa;</text><text>&#xa;</text>Checking introductory material in <value-of select="document-uri(.)"/>.</with-param></call-template>
     
     <!-- Log moved titles -->
-    <if test="$moveDivs">
+    <if test="$movedSectionDivs">
       <call-template name="Note"><with-param name="msg">Section title(s) just before a chapter tag were moved after the chapter tag:</with-param></call-template>
-      <for-each select="$moveDivs"><call-template name="Log"><with-param name="msg" select="concat('&#9;', (descendant::*|following::*)[self::chapter[@sID]][1]/@sID, ': ', child::title[1])"></with-param></call-template></for-each>
+      <for-each select="$movedSectionDivs"><call-template name="Log"><with-param name="msg" select="concat('&#9;', (descendant::*|following::*)[self::chapter[@sID]][1]/@sID, ': ', child::title[1])"></with-param></call-template></for-each>
     </if>
     
     <!-- Check and log introduction attributes -->
@@ -88,29 +114,29 @@ OSIS elements, so changes to USFM source are not required.</with-param></call-te
     <next-match/>
   </template>
 
-  <!-- Write (move) chapter tag before movedTitles -->
-  <template match="*[$moveDivs/generate-id() = generate-id(.)]">
+  <!-- Move following chapter tag to before movedSectionDivs -->
+  <template match="*[$movedSectionDivs/generate-id() = generate-id(.)]">
     <if test="not(preceding-sibling::node()[normalize-space][1][not(title[1][parent::div[matches(@type, 'section', 'i')]])])">
       <for-each select="./(descendant::*|following::*)[self::chapter[@sID]][1]"><call-template name="identity"/></for-each>
     </if>
     <call-template name="identity"/>
   </template>
   
-  <!-- Remove chapter tag after moved Titles -->
-  <template match="chapter[@sID][generate-id(.) = $moveDivs/(descendant::*|following::*)[self::chapter[@sID]][1]/generate-id()]"/>
+  <!-- Remove following chapter tag that comes after movedSectionDivs -->
+  <template match="chapter[@sID][generate-id(.) = $movedSectionDivs/(descendant::*|following::*)[self::chapter[@sID]][1]/generate-id()]"/>
   
   <!-- Add element subType and canonical attributes according to SWORD best practice -->
-  <template match="*[($addIntroAttrib|$addCanonical)/generate-id() = generate-id(.)] | title[not(ancestor::header)][not(@canonical)]">
+  <template match="*[($addIntroAttrib|$addCanonicalFalse)/generate-id() = generate-id(.)] | title[not(ancestor::header)][not(@canonical)]">
     <copy><apply-templates select="@*"/>
       <!-- titles should be canonical=false unless already explicitly set -->
       <if test="$addIntroAttrib/generate-id() = generate-id(.)"><attribute name="subType" select="'x-introduction'"/></if>
-      <if test="$addCanonical/generate-id() = generate-id(.) or self::title"><attribute name="canonical" select="'false'"/></if>
+      <if test="$addCanonicalFalse/generate-id() = generate-id(.) or self::title"><attribute name="canonical" select="'false'"/></if>
       <apply-templates/>
     </copy>
   </template>
   
   <!-- Remove x-introduction attribute from moved titles -->
-  <template match="title[1][parent::div[matches(@type, 'section', 'i')]][@subType = 'x-introduction']/@subType"/>
+  <template match="title[parent::div[$movedSectionDivs/generate-id() = generate-id(.)]][@subType = 'x-introduction']/@subType"/>
   
   <!-- Remove x-introduction attribute as needed -->
   <template match="*[$removeIntroAttrib/generate-id()= generate-id(.)]/@subType"/>
