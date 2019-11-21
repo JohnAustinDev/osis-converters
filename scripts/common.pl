@@ -1231,7 +1231,7 @@ sub customize_usfm2osis($$) {
       my @instructions;
       if ($scope) {push(@instructions, "scope == $scope");} # scope is first instruction because it only effects following instructions
       if ($modType eq 'bible') {
-        push(@instructions, &getOsisMap('location', $scope));
+        push(@instructions, &getOsisMap('sfmfile', $scope));
         if (@{$USFM{$modType}{$f}{'periphType'}}) {
           foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
             my $osisMap = &getOsisMap($periphType, $scope);
@@ -1254,48 +1254,55 @@ sub customize_usfm2osis($$) {
   close(CFF);
 }
 
-# Given an official peripheral description and scope, return the
-# CF_usfm2osis.txt code for default placement of the peripheral within 
-# an OSIS file. When $pt is 'location' (an entire file) it is placed
-# in the proper bookGroup, or before the first book of $scope, or else 
-# after the osis:header.
+# Given an official peripheral-type and scope, return the
+# CF_usfm2osis.txt code for default placement of that peripheral within 
+# the OSIS file. When $periphType is 'sfmfile' (meaning an entire sfm 
+# file) it is placed in the proper bookGroup, or before the first book 
+# of $scope, or else after the osis:header.
 sub getOsisMap($) {
-  my $pt = shift;
+  my $periphType = shift; # a key to %USFM_DEFAULT_PERIPH_TARGET defined in fitToVerseSystem.pl
   my $scope = shift;
   
-  my $scopePath = 'osis:header/following-sibling::node()[1]';
+  # default sfmfile placement is after osis header
+  my $defPath = 'osis:header/following-sibling::node()[1]';
+  
+  my $scopePath = $defPath;
   if ($scope) {
-    if ($scope eq 'Matt-Rev') {$scopePath = 'osis:div[@type="bookGroup"][last()]/node()[1]';}
-    elsif ($scope eq 'Gen-Mal') {$scopePath = 'osis:div[@type="bookGroup"][1]/node()[1]';}
+    if ($scope eq 'Matt-Rev') {$scopePath = $USFM_DEFAULT_PERIPH_TARGET{'New Testament Introduction'};}
+    elsif ($scope eq 'Gen-Mal') {$scopePath = $USFM_DEFAULT_PERIPH_TARGET{'Old Testament Introduction'};}
     else {
-      $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:'');
-      if (!$scopePath || !$OSISBOOKS{$scopePath}) {
+      $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:''); # try to get first book of scope
+      if ($scopePath && $OSISBOOKS{$scopePath}) {
+        # place at the beginning of the first book of scope
+        $scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]/node()[1]';
+      }
+      else {
         &Error("USFM file's scope \"$scope\" is not recognized.", 
 "Make sure the sfm sub-directory is named using a proper OSIS 
 book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
-        $scopePath = 'osis:header/following-sibling::node()[1]';
+        $scopePath = $defPath;
       }
-      else {$scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]';}
     }
   }
-  if ($pt eq 'location') {return "location == $scopePath";}
+  if ($periphType eq 'sfmfile') {return "location == $scopePath";}
 
-  my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$pt};
+  my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$periphType};
   if (!$periphTypeDescriptor) {
-    &Error("Unrecognized peripheral name \"$pt\"", "Change it to one of the following: " . join(', ', sort keys %PERIPH_TYPE_MAP));
+    &Error("Unrecognized peripheral name \"$periphType\"", "Change it to one of the following: " . join(', ', sort keys %PERIPH_TYPE_MAP));
     return '';
   }
-  if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$pt};}
+  if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$periphType};}
 
-  my $xpath = 'osis:div[@type="book"]/node()[1]'; # default is introduction to first book
+  # default periph placement is introduction to first book
+  my $xpath = 'osis:div[@type="book"]/node()[1]';
   foreach my $t (sort keys %USFM_DEFAULT_PERIPH_TARGET) {
-    if ($pt !~ /^($t)$/i) {next;}
+    if ($periphType !~ /^($t)$/i) {next;}
     $xpath = $USFM_DEFAULT_PERIPH_TARGET{$t};
     if ($xpath eq 'place-according-to-scope') {$xpath = $scopePath;}
     last;
   }
   
-  return "\"$pt\" == $xpath";
+  return "\"$periphType\" == $xpath";
 }
 
 # Copy fontname (which is part of a filename which may correspond to multiple

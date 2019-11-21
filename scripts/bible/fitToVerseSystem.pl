@@ -275,6 +275,43 @@ facilitate this, the following maps are provided:
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
 
+sub placementMessage() {
+  if ($AlreadyReportedThis) {return '';}
+  $AlreadyReportedThis = 1;
+return
+"------------------------------------------------------------------------
+| The destination location of peripheral files and, if desired, of each 
+| \periph section within these files, must be appended to the end of 
+| each peripheral USFM file's \id line, like this:
+|
+| \id INT location == <xpath-expression>, <div-type> == <xpath-expression>, <div-type> == <xpath-expression>, ...
+|
+| Where 'location' is used to specify where the entire file should go.
+|
+| Where <div-type> is one of the following:
+| \t-A peripheral OSIS div type or subType will select the next div 
+| \t\tin the converted OSIS file having that type or subType.
+| \t- A USFM \periph type within double quotes (and don't forget the 
+| \t\tquotes) will select the next OSIS div of that periph type. 
+| \t- If the div you want to select is not part of the USFM 2.4 
+| \t\tspecification, it can only be specified with: 
+| \t\tx-unknown == <xpath-expression>.
+|
+| Where <xpath-expression> is one of:
+| \t-The keyword 'remove' to remove it from the OSIS file entirely.
+| \t-The keyword 'osis:header' to place it after the header element,
+| \t\twhich is the location for full Bible introductory material.
+| \t-An XPATH expression selecting an element before which the 
+| \t\tintroduction will be placed: 
+| \t\tosis:div[\@osisID=\"Ruth\"]/node()[1]
+| \t\tto place it at the beginning of the book of Ruth.
+|
+| Optionally, you may additionally specify the scope of each peripheral 
+| file by adding \"scope == Matt-Rev\" for instance. This is used by 
+| single Bible-book eBooks to duplicate peripheral material where needed.
+------------------------------------------------------------------------\n";
+}
+
 sub orderBooksPeriphs($$$) {
   my $osisP = shift;
   my $vsys = shift;
@@ -540,43 +577,6 @@ sub placeIntroduction($$$) {
     $beforeNode = $beforeNode->nextSibling();
   }
   $beforeNode->parentNode->insertBefore($periph, $beforeNode);
-}
-
-sub placementMessage() {
-  if ($AlreadyReportedThis) {return '';}
-  $AlreadyReportedThis = 1;
-return
-"------------------------------------------------------------------------
-| The destination location of peripheral files and, if desired, of each 
-| \periph section within these files, must be appended to the end of 
-| each peripheral USFM file's \id line, like this:
-|
-| \id INT location == <xpath-expression>, <div-type> == <xpath-expression>, <div-type> == <xpath-expression>, ...
-|
-| Where 'location' is used to specify where the entire file should go.
-|
-| Where <div-type> is one of the following:
-| \t-A peripheral OSIS div type or subType will select the next div 
-| \t\tin the converted OSIS file having that type or subType.
-| \t- A USFM \periph type within double quotes (and don't forget the 
-| \t\tquotes) will select the next OSIS div of that periph type. 
-| \t- If the div you want to select is not part of the USFM 2.4 
-| \t\tspecification, it can only be specified with: 
-| \t\tx-unknown == <xpath-expression>.
-|
-| Where <xpath-expression> is one of:
-| \t-The keyword 'remove' to remove it from the OSIS file entirely.
-| \t-The keyword 'osis:header' to place it after the header element,
-| \t\twhich is the location for full Bible introductory material.
-| \t-An XPATH expression selecting the parent element at the top of 
-| \t\twhich it should be placed, such as: 
-| \t\tosis:div[\@osisID=\"Ruth\"]
-| \t\tto place it at the beginning of the book of Ruth.
-|
-| Optionally, you may also specify the scope of each peripheral file by 
-| adding \"scope == Matt-Rev\" for instance. This is used by single
-| Bible-book eBooks to duplicate peripheral material where needed.
-------------------------------------------------------------------------\n";
 }
 
 # Read bibleMod and the osis file and:
