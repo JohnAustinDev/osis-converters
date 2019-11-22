@@ -21,3 +21,5 @@ Replace-this-group: →
 With-this-group:    ->
 Replace-this-group: ←
 With-this-group:    <-
+Replace-this-group: №
+With-this-group:    No

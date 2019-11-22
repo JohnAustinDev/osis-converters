@@ -1257,8 +1257,8 @@ sub customize_usfm2osis($$) {
 # Given an official peripheral-type and scope, return the
 # CF_usfm2osis.txt code for default placement of that peripheral within 
 # the OSIS file. When $periphType is 'sfmfile' (meaning an entire sfm 
-# file) it is placed in the proper bookGroup, or before the first book 
-# of $scope, or else after the osis:header.
+# file) it is placed in the proper bookGroup, or at the beginning of the
+# first book of $scope, or else after the osis:header.
 sub getOsisMap($) {
   my $periphType = shift; # a key to %USFM_DEFAULT_PERIPH_TARGET defined in fitToVerseSystem.pl
   my $scope = shift;
