@@ -1456,7 +1456,7 @@ on the same line");}
 
     # Composite cover image names should end with _comp.jpg
     my $inew = "$imgdir/${scope}_comp.jpg";
-    if (&createCompositeCoverImage($inew, $mod, $scope, \@pubcovers, $title, $font)) {
+    if (&createCompositeCoverImage(\@pubcovers, $inew, $title, $font)) {
       $subType = "comp";
       $iname = "${scope}_comp";
       $pubImagePath = $inew;
@@ -1517,26 +1517,40 @@ sub findCover($$$) {
   return '';
 }
 
-sub createCompositeCoverImage($$$\@$) {
-  my $cover = shift;
-  my $mod = shift;
-  my $scope = shift;
+# Takes an array of images and creates a composite image by overlapping 
+# small versions of each image over each other, translated by a certain 
+# x/y offset.
+sub createCompositeCoverImage(\@$$$) {
   my $coversAP = shift;
-  my $title = shift;
-  my $font = shift;
+  my $cover = shift;    # output image
+  my $title = shift;    # title of output image
+  my $font = shift;     # font for title
   
-  my $imgw = 500; my $imgh = 0;
-  my $xs = (20 + 40*(5-@{$coversAP})); my $ys = $xs;
-  my $xw = $imgw - ((@{$coversAP}-1)*$xs);
-  for (my $j=0; $j<@{$coversAP}; $j++) {
+  # constants to adjust
+  my $nmx   =   5; # after this number of images, the composite image's width and height will grow linearly
+  my $minxs =  20; # minimum x offset of images
+  my $cw    = 360; # width of sub-images when there are two
+  my $dw    = 500; # default width of composite image (actual width grows after $nmx images)
+  
+  # variables
+  my $ni = scalar(@{$coversAP});                                    # number of images
+  my $imgw = $dw + ($ni > $nmx ? $minxs*($ni-$nmx):0);              # width of composite image
+  my $cf = 0; if ($ni <= $nmx) {$cf = ($imgw-$cw-$minxs)/($nmx-2);} # coefficient of overlap
+  my $xs = ($minxs + $cf*($nmx-$ni)); my $ys = $xs;                 # x-step and y-step
+  my $xw = $imgw - (($ni-1)*$xs);                                   # width of sub-images
+  
+  # get height of composite image (based on tallest sub-image)
+  my $imgh = 0;
+  for (my $j=0; $j<$ni; $j++) {
     my $dimP = &imageDimension(@{$coversAP}[$j]);
     $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
     if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
   }
+  
   my $dissolve = "%100"; # in the end dissolve wasn't that great, so disable for now
   my $temp = "$TMPDIR/tmp.png";
   my $out = "$TMPDIR/cover.png"; # png allows dissolve to work right
-  for (my $j=0; $j<@{$coversAP}; $j++) {
+  for (my $j=0; $j<$ni; $j++) {
     my $dimP = &imageDimension(@{$coversAP}[$j]);
     $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
     &shell("convert -resize ${xw}x${sh} ".@{$coversAP}[$j]." \"$temp\"", 3);
@@ -1544,7 +1558,7 @@ sub createCompositeCoverImage($$$\@$) {
       &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
     }
     else {
-      &shell("composite".($j != (@{$coversAP}-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
+      &shell("composite".($j != ($ni-1) ? " -dissolve ".$dissolve:'')." \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." \"$out\" \"$out\"", 3);
     }
   }
   &shell("convert \"$out\" -colorspace sRGB -background White -flatten ".&imageCaption($imgw, $title, $font)." \"$cover\"", 3);

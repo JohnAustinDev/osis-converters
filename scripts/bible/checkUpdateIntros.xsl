@@ -37,9 +37,10 @@ Copyright 2017 John Austin (gpl.programs.info@gmail.com)
   
   <variable name="MOD" select="//osisText/@osisIDWork"/>
   
-  <!-- All section divs which immediately precede a chapter start tag (and so need to be part of the chapter rather than the introduction) -->
+  <!-- All section divs which immediately precede (text-wise) a sibling chapter start tag (and so need to be part of that chapter rather than the introduction) -->
   <variable name="movedSectionDivs" as="element(div)*" select="
     //div[matches(@type, 'section', 'i')]
+    [following-sibling::chapter[@sID]]
     [
       (descendant::*|following::*)[self::chapter[@sID]][1] 
       &#60;&#60; 
