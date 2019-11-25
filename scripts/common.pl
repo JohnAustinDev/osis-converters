@@ -1526,7 +1526,10 @@ sub createCompositeCoverImage(\@$$$) {
   my $title = shift;    # title of output image
   my $font = shift;     # font for title
   
-  # constants to adjust
+  my @sorted = sort  { &sortCoverImages($a, $b) } @{$coversAP};
+  $coversAP = \@sorted;
+  
+  # adjustable constants
   my $nmx   =   5; # after this number of images, the composite image's width and height will grow linearly
   my $minxs =  20; # minimum x offset of images
   my $cw    = 360; # width of sub-images when there are two
@@ -1566,6 +1569,19 @@ sub createCompositeCoverImage(\@$$$) {
   if (-e $out) {unlink($out);}
   
   return (-e $cover ? 1:0);
+}
+
+# Sort cover images (with 'top' meaning last) having NT on top of (after) OT, and earlier books on top of (after) newer books
+sub sortCoverImages($$) {
+  my $a = shift;
+  my $b = shift;
+  
+  my $sa = $a; $sa =~ s/^.*\///; $sa =~ s/\.[^\.]+$//; $sa =~ s/^([^\s_\-]+).*?$/$1/;
+  my $sb = $b; $sb =~ s/^.*\///; $sb =~ s/\.[^\.]+$//; $sb =~ s/^([^\s_\-]+).*?$/$1/;
+  my $ia = index("$NT_BOOKS $OT_BOOKS", $sa);
+  my $ib = index("$NT_BOOKS $OT_BOOKS", $sb);
+
+  return $ib <=> $ia;
 }
 
 sub imageDimension($) {
