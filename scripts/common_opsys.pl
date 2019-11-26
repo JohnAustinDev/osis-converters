@@ -900,6 +900,12 @@ sub escfile($) {
   return $n;
 }
 
+sub isFolderEmpty($) { 
+  my $dirname = shift;
+  opendir(my $dh, $dirname) or die "Not a directory"; 
+  return scalar(grep { $_ ne "." && $_ ne ".." } readdir($dh)) == 0;
+}
+
 # Run a Linux shell script. $flag can have these values:
 # -1 = only log file
 #  0 = log file (+ console unless $NOCONSOLELOG is set)

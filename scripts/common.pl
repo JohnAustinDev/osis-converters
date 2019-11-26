@@ -1466,6 +1466,8 @@ on the same line");}
   }
   if ($pubImagePath && &insertPubCover(&getCoverFigure($iname, $subType), $xml)) {$updated++;}
   
+  if (&isFolderEmpty($imgdir)) {rmdir($imgdir);}
+  
   if ($updated) {&writeXMLFile($xml, $output, $osisP);}
 }
 
