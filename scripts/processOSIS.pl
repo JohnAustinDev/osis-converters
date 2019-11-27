@@ -159,7 +159,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
 
   # If there are differences between the custom and fixed verse systems, then some references need to be updated
-  if ($modType eq 'bible') {
+  if ($modType eq 'bible' || $modType eq 'dict') {
     &correctReferencesVSYS(\$OSIS);
     &removeDefaultWorkPrefixesFAST(\$OSIS);
   }

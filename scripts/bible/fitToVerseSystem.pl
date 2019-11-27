@@ -659,12 +659,17 @@ sub addrids(\@$$\%) {
   my $vIsPartial = ($vnop =~ s/!PART$// ? 1:0);
   
   my @attribs = ('osisRef', 'annotateRef', 'rids');
+  my %attrib;
   foreach my $e (@{$checkRefsAP}) {
+    # read each attribute into hash
     foreach my $a (@attribs) {
-      my @ar = (split(/\s+/, &osisRef2osisID($e->getAttribute($a))));
-      $$a = \@ar;
+      my $v = $e->getAttribute($a);
+      $attrib{'work'}{$a} = ($v =~ s/^([^\:]+\:)// ? $1:'');
+      my @ar = (split(/\s+/, &osisRef2osisID($v)));
+      $attrib{'ref'}{$a} = \@ar;
     }
-    foreach my $ref (@$osisRef) {
+    # update each attribute hash value
+    foreach my $ref (@{$attrib{'ref'}{'osisRef'}}) {
       if ($ref ne $vnop) {next;}
       elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
       
@@ -673,25 +678,26 @@ sub addrids(\@$$\%) {
   
       # map source references to fitted
       if ($map eq 'source2Fitted') {
-        if ($vIsPartial) {push(@$rids, $vnop);}
-        push(@$rids, $altVersesOSISP->{'source2Fitted'}{$verse});
-        push(@$annotateRef, $vnop);
+        if ($vIsPartial) {push(@{$attrib{'ref'}{'rids'}}, $vnop);}
+        push(@{$attrib{'ref'}{'rids'}}, $altVersesOSISP->{'source2Fitted'}{$verse});
+        push(@{$attrib{'ref'}{'annotateRef'}}, $vnop);
       }
       # map externally added references to fitted
       elsif ($map eq 'fixed2Fitted') {
-        if ($vIsPartial) {push(@$rids, $vnop);}
-        push(@$rids, $altVersesOSISP->{'fixed2Fitted'}{$verse});
-        push(@$annotateRef, &mapOsisRef($altVersesOSISP, 'fixed2Source', $verse));
+        if ($vIsPartial) {push(@{$attrib{'ref'}{'rids'}}, $vnop);}
+        push(@{$attrib{'ref'}{'rids'}}, $altVersesOSISP->{'fixed2Fitted'}{$verse});
+        push(@{$attrib{'ref'}{'annotateRef'}}, &mapOsisRef($altVersesOSISP, 'fixed2Source', $verse));
       }
       elsif ($map eq 'fixedMissing') {
-        if ($vIsPartial) {push(@$rids, $vnop);}
+        if ($vIsPartial) {push(@{$attrib{'ref'}{'rids'}}, $vnop);}
       }
       else {&ErrorBug("Unexpected map $map.");}
       
       $ref = '';
     }
+    # save each attribute hash value back to its attribute
     foreach my $a (@attribs) {
-      my $val = &osisID2osisRef(join(' ', &normalizeOsisID($$a)));
+      my $val = $attrib{'work'}{$a}.&osisID2osisRef(join(' ', &normalizeOsisID($attrib{'ref'}{$a})));
       if ($val ne $e->getAttribute($a)) {$e->setAttribute($a, $val);}
     }
   }
@@ -717,8 +723,12 @@ sub applyrids($\%) {
     my @osisRef = (split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef'))));
     push(@annotateRef, @osisRef);
     push(@osisRef, @rids);
-    my $osisRefNew     = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@osisRef))));
-    my $annotateRefNew = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@annotateRef))));
+    my $osisRefNew     = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@osisRef, $MAINMOD, 'not-default'))));
+    my $annotateRefNew = &fillGapsInOsisRef(&osisID2osisRef(join(' ', &normalizeOsisID(\@annotateRef, $MAINMOD, 'not-default'))));
+    if (&getModNameOSIS($xml) ne $MAINMOD) {
+      $osisRefNew     = "$MAINMOD:$osisRefNew";
+      $annotateRefNew = "$MAINMOD:$annotateRefNew";
+    }
     
     if ($osisRefOrig eq $osisRefNew && $osisRefOrig eq $annotateRefNew) {
       $e->setAttribute('osisRef', $osisRefOrig);
