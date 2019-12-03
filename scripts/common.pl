@@ -2372,10 +2372,6 @@ sub sortSearchTermKeys($$) {
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering, or else the ebook title itself if no books were filtered out.
-#
-# Reference hyperlinks with subType="x-external" are removed because
-# these targets do not exist in the translation yet and will result in
-# broken links.
 sub pruneFileOSIS($$\%\$\$) {
   my $osisP = shift;
   my $scope = shift;
@@ -2488,14 +2484,6 @@ sub pruneFileOSIS($$\%\$\$) {
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
   
-  # remove references beyond pruned OSIS file
-  my @rhot = $XPC->findnodes('//osis:reference[@subType="x-external"]', $inxml);
-  foreach my $r (@rhot) {
-    foreach my $chld ($r->childNodes) {$r->parentNode->insertBefore($chld, $r);}
-    $r->unbindNode();
-  }
-  if (@rhot[0]) {&Note("Removed ".@rhot." hyperlinks outside of translation.", 1);}
-  
   # move matching sub-publication cover to top
   my $s = $scope; $s =~ s/\s+/_/g;
   my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
@@ -2550,30 +2538,30 @@ sub changeNodeText($$) {
 # 3) Remove hyper-link: This happens if the link is readable, but it could not be
 #    redirected to another resource, or it's missing an osisRef.
 sub filterScriptureReferences($$$) {
-  my $osis = shift;
-  my $fullOsis = shift;
-  my $companionBibleOsis = shift;
+  my $osisToFilter = shift;    # The osis file to filter (Bible or Dictionary)
+  my $osisBibleTran = shift;   # The osis file of the entire Bible translation osis (before pruning)
+  my $osisBiblePruned = shift; # The osis file of the pruned Bible osis (if left empty, this will be $osisToFilter) 
   
-  my $selfOsis = ($companionBibleOsis ? $companionBibleOsis:$osis);
+  if (!$osisBiblePruned) {$osisBiblePruned = $osisToFilter;}
   
-  my $xml_osis     = $XML_PARSER->parse_file($osis);
-  my $xml_selfOsis = $XML_PARSER->parse_file($selfOsis);
-  my $xml_fullOsis = $XML_PARSER->parse_file($fullOsis);
+  my $xml_osis       = $XML_PARSER->parse_file($osisToFilter);
+  my $xmlBiblePruned = $XML_PARSER->parse_file($osisBiblePruned);
+  my $xmlBibleTran   = $XML_PARSER->parse_file($osisBibleTran);
   
-  my %selfOsisBooks = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xml_selfOsis)};
-  my %fullOsisBooks = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xml_fullOsis)};
+  my %prunedOsisBooks = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xmlBiblePruned)};
+  my %tranOsisBooks   = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xmlBibleTran)};
+  my $noBooksPruned = (join(' ', sort keys %prunedOsisBooks) eq join(' ', sort keys %tranOsisBooks));
   
-  my $iAmFullOsis = (join(' ', sort keys %selfOsisBooks) eq join(' ', sort keys %fullOsisBooks));
-  my $fullResourceURL = @{$XPC->findnodes('/descendant::*[contains(@type, "FullResourceURL")][1]/@type', $xml_selfOsis)}[0];
+  my $fullResourceURL = @{$XPC->findnodes('/descendant::*[contains(@type, "FullResourceURL")][1]/@type', $xmlBiblePruned)}[0];
   if ($fullResourceURL) {$fullResourceURL = $fullResourceURL->value;}
-  my $mayRedirect = ($fullResourceURL && !$iAmFullOsis);
+  my $mayRedirect = ($fullResourceURL && !$noBooksPruned);
   
-  &Log("\n--- FILTERING Scripture references in \"$osis\"\n", 1);
-  &Log("Deleting unreadable cross-reference notes and removing hyper-links for references which target outside ".($iAmFullOsis ? 'the translation':"\"$selfOsis\""));
+  &Log("\n--- FILTERING Scripture references in \"$osisToFilter\"\n", 1);
+  &Log("Deleting unreadable cross-reference notes and removing hyper-links for references which target outside ".($noBooksPruned ? 'the translation':"\"$osisBiblePruned\""));
   if ($mayRedirect) {
     &Log(", unless they may be redirected to \"$fullResourceURL\"");
   }
-  elsif (!$iAmFullOsis) {
+  elsif (!$noBooksPruned) {
     &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
   }
   &Log(".\n");
@@ -2585,24 +2573,29 @@ sub filterScriptureReferences($$$) {
   
   my @links = $XPC->findnodes('//osis:reference[not(@type="x-glosslink" or @type="x-glossary")]', $xml_osis);
   foreach my $link (@links) {
-    if (!$link->getAttribute('osisRef') || $link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/) {
-      my $bk = ($link->getAttribute('osisRef') ? $3:'');
-      if ($link->getAttribute('osisRef') && exists($selfOsisBooks{$bk})) {next;}
-      my $refType = ($link->getAttribute('osisRef') ? (@{$XPC->findnodes('ancestor::osis:note[@type="crossReference"][1]', $link)}[0] ? 'xref':'sref'):'nref');
+    my $bk = ($link->getAttribute('osisRef') && $link->getAttribute('osisRef') =~ /^(([^\:]+?):)?([^\.]+)(\.|$)/ ? $3:'');
+    if ($link->getAttribute('osisRef') && !$bk) {
+      &Error("filterScriptureReferences: Unhandled osisRef=\"".$link->getAttribute('osisRef')."\"");
+    }
+    else {
+      if ($bk && exists($prunedOsisBooks{$bk})) {next;}
       
-      # Handle broken link
-      if ($refType eq 'xref' && $link->textContent() =~ /^[\s,\d]*$/) {
-        # delete unreadable cross-references
+      # This links's osisRef is not valid within xml_osis, so choose an action:
+      my $refType = ($link->getAttribute('osisRef') ? (@{$XPC->findnodes('ancestor::osis:note[@type="crossReference"][1]', $link)}[0] ? 'xref':'sref'):'nref');
+      my $isExternal = ($link->getAttribute('subType') eq 'x-external'); # x-external means it is outside the entire translation
+      
+      # Delete (entire hyperlink is removed)
+      if ($refType eq 'xref' && ($isExternal || $link->textContent() =~ /^[\s,\d]*$/)) {
         $link->unbindNode();
         $delete{$refType}++; if ($bk) {$deleteBks{$refType}{$bk}++;}
       }
-      elsif ($refType ne 'nref' && $mayRedirect && exists($fullOsisBooks{$bk})) {
-        # redirect by tagging as x-other-resource
+      # Redirect (hyperlink target is x-other-resource)
+      elsif ($refType ne 'nref' && $mayRedirect && exists($tranOsisBooks{$bk})) {
         $link->setAttribute('subType', 'x-other-resource');
         $redirect{$refType}++; if ($bk) {$redirectBks{$refType}{$bk}++;}
       }
+      # Remove (hyperlink changed to text)
       else {
-        #remove
         my @children = $link->childNodes();
         foreach my $child (@children) {$link->parentNode->insertBefore($child, $link);}
         $link->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
@@ -2610,7 +2603,6 @@ sub filterScriptureReferences($$$) {
         $remove{$refType}++; if ($bk) {$removeBks{$refType}{$bk}++;}
       }
     }
-    else {&Error("filterScriptureReferences: Unhandled osisRef=\"".$link->getAttribute('osisRef')."\"");}
   }
   
   # remove any cross-references with nothing left in them
@@ -2620,8 +2612,9 @@ sub filterScriptureReferences($$$) {
     foreach my $link (@links) {$link->unbindNode(); $deletedXRs++;}
   }
   
-  &writeXMLFile($xml_osis, $osis);
+  &writeXMLFile($xml_osis, $osisToFilter);
   
+  # REPORT results for osisToFilter
   foreach my $stat ('redirect', 'remove', 'delete') {
     foreach my $type ('sref', 'xref', 'nref') {
       my $t = ($type eq 'xref' ? 'cross     ':($type eq 'sref' ? 'Scripture ':'no-osisRef'));
