@@ -388,7 +388,9 @@
           <xsl:sequence select="$fileXHTML"/>
           <xsl:sequence select="$fileNotes"/>
           <!-- If there are links to FullResourceURL then add a crossref section at the end of the first book, to show that URL -->
-          <xsl:if test="$FullResourceURL and $FullResourceURL != 'false' and $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]]">
+          <xsl:if test="$FullResourceURL and $FullResourceURL != 'false' and 
+            $topElement[self::div[@type='book'][@osisID = $mainInputOSIS/descendant::div[@type='book'][1]/@osisID]] and
+            ($mainInputOSIS//reference[@subType='x-other-resource'] or $referencedOsisDocs//reference[@subType='x-other-resource'])">
             <div class="xsl-crossref-section">
               <hr/>          
               <div id="fullResourceURL" class="xsl-crossref">
