@@ -137,13 +137,10 @@ cross-references will be unreadable.\n$bookNamesMsg");}
   }
   
   if ($countLocalizedNames == 66) {
-    $localizationP->{'hasLocalization'}++;
     &Note("Applying localization to all cross references.");
   }
   else {
-    &Warn(
-"Unable to localize all book names. This means eBooks will show 
-cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
+    &Warn("Unable to localize all book names.\n", $bookNamesMsg);
   }
   
   # for a big speed-up, find all verse tags and add them to a hash with a key for every verse
@@ -196,7 +193,7 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
     # add annotateRef so readers know where the note belongs
     my $annotateRef = &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed}; $annotateRef =~ s/!PART$//;
     if (!$annotateRef) {$annotateRef = $fixed};
-    if ($localizationP->{'hasLocalization'} && $annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+    if ($annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
       my $elem = "<reference osisRef=\"$fixed\" type=\"annotateRef\">$ch".$localizationP->{'ChapterVerseSeparator'}."$vs</reference> ";
@@ -212,15 +209,12 @@ cross-references as '1', '2'... which is very unhelpful.\n", $bookNamesMsg);
       my $book = $osisRef; $book =~ s/^([^\.]+)\..*?$/$1/;
       if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
       foreach my $child ($ref->childNodes()) {$child->unbindNode();}
-      my $t;
-      if ($localizationP->{'hasLocalization'}) {
-        # later, any fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
-        my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
-        my $tr = &translateRef($readRef, $localizationP, &conf('Versification'));
-        if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
-        $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localizationP->{'SequenceIndicator'});
-      }
-      else {$t = sprintf("%i%s", $i+1, ($i==@refs-1 ? '':','));}
+
+      # later, osisRefs of mapped readRefs will get mapped and annotateRef added, by correctReferencesVSYS()
+      my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
+      my $tr = &translateRef($readRef, $localizationP, &conf('Versification'));
+      if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
+      my $t = ($i==0 ? '':' ') . ($tr ? $tr:($i+1)) . ($i==@refs-1 ? '':$localizationP->{'SequenceIndicator'});
       
       $t = XML::LibXML::Text->new($t);
       $ref->insertAfter($t, undef);
@@ -250,13 +244,9 @@ other books are added to the translation.");
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);
   &Log("\n");
   &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
+  &Note("$ADD_CROSS_REF_LOC individual reference links were localized.");
   if ($ADD_CROSS_REF_BAD) {
-    &Error("$ADD_CROSS_REF_LOC individual reference links were localized but $ADD_CROSS_REF_BAD could only be numbered.", "
-Add the missing book abbreviations with either a \\toc3 tag in the SFM
-file, or else with an 'abbr' entry in the BookNames.xml file.");
-  }
-  else {
-    &Note("$ADD_CROSS_REF_LOC individual reference links were localized.\n");
+    &Warn("$ADD_CROSS_REF_BAD reference links could not be localized, and will appear as numbsers, like: '1, 2, 3'.");
   }
   
   return 1;
@@ -333,12 +323,12 @@ sub insertNote($\%$) {
 sub translateRef($$) {
   my $osisRef = shift;
   my $localeP = shift;
-  my $vsys = shift;
+  my $vsys = shift; if (!$vsys) {$vsys = 'KJV';}
   
   my $t = '';
   if ($osisRef =~ /^([\w\.]+)(\-([\w\.]+))?$/) {
     my $r1 = $1; my $r2 = ($2 ? $3:'');
-    if ($vsys && $r1 =~ /^([^\.]+)\.(\d+)\.(\d+)/) {
+    if ($r1 =~ /^([^\.]+)\.(\d+)\.(\d+)/) {
       my $b1 = $1; my $c1 = $2; my $v1 = $3;
       my $canonP; my $bookOrderP; my $testamentP; &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
       if ($osisRef eq "$b1.$c1.1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {$r1 = "$b1.$c1"; $r2 = '';}
