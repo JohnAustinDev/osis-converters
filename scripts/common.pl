@@ -2680,6 +2680,12 @@ sub filterGlossaryReferences($$$) {
       $total++;
     }
   }
+  
+  # remove empty x-keyword-aggregate divs
+  foreach my $empty (@{$XPC->findnodes('//osis:div[@type="x-keyword-aggregate"][not(descendant::osis:div[@type="x-aggregate-subentry"])]', $xml)}) {
+    &Note("Removed empty x-keyword-aggregate '".$empty->textContent()."'");
+    $empty->unbindNode();
+  }
 
   &writeXMLFile($xml, $osis);
   
