@@ -4291,6 +4291,7 @@ smaller file size.\n";
     if ($identify =~ /^(.*?) (JPEG|PNG|GIF) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
       my $filename = $1; my $format = $2; my $w = $3; my $h = $4; my $depth = $6; my $colorspace = $7; 
       $filename =~ s/^.*\///;
+      my $ext = $filename; $ext =~ s/^[^\.]+\.//;
       my $size = -s $localPath;
       $totalsize += $size;
       if ($size > 400000 && $filename !~ /^xl_/) {
@@ -4310,6 +4311,10 @@ smaller file size.\n";
       }
       if ($format eq 'GIF') {
         &Warn("Figure image format GIF may not be supported by some eFormats.", $imsg);
+      }
+      my $expectedExt = ($format eq 'JPEG' ? 'jpg':lc($format));
+      if ($expectedExt ne $ext) {
+        &Error("Figure image has the wrong extension: $localPath.", "Change this extension to '.$expectedExt'");
       }
       &Note(sprintf("Figure %-32s %4s   %4s   w=%4i   h=%4i   size=%4s KB", $filename.':', $format, $colorspace, $w, $h, &printInt($size/1000)));
     }
