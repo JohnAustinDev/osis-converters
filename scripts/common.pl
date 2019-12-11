@@ -4253,11 +4253,23 @@ sub checkFigureLinks($) {
   
   &Log("\nCHECKING OSIS FIGURE TARGETS IN $in_osis...\n");
   
+  my $imsg = 
+"Figures should be jpg or png image files, not greater than 250 KB in 
+size. Any text within the figure must be easily readable. ";
+  my $ierr = "This size error 
+may be bypassed by prepending 'xl_' to this file name. But do this 
+only if you are sure it is the only solution. It is better to use 
+another compression technique, or shrink the image, to acheive a 
+smaller file size.\n";
+  
   my $osis = $XML_PARSER->parse_file($in_osis);
   my @links = $XPC->findnodes('//osis:figure', $osis);
   my $errors = 0;
+  my $totalsize = 0;
   foreach my $l (@links) {
     my $tag = $l->toString(); $tag =~ s/^(<[^>]*>).*$/$1/s;
+    
+    # Check the image path
     my $localPath = &getFigureLocalPath($l);
     if (!$localPath) {
       &Error("Could not determine figure local path of $l");
@@ -4270,10 +4282,43 @@ sub checkFigureLinks($) {
     }
     if ($l->getAttribute('src') !~ /^\.\/images\//) {
       &Error("checkFigureLinks: Figure \"$tag\" src target is outside of \"./images\" directory. This image may not appear in e-versions.");
+      $errors++;
     }
+    
+    # Check the image itself
+    if ($CHECKFIGURELINKS{$localPath}) {next;} $CHECKFIGURELINKS{$localPath}++;
+    my $identify = &shell("identify \"$localPath\"", 3);
+    if ($identify =~ /^(.*?) (JPEG|PNG|GIF) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
+      my $filename = $1; my $format = $2; my $w = $3; my $h = $4; my $depth = $6; my $colorspace = $7; 
+      $filename =~ s/^.*\///;
+      my $size = -s $localPath;
+      $totalsize += $size;
+      if ($size > 400000 && $filename !~ /^xl_/) {
+        &Error("Figure image size is too large: $filename = ".&printInt($size/1000)." KB", $imsg.$ierr);
+        $errors++;
+      }
+      elsif ($size > 250000) {
+        &Warn("Figure image file size is large: $filename = ".&printInt($size/1000)." KB", $imsg);
+      }
+      if ($w + $h > 3000) {
+        &Warn("Figure image width/height is large: $filename = ${w}px x ${h}px", 
+        "Normally image width and height should be between 300 and 1200 pixels. Usually it is best to make the image as small as possible while keeping it clear and readable.");
+      }
+      if ($colorspace !~ /^(sRGB|Gray)$/) {
+        &Warn("Figure image colorspace is unexpected: $filename = $colorspace", 
+        "This may cause problems for some output formats.");
+      }
+      if ($format eq 'GIF') {
+        &Warn("Figure image format GIF may not be supported by some eFormats.", $imsg);
+      }
+      &Note(sprintf("Figure %-32s %4s   %4s   w=%4i   h=%4i   size=%4s KB", $filename.':', $format, $colorspace, $w, $h, &printInt($size/1000)));
+    }
+    else {&Error("Could not parse identify output of $localPath:\n$identify", $imsg); $errors++;}
   }
-
-  &Report("\"".@links."\" figure targets found and checked. ($errors unknown or missing targets)");
+  
+  &Log("\n");
+  &Report("\"".@links."\" figure targets found and checked. ($errors problem(s))");
+  &Report("Total size of all images is ".&printInt($totalsize/1000)." KB");
 }
 
 sub checkIntroductionTags($) {

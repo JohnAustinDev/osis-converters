@@ -906,6 +906,13 @@ sub isFolderEmpty($) {
   return scalar(grep { $_ ne "." && $_ ne ".." } readdir($dh)) == 0;
 }
 
+sub printInt($) {
+  my $in = shift; # a number
+  my $b = int(0.5 + $in); # rounded to nearest int
+  while($b =~ s/(\d+)(\d\d\d)/$1\,$2/){};
+  return $b; # rounded with commas: 45,567,234
+}
+
 # Run a Linux shell script. $flag can have these values:
 # -1 = only log file
 #  0 = log file (+ console unless $NOCONSOLELOG is set)
