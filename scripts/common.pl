@@ -4304,7 +4304,7 @@ smaller file size.\n";
         &Warn("Figure image width/height is large: $filename = ${w}px x ${h}px", 
         "Normally image width and height should be between 300 and 1200 pixels. Usually it is best to make the image as small as possible while keeping it clear and readable.");
       }
-      if ($colorspace !~ /^(sRGB|Gray)$/) {
+      if ($colorspace !~ /^(sRGB|RGB|Gray)$/) {
         &Warn("Figure image colorspace is unexpected: $filename = $colorspace", 
         "This may cause problems for some output formats.");
       }
