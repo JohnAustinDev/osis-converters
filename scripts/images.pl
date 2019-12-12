@@ -338,25 +338,6 @@ sub sortCoverImages($$) {
   return $ib <=> $ia;
 }
 
-# Returns a hash containing information about an image
-sub imageInfo($) {
-  my $image = shift;
-  
-  my %info;
-  $info{'file'} = $image;
-  $info{'size'} = -s $image;
-  $info{'identify_output'} = &shell("identify \"$image\"", 3);
-  if ($info{'identify_output'} =~ /^(\Q$image\E) (\S+) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
-    $info{'format'} = $2;
-    $info{'w'} = (1*$3);
-    $info{'h'} = (1*$4);
-    $info{'depth'} = $6;
-    $info{'colorspace'} = $7;
-  }
-
-  return \%info;
-}
-
 # Returns a portion of an ImageMagick command line for adding a cation to an image
 sub imageCaption($$$$) {
   my $width = shift;
@@ -465,12 +446,36 @@ smaller file size.\n";
         &printInt($infoP->{'size'}/1000)
       ));
     }
-    else {&Error("Could not read necessary image information for $localPath:\n".$infoP->{'identify_output'}, $imsg);}
+    else {&Error("Could not read necessary image information for $localPath:\n".$infoP->{'identify'}, $imsg);}
   }
   
   &Log("\n");
   &Report("\"".@links."\" figure targets found and checked. ($errors problem(s))");
   &Report("Total size of all images is ".&printInt($totalsize/1000)." KB");
+}
+
+########################################################################
+# Utility functions
+########################################################################
+
+
+# Returns a pointer to a hash containing information about an image
+sub imageInfo($) {
+  my $image = shift; # path to an image
+  
+  my %info;
+  $info{'file'} = $image;     # path of image file
+  $info{'size'} = -s $image;  # in bytes
+  $info{'identify'} = &shell("identify \"$image\"", 3); # output of ImageMagick 'identify'
+  if ($info{'identify'} =~ /^(\Q$image\E) (\S+) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
+    $info{'format'} = $2;     # is PNG, JPEG, GIF etc.
+    $info{'w'} = (1*$3);      # in pixels
+    $info{'h'} = (1*$4);      # in pixels
+    $info{'depth'} = $6;      # is 8-bit, 32-bit etc.
+    $info{'colorspace'} = $7; # is Gray, sRGB, RGB etc.
+  }
+
+  return \%info;
 }
 
 1;
