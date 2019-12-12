@@ -137,7 +137,7 @@ sub OSIS_To_ePublication($$$$) {
   $CONV_REPORT{$CONV_NAME}{'Cover'} = '';
   if ($cover) {
     if ($isPartial) {
-      &shell("mogrify ".&imageCaption(&imageDimension($cover)->{'w'}, $pubTitlePart, &conf("Font"), 'LightGray')." \"$cover\"", 3);
+      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $pubTitlePart, &conf("Font"), 'LightGray')." \"$cover\"", 3);
       $CONV_REPORT{$CONV_NAME}{'Cover'} = ' ('.$pubTitlePart.')';
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
