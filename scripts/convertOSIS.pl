@@ -433,8 +433,8 @@ sub makeEbook($$$$$) {
       }
       else {&Note("Epub validates!: \"$out\"");}
     }
-    # include any sub-directory used by the EBOOK destination URL
-    my $subdir = ($EBOOKS =~ /^https?\:\/\// ? &getEbookSubdir($scope, &getHttpFileList("$EBOOKS/$MAINMOD/$MAINMOD")):'');
+    # find any sub-directories used by the EBOOK destination URL
+    my $subdir = ($EBOOKS =~ /^https?\:\/\// ? &getEbookSubdir($scope, &readFilePaths("$EBOOKS/$MAINMOD/$MAINMOD")):'');
     my $outdir = $EBOUT.($subdir ? "/$subdir":''); if (!-e $outdir) {&make_path($outdir);}
     copy($out, "$outdir/$CONV_NAME.$format");
     &Note("Created: $outdir/$CONV_NAME.$format\n", 1);
@@ -450,35 +450,40 @@ sub makeEbook($$$$$) {
   else {&Error("No output file: $out");}
 }
 
-sub getHttpFileList($) {
-  my $url = shift;
+# Recursively read an Apache server directory and return all files
+# listed there.
+sub readFilePaths($) {
+  my $url = shift; # url to an Apache server directory
   
-  my @list;
+  my @list; # list of ???
   
-  my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/;
-  my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1;
+  my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # directory name
+  my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
 
-  my $tmp = "$TMPDIR/getHttpFileList";
+  my $tmp = "$TMPDIR/wget";
   mkdir($tmp);
   use Net::Ping;
   my $net = Net::Ping->new;
-  my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
+  my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/; # domain of url
   my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
   if ($r) {
     &shell("wget -P \"$tmp\" -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
-    &readHttpFileDir($tmp, \@list);
+    &readWgetFilePaths($tmp, \@list);
   }
   if ($tmp =~ /\Q.osis-converters/) {remove_tree($tmp);}
   
   return \@list;
 }
 
-sub readHttpFileDir($\@) {
-  my $dir = shift;
-  my $filesAP = shift;
+# Recursively read $wgetdir directory that contains the wget result 
+# of reading an apache server directory, and add paths of listed files 
+# (files which have extensions) to the $filesAP array pointer.
+sub readWgetFilePaths($\@) {
+  my $wgetdir = shift; # directory containing the wget result of reading an apache server directory
+  my $filesAP = shift; # the listing of subdirectories on the server
   
-  if (!opendir(DIR, $dir)) {
-    &ErrorBug("readHttpFileDir could not open $dir!");
+  if (!opendir(DIR, $wgetdir)) {
+    &ErrorBug("readWgetFilePaths could not open $wgetdir!");
     return;
   }
   my @subs = readdir(DIR);
@@ -486,26 +491,28 @@ sub readHttpFileDir($\@) {
   foreach my $sub (@subs) {
     $sub = decode_utf8($sub);
     if ($sub =~ /^\./ || $sub =~ /(robots\.txt\.tmp)/) {next;}
-    elsif (-d "$dir/$sub") {&readHttpFileDir("$dir/$sub", $filesAP); next;}
-    elsif ($sub ne 'index.html') {&ErrorBug("readHttpFileDir encounteed an unexpected file $sub in $dir."); next;}
-    my $html = $XML_PARSER->load_html(location  => "$dir/$sub", recover => 1);
-    if (!$html) {&ErrorBug("readHttpFileDir could not parse $dir/$sub"); next;}
+    elsif (-d "$wgetdir/$sub") {&readWgetFilePaths("$wgetdir/$sub", $filesAP); next;}
+    elsif ($sub ne 'index.html') {&ErrorBug("readWgetFilePaths encounteed an unexpected file $sub in $wgetdir."); next;}
+    my $html = $XML_PARSER->load_html(location  => "$wgetdir/$sub", recover => 1);
+    if (!$html) {&ErrorBug("readWgetFilePaths could not parse $wgetdir/$sub"); next;}
     foreach my $a ($html->findnodes('//tr//a')) {
       if ($a->textContent() !~ /\.[^\.\/]+$/) {next;} # keep only links to files with extensions
-      push(@{$filesAP}, "$dir/".$a->textContent());
-      my $d = $dir; $d =~ s/^\Q$TMPDIR\E\/getHttpFileList\///; &Debug("Found $EBOOKS file: $d/".$a->textContent()."\n", 1);
+      push(@{$filesAP}, "$wgetdir/".$a->textContent());
+      &Debug("Found $EBOOKS file: $wgetdir/".$a->textContent()."\n", 1);
     }
   }
 }
 
+# Find the path where eBooks of scope $scope should be placed, by 
+# looking at a list of existing eBook files.
 sub getEbookSubdir($\@) {
-  my $scope = shift;
-  my $filesAP = shift;
+  my $scope = shift;   # find the path for eBooks with this scope
+  my $filesAP = shift; # listing of existing eBooks
   
   foreach my $path (@{$filesAP}) {
     my $s = $scope; $s =~ s/\s+/_/g; $s = quotemeta($s);
-    # tmp/osis2ebooks/getHttpFileList/BEZ/2005/Prov_Full.azw3
-    if ($path =~ /getHttpFileList\/[^\/]+\/(.*?)\/([^\/]+__)?$s(_|\.)[^\/]+$/i) {
+    # tmp/osis2ebooks/wget/BEZ/2005/Prov_Full.azw3
+    if ($path =~ /wget\/$MAINMOD\/(.*?)\/([^\/]+__)?$s(_|\.)[^\/]+$/i) {
       my $sd = $1;
       &Debug("Found $EBOOKS sub-directory containing files with scope '$scope': $sd\n", 1);
       return $sd;
