@@ -465,7 +465,7 @@ sub readFilePaths($) {
   use Net::Ping;
   my $net = Net::Ping->new;
   my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/; # domain of url
-  my $r; use Try::Tiny; try {$r = $net->ping($d, 1);} catch {$r = 0;};
+  my $r; use Try::Tiny; try {$r = $net->ping($d, 5);} catch {$r = 0;};
   if ($r) {
     &shell("wget -P \"$tmp\" -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
     &readWgetFilePaths($tmp, \@list);
