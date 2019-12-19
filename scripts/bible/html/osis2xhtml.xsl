@@ -908,16 +908,6 @@
   
   <!-- Titles -->
   <template match="title" mode="xhtml">
-    <variable name="tocms" select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]" as="element(milestone)?"/>
-    <!-- Skip those titles which have already been output by TOC milestone. The following variables must be identical those in the TOC milestone template. See TOC milsetone template. -->
-    <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
-        ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
-    <variable name="titles" select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
-        [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]
-        [preceding::*[not(self::div)][1][self::title][@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]]" as="element(title)*"/>
-    <if test="$tocms/following::osis:figure[1] &#60;&#60; $title or not($tocms) or not($titles[generate-id() = generate-id(current())])"><call-template name="title"/></if>
-  </template>
-  <template name="title">
     <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
       <xsl:call-template name="class"/>
       <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
@@ -1019,26 +1009,18 @@
     <param name="currentTask" tunnel="yes"/>
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></i></small></div>
-    <variable name="tocms" select="."/>
-    <!-- Move main titles above the inline TOC. The following variable and for-each selection must be identical to those in the title template. -->
-    <variable name="title" select="$tocms/following::text()[normalize-space()][not(ancestor::title[@type='runningHead'])][not(ancestor::*[@subType='x-navmenu'])][1]/
-        ancestor::title[@type='main' and not(@canonical='true')][1]" as="element(title)?"/>
-    <if test="not($tocms/following::osis:figure[1] &#60;&#60; $title)">
-      <!-- Include any following same-level consecutive titles that come before the first (non-title) text node -->
-      <for-each select="$title | $title/following::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]
-          [. &#60;&#60; $title/following::node()[normalize-space()][not(ancestor-or-self::title[@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)])][1]]
-          [preceding::*[not(self::div)][1][self::title][@type='main' and not(@canonical='true')][if ($title[@level]) then @level else not(@level)]]">
-        <call-template name="title"/>
-      </for-each>
-    </if>
     <!-- if this is the first milestone in a Bible, then include the root TOC -->
     <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
+    <!-- if there is an inlineTOC with this milestone TOC, then write out a title -->
+    <variable name="inlineTOC" select="me:getInlineTOC(.)"/>
+    <if test="count($inlineTOC/*)"><h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></h1></if>
+    <!-- if a glossary disambiguation title is needed, then write that out -->
     <if test="$currentTask = 'write-xhtml' and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"><with-param name="noName" select="'true'"/></call-template></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC milestone's GlossaryScopeName to disambiguate: <value-of select="./@n"/></with-param></call-template>
     </if>
-    <sequence select="me:getInlineTOC(.)"/>
+    <sequence select="$inlineTOC"/>
   </template>
   
   <template match="milestone[@type=concat('x-usfm-toc', $TOC)][preceding-sibling::seg[@type='keyword']]" mode="xhtml" priority="3">
