@@ -469,6 +469,7 @@ they appear in the CF file. To retain the old meaning, change it to $xpath");
         else {
           # All identical xpath searches must return the same originally found node. 
           # Otherwise sequential order would be reversed with insertBefore */node()[1].
+          my $new;
           if (!exists($xpathOriginalBeforeNodes{$xpath})) {
             my $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
             if (!$beforeNode) {
@@ -476,8 +477,13 @@ they appear in the CF file. To retain the old meaning, change it to $xpath");
               next;
             }
             $xpathOriginalBeforeNodes{$xpath} = $beforeNode;
+            $new++;
           }
-          &placeIntroduction($elem, $xpathOriginalBeforeNodes{$xpath}, $scope);
+          # The beforeNode may be a toc or a runningHead or be empty of 
+          # text, in which case an appropriate next-sibling will be used 
+          # instead (and our beforeNode for this xpath is then updated).
+          my $beforeNode = &placeIntroduction($elem, $xpathOriginalBeforeNodes{$xpath}, $scope);
+          if ($new) {$xpathOriginalBeforeNodes{$xpath} = $beforeNode;}
           my $tg = $elem->toString(); $tg =~ s/>.*$/>/s;
           &Note("Placing $left == $xpath for $tg");
         }
@@ -557,7 +563,7 @@ sub findThisPeriph($$$) {
 
 # Insert $periph node before $beforeNode. But when $beforeNode is a toc 
 # or runningHead element, then insert $periph before the following non-
-# toc, non-runningHead node instead.
+# toc, non-runningHead node instead. The resulting $beforeNode is returned.
 sub placeIntroduction($$$) {
   my $periph = shift;
   my $beforeNode = shift;
@@ -573,10 +579,16 @@ sub placeIntroduction($$$) {
   }
 
   # place as first non-toc and non-runningHead element in destination container
-  while (@{$XPC->findnodes('./self::text()[not(normalize-space())] | ./self::osis:title[@type="runningHead"] | ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]', $beforeNode)}[0]) {
+  while (@{$XPC->findnodes('
+    ./self::text()[not(normalize-space())] | 
+    ./self::osis:title[@type="runningHead"] | 
+    ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
+  ', $beforeNode)}[0]) {
     $beforeNode = $beforeNode->nextSibling();
   }
   $beforeNode->parentNode->insertBefore($periph, $beforeNode);
+  
+  return $beforeNode;
 }
 
 # Read bibleMod and the osis file and:
