@@ -2,10 +2,8 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-# Update Calibre plugin if it is installed on the host
-if [ ! -z "$(calibre-customize -l | grep 'InputOSIS')" ]; then 
-  calibre-customize -b ./calibre_plugin/OSIS-Input;
-fi
+# If host is Linux, then run provision.sh
+if [ "$(uname -o)" == "GNU/Linux" ]; then ./provision.sh; fi
 
 # Updates any Virtual Machine by running provision.sh on it
 if [ ! -z "$(vagrant status | grep 'not created')" ]; then exit; fi
