@@ -615,7 +615,7 @@
       <if test="count($subentries)">
         <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
             count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
-        <variable name="tmptitles" as="element(me:tmp)*"><!-- tmptitles is used to generate all titles before writing any of them, so that we can get the max length first -->
+        <variable name="listElements" as="element(me:li)*"><!-- listElements is used to generate all list elements before writing any of them, so that we can get the max length -->
           <for-each select="$subentries">
             <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
             <variable name="skipKeyword">
@@ -626,35 +626,38 @@
               </choose>
             </variable>
             <if test="$skipKeyword = false()">
-              <me:tmp source="{generate-id(.)}">
+              <variable name="instructionClasses" select="string-join((oc:getTocInstructions(.)), ' ')" as="xs:string?"/>
+              <variable name="type">
+                <variable name="intros" select="me:getBookGroupIntroductions(.)"/>
+                <choose>
+                  <when test="self::chapter">chapter</when>
+                  <when test="self::seg">keyword</when>
+                  <when test="count($intros) = 1 and . intersect $intros">bookGroup</when>
+                  <when test=". intersect $intros">bookSubGroup</when>
+                  <when test="parent::div[@type = ('glossary', 'bookGroup', 'book')]"><value-of select="parent::div/@type"/></when>
+                  <otherwise>other</otherwise>
+                </choose>
+              </variable>
+              <me:li type="{$type}" 
+                     class="{concat('xsl-', $type, '-link', (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))}"
+                     href="{me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))}">
                 <choose>
                   <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
                   <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
                   <otherwise><value-of select="oc:titleCase(me:getTocTitle(.))"/></otherwise>
                 </choose>
-              </me:tmp>
+              </me:li>
             </if>
           </for-each>
         </variable>
-        <variable name="chars" select="max($tmptitles/string-length(string()))"/><variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
-        <for-each select="root($tocNode)//node()[generate-id(.) = $tmptitles/@source]">
-          <variable name="tocButtonType">
-            <variable name="intros" select="me:getBookGroupIntroductions(.)"/>
-            <choose>
-              <when test="self::chapter">chapter</when>
-              <when test="self::seg">keyword</when>
-              <when test="count($intros) = 1 and . intersect $intros">bookGroup</when>
-              <when test=". intersect $intros">bookSubGroup</when>
-              <when test="parent::div[@type = ('glossary', 'bookGroup', 'book')]"><value-of select="parent::div/@type"/></when>
-              <otherwise>other</otherwise>
-            </choose>
-          </variable>
-          <variable name="instructionClasses" select="string-join((oc:getTocInstructions(.)), ' ')" as="xs:string?"/>
+        <for-each select="$listElements">
+          <variable name="chars" select="max($listElements[@type = current()/@type]/string-length(string()))"/>
+          <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
-            <xsl:attribute name="class" select="concat('xsl-', $tocButtonType, '-link', (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))"/>
+            <xsl:attribute name="class" select="@class"/>
             <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
-            <a><xsl:attribute name="href" select="me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))"/>
-              <xsl:value-of select="$tmptitles[@source = generate-id(current())]/string()"/>
+            <a><xsl:attribute name="href" select="@href"/>
+              <xsl:value-of select="string()"/>
             </a>
           </li>
         </for-each>
