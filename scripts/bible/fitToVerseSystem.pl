@@ -631,10 +631,10 @@ sub correctReferencesVSYS($) {
     my $lastch = '';
     my @checkrefs = ();
     foreach my $verse (&normalizeOsisID([ sort keys(%{$altVersesOSISP->{$m}}) ])) {
-      $verse =~ /^(?:[^\:\.]+\:)?[^\.]+\.(\d+)/;
-      my $ch = $1;
-      if (!$lastch || $lastch ne $ch) {
-        my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
+      $verse =~ /^(?:[^\:\.]+\:)?([^\.]+\.\d+)/;
+      my $bkch = $1;
+      if (!$lastch || $lastch ne $bkch) {
+        my $xpath = "//*[contains(\@osisRef, '$bkch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
         if ($m =~ /^source/) {
           $xpath .= "[not(ancestor-or-self::osis:note[\@type='crossReference'][\@resp])]";
         }
@@ -643,7 +643,7 @@ sub correctReferencesVSYS($) {
         }
         @checkrefs = $XPC->findnodes($xpath, $osisXML);
       }
-      $lastch = $ch;
+      $lastch = $bkch;
       &addrids(\@checkrefs, $verse, $m, $altVersesOSISP);
     }
   }
