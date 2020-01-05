@@ -631,7 +631,7 @@ sub correctReferencesVSYS($) {
     my $lastch = '';
     my @checkrefs = ();
     foreach my $verse (&normalizeOsisID([ sort keys(%{$altVersesOSISP->{$m}}) ])) {
-      $verse =~ /^(.*?)\.\d+(!PART)?$/;
+      $verse =~ /^(:?[^\:\.]+\:)?[^\.]+\.(\d+)/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
@@ -1010,11 +1010,12 @@ sub applyVsysFromTo($$$) {
   
   my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
   
-  # If the fixed vsys is universal (different than $xml) then just insert extra_vs marker(s) after the extra source element(s) and return
+  # If the fixed vsys is universal (different than $xml) then just insert 
+  # extra_vs and fitted_vs marker(s) after the element(s) and return
   if ('Bible.'.$fixedP->{'vsys'} ne &getRefSystemOSIS($xml)) {
     if ($sourceP->{'isWholeChapter'}) {
       my $xpath = '//*
-        [@type="'.$VSYS{'prefix_vs'}.'-chapter'.$VSYS{'start_vs'}.'"]
+        [@type="'.$VSYS{'prefix_vs'}.'-chapter'.$VSYS{'end_vs'}.'"]
         [@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]
         [@annotateRef="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"][1]';
       my $sch = @{$XPC->findnodes($xpath, $xml)}[0];
@@ -1022,22 +1023,30 @@ sub applyVsysFromTo($$$) {
         my $osisID = @{$XPC->findnodes('./preceding::osis:verse[@sID][1]', $sch)}[0];
         if (!$osisID) {&ErrorBug("Could not find enclosing verse for element:\n".$sch);}
         else {$osisID = $osisID->getAttribute('osisID');}
-        my $m = '<milestone type="'.$VSYS{'extra_vs'}.'" osisRef="'.$osisID.'" annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />';
-        $sch->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $sch);
+        my $m = 
+          '<milestone type="'.$VSYS{'extra_vs'}.'" '.
+          'annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />'.
+          '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
+          'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" />';
+        $sch->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $sch);
       }
       else {&ErrorBug("Could not find source element:\n$xpath");}
     }
     else {
       for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'lv'}; $v++) {
         my $sourcevs = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$v;
-        my $svs = &getSourceVerseTag($sourcevs, $xml, 0);
+        my $svs = &getSourceVerseTag($sourcevs, $xml, 1);
         if ($svs) {
           my $osisID = @{$XPC->findnodes('./preceding::osis:verse[@sID][1]', $svs)}[0];
           if (!$osisID) {&ErrorBug("Could not find enclosing verse for source verse: ".$sourcevs);}
           else {$osisID = $osisID->getAttribute('osisID'); $osisID =~ s/^.*\s+//;}
           my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
-          my $m = '<milestone type="'.$VSYS{'extra_vs'}.'" osisRef="'.$osisID.'" annotateRef="'.$univref.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />';
-          $svs->parentNode->insertAfter($XML_PARSER->parse_balanced_chunk($m), $svs);
+          my $m = 
+            '<milestone type="'.$VSYS{'extra_vs'}.'" '.
+            'annotateRef="'.$univref.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />'.
+            '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
+            'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" />';
+          $svs->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $svs);
         }
         else {&ErrorBug("Could not find source verse: $sourcevs");}
       }
