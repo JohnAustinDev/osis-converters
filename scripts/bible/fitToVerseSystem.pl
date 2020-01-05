@@ -631,7 +631,7 @@ sub correctReferencesVSYS($) {
     my $lastch = '';
     my @checkrefs = ();
     foreach my $verse (&normalizeOsisID([ sort keys(%{$altVersesOSISP->{$m}}) ])) {
-      $verse =~ /^(:?[^\:\.]+\:)?[^\.]+\.(\d+)/;
+      $verse =~ /^(?:[^\:\.]+\:)?[^\.]+\.(\d+)/;
       my $ch = $1;
       if (!$lastch || $lastch ne $ch) {
         my $xpath = "//*[contains(\@osisRef, '$ch')][not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]";
