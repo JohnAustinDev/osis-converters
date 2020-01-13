@@ -88,6 +88,8 @@ if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|os
   $MOD = $MAINMOD;
 }
 
+@SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
+
 if ($INPD eq $DICTINPD && -e "$INPD/CF_osis2osis.txt") {
   &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
 "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 

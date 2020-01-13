@@ -518,7 +518,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
   &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
   # Check that all sub-publications are marked
   my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
-  foreach my $scope (&getSubPublications()) {
+  foreach my $scope (@SUB_PUBLICATIONS) {
     if (!@{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"]', $xml)}[0]) {
       &Warn("No div osisRef was found for sub-publication $scope.");
       my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, $bookOrderP)}[0].'"]', $xml)}[0];

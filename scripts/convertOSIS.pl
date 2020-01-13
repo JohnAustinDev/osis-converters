@@ -40,7 +40,6 @@ sub convertOSIS($) {
   $FULL_PUB_TITLE = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $FULL_PUB_TITLE = ($FULL_PUB_TITLE ? $FULL_PUB_TITLE->textContent:'');
   $CREATE_FULL_BIBLE = (&conf('CreateFullBible') !~ /^false$/i);
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
-  @CREATE_FULL_PUBLICATIONS = (); my $n=0; while (my $p = &conf('ScopeSubPublication'.(++$n))) {push(@CREATE_FULL_PUBLICATIONS, $n);}
   $FULLSCOPE = (&isChildrensBible($INOSIS_XML) ? '':&getScopeOSIS($INOSIS_XML));
 
   if (&isChildrensBible($INOSIS_XML)) {&OSIS_To_ePublication($convertTo);}
@@ -49,10 +48,10 @@ sub convertOSIS($) {
     if ($CREATE_FULL_BIBLE) {&OSIS_To_ePublication($convertTo, $FULLSCOPE);}
 
     # convert any print publications that are part of the OSIS file (as specified in config.conf: ScopeSubPublication=scope)
-    if ($convertTo ne 'html' && @CREATE_FULL_PUBLICATIONS) {
-      foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-        my $scope = &conf('ScopeSubPublication'.$x); $scope =~ s/_/ /g;
-        &OSIS_To_ePublication($convertTo, $scope, 0, &conf('TitleSubPublication'.$x));
+    if ($convertTo ne 'html' && @SUB_PUBLICATIONS) {
+      foreach my $scope (@SUB_PUBLICATIONS) {
+        my $sp = $scope; $sp =~ s/\s/_/g;
+        &OSIS_To_ePublication($convertTo, $scope, 0, &conf("TitleSubPublication[$sp]"));
       }
     }
 
@@ -62,8 +61,8 @@ sub convertOSIS($) {
       BOOK: foreach my $aBook (@allBooks) {
         my $bk = $aBook->getAttribute('osisID');
         # don't create this ebook if an identical ebook has already been created
-        foreach my $x (@CREATE_FULL_PUBLICATIONS) {
-          if ($bk && $bk eq &conf('ScopeSubPublication'.$x)) {next BOOK;}
+        foreach my $s (@SUB_PUBLICATIONS) {
+          if ($bk && $bk eq $s) {next BOOK;}
         }
         if ($CREATE_FULL_BIBLE && $FULLSCOPE eq $bk) {next BOOK;}
         if ($bk) {&OSIS_To_ePublication($convertTo, $bk, 1);}

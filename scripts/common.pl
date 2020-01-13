@@ -184,6 +184,7 @@ sub updateConvertTXT($$$) {
   
   if (! -e $convtxt) {return '';}
   
+  my %pubScopeTitle;
   if (open(CONV, "<$READLAYER", $convtxt)) {
     while(<CONV>) {
       if ($_ =~ /^#/) {next;}
@@ -198,15 +199,14 @@ sub updateConvertTXT($$$) {
         }
         elsif ($e =~ /^CreateFullPublication(\d+)/) {
           my $n = $1;
-          $warn = "Changing $e=$v to ";
-          $e = 'ScopeSubPublication'.$n;
-          &Warn("<-$warn $e=$v");
+          my $sp = $v; $sp =~ s/\s/_/g;
+          $pubScopeTitle{$n}{'sp'} = $sp;
+          $e = '';
         }
         elsif ($e =~ /^TitleFullPublication(\d+)/) {
           my $n = $1;
-          $warn = "Changing $e=$v to ";
-          $e = 'TitleSubPublication'.$n;
-          &Warn("<-$warn $e=$v");
+          $pubScopeTitle{$n}{'title'} = $v;
+          $e = '';
         }
         elsif ($e =~ /^Group1\s*$/) {
           my $n = $1;
@@ -226,10 +226,18 @@ sub updateConvertTXT($$$) {
           $e = 'TranslationTitle';
           &Warn("<-$warn $e=$v");
         }
-        $confP->{($section ? "$section+":"$MAINMOD+").$e} = $v;
+        if ($e) {
+          $confP->{($section ? "$section+":"$MAINMOD+").$e} = $v;
+        }
       }
     }
     close(CONV);
+    foreach my $n (sort keys %pubScopeTitle) {
+      my $e = ($section ? "$section+":"$MAINMOD+").'TitleSubPublication['.$pubScopeTitle{$n}{'sp'}.']';
+      my $v = $pubScopeTitle{$n}{'title'};
+      $confP->{$e} = $v;
+      &Warn("<-Changing CreateFullPublication and TitleFullPublication to $e=$v");
+    }
   }
   else {&Warn("Did not find \"$convtxt\"");}
   
@@ -936,12 +944,10 @@ sub customize_conf($$$$) {
   if ($modType eq 'bible') {&setConfValue(\%newConf, 'ModDrv', 'zText', 1);}
   if ($modType eq 'other') {&setConfValue(\%newConf, 'ModDrv', 'RawGenBook', 1);}
   
-  # ScopeSubPublication & TitleSubPublicationN
-  my $pubn = 1;
-  foreach my $scope (&getSubPublications()) {
-    &setConfValue(\%newConf, 'ScopeSubPublication'.$pubn, $scope, 1);
-    &setConfValue(\%newConf, 'TitleSubPublication'.$pubn, "Title of Sub-Publication $pubn".' DEF', 1);
-    $pubn++;
+  # TitleSubPublication[scope]
+  foreach my $scope (@SUB_PUBLICATIONS) {
+    my $sp = $scope; $sp =~ s/\s/_/g;
+    &setConfValue(\%newConf, "TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
   }
   
   # FullResourceURL
@@ -999,22 +1005,6 @@ sub customize_conf($$$$) {
     }
     else {&ErrorBug("customize_conf could not open config file $conf");}
   }
-}
-
-sub getSubPublications() {
-  my @subpub;
-  if (opendir(SFM, "$MAININPD/sfm")) {
-    my @subs = readdir(SFM);
-    closedir(SFM);
-    foreach my $sub (@subs) {
-      if (!-d "$MAININPD/sfm/$sub" || $sub =~ /^\./) {next;}
-      my $scope = $sub; $scope =~ s/_/ /g;
-      push(@subpub, $scope);
-    }
-  }
-  else {&ErrorBug("getSubPublications could not open $MAININPD/sfm");}
-  
-  return @subpub;
 }
 
 sub customize_addScripRefLinks($$) {
@@ -1707,10 +1697,11 @@ sub checkConfGlobals() {
   
   if ($INPD ne $DICTINPD) {
     # Check for UI that needs localization
-    my $n=0;
-    while (exists($CONF->{'TitleSubPublication'.++$n})) {
-      if ($CONF->{'TitleSubPublication'.$n} && $CONF->{'TitleSubPublication'.$n} !~ / DEF$/) {next;}
-      &Warn("Sub publication title config entry 'TitleSubPublication$n' is not localized: ".$CONF->{'TitleSubPublication'.$n}, "If you see English in the eBook table of contents for instance, you should localize the title in config.conf with: TitleSubPublication$n=Localized Title");
+    foreach my $s (@SUB_PUBLICATIONS) {
+      my $sp = $s; $sp =~ s/\s/_/g;
+      if ($CONF->{"TitleSubPublication[$sp]"} && $CONF->{"TitleSubPublication[$sp]"} !~ / DEF$/) {next;}
+      &Warn("Sub publication title config entry 'TitleSubPublication[$sp]' is not localized: ".$CONF->{"TitleSubPublication[$sp]"}, 
+      "You should localize the title in config.conf with: TitleSubPublication[$sp]=Localized Title");
     }
   }
 }
@@ -4438,6 +4429,11 @@ sub writeOsisHeader($) {
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, &conf('Versification'));
   }
+  for (my $x=0; $x<@SUB_PUBLICATIONS; $x++) {
+    my $n = 59000;
+    $workElements{sprintf("%06i:%s", ($n+$x), 'description')}{'textContent'} = @SUB_PUBLICATIONS[$x];
+    $workElements{sprintf("%06i:%s", ($n+$x), 'description')}{'type'} = "x-array-$x-SubPublication";
+  }
   my %workAttributes = ('osisWork' => $MAINMOD);
   $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   
@@ -4509,7 +4505,7 @@ sub getOSIS_Work($$$$) {
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
   &mapLocalizedElem(50000, 'description', $section.'About', $confP, $osisWorkP, 1);
-  &mapConfig(50008, 59999, 'description', 'x-config', $confP, $osisWorkP, $modname);
+  &mapConfig(50008, 58999, 'description', 'x-config', $confP, $osisWorkP, $modname);
   &mapLocalizedElem(60000, 'publisher', $section.'CopyrightHolder', $confP, $osisWorkP);
   &mapLocalizedElem(70000, 'publisher', $section.'CopyrightContactAddress', $confP, $osisWorkP);
   &mapLocalizedElem(80000, 'publisher', $section.'CopyrightContactEmail', $confP, $osisWorkP);
@@ -4941,11 +4937,8 @@ the localized title to 'SKIP'.");
 sub getScopeTitle($) {
   my $scope = shift;
   
-  my $n = 0;
-  while (my $s = &conf('ScopeSubPublication'.(++$n))) {
-    if ($s eq $scope) {return &conf('TitleSubPublication'.($n));}
-  }
-  return '';
+  $scope =~ s/\s/_/g;
+  return &conf("TitleSubPublication[$scope]");
 }
 
 

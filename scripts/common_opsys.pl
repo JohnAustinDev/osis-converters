@@ -57,7 +57,7 @@ use File::Spec;
 
 # Valid osis-converters config file entries (in addition to SWORD entries)
 @OC_CONFIGS = (
-  'MATCHES:ScopeSubPublication\d', 'MATCHES:TitleSubPublication\d', 
+  'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'NoEpub3Markup', 'ChapterFiles', 'FullResourceURL', 
   'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 
@@ -81,7 +81,7 @@ use File::Spec;
 
 # Osis-converters entries which contain localized text
 @OC_LOCALIZABLE_CONFIGS = (
-  'MATCHES:TitleSubPublication\d', 'MATCHES:ARG_\w+Title\d', 
+  'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 'MATCHES:ARG_\w+Title\d', 
   'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,
   'TranslationTitle', 'Abbreviation', 'Description', 'About'
 );
@@ -131,6 +131,12 @@ use File::Spec;
 );
 
 $VAGRANT_HOME = '/home/vagrant';
+
+# Globals for OSIS book abbreviations in KJV order
+$OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
+$NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
+$OSISBOOKS; {my $bn = 1; foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {$OSISBOOKS{$bk} = $bn; $bn++;}}
+$OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
@@ -313,6 +319,56 @@ system section: ".join(' ', @OC_SYSTEM));}
   $dbgmsg .= "\tvagantHostShare=".&vagrantHostShare()."\n";
   $dbgmsg .= "\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n";
   &Debug($dbgmsg, 1);
+}
+
+# Read the subdirectories of $dir as sub-publication scopes and return
+# a sorted array of scopes. Sorting is either by numerical order if the 
+# scopes are prepended with a number, or else by KJV order of the first
+# book listed in each scope.
+sub getSubPublications($) {
+  my $dir = shift;
+  
+  my $subPubMessage = 
+  "The directory name must be a valid scope code, using underscores
+  in place of spaces. This scope represents the contents of the sub-
+  publication within the subdirectory. The name may be prepended with a 
+  2 digit number followed by '_' to order the sub-publications within 
+  the translation. For example: '02_Ruth_Esther_Jonah'.";
+  
+  my @scopes = ();
+  if (opendir(DIR, $dir)) {
+    my %subPubs;
+    my @subs = readdir(DIR);
+    close(DIR);
+subpub:
+    foreach my $sub (@subs) {
+      if ($sub =~ /^\./) {next;}
+      if (!-d "$dir/$sub") {next;}
+      if ($sub =~ /\s/) {
+        &Error("Sub-publication directory name cannot contain spaces:\n$dir/$sub", $subPubMessage);
+        next subpub;
+      }
+      if ($sub !~ /^((\d\d)_)?([\w\d\-]+)$/) {
+        &Error("Could not parse sub-publication name:\n$dir/$sub", $subPubMessage);
+        next subpub;
+      }
+      my $order = $2; my $scope = $3; $scope =~ s/_/ /g;
+      my @books = split(/[\-\s]/, $scope);
+      foreach my $bk (@books) {
+        if (!defined($OSISBOOKS{$bk})) {
+          &Error("Book '$bk' is not an OSIS Bible book abbreviation.", $subPubMessage);
+          next subpub;
+        }
+      }
+      if (!$order) {$order = sprintf("%02i", $OSISBOOKS{@books[0]});}
+      while (defined($subPubs{$order})) {$order .= "00";}
+      $subPubs{$order} = $scope;
+    }
+    foreach my $s (sort keys %subPubs) {push(@scopes, $subPubs{$s});}
+  }
+  else {&ErrorBug("Could not open sfm directory $dir");}
+  
+  return @scopes;
 }
 
 # Read a config.conf file. Return 1 if successful or else 0. Add the conf
@@ -539,7 +595,16 @@ sub isValidConfig($) {
       foreach my $ce (@OC_CONFIGS) {
         if ($ce =~ /^MATCHES\:(.*?)$/) {
           $re = $1;
-          if ($e =~ /^$re$/) {return 1;}
+          if ($e =~ /^$re$/) {
+            if (my $s = $+{scope}) { # this will only be defined for TitleSubPublication
+              $s =~ s/_/ /g;
+              foreach my $scope (@SUB_PUBLICATIONS) {if ($scope eq $s) {return 1;}}
+              &Error("Unrecognized sub-publication in: $e", 
+                "The sub-publication listed between parentheses must have an sfm subdirectory associated with it.");
+              return 0;
+            }
+            return 1;
+          }
         }
         if ($e eq $ce) {return 1;}
       }
