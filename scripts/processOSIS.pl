@@ -32,7 +32,7 @@ sub runProcessOSIS($) {
       &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
 keys. EXAMPLE:
-KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}
+KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[G`][g`][Sh][sh][Ch][ch][ng]`{\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}
 This entry allows sorting in any desired order by character collation. 
 Square brackets are used to separate any arbitrary JDK 1.4 case  
 sensitive regular expressions which are to be treated as single 
@@ -42,7 +42,7 @@ characters/patterns to be ignored during the sort comparison. IMPORTANT:
 EVERY square or curly bracket within any regular expression must have an 
 ADDITIONAL \ added before it. This is required so the KeySort value can 
 be parsed correctly. This means the string to ignore all brackets and 
-parenthesis would be: {\[\\[\\]\\{\\}\(\)\]}');
+parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
     }
     
     if (!&conf('LangSortOrder')) {
