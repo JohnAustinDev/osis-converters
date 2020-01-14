@@ -268,7 +268,7 @@ facilitate this, the following maps are provided:
   'History Introduction' => 'osis:div[@type="book"][@osisID="Josh"]',
   'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Ps"]',
   'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Isa"]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"][2]/node()[1]',
+  'New Testament Introduction' => 'osis:div[@type="bookGroup"][last()]/node()[1]',
   'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt"]',
   'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]/node()[1]',
   'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts"]',
