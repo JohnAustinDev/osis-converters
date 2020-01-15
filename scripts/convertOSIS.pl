@@ -51,7 +51,7 @@ sub convertOSIS($) {
   $PUB_NAME   = $TRANPUB_NAME;
   $PUB_TYPE   = $TRANPUB_TYPE;
   
-  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo);}
+  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE);}
   else {
     my %eBookSubDirs; my %parentPubScope; my $bookOrderP;
     &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
@@ -60,18 +60,19 @@ sub convertOSIS($) {
     if ($PUB_TYPE eq 'Tran') {
       $eBookSubDirs{$FULLSCOPE} = ($SERVER_DIRS_HP->{$FULLSCOPE} ? $SERVER_DIRS_HP->{$FULLSCOPE}:'');
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, $bookOrderP)}) {$parentPubScope{$bk} = $FULLSCOPE;}
-      if ($CREATE_FULL_TRANSLATION) {&OSIS_To_ePublication($convertTo, $FULLSCOPE);}
+      if ($CREATE_FULL_TRANSLATION) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, $FULLSCOPE);}
     }
     
     # convert any sub publications that are part of the OSIS file
     foreach my $scope (@SUB_PUBLICATIONS) {
+      my $pscope = $scope; $pscope =~ s/\s/_/g;
       $PUB_TYPE = 'Full';
       $eBookSubDirs{$scope} = ($SERVER_DIRS_HP->{$scope} ? $SERVER_DIRS_HP->{$scope}:'');
       foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
       if ($convertTo ne 'html') {
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-        &OSIS_To_ePublication($convertTo, $scope); 
+        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[".$pscope."]"), $scope); 
       }
     }
 
@@ -83,7 +84,8 @@ sub convertOSIS($) {
         if (defined($eBookSubDirs{$bk})) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
-        &OSIS_To_ePublication($convertTo, $bk);
+        my $pscope = $parentPubScope{$bk}; my $pscope =~ s/\s/_/g;
+        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[".$pscope."]"), $bk);
       }
     }
   }
@@ -115,12 +117,12 @@ sub convertOSIS($) {
 ########################################################################
 ########################################################################
 
-sub OSIS_To_ePublication($$) {
-  my $convertTo = shift; # type of ePublication to output
-  my $scope = shift; # Bible-scope of the ePublication to output
+sub OSIS_To_ePublication($$$) {
+  my $convertTo = shift; # type of ePublication to output (html or eBook)
+  my $pubTitle = shift; # title of ePublication
+  my $scope = shift; # scope of ePublication
   
   my $pscope = $scope; $pscope =~ s/\s/_/g;
-  my $pubTitleFull = ($PUB_TYPE eq 'Full' ? &conf("TitleSubPublication[$pscope]"):'');
 
   if ($CONV_REPORT{$PUB_NAME}) {
     &ErrorBug("$convertTo \"$PUB_NAME\" already created!");
@@ -133,14 +135,14 @@ sub OSIS_To_ePublication($$) {
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &copy($INOSIS, $osis);
   
-  my $pubTitlePart;
+  my $partTitle;
   if (!$IS_CHILDRENS_BIBLE) {
     &pruneFileOSIS(
       \$osis,
       $scope,
       $CONF,
-      \$pubTitleFull, 
-      \$pubTitlePart
+      \$pubTitle, 
+      \$partTitle
     );
   }
   
@@ -150,16 +152,16 @@ sub OSIS_To_ePublication($$) {
   $CONV_REPORT{$PUB_NAME}{'Cover'} = '';
   if ($cover) {
     if ($PUB_TYPE eq 'Part') {
-      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $pubTitlePart, &conf("Font"), 'LightGray')." \"$cover\"", 3);
-      $CONV_REPORT{$PUB_NAME}{'Cover'} = ' ('.$pubTitlePart.')';
+      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'LightGray')." \"$cover\"", 3);
+      $CONV_REPORT{$PUB_NAME}{'Cover'} = ' ('.$partTitle.')';
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
     $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName . $CONV_REPORT{$PUB_NAME}{'Cover'}; 
-    $CONV_REPORT{$PUB_NAME}{'Title'} = ($PUB_TYPE eq 'Part' ? $pubTitlePart:'no-title');
+    $CONV_REPORT{$PUB_NAME}{'Title'} = ($PUB_TYPE eq 'Part' ? $partTitle:'no-title');
   }
   else {
     $CONV_REPORT{$PUB_NAME}{'Cover'} = 'random-cover';
-    $CONV_REPORT{$PUB_NAME}{'Title'} = $pubTitleFull;
+    $CONV_REPORT{$PUB_NAME}{'Title'} = $pubTitle;
   }
     
   &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
