@@ -69,6 +69,7 @@ sub convertOSIS($) {
       $PUB_TYPE = 'Full';
       $eBookSubDirs{$scope} = ($SERVER_DIRS_HP->{$scope} ? $SERVER_DIRS_HP->{$scope}:'');
       foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
+      if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
       if ($convertTo ne 'html') {
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
@@ -84,8 +85,9 @@ sub convertOSIS($) {
         if (defined($eBookSubDirs{$bk})) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
-        my $pscope = $parentPubScope{$bk}; my $pscope =~ s/\s/_/g;
-        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[".$pscope."]"), $bk);
+        my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
+        my $title = ($pscope ? &conf("TitleSubPublication[".$pscope."]"):$TRANPUB_TITLE);
+        &OSIS_To_ePublication($convertTo, $title, $bk);
       }
     }
   }
