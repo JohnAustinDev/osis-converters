@@ -1689,7 +1689,7 @@ sub checkConfGlobals() {
   }
   
   # Check companion value(s)
-  if ($CONF->{'Companion'} || $CONF->{$DICTMOD.'+Companion'}) {
+  if ($DICTMOD && ($CONF->{'Companion'} || $CONF->{$DICTMOD.'+Companion'})) {
     if ($CONF->{'Companion'} ne $CONF->{$DICTMOD.'+Companion'}.'DICT') {
       &Error("config.conf companion entries are inconsistent: ".$CONF->{'Companion'}.", ".$CONF->{$DICTMOD.'+Companion'}, "Correct values should be:\n[$MOD]\nCompanion=$DICTMOD\n[$DICTMOD]\nCompanion=$MOD\n");
     }
