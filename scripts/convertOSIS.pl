@@ -58,7 +58,7 @@ sub convertOSIS($) {
     
     # convert the entire OSIS file
     if ($PUB_TYPE eq 'Tran') {
-      $eBookSubDirs{$FULLSCOPE} = ($SERVER_DIRS_HP->{$FULLSCOPE} ? $SERVER_DIRS_HP->{$FULLSCOPE}:'');
+      $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{$FULLSCOPE};
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, $bookOrderP)}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, $FULLSCOPE);}
     }
@@ -67,7 +67,7 @@ sub convertOSIS($) {
     foreach my $scope (@SUB_PUBLICATIONS) {
       my $pscope = $scope; $pscope =~ s/\s/_/g;
       $PUB_TYPE = 'Full';
-      $eBookSubDirs{$scope} = ($SERVER_DIRS_HP->{$scope} ? $SERVER_DIRS_HP->{$scope}:'');
+      $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
       foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
       if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
       if ($convertTo ne 'html') {
@@ -148,6 +148,8 @@ sub OSIS_To_ePublication($$$) {
     );
   }
   
+  # 'Cover' is the cover image name (or else 'random-cover' if there is no image). 
+  # 'Title' is the title text written onto the cover.
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
   if (!$coverSource) {$cover = '';}
@@ -155,10 +157,9 @@ sub OSIS_To_ePublication($$$) {
   if ($cover) {
     if ($PUB_TYPE eq 'Part') {
       &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'LightGray')." \"$cover\"", 3);
-      $CONV_REPORT{$PUB_NAME}{'Cover'} = ' ('.$partTitle.')';
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
-    $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName . $CONV_REPORT{$PUB_NAME}{'Cover'}; 
+    $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName; 
     $CONV_REPORT{$PUB_NAME}{'Title'} = ($PUB_TYPE eq 'Part' ? $partTitle:'no-title');
   }
   else {

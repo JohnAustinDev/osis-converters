@@ -2008,15 +2008,12 @@ sub sortSearchTermKeys($$) {
 # replace the main cover. Or when pruning to a single book that matches
 # a sub-publication cover, it will be moved to relace the main cover.
 #
-# If the ebookTitleP is non-empty, its value will always be used as the  
-# final ebook title. Otherwise the ebook title will be taken from config 
-# Title if present, or else the OSIS file, but appended to it will be the 
-# list of books remaining after filtering IF any were filtered out. The 
-# final ebook title will then be written to the outosis file and returned 
-# in ebookTitleP.
+# The ebookTitleP will have appended to it the list of books remaining 
+# after filtering IF any were filtered out. The final ebook title will 
+# then be written to the outosis file.
 #
 # The ebookPartTitleP is overwritten by the list of books left after
-# filtering, or else the ebook title itself if no books were filtered out.
+# filtering IF any were filtered out, otherwise it is set to ''.
 sub pruneFileOSIS($$\%\$\$) {
   my $osisP = shift;
   my $scope = shift;
@@ -2109,9 +2106,8 @@ sub pruneFileOSIS($$\%\$\$) {
     }
   }
   
-  # determine pruned OSIS file's new title
+  # Update title references and determine pruned OSIS file's new title
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
-  my $title = ($$ebookTitleP ? $$ebookTitleP:$osisTitle->textContent);
   if ($booksFiltered) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
@@ -2121,9 +2117,8 @@ sub pruneFileOSIS($$\%\$\$) {
     }
     $$ebookPartTitleP = join(', ', @bookNames);
   }
-  else {$$ebookPartTitleP = $title;}
-  if ($booksFiltered && !$$ebookTitleP) {$$ebookTitleP = "$title: $$ebookPartTitleP";}
-  else {$$ebookTitleP = $title;}
+  else {$$ebookPartTitleP = '';}
+  if ($$ebookPartTitleP) {$$ebookTitleP .= ": $$ebookPartTitleP";}
   if ($$ebookTitleP ne $osisTitle->textContent) {
     &changeNodeText($osisTitle, $$ebookTitleP);
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
@@ -2155,8 +2150,8 @@ sub pruneFileOSIS($$\%\$\$) {
   }
   if ($scope && $scope ne $fullScope && !$subPubCover) {&Warn("A Sub-Publication cover was not found for $scope.", 
 "If a custom cover image is desired for $scope then add a file 
-./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? 'Alternatively you may add 
-an image whose filename is any scope that contains $scope':''));}
+./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? "Alternatively you may add 
+an image whose filename is any scope that contains $scope":''));}
   
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
   &writeXMLFile($inxml, $output, $osisP);
