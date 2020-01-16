@@ -95,7 +95,7 @@ sub convertOSIS($) {
   # REPORT results
   &Log("\n");
   &Report(uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):");
-  my @order = ('Format', 'Name', 'Title', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
+  my @order = ('Format', 'Name', 'Cover', 'Title', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
   my %cm;
   foreach my $c (@order) {$cm{$c} = length($c);}
   foreach my $n (sort keys %CONV_REPORT) {
