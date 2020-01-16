@@ -244,6 +244,48 @@ Bible module OSIS file, then run this dictionary module again.");
 }
 
 
+sub validateOSIS($) {
+  my $osis = shift;
+  
+  # validate new OSIS file against OSIS schema
+  &Log("\n--- VALIDATING OSIS \n", 1);
+  &Log("BEGIN OSIS VALIDATION\n");
+  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
+  &Log("$cmd\n");
+  my $res = `$cmd`;
+  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
+  my $fix = $res;
+  $fix =~ s/$allow/$1e-r-r-o-r$2/g;
+  &Log("$fix\n");
+  
+  if ($res =~ /failed to load external entity/i) {&Error("The validator failed to load an external entity.", "Maybe there is a problem with the Internet connection, or with one of the input files to the validator.");}
+  
+  # Generate error if file fails to validate
+  my $valid = 0;
+  if ($res =~ /^\Q$osis validates\E$/) {$valid = 1;}
+  elsif (!$res || $res =~ /^\s*$/) {
+    &Error("\"$osis\" validation problem. No success or failure message was returned from the xmllint validator.", "Check your Internet connection, or try again later.");
+  }
+  else {
+    if ($res =~ s/$allow//g) {
+      &Note("
+      Ignore the above milestone osisRef attribute reports. The schema  
+      here apparently deviates from the OSIS handbook which states that 
+      the osisRef attribute is allowed on any element. The current usage  
+      is both required and sensible.\n");
+    }
+    if ($res !~ /Schemas validity error/) {
+      &Note("All of the above validation failures are being allowed.");
+      $valid = 1;
+    }
+    else {&Error("\"$osis\" does not validate! See message(s) above.");}
+  }
+  
+  &Log("\n");
+  &Report("OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION");
+}
+
+
 # This script expects a sfm2osis.pl produced OSIS input file
 sub reprocessOSIS($) {
   my $modname = shift;
