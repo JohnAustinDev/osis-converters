@@ -95,7 +95,7 @@ sub convertOSIS($) {
   # REPORT results
   &Log("\n");
   &Report(uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):");
-  my @order = ('Format', 'Name', 'Cover', 'Title', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
+  my @order = ('Format', 'Name', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
   my %cm;
   foreach my $c (@order) {$cm{$c} = length($c);}
   foreach my $n (sort keys %CONV_REPORT) {
@@ -148,8 +148,6 @@ sub OSIS_To_ePublication($$$) {
     );
   }
   
-  # 'Cover' is the cover image name (or else 'random-cover' if there is no image). 
-  # 'Title' is the title text written onto the cover.
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
   if (!$coverSource) {$cover = '';}
@@ -159,12 +157,10 @@ sub OSIS_To_ePublication($$$) {
       &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'LightGray')." \"$cover\"", 3);
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
-    $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName; 
-    $CONV_REPORT{$PUB_NAME}{'Title'} = ($PUB_TYPE eq 'Part' ? $partTitle:'no-title');
+    $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName . ($PUB_TYPE eq 'Part' ? " ($partTitle)":''); 
   }
   else {
-    $CONV_REPORT{$PUB_NAME}{'Cover'} = 'random-cover';
-    $CONV_REPORT{$PUB_NAME}{'Title'} = $pubTitle;
+    $CONV_REPORT{$PUB_NAME}{'Cover'} = "random-cover ($pubTitle)";
   }
     
   &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
