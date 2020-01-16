@@ -394,8 +394,7 @@ sub checkFont($) {
   
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {
-    my $p = expandLinuxPath("~/.osis-converters/fonts");
-    &updateURLCache($p, $FONTS);
+    &updateURLCache('fonts', $FONTS, 12);
     $FONTS = $p;
   }
 
@@ -441,12 +440,44 @@ sub checkFont($) {
   }
 }
 
-# Cache files from a URL to a local path
-sub updateURLCache($$) {
-  my $p = shift;
-  my $url = shift;
+# Cache files from a URL to an .osis-converters subdirectory. The cache 
+# will NOT be updated if it was already updated less than $updatePeriod 
+# hours ago. If an array pointer $listingAP is provided, then files will 
+# NOT be downloaded, rather, the directory listing will be written to 
+# $listingAP. Directories in the listing end with '/'.
+sub updateURLCache($$$$) {
+  my $subdir = shift; # local .osis-converters subdirectory to update
+  my $url = shift; # URL to read from
+  my $updatePeriod = shift; # hours between updates (0 updates always)
+  my $listingAP = shift; # Do not download files, just write a file listing here.
   
-  $success = 0;
+  if (!$subdir) {&ErrorBug("Subdir cannot be empty.", '', 1);}
+  
+  my $pp = "~/.osis-converters/URLCache/$subdir";
+  my $p = &expandLinuxPath($pp);
+  if (! -e $p) {make_path($p);}
+  
+  # Check last time this subdirectory was updated
+  if ($updatePeriod && -e "$p/../$subdir-updated.txt") {
+    my $last;
+    if (open(TXT, "<$READLAYER", "$p/../$subdir-updated.txt")) {
+      while(<TXT>) {if ($_ =~ /^epoch=(.*?)$/) {$last = $1;}}
+      close(TXT);
+    }
+    if ($last) {
+      my $now = DateTime->now()->epoch();
+      my $delta = sprintf("%.2f", ($now-$last)/3600);
+      if ($delta < $updatePeriod) {
+        if ($listingAP) {&readWgetFilePaths($p, $listingAP, $p);}
+        &Note("Checked local cache directory $pp (last updated $delta hours ago)");
+        return;
+      }
+    }
+  }
+  
+  # Refresh the subdirectory contents from the URL
+  &Log("\n\nPlease wait while I update $pp...\n", 2);
+  my $success = 0;
   if ($p && $url) {
     if (!-e $p) {mkdir($p);}
     use Net::Ping;
@@ -454,19 +485,35 @@ sub updateURLCache($$) {
     my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/;
     my $r; use Try::Tiny; try {$r = $net->ping($d, 5);} catch {$r = 0;};
     if ($r) {
-      shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$url'", 3);
-      $success = &wgetSyncDel($p);
+      # Download files
+      if (!$listingAP) {
+        shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$url'", 3);
+        $success = &wgetSyncDel($p);
+      }
+      # Otherwise return a listing
+      else {
+        my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # directory name
+        my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
+        if ($p !~ /\/\.osis-converters\//) {die;} remove_tree($p); make_path($p);
+        &shell("cd '$p' && wget -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
+        $success = &readWgetFilePaths($p, $listingAP, $p);
+      }
     }
   }
   
   if ($success) {
-    &Note("Updated local directory $p from URL $url");
+    &Note("Updated local cache directory $pp from URL $url");
+    
+    # Save time of this update
+    if (open(TXT, ">$WRITELAYER", "$p/../$subdir-updated.txt")) {
+      print TXT "localtime()=".localtime()."\n";
+      print TXT "epoch=".DateTime->now()->epoch()."\n";
+      close(TXT);
+    }
   }
   else {
-    &Warn("checkFont() could not update $p from $url.", "That there is an Internet connection and that $url is a valid URL.");
+    &Error("Failed to update $pp from $url.", "That there is an Internet connection and that $url is a valid URL.");
   }
-  
-  return $success;
 }
 
 # Delete any local files that were not just downloaded by wget
@@ -492,6 +539,53 @@ sub wgetSyncDel($) {
   }
   else {&ErrorBug("The $dname.tmp HTML was undreadable: $p/$dname.tmp");}
   shell("cd '$p' && rm *.tmp", 3);
+  
+  return $success;
+}
+
+# Recursively read $wgetdir directory that contains the wget result 
+# of reading an apache server directory, and add paths of listed files 
+# and directories to the $filesAP array pointer. All directories will
+# end with a '/'.
+sub readWgetFilePaths($\@$) {
+  my $wgetdir = shift; # directory containing the wget result of reading an apache server directory
+  my $filesAP = shift; # the listing of subdirectories on the server
+  my $root = shift; # root of recursive search
+  
+  if (!opendir(DIR, $wgetdir)) {
+    &ErrorBug("Could not open $wgetdir");
+    return 0;
+  }
+  
+  my $success = 1;
+  my @subs = readdir(DIR);
+  closedir(DIR);
+  
+  foreach my $sub (@subs) {
+    $sub = decode_utf8($sub);
+    if ($sub =~ /^\./ || $sub =~ /(robots\.txt\.tmp)/) {next;}
+    elsif (-d "$wgetdir/$sub") {
+      my $save = "$wgetdir/$sub/"; $save =~ s/^\Q$root\E\/[^\/]+/./;
+      push(@{$filesAP}, $save);
+      &Debug("Found folder: $save\n", 1);
+      $success &= &readWgetFilePaths("$wgetdir/$sub", $filesAP, $root);
+      next;
+    }
+    elsif ($sub ne 'index.html') {
+      &ErrorBug("Encounteed unexpected file $sub in $wgetdir.");
+      $success = 0;
+      next;
+    }
+    my $html = $XML_PARSER->load_html(location  => "$wgetdir/$sub", recover => 1);
+    if (!$html) {&ErrorBug("Could not parse $wgetdir/$sub"); $success = 0; next;}
+    foreach my $a ($html->findnodes('//tr/td/a')) {
+      my $icon = @{$a->findnodes('preceding::img[1]/@src')}[0];
+      if ($icon->value =~ /\/(folder|back)\.gif$/) {next;}
+      my $save = "$wgetdir/".$a->textContent(); $save =~ s/^\Q$root\E\/[^\/]+/./;
+      push(@{$filesAP}, $save);
+      &Debug("Found file: $save\n", 1);
+    }
+  }
   
   return $success;
 }

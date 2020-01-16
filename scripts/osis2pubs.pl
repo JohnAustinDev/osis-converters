@@ -451,13 +451,16 @@ sub makeEbook($$$$$) {
 sub readServerScopes($) {
   my $url = shift;
   
-  my $fileListAP = &readFilePaths($url);
-  
   my %result;
-  foreach my $file (@{$fileListAP}) {
-    # tmp/osis2ebooks/wget/BEZ/2005/Prov_Full.azw3
+  
+  my @fileList; &updateURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
+  
+  foreach my $file (@fileList) {
+    if ($file =~ /\/$/) {next;} # skip directories
+    
+    # ./2005/Prov_Full.azw3
     my $dir = $file; 
-    my $filename = ($dir =~ s/^.*?\/wget\/$MAINMOD\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2)$/$1/ ? $2:'');
+    my $filename = ($dir =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2)$/$1/ ? $2:'');
     if (!$filename) {next;}
     
     # Get scope from $filename, which is [fileNumber-][title__][scope]_[type]
@@ -475,59 +478,6 @@ sub readServerScopes($) {
   }
   
   return \%result
-}
-
-# Recursively read an Apache server directory and return all files
-# listed there.
-sub readFilePaths($) {
-  my $url = shift; # url to an Apache server directory
-  
-  my @list; # list of ???
-  
-  my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # directory name
-  my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
-
-  my $tmp = "$TMPDIR/wget";
-  mkdir($tmp);
-  use Net::Ping;
-  my $net = Net::Ping->new;
-  my $d = $url; $d =~ s/^https?\:\/\/([^\/]+).*?$/$1/; # domain of url
-  my $r; use Try::Tiny; try {$r = $net->ping($d, 5);} catch {$r = 0;};
-  if ($r) {
-    &shell("wget -P \"$tmp\" -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
-    &readWgetFilePaths($tmp, \@list);
-  }
-  if ($tmp =~ /\Q.osis-converters/) {remove_tree($tmp);}
-  
-  return \@list;
-}
-
-# Recursively read $wgetdir directory that contains the wget result 
-# of reading an apache server directory, and add paths of listed files 
-# (files which have extensions) to the $filesAP array pointer.
-sub readWgetFilePaths($\@) {
-  my $wgetdir = shift; # directory containing the wget result of reading an apache server directory
-  my $filesAP = shift; # the listing of subdirectories on the server
-  
-  if (!opendir(DIR, $wgetdir)) {
-    &ErrorBug("readWgetFilePaths could not open $wgetdir!");
-    return;
-  }
-  my @subs = readdir(DIR);
-  closedir(DIR);
-  foreach my $sub (@subs) {
-    $sub = decode_utf8($sub);
-    if ($sub =~ /^\./ || $sub =~ /(robots\.txt\.tmp)/) {next;}
-    elsif (-d "$wgetdir/$sub") {&readWgetFilePaths("$wgetdir/$sub", $filesAP); next;}
-    elsif ($sub ne 'index.html') {&ErrorBug("readWgetFilePaths encounteed an unexpected file $sub in $wgetdir."); next;}
-    my $html = $XML_PARSER->load_html(location  => "$wgetdir/$sub", recover => 1);
-    if (!$html) {&ErrorBug("readWgetFilePaths could not parse $wgetdir/$sub"); next;}
-    foreach my $a ($html->findnodes('//tr//a')) {
-      if ($a->textContent() !~ /\.[^\.\/]+$/) {next;} # keep only links to files with extensions
-      push(@{$filesAP}, "$wgetdir/".$a->textContent());
-      &Debug("Found $EBOOKS file: $wgetdir/".$a->textContent()."\n", 1);
-    }
-  }
 }
 
 # The osis2xhtml.xsl converter expects the x-config-FullResourceURL 

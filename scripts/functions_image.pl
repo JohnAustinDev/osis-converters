@@ -236,8 +236,7 @@ sub getCoverImageFromScope($$) {
   my $cover = &findCover("$INPD/images", $mod, $scope);
   if (!$cover && $COVERS) {
     if ($COVERS =~ /^https?\:/) {
-      my $p = &expandLinuxPath("~/.osis-converters/cover");
-      &updateURLCache($p, $COVERS);
+      &updateURLCache('cover', $COVERS, 12);
       $COVERS = $p;
     }
     $cover = &findCover($COVERS, $mod, $scope);
