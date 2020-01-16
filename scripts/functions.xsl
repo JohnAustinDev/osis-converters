@@ -395,11 +395,9 @@ chmod +r <value-of select="$tmpResult"/>
   </template>
   <template name="ErrorBug">
     <param name="msg"/>
-    <param name="exp"/>
     <param name="die" select="'no'"/>
     <message terminate="{$die}">
       <text>&#xa;</text>ERROR (UNEXPECTED): <value-of select="$msg"/><text>&#xa;</text>
-      <if test="$exp">SOLUTION: <value-of select="$exp"/><text>&#xa;</text></if>
       <text>Backtrace: </text><value-of select="oc:printNode(.)"/><text>&#xa;</text>
       <text>Please report the above unexpected ERROR to osis-converters maintainer.</text><text>&#xa;</text>
     </message>

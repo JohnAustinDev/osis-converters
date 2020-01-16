@@ -282,7 +282,7 @@ system section: ".join(' ', @OC_SYSTEM));}
       print SHL "1;\n";
       close(SHL);
     }
-    else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work.", "Check that you have write permission in directory $SCRD.");}
+    else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work; check that you have write permission in directory $SCRD.");}
   }
   else {
     # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
@@ -510,7 +510,7 @@ sub conf($$$$$) {
     &ErrorBug("Unrecognized config request: $entry");
   }
   elsif ($isConf eq 'system') {
-    &ErrorBug("Config request $entry is from the special [system] section.", "Use \$$entry rather than &conf('$entry') to access [system] section values.");
+    &ErrorBug("Config request $entry is from the special [system] section; use \$$entry rather than &conf('$entry') to access [system] section values.");
   }
   elsif (exists($confP->{$script_name.'+'.$entry})) {
     $key = $script_name.'+'.$entry;
@@ -675,7 +675,7 @@ sub getDefaultFile($$$) {
   }
   if ($fileType eq 'childrens_bible' && !$defaultFile) {return &getDefaultFile("bible/$moduleFile", $priority);}
   if (!$priority && !$defaultFile) {
-    &ErrorBug("Default file $file could not be found in any default path.", 'Add this file to the osis-converters/defaults directory.', 1);
+    &ErrorBug("Default file $file could not be found in any default path; add this file to the osis-converters/defaults directory.", 1);
   }
   return $defaultFile;
 }
@@ -892,16 +892,11 @@ sub Error($$$) {
 }
 
 # Report errors that are unexpected or need to be seen by osis-converters maintainer
-sub ErrorBug($$$) {
+sub ErrorBug($$) {
   my $errmsg = shift;
-  my $solmsg = shift;
   my $doDie = shift;
   
-  # Solution msgs beginning with <> will only be output once
-  if ($solmsg =~ s/^<>//) {if ($ERR_CHECK{$solmsg}) {$solmsg='';} else {$ERR_CHECK{$solmsg}++;}}
-  
   &Log("\nERROR (UNEXPECTED): $errmsg\n", 1);
-  if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
   
   use Carp qw(longmess);
   &Log(&longmess());
@@ -1024,7 +1019,7 @@ sub encodePrintPaths($) {
 
 sub expandLinuxPath($) {
   my $path = shift;
-  if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", '', 1);}
+  if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", 1);}
   my $r = &shell("echo $path", 3);
   chomp($r);
   return $r;

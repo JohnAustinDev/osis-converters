@@ -166,7 +166,7 @@ sub makeGoBibles($$$$$) {
       &makeGoBibles($type, $dir, $collectionsP, $resize, $resultsP);
       return;
     }
-    &ErrorBug("At least one small JAR file is greater than 512kb.", "Small jar files should be smaller than 512kb, but osis-converters failed to acheive this.");
+    &ErrorBug("At least one small JAR file is greater than 512kb; small jar files should be smaller than 512kb, but osis-converters failed to acheive this.");
   }
   
   &Log("\n$log\n$colfile\n");
@@ -216,7 +216,7 @@ sub writeCollectionsFile($$) {
   
   my $coltxt = &getDefaultFile("bible/GoBible/collections.txt");
   if (!open(INC, "<$READLAYER", $coltxt)) {
-    &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", '', 1);
+    &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", 1);
   }
   
   # Write Book-Name-Map for all books in localbk and coltxt
@@ -245,7 +245,7 @@ sub writeCollectionsFile($$) {
   close(INC);
   
   if (!open (COLL, ">$WRITELAYER", $fdest)) {
-    &ErrorBug("writeCollectionsFile could not open $fdest for writing.", '', 1);
+    &ErrorBug("writeCollectionsFile could not open $fdest for writing.", 1);
   }
   print COLL $colfile;
   close(COLL);
@@ -368,7 +368,7 @@ sub shiftBookFromOversizedCollections($$$$) {
   foreach my $col (sort keys %{$collectionsP}) {
     if ($col eq lc($MAINMOD).$colext) {next;}
     if ($colSizeP->{$col} <= $maxColSize) {next;}
-    if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", '', 1);}
+    if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", 1);}
     my $n = $2;
     my $bk = pop(@{$collectionsP->{$col}});
     my $k = lc($MAINMOD).($NT_BOOKS =~ /\b$bk\b/ ? 'nt':'ot').($n+1).$colext;

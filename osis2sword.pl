@@ -90,7 +90,7 @@ elsif ($SModDrv =~ /LD/) {
   }
 }
 else {
-	&ErrorBug("Unhandled module type \"$SModDrv\".", 'Only the following are supported: Bible, Dictionary or General-Book', 1);
+	&ErrorBug("Unhandled module type \"$SModDrv\"; only the following are supported: Bible, Dictionary or General-Book", 1);
 }
 
 # Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry

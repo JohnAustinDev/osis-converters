@@ -28,7 +28,7 @@ my $commandFile = "$MAININPD/CF_osis2osis.txt";
 if (! -e $commandFile) {&Error("Cannot run osis2osis.pl without a CF_osis2osis.txt command file located at: $MAININPD.", '', 1);}
 
 my @outmods = &runOsis2osis('postinit', $MAININPD);
-if (!@outmods) {&ErrorBug("runOsis2osis failed to write OSIS file(s).", '', 1);}
+if (!@outmods) {&ErrorBug("runOsis2osis failed to write OSIS file(s).", 1);}
 
 foreach my $outmod (@outmods) {
   undef($DOCUMENT_CACHE); # DWF will change, so reset cache

@@ -444,14 +444,16 @@ sub checkFont($) {
 # will NOT be updated if it was already updated less than $updatePeriod 
 # hours ago. If an array pointer $listingAP is provided, then files will 
 # NOT be downloaded, rather, the directory listing will be written to 
-# $listingAP. Directories in the listing end with '/'.
+# $listingAP. Directories in the listing end with '/'. For $listingAP
+# to work, the URL must target an Apache server directory where html 
+# listing is enabled.
 sub updateURLCache($$$$) {
   my $subdir = shift; # local .osis-converters subdirectory to update
   my $url = shift; # URL to read from
   my $updatePeriod = shift; # hours between updates (0 updates always)
   my $listingAP = shift; # Do not download files, just write a file listing here.
   
-  if (!$subdir) {&ErrorBug("Subdir cannot be empty.", '', 1);}
+  if (!$subdir) {&ErrorBug("Subdir cannot be empty.", 1);}
   
   my $pp = "~/.osis-converters/URLCache/$subdir";
   my $p = &expandLinuxPath($pp);
@@ -529,7 +531,7 @@ sub wgetSyncDel($) {
     $success++;
     my @files = $html->findnodes('//tr//a');
     my @files = map($_->textContent() , @files);
-    opendir(PD, $p) or &ErrorBug("Could not open dir $p", '', 1);
+    opendir(PD, $p) or &ErrorBug("Could not open dir $p", 1);
     my @locfiles = readdir(PD); closedir(PD);
     foreach my $lf (@locfiles) {
       if (-d "$p/$lf") {next;}
@@ -845,7 +847,7 @@ sub initInputOutputFiles($$$$) {
       $INOSIS = "$tmpdir/$sub.xml";
     }
     else {
-      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", '', 1);
+      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", 1);
     }
   }
 
@@ -964,7 +966,7 @@ sub checkAndWriteDefaults($) {
     }
   }
   
-  # Custommize any new default files which need it (in order)
+  # Customize any new default files which need it (in order)
   foreach my $dc (@customDefaults) {
     foreach my $file (@newDefaultFiles) {
       if ($file =~ /\/\Q$dc\E$/) {
@@ -975,7 +977,7 @@ sub checkAndWriteDefaults($) {
         if    ($file =~ /config\.conf$/)             {&customize_conf($file, $modName, $modType, $haveDICT);}
         elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($file, $modType);}
         elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file, $booknamesHP);}
-        else {&ErrorBug("Unknown customization type $dc for $file", "Write a customization function for this type of file.", 1);}
+        else {&ErrorBug("Unknown customization type $dc for $file; write a customization function for this type of file.", 1);}
       }
     }
   }
@@ -988,7 +990,7 @@ sub customize_conf($$$$) {
   my $haveDICT = shift;
 
   if ($modType eq 'dictionary') {
-    &ErrorBug("The 'dictionary' modType does not have its own config.conf file, but customize_conf was called with modType='dictionary'.", '', 1);
+    &ErrorBug("The 'dictionary' modType does not have its own config.conf file, but customize_conf was called with modType='dictionary'.", 1);
   }
  
   # Save any comments at the end of the default config.conf so they can 
@@ -1163,7 +1165,7 @@ sub customize_addScripRefLinks($$) {
   $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
   
   # Write to CF_addScripRefLinks.txt in the most user friendly way possible
-  if (!open(CFT, ">$WRITELAYER", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", '', 1);}
+  if (!open(CFT, ">$WRITELAYER", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", 1);}
   foreach my $cfs (sort keys %cfSettings) {
     my $pcfs = $cfs; $pcfs =~ s/^\d\d //;
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
@@ -1285,7 +1287,7 @@ sub customize_usfm2osis($$) {
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
-  if (!open (CFF, ">>$WRITELAYER", "$cf")) {&ErrorBug("Could not open \"$cf\"", '', 1);}
+  if (!open (CFF, ">>$WRITELAYER", "$cf")) {&ErrorBug("Could not open \"$cf\"", 1);}
   print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
   my $lastScope;
   foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
@@ -1445,7 +1447,7 @@ sub scanUSFM_file($) {
   
   &Log("Scanning SFM file: \"$f\"\n");
   
-  if (!open(SFM, "<$READLAYER", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", '', 1);}
+  if (!open(SFM, "<$READLAYER", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", 1);}
   
   $info{'scope'} = ($f =~ /\/sfm\/([^\/]+)\/[^\/]+$/ ? $1:'');
   if ($info{'scope'}) {$info{'scope'} =~ s/_/ /g;}
@@ -1540,7 +1542,7 @@ sub setConfValue($$$$) {
   
   if ($value eq $confEntriesP->{$param}) {return 1;}
   if ($flag != 1 && $sep && $confEntriesP->{$param} =~ /(^|\s*\Q$sep\E\s*)\Q$value\E(\s*\Q$sep\E\s*|$)/) {return 1;}
-  if ($flag == 2 && !$sep) {&ErrorBug("Param '$param' cannot have multiple values, yet setConfValue flag=$flag", '', 1);}
+  if ($flag == 2 && !$sep) {&ErrorBug("Param '$param' cannot have multiple values, yet setConfValue flag=$flag", 1);}
   
   if (!$flag) {return 0;}
   elsif ($flag == 1) {
@@ -1550,7 +1552,7 @@ sub setConfValue($$$$) {
     if ($confEntriesP->{$param}) {$confEntriesP->{$param} .= $sep.$value;}
     else {$confEntriesP->{$param} = $value;}
   }
-  else {&ErrorBug("Unexpected setConfValue flag='$flag'", '', 1);}
+  else {&ErrorBug("Unexpected setConfValue flag='$flag'", 1);}
   return 1;
 }
 
@@ -1857,7 +1859,7 @@ sub removeRevisionFromCF($) {
   my $changed = 0;
   my $msg = "# osis-converters rev-";
   if (open(RCMF, "<$READLAYER", $f)) {
-    if (!open(OCMF, ">$WRITELAYER", "$f.tmp")) {&ErrorBug("removeRevisionFromCF could not open \"$f.tmp\".", '', 1);}
+    if (!open(OCMF, ">$WRITELAYER", "$f.tmp")) {&ErrorBug("Could not open \"$f.tmp\".", 1);}
     my $l = 0;
     while(<RCMF>) {
       $l++;
@@ -2622,7 +2624,7 @@ sub addDictionaryLinks(\@$$) {
       my $check = $text;
       $check =~ s/<\/?reference[^>]*>//g;
       if ($check ne $textchild->data()) {
-        &ErrorBug("addDictionaryLinks: Bible text changed during glossary linking!\nBEFORE=".$textchild->data()."\nAFTER =$check", '', 1);
+        &ErrorBug("Bible text changed during glossary linking!\nBEFORE=".$textchild->data()."\nAFTER =$check", 1);
       }
       
       # apply new reference tags back to DOM
@@ -2655,9 +2657,9 @@ sub getModNameOSIS($) {
     my $modname = $node; # node is not a ref() so it's a modname
     if (!$DOCUMENT_CACHE{$modname}) {
       my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
-      if (! -e $osis) {&ErrorBug("getModNameOSIS: No current osis file to read for $modname.", '', 1);}
+      if (! -e $osis) {&ErrorBug("getModNameOSIS: No current osis file to read for $modname.", 1);}
       &initDocumentCache($XML_PARSER->parse_file($osis));
-      if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getModNameOSIS: header of osis $osis does not include modname $modname.", '', 1);}
+      if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getModNameOSIS: header of osis $osis does not include modname $modname.", 1);}
     }
     return $modname;
   }
@@ -2676,7 +2678,7 @@ sub getModNameOSIS($) {
   }
   
   if (!$DOCUMENT_CACHE{$headerDoc}) {
-    &ErrorBug("initDocumentCache failed to init \"$headerDoc\"!", '', 1);
+    &ErrorBug("initDocumentCache failed to init \"$headerDoc\"!", 1);
     return '';
   }
   

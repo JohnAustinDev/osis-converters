@@ -136,7 +136,7 @@ sub runAddFootnoteLinks($$) {
     }
     close (CF);
   }
-  else {&ErrorBug("Command file required: $commandFile", "Add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
+  else {&ErrorBug("Command file required: $commandFile; add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
 
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   &Log("WRITING INPUT FILE: \"$output\".\n");

@@ -281,7 +281,7 @@ that you wish to match on a separate line:");
     }
 
   }
-  else {&ErrorBug("The CF_addScripRefLinks.txt command file is required to run addScripRefLinks.pl and a default file could not be found.", "", 1); return;}
+  else {&ErrorBug("The CF_addScripRefLinks.txt command file is required to run addScripRefLinks.pl and a default file could not be found.", 1); return;}
 
   &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");

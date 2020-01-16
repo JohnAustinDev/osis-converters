@@ -133,7 +133,7 @@ on the same line");}
   elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {$pubImagePath = "$INPD/html/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
   my $iname = $scope;
   if ($pubImagePath) {
-    if ($pubImagePath !~ /\/([^\/\.]+)\.[^\/\.]+$/) {&ErrorBug("Bad pubImagePath: $pubImagePath !~ /\\/([^\\/]*)\\.[^\\/\\.]+\$/", '', 1);}
+    if ($pubImagePath !~ /\/([^\/\.]+)\.[^\/\.]+$/) {&ErrorBug("Bad pubImagePath: $pubImagePath !~ /\\/([^\\/]*)\\.[^\\/\\.]+\$/", 1);}
     $iname = $1;
   }
   my $imgpath = "$imgdir/$iname.jpg";
