@@ -6,7 +6,7 @@ require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 require("$SCRD/scripts/bible/addCrossRefs.pl");
 
 # This script expects a usfm2osis.py produced OSIS input file
-sub runProcessOSIS($) {
+sub processOSIS($) {
   my $inosis = shift;
   
   if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
@@ -245,7 +245,7 @@ Bible module OSIS file, then run this dictionary module again.");
 
 
 # This script expects a sfm2osis.pl produced OSIS input file
-sub runReprocessOSIS($) {
+sub reprocessOSIS($) {
   my $modname = shift;
   
   if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging

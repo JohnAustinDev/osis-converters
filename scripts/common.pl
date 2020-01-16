@@ -75,9 +75,9 @@ $VSYS{'end_vs'} = '-end';
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
-require("$SCRD/scripts/common_childrensBible.pl");
-require("$SCRD/scripts/common_context.pl");
-require("$SCRD/scripts/images.pl");
+require("$SCRD/scripts/functions_childrensBible.pl");
+require("$SCRD/scripts/functions_context.pl");
+require("$SCRD/scripts/functions_image.pl");
 
 sub init_linux_script() {
   chdir($SCRD);

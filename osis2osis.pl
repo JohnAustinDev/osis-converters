@@ -38,7 +38,7 @@ foreach my $outmod (@outmods) {
   $OSIS = "$TMPDIR/$outmod/$outmod.xml"; # written by runOsis2osis() above
   if (! -e &getModuleOutputDir($outmod)) {&make_path(&getModuleOutputDir($outmod));}
   $OUTOSIS = &getModuleOsisFile($outmod, 'quiet');
-  &runReprocessOSIS($outmod);
+  &reprocessOSIS($outmod);
   
   if ($NO_OUTPUT_DELETE) {
    # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl

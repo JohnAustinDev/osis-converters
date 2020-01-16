@@ -19,7 +19,7 @@
 
 # Converts an OSIS file into possibly a number of different ePublications 
 # of type $convertTo, where each ePublication covers a different Bible-scope. 
-sub convertOSIS($) {
+sub osis2pubs($) {
   my $convertTo = shift;
   if ($convertTo !~ /^(eBook|html)$/) {
     &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");

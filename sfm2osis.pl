@@ -30,7 +30,7 @@ if (! -e $commandFile) {
   "To run sfm2osis.pl, first run sfm2all.pl to create a default CF_usfm2osis.txt file.", 1);
 }
 &usfm2osis($commandFile, $OSIS);
-&runProcessOSIS($OSIS);
+&processOSIS($OSIS);
 
 if ($NO_OUTPUT_DELETE) {
   # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
