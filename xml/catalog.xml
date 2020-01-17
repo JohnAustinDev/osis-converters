@@ -6,6 +6,6 @@ W3C enforces a long DTD request time to spare its servers, so such files are mir
 
 <catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
   <rewriteSystem systemIdStartString="http://www.w3.org/2001/" rewritePrefix="./www.w3.org/2001/"/>
-  <rewriteSystem systemIdStartString="http://www.crosswire.org/" rewritePrefix="./www.crosswire.org/"/>
+  <rewriteSystem systemIdStartString="http://localhost/" rewritePrefix="./www.crosswire.org/"/>
   <nextCatalog catalog="/etc/xml/catalog.xml" />
 </catalog>
