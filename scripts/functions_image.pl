@@ -235,10 +235,7 @@ sub getCoverImageFromScope($$) {
   
   my $cover = &findCover("$INPD/images", $mod, $scope);
   if (!$cover && $COVERS) {
-    if ($COVERS =~ /^https?\:/) {
-      &updateURLCache('cover', $COVERS, 12);
-      $COVERS = $p;
-    }
+    if ($COVERS =~ /^https?\:/) {$COVERS = &updateURLCache('cover', $COVERS, 12);}
     $cover = &findCover($COVERS, $mod, $scope);
   }
   

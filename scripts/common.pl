@@ -393,10 +393,7 @@ sub checkFont($) {
   %FONT_FILES;
   
   # FONTS can be a URL in which case update the local font cache
-  if ($FONTS =~ /^https?\:/) {
-    &updateURLCache('fonts', $FONTS, 12);
-    $FONTS = $p;
-  }
+  if ($FONTS =~ /^https?\:/) {$FONTS = &updateURLCache('fonts', $FONTS, 12);}
 
   if ($FONTS && ! -e $FONTS) {
     &Error("config.conf specifies FONTS as \"$FONTS\" but this path does not exist. FONTS will be unset.", "Change the value of FONTS in the [system] section of config.conf to point to an existing path or URL.");
@@ -446,7 +443,7 @@ sub checkFont($) {
 # NOT be downloaded, rather, the directory listing will be written to 
 # $listingAP. Directories in the listing end with '/'. For $listingAP
 # to work, the URL must target an Apache server directory where html 
-# listing is enabled.
+# listing is enabled. The path to the URLCache subdirectory is returned.
 sub updateURLCache($$$$) {
   my $subdir = shift; # local .osis-converters subdirectory to update
   my $url = shift; # URL to read from
@@ -472,7 +469,7 @@ sub updateURLCache($$$$) {
       if ($delta < $updatePeriod) {
         if ($listingAP) {&readWgetFilePaths($p, $listingAP, $p);}
         &Note("Checked local cache directory $pp (last updated $delta hours ago)");
-        return;
+        return $p;
       }
     }
   }
@@ -516,6 +513,8 @@ sub updateURLCache($$$$) {
   else {
     &Error("Failed to update $pp from $url.", "That there is an Internet connection and that $url is a valid URL.");
   }
+  
+  return $p;
 }
 
 # Delete any local files that were not just downloaded by wget
