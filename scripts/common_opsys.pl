@@ -116,7 +116,7 @@ use File::Spec;
   'CreateSeparateBooks' => 'true',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true/false)',
   'NoEpub3Markup' => 'false',       'doc:NoEpub3Markup' => 'by default, output is mostly EPUB2 but having epub:type attributes for footnotes. The epub:type attributes are part of the EPUB3 spec, but allow note popups in some eBook readers (true/false)',
   'ChapterFiles' => 'false',        'doc:ChapterFiles' => '\'true\' outputs each chapter as a separate file in osis2xhtml.xsl (true/false)',
-  'CombineGlossaries' => '',        'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one, or false to keep them each as a separate glossary.',
+  'CombineGlossaries' => 'false',   'doc:CombineGlossaries' => 'Set this to true to combine all glossaries into one, or false to keep them each as a separate glossary.',
   'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
   'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
