@@ -4196,7 +4196,7 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
     foreach my $ctx (sort {&matchResultSort($ent, $a, $b);} keys %{$EntryLink{$ent}}) {
       $t  += $EntryLink{$ent}{$ctx};
       $gt += $EntryLink{$ent}{$ctx};
-      $ctxp .= $ctx."(".$EntryLink{$ent}{$ctx}.") ";
+      $ctxp .= &decodeOsisRef($ctx)."(".$EntryLink{$ent}{$ctx}.") ";
     }
     
     $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
