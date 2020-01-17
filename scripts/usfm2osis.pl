@@ -284,20 +284,24 @@ sub evalRegex($$) {
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
     if (!open(SFM, "<$READLAYER", $f2)) {&Error("Could not open SFM file \"$f2\"", "This file was incorrectly specified in a RUN line of CF_usfm2osis.txt. Change or remove it.", 1);}
-    my $s = join('', <SFM>); 
-    foreach my $r (@EVAL_REGEX) {
-      if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}
-      my $num;
-      eval("\$num = scalar(\$s =~ ".$r->{'regex'}.");");
-      if ($num) {
-        $eval_regex_applied{$r->{'regex'}}++;
-        $eval_regex_report{$r->{'regex'}} += $num;
+    
+    # Variables names in the following block should be uncommon, because 
+    # EVAL_REGEX statments may use variables with the e flag, and we 
+    # don't want collisions in the eval!
+    my $sww = join('', <SFM>); 
+    foreach my $rww (@EVAL_REGEX) {
+      if ($rww->{'singleFile'} && $rww->{'group'} ne $runTarget) {next;}
+      my $numww;
+      eval("\$numww = scalar(\$sww =~ ".$rww->{'regex'}.");");
+      if ($numww) {
+        $eval_regex_applied{$rww->{'regex'}}++;
+        $eval_regex_report{$rww->{'regex'}} += $numww;
       }
     }
     close(SFM);
     
     open(SFM2, ">$WRITELAYER", "$f2.new") or die;
-    print SFM2 $s;
+    print SFM2 $sww;
     close(SFM2);
     
     unlink($f2);

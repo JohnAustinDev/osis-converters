@@ -582,7 +582,7 @@ sub readWgetFilePaths($\@$) {
     foreach my $a ($html->findnodes('//tr/td/a')) {
       my $icon = @{$a->findnodes('preceding::img[1]/@src')}[0];
       if ($icon->value =~ /\/(folder|back)\.gif$/) {next;}
-      my $save = "$wgetdir/".$a->textContent(); $save =~ s/^\Q$root\E\/[^\/]+/./;
+      my $save = "$wgetdir/".decode_utf8($a->textContent()); $save =~ s/^\Q$root\E\/[^\/]+/./;
       push(@{$filesAP}, $save);
       &Debug("Found file: $save\n", 1);
     }
@@ -1457,7 +1457,7 @@ sub scanUSFM_file($) {
   # recorded.
   my @tags = ('h', 'imt', 'is', 'mt', 'toc1', 'toc2', 'toc3');
   while(<SFM>) {
-    if ($_ =~ /^\W*?\\id \s*(.*?)\s*$/) {
+    if ($_ =~ /^\W*?\\id \s*(\S+)\s*$/) {
       my $i = $1; 
       if ($id) {
         if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Warn("ambiguous id tags: \"$id\", \"$i\"");}
