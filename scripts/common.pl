@@ -80,15 +80,21 @@ require("$SCRD/scripts/functions_context.pl");
 require("$SCRD/scripts/functions_image.pl");
 
 sub init_linux_script() {
-  chdir($SCRD);
-
-  $GITHEAD = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($GITHEAD);
+  chdir($MAININPD);
+  my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($inpdGit);
+  my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3):''); chomp($inpdOriginGit);
   
-  $MODULETOOLS_GITHEAD = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($MODULETOOLS_GITHEAD);
+  chdir($SCRD);
+  my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($scrdGit);
+  
+  my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($modtoolsGit);
   
   &Log("\nUsing ".`calibre --version`);
-  &Log("osis-converters git rev: $GITHEAD\n");
-  &Log("Module-tools git rev: $MODULETOOLS_GITHEAD at $MODULETOOLS_BIN\n");
+  &Log("osis-converters git rev: $scrdGit\n");
+  &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
+  if ($inpdGit) {
+    &Log("$inpdOriginGit rev: $inpdGit\n");
+  }
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
   if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
