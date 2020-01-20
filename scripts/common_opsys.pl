@@ -1062,4 +1062,10 @@ sub shell($$) {
   return $result;
 }
 
+sub urlencode {
+  my $s = shift;
+  $s =~ s/([\Q "<>`#?{}\E])/sprintf("%%%02X", ord($1))/seg;
+  return $s;
+}
+
 1;

@@ -506,7 +506,7 @@ sub updateOsisFullResourceURL($$) {
     
     if ($url ne $new) {
       &Note("Updating FullResourceURL from \"$url\" to \"$new\".");
-      &changeNodeText($u, $new);
+      &changeNodeText($u, urlencode($new));
       $update++;
     }
   }
