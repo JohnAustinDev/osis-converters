@@ -443,7 +443,7 @@ sub goBibleConvChars($$$) {
   &Log("Listing $type unicode chars higher than $MAX_UNICODE:\n");
   $error = "false";
   foreach $key (sort keys %highUnicode) {
-    if ($type eq "simple") {$error = "true"; &Log(" ".$key." :".$highUnicode{$key}."\n");}
+    if ($type eq "simple") {$error = "true"; &Log(" ".$key."(".ord($key).") :".$highUnicode{$key}."\n");}
     else {&Log($key." ");}
   }
   if ($type eq "simple") {

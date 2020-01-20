@@ -233,13 +233,13 @@ sub updateConvertTXT($$$) {
           &Warn("<-$warn $e=$v");
         }
         if ($e) {
-          $confP->{($section ? "$section+":"$MAINMOD+").$e} = $v;
+          $confP->{($section ? "$section+":'').$e} = $v;
         }
       }
     }
     close(CONV);
     foreach my $n (sort keys %pubScopeTitle) {
-      my $e = ($section ? "$section+":"$MAINMOD+").'TitleSubPublication['.$pubScopeTitle{$n}{'sp'}.']';
+      my $e = ($section ? "$section+":'').'TitleSubPublication['.$pubScopeTitle{$n}{'sp'}.']';
       my $v = $pubScopeTitle{$n}{'title'};
       $confP->{$e} = $v;
       &Warn("<-Changing CreateFullPublication and TitleFullPublication to $e=$v");
@@ -5034,6 +5034,9 @@ sub getScopeTitle($) {
   my $scope = shift;
   
   $scope =~ s/\s/_/g;
+  if (!$CONF->{"TitleSubPublication[$scope]"}) {
+    return '';
+  }
   return &conf("TitleSubPublication[$scope]");
 }
 

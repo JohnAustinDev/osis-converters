@@ -73,7 +73,7 @@ sub osis2pubs($) {
       if ($convertTo ne 'html') {
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[".$pscope."]"), $scope); 
+        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
       }
     }
 
@@ -86,7 +86,7 @@ sub osis2pubs($) {
         $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
-        my $title = ($pscope ? &conf("TitleSubPublication[".$pscope."]"):$TRANPUB_TITLE);
+        my $title = ($pscope && $CONF->{"TitleSubPublication[$pscope]"} ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
         &OSIS_To_ePublication($convertTo, $title, $bk);
       }
     }
