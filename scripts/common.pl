@@ -1463,7 +1463,7 @@ sub scanUSFM_file($) {
   # recorded.
   my @tags = ('h', 'imt', 'is', 'mt', 'toc1', 'toc2', 'toc3');
   while(<SFM>) {
-    if ($_ =~ /^\W*?\\id \s*(\S+)\s*$/) {
+    if ($_ =~ /^\W*?\\id \s*(\S+)/) {
       my $i = $1; 
       if ($id) {
         if (substr($id, 0, 3) ne substr($i, 0, 3)) {&Warn("ambiguous id tags: \"$id\", \"$i\"");}
