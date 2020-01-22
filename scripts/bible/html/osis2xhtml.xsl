@@ -901,8 +901,11 @@
     <param name="currentTask" tunnel="yes"/>
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
-    <if test="$currentTask = 'write-xhtml' and not(ancestor::div[@resp='x-oc']) and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and 
-        count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+    <if test="$currentTask = 'write-xhtml' and 
+              not(ancestor::div[@resp='x-oc']) and 
+              not(count($combinedGlossary/*)) and 
+              me:getTocLevel(.) = 1 and 
+              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"/></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC keyword's GlossaryScopeName to disambiguate: <value-of select="./text()"/></with-param></call-template>
@@ -1012,13 +1015,18 @@
     <param name="currentTask" tunnel="yes"/>
     <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS implementations should have this text de-emphasized since it is not part of the orignal book -->
     <div xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><small><i><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></i></small></div>
-    <!-- if this is the first milestone in a Bible, then include the root TOC -->
-    <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
     <!-- if there is an inlineTOC with this milestone TOC, then write out a title -->
     <variable name="inlineTOC" select="me:getInlineTOC(.)"/>
-    <if test="count($inlineTOC/*)"><h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></h1></if>
+    <if test="@isMainTocMilestone = 'true' or count($inlineTOC/*)">
+      <h1 xmlns="http://www.w3.org/1999/xhtml"><xsl:value-of select="oc:titleCase(me:getTocTitle(.))"/></h1>
+    </if>
+    <!-- if this is the first milestone in a Bible, then include the root TOC -->
+    <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
     <!-- if a glossary disambiguation title is needed, then write that out -->
-    <if test="$currentTask = 'write-xhtml' and not(count($combinedGlossary/*)) and me:getTocLevel(.) = 1 and count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+    <if test="$currentTask = 'write-xhtml' and 
+              not(count($combinedGlossary/*)) and 
+              me:getTocLevel(.) = 1 and 
+              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"><with-param name="noName" select="'true'"/></call-template></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC milestone's GlossaryScopeName to disambiguate: <value-of select="./@n"/></with-param></call-template>

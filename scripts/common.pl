@@ -4870,7 +4870,7 @@ tag number you wish to use.)\n");
       }
     }
     
-    # Add translation main TOC entry and title if not there already
+    # Add translation main TOC entry if not there already
     my $mainTOC = @{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]
       [not(ancestor::osis:div[starts-with(@type, "book")])]
       [not(preceding::osis:div[starts-with(@type, "book")])][1]', $xml)}[0];
@@ -4879,7 +4879,6 @@ tag number you wish to use.)\n");
       my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
   <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$translationTitle.'"/>
-  <title level="1" type="main" subType="x-introduction" canonical="false">'.$translationTitle.'</title>
 </div>');
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
       $insertBefore->parentNode->insertBefore($toc, $insertBefore);
@@ -4951,7 +4950,7 @@ tag number you wish to use.)\n");
         else {&Note("Could not insert Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
       }
 
-      # Add bookGroup introduction TOC entries (and titles using OldTestamentTitle and NewTestamentTitle) if:
+      # Add bookGroup introduction TOC entries using OldTestamentTitle and NewTestamentTitle, if:
       # + there is more than one bookGroup
       # + the bookGroup has more than one book
       # + there are no bookSubGroups in the bookGroup
@@ -4963,10 +4962,9 @@ tag number you wish to use.)\n");
         my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
   <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
-  <title level="1" type="main" subType="x-introduction" canonical="false">'.$testamentTitle.'</title>
 </div>');
         $bookGroup->insertBefore($toc, $bookGroup->firstChild);
-        &Note("Inserting $whichTestament Testament TOC entry and title within new introduction div as: $testamentTitle");
+        &Note("Inserting $whichTestament Testament TOC entry within new introduction div as: $testamentTitle");
       }
     }
   }
@@ -4998,30 +4996,41 @@ tag number you wish to use.)\n");
         if (!@{&scopeToBooks($div->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
       }
       
-      my $hasTitle = 1; my $confentry;
-      my $divTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
-      if ($divTitle) {$divTitle = $divTitle->textContent;}
-      else {
-        $hasTitle = 0;
-        $confentry = 'ARG_'.$div->getAttribute('osisID');
-        $divTitle = &conf($confentry);
-        if ($divTitle eq 'SKIP') {next;}
+      my $tocTitle;
+      my $confentry = 'ARG_'.$div->getAttribute('osisID');
+      my $confTitle = &conf($confentry);
+      my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
+      my $titleSubPublication = $CONF->{"TitleSubPublication[".$div->getAttribute('scope')."]"};
+      # Look in OSIS file for a title element
+      $tocTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
+      if ($tocTitle) {
+        $tocTitle = $tocTitle->textContent;
       }
-      if (!$divTitle) {
-        $divTitle = $div->getAttribute('osisID');
-        &Error("The Paratext div with title '$divTitle' needs a localized title.",
+      # Or look in config.conf for explicit toc entry
+      if (!$tocTitle && $confTitle) {
+        if ($confTitle eq 'SKIP') {next;}
+        $tocTitle = $confTitle;
+      }
+      # Or create a toc entry (without title) from SUB_PUBLICATIONS & CombinedGlossaryTitle 
+      if (!$tocTitle && $combinedGlossaryTitle && $titleSubPublication) {
+        $tocTitle = "$combinedGlossaryTitle ($titleSubPublication)";
+      }
+      if (!$tocTitle) {
+        $tocTitle = $div->getAttribute('osisID');
+        &Error("The Paratext div with title '$tocTitle' needs a localized title.",
 "A level1 TOC entry for this div has been automatically created, but it 
 needs a title. You must provide the localized title for this TOC entry 
 by adding the following to config.conf: 
 $confentry=The Localized Title. 
-If you really do not want this title to appear in the TOC, then set
+If you really do not want this glossary to appear in the TOC, then set
 the localized title to 'SKIP'.");
       }
-      my $toc = $XML_PARSER->parse_balanced_chunk('
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$divTitle.'" resp="'.$ROC.'"/>'.($hasTitle ? '':'
-  <title level="1" type="main" resp="'.$ROC.'">'.$divTitle.'</title>'));
+      
+      my $toc = $XML_PARSER->parse_balanced_chunk(
+        '<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$tocTitle.'" resp="'.$ROC.'"/>'
+      );
       $div->insertBefore($toc, $div->firstChild);
-      &Note("Inserting glossary TOC entry and title within new introduction div as: $divTitle");
+      &Note("Inserting glossary TOC entry within introduction div as: $tocTitle");
     }
   }
   elsif ($modType eq 'childrens_bible') {return;}
