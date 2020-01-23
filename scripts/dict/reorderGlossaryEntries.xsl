@@ -22,8 +22,8 @@
     <next-match/>
   </template>
   
-  <template match="div[@type='glossary'][not(@subType) or @subType != 'x-aggregate'][$glossaryRegex = 'true' or matches(oc:getGlossaryName(.), $glossaryRegex)]">
-    <call-template name="Note"><with-param name="msg">Re-ordering entries in glossary: <value-of select="oc:getGlossaryName(.)"/></with-param></call-template>
+  <template match="div[@type='glossary'][not(@subType) or @subType != 'x-aggregate'][$glossaryRegex = 'true' or matches(oc:getGlossaryTitle(.), $glossaryRegex)]">
+    <call-template name="Note"><with-param name="msg">Re-ordering entries in glossary: <value-of select="oc:getGlossaryTitle(.)"/></with-param></call-template>
     <copy><apply-templates select="@*"/>
       <for-each-group 
         select="node()" 

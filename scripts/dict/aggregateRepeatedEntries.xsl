@@ -156,15 +156,15 @@
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="glossaryScopeName" select="oc:getGlossaryScopeName(./ancestor::div[@type='glossary'][1])"/>
-                <variable name="glossaryName" select="oc:getGlossaryName(./ancestor::div[@type='glossary'][1])"/>
-                <if test="$glossaryScopeName">
-                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeName"/></title>
+                <variable name="glossaryScopeTitle" select="oc:getGlossaryScopeTitle(./ancestor::div[@type='glossary'][1])"/>
+                <variable name="glossaryTitle" select="oc:getGlossaryTitle(./ancestor::div[@type='glossary'][1])"/>
+                <if test="$glossaryScopeTitle">
+                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>
                 </if>
-                <if test="$glossaryName">
-                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryName"/></title>
+                <if test="$glossaryTitle">
+                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryTitle"/></title>
                 </if>
-                <if test="not($glossaryScopeName) and not($glossaryName)">
+                <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
                   <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
                 </if>
                 <apply-templates mode="write-aggregates"/>

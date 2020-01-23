@@ -175,8 +175,8 @@
   <template name="keywordDisambiguationHeading">
     <param name="noScope"/>
     <param name="noName"/>
-    <if test="not($noScope)"><osis:title level="3" subType="x-glossary-scope"><value-of select="oc:getGlossaryScopeName(ancestor::div[@type='glossary'][1])"/></osis:title></if>
-    <if test="not($noName)"><osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryName(ancestor::div[@type='glossary'][1])"/></osis:title></if>
+    <if test="not($noScope)"><osis:title level="3" subType="x-glossary-scope"><value-of select="oc:getGlossaryScopeTitle(ancestor::div[@type='glossary'][1])"/></osis:title></if>
+    <if test="not($noName)"><osis:title level="3" subType="x-glossary-title"><value-of select="oc:getGlossaryTitle(ancestor::div[@type='glossary'][1])"/></osis:title></if>
   </template>
   
   <!-- Bible preprocessing templates to speed up processing that requires node copying/modification -->
@@ -334,7 +334,7 @@
   </function>
   <function name="me:hashUsfmType" as="xs:string">
     <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="oc:getGlossaryName($usfmType)"/>
+    <variable name="title" select="oc:getGlossaryTitle($usfmType)"/>
     <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
     <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
@@ -905,7 +905,7 @@
               not(ancestor::div[@resp='x-oc']) and 
               not(count($combinedGlossary/*)) and 
               me:getTocLevel(.) = 1 and 
-              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"/></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC keyword's GlossaryScopeName to disambiguate: <value-of select="./text()"/></with-param></call-template>
@@ -1026,7 +1026,7 @@
     <if test="$currentTask = 'write-xhtml' and 
               not(count($combinedGlossary/*)) and 
               me:getTocLevel(.) = 1 and 
-              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeName(.))) &#62; 1"> 
+              count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"><with-param name="noName" select="'true'"/></call-template></variable>
       <for-each select="$kdh"><apply-templates select="." mode="xhtml"/></for-each>
       <call-template name="Note"><with-param name="msg">Adding level-1 TOC milestone's GlossaryScopeName to disambiguate: <value-of select="./@n"/></with-param></call-template>

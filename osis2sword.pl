@@ -175,6 +175,19 @@ sub links2sword($) {
   &writeXMLFile($xml, $output, $osisP);
 }
 
+sub removeDuplicateEntries($) {
+  my $osisP = shift;
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")]', $xml);
+  foreach my $del (@dels) {$del->unbindNode();}
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateEntries$3/;
+  &writeXMLFile($xml, $output, $osisP);
+  
+  &Report(@dels." instance(s) of x-keyword-duplicate div removal.");
+}
+
 sub dataPath2RealPath($) {
   my $datapath = shift;
   $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end

@@ -81,19 +81,6 @@ sub filterGlossaryToScope($$$) {
   return join(',', @removed);
 }
 
-sub removeDuplicateEntries($) {
-  my $osisP = shift;
-  
-  my $xml = $XML_PARSER->parse_file($$osisP);
-  my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")]', $xml);
-  foreach my $del (@dels) {$del->unbindNode();}
-  
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateEntries$3/;
-  &writeXMLFile($xml, $output, $osisP);
-  
-  &Report(@dels." instance(s) of x-keyword-duplicate div removal.");
-}
-
 # Returns scopes of filtered entries, or else '-1' if all were filtered or '0' if none were filtered
 sub filterAggregateEntries($$) {
   my $osisP = shift;
