@@ -42,7 +42,7 @@
     </for-each>
     <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary']">
       <call-template name="Warn">
-        <with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module. It contains:&#xa;<value-of select="string-join(distinct-values(descendant::title | descendant::milestone[@type=concat('x-usfm-toc', $TOC)]/@n), '&#xa;')"/></with-param>
+        <with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module. It contains:&#xa;BEGIN-QUOTE&#xa;<value-of select="."/>&#xa;END-QUOTE&#xa;</with-param>
         <with-param name="exp">Only "\id GLO" type USFM files will appear in the SWORD glossary module.</with-param>
       </call-template>
     </for-each>

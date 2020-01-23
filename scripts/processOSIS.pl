@@ -168,7 +168,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 
   # If the project includes a glossary, add glossary navigational menus, and if there is also a glossary div with scope="INT" add intro nav menus as well.
-  if ($DICTMOD && ! -e "$DICTINPD/navigation.sfm") {
+  if ($DICTMOD) {
     # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
     my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
 
