@@ -168,9 +168,9 @@
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                 
                 <variable name="glossaryScopeTitle" 
-                  select="if (count(distinct-values($titles/@scopeTitle)) = 1) then 'skip' else $titles/*[@self = generate-id(current())]/@scopeTitle"/>
+                  select="if (count(distinct-values($titles/@scopeTitle)) = 1) then 'skip' else $titles[@self = generate-id(current())]/@scopeTitle"/>
                 <variable name="glossaryTitle" 
-                  select="if (count(distinct-values($titles/@glossTitle)) = 1) then 'skip' else $titles/*[@self = generate-id(current())]/@glossTitle"/>
+                  select="if (count(distinct-values($titles/@glossTitle)) = 1) then 'skip' else $titles[@self = generate-id(current())]/@glossTitle"/>
                 
                 <if test="$glossaryScopeTitle and $glossaryScopeTitle != 'skip'">
                   <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>

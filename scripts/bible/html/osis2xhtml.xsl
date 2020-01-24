@@ -19,12 +19,19 @@
  
   <!-- Input parameters which may be passed into this XSLT -->
   <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/> <!-- Comma separated list of css files -->
-  <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>    <!-- Glossary inline TOCs with this number or more glossary entries will only appear by first letter in the inline TOC, unless all entries begin with the same letter.-->
   <param name="html5" select="oc:sarg('html5', /, 'false')"/>             <!-- Output HTML5 markup -->
-  
-  <!-- The main input OSIS file must contain a work element corresponding to each OSIS file referenced in the project, and all input OSIS files must reside in the same directory -->
-  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/osis:type[@type='x-childrens-bible']"/>
-  <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
+  <!-- Glossary inline TOCs with this number or more glossary entries will only appear 
+       by first letter in the inline TOC, unless all entries begin with the same letter.-->
+  <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>  
+    
+  <!-- The main input OSIS file must contain a work element corresponding to each 
+       OSIS file referenced in the project, and all input OSIS files must reside 
+       in the same directory -->
+  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/
+                                            osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
+                                            osis:type[@type='x-childrens-bible']"/>
+  <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/
+                                              doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
     
   <!-- config entries -->
   <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
@@ -33,17 +40,19 @@
   <param name="NoEpub3Markup" select="oc:conf('NoEpub3Markup', /)"/>
   <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/><!-- '' or 'false' turns this feature off -->
   <param name="ChapterFiles" select="oc:conf('ChapterFiles', /)"/>
-  <param name="CombineGlossaries" select="if (oc:osisHeaderContext('CombineGlossaries', /, 'no')) then oc:osisHeaderContext('CombineGlossaries', /, 'no') else 
-      (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')" as="xs:string?"/>
-  <param name="CombinedGlossaryTitle" select="if ($CombineGlossaries eq 'true') then oc:conf('CombinedGlossaryTitle', /) else ''"/>
+  <param name="CombineGlossaries" select="oc:conf('CombineGlossaries', /)"/><!-- 'AUTO', 'true' or 'false' -->
+  <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   <param name="MainTocMaxBackChars" select="xs:integer(number(oc:sarg('MainTocMaxBackChars', /, '18')))"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
-  <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
+  <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 
+      'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
   
-  <!-- A main Table Of Contents is placed after the first TOC milestone sibling after the OSIS header, or if there isn't such a milestone, add one -->
+  <!-- A main Table Of Contents is placed after the first TOC milestone sibling 
+       after the OSIS header, or if there isn't such a milestone, add one -->
   <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
-      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1][. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
+      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]
+      [. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
       /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]"/>
 
   <variable name="mainInputOSIS" select="/"/>
@@ -76,7 +85,11 @@
     
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
-      <if test="$CombineGlossaries = 'true' and $combinedKeywords and count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
+      <variable name="doCombineGlossaries" select="if ($CombineGlossaries != 'AUTO') then $CombineGlossaries else 
+          (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')"/>
+      <if test="$doCombineGlossaries = 'true' and 
+                $combinedKeywords and 
+                count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
         <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
       </if>
     </variable>

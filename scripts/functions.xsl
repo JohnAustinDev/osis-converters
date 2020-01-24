@@ -25,7 +25,8 @@
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
   
-  <!-- Return a contextualized config entry value by reading the OSIS header (error is thrown if requested param is not there) -->
+  <!-- Return a contextualized config entry value by reading the OSIS header.
+       An error is thrown if requested entry is not found. -->
   <function name="oc:conf" as="xs:string?">
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
@@ -43,7 +44,8 @@
     </choose>
   </function>
   
-  <!-- Return a contextualized script argument value by reading the OSIS header (the required default value is returned if param is not found) -->
+  <!-- Return a contextualized optional config ARG_entry value by reading the OSIS header. 
+       The required default value is returned if ARG_entry is not found) -->
   <function name="oc:sarg" as="xs:string?">
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
@@ -59,7 +61,8 @@
     <value-of select="$result"/>
   </function>
     
-  <!-- Return a config system value by reading the OSIS header (nothing is returned if requested param is not found) -->
+  <!-- Return a config system value by reading the OSIS header.
+       Nothing is returned if the requested param is not found. -->
   <function name="oc:csys" as="xs:string?">
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>

@@ -167,7 +167,7 @@ sub OSIS_To_ePublication($$$) {
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
-  copy("$SCRD/scripts/functions.xsl", $tmp);
+  &copyFunctionsXSL($tmp);
   
   # copy css file(s): always copy html.css and then if needed also copy $convertTo.css if it exists
   mkdir("$tmp/css");
@@ -512,6 +512,28 @@ sub updateOsisFullResourceURL($$) {
   }
   
   if ($update) {&writeXMLFile($xml, $osis);}
+}
+
+# Add context parameters to the functions.xsl file as a way to pass them 
+# through to Calibre. This functions plays the role of runXSLT() allowing
+# Calibre to know the script context.
+sub copyFunctionsXSL($$) {
+  my $dest = shift;
+  
+  my $file = "$SCRD/scripts/functions.xsl";
+  my $name = $file; $name =~ s/^.*\///;
+  if (open(FUNC, "<$READLAYER", $file)) {
+    if (open(DFUNC, ">$WRITELAYER", "$dest/$name")) {
+      while(<FUNC>) {
+        $_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/;
+        print DFUNC $_;
+      }
+    }
+    else {&ErrorBug("Could not open $dest/$name", 1);}
+    close(DFUNC);
+  }
+  else {&ErrorBug("Could not open $file", 1);}
+  close(FUNC);
 }
 
 1;
