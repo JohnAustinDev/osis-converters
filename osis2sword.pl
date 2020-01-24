@@ -36,13 +36,13 @@ $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 &links2sword(\$INOSIS);
+&removeDuplicateMaterial(\$INOSIS);
 
-if ($SModDrv =~ /LD/) {&removeDuplicateEntries(\$INOSIS);}
-elsif ($SModDrv =~ /Text/) {
+if ($SModDrv =~ /Text/) {
   &runScript("$SCRD/scripts/bible/swordText.xsl", \$INOSIS);
   &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
 }
-if ($SModDrv =~ /GenBook/) {
+elsif ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
   &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
 }
@@ -125,10 +125,9 @@ close(XCONF);
 
 # Forwards glossary links targetting a member of an aggregated entry to 
 # the aggregated entry because SWORD uses the aggregated entries. 
-# Removes some duplicate and chapter nevmenus, which aren't wanted 
-# for SWORD. If a jpg image is also available in png, switch it to png.
-# Also removes subType="x-external" attributes from references, and
-# composite cover images.
+# If a jpg image is also available in png, switch it to png. Also 
+# removes subType="x-external" attributes from references, and composite 
+# cover images.
 sub links2sword($) {
   my $osisP = shift;
   
@@ -140,13 +139,6 @@ sub links2sword($) {
     $gk->setValue($osisID);
   }
   &Report("Forwarded ".scalar(@gks)." link(s) to their aggregated entries.");
-
-  my $bibleIntroLinks = &conf("ARG_BibleIntroLinks"); $bibleIntroLinks = ($bibleIntroLinks eq 'true' ? 1:0);
-  foreach my $d ($XPC->findnodes('//osis:'.($bibleIntroLinks ? 'div':'item').'[@resp="duplicate"]', $xml)) {
-    my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
-    &Note("Removed duplicate ".($bibleIntroLinks ? 'div':'item')." beginning with: $beg");
-    $d->unbindNode();
-  }
   
   my $c = 0;
   foreach my $d ($XPC->findnodes('//osis:list[@subType="x-navmenu"][following-sibling::*[1][self::osis:chapter[@eID]]]', $xml)) {
@@ -175,14 +167,26 @@ sub links2sword($) {
   &writeXMLFile($xml, $output, $osisP);
 }
 
-sub removeDuplicateEntries($) {
+sub removeDuplicateMaterial($) {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
-  my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")]', $xml);
-  foreach my $del (@dels) {$del->unbindNode();}
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateEntries$3/;
+  if ($SModDrv =~ /LD/) {
+    # Remove any duplicate keywords because SWORD uses the aggregated keywords
+    my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")][ancestor::div[@type="glossary"]]', $xml);
+    foreach my $del (@dels) {$del->unbindNode();}
+  }
+  else {
+    # Remove any introductory material that is duplicated in the glossary
+    foreach my $d ($XPC->findnodes('//osis:div[@resp="duplicate"]', $xml)) {
+      my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
+      &Note("Removed duplicate element beginning with: $beg");
+      $d->unbindNode();
+    }
+  }
+    
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateMaterial$3/;
   &writeXMLFile($xml, $output, $osisP);
   
   &Report(@dels." instance(s) of x-keyword-duplicate div removal.");

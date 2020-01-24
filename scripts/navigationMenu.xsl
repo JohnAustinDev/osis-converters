@@ -48,7 +48,7 @@
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
       <xsl:when test="($DICTMOD and $prependNavMenu) or self::chapter[@eID]">
-        <xsl:call-template name="navmenu"><xsl:with-param name="introDuplicate" select="$introScope and $prependNavMenu and not(preceding::div[@type='book'])"/></xsl:call-template>
+        <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:with-param></xsl:call-template>
@@ -76,7 +76,7 @@
   <xsl:template name="navmenu">
     <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
-    <xsl:param name="introDuplicate"/>
+    <xsl:param name="duplicate"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
     <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = $BIBLEMOD"/>
     <list subType="x-navmenu" resp="x-oc">
@@ -116,7 +116,7 @@
       </xsl:if>
       <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $introScope">
         <item subType="x-introduction-link">
-          <xsl:if test="$introDuplicate"><xsl:attribute name="resp" select="'duplicate'"/></xsl:if>
+          <xsl:if test="$duplicate"><xsl:attribute name="resp" select="'duplicate'"/></xsl:if>
           <p type="x-right">
             <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
             <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
@@ -278,14 +278,12 @@
     </xsl:copy>
   </xsl:template>
   
-  <!-- Add a special subType to Paratext Bible introductions if the glossary also includes the introduction -->
-  <xsl:template match="div[@type='introduction'][not(@resp='x-oc')][not(ancestor::div[@type=('book','bookGroup')])][not(@subType)]">
+  <!-- Add resp='duplicate' to Paratext Bible introductions if the glossary also includes the introduction, so it may be removed when desired. -->
+  <xsl:template match="div[@osisRef=$introScope]">
     <xsl:copy>
-      <xsl:if test="$introScope">
-        <xsl:call-template name="Note"><xsl:with-param name="msg">Added resp="duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
-        <xsl:attribute name="resp" select="'duplicate'"/>
-      </xsl:if>
-      <xsl:apply-templates select="node()|@*"/>
+      <xsl:call-template name="Note"><xsl:with-param name="msg">Added resp="duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
+      <xsl:attribute name="resp" select="'duplicate'"/>
+      <xsl:apply-templates select="node()|@*[name()!='osisRef']"/>
     </xsl:copy>
   </xsl:template>
   

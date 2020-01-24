@@ -151,23 +151,39 @@
               <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
               <apply-templates select="node()" mode="#current"/>
             </copy>
-            <variable name="subentry_keywords" select="//seg[@type='keyword'][ancestor::div[@type='glossary']][lower-case(string()) = lower-case(string(current()))]"/>
+            <variable name="subentry_keywords" 
+              select="//seg[@type='keyword'][ancestor::div[@type='glossary']]
+                      [lower-case(string()) = lower-case(string(current()))]"/>
+            <!-- $titles look ahead allows titles to be skipped if they are all the same s-->
+            <variable name="titles" as="element(oc:vars)*">
+              <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
+                <oc:vars self="{generate-id()}"
+                  scopeTitle="{oc:getGlossaryScopeTitle(./ancestor::div[@type='glossary'][1])}" 
+                  glossTitle="{oc:getGlossaryTitle(./ancestor::div[@type='glossary'][1])}"/>
+              </for-each>
+            </variable>
             <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
               <copy><apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                <variable name="glossaryScopeTitle" select="oc:getGlossaryScopeTitle(./ancestor::div[@type='glossary'][1])"/>
-                <variable name="glossaryTitle" select="oc:getGlossaryTitle(./ancestor::div[@type='glossary'][1])"/>
-                <if test="$glossaryScopeTitle">
+                
+                <variable name="glossaryScopeTitle" 
+                  select="if (count(distinct-values($titles/@scopeTitle)) = 1) then 'skip' else $titles/*[@self = generate-id(current())]/@scopeTitle"/>
+                <variable name="glossaryTitle" 
+                  select="if (count(distinct-values($titles/@glossTitle)) = 1) then 'skip' else $titles/*[@self = generate-id(current())]/@glossTitle"/>
+                
+                <if test="$glossaryScopeTitle and $glossaryScopeTitle != 'skip'">
                   <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>
                 </if>
-                <if test="$glossaryTitle">
+                <if test="$glossaryTitle and $glossaryTitle != 'skip'">
                   <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryTitle"/></title>
                 </if>
                 <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
                   <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
                 </if>
+                
                 <apply-templates mode="write-aggregates"/>
+                
               </copy>
             </for-each>
           </element>
