@@ -174,22 +174,23 @@ sub removeDuplicateMaterial($) {
   
   if ($SModDrv =~ /LD/) {
     # Remove any duplicate keywords because SWORD uses the aggregated keywords
-    my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")][ancestor::div[@type="glossary"]]', $xml);
+    my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")][ancestor::osis:div[@type="glossary"]]', $xml);
     foreach my $del (@dels) {$del->unbindNode();}
+    &Report(@dels.' instance(s) of glossary div duplicate keyword removal.');
   }
   else {
     # Remove any introductory material that is duplicated in the glossary
-    foreach my $d ($XPC->findnodes('//osis:div[@resp="duplicate"]', $xml)) {
-      my $beg = substr($d->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
+    my @dels = $XPC->findnodes('//osis:div[@resp="duplicate"]', $xml);
+    foreach my $del (@dels) {
+      my $beg = substr($del->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
       &Note("Removed duplicate element beginning with: $beg");
-      $d->unbindNode();
+      $del->unbindNode();
     }
+    &Report(@dels.' instance(s) of div @resp="duplicate" removal.');
   }
     
   my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateMaterial$3/;
   &writeXMLFile($xml, $output, $osisP);
-  
-  &Report(@dels." instance(s) of x-keyword-duplicate div removal.");
 }
 
 sub dataPath2RealPath($) {

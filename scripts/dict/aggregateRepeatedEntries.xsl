@@ -154,7 +154,7 @@
             <variable name="subentry_keywords" 
               select="//seg[@type='keyword'][ancestor::div[@type='glossary']]
                       [lower-case(string()) = lower-case(string(current()))]"/>
-            <!-- $titles look ahead allows titles to be skipped if they are all the same s-->
+            <!-- $titles look ahead allows titles to be skipped if they are all the same -->
             <variable name="titles" as="element(oc:vars)*">
               <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
                 <oc:vars self="{generate-id()}"
@@ -167,19 +167,23 @@
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                 
-                <variable name="glossaryScopeTitle" 
-                  select="if (count(distinct-values($titles/@scopeTitle)) = 1) then 'skip' else $titles[@self = generate-id(current())]/@scopeTitle"/>
-                <variable name="glossaryTitle" 
-                  select="if (count(distinct-values($titles/@glossTitle)) = 1) then 'skip' else $titles[@self = generate-id(current())]/@glossTitle"/>
+                <variable name="glossaryScopeTitle" select="$titles[@self = generate-id(current())]/@scopeTitle"/>
+                <variable name="countScopeTitles" select="count(distinct-values($titles/@scopeTitle))"/>
                 
-                <if test="$glossaryScopeTitle and $glossaryScopeTitle != 'skip'">
-                  <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>
-                </if>
-                <if test="$glossaryTitle and $glossaryTitle != 'skip'">
-                  <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryTitle"/></title>
-                </if>
-                <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
-                  <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
+                <variable name="glossaryTitle" select="$titles[@self = generate-id(current())]/@glossTitle"/>
+                <variable name="countTitles" select="count(distinct-values($titles/@glossTitle))"/>
+                
+                <!-- Only add disambiguation titles if there is more than one scope or glossary title represented -->
+                <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
+                  <if test="$glossaryScopeTitle">
+                    <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>
+                  </if>
+                  <if test="$glossaryTitle">
+                    <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryTitle"/></title>
+                  </if>
+                  <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
+                    <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
+                  </if>
                 </if>
                 
                 <apply-templates mode="write-aggregates"/>

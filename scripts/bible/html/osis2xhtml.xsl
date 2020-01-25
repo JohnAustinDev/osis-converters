@@ -18,21 +18,14 @@
   <import href="./functions.xsl"/>
  
   <!-- Input parameters which may be passed into this XSLT -->
-  <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/> <!-- Comma separated list of css files -->
-  <param name="html5" select="oc:sarg('html5', /, 'false')"/>             <!-- Output HTML5 markup -->
+  <!-- Comma separated list of css files -->
+  <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/>
+  <!-- Output HTML5 markup -->
+  <param name="html5" select="oc:sarg('html5', /, 'false')"/>             
   <!-- Glossary inline TOCs with this number or more glossary entries will only appear 
        by first letter in the inline TOC, unless all entries begin with the same letter.-->
   <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>  
-    
-  <!-- The main input OSIS file must contain a work element corresponding to each 
-       OSIS file referenced in the project, and all input OSIS files must reside 
-       in the same directory -->
-  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/
-                                            osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
-                                            osis:type[@type='x-childrens-bible']"/>
-  <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/
-                                              doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
-    
+
   <!-- config entries -->
   <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
   <param name="TOC" select="oc:conf('TOC', /)"/>
@@ -43,6 +36,15 @@
   <param name="CombineGlossaries" select="oc:conf('CombineGlossaries', /)"/><!-- 'AUTO', 'true' or 'false' -->
   <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   <param name="MainTocMaxBackChars" select="xs:integer(number(oc:sarg('MainTocMaxBackChars', /, '18')))"/>
+  
+  <!-- The main input OSIS file must contain a work element corresponding to each 
+       OSIS file referenced in the project, and all input OSIS files must reside 
+       in the same directory -->
+  <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/
+                                            osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
+                                            osis:type[@type='x-childrens-bible']"/>
+  <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/
+                                              doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
       
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 
@@ -163,7 +165,7 @@
     <param name="currentTask" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combinedGlossary = ', boolean(count($combinedGlossary/*)!=0), ', isChildrensBible=', $isChildrensBible)"/></call-template>
+    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combining-glossaries = ', boolean(count($combinedGlossary/*)!=0), ', isChildrensBible=', $isChildrensBible)"/></call-template>
     <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
