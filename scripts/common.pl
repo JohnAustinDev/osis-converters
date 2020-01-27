@@ -97,7 +97,7 @@ sub init_linux_script() {
   }
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
-  if ($SCRIPT_NAME !~ /osis2ebook/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
+  if ($SCRIPT_NAME !~ /^osis2ebook$/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
   
   &initLibXML();
   
