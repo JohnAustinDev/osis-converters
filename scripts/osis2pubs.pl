@@ -70,11 +70,10 @@ sub osis2pubs($) {
       $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
       foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
       if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
-      if ($convertTo ne 'html') {
-        $PUB_SUBDIR = $eBookSubDirs{$scope};
-        $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
-      }
+      if ($scope ne $FULLSCOPE && $convertTo eq 'html') {next;}
+      $PUB_SUBDIR = $eBookSubDirs{$scope};
+      $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
+      &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
     }
 
     # convert each Bible book within the OSIS file
