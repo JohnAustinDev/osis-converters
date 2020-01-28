@@ -286,7 +286,8 @@
     <param name="currentTask" tunnel="yes"/>
     
     <variable name="fileName" select="me:getFileName(.)"/>
-    <variable name="fileXHTML"><apply-templates mode="xhtml" select="$fileNodes"/></variable>
+    <variable name="fileXHTML_0"><apply-templates mode="xhtml" select="$fileNodes"/></variable>
+    <variable name="fileXHTML"><apply-templates mode="postxhtml" select="$fileXHTML_0"/></variable>
     <!-- Unless the resulting xhtml file contains some text or images, the file will be dropped -->
     <variable name="keepXHTML" select="boolean($fileXHTML/descendant::text()[normalize-space()] or $fileXHTML/descendant::*[local-name()='img'])"/>
     <choose>
@@ -313,6 +314,16 @@
         </if>
       </when>
     </choose>
+  </template>
+  <!-- Post processing the XHTML here results in a big speedup vs using mode='xhtml'  
+       templates for removing duplicate titles following inline-TOCs -->
+  <template match="node()|@*" mode="postxhtml"><copy><apply-templates select="node()|@*" mode="postxhtml"/></copy></template>
+  <template match="html:h1 | html:h2 | html:h3" mode="postxhtml">
+    <variable name="precedingTOC" select="self::*[contains(@class, 'osis-title')]/
+        preceding::text()[normalize-space()][1]/ancestor::html:div[contains(@class, 'xsl-inline-toc')][1]"/>
+    <variable name="duplicateTitle" 
+        select="lower-case($precedingTOC[1]/preceding::text()[normalize-space()][1][parent::html:h1]) = lower-case(text()[1])"/>
+    <if test="not($duplicateTitle)"><next-match/></if>
   </template>
   
   <!-- This template may be called from any node. It returns the output file name that contains the node -->
@@ -929,26 +940,11 @@
   
   <!-- Titles -->
   <template match="title" mode="xhtml">
-    <variable name="titleElem" as="element()">
-      <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
-        <xsl:call-template name="class"/>
-        <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
-        <xsl:apply-templates mode="xhtml"/>
-      </element>
-    </variable>
-    <!-- Don't repeat the same title after an inline-TOC title (title logic must follow that of TOC milestone) -->
-    <!-- NOTE: This feature adds a 12% slowdown -->
-    <variable name="precedingTocMilestone" as="element(milestone)?"
-              select="preceding-sibling::milestone[@type=concat('x-usfm-toc', $TOC)][1]
-                      [. &#62;&#62; current()/preceding::text()[normalize-space()][1]]"/>
-    <variable name="precedingInlineTOC" as="element()*"
-              select="if ($precedingTocMilestone) then me:getTocListItems($precedingTocMilestone, false(), false()) else ()"/>
-    <variable name="precedingTocTitle" as="xs:string?"
-              select="if ($precedingTocMilestone/@isMainTocMilestone = 'true' or count($precedingInlineTOC/*)) then 
-                      me:getTocTitle($precedingTocMilestone) else ''"/>
-    <if test="$precedingTocTitle='' or lower-case($titleElem/text()[1]) != lower-case($precedingTocTitle)">
-      <sequence select="$titleElem"/>
-    </if>
+    <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
+      <xsl:call-template name="class"/>
+      <xsl:if test="@canonical='true'"><xsl:call-template name="WriteEmbededChapter"/><xsl:call-template name="WriteEmbededVerse"/></xsl:if>
+      <xsl:apply-templates mode="xhtml"/>
+    </element>
   </template>
   
   <!-- Parallel passage titles become secondary titles !-->
