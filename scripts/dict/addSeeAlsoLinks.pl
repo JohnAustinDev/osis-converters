@@ -104,7 +104,7 @@ sub checkCircularEntryCandidates(\@) {
       if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
         my $osisRef = $e->getAttribute('osisRef');
         $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
-        $EntryLinkList{$entryName} .= $osisRef." ";
+        $ELINKLIST{$entryName} .= $osisRef." ";
       }
     }
 
@@ -125,7 +125,7 @@ sub checkCircularEntries($) {
   foreach my $shortEntryName (sort keys %CheckCircular) {
     my $osisRefShort = &entry2osisRef($MOD, $shortEntryName);
     my $osisRefLong = $CheckCircular{$shortEntryName};
-    my $longLinks = $EntryLinkList{&osisRef2Entry($osisRefLong)};
+    my $longLinks = $ELINKLIST{&osisRef2Entry($osisRefLong)};
     if (!$longLinks || $longLinks !~ /(^|\s)\Q$osisRefShort\E(\s|$)/) {
       my @a; foreach my $or (split(/\s/, $longLinks)) {if ($or) {push(@a, &osisRef2Entry($or));}}
       &Note("short entry was not circular: ".&osisRef2Entry($osisRefShort)." (target only contains links to: ".(@a ? join(", ", @a):'nothing').")."); 

@@ -2504,7 +2504,7 @@ sub convertExplicitGlossaryElements(\@) {
       next;
     }
     my $osisRef = @{$XPC->findnodes("preceding::reference[1]", $index)}[0]->getAttribute("osisRef");
-    $ExplicitGlossary{$linktext}{&decodeOsisRef($osisRef)}++;
+    $EXPLICIT_GLOSSARY{$linktext}{&decodeOsisRef($osisRef)}++;
     
     # Remove index element if successful
     $index->parentNode->removeChild($index);
@@ -2518,8 +2518,8 @@ sub recordExplicitGlossFail($$$) {
   
   my $str = $cxstring; $str =~ s/^(.*?)\:CXBEFORE\:(.*?)\:CXAFTER\:(.*)$/$2<index\/>$3/;
 
-  $ExplicitGlossary{$level}{"Failed"}{'count'}++;
-  $ExplicitGlossary{$level}{"Failed"}{'context'}{$str}++;
+  $EXPLICIT_GLOSSARY{$level}{"Failed"}{'count'}++;
+  $EXPLICIT_GLOSSARY{$level}{"Failed"}{'context'}{$str}++;
   
   &Error("Failed to convert explicit glossary index: $index", 
 "<>Add the proper entry to DictionaryWords.xml to match this text 
@@ -3052,7 +3052,7 @@ sub addDictionaryLink(\$$$$\@) {
       next;
     }
     
-    $MatchesUsed{$m->{'node'}->unique_key}++;
+    $MATCHES_USED{$m->{'node'}->unique_key}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
     my $attribs = "osisRef=\"$osisRef\" type=\"".(&conf('ModDrv') =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
@@ -3067,14 +3067,9 @@ sub addDictionaryLink(\$$$$\@) {
       
       my $logContext = $context;
       $logContext =~ s/\..*$//; # keep book/entry only
-      $EntryLink{&decodeOsisRef($m->{'osisRef'})}{$logContext}++;
-      
-      my $tmod;
-      foreach my $sref (split(/\s+/, $m->{'osisRef'})) {
-        if (!$sref) {next;}
-        my $e = &osisRef2Entry($sref, \$tmod);
-        $Replacements{$e."mATCh=".$match."tARGMOd=".$tmod}++;
-      }
+      $LINK_OSISREF{$m->{'osisRef'}}{'context'}{$logContext}++;
+      $LINK_OSISREF{$m->{'osisRef'}}{'matched'}{$match}++;
+      $LINK_OSISREF{$m->{'osisRef'}}{'total'}++;
 
       if ($filterMultiples) {$MULTIPLES{$key}++;}
     }
@@ -3880,8 +3875,8 @@ sub checkReferenceLinks2($$\%\%\%$) {
     if    ($type eq $glosstype && $glossaryFlag < 0) {next;}
     elsif ($type ne $glosstype && $glossaryFlag > 0) {next;}
     
-    my $osisRef = $r->getAttribute('osisRef');
-    if (!$osisRef) {
+    my $osisRefAttrib = $r->getAttribute('osisRef');
+    if (!$osisRefAttrib) {
     &Error("Reference link is missing an osisRef attribute: \"$r\"", 
 "Maybe this should not be marked as a reference? Reference tags in OSIS 
 require a valid target. When there isn't a valid target, then a 
@@ -3889,44 +3884,52 @@ different USFM tag should be used instead.");
       $errors{$type}++;
       next;
     }
-    my $rwork = ($osisRef =~ s/^(\w+):// ? $1:$osisRefWork);
     
-    # If this is a reference to a verse, check that it follows some rules:
-    # 1) no spaces, since multiple targets are not supported (use multiple elements)
-    # 2) warn if a range exceeds the chapter since xulsword and other programs don't support these
-    if ($osisRef =~ /(^|\s+)\w+\.\d+(\.\d+)?(\s+|$)/) {
-      if ($osisRef =~ /\s+/) {&Error("A Scripture osisRef cannot have multiple targets: $osisRef", "Use multiple reference elements instead.");}
-      if ($osisRef =~ /^(\w+\.\d+).*?\-(\w+\.\d+).*?$/ && $1 ne $2) {
-        &Warn("An osisRef to a range of Scripture should not exceed a chapter: $osisRef", "Some software, like xulsword, does not support ranges that exceed a chapter.");
-      }
+    $refcountP->{$type}++;
+    
+    if ($osisRefAttrib =~ /\s+/ && $type ne $glosstype) {
+      &Error("A Scripture osisRef cannot have multiple targets: $osisRefAttrib", "Use multiple reference elements instead.");
     }
     
-    my $failed = '';
-    foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-      my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
-      if ($r->getAttribute('subType') eq 'x-external') {
-        if (!&inVersesystem($orp, $rwork)) {$failed .= "$rwork:$orp$ext ";}
+    # The osisRef attributes of x-glosslink and x-glossary references may 
+    # contain spaces for multiple targets (but other osisRefs may not).
+    foreach my $osisRef (split(/\s+/, $osisRefAttrib)) {
+      my $rwork = ($osisRef =~ s/^(\w+):// ? $1:$osisRefWork);
+      
+      # If this is a reference to a verse, check that it follows some rules:
+      # 1) warn if a range exceeds the chapter since xulsword and other programs don't support these
+      if ($osisRef =~ /(^|\s+)\w+\.\d+(\.\d+)?(\s+|$)/) {
+        if ($osisRef =~ /^(\w+\.\d+).*?\-(\w+\.\d+).*?$/ && $1 ne $2) {
+          &Warn("An osisRef to a range of Scripture should not exceed a chapter: $osisRef", "Some software, like xulsword, does not support ranges that exceed a chapter.");
+        }
       }
-      else {
-        if (!$osisIDP->{$rwork}{"$orp$ext"}) {
-          if (!$osisIDP->{$rwork}{$orp}) {
-            $failed .= "$rwork:$orp$ext ";
-          }
-          else {
-            &Warn("$type $rwork:$orp$ext extension not found.", 
-"<>Although the root osisID exists in the OSIS file, the extension 
-id does not. This is allowed if the specific location which the 
-extension references exists but is unknown, such as !PART.");
+      
+      my $failed = '';
+      foreach my $orp (split(/[\s\-]+/, $osisRef)) {
+        my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
+        if ($r->getAttribute('subType') eq 'x-external') {
+          if (!&inVersesystem($orp, $rwork)) {$failed .= "$rwork:$orp$ext ";}
+        }
+        else {
+          if (!$osisIDP->{$rwork}{"$orp$ext"}) {
+            if (!$osisIDP->{$rwork}{$orp}) {
+              $failed .= "$rwork:$orp$ext ";
+            }
+            else {
+              &Warn("$type $rwork:$orp$ext extension not found.", 
+  "<>Although the root osisID exists in the OSIS file, the extension 
+  id does not. This is allowed if the specific location which the 
+  extension references exists but is unknown, such as !PART.");
+            }
           }
         }
       }
-    }
-    
-    $refcountP->{$type}++;
-    if ($failed) {
-      $errorsP->{$type}++;
-      if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
-      else {&Error("$type $failed not found: ".$r->toString());}
+      
+      if ($failed) {
+        $errorsP->{$type}++;
+        if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
+        else {&Error("$type $failed not found: ".$r->toString());}
+      }
     }
   }
 }
@@ -4057,14 +4060,14 @@ sub readReplacementChars($\@\@) {
 # Print log info for a word file
 sub logDictLinks() {
   &Log("\n\n");
-  &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %ExplicitGlossary) . " variations)");
-  my $mxl = 0; foreach my $eg (sort keys %ExplicitGlossary) {if (length($eg) > $mxl) {$mxl = length($eg);}}
+  &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %EXPLICIT_GLOSSARY) . " variations)");
+  my $mxl = 0; foreach my $eg (sort keys %EXPLICIT_GLOSSARY) {if (length($eg) > $mxl) {$mxl = length($eg);}}
   my %cons;
-  foreach my $eg (sort keys %ExplicitGlossary) {
+  foreach my $eg (sort keys %EXPLICIT_GLOSSARY) {
     my @txt;
-    foreach my $tg (sort keys %{$ExplicitGlossary{$eg}}) {
+    foreach my $tg (sort keys %{$EXPLICIT_GLOSSARY{$eg}}) {
       if ($tg eq 'Failed') {
-        my @contexts = sort keys %{$ExplicitGlossary{$eg}{$tg}{'context'}};
+        my @contexts = sort keys %{$EXPLICIT_GLOSSARY{$eg}{$tg}{'context'}};
         my $mlen = 0;
         foreach my $c (@contexts) {
           if (length($c) > $mlen) {$mlen = length($c);}
@@ -4072,10 +4075,10 @@ sub logDictLinks() {
           $cons{lc($ctx)}++;
         }
         foreach my $c (@contexts) {$c = sprintf("%".($mlen+5)."s", $c);}
-        push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}{'count'}.")\n".join("\n", @contexts)."\n");
+        push(@txt, $tg." (".$EXPLICIT_GLOSSARY{$eg}{$tg}{'count'}.")\n".join("\n", @contexts)."\n");
       }
       else {
-        push(@txt, $tg." (".$ExplicitGlossary{$eg}{$tg}.")");
+        push(@txt, $tg." (".$EXPLICIT_GLOSSARY{$eg}{$tg}.")");
       }
     }
     my $msg = join(", ", sort { ($a =~ /failed/i ? 0:1) <=> ($b =~ /failed/i ? 0:1) } @txt);
@@ -4136,10 +4139,10 @@ sub logDictLinks() {
   my $total = 0;
   my $mlen = 0;
   foreach my $m (@matches) {
-    if ($MatchesUsed{$m->unique_key}) {next;}
+    if ($MATCHES_USED{$m->unique_key}) {next;}
     my $entry = @{$XPC->findnodes('./ancestor::dw:entry[1]', $m)}[0];
     if ($entry) {
-      my $osisRef = $entry->getAttribute('osisRef'); $osisRef =~ s/^\Q$DICTMOD\E://;
+      my $osisRef = $entry->getAttribute('osisRef');
       if (!$unused{$osisRef}) {
         $unused{$osisRef} = ();
       }
@@ -4162,69 +4165,64 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
     }
   }
   &Log("\n");
-  
-  my %ematch;
-  foreach my $rep (sort keys %Replacements) {
-    if ($rep !~ /^(.*?)mATCh=(.*?)tARGMOd=(\w+)$/) {
-      &ErrorBug("logDictLinks bad rep match: $rep !~ /^(.*?)mATCh=(.*?)tARGMOd=(\w+)\$/");
-      next;
-    }
-    $ematch{"$3:$1"}{$2} += $Replacements{$rep};
-  }
 
+  # REPORT: N links to DICTMOD:<decoded_entry_osisRef> as <match1>(N) <match2>(N*)... in <context1>(N) <context2>(N)...
   # get fields and their lengths
-  my %kl;
-  my %kas;
-  my $mkl = 0;
-  my $mas = 0;
-  foreach my $ent (sort keys %EntryLink) {
-    if (length($ent) > $mkl) {$mkl = length($ent);}
-    my $t = 0; foreach my $ctx (sort keys %{$EntryLink{$ent}}) {$t += $EntryLink{$ent}{$ctx};}
-    $kl{$ent} = $t;
-    
-    my $asp = '';
-    if (!$ematch{$ent}) {&ErrorBug("missing ematch key \"$ent\"");}
-    my $st = $ent; $st =~ s/^\w*\://; $st =~ s/\.dup\d+$//;
-    foreach my $as (sort { sprintf("%06i%s", $ematch{$ent}{$b}, $b) cmp sprintf("%06i%s", $ematch{$ent}{$a}, $a) } keys %{$ematch{$ent}}) {
-      my $tp = ($st eq $as ? '':(lc($st) eq lc($as) ? '':'*'));
-      $asp .= $as."(".$ematch{$ent}{$as}."$tp) ";
+  my $grandTotal = 0;
+  my %toString; my $maxLenToString = 0;
+  my %asString; my $maxLenAsString = 0;
+  foreach my $refs (keys %LINK_OSISREF) {
+    $grandTotal += $LINK_OSISREF{$refs}{'total'};
+    $toString{$refs} = &decodeOsisRef($refs);
+    if (!$maxLenToString || $maxLenToString < length($toString{$refs})) {$maxLenToString = length($toString{$refs});}
+    foreach my $as (sort {&numAlphaSort($LINK_OSISREF{$refs}{'matched'}, $a, $b, '', 0);} keys %{$LINK_OSISREF{$refs}{'matched'}}) {
+      my $tp = '*'; foreach my $ref (split(/\s+/, $refs)) {if (lc($as) eq lc(&osisRef2Entry($ref))) {$tp = '';}}
+      $asString{$refs} .= $as."(".$LINK_OSISREF{$refs}{'matched'}{$as}."$tp) ";
     }
-    if (length($asp) > $mas) {$mas = length($asp);}
-    $kas{$ent} = $asp;
+    if (!$maxLenAsString || $maxLenAsString < length($asString{$refs})) {$maxLenAsString = length($asString{$refs});}
   }
-
-  # print out the report
-  my $gt = 0;
-  my $p = '';
-  foreach my $ent (sort {sprintf("%06i%s", $kl{$b}, $b) cmp sprintf("%06i%s", $kl{$a}, $a) } keys %kl) {
-    my $t = 0;
-    my $ctxp = '';
-    foreach my $ctx (sort {&matchResultSort($ent, $a, $b);} keys %{$EntryLink{$ent}}) {
-      $t  += $EntryLink{$ent}{$ctx};
-      $gt += $EntryLink{$ent}{$ctx};
-      $ctxp .= &decodeOsisRef($ctx)."(".$EntryLink{$ent}{$ctx}.") ";
+  
+  my %inString;
+  foreach my $refs (keys %LINK_OSISREF) {
+    foreach my $in (sort {&numAlphaSort($LINK_OSISREF{$refs}{'context'}, $a, $b, '', 1);} keys %{$LINK_OSISREF{$refs}{'context'}}) {
+      $inString{$refs} .= &decodeOsisRef($in)."(".$LINK_OSISREF{$refs}{'context'}{$in}.") ";
     }
-    
-    $p .= sprintf("%4i links to %-".$mkl."s as %-".$mas."s in %s\n", $t, $ent, $kas{$ent}, $ctxp);
+  }
+  
+  my $p;
+  foreach my $refs (sort {&numAlphaSort(\%LINK_OSISREF, $a, $b, 'total', 1);} keys %LINK_OSISREF) {
+    $p .= sprintf("%4i links to %-".$maxLenToString."s as %-".$maxLenAsString."s in %s\n", 
+            $LINK_OSISREF{$refs}{'total'}, 
+            $toString{$refs}, 
+            $asString{$refs},
+            $inString{$refs}
+          );
   }
   &Note("
 The following listing should be looked over to be sure text is
 correctly linked to the glossary. Glossary entries are matched in the
 text using the match elements found in the $DICTIONARY_WORDS file.\n");
-  &Report("Links created: ($gt instances)\n* is textual difference other than capitalization\n$p");
-  
+  &Report("Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");
 }
 
-sub matchResultSort($$$) {
-  my $ent = shift;
+sub numAlphaSort(\%$$$) {
+  my $hashP = shift;
   my $a = shift;
   my $b = shift;
+  my $key = shift;
+  my $doDecode = shift;
   
-  my $m1 = ($EntryLink{$ent}{$b} <=> $EntryLink{$ent}{$a});
-  if ($m1) {return $m1;}
-  return ($a cmp $b);
+  my $m1 = ($key ? ($hashP->{$b}{$key} <=> $hashP->{$a}{$key}):($hashP->{$b} <=> $hashP->{$a}));
+  if ($m1) {
+    return $m1;
+  }
+  
+  if ($doDecode) {
+    return (&decodeOsisRef($a) cmp &decodeOsisRef($b));
+  }
+  
+  return $a cmp $b;
 }
-
 
 # copies a directoryʻs contents to a possibly non existing destination directory
 sub copy_dir($$$$) {
