@@ -3887,7 +3887,7 @@ different USFM tag should be used instead.");
     
     $refcountP->{$type}++;
     
-    if ($osisRefAttrib =~ /\s+/ && $type ne $glosstype) {
+    if ($osisRefAttrib =~ /\s+/ && $type eq 'reference osisRef') {
       &Error("A Scripture osisRef cannot have multiple targets: $osisRefAttrib", "Use multiple reference elements instead.");
     }
     
