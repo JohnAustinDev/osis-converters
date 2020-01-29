@@ -30,6 +30,8 @@
   
   <xsl:param name="BIBLEMOD" select="/descendant::work[child::type[@type='x-bible']][1]/@osisWork"/>
   
+  <xsl:variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
+  
   <!-- this must be identical to the combinedKeywords variable of osis2xhtml.xsl, or else the html combinedGlossary navmenus could end up with broken links -->
   <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
   
@@ -40,14 +42,14 @@
   <!-- insert navmenu links:
   1) before the first applicable text node of each book or the first chapter[@sID] of each book, whichever comes first
   2) at the end of each div[starts-with(@type, 'x-keyword')]
-  3) before each chapter[@eID] -->
+  3) before each Bible chapter[@eID] -->
   <xsl:template match="node()|@*">
     <xsl:variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
         ( node()[descendant-or-self::text()[normalize-space()][not(ancestor::title[@type='runningHead'])]][1] | descendant::chapter[@sID][1] )[1]
         [generate-id(.) = generate-id(current())]"/>
     <xsl:choose>
-      <xsl:when test="($DICTMOD and $prependNavMenu) or self::chapter[@eID]">
+      <xsl:when test="($DICTMOD and $prependNavMenu) or ($isBible and boolean(self::chapter[@eID]))">
         <xsl:call-template name="navmenu"/>
         <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
         <xsl:if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
@@ -144,7 +146,7 @@
     <xsl:choose>
     
       <!-- When OSIS is a Bible, insert chapter and introduction navmenus -->
-      <xsl:when test="//work[@osisWork = current()/@osisIDWork]/type[@type='x-bible']">
+      <xsl:when test="$isBible">
         <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
       </xsl:when>
       

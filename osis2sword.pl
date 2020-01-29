@@ -143,6 +143,29 @@ sub usePngIfAvailable($) {
   &writeXMLFile($xml, $output, $osisP);
 }
 
+# uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
+# XSLT was not used to do this because a custom uc2() Perl function is needed.
+sub upperCaseKeys($) {
+  my $osis_or_teiP = shift;
+  
+  my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
+  if (&conf('ModDrv') =~ /LD/) {
+    my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
+    foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
+  }
+  my @dictrefs = $XPC->findnodes('//*[local-name()="reference"][starts-with(@type, "x-gloss")]/@osisRef', $xml);
+  foreach my $dr (@dictrefs) {
+    my @new;
+    foreach my $dictref (split(/\s+/, $dr->getValue())) {
+      my $mod; my $e = &osisRef2Entry($dictref, \$mod);
+      push(@new, &entry2osisRef($mod, &uc2($e)));
+    }
+    $dr->setValue(join(' ', @new));
+  }
+  my $output = $$osis_or_teiP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
+  &writeXMLFile($xml, $output, $osis_or_teiP);
+}
+
 sub dataPath2RealPath($) {
   my $datapath = shift;
   $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
