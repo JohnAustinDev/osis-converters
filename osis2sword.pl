@@ -35,21 +35,21 @@ $SModDrv = $Sconf->{'ModDrv'};
 $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
-&links2sword(\$INOSIS);
-&removeDuplicateMaterial(\$INOSIS);
+# Prepare osis-converters OSIS for SWORD import
+&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS);
 
-if ($SModDrv =~ /Text/) {
-  &runScript("$SCRD/scripts/bible/swordText.xsl", \$INOSIS);
-  &runScript("$SCRD/scripts/bible/osis2fittedVerseSystem.xsl", \$INOSIS);
-}
-elsif ($SModDrv =~ /GenBook/) {
+&usePngIfAvailable(\$INOSIS);
+
+if ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
   &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
 }
 
+# Apply CrossWire ModuleTools osis2sword.xsl
 my $typePreProcess = ($SModDrv =~ /Text/ ? 'osis2sword.xsl':($SModDrv =~ /LD/ ? 'osis2tei.xsl':''));
 if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
 
+# Uppercasing must be done by Perl to use uc2()
 if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
 # Copy images and set Feature conf entry
@@ -123,29 +123,12 @@ close(XCONF);
 ########################################################################
 ########################################################################
 
-# Forwards glossary links targetting a member of an aggregated entry to 
-# the aggregated entry because SWORD uses the aggregated entries. 
-# If a jpg image is also available in png, switch it to png. Also 
-# removes subType="x-external" attributes from references, and composite 
-# cover images.
-sub links2sword($) {
+sub usePngIfAvailable($) {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
-  my @gks = $XPC->findnodes('//osis:reference[starts-with(@type, "x-gloss")][contains(@osisRef, ".dup")]/@osisRef', $xml);
-  foreach my $gk (@gks) {
-    my $osisID = $gk->value;
-    $osisID =~ s/\.dup\d+$//;
-    $gk->setValue($osisID);
-  }
-  &Report("Forwarded ".scalar(@gks)." link(s) to their aggregated entries.");
   
-  my $c = 0;
-  foreach my $d ($XPC->findnodes('//osis:list[@subType="x-navmenu"][following-sibling::*[1][self::osis:chapter[@eID]]]', $xml)) {
-    $d->unbindNode(); $c++;
-  }
-  &Note("Removed '$c' x-navmenu elements from Bible chapters");
-  
+  # use png images if available
   my @jpgs = $XPC->findnodes('//osis:figure[contains(@src, ".jpg") or contains(@src, ".JPG")]', $xml);
   foreach my $jpg (@jpgs) {
     my $src = $jpg->getAttribute('src');
@@ -156,40 +139,7 @@ sub links2sword($) {
     }
   }
   
-  my @exts = $XPC->findnodes('//osis:reference[@subType="x-external"]/@subType', $xml);
-  foreach my $ext (@exts) {$ext->unbindNode();}
-  
-  # Remove composite cover images from SWORD modules (because SWORD intro types are combined by some programs like xulsword)
-  my @comps = $XPC->findnodes('//osis:figure[@subType="x-comp-publication"]', $xml);
-  foreach my $comp (@comps) {$comp->unbindNode();}
-
-  my $output = $$osisP; $output =~ s/$MOD\.xml$/links2sword.xml/;
-  &writeXMLFile($xml, $output, $osisP);
-}
-
-sub removeDuplicateMaterial($) {
-  my $osisP = shift;
-  
-  my $xml = $XML_PARSER->parse_file($$osisP);
-  
-  if ($SModDrv =~ /LD/) {
-    # Remove any duplicate keywords because SWORD uses the aggregated keywords
-    my @dels = $XPC->findnodes('//osis:div[contains(@type, "duplicate")][ancestor::osis:div[@type="glossary"]]', $xml);
-    foreach my $del (@dels) {$del->unbindNode();}
-    &Report(@dels.' instance(s) of glossary div duplicate keyword removal.');
-  }
-  else {
-    # Remove any introductory material that is duplicated in the glossary
-    my @dels = $XPC->findnodes('//osis:div[@resp="duplicate"]', $xml);
-    foreach my $del (@dels) {
-      my $beg = substr($del->textContent, 0, 128); $beg =~ s/[\s\n]+/ /g;
-      &Note("Removed duplicate element beginning with: $beg");
-      $del->unbindNode();
-    }
-    &Report(@dels.' instance(s) of div @resp="duplicate" removal.');
-  }
-    
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDuplicateMaterial$3/;
+  my $output = $$osisP; $output =~ s/[^\/]+\.xml$/usePngIfAvailable.xml/;
   &writeXMLFile($xml, $output, $osisP);
 }
 

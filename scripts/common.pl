@@ -431,7 +431,7 @@ sub checkFont($) {
     }
     if (scalar(%FONT_FILES)) {
       foreach my $f (sort keys(%{$FONT_FILES{$font}})) {
-        &Note("Using font file \"$f\" as ".$FONT_FILES{$font}{$f}{'style'}." font for \"$font\".\n");
+        &Note("Using font file \"$f\" as ".$FONT_FILES{$font}{$f}{'style'}." font for \"$font\".");
       }
     }
     else {
@@ -1417,8 +1417,6 @@ sub copyFont($$$$$) {
     $copied++;
     &Note("Copied font file $f to \"$outdir/$fdest\"");
   }
-  
-  &Report("Copied \"$copied\" font file(s) to \"$outdir\".\n");
 }
 
 sub scanUSFM($\%) {
@@ -3342,7 +3340,7 @@ sub checkSourceScripRefLinks($) {
     # The Bible OSIS needs to be put into the source verse system for this check
     $in_bible = "$TMPDIR/$MAINMOD.xml";
     &copy(&getModuleOsisFile($MAINMOD, 'Error'), $in_bible);
-    &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$in_bible);
+    &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$in_bible);
   }
   
   my $osis;
@@ -3444,13 +3442,13 @@ sub checkReferenceLinks($) {
   }
 
   undef(%osisID); # re-read source vsys OSIS files
-  &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$osis);
+  &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$osis);
   &Log("\nCHECKING SOURCE VSYS NON-GLOSSARY OSISREF TARGETS IN $osis");
   $inXML = $XML_PARSER->parse_file($osis);
   &readOsisIDs(\%osisID, $inXML);
   if ($inIsBible) {$bibleOSIS = $osis; $bibleXML = $inXML;}
   else {
-    &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$bibleOSIS);
+    &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$bibleOSIS);
     &Log(" AGAINST $bibleOSIS\n");
     $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
     &readOsisIDs(\%osisID, $bibleXML);

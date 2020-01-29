@@ -5,12 +5,12 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT takes an OSIS Bible file which was fitted to a SWORD standard verse  
-  system by fitToVerseSystem() and reverts it back to its custom verse system. This means
-  all references are also reverted (including cross-references from external sources) so 
-  that the resulting OSIS file's references are correct according to the custom verse 
-  system. Also, markup associated with only the fixed verse system is removed, leaving 
-  just the source verse system. !-->
+  <!-- This XSLT takes an OSIS file which may have been fitted to a SWORD standard verse  
+  system by fitToVerseSystem() and reverts it back to its custom verse system. Also all
+  references that were retargetted are reverted (including cross-references from external 
+  sources) so that the resulting OSIS file's references are correct according to the custom 
+  verse system. Also, markup associated with only the fixed verse system is removed, leaving 
+  just the source verse system markup. !-->
   
   <!-- By default copy everything as is -->
   <template match="node()|@*" name="identity" mode="#all">

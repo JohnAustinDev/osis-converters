@@ -161,7 +161,7 @@ sub OSIS_To_ePublication($$$) {
     $CONV_REPORT{$PUB_NAME}{'Cover'} = "random-cover ($pubTitle)";
   }
     
-  &runXSLT("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
+  &runXSLT("$SCRD/scripts/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
@@ -218,7 +218,7 @@ body {font-family: font1;}
     if ($outf) {
       &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
-      &runScript("$SCRD/scripts/bible/osis2sourceVerseSystem.xsl", \$outf);
+      &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$outf);
       require "$SCRD/scripts/dict/processGlossary.pl";
       # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
       # This means any non Bible scopes (like SWORD) are also filtered out.
@@ -675,23 +675,41 @@ sub filterGlossaryReferences($$$) {
   
   # filter out references outside our scope
   my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
-  my %filteredOsisRefs;
-  my $total = 0;
+  my %filteredOsisRefs; my %modifiedOsisRefs;
+  my $totalFilteredOsisRefs = 0; my $totalModifiedOsisRefs = 0;
+  my %noteMulti;
   foreach my $link (@links) {
-    if ($link->getAttribute('osisRef') =~ /^(([^\:]+?):)?(.+)$/) {
-      my $osisRef = $3;
-      my $work = ($1 ? $2:&getOsisRefWork($xml));
-      if (exists($refsInScope{$work}{$osisRef})) {next;}
+    my $refs = $link->getAttribute('osisRef');
+    my @new;
+    foreach my $ref (split(/\s+/, $refs)) {
+      if ($ref =~ /^(([^\:]+?):)?(.+)$/) {
+        my $osisRef = $3;
+        my $work = ($1 ? $2:&getOsisRefWork($xml));
+        if (exists($refsInScope{$work}{$osisRef})) {
+          push(@new, $ref);
+        }
+      }
+    }
+    my $newrefs = join(' ', @new);
+    if (!$newrefs) {
       my @children = $link->childNodes();
       foreach my $child (@children) {$link->parentNode->insertBefore($child, $link);}
       $link->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
       $link->unbindNode();
-      $filteredOsisRefs{$osisRef}++;
-      $total++;
+      $filteredOsisRefs{$refs}++;
+      $totalFilteredOsisRefs++;
+    }
+    elsif ($newrefs ne $refs) {
+      $link->setAttribute('osisRef', $newrefs);
+      $modifiedOsisRefs{$newrefs}++;
+      $totalModifiedOsisRefs++;
+    }
+    if ($link->getAttribute('osisRef') =~ /^(\S+)\s+(.*)$/) {
+      $noteMulti{$link->getAttribute('osisRef')} = $1;
     }
   }
   
-  # remove empty x-keyword-aggregate divs
+  # remove resulting empty x-keyword-aggregate divs
   foreach my $empty (@{$XPC->findnodes('//osis:div[@type="x-keyword-aggregate"][not(descendant::osis:div[@type="x-aggregate-subentry"])]', $xml)}) {
     &Note("Removed empty x-keyword-aggregate '".$empty->textContent()."'");
     $empty->unbindNode();
@@ -699,11 +717,23 @@ sub filterGlossaryReferences($$$) {
 
   &writeXMLFile($xml, $osis);
   
-  &Report("\"$total\" glossary references filtered:");
+  if (%noteMulti) {
+    &Note("Glossary references with multi-target osisRefs exist, but secondary targets will be ignored:");
+    foreach my $osisRef (sort keys %noteMulti) {&Log("\t$osisRef\n");}
+  }
+  
+  &Log("\n");
+  &Report("\"$totalFilteredOsisRefs\" glossary references filtered:");
   foreach my $r (sort keys %filteredOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
-  return $total;
+  &Log("\n");
+  &Report("\"$totalModifiedOsisRefs\" multi-target glossary references shortened:");
+  foreach my $r (sort keys %modifiedOsisRefs) {
+    &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
+  }
+  
+  return $totalFilteredOsisRefs;
 }
 
 # Remove the cover div element from the OSIS file and copy the referenced

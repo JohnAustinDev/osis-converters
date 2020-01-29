@@ -5,9 +5,9 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT takes an OSIS Bible file which was fitted to a SWORD standard verse  
-  system by fitToVerseSystem() and removes all source verse system markup so that
-  the resulting OSIS file only contains the fitted verse system !-->
+  <!-- This XSLT takes an OSIS file which may have been fitted to a SWORD standard   
+  verse system by fitToVerseSystem() and removes all source verse system markup so 
+  that the resulting OSIS file only contains the fitted verse system !-->
   
   <!-- By default copy everything as is -->
   <template match="node()|@*" name="identity" mode="#all">

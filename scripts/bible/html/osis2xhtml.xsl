@@ -85,6 +85,10 @@
       </choose>
     </variable>
     
+    <!-- The x-aggregate glossary is never output directly, rather it is added to the  
+    combined glossary whenever it is used (and also x-keyword-duplicate keywords are NOT  
+    included in the combined glossary). Therefore, when there is a combined glossary,
+    links to x-keyword-duplicate keywords are redirected to the aggregated entry. -->
     <variable name="combinedGlossary">
       <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
       <variable name="doCombineGlossaries" select="if ($CombineGlossaries != 'AUTO') then $CombineGlossaries else 
@@ -171,7 +175,9 @@
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
   </template>
   
-  <!-- Write a single glossary that combines all other glossaries together. Note: x-keyword-duplicate entries are dropped because they are included in the x-aggregate glossary -->
+  <!-- Write a single glossary that combines all other glossaries together. 
+  Note: x-keyword-duplicate entries are dropped because they are included in 
+  the x-aggregate glossary -->
   <template name="WriteCombinedGlossary">
     <param name="combinedKeywords" as="element(div)+"/>
     <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
@@ -1105,7 +1111,10 @@
   <template match="reference" mode="xhtml">
     <param name="combinedGlossary" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
-    <variable name="osisRef1" select="replace(@osisRef, '^[^:]*:', '')"/>
+    <!-- x-glossary and x-glosslink references may have multiple targets, ignore all but the first -->
+    <variable name="osisRef0" select="replace(@osisRef, '\s+.*$', '')"/>
+    <variable name="osisRef1" select="replace($osisRef0, '^[^:]*:', '')"/>
+    <!-- when using the combined glossary, redirect to duplicates to the combined glossary -->
     <variable name="osisRef" select="if (count($combinedGlossary/*)) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
     <!-- change navmenu introduction links to getIntroFile -->
     <variable name="isIntroReference" select="self::reference[@type='x-glosslink'][ancestor::item[@subType='x-introduction-link']]"/>
@@ -1151,8 +1160,13 @@
         </otherwise>
       </choose>
     </variable>
-    <variable name="href" select="me:uri-to-relative(., concat($file, '#', $osisRefA))"/>
-    <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+    <choose>
+      <when test="not($file) or not($osisRefA)"><xsl:apply-templates mode="xhtml"/></when>
+      <otherwise>
+        <variable name="href" select="me:uri-to-relative(., concat($file, '#', $osisRefA))"/>
+        <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
+      </otherwise>
+    </choose>
   </template>
   
   <template match="row" mode="xhtml">
