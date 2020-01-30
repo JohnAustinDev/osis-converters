@@ -979,10 +979,11 @@ sub copyFunctionsXSL($$) {
   
   my $file = "$SCRD/scripts/functions.xsl";
   my $name = $file; $name =~ s/^.*\///;
+  my $c = 0;
   if (open(FUNC, "<$READLAYER", $file)) {
     if (open(DFUNC, ">$WRITELAYER", "$dest/$name")) {
       while(<FUNC>) {
-        $_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/;
+        if ($_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/) {$c++;}
         print DFUNC $_;
       }
     }
@@ -991,6 +992,7 @@ sub copyFunctionsXSL($$) {
   }
   else {&ErrorBug("Could not open $file", 1);}
   close(FUNC);
+  if ($c != 2) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
 }
 
 1;
