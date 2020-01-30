@@ -646,7 +646,7 @@
       </variable>
       <if test="count($subentries)">
         <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
-            count(distinct-values($subentries[@type='keyword']/upper-case(substring(text(), 1, 1)))) = 1"/>
+            count(distinct-values($subentries[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1"/>
         <variable name="listElements" as="element(me:li)*"><!-- listElements is used to generate all list elements before writing any of them, so that we can get the max length -->
           <for-each select="$subentries">
             <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
@@ -654,7 +654,7 @@
               <choose>
                 <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
                 <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
-                <otherwise><value-of select="boolean(upper-case(substring(text(), 1, 1)) = upper-case(substring($previousKeyword, 1, 1)))"/></otherwise>
+                <otherwise><value-of select="boolean(upper-case(oc:longestStartingMatchKS(text())) = upper-case(oc:longestStartingMatchKS($previousKeyword)))"/></otherwise>
               </choose>
             </variable>
             <if test="$skipKeyword = false()">
@@ -674,9 +674,15 @@
                      class="{concat('xsl-', $type, '-link', (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))}"
                      href="{me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))}">
                 <choose>
-                  <when test="self::chapter[@osisID]"><value-of select="tokenize(@osisID, '\.')[last()]"/></when>
-                  <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']"><value-of select="upper-case(substring(text(), 1, 1))"/></when>
-                  <otherwise><value-of select="oc:titleCase(me:getTocTitle(.))"/></otherwise>
+                  <when test="self::chapter[@osisID]">
+                    <value-of select="tokenize(@osisID, '\.')[last()]"/>
+                  </when>
+                  <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']">
+                    <value-of select="upper-case(oc:longestStartingMatchKS(text()))"/>
+                  </when>
+                  <otherwise>
+                    <value-of select="oc:titleCase(me:getTocTitle(.))"/>
+                  </otherwise>
                 </choose>
               </me:li>
             </if>
