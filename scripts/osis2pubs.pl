@@ -728,7 +728,7 @@ sub filterGlossaryReferences($$$) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
   &Log("\n");
-  &Report("\"$totalModifiedOsisRefs\" multi-target glossary references shortened:");
+  &Report("\"$totalModifiedOsisRefs\" multi-target glossary references were shortened:");
   foreach my $r (sort keys %modifiedOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
@@ -962,10 +962,10 @@ sub updateOsisFullResourceURL($$) {
     }
     
     if ($url ne $new) {
-      &Note("Updating FullResourceURL from \"$url\" to \"$new\".");
       &changeNodeText($u, urlencode($new));
       $update++;
     }
+    &Note("FullResourceURL is \"".$u->textContent."\".");
   }
   
   if ($update) {&writeXMLFile($xml, $osis);}
