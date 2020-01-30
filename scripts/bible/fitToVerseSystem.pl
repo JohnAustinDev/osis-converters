@@ -618,7 +618,7 @@ sub correctReferencesVSYS($) {
   
   # Read OSIS file
   my $osisXML = $XML_PARSER->parse_file($$osisP);
-  my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"][@annotateRef][@osisRef]', $osisXML);
+  my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
     &Warn(@existing." references have already been updated, so this step will be skipped.");
     return;
@@ -686,7 +686,7 @@ sub addrids(\@$$\%) {
       elsif (!$altVersesOSISP->{$map}{$verse}) {&ErrorBug("Could not map \"$verse\" to verse system.");}
       
       $e->setAttribute('osisRefOrig', $e->getAttribute('osisRef'));
-      $e->setAttribute('annotateType', $VSYS{'AnnoTypeSource'});
+      $e->setAttribute('annotateType', $ANNOTATE_TYPE{'Source'});
   
       # map source references to fitted
       if ($map eq 'source2Fitted') {
@@ -795,7 +795,7 @@ sub fitToVerseSystem($$) {
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   # Check if this osis file has already been fitted, and bail if so
-  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]', $xml);
+  my @existing = $XPC->findnodes('//osis:milestone[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"]', $xml);
   if (@existing) {
     &Warn("
 There are ".@existing." fitted tags in the text. This OSIS file has 
@@ -1016,7 +1016,7 @@ sub applyVsysFromTo($$$) {
     if ($sourceP->{'isWholeChapter'}) {
       my $xpath = '//*
         [@type="'.$VSYS{'prefix_vs'}.'-chapter'.$VSYS{'end_vs'}.'"]
-        [@annotateType="'.$VSYS{'AnnoTypeSource'}.'"]
+        [@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"]
         [@annotateRef="'.$sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'"][1]';
       my $sch = @{$XPC->findnodes($xpath, $xml)}[0];
       if ($sch) {
@@ -1025,9 +1025,9 @@ sub applyVsysFromTo($$$) {
         else {$osisID = $osisID->getAttribute('osisID');}
         my $m = 
           '<milestone type="'.$VSYS{'extra_vs'}.'" '.
-          'annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />'.
+          'annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
           '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
-          'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" />';
+          'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" />';
         $sch->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $sch);
       }
       else {&ErrorBug("Could not find source element:\n$xpath");}
@@ -1043,9 +1043,9 @@ sub applyVsysFromTo($$$) {
           my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
           my $m = 
             '<milestone type="'.$VSYS{'extra_vs'}.'" '.
-            'annotateRef="'.$univref.'" annotateType="'.$VSYS{'AnnoTypeUniversal'}.'" />'.
+            'annotateRef="'.$univref.'" annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
             '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
-            'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" />';
+            'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" />';
           $svs->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $svs);
         }
         else {&ErrorBug("Could not find source verse: $sourcevs");}
@@ -1070,7 +1070,7 @@ sub applyVsysFromTo($$$) {
     my $osisRef = "$bk.$ch.$v";
     if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
     my $m = '<milestone type="'.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
-    if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'" ';}
+    if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" ';}
     $m .= '/>';
     $fixedVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $fixedVerseEnd);
     
@@ -1091,7 +1091,7 @@ sub applyVsysFromTo($$$) {
     }
     $osisRef = $osisRef->getAttribute('osisID');
     $osisRef =~ s/^.*?\s+(\S+)$/$1/;
-    $m = '<milestone type="'.$VSYS{'fitted_vs'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$VSYS{'AnnoTypeSource'}.'"/>';
+    $m = '<milestone type="'.$VSYS{'fitted_vs'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'"/>';
     $altVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $altVerseEnd);
   }
 }
@@ -1427,7 +1427,7 @@ sub toAlternate($$$) {
   }
   $elem->setAttribute('type', $VSYS{'prefix_vs'}.'-'.$elem->nodeName.$VSYS{$type});
   $elem->setAttribute('annotateRef', $osisID);
-  $elem->setAttribute('annotateType', $VSYS{'AnnoTypeSource'});
+  $elem->setAttribute('annotateType', $ANNOTATE_TYPE{'Source'});
   $elem->setNodeName('milestone');
   if ($elem->hasAttribute('osisID')) {$elem->removeAttribute('osisID');}
   if ($elem->hasAttribute('sID')) {$elem->removeAttribute('sID');}

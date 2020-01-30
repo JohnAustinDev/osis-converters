@@ -60,18 +60,27 @@ $DICTIONARY_WORDS = "DictionaryWords.xml";
 $UPPERCASE_DICTIONARY_KEYS = 1;
 $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
-$ROC = 'x-oc'; # meaning osis-converters is responsible for adding this element
-$VSYS{'prefix_vs'} = 'x-vsys';
-$VSYS{'resp_vs'}           = $VSYS{'prefix_vs'};
-$VSYS{'AnnoTypeSource'}    = $VSYS{'prefix_vs'}.'-source';
-$VSYS{'AnnoTypeUniversal'} = $VSYS{'prefix_vs'}.'-universal';
-$VSYS{'missing_vs'}        = $VSYS{'prefix_vs'}.'-missing';
-$VSYS{'movedto_vs'}        = $VSYS{'prefix_vs'}.'-movedto';
-$VSYS{'extra_vs'}          = $VSYS{'prefix_vs'}.'-extra';
-$VSYS{'fitted_vs'}         = $VSYS{'prefix_vs'}.'-fitted';
-$VSYS{'start_vs'} = '-start';
-$VSYS{'end_vs'} = '-end';
 
+# The attribute types and values below are hardwired into the xsl files
+# to allow them to be more portable. But in Perl, variables are used.
+
+$ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for adding the element
+
+# Verse System related attribute types
+$VSYS{'prefix_vs'}  = 'x-vsys';
+$VSYS{'resp_vs'}    = $VSYS{'prefix_vs'};
+$VSYS{'missing_vs'} = $VSYS{'prefix_vs'}.'-missing';
+$VSYS{'movedto_vs'} = $VSYS{'prefix_vs'}.'-movedto';
+$VSYS{'extra_vs'}   = $VSYS{'prefix_vs'}.'-extra';
+$VSYS{'fitted_vs'}  = $VSYS{'prefix_vs'}.'-fitted';
+$VSYS{'start_vs'}   = '-start';
+$VSYS{'end_vs'}     = '-end';
+
+# annotateType attribute values
+$ANNOTATE_TYPE{'Source'} = $VSYS{'prefix_vs'}.'-source'; # annotateRef is osisRef to source (custom) verse system
+$ANNOTATE_TYPE{'Universal'} = $VSYS{'prefix_vs'}.'-universal'; # annotateRef is osisRef to an external (fixed) verse system
+$ANNOTATE_TYPE{'Conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
+$ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features to which an element applies
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
@@ -4893,7 +4902,7 @@ sub writeMissingNoteOsisRefs($) {
           my $ref_bc = $1; my $ref_vf = $3; my $ref_vl = $5;
           if (!$ref_vf) {$ref_vf = 0;}
           if (!$ref_vl) {$ref_vl = $ref_vf;}
-          if ($rs->getAttribute('annotateType') ne $VSYS{'AnnoTypeSource'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
+          if ($rs->getAttribute('annotateType') ne $ANNOTATE_TYPE{'Source'} && ($con_bc ne $ref_bc || $ref_vl < $con_vf || $ref_vf > $con_vl)) {
             &Warn("writeMissingNoteOsisRefs: Note's annotateRef \"".$rs."\" is outside note's context \"$con_bc.$con_vf.$con_vl\"");
             $aror = '';
           }
