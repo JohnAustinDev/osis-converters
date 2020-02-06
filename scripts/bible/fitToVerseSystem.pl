@@ -275,53 +275,16 @@ facilitate this, the following maps are provided:
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
 
-sub placementMessage() {
-  if ($AlreadyReportedThis) {return '';}
-  $AlreadyReportedThis = 1;
-return
-"------------------------------------------------------------------------
-| The destination location of peripheral files and, if desired, of each 
-| \periph section within these files, must be appended to the end of 
-| each peripheral USFM file's \id line, like this:
-|
-| \id INT location == <xpath-expression>, <div-type> == <xpath-expression>, <div-type> == <xpath-expression>, ...
-|
-| Where 'location' is used to specify where the entire file should go.
-|
-| Where <div-type> is one of the following:
-| \t-A peripheral OSIS div type or subType will select the next div 
-| \t\tin the converted OSIS file having that type or subType.
-| \t- A USFM \periph type within double quotes (and don't forget the 
-| \t\tquotes) will select the next OSIS div of that periph type. 
-| \t- If the div you want to select is not part of the USFM 2.4 
-| \t\tspecification, it can only be specified with: 
-| \t\tx-unknown == <xpath-expression>.
-|
-| Where <xpath-expression> is one of:
-| \t-The keyword 'remove' to remove it from the OSIS file entirely.
-| \t-The keyword 'osis:header' to place it after the header element,
-| \t\twhich is the location for full Bible introductory material.
-| \t-An XPATH expression selecting an element before which the 
-| \t\tintroduction will be placed: 
-| \t\tosis:div[\@osisID=\"Ruth\"]/node()[1]
-| \t\tto place it at the beginning of the book of Ruth.
-|
-| Optionally, you may additionally specify the scope of each peripheral 
-| file by adding \"scope == Matt-Rev\" for instance. This is used by 
-| single Bible-book eBooks to duplicate peripheral material where needed.
-------------------------------------------------------------------------\n";
-}
-
-sub orderBooksPeriphs($$$) {
+sub orderBooks($$$) {
   my $osisP = shift;
   my $vsys = shift;
   my $maintainBookOrder = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1orderBooksPeriphs$3/;
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1orderBooks$3/;
   
   if (!$vsys) {$vsys = "KJV";}
 
-  &Log("\nOrdering books and peripherals of \"$$osisP\" by versification $vsys\n", 1);
+  &Log("\nOrdering books of \"$$osisP\" by versification $vsys\n", 1);
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
@@ -335,15 +298,13 @@ sub orderBooksPeriphs($$$) {
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $bk (@books) {$bk->unbindNode();}
 
-  # remove all peripheral file divs
-  my $xpath;
-  my $sep;
+  # remove all peripheral file divs for now
+  my @xpath;
   foreach my $type (values(%ID_TYPE_MAP)) {
-    $xpath .= $sep.'//osis:div[@type="'.$type.'"][not(@subType)]';
-    $sep = '|';
+    push(@xpath, '//osis:div[@type="'.$type.'"][not(@subType)]');
   }
-  my @periphFiles = $XPC->findnodes($xpath, $xml);
-  foreach my $periphFile (@periphFiles) {$periphFile->unbindNode();}
+  my @idDivs = $XPC->findnodes(join('|', @xpath), $xml);
+  foreach my $idDiv (@idDivs) {$idDiv->unbindNode();}
   
   # create empty bookGroups
   my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
@@ -392,203 +353,12 @@ sub orderBooksPeriphs($$$) {
   foreach my $bookGroup (@bookGroups) {
     if (!$bookGroup->hasChildNodes()) {$bookGroup->unbindNode();}
   }
-
-  # place all peripheral files, and separately any \periph sections they may contain, each to their proper places
-  my %xpathOriginalBeforeNodes;
-  foreach my $periphFile (@periphFiles) {
-    my $placedPeriphFile;
-    my $scope;
-    my $instructionNum = 0;
-
-    # read the first comment to find desired target location(s) and scope, if any
-    my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $periphFile)}[0];
-
-    my @removedElements = ();
-    if (!$commentNode || $commentNode !~ /\s\S+ == \S+/) {
-      &Error("Removing periph(s)!", "You must specify the location where each peripheral file should be placed within the OSIS file.");
-      &Log(&placementMessage());
-      &Warn("REMOVED:\n$periphFile");
-    }
-    else {
-      my $comment = $commentNode->textContent;
-      #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
-      $comment =~ s/^.*?(?=\s(?:\S+|"[^"]+") ==)//; $comment =~ s/\s*$//;  # strip beginning/end stuff 
-      my @parts = split(/(,\s*(?:\S+|"[^"]+") == )/, ", $comment");
-      for (my $x=1; $x < @parts; $x += 2) { # start at $x=1 because 0 is always just a leading comma
-        my $command = @parts[$x] . @parts[($x+1)];
-        $command =~ s/^,\s*//;
-        if ($command !~ /^(\S+|"[^"]+") == (.*?)$/) {
-          &Error("Unhandled location or scope assignment \"$command\" in \"$commentNode\" in CF_usfm2osis.txt");
-          next;
-        }
-        my $left = $1;
-        my $xpath = $2;
-        
-        $instructionNum++;
   
-        $left =~ s/"//g; # strip possible quotes
-        if ($left eq 'scope') {
-          $xpath =~ s/"//g; # strip possible quotes
-          $scope = $xpath;
-          if ($instructionNum != 1) {
-            &Warn("The 'scope ==' instruction only effects those xpath instructions which follow it: ".$commentNode->textContent,
-"Here the scope instruction appears after other instructions.  
-Make sure this is what you really want, or move the scope instruction 
-first in line.");
-          }
-          next;
-        }       
-        if ($xpath eq "osis:header") {
-          $ORDER_PERIPHS_COMPATIBILITY_MODE++;
-          $xpath = "osis:div[\@type='bookGroup'][1]";
-          &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
-"This xpath was previously interpereted as 'place after the header' but 
-it now means 'place as preceding sibling of the header'. Also, the 
-peripherals are now processed in the order they appear in the CF file. 
-To retain the old meaning, change osis:header to $xpath");
-          &Warn("Changing osis:header to $xpath and switching to compatibility mode.");
-        }
-        elsif ($ORDER_PERIPHS_COMPATIBILITY_MODE && $xpath =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
-          $xpath .= "/node()[1]";
-          &Error("Introduction comment specifies '$command' but this usage has been deprecated.", 
-"This xpath was previously interpereted as 'place as first child of the 
-bookGroup' but it now is interpereted as 'place as the preceding sibling 
-of the bookGroup'. Also, the peripherals are now processed in the order 
-they appear in the CF file. To retain the old meaning, change it to $xpath");
-          &Warn("Changing $command to $left == $xpath");
-        }
-        
-        my $removing = ($xpath =~ /^remove$/i ? 1:0);
-        my $elem = ($left eq 'location' ? $periphFile:&findThisPeriph($periphFile, $left, $command));
-        
-        if (!$elem) {next;}
-        elsif ($left eq 'location') {$placedPeriphFile = 1;}
-        else {$elem->unbindNode();}
-        
-        if ($removing) {push(@removedElements, $elem);}
-        else {
-          # All identical xpath searches must return the same originally found node. 
-          # Otherwise sequential order would be reversed with insertBefore */node()[1].
-          my $new;
-          if (!exists($xpathOriginalBeforeNodes{$xpath})) {
-            my $beforeNode = @{$XPC->findnodes('//'.$xpath, $xml)}[0];
-            if (!$beforeNode) {
-              &Error("Removing periph! Could not locate xpath:\"$xpath\" in command $command");
-              next;
-            }
-            $xpathOriginalBeforeNodes{$xpath} = $beforeNode;
-            $new++;
-          }
-          # The beforeNode may be a toc or a runningHead or be empty of 
-          # text, in which case an appropriate next-sibling will be used 
-          # instead (and our beforeNode for this xpath is then updated).
-          my $beforeNode = &placeIntroduction($elem, $xpathOriginalBeforeNodes{$xpath}, $scope);
-          if ($new) {$xpathOriginalBeforeNodes{$xpath} = $beforeNode;}
-          my $tg = $elem->toString(); $tg =~ s/>.*$/>/s;
-          &Note("Placing $left == $xpath for $tg");
-        }
-      }
-    }
-    
-    foreach my $e (@removedElements) {
-      my $e2 = $e->toString(); $e2 =~ s/<\!\-\-.*?\-\->//sg; $e2 =~ s/[\s]+/ /sg; $e2 =~ s/.{60,80}\K(?=\s)/\n/sg;
-      &Note("Removing: $e2\n");
-    }
-    
-    if (!$placedPeriphFile) {
-      my $tst = @{$XPC->findnodes('.//*', $periphFile)}[0];
-      my $tst2 = @{$XPC->findnodes('.//text()[normalize-space()]', $periphFile)}[0];
-      if ($tst || $tst2) {
-        &Error(
-"The placement location for the following peripheral material was 
-not specified and its position may be incorrect:
-$periphFile
-To position the above material, add location == <XPATH> after the \\id tag."
-        );
-        &Log(&placementMessage());
-      }
-      else {
-        $periphFile->unbindNode();
-        my $tg = $periphFile->toString(); $tg =~ s/>.*$/>/s;
-        &Note("Removing empty div: $tg");
-      }
-    }
-  }
+  # Replace all periphs after the header (they still need to be marked and ordered later)
+  my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
+  foreach my $idDiv (reverse @idDivs) {$header->parentNode->insertAfter($idDiv, $header);}
   
-  &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
-  # Check that all sub-publications are marked
-  my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
-  foreach my $scope (@SUB_PUBLICATIONS) {
-    if (!@{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"]', $xml)}[0]) {
-      &Warn("No div osisRef was found for sub-publication $scope.");
-      my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, $bookOrderP)}[0].'"]', $xml)}[0];
-      my $tocms = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $firstbk)}[0];
-      my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
-      my $div = $XML_PARSER->parse_balanced_chunk('<div type="introduction" osisRef="'.$scope.'" resp="'.$ROC.'"> </div>');
-      $before->parentNode->insertBefore($div, $before);
-      &Note("Added empty introduction div with osisRef=\"$scope\" within book ".$firstbk->getAttribute('osisID').' '.($tocms ? 'after TOC milestone.':'as first child.'));
-    }
-  }
-
   &writeXMLFile($xml, $output, $osisP);
-}
-
-sub findThisPeriph($$$) {
-  my $parent = shift;
-  my $left = shift;
-  my $command = shift;
-  
-  my $type;
-  my $subType;
-  if ($left eq 'x-unknown') {$type = $left;}
-  elsif (defined($PERIPH_TYPE_MAP{$left})) {
-    $type = $PERIPH_TYPE_MAP{$left};
-    $subType = $PERIPH_SUBTYPE_MAP{$left};
-  }
-  elsif (defined($PERIPH_TYPE_MAP_R{$left})) {$type = $left;}
-  elsif (defined($PERIPH_SUBTYPE_MAP_R{$left})) {$type = "introduction"; $subType = $left;}
-  else {
-    &Error("Could not place periph! Unable to map $left to a div element in $command.");
-    return '';
-  }
-  my $xpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
-  my $periph = @{$XPC->findnodes($xpath, $parent)}[0];
-  if (!$periph) {
-    &Error("Could not place periph! Did not find \"$xpath\"in $command.");
-    return '';
-  }
-  
-  return $periph;
-}
-
-# Insert $periph node before $beforeNode. But when $beforeNode is a toc 
-# or runningHead element, then insert $periph before the following non-
-# toc, non-runningHead node instead. The resulting $beforeNode is returned.
-sub placeIntroduction($$$) {
-  my $periph = shift;
-  my $beforeNode = shift;
-  my $scope = shift;
-  
-  if ($scope) {
-    if (!$periph->getAttribute('osisRef')) {
-      $periph->setAttribute('osisRef', $scope);
-    }
-    elsif ($periph->getAttribute('osisRef') ne $scope) {
-      &Error("Introduction comment specifies scope == $scope, but introduction already has osisRef=\"".$periph->getAttribute('osisRef')."\"");
-    }
-  }
-
-  # place as first non-toc and non-runningHead element in destination container
-  while (@{$XPC->findnodes('
-    ./self::text()[not(normalize-space())] | 
-    ./self::osis:title[@type="runningHead"] | 
-    ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
-  ', $beforeNode)}[0]) {
-    $beforeNode = $beforeNode->nextSibling();
-  }
-  $beforeNode->parentNode->insertBefore($periph, $beforeNode);
-  
-  return $beforeNode;
 }
 
 # Read bibleMod and the osis file and:

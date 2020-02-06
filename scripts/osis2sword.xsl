@@ -6,14 +6,17 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- Prepare osis-converters OSIS for import using CrossWire tei2mod with ModuleTools osis2sword.xsl -->
+  <!-- Prepare osis-converters OSIS for import using CrossWire tei2mod (after ModuleTools osis2sword.xsl) -->
   
-  <!-- SWORD requires a fixed (or fitted) verse system rather than a customized one -->
-  <import href="./osis2fittedVerseSystem.xsl"/>
+  <!-- Filter out any marked elements which are not intended for this conversion -->
+  <include href="./conversion.xsl"/>
+  
+  <!-- SWORD requires the fixed (or fitted) verse system rather than a customized one -->
+  <include href="./osis2fittedVerseSystem.xsl"/>
   
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   
-  <!-- Shorten glossary osisRefs containing multiple targets, since SWORD only handles one -->
+  <!-- Shorten glossary osisRefs with multiple targets, since SWORD only handles a single target -->
   <template match="reference[starts-with(@type, 'x-gloss')][contains(@osisRef, ' ')]/@osisRef" priority="5">
     <attribute name="osisRef" select="replace(replace(., ' .*$', ''), '\.dup\d+$', '')"/>
   </template>
@@ -23,20 +26,16 @@
     <attribute name="osisRef" select="replace(., '\.dup\d+$', '')"/>
   </template>
   
-  <!-- Remove duplicate glossary keywords -->
+  <!-- Remove duplicate glossary keywords (since the aggregated glossary is used) -->
   <template match="div[contains(@type, 'duplicate')][ancestor::div[@type='glossary']]"/>
   
-  <!-- Remove duplicate material in Bibles which is also included in the dictionary module -->
-  <template match="div[@resp='duplicate']">
-    <if test="not($isBible)"><copy><apply-templates select="node()|@*"/></copy></if>
-  </template>
+  <!-- Remove duplicate material in Bibles that is also included in the dictionary module for the INT feature -->
+  <template match="div[$isBible][@annotateType='x-feature'][@annotateRef='INT']"/>
   
-  <!-- Remove chapter navmenus from Bibles -->
-  <template match="list[@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]">
-    <if test="not($isBible)"><copy><apply-templates select="node()|@*"/></copy></if>
-  </template>
+  <!-- Remove chapter navmenus from Bibles (SWORD front-ends handle this functionality)-->
+  <template match="list[$isBible][@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]"/>
   
-  <!-- Remove x-external attributes -->
+  <!-- Remove x-external attribute since SWORD handles them like any other reference -->
   <template match="reference[@subType='x-external']/@subType"/>
   
   <!-- Remove composite cover images from SWORD modules -->

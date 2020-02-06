@@ -30,6 +30,9 @@ sub osis2pubs($) {
   &Log("Updating OSIS header.\n");
   &writeOsisHeader(\$INOSIS);
   
+  my %params = ('conversion' => ($convertTo eq 'eBook' ? 'epub':'html'));
+  &runScript("$SCRD/scripts/osis2pubs.xsl", \$INOSIS, \%params);
+  
   # Global for result reporting
   %CONV_REPORT;
 
@@ -140,7 +143,6 @@ sub OSIS_To_ePublication($$$) {
     &filterBibleToScope(
       \$osis,
       $scope,
-      $CONF,
       \$pubTitle, 
       \$partTitle
     );
@@ -148,6 +150,9 @@ sub OSIS_To_ePublication($$$) {
   
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
+
+  &copy($osis, "$tmp/$MOD.xml");
+  
   if (!$coverSource) {$cover = '';}
   $CONV_REPORT{$PUB_NAME}{'Cover'} = '';
   if ($cover) {
@@ -160,8 +165,6 @@ sub OSIS_To_ePublication($$$) {
   else {
     $CONV_REPORT{$PUB_NAME}{'Cover'} = "random-cover ($pubTitle)";
   }
-    
-  &runXSLT("$SCRD/scripts/osis2sourceVerseSystem.xsl", $osis, "$tmp/$MOD.xml");
   
   # copy osis2xhtml.xsl
   copy("$SCRD/scripts/bible/html/osis2xhtml.xsl", $tmp);
@@ -218,11 +221,12 @@ body {font-family: font1;}
     if ($outf) {
       &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
-      &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$outf);
+      my %params = ('conversion' => ($convertTo eq 'eBook' ? 'epub':'html'));
+      &runScript("$SCRD/scripts/osis2pubs.xsl", \$outf, \%params);
       require "$SCRD/scripts/dict/processGlossary.pl";
       # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
       # This means any non Bible scopes (like SWORD) are also filtered out.
-      $filter = &filterGlossaryToScope(\$outf, $scope, ($convertTo eq 'eBook'));
+      $filter = &filterGlossaryToScope(\$outf, $scope);
       &Note("filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter)));
       my $aggfilter = &filterAggregateEntriesToScope(\$outf, $scope);
       &Note("filterAggregateEntriesToScope('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
@@ -258,11 +262,11 @@ file for it, and then run this script again.");}
   $CONV_REPORT{$PUB_NAME}{'ScripRefFilter'} = 0;
   $CONV_REPORT{$PUB_NAME}{'GlossRefFilter'} = 0;
   $CONV_REPORT{$PUB_NAME}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $CONV_REPORT{$PUB_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis, ($convertTo eq 'eBook'));
+  $CONV_REPORT{$PUB_NAME}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis);
   
   if ($dictTmpOsis) {
     $CONV_REPORT{$PUB_NAME}{'ScripRefFilter'} += &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
-    $CONV_REPORT{$PUB_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis, ($convertTo eq 'eBook'));
+    $CONV_REPORT{$PUB_NAME}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis);
   }
 
   # now do the conversion on the temporary directory's files
@@ -311,10 +315,9 @@ file for it, and then run this script again.");}
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering IF any were filtered out, otherwise it is set to ''.
-sub filterBibleToScope($$\%\$\$) {
+sub filterBibleToScope($$\$\$) {
   my $osisP = shift;
   my $scope = shift;
-  my $confP = shift;
   my $ebookTitleP = shift;
   my $ebookPartTitleP= shift;
   
@@ -326,12 +329,12 @@ sub filterBibleToScope($$\%\$\$) {
   
   my $bookOrderP;
   my $booksFiltered = 0;
-  if (!&getCanon($confP->{'Versification'}, '', \$bookOrderP, '')) {
-    &ErrorBug("pruneFileOSOS getCanon(".$confP->{'Versification'}.") failed, not pruning books in OSIS file");
+  if (!&getCanon(&conf('Versification'), '', \$bookOrderP, '')) {
+    &ErrorBug("pruneFileOSOS getCanon(".&conf('Versification').") failed, not pruning books in OSIS file");
     return;
   }
   
-  my @scopedPeriphs = $XPC->findnodes('//osis:div[not(self::osis:div[starts-with(@type, "book")])][@osisRef][parent::osis:div[starts-with(@type, "book")]]', $inxml);
+  my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
   # remove books not in scope
   my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
@@ -383,10 +386,10 @@ sub filterBibleToScope($$\%\$\$) {
       }
     }
     
-    # move multi-book book intros before first kept book.
+    # move relevant scoped periphs before first kept book.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (@scopedPeriphs) {
-      my $introBooks = &scopeToBooks($intro->getAttribute('osisRef'), $bookOrderP);
+      my $introBooks = &scopeToBooks($intro->getAttribute('scope'), $bookOrderP);
       if (!@{$introBooks}) {next;}
       foreach $introbk (@{$introBooks}) {
         foreach my $remainingBook (@remainingBooks) {
@@ -454,35 +457,30 @@ an image whose filename is any scope that contains $scope":''));}
   &writeXMLFile($inxml, $output, $osisP);
 }
 
-# Returns names of filtered divs, or else '-1' if all would be filtered or '0' if none would be filtered
-sub filterGlossaryToScope($$$) {
-  my $osisP = shift;
-  my $scope = shift;
-  my $filterNavMenu = shift;
+# Returns names of filtered divs, or else '-1' if all were be filtered or '0' if none were be filtered
+sub filterGlossaryToScope($$) {
+  my $osisP = shift; # OSIS to filter
+  my $scope = shift; # scope to filter to
+  
+  my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
   
   my @removed;
   my @kept;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my @glossDivs = $XPC->findnodes('//osis:div[@type="glossary"][not(@subType="x-aggregate")]', $xml);
-  my %glossScopes;
   foreach my $div (@glossDivs) {
-    my $divScope = &getGlossaryScopeAttribute($div);
+    my $divScope = $div->getAttribute('scope');
     
     # keep all glossary divs that don't specify a particular scope
     if (!$divScope) {push(@kept, $divScope); next;}
-  
-    # keep if any book within the glossary scope matches $scope
-    my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
-    if (&inContext(&getScopeAttributeContext($divScope, $bookOrderP), &getContextAttributeHash($scope))) {
-      if ($div->getAttribute('resp') eq $ROC) {$glossScopes{$divScope}++;}
-      push(@kept, $divScope);
-      next;
-    }
     
-    # keep if this is NAVMENU or INT and we're not filtering them out
-    if (!$filterNavMenu && $divScope =~ /^(NAVMENU|INT)$/) {
-      if ($div->getAttribute('resp') eq $ROC) {$glossScopes{$divScope}++;}
+    # keep if scope is not a Bible scope
+    my $bksAP = &scopeToBooks($divScope, $bookOrderP);
+    if (!@{$bksAP}) {next;}
+    
+    # keep if any book within the Bible scope matches $scope
+    if (&inContext(&getScopeAttributeContext($divScope, $bookOrderP), &getContextAttributeHash($scope))) {
       push(@kept, $divScope);
       next;
     }
@@ -642,10 +640,9 @@ sub filterScriptureReferences($$$) {
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
-sub filterGlossaryReferences($$$) {
+sub filterGlossaryReferences($$) {
   my $osis = shift;
   my $glossRefOsis = shift;
-  my $filterNavMenu = shift;
   
   my %refsInScope;
   my $glossMod = $glossRefOsis; $glossMod =~ s/^.*\///;
@@ -660,18 +657,14 @@ sub filterGlossaryReferences($$$) {
       $ids{$id}++;
     }
     $refsInScope{$work} = \%ids;
+    $refsInScope{$MOD}{'BIBLE_TOP'}++;
+    $refsInScope{$DICTMOD}{'DICT_TOP'}++;
   }
   
   &Log("\n--- FILTERING glossary references in \"$osis\"\n", 1);
   &Log("REMOVING glossary references".($glossMod ? " that target outside \"$glossMod\"":'')."\n");
   
   my $xml = $XML_PARSER->parse_file($osis);
-  
-  # filter out x-navmenu lists if they aren't wanted
-  if ($filterNavMenu) {
-    my @navs = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $xml);
-    foreach my $nav (@navs) {if ($nav) {$nav->unbindNode();}}
-  }
   
   # filter out references outside our scope
   my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
@@ -736,7 +729,8 @@ sub filterGlossaryReferences($$$) {
   return $totalFilteredOsisRefs;
 }
 
-# Remove the cover div element from the OSIS file and copy the referenced
+# Calibre requires the eBook cover be passed separately from the OSIS file.
+# So remove the cover div element from the OSIS file and copy the referenced
 # image to $coverpath. If there is no div element, or the referenced image
 # cannot be found, the empty string is returned, otherwise the path to the
 # referenced image is returned.

@@ -36,7 +36,8 @@ $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 # Prepare osis-converters OSIS for SWORD import
-&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS);
+my %params = ('conversion' => 'sword');
+&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS, \%params);
 
 &usePngIfAvailable(\$INOSIS);
 

@@ -43,9 +43,22 @@
   <variable name="isChildrensBible" select="/osis:osis/osis:osisText/osis:header/
                                             osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
                                             osis:type[@type='x-childrens-bible']"/>
+  
   <variable name="referencedOsisDocs" select="if ($isChildrensBible) then () else //work[@osisWork != //osisText/@osisIDWork]/
                                               doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
-      
+  
+  <!-- This must be identical to the combinedKeywords variable of navigationMenu.xsl, or else navmenu prev/next could end up with broken links -->
+  <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
+                                                [not(@type = 'x-keyword-duplicate')]
+                                                [not(ancestor::div[@scope='NAVMENU'])]
+                                                [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+                                                
+  <variable name="haveMultipleGlossaries" select="count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1"/>
+  
+  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') then 
+          (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then true() else false()) 
+          else $CombineGlossaries = 'true' "/>
+  
   <!-- USFM file types output by usfm2osis.py are handled by this XSLT -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 
       'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
@@ -85,21 +98,25 @@
       </choose>
     </variable>
     
+    <!-- The combined glossary includes navmenu letter menus if available, but remove the  
+    leading dashes so they will become the first item in each letter list -->
+    <variable name="navmenu" as="element(div)*">
+      <for-each select="$referencedOsisDocs//div[@subType=('x-navmenu-letter', 'x-navmenu-atoz')]">
+        <apply-templates select="." mode="modifyLeadingDashes"/>
+      </for-each>
+    </variable>
     <!-- The x-aggregate glossary is never output directly, rather it is added to the  
-    combined glossary whenever it is used (and also x-keyword-duplicate keywords are NOT  
-    included in the combined glossary). Therefore, when there is a combined glossary,
-    links to x-keyword-duplicate keywords are redirected to the aggregated entry. -->
+    combined glossary whenever it is used, and therefore x-keyword-duplicate keywords are   
+    NOT included in the combined glossary. This means that links to x-keyword-duplicate 
+    keywords need to be redirected to their aggregated entries by the 'reference' template. -->
     <variable name="combinedGlossary">
-      <variable name="combinedKeywords" select="$referencedOsisDocs//div[@type='glossary']//div[starts-with(@type, 'x-keyword')][not(@type='x-keyword-duplicate')]"/>
-      <variable name="doCombineGlossaries" select="if ($CombineGlossaries != 'AUTO') then $CombineGlossaries else 
-          (if ($referencedOsisDocs//div[@type='glossary'][@subType='x-aggregate']) then 'true' else 'false')"/>
-      <if test="$doCombineGlossaries = 'true' and 
-                $combinedKeywords and 
-                count($combinedKeywords/ancestor::div[@type='glossary' and not(@subType='x-aggregate')][last()]) &#62; 1">
-        <call-template name="WriteCombinedGlossary"><with-param name="combinedKeywords" select="$combinedKeywords"/></call-template>
+      <if test="$doCombineGlossaries">
+        <call-template name="WriteCombinedGlossary">
+          <with-param name="combinedKeywords" select="$combinedKeywords | $navmenu"/>
+        </call-template>
       </if>
     </variable>
-    <call-template name="Note"><with-param name="msg" select="concat(if (count($combinedGlossary/*)!=0) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (CombineGlossaries=', $CombineGlossaries, ')')"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat(if ($doCombineGlossaries) then 'Combining' else 'Will not combine', ' keywords into a composite glossary. (CombineGlossaries=', $CombineGlossaries, ')')"/></call-template>
     
     <variable name="xhtmlFiles" as="xs:string*">
       <call-template name="processProject">
@@ -165,11 +182,24 @@
     
   </template>
   
+  <!-- modifyLeadingDashes -->
+  <template mode="modifyLeadingDashes" match="node()|@*" >
+    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+  </template>
+  <template mode="modifyLeadingDashes" match="seg[@type='keyword'][ancestor::div[@type='x-keyword-navmenu']]/text()">
+    <value-of select="replace(., '^\s*\-\s*', '')"/>
+  </template>
+  
   <template name="processProject">
     <param name="currentTask" tunnel="yes"/>
     <param name="bibleOSIS" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <call-template name="Log"><with-param name="msg" select="concat('processProject: currentTask = ', $currentTask, ', combining-glossaries = ', boolean(count($combinedGlossary/*)!=0), ', isChildrensBible=', $isChildrensBible)"/></call-template>
+    <call-template name="Log">
+      <with-param name="msg" select="concat(
+        'processProject: currentTask = ', $currentTask, 
+        ', doCombineGlossaries = ', $doCombineGlossaries, 
+        ', isChildrensBible=', $isChildrensBible)"/>
+    </call-template>
     <for-each select="$bibleOSIS"><apply-templates/></for-each>
     <apply-templates select="$combinedGlossary/*"/>
     <for-each select="$referencedOsisDocs"><apply-templates/></for-each>
@@ -180,7 +210,10 @@
   the x-aggregate glossary -->
   <template name="WriteCombinedGlossary">
     <param name="combinedKeywords" as="element(div)+"/>
-    <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"><attribute name="type" select="'glossary'"/><attribute name="root-name" select="'comb'"/>
+    <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+      <attribute name="type" select="'glossary'"/>
+      <attribute name="root-name" select="'comb'"/>
+      <attribute name="osisID" select="'DICT_TOP'"/>
       <milestone type="{concat('x-usfm-toc', $TOC)}" n="[level1]{$CombinedGlossaryTitle}" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
       <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$CombinedGlossaryTitle"/></title>
       <for-each select="$combinedKeywords">
@@ -266,13 +299,19 @@
   <template match="div[@type='glossary'][@root-name='comb' or ancestor::osisText[last()]/@osisIDWork != $mainInputOSIS/osis[1]/osisText[1]/@osisIDWork]" priority="2">
     <param name="currentTask" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <!-- Put each keyword in a separate file to ensure that links and article tags all work properly across various eBook readers -->
-    <for-each-group select="node()" group-adjacent="0.5 + count(preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count(self::div[starts-with(@type, 'x-keyword')])">
+    <!-- Put each pre-keyword and keyword into separate files to ensure that links and article tags all work properly across various eBook readers.
+    But if a glossary div contains only one keyword, the entire contents is put into one file, which is necessary if that keyword is a [no_toc]. -->
+    <for-each-group select="node()" group-adjacent="if (count(parent::*/child::div[starts-with(@type, 'x-keyword')]) = 1) then 1 else 
+        0.5 + count(preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count(self::div[starts-with(@type, 'x-keyword')])">
       <choose>
-        <when test="not(count($combinedGlossary/*)) or ancestor::div[@root-name]">
+        <!-- Either divs are output OR the combined glossary is output. Never both -->
+        <when test="not($doCombineGlossaries) or ancestor::div[@root-name]">
           <call-template name="ProcessFile"><with-param name="fileNodes" select="current-group()"/></call-template>
         </when>
-        <when test="$currentTask != 'write-xhtml' or self::div[starts-with(@type, 'x-keyword')] or not(current-group()[node()][normalize-space()][1])"/><!-- Don't warn unless necessary -->
+        <!-- Don't warn when unnecessary -->
+        <when test="$currentTask != 'write-xhtml' or 
+                    self::div[starts-with(@type, 'x-keyword')] or 
+                    not(current-group()[node()][normalize-space()][1])"/>
         <otherwise>
           <call-template name="Warn">
             <with-param name="msg"><value-of select="concat('The combined glossary is dropping ', count(current-group()), ' node(s) containing: ')"/>
@@ -353,7 +392,9 @@
         <value-of select="concat($root, '_bookGroup-introduction_', $node/following::div[@type='book'][1]/@osisID)"/>
       </when>
       <when test="not($isBibleNode) and $node/ancestor-or-self::div[@type='glossary']">
-        <variable name="group" select="0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
+        <variable name="singleKeyword" select="count($node/ancestor-or-self::div[@type='glossary'][1]/child::div[starts-with(@type, 'x-keyword')]) = 1"/>
+        <variable name="group" select="if ($singleKeyword) then 1 else 
+            0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
         <value-of select="if ($root = 'comb') then 
             concat($root, '_glossary', '/', 'k', $group) else 
             concat($root, '_glossary', '/', 'p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
@@ -535,8 +576,10 @@
     <param name="combinedGlossary" tunnel="yes"/>
     <variable name="listElements">
       <sequence select="me:getTocListItems(., true(), false())"/>
-      <if test="count($combinedGlossary/*)"><sequence select="me:getTocListItems($combinedGlossary, true(), true())"/></if>
-      <for-each select="$referencedOsisDocs"><sequence select="me:getTocListItems(., true(), count($combinedGlossary/*) != 0)"/></for-each>
+      <!-- If combining glossaries, output the combined glossary first, then any non-glossary material afterward -->
+      <if test="$doCombineGlossaries"><sequence select="me:getTocListItems($combinedGlossary, true(), $doCombineGlossaries)"/></if>
+      <!-- Ouput either non-glossary material in referencedOsisDocs (if combiningGlossaries) or else everything in referencedOsisDocs -->
+      <for-each select="$referencedOsisDocs"><sequence select="me:getTocListItems(., true(), $doCombineGlossaries)"/></for-each>
     </variable>
     <if test="count($listElements/*)">
       <element name="div" namespace="http://www.w3.org/1999/xhtml">
@@ -598,7 +641,7 @@
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
     <param name="isOsisRootTOC" as="xs:boolean"/>
-    <param name="keepOnlyCombinedGlossary" as="xs:boolean"/>
+    <param name="combiningGlossaries" as="xs:boolean"/>
     <variable name="isBible" select="root($tocNode)//work[@osisWork = ancestor::osisText/@osisIDWork]/type[@type='x-bible']"/>
     <if test="not($isOsisRootTOC) and not($tocNode[self::milestone[@type=concat('x-usfm-toc', $TOC)] or (not($isBible) and self::chapter[@sID])])">
       <call-template name="Error">
@@ -619,25 +662,35 @@
             <sequence select="if ($nextSibling) then $followingTocs[. &#60;&#60; $nextSibling] else $followingTocs"/>
           </when>
           <when test="$tocNode/self::chapter[@sID]">
-            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_inline_toc]'))][not(contains(@n, '[no_toc]'))]) except 
+            <sequence select="($tocNode/following::seg[@type='keyword'] | $tocNode/following::milestone[@type=concat('x-usfm-toc', $TOC)])
+                [not(contains(@n, '[no_inline_toc]'))][not(contains(@n, '[no_toc]'))] except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
           <otherwise>
             <variable name="container" as="node()?" select="if ($isOsisRootTOC) then (root($tocNode)) else
-                if ($tocNode/parent::div[not(@type = ('bookGroup', 'book'))][not(preceding-sibling::*) or parent::div[@type = 'bookGroup']][parent::div[@type = ('bookGroup', 'book')]]) 
+                if (
+                  $tocNode/parent::div[not(@type = ('bookGroup', 'book'))]
+                  [not(preceding-sibling::*) or parent::div[@type = 'bookGroup']]
+                  [parent::div[@type = ('bookGroup', 'book')]]
+                ) 
                 then $tocNode/parent::div/parent::div 
                 else $tocNode/ancestor::div[1]"/>
-            <!-- Container TOC hierarchy may be: 1,2,3,3,2,3,3,1,2,3,3 etc. so we need to group by level, concatenate, and choose only the first sub-group -->
-            <for-each-group group-adjacent="me:getTocLevel(.)" select="($container//chapter[@sID] | $container//seg[@type='keyword'] | $container//milestone[@type=concat('x-usfm-toc', $TOC)])
-                [. &#62;&#62; $tocNode][me:getTocLevel(.) &#60;= $toplevel + 1]">
+            <!-- Container TOC hierarchy may be: 1,2,3,3,2,3,3,1,2,3,3 etc. so we need to 
+            group by level, concatenate, and choose only the first sub-group -->
+            <for-each-group group-adjacent="me:getTocLevel(.)" 
+              select="( $container//chapter[@sID] | 
+                        $container//seg[@type='keyword'] | 
+                        $container//milestone[@type=concat('x-usfm-toc', $TOC)]
+                      )[. &#62;&#62; $tocNode][me:getTocLevel(.) &#60;= $toplevel + 1]">
               <if test="position() = 1">
-                <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords & glossary-toc-milestones outside the combined glossary if keepOnlyCombinedGlossary or milestone tocs with [no_toc]-->
+                <!-- select all contained toc elements, excluding: $tocNode, sub-sub-toc elements, x-aggregate div elements, keywords 
+                & glossary-toc-milestones outside the combined glossary if combiningGlossaries or milestone tocs with [no_toc]-->
                 <sequence select="current-group()
                     [not(. intersect $tocNode)]
                     [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
                     [not($isOsisRootTOC and $mainTocMilestone and @isMainTocMilestone = 'true')]
-                    [not($isOsisRootTOC and ancestor::div[@type='glossary'][@scope=('NAVMENU','INT')])]
-                    [not($keepOnlyCombinedGlossary and ancestor::div[@type='glossary'][not(@root-name)])]
+                    [not($isOsisRootTOC and ancestor::div[@scope='NAVMENU'])]
+                    [not($combiningGlossaries and ancestor::div[@type='glossary'][not(@root-name)])]
                     [not(self::*[contains(@n, '[no_toc]')])]"/>
               </if>
             </for-each-group>
@@ -645,16 +698,22 @@
         </choose>
       </variable>
       <if test="count($subentries)">
-        <variable name="showFullGloss" select="$isBible or (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
-            count(distinct-values($subentries[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1"/>
-        <variable name="listElements" as="element(me:li)*"><!-- listElements is used to generate all list elements before writing any of them, so that we can get the max length -->
+        <variable name="showFullGloss" select="(not($doCombineGlossaries) and $SCRIPT_NAME != 'osis2ebooks') or $isBible or 
+            (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
+            (count(distinct-values($subentries[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1)"/>
+        <!-- listElements is used to generate all list elements before writing any of them, so that we can get the max length -->
+        <variable name="listElements" as="element(me:li)*">
           <for-each select="$subentries">
-            <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]/string()"/>
+            <variable name="previousKeyword" select="preceding::seg[@type='keyword'][1]"/>
             <variable name="skipKeyword">
               <choose>
+                <when test="$previousKeyword[ancestor::div[@subType='x-navmenu-atoz']]"><value-of select="false()"/></when>
                 <when test="matches(@n, '^(\[[^\]]*\])*\[(no_inline_toc|no_toc)\]')"><value-of select="true()"/></when>
                 <when test="boolean($showFullGloss) or not(self::seg[@type='keyword']) or not($previousKeyword)"><value-of select="false()"/></when>
-                <otherwise><value-of select="boolean(upper-case(oc:longestStartingMatchKS(text())) = upper-case(oc:longestStartingMatchKS($previousKeyword)))"/></otherwise>
+                <otherwise><value-of select="boolean(
+                    upper-case(oc:longestStartingMatchKS(text())) = 
+                    upper-case(oc:longestStartingMatchKS($previousKeyword/string()))
+                  )"/></otherwise>
               </choose>
             </variable>
             <if test="$skipKeyword = false()">
@@ -670,12 +729,16 @@
                   <otherwise>other</otherwise>
                 </choose>
               </variable>
-              <me:li type="{$type}" 
+              <me:li type="{$type}"
                      class="{concat('xsl-', $type, '-link', (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))}"
                      href="{me:uri-to-relative($tocNode, concat('/xhtml/', me:getFileName(.), '.xhtml#', generate-id(.)))}">
+                <if test="ancestor::div[@subType='x-navmenu-atoz']"><attribute name="noWidth" select="'true'"/></if>
                 <choose>
                   <when test="self::chapter[@osisID]">
                     <value-of select="tokenize(@osisID, '\.')[last()]"/>
+                  </when>
+                  <when test="ancestor::div[@subType='x-navmenu-atoz']">
+                    <value-of select="replace(string(), '^\-+', '')"/>
                   </when>
                   <when test="boolean($showFullGloss)=false() and self::seg[@type='keyword']">
                     <value-of select="upper-case(oc:longestStartingMatchKS(text()))"/>
@@ -689,11 +752,13 @@
           </for-each>
         </variable>
         <for-each select="$listElements">
-          <variable name="chars" select="max($listElements[@type = current()/@type]/string-length(string()))"/>
+          <variable name="chars" select="max($listElements[not(@noWidth='true')][@type = current()/@type]/string-length(string()))"/>
           <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
           <li xmlns="http://www.w3.org/1999/xhtml">
             <xsl:attribute name="class" select="@class"/>
-            <xsl:if test="not($isOsisRootTOC)"><xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/></xsl:if>
+            <xsl:if test="not($isOsisRootTOC) and not(@noWidth='true')">
+              <xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/>
+            </xsl:if>
             <a><xsl:attribute name="href" select="@href"/>
               <xsl:value-of select="string()"/>
             </a>
@@ -722,13 +787,17 @@
   <!-- me:getTocTitle returns the title text of tocElement -->
   <function name="me:getTocTitle" as="xs:string">
     <param name="tocElement" as="element()"/>
+    
     <if test="not($tocElement[self::milestone[@type=concat('x-usfm-toc', $TOC)] or self::chapter[@sID] or self::seg[@type='keyword']])">
       <call-template name="Error">
         <with-param name="msg">getTocTitle(): Not a TOC element: <value-of select="oc:printNode($tocElement)"/></with-param>
         <with-param name="die" select="'yes'"/>
       </call-template>
     </if>
-    <variable name="tocTitleEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if ($tocElement/@n) then $tocElement/@n else ''"/>
+    
+    <variable name="tocTitleEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then 
+                                                 replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if
+                                                 ($tocElement/@n) then $tocElement/@n else ''"/>
     <variable name="tocTitleOSIS">
       <choose>
         <when test="$tocElement/self::milestone[@type=concat('x-usfm-toc', $TOC) and @n]"><value-of select="$tocElement/@n"/></when>
@@ -740,7 +809,12 @@
             <otherwise><value-of select="tokenize($tocElement/@sID, '\.')[last()]"/></otherwise>
           </choose>
         </when>
-        <when test="$tocElement/self::seg[@type='keyword']"><value-of select="$tocElement"/></when>
+        <when test="$tocElement/self::seg[@type='keyword'][ancestor::div[@subType='x-navmenu-atoz']]">
+          <value-of select="replace($tocElement, '^\-', '')"/>
+        </when>
+        <when test="$tocElement/self::seg[@type='keyword']">
+          <value-of select="$tocElement"/>
+        </when>
         <otherwise>
           <variable name="errtitle" select="concat($tocElement/name(), ' ', count($tocElement/preceding::*[name()=$tocElement/name()]))"/>
           <value-of select="$errtitle"/>
@@ -941,7 +1015,7 @@
     <dfn xmlns="http://www.w3.org/1999/xhtml"><xsl:sequence select="me:getTocAttributes(.)"/><xsl:value-of select="me:getTocTitle(.)"/></dfn>
     <if test="$currentTask = 'write-xhtml' and 
               not(ancestor::div[@resp='x-oc']) and 
-              not(count($combinedGlossary/*)) and 
+              not($doCombineGlossaries) and 
               me:getTocLevel(.) = 1 and 
               count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"/></variable>
@@ -997,6 +1071,11 @@
 
   <template match="head" mode="xhtml">
     <h2 xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></h2>
+  </template>
+  
+  <template match="item[@subType='x-prevnext-link'][ancestor::div[starts-with(@type, 'x-keyword')]]" mode="xhtml">
+    <param name="combinedGlossary" tunnel="yes"/>
+    <if test="$doCombineGlossaries"><next-match/></if>
   </template>
   
   <template match="item" mode="xhtml">
@@ -1062,7 +1141,7 @@
     <if test="@isMainTocMilestone = 'true'"><call-template name="getMainInlineTOC"/></if>
     <!-- if a glossary disambiguation title is needed, then write that out -->
     <if test="$currentTask = 'write-xhtml' and 
-              not(count($combinedGlossary/*)) and 
+              not($doCombineGlossaries) and 
               me:getTocLevel(.) = 1 and 
               count(distinct-values($referencedOsisDocs//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
       <variable name="kdh"><call-template name="keywordDisambiguationHeading"><with-param name="noName" select="'true'"/></call-template></variable>
@@ -1120,21 +1199,23 @@
     <!-- x-glossary and x-glosslink references may have multiple targets, ignore all but the first -->
     <variable name="osisRef0" select="replace(@osisRef, '\s+.*$', '')"/>
     <variable name="osisRef1" select="replace($osisRef0, '^[^:]*:', '')"/>
-    <!-- when using the combined glossary, redirect to duplicates to the combined glossary -->
-    <variable name="osisRef" select="if (count($combinedGlossary/*)) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
-    <!-- change navmenu introduction links to getIntroFile -->
-    <variable name="isIntroReference" select="self::reference[@type='x-glosslink'][ancestor::item[@subType='x-introduction-link']]"/>
+    <!-- when using the combined glossary, redirect duplicates to the combined glossary -->
+    <variable name="osisRef" select="if ($doCombineGlossaries) then replace($osisRef1, '\.dup\d+', '') else $osisRef1"/>
     <variable name="file">
       <variable name="workid" select="if (contains(@osisRef, ':')) then tokenize(@osisRef, ':')[1] else ancestor::osisText/@osisRefWork"/>
-      <variable name="refIsBible" select="$mainInputOSIS/osis[1]/osisText[1]/header[1]/work[@osisWork = $workid]/type[@type='x-bible']"/>
+      <variable name="refIsBible" select="$osisRef1 != 'BIBLE_TOP' and 
+          $mainInputOSIS/osis[1]/osisText[1]/header[1]/work[@osisWork = $workid]/type[@type='x-bible']"/>
       <choose>
-        <when test="$isIntroReference"><value-of select="me:getIntroFile($bibleOSIS)"/></when>
         <when test="$refIsBible"><value-of select="concat('/xhtml/', me:getFileNameOfRef(@osisRef), '.xhtml')"/></when>
         <otherwise><!-- references to non-bible -->
           <variable name="target" as="node()?">
             <choose>
-              <when test="count($combinedGlossary/*)"><sequence select="$combinedGlossary//*[tokenize(@osisID, ' ') = $osisRef]"/></when>
-              <otherwise><sequence select="($bibleOSIS | $referencedOsisDocs)/osis/osisText[@osisRefWork = $workid]//*[tokenize(@osisID, ' ') = $osisRef]"/></otherwise>
+              <when test="$workid=$DICTMOD and $doCombineGlossaries">
+                <sequence select="$combinedGlossary//*[tokenize(@osisID, ' ') = $osisRef]"/>
+              </when>
+              <otherwise>
+                <sequence select="($bibleOSIS | $referencedOsisDocs)/osis/osisText[@osisRefWork = $workid]//*[tokenize(@osisID, ' ') = $osisRef]"/>
+              </otherwise>
             </choose>
           </variable>
           <choose>
@@ -1156,7 +1237,6 @@
     <variable name="osisRefid" select="replace($osisRef, '!', '_')"/>
     <variable name="osisRefA">
       <choose>
-        <when test="$isIntroReference"/>
         <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')"><value-of select="me:id($osisRefid)"/></when>  <!-- refs containing "!" point to a specific note -->
         <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
           <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
@@ -1167,7 +1247,7 @@
       </choose>
     </variable>
     <choose>
-      <when test="not($file) or not($osisRefA)"><xsl:apply-templates mode="xhtml"/></when>
+      <when test="not($file)"><xsl:apply-templates mode="xhtml"/></when>
       <otherwise>
         <variable name="href" select="me:uri-to-relative(., concat($file, '#', $osisRefA))"/>
         <a xmlns="http://www.w3.org/1999/xhtml" href="{$href}"><xsl:call-template name="class"/><xsl:apply-templates mode="xhtml"/></a>
@@ -1183,11 +1263,6 @@
   <function name="me:id" as="xs:string">
     <param name="s"/>
     <value-of select="replace(replace($s, oc:uniregex('^([^\p{gc=L}_])'), 'x$1'), oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
-  </function>
-  
-  <function name="me:getIntroFile" as="xs:string">
-    <param name="bibleOSIS"/>
-    <value-of select="concat('/xhtml/', me:getFileName($bibleOSIS/descendant::text()[normalize-space()][not(ancestor::header)][1]), '.xhtml')"/>
   </function>
   
   <!-- Use this function if an xhtml element must not contain other elements (for EPUB2 etc. validation). 

@@ -4,6 +4,7 @@ require("$SCRD/scripts/addFootnoteLinks.pl");
 require("$SCRD/scripts/bible/addDictLinks.pl");
 require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 require("$SCRD/scripts/bible/addCrossRefs.pl");
+require("$SCRD/scripts/applyPeriphInstructions.pl");
 
 # This script expects a usfm2osis.py produced OSIS input file
 sub processOSIS($) {
@@ -23,11 +24,14 @@ sub processOSIS($) {
 
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
   if ($modType eq 'bible') {
-    &orderBooksPeriphs(\$OSIS, &conf('Versification'), $customBookOrder);
+    &orderBooks(\$OSIS, &conf('Versification'), $customBookOrder);
+    &applyPeriphInstructions(\$OSIS);
     &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);   
   }
   # Dictionary OSIS: aggregate repeated entries (required for SWORD) and re-order entries if desired
   elsif ($modType eq 'dict') {
+    &applyPeriphInstructions(\$OSIS);
+    
     if (!&conf('KeySort')) {
       &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
@@ -44,7 +48,6 @@ ADDITIONAL \ added before it. This is required so the KeySort value can
 be parsed correctly. This means the string to ignore all brackets and 
 parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
     }
-    
     if (!&conf('LangSortOrder')) {
       &Error("LangSortOrder is missing from config.conf", "
 Although this config entry has been replaced by KeySort and is 
@@ -167,10 +170,10 @@ file to convert footnote references in the text into working hyperlinks.");}
     &removeDefaultWorkPrefixesFAST(\$OSIS);
   }
 
-  # If the project includes a glossary, add glossary navigational menus, and if there is also a glossary div with scope="INT" add intro nav menus as well.
+  # If the project includes a glossary, add glossary navigational menus, and if the 'feature == INT' feature is being used, then add intro nav menus as well.
   if ($DICTMOD) {
     # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
-    my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "scope == INT" "$DICTINPD/CF_usfm2osis.txt"`;
+    my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "feature == INT" "$DICTINPD/CF_usfm2osis.txt"`;
 
     # Tell the user about the introduction nav menu feature if it's available and not being used
     if ($MAINMOD && !$glossContainsINT) {
@@ -182,13 +185,13 @@ file to convert footnote references in the text into working hyperlinks.");}
 "Module $MAINMOD contains module introduction material (located before 
 the first bookGroup, which applies to the entire module). It appears 
 you have not duplicated this material in the glossary. This introductory 
-material could be more useful given scope=INT and then copied into 
-glossary module $DICTMOD. Typically this is done by including the INT 
-USFM file in the glossary with scope=INT and using an EVAL_REGEX to turn 
+material could be more useful if copied into glossary module $DICTMOD. 
+This is done by including the USFM file in both the Bible and glossary 
+with feature == INT and in the glossary using an EVAL_REGEX to turn 
 the headings into glossary keys. A menu system will then automatically 
 be created to make the introduction material available in every book and 
-keyword. Just add code something like this to $DICTMOD/CF_usfm2osis.txt: 
-EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO scope == INT\\n/ 
+keyword. EX.: Add code something like this to $DICTMOD/CF_usfm2osis.txt: 
+EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO feature == INT\\n/ 
 EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
 RUN:./INT.SFM");
         }
@@ -199,8 +202,7 @@ RUN:./INT.SFM");
     my @navmenus = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $XML_PARSER->parse_file($OSIS));
     if (!@navmenus[0]) {
       &Note("Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
-      %params = ($glossContainsINT ? ('introScope' => 'INT'):());
-      &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, \%params);
+      &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS);
     }
     else {&Warn("This OSIS file already has ".@navmenus." navmenus and so this step will be skipped!");}
   }

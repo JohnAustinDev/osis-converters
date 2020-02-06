@@ -8,8 +8,8 @@
  exclude-result-prefixes="#all">
  
   <!-- This XSLT does the following:
-  1) Creates a glossary menu system with links to each glossary entry in the combined glossary and puts it in a glossary with scope="NAVMENU"
-  2) Creates an introduction menu system, if introScope is given
+  1) Creates a glossary menu system with links to each glossary entry in a new glossary div with scope="NAVMENU"
+  2) Creates an introduction menu system, if there is a glossary with the INT feature.
   3) Inserts navigational links to these into every chapter, glossary entry and book introduction
   NOTE: If the introScope parameter is NULL, then no introduction menus/links will be created, and if there is no glossary work listed in the
   OSIS file, then no glossary navigation menus/links will be created. But Bible chapter navigation menus will always be created.
@@ -17,10 +17,7 @@
  
   <xsl:import href="./functions.xsl"/>
  
-  <!-- scope of the glossary div which contains introductory material, if it exists -->
-  <xsl:param name="introScope" select="oc:sarg('introScope', /, '')"/>
-  
-  <!-- this glossary entry will be created as the top level navigation menu if $introScope exists -->
+  <!-- this glossary entry will be the top level navigation menu if $using_INT_feature -->
   <xsl:param name="uiIntroduction" select="oc:sarg('uiIntroduction', /, concat('-- ', //header/work[child::type[@type='x-bible']]/title[1]))"/>
   
   <!-- this glossary entry will be created as the glossary navigation menu -->
@@ -32,11 +29,26 @@
   
   <xsl:variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   
-  <!-- this must be identical to the combinedKeywords variable of osis2xhtml.xsl, or else the html combinedGlossary navmenus could end up with broken links -->
-  <xsl:variable name="dictEntries" select="//div[starts-with(@type, 'x-keyword')][not(@type = 'x-keyword-duplicate')]"/>
+  <!-- this must be identical to the combinedKeywords variable of osis2xhtml.xsl, or else navmenus could end up with broken links -->
+  <xsl:variable name="combinedKeywords" select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
+                                                [not(@type = 'x-keyword-duplicate')]
+                                                [not(ancestor::div[@scope='NAVMENU'])]
+                                                [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+  
+  <xsl:variable name="using_INT_feature" select="//*[@annotateType = 'x-feature'][@annotateRef = 'INT']"/>
+  
+  <xsl:variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
   
   <xsl:template name="identity" match="node()|@*" mode="identity">
     <xsl:copy><xsl:apply-templates select="node()|@*" mode="identity"/></xsl:copy>
+  </xsl:template>
+  
+  <!-- Add TOP osisID -->
+  <xsl:template match="milestone[@type=concat('x-usfm-toc', $TOC)][generate-id() = generate-id($firstTOC)]">
+    <xsl:copy>
+      <xsl:attribute name="osisID" select="if ($isBible) then 'BIBLE_TOP' else 'DICT_TOP'"/>
+      <xsl:apply-templates select="node()|@*[not(name()='osisID')]"/>
+    </xsl:copy>
   </xsl:template>
   
   <!-- insert navmenu links:
@@ -56,16 +68,10 @@
           <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu before: <xsl:value-of select="oc:printNode(.)"/><xsl:if test="self::chapter"><xsl:value-of select="' and following chapters'"/></xsl:if></xsl:with-param></xsl:call-template>
         </xsl:if>
       </xsl:when>
-      <xsl:when test="generate-id(.) = $dictEntries/generate-id()">
+      <xsl:when test="self::div[starts-with(@type, 'x-keyword')]">
         <xsl:copy>
           <xsl:apply-templates select="node()|@*" mode="identity"/>
-          <xsl:call-template name="navmenu">
-            <!-- whenever a main menu is customized, don't add a link to self -->
-            <xsl:with-param name="skip">
-              <xsl:if test=".//seg[@type='keyword'][@osisID=oc:encodeOsisRef($uiIntroduction)]">introduction </xsl:if>
-              <xsl:if test=".//seg[@type='keyword'][@osisID=oc:encodeOsisRef($uiDictionary)]">dictionary </xsl:if>
-            </xsl:with-param>
-          </xsl:call-template>
+          <xsl:call-template name="navmenu"/>
         </xsl:copy>
         <xsl:call-template name="Note"><xsl:with-param name="msg">Added navmenu to keyword: <xsl:value-of select="descendant::seg[@type='keyword']"/></xsl:with-param></xsl:call-template>
       </xsl:when>
@@ -75,10 +81,11 @@
     </xsl:choose>
   </xsl:template>
   
+  <!-- NOTE: Really, links to the glossary from Bibles should be type='x-glossary' but in the navmenus 
+  they are all 'x-glosslink' everywhere, so as to be backward compatible with old CSS -->
   <xsl:template name="navmenu">
     <xsl:param name="combinedGlossary" as="element(div)?" tunnel="yes"/>
     <xsl:param name="skip"/>
-    <xsl:param name="duplicate"/>
     <xsl:variable name="cgEntry" select="$combinedGlossary//*[@realid = generate-id(current())]"/>
     <xsl:variable name="nodeInBibleMod" select="ancestor-or-self::osisText[1]/@osisIDWork = $BIBLEMOD"/>
     <list subType="x-navmenu" resp="x-oc">
@@ -116,18 +123,19 @@
           </p>
         </item>
       </xsl:if>
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction')) and $introScope">
+      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiIntroduction)]) and not(matches($skip, 'introduction'))">
         <item subType="x-introduction-link">
-          <xsl:if test="$duplicate"><xsl:attribute name="resp" select="'duplicate'"/></xsl:if>
           <p type="x-right">
             <xsl:if test="not($nodeInBibleMod) or not(self::chapter)"><xsl:attribute name="subType" select="'x-introduction'"/></xsl:if>
-            <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiIntroduction)}" type="x-glosslink" subType="x-target_self">
+            <xsl:variable name="intref" 
+                select="if ($using_INT_feature) then concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction)) else concat($BIBLEMOD,':','BIBLE_TOP')"/>
+            <reference osisRef="{$intref}" type="x-glosslink" subType="x-target_self">
               <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
             </reference>
           </p>
         </item>
       </xsl:if>
-      <xsl:if test="not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary')) and $DICTMOD">
+      <xsl:if test="$DICTMOD and not(self::seg[@type='keyword'][@osisID = oc:encodeOsisRef($uiDictionary)]) and not(matches($skip, 'dictionary'))">
         <item subType="x-dictionary-link">
           <p type="x-right" subType="x-introduction">
             <reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($uiDictionary)}" type="x-glosslink" subType="x-target_self">
@@ -156,7 +164,7 @@
         
           <xsl:variable name="combinedGlossary" as="element(div)">
             <div type="glossary" subType="x-combinedGlossary">
-              <xsl:for-each select="$dictEntries[not(ancestor::div[@scope='NAVMENU'])]"><!-- The following sort should be the same as that in osis2xhtml.xsl WriteCombinedGlossary -->
+              <xsl:for-each select="$combinedKeywords"><!-- The following sort should be the same as that in osis2xhtml.xsl WriteCombinedGlossary -->
                 <xsl:sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
                 <xsl:copy><xsl:attribute name="realid" select="generate-id(.)"/><xsl:apply-templates/></xsl:copy>
               </xsl:for-each>
@@ -168,15 +176,16 @@
             <xsl:with-param name="combinedGlossary" select="$combinedGlossary" tunnel="yes"/>
           </xsl:apply-templates>
           
-          <xsl:call-template name="Note"><xsl:with-param name="msg">Added NAVMENU glossary</xsl:with-param></xsl:call-template>
+          <!-- NAVMENU is identified using the scope attribute, rather than an osisID, to facilitate the replacement  
+          of uiIntroductionTopMenu by an external div, with the periph INTMENU instruction -->
           <div type="glossary" scope="NAVMENU" resp="x-oc">
             
             <!-- Create a uiIntroduction top menu with links to each introductory heading on it -->
-            <xsl:if test="$introScope and //div[@type='glossary'][@scope=$introScope] and not(root()//*[ends-with(@osisID, '.uiIntroductionTopMenu')])">
+            <xsl:if test="$using_INT_feature and not(root()//*[@osisID = 'uiIntroductionTopMenu'])">
               <xsl:call-template name="Note"><xsl:with-param name="msg">Added introduction menu: <xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
-              <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@scope = $introScope]//seg[@type='keyword']"/>
+              <xsl:variable name="introSubEntries" select="//div[@type='glossary'][@annotateType = 'x-feature'][@annotateRef = 'INT']//seg[@type='keyword']"/>
               <xsl:text>&#xa;</xsl:text>
-              <div osisID="uiIntroductionTopMenu" type="x-keyword-navmenu">
+              <div osisID="uiIntroductionTopMenu" type="x-keyword" subType="x-navmenu-introduction">
                 <seg type="keyword" osisID="{oc:encodeOsisRef($uiIntroduction)}"><xsl:value-of select="$uiIntroduction"/></seg>
                 <xsl:call-template name="navmenu"><xsl:with-param name="skip" select="'introduction'"/></xsl:call-template>
                 <title type="main" subType="x-introduction"><xsl:value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></title>
@@ -200,11 +209,11 @@
               </div>
             </xsl:if>
             
-             <!-- Create a uiDictionary top menu with links to each letter (and A-Z) on it -->
+             <!-- Create a uiDictionary top menu with links to each letter (plus a link to the A-Z menu) on it -->
             <xsl:call-template name="Note"><xsl:with-param name="msg">Added dictionary menu: <xsl:value-of select="replace($uiDictionary, '^[\-\s]+', '')"/></xsl:with-param></xsl:call-template>
             <xsl:variable name="allEntriesTitle" select="concat('-', upper-case(oc:longestStartingMatchKS($combinedGlossary/descendant::seg[@type='keyword'][1])), '-', upper-case(oc:longestStartingMatchKS($combinedGlossary/descendant::seg[@type='keyword'][last()])))"/>
             <xsl:text>&#xa;</xsl:text>
-            <div osisID="uiDictionaryTopMenu" type="x-keyword-navmenu">
+            <div osisID="uiDictionaryTopMenu" type="x-keyword" subType="x-navmenu-dictionary">
               <p>
                 <seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
                   <xsl:value-of select="$uiDictionary"/>
@@ -227,7 +236,7 @@
             
             <!-- Create a sub-menu with links to every keyword listed on it -->
             <xsl:text>&#xa;</xsl:text>
-            <div type="x-keyword-navmenu">
+            <div osisID="dictionaryAtoZ" type="x-keyword" subType="x-navmenu-atoz">
               <p>
                 <seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}">
                   <xsl:value-of select="$allEntriesTitle"/>
@@ -261,12 +270,15 @@
             </xsl:variable>
             <xsl:for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
               <xsl:text>&#xa;</xsl:text>
-              <div type="x-keyword-navmenu"><xsl:sequence select="current-group()"/></div>
+              <div type="x-keyword" subType="x-navmenu-letter"><xsl:sequence select="current-group()"/></div>
             </xsl:for-each-group>
             <xsl:text>&#xa;</xsl:text>
             
           </div>
           <xsl:text>&#xa;</xsl:text>
+          
+          <xsl:call-template name="Note"><xsl:with-param name="msg">Added NAVMENU glossary</xsl:with-param></xsl:call-template>
+          
         </xsl:copy>
       </xsl:otherwise>
     </xsl:choose>
@@ -277,15 +289,6 @@
     <xsl:copy>
       <xsl:attribute name="subType">x-target_self</xsl:attribute>
       <xsl:apply-templates select="node()|@*" mode="#current"/>
-    </xsl:copy>
-  </xsl:template>
-  
-  <!-- Add resp='duplicate' to Paratext Bible introductions if the glossary also includes the introduction, so it may be removed when desired. -->
-  <xsl:template match="div[@osisRef=$introScope]">
-    <xsl:copy>
-      <xsl:call-template name="Note"><xsl:with-param name="msg">Added resp="duplicate" to div beginning with: "<xsl:value-of select="substring(string-join(.//text()[normalize-space()], ' '), 1, 128)"/>... "</xsl:with-param></xsl:call-template>
-      <xsl:attribute name="resp" select="'duplicate'"/>
-      <xsl:apply-templates select="node()|@*[name()!='osisRef']"/>
     </xsl:copy>
   </xsl:template>
   

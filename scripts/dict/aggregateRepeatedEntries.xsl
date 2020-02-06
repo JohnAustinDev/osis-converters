@@ -9,10 +9,9 @@
   <!-- This XSLT will do the following:
   1) Check and warn about non GLO major divs in the glossary
   2) Check and error if there are glossary keywords outside of a glossary
-  3) Read applicable glossary scope comments and write them to parent glossary scope, and add any scope-title
-  4) Separate all glossary keywords into their own child divs
-  5) Assign osisIDs to keywords
-  6) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
+  3) Separate all glossary keywords into their own child divs
+  4) Assign osisIDs to keywords
+  5) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
   -->
  
   <import href="../functions.xsl"/>
@@ -34,21 +33,29 @@
   
   <!-- Root template -->
   <template match="/">
+  
+    <!-- Error if keywords are outside of glossary -->
     <for-each select="//seg[@type='keyword'][not(ancestor::div[@type='glossary'])]">
       <call-template name="Error">
         <with-param name="msg">Keywords must be in a GLO (glossary) div: <value-of select="."/></with-param>
         <with-param name="exp">Either change the keyword into a regular title, or change the \id USFM tag file-type of the containing file to GLO.</with-param>
       </call-template>
     </for-each>
+    
+    <!-- Warn about material dropped from SWORD -->
     <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary']">
       <call-template name="Warn">
         <with-param name="msg">The div with type="<value-of select="@type"/>" will NOT appear in the SWORD glossary module. It contains:&#xa;BEGIN-QUOTE&#xa;<value-of select="."/>&#xa;END-QUOTE&#xa;</with-param>
         <with-param name="exp">Only "\id GLO" type USFM files will appear in the SWORD glossary module.</with-param>
       </call-template>
     </for-each>
+    
+    <!-- Process the OSIS file -->
     <variable name="separateKeywords"><apply-templates mode="separateKeywordMode"/></variable>
     <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>
     <apply-templates select="$writeOsisIDs" mode="writeMode"/>
+    
+    <!-- Log and Report results -->
     <if test="$duplicate_keywords">
       <call-template name="Report"><with-param name="msg"><value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</with-param></call-template>
       <for-each select="$duplicate_keywords"><call-template name="Log"><with-param name="msg" select="string()"/></call-template></for-each>
@@ -59,21 +66,11 @@
   </template>
   
   <!-- Separate glossary contents so each entry and the glossary intro is in its own child div -->
-  <template match="div[@type='glossary']" mode="separateKeywordMode">
+  <template mode="separateKeywordMode" match="div[@type='glossary']">
     <copy><apply-templates select="@*"/>
-      <!-- Write applicable comments to scope -->
-      <variable name="scopeComment" select="replace(string(descendant::comment()[1]), '^.*?\sscope\s*==\s*(.+?)\s*$', '$1')"/>
-      <if test="$scopeComment and $scopeComment != string(descendant::comment()[1])">
-        <attribute name="scope" select="$scopeComment"/>
-        <if test="oc:number-of-matches(string(descendant::comment()[1]), '==') &#62; 1">
-          <call-template name="Error">
-            <with-param name="msg">Only a single "scope == &#60;value&#62;" can be specified for an OSIS glossary div.</with-param>
-            <with-param name="exp">The \id line of an SFM file likely has multiple "scope == &#60;value&#62;" assignments. Remove all but one assignment.</with-param>
-          </call-template>
-        </if>
-      </if>
       <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   
       the end of the keyword's first ancestor div. The following group-by must match what is used in groupCopy template's test attribute. -->
+      <variable name="firstKeywordInGlossary" select="parent::*/descendant::seg[@type='keyword'][1]"/>
       <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node()
           return count($i/following::seg[@type='keyword']) + count($i/following::chapter) - count($i/preceding::div[descendant::seg[@type='keyword']])">
         <sort select="current-grouping-key()" order="descending" data-type="number"/>
@@ -83,6 +80,16 @@
             <variable name="isDuplicate" select="$duplicate_keywords[lower-case(string()) = lower-case($groupCopy[1]/descendant-or-self::seg[@type='keyword'][1])]"/><text>
 </text>     <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace">
               <xsl:attribute name="type">x-keyword<xsl:if test="$isDuplicate">-duplicate</xsl:if></xsl:attribute>
+              <!-- Mark the first keyword in uiIntroductionTopMenu or uiDictionaryTopMenu per INTMENU feature -->
+              <xsl:if test="current-group() intersect $firstKeywordInGlossary">
+                <xsl:variable name="subType">
+                  <xsl:choose>
+                    <xsl:when test="current-group()/ancestor::*[@osisID='uiIntroductionTopMenu']">x-navmenu-introduction</xsl:when>
+                    <xsl:when test="current-group()/ancestor::*[@osisID='uiDictionaryTopMenu']">x-navmenu-dictionary</xsl:when>
+                  </xsl:choose>
+                </xsl:variable>
+                <xsl:if test="$subType"><xsl:attribute name="subType" select="$subType"/></xsl:if>
+              </xsl:if>
               <xsl:apply-templates select="$groupCopy" mode="#current"/>
             </div>
           </when>
@@ -93,7 +100,7 @@
   </template>
   
   <!-- Copy only nodes having at least one descendant that is part of the current-group -->
-  <template match="node()" mode="groupCopy" priority="2">
+  <template mode="groupCopy" match="node()" priority="2">
     <choose>
       <!-- drop any paragraph that contains this group's keyword, since the keyword will always start a new entry and p containers are very restricted in EPUB2 for example -->
       <when test="self::p[descendant::seg[@type='keyword']

@@ -62,7 +62,7 @@ $NOCONSOLELOG = 1;
 $SFM2ALL_SEPARATE_LOGS = 1;
 
 # The attribute types and values below are hardwired into the xsl files
-# to allow them to be more portable. But in Perl, variables are used.
+# to allow them to be more portable. But in Perl, these variables are used.
 
 $ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for adding the element
 
@@ -752,6 +752,7 @@ sub compareDictOsis2DWF($$) {
   }
   
   # Check that all dictionary_words_xml entries are included as keywords in dictosis
+  my %reported;
   foreach my $dwfOsisRef (@dwfOsisRefs) {
     if (!$dwfOsisRef) {next;}
     my $osisRef = $dwfOsisRef->value;
@@ -764,7 +765,13 @@ sub compareDictOsis2DWF($$) {
       my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
       if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
     }
-    if (!$match) {&Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD."); $allmatch = 0;}
+    if (!$match) {
+      if (!$reported{$osisRef}) {
+        &Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD.");
+      }
+      $reported{$osisRef}++;
+      $allmatch = 0;
+    }
   }
   
   # Save any updates back to source dictionary_words_xml
@@ -4403,7 +4410,14 @@ sub writeOsisIDs($) {
   my $myMod = &getOsisRefWork($xml);
   
   # Add osisID to DICT container divs
-  foreach my $div (@{$XPC->findnodes('//osis:div[@type][not(@osisID)][not(@resp="x-oc")][not(starts-with(@type, "book"))][not(starts-with(@type, "x-keyword"))][not(starts-with(@type, "x-aggregate"))][not(contains(@type, "ection"))]', $xml)}) {
+  foreach my $div (
+    @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
+      [not(@resp="x-oc")]
+      [not(starts-with(@type, "book"))]
+      [not(starts-with(@type, "x-keyword"))]
+      [not(starts-with(@type, "x-aggregate"))]
+      [not(contains(@type, "ection"))]', $xml)}
+    ) {
     $div->setAttribute('osisID', &dashCamelCase($div->getAttribute('type')).'_'.&ochash($div->toString()));
     &Note("Adding osisID ".$div->getAttribute('osisID'));
   }
@@ -4456,7 +4470,7 @@ sub dashCamelCase($) {
 }
 
 
-# Check for TOC entries, and write as much missing TOC information as possible
+# Check for TOC entries, and write as much TOC information as possible
 sub writeTOC($$) {
   my $osisP = shift;
   my $modType = shift;
@@ -4577,12 +4591,12 @@ tag number you wish to use.)\n");
       }
         
       # bookSubGroupAuto TOCs are are defined as non-book bookGroup child divs 
-      # having osisRefs, which are either preceded by a book or are the 1st 
+      # having a scope, which are either preceded by a book or are the 1st 
       # or 2nd children of their bookGroup, excluding any bookGroup introduction. 
       # Each bookSubGroupAuto will appear in the TOC.
       my @bookSubGroupAuto = $XPC->findnodes(
-          'child::osis:div[not(@type="book")][not(@resp="'.$ROC.'")][@osisRef][preceding-sibling::*[not(@resp="'.$ROC.'")][1][self::osis:div[@type="book"]]] |
-           child::*[not(@resp="'.$ROC.'")][position()=1 or position()=2][self::osis:div[not(@type="book")][@osisRef]]'
+          'child::osis:div[not(@type="book")][not(@resp="'.$ROC.'")][@scope][preceding-sibling::*[not(@resp="'.$ROC.'")][1][self::osis:div[@type="book"]]] |
+           child::*[not(@resp="'.$ROC.'")][position()=1 or position()=2][self::osis:div[not(@type="book")][@scope]]'
       , $bookGroup);
       for (my $x=0; $x<@bookSubGroupAuto; $x++) {
         if (@bookSubGroupAuto[$x] && $bookGroupIntroTOCM && @bookSubGroupAuto[$x]->unique_key eq $bookGroupIntroTOCM->parentNode->unique_key) {
@@ -4593,7 +4607,7 @@ tag number you wish to use.)\n");
       foreach my $div (@bookSubGroupAuto) {
         # Add bookSubGroup TOC milestones when there isn't one yet
         if (@{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $div)}[0]) {next;}
-        my $tocentry = ($div->hasAttribute('osisRef') ? &getScopeTitle($div->getAttribute('osisRef')):'');
+        my $tocentry = ($div->hasAttribute('scope') ? &getScopeTitle($div->getAttribute('scope')):'');
         if (!$tocentry) {
           my $nexttitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
           if ($nexttitle) {$tocentry = $nexttitle->textContent();}
@@ -4694,6 +4708,19 @@ the localized title to 'SKIP'.");
       $div->insertBefore($toc, $div->firstChild);
       &Note("Inserting glossary TOC entry within introduction div as: $tocTitle");
     }
+    
+    # If a glossary with a TOC entry has only one keyword, don't let that
+    # single keyword become a secondary TOC entry.
+    foreach my $gloss ($XPC->findnodes('//osis:div[@type="glossary"]
+        [descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]]
+        [count(descendant::osis:seg[@type="keyword"]) = 1]', $xml)) {
+      my $ms = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $gloss)}[0];
+      if ($ms->getAttribute('n') =~ /^(\[[^\]]*\])*\[no_toc\]/) {next;}
+      my $kw = @{$XPC->findnodes('descendant::osis:seg[@type="keyword"][1]', $gloss)}[0];
+      if ($kw->getAttribute('n') =~ /^(\[[^\]]*\])*\[no_toc\]/) {next;}
+      $kw->setAttribute('n', '[no_toc]');
+    }
+    
   }
   elsif ($modType eq 'childrens_bible') {return;}
   

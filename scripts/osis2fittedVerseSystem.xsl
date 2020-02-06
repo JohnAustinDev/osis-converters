@@ -15,15 +15,15 @@
   </template>
   
   <!-- Remove all x-vsys milestones -->
-  <template match="milestone[starts-with(@type, 'x-vsys')]"/>
+  <template match="milestone[starts-with(@type, 'x-vsys')]" priority="5"/>
   
   <!-- Remove x-vsys-source annotateRefs -->
-  <template match="@annotateRef[parent::*[@annotateType= 'x-vsys-source']]"/>
+  <template match="@annotateRef[parent::*[@annotateType= 'x-vsys-source']]" priority="5"/>
   
   <!-- Remove all x-vsys attributes -->
-  <template match="@*[starts-with(., 'x-vsys-')]"/>
+  <template match="@*[starts-with(., 'x-vsys-')]" priority="5"/>
   
   <!-- Remove x-vsys resp attributes -->
-  <template match="@resp['x-vsys']"/>
+  <template match="@resp['x-vsys']" priority="5"/>
 
 </stylesheet>
