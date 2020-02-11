@@ -319,6 +319,128 @@
     </for-each>
   </function>
   
+  <function name="oc:myWork" as="xs:string">
+    <param name="node" as="node()"/>
+    <value-of select="root($node)/osis[1]/osisText[1]/@osisIDWork"/>
+  </function>
+  
+    <!-- Use this function if an element must not contain other elements 
+  (for EPUB2 etc. validation). Any element in $expel becomes a sibling 
+  of the container $element, which is divided and duplicated accordingly. -->
+  <function name="oc:expelElements">
+    <param name="element" as="element()"/><!-- container -->
+    <param name="expel" as="element()*"/> <!-- element(s) to be expelled -->
+    <param name="quiet" as="xs:boolean"/>
+    <choose>
+      <when test="count($expel) = 0"><sequence select="$element"/></when>
+      <otherwise>
+        <variable name="pass1">
+          <for-each-group select="$element" group-by="for $i in ./descendant-or-self::node() 
+              return 2*count($i/preceding::node()[. intersect $expel]) + 
+                     count($i/ancestor-or-self::node()[. intersect $expel])">
+            <apply-templates mode="expel1" select="current-group()">
+              <with-param name="expel" select="$expel" tunnel="yes"/>
+            </apply-templates>
+          </for-each-group>
+        </variable>
+        <!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
+        <variable name="pass2"><apply-templates mode="expel2" select="$pass1"/></variable>
+        <if test="not($quiet) and count($element/node())+1 != count($pass2/node())">
+          <call-template name="Note">
+            <with-param name="msg">
+expelling<for-each select="$expel">: <value-of select="oc:printNode(.)"/></for-each>
+            </with-param>
+          </call-template>
+        </if>
+        <sequence select="$pass2"/>
+      </otherwise>
+    </choose>
+  </function>
+  <template mode="expel1" match="@*"><copy/></template>
+  <template mode="expel1" match="node()">
+    <param name="expel" as="element()+" tunnel="yes"/>
+    <variable name="nodesInGroup" select="descendant-or-self::node()[me:expelGroupingKey(., $expel) = current-grouping-key()]" as="node()*"/>
+    <variable name="expelElement" select="$nodesInGroup/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
+    <if test="$nodesInGroup"><!-- drop the context node if it has no descendants or self in the current group -->
+      <choose>
+        <when test="$expelElement and descendant::*[generate-id(.) = generate-id($expelElement)]"><apply-templates mode="expel1"/></when>
+        <otherwise>
+          <copy>
+            <if test="child::node()[normalize-space()]"><attribute name="container"/></if><!-- used to remove empty generated containers in pass2 -->
+            <if test="current-grouping-key() &#62; me:expelGroupingKey(descendant::*[generate-id(.) = $expel/generate-id()][1], $expel)">
+              <attribute name="class" select="'continuation'"/>
+            </if>
+            <apply-templates mode="expel1" select="node()|@*"/>
+          </copy>
+        </otherwise>
+      </choose>
+    </if>
+  </template>
+  <function name="me:expelGroupingKey" as="xs:integer">
+    <param name="node" as="node()?"/>
+    <param name="expel" as="element()+"/>
+    <value-of select="2*count($node/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($node/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])"/>
+  </function>
+  <template mode="expel2" match="node()|@*"><copy><apply-templates mode="expel2" select="node()|@*"/></copy></template>
+  <template mode="expel2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
+  <template mode="expel2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
+  
+  <!-- oc:uri-to-relative-path ($base-uri, $rel-uri) this function converts a 
+  URI to a relative path using another URI directory as base reference. -->
+  <function name="oc:uri-to-relative-path" as="xs:string">
+    <param name="base-uri-file" as="xs:string"/> <!-- the URI base (file or directory) -->
+    <param name="rel-uri-file" as="xs:string"/>  <!-- the URI to be converted to a relative path from that base (file or directory) -->
+    
+    <!-- base-uri begins and ends with '/' or is just '/' -->
+    <variable name="base-uri" select="replace(replace($base-uri-file, '^([^/])', '/$1'), '/[^/]*$', '')"/>
+    
+    <!-- for rel-uri, any '.'s at the start of rel-uri-file are IGNORED so it begins with '/' -->
+    <variable name="rel-uri" select="replace(replace($rel-uri-file, '^\.+', ''), '^([^/])', '/$1')"/>
+    <variable name="tkn-base-uri" select="tokenize($base-uri, '/')" as="xs:string+"/>
+    <variable name="tkn-rel-uri" select="tokenize($rel-uri, '/')" as="xs:string+"/>
+    <variable name="uri-parts-max" select="max((count($tkn-base-uri), count($tkn-rel-uri)))" as="xs:integer"/>
+    <!--  count equal URI parts with same index -->
+    <variable name="uri-equal-parts" select="for $i in (1 to $uri-parts-max) 
+      return $i[$tkn-base-uri[$i] eq $tkn-rel-uri[$i]]" as="xs:integer*"/>
+    <choose>
+      <!--  both URIs must share the same URI scheme -->
+      <when test="$uri-equal-parts[1] eq 1">
+        <!-- drop directories that have equal names but are not physically equal, 
+        e.g. their value should correspond to the index in the sequence -->
+        <variable name="dir-count-common" select="max(
+            for $i in $uri-equal-parts 
+            return $i[index-of($uri-equal-parts, $i) eq $i]
+          )" as="xs:integer"/>
+        <!-- difference from common to URI parts to common URI parts -->
+        <variable name="delta-base-uri" select="count($tkn-base-uri) - $dir-count-common" as="xs:integer"/>
+        <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>    
+        <variable name="relative-path" select="
+          concat(
+          (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
+          (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
+          )" as="xs:string"/>
+        <choose>
+          <when test="starts-with($rel-uri, concat($base-uri, '#'))">
+            <value-of select="concat('#', tokenize($rel-uri, '#')[last()])"/>
+          </when>
+          <otherwise>
+            <value-of select="$relative-path"/>
+          </otherwise>
+        </choose>
+      </when>
+      <!-- if both URIs share no equal part (e.g. for the reason of different URI 
+      scheme names) then it's not possible to create a relative path. -->
+      <otherwise>
+        <value-of select="$rel-uri"/>
+        <call-template name="Error">
+          <with-param name="msg">
+Indeterminate path:"<xsl:value-of select="$rel-uri"/>" is not relative to "<xsl:value-of select="$base-uri"/>"
+          </with-param>
+        </call-template>
+      </otherwise>
+    </choose>
+  </function>
+  
   <function name="oc:printNode" as="text()">
     <param name="node" as="node()?"/>
     <choose>
