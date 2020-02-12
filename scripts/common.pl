@@ -4024,10 +4024,15 @@ sub runScript($$\%$) {
   my $overwrite = shift;
   
   my $name = $script; 
-  my $ext; if ($name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/) {$ext = $2;}
+  my $ext;
+  if ($name =~ s/^.*?\/([^\/]+)\.([^\.\/]+)$/$1/) {$ext = $2;}
   else {
     &ErrorBug("runScript: Bad script name \"$script\"!");
     return 0;
+  }
+  
+  if (! -e $script) {
+    &ErrorBug("runScript: Script not found \"$script\"!");
   }
   
   my $output = $$inputP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;

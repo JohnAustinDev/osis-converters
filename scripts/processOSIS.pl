@@ -210,6 +210,8 @@ RUN:./INT.SFM");
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
   
+  &runScript("$SCRD/scripts/namespace.xsl", \$OSIS); 
+  
   # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
@@ -310,6 +312,8 @@ sub reprocessOSIS($) {
 
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
+  
+  &runScript("$SCRD/scripts/namespace.xsl", \$OSIS); 
 
   # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
   &runAnyUserScriptsAt("postprocess", \$OSIS);
