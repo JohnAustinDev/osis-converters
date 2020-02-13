@@ -178,12 +178,12 @@
       </metadata>
       <manifest>
         <xsl:for-each select="$xhtmlFiles">
-          <item href="xhtml/{.}.xhtml" id="{me:id(.)}" media-type="application/xhtml+xml"/>
+          <item href="xhtml/{.}.xhtml" id="{oc:id(.)}" media-type="application/xhtml+xml"/>
         </xsl:for-each>
         <xsl:for-each select="distinct-values((//figure/@src, $referenceOSIS//figure/@src))">
           <item>
             <xsl:attribute name="href" select="if (starts-with(., './')) then substring(., 3) else ."/>
-            <xsl:attribute name="id" select="me:id(tokenize(., '/')[last()])"/>
+            <xsl:attribute name="id" select="oc:id(tokenize(., '/')[last()])"/>
             <xsl:attribute name="media-type">
               <choose xmlns="http://www.w3.org/1999/XSL/Transform">
                 <when test="matches(lower-case(.), '(jpg|jpeg|jpe)')">image/jpeg</when>
@@ -199,13 +199,13 @@
             <!-- In the manifest, css file paths are absolute (do not start 
             with . or /) but font files are relative (begin with .) -->
             <xsl:when test="ends-with(lower-case(.), 'css')">
-              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="text/css"/>
+              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{oc:id(.)}" media-type="text/css"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'ttf')">
-              <item href="{if (starts-with(., './')) then . else concat('./', .)}" id="{me:id(.)}" media-type="application/x-font-truetype"/>
+              <item href="{if (starts-with(., './')) then . else concat('./', .)}" id="{oc:id(.)}" media-type="application/x-font-truetype"/>
             </xsl:when>
             <xsl:when test="ends-with(lower-case(.), 'otf')">
-              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{me:id(.)}" media-type="application/vnd.ms-opentype"/>
+              <item href="{if (starts-with(., './')) then substring(., 3) else .}" id="{oc:id(.)}" media-type="application/vnd.ms-opentype"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:call-template name="Error">
@@ -217,7 +217,7 @@
       </manifest>
       <spine toc="ncx">
         <xsl:for-each select="$xhtmlFiles">
-          <itemref idref="{me:id(.)}"/>
+          <itemref idref="{oc:id(.)}"/>
         </xsl:for-each>
       </spine>
     </package>
@@ -541,23 +541,17 @@ processProject: currentTask = <value-of select="$currentTask"/>,
         <variable name="group" select="count($node/preceding::div[starts-with(@type, 'x-keyword')])"/>
         <value-of select="if ($root = 'comb') then 
             concat($root, '_glossary', '/', 'k', $group) else 
-            concat($root, '_glossary', '/', 'p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
+            concat($root, '_glossary', '/', 'p', oc:hashUsfmType($refUsfmType), '_k', $group)"/>
       </when>
       <!-- non-glossary refUsfmType nodes -->
       <when test="$refUsfmType">
-        <value-of select="concat($root, '_', $refUsfmType/@type, '/', 'p', me:hashUsfmType($refUsfmType))"/>
+        <value-of select="concat($root, '_', $refUsfmType/@type, '/', 'p', oc:hashUsfmType($refUsfmType))"/>
       </when>
       <!-- unknown type nodes (osis-converters gives osisIDs to top level divs, so use osisID)-->
       <otherwise>
         <value-of select="concat($root, '_', $node/ancestor::div[parent::osisText]/@osisID)"/>
       </otherwise>
     </choose>
-  </function>
-  <function name="me:hashUsfmType" as="xs:string">
-    <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="oc:getGlossaryTitle($usfmType)"/>
-    <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
-    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
   
   <!-- This template may be called with a Bible osisRef string. It does
@@ -667,11 +661,11 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
   <template mode="footnotes crossrefs" match="node()"><apply-templates mode="#current"/></template>
   <template mode="footnotes" match="note[not(@type) or @type != 'crossReference']">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <html:div id="{me:id($osisIDid)}" class="xsl-footnote">
+    <html:div id="{oc:id($osisIDid)}" class="xsl-footnote">
       <if test="$NoEpub3Markup = 'false'">
         <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
       </if>
-      <html:a href="#textsym.{me:id($osisIDid)}">
+      <html:a href="#textsym.{oc:id($osisIDid)}">
         <call-template name="getFootnoteSymbol">
           <with-param name="classes" 
             select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/>
@@ -684,11 +678,11 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
   </template>
   <template mode="crossrefs" match="note[@type='crossReference']">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <html:div id="{me:id($osisIDid)}" class="xsl-crossref">
+    <html:div id="{oc:id($osisIDid)}" class="xsl-crossref">
       <if test="$NoEpub3Markup = 'false'">
         <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
       </if>
-      <html:a href="#textsym.{me:id($osisIDid)}">
+      <html:a href="#textsym.{oc:id($osisIDid)}">
         <call-template name="getFootnoteSymbol">
           <with-param name="classes" 
             select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/>
@@ -1387,7 +1381,7 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
     <param name="combinedGlossary" tunnel="yes"/>
     <param name="currentTask" tunnel="yes"/>
     <!-- output hyperlink target for every keyword -->
-    <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
+    <span id="{oc:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
     <html:dfn>
       <sequence select="me:getTocAttributes(.)"/>
       <value-of select="me:getTocTitle(.)"/>
@@ -1620,7 +1614,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   <template mode="xhtml" match="note">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
     <html:sup>
-      <html:a href="#{me:id($osisIDid)}" id="textsym.{me:id($osisIDid)}">
+      <html:a href="#{oc:id($osisIDid)}" id="textsym.{oc:id($osisIDid)}">
         <if test="$NoEpub3Markup = 'false'">
           <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/>
         </if>
@@ -1727,7 +1721,7 @@ Multiple targets with same osisID (<value-of select="count($target)"/>): osisID=
       <choose>
         <!-- refs containing "!" point to a specific note -->
         <when test="starts-with(@type, 'x-gloss') or contains(@osisRef, '!')">
-          <value-of select="me:id($osisRefid)"/>
+          <value-of select="oc:id($osisRefid)"/>
         </when>
         <otherwise>  <!--other refs are to Scripture, so jump to first verse of range  -->
           <variable name="osisRefStart" select="tokenize($osisRefid, '\-')[1]"/>  
@@ -1759,14 +1753,6 @@ Multiple targets with same osisID (<value-of select="count($target)"/>): osisID=
       <apply-templates mode="xhtml"/>
     </html:tr>
   </template>
-  
-  <!-- xml:id must start with a letter or underscore, and can only 
-  contain letters, digits, underscores, hyphens, and periods. -->
-  <function name="me:id" as="xs:string">
-    <param name="s"/>
-    <value-of select="replace(replace($s, oc:uniregex('^([^\p{gc=L}_])'), 'x$1'), 
-                              oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
-  </function>
   
   <!-- Return the relative path from a node's source file to a URL -->
   <function name="me:uri-to-relative" as="xs:string">

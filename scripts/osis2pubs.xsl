@@ -16,10 +16,6 @@
   <!-- Use the source (translator's custom) verse system -->
   <include href="./osis2sourceVerseSystem.xsl"/>
   
-  <!-- References to these navmenu keywords may have been written by navigationMenu.xsl -->
-  <param name="uiIntroduction" select="oc:sarg('uiIntroduction', /, concat('-- ', //header/work[child::type[@type='x-bible']]/title[1]))"/>
-  <param name="uiDictionary" select="oc:sarg('uiDictionary', /, concat('- ', //header/work[child::type[@type='x-glossary']]/title[1]))"/>
-  
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   <variable name="biblemod" select="/osis/osisText/header/work[child::type[@type='x-bible']]/@osisWork"/>
   <variable name="dictmod" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>

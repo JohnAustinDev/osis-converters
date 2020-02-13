@@ -30,7 +30,6 @@
   <param name="uiDictionary" 
     select="oc:sarg('uiDictionary', /, concat('- ', //header/work[child::type[@type='x-glossary']]/title[1]))"/>
     
-  
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
   <function name="oc:conf" as="xs:string?">
@@ -140,6 +139,21 @@
     <param name="gc" as="xs:string?"/>
     <variable name="unicodeLetters" select="'ᴴЦ'"/>
     <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
+  </function>
+  
+  <!-- xml:id must start with a letter or underscore, and can only 
+  contain letters, digits, underscores, hyphens, and periods. -->
+  <function name="oc:id" as="xs:string">
+    <param name="s"/>
+    <value-of select="replace(replace($s, oc:uniregex('^([^\p{gc=L}_])'), 'x$1'), 
+                              oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
+  </function>
+  
+  <function name="oc:hashUsfmType" as="xs:string">
+    <param name="usfmType" as="element(div)"/>
+    <variable name="title" select="oc:getGlossaryTitle($usfmType)"/>
+    <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
+    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
   </function>
   
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
