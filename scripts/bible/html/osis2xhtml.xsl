@@ -8,7 +8,8 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns:html="http://www.w3.org/1999/xhtml"
- xmlns:epub="http://www.idpf.org/2007/ops">
+ xmlns:epub="http://www.idpf.org/2007/ops"
+ exclude-result-prefixes="#all">
   <!--
   
   OSIS TO HTML 
@@ -98,7 +99,7 @@
   
   <!-- Each MOBI footnote must be on single line, or they will not display correctly in MOBI popups! 
   Therefore indent="no" is a requirement for xhtml outputs. -->
-  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="xhtml"/>
+  <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="no" name="htmlfiles"/>
   
   <!-- The following default output is for the content.opf output file -->
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
@@ -144,7 +145,7 @@
     <variable name="xhtmlFiles" as="xs:string*">
       <!-- processProject must be run twice: once to return file names and a second time
       to write the files. Trying to do both at once results in the following error:
-      XTDE1480: Cannot switch to a final result destination while writing a temporary tree -->
+      "XTDE1480: Cannot switch to a final result destination while writing a temporary tree" -->
       <call-template name="processProject">
         <with-param name="currentTask" select="'get-filenames'" tunnel="yes"/>
         <with-param name="preprocessedOSIS" select="$preprocessedOSIS" tunnel="yes"/>
@@ -214,7 +215,11 @@
           </xsl:choose>
         </xsl:for-each>
       </manifest>
-      <spine toc="ncx"><xsl:for-each select="$xhtmlFiles"><itemref idref="{me:id(.)}"/></xsl:for-each></spine>
+      <spine toc="ncx">
+        <xsl:for-each select="$xhtmlFiles">
+          <itemref idref="{me:id(.)}"/>
+        </xsl:for-each>
+      </spine>
     </package>
     
     <call-template name="processProject">
@@ -260,21 +265,17 @@ processProject: currentTask = <value-of select="$currentTask"/>,
   the x-aggregate glossary -->
   <template name="WriteCombinedGlossary">
     <param name="combinedKeywords" as="element(div)+"/>
-    <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-      <attribute name="type" select="'glossary'"/>
-      <attribute name="root-name" select="'comb'"/>
-      <attribute name="osisID" select="'DICT_TOP'"/>
-      <milestone type="{concat('x-usfm-toc', $TOC)}" n="[level1]{$CombinedGlossaryTitle}" 
-        xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"/>
-      <title type="main" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace">
-        <xsl:value-of select="$CombinedGlossaryTitle"/>
-      </title>
+    <osis:div type="glossary" root-name="comb" osisID="DICT_TOP">
+      <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$CombinedGlossaryTitle}"/>
+      <osis:title type="main">
+        <value-of select="$CombinedGlossaryTitle"/>
+      </osis:title>
       <for-each select="$combinedKeywords">
         <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
           collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <apply-templates mode="writeCombinedGlossary" select="."/>
       </for-each>
-    </element>
+    </osis:div>
   </template>
   <template mode="writeCombinedGlossary" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
@@ -414,15 +415,8 @@ processProject: currentTask = <value-of select="$currentTask"/>,
   <template mode="divideFiles" match="div[@type='glossary'][@root-name='comb' or oc:myWork(.) != $mainWORK]">
     <param name="currentTask" tunnel="yes"/>
     <param name="combinedGlossary" tunnel="yes"/>
-    <!-- Put each pre-keyword and keyword into separate files to ensure 
-    that links and article tags all work properly across various eBook 
-    readers. But if a glossary div contains only one keyword, the entire 
-    contents is put into one file, which is necessary if that keyword 
-    is a [no_toc] is is commonly done. -->
     <for-each-group select="node()" 
-        group-adjacent="if (count(parent::*/child::div[starts-with(@type, 'x-keyword')]) = 1) then 1 else 
-        0.5 + 0.5*count(self::div[starts-with(@type, 'x-keyword')]) + 
-        count(preceding::div[starts-with(@type, 'x-keyword')])">
+        group-adjacent="count(preceding::div[starts-with(@type, 'x-keyword')])">
       <choose>
         <!-- Either divs are output OR the combined glossary is output. Never both -->
         <when test="not($doCombineGlossaries) or ancestor::div[@root-name]">
@@ -450,37 +444,39 @@ processProject: currentTask = <value-of select="$currentTask"/>,
    file above. It writes the file's contents and adds it to manifest and spine -->
   <template name="ProcessFile">
     <param name="fileNodes" as="node()*"/>
-    <!-- A currentTask param is used in lieu of XSLT's mode feature here. 
-    This is necessary because identical template selectors are required 
-    for multiple modes (ie. a single template element should handle 
-    multiple modes), yet template content must also vary by mode 
-    (something XSLT 2.0 modes alone can't do) -->
+    <!-- A currentTask param is necessary because identical template 
+    selectors are required for multiple modes (ie. a single template 
+    element should handle multiple modes), yet template content must 
+    also vary by mode (something XSLT 2.0 modes alone can't do) -->
     <param name="currentTask" tunnel="yes"/>
     
     <variable name="fileName" select="me:getFileName(.)"/>
-    <variable name="fileXHTML_0"><apply-templates mode="xhtml" select="$fileNodes"/></variable>
-    <variable name="fileXHTML"><apply-templates mode="postprocess" select="$fileXHTML_0"/></variable>
-    
-    <!-- Unless the resulting xhtml file contains some text or images, drop it -->
-    <variable name="keepXHTML" 
-              select="boolean($fileXHTML/descendant::text()[normalize-space()] or 
-                              $fileXHTML/descendant::*[local-name()='img'])"/>
-    <if test="$keepXHTML">
-      <choose>
-        <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
-        <otherwise>
-          <variable name="fileNotes">
-            <call-template name="noteSections"><with-param name="nodes" select="$fileNodes"/></call-template>
-          </variable>
-          <call-template name="WriteFile">
-            <with-param name="fileName" select="$fileName"/>
-            <with-param name="OSISelement" select="$fileNodes[1]"/>
-            <with-param name="fileXHTML" select="$fileXHTML"/>
-            <with-param name="fileNotes" select="$fileNotes"/>
+
+    <choose>
+      <when test="$currentTask = 'get-filenames'"><value-of select="$fileName"/></when>
+      <otherwise>
+        <variable name="fileXHTML_0">
+          <apply-templates mode="xhtml" select="$fileNodes"/>
+        </variable>
+        <variable name="fileXHTML">
+          <apply-templates mode="postprocess" select="$fileXHTML_0"/>
+        </variable>
+        <variable name="fileNotes_0">
+          <call-template name="noteSections">
+            <with-param name="nodes" select="$fileNodes"/>
           </call-template>
-        </otherwise>
-      </choose>
-    </if>
+        </variable>
+        <variable name="fileNotes">
+          <apply-templates mode="postprocess" select="$fileNotes_0"/>
+        </variable>
+        <call-template name="WriteFile">
+          <with-param name="fileName" select="$fileName"/>
+          <with-param name="OSISelement" select="$fileNodes[1]"/>
+          <with-param name="fileXHTML" select="$fileXHTML"/>
+          <with-param name="fileNotes" select="$fileNotes"/>
+        </call-template>
+      </otherwise>
+    </choose>
     
   </template>
   
@@ -493,6 +489,12 @@ processProject: currentTask = <value-of select="$currentTask"/>,
     <variable name="duplicateTitle" 
         select="lower-case($precedingTOC[1]/preceding::text()[normalize-space()][1][parent::html:h1]) = lower-case(text()[1])"/>
     <if test="not($duplicateTitle)"><next-match/></if>
+  </template>
+  <!-- Remove html prefixes -->
+  <template mode="postprocess" match="*[namespace-uri()='http://www.w3.org/1999/xhtml']" priority="1">
+   <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
+     <apply-templates mode="#current" select="node()|@*"/>
+   </element>
   </template>
   
   <!-- This function may be called on any node. It returns the output 
@@ -536,11 +538,7 @@ processProject: currentTask = <value-of select="$currentTask"/>,
       </when>
       <!-- Reference OSIS glossary nodes -->
       <when test="not($isMainNode) and $node/ancestor-or-self::div[@type='glossary']">
-        <variable name="singleKeyword" 
-            select="count($node/ancestor-or-self::div[@type='glossary'][1]/child::div[starts-with(@type, 'x-keyword')]) = 1"/>
-        <variable name="group" select="if ($singleKeyword) then 1 else 
-            0.5 + count($node/preceding::div[starts-with(@type, 'x-keyword')]) + 
-            0.5*count($node/ancestor-or-self::div[starts-with(@type, 'x-keyword')][1])"/>
+        <variable name="group" select="count($node/preceding::div[starts-with(@type, 'x-keyword')])"/>
         <value-of select="if ($root = 'comb') then 
             concat($root, '_glossary', '/', 'k', $group) else 
             concat($root, '_glossary', '/', 'p', me:hashUsfmType($refUsfmType), '_k', $group)"/>
@@ -592,7 +590,7 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
     <call-template name="Log">
       <with-param name="msg" select="concat('writing:', $fileName)"/>
     </call-template>
-    <result-document format="xhtml" method="xml" href="xhtml/{$fileName}.xhtml">
+    <result-document format="htmlfiles" href="xhtml/{$fileName}.xhtml">
       <html xmlns="http://www.w3.org/1999/xhtml">
         <head>
           <meta name="generator" content="OSIS"/>
@@ -656,49 +654,49 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
   <!-- Write footnote and cross reference sections -->
   <template name="noteSections">
     <param name="nodes"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-footnote-section">
-      <hr/><xsl:text>&#xa;</xsl:text>
-      <xsl:apply-templates mode="footnotes" select="$nodes"/>
-    </div>
-    <div xmlns="http://www.w3.org/1999/xhtml" class="xsl-crossref-section">
-      <hr/><xsl:text>&#xa;</xsl:text>
-      <xsl:apply-templates mode="crossrefs" select="$nodes"/>
-    </div>
+    <html:div class="xsl-footnote-section">
+      <html:hr/><text>&#xa;</text>
+      <apply-templates mode="footnotes" select="$nodes"/>
+    </html:div>
+    <html:div class="xsl-crossref-section">
+      <html:hr/><text>&#xa;</text>
+      <apply-templates mode="crossrefs" select="$nodes"/>
+    </html:div>
   </template>
               
   <template mode="footnotes crossrefs" match="node()"><apply-templates mode="#current"/></template>
   <template mode="footnotes" match="note[not(@type) or @type != 'crossReference']">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-footnote">
-      <xsl:if test="$NoEpub3Markup = 'false'">
-        <xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
-      </xsl:if>
-      <a href="#textsym.{me:id($osisIDid)}">
-        <xsl:call-template name="getFootnoteSymbol">
-          <xsl:with-param name="classes" 
+    <html:div id="{me:id($osisIDid)}" class="xsl-footnote">
+      <if test="$NoEpub3Markup = 'false'">
+        <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
+      </if>
+      <html:a href="#textsym.{me:id($osisIDid)}">
+        <call-template name="getFootnoteSymbol">
+          <with-param name="classes" 
             select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/>
-        </xsl:call-template>
-      </a>
-      <xsl:value-of select="' '"/>
-      <xsl:apply-templates mode="xhtml"/>
-    </div>
+        </call-template>
+      </html:a>
+      <value-of select="' '"/>
+      <apply-templates mode="xhtml"/>
+    </html:div>
     <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
   </template>
   <template mode="crossrefs" match="note[@type='crossReference']">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <div xmlns="http://www.w3.org/1999/xhtml" id="{me:id($osisIDid)}" class="xsl-crossref">
-      <xsl:if test="$NoEpub3Markup = 'false'">
-        <xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
-      </xsl:if>
-      <a href="#textsym.{me:id($osisIDid)}">
-        <xsl:call-template name="getFootnoteSymbol">
-          <xsl:with-param name="classes" 
+    <html:div id="{me:id($osisIDid)}" class="xsl-crossref">
+      <if test="$NoEpub3Markup = 'false'">
+        <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'footnote'"/>
+      </if>
+      <html:a href="#textsym.{me:id($osisIDid)}">
+        <call-template name="getFootnoteSymbol">
+          <with-param name="classes" 
             select="normalize-space(string-join((me:getClasses(.), 'xsl-note-head'), ' '))"/>
-        </xsl:call-template>
-      </a>
-      <xsl:value-of select="' '"/>
-      <xsl:apply-templates mode="xhtml"/>
-    </div>
+        </call-template>
+      </html:a>
+      <value-of select="' '"/>
+      <apply-templates mode="xhtml"/>
+    </html:div>
     <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
   </template>
   
@@ -724,7 +722,7 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
       </when>
       <otherwise>
         <attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>
-        <value-of select="'['"/><xsl:call-template name="getFootnoteNumber"/><value-of select="']'"/>
+        <value-of select="'['"/><call-template name="getFootnoteNumber"/><value-of select="']'"/>
       </otherwise>
     </choose>
   </template>
@@ -812,10 +810,9 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
       </for-each>
     </variable>
     <if test="count($listElements/*)">
-      <element name="div" namespace="http://www.w3.org/1999/xhtml">
-        <attribute name="id" select="'root-toc'"/>
+      <html:div id="root-toc">
         <sequence select="me:getInlineTocDiv($listElements/*, 'ol', true())"/>
-      </element>
+      </html:div>
     </if>
   </template>
   
@@ -887,7 +884,7 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
     <variable name="backIsOneColumn" 
               select="$maxChars &#62; $mainTocMaxBackChars"/>
 
-    <element name="div" namespace="http://www.w3.org/1999/xhtml">
+    <html:div>
       <variable name="class">xsl-inline-toc
         <if test="not($bookIsTwoColumns)">xsl-one-book-column</if>
         <if test="$backIsOneColumn">xsl-one-back-column</if>
@@ -896,7 +893,7 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
       </variable>
       <attribute name="class" select="replace($class, '[\s\n]+', ' ')"/>
       <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
-      <element name="div" namespace="http://www.w3.org/1999/xhtml">
+      <html:div>
         <choose>
           <!-- limit main TOC width, because li width is specified as % in css -->
           <when test="$isTopTOC">
@@ -915,8 +912,8 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
             <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
           </if>
         </for-each-group>
-      </element>
-    </element>
+      </html:div>
+    </html:div>
     
   </function>
   
@@ -1066,15 +1063,15 @@ Bible reference <value-of select="$osisRef"/> targets a work other than <value-o
                                             [@type = current()/@type]/
                                             string-length(string()))"/>
           <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
-          <li xmlns="http://www.w3.org/1999/xhtml">
-            <xsl:attribute name="class" select="@class"/>
-            <xsl:if test="not($isTopTOC) and not(@noWidth='true')">
-              <xsl:attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/>
-            </xsl:if>
-            <a><xsl:attribute name="href" select="@href"/>
-              <xsl:value-of select="string()"/>
-            </a>
-          </li>
+          <html:li >
+            <attribute name="class" select="@class"/>
+            <if test="not($isTopTOC) and not(@noWidth='true')">
+              <attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/>
+            </if>
+            <html:a><attribute name="href" select="@href"/>
+              <value-of select="string()"/>
+            </html:a>
+          </html:li>
         </for-each>
       </if>
     </if>
@@ -1258,9 +1255,9 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
               [ following::*[ self::p | self::l | self::item | self::title[@canonical='true'] ][1] 
                 intersect current()
               ]">
-      <span xmlns="http://www.w3.org/1999/xhtml" class="xsl-chapter-number">
-        <xsl:value-of select="tokenize(preceding::chapter[@sID][1]/@osisID, '\.')[last()]"/>
-      </span>
+      <html:span class="xsl-chapter-number">
+        <value-of select="tokenize(preceding::chapter[@sID][1]/@osisID, '\.')[last()]"/>
+      </html:span>
     </if>
   </template>
   
@@ -1299,15 +1296,15 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
     <variable name="last" select="tokenize($osisID, '\s+')[last()]"/>
     <!-- output hyperlink targets for every verse in the verse system -->
     <for-each select="tokenize($osisID, '\s+')">
-      <span xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:attribute name="id" select="concat('v_', .)"/>
-      </span>
+      <html:span>
+        <attribute name="id" select="concat('v_', .)"/>
+      </html:span>
     </for-each>
     <!-- then verse numner(s) -->
-    <sup xmlns="http://www.w3.org/1999/xhtml" class="xsl-verse-number">
-      <xsl:value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else 
+    <html:sup class="xsl-verse-number">
+      <value-of select="if ($first=$last) then tokenize($first, '\.')[last()] else 
           concat(tokenize($first, '\.')[last()], '-', tokenize($last, '\.')[last()])"/>
-    </sup>
+    </html:sup>
   </template>
   
 
@@ -1363,7 +1360,7 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
                 [following::chapter[1][@eID=current()/@sID]]" />
     <variable name="tocAttributes" select="me:getTocAttributes(.)"/>
     <variable name="tocTitle" select="me:getTocTitle(.)"/>
-    <element name="h1" namespace="http://www.w3.org/1999/xhtml">
+    <html:h1>
       <sequence select="$tocAttributes"/>
       <choose>
         <when test="$chapterLabel">
@@ -1375,13 +1372,12 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
           <value-of select="$tocTitle"/>
         </otherwise>
       </choose>
-    </element>
+    </html:h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
     <if test="boolean($tocAttributes/self::attribute(title)) and oc:myWork(.) != $mainWORK">
-      <element name="h1" namespace="http://www.w3.org/1999/xhtml">
-        <attribute name="class">xsl-nonBibleChapterLabel</attribute>
+      <html:h1 class="xsl-nonBibleChapterLabel">
         <value-of select="$tocTitle"/>
-      </element>
+      </html:h1>
       <sequence select="me:getInlineTOC(.)"/>
     </if>
   </template>
@@ -1392,10 +1388,10 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
     <param name="currentTask" tunnel="yes"/>
     <!-- output hyperlink target for every keyword -->
     <span id="{me:id(replace(replace(@osisID, '^[^:]*:', ''), '!', '_'))}" xmlns="http://www.w3.org/1999/xhtml"></span>
-    <element name="dfn" namespace="http://www.w3.org/1999/xhtml">
+    <html:dfn>
       <sequence select="me:getTocAttributes(.)"/>
       <value-of select="me:getTocTitle(.)"/>
-    </element>
+    </html:dfn>
     <if test="$currentTask = 'write-xhtml' and 
               not(ancestor::div[@resp='x-oc']) and 
               not($doCombineGlossaries) and 
@@ -1422,10 +1418,10 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
   
   <!-- Parallel passage titles become secondary titles !-->
   <template mode="xhtml" match="title[@type='parallel']">
-    <element name="h2" namespace="http://www.w3.org/1999/xhtml">
+    <html:h2>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:h2>
   </template>
   
   <!-- OSIS elements which will become spans with a special class !-->
@@ -1435,16 +1431,16 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
                                 rdg | 
                                 signed |
                                 transChange">
-    <element name="span" namespace="http://www.w3.org/1999/xhtml">
+    <html:span>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:span>
   </template>
   
   <template mode="xhtml" match="cell">
-    <element name="td" namespace="http://www.w3.org/1999/xhtml">
+    <html:td>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:td>
   </template>
   
   <template mode="xhtml" match="caption">
@@ -1464,19 +1460,16 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
     <element name="{if ($html5 = 'true') then 'figure' else 'div'}" 
         namespace="http://www.w3.org/1999/xhtml">
       <call-template name="class"/>
-      <element name="img" namespace="http://www.w3.org/1999/xhtml">
-        <attribute name="src" select="me:uri-to-relative(., @src)"/>
-        <attribute name="alt" select="@src"/>
-      </element>
+      <html:img src="{me:uri-to-relative(., @src)}" alt="{@src}"/>
       <apply-templates mode="xhtml"/>
     </element>
   </template>
 
   <template mode="xhtml" match="head">
-    <element name="h2" namespace="http://www.w3.org/1999/xhtml">
+    <html:h2>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:h2>
   </template>
   
   <template mode="xhtml" match="item[@subType='x-prevnext-link'][ancestor::div[starts-with(@type, 'x-keyword')]]">
@@ -1485,16 +1478,16 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
   </template>
   
   <template mode="xhtml" match="item">
-    <element name="li" namespace="http://www.w3.org/1999/xhtml">
+    <html:li>
       <call-template name="class"/>
       <call-template name="WriteEmbededChapter"/>
       <call-template name="WriteEmbededVerse"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:li>
   </template>
   
   <template mode="xhtml" match="lb">
-    <br xmlns="http://www.w3.org/1999/xhtml"><xsl:call-template name="class"/></br>
+    <html:br><call-template name="class"/></html:br>
   </template>
   
   <!-- usfm2osis.py follows the OSIS manual recommendation for selah as a line element 
@@ -1508,47 +1501,46 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
       will be ignored. -->
       <when test="@type = 'selah'"/>
       <when test="following-sibling::l[1][@type='selah']">
-        <element name="div" namespace="http://www.w3.org/1999/xhtml">
+        <html:div>
           <call-template name="class"/>
           <call-template name="WriteEmbededChapter"/>
           <call-template name="WriteEmbededVerse"/>
           <apply-templates mode="xhtml"/>
-          <element name="i" namespace="http://www.w3.org/1999/xhtml">
-            <attribute name="class">xsl-selah</attribute>
+          <html:i class="xsl-selah">
             <for-each select="following-sibling::l[@type='selah']
                 [ count(preceding-sibling::l[@type='selah'][. &#62;&#62; current()]) = 
                   count(preceding-sibling::l[. &#62;&#62; current()]) ]">
               <text> </text>
               <apply-templates mode="xhtml"/>
             </for-each>
-          </element>
-        </element>
+          </html:i>
+        </html:div>
       </when>
       <otherwise>
-        <element name="div" namespace="http://www.w3.org/1999/xhtml">
+        <html:div>
           <call-template name="class"/>
           <call-template name="WriteEmbededChapter"/>
           <call-template name="WriteEmbededVerse"/>
           <apply-templates mode="xhtml"/>
-        </element>
+        </html:div>
       </otherwise>
     </choose>
   </template>
   
   <template mode="xhtml" match="lg">
-    <element name="div" namespace="http://www.w3.org/1999/xhtml">
+    <html:div>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:div>
   </template>
   
   <template mode="xhtml" match="list">
     <param name="currentTask" tunnel="yes"/>
     <variable name="ul" as="element(html:ul)">
-      <ul xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:call-template name="class"/>
-        <xsl:apply-templates mode="xhtml"/>
-      </ul>
+      <html:ul >
+        <call-template name="class"/>
+        <apply-templates mode="xhtml"/>
+      </html:ul>
     </variable>
     <!-- OSIS allows list to contain head children, but EPUB2 validator 
     doesn't allow <h> child tags of ul -->
@@ -1575,15 +1567,15 @@ Could not determine TOC title of "<value-of select="$errtitle"/>"</with-param>
       <variable name="inlineTOC" select="me:getInlineTOC(.)"/>
       <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS 
       implementations should have this text de-emphasized since it is not part of the orignal book -->
-      <div xmlns="http://www.w3.org/1999/xhtml">
-        <xsl:sequence select="$tocAttributes"/>
-        <small><i><xsl:value-of select="$tocTitle"/></i></small>
-      </div>
+      <html:div>
+        <sequence select="$tocAttributes"/>
+        <html:small><html:i><value-of select="$tocTitle"/></html:i></html:small>
+      </html:div>
       <!-- if there is an inlineTOC with this milestone TOC, then write out a title -->
       <if test="@isMainTocMilestone = 'true' or count($inlineTOC/*)">
-        <h1 xmlns="http://www.w3.org/1999/xhtml">
-          <xsl:value-of select="$tocTitle"/>
-        </h1>
+        <html:h1>
+          <value-of select="$tocTitle"/>
+        </html:h1>
       </if>
       <!-- if this is the first milestone in a Bible, then include the root TOC -->
       <if test="@isMainTocMilestone = 'true'">
@@ -1619,35 +1611,35 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
   </template>
   
   <template mode="xhtml" match="milestone[@type='pb']" priority="2">
-    <element name="p" namespace="http://www.w3.org/1999/xhtml">
+    <html:p>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:p>
   </template>
   
   <template mode="xhtml" match="note">
     <variable name="osisIDid" select="replace(replace(@osisID, '^[^:]*:', ''), '!', '_')"/>
-    <sup xmlns="http://www.w3.org/1999/xhtml">
-      <a href="#{me:id($osisIDid)}" id="textsym.{me:id($osisIDid)}">
-        <xsl:if test="$NoEpub3Markup = 'false'">
-          <xsl:attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/>
-        </xsl:if>
-        <xsl:call-template name="getFootnoteSymbol">
-          <xsl:with-param name="classes" select="me:getClasses(.)"/>
-        </xsl:call-template>
-      </a>
-    </sup>
+    <html:sup>
+      <html:a href="#{me:id($osisIDid)}" id="textsym.{me:id($osisIDid)}">
+        <if test="$NoEpub3Markup = 'false'">
+          <attribute name="epub:type" namespace="http://www.idpf.org/2007/ops" select="'noteref'"/>
+        </if>
+        <call-template name="getFootnoteSymbol">
+          <with-param name="classes" select="me:getClasses(.)"/>
+        </call-template>
+      </html:a>
+    </html:sup>
   </template>
   
   <template mode="xhtml" match="p">
     <param name="currentTask" tunnel="yes"/>
     <variable name="p" as="element(html:p)">
-      <element name="p" namespace="http://www.w3.org/1999/xhtml">
+      <html:p>
         <call-template name="class"/>
         <call-template name="WriteEmbededChapter"/>
         <call-template name="WriteEmbededVerse"/>
         <apply-templates mode="xhtml"/>
-      </element>
+      </html:p>
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
     <sequence select="oc:expelElements( $p, 
@@ -1664,17 +1656,16 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             me:getFileNameOfRef($preprocessedOSIS/descendant::div[@type='book'][last()]/@osisID), 
             '.xhtml')"/>
         <variable name="href" select="me:uri-to-relative(., concat($file, '#fullResourceURL'))"/>
-        <element name="a" namespace="http://www.w3.org/1999/xhtml">
-          <attribute name="href" select="$href"/>
+        <html:a href="{$href}">
           <call-template name="class"/>
           <apply-templates mode="xhtml"/>
-        </element>
+        </html:a>
       </when>
       <otherwise>
-        <element name="span" namespace="http://www.w3.org/1999/xhtml">
+        <html:span>
           <call-template name="class"/>
           <apply-templates mode="xhtml"/>
-        </element>
+        </html:span>
       </otherwise>
     </choose>
   </template>
@@ -1754,20 +1745,19 @@ Multiple targets with same osisID (<value-of select="count($target)"/>): osisID=
       <when test="not($file)"><apply-templates mode="xhtml"/></when>
       <otherwise>
         <variable name="href" select="me:uri-to-relative(., concat($file, '#', $osisRefA))"/>
-        <element name="a" namespace="http://www.w3.org/1999/xhtml">
-          <attribute name="href" select="$href"/>
+        <html:a href="{$href}">
           <call-template name="class"/>
           <apply-templates mode="xhtml"/>
-        </element>
+        </html:a>
       </otherwise>
     </choose>
   </template>
   
   <template mode="xhtml" match="row">
-    <element name="tr" namespace="http://www.w3.org/1999/xhtml">
+    <html:tr>
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
-    </element>
+    </html:tr>
   </template>
   
   <!-- xml:id must start with a letter or underscore, and can only 
