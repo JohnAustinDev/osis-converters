@@ -19,6 +19,8 @@
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   <variable name="biblemod" select="/osis/osisText/header/work[child::type[@type='x-bible']]/@osisWork"/>
   <variable name="dictmod" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>
+  <variable name="refUiIntroduction" select="concat($dictmod, ':', oc:encodeOsisRef($uiIntroduction))"/>
+  <variable name="refUiDictionary" select="concat($dictmod, ':', oc:encodeOsisRef($uiDictionary))"/>
   
   <!-- Remove any duplicate material in the dictionary which is also included in the Bible module -->
   <template match="div[not($isBible)][@annotateType='x-feature'][@annotateRef='INT']"/>
@@ -30,10 +32,10 @@
   <template match="div[$conversion = 'epub'][@scope='NAVMENU']"/>
   
   <!-- Forward NAVMENU top links -->
-  <template match="reference[@osisRef=concat($dictmod, ':', oc:encodeOsisRef($uiIntroduction))]/@osisRef">
+  <template match="reference[@osisRef=$refUiIntroduction]/@osisRef">
     <attribute name="osisRef" select="concat($biblemod,':','BIBLE_TOP')"/>
   </template>
-  <template match="reference[@osisRef=concat($dictmod, ':', oc:encodeOsisRef($uiDictionary))]/@osisRef">
+  <template match="reference[@osisRef=$refUiDictionary]/@osisRef">
     <attribute name="osisRef" select="concat($dictmod,':','DICT_TOP')"/>
   </template>
 
