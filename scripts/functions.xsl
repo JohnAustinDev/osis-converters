@@ -16,7 +16,7 @@
   
   <!-- If DICT-specific config context is desired from oc:conf(), then either the OSIS file header 
   and osisText elements must be marked-up as x-glossary type, OR the calling script must pass in DICTMOD -->
-  <param name="DICTMOD" select="/osis/osisText/header/work[@osisWork=/osis/osisText/@osisIDWork][child::type[@type='x-glossary']]/@osisWork"/>
+  <param name="DICTMOD" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>
   
   <!-- The following config entries require a properly marked-up OSIS header, OR 
   the calling script must pass in their values (otherwise an error is thrown for oc:conf()) -->
@@ -25,10 +25,21 @@
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
   
-  <param name="uiIntroduction" 
-    select="oc:sarg('uiIntroduction', /, concat('-- ', //header/work[child::type[@type='x-bible']]/title[1]))"/>
-  <param name="uiDictionary" 
-    select="oc:sarg('uiDictionary', /, concat('- ', //header/work[child::type[@type='x-glossary']]/title[1]))"/>
+  <!-- The main module code (could refer to Bible or Children's Bible) -->
+  <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
+  
+  <!-- All projects have an osisID for the main introduction, and if there is a reference OSIS file
+  there will also be an osisID for the top of the reference material. NOTE: If the INT feature is 
+  used, the main introduction osisID will be in the dictionary module. -->
+  <variable name="INT_feature" select="/descendant::*[@annotateType = 'x-feature'][@annotateRef = 'INT'][1]"/>
+  <variable name="uiIntroduction" 
+    select="oc:sarg('uiIntroduction', /, concat('-- ', /osis/osisText/header/work[@osisWork = $MAINMOD]/title[1]))"/>
+  <variable name="uiDictionary" select="if ($DICTMOD) then 
+            oc:sarg('uiDictionary', /, concat('- ', /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1])) else ''"/>
+
+  <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
+  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction))"/>
+  <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
@@ -149,20 +160,23 @@
                               oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
   </function>
   
-  <function name="oc:hashUsfmType" as="xs:string">
-    <param name="usfmType" as="element(div)"/>
-    <variable name="title" select="oc:getGlossaryTitle($usfmType)"/>
-    <if test="$title"><value-of select="sum(string-to-codepoints($title))"/></if>
-    <if test="not($title)"><value-of select="count($usfmType/preceding::div[@type=$usfmType/@type]) + 1"/></if>
+  <function name="oc:osisID_to_htmlID" as="xs:string">
+    <param name="s"/>
+    <value-of select="oc:id(replace(replace($s, '^[^:]*:', ''), '!', '_'))"/>
   </function>
   
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
-  <function name="oc:skipGlossaryEntry">
-    <param name="glossaryEntry"/>
-    <variable name="previousKeyword" select="$glossaryEntry/preceding::seg[@type='keyword'][1]/string()"/>
+  <function name="oc:skipGlossaryEntry" as="xs:boolean">
+    <param name="glossaryEntry" as="element(seg)"/>
+    <variable name="previousKeyword" select="$glossaryEntry/preceding::seg[@type='keyword'][1]"/>
     <choose>
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
-      <otherwise><value-of select="boolean(upper-case(substring($glossaryEntry/text(), 1, 1)) = upper-case(substring($previousKeyword, 1, 1)))"/></otherwise>
+      <otherwise>
+        <value-of select="boolean(
+            upper-case(oc:longestStartingMatchKS(  $glossaryEntry/string())) = 
+            upper-case(oc:longestStartingMatchKS($previousKeyword/string()))
+        )"/>
+      </otherwise>
     </choose>
   </function>
   
@@ -299,7 +313,7 @@
   
   <!-- When a glossary has a TOC entry or main title, then get that title -->
   <function name="oc:getGlossaryTitle" as="xs:string">
-    <param name="glossary" as="element(div)?"/>
+    <param name="glossary" as="element(div)"/>
     <value-of select="oc:titleCase(replace($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1], '^(\[[^\]]*\])+', ''))"/>
   </function>
   
@@ -341,271 +355,295 @@
   
   <function name="oc:myWork" as="xs:string">
     <param name="node" as="node()"/>
-    <value-of select="root($node)/osis[1]/osisText[1]/@osisIDWork"/>
+    <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
+  </function>
+  
+  <function name="oc:osisRefPrevKeyword" as="xs:string?">
+    <param name="node" as="node()?"/>
+    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
+    <variable name="osisID" select="$keyword/preceding-sibling::div[starts-with(@type,'x-keyword')][1]/
+                      descendant::seg[@type='keyword'][1]/@osisID"/>
+    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+  </function>
+  
+  <function name="oc:osisRefNextKeyword" as="xs:string?">
+    <param name="node" as="node()?"/>
+    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
+    <variable name="osisID" select="$keyword/following-sibling::div[starts-with(@type,'x-keyword')][1]/
+                      descendant::seg[@type='keyword'][1]/@osisID"/>
+    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+  </function>
+  
+  <function name="oc:getPrevChapterOsisID" as="xs:string?">
+    <param name="node" as="node()?"/>
+    <variable name="inChapter" as="element(chapter)?"
+      select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
+              [@eID = $node/preceding::chapter[1]/@sID]"/>
+    <value-of select="if ($inChapter) then 
+                      $inChapter/preceding::chapter[ @osisID = string-join((
+                        tokenize( $inChapter/@eID, '\.' )[1], 
+                        string(number(tokenize( $inChapter/@eID, '\.' )[2])-1)), '.') ][1]/@osisID 
+                      else ''"/>
+  </function>
+  
+  <function name="oc:getNextChapterOsisID" as="xs:string?">
+    <param name="node" as="node()?"/>
+    <variable name="inChapter" as="element(chapter)?"
+      select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
+              [@eID = $node/preceding::chapter[1]/@sID]"/>
+    <value-of select="if ($inChapter) then 
+                      $inChapter/following::chapter[ @osisID = string-join((
+                        tokenize( $inChapter/@eID, '\.' )[1], 
+                        string(number(tokenize( $inChapter/@eID, '\.' )[2])+1)), '.')][1]/@osisID 
+                      else ''"/>
   </function>
   
   <!-- Returns a list of links to glossary and introductory material, 
   including next/previous chapter/keyword links. -->
   <function name="oc:getNavmenuLinks" as="element(list)?">
-    <param name="context" as="node()"/><!-- used to determine prev/next -->
-    <param name="root" as="document-node()"/>
-    <param name="skip"/><!-- is either empty, 'introduction', 'glossary' or 'prevnext' -->
+    <param name="REF_prev"  as="xs:string"/>
+    <param name="REF_next"  as="xs:string"/>
+    <param name="REF_intro" as="xs:string"/>
+    <param name="REF_dict"  as="xs:string"/>
+    <param name="title_dict" as="xs:string"/>
     
-    <variable name="bible" select="$root/descendant::work[child::type[@type='x-bible']][1]/@osisWork"/>
-    <variable name="dict" select="$root/descendant::work[child::type[@type='x-glossary']][1]/@osisWork"/>
-    <if test="$bible"><!-- return nothing for Children's Bibles -->
-      <variable name="using_INT_feature" select="$root/descendant::*[@annotateType = 'x-feature'][@annotateRef = 'INT'][1]"/>
+    <osis:list subType="x-navmenu" resp="x-oc">
+
+      <if test="($REF_prev or $REF_next)">
+        <osis:item subType="x-prevnext-link">
+          <osis:p type="x-right" subType="x-introduction">
+            <if test="$REF_prev">
+              <osis:reference>
+                <choose>
+                  <when test="matches($REF_prev, '^href\+')">
+                    <attribute name="href" select="replace($REF_prev, '^href\+', '')"/>
+                  </when>
+                  <otherwise>
+                    <attribute name="osisRef" select="$REF_prev"/>
+                  </otherwise>
+                </choose>
+                <text> ← </text>
+              </osis:reference>
+            </if>
+            <if test="$REF_next">
+              <osis:reference>
+                <choose>
+                  <when test="matches($REF_next, '^href\+')">
+                    <attribute name="href" select="replace($REF_next, '^href\+', '')"/>
+                  </when>
+                  <otherwise>
+                    <attribute name="osisRef" select="$REF_next"/>
+                  </otherwise>
+                </choose>
+                <text> → </text>
+              </osis:reference>
+            </if>
+          </osis:p>
+        </osis:item>
+      </if>
       
-      <variable name="inBibleContext" select="oc:myWork($context) = $bible"/>
-      <variable name="inKeyword" as="element(div)?"
-        select="$context/ancestor-or-self::div[not($inBibleContext)][starts-with(@type,'x-keyword')][1]"/>
-      <variable name="inBibleChapter" as="element(chapter)?"
-        select="$context/(self::chapter[@eID] | following::chapter[@eID])[1]
-                         [@eID=$context/preceding::chapter[1]/@sID]"/>
-      <osis:list subType="x-navmenu" resp="x-oc">
-        <if test="$inBibleContext">
-          <attribute name="canonical">false</attribute>
-        </if>
-        <variable name="prev" as="xs:string?" select="
-            if ($inKeyword) then 
-              $inKeyword/preceding-sibling::div[1]/descendant::seg[@type='keyword'][1]/@osisID
-            else if ($inBibleChapter) then 
-              $inBibleChapter/preceding::chapter[ @osisID = string-join((
-                tokenize( $inBibleChapter/@eID, '\.' )[1], 
-                string(number(tokenize( $inBibleChapter/@eID, '\.' )[2])-1)), '.') ][1]/@osisID
-            else ''"/>
-        <variable name="next" as="xs:string?" select="
-            if ($inKeyword) then 
-              $inKeyword/following-sibling::div[1]/descendant::seg[@type='keyword'][1]/@osisID
-            else if ($inBibleChapter) then 
-              $inBibleChapter/following::chapter[ @osisID = string-join((
-              tokenize( $inBibleChapter/@eID, '\.' )[1], 
-              string(number(tokenize( $inBibleChapter/@eID, '\.' )[2])+1)), '.')][1]/@osisID
-            else ''"/>
-        <!-- NOTE: Really, links to the glossary from Bibles should be type=
-        'x-glossary' but in the navmenus they are all 'x-glosslink' every-
-        where, so as to be backward compatible with old CSS -->
-        <if test="not(matches($skip, 'prevnext')) and ($prev or $next)">
-          <osis:item subType="x-prevnext-link">
-            <osis:p type="x-right">
-              <if test="not($inBibleChapter)">
-                <attribute name="subType">x-introduction</attribute>
-              </if>
-              <if test="$prev">
-                <choose>
-                  <when test="$inBibleChapter">
-                    <osis:reference osisRef="{$bible}:{$prev}">
-                      <text> ← </text>
-                    </osis:reference>
-                  </when>
-                  <otherwise>
-                    <osis:reference osisRef="{$dict}:{$prev}" type="x-glosslink" subType="x-target_self">
-                      <text> ← </text>
-                    </osis:reference>
-                  </otherwise>
-                </choose>
-              </if>
-              <if test="$next">
-                <choose>
-                  <when test="$inBibleChapter">
-                    <osis:reference osisRef="{$bible}:{$next}">
-                      <text> → </text>
-                    </osis:reference>
-                  </when>
-                  <otherwise>
-                    <osis:reference osisRef="{$dict}:{$next}" type="x-glosslink" subType="x-target_self">
-                      <text> → </text>
-                    </osis:reference>
-                  </otherwise>
-                </choose>
-              </if>
-            </osis:p>
-          </osis:item>
-        </if>
-        
-        <if test="not(matches($skip, 'introduction')) and 
-                  not($inKeyword/descendant::seg[@type='keyword']
-                                                [$using_INT_feature]
-                                                [@osisID = oc:encodeOsisRef($uiIntroduction)])">
-          <osis:item subType="x-introduction-link">
-            <osis:p type="x-right">
-              <if test="not($inBibleChapter)">
-                <attribute name="subType">x-introduction</attribute>
-              </if>
-              <variable name="intref" 
-                  select="if ($using_INT_feature) then 
-                            concat($dict,':',oc:encodeOsisRef($uiIntroduction)) else 
-                            concat($bible,':','BIBLE_TOP')"/>
-              <osis:reference osisRef="{$intref}" type="x-glosslink" subType="x-target_self">
-                <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
-              </osis:reference>
-            </osis:p>
-          </osis:item>
-        </if>
-        
-        <if test="not(matches($skip, 'dictionary')) and $dict and 
-                  not($inKeyword/descendant::seg[@type='keyword']
-                                                [@osisID = oc:encodeOsisRef($uiDictionary)])">
-          <osis:item subType="x-dictionary-link">
-            <osis:p type="x-right" subType="x-introduction">
-              <!-- a menu with the following osisRef is created by oc:getGlossaryMenu() -->
-              <osis:reference osisRef="{$dict}:{oc:encodeOsisRef($uiDictionary)}" 
-                type="x-glosslink" subType="x-target_self">
-                <value-of select="replace($uiDictionary, '^[\-\s]+', '')"/>
-              </osis:reference>
-            </osis:p>
-          </osis:item>
-        </if>
-        <osis:lb/>
-        <osis:lb/>
-      </osis:list>
-    </if>
+      <if test="$REF_intro">
+        <osis:item subType="x-introduction-link">
+          <osis:p type="x-right" subType="x-introduction">
+            <osis:reference>
+              <choose>
+                <when test="matches($REF_intro, '^href\+')">
+                  <attribute name="href" select="replace($REF_intro, '^href\+', '')"/>
+                </when>
+                <otherwise>
+                  <attribute name="osisRef" select="$REF_intro"/>
+                </otherwise>
+              </choose>
+              <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
+            </osis:reference>
+          </osis:p>
+        </osis:item>
+      </if>
+      
+      <if test="$REF_dict">
+        <osis:item subType="x-dictionary-link">
+          <osis:p type="x-right" subType="x-introduction">
+            <osis:reference>
+              <choose>
+                <when test="matches($REF_dict, '^href\+')">
+                  <attribute name="href" select="replace($REF_dict, '^href\+', '')"/>
+                </when>
+                <otherwise>
+                  <attribute name="osisRef" select="$REF_dict"/>
+                </otherwise>
+              </choose>
+              <value-of select="if ($title_dict) then $title_dict else 
+                                replace($uiDictionary, '^[\-\s]+', '')"/>
+            </osis:reference>
+          </osis:p>
+        </osis:item>
+      </if>
+      
+      <osis:lb/>
+      <osis:lb/>
+    </osis:list>
   </function>
   
-  <!-- Returns a glossary div containing an auto generated menu system
-  to act as an inline table-of-contents for another glossary or, if 
-  $glossary is empty, for all glossaries in $dictroot. If 
-  $includeGlossary is true then the glossary entries themselves will 
-  also be output. -->
-  <function name="oc:getGlossaryMenu" as="element(div)">
-    <param name="glossary" as="element(div)?"/><!-- if empty, a TOC menu of all glossaries is returned -->
-    <param name="dictroot" as="document-node()"/>
-    <param name="osisID" as="xs:string"/>
-    <param name="includeGlossary" as="xs:boolean"/>
+  <!-- Returns new keywords comprising an auto generated menu system
+  for another glossary. If $includeGlossaryKeywords is true then the  
+  glossary entries themselves are also copied and returned in sorted
+  order with letter keywords inserted appropriately. -->
+  <function name="oc:glossaryMenuKeywords" as="node()+">
+    <param name="glossary" as="element(div)"/>
+    <param name="includeTopTocMenu" as="xs:boolean"/>
+    <param name="includeAllEntriesMenu" as="xs:boolean"/>
+    <param name="includeGlossaryKeywords" as="xs:boolean"/>
     
-    <variable name="dictmod" select="$dictroot/osis/osisText/@osisIDWork"/>
-
-    <osis:div>
-      <if test="$osisID">
-        <attribute name="osisID" select="$osisID"/>
-      </if>
-      <attribute name="type">glossary</attribute>
-      <attribute name="scope">NAVMENU</attribute>
-      <attribute name="resp">x-oc</attribute>
-      
-      <variable name="uiDictionary" 
-        select="oc:sarg('uiDictionary', $dictroot, concat('- ', $dictroot//header/work[child::type[@type='x-glossary']]/title[1]))"/>
-      
-      <variable name="glossaryNameKeyword" 
-        select="if (not($glossary) or not(oc:getGlossaryTitle($glossary))) then 
-                $uiDictionary else 
-                oc:getGlossaryTitle($glossary)"/>
+    <variable name="glossaryTitle" 
+        select="if (oc:getGlossaryTitle($glossary)) then 
+                oc:getGlossaryTitle($glossary) else 
+                $uiDictionary"/>
                 
-      <text>&#xa;</text>
-      
-      <choose>
-        <!-- When $glossary is empty output a menu with a link to every glossary of dictroot -->
-        <when test="not($glossary)">
-          <osis:div type="x-keyword" subType="x-navmenu-dictionary-top">
-            <osis:p>
-              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
-                <value-of select="$uiDictionary"/>
-              </osis:seg>
-              <for-each select="$dictroot//div[@type='glossary']">
-                <variable name="glossTitle" select="oc:getGlossaryTitle(.)"/>
-                <osis:reference osisRef="{$dictmod}:{oc:encodeOsisRef($glossTitle)}" 
-                  type="x-glosslink" subType="x-target_self">
-                  <value-of select="$glossTitle"/>
-                </osis:reference>
-              </for-each>
-            </osis:p>
-            <sequence select="oc:getNavmenuLinks($dictroot, $dictroot, 'dictionary')"/>
-          </osis:div>
-        </when>
-        <otherwise>
-          <!-- Otherwise create a menu for the glossary with links to each letter (plus a link 
-          to the A-Z menu) on it, plus separate letter menus for each letter -->        
-          <variable name="allEntriesTitle" 
-            select="concat(
-                    '-', 
-                    upper-case(oc:longestStartingMatchKS($glossary/descendant::seg[@type='keyword'][1])), 
-                    '-', 
-                    upper-case(oc:longestStartingMatchKS($glossary/descendant::seg[@type='keyword'][last()])))"/>
-          <osis:div type="x-keyword" subType="x-navmenu-dictionary">
-            <osis:p>
-              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryNameKeyword)}">
-                <value-of select="$glossaryNameKeyword"/>
-              </osis:seg>
-            </osis:p>
-            <sequence select="oc:getNavmenuLinks($glossary, $dictroot, 'dictionary')"/>
-            <osis:reference osisRef="{$dictmod}:{oc:encodeOsisRef($allEntriesTitle)}" 
+    <variable name="id" select="generate-id($glossary)"/>
+    
+    <variable name="sortedGlossary">
+      <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
+        <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
+          collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+        <sequence select="."/>
+      </for-each>
+    </variable>
+    
+    <text>&#xa;</text>
+    
+    <!-- Create a top keyword with links to each letter (plus a link 
+    to the A-Z menu) on it -->        
+    <variable name="allEntriesTitle" 
+      select="concat(
+              '-', 
+              upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][1])), 
+              '-', 
+              upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][last()])))"/>
+    
+    <if test="$includeTopTocMenu">
+      <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
+      <osis:div type="x-keyword" subType="x-navmenu-dictionary">
+        <osis:p>
+          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryTitle)}">
+            <value-of select="$glossaryTitle"/>
+          </osis:seg>
+        </osis:p>
+        <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allEntriesTitle)}{$id}" 
+          type="x-glosslink" subType="x-target_self">
+          <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
+        </osis:reference>
+        <for-each select="$sortedGlossary//seg[@type='keyword']">
+          <if test="oc:skipGlossaryEntry(.) = false()">
+            <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
+            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}{$id}" 
               type="x-glosslink" subType="x-target_self">
-              <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
+              <value-of select="replace($letter, '^\-', '')"/>
             </osis:reference>
-            <for-each select="$glossary//seg[@type='keyword']">
-              <if test="oc:skipGlossaryEntry(.) = false()">
-                <variable name="letter" select="upper-case(oc:longestStartingMatchKS(text()))"/>
-                <osis:reference osisRef="{$dictmod}:_45_{oc:encodeOsisRef($letter)}" 
-                  type="x-glosslink" subType="x-target_self">
-                  <value-of select="$letter"/>
-                </osis:reference>
-              </if>
-            </for-each>
-          </osis:div>
-          <call-template name="Note">
-<with-param name="msg">Added dictionary menu: <value-of select="replace($glossaryNameKeyword, '^[\-\s]+', '')"/></with-param>
-          </call-template>
-          
-          <!-- Create a sub-menu with links to every keyword listed on it -->
-          <text>&#xa;</text>
-          <osis:div osisID="dictionaryAtoZ" type="x-keyword" subType="x-navmenu-atoz">
-            <osis:p>
-              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}">
-                <value-of select="$allEntriesTitle"/>
-              </osis:seg>
-            </osis:p>
-            <sequence select="oc:getNavmenuLinks($glossary, $dictroot, 'prevnext')"/>
-            <for-each select="$glossary//seg[@type='keyword']">
-              <osis:reference osisRef="{$dictmod}:{@osisID}" type="x-glosslink" subType="x-target_self">
-                <value-of select="text()"/>
-              </osis:reference>
-              <osis:lb/>
-            </for-each>
-          </osis:div>
-          <call-template name="Note">
-<with-param name="msg">Added dictionary sub-menu: <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/></with-param>
-          </call-template>
-          
-          <!-- Create separate sub-menus for each letter (plus A-Z) with links to keywords beginning with that letter -->
-          <variable name="letterMenus" as="element()*">
-            <for-each select="$glossary//seg[@type='keyword']">
-              <if test="oc:skipGlossaryEntry(.) = false()">
-                <osis:p>
-                  <osis:seg type="keyword" osisID="_45_{oc:encodeOsisRef(upper-case(oc:longestStartingMatchKS(text())))}">
-                    <value-of select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
-                  </osis:seg>
-                </osis:p>
-                <sequence select="oc:getNavmenuLinks(., $dictroot, 'prevnext')"/>
-              </if>
-              <osis:reference osisRef="{$dictmod}:{@osisID}" 
-                type="x-glosslink" subType="x-target_self">
-                <value-of select="text()"/>
-              </osis:reference>
-              <osis:lb/>
-            </for-each>
-          </variable>
-          
-          <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
-            <text>&#xa;</text>
+          </if>
+        </for-each>
+      </osis:div>
+      <call-template name="Note">
+<with-param name="msg">Added keyword: <value-of select="$glossaryTitle"/></with-param>
+      </call-template>
+    </if>
+    
+    <!-- Create A-Z keyword with links to every glossary keyword listed in it -->
+    <if test="$includeTopTocMenu or $includeAllEntriesMenu">
+      <text>&#xa;</text>
+      <osis:div type="x-keyword" osisID="dictionaryAtoZ" subType="x-navmenu-atoz">
+        <osis:p>
+          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}{$id}">
+            <value-of select="$allEntriesTitle"/>
+          </osis:seg>
+        </osis:p>
+        <for-each select="$sortedGlossary//seg[@type='keyword']">
+          <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
+            <value-of select="text()"/>
+          </osis:reference>
+          <osis:lb/>
+        </for-each>
+      </osis:div>
+      <call-template name="Note">
+<with-param name="msg">Added keyword: <value-of select="$allEntriesTitle"/></with-param>
+      </call-template>
+    </if>
+    
+    <!-- Create a keyword for each letter, which either contain links to, 
+    or are followed by copies of, glossary keywords that begin with that letter -->
+    <choose>
+    
+      <when test="$includeGlossaryKeywords">
+        <for-each select="$sortedGlossary/descendant::seg[@type='keyword']">
+          <variable name="myKeywordDiv" select="./ancestor::div[starts-with(@type,'x-keyword')]"/>
+          <if test="oc:skipGlossaryEntry(.) = false()">
+            <variable name="letter" select="concat('', upper-case(oc:longestStartingMatchKS(text())))"/>
             <osis:div type="x-keyword" subType="x-navmenu-letter">
-              <sequence select="current-group()"/>
+              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
+                <value-of select="$letter"/>
+              </osis:seg>
             </osis:div>
             <call-template name="Note">
-<with-param name="msg">Added dictionary sub-menu: <value-of select="current-group()[1]"/></with-param>
+<with-param name="msg">Inserted keyword: <value-of select="$letter"/></with-param>
             </call-template>
-            <if test="$includeGlossary">
-              <osis:lb/>
-              <sequence select="$glossary/div[starts-with(@type,'x-keyword')]
-                  [descendant::seg[@type='keyword'][1]/@osisID = current-group()/reference/@osisRef/(tokenize(.,':')[2])]"/>
+          </if>
+          <sequence select="oc:setKeywordTocInstruction($myKeywordDiv, '[level3]')"/>
+        </for-each>
+      </when>
+      
+      <otherwise>
+        <variable name="letterMenus" as="element()*">
+          <for-each select="$sortedGlossary//seg[@type='keyword']">
+            <if test="oc:skipGlossaryEntry(.) = false()">
+              <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
+              <osis:p>
+                <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
+                  <value-of select="$letter"/>
+                </osis:seg>
+              </osis:p>
             </if>
-          </for-each-group>
+            <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
+              type="x-glosslink" subType="x-target_self">
+              <value-of select="text()"/>
+            </osis:reference>
+            <osis:lb/>
+          </for-each>
+        </variable>
+        <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
           <text>&#xa;</text>
-        </otherwise>
-      </choose>
-    </osis:div>
+          <osis:div type="x-keyword" subType="x-navmenu-letter">
+            <sequence select="current-group()"/>
+          </osis:div>
+          <call-template name="Note">
+<with-param name="msg">Added keyword <value-of select="current-group()[1]"/></with-param>
+          </call-template>
+        </for-each-group>
+        <text>&#xa;</text>
+      </otherwise>
+      
+    </choose>
 
   </function>
   
+  <!-- Returns a copy of an element, adding [levelN] to every keyword -->
+  <function name="oc:setKeywordTocInstruction">
+    <param name="element" as="node()"/>
+    <param name="instr" as="xs:string"/>
+    
+    <apply-templates mode="setKeywordTocInst" select="$element">
+      <with-param name="instr" select="$instr" tunnel="yes"/>
+    </apply-templates>
+  </function>
+  <template mode="setKeywordTocInst" match="node()|@*">
+    <copy><apply-templates mode="setKeywordTocInst" select="node()|@*"/></copy>
+  </template>
+  <template mode="setKeywordTocInst" match="seg[@type='keyword']">
+    <param name="instr" tunnel="yes"/>
+    <copy>
+      <apply-templates mode="setKeywordTocInst" select="@*"/>
+      <attribute name="n" select="concat($instr, @n)"/>
+      <apply-templates mode="setKeywordTocInst" select="node()"/>
+    </copy>
+  </template>
   
   <!-- Use this function if an element must not contain other elements 
   (for EPUB2 etc. validation). Any element in $expel becomes a sibling 
@@ -666,9 +704,9 @@
   <template mode="expel2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
   <template mode="expel2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
   
-  <!-- oc:uri-to-relative-path ($base-uri, $rel-uri) this function converts a 
+  <!-- oc:uriToRelativePath($base-uri, $rel-uri) this function converts a 
   URI to a relative path using another URI directory as base reference. -->
-  <function name="oc:uri-to-relative-path" as="xs:string">
+  <function name="oc:uriToRelativePath" as="xs:string">
     <param name="base-uri-file" as="xs:string"/> <!-- the URI base (file or directory) -->
     <param name="rel-uri-file" as="xs:string"/>  <!-- the URI to be converted to a relative path from that base (file or directory) -->
     
@@ -683,41 +721,45 @@
     <!--  count equal URI parts with same index -->
     <variable name="uri-equal-parts" select="for $i in (1 to $uri-parts-max) 
       return $i[$tkn-base-uri[$i] eq $tkn-rel-uri[$i]]" as="xs:integer*"/>
-    <choose>
-      <!--  both URIs must share the same URI scheme -->
-      <when test="$uri-equal-parts[1] eq 1">
-        <!-- drop directories that have equal names but are not physically equal, 
-        e.g. their value should correspond to the index in the sequence -->
-        <variable name="dir-count-common" select="max(
-            for $i in $uri-equal-parts 
-            return $i[index-of($uri-equal-parts, $i) eq $i]
-          )" as="xs:integer"/>
-        <!-- difference from common to URI parts to common URI parts -->
-        <variable name="delta-base-uri" select="count($tkn-base-uri) - $dir-count-common" as="xs:integer"/>
-        <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>    
-        <variable name="relative-path" select="
-          concat(
-          (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
-          (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
-          )" as="xs:string"/>
-        <choose>
-          <when test="starts-with($rel-uri, concat($base-uri, '#'))">
-            <value-of select="concat('#', tokenize($rel-uri, '#')[last()])"/>
-          </when>
-          <otherwise>
-            <value-of select="$relative-path"/>
-          </otherwise>
-        </choose>
-      </when>
-      <!-- if both URIs share no equal part (e.g. for the reason of different URI 
-      scheme names) then it's not possible to create a relative path. -->
-      <otherwise>
-        <value-of select="$rel-uri"/>
-        <call-template name="Error">
+    <variable name="relativePath">
+      <choose>
+        <!--  both URIs must share the same URI scheme -->
+        <when test="$uri-equal-parts[1] eq 1">
+          <!-- drop directories that have equal names but are not physically equal, 
+          e.g. their value should correspond to the index in the sequence -->
+          <variable name="dir-count-common" select="max(
+              for $i in $uri-equal-parts 
+              return $i[index-of($uri-equal-parts, $i) eq $i]
+            )" as="xs:integer"/>
+          <!-- difference from common to URI parts to common URI parts -->
+          <variable name="delta-base-uri" select="count($tkn-base-uri) - $dir-count-common" as="xs:integer"/>
+          <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>    
+          <variable name="relative-path" select="
+            concat(
+            (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
+            (: path parts :) string-join(for $i in (($dir-count-common + 1) to count($tkn-rel-uri)) return $tkn-rel-uri[$i], '/')
+            )" as="xs:string"/>
+          <choose>
+            <when test="starts-with($rel-uri, concat($base-uri, '#'))">
+              <value-of select="concat('#', tokenize($rel-uri, '#')[last()])"/>
+            </when>
+            <otherwise>
+              <value-of select="$relative-path"/>
+            </otherwise>
+          </choose>
+        </when>
+        <!-- if both URIs share no equal part (e.g. for the reason of different URI 
+        scheme names) then it's not possible to create a relative path. -->
+        <otherwise>
+          <value-of select="$rel-uri"/>
+          <call-template name="Error">
 <with-param name="msg">Indeterminate path:"<value-of select="$rel-uri"/>" is not relative to "<value-of select="$base-uri"/>"</with-param>
-        </call-template>
-      </otherwise>
-    </choose>
+          </call-template>
+        </otherwise>
+      </choose>
+    </variable>
+    <sequence select="$relativePath"/>
+    <!--<call-template name="Log"><with-param name="msg">base-uri-file=<value-of select="$base-uri-file"/>, rel-uri-file=<value-of select="$rel-uri-file"/>, relativePath=<value-of select="$relativePath"/>, </with-param></call-template>-->
   </function>
   
   <function name="oc:printNode" as="text()">
@@ -725,7 +767,7 @@
     <choose>
       <when test="not($node)">NULL</when>
       <when test="$node[self::element()]">
-        <value-of>element <value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each></value-of>
+        <value-of>[<value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
       </when>
       <when test="$node[self::text()]"><value-of select="concat('text-node: ', $node)"/></when>
       <when test="$node[self::comment()]"><value-of select="concat('comment-node: ', $node)"/></when>
@@ -746,7 +788,7 @@
     outside of any temporary trees (hence the need to call prepareRunTime and cleanupRunTime at the proper moment). -->
   <variable name="DOCDIR" select="tokenize(document-uri(/), '[^/]+$')[1]" as="xs:string"/>
   <variable name="runtimeDir" select="file:new(uri:new($DOCDIR))"/>
-  <variable name="envp" as="xs:string +"><value-of select="''"/></variable>
+  <variable name="envp" as="xs:string+"><value-of select="''"/></variable>
   <variable name="readBinaryResource" select="concat(replace($DOCDIR, '^file:', ''), 'tmp_osis2fb2.xsl.rbr.sh')" as="xs:string"/>
   <variable name="tmpResult" select="concat(replace($DOCDIR, '^file:', ''), 'tmp_osis2fb2.xsl.txt')" as="xs:string"/>
   <function name="oc:read-binary-resource">
@@ -802,7 +844,6 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="die" select="'no'"/>
     <message terminate="{$die}">
       <text>&#xa;</text>ERROR (UNEXPECTED): <value-of select="$msg"/><text>&#xa;</text>
-      <text>Backtrace: </text><value-of select="oc:printNode(.)"/><text>&#xa;</text>
       <text>Please report the above unexpected ERROR to osis-converters maintainer.</text><text>&#xa;</text>
     </message>
   </template>

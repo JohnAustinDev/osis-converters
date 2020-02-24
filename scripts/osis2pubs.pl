@@ -833,7 +833,7 @@ sub makeEbook($$$$$) {
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {
     if ($format eq 'epub') {
-      my $noEpub3Markup = (&conf('NoEpub3Markup') =~ /^true$/i);
+      my $noEpub3Markup = (&conf('ARG_noEpub3Markup') =~ /^yes$/i);
       $cmd = "epubcheck \"$out\"";
       my $result = &shell($cmd, 3);
       if ($result =~ /^\s*$/) {
