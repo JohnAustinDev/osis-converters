@@ -399,15 +399,22 @@
   </function>
   
   <!-- Returns a list of links to glossary and introductory material, 
-  including next/previous chapter/keyword links. -->
+  including next/previous chapter/keyword links. NOTE: Normally links
+  to keywords in Bible modules are type x-glossary, while those in 
+  Dict modules are x-glosslink, but here they are all x-glosslink
+  for CSS backward compatibility in xulsword. -->
   <function name="oc:getNavmenuLinks" as="element(list)?">
     <param name="REF_prev"  as="xs:string"/>
     <param name="REF_next"  as="xs:string"/>
     <param name="REF_intro" as="xs:string"/>
     <param name="REF_dict"  as="xs:string"/>
     <param name="title_dict" as="xs:string"/>
+    <param name="canonical" as="xs:string"/>
     
     <osis:list subType="x-navmenu" resp="x-oc">
+      <if test="$canonical">
+        <attribute name="canonical" select="$canonical"/>
+      </if>
 
       <if test="($REF_prev or $REF_next)">
         <osis:item subType="x-prevnext-link">
@@ -422,6 +429,10 @@
                     <attribute name="osisRef" select="$REF_prev"/>
                   </otherwise>
                 </choose>
+                <if test="starts-with($REF_prev, concat($DICTMOD,':'))">
+                  <attribute name="type">x-glosslink</attribute>
+                  <attribute name="subType">x-target_self</attribute>
+                </if>
                 <text> ← </text>
               </osis:reference>
             </if>
@@ -435,6 +446,10 @@
                     <attribute name="osisRef" select="$REF_next"/>
                   </otherwise>
                 </choose>
+                <if test="starts-with($REF_next, concat($DICTMOD,':'))">
+                  <attribute name="type">x-glosslink</attribute>
+                  <attribute name="subType">x-target_self</attribute>
+                </if>
                 <text> → </text>
               </osis:reference>
             </if>
@@ -454,6 +469,10 @@
                   <attribute name="osisRef" select="$REF_intro"/>
                 </otherwise>
               </choose>
+              <if test="starts-with($REF_intro, concat($DICTMOD,':'))">
+                <attribute name="type">x-glosslink</attribute>
+                <attribute name="subType">x-target_self</attribute>
+              </if>
               <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
             </osis:reference>
           </osis:p>
@@ -472,6 +491,10 @@
                   <attribute name="osisRef" select="$REF_dict"/>
                 </otherwise>
               </choose>
+              <if test="starts-with($REF_dict, concat($DICTMOD,':'))">
+                <attribute name="type">x-glosslink</attribute>
+                <attribute name="subType">x-target_self</attribute>
+              </if>
               <value-of select="if ($title_dict) then $title_dict else 
                                 replace($uiDictionary, '^[\-\s]+', '')"/>
             </osis:reference>
@@ -484,7 +507,7 @@
     </osis:list>
   </function>
   
-  <!-- Returns new keywords comprising an auto generated menu system
+  <!-- Returns new keywords which make an auto generated menu system
   for another glossary. If $includeGlossaryKeywords is true then the  
   glossary entries themselves are also copied and returned in sorted
   order with letter keywords inserted appropriately. -->
@@ -624,7 +647,7 @@
 
   </function>
   
-  <!-- Returns a copy of an element, adding [levelN] to every keyword -->
+  <!-- Returns a copy of an element, adding TOC instruction $instr to every keyword -->
   <function name="oc:setKeywordTocInstruction">
     <param name="element" as="node()"/>
     <param name="instr" as="xs:string"/>

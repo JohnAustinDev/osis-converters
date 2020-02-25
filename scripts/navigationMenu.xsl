@@ -21,10 +21,11 @@
   <!-- Is this OSIS file an x-bible (not a Children's Bible or dict)? -->
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   
-  <variable name="combinedKeywords" select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
-                                                [not(@type = 'x-keyword-duplicate')]
-                                                [not(ancestor::div[@scope='NAVMENU'])]
-                                                [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+  <variable name="sortedGlossaryKeywords" 
+      select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
+                                          [not(@type = 'x-keyword-duplicate')]
+                                          [not(ancestor::div[@scope='NAVMENU'])]
+                                          [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
   
   <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
   
@@ -55,11 +56,11 @@
         [. intersect current()]"/>
     <choose>
       <when test="($DICTMOD and $prependNavMenu) or ($isBible and boolean(self::chapter[@eID]))">
-        <sequence select="me:attribs(oc:getNavmenuLinks(
+        <sequence select="oc:getNavmenuLinks(
           oc:getPrevChapterOsisID(.),
           oc:getNextChapterOsisID(.),
           $myREF_intro, 
-          $REF_dictionary, ''))"/>
+          $REF_dictionary, '', 'false')"/>
         <copy><apply-templates mode="identity" select="node()|@*"/></copy>
         <if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <call-template name="Note">
@@ -67,19 +68,17 @@
           </call-template>
         </if>
       </when>
-      <when test="self::div[starts-with(@type, 'x-keyword')]">
+      <when test="self::div[@type='x-keyword']">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
           <variable name="sortedGlossaryKeyword" as="element(div)?" 
               select="$sortedGlossary/descendant::div[starts-with(@type, 'x-keyword')]
                       [ descendant::seg[@type='keyword'][@osisID = current()//seg[@type='keyword'][1]/@osisID] ][1]"/>
-          <if test="$sortedGlossaryKeyword">
-            <sequence select="me:attribs(oc:getNavmenuLinks(
-              oc:osisRefPrevKeyword($sortedGlossaryKeyword),
-              oc:osisRefNextKeyword($sortedGlossaryKeyword), 
-              $myREF_intro, 
-              $REF_dictionary, ''))"/>
-          </if>
+          <sequence select="oc:getNavmenuLinks(
+            oc:osisRefPrevKeyword($sortedGlossaryKeyword),
+            oc:osisRefNextKeyword($sortedGlossaryKeyword), 
+            $myREF_intro, 
+            $REF_dictionary, '', '')"/>
         </copy>
         <call-template name="Note">
 <with-param name="msg">Added navmenu to keyword: <value-of select="descendant::seg[@type='keyword']"/></with-param>
@@ -108,7 +107,7 @@
           the glossary entries in the OSIS file (using aggregated entries) -->
           <variable name="sortedGlossary" as="element(div)">
             <osis:div type="glossary">
-              <for-each select="$combinedKeywords">
+              <for-each select="$sortedGlossaryKeywords">
                 <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
                   collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
                 <copy><apply-templates mode="identity" select="node()|@*"/></copy>
@@ -122,7 +121,7 @@
           </apply-templates>
           
           <!-- NAVMENU is identified using the scope attribute, rather than an osisID, to facilitate the replacement  
-          of uiIntroductionTopMenu by an external div, with the periph INTMENU instruction -->
+          of uiIntroductionTopMenu by an external div, using the periph INTMENU instruction -->
           <if test="$INT_feature and not(root()//*[@osisID = 'uiIntroductionTopMenu'])">
             <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
             
@@ -139,7 +138,7 @@
                 <osis:seg  type="keyword" osisID="tokenize($REF_introductionINT,':',2)">
                   <value-of select="$uiIntroduction"/>
                 </osis:seg>
-                <sequence select="me:attribs(oc:getNavmenuLinks('', '', '', $REF_dictionary, ''))"/>
+                <sequence select="oc:getNavmenuLinks('', '', '', $REF_dictionary, '', '')"/>
                 <osis:title type="main" subType="x-introduction">
                   <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
                 </osis:title>
@@ -191,15 +190,16 @@
     </choose>
   </template>
   
+  <!-- Add navmenu links to the output of glossaryMenuKeywords -->
   <template mode="glossmenu_navmenus" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   <template mode="glossmenu_navmenus" match="p">
     <next-match/>
     <variable name="firstkw" select="count(preceding::seg[@type='keyword']) = 1"/>
-    <sequence select="me:attribs(oc:getNavmenuLinks('', '', 
+    <sequence select="oc:getNavmenuLinks('', '', 
                       $myREF_intro, 
-                      if ($firstkw) then '' else $REF_dictionary, ''))"/>
+                      if ($firstkw) then '' else $REF_dictionary, '', '')"/>
   </template>
   
   <!-- Add subType='x-target_self' to any custom NAVMENU links -->
@@ -207,37 +207,6 @@
     <copy>
       <attribute name="subType">x-target_self</attribute>
       <apply-templates select="node()|@*" mode="#current"/>
-    </copy>
-  </template>
-  
-  <!-- These attributes are for SWORD CSS rendering -->
-  <function name="me:attribs" as="element(list)?">
-    <param name="list" as="element(list)?"/>
-    <apply-templates mode="attribs" select="$list"/>
-  </function>
-  <template mode="attribs" match="node()|@*">
-    <copy><apply-templates mode="attribs" select="node()|@*"/></copy>
-  </template>
-  <template mode="attribs" match="reference[@osisRef]">
-    <variable name="inBibleChapter" as="xs:boolean" 
-        select="boolean(following::chapter[@eID][1][@eID = current()/preceding::chapter[1]/@sID])"/>
-    <copy>
-      <apply-templates mode="attribs" select="@*"/>
-      <if test="not($inBibleChapter)">
-        <attribute name="type">x-glosslink</attribute>
-        <attribute name="subType">x-target_self</attribute>
-      </if>
-      <apply-templates mode="attribs" select="node()"/>
-    </copy>
-  </template>
-  <template mode="attribs" match="list[@subType='x-navmenu']">
-    <variable name="inBible" as="xs:boolean" select="oc:myWork(.) = $MAINMOD"/>
-    <copy>
-      <apply-templates mode="attribs" select="@*"/>
-      <if test="$inBible">
-        <attribute name="canonical">false</attribute>
-      </if>
-      <apply-templates mode="attribs" select="node()"/>
     </copy>
   </template>
   
