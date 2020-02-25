@@ -272,7 +272,8 @@ a.osis-reference {
   color:#388E3C;
   margin-right:0.2em;
 }
-.xsl-toc-entry {
+.xsl-toc-entry,
+.x-keyword {
   page-break-before: always;
 }
 .xsl-toc-entry.osis-milestone,
