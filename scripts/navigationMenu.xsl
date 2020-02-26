@@ -68,7 +68,7 @@
           </call-template>
         </if>
       </when>
-      <when test="self::div[@type='x-keyword']">
+      <when test="self::div[starts-with(@type,'x-keyword')]">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
           <variable name="sortedGlossaryKeyword" as="element(div)?" 
@@ -105,14 +105,18 @@
         
           <!-- This sortedGlossary is used to generate prev/next links between
           the glossary entries in the OSIS file (using aggregated entries) -->
-          <variable name="sortedGlossary" as="element(div)">
-            <osis:div type="glossary">
-              <for-each select="$sortedGlossaryKeywords">
-                <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
-                  collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
-                <copy><apply-templates mode="identity" select="node()|@*"/></copy>
-              </for-each>
-            </osis:div>
+          <variable name="sortedGlossary" as="element(osis)">
+            <osis:osis isCombinedGlossary="yes">
+              <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
+                <osis:div type="glossary">
+                  <for-each select="$sortedGlossaryKeywords">
+                    <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
+                      collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
+                    <copy><apply-templates mode="identity" select="node()|@*"/></copy>
+                  </for-each>
+                </osis:div>
+              </osis:osisText>
+            </osis:osis>
           </variable>
           
           <!-- Copy OSIS file contents using sortedGlossary as a tunnel variable -->
@@ -176,7 +180,7 @@
           </if>
           
           <osis:div osisID="uiDictionaryTopMenu" type="glossary" scope="NAVMENU" resp="x-oc">
-            <variable name="glossaryMenuKeywords" select="oc:glossaryMenuKeywords($sortedGlossary, true(), true(), false())"/>
+            <variable name="glossaryMenuKeywords" select="oc:glossaryMenuKeywords($sortedGlossary/descendant::div[@type='glossary'][1], true(), true(), false())"/>
             <apply-templates mode="glossmenu_navmenus" select="$glossaryMenuKeywords"/>
           </osis:div>
           <text>&#xa;</text>

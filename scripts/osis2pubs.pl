@@ -80,7 +80,7 @@ sub osis2pubs($) {
     }
 
     # convert each Bible book within the OSIS file
-    if ($CREATE_SEPARATE_BOOKS) {
+    if ($CREATE_SEPARATE_BOOKS && $convertTo ne 'html') {
       $PUB_TYPE = 'Part';
       foreach my $aBook ($XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML)) {
         my $bk = $aBook->getAttribute('osisID');

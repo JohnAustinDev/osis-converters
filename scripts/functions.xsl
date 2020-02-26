@@ -522,7 +522,8 @@
                 oc:getGlossaryTitle($glossary) else 
                 $uiDictionary"/>
                 
-    <variable name="id" select="generate-id($glossary)"/>
+    <!-- If there are glossary menus for each glossary, we need their ids to be unique -->
+    <variable name="id" select="if ($glossary/ancestor::osis[@isCombinedGlossary='yes']) then '' else generate-id($glossary)"/>
     
     <variable name="sortedGlossary">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
