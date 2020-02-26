@@ -47,7 +47,7 @@
     <param name="entry" as="xs:string"/>
     <param name="anynode" as="node()"/>
     <variable name="result" select="oc:osisHeaderContext($entry, $anynode, 'no')"/>
-    <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading config.conf: ', $entry, ' = ', $result)"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat('Reading config.conf (SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, '): ', $entry, ' = ', $result)"/></call-template>
     <choose>
       <when test="$result and oc:isValidConfigValue($entry, $result)"><value-of select="$result"/></when>
       <when test="$result"><value-of select="$result"/></when>
@@ -73,7 +73,7 @@
         <otherwise><value-of select="$default"/></otherwise>
       </choose>
     </variable>
-    <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading config.conf: ARG_', $entry, ' = ', $result)"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat('Checking config.conf (SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, '): ARG_', $entry, ' = ', $result)"/></call-template>
     <value-of select="$result"/>
   </function>
     
@@ -153,16 +153,31 @@
   </function>
   
   <!-- xml:id must start with a letter or underscore, and can only 
-  contain letters, digits, underscores, hyphens, and periods. -->
+  contain ASCII letters, digits, underscores, hyphens, and periods. -->
   <function name="oc:id" as="xs:string">
-    <param name="s"/>
-    <value-of select="replace(replace($s, oc:uniregex('^([^\p{gc=L}_])'), 'x$1'), 
-                              oc:uniregex('[^\p{gc=L}\d_\-\.]'), '-')"/>
+    <param name="str" as="xs:string"/>
+    <variable name="ascii_1" as="xs:string">
+      <value-of>
+        <analyze-string select="$str" regex="."> 
+          <matching-substring>
+            <choose>
+              <when test="not(matches(., '[A-Za-z0-9_\-\.]'))">
+                <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
+              </when>
+              <otherwise><value-of select="."/></otherwise>
+            </choose>
+          </matching-substring>
+        </analyze-string>
+      </value-of>
+    </variable>
+    <!-- If it is too long, then hash the string -->
+    <variable name="ascii" select="if (string-length($ascii_1) &#60;= 48) then $ascii_1 else oc:stringHash($ascii_1)"/>
+    <value-of select="if (matches($ascii, '^[A-Za-z_]')) then $ascii else concat('_', $ascii)"/>
   </function>
   
-  <function name="oc:osisID_to_htmlID" as="xs:string">
-    <param name="s"/>
-    <value-of select="oc:id(replace(replace($s, '^[^:]*:', ''), '!', '_'))"/>
+  <function name="oc:stringHash" as="xs:string">
+    <param name="str" as="xs:string"/>
+    <value-of select="sum(for $i in 1 to string-length($str) return 53*$i + string-to-codepoints(substring($str,$i,1)))"/>
   </function>
   
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
