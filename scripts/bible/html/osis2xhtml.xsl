@@ -358,9 +358,15 @@
                                                      [oc:myWork(.) = $DICTMOD]"/>
   <template mode="preprocess" priority="4" match="div[@scope='NAVMENU']"/>
   <template mode="preprocess" match="list[@resp='x-oc'][@subType='x-navmenu']"/>
+  <!-- These variables are used to match any removed DICTMOD INT keywords to 
+  a Bible intro title, to fix references to those keywords. -->
   <variable name="INT_osisID" as="xs:string*" select="$referenceOSIS/descendant::div
       [self::div[@annotateType='x-feature'][@annotateRef='INT'] | self::div[@scope='NAVMENU']]/
       descendant::*[@osisID]/replace(@osisID, '^[^:]*:', '')"/>
+  <variable name="INT_title" as="xs:string*" select="for $id in $INT_osisID return oc:decodeOsisRef($id)"/>
+  <variable name="INT_titleElement" as="element(title)*" 
+      select="$mainInputOSIS/descendant::title[string() = $INT_title]
+                                              [not(ancestor::div[starts-with(@type,'book')])]"/>
   <template mode="preprocess" match="reference[@osisRef]/@osisRef">
     <!-- x-glossary and x-glosslink references may have multiple targets, ignore all but the first -->
     <variable name="osisRef1" select="replace(., '\s+.*$', '')"/>
@@ -379,11 +385,15 @@
       <when test=". = $REF_dictionary">
         <attribute name="osisRef" select="$REF_DictTop"/>
       </when>
-      <!-- forward references to removed INT keywords to where the intro material is -->
-      <when test="tokenize($osisRef,':')[1] = $DICTMOD and tokenize($osisRef,':')[2] = $INT_osisID">
-        <attribute name="osisRef" select="$REF_BibleTop"/>
+      <!-- forward references to removed INT keywords to a Bible introduction title if a matching one exists -->
+      <when test="tokenize($osisRef,':')[1] = $DICTMOD and 
+                  tokenize($osisRef,':')[2] = $INT_osisID">
+        <variable name="ref" select="if (tokenize($osisRef,':')[2] = $INT_titleElement/oc:encodeOsisRef(string())) then 
+                                    concat($MAINMOD,':',tokenize($osisRef,':')[2], '!INT') else 
+                                    concat($MAINMOD,':BIBLE_TOP')"/>
+        <attribute name="osisRef" select="$ref"/>
         <call-template name="Note">
-<with-param name="msg">Forwarding INT reference <value-of select="$osisRef2"/> to <value-of select="$REF_BibleTop"/></with-param>
+<with-param name="msg">Forwarding INT reference <value-of select="$osisRef2"/> to <value-of select="$ref"/></with-param>
         </call-template>
       </when>
       <otherwise>
@@ -401,6 +411,18 @@
       </if>
       <apply-templates mode="#current" select="node()|@*"/>
     </copy>
+  </template>
+  <template mode="preprocess" match="title[oc:myWork(.) = $MAINMOD]
+                                          [string() = $INT_title]
+                                          [not(ancestor::div[starts-with(@type,'book')])]">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <attribute name="osisID" select="concat(oc:encodeOsisRef(string()),'!INT')"/>
+      <apply-templates mode="#current" select="node()"/>
+    </copy>
+    <call-template name="Note">
+<with-param name="msg">Adding INT osisID <value-of select="concat(oc:encodeOsisRef(string()),'!INT')"/></with-param>
+    </call-template>
   </template>
   <!-- osisIDs do not have workid prefixes -->
   <template mode="preprocess" match="@osisID">
@@ -1657,6 +1679,7 @@
   <!-- Titles -->
   <template mode="xhtml" match="title">
     <element name="h{if (@level) then @level else '1'}" namespace="http://www.w3.org/1999/xhtml">
+      <if test="@osisID"><attribute name="id" select="oc:id(@osisID)"/></if>
       <call-template name="class"/>
       <if test="@canonical='true'">
         <call-template name="WriteEmbededChapter"/>
