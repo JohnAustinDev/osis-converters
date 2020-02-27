@@ -365,8 +365,9 @@
       descendant::*[@osisID]/replace(@osisID, '^[^:]*:', '')"/>
   <variable name="INT_title" as="xs:string*" select="for $id in $INT_osisID return oc:decodeOsisRef($id)"/>
   <variable name="INT_titleElement" as="element(title)*" 
-      select="$mainInputOSIS/descendant::title[string() = $INT_title]
-                                              [not(ancestor::div[starts-with(@type,'book')])]"/>
+      select="$mainInputOSIS/descendant::div[@annotateType='x-feature'][@annotateRef='INT']/
+              descendant::title[string() = $INT_title]
+                                              "/>
   <template mode="preprocess" match="reference[@osisRef]/@osisRef">
     <!-- x-glossary and x-glosslink references may have multiple targets, ignore all but the first -->
     <variable name="osisRef1" select="replace(., '\s+.*$', '')"/>
@@ -385,7 +386,7 @@
       <when test=". = $REF_dictionary">
         <attribute name="osisRef" select="$REF_DictTop"/>
       </when>
-      <!-- forward references to removed INT keywords to a Bible introduction title if a matching one exists -->
+      <!-- forward removed Dict INT keyword references to the matching Bible INT introduction title -->
       <when test="tokenize($osisRef,':')[1] = $DICTMOD and 
                   tokenize($osisRef,':')[2] = $INT_osisID">
         <variable name="ref" select="if (tokenize($osisRef,':')[2] = $INT_titleElement/oc:encodeOsisRef(string())) then 
@@ -413,9 +414,9 @@
     </copy>
   </template>
   <template mode="preprocess" match="title[oc:myWork(.) = $MAINMOD]
-                                          [string() = $INT_title]
-                                          [not(ancestor::div[starts-with(@type,'book')])]">
-    <copy>
+                                          [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
+                                          [string() = $INT_title]">
+    <copy><!-- !INT extension allows reference mode=xhtml Scripture ref check -->
       <apply-templates mode="#current" select="@*"/>
       <attribute name="osisID" select="concat(oc:encodeOsisRef(string()),'!INT')"/>
       <apply-templates mode="#current" select="node()"/>
