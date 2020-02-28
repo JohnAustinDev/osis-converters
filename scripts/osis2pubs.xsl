@@ -8,8 +8,6 @@
  
   <!-- Prepare osis-converters OSIS for use with html & ebook ePublications -->
   
-  <include href="./functions.xsl"/>
-  
   <!-- Filter out any marked elements which are not intended for this conversion -->
   <include href="./conversion.xsl"/>
   

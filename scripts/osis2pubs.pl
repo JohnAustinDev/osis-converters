@@ -30,7 +30,11 @@ sub osis2pubs($) {
   &Log("Updating OSIS header.\n");
   &writeOsisHeader(\$INOSIS);
   
-  my %params = ('conversion' => ($convertTo eq 'eBook' ? 'epub':'html'));
+  my %params = (
+    'conversion' => ($convertTo eq 'eBook' ? 'epub':'html'), 
+    'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
+    'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+  );
   &runScript("$SCRD/scripts/osis2pubs.xsl", \$INOSIS, \%params);
   
   # Global for result reporting
@@ -221,7 +225,11 @@ body {font-family: font1;}
     if ($outf) {
       &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
-      my %params = ('conversion' => ($convertTo eq 'eBook' ? 'epub':'html'));
+      my %params = (
+        'conversion' => ($convertTo eq 'eBook' ? 'epub':'html'), 
+        'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
+        'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+      );
       &runScript("$SCRD/scripts/osis2pubs.xsl", \$outf, \%params);
       require "$SCRD/scripts/dict/processGlossary.pl";
       # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
