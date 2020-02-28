@@ -363,6 +363,13 @@ a.x-other-resource {
   display:inline-block;
   margin-right:1em;
 }
+.x-keyword + .x-keyword,
+.x-keyword + .x-keyword-duplicate,
+.x-keyword-duplicate + .x-keyword,
+.x-keyword-duplicate + .x-keyword-duplicate {
+  margin-top:1.5em;
+}
+.x-glosslinklist {}
 
 /* Inline TOC */
 ol, ul {

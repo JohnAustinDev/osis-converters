@@ -42,16 +42,16 @@
   <!-- Settings used to control the transform -->
   <param name="CombineGlossaries" select="oc:conf('CombineGlossaries', /)"/> <!-- CombineGlossaries: 'AUTO', 'true' or 'false' -->
   
-  <param name="glossaryLetterTOC" select="oc:sarg('glossaryLetterTOC', /,
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'AUTO')"/>              <!-- glossaryLetterTOC: 'AUTO', 'yes' or 'no' -->
-  <param name="keywordFiles" select="oc:sarg('keywordFiles', /, 
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'single' else 'AUTO')"/>          <!-- keywordFiles: 'AUTO', 'single', 'letter' or 'glossary' -->
+  <param name="glossaryToc" select="oc:sarg('glossaryToc', /,
+    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'AUTO')"/>              <!-- ARG_glossaryToc: 'AUTO', 'single' or 'letter' -->
+  <param name="keywordFile" select="oc:sarg('keywordFile', /, 
+    if ($SCRIPT_NAME = 'osis2ebooks') then 'single' else 'AUTO')"/>          <!-- ARG_keywordFile: 'AUTO', 'single', 'letter' or 'glossary' -->
   <param name="chapterFiles" select="oc:sarg('chapterFiles', /, 
-    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'yes')"/>               <!-- chapterFiles: 'yes' or 'no' -->
+    if ($SCRIPT_NAME = 'osis2ebooks') then 'no' else 'yes')"/>               <!-- ARG_chapterFiles: 'yes' or 'no' -->
   <param name="navMenuLinks" select="oc:sarg('navMenuLinks', /, 
-    if ($SCRIPT_NAME='osis2ebooks') then 'no' else 'yes')"/>                 <!-- navMenuLinks: 'yes' or 'no' -->
+    if ($SCRIPT_NAME='osis2ebooks') then 'no' else 'yes')"/>                 <!-- ARG_navMenuLinks: 'yes' or 'no' -->
   <param name="noEpub3Markup" select="oc:sarg('noEpub3Markup', /, 
-    if ($SCRIPT_NAME='osis2ebooks') then 'no' else 'yes')"/>                 <!-- noEpub3Markup: 'yes' or 'no' -->
+    if ($SCRIPT_NAME='osis2ebooks') then 'no' else 'yes')"/>                 <!-- ARG_noEpub3Markup: 'yes' or 'no' -->
   
   <!-- Osis-converters config entries used by this transform -->
   <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
@@ -64,13 +64,13 @@
   
   <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   
-  <param name="glossthresh" select="oc:sarg('glossthresh', /, '20')"/>
-  
   <param name="mainTocMaxBackChars" select="xs:integer(number(oc:sarg('mainTocMaxBackChars', /, '18')))"/><!-- is ARG_mainTocMaxBackChars in config.conf -->
   
-  <param name="keywordFilesAutoLetter" select="xs:integer(number(oc:sarg('keywordFilesAutoLetter', /, '6')))"/><!-- is ARG_keywordFilesAutoLetter in config.conf -->
+  <param name="glossThresh" select="oc:sarg('glossThresh', /, '20')"/><!-- is ARG_glossThresh in config.conf -->
   
-  <param name="glossaryTocAutoLetter" select="xs:integer(number(oc:sarg('glossaryTocAutoLetter', /, '14')))"/><!-- is ARG_glossaryTocAutoLetter in config.conf -->
+  <param name="keywordFileAutoThresh" select="xs:integer(number(oc:sarg('keywordFileAutoThresh', /, '10')))"/><!-- is ARG_keywordFileAutoThresh in config.conf -->
+  
+  <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, $glossThresh)))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
   
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
@@ -125,8 +125,8 @@
       isChildrensBible = <value-of select="$isChildrensBible"/>
       doCombineGlossaries = <value-of select="$doCombineGlossaries"/>
       includeNavMenuLinks = <value-of select="$includeNavMenuLinks"/>
-      glossaryLetterTOC = <value-of select="$glossaryLetterTOC"/>
-      keywordFiles = <value-of select="$keywordFiles"/>
+      glossaryToc = <value-of select="$glossaryToc"/>
+      keywordFile = <value-of select="$keywordFile"/>
       eachChapterIsFile = <value-of select="$eachChapterIsFile"/>
       </with-param>
     </call-template>
@@ -342,7 +342,8 @@
   <template mode="preprocess 
                   preprocess_removeSectionDivs 
                   preprocess_expelChapterTags
-                  preprocess_glossTocMenus" match="node()|@*">
+                  preprocess_glossTocMenus
+                  preprocess_addGroupAttribs" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
@@ -419,7 +420,7 @@
     <copy><!-- !INT extension allows reference mode=xhtml Scripture ref check -->
       <apply-templates mode="#current" select="@*"/>
       <attribute name="osisID" select="concat(oc:encodeOsisRef(string()),'!INT')"/>
-      <apply-templates mode="#current" select="node()"/>
+      <apply-templates mode="#current"/>
     </copy>
     <call-template name="Note">
 <with-param name="msg">Adding INT osisID <value-of select="concat(oc:encodeOsisRef(string()),'!INT')"/></with-param>
@@ -452,47 +453,81 @@
   
   <!-- preprocess_glossTocMenus -->
   <template mode="preprocess_glossTocMenus" match="div[@type='glossary']">
-    <variable name="my_glossaryLetterTOC_0" as="xs:boolean"
-      select="$glossaryLetterTOC = 'yes' or 
-             ($glossaryLetterTOC = 'AUTO' and 
-              count(descendant::div[starts-with(@type,'x-keyword')]) &#62;= $glossaryTocAutoLetter)"/>
-    <!-- don't allow glossary letter TOCs unless there is more than one starting letter -->
-    <variable name="my_glossaryLetterTOC" as="xs:boolean" select="
-        if (count(distinct-values(descendant::seg[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) &#62; 1) then 
-        $my_glossaryLetterTOC_0 else false()"/>
-    <variable name="my_keywordFiles" 
-      select="if ($keywordFiles != 'AUTO') then $keywordFiles 
-              else if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFilesAutoLetter) then 'glossary' 
+    <variable name="my_glossaryToc" as="xs:string"
+      select="if (count(distinct-values(descendant::seg[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1) then 'single' else 
+              if ( $glossaryToc = 'letter' or 
+                   ($glossaryToc = 'AUTO' and 
+                     count(descendant::div[starts-with(@type,'x-keyword')]) &#62;= $glossaryTocAutoThresh)
+                 ) then 'letter' 
+              else 'single'"/>
+    <variable name="my_keywordFile" 
+      select="if (count(descendant::seg[@type='keyword']) = 1) then 'glossary' else
+              if ($keywordFile != 'AUTO') then $keywordFile else 
+              if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary' 
               else 'letter'"/>
     <call-template name="Note">
-<with-param name="msg">Glossary menus: <value-of select="oc:getGlossaryTitle(.)"/>, my_glossaryLetterTOC=<value-of select="$my_glossaryLetterTOC"/>, my_keywordFiles=<value-of select="$my_keywordFiles"/></with-param>
+<with-param name="msg">Glossary menus: <value-of select="oc:getGlossaryTitle(.)"/>, my_glossaryToc=<value-of select="$my_glossaryToc"/>, my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>
+    <variable name="glossary" as="element(div)">
+      <copy>
+        <choose>
+          <when test="$my_glossaryToc = 'letter' and $my_keywordFile = 'single'">
+            <apply-templates mode="#current" select="@*"/>
+            <variable name="keywords" as="node()*">
+              <apply-templates mode="#current"/>
+            </variable>
+            <sequence select="oc:setKeywordTocInstruction($keywords, '[no_toc]')"/>
+            <sequence select="oc:glossaryMenu(., false(), true(), false())"/>
+          </when>
+          <when test="$my_glossaryToc = 'letter'">
+            <!-- copy everything except x-keyword divs, which are replaced by 
+            glossaryMenu() because arg 4 is true() -->
+            <copy-of select="@* | node()[not(self::div[starts-with(@type,'x-keyword')])]"/>
+            <sequence select="oc:glossaryMenu(., false(), true(), true())"/>
+          </when>
+          <otherwise>
+            <apply-templates mode="#current" select="node()|@*"/>
+          </otherwise>
+        </choose>
+      </copy>
+    </variable>
+    <!-- A huge speedup is gained by calculating a letterGroup attribute 
+    here, rather than calculating groups in divideFiles and getFileName -->
+    <apply-templates mode="preprocess_addGroupAttribs" select="$glossary">
+      <with-param name="my_keywordFile" select="$my_keywordFile" tunnel="yes"/>
+    </apply-templates>
+  </template>
+  <template mode="preprocess_addGroupAttribs" match="div[@type='glossary']">
     <copy>
-      <choose>
-        <when test="$my_glossaryLetterTOC and $my_keywordFiles = 'single'">
-          <apply-templates mode="#current" select="@*"/>
-          <variable name="contents">
-            <apply-templates mode="#current" select="node()"/>
-          </variable>
-          <sequence select="oc:setKeywordTocInstruction($contents, '[no_toc]')"/>
-          <sequence select="oc:glossaryMenuKeywords(., false(), true(), false())"/>
-        </when>
-        <when test="$my_glossaryLetterTOC">
-          <!-- copy everything except x-keyword divs, which are replaced by 
-          glossaryMenuKeywords which has includeGlossaryKeywords=true() -->
-          <apply-templates mode="preprocess_glossTocMenus2" select="node()|@*"/>
-          <sequence select="oc:glossaryMenuKeywords(., false(), true(), true())"/>
-        </when>
-        <otherwise>
-          <apply-templates mode="#current" select="node()|@*"/>
-        </otherwise>
-      </choose>
+      <apply-templates mode="preprocess_addGroupAttribs" select="@*"/>
+      <attribute name="letterGroup" select="'0'"/>
+      <apply-templates mode="preprocess_addGroupAttribs"/>
     </copy>
   </template>
-  <template mode="preprocess_glossTocMenus2" match="node()|@*">
-    <if test="not(self::div[starts-with(@type,'x-keyword')])">
-      <copy><apply-templates mode="preprocess_glossTocMenus2" select="node()|@*"/></copy>
-    </if>
+  <template mode="preprocess_addGroupAttribs" match="div[starts-with(@type,'x-keyword')]">
+    <param name="my_keywordFile" tunnel="yes"/>
+    <copy>
+      <apply-templates mode="preprocess_addGroupAttribs" select="@*"/>
+      <variable name="group" as="xs:integer">
+        <choose>
+          <when test="$my_keywordFile = 'single'">
+            <value-of select="1 + count(preceding::div[starts-with(@type, 'x-keyword')])"/>
+          </when>
+          <when test="$my_keywordFile = 'letter'">
+            <value-of select="count(distinct-values(
+              (preceding::div | self::div)/descendant::seg[@type='keyword']/
+                (
+                  if (ancestor::div[@subType='x-navmenu-atoz']) then string() 
+                  else upper-case(oc:longestStartingMatchKS(string()))
+                )
+            ))"/>
+          </when>
+          <otherwise><value-of select="0"/></otherwise>
+        </choose>
+      </variable>
+      <attribute name="letterGroup" select="$group"/>
+      <apply-templates mode="preprocess_addGroupAttribs"/>
+    </copy>
   </template>
 
   <!-- THE OSIS FILE IS SEPARATED INTO INDIVIDUAL XHTML FILES BY THE FOLLOWING TEMPLATES
@@ -580,28 +615,19 @@
   
   <!-- FILE: reference 'glossary' divs (which may contain keywords) -->
   <template mode="divideFiles" match="div[@type='glossary']">
-    <variable name="my_keywordFiles" 
-      select="if ($keywordFiles != 'AUTO') then $keywordFiles 
-              else if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFilesAutoLetter) then 'glossary' 
+    <variable name="my_keywordFile" 
+      select="if (count(descendant::seg[@type='keyword']) = 1) then 'glossary' else
+              if ($keywordFile != 'AUTO') then $keywordFile else 
+              if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary' 
               else 'letter'"/>
     <call-template name="Note">
-<with-param name="msg">Processing glossary '<value-of select="oc:getGlossaryTitle(.)"/>', my_keywordFiles=<value-of select="$my_keywordFiles"/></with-param>
+<with-param name="msg">Processing glossary '<value-of select="oc:getGlossaryTitle(.)"/>', my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>
     <choose>
-      <when test="$my_keywordFiles = 'single'">
+      <when test="$my_keywordFile = ('single', 'letter')">
         <for-each-group select="node()" 
-            group-adjacent="1 + count(preceding::div[starts-with(@type, 'x-keyword')])">
-          <call-template name="ProcessFile">
-            <with-param name="fileNodes" select="current-group()"/>
-          </call-template>
-        </for-each-group>
-      </when>
-      <when test="$my_keywordFiles = 'letter'">
-        <variable name="kws" select="child::div[starts-with(@type, 'x-keyword')]"/>
-        <for-each-group select="node()"
-            group-adjacent="count(distinct-values(
-              (preceding::* | self::*)[. intersect $kws]/descendant::seg[@type='keyword']/upper-case(oc:longestStartingMatchKS(text()))
-            ))">
+          group-adjacent="(ancestor-or-self::div[@letterGroup][1] | preceding::div[@letterGroup][1])[last()]/
+                          @letterGroup">
           <call-template name="ProcessFile">
             <with-param name="fileNodes" select="current-group()"/>
           </call-template>
@@ -730,7 +756,6 @@
                                   'comb' else 
                                   oc:myWork($node)"/>
     <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][1]"/>
-    <variable name="kws" select="$refUsfmType/child::div[starts-with(@type, 'x-keyword')]"/>
     <variable name="refUsfmTypeDivNum" select="0.5 + 
                                                0.5*(count($refUsfmType/descendant-or-self::div[@type=$usfmType])) + 
                                                count($refUsfmType/preceding::div[@type=$usfmType])"/>
@@ -766,17 +791,17 @@
       </when>
       <!-- Reference OSIS glossary nodes -->
       <when test="$node/ancestor-or-self::div[@type='glossary']">
-        <variable name="my_keywordFiles" 
-          select="if ($keywordFiles != 'AUTO') then $keywordFiles 
-                  else if (count($refUsfmType/descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFilesAutoLetter) 
-                  then 'glossary' 
+        <variable name="my_keywordFile" 
+          select="if (count($refUsfmType/descendant::seg[@type='keyword']) = 1) then 'glossary' else
+                  if ($keywordFile != 'AUTO') then $keywordFile else 
+                  if (count($refUsfmType/descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary' 
                   else 'letter'"/>
         <variable name="suffix">
           <choose>
-            <when test="$my_keywordFiles = 'single'">
+            <when test="$my_keywordFile = 'single'">
               <value-of>K</value-of>
             </when>
-            <when test="$my_keywordFiles = 'letter'">
+            <when test="$my_keywordFile = 'letter'">
               <value-of>L</value-of>
             </when>
             <otherwise>
@@ -785,17 +810,11 @@
           </choose>
         </variable>
         <variable name="group">
-          <choose>
-            <when test="$my_keywordFiles = 'single'">
-              <value-of select="1 + count($node/preceding::div[. intersect $kws])"/>
-            </when>
-            <when test="$my_keywordFiles = 'letter'">
-              <value-of select="count(distinct-values(
-                $node/(preceding::* | ancestor-or-self::*)[. intersect $kws]/
-                descendant::seg[@type='keyword']/upper-case(oc:longestStartingMatchKS(text()))
-              ))"/>
-            </when>
-          </choose>
+          <if test="$my_keywordFile = ('single', 'letter')">
+            <value-of select="$node/
+              (ancestor-or-self::div[@letterGroup][1] | preceding::div[@letterGroup])[last()]/
+              @letterGroup"/>
+          </if>
         </variable>
         <value-of select="if ($root = 'comb') then 
             concat($root, '_glossary', '/', $suffix, if ($group) then $group else '', '.xhtml') else 
@@ -1192,7 +1211,7 @@
   
   <!-- Returns a series of list entry elements, one for every TOC entry that is consecutively one 
   step below tocNode. A class is added according to the type of the entry. EBook glossary keyword 
-  lists with greater than $glossthresh entries are pared down to only the first of each letter. -->
+  lists with greater than $glossThresh entries are pared down to only the first of each letter. -->
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
@@ -1261,7 +1280,7 @@
           select="boolean(
               $isMainNode or 
               ($SCRIPT_NAME != 'osis2ebooks') or 
-              (count($subentries[@type='keyword']) &#60; xs:integer(number($glossthresh))) or 
+              (count($subentries[@type='keyword']) &#60; xs:integer(number($glossThresh))) or 
               (count(distinct-values($subentries[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1)
           )"/>
         <!-- listElements is used to generate all list elements before 

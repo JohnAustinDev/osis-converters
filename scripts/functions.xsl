@@ -17,6 +17,13 @@
   <!-- If DICT-specific config context is desired from oc:conf(), then either the OSIS file header 
   and osisText elements must be marked-up as x-glossary type, OR the calling script must pass in DICTMOD -->
   <param name="DICTMOD" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>
+  <!-- The main module code (could refer to Bible or Children's Bible) -->
+  <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
+  
+  <param name="MAINMOD_URI"/>
+  <param name="DICTMOD_URI"/>
+  <variable name="MAINMOD_DOC" select="if ($MAINMOD_URI) then doc($MAINMOD_URI) else ()"/>
+  <variable name="DICTMOD_DOC" select="if ($DICTMOD_URI) then doc($DICTMOD_URI) else ()"/>
   
   <!-- The following config entries require a properly marked-up OSIS header, OR 
   the calling script must pass in their values (otherwise an error is thrown for oc:conf()) -->
@@ -24,9 +31,6 @@
   <param name="TOC" select="oc:conf('TOC', /)"/>
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
-  
-  <!-- The main module code (could refer to Bible or Children's Bible) -->
-  <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
   
   <!-- All projects have an osisID for the main introduction, and if there is a reference OSIS file
   there will also be an osisID for the top of the reference material. NOTE: If the INT feature is 
@@ -523,10 +527,11 @@
   </function>
   
   <!-- Returns new keywords which make an auto generated menu system
-  for another glossary. If $includeGlossaryKeywords is true then the  
+  for another glossary. The containing div[@type="glossary"] must be 
+  written by the caller. If $includeGlossaryKeywords is true then the  
   glossary entries themselves are also copied and returned in sorted
-  order with letter keywords inserted appropriately. -->
-  <function name="oc:glossaryMenuKeywords" as="node()+">
+  order on the letter keyword menus. -->
+  <function name="oc:glossaryMenu" as="node()+">
     <param name="glossary" as="element(div)"/>
     <param name="includeTopTocMenu" as="xs:boolean"/>
     <param name="includeAllEntriesMenu" as="xs:boolean"/>
@@ -592,15 +597,17 @@
       <osis:div type="x-keyword" osisID="dictionaryAtoZ" subType="x-navmenu-atoz">
         <osis:p>
           <osis:seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}{$id}">
-            <value-of select="$allEntriesTitle"/>
+            <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
           </osis:seg>
         </osis:p>
-        <for-each select="$sortedGlossary//seg[@type='keyword']">
-          <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
-            <value-of select="text()"/>
-          </osis:reference>
-          <osis:lb/>
-        </for-each>
+        <osis:div subType="x-glosslinklist">
+          <for-each select="$sortedGlossary//seg[@type='keyword']">
+            <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
+              <value-of select="text()"/>
+            </osis:reference>
+            <osis:lb/>
+          </for-each>
+        </osis:div>
       </osis:div>
       <call-template name="Note">
 <with-param name="msg">Added keyword: <value-of select="$allEntriesTitle"/></with-param>
@@ -609,63 +616,52 @@
     
     <!-- Create a keyword for each letter, which either contain links to, 
     or are followed by copies of, glossary keywords that begin with that letter -->
-    <choose>
-    
-      <when test="$includeGlossaryKeywords">
-        <for-each select="$sortedGlossary/descendant::seg[@type='keyword']">
-          <variable name="myKeywordDiv" select="./ancestor::div[starts-with(@type,'x-keyword')]"/>
-          <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letter" select="concat('', upper-case(oc:longestStartingMatchKS(text())))"/>
-            <osis:div type="x-keyword" subType="x-navmenu-letter">
-              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
-                <value-of select="$letter"/>
-              </osis:seg>
-            </osis:div>
-            <call-template name="Note">
-<with-param name="msg">Inserted keyword: <value-of select="$letter"/></with-param>
-            </call-template>
-          </if>
-          <sequence select="oc:setKeywordTocInstruction($myKeywordDiv, '[level3]')"/>
-        </for-each>
-      </when>
-      
-      <otherwise>
-        <variable name="letterMenus" as="element()*">
-          <for-each select="$sortedGlossary//seg[@type='keyword']">
-            <if test="oc:skipGlossaryEntry(.) = false()">
-              <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
-              <osis:p>
-                <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
-                  <value-of select="$letter"/>
-                </osis:seg>
-              </osis:p>
-            </if>
-            <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
-              type="x-glosslink" subType="x-target_self">
-              <value-of select="text()"/>
-            </osis:reference>
-            <osis:lb/>
-          </for-each>
-        </variable>
-        <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
-          <text>&#xa;</text>
-          <osis:div type="x-keyword" subType="x-navmenu-letter">
-            <sequence select="current-group()"/>
-          </osis:div>
-          <call-template name="Note">
-<with-param name="msg">Added keyword <value-of select="current-group()[1]"/></with-param>
-          </call-template>
-        </for-each-group>
-        <text>&#xa;</text>
-      </otherwise>
-      
-    </choose>
+    <variable name="letterMenus" as="element()*">
+      <for-each select="$sortedGlossary//seg[@type='keyword']">
+        <if test="oc:skipGlossaryEntry(.) = false()">
+          <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
+          <osis:p>
+            <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
+              <value-of select="replace($letter, '^\-', '')"/>
+            </osis:seg>
+          </osis:p>
+        </if>
+        <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
+          type="x-glosslink" subType="x-target_self">
+          <value-of select="text()"/>
+        </osis:reference>
+        <osis:lb/>
+      </for-each>
+    </variable>
+    <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
+      <text>&#xa;</text>
+      <osis:div type="x-keyword" subType="x-navmenu-letter">
+        <sequence select="current-group()[1]"/>
+        <osis:div subType="x-glosslinklist">
+          <sequence select="current-group()[not(position() = 1)]"/>
+        </osis:div>
+      </osis:div>
+      <call-template name="Note">
+<with-param name="msg">Added keyword link list <value-of select="current-group()[1]"/></with-param>
+      </call-template>
+      <if test="$includeGlossaryKeywords">
+        <variable name="keywords" as="element(div)+" 
+          select="$sortedGlossary/descendant::div[starts-with(@type,'x-keyword')]
+              [ descendant::seg[@type='keyword']/@osisID = 
+                current-group()[not(position() = 1)][self::reference]/replace(@osisRef, '^[^:]*:' ,'') ]"/>
+        <sequence select="oc:setKeywordTocInstruction($keywords, '[level3]')"/>
+        <call-template name="Note">
+<with-param name="msg">Included keywords: <value-of select="current-group()[1]"/></with-param>
+        </call-template>
+      </if>
+    </for-each-group>
+    <text>&#xa;</text>
 
   </function>
   
-  <!-- Returns a copy of an element, adding TOC instruction $instr to every keyword -->
+  <!-- Returns a copy of an elements, adding TOC instruction $instr to every keyword -->
   <function name="oc:setKeywordTocInstruction">
-    <param name="element" as="node()"/>
+    <param name="element" as="node()+"/>
     <param name="instr" as="xs:string"/>
     
     <apply-templates mode="setKeywordTocInst" select="$element">
