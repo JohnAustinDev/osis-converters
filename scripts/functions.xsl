@@ -637,9 +637,12 @@
       <text>&#xa;</text>
       <osis:div type="x-keyword" subType="x-navmenu-letter">
         <sequence select="current-group()[1]"/>
-        <osis:div subType="x-glosslinklist">
-          <sequence select="current-group()[not(position() = 1)]"/>
-        </osis:div>
+        <if test="not($includeGlossaryKeywords) or 
+                  count(current-group()[not(position() = 1)]) &#62; 1">
+          <osis:div subType="x-glosslinklist">
+            <sequence select="current-group()[not(position() = 1)]"/>
+          </osis:div>
+        </if>
       </osis:div>
       <call-template name="Note">
 <with-param name="msg">Added keyword link list <value-of select="current-group()[1]"/></with-param>
