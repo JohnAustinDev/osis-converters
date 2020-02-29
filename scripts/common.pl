@@ -727,17 +727,17 @@ sub compareDictOsis2DWF($$) {
     my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
     
     my $match = 0;
+DWF_OSISREF:
     foreach my $dwfOsisRef (@dwfOsisRefs) {
       if (!$dwfOsisRef) {next;}
-      my $osisRef = $dwfOsisRef->value;
-      my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
-    
-      my $name = @{$XPC->findnodes('parent::dw:entry/dw:name[1]', $dwfOsisRef)}[0];
-      
-      if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
-
+      foreach my $osisRef (split(/\s+/, $dwfOsisRef->value)) {
+        my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
+        if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last DWF_OSISREF;}
+      }
+        
       # Update entry osisRefs that need to be, and can be, updated
-      elsif ($allowUpdate && &uc2($osisIDa->parentNode->textContent) eq &uc2($name->textContent)) {
+      my $name = @{$XPC->findnodes('parent::dw:entry/dw:name[1]', $dwfOsisRef)}[0];
+      if ($allowUpdate && &uc2($osisIDa->parentNode->textContent) eq &uc2($name->textContent)) {
         $match = 1;
         $update++;
         my $origOsisRef = $dwfOsisRef->value;
@@ -755,22 +755,23 @@ sub compareDictOsis2DWF($$) {
   my %reported;
   foreach my $dwfOsisRef (@dwfOsisRefs) {
     if (!$dwfOsisRef) {next;}
-    my $osisRef = $dwfOsisRef->value;
-    my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
-    
-    my $match = 0;
-    foreach my $osisIDa (@dictOsisIDs) {
-      if (!$osisIDa) {next;}
-      my $osisID = $osisIDa->value;
-      my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
-      if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
-    }
-    if (!$match) {
-      if (!$reported{$osisRef}) {
-        &Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD.");
+    foreach my $osisRef (split(/\s+/, $dwfOsisRef->value)) {
+      my $osisRef_mod = ($osisRef =~ s/^(.*?):// ? $1:'');
+      
+      my $match = 0;
+      foreach my $osisIDa (@dictOsisIDs) {
+        if (!$osisIDa) {next;}
+        my $osisID = $osisIDa->value;
+        my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
+        if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
       }
-      $reported{$osisRef}++;
-      $allmatch = 0;
+      if (!$match) {
+        if (!$reported{$osisRef}) {
+          &Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD.");
+        }
+        $reported{$osisRef}++;
+        $allmatch = 0;
+      }
     }
   }
   
@@ -4415,6 +4416,7 @@ sub writeOsisIDs($) {
   my $myMod = &getOsisRefWork($xml);
   
   # Add osisID to DICT container divs
+  my %ids;
   foreach my $div (
     @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
       [not(@resp="x-oc")]
@@ -4423,7 +4425,16 @@ sub writeOsisIDs($) {
       [not(starts-with(@type, "x-aggregate"))]
       [not(contains(@type, "ection"))]', $xml)}
     ) {
-    $div->setAttribute('osisID', &dashCamelCase($div->getAttribute('type')).'_'.&ochash($div->toString()));
+    my $n=1;
+    my $id;
+    do {
+      $id = &dashCamelCase($div->getAttribute('type'));
+      $id = ($id ? $id:'div');
+      $id .= "_$n";
+      $n++;
+    } while (defined($ids{$id}));
+    $ids{$id}++;
+    $div->setAttribute('osisID', $id);
     &Note("Adding osisID ".$div->getAttribute('osisID'));
   }
   
@@ -4461,7 +4472,7 @@ sub writeOsisIDs($) {
   $$osisP = $output;
 }
 
-sub ochash($) {
+sub oc_stringHash($) {
   my $s = shift;
   use Digest::MD5 qw(md5 md5_hex md5_base64);
   return substr(md5_hex(encode('utf8', $s)), 0, 4);

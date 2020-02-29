@@ -43,8 +43,8 @@ sub osis2pubs($) {
   # Constants used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   $IS_CHILDRENS_BIBLE = &isChildrensBible($INOSIS_XML);
-  $CREATE_FULL_TRANSLATION = (&conf('CreateFullBible') !~ /^false$/i);
-  $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') !~ /^false$/i);
+  $CREATE_FULL_TRANSLATION = (&conf('CreateFullBible') eq 'AUTO' ? 'true':&conf('CreateFullBible') !~ /^false$/i);
+  $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') eq 'AUTO' ? $convertTo eq 'eBook':(&conf('CreateSeparateBooks') =~ /^false$/i ? '':&conf('CreateSeparateBooks')));
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
   $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):'');
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
@@ -77,17 +77,17 @@ sub osis2pubs($) {
       $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
       foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
       if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
-      if ($scope ne $FULLSCOPE && $convertTo eq 'html') {next;}
       $PUB_SUBDIR = $eBookSubDirs{$scope};
       $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
       &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
     }
 
     # convert each Bible book within the OSIS file
-    if ($CREATE_SEPARATE_BOOKS && $convertTo ne 'html') {
+    if ($CREATE_SEPARATE_BOOKS) {
       $PUB_TYPE = 'Part';
       foreach my $aBook ($XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML)) {
         my $bk = $aBook->getAttribute('osisID');
+        if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
@@ -280,6 +280,18 @@ file for it, and then run this script again.");}
   # now do the conversion on the temporary directory's files
   if ($convertTo eq 'html') {
     &makeHTML($tmp, $cover, $scope);
+    
+    # Use linkchecker to check all links of output html
+    &Log("--- CHECKING html links in \"$HTMLOUT/$PUB_NAME/index.xhtml\"\n");
+    my $result = &shell("linkchecker \"$HTMLOUT/$PUB_NAME/index.xhtml\"", 3);
+    if ($result =~ /^That's it\. (\d+) links in (\d+) URLs checked\. (\d+) warnings found\. (\d+) errors found\./m) {
+      my $link = 1*$1; my $urls = 1*$2; my $warn = 1*$3; my $err = 1*$4;
+      if ($warn || $err) {&Log("$result\n");}
+      &Report("Checked $link resulting html links (".($warn+$err)." problems).");
+      if ($warn) {&Warn("See above linkchecker warnings.");}
+      if ($err) {&Error("See above linkchecker errors.");}
+    }
+    else {&ErrorBug("Could not parse output of linkchecker.", "Check the version of linkchecker.");}
   }
   elsif ($convertTo eq 'eBook') {
     if ($DEBUG !~ /no.?epub/i) {&makeEbook($tmp, 'epub', $cover, $scope);}
@@ -674,10 +686,12 @@ sub filterGlossaryReferences($$) {
   
   my $xml = $XML_PARSER->parse_file($osis);
   
-  # filter out references outside our scope
-  my @links = $XPC->findnodes('//osis:reference[@osisRef and (@type="x-glosslink" or @type="x-glossary")]', $xml);
-  my %filteredOsisRefs; my %modifiedOsisRefs;
-  my $totalFilteredOsisRefs = 0; my $totalModifiedOsisRefs = 0;
+  # filter out references outside our scope (but don't check those which 
+  # in the INT feature, as they might be forwarded by osis2xhtml.xsl)
+  my @links = $XPC->findnodes('//osis:reference[@osisRef][@type="x-glosslink" or @type="x-glossary"]
+      [not(ancestor::osis:div[@annotateType="x-feature"][@annotateRef="INT"])]', $xml);
+  my %removedOsisRefs; my %modifiedOsisRefs;
+  my $totalRemovedOsisRefs = 0; my $totalModifiedOsisRefs = 0;
   my %noteMulti;
   foreach my $link (@links) {
     my $refs = $link->getAttribute('osisRef');
@@ -697,8 +711,8 @@ sub filterGlossaryReferences($$) {
       foreach my $child (@children) {$link->parentNode->insertBefore($child, $link);}
       $link->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk(' '), $link);
       $link->unbindNode();
-      $filteredOsisRefs{$refs}++;
-      $totalFilteredOsisRefs++;
+      $removedOsisRefs{$refs}++;
+      $totalRemovedOsisRefs++;
     }
     elsif ($newrefs ne $refs) {
       $link->setAttribute('osisRef', $newrefs);
@@ -718,23 +732,25 @@ sub filterGlossaryReferences($$) {
 
   &writeXMLFile($xml, $osis);
   
+  my $mname = &getModNameOSIS($xml);
+  
   if (%noteMulti) {
-    &Note("Glossary references with multi-target osisRefs exist, but secondary targets will be ignored:");
+    &Note("Glossary references with multi-target osisRefs exist in $mname, but secondary targets will be ignored:");
     foreach my $osisRef (sort keys %noteMulti) {&Log("\t$osisRef\n");}
   }
   
   &Log("\n");
-  &Report("\"$totalFilteredOsisRefs\" glossary references filtered:");
-  foreach my $r (sort keys %filteredOsisRefs) {
+  &Report("\"$totalRemovedOsisRefs\" glossary references were removed from $mname:");
+  foreach my $r (sort keys %removedOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
   &Log("\n");
-  &Report("\"$totalModifiedOsisRefs\" multi-target glossary references were shortened:");
+  &Report("\"$totalModifiedOsisRefs\" multi-target glossary references were filtered in $mname:");
   foreach my $r (sort keys %modifiedOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
   
-  return $totalFilteredOsisRefs;
+  return $totalRemovedOsisRefs;
 }
 
 # Calibre requires the eBook cover be passed separately from the OSIS file.

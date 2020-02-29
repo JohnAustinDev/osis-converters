@@ -14,4 +14,10 @@
   <!-- Use the source (translator's custom) verse system -->
   <include href="./osis2sourceVerseSystem.xsl"/>
   
+  <!-- Remove all navmenu link lists, which are custom-created as needed -->
+  <template match="list[@subType='x-navmenu']"/>
+  
+  <!-- Remove all NAVMENUs, which are custom-created as needed -->
+  <template match="div[@scope='NAVMENU']"/>
+  
 </stylesheet>

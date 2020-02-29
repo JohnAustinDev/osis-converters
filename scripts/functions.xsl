@@ -418,112 +418,117 @@
   </function>
   
   <!-- Returns a list of links to glossary and introductory material, 
-  including next/previous chapter/keyword links. NOTE: Normally links
-  to keywords in Bible modules are type x-glossary, while those in 
-  Dict modules are x-glosslink, but here they are all x-glosslink
-  for CSS backward compatibility in xulsword. -->
+  including next/previous chapter/keyword links. When a REF is prefixed
+  with 'href+' an osisRef attribute is NOT generated, instead, an href
+  attribute is written as a literal href (this feature should only be
+  used on temporary OSIS nodes, since it would not validate). NOTE: 
+  Normally links to keywords in Bible modules are type x-glossary, while 
+  those in Dict modules are x-glosslink, but here they are all 
+  x-glosslink for CSS backward compatibility in xulsword. -->
   <function name="oc:getNavmenuLinks" as="element(list)?">
-    <param name="REF_prev"  as="xs:string"/>
-    <param name="REF_next"  as="xs:string"/>
-    <param name="REF_intro" as="xs:string"/>
-    <param name="REF_dict"  as="xs:string"/>
-    <param name="title_dict" as="xs:string"/>
-    <param name="canonical" as="xs:string"/>
+    <param name="REF_prev"  as="xs:string?"/>
+    <param name="REF_next"  as="xs:string?"/>
+    <param name="REF_intro" as="xs:string?"/>
+    <param name="REF_dict"  as="xs:string?"/>
+    <param name="title_dict" as="xs:string?"/>
+    <param name="canonical" as="xs:string?"/>
     
-    <osis:list subType="x-navmenu" resp="x-oc">
-      <if test="$canonical">
-        <attribute name="canonical" select="$canonical"/>
-      </if>
+    <if test="$REF_prev or $REF_next or $REF_intro or $REF_dict">
+      <osis:list subType="x-navmenu" resp="x-oc">
+        <if test="$canonical">
+          <attribute name="canonical" select="$canonical"/>
+        </if>
 
-      <if test="($REF_prev or $REF_next)">
-        <osis:item subType="x-prevnext-link">
-          <osis:p type="x-right" subType="x-introduction">
-            <if test="$REF_prev">
+        <if test="($REF_prev or $REF_next)">
+          <osis:item subType="x-prevnext-link">
+            <osis:p type="x-right" subType="x-introduction">
+              <if test="$REF_prev">
+                <osis:reference>
+                  <choose>
+                    <when test="matches($REF_prev, '^href\+')">
+                      <attribute name="href" select="replace($REF_prev, '^href\+', '')"/>
+                    </when>
+                    <otherwise>
+                      <attribute name="osisRef" select="$REF_prev"/>
+                    </otherwise>
+                  </choose>
+                  <if test="starts-with($REF_prev, concat($DICTMOD,':'))">
+                    <attribute name="type">x-glosslink</attribute>
+                    <attribute name="subType">x-target_self</attribute>
+                  </if>
+                  <text> ← </text>
+                </osis:reference>
+              </if>
+              <if test="$REF_next">
+                <osis:reference>
+                  <choose>
+                    <when test="matches($REF_next, '^href\+')">
+                      <attribute name="href" select="replace($REF_next, '^href\+', '')"/>
+                    </when>
+                    <otherwise>
+                      <attribute name="osisRef" select="$REF_next"/>
+                    </otherwise>
+                  </choose>
+                  <if test="starts-with($REF_next, concat($DICTMOD,':'))">
+                    <attribute name="type">x-glosslink</attribute>
+                    <attribute name="subType">x-target_self</attribute>
+                  </if>
+                  <text> → </text>
+                </osis:reference>
+              </if>
+            </osis:p>
+          </osis:item>
+        </if>
+        
+        <if test="$REF_intro">
+          <osis:item subType="x-introduction-link">
+            <osis:p type="x-right" subType="x-introduction">
               <osis:reference>
                 <choose>
-                  <when test="matches($REF_prev, '^href\+')">
-                    <attribute name="href" select="replace($REF_prev, '^href\+', '')"/>
+                  <when test="matches($REF_intro, '^href\+')">
+                    <attribute name="href" select="replace($REF_intro, '^href\+', '')"/>
                   </when>
                   <otherwise>
-                    <attribute name="osisRef" select="$REF_prev"/>
+                    <attribute name="osisRef" select="$REF_intro"/>
                   </otherwise>
                 </choose>
-                <if test="starts-with($REF_prev, concat($DICTMOD,':'))">
+                <if test="starts-with($REF_intro, concat($DICTMOD,':'))">
                   <attribute name="type">x-glosslink</attribute>
                   <attribute name="subType">x-target_self</attribute>
                 </if>
-                <text> ← </text>
+                <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
               </osis:reference>
-            </if>
-            <if test="$REF_next">
+            </osis:p>
+          </osis:item>
+        </if>
+        
+        <if test="$REF_dict">
+          <osis:item subType="x-dictionary-link">
+            <osis:p type="x-right" subType="x-introduction">
               <osis:reference>
                 <choose>
-                  <when test="matches($REF_next, '^href\+')">
-                    <attribute name="href" select="replace($REF_next, '^href\+', '')"/>
+                  <when test="matches($REF_dict, '^href\+')">
+                    <attribute name="href" select="replace($REF_dict, '^href\+', '')"/>
                   </when>
                   <otherwise>
-                    <attribute name="osisRef" select="$REF_next"/>
+                    <attribute name="osisRef" select="$REF_dict"/>
                   </otherwise>
                 </choose>
-                <if test="starts-with($REF_next, concat($DICTMOD,':'))">
+                <if test="starts-with($REF_dict, concat($DICTMOD,':'))">
                   <attribute name="type">x-glosslink</attribute>
                   <attribute name="subType">x-target_self</attribute>
                 </if>
-                <text> → </text>
+                <value-of select="if ($title_dict) then $title_dict else 
+                                  replace($uiDictionary, '^[\-\s]+', '')"/>
               </osis:reference>
-            </if>
-          </osis:p>
-        </osis:item>
-      </if>
-      
-      <if test="$REF_intro">
-        <osis:item subType="x-introduction-link">
-          <osis:p type="x-right" subType="x-introduction">
-            <osis:reference>
-              <choose>
-                <when test="matches($REF_intro, '^href\+')">
-                  <attribute name="href" select="replace($REF_intro, '^href\+', '')"/>
-                </when>
-                <otherwise>
-                  <attribute name="osisRef" select="$REF_intro"/>
-                </otherwise>
-              </choose>
-              <if test="starts-with($REF_intro, concat($DICTMOD,':'))">
-                <attribute name="type">x-glosslink</attribute>
-                <attribute name="subType">x-target_self</attribute>
-              </if>
-              <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
-            </osis:reference>
-          </osis:p>
-        </osis:item>
-      </if>
-      
-      <if test="$REF_dict">
-        <osis:item subType="x-dictionary-link">
-          <osis:p type="x-right" subType="x-introduction">
-            <osis:reference>
-              <choose>
-                <when test="matches($REF_dict, '^href\+')">
-                  <attribute name="href" select="replace($REF_dict, '^href\+', '')"/>
-                </when>
-                <otherwise>
-                  <attribute name="osisRef" select="$REF_dict"/>
-                </otherwise>
-              </choose>
-              <if test="starts-with($REF_dict, concat($DICTMOD,':'))">
-                <attribute name="type">x-glosslink</attribute>
-                <attribute name="subType">x-target_self</attribute>
-              </if>
-              <value-of select="if ($title_dict) then $title_dict else 
-                                replace($uiDictionary, '^[\-\s]+', '')"/>
-            </osis:reference>
-          </osis:p>
-        </osis:item>
-      </if>
-      
-      <osis:lb/>
-      <osis:lb/>
-    </osis:list>
+            </osis:p>
+          </osis:item>
+        </if>
+        
+        <osis:lb/>
+        <osis:lb/>
+      </osis:list>
+    </if>
   </function>
   
   <!-- Returns new keywords which make an auto generated menu system
@@ -559,7 +564,6 @@
     to the A-Z menu) on it -->        
     <variable name="allEntriesTitle" 
       select="concat(
-              '-', 
               upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][1])), 
               '-', 
               upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][last()])))"/>
@@ -574,14 +578,14 @@
         </osis:p>
         <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allEntriesTitle)}{$id}" 
           type="x-glosslink" subType="x-target_self">
-          <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
+          <value-of select="$allEntriesTitle"/>
         </osis:reference>
         <for-each select="$sortedGlossary//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
+            <variable name="letter" select="upper-case(oc:longestStartingMatchKS(text()))"/>
             <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}{$id}" 
               type="x-glosslink" subType="x-target_self">
-              <value-of select="replace($letter, '^\-', '')"/>
+              <value-of select="$letter"/>
             </osis:reference>
           </if>
         </for-each>
@@ -597,7 +601,7 @@
       <osis:div type="x-keyword" osisID="dictionaryAtoZ" subType="x-navmenu-atoz">
         <osis:p>
           <osis:seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}{$id}">
-            <value-of select="replace($allEntriesTitle, '^[\-\s]+', '')"/>
+            <value-of select="$allEntriesTitle"/>
           </osis:seg>
         </osis:p>
         <osis:div subType="x-glosslinklist">
@@ -619,10 +623,10 @@
     <variable name="letterMenus" as="element()*">
       <for-each select="$sortedGlossary//seg[@type='keyword']">
         <if test="oc:skipGlossaryEntry(.) = false()">
-          <variable name="letter" select="concat('-', upper-case(oc:longestStartingMatchKS(text())))"/>
+          <variable name="letter" select="upper-case(oc:longestStartingMatchKS(text()))"/>
           <osis:p>
             <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
-              <value-of select="replace($letter, '^\-', '')"/>
+              <value-of select="$letter"/>
             </osis:seg>
           </osis:p>
         </if>
@@ -645,7 +649,7 @@
         </if>
       </osis:div>
       <call-template name="Note">
-<with-param name="msg">Added keyword link list <value-of select="current-group()[1]"/></with-param>
+<with-param name="msg">Added keyword link list: <value-of select="current-group()[1]"/></with-param>
       </call-template>
       <if test="$includeGlossaryKeywords">
         <variable name="keywords" as="element(div)+" 

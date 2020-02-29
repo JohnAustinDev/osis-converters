@@ -90,10 +90,14 @@
           (if ($referenceOSIS//div[@type='glossary'][@subType='x-aggregate']) then true() else false()) 
           else $CombineGlossaries = 'true' "/>
   
-  <!-- All USFM file types output by CrossWire's usfm2osis.py are handled by this XSLT -->
+  <!-- USFM file types output by CrossWire's usfm2osis.py -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 
-      'glossary', 'index', 'gazetteer', 'x-other')" as="xs:string+"/>
-  
+      'glossary', 'index', 'gazetteer', 'x-other', 'titlePage', 'x-halfTitlePage', 
+      'x-promotionalPage', 'imprimatur', 'publicationData', 'x-foreword', 'preface', 
+      'tableofContents', 'x-alphabeticalContents', 'x-tableofAbbreviations', 
+      'x-chronology', 'x-weightsandMeasures', 'x-mapIndex', 'x-ntQuotesfromLXX', 
+      'coverPage', 'x-spine', 'x-tables', 'x-dailyVerses')" as="xs:string+"/>
+      
   <!-- A main inline Table Of Contents is placed after the first TOC milestone sibling 
        following the OSIS header, or, if there isn't such a milestone, one will be created. -->
   <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
@@ -380,28 +384,32 @@
     <variable name="osisRef" as="xs:string" select="if (contains($osisRef2,':')) then 
                                                     $osisRef2 else 
                                                     concat(oc:myWork(.),':',$osisRef2)"/>
-    <choose>
-      <when test=". = ($REF_introduction, $REF_introductionINT)">
-        <attribute name="osisRef" select="$REF_BibleTop"/>
-      </when>
-      <when test=". = $REF_dictionary">
-        <attribute name="osisRef" select="$REF_DictTop"/>
-      </when>
-      <!-- forward removed Dict INT keyword references to the matching Bible INT introduction title -->
-      <when test="tokenize($osisRef,':')[1] = $DICTMOD and 
-                  tokenize($osisRef,':')[2] = $INT_osisID">
-        <variable name="ref" select="if (tokenize($osisRef,':')[2] = $INT_titleElement/oc:encodeOsisRef(string())) then 
-                                    concat($MAINMOD,':',tokenize($osisRef,':')[2], '!INT') else 
-                                    concat($MAINMOD,':BIBLE_TOP')"/>
-        <attribute name="osisRef" select="$ref"/>
-        <call-template name="Note">
+    <variable name="result" as="xs:string">
+      <choose>
+        <when test=". = ($REF_introduction, $REF_introductionINT)">
+          <value-of select="$REF_BibleTop"/>
+        </when>
+        <when test=". = $REF_dictionary">
+          <value-of select="$REF_DictTop"/>
+        </when>
+        <!-- forward removed Dict INT keyword references to the matching Bible INT introduction title -->
+        <when test="count($INT_osisID) and
+                    tokenize($osisRef,':')[1] = $DICTMOD and 
+                    tokenize($osisRef,':')[2] = $INT_osisID">
+          <variable name="ref" select="if (tokenize($osisRef,':')[2] = $INT_titleElement/oc:encodeOsisRef(string())) then 
+                                      concat($MAINMOD,':',tokenize($osisRef,':')[2], '!INT') else 
+                                      concat($MAINMOD,':BIBLE_TOP')"/>
+          <value-of select="$ref"/>
+          <call-template name="Note">
 <with-param name="msg">Forwarding INT reference <value-of select="$osisRef2"/> to <value-of select="$ref"/></with-param>
-        </call-template>
-      </when>
-      <otherwise>
-        <attribute name="osisRef" select="$osisRef"/>
-      </otherwise>
-    </choose>
+          </call-template>
+        </when>
+        <otherwise>
+          <value-of select="$osisRef"/>
+        </otherwise>
+      </choose>
+    </variable>
+    <attribute name="osisRef" select="$result"/> 
   </template>
   <template mode="preprocess" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
     <copy>
@@ -491,7 +499,7 @@
         </choose>
       </copy>
     </variable>
-    <!-- A huge speedup is gained by calculating a letterGroup attribute 
+    <!-- A huge speedup is gained by calculating a glossaryGroup attribute 
     here, rather than calculating groups in divideFiles and getFileName -->
     <apply-templates mode="preprocess_addGroupAttribs" select="$glossary">
       <with-param name="my_keywordFile" select="$my_keywordFile" tunnel="yes"/>
@@ -500,7 +508,7 @@
   <template mode="preprocess_addGroupAttribs" match="div[@type='glossary']">
     <copy>
       <apply-templates mode="preprocess_addGroupAttribs" select="@*"/>
-      <attribute name="letterGroup" select="'0'"/>
+      <attribute name="glossaryGroup" select="'0'"/>
       <apply-templates mode="preprocess_addGroupAttribs"/>
     </copy>
   </template>
@@ -525,7 +533,7 @@
           <otherwise><value-of select="0"/></otherwise>
         </choose>
       </variable>
-      <attribute name="letterGroup" select="$group"/>
+      <attribute name="glossaryGroup" select="$group"/>
       <apply-templates mode="preprocess_addGroupAttribs"/>
     </copy>
   </template>
@@ -626,8 +634,8 @@
     <choose>
       <when test="$my_keywordFile = ('single', 'letter')">
         <for-each-group select="node()" 
-          group-adjacent="(ancestor-or-self::div[@letterGroup][1] | preceding::div[@letterGroup][1])[last()]/
-                          @letterGroup">
+          group-adjacent="(ancestor-or-self::div[@glossaryGroup][1] | preceding::div[@glossaryGroup][1])[last()]/
+                          @glossaryGroup">
           <call-template name="ProcessFile">
             <with-param name="fileNodes" select="current-group()"/>
           </call-template>
@@ -812,8 +820,8 @@
         <variable name="group">
           <if test="$my_keywordFile = ('single', 'letter')">
             <value-of select="$node/
-              (ancestor-or-self::div[@letterGroup][1] | preceding::div[@letterGroup])[last()]/
-              @letterGroup"/>
+              (ancestor-or-self::div[@glossaryGroup][1] | preceding::div[@glossaryGroup])[last()]/
+              @glossaryGroup"/>
           </if>
         </variable>
         <value-of select="if ($root = 'comb') then 
@@ -1018,27 +1026,25 @@
   of that note within its output file -->
   <template name="getFootnoteNumber">
     <choose>
-      <when test="ancestor::div[@type=$usfmType]">
-        <choose>
-          <when test="not(descendant-or-self::seg[@type='keyword']) and 
-                      count(preceding::seg[@type='keyword']) = 
-                      count(ancestor::div[@type=$usfmType][1]/preceding::seg[@type='keyword'])">
-            <value-of select="count(preceding::note) - count(ancestor::div[@type=$usfmType][1]/preceding::note) + 1"/>
-          </when>
-          <otherwise>
-            <value-of select="count(preceding::note) - count(preceding::seg[@type='keyword'][1]/preceding::note) + 1"/>
-          </otherwise>
-        </choose>
+      <when test="ancestor-or-self::div[@glossaryGroup]"><!-- glossaries -->
+        <variable name="myGroup" as="xs:integer" select="ancestor-or-self::div[@glossaryGroup][1]/@glossaryGroup"/>
+        <variable name="firstOfMyGroup" as="element(div)" 
+          select="ancestor-or-self::div[@glossaryGroup][last()]/descendant-or-self::div[@glossaryGroup=$myGroup][1]"/>
+        <value-of select="count(preceding::note) - count($firstOfMyGroup/preceding::note) + 1"/>
       </when>
-      <when test="ancestor::div[@type='book']">
+      <when test="ancestor::div[@type='book']"><!-- books -->
         <value-of select="count(preceding::note) - count(ancestor::div[@type='book'][1]/preceding::note) + 1"/>
       </when>
-      <when test="ancestor::div[@type='bookGroup']">
-        <value-of select="count(preceding::note) - count(ancestor::div[@type='bookGroup'][1]/preceding::note) + 1"/>
+      <when test="ancestor::div[@type='bookGroup']"><!-- bookGroup introductions -->
+        <value-of select="count(preceding::note[not(ancestor::div[@type='book'])]) - 
+                          count(ancestor::div[@type='bookGroup'][1]/preceding::note[not(ancestor::div[@type='book'])]) + 1"/>
       </when>
-      <when test="ancestor::osisText">
-        <value-of select="count(preceding::note) + 1"/>
+      <when test="oc:myWork(.) = $MAINMOD"><!-- main introduction -->
+        <value-of select="count(preceding::note[not(ancestor::div[@type='bookGroup'])]) + 1"/>
       </when>
+      <otherwise>
+        <value-of select="count(preceding::note) - count(ancestor::div[last()]/preceding::note) + 1"/>
+      </otherwise>
     </choose>    
   </template>
   
@@ -1047,7 +1053,7 @@
   butes, and 2) inline TOC which appears inline with the text as a 
   series of links. All TOC elements must have an osisID, without a work
   prefix (this may be insured during the preprocess step). The following 
-  OSIS elements, by default,will generate both an eBook TOC and an 
+  OSIS elements, by default, will generate both an eBook TOC and an 
   inline TOC entry:
   
              ELEMENT                           DESCRIPTION
@@ -1075,7 +1081,7 @@
   
   INSTRUCTION                   DESCRIPTION
   [levelN]        - Where N is 1, 2 or 3. Specifies the TOC level.
-  [no_toc]        - Means this element is NOT a TOC element.
+  [no_toc]        - Means this element is NOT treated as a TOC element.
   [not_parent]    - Used on bookGroup or book  milestone TOC elements.   
                     Means that this section should appear as the first  
                     sibling of the following book or chapter list,   
@@ -1326,6 +1332,9 @@
                 <choose>
                   <when test="self::chapter[@osisID]">
                     <value-of select="tokenize(@osisID, '\.')[last()]"/>
+                  </when>
+                  <when test="ancestor::div[@type='x-keyword'][starts-with(@subType,'x-navmenu')]">
+                    <value-of select="text()"/>
                   </when>
                   <when test="not($includeAllSubEntries) and self::seg[@type='keyword']">
                     <value-of select="upper-case(oc:longestStartingMatchKS(text()))"/>
@@ -2007,6 +2016,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </variable>
     <variable name="file" as="xs:string?">
       <choose>
+        <when test="not($osisRef)"/>
         <when test="$isScriptureRef">
           <value-of select="me:getFileNameOfRef(@osisRef)"/>
         </when>
@@ -2025,12 +2035,12 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
             </when>
             <when test="count($targetElement) = 0">
               <call-template name="Error">
-<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/> when osisRef is <value-of select="concat($workid,':',$osisRef)"/></with-param>
+<with-param name="msg">Target osisID not found for <value-of select="oc:printNode(.)"/> when osisRef is <value-of select="@osisRef"/></with-param>
               </call-template>
             </when>
             <otherwise>
               <call-template name="Error">
-<with-param name="msg">Multiple targets with same osisID (<value-of select="count($targetElement)"/>): osisID="<value-of select="$osisRef"/>", workID="<value-of select="$workid"/>"</with-param>
+<with-param name="msg">Multiple targets with same osisID (<value-of select="count($targetElement)"/>) when osisRef is <value-of select="@osisRef"/></with-param>
               </call-template>
             </otherwise>
           </choose>
@@ -2039,6 +2049,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </variable>
     <variable name="htmlID" as="xs:string?">
       <choose>
+        <when test="not($file)"/>
         <when test="not($isScriptureRef)">
           <value-of select="oc:id($osisRef)"/>
         </when>
@@ -2057,7 +2068,12 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </variable>
     <variable name="fragment" select="if ($htmlID) then concat('#',$htmlID) else ''"/>
     <choose>
-      <when test="not($file)"><apply-templates mode="xhtml"/></when>
+      <when test="not($file)">
+        <apply-templates mode="xhtml"/>
+        <call-template name="Error">
+<with-param name="msg">Could not determine source file for <value-of select="@osisRef"/></with-param>
+        </call-template>
+      </when>
       <otherwise>
         <variable name="href" 
             select="oc:uriToRelativePath(

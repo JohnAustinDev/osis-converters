@@ -200,10 +200,9 @@
   </template>
   <template mode="glossmenu_navmenus" match="p">
     <next-match/>
-    <variable name="firstkw" select="count(preceding::seg[@type='keyword']) = 1"/>
-    <sequence select="oc:getNavmenuLinks('', '', 
-                      $myREF_intro, 
-                      if ($firstkw) then '' else $REF_dictionary, '', '')"/>
+    <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, 
+                      if (ancestor::div[@subType='x-navmenu-dictionary']) then '' 
+                      else $REF_dictionary, '', '')"/>
   </template>
   
   <!-- Add subType='x-target_self' to any custom NAVMENU links -->

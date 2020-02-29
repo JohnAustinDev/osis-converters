@@ -13,7 +13,7 @@
   adjusts multi-target references referencing removed keyword osisIDs,   
   and an error is generated if keyword removal causes broken links. -->
   
-  <import href="./functions.xsl"/><!-- needed for reporting results and refRedirects -->
+  <import href="./functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
   <param name="conversion"/>
   
@@ -33,10 +33,10 @@
     select="boolean($sortedGlossaryKeywords/descendant::seg[@type='keyword'] intersect $removeKeywords)"/>
     
   <!-- For both Bible and Dict reference redirects, reading of the Dict is necessary -->
-  <variable name="refRedirects" select="$DICTMOD_DOC/descendant::seg[@type='keyword']
+  <variable name="removedKeywords" select="$DICTMOD_DOC/descendant::seg[@type='keyword']
     [ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]]"/>
-  <variable name="refRedirected" as="element(reference)*" select="/descendant::reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-    [tokenize(@osisRef, ' ') = $refRedirects/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))]"/>
+  <variable name="refTrimmed" as="element(reference)*" select="/descendant::reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+    [tokenize(@osisRef, '\s+') = $removedKeywords/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))]"/>
   
   <!-- Report results -->
   <template match="/">
@@ -45,22 +45,22 @@
     </call-template>
     <if test="$removeElements">
       <call-template name="Note">
-        <with-param name="msg">Removed <value-of select="count($removeElements)"/> marked element(s) during conversion to '<value-of select="$conversion"/>'.</with-param>
+        <with-param name="msg">Removed <value-of select="count($removeElements)"/> div(s) marked as '<value-of select="string-join(distinct-values($removeElements/tokenize(@annotateRef, '\s+')), ' ')"/>' during conversion to '<value-of select="$conversion"/>'.</with-param>
       </call-template>
     </if>
     <if test="$removeGlossary">
       <call-template name="Note">
-        <with-param name="msg">Of those removed, <value-of select="count($removeGlossary)"/> element(s) are glossaries.</with-param>
+        <with-param name="msg">Of those removed, <value-of select="count($removeGlossary)"/> div(s) are glossaries.</with-param>
       </call-template>
     </if>
     <if test="$removePrevNextLinks">
       <call-template name="Note">
-        <with-param name="msg">Removed all keyword prev/next navmenu links because of glossary removal.</with-param>
+        <with-param name="msg">Removed keyword prev/next navmenu links due to this glossary removal.</with-param>
       </call-template>
     </if>
-    <if test="$refRedirected">
+    <if test="$refTrimmed">
       <call-template name="Note">
-        <with-param name="msg">Redirected <value-of select="count($refRedirected)"/> references(s) to removed glossaries.</with-param>
+        <with-param name="msg">Trimmed <value-of select="count($refTrimmed)"/> references to removed glossary keywords from multi-target references(s).</with-param>
       </call-template>
     </if>
     <if test="$DICTMOD and not($DICTMOD_DOC) and not(oc:myWork(.)=$DICTMOD and not($removeGlossary))">
@@ -78,15 +78,19 @@
   <!-- If certain glossaries are removed, remove prev-next navmenu links from keywords, because some will be broken -->
   <template match="item[@subType='x-prevnext-link'][$removePrevNextLinks][ancestor::div[starts-with(@type, 'x-keyword')]]" priority="10"/>
   
-  <template match="reference[. intersect $refRedirected]/@osisRef">
+  <template match="reference[. intersect $refTrimmed]/@osisRef">
     <variable name="osisRef" as="xs:string?" select="string-join(
-        (for $i in tokenize(., ' ') return 
-        if ($i = $refRedirects/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))) then '' else $i)
+        (for $i in tokenize(., '\s+') return 
+        if ($i = $removedKeywords/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))) then '' else $i)
       , ' ')"/>
-    <attribute name="osisRef" select="if ($osisRef) then $osisRef else ."/>
+    <attribute name="osisRef" select="if ($osisRef) then normalize-space($osisRef) else ."/>
     <if test="not($osisRef)">
       <call-template name="Error">
-<with-param name="msg">Reference to removed glossary could not be forwarded: <value-of select="."/></with-param>
+<with-param name="msg">Reference to removed glossary keyword: <value-of select="."/></with-param>
+<with-param name="exp">You are using the conversion feature to remove a glossary from the 
+<value-of select="$conversion"/> conversion, but there are references to the glossary's keyword(s), 
+which are now broken. You may assign multiple target osisID's to these 
+references, at least one of which must target a kept glossary keyword.</with-param>
       </call-template>
     </if>
   </template>
