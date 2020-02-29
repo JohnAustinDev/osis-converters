@@ -44,7 +44,9 @@ sub osis2pubs($) {
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   $IS_CHILDRENS_BIBLE = &isChildrensBible($INOSIS_XML);
   $CREATE_FULL_TRANSLATION = (&conf('CreateFullBible') eq 'AUTO' ? 'true':&conf('CreateFullBible') !~ /^false$/i);
-  $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') eq 'AUTO' ? $convertTo eq 'eBook':(&conf('CreateSeparateBooks') =~ /^false$/i ? '':&conf('CreateSeparateBooks')));
+  $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') eq 'AUTO' ? 
+                           ($convertTo eq 'eBook' ? 'true':''):
+                           (&conf('CreateSeparateBooks') =~ /^false$/i ? '':&conf('CreateSeparateBooks')));
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
   $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):'');
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
