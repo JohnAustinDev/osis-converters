@@ -724,60 +724,56 @@ one target remains.</with-param>
   of the container $element, which is divided and duplicated accordingly. -->
   <function name="oc:expelElements">
     <param name="element" as="element()"/><!-- container -->
-    <param name="expel" as="element()*"/> <!-- element(s) to be expelled -->
+    <param name="expel" as="node()+"/> <!-- node(s) to be expelled -->
     <param name="quiet" as="xs:boolean"/>
+    <for-each-group select="$element" 
+        group-by="for $i in ./descendant-or-self::node() return oc:myExpelGroup($i, $expel)">
+      <sequence select="oc:copyExpel($element, current-grouping-key(), $expel, $quiet)"/>
+    </for-each-group>
+  </function>
+  <function name="oc:copyExpel">
+    <param name="node" as="node()"/>
+    <param name="currentGroupingKey" as="xs:integer"/>
+    <param name="expel" as="node()+"/>
+    <param name="quiet" as="xs:boolean"/>
+    <variable name="expelMe" as="node()?" select="$node/descendant-or-self::node()
+        [. intersect $expel][oc:myExpelGroup(., $expel) = $currentGroupingKey]"/>
     <choose>
-      <when test="count($expel) = 0"><sequence select="$element"/></when>
-      <otherwise>
-        <variable name="pass1">
-          <for-each-group select="$element" group-by="for $i in ./descendant-or-self::node() 
-              return 2*count($i/preceding::node()[. intersect $expel]) + 
-                     count($i/ancestor-or-self::node()[. intersect $expel])">
-            <apply-templates mode="expel1" select="current-group()">
-              <with-param name="expel" select="$expel" tunnel="yes"/>
-            </apply-templates>
-          </for-each-group>
-        </variable>
-        <!-- pass2 to insures id attributes are not duplicated and removes empty generated elements -->
-        <variable name="pass2"><apply-templates mode="expel2" select="$pass1"/></variable>
-        <if test="not($quiet) and count($element/node())+1 != count($pass2/node())">
+      <when test="$expelMe">
+        <copy-of select="$expelMe"/>
+        <if test="not($quiet)">
           <call-template name="Note">
-<with-param name="msg">expelling<for-each select="$expel">: <value-of select="oc:printNode(.)"/></for-each></with-param>
+<with-param name="msg">Expelling: <value-of select="oc:printNode($expelMe)"/></with-param>
           </call-template>
         </if>
-        <sequence select="$pass2"/>
+      </when>
+      <otherwise>
+        <for-each select="$node">
+          <copy>
+            <for-each select="@*">
+              <!-- never duplicate an id -->
+              <if test="not(name() = ('id','osisID')) or 
+                $currentGroupingKey = oc:myExpelGroup($node, $expel)">
+                <copy/>
+              </if>
+            </for-each>
+            <for-each select="node()[oc:myExpelGroup(., $expel) = $currentGroupingKey]">
+              <sequence select="oc:copyExpel(., 
+                  $currentGroupingKey, 
+                  $expel, $quiet)"/>
+            </for-each>
+          </copy>
+        </for-each>
       </otherwise>
     </choose>
   </function>
-  <template mode="expel1" match="@*"><copy/></template>
-  <template mode="expel1" match="node()">
-    <param name="expel" as="element()+" tunnel="yes"/>
-    <variable name="nodesInGroup" select="descendant-or-self::node()[oc:expelGroupingKey(., $expel) = current-grouping-key()]" as="node()*"/>
-    <variable name="expelElement" select="$nodesInGroup/ancestor-or-self::*[generate-id(.) = $expel/generate-id()][1]" as="element()?"/>
-    <if test="$nodesInGroup"><!-- drop the context node if it has no descendants or self in the current group -->
-      <choose>
-        <when test="$expelElement and descendant::*[generate-id(.) = generate-id($expelElement)]"><apply-templates mode="expel1"/></when>
-        <otherwise>
-          <copy>
-            <if test="child::node()[normalize-space()]"><attribute name="container"/></if><!-- used to remove empty generated containers in pass2 -->
-            <if test="current-grouping-key() &#62; oc:expelGroupingKey(descendant::*[generate-id(.) = $expel/generate-id()][1], $expel)">
-              <attribute name="class" select="'continuation'"/>
-            </if>
-            <apply-templates mode="expel1" select="node()|@*"/>
-          </copy>
-        </otherwise>
-      </choose>
-    </if>
-  </template>
-  <function name="oc:expelGroupingKey" as="xs:integer">
-    <param name="node" as="node()?"/>
-    <param name="expel" as="element()+"/>
-    <value-of select="2*count($node/preceding::node()[generate-id(.) = $expel/generate-id()]) + count($node/ancestor-or-self::node()[generate-id(.) = $expel/generate-id()])"/>
+  <function name="oc:myExpelGroup" as="xs:integer">
+    <param name="node" as="node()"/>
+    <param name="expel" as="node()+"/>
+    <value-of select="count($node[. intersect $expel]) + 
+                      2*count($node/preceding::node()[. intersect $expel])"/>
   </function>
-  <template mode="expel2" match="node()|@*"><copy><apply-templates mode="expel2" select="node()|@*"/></copy></template>
-  <template mode="expel2" match="@container | *[@container and not(child::node()[normalize-space()])]"/>
-  <template mode="expel2" match="@id"><if test="not(preceding::*[@id = current()][not(@container and not(child::node()[normalize-space()]))])"><copy/></if></template>
-  
+
   <!-- oc:uriToRelativePath($base-uri, $rel-uri) this function converts a 
   URI to a relative path using another URI directory as base reference. -->
   <function name="oc:uriToRelativePath" as="xs:string">
