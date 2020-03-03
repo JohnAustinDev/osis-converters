@@ -1365,6 +1365,7 @@
             <if test="not($isTopTOC) and not(@noWidth='true')">
               <attribute name="style" select="string-join(
                 ( concat('width:calc(24px + ', (1.2*$maxChars), 'ch)'), 
+                  'vertical-align:top',
                   if ($height != 0) then concat('height:', $height, 'em') else ''
                 ), '; ')"/>
             </if>
