@@ -687,6 +687,38 @@
     </copy>
   </template>
   
+  <!-- Return an osisRef with osisIDs listed in removedOsisIDs removed.
+  NOTE: removedOsisIDs must include the work prefix. -->
+  <function name="oc:trimOsisRef" as="xs:string">
+    <param name="osisRef" as="xs:string"/>
+    <param name="removedOsisIDs" as="xs:string"/>
+  
+    <variable name="result" as="xs:string?" select="string-join(
+        (
+          for $i in tokenize($osisRef, '\s+') return 
+          if ($i = tokenize($removedOsisIDs, '\s+')) then '' else $i
+        ), ' ')"/>
+    <value-of select="if ($result) then normalize-space($result) else $osisRef"/>
+    
+    <!-- Note the result -->
+    <choose>
+      <when test="$result">
+        <call-template name="Note">
+<with-param name="msg">Trimmed multi-target reference to: <value-of select="$result"/></with-param>
+        </call-template>
+      </when>
+      <otherwise>
+        <call-template name="Error">
+<with-param name="msg">These reference target(s) have been removed: <value-of select="$osisRef"/></with-param>
+<with-param name="exp">The targetted element(s) have been removed from this conversion. You 
+may assign  multiple target osisID's to the reference, so that at least 
+one target remains.</with-param>
+        </call-template>
+      </otherwise>
+    </choose>
+    
+  </function>
+  
   <!-- Use this function if an element must not contain other elements 
   (for EPUB2 etc. validation). Any element in $expel becomes a sibling 
   of the container $element, which is divided and duplicated accordingly. -->

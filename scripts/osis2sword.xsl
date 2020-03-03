@@ -4,6 +4,7 @@
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
   <!-- Prepare osis-converters OSIS for import using CrossWire tei2mod (after ModuleTools osis2sword.xsl) -->
@@ -15,6 +16,11 @@
   <include href="./osis2fittedVerseSystem.xsl"/>
   
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
+  
+  <template match="/">
+    <call-template name="Note"><with-param name="msg">Running osis2sword.xsl</with-param></call-template>
+    <next-match/>
+  </template>
   
   <!-- Shorten glossary osisRefs with multiple targets, since SWORD only handles a single target -->
   <template match="reference[starts-with(@type, 'x-gloss')][contains(@osisRef, ' ')]/@osisRef" priority="5">
@@ -40,5 +46,15 @@
   
   <!-- Remove composite cover images from SWORD modules -->
   <template match="figure[@subType='x-comp-publication']"/>
+  
+  <!-- Check for references that target removed Bible INT divs -->
+  <variable name="myRemovedOsisIDs" as="xs:string" select="string-join(
+    ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
+    [ancestor::div[$isBible][@annotateType='x-feature'][@annotateRef='INT']]/
+    @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
+  <template match="reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+                   [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef">
+    <attribute name="osisRef" select="oc:trimOsisRef(., $myRemovedOsisIDs)"/>
+  </template>
 
 </stylesheet>

@@ -720,7 +720,7 @@ sub compareDictOsis2DWF($$) {
   my @dwfOsisRefs = $XPC->findnodes('//dw:entry/@osisRef', $dwf);
   my @dictOsisIDs = $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]/@osisID', $osis);
   
-  # Check that all dictosis keywords (except NAVEMNU keywords) are included as entries in dictionary_words_xml
+  # Check that all DICTMOD keywords (except NAVEMNU keywords) are included as entries in dictionary_words_xml
   foreach my $osisIDa (@dictOsisIDs) {
     if (!$osisIDa || @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"][@scope="NAVMENU"][1]', $osisIDa)}[0]) {next;}
     my $osisID = $osisIDa->value;
@@ -751,7 +751,7 @@ DWF_OSISREF:
     if (!$match) {&Warn("Missing entry \"$osisID\" in $dictionary_words_xml", "That you don't want any links to this entry."); $allmatch = 0;}
   }
   
-  # Check that all dictionary_words_xml entries are included as keywords in dictosis
+  # Check that all DWF osisRefs are included as keywords in dictosis
   my %reported;
   foreach my $dwfOsisRef (@dwfOsisRefs) {
     if (!$dwfOsisRef) {next;}
@@ -765,7 +765,7 @@ DWF_OSISREF:
         my $osisID_mod = ($osisID =~ s/^(.*?):// ? $1:$osismod);
         if ($osisID_mod eq $osisRef_mod && $osisID eq $osisRef) {$match = 1; last;}
       }
-      if (!$match) {
+      if (!$match && $osisRef !~ /\!toc$/) {
         if (!$reported{$osisRef}) {
           &Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD.");
         }
@@ -4436,6 +4436,12 @@ sub writeOsisIDs($) {
     $ids{$id}++;
     $div->setAttribute('osisID', $id);
     &Note("Adding osisID ".$div->getAttribute('osisID'));
+  }
+  
+  # Add osisID's to TOC milestones as reference targets
+  foreach my $ms (@{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $xml)}) {
+    # ! extension is to quickly differentiate from Scripture osisIDs for osis2xhtml.xsl
+    $ms->setAttribute('osisID', &encodeOsisRef($ms->getAttribute('n')).'!toc'); 
   }
   
   # Write these osisID changes before any further steps

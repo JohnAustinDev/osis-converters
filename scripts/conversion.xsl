@@ -7,11 +7,11 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
-  <!-- Implements the 'conversion' periph instruction which, when 
-  active, filters out any marked elements which are not intended for 
-  this conversion. When $DICTMOD_DOC is set, this stylesheet also 
-  adjusts multi-target references referencing removed keyword osisIDs,   
-  and an error is generated if keyword removal causes broken links. -->
+  <!-- Implements the 'conversion' periph instruction which filters out 
+  elements marked for removal during particular conversions. When 
+  $DICTMOD_DOC is set, this stylesheet adjusts multi-target references 
+  referencing removed keyword osisIDs, and an error is generated if 
+  keyword removal causes broken links. -->
   
   <import href="./functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
@@ -32,14 +32,8 @@
   <variable name="removePrevNextLinks" as="xs:boolean" 
     select="boolean($sortedGlossaryKeywords/descendant::seg[@type='keyword'] intersect $removeKeywords)"/>
     
-  <!-- For both Bible and Dict reference redirects, reading of the Dict is necessary -->
-  <variable name="removedKeywords" select="$DICTMOD_DOC/descendant::seg[@type='keyword']
-    [ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]]"/>
-  <variable name="refTrimmed" as="element(reference)*" select="/descendant::reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-    [tokenize(@osisRef, '\s+') = $removedKeywords/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))]"/>
-  
   <!-- Report results -->
-  <template match="/">
+  <template match="/" priority="1">
     <call-template name="Note">
 <with-param name="msg">Running conversion.xsl</with-param>
     </call-template>
@@ -58,15 +52,10 @@
         <with-param name="msg">Removed keyword prev/next navmenu links due to this glossary removal.</with-param>
       </call-template>
     </if>
-    <if test="$refTrimmed">
-      <call-template name="Note">
-        <with-param name="msg">Trimmed <value-of select="count($refTrimmed)"/> references to removed glossary keywords from multi-target references(s).</with-param>
-      </call-template>
-    </if>
-    <if test="$DICTMOD and not($DICTMOD_DOC) and not(oc:myWork(.)=$DICTMOD and not($removeGlossary))">
+    <if test="not(boolean($DICTMOD_DOC) and boolean($MAINMOD_DOC))">
       <call-template name="Warn">
-<with-param name="msg">References to <value-of select="if ($removeKeywords) then count($removeKeywords) else 'any'"/> removed keywords are NOT checked.</with-param>
-<with-param name="exp">Pass DICTMOD_URI to conversion.xsl to enable checking and forwarding of these references.</with-param>
+<with-param name="msg">References to any removed osisIDs are not being checked.</with-param>
+<with-param name="exp">Pass DICTMOD_URI and MAINMOD_DOC to conversion.xsl to enable checking and forwarding of these references.</with-param>
       </call-template>
     </if>
     <next-match/>
@@ -78,21 +67,14 @@
   <!-- If certain glossaries are removed, remove prev-next navmenu links from keywords, because some will be broken -->
   <template match="item[@subType='x-prevnext-link'][$removePrevNextLinks][ancestor::div[starts-with(@type, 'x-keyword')]]" priority="10"/>
   
-  <template match="reference[. intersect $refTrimmed]/@osisRef">
-    <variable name="osisRef" as="xs:string?" select="string-join(
-        (for $i in tokenize(., '\s+') return 
-        if ($i = $removedKeywords/concat($DICTMOD,':',replace(@osisID,'^[^:]*:',''))) then '' else $i)
-      , ' ')"/>
-    <attribute name="osisRef" select="if ($osisRef) then normalize-space($osisRef) else ."/>
-    <if test="not($osisRef)">
-      <call-template name="Error">
-<with-param name="msg">Reference to removed glossary keyword: <value-of select="."/></with-param>
-<with-param name="exp">You are using the conversion feature to remove a glossary from the 
-<value-of select="$conversion"/> conversion, but there are references to the glossary's keyword(s), 
-which are now broken. You may assign multiple target osisID's to these 
-references, at least one of which must target a kept glossary keyword.</with-param>
-      </call-template>
-    </if>
+  <!-- Check for references that target removed conversion divs -->
+  <variable name="removedOsisIDs" as="xs:string" select="string-join(
+    ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
+    [ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]]/
+    @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
+  <template match="reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+                   [tokenize(@osisRef, '\s+') = tokenize($removedOsisIDs, '\s+')]/@osisRef">
+    <attribute name="osisRef" select="oc:trimOsisRef(., $removedOsisIDs)"/>
   </template>
   
 </stylesheet>

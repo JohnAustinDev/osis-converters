@@ -14,16 +14,12 @@
   </template>
   
   <!-- osis-converters uses \tocN tags for eBook TOC entries, but usfm2osis.py only expects 
-  them at the beginning of a file, before any paragraphs, and so it does not close paragraphs 
-  upon TOC markers. So this fixes that. -->
-  <template match="p[descendant::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <variable name="keepChildren" select="./node()[. &#60;&#60; current()/descendant::milestone[starts-with(@type, 'x-usfm-toc')][1]]"/>
-    <if test="$keepChildren">
-      <copy><apply-templates select="@*"/>
-        <for-each select="$keepChildren"><apply-templates select="."/></for-each>
-      </copy>
-    </if>
-    <for-each select="./node() except $keepChildren"><apply-templates select="."/></for-each>
+  them at the beginning of a file, before any paragraphs or section divs, and so it does not 
+  close them upon TOC markers. So this fixes that by closing paragraphs and section divs at
+  TOC milestones. -->
+  <template match="p[descendant::milestone[starts-with(@type, 'x-usfm-toc')]] | 
+                   div[matches(@type,'[Ss]ection')][descendant::milestone[starts-with(@type, 'x-usfm-toc')]]">
+    <apply-templates select="oc:expelElements(., ./descendant::milestone[starts-with(@type, 'x-usfm-toc')], false())"/>
   </template>
   
   <!-- usfm2osis.py puts scope title content within a reference element, but they are not 
