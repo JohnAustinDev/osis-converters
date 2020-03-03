@@ -1082,6 +1082,9 @@
   INSTRUCTION                   DESCRIPTION
   [levelN]        - Where N is 1, 2 or 3. Specifies the TOC level.
   [no_toc]        - Means this element is NOT treated as a TOC element.
+  [no_inline_toc] - Means this TOC element will not generate an inline
+                    TOC. This could result in broken links for non-eBook
+                    publications, so use with care.
   [not_parent]    - Used on bookGroup or book  milestone TOC elements.   
                     Means that this section should appear as the first  
                     sibling of the following book or chapter list,   
@@ -1226,7 +1229,7 @@
     <variable name="myTocLevel" as="xs:integer" 
         select="if ($isTopTOC) then 0 else me:getTocLevel($tocNode)"/>
     <variable name="sourceDir" select="concat('/xhtml/', if ($isTopTOC) then 'top.xhtml' else me:getFileName($tocNode))"/>
-    <if test="$myTocLevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[not_parent\]'))">
+    <if test="$myTocLevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[(not_parent|no_inline_toc)\]'))">
       <variable name="subentries" as="element()*">
         <choose>
           <!-- Children's Bibles -->
@@ -1255,29 +1258,29 @@
           </when>
           <!-- otherwise find a container div which this TOC element targets -->
           <otherwise>
-            <variable name="container" as="node()?" select="if ($isTopTOC) then (root($tocNode)) else
-                if (
-                  $tocNode/parent::div[not(@type = ('bookGroup', 'book'))]
-                  [parent::div[@type = ('bookGroup', 'book')]]
-                  [not(preceding-sibling::*) or parent::div[@type = 'bookGroup']]
-                )
-                then $tocNode/parent::div/parent::div 
-                else $tocNode/ancestor::div[1]"/>
-            <!-- Container TOC hierarchy may be: 1,2,3,3,2,3,3,1,2,3,3 etc. so we need to 
-            group by level, concatenate, and choose only the first sub-group -->
-            <for-each-group group-adjacent="me:getTocLevel(.)" 
-              select="( $container//chapter[@sID] | 
-                        $container//seg[@type='keyword'] | 
-                        $container//milestone[@type=concat('x-usfm-toc', $TOC)]
-                      )[. &#62;&#62; $tocNode][me:getTocLevel(.) &#60;= $myTocLevel + 1]">
-              <if test="position() = 1">
-                <sequence select="current-group()
-                    [not(. intersect $tocNode)]
-                    [not($isTopTOC and @isMainTocMilestone = 'true')]
-                    [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
-                    [not(self::*[contains(@n, '[no_toc]')])]"/>
-              </if>
-            </for-each-group>
+            <variable name="container" as="node()?" 
+                select="if ($isTopTOC) then (root($tocNode)) else
+                        if (
+                          $tocNode/parent::div[not(@type = ('bookGroup', 'book'))]
+                          [parent::div[@type = ('bookGroup', 'book')]]
+                          [not(preceding-sibling::*) or parent::div[@type = 'bookGroup']]
+                        )
+                        then $tocNode/parent::div/parent::div 
+                        else $tocNode/ancestor::div[1]"/>
+            <variable name="containerTocs" 
+                select="( $container//chapter[@sID] | 
+                          $container//seg[@type='keyword'] | 
+                          $container//milestone[@type=concat('x-usfm-toc', $TOC)]
+                        )[. &#62;&#62; $tocNode]
+                         [not($isTopTOC and @isMainTocMilestone = 'true')]
+                         [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
+                         [not(self::*[contains(@n, '[no_toc]')])]"/>
+            <variable name="nextTocSP" select="if ($isTopTOC) then () else 
+                $tocNode/following::*[. intersect $containerTocs]
+                                     [me:getTocLevel(.) &#60;= $myTocLevel][1]"/>
+            <sequence select="$containerTocs[me:getTocLevel(.) = $myTocLevel + 1]
+                                            [not(. intersect $nextTocSP)]
+                                            [not(. &#62;&#62; $nextTocSP)]"/>
           </otherwise>
         </choose>
       </variable>
@@ -1349,15 +1352,21 @@
           </for-each>
         </variable>
         <for-each select="$listElements">
-          <variable name="chars" select="max($listElements
-                                            [not(@noWidth='true')]
-                                            [@type = current()/@type]/
-                                            string-length(string()))"/>
-          <variable name="maxChars" select="if ($chars &#62; 32) then 32 else $chars"/>
+          <variable name="chars" as="xs:decimal" 
+              select="max($listElements[not(@noWidth='true')]
+                                       [@type = current()/@type]/
+                                       string-length(string()))"/>
+          <variable name="maxChars" as="xs:decimal" 
+              select="if ($chars &#62; 32) then 32 else $chars"/>
+          <variable name="height" as="xs:decimal" 
+              select="if ($chars &#60;= 32) then 0 else 2+ceiling($chars div 32)"/>
           <html:li >
             <attribute name="class" select="@class"/>
             <if test="not($isTopTOC) and not(@noWidth='true')">
-              <attribute name="style" select="concat('width:calc(24px + ', (1.2*$maxChars), 'ch)')"/>
+              <attribute name="style" select="string-join(
+                ( concat('width:calc(24px + ', (1.2*$maxChars), 'ch)'), 
+                  if ($height != 0) then concat('height:', $height, 'em') else ''
+                ), '; ')"/>
             </if>
             <html:a><attribute name="href" select="@href"/>
               <value-of select="string()"/>
@@ -1471,8 +1480,8 @@
       OR: Any 'ancestor' chapter where x is between sID-eID chapter milestones -->
     <variable name="ancestor_div_TOC_milestones" as="element(milestone)*"
         select="$x/ancestor-or-self::div/(
-            child::milestone[@type=concat('x-usfm-toc', $TOC)] | 
-            child::*[1][not(self::div)]/child::milestone[@type=concat('x-usfm-toc', $TOC)]
+            child::milestone[@type=concat('x-usfm-toc', $TOC)][1] | 
+            child::*[1][not(self::div)]/child::milestone[@type=concat('x-usfm-toc', $TOC)][1]
           )[1]" />
         
     <variable name="ancestor_TOC_chapters" as="element(chapter)*"

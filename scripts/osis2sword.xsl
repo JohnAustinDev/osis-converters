@@ -19,6 +19,16 @@
   
   <template match="/">
     <call-template name="Note"><with-param name="msg">Running osis2sword.xsl</with-param></call-template>
+    <if test="$removedINT">
+      <call-template name="Note">
+<with-param name="msg">Removed <value-of select="count($removedINT)"/> Bible INT feature div(s).</with-param>
+      </call-template>
+    </if>
+    <if test="$myTrimRef">
+      <call-template name="Note">
+<with-param name="msg">Trimmed <value-of select="count($myTrimRef)"/> multi-target references.</with-param>
+      </call-template>
+    </if>
     <next-match/>
   </template>
   
@@ -36,7 +46,8 @@
   <template match="div[contains(@type, 'duplicate')][ancestor::div[@type='glossary']]"/>
   
   <!-- Remove duplicate material in Bibles that is also included in the dictionary module for the INT feature -->
-  <template match="div[$isBible][@annotateType='x-feature'][@annotateRef='INT']"/>
+  <variable name="removedINT" select="//div[$isBible][@annotateType='x-feature'][@annotateRef='INT']"/>
+  <template match="div[. intersect $removedINT]"/>
   
   <!-- Remove chapter navmenus from Bibles (SWORD front-ends handle this functionality)-->
   <template match="list[$isBible][@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]"/>
@@ -47,13 +58,15 @@
   <!-- Remove composite cover images from SWORD modules -->
   <template match="figure[@subType='x-comp-publication']"/>
   
-  <!-- Check for references that target removed Bible INT divs -->
+  <!-- Trim references that target removed Bible INT divs -->
   <variable name="myRemovedOsisIDs" as="xs:string" select="string-join(
     ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
     [ancestor::div[$isBible][@annotateType='x-feature'][@annotateRef='INT']]/
     @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
-  <template match="reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-                   [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef">
+  <variable name="myTrimRef" as="attribute(osisRef)*" 
+      select="//reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+              [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef"/>
+  <template match="@osisRef[. intersect $myTrimRef]">
     <attribute name="osisRef" select="oc:trimOsisRef(., $myRemovedOsisIDs)"/>
   </template>
 

@@ -58,6 +58,11 @@
 <with-param name="exp">Pass DICTMOD_URI and MAINMOD_DOC to conversion.xsl to enable checking and forwarding of these references.</with-param>
       </call-template>
     </if>
+    <if test="$trimRef">
+      <call-template name="Note">
+<with-param name="msg">Trimmed <value-of select="count($trimRef)"/> multi-target references.</with-param>
+      </call-template>
+    </if>
     <next-match/>
   </template>
   
@@ -67,13 +72,15 @@
   <!-- If certain glossaries are removed, remove prev-next navmenu links from keywords, because some will be broken -->
   <template match="item[@subType='x-prevnext-link'][$removePrevNextLinks][ancestor::div[starts-with(@type, 'x-keyword')]]" priority="10"/>
   
-  <!-- Check for references that target removed conversion divs -->
+  <!-- Trim references that target removed conversion divs -->
   <variable name="removedOsisIDs" as="xs:string" select="string-join(
     ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
     [ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]]/
     @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
-  <template match="reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-                   [tokenize(@osisRef, '\s+') = tokenize($removedOsisIDs, '\s+')]/@osisRef">
+  <variable name="trimRef" as="attribute(osisRef)*" 
+      select="//reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+              [tokenize(@osisRef, '\s+') = tokenize($removedOsisIDs, '\s+')]/@osisRef"/>
+  <template match="@osisRef[. intersect $trimRef]">
     <attribute name="osisRef" select="oc:trimOsisRef(., $removedOsisIDs)"/>
   </template>
   

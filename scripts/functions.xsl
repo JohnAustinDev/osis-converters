@@ -701,35 +701,36 @@
     <value-of select="if ($result) then normalize-space($result) else $osisRef"/>
     
     <!-- Note the result -->
-    <choose>
-      <when test="$result">
-        <call-template name="Note">
-<with-param name="msg">Trimmed multi-target reference to: <value-of select="$result"/></with-param>
-        </call-template>
-      </when>
-      <otherwise>
-        <call-template name="Error">
+    <if test="not($result)">
+      <call-template name="Error">
 <with-param name="msg">These reference target(s) have been removed: <value-of select="$osisRef"/></with-param>
 <with-param name="exp">The targetted element(s) have been removed from this conversion. You 
 may assign  multiple target osisID's to the reference, so that at least 
 one target remains.</with-param>
-        </call-template>
-      </otherwise>
-    </choose>
+      </call-template>
+    </if>
     
   </function>
   
   <!-- Use this function if an element must not contain other elements 
   (for EPUB2 etc. validation). Any element in $expel becomes a sibling 
-  of the container $element, which is divided and duplicated accordingly. -->
+  of the container $element, which is divided and duplicated accordingly.
+  Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
     <param name="element" as="element()"/><!-- container -->
-    <param name="expel" as="node()+"/> <!-- node(s) to be expelled -->
+    <param name="expel" as="node()?"/> <!-- node(s) to be expelled -->
     <param name="quiet" as="xs:boolean"/>
-    <for-each-group select="$element" 
-        group-by="for $i in ./descendant-or-self::node() return oc:myExpelGroup($i, $expel)">
-      <sequence select="oc:copyExpel($element, current-grouping-key(), $expel, $quiet)"/>
-    </for-each-group>
+    <choose>
+      <when test="not($expel)">
+        <sequence select="$element"/>
+      </when>
+      <otherwise>
+        <for-each-group select="$element" 
+            group-by="for $i in ./descendant-or-self::node() return oc:myExpelGroup($i, $expel)">
+          <sequence select="oc:copyExpel($element, current-grouping-key(), $expel, $quiet)"/>
+        </for-each-group>
+      </otherwise>
+    </choose>
   </function>
   <function name="oc:copyExpel">
     <param name="node" as="node()"/>
@@ -739,6 +740,7 @@ one target remains.</with-param>
     <variable name="expelMe" as="node()?" select="$node/descendant-or-self::node()
         [. intersect $expel][oc:myExpelGroup(., $expel) = $currentGroupingKey]"/>
     <choose>
+      <!-- Groups with an expel element output only that element -->
       <when test="$expelMe">
         <copy-of select="$expelMe"/>
         <if test="not($quiet)">
@@ -747,20 +749,29 @@ one target remains.</with-param>
           </call-template>
         </if>
       </when>
+      <!-- Container elements without text are flattened -->
+      <when test="not($node/descendant::text()[normalize-space()]) and 
+                  $node[matches(local-name(), '(div|p|l|lg|list|item|head|li|ul|td|tr)')]">
+        <for-each select="$node/node()[oc:myExpelGroup(., $expel) = $currentGroupingKey]">
+          <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
+        </for-each>
+      </when>
+      <!-- Other nodes are copied according to currentGoupingKey -->
       <otherwise>
         <for-each select="$node">
+          <variable name="myFirstTextNode" select="./descendant::text()[normalize-space()][1]"/>
+          <variable name="myGroupTextNode" select="./descendant::text()[normalize-space()]
+                                                   [oc:myExpelGroup(., $expel) = $currentGroupingKey][1]"/>
           <copy>
             <for-each select="@*">
-              <!-- never duplicate an id -->
+              <!-- never duplicate an id: only the copy containing the first text node gets it -->
               <if test="not(name() = ('id','osisID')) or 
-                $currentGroupingKey = oc:myExpelGroup($node, $expel)">
+                $myGroupTextNode intersect $myFirstTextNode">
                 <copy/>
               </if>
             </for-each>
             <for-each select="node()[oc:myExpelGroup(., $expel) = $currentGroupingKey]">
-              <sequence select="oc:copyExpel(., 
-                  $currentGroupingKey, 
-                  $expel, $quiet)"/>
+              <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
             </for-each>
           </copy>
         </for-each>

@@ -19,6 +19,16 @@
   
   <template match="/">
     <call-template name="Note"><with-param name="msg">Running osis2pubs.xsl</with-param></call-template>
+    <if test="$removeNAVMENU">
+      <call-template name="Note">
+<with-param name="msg">Removed <value-of select="count($removeNAVMENU)"/> NAVMENU div(s).</with-param>
+      </call-template>
+    </if>
+    <if test="$myTrimRef">
+      <call-template name="Note">
+<with-param name="msg">Trimmed <value-of select="count($myTrimRef)"/> multi-target references.</with-param>
+      </call-template>
+    </if>
     <next-match/>
   </template>
   
@@ -26,15 +36,18 @@
   <template match="list[@subType='x-navmenu']"/>
   
   <!-- Remove all NAVMENUs, which are custom-created as needed -->
-  <template match="div[@scope='NAVMENU']"/>
+  <variable name="removeNAVMENU" select="//div[@scope='NAVMENU']"/>
+  <template match="div[. intersect $removeNAVMENU]"/>
   
-  <!-- Check for references that target removed NAVMENU divs -->
+  <!-- Trim references that target removed NAVMENU divs -->
   <variable name="myRemovedOsisIDs" as="xs:string" select="string-join(
     ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
     [ancestor::div[@scope='NAVMENU']]/
     @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
-  <template match="reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-                   [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef">
+  <variable name="myTrimRef" as="attribute(osisRef)*" 
+      select="//reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
+                [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef"/>
+  <template match="@osisRef[. intersect $myTrimRef]">
     <attribute name="osisRef" select="oc:trimOsisRef(., $myRemovedOsisIDs)"/>
   </template>
   
