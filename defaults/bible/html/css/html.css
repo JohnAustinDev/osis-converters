@@ -391,6 +391,17 @@ ol, ul {
   margin: 6px;
   background: #E0E0E0;
   overflow: hidden;
+  vertical-align:top
+}
+.xsl-inline-toc li > div {
+  display:table;
+  height:100%;
+  width:100%;
+}
+.xsl-inline-toc li > div > div {
+  display:table-cell;
+  vertical-align:middle;
+  text-align:center;
 }
 .xsl-inline-toc li a {
   color: #083F0E;

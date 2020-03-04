@@ -1359,19 +1359,26 @@
           <variable name="maxChars" as="xs:decimal" 
               select="if ($chars &#62; 32) then 32 else $chars"/>
           <variable name="height" as="xs:decimal" 
-              select="if ($chars &#60;= 32) then 0 else 2+ceiling($chars div 32)"/>
+              select="1+ceiling($chars div 32)"/>
           <html:li >
             <attribute name="class" select="@class"/>
-            <if test="not($isTopTOC) and not(@noWidth='true')">
-              <attribute name="style" select="string-join(
-                ( concat('width:calc(24px + ', (1.2*$maxChars), 'ch)'), 
-                  'vertical-align:top',
-                  if ($height != 0) then concat('height:', $height, 'em') else ''
-                ), '; ')"/>
-            </if>
-            <html:a><attribute name="href" select="@href"/>
-              <value-of select="string()"/>
-            </html:a>
+            <!-- Height is always specified, so table-type vertical centering will work.
+            Width is not specified for top-TOC at the li level because it is specified
+            at a higher div level. The A-to-Z link width is not specified because it is
+            allowed to be wider than all other button links in its list. --> 
+            <attribute name="style" select="string-join(
+              ( if (not($isTopTOC) and not(@noWidth='true')) then 
+                  concat('width:calc(24px + ', (1.2*$maxChars), 'ch)') else '', 
+                concat('height:calc(', $height, 'em + 3px)')
+              ), '; ')"/>
+            <!-- divs are needed to center anchor vertically using table-style centering -->
+            <html:div>
+              <html:div>
+                <html:a><attribute name="href" select="@href"/>
+                  <value-of select="string()"/>
+                </html:a>
+                </html:div>
+            </html:div>
           </html:li>
         </for-each>
       </if>
