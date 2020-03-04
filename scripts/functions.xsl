@@ -760,8 +760,8 @@ one target remains.</with-param>
         </if>
       </when>
       <!-- Container elements without text are flattened -->
-      <when test="not( $node/descendant-or-self::text()
-                       [oc:myExpelGroups(., $expel) = $currentGroupingKey][normalize-space()] ) 
+      <when test="not( $node/descendant-or-self::text()[normalize-space()]
+                       [oc:myExpelGroups(., $expel) = $currentGroupingKey] ) 
                   and $node/matches(local-name(), '^(div|p|l|lg|list|item|head|li|ul|td|tr)$')">
         <for-each select="$node/node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
           <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
