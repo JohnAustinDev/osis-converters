@@ -1003,7 +1003,7 @@ sub copyFunctionsXSL($$) {
   if (open(FUNC, "<$READLAYER", $file)) {
     if (open(DFUNC, ">$WRITELAYER", "$dest/$name")) {
       while(<FUNC>) {
-        if ($_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/) {$c++;}
+        if ($_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD|DEBUG)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/) {$c++;}
         print DFUNC $_;
       }
     }

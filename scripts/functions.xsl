@@ -718,27 +718,37 @@ one target remains.</with-param>
   Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
     <param name="element" as="element()"/><!-- container -->
-    <param name="expel" as="node()?"/> <!-- node(s) to be expelled -->
+    <param name="expel" as="node()*"/> <!-- node(s) to be expelled -->
     <param name="quiet" as="xs:boolean"/>
+
+    <if test="$expel[descendant::node()[. intersect $expel]]">
+      <call-template name="ErrorBug">
+<with-param name="msg">One expel element contains another: <value-of select="oc:printNode($expel[descendant::node()[. intersect $expel]][1])"/></with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    
     <choose>
       <when test="not($expel)">
         <sequence select="$element"/>
       </when>
       <otherwise>
-        <for-each-group select="$element" 
-            group-by="for $i in ./descendant-or-self::node() return oc:myExpelGroup($i, $expel)">
+        <for-each-group select="$element" group-by="oc:myExpelGroups(., $expel)">
           <sequence select="oc:copyExpel($element, current-grouping-key(), $expel, $quiet)"/>
         </for-each-group>
       </otherwise>
     </choose>
+    
   </function>
   <function name="oc:copyExpel">
     <param name="node" as="node()"/>
     <param name="currentGroupingKey" as="xs:integer"/>
     <param name="expel" as="node()+"/>
     <param name="quiet" as="xs:boolean"/>
-    <variable name="expelMe" as="node()?" select="$node/descendant-or-self::node()
-        [. intersect $expel][oc:myExpelGroup(., $expel) = $currentGroupingKey]"/>
+    
+    <variable name="expelMe" as="node()?" 
+      select="$node/descendant-or-self::node()[. intersect $expel]
+              [oc:myExpelGroups(., $expel) = $currentGroupingKey]"/>
     <choose>
       <!-- Groups with an expel element output only that element -->
       <when test="$expelMe">
@@ -750,9 +760,10 @@ one target remains.</with-param>
         </if>
       </when>
       <!-- Container elements without text are flattened -->
-      <when test="not($node/descendant::text()[normalize-space()]) and 
-                  $node[matches(local-name(), '(div|p|l|lg|list|item|head|li|ul|td|tr)')]">
-        <for-each select="$node/node()[oc:myExpelGroup(., $expel) = $currentGroupingKey]">
+      <when test="not( $node/descendant-or-self::text()
+                       [oc:myExpelGroups(., $expel) = $currentGroupingKey][normalize-space()] ) 
+                  and $node/matches(local-name(), '^(div|p|l|lg|list|item|head|li|ul|td|tr)$')">
+        <for-each select="$node/node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
           <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
         </for-each>
       </when>
@@ -761,7 +772,7 @@ one target remains.</with-param>
         <for-each select="$node">
           <variable name="myFirstTextNode" select="./descendant::text()[normalize-space()][1]"/>
           <variable name="myGroupTextNode" select="./descendant::text()[normalize-space()]
-                                                   [oc:myExpelGroup(., $expel) = $currentGroupingKey][1]"/>
+                                                   [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
           <copy>
             <for-each select="@*">
               <!-- never duplicate an id: only the copy containing the first text node gets it -->
@@ -770,7 +781,7 @@ one target remains.</with-param>
                 <copy/>
               </if>
             </for-each>
-            <for-each select="node()[oc:myExpelGroup(., $expel) = $currentGroupingKey]">
+            <for-each select="node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
               <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
             </for-each>
           </copy>
@@ -778,11 +789,12 @@ one target remains.</with-param>
       </otherwise>
     </choose>
   </function>
-  <function name="oc:myExpelGroup" as="xs:integer">
+  <function name="oc:myExpelGroups" as="xs:integer+">
     <param name="node" as="node()"/>
     <param name="expel" as="node()+"/>
-    <value-of select="count($node[. intersect $expel]) + 
-                      2*count($node/preceding::node()[. intersect $expel])"/>
+    <sequence select="for $i in $node/descendant-or-self::node() return 
+                        count($i[ancestor-or-self::node() intersect $expel]) + 
+                      2*count($i/preceding::node()[. intersect $expel])"/>
   </function>
 
   <!-- oc:uriToRelativePath($base-uri, $rel-uri) this function converts a 
@@ -850,9 +862,9 @@ one target remains.</with-param>
       <when test="$node[self::element()]">
         <value-of>[<value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
       </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node: ', $node)"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node: ', $node)"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = ', $node)"/></when>
+      <when test="$node[self::text()]"><value-of select="concat('text-node = [', $node, ']')"/></when>
+      <when test="$node[self::comment()]"><value-of select="concat('comment-node = [', $node, ']')"/></when>
+      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = [', $node, ']')"/></when>
       <when test="$node[self::document-node()]"><value-of select="concat('document-node: ', base-uri($node))"/></when>
       <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction: ', $node)"/></when>
       <otherwise><value-of select="concat('other?:', $node)"/></otherwise>

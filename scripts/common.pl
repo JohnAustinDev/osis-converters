@@ -4086,7 +4086,7 @@ sub runXSLT($$$\%$) {
     $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
     $cmd .= " $p=\"$v\"";
   }
-  $cmd .= " SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
+  $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
   &shell($cmd, $logFlag);
 }
 
@@ -4391,6 +4391,17 @@ sub writeWorkElement($$$) {
   return $w;
 }
 
+sub getGlossaryTitle($) {
+  my $glossdiv = shift;
+  
+  my $telem = @{$XPC->findnodes('(descendant::osis:title[@type="main"][1] | descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n)[1]', $glossdiv)}[0];
+  if (!$telem) {return '';}
+  
+  my $title = $telem->textContent();
+  $title =~ s/^(\[[^\]]*\])+//g;
+  return $title;
+}
+
 # Write unique osisIDs to any elements that still need them
 sub writeOsisIDs($) {
   my $osisP = shift;
@@ -4403,7 +4414,7 @@ sub writeOsisIDs($) {
   elsif (&conf('ModDrv') =~ /GenBook/) {$type = 'x-childrens-bible';}
   else {return;}
   
-  &Log("\nWriting note osisIDs:\n", 1);
+  &Log("\nWriting osisIDs:\n", 1);
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
@@ -4427,10 +4438,13 @@ sub writeOsisIDs($) {
     ) {
     my $n=1;
     my $id;
+    my $title = &encodeOsisRef(&getGlossaryTitle($div));
     do {
       $id = &dashCamelCase($div->getAttribute('type'));
       $id = ($id ? $id:'div');
-      $id .= "_$n";
+      $id .= ($title ? "_$title":'');
+      $id .= ($title ? ($n != 1 ? "_$n":''):"_$n");
+      $id .= "!con";
       $n++;
     } while (defined($ids{$id}));
     $ids{$id}++;
