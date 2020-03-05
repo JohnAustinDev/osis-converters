@@ -342,7 +342,7 @@ sub getNodeContextOsisID($) {
 
   my $context = &getNodeContext($node);
   
-  # Introduction contexts don't have matching osisIDs.
+  # Introduction contexts may not have matching osisIDs.
   # The BEFORE_keyword does not correspond to a real osisID.
   # So use 'other' method for these.
   if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
@@ -414,11 +414,11 @@ sub checkAndNormalizeAtomicContext($$) {
   my $context = shift;
   my $quiet = shift;
   
-  $context =~ s/![^!]*$//; # remove any extension
   my $pre = ($context =~ /^(\w+\:)/ ? $1:'');
   my $work = ($context =~ s/^(\w+)\:// ? $1:$MOD);
   
   my $before = '';
+  my $ext = ($context =~ s/(![^!]*)$// ? $1:''); # remove any extension
   if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|$OSISBOOKSRE)(\.(\d+)(\.(\d+)(\.(\d+))?)?)?$/) {
     my $bk = $1; my $ch = $3; my $vs = $5; my $vl = $7;
     if ($vl && $vs != $vl) {
@@ -443,10 +443,11 @@ sub checkAndNormalizeAtomicContext($$) {
   }
   
   # Then this is an osisID based context
+  $context .= $ext; # so add extension back
   if ($context =~ s/^BEFORE_//) {$before = 'BEFORE_';}
   
-  if ($context =~ /[^\p{gc=L}\p{gc=N}_\.]/) {
-    if (!$quiet) {&Error("checkAndNormalizeAtomicContext: Illegal character in context: $before$context", "Only chars [\p{gc=L}\p{gc=N}_] are allowed.");}
+  if ($context =~ /[^\p{gc=L}\p{gc=N}_\.\!]/) {
+    if (!$quiet) {&Error("checkAndNormalizeAtomicContext: Illegal character in context: $before$context", "Only chars [\p{gc=L}\p{gc=N}_\.\!] are allowed.");}
     return '';
   }
   

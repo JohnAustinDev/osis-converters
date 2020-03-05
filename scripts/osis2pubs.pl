@@ -1012,7 +1012,7 @@ sub copyFunctionsXSL($$) {
   }
   else {&ErrorBug("Could not open $file", 1);}
   close(FUNC);
-  if ($c != 2) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
+  if ($c != 3) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
 }
 
 1;

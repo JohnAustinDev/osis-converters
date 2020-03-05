@@ -4709,7 +4709,7 @@ tag number you wish to use.)\n");
       }
       
       my $tocTitle;
-      my $confentry = 'ARG_'.$div->getAttribute('osisID');
+      my $confentry = 'ARG_'.$div->getAttribute('osisID'); $confentry =~ s/\!.*$//;
       my $confTitle = &conf($confentry);
       my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
       my $titleSubPublication = $CONF->{"TitleSubPublication[".$div->getAttribute('scope')."]"};
