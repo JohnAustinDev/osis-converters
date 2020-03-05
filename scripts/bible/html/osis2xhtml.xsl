@@ -976,7 +976,7 @@
       <value-of select="' '"/>
       <apply-templates mode="xhtml"/>
     </html:div>
-    <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
+    <text>&#xa;</text>
   </template>
   <template mode="crossrefs" match="note[@type='crossReference']">
     <html:div id="{oc:id(@osisID)}" class="xsl-crossref">
@@ -992,7 +992,7 @@
       <value-of select="' '"/>
       <apply-templates mode="xhtml"/>
     </html:div>
-    <text>&#xa;</text><!-- this newline is only for better HTML file formatting -->
+    <text>&#xa;</text>
   </template>
   
   <!-- This template may be called from any note. It returns a symbol or 
@@ -1218,9 +1218,10 @@
     
   </function>
   
-  <!-- Returns a series of list entry elements, one for every TOC entry that is consecutively one 
-  step below tocNode. A class is added according to the type of the entry. EBook glossary keyword 
-  lists with greater than $glossThresh entries are pared down to only the first of each letter. -->
+  <!-- Returns a series of list entry elements, one for every TOC entry that is a 
+  step below tocNode in the hierarchy. A class is added according to the type of 
+  entry. EBook glossary keyword lists with greater than $glossThresh entries are 
+  pared down to list only the first of each letter. -->
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
@@ -1256,7 +1257,7 @@
                               )[not(contains(@n, '[no_toc]'))] except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
-          <!-- otherwise find a container div which this TOC element targets -->
+          <!-- otherwise find the container div for this TOC element -->
           <otherwise>
             <variable name="container" as="node()?" 
                 select="if ($isTopTOC) then (root($tocNode)) else
@@ -1306,8 +1307,6 @@
               </choose>
             </variable>
             <if test="not($skipKeyword)">
-              <variable name="instructionClasses" 
-                  select="string-join((oc:getTocInstructions(.)), ' ')" as="xs:string?"/>
               <variable name="type">
                 <variable name="intros" select="me:getBookGroupIntroductions(.)"/>
                 <choose>
@@ -1321,14 +1320,14 @@
                   <otherwise>other</otherwise>
                 </choose>
               </variable>
-              <me:li type="{$type}"
-                     class="{concat(
-                        'xsl-', $type, '-link', 
-                        (if ($instructionClasses) then concat(' ', $instructionClasses) else ''))}"
+              <variable name="instructionClasses" 
+                  select="string-join((oc:getTocInstructions(.)), ' ')" as="xs:string?"/>
+              <me:li type="{$type}" class="{ concat('xsl-', $type, '-link', 
+                        (if ($instructionClasses) then concat(' ', $instructionClasses) else '')) }"
                      href="{oc:uriToRelativePath(
-                      $sourceDir, 
-                      concat('/xhtml/', me:getFileName(.), '#', oc:id(@osisID))
-                      )}">
+                        $sourceDir, 
+                        concat('/xhtml/', me:getFileName(.), '#', oc:id(@osisID))
+                        )}">
                 <if test="ancestor::div[@subType='x-navmenu-atoz']">
                   <attribute name="noWidth" select="'true'"/>
                 </if>
@@ -1364,14 +1363,14 @@
             <attribute name="class" select="@class"/>
             <!-- Height is always specified, so table-type vertical centering will work.
             Width is not specified for top-TOC at the li level because it is specified
-            at a higher div level. The A-to-Z link width is not specified because it is
-            allowed to be wider than all other button links in its list. --> 
+            at a higher div level. The A-to-Z button width is not specified because it 
+            is allowed to be wider than all other button links in its list. --> 
             <attribute name="style" select="string-join(
               ( if (not($isTopTOC) and not(@noWidth='true')) then 
                   concat('width:calc(24px + ', (1.2*$maxChars), 'ch)') else '', 
                 concat('height:calc(', $height, 'em + 3px)')
               ), '; ')"/>
-            <!-- divs are needed to center anchor vertically using table-style centering -->
+            <!-- two divs are needed to center anchor vertically using table-style centering -->
             <html:div>
               <html:div>
                 <html:a><attribute name="href" select="@href"/>
