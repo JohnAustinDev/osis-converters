@@ -794,9 +794,9 @@ sub applyVsysFromTo($$$) {
         if (!$osisID) {&ErrorBug("Could not find enclosing verse for element:\n".$sch);}
         else {$osisID = $osisID->getAttribute('osisID');}
         my $m = 
-          '<milestone type="'.$VSYS{'extra_vs'}.'" '.
+          '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{'extra_vs'}.'" '.
           'annotateRef="'.$fixedP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
-          '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
+          '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{'fitted_vs'}.'" '.
           'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" />';
         $sch->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $sch);
       }
@@ -812,9 +812,9 @@ sub applyVsysFromTo($$$) {
           else {$osisID = $osisID->getAttribute('osisID'); $osisID =~ s/^.*\s+//;}
           my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
           my $m = 
-            '<milestone type="'.$VSYS{'extra_vs'}.'" '.
+            '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{'extra_vs'}.'" '.
             'annotateRef="'.$univref.'" annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
-            '<milestone type="'.$VSYS{'fitted_vs'}.'" '.
+            '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{'fitted_vs'}.'" '.
             'osisRef="'.$osisID.'" annotateRef="'.$sourceP->{'value'}.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" />';
           $svs->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $svs);
         }
@@ -839,7 +839,7 @@ sub applyVsysFromTo($$$) {
     my $type = (!$sourceP ? 'missing_vs':'movedto_vs');
     my $osisRef = "$bk.$ch.$v";
     if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
-    my $m = '<milestone type="'.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
+    my $m = '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{$type}.'" osisRef="'.$osisRef.'" ';
     if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" ';}
     $m .= '/>';
     $fixedVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $fixedVerseEnd);
@@ -861,7 +861,7 @@ sub applyVsysFromTo($$$) {
     }
     $osisRef = $osisRef->getAttribute('osisID');
     $osisRef =~ s/^.*?\s+(\S+)$/$1/;
-    $m = '<milestone type="'.$VSYS{'fitted_vs'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'"/>';
+    $m = '<milestone resp="'.$VSYS{'resp_vs'}.'" type="'.$VSYS{'fitted_vs'}.'" osisRef="'.$osisRef.'" annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'"/>';
     $altVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $altVerseEnd);
   }
 }
@@ -1161,7 +1161,7 @@ sub toAlternate($$$) {
   
   # Typical alternate markup example:
   # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/>
-  #<hi type="italic" subType="x-alternate" resp="fitToVerseSystem"><hi type="super">(25)</hi></hi>
+  #<hi type="italic" subType="x-alternate" resp="resp_vs"><hi type="super">(25)</hi></hi>
   
   my $telem;
   my $type = ($elem->getAttribute('sID') ? 'start_vs':($elem->getAttribute('eID') ? 'end_vs':''));

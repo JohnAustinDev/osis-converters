@@ -356,15 +356,14 @@
   (therefore x-keyword-duplicate keywords are NOT included in the combined glossary). 
   This means that links to x-keyword-duplicate keywords need to be redirected to 
   their aggregated entries by the 'reference' template. -->
-  <template mode="preprocess" priority="1" match="div[@type='glossary'][@subType='x-aggregate']"/>
-  <template mode="preprocess" priority="2" match="div[@type='glossary'][$doCombineGlossaries]
-                                                     [not(ancestor::osis[@isCombinedGlossary])]"/>
-  <template mode="preprocess" priority="3" match="div[@annotateType='x-feature'][@annotateRef='INT']
-                                                     [oc:myWork(.) = $DICTMOD]"/>
-  <template mode="preprocess" priority="4" match="div[@scope='NAVMENU']"/>
+  <template mode="preprocess" 
+    match="div[@type='glossary'][@subType='x-aggregate'] |
+           div[@type='glossary'][$doCombineGlossaries][not(ancestor::osis[@isCombinedGlossary])] |
+           div[@annotateType='x-feature'][@annotateRef='INT'][oc:myWork(.) = $DICTMOD] |
+           div[@scope='NAVMENU']"/>
   <template mode="preprocess" match="list[@resp='x-oc'][@subType='x-navmenu']"/>
   <!-- These variables are used to match any removed DICTMOD INT keywords to 
-  a Bible intro title, to fix references to those keywords. -->
+  a Bible intro title, to fix any references to those keywords. -->
   <variable name="INT_osisID" as="xs:string*" select="$referenceOSIS/descendant::div
       [self::div[@annotateType='x-feature'][@annotateRef='INT'] | self::div[@scope='NAVMENU']]/
       descendant::*[@osisID]/replace(@osisID, '^[^:]*:', '')"/>
