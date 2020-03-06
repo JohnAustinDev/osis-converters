@@ -2,19 +2,19 @@
 <stylesheet version="2.0" 
   xmlns="http://www.w3.org/1999/XSL/Transform" 
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:my="osis-converters/scripts/namespace.xsl"
+  xmlns:my="osis-converters/scripts/whitespace.xsl"
   xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
   <!-- Remove unnecessary osis prefixes and normalize whitespace -->
-  <template match="node()|@*">
+  <template match="node()|@*" priority="-1">
     <copy><apply-templates select="node()|@*"/></copy>
   </template>
   
-  <template match="text()" priority="1">
+  <template match="text()">
     <copy-of select="replace(., '[\s\n]+', ' ')"/>
   </template>
   
-  <template match="*[namespace-uri()='http://www.bibletechnologies.net/2003/OSIS/namespace']" priority="1">
+  <template match="*[namespace-uri()='http://www.bibletechnologies.net/2003/OSIS/namespace']">
     <if test="my:breakBefore(.)"><text>&#xa;</text><if test="ancestor::work"><text>  </text></if></if>
     <element name="{local-name()}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
       <apply-templates select="node()|@*"/>
