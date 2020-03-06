@@ -257,7 +257,7 @@ sub findThisPeriph($$$) {
   my $xpath = './/osis:div[@type="'.$type.'"]'.($subType ? '[@subType="'.$subType.'"]':'[not(@subType)]');
   my $periph = @{$XPC->findnodes($xpath, $parent)}[0];
   if (!$periph) {
-    &Error("Could not place periph! Did not find \"$xpath\"in $command.");
+    &Error("Could not place periph! Did not find \"$xpath\" in $command.");
     return '';
   }
   

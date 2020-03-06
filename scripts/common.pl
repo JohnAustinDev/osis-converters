@@ -187,7 +187,7 @@ sub update_removeConvertTXT($) {
     return;
   }
   
-  &updateConvertTXT("$MAININPD/eBook/convert.txt", \%confP);
+  &updateConvertTXT("$MAININPD/eBook/convert.txt", \%confP, 'osis2ebooks');
   &updateConvertTXT("$MAININPD/html/convert.txt", \%confP, 'osis2html');
   return &writeConf($confFile, \%confP);
 }
@@ -202,12 +202,14 @@ sub updateConvertTXT($$$) {
   my %pubScopeTitle;
   if (open(CONV, "<$READLAYER", $convtxt)) {
     while(<CONV>) {
+      my $s = $section;
       if ($_ =~ /^#/) {next;}
       elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {
         my $e = $1; my $v = $2;
         my $warn;
         if ($e eq 'MultipleGlossaries') {
           $warn = "Changing $e=$v to";
+          $s = '';
           $e = 'CombineGlossaries';
           $v = ($v && $v !~ /^(false|0)$/i ? 'false':'true');
           &Warn("<-$warn $e=$v");
@@ -226,23 +228,26 @@ sub updateConvertTXT($$$) {
         elsif ($e =~ /^Group1\s*$/) {
           my $n = $1;
           $warn = "Changing $e=$v to ";
+          $s = '';
           $e = 'OldTestamentTitle';
           &Warn("<-$warn $e=$v");
         }
         elsif ($e =~ /^Group2\s*$/) {
           my $n = $1;
           $warn = "Changing $e=$v to ";
+          $s = '';
           $e = 'NewTestamentTitle';
           &Warn("<-$warn $e=$v");
         }
         elsif ($e =~ /^Title\s*$/) {
           my $n = $1;
           $warn = "Changing $e=$v to ";
+          $s = '';
           $e = 'TranslationTitle';
           &Warn("<-$warn $e=$v");
         }
         if ($e) {
-          $confP->{($section ? "$section+":'').$e} = $v;
+          $confP->{($s ? "$s+":'').$e} = $v;
         }
       }
     }
@@ -4595,6 +4600,27 @@ tag number you wish to use.)\n");
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
       $insertBefore->parentNode->insertBefore($toc, $insertBefore);
       &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
+    }
+    
+    # Check if there is a whole book introduction without a TOC entry
+    my $wholeBookIntro = @{$XPC->findnodes('//osis:div[@type="introduction"]
+        [not(ancestor::osis:div[starts-with(@type,"book")])]
+        [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml)}[0];
+    if ($wholeBookIntro) {
+      my $confentry = 'ARG_'.$wholeBookIntro->getAttribute('osisID'); $confentry =~ s/\!.*$//;
+      my $confTitle = ($wholeBookIntro->getAttribute('osisID') ? &conf($confentry):'');
+      my $intrTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $wholeBookIntro)}[0];
+      my $title = ($confTitle ? $confTitle:($intrTitle ? $intrTitle->textContent():''));
+      if ($title) {
+        my $toc = $XML_PARSER->parse_balanced_chunk('
+<milestone resp="'.$ROC.'" type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$title.'"/>');
+        $wholeBookIntro->insertBefore($toc, $wholeBookIntro->firstChild);
+        &Note("Inserting introduction TOC entry as: $title");
+      }
+      else {
+        &Warn("There is a whole-book introduction which is not included in the TOC.",
+        "If you want to include it, add to config.conf the entry: $confentry=<title>");
+      }
     }
         
     # Check each bookGroup's bookGroup introduction and bookSubGroup introduction 

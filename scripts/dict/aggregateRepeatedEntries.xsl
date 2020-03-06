@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <stylesheet version="2.0"
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
+ xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
   <!-- This XSLT will do the following:
@@ -78,20 +80,20 @@
         <choose>
           <when test="$groupCopy[1][descendant-or-self::seg[@type='keyword']]">
             <variable name="isDuplicate" select="$duplicate_keywords[lower-case(string()) = lower-case($groupCopy[1]/descendant-or-self::seg[@type='keyword'][1])]"/><text>
-</text>     <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace">
-              <xsl:attribute name="type">x-keyword<xsl:if test="$isDuplicate">-duplicate</xsl:if></xsl:attribute>
+</text>     <osis:div>
+              <attribute name="type">x-keyword<if test="$isDuplicate">-duplicate</if></attribute>
               <!-- Mark the first keyword in uiIntroductionTopMenu or uiDictionaryTopMenu per INTMENU feature -->
-              <xsl:if test="current-group() intersect $firstKeywordInGlossary">
-                <xsl:variable name="subType">
-                  <xsl:choose>
-                    <xsl:when test="current-group()/ancestor::*[@osisID='uiIntroductionTopMenu']">x-navmenu-introduction</xsl:when>
-                    <xsl:when test="current-group()/ancestor::*[@osisID='uiDictionaryTopMenu']">x-navmenu-dictionary</xsl:when>
-                  </xsl:choose>
-                </xsl:variable>
-                <xsl:if test="$subType"><xsl:attribute name="subType" select="$subType"/></xsl:if>
-              </xsl:if>
-              <xsl:apply-templates select="$groupCopy" mode="#current"/>
-            </div>
+              <if test="current-group() intersect $firstKeywordInGlossary">
+                <variable name="subType" as="xs:string?">
+                  <choose>
+                    <when test="current-group()/ancestor::*[@osisID='uiIntroductionTopMenu']">x-navmenu-introduction</when>
+                    <when test="current-group()/ancestor::*[@osisID='uiDictionaryTopMenu']">x-navmenu-dictionary</when>
+                  </choose>
+                </variable>
+                <if test="$subType"><attribute name="subType" select="$subType"/></if>
+              </if>
+              <apply-templates select="$groupCopy" mode="#current"/>
+            </osis:div>
           </when>
           <otherwise><apply-templates select="$groupCopy" mode="#current"/></otherwise>
         </choose>

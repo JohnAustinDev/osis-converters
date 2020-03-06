@@ -1003,19 +1003,19 @@
                                        boolean(ancestor::title[@canonical='true'])"/>
     <choose>
       <when test="$inChapter and not(@type='crossReference')">
-        <attribute name="class" select="string-join(($classes, 'xsl-fnote-symbol'), ' ')"/>
+        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-fnote-symbol'), ' '))"/>
         <value-of select="'*'"/>
       </when>
       <when test="$inChapter and @subType='x-parallel-passage'">
-        <attribute name="class" select="string-join(($classes, 'xsl-crnote-symbol'), ' ')"/>
+        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-crnote-symbol'), ' '))"/>
         <value-of select="'•'"/>
       </when>
       <when test="$inChapter">
-        <attribute name="class" select="string-join(($classes, 'xsl-crnote-symbol'), ' ')"/>
+        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-crnote-symbol'), ' '))"/>
         <value-of select="'+'"/>
       </when>
       <otherwise>
-        <attribute name="class" select="string-join(($classes, 'xsl-note-number'), ' ')"/>
+        <attribute name="class" select="normalize-space(string-join(($classes, 'xsl-note-number'), ' '))"/>
         <value-of select="'['"/><call-template name="getFootnoteNumber"/><value-of select="']'"/>
       </otherwise>
     </choose>
@@ -1109,7 +1109,7 @@
         <sequence select="me:getTocListItems(., true())"/>
       </for-each>
     </variable>
-    <if test="$listElements">
+    <if test="count($listElements)">
       <html:div id="root-toc">
         <sequence select="me:getInlineTocDiv($listElements, 'ol', true())"/>
       </html:div>
@@ -1128,7 +1128,7 @@
   </function>
   
   <function name="me:getInlineTocDiv" as="element(html:div)">
-    <param name="listElements" as="element(html:li)*"/>
+    <param name="listElements" as="element(html:li)+"/>
     <param name="listType" as="xs:string"/>
     <param name="isTopTOC" as="xs:boolean"/>
     <!-- Inline TOCs by default display as lists of inline-block links 
@@ -1152,23 +1152,22 @@
                   book links displayed as two columns, then the first 
                   back material row is a single centered link. -->
                   
-    <variable name="bookIsTwoColumns" 
+    <variable name="bookIsTwoColumns" as="xs:boolean"
               select="count($listElements[@class='xsl-bookGroup-link']) = 2 or 
                       count($listElements[starts-with(@class, 'xsl-book')]) &#62; 5"/>
-                      
-    <variable name="hasOddNumberOfIntros" 
-              select="count($listElements
-                            [not(starts-with(@class, 'xsl-book'))]
+    <!-- tmp container is needed for preceding axis to work -->
+    <variable name="tmp"><osis:div><sequence select="$listElements"/></osis:div></variable>
+    <variable name="hasOddNumberOfIntros" as="xs:boolean"
+              select="count($tmp//html:li[not(starts-with(@class, 'xsl-book'))]
                             [not(preceding::*[starts-with(@class, 'xsl-book')])]
                       ) mod 2 = 1"/>
-                      
-    <variable name="hasOddNumberOf2ColBooks" 
+    <variable name="hasOddNumberOf2ColBooks" as="xs:boolean" 
               select="$bookIsTwoColumns and count($listElements[starts-with(@class, 'xsl-book')]) mod 2 = 1"/>
               
     <variable name="twoColumnElements" 
               select="$listElements[$bookIsTwoColumns or not(starts-with(@class, 'xsl-book'))]"/>
               
-    <variable name="oneColumnElements" 
+    <variable name="oneColumnElements"
               select="$listElements except $twoColumnElements"/>
               
     <variable name="chars" 
@@ -1181,7 +1180,7 @@
     <variable name="maxChars" 
               select="if ($chars &#62; 32) then 32 else $chars"/>
               
-    <variable name="backIsOneColumn" 
+    <variable name="backIsOneColumn" as="xs:boolean"
               select="$maxChars &#62; $mainTocMaxBackChars"/>
 
     <html:div>
@@ -1191,7 +1190,7 @@
         <if test="$hasOddNumberOfIntros">xsl-odd-intros </if>
         <if test="$hasOddNumberOf2ColBooks">xsl-odd-2col-books </if>
       </variable>
-      <attribute name="class" select="replace($class, '[\s\n]+', ' ')"/>
+      <attribute name="class" select="normalize-space($class)"/>
       <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
       <html:div>
         <choose>
@@ -1368,7 +1367,7 @@
               ( if (not($isTopTOC) and not(@noWidth='true')) then 
                   concat('width:calc(24px + ', (1.2*$maxChars), 'ch)') else '', 
                 concat('height:calc(', $height, 'em + 3px)')
-              ), '; ')"/>
+              )[. != ''], '; ')"/>
             <!-- two divs are needed to center anchor vertically using table-style centering -->
             <html:div>
               <html:div>
@@ -1715,7 +1714,7 @@
     <html:div>
       <variable name="classes" select="me:getClasses(.)"/>
       <attribute name="class" select="if (not($needPageBreak)) then $classes else 
-        string-join((tokenize($classes, ' '), 'osis-milestone', 'pb'), ' ')"/>
+        normalize-space(string-join((tokenize($classes, ' '), 'osis-milestone', 'pb'), ' '))"/>
       <apply-templates mode="xhtml"/>
     </html:div>
   </template>
