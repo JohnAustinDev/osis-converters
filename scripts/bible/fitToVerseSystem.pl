@@ -87,7 +87,7 @@ previous extant chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
-markup like '\va 2\va*' has already been used by the translators for the 
+markup like '\\va 2\\va*' has already been used by the translators for the 
 moved verses (rather than regular verse markers, which is the more 
 common case). This instruction will not change the OSIS markup of the 
 alternate verses. It is the same as 'VSYS_MISSING: A' followed by 
@@ -636,10 +636,15 @@ BOOK:
         }
         if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
           &Error("Missing verse $bk.$ch.$vs.", 
-"This often happens when multiple verses were joined into 
-a single verse somewhere within the chapter. This situation can be 
+"This may happen when multiple verses are joined into 
+a single verse somewhere within the chapter. Such a situation can be 
 addressed in CF_usfm2osis.txt with something like: 
-VSYS_MOVED: Gen.2.3 -> Gen.2.2.PART\n$fitToVerseSystemDoc");
+VSYS_MOVED: Gen.2.3 -> Gen.2.2.PART\n
+Another common cause of this error is a verse that has been left out on
+purpose. Often there is a related footnote at the end of the previous 
+verse which sometimes contains the text of the missing verse. This 
+situation can be addressed with something like:
+VSYS_MISSING_FN: Gen.2.3\n$fitToVerseSystemDoc");
           $fitToVerseSystemDoc = '';
           $errors++;
           next;
@@ -661,7 +666,7 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4\n$fitToVerseSystemDoc");
     }
     while (@v[$x] =~ /^\Q$bk./) {
       &Error("Extra chapter: ".@v[$x], 
-"This happens for instance when Synodal Pslams 151 is 
+"This happens for instance when Synodal Pslam 151 is 
 included in a SynodalProt translation. This situation can be addressed 
 in CF_usfm2osis.txt with something like: 
 VSYS_EXTRA: Ps.151 <- Synodal:Ps.151\n$fitToVerseSystemDoc");

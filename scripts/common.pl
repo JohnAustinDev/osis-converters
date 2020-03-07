@@ -1831,7 +1831,7 @@ sub checkConfGlobals() {
 sub checkRequiredConfEntries($) {
   if (&conf('Abbreviation') eq $MOD) {
     &Warn("Currently the config.conf 'Abbreviation' setting is '$MOD'.",
-"This is normally a short user-readable abbreviation for the module, but the module name itself may be acceptable sometimes too.");
+"This is a short user-readable name for the module.");
   }
   
   if (&conf('About') eq 'ABOUT') {
@@ -3352,6 +3352,11 @@ sub osisIDSort($$$$) {
 # here are either mis-parsed, or are errors in the source text.
 sub checkSourceScripRefLinks($) {
   my $in_osis = shift;
+  
+  if (&conf("ARG_SkipSourceRefCheck") =~/^true$/i) {
+    &Note("Source references will not be checked because ARG_SkipSourceRefCheck=true");
+    return
+  }
   
   &Log("\nCHECKING SOURCE SCRIPTURE REFERENCE OSISREF TARGETS IN $in_osis...\n");
   
