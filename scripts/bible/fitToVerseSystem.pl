@@ -635,7 +635,11 @@ BOOK:
           next;
         }
         if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
-          &Error("Missing verse $bk.$ch.$vs.", "If this verse is supposed to be missing, then add a VSYS_MISSING instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+          &Error("Missing verse $bk.$ch.$vs.", 
+"This often happens when multiple verses were joined into 
+a single verse somewhere within the chapter. This situation can be 
+addressed in CF_usfm2osis.txt with something like: 
+VSYS_MOVED: Gen.2.3 -> Gen.2.2.PART\n$fitToVerseSystemDoc");
           $fitToVerseSystemDoc = '';
           $errors++;
           next;
@@ -644,7 +648,11 @@ BOOK:
         $x++;
       }
       while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Error("Extra verse: ".@v[$x], "If this verse is supposed to be extra, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+        &Error("Extra verse: ".@v[$x], 
+"This often happens when a verse was split into two verses 
+somewhere within the chapter. This situation can be addressed in 
+CF_usfm2osis.txt with something like: 
+VSYS_MOVED: Gen.2.3.PART -> Gen.2.4\n$fitToVerseSystemDoc");
         $fitToVerseSystemDoc = '';
         $errors++;
         $x++;
@@ -652,7 +660,11 @@ BOOK:
       $ch++;
     }
     while (@v[$x] =~ /^\Q$bk./) {
-      &Error("Extra chapter: ".@v[$x], "If this chapter is supposed to be missing, then add a VSYS_EXTRA instruction to CF_usfm2osis.txt. $fitToVerseSystemDoc");
+      &Error("Extra chapter: ".@v[$x], 
+"This happens for instance when Synodal Pslams 151 is 
+included in a SynodalProt translation. This situation can be addressed 
+in CF_usfm2osis.txt with something like: 
+VSYS_EXTRA: Ps.151 <- Synodal:Ps.151\n$fitToVerseSystemDoc");
       $fitToVerseSystemDoc = '';
       $errors++;
       $x++;
