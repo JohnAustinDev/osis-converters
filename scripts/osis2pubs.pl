@@ -293,7 +293,7 @@ file for it, and then run this script again.");}
       if ($warn) {&Warn("See above linkchecker warnings.");}
       if ($err) {&Error("See above linkchecker errors.");}
     }
-    else {&ErrorBug("Could not parse output of linkchecker.", "Check the version of linkchecker.");}
+    else {&ErrorBug("Could not parse output of linkchecker:\n$result\n", "Check the version of linkchecker.");}
   }
   elsif ($convertTo eq 'eBook') {
     if ($DEBUG !~ /no.?epub/i) {&makeEbook($tmp, 'epub', $cover, $scope);}
