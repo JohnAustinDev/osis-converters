@@ -72,6 +72,8 @@
   
   <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, $glossThresh)))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
   
+  <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1.2'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
+  
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
   <variable name="epub3Markup" as="xs:boolean" select="$noEpub3Markup != 'yes'"/>
@@ -1196,14 +1198,15 @@
         <choose>
           <!-- limit main TOC width, because li width is specified as % in css -->
           <when test="$isTopTOC">
-            <!-- ebible.css 2 column is: 100% = 6px + 12px + maxChars + 12px + 6px + 12px + maxChars + 12px + 6px , 
-            so: max-width of parent at 100% = 66px + 2*maxChars (but need fudge since ch, based on '0', isn't determinative) -->
-            <attribute name="style" select="concat('max-width:calc(66px + ', (2.5*$maxChars), 'ch)')"/>
+            <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + 12px + $averageCharWidth*(4+maxChars) ch + 6px , 
+            so: max-width of parent at 100% = 24px + $averageCharWidth*(8+2*maxChars) ch -->
+            <attribute name="style" select="concat('max-width:calc(24px + ', $averageCharWidth*(8+(2*$maxChars)), 'ch)')"/>
           </when>
           <!-- limit TOCs containing book names to three columns -->
           <when test="$listElements[@class = 'xsl-book-link']">
-            <!-- 3.5*(calc(24px + 1.2*$maxChars)) from below -->
-            <attribute name="style" select="concat('max-width:calc(84px + ', (4.2*$maxChars), 'ch)')"/>
+            <!-- html.css 3 column is: 100% = 6*6px + 3*$averageCharWidth*(4+maxChars) ch
+            so max-width of parent at 100% = 36px + 3*$averageCharWidth*(4+maxChars) ch -->
+            <attribute name="style" select="concat('max-width:calc(36px + ', 3*$averageCharWidth*(4+$maxChars), 'ch)')"/>
           </when>
         </choose>
         <for-each-group select="$listElements" group-adjacent="if (not($isTopTOC)) then @class else '1'">
@@ -1365,7 +1368,7 @@
             is allowed to be wider than all other button links in its list. --> 
             <attribute name="style" select="string-join(
               ( if (not($isTopTOC) and not(@noWidth='true')) then 
-                  concat('width:calc(24px + ', (1.2*$maxChars), 'ch)') else '', 
+                  concat('width:', $averageCharWidth*(4 + $maxChars), 'ch') else '', 
                 concat('height:calc(', $height, 'em + 3px)')
               )[. != ''], '; ')"/>
             <!-- two divs are needed to center anchor vertically using table-style centering -->

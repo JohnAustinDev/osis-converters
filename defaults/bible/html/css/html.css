@@ -369,7 +369,7 @@ a.x-other-resource {
 .x-keyword-duplicate + .x-keyword-duplicate {
   margin-top:1.5em;
 }
-.x-glosslinklist {}
+.x-navmenu-letter .x-entrylist ul {}
 
 /* Inline TOC */
 ol, ul {
@@ -420,7 +420,7 @@ ol, ul {
   font-weight: bold;
 }
 #root-toc li {
-  width: calc(50% - 2.5em); /* 2.5em = 3/2 * 1em(margin) + 1em(fluff) */
+  width: calc(50% - 12px); /* 9px = 1.5*6px of margin */
 }
 #root-toc .xsl-one-book-column .xsl-bookSubGroup-link,
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,
@@ -428,7 +428,7 @@ ol, ul {
 #root-toc .xsl-one-back-column .xsl-glossary-link, /* really is -back- and not -book- */
 #root-toc .xsl-one-back-column .xsl-keyword-link,
 #root-toc .xsl-one-back-column .xsl-other-link {
-  width: calc(100% - 2em); /* 2em = 2 * 1em(margin) */
+  width: calc(100% - 12px); /* 12px = 2*6px of margin */
 }
 #root-toc .xsl-odd-intros li:first-child:not(:last-child),
 #root-toc .xsl-odd-2col-books li[class^="xsl-book"] + li:not(.xsl-book-link):not(.xsl-bookGroup-link) {

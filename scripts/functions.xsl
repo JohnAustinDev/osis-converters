@@ -634,7 +634,6 @@
           type="x-glosslink" subType="x-target_self">
           <value-of select="text()"/>
         </osis:reference>
-        <osis:lb/>
       </for-each>
     </variable>
     <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
@@ -642,10 +641,14 @@
       <osis:div type="x-keyword" subType="x-navmenu-letter">
         <sequence select="current-group()[1]"/>
         <if test="not($includeGlossaryKeywords) or 
-                  count(current-group()[not(position() = 1)]) &#62; 1">
-          <osis:div subType="x-glosslinklist">
-            <sequence select="current-group()[not(position() = 1)]"/>
-          </osis:div>
+                  count(current-group()[self::reference]) &#62; 1">
+          <osis:list subType="x-entrylist">
+            <for-each select="current-group()[not(position() = 1)]">
+              <osis:item>
+                <sequence select="."/>
+              </osis:item>
+            </for-each>
+          </osis:list>
         </if>
       </osis:div>
       <call-template name="Note">
