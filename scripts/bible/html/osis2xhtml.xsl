@@ -1172,14 +1172,14 @@
     <variable name="oneColumnElements"
               select="$listElements except $twoColumnElements"/>
               
-    <variable name="chars" 
+    <variable name="chars" as="xs:decimal"
               select="if ($isTopTOC) then 
                       max(($twoColumnElements/string-length(string()), 
                            $oneColumnElements/(string-length(string())*0.5)
                       )) else 
                       max($listElements/string-length(string()))"/>
                       
-    <variable name="maxChars" 
+    <variable name="maxChars" as="xs:decimal" 
               select="if ($chars &#62; 32) then 32 else $chars"/>
               
     <variable name="backIsOneColumn" as="xs:boolean"
@@ -1195,20 +1195,13 @@
       <attribute name="class" select="normalize-space($class)"/>
       <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
       <html:div>
-        <choose>
-          <!-- limit main TOC width, because li width is specified as % in css -->
-          <when test="$isTopTOC">
-            <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + 12px + $averageCharWidth*(4+maxChars) ch + 6px , 
-            so: max-width of parent at 100% = 24px + $averageCharWidth*(8+2*maxChars) ch -->
-            <attribute name="style" select="concat('max-width:calc(24px + ', $averageCharWidth*(8+(2*$maxChars)), 'ch)')"/>
-          </when>
-          <!-- limit TOCs containing book names to three columns -->
-          <when test="$listElements[@class = 'xsl-book-link']">
-            <!-- html.css 3 column is: 100% = 6*6px + 3*$averageCharWidth*(4+maxChars) ch
-            so max-width of parent at 100% = 36px + 3*$averageCharWidth*(4+maxChars) ch -->
-            <attribute name="style" select="concat('max-width:calc(36px + ', 3*$averageCharWidth*(4+$maxChars), 'ch)')"/>
-          </when>
-        </choose>
+        <!-- limit main TOC width, because li width is specified as % in css -->
+        <if test="$isTopTOC or $listElements[contains(@class, 'xsl-book-link')]">
+          <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + 12px + $averageCharWidth*(4+maxChars) ch + 6px , 
+          so: max-width of parent at 100% = 24px + $averageCharWidth*(8+2*maxChars) ch + 1ch for chapter inline block fudge -->
+          <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+(2*$maxChars))) div 10"/>
+          <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
+        </if>
         <for-each-group select="$listElements" group-adjacent="if (not($isTopTOC)) then @class else '1'">
           <if test="count(current-group())">
             <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
@@ -1365,10 +1358,11 @@
             <!-- Height is always specified, so table-type vertical centering will work.
             Width is not specified for top-TOC at the li level because it is specified
             at a higher div level. The A-to-Z button width is not specified because it 
-            is allowed to be wider than all other button links in its list. --> 
+            is allowed to be wider than all other button links in its list. -->
+            <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(4 + $maxChars)) div 10"/>
             <attribute name="style" select="string-join(
               ( if (not($isTopTOC) and not(@noWidth='true')) then 
-                  concat('width:', $averageCharWidth*(4 + $maxChars), 'ch') else '', 
+                  concat('width:', $ch, 'ch') else '', 
                 concat('height:calc(', $height, 'em + 3px)')
               )[. != ''], '; ')"/>
             <!-- two divs are needed to center anchor vertically using table-style centering -->

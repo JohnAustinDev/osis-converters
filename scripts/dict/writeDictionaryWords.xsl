@@ -92,7 +92,7 @@
       <xsl:variable name="matches" as="xs:string+"><xsl:for-each select="$matchesTmp"><xsl:if test="."><xsl:sequence select="."/></xsl:if></xsl:for-each></xsl:variable>
       <xsl:for-each select="$matches">
         <xsl:choose>
-          <xsl:when test="$anyEnding = 'true'">
+          <xsl:when test="$anyEnding = 'true' and string-length(.) &#62; 3">
             <variable xmlns="http://www.w3.org/1999/XSL/Transform" name="words">
               <for-each select="tokenize(., '\s+')"><sequence select="concat('\Q', ., '\E', '\S*')"/></for-each>
             </variable>

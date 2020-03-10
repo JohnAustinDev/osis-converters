@@ -203,7 +203,7 @@ sub OSIS_To_ePublication($$$) {
         print CSS '
 @font-face {
   font-family:font1;
-  src: url(\''.($convertTo eq 'eBook' ? './':'/css/').$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
+  src: url(\'./'.$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
   font-weight: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; font-style: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
 }
 ';

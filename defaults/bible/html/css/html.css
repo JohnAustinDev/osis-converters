@@ -432,8 +432,8 @@ ol, ul {
 }
 #root-toc .xsl-odd-intros li:first-child:not(:last-child),
 #root-toc .xsl-odd-2col-books li[class^="xsl-book"] + li:not(.xsl-book-link):not(.xsl-bookGroup-link) {
-  margin-left: 2em;
-  margin-right: 2em;
+  margin-left: 5ch;
+  margin-right: 5ch;
 }
 #root-toc + .xsl-inline-toc {
   page-break-before: always;
