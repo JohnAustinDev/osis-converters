@@ -192,8 +192,8 @@
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
       <otherwise>
         <value-of select="boolean(
-            upper-case(oc:longestStartingMatchKS(  $glossaryEntry/string())) = 
-            upper-case(oc:longestStartingMatchKS($previousKeyword/string()))
+            upper-case(oc:keySortLetter(  $glossaryEntry/string())) = 
+            upper-case(oc:keySortLetter($previousKeyword/string()))
         )"/>
       </otherwise>
     </choose>
@@ -235,22 +235,21 @@
     </value-of>
   </function>
   
-  <!-- Sort by an arbitrary character order: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
+  <!-- Sort $KeySort order with: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
   <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
     <if test="$KeySort and $text">
-      <variable name="ignoreRegex" select="oc:getIgnoreRegex()" as="xs:string"/>
-      <variable name="charRegexes" select="oc:getCharRegexes()" as="element(oc:regex)*"/>
-      <!-- re-order from longest regex to shortest -->
-      <variable name="long2shortCharRegexes" select="oc:getLong2shortCharRegexes($charRegexes)" as="element(oc:regex)*"/>
-      <variable name="long2shortCharRegexeMono" select="concat('(', string-join($long2shortCharRegexes/@regex, '|'), ')')" as="xs:string"/>
-      <variable name="textKeep" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+      <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
+      <variable name="text2" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+      <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
+      <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
+      <variable name="keySortRegex" select="concat('(', string-join($orderedRegexes/@regex, '|'), ')')" as="xs:string"/>
       <variable name="result" as="xs:string">
         <value-of>
-        <analyze-string select="$textKeep" regex="{$long2shortCharRegexeMono}">
+        <analyze-string select="$text2" regex="{$keySortRegex}">
           <matching-substring>
             <variable name="subst" select="."/>
-            <for-each select="$long2shortCharRegexes">
+            <for-each select="$orderedRegexes">
               <if test="matches($subst, concat('^', @regex, '$'))">
                 <value-of select="codepoints-to-string(xs:integer(number(@position) + 64))"/> <!-- 64 starts at character "A" -->
               </if>
@@ -285,7 +284,7 @@
     <param name="str" as="xs:string"/>
     <value-of select="replace(replace(replace(replace($str, '_91_', '['), '_93_', ']'), '_123_', '{'), '_125_', '}')"/>
   </function>
-  <function name="oc:getIgnoreRegex" as="xs:string">
+  <function name="oc:keySortIgnore" as="xs:string">
     <variable name="ignores" as="xs:string*">
       <analyze-string select="oc:encodeKS($KeySort)" regex="{'\{([^\}]*)\}'}">
         <matching-substring><sequence select="regex-group(1)"/></matching-substring>
@@ -293,7 +292,7 @@
     </variable>
     <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
   </function>
-  <function name="oc:getCharRegexes" as="element(oc:regex)*">
+  <function name="oc:keySortRegexes" as="element(oc:regex)*">
     <!-- split KeySort string into 3 groups: chr | [] | {} -->
     <analyze-string select="oc:encodeKS($KeySort)" regex="{'([^\[\{]|(\[[^\]]*\])|(\{[^\}]*\}))'}">
       <matching-substring>
@@ -306,7 +305,7 @@
       </matching-substring>
     </analyze-string>
   </function>
-  <function name="oc:getLong2shortCharRegexes" as="element(oc:regex)*">
+  <function name="oc:orderLongToShort" as="element(oc:regex)*">
     <param name="charRegexes" as="element(oc:regex)*"/>
     <for-each select="$charRegexes">     
       <sort select="string-length(./@regex)" data-type="number" order="descending"/> 
@@ -314,17 +313,18 @@
     </for-each>
   </function>
   
-  <!-- Find the longest KeySort match at the beginning of a string, or else the first character. -->
-  <function name="oc:longestStartingMatchKS" as="xs:string">
+  <!-- Find the longest KeySort match at the beginning of a string, or else the first character if $KeySort not set. -->
+  <function name="oc:keySortLetter" as="xs:string">
     <param name="text" as="xs:string"/>
     <choose>
       <when test="not($text)"><value-of select="''"/></when>
       <when test="$KeySort">
-        <variable name="charRegexes" select="oc:getCharRegexes()" as="element(oc:regex)*"/>
-        <variable name="ignoreRegex" select="oc:getIgnoreRegex()" as="xs:string"/>
-        <variable name="textKeep" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
-        <variable name="result" select="replace($textKeep, concat('^(', string-join(oc:getLong2shortCharRegexes($charRegexes)/@regex, '|'), ').*?$'), '$1')"/>
-        <value-of select="if ($result != $textKeep) then $result else substring($textKeep, 1, 1)"/>
+        <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
+        <variable name="text2" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+        <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
+        <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
+        <variable name="keySortRegex" select="concat('(', string-join($orderedRegexes/@regex, '|'), ')')" as="xs:string"/>
+        <value-of select="replace($text2, concat('^', $keySortRegex, '.*?$'), '$1')"/>
       </when>
       <otherwise><value-of select="substring($text, 1, 1)"/></otherwise>
     </choose>
@@ -564,9 +564,9 @@
     to the A-Z menu) on it -->        
     <variable name="allEntriesTitle" 
       select="concat(
-              upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][1])), 
+              upper-case(oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][1])), 
               '-', 
-              upper-case(oc:longestStartingMatchKS($sortedGlossary/descendant::seg[@type='keyword'][last()])))"/>
+              upper-case(oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][last()])))"/>
     
     <if test="$includeTopTocMenu">
       <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
@@ -582,7 +582,7 @@
         </osis:reference>
         <for-each select="$sortedGlossary//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letter" select="upper-case(oc:longestStartingMatchKS(text()))"/>
+            <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
             <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}{$id}" 
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
@@ -624,7 +624,7 @@
     <variable name="letterMenus" as="element()*">
       <for-each select="$sortedGlossary//seg[@type='keyword']">
         <if test="oc:skipGlossaryEntry(.) = false()">
-          <variable name="letter" select="upper-case(oc:longestStartingMatchKS(text()))"/>
+          <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
           <osis:p>
             <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
               <value-of select="$letter"/>

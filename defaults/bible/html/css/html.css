@@ -420,7 +420,7 @@ ol, ul {
   font-weight: bold;
 }
 #root-toc li {
-  width: calc(50% - 12px); /* 12px = 2*6px of margin */
+  width: calc(50% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
 #root-toc .xsl-one-book-column .xsl-bookSubGroup-link,
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,
@@ -428,7 +428,7 @@ ol, ul {
 #root-toc .xsl-one-back-column .xsl-glossary-link, /* really is -back- and not -book- */
 #root-toc .xsl-one-back-column .xsl-keyword-link,
 #root-toc .xsl-one-back-column .xsl-other-link {
-  width: calc(100% - 12px); /* 12px = 2*6px of margin */
+  width: calc(100% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
 #root-toc .xsl-odd-intros li:first-child:not(:last-child),
 #root-toc .xsl-odd-2col-books li[class^="xsl-book"] + li:not(.xsl-book-link):not(.xsl-bookGroup-link) {

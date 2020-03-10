@@ -1019,6 +1019,13 @@ sub expandLinuxPath($) {
   return $r;
 }
 
+sub shortLinuxPath($) {
+  my $path = shift;
+  $path =~ s/\/\.\//\//g;
+  $path =~ s/\/[^\/]+\/\.\.\//\//g;
+  return $path;
+}
+
 sub escfile($) {
   my $n = shift;
   

@@ -463,7 +463,7 @@
   <!-- preprocess_glossTocMenus -->
   <template mode="preprocess_glossTocMenus" match="div[@type='glossary']">
     <variable name="my_glossaryToc" as="xs:string"
-      select="if (count(distinct-values(descendant::seg[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1) then 'single' else 
+      select="if (count(distinct-values(descendant::seg[@type='keyword']/upper-case(oc:keySortLetter(text())))) = 1) then 'single' else 
               if ( $glossaryToc = 'letter' or 
                    ($glossaryToc = 'AUTO' and 
                      count(descendant::div[starts-with(@type,'x-keyword')]) &#62;= $glossaryTocAutoThresh)
@@ -527,7 +527,7 @@
               (preceding::div | self::div)/descendant::seg[@type='keyword']/
                 (
                   if (ancestor::div[@subType='x-navmenu-atoz']) then string() 
-                  else upper-case(oc:longestStartingMatchKS(string()))
+                  else upper-case(oc:keySortLetter(string()))
                 )
             ))"/>
           </when>
@@ -1285,7 +1285,7 @@
               $isMainNode or 
               ($SCRIPT_NAME != 'osis2ebooks') or 
               (count($subentries[@type='keyword']) &#60; xs:integer(number($glossThresh))) or 
-              (count(distinct-values($subentries[@type='keyword']/upper-case(oc:longestStartingMatchKS(text())))) = 1)
+              (count(distinct-values($subentries[@type='keyword']/upper-case(oc:keySortLetter(text())))) = 1)
           )"/>
         <!-- listElements is used to generate all list elements before 
         writing any of them, so that we can get the max length -->
@@ -1333,7 +1333,7 @@
                     <value-of select="text()"/>
                   </when>
                   <when test="not($includeAllSubEntries) and self::seg[@type='keyword']">
-                    <value-of select="upper-case(oc:longestStartingMatchKS(text()))"/>
+                    <value-of select="upper-case(oc:keySortLetter(text()))"/>
                   </when>
                   <when test="matches(text(), '^\-')"><value-of select="text()"/></when>
                   <otherwise>

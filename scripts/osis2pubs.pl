@@ -294,6 +294,23 @@ file for it, and then run this script again.");}
       if ($err) {&Error("See above linkchecker errors.");}
     }
     else {&ErrorBug("Could not parse output of linkchecker:\n$result\n", "Check the version of linkchecker.");}
+    
+    # Look for any unreachable material
+    &Log("\n--- CHECKING for unreachable material in \"$HTMLOUT/$PUB_NAME/xhtml\"\n");
+    my @files = split(/\n+/, &shell("find \"$HTMLOUT/$PUB_NAME/xhtml\" -type f", 3));
+    push(@files, "$HTMLOUT/$PUB_NAME/index.xhtml");
+    my %linkedFiles; 
+    $linkedFiles{&shortLinuxPath("$HTMLOUT/$PUB_NAME/index.xhtml")}++;
+    foreach my $f (@files) {&getLinkedFiles($f, \%linkedFiles);}
+    my $numUnreachable = 0;
+    foreach my $f (@files) {
+      if (!defined($linkedFiles{&shortLinuxPath($f)})) {
+        $numUnreachable++;
+        my $sf = $f; $sf =~ s/^.*\/(xhtml\/)/$1/;
+        &Warn("File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), "If you want to make the above material accesible, add a \\toc".&conf('TOC')." tag to it.");
+      }
+    }
+    &Report("Found $numUnreachable unreachable file(s) in '$HTMLOUT/$PUB_NAME/xhtml'");
   }
   elsif ($convertTo eq 'eBook') {
     if ($DEBUG !~ /no.?epub/i) {&makeEbook($tmp, 'epub', $cover, $scope);}
@@ -305,6 +322,23 @@ file for it, and then run this script again.");}
 
 ########################################################################
 ########################################################################
+
+sub getLinkedFiles($\%) {
+  my $f = shift;
+  my $hP = shift;
+
+  my $dir = $f; $dir =~ s/[^\/]+$//;
+  my $html = $XML_PARSER->load_html(location  => $f, recover => 1);
+  if ($html) {
+    foreach my $link ($html->findnodes('//a')) {
+      my $file = $link->getAttribute('href');
+      $file =~ s/[\?\#].*$//;
+      if (!$file) {next;}
+      $hP->{&shortLinuxPath($dir.$file)}++;
+    }
+  }
+  else {&ErrorBug("$f is not a parseable HTML file.");}
+}
 
 
 # Copy inosis to outosis, while pruning books and other bookGroup child 
