@@ -420,7 +420,7 @@ ol, ul {
   font-weight: bold;
 }
 #root-toc li {
-  width: calc(50% - 12px); /* 9px = 1.5*6px of margin */
+  width: calc(50% - 12px); /* 12px = 2*6px of margin */
 }
 #root-toc .xsl-one-book-column .xsl-bookSubGroup-link,
 #root-toc .xsl-one-book-column .xsl-bookGroup-link,

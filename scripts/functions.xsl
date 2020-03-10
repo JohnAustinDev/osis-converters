@@ -604,14 +604,15 @@
             <value-of select="$allEntriesTitle"/>
           </osis:seg>
         </osis:p>
-        <osis:div subType="x-glosslinklist">
+        <osis:list subType="x-entrylist">
           <for-each select="$sortedGlossary//seg[@type='keyword']">
-            <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
-              <value-of select="text()"/>
-            </osis:reference>
-            <osis:lb/>
+            <osis:item>
+              <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
+                <value-of select="text()"/>
+              </osis:reference>
+            </osis:item>
           </for-each>
-        </osis:div>
+        </osis:list>
       </osis:div>
       <call-template name="Note">
 <with-param name="msg">Added keyword: <value-of select="$allEntriesTitle"/></with-param>

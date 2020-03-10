@@ -246,7 +246,7 @@ other books are added to the translation.");
   &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
   &Note("$ADD_CROSS_REF_LOC individual reference links were localized.");
   if ($ADD_CROSS_REF_BAD) {
-    &Warn("$ADD_CROSS_REF_BAD reference links could not be localized, and will appear as numbsers, like: '1, 2, 3'.");
+    &Warn("$ADD_CROSS_REF_BAD reference links could not be localized, and may appear as numbers, like: '1, 2, 3' unless these x-external links are filtered out.");
   }
   
   return 1;
