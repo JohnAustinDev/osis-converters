@@ -422,16 +422,16 @@ ol, ul {
 #root-toc li {
   width: calc(50% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
-#root-toc .xsl-one-book-column .xsl-bookSubGroup-link,
-#root-toc .xsl-one-book-column .xsl-bookGroup-link,
-#root-toc .xsl-one-book-column .xsl-book-link,
-#root-toc .xsl-one-back-column .xsl-glossary-link, /* really is -back- and not -book- */
-#root-toc .xsl-one-back-column .xsl-keyword-link,
-#root-toc .xsl-one-back-column .xsl-other-link {
+#root-toc .xsl-intro-full-width .xsl-intro,
+#root-toc .xsl-scrip-full-width .xsl-scrip,
+#root-toc .xsl-back-full-width .xsl-back {
   width: calc(100% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
-#root-toc .xsl-odd-intros li:first-child:not(:last-child),
-#root-toc .xsl-odd-2col-books li[class^="xsl-book"] + li:not(.xsl-book-link):not(.xsl-bookGroup-link) {
+#root-toc .xsl-intro-odd .xsl-intro:first-child,
+#root-toc .xsl-bookGroup:not(.xsl-scrip-full-width),
+#root-toc .xsl-bookSubGroup:not(.xsl-scrip-full-width),
+#root-toc .xsl-book-odd .xsl-scrip:last-child,
+#root-toc .xsl-back-odd .xsl-back:last-child {
   margin-left: 5ch;
   margin-right: 5ch;
 }
