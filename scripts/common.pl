@@ -1168,7 +1168,6 @@ sub customize_addScripRefLinks($$) {
   my $paratextSettingsP = &readParatextReferenceSettings();
   foreach my $k (sort keys %{$paratextSettingsP}) {$paratextSettingsP->{$k} = quotemeta($paratextSettingsP->{$k});}
   my %cf2paratext = ( # mapping from osis-converters CF_addScripRefLinks.txt settings to Paratext settings
-    '02 CHAPTER_TERMS' => ['ChapterRangeSeparator', 'ChapterNumberSeparator'],
     '04 SEPARATOR_TERMS' => ['SequenceIndicator', 'ChapterNumberSeparator'],
     '06 REF_END_TERMS' => ['ReferenceFinalPunctuation'],
     '07 CHAPTER_TO_VERSE_TERMS' => ['ChapterVerseSeparator'],
