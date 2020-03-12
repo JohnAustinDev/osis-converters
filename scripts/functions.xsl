@@ -353,7 +353,7 @@
         </analyze-string>
       </if>
     </variable>
-    <value-of select="distinct-values($result)"/>
+    <if test="count($result[. != ''])"><value-of select="distinct-values($result)"/></if>
   </function>
   
   <function name="oc:titleCase" as="xs:string?">

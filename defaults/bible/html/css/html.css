@@ -9,14 +9,6 @@ body {
   color: #000000;
   line-height:1.2; /* minimum line-height is always 1.2 for MOBI */
   text-align: left;
-  /*
-  adobe-hyphenate: manual;
-  -webkit-hyphens: manual;
-  -moz-hyphens: manual;
-  -ms-hyphens: manual;
-  -epub-hyphens: manual;
-  hyphens: manual;
-  */
 }
 body * {
   line-height: inherit;
@@ -68,8 +60,9 @@ h2, h3 {
   font-weight:normal;
   font-style:italic;
 }
-ul {
-  list-style: none;
+ol {
+  list-style-type: none;
+  padding-left: 0px;
 }
 sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 
@@ -372,11 +365,6 @@ a.x-other-resource {
 .x-navmenu-letter .x-entrylist ul {}
 
 /* Inline TOC */
-ol, ul {
-  list-style-type: none;
-  padding-left: 0px;
-  -webkit-padding-start: 0px;
-}
 .xsl-inline-toc {
   text-align:center;
   margin-top:1em;
@@ -385,8 +373,7 @@ ol, ul {
 .xsl-inline-toc > div {
   margin: 0 auto 0 auto;
 }
-.xsl-inline-toc ol, 
-.xsl-inline-toc ul {
+.xsl-inline-toc ol {
   margin:0px;
 }
 .xsl-inline-toc li {
@@ -431,11 +418,11 @@ ol, ul {
 #root-toc .xsl-full-width li {
   width: calc(100% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
-#root-toc .xsl-intro.xsl-odd li:first-of-type,
+#root-toc .xsl-intro.xsl-odd:not(.xsl-full-width) li:first-of-type,
 #root-toc .xsl-scrip:not(.xsl-full-width) .xsl-bookGroup,
 #root-toc .xsl-scrip:not(.xsl-full-width) .xsl-bookSubGroup,
-#root-toc .xsl-scrip.xsl-odd li:last-of-type,
-#root-toc .xsl-back.xsl-odd li:last-of-type {
+#root-toc .xsl-scrip.xsl-odd-books:not(.xsl-full-width) li:last-of-type,
+#root-toc .xsl-back.xsl-odd:not(.xsl-full-width) li:last-of-type {
   margin-left: 5ch;
   margin-right: 5ch;
 }
