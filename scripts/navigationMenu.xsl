@@ -29,7 +29,7 @@
   
   <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
   
-  <variable name="myREF_intro" select="if ($INT_feature) then $REF_introductionINT else $REF_introduction"/>
+  <variable name="myREF_intro" select="if ($INT_feature) then $REF_introductionINT else ''"/>
   
   <template mode="identity" name="identity" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
