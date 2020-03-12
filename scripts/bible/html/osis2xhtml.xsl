@@ -1154,55 +1154,47 @@
                   is centered by itself. 
     SCRIPTURE:    Normally displayed as full-table width links. But if 
                   there are more than 5 they become half-table width.
-                  Half-width bookGroup or bookSubGroup links are center-
-                  ed on a row by themselves, as is the last book when
-                  there are an odd number of half-table width book links.
+                  Half-table width bookGroup or bookSubGroup links are 
+                  centered on a row by themselves, as is the last book 
+                  when there are an odd number of half-table width book 
+                  links.
     REFERENCE:    Normally displayed as half-table width links. But if 
                   there are more than backFullWidth characters in any 
                   back link, all back links become full-table width 
                   (to minimize overall TOC width). When there are an odd  
                   number of half-table width back links, the last link   
                   is centered by itself. -->
-    <variable name="introElements" select="$listElements/*[contains(@class, 'xsl-intro')]"/>
-    <variable name="scripElements" select="$listElements/*[contains(@class, 'xsl-scrip')]"/>
-    <variable name="backElements"  select="$listElements/*[contains(@class, 'xsl-back')]"/>
+    <variable name="introElements" select="$listElements/*[me:section(., $isTopTOC) = 'xsl-intro']"/>
+    <variable name="scripElements" select="$listElements/*[me:section(., $isTopTOC) = 'xsl-scrip']"/>
+    <variable name="backElements"  select="$listElements/*[me:section(., $isTopTOC) = 'xsl-back']"/>
 
     <variable name="intro_full_width" as="xs:boolean" 
-      select="max($introElements/*/string-length(string())) &#62;= $introFullWidth"/>
-    <variable name="scrip_full_width" as="xs:boolean" select="count($scripElements/*) &#60;= 5"/>
+      select="max($introElements/string-length(string())) &#62;= $introFullWidth"/>
+    <variable name="scrip_full_width" as="xs:boolean" select="count($scripElements) &#60;= 5"/>
     <variable name="back_full_width"  as="xs:boolean" 
-      select="max($backElements/*/string-length(string())) &#62;= $backFullWidth"/>
+      select="max($backElements/string-length(string())) &#62;= $backFullWidth"/>
     
-    <variable name="fullWidthElements" select="$introElements/*[$intro_full_width] |
-                                               $scripElements/*[$scrip_full_width] |
-                                               $backElements/*[$back_full_width]"/>
-    <variable name="halfWidthElements" select="$listElements/*[not(. intersect $fullWidthElements/*)]"/>
+    <variable name="fullWidthElements" select="$introElements[$intro_full_width] |
+                                               $scripElements[$scrip_full_width] |
+                                               $backElements[$back_full_width]"/>
+    <variable name="halfWidthElements" select="$listElements/*[not(. intersect $fullWidthElements)]"/>
     
     <variable name="chars" as="xs:decimal" select="if ($isTopTOC) then 
-                                                   max(($halfWidthElements/*/string-length(string()), 
-                                                        $fullWidthElements/*/(string-length(string())*0.5)
+                                                   max(($halfWidthElements/string-length(string()), 
+                                                        $fullWidthElements/(string-length(string())*0.5)
                                                    )) else 
                                                    max($listElements/*/string-length(string()))"/>
     <variable name="maxChars" as="xs:decimal" select="if ($chars &#62; 32) then 32 else $chars"/>
     
     <variable name="intro_odd" as="xs:boolean" 
-      select="not($intro_full_width) and count($introElements/*) mod 2 = 1"/>
+      select="not($intro_full_width) and count($introElements) mod 2 = 1"/>
     <variable name="book_odd"  as="xs:boolean" 
-      select="not($scrip_full_width) and count($scripElements/*[tokenize(@class,'\s+') = 'xsl-book']) mod 2 = 1"/>
+      select="not($scrip_full_width) and count($listElements/*[tokenize(@class,'\s+') = 'xsl-book-link']) mod 2 = 1"/>
     <variable name="back_odd"  as="xs:boolean" 
-      select="not($back_full_width)  and count($backElements/*)  mod 2 = 1"/>
-      
+      select="not($back_full_width)  and count($backElements)  mod 2 = 1"/>
+
     <html:div>
-      <variable name="class">
-        xsl-inline-toc 
-        <if test="$isTopTOC and $intro_full_width">xsl-intro-full-width </if>
-        <if test="$isTopTOC and $scrip_full_width">xsl-scrip-full-width </if>
-        <if test="$isTopTOC and $back_full_width" >xsl-back-full-width </if>
-        <if test="$isTopTOC and $intro_odd">xsl-intro-odd </if>
-        <if test="$isTopTOC and $book_odd">xsl-book-odd </if>
-        <if test="$isTopTOC and $back_odd">xsl-back-odd </if>
-      </variable>
-      <attribute name="class" select="normalize-space($class)"/>
+      <attribute name="class">xsl-inline-toc</attribute>
       <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
       <html:div>
         <choose>
@@ -1214,16 +1206,31 @@
             <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
           </when>
           <!-- limit any other TOC that contains books to max 3 columns -->
-          <when test="$listElements/*[contains(@class, 'xsl-book-link')]">
+          <when test="$listElements/*[tokenize(@class,'\s+') = 'xsl-book-link']">
             <!-- html.css 3 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + (2*12px) + (2*$averageCharWidth*(4+maxChars) ch) + 6px , 
             so: max-width of parent at 100% = 36px + $averageCharWidth*(12+3*maxChars) ch + 1ch for chapter inline block fudge -->
             <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(12+(3*$maxChars))) div 10"/>
             <attribute name="style" select="concat('max-width:calc(36px + ', $ch+1, 'ch)')"/>
           </when>
         </choose>
-        <for-each-group select="$listElements/*" group-adjacent="if (not($isTopTOC)) then tokenize(@class, '\s+')[1] else '1'">
+        <for-each-group select="$listElements/*" group-adjacent="me:section(., $isTopTOC)">
           <if test="count(current-group())">
-            <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml"><sequence select="current-group()"/></element>
+            <element name="{$listType}" namespace="http://www.w3.org/1999/xhtml">
+              <attribute name="class">
+                <variable name="section" select="me:section(., $isTopTOC)"/>
+                <variable name="class">
+                  <value-of select="concat($section, ' ')"/>
+                  <if test="$isTopTOC and $section = 'xsl-intro' and $intro_full_width">xsl-full-width </if>
+                  <if test="$isTopTOC and $section = 'xsl-scrip' and $scrip_full_width">xsl-full-width </if>
+                  <if test="$isTopTOC and $section = 'xsl-back'  and $back_full_width" >xsl-full-width </if>
+                  <if test="$isTopTOC and $section = 'xsl-intro' and $intro_odd">xsl-odd </if>
+                  <if test="$isTopTOC and $section = 'xsl-scrip' and $book_odd">xsl-odd </if>
+                  <if test="$isTopTOC and $section = 'xsl-back'  and $back_odd">xsl-odd </if>
+                </variable>
+                <value-of select="normalize-space(string-join(distinct-values(tokenize($class, '\s+')), ' '))"/>
+              </attribute>
+              <sequence select="current-group()"/>
+            </element>
           </if>
         </for-each-group>
       </html:div>
@@ -1373,8 +1380,7 @@
           <variable name="maxSectionChars" as="xs:decimal" 
               select="if ($sectionChars &#62; 32) then 32 else $sectionChars"/>
           <html:li >
-            <attribute name="class" select="normalize-space(
-              string-join(distinct-values((@class, me:section(., $isTopTOC))), ' ') )"/>
+            <attribute name="class" select="@class"/>
             <!-- Height is always specified, so table-type vertical centering will work.
             Width is not specified for top-TOC at the li level because it is specified
             at a higher div level. The A-to-Z button width is not specified because it 

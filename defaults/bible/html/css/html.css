@@ -379,9 +379,15 @@ ol, ul {
 }
 .xsl-inline-toc {
   text-align:center;
+  margin-top:1em;
+  margin-bottom:1em;
 }
 .xsl-inline-toc > div {
   margin: 0 auto 0 auto;
+}
+.xsl-inline-toc ol, 
+.xsl-inline-toc ul {
+  margin:0px;
 }
 .xsl-inline-toc li {
   box-sizing: border-box;
@@ -422,16 +428,14 @@ ol, ul {
 #root-toc li {
   width: calc(50% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
-#root-toc .xsl-intro-full-width .xsl-intro,
-#root-toc .xsl-scrip-full-width .xsl-scrip,
-#root-toc .xsl-back-full-width .xsl-back {
+#root-toc .xsl-full-width li {
   width: calc(100% - 16px); /* 16px = 2*6px of margin + 4px fluff */
 }
-#root-toc .xsl-intro-odd .xsl-intro:first-child,
-#root-toc .xsl-bookGroup:not(.xsl-scrip-full-width),
-#root-toc .xsl-bookSubGroup:not(.xsl-scrip-full-width),
-#root-toc .xsl-book-odd .xsl-scrip:last-child,
-#root-toc .xsl-back-odd .xsl-back:last-child {
+#root-toc .xsl-intro.xsl-odd li:first-of-type,
+#root-toc .xsl-scrip:not(.xsl-full-width) .xsl-bookGroup,
+#root-toc .xsl-scrip:not(.xsl-full-width) .xsl-bookSubGroup,
+#root-toc .xsl-scrip.xsl-odd li:last-of-type,
+#root-toc .xsl-back.xsl-odd li:last-of-type {
   margin-left: 5ch;
   margin-right: 5ch;
 }
