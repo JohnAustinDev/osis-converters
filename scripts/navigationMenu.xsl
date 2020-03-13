@@ -139,7 +139,7 @@
                              //seg[@type='keyword']"/>
               <text>&#xa;</text>
               <osis:div osisID="uiIntroductionTopMenu" type="x-keyword" subType="x-navmenu-introduction">
-                <osis:seg  type="keyword" osisID="tokenize($REF_introductionINT,':',2)">
+                <osis:seg  type="keyword" osisID="{tokenize($REF_introductionINT,':')[2]}">
                   <value-of select="$uiIntroduction"/>
                 </osis:seg>
                 <sequence select="oc:getNavmenuLinks('', '', '', $REF_dictionary, '', '')"/>

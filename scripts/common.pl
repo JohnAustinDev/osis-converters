@@ -4449,10 +4449,11 @@ sub writeOsisIDs($) {
     my $id;
     my $title = &encodeOsisRef(&getGlossaryTitle($div));
     do {
-      $id = &dashCamelCase($div->getAttribute('type'));
+      my $feature = ($div->getAttribute('annotateType') eq 'x-feature' ? $div->getAttribute('annotateRef'):'');
+      $id = ($feature ? $feature:&dashCamelCase($div->getAttribute('type')));
       $id = ($id ? $id:'div');
       $id .= ($title ? "_$title":'');
-      $id .= ($title ? ($n != 1 ? "_$n":''):"_$n");
+      $id .= ($title || $feature ? ($n != 1 ? "_$n":''):"_$n");
       $id .= "!con";
       $n++;
     } while (defined($ids{$id}));

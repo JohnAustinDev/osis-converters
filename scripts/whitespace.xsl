@@ -15,7 +15,9 @@
   </template>
   
   <template match="*[namespace-uri()='http://www.bibletechnologies.net/2003/OSIS/namespace']">
-    <if test="my:breakBefore(.)"><text>&#xa;</text><if test="ancestor::work"><text>  </text></if></if>
+    <if test="not(preceding-sibling::*[1][self::verse[@sID]]) and my:breakBefore(.)">
+      <text>&#xa;</text><if test="ancestor::work"><text>  </text></if>
+    </if>
     <element name="{local-name()}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
       <apply-templates select="node()|@*"/>
       <if test="my:breakAfter(.)"><text>&#xa;</text></if>
@@ -28,7 +30,7 @@
   <function name="my:breakBefore" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
-      select="matches(local-name($element),'^(lb|figure|title|head|list|item|lg|l|osis|osisText|div|chapter|table|row)$')
+      select="matches(local-name($element),'^(lb|figure|title|head|list|item|p|lg|l|osis|osisText|div|chapter|table|row)$')
               or $element[self::milestone[starts-with(@type,'x-usfm-toc') or @type='x-vsys-verse-start']]
               or $element[ancestor-or-self::header] or $element[self::verse[@sID]]"/>
   </function>
