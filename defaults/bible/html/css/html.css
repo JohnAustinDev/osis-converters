@@ -62,7 +62,6 @@ h2, h3 {
 }
 ol {
   list-style-type: none;
-  padding-left: 0px;
 }
 sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 
@@ -374,7 +373,9 @@ a.x-other-resource {
   margin: 0 auto 0 auto;
 }
 .xsl-inline-toc ol {
-  margin:0px;
+  margin: 0;
+  padding: 0;
+  -webkit-padding-start: 0px; /* necessary for Calibre eBooks */
 }
 .xsl-inline-toc li {
   box-sizing: border-box;

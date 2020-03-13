@@ -1095,7 +1095,7 @@
                     book or bookGroup TOC elements).
   Any TEXT following these instructions will be used for the TOC entry 
   name (overriding the default name if there is one). -->
-  <function name="oc:getMainInlineTOC">
+  <function name="oc:getMainInlineTOC" as="element(html:div)?">
     <param name="mainRootNode" as="document-node()"/>
     <param name="combinedGlossary" as="document-node()"/>
     <param name="preprocessedRefOSIS" as="document-node()"/>
@@ -1109,10 +1109,9 @@
       </if>
       <!-- Next is either non-glossary material in reference OSIS (if 
       combiningGlossaries) or else everything in reference OSIS -->
-      <for-each select="$preprocessedRefOSIS">
-        <sequence select="me:getTocListItems(., true())"/>
-      </for-each>
+      <sequence select="me:getTocListItems($preprocessedRefOSIS, true())"/>
     </variable>
+    
     <if test="count($listElementDoc/html:li)">
       <html:div id="root-toc">
         <sequence select="me:getInlineTocDiv($listElementDoc, true())"/>
@@ -1122,9 +1121,11 @@
   
   <function name="me:getInlineTOC" as="element(html:div)?">
     <param name="tocElement" as="element()"/>
+    
     <variable name="listElementDoc">
       <sequence select="me:getTocListItems($tocElement, false())"/>
     </variable>
+    
     <if test="count($listElementDoc/html:li)">
       <sequence select="me:getInlineTocDiv($listElementDoc, false())"/>
     </if>
@@ -1146,11 +1147,12 @@
     These sub-sections of the Main TOC each display links differently:
     INTRODUCTION: Normally displayed as half-table width links. But if 
                   there are more than introFullWidth characters in any 
-                  intro link, or only one intro link, all intro links 
-                  become full-table width (to minimize overall TOC width
-                  and give a balanced look). When there are an odd  
-                  number of half-table width intro links, the first link   
-                  is centered by itself. 
+                  intro link, or only one intro link and scripture links 
+                  are full-width, then all intro links become full-table 
+                  width (to minimize overall TOC width and give a bal-
+                  anced look). When there are an odd number of half-
+                  table width intro links, the first link is centered by 
+                  itself. 
     SCRIPTURE:    Normally displayed as full-table width links. But if 
                   there are more than 5 they become half-table width.
                   Half-table width bookGroup or bookSubGroup links are 
@@ -1159,10 +1161,10 @@
                   links.
     REFERENCE:    Normally displayed as half-table width links. But if 
                   there are more than backFullWidth characters in any 
-                  back link, or only one back link, all back links 
-                  become full-table width. When there are an odd number  
-                  of half-table width back links, the last link is 
-                  centered by itself. -->
+                  back link, or only one back link and scripture links 
+                  are full-width, then all back links become full-table 
+                  width. When there are an odd number of half-table 
+                  width back links, the last link is centered by itself. -->
     <variable name="fullWidthElements" select="$listdoc/html:li[me:isFullWidth(., $isTopTOC)]"/>
     <variable name="halfWidthElements" select="$listdoc/html:li[not(. intersect $fullWidthElements)]"/>
     <variable name="chars" as="xs:decimal" select="if ($isTopTOC) then 
@@ -1177,19 +1179,16 @@
       <!-- this div allows margin auto to center, which doesn't work with ul/ol -->
       <html:div>
         <choose>
-          <!-- specify main TOC width, because child li widths are only specified as % in css -->
+          <!-- main TOC is fixed width and children are specified as % in css -->
           <when test="$isTopTOC">
             <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + 12px + $averageCharWidth*(4+maxChars) ch + 6px , 
             so: max-width of parent at 100% = 24px + $averageCharWidth*(8+2*maxChars) ch + 1ch for chapter inline block fudge -->
             <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+(2*$maxChars))) div 10"/>
             <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
           </when>
-          <!-- limit any other TOC that contains books to max 3 columns -->
+          <!-- book TOCs are max 3 columns -->
           <when test="$listdoc/html:li[tokenize(@class,'\s+') = 'xsl-book-link']">
-            <!-- html.css 3 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + (2*12px) + (2*$averageCharWidth*(4+maxChars) ch) + 6px , 
-            so: max-width of parent at 100% = 36px + $averageCharWidth*(12+3*maxChars) ch + 1ch for chapter inline block fudge -->
-            <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(12+(3*$maxChars))) div 10"/>
-            <attribute name="style" select="concat('max-width:calc(36px + ', $ch+1, 'ch)')"/>
+            <attribute name="style" select="concat('max-width:', ceiling(3.5*$averageCharWidth*(4+$maxChars)), 'ch')"/>
           </when>
         </choose>
         <for-each-group select="$listdoc/html:li" group-adjacent="me:section(., $isTopTOC)">
@@ -1263,8 +1262,8 @@
         <value-of select="count($siblings) &#60;= 5"/>
       </when>
       <otherwise>
-        <value-of select="(count($siblings) = 1 and count($scripElems) &#60;= 5) or 
-                          max($siblings/string-length(string())) &#62;= $fullWidthChars"/>
+        <value-of select="max($siblings/string-length(string())) &#62;= $fullWidthChars or 
+                          (count($siblings) = 1 and count($scripElems) &#60;= 5)"/>
       </otherwise>
     </choose>
   </function>
