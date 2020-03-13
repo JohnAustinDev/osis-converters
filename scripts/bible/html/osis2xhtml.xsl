@@ -1217,11 +1217,11 @@
                 <copy-of select="@*"/>
                 <attribute name="style">
                   <variable name="style" as="xs:string*">
-                    <!-- Height is not specified for top TOC full width sections -->
-                    <if test="not($isTopTOC and me:isFullWidth(., $isTopTOC))">
-                      <variable name="em" select="1 + ceiling($sectionChars div 32)"/>
-                      <value-of select="concat('height:calc(', $em, 'em + 3px)')"/>
-                    </if>
+                    <variable name="chrs" select="if ($isTopTOC and me:isFullWidth(., $isTopTOC)) 
+                                                  then string-length(string()) 
+                                                  else $sectionChars"/>
+                    <variable name="em" select="1 + ceiling($chrs div 32)"/>
+                    <value-of select="concat('height:calc(', $em, 'em + 3px)')"/>
                     <!-- Width is not specified for top-TOC at the li level because it is specified
                     at a higher div level. The A-to-Z button width is not specified because it 
                     is allowed to be wider than all other button links in its list. -->

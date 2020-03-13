@@ -580,6 +580,7 @@
           type="x-glosslink" subType="x-target_self">
           <value-of select="$allEntriesTitle"/>
         </osis:reference>
+        <text>&#xa;</text>
         <for-each select="$sortedGlossary//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
@@ -587,6 +588,7 @@
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
             </osis:reference>
+            <text>&#xa;</text>
           </if>
         </for-each>
       </osis:div>
