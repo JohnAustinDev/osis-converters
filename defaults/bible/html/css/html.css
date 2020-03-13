@@ -62,6 +62,8 @@ h2, h3 {
 }
 ol {
   list-style-type: none;
+  padding: 0;
+  -webkit-padding-start: 0px; /* necessary for Calibre eBooks */
 }
 sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 
@@ -374,8 +376,6 @@ a.x-other-resource {
 }
 .xsl-inline-toc ol {
   margin: 0;
-  padding: 0;
-  -webkit-padding-start: 0px; /* necessary for Calibre eBooks */
 }
 .xsl-inline-toc li {
   box-sizing: border-box;
@@ -386,6 +386,9 @@ a.x-other-resource {
   background: #E0E0E0;
   overflow: hidden;
   vertical-align:top
+}
+.xsl-inline-toc .xsl-short li {
+  white-space: nowrap;
 }
 .xsl-inline-toc li > div {
   display:table;

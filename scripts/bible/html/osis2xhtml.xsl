@@ -64,6 +64,10 @@
   
   <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   
+  <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '64')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
+  
+  <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
+  
   <param name="backFullWidth" select="xs:integer(number(oc:sarg('backFullWidth', /, '20')))"/><!-- is ARG_backFullWidth in config.conf -->
   
   <param name="introFullWidth" select="xs:integer(number(oc:sarg('introFullWidth', /, '20')))"/><!-- is ARG_introFullWidth in config.conf -->
@@ -73,8 +77,6 @@
   <param name="keywordFileAutoThresh" select="xs:integer(number(oc:sarg('keywordFileAutoThresh', /, '10')))"/><!-- is ARG_keywordFileAutoThresh in config.conf -->
   
   <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, $glossThresh)))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
-  
-  <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1.2'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
   
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
@@ -1135,11 +1137,13 @@
     <param name="listdoc" as="document-node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
     <!-- Inline TOCs by default display as lists of inline-block links 
-    all sharing equal width, which may occupy the full width of the page. 
-    The two exceptions are: Bible book lists which are limited to three 
-    columns, and the main TOC menu, whose links are displayed with three 
-    vertical sub-sections, each having links which are either all half-
-    width or all full-width.
+    all sharing an equal width that are a maximum of tocWidth characters 
+    wide, which may occupy the full width of the page. The two excep-
+    tions are: Bible book lists which are limited to three columns, and 
+    the main TOC menu, whose links are displayed in three vertical sub-
+    sections, each having links which are either all half-width (maximum 
+    tocWidth/2 characters wide) or all full-width (maximum tocWidth 
+    characters wide).
     Main TOC Menu:
         1) INTRODUCTION links 
         2) SCRIPTURE links
@@ -1167,12 +1171,12 @@
                   width back links, the last link is centered by itself. -->
     <variable name="fullWidthElements" select="$listdoc/html:li[me:isFullWidth(., $isTopTOC)]"/>
     <variable name="halfWidthElements" select="$listdoc/html:li[not(. intersect $fullWidthElements)]"/>
-    <variable name="chars" as="xs:decimal" select="if ($isTopTOC) then 
-                                                   max(($halfWidthElements/string-length(string()), 
-                                                        $fullWidthElements/(string-length(string())*0.5)
-                                                   )) else 
-                                                   max($listdoc/html:li/string-length(string()))"/>
-    <variable name="maxChars" as="xs:decimal" select="if ($chars &#62; 32) then 32 else $chars"/>
+    <variable name="chars" select="if ($isTopTOC) then 
+                                       max(($halfWidthElements/(2*string-length(string())), 
+                                            $fullWidthElements/string-length(string())
+                                       )) else 
+                                       max($listdoc/html:li/string-length(string()))"/>
+    <variable name="wChars" select="if ($chars &#62; $tocWidth) then $tocWidth else $chars"/>
 
     <html:div>
       <attribute name="class">xsl-inline-toc</attribute>
@@ -1181,22 +1185,28 @@
         <choose>
           <!-- main TOC is fixed width and children are specified as % in css -->
           <when test="$isTopTOC">
-            <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+maxChars) ch + 12px + $averageCharWidth*(4+maxChars) ch + 6px , 
-            so: max-width of parent at 100% = 24px + $averageCharWidth*(8+2*maxChars) ch + 1ch for chapter inline block fudge -->
-            <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+(2*$maxChars))) div 10"/>
+            <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+wChars/2) ch + 12px + $averageCharWidth*(4+wChars/2) ch + 6px , 
+            so: max-width of parent at 100% = 24px + $averageCharWidth*(8+wChars) ch + 1ch for chapter inline block fudge -->
+            <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+$wChars)) div 10"/>
             <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
           </when>
           <!-- book TOCs are max 3 columns -->
           <when test="$listdoc/html:li[tokenize(@class,'\s+') = 'xsl-book-link']">
-            <attribute name="style" select="concat('max-width:', ceiling(3.5*$averageCharWidth*(4+$maxChars)), 'ch')"/>
+            <attribute name="style" select="concat('max-width:', ceiling(3.5*$averageCharWidth*(4+$wChars)), 'ch')"/>
           </when>
         </choose>
         <for-each-group select="$listdoc/html:li" group-adjacent="me:section(., $isTopTOC)">
+          <variable name="sectionIsFullWidth" as="xs:boolean" select="me:isFullWidth(current-group()[1], $isTopTOC)"/>
+          <variable name="maxWCharsSection" as="xs:double" select="if ($sectionIsFullWidth) then $tocWidth else $tocWidth div 2"/>
+          <variable name="charsSection" as="xs:double" 
+              select="max(current-group()[not(tokenize(@class, '\s+') = 'xsl-atoz')]/string-length(string()))"/>
+          <variable name="wCharsSection" as="xs:double" 
+              select="if ($charsSection &#62; $maxWCharsSection) then $maxWCharsSection else $charsSection"/>
           <html:ol>
             <attribute name="class">
               <variable name="class" as="xs:string+">
                 <value-of select="me:section(current-group()[1], $isTopTOC)"/>
-                <if test="me:isFullWidth(current-group()[1], $isTopTOC)">
+                <if test="$sectionIsFullWidth">
                   <value-of select="'xsl-full-width'"/>
                 </if>
                 <if test="count(current-group()[tokenize(@class,'\s+') = 'xsl-book-link']) mod 2 = 1">
@@ -1205,29 +1215,28 @@
                 <if test="count(current-group()) mod 2 = 1">
                   <value-of select="'xsl-odd'"/>
                 </if>
+                <if test="$charsSection &#60;= $maxWCharsSection">
+                  <value-of select="'xsl-short'"/>
+                </if>
               </variable>
               <value-of select="string-join(distinct-values($class), ' ')"/>
             </attribute>
-            <variable name="sectionChars" as="xs:decimal" 
-              select="max(current-group()[not(tokenize(@class, '\s+') = 'xsl-atoz')]/string-length(string()))"/>
-            <variable name="maxSectionChars" as="xs:decimal" 
-              select="if ($sectionChars &#62; 32) then 32 else $sectionChars"/>
             <for-each select="current-group()">
               <copy>
                 <copy-of select="@*"/>
                 <attribute name="style">
                   <variable name="style" as="xs:string*">
-                    <variable name="chrs" select="if ($isTopTOC and me:isFullWidth(., $isTopTOC)) 
-                                                  then string-length(string()) 
-                                                  else $sectionChars"/>
-                    <variable name="em" select="1 + ceiling($chrs div 32)"/>
-                    <value-of select="concat('height:calc(', $em, 'em + 3px)')"/>
+                    <variable name="Hem" as="xs:double"
+                      select="1 + ceiling( if ($isTopTOC and me:isFullWidth(., $isTopTOC)) 
+                                           then string-length(string()) div $wCharsSection 
+                                           else $charsSection div $wCharsSection )"/>
+                    <value-of select="concat('height:calc(', $Hem, 'em + 3px)')"/>
                     <!-- Width is not specified for top-TOC at the li level because it is specified
                     at a higher div level. The A-to-Z button width is not specified because it 
                     is allowed to be wider than all other button links in its list. -->
                     <if test="not($isTopTOC) and not(tokenize(@class, '\s+') = 'xsl-atoz')">
-                      <variable name="ch" 
-                        select="floor(0.5 + 10 * $averageCharWidth * (4 + $maxSectionChars)) div 10"/>
+                      <variable name="ch" as="xs:double"
+                        select="floor(0.5 + 10 * $averageCharWidth * (4 + $wCharsSection)) div 10"/>
                       <value-of select="concat('width:', $ch, 'ch')"/> 
                     </if>
                   </variable>
@@ -1261,6 +1270,9 @@
     <variable name="fullWidthChars" select="if ($section = 'xsl-intro') 
                                             then $introFullWidth else $backFullWidth"/>
     <choose>
+      <when test="not($isTopTOC)">
+        <value-of select="true()"/>
+      </when>
       <when test="$section = 'xsl-scrip'">
         <value-of select="count($siblings) &#60;= 5"/>
       </when>
