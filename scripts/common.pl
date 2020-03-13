@@ -4607,7 +4607,7 @@ tag number you wish to use.)\n");
     }
     
     # Check if there is a whole book introduction without a TOC entry
-    my $wholeBookIntro = @{$XPC->findnodes('//osis:div[@type="introduction"]
+    my $wholeBookIntro = @{$XPC->findnodes('//osis:div[@type="introduction" or @type="front"]
         [not(ancestor::osis:div[starts-with(@type,"book")])]
         [not(descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"])]', $xml)}[0];
     if ($wholeBookIntro) {

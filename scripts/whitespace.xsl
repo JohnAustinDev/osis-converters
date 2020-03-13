@@ -28,14 +28,14 @@
   <function name="my:breakBefore" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
-      select="matches(local-name($element),'^(p|lb|figure|title|list|item|lg|l|osis|osisText|div|chapter)$')
+      select="matches(local-name($element),'^(lb|figure|title|head|list|item|lg|l|osis|osisText|div|chapter|table|row)$')
               or $element[self::milestone[starts-with(@type,'x-usfm-toc') or @type='x-vsys-verse-start']]
               or $element[ancestor-or-self::header] or $element[self::verse[@sID]]"/>
   </function>
   <function name="my:breakAfter" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
-      select="matches(local-name($element),'^(osis|osisText|header|work|div|list|lg)$')"/>
+      select="matches(local-name($element),'^(osis|osisText|header|work|div|list|lg|table)$')"/>
   </function>
   
 </stylesheet>
