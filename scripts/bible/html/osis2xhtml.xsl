@@ -66,7 +66,7 @@
   
   <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '64')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
   
-  <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
+  <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1.1'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
   
   <param name="backFullWidth" select="xs:integer(number(oc:sarg('backFullWidth', /, '20')))"/><!-- is ARG_backFullWidth in config.conf -->
   
@@ -1185,8 +1185,9 @@
         <choose>
           <!-- main TOC is fixed width and children are specified as % in css -->
           <when test="$isTopTOC">
-            <!-- html.css 2 column is: 100% = 6px + $averageCharWidth*(4+wChars/2) ch + 12px + $averageCharWidth*(4+wChars/2) ch + 6px , 
-            so: max-width of parent at 100% = 24px + $averageCharWidth*(8+wChars) ch + 1ch for chapter inline block fudge -->
+            <!-- The main TOC is fixed width and child li are specified as % in css. To fit the text:
+            width = 6px + $averageCharWidth*(4+wChars/2) ch + 12px + $averageCharWidth*(4+wChars/2) ch + 6px 
+            or: max-width of parent at 100% = 24px + $averageCharWidth*(8+wChars) ch + 1ch for chapter inline block fudge -->
             <variable name="ch" select="floor(0.5 + 10*$averageCharWidth*(8+$wChars)) div 10"/>
             <attribute name="style" select="concat('max-width:calc(24px + ', $ch+1, 'ch)')"/>
           </when>
@@ -1196,12 +1197,16 @@
           </when>
         </choose>
         <for-each-group select="$listdoc/html:li" group-adjacent="me:section(., $isTopTOC)">
-          <variable name="sectionIsFullWidth" as="xs:boolean" select="me:isFullWidth(current-group()[1], $isTopTOC)"/>
-          <variable name="maxWCharsSection" as="xs:double" select="if ($sectionIsFullWidth) then $tocWidth else $tocWidth div 2"/>
+          <variable name="sectionIsFullWidth" as="xs:boolean" 
+            select="me:isFullWidth(current-group()[1], $isTopTOC)"/>
+          <variable name="maxWCharsSection" as="xs:double" 
+            select="if ($sectionIsFullWidth) then $tocWidth else $tocWidth div 2"/>
           <variable name="charsSection" as="xs:double" 
               select="max(current-group()[not(tokenize(@class, '\s+') = 'xsl-atoz')]/string-length(string()))"/>
           <variable name="wCharsSection" as="xs:double" 
               select="if ($charsSection &#62; $maxWCharsSection) then $maxWCharsSection else $charsSection"/>
+          <variable name="ch_section" as="xs:double"
+              select="floor(0.5 + 10 * $averageCharWidth * (4 + $wCharsSection)) div 10"/>
           <html:ol>
             <attribute name="class">
               <variable name="class" as="xs:string+">
@@ -1235,9 +1240,7 @@
                     at a higher div level. The A-to-Z button width is not specified because it 
                     is allowed to be wider than all other button links in its list. -->
                     <if test="not($isTopTOC) and not(tokenize(@class, '\s+') = 'xsl-atoz')">
-                      <variable name="ch" as="xs:double"
-                        select="floor(0.5 + 10 * $averageCharWidth * (4 + $wCharsSection)) div 10"/>
-                      <value-of select="concat('width:', $ch, 'ch')"/> 
+                      <value-of select="concat('width:', $ch_section, 'ch')"/> 
                     </if>
                   </variable>
                   <value-of select="string-join($style, '; ')"/>
