@@ -67,56 +67,50 @@
     </if>
   </template>
   
-  <!-- Separate glossary contents so each entry and the glossary intro is in its own child div -->
+  <!-- Separate glossary contents so each entry is in its own child div -->
   <template mode="separateKeywordMode" match="div[@type='glossary']">
-    <copy><apply-templates select="@*"/>
-      <!-- Separate each glossary entry into its own div. A glossary entry ends upon the following keyword, or following chapter, or at   
-      the end of the keyword's first ancestor div. The following group-by must match what is used in groupCopy template's test attribute. -->
-      <variable name="firstKeywordInGlossary" select="parent::*/descendant::seg[@type='keyword'][1]"/>
-      <for-each-group select="node()" group-by="for $i in ./descendant-or-self::node()
-          return count($i/following::seg[@type='keyword']) + count($i/following::chapter) - count($i/preceding::div[descendant::seg[@type='keyword']])">
-        <sort select="current-grouping-key()" order="descending" data-type="number"/>
-        <variable name="groupCopy"><apply-templates mode="groupCopy" select="current-group()"/></variable>
+    <variable name="osisID" select="@osisID"/>
+    <copy>
+      <apply-templates select="@*"/>
+      
+      <variable name="firstKey" select="descendant::seg[@type='keyword'][1]/string()"/>
+      
+      <variable name="keywords">
+        <for-each select="node()">
+          <sequence select="if (element()) then oc:expelElements(., descendant::seg[@type='keyword'], false()) else ."/>
+        </for-each>
+      </variable>
+      
+      <for-each-group select="$keywords/node()" group-starting-with="seg[@type='keyword']">
         <choose>
-          <when test="$groupCopy[1][descendant-or-self::seg[@type='keyword']]">
-            <variable name="isDuplicate" select="$duplicate_keywords[lower-case(string()) = lower-case($groupCopy[1]/descendant-or-self::seg[@type='keyword'][1])]"/><text>
-</text>     <osis:div>
-              <attribute name="type">x-keyword<if test="$isDuplicate">-duplicate</if></attribute>
-              <!-- Mark the first keyword in uiIntroductionTopMenu or uiDictionaryTopMenu per INTMENU feature -->
-              <if test="current-group() intersect $firstKeywordInGlossary">
+          <when test="not(current-group()[self::seg[@type='keyword']])">
+            <apply-templates select="current-group()" mode="#current"/>
+          </when>
+          <otherwise>
+            <text>&#xa;</text>
+            <osis:div>
+              <attribute name="type">
+                <choose>
+                  <when test="$duplicate_keywords[ lower-case(string()) = 
+                    lower-case(current-group()[self::seg[@type='keyword']]/string()) ]">x-keyword-duplicate</when>
+                  <otherwise>x-keyword</otherwise>
+                </choose>
+              </attribute>
+              <if test="current-group()[self::seg[@type='keyword']]/string() = $firstKey">
                 <variable name="subType" as="xs:string?">
                   <choose>
-                    <when test="current-group()/ancestor::*[@osisID='uiIntroductionTopMenu']">x-navmenu-introduction</when>
-                    <when test="current-group()/ancestor::*[@osisID='uiDictionaryTopMenu']">x-navmenu-dictionary</when>
+                    <when test="$osisID = 'uiIntroductionTopMenu'">x-navmenu-introduction</when>
+                    <when test="$osisID = 'uiDictionaryTopMenu'">x-navmenu-dictionary</when>
                   </choose>
                 </variable>
                 <if test="$subType"><attribute name="subType" select="$subType"/></if>
               </if>
-              <apply-templates select="$groupCopy" mode="#current"/>
+              <apply-templates select="current-group()" mode="#current"/>
             </osis:div>
-          </when>
-          <otherwise><apply-templates select="$groupCopy" mode="#current"/></otherwise>
+          </otherwise>
         </choose>
       </for-each-group>
     </copy>
-  </template>
-  
-  <!-- Copy only nodes having at least one descendant that is part of the current-group -->
-  <template mode="groupCopy" match="node()" priority="2">
-    <choose>
-      <!-- drop any paragraph that contains this group's keyword, since the keyword will always start a new entry and p containers are very restricted in EPUB2 for example -->
-      <when test="self::p[descendant::seg[@type='keyword']
-          [count(following::seg[@type='keyword']) + count(following::chapter) - count(preceding::div[descendant::seg[@type='keyword']]) = current-grouping-key()]]">
-        <apply-templates mode="#current"/>
-      </when>
-      <!-- the following test must match what was used in the group-by attribute of for-each-group -->
-      <when test="descendant-or-self::node()
-          [count(following::seg[@type='keyword']) + count(following::chapter) - count(preceding::div[descendant::seg[@type='keyword']]) = current-grouping-key()]">
-        <copy><apply-templates select="@*"/>
-          <apply-templates mode="#current"/>
-        </copy>
-      </when>
-    </choose>
   </template>
   
   <!-- Add osisID to keywords -->

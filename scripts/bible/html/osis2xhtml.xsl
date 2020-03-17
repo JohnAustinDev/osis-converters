@@ -176,6 +176,14 @@
               <with-param name="combinedKeywords" select="$combinedKeywords"/>
             </call-template>
           </if>
+          <for-each select="$referenceOSIS/descendant::div[@type='glossary']
+            [child::node()[not(self::div[starts-with(@type, 'x-keyword')])]
+                          [descendant-or-self::text()[normalize-space()]] ]">
+            <call-template name="Warn">
+<with-param name="msg">Dropping non-keyword text from glossary '<value-of select="oc:getGlossaryTitle(.)"/>': <value-of select="normalize-space(string-join(node()[not(self::div[starts-with(@type, 'x-keyword')])][descendant-or-self::text()[normalize-space()]],' '))"/></with-param>
+<with-param name="exp">To keep this text, set CombineGlossaries=false in config.conf.</with-param>
+            </call-template>
+          </for-each>
         </variable>
         <variable name="combinedGlossary_1">
           <apply-templates mode="preprocess" select="$combinedGlossary_0"/>
