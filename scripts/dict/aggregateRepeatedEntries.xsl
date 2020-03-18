@@ -9,12 +9,24 @@
  exclude-result-prefixes="#all">
  
   <!-- This XSLT will do the following:
-  1) Check and warn about non GLO major divs in the glossary
-  2) Check and error if there are glossary keywords outside of a glossary
-  3) Separate all glossary keywords into their own child divs
-  4) Assign osisIDs to keywords
-  5) Find case insensitive identical keywords from glossary divs, and aggregate them into a new x-aggregate div
-  -->
+  1) Warn about any non GLO major divs being dropped from SWORD.
+  2) Error if there are glossary keywords outside of a glossary.
+  3) Separate all glossary keywords into their own child divs.
+  4) Assign osisIDs to keywords.
+  5) Find case insensitive identical keywords from glossary divs, and 
+     aggregate them into a new x-aggregate div
+  
+  NOTE: There are three types of keyword divs generated: 
+    x-keyword           = Unique keywords (case-insensitive) 
+    x-keyword-duplicate = Keywords which are not unique
+    x-keyword-aggregate = New keywords containing an aggregation of each
+                          member of each non-unique keyword
+  IMPORTANT: Only x-keyword-duplicate OR x-keyword-aggregate keywords
+    should be used for any given conversion, or else material may appear
+    more than once. So conversions which require unique keywords (like
+    SWORD) should use x-keyword-aggregate, while conversions which
+    tolerate non-unique keywords (like eBooks) should use 
+    x-keyword-duplicate keywords. -->
  
   <import href="../functions.xsl"/>
   
@@ -149,7 +161,7 @@
         <attribute name="type" select="'glossary'"/><attribute name="subType" select="'x-aggregate'"/><attribute name="resp" select="'x-oc'"/>
         <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
           <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-            <attribute name="type" select="'x-keyword-aggregate'"/>
+            <attribute name="type">x-keyword-aggregate</attribute>
             <copy><apply-templates select="@*" mode="#current"/>
               <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
               <apply-templates select="node()" mode="#current"/>

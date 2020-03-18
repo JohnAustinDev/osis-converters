@@ -30,11 +30,15 @@ sub checkImageFileNames($) {
 }
 
 # Copy all images found in the OSIS or TEI file from projdir to outdir. 
-# If any images are found, 1 is returned, otherwise 0;
+# If any images are found, 1 is returned, otherwise 0; If osis_or_tei
+# is passed as a reference, then a check and update of the cover image
+# will be done as well.
 sub copyReferencedImages($$$) {
-  my $osis_or_tei = shift;
+  my $osis_or_tei_orP = shift;
   my $projdir = shift;
   my $outdir = shift;
+  
+  my $osis_or_tei = (ref($osis_or_tei_orP) ? $$osis_or_tei_orP:$osis_or_tei_orP);
   
   &Log("\n--- COPYING images in \"$osis_or_tei\"\n");
   
@@ -45,6 +49,7 @@ sub copyReferencedImages($$$) {
   
   my $xml = $XML_PARSER->parse_file($osis_or_tei);
   my @images = $XPC->findnodes('//*[local-name()="figure"]', $xml);
+  my $update;
   foreach my $image (@images) {
     my $src = $image->getAttribute('src');
     if ($src !~ s/^\.\///) {
@@ -69,9 +74,30 @@ sub copyReferencedImages($$$) {
     &copy($localsrc, $ofile);
     $copied{"$localsrc:$ofile"}++;
     &Note("Copied image \"$ofile\"");
+    
+    # if osis_or_tei_orP is a reference, increase cover image width if it is very small
+    if ( ref($osis_or_tei_orP) && 
+         $image->getAttribute('type') eq "x-cover" && 
+         &imageInfo($ofile)->{'w'} <= 200 ) {
+      my $pngfile = $ofile; 
+      if ($pngfile =~ s/\.(jpe?g|gif)$/\.png/i) {
+        &shell("convert \"$ofile\" \"$pngfile\"");
+        unlink($ofile);
+        my $s = $image->getAttribute('src'); $s =~ s/\.(jpe?g|gif)$/\.png/i;
+        $image->setAttribute('src', $s);
+        $update++;
+      }
+      &changeImageWidth($pngfile, 400, 'transparent');
+    }
   }
   
   &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
+  
+  if ($update) {
+    my $output = $osis_or_tei; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1copyReferencedImages$3/;
+    &writeXMLFile($xml, $output, $osis_or_tei_orP);
+  }
+  
   return scalar(keys(%copied));
 }
 
@@ -476,12 +502,15 @@ sub imageInfo($) {
   return \%info;
 }
 
-sub changeImageWidth($$) {
+sub changeImageWidth($$$) {
   my $path = shift;
   my $w = shift;
+  my $backgroundColor = shift;
+  
+  $backgroundColor = ($backgroundColor ? $backgroundColor:'white');
   
   &Note("Adjusted image size from ".&imageInfo($path)->{'w'}." to $w: $path");
-  &shell("mogrify -gravity center -background white -extent $w \"$path\"", 3);
+  &shell("mogrify -gravity center -background $backgroundColor -extent $w \"$path\"", 3);
 }
 
 1;

@@ -281,7 +281,7 @@ file for it, and then run this script again.");}
 
   # now do the conversion on the temporary directory's files
   if ($convertTo eq 'html') {
-    &makeHTML($tmp, $cover, $scope);
+    &makeHTML($tmp, $cover, $scope, $pubTitle);
     
     # Use linkchecker to check all links of output html
     &Log("--- CHECKING html links in \"$HTMLOUT/$PUB_NAME/index.xhtml\"\n");
@@ -823,10 +823,11 @@ sub copyCoverTo($$) {
   return $result;
 }
 
-sub makeHTML($$$) {
+sub makeHTML($$$$) {
   my $tmp = shift;
   my $cover = shift;
   my $scope = shift;
+  my $title = shift;
   
   my $osis = "$tmp/$MOD.xml";
   my $coverName = $cover; $coverName =~ s/^.*?([^\/\\]+)$/$1/;
@@ -852,16 +853,16 @@ sub makeHTML($$$) {
   if (open(INDX, ">$WRITELAYER", "$HTMLOUT/$PUB_NAME/index.xhtml")) {
     my $tophref = &shell("perl -0777 -ne 'print \"\$1\" if /<manifest[^>]*>.*?<item href=\"([^\"]+)\"/s' \"$tmp/content.opf\"", 3);
     my $header = &shell("perl -0777 -ne 'print \"\$1\" if /^(.*?<\\/head[^>]*>)/s' \"$tmp/$tophref\"", 3);
-    $header =~ s/<link[^>]*>//sg;
-    $header =~ s/(<title[^>]*>).*?(<\/title>)/$1$PUB_NAME$2/s;
+    $header =~ s/(<link[^>]+href=")\.(\.\/css\/[^>]*>)/$1$2/sg;
+    $header =~ s/(<title[^>]*>).*?(<\/title>)/$1$title$2/s;
     print INDX $header.'
-  <body class="calibre index">
-    <a href="'.$tophref.'">'.$PUB_NAME.'</a>';
+  <body class="calibre index'.($cover && -e $cover ? ' with-cover':'').'">';
     if ($cover && -e $cover) {
       print INDX '
-    <a href="'.$tophref.'"><img src="./images/'.$coverName.'"/></a>';
+    <a class="cover" href="'.$tophref.'"><img src="./images/'.$coverName.'"/></a>';
     }
     print INDX '
+    <a class="text" href="'.$tophref.'">'.$title.'</a>
   </body>
 </html>
 ';

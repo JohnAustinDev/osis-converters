@@ -58,7 +58,7 @@ if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
 if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
 # Copy images and set Feature conf entry
-if (&copyReferencedImages($INOSIS, $INPD, "$SWOUT/$SModPath")) {
+if (&copyReferencedImages(\$INOSIS, $INPD, "$SWOUT/$SModPath")) {
   $Sconf->{'Feature'} = ($Sconf->{'Feature'} ? $Sconf->{'Feature'}."<nx/>":"")."Images";
 }
 
