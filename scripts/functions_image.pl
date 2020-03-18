@@ -460,18 +460,28 @@ sub imageInfo($) {
   my $image = shift; # path to an image
   
   my %info;
-  $info{'file'} = $image;     # path of image file
-  $info{'size'} = -s $image;  # in bytes
-  $info{'identify'} = &shell("identify \"$image\"", 3); # output of ImageMagick 'identify'
-  if ($info{'identify'} =~ /^(\Q$image\E) (\S+) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
-    $info{'format'} = $2;     # is PNG, JPEG, GIF etc.
-    $info{'w'} = (1*$3);      # in pixels
-    $info{'h'} = (1*$4);      # in pixels
-    $info{'depth'} = $6;      # is 8-bit, 32-bit etc.
-    $info{'colorspace'} = $7; # is Gray, sRGB, RGB etc.
+  if (-e $image) {
+    $info{'file'} = $image;     # path of image file
+    $info{'size'} = -s $image;  # in bytes
+    $info{'identify'} = &shell("identify \"$image\"", 3); # output of ImageMagick 'identify'
+    if ($info{'identify'} =~ /^(\Q$image\E) (\S+) (\d+)x(\d+) (\S+) (\S+) (\S+)/) {
+      $info{'format'} = $2;     # is PNG, JPEG, GIF etc.
+      $info{'w'} = (1*$3);      # in pixels
+      $info{'h'} = (1*$4);      # in pixels
+      $info{'depth'} = $6;      # is 8-bit, 32-bit etc.
+      $info{'colorspace'} = $7; # is Gray, sRGB, RGB etc.
+    }
   }
 
   return \%info;
+}
+
+sub changeImageWidth($$) {
+  my $path = shift;
+  my $w = shift;
+  
+  &Note("Adjusted image size from ".&imageInfo($path)->{'w'}." to $w: $path");
+  &shell("mogrify -gravity center -background white -extent $w \"$path\"", 3);
 }
 
 1;

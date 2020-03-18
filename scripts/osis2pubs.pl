@@ -163,7 +163,7 @@ sub OSIS_To_ePublication($$$) {
   $CONV_REPORT{$PUB_NAME}{'Cover'} = '';
   if ($cover) {
     if ($PUB_TYPE eq 'Part') {
-      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'LightGray')." \"$cover\"", 3);
+      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'white')." \"$cover\"", 3);
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
     $CONV_REPORT{$PUB_NAME}{'Cover'} = $coverSourceName . ($PUB_TYPE eq 'Part' ? " ($partTitle)":''); 
@@ -810,6 +810,10 @@ sub copyCoverTo($$) {
   my $source = "$MAININPD/".$figure->getAttribute('src');
   if (-e $source && -f $source) {
     &copy($source, $coverpath);
+    if (&imageInfo($coverpath)->{'w'} <= 200) {
+      # small covers should made wider to prevent pixelation
+      &changeImageWidth($coverpath, 400);
+    }
     $result = $source;
   }
   else {&Error("Cover image $source does not exist!", "Add the cover image to the path, or try re-running sfm2osis.pl to retrive cover images.");}
