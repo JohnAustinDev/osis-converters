@@ -255,6 +255,17 @@ sub runAddScripRefLinks($$$) {
     }
     close (CF);
     
+    
+    # insure that $refTerms includes $sepTerms, $chap2VerseTerms and $continuationTerms
+    {
+      my @terms = split(/\|/, $refTerms);
+      push(@terms, split(/\|/, $sepTerms));
+      push(@terms, split(/\|/, $chap2VerseTerms));
+      push(@terms, split(/\|/, $continuationTerms));
+      my %seen; @terms = grep(!$seen{$_}++, @terms);
+      $refTerms = join('|', sort { length($a) <=> length($b) } @terms);
+    }
+    
     if (scalar keys %bookNamesWithPerlChars) {
       &Warn(
 "Terms to the right of '=' in book name assignments in 
@@ -567,7 +578,7 @@ sub addLinks(\$$$$) {
 
       my $mtENC = quotemeta($matchedTerm);
 
-      if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$sepTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
+      if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
         # Skip if this error is marked to be skipped
         my $repExtref = &fixLink($matchedTerm, "$BK.$CH.$VS", \%fix, \%fixDone);
         if ($repExtref) {

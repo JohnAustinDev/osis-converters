@@ -1187,7 +1187,7 @@ sub customize_addScripRefLinks($$) {
       $cfSettings{$cfs} = \@uniq;
     }
   }
-  my @comRefTerms; push(@comRefTerms, @{$cfSettings{'04 SEPARATOR_TERMS'}}, @{$cfSettings{'07 CHAPTER_TO_VERSE_TERMS'}}, @{$cfSettings{'08 CONTINUATION_TERMS'}}, @{$cfSettings{'09 PREFIXES'}}, @{$cfSettings{'10 SUFFIXES'}});
+  my @comRefTerms;
   $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
   
   # Write to CF_addScripRefLinks.txt in the most user friendly way possible
