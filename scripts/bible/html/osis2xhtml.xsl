@@ -1542,32 +1542,36 @@
   <!-- Returns the milestone TOC parent(s) of any bookGroup node, which may be one or both of:
        The TESTAMENT INTRODUCTION: the first child div of the bookGroup when it is either the 
        only non-book TOC div or else is immediately followed by another pre-book TOC div. 
-       A BOOK-SUB-GROUP INTRODUCTION (possible when x is in a book): the first preceding 
-       non-book TOC milestone in the bookGroup. -->
+       A BOOK-SUB-GROUP INTRODUCTION: the first preceding non-book TOC milestone in the 
+       bookGroup which comes after the first book, or possibly that which comes before the first 
+       book but only if there are one or more other book sub-group intros after the first book. -->
   <function name="me:getBookGroupIntroductions" as="element(milestone)*">
     <param name="x" as="node()"/>
-
-    <variable name="ancestor_bookGroup" as="element(div)?" 
-        select="$x/ancestor-or-self::div[@type='bookGroup'][1]"/>
     
-    <variable name="TOC_milestones_in_bookGroup" as="element(milestone)*" 
-        select="$ancestor_bookGroup/descendant::milestone[@type=concat('x-usfm-toc', $TOC)]"/>
+    <variable name="bookGroup" as="element(div)?" 
+        select="$x/ancestor-or-self::div[@type='bookGroup']"/>
     
-    <variable name="nonBook_TOC_children_of_bookGroup" as="element(milestone)*" 
-        select="$TOC_milestones_in_bookGroup[parent::div[not(@type='book')][parent::div[@type='bookGroup']]]"/>
+    <variable name="nonBook_TOC_children" as="element(milestone)*" 
+        select="$bookGroup/div[not(@type='book')]/milestone[@type=concat('x-usfm-toc', $TOC)]
+                [not(contains(@n, '[no_toc]'))]
+                [not(contains(@n, '[not_parent]'))]"/>
         
-    <variable name="myBookGroupTOC" as="element(milestone)?" 
-        select="( $nonBook_TOC_children_of_bookGroup[. &#60;&#60; $x] | 
-                  $nonBook_TOC_children_of_bookGroup[. intersect $x] )[last()]"/>
+    <variable name="testament_introduction" as="element(milestone)?" 
+        select="$bookGroup/child::div[1][@type != 'book']
+        [ count($nonBook_TOC_children) = 1 or 
+          following-sibling::div[1][@type != 'book']/milestone[@type=concat('x-usfm-toc', $TOC)]
+        ]/milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
         
-    <variable name="testament_introduction_TOC_milestone" as="element(milestone)?" 
-        select="$ancestor_bookGroup/child::div[1]
-        [@type != 'book']
-        [ count($nonBook_TOC_children_of_bookGroup) = 1 or 
-          following-sibling::div[1][@type != 'book'][. intersect $TOC_milestones_in_bookGroup/parent::div]
-        ]/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
+    <variable name="group_introductions" as="element(milestone)*"
+        select="$nonBook_TOC_children[not(. intersect $testament_introduction)]
+        [ . &#62;&#62; $bookGroup/div[@type='book'][1] or
+        count($nonBook_TOC_children[not(. intersect $testament_introduction)]) &#62; 1 ]"/>
         
-    <sequence select="($testament_introduction_TOC_milestone | $myBookGroupTOC)"/>
+    <variable name="my_group_introduction" as="element(milestone)?" 
+        select="( $group_introductions[. &#60;&#60; $x] | 
+                  $group_introductions[. intersect $x] )[last()]"/>
+                  
+    <sequence select="($testament_introduction | $my_group_introduction)"/>
   </function>
   
   <!-- This template may be called from any element. It adds a class attribute 
