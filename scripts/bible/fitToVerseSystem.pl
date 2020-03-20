@@ -371,7 +371,7 @@ sub applyVsysMissingVTagInstructions($) {
   }
   if (!$update) {return;}
   
-  &Log("\nApplying missing verse tag instructions \"$$osisP\"\n", 1);
+  &Log("\nApplying VSYS_MISSING_FN instructions to \"$$osisP\"\n", 1);
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
@@ -751,6 +751,7 @@ sub applyVsysInstruction(\%\%$) {
   if    ($inst eq 'MISSING') {&applyVsysMissing($fixedP, $xml);}
   elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml);}
   elsif ($inst eq 'FROM_TO') {&applyVsysFromTo($fixedP, $sourceP, $xml);}
+  elsif ($inst eq 'VTAG_MISSING') {} # already applied before source-text references were checked
   else {&ErrorBug("applyVsysInstruction did nothing: $inst");}
   
   return 1;
@@ -1130,10 +1131,10 @@ sub applyVsysExtra($$$$) {
 # verse's text was not included in the source verse system, but a 
 # footnote indicating the removal (which often includes the verse text 
 # itself) is located at the end of the preceding verse. Sometimes, 
-# references to these misssing verses even appear in the source, 
-# although the verse text itself does not. Linking such missing verses 
-# to their previous verse insures there are no broken links in the 
-# source text.
+# references to these missing verses appear in the source text, even 
+# though the verse text itself does not. Linking such missing verses to 
+# their previous verse insures there are no broken links in the source 
+# text.
 sub applyVsysMissingVTag($$) {
   my $argP = shift;
   my $xml = shift;
@@ -1141,7 +1142,7 @@ sub applyVsysMissingVTag($$) {
   my $fixedP  = &parseVsysArgument($argP->{'fixed'},  $xml, 'fixed');
   my $sourceP = &parseVsysArgument($argP->{'source'}, $xml, 'source');
   
-  my $prevOsisID = $fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$fixedP->{'vs'};
+  my $prevOsisID = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$sourceP->{'vs'};
   
   my $prevVerseS = &getVerseTag($prevOsisID, $xml, 0);
   my $prevVerseE = &getVerseTag($prevOsisID, $xml, 1);
@@ -1159,6 +1160,7 @@ sub applyVsysMissingVTag($$) {
   $prevVerseS->setAttribute('osisID', $newOsisID);
   $prevVerseS->setAttribute('sID',    $newOsisID);
   $prevVerseE->setAttribute('eID',    $newOsisID);
+  &Note("Applied VSYS_MISSING_FN: ".$argP->{'source'}.", osisID=\"$newOsisID\"");
 }
 
 # Markup verse as alternate, increment it by count, and mark it as moved

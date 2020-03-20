@@ -489,14 +489,14 @@ sub getVerseTag($$$) {
   
   my $idse = ($sID_or_eID ? 'e':'s');
   
-  my $v = @{$XPC->findnodes('//osis:verse[@'.$idse.'ID="'.$osisID_segment.'"]', $xml)}[0];
+  my $v = @{$XPC->findnodes('//osis:verse[@'.$idse.'ID="'.$ID_segment.'"]', $xml)}[0];
   if ($v) {return $v;}
   
-  foreach my $v (@{$XPC->findnodes('//osis:verse[contains(@'.$idse.'ID, "'.$osisID_segment.'")]', $xml)}) {
-    if ($v && $v->getAttribute($idse.'ID') =~ /\b\Q$osisID_segment\E\b/) {return $v;}
+  foreach my $v (@{$XPC->findnodes('//osis:verse[contains(@'.$idse.'ID, "'.$ID_segment.'")]', $xml)}) {
+    if ($v && $v->getAttribute($idse.'ID') =~ /\b\Q$ID_segment\E\b/) {return $v;}
   }
   
-  return NULL;
+  return;
 }
 
 sub checkUniqueOsisIDs($) {
