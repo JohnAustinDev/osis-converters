@@ -1143,8 +1143,8 @@ sub applyVsysMissingVTag($$) {
   
   my $prevOsisID = $fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$fixedP->{'vs'};
   
-  my $prevVerseS = @{$XPC->findnodes('//osis:verse[@sID][matches(@osisID, "\b'.$prevOsisID.'\b")]', $xml)}[0];
-  my $prevVerseE = ($prevVerseS ? @{$XPC->findnodes('following::osis:verse[@eID="'.$prevVerseS->getAttribute('sID').'"]', $prevVerseS)}[0]:'');
+  my $prevVerseS = &getVerseTag($prevOsisID, $xml, 0);
+  my $prevVerseE = &getVerseTag($prevOsisID, $xml, 1);
   if (!$prevVerseS || !$prevVerseE) {
     &ErrorBug("Could not find verse with osisID '$prevOsisID'");
     return;
@@ -1157,8 +1157,8 @@ sub applyVsysMissingVTag($$) {
   $newOsisID = join(' ', &normalizeOsisID([ split(/\s+/, $newOsisID) ]));
   
   $prevVerseS->setAttribute('osisID', $newOsisID);
-  $prevVerseS->setAttribute('sID', &osisID_to_sID($newOsisID));
-  $prevVerseE->setAttribute('eID', &osisID_to_sID($newOsisID));
+  $prevVerseS->setAttribute('sID',    $newOsisID);
+  $prevVerseE->setAttribute('eID',    $newOsisID);
 }
 
 # Markup verse as alternate, increment it by count, and mark it as moved

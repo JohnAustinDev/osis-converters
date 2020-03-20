@@ -100,6 +100,6 @@ file in the main module directory.", 1);
 
 if (!&init_opsys()) {exit;} # init_opsys also sets Perl global vars with config.conf [system] section entries
 
-require "$SCRD/scripts/common.pl";
+require "$SCRD/scripts/functions/common.pl";
 
 1;

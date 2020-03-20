@@ -1036,7 +1036,7 @@ sub updateOsisFullResourceURL($$) {
 sub copyFunctionsXSL($$) {
   my $dest = shift;
   
-  my $file = "$SCRD/scripts/functions.xsl";
+  my $file = "$SCRD/scripts/functions/functions.xsl";
   my $name = $file; $name =~ s/^.*\///;
   my $c = 0;
   if (open(FUNC, "<$READLAYER", $file)) {

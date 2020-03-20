@@ -212,7 +212,7 @@ sub vsysInstSort($$) {
   my $b = shift;
   
   my $r;
-  my @order = ('MISSING', 'EXTRA', 'FROM_TO'); # NOTE that FROM_TO are run separately after all other instructions anyway
+  my @order = ('MISSING', 'EXTRA', 'FROM_TO', 'VTAG_MISSING'); # NOTE that FROM_TO are run separately after all other instructions anyway
   my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
   my $bi; for ($bi=0; $bi<@order; $bi++) {if (@order[$bi] eq $b->{'inst'}) {last;}}
   if ($ai == @order || $bi == @order) {

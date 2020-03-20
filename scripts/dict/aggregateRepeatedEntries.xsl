@@ -28,7 +28,7 @@
     tolerate non-unique keywords (like eBooks) should use 
     x-keyword-duplicate keywords. -->
  
-  <import href="../functions.xsl"/>
+  <import href="../functions/functions.xsl"/>
   
   <param name="TOC" select="oc:conf('TOC', /)"/>
 

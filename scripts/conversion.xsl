@@ -13,7 +13,7 @@
   referencing removed keyword osisIDs, and an error is generated if 
   keyword removal causes broken links. -->
   
-  <import href="./functions.xsl"/><!-- needed for reporting results and removedKeywords -->
+  <import href="./functions/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
   <param name="conversion"/>
   

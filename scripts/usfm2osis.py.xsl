@@ -6,7 +6,7 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <import href="./functions.xsl"/>
+  <import href="./functions/functions.xsl"/>
   
   <!-- By default copy everything as is, for all modes -->
   <template match="node()|@*" name="identity" mode="#all">
