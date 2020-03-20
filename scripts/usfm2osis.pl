@@ -154,8 +154,7 @@ sub usfm2osis($$) {
         my $bk = $1; my $ch = $2; my $vs = (1*$3);
         my $to = "$bk.$ch.".($vs-1);
         if ($vs > 1) {
-          push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
-          push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$value, 'source'=>"$to.PART" });
+          push(@VSYS_INSTR, { 'inst'=>'VTAG_MISSING', 'fixed'=>$value, 'source'=>"$to.PART" });
         }
         else {&Error("VSYS_MISSING_FN cannot be used with verse 1: $_", "$msg Use different instruction(s) in CF_usfm2osis.txt.");}
       }

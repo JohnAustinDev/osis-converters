@@ -87,19 +87,18 @@ previous extant chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
-markup like '\\va 2\\va*' has already been used by the translators for the 
-moved verses (rather than regular verse markers, which is the more 
+markup like '\\va 2\\va*' has already been used by the translators for  
+the moved verses (rather than regular verse markers, which is the more 
 common case). This instruction will not change the OSIS markup of the 
 alternate verses. It is the same as 'VSYS_MISSING: A' followed by 
 'VSYS_FROM_TO: A -> B'.
 
 VSYS_MISSING_FN:
-Same as VSYS_MISSING but it only accepts a single verse and is only used 
-if a footnote was included in the verse before the missing verse which 
-addresses the missing verse. This will forward references to the 
-missing verses to the previous verse which contains the footnote. This 
-instruction is the same as a VSYS_MISSING followed by a VSYS_FROM_TO 
-instruction.
+Similar to VSYS_MISSING but it only accepts a single verse and is only  
+used if a footnote was included in the verse before the missing verse  
+which addresses the missing verse. This will simply link the verse hav-
+ing the footnote together with the missing verse, in the source verse 
+system.
 
 VSYS_EMPTY: BK.1.2.3
 Use this if regular verse markers are included in the text, however the 
@@ -361,15 +360,33 @@ sub orderBooks($$$) {
   &writeXMLFile($xml, $output, $osisP);
 }
 
-# Read bibleMod and the osis file and:
-# 1) Find all verse osisIDs in $bibleMod which were changed by VSYS 
-#    instructions. These are used for updating source osisRefs, but 
-#    these do not effect osisRefs of runAddCrossRefs() references. 
-# 2) Find all verse osisIDs in $bibleMod which were moved by the 
-#    translators with respect to the fixed verse system. These
-#    are used for updating external osisRefs.
-# 3) Find applicable osisRefs in $osis which point to the osisIDs found 
-#    in #2 and #3, and correct them, plus add source target as annotateRef.
+sub applyVsysMissingVTagInstructions($) {
+  my $osisP = shift;
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1applyMissingVerseTagInstructions$3/;
+  
+  my $update;
+  foreach my $argsP (@VSYS_INSTR) {
+    if ($argsP->{'inst'} eq 'VTAG_MISSING') {$update++;}
+  }
+  if (!$update) {return;}
+  
+  &Log("\nApplying missing verse tag instructions \"$$osisP\"\n", 1);
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  foreach my $argsP (@VSYS_INSTR) {
+    if ($argsP->{'inst'} eq 'VTAG_MISSING') {
+      &applyVsysMissingVTag($argsP, $xml);
+    }
+  }
+  
+  &writeXMLFile($xml, $output, $osisP);
+}
+
+# Read bibleMod and update an osis file's source references to the
+# fitted verse system, and update external references to the fitted 
+# verse system.
 sub correctReferencesVSYS($) {
   my $osisP = shift;
   
@@ -1106,6 +1123,42 @@ sub applyVsysExtra($$$$) {
       &reVersify($bk, $ch, $v, (-1*$count), $xml);
     }
   }
+}
+
+# VSYS_MISSING_FN produces VTAG_MISSING instructions indicating verses 
+# where verse tags were left out of the source text. This happens when a 
+# verse's text was not included in the source verse system, but a 
+# footnote indicating the removal (which often includes the verse text 
+# itself) is located at the end of the preceding verse. Sometimes, 
+# references to these misssing verses even appear in the source, 
+# although the verse text itself does not. Linking such missing verses 
+# to their previous verse insures there are no broken links in the 
+# source text.
+sub applyVsysMissingVTag($$) {
+  my $argP = shift;
+  my $xml = shift;
+  
+  my $fixedP  = &parseVsysArgument($argP->{'fixed'},  $xml, 'fixed');
+  my $sourceP = &parseVsysArgument($argP->{'source'}, $xml, 'source');
+  
+  my $prevOsisID = $fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$fixedP->{'vs'};
+  
+  my $prevVerseS = @{$XPC->findnodes('//osis:verse[@sID][matches(@osisID, "\b'.$prevOsisID.'\b")]', $xml)}[0];
+  my $prevVerseE = ($prevVerseS ? @{$XPC->findnodes('following::osis:verse[@eID="'.$prevVerseS->getAttribute('sID').'"]', $prevVerseS)}[0]:'');
+  if (!$prevVerseS || !$prevVerseE) {
+    &ErrorBug("Could not find verse with osisID '$prevOsisID'");
+    return;
+  }
+  
+  my $newOsisID = $prevOsisID;
+  for (my $v = $fixedP->{'vs'}; $v <= $fixedP->{'lv'}; $v++) {
+    $newOsisID .= ' '.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$v;
+  }
+  $newOsisID = join(' ', &normalizeOsisID([ split(/\s+/, $newOsisID) ]));
+  
+  $prevVerseS->setAttribute('osisID', $newOsisID);
+  $prevVerseS->setAttribute('sID', &osisID_to_sID($newOsisID));
+  $prevVerseE->setAttribute('eID', &osisID_to_sID($newOsisID));
 }
 
 # Markup verse as alternate, increment it by count, and mark it as moved

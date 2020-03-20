@@ -25,6 +25,7 @@ sub processOSIS($) {
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
   if ($modType eq 'bible') {
     &orderBooks(\$OSIS, &conf('Versification'), $customBookOrder);
+    &applyVsysMissingVTagInstructions(\$OSIS);
     &applyPeriphInstructions(\$OSIS);
     &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);   
   }
