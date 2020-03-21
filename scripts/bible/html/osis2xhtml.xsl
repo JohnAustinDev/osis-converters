@@ -31,7 +31,7 @@
   $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:main_osis.xml -o:content.opf
   -->
   
-  <import href="./functions/functions.xsl"/>
+  <import href="./functions.xsl"/>
  
   <!-- A comma separated list of css and css-referenced files (such as fonts) -->
   <param name="css" select="oc:sarg('css', /, 'ebible.css,module.css')"/>
