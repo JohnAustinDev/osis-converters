@@ -114,6 +114,7 @@ allowed and must be removed.");
   # Parse Scripture references from the text and check them
   if ($addScripRefLinks) {
     &runAddScripRefLinks($modType, \$OSIS);
+    &adjustAnnotateRefs(\$OSIS);
     &checkSourceScripRefLinks($OSIS);
   }
   else {&removeMissingOsisRefs(\$OSIS);}

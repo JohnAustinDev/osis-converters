@@ -499,6 +499,18 @@ sub getVerseTag($$$) {
   return;
 }
 
+# This functions returns a hash with keys for all verse osisIDs, providing
+# a big speed-us as compared to searching for each osisID one at a time. 
+sub getVerseOsisIDs($) {
+  my $xml = shift;
+  
+  my %osisIDs;
+  foreach my $v (@{$XPC->findnodes('//osis:verse[@osisID]', $xml)}) {
+    foreach my $seg (split(/\s+/, $v->getAttribute('osisID'))) {$osisIDs{$seg}++;}
+  }
+  return \%osisIDs;
+}
+
 sub checkUniqueOsisIDs($) {
   my $in_osis = shift;
   

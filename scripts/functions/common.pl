@@ -2109,6 +2109,41 @@ sub getModuleOsisFile($$) {
   return '';
 }
 
+# Sometimes source texts use reference type="annotateRef" to reference
+# verses which were not included in the source text. When an annotateRef
+# target does not exist, the reference tags are replaced by a span.
+sub adjustAnnotateRefs($) {
+  my $osisP = shift;
+
+  &Log("\nChecking annotateRef targets in \"$$osisP\".\n");
+  
+  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1adjustAnnotateRefs$3/;
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  my $osisIDsP = &getVerseOsisIDs($xml);
+  
+  my $update;
+  foreach my $reference (@{$XPC->findnodes('//osis:reference[@type="annotateRef"][@osisRef]', $xml)}) {
+    my $remove;
+    foreach $r (split(/\s+/, &osisRef2osisID($reference->getAttribute('osisRef')))) {
+      if (!$osisIDsP->{$r}) {$remove++; $update++; last;}
+    }
+    if ($remove) {
+      my $new = $XML_PARSER->parse_balanced_chunk('<hi type="bold">'.$reference->textContent.'</hi>');
+      $reference->parentNode->insertAfter($new, $reference);
+      $reference->unbindNode();
+      &Warn("Removing annotateRef hyperlink to missing verse(s): '".$reference->getAttribute('osisRef')."'",
+      "This can happen when the source text has annotateRef references 
+targeting purposefully missing verses for instance. In such cases these 
+should be converted to textual rather than hyperlink references.");
+    }
+  }
+
+  if ($update) {
+    &writeXMLFile($xml, $output, $osisP);
+  }
+}
+
 # Check all Scripture reference links in the source text. This does not
 # look for or check any externally supplied cross-references. This check
 # is run before fitToVerseSystem(), so it is checking that the source

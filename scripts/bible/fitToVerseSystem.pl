@@ -1052,6 +1052,11 @@ sub applyVsysExtra($$$$) {
   );
   my $endTag = &getVerseTag("$bk.$ch.".(!$isWholeChapter && $vs==1 ? ($lv+1):$lv), $xml, 1);
   
+  if (!$startTag || !$endTag) {
+    &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag=$startTag, or end-tag=$endTag, isWholeChapter=$isWholeChapter, lastVerseInChapter=".&getLastVerseInChapterOSIS($bk, ($ch-1), $xml));
+    return;
+  }
+ 
   # VSYS_EXTRA references the source verse system, which may have been
   # modified by previous instructions. So adjust our inputs in that case.
   if (!$adjusted && &getAltID($startTag) =~ /^[^\.]+\.\d+\.(\d+)\b/) {
@@ -1064,11 +1069,6 @@ sub applyVsysExtra($$$$) {
       &applyVsysExtra($newSourceArgumentP, $canonP, $xml, 1);
       return;
     }
-  }
-  
-  if (!$startTag || !$endTag) {
-    &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Missing start-tag (=$startTag) or end-tag (=$endTag)");
-    return;
   }
  
   # If isWholeChapter, then convert chapter tags to alternates and add alternate chapter number
@@ -1415,6 +1415,8 @@ sub isWholeVsysChapter($$\$\$$) {
 sub getAltID($$) {
   my $verseElem = shift;
   my $returnElem = shift;
+  
+  if (!$verseElem) {&ErrorBug("verseElem is '$verseElem'"); return '';}
   
   my $ms = @{$XPC->findnodes('following::*[1][name()="milestone"][starts-with(@type, "'.$VSYS{'prefix_vs'}.'-verse")]', $verseElem)}[0];
   if (!$ms) {return '';}
