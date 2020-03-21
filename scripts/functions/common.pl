@@ -2422,11 +2422,35 @@ sub checkIntroductionTags($) {
 sub checkCharacters($) {
   my $osis = shift;
   
-  # Get all characters used anywhere in the OSIS file
-  my $chars = &shell("cat '$osis' | sed 's/./&\\n/g' | LC_COLLATE=C sort -u | tr -d '\\n'", 3);
-  &Log("\n"); &Report("Characters used in OSIS file: $chars (".length($chars)." chars)");
+  open(OSIS, "<$READLAYER", $osis) || die;
+  my %characters;
+  while(<OSIS>) {
+    foreach my $c (split(/(\X)/, $_)) {if ($c =~ /^[\n ]$/) {next;} $characters{$c}++;}
+  }
+  close(OSIS);
   
-  # Check for high Unicode character replacements needed for GoBible/simpleChars.txt
+  my $numchars = keys %characters; my $chars = ''; my %composed;
+  foreach my $c (sort { ord($a) <=> ord($b) } keys %characters) {
+    my $n=0; foreach my $chr (split(//, $c)) {$n++;}
+    if ($n > 1) {$composed{$c} = $characters{$c};}
+    $chars .= $c;
+  }
+  &Log("\n");
+  &Report("Characters used in OSIS file:\n$chars($numchars chars)");
+  
+  # Report composed characters
+  my @comp; foreach my $c (sort keys %composed) {push(@comp, "$c(".$composed{$c}.')');}
+  &Report("Composed characters used in OSIS file: ".(@comp ? join(' ', @comp):'none'));
+  
+  # Report rarely used characters
+  my $rc = 20;
+  my @rare; foreach my $c (sort { $characters{$a} <=> $characters{$b} } keys %characters) {
+    if ($characters{$c} >= $rc) {next;}
+    push(@rare, $c);
+  }
+  &Report("Characters occuring fewer than $rc times in OSIS file (least first): ".(@rare ? join(' ', @rare):'none'));
+  
+  # Check for high order Unicode character replacements needed for GoBible/simpleChars.txt
   my %allChars; for my $c (split(//, $chars)) {$allChars{$c}++;}
   my @from; my @to; &readReplacementChars(&getDefaultFile("bible/GoBible/simpleChars.txt"), \@from, \@to);
   foreach my $chr (sort { ord($a) <=> ord($b) } keys %allChars) {
