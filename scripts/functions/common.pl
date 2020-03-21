@@ -2134,8 +2134,8 @@ sub adjustAnnotateRefs($) {
       $reference->unbindNode();
       &Warn("Removing annotateRef hyperlink to missing verse(s): '".$reference->getAttribute('osisRef')."'",
       "This can happen when the source text has annotateRef references 
-targeting purposefully missing verses for instance. In such cases these 
-should be converted to textual rather than hyperlink references.");
+targeting purposefully missing verses for instance. In such cases it is
+correct to convert these to textual rather than hyperlink references.");
     }
   }
 

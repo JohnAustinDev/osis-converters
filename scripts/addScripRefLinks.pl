@@ -646,9 +646,10 @@ sub addLinks(\$$$$) {
 
         # Skip subrefs without numbers
         if ($subref !~ /\d+/) {
+          $repExtref .= $subref;
+          if ($subref =~ /^\s*$/) {next;}
           $numNoDigitRef++;
           $noDigitRef{"<$subref> (subref)"} .= $LOCATION.", ";
-          $repExtref .= $subref;
           &Warn("$LOCATION: Skipped subref \"$psubref\" - no DIGITS.");
           next;
         }
