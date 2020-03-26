@@ -165,13 +165,24 @@ cross-references will be unreadable.\n$bookNamesMsg");}
   }
   
   my $osisBooksHP = &getBooksOSIS($osis);
+NOTE:
   foreach my $note ($XPC->findnodes('//osis:note', $xml)) {
-    foreach my $t ($note->childNodes()) {if ($t->nodeType == XML::LibXML::XML_TEXT_NODE) {$t->unbindNode();}}
+    foreach my $t ($note->childNodes()) {
+      if ($t->nodeType == XML::LibXML::XML_TEXT_NODE) {$t->unbindNode();}
+    }
     
     # decide where to place this note
     my $fixed = $note->getAttribute('osisID');
     $fixed =~ s/^(.*?)(\!.*)?$/$1/;
     $fixed =~ s/^[^\:]*\://;
+    
+    # unless the entire target osisRef is included in the source verse system, skip this note
+    foreach my $r (split(/\s+/, &osisRef2osisID($note->getAttribute('osisRef')))) {
+      if (defined(&getAltVersesOSIS($osis)->{'fixedMissing'}{$r})) {
+        &Note("Skipping external cross-reference note for missing verse $r");
+        next NOTE;
+      }
+    }
     
     # map crossReferences to be placed within verses that were moved by translators from their fixed verse-system positions
     my $placement = &getAltVersesOSIS($osis)->{'fixed2Fitted'}{$fixed};
@@ -210,7 +221,7 @@ cross-references will be unreadable.\n$bookNamesMsg");}
       if ($osisRef =~ s/^.*?://) {$ref->setAttribute('osisRef', $osisRef);}
       foreach my $child ($ref->childNodes()) {$child->unbindNode();}
 
-      # later, osisRefs of mapped readRefs will get mapped and annotateRef added, by correctReferencesVSYS()
+      # later, osisRef attribute value will get mapped and an annotateRef attribute added as necessary, by correctReferencesVSYS()
       my $readRef = &mapOsisRef(&getAltVersesOSIS($osis), 'fixed2Source', $osisRef); $readRef =~ s/!PART$//;
       my $tr = &translateRef($readRef, $localizationP, &conf('Versification'));
       if ($tr) {$ADD_CROSS_REF_LOC++;} else {$ADD_CROSS_REF_BAD++;}
@@ -246,7 +257,7 @@ other books are added to the translation.");
   &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
   &Note("$ADD_CROSS_REF_LOC individual reference links were localized.");
   if ($ADD_CROSS_REF_BAD) {
-    &Warn("$ADD_CROSS_REF_BAD reference links could not be localized, and may appear as numbers, like: '1, 2, 3' unless these x-external links are filtered out.");
+    &Warn("$ADD_CROSS_REF_BAD reference links could not be localized, and may appear as numbers, like: '1, 2, 3' unless x-external links are filtered out.");
   }
   
   return 1;

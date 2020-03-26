@@ -224,6 +224,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
       if (!@{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]', $xml)}[0]) {
         &Warn("No div scope was found for sub-publication $scope.");
         my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, $bookOrderP)}[0].'"]', $xml)}[0];
+        if (!$firstbk) {next;}
         my $tocms = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $firstbk)}[0];
         my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
         my $div = $XML_PARSER->parse_balanced_chunk('<div type="introduction" scope="'.$scope.'" resp="'.$ROC.'"> </div>');

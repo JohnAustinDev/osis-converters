@@ -32,6 +32,8 @@ sub osisID2osisRef($$$$) {
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
   my $onlySpanVerses = shift; # if true, ranges will only span verses (not chapters or books)
   
+  if ($osisID =~ /^\s*$/) {return '';}
+  
   my $osisRef = '';
   
   my @segs = &normalizeOsisID([ split(/\s+/, $osisID) ], $osisIDWorkDefault, $workPrefixFlag);
@@ -99,6 +101,8 @@ sub osisRef2osisID($$$$) {
   my $osisRefWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
   my $expandIntros = shift;
+  
+  if ($osisRefLong =~ /^\s*$/) {return '';}
   
   my @osisIDs;
   
@@ -449,8 +453,11 @@ sub mapOsisRef($$$) {
 # Take an osisRef's starting and ending point, and return an osisRef 
 # that covers the entire range between them. This can be used to 'heal' 
 # missing verses in mapped ranges.
-sub fillGapsInOsisRef() {
+sub fillGapsInOsisRef($) {
   my $osisRef = shift;
+  
+  $osisRef =~ s/(^\s+|\s+$)//g;
+  if ($osisRef =~ /^\s*$/) {return '';}
   
   my @id = split(/\s+/, &osisRef2osisID($osisRef));
   if ($#id == 0) {return $osisRef;}
