@@ -132,9 +132,9 @@ sub addCoverImages($$) {
   # Find any sub-publication cover image(s) and insert them into the OSIS file
   my %done;
   my @pubcovers = ();
-  foreach my $osisRef (map($_->getAttribute('osisRef'), $XPC->findnodes('//osis:div[@type][@osisRef]', $xml))) {
-    if ($done{$osisRef}) {next;} else {$done{$osisRef}++;}
-    my $scope = $osisRef; $scope =~ s/\s+/_/g;
+  foreach my $s (map($_->getAttribute('scope'), $XPC->findnodes('//osis:div[@type][@scope]', $xml))) {
+    if ($done{$s}) {next;} else {$done{$s}++;}
+    my $scope = $s; $scope =~ s/\s+/_/g;
     my $pubImagePath = &getCoverImageFromScope($mod, $scope);
     if (!$pubImagePath) {next;}
     push (@pubcovers, $pubImagePath);
@@ -142,9 +142,9 @@ sub addCoverImages($$) {
     if ($pubImagePath ne $imgpath) {&shell("convert -colorspace sRGB -type truecolor -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
     &Note("Found sub-publication cover image: $imgpath");
     if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {$updated++;}
-    else {&Warn("<-Failed to find introduction with scope $osisRef to insert the cover image.",
+    else {&Warn("<-Failed to find introduction with scope $s to insert the cover image.",
 "If you want the cover image to appear in the OSIS file, there 
-needs to be a USFM \\id or \\periph tag that contains scope==$osisRef
+needs to be a USFM \\id or \\periph tag that contains scope==$s
 on the same line");}
   }
   
@@ -198,17 +198,17 @@ sub insertSubpubCover($$$) {
   my $xml = shift;
 
   $scope =~ s/_/ /g;
-  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $xml)}[0];
+  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $xml)}[0];
   if ($insertAfter) {
     $insertAfter->parentNode->insertAfter($figure, $insertAfter);
-    &Note("Inserted sub-publication cover image after TOC milestone of div having osisRef=\"$scope\".");
+    &Note("Inserted sub-publication cover image after TOC milestone of div having scope=\"$scope\".");
     return 1;
   }
 
-  my $insertFirstChild = @{$XPC->findnodes('//osis:div[@type][@osisRef="'.$scope.'"][1]', $xml)}[0];
+  my $insertFirstChild = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"][1]', $xml)}[0];
   if ($insertFirstChild) {
     $insertFirstChild->insertBefore($figure, $insertFirstChild->firstChild);
-    &Note("Inserted sub-publication cover image as first child of div having osisRef=\"$scope\".");
+    &Note("Inserted sub-publication cover image as first child of div having scope=\"$scope\".");
     return 1;
   }
 
