@@ -317,7 +317,6 @@
   <function name="oc:keySortLetter" as="xs:string">
     <param name="text" as="xs:string"/>
     <choose>
-      <when test="not($text)"><value-of select="''"/></when>
       <when test="$KeySort">
         <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
         <variable name="text2" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>

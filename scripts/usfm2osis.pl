@@ -63,6 +63,18 @@ sub usfm2osis($$) {
   #Defaults:
   @EVAL_REGEX;
   
+  # By default remove optional line breaks.
+  push(@EVAL_REGEX, {
+    'group' => 'OPTIONAL_LINE_BREAKS', 
+    'regex' => 's/([\n\s]*)\/\/([\n\s]*)/ /g', 
+    'singleFile' => ''
+  });
+  if (!&shell("grep -e '^EVAL_REGEX\(OPTIONAL_LINE_BREAKS\)\:\\s*\$' \"$cf\"", 3)) {
+    &Note("Optional line breaks will be removed. Electronic Bibles do not 
+usually benefit from optional line breaks, but to keep them, add the 
+following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
+  }
+  
   # Variables for versemap feature
   @VSYS_INSTR = ();
 
@@ -308,7 +320,11 @@ sub evalRegex($$) {
     
     foreach my $r (@EVAL_REGEX) {
       if ($r->{'singleFile'} && $r->{'group'} ne $runTarget) {next;}
-      if (!$eval_regex_applied{$r->{'regex'}}) {&Log("Never applied: ".$r->{'regex'}."\n");}
+      if (!$eval_regex_applied{$r->{'regex'}}) {
+        if ($r->{'group'} ne 'OPTIONAL_LINE_BREAKS') {
+          &Log("Never applied: ".$r->{'regex'}."\n");
+        }
+      }
       else {&Log(sprintf("Applied sub (%2i): %s\n", $eval_regex_report{$r->{'regex'}}, $r->{'regex'}));}
     }
   }
