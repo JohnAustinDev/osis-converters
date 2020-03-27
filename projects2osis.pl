@@ -6,6 +6,15 @@ use strict;
 use warnings;
 use threads;
 use threads::shared;
+use DateTime;
+use Encode;
+
+if ($0 ne "./projects2osis.pl") {
+  print "\nRun this script from the osis-converters directory.\n";
+  exit;
+}
+
+my $SKIP = "none";
 
 my $PRJDIR = shift;     # path to directory containing osis-converters projects
 my $maxthreads = shift; # optional max number of threads to use (default is number of CPUs)
@@ -21,38 +30,47 @@ if (!$PRJDIR || !-e "$PRJDIR" || !$maxthreads || $maxthreads != (1*$maxthreads))
 }
 $PRJDIR =~ s/\/$//;
 
-&timer('start');
+my $LOGFILE = "$PRJDIR/OUT_projects2osis.txt";
+if (-e $LOGFILE) {unlink($LOGFILE);}
 
-my $projectInfoP = &getProjectInfo($PRJDIR);
+my $STARTTIME;
+&timer('start'); &Log("\n");
+
+my $INFO = &getProjectInfo($PRJDIR);
 
 my @projects;
-foreach my $k (sort keys %{$projectInfoP}) {
-  if ($projectInfoP->{$k}{'updated'}) {push(@projects, $k);}
+foreach my $k (sort keys %{$INFO}) {
+  if ($INFO->{$k}{'updated'}) {push(@projects, $k);}
 }
 
-print "Creating new OSIS files for these projects:\n";
-foreach my $p (@projects) {print "$p\n";}
-print "\n";
+&Log("Creating OSIS files:\n");
+foreach my $m (@projects) {
+  my $deps = join(', ', @{$INFO->{$m}{'dependencies'}});
+  &Log(sprintf("%12s:%-16s %s\n", $m, $deps, &outdir($m)));
+}
+&Log("\n");
 
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 while (@projects) {
 
   while ($NUM_THREADS < $maxthreads && @projects) {
-    # Start another OSIS conversion, skipping over any osis2osis 
-    # project whose source OSIS is not done.
+    # Start another OSIS conversion, skipping over any 
+    # project whose dependency OSIS file(s) are not done.
     my $x = -1;
-    my $sourceProject;
+    my $ok;
     do {
-      if ($x > -1) {
-        print "NOTE: Skipping ".$projects[$x]." until $sourceProject is done.";
-      }
       $x++;
-      $sourceProject = $projectInfoP->{$projects[$x]}{'sourceProject'};
-    } while ($x < $#projects && $sourceProject && !$DONE{$sourceProject});
-    if ($sourceProject && !$DONE{$sourceProject}) {last;}
-    if ($sourceProject && $DONE{$sourceProject}) {
-      print "NOTE: Source project $sourceProject of ".$projects[$x]." is done."
+      $ok = 1;
+      foreach my $d (@{$INFO->{$projects[$x]}{'dependencies'}}) {
+        if (!$DONE{$d}) {$ok = 0;}
+      }
+    } while ($x < $#projects && !$ok);
+    
+    if (@{$INFO->{$projects[$x]}{'dependencies'}}) {
+      if (!$ok) {last;}
+      &Log("NOTE: Dependencies of ".$projects[$x]." are done: ".
+      join(', ', @{$INFO->{$projects[$x]}{'dependencies'}})."\n");
     }
     
     threads->create(sub {
@@ -63,7 +81,7 @@ while (@projects) {
     
     $NUM_THREADS++;
     splice(@projects, $x, 1);
-    if (@projects) {print "NOTE: ".@projects." waiting...\n";}
+    if (@projects) {&Log("NOTE: ".@projects." waiting...\n");}
   }
 
   sleep(2);
@@ -85,16 +103,21 @@ sub getProjectInfo($) {
   
   my %info;
   foreach my $sub (@subs) {
+    if ($sub =~ /^($SKIP)$/) {next;}
+    if ($sub =~ /^\./ || !-d "$pdir/$sub") {next;}
+   
+    $info{$sub}{'dependencies'} = [];
+      
     if (-e "$pdir/$sub/CF_osis2osis.txt") {
-      $info{$sub}{'updated'}++;
       open(CF, "<:encoding(UTF-8)", "$pdir/$sub/CF_osis2osis.txt") || die;
       while(<CF>) {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
-          $info{$sub}{'sourceProject'} = $1;
+          my $d = $1;
+          push(@{$info{$sub}{'dependencies'}}, (split(/\s*,\s*/, $d)));
         }
       }
       close(CF);
-      if (!$info{$sub}{'sourceProject'}) {die;}
+      if (@{$info{$sub}{'dependencies'}}) {$info{$sub}{'updated'}++;}
       next;
     }
     elsif (!-e "$pdir/$sub/config.conf") {next;}
@@ -107,14 +130,17 @@ sub getProjectInfo($) {
         $section = $1;
         
         # if config.conf has a [system] section, modules are considered updated
-        if ($section eq 'system') {
+        if ($section eq 'system' && !$info{$sub}{'updated'}) {
           $info{$sub}{'updated'}++;
           if (-e "$pdir/$sub/$sub".'DICT') {
+            # initialize the DICT module
             $info{$sub.'DICT'}{'updated'}++;
+            $info{$sub.'DICT'}{'dependencies'} = [];
+            push(@{$info{$sub.'DICT'}{'dependencies'}}, $sub);
           }
         }
       }
-      elsif ($_ =~ /^\S+\s*=\s*(.*?)\s*$/) {
+      elsif ($_ =~ /^(\S+)\s*=\s*(.*?)\s*$/) {
         $info{$sub}{"$section+$1"} = $2;
       }
     }
@@ -125,7 +151,7 @@ sub getProjectInfo($) {
 }
 
 # Run osis-converters on a module to create its OSIS file, and report.
-sub createOSIS($) {
+sub createOSIS($$) {
   my $pdir = shift;
   my $mod = shift;
   
@@ -141,17 +167,35 @@ sub createOSIS($) {
     $cmd = "./sfm2osis.pl \"$path\"";
   }
   
-  printf("%8s started: %s \n", $mod, $cmd);
-  my $result = `$cmd`;
+  &Log(sprintf("%13s started: %s \n", $mod, $cmd));
+  my $result = decode('utf8', `$cmd  2>&1`);
   
   my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
 
   if ($errors) {
-    printf("%8s FAILED: FINISHED WITH %i ERROR(S)\n", $mod, $errors);
+    &Log(sprintf("%13s FAILED: FINISHED WITH %i ERROR(S) OUTDIR=%s\n", $mod, $errors, &outdir($mod)));
+    my $inerr = 0;
+    foreach my $line (split(/\n+/, $result)) {
+      if ($line =~ /ERROR/) {&Log("$mod $line\n");}
+    }
+    &Log("\n");
     return;
   }
   
-  printf("%8s SUCCESS: FINISHED with no errors!!!!!\n", $mod);
+  &Log(sprintf("%13s SUCCESS: FINISHED with no errors.\n", $mod));
+}
+
+# Return the output directory where the OSIS file will go. This may 
+# return the wrong directory for osis2osis.pl projects which use a 
+# bootstrap.pl script which creates a config.conf at run time.
+sub outdir($) {
+  my $m = shift;
+  
+  my $p = $m; $p =~ s/DICT$//;
+  my $outdir = $INFO->{$p}{'system+OUTDIR'};
+  $outdir = ($outdir ? $outdir:"$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."outdir");
+  
+  return $outdir;
 }
 
 sub timer($) {
@@ -166,9 +210,19 @@ sub timer($) {
     if ($STARTTIME) {
       my $now = DateTime->now();
       my $e = $now->subtract_datetime($STARTTIME);
-      &Log("elapsed time: ".($e->hours ? $e->hours." hours ":'').($e->minutes ? $e->minutes." minutes ":'').$e->seconds." seconds\n", 1);
+      &Log("elapsed time: ".($e->hours ? $e->hours." hours ":'').($e->minutes ? $e->minutes." minutes ":'').$e->seconds." seconds\n");
     }
     $STARTTIME = '';
   }
   else {&Log("\ncurrent time: ".localtime()."\n");}
+}
+
+sub Log($$) {
+  my $p = shift;
+
+  print encode("utf8", $p);
+  
+  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die;
+  print LOGF $p;
+  close(LOGF);
 }
