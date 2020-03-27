@@ -50,9 +50,9 @@ $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2The
 }
 $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
-$VSYS_INSTR_RE  = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+))?)?";
-$VSYS_PINSTR_RE = "($OSISBOOKSRE)\\.(\\d+)(\\.(\\d+)(\\.(\\d+|PART))?)?";
-$VSYS_UNIVERSE_RE = "($SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
+$VSYS_INSTR_RE  = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+))?)?";
+$VSYS_PINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+|PART))?)?";
+$VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
 @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
 $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
@@ -2387,11 +2387,9 @@ different USFM tag should be used instead.");
             if (!$osisIDP->{$rwork}{$orp}) {
               $failed .= "$rwork:$orp$ext ";
             }
-            else {
+            elsif ($ext ne '!PART') {
               &Warn("$type $rwork:$orp$ext extension not found.", 
-  "<>Although the root osisID exists in the OSIS file, the extension 
-  id does not. This is allowed if the specific location which the 
-  extension references exists but is unknown, such as !PART.");
+  "<>Although the root osisID exists in the OSIS file, the extension id does not.");
             }
           }
         }
@@ -2639,8 +2637,9 @@ sub runScript($$\%$) {
   my $output = $$inputP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
   my $fp = "$1$name"; my $fe = $3; my $n = 0;
   while (-e $output) {$n++; $output = $fp.'_'.$n.$fe;}
-  if ($ext eq 'xsl')   {&runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
-  elsif ($ext eq 'pl') {&runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
+  my $result;
+  if ($ext eq 'xsl')   {$result = &runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
+  elsif ($ext eq 'pl') {$result = &runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
   else {
     &ErrorBug("runScript: Unsupported script extension \"$script\"!");
     return 0;
@@ -2653,7 +2652,7 @@ sub runScript($$\%$) {
   elsif ($overwrite) {&copy($output, $$inputP);}
   else {$$inputP = $output;} # change inputP to pass output file name back
   
-  return 1;
+  return ($result ? $result:1);
 }
 
 sub runPerl($$$\%$) {
@@ -2667,7 +2666,8 @@ sub runPerl($$$\%$) {
   # script-name input-file output-file [key1=value1] [key2=value2]...
   my @args = (&escfile($script), &escfile($source), &escfile($output));
   map(push(@args, &escfile("$_=".$paramsP->{$_})), sort keys %{$paramsP});
-  &shell(join(' ', @args), $logFlag);
+  
+  return &shell(join(' ', @args), $logFlag);
 }
 
 sub runXSLT($$$\%$) {
@@ -2687,7 +2687,8 @@ sub runXSLT($$$\%$) {
     $cmd .= " $p=\"$v\"";
   }
   $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
-  &shell($cmd, $logFlag);
+  
+  return &shell($cmd, $logFlag);
 }
 
 
@@ -3536,7 +3537,7 @@ sub writeMissingNoteOsisRefsFAST($) {
   foreach my $file (@files) {
     &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
-    $count = &writeMissingNoteOsisRefs($xml);
+    $count += &writeMissingNoteOsisRefs($xml);
     &writeXMLFile($xml, $file);
   }
   
@@ -3546,7 +3547,7 @@ sub writeMissingNoteOsisRefsFAST($) {
   &Report("Wrote \"$count\" note osisRefs.");
 }
 
-# A note's osisRef contains the passage to which a note applies. For 
+# A note's osisRef points to the passage to which a note applies. For 
 # glossaries this is the note's context keyword. For Bibles this is also 
 # the note's context, unless the note contains a reference of type 
 # annotateRef, in which case the note applies to the annotateRef passage.

@@ -77,6 +77,11 @@ else {
   $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
   $DICTINPD = "$MAININPD/${MAINMOD}DICT";
 }
+
+# Before testing the project configuration, run bootstrap.pl if it 
+# exists in the project, to prepare any control files that need it.
+if (-e "$INPD/bootstrap.pl") {&shell("$INPD/bootstrap.pl");}
+
 $CONFFILE = "$MAININPD/config.conf";
 &readSetCONF();
 # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value

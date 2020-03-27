@@ -923,7 +923,8 @@
             <apply-templates mode="xhtml" select="$title"/>
             <sequence select="oc:getMainInlineTOC(root($OSISelement), $combinedGlossary, $preprocessedRefOSIS)"/>
           </if>
-          <xsl:sequence select="$fileXHTML"/>
+          <!-- the following div is needed because non-block children <body> cause eBook validation to fail -->
+          <div><xsl:sequence select="$fileXHTML"/></div>
           <xsl:sequence select="$fileNotes"/>
           <!-- If there are links to FullResourceURL then add a crossref 
           section at the end of the last book, with a link to FullResourceURL -->
