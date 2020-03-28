@@ -2031,44 +2031,6 @@ sub getScopeOSIS($) {
   }
   return $return;
 }
-sub getAltVersesOSIS($) {
-  my $mod = &getModNameOSIS(shift);
-  
-  my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
-  if (!$xml) {
-    &ErrorBug("getAltVersesOSIS: No xml document node!");
-    return '';
-  }
-  
-  if (!$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}) {
-    $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'exists'}++;
-    &Debug("Cache failed for getAltVersesOSIS: $mod\n");
-    
-    # VSYS changes are recorded in the OSIS file with milestone elements written by applyVsysFromTo()
-    my @maps = (
-      ['fixed2Source',  'movedto_vs', 'osisRef',     'annotateRef'],
-      ['fixedMissing',  'missing_vs', 'osisRef',     ''],
-      ['source2Fitted', 'fitted_vs',  'annotateRef', 'osisRef'],
-    );
-    foreach my $map (@maps) {
-      my %hash;
-      foreach my $e ($XPC->findnodes('//osis:milestone[@type="'.$VSYS{@$map[1]}.'"]', $xml)) {
-        $hash{$e->getAttribute(@$map[2])} = $e->getAttribute(@$map[3]);
-      }
-      $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{@$map[0]} = \%hash;
-    }
-    
-    # fixed2Fitted is a convenience map since it is the same as source2Fitted{fixed2Source{verse}}
-    foreach my $fixed (sort keys (%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Source'}})) {
-      my $source = $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Source'}{$fixed};
-      $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fitted'}{$fixed} = $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'source2Fitted'}{$source};
-    }
-    
-    use Data::Dumper; &Debug("getAltVersesOSIS = ".Dumper(\%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}})."\n", 1);
-  }
-  
-  return \%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}};
-}
 sub isChildrensBible($) {
   my $mod = &getModNameOSIS(shift);
   return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\.\w+CB$/ ? 1:0);

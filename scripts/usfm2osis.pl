@@ -126,54 +126,9 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
       if (@EVAL_REGEX) {$USFMfiles .= &evalRegex($SFMfileGlob, $runTarget);}
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
-    
-    # VSYS INSTRUCTIONS used in fitToVerseSystem.pl
-    elsif ($_ =~ /^VSYS_MISSING:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
-      my $value = $+{val};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
+    elsif (!&parseInstructionVSYS($_)) {
+      &Error("Unhandled CF_usfm2osis.txt line \"$_\" in $cf", "Remove or fix the syntax of this line.");
     }
-    elsif ($_ =~ /^VSYS_EXTRA:(?:\s*(?<to>$VSYS_INSTR_RE)\s*(?:<\-\s*(?<from>$VSYS_UNIVERSE_RE)\s*)?)?$/) {
-      my $to = $+{to}; my $from = $+{from};
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'source'=>$to });
-      if ($from) {
-        push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'universal'=>$from, 'source'=>$to });
-      }
-    }
-    elsif ($_ =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
-      my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
-    }
-    elsif ($_ =~ /^VSYS_EMPTY:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
-      my $value = $+{val};
-      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$value, 'source'=>'' });
-    }
-    elsif ($_ =~ /^VSYS_MOVED:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
-      my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
-      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'source'=>$to });
-      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
-    }
-    elsif ($_ =~ /^VSYS_MOVED_ALT:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
-      my $from = $+{from}; my $to = $+{to};
-      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
-      push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
-    }
-    elsif ($_ =~ /^VSYS_MISSING_FN:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
-      my $value = $+{val};
-      my $msg = "VSYS_MISSING_FN is used when a previous verse holds a footnote about the missing verse.";
-      my $vp = $value;
-      if ($vp =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-        my $bk = $1; my $ch = $2; my $vs = (1*$3);
-        my $to = "$bk.$ch.".($vs-1);
-        if ($vs > 1) {
-          push(@VSYS_INSTR, { 'inst'=>'VTAG_MISSING', 'fixed'=>$value, 'source'=>"$to.PART" });
-        }
-        else {&Error("VSYS_MISSING_FN cannot be used with verse 1: $_", "$msg Use different instruction(s) in CF_usfm2osis.txt.");}
-      }
-      else {&Error("VSYS_MISSING_FN must be used with a single verse: $_", "$msg In CF_usfm2osis.txt, change it to the form: BK.1.2 or use different instruction(s)");}
-    }
-    
-    else {&Error("Unhandled CF_usfm2osis.txt line \"$_\" in $cf", "Remove or fix the syntax of this line.");}
   }
   close(COMF);
 
