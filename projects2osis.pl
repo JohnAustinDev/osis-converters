@@ -57,9 +57,9 @@ foreach my $m (@ignore) {&Log(sprintf("%12s\n", $m));}
 
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
-my @started;
-my $wait; 
-while (@projects) {
+my @started :shared;
+my $wait = 3; 
+while (&working(\@started, \%DONE) || @projects) {
 
   while ($NUM_THREADS < $maxthreads && @projects) {
     # Start another OSIS conversion, skipping over any 
@@ -88,15 +88,12 @@ while (@projects) {
     
     $NUM_THREADS++;
     push(@started, splice(@projects, $x, 1));
-    if (@projects) {&Log("NOTE: ".@projects." waiting...\n");}
+    if (@projects) {print("There are ".@projects." projects left...\n");}
   }
-  
-  &printWait(\@started, \%DONE);
 
   sleep(2);
 }
-
-$wait = 0; &printWait(\@started, \%DONE);
+print "No more projects to start and none are running!\n";
 foreach my $th (threads->list()) {$th->join();}
 
 &timer('stop');
@@ -236,17 +233,24 @@ sub timer($) {
   else {&Log("\ncurrent time: ".localtime()."\n");}
 }
 
-sub printWait(\@\%) {
+# Return the number of projects currently running, and print a message
+# every so often.
+sub working(\@\%$) {
   my $startedAP = shift;
   my $doneP = shift;
+  my $now = shift;
 
-  if (!$wait) {
-    my @waiting; foreach my $m (@{$startedAP}) {if (!$doneP->{$m}) {push(@waiting, $m);}}
-    print "Waiting for project(s): ".join(', ', @waiting)."\n";
+  my @working;
+  foreach my $m (@{$startedAP}) {if (!$doneP->{$m}) {push(@working, $m);}}
+  
+  if ($now || !$wait) {
+    print "Working on project(s): ".join(', ', @working)."\n";
     $wait = 15; # 30 seconds at 2 second sleeps
   }
   
   $wait--;
+  
+  return scalar @working;
 }
 
 sub Log($$) {
