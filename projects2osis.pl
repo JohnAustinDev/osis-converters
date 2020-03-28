@@ -38,20 +38,27 @@ my $STARTTIME;
 
 my $INFO = &getProjectInfo($PRJDIR);
 
-my @projects;
+my @projects; my @ignore;
 foreach my $k (sort keys %{$INFO}) {
   if ($INFO->{$k}{'updated'}) {push(@projects, $k);}
+  else {push(@ignore, $k);}
 }
 
-&Log("Creating OSIS files:\n");
+&Log("Creating ".@projects." OSIS files:\n");
 foreach my $m (@projects) {
   my $deps = join(', ', @{$INFO->{$m}{'dependencies'}});
   &Log(sprintf("%12s:%-16s %s\n", $m, $deps, &outdir($m)));
 }
 &Log("\n");
 
+&Log("Ignoring ".@ignore." project directories:\n");
+foreach my $m (@ignore) {&Log(sprintf("%12s\n", $m));}
+&Log("\n");
+
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
+my @started;
+my $wait; 
 while (@projects) {
 
   while ($NUM_THREADS < $maxthreads && @projects) {
@@ -80,13 +87,17 @@ while (@projects) {
     });
     
     $NUM_THREADS++;
-    splice(@projects, $x, 1);
+    push(@started, splice(@projects, $x, 1));
     if (@projects) {&Log("NOTE: ".@projects." waiting...\n");}
   }
+  
+  &printWait(\@started, \%DONE);
 
   sleep(2);
 }
-foreach my $thr (threads->list()) {$thr->join();}
+
+$wait = 0; &printWait(\@started, \%DONE);
+foreach my $th (threads->list()) {$th->join();}
 
 &timer('stop');
 
@@ -104,9 +115,17 @@ sub getProjectInfo($) {
   my %info;
   foreach my $sub (@subs) {
     if ($sub =~ /^($SKIP)$/) {next;}
+    if ($sub =~ /^(defaults|utils|CB_Common|Cross_References)$/) {next;}
     if ($sub =~ /^\./ || !-d "$pdir/$sub") {next;}
-   
+    
+    my $dict = $sub.'DICT';
+ 
     $info{$sub}{'dependencies'} = [];
+    
+    if (-e "$pdir/$sub/$dict") {
+      $info{$dict}{'dependencies'} = [];
+      push(@{$info{$dict}{'dependencies'}}, $sub);
+    }
       
     if (-e "$pdir/$sub/CF_osis2osis.txt") {
       open(CF, "<:encoding(UTF-8)", "$pdir/$sub/CF_osis2osis.txt") || die;
@@ -117,7 +136,12 @@ sub getProjectInfo($) {
         }
       }
       close(CF);
-      if (@{$info{$sub}{'dependencies'}}) {$info{$sub}{'updated'}++;}
+      if (@{$info{$sub}{'dependencies'}}) {
+        $info{$sub}{'updated'}++;
+        if (-e "$pdir/$sub/$dict") {
+          $info{$dict}{'updated'}++;
+        }
+      }
       next;
     }
     elsif (!-e "$pdir/$sub/config.conf") {next;}
@@ -132,12 +156,7 @@ sub getProjectInfo($) {
         # if config.conf has a [system] section, modules are considered updated
         if ($section eq 'system' && !$info{$sub}{'updated'}) {
           $info{$sub}{'updated'}++;
-          if (-e "$pdir/$sub/$sub".'DICT') {
-            # initialize the DICT module
-            $info{$sub.'DICT'}{'updated'}++;
-            $info{$sub.'DICT'}{'dependencies'} = [];
-            push(@{$info{$sub.'DICT'}{'dependencies'}}, $sub);
-          }
+          if (-e "$pdir/$sub/$dict") {$info{$dict}{'updated'}++;}
         }
       }
       elsif ($_ =~ /^(\S+)\s*=\s*(.*?)\s*$/) {
@@ -215,6 +234,19 @@ sub timer($) {
     $STARTTIME = '';
   }
   else {&Log("\ncurrent time: ".localtime()."\n");}
+}
+
+sub printWait(\@\%) {
+  my $startedAP = shift;
+  my $doneP = shift;
+
+  if (!$wait) {
+    my @waiting; foreach my $m (@{$startedAP}) {if (!$doneP->{$m}) {push(@waiting, $m);}}
+    print "Waiting for project(s): ".join(', ', @waiting)."\n";
+    $wait = 15; # 30 seconds at 2 second sleeps
+  }
+  
+  $wait--;
 }
 
 sub Log($$) {
