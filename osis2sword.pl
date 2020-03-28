@@ -167,7 +167,7 @@ sub upperCaseKeys($) {
     }
     $dr->setValue(join(' ', @new));
   }
-  my $output = $$osis_or_teiP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1upperCaseKeys$3/;
+  my $output = &temporaryFile($$osis_or_teiP);
   &writeXMLFile($xml, $output, $osis_or_teiP);
 }
 

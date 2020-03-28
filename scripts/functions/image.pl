@@ -94,7 +94,7 @@ sub copyReferencedImages($$$) {
   &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
   
   if ($update) {
-    my $output = $osis_or_tei; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1copyReferencedImages$3/;
+    my $output = &temporaryFile($osis_or_tei);
     &writeXMLFile($xml, $output, $osis_or_tei_orP);
   }
   
@@ -104,14 +104,17 @@ sub copyReferencedImages($$$) {
 # Reads an OSIS file and looks for or creates cover images for the full
 # OSIS file as well as any sub-publications within it. All referenced
 # images will be located in $MAININPD/images. If replaceExisting is set,
-# then pre-existing cover images are removed first.
+# then pre-existing cover images are removed first. All these images
+# are figure elements with type="x-cover" and subType="x-(comp|full|sub)-
+# publication" where x-comp-publication is used for auto-generated comp-
+# osite cover images.
 sub addCoverImages($$) {
   my $osisP = shift;
   my $replaceExisting = shift;
 
   my $coverWidth = 500;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCoverImages$3/;
+  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   my $mod = &getModNameOSIS($xml);
   my $updated;
@@ -149,7 +152,9 @@ on the same line");}
   }
   
   # Find or create a main publication cover and insert it into the OSIS file
-  my $scope = (&isChildrensBible($xml) ? 'Chbl':@{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)}[0]->textContent);
+  my $scope = (&isChildrensBible($xml) ? 'Chbl' : @{$XPC->findnodes(
+    "/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)
+    }[0]->textContent);
   $scope =~ s/\s+/_/g;
   my $pubImagePath = &getCoverImageFromScope($mod, $scope);
   # Composite cover image names always end with _comp.jpg

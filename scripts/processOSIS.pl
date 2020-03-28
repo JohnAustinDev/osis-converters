@@ -222,9 +222,6 @@ RUN:./INT.SFM");
 
   # Checks are done now, as late as possible in the flow
   &checkAndValidate($modType);
-
-  # Do a tmp Pretty Print for debug referencing during the conversion process
-  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/".$MOD."_PrettyPrint.xml");
 }
 
 
@@ -325,9 +322,6 @@ sub reprocessOSIS($) {
 
   # Checks are done now, as late as possible in the flow
   &checkAndValidate($modType);
-
-  # Do a tmp Pretty Print for debug referencing during the conversion process
-  &runXSLT("$SCRD/scripts/prettyPrint.xsl", $OUTOSIS, "$TMPDIR/$modname_PrettyPrint.xml");
 }
 
 1;

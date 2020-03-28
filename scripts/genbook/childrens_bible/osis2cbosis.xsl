@@ -8,51 +8,73 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
   
-  <!-- This stylesheet converts usfm2osis.py osis into osis-converters Children's Bible osis markup -->
+  <!-- This stylesheet converts usfm2osis.py osis into osis-
+  converters Children's Bible osis markup -->
  
   <import href="../../functions/functions.xsl"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="TOC" select="oc:conf('TOC', /)"/>
   
-  <template match="node()|@*" name="identity" mode="#all">
-    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+  <template mode="#all" match="node()|@*" name="identity">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
  
   <template match="/">
-    <!-- Re-section the entire OSIS file by removing all divs, then using only toc milestones (as well as later on chapter @osisID milestones) to re-structure with new divs-->
-    <variable name="pass1"><apply-templates select="." mode="fixChapterIDs"/></variable>
-    <variable name="pass2"><apply-templates select="$pass1/node()" mode="removeAllDivs"/></variable>
-    <variable name="pass3"><apply-templates select="$pass2/node()" mode="resection"/></variable>
+    <!-- Re-section the entire OSIS file by removing all divs, then 
+    using only toc milestones (as well as later on chapter @osisID 
+    milestones) to re-structure with new divs-->
+    <variable name="pass1"><apply-templates mode="fixChapterIDs" select="."/></variable>
+    <variable name="pass2"><apply-templates mode="removeAllDivs" select="$pass1/node()"/></variable>
+    <variable name="pass3"><apply-templates mode="resection" select="$pass2/node()"/></variable>
     <apply-templates select="$pass3/node()"/>
   </template>
-  <template match="chapter[@osisID][matches(@osisID, '^X\-OTHER\.[/\d-]+$')][following::node()[1][self::text()][matches(., '^\s*\d+(\-text)?\s*$')]]" mode="fixChapterIDs">
-    <copy><apply-templates select="@*" mode="#current"/><attribute name="osisID" select="concat('X-OTHER.', replace(following::node()[1], '^\s*(\d+(\-text)?)\s*$', '$1'))"/></copy>
+  
+  <!-- sfm like: '\c 14/10 015' renders as: '<chapter osisID="X-OTHER.14/10" sID="X-OTHER.14/10"/> 015' 
+  So normalize the chapter osisID and remove the dangling text node. -->
+  <template mode="fixChapterIDs" match="chapter[@osisID][matches(@osisID, '^X\-OTHER\.[/\d-]+$')]
+                                        [following::node()[1][self::text()][matches(., '^\s*\d+(\-text)?\s*$')]]">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <attribute name="osisID" select="concat('X-OTHER.', replace(following::node()[1], '^\s*(\d+(\-text)?)\s*$', '$1'))"/>
+    </copy>
   </template>
-  <template match="text()[matches(., '^\s*\d+\s*$')][preceding::node()[1][self::chapter[matches(@osisID, '^X\-OTHER\.[/\d-]+$')]]]" mode="fixChapterIDs"/>
-  <template match="div" mode="removeAllDivs"><apply-templates mode="#current"/></template>
-  <template match="osisText" mode="resection">
-    <copy><apply-templates select="@*" mode="#current"/>
-      <for-each select="header"><apply-templates select="." mode="#current"/></for-each>
-      <div xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" type="book" osisID="{oc:encodeOsisRef(/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/title/string())}">
-        <xsl:for-each-group select="node()[not(local-name()='header')][not(self::comment())]"
-            group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $TOC)]) + count(self::milestone[@type=concat('x-usfm-toc', $TOC)])">
-          <xsl:variable name="id" select="if (current-group()[self::*][1][@n][self::milestone[@type=concat('x-usfm-toc', $TOC)]]) then 
-              current-group()[self::*][1]/@n else 'noName'"/>
-          <xsl:choose>
-            <xsl:when test="$id = 'noName' and current-group()[normalize-space()]">
-              <xsl:call-template name="Error">
-                <xsl:with-param name="msg">Children's Bible sections that contain text must begin with a milestone TOC to supply a name.</xsl:with-param>
-                <xsl:with-param name="exp">The section which starts with node: '<xsl:value-of select="oc:printNode(current-group()[normalize-space()][1])"/>' should begin with USFM like: \toc2 Section Name</xsl:with-param>
-              </xsl:call-template>
-            </xsl:when>
-            <xsl:when test="$id = 'noName' and not(current-group()[normalize-space()])">
-              <xsl:apply-templates select="current-group()" mode="#current"/>
-            </xsl:when>
-            <xsl:otherwise><div type="majorSection" osisID="{oc:encodeOsisRef($id)}"><xsl:apply-templates select="current-group()" mode="#current"/></div></xsl:otherwise>
-          </xsl:choose>
-        </xsl:for-each-group>
-      </div>
+  <template mode="fixChapterIDs" match="text()[matches(., '^\s*\d+\s*$')]
+      [ preceding::node()[1][self::chapter[matches(@osisID, '^X\-OTHER\.[/\d-]+$')]] ]"/>
+  
+  <template mode="removeAllDivs" match="div"><apply-templates mode="#current"/></template>
+  
+  <template mode="resection" match="osisText">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <for-each select="header">
+        <apply-templates mode="#current" select="."/>
+      </for-each>
+      <osis:div type="book" osisID="{ oc:encodeOsisRef(/osis/osisText/header/work
+          [@osisWork = /osis/osisText/@osisIDWork]/title/string()) }">
+        <for-each-group select="node()[not(self::header)][not(self::comment())]"
+            group-adjacent="count(preceding::milestone[@type=concat('x-usfm-toc', $TOC)]) + 
+                            count(self::milestone[@type=concat('x-usfm-toc', $TOC)])">
+          <variable name="id" select="if (current-group()[self::*][1][@n][self::milestone[@type=concat('x-usfm-toc', $TOC)]]) 
+                                      then current-group()[self::*][1]/@n else 'noName'"/>
+          <choose>
+            <when test="$id = 'noName' and current-group()[normalize-space()]">
+              <call-template name="Error">
+<with-param name="msg">Children's Bible sections that contain text must begin with a milestone TOC to supply a name.</with-param>
+<with-param name="exp">The section which starts with node: '<value-of select="oc:printNode(current-group()[normalize-space()][1])"/>' should begin with USFM like: \toc2 Section Name</with-param>
+              </call-template>
+            </when>
+            <when test="$id = 'noName' and not(current-group()[normalize-space()])">
+              <apply-templates mode="#current" select="current-group()"/>
+            </when>
+            <otherwise>
+              <osis:div type="majorSection" osisID="{oc:encodeOsisRef($id)}">
+                <apply-templates mode="#current" select="current-group()"/>
+              </osis:div>
+            </otherwise>
+          </choose>
+        </for-each-group>
+      </osis:div>
     </copy>
   </template>
   

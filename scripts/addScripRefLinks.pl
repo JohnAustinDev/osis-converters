@@ -134,7 +134,7 @@ sub runAddScripRefLinks($$$) {
   if (ref($in_file)) {
     $osis = $$in_file;
     if (!$out_file) {
-      $out_file = $osis; $out_file =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addScripRefLinks$3/;
+      $out_file = &temporaryFile($osis);
     }
   }
   else {$osis = $in_file;}

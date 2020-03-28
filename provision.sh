@@ -17,7 +17,6 @@ sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config l
 sudo apt-get install -y libtool-bin linkchecker
 
 # XML::LibXML
-sudo cpanm XML::LibXML::PrettyPrint
 sudo cpanm HTML::Entities
 # DateTime is not included in Mint
 sudo cpanm DateTime

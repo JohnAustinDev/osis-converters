@@ -19,7 +19,7 @@
 sub runAddSeeAlsoLinks($$) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addSeeAlsoLinks$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
   &Log("READING INPUT FILE: \"$$osisP\".\n");

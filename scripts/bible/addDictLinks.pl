@@ -19,7 +19,7 @@
 sub runAddDictLinks($$) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addDictLinks$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
   &Log("READING OSIS FILE: \"$$osisP\".\n");

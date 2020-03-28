@@ -36,7 +36,7 @@
 sub runAddCrossRefs($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addCrossRefs$3/;
+  my $output = &temporaryFile($$osisP);
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   

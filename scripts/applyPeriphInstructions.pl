@@ -69,7 +69,7 @@ sub placementMessage() {
 sub applyPeriphInstructions($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1applyPeriphInstructions$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\nApplying periph comments of \"$$osisP\"\n", 1);
 

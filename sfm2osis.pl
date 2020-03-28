@@ -23,7 +23,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require("$SCRD/scripts/usfm2osis.pl");
 require("$SCRD/scripts/processOSIS.pl");
 
-$OSIS = "$TMPDIR/usfm2osis.xml";
+$OSIS = "$TMPDIR/00_usfm2osis.xml";
 my $commandFile = "$INPD/CF_usfm2osis.txt";
 if (! -e $commandFile) {
   &Error("Cannot run sfm2osis.pl unless there is a CF_usfm2osis.txt command file located at $INPD.", 

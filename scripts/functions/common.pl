@@ -2071,7 +2071,7 @@ sub getAltVersesOSIS($) {
 }
 sub isChildrensBible($) {
   my $mod = &getModNameOSIS(shift);
-  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\w+CB$/ ? 1:0);
+  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\.\w+CB$/ ? 1:0);
 }
 sub isBible($) {
   my $mod = &getModNameOSIS(shift);
@@ -2117,7 +2117,7 @@ sub adjustAnnotateRefs($) {
 
   &Log("\nChecking annotateRef targets in \"$$osisP\".\n");
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1adjustAnnotateRefs$3/;
+  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my $osisIDsP = &getVerseOsisIDs($xml);
@@ -2288,7 +2288,7 @@ sub checkReferenceLinks($) {
 sub removeMissingOsisRefs($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeMissingOsisRefs$3/;
+  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my @badrefs = $XPC->findnodes('//osis:reference[not(@osisRef)]', $xml);
@@ -2634,7 +2634,7 @@ sub runScript($$\%$) {
     &ErrorBug("runScript: Script not found \"$script\"!");
   }
   
-  my $output = $$inputP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1$name$3/;
+  my $output = &temporaryFile($$inputP, $name);
   my $fp = "$1$name"; my $fe = $3; my $n = 0;
   while (-e $output) {$n++; $output = $fp.'_'.$n.$fe;}
   my $result;
@@ -2769,7 +2769,7 @@ sub writeOsisHeader($) {
   my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
   
   my $output;
-  if (ref($osis_or_osisP)) {$output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisHeader$3/;}
+  if (ref($osis_or_osisP)) {$output = &temporaryFile($$osisP);}
   else {$output = $osis;}
   
   &Log("\nWriting work and companion work elements in OSIS header:\n");
@@ -3004,7 +3004,7 @@ sub getGlossaryTitle($) {
 sub writeOsisIDs($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeOsisIDs$3/;
+  my $output = &temporaryFile($$osisP);
   
   my $type;
   if    (&conf('ModDrv') =~ /LD/)   {$type = 'x-glossary';}
@@ -3058,7 +3058,7 @@ sub writeOsisIDs($) {
   }
   
   # Write these osisID changes before any further steps
-  my $tmpf = "$$osisP.2.xml";
+  my $tmpf = &temporaryFile($$osisP);
   &writeXMLFile($xml, $tmpf);
   
   # Get all notes (excluding generic cross-references added from an external source) and write osisIDs
@@ -3087,7 +3087,7 @@ sub writeOsisIDs($) {
     }
     &writeXMLFile($xml, $sosis);
   }
-  &joinOSIS($output);
+  &joinOSIS(&temporaryFile($$osisP));
   $$osisP = $output;
 }
 
@@ -3110,7 +3110,7 @@ sub writeTOC($$) {
   my $osisP = shift;
   my $modType = shift;
 
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeTOC$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
@@ -3527,7 +3527,7 @@ sub joinOSIS($) {
 sub writeMissingNoteOsisRefsFAST($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1writeMissingNoteOsisRefsFast$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
   
@@ -3609,7 +3609,7 @@ sub writeMissingNoteOsisRefs($) {
 sub removeDefaultWorkPrefixesFAST($) {
   my $osisP = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1removeDefaultWorkPrefixes$3/;
+  my $output = &temporaryFile($$osisP);
   
   &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n");
   
@@ -3661,6 +3661,43 @@ sub removeDefaultWorkPrefixes($\%) {
     $osisID->setValue($new);
     $statsP->{'osisID'}++;
   }
+}
+
+# Take an input temporary file path and return the path of a new temp-
+# orary file in the same directory, which is sequentially numbered and 
+# does not already exist. 
+sub temporaryFile($$) {
+  my $path = shift;
+  my $outname = shift;
+  
+  if (!$outname) {
+    $outname = (caller(1))[3]; 
+    $outname =~ s/^.*\:{2}//;
+  }
+  
+  my $dir = $path;
+  my $file = ($dir =~ s/^(.*?)\/([^\/]+)$/$1/ ? $2:'');
+  if (!$file) {&ErrorBug("Could not parse temporaryFile file $path", 1);}
+  my $ext = ($file =~ s/^(.*?)\.([^\.]+)$/$1/ ? $2:'');
+  if (!$ext) {&ErrorBug("Could not parse temporaryFile ext $path", 1);}
+  
+  opendir(TDIR, $dir) || &ErrorBug("Could not open temporaryFile dir $dir", 1);
+  my @files = readdir(TDIR);
+  closedir(TDIR);
+  
+  my $n = 0;
+  foreach my $f (@files) {
+    if (-d "$dir/$f") {next;}
+    if ($f =~ /^(\d+)_/) {
+      my $nf = $1; $nf =~ s/^0+//; $nf = (1*$nf);
+      if ($nf > $n) {$n = $nf;}
+    }
+  }
+  $n++;
+  
+  my $p = sprintf("%s/%02i_%s.%s", $dir, $n, $outname, $ext);
+
+  return $p;
 }
 
 # Run a Linux shell script. $flag can have these values:

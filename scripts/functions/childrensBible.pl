@@ -99,7 +99,7 @@ sub checkAdjustCBImages($$) {
   my $osisP = shift;
   my $checkOnly = shift;
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1checkAdjustCBImages$3/;
+  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my $success = 1;

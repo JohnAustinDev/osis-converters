@@ -67,7 +67,7 @@ sub runAddFootnoteLinks($$) {
   my $commandFile = shift;
   my $osisP = shift;
 
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1addFootnoteLinks$3/;
+  my $output = &temporaryFile($$osisP);
 
   &Log("\n--- ADDING FOOTNOTE LINKS\n-----------------------------------------------------\n\n", 1);
 

@@ -509,7 +509,7 @@ sub filterBibleToScope($$\$\$) {
 ./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? "Alternatively you may add 
 an image whose filename is any scope that contains $scope":''));}
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1pruneFileOSIS$3/;
+  my $output = &temporaryFile($$osisP);
   &writeXMLFile($inxml, $output, $osisP);
 }
 
@@ -554,7 +554,7 @@ sub filterGlossaryToScope($$) {
 
   if (@removed == @glossDivs) {return '-1';}
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterGlossaryToScope$3/;
+  my $output = &temporaryFile($$osisP);
   &writeXMLFile($xml, $output, $osisP);
   
   return join(',', @removed);
@@ -580,7 +580,7 @@ sub filterAggregateEntriesToScope($$) {
     }
   }
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1filterAggregateEntriesToScope$3/;
+  my $output = &temporaryFile($$osisP);
   &writeXMLFile($xml, $output, $osisP);
   
   if ($removeCount == scalar(@check)) {&removeAggregateEntries($osisP);}
@@ -802,7 +802,7 @@ sub copyCoverTo($$) {
   my $figure = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"]/osis:figure[@type="x-cover"]', $xml)}[0];
   if (!$figure) {return '';}
   
-  my $output = $$osisP; $output =~ s/^(.*?\/)([^\/]+)(\.[^\.\/]+)$/$1copyCoverTo$3/;
+  my $output = &temporaryFile($$osisP);
   $figure->unbindNode();
   &writeXMLFile($xml, $output, $osisP);
   
