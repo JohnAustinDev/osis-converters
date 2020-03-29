@@ -780,8 +780,8 @@ one target remains.</with-param>
                                                    [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
           <copy>
             <for-each select="@*">
-              <!-- never duplicate an id: only the copy containing the first text node gets it -->
-              <if test="not(name() = ('id','osisID')) or 
+              <!-- never duplicate a container's id: only the copy containing the first text node gets it -->
+              <if test="not($myFirstTextNode) or not(name() = ('id','osisID')) or 
                 $myGroupTextNode intersect $myFirstTextNode">
                 <copy/>
               </if>
