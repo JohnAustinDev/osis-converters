@@ -360,7 +360,6 @@ subpub:
     }
     foreach my $s (sort keys %subPubs) {push(@scopes, $subPubs{$s});}
   }
-  else {&ErrorBug("Could not open sfm directory $dir");}
   
   return @scopes;
 }
@@ -466,10 +465,7 @@ sub readSetCONF() {
   # set by applySystemCONF() and they are NOT set by readSetCONF().
 
   $CONF = {};
-  if (!&readConfFile($CONFFILE, $CONF)) {
-    if ($SCRIPT_NAME =~ /^update$/) {&Warn("No config.conf file: $CONFFILE");}
-    else {&Error("Could not read config.conf file: $CONFFILE");}
-  }
+  if (!&readConfFile($CONFFILE, $CONF)) {return 0;}
   
   # Config Defaults
   my $ocConfRE = '('.join('|', @OC_CONFIGS).')';
@@ -481,6 +477,7 @@ sub readSetCONF() {
   }
   
   #use Data::Dumper; &Debug(Dumper($CONF)."\n");
+  return 1;
 }
 
 # Whereas $CONF is just the raw data of the config.conf file. This 
@@ -968,6 +965,11 @@ sub Log($$) {
   
   $p =~ s/&lt;/</g; $p =~ s/&gt;/>/g; $p =~ s/&amp;/&/g;
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
+  
+  if ($p =~ /ERROR/) {
+    my $ne = &conf('ARG_NoErr');
+    if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
+  }
   
   if ((!$NOCONSOLELOG && $flag != -1) || $flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
     print encode("utf8", $p);

@@ -70,11 +70,12 @@ sub processContainer($) {
   elsif ($name eq 'Testament introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'book\'])]';}
 
   # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-  my @glossary = $XPC->findnodes("./descendant::osis:index[\@index='Glossary'][\@level1]$filter", $con);
-  &convertExplicitGlossaryElements(\@glossary);
+  my @glossary = $XPC->findnodes("./descendant::osis:index[\@index='Glossary']$filter", $con);
+  &explicitGlossaryIndexes(\@glossary);
 
-  my @elems = $XPC->findnodes("./descendant::*[local-name() != 'reference']$filter", $con);
-  &addDictionaryLinks(\@elems, 0, 0);
+  foreach my $e (@{$XPC->findnodes("./descendant::*[local-name() != 'reference']$filter", $con)}) {
+    my $refAP = &searchForGlossaryLinks($e);
+  }
 }
 
 1;

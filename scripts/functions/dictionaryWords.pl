@@ -245,99 +245,311 @@ sub validateDictionaryWordsXML($) {
   return $success;
 }
 
-# Add dictionary links as described in $DWF to the nodes pointed to 
-# by $eP array pointer. Expected node types are element or text.
-sub addDictionaryLinks(\@$$) {
-  my $eP = shift; # array of text-nodes or text-node parent elements from a document (Note: node element child elements are not touched)
-  my $ifExplicit = shift; # text context if the node was marked in the text as a glossary link
-  my $isGlossary = shift; # true if the nodes are in a glossary (See-Also linking)
+
+# Takes a list of <index index="Glossary"/> elements and converts them
+# glossary references, recording results.
+sub explicitGlossaryIndexes(\@) {
+  my $indexElementsP = shift;
   
-  my $bookOrderP;
-  foreach my $node (@$eP) {
-    my $glossaryNodeContext;
-    my $glossaryScopeContext;
-    
-    if ($isGlossary) {
-      if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)}
-      $glossaryNodeContext = &getNodeContext($node);
-      if (!$glossaryNodeContext) {next;}
-      my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
-        push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, $bookOrderP)}:$gsp));
-      }
-      $glossaryScopeContext = join('+', @gs);
-      if (!$NoOutboundLinks{'haveBeenRead'}) {
-        foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
-          foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
-        }
-        $NoOutboundLinks{'haveBeenRead'}++;
-      }
-      if ($NoOutboundLinks{&entry2osisRef($MOD, $glossaryNodeContext)}) {return;}
+  my @result;
+  foreach my $indexElement (@{$indexElementsP}) {
+    if (&usfm3GetAttribute($indexElement->getAttribute('level1'), 'lemma', 'lemma')) {
+      push(@result, @{&glossaryLink($indexElement)});
     }
+    else {
+      push(@result, @{&searchForGlossaryLinks($indexElement)});
+    }
+  }
   
-    my @textchildren;
-    my $container = ($node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode:$node);
-    if ($node->nodeType == XML::LibXML::XML_TEXT_NODE) {push(@textchildren, $node);}
-    else {@textchildren = $XPC->findnodes('child::text()', $container);}
-    if (&conf('ModDrv') =~ /LD/ && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
-    my $text, $matchedPattern;
-    foreach my $textchild (@textchildren) {
-      $text = $textchild->data();
-      if ($text =~ /^\s*$/) {next;}
-      my $done;
-      do {
-        $done = 1;
-        my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
-        foreach my $part (@parts) {
-          if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
-          if ($matchedPattern = &addDictionaryLink(\$part, $textchild, $ifExplicit, $glossaryNodeContext, $glossaryScopeContext)) {
-            if (!$ifExplicit) {$done = 0;}
+  # Now record the results for later reporting
+  foreach my $r (@result) {
+    if ($r->nodeName eq 'reference') {
+      my %data = ('success' => 1, 'linktext' => $r->textContent);
+      push(@EXPLICIT_GLOSSARY, \%data);
+    }
+    else {
+      # Report either level1 if it was specified, or else context
+      my $report = $r->getAttribute('level1');
+      
+      if (!$report) {
+        my $infoP = &getIndexInfo($r, 1);
+        if ($infoP) {
+          $report = $infoP->{'precedingTextNode'}->data;
+          $report =~ s/^.*?(.{32})$/>$1/s;
+          $report .= "[*]";
+          if ($infoP->{'followingTextNode'}) {
+            my $cr = $infoP->{'followingTextNode'}->data;
+            $cr =~ s/^(.{32}).*?$/$1</;
+            $report .= $cr;
           }
         }
-        $text = join('', @parts);
-      } while(!$done);
-      $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/sg;
-      
-#&Debug("BEFORE=".$textchild->data()."\nAFTER =".$text."\n\n");
-      
-      # sanity check
-      my $check = $text;
-      $check =~ s/<\/?reference[^>]*>//g;
-      if ($check ne $textchild->data()) {
-        &ErrorBug("Bible text changed during glossary linking!\nBEFORE=".$textchild->data()."\nAFTER =$check", 1);
+        $report =~ s/[\s\n]+/ /g;
       }
       
-      # apply new reference tags back to DOM
-      foreach my $childnode (split(/(<reference[^>]*>.*?<\/reference[^>]*>)/s, $text)) {
-        my $newRefElement = '';
-        my $t = $childnode; 
-        if ($t =~ s/(<reference[^>]*>)(.*?)(<\/reference[^>]*>)/$2/s) {
-          my $refelem = "$1 $3";
-          $newRefElement = $XML_PARSER->parse_balanced_chunk($refelem);
-        }
-        my $newTextNode = XML::LibXML::Text->new($t);
-        if ($newRefElement) {
-          $newRefElement->firstChild->insertBefore($newTextNode, NULL);
-          $newRefElement->firstChild->removeChild($newRefElement->firstChild->firstChild); # remove the originally necessary ' ' in $refelem 
-        }
-        my $newChildNode = ($newRefElement ? $newRefElement:$newTextNode);
-        $textchild->parentNode->insertBefore($newChildNode, $textchild);
-      }
-      $textchild->unbindNode(); 
+      my %data = ('success' => 0, 'linktext' => $report);
+      push(@EXPLICIT_GLOSSARY, \%data);
+      
+      &Error(getNodeContext($r)." Failed to link explicit glossary reference: $report", 
+"<>Add the proper entry to DictionaryWords.xml to match this text 
+and create a hyperlink to the correct glossary entry. If desired you can 
+use the attribute 'onlyExplicit' to match this term only where it is 
+explicitly marked in the text as a glossary index, and nowhere else. 
+Without the onlyExplicit attribute, you are able to hyperlink the term 
+everywhere it appears in the text.");
+
+      $r->unbindNode();
     }
   }
 }
 
-# Searches and replaces $$tP text for a single dictionary link, according 
-# to the $DWF file, and logs any result. If a match is found, the proper 
-# reference tags are inserted, and the matching pattern is returned. 
-# Otherwise the empty string is returned and the input text is unmodified.
-sub addDictionaryLink(\$$$$\@) {
-  my $textP = shift;
-  my $textNode = shift;
-  my $explicitContext = shift; # context string if the node was marked in the text as a glossary link
-  my $glossaryNodeContext = shift; # for SeeAlso links only
-  my $glossaryScopeContext = shift; # for SeeAlso links only
 
+# Convert <index index="Glossary" level="link text|lemma='keyword'"/>.
+# Returns the new reference element if successful or the unchanged
+# index element otherwise.
+sub glossaryLink($) {
+  my $i = shift;
+  
+  my $infoP = &getIndexInfo($i);
+  if (!defined($infoP)) {return $i;}
+  
+  my $linktext = $infoP->{'linktext'};
+
+  if (!$linktext) {
+    &Error("Could not determine link text for index ".$i->toString());
+    return $i;
+  }
+  
+  # Create the reference
+  my $t_new = $ptn; $t_new = s/\Q$linktext\E$//;
+  my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
+  my $newRefElement = $XML_PARSER->parse_balanced_chunk(
+    '<reference osisRef="'.$osisRef.'" type="'.($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary').'">'.$linktext.'</reference>'
+  );
+  $i->parentNode->insertBefore($newRefElement, $i);
+  my $ref = $i->precedingSibling;
+  $infoP->{'precedingTextNode'}->setData($t_new);
+  $i->parentNode->removeChild($i);
+  
+  return $ref;
+}
+
+
+# Search a node for glossary links according to DictionaryWords.xml. The 
+# only handled node types are element, text, or <index index="Glossary"/>. 
+# An array is returned containing a list of the new reference elements 
+# that were added.
+sub searchForGlossaryLinks(\@) {
+  my $node = shift; # non text-node child elements will not be modified
+  
+  my $bookOrderP;
+
+  if ($node->nodeType != XML::LibXML::XML_TEXT_NODE &&
+      $node->nodeType != XML::LibXML::XML_ELEMENT_NODE) {
+    &ErrorBug("Node is not a text or element node.", 1);
+  }
+
+  my $isIndex = ($node->nodeName eq 'index' && $node->getAttribute('index') eq 'Glossary');
+  
+  # If this node is in a glossary, get the glossary info
+  my $glossary;
+  if (&isDict($node)) {
+    if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)}
+    
+    $glossary->{'node_context'} = &getNodeContext($node);
+    if (!$glossary->{'node_context'}) {next;}
+    
+    my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
+      push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, $bookOrderP)}:$gsp));
+    }
+    $glossary->{'scopes_context'} = join('+', @gs);
+    
+    if (!$NoOutboundLinks{'haveBeenRead'}) {
+      foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
+        foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
+      }
+      $NoOutboundLinks{'haveBeenRead'}++;
+    }
+    if ($NoOutboundLinks{&entry2osisRef($MOD, $glossary->{'node_context'})}) {next;}
+  }
+
+  my $container = ($isIndex || $node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode:$node);
+  
+  # Never put links in a keyword element
+  if ($glossary && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
+  
+  my @refs;
+  if ($isIndex) {
+    push(@refs, &searchGlossaryLinkAtIndex($node, $glossary));
+  }
+  else {
+    # Get all text nodes to which to add glossary links
+    my @textNodes;
+    if ($node->nodeType == XML::LibXML::XML_TEXT_NODE) {push(@textNodes, $node);}
+    else {@textNodes = $XPC->findnodes('child::text()', $container);}
+    foreach my $textnode (@textNodes) {
+      push(@refs, @{&searchGlossaryLinksInTextNode($textnode, $glossary)});
+    }
+  }
+  
+  return \@refs;
+}
+
+
+# Take an index element and search for a glossary link to replace it 
+# with. Text node siblings of the index element are shortened as needed
+# to account for the new glossary link's child text. Either the new
+# reference element is returned on success or the indexElement on
+# failure.
+sub searchGlossaryLinkAtIndex($\%) {
+  my $indexElement = shift;
+  my $glossaryHP = shift;
+  my $bidir = shift; # search before and after the index for a match
+  
+  my $original = $indexElement->parentNode->textContent;
+  
+  my $infoP = &getIndexInfo($indexElement);
+  if (!defined($infoP)) {
+    return $indexElement;
+  }
+  
+  my @unbindOnSuccess;
+  my $removeOnSuccess;
+  
+  my $match;
+  my $context;
+  if ($infoP->{'linktext'}) {
+    $context = $infoP->{'linktext'};
+    # If we have linktext then only the linktext is searched, and the
+    # preceding text node must end with the link text.
+    $removeOnSuccess = $context;
+    $match = &searchText(\$context, $indexElement, $glossaryHP, (length($context)-1));
+  }
+  else {
+    $context = $infoP->{'precedingTextNode'}->data;
+    push(@unbindOnSuccess, $infoP->{'precedingTextNode'});
+    my $index = length($context)-1;
+    if ($bidir && $infoP->{'followingTextNode'}) {
+      $context .= $infoP->{'followingTextNode'}->data;
+      push(@unbindOnSuccess, $infoP->{'followingTextNode'});
+    }
+    $match = &searchText(\$context, $indexElement, $glossaryHP, $index);
+  }
+  
+  if (!$match) {
+    # If unidirectional search failed, try bi-directional
+    if (!$infoP->{'linktext'} && !$bidir) {
+      return searchGlossaryLinkAtIndex($indexElement, $glossaryHP, 1);
+    }
+    
+    return $indexElement;
+  }
+  
+  # Now update the tree with the new reference
+  my $r = @{&applyReferenceTags($context, $indexElement)}[0];
+  
+  # Fix up the text nodes surrounding the new reference
+  foreach my $n (@unbindOnSuccess) {$n->unbindNode();}
+  if ($removeOnSuccess) {
+    my $t = $infoP->{'precedingTextNode'}->data;
+    $t =~ s/\Q$removeOnSuccess\E$//;
+    $infoP->{'precedingTextNode'}->setData($t);
+  }
+  
+  # Finally, sanity check that our textContent is unchanged
+  if ($r->parentNode->textContent ne $original) {
+    &ErrorBug("Text was changed while replacing index with glossary link:
+WAS: $original
+IS : ".$r->parentNode->textContent, 1);
+  }
+  
+  return $r;
+}
+
+
+# Take a text node, and search for reference links in it. In the 
+# process, the text node may be split into multiple text nodes, with 
+# reference tags in appropriate places. Returns a list containing
+# either the new reference elements on success or the original text node
+# on failure.
+sub searchGlossaryLinksInTextNode($\%) {
+  my $textnode = shift;
+  my $glossaryHP = shift;
+  
+  my $original = $textnode->parentNode->toString();
+
+  my $text = $textnode->data();
+  if ($text =~ /^\s*$/) {next;}
+  my $done;
+  do {
+    $done = 1;
+    my @parts = split(/(<reference.*?<\/reference[^>]*>)/, $text);
+    foreach my $part (@parts) {
+      if ($part =~ /<reference.*?<\/reference[^>]*>/ || $part =~ /^[\s\n]*$/) {next;}
+      if (my $matchedPattern = &searchText(\$part, $textnode, $glossaryHP)) {
+        $done = 0;
+      }
+    }
+    $text = join('', @parts);
+  } while(!$done);
+  $text =~ s/<reference [^>]*osisRef="REMOVE_LATER"[^>]*>(.*?)<\/reference>/$1/sg;
+  
+  # Sanity check that the only modification was the addition of <reference> tags
+  my $check = $text;
+  $check =~ s/<\/?reference[^>]*>//g;
+  if ($check ne $textnode->data()) {
+    &ErrorBug("Bible text changed during glossary linking!\nBEFORE=".$textnode->data()."\nAFTER =$check", 1);
+  }
+  
+  return &applyReferenceTags($text, $textnode); 
+}
+
+# Replace any $node in the document tree with new nodes that are created
+# by rendering the $referenceMarkup string. This string can only contain
+# text and <reference> tags. An array is returned containing the new 
+# reference elements.
+sub applyReferenceTags($$) {
+  my $referenceMarkup = shift;
+  my $node = shift;
+  
+  # apply new reference tags back to DOM
+  my @refs;
+  foreach my $childnode (split(/(<reference[^>]*>.*?<\/reference[^>]*>)/s, $referenceMarkup)) {
+    my $newRefElement = '';
+    my $t = $childnode; 
+    if ($t =~ s/(<reference[^>]*>)(.*?)(<\/reference[^>]*>)/$2/s) {
+      my $refelem = "$1 $3";
+      $newRefElement = $XML_PARSER->parse_balanced_chunk($refelem);
+    }
+    my $newTextNode = XML::LibXML::Text->new($t);
+    if ($newRefElement) {
+      $newRefElement->firstChild->insertBefore($newTextNode, NULL);
+      $newRefElement->firstChild->removeChild($newRefElement->firstChild->firstChild); # remove the originally necessary ' ' in $refelem 
+    }
+    
+    my $newChildNode = ($newRefElement ? $newRefElement:$newTextNode);
+    $node->parentNode->insertBefore($newChildNode, $node);
+    if ($newRefElement) {push(@refs, $node->previousSibling);}
+  }
+  $node->unbindNode();
+  
+  return \@refs;
+}
+
+# Searches $$textP and adds a single reference glossary link according 
+# to the context of $node (and $glossaryHP) and the DictionaryWords.xml 
+# file. If a match to a glossary keyword is not found, the empty string 
+# is returned and $$textP is left unmodified. If a match is found, the 
+# matching pattern is returned, and a <reference> and </reference> tag
+# will be inserted into $$textP at the appropriate places. The $index
+# argument must be defined for explicit glossary link searches. When 
+# $index is defined, any match will be further restricted so that the 
+# linktext must include the index position (which may be 0).
+sub searchText(\$$\%\%) {
+  my $textP = shift; # the string to search
+  my $node = shift;  # only used to get context information
+  my $glossaryHP = shift;
+  my $index = shift; # MUST be defined for ALL explicit index searches
+  
   my $matchedPattern = '';
   
   # Cache match related info
@@ -374,21 +586,21 @@ sub addDictionaryLink(\$$$$\@) {
         next;
       }
       my $test = "testme"; my $is; my $ie;
-      if (&glossaryMatch(\$test, $m, \$is, \$ie) == 2) {next;}
+      if (!defined(&glossaryMatch(\$test, $m, \$is, \$ie))) {next;}
       
       push(@MATCHES, \%minfo);
-      
-      my @wds = split(/\s+/, $minfo{'name'});
-      if (@wds > $MAX_MATCH_WORDS) {$MAX_MATCH_WORDS = @wds; &Note("Setting MAX_MATCH_WORDS to $MAX_MATCH_WORDS");}
     }
     #if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
   }
   
   my $context;
   my $multiples_context;
-  if ($glossaryNodeContext) {$context = $glossaryNodeContext; $multiples_context = $glossaryNodeContext;}
+  if ($glossaryHP->{'node_context'}) {
+    $context = $glossaryHP->{'node_context'}; 
+    $multiples_context = $glossaryHP->{'node_context'};
+  }
   else {
-    $context = &bibleContext($textNode);
+    $context = &bibleContext($node);
     $multiples_context = $context;
     $multiples_context =~ s/^(\w+\.\d+).*$/$1/; # reset multiples each chapter
   }
@@ -397,23 +609,23 @@ sub addDictionaryLink(\$$$$\@) {
   
   my $contextIsOT = &inContext($context, $OT_CONTEXTSP);
   my $contextIsNT = &inContext($context, $NT_CONTEXTSP);
-  my @contextNote = $XPC->findnodes("ancestor::osis:note", $textNode);
+  my @contextNote = $XPC->findnodes("ancestor::osis:note", $node);
   
   my $a;
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = ($textNode->data); @DICT_DEBUG_THIS = (decode("utf8", "Хөрмәтле укучылар, < Борынгы Шерык > сезнең игътибарга Изге Язманың хәзерге татар телендә беренче тапкыр нәшер ителгән тулы җыентыгын тәкъдим итәбез."));
+#@DICT_DEBUG = ($node->data); @DICT_DEBUG_THIS = (decode("utf8", "Хөрмәтле укучылар, < Борынгы Шерык > сезнең игътибарга Изге Язманың хәзерге татар телендә беренче тапкыр нәшер ителгән тулы җыентыгын тәкъдим итәбез."));
 #my $nodedata; foreach my $k (sort keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
-#&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $textNode->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
+#&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $node->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
     
-    my $filterMultiples = (!$explicitContext && $m->{'multiple'} !~ /^true$/i);
+    my $filterMultiples = (!defined($index) && $m->{'multiple'} !~ /^true$/i);
     my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
     
-    if ($explicitContext && $m->{'notExplicit'}) {&dbg("filtered at 00\n\n"); next;}
-    elsif (!$explicitContext && $m->{'onlyExplicit'}) {&dbg("filtered at 01\n\n"); next;}
+    if (defined($index) && $m->{'notExplicit'}) {&dbg("filtered at 00\n\n"); next;}
+    elsif (!defined($index) && $m->{'onlyExplicit'}) {&dbg("filtered at 01\n\n"); next;}
     else {
-      if ($glossaryNodeContext && $m->{'skipRootID'}{&getRootID($glossaryNodeContext)}) {&dbg("05\n\n"); next;} # never add glossary links to self
+      if ($glossaryHP->{'node_context'} && $m->{'skipRootID'}{&getRootID($glossaryHP->{'node_context'})}) {&dbg("05\n\n"); next;} # never add glossary links to self
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n\n"); next;}
       if ($filterMultiples) {
@@ -423,26 +635,28 @@ sub addDictionaryLink(\$$$$\@) {
         elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n\n"); $removeLater = 1;}
       }
       if ($m->{'context'}) {
-        my $gs  = ($glossaryScopeContext ? 1:0);
+        my $gs  = ($glossaryHP->{'scopes_context'} ? 1:0);
         my $ic  = &inContext($context, $m->{'contexts'});
-        my $igc = ($gs ? &inContext($glossaryScopeContext, $m->{'contexts'}):0);
+        my $igc = ($gs ? &inContext($glossaryHP->{'scopes_context'}, $m->{'contexts'}):0);
         if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50 (gs=$gs, ic=$ic, igc=$igc)\n\n"); next;}
       }
       if ($m->{'notContext'}) {
         if (&inContext($context, $m->{'notContexts'})) {&dbg("filtered at 60\n\n"); next;}
       }
       if ($m->{'XPATH'}) {
-        my $tst = @{$XPC->findnodes($m->{'XPATH'}, $textNode)}[0];
+        my $tst = @{$XPC->findnodes($m->{'XPATH'}, $node)}[0];
         if (!$tst) {&dbg("filtered at 70\n\n"); next;}
       }
       if ($m->{'notXPATH'}) {
-        $tst = @{$XPC->findnodes($m->{'notXPATH'}, $textNode)}[0];
+        $tst = @{$XPC->findnodes($m->{'notXPATH'}, $node)}[0];
         if ($tst) {&dbg("filtered at 80\n\n"); next;}
       }
     }
     
     my $is; my $ie;
-    if (&glossaryMatch($textP, $m->{'node'}, \$is, \$ie, $explicitContext)) {next;}
+    if (!&glossaryMatch($textP, $m->{'node'}, \$is, \$ie, $index)) {
+      next;
+    }
     if ($is == $ie) {
       &ErrorBug("Match result was zero width!: \"".$m->{'node'}->textContent."\"");
       next;
@@ -476,56 +690,132 @@ sub addDictionaryLink(\$$$$\@) {
   return $matchedPattern;
 }
 
-# Print log info for a word file
+
+# Look for a single match $m in $$textP and set start/end positions
+# in $$textP if match is found. Returns 1 if a match was found or 
+# else 0 if no match was found, or undefined on error. If optional 
+# $index is passed, it will be used for matching, to restrict the 
+# search to include that particular index (and $itext is only used
+# by this function to iteratively perform the $index search).
+sub glossaryMatch(\$$\$\$$$) {
+  my $textP = shift;     # pointer to text in which to search
+  my $m = shift;         # a match element
+  my $isP = shift;       # will hold index of match start in text
+  my $ieP = shift;       # will hold index of match end in text
+  my $index = shift;     # index to include if link is explicitly marked
+  my $itext = shift;     # only used for recursive index searching
+  
+  # When the match must include an index point, some setup is required
+  # before each new match. The textP is copied, and may be recursively
+  # shortened.
+  if (defined($index) && !defined($itext)) {
+    $itext = $$textP;
+  }
+  
+  my $p = $m->textContent;
+  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
+    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
+    &dbg("80\n");
+    return;
+  }
+  my $pm = $1; my $pf = $2;
+  
+  # handle PUNC_AS_LETTER word boundary matching issue
+  if ($PUNC_AS_LETTER) {
+    $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
+  }
+  
+  # handle xml decodes
+  $pm = decode_entities($pm);
+  
+  # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
+  my $t = (defined($index) ? $itext : $$textP);
+  my $i = $pf =~ s/i//;
+  $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
+  if ($i) {
+    $t = &uc2($t);
+  }
+  if ($pf =~ /(\w+)/) {
+    &Error("Regex flag \"$1\" not supported in \"".$m->textContent."\"", "Only Perl regex flags are supported.");
+  }
+ 
+  # finally do the actual MATCHING...
+  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
+  if ($t !~ /$pm/) {return 0;}
+
+  $$isP = $-[$#+];
+  $$ieP = $+[$#+];
+  
+  # if a (?'link'...) named group 'link' exists, use it instead
+  if (defined($+{'link'})) {
+    my $i;
+    for ($i=0; $i <= $#+; $i++) {
+      if ($$i eq $+{'link'}) {last;}
+    }
+    $$isP = $-[$i];
+    $$ieP = $+[$i];
+  }
+  
+  if (defined($index)) {
+    # translate isP and ieP from the index text back to textP
+    my $clip = length($$textP) - length($itext);
+    $$isP += $clip;
+    $$ieP += $clip;
+     
+    # Order must be: isP, index, ieP with isP=index and ieP=index also 
+    # accepted. Also allow the index to be one less than ieP.
+    if ( !(($index - $$isP) >= 0 && ($$ieP - $index) >= -1) ) {
+      &dbg("but match '".substr($$textP, $$isP, ($$ieP-$$isP))."' did not include the index.\n");
+      
+      # This match did not include the index, but this match may still 
+      # be the correct one, if it happens to match again later in the 
+      # string. The only way to know this for certain is to keep short-
+      # ening the text and trying again with this same match, until 
+      # there is nothing left before the index to test.
+      if ($itext !~ s/^\s*\S+//) {return 0;}
+      
+      if (length($itext) < (length($$textP) - $index)) {
+        # This match failed to include the index, even with the 
+        # recursive checking.
+        return 0;
+      }
+      
+      return &glossaryMatch($textP, $m, $isP, $ieP, $index, $itext);
+    }
+  }
+  
+  &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, '".substr($$textP, $$isP, ($$ieP-$$isP))."'\n");
+  
+  return 1;
+}
+
+# Print log info for all glossary link searches
 sub logDictLinks() {
   &Log("\n\n");
-  &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %EXPLICIT_GLOSSARY) . " variations)");
-  my $mxl = 0; foreach my $eg (sort keys %EXPLICIT_GLOSSARY) {if (length($eg) > $mxl) {$mxl = length($eg);}}
-  my %cons;
-  foreach my $eg (sort keys %EXPLICIT_GLOSSARY) {
-    my @txt;
-    foreach my $tg (sort keys %{$EXPLICIT_GLOSSARY{$eg}}) {
-      if ($tg eq 'Failed') {
-        my @contexts = sort keys %{$EXPLICIT_GLOSSARY{$eg}{$tg}{'context'}};
-        my $mlen = 0;
-        foreach my $c (@contexts) {
-          if (length($c) > $mlen) {$mlen = length($c);}
-          my $ctx = $c; $ctx =~ s/^\s+//; $ctx =~ s/\s+$//; $ctx =~ s/<index\/>.*$//;
-          $cons{lc($ctx)}++;
-        }
-        foreach my $c (@contexts) {$c = sprintf("%".($mlen+5)."s", $c);}
-        push(@txt, $tg." (".$EXPLICIT_GLOSSARY{$eg}{$tg}{'count'}.")\n".join("\n", @contexts)."\n");
-      }
-      else {
-        push(@txt, $tg." (".$EXPLICIT_GLOSSARY{$eg}{$tg}.")");
-      }
+  
+  my %explicits;
+  foreach my $h (@EXPLICIT_GLOSSARY) {
+    $explicits{'total'}++;
+    if ($h->{'success'}) {
+      $explicits{'total_links'}++;
+      $explicits{'linktext'}{$h->{'linktext'}}++;
     }
-    my $msg = join(", ", sort { ($a =~ /failed/i ? 0:1) <=> ($b =~ /failed/i ? 0:1) } @txt);
-    &Log(sprintf("%-".$mxl."s ".($msg !~ /failed/i ? "was linked to ":'')."%s", $eg, $msg) . "\n");
-  }
-  # Report each unique context ending for failures, since these may represent entries that are missing from the glossary
-  my %uniqueConEnd;
-  foreach my $c (sort keys %cons) {
-    my $toLastWord;
-    for (my $i=2; $i<=length($c) && $c !~ /^\s*$/; $i++) {
-      my $end = substr($c, -$i, $i);
-      my $keep = 1;
-      if (substr($end,0,1) =~ /\s/) {$toLastWord = substr($end, 1, length($end)-1);}
-      foreach my $c2 (sort keys %cons) {
-        if ($c2 eq $c) {next;}
-        if ($c2 =~ /\Q$end\E$/i) {$keep = 0; last;}
-      }
-      if ($keep) {
-        my $uce = $c;
-        if ($toLastWord) {$uce = $toLastWord;}
-        else {$uce =~ s/^.*\s//};
-        $uniqueConEnd{$uce}++; $i=length($c);
-      }
+    else {
+      $explicits{'total_fails'}++;
+      $explicits{'fails'}{$h->{'linktext'}}++;
     }
   }
+      
+  &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %{$explicits{'linktext'}}) . " variations)");
+  foreach my $linktext (sort { length($b) <=> length($a) } keys %{$explicits{'linktext'}}) {
+    &Log("$linktext\n");
+  }
+
   &Log("\n");
-  &Report("There were ".%uniqueConEnd." unique failed explicit entry contexts".(%uniqueConEnd ? ':':'.'));
-  foreach my $uce (sort { length($b) <=> length($a) } keys %uniqueConEnd) {&Log("$uce\n");}
+  &Report("There were ".(scalar keys %{$explicits{'fails'}})." unique failed explicit entry contexts:");
+  foreach my $context (sort { length($b) <=> length($a) } keys %{$explicits{'fails'}}) {
+    &Log("$context\n");
+  }
   
   my $nolink = "";
   my $numnolink = 0;
@@ -621,49 +911,59 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
 The following listing should be looked over to be sure text is
 correctly linked to the glossary. Glossary entries are matched in the
 text using the match elements found in the $DICTIONARY_WORDS file.\n");
+  &Report("Explicit indexes succesfully converted into glossary links: ".$explicits{'total_links'});
+  &Report("Removed explicit indexes due to glossary match failure: ".$explicits{'total_fails'});
   &Report("Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");
 }
 
 
-# This returns the context surrounding an index milestone, which is 
-# often necessary to determine the intended index target. Since this 
-# error is commonly seen for example when level1 should be "Ark of the 
-# Covenant": 
-# "This is some Bible text concerning the Ark of the Covenant<index level1="Covenant"/>"
-# The index alone does not result in the intended match, but using
-# context gives us an excellent chance of correcting this common mistake. 
-# The risk of unintentionally making a 'too-specific' match may exist, 
-# but this is unlikely and would probably not be incorrect anyway.
-sub getIndexContextString($) {
-  my $i = shift;
+# This returns the context surrounding an index milestone, which may 
+# be necessary to determine the intended index target. The following 
+# situation happens: "This is some Bible text concerning the Ark of 
+# the Covenant<index type="Glossary"/>". Looking up the preceding 
+# word results in the wrong match: 'Covenant', but using context 
+# gives the correct match: 'Ark of the Covenant'. 
+sub getIndexInfo($$) {
+  my $i = shift; # an index milestone element
+  my $quiet = shift;
   
-  my $cbefore = '';
-  my $tn = $i;
-  do {
-    $tn = @{$XPC->findnodes("(preceding-sibling::text()[1] | preceding-sibling::*[1][not(self::osis:title) and not(self::osis:p) and not(self::osis:div)]//text()[last()])[last()]", $tn)}[0];
-    if ($tn) {$cbefore = $tn->data.$cbefore;}
-    $cbefore =~ s/\s+/ /gs;
-    my $n =()= $cbefore =~ /\S+/g;
-  } while ($tn && $n < $MAX_MATCH_WORDS);
+  # Index markers must have a text node as their previous sibling.
+  my $prevtext = @{$XPC->findnodes('preceding-sibling::node()[1][self::text()]', $i)}[0];
+  if (!$prevtext) {
+    if (!$quiet) {
+      &Error(getNodeContext($i)." Index marker ".$i->toString()." has no preceding text node in:".$i->parentNode->toString);
+    }
+    return;
+  }
   
-  my $m = ($MAX_MATCH_WORDS-1);
-  $cbefore =~ s/^.*?(\S+(\s+\S+){1,$m})$/$1/;
+  my $lemma = &usfm3GetAttribute($i->getAttribute('level1'), 'lemma', 'lemma');
   
-  if (!$cbefore || $cbefore =~ /^\s*$/) {&Error("Could not determine context before $i");}
+  # If linktext is empty, it may be determined later.
+  my $linktext = ($i->hasAttribute('level1') ? $i->getAttribute('level1'):'');
+  $linktext =~ s/^([^\|]*)\|.*$/$1/; # may have USFM3 attributes that need to be removed
+  if (!$linktext || $linktext =~ /^\s*$/) {
+    $linktext = $lemma;
+  }
+  if (!$linktext || $linktext =~ /^\s*$/) {
+    $linktext = '';
+  }
   
-  my $cafter = '';
-  my $tn = $i;
-  do {
-    $tn = @{$XPC->findnodes("(following-sibling::text()[1] | following-sibling::*[1][not(self::osis:title) and not(self::osis:p) and not(self::osis:div)]//text()[1])[1]", $tn)}[0];
-    if ($tn) {$cafter .= $tn->data;}
-    $cafter =~ s/\s+/ /gs;
-    my $n =()= $cafter =~ /\S+/g;
-  } while ($tn && $n < $MAX_MATCH_WORDS);
+  if ($linktext && $prevtext->data !~ /\Q$linktext\E$/) {
+    if (!$quiet) {
+      &Error("Index marker preceding text node does not end with the link-text (".$prevtext->data." !~ /\Q$linktext\E\$/).");
+    }
+    return;
+  }
+    
+  my %info = (
+    'lemma'    => $lemma,
+    'linktext' => $linktext,
+    'precedingTextNode' => $prevtext,
+    'followingTextNode' => @{$XPC->findnodes('following-sibling::node()[1][self::text()]', $i)}[0]
+  );
   
-  my $m = ($MAX_MATCH_WORDS-1);
-  $cafter =~ s/^(\s*\S+(\s+\S+){1,$m}).*?$/$1/;
-  
-  return ":CXBEFORE:$cbefore:CXAFTER:$cafter";
+  #use Data::Dumper; &Log($i->toString()."\n".Dumper(\%info)."\n", 1);
+  return \%info;
 }
 
 sub getMultiplesKey($$\@) {
@@ -684,78 +984,6 @@ sub getRootID($) {
   return lc(&decodeOsisRef($osisID));
 }
 
-# Look for a single match $m in $$textP and set its start/end positions
-# if one is found. Returns 0 if a match was found; or else 1 if no 
-#  match was found, or 2 on error.
-sub glossaryMatch(\$$\$\$$) {
-  my $textP = shift;
-  my $m = shift;
-  my $isP = shift;
-  my $ieP = shift;
-  my $explicitContext = shift;
-  
-  my $index; my $cxbefore; my $cxafter;
-  if ($explicitContext =~ /^(.*?)\:CXBEFORE\:(.*?)\:CXAFTER\:(.*)$/) {$index = $1; $cxbefore = $2; $cxafter = $3;}
-  
-  my $p = $m->textContent;
-  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
-    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
-    &dbg("80\n");
-    return 2;
-  }
-  my $pm = $1; my $pf = $2;
-  
-  # handle PUNC_AS_LETTER word boundary matching issue
-  if ($PUNC_AS_LETTER) {
-    $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
-  }
-  
-  # handle xml decodes
-  $pm = decode_entities($pm);
-  
-  # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
-  my $t = ($explicitContext ? "$cxbefore$cxafter":$$textP);
-  my $i = $pf =~ s/i//;
-  $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
-  if ($i) {
-    $t = &uc2($t);
-  }
-  if ($pf =~ /(\w+)/) {
-    &Error("Regex flag \"$1\" not supported in \"".$m->textContent."\"", "Only Perl regex flags are supported.");
-  }
- 
-  # finally do the actual MATCHING...
-  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
-  if ($t !~ /$pm/) {return 1;}
-
-  $$isP = $-[$#+];
-  $$ieP = $+[$#+];
-  
-  # if a (?'link'...) named group 'link' exists, use it instead
-  if (defined($+{'link'})) {
-    my $i;
-    for ($i=0; $i <= $#+; $i++) {
-      if ($$i eq $+{'link'}) {last;}
-    }
-    $$isP = $-[$i];
-    $$ieP = $+[$i];
-  }
-  
-  if ($explicitContext && ($$isP > (length($cxbefore)-1) || (length($cxbefore)-1) > $$ieP)) {
-    &dbg("but match '".substr("$cxbefore$cxafter", $$isP, ($$ieP-$$isP))."' did not include the index '$index'\n");
-    if ($cxbefore !~ s/^\s*\S+//) {return 1;}
-    return &glossaryMatch($textP, $m, $isP, $ieP, "$index:CXBEFORE:$cxbefore:CXAFTER:$cxafter");
-  }
-  
-  if ($explicitContext) {
-    $$isP = length($$textP) - length($index);
-    $$ieP = length($$textP);
-  }
-  
-  &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, '".substr($$textP, $$isP, ($$ieP-$$isP))."'\n");
-  
-  return 0;
-}
 
 # Converts a comma separated list of Paratext references (which are 
 # supported by context and notContext attributes of DWF) and converts
@@ -985,6 +1213,26 @@ sub dbg($) {
   
   &Debug($p);
   return 1;
+}
+
+sub usfm3GetAttribute($$$) {
+  my $value = shift;
+  my $attribute = shift;
+  my $defaultAttribute = shift;
+  
+  if (!$attribute) {$attribute = $defaultAttribute;}
+  my $atl = $value;
+  if ($atl =~ s/^.*?\|//) {
+    my $aname = $defaultAttribute;
+    while ($atl =~ s/\s*([^\s='"]+)\s*=\s*["']([^"']*)["']//) {
+      $aname = $1;
+      $aval = $2;
+      if ($aname eq $attribute) {return $aval;}
+    }
+    return ($aname eq $attribute ? $atl:'');
+  }
+  
+  return '';
 }
 
 sub numAlphaSort(\%$$$) {

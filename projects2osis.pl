@@ -198,7 +198,7 @@ sub createOSIS($$) {
     return;
   }
   
-  &Log(sprintf("%13s SUCCESS: FINISHED with no errors.\n", $mod));
+  &Log(sprintf("%13s SUCCESS: FINISHED!\n", $mod));
 }
 
 # Return the output directory where the OSIS file will go. This may 

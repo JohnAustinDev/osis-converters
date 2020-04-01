@@ -329,13 +329,23 @@
     </choose>
   </function>
   
-  <!-- When a glossary has a TOC entry or main title, then get that title -->
+  <!-- Return the title of a glossary -->
   <function name="oc:getGlossaryTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
-    <value-of select="oc:titleCase(replace($glossary/(descendant::title[@type='main'][1] | descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n)[1], '^(\[[^\]]*\])+', ''))"/>
+    <choose>
+      <when test="$glossary/ancestor::osis[@isCombinedGlossary]">
+        <value-of select="oc:titleCase($uiDictionary)"/>
+      </when>
+      <otherwise>
+        <value-of select="oc:titleCase(replace(
+          $glossary/( descendant::title[@type='main'][1] | 
+                      descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n )[1], '^(\[[^\]]*\])+', ''))"/>
+      </otherwise>
+    </choose>
+    
   </function>
   
-  <!-- When a glossary has a scope which is the same as a Sub-Publication's scope, then get the localized title of that Sub-Publication -->
+  <!-- Return the sub-publication title matching a glossary's scope -->
   <function name="oc:getGlossaryScopeTitle" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <variable name ="pscope" select="replace($glossary/@scope, '\s', '_')"/>

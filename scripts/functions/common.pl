@@ -38,7 +38,6 @@ $LB = "<lb />";
 $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
 $FNREFEXT = "!note.n";
-$MAX_MATCH_WORDS = 3;
 $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
@@ -138,7 +137,8 @@ sub init_linux_script() {
   }
   
   if (!-e $CONFFILE) {
-    &Error("There is no config.conf file: \"$CONFFILE\".", "\"$INPD\" may not be an osis-converters project directory. If it is, then run update.pl to create a config.conf file.\n", 1);
+    &Error("There is no config.conf file: \"$CONFFILE\".", 
+    "\"$INPD\" may not be an osis-converters project directory. If it is, then run update.pl to create a config.conf file.\n", 1);
   }
   
   $MOD_OUTDIR = &getModuleOutputDir();
@@ -1755,119 +1755,12 @@ sub isValidVersification($) {
 }
 
 
-sub sortSearchTermKeys($$) {
-  my $aa = shift;
-  my $bb = shift;
-  
-  while ($aa =~ /["\s]+(<[^>]*>\s*)+$/) {$aa =~ s/["\s]+(<[^>]*>\s*)+$//;}
-  while ($bb =~ /["\s]+(<[^>]*>\s*)+$/) {$bb =~ s/["\s]+(<[^>]*>\s*)+$//;}
-  
-  length($bb) <=> length($aa)
-}
-
-
 sub changeNodeText($$) {
   my $node = shift;
   my $new = shift;
   foreach my $r ($node->childNodes()) {$r->unbindNode();}
   if ($new) {$node->appendText($new)};
 }
-
-
-sub usfm3GetAttribute($$$) {
-  my $value = shift;
-  my $attribute = shift;
-  my $default = shift;
-  
-  if (!$attribute) {$attribute = $default;}
-  
-  my $atl = $value;
-  if ($atl =~ s/^.*?\|//) {
-    my $aname = $default;
-    while ($atl =~ s/\s*([^\s="]+)\s*=\s*"([^"]*)"//) {
-      $aname = $1;
-      $aval = $2;
-      if ($aname eq $attribute) {return $aval;}
-    }
-    return ($aname eq $attribute ? $atl:'');
-  }
-  
-  return '';
-}
-
-
-sub convertExplicitGlossaryElements(\@) {
-  my $indexElementsP = shift;
-  
-  foreach my $index (@{$indexElementsP}) {
-    my $linktext = $index->getAttribute("level1");
-    my $entryname = ($linktext =~ s/\|.*$// ? &usfm3GetAttribute($index->getAttribute("level1"), 'lemma', 'lemma'):'');
-    my $cxstring = &getIndexContextString($index);
-    my $original = $index->parentNode->toString();
-    
-    my $result;
-    my @pt = $XPC->findnodes("preceding::text()[1]", $index);
-    if (@pt != 1 || @pt[0]->data !~ /\Q$linktext\E$/) {
-      &ErrorBug("Could not locate preceding text node for explicit glossary entry \"$index\" ($linktext !~ ".@pt[0]->data);
-      &recordExplicitGlossFail($index, $linktext, $cxstring);
-      next;
-    }
-    my $tn = @pt[0];
-    
-    # Check preceding text node
-    my $t = $tn->data;
-    if ($t !~ s/\Q$linktext\E$//) {
-      &ErrorBug("Index tag $index in ".$index->parentNode->toString()." is not preceded by '$linktext'.");
-      &recordExplicitGlossFail($index, $linktext, $cxstring);
-      next;
-    }
-    
-    if ($entryname) {
-      # Write reference
-      my $newRefElement = $XML_PARSER->parse_balanced_chunk(
-        '<reference osisRef="'.$DICTMOD.':'.&encodeOsisRef($entryname).'" type="x-gloss'.($MOD eq $DICTMOD ? 'link':'ary').'">'.$linktext.'</reference>'
-      );
-      $index->parentNode->insertBefore($newRefElement, $index);
-      $tn->setData($t);
-    }
-    else {
-      # Find and write the matching reference
-      my @tns; push(@tns, $tn);
-      &addDictionaryLinks(\@tns, "$linktext$cxstring", (@{$XPC->findnodes('ancestor::osis:div[@type="glossary"]', $tn)}[0] ? 1:0));
-    }
-    
-    # Check and record the reference
-    if ($original eq $index->parentNode->toString()) {
-      &recordExplicitGlossFail($index, $linktext, $cxstring);
-      next;
-    }
-    my $osisRef = @{$XPC->findnodes("preceding::reference[1]", $index)}[0]->getAttribute("osisRef");
-    $EXPLICIT_GLOSSARY{$linktext}{&decodeOsisRef($osisRef)}++;
-    
-    # Remove index element if successful
-    $index->parentNode->removeChild($index);
-  }
-}
-
-sub recordExplicitGlossFail($$$) {
-  my $index = shift;
-  my $level = shift;
-  my $cxstring = shift;
-  
-  my $str = $cxstring; $str =~ s/^(.*?)\:CXBEFORE\:(.*?)\:CXAFTER\:(.*)$/$2<index\/>$3/;
-
-  $EXPLICIT_GLOSSARY{$level}{"Failed"}{'count'}++;
-  $EXPLICIT_GLOSSARY{$level}{"Failed"}{'context'}{$str}++;
-  
-  &Error("Failed to convert explicit glossary index: $index", 
-"<>Add the proper entry to DictionaryWords.xml to match this text 
-and create a hyperlink to the correct glossary entry. If desired you can 
-use the attribute 'onlyExplicit' to match this term only where it is 
-explicitly marked in the text as a glossary index, and nowhere else. 
-Without the onlyExplicit attribute, you are able to hyperlink the term 
-everywhere it appears in the text.");
-}
-
 
 # Some of the following routines take either nodes or module names as inputs.
 # Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast

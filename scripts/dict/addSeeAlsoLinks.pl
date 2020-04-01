@@ -40,11 +40,14 @@ sub runAddSeeAlsoLinks($$) {
     my $xml = $XML_PARSER->parse_file($$osisP);
     
     # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-    my @glossary = $XPC->findnodes('.//osis:index[@index="Glossary"][@level1]', $xml);
-    &convertExplicitGlossaryElements(\@glossary);
+    my @glossary = $XPC->findnodes('.//osis:index[@index="Glossary"]', $xml);
+    &explicitGlossaryIndexes(\@glossary);
+    
     # must use local-name() = 'reference' here, because added references have no namespace
-    my @textNodes = $XPC->findnodes("//text()[normalize-space()][not(ancestor::*[local-name() = 'reference'])][not(ancestor::osis:header)]", $xml);
-    &addDictionaryLinks(\@textNodes, 0, 1);
+    foreach my $textNode (@{$XPC->findnodes("//text()[normalize-space()]
+      [not(ancestor::*[local-name() = 'reference'])][not(ancestor::osis:header)]", $xml)}) {
+      my $resAP = &searchForGlossaryLinks($textNode);
+    }
     
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
     &checkCircularEntryCandidates(\@keywords);

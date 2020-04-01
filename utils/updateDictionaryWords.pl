@@ -91,6 +91,16 @@ sub convertDWF($\@\%$) {
   close(DWORDS);
 }
 
+sub sortSearchTermKeys($$) {
+  my $aa = shift;
+  my $bb = shift;
+  
+  while ($aa =~ /["\s]+(<[^>]*>\s*)+$/) {$aa =~ s/["\s]+(<[^>]*>\s*)+$//;}
+  while ($bb =~ /["\s]+(<[^>]*>\s*)+$/) {$bb =~ s/["\s]+(<[^>]*>\s*)+$//;}
+  
+  length($bb) <=> length($aa)
+}
+
 sub getPattern($$) {
   my $p = shift;
   my $dict_bwcompat = shift;

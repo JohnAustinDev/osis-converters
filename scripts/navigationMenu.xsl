@@ -180,7 +180,8 @@
           </if>
           
           <osis:div osisID="uiDictionaryTopMenu" type="glossary" scope="NAVMENU" resp="x-oc">
-            <variable name="glossaryMenu" select="oc:glossaryMenu($sortedGlossary/descendant::div[@type='glossary'][1], true(), true(), false())"/>
+            <variable name="glossaryMenu" 
+              select="oc:glossaryMenu($sortedGlossary/descendant::div[@type='glossary'][1], true(), true(), false())"/>
             <apply-templates mode="glossmenu_navmenus" select="$glossaryMenu"/>
           </osis:div>
           <text>&#xa;</text>
