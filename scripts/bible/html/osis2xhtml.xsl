@@ -475,7 +475,7 @@
   <!-- preprocess_glossTocMenus -->
   <template mode="preprocess_glossTocMenus" match="div[@type='glossary']">
     <variable name="my_glossaryToc" as="xs:string"
-      select="if (count(distinct-values(descendant::seg[@type='keyword']/upper-case(oc:keySortLetter(text())))) = 1) then 'single' else 
+      select="if (count(distinct-values(descendant::seg[@type='keyword']/oc:keySortLetter(text()))) = 1) then 'single' else 
               if ( $glossaryToc = 'letter' or 
                    ($glossaryToc = 'AUTO' and 
                      count(descendant::div[starts-with(@type,'x-keyword')]) &#62;= $glossaryTocAutoThresh)
@@ -539,7 +539,7 @@
               (preceding::div | self::div)/descendant::seg[@type='keyword']/
                 (
                   if (ancestor::div[@subType='x-navmenu-atoz']) then string() 
-                  else upper-case(oc:keySortLetter(string()))
+                  else oc:keySortLetter(string())
                 )
             ))"/>
           </when>
@@ -1366,7 +1366,7 @@
         select="not($isMainNode) and 
                 ($SCRIPT_NAME = 'osis2ebooks') and 
                 (count($subentries[@type='keyword']) &#62;= xs:integer(number($glossThresh))) and 
-                (count(distinct-values($subentries[@type='keyword']/upper-case(oc:keySortLetter(text())))) &#62; 1)"/>
+                (count(distinct-values($subentries[@type='keyword']/oc:keySortLetter(text()))) &#62; 1)"/>
       <for-each select="$subentries">
         <if test="not( $onlyKeywordFirstLetter and  
                        boolean(self::seg[@type='keyword']) and 
@@ -1407,7 +1407,7 @@
                       <value-of select="text()"/>
                     </when>
                     <when test="$onlyKeywordFirstLetter and self::seg[@type='keyword']">
-                      <value-of select="upper-case(oc:keySortLetter(text()))"/>
+                      <value-of select="oc:keySortLetter(text())"/>
                     </when>
                     <when test="matches(text(), '^\-')"><value-of select="text()"/></when>
                     <otherwise>

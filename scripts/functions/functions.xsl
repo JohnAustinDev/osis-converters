@@ -192,8 +192,8 @@
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
       <otherwise>
         <value-of select="boolean(
-            upper-case(oc:keySortLetter(  $glossaryEntry/string())) = 
-            upper-case(oc:keySortLetter($previousKeyword/string()))
+            oc:keySortLetter(  $glossaryEntry/string()) = 
+            oc:keySortLetter($previousKeyword/string())
         )"/>
       </otherwise>
     </choose>
@@ -573,9 +573,9 @@
     to the A-Z menu) on it -->        
     <variable name="allEntriesTitle" 
       select="concat(
-              upper-case(oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][1])), 
+              oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][1]), 
               '-', 
-              upper-case(oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][last()])))"/>
+              oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][last()]))"/>
     
     <if test="$includeTopTocMenu">
       <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
@@ -592,7 +592,7 @@
         <text>&#xa;</text>
         <for-each select="$sortedGlossary//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
+            <variable name="letter" select="oc:keySortLetter(text())"/>
             <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}{$id}" 
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
@@ -635,7 +635,7 @@
     <variable name="letterMenus" as="element()*">
       <for-each select="$sortedGlossary//seg[@type='keyword']">
         <if test="oc:skipGlossaryEntry(.) = false()">
-          <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
+          <variable name="letter" select="oc:keySortLetter(text())"/>
           <osis:p>
             <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
               <value-of select="$letter"/>
