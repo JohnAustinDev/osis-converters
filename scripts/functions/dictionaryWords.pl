@@ -807,7 +807,7 @@ sub logDictLinks() {
   }
       
   &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %{$explicits{'linktext'}}) . " variations)");
-  foreach my $linktext (sort { length($b) <=> length($a) } keys %{$explicits{'linktext'}}) {
+  foreach my $linktext (sort keys %{$explicits{'linktext'}}) {
     &Log("$linktext\n");
   }
 
