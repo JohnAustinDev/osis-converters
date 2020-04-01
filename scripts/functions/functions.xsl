@@ -37,9 +37,9 @@
   used, the main introduction osisID will be in the dictionary module. -->
   <variable name="INT_feature" select="/descendant::*[@annotateType = 'x-feature'][@annotateRef = 'INT'][1]"/>
   <variable name="uiIntroduction" 
-    select="oc:sarg('uiIntroduction', /, concat('-- ', /osis/osisText/header/work[@osisWork = $MAINMOD]/title[1]))"/>
+    select="oc:sarg('uiIntroduction', /, /osis/osisText/header/work[@osisWork = $MAINMOD]/title[1])"/>
   <variable name="uiDictionary" select="if ($DICTMOD) then 
-            oc:sarg('uiDictionary', /, concat('- ', /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1])) else ''"/>
+            oc:sarg('uiDictionary', /, /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1]) else ''"/>
 
   <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
   <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction))"/>
