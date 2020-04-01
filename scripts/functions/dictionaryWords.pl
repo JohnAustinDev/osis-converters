@@ -254,7 +254,7 @@ sub explicitGlossaryIndexes(\@) {
   my @result;
   foreach my $indexElement (@{$indexElementsP}) {
     if (&usfm3GetAttribute($indexElement->getAttribute('level1'), 'lemma', 'lemma')) {
-      push(@result, @{&glossaryLink($indexElement)});
+      push(@result, &glossaryLink($indexElement));
     }
     else {
       push(@result, @{&searchForGlossaryLinks($indexElement)});
@@ -274,11 +274,11 @@ sub explicitGlossaryIndexes(\@) {
       if (!$report) {
         my $infoP = &getIndexInfo($r, 1);
         if ($infoP) {
-          $report = $infoP->{'precedingTextNode'}->data;
+          $report = $infoP->{'previousNode'}->data;
           $report =~ s/^.*?(.{32})$/>$1/s;
           $report .= "[*]";
-          if ($infoP->{'followingTextNode'}) {
-            my $cr = $infoP->{'followingTextNode'}->data;
+          if ($infoP->{'followingNode'}) {
+            my $cr = $infoP->{'followingNode'}->data;
             $cr =~ s/^(.{32}).*?$/$1</;
             $report .= $cr;
           }
@@ -326,8 +326,8 @@ sub glossaryLink($) {
     '<reference osisRef="'.$osisRef.'" type="'.($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary').'">'.$linktext.'</reference>'
   );
   $i->parentNode->insertBefore($newRefElement, $i);
-  my $ref = $i->precedingSibling;
-  $infoP->{'precedingTextNode'}->setData($t_new);
+  my $ref = $i->previousSibling;
+  $infoP->{'previousNode'}->setData($t_new);
   $i->parentNode->removeChild($i);
   
   return $ref;
@@ -425,12 +425,12 @@ sub searchGlossaryLinkAtIndex($\%) {
     $match = &searchText(\$context, $indexElement, $glossaryHP, (length($context)-1));
   }
   else {
-    $context = $infoP->{'precedingTextNode'}->data;
-    push(@unbindOnSuccess, $infoP->{'precedingTextNode'});
+    $context = $infoP->{'previousNode'}->data;
+    push(@unbindOnSuccess, $infoP->{'previousNode'});
     my $index = length($context)-1;
-    if ($bidir && $infoP->{'followingTextNode'}) {
-      $context .= $infoP->{'followingTextNode'}->data;
-      push(@unbindOnSuccess, $infoP->{'followingTextNode'});
+    if ($bidir && $infoP->{'followingNode'}) {
+      $context .= $infoP->{'followingNode'}->data;
+      push(@unbindOnSuccess, $infoP->{'followingNode'});
     }
     $match = &searchText(\$context, $indexElement, $glossaryHP, $index);
   }
@@ -450,9 +450,9 @@ sub searchGlossaryLinkAtIndex($\%) {
   # Fix up the text nodes surrounding the new reference
   foreach my $n (@unbindOnSuccess) {$n->unbindNode();}
   if ($removeOnSuccess) {
-    my $t = $infoP->{'precedingTextNode'}->data;
+    my $t = $infoP->{'previousNode'}->data;
     $t =~ s/\Q$removeOnSuccess\E$//;
-    $infoP->{'precedingTextNode'}->setData($t);
+    $infoP->{'previousNode'}->setData($t);
   }
   
   # Finally, sanity check that our textContent is unchanged
@@ -958,8 +958,8 @@ sub getIndexInfo($$) {
   my %info = (
     'lemma'    => $lemma,
     'linktext' => $linktext,
-    'precedingTextNode' => $prevtext,
-    'followingTextNode' => @{$XPC->findnodes('following-sibling::node()[1][self::text()]', $i)}[0]
+    'previousNode' => $prevtext,
+    'followingNode' => @{$XPC->findnodes('following-sibling::node()[1][self::text()]', $i)}[0]
   );
   
   #use Data::Dumper; &Log($i->toString()."\n".Dumper(\%info)."\n", 1);
@@ -1224,10 +1224,13 @@ sub usfm3GetAttribute($$$) {
   my $atl = $value;
   if ($atl =~ s/^.*?\|//) {
     my $aname = $defaultAttribute;
-    while ($atl =~ s/\s*([^\s='"]+)\s*=\s*["']([^"']*)["']//) {
+    while ($atl =~ s/\s*([^\s='"]+)\s*=\s*["']([^"']+)["']//) {
       $aname = $1;
       $aval = $2;
-      if ($aname eq $attribute) {return $aval;}
+      if ($aname eq $attribute) {
+        $aval =~ s/[\s\n]+/ /g;
+        return $aval;
+      }
     }
     return ($aname eq $attribute ? $atl:'');
   }
