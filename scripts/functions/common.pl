@@ -2906,10 +2906,15 @@ sub writeOsisIDs($) {
     &Note("Adding osisID ".$div->getAttribute('osisID'));
   }
   
-  # Add osisID's to TOC milestones as reference targets
+  # Add osisID's to TOC milestones so they can be used as reference targets
   foreach my $ms (@{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $xml)}) {
     # ! extension is to quickly differentiate from Scripture osisIDs for osis2xhtml.xsl
-    $ms->setAttribute('osisID', &encodeOsisRef($ms->getAttribute('n')).'!toc'); 
+    my $id; my $n = 1;
+    do {
+      $id = &encodeOsisRef($ms->getAttribute('n')).($n > 1 ? "_$n":'').'!toc';
+      $n++;
+    } while (@{$XPC->findnodes("//*[\@osisID='$id'][1]", $xml)}[0]);
+    $ms->setAttribute('osisID', $id); 
   }
   
   # Write these osisID changes before any further steps
