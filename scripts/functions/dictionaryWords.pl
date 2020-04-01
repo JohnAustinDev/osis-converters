@@ -422,12 +422,12 @@ sub searchGlossaryLinkAtIndex($\%) {
     # If we have linktext then only the linktext is searched, and the
     # preceding text node must end with the link text.
     $removeOnSuccess = $context;
-    $match = &searchText(\$context, $indexElement, $glossaryHP, (length($context)-1));
+    $match = &searchText(\$context, $indexElement, $glossaryHP, length($context));
   }
   else {
     $context = $infoP->{'previousNode'}->data;
     push(@unbindOnSuccess, $infoP->{'previousNode'});
-    my $index = length($context)-1;
+    my $index = length($context);
     if ($bidir && $infoP->{'followingNode'}) {
       $context .= $infoP->{'followingNode'}->data;
       push(@unbindOnSuccess, $infoP->{'followingNode'});
@@ -763,8 +763,8 @@ sub glossaryMatch(\$$\$\$$$) {
     $$ieP += $clip;
      
     # Order must be: isP, index, ieP with isP=index and ieP=index also 
-    # accepted. Also allow the index to be one less than ieP.
-    if ( !(($index - $$isP) >= 0 && ($$ieP - $index) >= -1) ) {
+    # accepted.
+    if ( !( ($index - $$isP) >= 0 && ($$ieP - $index) >= 0 ) ) {
       &dbg("but match '".substr($$textP, $$isP, ($$ieP-$$isP))."' did not include the index.\n");
       
       # This match did not include the index, but this match may still 
