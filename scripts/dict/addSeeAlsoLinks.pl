@@ -19,11 +19,8 @@
 sub runAddSeeAlsoLinks($$) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
   &Log("READING INPUT FILE: \"$$osisP\".\n");
-  &Log("WRITING OUTPUT FILE: \"$output\".\n");
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $DWF);
   
@@ -52,9 +49,9 @@ sub runAddSeeAlsoLinks($$) {
     my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
     &checkCircularEntryCandidates(\@keywords);
    
-    &writeXMLFile($xml, $output, $osisP);
+    &writeXMLFile($xml, $osisP);
     
-    if (my $resHP = &checkCircularEntries($output)) {
+    if (my $resHP = &checkCircularEntries($$osisP)) {
       my $dwfIsDefault = &isDictDWFDefault(); # check before changing
       my $dxml = $XML_PARSER->parse_file($DEFAULT_DICTIONARY_WORDS);
       foreach my $osisRef (sort keys %{$resHP}) {

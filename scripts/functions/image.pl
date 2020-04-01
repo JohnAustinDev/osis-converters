@@ -94,8 +94,7 @@ sub copyReferencedImages($$$) {
   &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
   
   if ($update) {
-    my $output = &temporaryFile($osis_or_tei);
-    &writeXMLFile($xml, $output, $osis_or_tei_orP);
+    &writeXMLFile($xml, $osis_or_tei_orP);
   }
   
   return scalar(keys(%copied));
@@ -114,7 +113,6 @@ sub addCoverImages($$) {
 
   my $coverWidth = 500;
   
-  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   my $mod = &getModNameOSIS($xml);
   my $updated;
@@ -193,7 +191,7 @@ on the same line");}
   
   if (&isFolderEmpty($imgdir)) {rmdir($imgdir);}
   
-  if ($updated) {&writeXMLFile($xml, $output, $osisP);}
+  if ($updated) {&writeXMLFile($xml, $osisP);}
 }
 
 

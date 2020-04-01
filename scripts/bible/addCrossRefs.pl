@@ -35,8 +35,6 @@
 #    correctReferencesVSYS() ).
 sub runAddCrossRefs($) {
   my $osisP = shift;
-  
-  my $output = &temporaryFile($$osisP);
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
@@ -248,8 +246,8 @@ other books are added to the translation.");
     &insertNote($note, \%{$verses{$placement}}, &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed});
   }
 
-  &Log("WRITING NEW OSIS FILE: \"$output\".\n");
-  &writeXMLFile($osis, $output, $osisP);
+  &writeXMLFile($osis, $osisP);
+  &Log("WRITING NEW OSIS FILE: \"$$osisP\".\n");
 
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);

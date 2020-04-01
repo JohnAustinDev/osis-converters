@@ -1351,24 +1351,32 @@ sub setConfValue($$$$) {
   return 1;
 }
 
-sub writeXMLFile($$$$) {
+# If $path_or_pointer is a path, $xml is written to it. If it is a 
+# pointer, then temporaryFile(pointed-to) will be written, and the 
+# pointer will be updated to that new path. If $levelup is given with
+# a pointer, the temporary file name will be taken from $levelup.
+sub writeXMLFile($$$) {
   my $xml = shift;
-  my $file = shift;
-  my $fileP = shift;
-  my $clean = shift;
+  my $path_or_pointer = shift;
+  my $levelup = shift; 
   
-  if (open(XML, ">$file")) {
-    $DOCUMENT_CACHE{$file} = '';
-    my $t = $xml->toString();
-    if ($clean) {$t =~ s/\n+/\n/g;}
-    print XML $t;
-    close(XML);
-    if ($fileP) {
-      if (ref($fileP)) {$$fileP = $file;}
-      else {&ErrorBug("File pointer is required, not a file: $fileP");}
-    }
+  if (!$levelup) {$levelup = 1;}
+  
+  my $output;
+  if (!ref($path_or_pointer)) {
+    $output = $path_or_pointer;
   }
-  else {&ErrorBug("Could not open XML file for writing: $file");}
+  else {
+    $output = &temporaryFile($$path_or_pointer, '', (1+$levelup));
+    $$path_or_pointer = $output;
+  }
+  
+  if (open(XML, ">$output")) {
+    $DOCUMENT_CACHE{$output} = '';
+    print XML $xml->toString();
+    close(XML);
+  }
+  else {&ErrorBug("Could not open XML file for writing: $output", 1);}
 }
 
 sub osis_converters($$$) {
@@ -1972,7 +1980,6 @@ sub adjustAnnotateRefs($) {
 
   &Log("\nChecking annotateRef targets in \"$$osisP\".\n");
   
-  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my $osisIDsP = &getVerseOsisIDs($xml);
@@ -1995,7 +2002,7 @@ correct to convert these to textual rather than hyperlink references.");
   }
 
   if ($update) {
-    &writeXMLFile($xml, $output, $osisP);
+    &writeXMLFile($xml, $osisP);
   }
 }
 
@@ -2143,7 +2150,6 @@ sub checkReferenceLinks($) {
 sub removeMissingOsisRefs($) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my @badrefs = $XPC->findnodes('//osis:reference[not(@osisRef)]', $xml);
@@ -2158,7 +2164,7 @@ sub removeMissingOsisRefs($) {
     $r->unbindNode();
   }
   
-  &writeXMLFile($xml, $output, $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 sub reportReferences(\%\%) {
@@ -2490,8 +2496,7 @@ sub runScript($$\%$) {
   }
   
   my $output = &temporaryFile($$inputP, $name);
-  my $fp = "$1$name"; my $fe = $3; my $n = 0;
-  while (-e $output) {$n++; $output = $fp.'_'.$n.$fe;}
+
   my $result;
   if ($ext eq 'xsl')   {$result = &runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
   elsif ($ext eq 'pl') {$result = &runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
@@ -2621,15 +2626,10 @@ sub writeOsisHeader($) {
   my $osis_or_osisP = shift;
   
   my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
-  my $osisP =(ref($osis_or_osisP) ? $osis_or_osisP:\$osis);
-  
-  my $output;
-  if (ref($osis_or_osisP)) {$output = &temporaryFile($$osisP);}
-  else {$output = $osis;}
   
   &Log("\nWriting work and companion work elements in OSIS header:\n");
   
-  my $xml = $XML_PARSER->parse_file($$osisP);
+  my $xml = $XML_PARSER->parse_file($osis);
   
   # Both osisIDWork and osisRefWork defaults are set to the current work.
   my @uds = ('osisRefWork', 'osisIDWork');
@@ -2654,7 +2654,7 @@ sub writeOsisHeader($) {
   &getOSIS_Work($MAINMOD, \%workElements, &searchForISBN($MAINMOD, ($MOD eq $MAINMOD ? $xml:'')));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($$osisP, &conf('Versification'));
+    $workElements{'190000:scope'}{'textContent'} = &getScope($osis, &conf('Versification'));
   }
   for (my $x=0; $x<@SUB_PUBLICATIONS; $x++) {
     my $n = 59000;
@@ -2672,7 +2672,7 @@ sub writeOsisHeader($) {
     $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   }
   
-  &writeXMLFile($xml, $output, (ref($osis_or_osisP) ? $osis_or_osisP:''));
+  &writeXMLFile($xml, $osis_or_osisP);
   
   return $header;
 }
@@ -2859,8 +2859,6 @@ sub getGlossaryTitle($) {
 sub writeOsisIDs($) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   my $type;
   if    (&conf('ModDrv') =~ /LD/)   {$type = 'x-glossary';}
   elsif (&conf('ModDrv') =~ /Text/) {$type = 'x-bible';}
@@ -2918,12 +2916,11 @@ sub writeOsisIDs($) {
   }
   
   # Write these osisID changes before any further steps
-  my $tmpf = &temporaryFile($$osisP);
-  &writeXMLFile($xml, $tmpf);
+  &writeXMLFile($xml, $osisP);
   
   # Get all notes (excluding generic cross-references added from an external source) and write osisIDs
   my %osisID_note;
-  my @splitosis = &splitOSIS($tmpf); # splitOSIS offers a massive speedup here!
+  my @splitosis = &splitOSIS($$osisP); # splitOSIS offers a massive speedup here!
   foreach my $sosis (@splitosis) {
     my $xml = $XML_PARSER->parse_file($sosis);
     foreach my $n ($XPC->findnodes('//osis:note[not(@resp)]', $xml)) {
@@ -2947,8 +2944,7 @@ sub writeOsisIDs($) {
     }
     &writeXMLFile($xml, $sosis);
   }
-  &joinOSIS(&temporaryFile($$osisP));
-  $$osisP = $output;
+  &joinOSIS($osisP);
 }
 
 sub oc_stringHash($) {
@@ -2970,8 +2966,6 @@ sub writeTOC($$) {
   my $osisP = shift;
   my $modType = shift;
 
-  my $output = &temporaryFile($$osisP);
-  
   &Log("\nChecking Table Of Content tags (these tags dictate the TOC of eBooks)...\n");
   
   my $toc = &conf('TOC');
@@ -3241,7 +3235,7 @@ the localized title to 'SKIP'.");
   elsif ($modType eq 'childrens_bible') {return;}
   
   
-  &writeXMLFile($xml, $output, $osisP, 1);
+  &writeXMLFile($xml, $osisP);
 }
 
 sub getScopeTitle($) {
@@ -3340,8 +3334,11 @@ sub splitOSIS($) {
   
   return @return;
 }
+
+# Join the OSIS file previously split by splitOSIS() and write it to
+# $path_or_pointer according to the same rules as writeXMLFile();
 sub joinOSIS($) {
-  my $out_osis = shift;
+  my $path_or_pointer = shift;
   
   my $tmp = "$TMPDIR/splitOSIS";
   if (!-e $tmp) {die "No splitOSIS tmp directory! \"$tmp\"\n";}
@@ -3380,14 +3377,12 @@ sub joinOSIS($) {
     $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
   }
   
-  &writeXMLFile($xml, $out_osis);
+  &writeXMLFile($xml, $path_or_pointer, 2);
 }
 
 
 sub writeMissingNoteOsisRefsFAST($) {
   my $osisP = shift;
-  
-  my $output = &temporaryFile($$osisP);
   
   &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
   
@@ -3401,8 +3396,7 @@ sub writeMissingNoteOsisRefsFAST($) {
     &writeXMLFile($xml, $file);
   }
   
-  &joinOSIS($output);
-  $$osisP = $output;
+  &joinOSIS($osisP);
   
   &Report("Wrote \"$count\" note osisRefs.");
 }
@@ -3469,8 +3463,6 @@ sub writeMissingNoteOsisRefs($) {
 sub removeDefaultWorkPrefixesFAST($) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n");
   
   my @files = &splitOSIS($$osisP);
@@ -3484,8 +3476,7 @@ sub removeDefaultWorkPrefixesFAST($) {
     &writeXMLFile($xml, $file);
   }
   
-  &joinOSIS($output);
-  $$osisP = $output;
+  &joinOSIS($osisP);
   
   &Report("Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.");
   &Report("Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.");
@@ -3526,12 +3517,14 @@ sub removeDefaultWorkPrefixes($\%) {
 # Take an input temporary file path and return the path of a new temp-
 # orary file in the same directory, which is sequentially numbered and 
 # does not already exist. 
-sub temporaryFile($$) {
+sub temporaryFile($$$) {
   my $path = shift;
   my $outname = shift;
+  my $levelup = shift;
   
   if (!$outname) {
-    $outname = (caller(1))[3]; 
+    $levelup = ($levelup ? $levelup:1);
+    $outname = (caller($levelup))[3]; 
     $outname =~ s/^.*\:{2}//;
   }
   
@@ -3556,6 +3549,10 @@ sub temporaryFile($$) {
   $n++;
   
   my $p = sprintf("%s/%02i_%s.%s", $dir, $n, $outname, $ext);
+  
+  if (-e $p) {
+    &ErrorBug("Output file already exists: $p", 1);
+  }
 
   return $p;
 }

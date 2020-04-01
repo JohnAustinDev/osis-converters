@@ -144,8 +144,7 @@ sub usePngIfAvailable($) {
     }
   }
   
-  my $output = $$osisP; $output =~ s/[^\/]+\.xml$/usePngIfAvailable.xml/;
-  &writeXMLFile($xml, $output, $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 # uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
@@ -167,8 +166,8 @@ sub upperCaseKeys($) {
     }
     $dr->setValue(join(' ', @new));
   }
-  my $output = &temporaryFile($$osis_or_teiP);
-  &writeXMLFile($xml, $output, $osis_or_teiP);
+
+  &writeXMLFile($xml, $osis_or_teiP);
 }
 
 sub dataPath2RealPath($) {

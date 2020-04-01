@@ -325,8 +325,6 @@ sub orderBooks($$$) {
   my $vsys = shift;
   my $maintainBookOrder = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   if (!$vsys) {$vsys = "KJV";}
 
   &Log("\nOrdering books of \"$$osisP\" by versification $vsys\n", 1);
@@ -403,13 +401,11 @@ sub orderBooks($$$) {
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
   foreach my $idDiv (reverse @idDivs) {$header->parentNode->insertAfter($idDiv, $header);}
   
-  &writeXMLFile($xml, $output, $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 sub applyVsysMissingVTagInstructions($) {
   my $osisP = shift;
-  
-  my $output = &temporaryFile($$osisP);
   
   my $update;
   foreach my $argsP (@VSYS_INSTR) {
@@ -427,15 +423,13 @@ sub applyVsysMissingVTagInstructions($) {
     }
   }
   
-  &writeXMLFile($xml, $output, $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 # Update an osis file's source and external (fixed) osisRefs to the 
 # fitted verse system.
 sub correctReferencesVSYS($) {
   my $osisP = shift;
-  
-  my $output = &temporaryFile($$osisP);
   
   my $in_bible = ($INPD eq $MAININPD ? $$osisP:&getModuleOsisFile($MAINMOD));
   if (! -e $in_bible) {
@@ -499,8 +493,8 @@ sub correctReferencesVSYS($) {
   
   my $count = &applyMaps($osisXML);
 
-  # Overwrite OSIS file if anything changed
-  if ($count) {&writeXMLFile($osisXML, $output, $osisP);}
+  # Write new OSIS file if anything changed
+  if ($count) {&writeXMLFile($osisXML, $osisP);}
   
   &Log("\n");
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
@@ -660,8 +654,6 @@ sub fitToVerseSystem($$) {
   my $osisP = shift;
   my $vsys = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   if (!$vsys) {$vsys = "KJV";}
 
   &Log("\nFitting OSIS \"$$osisP\" to versification $vsys\n", 1);
@@ -687,14 +679,16 @@ already been fitted so this step will be skipped!");
     foreach my $argsP (@VSYS_INSTR) {
       if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
     }
-    $xml = &writeReadXML($xml, $output);
+    &writeXMLFile($xml, $osisP);
+    $xml = $XML_PARSER->parse_file($$osisP);
+  
     foreach my $argsP (@VSYS_INSTR) {
       if ($argsP->{'inst'} eq 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
     }
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
     if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
-    $xml = &writeReadXML($xml, $output);
-    $$osisP = $output;
+    &writeXMLFile($xml, $osisP);
+    $xml = $XML_PARSER->parse_file($$osisP);
   }
   
   # Warn that these alternate verse tags in source could require further VSYS intructions
@@ -814,15 +808,6 @@ something like:
 VSYS_MOVED: $bkch.4 -> $bkch.3.PART\nAnother $fixes\n$fitToVerseSystemDoc");
   }
   else {&Error("Missing verse $bkch.$vs.", "A $fixes\n$fitToVerseSystemDoc");}
-}
-
-# Newly written elements may not have the right name-spaces until the file is re-read!
-sub writeReadXML($$) {
-  my $tree = shift;
-  my $file = shift;
-  
-  &writeXMLFile($tree, $file);
-  return $XML_PARSER->parse_file($file);
 }
 
 sub applyVsysInstruction(\%\%$) {

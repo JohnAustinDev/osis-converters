@@ -45,8 +45,7 @@ $GOBIBLE = "$INPD/GoBible";
 # Remove navigation menus
 $INXML = $XML_PARSER->parse_file($INOSIS);
 foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) {$e->unbindNode();}
-$output = &temporaryFile($INOSIS);
-&writeXMLFile($INXML, $output, \$INOSIS);
+&writeXMLFile($INXML, \$INOSIS);
 
 &runScript($MODULETOOLS_BIN."osis2gobible.xsl", \$INOSIS);
 

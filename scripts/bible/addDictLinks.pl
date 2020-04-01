@@ -19,11 +19,8 @@
 sub runAddDictLinks($$) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
   &Log("READING OSIS FILE: \"$$osisP\".\n");
-  &Log("WRITING OSIS FILE: \"$output\".\n");
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
@@ -35,8 +32,7 @@ sub runAddDictLinks($$) {
   
   my @files = &splitOSIS($$osisP);
   foreach my $file (@files) {&adlProcessFile($file);}
-  &joinOSIS($output);
-  $$osisP = $output;
+  &joinOSIS($osisP);
 
   &logDictLinks();
 }

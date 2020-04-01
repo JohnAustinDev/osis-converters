@@ -36,7 +36,7 @@ sub removeAggregateEntries($) {
   my @dels = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]', $xml);
   foreach my $del (@dels) {$del->unbindNode();}
   
-  &writeXMLFile($xml, &temporaryFile($$osisP), $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 1;

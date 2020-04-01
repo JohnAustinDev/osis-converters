@@ -69,8 +69,6 @@ sub placementMessage() {
 sub applyPeriphInstructions($) {
   my $osisP = shift;
   
-  my $output = &temporaryFile($$osisP);
-  
   &Log("\nApplying periph comments of \"$$osisP\"\n", 1);
 
   my $xml = $XML_PARSER->parse_file($$osisP);
@@ -234,7 +232,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
     }
   }
 
-  &writeXMLFile($xml, $output, $osisP);
+  &writeXMLFile($xml, $osisP);
 }
 
 sub findThisPeriph($$$) {

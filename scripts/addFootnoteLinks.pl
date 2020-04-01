@@ -67,8 +67,6 @@ sub runAddFootnoteLinks($$) {
   my $commandFile = shift;
   my $osisP = shift;
 
-  my $output = &temporaryFile($$osisP);
-
   &Log("\n--- ADDING FOOTNOTE LINKS\n-----------------------------------------------------\n\n", 1);
 
   # Globals
@@ -139,7 +137,6 @@ sub runAddFootnoteLinks($$) {
   else {&ErrorBug("Command file required: $commandFile; add a CF_addFootnoteLinks.txt file to the project directory.", 1);}
 
   &Log("READING INPUT FILE: \"$$osisP\".\n");
-  &Log("WRITING INPUT FILE: \"$output\".\n");
   &Log("\n");
   
   my $bibleOsis = (&conf('ModDrv') !~ /LD/ ? $$osisP:&getModuleOsisFile($MAINMOD));
@@ -206,8 +203,7 @@ DICT OSIS file again.");
   else {
     &ErrorBug("addFootnoteLinks: Not yet supporting refSystem \"$myRefSystem\"");
   }
-  &joinOSIS($output);
-  $$osisP = $output;
+  &joinOSIS($osisP);
 
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");

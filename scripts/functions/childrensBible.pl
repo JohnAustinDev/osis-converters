@@ -98,8 +98,7 @@ sub checkCBsection($$) {
 sub checkAdjustCBImages($$) {
   my $osisP = shift;
   my $checkOnly = shift;
-  
-  my $output = &temporaryFile($$osisP);
+
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   my $success = 1;
@@ -148,7 +147,7 @@ sub checkAdjustCBImages($$) {
     &Note("Added subType='x-letter-image' to letter.jpg");
   }
   
-  if (!$checkOnly) {&writeXMLFile($xml, $output, $osisP);}
+  if (!$checkOnly) {&writeXMLFile($xml, $osisP);}
   
   return $success;
 }
