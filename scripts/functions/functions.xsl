@@ -334,7 +334,7 @@
     <param name="glossary" as="element(div)"/>
     <choose>
       <when test="$glossary/ancestor::osis[@isCombinedGlossary]">
-        <value-of select="oc:titleCase($uiDictionary)"/>
+        <value-of select="$uiDictionary"/>
       </when>
       <otherwise>
         <value-of select="oc:titleCase(replace(
