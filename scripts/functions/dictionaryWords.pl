@@ -417,7 +417,8 @@ sub searchGlossaryLinkAtIndex($\%) {
   
   my $match;
   my $context;
-  if ($infoP->{'linktext'}) {
+  my $expcon = &conf('ARG_explicitContext'); # left, right or both
+  if (!$expcon && $infoP->{'linktext'}) {
     $context = $infoP->{'linktext'};
     # If we have linktext then only the linktext is searched, and the
     # preceding text node must end with the link text.
@@ -425,10 +426,14 @@ sub searchGlossaryLinkAtIndex($\%) {
     $match = &searchText(\$context, $indexElement, $glossaryHP, length($context));
   }
   else {
-    $context = $infoP->{'previousNode'}->data;
-    push(@unbindOnSuccess, $infoP->{'previousNode'});
+    if (!$expcon || $expcon =~ /^(left|both)$/) {
+      $context = $infoP->{'previousNode'}->data;
+      push(@unbindOnSuccess, $infoP->{'previousNode'});
+    }
     my $index = length($context);
-    if ($bidir && $infoP->{'followingNode'}) {
+    if ($infoP->{'followingNode'} && (
+        (!$expcon && $bidir) || 
+        $expcon =~ /^(right|both)$/)) {
       $context .= $infoP->{'followingNode'}->data;
       push(@unbindOnSuccess, $infoP->{'followingNode'});
     }
@@ -557,8 +562,7 @@ sub searchText(\$$\%\%) {
     my $notes;
     $OT_CONTEXTSP =  &getContextAttributeHash('OT');
     $NT_CONTEXTSP =  &getContextAttributeHash('NT');
-    my @ms = $XPC->findnodes('//dw:match', $DWF);
-    foreach my $m (@ms) {
+    foreach my $m ($XPC->findnodes('//dw:match', $DWF)) {
       my %minfo;
       $minfo{'node'} = $m;
       $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
@@ -586,7 +590,7 @@ sub searchText(\$$\%\%) {
         next;
       }
       my $test = "testme"; my $is; my $ie;
-      if (!defined(&glossaryMatch(\$test, $m, \$is, \$ie))) {next;}
+      if (!defined(&searchMatch($m, \$test, \$is, \$ie))) {next;}
       
       push(@MATCHES, \%minfo);
     }
@@ -654,7 +658,7 @@ sub searchText(\$$\%\%) {
     }
     
     my $is; my $ie;
-    if (!&glossaryMatch($textP, $m->{'node'}, \$is, \$ie, $index)) {
+    if (!&searchMatch($m->{'node'}, $textP, \$is, \$ie, $index)) {
       next;
     }
     if ($is == $ie) {
@@ -697,9 +701,9 @@ sub searchText(\$$\%\%) {
 # $index is passed, it will be used for matching, to restrict the 
 # search to include that particular index (and $itext is only used
 # by this function to iteratively perform the $index search).
-sub glossaryMatch(\$$\$\$$$) {
+sub searchMatch($\$\$\$$$) {
+  my $m = shift;         # the match element to search with
   my $textP = shift;     # pointer to text in which to search
-  my $m = shift;         # a match element
   my $isP = shift;       # will hold index of match start in text
   my $ieP = shift;       # will hold index of match end in text
   my $index = shift;     # index to include if link is explicitly marked
@@ -762,10 +766,13 @@ sub glossaryMatch(\$$\$\$$$) {
     $$isP += $clip;
     $$ieP += $clip;
      
-    # Order must be: isP, index, ieP with isP=index and ieP=index also 
-    # accepted.
-    if ( !( ($index - $$isP) >= 0 && ($$ieP - $index) >= 0 ) ) {
-      &dbg("but match '".substr($$textP, $$isP, ($$ieP-$$isP))."' did not include the index.\n");
+    # Order must be: isP, index, ieP with isP=index and ieP=index 
+    # inclusive. Sometimes punctuation or space appears between the 
+    # glossary term and the index element, so allow these chars 
+    # between ieP and our index.
+    my $ieAdj = $$ieP; while (substr($$textP, $ieAdj, 1) =~ /[\s\P{L}]/) {$ieAdj++;}
+    if ( !( ($index - $$isP) >= 0 && ($ieAdj - $index) >= 0 ) ) {
+      &dbg("but the match '".substr($$textP, $$isP, ($$ieP-$$isP))."' did not include the index $index\n");
       
       # This match did not include the index, but this match may still 
       # be the correct one, if it happens to match again later in the 
@@ -780,7 +787,7 @@ sub glossaryMatch(\$$\$\$$$) {
         return 0;
       }
       
-      return &glossaryMatch($textP, $m, $isP, $ieP, $index, $itext);
+      return &searchMatch($m, $textP, $isP, $ieP, $index, $itext);
     }
   }
   
@@ -793,7 +800,7 @@ sub glossaryMatch(\$$\$\$$$) {
 sub logDictLinks() {
   &Log("\n\n");
   
-  my %explicits;
+  my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0);
   foreach my $h (@EXPLICIT_GLOSSARY) {
     $explicits{'total'}++;
     if ($h->{'success'}) {
