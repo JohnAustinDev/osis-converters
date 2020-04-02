@@ -221,11 +221,52 @@ RUN:./INT.SFM");
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
-  &checkAndValidate($modType);
+  &runChecks($modType);
+  
+  copy($OSIS, $OUTOSIS); 
+  
+  &validateOSIS($OUTOSIS);
 }
 
 
-sub checkAndValidate($) {
+# This script expects a sfm2osis.pl produced OSIS input file
+sub reprocessOSIS($) {
+  my $modname = shift;
+  
+  if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
+
+  # Run user supplied preprocess.pl and/or preprocess.xsl if present
+  &runAnyUserScriptsAt("preprocess", \$OSIS);
+
+  my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bible':(&conf('ModDrv') =~ /Com/ ? 'commentary':'childrens_bible')));
+
+  &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
+
+  if ($modType eq 'dict' && $reorderGlossaryEntries) {
+    my %params = ('glossaryRegex' => $reorderGlossaryEntries);
+    &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
+  }
+
+  &checkVerseSystem($OSIS, &conf('Versification'));
+
+  # Add any cover images to the OSIS file
+  if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
+  
+  &runScript("$SCRD/scripts/whitespace.xsl", \$OSIS); 
+
+  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
+  &runAnyUserScriptsAt("postprocess", \$OSIS);
+
+  # Checks are done now, as late as possible in the flow
+  &runChecks($modType);
+  
+  copy($OSIS, $OUTOSIS);
+  
+  &validateOSIS($OUTOSIS);
+}
+
+
+sub runChecks($) {
   my $modType = shift;
   
   undef($DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
@@ -244,9 +285,6 @@ Bible module OSIS file, then run this dictionary module again.");
   &checkCharacters($OSIS);
   if ($DWF) {&checkDictionaryWordsContexts($OSIS, $DWF);}
   if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
-
-  copy($OSIS, $OUTOSIS); 
-  &validateOSIS($OUTOSIS);
 }
 
 
@@ -289,39 +327,6 @@ sub validateOSIS($) {
   
   &Log("\n");
   &Report("OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION");
-}
-
-
-# This script expects a sfm2osis.pl produced OSIS input file
-sub reprocessOSIS($) {
-  my $modname = shift;
-  
-  if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
-
-  # Run user supplied preprocess.pl and/or preprocess.xsl if present
-  &runAnyUserScriptsAt("preprocess", \$OSIS);
-
-  my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bible':(&conf('ModDrv') =~ /Com/ ? 'commentary':'childrens_bible')));
-
-  &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
-
-  if ($modType eq 'dict' && $reorderGlossaryEntries) {
-    my %params = ('glossaryRegex' => $reorderGlossaryEntries);
-    &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
-  }
-
-  &checkVerseSystem($OSIS, &conf('Versification'));
-
-  # Add any cover images to the OSIS file
-  if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
-  
-  &runScript("$SCRD/scripts/whitespace.xsl", \$OSIS); 
-
-  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
-  &runAnyUserScriptsAt("postprocess", \$OSIS);
-
-  # Checks are done now, as late as possible in the flow
-  &checkAndValidate($modType);
 }
 
 1;

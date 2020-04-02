@@ -591,7 +591,7 @@ sub isValidConfig($) {
               $s =~ s/_/ /g;
               foreach my $scope (@SUB_PUBLICATIONS) {if ($scope eq $s) {return 1;}}
               &Error("Unrecognized sub-publication in: $e", 
-                "The sub-publication listed between parentheses must have an sfm subdirectory associated with it.");
+                "The sub-publication listed between the brackets must have an sfm subdirectory associated with it.");
               return 0;
             }
             return 1;

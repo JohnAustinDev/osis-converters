@@ -110,57 +110,78 @@ sub getProjectInfo($) {
   closedir(DIR);
   
   my %info;
-  foreach my $sub (@subs) {
-    if ($sub =~ /^($SKIP)$/) {next;}
-    if ($sub =~ /^(defaults|utils|CB_Common|Cross_References)$/) {next;}
-    if ($sub =~ /^\./ || !-d "$pdir/$sub") {next;}
-    
-    my $dict = $sub.'DICT';
+  foreach my $proj (@subs) {
+    if ($proj =~ /^($SKIP)$/) {next;}
+    if ($proj =~ /^(defaults|utils|CB_Common|Cross_References)$/) {next;}
+    if ($proj =~ /^\./ || !-d "$pdir/$proj") {next;}
  
-    $info{$sub}{'dependencies'} = [];
-    
-    if (-e "$pdir/$sub/$dict") {
-      $info{$dict}{'dependencies'} = [];
-      push(@{$info{$dict}{'dependencies'}}, $sub);
-    }
+    $info{$proj}{'dependencies'} = [];
       
-    if (-e "$pdir/$sub/CF_osis2osis.txt") {
-      open(CF, "<:encoding(UTF-8)", "$pdir/$sub/CF_osis2osis.txt") || die;
+    if (-e "$pdir/$proj/CF_osis2osis.txt") {
+      open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") || die;
       while(<CF>) {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
-          my $d = $1;
-          push(@{$info{$sub}{'dependencies'}}, (split(/\s*,\s*/, $d)));
+          my $sourceProject = $1;
+          $info{$proj}{'updated'}++;
+          $info{$proj}{'osis2osis'} = $sourceProject;
+          push(@{$info{$proj}{'dependencies'}}, $sourceProject);
         }
       }
       close(CF);
-      if (@{$info{$sub}{'dependencies'}}) {
-        $info{$sub}{'updated'}++;
-        if (-e "$pdir/$sub/$dict") {
-          $info{$dict}{'updated'}++;
-        }
-      }
       next;
     }
-    elsif (!-e "$pdir/$sub/config.conf") {next;}
-    
-    open(CONF, "<:encoding(UTF-8)", "$pdir/$sub/config.conf") || die;
-    
-    my $section = $sub;
-    while(<CONF>) {
-      if ($_ =~ /^\[(.*?)\]\s*$/) {
-        $section = $1;
-        
-        # if config.conf has a [system] section, modules are considered updated
-        if ($section eq 'system' && !$info{$sub}{'updated'}) {
-          $info{$sub}{'updated'}++;
-          if (-e "$pdir/$sub/$dict") {$info{$dict}{'updated'}++;}
+    elsif (!-e "$pdir/$proj/config.conf") {next;}
+    else {
+      open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") || die;
+      my $section = $proj;
+      while(<CONF>) {
+        if ($_ =~ /^\[(.*?)\]\s*$/) {
+          $section = $1;
+          # If config.conf has a [system] section, its modules are 
+          # considered updated.
+          if ($section eq 'system' && !$info{$proj}{'updated'}) {
+            $info{$proj}{'updated'}++;
+          }
+        }
+        elsif ($_ =~ /^(\S+)\s*=\s*(.*?)\s*$/) {
+          $info{$proj}{"$section+$1"} = $2;
         }
       }
-      elsif ($_ =~ /^(\S+)\s*=\s*(.*?)\s*$/) {
-        $info{$sub}{"$section+$1"} = $2;
+      close(CONF);
+    }
+  }
+  
+  # Now add any Companion modules
+  foreach my $proj (keys %info) {
+    my $sourceProject = $info{$proj}{'osis2osis'};
+    my $sourceCompanion;
+    my $companion; 
+    if ($sourceProject) {
+      $sourceCompanion = $info{$sourceProject}{"$sourceProject+Companion"};
+      if ($sourceCompanion) {
+        $companion = $sourceCompanion; 
+        $companion =~ s/^$sourceProject/$proj/;
       }
     }
-    close(CONF);
+    else {
+      $companion = $info{$proj}{"$proj+Companion"};
+    }
+    
+    if ($companion) {
+      $info{$companion}{'dependencies'} = [];
+      push(@{$info{$companion}{'dependencies'}}, $proj);
+      
+      # If dependant on a project with a DICT, add that DICT as depen-
+      # dencies to proj and companion, plus add the source project as
+      # dependency to companion.
+      if ($sourceCompanion) {
+        push(@{$info{$proj}{'dependencies'}}, $sourceCompanion);
+        push(@{$info{$companion}{'dependencies'}}, $sourceCompanion);
+        push(@{$info{$companion}{'dependencies'}}, $sourceProject);
+      }
+      
+      $info{$companion}{'updated'} = $info{$proj}{'updated'};
+    }
   }
   
   return \%info;
