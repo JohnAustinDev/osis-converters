@@ -101,7 +101,6 @@ my %DONE :shared;
 my @STARTED :shared;
 my $WAIT = 3; 
 while (&working(\@STARTED, \%DONE) || @RUN) {
-print "NUM_THREADS=$NUM_THREADS, RUN=".@RUN.", &working(".@STARTED.", ".(scalar keys %DONE).")=".&working(\@STARTED, \%DONE)."\n";
   while ($NUM_THREADS < $MAXTHREADS && @RUN) {
     # Start another conversion, skipping over any conversion whose 
     # dependencies are not done.
@@ -126,11 +125,11 @@ print "NUM_THREADS=$NUM_THREADS, RUN=".@RUN.", &working(".@STARTED.", ".(scalar 
     }
     
     threads->create(sub {
-      print "NOTE: Starting ".$RUN[$x]."\n";
-      #&runScript($PRJDIR, $RUN[$x]);
+      print "Starting ".$RUN[$x]."\n";
+      &runScript($PRJDIR, $RUN[$x]);
       $NUM_THREADS--;
       $DONE{$RUN[$x]}++;
-      print "NOTE: Exiting ".$RUN[$x]."\n";
+      print "Exiting ".$RUN[$x]."\n";
     });
     
     $NUM_THREADS++;
@@ -274,7 +273,6 @@ sub getProjectInfo($) {
     $info{$proj}{'type'} = $type;
   }
   
-  
   return \%info;
 }
 
@@ -378,7 +376,7 @@ sub runScript($$) {
   
   my $cmd = "./$script.pl \"$path\"";
   
-  print sprintf("%13s started: %s \n", $mod, $cmd);
+  print "Started: $cmd\n";
   my $result = decode('utf8', `$cmd  2>&1`);
   
   my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
@@ -464,7 +462,7 @@ sub working(\@\%$) {
   }
   
   if ($now || !$WAIT) {
-    print "Working on project(s): ".join(', ', @working)."\n";
+    print "Working on: \n".join("\n", @working)."\n";
     $WAIT = 15; # 30 seconds at 2 second sleeps
   }
   
