@@ -116,7 +116,7 @@ sub init_linux_script() {
   # If appropriate, do either runCF_osis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis also creates input control files)
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /(osis2osis|sfm2all)/) {
     require("$SCRD/scripts/osis2osis.pl");
-    &runCF_osis2osis('preinit', $INPD);
+    &runCF_osis2osis('preinit');
   }
   elsif ($SCRIPT_NAME =~ /update/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
@@ -2259,7 +2259,7 @@ different USFM tag should be used instead.");
       if ($failed) {
         $errorsP->{$type}++;
         if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
-        else {&Error("$type $failed not found: ".$r->toString());}
+        else {&Error("$type osisRef not found: ".$r->toString());}
       }
     }
   }

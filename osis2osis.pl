@@ -30,19 +30,22 @@ require("$SCRD/scripts/osis2osis.pl");
 my $commandFile = "$MAININPD/CF_osis2osis.txt";
 if (! -e $commandFile) {&Error("Cannot run osis2osis.pl without a CF_osis2osis.txt command file located at: $MAININPD.", '', 1);}
 
-my $outmod = &runCF_osis2osis('postinit', $MAININPD);
-if ($outmod) {&ErrorBug("runCF_osis2osis failed to write OSIS file.", 1);}
+if (&runCF_osis2osis('postinit')) {
+  $OSIS = "$TMPDIR/$MOD/$MOD.xml"; # written by runCF_osis2osis() above
+  if (! -e &getModuleOutputDir($MOD)) {
+    &make_path(&getModuleOutputDir($MOD));
+  }
+  $OUTOSIS = &getModuleOsisFile($MOD, 'quiet');
+  &reprocessOSIS($MOD);
 
-$MOD = $outmod;
-$INPD = ($outmod =~ /DICT$/ ? $DICTINPD:$MAININPD);
-$OSIS = "$TMPDIR/$outmod/$outmod.xml"; # written by runCF_osis2osis() above
-if (! -e &getModuleOutputDir($outmod)) {&make_path(&getModuleOutputDir($outmod));}
-$OUTOSIS = &getModuleOsisFile($outmod, 'quiet');
-&reprocessOSIS($outmod);
-
-if ($NO_OUTPUT_DELETE) {
- # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
- # YOUR DEBUG CODE GOES HERE 
+  if ($NO_OUTPUT_DELETE) {
+   # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
+   # YOUR DEBUG CODE GOES HERE 
+  }
+}
+else {
+  &Warn("The osis2osis.pl script did not produce $MOD.", 
+  "If $MOD has a CF_usfm2osis.txt file, then sfm2osis.pl should be used instead of osis2osis.pl.");
 }
 
 &timer('stop');

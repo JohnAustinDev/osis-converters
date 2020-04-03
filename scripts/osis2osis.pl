@@ -19,20 +19,27 @@
 
 # usage: osis2osis.pl [Bible_Directory]
 
-sub runCF_osis2osis($$) {
-  $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
-  my $cfdir = shift;
+# This script is used to convert an OSIS file from one project to 
+# an OSIS file for another project, and usually involves trans-
+# literation from one script to another. It requires a CF_osis2osis.txt 
+# command file to direct the conversion. Unlike CF_sfm2osis.txt, which 
+# may appear both in MAININPD and DICTINPD, the CF_osis2osis.txt file 
+# may only appear in MAININPD, but all its commands may be directed to 
+# either MAINMOD or DICTMOD.
 
-  my $my_outmod;
+sub runCF_osis2osis($) {
+  $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
+  
+  my $outfile;
   
   if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
     &ErrorBug("runCF_osis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
     return;
   }
   
-  &Log("\n-----------------------------------------------------\nSTARTING runCF_osis2osis context=$O2O_CurrentContext, directory=$cfdir\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING runCF_osis2osis context=$O2O_CurrentContext, directory=$MAININPD\n\n");
 
-  my $commandFile = "$cfdir/CF_osis2osis.txt";
+  my $commandFile = "$MAININPD/CF_osis2osis.txt";
   if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
 
   # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
@@ -61,7 +68,7 @@ sub runCF_osis2osis($$) {
           $O2O_CurrentMode = $par;
           &Note("Setting conversion mode to $par");
           if ($par ne 'MODE_Copy') {
-            if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $cfdir);}
+            if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $MAININPD);}
             if (! -e $$par) {&Error("File does not exist: $$par", "Check the SET_$par command path."); next;}
             if ($par eq 'MODE_Transcode') {require($MODE_Transcode);}
           }
@@ -77,7 +84,7 @@ sub runCF_osis2osis($$) {
           }
           # osis2osis depends on sourceProject OSIS file, and also on it's sfm hierarchy, so copy that
           $sourceProjectPath = $$par;
-          if ($sourceProjectPath =~ /^\./) {$sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $cfdir);}
+          if ($sourceProjectPath =~ /^\./) {$sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $MAININPD);}
           else {$sourceProjectPath = "$MAININPD/../$$par";}
           if (! -d $sourceProjectPath) {
             &Error("sourceProject $sourceProjectPath does not exist.", "'SET_sourceProject:$$par' must be the name of, or path to, an existing project (not a DICT).", 1);
@@ -98,7 +105,7 @@ sub runCF_osis2osis($$) {
       $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
       foreach my $in (glob $inpath.$glob) {
         my $out = $in;
-        $out =~ s/\Q$sourceProjectPath\E\//$cfdir\//;
+        $out =~ s/\Q$sourceProjectPath\E\//$MAININPD\//;
         my $from = $sourceProject.'DICT'; my $to = $MAINMOD.'DICT';
         $out =~ s/\/$from\//\/$to\//g;
         &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
@@ -111,43 +118,43 @@ sub runCF_osis2osis($$) {
     }
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
+      my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
       if ($O2O_CurrentContext ne 'postinit') {next;}
       if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
-      if ($osis =~ /sourceProject/i) {$osis = $sourceProject;}
-      if ($osis =~ /\.xml$/i) {
-        if ($osis =~ /^\./) {$osis = File::Spec->rel2abs($osis, $cfdir);}
-      }
-      else {$osis = &getModuleOsisFile($osis, 'Error');}
+      my $src_osis = &getModuleOsisFile($sourceProject_osis, 'Error');
       
       # Since osis2osis.pl is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 
-      if ( ($MOD !~ /DICT$/ && $osis =~ /DICT\.xml$/) || 
-           ($MOD =~ /DICT$/ && $osis !~ /DICT\.xml$/) ) {
-        next;
+      if ($MOD ne $osis || $NO_OUTPUT_DELETE) {next;}
+      
+      if (! -e "$TMPDIR/$osis") {&make_path("$TMPDIR/$osis");}
+      
+      $outfile = "$TMPDIR/$osis/$osis.xml";
+      if (-e $outfile) {unlink($outfile);}
+      
+      &Note("CCOSIS processing mode $O2O_CurrentMode, $src_osis -> $outfile");
+      if (! -e $src_osis) {
+        &Error("Could not find OSIS file $src_osis", 
+        "You may need to specify OUTDIR in the [system] section of 
+        config.conf, or create the source project OSIS file(s).", 1);
       }   
       
-      my $outmod = $MAINMOD.($osis =~ /DICT\.xml$/ ? 'DICT':'');
-      if (! -e "$TMPDIR/$outmod") {&make_path("$TMPDIR/$outmod");}
-      my $outfile = "$TMPDIR/$outmod/$outmod.xml";
-      
-      if ($NO_OUTPUT_DELETE) {
-        $my_outmod = $outmod;
-        next;
+      if ($O2O_CurrentMode eq 'MODE_Copy') {
+        &copy($src_osis, $outfile);
       }
-      
-      &Note("CCOSIS processing mode $O2O_CurrentMode, $osis -> $oufile");
-      if (! -e $osis) {&Error("Could not find OSIS file $osis", "You may need to specify OUTDIR in the [system] section of config.conf, or create the source project OSIS file(s).", 1);}   
-      if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($osis, $outfile);}
-      elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$osis\" \"$outfile\"");}
-      else {&convertFileStrings($osis, $outfile);}
-      $my_outmod = $outmod;
+      elsif ($O2O_CurrentMode eq 'MODE_Script') {
+        &shell("\"$MODE_Script\" \"$src_osis\" \"$outfile\"");
+      }
+      else  {
+        &convertFileStrings($src_osis, $outfile);
+      }
     }
     else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
   }
   close(COMF);
   foreach my $par (@wipeGlobals) {$$par = '';}
   
-  return $my_outmod;
+  return (-e $outfile);
 }
 
 sub makeDirs($$) {

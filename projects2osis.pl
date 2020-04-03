@@ -44,14 +44,19 @@ foreach my $k (sort keys %{$INFO}) {
   else {push(@ignore, $k);}
 }
 
-&Log("Creating ".@projects." OSIS files:\n");
+&Log("Updating ".@projects." OSIS files:\n");
 foreach my $m (@projects) {
   my $deps = join(', ', @{$INFO->{$m}{'dependencies'}});
-  &Log(sprintf("%12s:%-16s %s\n", $m, $deps, &outdir($m)));
+  &Log(sprintf("%12s:%-30s %14s %s\n", 
+                $m, 
+                ($deps ? " (after $deps)":''), 
+                $INFO->{$m}{'script'}, 
+                &outdir($INFO, $m)
+  ));
 }
 &Log("\n");
 
-&Log("Ignoring ".@ignore." project directories:\n");
+&Log("Found ".@ignore." projects needing upgrade:\n");
 foreach my $m (@ignore) {&Log(sprintf("%12s\n", $m));}
 &Log("\n");
 
@@ -123,16 +128,21 @@ sub getProjectInfo($) {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
           my $sourceProject = $1;
           $info{$proj}{'updated'}++;
-          $info{$proj}{'osis2osis'} = $sourceProject;
+          $info{$proj}{'sourceProject'} = $sourceProject;
           push(@{$info{$proj}{'dependencies'}}, $sourceProject);
+        }
+        if ($_ =~ /^CCOSIS\:\s*(\S+)\s*$/) {
+          $info{$proj}{'CCOSIS'}{$1}++;
         }
       }
       close(CF);
+      $info{$proj}{'script'} = ($info{$proj}{'CCOSIS'}{$proj} ? 'osis2osis.pl':'sfm2osis.pl');
       next;
     }
     elsif (!-e "$pdir/$proj/config.conf") {next;}
     else {
       open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") || die;
+      $info{$proj}{'script'} = 'sfm2osis.pl';
       my $section = $proj;
       while(<CONF>) {
         if ($_ =~ /^\[(.*?)\]\s*$/) {
@@ -151,9 +161,9 @@ sub getProjectInfo($) {
     }
   }
   
-  # Now add any Companion modules
+  # Add any Companion modules
   foreach my $proj (keys %info) {
-    my $sourceProject = $info{$proj}{'osis2osis'};
+    my $sourceProject = $info{$proj}{'sourceProject'};
     my $sourceCompanion;
     my $companion; 
     if ($sourceProject) {
@@ -171,16 +181,24 @@ sub getProjectInfo($) {
       $info{$companion}{'dependencies'} = [];
       push(@{$info{$companion}{'dependencies'}}, $proj);
       
-      # If dependant on a project with a DICT, add that DICT as depen-
+      $info{$companion}{'script'} = 'sfm2osis.pl';
+      if ($info{$proj}{'CCOSIS'}{$companion}) {
+        $info{$companion}{'script'} = 'osis2osis.pl';
+      }
+      
+      # If dependent on a project with a DICT, add that DICT as depen-
       # dencies to proj and companion, plus add the source project as
       # dependency to companion.
       if ($sourceCompanion) {
         push(@{$info{$proj}{'dependencies'}}, $sourceCompanion);
         push(@{$info{$companion}{'dependencies'}}, $sourceCompanion);
         push(@{$info{$companion}{'dependencies'}}, $sourceProject);
+        $info{$companion}{'sourceProject'} = $sourceProject;
       }
       
-      $info{$companion}{'updated'} = $info{$proj}{'updated'};
+      if ($companion eq $proj.'DICT') {
+        $info{$proj.'DICT'}{'updated'} = $info{$proj}{'updated'};
+      }
     }
   }
   
@@ -210,7 +228,7 @@ sub createOSIS($$) {
   my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
 
   if ($errors) {
-    &Log(sprintf("%13s FAILED: FINISHED WITH %i ERROR(S) OUTDIR=%s\n", $mod, $errors, &outdir($mod)));
+    &Log(sprintf("%13s FAILED: FINISHED WITH %i ERROR(S)\n", $mod, $errors));
     my $inerr = 0;
     foreach my $line (split(/\n+/, $result)) {
       if ($line =~ /ERROR/) {&Log("$mod $line\n");}
@@ -222,14 +240,18 @@ sub createOSIS($$) {
   &Log(sprintf("%13s SUCCESS: FINISHED!\n", $mod));
 }
 
-# Return the output directory where the OSIS file will go. This may 
-# return the wrong directory for osis2osis.pl projects which use a 
-# bootstrap.pl script which creates a config.conf at run time.
-sub outdir($) {
+# Return the output directory where the OSIS file will go.
+sub outdir(\%$) {
+  my $infoP = shift;
   my $m = shift;
   
   my $p = $m; $p =~ s/DICT$//;
-  my $outdir = $INFO->{$p}{'system+OUTDIR'};
+  
+  my $outdir = $infoP->{$p}{'system+OUTDIR'};
+  if ($infoP->{$p}{'sourceProject'}) {
+    $outdir = $infoP->{$infoP->{$p}{'sourceProject'}}{'system+OUTDIR'};
+  }
+  
   $outdir = ($outdir ? $outdir:"$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."outdir");
   
   return $outdir;
