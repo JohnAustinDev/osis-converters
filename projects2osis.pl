@@ -17,14 +17,14 @@ if ($0 ne "./projects2osis.pl") {
 my $SKIP = "none";
 
 my $PRJDIR = shift;     # path to directory containing osis-converters projects
-my $maxthreads = shift; # optional max number of threads to use (default is number of CPUs)
+my $MAXTHREADS = shift; # optional max number of threads to use (default is number of CPUs)
 
-if (!$maxthreads) {
-  $maxthreads = `lscpu | egrep "^CPU\\(s\\)\\:"`;
-  $maxthreads =~ s/^.*?\s+(\d+)\s*$/$1/;
+if (!$MAXTHREADS) {
+  $MAXTHREADS = `lscpu | egrep "^CPU\\(s\\)\\:"`;
+  $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
 }
    
-if (!$PRJDIR || !-e "$PRJDIR" || !$maxthreads || $maxthreads != (1*$maxthreads)) {
+if (!$PRJDIR || !-e "$PRJDIR" || !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS)) {
   print "\nusage: projects2osis.pl projects_directory [max_threads]\n\n";
   exit;
 }
@@ -38,14 +38,18 @@ my $STARTTIME;
 
 my $INFO = &getProjectInfo($PRJDIR);
 
-my @projects; my @ignore;
+my @PROJECTS; my @IGNORE;
 foreach my $k (sort keys %{$INFO}) {
-  if ($INFO->{$k}{'updated'}) {push(@projects, $k);}
-  else {push(@ignore, $k);}
+  if ($INFO->{$k}{'updated'}) {
+    push(@PROJECTS, $k);
+  }
+  else {
+    push(@IGNORE, $k);
+  }
 }
 
-&Log("Updating ".@projects." OSIS files:\n");
-foreach my $m (@projects) {
+&Log("Updating ".@PROJECTS." OSIS files:\n");
+foreach my $m (@PROJECTS) {
   my $deps = join(', ', @{$INFO->{$m}{'dependencies'}});
   &Log(sprintf("%12s:%-30s %14s %s\n", 
                 $m, 
@@ -56,17 +60,17 @@ foreach my $m (@projects) {
 }
 &Log("\n");
 
-&Log("Found ".@ignore." projects needing upgrade:\n");
-foreach my $m (@ignore) {&Log(sprintf("%12s\n", $m));}
+&Log("Found ".@IGNORE." projects needing upgrade:\n");
+foreach my $m (@IGNORE) {&Log(sprintf("%12s\n", $m));}
 &Log("\n");
 
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
-my @started :shared;
-my $wait = 3; 
-while (&working(\@started, \%DONE) || @projects) {
+my @STARTED :shared;
+my $WAIT = 3; 
+while (&working(\@STARTED, \%DONE) || @PROJECTS) {
 
-  while ($NUM_THREADS < $maxthreads && @projects) {
+  while ($NUM_THREADS < $MAXTHREADS && @PROJECTS) {
     # Start another OSIS conversion, skipping over any 
     # project whose dependency OSIS file(s) are not done.
     my $x = -1;
@@ -74,26 +78,26 @@ while (&working(\@started, \%DONE) || @projects) {
     do {
       $x++;
       $ok = 1;
-      foreach my $d (@{$INFO->{$projects[$x]}{'dependencies'}}) {
+      foreach my $d (@{$INFO->{$PROJECTS[$x]}{'dependencies'}}) {
         if (!$DONE{$d}) {$ok = 0;}
       }
-    } while ($x < $#projects && !$ok);
+    } while ($x < $#PROJECTS && !$ok);
     
-    if (@{$INFO->{$projects[$x]}{'dependencies'}}) {
+    if (@{$INFO->{$PROJECTS[$x]}{'dependencies'}}) {
       if (!$ok) {last;}
-      &Log("NOTE: Dependencies of ".$projects[$x]." are done: ".
-      join(', ', @{$INFO->{$projects[$x]}{'dependencies'}})."\n");
+      &Log("NOTE: Dependencies of ".$PROJECTS[$x]." are done: ".
+      join(', ', @{$INFO->{$PROJECTS[$x]}{'dependencies'}})."\n");
     }
     
     threads->create(sub {
-      &createOSIS($PRJDIR, $projects[$x]);
+      &createOSIS($PRJDIR, $PROJECTS[$x], $INFO->{$PROJECTS[$x]}{'script'});
       $NUM_THREADS--;
-      $DONE{$projects[$x]}++; 
+      $DONE{$PROJECTS[$x]}++; 
     });
     
     $NUM_THREADS++;
-    push(@started, splice(@projects, $x, 1));
-    if (@projects) {print("There are ".@projects." projects left...\n");}
+    push(@STARTED, splice(@PROJECTS, $x, 1));
+    if (@PROJECTS) {print("There are ".@PROJECTS." projects left...\n");}
   }
 
   sleep(2);
@@ -106,7 +110,8 @@ foreach my $th (threads->list()) {$th->join();}
 ########################################################################
 ########################################################################
 
-# Fills a hash with information about all projects in pdir
+# Fills a hash with config.conf or CF_osis2osis.txt information for all 
+# projects in pdir
 sub getProjectInfo($) {
   my $pdir = shift;
   
@@ -122,11 +127,15 @@ sub getProjectInfo($) {
  
     $info{$proj}{'dependencies'} = [];
       
+    # Projects with a CF_osis2osis.txt file normally do not have their  
+    # own config.conf file.
     if (-e "$pdir/$proj/CF_osis2osis.txt") {
       open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") || die;
       while(<CF>) {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
           my $sourceProject = $1;
+          # If CF_osis2osis.txt has SET_sourceProject, its modules are
+          # considered updated and runnable.
           $info{$proj}{'updated'}++;
           $info{$proj}{'sourceProject'} = $sourceProject;
           push(@{$info{$proj}{'dependencies'}}, $sourceProject);
@@ -140,6 +149,7 @@ sub getProjectInfo($) {
       next;
     }
     elsif (!-e "$pdir/$proj/config.conf") {next;}
+    # Most projects have config.conf
     else {
       open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") || die;
       $info{$proj}{'script'} = 'sfm2osis.pl';
@@ -148,7 +158,7 @@ sub getProjectInfo($) {
         if ($_ =~ /^\[(.*?)\]\s*$/) {
           $section = $1;
           # If config.conf has a [system] section, its modules are 
-          # considered updated.
+          # considered updated and runnable.
           if ($section eq 'system' && !$info{$proj}{'updated'}) {
             $info{$proj}{'updated'}++;
           }
@@ -187,8 +197,8 @@ sub getProjectInfo($) {
       }
       
       # If dependent on a project with a DICT, add that DICT as depen-
-      # dencies to proj and companion, plus add the source project as
-      # dependency to companion.
+      # dencies for proj and companion, plus add the source project as
+      # dependency for companion (it already is a dependency for proj).
       if ($sourceCompanion) {
         push(@{$info{$proj}{'dependencies'}}, $sourceCompanion);
         push(@{$info{$companion}{'dependencies'}}, $sourceCompanion);
@@ -206,21 +216,16 @@ sub getProjectInfo($) {
 }
 
 # Run osis-converters on a module to create its OSIS file, and report.
-sub createOSIS($$) {
+sub createOSIS($$$) {
   my $pdir = shift;
   my $mod = shift;
+  my $script = shift;
   
   my $p = $mod;
   my $dict = ($p =~ s/DICT$// ? $p.'DICT':'');
   my $path = $pdir.'/'.$p.($dict ? '/'.$dict:'');
   
-  my $cmd;
-  if (-e "$path/CF_osis2osis.txt") {
-    $cmd = "./osis2osis.pl \"$path\"";
-  }
-  else {
-    $cmd = "./sfm2osis.pl \"$path\"";
-  }
+  my $cmd = "./$script \"$path\"";
   
   &Log(sprintf("%13s started: %s \n", $mod, $cmd));
   my $result = decode('utf8', `$cmd  2>&1`);
@@ -286,12 +291,12 @@ sub working(\@\%$) {
   my @working;
   foreach my $m (@{$startedAP}) {if (!$doneP->{$m}) {push(@working, $m);}}
   
-  if ($now || !$wait) {
+  if ($now || !$WAIT) {
     print "Working on project(s): ".join(', ', @working)."\n";
-    $wait = 15; # 30 seconds at 2 second sleeps
+    $WAIT = 15; # 30 seconds at 2 second sleeps
   }
   
-  $wait--;
+  $WAIT--;
   
   return scalar @working;
 }
