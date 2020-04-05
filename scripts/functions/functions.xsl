@@ -301,22 +301,6 @@
       <copy-of select="."/>
     </for-each>
   </function>
-  <!-- Since the 'i' flag does not work right on some Unicode chars (like ӏ) the
-  same casing needs to be applied to letters in regexes as was applied to the
-  source string upon which the search is being applied. -->
-  <function name="oc:glossaryCaseRE" as="xs:string">
-    <param name="regex" as="xs:string"/>
-    <variable name="result" as="xs:string">
-      <value-of>
-        <analyze-string select="$regex" regex="{'(\\?.)'}">
-          <matching-substring>
-            <value-of select="if (matches(., '\\.')) then . else oc:glossaryCase(.)"/>
-          </matching-substring>
-        </analyze-string>
-      </value-of>
-    </variable>
-    <value-of select="$result"/>
-  </function>
   <function name="oc:glossaryCase" as="xs:string">
     <param name="str" as="xs:string"/>
     <choose>
@@ -330,6 +314,24 @@
         <value-of select="upper-case($str)"/>
       </otherwise>
     </choose>
+  </function>
+  <!-- Same as oc:glossaryCase() except leaves characters preceded by '\' 
+  untouched. Since the 'i' flag does not work right on some high order 
+  Unicode chars (such as ӏ) the same casing needs to be applied to the
+  letters in regexes as was applied to the source string upon which 
+  the search is being applied. -->
+  <function name="oc:glossaryCaseRE" as="xs:string">
+    <param name="regex" as="xs:string"/>
+    <variable name="result" as="xs:string">
+      <value-of>
+        <analyze-string select="$regex" regex="{'(\\?.)'}">
+          <matching-substring>
+            <value-of select="if (matches(., '\\.')) then . else oc:glossaryCase(.)"/>
+          </matching-substring>
+        </analyze-string>
+      </value-of>
+    </variable>
+    <value-of select="$result"/>
   </function>
   
   <!-- Find the longest KeySort match at the beginning of a string, or else the first character if $KeySort not set. -->

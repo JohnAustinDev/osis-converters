@@ -69,26 +69,34 @@ my $STARTTIME;
 
 my $INFO = &getProjectInfo($PRJDIR);
 
-my @PROJECTS; my @IGNORE;
+my @MODULES; my @MODULE_IGNORES; my @MAINS; my @MAIN_IGNORES;
 foreach my $m (sort keys %{$INFO}) {
   if ($INFO->{$m}{'updated'}) {
-    push(@PROJECTS, $m);
+    push(@MODULES, $m);
+    if (&projHasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
+      next;
+    }
+    push(@MAINS, $m);
   }
   else {
-    push(@IGNORE, $m);
+    push(@MODULE_IGNORES, $m);
+    if (&projHasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
+      next;
+    }
+    push(@MAIN_IGNORES, $m);
   }
 }
 
 # Update config files with any global changes
-&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO);
+&updateConfigFiles(\@MODULES, \%CONFIG, $INFO);
 $INFO = &getProjectInfo($PRJDIR);
 
-my @RUN = &getScriptsToRun(\@PROJECTS, $SCRIPT, $INFO);
+my @RUN = &getScriptsToRun(\@MODULES, $SCRIPT, $INFO);
 
 my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO);
 
-&Log("Running ".@RUN." jobs on ".@PROJECTS." projects:\n");
-foreach my $m (@PROJECTS) {
+&Log("Running ".@RUN." jobs on ".@MAINS." projects (".@MODULES." modules):\n");
+foreach my $m (@MODULES) {
   foreach my $run (@RUN) {
     if ($run !~ /^(\S+)\s+$m$/) {next;}
     my $script = $1;
@@ -105,8 +113,8 @@ foreach my $m (@PROJECTS) {
 }
 &Log("\n");
 
-&Log("Found ".@IGNORE." projects needing upgrade:\n");
-foreach my $m (@IGNORE) {&Log(sprintf("%12s\n", $m));}
+&Log("Found ".@MAIN_IGNORES." projects needing upgrade (".@MODULE_IGNORES." modules):\n");
+foreach my $m (@MODULE_IGNORES) {&Log(sprintf("%12s\n", $m));}
 &Log("\n");
 
 # Now run all jobs until there is nothing left to do.
@@ -156,7 +164,7 @@ while (&working(\@STARTED, \%DONE) || @RUN) {
 print "No more projects to start and none are running!\n";
 foreach my $th (threads->list()) {$th->join();}
 
-&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO, 'restore');
+&updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
 
 &timer('stop');
 
