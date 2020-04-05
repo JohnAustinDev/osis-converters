@@ -8,6 +8,14 @@ use threads;
 use threads::shared;
 use DateTime;
 use Encode;
+use File::Copy;
+
+# Config values may be set here to be applied to the config.conf of 
+# every project run by this script.
+
+my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
+#$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
+#$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
 
 if ($0 ne "./projects.pl") {
   print "\nRun this script from the osis-converters directory.\n";
@@ -95,6 +103,9 @@ foreach my $m (@PROJECTS) {
 foreach my $m (@IGNORE) {&Log(sprintf("%12s\n", $m));}
 &Log("\n");
 
+# Update config files with any global changes
+&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO);
+
 # Now run all jobs until there is nothing left to do.
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
@@ -125,11 +136,11 @@ while (&working(\@STARTED, \%DONE) || @RUN) {
     }
     
     threads->create(sub {
-      print "Starting ".$RUN[$x]."\n";
+      print "Starting: ".$RUN[$x]."\n";
       &runScript($PRJDIR, $RUN[$x]);
       $NUM_THREADS--;
       $DONE{$RUN[$x]}++;
-      print "Exiting ".$RUN[$x]."\n";
+      print "Exiting: ".$RUN[$x]."\n";
     });
     
     $NUM_THREADS++;
@@ -141,6 +152,8 @@ while (&working(\@STARTED, \%DONE) || @RUN) {
 }
 print "No more projects to start and none are running!\n";
 foreach my $th (threads->list()) {$th->join();}
+
+&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO, 'restore');
 
 &timer('stop');
 
@@ -309,6 +322,11 @@ sub getScriptsToRun(\@\@$\%) {
         foreach my $ok (@{$typeAP}) {
           if ($scr ne $ok) {next;}
           my $s = ($scr eq 'osis' ? $infoP->{$m}{'osis_script'}:$scr);
+          if ($script eq 'sfm2all' && 
+              $infoP->{$infoP->{$m}{'config_project'}}{"$s+ARG_sfm2all_skip"} =~ /true/i) {
+            &Log("WARNING: Skipping '$s $m' because config.conf ARG_sfm2all_skip = true\n");
+            next;
+          }
           push(@run, "$s $m");
         }
       }
@@ -394,6 +412,62 @@ sub runScript($$) {
   &Log(sprintf("SUCCESS %s: FINISHED!\n", $mod));
 }
 
+sub updateConfigFiles(\@\%\%$) {
+  my $projAP = shift;
+  my $configHP = shift;
+  my $infoP = shift;
+  my $restore = shift;
+  
+  if (!$restore) {
+    foreach my $proj (@{$projAP}) {
+      if (!-e "$PRJDIR/$proj/config.conf") {next;}
+      
+      &move("$PRJDIR/$proj/config.conf", "$PRJDIR/$proj/config.conf.bak") or die "Move failed: $!";
+      open(INC, "<:encoding(UTF-8)", "$PRJDIR/$proj/config.conf.bak") or die "Could not read: $!";
+      open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$proj/config.conf") or die "Could not write: $!";
+      
+      my $section = $proj;
+      while(<INC>) {
+        if ($_ =~ /^\[([^\]]+)\]\s*$/) {
+          $section = $1;
+        }
+        elsif ($_ =~ /^([^#]\S*)\s*=\s*(.*?)\s*$/) {
+          my $e = $1; my $v = $2;
+          foreach my $sc (keys %{$configHP}) {
+            foreach my $ec (keys %{$configHP->{$sc}}) {
+              if (!($sc eq $section && $ec eq $e)) {next;}
+              $_ = '#'.$_;
+              &Log("Commenting $proj config.conf: $_");
+            }
+          }
+        }
+        print OUTC $_;
+      }
+      close(INC);
+      
+      print OUTC "\n";
+      foreach my $sc (keys %{$configHP}) {
+        foreach my $ec (keys %{$configHP->{$sc}}) {
+          my $l1 = "[$sc]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
+          &Log("Appending to $proj config.conf: $l1 $l2\n");
+          print OUTC "$l1\n$l2\n";
+        }
+      }
+      close(OUTC);
+      
+    }
+  }
+  else {
+    foreach my $proj (@{$projAP}) {
+      if (!-e "$PRJDIR/$proj/config.conf") {next;}
+      unlink("$PRJDIR/$proj/config.conf");
+      &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") or &Log("Move failed: $!\n");
+    }
+  }
+  &Log("\n");
+  
+}
+
 # Returns true if the module is or has a DICT companion
 sub projHasDICT($) {
   my $m = shift;
@@ -462,7 +536,7 @@ sub working(\@\%$) {
   }
   
   if ($now || !$WAIT) {
-    print "Working on: \n".join("\n", @working)."\n";
+    print "Working on: \n\t".join("\n\t", @working)."\n";
     $WAIT = 15; # 30 seconds at 2 second sleeps
   }
   

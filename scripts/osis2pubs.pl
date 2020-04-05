@@ -47,6 +47,10 @@ sub osis2pubs($) {
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') eq 'AUTO' ? 
                            ($convertTo eq 'eBook' ? 'true':''):
                            (&conf('CreateSeparateBooks') =~ /^false$/i ? '':&conf('CreateSeparateBooks')));
+  $CREATE_SEPARATE_PUBS = (&conf('CreateSeparatePUBS') eq 'AUTO' ? 
+                          ($convertTo =~ /(eBook|html)/ ? 'true':''):
+                          (&conf('CreateSeparatePubs') =~ /^false$/i ? '':&conf('CreateSeparatePubs')));
+                           
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
   $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):'');
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
@@ -73,15 +77,18 @@ sub osis2pubs($) {
     }
     
     # convert any sub publications that are part of the OSIS file
-    foreach my $scope (@SUB_PUBLICATIONS) {
-      my $pscope = $scope; $pscope =~ s/\s/_/g;
-      $PUB_TYPE = 'Full';
-      $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
-      foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
-      if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
-      $PUB_SUBDIR = $eBookSubDirs{$scope};
-      $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-      &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
+    if ($CREATE_SEPARATE_PUBS) {
+      foreach my $scope (@SUB_PUBLICATIONS) {
+        my $pscope = $scope; $pscope =~ s/\s/_/g;
+        if ($CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
+        $PUB_TYPE = 'Full';
+        $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
+        foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
+        if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
+        $PUB_SUBDIR = $eBookSubDirs{$scope};
+        $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
+        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
+      }
     }
 
     # convert each Bible book within the OSIS file

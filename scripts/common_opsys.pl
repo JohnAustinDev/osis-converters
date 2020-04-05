@@ -59,9 +59,9 @@ use File::Spec;
 @OC_CONFIGS = (
   'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
-  'CreateSeparateBooks', 'FullResourceURL', 'TranslationTitle',
-  'CombineGlossaries', 'CombinedGlossaryTitle', 'NewTestamentTitle', 
-  'OldTestamentTitle' 
+  'CreateSeparateBooks', 'CreateSeparatePubs', 'FullResourceURL', 
+  'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
+  'NewTestamentTitle', 'OldTestamentTitle' 
 );
 
 # Valid [system] section config entries (these end up as Perl global variables)
@@ -113,7 +113,8 @@ use File::Spec;
   'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
   'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
   'CreateFullBible' => 'AUTO',      'doc:CreateFullBible' => 'selects whether to create a single ePublication with everything in the OSIS file (true|false|AUTO)',
-  'CreateSeparateBooks' => 'AUTO',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true|false|AUTO|OSIS-book)',
+  'CreateSeparateBooks' => 'AUTO',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true|false|AUTO|<OSIS-book>)',
+  'CreateSeparatePubs' => 'AUTO',  'doc:CreateSeparatePubs' => 'selects whether to create separate outputs for each sub-publication within a translation (true|false|AUTO|<scope>)',
   'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
   'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
