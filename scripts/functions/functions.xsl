@@ -32,6 +32,9 @@
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
   
+  <!-- ARG_glossaryCase for sorting, letter headings, lists and paging. Can be lower-case, as-is, or upper-case -->
+  <variable name="glossaryCase" select="oc:sarg('glossaryCase', /, 'upper-case')"/>
+  
   <!-- All projects have an osisID for the main introduction, and if there is a reference OSIS file
   there will also be an osisID for the top of the reference material. NOTE: If the INT feature is 
   used, the main introduction osisID will be in the dictionary module. -->
@@ -137,25 +140,6 @@
     <sequence select="for $seq in (1 to count($nodes)) return $seq[$nodes[$seq] is $nodeToFind]"/>
   </function>
   
-  <function name="oc:uniregex" as="xs:string">
-    <param name="regex" as="xs:string"/>
-    <choose>
-      <when test="oc:unicode_Category_Regex_Support('')"><value-of select="replace($regex, '\{gc=', '{')"/></when>
-      <when test="oc:unicode_Category_Regex_Support('gc=')"><value-of select="$regex"/></when>
-      <otherwise>
-        <call-template name="ErrorBug">
-          <with-param name="msg">Your Java installation does not support Unicode character properties in regular expressions! This script will be aborted!</with-param>
-          <with-param name="die" select="'yes'"/>
-        </call-template>
-      </otherwise>
-    </choose>
-  </function>
-  <function name="oc:unicode_Category_Regex_Support" as="xs:boolean">
-    <param name="gc" as="xs:string?"/>
-    <variable name="unicodeLetters" select="'ᴴЦ'"/>
-    <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
-  </function>
-  
   <!-- xml:id must start with a letter or underscore, and can only 
   contain ASCII letters, digits, underscores, hyphens, and periods. -->
   <function name="oc:id" as="xs:string">
@@ -236,21 +220,26 @@
   </function>
   
   <!-- Sort $KeySort order with: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
+  <!-- NOTE: the 'i' matching flag does not work with all Unicode characters, so a different approach must be used: oc:glossaryCase(regex-letters) -->
   <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
+    <variable name="text2" select="oc:glossaryCase($text)"/>
     <if test="$KeySort and $text">
       <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
-      <variable name="text2" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+      <variable name="text3" select="if ($ignoreRegex) 
+        then replace($text2, $ignoreRegex, '') 
+        else $text2"/>
       <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
       <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
-      <variable name="keySortRegex" select="concat('(', string-join($orderedRegexes/@regex, '|'), ')')" as="xs:string"/>
+      <variable name="keySortRegex" as="xs:string" 
+        select="concat('(', string-join($orderedRegexes/oc:glossaryCaseRE(@regex), '|'), ')')"/>
       <variable name="result" as="xs:string">
         <value-of>
-        <analyze-string select="$text2" regex="{$keySortRegex}">
+        <analyze-string select="$text3" regex="{$keySortRegex}">
           <matching-substring>
             <variable name="subst" select="."/>
             <for-each select="$orderedRegexes">
-              <if test="matches($subst, concat('^', @regex, '$'))">
+              <if test="matches($subst, concat('^', oc:glossaryCaseRE(@regex), '$'))">
                 <value-of select="codepoints-to-string(xs:integer(number(@position) + 64))"/> <!-- 64 starts at character "A" -->
               </if>
             </for-each>
@@ -273,7 +262,7 @@
     </if>
     <if test="not($KeySort)">
       <call-template name="Warn"><with-param name="msg">keySort(): 'KeySort' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</with-param></call-template>
-      <value-of select="$text"/>
+      <value-of select="$text2"/>
     </if>
   </function>
   <function name="oc:encodeKS" as="xs:string">
@@ -287,8 +276,8 @@
   <function name="oc:keySortIgnore" as="xs:string">
     <variable name="ignores" as="xs:string*">
       <analyze-string select="oc:encodeKS($KeySort)" regex="{'\{([^\}]*)\}'}">
-        <matching-substring><sequence select="regex-group(1)"/></matching-substring>
-        </analyze-string>
+        <matching-substring><sequence select="oc:glossaryCaseRE(regex-group(1))"/></matching-substring>
+      </analyze-string>
     </variable>
     <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
   </function>
@@ -312,21 +301,74 @@
       <copy-of select="."/>
     </for-each>
   </function>
+  <!-- Since the 'i' flag does not work right on some Unicode chars (like ӏ) the
+  same casing needs to be applied to letters in regexes as was applied to the
+  source string upon which the search is being applied. -->
+  <function name="oc:glossaryCaseRE" as="xs:string">
+    <param name="regex" as="xs:string"/>
+    <variable name="result" as="xs:string">
+      <value-of>
+        <analyze-string select="$regex" regex="{'(\\?.)'}">
+          <matching-substring>
+            <value-of select="if (matches(., '\\.')) then . else oc:glossaryCase(.)"/>
+          </matching-substring>
+        </analyze-string>
+      </value-of>
+    </variable>
+    <value-of select="$result"/>
+  </function>
+  <function name="oc:glossaryCase" as="xs:string">
+    <param name="str" as="xs:string"/>
+    <choose>
+      <when test="$glossaryCase = 'as-is'">
+        <value-of select="$str"/>
+      </when>
+      <when test="$glossaryCase = 'lower-case'">
+        <value-of select="lower-case($str)"/>
+      </when>
+      <otherwise>
+        <value-of select="upper-case($str)"/>
+      </otherwise>
+    </choose>
+  </function>
   
   <!-- Find the longest KeySort match at the beginning of a string, or else the first character if $KeySort not set. -->
   <function name="oc:keySortLetter" as="xs:string">
     <param name="text" as="xs:string"/>
+    <variable name="text2" select="oc:glossaryCase($text)"/>
     <choose>
       <when test="$KeySort">
         <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
-        <variable name="text2" select="if ($ignoreRegex) then replace($text, $ignoreRegex, '') else $text"/>
+        <variable name="text3" select="if ($ignoreRegex) 
+          then replace($text2, $ignoreRegex, '') 
+          else $text2"/>
         <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
         <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
-        <variable name="keySortRegex" select="concat('(', string-join($orderedRegexes/@regex, '|'), ')')" as="xs:string"/>
-        <value-of select="replace($text2, concat('^', $keySortRegex, '.*?$'), '$1')"/>
+        <value-of select="replace( $text3, 
+                                   concat('^(', string-join($orderedRegexes/oc:glossaryCaseRE(@regex), '|'), ').*?$'), 
+                                   '$1')"/>
       </when>
-      <otherwise><value-of select="substring($text, 1, 1)"/></otherwise>
+      <otherwise><value-of select="substring($text2, 1, 1)"/></otherwise>
     </choose>
+  </function>
+  
+  <function name="oc:uniregex" as="xs:string">
+    <param name="regex" as="xs:string"/>
+    <choose>
+      <when test="oc:unicode_Category_Regex_Support('')"><value-of select="replace($regex, '\{gc=', '{')"/></when>
+      <when test="oc:unicode_Category_Regex_Support('gc=')"><value-of select="$regex"/></when>
+      <otherwise>
+        <call-template name="ErrorBug">
+          <with-param name="msg">Your Java installation does not support Unicode character properties in regular expressions! This script will be aborted!</with-param>
+          <with-param name="die" select="'yes'"/>
+        </call-template>
+      </otherwise>
+    </choose>
+  </function>
+  <function name="oc:unicode_Category_Regex_Support" as="xs:boolean">
+    <param name="gc" as="xs:string?"/>
+    <variable name="unicodeLetters" select="'ᴴЦ'"/>
+    <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
   </function>
   
   <!-- Return the title of a glossary -->

@@ -2503,12 +2503,12 @@ sub runScript($$\%$) {
   if ($ext eq 'xsl')   {$result = &runXSLT($script, $$inputP, $output, $paramsP, $logFlag);}
   elsif ($ext eq 'pl') {$result = &runPerl($script, $$inputP, $output, $paramsP, $logFlag);}
   else {
-    &ErrorBug("runScript: Unsupported script extension \"$script\"!");
+    &ErrorBug("runScript: Unsupported script extension \"$script\".\n$result", 1);
     return 0;
   }
   
   if (-z $output) {
-    &Error("runScript: Output file $output has 0 size.");
+    &ErrorBug("runScript: Output file $output has 0 size.\n$result", 1);
     return 0;
   }
   elsif ($overwrite) {&copy($output, $$inputP);}

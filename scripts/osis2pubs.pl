@@ -47,7 +47,7 @@ sub osis2pubs($) {
   $CREATE_SEPARATE_BOOKS = (&conf('CreateSeparateBooks') eq 'AUTO' ? 
                            ($convertTo eq 'eBook' ? 'true':''):
                            (&conf('CreateSeparateBooks') =~ /^false$/i ? '':&conf('CreateSeparateBooks')));
-  $CREATE_SEPARATE_PUBS = (&conf('CreateSeparatePUBS') eq 'AUTO' ? 
+  $CREATE_SEPARATE_PUBS = (&conf('CreateSeparatePubs') eq 'AUTO' ? 
                           ($convertTo =~ /(eBook|html)/ ? 'true':''):
                           (&conf('CreateSeparatePubs') =~ /^false$/i ? '':&conf('CreateSeparatePubs')));
                            
