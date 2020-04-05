@@ -187,6 +187,11 @@ sub getProjectInfo($) {
     if ($proj =~ /^\./ || !-d "$pdir/$proj") {next;}
  
     $info{$proj}{'osis_deps'} = [];
+    
+    # sourceProject is osis2osis source project, or empty 
+    # if there is none.
+    # configProject the the MAIN module of a project or the 
+    # MAIN module of the sourceProject if there is one.
       
     # Projects with a CF_osis2osis.txt file normally do not have their  
     # own config.conf file. So some of their info will later be taken
@@ -200,7 +205,7 @@ sub getProjectInfo($) {
           # considered updated and runnable.
           $info{$proj}{'updated'}++;
           $info{$proj}{'sourceProject'} = $sourceProject;
-          $info{$proj}{'config_project'} = $sourceProject;
+          $info{$proj}{'configProject'} = $sourceProject;
           push(@{$info{$proj}{'osis_deps'}}, $sourceProject);
         }
         if ($_ =~ /^CCOSIS\:\s*(\S+)\s*$/) {
@@ -216,7 +221,7 @@ sub getProjectInfo($) {
     else {
       open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") || die;
       $info{$proj}{'osis_script'} = 'sfm2osis';
-      $info{$proj}{'config_project'} = $proj;
+      $info{$proj}{'configProject'} = $proj;
       my $section = $proj;
       while(<CONF>) {
         if ($_ =~ /^\[(.*?)\]\s*$/) {
@@ -235,59 +240,51 @@ sub getProjectInfo($) {
     }
   }
   
-  # Create any Companion modules
+  # Create info for any sub modules
   foreach my $proj (keys %info) {
-    my $sourceProject = $info{$proj}{'sourceProject'};
-    my $sourceCompanion;
-    my $companion; 
-    if ($sourceProject) {
-      $sourceCompanion = $info{$sourceProject}{"$sourceProject+Companion"};
-      if ($sourceCompanion) {
-        $companion = $sourceCompanion; 
-        $companion =~ s/^$sourceProject/$proj/;
-      }
-    }
-    else {
-      $companion = $info{$proj}{"$proj+Companion"};
-    }
-    if (!$companion) {next;}
+    # Only updated projects are considered
+    if (!$info{$proj}{'updated'}) {next;}
     
-    $info{$companion}{'config_project'} = ($sourceProject ? $sourceProject:$proj);
+    # If this project has a sourceProject, we must the use sourceProject conf
+    my $sproj = ($info{$proj}{'sourceProject'} ? $info{$proj}{'sourceProject'}:$proj);
     
-    # Create companion module and info
-    if ($sourceProject) {
-      $info{$companion}{'sourceProject'} = $sourceProject;
+    # If it doesnt have a sub-module which follows all the rules, ignore it.
+    if ($info{$sproj}{$sproj."DICT+ModDrv"} !~ /LD/) {next;}
+    
+    $info{$proj}{'hasDICT'}++;
+    $info{$proj.'DICT'}{'hasDICT'}++;
+    
+    $info{$proj.'DICT'}{'updated'}++;
+    $info{$proj.'DICT'}{'configProject'} = $proj;
+    
+    if ($info{$proj}{'sourceProject'}) {
+      $info{$proj.'DICT'}{'sourceProject'} = $info{$proj}{'sourceProject'};
     }
     
-    # Only DICT companions are considered 'updated' and are the only
-    # companions which are OSIS dependencies for other OSIS files.
-    if ($companion eq $proj.'DICT') {
-      $info{$proj.'DICT'}{'updated'} = $info{$proj}{'updated'};
-      push(@{$info{$companion}{'osis_deps'}}, $proj);
+    $info{$proj.'DICT'}{'osis_script'} = 'sfm2osis';
+    if ($info{$proj}{'CCOSIS'}{$proj.'DICT'}) {
+      $info{$proj.'DICT'}{'osis_script'} = 'osis2osis';
     }
     
-    $info{$companion}{'osis_script'} = 'sfm2osis';
-    if ($info{$proj}{'CCOSIS'}{$companion}) {
-      $info{$companion}{'osis_script'} = 'osis2osis';
-    }
+    push(@{$info{$proj.'DICT'}{'osis_deps'}}, $proj);
     
-    if ($sourceCompanion) {
+    if ($proj ne $sproj) {
       # If dependent on a project with a DICT, add that DICT as depen-
       # dencies for proj and companion, plus add the source project as
       # dependency for companion (it already is a dependency for proj).
-      push(@{$info{$proj}{'osis_deps'}}, $sourceCompanion);
-      push(@{$info{$companion}{'osis_deps'}}, $sourceCompanion);
-      push(@{$info{$companion}{'osis_deps'}}, $sourceProject);
+      push(@{$info{$proj}{'osis_deps'}}, $sproj.'DICT');
+      push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj.'DICT');
+      push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj);
     }
   }
   
   # Add module type
   foreach my $proj (keys %info) {
     if (!$info{$proj}{'updated'}) {next;}
-    my $confProjModName = $info{$proj}{'config_project'};
-    if ($proj =~ /DICT$/) {$confProjModName .= 'DICT';}
+    my $c2proj = $info{$proj}{'configProject'};
+    if ($proj =~ /DICT$/) {$c2proj .= 'DICT';}
     
-    my $moddrv = $info{$info{$proj}{'config_project'}}{"$confProjModName+ModDrv"};
+    my $moddrv = $info{$info{$proj}{'configProject'}}{"$c2proj+ModDrv"};
     
     my $type = 'bible';
     if ($moddrv =~ /LD/i) {$type = 'dict';}
@@ -334,7 +331,7 @@ sub getScriptsToRun(\@\@$\%) {
           if ($scr ne $ok) {next;}
           my $s = ($scr eq 'osis' ? $infoP->{$m}{'osis_script'}:$scr);
           if ($script eq 'sfm2all' && 
-              $infoP->{$infoP->{$m}{'config_project'}}{"$s+ARG_sfm2all_skip"} =~ /true/i) {
+              $infoP->{$infoP->{$m}{'configProject'}}{"$s+ARG_sfm2all_skip"} =~ /true/i) {
             &Log("WARNING: Skipping '$s $m' because config.conf ARG_sfm2all_skip = true\n");
             next;
           }
@@ -383,7 +380,7 @@ sub setDependencies(\%\@$\%) {
       
       # If there is a DICT companion, both main and dict are 
       # dependencies.
-      my $companion = $infoP->{$infoP->{$m}{'config_project'}}{"$m+Companion"};
+      my $companion = $infoP->{$infoP->{$m}{'configProject'}}{"$m+Companion"};
       if ($companion && &projHasDICT($m)) {
         push(@{$depsHP->{$r}}, $infoP->{$companion}{'osis_script'}." $companion");
       }
@@ -482,20 +479,8 @@ sub updateConfigFiles(\@\%\%$) {
 # Returns true if the module is or has a DICT companion
 sub projHasDICT($) {
   my $m = shift;
-  my $conf = $INFO->{$m}{'config_project'};
-  my $comp = $INFO->{$conf}{"$conf+Companion"};
-  if (!$comp) {
-    return 0;
-  }
-  elsif (!$INFO->{$comp}{'type'}) {
-    my $msg = "WARNING: $comp has no type.\n";
-    if (!$PRINTED{$msg}) {print "$msg";}
-    $PRINTED{$msg}++;
-    return 0;
-  }
-  else {
-    return ($INFO->{$comp}{'type'} eq 'dict' ? 1:0);
-  }
+  
+  return $INFO->{$INFO->{$m}{'configProject'}}{'hasDICT'};
 }
 
 # Return the output directory where the OSIS file will go.
