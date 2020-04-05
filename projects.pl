@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Create a new OSIS file for every project, as quickly as possible
+# Run specified conversions for every project, as quickly as possible
 
 use strict;
 use warnings;
@@ -16,6 +16,9 @@ use File::Copy;
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
 #$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
+#$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 
 if ($0 ne "./projects.pl") {
   print "\nRun this script from the osis-converters directory.\n";
@@ -44,16 +47,15 @@ if (!$PRJDIR || !-e "$PRJDIR" || !$SCRIPT || !$MAXTHREADS || $MAXTHREADS != (1*$
   print "
 usage: projects.pl projects_directory [script] [max_threads]
 
-where:
-projects_directory - The relative path from this script's directory to 
-                     a directory containing osis-converters projects.
-script             - The conversion(s) to run on each project. Default 
-                     is osis (which will run sfm2osis or osis2osis 
-                     depending on the project). The other options are 
-                     osis2sword, osis2html, osis2ebooks, osis2GoBible, 
-                     osis2all and sfm2all.
-max_threads        - The number of threads to use. Default is the number 
-                     of CPUs.
+projects_directory: The relative path from this script's directory to 
+                    a directory containing osis-converters projects.
+script            : The conversion(s) to run on each project. Default 
+                    is osis (which will run sfm2osis or osis2osis 
+                    depending on the project). The other options are 
+                    osis2sword, osis2html, osis2ebooks, osis2GoBible, 
+                    osis2all and sfm2all.
+max_threads       : The number of threads to use. Default is the number 
+                    of CPUs.
 ";
   exit;
 }
@@ -76,6 +78,10 @@ foreach my $m (sort keys %{$INFO}) {
     push(@IGNORE, $m);
   }
 }
+
+# Update config files with any global changes
+&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO);
+$INFO = &getProjectInfo($PRJDIR);
 
 my @RUN = &getScriptsToRun(\@PROJECTS, $SCRIPT, $INFO);
 
@@ -102,9 +108,6 @@ foreach my $m (@PROJECTS) {
 &Log("Found ".@IGNORE." projects needing upgrade:\n");
 foreach my $m (@IGNORE) {&Log(sprintf("%12s\n", $m));}
 &Log("\n");
-
-# Update config files with any global changes
-&updateConfigFiles(\@PROJECTS, \%CONFIG, $INFO);
 
 # Now run all jobs until there is nothing left to do.
 my $NUM_THREADS :shared = 0;
@@ -400,7 +403,7 @@ sub runScript($$) {
   my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
 
   if ($errors) {
-    &Log(sprintf("FAILED %s: FINISHED WITH %i ERROR(S)\n", $mod, $errors));
+    &Log(sprintf("FAILED %s: FINISHED WITH %i ERROR(S)\n", $run, $errors));
     my $inerr = 0;
     foreach my $line (split(/\n+/, $result)) {
       if ($line =~ /ERROR/) {&Log("$mod $line\n");}
@@ -409,7 +412,7 @@ sub runScript($$) {
     return;
   }
   
-  &Log(sprintf("SUCCESS %s: FINISHED!\n", $mod));
+  &Log(sprintf("SUCCESS %s: FINISHED!\n", $run));
 }
 
 sub updateConfigFiles(\@\%\%$) {
