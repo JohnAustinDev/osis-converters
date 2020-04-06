@@ -223,8 +223,8 @@
   <!-- NOTE: the 'i' matching flag does not work with all Unicode characters, so a different approach must be used: oc:glossaryCase(regex-letters) -->
   <function name="oc:keySort" as="xs:string?">
     <param name="text" as="xs:string?"/>
-    <variable name="text2" select="oc:glossaryCase($text)"/>
     <if test="$KeySort and $text">
+      <variable name="text2" select="oc:glossaryCase($text)"/>
       <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
       <variable name="text3" select="if ($ignoreRegex) 
         then replace($text2, $ignoreRegex, '') 
@@ -262,7 +262,7 @@
     </if>
     <if test="not($KeySort)">
       <call-template name="Warn"><with-param name="msg">keySort(): 'KeySort' is not specified in config.conf. Glossary entries will be ordered in Unicode order.</with-param></call-template>
-      <value-of select="$text2"/>
+      <value-of select="oc:glossaryCase($text)"/>
     </if>
   </function>
   <function name="oc:encodeKS" as="xs:string">

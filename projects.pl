@@ -409,7 +409,7 @@ sub runScript($$) {
   my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
 
   if ($errors) {
-    &Log(sprintf("FAILED %s: FINISHED WITH %i ERROR(S)\n", $run, $errors));
+    &Log(sprintf("\nFAILED %s: FINISHED WITH %i ERROR(S)\n", $run, $errors));
     my $inerr = 0;
     foreach my $line (split(/\n+/, $result)) {
       if ($line =~ /ERROR/) {&Log("$mod $line\n");}
