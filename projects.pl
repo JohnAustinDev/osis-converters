@@ -245,11 +245,12 @@ sub getProjectInfo($) {
     # Only updated projects are considered
     if (!$info{$proj}{'updated'}) {next;}
     
-    # If this project has a sourceProject, we must the use sourceProject conf
+    # If this project has a sourceProject, we must look at sourceProject's conf
     my $sproj = ($info{$proj}{'sourceProject'} ? $info{$proj}{'sourceProject'}:$proj);
     
     # If it doesnt have a sub-module which follows all the rules, ignore it.
-    if ($info{$sproj}{$sproj."DICT+ModDrv"} !~ /LD/) {next;}
+    my $dict = $info{$sproj}{$sproj."DICT+ModDrv"};
+    if (!$dict || $info{$sproj}{$sproj."DICT+ModDrv"} !~ /LD/) {next;}
     
     $info{$proj}{'hasDICT'}++;
     $info{$proj.'DICT'}{'hasDICT'}++;
@@ -331,8 +332,8 @@ sub getScriptsToRun(\@\@$\%) {
         foreach my $ok (@{$typeAP}) {
           if ($scr ne $ok) {next;}
           my $s = ($scr eq 'osis' ? $infoP->{$m}{'osis_script'}:$scr);
-          if ($script eq 'sfm2all' && 
-              $infoP->{$infoP->{$m}{'configProject'}}{"$s+ARG_sfm2all_skip"} =~ /true/i) {
+          my $arg = $infoP->{$infoP->{$m}{'configProject'}}{"$s+ARG_sfm2all_skip"};
+          if ($script eq 'sfm2all' && $arg && $arg =~ /true/i) {
             &Log("WARNING: Skipping '$s $m' because config.conf ARG_sfm2all_skip = true\n");
             next;
           }
@@ -362,30 +363,31 @@ sub setDependencies(\%\@$\%) {
     $r =~ /^(\S+)\s+(\S+)$/;
     my $s = $1; my $m = $2;
     
-    $depsHP->{$r} = [];
+    my %deps; $depsHP->{$r} = [];
     
     # Only osis and sfm2all involve dependencies
     if ($script !~ /^(osis|sfm2all)$/) {next;}
     
-    # Add dependencies for OSIS file creation
+    # Add any dependencies for OSIS file creation
     my @deps = @{$infoP->{$m}{'osis_deps'}};
     if (@deps) {
-      push(@{$depsHP->{$r}}, map( $infoP->{$_}{'osis_script'}." $_", @deps ));
-    }
-    if ($s =~ /^(sfm2osis|osis2osis)$/) {next;}
-    
-    # Add dependencies for other scripts
-    if ($s =~ /^osis2/) {
-      # Each of these runs has a dependence on its own OSIS file.
-      push(@{$depsHP->{$r}}, $infoP->{$m}{'osis_script'}." $m");
-      
-      # If there is a DICT companion, both main and dict are 
-      # dependencies.
-      my $companion = $infoP->{$infoP->{$m}{'configProject'}}{"$m+Companion"};
-      if ($companion && &projHasDICT($m)) {
-        push(@{$depsHP->{$r}}, $infoP->{$companion}{'osis_script'}." $companion");
+      foreach my $r (map( $infoP->{$_}{'osis_script'}." $_", @deps )) {
+        $deps{$r}++;
       }
     }
+    
+    # Add any dependencies for osis to publication conversions
+    if ($s !~ /^(sfm2osis|osis2osis)$/ && $s =~ /^osis2/) {
+      # Each run has a dependency on its own OSIS file, and its 
+      # main/dict, if there is one.
+      $deps{$infoP->{$m}{'osis_script'}." $m"}++;
+      if (&projHasDICT($m)) {
+        my $other = ($m =~ /^(.*?)DICT$/ ? $1:$m.'DICT');
+        $deps{$infoP->{$other}{'osis_script'}." $other"}++;
+      }
+    }
+    
+    push(@{$depsHP->{$r}}, (keys %deps));
   }
 }
 
