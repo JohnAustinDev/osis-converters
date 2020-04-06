@@ -399,7 +399,10 @@ sub timer($) {
     if ($STARTTIME) {
       my $now = DateTime->now();
       my $e = $now->subtract_datetime($STARTTIME);
-      &Log("elapsed time: ".($e->hours ? $e->hours." hours ":'').($e->minutes ? $e->minutes." minutes ":'').$e->seconds." seconds\n", 1);
+      &Log("elapsed time: ".
+        ($e->hours ? $e->hours." hours ":'').
+        ($e->minutes ? $e->minutes." minutes ":'').
+        $e->seconds." seconds\n", 1);
     }
     $STARTTIME = '';
   }

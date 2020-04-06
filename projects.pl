@@ -9,10 +9,12 @@ use threads::shared;
 use DateTime;
 use Encode;
 use File::Copy;
+use Data::Dumper;
+use Term::ReadKey; ReadMode 4;
+my $DEBUG = 0;
 
 # Config values may be set here to be applied to the config.conf of 
-# every project run by this script.
-
+# every project converted by this script.
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
 #$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
@@ -20,17 +22,21 @@ my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 
+my $SKIP = "(none)"; # skip particular modules or sub-modules
+
 if ($0 ne "./projects.pl") {
   print "\nRun this script from the osis-converters directory.\n";
   exit;
 }
 
-my $SKIP = "none";
-my %PRINTED;
+# path to directory containing osis-converters projects
+my $PRJDIR = shift;
 
-my $PRJDIR = shift;     # path to directory containing osis-converters projects
-my $SCRIPT = shift;     # script to run on all projects
-my $MAXTHREADS = shift; # optional max number of threads to use (default is number of CPUs)
+# script to run on all projects
+my $SCRIPT = shift;
+
+# optional max number of threads to use (default is number of CPUs)
+my $MAXTHREADS = shift; 
 
 if (!$SCRIPT) {$SCRIPT = 'osis';}
 if ($SCRIPT !~ /^(osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2all)$/) {
@@ -43,7 +49,10 @@ if (!$MAXTHREADS) {
   $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
 }
    
-if (!$PRJDIR || !-e "$PRJDIR" || !$SCRIPT || !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS)) {
+if ( !$PRJDIR || !-e $PRJDIR || 
+     !$SCRIPT || 
+     !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS) 
+   ) {
   print "
 usage: projects.pl projects_directory [script] [max_threads]
 
@@ -61,6 +70,7 @@ max_threads       : The number of threads to use. Default is the number
 }
 $PRJDIR =~ s/\/$//;
 
+my %PRINTED;
 my $LOGFILE = "$PRJDIR/OUT_projects.txt";
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
@@ -69,25 +79,32 @@ my $STARTTIME;
 
 my $INFO = &getProjectInfo($PRJDIR);
 
-my @MODULES; my @MODULE_IGNORES; my @MAINS; my @MAIN_IGNORES;
+my @MODULES; my @MODULE_IGNORES;
+my @MAINS;   my @MAIN_IGNORES;
 foreach my $m (sort keys %{$INFO}) {
   if ($INFO->{$m}{'updated'}) {
     push(@MODULES, $m);
-    if (&projHasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
+    if (&hasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
       next;
     }
     push(@MAINS, $m);
   }
   else {
     push(@MODULE_IGNORES, $m);
-    if (&projHasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
+    if (&hasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
       next;
     }
     push(@MAIN_IGNORES, $m);
   }
 }
 
-# Update config files with any global changes
+&Log("Ignoring ".@MAIN_IGNORES." projects which need upgrading (".@MODULE_IGNORES." modules):\n");
+foreach my $m (@MODULE_IGNORES) {
+  &Log(sprintf("%12s\n", $m));
+}
+&Log("\n");
+
+# Update config files with any global changes, and then re-read info.
 &updateConfigFiles(\@MODULES, \%CONFIG, $INFO);
 $INFO = &getProjectInfo($PRJDIR);
 
@@ -95,7 +112,7 @@ my @RUN = &getScriptsToRun(\@MODULES, $SCRIPT, $INFO);
 
 my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO);
 
-&Log("Running ".@RUN." jobs on ".@MAINS." projects (".@MODULES." modules):\n");
+&Log("Scheduling ".@RUN." jobs on ".@MAINS." projects (".@MODULES." modules):\n");
 foreach my $m (@MODULES) {
   foreach my $run (@RUN) {
     if ($run !~ /^(\S+)\s+$m$/) {next;}
@@ -113,16 +130,16 @@ foreach my $m (@MODULES) {
 }
 &Log("\n");
 
-&Log("Found ".@MAIN_IGNORES." projects needing upgrade (".@MODULE_IGNORES." modules):\n");
-foreach my $m (@MODULE_IGNORES) {&Log(sprintf("%12s\n", $m));}
-&Log("\n");
-
-# Now run all jobs until there is nothing left to do.
+# Now run all jobs until there is nothing left to do, or the ESC key is 
+# pressed.
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;
-my $WAIT = 3; 
-while (&working(\@STARTED, \%DONE) || @RUN) {
+my $WAIT = 3;
+my $key = 0;
+while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
+          $key != 27 
+      ) { # 27 is ESC key
   while ($NUM_THREADS < $MAXTHREADS && @RUN) {
     # Start another conversion, skipping over any conversion whose 
     # dependencies are not done.
@@ -160,11 +177,24 @@ while (&working(\@STARTED, \%DONE) || @RUN) {
   }
 
   sleep(2);
+  $key = ReadKey(-1);
+  $key = ($key ? ord($key):0);
 }
-print "No more projects to start and none are running!\n";
-foreach my $th (threads->list()) {$th->join();}
+
+ReadMode 0;
 
 &updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
+
+if ($key == 27) {
+  &Log("\n");
+  &working(\@STARTED, \%DONE, 'log');
+  &Log("\nNo more conversions will be scheduled. Press ctrl-C to exit.\n");
+}
+else {
+  print "No more projects to start and none are running!\n";
+}
+
+foreach my $th (threads->list()) {$th->join();}
 
 &timer('stop');
 
@@ -176,28 +206,34 @@ foreach my $th (threads->list()) {$th->join();}
 sub getProjectInfo($) {
   my $pdir = shift;
   
-  opendir(DIR, $pdir) || die;
+  opendir(DIR, $pdir) or die;
   my @subs = readdir(DIR);
   closedir(DIR);
   
   my %info;
   foreach my $proj (@subs) {
-    if ($proj =~ /^($SKIP)$/) {next;}
-    if ($proj =~ /^(defaults|utils|CB_Common|Cross_References)$/) {next;}
-    if ($proj =~ /^\./ || !-d "$pdir/$proj") {next;}
- 
-    $info{$proj}{'osis_deps'} = [];
+    if ($proj =~ /^($SKIP)$/) {
+      next;
+    }
+    if ($proj =~ /^(defaults|utils|CB_Common|Cross_References)$/) {
+      next;
+    }
+    if ($proj =~ /^\./ || !-d "$pdir/$proj") {
+      next;
+    }
     
     # sourceProject is osis2osis source project, or empty 
-    # if there is none.
-    # configProject the the MAIN module of a project or the 
+    # if OSIS will be created by sfm2osis.
+    # configProject is the the MAIN module of a project or the 
     # MAIN module of the sourceProject if there is one.
       
-    # Projects with a CF_osis2osis.txt file normally do not have their  
-    # own config.conf file. So some of their info will later be taken
-    # from the parentProject config.conf.
+    # Projects with a CF_osis2osis.txt file may not have their own 
+    # config.conf file until after osis2osis is run, so this script
+    # uses the sourceProject's config.conf when necessary.
+    
     if (-e "$pdir/$proj/CF_osis2osis.txt") {
-      open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") || die;
+      open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") 
+        or die;
       while(<CF>) {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
           my $sourceProject = $1;
@@ -206,33 +242,31 @@ sub getProjectInfo($) {
           $info{$proj}{'updated'}++;
           $info{$proj}{'sourceProject'} = $sourceProject;
           $info{$proj}{'configProject'} = $sourceProject;
-          push(@{$info{$proj}{'osis_deps'}}, $sourceProject);
         }
         if ($_ =~ /^CCOSIS\:\s*(\S+)\s*$/) {
           $info{$proj}{'CCOSIS'}{$1}++;
         }
       }
       close(CF);
-      $info{$proj}{'osis_script'} = ($info{$proj}{'CCOSIS'}{$proj} ? 'osis2osis':'sfm2osis');
       next;
     }
     elsif (!-e "$pdir/$proj/config.conf") {next;}
     # Most projects have config.conf
     else {
-      open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") || die;
-      $info{$proj}{'osis_script'} = 'sfm2osis';
       $info{$proj}{'configProject'} = $proj;
+      open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") 
+        or die;
       my $section = $proj;
       while(<CONF>) {
         if ($_ =~ /^\[(.*?)\]\s*$/) {
           $section = $1;
           # If config.conf has a [system] section, its modules are 
           # considered updated and runnable.
-          if ($section eq 'system' && !$info{$proj}{'updated'}) {
+          if ($section eq 'system') {
             $info{$proj}{'updated'}++;
           }
         }
-        elsif ($_ =~ /^(\S+)\s*=\s*(.*?)\s*$/) {
+        elsif ($_ =~ /^([^#]\S+)\s*=\s*(.*?)\s*$/) {
           $info{$proj}{"$section+$1"} = $2;
         }
       }
@@ -242,18 +276,10 @@ sub getProjectInfo($) {
   
   # Create info for any sub modules
   foreach my $proj (keys %info) {
-    # Only updated projects are considered
-    if (!$info{$proj}{'updated'}) {next;}
+    if (!&hasDICT($proj, \%info)) {next;}
     
-    # If this project has a sourceProject, we must look at sourceProject's conf
-    my $sproj = ($info{$proj}{'sourceProject'} ? $info{$proj}{'sourceProject'}:$proj);
-    
-    # If it doesnt have a sub-module which follows all the rules, ignore it.
-    my $dict = $info{$sproj}{$sproj."DICT+ModDrv"};
-    if (!$dict || $info{$sproj}{$sproj."DICT+ModDrv"} !~ /LD/) {next;}
-    
-    $info{$proj}{'hasDICT'}++;
-    $info{$proj.'DICT'}{'hasDICT'}++;
+    my $sproj = ($info{$proj}{'sourceProject'} ? 
+                 $info{$proj}{'sourceProject'} : $proj);
     
     $info{$proj.'DICT'}{'updated'}++;
     $info{$proj.'DICT'}{'configProject'} = $sproj;
@@ -261,25 +287,9 @@ sub getProjectInfo($) {
     if ($proj ne $sproj) {
       $info{$proj.'DICT'}{'sourceProject'} = $sproj;
     }
-    
-    $info{$proj.'DICT'}{'osis_script'} = 'sfm2osis';
-    if ($info{$proj}{'CCOSIS'}{$proj.'DICT'}) {
-      $info{$proj.'DICT'}{'osis_script'} = 'osis2osis';
-    }
-    
-    push(@{$info{$proj.'DICT'}{'osis_deps'}}, $proj);
-    
-    if ($proj ne $sproj) {
-      # If dependent on a source project with a DICT, add that DICT as 
-      # dependencies for proj and companion, plus add the source project 
-      # as dependency for companion (it already is a dependency for proj).
-      push(@{$info{$proj}{'osis_deps'}}, $sproj.'DICT');
-      push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj.'DICT');
-      push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj);
-    }
   }
   
-  # Add module type
+  # Add all module and sub-module types
   foreach my $proj (keys %info) {
     if (!$info{$proj}{'updated'}) {next;}
     
@@ -295,6 +305,8 @@ sub getProjectInfo($) {
     
     $info{$proj}{'type'} = $type;
   }
+  
+  if ($DEBUG) {&Log("info = ".Dumper(\%info)."\n"); }
   
   return \%info;
 }
@@ -331,10 +343,10 @@ sub getScriptsToRun(\@\@$\%) {
       foreach my $scr (@{$scriptAP}) {
         foreach my $ok (@{$typeAP}) {
           if ($scr ne $ok) {next;}
-          my $s = ($scr eq 'osis' ? $infoP->{$m}{'osis_script'}:$scr);
+          my $s = ($scr eq 'osis' ? &osisScript($m):$scr);
           my $arg = $infoP->{$infoP->{$m}{'configProject'}}{"$s+ARG_sfm2all_skip"};
           if ($script eq 'sfm2all' && $arg && $arg =~ /true/i) {
-            &Log("WARNING: Skipping '$s $m' because config.conf ARG_sfm2all_skip = true\n");
+            print "WARNING: Skipping '$s $m' because config.conf ARG_sfm2all_skip = true\n";
             next;
           }
           push(@run, "$s $m");
@@ -344,7 +356,7 @@ sub getScriptsToRun(\@\@$\%) {
     else {
       foreach my $ok (@{$typeAP}) {
         if ($script ne $ok) {next;}
-        my $s = ($script eq 'osis' ? $infoP->{$m}{'osis_script'}:$script);
+        my $s = ($script eq 'osis' ? &osisScript($m):$script);
         push(@run, "$s $m");
       }
     }
@@ -360,35 +372,53 @@ sub setDependencies(\%\@$\%) {
   my $infoP = shift;
     
   foreach my $r (@{$runAP}) {
+    $depsHP->{$r} = [];
+    
+    # Only osis and sfm2all involve dependencies (others use pre-
+    # existing OSIS files).
+    if ($script !~ /^(osis|sfm2all)$/) {next;}
+    
     $r =~ /^(\S+)\s+(\S+)$/;
     my $s = $1; my $m = $2;
     
-    my %deps; $depsHP->{$r} = [];
+    my %deps;
     
-    # Only osis and sfm2all involve dependencies
-    if ($script !~ /^(osis|sfm2all)$/) {next;}
-    
-    # Add any dependencies for OSIS file creation
-    my @deps = @{$infoP->{$m}{'osis_deps'}};
-    if (@deps) {
-      foreach my $r (map( $infoP->{$_}{'osis_script'}." $_", @deps )) {
-        $deps{$r}++;
+    if ($s eq 'sfm2osis') {
+      # sfm2osis DICT sub-modules depend on main OSIS
+      if ($m eq &hasDICT($m)) {
+        my $main = $m; $main =~ s/DICT$//;
+        $deps{&osisScript($main).' '.$main}++;
       }
     }
-    
-    # Add any dependencies for osis to publication conversions
-    if ($s !~ /^(sfm2osis|osis2osis)$/ && $s =~ /^osis2/) {
-      # Each run has a dependency on its own OSIS file, and its 
-      # main/dict, if there is one.
-      $deps{$infoP->{$m}{'osis_script'}." $m"}++;
-      if (&projHasDICT($m)) {
-        my $other = ($m =~ /^(.*?)DICT$/ ? $1:$m.'DICT');
-        $deps{$infoP->{$other}{'osis_script'}." $other"}++;
+    elsif ($s eq 'osis2osis') {
+      # osis2osis modules depend on their source main & dict OSIS and 
+      # possibly their main OSIS (if a DICT)
+      my $sproj = $infoP->{$m}{'sourceProject'};
+      $deps{&osisScript($sproj).' '.$sproj}++;
+      if (my $dict = &hasDICT($sproj)) {
+        $deps{&osisScript($dict).' '.$dict}++;
+      }
+      if ($m eq &hasDICT($m)) {
+        my $main = $m; $main =~ s/DICT$//;
+        $deps{&osisScript($main).' '.$main}++;
+      }
+    }
+    elsif ($s =~ /^(osis2GoBible|osis2sword)$/) {
+      # these depend only on their OSIS file
+      $deps{&osisScript($m).' '.$m}++;
+    }
+    elsif ($s =~ /^(osis2html|osis2ebooks)$/) {
+      # these depend on both main and dict (if exists) OSIS files
+      $deps{&osisScript($m).' '.$m}++;
+      if (my $dict = &hasDICT($m)) {
+        $deps{&osisScript($dict).' '.$dict}++;
       }
     }
     
     push(@{$depsHP->{$r}}, (keys %deps));
   }
+  
+  if ($DEBUG) {&Log("DEPENDENCIES = ".Dumper($depsHP)."\n");}
 }
 
 # Run osis-converters on a module, and report.
@@ -408,19 +438,27 @@ sub runScript($$) {
   print "Started: $cmd\n";
   my $result = decode('utf8', `$cmd  2>&1`);
   
-  my $errors = 0; my $c = $result; while ($c =~ s/error//i) {$errors++;}
-
-  if ($errors) {
-    &Log(sprintf("\nFAILED %s: FINISHED WITH %i ERROR(S)\n", $run, $errors));
-    my $inerr = 0;
-    foreach my $line (split(/\n+/, $result)) {
-      if ($line =~ /ERROR/) {&Log("$mod $line\n");}
-    }
+  my @errors;
+  foreach my $line (split(/\n+/, $result)) {
+    if ($line !~ /ERROR/) {next;}
+    push(@errors, "$mod $line");
+  }
+  
+  if (@errors) {
+    &Log(sprintf("\nFAILED  %12s %9s: FINISHED WITH %i ERROR(s)\n", 
+          $script, 
+          $mod, 
+          scalar @errors
+    ));
+    foreach my $e (@errors) {&Log("$e\n");}
     &Log("\n");
     return;
   }
   
-  &Log(sprintf("SUCCESS %s: FINISHED!\n", $run));
+  &Log(sprintf("SUCCESS %12s %9s: FINISHED!\n", 
+        $script, 
+        $mod
+  ));
 }
 
 sub updateConfigFiles(\@\%\%$) {
@@ -429,13 +467,26 @@ sub updateConfigFiles(\@\%\%$) {
   my $infoP = shift;
   my $restore = shift;
   
+  if (!(scalar keys %{$configHP})) {
+    &Log("No config.conf changes be made.\n\n");
+    return;
+  }
+  
+  my @updated;
   if (!$restore) {
+    &Log("Config changes which are being applied to config.conf files: ".
+      Dumper($configHP)."\n"); 
+    
     foreach my $proj (@{$projAP}) {
       if (!-e "$PRJDIR/$proj/config.conf") {next;}
+      push(@updated, "$PRJDIR/$proj/config.conf");
       
-      &move("$PRJDIR/$proj/config.conf", "$PRJDIR/$proj/config.conf.bak") or die "Move failed: $!";
-      open(INC, "<:encoding(UTF-8)", "$PRJDIR/$proj/config.conf.bak") or die "Could not read: $!";
-      open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$proj/config.conf") or die "Could not write: $!";
+      &move("$PRJDIR/$proj/config.conf", "$PRJDIR/$proj/config.conf.bak") 
+        or die "Move failed: $!";
+      open(INC, "<:encoding(UTF-8)", "$PRJDIR/$proj/config.conf.bak") 
+        or die "Could not read: $!";
+      open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$proj/config.conf") 
+        or die "Could not write: $!";
       
       my $section = $proj;
       while(<INC>) {
@@ -448,7 +499,7 @@ sub updateConfigFiles(\@\%\%$) {
             foreach my $ec (keys %{$configHP->{$sc}}) {
               if (!($sc eq $section && $ec eq $e)) {next;}
               $_ = '#'.$_;
-              &Log("Commenting $proj config.conf: $_");
+              print "Commenting $proj config.conf: $_";
             }
           }
         }
@@ -460,30 +511,76 @@ sub updateConfigFiles(\@\%\%$) {
       foreach my $sc (keys %{$configHP}) {
         foreach my $ec (keys %{$configHP->{$sc}}) {
           my $l1 = "[$sc]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
-          &Log("Appending to $proj config.conf: $l1 $l2\n");
+          print "Appending to $proj config.conf: $l1 $l2\n";
           print OUTC "$l1\n$l2\n";
         }
       }
       close(OUTC);
       
     }
+    &Log("Changed ".@updated." config.conf files.\n");
   }
   else {
     foreach my $proj (@{$projAP}) {
-      if (!-e "$PRJDIR/$proj/config.conf") {next;}
+      if ( !-e "$PRJDIR/$proj/config.conf" || 
+           !-e "$PRJDIR/$proj/config.conf.bak" ) {
+        next;
+      }
+      push(@updated, "$PRJDIR/$proj/config.conf");
       unlink("$PRJDIR/$proj/config.conf");
-      &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") or &Log("Move failed: $!\n");
+      &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") 
+        or &Log("Move failed: $!\n");
     }
+    &Log("Restored ".@updated." config.conf files.\n");
   }
   &Log("\n");
   
 }
 
-# Returns true if the module is or has a DICT companion
-sub projHasDICT($) {
+# Returns the DICT sub-module name if the module is or has a DICT 
+# sub-module.
+sub hasDICT($\%) {
+  my $m = shift;
+  my $infoP = shift;
+  
+  $infoP = ($infoP ? $infoP:$INFO);
+  
+  # Only updated projects are considered
+  my $r;
+  if ($infoP->{$m}{'updated'}) {
+  
+    # If this project has a sourceProject, we must look at 
+    # sourceProject's conf.
+    my $sproj = ( $infoP->{$m}{'sourceProject'} ? 
+      $infoP->{$m}{'sourceProject'}:$infoP->{$m}{'configProject'} );
+   
+    # It must have a sub-module which follows all the rules.
+    my $modDrv = $infoP->{$sproj}{$sproj."DICT+ModDrv"};
+
+    if ($modDrv && $modDrv =~ /LD/) {
+      my $dict = ($m !~ /DICT$/ ? $m.'DICT':$m);
+      $r = $dict;
+    }
+  }
+
+  return $r;
+}
+
+# Returns the script used to create the module's OSIS file (sfm2osis or 
+# osis2osis)
+sub osisScript($) {
   my $m = shift;
   
-  return $INFO->{$INFO->{$m}{'configProject'}}{'hasDICT'};
+  if (!$INFO->{$m}{'sourceProject'}) {
+    return 'sfm2osis';
+  }
+  
+  if (!&hasDICT($m)) {
+    return 'osis2osis';
+  }
+  
+  my $main = $m; $main =~ s/DICT$//;
+  return ($INFO->{$main}{'CCOSIS'}{$m} ? 'osis2osis':'sfm2osis');
 }
 
 # Return the output directory where the OSIS file will go.
@@ -498,7 +595,9 @@ sub outdir(\%$) {
     $outdir = $infoP->{$infoP->{$p}{'sourceProject'}}{'system+OUTDIR'};
   }
   
-  $outdir = ($outdir ? $outdir:"$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."outdir");
+  $outdir = ( $outdir ? $outdir : 
+              "$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."outdir"
+            );
   
   return $outdir;
 }
@@ -515,7 +614,10 @@ sub timer($) {
     if ($STARTTIME) {
       my $now = DateTime->now();
       my $e = $now->subtract_datetime($STARTTIME);
-      &Log("elapsed time: ".($e->hours ? $e->hours." hours ":'').($e->minutes ? $e->minutes." minutes ":'').$e->seconds." seconds\n");
+      &Log("elapsed time: ".
+            ($e->hours ? $e->hours." hours ":'').
+            ($e->minutes ? $e->minutes." minutes ":'').
+            $e->seconds." seconds\n");
     }
     $STARTTIME = '';
   }
@@ -523,7 +625,8 @@ sub timer($) {
 }
 
 # Return the number of projects currently running, and print a message
-# every so often.
+# every so often, or anytime $now is set (and will also write this to 
+# the log file if $now is set to 'log').
 sub working(\@\%$) {
   my $startedAP = shift;
   my $doneHP = shift;
@@ -535,7 +638,11 @@ sub working(\@\%$) {
   }
   
   if ($now || !$WAIT) {
-    print "Working on: \n\t".join("\n\t", @working)."\n";
+    my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
+    
+    if ($now && $now =~ /log/i) {&Log($msg);}
+    else {print $msg;}
+    
     $WAIT = 15; # 30 seconds at 2 second sleeps
   }
   
