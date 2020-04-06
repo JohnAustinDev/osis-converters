@@ -255,10 +255,10 @@ sub getProjectInfo($) {
     $info{$proj.'DICT'}{'hasDICT'}++;
     
     $info{$proj.'DICT'}{'updated'}++;
-    $info{$proj.'DICT'}{'configProject'} = $proj;
+    $info{$proj.'DICT'}{'configProject'} = $sproj;
     
-    if ($info{$proj}{'sourceProject'}) {
-      $info{$proj.'DICT'}{'sourceProject'} = $info{$proj}{'sourceProject'};
+    if ($proj ne $sproj) {
+      $info{$proj.'DICT'}{'sourceProject'} = $sproj;
     }
     
     $info{$proj.'DICT'}{'osis_script'} = 'sfm2osis';
@@ -269,9 +269,9 @@ sub getProjectInfo($) {
     push(@{$info{$proj.'DICT'}{'osis_deps'}}, $proj);
     
     if ($proj ne $sproj) {
-      # If dependent on a project with a DICT, add that DICT as depen-
-      # dencies for proj and companion, plus add the source project as
-      # dependency for companion (it already is a dependency for proj).
+      # If dependent on a source project with a DICT, add that DICT as 
+      # dependencies for proj and companion, plus add the source project 
+      # as dependency for companion (it already is a dependency for proj).
       push(@{$info{$proj}{'osis_deps'}}, $sproj.'DICT');
       push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj.'DICT');
       push(@{$info{$proj.'DICT'}{'osis_deps'}}, $sproj);
@@ -281,10 +281,11 @@ sub getProjectInfo($) {
   # Add module type
   foreach my $proj (keys %info) {
     if (!$info{$proj}{'updated'}) {next;}
-    my $c2proj = $info{$proj}{'configProject'};
-    if ($proj =~ /DICT$/) {$c2proj .= 'DICT';}
     
-    my $moddrv = $info{$info{$proj}{'configProject'}}{"$c2proj+ModDrv"};
+    my $cproj = $info{$proj}{'configProject'};
+    my $c2proj = ($proj =~ /DICT$/ ? $cproj.'DICT':$cproj);
+    
+    my $moddrv = $info{$cproj}{"$c2proj+ModDrv"};
     
     my $type = 'bible';
     if ($moddrv =~ /LD/i) {$type = 'dict';}
