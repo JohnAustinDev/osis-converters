@@ -916,9 +916,10 @@ sub customize_addScripRefLinks($$) {
   # $booknamesHP is from BookNames.xml
   foreach my $bk (sort keys %{$booknamesHP}) {
     foreach my $type (sort keys %{$booknamesHP->{$bk}}) {
-       # 'long' names aren't normally used for Scripture references and 
-       # slow down the parser, so no reason to include them.
-      if ($type eq 'long') {next;}
+      # 'long' names aren't normally used for Scripture references but
+      # they don't slow down the parser very much at all, and are 
+      # sometimes useful so keep them.
+      #if ($type eq 'long') {next;}
       $abbrevs{$booknamesHP->{$bk}{$type}} = $bk;
     }
   }
@@ -2109,9 +2110,11 @@ sub checkReferenceLinks($) {
   
   my %osisID; my %refcount; my %errors;
   
-  &Log("\nCHECKING OSISREF TARGETS IN $osis...\n");
   my $inXML = $XML_PARSER->parse_file($osis);
   my $inIsBible = (&getRefSystemOSIS($inXML) !~ /^Dict\./ ? 1:0);
+  
+  &Log("\nCHECKING FITTED VSYS OSISREF TARGETS IN ".($inIsBible ? 'BIBLE':'DICT')." OSIS: $osis...\n");
+  
   &readOsisIDs(\%osisID, $inXML);
   my $bibleOSIS;
   my $bibleXML;
@@ -2138,7 +2141,7 @@ sub checkReferenceLinks($) {
 
   undef(%osisID); # re-read source vsys OSIS files
   &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$osis);
-  &Log("\nCHECKING SOURCE VSYS NON-GLOSSARY OSISREF TARGETS IN $osis");
+  &Log("\nCHECKING SOURCE VSYS NON-GLOSSARY OSISREF TARGETS IN ".($inIsBible ? 'BIBLE':'DICT')." OSIS:$osis");
   $inXML = $XML_PARSER->parse_file($osis);
   &readOsisIDs(\%osisID, $inXML);
   if ($inIsBible) {$bibleOSIS = $osis; $bibleXML = $inXML;}
@@ -2266,7 +2269,7 @@ different USFM tag should be used instead.");
       if ($failed) {
         $errorsP->{$type}++;
         if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
-        else {&Error("$type osisRef not found: ".$r->toString());}
+        else {&Error("$type not found: ".$r->toString());}
       }
     }
   }

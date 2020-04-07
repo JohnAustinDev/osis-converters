@@ -426,8 +426,8 @@ sub applyVsysMissingVTagInstructions($) {
   &writeXMLFile($xml, $osisP);
 }
 
-# Update an osis file's source and external (fixed) osisRefs to the 
-# fitted verse system.
+# Update an osis file's internal (source) and external (fixed) osisRefs 
+# to the fitted verse system.
 sub correctReferencesVSYS($) {
   my $osisP = shift;
   
@@ -438,9 +438,9 @@ sub correctReferencesVSYS($) {
   }
   &Log("\n\nUpdating osisRef attributes of \"$$osisP\" that require re-targeting after VSYS instructions:\n", 1);
   
-  # Read OSIS file
+  # Read the OSIS file
   my $osisXML = $XML_PARSER->parse_file($$osisP);
-  my $modnameXML = &getModNameOSIS($osisXML);
+  my $name_osisXML = &getModNameOSIS($osisXML);
   my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
     &Warn(@existing." references have already been updated, so this step will be skipped.");
@@ -448,11 +448,12 @@ sub correctReferencesVSYS($) {
   }
 
   # Fill a hash table with every element that has an osisRef attribute,
-  # except for x-vsys type elements. This technique provides a massive 
-  # speedup. The source origin is for elements originating in the source 
-  # text. The fixed origin is for elements originating outside the 
-  # source text (which have the fixed verse system).
+  # except for x-vsys type elements. This technique provides a big 
+  # speedup. The internal origin is for elements originating in the  
+  # source text. The external origin is for elements originating outside 
+  # the source text (which have the fixed verse system).
   my %elems;
+  &Log("\nFinding all elements with osisRef attributes...\n", 2);
   foreach my $e (@{$XPC->findnodes('//*[@osisRef]
       [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $osisXML)}) 
   {
@@ -460,12 +461,15 @@ sub correctReferencesVSYS($) {
       @{$XPC->findnodes('ancestor-or-self::osis:note[@type="crossReference"][@resp]', $e)}[0] ? 
       'external':'internal'
     );
-    
-    foreach my $ids (split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')))) {
-      push(@{$elems{$ids}{$origin}}, $e);
+    my $ids = &osisRef2osisID($e->getAttribute('osisRef'), $name_osisXML, 'always');
+    foreach my $id (split(/\s+/, $ids)) {
+      my $w = ($id =~ s/^([^:]+):// ? $1:'');
+      if ($w ne $MAINMOD) {next;}
+      push(@{$elems{$id}{$origin}}, $e);
     }
   }
   
+  &Log("\nMapping osisRef and annotateRef attributes...\n", 2);
   my $altVersesOSISP = &getAltVersesOSIS($XML_PARSER->parse_file($in_bible));
   
   # Perform each mapping function on the applicable elements
@@ -498,8 +502,9 @@ sub correctReferencesVSYS($) {
       }
     }
   }
+  #use Data::Dumper; &Debug("attribs = ".Dumper(\%attribs)."\n", 1);
   
-  my $count = &applyMaps(\%attribs, $modnameXML);
+  my $count = &applyMaps(\%attribs, $name_osisXML);
 
   # Write new OSIS file if anything changed
   if ($count) {&writeXMLFile($osisXML, $osisP);}
@@ -550,6 +555,8 @@ sub addSeg($$) {
 sub applyMaps(\%$) {
   my $attribsHP = shift;
   my $modname = shift;
+  
+  &Log("\nApplying osisRef and annotateRef maps...\n", 2);
   
   my $count = 0; my $update = ''; my $remove = '';
   foreach my $eky (keys %{$attribsHP}) {
