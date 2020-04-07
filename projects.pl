@@ -155,12 +155,11 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     
     if (@{$DEPENDENCY{$RUN[$x]}}) {
       if (!$ok) {
-        print "NOTE: Dependencies of ".$RUN[$x]." are not done:\n".
-        join(', ', @{$DEPENDENCY{$RUN[$x]}})."\n";
+        print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
         last;
       }
-      print "NOTE: Dependencies of ".$RUN[$x]." are done:\n".
-      join(', ', @{$DEPENDENCY{$RUN[$x]}})."\n";
+      print "NOTE: Dependencies of ".$RUN[$x]." are done:\n\t".
+      join("\n\t", @{$DEPENDENCY{$RUN[$x]}})."\n";
     }
     
     threads->create(sub {
@@ -187,8 +186,11 @@ ReadMode 0;
 
 if ($key == 27) {
   &Log("\n");
-  &working(\@STARTED, \%DONE, 'log');
-  &Log("\nNo more conversions will be scheduled. Press ctrl-C to exit.\n");
+  &Log("
+No more conversions will be scheduled...
+Press ctrl-c to kill remaining threads and exit.
+Or wait for the current threads to finish:");
+&working(\@STARTED, \%DONE, 'log');
 }
 else {
   print "No more projects to start and none are running!\n";
@@ -364,7 +366,10 @@ sub getScriptsToRun(\@\@$\%) {
   
   return @run;
 }
-  
+
+# Set dependencies for each conversion. Each dependency is a string with 
+# script and a module, like: "$s $m", such that the given script must be 
+# run on the given module before the dependency is considered met.
 sub setDependencies(\%\@$\%) {
   my $depsHP = shift;
   my $runAP = shift;
@@ -382,7 +387,6 @@ sub setDependencies(\%\@$\%) {
     my $s = $1; my $m = $2;
     
     my %deps;
-    
     if ($s eq 'sfm2osis') {
       # sfm2osis DICT sub-modules depend on main OSIS
       if ($m eq &hasDICT($m)) {
@@ -434,10 +438,9 @@ sub runScript($$) {
   my $path = $pdir.'/'.$p.($dict ? '/'.$dict:'');
   
   my $cmd = "./$script.pl \"$path\"";
-  
   print "Started: $cmd\n";
   my $result = decode('utf8', `$cmd  2>&1`);
-  
+
   my @errors;
   foreach my $line (split(/\n+/, $result)) {
     if ($line !~ /ERROR/) {next;}
@@ -445,7 +448,7 @@ sub runScript($$) {
   }
   
   if (@errors) {
-    &Log(sprintf("\nFAILED  %12s %9s: FINISHED WITH %i ERROR(s)\n", 
+    &Log(sprintf("\nFAILED:   %12s %9s FINISHED WITH %i ERROR(s).\n", 
           $script, 
           $mod, 
           scalar @errors
@@ -455,7 +458,7 @@ sub runScript($$) {
     return;
   }
   
-  &Log(sprintf("SUCCESS %12s %9s: FINISHED!\n", 
+  &Log(sprintf("SUCCESS!: %12s %9s is FINISHED.\n", 
         $script, 
         $mod
   ));
@@ -546,7 +549,7 @@ sub hasDICT($\%) {
   $infoP = ($infoP ? $infoP:$INFO);
   
   # Only updated projects are considered
-  my $r;
+  my $dict;
   if ($infoP->{$m}{'updated'}) {
   
     # If this project has a sourceProject, we must look at 
@@ -556,14 +559,12 @@ sub hasDICT($\%) {
    
     # It must have a sub-module which follows all the rules.
     my $modDrv = $infoP->{$sproj}{$sproj."DICT+ModDrv"};
-
     if ($modDrv && $modDrv =~ /LD/) {
-      my $dict = ($m !~ /DICT$/ ? $m.'DICT':$m);
-      $r = $dict;
+      $dict = ($m !~ /DICT$/ ? $m.'DICT':$m);
     }
   }
 
-  return $r;
+  return $dict;
 }
 
 # Returns the script used to create the module's OSIS file (sfm2osis or 

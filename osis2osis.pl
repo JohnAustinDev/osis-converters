@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
-# Copyright 2013 John Austin (gpl.programs.info@gmail.com)
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
 #     
 # "osis-converters" is free software: you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License as 
@@ -17,38 +17,17 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2osis.pl [Bible_Directory]
+# Two scripts are run in succession to convert OSIS files from one proj-
+# ect into those of another. The osis2osis_1.pl script runs the CF_osis-
+# 2osis.txt file and applies the CC instructions, which may also create
+# a project config.conf where there was none before. Therefore, the
+# osis2osis_2.pl script starts over, using the new config.conf, and then
+# applies the CCOSIS instructions to complete the conversion.
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
-require("$SCRD/utils/simplecc.pl");
-require("$SCRD/scripts/processOSIS.pl");
-require("$SCRD/scripts/osis2osis.pl");
 
-# NOTE: CF_osis2osis.txt may contain instructions for both MAINMOD and 
-# DICTMOD, but an osis file will only be generated for the MOD on which 
-# this script is called.
-my $commandFile = "$MAININPD/CF_osis2osis.txt";
-if (! -e $commandFile) {&Error("Cannot run osis2osis.pl without a CF_osis2osis.txt command file located at: $MAININPD.", '', 1);}
-
-if (&runCF_osis2osis('postinit')) {
-  $OSIS = "$TMPDIR/$MOD/$MOD.xml"; # written by runCF_osis2osis() above
-  if (! -e &getModuleOutputDir($MOD)) {
-    &make_path(&getModuleOutputDir($MOD));
-  }
-  $OUTOSIS = &getModuleOsisFile($MOD, 'quiet');
-  &reprocessOSIS($MOD);
-
-  if ($NO_OUTPUT_DELETE) {
-   # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl
-   # YOUR DEBUG CODE GOES HERE 
-  }
-}
-else {
-  &Warn("The osis2osis.pl script did not produce $MOD.", 
-  "If $MOD has a CF_usfm2osis.txt file, then sfm2osis.pl should be used instead of osis2osis.pl.");
-}
+&osis_converters("$SCRD/scripts/osis2osis/osis2osis_2.pl", $INPD);
 
 &timer('stop');
 
-;1
-
+1;

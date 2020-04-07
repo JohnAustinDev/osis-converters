@@ -17,8 +17,6 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2osis.pl [Bible_Directory]
-
 # This script is used to convert an OSIS file from one project to 
 # an OSIS file for another project, and usually involves trans-
 # literation from one script to another. It requires a CF_osis2osis.txt 
@@ -121,11 +119,12 @@ sub runCF_osis2osis($) {
       my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
       if ($O2O_CurrentContext ne 'postinit') {next;}
       if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
-      my $src_osis = &getModuleOsisFile($sourceProject_osis, 'Error');
       
       # Since osis2osis.pl is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 
       if ($MOD ne $osis || $NO_OUTPUT_DELETE) {next;}
+      
+      my $src_osis = &getModuleOsisFile($sourceProject_osis, 'Error');
       
       if (! -e "$TMPDIR/$osis") {&make_path("$TMPDIR/$osis");}
       
@@ -154,6 +153,7 @@ sub runCF_osis2osis($) {
   close(COMF);
   foreach my $par (@wipeGlobals) {$$par = '';}
   
+  $OSIS = $outfile;
   return (-e $outfile);
 }
 
@@ -276,12 +276,14 @@ sub convertFileStrings($$) {
       $confH{$e} = $O2O_CONFIGS{$e};
     }
     
-    # apply new conf entries/values
+    # write new conf entries/values
     &writeConf($ccout, \%confH);
-    
-    # re-read project config.conf (which is probably $cout)
-    &readSetCONF();
-    
+
+    # IMPORTANT: At one time the config.conf file was re-read at this point, 
+    # and progress continued. However, system variables are not re-loaded this
+    # way (and cannot be with Vagrant). Therefore, progress is instead halted
+    # after preinit, and then the script is restarted, loading correct system
+    # variables.
   }
   
   # collections.txt

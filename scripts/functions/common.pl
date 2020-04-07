@@ -114,9 +114,10 @@ sub init_linux_script() {
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
   # If appropriate, do either runCF_osis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis also creates input control files)
-  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /(osis2osis|sfm2all)/) {
-    require("$SCRD/scripts/osis2osis.pl");
+  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /^(osis2osis|sfm2all)$/) {
+    require("$SCRD/scripts/osis2osis/osis2osis.pl");
     &runCF_osis2osis('preinit');
+    return 1;
   }
   elsif ($SCRIPT_NAME =~ /update/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
@@ -625,7 +626,7 @@ sub initInputOutputFiles($$$$) {
   my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
   
   my @outs;
-  if ($script_name =~ /^(osis2osis|sfm2osis)$/) {
+  if ($script_name =~ /^(osis2osis.*|sfm2osis)$/) {
     $OUTOSIS = "$modOutdir/$sub.xml"; push(@outs, $OUTOSIS);
   }
   if ($script_name =~ /^(osis2sword)$/) {
@@ -1971,7 +1972,7 @@ sub getModuleOsisFile($$) {
   my $mof = &getModuleOutputDir($mod)."/$mod.xml";
   if ($reportFunc eq 'quiet' || -e $mof) {return $mof;}
   
-  if ($reportFunc) {&$reportFunc("Module OSIS file does not exist: $mof");}
+  if ($reportFunc) {&$reportFunc("$mod OSIS file does not exist: $mof");}
   return '';
 }
 

@@ -239,7 +239,7 @@ an unexpected place.");
   else {&ErrorBug("update_configSystemSection could not open $CONFFILE for appending");}
 }
 
-# Apply the config file 'system' section file which contains customized 
+# Apply the config file 'system' section which contains customized 
 # paths to things like fonts and executables (it also contains some 
 # settings like $DEBUG). NOTE: applySystemCONF() can only be run from 
 # init_opsys(), because two passes are necessary to set proper paths

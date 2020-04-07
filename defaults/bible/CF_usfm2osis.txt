@@ -13,7 +13,7 @@
 # Setting to false will skip this step.
 #SET_addCrossRefs:false
 
-# Use with osis2osis.pl to provide the source module whose OSIS file 
+# Use with CF_osis2osis.txt to provide the source module whose OSIS file 
 # will be used as the starting point for the convsersion. This is used 
 # when producing multiple modules with different scripts.
 #SET_sourceProject:MODNAME

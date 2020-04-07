@@ -92,7 +92,7 @@ if ($sfm2all_RUN) {
   my @runProjects = split(/\s*,\s*/, $sfm2all_RUN);
   foreach my $cp (@runProjects) {
     if ($cp =~ /^\./) {$cp = File::Spec->rel2abs($cp, $INPD);}
-    else {$cp = "$INPD/../$cp"}
+    else {$cp = "$MAININPD/../$cp"}
     if (-e $cp) {
       my $cmd = "\"$SCRD/sfm2all.pl\" \"$cp\"";
       &Log("\n-----------------------------------------------------\nRUNNING $cmd\n\n");
