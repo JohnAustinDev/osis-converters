@@ -208,10 +208,12 @@ sub convertFileStrings($$) {
     }
     &Note("Converted ".@glossIDs2Convert." glossary osisRef values.");
     
-    # Convert osisRef and ID work prefixes
+    # Convert osisRef, annotateRef and osisID work prefixes
     my $w = $sourceProject; $w =~ s/DICT$//;
     my @ids = $XPC->findnodes('//*[contains(@osisRef, "'.$w.':") or contains(@osisRef, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('osisRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisRef', $new);}
+    my @ids = $XPC->findnodes('//*[contains(@annotateRef, "'.$w.':") or contains(@annotateRef, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {my $new = $id->getAttribute('annotateRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('annotateRef', $new);}
     my @ids = $XPC->findnodes('//*[contains(@osisID, "'.$w.':") or contains(@osisID, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('osisID'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisID', $new);}
     
