@@ -776,7 +776,7 @@
     <variable name="root" select="if ($node/ancestor-or-self::osis[@isCombinedGlossary]) then 
                                   'comb' else 
                                   oc:myWork($node)"/>
-    <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][1]"/>
+    <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][last()]"/>
     <variable name="refUsfmTypeDivNum" select="0.5 + 
                                                0.5*(count($refUsfmType/descendant-or-self::div[@type=$usfmType])) + 
                                                count($refUsfmType/preceding::div[@type=$usfmType])"/>

@@ -16,9 +16,9 @@ my $DEBUG = 0;
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
-#$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
-#$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
-#$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
+$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
+$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
+$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 
@@ -448,7 +448,7 @@ sub runScript($$) {
   }
   
   if (@errors) {
-    &Log(sprintf("\nFAILED:   %12s %9s FINISHED WITH %i ERROR(s).\n", 
+    &Log(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
           $script, 
           $mod, 
           scalar @errors
@@ -458,7 +458,7 @@ sub runScript($$) {
     return;
   }
   
-  &Log(sprintf("SUCCESS!: %12s %9s is FINISHED.\n", 
+  &Log(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
         $script, 
         $mod
   ));

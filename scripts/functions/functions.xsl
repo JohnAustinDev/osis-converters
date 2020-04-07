@@ -45,8 +45,8 @@
             oc:sarg('uiDictionary', /, /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1]) else ''"/>
 
   <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
-  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction))"/>
-  <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
+  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction),'_INT')"/>
+  <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary),'_COMB') else ''"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
@@ -601,7 +601,12 @@
                 $uiDictionary"/>
                 
     <!-- If there are glossary menus for each glossary, we need their ids to be unique -->
-    <variable name="id" select="if ($glossary/ancestor::osis[@isCombinedGlossary='yes']) then '' else generate-id($glossary)"/>
+    <variable name="id" select="if ($glossary/ancestor::osis[@isCombinedGlossary = 'yes']) 
+                                then '' else generate-id($glossary)"/>
+                                
+    <variable name="dictTop_osisID" select="if ($glossary/ancestor::osis[@isCombinedGlossary = 'yes'])
+                                        then tokenize($REF_dictionary, ':')[2]
+                                        else concat(oc:encodeOsisRef($glossaryTitle), $id)"/>
     
     <variable name="sortedGlossary">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
@@ -625,7 +630,7 @@
       <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
       <osis:div type="x-keyword" subType="x-navmenu-dictionary">
         <osis:p>
-          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryTitle)}">
+          <osis:seg type="keyword" osisID="{$dictTop_osisID}">
             <value-of select="$glossaryTitle"/>
           </osis:seg>
         </osis:p>
