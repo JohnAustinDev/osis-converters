@@ -916,6 +916,9 @@ sub customize_addScripRefLinks($$) {
   # $booknamesHP is from BookNames.xml
   foreach my $bk (sort keys %{$booknamesHP}) {
     foreach my $type (sort keys %{$booknamesHP->{$bk}}) {
+       # 'long' names aren't normally used for Scripture references and 
+       # slow down the parser, so no reason to include them.
+      if ($type eq 'long') {next;}
       $abbrevs{$booknamesHP->{$bk}{$type}} = $bk;
     }
   }

@@ -440,6 +440,7 @@ sub correctReferencesVSYS($) {
   
   # Read OSIS file
   my $osisXML = $XML_PARSER->parse_file($$osisP);
+  my $modnameXML = &getModNameOSIS($osisXML);
   my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $osisXML);
   if (@existing) {
     &Warn(@existing." references have already been updated, so this step will be skipped.");
@@ -453,14 +454,14 @@ sub correctReferencesVSYS($) {
   # source text (which have the fixed verse system).
   my %elems;
   foreach my $e (@{$XPC->findnodes('//*[@osisRef]
-      [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $osisXML)}) {
+      [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $osisXML)}) 
+  {
     my $origin = (
       @{$XPC->findnodes('ancestor-or-self::osis:note[@type="crossReference"][@resp]', $e)}[0] ? 
-      'fixed':'source'
+      'external':'internal'
     );
     
     foreach my $ids (split(/\s+/, &osisRef2osisID($e->getAttribute('osisRef')))) {
-      if (!defined($elems{$ids}{$origin})) {$elems{$ids}{$origin} = ();}
       push(@{$elems{$ids}{$origin}}, $e);
     }
   }
@@ -469,29 +470,36 @@ sub correctReferencesVSYS($) {
   
   # Perform each mapping function on the applicable elements
   my @maps = ('source2Fitted', 'fixed2Fitted', 'fixed2Source', 'fixedMissing');
+  # A hash is used for temporary attributes rather than actual element 
+  # attributes in the tree, which buys another speedup.
+  my %attribs; 
   foreach my $m (@maps) {
     foreach my $idmap (&normalizeOsisID([ sort keys(%{$altVersesOSISP->{$m}}) ])) {
       my $id = $idmap; $id =~ s/\.PART$//;
-      my $origin = ($m =~ /^fixed/ ? 'fixed':'source');
+      my $origin = ($m =~ /^fixed/ ? 'external':'internal');
       foreach my $e (@{$elems{$id}{$origin}}) {
-        if (!$e->hasAttribute('osisRefFrom')) {
-          $e->setAttribute('osisRefFrom', &osisRef2osisID($e->getAttribute('osisRef'), $MAINMOD, 'not-default'));
-          $e->setAttribute('osisRefTo', '');
-          $e->setAttribute('annotateRefFrom', &osisRef2osisID($e->getAttribute('osisRef'), $MAINMOD, 'not-default'));
-          $e->setAttribute('annotateRefTo', '');
+        my $eky = $e->unique_key;
+        if (!defined($attribs{$eky})) {
+          my $ids = &osisRef2osisID($e->getAttribute('osisRef'), $MAINMOD, 'not-default');
+          $attribs{$eky}{'self'} = $e;
+          $attribs{$eky}{'origin'} = $origin;
+          $attribs{$eky}{'osisRefFrom'} = $ids;
+          $attribs{$eky}{'osisRefTo'} = '';
+          $attribs{$eky}{'annotateRefFrom'} = $ids;
+          $attribs{$eky}{'annotateRefTo'} = '';
         }
-        # mapping each id segment one at a time
+        # map each id segment one at a time
         my $attrib = ($m eq 'fixed2Source' ? 'annotateRef':'osisRef');
-        &attribFromTo($attrib, $e, $idmap, $altVersesOSISP->{$m}{$idmap});
-        # in addition, apply fixedMissing to annotateRef as well as to osisRef 
+        &attribFromTo($attrib, \%{$attribs{$eky}}, $idmap, $altVersesOSISP->{$m}{$idmap});
+        # in addition, apply fixedMissing to annotateRef (as well as to osisRef) 
         if ($m eq 'fixedMissing') {
-          &attribFromTo('annotateRef', $e, $idmap, $altVersesOSISP->{$m}{$idmap});
+          &attribFromTo('annotateRef', \%{$attribs{$eky}}, $idmap, $altVersesOSISP->{$m}{$idmap});
         }
       }
     }
   }
   
-  my $count = &applyMaps($osisXML);
+  my $count = &applyMaps(\%attribs, $modnameXML);
 
   # Write new OSIS file if anything changed
   if ($count) {&writeXMLFile($osisXML, $osisP);}
@@ -500,19 +508,19 @@ sub correctReferencesVSYS($) {
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
 
-sub attribFromTo($$$$) {
+sub attribFromTo($\%$$) {
   my $attrib = shift;
-  my $e = shift;
+  my $attribHP = shift;
   my $id = shift;
   my $to = shift;
   
   if ($id !~ s/\!PART$//) {
-    $e->setAttribute($attrib.'From', &removeSeg($e->getAttribute($attrib.'From'), $id));
+    $attribHP->{$attrib.'From'} = &removeSeg($attribHP->{$attrib.'From'}, $id);
   }
   
   if ($to) {
     $to =~ s/\!PART$//;
-    $e->setAttribute($attrib.'To',   &addSeg(   $e->getAttribute($attrib.'To'),   $to));
+    $attribHP->{$attrib.'To'} = &addSeg($attribHP->{$attrib.'To'}, $to);
   }
 }
 
@@ -539,23 +547,19 @@ sub addSeg($$) {
   return join(' ', @segs);
 }
 
-sub applyMaps($) {
-  my $xml = shift;
+sub applyMaps(\%$) {
+  my $attribsHP = shift;
+  my $modname = shift;
   
   my $count = 0; my $update = ''; my $remove = '';
-  foreach my $e ($XPC->findnodes('//*[@osisRefFrom]', $xml)) {
-    my $type = ($e->nodeName =~ /(note|reference)/ ? (@{$XPC->findnodes('./ancestor-or-self::osis:note[@resp]', $e)}[0] ? 'external':'internal'):'');
-  
-    # store and remove temporary attributes
-    my ($osisRefFrom, $osisRefTo, $annotateRefFrom, $annotateRefTo);
-    foreach my $a ('osisRefFrom', 'osisRefTo', 'annotateRefFrom', 'annotateRefTo') {
-      $$a = $e->getAttribute($a); $e->removeAttribute($a);
-    }
-    
-    # assign new values to permanent attributes
+  foreach my $eky (keys %{$attribsHP}) {
+    my $e = $attribsHP->{$eky}{'self'};
+
+    # get new values for permanent attributes
     foreach my $a ('osisRef', 'annotateRef') {
       my @segs;
-      push(@segs, (split(/\s+/, ${$a.'From'}.' '.${$a.'To'})));
+      my $value = $attribsHP->{$eky}{$a.'From'}.' '.$attribsHP->{$eky}{$a.'To'};
+      push(@segs, (split(/\s+/, $value)));
       my $x1 = join(' ', &normalizeOsisID(\@segs, $MAINMOD, 'not-default'));
       my $x2 = &osisID2osisRef($x1);
       $$a = &fillGapsInOsisRef($x2);
@@ -564,11 +568,11 @@ sub applyMaps($) {
     
     # don't keep references to missing verses (which would be broken)
     if (!$annotateRef || !$osisRef) {
-      $remove .= &removeMappedElement($e, $type);
+      $remove .= &removeMappedElement($e, $attribsHP->{$eky}{'origin'});
       next;
     }
     
-    if (&getModNameOSIS($xml) ne $MAINMOD) {
+    if ($modname ne $MAINMOD) {
       $osisRef     = "$MAINMOD:$osisRef";
       $annotateRef = "$MAINMOD:$annotateRef";
     }
@@ -579,7 +583,14 @@ sub applyMaps($) {
     
     $count++;
     
-    $update .= sprintf("UPDATING %s %-10s osisRef: %32s -> %-32s annotateRef: %-32s\n", $type, $e->nodeName, $e->getAttribute('osisRef'), $osisRef, $annotateRef);
+    $update .= sprintf(
+      "UPDATING %s %-10s osisRef: %32s -> %-32s annotateRef: %-32s\n", 
+      $origin, 
+      $e->nodeName, 
+      $e->getAttribute('osisRef'), 
+      $osisRef, 
+      $annotateRef
+    );
     $e->setAttribute('osisRef', $osisRef);
     $e->setAttribute('annotateRef', $annotateRef);
     $e->setAttribute('annotateType', $ANNOTATE_TYPE{'Source'});
@@ -593,22 +604,22 @@ sub applyMaps($) {
 
 sub removeMappedElement($$) {
   my $e = shift;
-  my $type = shift;
+  my $origin = shift;
   
-  my $delete = ($type eq 'external');
+  my $delete = ($origin eq 'external');
   my $tag = $e->toString(); $tag =~ s/^(<[^>]*>).*?$/$1/s;
   
-  my $remove = '';
+  my $msg = '';
   if ($delete) {
-    $remove = "DELETING $type ".$e->nodeName.", because osisRef targets missing verse: $tag\n";
+    $msg = "DELETING $origin ".$e->nodeName.", because osisRef targets missing verse: $tag\n";
   }
   else {
-    $remove = "REMOVING tags for $type ".$e->nodeName.", because osisRef targets missing verse: $tag \n";
+    $msg = "REMOVING tags for $origin ".$e->nodeName.", because osisRef targets missing verse: $tag \n";
     foreach my $chld ($e->childNodes) {$e->parentNode()->insertBefore($chld, $e);}
   }
   $e->unbindNode();
   
-  return $remove;
+  return $msg;
 }
 
 sub getAltVersesOSIS($) {
