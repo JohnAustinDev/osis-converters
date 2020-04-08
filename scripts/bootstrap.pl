@@ -80,7 +80,7 @@ else {
 
 # Before testing the project configuration, run bootstrap.pl if it 
 # exists in the project, to prepare any control files that need it.
-if (-e "$INPD/bootstrap.pl") {&shell("$INPD/bootstrap.pl");}
+if (-e "$MAININPD/bootstrap.pl") {&shell("$MAININPD/bootstrap.pl");}
 
 $CONFFILE = "$MAININPD/config.conf";
 &readSetCONF();

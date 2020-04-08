@@ -26,7 +26,7 @@
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
-&osis_converters("$SCRD/scripts/osis2osis/osis2osis_2.pl", $INPD);
+&osis_converters("$SCRD/scripts/osis2osis/osis2osis_2.pl", $INPD, $LOGFILE);
 
 &timer('stop');
 

@@ -117,6 +117,12 @@ sub init_linux_script() {
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /^(osis2osis|sfm2all)$/) {
     require("$SCRD/scripts/osis2osis/osis2osis.pl");
     &runCF_osis2osis('preinit');
+    $MOD_OUTDIR = &getModuleOutputDir();
+    if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
+    
+    $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
+
+    $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
     return 1;
   }
   elsif ($SCRIPT_NAME =~ /update/) {
