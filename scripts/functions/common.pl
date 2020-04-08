@@ -2490,10 +2490,9 @@ sub runAnyUserScriptsAt($$\%$) {
 
 # Runs a script according to its type (its extension). The sourceP points
 # to the input file. If overwrite is set, the input file is overwritten,
-# otherwise the output file has the name of the script which created it
-# unless a file with that name already exists, at which time _n is 
-# appended to have a unique name. Upon sucessfull completion, inputP 
-# will be updated to point to the newly created output file.
+# otherwise the output file has the name of the script which created it.
+# Upon sucessfull completion, inputP will be updated to point to the 
+# newly created output file.
 sub runScript($$\%$) {
   my $script = shift;
   my $inputP = shift;
