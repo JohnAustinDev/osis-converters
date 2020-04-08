@@ -166,6 +166,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
       join("\n\t", @{$DEPENDENCY{$RUN[$x]}})."\n";
     }
     
+    sleep(1); # so jobs don't starts at the same time, causing problems
     threads->create(sub {
       print "Starting: ".$RUN[$x]."\n";
       &runScript($PRJDIR, $RUN[$x]);
