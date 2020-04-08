@@ -45,8 +45,10 @@
             oc:sarg('uiDictionary', /, /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1]) else ''"/>
 
   <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
-  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction),'_INT')"/>
-  <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary),'_COMB') else ''"/>
+  <!-- The following are used by sword, which requires that keywords must be decoded osisRef values. Therefore,
+  there can be no other glossary keyword called $uiDictionary (nor $uiIntroduction if the INT feature is used). -->
+  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction))"/>
+  <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
