@@ -40,7 +40,7 @@ my $SCRIPT = shift;
 my $MAXTHREADS = shift; 
 
 if (!$SCRIPT) {$SCRIPT = 'osis';}
-if ($SCRIPT !~ /^(osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2all)$/) {
+if ($SCRIPT !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2all)$/) {
   print "Unrecognzed script argument: $SCRIPT\n";
   $SCRIPT = '';
 }
@@ -62,8 +62,8 @@ projects_directory: The relative path from this script's directory to
 script            : The conversion(s) to run on each project. Default 
                     is osis (which will run sfm2osis or osis2osis 
                     depending on the project). The other options are 
-                    osis2sword, osis2html, osis2ebooks, osis2GoBible, 
-                    osis2all and sfm2all.
+                    sfm2osis, osis2osis, osis2sword, osis2html, 
+                    osis2ebooks, osis2GoBible, osis2all and sfm2all.
 max_threads       : The number of threads to use. Default is the number 
                     of CPUs.
 ";
@@ -331,13 +331,13 @@ sub getScriptsToRun(\@\@$\%) {
   my @run;
   
   # Certain module types have a limited set of scripts that can be run on them.
-  my @bible = ('osis', 'osis2sword', 'osis2html', 'osis2ebooks', 'osis2GoBible');
-  my @dict = ('osis', 'osis2sword');
-  my @childrensBible = ('osis', 'osis2sword', 'osis2html', 'osis2ebooks');
-  my @commentary = ('osis', 'osis2sword'); # never tried!: 'osis2html', 'osis2ebooks';
+  my @bible = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword', 'osis2html', 'osis2ebooks', 'osis2GoBible');
+  my @dict = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword');
+  my @childrensBible = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword', 'osis2html', 'osis2ebooks');
+  my @commentary = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword'); # never tried!: 'osis2html', 'osis2ebooks';
   
-  my @sfm2all = @bible; 
-  my @osis2all = @bible; splice(@osis2all, 0, 1);
+  my @sfm2all = @bible; splice(@sfm2all, 0, 2);
+  my @osis2all = @bible; splice(@osis2all, 0, 3);
   
   my $scriptAP = ($script eq 'sfm2all' ? \@sfm2all:\@osis2all);
   
@@ -368,7 +368,11 @@ sub getScriptsToRun(\@\@$\%) {
     else {
       foreach my $ok (@{$typeAP}) {
         if ($script ne $ok) {next;}
-        my $s = ($script eq 'osis' ? &osisScript($m):$script);
+        my $s = $script;
+        if ($script eq 'osis') {$s = &osisScript($m);}
+        elsif ($script =~ /^(sfm2osis|osis2osis)$/) {
+          if ($s ne &osisScript($m)) {next;}
+        }
         push(@run, "$s $m");
       }
     }
@@ -393,10 +397,8 @@ sub setDependencies(\%\@$\%) {
     my $s = $1; my $m = $2;
     my %deps;
     
-    # Only osis, sfm2all and osis2sword involve dependencies (others 
-    # need only their own pre-existing OSIS files).
-    if ($script =~ /^(osis|sfm2all)$/) {
-      if ($s eq 'sfm2osis') {
+    if ($script =~ /^(osis|sfm2all|sfm2osis|osis2osis)$/) {
+      if ($s eq 'sfm2osis' || $script eq 'osis2osis') {
         # sfm2osis DICT sub-modules depend on main OSIS
         if ($m eq &hasDICT($m)) {
           my $main = $m; $main =~ s/DICT$//;
