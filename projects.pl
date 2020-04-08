@@ -142,13 +142,14 @@ my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;
 my $WAIT = 3;
-my $key = 0;
+my $KEY = 0;
 my $PAUSED = 0;
 while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
-          $key != 27 
+          $KEY != 27 
       ) { # 27 is ESC key
       
-  while ( !$PAUSED && $NUM_THREADS < $MAXTHREADS && @RUN ) {
+  $KEY = 0; # clear if set by inner while loop
+  while ( !$PAUSED && $KEY != 27 && $NUM_THREADS < $MAXTHREADS && @RUN ) {
     # Start another conversion, skipping over any conversion whose 
     # dependencies are not done.
     my $x = -1;
@@ -182,30 +183,21 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     $NUM_THREADS++;
     push(@STARTED, splice(@RUN, $x, 1));
     if (@RUN) {print("There are ".@RUN." jobs left...\n");}
+    
+    &readKey();
   }
 
+  if (!$KEY) {  # allow KEY already set by inner while loop to break outer loop
+    &readKey();
+  }
   sleep(2);
-  $key = ReadKey(-1);
-  $key = ($key ? ord($key):0);
-  if ($key == 112) {
-    $PAUSED = ($PAUSED ? 0:1);
-    if ($PAUSED) {
-      print "\nThe scheduler is currently PAUSED.\n";
-    }
-    else {
-      print "\nRestarting the scheduler...\n";
-    }
-  }
-  elsif ($key == 27) {
-    print "ESC was pressed...\n";
-  }
 }
 
 ReadMode 0;
 
 &updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
 
-if ($key == 27) {
+if ($KEY == 27) {
   &Log("\n");
   &Log("
 No more conversions will be scheduled...
@@ -397,43 +389,52 @@ sub setDependencies(\%\@$\%) {
   foreach my $r (@{$runAP}) {
     $depsHP->{$r} = [];
     
-    # Only osis and sfm2all involve dependencies (others use pre-
-    # existing OSIS files).
-    if ($script !~ /^(osis|sfm2all)$/) {next;}
-    
     $r =~ /^(\S+)\s+(\S+)$/;
     my $s = $1; my $m = $2;
-    
     my %deps;
-    if ($s eq 'sfm2osis') {
-      # sfm2osis DICT sub-modules depend on main OSIS
+    
+    # Only osis, sfm2all and osis2sword involve dependencies (others 
+    # need only their own pre-existing OSIS files).
+    if ($script =~ /^(osis|sfm2all)$/) {
+      if ($s eq 'sfm2osis') {
+        # sfm2osis DICT sub-modules depend on main OSIS
+        if ($m eq &hasDICT($m)) {
+          my $main = $m; $main =~ s/DICT$//;
+          $deps{&osisScript($main).' '.$main}++;
+        }
+      }
+      elsif ($s eq 'osis2osis') {
+        # osis2osis modules depend on their source main & dict OSIS and 
+        # possibly their main OSIS (if a DICT)
+        my $sproj = $infoP->{$m}{'sourceProject'};
+        $deps{&osisScript($sproj).' '.$sproj}++;
+        if (my $dict = &hasDICT($sproj)) {
+          $deps{&osisScript($dict).' '.$dict}++;
+        }
+        if ($m eq &hasDICT($m)) {
+          my $main = $m; $main =~ s/DICT$//;
+          $deps{&osisScript($main).' '.$main}++;
+        }
+      }
+      elsif ($s =~ /^(osis2GoBible)$/) {
+        # these depend only on their OSIS file
+        $deps{&osisScript($m).' '.$m}++;
+      }
+      elsif ($s =~ /^(osis2html|osis2ebooks|osis2sword)$/) {
+        # these depend on both main and dict (if exists) OSIS files
+        $deps{&osisScript($m).' '.$m}++;
+        if (my $dict = &hasDICT($m)) {
+          $deps{&osisScript($dict).' '.$dict}++;
+        }
+      }
+    }
+    
+    if ($s =~ /^(osis2sword)$/) {
+      # The main SWORD module must be created first, because its links 
+      # to the dict SWORD module are checked when the dict is created.
       if ($m eq &hasDICT($m)) {
         my $main = $m; $main =~ s/DICT$//;
-        $deps{&osisScript($main).' '.$main}++;
-      }
-    }
-    elsif ($s eq 'osis2osis') {
-      # osis2osis modules depend on their source main & dict OSIS and 
-      # possibly their main OSIS (if a DICT)
-      my $sproj = $infoP->{$m}{'sourceProject'};
-      $deps{&osisScript($sproj).' '.$sproj}++;
-      if (my $dict = &hasDICT($sproj)) {
-        $deps{&osisScript($dict).' '.$dict}++;
-      }
-      if ($m eq &hasDICT($m)) {
-        my $main = $m; $main =~ s/DICT$//;
-        $deps{&osisScript($main).' '.$main}++;
-      }
-    }
-    elsif ($s =~ /^(osis2GoBible|osis2sword)$/) {
-      # these depend only on their OSIS file
-      $deps{&osisScript($m).' '.$m}++;
-    }
-    elsif ($s =~ /^(osis2html|osis2ebooks)$/) {
-      # these depend on both main and dict (if exists) OSIS files
-      $deps{&osisScript($m).' '.$m}++;
-      if (my $dict = &hasDICT($m)) {
-        $deps{&osisScript($dict).' '.$dict}++;
+        $deps{"osis2sword $main"}++;
       }
     }
     
@@ -489,7 +490,7 @@ sub updateConfigFiles(\@\%\%$) {
   my $restore = shift;
   
   if (!(scalar keys %{$configHP})) {
-    &Log("No config.conf changes be made.\n\n");
+    &Log("No config.conf changes to be made.\n\n");
     return;
   }
   
@@ -668,6 +669,23 @@ sub working(\@\%$) {
   $WAIT--;
   
   return scalar @working;
+}
+
+sub readKey() {
+  $KEY = ReadKey(-1);
+  $KEY = ($KEY ? ord($KEY):0);
+  if ($KEY == 112) {
+    $PAUSED = ($PAUSED ? 0:1);
+    if ($PAUSED) {
+      print "\nThe scheduler is currently PAUSED.\n";
+    }
+    else {
+      print "\nRestarting the scheduler...\n";
+    }
+  }
+  elsif ($KEY == 27) {
+    print "ESC was pressed...\n";
+  }
 }
 
 sub Log($$) {

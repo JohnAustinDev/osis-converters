@@ -62,6 +62,40 @@ if (&copyReferencedImages(\$INOSIS, $INPD, "$SWOUT/$SModPath")) {
   $Sconf->{'Feature'} = ($Sconf->{'Feature'} ? $Sconf->{'Feature'}."<nx/>":"")."Images";
 }
 
+# If this is a DICT module, validate all glossary references in both the
+# MAIN and the DICT SWORD source files.
+if ($SModDrv =~ /LD/) {
+  # find the final MAIN source OSIS file used for its SWORD module
+  my $mainmod = &getModuleOsisFile($MAINMOD);
+  $mainmod =~ s/\/[^\/]+$//;
+  $mainmod .= '/tmp/osis2sword';
+  if (opendir(TF, $mainmod)) {
+    my @fs = readdir(TF);
+    closedir(TF);
+    my $n = 0; my $name;
+    foreach my $f (@fs) {
+      if ($f =~ /^(\d+)/ && int($1) > $n) {
+        $n = int($1); $name = $f;
+      }
+    }
+    $mainmod = "$mainmod/$name";
+    if (-e $mainmod) {
+      # pass MAIN and DICT to checkLinks.xsl script and report results
+      my %params = ('mainmodURI' => $mainmod, 'mainmod' => $MAINMOD);
+      my $msg = &runScript("$SCRD/scripts/dict/sword/checkLinks.xsl", \$INOSIS, \%params, 0, 1);
+      my $err = () = $msg =~ /ERROR/g;
+      &Report("Found $err problem(s) with links in $MAINMOD and $DICTMOD.\n");
+    }
+    else {
+      &Error("Could not locate SWORD main module.", 
+      "The main SWORD module must be created before the dict SWORD module.");
+    }
+  }
+  else {
+    &ErrorBug("Could not open dir $mainmod.");
+  }
+}
+
 # Set MinimumVersion conf entry
 $msv = "1.6.1";
 if ($Sconf->{'Versification'} ne "KJV") {
