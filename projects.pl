@@ -22,7 +22,8 @@ my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 
-my $SKIP = "(none)"; # skip particular modules or sub-modules
+my $SKIP = '^(none)$'; # skip particular modules or sub-modules
+my $ONLY = '^(all)$';  # only run listed modules or sub-modules
 
 if ($0 ne "./projects.pl") {
   print "\nRun this script from the osis-converters directory.\n";
@@ -82,6 +83,9 @@ my $INFO = &getProjectInfo($PRJDIR);
 my @MODULES; my @MODULE_IGNORES;
 my @MAINS;   my @MAIN_IGNORES;
 foreach my $m (sort keys %{$INFO}) {
+  if ($ONLY && $ONLY !~ /all/ && $m !~ /$ONLY/) {next;}
+  if ($SKIP && $m =~ /$SKIP/) {next;}
+  
   if ($INFO->{$m}{'updated'}) {
     push(@MODULES, $m);
     if (&hasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
@@ -231,9 +235,6 @@ sub getProjectInfo($) {
   
   my %info;
   foreach my $proj (@subs) {
-    if ($proj =~ /^($SKIP)$/) {
-      next;
-    }
     if ($proj =~ /^(defaults|utils|CB_Common|Cross_References)$/) {
       next;
     }
@@ -344,7 +345,7 @@ sub getScriptsToRun(\@\@$\%) {
   my @commentary = ('osis', 'osis2sword'); # never tried!: 'osis2html', 'osis2ebooks';
   
   my @sfm2all = @bible; 
-  my @osis2all = @bible; splice(@osis2all, 1, 1);
+  my @osis2all = @bible; splice(@osis2all, 0, 1);
   
   my $scriptAP = ($script eq 'sfm2all' ? \@sfm2all:\@osis2all);
   
