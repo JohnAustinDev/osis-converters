@@ -25,6 +25,7 @@
 # may only appear in MAININPD, but all its commands may be directed to 
 # either MAINMOD or DICTMOD.
 
+$SOURCE_PROJECT = '';
 sub runCF_osis2osis($) {
   $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
   
@@ -119,6 +120,7 @@ sub runCF_osis2osis($) {
       my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
       if ($O2O_CurrentContext ne 'postinit') {next;}
       if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
+      $SOURCE_PROJECT = $sourceProject;
       
       # Since osis2osis.pl is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 

@@ -19,14 +19,15 @@
 
 # usage: osis2osis_2.pl [Bible_Directory]
 
+use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
 # Two scripts are run in succession to convert OSIS files from one proj-
-# ect into those of another. The osis2osis_1.pl script runs the CF_osis-
+# ect into those of another. The osis2osis.pl script runs the CF_osis-
 # 2osis.txt file and applies the CC instructions, which may also create
 # a project config.conf where there was none before. Therefore, the
 # osis2osis_2.pl script starts over, using the new config.conf, and then
 # applies the CCOSIS instructions to complete the conversion.
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 require("$SCRD/utils/simplecc.pl");
 require("$SCRD/scripts/processOSIS.pl");
 require("$SCRD/scripts/osis2osis/osis2osis.pl");

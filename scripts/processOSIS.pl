@@ -260,6 +260,24 @@ sub reprocessOSIS($) {
   # Checks are done now, as late as possible in the flow
   &runChecks($modType);
   
+  # Check our osis file for unintentional occurrences of sourceProject code
+  if (open(TEST, "<$READLAYER", $OSIS)) {
+    my $osis = join('', <TEST>);
+    my $spregex = "\\b($SOURCE_PROJECT"."DICT|$SOURCE_PROJECT)\\b";
+    my $n = 0;
+    foreach my $l (split(/\n/, $osis)) {
+      if ($l !~ /$spregex/) {next;}
+      $n++;
+      &Error("Found source project code $1 in $MOD: $l", 
+      "The osis2osis transliterator method is failing to convert this text.");
+    }
+    close(TEST);
+    &Report("\nFound $n occurrence(s) of source project code in $MOD.\n");
+  }
+  else {
+    &ErrorBug("Could not open source OSIS $OSIS\n", 1);
+  }
+  
   copy($OSIS, $OUTOSIS);
   
   &validateOSIS($OUTOSIS);
