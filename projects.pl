@@ -10,15 +10,15 @@ use DateTime;
 use Encode;
 use File::Copy;
 use Data::Dumper;
-use Term::ReadKey; ReadMode 4;
+use Term::ReadKey;
 my $DEBUG = 0;
 
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
-$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
-$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
-$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
+#$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
+#$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 
@@ -130,6 +130,8 @@ foreach my $m (@MODULES) {
 }
 &Log("\n");
 
+ReadMode 4;
+
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
 my $NUM_THREADS :shared = 0;
@@ -137,10 +139,12 @@ my %DONE :shared;
 my @STARTED :shared;
 my $WAIT = 3;
 my $key = 0;
+my $PAUSED = 0;
 while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
           $key != 27 
       ) { # 27 is ESC key
-  while ($NUM_THREADS < $MAXTHREADS && @RUN) {
+      
+  while ( !$PAUSED && $NUM_THREADS < $MAXTHREADS && @RUN ) {
     # Start another conversion, skipping over any conversion whose 
     # dependencies are not done.
     my $x = -1;
@@ -178,6 +182,18 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
   sleep(2);
   $key = ReadKey(-1);
   $key = ($key ? ord($key):0);
+  if ($key == 112) {
+    $PAUSED = ($PAUSED ? 0:1);
+    if ($PAUSED) {
+      print "\nThe scheduler is currently PAUSED.\n";
+    }
+    else {
+      print "\nRestarting the scheduler...\n";
+    }
+  }
+  elsif ($key == 27) {
+    print "ESC was pressed...\n";
+  }
 }
 
 ReadMode 0;
@@ -189,7 +205,7 @@ if ($key == 27) {
   &Log("
 No more conversions will be scheduled...
 Press ctrl-c to kill remaining threads and exit.
-Or wait for the current threads to finish:");
+Or wait for the current threads to finish:\n");
 &working(\@STARTED, \%DONE, 'log');
 }
 else {
@@ -640,7 +656,7 @@ sub working(\@\%$) {
   
   if ($now || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
-    
+    if ($PAUSED) {$msg .= "Press p again to continue scheduling.\n";}
     if ($now && $now =~ /log/i) {&Log($msg);}
     else {print $msg;}
     

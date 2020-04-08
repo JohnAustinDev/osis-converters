@@ -719,7 +719,7 @@ sub checkDependencies($$$$) {
   $test{'CALIBRE'}          = [ "ebook-convert --version", "calibre 3" ]; # check major version
   $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.8.900" ]; # check version
   
-  my $failMes = '';
+  my $fail;
   foreach my $p (@deps) {
     if (!exists($test{$p})) {
       &ErrorBug("No test for \"$p\".");
@@ -733,16 +733,17 @@ sub checkDependencies($$$$) {
     my $result; {local $/; $result = <TEST>;} close(TEST); unlink("tmp.txt");
     my $need = $test{$p}[1];
     if (!$test{$p}[2] && $result !~ /\Q$need\E/im) {
-      $failMes .= "\nDependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n";
+      &Error("Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n");
+      $fail++;
     }
     elsif ($test{$p}[2] && $result =~ /\Q$need\E/im) {
-      $failMes .= "\nDependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n";
+      &Error("Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n");
+      $fail++;
     }
     #&Note("Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result");
   }
   
-  if ($failMes) {
-    &Error("\n$failMes\n", $logflag);
+  if ($fail) {
     if (!&runningInVagrant()) {
       &Log("
       SOLUTION: On Linux systems you can try installing dependencies by running:
