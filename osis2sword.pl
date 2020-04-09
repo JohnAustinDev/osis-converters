@@ -188,8 +188,13 @@ sub upperCaseKeys($) {
   
   my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
   if (&conf('ModDrv') =~ /LD/) {
-    my @keywords = $XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml);
-    foreach my $keyword (@keywords) {$keyword->setValue(&uc2($keyword->getValue()));}
+    foreach my $keyword ($XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml)) {
+      $keyword->setValue(&uc2($keyword->getValue()));
+    }
+    # These DICT note osisRefs are unnecessary so remove rather than change them
+    foreach my $osisRef ($XPC->findnodes('//*[local-name()="note"]/@osisRef', $xml)) {
+      $osisRef->unbindNode();
+    }
   }
   my @dictrefs = $XPC->findnodes('//*[local-name()="reference"][starts-with(@type, "x-gloss")]/@osisRef', $xml);
   foreach my $dr (@dictrefs) {
