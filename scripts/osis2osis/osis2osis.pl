@@ -52,7 +52,7 @@ sub runCF_osis2osis($) {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_(?:ARG_)?[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
       if ($2) {
         my $par = $1;
         my $val = $3;
