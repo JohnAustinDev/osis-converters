@@ -77,14 +77,14 @@ sub osis2pubs($) {
     }
     
     # convert any sub publications that are part of the OSIS file
-    if ($CREATE_SEPARATE_PUBS) {
+    if ($CREATE_SEPARATE_PUBS || $TRANPUB_TYPE eq 'Full') {
       foreach my $scope (@SUB_PUBLICATIONS) {
         my $pscope = $scope; $pscope =~ s/\s/_/g;
-        if ($CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_TYPE = 'Full';
         $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
         foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
         if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
+        if ($scope ne $FULLSCOPE && $CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
         &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
