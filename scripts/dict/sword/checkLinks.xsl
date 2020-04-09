@@ -18,6 +18,7 @@
   <param name="mainmodURI"/>
  
   <variable name="keywords" select="//tei:entryFree/@n"/>
+  <variable name="mainmodDOC" select="doc($mainmodURI)"/>
  
   <template match="node()|@*" name="identity" mode="identity">
     <copy><apply-templates select="node()|@*" mode="identity"/></copy>
@@ -35,7 +36,7 @@
     <copy><apply-templates select="node()" mode="identity"/></copy>
     
     <!-- read MAIN xml while checking osisRefs -->
-    <apply-templates select="doc($mainmodURI)" mode="no_output"/>
+    <apply-templates select="$mainmodDOC" mode="no_output"/>
   </template>
   
   <template match="node()|@*" name="no_output" mode="no_output">
@@ -64,7 +65,7 @@
       <!-- This check wont' be run if there is no DICT. Note: osisRefs 
       to footnotes, which end in !note.n1 etc. are supported. -->
       <when test="$work = $mainmod">
-        <if test="matches($ref, '[^A-Za-z0-9\-\.]') and not(matches($ref, '!note\.n\d+'))">
+        <if test="matches($ref, '[^A-Za-z0-9\-\.]') and not($ref = $mainmodDOC//*/@osisID)">
           <call-template name="Error">
 <with-param name="msg"><value-of select="$docwork"/> bad reference target: osisRef="<value-of select="."/>"</with-param>
           </call-template>
