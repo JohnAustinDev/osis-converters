@@ -261,6 +261,7 @@ sub reprocessOSIS($) {
   &runChecks($modType);
   
   # Check our osis file for unintentional occurrences of sourceProject code
+  &Note("Checking OSIS for unintentional source project references...\n");
   if (open(TEST, "<$READLAYER", $OSIS)) {
     my $osis = join('', <TEST>);
     my $spregex = "\\b($SOURCE_PROJECT"."DICT|$SOURCE_PROJECT)\\b";
@@ -268,6 +269,10 @@ sub reprocessOSIS($) {
     foreach my $l (split(/\n/, $osis)) {
       if ($l !~ /$spregex/) {next;}
       $n++;
+      if ($l =~ /AudioCode/) {
+        &Note("Intentional reference: $l");
+        next;
+      }
       &Error("Found source project code $1 in $MOD: $l", 
       "The osis2osis transliterator method is failing to convert this text.");
     }
