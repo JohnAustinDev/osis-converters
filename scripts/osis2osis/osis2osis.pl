@@ -48,7 +48,7 @@ sub runCF_osis2osis($) {
   undef(%O2O_CONVERTS);
   
   my $newOSIS;
-  open(COMF, "<$READLAYER", $commandFile) || die "Could not open osis2osis command file $commandFile\n";
+  open(COMF, $READLAYER, $commandFile) || die "Could not open osis2osis command file $commandFile\n";
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
@@ -293,8 +293,8 @@ sub convertFileStrings($$) {
   # collections.txt
   elsif ($fname eq "collections.txt") {
     my $newMod = lc($MOD);
-    if (!open(INF, "<$READLAYER", $ccin)) {&Error("Could not open collections.txt input $ccin"); return;}
-    if (!open(OUTF, ">$WRITELAYER", $ccout)) {&Error("Could not open collections.txt output $ccout"); return;}
+    if (!open(INF, $READLAYER, $ccin)) {&Error("Could not open collections.txt input $ccin"); return;}
+    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open collections.txt output $ccout"); return;}
     my %col;
     while(<INF>) {
       if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
@@ -314,8 +314,8 @@ sub convertFileStrings($$) {
   
   # USFM files
   elsif ($fname =~ /\.sfm$/) {
-    if (!open(INF,  "<$READLAYER", $ccin)) {&Error("Could not open SFM input $ccin"); return;}
-    if (!open(OUTF, ">$WRITELAYER", $ccout)) {&Error("Could not open SFM output $ccout"); return;}
+    if (!open(INF,  $READLAYER, $ccin)) {&Error("Could not open SFM input $ccin"); return;}
+    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open SFM output $ccout"); return;}
     while(<INF>) {
       if ($_ !~ /^\\id/) {
         my @parts = split(/(\\[\w\d]+)/, $_);
@@ -334,8 +334,8 @@ sub convertFileStrings($$) {
   # other
   else {
     &Warn("Converting unknown file type $fname.", "All text in the file will be converted.");
-    if (!open(INF,  "<$READLAYER", $ccin)) {&Error("Could not open input $ccin"); return;}
-    if (!open(OUTF, ">$WRITELAYER", $ccout)) {&Error("Could not open output $ccout"); return;}
+    if (!open(INF,  $READLAYER, $ccin)) {&Error("Could not open input $ccin"); return;}
+    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open output $ccout"); return;}
     while(<INF>) {print OUTF &transcodeStringByMode($_);}
     close(INF);
     close(OUTF);

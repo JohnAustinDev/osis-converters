@@ -153,7 +153,7 @@ if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
 &zipModule($OUTZIP, $SWOUT);
 
 &Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
-open(XCONF, "<$READLAYER", $SwordConfFile) || die "Could not open $SwordConfFile\n";
+open(XCONF, $READLAYER, $SwordConfFile) || die "Could not open $SwordConfFile\n";
 while(<XCONF>) {&Log("$_", 1);}
 close(XCONF);
 

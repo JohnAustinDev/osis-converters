@@ -214,7 +214,7 @@ sub writeCollectionsFile($$) {
   }
   
   my $coltxt = &getDefaultFile("bible/GoBible/collections.txt");
-  if (!open(INC, "<$READLAYER", $coltxt)) {
+  if (!open(INC, $READLAYER, $coltxt)) {
     &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", 1);
   }
   
@@ -243,7 +243,7 @@ sub writeCollectionsFile($$) {
   }
   close(INC);
   
-  if (!open (COLL, ">$WRITELAYER", $fdest)) {
+  if (!open (COLL, $WRITELAYER, $fdest)) {
     &ErrorBug("writeCollectionsFile could not open $fdest for writing.", 1);
   }
   print COLL $colfile;
@@ -408,10 +408,10 @@ sub goBibleConvChars($$$) {
 
   my %highUnicode;
   foreach my $file (@$aP) {
-    open(INF, "<$READLAYER", $file) || die "Could not open $file.\n";
+    open(INF, $READLAYER, $file) || die "Could not open $file.\n";
     $leaf = $file;
     $leaf =~ s/^.*?([^\\\/]+)$/$1/;
-    open(OUTF, ">$WRITELAYER", "$destdir/$leaf") || die "Could not open $destdir/$leaf.\n";
+    open(OUTF, $WRITELAYER, "$destdir/$leaf") || die "Could not open $destdir/$leaf.\n";
 
     &Log("$file\n");
     $line = 0;

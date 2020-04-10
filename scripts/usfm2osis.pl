@@ -58,7 +58,7 @@ sub usfm2osis($$) {
   
   &Log("CONVERTING USFM TO OSIS: usfm2osis.pl\n-----------------------------------------------------\n\n", 1);
 
-  open(COMF, "<$READLAYER", $cf) || die "Could not open usfm2osis command file $cf\n";
+  open(COMF, $READLAYER, $cf) || die "Could not open usfm2osis command file $cf\n";
 
   #Defaults:
   @EVAL_REGEX;
@@ -249,7 +249,7 @@ sub evalRegex($$) {
     
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
-    if (!open(SFM, "<$READLAYER", $f2)) {&Error("Could not open SFM file \"$f2\"", "This file was incorrectly specified in a RUN line of CF_usfm2osis.txt. Change or remove it.", 1);}
+    if (!open(SFM, $READLAYER, $f2)) {&Error("Could not open SFM file \"$f2\"", "This file was incorrectly specified in a RUN line of CF_usfm2osis.txt. Change or remove it.", 1);}
     
     # Variables names in the following block should be uncommon, because 
     # EVAL_REGEX statments may use variables with the e flag, and we 
@@ -266,7 +266,7 @@ sub evalRegex($$) {
     }
     close(SFM);
     
-    open(SFM2, ">$WRITELAYER", "$f2.new") or die;
+    open(SFM2, $WRITELAYER, "$f2.new") or die;
     print SFM2 $sww;
     close(SFM2);
     

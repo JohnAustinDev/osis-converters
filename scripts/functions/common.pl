@@ -172,7 +172,7 @@ sub init_linux_script() {
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n\tREADLAYER=$READLAYER\n");
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n\n");
   
   if ($SCRIPT_NAME =~ /^update$/) {return;}
   
@@ -209,7 +209,7 @@ sub updateConvertTXT($$$) {
   if (! -e $convtxt) {return '';}
   
   my %pubScopeTitle;
-  if (open(CONV, "<$READLAYER", $convtxt)) {
+  if (open(CONV, $READLAYER, $convtxt)) {
     while(<CONV>) {
       my $s = $section;
       if ($_ =~ /^#/) {next;}
@@ -491,7 +491,7 @@ sub updateURLCache($$$$) {
   # Check last time this subdirectory was updated
   if ($updatePeriod && -e "$p/../$subdir-updated.txt") {
     my $last;
-    if (open(TXT, "<$READLAYER", "$p/../$subdir-updated.txt")) {
+    if (open(TXT, $READLAYER, "$p/../$subdir-updated.txt")) {
       while(<TXT>) {if ($_ =~ /^epoch=(.*?)$/) {$last = $1;}}
       close(TXT);
     }
@@ -536,7 +536,7 @@ sub updateURLCache($$$$) {
     &Note("Updated local cache directory $pp from URL $url");
     
     # Save time of this update
-    if (open(TXT, ">$WRITELAYER", "$p/../$subdir-updated.txt")) {
+    if (open(TXT, $WRITELAYER, "$p/../$subdir-updated.txt")) {
       print TXT "localtime()=".localtime()."\n";
       print TXT "epoch=".DateTime->now()->epoch()."\n";
       close(TXT);
@@ -804,7 +804,7 @@ sub customize_conf($$$$) {
   # Save any comments at the end of the default config.conf so they can 
   # be added back after writing the new conf file.
   my $comments = '';
-  if (open(MCF, "<$READLAYER", $conf)) {
+  if (open(MCF, $READLAYER, $conf)) {
     while(<MCF>) {
       if ($comments) {$comments .= $_;}
       elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-NEXT-LINE/) {$comments = "\n";}
@@ -825,7 +825,7 @@ sub customize_conf($$$$) {
     $ctext =~ s/^($swautogen)\s*=[^\n]*\n//mg; # strip @SWORD_AUTOGEN entries
     if ($ctext) {
       &Note("Default conf was located in REPOSITORY: $cfile", 1); &Log("$ctext\n\n");
-      if (open(CNF, ">$WRITELAYER", $conf)) {
+      if (open(CNF, $WRITELAYER, $conf)) {
         print CNF $ctext;
         close(CNF);
       }
@@ -893,7 +893,7 @@ sub customize_conf($$$$) {
     $defs .= "$e=".$CONFIG_DEFAULTS{$k}."\n";
   }
   my $newconf = '';
-  if (open(MCF, "<$READLAYER", $conf)) {
+  if (open(MCF, $READLAYER, $conf)) {
     while(<MCF>) {
       if ($defs && $. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n"; $defs = '';}
       $newconf .= $_;
@@ -903,7 +903,7 @@ sub customize_conf($$$$) {
   }
   else {&ErrorBug("customize_conf could not open config file $conf");}
   if ($newconf) {
-    if (open(MCF, ">$WRITELAYER", $conf)) {
+    if (open(MCF, $WRITELAYER, $conf)) {
       print MCF $newconf;
       close(MCF);
     }
@@ -976,7 +976,7 @@ sub customize_addScripRefLinks($$) {
   $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
   
   # Write to CF_addScripRefLinks.txt in the most user friendly way possible
-  if (!open(CFT, ">$WRITELAYER", "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", 1);}
+  if (!open(CFT, $WRITELAYER, "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", 1);}
   foreach my $cfs (sort keys %cfSettings) {
     my $pcfs = $cfs; $pcfs =~ s/^\d\d //;
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
@@ -1098,7 +1098,7 @@ sub customize_usfm2osis($$) {
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
-  if (!open (CFF, ">>$WRITELAYER", "$cf")) {&ErrorBug("Could not open \"$cf\"", 1);}
+  if (!open (CFF, $APPENDLAYER, "$cf")) {&ErrorBug("Could not open \"$cf\"", 1);}
   print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
   my $lastScope;
   foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
@@ -1256,7 +1256,7 @@ sub scanUSFM_file($) {
   
   &Log("Scanning SFM file: \"$f\"\n");
   
-  if (!open(SFM, "<$READLAYER", $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", 1);}
+  if (!open(SFM, $READLAYER, $f)) {&ErrorBug("scanUSFM_file could not read \"$f\"", 1);}
   
   $info{'scope'} = ($f =~ /\/sfm\/([^\/]+)\/[^\/]+$/ ? $1:'');
   if ($info{'scope'}) {$info{'scope'} =~ s/_/ /g;}
@@ -1432,7 +1432,7 @@ sub writeConf($$) {
   
   my $modname = $entryValueP->{'ModuleName'};
   
-  open(XCONF, ">$WRITELAYER", $conf) || die "Could not open conf $conf\n";
+  open(XCONF, $WRITELAYER, $conf) || die "Could not open conf $conf\n";
   print XCONF "[$modname]\n";
   my $section = ''; my %used;
   foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
@@ -1675,8 +1675,8 @@ sub removeRevisionFromCF($) {
   
   my $changed = 0;
   my $msg = "# osis-converters rev-";
-  if (open(RCMF, "<$READLAYER", $f)) {
-    if (!open(OCMF, ">$WRITELAYER", "$f.tmp")) {&ErrorBug("Could not open \"$f.tmp\".", 1);}
+  if (open(RCMF, $READLAYER, $f)) {
+    if (!open(OCMF, $WRITELAYER, "$f.tmp")) {&ErrorBug("Could not open \"$f.tmp\".", 1);}
     my $l = 0;
     while(<RCMF>) {
       $l++;
@@ -2297,7 +2297,7 @@ sub checkIntroductionTags($) {
 sub checkCharacters($) {
   my $osis = shift;
   
-  open(OSIS, "<$READLAYER", $osis) || die;
+  open(OSIS, $READLAYER, $osis) || die;
   my %characters;
   while(<OSIS>) {
     foreach my $c (split(/(\X)/, $_)) {if ($c =~ /^[\n ]$/) {next;} $characters{$c}++;}
@@ -2346,7 +2346,7 @@ sub readReplacementChars($\@\@) {
   my $fromAP = shift;
   my $toAP = shift;
 
-  if (open(INF, "<$READLAYER", $replacementsFile)) {
+  if (open(INF, $READLAYER, $replacementsFile)) {
     while(<INF>) {
       if ($fromAP && $_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
         my $chars = $1;
@@ -2459,7 +2459,7 @@ sub fromUTF8($) {
 sub is_usfm2osis($) {
   my $osis = shift;
   my $usfm2osis = 0;
-  if (!open(TEST, "<$READLAYER", "$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
+  if (!open(TEST, $READLAYER, "$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
   while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
   close(TEST);
   if ($usfm2osis) {&Log("\n--- OSIS file was created by usfm2osis.py.\n");}
@@ -2581,7 +2581,7 @@ sub logProgress($$) {
       $ProgressTime = time;
       $ProgressTotal = 0;
       copy($msg, "$msg.progress.tmp");
-      if (open(PRGF, "<$READLAYER", "$msg.progress.tmp")) {
+      if (open(PRGF, $READLAYER, "$msg.progress.tmp")) {
         while(<PRGF>) {$ProgressTotal++;}
         close(PRGF);
       }

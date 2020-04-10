@@ -36,8 +36,9 @@
 use File::Spec;
 require "$SCRD/scripts/common_opsys.pl";
 
-$WRITELAYER = ":encoding(UTF-8)";
-$READLAYER = ":encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
+$WRITELAYER = ">:encoding(UTF-8)";
+$APPENDLAYER = ">>:encoding(UTF-8)";
+$READLAYER = "<:encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
 
 $INPD = shift;
 

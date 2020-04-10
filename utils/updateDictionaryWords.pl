@@ -28,7 +28,7 @@ use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD 
 require("$SCRD/scripts/dict/processGlossary.pl");
 
 my @entry, %pattern;
-open(INF, "<$READLAYER", "$INPD/DictionaryWords.txt") or die;
+open(INF, $READLAYER, "$INPD/DictionaryWords.txt") or die;
 while(<INF>) {
   if ($_ =~ /^#/ || $_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^DE(\d+):\s*(.*?)\s*$/) {@entry[$1] = $2;}
@@ -83,7 +83,7 @@ sub convertDWF($\@\%$) {
     $prints{(($matchlen*10000)+$c)} = $print;
   }
 
-  open(DWORDS, ">$WRITELAYER", $out_file) or die;
+  open(DWORDS, $WRITELAYER, $out_file) or die;
   #print DWORDS &dictWordsHeader();
   print DWORDS "<dictionaryWords version=\"1.0\" xmlns=\"$DICTIONARY_WORDS_NAMESPACE\">\n<div multiple=\"false\" notXPATH=\"$DICTIONARY_NotXPATH_Default\">\n\n";
   foreach my $e (sort {$b <=> $a} keys %prints) {print DWORDS $prints{$e};}

@@ -2,8 +2,8 @@
 
 # usage: simplecc.pl input-file cc-table output-file
 
-$READLAYER = ":encoding(UTF-8):crlf"; # crlf read works with both Windows and Linux
-$WRITELAYER = ":encoding(UTF-8)";
+$READLAYER = "<:encoding(UTF-8):crlf"; # crlf read works with both Windows and Linux
+$WRITELAYER = ">:encoding(UTF-8)";
 
 # Support running simplecc as a stand alone script
 sub myLog {if (defined(&Log)) {&Log(@_);} else {print @_[0];}}
@@ -92,8 +92,8 @@ sub simplecc($$$) {
     close(OUT);
   }
   else {
-    open(OUT, ">$WRITELAYER", "$ccout") || die;
-    open(IN, "<$READLAYER", "$ccin") || die;
+    open(OUT, $WRITELAYER, $ccout) || die;
+    open(IN, $READLAYER, $ccin) || die;
     print OUT &simplecc_convert(join('', <IN>), $cctable);
     close(IN);
     close(OUT);
@@ -103,7 +103,7 @@ sub simplecc($$$) {
 sub readcc($) {
   my $cctable = shift;
   
-  open (CC, "<$READLAYER", "$cctable") || die;
+  open (CC, $READLAYER, "$cctable") || die;
   while(<CC>) {
     if ($_ =~ /^(c|begin|store)/ || $_ =~ /^\s*$/) {next;}
     elsif (/^\s*["'](.*?)["']\s*>\s*["'](.*?)["']\s*(c\s+|$)/) {$CCDATA{$cctable}{sprintf("%06i%s", $., $1)} = $2;}

@@ -262,7 +262,7 @@ sub reprocessOSIS($) {
   
   # Check our osis file for unintentional occurrences of sourceProject code
   &Note("Checking OSIS for unintentional source project references...\n");
-  if (open(TEST, "<$READLAYER", $OSIS)) {
+  if (open(TEST, $READLAYER, $OSIS)) {
     my $osis = join('', <TEST>);
     my $spregex = "\\b($SOURCE_PROJECT"."DICT|$SOURCE_PROJECT)\\b";
     my $n = 0;

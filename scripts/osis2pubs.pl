@@ -202,7 +202,7 @@ sub OSIS_To_ePublication($$$) {
     #my $home = &shell("echo \$HOME", 3); chomp($home);
     #&Note("Calibre can only embed fonts that are installed. Installing ".&conf("Font")." to host.");
     #&copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$home/.fonts");
-    if (open(CSS, ">$WRITELAYER", "$tmp/css/10font.css")) {
+    if (open(CSS, $WRITELAYER, "$tmp/css/10font.css")) {
       my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
       foreach my $f (sort keys %{$FONT_FILES{&conf("Font")}}) {
         my $format = $font_format{lc($FONT_FILES{&conf("Font")}{$f}{'ext'})};
@@ -219,7 +219,7 @@ sub OSIS_To_ePublication($$$) {
 body {font-family: font1;}
 
 ';
-      if (open(FCSS, "<$READLAYER", "$FONTS/".&conf("Font").".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
+      if (open(FCSS, $READLAYER, "$FONTS/".&conf("Font").".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
       close(CSS);
     }
     else {&ErrorBug("Could not write font css to \"$tmp/css/10font.css\"");}
@@ -854,7 +854,7 @@ sub makeHTML($$$$) {
     if (! -e "$HTMLOUT/$PUB_NAME/images") {mkdir("$HTMLOUT/$PUB_NAME/images");}
     &copy($cover, "$HTMLOUT/$PUB_NAME/images");
   }
-  if (open(INDX, ">$WRITELAYER", "$HTMLOUT/$PUB_NAME/index.xhtml")) {
+  if (open(INDX, $WRITELAYER, "$HTMLOUT/$PUB_NAME/index.xhtml")) {
     my $tophref = &shell("perl -0777 -ne 'print \"\$1\" if /<manifest[^>]*>.*?<item href=\"([^\"]+)\"/s' \"$tmp/content.opf\"", 3);
     my $header = &shell("perl -0777 -ne 'print \"\$1\" if /^(.*?<\\/head[^>]*>)/s' \"$tmp/$tophref\"", 3);
     $header =~ s/(<link[^>]+href=")\.(\.\/css\/[^>]*>)/$1$2/sg;
@@ -1043,8 +1043,8 @@ sub copyFunctionsXSL($$) {
   my $file = "$SCRD/scripts/functions/functions.xsl";
   my $name = $file; $name =~ s/^.*\///;
   my $c = 0;
-  if (open(FUNC, "<$READLAYER", $file)) {
-    if (open(DFUNC, ">$WRITELAYER", "$dest/$name")) {
+  if (open(FUNC, $READLAYER, $file)) {
+    if (open(DFUNC, $WRITELAYER, "$dest/$name")) {
       while(<FUNC>) {
         if ($_ =~ s/^\s*\<param [^\>]*name="(SCRIPT_NAME|DICTMOD|DEBUG)"[^\>]*\/>/<variable name="$1" select="'$$1'"\/>/) {$c++;}
         print DFUNC $_;
