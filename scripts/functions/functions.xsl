@@ -47,7 +47,7 @@
   <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
   <!-- The following are used by sword, which requires that keywords must be decoded osisRef values. Therefore,
   there can be no other glossary keyword called $uiDictionary (nor $uiIntroduction if the INT feature is used). -->
-  <variable name="REF_introductionINT" select="concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction))"/>
+  <variable name="REF_introductionINT" select="if ($INT_feature) then concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction)) else ''"/>
   <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
@@ -186,39 +186,47 @@
   </function>
   
   <!-- Encode any UTF8 string value into a legal OSIS osisRef -->
-  <function name="oc:encodeOsisRef">
-    <param name="r"/>
-    <value-of>
-      <analyze-string select="$r" regex="."> 
-        <matching-substring>
-          <choose>
-            <when test=". = ';'"> </when>
-            <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]'))">
-              <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
-            </when>
-            <otherwise><value-of select="."/></otherwise>
-          </choose>
-        </matching-substring>
-      </analyze-string>
-    </value-of>
+  <function name="oc:encodeOsisRef" as="xs:string?">
+    <param name="r" as="xs:string?"/>
+    <choose>
+      <when test="$r">
+        <value-of>
+          <analyze-string select="$r" regex="."> 
+            <matching-substring>
+              <choose>
+                <when test=". = ';'"> </when>
+                <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]'))">
+                  <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
+                </when>
+                <otherwise><value-of select="."/></otherwise>
+              </choose>
+            </matching-substring>
+          </analyze-string>
+        </value-of>
+      </when>
+    </choose>
   </function>
   
   <!-- Decode a oc:encodeOsisRef osisRef to UTF8 -->
-  <function name="oc:decodeOsisRef">
-    <param name="osisRef"/>
-    <value-of>
-      <analyze-string select="$osisRef" regex="(_\d+_|.)">
-        <matching-substring>
-          <choose>
-            <when test="matches(., '_\d+_')">
-              <variable name="codepoint" select="xs:integer(number(replace(., '_(\d+)_', '$1')))"/>
-              <value-of select="codepoints-to-string($codepoint)"/>
-            </when>
-            <otherwise><value-of select="."/></otherwise>
-          </choose>
-        </matching-substring>
-      </analyze-string>
-    </value-of>
+  <function name="oc:decodeOsisRef" as="xs:string?">
+    <param name="osisRef" as="xs:string?"/>
+    <choose>
+      <when test="$osisRef">
+        <value-of>
+          <analyze-string select="$osisRef" regex="(_\d+_|.)">
+            <matching-substring>
+              <choose>
+                <when test="matches(., '_\d+_')">
+                  <variable name="codepoint" select="xs:integer(number(replace(., '_(\d+)_', '$1')))"/>
+                  <value-of select="codepoints-to-string($codepoint)"/>
+                </when>
+                <otherwise><value-of select="."/></otherwise>
+              </choose>
+            </matching-substring>
+          </analyze-string>
+        </value-of>
+      </when>
+    </choose>
   </function>
   
   <!-- Sort $KeySort order with: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
@@ -551,7 +559,7 @@
                   <attribute name="type">x-glosslink</attribute>
                   <attribute name="subType">x-target_self</attribute>
                 </if>
-                <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
+                <value-of select="$uiIntroduction"/>
               </osis:reference>
             </osis:p>
           </osis:item>
@@ -573,8 +581,8 @@
                   <attribute name="type">x-glosslink</attribute>
                   <attribute name="subType">x-target_self</attribute>
                 </if>
-                <value-of select="if ($title_dict) then $title_dict else 
-                                  replace($uiDictionary, '^[\-\s]+', '')"/>
+                <value-of select="if ($title_dict) then $title_dict  
+                                  else $uiDictionary"/>
               </osis:reference>
             </osis:p>
           </osis:item>
@@ -1024,7 +1032,8 @@ chmod +r <value-of select="$tmpResult"/>
   </template>
   <template name="Report">
     <param name="msg"/>
-    <message><value-of select="//osisText[1]/@osisIDWork"/> REPORT: <value-of select="$msg"/></message>
+    <variable name="work" select="//osisText[1]/@osisIDWork"/>
+    <message><value-of select="if ($work) then concat($work, ' ') else ''"/>REPORT: <value-of select="$msg"/></message>
   </template>
   <template name="Log">
     <param name="msg"/>

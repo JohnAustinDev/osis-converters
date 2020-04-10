@@ -10,7 +10,8 @@
  
   <!-- This script checks all osisRef attribtues in the TEI DICT mod and  
   its MAIN OSIS file. If an osisRef targets a DICT entry which does not 
-  exist, then an error is generated. -->
+  exist, then an error is generated. It also checks that DICT entries
+  are unique, which is a requirement for SWORD. -->
  
   <import href="../../functions/functions.xsl"/>
  
@@ -19,6 +20,9 @@
  
   <variable name="keywords" select="//tei:entryFree/@n"/>
   <variable name="mainmodDOC" select="doc($mainmodURI)"/>
+  <variable name="duplicate_keywords" select="//tei:entryFree/@n
+                                              [. = following::tei:entryFree/@n]
+                                              [not(. = preceding::tei:entryFree/@n)]"/>
  
   <template match="node()|@*" name="identity" mode="identity">
     <copy><apply-templates select="node()|@*" mode="identity"/></copy>
@@ -32,6 +36,16 @@
   </template>
   
   <template match="/">
+    <!-- error if any duplicates, which are not allowed by SWORD -->
+    <for-each select="$duplicate_keywords">
+      <call-template name="Error">
+<with-param name="msg">Duplicate keyword: <value-of select="."/></with-param>
+      </call-template>
+    </for-each>
+    <call-template name="Report">
+<with-param name="msg">There are <value-of select="count($duplicate_keywords)"/> instances of duplicate keywords in <value-of select="$DICTMOD"/> TEI file.</with-param>
+    </call-template>
+    
     <!-- copy DICT xml while checking osisRefs -->
     <copy><apply-templates select="node()" mode="identity"/></copy>
     
@@ -62,8 +76,7 @@
           </call-template>
         </if>
       </when>
-      <!-- This check wont' be run if there is no DICT. Note: osisRefs 
-      to footnotes, which end in !note.n1 etc. are supported. -->
+      <!-- This check wont' be run if there is no DICT -->
       <when test="$work = $mainmod">
         <if test="matches($ref, '[^A-Za-z0-9\-\.]') and not($ref = $mainmodDOC//*/@osisID)">
           <call-template name="Error">

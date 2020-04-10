@@ -29,16 +29,20 @@
 <with-param name="msg">Trimmed <value-of select="count($myTrimRef)"/> multi-target references.</with-param>
       </call-template>
     </if>
-    <next-match/>
+    
+    <copy>
+      <variable name="pass1"><apply-templates select="node()"/></variable>
+      <apply-templates select="$pass1" mode="dashes"/>
+    </copy>
   </template>
   
   <!-- Shorten glossary osisRefs with multiple targets, since SWORD only handles a single target -->
-  <template match="reference[starts-with(@type, 'x-gloss')][contains(@osisRef, ' ')]/@osisRef" priority="5">
+  <template match="reference[starts-with(@type, 'x-gloss')][contains(@osisRef, ' ')]/@osisRef" priority="3">
     <attribute name="osisRef" select="replace(replace(., ' .*$', ''), '\.dup\d+$', '')"/>
   </template>
   
   <!-- SWORD uses the aggregated glossary, so forward dupicate entries to the aggregated entry -->
-  <template match="reference[starts-with(@type, 'x-gloss')][matches(@osisRef, '\.dup\d+$')]/@osisRef" priority="3">
+  <template match="reference[starts-with(@type, 'x-gloss')][matches(@osisRef, '\.dup\d+$')]/@osisRef" priority="2">
     <attribute name="osisRef" select="replace(., '\.dup\d+$', '')"/>
   </template>
   
@@ -66,8 +70,33 @@
   <variable name="myTrimRef" as="attribute(osisRef)*" 
       select="//reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
               [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef"/>
-  <template match="@osisRef[. intersect $myTrimRef]">
-    <attribute name="osisRef" select="oc:trimOsisRef(., $myRemovedOsisIDs)"/>
+  <template match="@osisRef[. intersect $myTrimRef]" priority="4">
+    <attribute name="osisRef" 
+      select="replace(replace(oc:trimOsisRef(., $myRemovedOsisIDs), ' .*$', ''), '\.dup\d+$', '')"/>
+  </template>
+  
+  <!-- Prefix 2 dashes to $uiIntroduction keyword, or one dash to $uiDictionary, and update all 
+  osisRefs to them. This puts these two keywords at the top of the SWORD DICT module. -->
+  <variable name="reftext" select="for $i in ($REF_introductionINT, $REF_dictionary) 
+                                   return oc:decodeOsisRef(tokenize($i, ':')[2])"/>
+  <template mode="dashes" match="seg[@type='keyword'][normalize-space(text()) and text() = $reftext]">
+    <variable name="text" select="concat(
+      if (text() = oc:decodeOsisRef(tokenize($REF_introductionINT, ':')[2])) 
+      then '--' else '-', 
+      ,' ', text())"/>
+    <copy>
+      <apply-templates mode="dashes" select="@*"/>
+      <attribute name="osisID" select="oc:encodeOsisRef($text)"/>
+      <value-of select="$text"/>
+    </copy>
+  </template>
+  <template mode="dashes" match="@osisRef[. = ($REF_introductionINT, $REF_dictionary)]">
+    <variable name="osisRef" as="attribute()">
+      <attribute name="osisRef" select="concat( $DICTMOD, ':', 
+        if (. = $REF_introductionINT) then '_45__45__32_' else '_45__32_', 
+        tokenize(., ':')[2] )"/>
+    </variable>
+    <apply-templates mode="dashes" select="$osisRef"/>
   </template>
 
 </stylesheet>

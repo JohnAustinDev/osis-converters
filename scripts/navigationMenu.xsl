@@ -131,7 +131,7 @@
             
             <!-- Create a uiIntroductionTopMenu with links to each introductory heading on it -->
               <call-template name="Note">
-<with-param name="msg">Added introduction menu: <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/></with-param>
+<with-param name="msg">Added introduction menu: <value-of select="$uiIntroduction"/></with-param>
               </call-template>
               <variable name="introSubEntries" 
                 select="//div[@type='glossary'][@annotateType = 'x-feature']
@@ -144,7 +144,7 @@
                 </osis:seg>
                 <sequence select="oc:getNavmenuLinks('', '', '', $REF_dictionary, '', '')"/>
                 <osis:title type="main" subType="x-introduction">
-                  <value-of select="replace($uiIntroduction, '^[\-\s]+', '')"/>
+                  <value-of select="$uiIntroduction"/>
                 </osis:title>
                 <osis:lb/>
                 <osis:lb/>
