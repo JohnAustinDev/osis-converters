@@ -2822,6 +2822,8 @@ sub mapConfig($$$$$$) {
     if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" $prefix entries.");}
     elsif ($modname && $confEntry =~ /DICT\+/ && $modname ne $DICTMOD) {next;}
     elsif ($modname && $confEntry !~ /DICT\+/ && $modname eq $DICTMOD) {next;}
+    elsif ($confEntry =~ /Title$/ && $CONF->{$confEntry} =~ / DEF$/) {next;}
+    elsif ($confEntry eq 'system+OUTDIR') {next;}
     else {
       $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $CONF->{$confEntry};
       $confEntry =~ s/[^\-]+DICT\+//;

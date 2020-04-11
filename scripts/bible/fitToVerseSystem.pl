@@ -592,7 +592,7 @@ sub applyMaps(\%$) {
     
     $update .= sprintf(
       "UPDATING %s %-10s osisRef: %32s -> %-32s annotateRef: %-32s\n", 
-      $origin, 
+      $attribsHP->{$eky}{'origin'}, 
       $e->nodeName, 
       $e->getAttribute('osisRef'), 
       $osisRef, 
