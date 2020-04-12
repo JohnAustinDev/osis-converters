@@ -62,7 +62,8 @@ sub usfm2osis($$) {
 
   #Defaults:
   @EVAL_REGEX;
-  
+
+=pod  
   # By default remove optional line breaks.
   push(@EVAL_REGEX, {
     'group' => 'OPTIONAL_LINE_BREAKS', 
@@ -70,10 +71,10 @@ sub usfm2osis($$) {
     'singleFile' => ''
   });
   if (!&shell("grep -e '^EVAL_REGEX\(OPTIONAL_LINE_BREAKS\)\:\\s*\$' \"$cf\"", 3)) {
-    &Note("Optional line breaks will be removed. Electronic Bibles do not 
-usually benefit from optional line breaks, but to keep them, add the 
+    &Note("Optional line breaks will be removed. To keep them, add the 
 following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
   }
+=cut
   
   # Variables for versemap feature
   @VSYS_INSTR = ();

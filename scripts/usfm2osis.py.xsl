@@ -29,4 +29,12 @@
   <!-- usfm2osis.py may output notes having n="", so remove these empty n attributes -->
   <template match="note[@n='']"><copy><apply-templates select="node()|@*[not(name()='n')]" mode="identity"/></copy></template>
   
+  <!-- glossary keywords should never have optional line breaks or other markup in them -->
+  <template match="seg[@type='keyword']">
+    <copy>
+      <apply-templates select="@*"/>
+      <value-of select="string()"/>
+    </copy>
+  </template>
+  
 </stylesheet>

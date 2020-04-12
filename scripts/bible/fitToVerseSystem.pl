@@ -1432,7 +1432,7 @@ sub toMilestone($$$) {
     if ($s_or_eID =~ /^([^\.]+\.\d+)\.(\d+)\b.*?(\.(\d+))?$/) {
       my $ch = $1; my $vs = $2; my $lv = ($3 ? $4:$vs);
       my $newv = ($vs ne $lv ? "$vs-$lv":"$vs");
-      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'"><hi type="super">('.$newv.')</hi></hi>');
+      my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'"><hi type="super">('.$newv.') </hi></hi>');
       my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $verse_or_chapter_tag)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       $note .= "[alternate verse \"$newv\"]";
