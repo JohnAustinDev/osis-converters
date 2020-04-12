@@ -559,7 +559,7 @@ sub applyMaps(\%$) {
   &Log("\nApplying osisRef and annotateRef maps...\n", 2);
   
   my $count = 0; my $update = ''; my $remove = '';
-  foreach my $eky (keys %{$attribsHP}) {
+  foreach my $eky (sort keys %{$attribsHP}) {
     my $e = $attribsHP->{$eky}{'self'};
 
     # get new values for permanent attributes

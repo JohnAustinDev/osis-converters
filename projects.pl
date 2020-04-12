@@ -3,7 +3,6 @@
 # Run specified conversions for every project, as quickly as possible
 
 use strict;
-use warnings;
 use threads;
 use threads::shared;
 use DateTime;
@@ -393,7 +392,7 @@ sub setDependencies(\%\@$\%) {
   foreach my $r (@{$runAP}) {
     $depsHP->{$r} = [];
     
-    $r =~ /^(\S+)\s+(\S+)$/;
+    if ($r !~ /^(\S+)\s+(\S+)$/) {print "\n$r\n"; die;}
     my $s = $1; my $m = $2;
     my %deps;
     
