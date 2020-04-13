@@ -80,28 +80,26 @@ my $STARTTIME;
 my $INFO = &getProjectInfo($PRJDIR);
 
 my @MODULES; my @MODULE_IGNORES;
-my @MAINS;   my @MAIN_IGNORES;
+my %MAINS;   my %MAIN_IGNORES;
 foreach my $m (sort keys %{$INFO}) {
   if ($ONLY && $ONLY !~ /all/ && $m !~ /$ONLY/) {next;}
   if ($SKIP && $m =~ /$SKIP/) {next;}
   
   if ($INFO->{$m}{'updated'}) {
     push(@MODULES, $m);
-    if (&hasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
-      next;
-    }
-    push(@MAINS, $m);
+    
+    my $dict = &hasDICT($m);
+    $MAINS{($dict && $dict =~ /^(.*?)DICT$/ ? $1:$m)}++;
   }
   else {
     push(@MODULE_IGNORES, $m);
-    if (&hasDICT($m) && $INFO->{$m}{'type'} eq 'dict') {
-      next;
-    }
-    push(@MAIN_IGNORES, $m);
+    
+    my $dict = &hasDICT($m);
+    $MAIN_IGNORES{($dict && $dict =~ /^(.*?)DICT$/ ? $1:$m)};
   }
 }
 
-&Log("Ignoring ".@MAIN_IGNORES." projects which need upgrading (".@MODULE_IGNORES." modules):\n");
+&Log("Ignoring ".(scalar keys %MAIN_IGNORES)." projects which need upgrading (".@MODULE_IGNORES." modules):\n");
 foreach my $m (@MODULE_IGNORES) {
   &Log(sprintf("%12s\n", $m));
 }
@@ -115,7 +113,7 @@ my @RUN = &getScriptsToRun(\@MODULES, $SCRIPT, $INFO);
 
 my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO, \@MODULES);
 
-&Log("Scheduling ".@RUN." jobs on ".@MAINS." projects (".@MODULES." modules):\n");
+&Log("Scheduling ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
 foreach my $m (@MODULES) {
   foreach my $run (@RUN) {
     if ($run !~ /^(\S+)\s+$m$/) {next;}
@@ -507,14 +505,16 @@ sub updateConfigFiles(\@\%\%$) {
     return;
   }
   
-  my @updated;
+  my %updated;
   if (!$restore) {
     &Log("Config changes which are being applied to config.conf files: ".
       Dumper($configHP)."\n"); 
     
-    foreach my $proj (@{$projAP}) {
+    foreach my $m (@{$projAP}) {
+      my $proj = $infoP->{$m}{'configProject'};
       if (!-e "$PRJDIR/$proj/config.conf") {next;}
-      push(@updated, "$PRJDIR/$proj/config.conf");
+      if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
+      $updated{"$PRJDIR/$proj/config.conf"}++;
       
       &move("$PRJDIR/$proj/config.conf", "$PRJDIR/$proj/config.conf.bak") 
         or die "Move failed: $!";
@@ -544,8 +544,11 @@ sub updateConfigFiles(\@\%\%$) {
       
       print OUTC "\n";
       foreach my $sc (keys %{$configHP}) {
+        my $sec = $sc;
+        if ($sc eq 'MAINMOD') {$sec = $proj;}
+        elsif ($sc eq 'DICTMOD') {$sec = $proj.'DICT';}
         foreach my $ec (keys %{$configHP->{$sc}}) {
-          my $l1 = "[$sc]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
+          my $l1 = "[$sec]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
           print "Appending to $proj config.conf: $l1 $l2\n";
           print OUTC "$l1\n$l2\n";
         }
@@ -553,20 +556,23 @@ sub updateConfigFiles(\@\%\%$) {
       close(OUTC);
       
     }
-    &Log("Changed ".@updated." config.conf files.\n");
+    &Log("Changed ".(scalar keys %updated)." config.conf files.\n");
   }
   else {
-    foreach my $proj (@{$projAP}) {
+    foreach my $m (@{$projAP}) {
+      my $proj = $infoP->{$m}{'configProject'};
       if ( !-e "$PRJDIR/$proj/config.conf" || 
            !-e "$PRJDIR/$proj/config.conf.bak" ) {
         next;
       }
-      push(@updated, "$PRJDIR/$proj/config.conf");
+      if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
+      $updated{"$PRJDIR/$proj/config.conf"}++;
+      
       unlink("$PRJDIR/$proj/config.conf");
       &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") 
         or &Log("Move failed: $!\n");
     }
-    &Log("Restored ".@updated." config.conf files.\n");
+    &Log("Restored ".(scalar keys %updated)." config.conf files.\n");
   }
   &Log("\n");
   
