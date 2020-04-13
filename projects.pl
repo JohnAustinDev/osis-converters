@@ -113,7 +113,7 @@ $INFO = &getProjectInfo($PRJDIR);
 
 my @RUN = &getScriptsToRun(\@MODULES, $SCRIPT, $INFO);
 
-my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO);
+my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO, \@MODULES);
 
 &Log("Scheduling ".@RUN." jobs on ".@MAINS." projects (".@MODULES." modules):\n");
 foreach my $m (@MODULES) {
@@ -383,11 +383,12 @@ sub getScriptsToRun(\@\@$\%) {
 # Set dependencies for each conversion. Each dependency is a string with 
 # script and a module, like: "$s $m", such that the given script must be 
 # run on the given module before the dependency is considered met.
-sub setDependencies(\%\@$\%) {
+sub setDependencies(\%\@$\%\@) {
   my $depsHP = shift;
   my $runAP = shift;
   my $script = shift;
   my $infoP = shift;
+  my $modulesAP = shift;
     
   foreach my $r (@{$runAP}) {
     $depsHP->{$r} = [];
@@ -439,7 +440,18 @@ sub setDependencies(\%\@$\%) {
       }
     }
     
-    push(@{$depsHP->{$r}}, (keys %deps));
+    # include only those dependencies which are part of the current run
+    my %modules; map($modules{$_}++, @{$modulesAP});
+    foreach my $d (keys %deps) {
+      if ($d !~ /^(\S+)\s+(\S+)$/) {next;}
+      my $s = $1; my $m = $2;
+      if (!exists($modules{$m})) {
+        print "WARNING: Skipping dependence '$d' because $m is not being run.\n";
+        next;
+      }
+      
+      push(@{$depsHP->{$r}}, $d);
+    }
   }
   
   if ($DEBUG) {&Log("DEPENDENCIES = ".Dumper($depsHP)."\n");}
