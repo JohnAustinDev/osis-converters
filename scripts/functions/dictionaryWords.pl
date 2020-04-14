@@ -264,7 +264,11 @@ sub explicitGlossaryIndexes(\@) {
   # Now record the results for later reporting
   foreach my $r (@result) {
     if ($r->nodeName eq 'reference') {
-      my %data = ('success' => 1, 'linktext' => $r->textContent);
+      my %data = (
+        'success' => 1, 
+        'linktext' => $r->textContent, 
+        'osisRef' => $r->getAttribute('osisRef')
+      );
       push(@EXPLICIT_GLOSSARY, \%data);
     }
     else {
@@ -336,6 +340,10 @@ sub glossaryLink($) {
     &ErrorBug("Explicit glossary linking changed the source text: ".$infoP->{'linktext'}."\nBEFORE: $beforeText\nAFTER : ".$ref->parentNode->textContent);
   }
   
+  $LINK_OSISREF{$osisRef}{'context'}{&getNodeContext($ref)}++;
+  $LINK_OSISREF{$osisRef}{'matched'}{$linktext}++;
+  $LINK_OSISREF{$osisRef}{'total'}++;
+
   return $ref;
 }
 
@@ -806,12 +814,15 @@ sub searchMatch($\$\$\$$$) {
 sub logDictLinks() {
   &Log("\n\n");
   
-  my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0);
+  my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0, 'maxl' => 0);
   foreach my $h (@EXPLICIT_GLOSSARY) {
     $explicits{'total'}++;
     if ($h->{'success'}) {
       $explicits{'total_links'}++;
-      $explicits{'linktext'}{$h->{'linktext'}}++;
+      $explicits{'linktext'}{$h->{'linktext'}}{$h->{'osisRef'}}++;
+      if ($explicits{'maxl'} < length($h->{'linktext'})) {
+        $explicits{'maxl'} = length($h->{'linktext'});
+      }
     }
     else {
       $explicits{'total_fails'}++;
@@ -821,9 +832,15 @@ sub logDictLinks() {
       
   &Report("Explicitly marked words or phrases that were linked to glossary entries: (". (scalar keys %{$explicits{'linktext'}}) . " variations)");
   foreach my $linktext (sort keys %{$explicits{'linktext'}}) {
-    &Log("$linktext\n");
+    foreach my $osisRef (sort keys %{$explicits{'linktext'}{$linktext}}) {
+      &Log(sprintf("%-".$explicits{'maxl'}."s --> %s (%i)\n", 
+              $linktext, 
+              &osisRef2Entry($osisRef), 
+              $explicits{'linktext'}{$linktext}{$osisRef}
+          ));
+    }
   }
-
+  
   &Log("\n");
   &Report("There were ".(scalar keys %{$explicits{'fails'}})." unique failed explicit entry contexts:");
   foreach my $context (sort { length($b) <=> length($a) } keys %{$explicits{'fails'}}) {
