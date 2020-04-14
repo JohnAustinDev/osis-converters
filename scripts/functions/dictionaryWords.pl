@@ -320,7 +320,9 @@ sub glossaryLink($) {
   }
   
   # Create the reference
-  my $t_new = $ptn; $t_new = s/\Q$linktext\E$//;
+  my $beforeText = $i->parentNode->textContent;
+  my $t_new = $infoP->{'previousNode'}->data; 
+  $t_new =~ s/^(.*)\Q$linktext\E$/$1/;
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
   my $newRefElement = $XML_PARSER->parse_balanced_chunk(
     '<reference osisRef="'.$osisRef.'" type="'.($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary').'">'.$linktext.'</reference>'
@@ -329,6 +331,10 @@ sub glossaryLink($) {
   my $ref = $i->previousSibling;
   $infoP->{'previousNode'}->setData($t_new);
   $i->parentNode->removeChild($i);
+  
+  if ($beforeText ne $ref->parentNode->textContent) {
+    &ErrorBug("Explicit glossary linking changed the source text: ".$infoP->{'linktext'}."\nBEFORE: $beforeText\nAFTER : ".$ref->parentNode->textContent);
+  }
   
   return $ref;
 }
