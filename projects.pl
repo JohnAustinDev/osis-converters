@@ -95,7 +95,7 @@ foreach my $m (sort keys %{$INFO}) {
     push(@MODULE_IGNORES, $m);
     
     my $dict = &hasDICT($m);
-    $MAIN_IGNORES{($dict && $dict =~ /^(.*?)DICT$/ ? $1:$m)};
+    $MAIN_IGNORES{($dict && $dict =~ /^(.*?)DICT$/ ? $1:$m)}++;
   }
 }
 
