@@ -289,22 +289,26 @@ sub applyInstructions($$$$) {
     }
   }
   if ($feature) {
+    $div->setAttribute('annotateRef', $feature);
+    $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
+
     # The only 'feature' currently supported is 'INT' which uses translation
     # introductory material to auto-generate navmenus. INTMENU can be used 
     # to customize those menus.
     if ($feature =~ /^(INT)$/) {
-      $div->setAttribute('annotateRef', 'INT');
-      $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
       &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
     }
     elsif ($feature =~ /^(INTMENU)$/) {
+      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
+      
+      # Also set scope and osisID to that expected by navigationMenu.xsl
       $div->setAttribute('scope', 'NAVMENU');
       $div->setAttribute('osisID', 'uiIntroductionTopMenu');
       &Note("Applying osisID='uiIntroductionTopMenu' scope='NAVMENU' to $sdiv");
     }
     else {
       &Error("Unrecognized peripheral instruction: feature == $feature", 
-        "Only the following value is allowed: feature == INT");
+        "The only currently supported value is: feature == (INT|INTMENU)");
     }
   }
 }

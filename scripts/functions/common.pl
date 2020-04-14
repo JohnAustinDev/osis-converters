@@ -2319,7 +2319,11 @@ sub checkCharacters($) {
   
   # Report rarely used characters
   my $rc = 20;
-  my @rare; foreach my $c (sort { $characters{$a} <=> $characters{$b} } keys %characters) {
+  my @rare; foreach my $c (
+    sort { ( !($characters{$a} <=> $characters{$b}) ? 
+             ord($a) <=> ord($b) :
+             $characters{$a} <=> $characters{$b} ) 
+         } keys %characters) {
     if ($characters{$c} >= $rc) {next;}
     push(@rare, $c);
   }

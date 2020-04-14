@@ -51,8 +51,8 @@
       [not(lower-case(string()) = preceding::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(string()))]"/>
   
   <!-- By default copy everything as is, for all modes -->
-  <template match="node()|@*" name="identity" mode="#all">
-    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+  <template mode="#all" match="node()|@*" name="identity">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
   <!-- Root template -->
@@ -68,7 +68,7 @@
     <variable name="writeOsisIDs">
       <apply-templates mode="write_osisIDs" select="$separateKeywords"/>
     </variable>
-    <apply-templates select="$writeOsisIDs" mode="writeMode"/>
+    <apply-templates mode="writeMode" select="$writeOsisIDs"/>
     
   
     <!-- Error if keywords are outside of glossary -->
@@ -82,7 +82,7 @@
     <!-- Warn about material dropped from SWORD -->
     <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary']">
       <call-template name="Warn">
-        <with-param name="msg">The followng <value-of select="@type"/> material will not appear in the SWORD module:&#xa;BEGIN-QUOTE&#xa;<value-of select="."/>&#xa;END-QUOTE</with-param>
+        <with-param name="msg">The followng <value-of select="@type"/> material will not appear in the SWORD module:&#xa;begin-quote&#xa;<value-of select="."/>&#xa;end-quote</with-param>
         <with-param name="exp">Only \id GLO USFM files will appear in the SWORD module.</with-param>
       </call-template>
     </for-each>
@@ -114,6 +114,8 @@
   <!-- Then separate glossary contents so each entry is in its own child div -->
   <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
+    <variable name="isSpecial" as="xs:boolean" 
+      select="@scope = 'NAVMENU' or @annotateType = 'x-feature'"/>
     <copy>
       <apply-templates select="@*"/>
       
@@ -129,13 +131,15 @@
       
       <!-- Separate glossary children into groups so that each keyword is, 
       or is inside, the first node of each group having a keyword. Title 
-      elements with no level attribute or level=1 will also start a new 
-      group, whose contents will not be part of an x-keyword div. -->
+      elements inside a non-special glossary, having no level attribute 
+      or level=1 will also start a new group, whose contents will not be 
+      part of an x-keyword div. This is because in normal glossaries,
+      main titles do not apply to a single keyword. -->
       <for-each-group select="node()" 
           group-adjacent="count(descendant-or-self::seg[@type='keyword']) + 
                           count(preceding::seg[@type='keyword']) +
-                      0.5*count(self::title[not(@level) or @level='1']) +
-                      0.5*count(preceding::title[not(@level) or @level='1'])">
+                      0.5*count(self::title[not(@level) or @level='1'][not($isSpecial)]) +
+                      0.5*count(preceding::title[not(@level) or @level='1'][not($isSpecial)])">
       
         <for-each select="current-group()/descendant::text()[normalize-space()][1]
             [. &#60;&#60; current-group()/descendant-or-self::seg[@type='keyword']]">
@@ -148,12 +152,14 @@
         <choose>
           <when test="not(current-group()[descendant-or-self::seg[@type='keyword']])">
             <variable name="group">
-              <apply-templates select="current-group()" mode="#current"/>
+              <apply-templates mode="#current" select="current-group()"/>
             </variable>
-            <call-template name="Warn">
-<with-param name="msg">The following material will not appear in any combined glossary or SWORD module:&#xa;BEGIN-QUOTE&#xa;<value-of select="$group"/>&#xa;END-QUOTE</with-param>
+            <if test="$group[normalize-space()]">
+              <call-template name="Warn">
+<with-param name="msg">The following material will not appear in any combined glossary or SWORD module:&#xa;begin-quote&#xa;<value-of select="$group"/>&#xa;end-quote</with-param>
 <with-param name="exp">Glossary headings and main titles are not part of any glossary entry. Only glossary entries will appear in the combined glossary or SWORD module.</with-param>
-            </call-template>
+              </call-template>
+            </if>
             <sequence select="$group"/>
           </when>
           <otherwise>
@@ -177,7 +183,7 @@
                 </variable>
                 <if test="$subType"><attribute name="subType" select="$subType"/></if>
               </if>
-              <apply-templates select="current-group()" mode="#current"/>
+              <apply-templates mode="#current" select="current-group()"/>
             </osis:div>
           </otherwise>
         </choose>
@@ -186,7 +192,7 @@
   </template>
   
   <!-- Finally add osisID to keywords -->
-  <template match="seg[@type='keyword']" mode="write_osisIDs">
+  <template mode="write_osisIDs" match="seg[@type='keyword']">
     <variable name="segs_sharing_keyword" select="ancestor::osisText//seg[@type='keyword']
     [ancestor::div[@type='glossary']]
     [lower-case(string()) = lower-case(string(current()))]"/>
@@ -213,13 +219,13 @@
           <attribute name="osisID" select="oc:encodeOsisRef(string(.))"/>
         </otherwise>
       </choose>
-      <apply-templates select="node()|@*" mode="#current"/>
+      <apply-templates mode="#current" select="node()|@*"/>
     </copy>
   </template>
   
-  <template match="osisText" mode="writeMode">
+  <template mode="writeMode" match="osisText">
     <copy>
-      <apply-templates select="node()|@*" mode="#current"/>
+      <apply-templates mode="#current" select="node()|@*"/>
       
       <!-- Write x-aggregate div -->
       <if test="$duplicate_keywords">
@@ -227,9 +233,9 @@
           <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
             <osis:div type="x-keyword-aggregate">
               <copy>
-                <apply-templates select="@*" mode="#current"/>
+                <apply-templates mode="#current" select="@*"/>
                 <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
-                <apply-templates select="node()" mode="#current"/>
+                <apply-templates mode="#current" select="node()"/>
               </copy>
               <variable name="subentry_keywords" 
                 select="//seg[@type='keyword'][ancestor::div[@type='glossary']]
@@ -268,7 +274,7 @@
                   </if>
                 </if>
                 <copy>
-                  <apply-templates select="@*" mode="#current"/>
+                  <apply-templates mode="#current" select="@*"/>
                   <attribute name="type" select="'x-aggregate-subentry'"/>
                   <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                   <apply-templates mode="write_aggregates"/>
@@ -283,6 +289,8 @@
   </template>
   
   <!-- Remove individual keywords when writing the aggregate div -->
-  <template match="seg[@type='keyword']" mode="write_aggregates"/>
+  <template mode="write_aggregates" match="seg[@type='keyword']"/>
+  <template mode="write_aggregates" 
+    match="p[not( descendant::text()[normalize-space()][not(parent::seg[@type='keyword'])] )]"/>
   
 </stylesheet>

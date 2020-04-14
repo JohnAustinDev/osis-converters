@@ -5,17 +5,18 @@
   xmlns:my="osis-converters/scripts/whitespace.xsl"
   xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
  
-  <!-- Remove unnecessary osis prefixes and normalize whitespace -->
   <template match="node()|@*" priority="-1">
     <copy><apply-templates select="node()|@*"/></copy>
   </template>
   
+  <!-- Convert sequential \s and \n chars to a single space, everywhere -->
   <template match="text()">
     <copy-of select="replace(., '[\s\n]+', ' ')"/>
   </template>
   
-  <template match="*[namespace-uri()='http://www.bibletechnologies.net/2003/OSIS/namespace']">
-    <if test="not(preceding-sibling::*[1][self::verse[@sID]]) and my:breakBefore(.)">
+  <!-- Put \n only before and/or after certain tags. Remove osis prefixes. -->
+  <template match="*[ namespace-uri() = 'http://www.bibletechnologies.net/2003/OSIS/namespace' ]">
+    <if test="my:breakBefore(.) and not(preceding-sibling::*[not(self::milestone)][1][self::verse[@sID]])">
       <text>&#xa;</text><if test="ancestor::work"><text>  </text></if>
     </if>
     <element name="{local-name()}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
@@ -26,14 +27,18 @@
   
   <template match="comment()"><text>&#xa;</text><copy/></template>
   
-  <!-- Determine elements with line-breaks before/after -->
+  <!-- Elements that may have line-breaks before (if not preceding by verse[sID]) -->
   <function name="my:breakBefore" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
       select="matches(local-name($element),'^(lb|figure|title|head|list|item|p|lg|l|osis|osisText|div|chapter|table|row)$')
-              or $element[self::milestone[starts-with(@type,'x-usfm-toc') or @type='x-vsys-verse-start']]
-              or $element[ancestor-or-self::header] or $element[self::verse[@sID]]"/>
+              or $element[self::milestone[starts-with(@type,'x-usfm-toc')]]
+              or $element[ancestor-or-self::header]
+              or $element[self::verse[@sID]]
+              or $element[self::hi[@subType='x-alternate']]"/>
   </function>
+  
+  <!-- Elements that will have line-breaks after -->
   <function name="my:breakAfter" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
