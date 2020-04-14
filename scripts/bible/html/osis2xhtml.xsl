@@ -332,10 +332,12 @@
     </osis:osis>
   </template>
   <template mode="writeCombinedGlossary" match="node()|@*">
-    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
-    <if test="self::seg[not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]">
+    <if test="self::seg[@type='keyword'][not(ancestor::div[@subType='x-aggregate'])]">
       <call-template name="keywordDisambiguationHeading"/>
     </if>
+    <copy>
+      <apply-templates mode="#current" select="node()|@*"/>
+    </copy>
   </template>
   
   <!-- When keywords are aggregated or the combined glossary is used, 
@@ -1736,20 +1738,19 @@
   <template mode="xhtml" priority="2" match="seg[@type='keyword']">
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="currentTask" tunnel="yes"/>
-    <html:dfn>
-      <sequence select="me:getTocAttributes(.)"/>
-      <value-of select="me:getTocTitle(.)"/>
-    </html:dfn>
-    <if test="$currentTask = 'write-xhtml' and 
-              not(ancestor::div[@resp='x-oc']) and 
+    <if test="not(ancestor::div[@resp='x-oc']) and 
               not($doCombineGlossaries) and 
               me:getTocLevel(.) = 1 and 
               count(distinct-values($preprocessedRefOSIS//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
       <variable name="kdh" as="element(osis:title)*">
         <call-template name="keywordDisambiguationHeading"/>
       </variable>
-      <apply-templates mode="xhtml" select="$kdh/node()"/>
+      <apply-templates mode="xhtml" select="$kdh"/>
     </if>
+    <html:dfn>
+      <sequence select="me:getTocAttributes(.)"/>
+      <value-of select="me:getTocTitle(.)"/>
+    </html:dfn>
   </template>
   <template mode="xhtml" match="div[starts-with(@type,'x-keyword')]">
     <!-- Add an ebook page-break if there is more than one keyword in the glossary.
@@ -1946,8 +1947,7 @@
         <sequence select="oc:getMainInlineTOC(root(.), $combinedGlossary, $preprocessedRefOSIS)"/>
       </if>
       <!-- if a glossary disambiguation title is needed, then write that out -->
-      <if test="$currentTask = 'write-xhtml' and 
-                not($doCombineGlossaries) and 
+      <if test="not($doCombineGlossaries) and 
                 me:getTocLevel(.) = 1 and 
                 count(distinct-values(
                   $preprocessedRefOSIS//div[@type='glossary']/oc:getGlossaryScopeTitle(.)
@@ -1957,8 +1957,9 @@
             <with-param name="noName" select="'true'"/>
           </call-template>
         </variable>
-        <apply-templates mode="xhtml" select="$kdh/node()"/>
+        <apply-templates mode="xhtml" select="$kdh"/>
       </if>
+      <!-- output the inline TOC -->
       <sequence select="$inlineTOC"/>
     </if>
   </template>

@@ -55,6 +55,8 @@
           descendant::chapter[@sID][1] )[1]
         [. intersect current()]"/>
     <choose>
+    
+      <!-- Place navmenu before chapter[eID] and anything selected by prependNavMenu -->
       <when test="($DICTMOD and $prependNavMenu) or ($isBible and boolean(self::chapter[@eID]))">
         <sequence select="oc:getNavmenuLinks(
           oc:getPrevChapterOsisID(.),
@@ -68,6 +70,8 @@
           </call-template>
         </if>
       </when>
+      
+      <!-- Place navmnu at the end of each keyword -->
       <when test="self::div[starts-with(@type,'x-keyword')]">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
@@ -84,6 +88,7 @@
 <with-param name="msg">Added navmenu to keyword: <value-of select="descendant::seg[@type='keyword']"/></with-param>
         </call-template>
       </when>
+      
       <otherwise>
         <copy><apply-templates select="node()|@*"/></copy>
       </otherwise>

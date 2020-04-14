@@ -26,7 +26,17 @@
     more than once. So conversions which require unique keywords (like
     SWORD) should use x-keyword-aggregate, while conversions which
     tolerate non-unique keywords (like eBooks) should use 
-    x-keyword-duplicate keywords. -->
+    x-keyword-duplicate keywords. 
+    
+  GLOSSARY FORMATTING
+  Glossaries necessarily require simplified formatting, because all key-
+  words will appear at the same TOC level, and anything before the first 
+  keyword is dropped. Sometimes, the best approach is to include BAK 
+  type material twice, once as a 'GLO conversion == sword' which pre-
+  sents the desired keywords, and again as 'BAK' which presents all the 
+  formatted material without keywords. In this way, keyed implementa-
+  tions, ie SWORD, will use the GLO version, and normal serial implenta-
+  tions, ie eBooks and HTML, will use the full formatted version. -->
  
   <import href="../functions/functions.xsl"/>
   
@@ -65,37 +75,65 @@
     </for-each>
     
     <!-- Process the OSIS file -->
-    <variable name="separateKeywords"><apply-templates mode="separateKeywordMode"/></variable>
-    <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="writeOsisIDMode"/></variable>
+    <variable name="removeGlossaryDivs"><apply-templates mode="remove_glossary_divs"/></variable>
+    <variable name="separateKeywords"><apply-templates mode="separate_keywords" select="$removeGlossaryDivs"/></variable>
+    <variable name="writeOsisIDs"><apply-templates select="$separateKeywords" mode="write_osisIDs"/></variable>
     <apply-templates select="$writeOsisIDs" mode="writeMode"/>
     
     <!-- Log and Report results -->
     <if test="$duplicate_keywords">
-      <call-template name="Report"><with-param name="msg"><value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</with-param></call-template>
-      <for-each select="$duplicate_keywords"><call-template name="Log"><with-param name="msg" select="string()"/></call-template></for-each>
+      <call-template name="Report">
+<with-param name="msg"><value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</with-param>
+      </call-template>
+      <for-each select="$duplicate_keywords">
+        <call-template name="Log">
+<with-param name="msg" select="string()"/>
+        </call-template>
+      </for-each>
     </if>
     <if test="not($duplicate_keywords)">
-      <call-template name="Report"><with-param name="msg">0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).</with-param></call-template>
+      <call-template name="Report">
+<with-param name="msg">0 instance(s) of duplicate keywords. Entry aggregation isn't needed (according to case insensitive keyword comparison).</with-param>
+      </call-template>
     </if>
   </template>
   
+  <template mode="remove_glossary_divs" match="div[ancestor::div[@type='glossary']]">
+    <apply-templates mode="remove_glossary_divs"/>
+  </template>
+  
   <!-- Separate glossary contents so each entry is in its own child div -->
-  <template mode="separateKeywordMode" match="div[@type='glossary']">
+  <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
     <copy>
       <apply-templates select="@*"/>
       
-      <variable name="firstKey" select="descendant::seg[@type='keyword'][1]/string()"/>
+      <for-each select="child::*[count(descendant::seg[@type='keyword']) &#62; 1]">
+        <call-template name="Error">
+<with-param name="msg">Element contains multiple keywords: <value-of select="."/></with-param>
+<with-param name="exp">Keywords are inline elements, but a single paragraph (or other element) cannot contain more than one keyword.</with-param>
+<with-param name="die">yes</with-param>
+        </call-template>
+      </for-each>
       
-      <variable name="keywords">
-        <for-each select="node()">
-          <sequence select="if (element()) then oc:expelElements(., descendant::seg[@type='keyword'], false()) else ."/>
+      <variable name="firstKey" select="descendant::seg[@type='keyword'][1]"/>
+      
+      <!-- Next, separate into groups so that each keyword is, or is 
+      inside, the first node of each group. -->
+      <for-each-group select="node()" 
+          group-adjacent="count(descendant-or-self::seg[@type='keyword']) + 
+                          count(preceding::seg[@type='keyword'])">
+      
+        <for-each select="current-group()/descendant::text()[normalize-space()][1]
+            [. &#60;&#60; current-group()/descendant-or-self::seg[@type='keyword']]">
+          <call-template name="Error">
+<with-param name="msg">Glossary element '<value-of select="current-group()/descendant-or-self::seg[@type='keyword']"/>' is not the first text node in its container.</with-param>
+<with-param name="exp">This usually indicates a formatting problem.</with-param>
+          </call-template>
         </for-each>
-      </variable>
       
-      <for-each-group select="$keywords/node()" group-starting-with="seg[@type='keyword']">
         <choose>
-          <when test="not(current-group()[self::seg[@type='keyword']])">
+          <when test="not(current-group()[descendant-or-self::seg[@type='keyword']])">
             <apply-templates select="current-group()" mode="#current"/>
           </when>
           <otherwise>
@@ -103,12 +141,14 @@
             <osis:div>
               <attribute name="type">
                 <choose>
-                  <when test="$duplicate_keywords[ lower-case(string()) = 
-                    lower-case(current-group()[self::seg[@type='keyword']]/string()) ]">x-keyword-duplicate</when>
+                  <when test="$duplicate_keywords[
+                      lower-case(string()) = 
+                      lower-case(current-group()/descendant-or-self::seg[@type='keyword']/string()) 
+                    ]">x-keyword-duplicate</when>
                   <otherwise>x-keyword</otherwise>
                 </choose>
               </attribute>
-              <if test="current-group()[self::seg[@type='keyword']]/string() = $firstKey">
+              <if test="current-group()[descendant-or-self::seg[@type='keyword']]/string() = $firstKey/string()">
                 <variable name="subType" as="xs:string?">
                   <choose>
                     <when test="$osisID = 'uiIntroductionTopMenu'">x-navmenu-introduction</when>
@@ -126,9 +166,13 @@
   </template>
   
   <!-- Add osisID to keywords -->
-  <template match="seg[@type='keyword']" mode="writeOsisIDMode">
-    <variable name="segs_sharing_keyword" select="ancestor::osisText//seg[@type='keyword'][ancestor::div[@type='glossary']][lower-case(string()) = lower-case(string(current()))]"/>
-    <variable name="dup" select="if (count($segs_sharing_keyword) &#62; 1) then oc:index-of-node($segs_sharing_keyword, .) else ''"/>
+  <template match="seg[@type='keyword']" mode="write_osisIDs">
+    <variable name="segs_sharing_keyword" select="ancestor::osisText//seg[@type='keyword']
+    [ancestor::div[@type='glossary']]
+    [lower-case(string()) = lower-case(string(current()))]"/>
+    <variable name="dup" select="if (count($segs_sharing_keyword) &#62; 1) 
+                                 then oc:index-of-node($segs_sharing_keyword, .) 
+                                 else ''"/>
     <copy>
       <choose>
         <when test="$dup">
@@ -157,12 +201,11 @@
     <copy><apply-templates select="node()|@*" mode="#current"/>
     <!-- Write x-aggregate div -->
     <if test="$duplicate_keywords">
-      <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-        <attribute name="type" select="'glossary'"/><attribute name="subType" select="'x-aggregate'"/><attribute name="resp" select="'x-oc'"/>
+      <osis:div type="glossary" subType="x-aggregate" resp="x-oc">
         <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
-          <element name="div" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-            <attribute name="type">x-keyword-aggregate</attribute>
-            <copy><apply-templates select="@*" mode="#current"/>
+          <osis:div type="x-keyword-aggregate">
+            <copy>
+              <apply-templates select="@*" mode="#current"/>
               <attribute name="osisID" select="replace(@osisID, '\.dup1$', '')"/>
               <apply-templates select="node()" mode="#current"/>
             </copy>
@@ -178,36 +221,40 @@
               </for-each>
             </variable>
             <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
-              <copy><apply-templates select="@*" mode="#current"/>
+              <variable name="glossaryScopeTitle" select="$titles[@self = generate-id(current())]/@scopeTitle"/>
+              <variable name="countScopeTitles" select="count(distinct-values($titles/@scopeTitle))"/>
+              
+              <variable name="glossaryTitle" select="$titles[@self = generate-id(current())]/@glossTitle"/>
+              <variable name="countTitles" select="count(distinct-values($titles/@glossTitle))"/>
+              
+              <!-- Only add disambiguation titles if there is more than one scope or glossary title represented -->
+              <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
+                <if test="$glossaryScopeTitle">
+                  <osis:title level="3" subType="x-glossary-scope">
+                    <value-of select="$glossaryScopeTitle"/>
+                  </osis:title>
+                </if>
+                <if test="$glossaryTitle">
+                  <osis:title level="3" subType="x-glossary-title">
+                    <value-of select="$glossaryTitle"/>
+                  </osis:title>
+                </if>
+                <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
+                  <osis:title level="3" subType="x-glossary-head">
+                    <value-of select="concat(position(), ')')"/>
+                  </osis:title>
+                </if>
+              </if>
+              <copy>
+                <apply-templates select="@*" mode="#current"/>
                 <attribute name="type" select="'x-aggregate-subentry'"/>
                 <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
-                
-                <variable name="glossaryScopeTitle" select="$titles[@self = generate-id(current())]/@scopeTitle"/>
-                <variable name="countScopeTitles" select="count(distinct-values($titles/@scopeTitle))"/>
-                
-                <variable name="glossaryTitle" select="$titles[@self = generate-id(current())]/@glossTitle"/>
-                <variable name="countTitles" select="count(distinct-values($titles/@glossTitle))"/>
-                
-                <!-- Only add disambiguation titles if there is more than one scope or glossary title represented -->
-                <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
-                  <if test="$glossaryScopeTitle">
-                    <title level="3" subType="x-glossary-scope" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryScopeTitle"/></title>
-                  </if>
-                  <if test="$glossaryTitle">
-                    <title level="3" subType="x-glossary-title" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="$glossaryTitle"/></title>
-                  </if>
-                  <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
-                    <title level="3" subType="x-glossary-head" xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace"><xsl:value-of select="position()"/>) </title>
-                  </if>
-                </if>
-                
                 <apply-templates mode="write-aggregates"/>
-                
               </copy>
             </for-each>
-          </element>
+          </osis:div>
         </for-each>
-      </element>
+      </osis:div>
     </if>
     </copy>
   </template>

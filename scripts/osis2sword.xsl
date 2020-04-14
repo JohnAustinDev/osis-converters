@@ -83,7 +83,7 @@
     <variable name="text" select="concat(
       if (text() = oc:decodeOsisRef(tokenize($REF_introductionINT, ':')[2])) 
       then '--' else '-', 
-      ,' ', text())"/>
+      ' ', text())"/>
     <copy>
       <apply-templates mode="dashes" select="@*"/>
       <attribute name="osisID" select="oc:encodeOsisRef($text)"/>
