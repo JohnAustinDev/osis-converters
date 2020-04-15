@@ -694,7 +694,9 @@ already been fitted so this step will be skipped!");
   # Apply VSYS instructions to the translation (first do the fitting, then mark moved and extra verses)
   elsif (@VSYS_INSTR) {
     foreach my $argsP (@VSYS_INSTR) {
-      if ($argsP->{'inst'} ne 'FROM_TO') {&applyVsysInstruction($argsP, $canonP, $xml);}
+      if ($argsP->{'inst'} !~ /^(FROM_TO|VTAG_MISSING)$/) {
+        &applyVsysInstruction($argsP, $canonP, $xml);
+      }
     }
     &writeXMLFile($xml, $osisP);
     $xml = $XML_PARSER->parse_file($$osisP);
@@ -862,7 +864,6 @@ sub applyVsysInstruction(\%\%$) {
   if    ($inst eq 'MISSING') {&applyVsysMissing($fixedP, $xml);}
   elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml);}
   elsif ($inst eq 'FROM_TO') {&applyVsysFromTo($fixedP, $sourceP, $xml);}
-  elsif ($inst eq 'VTAG_MISSING') {} # already applied before source-text references were checked
   else {&ErrorBug("applyVsysInstruction did nothing: $inst");}
   
   return 1;

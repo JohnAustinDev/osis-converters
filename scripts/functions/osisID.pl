@@ -565,7 +565,7 @@ sub write_osisIDs($) {
     
     foreach my $e (@elems) {
       $e->setAttribute('osisID', &create_osisID($e, \%ids));
-      if ($e->nodeName eq 'div') {
+      if ($e->nodeName =~ /div$/) {
         &Note("Adding osisID ".$e->getAttribute('osisID'));
       }
     }
@@ -589,15 +589,17 @@ sub create_osisID($\%) {
   
   my $baseName = &osisID_baseName($e);
   if ($baseName) {
+    my $nodeName = $e->nodeName;
+    $nodeName =~ s/^[^\:]+\://; # could be osis:milestone etc.
   
-    my $ext = $e->nodeName;
+    my $ext = $nodeName; 
     # A ! extension is always added to quickly differentiate from 
     # Scripture osisIDs, which never have extensions and are often 
     # treated differently.
     if ($e->getAttribute('type') eq "x-usfm-toc".&conf('TOC')) {
       $ext = 'toc';
     }
-    elsif ($e->nodeName eq 'note') {
+    elsif ($nodeName eq 'note') {
       # The note extension has 2 parts: type and instance. Instance is 
       # a number prefixed by a single letter. External cross-references 
       # for the verse system are added from another source and will have 
@@ -609,7 +611,7 @@ sub create_osisID($\%) {
   
     my $n = 1;
     do {
-      if ($e->nodeName eq 'note') {
+      if ($nodeName eq 'note') {
         $id = $baseName.'!'.$ext.$n;
       }
       else {
@@ -631,19 +633,24 @@ sub create_osisID($\%) {
 sub osisID_baseName($) {
   my $e = shift;
   
+  my $nodeName = $e->nodeName;
+  $nodeName =~ s/^[^\:]+\://; # could be osis:milestone etc.
+  
   my $feature = ($e->getAttribute('annotateType') eq 'x-feature' ? $e->getAttribute('annotateRef'):'');
-  my $type = ($e->getAttribute('type') ? &dashCamelCase($e->getAttribute('type')):$e->nodeName);
+  my $type = ($e->getAttribute('type') ? &dashCamelCase($e->getAttribute('type')):$nodeName);
  
-  if ($e->nodeName eq 'div') {
+  if ($nodeName eq 'div') {
     my $kind = ($feature ? $feature:$type);
     # these commonly appearing kinds of div also get a title
     my $title = ($kind =~ /^(glossary|div)$/ ? &encodeOsisRef(&getDivTitle($e)):'');
     return $kind.($title ? '_'.$title:'');
   }
-  elsif ($e->nodeName eq 'milestone') {
-    return ($e->getAttribute('n') ? &encodeOsisRef($e->getAttribute('n')):$type);
+  elsif ($nodeName eq 'milestone') {
+    my $n = $e->getAttribute('n');
+    $n =~ s/^(\[[^\]]+\])+//; # could be n="[level2]Сотворение мира" etc.
+    return ($n ? &encodeOsisRef($n):$type);
   }
-  elsif ($e->nodeName eq 'note') {
+  elsif ($nodeName eq 'note') {
     my @ids = &atomizeContext(&getNodeContext($e));
     return @ids[0];
   }
