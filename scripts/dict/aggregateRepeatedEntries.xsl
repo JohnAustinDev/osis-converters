@@ -68,7 +68,34 @@
     <variable name="writeOsisIDs">
       <apply-templates mode="write_osisIDs" select="$separateKeywords"/>
     </variable>
-    <apply-templates mode="writeMode" select="$writeOsisIDs"/>
+    <variable name="output">
+      <apply-templates mode="writeMode" select="$writeOsisIDs"/>
+    </variable>
+    
+    <!-- Warn about glossary material that is not in a keyword -->
+    <variable name="exglossary" select="$output//div[@type='glossary'][not(@subType='x-aggregate')]
+      [child::node()[not(self::comment())][not(self::div[starts-with(@type, 'x-keyword')])][normalize-space()]]"/>
+    <if test="$exglossary">
+      <call-template name="Warn">
+<with-param name="msg">The following material will not appear in any combined glossary or SWORD module:
+<for-each select="$exglossary">osisID="<value-of select="@osisID"/>"
+<value-of>
+          <for-each select="child::node()[not(self::comment())][not(self::div[starts-with(@type, 'x-keyword')])]">
+            <if test="normalize-space(.)"><text>     </text><value-of select="."/><text>&#xa;</text></if>
+          </for-each>
+        </value-of><text>&#xa;</text>
+        </for-each>
+        </with-param>
+<with-param name="exp">Everything before the first keyword, and all Level 1 
+titles, are outside of any glossary entry. Level 1 headings will close 
+their preceding glossary entry and all text between the heading and the 
+next glossary entry will also be outside of a glossary entry. Use  
+secondary titles if you wish the titles and following material to be  
+included in the proceding glossary entry.</with-param>
+      </call-template>
+    </if>
+    
+    <sequence select="$output"/>
     
   
     <!-- Error if keywords are outside of glossary -->
@@ -151,16 +178,7 @@
       
         <choose>
           <when test="not(current-group()[descendant-or-self::seg[@type='keyword']])">
-            <variable name="group">
-              <apply-templates mode="#current" select="current-group()"/>
-            </variable>
-            <if test="$group[normalize-space()]">
-              <call-template name="Warn">
-<with-param name="msg">The following material will not appear in any combined glossary or SWORD module:&#xa;begin-quote&#xa;<value-of select="$group"/>&#xa;end-quote</with-param>
-<with-param name="exp">Glossary headings and main titles are not part of any glossary entry. Only glossary entries will appear in the combined glossary or SWORD module.</with-param>
-              </call-template>
-            </if>
-            <sequence select="$group"/>
+            <apply-templates mode="#current" select="current-group()"/>
           </when>
           <otherwise>
             <text>&#xa;</text>
@@ -285,6 +303,18 @@
         </osis:div>
       </if>
     
+    </copy>
+  </template>
+  
+  <template mode="write_osisIDs" match="div[@type='glossary']">
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <variable name="title" select="oc:encodeOsisRef(oc:getGlossaryTitle(.))"/>
+      <variable name="n" select="1 + count(
+        preceding::div[@type='glossary'][oc:getGlossaryTitle(.) = oc:getGlossaryTitle(current())] )"/>
+      <attribute name="osisID" 
+        select="concat('glossary_', $title, if ($n &#62; 1) then concat('_', $n) else '','!con')"/>
+      <apply-templates mode="#current"/>
     </copy>
   </template>
   
