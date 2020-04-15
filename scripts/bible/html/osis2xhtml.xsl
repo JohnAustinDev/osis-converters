@@ -180,7 +180,7 @@
             [child::node()[not(self::div[starts-with(@type, 'x-keyword')])]
                           [descendant-or-self::text()[normalize-space()]] ]">
             <call-template name="Warn">
-<with-param name="msg">Dropping non-keyword text from glossary '<value-of select="oc:getGlossaryTitle(.)"/>': <value-of select="normalize-space(string-join(node()[not(self::div[starts-with(@type, 'x-keyword')])][descendant-or-self::text()[normalize-space()]],' '))"/></with-param>
+<with-param name="msg">Dropping non-keyword text from glossary '<value-of select="oc:getDivTitle(.)"/>': <value-of select="normalize-space(string-join(node()[not(self::div[starts-with(@type, 'x-keyword')])][descendant-or-self::text()[normalize-space()]],' '))"/></with-param>
 <with-param name="exp">To keep this text, set CombineGlossaries=false in config.conf.</with-param>
             </call-template>
           </for-each>
@@ -347,12 +347,12 @@
     <param name="noName"/>
     <if test="not($noScope)">
       <osis:title level="3" subType="x-glossary-scope">
-        <value-of select="oc:getGlossaryScopeTitle(ancestor::div[@type='glossary'][1])"/>
+        <value-of select="oc:getDivScopeTitle(ancestor::div[@type='glossary'][1])"/>
       </osis:title>
     </if>
     <if test="not($noName)">
       <osis:title level="3" subType="x-glossary-title">
-        <value-of select="oc:getGlossaryTitle(ancestor::div[@type='glossary'][1])"/>
+        <value-of select="oc:getDivTitle(ancestor::div[@type='glossary'][1])"/>
       </osis:title>
     </if>
   </template>
@@ -489,7 +489,7 @@
               if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary' 
               else 'letter'"/>
     <call-template name="Note">
-<with-param name="msg">Glossary menus: <value-of select="oc:getGlossaryTitle(.)"/>, my_glossaryToc=<value-of select="$my_glossaryToc"/>, my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
+<with-param name="msg">Glossary menus: <value-of select="oc:getDivTitle(.)"/>, my_glossaryToc=<value-of select="$my_glossaryToc"/>, my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>
     <variable name="glossary" as="element(div)">
       <copy>
@@ -644,7 +644,7 @@
               if (count(descendant::div[starts-with(@type, 'x-keyword')]) &#60; $keywordFileAutoThresh) then 'glossary' 
               else 'letter'"/>
     <call-template name="Note">
-<with-param name="msg">Processing glossary '<value-of select="oc:getGlossaryTitle(.)"/>', my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
+<with-param name="msg">Processing glossary '<value-of select="oc:getDivTitle(.)"/>', my_keywordFile=<value-of select="$my_keywordFile"/></with-param>
     </call-template>
     <choose>
       <when test="$my_keywordFile = ('single', 'letter')">
@@ -719,7 +719,7 @@
                     if ($glossFile != $fileName and $glossFile) then 
                         concat('href+/xhtml/', $glossFile) else '',
                     if ($myglossary) then 
-                        oc:getGlossaryTitle($myglossary) else '', '')">
+                        oc:getDivTitle($myglossary) else '', '')">
                 <with-param name="contextFile" select="$fileName" tunnel="yes"/>
               </apply-templates>
             </if>
@@ -1741,7 +1741,7 @@
     <if test="not(ancestor::div[@resp='x-oc']) and 
               not($doCombineGlossaries) and 
               me:getTocLevel(.) = 1 and 
-              count(distinct-values($preprocessedRefOSIS//div[@type='glossary']/oc:getGlossaryScopeTitle(.))) &#62; 1"> 
+              count(distinct-values($preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.))) &#62; 1"> 
       <variable name="kdh" as="element(osis:title)*">
         <call-template name="keywordDisambiguationHeading"/>
       </variable>
@@ -1950,7 +1950,7 @@
       <if test="not($doCombineGlossaries) and 
                 me:getTocLevel(.) = 1 and 
                 count(distinct-values(
-                  $preprocessedRefOSIS//div[@type='glossary']/oc:getGlossaryScopeTitle(.)
+                  $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
                 )) &#62; 1"> 
         <variable name="kdh" as="element(osis:title)*">
           <call-template name="keywordDisambiguationHeading">

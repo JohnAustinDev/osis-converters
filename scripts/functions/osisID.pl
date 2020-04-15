@@ -536,4 +536,124 @@ sub checkUniqueOsisIDs($) {
   &Report("Found ".@osisIDs." unique osisIDs");
 }
 
+# Write unique osisIDs to any element that requires one. Only elements
+# with osisID attributes may be targetted by an osisRef link.
+sub write_osisIDs($) {
+  my $osisP = shift;
+  
+  &Log("\nWriting osisIDs:\n", 1);
+  
+  my %ids;
+  # splitOSIS offers a massive speedup for note osisIDs
+  foreach my $osis (&splitOSIS($$osisP)) {
+    my $xml = $XML_PARSER->parse_file($osis);
+    
+    # Glossary and other divs
+    my @elems = @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
+        [not(@resp="x-oc")]
+        [not(starts-with(@type, "book"))]
+        [not(starts-with(@type, "x-keyword"))]
+        [not(starts-with(@type, "x-aggregate"))]
+        [not(contains(@type, "ection"))]', $xml)};
+        
+    # TOC milestones so they can be used as reference targets
+    push(@elems, @{$XPC->findnodes('//osis:milestone
+        [@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $xml)});
+        
+    # notes (excluding external cross-references which already have osisIDs)
+    push(@elems, @{$XPC->findnodes('//osis:note[not(@resp)]', $xml)});
+    
+    foreach my $e (@elems) {
+      $e->setAttribute('osisID', &create_osisID($e, \%ids));
+      if ($e->nodeName eq 'div') {
+        &Note("Adding osisID ".$e->getAttribute('osisID'));
+      }
+    }
+    
+    &writeXMLFile($xml, $osis);
+  }
+  &joinOSIS($osisP);
+}
+
+
+# This functions returns unique osisID values to assign to any element.
+# But in order for it to work, $usedHP pointer must be provided, whose 
+# keys are the osisIDs of all elements appearing earlier in the OSIS
+# file sharing the same nodeName (ie. div or milestone) so as not to
+# duplicate those osisID values.
+sub create_osisID($\%) {
+  my $e = shift;
+  my $usedHP = shift;
+  
+  my $id;
+  
+  my $baseName = &osisID_baseName($e);
+  if ($baseName) {
+  
+    my $ext = $e->nodeName;
+    # A ! extension is always added to quickly differentiate from 
+    # Scripture osisIDs, which never have extensions and are often 
+    # treated differently.
+    if ($e->getAttribute('type') eq "x-usfm-toc".&conf('TOC')) {
+      $ext = 'toc';
+    }
+    elsif ($e->nodeName eq 'note') {
+      # The note extension has 2 parts: type and instance. Instance is 
+      # a number prefixed by a single letter. External cross-references 
+      # for the verse system are added from another source and will have 
+      # the extensions: crossReference.rN or crossReference.pN (for 
+      # parallel passages).
+      $ext = ( $e->getAttribute("placement") eq "foot" ? $FNREFEXT : 
+      ($e->getAttribute("type") ? $e->getAttribute("type").'.t' : 'tnote.t') );
+    }
+  
+    my $n = 1;
+    do {
+      if ($e->nodeName eq 'note') {
+        $id = $baseName.'!'.$ext.$n;
+      }
+      else {
+        $id = $baseName.($n > 1 ? "_$n":'').'!'.$ext;
+      }
+      $n++;
+    } while (exists($usedHP->{$id}));
+    $usedHP->{$id}++;
+  }
+  else {
+    &ErrorBug("Could not create osisID for ".$e->toString(), 1);
+  }
+  
+  return $id;
+}
+
+# Returns an informative base osisID for an element, based on its 
+# nodeName, attributes and/or context. It is not necessarily unique.
+sub osisID_baseName($) {
+  my $e = shift;
+  
+  my $feature = ($e->getAttribute('annotateType') eq 'x-feature' ? $e->getAttribute('annotateRef'):'');
+  my $type = ($e->getAttribute('type') ? &dashCamelCase($e->getAttribute('type')):$e->nodeName);
+ 
+  if ($e->nodeName eq 'div') {
+    my $kind = ($feature ? $feature:$type);
+    # these commonly appearing kinds of div also get a title
+    my $title = ($kind =~ /^(glossary|div)$/ ? &encodeOsisRef(&getDivTitle($e)):'');
+    return $kind.($title ? '_'.$title:'');
+  }
+  elsif ($e->nodeName eq 'milestone') {
+    return ($e->getAttribute('n') ? &encodeOsisRef($e->getAttribute('n')):$type);
+  }
+  elsif ($e->nodeName eq 'note') {
+    my @ids = &atomizeContext(&getNodeContext($e));
+    return @ids[0];
+  }
+}
+
+sub dashCamelCase($) {
+  my $id = shift;
+  my @p = split(/\-/, $id);
+  for (my $x=1; $x<@p; $x++) {@p[$x] = ucfirst(@p[$x]);}
+  return join('', @p);
+}
+
 1;

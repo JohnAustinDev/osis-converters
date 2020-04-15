@@ -383,8 +383,8 @@
     <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
   </function>
   
-  <!-- Return the title of a glossary -->
-  <function name="oc:getGlossaryTitle" as="xs:string">
+  <!-- Return the title of a div element -->
+  <function name="oc:getDivTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
     <choose>
       <when test="$glossary/ancestor::osis[@isCombinedGlossary]">
@@ -399,8 +399,8 @@
     
   </function>
   
-  <!-- Return the sub-publication title matching a glossary's scope -->
-  <function name="oc:getGlossaryScopeTitle" as="xs:string">
+  <!-- Return the sub-publication title matching @scope -->
+  <function name="oc:getDivScopeTitle" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <variable name ="pscope" select="replace($glossary/@scope, '\s', '_')"/>
     <variable name="title" select="root($glossary)//header//description[contains(@type, concat('TitleSubPublication[', $pscope, ']'))]"/>
@@ -606,8 +606,8 @@
     <param name="includeGlossaryKeywords" as="xs:boolean"/>
     
     <variable name="glossaryTitle" 
-        select="if (oc:getGlossaryTitle($glossary)) then 
-                oc:getGlossaryTitle($glossary) else 
+        select="if (oc:getDivTitle($glossary)) then 
+                oc:getDivTitle($glossary) else 
                 $uiDictionary"/>
                 
     <!-- If there are glossary menus for each glossary, we need their ids to be unique -->

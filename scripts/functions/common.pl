@@ -37,7 +37,7 @@ $INDENT = "<milestone type=\"x-p-indent\" />";
 $LB = "<lb />";
 $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 $FNREFEND = "</reference>";
-$FNREFEXT = "!note.n";
+$FNREFEXT = "note.n";
 $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
@@ -2192,7 +2192,7 @@ sub reportReferences(\%\%) {
     &Report("\"".$refcntP->{$type}."\" ${type}s checked. (".($errorsP->{$type} ? $errorsP->{$type}:0)." problems)");
     $total += $refcntP->{$type}; $errtot += $errorsP->{$type};
   }
-  &Report("\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");
+  &Report("<-\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");
 }
 
 sub checkReferenceLinks2($$\%\%\%$) {
@@ -2866,7 +2866,7 @@ sub writeWorkElement($$$) {
   return $w;
 }
 
-sub getGlossaryTitle($) {
+sub getDivTitle($) {
   my $glossdiv = shift;
   
   my $telem = @{$XPC->findnodes('(descendant::osis:title[@type="main"][1] | descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n)[1]', $glossdiv)}[0];
@@ -2877,109 +2877,10 @@ sub getGlossaryTitle($) {
   return $title;
 }
 
-# Write unique osisIDs to any elements that still need them
-sub writeOsisIDs($) {
-  my $osisP = shift;
-  
-  my $type;
-  if    (&conf('ModDrv') =~ /LD/)   {$type = 'x-glossary';}
-  elsif (&conf('ModDrv') =~ /Text/) {$type = 'x-bible';}
-  elsif (&conf('ModDrv') =~ /GenBook/) {$type = 'x-childrens-bible';}
-  else {return;}
-  
-  &Log("\nWriting osisIDs:\n", 1);
-  
-  my $xml = $XML_PARSER->parse_file($$osisP);
-  
-  my @existing = $XPC->findnodes('//osis:note[not(@resp)][@osisID]', $xml);
-  if (@existing) {
-    &Warn(@existing." notes already have osisIDs assigned, so this step will be skipped and no new note osisIDs will be written!");
-    return;
-  }
-  
-  my $myMod = &getOsisRefWork($xml);
-  
-  # Add osisID to DICT container divs
-  my %ids;
-  foreach my $div (
-    @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
-      [not(@resp="x-oc")]
-      [not(starts-with(@type, "book"))]
-      [not(starts-with(@type, "x-keyword"))]
-      [not(starts-with(@type, "x-aggregate"))]
-      [not(contains(@type, "ection"))]', $xml)}
-    ) {
-    my $n=1;
-    my $id;
-    my $title = &encodeOsisRef(&getGlossaryTitle($div));
-    do {
-      my $feature = ($div->getAttribute('annotateType') eq 'x-feature' ? $div->getAttribute('annotateRef'):'');
-      $id = ($feature ? $feature:&dashCamelCase($div->getAttribute('type')));
-      $id = ($id ? $id:'div');
-      $id .= ($title ? "_$title":'');
-      $id .= ($title || $feature ? ($n != 1 ? "_$n":''):"_$n");
-      $id .= "!con";
-      $n++;
-    } while (defined($ids{$id}));
-    $ids{$id}++;
-    $div->setAttribute('osisID', $id);
-    &Note("Adding osisID ".$div->getAttribute('osisID'));
-  }
-  
-  # Add osisID's to TOC milestones so they can be used as reference targets
-  foreach my $ms (@{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $xml)}) {
-    # ! extension is to quickly differentiate from Scripture osisIDs for osis2xhtml.xsl
-    my $id; my $n = 1;
-    do {
-      $id = &encodeOsisRef($ms->getAttribute('n')).($n > 1 ? "_$n":'').'!toc';
-      $n++;
-    } while (@{$XPC->findnodes("//*[\@osisID='$id'][1]", $xml)}[0]);
-    $ms->setAttribute('osisID', $id); 
-  }
-  
-  # Write these osisID changes before any further steps
-  &writeXMLFile($xml, $osisP);
-  
-  # Get all notes (excluding generic cross-references added from an external source) and write osisIDs
-  my %osisID_note;
-  my @splitosis = &splitOSIS($$osisP); # splitOSIS offers a massive speedup here!
-  foreach my $sosis (@splitosis) {
-    my $xml = $XML_PARSER->parse_file($sosis);
-    foreach my $n ($XPC->findnodes('//osis:note[not(@resp)]', $xml)) {
-      my @ids = &atomizeContext(&getNodeContext($n));
-      my $osisID = @ids[0];
-      # Reserve and write an osisID for each note. 
-      my $i = 1;
-      # The extension has 2 parts: type and instance. Instance is a number prefixed by a single letter.
-      # Generic cross-references for the verse system are added from another source and will have the 
-      # extensions: crossReference.rN or crossReference.pN (parallel passages).
-      my $refext = ($n->getAttribute("placement") eq "foot" ? $FNREFEXT:'!' . ($n->getAttribute("type") ? $n->getAttribute("type"):'tnote') . '.t');
-      my $id = "$myMod:$osisID$refext$i";
-      while ($osisID_note{$id}) {$i++; $id = "$myMod:$osisID$refext$i";}
-      
-      if ($n->getAttribute('osisID') && $n->getAttribute('osisID') ne "$osisID$refext$i") {
-        &ErrorBug("Overwriting note osisID \"".$n->getAttribute('osisID')."\" with \"$osisID$refext$i\".");
-      }
-
-      $n->setAttribute('osisID', "$osisID$refext$i");
-      $osisID_note{"$myMod:$osisID$refext$i"}++;
-    }
-    &writeXMLFile($xml, $sosis);
-  }
-  &joinOSIS($osisP);
-}
-
 sub oc_stringHash($) {
   my $s = shift;
   use Digest::MD5 qw(md5 md5_hex md5_base64);
   return substr(md5_hex(encode('utf8', $s)), 0, 4);
-}
-
-sub dashCamelCase($) {
-  my $id = shift;
-  my @p = split(/\-/, $id);
-  for (my $x=1; $x<@p; $x++) {@p[$x] = ucfirst(@p[$x]);}
-  return join('', @p);
 }
 
 

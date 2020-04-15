@@ -516,7 +516,7 @@ sub addFootnoteLinks2TextNode($$) {
       my $c = 0;
       while ($text =~ s/(\bosisRef=")(?!\d+=)([^"]*")(.*?)$/$1$keyRefInfo=$2$3/) {
         $c++;
-        my $or = $2; if ($or =~ /\Q$FNREFEXT\E(\d+)"/) {$or = $1;} else {$or = "?";}
+        my $or = $2; if ($or =~ /\Q!$FNREFEXT\E(\d+)"/) {$or = $1;} else {$or = "?";}
         $refInfo{$keyRefInfo++} = "$refType-".($c == 1 ? 'single':'multi')."-$or";
       }
     }
@@ -643,11 +643,11 @@ sub convertOrdinal($\@$$$) {
   # Assumes prev/next will always be in the same verse! These are always relative to textNode's footnote, so @osisRefs are ignored
   elsif ($ord eq 'prev') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
-    if ($osisID && $osisID =~ /^(.*?)\Q$FNREFEXT\E(\d+)$/) {
+    if ($osisID && $osisID =~ /^(.*?)\Q!$FNREFEXT\E(\d+)$/) {
       my $pref = $1;
       my $pord = $2;
       $pord--;
-      my $nid = $textMod.':'.$pref.$FNREFEXT.$pord;
+      my $nid = $textMod.':'.$pref.'!'.$FNREFEXT.$pord;
       if (!$pord || !$OSISID_FOOTNOTE{$nid}) {
         &ErrorBug("$BK.$CH.$VS: Footnote has no previous sibling \"$nid\"");
       }
@@ -656,11 +656,11 @@ sub convertOrdinal($\@$$$) {
   }
   elsif ($ord eq 'next') {
     my $osisID = &getOsisIdOfFootnoteNode($textNode);
-    if ($osisID && $osisID =~ /^(.*?)\Q$FNREFEXT\E(\d+)$/) {
+    if ($osisID && $osisID =~ /^(.*?)\Q!$FNREFEXT\E(\d+)$/) {
       my $pref = $1;
       my $nord = $2;
       $nord++;
-      my $nid = $textMod.':'.$pref.$FNREFEXT.$nord;
+      my $nid = $textMod.':'.$pref.'!'.$FNREFEXT.$nord;
       if (!$OSISID_FOOTNOTE{$nid}) {
         &ErrorBug("$BK.$CH.$VS: Footnote has no next sibling: \"$nid\"");
       }

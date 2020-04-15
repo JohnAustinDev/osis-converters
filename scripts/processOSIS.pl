@@ -80,7 +80,7 @@ allowed and must be removed.");
   else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
   
   # Every note tag needs a unique osisID assigned to it, as do some other elements
-  &writeOsisIDs(\$OSIS);
+  &write_osisIDs(\$OSIS);
   
   # Copy new DictionaryWords.xml if needed
   if ($modType eq 'dict' && -e $DEFAULT_DICTIONARY_WORDS && ! -e "$DICTINPD/$DICTIONARY_WORDS") {

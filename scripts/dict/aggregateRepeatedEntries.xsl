@@ -78,7 +78,7 @@
     <if test="$exglossary">
       <call-template name="Warn">
 <with-param name="msg">The following material will not appear in any combined glossary or SWORD module:
-<for-each select="$exglossary">osisID="<value-of select="@osisID"/>"
+<for-each select="$exglossary">In glossary: "<value-of select="oc:getDivTitle(.)"/>"
 <value-of>
           <for-each select="child::node()[not(self::comment())][not(self::div[starts-with(@type, 'x-keyword')])]">
             <if test="normalize-space(.)"><text>     </text><value-of select="."/><text>&#xa;</text></if>
@@ -86,12 +86,13 @@
         </value-of><text>&#xa;</text>
         </for-each>
         </with-param>
-<with-param name="exp">Everything before the first keyword, and all Level 1 
-titles, are outside of any glossary entry. Level 1 headings will close 
-their preceding glossary entry and all text between the heading and the 
-next glossary entry will also be outside of a glossary entry. Use  
-secondary titles if you wish the titles and following material to be  
-included in the proceding glossary entry.</with-param>
+<with-param name="exp">The warning above was given because text that comes before 
+the first keyword of a glossary is not included in any glossary entry. 
+Also, Level 1 headings will close any preceding glossary entry so that 
+all text between the heading and the following glossary entry will not 
+be included in any glossary entry either. Use a secondary title if you 
+wish the title and following material to be included in the proceding 
+glossary entry.</with-param>
       </call-template>
     </if>
     
@@ -107,7 +108,7 @@ included in the proceding glossary entry.</with-param>
     </for-each>
     
     <!-- Warn about material dropped from SWORD -->
-    <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary']">
+    <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary'][normalize-space()]">
       <call-template name="Warn">
         <with-param name="msg">The followng <value-of select="@type"/> material will not appear in the SWORD module:&#xa;begin-quote&#xa;<value-of select="."/>&#xa;end-quote</with-param>
         <with-param name="exp">Only \id GLO USFM files will appear in the SWORD module.</with-param>
@@ -133,12 +134,13 @@ included in the proceding glossary entry.</with-param>
 
   </template>
   
-  <!-- All divs within a glossary a first removed -->
+  <!-- All divs within a glossary are first removed. -->
   <template mode="remove_glossary_divs" match="div[ancestor::div[@type='glossary']]">
     <apply-templates mode="#current"/>
   </template>
   
-  <!-- Then separate glossary contents so each entry is in its own child div -->
+  <!-- Then separate glossary contents so each entry is in a separate
+   child div. -->
   <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
     <variable name="isSpecial" as="xs:boolean" 
@@ -247,7 +249,7 @@ included in the proceding glossary entry.</with-param>
       
       <!-- Write x-aggregate div -->
       <if test="$duplicate_keywords">
-        <osis:div type="glossary" subType="x-aggregate" resp="x-oc">
+        <osis:div type="glossary" subType="x-aggregate" osisID="glossary_xAggregate!div" resp="x-oc">
           <for-each select="//seg[@type='keyword'][ends-with(@osisID,'.dup1')]">
             <osis:div type="x-keyword-aggregate">
               <copy>
@@ -262,8 +264,8 @@ included in the proceding glossary entry.</with-param>
               <variable name="titles" as="element(oc:vars)*">
                 <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
                   <oc:vars self="{generate-id()}"
-                    scopeTitle="{oc:getGlossaryScopeTitle(./ancestor::div[@type='glossary'][1])}" 
-                    glossTitle="{oc:getGlossaryTitle(./ancestor::div[@type='glossary'][1])}"/>
+                    scopeTitle="{oc:getDivScopeTitle(./ancestor::div[@type='glossary'][1])}" 
+                    glossTitle="{oc:getDivTitle(./ancestor::div[@type='glossary'][1])}"/>
                 </for-each>
               </variable>
               <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
@@ -303,18 +305,6 @@ included in the proceding glossary entry.</with-param>
         </osis:div>
       </if>
     
-    </copy>
-  </template>
-  
-  <template mode="write_osisIDs" match="div[@type='glossary']">
-    <copy>
-      <apply-templates mode="#current" select="@*"/>
-      <variable name="title" select="oc:encodeOsisRef(oc:getGlossaryTitle(.))"/>
-      <variable name="n" select="1 + count(
-        preceding::div[@type='glossary'][oc:getGlossaryTitle(.) = oc:getGlossaryTitle(current())] )"/>
-      <attribute name="osisID" 
-        select="concat('glossary_', $title, if ($n &#62; 1) then concat('_', $n) else '','!con')"/>
-      <apply-templates mode="#current"/>
     </copy>
   </template>
   
