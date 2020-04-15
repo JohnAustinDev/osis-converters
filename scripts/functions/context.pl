@@ -549,4 +549,16 @@ sub existsScope($$) {
   return ($SCOPE_CACHE{$xml->URI}{$scope} eq 'yes');
 }
 
+sub getGlossaryScopeAttribute($) {
+  my $e = shift;
+  
+  my $eDiv = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="x-aggregate-subentry"]', $e)}[0];
+  if ($eDiv && $eDiv->getAttribute('scope')) {return $eDiv->getAttribute('scope');}
+
+  my $glossDiv = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"]', $e)}[0];
+  if ($glossDiv) {return $glossDiv->getAttribute('scope');}
+
+  return '';
+}
+
 1;

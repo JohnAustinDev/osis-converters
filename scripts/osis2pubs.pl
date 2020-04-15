@@ -239,7 +239,6 @@ body {font-family: font1;}
         'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
       );
       &runScript("$SCRD/scripts/osis2pubs.xsl", \$outf, \%params);
-      require "$SCRD/scripts/dict/processGlossary.pl";
       # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
       # This means any non Bible scopes (like SWORD) are also filtered out.
       $filter = &filterGlossaryToScope(\$outf, $scope);
@@ -1052,6 +1051,16 @@ sub copyFunctionsXSL($$) {
   else {&ErrorBug("Could not open $file", 1);}
   close(FUNC);
   if ($c != 3) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
+}
+
+sub removeAggregateEntries($) {
+  my $osisP = shift;
+
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  my @dels = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]', $xml);
+  foreach my $del (@dels) {$del->unbindNode();}
+  
+  &writeXMLFile($xml, $osisP);
 }
 
 1;

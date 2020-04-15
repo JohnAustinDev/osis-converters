@@ -1,4 +1,3 @@
-require("$SCRD/scripts/dict/processGlossary.pl");
 require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/addFootnoteLinks.pl");
 require("$SCRD/scripts/bible/addDictLinks.pl");

@@ -123,8 +123,6 @@
 
 $DEBUG_LOCATION = 0;
 
-require("$SCRD/scripts/dict/processGlossary.pl");
-
 sub runAddScripRefLinks($$$) {
   my $modType = shift;
   my $in_file = shift;

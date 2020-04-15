@@ -26,7 +26,6 @@
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
-require "$SCRD/scripts/dict/processGlossary.pl";
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
