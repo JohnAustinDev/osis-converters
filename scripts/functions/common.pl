@@ -2310,12 +2310,11 @@ sub checkCharacters($) {
     if ($n > 1) {$composed{$c} = $characters{$c};}
     $chars .= $c;
   }
-  &Log("\n");
   &Report("Characters used in OSIS file:\n$chars($numchars chars)");
   
   # Report composed characters
   my @comp; foreach my $c (sort keys %composed) {push(@comp, "$c(".$composed{$c}.')');}
-  &Report("Composed characters used in OSIS file: ".(@comp ? join(' ', @comp):'none'));
+  &Report("<-Composed characters used in OSIS file: ".(@comp ? join(' ', @comp):'none'));
   
   # Report rarely used characters
   my $rc = 20;
@@ -2327,7 +2326,7 @@ sub checkCharacters($) {
     if ($characters{$c} >= $rc) {next;}
     push(@rare, $c);
   }
-  &Report("Characters occuring fewer than $rc times in OSIS file (least first): ".(@rare ? join(' ', @rare):'none'));
+  &Report("<-Characters occuring fewer than $rc times in OSIS file (least first): ".(@rare ? join(' ', @rare):'none'));
   
   # Check for high order Unicode character replacements needed for GoBible/simpleChars.txt
   my %allChars; for my $c (split(//, $chars)) {$allChars{$c}++;}
@@ -3502,7 +3501,7 @@ sub removeDefaultWorkPrefixesFAST($) {
   &joinOSIS($osisP);
   
   &Report("Removed \"".$stats{'osisRef'}."\" redundant Work prefixes from osisRef attributes.");
-  &Report("Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.");
+  &Report("<-Removed \"".$stats{'osisID'}."\" redundant Work prefixes from osisID attributes.");
 }
 
 # Removes work prefixes of all osisIDs and osisRefs which match their

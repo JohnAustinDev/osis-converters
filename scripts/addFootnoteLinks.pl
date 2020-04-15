@@ -218,12 +218,10 @@ DICT OSIS file again.");
       }
     }
   }
-  &Log("\n");
   
   &Report("Phrases which were converted into footnote links (".scalar(keys(%FNL_LINKS))." different phrases):");
   my $x = 0; foreach my $p (sort keys %FNL_LINKS) {if (length($p) > $x) {$x = length($p);}}
   foreach my $p (sort keys %FNL_LINKS) {&Log(sprintf("%-".$x."s (%i)\n", $p, $FNL_LINKS{$p}));}
-  &Log("\n");
     
   &Report("Grand Total Footnote links: (".&stat()." instances)");
   &Log(sprintf("%5i - Referenced to previous reference\n", &stat('ref')));

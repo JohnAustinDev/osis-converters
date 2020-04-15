@@ -251,7 +251,6 @@ other books are added to the translation.");
 
   $ADD_CROSS_REF_LOC = ($ADD_CROSS_REF_LOC ? $ADD_CROSS_REF_LOC:0);
   $ADD_CROSS_REF_NUM = ($ADD_CROSS_REF_NUM ? $ADD_CROSS_REF_NUM:0);
-  &Log("\n");
   &Report("Placed $ADD_CROSS_REF_NUM cross-reference notes.");
   &Note("$ADD_CROSS_REF_LOC individual reference links were localized.");
   if ($ADD_CROSS_REF_BAD) {

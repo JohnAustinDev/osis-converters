@@ -1033,7 +1033,7 @@ chmod +r <value-of select="$tmpResult"/>
   <template name="Report">
     <param name="msg"/>
     <variable name="work" select="//osisText[1]/@osisIDWork"/>
-    <message><value-of select="if ($work) then concat($work, ' ') else ''"/>REPORT: <value-of select="$msg"/></message>
+    <message><text>&#xa;</text><value-of select="if ($work) then concat($work, ' ') else ''"/>REPORT: <value-of select="$msg"/></message>
   </template>
   <template name="Log">
     <param name="msg"/>

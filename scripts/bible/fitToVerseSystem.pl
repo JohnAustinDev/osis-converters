@@ -509,7 +509,6 @@ sub correctReferencesVSYS($) {
   # Write new OSIS file if anything changed
   if ($count) {&writeXMLFile($osisXML, $osisP);}
   
-  &Log("\n");
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
 
@@ -791,7 +790,6 @@ VSYS_EXTRA: Ps.151 <- Synodal:Ps.151\n$fitToVerseSystemDoc");
   if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
   else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")");}
   
-  &Log("\n");
   &Report("$errors verse system problems detected".($errors ? ':':'.'));
   if ($errors) {
     &Note("

@@ -315,7 +315,6 @@ that you wish to match on a separate line:");
   &Log("\n");
   &Log("#################################################################\n");
   &Log("\n");
-  &Log("\n");
 
   # report other collected data
   my $tCheckRefs = $CheckRefs;
@@ -327,7 +326,6 @@ or a chapter depending upon context.", "That these are interpereted correctly.")
     &Log("$CheckRefs\n");
   }
   else {&Log("(no extended refs contain ambiguous numbers)\n");}
-  &Log("\n");
 
   &Report("Listing of refs with unknown book names which defaulted to the context book: ($numUnhandledWords instances)");
   if (scalar(keys %UnhandledWords)) {
@@ -340,20 +338,17 @@ CF_addScripRefLinks.txt with a line such as: Matt = Matthew");
     }
   }
   else {&Log("(no unknown book names)\n");}
-  &Log("\n");
   my $t = 0;
   foreach my $loc (sort keys %fix) {foreach my $ref (sort keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} eq 'skip') {$t++;}}}
   &Report("Listing of exclusions: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "skip");}
   else {&Log("(no exclusions were specified in command the file)\n");}
-  &Log("\n");
 
   my $t = 0;
   foreach my $loc (sort keys %fix) {foreach my $ref (sort keys %{$fix{$loc}}) {if ($fix{$loc}{$ref} ne 'skip') {$t++;}}}
   &Report("Listing of fixes: ($t instances)");
   if ($t) {&reportFixes(\%fix, \%fixDone, "fix");}
   else {&Log("(no fixes were specified in the command file)\n");}
-  &Log("\n");
 
   &Report("Listing of unlocated left refs which were skipped: ($numMissedLeftRefs instances)");
   if (scalar(keys %missedLeftRefs)) {
@@ -365,7 +360,6 @@ these references (see the errors in the log listing above)");
     }
   }
   else {&Log("(no unlocated left refs)\n");}
-  &Log("\n");
 
   &Report("Listing of refs without digits which were skipped: ($numNoDigitRef instances)");
   if (scalar(keys %noDigitRef)) {
@@ -376,7 +370,6 @@ these references (see the errors in the log listing above)");
     }
   }
   else {&Log("(no refs without digits found)\n");}
-  &Log("\n");
 
   &Report("Listing of subrefs with indeterminate osisRefs which were skipped: ($numNoOSISRef instances)");
   if (scalar(keys %noOSISRef)) {
@@ -387,7 +380,6 @@ CF_addScripRefLinks.txt regular expression problems.");
     }
   }
   else {&Log("(no subrefs with OSIS ref problems found)\n");}
-  &Log("\n");
 
   &Report("Grand Total Scripture Reference links: ($newLinks instances)");
   $newLinks = 0;

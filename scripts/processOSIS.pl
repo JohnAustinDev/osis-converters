@@ -277,7 +277,7 @@ sub reprocessOSIS($) {
       "The osis2osis transliterator method is failing to convert this text.");
     }
     close(TEST);
-    &Report("\nFound $n occurrence(s) of source project code in $MOD.\n");
+    &Report("Found $n occurrence(s) of source project code in $MOD.\n");
   }
   else {
     &ErrorBug("Could not open source OSIS $OSIS\n", 1);
@@ -348,7 +348,6 @@ sub validateOSIS($) {
     else {&Error("\"$osis\" does not validate! See message(s) above.");}
   }
   
-  &Log("\n");
   &Report("OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION");
 }
 

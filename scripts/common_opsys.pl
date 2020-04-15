@@ -950,7 +950,10 @@ sub Report($$) {
   my $rptmsg = shift;
   my $flag = shift;
   
-  &Log("$MOD REPORT: $rptmsg\n", $flag);
+  # Terms beginning with <- will not have a leading line-break
+  my $n1 = ($rptmsg =~ s/^<\-// ? '':"\n");
+  
+  &Log("$n1$MOD REPORT: $rptmsg\n", $flag);
 }
 
 # Log to console and logfile. $flag can have these values:

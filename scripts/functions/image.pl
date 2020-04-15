@@ -474,7 +474,6 @@ smaller file size.\n";
     else {&Error("Could not read necessary image information for $localPath:\n".$infoP->{'identify'}, $imsg);}
   }
   
-  &Log("\n");
   &Report("\"".@links."\" figure targets found and checked. ($errors problem(s))");
   &Report("Total size of all images is ".&printInt($totalsize/1000)." KB");
 }

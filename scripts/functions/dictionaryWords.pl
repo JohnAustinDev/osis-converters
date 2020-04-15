@@ -81,7 +81,6 @@ sub loadDictionaryWordsXML($$$) {
   # Warn if some entries should have multiple match elements
   my @r = $XPC->findnodes('//dw:entry/dw:name[translate(text(), "_,;[(", "_____") != text()][count(following-sibling::dw:match) = 1]', $dwf);
   if (!@r[0]) {@r = ();}
-  &Log("\n");
   &Report("Compound glossary entry names with a single match element: (".scalar(@r)." instances)");
   if (@r) {
     &Note("Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.");
@@ -812,7 +811,7 @@ sub searchMatch($\$\$\$$$) {
 
 # Print log info for all glossary link searches
 sub logDictLinks() {
-  &Log("\n\n");
+  &Log("\n");
   
   my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0, 'maxl' => 0);
   foreach my $h (@EXPLICIT_GLOSSARY) {
@@ -841,7 +840,6 @@ sub logDictLinks() {
     }
   }
   
-  &Log("\n");
   &Report("There were ".(scalar keys %{$explicits{'fails'}})." unique failed explicit entry contexts:");
   foreach my $context (sort { length($b) <=> length($a) } keys %{$explicits{'fails'}}) {
     &Log("$context\n");
@@ -863,7 +861,6 @@ sub logDictLinks() {
     if (!$match) {$nolink .= $e."\n"; $numnolink++;}
   }
   
-  &Log("\n\n");
   &Report("Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)");
   if ($nolink) {
     &Note("You may want to link to these entries using a different word or phrase. To do this, edit the");
@@ -942,8 +939,8 @@ The following listing should be looked over to be sure text is
 correctly linked to the glossary. Glossary entries are matched in the
 text using the match elements found in the $DICTIONARY_WORDS file.\n");
   &Report("Explicit indexes succesfully converted into glossary links: ".$explicits{'total_links'});
-  &Report("Removed explicit indexes due to glossary match failure: ".$explicits{'total_fails'});
-  &Report("Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");
+  &Report("<-Removed explicit indexes due to glossary match failure: ".$explicits{'total_fails'});
+  &Report("<-Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");
 }
 
 

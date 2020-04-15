@@ -108,7 +108,6 @@ sub osis2pubs($) {
   }
 
   # REPORT results
-  &Log("\n");
   &Report(uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):");
   my @order = ('Format', 'Name', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
   my %cm;
@@ -632,7 +631,6 @@ sub filterScriptureReferences($$$) {
   elsif (!$noBooksPruned) {
     &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
   }
-  &Log(".\n");
 
   # xref = cross-references, sref = scripture-references, nref = no-osisRef-references
   my %delete    = {'xref'=>0,'sref'=>0, 'nref'=>0}; my %deleteBks   = {'xref'=>{},'sref'=>{},'nref'=>{}};
@@ -779,12 +777,10 @@ sub filterGlossaryReferences($$) {
     foreach my $osisRef (sort keys %noteMulti) {&Log("\t$osisRef\n");}
   }
   
-  &Log("\n");
   &Report("\"$totalRemovedOsisRefs\" glossary references were removed from $mname:");
   foreach my $r (sort keys %removedOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");
   }
-  &Log("\n");
   &Report("\"$totalModifiedOsisRefs\" multi-target glossary references were filtered in $mname:");
   foreach my $r (sort keys %modifiedOsisRefs) {
     &Log(&decodeOsisRef($r)." (osisRef=\"".$r."\")\n");

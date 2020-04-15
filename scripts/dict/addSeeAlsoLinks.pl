@@ -136,7 +136,6 @@ sub checkCircularEntries($) {
   
   my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
-  &Log("\n");
   &Report("Found $n circular cross references in \"$out_file\".");
   if (!&isDictDWFDefault() && $addDictLinks !~ /^check$/i && $n > 0) {
     &Warn(
