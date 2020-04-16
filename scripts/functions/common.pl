@@ -2189,7 +2189,7 @@ sub reportReferences(\%\%) {
   
   my $total = 0; my $errtot = 0;
   foreach my $type (sort keys (%{$refcntP})) {
-    &Report("\"".$refcntP->{$type}."\" ${type}s checked. (".($errorsP->{$type} ? $errorsP->{$type}:0)." problems)");
+    &Report("<-\"".$refcntP->{$type}."\" ${type}s checked. (".($errorsP->{$type} ? $errorsP->{$type}:0)." problems)");
     $total += $refcntP->{$type}; $errtot += $errorsP->{$type};
   }
   &Report("<-\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");

@@ -79,7 +79,6 @@ BookNames.xml in the sfm directory which should contain localized
   <book code=\"1SA\" abbr=\"1Şam\" />
   <book code=\"2SA\" abbr=\"2Şam\" />
 </BookNames>
-
 ");
 
   &Log("READING OSIS FILE: \"$$osisP\".\n");

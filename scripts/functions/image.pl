@@ -437,29 +437,36 @@ smaller file size.\n";
       $totalsize += $infoP->{'size'};
       if ($infoP->{'size'} > 400000 && $filename !~ /^xl_/) {
         &Error("Figure image size is too large: $filename = ".&printInt($infoP->{'size'}/1000)." KB", "$imsg\n$ierr");
+        &Log("\n");
         $errors++;
       }
       elsif ($infoP->{'size'} > 250000) {
         &Warn("Figure image file size is large: $filename = ".&printInt($infoP->{'size'}/1000)." KB", $imsg);
+        &Log("\n");
       }
       if ($infoP->{'w'} + $infoP->{'h'} > 3000) {
         &Warn("Figure image width/height is large: $filename = ".$infoP->{'w'}."px x ".$infoP->{'h'}."px", 
         "Normally image width and height should be between 300 and 1200 pixels. Usually it is best to make the image as small as possible while keeping it clear and readable.");
+        &Log("\n");
       }
       if ($infoP->{'colorspace'} !~ /^(sRGB|RGB|Gray)$/) {
         &Warn("Figure image colorspace is unexpected: $filename = ".$infoP->{'colorspace'}, 
         "This may cause problems for some output formats.");
+        &Log("\n");
       }
       if ($infoP->{'format'} !~ /^(JPEG|PNG|GIF)$/) {
         &Error("Unhandled image type '".$infoP->{'format'}."'.", $imsg);
+        &Log("\n");
         $errors++;
       }
       if ($infoP->{'format'} eq 'GIF') {
         &Warn("Figure image format GIF may not be supported by some eFormats.", $imsg);
+        &Log("\n");
       }
       my $expectedExt = ($infoP->{'format'} eq 'JPEG' ? 'jpg':lc($infoP->{'format'}));
       if ($expectedExt ne $ext) {
         &Error("Figure image has the wrong extension: $localPath.", "Change this extension to '.$expectedExt'");
+        &Log("\n");
         $errors++;
       }
       &Note(sprintf("Figure %-32s %4s   %4s   w=%4i   h=%4i   size=%4s KB", 

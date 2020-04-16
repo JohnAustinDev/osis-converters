@@ -602,8 +602,8 @@ sub applyMaps(\%$) {
     $e->setAttribute('annotateType', $ANNOTATE_TYPE{'Source'});
   }
   
-  if ($update) {&Note("\n$update\n");}
-  if ($remove) {&Note("\n$remove\n");}
+  if ($update) {&Note("\n$update");}
+  if ($remove) {&Note("\n$remove");}
   
   return $count;
 }

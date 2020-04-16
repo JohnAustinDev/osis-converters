@@ -868,7 +868,6 @@ sub logDictLinks() {
     &Log($nolink);
   }
   else {&Log("(all glossary entries have at least one link in the text)\n");}
-  &Log("\n");
   
   my @matches = $XPC->findnodes('//dw:match', $DWF);
   my %unused;
@@ -938,7 +937,7 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
 The following listing should be looked over to be sure text is
 correctly linked to the glossary. Glossary entries are matched in the
 text using the match elements found in the $DICTIONARY_WORDS file.\n");
-  &Report("Explicit indexes succesfully converted into glossary links: ".$explicits{'total_links'});
+  &Report("<-Explicit indexes succesfully converted into glossary links: ".$explicits{'total_links'});
   &Report("<-Removed explicit indexes due to glossary match failure: ".$explicits{'total_fails'});
   &Report("<-Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");
 }
