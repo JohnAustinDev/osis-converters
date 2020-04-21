@@ -1618,7 +1618,7 @@ sub checkConfGlobals() {
     }
   }
   
-  if (!&conf('KeySort')) {
+  if ($DICTMOD && !($CONF->{'KeySort'} || $CONF->{$DICTMOD.'+KeySort'})) {
     &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
 keys. EXAMPLE:
@@ -1634,7 +1634,7 @@ ADDITIONAL \ added before it. This is required so the KeySort value can
 be parsed correctly. This means the string to ignore all brackets and 
 parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
   }
-  if (!&conf('LangSortOrder')) {
+  if ($DICTMOD && !($CONF->{'LangSortOrder'} || $CONF->{$DICTMOD.'+LangSortOrder'})) {
     &Error("LangSortOrder is missing from config.conf", "
 Although this config entry has been replaced by KeySort and is 
 deprecated and no longer used by osis-converters, for now it is still 

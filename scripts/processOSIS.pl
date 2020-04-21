@@ -39,7 +39,7 @@ sub processOSIS($) {
     
     &write_osisIDs(\$OSIS);
     
-    # write default DictionaryWords.xml templates
+    # create default DictionaryWords.xml templates
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
     $params{'anyEnding'} = 'true';
