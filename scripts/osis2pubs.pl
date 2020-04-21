@@ -628,7 +628,8 @@ sub filterScriptureReferences($$$) {
     &Log(", unless they may be redirected to \"$fullResourceURL\"");
   }
   elsif (!$noBooksPruned) {
-    &Log(".\nWARNING: You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
+    &Log(".\n");
+    &Warn("You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
   }
 
   # xref = cross-references, sref = scripture-references, nref = no-osisRef-references
@@ -680,6 +681,7 @@ sub filterScriptureReferences($$$) {
   &writeXMLFile($xml_osis, $osisToFilter);
   
   # REPORT results for osisToFilter
+  &Log("\n");
   foreach my $stat ('redirect', 'remove', 'delete') {
     foreach my $type ('sref', 'xref', 'nref') {
       my $t = ($type eq 'xref' ? 'cross     ':($type eq 'sref' ? 'Scripture ':'no-osisRef'));
@@ -688,7 +690,7 @@ sub filterScriptureReferences($$$) {
       if ($stat eq 'redirect') {$tc = $redirect{$type}; $bc = scalar(keys(%{$redirectBks{$type}}));}
       if ($stat eq 'remove')   {$tc = $remove{$type};   $bc = scalar(keys(%{$removeBks{$type}}));}
       if ($stat eq 'delete')   {$tc = $delete{$type};   $bc = scalar(keys(%{$deleteBks{$type}}));}
-      &Report(sprintf("$s %5i $t references - targeting %2i different book(s)", $tc, $bc));
+      &Report(sprintf("<-$s %5i $t references - targeting %2i different book(s)", $tc, $bc));
     }
   }
   &Report("\"$deletedXRs\" Resulting empty cross-reference notes were deleted.");

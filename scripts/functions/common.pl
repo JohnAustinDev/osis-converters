@@ -1617,6 +1617,32 @@ sub checkConfGlobals() {
       "You should localize the title in config.conf with: TitleSubPublication[$sp]=Localized Title");
     }
   }
+  
+  if (!&conf('KeySort')) {
+    &Error("KeySort is missing from config.conf", '
+This required config entry facilitates correct sorting of glossary 
+keys. EXAMPLE:
+KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[G`][g`][Sh][sh][Ch][ch][ng]`{\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}
+This entry allows sorting in any desired order by character collation. 
+Square brackets are used to separate any arbitrary JDK 1.4 case  
+sensitive regular expressions which are to be treated as single 
+characters during the sort comparison. Also, a single set of curly 
+brackets can be used around a regular expression which matches all 
+characters/patterns to be ignored during the sort comparison. IMPORTANT: 
+EVERY square or curly bracket within any regular expression must have an 
+ADDITIONAL \ added before it. This is required so the KeySort value can 
+be parsed correctly. This means the string to ignore all brackets and 
+parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
+  }
+  if (!&conf('LangSortOrder')) {
+    &Error("LangSortOrder is missing from config.conf", "
+Although this config entry has been replaced by KeySort and is 
+deprecated and no longer used by osis-converters, for now it is still 
+required to prevent the breaking of older programs. Its value is just 
+that of KeySort, but bracketed groups of regular expressions are not 
+allowed and must be removed.");
+  }
+  
 }
 
 

@@ -483,10 +483,20 @@ sub checkDictionaryWordsContexts($$) {
     $numatt++;
     &getContextAttributeHash($ec->getAttribute('notContext'));
   }
+  foreach my $ec ($XPC->findnodes('//*[@notExplicit]', $dwf)) {
+    if ($ec->getAttribute('notExplicit') =~ /^(true|false)$/) {next;}
+    $numatt++;
+    &attributeContextValue($ec->getAttribute('notExplicit'));
+  }
+  foreach my $ec ($XPC->findnodes('//*[@onlyExplicit]', $dwf)) {
+    if ($ec->getAttribute('onlyExplicit') =~ /^(true|false)$/) {next;}
+    $numatt++;
+    &attributeContextValue($ec->getAttribute('onlyExplicit'));
+  }
   
   $CONTEXT_CHECK_XML = ''; # This turns off osisID existence checking
   
-  &Report("Checked '$numatt' context and notContext attributes. ($CONTEXT_CHECK_ERR problem(s))");
+  &Report("Checked '$numatt' attributes with context values. ($CONTEXT_CHECK_ERR problem(s))");
 }
 
 sub existsElementID($$) {

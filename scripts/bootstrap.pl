@@ -82,7 +82,7 @@ else {
 # Before testing the project configuration, run bootstrap.pl if it 
 # exists in the project, to prepare any control files that need it.
 if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" && 
-    $SCRIPT_NAME =~ /^(sfm2all|osis2osis)$/) {
+    $SCRIPT_NAME =~ /^(sfm2all|osis2osis|sfm2osis)$/) {
   &shell("$MAININPD/bootstrap.pl");
 }
 

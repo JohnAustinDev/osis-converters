@@ -642,7 +642,11 @@ sub osisID_baseName($) {
   if ($nodeName eq 'div') {
     my $kind = ($feature ? $feature:$type);
     # these commonly appearing kinds of div also get a title
-    my $title = ($kind =~ /^(glossary|div)$/ ? &encodeOsisRef(&getDivTitle($e)):'');
+    my $title;
+    my $regex = (&conf('ARG_divTitleOsisID') ? &conf('ARG_divTitleOsisID'):'^(glossary|div)$');
+    if ($kind =~ /$regex/) {
+      $title = &encodeOsisRef(&getDivTitle($e));
+    }
     return $kind.($title ? '_'.$title:'');
   }
   elsif ($nodeName eq 'milestone') {
@@ -652,7 +656,9 @@ sub osisID_baseName($) {
   }
   elsif ($nodeName eq 'note') {
     my @ids = &atomizeContext(&getNodeContext($e));
-    return @ids[0];
+    my $base = @ids[0];
+    $base =~ s/\![^\!]*$//;
+    return $base;
   }
 }
 

@@ -458,28 +458,29 @@ sub asrlProcessFile($$) {
     my $thisp = $LOCATION;
     $thisp =~ s/^([^\.]*\.[^\.]*)\..*$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
-
-    # search for Scripture references in this text node and add newReference tags around them
-    my $text = $textNode->data();
-    my $isAnnotateRef = ($XPC->findnodes('ancestor-or-self::osis:reference[@type="annotateRef"]', $textNode) ? 1:0);
-    &addLinks(\$text, $BK, $CH, $isAnnotateRef);
-    if ($text eq $textNode->data()) {
-      # handle the special case of <reference type="annotateRef">\d+</reference> which does not match a reference pattern
-      # but can still be parsed because such an annotateRef must refer to a verse or chapter in the current scope
-      if (!$isAnnotateRef || $text !~ /^\s*(\d+)\s*$/) {next;}
-      my $ar = $1;
-      my $or = "$BK.$CH.$ar";
-      # the number is interpereted to refer to the entire chapter if the verse start tag which is previous to ref is in another chapter
-      my @pv = $XPC->findnodes('preceding::osis:verse[@sID][1]', $textNode);
-      if (@pv && @pv[0] && @pv[0]->getAttribute('sID') =~ /\.(\d+).(\d+)$/ && $1 ne $CH) {
-        $or = "$BK.$ar"
+    
+    # if this is an explicit reference, process it as such
+    my $reference = @{$XPC->findnodes('ancestor::osis:reference', $textNode)}[0];
+    if ($reference) {
+      my $osisRef = &search_osisRef($reference, $LOCATION);
+      if ($osisRef) {
+        $reference->setAttribute('osisRef', $osisRef);
       }
-      $text = "<newReference osisRef=\"$or\">$text</newReference>";
+      else {
+        &Error("Could not determine osisRef of reference element:".$reference->toString());
+      }
     }
-
-    # save changes for later (to avoid messing up line numbers)
-    $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
-    $nodeInfo{$textNode->unique_key}{'text'} = $text;
+    else {
+      # search for Scripture references in this text node and add newReference tags around them
+      my $text = $textNode->data();
+      &addLinks(\$text, $BK, $CH);
+      
+      if ($text ne $textNode->data()) {
+        # save changes for later (to avoid messing up line numbers)
+        $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
+        $nodeInfo{$textNode->unique_key}{'text'} = $text;
+      }
+    }
   }
 
   # replace the old text nodes with the new
@@ -528,6 +529,74 @@ sub asrlProcessFile($$) {
   &writeXMLFile($xml, $osis);
 }
 
+# Takes a reference element, interperets its contents as a Scripture 
+# reference from the given context, and attempts to return a valid 
+# osisRef value. The returned osisRef value is not checked for
+# existence or validity, so this must be done later.
+sub search_osisRef($$) {
+  my $reference = shift;
+  my $context = shift;
+  
+  my $work = &getBibleModOSIS($reference);
+  $work = ($work eq $MOD ? '':"$work:");
+  
+  my $bk; my $ch; my $vs;
+  if ($context =~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {
+    $bk = $1; $ch = ($2? $3:''); $vs = ($4 ? $5:'');
+  }
+  
+  my $targ;
+  my $tnode = $reference->firstChild;
+  if (!$tnode || $tnode->nodeType != XML::LibXML::XML_TEXT_NODE) {
+    &Error("First child of reference is not a text node.");
+    return;
+  }
+  
+  my $t = $tnode->data;
+  if ($t ne $reference->textContent) {
+    &Warn("Reference element has multiple children: ".$reference->toString());
+    $t = $reference->textContent;
+  }
+  # A bare number is interpereted as a verse in the current context
+  elsif ($t =~ /^(\d+)$/ && $bk && $ch) {
+    return "$work$bk.$ch.$1";
+  }
+  
+  # Check if there is an explicit target as a USFM 3 attribute
+  if ($t =~ s/\|.*$//) {
+    $targ = &usfm3GetAttribute($tnode->data, 'link-href', 'link-href');
+    $tnode->setData($t);
+    
+    # This might be an osisRef value already, or be Paratext reference
+    if ($targ =~ /^($OSISBOOKSRE)\./) {
+      return $work.$targ;
+    }
+    my $pref = &paratextRefList2osisRef($targ);
+    if ($pref) {return $work.$pref;}
+  }
+  else {
+    $targ = $t;
+  }
+  
+  # Search the text 
+  &addLinks(\$targ, $bk, $ch, 1);
+  
+  if ($targ eq $t) {return;}
+  
+  my $n = () = $targ =~ /<newReference[^>]+osisRef="([^"]+)"/;
+  
+  if ($n == 0) {
+    &ErrorBug("Text node was changed, but osisRef was not found.");
+    return;
+  }
+  elsif ($n > 1) {
+    &Error("The reference element's target cannot be expressed using a single osisRef value.");
+    return;
+  }
+  
+  return $work.$1;
+}
+
 ##########################################################################
 ##########################################################################
 # 1) SEARCH FOR THE LEFTMOST OCCURRENCE OF ANY REFERENCE TYPE.
@@ -540,7 +609,7 @@ sub addLinks(\$$$$) {
   my $tP = shift;
   my $bk = shift;
   my $ch = shift;
-  my $isAnnotateRef = shift;
+  my $isRefElement = shift;
 
 #&Log("$LOCATION: addLinks $bk, $ch, $$tP\n");
 
@@ -556,12 +625,12 @@ sub addLinks(\$$$$) {
 
       #  Look at unhandledBook
       if ($unhandledBook) {
-        if (!$isAnnotateRef && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
+        if (!$isRefElement && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
 #          &Warn("$LOCATION: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
           &hideTerm($matchedTerm, $ttP);
           next;
         }
-        elsif (!$isAnnotateRef) {
+        elsif (!$isRefElement) {
 #          &Warn("$LOCATION : \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
         }
       }
@@ -664,7 +733,7 @@ sub addLinks(\$$$$) {
       }
 
       ADDLINK:
-      if ($unhandledBook && !$isFixed && !$isAnnotateRef) {
+      if ($unhandledBook && !$isFixed && !$isRefElement) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;

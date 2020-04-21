@@ -13,13 +13,23 @@
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
   
-  <!-- osis-converters uses \tocN tags for eBook TOC entries, but usfm2osis.py only expects 
+  <!-- osis-converters uses \toc tags for eBook TOC entries, but usfm2osis.py only expects 
   them at the beginning of a file, before any paragraphs or section divs, and so it does not 
-  close them upon TOC markers. So this fixes that by closing paragraphs and section divs at
-  TOC milestones. -->
-  <template match="p[descendant::milestone[starts-with(@type, 'x-usfm-toc')]] | 
-                   div[matches(@type,'[Ss]ection')][descendant::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <apply-templates select="oc:expelElements(., ./descendant::milestone[starts-with(@type, 'x-usfm-toc')], false())"/>
+  close them upon TOC markers as it should. So this fixes that by closing paragraphs and 
+  section divs at TOC milestones. -->
+  <template match="document-node()">
+    <!-- pass1 moves TOC milestones out of paragraphs -->
+    <variable name="pass1"><apply-templates/></variable>
+    <!-- pass2 moves TOC milestones out of sections divs -->
+    <apply-templates mode="pass2" select="$pass1"/>
+  </template>
+
+  <template match="p[child::milestone[starts-with(@type, 'x-usfm-toc')]]">
+    <apply-templates select="oc:expelElements(., ./child::milestone[starts-with(@type, 'x-usfm-toc')], false())"/>
+  </template>
+  
+  <template mode="pass2" match="div[matches(@type,'[Ss]ection')][child::milestone[starts-with(@type, 'x-usfm-toc')]]">
+    <apply-templates select="oc:expelElements(., ./child::milestone[starts-with(@type, 'x-usfm-toc')], false())"/>
   </template>
   
   <!-- usfm2osis.py puts scope title content within a reference element, but they are not 
@@ -34,6 +44,12 @@
     <copy>
       <apply-templates select="@*"/>
       <value-of select="string()"/>
+      <for-each select="element()">
+        <call-template name="Warn">
+<with-param name="msg">Keyword child element was converted to text: <value-of select="oc:printNode(.)"/></with-param>
+<with-param name="exp">Keywords may contain no child elements, only text.</with-param>
+        </call-template>
+      </for-each>
     </copy>
   </template>
   

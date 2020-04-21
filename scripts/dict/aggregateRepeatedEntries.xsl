@@ -110,7 +110,7 @@ glossary entry.</with-param>
     <!-- Warn about material dropped from SWORD -->
     <for-each select="//div[@type and not(ancestor::div[@type]) and @type!='glossary'][normalize-space()]">
       <call-template name="Warn">
-        <with-param name="msg">The followng <value-of select="@type"/> material will not appear in the SWORD module:&#xa;begin-quote&#xa;<value-of select="."/>&#xa;end-quote</with-param>
+        <with-param name="msg">The <value-of select="@type"/> material will not appear in the SWORD module: <value-of select="oc:getDivTitle(.)"/></with-param>
         <with-param name="exp">Only \id GLO USFM files will appear in the SWORD module.</with-param>
       </call-template>
     </for-each>

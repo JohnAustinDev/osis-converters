@@ -26,39 +26,18 @@ sub processOSIS($) {
     &orderBooks(\$OSIS, &conf('Versification'), $customBookOrder);
     &applyVsysMissingVTagInstructions(\$OSIS);
     &applyPeriphInstructions(\$OSIS);
+    &write_osisIDs(\$OSIS);
     &runScript("$SCRD/scripts/bible/checkUpdateIntros.xsl", \$OSIS);   
   }
   # Dictionary OSIS: aggregate repeated entries (required for SWORD) and re-order entries if desired
   elsif ($modType eq 'dict') {
     &applyPeriphInstructions(\$OSIS);
     
-    if (!&conf('KeySort')) {
-      &Error("KeySort is missing from config.conf", '
-This required config entry facilitates correct sorting of glossary 
-keys. EXAMPLE:
-KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[G`][g`][Sh][sh][Ch][ch][ng]`{\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}
-This entry allows sorting in any desired order by character collation. 
-Square brackets are used to separate any arbitrary JDK 1.4 case  
-sensitive regular expressions which are to be treated as single 
-characters during the sort comparison. Also, a single set of curly 
-brackets can be used around a regular expression which matches all 
-characters/patterns to be ignored during the sort comparison. IMPORTANT: 
-EVERY square or curly bracket within any regular expression must have an 
-ADDITIONAL \ added before it. This is required so the KeySort value can 
-be parsed correctly. This means the string to ignore all brackets and 
-parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
-    }
-    if (!&conf('LangSortOrder')) {
-      &Error("LangSortOrder is missing from config.conf", "
-Although this config entry has been replaced by KeySort and is 
-deprecated and no longer used by osis-converters, for now it is still 
-required to prevent the breaking of older programs. Its value is just 
-that of KeySort, but bracketed groups of regular expressions are not 
-allowed and must be removed.");
+    if (!@{$XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', $XML_PARSER->parse_file($OSIS))}[0]) {
+      &runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);
     }
     
-    my @keywordDivs = $XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', $XML_PARSER->parse_file($OSIS));
-    if (!@keywordDivs[0]) {&runScript("$SCRD/scripts/dict/aggregateRepeatedEntries.xsl", \$OSIS);}
+    &write_osisIDs(\$OSIS);
     
     # write default DictionaryWords.xml templates
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
@@ -74,12 +53,10 @@ allowed and must be removed.");
   # Children's Bible OSIS: specific to osis-converters Children's Bibles
   elsif ($modType eq 'childrens_bible') {
     &runScript("$SCRD/scripts/genbook/childrens_bible/osis2cbosis.xsl", \$OSIS);
+    &write_osisIDs(\$OSIS);
     &checkAdjustCBImages(\$OSIS);
   }
   else {die "Unhandled modType (ModDrv=".&conf('ModDrv').")\n";}
-  
-  # Every note tag needs a unique osisID assigned to it, as do some other elements
-  &write_osisIDs(\$OSIS);
   
   # Copy new DictionaryWords.xml if needed
   if ($modType eq 'dict' && -e $DEFAULT_DICTIONARY_WORDS && ! -e "$DICTINPD/$DICTIONARY_WORDS") {
