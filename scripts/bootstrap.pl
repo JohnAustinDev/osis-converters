@@ -99,6 +99,13 @@ if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|os
 
 @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
 
+if (@SUB_PUBLICATIONS == 1) {
+  &Error("There is only one sub-publication directory: ".@SUB_PUBLICATIONS[0], 
+"When there is a single publication, all source USFM files should be
+located directly under the sfm directory, without any sub-publication 
+directories.", 1);
+}
+
 if ($INPD eq $DICTINPD && -e "$INPD/CF_osis2osis.txt") {
   &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
 "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 
