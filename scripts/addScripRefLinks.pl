@@ -462,6 +462,8 @@ sub asrlProcessFile($$) {
     # if this is an explicit reference, process it as such
     my $reference = @{$XPC->findnodes('ancestor::osis:reference', $textNode)}[0];
     if ($reference) {
+      if ($reference->hasAttribute('osisRef') || 
+          $reference->getAttribute('type') =~ /x\-gloss/) {next;}
       my $osisRef = &search_osisRef($reference, $LOCATION);
       if ($osisRef) {
         $reference->setAttribute('osisRef', $osisRef);

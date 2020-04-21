@@ -417,7 +417,7 @@ sub searchGlossaryLinkAtIndex($\%) {
   my $indexElement = shift;
   my $glossaryHP = shift;
   my $bidir = shift; # search before and after the index for a match
-  
+
   my $original = $indexElement->parentNode->textContent;
   
   my $infoP = &getIndexInfo($indexElement);
@@ -567,47 +567,43 @@ sub searchText(\$$\%\%) {
   my $node = shift;  # only used to get context information
   my $glossaryHP = shift;
   my $index = shift; # MUST be defined for ALL explicit index searches
-  
+
   my $matchedPattern = '';
   
   # Cache match related info
   if (!@MATCHES) {
-    my $notes;
+    my $debug;
     $OT_CONTEXTSP =  &getContextAttributeHash('OT');
     $NT_CONTEXTSP =  &getContextAttributeHash('NT');
     foreach my $m ($XPC->findnodes('//dw:match', $DWF)) {
       my %minfo;
+      if (!&matchRegex($m, \%minfo)) {next;}
       $minfo{'node'} = $m;
-      $minfo{'notExplicit'} = &attributeIsSet('notExplicit', $m);
-      $minfo{'onlyExplicit'} = &attributeIsSet('onlyExplicit', $m);
+      $minfo{'notExplicit'} = &attributeContextValue('notExplicit', $m);
+      $minfo{'onlyExplicit'} = &attributeContextValue('onlyExplicit', $m);
       $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
       $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
       $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; if ($minfo{'multiple'}) {$minfo{'multiple'} = $minfo{'multiple'}->value;}
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
-      $minfo{'contexts'} = &getContextAttributeHash($minfo{'context'}, \$notes);
+      $minfo{'contexts'} = &getContextAttributeHash($minfo{'context'}, \$debug);
       $minfo{'notContext'} = &getScopedAttribute('notContext', $m);
-      $minfo{'notContexts'} = &getContextAttributeHash($minfo{'notContext'}, \$notes);
+      $minfo{'notContexts'} = &getContextAttributeHash($minfo{'notContext'}, \$debug);
       $minfo{'notXPATH'} = &getScopedAttribute('notXPATH', $m);
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
-      # A <match> element should never be applied to any textnode inside the glossary entry (or entries) which the match pertains to or any duplicate entries thereof.
-      # This is necessary to insure an entry will never contain links to itself or to a duplicate.
-      my @osisRef = split(/\s+/, @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef'));
-      foreach my $ref (@osisRef) {$minfo{'skipRootID'}{&getRootID($ref)}++;}
-      
-      # test match pattern, so any errors with it can be found right away
-      if ($m->textContent !~ /(?<!\\)\(.*(?<!\\)\)/) {
-        &Error("Skipping match \"$m\" becauase it is missing capture parentheses", "Add parenthesis around the match text which should be linked.");
-        next;
+      # A <match> element should never be applied to any textnode inside 
+      # the glossary entry (or entries) which the match pertains to or 
+      # any duplicate entries thereof. This is necessary to insure an 
+      # entry will never contain links to itself or to a duplicate.
+      foreach my $r (split(/\s+/, @{$XPC->findnodes('ancestor::dw:entry[1]', $m)}[0]->getAttribute('osisRef'))) {
+        $minfo{'skipRootID'}{&getRootID($r)}++;
       }
-      my $test = "testme"; my $is; my $ie;
-      if (!defined(&searchMatch($m, \$test, \$is, \$ie))) {next;}
       
       push(@MATCHES, \%minfo);
     }
-    #if ($notes) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
+    #if ($debug) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
   }
   
   my $context;
@@ -632,17 +628,20 @@ sub searchText(\$$\%\%) {
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = ($node->data); @DICT_DEBUG_THIS = (decode("utf8", "Хөрмәтле укучылар, < Борынгы Шерык > сезнең игътибарга Изге Язманың хәзерге татар телендә беренче тапкыр нәшер ителгән тулы җыентыгын тәкъдим итәбез."));
+#@DICT_DEBUG = ($$textP); @DICT_DEBUG_THIS = (decode("utf8", "Гьа икӀ Ибрагьималай Исакь хьана. Исакьалай Якьуб"));
 #my $nodedata; foreach my $k (sort keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
 #&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $node->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
-    
-    my $filterMultiples = (!defined($index) && $m->{'multiple'} !~ /^true$/i);
-    my $key = ($filterMultiples ? &getMultiplesKey($m, $m->{'multiple'}, \@contextNote):'');
-    
-    if (defined($index) && $m->{'notExplicit'}) {&dbg("filtered at 00\n\n"); next;}
-    elsif (!defined($index) && $m->{'onlyExplicit'}) {&dbg("filtered at 01\n\n"); next;}
+                             
+    if (defined($index) && $m->{'notExplicit'} && ($m->{'notExplicit'} == 1 || &inContext($context, $m->{'notExplicit'}))) {
+      &dbg("filtered at 00\n\n"); next;
+    }
+    elsif (!defined($index) && $m->{'onlyExplicit'} && ($m->{'onlyExplicit'} == 1 || &inContext($context, $m->{'onlyExplicit'}))) {
+      &dbg("filtered at 01\n\n"); next;
+    }
     else {
-      if ($glossaryHP->{'node_context'} && $m->{'skipRootID'}{&getRootID($glossaryHP->{'node_context'})}) {&dbg("05\n\n"); next;} # never add glossary links to self
+      if ($glossaryHP->{'node_context'} && $m->{'skipRootID'}{&getRootID($glossaryHP->{'node_context'})}) {
+        &dbg("05\n\n"); next; # never add glossary links to self
+      }
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n\n"); next;}
       if ($filterMultiples) {
@@ -671,7 +670,7 @@ sub searchText(\$$\%\%) {
     }
     
     my $is; my $ie;
-    if (!&searchMatch($m->{'node'}, $textP, \$is, \$ie, $index)) {
+    if (!&searchMatch($m, $textP, \$is, \$ie, $index)) {
       next;
     }
     if ($is == $ie) {
@@ -714,8 +713,8 @@ sub searchText(\$$\%\%) {
 # $index is passed, it will be used for matching, to restrict the 
 # search to include that particular index (and $itext is only used
 # by this function to iteratively perform the $index search).
-sub searchMatch($\$\$\$$$) {
-  my $m = shift;         # the match element to search with
+sub searchMatch(\%\$\$\$$$) {
+  my $m = shift;        # the match element to search with
   my $textP = shift;     # pointer to text in which to search
   my $isP = shift;       # will hold index of match start in text
   my $ieP = shift;       # will hold index of match end in text
@@ -729,34 +728,12 @@ sub searchMatch($\$\$\$$$) {
     $itext = $$textP;
   }
   
-  my $p = $m->textContent;
-  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
-    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
-    &dbg("80\n");
-    return;
-  }
-  my $pm = $1; my $pf = $2;
-  
-  # handle PUNC_AS_LETTER word boundary matching issue
-  if ($PUNC_AS_LETTER) {
-    $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
-  }
-  
-  # handle xml decodes
-  $pm = decode_entities($pm);
-  
-  # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
+  # Handle case sensitivity using custom case function
   my $t = (defined($index) ? $itext : $$textP);
-  my $i = $pf =~ s/i//;
-  $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
-  if ($i) {
-    $t = &uc2($t);
-  }
-  if ($pf =~ /(\w+)/) {
-    &Error("Regex flag \"$1\" not supported in \"".$m->textContent."\"", "Only Perl regex flags are supported.");
-  }
- 
+  if (exists($m->{'flags'}{'i'})) {$t = &uc2($t);}
+  
   # finally do the actual MATCHING...
+  my $pm = $m->{'regex'};
   &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
   if ($t !~ /$pm/) {return 0;}
 
@@ -807,6 +784,55 @@ sub searchMatch($\$\$\$$$) {
   &dbg("LINKED: $pm\n$t\n$$isP, $$ieP, '".substr($$textP, $$isP, ($$ieP-$$isP))."'\n");
   
   return 1;
+}
+
+sub matchRegex($\%) {
+  my $matchElem = shift;
+  my $infoP = shift;
+  
+  my $p = $matchElem->textContent;
+  if ($p !~ /^\s*\/(.*)\/(\w*)\s*$/) {
+    &ErrorBug("Bad match regex: $p !~ /^\s*\/(.*)\/(\w*)\s*\$/");
+    &dbg("80\n");
+    return;
+  }
+  my $pm = $1; my $pf = $2;
+  
+  $pm =~ s/^\\b/(?:^|\\b)/;
+  $pm =~ s/\\b$/(?:\\b|\$)/;
+  
+  # handle PUNC_AS_LETTER word boundary matching issue
+  if ($PUNC_AS_LETTER) {
+    $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
+  }
+  
+  # handle xml decodes
+  $pm = decode_entities($pm);
+  
+  # handle case insensitive with the special uc2() since Perl can't handle Turkish-like locales
+  my $pf2 = $pf;
+  my $i = ($pf2 =~ s/i//);
+  $pm =~ s/(\\Q)(.*?)(\\E)/my $r = quotemeta($i ? &uc2($2):$2);/ge;
+
+  # test match a pattern, so any errors with it will be found right away
+  if ($pm !~ /(?<!\\)\(.*(?<!\\)\)/) {
+    &Error("Skipping match \"$pm\" becauase it is missing capture parentheses", 
+    "Add parenthesis around the match text which should be linked.");
+    return;
+  }
+  my $test = "testme";
+  $test =~ /$pm/;
+  
+  # save the regex for later use
+  foreach my $f (split(//, $pf)) {
+    if ($f eq 'i') { 
+      $infoP->{'flags'}{$f}++;
+    }
+    else {
+      &Error("Only the 'i' flag is currently supported: ".$matchElem->textContent."\n");
+    }
+  }
+  $infoP->{'regex'} = $pm;
 }
 
 # Print log info for all glossary link searches
@@ -1065,8 +1091,8 @@ sub paratextRefList2osisRef($) {
         $lch = $3;
         $bkP = 1;
       }
-      # book, book ch, book ch:vs, book ch:vs-lch-lvs, book ch:vs-lvs
-      elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)(\:(\d+)(\s*\-\s*(\d+)(\:(\d+))?)?)?)?$/) {
+      # book, book ch, book ch[:.]vs, book ch[:.]vs-lch[:.]lvs, book ch[:.]vs-lvs
+      elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)([\:\.](\d+)(\s*\-\s*(\d+)([\:\.](\d+))?)?)?)?$/) {
         &Error("contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$paratextRefList\".");
         return $paratextRefList;
       }
@@ -1226,6 +1252,22 @@ sub attributeIsSet($$) {
   my $m = shift;
   
   return scalar(@{$XPC->findnodes("ancestor-or-self::*[\@$a][1][\@$a='true']", $m)});
+}
+
+# Reads the given attribute and returns:
+# 0 if 'false' or unset (means no context)
+# 1 if 'true' (means any context)
+# \% if anything else (means the specified context)
+sub attributeContextValue($$) {
+  my $a = shift;
+  my $m = shift;
+  
+  my $elem = @{$XPC->findnodes("ancestor-or-self::*[\@$a][1]", $m)}[0];
+  
+  if (!$elem || $elem->getAttribute($a) eq 'false') {return 0;}
+  elsif ($elem->getAttribute($a) eq 'true') {return 1;}
+  
+  return &getContextAttributeHash($elem->getAttribute($a));
 }
 
 sub dbg($) {
