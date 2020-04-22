@@ -707,7 +707,7 @@ sub getFootnotes {
   my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)
   foreach my $verse (&osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always')) {
     my $verseOsisIDsP = $VERSE_FOOTNOTE_IDS{$verse};
-    if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
+    if ($verseOsisIDsP && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
   }
 
   # Due to linked verses, or other possibilities, the same footnote might 

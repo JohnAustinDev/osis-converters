@@ -863,9 +863,8 @@ sub applyVsysInstruction {
     return 0;
   }
   
-  my $test = ($fixedP->{'bk'} ? $fixedP->{'bk'}:$sourceP->{'bk'});
-  if (!&getBooksOSIS($xml)->{$test}) {
-    &Warn("Skipping VSYS_$inst because $test is not in the OSIS file.", "Is this instruction correct?");
+  if ($sourceP && $sourceP->{'bk'} && !&getBooksOSIS($xml)->{$sourceP->{'bk'}}) {
+    &Warn("Skipping VSYS_$inst because ".$sourceP->{'bk'}." is not in the OSIS file.", "Is this instruction correct?");
     return 0;
   }
   

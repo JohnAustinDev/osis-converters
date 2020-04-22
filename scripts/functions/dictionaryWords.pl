@@ -777,6 +777,7 @@ sub searchMatch {
   # if a (?'link'...) named group 'link' exists, use it instead
   if (defined($+{'link'})) {
     my $i;
+    no strict "refs";
     for ($i=0; $i <= $#+; $i++) {
       if ($$i eq $+{'link'}) {last;}
     }
@@ -1066,8 +1067,7 @@ sub getRootID {
 # Converts a comma separated list of Paratext references (which are 
 # supported by context and notContext attributes of DWF) and converts
 # them into an osisRef. If $paratextRefList is not a valid Paratext 
-# reference list, then $paratextRefList is returned unchaged. If there 
-# are any errors, $paratextRefList is returned unchanged.
+# reference list, then $paratextRefList is returned unchaged.
 my %CONVERTED_P2O;
 sub paratextRefList2osisRef {
   my $paratextRefList = shift;
@@ -1082,6 +1082,7 @@ sub paratextRefList2osisRef {
     if ($reportParatextWarnings) {
       &Warn("Attribute part \"$part\" might be a failed Paratext reference in \"$paratextRefList\".");
     }
+    $CONVERTED_P2O{$paratextRefList} = $paratextRefList;
     return $paratextRefList;
   }
   
@@ -1096,7 +1097,7 @@ sub paratextRefList2osisRef {
       $bk1 = &getOsisName($bk1, 1);
       $bk2 = &getOsisName($bk2, 1);
       if (!$bk1 || !$bk2) {
-        &Error("contextAttribute2osisRefAttribute: Bad Paratext book name(s) \"$part\" of \"$paratextRefList\".");
+        $CONVERTED_P2O{$paratextRefList} = $paratextRefList;
         return $paratextRefList;
       }
       push(@pOsisRefs, "$bk1-$bk2");
@@ -1120,7 +1121,7 @@ sub paratextRefList2osisRef {
       }
       # book, book ch, book ch[:.]vs, book ch[:.]vs-lch[:.]lvs, book ch[:.]vs-lvs
       elsif ($part !~ /^([\d\w]\w\w)(\s+(\d+)([\:\.](\d+)(\s*\-\s*(\d+)([\:\.](\d+))?)?)?)?$/) {
-        &Error("contextAttribute2osisRefAttribute: Bad Paratext reference \"$part\" of \"$paratextRefList\".");
+        $CONVERTED_P2O{$paratextRefList} = $paratextRefList;
         return $paratextRefList;
       }
       $bk = $1;
@@ -1137,7 +1138,7 @@ sub paratextRefList2osisRef {
       
       my $bk = &getOsisName($bk, 1);
       if (!$bk) {
-        &Error("contextAttribute2osisRefAttribute: Unrecognized Paratext book \"$bk\" of \"$paratextRefList\".");
+        $CONVERTED_P2O{$paratextRefList} = $paratextRefList;
         return $paratextRefList;
       }
       
@@ -1160,7 +1161,7 @@ sub paratextRefList2osisRef {
       }
       else {
         my $canonP;
-        # Bug warning - this assumes &conf('Versification') is verse system of osisRef  
+        # Warning - this assumes &conf('Versification') is verse system of osisRef  
         &getCanon(&conf('Versification'), \$canonP, undef, undef, undef);
         my $ch1lv = ($lch == $ch ? $lvs:@{$canonP->{$bk}}[($ch-1)]);
         push(@pOsisRefs, "$bk.$ch.$vs".($ch1lv != $vs ? "-$bk.$ch.$ch1lv":''));
@@ -1182,11 +1183,8 @@ sub paratextRefList2osisRef {
   }
   
   my $ret = join(' ', @osisRefs);
-  if ($ret ne $paratextRefList) {
-    $CONVERTED_P2O{$paratextRefList} = $ret;
-    &Note("Converted Paratext context attribute to OSIS:\n\tParatext: $p1\n\tOSIS:     $p2\n");
-  }
   
+  $CONVERTED_P2O{$paratextRefList} = $ret;
   return $ret;
 }
 
