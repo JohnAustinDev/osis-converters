@@ -16,6 +16,12 @@
 # along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER);
+
 # IMPORTANT TERMINOLOGY:
 # ----------------------
 #   A "reference" is a reference to a contiguous Scripture text. For
@@ -121,7 +127,24 @@
 #   SKIPVERSE - Use SKIP_XPATH instead.
 #   SKIP_INTRODUCTIONS - Use SKIP_XPATH instead.
 
-$DEBUG_LOCATION = 0;
+my $DEBUG_LOCATION = 0;
+
+my (%books, %UnhandledWords, %noDigitRef, %noOSISRef, %fix, %fixDone, 
+   $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, $chapTerms, 
+   $currentChapTerms, $currentBookTerms, $verseTerms, $refTerms, 
+   $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
+   $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
+   $mustHaveVerse, $require_book, $sp, $numUnhandledWords, 
+   $numMissedLeftRefs, $numNoDigitRef, $numNoOSISRef, 
+   %xpathIfResultContextBook, %Types, $LOCATION, $BK, $CH, $VS, $LV,
+   $CheckRefs, %missedLeftRefs, $newLinks, $LASTP);
+   
+  my $none = "nOnE";
+  my $fixReplacementMsg = "
+     The FIX replacement (after the equal sign) must either be nothing to
+     unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
+     fix. The replacement must be enclosed by double quotes, and any double
+     quotes in the replacement must be escaped with '\'.";
 
 sub runAddScripRefLinks($$$) {
   my $modType = shift;
@@ -136,12 +159,6 @@ sub runAddScripRefLinks($$$) {
     }
   }
   else {$osis = $in_file;}
-  
-  my $fixReplacementMsg = "
-       The FIX replacement (after the equal sign) must either be nothing to
-       unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
-       fix. The replacement must be enclosed by double quotes, and any double
-       quotes in the replacement must be escaped with '\'.";
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
@@ -154,8 +171,6 @@ sub runAddScripRefLinks($$$) {
   %noOSISRef;
   %fix;
   %fixDone;
-
-  my $none = "nOnE";
 
   $ebookNames = $none;
   $oneChapterBooks = "Obad|Phlm|Jude|2John|3John";
@@ -422,7 +437,6 @@ sub asrlProcessFile($$) {
     $CH = 0;
     $VS = 0;
     $LV = 0;
-    $intro = 0;
     if ($refSystem =~ /^Bible/) {
       my $bcontext = &bibleContext($textNode);
       if ($bcontext !~ /^(\w+)\.(\d+)\.(\d+)\.(\d+)$/) {
@@ -433,7 +447,6 @@ sub asrlProcessFile($$) {
       $CH = $2;
       $VS = $3;
       $LV = $4;
-      $intro = ($VS ? 0:1);
     }
     elsif ($refSystem =~ /^Dict/) {
       my $entryScope = &getGlossaryScopeAttribute($textNode);
@@ -505,7 +518,7 @@ sub asrlProcessFile($$) {
   foreach my $ref (@refs) {
     my @attribs = $ref->attributes();
     my @chdrn = $XPC->findnodes('child::node()', $ref);
-    foreach $child (@chdrn) {
+    foreach my $child (@chdrn) {
       $ref->parentNode()->insertBefore($child, $ref);
       if ($child->nodeName ne 'newReference') {next;}
       foreach $a (@attribs) {
@@ -620,7 +633,7 @@ sub addLinks(\$$$$) {
     if (@notags[$ts] =~ /^<[^>]*>$/) {next;}
     my $ttP = \@notags[$ts];
 
-    my $matchedTerm, $type, $unhandledBook;
+    my ($matchedTerm, $type, $unhandledBook);
     while (&leftmostTerm($ttP, \$matchedTerm, \$type, \$unhandledBook)) {
 
       if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
@@ -1330,7 +1343,7 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
     elsif ($$bkP =~ /($ebookNames)/si)                            {$$bkP = $books{$1};}
     elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/si)    {$$bkP = $contextBK;}
     else {
-      &ErrorBug("Unexpected book value \"$book\".");
+      &ErrorBug("Unexpected book value \"$$bkP\".");
       $$bkP = $contextBK;
     }
   }
@@ -1360,7 +1373,7 @@ sub validOSISref($$$$) {
   my $strict = shift;
   my $noWarn = shift;
 
-  my $bk1, $bk2, $ch1, $ch2, $vs1, $vs2;
+  my ($bk1, $bk2, $ch1, $ch2, $vs1, $vs2);
   if ($strict && $osisRef !~ s/^\w+\://) {return 0;}
   elsif ($osisRef eq "") {return 0;}
   elsif ($osisRef =~ /^([^\.]+)\.(\d+)\.(\d+)-([^\.]+)\.(\d+)\.(\d+)$/) {

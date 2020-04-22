@@ -25,11 +25,29 @@
 # may only appear in MAININPD, but all its commands may be directed to 
 # either MAINMOD or DICTMOD.
 
-$SOURCE_PROJECT = '';
+use strict;
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($OSIS, @SUB_PUBLICATIONS, $NO_OUTPUT_DELETE, $XPC, $XML_PARSER,
+    @OC_LOCALIZABLE_CONFIGS);
+our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, 
+    $addSeeAlsoLinks, $addCrossRefs, $reorderGlossaryEntries, 
+    $customBookOrder);
+
+# Initialized below
+our $sourceProject;
+
+my ($O2O_CurrentContext, $O2O_CurrentMode, %O2O_CONFIGS, %O2O_CONVERTS);
+   
+# Perl symbolic references are always to globals
+our ($MODE_Transcode, $MODE_Script, $MODE_CCTable, $MODE_Copy,
+    $SKIP_NODES_MATCHING, $SKIP_STRINGS_MATCHING);
+
 sub runCF_osis2osis($) {
   $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
   
-  my $outfile;
+  my ($outfile, $sourceProjectPath);
   
   if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
     &ErrorBug("runCF_osis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
@@ -42,7 +60,6 @@ sub runCF_osis2osis($) {
   if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
 
   # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
-  my @wipeGlobals = ('sourceProjectPath');
   $O2O_CurrentMode = 'MODE_Copy';
   undef(%O2O_CONFIGS);
   undef(%O2O_CONVERTS);
@@ -53,16 +70,13 @@ sub runCF_osis2osis($) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_(?:ARG_)?[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+      no strict "refs";
       if ($2) {
         my $par = $1;
         my $val = $3;
         
-        # be sure to wipe subroutine specific globals after we're done, so they don't carry over to next call
-        if ($par !~ /(sfm2all_\w+|DEBUG|addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder)/) {
-          push(@wipeGlobals, $par);
-        }
         $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
-        &Note("Setting $par to $val");
+        &Log("NOTE: Setting \$main::$par to $val\n", 1);
         if ($par =~ /^(MODE_CCTable|MODE_Script|MODE_Transcode|MODE_Copy)$/) {
           $O2O_CurrentMode = $par;
           &Note("Setting conversion mode to $par");
@@ -81,7 +95,7 @@ sub runCF_osis2osis($) {
           if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
             &Error("SET_sourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SET_sourceProject of $commandFile.", 1);
           }
-          # osis2osis depends on sourceProject OSIS file, and also on it's sfm hierarchy, so copy that
+          # osis2osis depends on sourceProject OSIS file, and also on its sfm hierarchy, so copy that
           $sourceProjectPath = $$par;
           if ($sourceProjectPath =~ /^\./) {$sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $MAININPD);}
           else {$sourceProjectPath = "$MAININPD/../$$par";}
@@ -117,10 +131,9 @@ sub runCF_osis2osis($) {
     }
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
+      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
       my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
       if ($O2O_CurrentContext ne 'postinit') {next;}
-      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
-      $SOURCE_PROJECT = $sourceProject;
       
       # Since osis2osis.pl is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 
@@ -153,7 +166,6 @@ sub runCF_osis2osis($) {
     else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
   }
   close(COMF);
-  foreach my $par (@wipeGlobals) {$$par = '';}
   
   $OSIS = $outfile;
   return (-e $outfile);
@@ -264,6 +276,7 @@ sub convertFileStrings($$) {
     # convert appropriate entry values
     my @regexs; push(@regexs, @OC_LOCALIZABLE_CONFIGS); foreach my $regex (@regexs) {$regex =~ s/^MATCHES\://;}
     foreach my $e (sort keys %confH) {
+      no strict "refs";
       if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
       my $doConvert = (${"CONFIG_CONVERT_$e"} ? 1:0); # -1 means don't, 0 means keep checking but don't, 1 means do
       if (!$doConvert) {foreach my $regex (@regexs) {if ($e =~ /$regex/) {$doConvert = 1;}}}

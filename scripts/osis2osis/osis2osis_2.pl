@@ -19,7 +19,10 @@
 
 # usage: osis2osis_2.pl [Bible_Directory]
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
+our ($MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our $NO_OUTPUT_DELETE;
 
 # Two scripts are run in succession to convert OSIS files from one proj-
 # ect into those of another. The osis2osis.pl script runs the CF_osis-
@@ -32,6 +35,9 @@ require("$SCRD/utils/simplecc.pl");
 require("$SCRD/scripts/processOSIS.pl");
 require("$SCRD/scripts/osis2osis/osis2osis.pl");
 
+# Initialized in runCF_osis2osis.pl
+our $sourceProject;
+
 # NOTE: CF_osis2osis.txt may contain instructions for both MAINMOD and 
 # DICTMOD, but an osis file will only be generated for the MOD on which 
 # this script is called.
@@ -39,7 +45,7 @@ my $commandFile = "$MAININPD/CF_osis2osis.txt";
 if (! -e $commandFile) {&Error("Cannot run osis2osis.pl without a CF_osis2osis.txt command file located at: $MAININPD.", '', 1);}
 
 if (&runCF_osis2osis('postinit')) {
-  &reprocessOSIS($MOD);
+  &reprocessOSIS($MOD, $sourceProject);
 
   if ($NO_OUTPUT_DELETE) {
    # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by processOSIS.pl

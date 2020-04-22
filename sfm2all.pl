@@ -22,14 +22,16 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
+our ($READLAYER, $CONFFILE, $MOD, $INPD, $MAINMOD, $DICTMOD, $LOGFILE, $SFM2ALL_SEPARATE_LOGS);
 
 # collect all modules to run
 my %modules;
 $modules{$INPD} = &conf('ModDrv');
 
 if (&conf('Companion')) {
-  foreach $companion (split(/\s*,\s*/, &conf('Companion'))) {
+  foreach my $companion (split(/\s*,\s*/, &conf('Companion'))) {
     if ($companion !~ /DICT$/) {next;}
     if (!-e "$INPD/$companion") {
       &Error("Companion project \"$companion\" of \"$MOD\" could not be located for conversion.", 

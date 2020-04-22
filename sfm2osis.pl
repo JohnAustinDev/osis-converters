@@ -19,11 +19,13 @@
 
 # usage: sfm2osis.pl [Project_Directory]
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 require("$SCRD/scripts/usfm2osis.pl");
 require("$SCRD/scripts/processOSIS.pl");
 
-$OSIS = "$TMPDIR/00_usfm2osis.xml";
+our ($INPD, $TMPDIR, $NO_OUTPUT_DELETE);
+our $OSIS = "$TMPDIR/00_usfm2osis.xml";
+
 my $commandFile = "$INPD/CF_usfm2osis.txt";
 if (! -e $commandFile) {
   &Error("Cannot run sfm2osis.pl unless there is a CF_usfm2osis.txt command file located at $INPD.", 

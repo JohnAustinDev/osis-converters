@@ -16,7 +16,13 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-$fitToVerseSystemDoc = "
+use strict;
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, $OSISBOOKSRE, $NT_BOOKS, 
+    %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_UNIVERSE_RE, 
+    $SWORD_VERSE_SYSTEMS);
+
+my $fitToVerseSystemDoc = "
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
 OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS:
@@ -133,7 +139,7 @@ chapters at the end of a book, where the chapter was simply appended
 
 ";
 
-$verseSystemDoc = "
+my $verseSystemDoc = "
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
 OSIS-CONVERTERS VERSIFICATION SYSTEM:
@@ -193,7 +199,7 @@ facilitate this, the following maps are provided:
 ";
 
 # The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
-%ID_TYPE_MAP = (
+our %ID_TYPE_MAP = (
   # File ID code => <div> type attribute value
   'FRT' => 'front',
   'INT' => 'introduction',
@@ -204,9 +210,9 @@ facilitate this, the following maps are provided:
   'NDX' => 'gazetteer',
   'OTH' => 'x-other'
 );
-%ID_TYPE_MAP_R = reverse %ID_TYPE_MAP;
+our %ID_TYPE_MAP_R = reverse %ID_TYPE_MAP;
 
-%PERIPH_TYPE_MAP = (
+our %PERIPH_TYPE_MAP = (
   # Text following \periph => <div> type attribute value
   'Title Page' => 'titlePage', 
   'Half Title Page' => 'x-halfTitlePage', 
@@ -239,9 +245,9 @@ facilitate this, the following maps are provided:
   'Letters Introduction' => 'introduction', 
   'Deuterocanon Introduction' => 'introduction'
 );
-%PERIPH_TYPE_MAP_R = reverse %PERIPH_TYPE_MAP;
+our %PERIPH_TYPE_MAP_R = reverse %PERIPH_TYPE_MAP;
 
-%PERIPH_SUBTYPE_MAP = (
+our %PERIPH_SUBTYPE_MAP = (
   # Text following \periph => <div type=introduction"> subType attribute value
   'Bible Introduction' => 'x-bible', 
   'Old Testament Introduction' => 'x-oldTestament',
@@ -256,9 +262,9 @@ facilitate this, the following maps are provided:
   'Letters Introduction' => 'x-letters', 
   'Deuterocanon Introduction' => 'x-deuterocanon'
 );
-%PERIPH_SUBTYPE_MAP_R = reverse %PERIPH_SUBTYPE_MAP;
+our %PERIPH_SUBTYPE_MAP_R = reverse %PERIPH_SUBTYPE_MAP;
 
-%USFM_DEFAULT_PERIPH_TARGET = (
+our %USFM_DEFAULT_PERIPH_TARGET = (
   'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction|Foreword|Preface|Chronology|Weights and Measures|Map Index' => 'place-according-to-scope',
   'Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]/node()[1]',
   'NT Quotes from LXX' => 'osis:div[@type="bookGroup"][last()]/node()[1]',
@@ -562,15 +568,16 @@ sub applyMaps(\%$) {
     my $e = $attribsHP->{$eky}{'self'};
 
     # get new values for permanent attributes
+    our ($osisRef, $annotateRef); # symbolic references must be globals
     foreach my $a ('osisRef', 'annotateRef') {
       my @segs;
       my $value = $attribsHP->{$eky}{$a.'From'}.' '.$attribsHP->{$eky}{$a.'To'};
       push(@segs, (split(/\s+/, $value)));
       my $x1 = join(' ', &normalizeOsisID(\@segs, $MAINMOD, 'not-default'));
       my $x2 = &osisID2osisRef($x1);
+      no strict "refs";
       $$a = &fillGapsInOsisRef($x2);
     }
-    my $osisRef = ${'osisRef'}; my $annotateRef = ${'annotateRef'};
     
     # don't keep references to missing verses (which would be broken)
     if (!$annotateRef || !$osisRef) {
@@ -631,6 +638,7 @@ sub removeMappedElement($$) {
 sub getAltVersesOSIS($) {
   my $mod = &getModNameOSIS(shift);
   
+  our %DOCUMENT_CACHE;
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
     &ErrorBug("getAltVersesOSIS: No xml document node!");

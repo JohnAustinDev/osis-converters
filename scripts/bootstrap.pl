@@ -31,20 +31,25 @@
 # script's absolute path, and it must work on both host opsys and 
 # Vagrant and the osis-converters installation directory name is 
 # unknown):
-# use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+# use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){X}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
+use strict;
 use File::Spec;
+
+# Initialized in entry script
+our ($SCRIPT, $SCRD);
+
 require "$SCRD/scripts/common_opsys.pl";
 
-$WRITELAYER = ">:encoding(UTF-8)";
-$APPENDLAYER = ">>:encoding(UTF-8)";
-$READLAYER = "<:encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
+our $WRITELAYER = ">:encoding(UTF-8)";
+our $APPENDLAYER = ">>:encoding(UTF-8)";
+our $READLAYER = "<:encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
 
-$INPD = shift;
+our $INPD = shift;
 
 # If $LOGFILE is not passed then a new clean one will be started, named $SCRIPT_NAME, during init_linux_script().
 # If $LOGFILE is passed, that one will be appended to, or, if the passed value is 'none', there will be no log file.
-$LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
+our $LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
 
 $INPD = File::Spec->rel2abs($INPD);
 $INPD =~ s/\\/\//g;
@@ -62,12 +67,13 @@ $SCRIPT =~ s/\\/\//g;
 $SCRD = File::Spec->rel2abs($SCRD);
 $SCRD =~ s/\\/\//g;
 
-$SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
+our $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
 
 # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
 # checkAndWriteDefaults() in case a new dictionary is discovered in the 
 # USFM).
-$MOD = $INPD; $MOD =~ s/^.*\///;
+our $MOD = $INPD; $MOD =~ s/^.*\///;
+our ($MAINMOD, $DICTMOD, $MAININPD, $DICTINPD); 
 if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
   $MAININPD = $1; 
   $DICTINPD = $INPD;
@@ -86,10 +92,13 @@ if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" &&
   &shell("$MAININPD/bootstrap.pl");
 }
 
-$CONFFILE = "$MAININPD/config.conf";
+our $CONF;
+our $CONFFILE = "$MAININPD/config.conf";
 &readSetCONF();
 # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
+{
+ my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
+}
 
 # Allow running MAININPD-only scripts from a DICT sub-project
 if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
@@ -97,7 +106,7 @@ if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|os
   $MOD = $MAINMOD;
 }
 
-@SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
+our @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
 
 if (@SUB_PUBLICATIONS == 1) {
   &Error("There is only one sub-publication directory: ".@SUB_PUBLICATIONS[0], 

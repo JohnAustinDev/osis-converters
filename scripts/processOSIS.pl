@@ -1,3 +1,34 @@
+# This file is part of "osis-converters".
+# 
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
+
+use strict;
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $OUTOSIS, $XPC, $XML_PARSER, 
+    $DWF, $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, 
+    $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
+
+# Initialized in /scripts/usfm2osis.pl
+our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, $addCrossRefs, 
+    $addSeeAlsoLinks, $reorderGlossaryEntries, $customBookOrder, 
+    $sourceProject);
+
 require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/addFootnoteLinks.pl");
 require("$SCRD/scripts/bible/addDictLinks.pl");
@@ -70,7 +101,7 @@ sub processOSIS($) {
   
   # Load DictionaryWords.xml
   if ($modType eq 'dict' && $addSeeAlsoLinks) {
-    $DWF = &loadDictionaryWordsXML($OSIS);
+    our $DWF = &loadDictionaryWordsXML($OSIS);
   }
   elsif ($modType eq 'bible' && $DICTMOD && -e "$MAININPD/$DICTIONARY_WORDS") {
     my $dictosis = &getModuleOsisFile($DICTMOD);
@@ -206,8 +237,9 @@ RUN:./INT.SFM");
 
 
 # This script expects a sfm2osis.pl produced OSIS input file
-sub reprocessOSIS($) {
+sub reprocessOSIS($$) {
   my $modname = shift;
+  my $sourceProject = shift;
   
   if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
 
@@ -240,7 +272,7 @@ sub reprocessOSIS($) {
   &Note("Checking OSIS for unintentional source project references...\n");
   if (open(TEST, $READLAYER, $OSIS)) {
     my $osis = join('', <TEST>);
-    my $spregex = "\\b($SOURCE_PROJECT"."DICT|$SOURCE_PROJECT)\\b";
+    my $spregex = "\\b($sourceProject"."DICT|$sourceProject)\\b";
     my $n = 0;
     foreach my $l (split(/\n/, $osis)) {
       if ($l !~ /$spregex/) {next;}
@@ -268,7 +300,8 @@ sub reprocessOSIS($) {
 sub runChecks($) {
   my $modType = shift;
   
-  undef($DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
+  our %DOCUMENT_CACHE;
+  undef(%DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
   
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
   else {
@@ -293,7 +326,7 @@ sub validateOSIS($) {
   # validate new OSIS file against OSIS schema
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
-  $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
+  my $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
   &Log("$cmd\n");
   my $res = `$cmd`;
   my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";

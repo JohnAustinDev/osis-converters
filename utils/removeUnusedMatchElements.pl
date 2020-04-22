@@ -1,17 +1,18 @@
 #!/usr/bin/perl
 
 @ARGV[1] = 'none'; # no log file, just print to screen
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
-$dwfPath = "$INPD/$DICTIONARY_WORDS";
+my $dwfPath = "$INPD/$DICTIONARY_WORDS";
 
-$alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
-$msg = "Rerun sfm2osis.pl on $MOD to create a new log file, and then rerun this script on $MOD.";
+my $alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
+my $msg = "Rerun sfm2osis.pl on $MOD to create a new log file, and then rerun this script on $MOD.";
 if (!open(OUT, $READLAYER, $alog)) {
   &Error("The log file $alog is required to run this script.", $msg, 1);
 }
 
 &Note("Reading log file:\n$alog");
+my ($expected, $state, %unusedMatches);
 while(<OUT>) {
   if ($_ =~ /^\S+ REPORT: Unused match elements in DictionaryWords\.xml: \((\d+) instances\)/) {
     $expected = $1;
@@ -33,14 +34,14 @@ close(OUT);
 if (!%unusedMatches) {&Log("\nThere are no unused match elements to remove. Exiting...\n"); exit;}
 
 &Note("Modifying DictionaryWords.xml:\n$dwfPath\n");
-$count = 0;
-$xml = $XML_PARSER->parse_file($dwfPath);
-@matchElements = $XPC->findnodes("//dw:match", $xml);
+my $count = 0;
+my $xml = $XML_PARSER->parse_file($dwfPath);
+my @matchElements = $XPC->findnodes("//dw:match", $xml);
 foreach my $osisRef (sort keys %unusedMatches) {
   # Because of chars like ' xpath had trouble finding unusedMatch, but this munge does it:
-  foreach $unusedMatch (@{$unusedMatches{$osisRef}}) {
+  foreach my $unusedMatch (@{$unusedMatches{$osisRef}}) {
     my $ingoingCount = $count;
-    foreach $m (@matchElements) {
+    foreach my $m (@matchElements) {
       if ($m eq 'unbound' || $m->toString() ne $unusedMatch) {next;}
       my $entry = @{$XPC->findnodes("./ancestor::dw:entry[1]", $m)}[0];
       if ($entry->getAttribute('osisRef') ne $osisRef) {next;}

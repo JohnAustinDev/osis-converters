@@ -38,6 +38,14 @@
 #   NT = New Testament (including introductions)
 #   BIBLE_INTRO or BIBLE_INTRO.0 = Bible introduction
 #   TESTAMENT_INTRO.1 or TESTAMENT_INTRO.2 = OT or NT introduction, respectively
+
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($XPC, $XML_PARSER, %OSISBOOKS, $OSISBOOKSRE, $NT_BOOKS, $OT_BOOKS, 
+    $DICTIONARY_WORDS, $DWF);
+
+my %ALREADY_NOTED_RESULT;
 sub getContextAttributeHash($\$) {
   my $attrValue = shift;
   my $notesP = shift;
@@ -62,7 +70,7 @@ sub getContextAttributeHash($\$) {
     
     # Handle special case of BOOK1-BOOK2 for a major speedup
     elsif ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
-      my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
+      my $bookOrderP; &getCanon(&conf('Versification'), undef, \$bookOrderP, undef);
       my $aP = &scopeToBooks($ref, $bookOrderP);
       foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
     }
@@ -297,7 +305,7 @@ sub otherModContext($$) {
   
   # then return ancestor osisIDs
   my @ancestors = $XPC->findnodes('./ancestor::osis:*[@osisID]', $node);
-  foreach $osisID (reverse @ancestors) {
+  foreach my $osisID (reverse @ancestors) {
     if ($osisID->getAttribute('osisID') =~ /^\s*$/) {next;}
     push(@c, $osisID->getAttribute('osisID'));
   }
@@ -410,6 +418,7 @@ sub getScopeAttributeContext($$) {
 # (OSISBK).CH.VS = verse OSISBK CH:VS
 # BEFORE_osisID = glossary introduction before keyword with osisID
 # osisID = any container element or keyword osisID
+my ($CONTEXT_CHECK_XML, $CONTEXT_CHECK_ERR);
 sub checkAndNormalizeAtomicContext($$) {
   my $context = shift;
   my $quiet = shift;
@@ -499,6 +508,7 @@ sub checkDictionaryWordsContexts($$) {
   &Report("Checked '$numatt' attributes with context values. ($CONTEXT_CHECK_ERR problem(s))");
 }
 
+my %ID_CACHE;
 sub existsElementID($$) {
   my $osisID = shift;
   my $xml = shift;
@@ -507,12 +517,7 @@ sub existsElementID($$) {
   
   if (!$ID_CACHE{$xml->URI}{$osisID}) {
     $ID_CACHE{$xml->URI}{$osisID} = 'no';
-    # xpath 1.0 does not have "matches" so we need to do some extra work
-    my $xpath = ('false' eq 'DWF' ? 
-      "//*[name()='entry'][contains(\@osisRef, '$osisID')]/\@osisRef" :
-      "//*[contains(\@osisID, '$osisID')]/\@osisID"
-    );
-    my @test = $XPC->findnodes($xpath, $xml);
+    my @test = $XPC->findnodes("//*[contains(\@osisID, '$osisID')]/\@osisID", $xml);
     my $found = 0;
     foreach my $t (@test) {
       if ($t->value =~ /(^|\s)(\w+\:)?\Q$osisID\E(\s|$)/) {
@@ -521,13 +526,14 @@ sub existsElementID($$) {
       }
     }
     if ($found > 1) {
-      &Error("existsElementID: osisID \"$work:$osisID\" appears $found times in $search.", "All osisID values in $work must be unique values.");
+      &Error("existsElementID: osisID \"$osisID\" appears $found times.", "All osisID values in must be unique values.");
     }
   }
   return ($ID_CACHE{$xml->URI}{$osisID} eq 'yes');
 }
 
 # Does a particular scope attribute value valid for this OSIS xml file?
+my %SCOPE_CACHE;
 sub existsScope($$) {
   my $scope = shift;
   my $xml = shift;
@@ -544,7 +550,7 @@ sub existsScope($$) {
       }
     }
     if (!$found) {
-      my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
+      my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
       my $context = &getScopeAttributeContext($scope, $bookOrderP);
       foreach my $t (@test) {
         my $hashP = &getContextAttributeHash($t->getAttribute('scope'));

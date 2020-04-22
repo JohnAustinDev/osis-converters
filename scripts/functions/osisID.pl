@@ -26,6 +26,12 @@
 # onlySpanVerses is set, then hyphenated segments returned may cover at 
 # most one chapter (and in this case, the verse system is irrelevant). 
 # Note: it is always assumed that osisRefWork = osisIDWork
+
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($XPC, $XML_PARSER, $FNREFEXT, $OT_BOOKS, $NT_BOOKS, $OSISBOOKSRE);
+
 sub osisID2osisRef($$$$) {
   my $osisID = shift;
   my $osisIDWorkDefault = shift;
@@ -104,7 +110,7 @@ sub osisRef2osisID($$$$) {
   
   if ($osisRefLong =~ /^\s*$/) {return '';}
   
-  my @osisIDs;
+  my (@osisIDs, @verses);
   
   my $logTheResult;
   foreach my $osisRef (split(/\s+/, $osisRefLong)) {
@@ -223,7 +229,7 @@ sub inVersesystem($$$) {
       return 0;
     }
     my ($canonP, $bookOrderP, $bookArrayP);
-    &getCanon($wkvsys, \$canonP, \$bookOrderP, NULL, \$bookArrayP);
+    &getCanon($wkvsys, \$canonP, \$bookOrderP, undef, \$bookArrayP);
     if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
       &Error("Chapter $c of osisID $id is outside of verse system $wkvsys.");
       return 0;
@@ -244,8 +250,7 @@ sub idInVerseSystem($$) {
  
   if ($osisID !~ /^([^\.]+)(\.\d+(\.\d+)?)?$/) {return 0;}
   my $bk = $1;
-  my $reb = join('|', @bks, split(/\s+/, $OT_BOOKS), split(/\s+/, $NT_BOOKS));
-  if ($bk !~ /\b($reb)\b/) {return 0;}
+  if ($bk !~ /\b($OSISBOOKSRE)\b/) {return 0;}
 
   my $vk = new Sword::VerseKey();
   $vk->setAutoNormalize(0); # The default VerseKey will NOT allow a verse that doesn't exist in the verse system

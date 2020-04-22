@@ -19,6 +19,19 @@
 
 # Converts an OSIS file into possibly a number of different ePublications 
 # of type $convertTo, where each ePublication covers a different Bible-scope. 
+
+use strict;
+
+our ($READLAYER, $WRITELAYER, $APPENDLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
+    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS);
+
+my ($INOSIS_XML, $IS_CHILDRENS_BIBLE, $CREATE_FULL_TRANSLATION, 
+  $CREATE_SEPARATE_BOOKS, $CREATE_SEPARATE_PUBS, $FULLSCOPE, 
+  $SERVER_DIRS_HP, $TRANPUB_SUBDIR, $TRANPUB_TYPE, $TRANPUB_TITLE, 
+  $TRANPUB_NAME, $PUB_SUBDIR, $PUB_NAME, $PUB_TYPE, %CONV_REPORT);
+
 sub osis2pubs($) {
   my $convertTo = shift;
   if ($convertTo !~ /^(eBook|html)$/) {
@@ -67,7 +80,7 @@ sub osis2pubs($) {
   if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE);}
   else {
     my %eBookSubDirs; my %parentPubScope; my $bookOrderP;
-    &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
+    &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
     
     # convert the entire OSIS file
     if ($PUB_TYPE eq 'Tran') {
@@ -192,6 +205,7 @@ sub OSIS_To_ePublication($$$) {
   }
   # copy font if specified
   if ($FONTS && &conf("Font")) {
+    our %FONT_FILES;
     &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$tmp/css", 1);
     # The following allows Calibre to embed fonts (which must be installed locally) when 
     # the '--embed-all-fonts' flag is used with ebook-convert. This has been commented out
@@ -452,7 +466,7 @@ sub filterBibleToScope($$\$\$) {
     INTRO: foreach my $intro (@scopedPeriphs) {
       my $introBooks = &scopeToBooks($intro->getAttribute('scope'), $bookOrderP);
       if (!@{$introBooks}) {next;}
-      foreach $introbk (@{$introBooks}) {
+      foreach my $introbk (@{$introBooks}) {
         foreach my $remainingBook (@remainingBooks) {
           if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
           $remainingBook->parentNode->insertBefore($intro, $remainingBook);
@@ -489,7 +503,7 @@ sub filterBibleToScope($$\$\$) {
   my $s = $scope; $s =~ s/\s+/_/g;
   my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
   if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
-    foreach $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][\@src]", $inxml)) {
+    foreach my $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][\@src]", $inxml)) {
       my $sc = $figure->getAttribute('src'); $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
       my $bkP = &scopeToBooks($sc, $bookOrderP);
       foreach my $bk (@{$bkP}) {if ($bk eq $scope) {$subPubCover = $figure;}}
@@ -522,7 +536,7 @@ sub filterGlossaryToScope($$) {
   my $osisP = shift; # OSIS to filter
   my $scope = shift; # scope to filter to
   
-  my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
+  my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
   
   my @removed;
   my @kept;
@@ -570,7 +584,7 @@ sub filterAggregateEntriesToScope($$) {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my @check = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]//osis:div[@type="x-aggregate-subentry"]', $xml);
-  my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
+  my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
   
   my @removed; my $removeCount = 0;
   foreach my $subentry (@check) {
@@ -1036,6 +1050,8 @@ sub updateOsisFullResourceURL($$) {
 # Calibre to know the script context.
 sub copyFunctionsXSL($$) {
   my $dest = shift;
+  
+  no strict "refs";
   
   my $file = "$SCRD/scripts/functions/functions.xsl";
   my $name = $file; $name =~ s/^.*\///;

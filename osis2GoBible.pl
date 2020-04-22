@@ -31,19 +31,24 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 
-%BookSizes;
-$BookOverhead = 1000;
-$JarOverhead = 40000;
-$MaxTries = 10;
+our ($READLAYER, $WRITELAYER, $APPENDLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($INOSIS, $GBOUT, $GO_BIBLE_CREATOR, $XPC, $XML_PARSER, 
+    $MAX_UNICODE, $MODULETOOLS_BIN, $NT_BOOKS);
 
-$GOBIBLE = "$INPD/GoBible";
+my %BookSizes;
+my $BookOverhead = 1000;
+my $JarOverhead = 40000;
+my $MaxTries = 10;
+
+my $GOBIBLE = "$INPD/GoBible";
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
 # Remove navigation menus
-$INXML = $XML_PARSER->parse_file($INOSIS);
+my $INXML = $XML_PARSER->parse_file($INOSIS);
 foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) {$e->unbindNode();}
 &writeXMLFile($INXML, \$INOSIS);
 
@@ -52,9 +57,9 @@ foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
 my $collectionsP = &getFullCollection($MAINMOD, &getScopeOSIS($INXML), &conf('Versification'));
 
-my $bookOrderP; &getCanon(&conf("Versification"), NULL, \$bookOrderP, NULL);
+my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
 my $scope = &getScopeOSIS($INXML);
-$ScopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
+my $ScopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
 
 my %results;
 
@@ -195,7 +200,7 @@ sub getFullCollection($$$) {
   
   my %collections;
   
-  my $bookOrderP; &getCanon($v11n, NULL, \$bookOrderP, NULL);
+  my $bookOrderP; &getCanon($v11n, undef, \$bookOrderP, undef);
   $collections{lc($modname)} = &scopeToBooks($scope, $bookOrderP); 
   return \%collections;
 }
@@ -401,7 +406,7 @@ sub goBibleConvChars($$$) {
   &readReplacementChars(&getDefaultFile("bible/GoBible/".$type."Chars.txt"), \@FROM, \@TO);
   
   &Log("Converting the following chars:\n");
-  for ($i=0; $i<@{@FROM}; $i++) {&Log(@{$FROM}[$i]."<>".@{$TO}[$i]."\n");}
+  for (my $i=0; $i<@FROM; $i++) {&Log(@FROM[$i]."<>".@TO[$i]."\n");}
 
   &Log("Converting chars in following files:\n");
   make_path($destdir);
@@ -409,25 +414,25 @@ sub goBibleConvChars($$$) {
   my %highUnicode;
   foreach my $file (@$aP) {
     open(INF, $READLAYER, $file) || die "Could not open $file.\n";
-    $leaf = $file;
+    my $leaf = $file;
     $leaf =~ s/^.*?([^\\\/]+)$/$1/;
     open(OUTF, $WRITELAYER, "$destdir/$leaf") || die "Could not open $destdir/$leaf.\n";
 
     &Log("$file\n");
-    $line = 0;
+    my $line = 0;
     while(<INF>) {
       $line++;
       
       # Replace some Unicode chars which might cause problems on some phones
-      $c = fromUTF8("…");
+      my $c = fromUTF8("…");
       $_ =~ s/$c/\.\.\./g;
       $c = fromUTF8("­"); # remove optional hyphens!
       $_ =~ s/$c//g;
       
       # Replace
-      for ($i=0; $i<@FROM; $i++) {
-        $r = @FROM[$i];
-        $s = @TO[$i];
+      for (my $i=0; $i<@FROM; $i++) {
+        my $r = @FROM[$i];
+        my $s = @TO[$i];
         $_ =~ s/\Q$r\E/$s/g; # simplify the character set      
       }
       
@@ -440,8 +445,8 @@ sub goBibleConvChars($$$) {
 
   # Log whether any high Unicode chars
   &Log("Listing $type unicode chars higher than $MAX_UNICODE:\n");
-  $error = "false";
-  foreach $key (sort keys %highUnicode) {
+  my $error = "false";
+  foreach my $key (sort keys %highUnicode) {
     if ($type eq "simple") {$error = "true"; &Log(" ".$key."(".ord($key).") :".$highUnicode{$key}."\n");}
     else {&Log($key." ");}
   }
@@ -467,7 +472,7 @@ sub WriteGB($$$\%) {
   my $highUnicodeP = shift;
   
   $f =~ s/^.*?([^\/]+)$/$1/;
-  for ($i=0; substr($print, $i, 1); $i++) {
+  for (my $i=0; substr($print, $i, 1); $i++) {
     my $c = substr($print, $i, 1);
     if (ord($c) > $MAX_UNICODE) {$highUnicodeP->{$c} = $highUnicodeP->{$c}.$f.":".$l.":".$i." ";}
   }

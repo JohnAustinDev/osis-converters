@@ -12,7 +12,7 @@
   1) Creates a glossary menu system with links to each glossary entry in a new glossary div with scope="NAVMENU"
   2) Creates an introduction menu system, if there is a glossary with the INT feature.
   3) Inserts navigational links to these into every chapter, glossary entry and book introduction
-  NOTE: If the introScope parameter is NULL, then no introduction menus/links will be created, and if there is no glossary work listed in the
+  NOTE: If the introScope parameter is undef, then no introduction menus/links will be created, and if there is no glossary work listed in the
   OSIS file, then no glossary navigation menus/links will be created. But Bible chapter navigation menus will always be created.
   -->
  

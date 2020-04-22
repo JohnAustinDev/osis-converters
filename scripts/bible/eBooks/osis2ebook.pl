@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-
 # usage: osis2ebook.pl ProjectDirectory LogFile Directory Input_file Output_file_format [Book_type] [Cover_image]
 #   ProjectDirectory is the path to the osis-converters project directory
 #   LogFile is the path to the osis-converters log file
@@ -10,19 +9,24 @@
 #   Book_type should be 'B[ible]', 'C[ommentary] or G[enbook] - Bible is default and currently the only supported type
 #   Cover_image is file path for cover image (relative to Directory)
 
-
 # This script requires Calibre to be installed, with the osis-input plugin.
 # It creates an epub or fb2 ebook from an osis.xml input file.
 # The css file, if present, must be in the same directory and named ebible.css when processing a Bible.
 # The output file is created in the same directory and has the same name as the input file with the appropriate extension (.epub, .fb2)
 
-$RUNDIR  = @ARGV[2];
-$INPF    = @ARGV[3];
-$OPTYPE  = @ARGV[4];
-$IPTYPE  = @ARGV[5];
-$COVER   = @ARGV[6];
+my $RUNDIR  = @ARGV[2];
+my $INPF    = @ARGV[3];
+my $OPTYPE  = @ARGV[4];
+my $IPTYPE  = @ARGV[5];
+my $COVER   = @ARGV[6];
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
+    $TMPDIR, $DEBUG);
+
+my ($OPF);
 
 if ($RUNDIR) {
   $RUNDIR =~ s/[\\\/]\s*$//;
@@ -70,8 +74,8 @@ else {
 }
 
 if ($IPTYPE){
-  $typetmp = ucfirst($IPTYPE);
-  $tletter = substr($typetmp, 0, 1);
+  my $typetmp = ucfirst($IPTYPE);
+  my $tletter = substr($typetmp, 0, 1);
   if ($tletter eq "B") {
     $IPTYPE = "bible"
   }
@@ -103,7 +107,7 @@ if ($COVER) {
 }
 
 # Start forming the command string
-$COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --subset-embedded-fonts";
+my $COMMAND = "ebook-convert ".&escfile($INPF)." ".&escfile($OPF)." --max-toc-links 0 --chapter \"/\" --chapter-mark none --page-breaks-before \"/\" --keep-ligatures --disable-font-rescaling --minimum-line-height 0 --subset-embedded-fonts";
 
 $COMMAND .= ' --level1-toc "//*[@title=\'toclevel-1\']" --level2-toc "//*[@title=\'toclevel-2\']" --level3-toc "//*[@title=\'toclevel-3\']"';
 
@@ -132,27 +136,11 @@ print "$COMMAND\n";
 &Log("$COMMAND\n");
 system $COMMAND;
 
-# Perform post-processing for FB2
-if (0 && lc $OPTYPE eq "fb2")
-{
-  # Create temporary file name
-  $TEMPF = $OPF;
-  $TEMPF =~ s/\.[^\.]*$/1./;
-  
-  # Rename output file to temp file and pre-process to give new output file
-  rename $OPF, $TEMPF;
-  $COMMAND = "$SCRD/scripts/genbook/childrens_bible/fb2postproc.py ".&escfile($TEMPF)." ".&escfile($OPF)." ".&escfile($CSSFILE);
-  print "$COMMAND\n";
-  &Log("$COMMAND\n");
-  system $COMMAND;
-  unlink $TEMPF;
-}
-
 if (lc $OPTYPE eq "fb2") {
-  $COMMAND = "zip ".&escfile("$OPF.zip")." ".&escfile($OPF);
-  print "$COMMAND\n";
-  &Log("$COMMAND\n");
-  system $COMMAND; 
+  my $cmd = "zip ".&escfile("$OPF.zip")." ".&escfile($OPF);
+  print "$cmd\n";
+  &Log("$cmd\n");
+  system $cmd; 
 }
 
 1;

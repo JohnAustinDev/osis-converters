@@ -18,6 +18,17 @@
 #
 ########################################################################
 
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($READLAYER, $WRITELAYER, $MOD_OUTDIR, @VSYS_INSTR,
+    $NO_OUTPUT_DELETE, $MODULETOOLS_BIN, $DEBUG);
+    
+# Initialized below
+our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, $addCrossRefs, 
+    $addSeeAlsoLinks, $reorderGlossaryEntries, $customBookOrder, 
+    $sourceProject);
+
 # IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
 #  -SFM files must be UTF-8 encoded.
 #
@@ -41,7 +52,7 @@
 #       Example: SPECIAL_CAPITALS:i->İ ı->I
 #   VSYS_EXTRA, VSYS_MISSING, VSYS_MOVED - see fitToVerseSystem.pl
 
-$EVAL_REGEX_MSG = 
+my $EVAL_REGEX_MSG = 
 "IMPORTANT for EVAL_REGEX:
 EVAL_REGEX instructions only effect RUN statements which come later on 
 in CF_usfm2osis.txt. Also note that:
@@ -52,6 +63,7 @@ statement is encountered, which will cancel all previous
 EVAL_REGEX(someText) statements. OR, if someText is a file path, then it 
 will only apply when that particular file is later run.";
 
+my (@EVAL_REGEX, $USFMfiles);
 sub usfm2osis($$) {
   my $cf = shift;
   my $osis = shift;
@@ -61,7 +73,7 @@ sub usfm2osis($$) {
   open(COMF, $READLAYER, $cf) || die "Could not open usfm2osis command file $cf\n";
 
   #Defaults:
-  @EVAL_REGEX;
+  @EVAL_REGEX = ();
 
 =pod  
   # By default remove optional line breaks.
@@ -79,12 +91,13 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
   # Variables for versemap feature
   @VSYS_INSTR = ();
 
-  $line=0;
+  my $line=0;
   while (<COMF>) {
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
     elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|reorderGlossaryEntries|customBookOrder|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+      no strict "refs";
       if ($2) {
         my $par = $1;
         my $val = $3;
@@ -114,11 +127,11 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
       }
       next;
     }
-    elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {$SPECIAL_CAPITALS = $2; next;}}
-    elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {$PUNC_AS_LETTER = $2; next;}}
+    elsif ($_ =~ /^SPECIAL_CAPITALS:(\s*(.*?)\s*)?$/) {if ($1) {our $SPECIAL_CAPITALS = $2; next;}}
+    elsif ($_ =~ /^PUNC_AS_LETTER:(\s*(.*?)\s*)?$/) {if ($1) {our $PUNC_AS_LETTER = $2; next;}}
     elsif ($_ =~ /^RUN:\s*(.*?)\s*$/) {
       my $runTarget = $1;
-      $SFMfileGlob = $runTarget;
+      my $SFMfileGlob = $runTarget;
       $SFMfileGlob =~ s/\\/\//g;
       $SFMfileGlob =~ s/ /\\ /g; # spaces in file names are possible and need escaping
       if ($SFMfileGlob =~ /^\./) {

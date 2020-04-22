@@ -25,13 +25,18 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($INOSIS, $SWOUT, $OUTZIP, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, 
+    $XML_PARSER, $UPPERCASE_DICTIONARY_KEYS);
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
-$Sconf = &getSwordConfFromOSIS($INOSIS);
-$SModDrv = $Sconf->{'ModDrv'};
-$SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
+my $Sconf = &getSwordConfFromOSIS($INOSIS);
+my $SModDrv = $Sconf->{'ModDrv'};
+my $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 # Prepare osis-converters OSIS for SWORD import
@@ -96,7 +101,7 @@ if ($SModDrv =~ /LD/) {
 }
 
 # Set MinimumVersion conf entry
-$msv = "1.6.1";
+my $msv = "1.6.1";
 if ($Sconf->{'Versification'} ne "KJV") {
   my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3);
   if ($vers =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {$msv = "1.6.2";}
@@ -146,7 +151,7 @@ if ($Sconf->{'PreferredCSSXHTML'}) {
 }
 
 # Write the SWORD config.conf file
-$SwordConfFile = "$SWOUT/mods.d/".lc($MOD).".conf";
+my $SwordConfFile = "$SWOUT/mods.d/".lc($MOD).".conf";
 if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
 &writeConf($SwordConfFile, $Sconf);
 &zipModule($OUTZIP, $SWOUT);

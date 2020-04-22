@@ -23,6 +23,20 @@
 # In this way, osis-converter instructions appended to the \id tag are used
 # to mark (and sometimes move) the peripheral material in the SFM file,
 # according to the following instructions:
+
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($XPC, $XML_PARSER, $ROC, @SUB_PUBLICATIONS, 
+    $ORDER_PERIPHS_COMPATIBILITY_MODE, %ANNOTATE_TYPE);
+    
+# Initialized in /scripts/bible/fitToVerseSystem.pl
+our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
+     %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
+     %USFM_DEFAULT_PERIPH_TARGET);
+
+my $AlreadyReportedThis;
+
 sub placementMessage() {
   if ($AlreadyReportedThis) {return '';} $AlreadyReportedThis++;
   return '
@@ -74,7 +88,7 @@ sub applyPeriphInstructions($) {
   my $xml = $XML_PARSER->parse_file($$osisP);
   
   # Get all id divs
-  my @xpath;
+  my @xpath; our %ID_TYPE_MAP;
   foreach my $type (values(%ID_TYPE_MAP)) {
     push(@xpath, '//osis:div[@type="'.$type.'"][not(@subType)]');
   }
@@ -144,7 +158,7 @@ To retain the old meaning, change osis:header to $arg");
 "This xpath was previously interpereted as 'place as first child of the 
 bookGroup' but it now is interpereted as 'place as the preceding sibling 
 of the bookGroup'. Also, the peripherals are now processed in the order 
-they appear in the CF file. To retain the old meaning, change it to $xpath");
+they appear in the CF file.");
           &Warn("Changing $instruction to $inst == $arg");
         }
         
@@ -217,7 +231,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
   if (&isBible($xml)) {
     &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
     # Check that all sub-publications are marked
-    my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
+    my $bookOrderP; &getCanon(&conf('Versification'), undef, \$bookOrderP, undef);
     foreach my $scope (@SUB_PUBLICATIONS) {
       if (!@{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]', $xml)}[0]) {
         &Warn("No div scope was found for sub-publication $scope.");
@@ -276,8 +290,9 @@ sub applyInstructions($$$$) {
     &Note("Applying scope='$scope' to $sdiv");
   }
   if ($conversion) {
+    my @parts = split(/\s+/, $conversion);
     my $ok = !($conversion eq 'none' && @parts > 1); 
-    foreach my $p (split(/\s+/, $conversion)) {if ($p !~ /^(sword|html|epub|none)$/) {$ok = 0;}}
+    foreach my $p (@parts) {if ($p !~ /^(sword|html|epub|none)$/) {$ok = 0;}}
     if ($ok) {
       $div->setAttribute('annotateRef', $conversion);
       $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Conversion'});

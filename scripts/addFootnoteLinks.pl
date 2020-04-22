@@ -16,6 +16,12 @@
 # along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $FNREFSTART, 
+    $FNREFEND, $FNREFEXT);
 
 # POSSIBLE COMMAND FILE SETTINGS:
 #
@@ -52,14 +58,18 @@
 #        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
 #        disassociate the left ref from footnote association.
 
-%OSISID_FOOTNOTE;
-%VERSE_FOOTNOTE_IDS;
-%FNL_MODULE_BIBLE_VERSE_SYSTEMS;
-%FNL_FIX;
-%TERM_ORDINAL;
-%FNL_STATS;
-%FNL_LINKS;
-$OSISREFWORK;
+my ($skip_xpath, $only_xpath, $skipintros, $footnoteTerms, $commonTerms, 
+   $currentVerseTerms, $suffixTerms, $stopreference, $BK, $CH, $VS, $LV, 
+   $LASTP, $intro, $AFL_LC, %reportedSkipped);
+
+my %OSISID_FOOTNOTE;
+my %VERSE_FOOTNOTE_IDS;
+my %FNL_MODULE_BIBLE_VERSE_SYSTEMS;
+my %FNL_FIX;
+my %TERM_ORDINAL;
+my %FNL_STATS;
+my %FNL_LINKS;
+my $OSISREFWORK;
 
 sub runAddFootnoteLinks($$) {
   my $commandFile = shift;
@@ -694,7 +704,7 @@ sub getFootnotes($) {
   my $osisRefsP = shift;
   
   my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)
-  foreach $verse (&osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always')) {
+  foreach my $verse (&osisRef2Contexts(join(' ', @{$osisRefsP}), $MOD, 'always')) {
     my $verseOsisIDsP = $VERSE_FOOTNOTE_IDS{$verse};
     if (@{$verseOsisIDsP} && @{$verseOsisIDsP}[0]) {push(@osisIDs, @{$verseOsisIDsP});}
   }

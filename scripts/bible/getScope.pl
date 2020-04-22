@@ -16,6 +16,10 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
+our ($XPC, $XML_PARSER, $OSISBOOKSRE);
+
 sub getScope($$) {
   my $osis = shift; # can be osis file OR xml node
   my $vsys = shift;
@@ -44,7 +48,7 @@ sub getScope($$) {
     my $s = "";
     my $hadLastV = 0;
     my $lastCheckedV = "";
-    my $canbkFirst, $canbkLast;
+    my ($canbkFirst, $canbkLast);
     foreach my $bk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$canonP}) {
       if (!$canbkFirst) {$canbkFirst = $bk;}
       $canbkLast = $bk;

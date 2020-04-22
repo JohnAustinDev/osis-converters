@@ -24,9 +24,15 @@
 # a check will be done when the dictionary source is converted and such
 # entries will be corrected then.
 
-use File::Spec; $SCRIPT = File::Spec->rel2abs(__FILE__); $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict;
 
-my @entry, %pattern;
+use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+
+our ($MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
+our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($PUNC_AS_LETTER, $DICTIONARY_WORDS_NAMESPACE, $DICTIONARY_NotXPATH_Default);
+
+my (@entry, %pattern);
 open(INF, $READLAYER, "$INPD/DictionaryWords.txt") or die;
 while(<INF>) {
   if ($_ =~ /^#/ || $_ =~ /^\s*$/) {next;}
@@ -52,6 +58,7 @@ sub convertDWF($\@\%$) {
   my $out_file = shift;
 
   my %prints;
+  my $c;
   foreach my $e (@$entryP) {
     if (!$e) {next;}
     $c++;

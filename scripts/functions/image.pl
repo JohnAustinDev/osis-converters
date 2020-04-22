@@ -20,6 +20,12 @@
 # compatible operating system having all osis-converters dependencies 
 # already installed.
 
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($ROC, $XPC, $XML_PARSER, $OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, 
+    $COVERS, %FONT_FILES);
+
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames($) {
   my $dir = shift;
@@ -325,7 +331,7 @@ sub createCompositeCoverImage(\@$$$) {
   my $imgh = 0;
   for (my $j=0; $j<$ni; $j++) {
     my $dimP = &imageInfo(@{$coversAP}[$j]);
-    $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+    my $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
     if ($imgh < $sh + ($ys*$j)) {$imgh = $sh + ($ys*$j);}
   }
   
@@ -334,7 +340,7 @@ sub createCompositeCoverImage(\@$$$) {
   my $out = "$TMPDIR/cover.png"; # png allows dissolve to work right
   for (my $j=0; $j<$ni; $j++) {
     my $dimP = &imageInfo(@{$coversAP}[$j]);
-    $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
+    my $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
     &shell("convert -resize ${xw}x${sh} ".@{$coversAP}[$j]." \"$temp\"", 3);
     if ($j == 0) {
       &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
@@ -389,6 +395,7 @@ sub imageCaption($$$$) {
 }
 
 # Check figure links in an OSIS file. Checks target URL as well as target image.
+my %CHECKFIGURELINKS;
 sub checkFigureLinks($) {
   my $in_osis = shift;
   

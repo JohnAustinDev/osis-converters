@@ -33,6 +33,15 @@
 #    location (and external references to verses in alternate locations 
 #    will later also be modified to target that alternate location by 
 #    correctReferencesVSYS() ).
+
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($XPC, $XML_PARSER, $OT_BOOKS, $NT_BOOKS, %BOOKNAMES);
+
+my (%INSERT_NOTE_SPEEDUP, $ADD_CROSS_REF_LOC, $ADD_CROSS_REF_BAD,
+   $ADD_CROSS_REF_NUM);
+   
 sub runAddCrossRefs($) {
   my $osisP = shift;
 
@@ -303,7 +312,7 @@ sub insertNote($\%$) {
         $end = $alt;
       }
     }
-    $pt = @{$XPC->findnodes('preceding::text()[1]', $end)}[0];
+    my $pt = @{$XPC->findnodes('preceding::text()[1]', $end)}[0];
     while ($pt) {
       if ($pt =~ /^\s*$/ || (my $title = @{$XPC->findnodes('ancestor::osis:title[not(@canonical="true")] | ancestor::osis:l[@type="selah"]', $pt)}[0])) { # next text
         $pt = @{$XPC->findnodes('preceding::text()[1]', $pt)}[0];

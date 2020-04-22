@@ -16,6 +16,15 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
+# Initialized in /scripts/usfm2osis.pl
+our $addDictLinks;
+
+our ($XPC, $XML_PARSER);
+
+my $REF_SEG_CACHE;
+
 sub runAddDictLinks($$) {
   my $osisP = shift;
   

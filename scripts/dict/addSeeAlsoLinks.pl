@@ -16,6 +16,14 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($DWF, $KEYWORD, $addDictLinks, $DEFAULT_DICTIONARY_WORDS, 
+   $DICTIONARY_WORDS, $XML_PARSER, $XPC);
+
+my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
+
 sub runAddSeeAlsoLinks($$) {
   my $osisP = shift;
   
@@ -60,7 +68,7 @@ sub runAddSeeAlsoLinks($$) {
         &Note("Setting entry $osisRef notContext=\"".$entry->getAttribute('notContext')."\" in $DEFAULT_DICTIONARY_WORDS");
       }
       &writeXMLFile($dxml, $DEFAULT_DICTIONARY_WORDS);
-      if ($dwfIsDefault) {&copy("$DEFAULT_DICTIONARY_WORD", "$DICTINPD/$DICTIONARY_WORDS");}
+      if ($dwfIsDefault) {&copy("$DEFAULT_DICTIONARY_WORDS", "$DICTINPD/$DICTIONARY_WORDS");}
       &Error("Circular entry links were found.", 
 ($dwfIsDefault ? 
 "Run sfm2osis.pl again and these should disappear because the 
@@ -103,7 +111,7 @@ sub checkCircularEntryCandidates(\@) {
       $text .= $t->data;
       if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
         my $osisRef = $e->getAttribute('osisRef');
-        $single_osisRef = ($single_osisRef == 0 ? $osisRef:NULL);
+        $single_osisRef = ($single_osisRef == 0 ? $osisRef:undef);
         $ELINKLIST{$entryName} .= $osisRef." ";
       }
     }

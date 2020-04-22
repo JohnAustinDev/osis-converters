@@ -21,6 +21,16 @@
 # entries against a dictionary OSIS file's keywords. Validate 
 # DICTIONARY_WORDS xml markup. Return DWF on successful parsing and 
 # checking without error, '' otherwise. 
+
+use strict;
+
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($DEBUG, $XPC, $XML_PARSER, $DWF, $OSISBOOKSRE, $DICTIONARY_WORDS, 
+    $DICTIONARY_WORDS_NAMESPACE, $DICTIONARY_NotXPATH_Default,
+    $KEYWORD);
+    
+my (%LINK_OSISREF);
+
 sub loadDictionaryWordsXML($$$) {
   my $dictosis = shift;
   my $noupdateMarkup = shift;
@@ -52,9 +62,10 @@ sub loadDictionaryWordsXML($$$) {
   
   # Save any updates back to source dictionary_words_xml and reload
   if ($update) {
-    &writeXMLFile($dwf, "$dictionary_words_xml.tmp");
-    unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
-    &Note("Updated $update instance of non-conforming markup in $dictionary_words_xml");
+    &writeXMLFile($dwf, "$INPD/$DICTIONARY_WORDS.tmp");
+    unlink("$INPD/$DICTIONARY_WORDS"); 
+    rename("$INPD/$DICTIONARY_WORDS.tmp", "$INPD/$DICTIONARY_WORDS");
+    &Note("Updated $update instance of non-conforming markup in $INPD/$DICTIONARY_WORDS");
     if (!$noupdateMarkup) {
       $noupdateMarkup++;
       return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
@@ -203,7 +214,7 @@ sub validateDictionaryWordsXML($) {
   foreach my $entry (@entries) {
     my @dicts = split(/\s+/, $entry->getAttribute('osisRef'));
     foreach my $dict (@dicts) {
-      if ($dict !~ s/^(\w+):.*$/$1/) {&Error("osisRef \"$dict\" in \"$INPD/$DefaultDictWordFile\" has no target module", "Add the dictionary module name followed by ':' to the osisRef value.");}
+      if ($dict !~ s/^(\w+):.*$/$1/) {&Error("osisRef \"$dict\" has no target module", "Add the dictionary module name followed by ':' to the osisRef value.");}
     }
   }
   
@@ -247,6 +258,7 @@ sub validateDictionaryWordsXML($) {
 
 # Takes a list of <index index="Glossary"/> elements and converts them
 # glossary references, recording results.
+my @EXPLICIT_GLOSSARY;
 sub explicitGlossaryIndexes(\@) {
   my $indexElementsP = shift;
   
@@ -351,6 +363,7 @@ sub glossaryLink($) {
 # only handled node types are element, text, or <index index="Glossary"/>. 
 # An array is returned containing a list of the new reference elements 
 # that were added.
+my %NoOutboundLinks;
 sub searchForGlossaryLinks(\@) {
   my $node = shift; # non text-node child elements will not be modified
   
@@ -366,7 +379,7 @@ sub searchForGlossaryLinks(\@) {
   # If this node is in a glossary, get the glossary info
   my $glossary;
   if (&isDict($node)) {
-    if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), NULL, \$bookOrderP, NULL)}
+    if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), undef, \$bookOrderP, undef)}
     
     $glossary->{'node_context'} = &getNodeContext($node);
     if (!$glossary->{'node_context'}) {next;}
@@ -540,7 +553,7 @@ sub applyReferenceTags($$) {
     }
     my $newTextNode = XML::LibXML::Text->new($t);
     if ($newRefElement) {
-      $newRefElement->firstChild->insertBefore($newTextNode, NULL);
+      $newRefElement->firstChild->insertBefore($newTextNode, undef);
       $newRefElement->firstChild->removeChild($newRefElement->firstChild->firstChild); # remove the originally necessary ' ' in $refelem 
     }
     
@@ -562,6 +575,8 @@ sub applyReferenceTags($$) {
 # argument must be defined for explicit glossary link searches. When 
 # $index is defined, any match will be further restricted so that the 
 # linktext must include the index position (which may be 0).
+my (@MATCHES, $OT_CONTEXTSP, $NT_CONTEXTSP, $LAST_CONTEXT, %MULTIPLES, 
+   %MATCHES_USED, %EntryHits, @DICT_DEBUG_THIS, @DICT_DEBUG);
 sub searchText(\$$\%\%) {
   my $textP = shift; # the string to search
   my $node = shift;  # only used to get context information
@@ -583,7 +598,6 @@ sub searchText(\$$\%\%) {
       $minfo{'onlyExplicit'} = &attributeContextValue('onlyExplicit', $m);
       $minfo{'onlyOldTestament'} = &attributeIsSet('onlyOldTestament', $m);
       $minfo{'onlyNewTestament'} = &attributeIsSet('onlyNewTestament', $m);
-      $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; if ($minfo{'multiple'}) {$minfo{'multiple'} = $minfo{'multiple'}->value;}
       $minfo{'dontLink'} = &attributeIsSet('dontLink', $m);
       $minfo{'context'} = &getScopedAttribute('context', $m);
       $minfo{'contexts'} = &getContextAttributeHash($minfo{'context'}, \$debug);
@@ -593,6 +607,15 @@ sub searchText(\$$\%\%) {
       $minfo{'XPATH'} = &getScopedAttribute('XPATH', $m);
       $minfo{'osisRef'} = @{$XPC->findnodes('ancestor::dw:entry[@osisRef][1]', $m)}[0]->getAttribute('osisRef');
       $minfo{'name'} = @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m)}[0]->textContent;
+      $minfo{'multiple'} = @{$XPC->findnodes("ancestor-or-self::*[\@multiple][1]/\@multiple", $m)}[0]; 
+      if (!$minfo{'multiple'}) {
+        $minfo{'multiple'} = 'entry-name';
+      }
+      else {
+        my $v = $minfo{'multiple'}->value;
+        $minfo{'multiple'} = ($v eq 'false' ? 'entry-name':$v);
+      }
+      $minfo{'key'} = ($minfo{'multiple'} eq 'match' ? $minfo{'node'}->unique_key:$minfo{'name'});
       # A <match> element should never be applied to any textnode inside 
       # the glossary entry (or entries) which the match pertains to or 
       # any duplicate entries thereof. This is necessary to insure an 
@@ -608,6 +631,13 @@ sub searchText(\$$\%\%) {
   
   my $context;
   my $multiples_context;
+  # After every context change, %MULTIPLES is cleared. Options for the
+  # multiple attribute value are:
+  #  'false' - Allow an entry name to link once per context.
+  #  'match' - Allow a match element to be used once per context.
+  #  'true'  - No limitation on number of links.
+  # The $contextNoteKey var allows a link within a note, even if it was
+  # already linked in the given context.
   if ($glossaryHP->{'node_context'}) {
     $context = $glossaryHP->{'node_context'}; 
     $multiples_context = $glossaryHP->{'node_context'};
@@ -617,16 +647,21 @@ sub searchText(\$$\%\%) {
     $multiples_context = $context;
     $multiples_context =~ s/^(\w+\.\d+).*$/$1/; # reset multiples each chapter
   }
-  if ($multiples_context ne $LAST_CONTEXT) {undef %MULTIPLES; &Log("--> $multiples_context\n", 2);}
+  if ($multiples_context ne $LAST_CONTEXT) {
+    undef %MULTIPLES; 
+    &Log("--> $multiples_context\n", 2);
+  }
   $LAST_CONTEXT = $multiples_context;
   
   my $contextIsOT = &inContext($context, $OT_CONTEXTSP);
   my $contextIsNT = &inContext($context, $NT_CONTEXTSP);
-  my @contextNote = $XPC->findnodes("ancestor::osis:note", $node);
-  
+  my $contextNoteKey = @{$XPC->findnodes("ancestor::osis:note", $node)}[0];
+  $contextNoteKey = ($contextNoteKey ? $contextNoteKey->unique_key:'');
+
   my $a;
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
+    my $key = $m->{'key'}.$contextNoteKey;
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
 #@DICT_DEBUG = ($$textP); @DICT_DEBUG_THIS = (decode("utf8", "Гьа икӀ Ибрагьималай Исакь хьана. Исакьалай Якьуб"));
 #my $nodedata; foreach my $k (sort keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
@@ -644,11 +679,10 @@ sub searchText(\$$\%\%) {
       }
       if (!$contextIsOT && $m->{'onlyOldTestament'}) {&dbg("filtered at 10\n\n"); next;}
       if (!$contextIsNT && $m->{'onlyNewTestament'}) {&dbg("filtered at 20\n\n"); next;}
-      if ($filterMultiples) {
-        if (@contextNote > 0) {if ($MULTIPLES{$key}) {&dbg("filtered at 35\n\n"); next;}}
+      if (!defined($index) && $m->{'multiple'} ne 'true' && $MULTIPLES{$key}) {
         # $removeLater disallows links within any phrase that was previously skipped as a multiple.
         # This helps prevent matched, but unlinked, phrases inadvertantly being torn into smaller, likely irrelavent, entry links.
-        elsif ($MULTIPLES{$key}) {&dbg("filtered at 40\n\n"); $removeLater = 1;}
+        &dbg("filtered at 40\n\n"); $removeLater = 1;
       }
       if ($m->{'context'}) {
         my $gs  = ($glossaryHP->{'scopes_context'} ? 1:0);
@@ -664,7 +698,7 @@ sub searchText(\$$\%\%) {
         if (!$tst) {&dbg("filtered at 70\n\n"); next;}
       }
       if ($m->{'notXPATH'}) {
-        $tst = @{$XPC->findnodes($m->{'notXPATH'}, $node)}[0];
+        my $tst = @{$XPC->findnodes($m->{'notXPATH'}, $node)}[0];
         if ($tst) {&dbg("filtered at 80\n\n"); next;}
       }
     }
@@ -697,7 +731,7 @@ sub searchText(\$$\%\%) {
       $LINK_OSISREF{$m->{'osisRef'}}{'matched'}{$match}++;
       $LINK_OSISREF{$m->{'osisRef'}}{'total'}++;
 
-      if ($filterMultiples) {$MULTIPLES{$key}++;}
+      if ($m->{'multiple'} ne 'true') {$MULTIPLES{$key}++;}
     }
     
     last;
@@ -802,6 +836,7 @@ sub matchRegex($\%) {
   $pm =~ s/\\b$/(?:\\b|\$)/;
   
   # handle PUNC_AS_LETTER word boundary matching issue
+  our $PUNC_AS_LETTER;
   if ($PUNC_AS_LETTER) {
     $pm =~ s/\\b/(?:^|[^\\w$PUNC_AS_LETTER]|\$)/g;
   }
@@ -1018,16 +1053,6 @@ sub getIndexInfo($$) {
   return \%info;
 }
 
-sub getMultiplesKey($$\@) {
-  my $m = shift;
-  my $multiple = shift;
-  my $contextNoteP = shift;
-  
-  my $base = ($multiple eq 'match-per-chapter' ? $m->{'node'}->unique_key:$m->{'osisRef'});
-  if (@{$contextNoteP} > 0) {return $base . ',' .@{$contextNoteP}[$#$contextNoteP]->unique_key;}
-  else {return $base;}
-}
-
 
 sub getRootID($) {
   my $osisID = shift;
@@ -1042,6 +1067,7 @@ sub getRootID($) {
 # them into an osisRef. If $paratextRefList is not a valid Paratext 
 # reference list, then $paratextRefList is returned unchaged. If there 
 # are any errors, $paratextRefList is returned unchanged.
+my %CONVERTED_P2O;
 sub paratextRefList2osisRef($) {
   my $paratextRefList = shift;
   
@@ -1134,7 +1160,7 @@ sub paratextRefList2osisRef($) {
       else {
         my $canonP;
         # Bug warning - this assumes &conf('Versification') is verse system of osisRef  
-        &getCanon(&conf('Versification'), \$canonP, NULL, NULL, NULL);
+        &getCanon(&conf('Versification'), \$canonP, undef, undef, undef);
         my $ch1lv = ($lch == $ch ? $lvs:@{$canonP->{$bk}}[($ch-1)]);
         push(@pOsisRefs, "$bk.$ch.$vs".($ch1lv != $vs ? "-$bk.$ch.$ch1lv":''));
         if ($lch != $ch) {
@@ -1170,8 +1196,7 @@ sub getOsisName($$) {
   my $quiet = shift;
   
   # If it's already an OSIS book name, just return it
-  if (!$AllBooksRE) {$AllBooksRE = join('|', @OT_BOOKS, @NT_BOOKS);}
-  if ($bnm =~ /^($AllBooksRE)$/) {return $bnm;}
+  if ($bnm =~ /^($OSISBOOKSRE)$/) {return $bnm;}
   
   my $bookName = "";
      if ($bnm eq "1CH") {$bookName="1Chr";}
@@ -1294,7 +1319,7 @@ sub usfm3GetAttribute($$$) {
     my $aname = $defaultAttribute;
     while ($atl =~ s/\s*([^\s='"]+)\s*=\s*["']([^"']+)["']//) {
       $aname = $1;
-      $aval = $2;
+      my $aval = $2;
       if ($aname eq $attribute) {
         $aval =~ s/[\s\n]+/ /g;
         return $aval;

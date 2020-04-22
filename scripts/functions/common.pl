@@ -20,6 +20,7 @@
 # compatible operating system having all osis-converters dependencies 
 # already installed.
 
+use strict;
 use Encode;
 use File::Spec;
 use File::Copy;
@@ -31,41 +32,60 @@ use DateTime;
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
-$KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
-$OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
-$INDENT = "<milestone type=\"x-p-indent\" />";
-$LB = "<lb />";
-$FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
-$FNREFEND = "</reference>";
-$FNREFEXT = "note.n";
-$MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
-@Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-$OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
-$NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
-{ my $bn = 1;
-  foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
-    $OSISBOOKS{$bk} = $bn; $bn++;
-  }
-}
-$OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
-$SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
-$VSYS_INSTR_RE  = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+))?)?";
-$VSYS_PINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+|PART))?)?";
-$VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
-@USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
-$DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
-$DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
-$DICTIONARY_WORDS = "DictionaryWords.xml";
-$UPPERCASE_DICTIONARY_KEYS = 1;
-$NOCONSOLELOG = 1;
-$SFM2ALL_SEPARATE_LOGS = 1;
+# Initialized in entry script
+our ($SCRIPT, $SCRD);
+
+# Initialized in /scripts/bootstrap.pl 
+our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD, 
+    $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $READLAYER, 
+    $WRITELAYER, $APPENDLAYER);
+     
+# Initialized in /scripts/common_opsys.pl
+our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, 
+    %CONFIG_DEFAULTS, %MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
+    @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM, 
+    @OC_CONFIGS, @SWORD_AUTOGEN, @SWORD_CONFIGS);
+    
+# config.conf [system] globals initialized in common_opsys.pl's applyCONF_system()
+our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
+    $OUTDIR, $FONTS, $COVERS, $EBOOKS, $DEBUG, $NO_OUTPUT_DELETE, 
+    $VAGRANT);
+    
+# Initialized within common.pl functions
+our (%BOOKNAMES, $DEFAULT_DICTIONARY_WORDS, $INOSIS, $OUTOSIS, $OUTZIP, 
+    $SWOUT, $GBOUT, $EBOUT, $HTMLOUT, $MOD_OUTDIR, $TMPDIR, $XML_PARSER,
+    $XPC, %DOCUMENT_CACHE);
+our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, 
+    $addSeeAlsoLinks, $addCrossRefs, $reorderGlossaryEntries, 
+    $customBookOrder);
+
+our $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
+our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
+our $INDENT = "<milestone type=\"x-p-indent\" />";
+our $LB = "<lb />";
+our $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
+our $FNREFEND = "</reference>";
+our $FNREFEXT = "note.n";
+our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
+our @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
+our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
+our $VSYS_INSTR_RE  = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+))?)?";
+our $VSYS_PINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+|PART))?)?";
+our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
+our @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
+our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
+our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
+our $DICTIONARY_WORDS = "DictionaryWords.xml";
+our $UPPERCASE_DICTIONARY_KEYS = 1;
+our $SFM2ALL_SEPARATE_LOGS = 1;
 
 # The attribute types and values below are hardwired into the xsl files
 # to allow them to be more portable. But in Perl, these variables are used.
 
-$ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for adding the element
+our $ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for adding the element
 
 # Verse System related attribute types
+our %VSYS;
 $VSYS{'prefix_vs'}  = 'x-vsys';
 $VSYS{'resp_vs'}    = $VSYS{'prefix_vs'};
 $VSYS{'missing_vs'} = $VSYS{'prefix_vs'}.'-missing';
@@ -76,13 +96,17 @@ $VSYS{'start_vs'}   = '-start';
 $VSYS{'end_vs'}     = '-end';
 
 # annotateType attribute values
+our %ANNOTATE_TYPE;
 $ANNOTATE_TYPE{'Source'} = $VSYS{'prefix_vs'}.'-source'; # annotateRef is osisRef to source (custom) verse system
 $ANNOTATE_TYPE{'Universal'} = $VSYS{'prefix_vs'}.'-universal'; # annotateRef is osisRef to an external (fixed) verse system
 $ANNOTATE_TYPE{'Conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
 $ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features to which an element applies
 
 require("$SCRD/scripts/bible/getScope.pl");
-require("$SCRD/scripts/bible/fitToVerseSystem.pl"); # This defines some globals
+require("$SCRD/scripts/bible/fitToVerseSystem.pl");
+our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
+     %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
+     %USFM_DEFAULT_PERIPH_TARGET);
 require("$SCRD/scripts/functions/childrensBible.pl");
 require("$SCRD/scripts/functions/context.pl");
 require("$SCRD/scripts/functions/image.pl");
@@ -117,7 +141,7 @@ sub init_linux_script() {
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /^(osis2osis|sfm2all)$/) {
     require("$SCRD/scripts/osis2osis/osis2osis.pl");
     &runCF_osis2osis('preinit');
-    $MOD_OUTDIR = &getModuleOutputDir();
+    our $MOD_OUTDIR = &getModuleOutputDir();
     if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
     
     $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
@@ -161,9 +185,18 @@ sub init_linux_script() {
   
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
   
-  # Set default to 'on' for the following OSIS processing steps
-  my @CF_files = ('addScripRefLinks', 'addFootnoteLinks');
-  foreach my $s (@CF_files) {if (-e "$INPD/CF_$s.txt") {$$s = 'on_by_default';}}
+  # Initialize CF_usfm2osis and CF_osis2osis globals
+  $addScripRefLinks = '';
+  $addFootnoteLinks = '';
+  $addDictLinks = '';
+  $addSeeAlsoLinks = '';
+  $addCrossRefs = '';
+  $reorderGlossaryEntries = '';
+  $customBookOrder = '';
+  
+  # Set default to 'on' for certain cases
+  if (-e "$INPD/CF_addScripRefLinks.txt") {$addScripRefLinks = 'on_by_default';}
+  if (-e "$INPD/CF_addFootnoteLinks.txt") {$addFootnoteLinks = 'on_by_default';}
   if ($SCRIPT_NAME !~ /osis2osis/) {
     $addCrossRefs = "on_by_default";
     if ($INPD eq $DICTINPD) {$addSeeAlsoLinks = 'on_by_default';}
@@ -394,6 +427,7 @@ sub readBookNamesXML($) {
   }
 }
 
+my $STARTTIME;
 sub timer($) {
   my $do = shift;
  
@@ -416,13 +450,12 @@ sub timer($) {
   else {&Log("\ncurrent time: ".localtime()."\n");}
 }
 
+our %FONT_FILES;
 sub checkFont($) {
   my $font = shift;
   
   # After this routine is run, font features can use "if ($FONT)" to check 
   # font support, and can use FONT_FILES whenever fonts files are needed.
-  
-  %FONT_FILES;
   
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {$FONTS = &updateURLCache('fonts', $FONTS, 12);}
@@ -524,7 +557,7 @@ sub updateURLCache($$$$) {
       # Otherwise return a listing
       else {
         my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # directory name
-        my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
+        my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; my @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
         if ($p !~ /\/\.osis-converters\//) {die;} remove_tree($p); make_path($p);
         &shell("cd '$p' && wget -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
         $success = &readWgetFilePaths($p, $listingAP, $p);
@@ -700,6 +733,7 @@ sub initLibXML() {
 # change from project to project. This is because all default files are 
 # read at runtime by getDefaultFile(). So these may be copied and 
 # customized as needed, manually by the user.
+my %USFM;
 sub checkAndWriteDefaults($) {
   my $booknamesHP = shift;
   
@@ -1225,6 +1259,7 @@ sub copyFont($$$$$) {
   }
 }
 
+my $SCAN_USFM_SKIPPED;
 sub scanUSFM($\%) {
   my $sfm_dir = shift;
   my $sfmP = shift;
@@ -1731,6 +1766,7 @@ sub uc2($$) {
   my $tolower = shift;
   
   # Form for $i: a->A b->B c->C ...
+  our $SPECIAL_CAPITALS;
   if ($SPECIAL_CAPITALS) {
     my $r = $SPECIAL_CAPITALS;
     $r =~ s/(^\s*|\s*$)//g;
@@ -1751,6 +1787,7 @@ sub uc2($$) {
   return $t;
 }
 
+my %CANON_CACHE;
 sub getCanon($\%\%\%\@) {
   my $vsys = shift;
   my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
@@ -1758,14 +1795,14 @@ sub getCanon($\%\%\%\@) {
   my $testamentPP = shift; # hash pointer: OSIS-nook-name => 'OT' or 'NT'
   my $bookArrayPP = shift; # array pointer: OSIS-book-names in verse system order starting with index 1!!
   
-  if (! %{$CANON_CACHE{$vsys}}) {
+  if (!$CANON_CACHE{$vsys}) {
     if (!&isValidVersification($vsys)) {return 0;}
     
     my $vk = new Sword::VerseKey();
     $vk->setVersificationSystem($vsys);
     
     for (my $bk = 0; my $bkname = $vk->getOSISBookName($bk); $bk++) {
-      my $t, $bkt;
+      my ($t, $bkt);
       if ($bk < $vk->bookCount(1)) {$t = 1; $bkt = ($bk+1);}
       else {$t = 2; $bkt = (($bk+1) - $vk->bookCount(1));}
       $CANON_CACHE{$vsys}{'bookOrder'}{$bkname} = ($bk+1);
@@ -1817,6 +1854,7 @@ sub getModNameOSIS($) {
   if (!ref($node)) {
     my $modname = $node; # node is not a ref() so it's a modname
     if (!$DOCUMENT_CACHE{$modname}) {
+      our $OSIS;
       my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
       if (! -e $osis) {&ErrorBug("getModNameOSIS: No current osis file to read for $modname.", 1);}
       &initDocumentCache($XML_PARSER->parse_file($osis));
@@ -2008,7 +2046,10 @@ sub getModuleOsisFile($$) {
   my $mof = &getModuleOutputDir($mod)."/$mod.xml";
   if ($reportFunc eq 'quiet' || -e $mof) {return $mof;}
   
-  if ($reportFunc) {&$reportFunc("$mod OSIS file does not exist: $mof");}
+  if ($reportFunc) {
+    no strict "refs";
+    &$reportFunc("$mod OSIS file does not exist: $mof");
+  }
   return '';
 }
 
@@ -2027,7 +2068,7 @@ sub adjustAnnotateRefs($) {
   my $update;
   foreach my $reference (@{$XPC->findnodes('//osis:reference[@type="annotateRef"][@osisRef]', $xml)}) {
     my $remove;
-    foreach $r (split(/\s+/, &osisRef2osisID($reference->getAttribute('osisRef')))) {
+    foreach my $r (split(/\s+/, &osisRef2osisID($reference->getAttribute('osisRef')))) {
       if (!$osisIDsP->{$r}) {$remove++; $update++; last;}
     }
     if ($remove) {
@@ -2254,7 +2295,7 @@ sub checkReferenceLinks2($$\%\%\%$) {
 "Maybe this should not be marked as a reference? Reference tags in OSIS 
 require a valid target. When there isn't a valid target, then a 
 different USFM tag should be used instead.");
-      $errors{$type}++;
+      $errorsP->{$type}++;
       next;
     }
     
@@ -2379,13 +2420,13 @@ sub readReplacementChars($\@\@) {
     while(<INF>) {
       if ($fromAP && $_ =~ /Replace-these-chars:\s*(.*?)\s*$/) {
         my $chars = $1;
-        for ($i=0; substr($chars, $i, 1); $i++) {
+        for (my $i=0; substr($chars, $i, 1); $i++) {
           push(@{$fromAP}, substr($chars, $i, 1));
         }
       }
       if ($toAP && $_ =~ /With-these-chars:\s*(.*?)\s*$/) {
         my $chars = $1;
-        for ($i=0; substr($chars, $i, 1); $i++) {
+        for (my $i=0; substr($chars, $i, 1); $i++) {
           push(@{$toAP}, substr($chars, $i, 1));
         }
       }
@@ -2447,6 +2488,8 @@ sub copy_dir_with_defaults($$$$) {
   my $dest = shift;
   my $keep = shift;
   my $skip = shift;
+  
+  my $isDefaultDest; # not sure what this is - 'use strict' caught it
   
   for (my $x=3; $x>=($isDefaultDest ? 2:1); $x--) {
     my $defDir = &getDefaultFile($dir, $x);
@@ -2587,10 +2630,12 @@ sub runXSLT($$$\%$) {
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   $cmd .= " -o:" . &escfile($output);
-  foreach my $p (sort keys %{$paramsP}) {
-    my $v = $paramsP->{$p};
-    $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
-    $cmd .= " $p=\"$v\"";
+  if ($paramsP) {
+    foreach my $p (sort keys %{$paramsP}) {
+      my $v = $paramsP->{$p};
+      $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
+      $cmd .= " $p=\"$v\"";
+    }
   }
   $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
   
@@ -2598,8 +2643,8 @@ sub runXSLT($$$\%$) {
 }
 
 
-$ProgressTotal = 0;
-$ProgressTime = 0;
+my $ProgressTotal = 0;
+my $ProgressTime = 0;
 sub logProgress($$) {
   my $msg = shift;
   my $ln = shift;
@@ -2635,7 +2680,7 @@ sub zipModule($$) {
   chdir($moddir);
   my $result = &shell($cmd, 3); # capture result so that output lines can be sorted before logging
   chdir($SCRD);
-  &Log("$cmd\n", 1); @lines = split("\n", $result); $result = join("\n", sort @lines); &Log($result, 1);
+  &Log("$cmd\n", 1); my @lines = split("\n", $result); $result = join("\n", sort @lines); &Log($result, 1);
 }
 
 
@@ -2651,7 +2696,7 @@ sub fragmentToString($$) {
   if ($rootTagName !~ s/^\s*<(\w+).*$/$1/) {&ErrorBug("fragmentToString bad rootTagName: $rootTagName !~ s/^\s*<(\w+).*\$/\$1/");}
   
   my $dom = XML::LibXML::Document->new("1.0", "UTF-8");
-  $dom->insertBefore($doc_frag, NULL);
+  $dom->insertBefore($doc_frag, undef);
   my $doc = $dom->toString();
   
   # remove xml declaration
@@ -2869,7 +2914,7 @@ sub writeWorkElement($$$) {
   
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
   $header->appendTextNode("\n");
-  my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work></work>"), NULL);
+  my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work></work>"), undef);
   
   # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
@@ -2878,7 +2923,7 @@ sub writeWorkElement($$$) {
     $work->appendTextNode("\n  ");
     my $er = $e;
     $er =~ s/^\d+\://;
-    my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), NULL);
+    my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), undef);
     foreach my $a (sort keys %{$elementsP->{$e}}) {
       if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
       else {$elem->setAttribute($a, $elementsP->{$e}{$a});}
@@ -2911,6 +2956,7 @@ sub oc_stringHash($) {
 
 
 # Check for TOC entries, and write as much TOC information as possible
+my $WRITETOC_MSG;
 sub writeTOC($$) {
   my $osisP = shift;
   my $modType = shift;
@@ -3127,7 +3173,7 @@ tag number you wish to use.)\n");
       my $type = $div->getAttribute('type');
       if ($maxkw && @{$XPC->findnodes('descendant::osis:seg[@type="keyword"]', $div)} <= $maxkw) {next;}
       if ($div->getAttribute('scope')) {
-        my $bookOrderP; &getCanon(&conf('Versification'), NULL, \$bookOrderP, NULL);
+        my $bookOrderP; &getCanon(&conf('Versification'), undef, \$bookOrderP, undef);
         if (!@{&scopeToBooks($div->getAttribute('scope'), $bookOrderP)}) {next;} # If scope is not an OSIS scope, then skip it
       }
       
@@ -3307,7 +3353,7 @@ sub joinOSIS($) {
     my $x = $1;
     my $bookGroup = $2;
     my $bk = $3;
-    $bkxml = $XML_PARSER->parse_file("$tmp/$f");
+    my $bkxml = $XML_PARSER->parse_file("$tmp/$f");
     my @bookNode = $XPC->findnodes('//osis:div[@type="book"]', $bkxml);
     if (@bookNode != 1) {
       &ErrorBug("joinOSIS file \"$f\" does not have just a single book.");
@@ -3321,7 +3367,7 @@ sub joinOSIS($) {
   
   # Move maked bookGroupChildElements to their original inter-book locations
   foreach my $bb ($XPC->findnodes('//*[@beforeBook]', $xml)) {
-    $beforeBook = $bb->getAttribute('beforeBook');
+    my $beforeBook = $bb->getAttribute('beforeBook');
     $bb->removeAttribute('beforeBook');
     $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
   }
@@ -3444,7 +3490,7 @@ sub removeDefaultWorkPrefixes($\%) {
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
     if ($osisRef->getValue() !~ /^$osisRefWork\:/) {next;}
-    $new = $osisRef->getValue();
+    my $new = $osisRef->getValue();
     $new =~ s/^$osisRefWork\://;
     $osisRef->setValue($new);
     $statsP->{'osisRef'}++;
@@ -3456,7 +3502,7 @@ sub removeDefaultWorkPrefixes($\%) {
   my $normedID = 0;
   foreach my $osisID (@osisIDs) {
     if ($osisID->getValue() !~ /^$osisIDWork\:/) {next;}
-    $new = $osisID->getValue();
+    my $new = $osisID->getValue();
     $new =~ s/^$osisIDWork\://;
     $osisID->setValue($new);
     $statsP->{'osisID'}++;
@@ -3504,23 +3550,6 @@ sub temporaryFile($$$) {
   }
 
   return $p;
-}
-
-# Run a Linux shell script. $flag can have these values:
-# -1 = only log file
-#  0 = log file (+ console unless $NOCONSOLELOG is set)
-#  1 = log file + console (ignoring $NOCONSOLELOG)
-#  2 = only console
-#  3 = don't log anything
-sub shell($$) {
-  my $cmd = shift;
-  my $flag = shift; # same as Log flag
-  
-  &Log("\n$cmd\n", $flag);
-  my $result = decode('utf8', `$cmd 2>&1`);
-  &Log($result."\n", $flag);
-  
-  return $result;
 }
 
 1;
