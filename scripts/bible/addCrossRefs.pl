@@ -42,7 +42,7 @@ our ($XPC, $XML_PARSER, $OT_BOOKS, $NT_BOOKS, %BOOKNAMES);
 my (%INSERT_NOTE_SPEEDUP, $ADD_CROSS_REF_LOC, $ADD_CROSS_REF_BAD,
    $ADD_CROSS_REF_NUM);
    
-sub runAddCrossRefs($) {
+sub runAddCrossRefs {
   my $osisP = shift;
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
@@ -273,7 +273,7 @@ other books are added to the translation.");
 # beginning of the verse. Sometimes a verse contains alternate verses within
 # itself, and in this case, verseNum is used to place the note within the 
 # appropriate alternate verse.
-sub insertNote($\%$) {
+sub insertNote {
   my $note = shift;
   my $verseP = shift;
   my $sourceID = shift;
@@ -336,7 +336,7 @@ sub insertNote($\%$) {
   }
 }
 
-sub translateRef($$) {
+sub translateRef {
   my $osisRef = shift;
   my $localeP = shift;
   my $vsys = shift; if (!$vsys) {$vsys = 'KJV';}
@@ -369,7 +369,7 @@ sub translateRef($$) {
   return $t;
 }
 
-sub translateSingleRef($$) {
+sub translateSingleRef {
   my $osisRefSingle = shift;
   my $localeP = shift;
 

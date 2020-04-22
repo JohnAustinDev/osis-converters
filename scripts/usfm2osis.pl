@@ -64,7 +64,7 @@ EVAL_REGEX(someText) statements. OR, if someText is a file path, then it
 will only apply when that particular file is later run.";
 
 my (@EVAL_REGEX, $USFMfiles);
-sub usfm2osis($$) {
+sub usfm2osis {
   my $cf = shift;
   my $osis = shift;
   
@@ -188,7 +188,7 @@ to update or remove offending SFM tags. $EVAL_REGEX_MSG");}
   return;
 }
 
-sub vsysInstSort($$) {
+sub vsysInstSort {
   my $a = shift;
   my $b = shift;
   
@@ -221,7 +221,7 @@ sub vsysInstSort($$) {
   return $r;
 }
 
-sub evalRegex($$) {
+sub evalRegex {
   my $usfmFiles = shift;
   my $runTarget = shift;
   

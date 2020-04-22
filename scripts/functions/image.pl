@@ -27,8 +27,9 @@ our ($ROC, $XPC, $XML_PARSER, $OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS,
     $COVERS, %FONT_FILES);
 
 # Image file names in osis-converters should not contain spaces
-sub checkImageFileNames($) {
+sub checkImageFileNames {
   my $dir = shift;
+
   my $spaces = &shell("find \"$dir\" -type f -name \"* *\" -print", 3);
   if ($spaces) {
     &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
@@ -39,7 +40,7 @@ sub checkImageFileNames($) {
 # If any images are found, 1 is returned, otherwise 0; If osis_or_tei
 # is passed as a reference, then a check and update of the cover image
 # will be done as well.
-sub copyReferencedImages($$$) {
+sub copyReferencedImages {
   my $osis_or_tei_orP = shift;
   my $projdir = shift;
   my $outdir = shift;
@@ -113,7 +114,7 @@ sub copyReferencedImages($$$) {
 # are figure elements with type="x-cover" and subType="x-(comp|full|sub)-
 # publication" where x-comp-publication is used for auto-generated comp-
 # osite cover images.
-sub addCoverImages($$) {
+sub addCoverImages {
   my $osisP = shift;
   my $replaceExisting = shift;
 
@@ -201,7 +202,7 @@ on the same line");}
 }
 
 
-sub insertSubpubCover($$$) {
+sub insertSubpubCover {
   my $scope = shift;
   my $figure = shift;
   my $xml = shift;
@@ -224,7 +225,7 @@ sub insertSubpubCover($$$) {
   return 0;
 }
 
-sub getCoverFigure($$) {
+sub getCoverFigure {
   my $iname = shift;
   my $type = shift;  
 
@@ -235,7 +236,7 @@ sub getCoverFigure($$) {
 # The cover figure must be within a div to pass validation. Place it as
 # the first child of the first div if it is not book(Group). Otherwise
 # also create a new div of type x-cover.
-sub insertPubCover($$) {
+sub insertPubCover {
   my $figure = shift;
   my $xml = shift;
 
@@ -262,7 +263,7 @@ sub insertPubCover($$) {
 # image (the first found is used):
 # 1) $INDP/images/<scoped-name>
 # 2) $COVERS location (if any) looking for <scoped-name>
-sub getCoverImageFromScope($$) {
+sub getCoverImageFromScope {
   my $mod = shift;
   my $scope = shift;
   
@@ -280,7 +281,7 @@ sub getCoverImageFromScope($$) {
 # Look for a cover image in $dir matching $mod and $scope and return it 
 # if found. The image file name may or may not be prepended with $mod_, 
 # and may use either space or underscore as scope delimiter.
-sub findCover($$$) {
+sub findCover {
   my $dir = shift;
   my $mod = shift;
   my $scope = shift;
@@ -305,7 +306,7 @@ sub findCover($$$) {
 # Takes an array of images and creates a composite image by overlapping 
 # small versions of each image over each other, translated by a certain 
 # x/y offset.
-sub createCompositeCoverImage(\@$$$) {
+sub createCompositeCoverImage {
   my $coversAP = shift;
   my $cover = shift;    # output image
   my $title = shift;    # title of output image
@@ -357,7 +358,7 @@ sub createCompositeCoverImage(\@$$$) {
 }
 
 # Sort cover images (with 'top' meaning last) having NT on top of (after) OT, and earlier books on top of (after) newer books
-sub sortCoverImages($$) {
+sub sortCoverImages {
   my $a = shift;
   my $b = shift;
   
@@ -370,7 +371,7 @@ sub sortCoverImages($$) {
 }
 
 # Returns a portion of an ImageMagick command line for adding a cation to an image
-sub imageCaption($$$$) {
+sub imageCaption {
   my $width = shift;
   my $title = shift;
   my $font = shift;
@@ -396,7 +397,7 @@ sub imageCaption($$$$) {
 
 # Check figure links in an OSIS file. Checks target URL as well as target image.
 my %CHECKFIGURELINKS;
-sub checkFigureLinks($) {
+sub checkFigureLinks {
   my $in_osis = shift;
   
   &Log("\nCHECKING OSIS FIGURE TARGETS IN $in_osis...\n");
@@ -498,7 +499,7 @@ smaller file size.\n";
 
 
 # Returns a pointer to a hash containing information about an image
-sub imageInfo($) {
+sub imageInfo {
   my $image = shift; # path to an image
   
   my %info;
@@ -518,7 +519,7 @@ sub imageInfo($) {
   return \%info;
 }
 
-sub changeImageWidth($$$) {
+sub changeImageWidth {
   my $path = shift;
   my $w = shift;
   my $backgroundColor = shift;

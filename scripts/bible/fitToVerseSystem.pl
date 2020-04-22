@@ -279,7 +279,7 @@ our %USFM_DEFAULT_PERIPH_TARGET = (
   'Deuterocanon Introduction' => 'osis:div[@type="book"][@osisID="Tob"]'
 );
 
-sub parseInstructionVSYS($) {
+sub parseInstructionVSYS {
   my $t = shift;
   
   if ($t =~ /^VSYS_MISSING:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
@@ -326,7 +326,7 @@ sub parseInstructionVSYS($) {
   return @VSYS_INSTR;
 }
 
-sub orderBooks($$$) {
+sub orderBooks {
   my $osisP = shift;
   my $vsys = shift;
   my $maintainBookOrder = shift;
@@ -410,7 +410,7 @@ sub orderBooks($$$) {
   &writeXMLFile($xml, $osisP);
 }
 
-sub applyVsysMissingVTagInstructions($) {
+sub applyVsysMissingVTagInstructions {
   my $osisP = shift;
   
   my $update;
@@ -434,7 +434,7 @@ sub applyVsysMissingVTagInstructions($) {
 
 # Update an osis file's internal (source) and external (fixed) osisRefs 
 # to the fitted verse system.
-sub correctReferencesVSYS($) {
+sub correctReferencesVSYS {
   my $osisP = shift;
   
   my $in_bible = ($INPD eq $MAININPD ? $$osisP:&getModuleOsisFile($MAINMOD));
@@ -518,7 +518,7 @@ sub correctReferencesVSYS($) {
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
 
-sub attribFromTo($\%$$) {
+sub attribFromTo {
   my $attrib = shift;
   my $attribHP = shift;
   my $id = shift;
@@ -534,7 +534,7 @@ sub attribFromTo($\%$$) {
   }
 }
 
-sub removeSeg($$) {
+sub removeSeg {
   my $id = shift;
   my $seg = shift;
   
@@ -547,7 +547,7 @@ sub removeSeg($$) {
   return join(' ', @segs);
 }
 
-sub addSeg($$) {
+sub addSeg {
   my $id = shift;
   my $seg = shift;
   
@@ -557,7 +557,7 @@ sub addSeg($$) {
   return join(' ', @segs);
 }
 
-sub applyMaps(\%$) {
+sub applyMaps {
   my $attribsHP = shift;
   my $modname = shift;
   
@@ -615,7 +615,7 @@ sub applyMaps(\%$) {
   return $count;
 }
 
-sub removeMappedElement($$) {
+sub removeMappedElement {
   my $e = shift;
   my $origin = shift;
   
@@ -635,7 +635,7 @@ sub removeMappedElement($$) {
   return $msg;
 }
 
-sub getAltVersesOSIS($) {
+sub getAltVersesOSIS {
   my $mod = &getModNameOSIS(shift);
   
   our %DOCUMENT_CACHE;
@@ -675,7 +675,7 @@ sub getAltVersesOSIS($) {
   return \%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}};
 }
 
-sub fitToVerseSystem($$) {
+sub fitToVerseSystem {
   my $osisP = shift;
   my $vsys = shift;
   
@@ -733,7 +733,7 @@ references:");
   }
 }
 
-sub checkVerseSystem($$) {
+sub checkVerseSystem {
   my $bibleosis = shift;
   my $vsys = shift;
   
@@ -810,7 +810,7 @@ VSYS_EXTRA: Ps.151 <- Synodal:Ps.151\n$fitToVerseSystemDoc");
   }
 }
 
-sub errMissingVerse($$$) {
+sub errMissingVerse {
   my $bkch = shift;
   my $vs = shift;
   my $lastVerseInChapter = shift;
@@ -836,7 +836,7 @@ VSYS_MOVED: $bkch.4 -> $bkch.3.PART\nAnother $fixes\n$fitToVerseSystemDoc");
   else {&Error("Missing verse $bkch.$vs.", "A $fixes\n$fitToVerseSystemDoc");}
 }
 
-sub applyVsysInstruction(\%\%$) {
+sub applyVsysInstruction {
   my $argP = shift;
   my $canonP = shift;
   my $xml = shift;
@@ -877,7 +877,7 @@ sub applyVsysInstruction(\%\%$) {
   return 1;
 }
 
-sub parseVsysArgument($$$) {
+sub parseVsysArgument {
   my $value = shift;
   my $xml = shift;
   my $vsysType = shift;
@@ -926,7 +926,7 @@ sub parseVsysArgument($$$) {
 # on annotateType = x-vsys-source or x-vsys-universal). 
 # Types of milestones inserted are:
 # $VSYS{'movedto_vs'}, $VSYS{'missing_vs'}, $VSYS{'extra_vs'} and $VSYS{'fitted_vs'} 
-sub applyVsysFromTo($$$) {
+sub applyVsysFromTo {
   my $fixedP = shift;
   my $sourceP = shift;
   my $xml = shift;
@@ -1036,7 +1036,7 @@ sub applyVsysFromTo($$$) {
 
 # Find the source verse system verse tag (a milestone) associated with 
 # an alternate $vid. Failure returns nothing.
-sub getSourceVerseTag($$$) {
+sub getSourceVerseTag {
   my $vid = shift;
   my $xml = shift;
   my $isEnd = shift;
@@ -1057,7 +1057,7 @@ sub getSourceVerseTag($$$) {
 # number BUT translators sometimes use the fixed verse system's number 
 # for the alternate verse number instead, in which case this will not 
 # find the desired verse.
-sub getSourceAltVerseTag($$$) {
+sub getSourceAltVerseTag {
   my $vid = shift;
   my $xml = shift;
   my $isEnd = shift;
@@ -1089,7 +1089,7 @@ sub getSourceAltVerseTag($$$) {
 # empty verses and renumbers the following verses in the chapter, also 
 # inserting alternate verse numbers there. If the 'missing' verse was
 # moved somewhere else (the usual case) that is marked-up by FROM_TO.
-sub applyVsysMissing($$$) {
+sub applyVsysMissing {
   my $fixedP = shift;
   my $xml = shift;
   
@@ -1144,7 +1144,7 @@ sub applyVsysMissing($$$) {
 # and verse tags are converted into milestone elements. Then they are 
 # enclosed within the proceding verse system verse. All following verses 
 # in the chapter are renumbered and alternate verses inserted for them.
-sub applyVsysExtra($$$$) {
+sub applyVsysExtra {
   my $sourceP = shift;
   my $canonP = shift;
   my $xml = shift;
@@ -1279,7 +1279,7 @@ sub applyVsysExtra($$$$) {
 # though the verse text itself does not. Linking such missing verses to 
 # their previous verse insures there are no broken links in the source 
 # text.
-sub applyVsysMissingVTag($$) {
+sub applyVsysMissingVTag {
   my $argP = shift;
   my $xml = shift;
   
@@ -1308,7 +1308,7 @@ sub applyVsysMissingVTag($$) {
 }
 
 # Markup verse as alternate, increment it by count, and mark it as moved
-sub reVersify($$$$$) {
+sub reVersify {
   my $bk = shift;
   my $ch = shift;
   my $vs = shift;
@@ -1376,7 +1376,7 @@ sub reVersify($$$$$) {
 # returned. When writeAlternate is set, an alternate verse number will 
 # also be written to the tree when the passed element is a starting 
 # verse tag.
-sub toMilestone($$$) {
+sub toMilestone {
   my $verse_or_chapter_tag = shift;
   my $noFitTag = shift;
   my $writeAlternate = shift;
@@ -1455,7 +1455,7 @@ sub toMilestone($$$) {
 # This will take a src_milestone element (of verse or chapter,  
 # start or end) and convert it back to the original, undoing everything 
 # that toMilestone() did. It returns the original element.
-sub undoMilestone($) {
+sub undoMilestone {
   my $ms = shift;
   
   my $note = "undoMilestone(".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').')';
@@ -1498,7 +1498,7 @@ sub undoMilestone($) {
 # Report an error if any verse in this hypothetical osisID is already listed 
 # in an existing osisID (to catch any bug causing multiple verse tags to cover 
 # the same verse)
-sub osisIDCheckUnique($$) {
+sub osisIDCheckUnique {
   my $osisID = shift;
   my $xml = shift;
   
@@ -1512,7 +1512,7 @@ sub osisIDCheckUnique($$) {
 }
 
 # Reads the osis file to find a chapter's smallest verse number
-sub getFirstVerseInChapterOSIS($$$) {
+sub getFirstVerseInChapterOSIS {
   my $bk = shift;
   my $ch = shift;
   my $xml = shift;
@@ -1530,7 +1530,7 @@ sub getFirstVerseInChapterOSIS($$$) {
 }
 
 # Reads the osis file to find a chapter's largest verse number
-sub getLastVerseInChapterOSIS($$$) {
+sub getLastVerseInChapterOSIS {
   my $bk = shift;
   my $ch = shift;
   my $xml = shift;
@@ -1549,7 +1549,7 @@ sub getLastVerseInChapterOSIS($$$) {
 
 # Checks that a 4 part verse range covers an entire chapter in the xml 
 # file. Also when possible finds verse numbers when they're missing.
-sub isWholeVsysChapter($$\$\$$) {
+sub isWholeVsysChapter {
   my $bk  = shift;
   my $ch  = shift;
   my $vsP  = shift;
@@ -1575,7 +1575,7 @@ sub isWholeVsysChapter($$\$\$$) {
 # Otherwise, either the milestone's annotateRef value (source osisRef
 # value) or the milestone element itself is returned, depending on the 
 # value of returnElem.
-sub has_src_milestone($$) {
+sub has_src_milestone {
   my $verseElem = shift;
   my $returnElem = shift;
   

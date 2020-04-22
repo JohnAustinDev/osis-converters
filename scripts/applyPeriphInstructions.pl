@@ -37,7 +37,7 @@ our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R,
 
 my $AlreadyReportedThis;
 
-sub placementMessage() {
+sub placementMessage {
   if ($AlreadyReportedThis) {return '';} $AlreadyReportedThis++;
   return '
   OSIS-CONVERTERS PERIPHERAL INSTRUCTIONS:
@@ -80,7 +80,7 @@ sub placementMessage() {
                                              ductions.
   ';
 }
-sub applyPeriphInstructions($) {
+sub applyPeriphInstructions {
   my $osisP = shift;
   
   &Log("\nApplying periph comments of \"$$osisP\"\n", 1);
@@ -249,7 +249,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
   &writeXMLFile($xml, $osisP);
 }
 
-sub findThisPeriph($$$) {
+sub findThisPeriph {
   my $parent = shift;
   my $left = shift;
   my $command = shift;
@@ -277,7 +277,7 @@ sub findThisPeriph($$$) {
   return $periph;
 }
 
-sub applyInstructions($$$$) {
+sub applyInstructions {
   my $div = shift;
   my $scope = shift;
   my $conversion = shift;
@@ -331,7 +331,7 @@ sub applyInstructions($$$$) {
 # Insert $periph node before $beforeNode. But when $beforeNode is a toc 
 # or runningHead element, then insert $periph before the following non-
 # toc, non-runningHead node instead. The resulting $beforeNode is returned.
-sub placeIntroduction($$$) {
+sub placeIntroduction {
   my $periph = shift;
   my $beforeNode = shift;
 

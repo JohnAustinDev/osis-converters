@@ -96,7 +96,7 @@ foreach my $type (sort keys %results) {
 ########################################################################
 ########################################################################
 
-sub makeGoBibles($$$$$) {
+sub makeGoBibles {
   my $type = shift;
   my $dir = shift;
   my $collectionsP = shift;
@@ -179,7 +179,7 @@ sub makeGoBibles($$$$$) {
   return;
 }
 
-sub copyGoBibles($$) {
+sub copyGoBibles {
   my $dfrom = shift;
   my $dto = shift;
   
@@ -193,7 +193,7 @@ sub copyGoBibles($$) {
   }
 }
 
-sub getFullCollection($$$) {
+sub getFullCollection {
   my $modname = shift;
   my $scope = shift;
   my $v11n = shift;
@@ -205,7 +205,7 @@ sub getFullCollection($$$) {
   return \%collections;
 }
 
-sub writeCollectionsFile($$) {
+sub writeCollectionsFile {
   my $fdest = shift;
   my $collectionsP = shift;
   
@@ -258,7 +258,7 @@ sub writeCollectionsFile($$) {
   return $colfile;
 }
 
-sub readJarFileSizes($) {
+sub readJarFileSizes {
   my $dir = shift;
   
   if (!opendir(DIR, $dir)) {&ErrorBug("readJarFileSizes could not open $dir for reading"); return;}
@@ -276,7 +276,7 @@ sub readJarFileSizes($) {
   return \%colSize;
 }
 
-sub calculateBookSizes($$$) {
+sub calculateBookSizes {
   my $osis = shift;
   my $fullsize = shift;
   my $bookSizesP = shift;
@@ -298,7 +298,7 @@ sub calculateBookSizes($$$) {
 }
 
 # Add to the full JAR file new OT and NT and JAR files
-sub createCollectionsOTNT($$) {
+sub createCollectionsOTNT {
   my $collectionsP = shift;
   my $colext = shift;
   
@@ -320,7 +320,7 @@ sub createCollectionsOTNT($$) {
 
 # Read collectionsP and calculate the size of each collection based on 
 # bookSizesP.
-sub calculateCollectionSizes($$) {
+sub calculateCollectionSizes {
   my $collectionsP = shift;
   my $bookSizesP = shift;
   
@@ -338,7 +338,7 @@ sub calculateCollectionSizes($$) {
 
 # Shift books in collectionsP collections so that no collection other 
 # than the full-Bible collection, is larger than maxColSize.
-sub adjustCollectionSizes($$$$) {
+sub adjustCollectionSizes {
   my $collectionsP = shift;
   my $colSizeP = shift;
   my $colext = shift;
@@ -363,7 +363,7 @@ sub adjustCollectionSizes($$$$) {
 }
 
 # Move a book from each over-sized collection to the next collection
-sub shiftBookFromOversizedCollections($$$$) {
+sub shiftBookFromOversizedCollections {
   my $collectionsP = shift;
   my $colSizeP = shift;
   my $colext = shift;
@@ -382,7 +382,7 @@ sub shiftBookFromOversizedCollections($$$$) {
 }
 
 # Returns 0 on all-good, 1 on problem
-sub checkGoBibleLog($$) {
+sub checkGoBibleLog {
   my $log = shift;
   my $resultsP = shift;
   
@@ -395,7 +395,7 @@ sub checkGoBibleLog($$) {
   return $resultsP; 
 }
 
-sub goBibleConvChars($$$) {
+sub goBibleConvChars {
   my $type = shift;
   my $aP = shift;
   my $destdir = shift;
@@ -465,7 +465,7 @@ not appear as boxes on feature phones.");}
   return join(' ', (sort keys %highUnicode));
 }
 
-sub WriteGB($$$\%) {
+sub WriteGB {
   my $print = shift;
   my $f = shift;
   my $l = shift;

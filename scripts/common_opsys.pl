@@ -150,7 +150,8 @@ our $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
 # initialization is successful 1 is returned so the script can commence.
-sub init_opsys() {
+sub init_opsys {
+
   chdir($INPD);
   
   if (-e "$SCRD/paths.pl") {
@@ -219,7 +220,8 @@ will run slower and use more memory.");
 }
 
 # This is only needed to update old osis-converters projects that lack [system] config.conf sections
-sub update_configSystemSection($) {
+sub update_configSystemSection {
+
   if (!$CONFFILE || !-e $CONFFILE) {return;}
   if (open(CXF, $READLAYER, $CONFFILE)) {
     while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
@@ -258,7 +260,8 @@ an unexpected place.");
 # settings like $DEBUG). NOTE: applyCONF_system() can only be run from 
 # init_opsys(), because two passes are necessary to set proper paths
 # when Vagrant is being used.
-sub applyCONF_system() {
+sub applyCONF_system {
+
   no strict "refs";
   
   # The following host paths are converted to absolute paths which may 
@@ -336,7 +339,7 @@ system section: ".join(' ', @OC_SYSTEM));}
 # a sorted array of scopes. Sorting is either by numerical order if the 
 # scopes are prepended with a number, or else by KJV order of the first
 # book listed in each scope.
-sub getSubPublications($) {
+sub getSubPublications {
   my $dir = shift;
   
   my $subPubMessage = 
@@ -408,7 +411,7 @@ subpub:
 #
 # For a value to continue from one line to the next, continued lines 
 # must end with '\'.
-sub readConfFile($$$) {
+sub readConfFile {
   my $conf = shift;
   my $entryValueHP = shift;
   my $rewriteMsgP = shift;
@@ -477,7 +480,8 @@ sub readConfFile($$$) {
   return 1;
 }
 
-sub readSetCONF() {
+sub readSetCONF {
+
   # Perl variables from the [system] section of config.conf are only 
   # set by applyCONF_system() and they are NOT set by readSetCONF().
 
@@ -501,7 +505,7 @@ sub readSetCONF() {
 # function returns the current value of a config parameter according to  
 # the present script and module context. It also checks that the
 # request is allowable.
-sub conf($$$$$) {
+sub conf {
   my $entry = shift;
   my $mod = shift;          #optional ($MOD)
   my $script_name = shift;  #optional ($SCRIPT_NAME)
@@ -538,7 +542,7 @@ sub conf($$$$$) {
   return ($key ? $confP->{$key}:'');
 }
 
-sub isValidConfigValue($$) {
+sub isValidConfigValue {
   my $fullEntry = shift;
   my $confP = shift;
   
@@ -566,7 +570,7 @@ sub isValidConfigValue($$) {
 #
 # Although the section is not required, supplying it, like: system+FONTS
 # allows more complete checking.
-sub isValidConfig($) {
+sub isValidConfig {
   my $e = shift;
   
   my $s = ($e =~ s/^(.*?)\+// ? $1:''); # so that section is not required
@@ -644,7 +648,7 @@ sub isValidConfig($) {
 # are valid on the host will NOT be valid on a VM! To work for the VM, 
 # soft links must be valid from the VM's perspective (so they will begin 
 # with /vagrant and will be broken on the host, but will work on the VM).
-sub getDefaultFile($$$) {
+sub getDefaultFile {
   my $file = shift;
   my $priority = shift;
   my $maininpd = shift; $maininpd = ($maininpd ? $maininpd:$MAININPD);
@@ -689,7 +693,7 @@ sub getDefaultFile($$$) {
 }
 
 # Return 1 if dependencies are met for $script and 0 if not
-sub checkDependencies($$$$) {
+sub checkDependencies {
   my $script = shift;
   my $scrd = shift;
   my $inpd = shift;
@@ -779,14 +783,16 @@ sub checkDependencies($$$$) {
 # The host share directory cannot be just a Windows drive letter (native 
 # or emulated) because Vagrant cannot create a share to the root of a 
 # window's drive.
-sub vagrantHostShare() {
+sub vagrantHostShare {
+
   if ($INPD !~ /^((?:\w\:|\/\w)?\/[^\/]+)/) {
     die "Error: Cannot parse project path \"$INPD\"\n";
   }
   return $1;
 }
 
-sub vagrantInstalled() {
+sub vagrantInstalled {
+
   print "\n";
   my $pass;
   system("vagrant -v >tmp.txt 2>&1");
@@ -797,7 +803,8 @@ sub vagrantInstalled() {
   return $pass;
 }
 
-sub restart_with_vagrant() {
+sub restart_with_vagrant {
+
   if (!-e "$SCRD/Vagrantcustom" && open(VAGC, $WRITELAYER, "$SCRD/Vagrantcustom")) {
     print VAGC "# NOTE: You must halt your VM for changes to take effect\n
   config.vm.provider \"virtualbox\" do |vb|
@@ -832,21 +839,23 @@ sub restart_with_vagrant() {
   close(VUP);
 }
 
-sub runningInVagrant() {
+sub runningInVagrant {
+
   return (-e "/vagrant/Vagrantfile" ? 1:0);
 }
 
-sub vagrantShare($$) {
+sub vagrantShare {
   my $host = shift;
   my $client = shift;
+
   # If the host is Windows, $host must be a native path!
   $host =~ s/^((\w)\:|\/(\w))\//uc($+).":\/"/e;
   $host =~ s/\\/\\\\/g; $client =~ s/\\/\\\\/g; # escape "\"s for use as Vagrantfile quoted strings
   return "config.vm.synced_folder \"$host\", \"$client\"";
 }
 
-sub vagrantUp(\@) {
-  my $sharesP = shift;
+sub vagrantUp {
+  my $sharesP = shift; # \@
   
   if (!-e "./.vagrant") {mkdir("./.vagrant");}
   
@@ -865,8 +874,8 @@ time. Subsequent use of Vagrant will run much faster.\n\n";
 }
 
 # returns 1 if all shares match, 0 otherwise
-sub matchingShares(\@) {
-  my $sharesP = shift;
+sub matchingShares {
+  my $sharesP = shift; # \@
   
   my %shares; foreach my $sh (@$sharesP) {$shares{$sh}++;}
   open(CSH, $READLAYER, "./Vagrantshares") || return 0;
@@ -884,7 +893,7 @@ sub matchingShares(\@) {
 
 # Report errors that users need to fix
 my %ERR_CHECK;
-sub Error($$$) {
+sub Error {
   my $errmsg = shift;
   my $solmsg = shift;
   my $doDie = shift;
@@ -905,7 +914,7 @@ sub Error($$$) {
 }
 
 # Report errors that are unexpected or need to be seen by osis-converters maintainer
-sub ErrorBug($$) {
+sub ErrorBug {
   my $errmsg = shift;
   my $doDie = shift;
   
@@ -920,7 +929,7 @@ sub ErrorBug($$) {
 }
 
 my (%WARN_MSG, %WARN_CHECK);
-sub Warn($$) {
+sub Warn {
   my $warnmsg = shift;
   my $checkmsg = shift;
   my $flag = shift;
@@ -947,7 +956,7 @@ sub Warn($$) {
 }
 
 my %NOTE_MSG;
-sub Note($$) {
+sub Note {
   my $notemsg = shift;
   my $flag = shift;
   
@@ -961,14 +970,14 @@ sub Note($$) {
   &Log("NOTE: $notemsg$endbreak", $flag);
 }
 
-sub Debug($$) {
+sub Debug {
   my $dbgmsg = shift;
   my $flag = shift;
   
   if ($DEBUG) {&Log("DEBUG: $dbgmsg", ($flag ? $flag:1));}
 }
 
-sub Report($$) {
+sub Report {
   my $rptmsg = shift;
   my $flag = shift;
   
@@ -984,7 +993,7 @@ sub Report($$) {
 #  2   = only console
 #  3   = don't log anything
 my $LOGFILE_BUFFER;
-sub Log($$) {
+sub Log {
   my $p = shift; # log message
   my $flag = shift;
   
@@ -1015,7 +1024,7 @@ sub Log($$) {
 }
 
 my $LOCAL;
-sub encodePrintPaths($) {
+sub encodePrintPaths {
   my $t = shift;
   
   no strict "refs";
@@ -1043,36 +1052,40 @@ sub encodePrintPaths($) {
 # Utility functions
 ########################################################################
 
-sub expandLinuxPath($) {
+sub expandLinuxPath {
   my $path = shift;
+
   if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", 1);}
   my $r = &shell("echo $path", 3);
   chomp($r);
   return $r;
 }
 
-sub shortLinuxPath($) {
+sub shortLinuxPath {
   my $path = shift;
+
   $path =~ s/\/\.\//\//g;
   $path =~ s/\/[^\/]+\/\.\.\//\//g;
   return $path;
 }
 
-sub escfile($) {
+sub escfile {
   my $n = shift;
   
   $n =~ s/([ \(\)])/\\$1/g;
   return $n;
 }
 
-sub isFolderEmpty($) { 
+sub isFolderEmpty { 
   my $dirname = shift;
+
   opendir(my $dh, $dirname) or die "Not a directory"; 
   return scalar(grep { $_ ne "." && $_ ne ".." } readdir($dh)) == 0;
 }
 
-sub printInt($) {
+sub printInt {
   my $in = shift; # a number
+
   my $b = int(0.5 + $in); # rounded to nearest int
   while($b =~ s/(\d+)(\d\d\d)/$1\,$2/){};
   return $b; # rounded with commas: 45,567,234
@@ -1083,7 +1096,7 @@ sub printInt($) {
 #  0,1 = log file + console
 #  2   = only console
 #  3   = don't log anything
-sub shell($$) {
+sub shell {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
   

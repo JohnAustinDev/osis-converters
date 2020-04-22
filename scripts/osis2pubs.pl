@@ -32,7 +32,7 @@ my ($INOSIS_XML, $IS_CHILDRENS_BIBLE, $CREATE_FULL_TRANSLATION,
   $SERVER_DIRS_HP, $TRANPUB_SUBDIR, $TRANPUB_TYPE, $TRANPUB_TITLE, 
   $TRANPUB_NAME, $PUB_SUBDIR, $PUB_NAME, $PUB_TYPE, %CONV_REPORT);
 
-sub osis2pubs($) {
+sub osis2pubs {
   my $convertTo = shift;
   if ($convertTo !~ /^(eBook|html)$/) {
     &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
@@ -145,7 +145,7 @@ sub osis2pubs($) {
 ########################################################################
 ########################################################################
 
-sub OSIS_To_ePublication($$$) {
+sub OSIS_To_ePublication {
   my $convertTo = shift; # type of ePublication to output (html or eBook)
   my $pubTitle = shift; # title of ePublication
   my $scope = shift; # scope of ePublication
@@ -342,7 +342,7 @@ file for it, and then run this script again.");}
 ########################################################################
 ########################################################################
 
-sub getLinkedFiles($\%) {
+sub getLinkedFiles {
   my $f = shift;
   my $hP = shift;
 
@@ -390,7 +390,7 @@ sub getLinkedFiles($\%) {
 #
 # The ebookPartTitleP is overwritten by the list of books left after
 # filtering IF any were filtered out, otherwise it is set to ''.
-sub filterBibleToScope($$\$\$) {
+sub filterBibleToScope {
   my $osisP = shift;
   my $scope = shift;
   my $ebookTitleP = shift;
@@ -532,7 +532,7 @@ an image whose filename is any scope that contains $scope":''));}
 }
 
 # Returns names of filtered divs, or else '-1' if all were be filtered or '0' if none were be filtered
-sub filterGlossaryToScope($$) {
+sub filterGlossaryToScope {
   my $osisP = shift; # OSIS to filter
   my $scope = shift; # scope to filter to
   
@@ -578,7 +578,7 @@ sub filterGlossaryToScope($$) {
 }
 
 # Returns scopes of filtered entries, or else '-1' if all were filtered or '0' if none were filtered
-sub filterAggregateEntriesToScope($$) {
+sub filterAggregateEntriesToScope {
   my $osisP = shift;
   my $scope = shift;
   
@@ -617,7 +617,7 @@ sub filterAggregateEntriesToScope($$) {
 #    the target.
 # 3) Remove hyper-link: This happens if the link is readable, but it could not be
 #    redirected to another resource, or it's missing an osisRef.
-sub filterScriptureReferences($$$) {
+sub filterScriptureReferences {
   my $osisToFilter = shift;    # The osis file to filter (Bible or Dictionary)
   my $osisBibleTran = shift;   # The osis file of the entire Bible translation osis (before pruning)
   my $osisBiblePruned = shift; # The osis file of the pruned Bible osis (if left empty, this will be $osisToFilter) 
@@ -713,7 +713,7 @@ sub filterScriptureReferences($$$) {
 }
 
 # Filter out glossary reference links that are outside the scope of glossRefOsis
-sub filterGlossaryReferences($$) {
+sub filterGlossaryReferences {
   my $osis = shift;
   my $glossRefOsis = shift;
   
@@ -809,7 +809,7 @@ sub filterGlossaryReferences($$) {
 # image to $coverpath. If there is no div element, or the referenced image
 # cannot be found, the empty string is returned, otherwise the path to the
 # referenced image is returned.
-sub copyCoverTo($$) {
+sub copyCoverTo {
   my $osisP = shift;
   my $coverpath = shift;
   
@@ -838,7 +838,7 @@ sub copyCoverTo($$) {
   return $result;
 }
 
-sub makeHTML($$$$) {
+sub makeHTML {
   my $tmp = shift;
   my $cover = shift;
   my $scope = shift;
@@ -888,7 +888,7 @@ sub makeHTML($$$$) {
   }
 }
 
-sub makeEbook($$$$$) {
+sub makeEbook {
   my $tmp = shift;
   my $format = shift; # “epub”, "azw3" or “fb2”
   my $cover = shift; # path to cover image
@@ -950,7 +950,7 @@ sub makeEbook($$$$$) {
 }
 
 # Return the filename (without file extension)
-sub getEbookName($$) {
+sub getEbookName {
   my $scope = shift;
   my $type = shift;
 
@@ -959,7 +959,7 @@ sub getEbookName($$) {
 }
 
 # Return the filename of a full eBook publication (without extension).
-sub getFullEbookName($$$$) {
+sub getFullEbookName {
   my $isChildrensBible = shift;
   my $tranpubTitle = shift;
   my $fullscope = shift;
@@ -979,7 +979,7 @@ sub getFullEbookName($$$$) {
   return $name;
 }
 
-sub readServerScopes($) {
+sub readServerScopes {
   my $url = shift;
   
   my %result;
@@ -1015,7 +1015,7 @@ sub readServerScopes($) {
 # description element to include the full eBook's URL, including the 
 # file name and extension. But the config.conf FullResourceURL contains
 # only the base URL, so it needs updating.
-sub updateOsisFullResourceURL($$) {
+sub updateOsisFullResourceURL {
   my $osis = shift;
   my $format = shift;
   
@@ -1048,7 +1048,7 @@ sub updateOsisFullResourceURL($$) {
 # Add context parameters to the functions.xsl file as a way to pass them 
 # through to Calibre. This functions plays the role of runXSLT() allowing
 # Calibre to know the script context.
-sub copyFunctionsXSL($$) {
+sub copyFunctionsXSL {
   my $dest = shift;
   
   no strict "refs";
@@ -1071,7 +1071,7 @@ sub copyFunctionsXSL($$) {
   if ($c != 3) {&ErrorBug("Failed to add context to '$file' at '$dest/$name'.", 1);}
 }
 
-sub removeAggregateEntries($) {
+sub removeAggregateEntries {
   my $osisP = shift;
 
   my $xml = $XML_PARSER->parse_file($$osisP);

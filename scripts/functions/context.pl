@@ -46,7 +46,7 @@ our ($XPC, $XML_PARSER, %OSISBOOKS, $OSISBOOKSRE, $NT_BOOKS, $OT_BOOKS,
     $DICTIONARY_WORDS, $DWF);
 
 my %ALREADY_NOTED_RESULT;
-sub getContextAttributeHash($\$) {
+sub getContextAttributeHash {
   my $attrValue = shift;
   my $notesP = shift;
   
@@ -99,7 +99,7 @@ sub getContextAttributeHash($\$) {
 # Scoped attributes are hierarchical and cummulative. They occur in both
 # positive and negative (not) forms. A positive attribute cancels any
 # negative forms of that attribute occuring higher in the hierarchy.
-sub getScopedAttribute($$) {
+sub getScopedAttribute {
   my $a = shift;
   my $m = shift;
   
@@ -137,7 +137,7 @@ sub getScopedAttribute($$) {
 }
 
 # Takes any valid osisRef and returns an equivalent array of atomized contexts.
-sub osisRef2Contexts($$$) {
+sub osisRef2Contexts {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
@@ -152,7 +152,7 @@ sub osisRef2Contexts($$$) {
 # Takes any valid osisID and returns an array with itself and any
 # containing DIVIDs. If includeIntro is set, any introduction atomic 
 # context is also included.
-sub osisID2Contexts($$) {
+sub osisID2Contexts {
   my $osisID = shift;
   my $includeIntro = shift;
 
@@ -193,8 +193,9 @@ sub osisID2Contexts($$) {
 # Return a string representing the most specific context of a node in 
 # any kind of document. For possible return values see bibleContext() 
 # and otherModContext())
-sub getNodeContext($) {
+sub getNodeContext {
   my $node = shift;
+
   return (&isBible($node) ? &bibleContext($node):&otherModContext($node, 1));
 }
 
@@ -208,7 +209,7 @@ sub getNodeContext($) {
 # Gen.1.0.0 = Gen chapter 1 intro
 # Gen.1.1.1 = Genesis 1:1
 # Gen.1.1.3 = Genesis 1:1-3
-sub bibleContext($) {
+sub bibleContext {
   my $node = shift;
   
   my $context = '';
@@ -267,7 +268,7 @@ sub bibleContext($) {
 # even though a keyword is not a container itself. Or, if the node is 
 # part of an introduction before a keyword, the keyword's osisID will be 
 # prepended with 'BEFORE_'.
-sub otherModContext($$) {
+sub otherModContext {
   my $node = shift;
   my $specificOsisID = shift; # return only the most specific container osisID
   
@@ -317,7 +318,7 @@ sub otherModContext($$) {
 
 # Returns an array of atomized context values from a '+' separated list 
 # of getNodeContext(), bibleContext() or otherModContext() strings.
-sub atomizeContext($) {
+sub atomizeContext {
   my $context = shift;
   
   my @out;
@@ -345,7 +346,7 @@ sub atomizeContext($) {
 # Return the most specific osisID associated with a node's context. The 
 # osisID will be either that of a containing element or of a glossary 
 # keyword.
-sub getNodeContextOsisID($) {
+sub getNodeContextOsisID {
   my $node = shift;
 
   my $context = &getNodeContext($node);
@@ -372,7 +373,7 @@ sub getNodeContextOsisID($) {
 # $context is a string as from getNodeContext()
 # $contextsHashP is a hash as from getContextAttributeHash() which may
 # include the special keys 'books' or 'all' for a big speedup.
-sub inContext($\%) {
+sub inContext {
   my $context = shift;
   my $contextsHashP = shift;
   
@@ -391,7 +392,7 @@ sub inContext($\%) {
 
 # Return a context string as the '+' separated list of osisID's which 
 # comprise a scope attribute's value.
-sub getScopeAttributeContext($$) {
+sub getScopeAttributeContext {
   my $scopeAttrib = shift;
   my $bookOrderP = shift;
   
@@ -419,7 +420,7 @@ sub getScopeAttributeContext($$) {
 # BEFORE_osisID = glossary introduction before keyword with osisID
 # osisID = any container element or keyword osisID
 my ($CONTEXT_CHECK_XML, $CONTEXT_CHECK_ERR);
-sub checkAndNormalizeAtomicContext($$) {
+sub checkAndNormalizeAtomicContext {
   my $context = shift;
   my $quiet = shift;
   
@@ -472,7 +473,7 @@ sub checkAndNormalizeAtomicContext($$) {
   return "$pre$before$context";
 }
 
-sub checkDictionaryWordsContexts($$) {
+sub checkDictionaryWordsContexts {
   my $osis = shift;
   my $dwf = shift;
   
@@ -509,7 +510,7 @@ sub checkDictionaryWordsContexts($$) {
 }
 
 my %ID_CACHE;
-sub existsElementID($$) {
+sub existsElementID {
   my $osisID = shift;
   my $xml = shift;
   
@@ -534,9 +535,10 @@ sub existsElementID($$) {
 
 # Does a particular scope attribute value valid for this OSIS xml file?
 my %SCOPE_CACHE;
-sub existsScope($$) {
+sub existsScope {
   my $scope = shift;
   my $xml = shift;
+
   if (!$SCOPE_CACHE{$xml->URI}{$scope}) {
     $SCOPE_CACHE{$xml->URI}{$scope} = 'no';
   
@@ -565,7 +567,7 @@ sub existsScope($$) {
   return ($SCOPE_CACHE{$xml->URI}{$scope} eq 'yes');
 }
 
-sub getGlossaryScopeAttribute($) {
+sub getGlossaryScopeAttribute {
   my $e = shift;
   
   my $eDiv = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="x-aggregate-subentry"]', $e)}[0];

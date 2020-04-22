@@ -146,7 +146,7 @@ my (%books, %UnhandledWords, %noDigitRef, %noOSISRef, %fix, %fixDone,
      fix. The replacement must be enclosed by double quotes, and any double
      quotes in the replacement must be escaped with '\'.";
 
-sub runAddScripRefLinks($$$) {
+sub runAddScripRefLinks {
   my $modType = shift;
   my $in_file = shift;
   my $out_file = shift; # optional if $in_file is a reference
@@ -404,7 +404,7 @@ CF_addScripRefLinks.txt regular expression problems.");
   &Log("FINISHED!\n\n");
 }
 
-sub asrlProcessFile($$) {
+sub asrlProcessFile {
   my $osis = shift;
   my $refSystem = shift;
   
@@ -548,7 +548,7 @@ sub asrlProcessFile($$) {
 # reference from the given context, and attempts to return a valid 
 # osisRef value. The returned osisRef value is not checked for
 # existence or validity, so this must be done later.
-sub search_osisRef($$) {
+sub search_osisRef {
   my $reference = shift;
   my $context = shift;
   
@@ -620,7 +620,7 @@ sub search_osisRef($$) {
 # 4) PARSE EACH SUBREF SEPARATELY, EACH INHERITING MISSING VALUES FROM THE PREVIOUS SUBREF
 # 5) REASSEMBLE THE EXTENDED REFERENCE USING OSIS LINKS
 # 6) REPEAT FROM STEP 1 UNTIL NO MORE REFERENCES ARE FOUND
-sub addLinks(\$$$$) {
+sub addLinks {
   my $tP = shift;
   my $bk = shift;
   my $ch = shift;
@@ -778,7 +778,7 @@ sub addLinks(\$$$$) {
   $$tP = join("", @notags);
 }
 
-sub logLink($$$$$) {
+sub logLink {
   my $location = shift;
   my $isSubReference = shift;
   my $printReference = shift;
@@ -791,7 +791,7 @@ sub logLink($$$$$) {
   &Log("\n");
 }
 
-sub fixLink($$\%\%) {
+sub fixLink {
   my $reference = shift;
   my $location = shift;
   my $fixP = shift;
@@ -818,7 +818,7 @@ sub fixLink($$\%\%) {
   return $fixed;
 }
 
-sub reportFixes(%%$) {
+sub reportFixes {
   my $fixP = shift;
   my $fixDoneP = shift;
   my $type = shift;
@@ -844,7 +844,7 @@ sub reportFixes(%%$) {
   }
 }
 
-sub hideTerm($\$$) {
+sub hideTerm {
   my $mt = shift;
   my $tP = shift;
   my $encFirstWordOnly = shift;
@@ -863,8 +863,9 @@ sub hideTerm($\$$) {
   if ($$tP !~ s/$re1/$re2/) {&ErrorBug("$LOCATION: Could not hide term \"$mt\" because $$tP !~ s/$re1/$re2/");}
 }
 
-sub encodeTerm($) {
+sub encodeTerm {
   my $t = shift;
+
   if ($t =~ /(\{\{\{|\}\}\})/ || $t =~ /(._){2,}/) {
     &ErrorBug("$LOCATION: String was already partially encoded \"$t\".");
   }
@@ -872,7 +873,7 @@ sub encodeTerm($) {
   return "{{{".$t."}}}";
 }
 
-sub decodeTerms(\$) {
+sub decodeTerms {
   my $tP = shift;
 
   while ($$tP =~ /(\{\{\{(.*?)\}\}\})/s) {
@@ -899,7 +900,7 @@ sub decodeTerms(\$) {
 # Returns:
 #       1 if a match was found
 #       0 otherwise
-sub leftmostTerm(\$\$\$\$) {
+sub leftmostTerm {
   my $tP = shift;
   my $matchP = shift;
   my $typeP = shift;
@@ -919,7 +920,7 @@ sub leftmostTerm(\$\$\$\$) {
 # Returns:
 #       1 if a match was found and a valid OSIS ref was parsed
 #       0 otherwise
-sub getOSISRef(\$\$\$\$\$\$) {
+sub getOSISRef {
   my $tP = shift;
   my $osisP = shift;
   my $typeP = shift;
@@ -965,7 +966,7 @@ sub getOSISRef(\$\$\$\$\$\$) {
 #       $bk, $ch, $vs, $lv, $bn - holds values associated with the match.
 # Returns:
 #       The matched reference text
-sub matchRef($\$\$\$\$\$\$\$\$) {
+sub matchRef {
   my $matchleft = shift;
   my $tP = shift;
   my $typeP = shift;
@@ -1354,9 +1355,10 @@ sub matchRef($\$\$\$\$\$\$\$\$) {
   return $matchedTerm;
 }
 
-sub unhandledBook($\$) {
+sub unhandledBook {
   my $pre = shift;
   my $bkP = shift;
+
   if ($$bkP) {return "";}
 
   &decodeTerms(\$pre);
@@ -1367,7 +1369,7 @@ sub unhandledBook($\$) {
   return substr($pre, length($pre)-10, 10);
 }
 
-sub validOSISref($$$$) {
+sub validOSISref {
   my $osisRef = shift;
   my $linkText = shift;
   my $strict = shift;
@@ -1407,7 +1409,7 @@ sub validOSISref($$$$) {
   return ($bok1 && $bok2);
 }
 
-sub reverseAlpha($$) {
+sub reverseAlpha {
   my $a = shift;
   my $b = shift;
 

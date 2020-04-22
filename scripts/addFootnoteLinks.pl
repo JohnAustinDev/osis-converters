@@ -71,7 +71,7 @@ my %FNL_STATS;
 my %FNL_LINKS;
 my $OSISREFWORK;
 
-sub runAddFootnoteLinks($$) {
+sub runAddFootnoteLinks {
   my $commandFile = shift;
   my $osisP = shift;
 
@@ -249,7 +249,7 @@ DICT OSIS file again.");
 
 # Record each separate verse of a footnote's context and annotateRef. 
 # This allows verse -> footnote lookup
-sub recordVersesOfFootnote($$$) {
+sub recordVersesOfFootnote {
   my $f = shift;
   my $bibleContext = shift;
   my $footnoteModuleName = shift;
@@ -289,7 +289,7 @@ sub recordVersesOfFootnote($$$) {
   }
 }
 
-sub processXML($$) {
+sub processXML {
   my $xml = shift;
   my $myMod = shift;
   my $refSystem = shift;
@@ -365,8 +365,9 @@ sub processXML($$) {
   }
 }
 
-sub stat($) {
+sub stat {
   my $re = shift;
+
   my $t = 0;
   for my $k (sort keys %FNL_STATS) {if (!$re || $k =~ /$re/) {$t += $FNL_STATS{$k};}}
   return $t;
@@ -378,7 +379,7 @@ sub stat($) {
 # 2) FIND AND PARSE ITS ASSOCIATED EXTENDED REFERENCE, WHICH BEGINS WITH 
 #    EITHER A REFERENCE ELEMENT OR A "THIS VERSE" TERM
 # 3) REPEAT FROM STEP 1 UNTIL THERE ARE NO UNLINKED FOOTNOTE-TERMS
-sub addFootnoteLinks2TextNode($$) {
+sub addFootnoteLinks2TextNode {
   my $textNode = shift;
   my $myMod = shift;
   
@@ -584,7 +585,7 @@ sub addFootnoteLinks2TextNode($$) {
 }
 
 # Returns the previous adjacent reference element if there is one, or else ''
-sub previousAdjacentReference($) {
+sub previousAdjacentReference {
   my $node = shift;
   
   if (!$node) {return '';}
@@ -601,7 +602,7 @@ sub previousAdjacentReference($) {
 # ordinal-abbreviation and osisRef-list or textNode (textNode in case of 
 # prev/next ordinals). The $ord may be empty which is interepereted as 
 # unspecified first (ordinal 1).
-sub convertOrdinal($\@$$$) {
+sub convertOrdinal {
   my $ord = shift;
   my $osisRefsP = shift; # ordered array of osisRefs, each beginning with module:
   my $textNode = shift; # required for prev and next ordinals since they apply to self
@@ -684,7 +685,7 @@ sub convertOrdinal($\@$$$) {
 
 # Takes any footnote node (or node within a footnote) and returns the 
 # footnote's osisID. Returns '' on error/fail.
-sub getOsisIdOfFootnoteNode($) {
+sub getOsisIdOfFootnoteNode {
   my $node = shift;
   
   my @fn = $XPC->findnodes('ancestor-or-self::osis:note[@placement="foot"][1]', $node);
@@ -700,7 +701,7 @@ sub getOsisIdOfFootnoteNode($) {
 # ranges, and returns sequential osisIDs of all footnotes contained 
 # within each referenced verse. Each footnote will only appear in the 
 # list once, even if there are linked verses etc..
-sub getFootnotes($) {
+sub getFootnotes {
   my $osisRefsP = shift;
   
   my @osisIDs = (); # osisIDs of footnotes in verses (in order, no duplicates)

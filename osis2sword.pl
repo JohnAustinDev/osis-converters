@@ -166,7 +166,7 @@ close(XCONF);
 ########################################################################
 ########################################################################
 
-sub usePngIfAvailable($) {
+sub usePngIfAvailable {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
@@ -187,7 +187,7 @@ sub usePngIfAvailable($) {
 
 # uppercase dictionary keys were necessary to avoid requiring ICU in SWORD.
 # XSLT was not used to do this because a custom uc2() Perl function is needed.
-sub upperCaseKeys($) {
+sub upperCaseKeys {
   my $osis_or_teiP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
@@ -213,8 +213,9 @@ sub upperCaseKeys($) {
   &writeXMLFile($xml, $osis_or_teiP);
 }
 
-sub dataPath2RealPath($) {
+sub dataPath2RealPath {
   my $datapath = shift;
+
   $datapath =~ s/([\/\\][^\/\\]+)\s*$//; # remove any file name at end
   $datapath =~ s/[\\\/]\s*$//; # remove ending slash
   $datapath =~ s/^[\s\.]*[\\\/]//; # normalize beginning of path

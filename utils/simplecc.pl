@@ -12,7 +12,7 @@ if (@ARGV == 3) {&simplecc(@ARGV[0], @ARGV[1], @ARGV[2]);}
 # A simple Constant Changes implementation to apply a very basic CC table using Perl
 %CCDATA;
 
-sub simplecc_convert($$) {
+sub simplecc_convert {
   my $t = shift;
   my $cct = shift;
   
@@ -29,7 +29,7 @@ sub simplecc_convert($$) {
   return $t;
 }
 
-sub simplecc($$$) {
+sub simplecc {
   my $ccin = shift;
   my $cctable = shift;
   my $ccout = shift;
@@ -100,7 +100,7 @@ sub simplecc($$$) {
   }
 }
 
-sub readcc($) {
+sub readcc {
   my $cctable = shift;
   
   open (CC, $READLAYER, "$cctable") || die;

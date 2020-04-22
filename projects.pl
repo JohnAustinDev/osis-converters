@@ -215,7 +215,7 @@ foreach my $th (threads->list()) {$th->join();}
 
 # Fills a hash with config.conf or CF_osis2osis.txt information for all 
 # projects in pdir
-sub getProjectInfo($) {
+sub getProjectInfo {
   my $pdir = shift;
   
   opendir(DIR, $pdir) or die;
@@ -320,7 +320,7 @@ sub getProjectInfo($) {
   return \%info;
 }
 
-sub getScriptsToRun(\@\@$\%) {
+sub getScriptsToRun {
   my $projectsAP = shift;
   my $script = shift;
   my $infoP = shift;
@@ -381,7 +381,7 @@ sub getScriptsToRun(\@\@$\%) {
 # Set dependencies for each conversion. Each dependency is a string with 
 # script and a module, like: "$s $m", such that the given script must be 
 # run on the given module before the dependency is considered met.
-sub setDependencies(\%\@$\%\@) {
+sub setDependencies {
   my $depsHP = shift;
   my $runAP = shift;
   my $script = shift;
@@ -456,7 +456,7 @@ sub setDependencies(\%\@$\%\@) {
 }
 
 # Run osis-converters on a module, and report.
-sub runScript($$) {
+sub runScript {
   my $pdir = shift;
   my $run = shift;
   
@@ -494,7 +494,7 @@ sub runScript($$) {
   ));
 }
 
-sub updateConfigFiles(\@\%\%$) {
+sub updateConfigFiles {
   my $projAP = shift;
   my $configHP = shift;
   my $infoP = shift;
@@ -580,7 +580,7 @@ sub updateConfigFiles(\@\%\%$) {
 
 # Returns the DICT sub-module name if the module is or has a DICT 
 # sub-module.
-sub hasDICT($\%) {
+sub hasDICT {
   my $m = shift;
   my $infoP = shift;
   
@@ -607,7 +607,7 @@ sub hasDICT($\%) {
 
 # Returns the script used to create the module's OSIS file (sfm2osis or 
 # osis2osis)
-sub osisScript($) {
+sub osisScript {
   my $m = shift;
   
   if (!$INFO->{$m}{'sourceProject'}) {
@@ -623,7 +623,7 @@ sub osisScript($) {
 }
 
 # Return the output directory where the OSIS file will go.
-sub outdir(\%$) {
+sub outdir {
   my $infoP = shift;
   my $m = shift;
   
@@ -641,7 +641,7 @@ sub outdir(\%$) {
   return $outdir;
 }
 
-sub timer($) {
+sub timer {
   my $do = shift;
  
   if ($do =~ /start/i) {
@@ -666,7 +666,7 @@ sub timer($) {
 # Return the number of projects currently running, and print a message
 # every so often, or anytime $now is set (and will also write this to 
 # the log file if $now is set to 'log').
-sub working(\@\%$) {
+sub working {
   my $startedAP = shift;
   my $doneHP = shift;
   my $now = shift;
@@ -690,7 +690,7 @@ sub working(\@\%$) {
   return scalar @working;
 }
 
-sub readKey() {
+sub readKey {
   $KEY = ReadKey(-1);
   $KEY = ($KEY ? ord($KEY):0);
   if ($KEY == 112) {
@@ -707,7 +707,7 @@ sub readKey() {
   }
 }
 
-sub Log($$) {
+sub Log {
   my $p = shift;
 
   print encode("utf8", $p);

@@ -37,7 +37,7 @@ require("$SCRD/scripts/bible/addCrossRefs.pl");
 require("$SCRD/scripts/applyPeriphInstructions.pl");
 
 # This script expects a usfm2osis.py produced OSIS input file
-sub processOSIS($) {
+sub processOSIS {
   my $inosis = shift;
   
   if ($NO_OUTPUT_DELETE) {return;} # after "require"s, then return if previous tmp files are to be used for debugging
@@ -237,7 +237,7 @@ RUN:./INT.SFM");
 
 
 # This script expects a sfm2osis.pl produced OSIS input file
-sub reprocessOSIS($$) {
+sub reprocessOSIS {
   my $modname = shift;
   my $sourceProject = shift;
   
@@ -297,7 +297,7 @@ sub reprocessOSIS($$) {
 }
 
 
-sub runChecks($) {
+sub runChecks {
   my $modType = shift;
   
   our %DOCUMENT_CACHE;
@@ -320,7 +320,7 @@ Bible module OSIS file, then run this dictionary module again.");
 }
 
 
-sub validateOSIS($) {
+sub validateOSIS {
   my $osis = shift;
   
   # validate new OSIS file against OSIS schema

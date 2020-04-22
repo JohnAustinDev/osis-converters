@@ -24,7 +24,7 @@ our ($DWF, $KEYWORD, $addDictLinks, $DEFAULT_DICTIONARY_WORDS,
 
 my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
 
-sub runAddSeeAlsoLinks($$) {
+sub runAddSeeAlsoLinks {
   my $osisP = shift;
   
   &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
@@ -88,7 +88,7 @@ to ").$DICTIONARY_WORDS." file."
 # it may read simply: "see other entry" and in this case, the other entry  
 # should not link back to this dummy entry. Later on, we can report if 
 # the other entry contains such a useless link back to this one.
-sub checkCircularEntryCandidates(\@) {
+sub checkCircularEntryCandidates {
   my $keywordsP = shift;
   
   foreach my $kw (@{$keywordsP}) {
@@ -124,7 +124,7 @@ sub checkCircularEntryCandidates(\@) {
   }
 }
 
-sub checkCircularEntries($) {
+sub checkCircularEntries {
   my $out_file = shift;
   
   &Log("\nCHECKING FOR CIRCULAR ENTRIES...\n");
@@ -162,7 +162,8 @@ entry. These circular references can be eliminated with the following
 }
 
 # Return true if the current DICT DWF file is same as the current default DICT DWF file
-sub isDictDWFDefault() {
+sub isDictDWFDefault {
+
   return (&shell("diff \"$DICTINPD/$DICTIONARY_WORDS\" \"$DEFAULT_DICTIONARY_WORDS\"", 3) ? 0:1);
 }
 

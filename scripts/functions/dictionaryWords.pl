@@ -31,7 +31,7 @@ our ($DEBUG, $XPC, $XML_PARSER, $DWF, $OSISBOOKSRE, $DICTIONARY_WORDS,
     
 my (%LINK_OSISREF);
 
-sub loadDictionaryWordsXML($$$) {
+sub loadDictionaryWordsXML {
   my $dictosis = shift;
   my $noupdateMarkup = shift;
   my $noupdateEntries = shift;
@@ -113,7 +113,7 @@ sub loadDictionaryWordsXML($$$) {
 # according to a case-sensitive comparison, (which occurs when 
 # converting from DictionaryWords.txt to DictionaryWords.xml) then fix 
 # them, update dictionary_words_xml, and return 1. Otherwise return 0.
-sub compareDictOsis2DWF($$) {
+sub compareDictOsis2DWF {
   my $dictosis = shift; # dictionary osis file to validate entries against
   my $dictionary_words_xml = shift; # DICTIONARY_WORDS xml file to validate
   
@@ -207,7 +207,7 @@ DWF_OSISREF:
 
 
 # Brute force validation of dwf returns 1 on successful validation, 0 otherwise
-sub validateDictionaryWordsXML($) {
+sub validateDictionaryWordsXML {
   my $dwf = shift;
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);
@@ -259,7 +259,7 @@ sub validateDictionaryWordsXML($) {
 # Takes a list of <index index="Glossary"/> elements and converts them
 # glossary references, recording results.
 my @EXPLICIT_GLOSSARY;
-sub explicitGlossaryIndexes(\@) {
+sub explicitGlossaryIndexes {
   my $indexElementsP = shift;
   
   my @result;
@@ -321,7 +321,7 @@ everywhere it appears in the text.");
 # Convert <index index="Glossary" level="link text|lemma='keyword'"/>.
 # Returns the new reference element if successful or the unchanged
 # index element otherwise.
-sub glossaryLink($) {
+sub glossaryLink {
   my $i = shift;
   
   my $infoP = &getIndexInfo($i);
@@ -364,7 +364,7 @@ sub glossaryLink($) {
 # An array is returned containing a list of the new reference elements 
 # that were added.
 my %NoOutboundLinks;
-sub searchForGlossaryLinks(\@) {
+sub searchForGlossaryLinks {
   my $node = shift; # non text-node child elements will not be modified
   
   my $bookOrderP;
@@ -426,7 +426,7 @@ sub searchForGlossaryLinks(\@) {
 # to account for the new glossary link's child text. Either the new
 # reference element is returned on success or the indexElement on
 # failure.
-sub searchGlossaryLinkAtIndex($\%) {
+sub searchGlossaryLinkAtIndex {
   my $indexElement = shift;
   my $glossaryHP = shift;
   my $bidir = shift; # search before and after the index for a match
@@ -502,7 +502,7 @@ IS : ".$r->parentNode->textContent, 1);
 # reference tags in appropriate places. Returns a list containing
 # either the new reference elements on success or the original text node
 # on failure.
-sub searchGlossaryLinksInTextNode($\%) {
+sub searchGlossaryLinksInTextNode {
   my $textnode = shift;
   my $glossaryHP = shift;
   
@@ -538,7 +538,7 @@ sub searchGlossaryLinksInTextNode($\%) {
 # by rendering the $referenceMarkup string. This string can only contain
 # text and <reference> tags. An array is returned containing the new 
 # reference elements.
-sub applyReferenceTags($$) {
+sub applyReferenceTags {
   my $referenceMarkup = shift;
   my $node = shift;
   
@@ -577,7 +577,7 @@ sub applyReferenceTags($$) {
 # linktext must include the index position (which may be 0).
 my (@MATCHES, $OT_CONTEXTSP, $NT_CONTEXTSP, $LAST_CONTEXT, %MULTIPLES, 
    %MATCHES_USED, %EntryHits, @DICT_DEBUG_THIS, @DICT_DEBUG);
-sub searchText(\$$\%\%) {
+sub searchText {
   my $textP = shift; # the string to search
   my $node = shift;  # only used to get context information
   my $glossaryHP = shift;
@@ -747,7 +747,7 @@ sub searchText(\$$\%\%) {
 # $index is passed, it will be used for matching, to restrict the 
 # search to include that particular index (and $itext is only used
 # by this function to iteratively perform the $index search).
-sub searchMatch(\%\$\$\$$$) {
+sub searchMatch {
   my $m = shift;        # the match element to search with
   my $textP = shift;     # pointer to text in which to search
   my $isP = shift;       # will hold index of match start in text
@@ -820,7 +820,7 @@ sub searchMatch(\%\$\$\$$$) {
   return 1;
 }
 
-sub matchRegex($\%) {
+sub matchRegex {
   my $matchElem = shift;
   my $infoP = shift;
   
@@ -871,7 +871,8 @@ sub matchRegex($\%) {
 }
 
 # Print log info for all glossary link searches
-sub logDictLinks() {
+sub logDictLinks {
+
   &Log("\n");
   
   my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0, 'maxl' => 0);
@@ -1010,7 +1011,7 @@ text using the match elements found in the $DICTIONARY_WORDS file.\n");
 # the Covenant<index type="Glossary"/>". Looking up the preceding 
 # word results in the wrong match: 'Covenant', but using context 
 # gives the correct match: 'Ark of the Covenant'. 
-sub getIndexInfo($$) {
+sub getIndexInfo {
   my $i = shift; # an index milestone element
   my $quiet = shift;
   
@@ -1054,7 +1055,7 @@ sub getIndexInfo($$) {
 }
 
 
-sub getRootID($) {
+sub getRootID {
   my $osisID = shift;
   
   $osisID =~ s/(^[^\:]+\:|\.dup\d+$)//g;
@@ -1068,7 +1069,7 @@ sub getRootID($) {
 # reference list, then $paratextRefList is returned unchaged. If there 
 # are any errors, $paratextRefList is returned unchanged.
 my %CONVERTED_P2O;
-sub paratextRefList2osisRef($) {
+sub paratextRefList2osisRef {
   my $paratextRefList = shift;
   
   if ($CONVERTED_P2O{$paratextRefList}) {return $CONVERTED_P2O{$paratextRefList};}
@@ -1191,7 +1192,7 @@ sub paratextRefList2osisRef($) {
 
 # Returns the OSIS book name from a Paratext or OSIS bookname. Or  
 # returns nothing if argument is neither.
-sub getOsisName($$) {
+sub getOsisName {
   my $bnm = shift;
   my $quiet = shift;
   
@@ -1272,7 +1273,7 @@ sub getOsisName($$) {
   return $bookName;
 }
 
-sub attributeIsSet($$) {
+sub attributeIsSet {
   my $a = shift;
   my $m = shift;
   
@@ -1283,7 +1284,7 @@ sub attributeIsSet($$) {
 # 0 if 'false' or unset (means no context)
 # 1 if 'true' (means any context)
 # \% if anything else (means the specified context)
-sub attributeContextValue($$) {
+sub attributeContextValue {
   my $a = shift;
   my $m = shift;
   
@@ -1295,8 +1296,9 @@ sub attributeContextValue($$) {
   return &getContextAttributeHash($elem->getAttribute($a));
 }
 
-sub dbg($) {
+sub dbg {
   my $p = shift;
+
   if (!$DEBUG) {return 0;}
   
   if (!@DICT_DEBUG_THIS) {return 0;}
@@ -1308,7 +1310,7 @@ sub dbg($) {
   return 1;
 }
 
-sub usfm3GetAttribute($$$) {
+sub usfm3GetAttribute {
   my $value = shift;
   my $attribute = shift;
   my $defaultAttribute = shift;
@@ -1331,7 +1333,7 @@ sub usfm3GetAttribute($$$) {
   return '';
 }
 
-sub numAlphaSort(\%$$$) {
+sub numAlphaSort {
   my $hashP = shift;
   my $a = shift;
   my $b = shift;

@@ -113,7 +113,7 @@ require("$SCRD/scripts/functions/image.pl");
 require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
 
-sub init_linux_script() {
+sub init_linux_script {
   chdir($MAININPD);
   my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($inpdGit);
   my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3):''); chomp($inpdOriginGit);
@@ -220,7 +220,7 @@ sub init_linux_script() {
   if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
 }
 # This is only needed to update old osis-converters projects
-sub update_removeConvertTXT($) {
+sub update_removeConvertTXT {
   my $confFile = shift;
   
   &Warn("UPDATE: Found outdated convert.txt. Updating $confFile...");
@@ -234,7 +234,7 @@ sub update_removeConvertTXT($) {
   return &writeConf($confFile, \%confP);
 }
 # This is only needed to update old osis-converters projects
-sub updateConvertTXT($$$) {
+sub updateConvertTXT {
   my $convtxt = shift;
   my $confP = shift;
   my $section = shift;
@@ -312,7 +312,7 @@ a new section with that information.");
 }
 
 # This is only needed to update old osis-converters projects
-sub update_removeDictConfig($$) {
+sub update_removeDictConfig {
   my $dconf = shift;
   my $confFile = shift;
 
@@ -337,7 +337,7 @@ have new section with that information.");
 
 # If $logfileIn is not specified then start a new one at $logfileDef.
 # If $logfileIn is specified then append to $logfileIn.
-sub initLogFile($$) {
+sub initLogFile {
   my $logfileIn = shift;
   my $logfileDef = shift;
   
@@ -354,7 +354,8 @@ sub initLogFile($$) {
 }
 
 # Enforce the only supported module configuration and naming convention
-sub checkProjectConfiguration() {
+sub checkProjectConfiguration {
+
   if (uc($MAINMOD) ne $MAINMOD) {
     print 
   "ERROR: Module name $MAINMOD should be all capitals. Change the 
@@ -390,7 +391,7 @@ glossaries, dictionaries, maps, tables, etc. etc.. But its name must be
   }
 }
 
-sub readBookNamesXML($) {
+sub readBookNamesXML {
   my $booknamesHP = shift;
   
   my $main = $INPD; if ($main =~ /DICT$/) {$main .= "/..";}
@@ -428,7 +429,7 @@ sub readBookNamesXML($) {
 }
 
 my $STARTTIME;
-sub timer($) {
+sub timer {
   my $do = shift;
  
   if ($do =~ /start/i) {
@@ -451,7 +452,7 @@ sub timer($) {
 }
 
 our %FONT_FILES;
-sub checkFont($) {
+sub checkFont {
   my $font = shift;
   
   # After this routine is run, font features can use "if ($FONT)" to check 
@@ -509,7 +510,7 @@ sub checkFont($) {
 # $listingAP. Directories in the listing end with '/'. For $listingAP
 # to work, the URL must target an Apache server directory where html 
 # listing is enabled. The path to the URLCache subdirectory is returned.
-sub updateURLCache($$$$) {
+sub updateURLCache {
   my $subdir = shift; # local .osis-converters subdirectory to update
   my $url = shift; # URL to read from
   my $updatePeriod = shift; # hours between updates (0 updates always)
@@ -583,7 +584,7 @@ sub updateURLCache($$$$) {
 }
 
 # Delete any local files that were not just downloaded by wget
-sub wgetSyncDel($) {
+sub wgetSyncDel {
   my $p = shift;
   
   my $success = 0;
@@ -613,7 +614,7 @@ sub wgetSyncDel($) {
 # of reading an apache server directory, and add paths of listed files 
 # and directories to the $filesAP array pointer. All directories will
 # end with a '/'.
-sub readWgetFilePaths($\@$) {
+sub readWgetFilePaths {
   my $wgetdir = shift; # directory containing the wget result of reading an apache server directory
   my $filesAP = shift; # the listing of subdirectories on the server
   my $root = shift; # root of recursive search
@@ -656,7 +657,7 @@ sub readWgetFilePaths($\@$) {
   return $success;
 }
 
-sub initInputOutputFiles($$$$) {
+sub initInputOutputFiles {
   my $script_name = shift;
   my $inpd = shift;
   my $modOutdir = shift;
@@ -712,7 +713,8 @@ sub initInputOutputFiles($$$$) {
 }
 
 
-sub initLibXML() {
+sub initLibXML {
+
   use Sword;
   use HTML::Entities;
   use XML::LibXML;
@@ -734,7 +736,7 @@ sub initLibXML() {
 # read at runtime by getDefaultFile(). So these may be copied and 
 # customized as needed, manually by the user.
 my %USFM;
-sub checkAndWriteDefaults($) {
+sub checkAndWriteDefaults {
   my $booknamesHP = shift;
   
   # Project default control files
@@ -825,7 +827,7 @@ sub checkAndWriteDefaults($) {
   }
 }
 
-sub customize_conf($$$$) {
+sub customize_conf {
   my $conf = shift;
   my $modName = shift;
   my $modType = shift;
@@ -945,7 +947,7 @@ sub customize_conf($$$$) {
   }
 }
 
-sub customize_addScripRefLinks($$) {
+sub customize_addScripRefLinks {
   my $cf = shift;
   my $booknamesHP = shift;
   
@@ -1023,7 +1025,7 @@ sub customize_addScripRefLinks($$) {
   unlink($cf);
   move("$cf.tmp", $cf);
 }
-sub toCFRegex($) {
+sub toCFRegex {
   my $aP = shift;
   
   my @sorted = sort { length $a <=> length $b } @{$aP};
@@ -1031,7 +1033,8 @@ sub toCFRegex($) {
   foreach my $s (@sorted) {if ($s =~ s/(\S)\\?\s+$/$1/) {&Note("Removed trailing space from $s");}}
   return '('.join('|', @sorted).')';
 }
-sub readParatextReferenceSettings() {
+sub readParatextReferenceSettings {
+
   my @files = split(/\n/, &shell("find \"$MAININPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
   my $settingsFilePATH;
   my $settingsFileXML;
@@ -1075,7 +1078,7 @@ sub readParatextReferenceSettings() {
   
   return \%settings;
 }
-sub getAllAbbrevsString($\%) {
+sub getAllAbbrevsString {
   my $osis = shift;
   my $abbrP = shift;
   
@@ -1092,7 +1095,7 @@ sub getAllAbbrevsString($\%) {
 
 # Sort USFM files by scope, type (and if type is book, then book order 
 # in KJV), then filename
-sub usfmFileSort($$$) {
+sub usfmFileSort {
   my $fa = shift;
   my $fb = shift;
   my $infoP = shift;
@@ -1126,7 +1129,7 @@ sub usfmFileSort($$$) {
   return $fa cmp $fb;
 }
 
-sub customize_usfm2osis($$) {
+sub customize_usfm2osis {
   my $cf = shift;
   my $modType = shift;
   
@@ -1187,7 +1190,7 @@ sub customize_usfm2osis($$) {
 # the OSIS file. When $periphType is 'sfmfile' (meaning an entire sfm 
 # file) it is placed in the proper bookGroup, or at the beginning of the
 # first book of $scope, or else after the osis:header.
-sub getOsisMap($) {
+sub getOsisMap {
   my $periphType = shift; # a key to %USFM_DEFAULT_PERIPH_TARGET defined in fitToVerseSystem.pl
   my $scope = shift;
   
@@ -1235,7 +1238,7 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
 
 # Copy fontname (which is part of a filename which may correspond to multiple
 # font files) to fontdir 
-sub copyFont($$$$$) {
+sub copyFont {
   my $fontname = shift;
   my $fontdir = shift;
   my $fontP = shift;
@@ -1260,7 +1263,7 @@ sub copyFont($$$$$) {
 }
 
 my $SCAN_USFM_SKIPPED;
-sub scanUSFM($\%) {
+sub scanUSFM {
   my $sfm_dir = shift;
   my $sfmP = shift;
   
@@ -1284,7 +1287,7 @@ sub scanUSFM($\%) {
   if ($SCAN_USFM_SKIPPED) {&Log("$SCAN_USFM_SKIPPED\n");}
 }
 
-sub scanUSFM_file($) {
+sub scanUSFM_file {
   my $f = shift;
   
   my %info;
@@ -1373,7 +1376,7 @@ sub scanUSFM_file($) {
 # 0 or empty = check only
 # 1 = overwrite existing
 # 2 = add to existing value (either another entry with the same name or separated by a separator)
-sub setConfValue($$$$) {
+sub setConfValue {
   my $confEntriesP = shift;
   my $param = shift;
   my $value = shift;
@@ -1404,7 +1407,7 @@ sub setConfValue($$$$) {
 # pointer, then temporaryFile(pointed-to) will be written, and the 
 # pointer will be updated to that new path. If $levelup is given with
 # a pointer, the temporary file name will be taken from $levelup.
-sub writeXMLFile($$$) {
+sub writeXMLFile {
   my $xml = shift;
   my $path_or_pointer = shift;
   my $levelup = shift; 
@@ -1428,7 +1431,7 @@ sub writeXMLFile($$$) {
   else {&ErrorBug("Could not open XML file for writing: $output", 1);}
 }
 
-sub osis_converters($$$) {
+sub osis_converters {
   my $script = shift;
   my $project_dir = shift; # THIS MUST BE AN ABSOLUTE PATH!
   my $logfile = shift;
@@ -1441,7 +1444,7 @@ sub osis_converters($$$) {
 }
 
 
-sub readConfFromOSIS($) {
+sub readConfFromOSIS {
   my $osis = shift;
   
   my %entryValue;
@@ -1458,7 +1461,7 @@ sub readConfFromOSIS($) {
   return \%entryValue;
 }
 
-sub writeConf($$) {
+sub writeConf {
   my $conf = shift;
   my $entryValueP = shift;
   
@@ -1488,7 +1491,7 @@ sub writeConf($$) {
 
   return &readConfFile($conf, $entryValueP);
 }
-sub confEntrySort($$) {
+sub confEntrySort {
   my $a = shift;
   my $b = shift;
     
@@ -1512,7 +1515,7 @@ sub confEntrySort($$) {
 # Read CrossWire SWORD $conf file from swordSource. Only SWORD config 
 # entries will be retained and only the initial [MODNAME] section is 
 # retained. All values are according to current script/mod-type context. 
-sub getSwordConfFromOSIS($) {
+sub getSwordConfFromOSIS {
   my $moduleSource = shift;
   
   # Filter and contextualize OSIS config to SWORD
@@ -1622,7 +1625,8 @@ sub getSwordConfFromOSIS($) {
 }
 
 
-sub checkConfGlobals() {
+sub checkConfGlobals {
+
   if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL') ne 'false') {
     &Error("For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", "Children's Bibles do not currently support this feature so it must be turned off.");
   }
@@ -1681,7 +1685,8 @@ allowed and must be removed.");
 }
 
 
-sub checkRequiredConfEntries($) {
+sub checkRequiredConfEntries {
+
   if (&conf('Abbreviation') eq $MOD) {
     &Warn("Currently the config.conf 'Abbreviation' setting is '$MOD'.",
 "This is a short user-readable name for the module.");
@@ -1708,7 +1713,7 @@ script code, such as: 'Cyrl', 'Latn' or 'Arab'.");
 }
 
 
-sub getApproximateLangSortOrder($) {
+sub getApproximateLangSortOrder {
   my $tei = shift;
   
   my $res = '';
@@ -1731,7 +1736,7 @@ sub getApproximateLangSortOrder($) {
 # bother. So, the rev is now written to the LOG file, and the 
 # function below is used to remove the old SVN rev from the CF_ files
 # if it's there. 
-sub removeRevisionFromCF($) {
+sub removeRevisionFromCF {
   my $f = shift;
   
   my $changed = 0;
@@ -1760,8 +1765,8 @@ sub removeRevisionFromCF($) {
 }
 
 # Converts cases using special translations
-sub lc2($) {return &uc2(shift, 1);}
-sub uc2($$) {
+sub lc2 {return &uc2(shift, 1);}
+sub uc2 {
   my $t = shift;
   my $tolower = shift;
   
@@ -1788,7 +1793,7 @@ sub uc2($$) {
 }
 
 my %CANON_CACHE;
-sub getCanon($\%\%\%\@) {
+sub getCanon {
   my $vsys = shift;
   my $canonPP = shift;     # hash pointer: OSIS-book-name => Array (base 0!!) containing each chapter's max-verse number
   my $bookOrderPP = shift; # hash pointer: OSIS-book-name => position (Gen = 1, Rev = 66)
@@ -1829,7 +1834,7 @@ sub getCanon($\%\%\%\@) {
 }
 
 
-sub isValidVersification($) {
+sub isValidVersification {
   my $vsys = shift;
   
   my $vsmgr = Sword::VersificationMgr::getSystemVersificationMgr();
@@ -1840,17 +1845,19 @@ sub isValidVersification($) {
 }
 
 
-sub changeNodeText($$) {
+sub changeNodeText {
   my $node = shift;
   my $new = shift;
+
   foreach my $r ($node->childNodes()) {$r->unbindNode();}
   if ($new) {$node->appendText($new)};
 }
 
 # Some of the following routines take either nodes or module names as inputs.
 # Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
-sub getModNameOSIS($) {
+sub getModNameOSIS {
   my $node = shift; # might already be string mod name- in that case just return it
+
   if (!ref($node)) {
     my $modname = $node; # node is not a ref() so it's a modname
     if (!$DOCUMENT_CACHE{$modname}) {
@@ -1886,7 +1893,7 @@ sub getModNameOSIS($) {
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
 # from an OSIS file URI.
-sub initDocumentCache($) {
+sub initDocumentCache {
   my $xml = shift; # must be a document node
   
   my $dbg = "initDocumentCache: ";
@@ -1934,7 +1941,7 @@ sub initDocumentCache($) {
 # IMPORTANT: the osisCache lookup can ONLY be called on $modname after 
 # a call to getModNameOSIS($modname), since getModNameOSIS($modname) 
 # is where the cache is written.
-sub osisCache($$) {
+sub osisCache {
   my $func = shift;
   my $modname = shift;
 
@@ -1942,8 +1949,9 @@ sub osisCache($$) {
   &Error("DOCUMENT_CACHE failure: $modname $func\n");
   return '';
 }
-sub getModXmlOSIS($) {
+sub getModXmlOSIS {
   my $mod = shift;
+
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
     undef($DOCUMENT_CACHE{$mod});
@@ -1952,8 +1960,9 @@ sub getModXmlOSIS($) {
   }
   return $xml;
 }
-sub getRefSystemOSIS($) {
+sub getRefSystemOSIS {
   my $mod = &getModNameOSIS(shift);
+
   my $return = &osisCache('getRefSystemOSIS', $mod);
   if (!$return) {
     &ErrorBug("getRefSystemOSIS: No document node for \"$mod\"!");
@@ -1961,8 +1970,9 @@ sub getRefSystemOSIS($) {
   }
   return $return;
 }
-sub getVerseSystemOSIS($) {
+sub getVerseSystemOSIS {
   my $mod = &getModNameOSIS(shift);
+
   if ($mod eq 'KJV') {return 'KJV';}
   if ($mod eq $MOD) {return &conf('Versification');}
   my $return = &osisCache('getVerseSystemOSIS', $mod);
@@ -1972,8 +1982,9 @@ sub getVerseSystemOSIS($) {
   }
   return $return;
 }
-sub getBibleModOSIS($) {
+sub getBibleModOSIS {
   my $mod = &getModNameOSIS(shift);
+
   my $return = &osisCache('getBibleModOSIS', $mod);
   if (!$return) {
     &ErrorBug("getBibleModOSIS: No document node for \"$mod\"!");
@@ -1981,8 +1992,9 @@ sub getBibleModOSIS($) {
   }
   return $return;
 }
-sub getDictModOSIS($) {
+sub getDictModOSIS {
   my $mod = &getModNameOSIS(shift);
+
   my $return = &osisCache('getDictModOSIS', $mod);
   if (!$return) {
     &ErrorBug("getDictModOSIS: No document node for \"$mod\"!");
@@ -1990,10 +2002,11 @@ sub getDictModOSIS($) {
   }
   return $return;
 }
-sub getOsisRefWork($) {return &getModNameOSIS(shift);}
-sub getOsisIDWork($)  {return &getModNameOSIS(shift);}
-sub getBooksOSIS($) {
+sub getOsisRefWork {return &getModNameOSIS(shift);}
+sub getOsisIDWork {return &getModNameOSIS(shift);}
+sub getBooksOSIS {
   my $mod = &getModNameOSIS(shift);
+
   my $return = &osisCache('getBooksOSIS', $mod);
   if (!$return) {
     &ErrorBug("getBooksOSIS: No document node for \"$mod\"!");
@@ -2001,8 +2014,9 @@ sub getBooksOSIS($) {
   }
   return $return;
 }
-sub getScopeOSIS($) {
+sub getScopeOSIS {
   my $mod = &getModNameOSIS(shift);
+
   my $return = &osisCache('getScopeOSIS', $mod);
   if (!$return) {
     &ErrorBug("getScopeOSIS: No document node for \"$mod\"!");
@@ -2010,20 +2024,23 @@ sub getScopeOSIS($) {
   }
   return $return;
 }
-sub isChildrensBible($) {
+sub isChildrensBible {
   my $mod = &getModNameOSIS(shift);
+
   return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\.\w+CB$/ ? 1:0);
 }
-sub isBible($) {
+sub isBible {
   my $mod = &getModNameOSIS(shift);
+
   return (&osisCache('getRefSystemOSIS', $mod) =~ /^Bible/ ? 1:0);
 }
-sub isDict($) {
+sub isDict {
   my $mod = &getModNameOSIS(shift);
+
   return (&osisCache('getRefSystemOSIS', $mod) =~ /^Dict/ ? 1:0);
 }
 
-sub getModuleOutputDir($) {
+sub getModuleOutputDir {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
   
   my $moddir;
@@ -2039,7 +2056,7 @@ sub getModuleOutputDir($) {
 
 # Returns the path to mod's OSIS file if it exists, or, when reportFunc 
 # is 'quiet' (whether the OSIS file exists or not). Otherwise returns ''.
-sub getModuleOsisFile($$) {
+sub getModuleOsisFile {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
   my $reportFunc = shift;
   
@@ -2056,7 +2073,7 @@ sub getModuleOsisFile($$) {
 # Sometimes source texts use reference type="annotateRef" to reference
 # verses which were not included in the source text. When an annotateRef
 # target does not exist, the reference tags are replaced by a span.
-sub adjustAnnotateRefs($) {
+sub adjustAnnotateRefs {
   my $osisP = shift;
 
   &Log("\nChecking annotateRef targets in \"$$osisP\".\n");
@@ -2092,7 +2109,7 @@ correct to convert these to textual rather than hyperlink references.");
 # is run before fitToVerseSystem(), so it is checking that the source
 # text's references are consistent with itself. Any broken links found
 # here are either mis-parsed, or are errors in the source text.
-sub checkSourceScripRefLinks($) {
+sub checkSourceScripRefLinks {
   my $in_osis = shift;
   
   if (&conf("ARG_SkipSourceRefCheck") =~/^true$/i) {
@@ -2178,7 +2195,7 @@ else this is a problem with the source text:
 # is created before the Dict OSIS file. Therefore, references in a Bible 
 # which target the Dict are not checked until the Dict is created, when 
 # they will be checked along with the Dict's references.
-sub checkReferenceLinks($) {
+sub checkReferenceLinks {
   my $osis = shift;
   
   my %osisID; my %refcount; my %errors;
@@ -2230,7 +2247,7 @@ sub checkReferenceLinks($) {
   &reportReferences(\%refcount, \%errors);
 }
 
-sub removeMissingOsisRefs($) {
+sub removeMissingOsisRefs {
   my $osisP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
@@ -2250,7 +2267,7 @@ sub removeMissingOsisRefs($) {
   &writeXMLFile($xml, $osisP);
 }
 
-sub reportReferences(\%\%) {
+sub reportReferences {
   my $refcntP = shift;
   my $errorsP = shift;
   
@@ -2262,7 +2279,7 @@ sub reportReferences(\%\%) {
   &Report("<-\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");
 }
 
-sub checkReferenceLinks2($$\%\%\%$) {
+sub checkReferenceLinks2 {
   my $inxml = shift;
   my $refcountP = shift;
   my $errorsP = shift;
@@ -2271,6 +2288,7 @@ sub checkReferenceLinks2($$\%\%\%$) {
   my $glossaryFlag = shift; # < 0 means check all refs except glossary refs
                             # = 0 means check all refs
                             # > 0 means check only glossary refs
+
   my $osisRefWork = &getOsisRefWork($inxml);
   
   my @references = $XPC->findnodes('//osis:reference', $inxml);
@@ -2348,8 +2366,9 @@ different USFM tag should be used instead.");
   }
 }
 
-sub checkIntroductionTags($) {
+sub checkIntroductionTags {
   my $inosis = shift;
+
   my $parser = XML::LibXML->new('line_numbers' => 1);
   my $xml = $parser->parse_file($inosis);
   my @warnTags = $XPC->findnodes('//osis:div[@type="majorSection"][not(ancestor::osis:div[@type="book"])]', $xml);
@@ -2361,7 +2380,7 @@ sub checkIntroductionTags($) {
   }
 }
 
-sub checkCharacters($) {
+sub checkCharacters {
   my $osis = shift;
   
   open(OSIS, $READLAYER, $osis) || die;
@@ -2411,7 +2430,7 @@ sub checkCharacters($) {
   }
 }
 
-sub readReplacementChars($\@\@) {
+sub readReplacementChars {
   my $replacementsFile = shift;
   my $fromAP = shift;
   my $toAP = shift;
@@ -2444,7 +2463,7 @@ sub readReplacementChars($\@\@) {
 }
 
 # copies a directoryʻs contents to a possibly non existing destination directory
-sub copy_dir($$$$) {
+sub copy_dir {
   my $id = shift;
   my $od = shift;
   my $overwrite = shift; # merge with existing directories and overwrite existing files
@@ -2483,7 +2502,7 @@ sub copy_dir($$$$) {
 
 # Copies files from each default directory, starting with lowest to 
 # highest priority, and merging files each time.
-sub copy_dir_with_defaults($$$$) {
+sub copy_dir_with_defaults {
   my $dir = shift;
   my $dest = shift;
   my $keep = shift;
@@ -2504,8 +2523,9 @@ sub copy_dir_with_defaults($$$$) {
 
 
 # deletes files recursively without touching dirs
-sub delete_files($) {
+sub delete_files {
   my $dir = shift;
+
   my $success = 0;
   if (!opendir(CHDIR, $dir)) {return 0;}
   my @listing = readdir(CHDIR);
@@ -2520,16 +2540,18 @@ sub delete_files($) {
 }
 
 
-sub fromUTF8($) {
+sub fromUTF8 {
   my $c = shift;
+
   $c = decode("utf8", $c);
   utf8::upgrade($c);
   return $c;
 }
 
 
-sub is_usfm2osis($) {
+sub is_usfm2osis {
   my $osis = shift;
+
   my $usfm2osis = 0;
   if (!open(TEST, $READLAYER, "$osis")) {&Error("is_usfm2osis could not open $osis", '', 1);}
   while(<TEST>) {if ($_ =~ /<!--[^!]*\busfm2osis.py\b/) {$usfm2osis = 1; last;}}
@@ -2541,7 +2563,7 @@ sub is_usfm2osis($) {
 # Runs an XSLT and/or a Perl script if they have been placed at the
 # appropriate input project path by the user. This allows a project to 
 # apply custom scripts if needed.
-sub runAnyUserScriptsAt($$\%$) {
+sub runAnyUserScriptsAt {
   my $pathNoExt = "$INPD/".shift; # path to script, but without extension
   my $sourceP = shift;
   my $paramsP = shift;
@@ -2565,7 +2587,7 @@ sub runAnyUserScriptsAt($$\%$) {
 # otherwise the output file has the name of the script which created it.
 # Upon sucessfull completion, inputP will be updated to point to the 
 # newly created output file.
-sub runScript($$\%$) {
+sub runScript {
   my $script = shift;
   my $inputP = shift;
   my $paramsP = shift;
@@ -2604,7 +2626,7 @@ sub runScript($$\%$) {
   return ($result ? $result:1);
 }
 
-sub runPerl($$$\%$) {
+sub runPerl {
   my $script = shift;
   my $source = shift;
   my $output = shift;
@@ -2619,7 +2641,7 @@ sub runPerl($$$\%$) {
   return &shell(join(' ', @args), $logFlag);
 }
 
-sub runXSLT($$$\%$) {
+sub runXSLT {
   my $xsl = shift;
   my $source = shift;
   my $output = shift;
@@ -2645,7 +2667,7 @@ sub runXSLT($$$\%$) {
 
 my $ProgressTotal = 0;
 my $ProgressTime = 0;
-sub logProgress($$) {
+sub logProgress {
   my $msg = shift;
   my $ln = shift;
   
@@ -2671,7 +2693,7 @@ sub logProgress($$) {
 
 
 # make a zipped copy of a module
-sub zipModule($$) {
+sub zipModule {
   my $zipfile = shift;
   my $moddir = shift;
   
@@ -2688,7 +2710,7 @@ sub zipModule($$) {
 # to STOP converting high-order unicode characters to entities when 
 # serializing attributes. But regular documents, with proper declarations, 
 # don't have this problem. So here is a solution.
-sub fragmentToString($$) {
+sub fragmentToString {
   my $doc_frag = shift;
   my $rootTag = shift;
   
@@ -2713,7 +2735,7 @@ sub fragmentToString($$) {
 # include, as meta-data, all settings from config.conf. The osis file is 
 # overwritten if $osis_or_osisP is not a reference, otherwise a new 
 # output file is written and the reference is updated to point to it.
-sub writeOsisHeader($) {
+sub writeOsisHeader {
   my $osis_or_osisP = shift;
   
   my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
@@ -2769,7 +2791,7 @@ sub writeOsisHeader($) {
 }
 
 # Search for any ISBN number(s) in the osis file or config.conf.
-sub searchForISBN($$) {
+sub searchForISBN {
   my $mod = shift;
   my $xml = shift;
   
@@ -2792,7 +2814,7 @@ sub searchForISBN($$) {
 # specific values from &conf are not written). This means that retreiving 
 # the usual context specific value from the header data requires 
 # searching both MAIN and DICT work elements. 
-sub getOSIS_Work($$$) {
+sub getOSIS_Work {
   my $modname = shift; 
   my $osisWorkP = shift;
   my $isbn = shift;
@@ -2864,7 +2886,7 @@ sub getOSIS_Work($$$) {
   return;
 }
 
-sub mapLocalizedElem($$$$$) {
+sub mapLocalizedElem {
   my $index = shift;
   my $workElement = shift;
   my $confEntry = shift;
@@ -2884,7 +2906,7 @@ sub mapLocalizedElem($$$$$) {
   }
 }
 
-sub mapConfig($$$$$$) {
+sub mapConfig {
   my $index = shift;
   my $maxindex = shift;
   my $elementName = shift;
@@ -2907,7 +2929,7 @@ sub mapConfig($$$$$$) {
   }
 }
 
-sub writeWorkElement($$$) {
+sub writeWorkElement {
   my $attributesP = shift;
   my $elementsP = shift;
   my $xml = shift;
@@ -2937,7 +2959,7 @@ sub writeWorkElement($$$) {
   return $w;
 }
 
-sub getDivTitle($) {
+sub getDivTitle {
   my $glossdiv = shift;
   
   my $telem = @{$XPC->findnodes('(descendant::osis:title[@type="main"][1] | descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n)[1]', $glossdiv)}[0];
@@ -2948,8 +2970,9 @@ sub getDivTitle($) {
   return $title;
 }
 
-sub oc_stringHash($) {
+sub oc_stringHash {
   my $s = shift;
+
   use Digest::MD5 qw(md5 md5_hex md5_base64);
   return substr(md5_hex(encode('utf8', $s)), 0, 4);
 }
@@ -2957,7 +2980,7 @@ sub oc_stringHash($) {
 
 # Check for TOC entries, and write as much TOC information as possible
 my $WRITETOC_MSG;
-sub writeTOC($$) {
+sub writeTOC {
   my $osisP = shift;
   my $modType = shift;
 
@@ -3233,7 +3256,7 @@ the localized title to 'SKIP'.");
   &writeXMLFile($xml, $osisP);
 }
 
-sub getScopeTitle($) {
+sub getScopeTitle {
   my $scope = shift;
   
   $scope =~ s/\s/_/g;
@@ -3251,7 +3274,7 @@ sub getScopeTitle($) {
 # non-element children, such as text nodes, at the beginning of the 
 # bookGroup (never between or after book div elements). If there are no 
 # book divs, everything is put in other.osis.
-sub splitOSIS($) {
+sub splitOSIS {
   my $in_osis = shift;
   
   &Log("\nsplitOSIS: ".&encodePrintPaths($in_osis).":\n", 2);
@@ -3332,7 +3355,7 @@ sub splitOSIS($) {
 
 # Join the OSIS file previously split by splitOSIS() and write it to
 # $path_or_pointer according to the same rules as writeXMLFile();
-sub joinOSIS($) {
+sub joinOSIS {
   my $path_or_pointer = shift;
   
   my $tmp = "$TMPDIR/splitOSIS";
@@ -3376,7 +3399,7 @@ sub joinOSIS($) {
 }
 
 
-sub writeMissingNoteOsisRefsFAST($) {
+sub writeMissingNoteOsisRefsFAST {
   my $osisP = shift;
   
   &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
@@ -3400,7 +3423,7 @@ sub writeMissingNoteOsisRefsFAST($) {
 # glossaries this is the note's context keyword. For Bibles this is also 
 # the note's context, unless the note contains a reference of type 
 # annotateRef, in which case the note applies to the annotateRef passage.
-sub writeMissingNoteOsisRefs($) {
+sub writeMissingNoteOsisRefs {
   my $xml = shift;
   
   my @notes = $XPC->findnodes('//osis:note[not(@osisRef)]', $xml);
@@ -3455,7 +3478,7 @@ sub writeMissingNoteOsisRefs($) {
   return $count;
 }
 
-sub removeDefaultWorkPrefixesFAST($) {
+sub removeDefaultWorkPrefixesFAST {
   my $osisP = shift;
   
   &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n");
@@ -3480,7 +3503,7 @@ sub removeDefaultWorkPrefixesFAST($) {
 # Removes work prefixes of all osisIDs and osisRefs which match their
 # respective osisText osisIDWork or osisRefWork attribute value (in 
 # other words removes work prefixes which are unnecessary).
-sub removeDefaultWorkPrefixes($\%) {
+sub removeDefaultWorkPrefixes {
   my $xml = shift;
   my $statsP = shift;
   
@@ -3512,7 +3535,7 @@ sub removeDefaultWorkPrefixes($\%) {
 # Take an input temporary file path and return the path of a new temp-
 # orary file in the same directory, which is sequentially numbered and 
 # does not already exist. 
-sub temporaryFile($$$) {
+sub temporaryFile {
   my $path = shift;
   my $outname = shift;
   my $levelup = shift;

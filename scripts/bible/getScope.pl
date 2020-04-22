@@ -20,7 +20,7 @@ use strict;
 
 our ($XPC, $XML_PARSER, $OSISBOOKSRE);
 
-sub getScope($$) {
+sub getScope {
   my $osis = shift; # can be osis file OR xml node
   my $vsys = shift;
   
@@ -127,9 +127,10 @@ sub getScope($$) {
   return $scope;
 }
 
-sub recordEmptyVerses($\%) {
+sub recordEmptyVerses {
   my $id = shift;
   my $eP = shift;
+
   if ($id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?$/) {&ErrorBug("Could not parse id: $id !~ /^([^\.]+)\.(\d+)\.(\d+)(-(\d+))?\$/"); return;}
   my $bk = $1;
   my $ch = $2;
@@ -139,7 +140,7 @@ sub recordEmptyVerses($\%) {
   for (my $v=$v1; $v<=$v2; $v++) {$eP->{"$bk.$ch.$v"}++;}
 }
 
-sub scopeToBooks($\%) {
+sub scopeToBooks {
   my $scope = shift;
   my $bookOrderP = shift;
   

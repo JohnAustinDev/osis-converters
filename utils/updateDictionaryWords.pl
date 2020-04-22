@@ -51,7 +51,7 @@ implementation never allowed wildcard endings even if they were specified
 in DictionaryWords.txt, so this file emulates that behaviour such that 
 new SeeAlso links may still match the old)\n", 1);
 
-sub convertDWF($\@\%$) {
+sub convertDWF {
   my $entryP = shift;
   my $patternP = shift;
   my $dict_backwardCompat = shift;
@@ -97,7 +97,7 @@ sub convertDWF($\@\%$) {
   close(DWORDS);
 }
 
-sub sortSearchTermKeys($$) {
+sub sortSearchTermKeys {
   my $aa = shift;
   my $bb = shift;
   
@@ -107,7 +107,7 @@ sub sortSearchTermKeys($$) {
   length($bb) <=> length($aa)
 }
 
-sub getPattern($$) {
+sub getPattern {
   my $p = shift;
   my $dict_bwcompat = shift;
   

@@ -25,7 +25,7 @@ our ($XPC, $XML_PARSER);
 
 my $REF_SEG_CACHE;
 
-sub runAddDictLinks($$) {
+sub runAddDictLinks {
   my $osisP = shift;
   
   &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
@@ -46,7 +46,7 @@ sub runAddDictLinks($$) {
   &logDictLinks();
 }
 
-sub adlProcessFile($) {
+sub adlProcessFile {
   my $osis = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
@@ -65,7 +65,7 @@ sub adlProcessFile($) {
   &writeXMLFile($xml, $osis);
 }
 
-sub processContainer($) {
+sub processContainer {
   my $con = shift;
   
   my $name = ($con->nodeName() eq 'osisText' ? 'Bible introduction':($con->getAttribute('type') eq 'bookGroup' ? 'Testament introduction':$con->getAttribute('osisID')));

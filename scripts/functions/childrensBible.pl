@@ -42,7 +42,7 @@ my %CB_IMAGES = ('ot.1' => '015','ot.2' => '017','ot.3' => '019','ot.4' => '021'
 #     <div type="chapter" osisID="Chapter"></div> (x of these)
 #   </div>
 # </div> 
-sub checkChildrensBibleStructure($) {
+sub checkChildrensBibleStructure {
   my $osis = shift;
   
   &Log("\nCHECKING CHILDREN'S BIBLE STRUCTURE IN $osis...\n");
@@ -62,7 +62,7 @@ sub checkChildrensBibleStructure($) {
   return $success;
 }
 
-sub getCBDivs($) {
+sub getCBDivs {
   my $xml = shift;
   
   my $success = 1;
@@ -79,7 +79,7 @@ sub getCBDivs($) {
   return ($success ? @divs:());
 }
 
-sub checkCBsection($$) {
+sub checkCBsection {
   my $s = shift;
   my $secnum = shift;
   
@@ -100,7 +100,7 @@ sub checkCBsection($$) {
 # Even though CBs have identical structure, images may be named differently.
 # This replaces them with the standard image names. Also, the letter.jpg
 # is marked as a special image.
-sub checkAdjustCBImages($$) {
+sub checkAdjustCBImages {
   my $osisP = shift;
   my $checkOnly = shift;
 
@@ -159,7 +159,7 @@ sub checkAdjustCBImages($$) {
 
 # Children's Bible figure src have special local paths, so handle them here.
 # Return '' on failure or the local path to the image on success.
-sub getFigureLocalPath($$) {
+sub getFigureLocalPath {
   my $f = shift;
   my $projdir = shift;
   

@@ -44,7 +44,7 @@ my ($O2O_CurrentContext, $O2O_CurrentMode, %O2O_CONFIGS, %O2O_CONVERTS);
 our ($MODE_Transcode, $MODE_Script, $MODE_CCTable, $MODE_Copy,
     $SKIP_NODES_MATCHING, $SKIP_STRINGS_MATCHING);
 
-sub runCF_osis2osis($) {
+sub runCF_osis2osis {
   $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
   
   my ($outfile, $sourceProjectPath);
@@ -171,7 +171,7 @@ sub runCF_osis2osis($) {
   return (-e $outfile);
 }
 
-sub makeDirs($$) {
+sub makeDirs {
   my $indir = shift;
   my $dest = shift;
   
@@ -191,7 +191,7 @@ sub makeDirs($$) {
   }
 }
 
-sub convertFileStrings($$) {
+sub convertFileStrings {
   my $ccin = shift;
   my $ccout = shift;
   
@@ -355,7 +355,7 @@ sub convertFileStrings($$) {
   }
 }
 
-sub convertID($) {
+sub convertID {
   my $osisref = shift;
   
   my $decoded = &decodeOsisRef($osisref);
@@ -366,7 +366,7 @@ sub convertID($) {
   return $encoded;
 }
 
-sub translateStringByMode($) {
+sub translateStringByMode {
   my $s = shift;
   
   if (exists(&translate)) {return &translate($s);}
@@ -382,7 +382,7 @@ SET_MODE_Transcode:<include-file.pl>");
   else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by translateStringByMode()");}
 }
 
-sub transcodeStringByMode($) {
+sub transcodeStringByMode {
   my $s = shift;
   
   if ($O2O_CurrentMode eq 'MODE_Transcode' && !exists(&transcode)) {
@@ -410,7 +410,7 @@ using SET_MODE_Transcode:<include-file.pl>");
   }
   return join('', @subs);
 }
-sub transcodeStringByMode2($) {
+sub transcodeStringByMode2 {
   my $s = shift;
   
   if ($O2O_CurrentMode eq 'MODE_Transcode') {

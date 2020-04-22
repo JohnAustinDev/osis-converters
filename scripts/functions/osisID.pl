@@ -32,7 +32,7 @@ use strict;
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($XPC, $XML_PARSER, $FNREFEXT, $OT_BOOKS, $NT_BOOKS, $OSISBOOKSRE);
 
-sub osisID2osisRef($$$$) {
+sub osisID2osisRef {
   my $osisID = shift;
   my $osisIDWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
@@ -102,7 +102,7 @@ sub osisID2osisRef($$$$) {
 # segments whereas osisIDs cannot contain continuations. If expandIntros is 
 # set, then expanded osisRefs will also include introductions. Note: it is 
 # always assumed that osisRefWork = osisIDWork.
-sub osisRef2osisID($$$$) {
+sub osisRef2osisID {
   my $osisRefLong = shift;
   my $osisRefWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisRefWorkDefault
@@ -204,7 +204,7 @@ sub osisRef2osisID($$$$) {
 # Checks that every segment of an osisID is part of the given workid and 
 # the verse system. Zero is returned if any segment is from a different
 # work or is outside the verse system.
-sub inVersesystem($$$) {
+sub inVersesystem {
   my $osisID = shift;
   my $workid = shift;
   my $wkvsys = shift;
@@ -244,7 +244,7 @@ sub inVersesystem($$$) {
 }
 
 # Return index if osisID is in verse-system vsys, or 0 otherwise
-sub idInVerseSystem($$) {
+sub idInVerseSystem {
   my $osisID = shift; if (ref($osisID)) {$osisID = $osisID->getOSISRef();}
   my $vsys = shift;
  
@@ -270,7 +270,7 @@ sub idInVerseSystem($$) {
 # When osisID is a DIVID it returns itself and all ancestor DIVIDs. All 
 # expanded osisIDs also include book and chapter introductions if 
 # expandIntros is set.
-sub expandOsisID($$$) {
+sub expandOsisID {
   my $osisID = shift;
   my $vsys = shift;
   my $expandIntros = shift;
@@ -314,7 +314,7 @@ sub expandOsisID($$$) {
 # in the verse system, then 0 is returned, unless dontCheck is set, in
 # which case the key is returned anyway (however bugs or errors will 
 # appear if such a key is later incremented, so use dontCheck with caution).
-sub swordVerseKey($$$) {
+sub swordVerseKey {
   my $osisID = shift;
   my $osisIDWorkDefault = shift;
   my $dontCheck = shift;
@@ -336,7 +336,7 @@ sub swordVerseKey($$$) {
 # Takes an array of osisIDs, splits each into segments, removes duplicates 
 # and empty values, normalizes work prefixes if desired, and sorts each
 # resulting segment in verse system order.
-sub normalizeOsisID(\@$$$) {
+sub normalizeOsisID {
   my $aP = shift;
   my $osisIDWorkDefault = shift;
   my $workPrefixFlag = shift; # null=if present, 'always'=always include, 'not-default'=only if prefix is not osisIDWorkDefault
@@ -361,7 +361,7 @@ sub normalizeOsisID(\@$$$) {
 }
 
 # Sort osisID segments (ie. Rom.14.23) in verse system order
-sub osisIDSort($$$$) {
+sub osisIDSort {
   my $a = shift;
   my $b = shift;
   my $osisIDWorkDefault = shift;
@@ -397,7 +397,7 @@ sub osisIDSort($$$$) {
   return $avs <=> $bvs;
 }
 
-sub readOsisIDs(\%$) {
+sub readOsisIDs {
   my $hashP = shift;
   my $xml = shift;
   
@@ -408,7 +408,7 @@ sub readOsisIDs(\%$) {
   }
 }
 
-sub encodeOsisRef($) {
+sub encodeOsisRef {
   my $r = shift;
 
   # Apparently \p{gc=L} and \p{gc=N} work different in different regex implementations.
@@ -420,8 +420,9 @@ sub encodeOsisRef($) {
   return $r;
 }
 
-sub decodeOsisRef($) {
+sub decodeOsisRef {
   my $r = shift;
+
   while ($r =~ /(_(\d+)_)/) {
     my $rp = quotemeta($1);
     my $n = $2;
@@ -432,7 +433,7 @@ sub decodeOsisRef($) {
 
 # Take in osisRef and map the whole thing. Mapping gaps are healed and
 # PART verses are always treated as whole verses.
-sub mapOsisRef($$$) {
+sub mapOsisRef {
   my $mapP = shift;
   my $map = shift;
   my $osisRef = shift;
@@ -458,7 +459,7 @@ sub mapOsisRef($$$) {
 # Take an osisRef's starting and ending point, and return an osisRef 
 # that covers the entire range between them. This can be used to 'heal' 
 # missing verses in mapped ranges.
-sub fillGapsInOsisRef($) {
+sub fillGapsInOsisRef {
   my $osisRef = shift;
   
   $osisRef =~ s/(^\s+|\s+$)//g;
@@ -472,7 +473,7 @@ sub fillGapsInOsisRef($) {
 # Converts a DICT module osisRef having a work prefix (unless loose is 
 # set) to the entry name it corresponds to. If a modP pointer is provided,
 # it will be filled with the work prefix value.
-sub osisRef2Entry($\$$) {
+sub osisRef2Entry {
   my $osisRef = shift;
   my $modP = shift;
   my $loose = shift;
@@ -485,16 +486,17 @@ sub osisRef2Entry($\$$) {
   return &decodeOsisRef($2);
 }
 
-sub entry2osisRef($$) {
+sub entry2osisRef {
   my $mod = shift;
   my $ref = shift;
+
   return $mod.":".encodeOsisRef($ref);
 }
 
 # Find in xml the verse whose sID or eID covers the given osisID segment. 
 # This complex search is only needed because Perl LibXML's XPATH-1.0 does 
 # not have the XPATH 2.0 matches() function.
-sub getVerseTag($$$) {
+sub getVerseTag {
   my $ID_segment = shift;
   my $xml = shift;
   my $sID_or_eID = shift;
@@ -513,7 +515,7 @@ sub getVerseTag($$$) {
 
 # This functions returns a hash with keys for all verse osisIDs, providing
 # a big speed-us as compared to searching for each osisID one at a time. 
-sub getVerseOsisIDs($) {
+sub getVerseOsisIDs {
   my $xml = shift;
   
   my %osisIDs;
@@ -523,7 +525,7 @@ sub getVerseOsisIDs($) {
   return \%osisIDs;
 }
 
-sub checkUniqueOsisIDs($) {
+sub checkUniqueOsisIDs {
   my $in_osis = shift;
   
   &Log("\nCHECKING OSISIDS ARE UNIQUE IN $in_osis...\n");
@@ -543,7 +545,7 @@ sub checkUniqueOsisIDs($) {
 
 # Write unique osisIDs to any element that requires one. Only elements
 # with osisID attributes may be targetted by an osisRef link.
-sub write_osisIDs($) {
+sub write_osisIDs {
   my $osisP = shift;
   
   &Log("\nWriting osisIDs:\n", 1);
@@ -586,7 +588,7 @@ sub write_osisIDs($) {
 # keys are the osisIDs of all elements appearing earlier in the OSIS
 # file sharing the same nodeName (ie. div or milestone) so as not to
 # duplicate those osisID values.
-sub create_osisID($\%) {
+sub create_osisID {
   my $e = shift;
   my $usedHP = shift;
   
@@ -635,7 +637,7 @@ sub create_osisID($\%) {
 
 # Returns an informative base osisID for an element, based on its 
 # nodeName, attributes and/or context. It is not necessarily unique.
-sub osisID_baseName($) {
+sub osisID_baseName {
   my $e = shift;
   
   my $nodeName = $e->nodeName;
@@ -667,8 +669,9 @@ sub osisID_baseName($) {
   }
 }
 
-sub dashCamelCase($) {
+sub dashCamelCase {
   my $id = shift;
+
   my @p = split(/\-/, $id);
   for (my $x=1; $x<@p; $x++) {@p[$x] = ucfirst(@p[$x]);}
   return join('', @p);
