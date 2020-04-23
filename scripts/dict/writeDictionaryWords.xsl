@@ -24,7 +24,7 @@
   
   <template match="/">
   
-    <!-- Save all target osisRef values, and their associated info -->
+    <!-- Save all target osisRef values, and their associated infos -->
     <variable name="link_targets" as="element(oc:target)*">
       <for-each select="(descendant::seg[@type='keyword'] | descendant::milestone)
           [@osisID][not(ancestor::div[@subType='x-aggregate'])]">
@@ -37,8 +37,9 @@
     <!-- Create an entry element for each target name -->
     <variable name="entries" as="element(oc:entry)*">
       <for-each select="distinct-values($link_targets/@name)">
-        <!-- these are seen as separators between keyword variants -->
-        <variable name="matches">
+      
+        <variable name="matcheElements">
+          <!-- these are seen as separators between keyword variants -->
           <for-each select="tokenize(., '\s*[,;\[\]\(\)…]\s*')">
             <choose>
               <when test="$anyEnding = 'true' and string-length(.) &#62; 3">
@@ -48,12 +49,20 @@
                   </for-each>
                 </variable>
                 <element name="match" namespace="http://github.com/JohnAustinDev/osis-converters">
-                  <value-of select="concat('/\b(', string-join($words, ' '), ')\b/i')"/>
+                  <value-of select="concat(
+                      if (matches($words[1], '^\w')) then '/\b(' else '/(',
+                      string-join($words, ' '),
+                      if (matches($words[last()], '\w$')) then ')\b/i' else ')/i'
+                    )"/>
                 </element>
               </when>
               <when test="string-length(.)">
                 <element name="match" namespace="http://github.com/JohnAustinDev/osis-converters">
-                  <value-of select="concat('/\b(\Q', ., '\E)\b/i')"/>
+                  <value-of select="concat(
+                      if (matches(., '^\w')) then '/\b(\Q' else '/(\Q', 
+                      ., 
+                      if (matches(., '\w$')) then '\E)\b/i' else '\E)/i'
+                    )"/>
                 </element>
               </when>
             </choose>
@@ -61,15 +70,16 @@
         </variable>
           
         <element name="entry" namespace="http://github.com/JohnAustinDev/osis-converters">
-          <attribute name="myMaxMatchLength" select="max($matches/oc:match/string-length())"/>
+          <attribute name="myMaxMatchLength" select="max($matcheElements/oc:match/string-length())"/>
           <element name="name" namespace="http://github.com/JohnAustinDev/osis-converters">
             <value-of select="."/>
           </element>
-          <for-each select="$matches/oc:match">
+          <for-each select="$matcheElements/oc:match">
             <sort select="string-length(.)" data-type="number" order="descending"/>
             <sequence select="."/>
           </for-each>
         </element>
+        
       </for-each>
     </variable>
         
@@ -78,40 +88,66 @@
     </call-template>
     <comment>
   IMPORTANT: 
-  For case insensitive matches using /match/i to work, ALL text MUST be surrounded 
-  by the \\Q...\\E quote operators. If a match is failing, consider this first!
-  This is not a normal Perl rule, but is required because Perl doesn't properly handle case for Turkish-like languages.
+  For case insensitive matches using /match/i to work, ALL text MUST be 
+  surrounded by the \\Q...\\E quote operators. If a match is failing, 
+  consider this first. This is not a normal Perl rule, but is required 
+  because Perl doesn't properly handle case for Turkish-like languages.
 
-  USE THE FOLLOWING BOOLEAN &amp; NON-BOOLEAN ATTRIBUTES TO CONTROL LINK PLACEMENT:
+  USE THE FOLLOWING ATTRIBUTES TO CONTROL LINK PLACEMENT:
 
-  Boolean:
+  Boolean attributes:
   IMPORTANT: default is false for boolean attributes
-  onlyNewTestament="true|false"
-  onlyOldTestament="true|false"
-  dontLink="true|false" to specify matched text should NOT get linked to ANY entry
+  onlyNewTestament = "true|false"
+  onlyOldTestament = "true|false"
+  
+  dontLink = "true|false" where true means match elements should instead 
+        block the creation of any link.
 
-  multiple="false|match|true" to allow match elements to link more than once per entry-name or match per context (default is false)
-  notExplicit="true|false" selects if match(es) should NOT be applied to explicitly marked glossary entries in the text
-  onlyExplicit="true|false" selects if match(es) should ONLY be applied to explicitly marked glossary entries in the text
+  multiple="false|match|true" to control the number of links per context,
+        where context is Bible chapter, glossary entry, div, or note. A
+        'false' (default) value limits each entry element to one link per 
+        context, a value of 'match' limits each match element to one link 
+        per context, and 'true' removes all limitations.
+        
+  notExplicit="false|true|context" where 'true' means the match elements 
+        should NOT be applied to explicitly marked glossary entries in 
+        the text. A space separated list of contexts is true only for 
+        the given contexts.
+        
+  onlyExplicit="false|true|context" where 'true' means the match elements 
+        should ONLY be applied to explicitly marked glossary entries in 
+        the text. A space separated list of contexts is true only for 
+        the given contexts.
 
-  Non-Boolean:
+  Non-Boolean attributes:
   IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
   attribute appears in multiple ancestors, each ancestor value is 
   accumalated. Also, 'context' and 'XPATH' attributes CANCEL the effect   
   of ancestor 'notContext' and 'notXPATH' attributes respectively.
 
-  context="space separated list of osisRefs or comma separated list of Paratext refs" in which to create links. Or an empty value, or ALL, means all Bible books.
-  notContext="space separated list of osisRefs or comma separated list of Paratext refs" in which not to create links
-  XPATH="xpath expression" to be applied on each text node to keep text nodes that return non-null
-  notXPATH="xpath expression" to be applied on each text node to skip text nodes that return non-null
+  context = A space separated list of osisRefs or comma separated list of 
+         Paratext refs in which to create links. Or ALL means all Bible 
+         books.
+         
+  notContext = A space separated list of osisRefs or comma separated list 
+         of Paratext refs in which not to create links.
+         
+  XPATH = An xpath expression to be applied to each text node, where a
+          non-null result means search the node for possible links.
+          
+  notXPATH = An xpath expression to be applied to each text node, where
+          a non-null result means skip that node.
 
-  ENTRY ELEMENTS MAY ALSO CONTAIN THE FOLLOWING ATTRIBUTES:
-  &#60;entry osisRef="The osisID of a keyword to link to. This attribute is required."
-         noOutboundLinks="true|false: Set to true and the entry's text with not contain links to other entries."&#62;
+  ENTRY ELEMENTS MAY CONTAIN THE FOLLOWING ATTRIBUTES:
+  osisRef = A space separated list of osisID targets. This attribute is 
+          required for all entry elements.
+  noOutboundLinks = "true|false" where 'true' limits the target from
+          containing any links itself.
 
-  Match patterns can be any perl match regex. The last matching 
-  parenthetical group, or else a group named 'link' with (?'link'...), 
-  will become the link's inner text.
+  Match patterns can be any perl match regex, but the only flag that has 
+  any effect is the 'i' flag. The last matching parenthetical group, or 
+  else a group named 'link' (with ?'link'...) will become the link's 
+  inner text.
     </comment><text>
 </text>
     <dictionaryWords version="1.0" xmlns="http://github.com/JohnAustinDev/osis-converters">
@@ -141,5 +177,4 @@
       </div>
     </dictionaryWords>
   </template>
-  
 </stylesheet>

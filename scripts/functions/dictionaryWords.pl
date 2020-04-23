@@ -833,9 +833,6 @@ sub matchRegex {
   }
   my $pm = $1; my $pf = $2;
   
-  $pm =~ s/^\\b/(?:^|\\b)/;
-  $pm =~ s/\\b$/(?:\\b|\$)/;
-  
   # handle PUNC_AS_LETTER word boundary matching issue
   our $PUNC_AS_LETTER;
   if ($PUNC_AS_LETTER) {
@@ -857,7 +854,10 @@ sub matchRegex {
     return;
   }
   my $test = "testme";
-  $test =~ /$pm/;
+  if (!defined(eval("\$test =~ /$pm/"))) {
+    &Error("Skipping bad match \"$pm\" ($@)");
+    return;
+  }
   
   # save the regex for later use
   foreach my $f (split(//, $pf)) {
