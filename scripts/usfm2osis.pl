@@ -123,10 +123,10 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
       else {
         my $sf = ($rg && -e "$INPD/$rg" ? 1:0); # Is this group a single file?
         if ($rg && !$sf) {
-          &Warn("EVAL_REGEX($rg):$rx does not apply to a specific file.", 
-          "<>Label \"$rg\" does not apply to a specific file. So this will be 
-          applied to all following RUN commands until/unless canceled by: 
-          'EVAL_REGEX($rg):'");
+          &Warn("EVAL_REGEX does not apply to a specific file: ($rg):$rx", 
+"<>The label does not apply to a specific file. So it will be 
+applied to all following RUN commands until/unless canceled by: 
+'EVAL_REGEX(the-label):'\n");
         }
         push(@EVAL_REGEX, {'group' => $rg, 'regex' => $rx, 'singleFile' => $sf});
       }
