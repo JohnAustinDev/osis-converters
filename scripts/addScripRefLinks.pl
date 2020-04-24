@@ -139,12 +139,12 @@ my (%books, %UnhandledWords, %noDigitRef, %noOSISRef, %fix, %fixDone,
    %xpathIfResultContextBook, %Types, $LOCATION, $BK, $CH, $VS, $LV,
    $CheckRefs, %missedLeftRefs, $newLinks, $LASTP);
    
-  my $none = "nOnE";
-  my $fixReplacementMsg = "
-     The FIX replacement (after the equal sign) must either be nothing to
-     unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
-     fix. The replacement must be enclosed by double quotes, and any double
-     quotes in the replacement must be escaped with '\'.";
+my $none = "nOnE";
+my $fixReplacementMsg = "
+   The FIX replacement (after the equal sign) must either be nothing to
+   unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
+   fix. The replacement must be enclosed by double quotes, and any double
+   quotes in the replacement must be escaped with '\'.";
 
 sub runAddScripRefLinks {
   my $modType = shift;

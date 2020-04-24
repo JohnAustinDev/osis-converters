@@ -428,13 +428,20 @@
   </template>
   <template mode="preprocess" match="milestone[@type=concat('x-usfm-toc', $TOC)]">
     <copy>
+      <apply-templates mode="#current" select="@*"/>
       <if test="self::*[. intersect $mainTocMilestone]">
         <attribute name="isMainTocMilestone" select="'true'"/>
       </if>
       <if test="not(@osisID)">
         <attribute name="osisID" select="generate-id(.)"/>
       </if>
-      <apply-templates mode="#current" select="node()|@*"/>
+      <if test="not(ancestor::div[@type='glossary']) and 
+                not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
+        <attribute name="n" select="concat(if (oc:myWork(.) = $MAINMOD) 
+                                           then '[inline_toc_first]' 
+                                           else '[inline_toc_last]', @n)"/>
+      </if>
+      <apply-templates mode="#current" select="node()"/>
     </copy>
   </template>
   <template mode="preprocess" match="title[oc:myWork(.) = $MAINMOD]
@@ -1101,6 +1108,21 @@
   [no_inline_toc] - Means this TOC element will not generate an inline
                     TOC. This could result in broken links for non-eBook
                     publications, so use with care.
+  [only_inline_toc] - Means this TOC element will only generate an 
+                    inline TOC (so not an eBook TOC entry).
+  [no_main_inline_toc] - Means this TOC element will not create an entry
+                    in the main inline TOC.
+  [inline_toc_first] - Means this TOC element will generate an inline
+                    TOC before its content. This is default for material
+                    which is in a Bible. This instruction does not apply
+                    to glossaries.
+  [inline_toc_last] - Means this TOC element will generate an inline TOC
+                    after its content. This is default for material 
+                    which is not in a Bible. This instruction does not
+                    apply to glossaries. The inline TOC will appear just
+                    before the following TOC milestone, even if that
+                    milestone is [no_toc] (so that can be used to place 
+                    the inline TOC anywhere within the content).
   [not_parent]    - Used on bookGroup or book  milestone TOC elements.   
                     Means that this section should appear as the first  
                     sibling of the following book or chapter list,   
@@ -1309,7 +1331,7 @@
     <variable name="myTocLevel" as="xs:integer" 
         select="if ($isTopTOC) then 0 else me:getTocLevel($tocNode)"/>
     <variable name="sourceDir" select="concat('/xhtml/', if ($isTopTOC) then 'top.xhtml' else me:getFileName($tocNode))"/>
-    <if test="$myTocLevel &#60; 3 and not(matches($tocNode/@n, '^(\[[^\]+]\])*\[(not_parent|no_inline_toc)\]'))">
+    <if test="$myTocLevel &#60; 3 and not(matches($tocNode/@n, '\[(not_parent|no_inline_toc)\]'))">
       <variable name="subentries" as="element()*">
         <choose>
           <!-- Children's Bibles -->
@@ -1353,6 +1375,7 @@
                           $container//milestone[@type=concat('x-usfm-toc', $TOC)]
                         )[. &#62;&#62; $tocNode]
                          [not($isTopTOC and @isMainTocMilestone = 'true')]
+                         [not($isTopTOC and self::*[contains(@n, '[no_main_inline_toc]')])]
                          [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
                          [not(self::*[contains(@n, '[no_toc]')])]"/>
             <variable name="nextTocSP" select="if ($isTopTOC) then () else 
@@ -1428,15 +1451,28 @@
   <!-- me:getTocAttributes returns attribute nodes for a TOC element -->
   <function name="me:getTocAttributes" as="attribute()+">
     <param name="tocElement" as="element()"/>
-    <variable name="isTOC" select="not(matches($tocElement/@n, '^(\[[^\]]*\])*\[no_toc\]'))"/>
+    
+    <variable name="msclasses" as="xs:string*">
+      <if test="$tocElement/@n">
+        <analyze-string select="$tocElement/@n" regex="\[([^\]]+)\]">
+          <matching-substring><value-of select="regex-group(1)"/></matching-substring>
+        </analyze-string>
+      </if>
+    </variable>
+    
+    <variable name="class" select="normalize-space(string-join(( 
+        if (not($msclasses = 'no_toc')) then 'xsl-toc-entry' else '', 
+        $msclasses, 
+        me:getClasses($tocElement)), ' '))"/>
+    
     <attribute name="id" select="oc:id($tocElement/@osisID)"/>
-    <attribute name="class" select="normalize-space(
-        string-join(( if ($isTOC) then 'xsl-toc-entry' else '', 
-        me:getClasses($tocElement)
-        ), ' '))"/>
-    <if test="$isTOC">
+    
+    <attribute name="class" select="$class"/>
+        
+    <if test="not(tokenize($class, ' ') = ('no_toc', 'only_inline_toc'))">
       <attribute name="title" select="concat('toclevel-', me:getTocLevel($tocElement))"/>
     </if>
+    
   </function>
   
   <!-- me:getTocTitle returns the title text of tocElement -->
@@ -1489,8 +1525,8 @@
   <function name="me:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
     <variable name="isMainNode" select="oc:myWork($tocElement) = $MAINMOD"/>
-    <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$')) then 
-                                                 replace($tocElement/@n, '^(\[[^\]]*\])*\[level(\d)\].*$', '$2') else '0'"/>
+    <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '\[level\d\]')) then 
+                                                 replace($tocElement/@n, '^.*\[level(\d)\].*$', '$1') else '0'"/>
     <variable name="toclevelOSIS">
       <variable name="parentTocNodes" select="if ($isMainNode) then 
                                                   me:getBibleParentTocNodes($tocElement) else 
@@ -1726,7 +1762,8 @@
       </choose>
     </html:h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
-    <if test="boolean($tocAttributes/self::attribute(title)) and oc:myWork(.) != $MAINMOD">
+    <if test="not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc') 
+        and oc:myWork(.) != $MAINMOD">
       <html:h1 class="xsl-nonBibleChapterLabel">
         <value-of select="$tocTitle"/>
       </html:h1>
@@ -1926,8 +1963,16 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     <param name="currentTask" tunnel="yes"/>
     
+    <!-- [inline_toc_last] writes the inline TOC just before the 
+    following TOC milestone, even if the following is [no_toc] -->
+    <for-each select="preceding::milestone[@type=concat('x-usfm-toc', $TOC)][1]
+                      [contains(@n, '[inline_toc_last]')]">
+      <sequence select="me:getInlineTOC(.)"/>
+    </for-each>
+    
     <variable name="tocAttributes" select="me:getTocAttributes(.)"/>
-    <if test="$tocAttributes/self::attribute(title)">
+    
+    <if test="not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc')">
       <variable name="tocTitle" select="oc:titleCase(me:getTocTitle(.))"/>
       <variable name="inlineTOC" as="element(html:div)?" select="me:getInlineTOC(.)"/>
       <!-- The <div><small> was chosen because milestone TOC text is hidden by CSS, and non-CSS 
@@ -1960,7 +2005,9 @@
         <apply-templates mode="xhtml" select="$kdh"/>
       </if>
       <!-- output the inline TOC -->
-      <sequence select="$inlineTOC"/>
+      <if test="not(contains(@n, '[inline_toc_last]'))">
+        <sequence select="$inlineTOC"/>
+      </if>
     </if>
   </template>
   

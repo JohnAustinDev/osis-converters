@@ -65,7 +65,7 @@ sub osis2pubs {
                           (&conf('CreateSeparatePubs') =~ /^false$/i ? '':&conf('CreateSeparatePubs')));
                            
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
-  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):'');
+  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):{});
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
   $TRANPUB_TYPE = 'Tran'; foreach my $s (@SUB_PUBLICATIONS) {if ($s eq $FULLSCOPE) {$TRANPUB_TYPE = 'Full';}}
   $TRANPUB_TITLE = ($TRANPUB_TYPE eq 'Tran' ? &conf('TranslationTitle'):&conf("TitleSubPublication[$FULLSCOPE]"));

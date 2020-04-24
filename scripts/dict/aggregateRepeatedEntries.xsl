@@ -277,17 +277,18 @@ glossary entry.</with-param>
                 
                 <!-- Only add disambiguation titles if there is more than one scope or glossary title represented -->
                 <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
-                  <if test="$glossaryScopeTitle">
+                  <if test="matches($glossaryScopeTitle, '\w+')">
                     <osis:title level="3" subType="x-glossary-scope">
                       <value-of select="$glossaryScopeTitle"/>
                     </osis:title>
                   </if>
-                  <if test="$glossaryTitle">
+                  <if test="matches($glossaryTitle, '\w+')">
                     <osis:title level="3" subType="x-glossary-title">
                       <value-of select="$glossaryTitle"/>
                     </osis:title>
                   </if>
-                  <if test="not($glossaryScopeTitle) and not($glossaryTitle)">
+                  <if test="not(matches($glossaryScopeTitle, '\w+')) and 
+                            not(matches($glossaryTitle, '\w+'))">
                     <osis:title level="3" subType="x-glossary-head">
                       <value-of select="concat(position(), ')')"/>
                     </osis:title>

@@ -62,6 +62,9 @@
   <!-- Remove composite cover images from SWORD modules -->
   <template match="figure[@subType='x-comp-publication']"/>
   
+  <!-- Remove empty titles/index etc, which break some front ends -->
+  <template match="title[not(normalize-space(string()))] | index"/>
+  
   <!-- Trim references that target removed Bible INT divs -->
   <variable name="myRemovedOsisIDs" as="xs:string" select="string-join(
     ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
