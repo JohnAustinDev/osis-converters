@@ -29,6 +29,9 @@ h1.x-introduction, h2.x-introduction, h3.x-introduction {
 h1.x-introduction {
   margin-top:2em;
 }
+div[class~=section] {
+  margin-bottom:2em;
+}
 .xsl-toc-entry.osis-milestone + h1.x-introduction,
 .x-introduction + h1.x-introduction {
   margin-top:0.4em;
@@ -85,20 +88,25 @@ sup {vertical-align:inherit} /* avoid line spacing increase caused by "super" */
 a.osis-reference {
   text-decoration: underline;
 }
-.osis-lg {
+.osis-lg,
+.osis-list {
   margin-left:1.5em;
 }
-.osis-l {
+.osis-l,
+.osis-item {
   text-indent:-1.5em;
   margin-left:1.5em;
 }
-.osis-l.level-2 {
+.osis-l.level-2,
+.osis-item.x-indent-2 {
   margin-left:3em;
 }
-.osis-l.level-3 {
+.osis-l.level-3,
+.osis-item.x-indent-3 {
   margin-left:4.5em;
 }
-.osis-l.level-4 {
+.osis-l.level-4,
+.osis-item.x-indent-4 {
   margin-left:6em;
 }
 .osis-l.x-to-next-level {
@@ -275,7 +283,7 @@ body.index.with-cover a.text {
   color:#388E3C;
   margin-right:0.2em;
 }
-.xsl-toc-entry {
+.xsl-toc-entry:not(.level3) {
   page-break-before: always;
 }
 .xsl-toc-entry.osis-milestone,

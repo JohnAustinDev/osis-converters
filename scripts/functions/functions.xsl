@@ -791,24 +791,19 @@ one target remains.</with-param>
   of the container $element, which is divided and duplicated accordingly.
   Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
-    <param name="element" as="element()"/><!-- container -->
+    <param name="element" as="node()"/><!-- any non-element just returned -->
     <param name="expel" as="node()*"/> <!-- node(s) to be expelled -->
     <param name="quiet" as="xs:boolean"/>
-
-    <if test="$expel[descendant::node()[. intersect $expel]]">
-      <call-template name="ErrorBug">
-<with-param name="msg">One expel element contains another: <value-of select="oc:printNode($expel[descendant::node()[. intersect $expel]][1])"/></with-param>
-<with-param name="die">yes</with-param>
-      </call-template>
-    </if>
+    
+    <variable name="expel2" select="$expel except $expel[ancestor::node() intersect $expel]"/>
     
     <choose>
-      <when test="not($expel)">
+      <when test="not($expel) or $element[not(self::element())]">
         <sequence select="$element"/>
       </when>
       <otherwise>
-        <for-each-group select="$element" group-by="oc:myExpelGroups(., $expel)">
-          <sequence select="oc:copyExpel($element, current-grouping-key(), $expel, $quiet)"/>
+        <for-each-group select="$element" group-by="oc:myExpelGroups(., $expel2)">
+          <sequence select="oc:copyExpel($element, current-grouping-key(), $expel2, $quiet)"/>
         </for-each-group>
       </otherwise>
     </choose>

@@ -148,9 +148,16 @@ glossary entry.</with-param>
     <copy>
       <apply-templates select="@*"/>
       
-      <for-each select="descendant::*[count(descendant::seg[@type='keyword']) &#62; 1]">
+      <!-- Break up lists with keyword items -->
+      <variable name="pass1">
+        <for-each select="node()">
+          <sequence select="oc:expelElements(., self::list/item/descendant::*[count(descendant-or-self::seg[@type='keyword']) = 1], false())"/>
+        </for-each>
+      </variable>
+      
+      <for-each select="$pass1/descendant::*[count(descendant::seg[@type='keyword']) &#62; 1]">
         <call-template name="Error">
-<with-param name="msg">Element contains multiple keywords: <value-of select="."/></with-param>
+<with-param name="msg">Element contains multiple keywords: <value-of select="oc:printNode(.)"/>: <value-of select="."/></with-param>
 <with-param name="exp">Keywords are inline elements, but a single paragraph (or other element) cannot contain more than one keyword.</with-param>
 <with-param name="die">yes</with-param>
         </call-template>
@@ -164,7 +171,7 @@ glossary entry.</with-param>
       or level=1 will also start a new group, whose contents will not be 
       part of an x-keyword div. This is because in normal glossaries,
       main titles do not apply to a single keyword. -->
-      <for-each-group select="node()" 
+      <for-each-group select="$pass1/node()" 
           group-adjacent="count(descendant-or-self::seg[@type='keyword']) + 
                           count(preceding::seg[@type='keyword']) +
                       0.5*count(self::title[not(@level) or @level='1'][not($isSpecial)]) +

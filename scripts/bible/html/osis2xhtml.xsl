@@ -474,11 +474,7 @@
   <!-- preprocess_expelChapterTags -->
   <template mode="preprocess_expelChapterTags" match="*[parent::div[@type='book']]">
     <variable name="book" select="parent::*/@osisID"/>
-    <variable name="expel" select="descendant::chapter[starts-with(@sID, concat($book, '.'))]"/>
-    <choose>
-      <when test="not($expel)"><copy-of select="."/></when>
-      <otherwise><sequence select="oc:expelElements(., $expel, false())"/></otherwise>
-    </choose>
+    <sequence select="oc:expelElements(., descendant::chapter[starts-with(@sID, concat($book, '.'))], false())"/>
   </template>
   
   <!-- preprocess_glossTocMenus -->
