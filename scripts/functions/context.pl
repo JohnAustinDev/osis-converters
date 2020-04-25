@@ -190,13 +190,13 @@ sub osisID2Contexts {
   return @ids;
 }
 
-# Return a string representing the most specific context of a node in 
-# any kind of document. For possible return values see bibleContext() 
-# and otherModContext())
+# Return a string representing the context of a node in any kind of 
+# document. For possible return values see bibleContext() and 
+# otherModContext())
 sub getNodeContext {
   my $node = shift;
 
-  return (&isBible($node) ? &bibleContext($node):&otherModContext($node, 1));
+  return (&isBible($node) ? &bibleContext($node):&otherModContext($node));
 }
 
 # Return a 4 part Bible context for $node, which is not atomic (atomic 
@@ -270,7 +270,6 @@ sub bibleContext {
 # prepended with 'BEFORE_'.
 sub otherModContext {
   my $node = shift;
-  my $specificOsisID = shift; # return only the most specific container osisID
   
   my @c;
   
@@ -312,8 +311,7 @@ sub otherModContext {
   }
   if (!@c) {&Error("otherModContext: There is no ancestor-or-self with an osisID for node $node");}
   
-  if ($specificOsisID) {return @c[0];}
-  else {return join('+', @c);}
+  return join('+', @c);
 }
 
 # Returns an array of atomized context values from a '+' separated list 
@@ -340,7 +338,7 @@ sub atomizeContext {
   
   foreach my $a (@out) {$a = &checkAndNormalizeAtomicContext($a);}
 
-  return @out;
+  return \@out;
 }
 
 # Return the most specific osisID associated with a node's context. The 
@@ -349,7 +347,7 @@ sub atomizeContext {
 sub getNodeContextOsisID {
   my $node = shift;
 
-  my $context = &getNodeContext($node);
+  my $context = @{&atomizeContext(&getNodeContext($node))}[0]; 
   
   # Introduction contexts may not have matching osisIDs.
   # The BEFORE_keyword does not correspond to a real osisID.
@@ -359,7 +357,7 @@ sub getNodeContextOsisID {
   }
   elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
   
-  my @acs = &atomizeContext($context);
+  my @acs = @{&atomizeContext($context)};
   if (!@acs[0]) {
     &Error("getNodeContextOsisID: Could not atomize context of node: $node\n(context=$context)");
     return '';
@@ -379,7 +377,7 @@ sub inContext {
   
   if ($contextsHashP->{'all'}) {return $context;}
   
-  foreach my $atom (&atomizeContext($context)) {
+  foreach my $atom (@{&atomizeContext($context)}) {
     if ($contextsHashP->{'contexts'}{$atom}) {return $context;}
     # check book separately for big speedup (see getContextAttributeHash)
     if ($atom =~ s/^([^\.]+).*?$/$1/ && $contextsHashP->{'books'}{$atom}) {
@@ -496,12 +494,12 @@ sub checkDictionaryWordsContexts {
   foreach my $ec ($XPC->findnodes('//*[@notExplicit]', $dwf)) {
     if ($ec->getAttribute('notExplicit') =~ /^(true|false)$/) {next;}
     $numatt++;
-    &attributeContextValue($ec->getAttribute('notExplicit'));
+    &getContextAttributeHash($ec->getAttribute('notExplicit'));
   }
   foreach my $ec ($XPC->findnodes('//*[@onlyExplicit]', $dwf)) {
     if ($ec->getAttribute('onlyExplicit') =~ /^(true|false)$/) {next;}
     $numatt++;
-    &attributeContextValue($ec->getAttribute('onlyExplicit'));
+    &getContextAttributeHash($ec->getAttribute('onlyExplicit'));
   }
   
   $CONTEXT_CHECK_XML = ''; # This turns off osisID existence checking

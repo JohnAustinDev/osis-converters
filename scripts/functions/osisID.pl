@@ -662,7 +662,7 @@ sub osisID_baseName {
     return ($n ? &encodeOsisRef($n):$type);
   }
   elsif ($nodeName eq 'note') {
-    my @ids = &atomizeContext(&getNodeContext($e));
+    my @ids = @{&atomizeContext(&getNodeContext($e))};
     my $base = @ids[0];
     $base =~ s/\![^\!]*$//;
     return $base;

@@ -258,7 +258,7 @@ sub recordVersesOfFootnote {
   
   my $c = $bibleContext; $c =~ s/^([^\.]*)\..*$/$1/; if ($c ne $AFL_LC) {&Log("recordVersesOfFootnote() \"$c\"\n", 2);} $AFL_LC = $c;
   
-  my @verses = &atomizeContext($bibleContext);
+  my @verses = @{&atomizeContext($bibleContext)};
   foreach my $verse (@verses) {
     if (@verses > 1) {
       # This footnote is in a linked verse. See if annotateRef tells

@@ -1003,8 +1003,12 @@ sub Log {
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
   if ($p =~ /ERROR/) {
-    my $ne = &conf('ARG_NoErr');
+    my $ne = &conf('ARG_noError');
     if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
+  }
+  elsif ($p =~ /^[\n\s]*WARNING\:/) {
+    my $nw = &conf('ARG_noWarning');
+    if ($nw && $p =~ /$nw/) {return;}
   }
   
   if ($flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {

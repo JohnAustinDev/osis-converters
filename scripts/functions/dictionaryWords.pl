@@ -186,7 +186,8 @@ DWF_OSISREF:
       }
       if (!$match && $osisRef !~ /\!toc$/) {
         if (!$reported{$osisRef}) {
-          &Warn("Extra entry \"$osisRef\" in $dictionary_words_xml", "Remove this entry from $dictionary_words_xml because does not appear in $DICTMOD.");
+          &Warn("Extra entry with osisRef=\"$dwfOsisRef\" in $dictionary_words_xml", 
+          "Remove references to $osisRef from $dictionary_words_xml because it does not appear in $DICTMOD.");
         }
         $reported{$osisRef}++;
         $allmatch = 0;
@@ -304,7 +305,7 @@ sub explicitGlossaryIndexes {
       my %data = ('success' => 0, 'linktext' => $report);
       push(@EXPLICIT_GLOSSARY, \%data);
       
-      &Error(getNodeContext($r)." Failed to link explicit glossary reference: $report", 
+      &Error(@{&atomizeContext(&getNodeContext($r))}[0]." Failed to link explicit glossary reference: $report", 
 "<>Add the proper entry to DictionaryWords.xml to match this text 
 and create a hyperlink to the correct glossary entry. If desired you can 
 use the attribute 'onlyExplicit' to match this term only where it is 
@@ -351,7 +352,7 @@ sub glossaryLink {
     &ErrorBug("Explicit glossary linking changed the source text: ".$infoP->{'linktext'}."\nBEFORE: $beforeText\nAFTER : ".$ref->parentNode->textContent);
   }
   
-  $LINK_OSISREF{$osisRef}{'context'}{&getNodeContext($ref)}++;
+  $LINK_OSISREF{$osisRef}{'context'}{@{&atomizeContext(&getNodeContext($ref))}[0]}++;
   $LINK_OSISREF{$osisRef}{'matched'}{$linktext}++;
   $LINK_OSISREF{$osisRef}{'total'}++;
 
@@ -627,6 +628,7 @@ sub searchText {
       push(@MATCHES, \%minfo);
     }
     #if ($debug) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
+    #use Data::Dumper; &Log(Dumper(\@MATCHES)."\n");
   }
   
   my $context;
@@ -657,16 +659,15 @@ sub searchText {
   my $contextIsNT = &inContext($context, $NT_CONTEXTSP);
   my $contextNoteKey = @{$XPC->findnodes("ancestor::osis:note", $node)}[0];
   $contextNoteKey = ($contextNoteKey ? $contextNoteKey->unique_key:'');
-
+  
+#@DICT_DEBUG = ($$textP); @DICT_DEBUG_THIS = (decode("utf8", "Такаббурлик ва мағрурлик ҳақида"));
+  &dbg("DEBUGGING searchText() is on...\n");
+  
   my $a;
   foreach my $m (@MATCHES) {
     my $removeLater = $m->{'dontLink'};
     my $key = $m->{'key'}.$contextNoteKey;
 #@DICT_DEBUG = ($context, @{$XPC->findnodes('preceding-sibling::dw:name[1]', $m->{'node'})}[0]->textContent()); @DICT_DEBUG_THIS = ("Gen.49.10.10", decode("utf8", "АҲД САНДИҒИ"));
-#@DICT_DEBUG = ($$textP); @DICT_DEBUG_THIS = (decode("utf8", "Гьа икӀ Ибрагьималай Исакь хьана. Исакьалай Якьуб"));
-#my $nodedata; foreach my $k (sort keys %{$m}) {if ($k !~ /^(node|contexts|notContexts|skipRootID)$/) {$nodedata .= "$k: ".$m->{$k}."\n";}}  use Data::Dumper; $nodedata .= "contexts: ".Dumper(\%{$m->{'contexts'}}); $nodedata .= "notContexts: ".Dumper(\%{$m->{'notContexts'}});
-#&dbg(sprintf("\nNode(type %s, %s):\nText: %s\nMatch: %s\n%s", $node->parentNode->nodeType, $context, $$textP, $m->{'node'}, $nodedata));
-                             
     if (defined($index) && $m->{'notExplicit'} && ($m->{'notExplicit'} == 1 || &inContext($context, $m->{'notExplicit'}))) {
       &dbg("filtered at 00\n\n"); next;
     }
@@ -688,7 +689,10 @@ sub searchText {
         my $gs  = ($glossaryHP->{'scopes_context'} ? 1:0);
         my $ic  = &inContext($context, $m->{'contexts'});
         my $igc = ($gs ? &inContext($glossaryHP->{'scopes_context'}, $m->{'contexts'}):0);
-        if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {&dbg("filtered at 50 (gs=$gs, ic=$ic, igc=$igc)\n\n"); next;}
+        if ((!$gs && !$ic) || ($gs && !$ic && !$igc)) {
+          &dbg("filtered at 50 (gs=$gs, ic=$ic, igc=$igc)\n\n");
+          next;
+        }
       }
       if ($m->{'notContext'}) {
         if (&inContext($context, $m->{'notContexts'})) {&dbg("filtered at 60\n\n"); next;}
@@ -736,7 +740,8 @@ sub searchText {
     
     last;
   }
- 
+  
+  &dbg("LEAVING searchText(): matchedPattern=$matchedPattern\n");
   return $matchedPattern;
 }
 
@@ -768,7 +773,7 @@ sub searchMatch {
   
   # finally do the actual MATCHING...
   my $pm = $m->{'regex'};
-  &dbg("pattern matching ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
+  &dbg("pattern match ".($t !~ /$pm/ ? "failed!":"success!").": \"$t\" =~ /$pm/\n"); 
   if ($t !~ /$pm/) {return 0;}
 
   $$isP = $-[$#+];
@@ -1020,7 +1025,7 @@ sub getIndexInfo {
   my $prevtext = @{$XPC->findnodes('preceding-sibling::node()[1][self::text()]', $i)}[0];
   if (!$prevtext) {
     if (!$quiet) {
-      &Error(getNodeContext($i)." Index marker ".$i->toString()." has no preceding text node in:".$i->parentNode->toString);
+      &Error(@{&atomizeContext(getNodeContext($i))}[0]." Index marker ".$i->toString()." has no preceding text node in:".$i->parentNode->toString);
     }
     return;
   }
@@ -1278,15 +1283,15 @@ sub attributeIsSet {
   return scalar(@{$XPC->findnodes("ancestor-or-self::*[\@$a][1][\@$a='true']", $m)});
 }
 
-# Reads the given attribute and returns:
+# Reads the given attribute as it applies to node, and returns:
 # 0 if 'false' or unset (means no context)
 # 1 if 'true' (means any context)
 # \% if anything else (means the specified context)
 sub attributeContextValue {
   my $a = shift;
-  my $m = shift;
+  my $node = shift;
   
-  my $elem = @{$XPC->findnodes("ancestor-or-self::*[\@$a][1]", $m)}[0];
+  my $elem = @{$XPC->findnodes("ancestor-or-self::*[\@$a][1]", $node)}[0];
   
   if (!$elem || $elem->getAttribute($a) eq 'false') {return 0;}
   elsif ($elem->getAttribute($a) eq 'true') {return 1;}
