@@ -3431,7 +3431,18 @@ sub writeMissingNoteOsisRefs {
   
   my $count = 0;
   foreach my $note (@notes) {
-    my $osisRef = &getNodeContextOsisID($note);
+    my $osisRef;
+    if (&isBible($xml)) {
+      # need an actual osisID, so bibleContext output needs fixup
+      $osisRef = @{&atomizeContext(&bibleContext($note))}[0];
+      if ($osisRef =~ /(BIBLE_INTRO|TESTAMENT_INTRO)/) {
+        $osisRef = '';
+      }
+      $osisRef =~ s/(\.0)+$//;
+    }
+    if (!$osisRef) {
+      $osisRef = @{&atomizeContext(&otherModContext($note))}[0];
+    }
     
     # Check if Bible annotateRef should override verse context
     my $con_bc; my $con_vf; my $con_vl;

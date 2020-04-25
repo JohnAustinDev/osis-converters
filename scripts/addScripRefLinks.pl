@@ -454,7 +454,7 @@ sub asrlProcessFile {
       $CH = &decodeOsisRef(@{&atomizeContext(&getNodeContext($textNode))}[0]);
     }
     else {
-      $CH = &decodeOsisRef(@{&atomizeContext(&getNodeContext($textNode))}[0])
+      $CH = @{&atomizeContext(&getNodeContext($textNode))}[0];
     }
     
     # override context book if requested

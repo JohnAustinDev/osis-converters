@@ -341,31 +341,6 @@ sub atomizeContext {
   return \@out;
 }
 
-# Return the most specific osisID associated with a node's context. The 
-# osisID will be either that of a containing element or of a glossary 
-# keyword.
-sub getNodeContextOsisID {
-  my $node = shift;
-
-  my $context = @{&atomizeContext(&getNodeContext($node))}[0]; 
-  
-  # Introduction contexts may not have matching osisIDs.
-  # The BEFORE_keyword does not correspond to a real osisID.
-  # So use 'other' method for these.
-  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
-    $context = @{&atomizeContext(&getNodeContext($node))}[0]; # container osisIDs (requires atomizeContext)
-  }
-  elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
-  
-  my @acs = @{&atomizeContext($context)};
-  if (!@acs[0]) {
-    &Error("getNodeContextOsisID: Could not atomize context of node: $node\n(context=$context)");
-    return '';
-  }
-  
-  return @acs[0];
-}
-
 # Return context if there is intersection between a context string and 
 # an attribute's contextsHashP, else return 0.
 # $context is a string as from getNodeContext()
