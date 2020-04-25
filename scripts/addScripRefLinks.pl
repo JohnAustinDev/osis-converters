@@ -346,7 +346,7 @@ or a chapter depending upon context.", "That these are interpereted correctly.")
 listing are resulting in incorrect Scripture links.", 
 "That you have correctly specified these book names in 
 CF_addScripRefLinks.txt with a line such as: Matt = Matthew");
-    foreach my $uw (sort reverseAlpha keys %UnhandledWords) {
+    foreach my $uw (sort keys %UnhandledWords) {
       &Log("<$uw> $UnhandledWords{$uw}\n");
     }
   }
@@ -389,7 +389,7 @@ these references (see the errors in the log listing above)");
     &Warn("<-These may indicate references which need FIX or 
 CF_addScripRefLinks.txt regular expression problems.");
     foreach my $mlr (sort keys %noOSISRef) {
-      &Log("<$mlr> $noOSISRef{$mlr}\n");
+      &Log("<$mlr> ".$noOSISRef{$mlr}."\n");
     }
   }
   else {&Log("(no subrefs with OSIS ref problems found)\n");}
@@ -639,15 +639,10 @@ sub addLinks {
       if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
 
       #  Look at unhandledBook
-      if ($unhandledBook) {
-        if (!$isRefElement && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) { # skip if its a tag- this could be a book name, but we can't include it in the link
-#          &Warn("$LOCATION: Skipped \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
-          &hideTerm($matchedTerm, $ttP);
-          next;
-        }
-        elsif (!$isRefElement) {
-#          &Warn("$LOCATION : \"$matchedTerm\" - no BOOK (unhandled:$unhandledBook).");
-        }
+      if ($unhandledBook && !$isRefElement && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) {
+        # skip if its a tag- this could be a book name, but we can't include it in the link
+        &hideTerm($matchedTerm, $ttP);
+        next;
       }
 
       my $mtENC = quotemeta($matchedTerm);
@@ -1407,20 +1402,6 @@ sub validOSISref {
   my $bok2 = ($bk2 == "" || $vk->getBookNumberByOSISName($bk2) != -1);
 
   return ($bok1 && $bok2);
-}
-
-sub reverseAlpha {
-  my $a = shift;
-  my $b = shift;
-
-  my $ar = "";
-  for (my $i=length($a)-1; $i>=0; $i--) {$ar .= substr($a, $i, 1);}
-  my $br = "";
-  for (my $i=length($b)-1; $i>=0; $i--) {$br .= substr($b, $i, 1);}
-  if (ord(substr($a, 0, 1)) == ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) != ord(&uc2(substr($b, 0, 1)))) {return -1;}
-  if (ord(substr($a, 0, 1)) != ord(&uc2(substr($a, 0, 1))) && ord(substr($b, 0, 1)) == ord(&uc2(substr($b, 0, 1)))) {return 1;}
-
-  return $a cmp $b;
 }
 
 1;

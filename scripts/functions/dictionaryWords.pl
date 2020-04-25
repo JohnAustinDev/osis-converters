@@ -382,7 +382,7 @@ sub searchForGlossaryLinks {
   if (&isDict($node)) {
     if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), undef, \$bookOrderP, undef)}
     
-    $glossary->{'node_context'} = &getNodeContext($node);
+    $glossary->{'node_context'} = @{&atomizeContext(&getNodeContext($node))}[0];
     if (!$glossary->{'node_context'}) {next;}
     
     my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
