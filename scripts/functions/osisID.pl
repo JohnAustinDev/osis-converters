@@ -544,7 +544,15 @@ sub checkUniqueOsisIDs {
 }
 
 # Write unique osisIDs to any element that requires one. Only elements
-# with osisID attributes may be targetted by an osisRef link.
+# with osisID attributes may be targetted by an osisRef link. Certain 
+# elements have special id features for 'duplicates':
+#  glossary keyword - ends with .dup1, .dup2... but there is also a
+#                     combined glossary where the .dupN ending is
+#                     not present in the osisID of a combined entry.
+#  TOC milestone    - ends with !toc, .dup2!toc, .dup3!toc... but the
+#                     .dupN part is removed from osisRefs, because it is
+#                     assumed that only one TOC target will remain for
+#                     any particular conversion.
 sub write_osisIDs {
   my $osisP = shift;
   
@@ -620,6 +628,9 @@ sub create_osisID {
     do {
       if ($nodeName eq 'note') {
         $id = $baseName.'!'.$ext.$n;
+      }
+      elsif ($nodeName eq 'milestone' && $ext eq 'toc') {
+        $id = $baseName.($n > 1 ? ".dup$n":'').'!'.$ext;
       }
       else {
         $id = $baseName.($n > 1 ? "_$n":'').'!'.$ext;

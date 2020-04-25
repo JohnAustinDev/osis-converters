@@ -311,6 +311,7 @@ that you wish to match on a separate line:");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
   
+  $newLinks = 0;
   my @files = &splitOSIS($osis);
   my $refSystem;
   foreach my $file (@files) {
@@ -480,6 +481,7 @@ sub asrlProcessFile {
       my $osisRef = &search_osisRef($reference, $LOCATION);
       if ($osisRef) {
         $reference->setAttribute('osisRef', $osisRef);
+        $newLinks++;
       }
       else {
         &Error("Could not determine osisRef of reference element:".$reference->toString());
@@ -535,10 +537,10 @@ sub asrlProcessFile {
 
   # convert all newReference elements to reference elements
   my @nrefs = $XPC->findnodes('//newReference', $xml);
-  $newLinks += scalar(@nrefs);
   foreach my $nref (@nrefs) {
     $nref->setNodeName("reference");
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
+    $newLinks++;
   }
 
   &writeXMLFile($xml, $osis);
@@ -572,9 +574,12 @@ sub search_osisRef {
     &Warn("Reference element has multiple children: ".$reference->toString());
     $t = $reference->textContent;
   }
-  # A bare number is interpereted as a verse in the current context
-  elsif ($t =~ /^(\d+)$/ && $bk && $ch) {
+  # A bare number is interpereted according to the current context
+  elsif ($t =~ /^(\d+)$/ && $bk && $ch && $vs) {
     return "$work$bk.$ch.$1";
+  }
+  elsif ($t =~ /^(\d+)$/ && $bk) {
+    return "$work$bk.$1";
   }
   
   # Check if there is an explicit target as a USFM 3 attribute

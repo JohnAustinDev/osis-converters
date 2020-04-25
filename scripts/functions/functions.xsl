@@ -761,16 +761,15 @@
     </copy>
   </template>
   
-  <!-- Return an osisRef with osisIDs listed in removedOsisIDs removed.
-  NOTE: removedOsisIDs must include the work prefix. -->
-  <function name="oc:trimOsisRef" as="xs:string">
+  <!-- Return an osisRef with any osisRef targets listed in removeRef
+  removed. NOTE: each removeRef must include the work prefix. -->
+  <function name="oc:trim_osisRef" as="xs:string">
     <param name="osisRef" as="xs:string"/>
-    <param name="removedOsisIDs" as="xs:string"/>
+    <param name="removeRefs" as="xs:string+"/>
   
     <variable name="result" as="xs:string?" select="string-join(
-        (
-          for $i in tokenize($osisRef, '\s+') return 
-          if ($i = tokenize($removedOsisIDs, '\s+')) then '' else $i
+        ( for $i in tokenize($osisRef, '\s+') return 
+          if ($i = $removeRefs) then '' else $i
         ), ' ')"/>
     <value-of select="if ($result) then normalize-space($result) else $osisRef"/>
     
@@ -784,6 +783,28 @@ one target remains.</with-param>
       </call-template>
     </if>
     
+  </function>
+  
+  <!-- Takes an osisID attribute, whose value may or may not have a work
+  prefix, and returns an osisRef with work prefix (thus pointing to itself). -->
+  <function name="oc:osisRef" as="xs:string">
+    <param name="osisID" as="attribute(osisID)"/>
+    <value-of select="concat(oc:myWork($osisID),':',replace($osisID,'^[^:]*:',''))"/>
+  </function>
+  
+  <!-- Takes an attribute name and returns all of those attributes within 
+  $nodes that contain $search. The $search string(s) must not contain spaces. -->
+  <function name="oc:attribsWith" as="attribute()*">
+    <param name="attrib" as="xs:string"/>
+    <param name="search" as="xs:string*"/>
+    <param name="nodes" as="node()*"/>
+    
+    <if test="count($search)">
+      <sequence select="$nodes/descendant-or-self::*
+      [attribute()[local-name() = $attrib]]
+      [tokenize(attribute()[local-name() = $attrib], '\s+') = $search]
+      /attribute()[local-name() = $attrib]"/>
+    </if>
   </function>
   
   <!-- Use this function if an element must not contain other elements 

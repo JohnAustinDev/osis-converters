@@ -3,6 +3,7 @@
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
+ xmlns:me="http://github.com/JohnAustinDev/osis-converters/writeDictionaryWords.xsl"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
@@ -28,8 +29,8 @@
     <variable name="link_targets" as="element(oc:target)*">
       <for-each select="(descendant::seg[@type='keyword'] | descendant::milestone)
           [@osisID][not(ancestor::div[@subType='x-aggregate'])]">
-        <oc:target osisRef="{concat($MOD, ':' , @osisID)}" 
-                name="{oc:decodeOsisRef(replace(@osisID, '(\.dup\d+|![^!]+)$', ''))}"
+        <oc:target osisRef="{concat($MOD, ':' , replace(@osisID, '\.dup\d+!toc', '!toc'))}" 
+                name="{oc:decodeOsisRef(replace(@osisID, '(\.dup\d+|![^!]+)+$', ''))}"
                 scope="{ancestor::div[@scope][@scope != 'NAVMENU'][last()]/@scope}"/>
       </for-each>
     </variable>
@@ -166,7 +167,7 @@
                     select="$entries[string(child::oc:name) = current-grouping-key()]/@myMaxMatchLength"/>
               
               <element name="entry" namespace="http://github.com/JohnAustinDev/osis-converters">
-                <attribute name="osisRef" select="string-join(current-group()/@osisRef, ' ')"/>
+                <attribute name="osisRef" select="me:osisRefs(current-group()/@osisRef)"/>
                 <sequence select="$entries[string(child::oc:name) = current-grouping-key()]/node()"/>
               </element>
             </for-each-group>
@@ -177,4 +178,21 @@
       </div>
     </dictionaryWords>
   </template>
+  
+  <!-- Only reference the first of any duplicates, otherwise osisRef
+  trimming will result in unpredictable targetting. -->
+  <function name="me:osisRefs" as="xs:string">
+    <param name="osisRefs" as="attribute(osisRef)+"/>
+    
+    <variable name="all" as="xs:string+" select="distinct-values($osisRefs)"/>
+    <variable name="dups" as="xs:double*" select="for $i in $all 
+        return if (matches($i, '\.dup\d$')) 
+               then number(replace($i, '^.*\.dup(\d)$', '$1')) 
+               else 10"/>
+    <variable name="out" select="for $i in $all 
+      return if ( matches($i, '\.dup\d$') and 
+                  number(number(replace($i, '^.*\.dup(\d)$', '$1'))) != min($dups) )
+             then '' else $i"/>
+      <value-of select="normalize-space(string-join($out, ' '))"/>
+  </function>
 </stylesheet>
