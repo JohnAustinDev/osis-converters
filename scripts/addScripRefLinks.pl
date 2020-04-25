@@ -451,10 +451,10 @@ sub asrlProcessFile {
     elsif ($refSystem =~ /^Dict/) {
       my $entryScope = &getGlossaryScopeAttribute($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &decodeOsisRef(&otherModContext($textNode, 1));
+      $CH = &decodeOsisRef(@{&atomizeContext(&getNodeContext($textNode))}[0]);
     }
     else {
-      $CH = @{&atomizeContext(&getNodeContext($textNode))}[0];
+      $CH = &decodeOsisRef(@{&atomizeContext(&getNodeContext($textNode))}[0])
     }
     
     # override context book if requested

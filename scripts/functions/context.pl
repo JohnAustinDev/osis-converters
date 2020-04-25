@@ -353,7 +353,7 @@ sub getNodeContextOsisID {
   # The BEFORE_keyword does not correspond to a real osisID.
   # So use 'other' method for these.
   if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|BEFORE_)/) {
-    $context = &otherModContext($node, 1); # container osisIDs (requires atomizeContext)
+    $context = @{&atomizeContext(&getNodeContext($node))}[0]; # container osisIDs (requires atomizeContext)
   }
   elsif ($context =~ /^(($OSISBOOKSRE)(\.[1-9]\d*)*?)(\.0)+$/) {return $1;} # osisID for context Gen.1.0.0 is Gen.1 and for Gen.0.0.0 is Gen
   

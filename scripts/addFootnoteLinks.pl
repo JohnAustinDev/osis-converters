@@ -339,7 +339,7 @@ sub processXML {
     else {
       my $entryScope = &getGlossaryScopeAttribute($textNode);
       if ($entryScope && $entryScope !~ /[\s\-]/) {$BK = $entryScope;}
-      $CH = &decodeOsisRef(&otherModContext($textNode, 1));
+      $CH = &decodeOsisRef(@{&atomizeContext(&getNodeContext($textNode))}[0])
     }
 
     # display progress
