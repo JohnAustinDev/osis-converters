@@ -9,11 +9,17 @@
  exclude-result-prefixes="#all">
  
   <!-- This XSLT does the following:
-  1) Creates a glossary menu system with links to each glossary entry in a new glossary div with scope="NAVMENU"
-  2) Creates an introduction menu system, if there is a glossary with the INT feature.
-  3) Inserts navigational links to these into every chapter, glossary entry and book introduction
-  NOTE: If the introScope parameter is undef, then no introduction menus/links will be created, and if there is no glossary work listed in the
-  OSIS file, then no glossary navigation menus/links will be created. But Bible chapter navigation menus will always be created.
+  1) Creates a glossary menu system with links to each glossary entry in 
+     a new glossary div with scope="NAVMENU".
+  2) Creates an introduction menu system, if there is a glossary with 
+     the INT feature.
+  3) Inserts navigational links to these into every chapter, glossary 
+     entry and book introduction.
+  
+  NOTE: If the introScope parameter is undef, then no introduction menu
+  or links will be created, and if there is no glossary work listed in 
+  the OSIS file, then no glossary navigation menus or links will be 
+  created. But Bible chapter navigation menus will always be created.
   -->
  
   <import href="./functions/functions.xsl"/>
@@ -22,10 +28,11 @@
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>
   
   <variable name="sortedGlossaryKeywords" 
-      select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
-                                          [not(@type = 'x-keyword-duplicate')]
-                                          [not(ancestor::div[@scope='NAVMENU'])]
-                                          [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+      select="//div[@type='glossary']
+              //div[starts-with(@type, 'x-keyword')]
+              [not(@type = 'x-keyword-duplicate')]
+              [not(ancestor::div[@scope='NAVMENU'])]
+              [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
   
   <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
   
@@ -44,11 +51,11 @@
   </template>
   
   <!-- Insert navmenu links:
-  1) before the first applicable text node of each book or the first chapter[@sID] of each book, whichever comes first
+  1) before the first applicable text node of each book or the first 
+     chapter[@sID] of each book, whichever comes first
   2) at the end of each div[starts-with(@type, 'x-keyword')]
   3) before each Bible chapter[@eID] -->
   <template match="node()|@*">
-    <param name="sortedGlossary" tunnel="yes"/>
     <variable name="prependNavMenu" select="
     ancestor::div[@type='book']/
         ( node()[descendant-or-self::text()[normalize-space()][not(ancestor::title[@type='runningHead'])]][1] | 
@@ -71,16 +78,13 @@
         </if>
       </when>
       
-      <!-- Place navmnu at the end of each keyword -->
+      <!-- Place navmenu at the end of each keyword -->
       <when test="self::div[starts-with(@type,'x-keyword')]">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
-          <variable name="sortedGlossaryKeyword" as="element(div)?" 
-              select="$sortedGlossary/descendant::div[starts-with(@type, 'x-keyword')]
-                      [ descendant::seg[@type='keyword'][@osisID = current()//seg[@type='keyword'][1]/@osisID] ][1]"/>
           <sequence select="oc:getNavmenuLinks(
-            oc:osisRefPrevKeyword($sortedGlossaryKeyword),
-            oc:osisRefNextKeyword($sortedGlossaryKeyword), 
+            me:prefKeywordRef(.),
+            me:nextKeywordRef(.), 
             $myREF_intro, 
             $REF_dictionary, '', '')"/>
         </copy>
@@ -108,8 +112,7 @@
       <otherwise>
         <copy>
         
-          <!-- This sortedGlossary is used to generate prev/next links between
-          the glossary entries in the OSIS file (using aggregated entries) -->
+          <!-- This sortedGlossary is used to generate the glossaryMenu menu -->
           <variable name="sortedGlossary" as="element(osis)">
             <osis:osis isCombinedGlossary="yes">
               <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
@@ -125,9 +128,7 @@
           </variable>
           
           <!-- Copy OSIS file contents using sortedGlossary as a tunnel variable -->
-          <apply-templates select="node()|@*">
-            <with-param name="sortedGlossary" select="$sortedGlossary" tunnel="yes"/>
-          </apply-templates>
+          <apply-templates select="node()|@*"/>
           
           <!-- NAVMENU is identified using the scope attribute, rather than an osisID, to facilitate the replacement  
           of uiIntroductionTopMenu by an external div, using the periph INTMENU instruction -->
@@ -218,5 +219,24 @@
       <apply-templates select="node()|@*" mode="#current"/>
     </copy>
   </template>
+  
+  <function name="me:prefKeywordRef" as="xs:string?">
+    <param name="node" as="node()?"/>
+    
+    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
+    <variable name="osisID0" select="$keyword/preceding-sibling::div[starts-with(@type,'x-keyword')][1]/
+                      descendant::seg[@type='keyword'][1]/@osisID"/>
+    <variable name="osisID" select="replace($osisID0, '\.dup\d+', '')"/>
+    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+  </function>
+  
+  <function name="me:nextKeywordRef" as="xs:string?">
+    <param name="node" as="node()?"/>
+    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
+    <variable name="osisID0" select="$keyword/following-sibling::div[starts-with(@type,'x-keyword')][1]/
+                      descendant::seg[@type='keyword'][1]/@osisID"/>
+    <variable name="osisID" select="replace($osisID0, '\.dup\d+', '')"/>
+    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+  </function>
   
 </stylesheet>

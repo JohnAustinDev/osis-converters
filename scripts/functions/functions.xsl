@@ -433,22 +433,6 @@
     <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
   </function>
   
-  <function name="oc:osisRefPrevKeyword" as="xs:string?">
-    <param name="node" as="node()?"/>
-    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
-    <variable name="osisID" select="$keyword/preceding-sibling::div[starts-with(@type,'x-keyword')][1]/
-                      descendant::seg[@type='keyword'][1]/@osisID"/>
-    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
-  </function>
-  
-  <function name="oc:osisRefNextKeyword" as="xs:string?">
-    <param name="node" as="node()?"/>
-    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
-    <variable name="osisID" select="$keyword/following-sibling::div[starts-with(@type,'x-keyword')][1]/
-                      descendant::seg[@type='keyword'][1]/@osisID"/>
-    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
-  </function>
-  
   <function name="oc:getPrevChapterOsisID" as="xs:string?">
     <param name="node" as="node()?"/>
     <variable name="inChapter" as="element(chapter)?"

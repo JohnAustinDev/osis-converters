@@ -258,7 +258,7 @@ sub validateDictionaryWordsXML {
 
 
 # Takes a list of <index index="Glossary"/> elements and converts them
-# glossary references, recording results.
+# into glossary references, recording the results.
 my @EXPLICIT_GLOSSARY;
 sub explicitGlossaryIndexes {
   my $indexElementsP = shift;
@@ -350,6 +350,10 @@ sub glossaryLink {
   
   if ($beforeText ne $ref->parentNode->textContent) {
     &ErrorBug("Explicit glossary linking changed the source text: ".$infoP->{'linktext'}."\nBEFORE: $beforeText\nAFTER : ".$ref->parentNode->textContent);
+  }
+  
+  if ($infoP->{'x-subType'}) {
+    $ref->setAttribute('subType', $infoP->{'x-subType'});
   }
   
   $LINK_OSISREF{$osisRef}{'context'}{@{&atomizeContext(&getNodeContext($ref))}[0]}++;
@@ -485,6 +489,10 @@ sub searchGlossaryLinkAtIndex {
     my $t = $infoP->{'previousNode'}->data;
     $t =~ s/\Q$removeOnSuccess\E$//;
     $infoP->{'previousNode'}->setData($t);
+  }
+  
+  if ($infoP->{'x-subType'}) {
+    $r->setAttribute('subType', $infoP->{'x-subType'});
   }
   
   # Finally, sanity check that our textContent is unchanged
@@ -1030,7 +1038,8 @@ sub getIndexInfo {
     return;
   }
   
-  my $lemma = &usfm3GetAttribute($i->getAttribute('level1'), 'lemma', 'lemma');
+  my $attribsHP = &usfm3GetAttributes($i->getAttribute('level1'), 'lemma');
+  my $lemma = $attribsHP->{'lemma'};
   
   # If linktext is empty, it may be determined later.
   my $linktext = ($i->hasAttribute('level1') ? $i->getAttribute('level1'):'');
@@ -1050,11 +1059,14 @@ sub getIndexInfo {
   }
     
   my %info = (
-    'lemma'    => $lemma,
     'linktext' => $linktext,
     'previousNode' => $prevtext,
     'followingNode' => @{$XPC->findnodes('following-sibling::node()[1][self::text()]', $i)}[0]
   );
+  
+  foreach my $k (sort keys %{$attribsHP}) {
+    $info{$k} = $attribsHP->{$k};
+  }
   
   #use Data::Dumper; &Log($i->toString()."\n".Dumper(\%info)."\n", 1);
   return \%info;
@@ -1313,27 +1325,46 @@ sub dbg {
   return 1;
 }
 
+sub usfm3GetAttributes {
+  my $value = shift;
+  my $defaultAttribute = shift;
+  
+  my %attribs;
+  if (!$value) {return \%attribs;}
+  if ($value !~ /(?<!\\)\|(.*)$/) {return \%attribs;}
+  my $as = $1;
+  
+  my $re = '(\S+)\s*=\s*([\'"])(.*?)(?!<\\\\)\2';
+  if ($as =~ /$re/) {
+    while ($as =~ s/$re//) {
+      $attribs{$1} = &valueClean($3);
+    }
+    if ($as !~ /^\s*$/) {
+      &Error("Parsing USFM3 attributes: $value.",
+"Acceptable attributes must have one of these forms:
+\\w some-text|attrib1='value' attrib2='value'\\w*
+\\w some-text|value\\w* (only for default attribute)");
+    }
+  }
+  else {$attribs{$defaultAttribute} = &valueClean($as);}
+
+  return \%attribs;
+}
+
 sub usfm3GetAttribute {
   my $value = shift;
   my $attribute = shift;
   my $defaultAttribute = shift;
   
-  if (!$attribute) {$attribute = $defaultAttribute;}
-  my $atl = $value;
-  if ($atl =~ s/^.*?\|//) {
-    my $aname = $defaultAttribute;
-    while ($atl =~ s/\s*([^\s='"]+)\s*=\s*["']([^"']+)["']//) {
-      $aname = $1;
-      my $aval = $2;
-      if ($aname eq $attribute) {
-        $aval =~ s/[\s\n]+/ /g;
-        return $aval;
-      }
-    }
-    return ($aname eq $attribute ? $atl:'');
-  }
+  return &usfm3GetAttributes($value, $defaultAttribute)->{$attribute};
+}
+
+sub valueClean {
+  my $value = shift;
   
-  return '';
+  $value =~ s/(^\s*|\s*$)//g;
+  $value =~ s/[\s\n]+/ /g;
+  return $value;
 }
 
 sub numAlphaSort {
