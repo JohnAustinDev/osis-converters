@@ -2174,7 +2174,7 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <when test="not($file)">
         <apply-templates mode="xhtml"/>
         <call-template name="Error">
-<with-param name="msg">Could not determine source file for <value-of select="@osisRef"/></with-param>
+<with-param name="msg">Could not determine source file for <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
         </call-template>
       </when>
       <otherwise>

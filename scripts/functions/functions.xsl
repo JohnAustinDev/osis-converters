@@ -146,7 +146,7 @@
   contain ASCII letters, digits, underscores, hyphens, and periods. -->
   <function name="oc:id" as="xs:string">
     <param name="str" as="xs:string"/>
-    <variable name="ascii_1" as="xs:string">
+    <variable name="ascii" as="xs:string">
       <value-of>
         <analyze-string select="$str" regex="."> 
           <matching-substring>
@@ -160,14 +160,7 @@
         </analyze-string>
       </value-of>
     </variable>
-    <!-- If it is too long, then hash the string -->
-    <variable name="ascii" select="if (string-length($ascii_1) &#60;= 48) then $ascii_1 else oc:stringHash($ascii_1)"/>
     <value-of select="if (matches($ascii, '^[A-Za-z_]')) then $ascii else concat('_', $ascii)"/>
-  </function>
-  
-  <function name="oc:stringHash" as="xs:string">
-    <param name="str" as="xs:string"/>
-    <value-of select="sum(for $i in 1 to string-length($str) return 53*$i + string-to-codepoints(substring($str,$i,1)))"/>
   </function>
   
   <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
@@ -761,16 +754,33 @@
     </copy>
   </template>
   
-  <!-- Return an osisRef with any osisRef targets listed in removeRef
-  removed. NOTE: each removeRef must include the work prefix. -->
-  <function name="oc:trim_osisRef" as="xs:string">
+  <!-- Return an osisRef with any osisRef targets listed in refs either 
+  removed (if remove is true), or solely kept. NOTE: each ref in refs 
+  must include the work prefix. -->
+  <function name="oc:filter_osisRef" as="xs:string">
     <param name="osisRef" as="xs:string"/>
-    <param name="removeRefs" as="xs:string+"/>
-  
-    <variable name="result" as="xs:string?" select="string-join(
-        ( for $i in tokenize($osisRef, '\s+') return 
-          if ($i = $removeRefs) then '' else $i
-        ), ' ')"/>
+    <param name="remove" as="xs:boolean"/>
+    <param name="refs" as="xs:string*"/>
+    
+    <variable name="result" as="xs:string?">
+      <choose>
+        <!-- remove refs -->
+        <when test="$remove">
+          <value-of select="string-join(
+              ( for $i in tokenize($osisRef, '\s+') return 
+                if ($i = $refs) then '' else $i
+              ), ' ')"/>
+        </when>
+        <!-- keep refs -->
+        <otherwise>
+          <value-of select="string-join(
+              ( for $i in tokenize($osisRef, '\s+') return 
+                if ($i != $refs) then '' else $i
+              ), ' ')"/>
+        </otherwise>
+      </choose>
+    </variable>
+    
     <value-of select="if ($result) then normalize-space($result) else $osisRef"/>
     
     <!-- Note the result -->

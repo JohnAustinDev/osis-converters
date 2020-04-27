@@ -9,28 +9,11 @@
  
   <!-- Prepare osis-converters OSIS for use with html & ebook ePublications -->
   
-  <!-- Filter out any marked elements which are not intended for this conversion -->
-  <include href="./conversion.xsl"/>
-  
   <!-- Use the source (translator's custom) verse system -->
   <include href="./osis2sourceVerseSystem.xsl"/>
   
-  <variable name="isDict" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-glossary']"/>
-  
-  <template match="/">
-    <call-template name="Note"><with-param name="msg">Running osis2pubs.xsl</with-param></call-template>
-    <if test="$removeNAVMENU">
-      <call-template name="Note">
-<with-param name="msg">Removed <value-of select="count($removeNAVMENU)"/> NAVMENU div(s).</with-param>
-      </call-template>
-    </if>
-    <if test="$myTrimRef">
-      <call-template name="Note">
-<with-param name="msg">Trimmed <value-of select="count($myTrimRef)"/> multi-target references.</with-param>
-      </call-template>
-    </if>
-    <next-match/>
-  </template>
+  <!-- Filter out any marked elements which are not intended for this conversion -->
+  <include href="./conversion.xsl"/>
   
   <!-- Remove all navmenu link lists, which are custom-created as needed -->
   <template match="list[@subType='x-navmenu']"/>
@@ -39,16 +22,33 @@
   <variable name="removeNAVMENU" select="//div[@scope='NAVMENU']"/>
   <template match="div[. intersect $removeNAVMENU]"/>
   
-  <!-- Trim references that target removed NAVMENU divs -->
-  <variable name="myRemovedOsisIDs" as="xs:string" select="string-join(
-    ($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
-    [ancestor::div[@scope='NAVMENU']]/
-    @osisID/concat(oc:myWork(.),':',replace(.,'^[^:]*:','')), ' ')"/>
-  <variable name="myTrimRef" as="attribute(osisRef)*" 
-      select="//reference[not(ancestor::*[starts-with(@subType,'x-navmenu')])]
-                [tokenize(@osisRef, '\s+') = tokenize($myRemovedOsisIDs, '\s+')]/@osisRef"/>
-  <template match="@osisRef[. intersect $myTrimRef]">
-    <attribute name="osisRef" select="oc:trimOsisRef(., $myRemovedOsisIDs)"/>
+  <!-- Remove references that target the removed NAVMENUs -->
+  <variable name="removedNAVMENU_ids" as="xs:string*" 
+      select="($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
+              [ancestor::div[@scope='NAVMENU']]
+              /oc:osisRef(@osisID)"/>
+  <template match="@osisRef" priority="99">
+    <variable name="conversion"><!-- conversion.xsl -->
+      <oc:tmp><next-match/></oc:tmp>
+    </variable>
+    <attribute name="osisRef" 
+        select="oc:filter_osisRef($conversion/*/@osisRef, true(), $removedNAVMENU_ids)"/>
+  </template>
+  
+  <!-- Report results -->
+  <template match="/" priority="39">
+  
+    <call-template name="Note">
+<with-param name="msg">Running osis2pubs.xsl</with-param>
+    </call-template>
+    
+    <if test="$removeNAVMENU">
+      <call-template name="Note">
+<with-param name="msg">Removed <value-of select="count($removeNAVMENU)"/> NAVMENU div(s).</with-param>
+      </call-template>
+    </if>
+    
+    <next-match/>
   </template>
   
 </stylesheet>

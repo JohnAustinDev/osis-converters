@@ -72,7 +72,7 @@
       <when test="$work = $DICTMOD">
         <if test="not(oc:decodeOsisRef($ref) = $keywords)">
           <call-template name="Error">
-<with-param name="msg"><value-of select="$docwork"/> reference target missing: osisRef="<value-of select="."/>"</with-param>
+<with-param name="msg"><value-of select="$docwork"/> reference target missing: <value-of select="parent::*/string()"/> osisRef="<value-of select="."/>"</with-param>
           </call-template>
         </if>
       </when>

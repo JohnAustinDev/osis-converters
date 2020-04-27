@@ -347,7 +347,10 @@ sub getLinkedFiles {
   my $hP = shift;
 
   my $dir = $f; $dir =~ s/[^\/]+$//;
-  my $html = $XML_PARSER->load_html(location  => $f, recover => 1);
+  my $html = eval {$XML_PARSER->load_html(location => $f)};
+  if ($@ =~ /error/i) {
+    &Error("Problem(s) occured reading $f:\n".decode('utf8', $@)."\n");
+  }
   if ($html) {
     foreach my $link ($html->findnodes('//a')) {
       my $file = $link->getAttribute('href');
@@ -356,7 +359,9 @@ sub getLinkedFiles {
       $hP->{&shortLinuxPath($dir.$file)}++;
     }
   }
-  else {&ErrorBug("$f is not a parseable HTML file.");}
+  else {&Error("$f is not a parseable HTML file.", 
+  "Fix all previous errors and if the file is still not  
+parseable, contact the osis-converters maintainer.\n");}
 }
 
 
@@ -723,6 +728,7 @@ sub filterGlossaryReferences {
     my $glossRefXml = $XML_PARSER->parse_file($glossRefOsis);
     my $work = &getOsisIDWork($glossRefXml);
     my @osisIDs = $XPC->findnodes('//osis:seg[@type="keyword"]/@osisID', $glossRefXml);
+    push(@osisIDs, @{$XPC->findnodes('//osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]/@osisID', $glossRefXml)});
     my %ids;
     foreach my $osisID (@osisIDs) {
       my $id = $osisID->getValue();
