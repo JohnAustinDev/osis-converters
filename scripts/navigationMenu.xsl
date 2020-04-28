@@ -240,12 +240,12 @@
   <template mode="glossmenu_navmenus" match="p">
     <param name="customDictMenu" tunnel="yes"/>
     <next-match/>
-    <if test="@subtype = 'x-navmenu-dictionary'">
-      <sequence select="$customDictMenu/node()[not(self::comment())]"/>
-    </if>
     <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, 
                       if (ancestor::div[@subType='x-navmenu-dictionary']) then '' 
                       else $REF_dictionary, '', '')"/>
+    <if test="@subtype = 'x-navmenu-dictionary'">
+      <sequence select="$customDictMenu/node()[not(self::comment())]"/>
+    </if>
   </template>
   
   <!-- Add subType='x-target_self' to any custom NAVMENU links -->
