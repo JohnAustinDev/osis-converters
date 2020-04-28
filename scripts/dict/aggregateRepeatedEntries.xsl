@@ -144,7 +144,8 @@ glossary entry.</with-param>
   <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
     <variable name="isSpecial" as="xs:boolean" 
-      select="@scope = 'NAVMENU' or @annotateType = 'x-feature'"/>
+      select="@scope = 'NAVMENU' or @annotateType = 'x-feature' or 
+        oc:sarg('glossaryTitlesInKeyword', /, 'no') = 'yes'"/>
     <copy>
       <apply-templates select="@*"/>
       
@@ -304,6 +305,8 @@ glossary entry.</with-param>
                 <copy>
                   <apply-templates mode="#current" select="@*"/>
                   <attribute name="type" select="'x-aggregate-subentry'"/>
+                  <attribute name="annotateRef" select="descendant::seg[@type='keyword']/concat($DICTMOD,':',@osisID)"/>
+                  <attribute name="annotateType">x-aggregate-source</attribute>
                   <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                   <apply-templates mode="write_aggregates"/>
                 </copy>

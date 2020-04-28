@@ -78,13 +78,24 @@
         </if>
       </when>
       
-      <!-- Place navmenu at the end of each keyword -->
-      <when test="self::div[starts-with(@type,'x-keyword')]">
+      <!-- Place prev/next navmenu at the end of each aggregate-subentry -->
+      <when test="self::div[@type='x-aggregate-subentry']">
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
           <sequence select="oc:getNavmenuLinks(
-            me:prefKeywordRef(.),
-            me:nextKeywordRef(.), 
+            me:keywordRef('prev', .),
+            me:keywordRef('next', .), 
+            '', '', '', '')"/>
+        </copy>
+      </when>
+      
+      <!-- Place navmenu at the end of each keyword -->
+      <when test="self::div[starts-with(@type,'x-keyword')]">
+        <copy>
+          <apply-templates select="node()|@*"/>
+          <sequence select="oc:getNavmenuLinks(
+            me:keywordRef('prev', .),
+            me:keywordRef('next', .), 
             $myREF_intro, 
             $REF_dictionary, '', '')"/>
         </copy>
@@ -220,22 +231,38 @@
     </copy>
   </template>
   
-  <function name="me:prefKeywordRef" as="xs:string?">
+  <function name="me:keywordRef" as="xs:string?">
+    <param name="do" as="xs:string"/> <!-- 'prev' or 'next' -->
     <param name="node" as="node()?"/>
     
-    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
-    <variable name="osisID0" select="$keyword/preceding-sibling::div[starts-with(@type,'x-keyword')][1]/
-                      descendant::seg[@type='keyword'][1]/@osisID"/>
-    <variable name="osisID" select="replace($osisID0, '\.dup\d+', '')"/>
-    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
-  </function>
-  
-  <function name="me:nextKeywordRef" as="xs:string?">
-    <param name="node" as="node()?"/>
-    <variable name="keyword" select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')][1]"/>
-    <variable name="osisID0" select="$keyword/following-sibling::div[starts-with(@type,'x-keyword')][1]/
-                      descendant::seg[@type='keyword'][1]/@osisID"/>
-    <variable name="osisID" select="replace($osisID0, '\.dup\d+', '')"/>
+    <variable name="subentry" select="$node/ancestor-or-self::div[@type = 'x-aggregate-subentry']"/>
+    
+    <variable name="keyword" as="element(osis:div)?">
+      <choose>
+        <when test="$subentry">
+          <sequence select="root($node)//div[@type='x-keyword-duplicate']
+            [ descendant::seg[@type='keyword'][@osisID = $subentry/replace(@annotateRef, '^[^:]+:', '')] ]"/>
+        </when>
+        <when test="$node/ancestor-or-self::div[@subType='x-aggregate']"/>
+        <otherwise>
+          <sequence select="$node/ancestor-or-self::div[starts-with(@type,'x-keyword')]"/>
+        </otherwise>
+      </choose>
+    </variable>
+    
+    <variable name="prevnext" as="element(osis:div)?">
+      <choose>
+        <when test="$do = 'prev'">
+          <sequence select="$keyword/preceding-sibling::div[starts-with(@type,'x-keyword')][1]"/>
+        </when>
+        <when test="$do = 'next'">
+          <sequence select="$keyword/following-sibling::div[starts-with(@type,'x-keyword')][1]"/>
+        </when>
+      </choose>
+    </variable>
+    
+    <variable name="osisID" select="$prevnext/descendant::seg[@type='keyword']/replace(@osisID, '\.dup\d+', '')"/>
+    
     <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
   </function>
   

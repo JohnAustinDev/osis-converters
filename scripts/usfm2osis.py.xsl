@@ -25,11 +25,11 @@
   </template>
 
   <template match="p[child::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <apply-templates select="oc:expelElements(., ./child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
+    <apply-templates select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
   </template>
   
   <template mode="pass2" match="div[matches(@type,'[Ss]ection')][child::milestone[starts-with(@type, 'x-usfm-toc')]]">
-    <apply-templates select="oc:expelElements(., ./child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
+    <apply-templates mode="pass2" select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
   </template>
   
   <!-- usfm2osis.py puts scope title content within a reference element, but they are not 

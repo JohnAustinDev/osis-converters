@@ -41,7 +41,7 @@
       
         <variable name="matcheElements">
           <!-- these are seen as separators between keyword variants -->
-          <for-each select="tokenize(., '\s*[,;\[\]\(\)…]\s*')">
+          <for-each select="(., tokenize(., '\s*[,;\[\]\(\)…]\s*'))">
             <choose>
               <when test="$anyEnding = 'true' and string-length(.) &#62; 3">
                 <variable name="words">
