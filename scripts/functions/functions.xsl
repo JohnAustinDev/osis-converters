@@ -582,18 +582,17 @@
     <param name="includeAllEntriesMenu" as="xs:boolean"/>
     <param name="includeGlossaryKeywords" as="xs:boolean"/>
     
-    <variable name="glossaryTitle" 
-        select="if (oc:getDivTitle($glossary)) then 
-                oc:getDivTitle($glossary) else 
-                $uiDictionary"/>
+    <variable name="glossaryTitle" select="if (oc:getDivTitle($glossary))
+                                          then oc:getDivTitle($glossary) 
+                                          else $uiDictionary"/>
                 
     <!-- If there are glossary menus for each glossary, we need their ids to be unique -->
-    <variable name="id" select="if ($glossary/ancestor::osis[@isCombinedGlossary = 'yes']) 
-                                then '' else generate-id($glossary)"/>
+    <variable name="id" select="if ($glossaryTitle != $uiDictionary) 
+                                then generate-id($glossary) else ''"/>
                                 
-    <variable name="dictTop_osisID" select="if ($glossary/ancestor::osis[@isCombinedGlossary = 'yes'])
+    <variable name="dictTop_osisID" select="if ($glossaryTitle = $uiDictionary)
                                         then tokenize($REF_dictionary, ':')[2]
-                                        else concat(oc:encodeOsisRef($glossaryTitle), $id)"/>
+                                        else oc:encodeOsisRef($glossaryTitle)"/>
     
     <variable name="sortedGlossary">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
@@ -616,7 +615,7 @@
     <if test="$includeTopTocMenu">
       <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
       <osis:div type="x-keyword" subType="x-navmenu-dictionary">
-        <osis:p>
+        <osis:p subtype="x-navmenu-dictionary">
           <osis:seg type="keyword" osisID="{$dictTop_osisID}">
             <value-of select="$glossaryTitle"/>
           </osis:seg>

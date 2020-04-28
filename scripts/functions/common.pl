@@ -186,13 +186,13 @@ sub init_linux_script {
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
   
   # Initialize CF_usfm2osis and CF_osis2osis globals
-  $addScripRefLinks = '';
-  $addFootnoteLinks = '';
-  $addDictLinks = '';
-  $addSeeAlsoLinks = '';
-  $addCrossRefs = '';
-  $reorderGlossaryEntries = '';
-  $customBookOrder = '';
+  $addScripRefLinks = undef;
+  $addFootnoteLinks = undef;
+  $addDictLinks = undef;
+  $addSeeAlsoLinks = undef;
+  $addCrossRefs = undef;
+  $reorderGlossaryEntries = undef;
+  $customBookOrder = undef;
   
   # Set default to 'on' for certain cases
   if (-e "$INPD/CF_addScripRefLinks.txt") {$addScripRefLinks = 'on_by_default';}

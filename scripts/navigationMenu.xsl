@@ -123,7 +123,7 @@
       <otherwise>
         <copy>
         
-          <!-- This sortedGlossary is used to generate the glossaryMenu menu -->
+          <!-- This sortedGlossary may be used to generate the glossaryMenu -->
           <variable name="sortedGlossary" as="element(osis)">
             <osis:osis isCombinedGlossary="yes">
               <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
@@ -197,9 +197,30 @@
           </if>
           
           <osis:div osisID="uiDictionaryTopMenu" type="glossary" scope="NAVMENU" resp="x-oc">
-            <variable name="glossaryMenu" 
-              select="oc:glossaryMenu($sortedGlossary/descendant::div[@type='glossary'][1], true(), true(), false())"/>
-            <apply-templates mode="glossmenu_navmenus" select="$glossaryMenu"/>
+            <variable name="menuGlossary" as="element(div)">
+              <variable name="titleGloss" select="/descendant::div[@type='glossary']
+                                                  [oc:getDivTitle(.) = $uiDictionary][1]"/>
+              <choose>
+                <when test="oc:sarg('mainGlossaryID', /, 'false') != 'false'">
+                  <sequence select="/descendant::div[@type='glossary']
+                                    [@osisID = oc:sarg('mainGlossaryID', /, 'false')]"/>
+                </when>
+                <when test="$titleGloss and oc:conf('CombineGlossaries', /) != 'true'">
+                  <sequence select="$titleGloss"/>
+                </when>
+                <otherwise>
+                  <sequence select="$sortedGlossary/descendant::div[@type='glossary']"/>
+                </otherwise>
+              </choose>
+            </variable>
+            <variable name="glossaryMenu"
+              select="oc:glossaryMenu($menuGlossary, true(), true(), false())"/>
+              
+            <apply-templates mode="glossmenu_navmenus" select="$glossaryMenu">
+              <with-param name="customDictMenu" tunnel="yes" 
+                select="/descendant::div[@osisID='uiDictionaryTopMenu.DICTMENU']"/>
+            </apply-templates>
+            
           </osis:div>
           <text>&#xa;</text>
           
@@ -212,12 +233,16 @@
     </choose>
   </template>
   
-  <!-- Add navmenu links to the output of glossaryMenu() -->
+  <!-- Add navmenu links and customDictMenu to the output of glossaryMenu() -->
   <template mode="glossmenu_navmenus" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   <template mode="glossmenu_navmenus" match="p">
+    <param name="customDictMenu" tunnel="yes"/>
     <next-match/>
+    <if test="@subtype = 'x-navmenu-dictionary'">
+      <sequence select="$customDictMenu/node()[not(self::comment())]"/>
+    </if>
     <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, 
                       if (ancestor::div[@subType='x-navmenu-dictionary']) then '' 
                       else $REF_dictionary, '', '')"/>
@@ -231,15 +256,26 @@
     </copy>
   </template>
   
+  <!-- This menu (if it exists) is moved under x-navmenu-dictionary div -->
+  <template mode="#all" match="div[@osisID = 'uiDictionaryTopMenu.DICTMENU']"/>
+  
   <function name="me:keywordRef" as="xs:string?">
     <param name="do" as="xs:string"/> <!-- 'prev' or 'next' -->
     <param name="node" as="node()?"/>
     
-    <variable name="subentry" select="$node/ancestor-or-self::div[@type = 'x-aggregate-subentry']"/>
+    <variable name="subentry" 
+      select="$node/ancestor-or-self::div[@type = 'x-aggregate-subentry']"/>
+    <!-- Sub-entries without titles should not have their own prev/next
+    links, because there their context is not apparent. In this case, 
+    only the last sub-entry has pre/next links. -->
+    <variable name="subentryTitle" 
+      select="$subentry/preceding-sibling::*[1][self::title]"/>
+    <variable name="isLastSubentry" 
+      select="not($subentry/following-sibling::div[@type = 'x-aggregate-subentry'])"/>
     
     <variable name="keyword" as="element(osis:div)?">
       <choose>
-        <when test="$subentry">
+        <when test="$subentry and ($subentryTitle or $isLastSubentry)">
           <sequence select="root($node)//div[@type='x-keyword-duplicate']
             [ descendant::seg[@type='keyword'][@osisID = $subentry/replace(@annotateRef, '^[^:]+:', '')] ]"/>
         </when>

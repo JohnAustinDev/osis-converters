@@ -307,9 +307,10 @@ sub applyInstructions {
     $div->setAttribute('annotateRef', $feature);
     $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
 
-    # The only 'feature' currently supported is 'INT' which uses translation
-    # introductory material to auto-generate navmenus. INTMENU can be used 
-    # to customize those menus.
+    # The main 'feature' currently supported is 'INT' which uses tran-
+    # slation introductory material to auto-generate navmenus. INTMENU 
+    # can be used to customize those menus. DICTMENU is like it, but is
+    # used to customize the dictionary menu.
     if ($feature =~ /^(INT)$/) {
       &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
     }
@@ -320,6 +321,14 @@ sub applyInstructions {
       $div->setAttribute('scope', 'NAVMENU');
       $div->setAttribute('osisID', 'uiIntroductionTopMenu');
       &Note("Applying osisID='uiIntroductionTopMenu' scope='NAVMENU' to $sdiv");
+    }
+    elsif ($feature =~ /^(DICTMENU)$/) {
+      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
+      
+      # Also set scope and osisID to that expected by navigationMenu.xsl
+      $div->setAttribute('scope', 'NAVMENU');
+      $div->setAttribute('osisID', "uiDictionaryTopMenu.$feature");
+      &Note("Applying osisID=\"uiDictionaryTopMenu.$feature\" scope=\"NAVMENU\" to $sdiv");
     }
     else {
       &Error("Unrecognized peripheral instruction: feature == $feature", 
