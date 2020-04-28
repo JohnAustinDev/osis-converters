@@ -243,7 +243,7 @@
     <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, 
                       if (ancestor::div[@subType='x-navmenu-dictionary']) then '' 
                       else $REF_dictionary, '', '')"/>
-    <if test="@subtype = 'x-navmenu-dictionary'">
+    <if test="@subType = 'x-navmenu-dictionary'">
       <sequence select="$customDictMenu/node()[not(self::comment())]"/>
     </if>
   </template>

@@ -615,7 +615,7 @@
     <if test="$includeTopTocMenu">
       <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
       <osis:div type="x-keyword" subType="x-navmenu-dictionary">
-        <osis:p subtype="x-navmenu-dictionary">
+        <osis:p subType="x-navmenu-dictionary">
           <osis:seg type="keyword" osisID="{$dictTop_osisID}">
             <value-of select="$glossaryTitle"/>
           </osis:seg>
