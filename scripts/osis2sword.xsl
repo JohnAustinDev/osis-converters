@@ -18,9 +18,9 @@
   conversion -->
   <include href="./conversion.xsl"/>
   
-  <variable name="isBible" select="/osis/osisText/header/work
+  <variable name="type" select="/osis/osisText/header/work
     [@osisWork = /osis/osisText/@osisIDWork]
-    /type[@type='x-bible']"/>
+    /type/string()"/>
   
   <template match="/" priority="30">
     <copy>
@@ -30,20 +30,20 @@
   </template>
   
   <!-- Remove all non-Bible material that is not within a glossary div -->
-  <template match="div[not($isBible)][parent::osisText][not(@type = 'glossary')]"/>
+  <template match="div[$type = 'Glossary'][parent::osisText][not(@type = 'glossary')]"/>
   
   <!-- Remove duplicate glossary keywords (since the aggregated glossary is used) -->
   <template match="div[contains(@type, 'duplicate')][ancestor::div[@type='glossary']]"/>
   
   <!-- Remove duplicate material in Bibles that is also included in the 
   dictionary module for the INT feature -->
-  <variable name="removedINT" select="//div[$isBible]
+  <variable name="removedINT" select="//div[$type = 'Bible']
       [@annotateType='x-feature'][@annotateRef='INT']"/>
   <template match="div[. intersect $removedINT]"/>
   
   <!-- Remove chapter navmenus from Bibles (SWORD front-ends handle this 
   functionality)-->
-  <template match="list[$isBible][@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]"/>
+  <template match="list[$type = 'Bible'][@subType='x-navmenu'][following-sibling::*[1][self::chapter[@eID]]]"/>
   
   <!-- Remove x-external attribute since SWORD handles them like any 
   other reference -->
