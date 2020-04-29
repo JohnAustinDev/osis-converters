@@ -60,6 +60,7 @@ sub loadDictionaryWordsXML {
     &Warn("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
   }
   
+=pod
   # Save any updates back to source dictionary_words_xml and reload
   if ($update) {
     &writeXMLFile($dwf, "$INPD/$DICTIONARY_WORDS.tmp");
@@ -75,6 +76,7 @@ sub loadDictionaryWordsXML {
       &Error("loadDictionaryWordsXML failed to update markup. Update $DICTIONARY_WORDS manually.", "Sometimes the $DICTIONARY_WORDS can only be updated manually.");
     }
   }
+=cut
   
   # Compare dictosis to DICTIONARY_WORDS
   if ($dictosis && &compareDictOsis2DWF($dictosis, "$INPD/$DICTIONARY_WORDS")) {

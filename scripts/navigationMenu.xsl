@@ -197,7 +197,7 @@
           </if>
           
           <osis:div osisID="uiDictionaryTopMenu" type="glossary" scope="NAVMENU" resp="x-oc">
-            <variable name="menuGlossary" as="element(div)">
+            <variable name="menuGlossary" as="element(div)?">
               <variable name="titleGloss" select="/descendant::div[@type='glossary']
                                                   [oc:getDivTitle(.) = $uiDictionary][1]"/>
               <choose>
@@ -214,7 +214,9 @@
               </choose>
             </variable>
             <variable name="glossaryMenu"
-              select="oc:glossaryMenu($menuGlossary, true(), true(), false())"/>
+              select="if ($menuGlossary) 
+                      then oc:glossaryMenu($menuGlossary, true(), true(), false()) 
+                      else ()"/>
               
             <apply-templates mode="glossmenu_navmenus" select="$glossaryMenu">
               <with-param name="customDictMenu" tunnel="yes" 
