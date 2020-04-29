@@ -49,6 +49,8 @@
       [ancestor::div[@type='glossary']]
       [lower-case(string()) = following::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(string())]
       [not(lower-case(string()) = preceding::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(string()))]"/>
+      
+  <variable name="glossaryTitlesInKeyword" select="oc:sarg('glossaryTitlesInKeyword', /, 'no')"/>
   
   <!-- By default copy everything as is, for all modes -->
   <template mode="#all" match="node()|@*" name="identity">
@@ -121,6 +123,7 @@ glossary entry.</with-param>
 <with-param name="msg"><value-of select="count($duplicate_keywords)"/> instance(s) of duplicate keywords were found and aggregated:</with-param>
       </call-template>
       <for-each select="$duplicate_keywords">
+        <sort select="string()" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> 
         <call-template name="Log">
 <with-param name="msg" select="string()"/>
         </call-template>
@@ -143,9 +146,9 @@ glossary entry.</with-param>
    child div. -->
   <template mode="separate_keywords" match="div[@type='glossary']">
     <variable name="osisID" select="@osisID"/>
-    <variable name="isSpecial" as="xs:boolean" 
-      select="@scope = 'NAVMENU' or @annotateType = 'x-feature' or 
-        oc:sarg('glossaryTitlesInKeyword', /, 'no') = 'yes'"/>
+    <variable name="titlesInKeyword" as="xs:boolean" 
+      select="@scope = 'NAVMENU' or @annotateType = 'x-feature' 
+              or $glossaryTitlesInKeyword = 'yes'"/>
     <copy>
       <apply-templates select="@*"/>
       
@@ -175,8 +178,8 @@ glossary entry.</with-param>
       <for-each-group select="$pass1/node()" 
           group-adjacent="count(descendant-or-self::seg[@type='keyword']) + 
                           count(preceding::seg[@type='keyword']) +
-                      0.5*count(self::title[not(@level) or @level='1'][not($isSpecial)]) +
-                      0.5*count(preceding::title[not(@level) or @level='1'][not($isSpecial)])">
+                      0.5*count(self::title[not(@level) or @level='1'][not($titlesInKeyword)]) +
+                      0.5*count(preceding::title[not(@level) or @level='1'][not($titlesInKeyword)])">
       
         <for-each select="current-group()/descendant::text()[normalize-space()][1]
             [. &#60;&#60; current-group()/descendant-or-self::seg[@type='keyword']]">

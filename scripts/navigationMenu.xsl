@@ -38,6 +38,8 @@
   
   <variable name="myREF_intro" select="if ($INT_feature) then $REF_introductionINT else ''"/>
   
+  <variable name="mainGlossaryID" select="oc:sarg('mainGlossaryID', /, 'false')"/>
+  
   <template mode="identity" name="identity" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
@@ -201,9 +203,8 @@
               <variable name="titleGloss" select="/descendant::div[@type='glossary']
                                                   [oc:getDivTitle(.) = $uiDictionary][1]"/>
               <choose>
-                <when test="oc:sarg('mainGlossaryID', /, 'false') != 'false'">
-                  <sequence select="/descendant::div[@type='glossary']
-                                    [@osisID = oc:sarg('mainGlossaryID', /, 'false')]"/>
+                <when test="$mainGlossaryID != 'false'">
+                  <sequence select="/descendant::div[@type='glossary'][@osisID = $mainGlossaryID]"/>
                 </when>
                 <when test="$titleGloss and oc:conf('CombineGlossaries', /) != 'true'">
                   <sequence select="$titleGloss"/>
