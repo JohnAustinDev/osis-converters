@@ -406,6 +406,10 @@ sub filterBibleToScope {
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
   my $fullScope = &getScopeOSIS($inxml);
+  my $subPublication;
+  foreach my $sp (@SUB_PUBLICATIONS) {
+    if ($sp eq $scope) {$subPublication = $sp;}
+  }
   
   my $bookOrderP;
   my $booksFiltered = 0;
@@ -488,7 +492,7 @@ sub filterBibleToScope {
   
   # Update title references and determine pruned OSIS file's new title
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
-  if ($booksFiltered) {
+  if ($booksFiltered && !$subPublication) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
     foreach my $b (@books) {
