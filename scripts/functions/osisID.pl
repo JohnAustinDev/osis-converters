@@ -525,24 +525,6 @@ sub getVerseOsisIDs {
   return \%osisIDs;
 }
 
-sub checkUniqueOsisIDs {
-  my $in_osis = shift;
-  
-  &Log("\nCHECKING OSISIDS ARE UNIQUE IN $in_osis...\n");
-  
-  my $osis = $XML_PARSER->parse_file($in_osis);
-  my @osisIDs = $XPC->findnodes('//@osisID', $osis);
-  my %ids;
-  foreach my $id (@osisIDs) {$ids{$id->value}++;}
-  foreach my $k (sort keys %ids) {
-    if ($ids{$k} > 1) {
-      &Error("osisID attribute value is not unique: $k (".$ids{$k}.")", "There are multiple elements with the same osisID, which is not allowed.");
-    }
-  }
-  
-  &Report("Found ".@osisIDs." unique osisIDs");
-}
-
 # Write unique osisIDs to any element that requires one. Only elements
 # with osisID attributes may be targetted by an osisRef link. Certain 
 # elements have special id features for 'duplicates':

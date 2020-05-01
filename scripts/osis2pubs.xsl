@@ -24,9 +24,10 @@
   
   <!-- Remove references that target the removed NAVMENUs -->
   <variable name="removedNAVMENU_ids" as="xs:string*" 
-      select="($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
-              [ancestor::div[@scope='NAVMENU']]
-              /oc:osisRef(@osisID)"/>
+      select="($MAINMOD_DOC/descendant::*[@osisID][ancestor::div[@scope='NAVMENU']]
+              /oc:osisRef(@osisID, $MAINMOD)), 
+              ($DICTMOD_DOC/descendant::*[@osisID][ancestor::div[@scope='NAVMENU']]
+              /oc:osisRef(@osisID, $DICTMOD))"/>
   <template match="@osisRef" priority="99">
     <variable name="conversion"><!-- conversion.xsl -->
       <oc:tmp><next-match/></oc:tmp>

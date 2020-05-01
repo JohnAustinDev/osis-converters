@@ -61,11 +61,11 @@
   <variable name="removedFeatureRefs" as="xs:string*" 
       select="$MAINMOD_DOC/descendant::*[@osisID]
               [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
-              /oc:osisRef(@osisID)"/>
+              /oc:osisRef(@osisID, $MAINMOD)"/>
   <variable name="removedDictNonGloss" as="xs:string*"
       select="$DICTMOD_DOC/descendant::*[@osisID]
               [not(ancestor::div[@type = 'glossary'])]
-              /oc:osisRef(@osisID)"/>
+              /oc:osisRef(@osisID, $DICTMOD)"/>
   <template match="@osisRef" priority="99">
     <variable name="conversion"><!-- conversion.xsl -->
       <oc:tmp><next-match/></oc:tmp>

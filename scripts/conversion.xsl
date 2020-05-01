@@ -51,10 +51,12 @@
   <!-- Filter out refs that target elements of removed conversion 
   material of both DICTMOD and MAINMOD. -->
   <variable name="removedOsisIDs" as="xs:string*" 
-      select="($DICTMOD_DOC | $MAINMOD_DOC)/descendant::*[@osisID]
-              [ ancestor::*[@annotateType='x-conversion']
+      select="($MAINMOD_DOC/descendant::*[@osisID][ ancestor::*[@annotateType='x-conversion']
               [$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] ]
-              /oc:osisRef(@osisID)"/>
+              /oc:osisRef(@osisID, $MAINMOD)),
+              ($DICTMOD_DOC/descendant::*[@osisID][ ancestor::*[@annotateType='x-conversion']
+              [$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] ]
+              /oc:osisRef(@osisID, $DICTMOD))"/>
   
   <template match="@osisRef" priority="40">
     <attribute name="osisRef" 

@@ -1163,7 +1163,7 @@ sub customize_usfm2osis {
       if ($scope) {push(@instructions, "scope == $scope");} # scope is first instruction because it only effects following instructions
       if ($modType eq 'bible') {
         push(@instructions, &getOsisMap('sfmfile', $scope));
-        if (@{$USFM{$modType}{$f}{'periphType'}}) {
+        if (defined($USFM{$modType}{$f}{'periphType'}) && @{$USFM{$modType}{$f}{'periphType'}}) {
           foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
             my $osisMap = &getOsisMap($periphType, $scope);
             if (!$osisMap) {next;}
@@ -2104,12 +2104,36 @@ correct to convert these to textual rather than hyperlink references.");
   }
 }
 
+sub checkRefs {
+  my $osis = shift;
+  my $isDict = shift;
+  my $prep_xslt = shift;
+  
+  my $t = ($prep_xslt =~ /fitted/i ? ' FITTED':($prep_xslt =~ /source/i ? ' SOURCE':' '));
+  &Log("CHECKING$t OSISREF/OSISIDS IN OSIS: $osis\n");
+  
+  my $main = ($isDict ? &getModuleOsisFile($MAINMOD):$osis);
+  my $dict = ($isDict ? $osis:'');
+  
+  if ($prep_xslt) {
+    &runScript("$SCRD/scripts/$prep_xslt", \$main, '', 3);
+    if ($dict) {
+      &runScript("$SCRD/scripts/$prep_xslt", \$dict, '', 3);
+    }
+  }
+  
+  my %params = ( 'MAINMOD_URI' => $main, 'DICTMOD_URI' => $dict );
+  my $result = &runXSLT("$SCRD/scripts/checkrefs.xsl", ($isDict ? $dict:$main), '', \%params, 3);
+  
+  &Log($result."\n");
+}
+
 # Check all Scripture reference links in the source text. This does not
 # look for or check any externally supplied cross-references. This check
 # is run before fitToVerseSystem(), so it is checking that the source
 # text's references are consistent with itself. Any broken links found
 # here are either mis-parsed, or are errors in the source text.
-sub checkSourceScripRefLinks {
+sub checkMarkSourceScripRefLinks {
   my $in_osis = shift;
   
   if (&conf("ARG_SkipSourceRefCheck") =~/^true$/i) {
@@ -2189,64 +2213,6 @@ else this is a problem with the source text:
   &Report("$checked Scripture references checked. ($problems problems)\n");
 }
 
-# Check that the targets of all references in a project Bible and Dict 
-# (if present) OSIS file exist. This includes both the fixed and the 
-# source verse system references. It is assumed that the Bible OSIS file 
-# is created before the Dict OSIS file. Therefore, references in a Bible 
-# which target the Dict are not checked until the Dict is created, when 
-# they will be checked along with the Dict's references.
-sub checkReferenceLinks {
-  my $osis = shift;
-  
-  my %osisID; my %refcount; my %errors;
-  
-  my $inXML = $XML_PARSER->parse_file($osis);
-  my $inIsBible = (&getRefSystemOSIS($inXML) !~ /^Dict\./ ? 1:0);
-  
-  &Log("\nCHECKING FITTED VSYS OSISREF TARGETS IN ".($inIsBible ? 'BIBLE':'DICT')." OSIS: $osis...\n");
-  
-  &readOsisIDs(\%osisID, $inXML);
-  my $bibleOSIS;
-  my $bibleXML;
-  if ($inIsBible) {
-    $bibleOSIS = $osis;
-    $bibleXML = $inXML;
-  }
-  else {
-    $bibleOSIS = "$TMPDIR/chrl_$MAINMOD.xml";
-    &copy(&getModuleOsisFile($MAINMOD, 'Error'), $bibleOSIS);
-    $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
-    &readOsisIDs(\%osisID, $bibleXML);
-  }
-  # Check reference links in OSIS file (fixed vsys) NOT including glossary links if OSIS is a Bible
-  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, 1, ($inIsBible ? -1:0));
-  &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
-  
-  # If OSIS is NOT a Bible, now check glossary reference links in the Bible OSIS
-  if (!$inIsBible) {
-    &Log("\nCHECKING GLOSSARY OSISREF TARGETS IN BIBLE OSIS $bibleOSIS...\n");
-    &checkReferenceLinks2($bibleXML, \%refcount, \%errors, \%osisID, 1, 1);
-    &reportReferences(\%refcount, \%errors); undef(%refcount); undef(%errors);
-  }
-
-  undef(%osisID); # re-read source vsys OSIS files
-  &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$osis);
-  &Log("\nCHECKING SOURCE VSYS NON-GLOSSARY OSISREF TARGETS IN ".($inIsBible ? 'BIBLE':'DICT')." OSIS:$osis");
-  $inXML = $XML_PARSER->parse_file($osis);
-  &readOsisIDs(\%osisID, $inXML);
-  if ($inIsBible) {$bibleOSIS = $osis; $bibleXML = $inXML;}
-  else {
-    &runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$bibleOSIS);
-    &Log(" AGAINST $bibleOSIS\n");
-    $bibleXML = $XML_PARSER->parse_file($bibleOSIS);
-    &readOsisIDs(\%osisID, $bibleXML);
-  }
-  &Log("...\n");
-  # Check reference links in OSIS (source vsys) NOT including glossary links which are unchanged between fixed/source
-  &checkReferenceLinks2($inXML, \%refcount, \%errors, \%osisID, 1, -1);
-  &reportReferences(\%refcount, \%errors);
-}
-
 sub removeMissingOsisRefs {
   my $osisP = shift;
   
@@ -2277,93 +2243,6 @@ sub reportReferences {
     $total += $refcntP->{$type}; $errtot += $errorsP->{$type};
   }
   &Report("<-\"$total\" Grand total osisRefs checked. (".($errtot ? $errtot:0)." problems)");
-}
-
-sub checkReferenceLinks2 {
-  my $inxml = shift;
-  my $refcountP = shift;
-  my $errorsP = shift;
-  my $osisIDP = shift;
-  my $throwError = shift;
-  my $glossaryFlag = shift; # < 0 means check all refs except glossary refs
-                            # = 0 means check all refs
-                            # > 0 means check only glossary refs
-
-  my $osisRefWork = &getOsisRefWork($inxml);
-  
-  my @references = $XPC->findnodes('//osis:reference', $inxml);
-  my @osisRefs = $XPC->findnodes('//*[@osisRef][not(self::osis:reference)]', $inxml);
-  push(@osisRefs, @references);
-  
-  my $glosstype = 'glossary osisRef';
-  foreach my $r (@osisRefs) {
-    my $rtag = $r->toString(); $rtag =~ s/^(<[^>]*>).*?$/$1/;
-    
-    my $type;
-    if ($r->getAttribute('type') =~ /^(\Qx-glossary\E|\Qx-glosslink\E)$/) {$type = $glosstype;}
-    elsif ($r->getAttribute('type') eq 'x-note') {$type = 'osisRefs to note';}
-    else {$type = $r->nodeName.' osisRef';}
-    
-    if    ($type eq $glosstype && $glossaryFlag < 0) {next;}
-    elsif ($type ne $glosstype && $glossaryFlag > 0) {next;}
-    
-    my $osisRefAttrib = $r->getAttribute('osisRef');
-    if (!$osisRefAttrib) {
-    &Error("Reference link is missing an osisRef attribute: \"$r\"", 
-"Maybe this should not be marked as a reference? Reference tags in OSIS 
-require a valid target. When there isn't a valid target, then a 
-different USFM tag should be used instead.");
-      $errorsP->{$type}++;
-      next;
-    }
-    
-    $refcountP->{$type}++;
-    
-    if ($osisRefAttrib =~ /\s+/ && $type eq 'reference osisRef') {
-      &Error("A Scripture osisRef cannot have multiple targets: $osisRefAttrib", "Use multiple reference elements instead.");
-    }
-    
-    # The osisRef attributes of x-glosslink and x-glossary references may 
-    # contain spaces for multiple targets (but other osisRefs may not).
-    foreach my $osisRef (split(/\s+/, $osisRefAttrib)) {
-      my $rwork = ($osisRef =~ s/^(\w+):// ? $1:$osisRefWork);
-      
-      # If this is a reference to a verse, check that it follows some rules:
-      # 1) warn if a range exceeds the chapter since xulsword and other programs don't support these
-      if ($osisRef =~ /(^|\s+)\w+\.\d+(\.\d+)?(\s+|$)/) {
-        if ($osisRef =~ /^(\w+\.\d+).*?\-(\w+\.\d+).*?$/ && $1 ne $2) {
-          &Warn("An osisRef to a range of Scripture should not exceed a chapter: $osisRef", "Some software, like xulsword, does not support ranges that exceed a chapter.");
-        }
-      }
-      
-      my $failed = '';
-      foreach my $orp (split(/[\s\-]+/, $osisRef)) {
-        my $ext = ($orp =~ s/(![^!]*)$// ? $1:'');
-        if ($r->getAttribute('subType') eq 'x-external') {
-          if (!&inVersesystem($orp, $rwork, &conf('Versification'))) {
-            $failed .= "$rwork:$orp$ext ";
-          }
-        }
-        else {
-          if (!$osisIDP->{$rwork}{"$orp$ext"}) {
-            if (!$osisIDP->{$rwork}{$orp}) {
-              $failed .= "$rwork:$orp$ext ";
-            }
-            elsif ($ext ne '!PART') {
-              &Warn("$type $rwork:$orp$ext extension not found.", 
-  "<>Although the root osisID exists in the OSIS file, the extension id does not.");
-            }
-          }
-        }
-      }
-      
-      if ($failed) {
-        $errorsP->{$type}++;
-        if (!$throwError) {&Warn("$type $failed not found: ".$r->toString());}
-        else {&Error("$type not found: ".$r->toString());}
-      }
-    }
-  }
 }
 
 sub checkIntroductionTags {
@@ -2582,7 +2461,7 @@ sub runAnyUserScriptsAt {
   else {&Note("No user Perl script to run at $pathNoExt.pl");}
 }
 
-# Runs a script according to its type (its extension). The sourceP points
+# Runs a script according to its type (its extension). The inputP points
 # to the input file. If overwrite is set, the input file is overwritten,
 # otherwise the output file has the name of the script which created it.
 # Upon sucessfull completion, inputP will be updated to point to the 
@@ -2651,7 +2530,9 @@ sub runXSLT {
   my $cmd = "saxonb-xslt -ext:on";
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
-  $cmd .= " -o:" . &escfile($output);
+  if ($output) {
+    $cmd .= " -o:" . &escfile($output);
+  }
   if ($paramsP) {
     foreach my $p (sort keys %{$paramsP}) {
       my $v = $paramsP->{$p};

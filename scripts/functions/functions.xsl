@@ -20,6 +20,8 @@
   <!-- The main module code (could refer to Bible or Children's Bible) -->
   <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
   
+  <variable name="DOCWORK" as="xs:string" select="//@osisIDWork[1]"/>
+  
   <param name="MAINMOD_URI"/>
   <param name="DICTMOD_URI"/>
   <variable name="MAINMOD_DOC" select="if ($MAINMOD_URI) then doc($MAINMOD_URI) else ()"/>
@@ -778,11 +780,16 @@ one target remains.</with-param>
     
   </function>
   
-  <!-- Takes an osisID attribute, whose value may or may not have a work
-  prefix, and returns an osisRef with work prefix (thus pointing to itself). -->
-  <function name="oc:osisRef" as="xs:string">
-    <param name="osisID" as="attribute(osisID)"/>
-    <value-of select="concat(oc:myWork($osisID),':',replace($osisID,'^[^:]*:',''))"/>
+  <!-- Takes an osisID attribute value (with or without work prefixes, 
+  which are ignored), and returns a list of $work prefixed osisRef values. -->
+  <function name="oc:osisRef" as="xs:string+">
+    <param name="osisID" as="xs:string"/>
+    <param name="work" as="xs:string?"/>
+
+    <for-each select="tokenize($osisID, '\s+')">
+      <variable name="ref" select="if (contains(., ':')) then tokenize(., ':')[2] else ."/>
+      <value-of select="if ($work) then concat($work, ':', .) else ."/>
+    </for-each>
   </function>
   
   <!-- Takes an attribute name and returns all of those attributes within 
@@ -798,6 +805,17 @@ one target remains.</with-param>
       [tokenize(attribute()[local-name() = $attrib], '\s+') = $search]
       /attribute()[local-name() = $attrib]"/>
     </if>
+  </function>
+  
+  <!-- The quick way to tell if an osisRef is to scripture -->
+  <function name="oc:isScripRef" as="xs:boolean">
+    <param name="osisRef" as="xs:string?"/>
+    <param name="work" as="xs:string"/>
+
+    <variable name="work" select="if (tokenize($osisRef,':')[2]) 
+                                  then tokenize($osisRef,':')[1] 
+                                  else $work"/>
+    <value-of select="$work = $MAINMOD and not(contains($osisRef, '!'))"/>
   </function>
   
   <!-- Use this function if an element must not contain other elements 
@@ -1010,43 +1028,59 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="msg"/>
     <param name="exp"/>
     <param name="die" select="'no'"/>
-    <message terminate="{$die}">
-      <text>&#xa;</text>ERROR: <value-of select="$msg"/><text>&#xa;</text>
-      <if test="$exp">SOLUTION: <value-of select="$exp"/><text>&#xa;</text></if>
-    </message>
+    <message terminate="{$die}" select="oc:log('ERROR', $msg, 'SOLUTION', $exp)"/>
   </template>
   <template name="ErrorBug">
     <param name="msg"/>
     <param name="die" select="'no'"/>
-    <message terminate="{$die}">
-      <text>&#xa;</text>ERROR (UNEXPECTED): <value-of select="$msg"/><text>&#xa;</text>
-      <text>Please report the above unexpected ERROR to osis-converters maintainer.</text><text>&#xa;</text>
-    </message>
+    <message terminate="{$die}" select="oc:log('ERROR (UNEXPECTED)', $msg, 
+      'SOLUTION', 'Please report the above unexpected ERROR to osis-converters maintainer.')"/>
   </template>
   <template name="Warn">
     <param name="msg"/>
     <param name="exp"/>
-    <message>
-      <text>&#xa;</text>WARNING: <value-of select="$msg"/>
-      <if test="$exp"><text>&#xa;</text>CHECK: <value-of select="$exp"/></if>
-    </message>
+    <message select="oc:log('WARNING', $msg, 'CHECK', $exp)"/>
   </template>
   <template name="Note">
     <param name="msg"/>
-    <message>NOTE: <value-of select="$msg"/></message>
+    <message select="oc:log('NOTE', $msg, '', '')"/>
   </template>
   <template name="Debug">
     <param name="msg"/>
-    <if test="$DEBUG"><message>DEBUG: <value-of select="$msg"/></message></if>
+    <if test="$DEBUG"><message select="oc:log('DEBUG', $msg, '', '')"/></if>
   </template>
   <template name="Report">
     <param name="msg"/>
     <variable name="work" select="//osisText[1]/@osisIDWork"/>
-    <message><text>&#xa;</text><value-of select="if ($work) then concat($work, ' ') else ''"/>REPORT: <value-of select="$msg"/></message>
+    <message select="oc:log(concat( (if ($work) then concat($work, ' ') else ''), 'REPORT'), $msg, '', '')"/>
   </template>
   <template name="Log">
     <param name="msg"/>
-    <message><value-of select="$msg"/></message>
+    <message select="oc:log('', $msg, '', '')"/>
   </template>
+  <function name="oc:log" as="xs:string">
+    <param name="head1" as="xs:string"/>
+    <param name="str1" as="xs:string"/>
+    <param name="head2" as="xs:string"/>
+    <param name="str2" as="xs:string"/>
+    
+    <value-of>
+    <if test="matches($head1, '(ERROR|WARNING|REPORT|DEBUG)') and not(matches($str1, '^&#60;\-'))"><text>&#xa;</text></if>
+    
+    <if test="matches($str1, '\S')">
+      <if test="matches($head1, '\S')"><value-of select="concat($head1, ': ')"/></if>
+      <value-of select="replace($str1, '^(&#60;\-|\-&#62;)', '')"/>
+    </if>
+    
+    <if test="matches($str2, '\S')">
+      <text>&#xa;</text>
+      <if test="matches($head2, '\S')"><value-of select="concat($head2, ': ')"/></if>
+      <value-of select="replace($str2, '^(&#60;\-|\-&#62;)', '')"/>
+    </if>
+    
+    <if test="matches($head1, '(ERROR)') and not(matches($str1, '^&#60;\-'))"><text>&#xa;</text></if>
+    </value-of>
+    
+  </function>
   
 </stylesheet>

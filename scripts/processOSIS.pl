@@ -122,7 +122,7 @@ sub processOSIS {
   if ($addScripRefLinks) {
     &runAddScripRefLinks($modType, \$OSIS);
     &adjustAnnotateRefs(\$OSIS);
-    &checkSourceScripRefLinks($OSIS);
+    &checkMarkSourceScripRefLinks($OSIS);
   }
   else {&removeMissingOsisRefs(\$OSIS);}
 
@@ -303,7 +303,11 @@ sub runChecks {
   our %DOCUMENT_CACHE;
   undef(%DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
   
-  if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {&checkReferenceLinks($OSIS);}
+  if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {
+    &Log("\n");
+    &checkRefs($OSIS, $modType eq 'dict');
+    &checkRefs($OSIS, $modType eq 'dict', "osis2sourceVerseSystem.xsl");
+  }
   else {
   &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
 "The Bible module OSIS file must be created before the dictionary 
@@ -311,7 +315,6 @@ module OSIS file, so that all reference links can be checked. Create the
 Bible module OSIS file, then run this dictionary module again.");
   }
   
-  &checkUniqueOsisIDs($OSIS);
   &checkFigureLinks($OSIS);
   &checkIntroductionTags($OSIS);
   &checkCharacters($OSIS);
