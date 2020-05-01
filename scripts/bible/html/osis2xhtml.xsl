@@ -64,7 +64,7 @@
   
   <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
   
-  <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '64')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
+  <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '50')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
   
   <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1.1'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
   
@@ -753,9 +753,11 @@
   </template>
 
   <!-- Post processing results in a BIG speedup vs using mode='xhtml' -->
-  <template mode="postprocess" match="node()|@*"><copy><apply-templates mode="postprocess" select="node()|@*"/></copy></template>
+  <template mode="postprocess" match="node()|@*">
+    <copy><apply-templates mode="postprocess" select="node()|@*"/></copy>
+  </template>
   <!-- Don't output duplicate inline-TOC tites -->
-  <template mode="postprocess" priority="2" match="html:h1 | html:h2 | html:h3">
+  <template mode="postprocess" match="html:h1 | html:h2 | html:h3" priority="2">
     <variable name="precedingTOC" select="self::*[contains(@class, 'osis-title')]/
         preceding::text()[normalize-space()][1]/ancestor::html:div[contains(@class, 'xsl-inline-toc')][1]"/>
     <variable name="duplicateTitle" 
@@ -763,7 +765,7 @@
     <if test="not($duplicateTitle)"><next-match/></if>
   </template>
   <!-- Remove html prefixes -->
-  <template mode="postprocess" priority="1" match="*[namespace-uri()='http://www.w3.org/1999/xhtml']">
+  <template mode="postprocess" match="*[namespace-uri()='http://www.w3.org/1999/xhtml']" priority="1">
    <element name="{local-name()}" namespace="http://www.w3.org/1999/xhtml">
      <apply-templates mode="postprocess" select="node()|@*"/>
    </element>
