@@ -1266,7 +1266,7 @@
                       select="1 + ceiling( if ($isTopTOC and me:isFullWidth(., $isTopTOC)) 
                                            then string-length(string()) div $wCharsSection 
                                            else $charsSection div $wCharsSection )"/>
-                    <value-of select="concat('height:calc(', $Hem, 'em + 3px)')"/>
+                    <value-of select="concat('min-height:calc(', $Hem, 'em + 3px)')"/>
                     <!-- Width is not specified for top-TOC at the li level because it is specified
                     at a higher div level. The A-to-Z button width is not specified because it 
                     is allowed to be wider than all other button links in its list. -->

@@ -403,12 +403,8 @@ a.x-other-resource {
   overflow: hidden;
   vertical-align:top
 }
-.xsl-inline-toc .xsl-short li {
-  white-space: nowrap;
-}
 .xsl-inline-toc li > div {
   display:table;
-  height:100%;
   width:100%;
 }
 .xsl-inline-toc li > div > div {
@@ -437,6 +433,12 @@ a.x-other-resource {
 }
 #root-toc .xsl-full-width li {
   width: calc(100% - 16px); /* 16px = 2*6px of margin + 4px fluff */
+}
+.xsl-inline-toc li {
+  max-width: 50%;
+}
+.xsl-inline-toc .xsl-full-width li {
+  max-width:100%;
 }
 #root-toc .xsl-intro.xsl-odd:not(.xsl-full-width) li:first-of-type,
 #root-toc .xsl-scrip:not(.xsl-full-width) .xsl-bookGroup,
