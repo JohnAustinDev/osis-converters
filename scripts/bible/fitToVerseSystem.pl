@@ -17,7 +17,8 @@
 # <http://www.gnu.org/licenses/>.
 
 use strict;
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($READLAYER, $APPENDLAYER, $WRITELAYER);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
 our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, $OSISBOOKSRE, $NT_BOOKS, 
     %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_UNIVERSE_RE, 
     $SWORD_VERSE_SYSTEMS);
@@ -1592,6 +1593,89 @@ sub has_src_milestone {
   if (!$ms) {return '';}
   
   return ($returnElem ? $ms:$ms->getAttribute('annotateRef'));
+}
+
+# Writes the chosen verse system to an XML file for easy use by an XSLT.
+sub writeVerseSystem {
+  my $vsys = shift;
+  
+  # Read the entire verse system using SWORD
+  my $vk = new Sword::VerseKey();
+  $vk->setVersificationSystem($vsys ? $vsys:'KJV'); 
+  $vk->setIndex(0);
+  $vk->normalize();
+  my (%sdata, $lastIndex, %bks);
+  do {
+    $lastIndex = $vk->getIndex;
+    if ($vk->getOSISRef() !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+      &ErrorBug("Problem reading SWORD versekey osisRef: ".$vk->getOSISRef(), 1);
+    }
+    else {
+      $bks{$1}++; 
+      my $g = sprintf("%03i", $vk->getTestament());
+      my $b = sprintf("%03i:%s", scalar keys %bks, $1);
+      my $c = sprintf("%03i", $2);
+      my $v = sprintf("%03i", $3);
+      $sdata{$g}{$b}{$c}{$v}++;
+    }
+    $vk->increment();
+  } while ($vk->getIndex ne $lastIndex);
+  
+  # Prepare the output directory
+  my $outfile = "$MOD_OUTDIR/tmp/versification/$vsys.xml";
+  if (-e $outfile) {
+    &Note("XML Versification $vsys exists.");
+    return 1;
+  }
+  if (! -e "$MOD_OUTDIR/tmp") {
+    &ErrorBug("TMPDIR does not exist: $TMPDIR.");
+    return;
+  }
+  if (! -e "$MOD_OUTDIR/tmp/versification") {
+    mkdir "$MOD_OUTDIR/tmp/versification";
+  }
+  
+  # Write the XML file
+  if (!open(VOUT, $WRITELAYER, $outfile)) {
+    &ErrorBug("Could not write verse system to $outfile.");
+    return;
+  }
+  print VOUT 
+'<?xml version="1.0" encoding="UTF-8"?>
+<osis xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bibletechnologies.net/2003/OSIS/namespace http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"> 
+<osisText osisRefWork="'.$vsys.'" osisIDWork="'.$vsys.'"> 
+<header> 
+  <work osisWork="'.$vsys.'">
+    <title>CrossWire SWORD Verse System '.$vsys.'</title> 
+    <refSystem>Bible.'.$vsys.'</refSystem>
+  </work>
+</header>
+';
+  foreach my $gk (sort keys %sdata) {
+    print VOUT "<div type=\"bookGroup\">\n";
+    foreach my $bk (sort keys %{$sdata{$gk}}) {
+      my $b = $bk; $b =~ s/^\d+://;
+      print VOUT "  <div type=\"book\" osisID=\"$b\">\n";
+      foreach my $ck (sort keys %{$sdata{$gk}{$bk}}) {
+        my $c = $ck; $c =~ s/^0+//;
+        print VOUT "    <chapter osisID=\"$b.$c\">\n";
+        foreach my $vk (sort keys %{$sdata{$gk}{$bk}{$ck}}) {
+          my $v = $vk; $v =~ s/^0+//;
+          print VOUT "      <verse osisID=\"$b.$c.$v\"/>\n";
+        }
+        print VOUT "    </chapter>\n";
+      }
+      print VOUT "  </div>\n";
+    }
+    print VOUT "</div>\n";
+  }
+  print VOUT
+'</osisText>
+</osis>';
+  close(VOUT);
+  
+  &Note("XML Versification $vsys created.");
+  return 1;
 }
 
 1;

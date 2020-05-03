@@ -72,8 +72,10 @@ sub processOSIS {
     
     # create default DictionaryWords.xml templates
     my %params = ('notXPATH_default' => $DICTIONARY_NotXPATH_Default);
+    $params{'output'} = $DEFAULT_DICTIONARY_WORDS;
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS, \%params);
     $params{'anyEnding'} = 'true';
+    $params{'output'} = "$DEFAULT_DICTIONARY_WORDS.bible.xml";
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS.".bible.xml", \%params);
     
     if ($reorderGlossaryEntries) {
@@ -304,6 +306,7 @@ sub runChecks {
   undef(%DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
   
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {
+    &writeVerseSystem(&conf('Versification'));
     &Log("\n");
     &checkRefs($OSIS, $modType eq 'dict');
     &checkRefs($OSIS, $modType eq 'dict', "osis2sourceVerseSystem.xsl");

@@ -17,7 +17,7 @@
   <param name="notXPATH_default" select="oc:sarg('notXPATH_default', /, 
     'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]')"/>
   
-  <param name="OUTPUT_FILE"/>
+  <param name="output"/>
   
   <output method="xml" version="1.0" encoding="utf-8" omit-xml-declaration="no" indent="yes"/>
   
@@ -85,7 +85,7 @@
     </variable>
         
     <call-template name="Note">
-<with-param name="msg">Writing default DictionaryWords.xml (anyEnding=<value-of select="$anyEnding"/>): <value-of select="$OUTPUT_FILE"/> from: <value-of select="base-uri()"/>.</with-param>
+<with-param name="msg">Writing default DictionaryWords.xml (anyEnding=<value-of select="$anyEnding"/>): <value-of select="$output"/> from: <value-of select="base-uri()"/>.</with-param>
     </call-template>
     <comment>
   IMPORTANT: 

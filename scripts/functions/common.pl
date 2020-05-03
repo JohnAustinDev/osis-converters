@@ -2122,7 +2122,11 @@ sub checkRefs {
     }
   }
   
-  my %params = ( 'MAINMOD_URI' => $main, 'DICTMOD_URI' => $dict );
+  my %params = ( 
+    'MAINMOD_URI' => $main, 
+    'DICTMOD_URI' => $dict, 
+    'versification' => ($prep_xslt !~ /source/i ? &conf('Versification'):'')
+  );
   my $result = &runXSLT("$SCRD/scripts/checkrefs.xsl", ($isDict ? $dict:$main), '', \%params, 3);
   
   &Log($result."\n");
@@ -2540,7 +2544,7 @@ sub runXSLT {
       $cmd .= " $p=\"$v\"";
     }
   }
-  $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" OUTPUT_FILE=\"$output\"";
+  $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" TMPDIR=\"$MOD_OUTDIR/tmp\"";
   
   return &shell($cmd, $logFlag);
 }

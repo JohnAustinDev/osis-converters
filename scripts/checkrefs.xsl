@@ -11,15 +11,17 @@
  
   <import href="./functions/functions.xsl"/>
   
-  <param name="VERSE_SYSTEM_URI"/>
+  <param name="TMPDIR"/>
+  
+  <param name="versification"/>
   
   <output method="text"/>
   
   <key name="osisID" match="*[@osisID]" 
     use="for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')"/>
   
-  <variable name="VERSE_SYSTEM_DOC"
-    select="if ($VERSE_SYSTEM_URI) then doc($VERSE_SYSTEM_URI) else ()"/>
+  <variable name="VERSE_SYSTEM_DOC" select="if ($versification)
+    then doc(concat($TMPDIR, '/versification/', $versification, '.xml')) else ()"/>
   
   <variable name="checkingDict" select="$DOCWORK = $DICTMOD"/>
     
@@ -98,18 +100,16 @@ target, then a different USFM tag should be used instead.</with-param>
     </for-each>
  
     <!-- Erroneous Scripture targets that are outside the verse system -->
-    <if test="$VERSE_SYSTEM_URI">
-      <for-each select="$VERSE_SYSTEM_DOC">
-        <variable name="erref" select="for $e in $scriptureRefs, $r in $e/me:osisRef_atoms(@osisRef) 
-          return if (not(key('osisID', replace($r, '^[^:]+:', ''))))
-                 then () else $e"/>
-        <for-each select="$erref">
-          <call-template name="Error">
+    <for-each select="$VERSE_SYSTEM_DOC">
+      <variable name="erref" select="for $e in $scriptureRefs, $r in $e/me:osisRef_atoms(@osisRef) 
+        return if (not(key('osisID', replace($r, '^[^:]+:', ''))))
+               then $e else ()"/>
+      <for-each select="$erref">
+        <call-template name="Error">
 <with-param name="msg">Reference target outside of verse system: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
-          </call-template>
-        </for-each>
+        </call-template>
       </for-each>
-    </if>
+    </for-each>
     
     <call-template name="Report">
 <with-param name="msg">&#60;-Found "<value-of select="count(//*[@osisID])"/>" elements with osisIDs.</with-param>
