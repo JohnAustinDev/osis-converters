@@ -1324,7 +1324,6 @@ sub scanUSFM_file {
     }
     if ($_ =~ /^\\periph\s+(.*?)\s*$/) {
       my $pt = $1;
-      if (!@{$info{'periphType'}}) {$info{'periphType'} = [];}
       push(@{$info{'periphType'}}, $pt);
     }
     if ($_ =~ /^\\(c|ie)/) {last;}
@@ -3044,10 +3043,12 @@ tag number you wish to use.)\n");
       # + the bookGroup has more than one book
       # + there are no bookSubGroups in the bookGroup
       # + there is no bookGroup introduction already
+      # + the Old/NewTestamentTitle is not 'no'
       if (@bookGroups > 1 && @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
         my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
         my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
         my $testamentTitle = &conf($whichTestament.'TestamentTitle');
+        if ($testamentTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
   <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>

@@ -1612,10 +1612,10 @@ sub writeVerseSystem {
     }
     else {
       $bks{$1}++; 
-      my $g = sprintf("%03i", $vk->getTestament());
       my $b = sprintf("%03i:%s", scalar keys %bks, $1);
       my $c = sprintf("%03i", $2);
       my $v = sprintf("%03i", $3);
+      my $g = ($NT_BOOKS =~ /\b$1\b/ ? 1:0); 
       $sdata{$g}{$b}{$c}{$v}++;
     }
     $vk->increment();
