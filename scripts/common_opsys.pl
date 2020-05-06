@@ -385,42 +385,39 @@ subpub:
 }
 
 # Read a config.conf file. Return 1 if successful or else 0. Add the conf
-# file's entries to entryValueHP. If the rewriteMsgP pointer is provided
-# then write to it any entries in conf which were already present with 
-# the same value in the entryValueHP hash.
+# file's entries to entryValueHP.
 #
-# The config.conf file must start with [<main_module_name>] on the 
-# first line, followed by either CrossWire SWORD config entries (see 
-# https://wiki.crosswire.org/DevTools:conf_Files) or osis-converters 
-# specific entries. All of these entries apply to the entire project. 
-# Config entries may also be set only for specific parts of the 
-# conversion process. This is done by starting a new config section with 
-# [<script_name>]. Then the following entries will only apply to that  
-# part of the conversion process. It is possible for a particular script  
-# to overwrite the value of a general entry, and then this value will  
-# only apply during that particular part of the conversion process. The 
-# [system] section is special in that it allows the direct setting of 
-# global variables used by Perl. But it is applied by applyCONF_system() 
-# and NOT by readSetCONF() as for the other config entries.
+# The config.conf file must start with [<main_module_name>] on the first 
+# line, followed by either CrossWire SWORD config entries or osis-con-
+# verters specific entries. All of these entries apply to the entire pro-
+# ject. Config entries may also be specified for only specific parts of 
+# the conversion process. This is done by starting a new config section 
+# with [<script_name>]. Then the following entries will only apply to 
+# that part of the conversion process. Any value for a particular script  
+# will overwrite the value of a general entry. The [system] section is 
+# special in that it allows the direct setting of global variables used 
+# by Perl. NOTE: The system section is applied to Perl globals by 
+# applyCONF_system().
 #
 # If the main project has a DICT sub-project, then its config entries 
 # should be specified in a [<DICTMOD>] section.
 #
-# If there are multiple entries with the same name in the same section,
-# then their values will be serialized and separated by <nx/>.
+# There may by multiple entries for %MULTIVALUE_CONFIGS entries and each 
+# of their values will be joined together using the value of
+# $MULTIVALUE_CONFIGS{<entry>} as the separator.
 #
-# For a value to continue from one line to the next, continued lines 
-# must end with '\'.
+# Values of @CONTINUABLE_CONFIGS entries may continue from one line to 
+# the next when their line(s) end with '\'.
 sub readConfFile {
   my $conf = shift;
   my $entryValueHP = shift;
-  my $rewriteMsgP = shift;
   
   if (!open(XCONF, $READLAYER, $conf)) {return 0;}
-  my $continuation;
+  my $continuingEntry = '';
   my $section = '';
   my %data;
 
+  my $contRE = '^('.join('|', @CONTINUABLE_CONFIGS).')$';
   while(<XCONF>) {
     # ignore comment lines
     if    ($_ =~ /^#/) {next;}
@@ -429,15 +426,17 @@ sub readConfFile {
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       my $s = $1;
       $section = ($s eq $MAINMOD ? '':$s);
+      $continuingEntry = '';
       # read a ModuleName entry for the 1st section and $data{'ModuleName'}."DICT" section
       if ($. == 1) {$data{'ModuleName'} = $s;}
       elsif ($s eq $data{'ModuleName'}."DICT") {$data{"$s+ModuleName"} = $data{'ModuleName'}."DICT";}
     }
     
     # handle config entries
-    elsif ($_ =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/) {
+    elsif ($_ =~ /^\s*(.+?)\s*=\s*(.*?)\s*$/) {
       my $entryName = $1; my $value = $2;
       my $entryFull = ($section && $section ne $data{'ModuleName'} ? "$section+":'').$entryName;
+      $continuingEntry = '';
       if (!exists($data{$entryFull})) {$data{$entryFull} = $value;}
       else {
         # if this entry supports multiple values, then append another value
@@ -450,27 +449,24 @@ sub readConfFile {
           $data{$entryFull} = $value;
         }
       }
-      $continuation = ($_ =~ /\\\n/ ? $entryFull:'');
+      
+      $continuingEntry = ($data{$entryFull} =~ /\\$/ ? $entryFull:'');
+      if ($continuingEntry && $entryName !~ /$contRE/) {
+        &Error("Config entry '$entryName' must take only a single line.", "Remove all newline characters from this entry's value.");
+      }
     }
     
     # otherwise this line is part of the last line
     else {
-      chomp;
-      if ($continuation) {$data{$continuation} .= "\n$_";}
-      $continuation = ($_ =~ /\\$/ ? $continuation:'');
+      if ($continuingEntry) {$data{$continuingEntry} .= $_;}
+      $continuingEntry = ($data{$continuingEntry} =~ /\\$/ ? $continuingEntry:'');
     }
   }
   close(XCONF);
   
-  my @noneed; # to log any unnecessary config.conf entries
-  foreach my $new (sort keys %data) {
-    if ($new ne 'ModuleName' && $data{$new} eq $entryValueHP->{$new}) {
-      push(@noneed, { 'e' => $new, 'v' => $data{$new} });
-    }
-    $entryValueHP->{$new} = $data{$new};
+  foreach my $k (sort keys %data) {
+    $entryValueHP->{$k} = $data{$k};
   }
-  
-  if ($rewriteMsgP) {$$rewriteMsgP = join("\n", map($_->{'e'}.'='.$_->{'v'}, @noneed));}
   
   if (!$entryValueHP->{"ModuleName"}) {
 		&Error("No module name in $conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);

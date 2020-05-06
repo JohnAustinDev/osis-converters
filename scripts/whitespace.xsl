@@ -11,7 +11,10 @@
   
   <!-- Convert sequential \s and \n chars to a single space, everywhere -->
   <template match="text()">
-    <copy-of select="replace(., '[\s\n]+', ' ')"/>
+    <!-- regex does not support Perl (?<!\\)\n look-behind, so... -->
+    <variable name="pass1" select="replace(., '\\\n', 'xNLx')"/>
+    <variable name="pass2" select="replace($pass1, '[\s\n]+', ' ')"/>
+    <value-of select="replace($pass2, 'xNLx', '\\&#xa;')"/>
   </template>
   
   <!-- Put \n only before and/or after certain tags. Remove osis prefixes. -->

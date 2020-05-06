@@ -1480,13 +1480,16 @@ sub writeConf {
       $section = $s;
     }
     if ($elit =~ /(^|\+)ModuleName$/) {next;}
-    foreach my $val (split(/<nx\/>/, $entryValueP->{$elit})) {
+    my $sep = (exists($MULTIVALUE_CONFIGS{$e}) ? $MULTIVALUE_CONFIGS{$e}:'<nx/>');
+    foreach my $val (split(/\Q$sep/, $entryValueP->{$elit})) {
       if ($used{$elit.$val}) {next;}
       print XCONF $e."=".$val."\n";
       $used{$elit.$val}++;
     }
   }
   close(XCONF);
+
+  #use Data::Dumper; &Log(Dumper($entryValueP)."\n", 1);
 
   return &readConfFile($conf, $entryValueP);
 }
