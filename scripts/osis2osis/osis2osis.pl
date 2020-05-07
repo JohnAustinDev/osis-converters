@@ -250,51 +250,51 @@ sub convertFileStrings {
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW (except AudioCode!)
-    my %confH; &readConfFile($ccin, \%confH);
-    my $origMainmod = $confH{'ModuleName'};
+    my $confHP = &readConfFile($ccin);
+    my $origMainmod = $confHP->{'MainmodName'};
     
     # replace module names in all config keys
-    foreach my $e (sort keys %confH) {
+    foreach my $e (sort keys %{$confHP}) {
       my $e2 = $e; if ($e2 !~ s/^${origMainmod}DICT\+/${MAINMOD}DICT\+/) {next;}
-      $confH{$e2} = delete $confH{$e};
+      $confHP->{$e2} = delete($confHP->{$e});
     }
     
     # replace module names in all config values
-    foreach my $e (sort keys %confH) {
+    foreach my $e (sort keys %{$confHP}) {
       if ($e eq 'AudioCode') {next;}
-      my $new = $confH{$e};
+      my $new = $confHP->{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
       my $m1 = $new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg;
       my $m2 = $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g;
       if ($m1 || $m2) {
-        &Note("Modifying entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
-        $confH{$e} = $new;
+        &Note("Modifying entry $e\n\t\twas: ".$confHP->{$e}."\n\t\tis:  ".$new);
+        $confHP->{$e} = $new;
       }
     }
     
     # convert appropriate entry values
     my @regexs; push(@regexs, @OC_LOCALIZABLE_CONFIGS); foreach my $regex (@regexs) {$regex =~ s/^MATCHES\://;}
-    foreach my $e (sort keys %confH) {
+    foreach my $e (sort keys %{$confHP}) {
       no strict "refs";
       if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
       my $doConvert = (${"CONFIG_CONVERT_$e"} ? 1:0); # -1 means don't, 0 means keep checking but don't, 1 means do
       if (!$doConvert) {foreach my $regex (@regexs) {if ($e =~ /$regex/) {$doConvert = 1;}}}
       if ($doConvert) {
-        my $new = &transcodeStringByMode($confH{$e});
-        &Note("Converting entry $e\n\t\twas: ".$confH{$e}."\n\t\tis:  ".$new);
-        $confH{$e} = $new;
+        my $new = &transcodeStringByMode($confHP->{$e});
+        &Note("Converting entry $e\n\t\twas: ".$confHP->{$e}."\n\t\tis:  ".$new);
+        $confHP->{$e} = $new;
       }
     }
     
     # set requested values
     foreach my $e (sort keys %O2O_CONFIGS) {
       &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
-      $confH{$e} = $O2O_CONFIGS{$e};
+      $confHP->{$e} = $O2O_CONFIGS{$e};
     }
     
     # write new conf entries/values
-    &writeConf($ccout, \%confH);
+    &writeConf($ccout, $confHP);
 
     # IMPORTANT: At one time the config.conf file was re-read at this point, 
     # and progress continued. However, system variables are not re-loaded this

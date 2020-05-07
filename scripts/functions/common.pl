@@ -41,8 +41,8 @@ our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD,
     $WRITELAYER, $APPENDLAYER);
      
 # Initialized in /scripts/common_opsys.pl
-our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, 
-    %CONFIG_DEFAULTS, %MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
+our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, @SWORD_OC_CONFIGS,
+    %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM, 
     @OC_CONFIGS, @SWORD_AUTOGEN, @SWORD_CONFIGS);
     
@@ -164,7 +164,9 @@ sub init_linux_script {
     
     &readSetCONF();
     # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-    my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
+    {
+     my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || &conf('Companion', $MAINMOD) =~ /\b$cn\b/ ? $cn:'');
+    }
   }
   
   if (!-e $CONFFILE) {
@@ -224,14 +226,15 @@ sub update_removeConvertTXT {
   my $confFile = shift;
   
   &Warn("UPDATE: Found outdated convert.txt. Updating $confFile...");
-  my %confP; if (!&readConfFile($confFile, \%confP)) {
+  my $confP = &readConfFile($confFile);
+  if (!$confP) {
     &Error("Could not read config.conf file: $confFile");
     return;
   }
   
-  &updateConvertTXT("$MAININPD/eBook/convert.txt", \%confP, 'osis2ebooks');
-  &updateConvertTXT("$MAININPD/html/convert.txt", \%confP, 'osis2html');
-  return &writeConf($confFile, \%confP);
+  &updateConvertTXT("$MAININPD/eBook/convert.txt", $confP, 'osis2ebooks');
+  &updateConvertTXT("$MAININPD/html/convert.txt", $confP, 'osis2html');
+  return &writeConf($confFile, $confP);
 }
 # This is only needed to update old osis-converters projects
 sub updateConvertTXT {
@@ -317,22 +320,22 @@ sub update_removeDictConfig {
   my $confFile = shift;
 
   &Warn("UPDATE: Found outdated DICT config.conf. Updating...");
-  my %mainConf; &readConfFile($confFile, \%mainConf);
-  my %dictConf; &readConfFile($dconf, \%dictConf);
+  my $mainConfP = &readConfFile($confFile);
+  my $dictConfP = &readConfFile($dconf);
   &Warn("<-UPDATE: Removing outdated DICT config.conf: $dconf");
   unlink($dconf);
   &Note("The file: $dconf which was used for 
 DICT settings has now been replaced by a section in the config.conf 
 file. The DICT config.conf file will be deleted. Your config.conf will 
 have new section with that information.");
-  foreach my $de (sort keys %dictConf) {
-    if ($de =~ /(^|\+)(ModuleName)$/) {next;}
+  foreach my $de (sort keys %{$dictConfP}) {
+    if ($de =~ /(^MainmodName|DictmodName)$/) {next;}
     my $de2 = $de; $de2 =~ s/^$MAINMOD\+//;
-    if ($mainConf{$de2} eq $dictConf{$de} || $mainConf{"$MAINMOD+$de2"} eq $dictConf{$de}) {next;}
-    $mainConf{"$DICTMOD+$de"} = $dictConf{$de};
+    if ($mainConfP->{$de} eq $dictConfP->{$de} || $mainConfP->{"$MAINMOD+$de2"} eq $dictConfP->{$de}) {next;}
+    $mainConfP->{$de} = $dictConfP->{$de};
   }
 
-  return &writeConf($confFile, \%mainConf);
+  return &writeConf($confFile, $mainConfP);
 }
 
 # If $logfileIn is not specified then start a new one at $logfileDef.
@@ -766,8 +769,10 @@ sub checkAndWriteDefaults {
   my $haveDICT = ($MAININPD ne $INPD ? 1:0);
   if (!$haveDICT) {
     if ($CONFFILE && -e $CONFFILE) {
-      if (my $comps = $CONF->{'Companion'}) {
-        foreach my $c (split(/\s*,\s*/, $comps)) {if ($c =~ /DICT$/) {$haveDICT = 1;}}
+      if (my $comps = &conf('Companion', $MAINMOD)) {
+        foreach my $c (split(/\s*,\s*/, $comps)) {
+          if ($c =~ /DICT$/) {$haveDICT = 1;}
+        }
       }
     }
     else {
@@ -852,10 +857,10 @@ sub customize_conf {
   # then start with that instead. This SWORD conf will only have one 
   # section, and any entries in the repo conf that were added by osis-
   # converters will be dropped.
-  my %tmpConf; &readConfFile($conf, \%tmpConf); 
-  if ($tmpConf{'system+REPOSITORY'} && $tmpConf{'system+REPOSITORY'} =~ /^http/) {
+  my $tmpConfP = &readConfFile($conf); 
+  if ($tmpConfP->{'system+REPOSITORY'} && $tmpConfP->{'system+REPOSITORY'} =~ /^http/) {
     my $swautogen = join('|', @SWORD_AUTOGEN);
-    my $cfile = $tmpConf{'system+REPOSITORY'}.'/'.lc($modName).".conf";
+    my $cfile = $tmpConfP->{'system+REPOSITORY'}.'/'.lc($modName).".conf";
     my $ctext = &shell("wget \"$cfile\" -q -O -", 3);
     $ctext =~ s/^(.+?)\n\[[^\]]+\].*$/$1/s;    # strip all after next section
     $ctext =~ s/^($swautogen)\s*=[^\n]*\n//mg; # strip @SWORD_AUTOGEN entries
@@ -871,46 +876,48 @@ sub customize_conf {
   # The current $conf file is now either a copy from the SWORD 
   # REPOSITORY (minus the oc-added stuff) or the default config.conf
   
-  my %newConf; &readConfFile($conf, \%newConf); 
+  my $newConfP = &readConfFile($conf);
+  
+  &changeConfName($newConfP, $modName);
 
   # Abbreviation
-  &setConfValue(\%newConf, 'Abbreviation', $modName, 1);
-  
-  # ModuleName
-  &setConfValue(\%newConf, 'ModuleName', $modName, 1);
+  &setConfValue($newConfP, "$modName+Abbreviation", $modName, 1);
   
   # ModDrv
-  if ($modType eq 'childrens_bible') {&setConfValue(\%newConf, 'ModDrv', 'RawGenBook', 1);}
-  if ($modType eq 'bible') {&setConfValue(\%newConf, 'ModDrv', 'zText', 1);}
-  if ($modType eq 'other') {&setConfValue(\%newConf, 'ModDrv', 'RawGenBook', 1);}
+  if ($modType eq 'childrens_bible') {&setConfValue($newConfP, "$modName+ModDrv", 'RawGenBook', 1);}
+  if ($modType eq 'bible') {&setConfValue($newConfP, "$modName+ModDrv", 'zText', 1);}
+  if ($modType eq 'other') {&setConfValue($newConfP, "$modName+ModDrv", 'RawGenBook', 1);}
   
   # TitleSubPublication[scope]
   foreach my $scope (@SUB_PUBLICATIONS) {
     my $sp = $scope; $sp =~ s/\s/_/g;
-    &setConfValue(\%newConf, "TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
+    &setConfValue($newConfP, "$modName+TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
   }
   
   # FullResourceURL
-  my %c; &readConfFile($conf, \%c);
-  if ($c{"system+EBOOKS"}) {
-    if ($c{"system+EBOOKS"} =~ /^https?\:/) {
-      my $ebdir = $c{"system+EBOOKS"}."/$modName/$modName";
+  my $cP = &readConfFile($conf);
+  if ($cP->{"system+EBOOKS"}) {
+    if ($cP->{"system+EBOOKS"} =~ /^https?\:/) {
+      my $ebdir = $cP->{"system+EBOOKS"}."/$modName/$modName";
       my $r = &shell("wget \"$ebdir\" -q -O -", 3);
-      if ($r) {&setConfValue(\%newConf, 'FullResourceURL', $ebdir, 1);}
+      if ($r) {&setConfValue($newConfP, "$modName+FullResourceURL", $ebdir, 1);}
     }
-    else {&Warn("The [system] config.conf entry should be a URL: EBOOKS=".$c{"system+EBOOKS"}, "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");}
+    else {
+      &Warn("The [system] config.conf entry should be a URL: EBOOKS=".$cP->{"system+EBOOKS"}, 
+      "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");
+    }
   }
   
   # Companion + [DICTMOD] section
   if ($haveDICT) {
     my $companion = $modName.'DICT';
-    &setConfValue(\%newConf, 'Companion', $companion, 1);
-    &setConfValue(\%newConf, "$companion+Companion", $modName, 1);
-    &setConfValue(\%newConf, "$companion+ModDrv", 'RawLD4', 1);
+    &setConfValue($newConfP, "$modName+Companion", $companion, 1);
+    &setConfValue($newConfP, "$companion+Companion", $modName, 1);
+    &setConfValue($newConfP, "$companion+ModDrv", 'RawLD4', 1);
   }
-  else {&setConfValue(\%newConf, 'Companion', '', 1);}
+  else {&setConfValue($newConfP, "$modName+Companion", '', 1);}
   
-  &writeConf($conf, \%newConf);
+  &writeConf($conf, $newConfP);
   
   # Now append the following to the new config.conf:
   # - documentation comments
@@ -944,6 +951,30 @@ sub customize_conf {
       close(MCF);
     }
     else {&ErrorBug("customize_conf could not open config file $conf");}
+  }
+}
+
+# This changes the MainmodName and DictmodName (if present) of a config
+# file's raw data pointer. It does NOT change any values!
+sub changeConfName {
+  my $confP = shift;
+  my $main = shift;
+  
+  my $dict = ($confP->{'DictmodName'} ? $main.'DICT':'');
+  
+  my $mainwas = $confP->{'MainmodName'};
+  my $dictwas = $confP->{'DictmodName'};
+  
+  $confP->{'MainmodName'} = $main;
+  if ($dict) {
+    $confP->{'DictmodName'} = $dict;
+  }
+  
+  foreach my $fe (keys %{$confP}) {
+    my $nfe = $fe;
+    $nfe =~ s/^$mainwas((DICT)?\+)/$main$1/;
+    $confP->{$nfe} = $confP->{$fe};
+    delete($confP->{$fe});
   }
 }
 
@@ -1369,37 +1400,71 @@ sub scanUSFM_file {
   return \%info;
 }
 
-# Checks, and optionally updates, a param in confEntriesP.
-# Returns 1 if the value is there, otherwise 0.
-# Flag values are:
-# 0 or empty = check only
-# 1 = overwrite existing
-# 2 = add to existing value (either another entry with the same name or separated by a separator)
+# Sets a config.conf entry to a particular value (when $flag = 1) or  
+# adds another entry having the value if there isn't already one ($flag 
+# = 2) or just checks that an entry is present with the value (!$flag). 
+# Returns 1 if the config contains the value upon function exit, or 0 if 
+# it does not.
 sub setConfValue {
-  my $confEntriesP = shift;
-  my $param = shift;
+  my $confP = shift;
+  my $fullEntry = shift;
   my $value = shift;
   my $flag = shift;
   
-  my $p = $param; my $s = ($p =~ s/^([^\+]*)\+// ? $1:'');
- 
-  my $sep = '';
-  foreach my $ec (sort keys %MULTIVALUE_CONFIGS) {if ($p eq $ec) {$sep = $MULTIVALUE_CONFIGS{$ec};}}
+  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
   
-  if ($value eq $confEntriesP->{$param}) {return 1;}
-  if ($flag != 1 && $sep && $confEntriesP->{$param} =~ /(^|\s*\Q$sep\E\s*)\Q$value\E(\s*\Q$sep\E\s*|$)/) {return 1;}
-  if ($flag == 2 && !$sep) {&ErrorBug("Param '$param' cannot have multiple values, yet setConfValue flag=$flag", 1);}
+  my $e = $fullEntry;
+  my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+  if (!$s) {
+    &ErrorBug("setConfValue requires a qualified config entry name.", 1);
+  }
+ 
+  my $sep = ($e =~ /$multRE/ ? '<nx/>':'');
+  
+  if ($value eq $confP->{$fullEntry}) {return 1;}
+  if ($flag != 1 && $sep && 
+      $confP->{$fullEntry} =~ /(^|\s*\Q$sep\E\s*)\Q$value\E(\s*\Q$sep\E\s*|$)/) {
+    return 1;
+  }
+  if ($flag == 2 && !$sep) {
+    &ErrorBug("Config entry '$e' cannot have multiple values, but setConfValue flag='$flag'", 1);
+  }
   
   if (!$flag) {return 0;}
   elsif ($flag == 1) {
-    $confEntriesP->{$param} = $value;
+    $confP->{$fullEntry} = $value;
   }
   elsif ($flag == 2) {
-    if ($confEntriesP->{$param}) {$confEntriesP->{$param} .= $sep.$value;}
-    else {$confEntriesP->{$param} = $value;}
+    if ($confP->{$fullEntry}) {$confP->{$fullEntry} .= $sep.$value;}
+    else {$confP->{$fullEntry} = $value;}
   }
   else {&ErrorBug("Unexpected setConfValue flag='$flag'", 1);}
   return 1;
+}
+
+# Sets a config entry for a CrossWire SWORD module. If the entry is not
+# a valid SWORD config entry, an error is thrown.
+sub setSwordConfValue {
+  my $confP = shift;
+  my $entry = shift;
+  my $value = shift;
+  
+  if ($entry =~ /\+/) {
+    &ErrorBug("setSwordConfValue requires an unqualified config entry name.");
+  }
+  
+  my $swordAutoRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+  if ($entry !~ /$swordAutoRE/) {
+    &ErrorBug("'$entry' is not a valid SWORD entry.", 1);
+  }
+  
+  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
+  if ($entry =~ /$multRE/) {
+    &setConfValue($confP, "$MOD+$entry", $value, 2);
+  }
+  else {
+    &setConfValue($confP, "$MOD+$entry", $value, 1);
+  }
 }
 
 # If $path_or_pointer is a path, $xml is written to it. If it is a 
@@ -1442,24 +1507,7 @@ sub osis_converters {
   system($cmd.($logfile ? " 2>> ".&escfile($logfile):''));
 }
 
-
-sub readConfFromOSIS {
-  my $osis = shift;
-  
-  my %entryValue;
-  my $xml = $XML_PARSER->parse_file($osis);
-  $entryValue{'ModuleName'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[1]', $xml)}[0]->getAttribute('osisWork');
-  my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[2]', $xml)}[0];
-  if ($dict) {$entryValue{$dict->getAttribute('osisWork').'+ModuleName'} = $dict->getAttribute('osisWork');}
-  foreach my $de ($XPC->findnodes('/osis:osis[1]/osis:osisText[1]/osis:header[1]/osis:work/osis:description[starts-with(@type, "x-config")]', $xml)) {
-    my $e = $de->getAttribute('type'); $e =~ s/^x\-config\-//;
-    my $elit = (@{$XPC->findnodes('parent::osis:work', $de)}[0]->getAttribute('osisWork') eq $DICTMOD ? "$DICTMOD+$e":$e);
-    $entryValue{$elit} = $de->textContent(); 
-  }
-    
-  return \%entryValue;
-}
-
+# Read config.conf file $conf into $entryValueP and return 1 on success.
 sub writeConf {
   my $conf = shift;
   my $entryValueP = shift;
@@ -1467,91 +1515,118 @@ sub writeConf {
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
   if (!-e $confdir) {make_path($confdir);}
   
-  my $modname = $entryValueP->{'ModuleName'};
-  
-  open(XCONF, $WRITELAYER, $conf) || die "Could not open conf $conf\n";
-  print XCONF "[$modname]\n";
-  my $section = ''; my %used;
-  foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
-    my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
-    if ($s eq $modname) {$s = '';}
-    if ($s && $s ne $section) {
-      print XCONF "\n[$s]\n";
-      $section = $s;
+  if (open(XCONF, $WRITELAYER, $conf)) {
+    my $section = '';
+    foreach my $fullName (sort { &confEntrySort($a, $b, $entryValueP); } keys %{$entryValueP} ) {
+      if ($fullName =~ /^(MainmodName|DictmodName)$/) {next;}
+      else {
+        my $e = $fullName; 
+        my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+        if (!$s) {
+          &ErrorBug("Config entry has no section: $fullName", 1);
+        }
+        if ($s ne $section) {
+          print XCONF ($section ? "\n":'')."[$s]\n";
+          $section = $s;
+        }
+        
+        foreach my $val (split(/<nx\/>/, $entryValueP->{$fullName})) {
+          print XCONF $e."=".$val."\n";
+        }
+      }
     }
-    if ($elit =~ /(^|\+)ModuleName$/) {next;}
-    my $sep = (exists($MULTIVALUE_CONFIGS{$e}) ? $MULTIVALUE_CONFIGS{$e}:'<nx/>');
-    foreach my $val (split(/\Q$sep/, $entryValueP->{$elit})) {
-      if ($used{$elit.$val}) {next;}
-      print XCONF $e."=".$val."\n";
-      $used{$elit.$val}++;
-    }
+    close(XCONF);
   }
-  close(XCONF);
+  else {
+    &Error("Could not open config.conf file: $conf.");
+    return;
+  }
 
   #use Data::Dumper; &Log(Dumper($entryValueP)."\n", 1);
 
-  return &readConfFile($conf, $entryValueP);
+  $entryValueP = &readConfFile($conf);
+  return $entryValueP;
 }
 sub confEntrySort {
   my $a = shift;
   my $b = shift;
-    
-  # Module name first
-  if ($a eq 'ModuleName') {return -1;}
-  if ($b eq 'ModuleName') {return 1;}
+  my $confP = shift;
   
-  # Then by section
-  my $a2 = $a; my $b2 = $b;
-  my $as = ($a2 =~ s/(.*?)\+// ? $1:'');
-  my $bs = ($b2 =~ s/(.*?)\+// ? $1:'');
-  if ($as eq $MAINMOD) {$as = '';}
-  if ($bs eq $MAINMOD) {$bs = '';}
-  my $r = $as cmp $bs;
-  if ($r) {return $r;}
+  my $main = $confP->{'MainmodName'};
+  my $dict = $confP->{'DictmodName'};
+  
+  my $ae = $a; my $be = $b;
+  my $as = ($ae =~ s/([^\+]+)\+// ? $1:'');
+  my $bs = ($be =~ s/([^\+]+)\+// ? $1:'');
+    
+  # First by section
+  my @order = ($main, $dict, 'osis2sword', 'osis2GoBible', 'osis2html', 'osis2ebooks', 'system');
+  my $ax = @order,
+  my $bx = @order;
+  for (my $i=0; $i < @order; $i++) {
+    if ($as eq @order[$i]) {$ax = $i;}
+    if ($bs eq @order[$i]) {$bx = $i;}
+  }
+  my $res = ($ax <=> $bx);
+  if ($res) {return $res;}
   
   # Then by entry
-  return $a2 cmp $b2;
+  return $ae cmp $be;
 }
 
-# Read CrossWire SWORD $conf file from swordSource. Only SWORD config 
-# entries will be retained and only the initial [MODNAME] section is 
-# retained. All values are according to current script/mod-type context. 
-sub getSwordConfFromOSIS {
-  my $moduleSource = shift;
+# Return a list of all config entries which have values in the current 
+# context.
+sub contextConfigEntries {
   
-  # Filter and contextualize OSIS config to SWORD
-  my $entryValueP = &readConfFromOSIS($moduleSource);
-  my %swordConf;
-  foreach my $elit (sort { &confEntrySort($a, $b); } keys %{$entryValueP} ) {
-    my $e = $elit; my $s = ($e =~ s/^(.*?)\+// ? $1:'');
-    # skip sections other than SCRIPT_NAME and possibly DICT (if context is DICT then don't skip it) and also skip non-sword entries
-    if (($s && $s ne $SCRIPT_NAME && $s ne $MOD) || &isValidConfig($elit) ne 'sword') {
-      &Note("Config entry $elit will not be written to SWORD conf.");
-      next;
-    }
-    $swordConf{$e} = &conf($elit, '', '', $entryValueP);
+  my @entries;
+  foreach my $fe (keys %{$CONF}) {
+    if ($fe =~ /^(MainmodName|DictmodName)$/) {next;}
+    my $e = $fe;
+    my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+    if ($s eq 'system') {next;}
+    if (!defined(&conf($e))) {next;}
+    push(@entries, $e);
   }
   
-  my $moddrv = $swordConf{"ModDrv"};
+  return @entries;
+}
+
+# Fill a config conf data pointer with SWORD entries taken from:
+# 1) Project config.conf
+# 2) Current OSIS source file
+# 3) auto-generated 
+sub getSwordConf {
+  my $moduleSource = shift;
+  
+  my %swordConf = ( 'MainmodName' => $MOD );
+  
+  # Copy appropriate values from project config.conf
+  my $swordConfigRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+  foreach my $e (&contextConfigEntries()) {
+    if ($e !~ /$swordConfigRE/) {next;}
+    &setSwordConfValue(\%swordConf, $e, &conf($e));
+  }
+  
+  my $moddrv = $swordConf{"$MOD+ModDrv"};
   if (!$moddrv) {
-		&Error("No ModDrv specified in $moduleSource.", "Update the OSIS file by re-running sfm2osis.pl.", '', 1);
+		&Error("No ModDrv specified in $moduleSource.", 
+    "Update the OSIS file by re-running sfm2osis.pl.", '', 1);
 	}
   
 	my $dp;
-  my $mod = $swordConf{"ModuleName"};
-	if    ($moddrv eq "RawText") {$dp = "./modules/texts/rawtext/".lc($mod)."/";}
-  elsif ($moddrv eq "RawText4") {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
-	elsif ($moddrv eq "zText") {$dp = "./modules/texts/ztext/".lc($mod)."/";}
-	elsif ($moddrv eq "zText4") {$dp = "./modules/texts/ztext4/".lc($mod)."/";}
-	elsif ($moddrv eq "RawCom") {$dp = "./modules/comments/rawcom/".lc($mod)."/";}
-	elsif ($moddrv eq "RawCom4") {$dp = "./modules/comments/rawcom4/".lc($mod)."/";}
-	elsif ($moddrv eq "zCom") {$dp = "./modules/comments/zcom/".lc($mod)."/";}
-	elsif ($moddrv eq "HREFCom") {$dp = "./modules/comments/hrefcom/".lc($mod)."/";}
-	elsif ($moddrv eq "RawFiles") {$dp = "./modules/comments/rawfiles/".lc($mod)."/";}
-	elsif ($moddrv eq "RawLD") {$dp = "./modules/lexdict/rawld/".lc($mod)."/".lc($mod);}
-	elsif ($moddrv eq "RawLD4") {$dp = "./modules/lexdict/rawld4/".lc($mod)."/".lc($mod);}
-	elsif ($moddrv eq "zLD") {$dp = "./modules/lexdict/zld/".lc($mod)."/".lc($mod);}
+  my $mod = $swordConf{"MainmodName"};
+	if    ($moddrv eq "RawText")    {$dp = "./modules/texts/rawtext/".lc($mod)."/";}
+  elsif ($moddrv eq "RawText4")   {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
+	elsif ($moddrv eq "zText")      {$dp = "./modules/texts/ztext/".lc($mod)."/";}
+	elsif ($moddrv eq "zText4")     {$dp = "./modules/texts/ztext4/".lc($mod)."/";}
+	elsif ($moddrv eq "RawCom")     {$dp = "./modules/comments/rawcom/".lc($mod)."/";}
+	elsif ($moddrv eq "RawCom4")    {$dp = "./modules/comments/rawcom4/".lc($mod)."/";}
+	elsif ($moddrv eq "zCom")       {$dp = "./modules/comments/zcom/".lc($mod)."/";}
+	elsif ($moddrv eq "HREFCom")    {$dp = "./modules/comments/hrefcom/".lc($mod)."/";}
+	elsif ($moddrv eq "RawFiles")   {$dp = "./modules/comments/rawfiles/".lc($mod)."/";}
+	elsif ($moddrv eq "RawLD")      {$dp = "./modules/lexdict/rawld/".lc($mod)."/".lc($mod);}
+	elsif ($moddrv eq "RawLD4")     {$dp = "./modules/lexdict/rawld4/".lc($mod)."/".lc($mod);}
+	elsif ($moddrv eq "zLD")        {$dp = "./modules/lexdict/zld/".lc($mod)."/".lc($mod);}
 	elsif ($moddrv eq "RawGenBook") {$dp = "./modules/genbook/rawgenbook/".lc($mod)."/".lc($mod);}
 	else {
 		&Error("ModDrv \"$moddrv\" is unrecognized.", "Change it to a recognized SWORD module type.");
@@ -1560,68 +1635,72 @@ sub getSwordConfFromOSIS {
   if ($moddrv =~ /^(raw)(text|com)$/i || $moddrv =~ /^rawld$/i) {
     &Error("ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.");
   }
-  $swordConf{'DataPath'} = $dp;
+  &setSwordConfValue(\%swordConf, 'DataPath', $dp);
 
   my $type = 'genbook';
   if ($moddrv =~ /LD/) {$type = 'dictionary';}
   elsif ($moddrv =~ /Text/) {$type = 'bible';}
   elsif ($moddrv =~ /Com/) {$type = 'commentary';}
   
-  $swordConf{'Encoding'} = 'UTF-8';
-  
+  &setSwordConfValue(\%swordConf, 'Encoding', 'UTF-8');
+
   if ($moddrv =~ /Text/) {
-    $swordConf{'Category'} = 'Biblical Texts';
+    &setSwordConfValue(\%swordConf, 'Category', 'Biblical Texts');
     if ($moddrv =~ /zText/) {
-      $swordConf{'CompressType'} = 'ZIP';
-      $swordConf{'BlockType'} = 'BOOK';
+      &setSwordConfValue(\%swordConf, 'CompressType', 'ZIP');
+      &setSwordConfValue(\%swordConf, 'BlockType', 'BOOK');
     }
   }
   
   my $moduleSourceXML = $XML_PARSER->parse_file($moduleSource);
   my $sourceType = 'OSIS'; # NOTE: osis2tei.xsl still produces a TEI file having OSIS markup!
   
-  if (($type eq 'bible' || $type eq 'commentary')) {$swordConf{'Scope'} = &getScope($moduleSource);}
-  
-  if ($moddrv =~ /LD/ && !$swordConf{"KeySort"}) {
-    $swordConf{'KeySort'} = &getApproximateLangSortOrder($moduleSourceXML);
-  }
-  if ($moddrv =~ /LD/ && !$swordConf{"LangSortOrder"}) {
-    $swordConf{'LangSortOrder'} = &getApproximateLangSortOrder($moduleSourceXML);
+  if (($type eq 'bible' || $type eq 'commentary')) {
+    &setSwordConfValue(\%swordConf, 'Scope', &getScope($moduleSource));
   }
   
-  $swordConf{'SourceType'} = $sourceType;
-  if ($swordConf{"SourceType"} !~ /^(OSIS|TEI)$/) {&Error("Unsupported SourceType: ".$swordConf{"SourceType"}, "Only OSIS and TEI are supported by osis-converters", 1);}
-  if ($swordConf{"SourceType"} eq 'TEI') {&Warn("Some front-ends may not fully support TEI yet");}
+  if ($moddrv =~ /LD/ && !$swordConf{"$MOD+KeySort"}) {
+    &setSwordConfValue(\%swordConf, 'KeySort', &getApproximateLangSortOrder($moduleSourceXML));
+  }
+  if ($moddrv =~ /LD/ && !$swordConf{"$MOD+LangSortOrder"}) {
+    &setSwordConfValue(\%swordConf, 'LangSortOrder', &getApproximateLangSortOrder($moduleSourceXML));
+  }
   
-  if ($swordConf{"SourceType"} eq 'OSIS') {
+  &setSwordConfValue(\%swordConf, 'SourceType', $sourceType);
+  if ($swordConf{"$MOD+SourceType"} !~ /^(OSIS|TEI)$/) {
+    &Error("Unsupported SourceType: ".$swordConf{"$MOD+SourceType"}, 
+    "Only OSIS and TEI are supported by osis-converters", 1);
+  }
+  if ($swordConf{"$MOD+SourceType"} eq 'TEI') {
+    &Warn("Some front-ends may not fully support TEI yet");
+  }
+  
+  if ($swordConf{"$MOD+SourceType"} eq 'OSIS') {
     my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML)}[0];
     if ($vers) {
       $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
-      $swordConf{'OSISVersion'} = $vers;
+      &setSwordConfValue(\%swordConf, 'OSISVersion', $vers);
     }
     if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
-      &setConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On', 2);
+      &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 
+      'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On');
     }
-  }
 
-  if ($swordConf{"SourceType"} eq "OSIS") {
-    &setConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISFootnotes', 2);
-    &setConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISHeadings', 2);
-    &setConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISScripref', 2);
-  }
-  else {
-    delete($swordConf{'OSISVersion'});
-    $swordConf{'GlobalOptionFilter'} =~ s/(<nx\/>)?OSIS[^<]*(?=(<|$))//g;
+    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISFootnotes');
+    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISHeadings');
+    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISScripref');
   }
   
   if ($moddrv =~ /LD/) {
-    $swordConf{'SearchOption'} = 'IncludeKeyInSearch';
+    &setSwordConfValue(\%swordConf, 'SearchOption', 'IncludeKeyInSearch');
     # The following is needed to prevent ICU from becoming a SWORD engine dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
-    if ($UPPERCASE_DICTIONARY_KEYS) {$swordConf{'CaseSensitiveKeys'} = 'true';}
+    if ($UPPERCASE_DICTIONARY_KEYS) {
+      &setSwordConfValue(\%swordConf, 'CaseSensitiveKeys', 'true');
+    }
   }
 
   my @tm = localtime(time);
-  $swordConf{'SwordVersionDate'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
+  &setSwordConfValue(\%swordConf, 'SwordVersionDate', sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]));
   
   return \%swordConf;
 }
@@ -1643,23 +1722,22 @@ sub checkConfGlobals {
   }
   
   # Check companion value(s)
-  if ($DICTMOD && ($CONF->{'Companion'} || $CONF->{$DICTMOD.'+Companion'})) {
-    if ($CONF->{'Companion'} ne $CONF->{$DICTMOD.'+Companion'}.'DICT') {
-      &Error("config.conf companion entries are inconsistent: ".$CONF->{'Companion'}.", ".$CONF->{$DICTMOD.'+Companion'}, "Correct values should be:\n[$MOD]\nCompanion=$DICTMOD\n[$DICTMOD]\nCompanion=$MOD\n");
-    }
+  if ($DICTMOD && &conf('Companion', $MAINMOD) ne &conf('Companion', $DICTMOD).'DICT') {
+    &Error("config.conf companion entries are inconsistent: ".&conf('Companion', $MAINMOD).", ".&conf('Companion', $DICTMOD), 
+    "Correct values should be:\n[$MOD]\nCompanion=$DICTMOD\n[$DICTMOD]\nCompanion=$MOD\n");
   }
-  
+
   if ($INPD ne $DICTINPD) {
     # Check for UI that needs localization
     foreach my $s (@SUB_PUBLICATIONS) {
       my $sp = $s; $sp =~ s/\s/_/g;
-      if ($CONF->{"TitleSubPublication[$sp]"} && $CONF->{"TitleSubPublication[$sp]"} !~ / DEF$/) {next;}
-      &Warn("Sub publication title config entry 'TitleSubPublication[$sp]' is not localized: ".$CONF->{"TitleSubPublication[$sp]"}, 
+      if (&conf("TitleSubPublication[$sp]") && &conf("TitleSubPublication[$sp]") !~ / DEF$/) {next;}
+      &Warn("Sub publication title config entry 'TitleSubPublication[$sp]' is not localized: ".&conf("TitleSubPublication[$sp]"), 
       "You should localize the title in config.conf with: TitleSubPublication[$sp]=Localized Title");
     }
   }
   
-  if ($DICTMOD && !($CONF->{'KeySort'} || $CONF->{$DICTMOD.'+KeySort'})) {
+  if ($DICTMOD && !&conf('KeySort', $DICTMOD)) {
     &Error("KeySort is missing from config.conf", '
 This required config entry facilitates correct sorting of glossary 
 keys. EXAMPLE:
@@ -1675,7 +1753,7 @@ ADDITIONAL \ added before it. This is required so the KeySort value can
 be parsed correctly. This means the string to ignore all brackets and 
 parenthesis would be: {\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}');
   }
-  if ($DICTMOD && !($CONF->{'LangSortOrder'} || $CONF->{$DICTMOD.'+LangSortOrder'})) {
+  if ($DICTMOD && !&conf('LangSortOrder', $DICTMOD)) {
     &Error("LangSortOrder is missing from config.conf", "
 Although this config entry has been replaced by KeySort and is 
 deprecated and no longer used by osis-converters, for now it is still 
@@ -2685,7 +2763,7 @@ sub searchForISBN {
   my %isbns; my $isbn;
   my @checktxt = ($xml ? $XPC->findnodes('//text()', $xml):());
   my @checkconfs = ('About', 'Description', 'ShortPromo', 'TextSource', 'LCSH');
-  foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, $mod, '', '', 1));}
+  foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, $mod));}
   foreach my $tn (@checktxt) {
     if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
       $isbn = $2;
@@ -2697,16 +2775,15 @@ sub searchForISBN {
 
 # Write all work children elements for modname to osisWorkP. The modname 
 # must be either the value of $MAINMOD or $DICTMOD. Note that each raw 
-# conf value is written to the work element matching its section (context 
-# specific values from &conf are not written). This means that retreiving 
-# the usual context specific value from the header data requires 
-# searching both MAIN and DICT work elements. 
+# conf value is written to the work element matching its section. This 
+# means that retreiving the usual context specific value from the header 
+# data requires searching both MAIN and DICT work elements. 
 sub getOSIS_Work {
   my $modname = shift; 
   my $osisWorkP = shift;
   my $isbn = shift;
   
-  my $section = ($modname eq $DICTMOD ? "$DICTMOD+":'');
+  my $section = ($modname eq $DICTMOD ? "$DICTMOD+":"$MAINMOD+");
  
   my @tm = localtime(time);
   my %type;
@@ -2801,16 +2878,17 @@ sub mapConfig {
   my $osisWorkP = shift;
   my $modname = shift;
   
-  foreach my $confEntry (sort keys %{$CONF}) {
+  foreach my $fullEntry (sort keys %{$CONF}) {
     if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" $prefix entries.");}
-    elsif ($modname && $confEntry =~ /DICT\+/ && $modname ne $DICTMOD) {next;}
-    elsif ($modname && $confEntry !~ /DICT\+/ && $modname eq $DICTMOD) {next;}
-    elsif ($confEntry =~ /Title$/ && $CONF->{$confEntry} =~ / DEF$/) {next;}
-    elsif ($confEntry eq 'system+OUTDIR') {next;}
+    elsif ($modname && $fullEntry =~ /DICT\+/ && $modname ne $DICTMOD) {next;}
+    elsif ($modname && $fullEntry !~ /DICT\+/ && $modname eq $DICTMOD) {next;}
+    elsif ($fullEntry =~ /Title$/ && $CONF->{$fullEntry} =~ / DEF$/) {next;}
+    elsif ($fullEntry eq 'system+OUTDIR') {next;}
     else {
-      $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $CONF->{$confEntry};
-      $confEntry =~ s/[^\-]+DICT\+//;
-      $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$confEntry";
+      $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'textContent'} = $CONF->{$fullEntry};
+      $fullEntry =~ s/[^\-]+DICT\+//;
+      my $xmlEntry = $fullEntry; $xmlEntry =~ s/^$MAINMOD\+//;
+      $osisWorkP->{sprintf("%06i:%s", $index, $elementName)}{'type'} = "$prefix-$xmlEntry";
       $index++;
     }
   }
@@ -3093,7 +3171,8 @@ tag number you wish to use.)\n");
       my $confentry = 'ARG_'.$div->getAttribute('osisID'); $confentry =~ s/\!.*$//;
       my $confTitle = &conf($confentry);
       my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
-      my $titleSubPublication = $CONF->{"TitleSubPublication[".$div->getAttribute('scope')."]"};
+      my $titleSubPublication = ( $div->getAttribute('scope') ? 
+        &conf("TitleSubPublication[".$div->getAttribute('scope')."]") : '' );
       # Look in OSIS file for a title element
       $tocTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $div)}[0];
       if ($tocTitle) {
@@ -3149,9 +3228,6 @@ sub getScopeTitle {
   my $scope = shift;
   
   $scope =~ s/\s/_/g;
-  if (!$CONF->{"TitleSubPublication[$scope]"}) {
-    return '';
-  }
   return &conf("TitleSubPublication[$scope]");
 }
 
@@ -3432,9 +3508,8 @@ sub removeDefaultWorkPrefixes {
   }
 }
 
-# Take an input temporary file path and return the path of a new temp-
-# orary file in the same directory, which is sequentially numbered and 
-# does not already exist. 
+# Take an input file path and return the path of a new temporary file, 
+# which is sequentially numbered and does not already exist. 
 sub temporaryFile {
   my $path = shift;
   my $outname = shift;
@@ -3451,6 +3526,11 @@ sub temporaryFile {
   if (!$file) {&ErrorBug("Could not parse temporaryFile file $path", 1);}
   my $ext = ($file =~ s/^(.*?)\.([^\.]+)$/$1/ ? $2:'');
   if (!$ext) {&ErrorBug("Could not parse temporaryFile ext $path", 1);}
+  
+  # make sure our output path is under the project tmp directory
+  if ($dir !~ /^\Q$TMPDIR/) {
+    $dir = "$MOD_OUTDIR/tmp";
+  }
   
   opendir(TDIR, $dir) || &ErrorBug("Could not open temporaryFile dir $dir", 1);
   my @files = readdir(TDIR);
@@ -3473,6 +3553,25 @@ sub temporaryFile {
   }
 
   return $p;
+}
+
+# XSLT has an uncontrollable habit of creating huge numbers of WARNINGS, 
+# so only print the first of each.
+sub LogXSLT {
+  my $log = shift;
+  
+  my (%seen, $last);
+  foreach my $l (split(/^/, $log)) {
+    if ($l =~ /^WARNING:/) {
+      if (exists($seen{$l})) {next;}
+      $seen{$l}++;
+    }
+    
+    if ($l eq $last) {next;}
+    
+    &Log($l);
+    $last = $l;
+  }
 }
 
 1;

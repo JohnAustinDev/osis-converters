@@ -114,7 +114,7 @@ sub osis2pubs {
         $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
-        my $title = ($pscope && $CONF->{"TitleSubPublication[$pscope]"} ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
+        my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
         &OSIS_To_ePublication($convertTo, $title, $bk);
       }
     }

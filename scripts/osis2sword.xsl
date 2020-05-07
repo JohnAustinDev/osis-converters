@@ -84,7 +84,7 @@
     <attribute name="osisRef" select="replace($osisRef2, ' .*$', '')"/>
     <if test="matches($osisRef2, ' .*$')">
       <call-template name="Warn">
-<with-param name="msg">Removing secondary targets of <value-of select="parent::*/string()"/> osisRef="<value-of select="$osisRef2"/>"</with-param>
+<with-param name="msg">Removing secondary targets of osisRef="<value-of select="$osisRef2"/>"</with-param>
       </call-template>
     </if>
   </template>

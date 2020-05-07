@@ -29,14 +29,15 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($INOSIS, $SWOUT, $OUTZIP, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, 
+our ($INOSIS, $SWOUT, $OUTZIP, $MOD_OUTDIR, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, 
     $XML_PARSER, $UPPERCASE_DICTIONARY_KEYS);
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
-my $Sconf = &getSwordConfFromOSIS($INOSIS);
-my $SModDrv = $Sconf->{'ModDrv'};
-my $SModPath = &dataPath2RealPath($Sconf->{'DataPath'});
+my $Sconf = &getSwordConf($INOSIS);
+my $SModDrv = $Sconf->{"$MOD+ModDrv"};
+my $SModPath = &dataPath2RealPath($Sconf->{"$MOD+DataPath"});
+my $SModVsys = $Sconf->{"$MOD+Versification"};
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
 # Prepare osis-converters OSIS for SWORD import
@@ -45,7 +46,7 @@ my %params = (
   'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
   'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
 );
-&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS, \%params);
+&LogXSLT(&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS, \%params, 3));
 
 &usePngIfAvailable(\$INOSIS);
 
@@ -63,7 +64,7 @@ if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
 
 # Copy images and set Feature conf entry
 if (&copyReferencedImages(\$INOSIS, $INPD, "$SWOUT/$SModPath")) {
-  $Sconf->{'Feature'} = ($Sconf->{'Feature'} ? $Sconf->{'Feature'}."<nx/>":"")."Images";
+  &setSwordConfValue($Sconf, 'Feature', ($Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"}."<nx/>":"")."Images");
 }
 
 # If this is a DICT module, validate all glossary references in both the
@@ -102,26 +103,26 @@ if ($SModDrv =~ /LD/) {
 
 # Set MinimumVersion conf entry
 my $msv = "1.6.1";
-if ($Sconf->{'Versification'} ne "KJV") {
+if ($SModVsys ne "KJV") {
   my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3);
   if ($vers =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {$msv = "1.6.2";}
-  if ($Sconf->{'Versification'} eq "SynodalProt") {$msv = "1.7.0";}
-  $Sconf->{'MinimumVersion'} = $msv;
+  if ($SModVsys eq "SynodalProt") {$msv = "1.7.0";}
+  &setSwordConfValue($Sconf, 'MinimumVersion', $msv);
 }
 
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
-  &Log("\n--- CREATING $MOD SWORD MODULE (".$Sconf->{'Versification'}.")\n");
-  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$Sconf->{'Versification'}.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
+  &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
+  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
-	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE (".$Sconf->{'Versification'}.")\n");
+	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE ($SModVsys)\n");
 	chdir("$SWOUT/$SModPath");
   &shell(&escfile($SWORD_BIN."xml2gbs")." $INOSIS ".lc($MOD), -1);
 	chdir($SCRD);
 }
 elsif ($SModDrv =~ /LD/) {
-  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE (".$Sconf->{'Versification'}.")\n");
+  &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE ($SModVsys)\n");
   &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
   opendir(MODF, "$SWOUT/$SModPath");
@@ -137,8 +138,8 @@ else {
 }
 
 # Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry
-if ($Sconf->{'PreferredCSSXHTML'}) {
-  my $cssfile = &getDefaultFile(($SModDrv =~ /LD/ ? 'dict':'bible')."/sword/css/".$Sconf->{'PreferredCSSXHTML'});
+if ($Sconf->{"$MOD+PreferredCSSXHTML"}) {
+  my $cssfile = &getDefaultFile(($SModDrv =~ /LD/ ? 'dict':'bible')."/sword/css/".$Sconf->{"$MOD+PreferredCSSXHTML"});
   copy($cssfile, "$SWOUT/$SModPath");
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }
@@ -147,7 +148,7 @@ if ($Sconf->{'PreferredCSSXHTML'}) {
 {
   my $installSize = 0;             
   find(sub { $installSize += -s if -f $_ }, "$SWOUT/$SModPath");
-  $Sconf->{'InstallSize'} = $installSize;
+  &setSwordConfValue($Sconf, 'InstallSize', $installSize);
 }
 
 # Write the SWORD config.conf file
@@ -156,10 +157,8 @@ if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
 &writeConf($SwordConfFile, $Sconf);
 &zipModule($OUTZIP, $SWOUT);
 
-&Log("\n\nFINAL CONF FILE CONTENTS:\n", 1);
-open(XCONF, $READLAYER, $SwordConfFile) || die "Could not open $SwordConfFile\n";
-while(<XCONF>) {&Log("$_", 1);}
-close(XCONF);
+# Copy config.conf for CVS
+&copy(&escfile($SwordConfFile), "$MOD_OUTDIR/config.conf");
 
 &timer('stop');
 

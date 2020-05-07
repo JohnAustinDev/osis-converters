@@ -97,7 +97,7 @@ our $CONFFILE = "$MAININPD/config.conf";
 &readSetCONF();
 # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
 {
- my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{'Companion'} =~ /\b$cn\b/ ? $cn:'');
+ my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{"$MAINMOD+Companion"} =~ /\b$cn\b/ ? $cn:'');
 }
 
 # Allow running MAININPD-only scripts from a DICT sub-project

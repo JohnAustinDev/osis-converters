@@ -19,6 +19,7 @@
   <param name="DICTMOD" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>
   <!-- The main module code (could refer to Bible or Children's Bible) -->
   <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
+  <variable name="MAINTYPE" select="$MAINMOD/parent::*/type/@type"/>
   
   <variable name="DOCWORK" as="xs:string" select="//@osisIDWork[1]"/>
   
@@ -815,7 +816,9 @@ one target remains.</with-param>
     <variable name="work" select="if (tokenize($osisRef,':')[2]) 
                                   then tokenize($osisRef,':')[1] 
                                   else $work"/>
-    <value-of select="$work = $MAINMOD and not(contains($osisRef, '!'))"/>
+    <value-of select="not($DICTMOD and $work = $DICTMOD) 
+                      and not($work = $MAINMOD and $MAINTYPE ne 'x-bible') 
+                      and not(contains($osisRef, '!'))"/>
   </function>
   
   <!-- Use this function if an element must not contain other elements 

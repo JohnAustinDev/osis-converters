@@ -43,8 +43,8 @@ our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN,
 
 # Config entries that are defined by CrossWire SWORD standard
 our @SWORD_CONFIGS = (
-  'MATCHES:History_[\d\.]+', 'ModuleName', "Abbreviation", "Description", 
-  "DataPath", "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", 
+  'MATCHES:History_[\d\.]+', "Abbreviation", "Description", "DataPath", 
+  "ModDrv", "SourceType", "Encoding", "CompressType", "BlockType", 
   "BlockCount", "Versification", "CipherKey", "KeyType", "CaseSensitiveKeys", 
   "GlobalOptionFilter", "Direction", "DisplayLevel", "Font", "Feature", 
   "GlossaryFrom", "GlossaryTo", "PreferredCSSXHTML", "About", "SwordVersionDate", 
@@ -71,7 +71,7 @@ our @SWORD_AUTOGEN = (
 
 # Valid osis-converters config file entries (in addition to SWORD entries)
 our @OC_CONFIGS = (
-  'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 
+  'MATCHES:TitleSubPublication\[\S+\]', 
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'CreateSeparatePubs', 'FullResourceURL', 
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
@@ -107,15 +107,11 @@ our @CONTINUABLE_CONFIGS = (
   'TextSource'
 );
 
-# These are config entries which may have multiple values, and their 
-# separators. If the separator is </nx> the entry can appear multiple 
-# times, and each appearance is an additional array value. All other 
-# config entries throughout osis-converters may only have one value per 
-# context of the config file, or an error will be given.
-our %MULTIVALUE_CONFIGS = (
-  'GlobalOptionFilter' => '<nx/>', 'Feature' => '<nx/>', 
-  'Obsoletes' => '<nx/>', 'AudioCode' => ','
-); 
+# These are config entries which may appear multiple times within a 
+# config.conf context and thus its value is rather an array of values. 
+# All other config entries throughout osis-converters may only have one 
+# value per context of the config file, or an error will be given.
+our @MULTIVALUE_CONFIGS = ('GlobalOptionFilter', 'Feature', 'Obsoletes'); 
 
 # Default values for config entries which have a default value. A 'doc:'
 # value is used to document what certain values mean; used to add
@@ -384,8 +380,8 @@ subpub:
   return @scopes;
 }
 
-# Read a config.conf file. Return 1 if successful or else 0. Add the conf
-# file's entries to entryValueHP.
+# Read a config.conf file. Return hash pointer to the encoded config
+# data if successful or else undef.
 #
 # The config.conf file must start with [<main_module_name>] on the first 
 # line, followed by either CrossWire SWORD config entries or osis-con-
@@ -402,78 +398,92 @@ subpub:
 # If the main project has a DICT sub-project, then its config entries 
 # should be specified in a [<DICTMOD>] section.
 #
-# There may by multiple entries for %MULTIVALUE_CONFIGS entries and each 
-# of their values will be joined together using the value of
-# $MULTIVALUE_CONFIGS{<entry>} as the separator.
+# There may by multiple entries for @MULTIVALUE_CONFIGS entries and each 
+# of the values will be joined together using <nx/> as separator.
 #
 # Values of @CONTINUABLE_CONFIGS entries may continue from one line to 
 # the next when their line(s) end with '\'.
 sub readConfFile {
-  my $conf = shift;
-  my $entryValueHP = shift;
+  my $file = shift;
   
-  if (!open(XCONF, $READLAYER, $conf)) {return 0;}
+  my $contRE = &configRE(@CONTINUABLE_CONFIGS);
+  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
+  
+  &Note("Reading config.conf: $file");
+ 
+  if (!open(XCONF, $READLAYER, $file)) {return;}
+  
   my $continuingEntry = '';
   my $section = '';
-  my %data;
-
-  my $contRE = '^('.join('|', @CONTINUABLE_CONFIGS).')$';
+  my %conf;
   while(<XCONF>) {
     # ignore comment lines
-    if    ($_ =~ /^#/) {next;}
+    if ($_ =~ /^#/) {next;}
+    
+    elsif ($_ =~ /^\s*$/) {
+      $continuingEntry = '';
+      next;
+    }
     
     # handle section headings
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
-      my $s = $1;
-      $section = ($s eq $MAINMOD ? '':$s);
+      $section = $1;
       $continuingEntry = '';
-      # read a ModuleName entry for the 1st section and $data{'ModuleName'}."DICT" section
-      if ($. == 1) {$data{'ModuleName'} = $s;}
-      elsif ($s eq $data{'ModuleName'}."DICT") {$data{"$s+ModuleName"} = $data{'ModuleName'}."DICT";}
+      
+      if ($. == 1) {
+        $conf{'MainmodName'} = $section;
+      }
+      elsif ($section eq $conf{'MainmodName'}."DICT") {
+        $conf{'DictmodName'} = $section;
+      }
     }
     
     # handle config entries
     elsif ($_ =~ /^\s*(.+?)\s*=\s*(.*?)\s*$/) {
-      my $entryName = $1; my $value = $2;
-      my $entryFull = ($section && $section ne $data{'ModuleName'} ? "$section+":'').$entryName;
+      my $e = $1; my $v = $2;
+      
+      my $fullEntry = "$section+$e";
       $continuingEntry = '';
-      if (!exists($data{$entryFull})) {$data{$entryFull} = $value;}
+      if (!exists($conf{$fullEntry})) {
+        $conf{$fullEntry} = $v;
+      }
       else {
         # if this entry supports multiple values, then append another value
-        if (exists($MULTIVALUE_CONFIGS{$entryName})) {
-          $data{$entryFull} .= $MULTIVALUE_CONFIGS{$entryName}.$value;
+        if ($e =~ /$multRE/) {
+          $conf{$fullEntry} .= "<nx/>$v";
         }
         # otherwise overwrite previous value
         else {
-          &Warn("The config.conf entry '$entryFull' appears more than once: was=".$data{$entryFull}.", is now=$value. $_");
-          $data{$entryFull} = $value;
+          &Warn("The config.conf entry '$fullEntry' appears more than once: was=".$conf{$fullEntry}.", is now=$v. $_");
+          $conf{$fullEntry} = $v;
         }
       }
       
-      $continuingEntry = ($data{$entryFull} =~ /\\$/ ? $entryFull:'');
-      if ($continuingEntry && $entryName !~ /$contRE/) {
-        &Error("Config entry '$entryName' must take only a single line.", "Remove all newline characters from this entry's value.");
+      # is this entry continuing to next line?
+      $continuingEntry = ($conf{$fullEntry} =~ s/\\$/\\\n/ ? $fullEntry:'');
+      if ($continuingEntry && $e !~ /$contRE/) {
+        &Error("Config entry '$e' must take only a single line.", "Remove all newline characters from this entry's value.");
       }
     }
     
-    # otherwise this line is part of the last line
+    # is this line part of the previous line?
+    elsif ($continuingEntry) {
+      chomp;
+      $conf{$continuingEntry} .= $_;
+      $continuingEntry = ($conf{$continuingEntry} =~ s/\\$/\\\n/ ? $continuingEntry:'');
+    }
     else {
-      if ($continuingEntry) {$data{$continuingEntry} .= $_;}
-      $continuingEntry = ($data{$continuingEntry} =~ /\\$/ ? $continuingEntry:'');
+      &Error("Unhandled config.conf line: $_");
     }
   }
   close(XCONF);
   
-  foreach my $k (sort keys %data) {
-    $entryValueHP->{$k} = $data{$k};
-  }
-  
-  if (!$entryValueHP->{"ModuleName"}) {
-		&Error("No module name in $conf.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
+  if (!$conf{"MainmodName"}) {
+		&Error("No module name in $file.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
 	}
-  
-  #use Data::Dumper; &Log(Dumper($entryValueHP)."\n", 1);
-  return 1;
+
+  #use Data::Dumper; &Log(Dumper(\%conf)."\n", 1);
+  return \%conf;
 }
 
 sub readSetCONF {
@@ -481,146 +491,150 @@ sub readSetCONF {
   # Perl variables from the [system] section of config.conf are only 
   # set by applyCONF_system() and they are NOT set by readSetCONF().
 
-  our $CONF = {};
-  if (!&readConfFile($CONFFILE, $CONF)) {return 0;}
+  our $CONF = &readConfFile($CONFFILE);
+  if (!$CONF) {return 0;}
+  
+  my $mainmod = $CONF->{'MainmodName'};
+  my $dictmod = $CONF->{'DictmodName'};
   
   # Config Defaults
-  my $ocConfRE = '('.join('|', @OC_CONFIGS).')';
+  my $configRE = &configRE(@OC_CONFIGS);
   foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
     if (exists($CONFIG_DEFAULTS{$e})) {
-      if (!exists($CONF->{$e})) {$CONF->{$e} = $CONFIG_DEFAULTS{$e};}
+      if (!exists($CONF->{"$mainmod+$e"})) {
+        $CONF->{"$mainmod+$e"} = $CONFIG_DEFAULTS{$e};
+      }
     }
-    elsif ($e =~ /$ocConfRE/ && $e !~ /^MATCHES\:/) {&ErrorBug("OC_CONFIGS $e does not have a default value.");}
+    elsif ($e =~ /$configRE/ && $e !~ /^MATCHES\:/) {
+      &ErrorBug("OC_CONFIGS $e should have a default value.");
+    }
   }
   
   #use Data::Dumper; &Debug(Dumper($CONF)."\n");
   return 1;
 }
 
-# Whereas $CONF is just the raw data of the config.conf file. This 
-# function returns the current value of a config parameter according to  
-# the present script and module context. It also checks that the
-# request is allowable.
+# $CONF contains encoded data from the config.conf file. This function, 
+# when used with only one argument, returns the proper value of a config 
+# parameter, taking into account the context of $MOD and $SCRIPT_NAME. 
+# Also, when passing explicit values for $mod and/or $script_name, the 
+# config value for any other context can also be read.
 sub conf {
   my $entry = shift;
-  my $mod = shift;          #optional ($MOD)
-  my $script_name = shift;  #optional ($SCRIPT_NAME)
-  my $confP = shift;        #optional ($CONF)
-  my $allowmissing = shift; #optional ('')
+  my $mod = shift;          #optional, context is $MOD
+  my $script_name = shift;  #optional, context is $SCRIPT_NAME
   
-  my $confP = ($confP ? $confP:$CONF);
   $mod = ($mod ? $mod:$MOD);
   $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
  
   my $key = '';
-  my $isConf = &isValidConfig($entry);
+  my $isConf = &isValidConfig("$mod+$entry");
   if (!$isConf) {
     &ErrorBug("Unrecognized config request: $entry");
   }
   elsif ($isConf eq 'system') {
-    &ErrorBug("Config request $entry is from the special [system] section; use \$$entry rather than &conf('$entry') to access [system] section values.");
+    &ErrorBug("Config request $entry is in the [system] section; use \$$entry rather than &conf('$entry') to access [system] section values.");
   }
-  elsif (exists($confP->{$script_name.'+'.$entry})) {
+  elsif (exists($CONF->{$script_name.'+'.$entry})) {
     $key = $script_name.'+'.$entry;
   }
-  elsif ($DICTMOD && $mod eq $DICTMOD && exists($confP->{$mod.'+'.$entry})) {
+  elsif ($CONF->{'DictmodName'} && $mod eq $CONF->{'DictmodName'} && exists($CONF->{$mod.'+'.$entry})) {
     $key = $mod.'+'.$entry;
   }
-  elsif (exists($confP->{$entry})) {$key = $entry;}
-  
-  if (!$allowmissing && !$key && $entry !~ /(^ARG_|SubPublication)/) {
-    &Error("Failed to find config.conf entry $entry.", "Add $entry=<value> to the appropriate section of the config.conf file.");
+  elsif (exists($CONF->{$CONF->{'MainmodName'}.'+'.$entry})) {
+    $key = $CONF->{'MainmodName'}.'+'.$entry;
   }
-  #&Debug("entry=$entry, config-key=$key, value=".$confP->{$key}."\n");
   
-  &isValidConfigValue($key, $confP);
+  #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
+  
+  &isValidConfigValue($key, $CONF);
 
-  return ($key ? $confP->{$key}:'');
+  return ($key ? $CONF->{$key}:undef);
+}
+
+# Checks if the config entry name is valid (isValidConfigValue() checks
+# the values).
+# Returns 0 if $e is not a valid config entry.
+# Returns 'sword-autogen' if it is a SWORD auto-generated entry.
+# Returns 'sword' if it is an otherwise valid SWORD config.conf entry.
+# Returns 'system' if it is a valid [system] config.conf entry.
+# Returns 1 otherwise (valid, but nothing special).
+sub isValidConfig {
+  my $fullEntry = shift;
+  
+  if ($fullEntry =~ /^(MainmodName|DictmodName)$/) {
+    return 1;
+  }
+  
+  my $e = $fullEntry;
+  my $s = ($e =~ s/^(.*?)\+// ? $1:'');
+  if (!$s) {return 0;}
+  
+  # check for system entries (all of which may only appear in the system section)
+  my $systemRE = &configRE(@OC_SYSTEM);
+  if ($e =~ /$systemRE/) {
+    if ($s ne 'system') {return 0;}
+    return 'system';
+  }
+  if ($s eq 'system') {return 0;}
+
+  # check for SWORD autogen
+  my $swordAutoRE = &configRE(@SWORD_AUTOGEN);
+  if ($e =~ /$swordAutoRE/) {return 'sword-autogen';}
+  
+  # check for other SWORD
+  my $swordRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+  if ($e =~ /$swordRE/) {return 'sword';}
+  
+  # check for other valid
+  my $valid = &configRE(@OC_CONFIGS);
+  if ($e =~ /$valid/) {return 1;}
+  
+  return 0;
 }
 
 sub isValidConfigValue {
   my $fullEntry = shift;
   my $confP = shift;
   
-  my $entry = $fullEntry; $entry =~ s/^[^\+]*\+//;
-  if ($fullEntry =~ /Title/ && $confP->{$fullEntry} =~ / DEF$/) {
-    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'", "Add $entry=<localized-title> to the config.conf file.");
-    #use Carp qw(longmess); &Log("Here is the stack trace where $entry was requested:\n".&longmess(), 1);
+  my $e = $fullEntry; $e =~ s/^[^\+]+\+//;
+  
+  if ($e =~ /Title/ && $confP->{$fullEntry} =~ / DEF$/) {
+    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'", 
+    "Add $e=<localized-title> to the config.conf file.");
     return 0;
   }
   
-  if ($confP->{$fullEntry} =~ /<nx\/>/ && $MULTIVALUE_CONFIGS{$entry} ne '<nx/>') {
-    &Error("It is not allowed to have multiple '$entry' entries in config.conf: ".$confP->{$fullEntry},"Remove all but one '$entry' entries from config.conf.");
+  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
+  if ($confP->{$fullEntry} =~ /<nx\/>/ && $e !~ /$multRE/) {
+    &Error("It is not allowed to have multiple '$e' entries in config.conf: ".$confP->{$fullEntry},
+      "Remove all but one '$e' entries from config.conf.");
     return 0;
   }
   
   return 1;
 }
 
-
-# Returns 0 if $e is not a valid config entry.
-# Returns 'sword-autogen' if it is a SWORD auto-generated entry.
-# Returns 'sword' if it is an otherwise valid SWORD config.conf entry.
-# Returns 'system' if it is a valid [system] config.conf entry.
-# Returns 1 otherwise (valid, but not special).
-#
-# Although the section is not required, supplying it, like: system+FONTS
-# allows more complete checking.
-sub isValidConfig {
-  my $e = shift;
+# Builds a single regex from any number of entries of any of the global 
+# config entry lists (such as @SWORD_CONFIGS) which can then be used to 
+# match against any config entry to test for membership.
+sub configRE {
+  my @arr = @_;
   
-  my $s = ($e =~ s/^(.*?)\+// ? $1:''); # so that section is not required
-  
-  # check for system
-  foreach my $ce (@OC_SYSTEM) {
-    if ($e eq $ce) {
-      if ($s && $s ne 'system') {return 0;}
-      return 'system';
+  my @entryRE;
+  foreach my $e (@arr) {
+    # handle special case SWORD_LOCALIZABLE_CONFIGS
+    my $a = '';
+    foreach my $slc (@SWORD_LOCALIZABLE_CONFIGS) {
+      if ($e eq $slc) {$a = '(_\w+)?';}
     }
-  }
-  if ($s eq 'system') {return 0;}
-
-  # check for autogen
-  foreach my $ce (@SWORD_AUTOGEN) {
-    if ($e eq $ce) {return 'sword-autogen';}
+    
+    # remove MATCHES and treat the rest as regex
+    $e =~ s/^MATCHES://;
+    push(@entryRE, "$e$a");
   }
   
-  # check for sword or other-valid
-  my @a; push(@a, @SWORD_CONFIGS, @SWORD_OC_CONFIGS, @OC_CONFIGS);
-  foreach my $e (@SWORD_LOCALIZABLE_CONFIGS) {
-    if ($e =~ /^MATCHES\:/) {push(@a, $e.'(_\w+)');}
-    else {push(@a, 'MATCHES:'.$e.'(_\w+)');}
-  }
-  foreach my $sc (@a) {
-    my $r=0;
-    my $re;
-    if ($sc =~ /^MATCHES\:(.*?)$/) {
-      $re = $1;
-      if ($e =~ /^$re$/) {$r++;}
-    }
-    elsif ($e eq $sc) {$r++;}
-    if ($r) {
-      foreach my $ce (@OC_CONFIGS) {
-        if ($ce =~ /^MATCHES\:(.*?)$/) {
-          $re = $1;
-          if ($e =~ /^$re$/) {
-            if (my $s = $+{scope}) { # this will only be defined for TitleSubPublication
-              $s =~ s/_/ /g;
-              foreach my $scope (@SUB_PUBLICATIONS) {if ($scope eq $s) {return 1;}}
-              &Error("Unrecognized sub-publication in: $e", 
-                "The sub-publication listed between the brackets must have an sfm subdirectory associated with it.");
-              return 0;
-            }
-            return 1;
-          }
-        }
-        if ($e eq $ce) {return 1;}
-      }
-      return 'sword';
-    }
-  }
-  
-  return 0;
+  return (@entryRE ? '^('.join('|', @entryRE).')$':'');
 }
 
 # Look for an osis-converters default file or directory in the following 

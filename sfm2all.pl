@@ -38,11 +38,11 @@ if (&conf('Companion')) {
 "There should be a $companion subdirectory of $MOD which 
 contains command files and resources for the DICT module."); 
     }
-    if (!&conf("$companion+ModDrv")) {
+    if (!&conf("ModDrv", $companion)) {
       &Error("ModDrv of companion project \"$companion\" is not specified in $CONFFILE.", 
 "Specify the ModDrv entry in the [$companion] section of $CONFFILE.");
     }
-    else {$modules{"$INPD/$companion"} = &conf("$companion+ModDrv");}
+    else {$modules{"$INPD/$companion"} = &conf("ModDrv", $companion);}
   }
 }
 

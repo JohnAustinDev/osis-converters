@@ -106,7 +106,7 @@ target, then a different USFM tag should be used instead.</with-param>
                then $e else ()"/>
       <for-each select="$erref">
         <call-template name="Error">
-<with-param name="msg">Reference target outside of verse system: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg">Reference target is outside verse system: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
         </call-template>
       </for-each>
     </for-each>
