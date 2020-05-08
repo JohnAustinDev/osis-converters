@@ -518,11 +518,13 @@ sub readSetCONF {
 # when used with only one argument, returns the proper value of a config 
 # parameter, taking into account the context of $MOD and $SCRIPT_NAME. 
 # Also, when passing explicit values for $mod and/or $script_name, the 
-# config value for any other context can also be read.
+# config value for any other context can also be read. If $quiet is set
+# return value checking is disabled.
 sub conf {
   my $entry = shift;
   my $mod = shift;          #optional, context is $MOD
   my $script_name = shift;  #optional, context is $SCRIPT_NAME
+  my $quiet = shift;
   
   $mod = ($mod ? $mod:$MOD);
   $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
@@ -547,7 +549,7 @@ sub conf {
   
   #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
   
-  &isValidConfigValue($key, $CONF);
+  if (!$quiet) {&isValidConfigValue($key, $CONF);}
 
   return ($key ? $CONF->{$key}:undef);
 }

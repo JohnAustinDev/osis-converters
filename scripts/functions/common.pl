@@ -1584,7 +1584,7 @@ sub contextConfigEntries {
     my $e = $fe;
     my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
     if ($s eq 'system') {next;}
-    if (!defined(&conf($e))) {next;}
+    if (!defined(&conf($e, undef, undef, 1))) {next;}
     push(@entries, $e);
   }
   

@@ -223,13 +223,18 @@ sub convertFileStrings {
     &Note("Converted ".@glossIDs2Convert." glossary osisRef values.");
     
     # Convert osisRef, annotateRef and osisID work prefixes
-    my $w = $sourceProject; $w =~ s/DICT$//;
+    my $w = $sourceProject;
     my @ids = $XPC->findnodes('//*[contains(@osisRef, "'.$w.':") or contains(@osisRef, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('osisRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisRef', $new);}
+    &Note("Converted ".@ids." osisRef values.");
+    
     my @ids = $XPC->findnodes('//*[contains(@annotateRef, "'.$w.':") or contains(@annotateRef, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('annotateRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('annotateRef', $new);}
+    &Note("Converted ".@ids." annotateRef values.");
+    
     my @ids = $XPC->findnodes('//*[contains(@osisID, "'.$w.':") or contains(@osisID, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('osisID'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisID', $new);}
+    &Note("Converted ".@ids." osisID values.");
     
     # Convert all text nodes after Header (unless skipped)
     my @textNodes = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/following::text()', $xml);
@@ -252,16 +257,21 @@ sub convertFileStrings {
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW (except AudioCode!)
     my $confHP = &readConfFile($ccin);
     my $origMainmod = $confHP->{'MainmodName'};
+    my $origDictmod = $confHP->{'DictmodName'};
     
     # replace module names in all config keys
     foreach my $e (sort keys %{$confHP}) {
-      my $e2 = $e; if ($e2 !~ s/^${origMainmod}DICT\+/${MAINMOD}DICT\+/) {next;}
+      my $e2 = $e;
+      if ($origDictmod) {
+        $e2 =~ s/^${origDictmod}\+/${DICTMOD}\+/;
+      }
+      $e2 =~ s/^${origMainmod}\+/${MAINMOD}\+/;
       $confHP->{$e2} = delete($confHP->{$e});
     }
     
     # replace module names in all config values
     foreach my $e (sort keys %{$confHP}) {
-      if ($e eq 'AudioCode') {next;}
+      if ($e =~ /\+AudioCode/) {next;}
       my $new = $confHP->{$e};
       my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
@@ -274,23 +284,28 @@ sub convertFileStrings {
     }
     
     # convert appropriate entry values
-    my @regexs; push(@regexs, @OC_LOCALIZABLE_CONFIGS); foreach my $regex (@regexs) {$regex =~ s/^MATCHES\://;}
-    foreach my $e (sort keys %{$confHP}) {
+    my $loconfigRE = &configRE(@OC_LOCALIZABLE_CONFIGS);
+    foreach my $fullEntry (sort keys %{$confHP}) {
       no strict "refs";
-      if (${"CONVERT_$e"}) {&Error("The setting SET_CONVERT_$e is no longer supported.", "Change it to SET_CONFIG_$e instead.");}
-      my $doConvert = (${"CONFIG_CONVERT_$e"} ? 1:0); # -1 means don't, 0 means keep checking but don't, 1 means do
-      if (!$doConvert) {foreach my $regex (@regexs) {if ($e =~ /$regex/) {$doConvert = 1;}}}
-      if ($doConvert) {
-        my $new = &transcodeStringByMode($confHP->{$e});
-        &Note("Converting entry $e\n\t\twas: ".$confHP->{$e}."\n\t\tis:  ".$new);
-        $confHP->{$e} = $new;
+      my $e = $fullEntry;
+      my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+      if (${"CONVERT_$e"}) {
+        &Error("The setting SET_CONVERT_$e is no longer supported.", 
+        "Change it to SET_CONFIG_$e instead.");
+      }
+      if (${"CONFIG_CONVERT_$e"} || $e =~ /$loconfigRE/) {
+        my $new = &transcodeStringByMode($confHP->{$fullEntry});
+        &Note("Converting entry $e\n\t\twas: ".$confHP->{$fullEntry}."\n\t\tis:  ".$new);
+        $confHP->{$fullEntry} = $new;
       }
     }
     
     # set requested values
     foreach my $e (sort keys %O2O_CONFIGS) {
+      my $fullEntry = $e;
+      if ($fullEntry !~ /\+/) {$fullEntry = "$MAINMOD+$e";}
       &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
-      $confHP->{$e} = $O2O_CONFIGS{$e};
+      $confHP->{$fullEntry} = $O2O_CONFIGS{$e};
     }
     
     # write new conf entries/values
