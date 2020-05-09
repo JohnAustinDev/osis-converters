@@ -28,7 +28,7 @@ our ($INPD, $LOGFILE);
 # osis2osis_2.pl script starts over, using the new config.conf, and then
 # applies the CCOSIS instructions to complete the conversion.
 
-&osis_converters("$SCRD/scripts/osis2osis/osis2osis_2.pl", $INPD, $LOGFILE);
+&osis_converters("$SCRD/scripts/osis2osis/osis2osis.pl", $INPD);
 
 &timer('stop');
 

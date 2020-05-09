@@ -138,8 +138,8 @@ sub init_linux_script {
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
   # If appropriate, do either runCF_osis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis also creates input control files)
-  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT_NAME =~ /^(osis2osis|sfm2all)$/) {
-    require("$SCRD/scripts/osis2osis/osis2osis.pl");
+  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT =~ /(?<!osis2osis)\/(osis2osis|sfm2all)\.pl$/) {
+    require("$SCRD/scripts/osis2osis/functions.pl");
     &runCF_osis2osis('preinit');
     our $MOD_OUTDIR = &getModuleOutputDir();
     if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
