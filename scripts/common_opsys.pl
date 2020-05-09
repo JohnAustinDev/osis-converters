@@ -1015,7 +1015,7 @@ sub Log {
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
   if ($p =~ /ERROR/) {
-    my $ne = &conf('ARG_noError');
+    my $ne = &conf('ARG_noErr');
     if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
   }
   elsif ($p =~ /^[\n\s]*WARNING\:/) {
