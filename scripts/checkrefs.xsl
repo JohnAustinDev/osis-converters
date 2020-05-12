@@ -23,7 +23,7 @@
   <variable name="VERSE_SYSTEM_DOC" select="if ($versification)
     then doc(concat($TMPDIR, '/versification/', $versification, '.xml')) else ()"/>
   
-  <variable name="checkingDict" select="$DOCWORK = $DICTMOD"/>
+  <variable name="checkingDict" select="boolean($DICTMOD) and $DOCWORK = $DICTMOD"/>
     
   <variable name="scriptureRefs" as="element()*" select="//*[@osisRef][oc:isScripRef(@osisRef, $DOCWORK)]"/>
   
@@ -31,7 +31,7 @@
   to a DICTMOD will only be checked when OSIS file is the DICTMOD,  
   because MAINMOD is assumed to be created before DICTMOD is created. -->
   <variable name="checkSelf" as="element()*" select="//*[@osisRef][not(@subType='x-external')]
-    [$checkingDict or not(starts-with(@osisRef, $DICTMOD))]"/>
+    [$checkingDict or not($DICTMOD) or not(starts-with(@osisRef, $DICTMOD))]"/>
     
   <variable name="checkMain" as="element()*" select="$MAINMOD_DOC//*[@osisRef]
     [$checkingDict and starts-with(@osisRef, $DICTMOD)]"/>

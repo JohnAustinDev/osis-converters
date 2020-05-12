@@ -1141,12 +1141,12 @@ sub matchRef {
   }
 
   # Book|CurrentChap? v-v VerseTerms
-  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/si)) {
+  if (($matchleft || !$$typeP) && ($$tP =~ /^($PREM)((($ebookNames|$currentBookTerms|$currentChapTerms)($suffixTerms)*\s*)?(\d+)\s*($verseTerms)?\s*($continuationTerms)\s*(\d+)\s*($verseTerms))/si)) {
     my $pre = $1;
     my $ref = $2;
     my $tbook = $4;
     my $tvs = $6;
-    my $tlv = $8;
+    my $tlv = $9;
 
     my $index = length($pre);
     if (!$matchleft || $index < $lowestIndex || ($index == $lowestIndex && length($ref) < $shortestMatch)) {
