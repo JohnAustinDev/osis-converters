@@ -641,18 +641,23 @@ sub filterScriptureReferences {
   my %tranOsisBooks   = map {$_->value, 1} @{$XPC->findnodes('//osis:div[@type="book"]/@osisID', $xmlBibleTran)};
   my $noBooksPruned = (join(' ', sort keys %prunedOsisBooks) eq join(' ', sort keys %tranOsisBooks));
   
-  my $fullResourceURL = @{$XPC->findnodes('/descendant::*[contains(@type, "FullResourceURL")][1]/@type', $xmlBiblePruned)}[0];
-  if ($fullResourceURL) {$fullResourceURL = $fullResourceURL->value;}
-  my $mayRedirect = ($fullResourceURL && !$noBooksPruned);
+  my $fullResourceURL = @{$XPC->findnodes('/descendant::*[contains(@type, "FullResourceURL")][1]', $xmlBiblePruned)}[0];
+  if ($fullResourceURL) {$fullResourceURL = $fullResourceURL->textContent;}
+  my $mayRedirect = ($fullResourceURL && $fullResourceURL !~ /false/i && !$noBooksPruned);
   
   &Log("\n--- FILTERING Scripture references in \"$osisToFilter\"\n", 1);
-  &Log("Deleting unreadable cross-reference notes and removing hyper-links for references which target outside ".($noBooksPruned ? 'the translation':"\"$osisBiblePruned\""));
+  &Log("Deleting unreadable cross-reference notes and removing hyper-links for 
+references which target outside ".($noBooksPruned ? 'the translation':"\"$osisBiblePruned\""));
   if ($mayRedirect) {
-    &Log(", unless they may be redirected to \"$fullResourceURL\"");
+    &Log(", unless they may be\nredirected to \"$fullResourceURL\"");
   }
-  elsif (!$noBooksPruned) {
+  else {
     &Log(".\n");
-    &Warn("You could redirect some cross-reference notes, rather than removing them, by specifying FullResourceURL in config.conf");
+  }
+  
+  if (!$noBooksPruned && !$mayRedirect) {
+    &Error("Redirect some cross-reference notes, rather than removing them.", 
+    "Specify FullResourceURL in config.conf with the URL of the full ePublication.");
   }
 
   # xref = cross-references, sref = scripture-references, nref = no-osisRef-references

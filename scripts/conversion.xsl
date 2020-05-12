@@ -87,7 +87,7 @@
       </call-template>
     </if>
     
-    <if test="not(boolean($DICTMOD_DOC) and boolean($MAINMOD_DOC))">
+    <if test="boolean($DICTMOD) and not(boolean($DICTMOD_DOC) and boolean($MAINMOD_DOC))">
       <call-template name="Warn">
 <with-param name="msg">References to any removed osisIDs are not being checked.</with-param>
 <with-param name="exp">Pass DICTMOD_URI and MAINMOD_DOC to conversion.xsl to enable checking and forwarding of these references.</with-param>
