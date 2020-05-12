@@ -48,18 +48,12 @@
     </call-template>
   
     <!-- Duplicate osisIDs -->
-    <variable name="all_osisIDs" as="xs:string*" select="//*[@osisID]/@osisID"/>
-    <variable name="unique_osisIDs" as="xs:string*" select="distinct-values($all_osisIDs)"/>
-    <if test="count($all_osisIDs) != count($unique_osisIDs)">
-      <for-each-group select="$all_osisIDs" group-by=".">
-        <if test="count(current-group()) &#62; 1">
-          <call-template name="Error">
-<with-param name="msg">osisID attribute value is not unique: <value-of select="."/></with-param>
+    <for-each select="//*[@osisID][(for $i in tokenize(@osisID, '\s+') return count(key('osisID', $i))) != 1]">
+      <call-template name="Error">
+<with-param name="msg">osisID attribute value is not unique: <value-of select="@osisID"/></with-param>
 <with-param name="exp">There are multiple elements with the same osisID, which is not allowed.</with-param>
-          </call-template>
-        </if>
-      </for-each-group>
-    </if>
+      </call-template>
+    </for-each>
     
     <!-- Bad osisRef values -->
     <for-each select="//reference[not(@osisRef) or not(normalize-space(@osisRef))]">
