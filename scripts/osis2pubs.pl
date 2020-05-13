@@ -999,14 +999,14 @@ sub readServerScopes {
   
   my %result;
   
-  my @fileList; &updateURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
+  my @fileList; &getURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
   
-  foreach my $file (@fileList) {
+  foreach my $file (sort @fileList) {
     if ($file =~ /\/$/) {next;} # skip directories
     
     # ./2005/Prov_Full.azw3
-    my $dir = $file; 
-    my $filename = ($dir =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2)$/$1/ ? $2:'');
+    my $dirname = $file; 
+    my $filename = ($dirname =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2)$/$1/ ? $2:'');
     if (!$filename) {next;}
     
     # Get scope from $filename, which is [fileNumber-][title__][scope]_[type]
@@ -1020,7 +1020,7 @@ sub readServerScopes {
     
     my $scope = $pscope; $scope =~ s/_/ /g;
     if ($result{$scope}) {next;} # keep first found
-    $result{$scope} = "/$dir";
+    $result{$scope} = "/$dirname";
   }
   
   return \%result

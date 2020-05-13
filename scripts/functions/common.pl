@@ -462,7 +462,7 @@ sub checkFont {
   # font support, and can use FONT_FILES whenever fonts files are needed.
   
   # FONTS can be a URL in which case update the local font cache
-  if ($FONTS =~ /^https?\:/) {$FONTS = &updateURLCache('fonts', $FONTS, 12);}
+  if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 12);}
 
   if ($FONTS && ! -e $FONTS) {
     &Error("config.conf specifies FONTS as \"$FONTS\" but this path does not exist. FONTS will be unset.", "Change the value of FONTS in the [system] section of config.conf to point to an existing path or URL.");
@@ -506,14 +506,15 @@ sub checkFont {
   }
 }
 
-# Cache files from a URL to an .osis-converters subdirectory. The cache 
-# will NOT be updated if it was already updated less than $updatePeriod 
-# hours ago. If an array pointer $listingAP is provided, then files will 
-# NOT be downloaded, rather, the directory listing will be written to 
-# $listingAP. Directories in the listing end with '/'. For $listingAP
-# to work, the URL must target an Apache server directory where html 
-# listing is enabled. The path to the URLCache subdirectory is returned.
-sub updateURLCache {
+# Returns the local path to files cached from a URL. The cache will 
+# first be updated, if it was last updated more than $updatePeriod hours 
+# ago. If an array pointer $listingAP is provided, then files will not  
+# be downloaded to the cache. Rather, a directory listing will be cached 
+# instead, and that listing returned in $listingAP. Directories in the 
+# listing end with '/'. For $listingAP to work, the URL must target an 
+# Apache server directory where html listing is enabled. The path to the  
+# URLCache subdirectory is returned.
+sub getURLCache {
   my $subdir = shift; # local .osis-converters subdirectory to update
   my $url = shift; # URL to read from
   my $updatePeriod = shift; # hours between updates (0 updates always)

@@ -719,7 +719,7 @@
 
   </function>
   
-  <!-- Returns a copy of an elements, adding TOC instruction $instr to every keyword -->
+  <!-- Returns a copy of an element, adding TOC instruction $instr to every keyword -->
   <function name="oc:setKeywordTocInstruction">
     <param name="element" as="node()+"/>
     <param name="instr" as="xs:string"/>
@@ -811,11 +811,11 @@ one target remains.</with-param>
   <!-- The quick way to tell if an osisRef is to scripture -->
   <function name="oc:isScripRef" as="xs:boolean">
     <param name="osisRef" as="xs:string?"/>
-    <param name="work" as="xs:string"/>
+    <param name="parentWork" as="xs:string"/>
 
     <variable name="work" select="if (tokenize($osisRef,':')[2]) 
                                   then tokenize($osisRef,':')[1] 
-                                  else $work"/>
+                                  else $parentWork"/>
     <value-of select="not($DICTMOD and $work = $DICTMOD) 
                       and not($work = $MAINMOD and $MAINTYPE ne 'x-bible') 
                       and not(contains($osisRef, '!'))"/>
@@ -826,7 +826,7 @@ one target remains.</with-param>
   of the container $element, which is divided and duplicated accordingly.
   Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
-    <param name="element" as="node()"/><!-- any non-element just returned -->
+    <param name="element" as="node()"/><!-- any non-element will just be returned -->
     <param name="expel" as="node()*"/> <!-- node(s) to be expelled -->
     <param name="quiet" as="xs:boolean"/>
     
@@ -1033,34 +1033,41 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="die" select="'no'"/>
     <message terminate="{$die}" select="oc:log('ERROR', $msg, 'SOLUTION', $exp)"/>
   </template>
+  
   <template name="ErrorBug">
     <param name="msg"/>
     <param name="die" select="'no'"/>
     <message terminate="{$die}" select="oc:log('ERROR (UNEXPECTED)', $msg, 
       'SOLUTION', 'Please report the above unexpected ERROR to osis-converters maintainer.')"/>
   </template>
+  
   <template name="Warn">
     <param name="msg"/>
     <param name="exp"/>
     <message select="oc:log('WARNING', $msg, 'CHECK', $exp)"/>
   </template>
+  
   <template name="Note">
     <param name="msg"/>
     <message select="oc:log('NOTE', $msg, '', '')"/>
   </template>
+  
   <template name="Debug">
     <param name="msg"/>
     <if test="$DEBUG"><message select="oc:log('DEBUG', $msg, '', '')"/></if>
   </template>
+  
   <template name="Report">
     <param name="msg"/>
     <variable name="work" select="//osisText[1]/@osisIDWork"/>
     <message select="oc:log(concat( (if ($work) then concat($work, ' ') else ''), 'REPORT'), $msg, '', '')"/>
   </template>
+  
   <template name="Log">
     <param name="msg"/>
     <message select="oc:log('', $msg, '', '')"/>
   </template>
+  
   <function name="oc:log" as="xs:string">
     <param name="head1" as="xs:string"/>
     <param name="str1" as="xs:string"/>
@@ -1083,7 +1090,6 @@ chmod +r <value-of select="$tmpResult"/>
     
     <if test="matches($head1, '(ERROR)') and not(matches($str1, '^&#60;\-'))"><text>&#xa;</text></if>
     </value-of>
-    
   </function>
   
 </stylesheet>

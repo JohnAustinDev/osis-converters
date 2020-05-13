@@ -47,7 +47,7 @@
       </with-param>
     </call-template>
   
-    <!-- Duplicate osisIDs -->
+    <!-- Check for duplicate osisIDs -->
     <for-each select="//*[@osisID][(for $i in tokenize(@osisID, '\s+') return count(key('osisID', $i))) != 1]">
       <call-template name="Error">
 <with-param name="msg">osisID attribute value is not unique: <value-of select="@osisID"/></with-param>
@@ -55,7 +55,7 @@
       </call-template>
     </for-each>
     
-    <!-- Bad osisRef values -->
+    <!-- Check for bad osisRef values -->
     <for-each select="//reference[not(@osisRef) or not(normalize-space(@osisRef))]">
       <call-template name="Error">
 <with-param name="msg">Reference link is missing an osisRef attribute: <value-of select="parent::*/string()"/></with-param>
@@ -77,7 +77,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </for-each>
     
-    <!-- Missing targets -->
+    <!-- Check OSIS file's osisRef targets -->
     <variable name="missing" as="element()*">
       <for-each select="($MAINMOD_DOC | $DICTMOD_DOC)">
         <variable name="prefixRE" select="concat('^', //@osisIDWork[1], ':')"/>
@@ -93,7 +93,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </for-each>
  
-    <!-- Erroneous Scripture targets that are outside the verse system -->
+    <!-- Check for Scripture targets that are outside the verse system -->
     <for-each select="$VERSE_SYSTEM_DOC">
       <variable name="erref" select="for $e in $scriptureRefs, $r in $e/me:osisRef_atoms(@osisRef) 
         return if (not(key('osisID', replace($r, '^[^:]+:', ''))))
@@ -105,11 +105,12 @@ target, then a different USFM tag should be used instead.</with-param>
       </for-each>
     </for-each>
     
+    <!-- Report number of elements with osisIDs-->
     <call-template name="Report">
 <with-param name="msg">&#60;-Found "<value-of select="count(//*[@osisID])"/>" elements with osisIDs.</with-param>
     </call-template>
     
-    <!-- glossary osisRefs checked -->
+    <!-- Report number of glossary osisRefs -->
     <variable name="glossary_reference" select="$checkSelf[self::reference][starts-with(@type,'x-gloss')]"/>
     <if test="count($glossary_reference)">
       <call-template name="Report">
@@ -117,7 +118,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </if>
     
-    <!-- milestone osisRefs checked -->
+    <!-- Report number of milestone osisRefs -->
     <variable name="milestone" select="$checkSelf[self::milestone]"/>
     <if test="count($milestone)">
       <call-template name="Report">
@@ -125,7 +126,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </if>
     
-    <!-- note osisRefs checked -->
+    <!-- Report number of note osisRefs -->
     <variable name="note" select="$checkSelf[self::note]"/>
     <if test="count($note)">
       <call-template name="Report">
@@ -133,7 +134,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </if>
     
-    <!-- osisRefs to notes checked -->
+    <!-- Report number of osisRefs to notes -->
     <variable name="note_reference" select="$checkSelf[self::reference][@type='x-note']"/>
     <if test="count($note_reference)">
       <call-template name="Report">
@@ -141,7 +142,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </if>
     
-    <!-- reference osisRefs checked -->
+    <!-- Report number of reference osisRefs -->
     <variable name="reference" select="$checkSelf[self::reference][not(starts-with(@type,'x-gloss'))][not(@type='x-note')]"/>
     <if test="count($reference)">
       <call-template name="Report">
@@ -149,16 +150,16 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </if>
     
+    <!-- Report total number of osisRefs -->
     <call-template name="Report">
 <with-param name="msg">&#60;-"<value-of select="count($checkSelf)"/>" Grand total osisRef attributes checked.</with-param>
     </call-template>
     
+    <!-- Check MAIN references to DICT targets -->
     <if test="$DOCWORK = $DICTMOD">
       <call-template name="Log">
 <with-param name="msg">OSIS MAINMOD REFERENCES TO DICTMOD:</with-param>
       </call-template>
-      
-      <!-- MAIN reference to missing DICT targets -->
       <for-each select="$DICTMOD_DOC">
         <variable name="missing" select="for $e in $checkMain, $r in $e/me:osisRef_atoms(@osisRef) 
           return if (key('osisID', replace($r, '^[^:]+:', ''))) then () else $e"/>
@@ -169,6 +170,7 @@ target, then a different USFM tag should be used instead.</with-param>
         </for-each>
       </for-each>
       
+      <!-- Report number of MAIN references to DICT -->
       <if test="count($checkMain)">
         <call-template name="Report">
 <with-param name="msg">&#60;-"<value-of select="count($checkMain)"/>" main osisRef attributes to dict checked.</with-param>
