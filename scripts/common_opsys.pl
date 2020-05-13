@@ -66,7 +66,7 @@ our @SWORD_OC_CONFIGS = (
 our @SWORD_AUTOGEN = (
   'DataPath', 'Category', 'CompressType', 'BlockType', 'SourceType', 
   'OSISVersion', 'GlobalOptionFilter', 'Scope', 'SearchOption', 
-  'SwordVersionDate', 'InstallSize'
+  'SwordVersionDate', 'InstallSize', 'MinimumVersion', 'CaseSensitiveKeys'
 );
 
 # Valid osis-converters config file entries (in addition to SWORD entries)

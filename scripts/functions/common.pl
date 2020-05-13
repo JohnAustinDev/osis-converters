@@ -855,44 +855,75 @@ sub customize_conf {
   }
  
   # If there is any existing $modName conf that is located in a repository 
-  # then start with that instead. This SWORD conf will only have one 
-  # section, and any entries in the repo conf that were added by osis-
-  # converters will be dropped.
-  my $tmpConfP = &readConfFile($conf); 
-  if ($tmpConfP->{'system+REPOSITORY'} && $tmpConfP->{'system+REPOSITORY'} =~ /^http/) {
-    my $swautogen = join('|', @SWORD_AUTOGEN);
-    my $cfile = $tmpConfP->{'system+REPOSITORY'}.'/'.lc($modName).".conf";
-    my $ctext = &shell("wget \"$cfile\" -q -O -", 3);
-    $ctext =~ s/^(.+?)\n\[[^\]]+\].*$/$1/s;    # strip all after next section
-    $ctext =~ s/^($swautogen)\s*=[^\n]*\n//mg; # strip @SWORD_AUTOGEN entries
-    if ($ctext) {
-      &Note("Default conf was located in REPOSITORY: $cfile", 1); &Log("$ctext\n\n");
+  # then replace our default config.conf with a stripped-down version of 
+  # the repo version and its dict.
+  my $defConfP = &readConfFile($conf);
+  &changeConfName($defConfP, $modName);
+  
+  my $haveRepoConf;
+  if ($defConfP->{'system+REPOSITORY'} && $defConfP->{'system+REPOSITORY'} =~ /^http/) {
+    my $swautogen = &configRE(@SWORD_AUTOGEN);
+    $swautogen =~ s/\$$//;
+    
+    my $mfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($modName).".conf";
+    my $dfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($modName)."dict.conf";
+    
+    my $mtext = &shell("wget \"$mfile\" -q -O -", 3);
+    my $dtext = &shell("wget \"$dfile\" -q -O -");
+    
+    # strip @SWORD_AUTOGEN entries
+    $mtext =~ s/$swautogen\s*=[^\n]*\n//mg; 
+    $dtext =~ s/$swautogen\s*=[^\n]*\n//mg;
+    if ($mtext) {
+      &Note("Default conf was located in REPOSITORY: $mfile", 1);
+      &Log("$mtext\n\n");
+      &Log("$dtext\n\n");
       if (open(CNF, $WRITELAYER, $conf)) {
-        print CNF $ctext;
+        $haveRepoConf++;
+        print CNF $mtext;
         close(CNF);
+        my $confP = &readConfFile($conf);
+        foreach my $k (keys %{$confP}) {
+          $defConfP->{$k} = $confP->{$k};
+        }
       }
       else {&ErrorBug("Could not open conf $conf");}
     }
+    
+    if ($dtext) {
+      if (open(CNF, $WRITELAYER, "$conf.dict")) {
+        print CNF $dtext;
+        close(CNF);
+        my $confP = &readConfFile("$conf.dict");
+        foreach my $k (keys %{$confP}) {
+          my $e = $k; $e =~ s/^[^\+]+\+//;
+          # Don't keep these dict entries since MAIN/DICT are now always the same
+          if ($e =~ /^(Version|History_.*)$/) {next;}
+          if ($defConfP->{"$modName+$e"} eq $confP->{$k}) {next;}
+          $defConfP->{$k} = $confP->{$k};
+        }
+        $defConfP->{'MainmodName'} = $modName;
+        $defConfP->{'DictmodName'} = $modName.'DICT';
+        unlink("$conf.dict");
+      }
+      else {&ErrorBug("Could not open conf $conf.dict");}
+    }
   }
-  # The current $conf file is now either a copy from the SWORD 
-  # REPOSITORY (minus the oc-added stuff) or the default config.conf
   
-  my $newConfP = &readConfFile($conf);
-  
-  &changeConfName($newConfP, $modName);
+  if (!$haveRepoConf) {
+    # Abbreviation
+    &setConfValue($defConfP, "$modName+Abbreviation", $modName, 1);
+    
+    # ModDrv
+    if ($modType eq 'childrens_bible') {&setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);}
+    if ($modType eq 'bible') {&setConfValue($defConfP, "$modName+ModDrv", 'zText', 1);}
+    if ($modType eq 'other') {&setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);}
+  }
 
-  # Abbreviation
-  &setConfValue($newConfP, "$modName+Abbreviation", $modName, 1);
-  
-  # ModDrv
-  if ($modType eq 'childrens_bible') {&setConfValue($newConfP, "$modName+ModDrv", 'RawGenBook', 1);}
-  if ($modType eq 'bible') {&setConfValue($newConfP, "$modName+ModDrv", 'zText', 1);}
-  if ($modType eq 'other') {&setConfValue($newConfP, "$modName+ModDrv", 'RawGenBook', 1);}
-  
   # TitleSubPublication[scope]
   foreach my $scope (@SUB_PUBLICATIONS) {
     my $sp = $scope; $sp =~ s/\s/_/g;
-    &setConfValue($newConfP, "$modName+TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
+    &setConfValue($defConfP, "$modName+TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
   }
   
   # FullResourceURL
@@ -901,7 +932,7 @@ sub customize_conf {
     if ($cP->{"system+EBOOKS"} =~ /^https?\:/) {
       my $ebdir = $cP->{"system+EBOOKS"}."/$modName/$modName";
       my $r = &shell("wget \"$ebdir\" -q -O -", 3);
-      if ($r) {&setConfValue($newConfP, "$modName+FullResourceURL", $ebdir, 1);}
+      if ($r) {&setConfValue($defConfP, "$modName+FullResourceURL", $ebdir, 1);}
     }
     else {
       &Warn("The [system] config.conf entry should be a URL: EBOOKS=".$cP->{"system+EBOOKS"}, 
@@ -912,13 +943,13 @@ sub customize_conf {
   # Companion + [DICTMOD] section
   if ($haveDICT) {
     my $companion = $modName.'DICT';
-    &setConfValue($newConfP, "$modName+Companion", $companion, 1);
-    &setConfValue($newConfP, "$companion+Companion", $modName, 1);
-    &setConfValue($newConfP, "$companion+ModDrv", 'RawLD4', 1);
+    &setConfValue($defConfP, "$modName+Companion", $companion, 1);
+    &setConfValue($defConfP, "$companion+Companion", $modName, 1);
+    &setConfValue($defConfP, "$companion+ModDrv", 'RawLD4', 1);
   }
-  else {&setConfValue($newConfP, "$modName+Companion", '', 1);}
+  else {&setConfValue($defConfP, "$modName+Companion", '', 1);}
   
-  &writeConf($conf, $newConfP);
+  &writeConf($conf, $defConfP);
   
   # Now append the following to the new config.conf:
   # - documentation comments
@@ -973,9 +1004,9 @@ sub changeConfName {
   
   foreach my $fe (keys %{$confP}) {
     my $nfe = $fe;
-    $nfe =~ s/^$mainwas((DICT)?\+)/$main$1/;
-    $confP->{$nfe} = $confP->{$fe};
-    delete($confP->{$fe});
+    if ($nfe =~ s/^$mainwas((DICT)?\+)/$main$1/) {
+      $confP->{$nfe} = delete($confP->{$fe});
+    }
   }
 }
 
