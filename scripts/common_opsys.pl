@@ -1080,8 +1080,8 @@ sub expandLinuxPath {
 sub shortLinuxPath {
   my $path = shift;
 
-  $path =~ s/\/\.\//\//g;
-  $path =~ s/\/[^\/]+\/\.\.\//\//g;
+  $path =~ s%/\./%/%g;
+  $path =~ s%/[^/]+/\.\.(/|$)%$1%g;
   return $path;
 }
 

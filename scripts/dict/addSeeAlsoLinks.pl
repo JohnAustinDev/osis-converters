@@ -72,7 +72,7 @@ sub runAddSeeAlsoLinks {
       &Error("Circular entry links were found.", 
 ($dwfIsDefault ? 
 "Run sfm2osis.pl again and these should disappear because the 
-circular entries have now been addressed in the default ":
+circular entries have now been addressed in your ":
 "Apply the notContext attributes listed above 
 to ").$DICTIONARY_WORDS." file."
       );

@@ -17,7 +17,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# This script might be loaded on any operating system.
+# This script might be run on Linux, MS-Windows, or MacOS operating systems.
 
 # This script uses 2 passed parameters (the 2nd is optional): $INPD, $LOGFILE
 
@@ -54,6 +54,7 @@ our $LOGFILE = shift; # the special value of 'none' will print to the console wi
 $INPD = File::Spec->rel2abs($INPD);
 $INPD =~ s/\\/\//g;
 $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//; # allow using a subdir as project dir
+$INPD = &shortLinuxPath($INPD); # works even for MS-Windows because of '\' replacement done above
 if (!-e $INPD) {die "Error: Project directory \"$INPD\" does not exist. Check your command line.\n";}
   
 if ($LOGFILE && $LOGFILE ne 'none') {

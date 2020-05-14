@@ -90,7 +90,7 @@
     <comment>
   IMPORTANT: 
   For case insensitive matches using /match/i to work, ALL text MUST be 
-  surrounded by the \\Q...\\E quote operators. If a match is failing, 
+  surrounded by the \Q...\E quote operators. If a match is failing, 
   consider this first. This is not a normal Perl rule, but is required 
   because Perl doesn't properly handle case for Turkish-like languages.
 
