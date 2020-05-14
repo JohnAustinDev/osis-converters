@@ -864,7 +864,7 @@ sub makeHTML {
   
   &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
   
-  &updateOsisFullResourceURL($osis, 'html');
+  &updateOsisFullResourceURL($osis);
   
   my @cssFileNames = split(/\s*\n/, shell("cd $tmp && find . -name '*.css' -print", 3));
   my %params = ('css' => join(',', map { (my $s = $_) =~ s/^\.\///; $s } @cssFileNames));
@@ -1000,14 +1000,20 @@ sub readServerScopes {
   my %result;
   
   my @fileList; &getURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
+  my $ignoreDirs = &conf("ARG_ignoreServerDirectoryRegEx");
   
   foreach my $file (sort @fileList) {
     if ($file =~ /\/$/) {next;} # skip directories
     
     # ./2005/Prov_Full.azw3
     my $dirname = $file; 
-    my $filename = ($dirname =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2)$/$1/ ? $2:'');
+    my $filename = ($dirname =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2|txt)$/$1/ ? $2:'');
     if (!$filename) {next;}
+    
+    if ($ignoreDirs && $dirname =~ /$ignoreDirs/) {
+      &Note("Skipping server directory '$dirname' because ARG_ignoreServerDirectoryRegEx='".$ignoreDirs."'");
+      next;
+    }
     
     # Get scope from $filename, which is [fileNumber-][title__][scope]_[type]
     $filename =~ s/^\d+\-//;
@@ -1020,6 +1026,7 @@ sub readServerScopes {
     
     my $scope = $pscope; $scope =~ s/_/ /g;
     if ($result{$scope}) {next;} # keep first found
+
     $result{$scope} = "/$dirname";
   }
   
@@ -1040,11 +1047,11 @@ sub updateOsisFullResourceURL {
     my $url = $u->textContent;
     
     my $new;
-    if ($format eq 'html' || !$url || $url eq 'false') {
+    if (!$format || !$url || $url eq 'false') {
       $new = 'false';
     }
     else {
-      $new = $url;
+      $new = &conf('FullResourceURL');
       # if URL does not end with / then try and remove /name.ext
       if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
       $new = $new."$TRANPUB_SUBDIR/$TRANPUB_NAME.$format"
