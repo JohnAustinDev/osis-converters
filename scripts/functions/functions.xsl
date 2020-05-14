@@ -85,7 +85,7 @@
         <otherwise><value-of select="$default"/></otherwise>
       </choose>
     </variable>
-    <call-template name="Note"><with-param name="msg" select="concat('Checking config.conf (SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, '): ARG_', $entry, ' = ', $result)"/></call-template>
+    <call-template name="Note"><with-param name="msg" select="concat('Checking header config entry (SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, '): ARG_', $entry, ' = ', $result)"/></call-template>
     <value-of select="$result"/>
   </function>
     
