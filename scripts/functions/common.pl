@@ -2806,16 +2806,20 @@ sub searchForISBN {
 }
 
 # Write all work children elements for modname to osisWorkP. The modname 
-# must be either the value of $MAINMOD or $DICTMOD. Note that each raw 
-# conf value is written to the work element matching its section. This 
-# means that retreiving the usual context specific value from the header 
-# data requires searching both MAIN and DICT work elements. 
+# must be either the value of $MAINMOD or $DICTMOD. In addition to
+# writing the standard OSIS work elements, most of the config.conf is 
+# also written as description elements, and these config.conf entries
+# are written as follows:
+# - Config entries which are particular to DICT are written to the 
+#   DICT work element. All others are written to the MAIN work element. 
+# - Description type attributes contain the section+entry EXCEPT when
+#   section is DICT or MAIN (since this is defined by the word element). 
+# IMPORTANT: Retreiving the usual context specific config.conf value from 
+# header data requires searching both MAIN and DICT work elements. 
 sub getOSIS_Work {
   my $modname = shift; 
   my $osisWorkP = shift;
   my $isbn = shift;
-  
-  my $section = ($modname eq $DICTMOD ? "$DICTMOD+":"$MAINMOD+");
  
   my @tm = localtime(time);
   my %type;
@@ -2833,18 +2837,18 @@ sub getOSIS_Work {
     &Error("ISBN number \"$n\" is not 10 or 13 digits", "Check that the ISBN number is correct.");
   }}
   
-  # map conf info to OSIS Work elements:
+  # write OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
   $osisWorkP->{'000000:title'}{'textContent'} = ($modname eq $DICTMOD ? &conf('CombinedGlossaryTitle'):&conf('TranslationTitle'));
-  &mapLocalizedElem(30000, 'subject', $section.'Description', $osisWorkP, 1);
+  &mapLocalizedElem(30000, 'subject', 'Description', $osisWorkP, $modname, 1);
   $osisWorkP->{'040000:date'}{'textContent'} = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   $osisWorkP->{'040000:date'}{'event'} = 'eversion';
-  &mapLocalizedElem(50000, 'description', $section.'About', $osisWorkP, 1);
+  &mapLocalizedElem(50000, 'description', 'About', $osisWorkP, $modname, 1);
   &mapConfig(50008, 58999, 'description', 'x-config', $osisWorkP, $modname);
-  &mapLocalizedElem(60000, 'publisher', $section.'CopyrightHolder', $osisWorkP);
-  &mapLocalizedElem(70000, 'publisher', $section.'CopyrightContactAddress', $osisWorkP);
-  &mapLocalizedElem(80000, 'publisher', $section.'CopyrightContactEmail', $osisWorkP);
-  &mapLocalizedElem(90000, 'publisher', $section.'ShortPromo', $osisWorkP);
+  &mapLocalizedElem(60000, 'publisher', 'CopyrightHolder', $osisWorkP, $modname);
+  &mapLocalizedElem(70000, 'publisher', 'CopyrightContactAddress', $osisWorkP, $modname);
+  &mapLocalizedElem(80000, 'publisher', 'CopyrightContactEmail', $osisWorkP, $modname);
+  &mapLocalizedElem(90000, 'publisher', 'ShortPromo', $osisWorkP, $modname);
   $osisWorkP->{'100000:type'} = \%type;
   $osisWorkP->{'110000:format'}{'textContent'} = 'text/xml';
   $osisWorkP->{'110000:format'}{'type'} = 'x-MIME';
@@ -2853,9 +2857,9 @@ sub getOSIS_Work {
   $osisWorkP->{'121000:identifier'}{'textContent'} = "$idf.$modname";
   $osisWorkP->{'121000:identifier'}{'type'} = 'OSIS';
   if ($isbn) {$osisWorkP->{'130000:source'}{'textContent'} = "ISBN: $isbn";}
-  $osisWorkP->{'140000:language'}{'textContent'} = &conf('Lang');
-  &mapLocalizedElem(170000, 'rights', $section.'Copyright', $osisWorkP);
-  &mapLocalizedElem(180000, 'rights', $section.'DistributionNotes', $osisWorkP);
+  $osisWorkP->{'140000:language'}{'textContent'} = (&conf('Lang') =~ /^([A-Za-z]+)/ ? $1:&conf('Lang'));
+  &mapLocalizedElem(170000, 'rights', 'Copyright', $osisWorkP, $modname);
+  &mapLocalizedElem(180000, 'rights', 'DistributionNotes', $osisWorkP, $modname);
   $osisWorkP->{'220000:refSystem'}{'textContent'} = $refSystem;
 
 # From OSIS spec, valid work elements are:
@@ -2885,15 +2889,19 @@ sub getOSIS_Work {
 sub mapLocalizedElem {
   my $index = shift;
   my $workElement = shift;
-  my $confEntry = shift;
+  my $entry = shift;
   my $osisWorkP = shift;
+  my $mod = shift;
   my $skipTypeAttribute = shift;
   
   foreach my $k (sort {$a cmp $b} keys %{$CONF}) {
-    if ($k !~ /^$confEntry(_([\w\-]+))?$/) {next;}
-    my $lang = ($1 ? $2:'');
+    if ($k !~ /^([^\+]+)\+$entry(_([\w\-]+))?$/) {next;}
+    my $s = $1;
+    my $lang = ($2 ? $3:'');
+    if ($mod eq $MAINMOD && $s eq $DICTMOD) {next;}
+    elsif ($mod eq $DICTMOD && $s eq $MAINMOD && $CONF->{"$DICTMOD+$entry"}) {next;}
     $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'textContent'} = $CONF->{$k};
-    if (!$skipTypeAttribute) {$osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'type'} = "x-$k";}
+    if (!$skipTypeAttribute) {$osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'type'} = "x-$entry";}
     if ($lang) {
       $osisWorkP->{sprintf("%06i:%s", $index, $workElement)}{'xml:lang'} = $lang;
     }
