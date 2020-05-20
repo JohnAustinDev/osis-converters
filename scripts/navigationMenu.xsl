@@ -40,6 +40,17 @@
   
   <variable name="mainGlossaryID" select="oc:sarg('mainGlossaryID', /, 'false')"/>
   
+  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'false')"/>
+  
+  <variable name="doCombineGlossaries" select="oc:conf('CombineGlossaries', /) = 'true'"/>
+  
+  <variable name="glossaryNavmenuLinks" select="/osis[$DICTMOD]/osisText/header/work/description
+      [matches(@type, '^x\-config\-GlossaryNavmenuLink\[[1-9]\]')]/string()"/>
+  <variable name="dictlinks" as="xs:string*" select="if (not($DICTMOD)) then ()
+      else if (count($glossaryNavmenuLinks)) then $glossaryNavmenuLinks 
+      else oc:decodeOsisRef(tokenize($REF_dictionary, ':')[2])"/>
+  <variable name="docroot" select="/"/>
+  
   <template mode="identity" name="identity" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
@@ -71,7 +82,7 @@
           oc:getPrevChapterOsisID(.),
           oc:getNextChapterOsisID(.),
           $myREF_intro, 
-          $REF_dictionary, '', 'false')"/>
+          me:bestRef($dictlinks))"/>
         <copy><apply-templates mode="identity" select="node()|@*"/></copy>
         <if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <call-template name="Note">
@@ -87,7 +98,7 @@
           <sequence select="oc:getNavmenuLinks(
             me:keywordRef('prev', .),
             me:keywordRef('next', .), 
-            '', '', '', '')"/>
+            '', ())"/>
         </copy>
       </when>
       
@@ -99,7 +110,7 @@
             me:keywordRef('prev', .),
             me:keywordRef('next', .), 
             $myREF_intro, 
-            $REF_dictionary, '', '')"/>
+            me:bestRef($dictlinks))"/>
         </copy>
         <call-template name="Note">
 <with-param name="msg">Added navmenu to keyword: <value-of select="descendant::seg[@type='keyword']"/></with-param>
@@ -121,7 +132,7 @@
         <copy><apply-templates select="node()|@*"/></copy>
       </when>
       
-      <!-- Otherwise insert introduction and keyword navmenus within a NAVMENU glossary div -->
+      <!-- Otherwise insert introduction and DICTMOD navmenus within NAVMENU glossary divs -->
       <otherwise>
         <copy>
         
@@ -140,11 +151,12 @@
             </osis:osis>
           </variable>
           
-          <!-- Copy OSIS file contents using sortedGlossary as a tunnel variable -->
+          <!-- Copy OSIS file contents -->
           <apply-templates select="node()|@*"/>
           
-          <!-- NAVMENU is identified using the scope attribute, rather than an osisID, to facilitate the replacement  
-          of uiIntroductionTopMenu by an external div, using the periph INTMENU instruction -->
+          <!-- uiIntroductionTopMenu is a NAVMENU glossary used by the INT feature. It is  
+          identified using the scope attribute to facilitate the replacement of 
+          uiIntroductionTopMenu using the INTMENU feature -->
           <if test="$INT_feature and not(root()//*[@osisID = 'uiIntroductionTopMenu'])">
             <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
             
@@ -161,7 +173,7 @@
                 <osis:seg  type="keyword" osisID="{tokenize($REF_introductionINT,':')[2]}">
                   <value-of select="$uiIntroduction"/>
                 </osis:seg>
-                <sequence select="oc:getNavmenuLinks('', '', '', $REF_dictionary, '', '')"/>
+                <sequence select="oc:getNavmenuLinks('', '', '', me:bestRef($dictlinks))"/>
                 <osis:title type="main" subType="x-introduction">
                   <value-of select="$uiIntroduction"/>
                 </osis:title>
@@ -198,30 +210,87 @@
             </osis:div>
           </if>
           
-          <osis:div osisID="uiDictionaryTopMenu" type="glossary" scope="NAVMENU" resp="x-oc">
-            <variable name="menuGlossary" as="element(div)?">
-              <variable name="titleGloss" select="/descendant::div[@type='glossary']
-                                                  [oc:getDivTitle(.) = $uiDictionary][1]"/>
+          <!-- There are two options for generating the DICTMOD menu system. When 
+          config.conf CombineGlossaries=true then oc:glossaryMenu will be run on
+          a single combined glossary so there will be up to two levels of menus: 
+          the A-Z menu, and the letter menus. But when CombineGlossaries=false|AUTO 
+          then oc:glossaryMenu will be run on each glossary div, and there will be
+          up to three levels of menus: a glossary menu, then either keyword menus, 
+          or, for one particular designated glossary, possibly an A-Z and letter 
+          sub-menus will be generated. The A-Z glossary is chosen one of three ways: 
+          if CombineGlossaries=true it will be the combined glossary, if config.conf 
+          ARG_mainGlossaryID is set, it will be the glossary with that osisID, 
+          otherwise the glossary with the most keywords will be used. If there are  
+          less than ARG_glossThresh keywords in the designated glossary, it will  
+          still not have an A-Z menu or letter submenus, but only a keyword menu. If 
+          config.conf ARG_noDictTopMenu is 'true' the DICT top menu will not be 
+          generated. -->
+          <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
+
+            <variable name="atoz" as="element(div)?">
+              <variable name="glossaries" as="element(div)*" select="/descendant::div[@type='glossary']
+                [not(@scope = 'NAVMENU')][not(@annotateType = 'x-feature')][not(subType = 'x-aggregate')]"/>
+              <variable name="maxkw" select="max($glossaries/count(descendant::seg[@type='keyword']))"/>
               <choose>
+                <when test="$doCombineGlossaries">
+                  <sequence select="$sortedGlossary/descendant::div[@type='glossary']"/>
+                </when>
                 <when test="$mainGlossaryID != 'false'">
                   <sequence select="/descendant::div[@type='glossary'][@osisID = $mainGlossaryID]"/>
                 </when>
-                <when test="$titleGloss and oc:conf('CombineGlossaries', /) != 'true'">
-                  <sequence select="$titleGloss"/>
+                <when test="$maxkw &#62; $glossThresh">
+                  <sequence select="$glossaries[count(descendant::seg[@type='keyword']) = $maxkw]"/>
+                </when>
+              </choose>
+            </variable>
+            
+            <variable name="glossNavMenus">
+              <choose>
+                <when test="$doCombineGlossaries">
+                  <sequence select="oc:glossaryMenu($atoz, true(), true(), true(), false())"/>
                 </when>
                 <otherwise>
-                  <sequence select="$sortedGlossary/descendant::div[@type='glossary']"/>
+                  <if test="not($noDictTopMenu = 'true')">
+                    <variable name="glossaryTopMenu" select="oc:glossaryTopMenu(.)"/>
+                    <if test="count($glossaryTopMenu//reference) &#60;= 5 
+                              and count($glossaryNavmenuLinks) = 0">
+                      <call-template name="Warn">
+<with-param name="msg">There are only <value-of select="count($glossaryTopMenu//reference)"/> links on the top <value-of select="$DICTMOD"/> navigation menu, 
+and you are not specifying GlossaryNavmenuLink[n] in config.conf.</with-param>
+<with-param name="exp">You can improve SWORD module navigation by making these links 
+into navmenu links and avoiding an extra menu by specifying the 
+following in config.conf:
+<for-each select="$glossaryTopMenu//reference">
+<variable name="val" as="xs:string">
+<choose>
+  <when test="oc:decodeOsisRef(tokenize(@osisRef, ':')[2]) = string()">
+    <value-of select="string()"/>
+  </when>
+  <otherwise><value-of select="concat('&amp;osisRef=', @osisRef, '&amp;text=', string())"/></otherwise>
+</choose>
+</variable>
+<value-of select="concat('GlossaryNavmenuLink[', position(), ']=', $val, '&#xa;')"/>
+</for-each>
+</with-param>
+                      </call-template>
+                    </if>
+                    <sequence select="$glossaryTopMenu"/>
+                  </if>
+                  <for-each select="div[@type='glossary'][not(@scope = 'NAVMENU')]
+                                                         [not(@annotateType = 'x-feature')]
+                                                         [not(subType = 'x-aggregate')]">
+                    <sequence select="oc:glossaryMenu(., 
+                      boolean(position() = 1 and $noDictTopMenu = 'true'), 
+                      boolean(. intersect $atoz), 
+                      boolean(. intersect $atoz),
+                      false())"/>
+                  </for-each>
                 </otherwise>
               </choose>
             </variable>
-            <variable name="glossaryMenu"
-              select="if ($menuGlossary) 
-                      then oc:glossaryMenu($menuGlossary, true(), true(), false()) 
-                      else ()"/>
-              
-            <apply-templates mode="glossmenu_navmenus" select="$glossaryMenu">
-              <with-param name="customDictMenu" tunnel="yes" 
-                select="/descendant::div[@osisID='uiDictionaryTopMenu.DICTMENU']"/>
+
+            <apply-templates mode="glossNavMenus" select="$glossNavMenus">
+              <with-param name="dictdoc" tunnel="yes" select="/"/>
             </apply-templates>
             
           </osis:div>
@@ -236,18 +305,41 @@
     </choose>
   </template>
   
-  <!-- Add navmenu links and customDictMenu to the output of glossaryMenu() -->
-  <template mode="glossmenu_navmenus" match="node()|@*" >
+  <!-- Replace or modify DICT NAVMENU menus using the DICTMENU feature:
+  DICTMENU.osisID -> replaces the entire x-keyword div's contents.
+  DICTMENU.osisID.top -> inserts nodes after the menu keyword. -->
+  <template mode="glossNavMenus" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
-  <template mode="glossmenu_navmenus" match="p">
-    <param name="customDictMenu" tunnel="yes"/>
+  <template mode="glossNavMenus" match="div[starts-with(@type, 'x-keyword')]">
+    <param name="dictdoc" tunnel="yes"/>
+    <copy>
+      <copy-of select="@*"/>
+      <if test="descendant::seg[@type='keyword'][string() = $uiDictionary]">
+        <attribute name="osisID" select="'uiDictionaryTopMenu'"/> 
+      </if>
+      <variable name="myid" select="descendant::seg[@type = 'keyword'][1]/@osisID"/>
+      <choose>
+        <when test="$dictdoc//*[@osisID = concat('DICTMENU.', $myid)]">
+          <sequence select="$dictdoc//*[@osisID = concat('DICTMENU.', $myid)]/node()[not(self::comment())]"/>
+        </when>
+        <otherwise>
+          <apply-templates mode="#current"/>
+        </otherwise>
+      </choose>
+    </copy>
+  </template>
+  <template mode="glossNavMenus" match="p">
+    <param name="dictdoc" tunnel="yes"/>
     <next-match/>
-    <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, 
-                      if (ancestor::div[@subType='x-navmenu-dictionary']) then '' 
-                      else $REF_dictionary, '', '')"/>
-    <if test="@subType = 'x-navmenu-dictionary'">
-      <sequence select="$customDictMenu/node()[not(self::comment())]"/>
+    <variable name="mykw" select="ancestor::div[starts-with(@type, 'x-keyword')]
+                                  /descendant::seg[@type='keyword'][1]"/>
+    <variable name="mylinks" as="xs:string*" select="(for $i in $dictlinks return 
+        if (oc:encodeOsisRef($i) = $mykw/@osisID) then '' else $i)"/>
+    <sequence select="oc:getNavmenuLinks('', '', $myREF_intro, me:bestRef($mylinks))"/>
+    <if test="@subType = 'x-navmenu-top'">
+      <variable name="refs" select="$dictdoc//*[@osisID = concat('DICTMENU.', $mykw/@osisID, '.top')]"/>
+      <sequence select="$refs/node()[not(self::comment())]"/>
     </if>
   </template>
   
@@ -260,7 +352,7 @@
   </template>
   
   <!-- This menu (if it exists) is moved under x-navmenu-dictionary div -->
-  <template mode="#all" match="div[@osisID = 'uiDictionaryTopMenu.DICTMENU']"/>
+  <template mode="#all" match="div[starts-with(@osisID, 'DICTMENU.')]"/>
   
   <function name="me:keywordRef" as="xs:string?">
     <param name="do" as="xs:string"/> <!-- 'prev' or 'next' -->
@@ -303,6 +395,20 @@
     <variable name="osisID" select="$prevnext/descendant::seg[@type='keyword']/replace(@osisID, '\.dup\d+', '')"/>
     
     <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+  </function>
+  
+  <!-- If a target menu has only one keyword, target that keyword directly. -->
+  <function name="me:bestRef" as="xs:string*">
+    <param name="links" as="xs:string*"/>
+    <sequence select="for $i in $links return
+        if (not(matches($i, '\S'))) then ''
+        else if (contains($i, '&amp;osisRef=')) then $i
+        else if (count($docroot//div[@type='glossary']
+            [oc:getDivTitle(.) = $i]/descendant::seg[@type='keyword']) = 1) 
+        then concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef(
+            $docroot//div[@type='glossary'][oc:getDivTitle(.) = $i]
+            /descendant::seg[@type='keyword']/string()), '&amp;text=', $i) 
+        else concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef($i), '&amp;text=', $i)"/>
   </function>
   
 </stylesheet>

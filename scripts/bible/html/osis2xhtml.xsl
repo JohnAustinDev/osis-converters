@@ -62,8 +62,6 @@
   
   <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/><!-- '' or 'false' turns this feature off -->
   
-  <param name="CombinedGlossaryTitle" select="oc:conf('CombinedGlossaryTitle', /)"/>
-  
   <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '50')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
   
   <param name="averageCharWidth" select="number(oc:sarg('averageCharWidth', /, '1.1'))"/><!-- in CSS ch units, is ARG_averageCharWidth in config.conf -->
@@ -72,11 +70,9 @@
   
   <param name="introFullWidth" select="xs:integer(number(oc:sarg('introFullWidth', /, '20')))"/><!-- is ARG_introFullWidth in config.conf -->
   
-  <param name="glossThresh" select="oc:sarg('glossThresh', /, '20')"/><!-- is ARG_glossThresh in config.conf -->
-  
   <param name="keywordFileAutoThresh" select="xs:integer(number(oc:sarg('keywordFileAutoThresh', /, '10')))"/><!-- is ARG_keywordFileAutoThresh in config.conf -->
   
-  <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, $glossThresh)))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
+  <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, '20')))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
   
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
@@ -95,6 +91,8 @@
   <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') then 
           (if ($referenceOSIS//div[@type='glossary'][@subType='x-aggregate']) then true() else false()) 
           else $CombineGlossaries = 'true' "/>
+          
+  <variable name="CombGlossaryTitle" select="//work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
   
   <!-- USFM file types output by CrossWire's usfm2osis.py -->
   <variable name="usfmType" select="('front', 'introduction', 'back', 'concordance', 
@@ -161,6 +159,7 @@
         <otherwise><sequence select="$preprocess"/></otherwise>
       </choose>
     </variable>
+<!--<result-document href="preprocessedMainOSIS.xml"><sequence select="$preprocessedMainOSIS"/></result-document>-->
    
     <!-- combined glossary -->
     <variable name="combinedGlossary">
@@ -191,6 +190,7 @@
         <apply-templates mode="preprocess_glossTocMenus" select="$combinedGlossary_1"/>
       </if>
     </variable>
+<!--<result-document href="combinedGlossary.xml"><sequence select="$combinedGlossary"/></result-document>-->
     
     <!-- reference OSIS -->
     <variable name="preprocessedRefOSIS">
@@ -199,6 +199,7 @@
       </variable>
       <apply-templates mode="preprocess_glossTocMenus" select="$preprocess"/>
     </variable>
+<!--<result-document href="preprocessedRefOSIS.xml"><sequence select="$preprocessedRefOSIS"/></result-document>-->
     
     <variable name="xhtmlFiles" as="xs:string*">
       <!-- processProject must be run twice: once to return file names and a second time
@@ -318,9 +319,9 @@
     <osis:osis isCombinedGlossary="yes">
       <osis:osisText osisRefWork="{$DICTMOD}" osisIDWork="{$DICTMOD}">
         <osis:div type="glossary">
-          <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$CombinedGlossaryTitle}"/>
+          <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$CombGlossaryTitle}"/>
           <osis:title type="main">
-            <value-of select="$CombinedGlossaryTitle"/>
+            <value-of select="$CombGlossaryTitle"/>
           </osis:title>
           <for-each select="$combinedKeywords">
             <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
@@ -432,7 +433,7 @@
       <if test="self::*[. intersect $mainTocMilestone]">
         <attribute name="isMainTocMilestone" select="'true'"/>
       </if>
-      <if test="not(@osisID)">
+      <if test="not(@osisID) or not(matches(@osisID, '\S'))">
         <attribute name="osisID" select="generate-id(.)"/>
       </if>
       <if test="not(ancestor::div[@type='glossary']) and 
@@ -441,7 +442,7 @@
                                            then '[inline_toc_first]' 
                                            else '[inline_toc_last]', @n)"/>
       </if>
-      <apply-templates mode="#current" select="node()"/>
+      <apply-templates mode="#current"/>
     </copy>
   </template>
   <template mode="preprocess" match="title[oc:myWork(.) = $MAINMOD]
@@ -503,13 +504,13 @@
               <apply-templates mode="#current"/>
             </variable>
             <sequence select="oc:setKeywordTocInstruction($keywords, '[no_toc]')"/>
-            <sequence select="oc:glossaryMenu(., false(), true(), false())"/>
+            <sequence select="oc:glossaryMenu(., false(), false(), true(), false())"/>
           </when>
           <when test="$my_glossaryToc = 'letter'">
             <!-- copy everything except x-keyword divs, which are replaced by 
-            glossaryMenu() because arg 4 is true() -->
+            glossaryMenu() because last arg is true() -->
             <copy-of select="@* | node()[not(self::div[starts-with(@type,'x-keyword')])]"/>
-            <sequence select="oc:glossaryMenu(., false(), true(), true())"/>
+            <sequence select="oc:glossaryMenu(., false(), false(), true(), true())"/>
           </when>
           <otherwise>
             <apply-templates mode="#current" select="node()|@*"/>
@@ -714,15 +715,17 @@
               <apply-templates mode="xhtml" 
                   select="oc:getNavmenuLinks(
                     if ($previousFile != $fileName and $prevIsSameDiv) then 
-                        concat('href+/xhtml/', $previousFile)  else '',
+                        concat('&amp;href=/xhtml/', $previousFile)  else '',
                     if ($followingFile != $fileName and $follIsSameDiv) then 
-                        concat('href+/xhtml/', $followingFile) else '',
+                        concat('&amp;href=/xhtml/', $followingFile) else '',
                     if ($introFile != $fileName) then 
-                        concat('href+/xhtml/', $introFile) else '', 
-                    if ($glossFile != $fileName and $glossFile) then 
-                        concat('href+/xhtml/', $glossFile) else '',
-                    if ($myglossary) then 
-                        oc:getDivTitle($myglossary) else '', '')">
+                        concat('&amp;href=/xhtml/', $introFile) else '', 
+                    if ($glossFile != $fileName and $glossFile) then (
+                        concat('&amp;href=/xhtml/', $glossFile, '&amp;text=',
+                                if ($myglossary) 
+                                then oc:getDivTitle($myglossary) 
+                                else $uiDictionary)
+                        ) else ())">
                 <with-param name="contextFile" select="$fileName" tunnel="yes"/>
               </apply-templates>
             </if>

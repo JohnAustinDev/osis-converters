@@ -322,13 +322,13 @@ sub applyInstructions {
       $div->setAttribute('osisID', 'uiIntroductionTopMenu');
       &Note("Applying osisID='uiIntroductionTopMenu' scope='NAVMENU' to $sdiv");
     }
-    elsif ($feature =~ /^(DICTMENU)$/) {
+    elsif ($feature =~ /^\QDICTMENU./) {
       &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
       
       # Also set scope and osisID to that expected by navigationMenu.xsl
       $div->setAttribute('scope', 'NAVMENU');
-      $div->setAttribute('osisID', "uiDictionaryTopMenu.$feature");
-      &Note("Applying osisID=\"uiDictionaryTopMenu.$feature\" scope=\"NAVMENU\" to $sdiv");
+      $div->setAttribute('osisID', $feature);
+      &Note("Applying osisID=\"$feature\" scope=\"NAVMENU\" to $sdiv");
     }
     else {
       &Error("Unrecognized peripheral instruction: feature == $feature", 

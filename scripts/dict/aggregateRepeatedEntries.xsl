@@ -209,7 +209,7 @@ glossary entry.</with-param>
                 <variable name="subType" as="xs:string?">
                   <choose>
                     <when test="$osisID = 'uiIntroductionTopMenu'">x-navmenu-introduction</when>
-                    <when test="$osisID = 'uiDictionaryTopMenu'">x-navmenu-dictionary</when>
+                    <when test="$osisID = 'uiDictionaryTopMenu'">x-navmenu-glossary</when>
                   </choose>
                 </variable>
                 <if test="$subType"><attribute name="subType" select="$subType"/></if>

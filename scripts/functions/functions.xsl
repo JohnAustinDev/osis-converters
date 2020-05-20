@@ -35,6 +35,9 @@
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
   
+  <!-- Glossaries with more than this number of keywords will get an A-Z menu -->
+  <variable name="glossThresh" select="xs:integer(number(oc:sarg('glossThresh', /, '20')))"/>
+  
   <!-- ARG_glossaryCase for sorting, letter headings, lists and paging. Can be lower-case, as-is, or upper-case -->
   <variable name="glossaryCase" select="oc:sarg('glossaryCase', /, 'upper-case')"/>
   
@@ -381,18 +384,22 @@
   
   <!-- Return the title of a div element -->
   <function name="oc:getDivTitle" as="xs:string">
-    <param name="glossary" as="element(div)"/>
-    <choose>
-      <when test="$glossary/ancestor::osis[@isCombinedGlossary]">
-        <value-of select="$uiDictionary"/>
-      </when>
-      <otherwise>
-        <value-of select="oc:titleCase(replace(
-          $glossary/( descendant::title[@type='main'][1] | 
-                      descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n )[1], '^(\[[^\]]*\])+', ''))"/>
-      </otherwise>
-    </choose>
-    
+    <param name="div" as="element(div)"/>
+    <variable name="title" as="xs:string">
+      <choose>
+        <when test="$div/ancestor::osis[@isCombinedGlossary = 'yes']">
+          <value-of select="$uiDictionary"/>
+        </when>
+        <otherwise>
+          <value-of select="$div/(
+              descendant::title[@type='main'][1] | 
+              descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n |
+              descendant::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1]
+            )[1]"/>
+        </otherwise>
+      </choose>
+    </variable>
+    <value-of select="oc:titleCase(replace($title, '^(\[[^\]]*\])+', ''))"/>
   </function>
   
   <!-- Return the sub-publication title matching @scope -->
@@ -472,15 +479,10 @@
     <param name="REF_prev"  as="xs:string?"/>
     <param name="REF_next"  as="xs:string?"/>
     <param name="REF_intro" as="xs:string?"/>
-    <param name="REF_dict"  as="xs:string?"/>
-    <param name="title_dict" as="xs:string?"/>
-    <param name="canonical" as="xs:string?"/>
+    <param name="REF_dict"  as="xs:string*"/>
     
-    <if test="$REF_prev or $REF_next or $REF_intro or $REF_dict">
+    <if test="$REF_prev or $REF_next or $REF_intro or count($REF_dict)">
       <osis:list subType="x-navmenu" resp="x-oc">
-        <if test="$canonical">
-          <attribute name="canonical" select="$canonical"/>
-        </if>
 
         <if test="($REF_prev or $REF_next)">
           <osis:item subType="x-prevnext-link">
@@ -488,8 +490,8 @@
               <if test="$REF_prev">
                 <osis:reference>
                   <choose>
-                    <when test="matches($REF_prev, '^href\+')">
-                      <attribute name="href" select="replace($REF_prev, '^href\+', '')"/>
+                    <when test="matches($REF_prev, '^&amp;href=')">
+                      <attribute name="href" select="replace($REF_prev, '^&amp;href=', '')"/>
                     </when>
                     <otherwise>
                       <attribute name="osisRef" select="$REF_prev"/>
@@ -505,8 +507,8 @@
               <if test="$REF_next">
                 <osis:reference>
                   <choose>
-                    <when test="matches($REF_next, '^href\+')">
-                      <attribute name="href" select="replace($REF_next, '^href\+', '')"/>
+                    <when test="matches($REF_next, '^&amp;href=')">
+                      <attribute name="href" select="replace($REF_next, '^&amp;href=', '')"/>
                     </when>
                     <otherwise>
                       <attribute name="osisRef" select="$REF_next"/>
@@ -528,8 +530,8 @@
             <osis:p type="x-right" subType="x-introduction">
               <osis:reference>
                 <choose>
-                  <when test="matches($REF_intro, '^href\+')">
-                    <attribute name="href" select="replace($REF_intro, '^href\+', '')"/>
+                  <when test="matches($REF_intro, '^&amp;href=')">
+                    <attribute name="href" select="replace($REF_intro, '^&amp;href=', '')"/>
                   </when>
                   <otherwise>
                     <attribute name="osisRef" select="$REF_intro"/>
@@ -545,28 +547,33 @@
           </osis:item>
         </if>
         
-        <if test="$REF_dict">
-          <osis:item subType="x-dictionary-link">
-            <osis:p type="x-right" subType="x-introduction">
-              <osis:reference>
-                <choose>
-                  <when test="matches($REF_dict, '^href\+')">
-                    <attribute name="href" select="replace($REF_dict, '^href\+', '')"/>
-                  </when>
-                  <otherwise>
-                    <attribute name="osisRef" select="$REF_dict"/>
-                  </otherwise>
-                </choose>
-                <if test="starts-with($REF_dict, concat($DICTMOD,':'))">
-                  <attribute name="type">x-glosslink</attribute>
-                  <attribute name="subType">x-target_self</attribute>
-                </if>
-                <value-of select="if ($title_dict) then $title_dict  
-                                  else $uiDictionary"/>
-              </osis:reference>
-            </osis:p>
-          </osis:item>
-        </if>
+        <for-each select="$REF_dict">
+          <if test=".">
+            <osis:item subType="x-dictionary-link">
+              <osis:p type="x-right" subType="x-introduction">
+                <osis:reference>
+                  <analyze-string select="." regex="&amp;([A-Za-z]+)=([^&amp;]+)">
+                    <matching-substring>
+                      <choose>
+                        <when test="regex-group(1) != 'text'">
+                          <attribute name="{regex-group(1)}" select="regex-group(2)"/>
+                          <if test="regex-group(1) = 'osisRef' 
+                              and starts-with(regex-group(2), concat($DICTMOD, ':'))">
+                            <attribute name="type">x-glosslink</attribute>
+                            <attribute name="subType">x-target_self</attribute>
+                          </if>
+                        </when>
+                        <otherwise>
+                          <value-of select="regex-group(2)"/>
+                        </otherwise>
+                      </choose>
+                    </matching-substring>
+                  </analyze-string>
+                </osis:reference>
+              </osis:p>
+            </osis:item>
+          </if>
+        </for-each>
         
         <osis:lb/>
         <osis:lb/>
@@ -574,30 +581,91 @@
     </if>
   </function>
   
-  <!-- Returns new keywords which make an auto generated menu system
-  for another glossary. The containing div[@type="glossary"] must be 
-  written by the caller. If $includeGlossaryKeywords is true then the  
-  glossary entries themselves are also copied and returned in sorted
-  order on the letter keyword menus. -->
+  <!-- Returns a menu with links to each glossary of DICTMOD -->
+  <function name="oc:glossaryTopMenu" as="node()+">
+    <param name="osisText" as="element(osisText)"/>
+    
+    <osis:div type="x-keyword" subType="x-navmenu-glossary">
+      <osis:p>
+        <osis:seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
+          <value-of select="$uiDictionary"/>
+        </osis:seg>
+      </osis:p>
+      
+      <osis:list subType="x-entrylist">
+        <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
+                                                         [not(@annotateType = 'x-feature')]
+                                                         [not(subType = 'x-aggregate')]">
+          <variable name="glossTitle" select="oc:getDivTitle(.)"/>
+          <if test="not($glossTitle)">
+            <call-template name="Error">
+<with-param name="msg">Glossary has no title: <value-of select="oc:printNode(.)"/></with-param>
+<with-param name="exp">Add a \toc<value-of select="$TOC"/> tag or a title tag to the top of the glossary.</with-param>
+<with-param name="die">yes</with-param>
+            </call-template>
+          </if>
+          <variable name="target" as="xs:string">
+            <choose>
+              <when test="count(descendant::seg[@type='keyword']) = 1">
+                <value-of select="descendant::seg[@type='keyword']"/>
+              </when>
+              <otherwise><value-of select="$glossTitle"/></otherwise>
+            </choose>
+          </variable>
+          <osis:item>
+            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($target)}"
+              type="x-glosslink" subType="x-target_self">
+              <value-of select="$glossTitle"/>
+            </osis:reference>
+          </osis:item>
+        </for-each>
+      </osis:list>
+      <call-template name="Note">
+<with-param name="msg">Added top menu keyword: <value-of select="$uiDictionary"/></with-param>
+      </call-template>
+    </osis:div>
+  </function>
+  
+  <!-- Returns new keywords which make up an auto-generated menu system
+  for another glossary. But if $appendEntries is true then the glossary 
+  entries themselves are also copied and returned in sorted order at the 
+  end of each letter menu (in this case the glossary itself does not 
+  need to be written by the caller). IMPORTANT: There can only be one 
+  AtoZ menu in any project, because SWORD requires keyword osisIDs to be 
+  encoded keywords and otherwise letter-menu osisIDs would collide. -->
   <function name="oc:glossaryMenu" as="node()+">
     <param name="glossary" as="element(div)"/>
-    <param name="includeTopTocMenu" as="xs:boolean"/>
-    <param name="includeAllEntriesMenu" as="xs:boolean"/>
-    <param name="includeGlossaryKeywords" as="xs:boolean"/>
+    <param name="isTopDictMenu" as="xs:boolean"/>
+    <param name="include_AtoZ_menu" as="xs:boolean"/>
+    <param name="include_letter_menus" as="xs:boolean"/>
+    <param name="appendEntries" as="xs:boolean"/>
     
-    <variable name="glossaryTitle" select="if (oc:getDivTitle($glossary))
-                                          then oc:getDivTitle($glossary) 
-                                          else $uiDictionary"/>
-                
-    <!-- If there are glossary menus for each glossary, we need their ids to be unique -->
-    <variable name="id" select="if ($glossaryTitle != $uiDictionary) 
-                                then generate-id($glossary) else ''"/>
-                                
-    <variable name="dictTop_osisID" select="if ($glossaryTitle = $uiDictionary)
-                                        then tokenize($REF_dictionary, ':')[2]
-                                        else oc:encodeOsisRef($glossaryTitle)"/>
+    <if test="not($include_letter_menus) and $include_AtoZ_menu">
+      <call-template name="ErrorBug">
+<with-param name="msg">When including the A to Z menu, letter menus must also be used.</with-param>
+<with-param name="die">yes</with-param>      
+      </call-template>
+    </if>
     
-    <variable name="sortedGlossary">
+    <if test="$appendEntries and not($include_AtoZ_menu) and not($include_letter_menus)">
+      <call-template name="ErrorBug">
+<with-param name="msg">All-keyword menu with appended entries is not yet implemented.</with-param>
+<with-param name="die">yes</with-param>      
+      </call-template>
+    </if>
+    
+    <variable name="glossaryTitle" select="if ($isTopDictMenu)
+                                          then $uiDictionary 
+                                          else oc:getDivTitle($glossary)"/>
+    <if test="not($glossaryTitle)">
+      <call-template name="Error">
+<with-param name="msg">Glossary has no title: <value-of select="oc:printNode($glossary)"/></with-param>
+<with-param name="exp">Add a \toc<value-of select="$TOC"/> tag or a title tag to the top of the glossary.</with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    
+    <variable name="glossarySorted">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
         <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
           collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
@@ -606,32 +674,30 @@
     </variable>
     
     <text>&#xa;</text>
+           
+    <variable name="allKeywordsTitle" select="concat(
+      oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][1]), 
+      '-', 
+      oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][last()]))"/>
     
-    <!-- Create a top keyword with links to each letter (plus a link 
-    to the A-Z menu) on it -->        
-    <variable name="allEntriesTitle" 
-      select="concat(
-              oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][1]), 
-              '-', 
-              oc:keySortLetter($sortedGlossary/descendant::seg[@type='keyword'][last()]))"/>
-    
-    <if test="$includeTopTocMenu">
-      <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$glossaryTitle}"/>
+    <if test="$include_AtoZ_menu">
+      <!-- Create a menu with links to each letter plus a link 
+      to the all-keywords menu. --> 
       <osis:div type="x-keyword" subType="x-navmenu-dictionary">
-        <osis:p subType="x-navmenu-dictionary">
-          <osis:seg type="keyword" osisID="{$dictTop_osisID}">
+        <osis:p subType="x-navmenu-top">
+          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryTitle)}">
             <value-of select="$glossaryTitle"/>
           </osis:seg>
         </osis:p>
-        <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allEntriesTitle)}{$id}" 
+        <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allKeywordsTitle)}" 
           type="x-glosslink" subType="x-target_self">
-          <value-of select="$allEntriesTitle"/>
+          <value-of select="$allKeywordsTitle"/>
         </osis:reference>
         <text>&#xa;</text>
-        <for-each select="$sortedGlossary//seg[@type='keyword']">
+        <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letter" select="oc:keySortLetter(text())"/>
-            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}{$id}" 
+            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letter)}" 
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
             </osis:reference>
@@ -640,82 +706,87 @@
         </for-each>
       </osis:div>
       <call-template name="Note">
-<with-param name="msg">Added keyword: <value-of select="$glossaryTitle"/></with-param>
+<with-param name="msg">Added A-Z menu: <value-of select="$glossaryTitle"/></with-param>
       </call-template>
     </if>
     
-    <!-- Create A-Z keyword with links to every glossary keyword listed in it -->
-    <if test="$includeTopTocMenu or $includeAllEntriesMenu">
-      <text>&#xa;</text>
-      <osis:div type="x-keyword" osisID="dictionaryAtoZ" subType="x-navmenu-atoz">
-        <osis:p>
-          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($allEntriesTitle)}{$id}">
-            <value-of select="$allEntriesTitle"/>
-          </osis:seg>
-        </osis:p>
-        <osis:list subType="x-entrylist">
-          <for-each select="$sortedGlossary//seg[@type='keyword']">
-            <osis:item>
-              <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
-                <value-of select="text()"/>
-              </osis:reference>
-            </osis:item>
-          </for-each>
-        </osis:list>
-      </osis:div>
-      <call-template name="Note">
-<with-param name="msg">Added keyword: <value-of select="$allEntriesTitle"/></with-param>
-      </call-template>
-    </if>
-    
-    <!-- Create a keyword for each letter, which either contain links to, 
-    or are followed by copies of, glossary keywords that begin with that letter -->
-    <variable name="letterMenus" as="element()*">
-      <for-each select="$sortedGlossary//seg[@type='keyword']">
-        <if test="oc:skipGlossaryEntry(.) = false()">
-          <variable name="letter" select="oc:keySortLetter(text())"/>
-          <osis:p>
-            <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}{$id}">
-              <value-of select="$letter"/>
-            </osis:seg>
-          </osis:p>
-        </if>
-        <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
-          type="x-glosslink" subType="x-target_self">
-          <value-of select="text()"/>
-        </osis:reference>
-      </for-each>
-    </variable>
-    <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
-      <text>&#xa;</text>
-      <osis:div type="x-keyword" subType="x-navmenu-letter">
-        <sequence select="current-group()[1]"/>
-        <if test="not($includeGlossaryKeywords) or 
-                  count(current-group()[self::reference]) &#62; 1">
-          <osis:list subType="x-entrylist">
-            <for-each select="current-group()[not(position() = 1)]">
-              <osis:item>
-                <sequence select="."/>
-              </osis:item>
-            </for-each>
-          </osis:list>
-        </if>
-      </osis:div>
-      <call-template name="Note">
-<with-param name="msg">Added keyword link list: <value-of select="current-group()[1]"/></with-param>
-      </call-template>
-      <if test="$includeGlossaryKeywords">
-        <variable name="keywords" as="element(div)+" 
-          select="$sortedGlossary/descendant::div[starts-with(@type,'x-keyword')]
-              [ descendant::seg[@type='keyword']/@osisID = 
-                current-group()[not(position() = 1)][self::reference]/replace(@osisRef, '^[^:]*:' ,'') ]"/>
-        <sequence select="oc:setKeywordTocInstruction($keywords, '[level3]')"/>
-        <call-template name="Note">
-<with-param name="msg">Included keywords: <value-of select="current-group()[1]"/></with-param>
-        </call-template>
-      </if>
-    </for-each-group>
+    <!-- Create the all-keywords menu with a link to each keyword -->
     <text>&#xa;</text>
+    <osis:div type="x-keyword" subType="x-navmenu-atoz">
+      <osis:p>
+        <if test="not($include_AtoZ_menu)">
+          <attribute name="subType" select="'x-navmenu-top'"/>
+        </if>
+        <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryTitle)}">
+          <value-of select="$glossaryTitle"/>
+        </osis:seg>
+      </osis:p>
+      <osis:list subType="x-entrylist">
+        <for-each select="$glossarySorted//seg[@type='keyword']">
+          <osis:item>
+            <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
+              <value-of select="text()"/>
+            </osis:reference>
+          </osis:item>
+        </for-each>
+      </osis:list>
+    </osis:div>
+    <call-template name="Note">
+<with-param name="msg">Added all-keyword menu: <value-of select="$allKeywordsTitle"/></with-param>
+    </call-template>
+  
+    <if test="$include_AtoZ_menu or $include_letter_menus">
+      <!-- Create a menu for each letter, with links to the keywords that 
+      begin with that letter. -->
+      <variable name="letterMenus" as="element()*">
+        <for-each select="$glossarySorted//seg[@type='keyword']">
+          <if test="oc:skipGlossaryEntry(.) = false()">
+            <variable name="letter" select="oc:keySortLetter(text())"/>
+            <osis:p>
+              <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letter)}">
+                <value-of select="$letter"/>
+              </osis:seg>
+            </osis:p>
+          </if>
+          <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
+            type="x-glosslink" subType="x-target_self">
+            <value-of select="text()"/>
+          </osis:reference>
+        </for-each>
+      </variable>
+      <for-each-group select="$letterMenus" group-starting-with="p[child::*[1][self::seg[@type='keyword']]]">
+        <text>&#xa;</text>
+        <osis:div type="x-keyword" subType="x-navmenu-letter">
+          <sequence select="current-group()[1]"/>
+          <if test="not($appendEntries) or 
+                    count(current-group()[self::reference]) &#62; 1">
+            <osis:list subType="x-entrylist">
+              <for-each select="current-group()[not(position() = 1)]">
+                <osis:item>
+                  <sequence select="."/>
+                </osis:item>
+              </for-each>
+            </osis:list>
+          </if>
+        </osis:div>
+        <call-template name="Note">
+<with-param name="msg">Added letter menu: <value-of select="current-group()[1]"/></with-param>
+        </call-template>
+        <!-- If appendEntries is true then entries are copied and 
+        appended to the end of each menu. -->
+        <if test="$appendEntries">
+          <variable name="keywords" as="element(div)+" 
+            select="$glossarySorted/descendant::div[starts-with(@type,'x-keyword')]
+                [ descendant::seg[@type='keyword']/@osisID = 
+                  current-group()[not(position() = 1)][self::reference]/replace(@osisRef, '^[^:]*:' ,'') ]"/>
+          <sequence select="oc:setKeywordTocInstruction($keywords, '[level3]')"/>
+          <call-template name="Note">
+<with-param name="msg">Included entries: <value-of select="current-group()[1]"/></with-param>
+          </call-template>
+        </if>
+      </for-each-group>
+      <text>&#xa;</text>
+    </if>
 
   </function>
   

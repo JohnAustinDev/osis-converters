@@ -71,7 +71,7 @@ our @SWORD_AUTOGEN = (
 
 # Valid osis-converters config file entries (in addition to SWORD entries)
 our @OC_CONFIGS = (
-  'MATCHES:TitleSubPublication\[\S+\]', 
+  'MATCHES:TitleSubPublication\[\S+\]', 'MATCHES:GlossaryNavmenuLink\[[1-9]\]',
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'CreateSeparatePubs', 'FullResourceURL', 
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
