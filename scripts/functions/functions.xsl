@@ -607,6 +607,12 @@
                   </osis:reference>
                 </osis:item>
               </for-each>
+              <call-template name="Warn">
+<with-param name="msg">Links to <value-of select=".//seg[@type='keyword']"/> keyword(s) were placed on the navigation, menu 
+because their glossary has no title.</with-param>
+<with-param name="exp">If the glossary is given a title using a \toc<value-of select="$TOC"/> tag or a main title tag, then 
+the glossary title will appear on the menu instead of each keyword.</with-param>
+              </call-template>
             </when>
             <otherwise>
               <variable name="target" as="xs:string">
@@ -622,7 +628,7 @@
               <osis:item>
                 <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($target)}"
                   type="x-glosslink" subType="x-target_self">
-                  <value-of select="$glossTitle"/>
+                  <value-of select="oc:glossMenuTitle(.)"/>
                 </osis:reference>
               </osis:item>
             </otherwise>
@@ -635,12 +641,17 @@
     </osis:div>
   </function>
   
-  <!-- Must never have glossary menu title which is the same as any 
-  keyword or the top menu uiDictionary -->
+  <!-- Cannot have a glossary menu title which is the same as any 
+  keyword, as another glossary menu, or the top menu uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
+    <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)"/>
     <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
-    <variable name="glossTitle" select="if ($glossTitle1) then $glossTitle1 else 'concat(
+    <variable name="glossTitle2" select="if ( $scopeTitle and $glossTitle1 = ($uiDictionary,
+      root($glossary)//div[@type='glossary'][not(@scope = 'NAVMENU')]
+      [not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]/oc:getDivTitle(.)) )
+      then concat($glossTitle1, ' (', $scopeTitle, ')') else $glossTitle1"/>
+    <variable name="glossTitle" select="if ($glossTitle1) then $glossTitle2 else 'concat(
         oc:keySortLetter($glossary/descendant::reference[1]/string()), 
         '-', 
         oc:keySortLetter($glossary/descendant::reference[last()]/string()))'"/>
@@ -681,7 +692,6 @@
       </call-template>
     </if>
     
-    <variable name="glossaryTitle" select="oc:getDivTitle($glossary)"/>
     <variable name="glossaryMenuTitle" select="oc:glossMenuTitle($glossary)"/>
     
     <variable name="glossarySorted">
@@ -699,7 +709,7 @@
       '-', 
       oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][last()]))"/>
       
-    <variable name="allLettersTitle" select="concat($glossaryTitle, ' (', $allLetters, ')')"/>
+    <variable name="allLettersTitle" select="concat($glossaryMenuTitle, ' (', $allLetters, ')')"/>
     
     <variable name="do_AtoZ_menu" as="xs:boolean" select="$include_AtoZ_menu = 'yes' or 
       ($include_AtoZ_menu = 'AUTO' and count($glossary//seg[@type='keyword']) &#62;= $glossThresh)"/>
@@ -721,7 +731,7 @@
         <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letter" select="oc:keySortLetter(text())"/>
-            <variable name="letterTitle" select="concat($letter, ' - ', $glossaryTitle)"/>
+            <variable name="letterTitle" select="concat($letter, ' - ', $glossaryMenuTitle)"/>
             <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letterTitle)}" 
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
@@ -775,7 +785,7 @@
         <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letterTitle" 
-              select="concat(oc:keySortLetter(text()), ' - ', $glossaryTitle)"/>
+              select="concat(oc:keySortLetter(text()), ' - ', $glossaryMenuTitle)"/>
             <osis:p>
               <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letterTitle)}">
                 <value-of select="$letterTitle"/>
