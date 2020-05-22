@@ -24,7 +24,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($ROC, $XPC, $XML_PARSER, $OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, 
-    $COVERS, %FONT_FILES);
+    $COVERS, %FONT_FILES, @SUB_PUBLICATIONS);
 
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames {
@@ -140,7 +140,7 @@ sub addCoverImages {
   # Find any sub-publication cover image(s) and insert them into the OSIS file
   my %done;
   my @pubcovers = ();
-  foreach my $s (map($_->getAttribute('scope'), $XPC->findnodes('//osis:div[@type][@scope]', $xml))) {
+  foreach my $s (@SUB_PUBLICATIONS) {
     if ($done{$s}) {next;} else {$done{$s}++;}
     my $scope = $s; $scope =~ s/\s+/_/g;
     my $pubImagePath = &getCoverImageFromScope($mod, $scope);

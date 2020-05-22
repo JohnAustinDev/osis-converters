@@ -115,15 +115,22 @@
       <!-- Place navmenu at the end of each keyword -->
       <when test="self::div[starts-with(@type,'x-keyword')]">
         <variable name="mykw" select="descendant::seg[@type = 'keyword'][1]"/>
-        <variable name="mylinks" as="xs:string*" select="(for $i in $dictlinks return 
-            if (oc:encodeOsisRef($i) = $mykw/@osisID) then '' else $i)"/>
+        <variable name="mylinks" as="xs:string*" 
+          select="(for $i in $dictlinks return 
+            if (me:ifNotPresent(
+              if (contains($i, '&amp;osisRef=')) 
+              then replace($i, '^.*&amp;osisRef=([^&amp;]+).*$', '$1')
+              else concat($DICTMOD, ':', oc:encodeOsisRef($i))
+            , .))
+            then $i else '')"/>
+        <variable name="onSkipMenu" select="@subType = 
+          ('x-navmenu-glossaries', 'x-navmenu-all-letters', 'x-navmenu-all-keywords')"/>
         <copy>
           <apply-templates select="node()|@*"/>
-          <variable name="isIntro" select="$mykw/@osisID = tokenize($myREF_intro, ':')[2]"/>
           <sequence select="oc:getNavmenuLinks(
-            if ($isIntro) then '' else me:keywordRef('prev', .),
-            if ($isIntro) then '' else me:keywordRef('next', .), 
-            if ($isIntro) then '' else $myREF_intro, 
+            if ($onSkipMenu) then '' else me:ifNotPresent(me:keywordRef('prev', .), .),
+            if ($onSkipMenu) then '' else me:ifNotPresent(me:keywordRef('next', .), .), 
+            me:ifNotPresent($myREF_intro, .), 
             me:bestRef($mylinks))"/>
         </copy>
         <call-template name="Note">
@@ -430,6 +437,16 @@ following in config.conf:
             $docroot//div[@type='glossary'][oc:getDivTitle(.) = $i]
             /descendant::seg[@type='keyword']/string()), '&amp;text=', $i) 
         else concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef($i), '&amp;text=', $i)"/>
+  </function>
+  
+  <!-- If target is the current menu, or already listed on the current
+  menu, then return '' -->
+  <function name="me:ifNotPresent" as="xs:string?">
+    <param name="osisRef" as="xs:string"/>
+    <param name="kwdiv" as="element(div)"/>
+    <variable name="osisID" select="$kwdiv//seg[@type='keyword'][1]/@osisID"/>
+    <value-of select="if (tokenize($osisRef, ':')[2] = ($osisID, $kwdiv//reference/tokenize(@osisRef, ':')[2]))
+      then '' else $osisRef"/>
   </function>
   
 </stylesheet>

@@ -621,7 +621,8 @@
     </osis:div>
   </function>
   
-  <!-- Must never have glossary menu title be the same as any keyword -->
+  <!-- Must never have glossary menu title which is the same as any 
+  keyword or the top menu uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
     <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
@@ -632,7 +633,8 @@
 <with-param name="die">yes</with-param>
       </call-template>
     </if>
-    <value-of select="if (root($glossary)//seg[@type='keyword']/string() = $glossTitle1)
+    <value-of select="if ( $glossTitle1 = $uiDictionary 
+      or root($glossary)//seg[@type='keyword']/string() = $glossTitle1 )
       then concat($glossTitle1, '.') else $glossTitle1"/>
   </function>
   
