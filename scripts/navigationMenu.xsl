@@ -119,10 +119,11 @@
             if (oc:encodeOsisRef($i) = $mykw/@osisID) then '' else $i)"/>
         <copy>
           <apply-templates select="node()|@*"/>
+          <variable name="isIntro" select="$mykw/@osisID = tokenize($myREF_intro, ':')[2]"/>
           <sequence select="oc:getNavmenuLinks(
-            if (ancestor::div[@scope='NAVMENU']) then '' else me:keywordRef('prev', .),
-            if (ancestor::div[@scope='NAVMENU']) then '' else me:keywordRef('next', .), 
-            if ($mykw/@osisID = tokenize($myREF_intro, ':')[2]) then '' else $myREF_intro, 
+            if ($isIntro) then '' else me:keywordRef('prev', .),
+            if ($isIntro) then '' else me:keywordRef('next', .), 
+            if ($isIntro) then '' else $myREF_intro, 
             me:bestRef($mylinks))"/>
         </copy>
         <call-template name="Note">

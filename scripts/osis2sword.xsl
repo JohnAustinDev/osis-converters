@@ -91,14 +91,29 @@
   
   <!-- Prefix 2 dashes to $uiIntroduction keyword, or one dash to 
   $uiDictionary, and update all osisRefs to them. This puts these two 
-  keywords at the top of the SWORD DICT module. -->
+  keywords at the top of the SWORD DICT module. Also fix xulsword issue.-->
   <variable name="reftext" select="for $i in ($REF_introductionINT, $REF_dictionary) 
                                    return oc:decodeOsisRef(tokenize($i, ':')[2])"/>
-  <template mode="pass2" match="seg[@type='keyword'][normalize-space(text()) and text() = $reftext]">
-    <variable name="text" select="concat(
-      if (text() = oc:decodeOsisRef(tokenize($REF_introductionINT, ':')[2])) 
-      then '--' else '-', 
-      ' ', text())"/>
+  <template mode="pass2" match="seg[@type='keyword']">
+    <variable name="text1">
+      <choose>
+        <when test="self::seg[normalize-space(text()) and text() = $reftext]">
+          <value-of select="concat(
+            if (text() = oc:decodeOsisRef(tokenize($REF_introductionINT, ':')[2])) 
+            then '--' else '-', 
+            ' ', text())"/>
+        </when>
+        <otherwise><value-of select="text()"/></otherwise>
+      </choose>
+    </variable>
+    
+    <variable name="text" select="replace($text1, ':', '-')"/>
+    <if test="$text != $text1">
+      <call-template name="Note">
+<with-param name="msg">The xulsword front-end does not allow ':' in keywords. Changing '<value-of select="$text1"/>' to '<value-of select="$text"/>'</with-param>
+      </call-template>
+    </if>
+    
     <copy>
       <apply-templates mode="pass2" select="@*"/>
       <attribute name="osisID" select="oc:encodeOsisRef($text)"/>
@@ -106,11 +121,16 @@
     </copy>
   </template>
   <template mode="pass2" match="@osisRef">
-    <attribute name="osisRef" 
+    <variable name="osisRef1" 
       select="if (. = ($REF_introductionINT, $REF_dictionary)) 
               then concat($DICTMOD, ':', if (. = $REF_introductionINT) 
               then '_45__45__32_' else '_45__32_', tokenize(., ':')[2]) 
               else ."/>
+    <!-- A harmless work around for xulsword which doesn't handle ':' keywords -->
+    <variable name="osisRef2" select="concat(tokenize($osisRef1, ':')[1], ':', 
+      oc:encodeOsisRef(replace(oc:decodeOsisRef(tokenize($osisRef1, ':')[2]), ':', '-')))"/>
+    <attribute name="osisRef" select="if (tokenize($osisRef1, ':')[1] = $DICTMOD and not(contains($osisRef1, '!'))) 
+      then $osisRef2 else $osisRef1"/>
   </template>
   
   <!-- Report results -->

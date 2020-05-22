@@ -596,17 +596,7 @@
         <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
                                                          [not(@annotateType = 'x-feature')]
                                                          [not(@subType = 'x-aggregate')]">
-          <variable name="glossTitle1" select="oc:getDivTitle(.)"/>
-          <if test="not($glossTitle1)">
-            <call-template name="Error">
-<with-param name="msg">(glossaryTopMenu) Glossary has no title: <value-of select="oc:printNode(.)"/></with-param>
-<with-param name="exp">Add a \toc<value-of select="$TOC"/> tag or a title tag to the top of the glossary.</with-param>
-<with-param name="die">yes</with-param>
-            </call-template>
-          </if>
-          <variable name="glossTitle" select="if (//seg[@type='keyword']/string() = $glossTitle1) 
-      then concat('-', $glossTitle1) else $glossTitle1"/>
-          
+          <variable name="glossTitle" select="oc:getDivTitle(.)"/>
           <variable name="target" as="xs:string">
             <choose>
               <!-- target a single keyword directly (skip the menu) -->
@@ -614,7 +604,7 @@
                 <value-of select="descendant::seg[@type='keyword']"/>
               </when>
               <!-- otherwise target the glossary title -->
-              <otherwise><value-of select="$glossTitle"/></otherwise>
+              <otherwise><value-of select="oc:glossMenuTitle(.)"/></otherwise>
             </choose>
           </variable>
           <osis:item>
@@ -629,6 +619,21 @@
 <with-param name="msg">Added top menu keyword: <value-of select="$uiDictionary"/></with-param>
       </call-template>
     </osis:div>
+  </function>
+  
+  <!-- Must never have glossary menu title be the same as any keyword -->
+  <function name="oc:glossMenuTitle" as="xs:string">
+    <param name="glossary" as="element(div)"/>
+    <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
+    <if test="not($glossTitle1)">
+      <call-template name="Error">
+<with-param name="msg">(glossaryTopMenu) Glossary has no title: <value-of select="oc:printNode($glossary)"/></with-param>
+<with-param name="exp">Add a \toc<value-of select="$TOC"/> tag or a title tag to the top of the glossary.</with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    <value-of select="if (root($glossary)//seg[@type='keyword']/string() = $glossTitle1)
+      then concat($glossTitle1, '.') else $glossTitle1"/>
   </function>
   
   <!-- Returns new keywords which make up an auto-generated menu system
@@ -656,9 +661,8 @@
       </call-template>
     </if>
     
-    <variable name="glossaryTitle1" select="oc:getDivTitle($glossary)"/>
-    <variable name="glossaryTitle" select="if ($glossary//seg[@type='keyword']/string() = $glossaryTitle1) 
-      then concat('-', $glossaryTitle1) else $glossaryTitle1"/>
+    <variable name="glossaryTitle" select="oc:getDivTitle($glossary)"/>
+    <variable name="glossaryMenuTitle" select="oc:glossMenuTitle($glossary)"/>
     
     <variable name="glossarySorted">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
@@ -685,8 +689,8 @@
       to the all-keywords menu. --> 
       <osis:div type="x-keyword" subType="x-navmenu-all-letters">
         <osis:p subType="x-navmenu-top">
-          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryTitle)}">
-            <value-of select="$glossaryTitle"/>
+          <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryMenuTitle)}">
+            <value-of select="$glossaryMenuTitle"/>
           </osis:seg>
         </osis:p>
         <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allLettersTitle)}" 
@@ -707,7 +711,7 @@
         </for-each>
       </osis:div>
       <call-template name="Note">
-<with-param name="msg">Added A-Z menu: <value-of select="$glossaryTitle"/></with-param>
+<with-param name="msg">Added A-Z menu: <value-of select="$glossaryMenuTitle"/></with-param>
       </call-template>
     </if>
     
@@ -715,7 +719,7 @@
       <!-- A menu with osisID of glossaryTitle must be output if there is
       more than 1 keyword, because oc:glossaryTopMenu targets it -->
       <variable name="allKeywordsTitle" select="if (not($do_AtoZ_menu)) 
-        then $glossaryTitle else $allLettersTitle"/>
+        then $glossaryMenuTitle else $allLettersTitle"/>
       
       <!-- Create the all-keywords menu with a link to each keyword -->
       <text>&#xa;</text>
