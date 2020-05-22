@@ -301,8 +301,8 @@ following in config.conf:
                 <sequence select="$glossaryTopMenu"/>
               </if>
               
-              <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
-                  [not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]">
+              <for-each select="$osisText/div[@type='glossary'][oc:getDivTitle(.)]
+                  [not(@scope = 'NAVMENU')][not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]">
                 <if test="not($noDictTopMenu = 'true') or boolean(. intersect $atoz)">
                   <sequence select="oc:glossaryMenu(., 'AUTO', 'AUTO', false())"/>
                 </if>

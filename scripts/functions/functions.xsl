@@ -597,22 +597,36 @@
                                                          [not(@annotateType = 'x-feature')]
                                                          [not(@subType = 'x-aggregate')]">
           <variable name="glossTitle" select="oc:getDivTitle(.)"/>
-          <variable name="target" as="xs:string">
-            <choose>
-              <!-- target a single keyword directly (skip the menu) -->
-              <when test="count(descendant::seg[@type='keyword']) = 1">
-                <value-of select="descendant::seg[@type='keyword']"/>
-              </when>
-              <!-- otherwise target the glossary title -->
-              <otherwise><value-of select="oc:glossMenuTitle(.)"/></otherwise>
-            </choose>
-          </variable>
-          <osis:item>
-            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($target)}"
-              type="x-glosslink" subType="x-target_self">
-              <value-of select="$glossTitle"/>
-            </osis:reference>
-          </osis:item>
+          <choose>
+            <when test="not($glossTitle)">
+              <for-each select=".//seg[@type='keyword']">
+                <osis:item>
+                  <osis:reference osisRef="{$DICTMOD}:{@osisID}"
+                    type="x-glosslink" subType="x-target_self">
+                    <value-of select="string()"/>
+                  </osis:reference>
+                </osis:item>
+              </for-each>
+            </when>
+            <otherwise>
+              <variable name="target" as="xs:string">
+                <choose>
+                  <!-- target a single keyword directly (skip the menu) -->
+                  <when test="count(descendant::seg[@type='keyword']) = 1">
+                    <value-of select="descendant::seg[@type='keyword']"/>
+                  </when>
+                  <!-- otherwise target the glossary title -->
+                  <otherwise><value-of select="oc:glossMenuTitle(.)"/></otherwise>
+                </choose>
+              </variable>
+              <osis:item>
+                <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($target)}"
+                  type="x-glosslink" subType="x-target_self">
+                  <value-of select="$glossTitle"/>
+                </osis:reference>
+              </osis:item>
+            </otherwise>
+          </choose>
         </for-each>
       </osis:list>
       <call-template name="Note">
@@ -626,23 +640,27 @@
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
     <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
+    <variable name="glossTitle" select="if ($glossTitle1) then $glossTitle1 else 'concat(
+        oc:keySortLetter($glossary/descendant::reference[1]/string()), 
+        '-', 
+        oc:keySortLetter($glossary/descendant::reference[last()]/string()))'"/>
     <if test="not($glossTitle1)">
-      <call-template name="Error">
-<with-param name="msg">(glossaryTopMenu) Glossary has no title: <value-of select="oc:printNode($glossary)"/></with-param>
-<with-param name="exp">Add a \toc<value-of select="$TOC"/> tag or a title tag to the top of the glossary.</with-param>
-<with-param name="die">yes</with-param>
+      <call-template name="Warn">
+<with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
+<with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
-    <value-of select="if ( $glossTitle1 = $uiDictionary 
-      or root($glossary)//seg[@type='keyword']/string() = $glossTitle1 )
-      then concat($glossTitle1, '.') else $glossTitle1"/>
+    <value-of select="if ( $glossTitle = $uiDictionary 
+      or root($glossary)//seg[@type='keyword']/string() = $glossTitle )
+      then concat($glossTitle, '.') else $glossTitle"/>
   </function>
   
   <!-- Returns new keywords which make up an auto-generated menu system
-  for another glossary. But if $appendEntries is true then the glossary 
-  entries themselves are also copied and returned in sorted order at the 
-  end of each letter menu (in this case the glossary itself does not 
-  need to be written by the caller). -->
+  for another glossary. If the glossary does not have a title an error 
+  may be thrown. If $appendEntries is true then the glossary entries 
+  themselves are also copied and returned in sorted order at the end of 
+  each letter menu (in this case the glossary itself does not need to be 
+  written by the caller). -->
   <function name="oc:glossaryMenu" as="node()+">
     <param name="glossary" as="element(div)"/>
     <param name="include_AtoZ_menu" as="xs:string"/>
@@ -718,8 +736,9 @@
     </if>
     
     <if test="count($glossary//seg[@type='keyword']) &#62; 1">
-      <!-- A menu with osisID of glossaryTitle must be output if there is
-      more than 1 keyword, because oc:glossaryTopMenu targets it -->
+      <!-- A menu with osisID of glossaryMenuTitle must be output if the
+      glossary's getDivTitle is non-empty and it has more than 1 keyword, 
+      because oc:glossaryTopMenu targets it in that case. -->
       <variable name="allKeywordsTitle" select="if (not($do_AtoZ_menu)) 
         then $glossaryMenuTitle else $allLettersTitle"/>
       
