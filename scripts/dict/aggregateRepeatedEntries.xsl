@@ -205,15 +205,6 @@ glossary entry.</with-param>
                   <otherwise>x-keyword</otherwise>
                 </choose>
               </attribute>
-              <if test="current-group()[descendant-or-self::seg[@type='keyword']]/string() = $firstKey/string()">
-                <variable name="subType" as="xs:string?">
-                  <choose>
-                    <when test="$osisID = 'uiIntroductionTopMenu'">x-navmenu-introduction</when>
-                    <when test="$osisID = 'uiDictionaryTopMenu'">x-navmenu-glossary</when>
-                  </choose>
-                </variable>
-                <if test="$subType"><attribute name="subType" select="$subType"/></if>
-              </if>
               <apply-templates mode="#current" select="current-group()"/>
             </osis:div>
           </otherwise>

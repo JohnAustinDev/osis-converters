@@ -307,28 +307,16 @@ sub applyInstructions {
     $div->setAttribute('annotateRef', $feature);
     $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
 
-    # The main 'feature' currently supported is 'INT' which uses tran-
-    # slation introductory material to auto-generate navmenus. INTMENU 
-    # can be used to customize those menus. DICTMENU is like it, but is
-    # used to customize the dictionary menu.
+    # The 'INT' feature uses translation introductory material to auto-
+    # generate navmenus.
     if ($feature =~ /^(INT)$/) {
-      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
+      &Note("INT feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
     }
-    elsif ($feature =~ /^(INTMENU)$/) {
-      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
-      
-      # Also set scope and osisID to that expected by navigationMenu.xsl
-      $div->setAttribute('scope', 'NAVMENU');
-      $div->setAttribute('osisID', 'uiIntroductionTopMenu');
-      &Note("Applying osisID='uiIntroductionTopMenu' scope='NAVMENU' to $sdiv");
-    }
-    elsif ($feature =~ /^\QDICTMENU./) {
-      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
-      
-      # Also set scope and osisID to that expected by navigationMenu.xsl
-      $div->setAttribute('scope', 'NAVMENU');
-      $div->setAttribute('osisID', $feature);
-      &Note("Applying osisID=\"$feature\" scope=\"NAVMENU\" to $sdiv");
+    # The 'NAVMENU' feature allows replacement or modification of auto-
+    # generated navigational menus.
+    elsif ($feature =~ /^\QNAVMENU./) {
+      &Note("NAVMENU feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
+      $div->setAttribute('osisID', $feature); # used by navigationMenu.xsl
     }
     else {
       &Error("Unrecognized peripheral instruction: feature == $feature", 

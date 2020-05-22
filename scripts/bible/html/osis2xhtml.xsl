@@ -504,13 +504,13 @@
               <apply-templates mode="#current"/>
             </variable>
             <sequence select="oc:setKeywordTocInstruction($keywords, '[no_toc]')"/>
-            <sequence select="oc:glossaryMenu(., false(), false(), true(), false())"/>
+            <sequence select="oc:glossaryMenu(., 'no', 'yes', false())"/>
           </when>
           <when test="$my_glossaryToc = 'letter'">
             <!-- copy everything except x-keyword divs, which are replaced by 
             glossaryMenu() because last arg is true() -->
             <copy-of select="@* | node()[not(self::div[starts-with(@type,'x-keyword')])]"/>
-            <sequence select="oc:glossaryMenu(., false(), false(), true(), true())"/>
+            <sequence select="oc:glossaryMenu(., 'no', 'yes', true())"/>
           </when>
           <otherwise>
             <apply-templates mode="#current" select="node()|@*"/>
@@ -544,7 +544,7 @@
             <value-of select="count(distinct-values(
               (preceding::div | self::div)/descendant::seg[@type='keyword']/
                 (
-                  if (ancestor::div[@subType='x-navmenu-atoz']) then string() 
+                  if (ancestor::div[@subType='x-navmenu-all-keywords']) then string() 
                   else oc:keySortLetter(string())
                 )
             ))"/>
@@ -1413,7 +1413,7 @@
                   <otherwise> xsl-other-link </otherwise>
                 </choose>
                 <value-of select="oc:getTocInstructions(.)"/>
-                <if test="ancestor::div[@subType='x-navmenu-atoz']"> xsl-atoz </if>
+                <if test="ancestor::div[@subType='x-navmenu-all-keywords']"> xsl-atoz </if>
               </variable>
               <value-of select="normalize-space(string-join($class, ' '))"/>
             </attribute>
@@ -1429,8 +1429,15 @@
                     <when test="self::chapter[@osisID]">
                       <value-of select="tokenize(@osisID, '\.')[last()]"/>
                     </when>
-                    <when test="ancestor::div[@type='x-keyword'][starts-with(@subType,'x-navmenu')]">
-                      <value-of select="text()"/>
+                    <when test="ancestor::div[@type='x-keyword'][@subType = 'x-navmenu-all-keywords']">
+                      <value-of select="concat(
+                        oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::reference[1]/string()), 
+                        '-', 
+                        oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::reference[last()]/string()))"/>
+                    </when>
+                    <when test="ancestor::div[@type='x-keyword'][@subType = 'x-navmenu-letter']">
+                      <value-of select="
+                        oc:keySortLetter(ancestor::div[@type='x-keyword']/descendant::seg[@type='keyword'][1]/string())"/>
                     </when>
                     <when test="$onlyKeywordFirstLetter and self::seg[@type='keyword']">
                       <value-of select="oc:keySortLetter(text())"/>

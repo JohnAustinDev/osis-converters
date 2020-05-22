@@ -212,7 +212,7 @@ RUN:./INT.SFM");
     &Log("\n");
     my @navmenus = $XPC->findnodes('//osis:list[@subType="x-navmenu"]', $XML_PARSER->parse_file($OSIS));
     if (!@navmenus[0]) {
-      &Note("Running glossaryNavMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
+      &Note("Running navigationMenu.xsl to add GLOSSARY NAVIGATION menus".($glossContainsINT ? ", and INTRODUCTION menus,":'')." to OSIS file.", 1);
       my $result = &runScript("$SCRD/scripts/navigationMenu.xsl", \$OSIS, '', 3);
       my %chars; my $r = $result; while ($r =~ s/KeySort.*? is missing the character "(\X)//) {$chars{$1}++;}
       if (scalar keys %chars) {&Error("KeySort config entry is missing ".(scalar keys %chars)." character(s): ".join('', sort keys %chars));}

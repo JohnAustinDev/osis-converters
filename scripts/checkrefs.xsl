@@ -89,7 +89,7 @@ target, then a different USFM tag should be used instead.</with-param>
     </variable>
     <for-each select="$missing[normalize-space()]">
       <call-template name="Error">
-<with-param name="msg">Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg"><value-of select="ancestor::osisText/@osisIDWork"/> Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
       </call-template>
     </for-each>
  
@@ -165,7 +165,7 @@ target, then a different USFM tag should be used instead.</with-param>
           return if (key('osisID', replace($r, '^[^:]+:', ''))) then () else $e"/>
         <for-each select="$missing[normalize-space()]">
           <call-template name="Error">
-<with-param name="msg">Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg"><value-of select="ancestor::osisText/@osisIDWork"/> Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
           </call-template>
         </for-each>
       </for-each>

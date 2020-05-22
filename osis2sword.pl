@@ -97,7 +97,7 @@ if ($SModDrv =~ /LD/) {
     }
   }
   else {
-    &ErrorBug("Could not open dir $mainmod.");
+    &Error("Main module not found, unable to run checkLinks.xsl");
   }
 }
 
