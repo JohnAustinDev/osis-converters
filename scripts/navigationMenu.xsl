@@ -48,7 +48,7 @@
   
   <variable name="mainGlossaryID" select="oc:sarg('mainGlossaryID', /, 'false')"/>
   
-  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'false')"/>
+  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
   
   <variable name="doCombineGlossaries" select="oc:conf('CombineGlossaries', /) = 'true'"/>
   
@@ -241,7 +241,7 @@
             otherwise the glossary with the most keywords will be used. If there are  
             less than ARG_glossThresh keywords in the designated glossary, it will  
             still not have an A-Z menu or letter submenus, but only a keyword menu. If 
-            config.conf ARG_noDictTopMenu is 'true' the DICT top menu will not be 
+            config.conf ARG_noDictTopMenu is 'yes' the DICT top menu will not be 
             generated. -->
             <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
               <variable name="osisText" select="if ($doCombineGlossaries) 
@@ -264,7 +264,7 @@
                 </choose>
               </variable>
               
-              <if test="not($noDictTopMenu = 'true')">
+              <if test="not($noDictTopMenu = 'yes')">
                 <variable name="glossaryTopMenu" select="oc:glossaryTopMenu($osisText)"/>
                 <if test="count($glossaryTopMenu//reference) &#60;= 4 
                           and count($glossaryNavmenuLinks) = 0">
@@ -303,7 +303,7 @@ following in config.conf:
               
               <for-each select="$osisText/div[@type='glossary'][oc:getDivTitle(.)]
                   [not(@scope = 'NAVMENU')][not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]">
-                <if test="not($noDictTopMenu = 'true') or boolean(. intersect $atoz)">
+                <if test="not($noDictTopMenu = 'yes') or boolean(. intersect $atoz)">
                   <sequence select="oc:glossaryMenu(., 'AUTO', 'AUTO', false())"/>
                 </if>
               </for-each>

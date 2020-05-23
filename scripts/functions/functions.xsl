@@ -55,6 +55,8 @@
   there can be no other glossary keyword called $uiDictionary (nor $uiIntroduction if the INT feature is used). -->
   <variable name="REF_introductionINT" select="if ($INT_feature) then concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction)) else ''"/>
   <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
+  
+  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
@@ -661,9 +663,10 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
-    <value-of select="if ( $glossTitle = $uiDictionary 
+    <value-of select="if ( (not($noDictTopMenu = 'yes') and $glossTitle = $uiDictionary) 
       or root($glossary)//seg[@type='keyword']/string() = $glossTitle )
-      then concat($glossTitle, '.') else $glossTitle"/>
+      then concat($glossTitle, '.')
+      else $glossTitle"/>
   </function>
   
   <!-- Returns new keywords which make up an auto-generated menu system
