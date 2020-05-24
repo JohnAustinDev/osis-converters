@@ -326,7 +326,7 @@ following in config.conf:
     </osis:title>
   </template>
   <template mode="introMenu" match="div[starts-with(@type,'x-keyword')]/@type"/>
-  <template mode="introMenu" match="comment()"/>
+  <template mode="introMenu" match="comment() | title[@type='runningHead'] | milestone" priority="1"/>
   
   <!-- Replace or modify NAVMENUs using the NAVMENU feature:
   NAVMENU.osisID.replace -> replaces the keyword div of the keyword having the osisID.
