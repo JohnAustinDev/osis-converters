@@ -379,7 +379,7 @@ a.x-other-resource {
 .x-keyword-aggregate {
   margin-top:1.5em;
 }
-.x-navmenu-letter .x-entrylist ul {}
+.x-navmenu-letter .x-menulist ul {}
 
 /* Inline TOC */
 .xsl-inline-toc {

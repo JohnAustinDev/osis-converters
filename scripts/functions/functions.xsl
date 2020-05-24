@@ -594,7 +594,7 @@
         </osis:seg>
       </osis:p>
       
-      <osis:list subType="x-entrylist">
+      <osis:list subType="x-menulist">
         <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
                                                          [not(@annotateType = 'x-feature')]
                                                          [not(@subType = 'x-aggregate')]">
@@ -766,7 +766,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
             <value-of select="$allKeywordsTitle"/>
           </osis:seg>
         </osis:p>
-        <osis:list subType="x-entrylist">
+        <osis:list subType="x-menulist">
           <for-each select="$glossarySorted//seg[@type='keyword']">
             <osis:item>
               <osis:reference osisRef="{$DICTMOD}:{@osisID}" type="x-glosslink" subType="x-target_self">
@@ -807,7 +807,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
           <sequence select="current-group()[1]"/>
           <if test="not($appendEntries) or 
                     count(current-group()[self::reference]) &#62; 1">
-            <osis:list subType="x-entrylist">
+            <osis:list subType="x-menulist">
               <for-each select="current-group()[not(position() = 1)]">
                 <osis:item>
                   <sequence select="."/>

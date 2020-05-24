@@ -61,7 +61,7 @@
   
   <variable name="customize" as="element(div)*" select="/osis/osisText/div[starts-with(@osisID, 'NAVMENU.')]"/>
   
-  <template mode="identity" name="identity" match="node()|@*" >
+  <template mode="identity introMenu" name="identity" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
@@ -177,10 +177,9 @@
           
           <variable name="navmenus" as="element(div)+">
             <!-- Create a menu with links to each introductory heading on it -->
-            <variable name="introSubEntries" select="//div[@type='glossary']
-              [@annotateType = 'x-feature'][@annotateRef = 'INT']
-              //seg[@type='keyword']"/>
-            <if test="$introSubEntries">
+            <variable name="INT" select="//div[@type='glossary']
+              [@annotateType = 'x-feature'][@annotateRef = 'INT']"/>
+            <if test="$INT">
               <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
                 <text>&#xa;</text>
                 <osis:div type="x-keyword" subType="x-navmenu-introduction">
@@ -195,30 +194,26 @@
                   <osis:lb/>
                   <osis:lb/>
                   <choose>
-                    <when test="count($introSubEntries) = 1">
-                      <osis:title>
-                        <value-of select="$introSubEntries"/>
-                      </osis:title>
-                      <for-each select="$introSubEntries/following-sibling::node()">
-                        <call-template name="identity"/>
-                      </for-each>
+                    <when test="count($INT//seg[@type='keyword']) &#60;= 1">
+                      <apply-templates mode="introMenu" select="$INT/node()"/>
                       <call-template name="Note">
 <with-param name="msg">Added intro content to <value-of select="$uiIntroduction"/></with-param>
                       </call-template>
                     </when>
                     <otherwise>
-                      <for-each select="$introSubEntries">
-                        <osis:p type="x-noindent">
-                          <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" 
-                              type="x-glosslink" subType="x-target_self">
-                            <value-of select="."/>
-                          </osis:reference>
-                          <osis:lb/>
+                      <osis:list subType="x-menulist">
+                        <for-each select="$INT//seg[@type='keyword']">
+                          <osis:item>
+                            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef(.)}" 
+                                type="x-glosslink" subType="x-target_self">
+                              <value-of select="."/>
+                            </osis:reference>
+                          </osis:item>
                           <call-template name="Note">
 <with-param name="msg">Added intro link <value-of select="$uiIntroduction"/>: <value-of select="."/></with-param>
                           </call-template>
-                        </osis:p>
-                      </for-each>
+                        </for-each>
+                      </osis:list>
                     </otherwise>
                   </choose>
                 </osis:div>
@@ -325,6 +320,14 @@ following in config.conf:
     </choose>
   </template>
   
+  <template mode="introMenu" match="seg[@type='keyword']">
+    <osis:title>
+      <sequence select="node()"/>
+    </osis:title>
+  </template>
+  <template mode="introMenu" match="div[starts-with(@type,'x-keyword')]/@type"/>
+  <template mode="introMenu" match="comment()"/>
+  
   <!-- Replace or modify NAVMENUs using the NAVMENU feature:
   NAVMENU.osisID.replace -> replaces the keyword div of the keyword having the osisID.
   NAVMENU.osisID.top -> inserts nodes at the top of the keyword div having the osisID. -->
@@ -389,7 +392,7 @@ following in config.conf:
       select="$node/ancestor-or-self::div[@type = 'x-aggregate-subentry']"/>
     <!-- Sub-entries without titles should not have their own prev/next
     links, because their context is not apparent. In this case, only the 
-    last sub-entry has pre/next links. -->
+    last sub-entry has prev/next links. -->
     <variable name="subentryTitle" 
       select="$subentry/preceding-sibling::*[1][self::title]"/>
     <variable name="isLastSubentry" 

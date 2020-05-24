@@ -17,9 +17,10 @@ my $DEBUG = 0;
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
 #$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
-#$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
-#$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
 my $ONLY = '^(all)$';  # only run listed modules or sub-modules
