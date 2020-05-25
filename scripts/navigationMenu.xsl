@@ -334,27 +334,29 @@ following in config.conf:
   <template mode="navmenus" match="node()|@*" >
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
-  <template mode="navmenus" match="div[starts-with(@type, 'x-keyword')]">
-    <variable name="mykw" select="descendant::seg[@type = 'keyword'][1]"/>
-    <variable name="rep" select="$customize[@osisID = concat('NAVMENU.', $mykw/@osisID, '.replace')]"/>
-    <variable name="attribs" select="@*"/><!-- copy attribs to first node of replacement -->
-    <choose>
-      <when test="$rep">
-        <for-each select="$rep/div[starts-with(@type,'x-keyword')]">
-          <copy>
-            <sequence select="@*"/>
-            <if test="position() = 1">
-              <sequence select="$attribs"/>
-            </if>
-            <sequence select="node()"/>
-          </copy>
-        </for-each>
-        <call-template name="Note">
-<with-param name="msg">Customizing NAVMENU '<value-of select="string($mykw)"/>' (replacement)</with-param>
-        </call-template>
-      </when>
-      <otherwise><next-match/></otherwise>
-    </choose>
+  <template mode="navmenus" match="comment()" priority="1"/>
+  <template mode="navmenus" match="@type[parent::div intersect $customize]"/>
+  <template mode="navmenus" match="div[starts-with(@type, 'x-keyword')]
+    [descendant::seg[@type='keyword'][1][@osisID = $customize/replace(@osisID, '^NAVMENU\.(.*)\.replace$', '$1')]]">
+    <variable name="osisID" select="descendant::seg[@type='keyword'][1]/@osisID"/>
+    <apply-templates mode="#current" 
+      select="$customize[@osisID = concat('NAVMENU.', $osisID, '.replace')]">
+      <with-param name="src" select="." tunnel="yes"/>
+    </apply-templates>
+    <call-template name="Note">
+<with-param name="msg">Customizing NAVMENU '<value-of select="$osisID"/>' (replacement)</with-param>
+    </call-template>
+  </template>
+  <template mode="navmenus" match="div[starts-with(@type, 'x-keyword')]
+    [ancestor::div[@osisID = $customize/@osisID]]" priority="1">
+    <param name="src" tunnel="yes"/>
+    <copy>
+      <if test="$src and ( ancestor::div[@type='glossary']
+        /descendant::div[starts-with(@type, 'x-keyword')][1] intersect . )">
+        <sequence select="$src/attribute()"/>
+      </if>
+      <apply-templates mode="#current" select="@*|node()"/>
+    </copy>
   </template>
   <template mode="navmenus" match="p">
     <next-match/>
@@ -362,7 +364,7 @@ following in config.conf:
       select="ancestor::div[starts-with(@type, 'x-keyword')]/descendant::seg[@type='keyword'][1]"/>
     <variable name="ins" select="$customize[@osisID = concat('NAVMENU.', $mykw/@osisID, '.top')]"/>
     <if test="@subType = 'x-navmenu-top' and $ins">
-      <sequence select="$ins/node()[not(self::comment())]"/>
+      <apply-templates mode="#current" select="$ins"/>
       <call-template name="Note">
 <with-param name="msg">Customizing NAVMENU '<value-of select="string($mykw)"/>' (insertion)</with-param>
       </call-template>
@@ -378,7 +380,7 @@ following in config.conf:
   </template>
   
   <!-- These menus (when they exist) are moved to the navmenu -->
-  <template mode="#all" match="div[. intersect $customize]">
+  <template match="div[. intersect $customize]">
     <call-template name="Note">
 <with-param name="msg">Found custom NAVMENU osisID="<value-of select="@osisID"/>"</with-param>
     </call-template>
