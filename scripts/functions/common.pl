@@ -3567,18 +3567,13 @@ sub temporaryFile {
   my $ext = ($file =~ s/^(.*?)\.([^\.]+)$/$1/ ? $2:'');
   if (!$ext) {&ErrorBug("Could not parse temporaryFile ext $path", 1);}
   
-  # make sure our output path is under the project tmp directory
-  if ($dir !~ /^\Q$TMPDIR/) {
-    $dir = "$MOD_OUTDIR/tmp";
-  }
-  
-  opendir(TDIR, $dir) || &ErrorBug("Could not open temporaryFile dir $dir", 1);
+  opendir(TDIR, $TMPDIR) || &ErrorBug("Could not open temporaryFile dir $TMPDIR", 1);
   my @files = readdir(TDIR);
   closedir(TDIR);
   
   my $n = 0;
   foreach my $f (@files) {
-    if (-d "$dir/$f") {next;}
+    if (-d "$TMPDIR/$f") {next;}
     if ($f =~ /^(\d+)_/) {
       my $nf = $1; $nf =~ s/^0+//; $nf = (1*$nf);
       if ($nf > $n) {$n = $nf;}
@@ -3586,10 +3581,10 @@ sub temporaryFile {
   }
   $n++;
   
-  my $p = sprintf("%s/%02i_%s.%s", $dir, $n, $outname, $ext);
+  my $p = sprintf("%s/%02i_%s.%s", $TMPDIR, $n, $outname, $ext);
   
   if (-e $p) {
-    &ErrorBug("Output file already exists: $p", 1);
+    &ErrorBug("Temporary file exists: $p", 1);
   }
 
   return $p;
