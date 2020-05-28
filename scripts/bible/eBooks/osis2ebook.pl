@@ -24,7 +24,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
-    $TMPDIR, $DEBUG, $XML_PARSER, $XPC);
+    $TMPDIR, $DEBUG);
 
 my ($OPF);
 
@@ -106,8 +106,6 @@ if ($COVER) {
   }
 }
 
-my $xml = $XML_PARSER->parse_file($INPF);
-
 # Start forming the command string
 my $COMMAND = "ebook-convert".
   ' '. &escfile($INPF).
@@ -122,9 +120,7 @@ my $COMMAND = "ebook-convert".
   ' --subset-embedded-fonts'.
   ' --level1-toc "//*[@title=\'toclevel-1\']"'.
   ' --level2-toc "//*[@title=\'toclevel-2\']"'.
-  ' --level3-toc "//*[@title=\'toclevel-3\']"'.
-  ' --publisher "'.@{$XPC->findnodes('//osis:publisher[@type="x-CopyrightHolder"][not(@xml:lang)][1]', $xml)}[0]->textContent.'"'.
-  ' --authors ""';
+  ' --level3-toc "//*[@title=\'toclevel-3\']"';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {

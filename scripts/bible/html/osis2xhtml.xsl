@@ -222,19 +222,22 @@
           xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" 
           xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:publisher>
-          <xsl:value-of select="//work[@osisWork = $MAINMOD]/publisher[@type='x-CopyrightHolder']/text()"/>
+          <xsl:value-of select="//work[@osisWork = $MAINMOD]/publisher[@type='x-CopyrightHolder']
+            [not(@xml:lang)][1]/text()"/>
         </dc:publisher>
         <dc:title>
-          <xsl:value-of select="//work[@osisWork = $MAINMOD]/title/text()"/>
+          <xsl:value-of select="//work[@osisWork = $MAINMOD]/title
+            [not(@xml:lang)][1]/text()"/>
         </dc:title>
         <dc:language>
-          <xsl:value-of select="//work[@osisWork = $MAINMOD]/language/text()"/>
+          <xsl:value-of select="//work[@osisWork = $MAINMOD]/language[1]/text()"/>
         </dc:language>
         <dc:identifier scheme="ISBN">
-          <xsl:value-of select="//work[@osisWork = $MAINMOD]/identifier[@type='ISBN']/text()"/>
+          <xsl:value-of select="//work[@osisWork = $MAINMOD]/identifier[@type='ISBN'][1]/text()"/>
         </dc:identifier>
         <dc:creator opf:role="aut">
-          <xsl:value-of select="//work[@osisWork = $MAINMOD]/publisher[@type='x-CopyrightHolder']/text()"/>
+          <xsl:value-of select="//work[@osisWork = $MAINMOD]/publisher[@type='x-CopyrightHolder']
+            [not(@xml:lang)][1]/text()"/>
         </dc:creator>
       </metadata>
       <manifest>
