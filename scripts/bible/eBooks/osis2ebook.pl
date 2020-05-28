@@ -123,7 +123,8 @@ my $COMMAND = "ebook-convert".
   ' --level1-toc "//*[@title=\'toclevel-1\']"'.
   ' --level2-toc "//*[@title=\'toclevel-2\']"'.
   ' --level3-toc "//*[@title=\'toclevel-3\']"'.
-  ' --publisher "'.@{$XPC->findnodes('//osis:publisher[@type="x-CopyrightHolder"][not(@xml:lang)][1]', $xml)}[0]->textContent.'"';
+  ' --publisher "'.@{$XPC->findnodes('//osis:publisher[@type="x-CopyrightHolder"][not(@xml:lang)][1]', $xml)}[0]->textContent.'"'.
+  ' --authors ""';
 
 # Add cover image if required
 if ($COVER and $COVER ne "") {
