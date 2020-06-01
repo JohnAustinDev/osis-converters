@@ -410,6 +410,9 @@ sub asrlProcessFile {
   my $refSystem = shift;
   
   my $xml = $XML_PARSER->parse_file($osis);
+  
+  my $work = &getBibleModOSIS($xml);
+  $work = ($work eq $MOD ? '':$work);
 
   # get every text node
   my @allTextNodes = $XPC->findnodes('//text()', $xml);
@@ -478,10 +481,10 @@ sub asrlProcessFile {
     if ($reference) {
       if ($reference->hasAttribute('osisRef') || 
           $reference->getAttribute('type') =~ /x\-gloss/) {next;}
-      my $osisRef = &search_osisRef($reference, $LOCATION);
-      if ($osisRef) {
-        $reference->setAttribute('osisRef', $osisRef);
-        $newLinks++;
+      my $newRefs = &getLinksReference($work, $reference, $LOCATION);
+      if ($newRefs) {
+        $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
+        $nodeInfo{$textNode->unique_key}{'text'} = $newRefs;
       }
       else {
         &Error("Could not determine osisRef of reference element:".$reference->toString());
@@ -490,7 +493,7 @@ sub asrlProcessFile {
     else {
       # search for Scripture references in this text node and add newReference tags around them
       my $text = $textNode->data();
-      &addLinks(\$text, $BK, $CH);
+      &addLinksText($work, \$text, $LOCATION);
       
       if ($text ne $textNode->data()) {
         # save changes for later (to avoid messing up line numbers)
@@ -504,15 +507,6 @@ sub asrlProcessFile {
   foreach my $n (sort keys %nodeInfo) {
     $nodeInfo{$n}{'node'}->parentNode()->insertBefore($XML_PARSER->parse_balanced_chunk($nodeInfo{$n}{'text'}), $nodeInfo{$n}{'node'});
     $nodeInfo{$n}{'node'}->unbindNode();
-  }
-
-  # complete osisRef attributes by adding the target Bible
-  my $refmod = "Bible";
-  if ($MOD && &conf('ModDrv') =~ /Text/) {$refmod = '';} # A Bible's default osisRef is correct as is
-  elsif (&conf("Companion")) {$refmod = &conf("Companion"); $refmod =~ s/,.*$//;}
-  if ($refmod) {
-    my @news = $XPC->findnodes('//newReference/@osisRef', $xml);
-    foreach my $new (@news) {$new->setValue("$refmod:".$new->getValue());}
   }
 
   # remove (after copying attributes) pre-existing reference tags which contain newReference tags
@@ -550,12 +544,10 @@ sub asrlProcessFile {
 # reference from the given context, and attempts to return a valid 
 # osisRef value. The returned osisRef value is not checked for
 # existence or validity, so this must be done later.
-sub search_osisRef {
+sub getLinksReference {
+  my $work = shift;
   my $reference = shift;
   my $context = shift;
-  
-  my $work = &getBibleModOSIS($reference);
-  $work = ($work eq $MOD ? '':"$work:");
   
   my $bk; my $ch; my $vs;
   if ($context =~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {
@@ -566,7 +558,7 @@ sub search_osisRef {
   my $tnode = $reference->firstChild;
   if (!$tnode || $tnode->nodeType != XML::LibXML::XML_TEXT_NODE) {
     &Error("First child of reference is not a text node.");
-    return;
+    return '';
   }
   
   my $t = $tnode->data;
@@ -576,10 +568,10 @@ sub search_osisRef {
   }
   # A bare number is interpereted according to the current context
   elsif ($t =~ /^(\d+)$/ && $bk && $ch && $vs) {
-    return "$work$bk.$ch.$1";
+    return &newReference($work, "$bk.$ch.$1", $t);
   }
   elsif ($t =~ /^(\d+)$/ && $bk) {
-    return "$work$bk.$1";
+    return &newReference($work, "$bk.$1", $t);
   }
   
   # Check if there is an explicit target as a USFM 3 attribute
@@ -589,32 +581,29 @@ sub search_osisRef {
     
     # This might be an osisRef value already, or be Paratext reference
     if ($targ =~ /^($OSISBOOKSRE)\./) {
-      return $work.$targ;
+      return &newReference($work, $targ, $t);
     }
     my $pref = &paratextRefList2osisRef($targ);
-    if ($pref) {return $work.$pref;}
+    if ($pref) {return &newReference($work, $pref, $t);}
   }
   else {
     $targ = $t;
   }
   
   # Search the text 
-  &addLinks(\$targ, $bk, $ch, 1);
+  &addLinksText($work, \$targ, $context, 1);
   
-  if ($targ eq $t) {return;}
+  if ($targ eq $t) {return '';}
   
-  my $n = () = $targ =~ /<newReference[^>]+osisRef="([^"]+)"/;
+  return $targ;
+}
+
+sub newReference {
+  my $work = shift;
+  my $osisRef = shift;
+  my $text = shift;
   
-  if ($n == 0) {
-    &ErrorBug("Text node was changed, but osisRef was not found.");
-    return;
-  }
-  elsif ($n > 1) {
-    &Error("The reference element's target cannot be expressed using a single osisRef value.");
-    return;
-  }
-  
-  return $work.$1;
+  return '<newReference osisRef="'.($work ? "$work:":'').$osisRef.'">'.$text.'</newReference>';
 }
 
 ##########################################################################
@@ -625,13 +614,18 @@ sub search_osisRef {
 # 4) PARSE EACH SUBREF SEPARATELY, EACH INHERITING MISSING VALUES FROM THE PREVIOUS SUBREF
 # 5) REASSEMBLE THE EXTENDED REFERENCE USING OSIS LINKS
 # 6) REPEAT FROM STEP 1 UNTIL NO MORE REFERENCES ARE FOUND
-sub addLinks {
+sub addLinksText {
+  my $work = shift;
   my $tP = shift;
-  my $bk = shift;
-  my $ch = shift;
+  my $context = shift;
   my $isRefElement = shift;
+  
+  my $bk; my $ch; my $vs;
+  if ($context =~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {
+    $bk = $1; $ch = ($2? $3:''); $vs = ($4 ? $5:'');
+  }
 
-#&Log("$LOCATION: addLinks $bk, $ch, $$tP\n");
+#&Log("$LOCATION: addLinksText $bk, $ch, $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
   for (my $ts = 0; $ts < @notags; $ts++) {
@@ -743,7 +737,7 @@ sub addLinks {
         $Types{$type}++;
         if ($type eq "T10 (num1 ... num2?)") {$shouldCheck = 1;}
 
-        $repExtref .= "<newReference osisRef=\"".$osisRef."\">".$subref."<\/newReference>";
+        $repExtref .= &newReference($work, $osisRef, $subref);
         &logLink($LOCATION, @subrefArray > 1, $psubref, $osisRef, "$type $unhandledBook");
       }
 
