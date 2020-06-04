@@ -79,13 +79,12 @@ sub osis2pubs {
   
   if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE);}
   else {
-    my %eBookSubDirs; my %parentPubScope; my $bookOrderP;
-    &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
+    my %eBookSubDirs; my %parentPubScope;
     
     # convert the entire OSIS file
     if ($PUB_TYPE eq 'Tran') {
       $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{$FULLSCOPE};
-      foreach my $bk (@{&scopeToBooks($FULLSCOPE, $bookOrderP)}) {$parentPubScope{$bk} = $FULLSCOPE;}
+      foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, $FULLSCOPE);}
     }
     
@@ -95,7 +94,7 @@ sub osis2pubs {
         my $pscope = $scope; $pscope =~ s/\s/_/g;
         $PUB_TYPE = 'Full';
         $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
-        foreach my $bk (@{&scopeToBooks($scope, $bookOrderP)}) {$parentPubScope{$bk} = $scope;}
+        foreach my $bk (@{&scopeToBooks($scope, &conf('Versification'))}) {$parentPubScope{$bk} = $scope;}
         if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
         if ($scope ne $FULLSCOPE && $CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$scope};
@@ -111,7 +110,7 @@ sub osis2pubs {
         my $bk = $aBook->getAttribute('osisID');
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
-        $PUB_SUBDIR = $eBookSubDirs{$parentPubScope{$bk}};
+        $PUB_SUBDIR = ($parentPubScope{$bk} ? $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{$bk});
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
@@ -421,7 +420,7 @@ sub filterBibleToScope {
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
   # remove books not in scope
-  my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, $bookOrderP)};
+  my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, &conf('Versification'))};
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
   my @filteredBooks;
   foreach my $bk (@books) {
@@ -473,7 +472,7 @@ sub filterBibleToScope {
     # move relevant scoped periphs before first kept book.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
     INTRO: foreach my $intro (@scopedPeriphs) {
-      my $introBooks = &scopeToBooks($intro->getAttribute('scope'), $bookOrderP);
+      my $introBooks = &scopeToBooks($intro->getAttribute('scope'), &conf('Versification'));
       if (!@{$introBooks}) {next;}
       foreach my $introbk (@{$introBooks}) {
         foreach my $remainingBook (@remainingBooks) {
@@ -514,7 +513,7 @@ sub filterBibleToScope {
   if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
     foreach my $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][\@src]", $inxml)) {
       my $sc = $figure->getAttribute('src'); $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
-      my $bkP = &scopeToBooks($sc, $bookOrderP);
+      my $bkP = &scopeToBooks($sc, &conf('Versification'));
       foreach my $bk (@{$bkP}) {if ($bk eq $scope) {$subPubCover = $figure;}}
     }
   }
@@ -545,8 +544,6 @@ sub filterGlossaryToScope {
   my $osisP = shift; # OSIS to filter
   my $scope = shift; # scope to filter to
   
-  my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
-  
   my @removed;
   my @kept;
   
@@ -559,11 +556,11 @@ sub filterGlossaryToScope {
     if (!$divScope) {push(@kept, $divScope); next;}
     
     # keep if scope is not a Bible scope
-    my $bksAP = &scopeToBooks($divScope, $bookOrderP);
+    my $bksAP = &scopeToBooks($divScope, &conf("Versification"));
     if (!@{$bksAP}) {next;}
     
     # keep if any book within the Bible scope matches $scope
-    if (&inContext(&getScopeAttributeContext($divScope, $bookOrderP), &getContextAttributeHash($scope))) {
+    if (&inContext(&getScopeAttributeContext($divScope, &conf("Versification")), &getContextAttributeHash($scope))) {
       push(@kept, $divScope);
       next;
     }
@@ -593,12 +590,11 @@ sub filterAggregateEntriesToScope {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my @check = $XPC->findnodes('//osis:div[@type="glossary"][@subType="x-aggregate"]//osis:div[@type="x-aggregate-subentry"]', $xml);
-  my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
   
   my @removed; my $removeCount = 0;
   foreach my $subentry (@check) {
     my $glossScope = $subentry->getAttribute('scope');
-    if ($glossScope && !&inContext(&getScopeAttributeContext($glossScope, $bookOrderP), &getContextAttributeHash($scope))) {
+    if ($glossScope && !&inContext(&getScopeAttributeContext($glossScope, &conf("Versification")), &getContextAttributeHash($scope))) {
       $subentry->unbindNode();
       my %scopes = map {$_ => 1} @removed;
       if (!$scopes{$glossScope}) {push(@removed, $glossScope);}
@@ -1002,6 +998,7 @@ sub readServerScopes {
   my @fileList; &getURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
   my $ignoreDirs = &conf("ARG_ignoreServerDirectoryRegEx");
   
+  my %dirBooks;
   foreach my $file (sort @fileList) {
     if ($file =~ /\/$/) {next;} # skip directories
     
@@ -1028,6 +1025,16 @@ sub readServerScopes {
     if ($result{$scope}) {next;} # keep first found
 
     $result{$scope} = "/$dirname";
+    
+    foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
+      push(@{$dirBooks{$dirname}}, $bk);
+    }
+  }
+  
+  # Whenever a directory holds multiple single-book eBooks, be sure to
+  # include the whole scope.
+  foreach my $dirname (keys %dirBooks) {
+    $result{&booksToScope($dirBooks{$dirname}, &conf("Versification"))} = "/$dirname";
   }
   
   return \%result

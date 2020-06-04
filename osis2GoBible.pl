@@ -57,9 +57,8 @@ foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
 my $collectionsP = &getFullCollection($MAINMOD, &getScopeOSIS($INXML), &conf('Versification'));
 
-my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
 my $scope = &getScopeOSIS($INXML);
-my $ScopeTotal = @{&scopeToBooks($scope, $bookOrderP)};
+my $ScopeTotal = @{&scopeToBooks($scope, &conf("Versification"))};
 
 my %results;
 
@@ -200,8 +199,7 @@ sub getFullCollection {
   
   my %collections;
   
-  my $bookOrderP; &getCanon($v11n, undef, \$bookOrderP, undef);
-  $collections{lc($modname)} = &scopeToBooks($scope, $bookOrderP); 
+  $collections{lc($modname)} = &scopeToBooks($scope, $v11n); 
   return \%collections;
 }
 

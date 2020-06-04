@@ -373,8 +373,6 @@ sub glossaryLink {
 my %NoOutboundLinks;
 sub searchForGlossaryLinks {
   my $node = shift; # non text-node child elements will not be modified
-  
-  my $bookOrderP;
 
   if ($node->nodeType != XML::LibXML::XML_TEXT_NODE &&
       $node->nodeType != XML::LibXML::XML_ELEMENT_NODE) {
@@ -386,13 +384,12 @@ sub searchForGlossaryLinks {
   # If this node is in a glossary, get the glossary info
   my $glossary;
   if (&isDict($node)) {
-    if (!$bookOrderP) {&getCanon(&getVerseSystemOSIS($node), undef, \$bookOrderP, undef)}
     
     $glossary->{'node_context'} = @{&atomizeContext(&getNodeContext($node))}[0];
     if (!$glossary->{'node_context'}) {next;}
     
     my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
-      push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, $bookOrderP)}:$gsp));
+      push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, &getVerseSystemOSIS($node))}:$gsp));
     }
     $glossary->{'scopes_context'} = join('+', @gs);
     

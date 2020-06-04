@@ -70,8 +70,7 @@ sub getContextAttributeHash {
     
     # Handle special case of BOOK1-BOOK2 for a major speedup
     elsif ($ref =~ /^($OSISBOOKSRE)-($OSISBOOKSRE)$/) {
-      my $bookOrderP; &getCanon(&conf('Versification'), undef, \$bookOrderP, undef);
-      my $aP = &scopeToBooks($ref, $bookOrderP);
+      my $aP = &scopeToBooks($ref, &conf('Versification'));
       foreach my $bk (@{$aP}) {$h{'books'}{$bk}++;}
     }
     
@@ -367,13 +366,12 @@ sub inContext {
 # comprise a scope attribute's value.
 sub getScopeAttributeContext {
   my $scopeAttrib = shift;
-  my $bookOrderP = shift;
+  my $vsys = shift;
   
   my @ids;
   foreach my $s (split(/\s+/, $scopeAttrib)) {
     if ($s !~ /\-/) {push(@ids, $s);}
-    elsif (!$bookOrderP) {&ErrorBug("getScopeAttributeContext must have bookOrderP to expand scope ranges.");}
-    else {push(@ids, @{&scopeToBooks($s, $bookOrderP)});}
+    else {push(@ids, @{&scopeToBooks($s, $vsys)});}
   }
   
   return join('+', @ids);
@@ -525,8 +523,7 @@ sub existsScope {
       }
     }
     if (!$found) {
-      my $bookOrderP; &getCanon(&conf("Versification"), undef, \$bookOrderP, undef);
-      my $context = &getScopeAttributeContext($scope, $bookOrderP);
+      my $context = &getScopeAttributeContext($scope, &conf("Versification"));
       foreach my $t (@test) {
         my $hashP = &getContextAttributeHash($t->getAttribute('scope'));
         if (&inContext($context, $hashP)) {
