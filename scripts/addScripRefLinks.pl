@@ -481,7 +481,7 @@ sub asrlProcessFile {
     if ($reference) {
       if ($reference->hasAttribute('osisRef') || 
           $reference->getAttribute('type') =~ /x\-gloss/) {next;}
-      my $newRefs = &getLinksReference($work, $reference, $LOCATION);
+      my $newRefs = &getLinksReference($work, $reference);
       if ($newRefs) {
         $nodeInfo{$textNode->unique_key}{'node'} = $textNode;
         $nodeInfo{$textNode->unique_key}{'text'} = $newRefs;
@@ -493,7 +493,7 @@ sub asrlProcessFile {
     else {
       # search for Scripture references in this text node and add newReference tags around them
       my $text = $textNode->data();
-      &addLinksText($work, \$text, $LOCATION);
+      &addLinksText($work, \$text);
       
       if ($text ne $textNode->data()) {
         # save changes for later (to avoid messing up line numbers)
@@ -547,12 +547,6 @@ sub asrlProcessFile {
 sub getLinksReference {
   my $work = shift;
   my $reference = shift;
-  my $context = shift;
-  
-  my $bk; my $ch; my $vs;
-  if ($context =~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {
-    $bk = $1; $ch = ($2? $3:''); $vs = ($4 ? $5:'');
-  }
   
   my $targ;
   my $tnode = $reference->firstChild;
@@ -567,11 +561,11 @@ sub getLinksReference {
     $t = $reference->textContent;
   }
   # A bare number is interpereted according to the current context
-  elsif ($t =~ /^(\d+)$/ && $bk && $ch && $vs) {
-    return &newReference($work, "$bk.$ch.$1", $t);
+  elsif ($t =~ /^(\d+)$/ && $BK && $CH && $VS) {
+    return &newReference($work, "$BK.$CH.$1", $t);
   }
-  elsif ($t =~ /^(\d+)$/ && $bk) {
-    return &newReference($work, "$bk.$1", $t);
+  elsif ($t =~ /^(\d+)$/ && $BK) {
+    return &newReference($work, "$BK.$1", $t);
   }
   
   # Check if there is an explicit target as a USFM 3 attribute
@@ -591,7 +585,7 @@ sub getLinksReference {
   }
   
   # Search the text 
-  &addLinksText($work, \$targ, $context, 1);
+  &addLinksText($work, \$targ, 1);
   
   if ($targ eq $t) {return '';}
   
@@ -617,15 +611,9 @@ sub newReference {
 sub addLinksText {
   my $work = shift;
   my $tP = shift;
-  my $context = shift;
   my $isRefElement = shift;
-  
-  my $bk; my $ch; my $vs;
-  if ($context =~ /^([^\.]+)(\.(\d+)(\.(\d+))?)?$/) {
-    $bk = $1; $ch = ($2? $3:''); $vs = ($4 ? $5:'');
-  }
 
-#&Log("$LOCATION: addLinksText $bk, $ch, $$tP\n");
+#&Log("$LOCATION: addLinksText $$tP\n");
 
   my @notags = split(/(<[^>]*>)/, $$tP);
   for (my $ts = 0; $ts < @notags; $ts++) {
@@ -648,7 +636,7 @@ sub addLinksText {
 
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
         # Skip if this error is marked to be skipped
-        my $repExtref = &fixLink($matchedTerm, "$BK.$CH.$VS", \%fix, \%fixDone);
+        my $repExtref = &fixLink($matchedTerm, $work, "$BK.$CH.$VS", \%fix, \%fixDone);
         if ($repExtref) {
           if ($repExtref ne 'skip') {
             &Error("Links with errors can only be skipped.", "The FIX instruction in CF_addScripRefLink.pl must not have anything after the equal sign.");
@@ -686,17 +674,17 @@ sub addLinksText {
 
       # Skip or fix
       my $isFixed = 0;
-      my $repExtref = &fixLink($pextref, "$BK.$CH.$VS", \%fix, \%fixDone);
+      my $repExtref = &fixLink($pextref, $work, "$BK.$CH.$VS", \%fix, \%fixDone);
       if ($repExtref eq 'skip') {&hideTerm($extref, $ttP); next;}
       elsif ($repExtref) {$isFixed++; goto ADDLINK;}
       
       my $shouldCheck = 0;
 
       # Now break ref up into its subrefs, and extract OSIS ref for each subref
-      my $tbk = $bk;
-      my $tch = $ch;
+      my $tbk = $BK;
+      my $tch = $CH;
       my $bareNumbersAre = "chapters";
-      if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $ch = 1;}
+      if ($tbk =~ /($oneChapterBooks)/i) {$bareNumbersAre = "verses"; $tch = 1;}
 
       my @subrefArray = split(/($sepTerms)/, $extref);
       if (@subrefArray > 1) {&logLink($LOCATION, 0, $pextref);}
@@ -787,6 +775,7 @@ sub logLink {
 
 sub fixLink {
   my $reference = shift;
+  my $work = shift;
   my $location = shift;
   my $fixP = shift;
   my $fixDoneP = shift;
@@ -802,7 +791,8 @@ sub fixLink {
   }
   
   my $fixed = $fixP->{$location}{$reference};
-  if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$1">$2<\/newReference>/g) {
+  $work = ($work ? $work.':':'');
+  if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$work$1">$2<\/newReference>/g) {
     &ErrorBug("Bad FIX replacement $location $reference: \"$fixed\"");
     return '';
   }
