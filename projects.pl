@@ -23,7 +23,6 @@ my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
-my $ONLY = '^(all)$';  # only run listed modules or sub-modules
 
 if ($0 ne "./projects.pl") {
   print "\nRun this script from the osis-converters directory.\n";
@@ -33,12 +32,16 @@ if ($0 ne "./projects.pl") {
 # path to directory containing osis-converters projects
 my $PRJDIR = shift;
 
+# regex matching modules to run
+my $MODRE = shift;
+
 # script to run on all projects
 my $SCRIPT = shift;
 
 # optional max number of threads to use (default is number of CPUs)
 my $MAXTHREADS = shift; 
 
+if (!$MODRE) {$MODRE = 'all';}
 if (!$SCRIPT) {$SCRIPT = 'osis';}
 if ($SCRIPT !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2all)$/) {
   print "Unrecognzed script argument: $SCRIPT\n";
@@ -55,10 +58,12 @@ if ( !$PRJDIR || !-e $PRJDIR ||
      !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS) 
    ) {
   print "
-usage: projects.pl projects_directory [script] [max_threads]
+usage: projects.pl projects_directory [module_regex] [script] [max_threads]
 
 projects_directory: The relative path from this script's directory to 
                     a directory containing osis-converters projects.
+module_regex      : A regex matching modules to run, or 'all'. Default 
+                    is 'all'.
 script            : The conversion(s) to run on each project. Default 
                     is osis (which will run sfm2osis or osis2osis 
                     depending on the project). The other options are 
@@ -83,7 +88,7 @@ my $INFO = &getProjectInfo($PRJDIR);
 my @MODULES; my @MODULE_IGNORES;
 my %MAINS;   my %MAIN_IGNORES;
 foreach my $m (sort keys %{$INFO}) {
-  if ($ONLY && $ONLY !~ /all/ && $m !~ /$ONLY/) {next;}
+  if ($MODRE && $MODRE !~ /^all$/i && $m !~ /^$MODRE$/) {next;}
   if ($SKIP && $m =~ /$SKIP/) {next;}
   
   if ($INFO->{$m}{'updated'}) {
