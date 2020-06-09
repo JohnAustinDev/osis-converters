@@ -123,7 +123,6 @@ sub init_linux_script {
   
   my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($modtoolsGit);
   
-  &Log("\nUsing ".`calibre --version`);
   &Log("osis-converters git rev: $scrdGit\n");
   &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
   if ($inpdGit) {
@@ -538,7 +537,7 @@ sub getURLCache {
       my $delta = sprintf("%.2f", ($now-$last)/3600);
       if ($delta < $updatePeriod) {
         if ($listingAP) {&readWgetFilePaths($p, $listingAP, $p);}
-        &Note("Checked local cache directory $pp (last updated $delta hours ago)");
+        &Note("Checked local cache directory $pp");
         return $p;
       }
     }

@@ -24,6 +24,7 @@
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 require "$SCRD/scripts/osis2pubs.pl";
+&Log("\nUsing ".`calibre --version`);
 &osis2pubs('eBook');
 
 &timer('stop'); &Log("\nend time: ".localtime()."\n");

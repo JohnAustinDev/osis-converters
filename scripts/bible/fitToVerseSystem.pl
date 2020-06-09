@@ -1624,7 +1624,6 @@ sub writeVerseSystem {
   # Prepare the output directory
   my $outfile = "$MOD_OUTDIR/tmp/versification/$vsys.xml";
   if (-e $outfile) {
-    &Note("XML Versification $vsys exists.");
     return 1;
   }
   if (! -e "$MOD_OUTDIR/tmp") {
@@ -1674,7 +1673,6 @@ sub writeVerseSystem {
 </osis>';
   close(VOUT);
   
-  &Note("XML Versification $vsys created.");
   return 1;
 }
 

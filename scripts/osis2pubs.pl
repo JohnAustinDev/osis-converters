@@ -410,12 +410,7 @@ sub filterBibleToScope {
     if ($sp eq $scope) {$subPublication = $sp;}
   }
   
-  my $bookOrderP;
   my $booksFiltered = 0;
-  if (!&getCanon(&conf('Versification'), '', \$bookOrderP, '')) {
-    &ErrorBug("pruneFileOSOS getCanon(".&conf('Versification').") failed, not pruning books in OSIS file");
-    return;
-  }
   
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
