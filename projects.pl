@@ -669,24 +669,28 @@ sub timer {
   else {&Log("\ncurrent time: ".localtime()."\n");}
 }
 
-# Return the number of projects currently running, and print a message
-# every so often, or anytime $now is set (and will also write this to 
-# the log file if $now is set to 'log').
+# Return the number of projects currently running, and print or log a 
+# message about the currently running projects.
+my $LASTMSG;
 sub working {
   my $startedAP = shift;
   my $doneHP = shift;
-  my $now = shift;
+  my $logOrPrint = shift; # 'log' means log msg. Otherwise print msg. 
 
   my @working;
   foreach my $r (@{$startedAP}) {
     if (!$doneHP->{$r}) {push(@working, $r);}
   }
   
-  if ($now || !$WAIT) {
+  if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
     if ($PAUSED) {$msg .= "Press p again to continue scheduling.\n";}
-    if ($now && $now =~ /log/i) {&Log($msg);}
-    else {print $msg;}
+    
+    if ($logOrPrint && $logOrPrint =~ /log/i) {&Log($msg);}
+    elsif ($msg ne $LASTMSG) {
+      print $msg;
+      $LASTMSG = $msg;
+    }
     
     $WAIT = 15; # 30 seconds at 2 second sleeps
   }

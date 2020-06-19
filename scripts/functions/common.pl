@@ -114,23 +114,13 @@ require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
 
 sub init_linux_script {
-  chdir($MAININPD);
-  my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($inpdGit);
-  my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3):''); chomp($inpdOriginGit);
-  
-  chdir($SCRD);
-  my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($scrdGit);
-  
-  my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($modtoolsGit);
-  
-  &Log("osis-converters git rev: $scrdGit\n");
-  &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
-  if ($inpdGit) {
-    &Log("$inpdOriginGit rev: $inpdGit\n");
-  }
   &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
   
-  if ($SCRIPT_NAME !~ /^osis2ebook$/) {&timer('start');} # osis2ebook is usually called multiple times by osis2ebooks.pl so don't restart timer
+   # osis2ebook is usually called multiple times by osis2ebooks so don't repeat these
+  if ($SCRIPT_NAME !~ /^osis2ebook$/) {
+    &logGitRevs();
+    &timer('start');
+  }
   
   &initLibXML();
   
@@ -219,6 +209,23 @@ sub init_linux_script {
   if (&conf('Font')) {&checkFont(&conf('Font'));}
   
   if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
+}
+sub logGitRevs {
+
+  chdir($MAININPD);
+  my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($inpdGit);
+  my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3):''); chomp($inpdOriginGit);
+  
+  chdir($SCRD);
+  my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($scrdGit);
+  
+  my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($modtoolsGit);
+  
+  &Log("osis-converters git rev: $scrdGit\n");
+  &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
+  if ($inpdGit) {
+    &Log("$inpdOriginGit rev: $inpdGit\n");
+  }
 }
 # This is only needed to update old osis-converters projects
 sub update_removeConvertTXT {

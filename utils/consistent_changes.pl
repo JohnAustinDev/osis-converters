@@ -14,36 +14,76 @@ TOP:
 my $INFILE = shift;
 my $CCT = shift;
 my $OUTFILE = shift;
+my $TOSCRIPT = shift;
 
 if (!open(CCT, "<:encoding(UTF-8)", $CCT)) {
   die "Could not open $CCT";
 }
 
+if ($TOSCRIPT && open(SCR, ">:encoding(UTF-8)", $TOSCRIPT)) {
+print SCR "#!/usr/bin/perl
+
+my \$USAGE = \"$TOSCRIPT inFile outFile\";
+
+use strict; use utf8;
+binmode(STDERR, \":utf8\"); binmode(STDOUT, \":utf8\");
+my \$INFILE = shift; my \$OUTFILE = shift;
+if (!open(INF,  \"<:encoding(UTF-8)\", \$INFILE) ||
+    !open(OUTF, \">:encoding(UTF-8)\", \$OUTFILE))
+{
+  print \"\\nUsage: \$USAGE\\n\\n\";
+  exit;
+}
+
+";
+}
+else {
+  $TOSCRIPT = '';
+}
+
 # Read CCT replacements
-my (%REPLACEMENTS, $parsing);
+my (%REPLACEMENTS, %STORES, $parsing);
 while(<CCT>) {
-  no strict "refs"; 
+  if ($TOSCRIPT && $_ =~ /^c (.*)$/) {
+    print SCR "\t" x ($parsing-1)."# $1\n";
+  }
   
   # Parse the CCT table
   if ($_ =~ s/^begin\s*>\s*//) {$parsing++;}
   
+  my ($from, $to);
   if (!$parsing || $_ =~ /^c / || $_ =~ /^\s*$/) {next;}
   elsif ($_ =~ /^store\((\d+)\)\s+(["'])(.*?)\2\s+endstore/) {
-    ${"s$1"} = "[$3]";
+    $STORES{"s$1"} = "[$3]";
+    if ($TOSCRIPT) {
+      print SCR "my \$s$1 = \"[$3]\";\n";
+    }
   }
   elsif ($_ =~ /^(["'])(.*?)\1\s*(?:(fol|prec)\((\d+)\)\s*)?>\s*(["'])(.*?)\5\s*(?:c .*)?$/) {
-    my $from = $2; my $ins = $3; my $store = $4; my $to = $6;
+    my $f = $2; my $ins = $3; my $store = $4; $to = $6;
+    if ($parsing == 1) {
+      print SCR "
+while(<INF>) {
+";
+      $parsing++;
+    }
+    
     if ($ins eq 'prec') {
-      $REPLACEMENTS{"$.:(?<=".${"s$store"}.")\Q$from\E"} = $to;
+      $from = "(?<=\$s$store)\Q$f\E";
     }
     elsif ($ins eq 'fol') {
-      $REPLACEMENTS{"$.:\Q$from\E(?=".${"s$store"}.')'} = $to;
+      $from="\Q$f\E(?=\$s$store)";
     }
     elsif (!$ins) {
-      $REPLACEMENTS{"$.:\Q$from\E"} = $to;
+      $from="\Q$f\E";
     }
     else {
       die "Instruction '$ins' not implemented: $CCT line $.:\n$_";
+    }
+    
+    $REPLACEMENTS{"$.:$from"} = "\Q$to\E";
+    if ($TOSCRIPT) {
+      print SCR "\ts/$from/\Q$to\E/g;\n";
     }
   }
   else {
@@ -51,15 +91,23 @@ while(<CCT>) {
   }
 }
 close(CCT);
-
-# &writeReplacements('uzbek.pl');
+if ($TOSCRIPT) {
+  print SCR "
+  print OUTF \$_;
+}
+close(INF);
+close(OUTF);
+";
+  close(SCR);
+}
 
 # Sort replacements
-my (@FROM, @TO);
+my (@FROM, @TO, %USED);
 foreach my $k (sort {&repsort($a, $b)} keys %REPLACEMENTS) {
   my $k2 = $k; $k2 =~ s/^\d+://;
   push(@FROM, $k2); push(@TO, $REPLACEMENTS{$k});
   print "'$k2' = '".$REPLACEMENTS{$k}."'\n";
+  $USED{"s/$k2/$REPLACEMENTS{$k}/"} = 0;
 }
 
 if (!open(OUTF, ">:encoding(UTF-8)", $OUTFILE)) {
@@ -68,6 +116,11 @@ if (!open(OUTF, ">:encoding(UTF-8)", $OUTFILE)) {
 
 #&strictCCT($INFILE);
 &fastCCT($INFILE);
+
+
+foreach my $s (sort { $USED{$b} <=> $USED{$a} } keys %USED) {
+  print sprintf("%10i %s\n", $USED{$s}, $s);
+}
 
 close(OUTF);
 ########################################################################
@@ -83,11 +136,11 @@ sub fastCCT {
 
   print "Progress...\n";
   while (<INF>) {
-    if (!($. % 10)) {print "line $.\n";}
+    if (!($. % 100)) {print "line $.\n";}
     
     for (my $x = 0; $x < @FROM; $x++) {
       if ($_ =~ s/@FROM[$x]/@TO[$x]/g) {
-        print "s/@FROM[$x]/@TO[$x]/g = $_";
+        $USED{"s/@FROM[$x]/@TO[$x]/"}++;
       }
     }
     
@@ -109,7 +162,7 @@ sub strictCCT {
 
   print "Progress...\n";
   while (<INF>) {
-    if (!($. % 10)) {print "line $.\n";}
+    if (!($. % 100)) {print "line $.\n";}
     my $out;
     
     my $end = length($_);
@@ -120,6 +173,7 @@ sub strictCCT {
         if ($_ =~ /^.{$x}(@FROM[$y])/) {
           $out .= @TO[$y];
           $x += length($1);
+          $USED{"s/@FROM[$y]/@TO[$y]/"}++;
           last;
         }
         $y++;
@@ -133,21 +187,6 @@ sub strictCCT {
     print OUTF $out;
   }
   close(INF);
-}
-
-sub writeReplacements {
-  my $script = shift;
-  
-  if (open(SCR, ">:encoding(UTF-8)", $script)) {
-    open(ME, "<:encoding(UTF-8)", $0) or die;
-    while(<ME>) {if (/^TOP\:/) {last;} print SCR $_;}
-    close(ME);
-    foreach my $k (sort {&repsort($a, $b)} keys %REPLACEMENTS) {
-      my $re = $k; $re =~ s/^\d+://;
-      my $rep = $REPLACEMENTS{$k};
-      print SCR "s/$re/$rep/g\n";
-    }
-  }
 }
 
 # Sorting is a critical step. Order is determined as follows:

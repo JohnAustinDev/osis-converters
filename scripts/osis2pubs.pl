@@ -65,7 +65,7 @@ sub osis2pubs {
                           (&conf('CreateSeparatePubs') =~ /^false$/i ? '':&conf('CreateSeparatePubs')));
                            
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
-  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD"):{});
+  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD", 1):{});
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
   $TRANPUB_TYPE = 'Tran'; foreach my $s (@SUB_PUBLICATIONS) {if ($s eq $FULLSCOPE) {$TRANPUB_TYPE = 'Full';}}
   $TRANPUB_TITLE = ($TRANPUB_TYPE eq 'Tran' ? &conf('TranslationTitle'):&conf("TitleSubPublication[$FULLSCOPE]"));
@@ -985,8 +985,13 @@ sub getFullEbookName {
   return $name;
 }
 
+# Read the files and directories at $url and return a hash pointer which
+# contains scope => sub-directory pairs. Also, create a matching local 
+# ebook sub-directory for every $url subdir (whether it contains files 
+# or not) if $mkdir is set.
 sub readServerScopes {
   my $url = shift;
+  my $mkdir = shift;
   
   my %result;
   
@@ -995,7 +1000,14 @@ sub readServerScopes {
   
   my %dirBooks;
   foreach my $file (sort @fileList) {
-    if ($file =~ /\/$/) {next;} # skip directories
+    if ($file =~ /^\.+\/$/) {next;}
+    elsif ($file =~ /^\.\/(.*)\/$/) {
+      my $subdir = $1;
+      if ($mkdir && $subdir) {
+        &shell("mkdir -p \"$EBOUT/$subdir\"", 3);
+      }
+      next;
+    }
     
     # ./2005/Prov_Full.azw3
     my $dirname = $file; 
