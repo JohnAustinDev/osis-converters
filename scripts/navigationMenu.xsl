@@ -284,14 +284,6 @@ following in config.conf:
 </for-each>
 </with-param>
                   </call-template>
-                  <for-each select="$osisText/descendant::div[@type='glossary']
-                    [not(@scope = 'NAVMENU')][not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]
-                    [oc:getDivTitle(.) = following-sibling::div/oc:getDivTitle(.)]">
-                    <call-template name="Error">
-<with-param name="msg">Multiple glossaries have the same name: <value-of select="oc:getDivTitle(.)"/></with-param>
-<with-param name="exp"></with-param>
-                    </call-template>
-                  </for-each>
                 </if>
                 <sequence select="$glossaryTopMenu"/>
               </if>
