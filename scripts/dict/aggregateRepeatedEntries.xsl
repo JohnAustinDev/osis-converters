@@ -315,7 +315,6 @@ glossary entry.</with-param>
   
   <!-- Remove individual keywords when writing the aggregate div -->
   <template mode="write_aggregates" match="seg[@type='keyword']"/>
-  <template mode="write_aggregates" 
-    match="p[not( descendant::text()[normalize-space()][not(parent::seg[@type='keyword'])] )]"/>
+  <template mode="write_aggregates" match="p[count(child::node()) = 1][child::seg[@type='keyword']]"/>
   
 </stylesheet>
