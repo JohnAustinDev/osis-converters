@@ -597,6 +597,13 @@ sub filterAggregateEntriesToScope {
     }
   }
   
+  # Now remove any x-title-aggregate titles which are no longer needed
+  foreach my $del (@{$XPC->findnodes('//osis:div[@type="x-keyword-aggregate"]
+    [count(descendant::osis:div[@subType="x-title-aggregate"]) = 1]/
+    descendant::osis:div[@subType="x-title-aggregate"]', $xml)}) {
+    $del->unbindNode();
+  }
+  
   &writeXMLFile($xml, $osisP);
   
   if ($removeCount == scalar(@check)) {&removeAggregateEntries($osisP);}

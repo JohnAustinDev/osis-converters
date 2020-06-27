@@ -277,31 +277,37 @@ glossary entry.</with-param>
                 <variable name="glossaryTitle" select="$titles[@self = generate-id(current())]/@glossTitle"/>
                 <variable name="countTitles" select="count(distinct-values($titles/@glossTitle))"/>
                 
-                <!-- Only add disambiguation titles if there is more than one scope or glossary title represented -->
-                <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
-                  <if test="matches($glossaryScopeTitle, '\w+')">
-                    <osis:title level="3" subType="x-glossary-scope">
-                      <value-of select="$glossaryScopeTitle"/>
-                    </osis:title>
-                  </if>
-                  <if test="matches($glossaryTitle, '\w+')">
-                    <osis:title level="3" subType="x-glossary-title">
-                      <value-of select="$glossaryTitle"/>
-                    </osis:title>
-                  </if>
-                  <if test="not(matches($glossaryScopeTitle, '\w+')) and 
-                            not(matches($glossaryTitle, '\w+'))">
-                    <osis:title level="3" subType="x-glossary-head">
-                      <value-of select="concat(position(), ')')"/>
-                    </osis:title>
-                  </if>
-                </if>
                 <copy>
                   <apply-templates mode="#current" select="@*"/>
                   <attribute name="type" select="'x-aggregate-subentry'"/>
                   <attribute name="annotateRef" select="descendant::seg[@type='keyword']/concat($DICTMOD,':',@osisID)"/>
                   <attribute name="annotateType">x-aggregate-source</attribute>
                   <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
+                  
+                  <!-- Only add disambiguation titles if there is more than one scope or glossary title represented.
+                  Titles need to be inside the x-aggregate-subentry, rather than before it, so that when filtered 
+                  according to scope, these dangling titles are not left behind! -->
+                  <if test="$countScopeTitles &#62; 1 or $countTitles &#62; 1">
+                    <osis:div subType="x-title-aggregate">
+                      <if test="matches($glossaryScopeTitle, '\w+')">
+                        <osis:title level="3" subType="x-glossary-scope">
+                          <value-of select="$glossaryScopeTitle"/>
+                        </osis:title>
+                      </if>
+                      <if test="matches($glossaryTitle, '\w+')">
+                        <osis:title level="3" subType="x-glossary-title">
+                          <value-of select="$glossaryTitle"/>
+                        </osis:title>
+                      </if>
+                      <if test="not(matches($glossaryScopeTitle, '\w+')) and 
+                                not(matches($glossaryTitle, '\w+'))">
+                        <osis:title level="3" subType="x-glossary-head">
+                          <value-of select="concat(position(), ')')"/>
+                        </osis:title>
+                      </if>
+                    </osis:div>
+                  </if>
+                
                   <apply-templates mode="write_aggregates"/>
                 </copy>
               </for-each>

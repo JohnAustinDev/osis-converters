@@ -88,8 +88,8 @@
       select="if ($isChildrensBible) then () else /osis/osisText/header/work[@osisWork != /osis/osisText/@osisIDWork]/
               doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
   
-  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') then 
-          (if ($referenceOSIS//div[@type='glossary'][@subType='x-aggregate']) then true() else false()) 
+  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') then
+          boolean($referenceOSIS//div[@type='x-keyword-aggregate'][count(child::div[@type='x-aggregate-subentry']) &#62; 1])
           else $CombineGlossaries = 'true' "/>
           
   <variable name="CombGlossaryTitle" select="//work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
@@ -349,15 +349,19 @@
   <template name="keywordDisambiguationHeading">
     <param name="noScope"/>
     <param name="noName"/>
-    <if test="not($noScope)">
-      <osis:title level="3" subType="x-glossary-scope">
-        <value-of select="oc:getDivScopeTitle(ancestor::div[@type='glossary'][1])"/>
-      </osis:title>
-    </if>
-    <if test="not($noName)">
-      <osis:title level="3" subType="x-glossary-title">
-        <value-of select="oc:getDivTitle(ancestor::div[@type='glossary'][1])"/>
-      </osis:title>
+    <if test="not($noScope) or not($noName)">
+      <osis:div subType="x-title-aggregate">
+        <if test="not($noScope)">
+          <osis:title level="3" subType="x-glossary-scope">
+            <value-of select="oc:getDivScopeTitle(ancestor::div[@type='glossary'][1])"/>
+          </osis:title>
+        </if>
+        <if test="not($noName)">
+          <osis:title level="3" subType="x-glossary-title">
+            <value-of select="oc:getDivTitle(ancestor::div[@type='glossary'][1])"/>
+          </osis:title>
+        </if>
+      </osis:div>
     </if>
   </template>
   
@@ -1790,7 +1794,7 @@
               not($doCombineGlossaries) and 
               me:getTocLevel(.) = 1 and 
               count(distinct-values($preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.))) &#62; 1"> 
-      <variable name="kdh" as="element(osis:title)*">
+      <variable name="kdh" as="element(osis:div)?">
         <call-template name="keywordDisambiguationHeading"/>
       </variable>
       <apply-templates mode="xhtml" select="$kdh"/>
@@ -2008,7 +2012,7 @@
                 count(distinct-values(
                   $preprocessedRefOSIS//div[@type='glossary']/oc:getDivScopeTitle(.)
                 )) &#62; 1"> 
-        <variable name="kdh" as="element(osis:title)*">
+        <variable name="kdh" as="element(osis:div)?">
           <call-template name="keywordDisambiguationHeading">
             <with-param name="noName" select="'true'"/>
           </call-template>
