@@ -468,7 +468,7 @@ sub checkFont {
   # font support, and can use FONT_FILES whenever fonts files are needed.
   
   # FONTS can be a URL in which case update the local font cache
-  if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 12);}
+  if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 1, 12);}
 
   if ($FONTS && ! -e $FONTS) {
     &Error("config.conf specifies FONTS as \"$FONTS\" but this path does not exist. FONTS will be unset.", "Change the value of FONTS in the [system] section of config.conf to point to an existing path or URL.");
@@ -512,17 +512,19 @@ sub checkFont {
   }
 }
 
-# Returns the local path to files cached from a URL. The cache will 
-# first be updated, if it was last updated more than $updatePeriod hours 
-# ago. If an array pointer $listingAP is provided, then files will not  
-# be downloaded to the cache. Rather, a directory listing will be cached 
-# instead, and that listing returned in $listingAP. Directories in the 
-# listing end with '/'. For $listingAP to work, the URL must target an 
-# Apache server directory where html listing is enabled. The path to the  
-# URLCache subdirectory is returned.
+# Caches files from a URL, or if the $listingAP array pointer is 
+# provided, a listing of files at the URL (without actually downloading 
+# the files). The path to the local cache is returned. If $listingAP 
+# pointer is provided, it will be set to the array of file paths. The 
+# $depth value is the directory recursion level. If the cache was last 
+# updated more than $updatePeriod hours ago, the cache will first be 
+# updated. Directories in the $listingAP listing end with '/'. For 
+# $listingAP to work, the URL must target an Apache server directory 
+# where html listing is enabled.
 sub getURLCache {
   my $subdir = shift; # local .osis-converters subdirectory to update
   my $url = shift; # URL to read from
+  my $depth = shift;
   my $updatePeriod = shift; # hours between updates (0 updates always)
   my $listingAP = shift; # Do not download files, just write a file listing here.
   
@@ -531,6 +533,7 @@ sub getURLCache {
   my $pp = "~/.osis-converters/URLCache/$subdir";
   my $p = &expandLinuxPath($pp);
   if (! -e $p) {make_path($p);}
+  my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # URL directory name
   
   # Check last time this subdirectory was updated
   if ($updatePeriod && -e "$p/../$subdir-updated.txt") {
@@ -543,7 +546,7 @@ sub getURLCache {
       my $now = DateTime->now()->epoch();
       my $delta = sprintf("%.2f", ($now-$last)/3600);
       if ($delta < $updatePeriod) {
-        if ($listingAP) {&readWgetFilePaths($p, $listingAP, $p);}
+        if ($listingAP) {&wgetReadFilePaths($p, $listingAP, $p);}
         &Note("Checked local cache directory $pp");
         return $p;
       }
@@ -562,16 +565,17 @@ sub getURLCache {
     if ($r) {
       # Download files
       if (!$listingAP) {
-        shell("cd '$p' && wget -r --quiet --level=1 -erobots=off -nd -np -N -A '*.*' -R '*.html*' '$url'", 3);
+        $url =~ s/\/$//; # downloads should never end with /
+        shell("cd '$p' && wget -r --level=$depth -np -nd --quiet -erobots=off -N -A '*.*' -R '*.html*' '$url'", 3);
         $success = &wgetSyncDel($p);
       }
       # Otherwise return a listing
       else {
-        my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # directory name
-        my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/?$/$1/; my @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
+        $url =~ s/(?<!\/)$/\//; # listing URLs should always end in /
+        my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/$/$1/; my @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
         if ($p !~ /\/\.osis-converters\//) {die;} remove_tree($p); make_path($p);
-        &shell("cd '$p' && wget -r -np -nH --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
-        $success = &readWgetFilePaths($p, $listingAP, $p);
+        &shell("cd '$p' && wget -r --level=$depth -np -nH --quiet -erobots=off --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
+        $success = &wgetReadFilePaths($p, $listingAP, $p);
       }
     }
   }
@@ -624,7 +628,7 @@ sub wgetSyncDel {
 # of reading an apache server directory, and add paths of listed files 
 # and directories to the $filesAP array pointer. All directories will
 # end with a '/'.
-sub readWgetFilePaths {
+sub wgetReadFilePaths {
   my $wgetdir = shift; # directory containing the wget result of reading an apache server directory
   my $filesAP = shift; # the listing of subdirectories on the server
   my $root = shift; # root of recursive search
@@ -645,7 +649,7 @@ sub readWgetFilePaths {
       my $save = "$wgetdir/$sub/"; $save =~ s/^\Q$root\E\/[^\/]+/./;
       push(@{$filesAP}, $save);
       &Debug("Found folder: $save\n", 1);
-      $success &= &readWgetFilePaths("$wgetdir/$sub", $filesAP, $root);
+      $success &= &wgetReadFilePaths("$wgetdir/$sub", $filesAP, $root);
       next;
     }
     elsif ($sub ne 'index.html') {
@@ -659,8 +663,10 @@ sub readWgetFilePaths {
       my $icon = @{$a->findnodes('preceding::img[1]/@src')}[0];
       if ($icon->value =~ /\/(folder|back)\.gif$/) {next;}
       my $save = "$wgetdir/".decode_utf8($a->textContent()); $save =~ s/^\Q$root\E\/[^\/]+/./;
-      push(@{$filesAP}, $save);
-      &Debug("Found file: $save\n", 1);
+      if ($save ne ".") {
+        push(@{$filesAP}, $save);
+        &Debug("Found file: $save\n", 1);
+      }
     }
   }
   

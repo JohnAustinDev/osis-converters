@@ -65,7 +65,7 @@ sub osis2pubs {
                           (&conf('CreateSeparatePubs') =~ /^false$/i ? '':&conf('CreateSeparatePubs')));
                            
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
-  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes("$EBOOKS/$MAINMOD/$MAINMOD", 1):{});
+  $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, 1):{});
   $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
   $TRANPUB_TYPE = 'Tran'; foreach my $s (@SUB_PUBLICATIONS) {if ($s eq $FULLSCOPE) {$TRANPUB_TYPE = 'Full';}}
   $TRANPUB_TITLE = ($TRANPUB_TYPE eq 'Tran' ? &conf('TranslationTitle'):&conf("TitleSubPublication[$FULLSCOPE]"));
@@ -110,7 +110,8 @@ sub osis2pubs {
         my $bk = $aBook->getAttribute('osisID');
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
-        $PUB_SUBDIR = ($parentPubScope{$bk} ? $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{$bk});
+        $PUB_SUBDIR = ($parentPubScope{$bk} && $eBookSubDirs{$parentPubScope{$bk}} ? 
+          $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{$bk});
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
@@ -917,6 +918,7 @@ sub makeEbook {
   
   my $biglog = "$TMPDIR/OUT_osis2ebooks.txt"; # keep a separate log since it is huge and only report if there are errors or not in the main log file
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile($biglog);
+#$cmd = "touch \"$tmp/$MOD.$format\""; # debug eBook placement
   &shell($cmd);
   
   my $ercnt = &shell("grep -i -c 'error' '$biglog'", 3); chomp $ercnt; $ercnt =~ s/^\D*(\d+).*?$/$1/s;
@@ -992,17 +994,33 @@ sub getFullEbookName {
   return $name;
 }
 
-# Read the files and directories at $url and return a hash pointer which
-# contains scope => sub-directory pairs. Also, create a matching local 
-# ebook sub-directory for every $url subdir (whether it contains files 
-# or not) if $mkdir is set.
+# Read the files and directories at $url/$langCode/$pubCode and return 
+# a hash pointer which contains scope => sub-directory pairs. Also, 
+# if $mkdir is set, then create a matching local ebook sub-directory for 
+# every $url subdir (whether it contains files or not).
 sub readServerScopes {
   my $url = shift;
+  my $langCode = shift;
+  my $pubCode = shift;
   my $mkdir = shift;
   
   my %result;
   
-  my @fileList; &getURLCache("$MAINMOD-ebooks", $url, 12, \@fileList);
+  if (!$langCode) { # discover langCode if not provided
+    my @codes; &getURLCache('langCodes-ebooks', $url, 2, 768, \@codes);
+    foreach (@codes) {
+      if (! /^\.\/(.*?)\/(.*?)\/$/) {next;}
+      if ($pubCode eq $2) {$langCode = $1; last;}
+    }
+    if (!$langCode) {
+      &Warn("Could not determine code at $url/code/$pubCode.", 
+"If you plan to publish eBooks to $url, you may need to arrange 
+the eBooks at $EBOUT into appropriate sub-directories yourself.");
+      return \%result;
+    }
+  }
+  
+  my @fileList; &getURLCache("$MAINMOD-ebooks", "$url/$langCode/$pubCode", 3, 12, \@fileList);
   my $ignoreDirs = &conf("ARG_ignoreServerDirectoryRegEx");
   
   my %dirBooks;
@@ -1038,9 +1056,9 @@ sub readServerScopes {
     my $scope = $pscope; $scope =~ s/_/ /g;
     if ($result{$scope}) {next;} # keep first found
 
-    $result{$scope} = "/$dirname";
-    
+    $result{$scope} = "/$dirname";    
     foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
+      $result{$bk} = "/$dirname";
       push(@{$dirBooks{$dirname}}, $bk);
     }
   }
@@ -1051,7 +1069,7 @@ sub readServerScopes {
     $result{&booksToScope($dirBooks{$dirname}, &conf("Versification"))} = "/$dirname";
   }
   
-  return \%result
+  return \%result;
 }
 
 # The osis2xhtml.xsl converter expects the x-config-FullResourceURL 
