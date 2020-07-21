@@ -125,12 +125,12 @@ foreach my $m (@MODULES) {
     if ($run !~ /^(\S+)\s+$m$/) {next;}
     my $script = $1;
     my $deps = join(', ', @{$DEPENDENCY{$run}});
-    my $depsmsg = ($deps ? " (after $deps)":'');
+    my $depsmsg = ($deps ? "(after $deps)":'');
     $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
-    &Log(sprintf("%12s:%-30s %14s %s\n", 
+    &Log(sprintf("%12s:%12s %-35s %s\n", 
                   $m, 
+                  $script,
                   $depsmsg, 
-                  $script, 
                   &outdir($INFO, $m)
     ));
   }
