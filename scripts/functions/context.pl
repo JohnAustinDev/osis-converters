@@ -272,9 +272,11 @@ sub otherModContext {
   
   my @c;
   
+  my $aggregate = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="x-aggregate-subentry"]', $node)}[0];
+  
   # is node in a glossary?
   my $glossaryDiv = @{$XPC->findnodes('./ancestor-or-self::osis:div[@type="glossary"][last()]', $node)}[0];
-  if ($glossaryDiv) {
+  if ($glossaryDiv && !$aggregate) {
     # get preceding keyword or self
     my $inKeyword = 0;
     my $prevkw = @{$XPC->findnodes('ancestor-or-self::osis:seg[@type="keyword"][1]', $node)}[0];

@@ -1075,7 +1075,7 @@ sub getIndexInfo {
 sub getRootID {
   my $osisID = shift;
   
-  $osisID =~ s/(^[^\:]+\:|\.dup\d+$)//g;
+  $osisID =~ s/(^[^\:]+\:|[\.\!]dup\d+$)//g;
   return lc(&decodeOsisRef($osisID));
 }
 

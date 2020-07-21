@@ -1154,15 +1154,14 @@ sub readParatextReferenceSettings {
   return \%settings;
 }
 sub getAllAbbrevsString {
-  my $osis = shift;
-  my $abbrP = shift;
+  my $osisBook = shift;
+  my $nameBookP = shift;
   
   my $p = '';
-  foreach my $abbr (sort { length($b) <=> length($a) } keys %{$abbrP}) {
-    if ($abbrP->{$abbr} ne $osis || $abbr =~ /^\s*$/) {next;}
-    my $a = $abbr;
-    $p .= sprintf("%-6s = %s\n", $osis, $a);
-    $abbrP->{$abbr} = ''; # only print each abbrev once
+  foreach my $name (sort { length($b) <=> length($a) } keys %{$nameBookP}) {
+    if (!$nameBookP->{$name} || $nameBookP->{$name} ne $osisBook || $name =~ /^\s*$/) {next;}
+    $p .= sprintf("%-6s = %s\n", $osisBook, $name);
+    $nameBookP->{$name} = ''; # only print each abbrev once
   }
   
   return $p;

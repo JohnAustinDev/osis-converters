@@ -280,8 +280,7 @@ glossary entry.</with-param>
                 <copy>
                   <apply-templates mode="#current" select="@*"/>
                   <attribute name="type" select="'x-aggregate-subentry'"/>
-                  <attribute name="annotateRef" select="descendant::seg[@type='keyword']/concat($DICTMOD,':',@osisID)"/>
-                  <attribute name="annotateType">x-aggregate-source</attribute>
+                  <attribute name="osisID" select="replace(descendant::seg[@type='keyword']/@osisID, '\.(dup\d+)$', '!$1')"/>
                   <if test="parent::*/@scope"><attribute name="scope" select="parent::*/@scope"/></if>
                   
                   <!-- Only add disambiguation titles if there is more than one scope or glossary title represented.
