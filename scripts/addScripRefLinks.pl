@@ -743,7 +743,7 @@ sub addLinksText {
 
       if ($shouldCheck) {
         my $prf = $repExtref;
-        $prf =~ s/osisRef="([^"]+)"/$1/g;
+        $prf =~ s/osisRef="(.*?:)?([^"]+)"/$2/g;
         $prf =~ s/newReference/r/g;
         $CheckRefs .= "\nCheck location $LOCATION:\"$pextref\"=$prf";
       }

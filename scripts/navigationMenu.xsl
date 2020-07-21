@@ -396,7 +396,7 @@ following in config.conf:
       <choose>
         <when test="$subentry and ($subentryTitle or $isLastSubentry)">
           <sequence select="root($node)//div[@type='x-keyword-duplicate']
-            [ descendant::seg[@type='keyword'][@osisID = $subentry/replace(@annotateRef, '^[^:]+:', '')] ]"/>
+            [ descendant::seg[@type='keyword'][@osisID = $subentry/replace(@osisID, '!(dup\d+)$', '.$1')] ]"/>
         </when>
         <when test="$node/ancestor-or-self::div[@subType='x-aggregate']"/>
         <otherwise>
