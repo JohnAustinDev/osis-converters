@@ -22,6 +22,10 @@ sudo cpanm HTML::Entities
 sudo cpanm DateTime
 sudo cpanm Term::ReadKey
 
+# Fonts
+sudo apt-get install fonts-noto
+sudo apt-get install fonts-symbola
+
 # Calibre 3
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
