@@ -939,18 +939,9 @@ sub customize_conf {
   }
   
   # FullResourceURL
-  my $cP = &readConfFile($conf);
-  if ($cP->{"system+EBOOKS"}) {
-    if ($cP->{"system+EBOOKS"} =~ /^https?\:/) {
-      my $ebdir = $cP->{"system+EBOOKS"}."/$modName/$modName";
-      my $r = &shell("wget \"$ebdir\" -q -O -", 3);
-      if ($r) {&setConfValue($defConfP, "$modName+FullResourceURL", $ebdir, 1);}
-    }
-    else {
-      &Warn("The [system] config.conf entry should be a URL: EBOOKS=".$cP->{"system+EBOOKS"}, 
-      "It should be the URL where ebooks will be uploaded to. Or else it should be empty.");
-    }
-  }
+  my $v = $defConfP->{"$modName+FullResourceURL"};
+  $v =~ s/\bNAME\b/$modName/g;
+  if ($v) {&setConfValue($defConfP, "$modName+FullResourceURL", $v, 1);}
   
   # Companion + [DICTMOD] section
   if ($haveDICT) {

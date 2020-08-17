@@ -126,7 +126,7 @@ our %CONFIG_DEFAULTS = (
   'CreateSeparateBooks' => 'AUTO',  'doc:CreateSeparateBooks' => 'selects whether to create separate outputs for each Bible book (true|false|AUTO|<OSIS-book>)',
   'CreateSeparatePubs' => 'AUTO',  'doc:CreateSeparatePubs' => 'selects whether to create separate outputs for each sub-publication within a translation (true|false|AUTO|<scope>)',
   'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
-  'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, will alert users where to get the full publication.',
+  'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, is the URL where the full publication can be found.',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
   'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
   'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',

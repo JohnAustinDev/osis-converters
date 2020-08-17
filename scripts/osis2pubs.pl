@@ -863,8 +863,6 @@ sub makeHTML {
   
   &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
   
-  &updateOsisFullResourceURL($osis);
-  
   my @cssFileNames = split(/\s*\n/, shell("cd $tmp && find . -name '*.css' -print", 3));
   my %params = ('css' => join(',', map { (my $s = $_) =~ s/^\.\///; $s } @cssFileNames));
   chdir($tmp);
@@ -913,8 +911,6 @@ sub makeEbook {
   &Log("\n--- CREATING $format FROM $osis FOR $scope\n", 1);
   
   if (!$format) {$format = 'fb2';}
-  
-  &updateOsisFullResourceURL($osis, $format);
   
   my $biglog = "$TMPDIR/OUT_osis2ebooks.txt"; # keep a separate log since it is huge and only report if there are errors or not in the main log file
   my $cmd = "$SCRD/scripts/bible/eBooks/osis2ebook.pl " . &escfile($INPD) . " " . &escfile($LOGFILE) . " " . &escfile($tmp) . " " . &escfile($osis) . " " . $format . " Bible " . &escfile($cover) . " >> ".&escfile($biglog);
@@ -1070,40 +1066,6 @@ the eBooks at $EBOUT into appropriate sub-directories yourself.");
   }
   
   return \%result;
-}
-
-# The osis2xhtml.xsl converter expects the x-config-FullResourceURL 
-# description element to include the full eBook's URL, including the 
-# file name and extension. But the config.conf FullResourceURL contains
-# only the base URL, so it needs updating.
-sub updateOsisFullResourceURL {
-  my $osis = shift;
-  my $format = shift;
-  
-  my $xml = $XML_PARSER->parse_file($osis);
-  my $update;
-  foreach my $u ($XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work/osis:description[@type = "x-config-FullResourceURL"]', $xml)) {
-    my $url = $u->textContent;
-    
-    my $new;
-    if (!$format || !$url || $url eq 'false') {
-      $new = 'false';
-    }
-    else {
-      $new = &conf('FullResourceURL');
-      # if URL does not end with / then try and remove /name.ext
-      if ($new !~ s/\/\s*$//) {$new =~ s/\/[^\/]*\.[^\.\/]+$//;}
-      $new = $new."$TRANPUB_SUBDIR/$TRANPUB_NAME.$format"
-    }
-    
-    if ($url ne $new) {
-      &changeNodeText($u, urlencode($new));
-      $update++;
-    }
-    &Note("FullResourceURL is \"".$u->textContent."\".");
-  }
-  
-  if ($update) {&writeXMLFile($xml, $osis);}
 }
 
 # Add context parameters to the functions.xsl file as a way to pass them 
