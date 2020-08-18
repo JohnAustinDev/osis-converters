@@ -31,15 +31,15 @@ my %CB_IMAGES = ('ot.1' => '015','ot.2' => '017','ot.3' => '019','ot.4' => '021'
 #   <div type="majorSection" osisID="About this Book">This is the book introduction</div>
 #   <div type="majorSection" osisID="Old Testament">
 #     This is the testament intro (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#     <div type="chapter" osisID="Chapter"></div> (133 of these)
 #   </div>
 #   <div type="majorSection" osisID="New Testament">
 #     This is the testament intro (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#     <div type="chapter" osisID="Chapter"></div> (113 of these)
 #   </div>
 #   <div type="majorSection" osisID="Maps and pictures">
 #     This is the Maps and pictures introduction (maybe just a title)
-#     <div type="chapter" osisID="Chapter"></div> (x of these)
+#     <div type="chapter" osisID="Chapter"></div> (23 of these)
 #   </div>
 # </div> 
 sub checkChildrensBibleStructure {
@@ -187,6 +187,9 @@ sub getFigureLocalPath {
     elsif ($f->getAttribute('subType') eq 'x-letter-image') {
       my $ret  = ($srcname eq 'letter.jpg' ? "$MAININPD/../CB_Common/images/ibt/letter.jpg":'');
       return $ret;
+    }
+    elsif (-e "$MAININPD/../CB_Common/images/ibt/$srcname") {
+      return "$MAININPD/../CB_Common/images/ibt/letter.jpg";
     }
   }
   
