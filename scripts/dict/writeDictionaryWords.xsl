@@ -40,8 +40,9 @@
       <for-each select="distinct-values($link_targets/@name)">
       
         <variable name="matcheElements">
-          <!-- these are seen as separators between keyword variants -->
-          <for-each select="(., tokenize(., '\s*[,;\[\]\(\)…]\s*'))">
+          <!-- the following regex matches separators between keyword variants -->
+          <variable name="variants" select="tokenize(., '\s*[,;\[\]\(\)…]\s*')"/>
+          <for-each select="if (count($variants) = 1) then . else (., $variants)">
             <choose>
               <when test="$anyEnding = 'true' and string-length(.) &#62; 3">
                 <variable name="words">
