@@ -47,14 +47,14 @@
               <when test="$anyEnding = 'true' and string-length(.) &#62; 3">
                 <variable name="words">
                   <for-each select="tokenize(., '\s+')">
-                    <sequence select="concat('\Q', ., '\E', '\S*')"/>
+                    <sequence select="concat('\Q', ., '\E\S*')"/>
                   </for-each>
                 </variable>
                 <element name="match" namespace="http://github.com/JohnAustinDev/osis-converters">
                   <value-of select="concat(
-                      if (matches($words[1], '^\w')) then '/\b(' else '/(',
-                      string-join($words, ' '),
-                      if (matches($words[last()], '\w$')) then ')\b/i' else ')/i'
+                      if (matches($words, '^\\Q\w')) then '/\b(' else '/(',
+                      $words,
+                      ')/i'
                     )"/>
                 </element>
               </when>
