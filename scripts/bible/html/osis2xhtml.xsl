@@ -72,8 +72,6 @@
   
   <param name="keywordFileAutoThresh" select="xs:integer(number(oc:sarg('keywordFileAutoThresh', /, '10')))"/><!-- is ARG_keywordFileAutoThresh in config.conf -->
   
-  <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, '20')))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
-  
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
   <variable name="epub3Markup" as="xs:boolean" select="$noEpub3Markup != 'yes'"/>
@@ -1329,8 +1327,8 @@
   
   <!-- Returns a series of list entry elements, one for every TOC entry that is a 
   step below tocNode in the hierarchy. A class is added according to the type of 
-  entry. EBook glossary keyword lists with greater than $glossThresh entries are 
-  pared down to list only the first of each letter. -->
+  entry. EBook glossary keyword lists with greater than $keywordFileAutoThresh
+  entries are pared down to list only the first of each letter. -->
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
@@ -1398,7 +1396,7 @@
       <variable name="onlyKeywordFirstLetter" as="xs:boolean" 
         select="not($isMainNode) and 
                 ($SCRIPT_NAME = 'osis2ebooks') and 
-                (count($subentries[@type='keyword']) &#62;= xs:integer(number($glossThresh))) and 
+                (count($subentries[@type='keyword']) &#62;= xs:integer(number($keywordFileAutoThresh))) and 
                 (count(distinct-values($subentries[@type='keyword']/oc:keySortLetter(text()))) &#62; 1)"/>
       <for-each select="$subentries">
         <if test="not( $onlyKeywordFirstLetter and  

@@ -234,9 +234,9 @@
             if CombineGlossaries=true it will be the combined glossary, if config.conf 
             ARG_mainGlossaryID is set, it will be the glossary with that osisID, 
             otherwise the glossary with the most keywords will be used. If there are  
-            less than ARG_glossThresh keywords in the designated glossary, it will  
-            still not have an A-Z menu or letter submenus, but only a keyword menu. If 
-            config.conf ARG_noDictTopMenu is 'yes' the DICT top menu will not be 
+            less than ARG_glossaryTocAutoThresh keywords in the designated glossary, it   
+            will still not have an A-Z menu or letter submenus, but only a keyword menu.  
+            If config.conf ARG_noDictTopMenu is 'yes' the DICT top menu will not be 
             generated. -->
             <osis:div type="glossary" scope="NAVMENU" resp="x-oc">
               <variable name="osisText" select="if ($doCombineGlossaries) 
@@ -253,7 +253,7 @@
                   <when test="$mainGlossaryID != 'false'">
                     <sequence select="/descendant::div[@type='glossary'][@osisID = $mainGlossaryID]"/>
                   </when>
-                  <when test="$maxkw &#62; $glossThresh">
+                  <when test="$maxkw &#62; $glossaryTocAutoThresh">
                     <sequence select="$glossaries[count(descendant::seg[@type='keyword']) = $maxkw]"/>
                   </when>
                 </choose>

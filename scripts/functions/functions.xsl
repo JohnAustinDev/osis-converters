@@ -36,7 +36,7 @@
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
   
   <!-- Glossaries with more than this number of keywords will get an A-Z menu -->
-  <variable name="glossThresh" select="xs:integer(number(oc:sarg('glossThresh', /, '20')))"/>
+  <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, '20')))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
   
   <!-- ARG_glossaryCase for sorting, letter headings, lists and paging. Can be lower-case, as-is, or upper-case -->
   <variable name="glossaryCase" select="oc:sarg('glossaryCase', /, 'upper-case')"/>
@@ -715,7 +715,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <variable name="allLettersTitle" select="concat($glossaryMenuTitle, ' (', $allLetters, ')')"/>
     
     <variable name="do_AtoZ_menu" as="xs:boolean" select="$include_AtoZ_menu = 'yes' or 
-      ($include_AtoZ_menu = 'AUTO' and count($glossary//seg[@type='keyword']) &#62;= $glossThresh)"/>
+      ($include_AtoZ_menu = 'AUTO' and count($glossary//seg[@type='keyword']) &#62;= $glossaryTocAutoThresh)"/>
     
     <if test="$do_AtoZ_menu">
       <!-- Create a menu with links to each letter plus a link 
