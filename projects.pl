@@ -147,6 +147,7 @@ my @STARTED :shared;
 my $WAIT = 3;
 my $KEY = 0;
 my $PAUSED = 0;
+my $KILLED = 0;
 while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
           $KEY != 27 
       ) { # 27 is ESC key
@@ -684,7 +685,9 @@ sub working {
   
   if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
-    if ($PAUSED) {$msg .= "Press p again to continue scheduling.\n";}
+    if (!$PAUSED) {$msg .= "Press p to pause the scheduler. ";}
+    else {$msg .= "Press p again to continue scheduling. ";}
+    if (!$KILLED) {$msg .= "Press ESC to kill the scheduler.\n";}
     
     if ($logOrPrint && $logOrPrint =~ /log/i) {&Log($msg);}
     elsif ($msg ne $LASTMSG) {
@@ -713,6 +716,7 @@ sub readKey {
     }
   }
   elsif ($KEY == 27) {
+    $KILLED++;
     print "ESC was pressed...\n";
   }
 }
