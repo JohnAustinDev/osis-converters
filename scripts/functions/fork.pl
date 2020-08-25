@@ -27,6 +27,8 @@ our $NOLOG = 1;
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 our $NOLOG = 0;
 
+require("$SCRD/scripts/functions/fork_funcs.pl");
+
 # Include files where $forkFunc might be located
 require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/bible/addDictLinks.pl");

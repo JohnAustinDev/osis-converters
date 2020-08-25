@@ -201,72 +201,10 @@ sub runAddScripRefLinks {
   &Log("#################################################################\n");
   &Log("\n");
   
-  # Reassemble the data saved by the separate forks of runAddScripRefLinks2
-  use JSON::XS;
-  my $json = JSON::XS->new;
-  my $tmp = $TMPDIR; $tmp =~ s/[^\/\\]+$//;
-  my $n = 1;
-  our ($various_fork, $UnhandledWords_fork, $fixDone_fork, $missedLeftRefs_fork, 
-      $noDigitRef_fork, $noOSISRef_fork, $Types_fork);
-  while (-d "$tmp/fork.$n") {
-    if (opendir(FORKS, "$tmp/fork.$n")) {
-      foreach my $f ('various', 'UnhandledWords', 'fixDone', 'missedLeftRefs', 
-                    'noDigitRef', 'noOSISRef', 'Types') {
-        my $varname = $f.'_fork';
-        if (open(JSON, $READLAYER, "$tmp/fork.$n/$f.json")) {
-          no strict "refs";
-          $$varname = $json->decode(<JSON>);
-          close(JSON);
-        }
-        else {&ErrorBug("runAddScripRefLinks couldn't open $tmp/fork.$n/$f\n", 1);}
-      }
-    }
-    else {&ErrorBug("runAddScripRefLinks Couldn't open dir '$tmp'", 1);}
-    
-    $CheckRefs         .= $various_fork->{'CheckRefs'};
-    $numUnhandledWords += $various_fork->{'numUnhandledWords'};
-    $numMissedLeftRefs += $various_fork->{'numMissedLeftRefs'};
-    $numNoDigitRef     += $various_fork->{'numNoDigitRef'};
-    $numNoOSISRef      += $various_fork->{'numNoOSISRef'};
-    $newLinks          += $various_fork->{'newLinks'};
-
-    &concatValues(\%UnhandledWords, $UnhandledWords_fork);
-    &concatValues(\%missedLeftRefs, $missedLeftRefs_fork);
-    &concatValues(\%noDigitRef,    $noDigitRef_fork);
-    &concatValues(\%noOSISRef,     $noOSISRef_fork);
-    
-    &sumValues(\%fixDone,  $fixDone_fork);
-    &sumValues(\%Types, $Types_fork);
-    
-    $n++;
-  }
+  &reassembleForkData('addScripRefLinks');
   
   # Report the reassembled data
   &reportAddScripRefLinks();
-}
-
-sub concatValues {
-  my $dataP = shift;
-  my $forkP = shift;
-  
-  foreach my $k (keys %{$forkP}) {
-    if (!$forkP->{$k}) {next;}
-    $dataP->{$k} .= $forkP->{$k};
-  }
-}
-
-sub sumValues {
-  my $dataP = shift;
-  my $forkP = shift;
-  
-  foreach my $k (keys %{$forkP}) {
-    if (ref($forkP->{$k})) {
-      foreach my $k2 (keys %{$forkP->{$k}}) {
-        $dataP->{$k}{$k2} += $forkP->{$k}{$k2};
-      }
-    }
-    else {$dataP->{$k} += $forkP->{$k};}
-  }
 }
 
 sub read_CF_ASRL {
@@ -431,8 +369,7 @@ sub runAddScripRefLinks2 {
   
   &asrlProcessFile($osis, $refSystem);
   
-  # Write results to files
-  use JSON::XS;
+  # Save thread results to file
   our %various = (
     'CheckRefs' => $CheckRefs,
     'numUnhandledWords' => $numUnhandledWords,
@@ -441,13 +378,7 @@ sub runAddScripRefLinks2 {
     'numNoOSISRef' => $numNoOSISRef,
     'newLinks' => $newLinks
   );
-  foreach my $h ('various', 'UnhandledWords', 'fixDone', 'missedLeftRefs', 'noDigitRef', 'noOSISRef', 'Types') {
-    if (open(DAT, ">$TMPDIR/$h.json")) {
-      no strict "refs";
-      print DAT encode_json(\%{$h});
-    }
-    else {&ErrorBug("runAddScripRefLinks2 couldn't open $TMPDIR/$h.json\n", 1);}
-  }
+  &saveForkData('addScripRefLinks');
 }
 
 sub reportAddScripRefLinks {

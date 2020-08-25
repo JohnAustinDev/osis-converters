@@ -35,6 +35,7 @@ require("$SCRD/scripts/bible/addDictLinks.pl");
 require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 require("$SCRD/scripts/bible/addCrossRefs.pl");
 require("$SCRD/scripts/applyPeriphInstructions.pl");
+require("$SCRD/scripts/functions/fork_funcs.pl");
 
 # This script expects a usfm2osis.py produced OSIS input file
 sub processOSIS {

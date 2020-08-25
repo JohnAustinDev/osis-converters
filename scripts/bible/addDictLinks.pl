@@ -22,6 +22,7 @@ use strict;
 our $addDictLinks;
 
 our ($XPC, $XML_PARSER);
+our ($SCRD, $INPD, $LOGFILE, $TMPDIR);
 
 my $REF_SEG_CACHE;
 
@@ -39,13 +40,25 @@ sub runAddDictLinks {
   
   undef($REF_SEG_CACHE);
   
-  my @files = &splitOSIS($$osisP);
-  foreach my $file (@files) {&adlProcessFile($file);}
+  # Run adlProcessFile in parallel on each book
+  system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+    &escfile($INPD) . ' ' .
+    &escfile($LOGFILE) . ' ' .
+    &escfile($TMPDIR) . ' ' .
+    "adlProcessFile" . ' ' .
+    join(' ', map(&escfile($_), &splitOSIS($$osisP)))
+  );
+
   &joinOSIS($osisP);
 
+  &reassembleForkData('addDictLinks');
+  
   &logDictLinks();
 }
 
+# This function is run in its own thread. Its log summmary results must
+# be written to a json file and then re-loaded later after all threads 
+# have completed.
 sub adlProcessFile {
   my $osis = shift;
   
@@ -63,6 +76,14 @@ sub adlProcessFile {
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
+  
+  # Convert @EXPLICIT_GLOSSARY into a hash for writting to JSON
+  our (@EXPLICIT_GLOSSARY, %EXPLICIT_GLOSSARY_HASH);
+  my $n = 1; foreach my $hp (@EXPLICIT_GLOSSARY) {
+    $EXPLICIT_GLOSSARY_HASH{sprintf('%09i', $n++)} = $hp;
+  }
+  
+  &saveForkData('addDictLinks');
 }
 
 sub processContainer {

@@ -130,13 +130,13 @@ while (-e "$logdir/OUT_fork$n.txt") {
 ########################################################################
 
 # Return true if CPU idle time and RAM passes requirements. This check
-# takes two seconds to return.
+# takes a specific number of seconds to return.
 sub resourcesAvailable {
   my $reqIDLE = shift; # percent CPU idle time required
   my $reqRAM =shift;   # RAM required
 
   my (@fields, %data, $idle);
-  foreach my $line (split(/\n/, `vmstat 2 2`)) {
+  foreach my $line (split(/\n/, `vmstat 1 2`)) { # vmstat [options] [delay [count]]
     if    ($line =~ /\bprocs\b/) {next;} # first line is grouping, so drop
     elsif ($line =~ /\bid\b/) {@fields = split(/\s+/, $line);} # field names
     else { # field data
@@ -150,9 +150,13 @@ sub resourcesAvailable {
     return;
   }
   
-  print "CPU idle time: $data{'id'}%, free RAM: ".($data{'free'}/1000000)." GB\n";
+  my $available = $data{'id'} >= $reqIDLE && $data{'free'} >= $reqRAM;
   
-  return $data{'id'} >= $reqIDLE && $data{'free'} >= $reqRAM;
+  if ($available) {
+    print "CPU idle time: $data{'id'}%, free RAM: ".($data{'free'}/1000000)." GB\n";
+  }
+  
+  return $available;
 }
 
 sub Log {
