@@ -3409,14 +3409,15 @@ sub joinOSIS {
 sub writeMissingNoteOsisRefsFAST {
   my $osisP = shift;
   
-  &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n");
+  &Log("\nWriting missing note osisRefs in OSIS file \"$$osisP\".\n", 1);
   
   my @files = &splitOSIS($$osisP);
   
   my $count = 0;
   foreach my $file (@files) {
-    &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
+    my $bkid = @{$XPC->findnodes('//osis:div[@type="book"][1]', $xml)}[0];
+    if ($bkid) {&Log($bkid->getAttribute('osisID')."\n", 2);}
     $count += &writeMissingNoteOsisRefs($xml);
     &writeXMLFile($xml, $file);
   }
@@ -3499,15 +3500,16 @@ sub writeMissingNoteOsisRefs {
 sub removeDefaultWorkPrefixesFAST {
   my $osisP = shift;
   
-  &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n");
+  &Log("\nRemoving default work prefixes in OSIS file \"$$osisP\".\n", 1);
   
   my @files = &splitOSIS($$osisP);
   
   my %stats = ('osisRef'=>0, 'osisID'=>0);
   
   foreach my $file (@files) {
-    &Log("$file\n", 2);
     my $xml = $XML_PARSER->parse_file($file);
+    my $bkid = @{$XPC->findnodes('//osis:div[@type="book"][1]', $xml)}[0];
+    if ($bkid) {&Log($bkid->getAttribute('osisID')."\n", 2);}
     &removeDefaultWorkPrefixes($xml, \%stats);
     &writeXMLFile($xml, $file);
   }
