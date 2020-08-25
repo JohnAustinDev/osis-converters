@@ -18,9 +18,9 @@
 
 use strict;
 
-our ($WRITELAYER, $APPENDLAYER, $READLAYER);
+our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER);
+our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE);
 
 # IMPORTANT TERMINOLOGY:
 # ----------------------
@@ -129,15 +129,18 @@ our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER);
 
 my $DEBUG_LOCATION = 0;
 
-my (%books, %UnhandledWords, %noDigitRef, %noOSISRef, %fix, %fixDone, 
-   $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, $chapTerms, 
-   $currentChapTerms, $currentBookTerms, $verseTerms, $refTerms, 
-   $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
+# These must be our because they are accessed via symbolic reference.
+our (%UnhandledWords, %noDigitRef, %noOSISRef, %fixDone, 
+    $numMissedLeftRefs, $numNoDigitRef, $numNoOSISRef, %Types, 
+    $CheckRefs, $newLinks);
+
+my (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, 
+   $chapTerms, $currentChapTerms, $currentBookTerms, $verseTerms, 
+   $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
    $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
-   $mustHaveVerse, $require_book, $sp, $numUnhandledWords, 
-   $numMissedLeftRefs, $numNoDigitRef, $numNoOSISRef, 
-   %xpathIfResultContextBook, %Types, $LOCATION, $BK, $CH, $VS, $LV,
-   $CheckRefs, %missedLeftRefs, $newLinks, $LASTP);
+   $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
+   %xpathIfResultContextBook, $LOCATION, $BK, $CH, $VS, $LV,
+   %missedLeftRefs, $LASTP);
    
 my $none = "nOnE";
 my $fixReplacementMsg = "
@@ -162,9 +165,115 @@ sub runAddScripRefLinks {
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
-  my $commandFile = &getDefaultFile("$modType/CF_addScripRefLinks.txt");
+  &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
+  
+  &Log("INPUT FILE: \"$osis\".\n");
+  &Log("\n");
+  
+  my @files = &splitOSIS($osis);
+  
+  # Get the refSystem
+  my $refSystem;
+  foreach my $file (@files) {
+    if ($file !~ /other\.osis$/) {next;}
+    my $xml = $XML_PARSER->parse_file($file);
+    $refSystem = &getRefSystemOSIS($xml);
+    last;
+  }
+  
+  # Run runAddScripRefLinks2 in parallel on each book
+  system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+    &escfile($INPD) . ' ' .
+    &escfile($LOGFILE) . ' ' .
+    &escfile($TMPDIR) . ' ' .
+    "runAddScripRefLinks2" . ' ' .
+    "arg1:$modType" . ' ' .
+    "arg2:$refSystem" . ' ' .
+    join(' ', map(&escfile($_), @files))
+  );
+  
+  &joinOSIS($out_file);
+  if (ref($in_file)) {$$in_file = $out_file;}
+  
+  &Log("Finished adding <reference> tags.\n");
+  &Log("\n");
+  &Log("\n");
+  &Log("#################################################################\n");
+  &Log("\n");
+  
+  # Reassemble the data saved by the separate forks of runAddScripRefLinks2
+  use JSON::XS;
+  my $json = JSON::XS->new;
+  my $tmp = $TMPDIR; $tmp =~ s/[^\/\\]+$//;
+  my $n = 1;
+  our ($various_fork, $UnhandledWords_fork, $fixDone_fork, $missedLeftRefs_fork, 
+      $noDigitRef_fork, $noOSISRef_fork, $Types_fork);
+  while (-d "$tmp/fork.$n") {
+    if (opendir(FORKS, "$tmp/fork.$n")) {
+      foreach my $f ('various', 'UnhandledWords', 'fixDone', 'missedLeftRefs', 
+                    'noDigitRef', 'noOSISRef', 'Types') {
+        my $varname = $f.'_fork';
+        if (open(JSON, $READLAYER, "$tmp/fork.$n/$f.json")) {
+          no strict "refs";
+          $$varname = $json->decode(<JSON>);
+          close(JSON);
+        }
+        else {&ErrorBug("runAddScripRefLinks couldn't open $tmp/fork.$n/$f\n", 1);}
+      }
+    }
+    else {&ErrorBug("runAddScripRefLinks Couldn't open dir '$tmp'", 1);}
+    
+    $CheckRefs         .= $various_fork->{'CheckRefs'};
+    $numUnhandledWords += $various_fork->{'numUnhandledWords'};
+    $numMissedLeftRefs += $various_fork->{'numMissedLeftRefs'};
+    $numNoDigitRef     += $various_fork->{'numNoDigitRef'};
+    $numNoOSISRef      += $various_fork->{'numNoOSISRef'};
+    $newLinks          += $various_fork->{'newLinks'};
+
+    &concatValues(\%UnhandledWords, $UnhandledWords_fork);
+    &concatValues(\%missedLeftRefs, $missedLeftRefs_fork);
+    &concatValues(\%noDigitRef,    $noDigitRef_fork);
+    &concatValues(\%noOSISRef,     $noOSISRef_fork);
+    
+    &sumValues(\%fixDone,  $fixDone_fork);
+    &sumValues(\%Types, $Types_fork);
+    
+    $n++;
+  }
+  
+  # Report the reassembled data
+  &reportAddScripRefLinks();
+}
+
+sub concatValues {
+  my $dataP = shift;
+  my $forkP = shift;
+  
+  foreach my $k (keys %{$forkP}) {
+    if (!$forkP->{$k}) {next;}
+    $dataP->{$k} .= $forkP->{$k};
+  }
+}
+
+sub sumValues {
+  my $dataP = shift;
+  my $forkP = shift;
+  
+  foreach my $k (keys %{$forkP}) {
+    if (ref($forkP->{$k})) {
+      foreach my $k2 (keys %{$forkP->{$k}}) {
+        $dataP->{$k}{$k2} += $forkP->{$k}{$k2};
+      }
+    }
+    else {$dataP->{$k} += $forkP->{$k};}
+  }
+}
+
+sub read_CF_ASRL {
+  my $commandFile = shift;
   
   # Globals
+  $newLinks = 0;
   %books;
   %UnhandledWords;
   %noDigitRef;
@@ -306,29 +415,42 @@ that you wish to match on a separate line:");
 
   }
   else {&ErrorBug("The CF_addScripRefLinks.txt command file is required to run addScripRefLinks.pl and a default file could not be found.", 1); return;}
+}
 
-  &Log("READING INPUT FILE: \"$osis\".\n");
-  &Log("WRITING INPUT FILE: \"$out_file\".\n");
-  &Log("\n");
+# This function is run in its own thread. Its log summmary results must
+# be written to a json file and then re-loaded later after all threads 
+# have completed.
+sub runAddScripRefLinks2 {
+  my $osis = shift;
+  my $modType = shift;
+  my $refSystem = shift;
+
+  $NOLOG = 1; # Already logged in runAddScripRefLinks
+  &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
+  $NOLOG = 0;
   
-  $newLinks = 0;
-  my @files = &splitOSIS($osis);
-  my $refSystem;
-  foreach my $file (@files) {
-    if ($file !~ /other\.osis$/) {next;}
-    my $xml = $XML_PARSER->parse_file($file);
-    $refSystem = &getRefSystemOSIS($xml);
-    last;
+  &asrlProcessFile($osis, $refSystem);
+  
+  # Write results to files
+  use JSON::XS;
+  our %various = (
+    'CheckRefs' => $CheckRefs,
+    'numUnhandledWords' => $numUnhandledWords,
+    'numMissedLeftRefs' => $numMissedLeftRefs,
+    'numNoDigitRef' => $numNoDigitRef,
+    'numNoOSISRef' => $numNoOSISRef,
+    'newLinks' => $newLinks
+  );
+  foreach my $h ('various', 'UnhandledWords', 'fixDone', 'missedLeftRefs', 'noDigitRef', 'noOSISRef', 'Types') {
+    if (open(DAT, ">$TMPDIR/$h.json")) {
+      no strict "refs";
+      print DAT encode_json(\%{$h});
+    }
+    else {&ErrorBug("runAddScripRefLinks2 couldn't open $TMPDIR/$h.json\n", 1);}
   }
-  foreach my $file (@files) {&asrlProcessFile($file, $refSystem);}
-  &joinOSIS($out_file);
-  if (ref($in_file)) {$$in_file = $out_file;}
+}
 
-  &Log("Finished adding <reference> tags.\n");
-  &Log("\n");
-  &Log("\n");
-  &Log("#################################################################\n");
-  &Log("\n");
+sub reportAddScripRefLinks {
 
   # report other collected data
   my $tCheckRefs = $CheckRefs;

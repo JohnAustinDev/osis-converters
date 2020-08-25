@@ -167,6 +167,7 @@ sub init_linux_script {
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
   $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
+  if ($SCRIPT_NAME eq 'fork' && $LOGFILE =~ /OUT_fork(\d+)\.txt$/) {$TMPDIR .= ".$1";}
   if (!$NO_OUTPUT_DELETE) {
     if (-e $TMPDIR) {remove_tree($TMPDIR);}
     make_path($TMPDIR);

@@ -34,7 +34,7 @@ our ($SCRIPT, $SCRD);
 # Initialized in /scripts/bootstrap.pl 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD, 
-     $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD);
+     $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
      
 # config.conf [system] globals initialized in applyCONF_system
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
@@ -1032,6 +1032,8 @@ sub Log {
   if ($p !~ /ERROR/ && !$DEBUG) {$p = &encodePrintPaths($p);}
   
   if (!$LOGFILE) {$LOGFILE_BUFFER .= $p; return;}
+  
+  if ($NOLOG) {return;}
 
   open(LOGF, $APPENDLAYER, $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
   if ($LOGFILE_BUFFER) {print LOGF $LOGFILE_BUFFER; $LOGFILE_BUFFER = '';}
@@ -1088,7 +1090,7 @@ sub shortLinuxPath {
 sub escfile {
   my $n = shift;
   
-  $n =~ s/([ \(\)])/\\$1/g;
+  $n =~ s/(?<!\\)([ \(\)])/\\$1/g;
   return $n;
 }
 
