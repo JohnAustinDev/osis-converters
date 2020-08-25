@@ -19,7 +19,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($DWF, $KEYWORD, $addDictLinks, $DEFAULT_DICTIONARY_WORDS, 
+our ($KEYWORD, $addDictLinks, $DEFAULT_DICTIONARY_WORDS, 
    $DICTIONARY_WORDS, $XML_PARSER, $XPC);
 
 my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
@@ -30,7 +30,7 @@ sub runAddSeeAlsoLinks {
   &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   
-  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $DWF);
+  my @entries = $XPC->findnodes('//dw:entry[@osisRef]', &getDWF());
   
   if ($addDictLinks =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");

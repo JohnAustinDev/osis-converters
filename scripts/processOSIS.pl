@@ -21,7 +21,7 @@ use strict;
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $OUTOSIS, $XPC, $XML_PARSER, 
-    $DWF, $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, 
+    $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, 
     $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
 
 # Initialized in /scripts/usfm2osis.pl
@@ -52,6 +52,8 @@ sub processOSIS {
   &runScript("$SCRD/scripts/usfm2osis.py.xsl", \$OSIS);
 
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
+  
+  my $hasDWF;
 
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
   if ($modType eq 'bible') {
@@ -104,17 +106,20 @@ sub processOSIS {
   
   # Load DictionaryWords.xml
   if ($modType eq 'dict' && $addSeeAlsoLinks) {
-    our $DWF = &loadDictionaryWordsXML($OSIS);
+    $hasDWF++;
+    &checkDWF($OSIS);
   }
   elsif ($modType eq 'bible' && $DICTMOD && -e "$MAININPD/$DICTIONARY_WORDS") {
     my $dictosis = &getModuleOsisFile($DICTMOD);
     if ($dictosis && $DEBUG) {
       &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
-      $DWF = &loadDictionaryWordsXML($dictosis);
+      $hasDWF++;
+      &checkDWF($dictosis);
     }
     else {
       &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
-      $DWF = &loadDictionaryWordsXML();
+      $hasDWF++;
+      &checkDWF();
     }
   }
 
@@ -152,7 +157,7 @@ file to convert footnote references in the text into working hyperlinks.");}
 
   # Parse glossary references from Bible and Dict modules 
   if ($DICTMOD && $modType eq 'bible' && $addDictLinks) {
-    if (!$DWF || ! -e "$INPD/$DICTIONARY_WORDS") {
+    if (!$hasDWF || ! -e "$INPD/$DICTIONARY_WORDS") {
       &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
     }
     else {&runAddDictLinks(\$OSIS);}
@@ -322,7 +327,8 @@ Bible module OSIS file, then run this dictionary module again.");
   &checkFigureLinks($OSIS);
   &checkIntroductionTags($OSIS);
   &checkCharacters($OSIS);
-  if ($DWF) {&checkDictionaryWordsContexts($OSIS, $DWF);}
+  my $dwf = &getDWF();
+  if ($dwf) {&checkDictionaryWordsContexts($OSIS, $dwf);}
   if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 }
 

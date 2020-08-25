@@ -43,7 +43,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($XPC, $XML_PARSER, %OSISBOOKS, $OSISBOOKSRE, $NT_BOOKS, $OT_BOOKS, 
-    $DICTIONARY_WORDS, $DWF);
+    $DICTIONARY_WORDS);
 
 my %ALREADY_NOTED_RESULT;
 sub getContextAttributeHash {
@@ -438,7 +438,7 @@ sub checkAndNormalizeAtomicContext {
         !&existsElementID($context, $CONTEXT_CHECK_XML) && 
         !&existsScope($context, $CONTEXT_CHECK_XML)
       ) {
-    &Error("There is no osisID or scope attribute having the value '$context' in ".$CONTEXT_CHECK_XML->URI." (checkAndNormalizeAtomicContext).", "This is likely caused by a reference to '$context' in ".($DWF ? $DWF->URI:$DICTIONARY_WORDS));
+    &Error("There is no osisID or scope attribute having the value '$context' in ".$CONTEXT_CHECK_XML->URI." (checkAndNormalizeAtomicContext).", "This is likely caused by a reference to '$context' in ".$DICTIONARY_WORDS);
     $CONTEXT_CHECK_ERR++;
     return '';
   }

@@ -25,19 +25,32 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($DEBUG, $XPC, $XML_PARSER, $DWF, $OSISBOOKSRE, $DICTIONARY_WORDS, 
+our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $DICTIONARY_WORDS, 
     $DICTIONARY_WORDS_NAMESPACE, $DICTIONARY_NotXPATH_Default,
     $KEYWORD);
     
-my (%LINK_OSISREF);
+our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
 
-sub loadDictionaryWordsXML {
+my %DWF_CACHE;
+sub getDWF {
+
+  my $dwfFile = "$INPD/$DICTIONARY_WORDS";
+  if (!-e $dwfFile) {return '';}
+  
+  if (!exists($DWF_CACHE{$dwfFile})) {
+    $DWF_CACHE{$dwfFile} = $XML_PARSER->parse_file($dwfFile);
+  }
+  
+  return $DWF_CACHE{$dwfFile};
+}
+
+sub checkDWF {
   my $dictosis = shift;
   my $noupdateMarkup = shift;
   my $noupdateEntries = shift;
   
   if (! -e "$INPD/$DICTIONARY_WORDS") {return '';}
-  my $dwf = $XML_PARSER->parse_file("$INPD/$DICTIONARY_WORDS");
+  my $dwf = &getDWF();
   
   # Check for old DICTIONARY_WORDS markup and update or report
   my $errors = 0;
@@ -69,11 +82,11 @@ sub loadDictionaryWordsXML {
     &Note("Updated $update instance of non-conforming markup in $INPD/$DICTIONARY_WORDS");
     if (!$noupdateMarkup) {
       $noupdateMarkup++;
-      return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
+      return &checkDWF($dictosis, $noupdateMarkup, $noupdateEntries);
     }
     else {
       $errors++;
-      &Error("loadDictionaryWordsXML failed to update markup. Update $DICTIONARY_WORDS manually.", "Sometimes the $DICTIONARY_WORDS can only be updated manually.");
+      &Error("checkDWF failed to update markup. Update $DICTIONARY_WORDS manually.", "Sometimes the $DICTIONARY_WORDS can only be updated manually.");
     }
   }
 =cut
@@ -83,7 +96,7 @@ sub loadDictionaryWordsXML {
     if (!$noupdateEntries) {
       # If updates were made, reload DWF etc.
       $noupdateEntries++;
-      return &loadDictionaryWordsXML($dictosis, $noupdateMarkup, $noupdateEntries);
+      return &checkDWF($dictosis, $noupdateMarkup, $noupdateEntries);
     }
     else {
       $errors++;
@@ -261,7 +274,6 @@ sub validateDictionaryWordsXML {
 
 # Takes a list of <index index="Glossary"/> elements and converts them
 # into glossary references, recording the results.
-my @EXPLICIT_GLOSSARY;
 sub explicitGlossaryIndexes {
   my $indexElementsP = shift;
   
@@ -394,7 +406,7 @@ sub searchForGlossaryLinks {
     $glossary->{'scopes_context'} = join('+', @gs);
     
     if (!$NoOutboundLinks{'haveBeenRead'}) {
-      foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', $DWF)) {
+      foreach my $n ($XPC->findnodes('descendant-or-self::dw:entry[@noOutboundLinks=\'true\']', &getDWF())) {
         foreach my $r (split(/\s/, $n->getAttribute('osisRef'))) {$NoOutboundLinks{$r}++;}
       }
       $NoOutboundLinks{'haveBeenRead'}++;
@@ -598,7 +610,7 @@ sub searchText {
     my $debug;
     $OT_CONTEXTSP =  &getContextAttributeHash('OT');
     $NT_CONTEXTSP =  &getContextAttributeHash('NT');
-    foreach my $m ($XPC->findnodes('//dw:match', $DWF)) {
+    foreach my $m ($XPC->findnodes('//dw:match', &getDWF())) {
       my %minfo;
       if (!&matchRegex($m, \%minfo)) {next;}
       $minfo{'node'} = $m;
@@ -886,6 +898,8 @@ sub matchRegex {
 # Print log info for all glossary link searches
 sub logDictLinks {
 
+  my $dwf = &getDWF();
+  
   &Log("\n");
   
   my %explicits = ('total' => 0, 'total_links' => 0, 'total_fails' => 0, 'maxl' => 0);
@@ -922,7 +936,7 @@ sub logDictLinks {
   
   my $nolink = "";
   my $numnolink = 0;
-  my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $DWF);
+  my @entries = $XPC->findnodes('//dw:entry/dw:name/text()', $dwf);
   my %entriesH; foreach my $e (@entries) {
     my @ms = $XPC->findnodes('./ancestor::dw:entry[1]//dw:match', $e);
     $entriesH{(!@ms || !@ms[0] ? '(no match rules) ':'').$e}++;
@@ -944,7 +958,7 @@ sub logDictLinks {
   }
   else {&Log("(all glossary entries have at least one link in the text)\n");}
   
-  my @matches = $XPC->findnodes('//dw:match', $DWF);
+  my @matches = $XPC->findnodes('//dw:match', $dwf);
   my %unused;
   my $total = 0;
   my $mlen = 0;
