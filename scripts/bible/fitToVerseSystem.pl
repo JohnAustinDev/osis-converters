@@ -448,7 +448,7 @@ sub correctReferencesVSYS {
   my $altVersesOSISP = &getAltVersesOSIS($XML_PARSER->parse_file($in_bible));
   
   # Process the OSIS file book-by-book for speed
-  my $count;
+  my ($count, %logH, $logn);
   foreach my $osisbk (&splitOSIS($$osisP)) {
     my $osisXML = $XML_PARSER->parse_file($osisbk);
     my $bkid = @{$XPC->findnodes('//osis:div[@type="book"][1]', $osisXML)}[0];
@@ -500,6 +500,7 @@ sub correctReferencesVSYS {
             $attribs{$eky}{'osisRefTo'} = '';
             $attribs{$eky}{'annotateRefFrom'} = $ids;
             $attribs{$eky}{'annotateRefTo'} = '';
+            $attribs{$eky}{'order'} = sprintf('%07i', $logn++);
           }
           # map each id segment one at a time
           my $attrib = ($m eq 'fixed2Source' ? 'annotateRef':'osisRef');
@@ -513,12 +514,21 @@ sub correctReferencesVSYS {
     }
     #use Data::Dumper; &Debug("attribs = ".Dumper(\%attribs)."\n", 1);
     
-    my $c = &applyMaps(\%attribs, $name_osisXML);
+    my $c = &applyMaps(\%attribs, $name_osisXML, \%logH);
 
     # Write new OSIS file if anything changed
     if ($c) {&writeXMLFile($osisXML, $osisbk); $count += $c;}
   }
   &joinOSIS($osisP);
+  
+  # Logging these with a sorted hash so reports are in OSIS order
+  my ($update, $remove);
+  foreach my $k (sort keys %logH) {
+    if (defined($logH{$k}{'update'})) {$update .= $logH{$k}{'update'};}
+    if (defined($logH{$k}{'remove'})) {$remove .= $logH{$k}{'remove'};}
+  }
+  if ($update) {&Note("\n$update");}
+  if ($remove) {&Note("\n$remove");}
     
   &Report("\"$count\" osisRefs were corrected to account for differences between source and fixed verse systems.");
 }
@@ -565,10 +575,11 @@ sub addSeg {
 sub applyMaps {
   my $attribsHP = shift;
   my $modname = shift;
+  my $logHP = shift;
   
   &Log(", applying maps\n", 2);
   
-  my $count = 0; my $update = ''; my $remove = '';
+  my $count = 0;
   foreach my $eky (sort keys %{$attribsHP}) {
     my $e = $attribsHP->{$eky}{'self'};
 
@@ -586,7 +597,8 @@ sub applyMaps {
     
     # don't keep references to missing verses (which would be broken)
     if (!$annotateRef || !$osisRef) {
-      $remove .= &removeMappedElement($e, $attribsHP->{$eky}{'origin'});
+      $logHP->{ $attribsHP->{$eky}{'order'} }{'remove'} = 
+        &removeMappedElement($e, $attribsHP->{$eky}{'origin'});
       next;
     }
     
@@ -601,7 +613,7 @@ sub applyMaps {
     
     $count++;
     
-    $update .= sprintf(
+    $logHP->{ $attribsHP->{$eky}{'order'} }{'update'} = sprintf(
       "UPDATING %s %-10s osisRef: %32s -> %-32s annotateRef: %-32s\n", 
       $attribsHP->{$eky}{'origin'}, 
       $e->nodeName, 
@@ -613,9 +625,6 @@ sub applyMaps {
     $e->setAttribute('annotateRef', $annotateRef);
     $e->setAttribute('annotateType', $ANNOTATE_TYPE{'Source'});
   }
-  
-  if ($update) {&Note("\n$update");}
-  if ($remove) {&Note("\n$remove");}
   
   return $count;
 }

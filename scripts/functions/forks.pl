@@ -17,28 +17,29 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# Run a Perl function on a set of files as quickly as possible by
-# running them in parallel on separate threads. Perl threads caused
-# core dumps unless started in the root script and consisting of a 
-# system function call.
+# Run a Perl multi-call function as quickly as possible by running it in 
+# parallel on separate threads. Perl threads caused core dumps unless 
+# started in the root script and consisting of a system function call.
 
 use strict;
 use threads;
 use threads::shared;
 use File::Spec;
 use File::Path qw(make_path remove_tree);
+use Encode;
 
 my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//; 
 
 my $INPD     = @ARGV[0]; # Absolute path to project input directory
 my $LOGF     = @ARGV[1]; # Absolute path to log file
 my $TEMP     = @ARGV[2]; # Absolute path to temp directory
-my $forkFunc = @ARGV[3]; # Name of the function to run (the function's first arg must be the file path, which will be modified in place)
-my $forkArgIndex = 4;    # @ARGV[$forkArgIndex+] = Arguments for each 
-# run of the function, which either start with argN:<value> or are file 
-# paths. While reading @ARGV[3+] in order, whenever a file path argument 
-# or the final argument is encountered, then the latest argN value will 
-# be used to run the function on the previous file path.
+my $forkReq  = @ARGV[3]; # Relative path to required perl file (may be null)
+my $forkFunc = @ARGV[4]; # Name of the function to run (the function's first arg must be the file path, which will be modified in place)
+my $forkArgIndex = 5;    # @ARGV[$forkArgIndex+] = Arguments for each 
+# call of the function, with the form argN:<value>. While reading the
+# arguments in order, when arg1 or the final argument is encountered, 
+# any last set of arguments will be used to call the function. Any argN
+# will persist for every subsequent call, until it is changed!
 
 # Collect the forked function arguments
 my @forkCall;
@@ -46,31 +47,32 @@ sub saveForkArgs {
   my $callAP = shift;
   my $argvAP = shift;
   
-  my ($f, %args);
+  my %args;
   my $x = $forkArgIndex;
-  while (@{$argvAP}[$x]) {
-    my $a = @{$argvAP}[$x];
-    if ($a =~ s/^arg(\d+)://)  {$args{$1} = $a;}
-    else {
-      &pushCall($callAP, $f, \%args);
-      $f = $a;
+  while (defined(@{$argvAP}[$x])) {
+    my $a = decode('utf8', @{$argvAP}[$x++]);
+    if ($a =~ s/^arg(\d+)://)  {
+      my $n = $1;
+      if ($n eq '1') {
+        &pushCall($callAP, \%args);
+      }
+      $args{$n} = $a;
     }
-    $x++;
+    else {&Log("ERROR: Bad fork argument $a\n");}
   }
-  &pushCall($callAP, $f, \%args);
+  &pushCall($callAP, \%args);
 }
 sub pushCall {
   my $aP = shift;
-  my $f = shift;
   my $hP = shift;
+  
+  if (!defined($hP->{1})) {return;}
 
-  if ($f) {
-    my %call = ( 'file' => $f );
-    foreach my $k (keys %{$hP}) {
-      $call{'args'}{$k} = $hP->{$k};
-    }
-    push(@{$aP}, \%call);
+  my %call;
+  foreach my $n (keys %{$hP}) {
+    $call{sprintf('%03i', $n)} = $hP->{$n};
   }
+  push(@{$aP}, \%call);
 }
 &saveForkArgs(\@forkCall, \@ARGV);
 
@@ -85,23 +87,17 @@ my $n = 1; while (-e "$tmpdir.$n") {remove_tree("$tmpdir.".$n++);}
 my $n = 1;
 while (@forkCall) {
   my $hP = shift(@forkCall);
-  my $forkFile = $hP->{'file'};
-  my @forkArgs; foreach my $k (sort keys %{$hP->{'args'}}) {
-    push(@forkArgs, $hP->{'args'}{$k});
-  }
-  
-  if (!-e $forkFile) {
-    &ErrorBug("Fork file does not exist: $forkFile\n");
-    last;
+  my @forkArgs; foreach my $a (sort keys %{$hP}) {
+    push(@forkArgs, $hP->{$a});
   }
 
   threads->create(sub {system("\"$SCRD/scripts/functions/fork.pl\" " .
-      "\"$INPD\"" . ' ' .
-      "\"$logdir/OUT_fork$n.txt\"" . ' ' .
-      "\"$forkFunc\"" . ' ' .
-      "\"$forkFile\"" . ' ' .
-      join(' ', @forkArgs));
-  });
+    "\"$INPD\"" . ' ' .
+    "\"$logdir/OUT_fork$n.txt\"" . ' ' .
+    "\"$forkReq\"". ' ' .
+    "\"$forkFunc\"" . ' ' .
+    join(' ', map(&escarg($_), @forkArgs))
+  )});
   $n++;
   
   while (
@@ -146,7 +142,7 @@ sub resourcesAvailable {
   }
   
   if (!defined($data{'id'}) || !defined($data{'free'})) {
-    print "ERROR: unexpected vmstat output\n";
+    &Log("ERROR: unexpected vmstat output\n");
     return;
   }
   
@@ -159,13 +155,26 @@ sub resourcesAvailable {
   return $available;
 }
 
+########################################################################
+# THE FOLLOWING SUBS ARE ALSO DEFINED IN common_opsys.pl
+
+sub escarg {
+  my $n = shift;
+  
+  $n =~ s/(?<!\\)(["])/\\$1/g;
+  return '"'.$n.'"';
+}
+
 sub Log {
   my $p = shift;
   
+  my $console = ($p =~ /ERROR/);
   if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
     print LGG $p; close(LGG);
   }
-  else {print $p;}
+  else {$console++;}
+  
+  if ($console) {print encode('utf8', $p);}
 }
 
 1;

@@ -45,8 +45,9 @@ sub runAddDictLinks {
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
     &escfile($TMPDIR) . ' ' .
+    "scripts/bible/addDictLinks.pl" . ' ' .
     "adlProcessFile" . ' ' .
-    join(' ', map(&escfile($_), &splitOSIS($$osisP)))
+    join(' ', map(&escarg("arg1:$_"), &splitOSIS($$osisP)))
   );
 
   &joinOSIS($osisP);

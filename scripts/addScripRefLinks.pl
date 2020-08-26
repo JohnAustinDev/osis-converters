@@ -129,18 +129,19 @@ our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE);
 
 my $DEBUG_LOCATION = 0;
 
-# These must be our because they are accessed via symbolic reference.
+# These must be our because some are accessed via symbolic reference.
 our (%UnhandledWords, %noDigitRef, %noOSISRef, %fixDone, 
     $numMissedLeftRefs, $numNoDigitRef, $numNoOSISRef, %Types, 
     $CheckRefs, $newLinks);
 
-my (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, 
-   $chapTerms, $currentChapTerms, $currentBookTerms, $verseTerms, 
-   $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
-   $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
-   $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
-   %xpathIfResultContextBook, $LOCATION, $BK, $CH, $VS, $LV,
-   %missedLeftRefs, $LASTP);
+# These must be our because some are accessed via symbolic reference.
+our (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, 
+    $chapTerms, $currentChapTerms, $currentBookTerms, $verseTerms, 
+    $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
+    $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
+    $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
+    %xpathIfResultContextBook, $LOCATION, $BK, $CH, $VS, $LV,
+    %missedLeftRefs, $LASTP);
    
 my $none = "nOnE";
 my $fixReplacementMsg = "
@@ -167,7 +168,8 @@ sub runAddScripRefLinks {
 
   &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
   
-  &Log("INPUT FILE: \"$osis\".\n");
+  &Log("READING INPUT FILE: \"$osis\".\n");
+  &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
   
   my @files = &splitOSIS($osis);
@@ -186,10 +188,11 @@ sub runAddScripRefLinks {
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
     &escfile($TMPDIR) . ' ' .
+    "scripts/addScripRefLinks.pl" . ' ' .
     "runAddScripRefLinks2" . ' ' .
-    "arg1:$modType" . ' ' .
-    "arg2:$refSystem" . ' ' .
-    join(' ', map(&escfile($_), @files))
+    "arg2:$modType" . ' ' .
+    "arg3:$refSystem" . ' ' .
+    join(' ', map(&escarg("arg1:$_"), @files))
   );
   
   &joinOSIS($out_file);

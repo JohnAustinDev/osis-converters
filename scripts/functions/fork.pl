@@ -17,11 +17,12 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# This file is only used only by forks.pl to run individual threads
+# This file is only used only by forks.pl to run a function in individual threads
+use Encode;
 
-my $forkFunc = @ARGV[2];
-my $forkFile = @ARGV[3];
-my @forkArgs; my $a = 4; while (@ARGV[$a]) {push(@forkArgs, @ARGV[$a++]);}
+my $forkRequire = @ARGV[2];
+my $forkFunc = @ARGV[3];
+my @forkArgs; my $a = 4; while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 our $NOLOG = 1;
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
@@ -29,15 +30,11 @@ our $NOLOG = 0;
 
 require("$SCRD/scripts/functions/fork_funcs.pl");
 
-# Include files where $forkFunc might be located
-require("$SCRD/scripts/addScripRefLinks.pl");
-require("$SCRD/scripts/bible/addDictLinks.pl");
-require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
+if ($forkRequire) {require("$SCRD/$forkRequire");}
 
-if (!-e $forkFile) {&ErrorBug("forkFile does not exist: $forkFile\n", 1);}
 if (!exists &{$forkFunc}) {&ErrorBug("forkFunc does not exist: $forkFunc\n", 1);}
 
 no strict "refs";
-&$forkFunc($forkFile, @forkArgs);
+&$forkFunc(@forkArgs);
 
 1;

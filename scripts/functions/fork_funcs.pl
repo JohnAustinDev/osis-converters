@@ -17,13 +17,13 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# Functions used to save and retrieve data of forks.pl 
-
 use JSON::XS;
-
 our ($TMPDIR);
 
-# Global variables and assembleFunc for addScripRefLinks.pl
+# Script specific functions used to save and retrieve data of forks.pl 
+
+# addScripRefLinks
+# Global variables and assembleFunc()
 our (
   $various_forkP, 
   $UnhandledWords_forkP, 
@@ -34,15 +34,15 @@ our (
   $Types_forkP
 );
 our (
-  $various, 
-  $UnhandledWords, 
-  $fixDone, 
-  $missedLeftRefs, 
-  $noDigitRef, 
-  $noOSISRef, 
-  $Types
+  %various, 
+  %UnhandledWords, 
+  %fixDone, 
+  %missedLeftRefs, 
+  %noDigitRef, 
+  %noOSISRef, 
+  %Types
 );
-our @addScripRefLinks_data = (
+our @addScripRefLinks_json = (
   'various', 
   'UnhandledWords', 
   'fixDone', 
@@ -50,6 +50,14 @@ our @addScripRefLinks_data = (
   'noDigitRef', 
   'noOSISRef',
   'Types'
+);
+our (
+  $CheckRefs,
+  $numUnhandledWords,
+  $numMissedLeftRefs,
+  $numNoDigitRef,
+  $numNoOSISRef,
+  $newLinks
 );
 sub addScripRefLinks_assembleFunc {
   
@@ -60,38 +68,57 @@ sub addScripRefLinks_assembleFunc {
   $numNoOSISRef      += $various_forkP->{'numNoOSISRef'};
   $newLinks          += $various_forkP->{'newLinks'};
 
-  &concatValues(\%UnhandledWords, $UnhandledWords_forkP);
-  &concatValues(\%missedLeftRefs, $missedLeftRefs_forkP);
-  &concatValues(\%noDigitRef,    $noDigitRef_forkP);
-  &concatValues(\%noOSISRef,     $noOSISRef_forkP);
+  &assembleValues('concat', 'UnhandledWords');
+  &assembleValues('concat', 'missedLeftRefs');
+  &assembleValues('concat', 'noDigitRef');
+  &assembleValues('concat', 'noOSISRef');
   
-  &sumValues(\%fixDone,  $fixDone_forkP);
-  &sumValues(\%Types, $Types_forkP);
+  &assembleValues('sum', 'fixDone');
+  &assembleValues('sum', 'Types');
 }
 
-# Global variables and assembleFunc for addDictLinks.pl
-our ($LINK_OSISREF_forkP, $EXPLICIT_GLOSSARY_HASH_forkP);
-our (%LINK_OSISREF, %EXPLICIT_GLOSSARY_HASH);
-our @addDictLinks_data = ('LINK_OSISREF', 'EXPLICIT_GLOSSARY_HASH');
+# addDictLinks
+# Global variables and assembleFunc()
+our (
+  $LINK_OSISREF_forkP,
+  $MATCHES_USED_forkP,
+  $EntryHits_forkP,
+  $EXPLICIT_GLOSSARY_HASH_forkP,
+);
+our (
+  %LINK_OSISREF,
+  %MATCHES_USED,
+  %EntryHits,
+  %EXPLICIT_GLOSSARY_HASH,
+);
+our @addDictLinks_json = (
+  'LINK_OSISREF',
+  'MATCHES_USED',
+  'EntryHits',
+  'EXPLICIT_GLOSSARY_HASH',
+);
 our @EXPLICIT_GLOSSARY;
 sub addDictLinks_assembleFunc {
-
-  foreach my $k1 (keys %{$LINK_OSISREF_forkP}) {
-    foreach my $k2 (keys %{$LINK_OSISREF_forkP->{$k1}}) {
-      if ($k2 eq 'total') {
-        $LINK_OSISREF{$k1}{$k2} += $LINK_OSISREF_forkP->{$k1}{$k2};
-        next;
-      }
-      foreach my $k3 (keys %{$LINK_OSISREF_forkP->{$k1}{$k2}}) {
-        $LINK_OSISREF{$k1}{$k2}{$k3} += $LINK_OSISREF_forkP->{$k1}{$k2}{$k3};
-      }
-    }
-  }
+  
+  &assembleValues('sum', 'LINK_OSISREF');
+  &assembleValues('sum', 'MATCHES_USED');
+  &assembleValues('sum', 'EntryHits');
   
   foreach my $i (sort keys %{$EXPLICIT_GLOSSARY_HASH_forkP}) {
     push(@EXPLICIT_GLOSSARY, $EXPLICIT_GLOSSARY_HASH_forkP->{$i});
   }
 }
+
+# osis2pubs
+# Global variables and assembleFunc()
+our $CONV_REPORT_forkP;
+our %CONV_REPORT;
+our @osis2pubs_json = ('CONV_REPORT');
+sub osis2pubs_assembleFunc {
+
+  &assembleValues('concat', 'CONV_REPORT');
+}
+
 
 ########################################################################
 ########################################################################
@@ -101,10 +128,10 @@ sub addDictLinks_assembleFunc {
 sub saveForkData {
   my $caller = shift;
   
-  my $data = $caller.'_data';
+  my $json = $caller.'_json';
 
   no strict "refs";
-  foreach my $h (@$data) {
+  foreach my $h (@$json) {
     if (open(DAT, ">$TMPDIR/$h.json")) {
       print DAT encode_json(\%{$h});
     }
@@ -116,7 +143,7 @@ sub saveForkData {
 sub reassembleForkData {
   my $caller = shift;
   
-  my $data = $caller.'_data';
+  my $json = $caller.'_json';
   my $assembleFunc = $caller.'_assembleFunc';
 
   # Reassemble the data saved by the separate forks
@@ -124,12 +151,13 @@ sub reassembleForkData {
   my $n = 1;
   while (-d "$tmp/fork.$n") {
     no strict "refs";
-    &readVarsJSON(\@$data, $tmp, $n);
+    &readVarsJSON(\@$json, $tmp, $n);
     &$assembleFunc();
     $n++;
   }
 }
 
+# Read a list of JSON files into variables
 sub readVarsJSON {
   my $varsAP = shift;
   my $dir = shift;
@@ -151,28 +179,41 @@ sub readVarsJSON {
   else {&ErrorBug("runAddScripRefLinks Couldn't open dir '$dir'", 1);}
 }
 
-sub concatValues {
-  my $dataP = shift;
-  my $forkP = shift;
-  
-  foreach my $k (keys %{$forkP}) {
-    if (!$forkP->{$k}) {next;}
-    $dataP->{$k} .= $forkP->{$k};
-  }
+# Add or concatentate data from the JSON hash back to the global hash of the given name.
+sub assembleValues {
+  my $how = shift;
+  my $name = shift;
+
+  no strict "refs";
+  &assembleValues2($how, \%$name, ${$name.'_forkP'});
 }
 
-sub sumValues {
+# Sum or concatenate the values of fork hash leaf keys to a data hash.
+sub assembleValues2 {
+  my $how = shift;
   my $dataP = shift;
   my $forkP = shift;
   
   foreach my $k (keys %{$forkP}) {
     if (ref($forkP->{$k})) {
-      foreach my $k2 (keys %{$forkP->{$k}}) {
-        $dataP->{$k}{$k2} += $forkP->{$k}{$k2};
-      }
+      if (!defined($dataP->{$k})) {$dataP->{$k} = {};}
+      &assembleValues2($how, $dataP->{$k}, $forkP->{$k});
     }
-    else {$dataP->{$k} += $forkP->{$k};}
+    elsif ($how eq 'sum')    {$dataP->{$k} += $forkP->{$k};}
+    elsif ($how eq 'concat') {$dataP->{$k} .= $forkP->{$k};}
   }
+}
+
+# Put a normal argument list into the form required by forks.pl 
+# (starting as argument $n).
+sub getForkArgs {
+  my $n = shift;
+  
+  if ($n != int($n)) {
+    &Log("ERROR: getForkArgs first argument must be an integer.\n");
+  }
+  
+  return ' '.join(' ', map(&escarg('arg'.$n++.":$_"), @_));
 }
 
 1;

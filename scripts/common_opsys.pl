@@ -1094,6 +1094,13 @@ sub escfile {
   return $n;
 }
 
+sub escarg {
+  my $n = shift;
+  
+  $n =~ s/(?<!\\)(["])/\\$1/g;
+  return '"'.$n.'"';
+}
+
 sub isFolderEmpty { 
   my $dirname = shift;
 

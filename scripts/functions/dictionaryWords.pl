@@ -595,8 +595,8 @@ sub applyReferenceTags {
 # argument must be defined for explicit glossary link searches. When 
 # $index is defined, any match will be further restricted so that the 
 # linktext must include the index position (which may be 0).
-my (@MATCHES, $OT_CONTEXTSP, $NT_CONTEXTSP, $LAST_CONTEXT, %MULTIPLES, 
-   %MATCHES_USED, %EntryHits, @DICT_DEBUG_THIS, @DICT_DEBUG);
+our (@MATCHES, $OT_CONTEXTSP, $NT_CONTEXTSP, $LAST_CONTEXT, %MULTIPLES, 
+    %MATCHES_USED, %EntryHits, @DICT_DEBUG_THIS, @DICT_DEBUG);
 sub searchText {
   my $textP = shift; # the string to search
   my $node = shift;  # only used to get context information
@@ -735,7 +735,7 @@ sub searchText {
       next;
     }
     
-    $MATCHES_USED{$m->{'node'}->unique_key}++;
+    $MATCHES_USED{$m->{'node'}->toString()}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
     my $attribs = "osisRef=\"$osisRef\" type=\"".(&conf('ModDrv') =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
@@ -963,7 +963,7 @@ sub logDictLinks {
   my $total = 0;
   my $mlen = 0;
   foreach my $m (@matches) {
-    if ($MATCHES_USED{$m->unique_key}) {next;}
+    if ($MATCHES_USED{$m->toString()}) {next;}
     my $entry = @{$XPC->findnodes('./ancestor::dw:entry[1]', $m)}[0];
     if ($entry) {
       my $osisRef = $entry->getAttribute('osisRef');
