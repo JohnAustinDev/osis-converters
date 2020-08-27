@@ -165,7 +165,7 @@ applied to all following RUN commands until/unless canceled by:
   if (!$use_u2o) {
     &Log($cmd . "\n", 1);
     my $result = `$cmd`;
-    &Log("$result\n", 1);
+    if ($result =~ /error|Unhandled/i) {&Log("$result\n", 1);}
     if ($result =~ /Unhandled/i) {
       &Error("Some SFM was unhandled while generating the usfm2osis.py output.", 
 "See 'Unhandled' message(s) above, which are in reference to:

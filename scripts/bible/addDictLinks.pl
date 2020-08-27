@@ -44,16 +44,15 @@ sub runAddDictLinks {
   system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
+    __FILE__ . ' ' .
     $SCRIPT_NAME . ' ' .
-    &escfile($TMPDIR) . ' ' .
-    "scripts/bible/addDictLinks.pl" . ' ' .
     "adlProcessFile" . ' ' .
     join(' ', map(&escarg("arg1:$_"), &splitOSIS($$osisP)))
   );
 
   &joinOSIS($osisP);
 
-  &reassembleForkData('addDictLinks');
+  &reassembleForkData(__FILE__);
   
   &logDictLinks();
 }
@@ -79,7 +78,7 @@ sub adlProcessFile {
   foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
   
-  &saveForkData('addDictLinks');
+  &saveForkData(__FILE__);
 }
 
 sub processContainer {

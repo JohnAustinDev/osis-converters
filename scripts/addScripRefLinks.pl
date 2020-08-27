@@ -187,9 +187,8 @@ sub runAddScripRefLinks {
   system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
+    __FILE__ . ' ' .
     $SCRIPT_NAME . ' ' .
-    &escfile($TMPDIR) . ' ' .
-    "scripts/addScripRefLinks.pl" . ' ' .
     "runAddScripRefLinks2" . ' ' .
     "arg2:$modType" . ' ' .
     "arg3:$refSystem" . ' ' .
@@ -205,7 +204,7 @@ sub runAddScripRefLinks {
   &Log("#################################################################\n");
   &Log("\n");
   
-  &reassembleForkData('addScripRefLinks');
+  &reassembleForkData(__FILE__);
   
   # Report the reassembled data
   &reportAddScripRefLinks();
@@ -373,7 +372,7 @@ sub runAddScripRefLinks2 {
   
   &asrlProcessFile($osis, $refSystem);
   
-  &saveForkData('addScripRefLinks');
+  &saveForkData(__FILE__);
 }
 
 sub reportAddScripRefLinks {
@@ -791,7 +790,7 @@ sub addLinksText {
 
       if ($shouldCheck) {
         my $prf = $repExtref;
-        $prf =~ s/osisRef="(.*?:)?([^"]+)"/$2/g;
+        $prf =~ s/osisRef="([^":]+:)?([^"]+)"/$2/g;
         $prf =~ s/newReference/r/g;
         $CheckRefs .= "\nCheck location $LOCATION:\"$pextref\"=$prf";
       }

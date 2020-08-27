@@ -22,7 +22,7 @@ our $TMPDIR;
 
 # Script specific functions used to save and retrieve data of forks.pl 
 
-# addScripRefLinks
+# addScripRefLinks.pl
 # Global variables to be aggregated, and assembleFunc()
 our (
   $CheckRefs,
@@ -68,7 +68,7 @@ sub addScripRefLinks_assembleFunc {
   &assemble('sum',    '%Types');
 }
 
-# addDictLinks
+# addDictLinks.pl
 # Global variables to be aggregated, and assembleFunc()
 our (
   %LINK_OSISREF,
@@ -90,7 +90,7 @@ sub addDictLinks_assembleFunc {
   &assemble('push', '@EXPLICIT_GLOSSARY');
 }
 
-# osis2pubs
+# osis2pubs.pl
 # Global variables to be aggregated, and assembleFunc()
 our %CONV_REPORT;
 our @osis2pubs_json = ('%CONV_REPORT');
@@ -104,8 +104,9 @@ sub osis2pubs_assembleFunc {
 ########################################################################
 
 # Called by fork.pl child threads to save their results to JSON files.
+# NOTE: $TMPDIR here is that of the fork script.
 sub saveForkData {
-  my $caller = shift;
+  my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
   
   my $json = $caller.'_json';
 
@@ -126,20 +127,22 @@ sub saveForkData {
 }
 
 # Called by the main thread to reassemble data from all child threads.
+# NOTE: $TMPDIR here is that of the main thread.
 sub reassembleForkData {
-  my $caller = shift;
+  my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
   
   my $json = $caller.'_json';
   my $assembleFunc = $caller.'_assembleFunc';
 
   # Reassemble the data saved by the separate forks
   my $n = 1;
-  while (-d "$TMPDIR.fork_$n") {
-    my $dir = "$TMPDIR.fork_".$n++;
-    
+  my $dir = "$TMPDIR.$caller.fork_$n";
+  while (-d $dir) {
     no strict "refs";
     &readVarsJSON(\@$json, $dir);
     &$assembleFunc();
+    
+    $dir = "$TMPDIR.$caller.fork_".++$n;
   }
 }
 

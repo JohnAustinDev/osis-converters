@@ -172,9 +172,8 @@ sub init_linux_script {
   
   $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
   if ($forkScriptName) {
-    my $n = ($LOGFILE =~ /OUT_fork(\d+)\.txt$/ ? $1:'');
-    if (!defined($n)) {&ErrorBug("Form log files must be numbered: $LOGFILE", 1);}
-    $TMPDIR .= ".fork_$n";
+    if (!defined($LOGFILE)) {&ErrorBug("Fork log file must be specified, and numbered.", 1);}
+    $TMPDIR = $LOGFILE; $TMPDIR =~ s/\/[^\/]+$//;
   }
   if (!$NO_OUTPUT_DELETE) {
     if (-e $TMPDIR) {remove_tree($TMPDIR);}

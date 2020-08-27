@@ -22,6 +22,8 @@ use Encode;
 
 #print("\nDEBUG: fork.pl ARGV=\n".join("\n", @ARGV)."\n");
 
+# INPD = @ARGV[0];
+# LOGFILE = @ARGV[1];
 our $forkScriptName = @ARGV[2];
 my $forkRequire = @ARGV[3];
 my $forkFunc = @ARGV[4];
@@ -32,8 +34,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 our $NOLOG = 0;
 
 require("$SCRD/scripts/functions/fork_funcs.pl");
-
-if ($forkRequire) {require("$SCRD/$forkRequire");}
+require($forkRequire);
 
 if (!exists &{$forkFunc}) {&ErrorBug("forkFunc does not exist: $forkFunc\n", 1);}
 

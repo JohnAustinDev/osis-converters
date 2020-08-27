@@ -514,10 +514,9 @@ sub correctReferencesVSYS {
     }
     #use Data::Dumper; &Debug("attribs = ".Dumper(\%attribs)."\n", 1);
     
-    my $c = &applyMaps(\%attribs, $name_osisXML, \%logH);
+    $count += &applyMaps(\%attribs, $name_osisXML, \%logH);
 
-    # Write new OSIS file if anything changed
-    if ($c) {&writeXMLFile($osisXML, $osisbk); $count += $c;}
+    &writeXMLFile($osisXML, $osisbk);
   }
   &joinOSIS($osisP);
   

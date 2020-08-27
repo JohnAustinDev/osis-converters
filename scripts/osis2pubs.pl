@@ -144,14 +144,13 @@ sub osis2pubs {
     system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
+      __FILE__ . ' ' .
       $SCRIPT_NAME . ' ' .
-      &escfile($TMPDIR) . ' ' .
-      "scripts/osis2pubs.pl" . ' ' .
       "OSIS_To_ePublication" . ' ' .
       $forkArgs
     );
     
-    &reassembleForkData('osis2pubs');
+    &reassembleForkData(__FILE__);
   }
 
   # REPORT results
@@ -387,7 +386,7 @@ file for it, and then run this script again.");}
     # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
   }
   
-  &saveForkData('osis2pubs');
+  &saveForkData(__FILE__);
 }
 
 ########################################################################
@@ -911,6 +910,11 @@ sub makeHTML {
   
   my $osis = "$tmp/$MOD.xml";
   my $coverName = $cover; $coverName =~ s/^.*?([^\/\\]+)$/$1/;
+  
+  # Set FullResourceURL to false for html
+  open(RDO, $READLAYER, $osis); my $t = join('', <RDO>); close(RDO);
+  $t =~ s/(?<=\Q<description type="x-config-FullResourceURL">\E).*?(?=<\/description>)/false/g;
+  open(WRO, $WRITELAYER, $osis); print WRO $t; close(WRO);
   
   &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
   

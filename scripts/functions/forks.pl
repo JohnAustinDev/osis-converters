@@ -36,14 +36,13 @@ my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//;
 
 my $INPD     = @ARGV[0]; # Absolute path to project input directory
 my $LOGF     = @ARGV[1]; # Absolute path to log file
-my $SCNM     = @ARGV[2]; # SCRIPT_NAME to use for forks.pl
-my $TEMP     = @ARGV[3]; # Absolute path to temp directory
-my $forkReq  = @ARGV[4]; # Relative path to required perl file (may be null)
-my $forkFunc = @ARGV[5]; # Name of the function to run (the function's first arg must be the file path, which will be modified in place)
-my $forkArgIndex = 6;    # @ARGV[$forkArgIndex+] = Arguments for each 
+my $REQU     = @ARGV[2]; # Absolute path of caller's perl script
+my $SCNM     = @ARGV[3]; # SCRIPT_NAME to use for forks.pl conf() context
+my $forkFunc = @ARGV[4]; # Name of the function to run
+my $forkArgIndex = 5;    # @ARGV[$forkArgIndex+] = Arguments for each 
 # call of the function, with the form argN:<value>. While reading the
 # arguments in order, when arg1 or the final argument is encountered, 
-# any last set of arguments will be used to call the function. Any argN
+# any last set of arguments will be used to call the function. Each argN
 # will persist for every subsequent call, until it is changed!
 
 # Collect the forked function arguments
@@ -83,12 +82,19 @@ sub pushCall {
 }
 &saveForkArgs(\@forkCall, \@ARGV);
 
-# Prepare for the log files and temporary  files which will be generated
-my $logdir = $TEMP; $logdir =~ s/[^\/\\]+$/forks/;
-if (-e $logdir) {remove_tree($logdir);}
-make_path($logdir);
-my $tmpdir = $TEMP; $tmpdir =~ s/[^\/\\]+$/fork/;
-my $n = 1; while (-e "$tmpdir.$n") {remove_tree("$tmpdir.".$n++);}
+my $caller = $REQU; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
+my $tmpdir = $LOGF; $tmpdir =~ s/(?<=\/)[^\/]+$/tmp/;
+my $tmpsub = "$SCNM.$caller";
+
+# Manually delete all previous fork temp directories, because otherwise
+# a larger number of forks having been previously run would be left 
+# partially outdated, corrupting the aggregated log file.
+my $n = 1;
+my $forkdir = "$tmpdir/$tmpsub.fork_".$n;
+while (-e $forkdir) {
+  remove_tree($forkdir); 
+  $forkdir = "$tmpdir/$tmpsub.fork_".++$n;
+}
 
 # Schedule each call of $forkFunk, keeping CPU near 100%
 my $n = 1;
@@ -102,9 +108,9 @@ while (@forkCall) {
   threads->create(sub {
     system("\"$SCRD/scripts/functions/fork.pl\" " .
       "\"$INPD\"" . ' ' .
-      "\"$logdir/OUT_fork$n.txt\"" . ' ' .
+      "\"$tmpdir/$tmpsub.fork_$n/OUT_${SCNM}_fork.txt\"" . ' ' .
       "\"$SCNM\"" . ' ' .
-      "\"$forkReq\"". ' ' .
+      "\"$REQU\"". ' ' .
       "\"$forkFunc\"" . ' ' .
       join(' ', map(&escarg($_), @forkArgs)));
       
@@ -120,18 +126,19 @@ while (@forkCall) {
 }
 foreach my $th (threads->list()) {$th->join();}
 
-# Copy all forkN log files to LOGFILE.
-$n = 1;
-while (-e "$logdir/OUT_fork$n.txt") {
-  if (open(MLF, "<:encoding(UTF-8)", "$logdir/OUT_fork$n.txt")) {
+# Copy all fork log files to LOGFILE.
+my $n = 1;
+my $forkdir = "$tmpdir/$tmpsub.fork_".$n;
+while (-e $forkdir) {
+  my $forklog = "$forkdir/OUT_${SCNM}_fork.txt";
+  if (open(MLF, "<:encoding(UTF-8)", $forklog)) {
     if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
       while(<MLF>) {print LGG $_;}
       close(LGG);
     }
     close(MLF);
   }
-  else {&Log("ERROR: Could not read log file $logdir/OUT_fork$n.txt\n");}
-  $n++;
+  $forkdir = "$tmpdir/$tmpsub.fork_".++$n;
 }
 
 ########################################################################
@@ -166,6 +173,10 @@ sub resourcesAvailable {
   if ($available) {
     print "CPU idle time: $data{'id'}%, free RAM: ".($data{'free'}/1000000)." GB\n";
   }
+  elsif ($data{'id'} < $reqIDLE) {
+    print "Waiting for CPU (".$data{'id'}."/$reqIDLE)...\n";
+  }
+  else {print "Waiting for RAM (".$data{'free'}."/$reqRAM)...\n";}
   
   return $available;
 }
