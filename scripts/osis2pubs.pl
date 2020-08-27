@@ -100,7 +100,7 @@ sub osis2pubs {
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {
         $forkArgs .= &getForkArgs($convertTo, $TRANPUB_TITLE, $FULLSCOPE, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS, $convertTo)."\"";
       }
     }
     
@@ -116,7 +116,7 @@ sub osis2pubs {
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
         $forkArgs .= &getForkArgs($convertTo, &conf("TitleSubPublication[$pscope]"), $scope, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR); 
-        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS, $convertTo)."\"";
       }
     }
 
@@ -134,7 +134,7 @@ sub osis2pubs {
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
         $forkArgs .= &getForkArgs($convertTo, $title, $bk, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB((-s $INOSIS)/@bks)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB((-s $INOSIS)/@bks, $convertTo)."\"";
       }
     }
   }
@@ -1162,8 +1162,12 @@ sub removeAggregateEntries {
 # Approximate RAM usage line take from two points
 sub ramNeededKB {
   my $size = shift; # File size in Bytes
+  my $convertTo = shift;
   
-  return int(666000 + (0.0388 * $size));
+  # ram data is for eBook, but html will use less
+  if ($convertTo eq 'eBook' || $convertTo eq 'html') {
+    return int(666000 + (0.0388 * $size));
+  }
 }
 
 1;
