@@ -20,9 +20,12 @@
 # This file is only used only by forks.pl to run a function in individual threads
 use Encode;
 
-my $forkRequire = @ARGV[2];
-my $forkFunc = @ARGV[3];
-my @forkArgs; my $a = 4; while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
+#print("\nDEBUG: fork.pl ARGV=\n".join("\n", @ARGV)."\n");
+
+our $forkScriptName = @ARGV[2];
+my $forkRequire = @ARGV[3];
+my $forkFunc = @ARGV[4];
+my @forkArgs; my $a = 5; while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 our $NOLOG = 1;
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();

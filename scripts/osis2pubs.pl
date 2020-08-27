@@ -23,14 +23,21 @@
 use strict;
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
     %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS);
 
-my ($INOSIS_XML, $IS_CHILDRENS_BIBLE, $CREATE_FULL_TRANSLATION, 
-  $CREATE_SEPARATE_BOOKS, $CREATE_SEPARATE_PUBS, $FULLSCOPE, 
-  $SERVER_DIRS_HP, $TRANPUB_SUBDIR, $TRANPUB_TYPE, $TRANPUB_TITLE, 
-  $TRANPUB_NAME, $PUB_SUBDIR, $PUB_NAME, $PUB_TYPE, %CONV_REPORT);
+our ($INOSIS_XML, $SERVER_DIRS_HP, %CONV_REPORT);
+
+our ($IS_CHILDRENS_BIBLE, $CREATE_FULL_TRANSLATION, 
+    $CREATE_SEPARATE_BOOKS, $CREATE_SEPARATE_PUBS, $FULLSCOPE, 
+    $TRANPUB_SUBDIR, $TRANPUB_TYPE, $TRANPUB_TITLE, 
+    $TRANPUB_NAME, $PUB_SUBDIR, $PUB_NAME, $PUB_TYPE);
+  
+my @forkGlobals = ('IS_CHILDRENS_BIBLE', 'CREATE_FULL_TRANSLATION', 
+    'CREATE_SEPARATE_BOOKS', 'CREATE_SEPARATE_PUBS', 'FULLSCOPE', 
+    'TRANPUB_SUBDIR', 'TRANPUB_TYPE', 'TRANPUB_TITLE', 
+    'TRANPUB_NAME', 'INOSIS');
 
 sub osis2pubs {
   my $convertTo = shift;
@@ -73,11 +80,17 @@ sub osis2pubs {
   $TRANPUB_NAME = &getFullEbookName($IS_CHILDRENS_BIBLE, $TRANPUB_TITLE, $FULLSCOPE, $TRANPUB_TYPE);
 
   # Global variables
-  $PUB_SUBDIR = $TRANPUB_SUBDIR;
-  $PUB_NAME   = $TRANPUB_NAME;
   $PUB_TYPE   = $TRANPUB_TYPE;
+  $PUB_NAME   = $TRANPUB_NAME;
+  $PUB_SUBDIR = $TRANPUB_SUBDIR;
   
-  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE);}
+  # Use forks.pl for a big speed-up
+  require("$SCRD/scripts/functions/fork_funcs.pl");
+  no strict "refs";
+  my $forkArgs = &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
+  use strict "refs";
+  
+  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
   else {
     my %eBookSubDirs; my %parentPubScope;
     
@@ -85,7 +98,10 @@ sub osis2pubs {
     if ($PUB_TYPE eq 'Tran') {
       $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{$FULLSCOPE};
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
-      if ($CREATE_FULL_TRANSLATION) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, $FULLSCOPE);}
+      if ($CREATE_FULL_TRANSLATION) {
+        $forkArgs .= &getForkArgs($convertTo, $TRANPUB_TITLE, $FULLSCOPE, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
+        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS)."\"";
+      }
     }
     
     # convert any sub publications that are part of the OSIS file
@@ -99,14 +115,16 @@ sub osis2pubs {
         if ($scope ne $FULLSCOPE && $CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-        &OSIS_To_ePublication($convertTo, &conf("TitleSubPublication[$pscope]"), $scope); 
+        $forkArgs .= &getForkArgs($convertTo, &conf("TitleSubPublication[$pscope]"), $scope, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR); 
+        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS)."\"";
       }
     }
 
     # convert each Bible book within the OSIS file
     if ($CREATE_SEPARATE_BOOKS) {
       $PUB_TYPE = 'Part';
-      foreach my $aBook ($XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML)) {
+      my @bks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
+      foreach my $aBook (@bks) {
         my $bk = $aBook->getAttribute('osisID');
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
@@ -115,9 +133,25 @@ sub osis2pubs {
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
-        &OSIS_To_ePublication($convertTo, $title, $bk);
+        $forkArgs .= &getForkArgs($convertTo, $title, $bk, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
+        $forkArgs .= " \"ramkb:".&ramNeededKB((-s $INOSIS)/@bks)."\"";
       }
     }
+  }
+  
+  if ($forkArgs) {
+    # Run OSIS_To_ePublication using forks.pl for greater speed
+    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+      &escfile($INPD) . ' ' .
+      &escfile($LOGFILE) . ' ' .
+      $SCRIPT_NAME . ' ' .
+      &escfile($TMPDIR) . ' ' .
+      "scripts/osis2pubs.pl" . ' ' .
+      "OSIS_To_ePublication" . ' ' .
+      $forkArgs
+    );
+    
+    &reassembleForkData('osis2pubs');
   }
 
   # REPORT results
@@ -145,10 +179,25 @@ sub osis2pubs {
 ########################################################################
 ########################################################################
 
+# This function is run in its own thread. Its log summmary results must
+# be written to a json file and then re-loaded later after all threads 
+# have completed.
 sub OSIS_To_ePublication {
   my $convertTo = shift; # type of ePublication to output (html or eBook)
   my $pubTitle = shift; # title of ePublication
   my $scope = shift; # scope of ePublication
+  
+  # restore the state of these globals to when OSIS_To_ePublication would have been called
+  my $pub_type = shift;   $PUB_TYPE = $pub_type;
+  my $pub_name = shift;   $PUB_NAME = $pub_name;
+  my $pub_subdir = shift; $PUB_SUBDIR = $pub_subdir;
+  
+  # restore the state of these globals to when getForkArgs() was first called
+  my $x = 0; foreach (@_) {
+    my $g = @forkGlobals[$x++];
+    no strict "refs";
+    $$g = $_;
+  }
   
   my $pscope = $scope; $pscope =~ s/\s/_/g;
 
@@ -337,6 +386,8 @@ file for it, and then run this script again.");}
     # fb2 is disabled until a decent FB2 converter is written
     # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
   }
+  
+  &saveForkData('osis2pubs');
 }
 
 ########################################################################
@@ -1102,6 +1153,13 @@ sub removeAggregateEntries {
   foreach my $del (@dels) {$del->unbindNode();}
   
   &writeXMLFile($xml, $osisP);
+}
+
+# Approximate RAM usage line take from two points
+sub ramNeededKB {
+  my $size = shift; # File size in Bytes
+  
+  return int(666000 + (0.0388 * $size));
 }
 
 1;

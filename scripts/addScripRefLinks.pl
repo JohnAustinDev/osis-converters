@@ -19,7 +19,7 @@
 use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE);
 
 # IMPORTANT TERMINOLOGY:
@@ -187,6 +187,7 @@ sub runAddScripRefLinks {
   system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
+    $SCRIPT_NAME . ' ' .
     &escfile($TMPDIR) . ' ' .
     "scripts/addScripRefLinks.pl" . ' ' .
     "runAddScripRefLinks2" . ' ' .
@@ -372,15 +373,6 @@ sub runAddScripRefLinks2 {
   
   &asrlProcessFile($osis, $refSystem);
   
-  # Save thread results to file
-  our %various = (
-    'CheckRefs' => $CheckRefs,
-    'numUnhandledWords' => $numUnhandledWords,
-    'numMissedLeftRefs' => $numMissedLeftRefs,
-    'numNoDigitRef' => $numNoDigitRef,
-    'numNoOSISRef' => $numNoOSISRef,
-    'newLinks' => $newLinks
-  );
   &saveForkData('addScripRefLinks');
 }
 

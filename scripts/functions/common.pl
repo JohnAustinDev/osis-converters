@@ -158,6 +158,10 @@ sub init_linux_script {
     }
   }
   
+  # If running as a fork, keep the caller SCRIPT_NAME so conf() context is correct
+  our $forkScriptName; # will be set only if this is a fork.pl
+  if ($forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
+  
   if (!-e $CONFFILE) {
     &Error("There is no config.conf file: \"$CONFFILE\".", 
     "\"$INPD\" may not be an osis-converters project directory. If it is, then run update.pl to create a config.conf file.\n", 1);
@@ -167,7 +171,11 @@ sub init_linux_script {
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
   $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
-  if ($SCRIPT_NAME eq 'fork' && $LOGFILE =~ /OUT_fork(\d+)\.txt$/) {$TMPDIR .= ".$1";}
+  if ($forkScriptName) {
+    my $n = ($LOGFILE =~ /OUT_fork(\d+)\.txt$/ ? $1:'');
+    if (!defined($n)) {&ErrorBug("Form log files must be numbered: $LOGFILE", 1);}
+    $TMPDIR .= ".fork_$n";
+  }
   if (!$NO_OUTPUT_DELETE) {
     if (-e $TMPDIR) {remove_tree($TMPDIR);}
     make_path($TMPDIR);
@@ -211,6 +219,7 @@ sub init_linux_script {
   
   if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
 }
+
 sub logGitRevs {
 
   chdir($MAININPD);
@@ -228,6 +237,7 @@ sub logGitRevs {
     &Log("$inpdOriginGit rev: $inpdGit\n");
   }
 }
+
 # This is only needed to update old osis-converters projects
 sub update_removeConvertTXT {
   my $confFile = shift;
@@ -243,6 +253,7 @@ sub update_removeConvertTXT {
   &updateConvertTXT("$MAININPD/html/convert.txt", $confP, 'osis2html');
   return &writeConf($confFile, $confP);
 }
+
 # This is only needed to update old osis-converters projects
 sub updateConvertTXT {
   my $convtxt = shift;
@@ -710,7 +721,8 @@ sub initInputOutputFiles {
     }
   }
 
-  if (!$NO_OUTPUT_DELETE) {
+  our $forkScriptName; # fork results should not be deleted
+  if (!$NO_OUTPUT_DELETE && !$forkScriptName) {
     foreach my $outfile (@outs) {
       my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
       if (-e $outfile) {

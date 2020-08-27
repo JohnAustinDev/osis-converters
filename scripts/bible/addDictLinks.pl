@@ -22,7 +22,7 @@ use strict;
 our $addDictLinks;
 
 our ($XPC, $XML_PARSER);
-our ($SCRD, $INPD, $LOGFILE, $TMPDIR);
+our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME);
 
 my $REF_SEG_CACHE;
 
@@ -44,6 +44,7 @@ sub runAddDictLinks {
   system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
     &escfile($INPD) . ' ' .
     &escfile($LOGFILE) . ' ' .
+    $SCRIPT_NAME . ' ' .
     &escfile($TMPDIR) . ' ' .
     "scripts/bible/addDictLinks.pl" . ' ' .
     "adlProcessFile" . ' ' .
@@ -77,12 +78,6 @@ sub adlProcessFile {
   my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
   foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
-  
-  # Convert @EXPLICIT_GLOSSARY into a hash for writting to JSON
-  our (@EXPLICIT_GLOSSARY, %EXPLICIT_GLOSSARY_HASH);
-  my $n = 1; foreach my $hp (@EXPLICIT_GLOSSARY) {
-    $EXPLICIT_GLOSSARY_HASH{sprintf('%09i', $n++)} = $hp;
-  }
   
   &saveForkData('addDictLinks');
 }

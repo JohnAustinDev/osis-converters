@@ -28,14 +28,19 @@ use File::Spec;
 use File::Path qw(make_path remove_tree);
 use Encode;
 
+my $CURRENT_RAM :shared = 0;
+
+#&Log("\nDEBUG: forks.pl ARGV=\n".join("\n", map(decode('utf8', $_), @ARGV))."\n");
+
 my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//; 
 
 my $INPD     = @ARGV[0]; # Absolute path to project input directory
 my $LOGF     = @ARGV[1]; # Absolute path to log file
-my $TEMP     = @ARGV[2]; # Absolute path to temp directory
-my $forkReq  = @ARGV[3]; # Relative path to required perl file (may be null)
-my $forkFunc = @ARGV[4]; # Name of the function to run (the function's first arg must be the file path, which will be modified in place)
-my $forkArgIndex = 5;    # @ARGV[$forkArgIndex+] = Arguments for each 
+my $SCNM     = @ARGV[2]; # SCRIPT_NAME to use for forks.pl
+my $TEMP     = @ARGV[3]; # Absolute path to temp directory
+my $forkReq  = @ARGV[4]; # Relative path to required perl file (may be null)
+my $forkFunc = @ARGV[5]; # Name of the function to run (the function's first arg must be the file path, which will be modified in place)
+my $forkArgIndex = 6;    # @ARGV[$forkArgIndex+] = Arguments for each 
 # call of the function, with the form argN:<value>. While reading the
 # arguments in order, when arg1 or the final argument is encountered, 
 # any last set of arguments will be used to call the function. Any argN
@@ -47,30 +52,32 @@ sub saveForkArgs {
   my $callAP = shift;
   my $argvAP = shift;
   
-  my %args;
+  my (%args, $ram);
   my $x = $forkArgIndex;
   while (defined(@{$argvAP}[$x])) {
     my $a = decode('utf8', @{$argvAP}[$x++]);
     if ($a =~ s/^arg(\d+)://)  {
       my $n = $1;
       if ($n eq '1') {
-        &pushCall($callAP, \%args);
+        &pushCall($callAP, \%args, $ram);
       }
       $args{$n} = $a;
     }
+    elsif ($a =~ s/^ramkb:(\d+)$//) {$ram = $1;}
     else {&Log("ERROR: Bad fork argument $a\n");}
   }
-  &pushCall($callAP, \%args);
+  &pushCall($callAP, \%args, $ram);
 }
 sub pushCall {
   my $aP = shift;
   my $hP = shift;
+  my $ram = shift;
   
   if (!defined($hP->{1})) {return;}
 
-  my %call;
+  my %call = ( 'ramkb' => $ram );
   foreach my $n (keys %{$hP}) {
-    $call{sprintf('%03i', $n)} = $hP->{$n};
+    $call{'args'}{sprintf('%03i', $n)} = $hP->{$n};
   }
   push(@{$aP}, \%call);
 }
@@ -87,22 +94,27 @@ my $n = 1; while (-e "$tmpdir.$n") {remove_tree("$tmpdir.".$n++);}
 my $n = 1;
 while (@forkCall) {
   my $hP = shift(@forkCall);
-  my @forkArgs; foreach my $a (sort keys %{$hP}) {
-    push(@forkArgs, $hP->{$a});
+  my @forkArgs; foreach my $a (sort keys %{$hP->{'args'}}) {
+    push(@forkArgs, $hP->{'args'}{$a});
   }
 
-  threads->create(sub {system("\"$SCRD/scripts/functions/fork.pl\" " .
-    "\"$INPD\"" . ' ' .
-    "\"$logdir/OUT_fork$n.txt\"" . ' ' .
-    "\"$forkReq\"". ' ' .
-    "\"$forkFunc\"" . ' ' .
-    join(' ', map(&escarg($_), @forkArgs))
-  )});
+  if ($hP->{'ramkb'}) {$CURRENT_RAM += $hP->{'ramkb'};}
+  threads->create(sub {
+    system("\"$SCRD/scripts/functions/fork.pl\" " .
+      "\"$INPD\"" . ' ' .
+      "\"$logdir/OUT_fork$n.txt\"" . ' ' .
+      "\"$SCNM\"" . ' ' .
+      "\"$forkReq\"". ' ' .
+      "\"$forkFunc\"" . ' ' .
+      join(' ', map(&escarg($_), @forkArgs)));
+      
+      $CURRENT_RAM -= $hP->{'ramkb'};
+    });
   $n++;
   
   while (
     @forkCall && 
-    !resourcesAvailable(7, 250000) && 
+    !resourcesAvailable(7, ($CURRENT_RAM + @forkCall[0]->{'ramkb'})) && 
     threads->list(threads::running)
   ) {};
 }
@@ -127,9 +139,12 @@ while (-e "$logdir/OUT_fork$n.txt") {
 
 # Return true if CPU idle time and RAM passes requirements. This check
 # takes a specific number of seconds to return.
+my $MIN_RAM = 1000000; # need at least this kB of free RAM to start another fork
 sub resourcesAvailable {
   my $reqIDLE = shift; # percent CPU idle time required
-  my $reqRAM =shift;   # RAM required
+  my $reqRAM = shift;  # RAM required in kB
+  
+  if ($reqRAM < $MIN_RAM) {$reqRAM = $MIN_RAM;}
 
   my (@fields, %data, $idle);
   foreach my $line (split(/\n/, `vmstat 1 2`)) { # vmstat [options] [delay [count]]
@@ -168,7 +183,7 @@ sub escarg {
 sub Log {
   my $p = shift;
   
-  my $console = ($p =~ /ERROR/);
+  my $console = ($p =~ /(DEBUG|ERROR)/);
   if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
     print LGG $p; close(LGG);
   }
