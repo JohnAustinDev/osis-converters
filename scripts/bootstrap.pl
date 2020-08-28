@@ -21,8 +21,9 @@
 
 # This script uses 2 passed parameters (the 2nd is optional): $INPD, $LOGFILE
 
-# This is the starting point for osis-converter scripts. The opsys is checked,
-# Global variables are initialized or cleaned up, and common.pl is loaded.
+# This is the starting point for all osis-converter scripts. The opsys 
+# is checked, global variables are initialized or cleaned up, and 
+# common.pl is loaded.
 
 # This script must be called with the following line, having X replaced 
 # by the calling script's proper sub-directory depth (and don't bother
@@ -124,7 +125,10 @@ sfm2osis.pl on the main module, then ALSO include a CF_usfm2osis.txt
 file in the main module directory.", 1);
 }
 
-if (!&init_opsys()) {exit;} # init_opsys also sets Perl global vars with config.conf [system] section entries
+# Check that this is a provisioned Linux system (and try restarting in
+# Vagrant if it is not). Also set Perl global variables defined in the
+# config.conf [system] section.
+if (!&init_opsys()) {exit;}
 
 require "$SCRD/scripts/functions/common.pl";
 

@@ -17,7 +17,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# Run a Perl multi-call function as quickly as possible by running it in 
+# Run a Perl function many times as quickly as possible by running in 
 # parallel on separate threads. Perl threads caused core dumps unless 
 # started in the root script and consisting of a system function call.
 
@@ -33,17 +33,20 @@ use Encode;
 my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//; 
 
 my $INPD     = @ARGV[0]; # Absolute path to project input directory
-my $LOGF     = @ARGV[1]; # Absolute path to log file
-my $REQU     = @ARGV[2]; # Absolute path of caller's perl script
+my $LOGF     = @ARGV[1]; # Absolute path to log file of main thread
+my $REQU     = @ARGV[2]; # Absolute path of perl script of caller
 my $SCNM     = @ARGV[3]; # SCRIPT_NAME to use for forks.pl conf() context
 my $forkFunc = @ARGV[4]; # Name of the function to run
 my $forkArgIndex = 5;    # @ARGV[$forkArgIndex+] = Arguments for each 
 # call of the function, with the form argN:<value>. While reading the
 # arguments in order, when arg1 or the final argument is encountered, 
-# any last set of arguments will be used to call the function. Each argN
-# will persist for every subsequent call, until it is changed!
+# any last set of arguments will be used to call the function. So each 
+# argN will persist for every subsequent call, until it is changed. The
+# only other form allowed is ramkb:N which tells forks.pl how much
+# memory must be available before a fork can be started in parallel. 
+# Note: forks.pl always keeps at least one fork running.
 
-# Collect the forked function arguments
+# Collect the fork function arguments for each call
 my @forkCall;
 sub saveForkArgs {
   my $callAP = shift;
@@ -55,9 +58,7 @@ sub saveForkArgs {
     my $a = decode('utf8', @{$argvAP}[$x++]);
     if ($a =~ s/^arg(\d+)://)  {
       my $n = $1;
-      if ($n eq '1') {
-        &pushCall($callAP, \%args, $ram);
-      }
+      if ($n eq '1') {&pushCall($callAP, \%args, $ram);}
       $args{$n} = $a;
     }
     elsif ($a =~ s/^ramkb:(\d+)$//) {$ram = $1;}
@@ -84,9 +85,9 @@ my $caller = $REQU; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
 my $tmpdir = $LOGF; $tmpdir =~ s/(?<=\/)[^\/]+$/tmp/;
 my $tmpsub = "$SCNM.$caller";
 
-# Manually delete all previous fork temp directories, because otherwise
-# a larger number of forks having been previously run would be left 
-# partially outdated, corrupting the aggregated log file.
+# Manually delete all previous fork temp directories of this kind, 
+# because otherwise a larger number of forks having been previously run 
+# would leave some of them outdated, corrupting the aggregated log file.
 my $n = 1;
 my $forkdir = "$tmpdir/$tmpsub.fork_".$n;
 while (-e $forkdir) {
@@ -94,7 +95,8 @@ while (-e $forkdir) {
   $forkdir = "$tmpdir/$tmpsub.fork_".++$n;
 }
 
-# Schedule each call of $forkFunk, keeping CPU near 100%
+# Schedule each call of $forkFunk, keeping CPU near 100% by running
+# forks in parallel when there is RAM available.
 my $n = 1; my $of = @forkCall;
 while (@forkCall) {
   my $hP = shift(@forkCall);
@@ -122,7 +124,7 @@ while (@forkCall) {
 }
 foreach my $th (threads->list()) {$th->join();}
 
-# Copy all fork log files to LOGFILE.
+# Copy finished fork log files to the main thread's LOGFILE.
 my $n = 1;
 my $forkdir = "$tmpdir/$tmpsub.fork_".$n;
 while (-e $forkdir) {
@@ -142,15 +144,16 @@ while (-e $forkdir) {
 
 # Return true if CPU idle time and RAM passes requirements. This check
 # takes a specific number of seconds to return.
-my $RAM_SAFE = 500000; # KB extra room
+my $RAM_SAFE = 500000; # KB extra room before starting any parallel fork.
 my $MSG_LAST;
 sub resourcesAvailable {
   my $reqIDLE = shift; # percent CPU idle time required
-  my $reqRAM = shift;  # free RAM required in kB
+  my $reqRAM = shift;  # KB of free RAM required
   
   $reqRAM += $RAM_SAFE;
 
   my (%data, @fields);
+  # 'vmstat' for CPU data
   my $r = ($REQU =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
   foreach my $line (split(/\n/, `vmstat $r 2`)) { # vmstat [options] [delay [count]]
     if    ($line =~ /procs/) {next;} # first line is grouping, so drop
@@ -160,6 +163,7 @@ sub resourcesAvailable {
       foreach my $d (split(/\s+/, $line)) {$data{'vmstat'}{@fields[$n++]} = $d;}
     }
   }
+  # 'free' for RAM data
   foreach my $line (split(/\n/, `free`)) {
     if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
     elsif ($line =~ /^Mem:/) { # field data

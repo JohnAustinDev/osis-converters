@@ -173,7 +173,7 @@ sub readVarsJSON {
   else {&ErrorBug("readVarsJSON Couldn't open dir '$dir'", 1);}
 }
 
-# Add or concatentate data from the JSON hash back to the global hash of the given name.
+# Add or concatentate data from the JSON hash back to the global variable of the given name.
 sub assemble {
   my $how = shift;
   my $var = shift;
@@ -184,13 +184,14 @@ sub assemble {
   my $forkP; { no strict "refs"; $forkP = ${$name.'_forkP'}; }
   
   if ($type eq '$') {
+    # Scalar globals
     if    ($how eq 'sum')    {${$name} += $$forkP;}
     elsif ($how eq 'concat') {${$name} .= $$forkP;}
     else {&ErrorBug("assemble bad scalar operation: '$how'\n");}
   }
   elsif ($how ne 'push') {
     # Hash globals
-    &assemble2($how, \%$name, $forkP);
+    &assembleHash($how, \%$name, $forkP);
   }
   else {
     # Array globals
@@ -199,7 +200,7 @@ sub assemble {
 }
 
 # Sum, concatenate or push the values of fork hash leaf keys to a global hash variable.
-sub assemble2 {
+sub assembleHash {
   my $how = shift;
   my $dataP = shift;
   my $forkP = shift;
@@ -207,14 +208,14 @@ sub assemble2 {
   foreach my $k (keys %{$forkP}) {
     if (ref($forkP->{$k}) eq 'HASH') {
       if (!defined($dataP->{$k})) {$dataP->{$k} = {};}
-      &assemble2($how, $dataP->{$k}, $forkP->{$k});
+      &assembleHash($how, $dataP->{$k}, $forkP->{$k});
     }
     elsif (ref($forkP->{$k}) eq 'ARRAY') {
       if (!defined($dataP->{$k})) {$dataP->{$k} = [];}
       if (ref($dataP->{$k}) eq 'ARRAY') {
         push(@{$dataP->{$k}}, @{$forkP->{$k}});
       }
-      else {&ErrorBug("assemble2 unmatched data structure $how, $dataP->{$k}", 1);}
+      else {&ErrorBug("assembleHash unmatched data structure $how, $dataP->{$k}", 1);}
     }
     elsif ($how eq 'sum')    {$dataP->{$k} += $forkP->{$k};}
     elsif ($how eq 'concat') {$dataP->{$k} .= $forkP->{$k};}
@@ -222,9 +223,12 @@ sub assemble2 {
 }
 
 # Put a normal argument list into the form required by forks.pl 
-# (starting as argument $n).
 sub getForkArgs {
   
+  # Each argument persists until changed, so constants can be loaded
+  # by a separate getForkArgs(starts-with-arg:N, ...) call before the 
+  # function's regular getForkArgs calls. This allows constants to be 
+  # included with every function call without adding them repeatedly.
   my $n = 1;
   if (@_[0] =~ /^\Qstarts-with-arg:\E(\d+)/) {$n = $1; shift;}
   
