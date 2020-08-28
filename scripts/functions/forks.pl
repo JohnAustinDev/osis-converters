@@ -28,8 +28,6 @@ use File::Spec;
 use File::Path qw(make_path remove_tree);
 use Encode;
 
-my $CURRENT_RAM :shared = 0;
-
 #&Log("\nDEBUG: forks.pl ARGV=\n".join("\n", map(decode('utf8', $_), @ARGV))."\n");
 
 my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//; 
@@ -104,7 +102,6 @@ while (@forkCall) {
     push(@forkArgs, $hP->{'args'}{$a});
   }
 
-  if ($hP->{'ramkb'}) {$CURRENT_RAM += $hP->{'ramkb'};}
   print "\nSTARTING FORK $tmpsub $n/$of\n";
   threads->create(sub {
     system("\"$SCRD/scripts/functions/fork.pl\" " .
@@ -114,14 +111,12 @@ while (@forkCall) {
       "\"$REQU\"". ' ' .
       "\"$forkFunc\"" . ' ' .
       join(' ', map(&escarg($_), @forkArgs)));
-      
-      $CURRENT_RAM -= $hP->{'ramkb'};
     });
   $n++;
   
   while (
     @forkCall && 
-    !resourcesAvailable(7, ($CURRENT_RAM + @forkCall[0]->{'ramkb'})) && 
+    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
     threads->list(threads::running)
   ) {};
 }
@@ -147,16 +142,16 @@ while (-e $forkdir) {
 
 # Return true if CPU idle time and RAM passes requirements. This check
 # takes a specific number of seconds to return.
-my $MIN_RAM = 1000000; # need at least this kB of free RAM to start another fork
+my $RAM_SAFE = 500000; # KB extra room
 my $MSG_LAST;
 sub resourcesAvailable {
   my $reqIDLE = shift; # percent CPU idle time required
-  my $reqRAM = shift;  # RAM required in kB
+  my $reqRAM = shift;  # free RAM required in kB
   
-  if ($reqRAM < $MIN_RAM) {$reqRAM = $MIN_RAM;}
+  $reqRAM += $RAM_SAFE;
 
   my (%data, @fields);
-  my $r = ($REQU =~ /osis2pubs/ ? 5:1); # seconds between vmstat checks
+  my $r = ($REQU =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
   foreach my $line (split(/\n/, `vmstat $r 2`)) { # vmstat [options] [delay [count]]
     if    ($line =~ /procs/) {next;} # first line is grouping, so drop
     elsif ($line =~ /id/) {@fields = split(/\s+/, $line);} # field names

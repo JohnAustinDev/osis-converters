@@ -93,6 +93,8 @@ sub osis2pubs {
   if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
   else {
     my %eBookSubDirs; my %parentPubScope;
+
+    my @bksxml = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
     
     # convert the entire OSIS file
     if ($PUB_TYPE eq 'Tran') {
@@ -100,7 +102,7 @@ sub osis2pubs {
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {
         $forkArgs .= &getForkArgs($convertTo, $TRANPUB_TITLE, $FULLSCOPE, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS, $convertTo)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB(scalar(@bksxml), $convertTo)."\"";
       }
     }
     
@@ -110,21 +112,21 @@ sub osis2pubs {
         my $pscope = $scope; $pscope =~ s/\s/_/g;
         $PUB_TYPE = 'Full';
         $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
-        foreach my $bk (@{&scopeToBooks($scope, &conf('Versification'))}) {$parentPubScope{$bk} = $scope;}
+        my $bksAP = &scopeToBooks($scope, &conf('Versification'));
+        foreach my $bk (@{$bksAP}) {$parentPubScope{$bk} = $scope;}
         if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
         if ($scope ne $FULLSCOPE && $CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
         $forkArgs .= &getForkArgs($convertTo, &conf("TitleSubPublication[$pscope]"), $scope, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR); 
-        $forkArgs .= " \"ramkb:".&ramNeededKB(-s $INOSIS, $convertTo)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB(scalar(@{$bksAP}), $convertTo)."\"";
       }
     }
 
     # convert each Bible book within the OSIS file
     if ($CREATE_SEPARATE_BOOKS) {
       $PUB_TYPE = 'Part';
-      my @bks = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
-      foreach my $aBook (@bks) {
+      foreach my $aBook (@bksxml) {
         my $bk = $aBook->getAttribute('osisID');
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
@@ -134,7 +136,7 @@ sub osis2pubs {
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
         $forkArgs .= &getForkArgs($convertTo, $title, $bk, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB((-s $INOSIS)/@bks, $convertTo)."\"";
+        $forkArgs .= " \"ramkb:".&ramNeededKB(1, $convertTo)."\"";
       }
     }
   }
@@ -1161,12 +1163,16 @@ sub removeAggregateEntries {
 
 # Approximate RAM usage line take from two points
 sub ramNeededKB {
-  my $size = shift; # File size in Bytes
+  my $numbks = shift; # File size in Bytes
   my $convertTo = shift;
+  
+  # 66 book osis2pub fork took maximum of 3068904 KB of RAM
+  # Average book (Gal) osis2pub fork took maximum of 1075472 KB of RAM
+  # So rate is 30668 KB/book and offset is 1044804 KB
   
   # ram data is for eBook, but html will use less
   if ($convertTo eq 'eBook' || $convertTo eq 'html') {
-    return int(666000 + (0.0388 * $size));
+    return int(1000000 + (31000 * $numbks));
   }
 }
 
