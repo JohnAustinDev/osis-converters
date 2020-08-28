@@ -21,6 +21,7 @@ sudo cpanm HTML::Entities
 # DateTime is not included in Mint
 sudo cpanm DateTime
 sudo cpanm Term::ReadKey
+sudo cpanm JSON::XS
 
 # Fonts
 sudo apt-get install fonts-noto
