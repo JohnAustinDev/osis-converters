@@ -18,7 +18,7 @@
 # <http://www.gnu.org/licenses/>.
 
 use JSON::XS;
-our $TMPDIR;
+our ($NO_FORKS, $TMPDIR);
 
 # Script specific functions used to save and retrieve data of forks.pl 
 
@@ -108,6 +108,8 @@ sub osis2pubs_assembleFunc {
 sub saveForkData {
   my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
   
+  if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
+  
   my $json = $caller.'_json';
 
   no strict "refs";
@@ -130,6 +132,8 @@ sub saveForkData {
 # NOTE: $TMPDIR here is that of the main thread.
 sub reassembleForkData {
   my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
+  
+  if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
   
   my $json = $caller.'_json';
   my $assembleFunc = $caller.'_assembleFunc';

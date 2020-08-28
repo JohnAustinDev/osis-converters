@@ -22,7 +22,7 @@ use strict;
 our $addDictLinks;
 
 our ($XPC, $XML_PARSER);
-our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME);
+our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME, $NO_FORKS);
 
 my $REF_SEG_CACHE;
 
@@ -40,26 +40,34 @@ sub runAddDictLinks {
   
   undef($REF_SEG_CACHE);
   
-  # Run adlProcessFile in parallel on each book
-  system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
-    &escfile($INPD) . ' ' .
-    &escfile($LOGFILE) . ' ' .
-    __FILE__ . ' ' .
-    $SCRIPT_NAME . ' ' .
-    "adlProcessFile" . ' ' .
-    join(' ', map(&escarg("arg1:$_"), &splitOSIS($$osisP)))
-  );
+  my @files = &splitOSIS($$osisP);
+  
+  if ($NO_FORKS =~ /\b(1|true|addDictLinks)\b/) {
+    &Warn("Running addDictLinks without forks.pl", 
+    "Un-set NO_FORKS in the config.conf [system] section to enable parallel processing for improved speed.", 1);
+    foreach my $osis (@files) {&adlProcessFile($osis);}
+  }
+  else {
+    # Run adlProcessFile in parallel on each book
+    my $ramkb = 440544; # Approx. KB RAM usage per fork
+    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+      &escfile($INPD) . ' ' .
+      &escfile($LOGFILE) . ' ' .
+      __FILE__ . ' ' .
+      $SCRIPT_NAME . ' ' .
+      "adlProcessFile" . ' ' .
+      "ramkb:$ramkb" . ' ' .
+      join(' ', map(&escarg("arg1:$_"), @files))
+    );
+    &reassembleForkData(__FILE__);
+  }
 
   &joinOSIS($osisP);
-
-  &reassembleForkData(__FILE__);
   
   &logDictLinks();
 }
 
-# This function is run in its own thread. Its log summmary results must
-# be written to a json file and then re-loaded later after all threads 
-# have completed.
+# This function may be run in its own thread.
 sub adlProcessFile {
   my $osis = shift;
   

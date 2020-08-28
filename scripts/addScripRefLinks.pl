@@ -20,7 +20,7 @@ use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
-our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE);
+our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS);
 
 # IMPORTANT TERMINOLOGY:
 # ----------------------
@@ -183,17 +183,27 @@ sub runAddScripRefLinks {
     last;
   }
   
-  # Run runAddScripRefLinks2 in parallel on each book
-  system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
-    &escfile($INPD) . ' ' .
-    &escfile($LOGFILE) . ' ' .
-    __FILE__ . ' ' .
-    $SCRIPT_NAME . ' ' .
-    "runAddScripRefLinks2" . ' ' .
-    "arg2:$modType" . ' ' .
-    "arg3:$refSystem" . ' ' .
-    join(' ', map(&escarg("arg1:$_"), @files))
-  );
+  if ($NO_FORKS =~ /\b(1|true|addScripRefLinks)\b/) {
+    &Warn("Running addScripRefLinks without forks.pl", 
+    "Un-set NO_FORKS in the config.conf [system] section to enable parallel processing for improved speed.", 1);
+    foreach my $osis (@files) {&asrlProcessFile($osis, $refSystem);}
+  }
+  else {
+    # Run runAddScripRefLinks2 in parallel on each book
+    my $ramkb = 634000; # Approx. KB RAM usage per fork
+    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+      &escfile($INPD) . ' ' .
+      &escfile($LOGFILE) . ' ' .
+      __FILE__ . ' ' .
+      $SCRIPT_NAME . ' ' .
+      "runAddScripRefLinks2" . ' ' .
+      "ramkb:$ramkb" . ' ' .
+      "arg2:$modType" . ' ' .
+      "arg3:$refSystem" . ' ' .
+      join(' ', map(&escarg("arg1:$_"), @files))
+    );
+    &reassembleForkData(__FILE__);
+  }
   
   &joinOSIS($out_file);
   if (ref($in_file)) {$$in_file = $out_file;}
@@ -203,8 +213,6 @@ sub runAddScripRefLinks {
   &Log("\n");
   &Log("#################################################################\n");
   &Log("\n");
-  
-  &reassembleForkData(__FILE__);
   
   # Report the reassembled data
   &reportAddScripRefLinks();
@@ -358,9 +366,7 @@ that you wish to match on a separate line:");
   else {&ErrorBug("The CF_addScripRefLinks.txt command file is required to run addScripRefLinks.pl and a default file could not be found.", 1); return;}
 }
 
-# This function is run in its own thread. Its log summmary results must
-# be written to a json file and then re-loaded later after all threads 
-# have completed.
+# This function is run in its own thread.
 sub runAddScripRefLinks2 {
   my $osis = shift;
   my $modType = shift;

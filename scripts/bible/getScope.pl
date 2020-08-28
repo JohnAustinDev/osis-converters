@@ -168,7 +168,7 @@ sub scopeToBooks {
     &ErrorBug("Unknown vsys '$vsys' in scopeToBooks", 1);
   }
   
-  my @scopes = split(/\s+/, $scope);
+  my @scopes = split(/[\s_]+/, $scope);
   my $i = 0;
   my $keep = '';
   

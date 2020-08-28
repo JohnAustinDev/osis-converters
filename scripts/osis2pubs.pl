@@ -25,7 +25,7 @@ use strict;
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
-    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS);
+    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS);
 
 our ($INOSIS_XML, $SERVER_DIRS_HP, %CONV_REPORT);
 
@@ -85,12 +85,14 @@ sub osis2pubs {
   $PUB_SUBDIR = $TRANPUB_SUBDIR;
   
   # Use forks.pl for a big speed-up
+  my $forkArgs;
   require("$SCRD/scripts/functions/fork_funcs.pl");
-  no strict "refs";
-  my $forkArgs = &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
-  use strict "refs";
+  {
+    no strict "refs";
+    $forkArgs .=  &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
+  }
   
-  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
+  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication2($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
   else {
     my %eBookSubDirs; my %parentPubScope;
 
@@ -101,8 +103,8 @@ sub osis2pubs {
       $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{$FULLSCOPE};
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {
-        $forkArgs .= &getForkArgs($convertTo, $TRANPUB_TITLE, $FULLSCOPE, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB(scalar(@bksxml), $convertTo)."\"";
+        $forkArgs .= &OSIS_To_ePublication(scalar(@bksxml), $convertTo, 
+          $TRANPUB_TITLE, $FULLSCOPE, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
       }
     }
     
@@ -118,8 +120,8 @@ sub osis2pubs {
         if ($scope ne $FULLSCOPE && $CREATE_SEPARATE_PUBS !~ /^true$/i && $CREATE_SEPARATE_PUBS ne $scope) {next;}
         $PUB_SUBDIR = $eBookSubDirs{$scope};
         $PUB_NAME = ($scope eq $FULLSCOPE ? $TRANPUB_NAME:&getEbookName($scope, $PUB_TYPE));
-        $forkArgs .= &getForkArgs($convertTo, &conf("TitleSubPublication[$pscope]"), $scope, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR); 
-        $forkArgs .= " \"ramkb:".&ramNeededKB(scalar(@{$bksAP}), $convertTo)."\"";
+        $forkArgs .= &OSIS_To_ePublication(scalar(@{$bksAP}), $convertTo, 
+          &conf("TitleSubPublication[$pscope]"), $scope, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
       }
     }
 
@@ -128,30 +130,28 @@ sub osis2pubs {
       $PUB_TYPE = 'Part';
       foreach my $aBook (@bksxml) {
         my $bk = $aBook->getAttribute('osisID');
-        if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $CREATE_SEPARATE_BOOKS ne $bk) {next;}
+        my $csbks = join('|', @{&scopeToBooks($CREATE_SEPARATE_BOOKS, &conf('Versification'))});
+        if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $bk !~ /^($csbks)$/) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
         $PUB_SUBDIR = ($parentPubScope{$bk} && $eBookSubDirs{$parentPubScope{$bk}} ? 
           $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{$bk});
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
-        $forkArgs .= &getForkArgs($convertTo, $title, $bk, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
-        $forkArgs .= " \"ramkb:".&ramNeededKB(1, $convertTo)."\"";
+        $forkArgs .= &OSIS_To_ePublication(1, $convertTo, $title, $bk, $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
       }
     }
   }
   
-  if ($forkArgs) {
-    # Run OSIS_To_ePublication using forks.pl for greater speed
+  if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
     system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       __FILE__ . ' ' .
       $SCRIPT_NAME . ' ' .
-      "OSIS_To_ePublication" . ' ' .
+      "OSIS_To_ePublication2" . ' ' .
       $forkArgs
     );
-    
     &reassembleForkData(__FILE__);
   }
 
@@ -180,10 +180,25 @@ sub osis2pubs {
 ########################################################################
 ########################################################################
 
-# This function is run in its own thread. Its log summmary results must
-# be written to a json file and then re-loaded later after all threads 
-# have completed.
+# Either loads arguments for forks.pl to run OSIS_To_ePublication2 as 
+# forks later on, or else runs OSIS_To_ePublication2 now. 
 sub OSIS_To_ePublication {
+  my $numbks = shift;
+  
+  if ($NO_FORKS =~ /\b(1|true|osis2pubs)\b/) {
+    &Warn("Running osis2pubs without forks.pl", 
+    "Un-set NO_FORKS in the config.conf [system] section to enable parallel processing for improved speed.", 1);
+    &OSIS_To_ePublication2(@_);
+  }
+  else {
+    my $forkArgs = &getForkArgs(@_);
+    $forkArgs .= " \"ramkb:".&ramNeededKB($numbks, @_[0])."\"";
+    return $forkArgs;
+  }
+}
+
+# This function may be run in its own thread.
+sub OSIS_To_ePublication2 {
   my $convertTo = shift; # type of ePublication to output (html or eBook)
   my $pubTitle = shift; # title of ePublication
   my $scope = shift; # scope of ePublication

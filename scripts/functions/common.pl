@@ -659,7 +659,7 @@ sub wgetReadFilePaths {
     elsif (-d "$wgetdir/$sub") {
       my $save = "$wgetdir/$sub/"; $save =~ s/^\Q$root\E\/[^\/]+/./;
       push(@{$filesAP}, $save);
-      &Debug("Found folder: $save\n", 1);
+      #&Debug("Found folder: $save\n", 1);
       $success &= &wgetReadFilePaths("$wgetdir/$sub", $filesAP, $root);
       next;
     }
@@ -676,7 +676,7 @@ sub wgetReadFilePaths {
       my $save = "$wgetdir/".decode_utf8($a->textContent()); $save =~ s/^\Q$root\E\/[^\/]+/./;
       if ($save ne ".") {
         push(@{$filesAP}, $save);
-        &Debug("Found file: $save\n", 1);
+        #&Debug("Found file: $save\n", 1);
       }
     }
   }

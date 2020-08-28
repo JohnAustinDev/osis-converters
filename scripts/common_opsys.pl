@@ -39,7 +39,7 @@ our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD,
 # config.conf [system] globals initialized in applyCONF_system
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
   $OUTDIR, $FONTS, $COVERS, $EBOOKS, $DEBUG, $NO_OUTPUT_DELETE, 
-  $VAGRANT);
+  $VAGRANT, $NO_FORKS);
 
 # Config entries that are defined by CrossWire SWORD standard
 our @SWORD_CONFIGS = (
@@ -82,7 +82,7 @@ our @OC_CONFIGS = (
 our @OC_SYSTEM = (
   'REPOSITORY', 'MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 
   'OUTDIR', 'FONTS', 'COVERS', 'EBOOKS', 'DEBUG', 'NO_OUTPUT_DELETE', 
-  'VAGRANT'
+  'VAGRANT', 'NO_FORKS'
 );
 
 # CrossWire SWORD entries which may be localized by appending _code

@@ -44,7 +44,10 @@ my $forkArgIndex = 5;    # @ARGV[$forkArgIndex+] = Arguments for each
 # argN will persist for every subsequent call, until it is changed. The
 # only other form allowed is ramkb:N which tells forks.pl how much
 # memory must be available before a fork can be started in parallel. 
-# Note: forks.pl always keeps at least one fork running.
+# Note: forks.pl always keeps at least one fork running, regardless of
+# CPU or memory availability.
+
+our $RAM_SAFE = 80000; # required KB RAM to be left available before starting any parallel fork.
 
 # Collect the fork function arguments for each call
 my @forkCall;
@@ -144,8 +147,7 @@ while (-e $forkdir) {
 
 # Return true if CPU idle time and RAM passes requirements. This check
 # takes a specific number of seconds to return.
-my $RAM_SAFE = 500000; # KB extra room before starting any parallel fork.
-my $MSG_LAST;
+our $MSG_LAST;
 sub resourcesAvailable {
   my $reqIDLE = shift; # percent CPU idle time required
   my $reqRAM = shift;  # KB of free RAM required
