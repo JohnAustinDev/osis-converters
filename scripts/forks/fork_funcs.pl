@@ -17,8 +17,11 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
 use JSON::XS;
-our ($NO_FORKS, $TMPDIR);
+use File::Path qw(make_path remove_tree);
+
+our ($READLAYER, $NO_FORKS, $TMPDIR, $SCRIPT_NAME, $DEBUG);
 
 # Script specific functions used to save and retrieve data of forks.pl.
 # This file should be included in files that call forks.pl.
@@ -130,7 +133,7 @@ sub saveForkData {
 }
 
 # Called by the main thread to reassemble data from all child threads.
-# NOTE: $TMPDIR here is that of the main thread.
+# NOTE: $TMPDIR and $SCRIPT_NAME here are those of the main thread.
 sub reassembleForkData {
   my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
   
@@ -140,14 +143,11 @@ sub reassembleForkData {
   my $assembleFunc = $caller.'_assembleFunc';
 
   # Reassemble the data saved by the separate forks
-  my $n = 1;
-  my $dir = "$TMPDIR.$caller.fork_$n";
-  while (-d $dir) {
+  foreach my $td (@{&forkTmpDirs($TMPDIR, $SCRIPT_NAME, $caller)}) {
     no strict "refs";
-    &readVarsJSON(\@$json, $dir);
+    &readVarsJSON(\@$json, $td);
     &$assembleFunc();
-    
-    $dir = "$TMPDIR.$caller.fork_".++$n;
+    if (!$DEBUG) {remove_tree($td);}
   }
 }
 
@@ -188,6 +188,7 @@ sub assemble {
 
   my $forkP; { no strict "refs"; $forkP = ${$name.'_forkP'}; }
   
+  no strict "refs";
   if ($type eq '$') {
     # Scalar globals
     if    ($how eq 'sum')    {${$name} += $$forkP;}
@@ -225,6 +226,21 @@ sub assembleHash {
     elsif ($how eq 'sum')    {$dataP->{$k} += $forkP->{$k};}
     elsif ($how eq 'concat') {$dataP->{$k} .= $forkP->{$k};}
   }
+}
+
+sub forkTmpDirs {
+  my $tmpdir = shift; # any script's tmp directory
+  my $script_name = shift; # parent osis-converters script
+  my $caller = shift; $caller =~ s/^.*?\/([^\/]+)\.pl$/$1/;
+  
+  $tmpdir =~ s/(?<=\/tmp\/).*$/$script_name.$caller.fork_/;
+  
+  my @dirs;
+  
+  my $n = 1; 
+  while (-e $tmpdir.$n) {push(@dirs, $tmpdir.$n++);}
+  
+  return \@dirs;
 }
 
 # Put a normal argument list into the form required by forks.pl 

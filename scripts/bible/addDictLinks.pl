@@ -55,7 +55,6 @@ sub runAddDictLinks {
     system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
-      "\"$DEBUG\"" . ' ' .
       $SCRIPT_NAME . ' ' .
       __FILE__ . ' ' .
       "adlProcessFile" . ' ' .

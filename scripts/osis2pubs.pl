@@ -146,7 +146,6 @@ sub osis2pubs {
     system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
-      "\"$DEBUG\"" . ' ' .
       $SCRIPT_NAME . ' ' .
       __FILE__ . ' ' .
       "OSIS_To_ePublication2" . ' ' .

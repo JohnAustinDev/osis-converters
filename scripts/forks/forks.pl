@@ -30,15 +30,16 @@ use Encode;
 
 #&Log("\nDEBUG: forks.pl ARGV=\n".join("\n", map(decode('utf8', $_), @ARGV))."\n");
 
-my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//; 
+my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//;
+
+require("$SCRD/scripts/forks/fork_funcs.pl");
 
 my $INPD     = @ARGV[0]; # Absolute path to project input directory
 my $LOGF     = @ARGV[1]; # Absolute path to log file of main thread
-my $DEBUG    = @ARGV[2]; # Absolute path to log file of main thread
-my $SCNM     = @ARGV[3]; # SCRIPT_NAME to use for forks.pl conf() context
-my $REQU     = @ARGV[4]; # Absolute path of perl script of caller
-my $forkFunc = @ARGV[5]; # Name of the function to run
-my $forkArgIndex   = 6;  # @ARGV[$forkArgIndex+] = Arguments for each 
+my $SCNM     = @ARGV[2]; # SCRIPT_NAME to use for forks.pl conf() context
+my $REQU     = @ARGV[3]; # Absolute path of perl script of caller
+my $forkFunc = @ARGV[4]; # Name of the function to run
+my $forkArgIndex   = 5;  # @ARGV[$forkArgIndex+] = Arguments for each 
 # call of the function, with the form argN:<value>. While reading the
 # arguments in order, when arg1 or the final argument is encountered, 
 # any last set of arguments will be used to call the function. So each 
@@ -90,7 +91,10 @@ my $forkName = "$SCNM.$caller.fork_";
 my $forkLog = "OUT_${SCNM}_fork.txt";
 my $tmpdir = $LOGF; $tmpdir =~ s/(?<=\/)[^\/]+$/tmp\/$forkName/;
 
-&tmpDirs($tmpdir);
+# Delete any old temporary directories for this fork ($DEBUG leaves them)
+foreach my $td (@{&forkTmpDirs($tmpdir, $SCNM, $caller)}) {
+  remove_tree($td);
+}
 
 # Schedule each call of $forkFunk, keeping CPU near 100% by running
 # forks in parallel when there is RAM available.
@@ -122,35 +126,18 @@ while (@forkCall) {
 foreach my $th (threads->list()) {$th->join();}
 
 # Copy finished fork log files to the main thread's LOGFILE.
-&tmpDirs($tmpdir, $forkLog);
-
-########################################################################
-########################################################################
-
-# Remove tmpDirs, after copying fork logs if $forkLog is set.
-sub tmpDirs {
-  my $tmpdir = shift;
-  my $forkLog = shift;
-  
-  my $n = 1;
-  my $forkdir = $tmpdir.$n;
-  while (-e $forkdir) {
-  
-    if ($forkLog) {
-      my $forklog = "$forkdir/$forkLog";
-      if (open(MLF, "<:encoding(UTF-8)", $forklog)) {
-        if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
-          while(<MLF>) {print LGG $_;}
-          close(LGG);
-        }
-        close(MLF);
-      }
+foreach my $td (@{&forkTmpDirs($tmpdir, $SCNM, $caller)}) {
+  if (open(MLF, "<:encoding(UTF-8)", $td)) {
+    if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
+      while(<MLF>) {print LGG $_;}
+      close(LGG);
     }
-    
-    if (!$forkLog || !$DEBUG) {remove_tree($forkdir);} 
-    $forkdir = $tmpdir.++$n;
+    close(MLF);
   }
 }
+
+########################################################################
+########################################################################
 
 # Return true if CPU idle time and RAM passes requirements. This check
 # takes a specific number of seconds to return.
