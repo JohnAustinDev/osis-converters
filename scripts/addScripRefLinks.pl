@@ -20,7 +20,7 @@ use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
-our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS);
+our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS, $DEBUG);
 
 # IMPORTANT TERMINOLOGY:
 # ----------------------
@@ -149,6 +149,8 @@ my $fixReplacementMsg = "
    unlink, or of the shorthand form \"<r Gen.1.1>Genesis 1 verse 1</r>\" to
    fix. The replacement must be enclosed by double quotes, and any double
    quotes in the replacement must be escaped with '\'.";
+   
+require("$SCRD/scripts/forks/fork_funcs.pl");
 
 sub runAddScripRefLinks {
   my $modType = shift;
@@ -191,11 +193,12 @@ sub runAddScripRefLinks {
   else {
     # Run runAddScripRefLinks2 in parallel on each book
     my $ramkb = 634000; # Approx. KB RAM usage per fork
-    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
-      __FILE__ . ' ' .
+      "\"$DEBUG\"" . ' ' .
       $SCRIPT_NAME . ' ' .
+      __FILE__ . ' ' .
       "runAddScripRefLinks2" . ' ' .
       "ramkb:$ramkb" . ' ' .
       "arg2:$modType" . ' ' .

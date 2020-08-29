@@ -25,7 +25,7 @@ use strict;
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
-    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS);
+    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
 
 our ($INOSIS_XML, $SERVER_DIRS_HP, %CONV_REPORT);
 
@@ -38,6 +38,8 @@ my @forkGlobals = ('IS_CHILDRENS_BIBLE', 'CREATE_FULL_TRANSLATION',
     'CREATE_SEPARATE_BOOKS', 'CREATE_SEPARATE_PUBS', 'FULLSCOPE', 
     'TRANPUB_SUBDIR', 'TRANPUB_TYPE', 'TRANPUB_TITLE', 
     'TRANPUB_NAME', 'INOSIS');
+    
+require("$SCRD/scripts/forks/fork_funcs.pl");
 
 sub osis2pubs {
   my $convertTo = shift;
@@ -85,12 +87,9 @@ sub osis2pubs {
   $PUB_SUBDIR = $TRANPUB_SUBDIR;
   
   # Use forks.pl for a big speed-up
-  my $forkArgs;
-  require("$SCRD/scripts/functions/fork_funcs.pl");
-  {
-    no strict "refs";
-    $forkArgs .=  &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
-  }
+  no strict "refs";
+  my $forkArgs;  &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
+  use strict "refs";
   
   if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication2($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
   else {
@@ -144,11 +143,12 @@ sub osis2pubs {
   }
   
   if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
-    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
-      __FILE__ . ' ' .
+      "\"$DEBUG\"" . ' ' .
       $SCRIPT_NAME . ' ' .
+      __FILE__ . ' ' .
       "OSIS_To_ePublication2" . ' ' .
       $forkArgs
     );

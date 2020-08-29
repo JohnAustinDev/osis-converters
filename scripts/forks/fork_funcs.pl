@@ -20,7 +20,8 @@
 use JSON::XS;
 our ($NO_FORKS, $TMPDIR);
 
-# Script specific functions used to save and retrieve data of forks.pl 
+# Script specific functions used to save and retrieve data of forks.pl.
+# This file should be included in files that call forks.pl.
 
 # addScripRefLinks.pl
 # Global variables to be aggregated, and assembleFunc()

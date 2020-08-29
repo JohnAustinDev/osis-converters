@@ -22,9 +22,11 @@ use strict;
 our $addDictLinks;
 
 our ($XPC, $XML_PARSER);
-our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME, $NO_FORKS);
+our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME, $NO_FORKS, $DEBUG);
 
 my $REF_SEG_CACHE;
+
+require("$SCRD/scripts/forks/fork_funcs.pl");
 
 sub runAddDictLinks {
   my $osisP = shift;
@@ -50,11 +52,12 @@ sub runAddDictLinks {
   else {
     # Run adlProcessFile in parallel on each book
     my $ramkb = 440544; # Approx. KB RAM usage per fork
-    system(&escfile("$SCRD/scripts/functions/forks.pl") . " " .
+    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
-      __FILE__ . ' ' .
+      "\"$DEBUG\"" . ' ' .
       $SCRIPT_NAME . ' ' .
+      __FILE__ . ' ' .
       "adlProcessFile" . ' ' .
       "ramkb:$ramkb" . ' ' .
       join(' ', map(&escarg("arg1:$_"), @files))
