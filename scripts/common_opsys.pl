@@ -1000,10 +1000,10 @@ sub Report {
 }
 
 # Log to console and logfile. $flag can have these values:
-# -1   = only log file
-#  0,1 = log file + console
+#  0   = log-file
+#  1   = log file + console
 #  2   = only console
-#  3   = don't log anything
+#  3   = don't log anything - used by shell($cmd, $flag)
 my $LOGFILE_BUFFER;
 sub Log {
   my $p = shift; # log message
@@ -1117,13 +1117,15 @@ sub printInt {
 }
 
 # Run a Linux shell script. $flag can have these values:
-# -1   = only log file
-#  0,1 = log file + console
+#  0   = log-file
+#  1   = log file + console
 #  2   = only console
 #  3   = don't log anything
 sub shell {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
+  
+  if ($DEBUG) {$flag = 1;}
   
   &Log("\n$cmd\n", $flag);
   my $result = decode('utf8', `$cmd 2>&1`);

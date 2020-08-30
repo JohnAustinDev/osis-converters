@@ -78,18 +78,19 @@ target, then a different USFM tag should be used instead.</with-param>
     </for-each>
     
     <!-- Check OSIS file's osisRef targets -->
-    <variable name="missing" as="element()*">
+    <variable name="missing" as="xs:string*">
       <for-each select="($MAINMOD_DOC | $DICTMOD_DOC)">
         <variable name="prefixRE" select="concat('^', //@osisIDWork[1], ':')"/>
+        <!-- Ignore !PART endings of osisRefs even though that osisID does not exist -->
         <sequence select="for $e in $checkSelf, $r in $e/me:osisRef_atoms(@osisRef)
             return if ( matches($r, $prefixRE) and 
-                        not(key('osisID', replace($r, '^[^:]+:', '')))
-                      ) then $e else ()"/>
+                        not(key('osisID', replace(replace($r, '^[^:]+:', ''), '!PART$', '')))
+                      ) then $r else ()"/>
       </for-each>
     </variable>
     <for-each select="$missing[normalize-space()]">
       <call-template name="Error">
-<with-param name="msg"><value-of select="ancestor::osisText/@osisIDWork"/> Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg"><value-of select="$DOCWORK"/> reference to missing osisRef segment "<value-of select="."/>"</with-param>
       </call-template>
     </for-each>
  
@@ -161,11 +162,12 @@ target, then a different USFM tag should be used instead.</with-param>
 <with-param name="msg">OSIS MAINMOD REFERENCES TO DICTMOD:</with-param>
       </call-template>
       <for-each select="$DICTMOD_DOC">
+        <!-- Ignore !PART endings of osisRefs even though that osisID does not exist -->
         <variable name="missing" select="for $e in $checkMain, $r in $e/me:osisRef_atoms(@osisRef) 
-          return if (key('osisID', replace($r, '^[^:]+:', ''))) then () else $e"/>
+          return if (key('osisID', replace(replace($r, '^[^:]+:', ''), '!PART$', ''))) then () else $r" as="xs:string*"/>
         <for-each select="$missing[normalize-space()]">
           <call-template name="Error">
-<with-param name="msg"><value-of select="ancestor::osisText/@osisIDWork"/> Reference target not found: <value-of select="string()"/> osisRef="<value-of select="@osisRef"/>"</with-param>
+<with-param name="msg"><value-of select="$MAINMOD"/> reference to missing DICTMOD osisRef segment "<value-of select="."/>"</with-param>
           </call-template>
         </for-each>
       </for-each>
