@@ -1327,7 +1327,7 @@
   
   <!-- Returns a series of list entry elements, one for every TOC entry that is a 
   step below tocNode in the hierarchy. A class is added according to the type of 
-  entry. EBook glossary keyword lists with greater than $keywordFileAutoThresh
+  entry. EBook glossary keyword lists with greater than $glossaryTocAutoThresh
   entries are pared down to list only the first of each letter. -->
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
@@ -1396,7 +1396,7 @@
       <variable name="onlyKeywordFirstLetter" as="xs:boolean" 
         select="not($isMainNode) and 
                 ($SCRIPT_NAME = 'osis2ebooks') and 
-                (count($subentries[@type='keyword']) &#62;= xs:integer(number($keywordFileAutoThresh))) and 
+                (count($subentries[@type='keyword']) &#62;= xs:integer(number($glossaryTocAutoThresh))) and 
                 (count(distinct-values($subentries[@type='keyword']/oc:keySortLetter(text()))) &#62; 1)"/>
       <for-each select="$subentries">
         <if test="not( $onlyKeywordFirstLetter and  
