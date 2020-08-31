@@ -127,13 +127,17 @@ foreach my $th (threads->list()) {$th->join();}
 
 # Copy finished fork log files to the main thread's LOGFILE.
 foreach my $td (@{&forkTmpDirs($tmpdir, $SCNM, $caller)}) {
-  if (open(MLF, "<:encoding(UTF-8)", $td)) {
+  if (!-e "$td/$forkLog") {next;}
+  
+  if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLog")) {
     if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
       while(<MLF>) {print LGG $_;}
       close(LGG);
     }
+    else {&Log("ERROR: forks.pl cannot open $LOGF for appending.\n");}
     close(MLF);
   }
+  else {&Log("ERROR: forks.pl cannot open $td/$forkLog for reading.\n");}
 }
 
 ########################################################################
