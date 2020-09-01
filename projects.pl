@@ -141,6 +141,7 @@ ReadMode 4;
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
+&Log("Running ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;

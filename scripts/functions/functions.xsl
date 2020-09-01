@@ -57,6 +57,8 @@
   <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
   
   <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
+  
+  <key name="osisID" match="*[@osisID]" use="for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
@@ -443,6 +445,27 @@
   <function name="oc:myWork" as="xs:string">
     <param name="node" as="node()"/>
     <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
+  </function>
+  
+  <function name="oc:work" as="xs:string">
+    <param name="osisRef" as="xs:string"/>
+    <param name="defaultWork" as="xs:string"/>
+    <value-of select="if (tokenize($osisRef, ':')[2]) then tokenize($osisRef, ':')[1] else $defaultWork"/>
+  </function>
+  
+  <function name="oc:ref" as="xs:string">
+    <param name="osisRef" as="xs:string"/>
+    <value-of select="if (tokenize($osisRef, ':')[2]) then tokenize($osisRef, ':')[2] else $osisRef"/>
+  </function>
+  
+  <function name="oc:key" as="node()*">
+    <param name="name" as="xs:string"/>
+    <param name="docs" as="document-node()+"/>
+    <param name="refwork" as="xs:string"/>
+    <param name="refvalue" as="xs:string"/>
+    <for-each select="$docs[oc:myWork(.) = $refwork]">
+      <sequence select="key($name, $refvalue)"/>
+    </for-each>
   </function>
   
   <function name="oc:getPrevChapterOsisID" as="xs:string?">
@@ -912,7 +935,8 @@ one target remains.</with-param>
   </function>
   
   <!-- Takes an attribute name and returns all of those attributes within 
-  $nodes that contain $search. The $search string(s) must not contain spaces. -->
+  $nodes having value $search (among any and all space delimited values). 
+  The $search string(s) must not contain spaces. -->
   <function name="oc:attribsWith" as="attribute()*">
     <param name="attrib" as="xs:string"/>
     <param name="search" as="xs:string*"/>

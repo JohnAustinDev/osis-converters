@@ -17,9 +17,6 @@
   
   <output method="text"/>
   
-  <key name="osisID" match="*[@osisID]" 
-    use="for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')"/>
-  
   <variable name="VERSE_SYSTEM_DOC" select="if ($versification)
     then doc(concat($TMPDIR, '/versification/', $versification, '.xml')) else ()"/>
   

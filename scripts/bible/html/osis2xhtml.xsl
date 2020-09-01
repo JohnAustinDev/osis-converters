@@ -395,16 +395,21 @@
               descendant::title[string() = $INT_title]
                                               "/>
   <template mode="preprocess" match="reference[@osisRef]/@osisRef">
-    <!-- x-glossary and x-glosslink references may have multiple targets, ignore all but the first -->
-    <variable name="osisRef1" select="replace(., '\s+.*$', '')"/>
+    <!-- x-glossary and x-glosslink references may have multiple targets; remove any that don't resolve, and keep only the first -->
+    <variable name="docwork" select="oc:myWork(.)"/>
+    <variable name="osisRef1" select="(
+        for $r in tokenize(., '\s+') return 
+        if ( oc:work($r, $docwork) != $DICTMOD or oc:key('osisID', $referenceOSIS, $DICTMOD, oc:ref($r)) ) 
+        then $r else '' 
+      )[normalize-space()][1]"/>
     <!-- when using the combined glossary, redirect duplicates to the combined glossary -->
     <variable name="osisRef2" select="if ($doCombineGlossaries) then 
                                       replace($osisRef1, '\.dup\d+', '') else 
                                       $osisRef1"/>
     <!-- reference osisRefs have workid prefixes -->
-    <variable name="osisRef" as="xs:string" select="if (contains($osisRef2,':')) then 
-                                                    $osisRef2 else 
-                                                    concat(oc:myWork(.),':',$osisRef2)"/>
+    <variable name="osisRef" as="xs:string" select="if (contains($osisRef2, ':'))
+                                                    then $osisRef2 
+                                                    else concat($docwork, ':', $osisRef2)"/>
     <variable name="result" as="xs:string">
       <choose>
         <when test=". = ($REF_introduction, $REF_introductionINT)">
