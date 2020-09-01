@@ -201,8 +201,8 @@ DWF_OSISREF:
       }
       if (!$match && $osisRef !~ /\!toc$/) {
         if (!$reported{$osisRef}) {
-          &Warn("Extra entry with osisRef=\"$dwfOsisRef\" in $dictionary_words_xml", 
-          "Remove references to $osisRef from $dictionary_words_xml because it does not appear in $DICTMOD.");
+          &Warn("Extra entry with osisRef=\"$osisRef\" in $dictionary_words_xml", 
+          "Remove references to $osisRef from $dictionary_words_xml if target does not appear in $DICTMOD.");
         }
         $reported{$osisRef}++;
         $allmatch = 0;

@@ -124,6 +124,7 @@ sub processOSIS {
 
   # Add any missing Table of Contents milestones and titles as required for eBooks, html etc.
   &writeTOC(\$OSIS, $modType);
+  &write_osisIDs(\$OSIS); # Run again to add osisID's to new TOC milestones
 
   # Parse Scripture references from the text and check them
   if ($addScripRefLinks) {
@@ -197,7 +198,7 @@ file to convert footnote references in the text into working hyperlinks.");}
       if ($biblef) {
         if (@{$XPC->findnodes('//osis:div[not(@resp="x-oc")][@type="introduction"][not(ancestor::div[@type="book" or @type="bookGroup"])]', $XML_PARSER->parse_file($biblef))}[0]) {
           &Log("\n");
-          &Note(
+          &Warn(
 "Module $MAINMOD contains module introduction material (located before 
 the first bookGroup, which applies to the entire module). It appears 
 you have not duplicated this material in the glossary. This introductory 
@@ -208,7 +209,7 @@ the headings into glossary keys. A menu system will then automatically
 be created to make the introduction material available in every book and 
 keyword. EX.: Add code something like this to $DICTMOD/CF_usfm2osis.txt: 
 EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO feature == INT\\n/ 
-EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\k \$1\\\\k*/gm 
+EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\m \\\\k \$1\\\\k*/gm 
 RUN:./INT.SFM");
         }
       }
