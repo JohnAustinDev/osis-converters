@@ -381,7 +381,7 @@
   <template mode="preprocess" 
     match="div[@type='glossary'][@subType='x-aggregate'] |
            div[@type='glossary'][$doCombineGlossaries][not(ancestor::osis[@isCombinedGlossary])] |
-           div[@annotateType='x-feature'][@annotateRef='INT'][oc:myWork(.) = $DICTMOD] |
+           div[@annotateType='x-feature'][@annotateRef='INT'][oc:docWork(.) = $DICTMOD] |
            div[@scope='NAVMENU']"/>
   <template mode="preprocess" match="list[@resp='x-oc'][@subType='x-navmenu']"/>
   <!-- These variables are used to match any removed DICTMOD INT keywords to 
@@ -396,7 +396,7 @@
                                               "/>
   <template mode="preprocess" match="reference[@osisRef]/@osisRef">
     <!-- x-glossary and x-glosslink references may have multiple targets; remove any that don't resolve, and keep only the first -->
-    <variable name="docwork" select="oc:myWork(.)"/>
+    <variable name="docwork" select="oc:docWork(.)"/>
     <variable name="osisRef1" select="(
         for $r in tokenize(., '\s+') return 
         if ( oc:work($r, $docwork) != $DICTMOD or oc:key('osisID', $referenceOSIS, $DICTMOD, oc:ref($r)) ) 
@@ -448,14 +448,14 @@
       </if>
       <if test="not(ancestor::div[@type='glossary']) and 
                 not(matches(@n, '\[(inline_toc_first|inline_toc_last)\]'))">
-        <attribute name="n" select="concat(if (oc:myWork(.) = $MAINMOD) 
+        <attribute name="n" select="concat(if (oc:docWork(.) = $MAINMOD) 
                                            then '[inline_toc_first]' 
                                            else '[inline_toc_last]', @n)"/>
       </if>
       <apply-templates mode="#current"/>
     </copy>
   </template>
-  <template mode="preprocess" match="title[oc:myWork(.) = $MAINMOD]
+  <template mode="preprocess" match="title[oc:docWork(.) = $MAINMOD]
                                           [ancestor::div[@annotateType='x-feature'][@annotateRef='INT']]
                                           [string() = $INT_title]">
     <copy><!-- !INT extension allows reference mode=xhtml Scripture ref check -->
@@ -470,7 +470,7 @@
   <!-- osisIDs do not have workid prefixes -->
   <template mode="preprocess" match="@osisID">
     <attribute name="osisID" select="replace(., '^[^:]*:', '')"/>
-    <if test="tokenize(.,':')[2] and tokenize(.,':')[1] != oc:myWork(.)">
+    <if test="tokenize(.,':')[2] and tokenize(.,':')[1] != oc:docWork(.)">
       <call-template name="Error">
 <with-param name="msg">An element's osisID had a work prefix that was different than its work: <value-of select="."/></with-param>
       </call-template>
@@ -578,7 +578,7 @@
   <template mode="divideFiles" match="osisText">
     <choose>
       <!-- If this is the top of an x-bible OSIS file, group all initial divs as the introduction -->
-      <when test="oc:myWork(.) = $MAINMOD and //work[@osisWork=$MAINMOD]/type[@type='x-bible']">
+      <when test="oc:docWork(.) = $MAINMOD and //work[@osisWork=$MAINMOD]/type[@type='x-bible']">
         <for-each-group select="div" 
             group-adjacent="0.5 + 0.5*count(self::div[@type='bookGroup']) + 
                             count(preceding::div[@type='bookGroup'])">
@@ -795,7 +795,7 @@
 
     <variable name="root" select="if ($node/ancestor-or-self::osis[@isCombinedGlossary]) then 
                                   'comb' else 
-                                  oc:myWork($node)"/>
+                                  oc:docWork($node)"/>
     <variable name="refUsfmType" select="$node/ancestor-or-self::div[@type=$usfmType][last()]"/>
     <variable name="refUsfmTypeDivNum" select="0.5 + 
                                                0.5*(count($refUsfmType/descendant-or-self::div[@type=$usfmType])) + 
@@ -900,7 +900,7 @@
     <param name="preprocessedRefOSIS" tunnel="yes"/>
     
     <variable name="topElement" select="$OSISelement/parent::*" as="element()"/>
-    <variable name="isMainNode" select="oc:myWork($topElement) = $MAINMOD"/>
+    <variable name="isMainNode" select="oc:docWork($topElement) = $MAINMOD"/>
     <call-template name="Log">
       <with-param name="msg" select="concat('-------- writing: ', $fileName)"/>
     </call-template>
@@ -925,7 +925,7 @@
         <body>
           <xsl:attribute name="class" select="normalize-space(string-join(distinct-values(
               ('calibre', 
-               root($OSISelement)//work[@osisWork = oc:myWork(.)]/type/@type, 
+               root($OSISelement)//work[@osisWork = oc:docWork(.)]/type/@type, 
                $topElement/ancestor-or-self::*[@scope][1]/@scope, 
                for $x in tokenize($fileName, '[_/\.]') return $x, 
                $topElement/@type, 
@@ -1073,7 +1073,7 @@
         <value-of select="count(preceding::note[not(ancestor::div[@type='book'])]) - 
                           count(ancestor::div[@type='bookGroup'][1]/preceding::note[not(ancestor::div[@type='book'])]) + 1"/>
       </when>
-      <when test="oc:myWork(.) = $MAINMOD"><!-- main introduction -->
+      <when test="oc:docWork(.) = $MAINMOD"><!-- main introduction -->
         <value-of select="count(preceding::note[not(ancestor::div[@type='bookGroup'])]) + 1"/>
       </when>
       <otherwise>
@@ -1338,7 +1338,7 @@
     <param name="tocNode" as="node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
     
-    <variable name="isMainNode" select="oc:myWork($tocNode) = $MAINMOD"/>
+    <variable name="isMainNode" select="oc:docWork($tocNode) = $MAINMOD"/>
     <variable name="myTocLevel" as="xs:integer" 
         select="if ($isTopTOC) then 0 else me:getTocLevel($tocNode)"/>
     <variable name="sourceDir" select="concat('/xhtml/', if ($isTopTOC) then 'top.xhtml' else me:getFileName($tocNode))"/>
@@ -1542,7 +1542,7 @@
   <!-- getTocLevel returns an integer which is the TOC hierarchy level of tocElement -->
   <function name="me:getTocLevel" as="xs:integer">
     <param name="tocElement" as="element()"/>
-    <variable name="isMainNode" select="oc:myWork($tocElement) = $MAINMOD"/>
+    <variable name="isMainNode" select="oc:docWork($tocElement) = $MAINMOD"/>
     <variable name="toclevelEXPLICIT" select="if (matches($tocElement/@n, '\[level\d\]')) then 
                                                  replace($tocElement/@n, '^.*\[level(\d)\].*$', '$1') else '0'"/>
     <variable name="toclevelOSIS">
@@ -1781,7 +1781,7 @@
     </html:h1>
     <!-- non-Bible chapters also get inline TOC (Bible trees do not have a document-node due to preprocessing) -->
     <if test="not(tokenize($tocAttributes/self::attribute(class), ' ') = 'no_toc') 
-        and oc:myWork(.) != $MAINMOD">
+        and oc:docWork(.) != $MAINMOD">
       <html:h1 class="xsl-nonBibleChapterLabel">
         <value-of select="$tocTitle"/>
       </html:h1>

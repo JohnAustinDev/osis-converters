@@ -442,7 +442,7 @@
     </for-each>
   </function>
   
-  <function name="oc:myWork" as="xs:string">
+  <function name="oc:docWork" as="xs:string">
     <param name="node" as="node()"/>
     <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
   </function>
@@ -463,7 +463,7 @@
     <param name="docs" as="document-node()+"/>
     <param name="refwork" as="xs:string"/>
     <param name="refvalue" as="xs:string"/>
-    <for-each select="$docs[oc:myWork(.) = $refwork]">
+    <for-each select="$docs[oc:docWork(.) = $refwork]">
       <sequence select="key($name, $refvalue)"/>
     </for-each>
   </function>
