@@ -468,142 +468,140 @@
     </for-each>
   </function>
   
-  <function name="oc:getPrevChapterOsisID" as="xs:string?">
+  <function name="oc:getPrevChapterEncRef" as="xs:string?">
     <param name="node" as="node()?"/>
     <variable name="inChapter" as="element(chapter)?"
       select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
               [@eID = $node/preceding::chapter[1]/@sID]"/>
-    <value-of select="if ($inChapter) then 
+    <variable name="osisID" select="if ($inChapter) then 
                       $inChapter/preceding::chapter[ @osisID = string-join((
                         tokenize( $inChapter/@eID, '\.' )[1], 
                         string(number(tokenize( $inChapter/@eID, '\.' )[2])-1)), '.') ][1]/@osisID 
                       else ''"/>
+    <value-of select="if ($osisID) then concat('&amp;osisRef=', $osisID) else ''"/>
   </function>
   
-  <function name="oc:getNextChapterOsisID" as="xs:string?">
+  <function name="oc:getNextChapterEncRef" as="xs:string?">
     <param name="node" as="node()?"/>
     <variable name="inChapter" as="element(chapter)?"
       select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
               [@eID = $node/preceding::chapter[1]/@sID]"/>
-    <value-of select="if ($inChapter) then 
+    <variable name="osisID" select="if ($inChapter) then 
                       $inChapter/following::chapter[ @osisID = string-join((
                         tokenize( $inChapter/@eID, '\.' )[1], 
                         string(number(tokenize( $inChapter/@eID, '\.' )[2])+1)), '.')][1]/@osisID 
                       else ''"/>
+    <value-of select="if ($osisID) then concat('&amp;osisRef=', $osisID) else ''"/>
   </function>
   
   <!-- Returns a list of links to glossary and introductory material, 
-  including next/previous chapter/keyword links. When a REF is prefixed
-  with 'href+' an osisRef attribute is NOT generated, instead, an href
-  attribute is written as a literal href (this feature should only be
-  used on temporary OSIS nodes, since it would not validate). NOTE: 
+  including next/previous chapter/keyword links. Arguments are all
+  encoded like a URL query is, for instance: '&osisRef=Matt.1.1&text=Matthew'.
+  Also, &disabled=1 can be added to disable the generated link. NOTE: 
   Normally links to keywords in Bible modules are type x-glossary, while 
   those in Dict modules are x-glosslink, but here they are all 
   x-glosslink for CSS backward compatibility in xulsword. -->
   <function name="oc:getNavmenuLinks" as="element(list)?">
-    <param name="REF_prev"  as="xs:string?"/>
-    <param name="REF_next"  as="xs:string?"/>
-    <param name="REF_intro" as="xs:string?"/>
-    <param name="REF_dict"  as="xs:string*"/>
+    <param name="encREF_prev"      as="xs:string?"/>
+    <param name="encREF_next"      as="xs:string?"/>
+    <param name="encREF_intro"     as="xs:string?"/>
+    <param name="encREF_dictList"  as="xs:string*"/>
     
-    <if test="$REF_prev or $REF_next or $REF_intro or count($REF_dict)">
+    <variable name="defaultTextPREV" select="
+        if (boolean($encREF_prev) and not(matches($encREF_prev, '&amp;text=[^&amp;]+')))
+        then '&amp;text= ← '
+        else ''"/>
+    <variable name="defaultTextNEXT" select="
+        if (boolean($encREF_next) and not(matches($encREF_next, '&amp;text=[^&amp;]+')))
+        then '&amp;text= → '
+        else ''"/>
+    <variable name="defaultTextINTRO" select="
+        if (boolean($encREF_intro) and not(matches($encREF_intro, '&amp;text=[^&amp;]+')))
+        then concat('&amp;text=', $uiIntroduction)
+        else ''"/>
+    
+    <if test="$encREF_prev or $encREF_next or $encREF_intro or count($encREF_dictList)">
       <osis:list subType="x-navmenu" resp="x-oc">
 
-        <if test="($REF_prev or $REF_next)">
+        <if test="($encREF_prev or $encREF_next)">
           <osis:item subType="x-prevnext-link">
             <osis:p type="x-right" subType="x-introduction">
-              <if test="$REF_prev">
-                <osis:reference>
-                  <choose>
-                    <when test="matches($REF_prev, '^&amp;href=')">
-                      <attribute name="href" select="replace($REF_prev, '^&amp;href=', '')"/>
-                    </when>
-                    <otherwise>
-                      <attribute name="osisRef" select="$REF_prev"/>
-                    </otherwise>
-                  </choose>
-                  <if test="starts-with($REF_prev, concat($DICTMOD,':'))">
-                    <attribute name="type">x-glosslink</attribute>
-                    <attribute name="subType">x-target_self</attribute>
-                  </if>
-                  <text> ← </text>
-                </osis:reference>
+              <if test="$encREF_prev">
+                <sequence select="oc:getMenuLink(concat($encREF_prev, $defaultTextPREV))"/>
               </if>
-              <if test="$REF_next">
-                <osis:reference>
-                  <choose>
-                    <when test="matches($REF_next, '^&amp;href=')">
-                      <attribute name="href" select="replace($REF_next, '^&amp;href=', '')"/>
-                    </when>
-                    <otherwise>
-                      <attribute name="osisRef" select="$REF_next"/>
-                    </otherwise>
-                  </choose>
-                  <if test="starts-with($REF_next, concat($DICTMOD,':'))">
-                    <attribute name="type">x-glosslink</attribute>
-                    <attribute name="subType">x-target_self</attribute>
-                  </if>
-                  <text> → </text>
-                </osis:reference>
+              <if test="$encREF_next">
+                <sequence select="oc:getMenuLink(concat($encREF_next, $defaultTextNEXT))"/>
               </if>
             </osis:p>
           </osis:item>
         </if>
         
-        <if test="$REF_intro">
-          <osis:item subType="x-introduction-link">
-            <osis:p type="x-right" subType="x-introduction">
-              <osis:reference>
-                <choose>
-                  <when test="matches($REF_intro, '^&amp;href=')">
-                    <attribute name="href" select="replace($REF_intro, '^&amp;href=', '')"/>
-                  </when>
-                  <otherwise>
-                    <attribute name="osisRef" select="$REF_intro"/>
-                  </otherwise>
-                </choose>
-                <if test="starts-with($REF_intro, concat($DICTMOD,':'))">
-                  <attribute name="type">x-glosslink</attribute>
-                  <attribute name="subType">x-target_self</attribute>
-                </if>
-                <value-of select="$uiIntroduction"/>
-              </osis:reference>
-            </osis:p>
-          </osis:item>
-        </if>
+        <sequence select="oc:getMenuItem(
+          concat($encREF_intro, $defaultTextINTRO),
+          'x-introduction-link' )"/>
         
-        <for-each select="$REF_dict">
-          <if test=".">
-            <osis:item subType="x-dictionary-link">
-              <osis:p type="x-right" subType="x-introduction">
-                <osis:reference>
-                  <analyze-string select="." regex="&amp;([A-Za-z]+)=([^&amp;]+)">
-                    <matching-substring>
-                      <choose>
-                        <when test="regex-group(1) != 'text'">
-                          <attribute name="{regex-group(1)}" select="regex-group(2)"/>
-                          <if test="regex-group(1) = 'osisRef' 
-                              and starts-with(regex-group(2), concat($DICTMOD, ':'))">
-                            <attribute name="type">x-glosslink</attribute>
-                            <attribute name="subType">x-target_self</attribute>
-                          </if>
-                        </when>
-                        <otherwise>
-                          <value-of select="regex-group(2)"/>
-                        </otherwise>
-                      </choose>
-                    </matching-substring>
-                  </analyze-string>
-                </osis:reference>
-              </osis:p>
-            </osis:item>
-          </if>
+        <for-each select="$encREF_dictList">
+          <sequence select="oc:getMenuItem(
+            ., 
+            'x-dictionary-link')"/>
         </for-each>
         
         <osis:lb/>
         <osis:lb/>
+        
       </osis:list>
     </if>
+  </function>
+  <function name="oc:getMenuItem" as="element(item)?">
+    <param name="encodedRef" as="xs:string"/>
+    <param name="subType" as="xs:string"/>
+    <if test="$encodedRef">
+      <osis:item subType="{$subType}">
+        <osis:p type="x-right" subType="x-introduction">
+          <sequence select="oc:getMenuLink($encodedRef)"/>
+        </osis:p>
+      </osis:item>
+    </if>
+  </function>
+  <function name="oc:getMenuLink" as="node()">
+    <param name="encodedRef" as="xs:string"/>
+    <variable name="text" select="replace($encodedRef, '^.*?&amp;text=([^&amp;]+).*?$', '$1')"/>
+    <if test="not($text)">
+      <call-template name="ErrorBug">
+<with-param name="msg">getMenuLink link has no text: <value-of select="$encodedRef"/></with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    <if test="not(matches($encodedRef, '&amp;disabled=1')) and 
+              not(matches($encodedRef, '&amp;(osisRef|href)=[^&amp;]+'))">
+      <call-template name="ErrorBug">
+<with-param name="msg">getMenuLink link has no target (osisRef or href): <value-of select="$encodedRef"/></with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    <choose>
+      <when test="matches($encodedRef, '&amp;disabled=1')">
+        <osis:seg subType="x-disabled">
+          <value-of select="$text"/>
+        </osis:seg>
+      </when>
+      <otherwise>
+        <osis:reference>
+          <analyze-string select="$encodedRef" regex="&amp;([A-Za-z]+)=([^&amp;]+)">
+            <matching-substring>
+              <if test="not(regex-group(1) = ('disabled', 'text'))">
+                <attribute name="{regex-group(1)}" select="regex-group(2)"/>
+              </if>
+            </matching-substring>
+          </analyze-string>
+          <if test="matches($encodedRef, concat('&amp;osisRef=', $DICTMOD, ':'))">
+            <attribute name="type">x-glosslink</attribute>
+            <attribute name="subType">x-target_self</attribute>
+          </if>
+          <value-of select="$text"/>
+        </osis:reference>
+      </otherwise>
+    </choose>
   </function>
   
   <!-- Returns a menu with links to each glossary of DICTMOD -->

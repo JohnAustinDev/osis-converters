@@ -54,9 +54,10 @@
   
   <variable name="glossaryNavmenuLinks" select="/osis[$DICTMOD]/osisText/header/work/description
       [matches(@type, '^x\-config\-GlossaryNavmenuLink\[[1-9]\]')]/string()"/>
-  <variable name="dictlinks" as="xs:string*" select="if (not($DICTMOD)) then ()
+  <variable name="dictLinks" as="xs:string*" select="if (not($DICTMOD)) then ()
       else if (count($glossaryNavmenuLinks)) then $glossaryNavmenuLinks 
       else oc:decodeOsisRef(tokenize($REF_dictionary, ':')[2])"/>
+  <variable name="dictLinksEnc" as="xs:string*" select="for $t in $dictLinks return me:glossaryNavmenuLink($t)"/>
   <variable name="docroot" select="/"/>
   
   <variable name="customize" as="element(div)*" select="/osis/osisText/div[starts-with(@osisID, 'NAVMENU.')]"/>
@@ -89,10 +90,10 @@
       <!-- Place navmenu before chapter[eID] and anything selected by prependNavMenu -->
       <when test="($DICTMOD and $prependNavMenu) or ($isBible and boolean(self::chapter[@eID]))">
         <sequence select="oc:getNavmenuLinks(
-          oc:getPrevChapterOsisID(.),
-          oc:getNextChapterOsisID(.),
-          $myREF_intro, 
-          me:bestRef($dictlinks))"/>
+          oc:getPrevChapterEncRef(.),
+          oc:getNextChapterEncRef(.),
+          if (not($myREF_intro)) then '' else concat('&amp;osisRef=', $myREF_intro), 
+          $dictLinksEnc)"/>
         <copy><apply-templates mode="identity" select="node()|@*"/></copy>
         <if test="not(self::chapter) or boolean(self::chapter[matches(@eID, '\.1$')])">
           <call-template name="Note">
@@ -106,32 +107,23 @@
         <copy>
           <apply-templates mode="identity" select="node()|@*"/>
           <sequence select="oc:getNavmenuLinks(
-            me:keywordRef('prev', .),
-            me:keywordRef('next', .), 
+            me:keywordEncREF('prev', .),
+            me:keywordEncREF('next', .), 
             '', ())"/>
         </copy>
       </when>
       
       <!-- Place navmenu at the end of each keyword -->
       <when test="self::div[starts-with(@type,'x-keyword')]">
-        <variable name="mykw" select="descendant::seg[@type = 'keyword'][1]"/>
-        <variable name="mylinks" as="xs:string*" 
-          select="(for $i in $dictlinks return 
-            if (me:ifNotPresent(
-              if (contains($i, '&amp;osisRef=')) 
-              then replace($i, '^.*&amp;osisRef=([^&amp;]+).*$', '$1')
-              else concat($DICTMOD, ':', oc:encodeOsisRef($i))
-            , .))
-            then $i else '')"/>
-        <variable name="onSkipMenu" select="@subType = 
+        <variable name="skipPrevNext" select="@subType = 
           ('x-navmenu-glossaries', 'x-navmenu-all-letters', 'x-navmenu-all-keywords')"/>
         <copy>
           <apply-templates select="node()|@*"/>
           <sequence select="oc:getNavmenuLinks(
-            if ($onSkipMenu) then '' else me:ifNotPresent(me:keywordRef('prev', .), .),
-            if ($onSkipMenu) then '' else me:ifNotPresent(me:keywordRef('next', .), .), 
-            me:ifNotPresent($myREF_intro, .), 
-            me:bestRef($mylinks))"/>
+            if ($skipPrevNext)       then '' else me:applyMenuContext(., me:keywordEncREF('prev', .)),
+            if ($skipPrevNext)       then '' else me:applyMenuContext(., me:keywordEncREF('next', .)), 
+            if (not($myREF_intro))   then '' else me:applyMenuContext(., concat('&amp;osisRef=', $myREF_intro)), 
+            for $t in $dictLinksEnc return me:applyMenuContext(., $t) )"/>
         </copy>
         <call-template name="Note">
 <with-param name="msg">Added navmenu to keyword: <value-of select="descendant::seg[@type='keyword']"/></with-param>
@@ -378,7 +370,10 @@ following in config.conf:
     </call-template>
   </template>
   
-  <function name="me:keywordRef" as="xs:string?">
+  <!-- Return the query encoded osisRef of the next or previous keyword.
+  When node is in an aggregated entry, the source glossary is used for 
+  the prev/next context, rather than the aggregated glossary. -->
+  <function name="me:keywordEncREF" as="xs:string?">
     <param name="do" as="xs:string"/> <!-- 'prev' or 'next' -->
     <param name="node" as="node()?"/>
     
@@ -418,32 +413,60 @@ following in config.conf:
     
     <variable name="osisID" select="$prevnext/descendant::seg[@type='keyword']/replace(@osisID, '\.dup\d+', '')"/>
     
-    <value-of select="if ($osisID) then concat($DICTMOD,':',$osisID) else ''"/>
+    <value-of select="if ($osisID) then concat('&amp;osisRef=', $DICTMOD, ':', $osisID) else ''"/>
   </function>
   
-  <!-- If a target menu has only one keyword, skip the menu and target 
-  that keyword directly. Also format the link for use by oc:getNavmenuLinks -->
-  <function name="me:bestRef" as="xs:string*">
-    <param name="links" as="xs:string*"/>
-    <sequence select="for $i in $links return
-        if (not(matches($i, '\S'))) then ''
-        else if (contains($i, '&amp;osisRef=')) then $i
-        else if (count($docroot//div[@type='glossary']
-            [oc:getDivTitle(.) = $i]/descendant::seg[@type='keyword']) = 1) 
-        then concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef(
-            $docroot//div[@type='glossary'][oc:getDivTitle(.) = $i]
-            /descendant::seg[@type='keyword']/string()), '&amp;text=', $i) 
-        else concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef($i), '&amp;text=', $i)"/>
-  </function>
-  
-  <!-- If target is the current menu, or already listed on the current
-  menu, then return '' -->
-  <function name="me:ifNotPresent" as="xs:string?">
-    <param name="osisRef" as="xs:string"/>
+  <!-- Hide or disable links according to the menu on which they appear -->
+  <function name="me:applyMenuContext" as="xs:string?">
     <param name="kwdiv" as="element(div)"/>
+    <param name="osisRefEnc" as="xs:string"/>
+    <variable name="osisRef" select="replace($osisRefEnc, '^.*?&amp;osisRef=([^&amp;]+).*?$' , '$1')"/>
     <variable name="osisID" select="$kwdiv//seg[@type='keyword'][1]/@osisID"/>
-    <value-of select="if (tokenize($osisRef, ':')[2] = ($osisID, $kwdiv//reference/tokenize(@osisRef, ':')[2]))
-      then '' else $osisRef"/>
+    <!-- If osisRef is to the current menu, the append &disabled=1 -->
+    <variable name="osisRefEnc2" select="
+      if (tokenize($osisRef, ':')[2] = $osisID)
+      then concat($osisRefEnc, '&amp;disabled=1') 
+      else $osisRefEnc"/>
+    <!-- If a link to osisRef is already listed on the current menu, then return ''
+    <variable name="osisRefEnc3" select="
+      if (tokenize($osisRef, ':')[2] = $kwdiv//reference/tokenize(@osisRef, ':')[2])
+      then '' 
+      else $osisRefEnc2"/> -->
+    <value-of select="$osisRefEnc2"/>
+  </function>
+  
+  <!-- Check and convert config.conf glossaryNavmenuLink[n] values into
+  finished URL query incoded link strings -->
+  <function name="me:glossaryNavmenuLink" as="xs:string">
+    <param name="navmenuLink" as="xs:string"/>
+    <variable name="nml1" select="if (matches($navmenuLink, '&amp;[^=]+=')) 
+        then $navmenuLink 
+        else concat('&amp;osisRef=', $DICTMOD, ':', oc:encodeOsisRef($navmenuLink), '&amp;text=', $navmenuLink)"/>
+    <if test="not(matches($nml1, '&amp;osisRef=[^&amp;]+'))">
+      <call-template name="Error">
+<with-param name="msg">glossaryNavmenuLink has no osisRef: glossaryNavmenuLink[n]=<value-of select="$navmenuLink"/></with-param>
+<with-param name="exp">A glossaryNavmenuLink value in config.conf must not include attributes unless attribute &amp;osisRef=MOD:target is also included.</with-param>
+<with-param name="die">yes</with-param>
+      </call-template>
+    </if>
+    <variable name="nml2" select="if (matches($nml1, '&amp;text=[^&amp;]+')) then $nml1 
+        else concat($nml1, '&amp;text=', oc:decodeOsisRef(replace($nml1, '^.*?&amp;osisRef=[^:&amp;]+:([^&amp;]+).*?$', '$1')))"/>
+        
+    <value-of select="me:bestRefEnc($nml2)"/>
+  </function>
+  
+  <!-- If a target DICTMOD menu has only one keyword, skip the menu and
+  target that keyword directly. -->
+  <function name="me:bestRefEnc" as="xs:string">
+    <param name="encLink" as="xs:string"/>
+    <variable name="osisRef" select="replace($encLink, '^.*?&amp;osisRef=([^&amp;]+).*?$', '$1')"/>
+    <variable name="reftext" select="oc:decodeOsisRef(tokenize($osisRef, ':')[2])"/>
+    <variable name="osisRefNew" select="if (count($docroot//div[@type='glossary']
+            [oc:getDivTitle(.) = $reftext]/descendant::seg[@type='keyword']) = 1)
+        then concat($DICTMOD, ':', oc:encodeOsisRef($docroot//div[@type='glossary']
+            [oc:getDivTitle(.) = $reftext]/descendant::seg[@type='keyword']/string()))
+        else $osisRef"/>
+    <value-of select="replace($encLink, '&amp;osisRef=[^&amp;]+', concat('&amp;osisRef=', $osisRefNew))"/>
   </function>
   
 </stylesheet>

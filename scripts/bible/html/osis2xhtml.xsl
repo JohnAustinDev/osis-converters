@@ -1740,7 +1740,6 @@
   
   <!-- Remove these tags (keeping their content) -->
   <template mode="xhtml" match="name | 
-                                seg | 
                                 reference[ancestor::title[@type='scope']]">
     <apply-templates mode="xhtml"/>
   </template>
@@ -2217,6 +2216,13 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
       <call-template name="class"/>
       <apply-templates mode="xhtml"/>
     </html:tr>
+  </template>
+  
+  <template mode="xhtml" match="seg">
+    <html:span>
+      <call-template name="class"/>
+      <apply-templates mode="xhtml"/>
+    </html:span>
   </template>
   
 </stylesheet>
