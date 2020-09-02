@@ -43,7 +43,7 @@ my $MAXTHREADS = shift;
 
 if (!$MODRE) {$MODRE = 'all';}
 if (!$SCRIPT) {$SCRIPT = 'osis';}
-if ($SCRIPT !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2all)$/) {
+if ($SCRIPT !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2GoBible|sfm2all)$/) {
   print "Unrecognzed script argument: $SCRIPT\n";
   $SCRIPT = '';
 }
@@ -68,7 +68,8 @@ script            : The conversion(s) to run on each project. Default
                     is osis (which will run sfm2osis or osis2osis 
                     depending on the project). The other options are 
                     sfm2osis, osis2osis, osis2sword, osis2html, 
-                    osis2ebooks, osis2GoBible, osis2all and sfm2all.
+                    osis2ebooks, osis2GoBible, osis2all sfm2sword, 
+                    sfm2html, sfm2ebooks, sfm2GoBible and sfm2all.
 max_threads       : The number of threads to use. Default is the number 
                     of CPUs.
 ";
@@ -356,7 +357,7 @@ sub getScriptsToRun {
     elsif ($type eq 'commentary')     {$typeAP = \@commentary;}
     else {next;}
     
-    if ($script =~ /(osis2all|sfm2all)/) {
+    if ($script =~ /^(osis2all|sfm2all)$/) {
       foreach my $scr (@{$scriptAP}) {
         foreach my $ok (@{$typeAP}) {
           if ($scr ne $ok) {next;}
@@ -368,6 +369,14 @@ sub getScriptsToRun {
           }
           push(@run, "$s $m");
         }
+      }
+    }
+    elsif ($script =~ /^sfm2(sword|html|ebooks|GoBible)$/) {
+      my $to = $1;
+      push(@run, &osisScript($m)." $m");
+      foreach my $ok (@{$typeAP}) {
+        if ("osis2$to" ne $ok) {next;}
+        push(@run, "osis2$to $m");
       }
     }
     else {
@@ -403,7 +412,8 @@ sub setDependencies {
     my $s = $1; my $m = $2;
     my %deps;
     
-    if ($script =~ /^(osis|sfm2all|sfm2osis|osis2osis)$/) {
+    # run's requiring the OSIS files to be rebuilt...
+    if ($script =~ /^(osis|osis2osis)$/ || $script =~ /^sfm2/) {
       if ($s eq 'sfm2osis' || $script eq 'osis2osis') {
         # sfm2osis DICT sub-modules depend on main OSIS
         if ($m eq &hasDICT($m)) {
