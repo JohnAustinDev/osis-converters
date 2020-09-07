@@ -184,12 +184,8 @@ sub getFigureLocalPath {
       my $ret  = ($srcname =~ /^(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
       return $ret;
     }
-    elsif ($f->getAttribute('subType') eq 'x-letter-image') {
-      my $ret  = ($srcname eq 'letter.jpg' ? "$MAININPD/../CB_Common/images/ibt/letter.jpg":'');
-      return $ret;
-    }
     elsif (-e "$MAININPD/../CB_Common/images/ibt/$srcname") {
-      return "$MAININPD/../CB_Common/images/ibt/letter.jpg";
+      return "$MAININPD/../CB_Common/images/ibt/$srcname";
     }
   }
   
