@@ -1378,12 +1378,17 @@ sub matchRef {
     if (!$$chP) {$$chP = $contextCH;}
     if ($$lvP <= $$vsP) {$$lvP = -1;}
 
-    # Book
+    # OSIS book abbreviation of the reference
+    # Due to Perl (5.22) Unicode weirdness, it has been observed that  
+    # using the i flag can fail a match that passes without i. So both 
+    # are used separately here.
     if ($$bkP eq $contextBK) {}
     elsif ($$bkP =~ /($ebookNames)/si)                            {$$bkP = $books{$1};}
+    elsif ($$bkP =~ /($ebookNames)/s)                             {$$bkP = $books{$1};}
     elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/si)    {$$bkP = $contextBK;}
+    elsif ($$bkP =~ /($currentBookTerms|$currentChapTerms)/s)     {$$bkP = $contextBK;}
     else {
-      &ErrorBug("Unexpected book value \"$$bkP\".");
+      &ErrorBug("Could not determine OSIS abbreviation of book:\n$$bkP !~ /($ebookNames)/si\n$$bkP !~ /($currentBookTerms|$currentChapTerms)/si");
       $$bkP = $contextBK;
     }
   }
