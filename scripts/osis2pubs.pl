@@ -75,7 +75,7 @@ sub osis2pubs {
                            
   $FULLSCOPE = ($IS_CHILDRENS_BIBLE ? '':&getScopeOSIS($INOSIS_XML)); # Children's Bibles must have empty scope for filterBibleToScope() to work right
   $SERVER_DIRS_HP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, 1):{});
-  $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{$FULLSCOPE};
+  $TRANPUB_SUBDIR = $SERVER_DIRS_HP->{'scope'}{$FULLSCOPE};
   $TRANPUB_TYPE = 'Tran'; foreach my $s (@SUB_PUBLICATIONS) {if ($s eq $FULLSCOPE) {$TRANPUB_TYPE = 'Full';}}
   $TRANPUB_TITLE = ($TRANPUB_TYPE eq 'Tran' ? &conf('TranslationTitle'):&conf("TitleSubPublication[$FULLSCOPE]"));
   if (!$TRANPUB_TITLE) {$TRANPUB_TITLE = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $TRANPUB_TITLE = ($TRANPUB_TITLE ? $TRANPUB_TITLE->textContent:'');}
@@ -91,7 +91,10 @@ sub osis2pubs {
   my $forkArgs;  &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
   use strict "refs";
   
-  if ($IS_CHILDRENS_BIBLE) {&OSIS_To_ePublication2($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);}
+  if ($IS_CHILDRENS_BIBLE) {
+    $PUB_SUBDIR = $SERVER_DIRS_HP->{'type'}{'Chbl'};
+    &OSIS_To_ePublication2($convertTo, $TRANPUB_TITLE, '', $PUB_TYPE, $PUB_NAME, $PUB_SUBDIR);
+  }
   else {
     my %eBookSubDirs; my %parentPubScope;
 
@@ -99,7 +102,7 @@ sub osis2pubs {
     
     # convert the entire OSIS file
     if ($PUB_TYPE eq 'Tran') {
-      $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{$FULLSCOPE};
+      $eBookSubDirs{$FULLSCOPE} = $SERVER_DIRS_HP->{'scope'}{$FULLSCOPE};
       foreach my $bk (@{&scopeToBooks($FULLSCOPE, &conf('Versification'))}) {$parentPubScope{$bk} = $FULLSCOPE;}
       if ($CREATE_FULL_TRANSLATION) {
         $forkArgs .= &OSIS_To_ePublication(scalar(@bksxml), $convertTo, 
@@ -112,7 +115,7 @@ sub osis2pubs {
       foreach my $scope (@SUB_PUBLICATIONS) {
         my $pscope = $scope; $pscope =~ s/\s/_/g;
         $PUB_TYPE = 'Full';
-        $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{$scope};
+        $eBookSubDirs{$scope} = $SERVER_DIRS_HP->{'scope'}{$scope};
         my $bksAP = &scopeToBooks($scope, &conf('Versification'));
         foreach my $bk (@{$bksAP}) {$parentPubScope{$bk} = $scope;}
         if ($scope eq $FULLSCOPE && !$CREATE_FULL_TRANSLATION) {next;}
@@ -133,7 +136,7 @@ sub osis2pubs {
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $bk !~ /^($csbks)$/) {next;}
         if (defined($eBookSubDirs{$bk})) {next;}
         $PUB_SUBDIR = ($parentPubScope{$bk} && $eBookSubDirs{$parentPubScope{$bk}} ? 
-          $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{$bk});
+          $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{'scope'}{$bk});
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
         my $pscope = $parentPubScope{$bk}; $pscope =~ s/\s/_/g;
         my $title = ($pscope && &conf("TitleSubPublication[$pscope]") ? &conf("TitleSubPublication[$pscope]"):$TRANPUB_TITLE);
@@ -1114,18 +1117,20 @@ the eBooks at $EBOUT into appropriate sub-directories yourself.");
     # Get scope from $filename, which is [fileNumber-][title__][scope]_[type]
     $filename =~ s/^\d+\-//;
     $filename =~ s/^.*?__//;
-    $filename =~ s/(_(Tran|Full|Part|Othr|Chbl|Biqu|Lvpr|Stry|Para|Bibs|Digl|Prel|Intr|OSIS|Supl|Glos|Dict|Hide|Audi))+$//i;
+    my $ptype = ($filename =~ s/(_?(Tran|Full|Part|Othr|Chbl|Biqu|Lvpr|Stry|Para|Bibs|Digl|Prel|Intr|OSIS|Supl|Glos|Dict|Hide|Audi))+$//i ? $1:'');
     my $pscope = $filename;
+    
+    $result{'type'}{$ptype} = "/$dirname";
     
     # Test that result is a scope
     $pscope =~ /^([^_\-]+)/; if (!defined($OSISBOOKS{$1})) {next;}
     
     my $scope = $pscope; $scope =~ s/_/ /g;
-    if ($result{$scope}) {next;} # keep first found
+    if ($result{'scope'}{$scope}) {next;} # keep first found
 
-    $result{$scope} = "/$dirname";    
+    $result{'scope'}{$scope} = "/$dirname";    
     foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
-      $result{$bk} = "/$dirname";
+      $result{'scope'}{$bk} = "/$dirname";
       push(@{$dirBooks{$dirname}}, $bk);
     }
   }
@@ -1133,7 +1138,7 @@ the eBooks at $EBOUT into appropriate sub-directories yourself.");
   # Whenever a directory holds multiple single-book eBooks, be sure to
   # include the whole scope.
   foreach my $dirname (keys %dirBooks) {
-    $result{&booksToScope($dirBooks{$dirname}, &conf("Versification"))} = "/$dirname";
+    $result{'scope'}{&booksToScope($dirBooks{$dirname}, &conf("Versification"))} = "/$dirname";
   }
   
   return \%result;
