@@ -203,9 +203,12 @@
 
   <template mode="final" match="p | lg">
     <copy>
-      <if test="descendant::text()[normalize-space()][1] intersect 
+      <if test="boolean(ancestor::div[@type='book']/div[@type='majorSection'][position()=(2,3)]
+                intersect ancestor::div[@type='majorSection'])
+            and
+                boolean(descendant::text()[normalize-space()][1] intersect 
                 preceding::chapter[@osisID][1]/following::text()
-                [normalize-space()][not(ancestor::title)][not(ancestor::figure)][1]">
+                [normalize-space()][not(ancestor::title)][not(ancestor::figure)][1])">
         <attribute name="subType">x-p-first</attribute>
       </if>
       <apply-templates mode="#current" select="node()|@*"/>
