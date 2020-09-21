@@ -67,12 +67,6 @@ target, then a different USFM tag should be used instead.</with-param>
 <with-param name="exp">Use multiple reference elements instead.</with-param>
       </call-template>
     </for-each>
-    <for-each select="$scriptureRefs[contains(@osisRef, '-')][not(matches(@osisRef, '^([^:]+:)?([^\.]+\.\d+)\.(\d+)\-(\2)\.(\d+)$'))]">
-      <call-template name="Error">
-<with-param name="msg">An osisRef to a range of Scripture should not exceed a chapter: <value-of select="@osisRef"/></with-param>
-<with-param name="exp">Some software, like xulsword, does not support ranges that exceed a chapter.</with-param>
-      </call-template>
-    </for-each>
     
     <!-- Check OSIS file's osisRef targets -->
     <variable name="missing" as="xs:string*">

@@ -2028,7 +2028,11 @@ sub initDocumentCache {
   undef($DOCUMENT_CACHE{$headerDoc});
   $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
   my $shd = $headerDoc; $shd =~ s/^.*\///; $dbg .= "document=$shd ";
-  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0]->getAttribute('osisIDWork');
+  my $osisIDWork = @{$XPC->findnodes('/osis:osis/osis:osisText[1]', $xml)}[0];
+  if (!$osisIDWork) {
+    &ErrorBug("Document is not an osis document:".$headerDoc, 1);
+  }
+  $osisIDWork = $osisIDWork->getAttribute('osisIDWork');
   $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
   
   # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)

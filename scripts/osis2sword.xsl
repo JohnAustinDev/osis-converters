@@ -22,6 +22,7 @@
     [@osisWork = /osis/osisText/@osisIDWork]
     /type/string()"/>
   
+  <!-- Do two passes over the data -->
   <template match="/" priority="30">
     <copy>
       <variable name="pass1"><apply-templates select="node()"/></variable>
@@ -81,12 +82,24 @@
     <!-- Remove refs to !toc targets, which are not supported for SWORD -->
     <variable name="osisRef2" select="normalize-space(replace($osisRef1, '\S+!toc', ''))"/>
     <!-- Trim any remaining multi target refs -->
-    <attribute name="osisRef" select="replace($osisRef2, ' .*$', '')"/>
     <if test="matches($osisRef2, ' .*$')">
       <call-template name="Warn">
 <with-param name="msg">Removing secondary targets of osisRef="<value-of select="$osisRef2"/>"</with-param>
       </call-template>
     </if>
+    <variable name="osisRef3" select="replace($osisRef2, ' .*$', '')"/>
+    <!-- Insure SWORD Scripture ranges are one chapter or less, by keeping only the initial verse of multi-chapter ranges. -->
+    <variable name="isMultiChapter" select="contains($osisRef3, '-') and 
+        not(matches($osisRef3, '^([^:]+:)?([^\.]+\.\d+)\.(\d+)\-(\2)\.(\d+)$'))"/>
+    <if test="$isMultiChapter">
+      <call-template name="Warn">
+<with-param name="msg">Only first verse of multi-chapter reference will be kept: osisRef="<value-of select="tokenize($osisRef3, '-')[1]"/>"</with-param>
+<with-param name="exp">Some SWORD front-ends like xulsword cannot handle multi-chapter reference ranges.</with-param>
+      </call-template>
+    </if>
+    <attribute name="osisRef" select="if ($isMultiChapter)
+                                      then tokenize($osisRef3, '-')[1]
+                                      else $osisRef3"/>
   </template>
   
   <!-- Prefix 2 dashes to $uiIntroduction keyword, or one dash to 

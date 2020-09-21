@@ -179,7 +179,8 @@ sub getFigureLocalPath {
   # If an image exists in the project's image directory, don't use a CB_Common image
   if (-e "$imgdir/$srcname") {return "$imgdir/$srcname";}
   
-  if (&isChildrensBible($f)) {
+  # $f may be a TEI node, and isChildrensBible() will error unless it's OSIS
+  if (@{$XPC->findnodes('ancestor::osis:osis', $f)}[0] && &isChildrensBible($f)) {
     if ($f->getAttribute('subType') eq 'x-text-image') {
       my $ret  = ($srcname =~ /^(\d+)\.jpg$/ ? "$MAININPD/../CB_Common/images/copyright/".sprintf("%03d", $1).".jpg":'');
       return $ret;
