@@ -130,11 +130,14 @@ sub osis2pubs {
     # convert each Bible book within the OSIS file
     if ($CREATE_SEPARATE_BOOKS) {
       $PUB_TYPE = 'Part';
+      my $csbks;
+      if ($CREATE_SEPARATE_BOOKS =~ /^first$/i) {$csbks = @bksxml[0]->getAttribute('osisID');}
+      elsif ($CREATE_SEPARATE_BOOKS =~ /^last$/i) {$csbks = @bksxml[$#bksxml]->getAttribute('osisID');}
+      else {$csbks = join('|', @{&scopeToBooks($CREATE_SEPARATE_BOOKS, &conf('Versification'))});}
       foreach my $aBook (@bksxml) {
         my $bk = $aBook->getAttribute('osisID');
-        my $csbks = join('|', @{&scopeToBooks($CREATE_SEPARATE_BOOKS, &conf('Versification'))});
         if ($CREATE_SEPARATE_BOOKS !~ /^true$/i && $bk !~ /^($csbks)$/) {next;}
-        if (defined($eBookSubDirs{$bk})) {next;}
+        if (defined($eBookSubDirs{$bk})) {next;} # already done, as a sub-publication
         $PUB_SUBDIR = ($parentPubScope{$bk} && $eBookSubDirs{$parentPubScope{$bk}} ? 
           $eBookSubDirs{$parentPubScope{$bk}}:$SERVER_DIRS_HP->{'scope'}{$bk});
         $PUB_NAME = &getEbookName($bk, $PUB_TYPE);
@@ -399,10 +402,11 @@ file for it, and then run this script again.");}
     &Report("Found $numUnreachable unreachable file(s) in '$HTMLOUT/$PUB_NAME/xhtml'");
   }
   elsif ($convertTo eq 'eBook') {
-    if ($DEBUG !~ /no.?epub/i) {&makeEbook($tmp, 'epub', $cover, $scope);}
-    if ($DEBUG !~ /no.?azw3/i) {&makeEbook($tmp, 'azw3', $cover, $scope);}
+    my $t = &conf('CreateTypes');
+    if ($t =~ /^(AUTO|1|true|epub)$/i) {&makeEbook($tmp, 'epub', $cover, $scope);}
+    if ($t =~ /^(AUTO|1|true|azw3)$/i) {&makeEbook($tmp, 'azw3', $cover, $scope);}
     # fb2 is disabled until a decent FB2 converter is written
-    # &makeEbook("$tmp/$MOD.xml", 'fb2', $cover, $scope, $tmp);
+    #if ($t =~ /^(AUTO|1|true|fb2)$/i) {&makeEbook($tmp, 'fb2', $cover, $scope);}
   }
   
   &saveForkData(__FILE__);
