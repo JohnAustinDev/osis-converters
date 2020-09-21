@@ -480,8 +480,10 @@ sub filterBibleToScope {
   my $inxml = $XML_PARSER->parse_file($$osisP);
   my $fullScope = &getScopeOSIS($inxml);
   my $subPublication;
-  foreach my $sp (@SUB_PUBLICATIONS) {
-    if ($sp eq $scope) {$subPublication = $sp;}
+  if ($PUB_TYPE ne 'Part') {
+    foreach my $sp (@SUB_PUBLICATIONS) {
+      if ($sp eq $scope) {$subPublication = $sp;}
+    }
   }
   
   my $booksFiltered = 0;

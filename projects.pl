@@ -15,8 +15,13 @@ my $DEBUG = 0;
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
 my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
+#$CONFIG{'osis2ebooks'}{'CreateFullBible'} = 'false';
+#$CONFIG{'osis2ebooks'}{'CreateSeparatePubs'} = 'false';
+#$CONFIG{'osis2ebooks'}{'CreateSeparateBooks'} = 'first';
+#$CONFIG{'osis2ebooks'}{'CreateTypes'} = 'epub';
+#$CONFIG{'osis2html'}{'CreateFullBible'} = 'false';
 #$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
-#$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'false';
+#$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'first';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';

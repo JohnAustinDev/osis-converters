@@ -312,6 +312,10 @@ sub createCompositeCoverImage {
   my $title = shift;    # title of output image
   my $font = shift;     # font for title
   
+  if (!$title) {
+    &ErrorBug("title parameter is required by createCompositeCoverImage()", 1);
+  }
+  
   my @sorted = sort  { &sortCoverImages($a, $b) } @{$coversAP};
   $coversAP = \@sorted;
   
