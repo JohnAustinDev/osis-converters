@@ -124,7 +124,7 @@ our %CONFIG_DEFAULTS = (
   'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
   'CreateFullBible' => 'AUTO',      'doc:CreateFullBible' => 'selects whether to create a single ePublication containing everything in the OSIS file (true|false|AUTO)',
   'CreateSeparateBooks' => 'AUTO',  'doc:CreateSeparateBooks' => 'selects whether to create separate ePublications for individual Bible books (true|false|AUTO|<OSIS-book>|first|last)',
-  'CreateSeparatePubs' => 'AUTO',   'doc:CreateSeparatePubs' => 'selects whether to create separate outputs for individual sub-publications within a translation (true|false|AUTO|<scope>)',
+  'CreateSeparatePubs' => 'AUTO',   'doc:CreateSeparatePubs' => 'selects whether to create separate outputs for individual sub-publications within a translation (true|false|AUTO|<scope>|first|last)',
   'CreateTypes' => 'AUTO',          'doc:CreateTypes' => 'selects which type(s) of ePublications to create (AUTO|list of epub|azw3|fb2)',
   'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
   'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, is the URL where the full publication can be found.',
