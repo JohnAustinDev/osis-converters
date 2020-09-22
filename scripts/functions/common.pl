@@ -533,29 +533,36 @@ sub checkFont {
 # $listingAP to work, the URL must target an Apache server directory 
 # where html listing is enabled.
 sub getURLCache {
-  my $subdir = shift; # local .osis-converters subdirectory to update
-  my $url = shift; # URL to read from
-  my $depth = shift;
+  my $name = shift;  # local .osis-converters subdirectory to update
+  my $url = shift;   # URL to read from
+  my $depth = shift; # max subdirectory depth of URL cache
   my $updatePeriod = shift; # hours between updates (0 updates always)
-  my $listingAP = shift; # Do not download files, just write a file listing here.
+  my $listingAP = shift; # Do not download any files, just write a file listing here.
   
-  if (!$subdir) {&ErrorBug("Subdir cannot be empty.", 1);}
+  if (!$name) {&ErrorBug("Subdir cannot be empty.", 1);}
   
-  my $pp = "~/.osis-converters/URLCache/$subdir";
+  my $pp = "~/.osis-converters/URLCache/$name";
   my $p = &expandLinuxPath($pp);
   if (! -e $p) {make_path($p);}
   my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # URL directory name
   
+  # Don't proceed until the cache is clear
+  my $blockFile = "$p/../$name-blocked.txt";
+  while (-e $blockFile) {
+    &Log("getURLCache() waiting for $name cache to update.", 2);
+    sleep 2;
+  }
+
   # Check last time this subdirectory was updated
-  if ($updatePeriod && -e "$p/../$subdir-updated.txt") {
-    my $last;
-    if (open(TXT, $READLAYER, "$p/../$subdir-updated.txt")) {
-      while(<TXT>) {if ($_ =~ /^epoch=(.*?)$/) {$last = $1;}}
+  if ($updatePeriod && -e "$p/../$name-updated.txt") {
+    my $lastTime;
+    if (open(TXT, $READLAYER, "$p/../$name-updated.txt")) {
+      while(<TXT>) {if ($_ =~ /^epoch=(.*?)$/) {$lastTime = $1;}}
       close(TXT);
     }
-    if ($last) {
+    if ($lastTime) {
       my $now = DateTime->now()->epoch();
-      my $delta = sprintf("%.2f", ($now-$last)/3600);
+      my $delta = sprintf("%.2f", ($now-$lastTime)/3600);
       if ($delta < $updatePeriod) {
         if ($listingAP) {&wgetReadFilePaths($p, $listingAP, $p);}
         &Note("Checked local cache directory $pp");
@@ -564,7 +571,15 @@ sub getURLCache {
     }
   }
   
-  # Refresh the subdirectory contents from the URL
+  # Refresh the subdirectory contents from the URL. This may take some 
+  # time to finish, and other threads may try to access the cache during
+  # this time. So a blocking mechanism must be used, so other threads 
+  # will wait for the cache to finish refreshing by this thread.
+  if (!open(BLK, $WRITELAYER, $blockFile)) {
+    &ErrorBug("getURLCache could not open blocking file $blockFile", 1);
+  }
+  print BLK "blocked\n"; close(BLK);
+  
   &Log("\n\nPlease wait while I update $pp...\n", 2);
   my $success = 0;
   if ($p && $url) {
@@ -595,7 +610,7 @@ sub getURLCache {
     &Note("Updated local cache directory $pp from URL $url");
     
     # Save time of this update
-    if (open(TXT, $WRITELAYER, "$p/../$subdir-updated.txt")) {
+    if (open(TXT, $WRITELAYER, "$p/../$name-updated.txt")) {
       print TXT "localtime()=".localtime()."\n";
       print TXT "epoch=".DateTime->now()->epoch()."\n";
       close(TXT);
@@ -604,6 +619,8 @@ sub getURLCache {
   else {
     &Error("Failed to update $pp from $url.", "That there is an Internet connection and that $url is a valid URL.");
   }
+  
+  unlink($blockFile);
   
   return $p;
 }
@@ -664,7 +681,7 @@ sub wgetReadFilePaths {
       next;
     }
     elsif ($sub ne 'index.html') {
-      &ErrorBug("Encounteed unexpected file $sub in $wgetdir.");
+      &ErrorBug("Encountered unexpected file $sub in $wgetdir.");
       $success = 0;
       next;
     }
