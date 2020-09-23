@@ -52,6 +52,10 @@ sub processOSIS {
 
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
   
+  if (&conf('NormalizeUnicode') !~ /false/i) {
+    &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
+  }
+  
   my $hasDWF;
 
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.

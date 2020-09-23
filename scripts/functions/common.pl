@@ -1872,40 +1872,36 @@ sub getApproximateLangSortOrder {
   return $res;
 }
 
-
-# Formerly there was an addRevisionToCF function which wrote the SVN rev
-# into the CF_ files. But this caused these input files to be rev-ed even
-# when there were no changes to the file settings. This was really a
-# bother. So, the rev is now written to the LOG file, and the 
-# function below is used to remove the old SVN rev from the CF_ files
-# if it's there. 
-sub removeRevisionFromCF {
-  my $f = shift;
+# Convert entire OSIS file to Normalization Form C (formed by canonical 
+# decomposition followed by canonical composition).
+sub normalizeUnicode {
+  my $osisP = shift;
+  my $normalizationType = shift;
   
-  my $changed = 0;
-  my $msg = "# osis-converters rev-";
-  if (open(RCMF, $READLAYER, $f)) {
-    if (!open(OCMF, $WRITELAYER, "$f.tmp")) {&ErrorBug("Could not open \"$f.tmp\".", 1);}
-    my $l = 0;
-    while(<RCMF>) {
-      $l++;
-      if ($l == 1 && $_ =~ /\Q$msg\E(\d+)/) {
-        $changed = 1;
-        next;
-      }
-      print OCMF $_;
-    }
-    close(RCMF);
-    close(OCMF);
-    
-    if ($changed) {
-      unlink($f);
-      move("$f.tmp", $f);
-    }
-    else {unlink("$f.tmp");}
+  if ($normalizationType =~ /true/i) {$normalizationType = 'NFC';}
+  
+  no strict 'refs';
+  if (!defined(&$normalizationType)) {
+    &Error("Unknown Unicode normalization type: $normalizationType", 
+"Change NormalizeUnicode in config.conf to true, false, NFD, 
+NFC, NFKD, NFKC or FCD. See https://perldoc.perl.org/Unicode/Normalize.html 
+for an explanation of the differences.");
+    return;
   }
-  else {&ErrorBug("removeRevisionFromCF could not add revision to command file.");}
+  
+  use Unicode::Normalize;
+  
+  my $output = &temporaryFile($$osisP, '', 1);
+  
+  open(ISF, $READLAYER, $$osisP);
+  open(OSF, $WRITELAYER, $output);
+  while (<ISF>) {print OSF &$normalizationType($_);}
+  close(OSF);
+  close(ISF);
+  
+  $$osisP = $output;
 }
+
 
 # Converts cases using special translations
 sub lc2 {return &uc2(shift, 1);}
@@ -2429,8 +2425,12 @@ sub checkCharacters {
   &Report("Characters used in OSIS file:\n$chars($numchars chars)");
   
   # Report composed characters
-  my @comp; foreach my $c (sort keys %composed) {push(@comp, "$c(".$composed{$c}.')');}
-  &Report("<-Composed characters used in OSIS file: ".(@comp ? join(' ', @comp):'none'));
+  my @comp; foreach my $c (sort { 
+      ($composed{$b} <=> $composed{$a} ? $composed{$b} <=> $composed{$a} : $a cmp $b)
+    } keys %composed) {
+    push(@comp, "$c(".$composed{$c}.')');
+  }
+  &Report("<-Extended grapheme clusters used in OSIS file: ".(@comp ? join(' ', @comp):'none'));
   
   # Report rarely used characters
   my $rc = 20;

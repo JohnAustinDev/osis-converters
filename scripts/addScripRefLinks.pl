@@ -271,7 +271,6 @@ sub read_CF_ASRL {
   my %bookNamesWithPerlChars;
   if (-e $commandFile) {
     &Log("READING COMMAND FILE \"$commandFile\"\n");
-    &removeRevisionFromCF($commandFile);
     open(CF, $READLAYER, $commandFile);
     my @abkn;
     while (<CF>) {

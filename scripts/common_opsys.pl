@@ -75,7 +75,7 @@ our @OC_CONFIGS = (
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'CreateSeparatePubs', 'CreateTypes', 'FullResourceURL', 
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
-  'NewTestamentTitle', 'OldTestamentTitle' 
+  'NewTestamentTitle', 'OldTestamentTitle', 'NormalizeUnicode'
 );
 
 # Valid [system] section config entries (these end up as Perl global variables)
@@ -133,7 +133,8 @@ our %CONFIG_DEFAULTS = (
   'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
   'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
   'Font' => '',
-  'Companion' => ''
+  'Companion' => '',
+  'NormalizeUnicode' => 'false',    'doc:NormalizeUnicode' => 'Apply Unicode normalization to all characters (true|false|NFD|NFC|NFKD|NFKC|FCD)',
 );
 
 our $VAGRANT_HOME = '/home/vagrant';
