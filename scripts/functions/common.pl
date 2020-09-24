@@ -217,6 +217,21 @@ sub init_linux_script {
   if (&conf('Font')) {&checkFont(&conf('Font'));}
   
   if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
+  
+  if (!$OUTDIR) {
+    &Error("OUTDIR must be specified in config.conf.", 
+"For publication of output files, OUTDIR must be set in 
+config.conf to the path of the output file repository. Otherwise output 
+files will be written locally to $INPD/output. 
+OUTDIR may only be unspecified during development and debugging.");
+  }
+  
+  if ($DEBUG) {
+    &Error("DEBUG is set in config.conf.", 
+"For publication of output files, DEBUG needs to be commented out or 
+set to 0 in config.conf. DEBUG may only be specified during development
+and debugging.");
+  }
 }
 
 sub logGitRevs {
