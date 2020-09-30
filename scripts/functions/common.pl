@@ -94,6 +94,7 @@ $VSYS{'extra_vs'}   = $VSYS{'prefix_vs'}.'-extra';
 $VSYS{'fitted_vs'}  = $VSYS{'prefix_vs'}.'-fitted';
 $VSYS{'start_vs'}   = '-start';
 $VSYS{'end_vs'}     = '-end';
+$VSYS{'fixed_altvs'} = 'x-alternate-'.&conf('Versification');
 
 # annotateType attribute values
 our %ANNOTATE_TYPE;

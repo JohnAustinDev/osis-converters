@@ -78,10 +78,13 @@ previous extant chapter.
 
 VSYS_MOVED_ALT: 
 Similar to VSYS_MOVED but this should be used when alternate verse 
-markup like '\\va 2\\va*' has already been used by the translators for  
-the moved verses (rather than regular verse markers, which is the more 
-common case). This instruction will not change the OSIS markup of the 
-alternate verses. It is the same as 'VSYS_MISSING: A' followed by 
+markup like '\\va 2\\va*' has been used by the translators for the 
+verse numbers of the moved verses, rather than regular verse 
+markers being used (which is the more common case). If both regular 
+verse markers (showing the source system verse number) and alternate 
+verse numbers (showing the fixed system verse numbers) have been used by 
+the translators, then VSYS_MOVED should be used. This instruction will 
+not change the OSIS markup of the alternate verses. It is the same as 
 'VSYS_FROM_TO: A -> B'.
 
 VSYS_MISSING: BK.1.2.3
@@ -711,9 +714,16 @@ sub fitToVerseSystem {
 There are ".@existing." fitted tags in the text. This OSIS file has 
 already been fitted so this step will be skipped!");
   }
-  
-  # Apply VSYS instructions to the translation (first do the fitting, then mark moved and extra verses)
   elsif (@VSYS_INSTR) {
+    # Mark alternate verse numbers which represent the fitted verse system so they can be removed when using the fitted OSIS file
+    foreach my $a ($XPC->findnodes('//osis:hi[@subType="x-alternate"]', $xml)) {
+      my $prevVerseFirstTextNode = @{$XPC->findnodes('preceding::osis:verse[@sID][1]/following::text()[normalize-space()][1]', $a)}[0];
+      my $myTextNode = @{$XPC->findnodes('descendant::text()[normalize-space()][1]', $a)}[0];
+      if (!$prevVerseFirstTextNode || !$myTextNode || 
+          $prevVerseFirstTextNode->unique_key ne $myTextNode->unique_key) {next;}
+      $a->setAttribute('subType', $VSYS{'fixed_altvs'});
+    }
+    # Apply VSYS instructions to the translation (first do the fitting, then mark moved and extra verses)
     foreach my $argsP (@VSYS_INSTR) {
       if ($argsP->{'inst'} !~ /^(FROM_TO|VTAG_MISSING)$/) {
         &applyVsysInstruction($argsP, $canonP, $xml);
@@ -1452,7 +1462,9 @@ sub toMilestone {
       my $ch = $1; my $vs = $2; my $lv = ($3 ? $4:$vs);
       my $newv = ($vs ne $lv ? "$vs-$lv":"$vs");
       my $alt = $XML_PARSER->parse_balanced_chunk('<hi type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'"><hi type="super">('.$newv.') </hi></hi>');
-      my $firstTextNode = @{$XPC->findnodes('following::text()[normalize-space()][1]', $verse_or_chapter_tag)}[0];
+      my $firstTextNode = @{$XPC->findnodes('following::text()
+        [not(ancestor::osis:hi[starts-with(@subType, "x-alternate-")])]
+        [normalize-space()][1]', $verse_or_chapter_tag)}[0];
       $firstTextNode->parentNode()->insertBefore($alt, $firstTextNode);
       $note .= "[alternate verse \"$newv\"]";
     }
@@ -1473,7 +1485,9 @@ sub undoMilestone {
   my $note = "undoMilestone(".$ms->getAttribute('type').', '.$ms->getAttribute('annotateRef').')';
 
   my $ach; my $avs; my $alv;
-  my $avn = @{$XPC->findnodes('following::text()[normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][@resp="'.$VSYS{'resp_vs'}.'"][1]', $ms)}[0];
+  my $avn = @{$XPC->findnodes('following::text()
+    [not(ancestor::osis:hi[starts-with(@subType, "x-alternate-")])]
+    [normalize-space()][1]/ancestor-or-self::*[name()="hi"][@subType="x-alternate"][@resp="'.$VSYS{'resp_vs'}.'"][1]', $ms)}[0];
   if ($avn) {
     $ach = @{$XPC->findnodes('preceding::osis:chapter[@sID][1]', $avn)}[0]->getAttribute('osisID');
     $avs = $avn->textContent; $avs =~ s/^\((.*?)\)$/$1/;

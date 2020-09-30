@@ -191,9 +191,9 @@ file to convert footnote references in the text into working hyperlinks.");}
     &removeDefaultWorkPrefixesFAST(\$OSIS);
   }
 
-  # If the project includes a glossary, add glossary navigational menus, and if the 'feature == INT' feature is being used, then add intro nav menus as well.
+  # If the project includes a glossary, add glossary navigational menus, and if 'feature == INT' is being used, then add intro nav menus as well.
   if ($DICTMOD) {
-    # Create the Introduction menus whenever the project glossary contains a glossary wth scope == INT
+    # Create the Introduction menus whenever the project glossary contains a 'feature == INT' glossary 
     my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "feature == INT" "$DICTINPD/CF_usfm2osis.txt"`;
 
     # Tell the user about the introduction nav menu feature if it's available and not being used
@@ -234,16 +234,19 @@ RUN:./INT.SFM");
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
   
-  &runScript("$SCRD/scripts/whitespace.xsl", \$OSIS); 
+  # Normalize the whitespace within the OSIS file
+  &runScript("$SCRD/scripts/whitespace.xsl", \$OSIS);
   
-  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
+  # Run user supplied postprocess.pl and/or postprocess.xsl if present
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
   &runChecks($modType);
   
+  # Copy final OSIS file to output destination
   copy($OSIS, $OUTOSIS); 
   
+  # Validate the output OSIS file using the $OSISSCHEMA schema
   &validateOSIS($OUTOSIS);
 }
 
@@ -261,6 +264,10 @@ sub reprocessOSIS {
   my $modType = (&conf('ModDrv') =~ /LD/ ? 'dict':(&conf('ModDrv') =~ /Text/ ? 'bible':(&conf('ModDrv') =~ /Com/ ? 'commentary':'childrens_bible')));
 
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
+  
+  if (&conf('NormalizeUnicode') !~ /false/i) {
+    &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
+  }
 
   if ($modType eq 'dict' && $reorderGlossaryEntries) {
     my %params = ('glossaryRegex' => $reorderGlossaryEntries);
@@ -272,9 +279,10 @@ sub reprocessOSIS {
   # Add any cover images to the OSIS file
   if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
   
+  # Normalize the whitespace within the OSIS file
   &runScript("$SCRD/scripts/whitespace.xsl", \$OSIS); 
 
-  # Run user supplied postprocess.pl and/or postprocess.xsl if present (these are run before adding the nav-menus which are next)
+  # Run user supplied postprocess.pl and/or postprocess.xsl if present
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
@@ -294,7 +302,7 @@ sub reprocessOSIS {
         next;
       }
       &Error("Found source project code $1 in $MOD: $l", 
-      "The osis2osis transliterator method is failing to convert this text.");
+      "The osis2osis transliterator method is failing to convert this reference.");
     }
     close(TEST);
     &Report("Found $n occurrence(s) of source project code in $MOD.\n");
@@ -303,8 +311,10 @@ sub reprocessOSIS {
     &ErrorBug("Could not open source OSIS $OSIS\n", 1);
   }
   
+  # Copy final OSIS file to output destination
   copy($OSIS, $OUTOSIS);
   
+  # Validate the output OSIS file using the $OSISSCHEMA schema
   &validateOSIS($OUTOSIS);
 }
 
@@ -315,10 +325,16 @@ sub runChecks {
   our %DOCUMENT_CACHE;
   undef(%DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
   
+  # Check all osisRef targets
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {
+    # Generate an xml file defining the chosen verse system, for XSLT to compare against
     &writeVerseSystem(&conf('Versification'));
     &Log("\n");
+    
+    # Check references in the fixed verse system OSIS file
     &checkRefs($OSIS, $modType eq 'dict');
+    
+    # Check references in the source verse system transform of the OSIS file
     &checkRefs($OSIS, $modType eq 'dict', "osis2sourceVerseSystem.xsl");
   }
   else {
@@ -329,10 +345,14 @@ Bible module OSIS file, then run this dictionary module again.");
   }
   
   &checkFigureLinks($OSIS);
+  
   &checkIntroductionTags($OSIS);
+  
   &checkCharacters($OSIS);
+  
   my $dwf = &getDWF();
   if ($dwf) {&checkDictionaryWordsContexts($OSIS, $dwf);}
+  
   if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
 }
 

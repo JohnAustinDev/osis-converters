@@ -25,6 +25,9 @@
                    @annotateRef[parent::*[@annotateType = 'x-vsys-source']] | 
                    @resp[. = 'x-vsys']"
             priority="50"/>
+  
+  <!-- Remove alternate verse numbers that are redundant for the fitted verse system -->
+  <template match="hi[starts-with(@subType, 'x-alternate-')]"/>
             
   <template match="/" priority="59">
     <message>NOTE: Running osis2fittedVerseSystem.xsl</message>
