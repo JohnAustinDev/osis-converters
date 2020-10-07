@@ -1266,25 +1266,27 @@ sub applyVsysMissing {
   
   my $verseNumberToModify = ($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml));
   
-  # Handle the rare case when there isn't a verse in the chapter, by creating one.
+  # Handle the rare case when there isn't a previous verse, by creating one.
+  my $verseCreated;
   if (!$verseNumberToModify) {
+    $verseCreated++;
     if (&getFirstVerseInChapterOSIS($bk, ($ch+1), $xml)) {
       &ErrorBug("Cannot be missing all verses in a chapter, unless the chapter is the last in a book.", 1);
     }
     my $chapterStartTag = @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0];
     if (!$chapterStartTag) {
-      # Create a chapter for the verse when needed
+      # Create a chapter for the verse if needed
       my $prevChapterEndTag = @{$XPC->findnodes('//osis:chapter[@eID="'.$bk.'.'.($ch-1).'"]', $xml)}[0];
-      my $tags = "<chapter xmlns='$OSIS_NAMESPACE' sID='$bk.$ch' osisID='$bk.$ch'/>" . 
-                 "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch'/>";
+      my $tags = "<chapter xmlns='$OSIS_NAMESPACE' sID='$bk.$ch' osisID='$bk.$ch' resp='$VSYS{'resp_vs'}'/>" . 
+                 "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' resp='$VSYS{'resp_vs'}'/>";
       $prevChapterEndTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $prevChapterEndTag);
       $chapterStartTag = @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0];
     }
     # Create an empty verse
-    my $tags = "<verse xmlns='$OSIS_NAMESPACE' sID='$bk.$ch.1' osisID='$bk.$ch.1'/>" . 
-               "<verse xmlns='$OSIS_NAMESPACE' eID='$bk.$ch.1'/>";
+    my $tags = "<verse xmlns='$OSIS_NAMESPACE' sID='$bk.$ch.1' osisID='$bk.$ch.1' resp='$VSYS{'resp_vs'}'/>" . 
+               "<verse xmlns='$OSIS_NAMESPACE' eID='$bk.$ch.1' resp='$VSYS{'resp_vs'}'/>";
     $chapterStartTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $chapterStartTag);
@@ -1320,8 +1322,10 @@ sub applyVsysMissing {
   push(@missing, $verseTagToModify->getAttribute('osisID'));
   my $newOsisID = join(' ', &normalizeOsisID(\@missing));
   &Note("Changing verse osisID='".$verseTagToModify->getAttribute('osisID')."' to '$newOsisID'");
-  $verseTagToModify = &toMilestone($verseTagToModify, 0, 0);
-  $endTag = &toMilestone($endTag, 0, 0);
+  if (!$verseCreated) {
+    $verseTagToModify = &toMilestone($verseTagToModify, 0, 0);
+    $endTag = &toMilestone($endTag, 0, 0);
+  }
   $verseTagToModify->setAttribute('osisID', $newOsisID);
   $verseTagToModify->setAttribute('sID', $newOsisID);
   $endTag->setAttribute('eID', $newOsisID);
@@ -1419,7 +1423,7 @@ sub applyVsysExtra {
     else {
       &Note("No chapter label was found, adding alternate chapter label \"$ch\".");
       my $alt = $XML_PARSER->parse_balanced_chunk("
-<title xmlns=\"$OSIS_NAMESPACE\" type=\"x-chapterLabel-alternate\">
+<title xmlns=\"$OSIS_NAMESPACE\" type=\"x-chapterLabel-alternate\" resp=\"$VSYS{'resp_vs'}\">
   <hi type=\"italic\" subType=\"x-alternate\">$ch</hi>
 </title>");
       my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];

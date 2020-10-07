@@ -19,7 +19,7 @@
   </template>
   
   <!-- Revert chapter/verse milestones to their original source elements -->
-  <template match="milestone[matches(@type,'^x\-vsys\-(.*?)\-(start|end)$')]" priority="50">
+  <template match="milestone[matches(@type,'^x\-vsys\-(.*?)\-(start|end)$')]" priority="51">
     <variable name="elem" select="replace(@type, '^x\-vsys\-(.*?)\-(start|end)$', '$1')"/>
     <element name="{$elem}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
       <apply-templates select="@*[not(name() = 'type')]"/>
