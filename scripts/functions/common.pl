@@ -44,7 +44,7 @@ our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD,
 our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, @SWORD_OC_CONFIGS,
     %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM, 
-    @OC_CONFIGS, @SWORD_AUTOGEN, @SWORD_CONFIGS);
+    @OC_CONFIGS, @SWORD_AUTOGEN, @SWORD_CONFIGS, $TEI_NAMESPACE, $OSIS_NAMESPACE);
     
 # config.conf [system] globals initialized in common_opsys.pl's applyCONF_system()
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
@@ -69,6 +69,7 @@ our $FNREFEXT = "note.n";
 our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 our @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
 our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
+our $VSYS_SINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
 our $VSYS_INSTR_RE  = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+))?)?";
 our $VSYS_PINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+|PART))?)?";
 our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
@@ -780,8 +781,8 @@ sub initLibXML {
   use HTML::Entities;
   use XML::LibXML;
   $XPC = XML::LibXML::XPathContext->new;
-  $XPC->registerNs('osis', 'http://www.bibletechnologies.net/2003/OSIS/namespace');
-  $XPC->registerNs('tei', 'http://www.crosswire.org/2013/TEIOSIS/namespace');
+  $XPC->registerNs('osis', $OSIS_NAMESPACE);
+  $XPC->registerNs('tei', $TEI_NAMESPACE);
   $XPC->registerNs('dw', $DICTIONARY_WORDS_NAMESPACE);
   $XML_PARSER = XML::LibXML->new();
 }

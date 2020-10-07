@@ -194,41 +194,6 @@ to update or remove offending SFM tags. $EVAL_REGEX_MSG");}
   return;
 }
 
-sub vsysInstSort {
-  my $a = shift;
-  my $b = shift;
-  
-  my $r;
-  my @order = ('MISSING', 'EXTRA', 'FROM_TO', 'VTAG_MISSING'); # NOTE that FROM_TO are run separately after all other instructions anyway
-  my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
-  my $bi; for ($bi=0; $bi<@order; $bi++) {if (@order[$bi] eq $b->{'inst'}) {last;}}
-  if ($ai == @order || $bi == @order) {
-    &ErrorBug("Unknown VSYS sub-instruction: '".$a->{'inst'}."' or '".$b->{'inst'}."'");
-  }
-  
-  # order by instruction
-  $r = $ai <=> $bi;
-  if ($r) {return $r;}
-  
-  my $av = ($a->{'source'} ? $a->{'source'}:$a->{'fixed'});
-  my $bv = ($b->{'source'} ? $b->{'source'}:$b->{'fixed'});
-  $av =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $av2 = ($2 ? (1*$3):0);
-  $bv =~ s/^([^\.]+\.\d+\.\d+)(\.(\d+))?.*?$/$1/; my $bv2 = ($2 ? (1*$3):0);
-  
-  # otherwise verse system order
-  $r = &osisIDSort($av, $bv);
-  if ($r) {return $r;}
-  
-  # otherwise by last verse
-  $r = $av2 <=> $bv2;
-  if ($r) {return $r;}
-
-  if (!$r) {
-    &ErrorBug("Indeterminent VSYS instruction sort: av=$av, bv=$bv, ai=$ai, bi=$bi");
-  }
-  return $r;
-}
-
 sub evalRegex {
   my $usfmFiles = shift;
   my $runTarget = shift;

@@ -145,6 +145,9 @@ our $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 
 our %OSISBOOKS; {my $bn = 1; foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {$OSISBOOKS{$bk} = $bn; $bn++;}}
 our $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 
+our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
+our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
+
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
 # initialization is successful 1 is returned so the script can commence.

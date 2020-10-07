@@ -33,7 +33,7 @@
   <template match="*[. intersect $removeElements]" priority="40"/>
   
   <!-- If certain glossaries are removed, remove prev-next navmenu links 
-  from keywords, because some will be broken -->
+  from keywords, because otherwise some links will be broken. -->
   <variable name="removePrevNextLinks" as="xs:boolean" 
     select="boolean($sortedGlossaryKeywords/descendant::seg[@type='keyword'] intersect $removeKeywords)"/>
   <template match="item[@subType = 'x-prevnext-link']

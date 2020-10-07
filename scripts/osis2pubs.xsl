@@ -22,7 +22,7 @@
   <variable name="removeNAVMENU" select="//div[@scope='NAVMENU']"/>
   <template match="div[. intersect $removeNAVMENU]"/>
   
-  <!-- Remove references that target the removed NAVMENUs -->
+  <!-- Remove any references that target the removed NAVMENUs -->
   <variable name="removedNAVMENU_ids" as="xs:string*" 
       select="($MAINMOD_DOC/descendant::*[@osisID][ancestor::div[@scope='NAVMENU']]
               /oc:osisRef(@osisID, $MAINMOD)), 

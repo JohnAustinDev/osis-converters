@@ -12,12 +12,12 @@
   <!-- Convert sequential \s and \n chars to a single space, everywhere -->
   <template match="text()">
     <!-- regex does not support Perl (?<!\\)\n look-behind, so... -->
-    <variable name="pass1" select="replace(., '\\\n', 'xNLx')"/>
-    <variable name="pass2" select="replace($pass1, '[\s\n]+', ' ')"/>
-    <value-of select="replace($pass2, 'xNLx', '\\&#xa;')"/>
+    <variable name="text1" select="replace(., '\\\n', 'xNLx')"/>
+    <variable name="text2" select="replace($text1, '[\s\n]+', ' ')"/>
+    <value-of select="replace($text2, 'xNLx', '\\&#xa;')"/>
   </template>
   
-  <!-- Put \n only before and/or after certain tags. Remove osis prefixes. -->
+  <!-- Put \n only before selected start/end tags, and remove osis prefixes. -->
   <template match="*[ namespace-uri() = 'http://www.bibletechnologies.net/2003/OSIS/namespace' ]">
     <if test="my:breakBefore(.) and not(preceding-sibling::*[not(self::milestone)][1][self::verse[@sID]])">
       <text>&#xa;</text><if test="ancestor::work"><text>  </text></if>
@@ -30,7 +30,7 @@
   
   <template match="comment()"><text>&#xa;</text><copy/></template>
   
-  <!-- Elements that may have line-breaks before (if not preceding by verse[sID]) -->
+  <!-- Elements that will have line-breaks before their start-tag if not preceded by verse[sID] -->
   <function name="my:breakBefore" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 
@@ -38,10 +38,11 @@
               or $element[self::milestone[starts-with(@type,'x-usfm-toc')]]
               or $element[ancestor-or-self::header]
               or $element[self::verse[@sID]]
-              or $element[self::hi[@subType='x-alternate']]"/>
+              or $element[self::milestone[@type='x-vsys-verse-start']]
+              or $element[self::hi[starts-with(@subType, 'x-alternate')]]"/>
   </function>
   
-  <!-- Elements that will have line-breaks after -->
+  <!-- Content elements that will have line-breaks before their end-tag -->
   <function name="my:breakAfter" as="xs:boolean">
     <param name="element" as="element()"/>
     <value-of 

@@ -103,8 +103,9 @@
   </template>
   
   <!-- Prefix 2 dashes to $uiIntroduction keyword, or one dash to 
-  $uiDictionary, and update all osisRefs to them. This puts these two 
-  keywords at the top of the SWORD DICT module. Also fix xulsword issue.-->
+  $uiDictionary, and update all osisRefs to these. This puts these two 
+  keywords at the top of the SWORD DICT module. Also fix a xulsword 
+  issue handling colons.-->
   <variable name="reftext" select="for $i in ($REF_introductionINT, $REF_dictionary) 
                                    return oc:decodeOsisRef(tokenize($i, ':')[2])"/>
   <template mode="pass2" match="seg[@type='keyword']">
