@@ -1133,7 +1133,9 @@ sub shell {
   if ($DEBUG) {$flag = 1;}
   
   &Log("\n$cmd\n", $flag);
-  my $result = decode('utf8', `$cmd 2>&1`);
+  my $result = `$cmd 2>&1`;
+  if ($?) {&ErrorBug("Shell command error code $?");}
+  $result = decode('utf8', $result);
   &Log($result."\n", $flag);
   
   return $result;

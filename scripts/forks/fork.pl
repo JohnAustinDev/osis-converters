@@ -50,6 +50,9 @@ if (!exists &{$forkFunc}) {
 
 # Run the function
 no strict "refs";
+
+&Debug("Starting fork: $forkFunc(".join(', ', map("'$_'", @forkArgs)).")");
+
 &$forkFunc(@forkArgs);
 
 1;

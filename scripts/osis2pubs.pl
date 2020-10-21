@@ -67,7 +67,7 @@ sub osis2pubs {
 
   # Use forks.pl to run OSIS_To_ePublication() for a big speed-up
   no strict "refs";
-  my $forkArgs;  &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
+  my $forkArgs = &getForkArgs('starts-with-arg:7', map($$_, @forkGlobals));
   use strict "refs";
   
   if (&isChildrensBible($INOSIS_XML)) {
@@ -247,7 +247,7 @@ sub OSIS_To_ePublication2 {
   my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
-  &copy($INOSIS, $osis);
+  &shell("cp \"$INOSIS\" \"$osis\"", 3);
   
   my $partTitle;
   if (!$isChildrensBible) {

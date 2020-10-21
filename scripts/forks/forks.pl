@@ -49,6 +49,8 @@ my $forkArgIndex   = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 # Note: forks.pl always keeps at least one fork running, regardless of
 # CPU or memory availability.
 
+#&Log("Starting forks.pl: \@ARGV=(".join(', ', map("'".decode('utf8', $_)."'", @ARGV)).")\n");
+
 our $RAM_SAFE = 80000; # required KB RAM to be left available before starting any parallel fork.
 
 # Collect the fork function arguments for each call
