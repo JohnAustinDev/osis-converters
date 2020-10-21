@@ -1415,17 +1415,17 @@ sub applyVsysExtra {
       $chapLabel->setAttribute('type', 'x-chapterLabel-alternate');
       my $t = $chapLabel->textContent();
       &changeNodeText($chapLabel, '');
-      my $alt = $XML_PARSER->parse_balanced_chunk("
-<hi xmlns=\"$OSIS_NAMESPACE\" type=\"italic\" subType=\"x-alternate\">$t</hi>");
+      my $alt = "<hi xmlns=\"$OSIS_NAMESPACE\" type=\"italic\" subType=\"x-alternate\">$t</hi>";
+      $alt = $XML_PARSER->parse_balanced_chunk();
       foreach my $chld ($chapLabel->childNodes) {$alt->insertAfter($chld, undef);}
       $chapLabel->insertAfter($alt, undef);
     }
     else {
       &Note("No chapter label was found, adding alternate chapter label \"$ch\".");
-      my $alt = $XML_PARSER->parse_balanced_chunk("
-<title xmlns=\"$OSIS_NAMESPACE\" type=\"x-chapterLabel-alternate\" resp=\"$VSYS{'resp_vs'}\">
-  <hi type=\"italic\" subType=\"x-alternate\">$ch</hi>
-</title>");
+      my $alt = "<title xmlns=\"$OSIS_NAMESPACE\" " .
+      "type=\"x-chapterLabel-alternate\" resp=\"$VSYS{'resp_vs'}\">" .
+      "<hi type=\"italic\" subType=\"x-alternate\">$ch</hi></title>";
+      $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];
       $chStart->parentNode()->insertAfter($alt, $chStart);
     }
@@ -1640,10 +1640,10 @@ sub toMilestone {
       my $ch = $1; my $vs = $2; my $lv = ($3 ? $4:$vs);
       my $altText = ($vs ne $lv ? "$vs-$lv":"$vs");
       if ($writeAlternate == 2) {$altText = "$ch:$altText";}
-      my $alt = $XML_PARSER->parse_balanced_chunk('
-<hi xmlns="'.$OSIS_NAMESPACE.'" type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'">
-  <hi type="super">('.$altText.') </hi>
-</hi>');
+      my $alt = '<hi xmlns="'.$OSIS_NAMESPACE.'" ' .
+      'type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'">' .
+      '<hi type="super">('.$altText.') </hi></hi>'; 
+      $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $firstTextNode = @{$XPC->findnodes('following::text()
         [not(ancestor::osis:hi[starts-with(@subType, "x-alternate-")])]
         [normalize-space()][1]', $verse_or_chapter_tag)}[0];
