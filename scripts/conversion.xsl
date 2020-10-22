@@ -41,13 +41,6 @@
                        [ancestor::div[starts-with(@type, 'x-keyword')]]" 
             priority="40"/>
   
-  <!-- Remove dupN part of TOC milestones and osisRefs because it has 
-  been assumed that only one of the duplicate TOC entries will remain 
-  for a given conversion. -->
-  <template match="@osisID[matches(., '\.dup\d+!toc')]">
-    <attribute name="osisID" select="replace(., '\.dup\d+!toc', '!toc')"/>
-  </template>
-  
   <!-- Filter out refs that target elements of removed conversion 
   material of both DICTMOD and MAINMOD. -->
   <variable name="removedOsisIDs" as="xs:string*" 

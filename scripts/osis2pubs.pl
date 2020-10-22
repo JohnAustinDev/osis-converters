@@ -531,25 +531,33 @@ sub filterBibleToScope {
       &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
     }
     
-    # if there's only one bookGroup now, change its TOC entry to [not_parent] or remove it, to prevent unnecessary TOC levels and entries
+    # if there's only one bookGroup now, change its TOC entry to [not_parent] 
+    # or remove it, to prevent unnecessary TOC levels and entries
     my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
     if (scalar(@grps) == 1 && @grps[0]) {
-      my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | child::*[1][not(self::osis:div[@type="book"])]/osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
+      my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | 
+          child::*[1][not(self::osis:div[@type="book"])]
+          /osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
       if ($ms) {
         my $resp = @{$XPC->findnodes('ancestor-or-self::*[@resp="'.$ROC.'"][last()]', $ms)}[0];
-        my $firstIntroPara = @{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]/descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0];
-        my $fipMS = ($firstIntroPara ? @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', $firstIntroPara)}[0]:'');
+        my $firstIntroPara = @{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]
+            /descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0];
+        my $fipMS = ($firstIntroPara ? 
+          @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', $firstIntroPara)}[0] : '');
         if (!$resp && $firstIntroPara && $fipMS->unique_key eq $ms->unique_key) {
           $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
-          &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file.", 1);
+          &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n').
+              "\" because there is only one bookGroup in the OSIS file.", 1);
         }
         # don't include in the TOC if there is no intro p or the first intro p is under different TOC entry
         elsif ($resp) {
-          &Note("Removed auto-generated TOC milestone from bookGroup because there is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
+          &Note("Removed auto-generated TOC milestone from bookGroup because there ".
+              "is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
           $resp->unbindNode();
         }
         else {
-          &Note("Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n')."\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
+          &Note("Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n').
+          "\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
           $ms->unbindNode();
         }
       }
@@ -576,12 +584,14 @@ sub filterBibleToScope {
   }
   
   # Update title references and determine pruned OSIS file's new title
-  my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]/ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
+  my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]
+      /ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
   if (@filteredBooks && !$subPublication) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
     foreach my $b (@books) {
-      my @t = $XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b);
+      my @t = $XPC->findnodes('descendant::osis:milestone
+          [@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b);
       if (@t[0]) {push(@bookNames, @t[0]->getValue());}
     }
     $$ebookPartTitleP = join(', ', @bookNames);
@@ -595,32 +605,43 @@ sub filterBibleToScope {
   
   # move matching sub-publication cover to top
   my $s = $scope; $s =~ s/\s+/_/g;
-  my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
+  my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication']
+      [contains(\@src, '/$s.')]", $inxml)}[0];
   if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
-    foreach my $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication'][\@src]", $inxml)) {
-      my $sc = $figure->getAttribute('src'); $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
+    foreach my $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication']
+        [\@src]", $inxml)) {
+      my $sc = $figure->getAttribute('src'); 
+      $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
       my $bkP = &scopeToBooks($sc, &conf('Versification'));
-      foreach my $bk (@{$bkP}) {if ($bk eq $scope) {$subPubCover = $figure;}}
+      foreach my $bk (@{$bkP}) {
+        if ($bk eq $scope) {$subPubCover = $figure;}
+      }
     }
   }
   if ($subPubCover) {
     $subPubCover->unbindNode();
     $subPubCover->setAttribute('subType', 'x-full-publication');
-    my $cover = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"]/osis:figure[@type="x-cover"]', $inxml)}[0];
+    my $cover = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header
+        /following-sibling::*[1][local-name()="div"]
+        /osis:figure[@type="x-cover"]', $inxml)}[0];
     if ($cover) {
-      &Note("Replacing original cover image with sub-publication cover: ".$subPubCover->getAttribute('src'), 1);
+      &Note("Replacing original cover image with sub-publication cover: ".
+          $subPubCover->getAttribute('src'), 1);
       $cover->parentNode->insertAfter($subPubCover, $cover);
       $cover->unbindNode();
     }
     else {
-      &Note("Moving sub-publication cover ".$subPubCover->getAttribute('src')." to publication cover position.", 1);
+      &Note("Moving sub-publication cover ".$subPubCover->getAttribute('src').
+          " to publication cover position.", 1);
       &insertPubCover($subPubCover, $inxml);
     }
   }
-  if ($scope && $scope ne $fullScope && !$subPubCover) {&Warn("A Sub-Publication cover was not found for $scope.", 
+  if ($scope && $scope ne $fullScope && !$subPubCover) {
+    &Warn("A Sub-Publication cover was not found for $scope.", 
 "If a custom cover image is desired for $scope then add a file 
 ./images/$s.jpg with the image. ".($scope !~ /[_\s\-]/ ? "Alternatively you may add 
-an image whose filename is any scope that contains $scope":''));}
+an image whose filename is any scope that contains $scope":''));
+  }
   
   &writeXMLFile($inxml, $osisP);
 }

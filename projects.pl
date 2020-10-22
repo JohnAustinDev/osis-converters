@@ -10,6 +10,7 @@ use Encode;
 use File::Copy;
 use Data::Dumper;
 use Term::ReadKey;
+
 my $DEBUG = 0;
 
 # Config values may be set here to be applied to the config.conf of 
@@ -26,6 +27,7 @@ my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'system'}{'DEBUG'} = '1';
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
 
