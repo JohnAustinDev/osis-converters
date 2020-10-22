@@ -404,7 +404,7 @@ file for it, and then run this script again.");}
     
     # Look for any unreachable material
     &Log("\n--- CHECKING for unreachable material in \"$HTMLOUT/$pubName/xhtml\"\n");
-    my @files = split(/\n+/, &shell("find \"$HTMLOUT/$pubName/xhtml\" -type f", 3));
+    my @files = split(/\n+/, &shell("find \"$HTMLOUT/$pubName/xhtml\" -type f", 3, 1));
     push(@files, "$HTMLOUT/$pubName/index.xhtml");
     my %linkedFiles; 
     $linkedFiles{&shortLinuxPath("$HTMLOUT/$pubName/index.xhtml")}++;

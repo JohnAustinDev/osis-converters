@@ -689,7 +689,7 @@ sub getDefaultFile {
       $defaultFile = "$mainParent/defaults/$file";
       &Note("getDefaultFile: (2) Found $file at $defaultFile");
     }
-    elsif ($^O =~ /linux/i && !&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3)) {
+    elsif ($^O =~ /linux/i && !&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3, 1)) {
       &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
     }
   }
@@ -698,7 +698,7 @@ sub getDefaultFile {
       $defaultFile = "$SCRD/defaults/$file";
       &Note("getDefaultFile: (3) Found $file at $defaultFile");
     }
-    elsif ($^O =~ /linux/i && !&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3)) {
+    elsif ($^O =~ /linux/i && !&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3, 1)) {
       &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
     }
   }
@@ -1129,14 +1129,18 @@ sub printInt {
 sub shell {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
+  my $allowNonZeroExit = shift;
   
-  if ($DEBUG) {$flag = 1;}
+  my $result = `$cmd 2>&1`;
+  my $error = $?; $error = ($allowNonZeroExit ? 0:$error);
+  $result = decode('utf8', $result);
+  
+  if ($DEBUG || $error != 0) {$flag = 1;}
   
   &Log("\n$cmd\n", $flag);
-  my $result = `$cmd 2>&1`;
-  if ($?) {&ErrorBug("Shell command error code $?");}
-  $result = decode('utf8', $result);
   &Log($result."\n", $flag);
+  
+  if ($error != 0) {&ErrorBug("Shell command error code $error");}
   
   return $result;
 }

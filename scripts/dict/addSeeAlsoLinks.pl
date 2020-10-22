@@ -164,7 +164,7 @@ entry. These circular references can be eliminated with the following
 # Return true if the current DICT DWF file is same as the current default DICT DWF file
 sub isDictDWFDefault {
 
-  return (&shell("diff \"$DICTINPD/$DICTIONARY_WORDS\" \"$DEFAULT_DICTIONARY_WORDS\"", 3) ? 0:1);
+  return (&shell("diff \"$DICTINPD/$DICTIONARY_WORDS\" \"$DEFAULT_DICTIONARY_WORDS\"", 3, 1) ? 0:1);
 }
 
 1;

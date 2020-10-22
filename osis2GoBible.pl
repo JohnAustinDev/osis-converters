@@ -132,7 +132,7 @@ sub makeGoBibles {
   &copy("$dir/ui.properties", $GO_BIBLE_CREATOR."GoBibleCore/ui.properties");
   
   # Run GoBible Creator
-  my $log = &shell("java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$dir/collections.txt"), 3);
+  my $log = &shell("java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar")." ".&escfile("$dir/collections.txt"), 3, 1);
 
   # Read, compare, and check size of resulting JAR files
   my $colSizeP = &readJarFileSizes($dir);

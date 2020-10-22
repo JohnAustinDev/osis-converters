@@ -664,7 +664,7 @@ sub wgetSyncDel {
     }
   }
   else {&ErrorBug("The $dname.tmp HTML was undreadable: $p/$dname.tmp");}
-  shell("cd '$p' && rm *.tmp", 3);
+  shell("cd '$p' && rm -f *.tmp", 3);
   
   return $success;
 }
