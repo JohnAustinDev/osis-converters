@@ -27,14 +27,16 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCR
 our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
     %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
 
-our ($INOSIS_XML, %CONV_REPORT);
+our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
-my @forkGlobals = ('INOSIS'); # global(s) to forward to each fork instance
+my @forkGlobals = ('INOSIS', 'PUBOUT'); # global(s) to forward to each fork instance
     
 require("$SCRD/scripts/forks/fork_funcs.pl");
 
 sub osis2pubs {
   my $convertTo = shift;
+  
+  $PUBOUT = ($convertTo eq 'html' ? $HTMLOUT:$EBOUT);
   
   if ($convertTo !~ /^(eBook|html)$/) {
     &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
@@ -1014,7 +1016,7 @@ sub makeEbook {
 #$cmd = "touch \"$tmp/$MOD.$format\""; # debug eBook placement
   &shell($cmd);
   
-  my $ercnt = &shell("grep -i -c 'error' '$biglog'", 3); chomp $ercnt; $ercnt =~ s/^\D*(\d+).*?$/$1/s;
+  my $ercnt = &shell("grep -i -c 'error' '$biglog'", 3, 1); chomp $ercnt; $ercnt =~ s/^\D*(\d+).*?$/$1/s;
   if ($ercnt) {&Error("Error(s) occured during eBook processing.", "See log file: $biglog");}
   &Report("There were \"$ercnt\" problems reported in the eBook long log file: $biglog");
   
@@ -1023,7 +1025,7 @@ sub makeEbook {
     if ($format eq 'epub') {
       my $noEpub3Markup = (&conf('ARG_noEpub3Markup') =~ /^yes$/i);
       $cmd = "epubcheck \"$out\"";
-      my $result = &shell($cmd, 3);
+      my $result = &shell($cmd, 3, 1);
       if ($result =~ /^\s*$/) {
         &ErrorBug("epubcheck did not return anything- reason unknown");
       }
@@ -1042,7 +1044,7 @@ sub makeEbook {
       else {&Note("Epub validates!: \"$out\"");}
     }
     # find any sub-directories used by the EBOOK destination URL 
-    my $outdir = $EBOUT.$pubSubdir; if (!-e $outdir) {&make_path($outdir);}
+    my $outdir = $PUBOUT.$pubSubdir; if (!-e $outdir) {&make_path($outdir);}
     copy($out, "$outdir/$pubName.$format");
     &Note("Created: $outdir/$pubName.$format\n", 1);
     # include any cover small image along with the eBook
@@ -1108,7 +1110,7 @@ sub readServerScopes {
     if (!$langCode) {
       &Warn("Could not determine code at $url/code/$pubCode.", 
 "If you plan to publish eBooks to $url, you may need to arrange 
-the eBooks at $EBOUT into appropriate sub-directories yourself.");
+the eBooks at $PUBOUT into appropriate sub-directories yourself.");
       return \%result;
     }
   }
@@ -1122,7 +1124,7 @@ the eBooks at $EBOUT into appropriate sub-directories yourself.");
     elsif ($file =~ /^\.\/(.*)\/$/) {
       my $subdir = $1;
       if ($mkdir && $subdir) {
-        &shell("mkdir -p \"$EBOUT/$subdir\"", 3);
+        &shell("mkdir -p \"$PUBOUT/$subdir\"", 3);
       }
       next;
     }

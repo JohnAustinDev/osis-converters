@@ -1147,7 +1147,7 @@ sub toCFRegex {
 }
 sub readParatextReferenceSettings {
 
-  my @files = split(/\n/, &shell("find \"$MAININPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3));
+  my @files = split(/\n/, &shell("find \"$MAININPD/sfm\" -type f -exec grep -q \"<RangeIndicator>\" {} \\; -print", 3, 1));
   my $settingsFilePATH;
   my $settingsFileXML;
   foreach my $file (@files) {

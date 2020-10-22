@@ -194,7 +194,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   # If the project includes a glossary, add glossary navigational menus, and if 'feature == INT' is being used, then add intro nav menus as well.
   if ($DICTMOD) {
     # Create the Introduction menus whenever the project glossary contains a 'feature == INT' glossary 
-    my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && `grep "feature == INT" "$DICTINPD/CF_usfm2osis.txt"`;
+    my $glossContainsINT = -e "$DICTINPD/CF_usfm2osis.txt" && &shell("grep \"feature == INT\" \"$DICTINPD/CF_usfm2osis.txt\"", 3, 1);
 
     # Tell the user about the introduction nav menu feature if it's available and not being used
     if ($MAINMOD && !$glossContainsINT) {

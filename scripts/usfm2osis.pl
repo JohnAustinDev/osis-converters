@@ -82,7 +82,7 @@ sub usfm2osis {
     'regex' => 's/([\n\s]*)\/\/([\n\s]*)/ /g', 
     'singleFile' => ''
   });
-  if (!&shell("grep -e '^EVAL_REGEX\(OPTIONAL_LINE_BREAKS\)\:\\s*\$' \"$cf\"", 3)) {
+  if (!&shell("grep -e '^EVAL_REGEX\(OPTIONAL_LINE_BREAKS\)\:\\s*\$' \"$cf\"", 3, 1)) {
     &Note("Optional line breaks will be removed. To keep them, add the 
 following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
   }

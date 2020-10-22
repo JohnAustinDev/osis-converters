@@ -104,7 +104,7 @@ if ($SModDrv =~ /LD/) {
 # Set MinimumVersion conf entry
 my $msv = "1.6.1";
 if ($SModVsys ne "KJV") {
-  my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3);
+  my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3, 1);
   if ($vers =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {$msv = "1.6.2";}
   if ($SModVsys eq "SynodalProt") {$msv = "1.7.0";}
   &setSwordConfValue($Sconf, 'MinimumVersion', $msv);
