@@ -116,7 +116,7 @@ require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
 
 sub init_linux_script {
-  # Global $forkScriptName will only be set only if this is a fork.pl, in  
+  # Global $forkScriptName will only be set when running in fork.pl, in  
   # which case SCRIPT_NAME is inherited for &conf() values to be correct.
   if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
   
@@ -173,7 +173,7 @@ sub init_linux_script {
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
   $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
-  if ($forkScriptName) {
+  if (our $forkScriptName) { # will be set when called by forks.pl
     if (!defined($LOGFILE)) {&ErrorBug("Fork log file must be specified, and numbered.", 1);}
     $TMPDIR = $LOGFILE; $TMPDIR =~ s/\/[^\/]+$//;
   }
@@ -509,24 +509,40 @@ sub checkFont {
   if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 1, 12);}
 
   if ($FONTS && ! -e $FONTS) {
-    &Error("config.conf specifies FONTS as \"$FONTS\" but this path does not exist. FONTS will be unset.", "Change the value of FONTS in the [system] section of config.conf to point to an existing path or URL.");
+    &Error("config.conf specifies FONTS as \"$FONTS\" but this path does ".
+    "not exist. FONTS will be unset.", 
+    "Change the value of FONTS in the [system] section of config.conf to ".
+    "point to an existing path or URL.");
     $FONTS = '';
   }
 
   if ($FONTS) {
-    # The Font value is a font internal name, which may have multiple font files associated with it.
-    # Font files should be named according to the excpectations below.
+    # The Font value is a font internal name, which may have multiple font 
+    # files associated with it. Font files should be named according to 
+    # the excpectations below.
     opendir(DIR, $FONTS);
     my @fonts = readdir(DIR);
     closedir(DIR);
-    my %styles = ('R' => 'regular', 'B' => 'bold', 'I' => 'italic', 'BI' => 'bold italic', 'IB' => 'bold italic');
-    foreach my $s (sort keys %styles) {if ($font =~ /\-$s$/i) {&Error("The Font config.conf entry should not specify the font style.", "Remove '-$s' from FONT=$font in config.conf");}}
+    my %styles = (
+      'R'  => 'regular', 
+      'B'  => 'bold', 
+      'I'  => 'italic', 
+      'BI' => 'bold italic', 
+      'IB' => 'bold italic'
+    );
+    foreach my $s (sort keys %styles) {
+      if ($font =~ /\-$s$/i) {
+        &Error("The Font config.conf entry should not specify the font style.", 
+        "Remove '-$s' from FONT=$font in config.conf");
+      }
+    }
     foreach my $f (@fonts) {
       if ($f =~ /^\./) {next;}
       if ($f =~ /^(.*?)(\-([ribRIB]{1,2}))?\.([^\.]+)$/) {
         my $n = $1; my $t = ($2 ? $3:'R'); my $ext = $4;
         if ($2 && uc($3) eq 'R') {
-          &Error("Regular font $f should not have the $2 extension.", "Change the name of the font file from $f to $n.$ext");
+          &Error("Regular font $f should not have the $2 extension.", 
+          "Change the name of the font file from $f to $n.$ext");
         }
         if ($n eq $font) {
           $FONT_FILES{$font}{$f}{'style'} = $styles{uc($t)};
@@ -542,11 +558,15 @@ sub checkFont {
       }
     }
     else {
-      &Error("No font file(s) for \"$font\" were found in \"$FONTS\"", "Add the required font to this directory, or change FONTS in the [system] section of config.conf to the correct path or URL.");
+      &Error("No font file(s) for \"$font\" were found at \"$FONTS\"", 
+      "Add the required font to this directory, or change FONTS in the ".
+      "[system] section of config.conf to the correct path or URL.");
     }
   }
   else {
-    &Warn("\nThe config.conf specifies font \"$font\", but no FONTS directory has been specified in the [system] section of config.conf. Therefore, this setting will be ignored!\n");
+    &Warn("\nThe config.conf specifies font \"$font\", but no FONTS directory ".
+    "has been specified in the [system] section of config.conf. Therefore, ".
+    "this setting will be ignored!\n");
   }
   
   &Debug("\n\$FONTS=$FONTS\n\%FONT_FILES=".Dumper(\%FONT_FILES)."\n");

@@ -70,8 +70,8 @@ $SCRD = File::Spec->rel2abs($SCRD);
 $SCRD =~ s/\\/\//g;
 
 our $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
-# $forkScriptName will be set only if this is a fork.pl, in which case 
-# SCRIPT_NAME is inherited so &conf() context will be correct.
+# Global $forkScriptName will only be set when running in fork.pl, in  
+# which case SCRIPT_NAME is inherited for &conf() values to be correct.
 if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
 
 # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 

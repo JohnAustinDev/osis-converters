@@ -1090,6 +1090,14 @@ sub encodePrintPaths {
 
 sub expandLinuxPath {
   my $path = shift;
+  
+  # Allow these global path variables to be used (without initial $ sign) 
+  # and expanded in $path.
+  my @replacements = ('INPD', 'SCRD', 'OUTPUT', 'MAININPD', 'DICTINPD');
+  foreach my $r (@replacements) {
+    no strict "refs";
+    $path =~ s/$r/$$r/g;
+  }
 
   if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", 1);}
   my $r = &shell("echo $path", 3);
