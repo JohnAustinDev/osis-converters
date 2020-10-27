@@ -116,9 +116,13 @@ require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
 
 sub init_linux_script {
-  &Log("\n-----------------------------------------------------\nSTARTING $SCRIPT_NAME.pl\n\n");
+  # Global $forkScriptName will only be set only if this is a fork.pl, in  
+  # which case SCRIPT_NAME is inherited for &conf() values to be correct.
+  if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
   
-   # osis2ebook is usually called multiple times by osis2ebooks so don't repeat these
+  &Log("\n-----------------------------------------------------\nSTARTING \$SCRIPT_NAME=$SCRIPT_NAME\n\n");
+  
+  # osis2ebook is usually called multiple times by osis2ebooks so don't repeat these
   if ($SCRIPT_NAME !~ /^osis2ebook$/) {
     &logGitRevs();
     &timer('start');
@@ -159,10 +163,6 @@ sub init_linux_script {
      my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || &conf('Companion', $MAINMOD) =~ /\b$cn\b/ ? $cn:'');
     }
   }
-  
-  # If running as a fork, keep the caller SCRIPT_NAME so conf() context is correct
-  our $forkScriptName; # will be set only if this is a fork.pl
-  if ($forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
   
   if (!-e $CONFFILE) {
     &Error("There is no config.conf file: \"$CONFFILE\".", 
@@ -206,7 +206,17 @@ sub init_linux_script {
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tOUTDIR=$OUTDIR\n\tMOD_OUTDIR=$MOD_OUTDIR\n\tTMPDIR=$TMPDIR\n\tLOGFILE=$LOGFILE\n\tMAININPD=$MAININPD\n\tMAINMOD=$MAINMOD\n\tDICTINPD=$DICTINPD\n\tDICTMOD=$DICTMOD\n\tMOD=$MOD\n\n");
+  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":
+\tOUTDIR=$OUTDIR
+\tMOD_OUTDIR=$MOD_OUTDIR
+\tTMPDIR=$TMPDIR
+\tLOGFILE=$LOGFILE
+\tSCRIPT_NAME=$SCRIPT_NAME
+\tMAININPD=$MAININPD
+\tMAINMOD=$MAINMOD
+\tDICTINPD=$DICTINPD
+\tDICTMOD=$DICTMOD
+\tMOD=$MOD\n\n");
   
   if ($SCRIPT_NAME =~ /^update$/) {return;}
   
@@ -538,6 +548,8 @@ sub checkFont {
   else {
     &Warn("\nThe config.conf specifies font \"$font\", but no FONTS directory has been specified in the [system] section of config.conf. Therefore, this setting will be ignored!\n");
   }
+  
+  &Debug("\n\$FONTS=$FONTS\n\%FONT_FILES=".Dumper(\%FONT_FILES)."\n");
 }
 
 # Caches files from a URL, or if the $listingAP array pointer is 

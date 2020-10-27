@@ -30,16 +30,18 @@ use Encode;
                                 #   is unique to this fork instance.
 our $forkScriptName = @ARGV[2]; # - Used by osis-converters to signal it 
                                 #   is running as a fork of a parent script.
-my $forkRequire     = @ARGV[3]; # - Full path of script containing $forkFunc
-my $forkFunc        = @ARGV[4]; # - Name of function to run
-my @forkArgs;       my $a = 5;  # - Arguments to use with $forkFunc
+our $forkRequire    = @ARGV[3]; # - Full path of script containing $forkFunc
+our $forkFunc       = @ARGV[4]; # - Name of function to run
+our @forkArgs;      my $a = 5;  # - Arguments to use with $forkFunc
 
 while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 # Initialize osis-converters normally, but without logging anything yet.
-our $NOLOG = 1;
+our $NOLOG = 1; our $LOGFILE_BUFFER;
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
 our $NOLOG = 0;
+
+&Debug($LOGFILE_BUFFER); $LOGFILE_BUFFER = '';
 
 require("$SCRD/scripts/forks/fork_funcs.pl");
 require($forkRequire);

@@ -164,7 +164,12 @@ sub init_opsys {
   &applyCONF_system(); # this can only be run in init_opsys() without breaking Vagrant VM [system] paths
   
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
-  &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":\n\tSCRD=$SCRD\n\tSCRIPT=$SCRIPT\n\tINPD=$INPD\n");
+  &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":
+\tSCRD=$SCRD
+\tSCRIPT=$SCRIPT
+\tINPD=$INPD
+\tLOGFILE=$LOGFILE
+\tSCRIPT_NAME=$SCRIPT_NAME\n");
   
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
@@ -269,15 +274,10 @@ sub applyCONF_system {
   # later be updated to work on the VM if running in Vagrant.
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
-  foreach my $ce (sort keys %{$CONF}) {
-    if ($ce !~ /^system\+(.*)$/) {next;}
-    my $e = $1;
-    my $ok = 0;
-    foreach my $v (@OC_SYSTEM) {if ($v eq $e) {$ok++;}}
-    if ($ok) {$$e = $CONF->{$ce};}
-    else {&Error("Unrecognized config.conf [system] entry: $e.", 
-"Only the following entries are recognized in the config.conf 
-system section: ".join(' ', @OC_SYSTEM));}
+  foreach my $sysentry (@OC_SYSTEM) {
+    my $v = &conf($sysentry, undef, undef, 1);
+    if (!defined($v)) {next;}
+    $$sysentry = $v;
   }
   
   if (!&runningInVagrant()) {
@@ -383,6 +383,17 @@ subpub:
   }
   
   return @scopes;
+}
+
+# Read the configuration files for the project. Returns a hash pointer
+# with configuration key => value pairs. The configuration file(s) are
+# read in the following order:
+# 1) ./osis-converters.conf (if it exists)
+# 2) ./<MOD>/config.conf (required)
+# 3) Include: <file> (any included config files)
+sub readConf {
+  
+  
 }
 
 # Read a config.conf file. Return hash pointer to the encoded config
@@ -524,7 +535,9 @@ sub readSetCONF {
 # parameter, taking into account the context of $MOD and $SCRIPT_NAME. 
 # Also, when passing explicit values for $mod and/or $script_name, the 
 # config value for any other context can also be read. If $quiet is set
-# return value checking is disabled.
+# return value checking is disabled, and system values are also retriev-
+# able (normally system values should only be retrieved from the Perl
+# global which shares the system entry's name).
 sub conf {
   my $entry = shift;
   my $mod = shift;          #optional, context is $MOD
@@ -539,9 +552,6 @@ sub conf {
   if (!$isConf) {
     &ErrorBug("Unrecognized config request: $entry");
   }
-  elsif ($isConf eq 'system') {
-    &ErrorBug("Config request $entry is in the [system] section; use \$$entry rather than &conf('$entry') to access [system] section values.");
-  }
   elsif (exists($CONF->{$script_name.'+'.$entry})) {
     $key = $script_name.'+'.$entry;
   }
@@ -551,7 +561,14 @@ sub conf {
   elsif (exists($CONF->{$CONF->{'MainmodName'}.'+'.$entry})) {
     $key = $CONF->{'MainmodName'}.'+'.$entry;
   }
-  
+  elsif ($isConf eq 'system' && $quiet) {
+    $key = 'system+'.$entry;
+  }
+  elsif ($isConf eq 'system' && !$quiet) {
+    &ErrorBug("Config request $entry is in the [system] section; use " . 
+    "\$$entry rather than &conf('$entry') to access [system] section values.");
+  }
+
   #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
   
   if (!$quiet) {&isValidConfigValue($key, $CONF);}
@@ -577,13 +594,9 @@ sub isValidConfig {
   my $s = ($e =~ s/^(.*?)\+// ? $1:'');
   if (!$s) {return 0;}
   
-  # check for system entries (all of which may only appear in the system section)
+  # check for System
   my $systemRE = &configRE(@OC_SYSTEM);
-  if ($e =~ /$systemRE/) {
-    if ($s ne 'system') {return 0;}
-    return 'system';
-  }
-  if ($s eq 'system') {return 0;}
+  if ($e =~ /$systemRE/) {return 'system';}
 
   # check for SWORD autogen
   my $swordAutoRE = &configRE(@SWORD_AUTOGEN);
@@ -1036,7 +1049,7 @@ sub Log {
   
   if ($p !~ /ERROR/ && !$DEBUG) {$p = &encodePrintPaths($p);}
   
-  if (!$LOGFILE) {$LOGFILE_BUFFER .= $p; return;}
+  if ($NOLOG || !$LOGFILE) {$LOGFILE_BUFFER .= $p; return;}
   
   if ($NOLOG) {return;}
 

@@ -28,8 +28,6 @@ use File::Spec;
 use File::Path qw(make_path remove_tree);
 use Encode;
 
-#&Log("\nDEBUG: forks.pl ARGV=\n".join("\n", map(decode('utf8', $_), @ARGV))."\n");
-
 my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//;
 
 require("$SCRD/scripts/forks/fork_funcs.pl");
@@ -49,7 +47,7 @@ my $forkArgIndex   = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 # Note: forks.pl always keeps at least one fork running, regardless of
 # CPU or memory availability.
 
-#&Log("Starting forks.pl: \@ARGV=(".join(', ', map("'".decode('utf8', $_)."'", @ARGV)).")\n");
+&Log("\nforks.pl ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
 
 our $RAM_SAFE = 80000; # required KB RAM to be left available before starting any parallel fork.
 
