@@ -24,7 +24,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($ROC, $XPC, $XML_PARSER, $OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, 
-    $COVERS, %FONT_FILES, @SUB_PUBLICATIONS);
+    $COVERS, $FONTS, %FONT_FILES, @SUB_PUBLICATIONS);
 
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames {
@@ -390,8 +390,7 @@ sub imageCaption {
   if ($font) {
     foreach my $f (sort keys %{$FONT_FILES{$font}}) {
       if ($FONT_FILES{$font}{$f}{'style'} eq 'regular') {
-        $foundfont = $FONT_FILES{$font}{$f}{'fullname'};
-        $foundfont =~ s/ /-/g;
+        $foundfont = "$FONTS/$f";
         last;
       }
     }
