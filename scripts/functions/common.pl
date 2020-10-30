@@ -114,6 +114,7 @@ require("$SCRD/scripts/functions/context.pl");
 require("$SCRD/scripts/functions/image.pl");
 require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
+require("$SCRD/scripts/objects.pl");
 
 sub init_linux_script {
   # Global $forkScriptName will only be set when running in fork.pl, in  
@@ -502,8 +503,8 @@ our %FONT_FILES;
 sub checkFont {
   my $font = shift;
   
-  # After this routine is run, font features can use "if ($FONT)" to check 
-  # font support, and can use FONT_FILES whenever fonts files are needed.
+  # After this routine is run, font features can use "if ($FONT)" to check
+  # font support and then use $FONTS/$FONT_FILES if font files are needed.
   
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 1, 12);}
@@ -595,12 +596,10 @@ sub getURLCache {
   if (! -e $p) {make_path($p);}
   my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # URL directory name
   
-  # Don't proceed until the cache is clear
-  my $blockFile = "$p/../$name-blocked.txt";
-  while (-e $blockFile) {
-    &Log("getURLCache() waiting for $name cache to update.", 2);
-    sleep 2;
-  }
+  # This function may take significant time to complete, and other  
+  # threads may try to access the cache before it is ready. So BlockFile  
+  # is used to limit the cache to one thread at a time.
+  my $blockFile = BlockFile->new("$p/../$name-blocked.txt");
 
   # Check last time this subdirectory was updated
   if ($updatePeriod && -e "$p/../$name-updated.txt") {
@@ -614,21 +613,13 @@ sub getURLCache {
       my $delta = sprintf("%.2f", ($now-$lastTime)/3600);
       if ($delta < $updatePeriod) {
         if ($listingAP) {&wgetReadFilePaths($p, $listingAP, $p);}
-        &Note("Checked local cache directory $pp");
+        &Note("Using local cache directory $pp");
         return $p;
       }
     }
   }
   
-  # Refresh the subdirectory contents from the URL. This may take some 
-  # time to finish, and other threads may try to access the cache during
-  # this time. So a blocking mechanism must be used, so other threads 
-  # will wait for the cache to finish refreshing by this thread.
-  if (!open(BLK, $WRITELAYER, $blockFile)) {
-    &ErrorBug("getURLCache could not open blocking file $blockFile", 1);
-  }
-  print BLK "blocked\n"; close(BLK);
-  
+  # Refresh the subdirectory contents from the URL.
   &Log("\n\nPlease wait while I update $pp...\n", 2);
   my $success = 0;
   if ($p && $url) {
@@ -668,8 +659,6 @@ sub getURLCache {
   else {
     &Error("Failed to update $pp from $url.", "That there is an Internet connection and that $url is a valid URL.");
   }
-  
-  unlink($blockFile);
   
   return $p;
 }
