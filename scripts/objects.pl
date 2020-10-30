@@ -19,16 +19,18 @@
 use strict;
 use Encode;
 
-# Use to limit a section of Perl code to a single thread at a time:
+# Limit any section of Perl code to use by one thread at a time:
 #
 # my $block = BlockFile->new($filePath);
 #
 # This object will only be returned if and when there is no other 
-# BlockFile object (in this or any other thread) having the same value  
-# as $filepath. Thereafter it will block all other matching BlockFile 
+# BlockFile object (in this or any other thread) having the same  
+# $filepath. Thereafter it will block all other matching BlockFile 
 # objects from returning until $block has passed out of scope.
+# The $filePath must be a valid path to any file which may be 
+# temporarily created and then deleted.
 
-our ($WRITELAYER);
+our ($WRITELAYER, $DEBUG);
 
 # Destroy all block files on interrupt
 $SIG{'INT'} = sub { exit; };
@@ -44,17 +46,17 @@ sub new {
     return;
   }
   
-  while (-e $self->{'path'}) {
+  while (1) {
+    if (! -e $self->{'path'} && open(MTMP, ">$self->{'path'}")) {
+      last;
+    }
     print Encode::encode('utf8', "Waiting for BlockFile: $self->{'path'}\n");
     sleep 2;
   }
+  close(MTMP);
   
-  print Encode::encode('utf8', "Writing BlockFile: $self->{'path'}\n");
-  if (open(MTMP, $WRITELAYER, $self->{'path'})) {close(MTMP);}
-  
-  if (! -e $self->{'path'}) {
-    &main::ErrorBug("blockFile could not open blocking file $self->{'path'}", 1);
-    return;
+  if ($DEBUG) {
+    print Encode::encode('utf8', "Creating BlockFile: $self->{'path'}\n");
   }
   
   bless($self, $class);
@@ -68,7 +70,10 @@ sub DESTROY {
   
   if (! -e $self->{'path'}) {return;}
   
-  print Encode::encode('utf8', "Removing BlockFile: $self->{'path'}\n");
+  if ($DEBUG) {
+    print Encode::encode('utf8', "Removing BlockFile: $self->{'path'}\n");
+  }
+  
   unlink($self->{'path'});
 }
 
