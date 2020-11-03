@@ -19,7 +19,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($KEYWORD, $addDictLinks, $DEFAULT_DICTIONARY_WORDS, 
+our ($KEYWORD, $DEFAULT_DICTIONARY_WORDS, 
    $DICTIONARY_WORDS, $XML_PARSER, $XPC);
 
 my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
@@ -32,7 +32,7 @@ sub runAddSeeAlsoLinks {
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', &getDWF());
   
-  if ($addDictLinks =~ /^check$/i) {
+  if (&conf('AddSeeAlsoLinks') =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
   }
@@ -145,7 +145,7 @@ sub checkCircularEntries {
   my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
   &Report("Found $n circular cross references in \"$out_file\".");
-  if (!&isDictDWFDefault() && $addDictLinks !~ /^check$/i && $n > 0) {
+  if (!&isDictDWFDefault() && &conf('AddSeeAlsoLinks') !~ /^check$/i && $n > 0) {
     &Warn(
 "The above $n short entries only say: \"See longer entry\".", 
 "In most such cases the long entry should not link back to the short 

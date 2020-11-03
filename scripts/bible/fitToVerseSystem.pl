@@ -139,10 +139,6 @@ VSYS_MISSING_FN which is the more common case). VSYS_FROM_TO is usually
 not the right instruction for most use cases; it is used most often 
 internally.
 
-SET_customBookOrder:true
-Turns off the book re-ordering step so books will remain in processed 
-order.
-
 NOTES:
 - Each instruction is evaluated in fixed verse system order regardless 
 of their order in the CF_ file.

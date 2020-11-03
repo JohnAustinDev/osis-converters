@@ -25,9 +25,7 @@ our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $OUTOSIS, $XPC, $XML_PARSER,
     $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
 
 # Initialized in /scripts/usfm2osis.pl
-our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, $addCrossRefs, 
-    $addSeeAlsoLinks, $reorderGlossaryEntries, $customBookOrder, 
-    $sourceProject);
+our ($sourceProject);
 
 require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/addFootnoteLinks.pl");
@@ -52,7 +50,7 @@ sub processOSIS {
 
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
   
-  if (&conf('NormalizeUnicode') !~ /false/i) {
+  if (&conf('NormalizeUnicode')) {
     &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
   }
   
@@ -60,7 +58,7 @@ sub processOSIS {
 
   # Bible OSIS: re-order books and periphs according to CF_usfm2osis.txt etc.
   if ($modType eq 'bible') {
-    &orderBooks(\$OSIS, &conf('Versification'), $customBookOrder);
+    &orderBooks(\$OSIS, &conf('Versification'), &conf('CustomBookOrder'));
     &applyVsysMissingVTagInstructions(\$OSIS);
     &applyPeriphInstructions(\$OSIS);
     &write_osisIDs(\$OSIS);
@@ -84,8 +82,8 @@ sub processOSIS {
     $params{'output'} = "$DEFAULT_DICTIONARY_WORDS.bible.xml";
     &runXSLT("$SCRD/scripts/dict/writeDictionaryWords.xsl", $OSIS, $DEFAULT_DICTIONARY_WORDS.".bible.xml", \%params);
     
-    if ($reorderGlossaryEntries) {
-      my %params = ('glossaryRegex' => $reorderGlossaryEntries);
+    if (&conf('ReorderGlossaryEntries')) {
+      my %params = ('glossaryRegex' => &conf('ReorderGlossaryEntries'));
       &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
     }
   }
@@ -108,7 +106,7 @@ sub processOSIS {
   }
   
   # Load DictionaryWords.xml
-  if ($modType eq 'dict' && $addSeeAlsoLinks) {
+  if ($modType eq 'dict' && &conf('AddSeeAlsoLinks')) {
     $hasDWF++;
     &checkDWF($OSIS);
   }
@@ -131,7 +129,7 @@ sub processOSIS {
   &write_osisIDs(\$OSIS); # Run again to add osisID's to new TOC milestones
 
   # Parse Scripture references from the text and check them
-  if ($addScripRefLinks) {
+  if (&conf('AddScripRefLinks')) {
     &runAddScripRefLinks($modType, \$OSIS);
     &adjustAnnotateRefs(\$OSIS);
     &checkMarkSourceScripRefLinks($OSIS);
@@ -139,8 +137,8 @@ sub processOSIS {
   else {&removeMissingOsisRefs(\$OSIS);}
 
   # Parse links to footnotes if a text includes them
-  if ($addFootnoteLinks) {
-    if (!$addScripRefLinks) {
+  if (&conf('AddFootnoteLinks')) {
+    if (&conf('AddScripRefLinks')) {
     &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
 "Change these values in CF_usfm2osis.txt. If you need to parse footnote 
 links, you need to parse Scripture references first, using 
@@ -160,13 +158,13 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 
   # Parse glossary references from Bible and Dict modules 
-  if ($DICTMOD && $modType eq 'bible' && $addDictLinks) {
+  if ($DICTMOD && $modType eq 'bible' && &conf('AddDictLinks')) {
     if (!$hasDWF || ! -e "$INPD/$DICTIONARY_WORDS") {
       &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
     }
     else {&runAddDictLinks(\$OSIS);}
   }
-  elsif ($modType eq 'dict' && $addSeeAlsoLinks && -e "$DICTINPD/$DICTIONARY_WORDS") {
+  elsif ($modType eq 'dict' && &conf('AddSeeAlsoLinks') && -e "$DICTINPD/$DICTIONARY_WORDS") {
     &runAddSeeAlsoLinks(\$OSIS);
   }
 
@@ -180,7 +178,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   }
 
   # Add external cross-referenes to Bibles
-  if ($modType eq 'bible' && $addCrossRefs) {&runAddCrossRefs(\$OSIS);}
+  if ($modType eq 'bible' && &conf('AddCrossRefs')) {&runAddCrossRefs(\$OSIS);}
 
   # If there are differences between the custom and fixed verse systems, then some references need to be updated
   if ($modType eq 'bible' || $modType eq 'dict') {
@@ -265,12 +263,12 @@ sub reprocessOSIS {
 
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
   
-  if (&conf('NormalizeUnicode') !~ /false/i) {
+  if (&conf('NormalizeUnicode')) {
     &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
   }
 
-  if ($modType eq 'dict' && $reorderGlossaryEntries) {
-    my %params = ('glossaryRegex' => $reorderGlossaryEntries);
+  if ($modType eq 'dict' && &conf('ReorderGlossaryEntries')) {
+    my %params = ('glossaryRegex' => &conf('ReorderGlossaryEntries'));
     &runScript("$SCRD/scripts/dict/reorderGlossaryEntries.xsl", \$OSIS, \%params);
   }
 

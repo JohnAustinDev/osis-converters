@@ -104,9 +104,9 @@ sub osis2pubs {
     }
     
     # Get config.conf settings that control what to create
-    my $createFullBible     = &confAuto('CreateFullBible',     $convertTo);
-    my $createSeparatePubs  = &confAuto('CreateSeparatePubs',  $convertTo);
-    my $createSeparateBooks = &confAuto('CreateSeparateBooks', $convertTo);
+    my $createFullBible     = &conf('CreateFullBible',     undef, undef, $convertTo);
+    my $createSeparatePubs  = &conf('CreateSeparatePubs',  undef, undef, $convertTo);
+    my $createSeparateBooks = &conf('CreateSeparateBooks', undef, undef, $convertTo);
     
     my %done;
     
@@ -388,7 +388,7 @@ file for it, and then run this script again.");}
   }
 
   # now do the conversion on the temporary directory's files
-  my $createTypes = &confAuto('CreateTypes', $convertTo);
+  my $createTypes = &conf('CreateTypes', undef, undef, $convertTo);
   if ($createTypes =~ /html/i) {
     &makeHTML($tmp, $cover, $scope, $pubTitle, $pubName, $pubSubdir);
     
@@ -1239,35 +1239,6 @@ sub ramNeededKB {
   if ($convertTo eq 'eBook' || $convertTo eq 'html') {
     return int(1000000 + (31000 * $numbks));
   }
-}
-
-# Return the actual value of an osis2pubs.pl related config.conf entry 
-# that supports the value 'AUTO'.
-sub confAuto {
-  my $entry = shift;
-  my $convertTo = shift;
-  
-  my $val = &conf($entry);
-  
-  if ($val eq 'AUTO') {
-    if ($convertTo eq 'eBook') {
-      if ($entry eq 'CreateFullBible')     {return 'true';}
-      if ($entry eq 'CreateSeparatePubs')  {return 'true';}
-      if ($entry eq 'CreateSeparateBooks') {return 'true';}
-      if ($entry eq 'CreateTypes')         {return 'epub azw3';}
-    }
-    if ($convertTo eq 'html') {
-      if ($entry eq 'CreateFullBible')     {return 'true';}
-      if ($entry eq 'CreateSeparatePubs')  {return '';}
-      if ($entry eq 'CreateSeparateBooks') {return '';}
-      if ($entry eq 'CreateTypes')         {return 'html';}
-    }
-    &ErrorBug("Unhandled AUTO value: convertTo=$convertTo, entry=$entry", 1);
-  }
-  
-  if ($val =~ /^(false|0)$/i) {return '';}
-  
-  return $val;
 }
 
 1;

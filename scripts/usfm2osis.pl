@@ -25,9 +25,7 @@ our ($READLAYER, $WRITELAYER, $MOD_OUTDIR, @VSYS_INSTR,
     $NO_OUTPUT_DELETE, $MODULETOOLS_BIN, $DEBUG);
     
 # Initialized below
-our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, $addCrossRefs, 
-    $addSeeAlsoLinks, $reorderGlossaryEntries, $customBookOrder, 
-    $sourceProject);
+our ($sourceProject);
 
 # IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
 #  -SFM files must be UTF-8 encoded.
@@ -96,7 +94,7 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addCrossRefs|addSeeAlsoLinks|reorderGlossaryEntries|customBookOrder|sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(sourceProject|sfm2all_\w+|DEBUG):(\s*(.*?)\s*)?$/) {
       no strict "refs";
       if ($2) {
         my $par = $1;

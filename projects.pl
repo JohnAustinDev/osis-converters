@@ -15,7 +15,7 @@ my $DEBUG = 0;
 
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
-my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
+my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'osis2ebooks'}{'CreateFullBible'} = 'false';
 #$CONFIG{'osis2ebooks'}{'CreateSeparatePubs'} = 'false';
 #$CONFIG{'osis2ebooks'}{'CreateSeparateBooks'} = 'first';
@@ -27,6 +27,7 @@ my %CONFIG; # $CONFIG{(MOD|DICT|section)}{config-entry} = value
 #$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'MAINMOD'}{'AddScripRefLinks'} = 'false';
 #$CONFIG{'system'}{'DEBUG'} = '1';
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules

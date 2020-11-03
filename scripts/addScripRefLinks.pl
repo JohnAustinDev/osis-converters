@@ -185,7 +185,7 @@ sub runAddScripRefLinks {
     last;
   }
   
-  if ($NO_FORKS =~ /\b(1|true|addScripRefLinks)\b/) {
+  if ($NO_FORKS =~ /\b(1|true|AddScripRefLinks)\b/) {
     &Warn("Running addScripRefLinks without forks.pl", 
     "Un-set NO_FORKS in the config.conf [system] section to enable parallel processing for improved speed.", 1);
     foreach my $osis (@files) {&asrlProcessFile($osis, $refSystem);}

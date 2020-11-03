@@ -31,9 +31,6 @@ our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($OSIS, @SUB_PUBLICATIONS, $NO_OUTPUT_DELETE, $XPC, $XML_PARSER,
     @OC_LOCALIZABLE_CONFIGS);    
-our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, 
-    $addSeeAlsoLinks, $addCrossRefs, $reorderGlossaryEntries, 
-    $customBookOrder);
 
 # Initialized below
 our $sourceProject;
@@ -69,7 +66,7 @@ sub runCF_osis2osis {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(addScripRefLinks|addFootnoteLinks|addDictLinks|addSeeAlsoLinks|addCrossRefs|reorderGlossaryEntries|customBookOrder|MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_(?:ARG_)?[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|sfm2all_\w+|CONFIG_CONVERT_[\w\+]+|CONFIG_(?:ARG_)?[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
       no strict "refs";
       if ($2) {
         my $par = $1;

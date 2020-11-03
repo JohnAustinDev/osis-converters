@@ -55,9 +55,6 @@ our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN,
 our (%BOOKNAMES, $DEFAULT_DICTIONARY_WORDS, $INOSIS, $OUTOSIS, $OUTZIP, 
     $SWOUT, $GBOUT, $EBOUT, $HTMLOUT, $MOD_OUTDIR, $TMPDIR, $XML_PARSER,
     $XPC, %DOCUMENT_CACHE);
-our ($addScripRefLinks, $addFootnoteLinks, $addDictLinks, 
-    $addSeeAlsoLinks, $addCrossRefs, $reorderGlossaryEntries, 
-    $customBookOrder);
 
 our $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
 our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
@@ -76,7 +73,6 @@ our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
 our @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
 our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
-our $DICTIONARY_WORDS = "DictionaryWords.xml";
 our $UPPERCASE_DICTIONARY_KEYS = 1;
 our $SFM2ALL_SEPARATE_LOGS = 1;
 
@@ -186,24 +182,6 @@ sub init_linux_script {
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
-  
-  # Initialize CF_usfm2osis and CF_osis2osis globals
-  $addScripRefLinks = undef;
-  $addFootnoteLinks = undef;
-  $addDictLinks = undef;
-  $addSeeAlsoLinks = undef;
-  $addCrossRefs = undef;
-  $reorderGlossaryEntries = undef;
-  $customBookOrder = undef;
-  
-  # Set default to 'on' for certain cases
-  if (-e "$INPD/CF_addScripRefLinks.txt") {$addScripRefLinks = 'on_by_default';}
-  if (-e "$INPD/CF_addFootnoteLinks.txt") {$addFootnoteLinks = 'on_by_default';}
-  if ($SCRIPT_NAME !~ /osis2osis/) {
-    $addCrossRefs = "on_by_default";
-    if ($INPD eq $DICTINPD) {$addSeeAlsoLinks = 'on_by_default';}
-    elsif (-e "$INPD/$DICTIONARY_WORDS") {$addDictLinks = 'on_by_default';}
-  }
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
@@ -1685,7 +1663,7 @@ sub contextConfigEntries {
     my $e = $fe;
     my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
     if ($s eq 'system') {next;}
-    if (!defined(&conf($e, undef, undef, 1))) {next;}
+    if (!defined(&conf($e, undef, undef, undef, 1))) {next;}
     push(@entries, $e);
   }
   
@@ -1809,7 +1787,7 @@ sub getSwordConf {
 
 sub checkConfGlobals {
 
-  if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL') ne 'false') {
+  if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL')) {
     &Error("For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", "Children's Bibles do not currently support this feature so it must be turned off.");
   }
   foreach my $entry (sort keys %{$CONF}) {
@@ -1911,7 +1889,7 @@ sub getApproximateLangSortOrder {
 }
 
 # Convert entire OSIS file to Normalization Form C (formed by canonical 
-# decomposition followed by canonical composition).
+# decomposition followed by canonical composition) or another form.
 sub normalizeUnicode {
   my $osisP = shift;
   my $normalizationType = shift;

@@ -18,9 +18,6 @@
 
 use strict;
 
-# Initialized in /scripts/usfm2osis.pl
-our $addDictLinks;
-
 our ($XPC, $XML_PARSER);
 our ($SCRD, $INPD, $LOGFILE, $TMPDIR, $SCRIPT_NAME, $NO_FORKS, $DEBUG);
 
@@ -34,7 +31,7 @@ sub runAddDictLinks {
   &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
   &Log("READING OSIS FILE: \"$$osisP\".\n");
   
-  if ($addDictLinks =~ /^check$/i) {
+  if (&conf('AddDictLinks') =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
     return;
@@ -44,7 +41,7 @@ sub runAddDictLinks {
   
   my @files = &splitOSIS($$osisP);
   
-  if ($NO_FORKS =~ /\b(1|true|addDictLinks)\b/) {
+  if ($NO_FORKS =~ /\b(1|true|AddDictLinks)\b/) {
     &Warn("Running addDictLinks without forks.pl", 
     "Un-set NO_FORKS in the config.conf [system] section to enable parallel processing for improved speed.", 1);
     foreach my $osis (@files) {&adlProcessFile($osis);}

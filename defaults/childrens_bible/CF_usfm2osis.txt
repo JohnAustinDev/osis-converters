@@ -2,8 +2,6 @@
 
 # CHILDREN'S BIBLE
 
-#SET_addScripRefLinks:false
-
 # Some Children's Bibles (Gaugauz & Lezgi) have Bartimaeus before 
 # Lazarus, but Russian and most other CBs have Lazarus first.
 #EVAL_REGEX:s/(\\c 384\/372 385.*?\\r Mark 10\:46—52\s*)(\\c 376\/374 377.*?\\r John 11\:1—50\s*)/$2$1/s

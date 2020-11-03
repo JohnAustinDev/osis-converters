@@ -75,7 +75,9 @@ our @OC_CONFIGS = (
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'CreateSeparatePubs', 'CreateTypes', 'FullResourceURL', 
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
-  'NewTestamentTitle', 'OldTestamentTitle', 'NormalizeUnicode'
+  'NewTestamentTitle', 'OldTestamentTitle', 'NormalizeUnicode', 'AddScripRefLinks',
+  'AddDictLinks', 'AddSeeAlsoLinks', 'AddFootnoteLinks' , 'AddCrossRefs',
+  'ReorderGlossaryEntries', 'CustomBookOrder',
 );
 
 # Valid [system] section config entries (these end up as Perl global variables)
@@ -114,9 +116,14 @@ our @CONTINUABLE_CONFIGS = (
 our @MULTIVALUE_CONFIGS = ('GlobalOptionFilter', 'Feature', 'Obsoletes'); 
 
 # Default values for config entries which have a default value. A 'doc:'
-# value is used to document what certain values mean; used to add
+# value is used to document what certain values mean and to add
 # documentation to a default config.conf file.
 our %CONFIG_DEFAULTS = (
+  'AddScripRefLinks' => 'AUTO',     'doc:AddScripRefLinks' => 'selects whether to parse Scripture references in the text and convert them to hyperlinks (true|false|AUTO)',
+  'AddDictLinks' => 'AUTO',         'doc:AddDictLinks' => 'selects whether to parse glossary references in Bible text and convert them to hyperlinks (true|false|check|AUTO)',
+  'AddSeeAlsoLinks' => 'AUTO',      'doc:AddSeeAlsoLinks' => 'selects whether to parse glossary references in glossary text and convert them to hyperlinks (true|false|check|AUTO)',
+  'AddFootnoteLinks' => 'AUTO',     'doc:AddFootnoteLinks' => 'selects whether to parse footnote references in the text and convert them to hyperlinks (true|false|AUTO)',
+  'AddCrossRefs' => 'AUTO',         'doc:AddCrossRefs' => 'selects whether to insert externally generated cross-reference notes into the text (true|false|AUTO)',
   'Versification' => 'KJV',         'doc:Versification' => 'is a CrossWire SWORD versification system',
   'Encoding' => 'UTF-8',            'doc:Encoding' => 'osis-converters only supports UTF-8 encoding',
   'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
@@ -128,6 +135,8 @@ our %CONFIG_DEFAULTS = (
   'CreateTypes' => 'AUTO',          'doc:CreateTypes' => 'selects which type(s) of ePublications to create (AUTO|list of epub|azw3|fb2)',
   'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
   'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, is the URL where the full publication can be found.',
+  'CustomBookOrder' => 'false',     'doc:CustomBookOrder' => 'Set to true to allow Bible book order to remain as it is in CF_usfm2osis.txt, rather than the chosen versification\'s order (true|false)',
+  'ReorderGlossaryEntries' => 'false',         'doc:ReorderGlossaryEntries' => 'Cause glossary entries to be re-ordered according to KeySort for all, or just the matching, glossaries (all|<regex>)',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
   'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
   'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
@@ -147,6 +156,8 @@ our $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
 
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
+
+our $DICTIONARY_WORDS = "DictionaryWords.xml";
 
 # Initializes more global path variables, checks operating system and 
 # dependencies, and restarts with Vagrant if necessary. If checking and
@@ -275,7 +286,7 @@ sub applyCONF_system {
   my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
   foreach my $sysentry (@OC_SYSTEM) {
-    my $v = &conf($sysentry, undef, undef, 1);
+    my $v = &conf($sysentry, undef, undef, undef, 1);
     if (!defined($v)) {next;}
     $$sysentry = $v;
   }
@@ -388,9 +399,9 @@ subpub:
 # Read the configuration files for the project. Returns a hash pointer
 # with configuration key => value pairs. The configuration file(s) are
 # read in the following order:
-# 1) ./osis-converters.conf (if it exists)
-# 2) ./<MOD>/config.conf (required)
-# 3) Include: <file> (any included config files)
+# 1) ~/.osis-converters/config.conf (if it exists)
+# 2) $INPD/config.conf (required)
+# 3) Config entry - Include: <file> (any other config files to include)
 sub readConf {
   
   
@@ -540,9 +551,10 @@ sub readSetCONF {
 # global which shares the system entry's name).
 sub conf {
   my $entry = shift;
-  my $mod = shift;          #optional, context is $MOD
-  my $script_name = shift;  #optional, context is $SCRIPT_NAME
-  my $quiet = shift;
+  my $mod = shift;         # optional, default is $MOD
+  my $script_name = shift; # optional, default is $SCRIPT_NAME
+  my $autoContext = shift; # optional, context for AUTO values
+  my $quiet = shift;       # optional, set to disable value checking for reading system entries or other reasons
   
   $mod = ($mod ? $mod:$MOD);
   $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
@@ -572,8 +584,63 @@ sub conf {
   #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
   
   if (!$quiet) {&isValidConfigValue($key, $CONF);}
+  
+  my $value = ($key ? $CONF->{$key}:undef);
+  
+  if ($value eq 'AUTO') {
+    $value = &confAuto($entry, $mod, $script_name, $autoContext);
+  }
+  
+  if ($value =~ /^false$/i) {$value = '';}
 
-  return ($key ? $CONF->{$key}:undef);
+  return $value;
+}
+
+# Return the actual value of config.conf entries that support the value 'AUTO'.
+sub confAuto {
+  my $entry = shift;
+  my $mod = shift;
+  my $script_name = shift;
+  my $autoContext = shift;
+  
+  if ($entry eq 'AddScripRefLinks') {
+    return (-e "$INPD/CF_addScripRefLinks.txt" ? 'true':'');
+  }
+  elsif ($entry eq 'AddFootnoteLinks') {
+    return (-e "$INPD/CF_addFootnoteLinks.txt" ? 'true':'');
+  }
+  elsif ($entry eq 'AddFootnoteLinks') {
+    return (-e "$INPD/CF_addFootnoteLinks.txt" ? 'true':'');
+  }
+  elsif ($entry eq 'AddCrossRefs') {
+    return ($script_name !~ /osis2osis/ && 
+            $mod eq $MAINMOD ? 'true':'');
+  }
+  elsif ($entry eq 'AddDictLinks') {
+    return ($script_name !~ /osis2osis/ && 
+            $mod eq $MAINMOD &&
+            -e "$MAININPD/$DICTIONARY_WORDS" ? 'true':'');
+  }
+  elsif ($entry eq 'AddSeeAlsoLinks') {
+    return ($script_name !~ /osis2osis/ && 
+            $mod eq $DICTMOD &&
+            -e "$DICTINPD/$DICTIONARY_WORDS" ? 'true':'');
+  }
+  elsif ($autoContext eq 'eBook') {
+    if ($entry eq 'CreateFullBible')     {return 'true';}
+    if ($entry eq 'CreateSeparatePubs')  {return 'true';}
+    if ($entry eq 'CreateSeparateBooks') {return 'true';}
+    if ($entry eq 'CreateTypes')         {return 'epub azw3';}
+  }
+  elsif ($autoContext eq 'html') {
+    if ($entry eq 'CreateFullBible')     {return 'true';}
+    if ($entry eq 'CreateSeparatePubs')  {return '';}
+    if ($entry eq 'CreateSeparateBooks') {return '';}
+    if ($entry eq 'CreateTypes')         {return 'html';}
+  }
+  
+  &ErrorBug("Unhandled AUTO value: entry=$entry, mod=$mod, script_name=$script_name, autoContext=$autoContext", 1);
+  return 'AUTO';
 }
 
 # Checks if the config entry name is valid (isValidConfigValue() checks
@@ -1099,7 +1166,9 @@ sub expandLinuxPath {
     $path =~ s/$r/$$r/g;
   }
 
-  if ($^O !~ /linux/i) {&ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", 1);}
+  if ($^O !~ /linux/i) {
+    &ErrorBug("expandLinuxPath() should only be run on Linux, but opsys is: $^O", 1);
+  }
   my $r = &shell("echo $path", 3);
   chomp($r);
   return $r;
