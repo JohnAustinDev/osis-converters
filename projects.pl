@@ -28,6 +28,9 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'MAINMOD'}{'AddScripRefLinks'} = 'false';
+#$CONFIG{'MAINMOD'}{'AddDictLinks'} = 'false';
+#$CONFIG{'MAINMOD'}{'AddCrossRefs'} = 'false';
+#$CONFIG{'DICTMOD'}{'AddSeeAlsoLinks'} = 'false';
 #$CONFIG{'system'}{'DEBUG'} = '1';
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
