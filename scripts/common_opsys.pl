@@ -588,7 +588,7 @@ sub conf {
   my $value = ($key ? $CONF->{$key}:undef);
   
   if ($value eq 'AUTO') {
-    $value = &confAuto($entry, $mod, $script_name, $autoContext);
+    $value = &confAuto($entry, $mod, $script_name, $autoContext, $quiet);
   }
   
   if ($value =~ /^false$/i) {$value = '';}
@@ -602,6 +602,7 @@ sub confAuto {
   my $mod = shift;
   my $script_name = shift;
   my $autoContext = shift;
+  my $quiet = shift;
   
   if ($entry eq 'AddScripRefLinks') {
     return (-e "$INPD/CF_addScripRefLinks.txt" ? 'true':'');
@@ -639,7 +640,10 @@ sub confAuto {
     if ($entry eq 'CreateTypes')         {return 'html';}
   }
   
-  &ErrorBug("Unhandled AUTO value: entry=$entry, mod=$mod, script_name=$script_name, autoContext=$autoContext", 1);
+  if (!$quiet) {
+    &ErrorBug("Unhandled AUTO value: entry=$entry, mod=$mod, script_name=$script_name, autoContext=$autoContext");
+  }
+  
   return 'AUTO';
 }
 
