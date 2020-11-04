@@ -399,12 +399,24 @@ subpub:
 # Read the configuration files for the project. Returns a hash pointer
 # with configuration key => value pairs. The configuration file(s) are
 # read in the following order:
-# 1) ~/.osis-converters/config.conf (if it exists)
-# 2) $INPD/config.conf (required)
-# 3) Config entry - Include: <file> (any other config files to include)
+#   1) ~/.osis-converters/config.conf (if it exists)
+#   2) $INPD/config.conf (required)
+# Also 'Include:<config>' statements can be used to load other config
+# files as well, which are read when they are encountered.
 sub readConf {
   
+  my %conf;
   
+  my $oc = &expandLinuxPath("~/.osis-converters/config.conf");
+  if (-e $oc) {
+    &readConfFile($oc, \%conf);
+  }
+  
+  if (-e $CONFFILE) {
+    &readConfFile($CONFFILE, \%conf);
+  }
+  
+  return \%conf;
 }
 
 # Read a config.conf file. Return hash pointer to the encoded config
@@ -432,6 +444,7 @@ sub readConf {
 # the next when their line(s) end with '\'.
 sub readConfFile {
   my $file = shift;
+  my $confP = shift;
   
   my $contRE = &configRE(@CONTINUABLE_CONFIGS);
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
@@ -442,7 +455,7 @@ sub readConfFile {
   
   my $continuingEntry = '';
   my $section = '';
-  my %conf;
+  if (!$confP) {my %conf; $confP = \%conf;}
   while(<XCONF>) {
     # ignore comment lines
     if ($_ =~ /^#/) {next;}
@@ -452,16 +465,31 @@ sub readConfFile {
       next;
     }
     
+    # handle Include conf file
+    elsif ($_ =~ /^Include:\s*(.*?)\s*$/) {
+      my $confFile = $1;
+      if ($confFile =~ /^\./) {
+        my $root = $file; $root =~ s/\/[^\/]+$//;
+        $confFile = "$root/$confFile";
+      }
+      else {$confFile = &expandLinuxPath($confFile);}
+      if (-e $confFile) {&readConfFile($confFile, $confP);}
+      else {
+        &Error("Include file: '$confFile' not found (at $file line $.)",
+        "The Include value must be a full path or a relative path to an existing config file.");
+      }
+    }
+    
     # handle section headings
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       $section = $1;
       $continuingEntry = '';
       
       if ($. == 1) {
-        $conf{'MainmodName'} = $section;
+        $confP->{'MainmodName'} = $section;
       }
-      elsif ($section eq $conf{'MainmodName'}."DICT") {
-        $conf{'DictmodName'} = $section;
+      elsif ($section eq $confP->{'MainmodName'}."DICT") {
+        $confP->{'DictmodName'} = $section;
       }
     }
     
@@ -471,23 +499,23 @@ sub readConfFile {
       
       my $fullEntry = "$section+$e";
       $continuingEntry = '';
-      if (!exists($conf{$fullEntry})) {
-        $conf{$fullEntry} = $v;
+      if (!exists($confP->{$fullEntry})) {
+        $confP->{$fullEntry} = $v;
       }
       else {
         # if this entry supports multiple values, then append another value
         if ($e =~ /$multRE/) {
-          $conf{$fullEntry} .= "<nx/>$v";
+          $confP->{$fullEntry} .= "<nx/>$v";
         }
         # otherwise overwrite previous value
         else {
-          &Warn("The config.conf entry '$fullEntry' appears more than once: was=".$conf{$fullEntry}.", is now=$v. $_");
-          $conf{$fullEntry} = $v;
+          &Warn("The config.conf entry '$fullEntry' appears more than once: was=".$confP->{$fullEntry}.", is now=$v. $_");
+          $confP->{$fullEntry} = $v;
         }
       }
       
       # is this entry continuing to next line?
-      $continuingEntry = ($conf{$fullEntry} =~ s/\\$/\\\n/ ? $fullEntry:'');
+      $continuingEntry = ($confP->{$fullEntry} =~ s/\\$/\\\n/ ? $fullEntry:'');
       if ($continuingEntry && $e !~ /$contRE/) {
         &Error("Config entry '$e' must take only a single line.", "Remove all newline characters from this entry's value.");
       }
@@ -496,8 +524,8 @@ sub readConfFile {
     # is this line part of the previous line?
     elsif ($continuingEntry) {
       chomp;
-      $conf{$continuingEntry} .= $_;
-      $continuingEntry = ($conf{$continuingEntry} =~ s/\\$/\\\n/ ? $continuingEntry:'');
+      $confP->{$continuingEntry} .= $_;
+      $continuingEntry = ($confP->{$continuingEntry} =~ s/\\$/\\\n/ ? $continuingEntry:'');
     }
     else {
       &Error("Unhandled config.conf line: $_");
@@ -505,12 +533,12 @@ sub readConfFile {
   }
   close(XCONF);
   
-  if (!$conf{"MainmodName"}) {
+  if (!$confP->{"MainmodName"}) {
 		&Error("No module name in $file.", "Specify the module name on the first line of config.conf like this: [MODNAME]", 1);
 	}
 
   #use Data::Dumper; &Log(Dumper(\%conf)."\n", 1);
-  return \%conf;
+  return $confP;
 }
 
 sub readSetCONF {
@@ -518,13 +546,13 @@ sub readSetCONF {
   # Perl variables from the [system] section of config.conf are only 
   # set by applyCONF_system() and they are NOT set by readSetCONF().
 
-  our $CONF = &readConfFile($CONFFILE);
+  our $CONF = &readConf();
   if (!$CONF) {return 0;}
   
   my $mainmod = $CONF->{'MainmodName'};
   my $dictmod = $CONF->{'DictmodName'};
   
-  # Config Defaults
+  # Apply config Defaults
   my $configRE = &configRE(@OC_CONFIGS);
   foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
     if (exists($CONFIG_DEFAULTS{$e})) {

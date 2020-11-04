@@ -33,6 +33,9 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'DICTMOD'}{'AddSeeAlsoLinks'} = 'false';
 #$CONFIG{'system'}{'DEBUG'} = '1';
 
+# This takes 45 minutes so skip it...
+$CONFIG{'GRG:osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
+
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
 
 if ($0 ne "./projects.pl") {
@@ -560,10 +563,14 @@ sub updateConfigFiles {
         elsif ($_ =~ /^([^#]\S*)\s*=\s*(.*?)\s*$/) {
           my $e = $1; my $v = $2;
           foreach my $sc (keys %{$configHP}) {
+            my $sec = $sc;
+            my $mod = ($sec =~ s/^([^:]+):// ? $1:'');
             foreach my $ec (keys %{$configHP->{$sc}}) {
-              if (!($sc eq $section && $ec eq $e)) {next;}
-              $_ = '#'.$_;
-              print "Commenting $proj config.conf: $_";
+              if ( $sec eq $section && $ec eq $e &&
+                    (!$mod || $mod eq $proj) ) {
+                $_ = '#'.$_;
+                print "Commenting $proj config.conf: $_";
+              }
             }
           }
         }
@@ -574,12 +581,14 @@ sub updateConfigFiles {
       print OUTC "\n";
       foreach my $sc (keys %{$configHP}) {
         my $sec = $sc;
+        my $mod = ($sec =~ s/^([^:]+):// ? $1:'');
         if ($sc eq 'MAINMOD') {$sec = $proj;}
         elsif ($sc eq 'DICTMOD') {$sec = $proj.'DICT';}
         foreach my $ec (keys %{$configHP->{$sc}}) {
+          if ($mod && $mod ne $proj) {next;}
           my $l1 = "[$sec]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
           print "Appending to $proj config.conf: $l1 $l2\n";
-          print OUTC "$l1\n$l2\n";
+          print OUTC "$l1\n$l2\n\n";
         }
       }
       close(OUTC);

@@ -138,11 +138,10 @@ sub processOSIS {
 
   # Parse links to footnotes if a text includes them
   if (&conf('AddFootnoteLinks')) {
-    if (&conf('AddScripRefLinks')) {
-    &Error("SET_addScripRefLinks must be 'true' if SET_addFootnoteLinks is 'true'. Footnote links will not be parsed.", 
-"Change these values in CF_usfm2osis.txt. If you need to parse footnote 
-links, you need to parse Scripture references first, using 
-CF_addScripRefLinks.txt.");
+    if (!&conf('AddScripRefLinks')) {
+    &Error("AddScripRefLinks must be 'true' if AddFootnoteLinks is 'true'. Footnote links will not be parsed.", 
+"Change these values in confg.conf. If you want to parse footnote 
+links, you need to parse Scripture references also.");
     }
     else {
       my $CF_addFootnoteLinks = &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
