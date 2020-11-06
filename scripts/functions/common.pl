@@ -3120,8 +3120,11 @@ tag number you wish to use.)\n");
   <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$translationTitle.'"/>
 </div>');
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
-      $insertBefore->parentNode->insertBefore($toc, $insertBefore);
-      &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
+      if ($insertBefore) {
+        $insertBefore->parentNode->insertBefore($toc, $insertBefore);
+        &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
+      }
+      else {&Error("No elements follow header");}
     }
     
     # Check if there is a whole book introduction without a TOC entry

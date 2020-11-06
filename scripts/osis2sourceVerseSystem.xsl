@@ -13,9 +13,18 @@
   custom verse system. Also, markup associated with the fixed verse 
   system is removed, leaving only the source verse system markup. !-->
   
+  <include href="./whitespace.xsl"/>
+  
+  <template match="/">
+    <copy>
+      <variable name="pass1"><apply-templates/></variable>
+      <apply-templates mode="whitespace" select="$pass1/node()"/>
+    </copy>
+  </template>
+  
   <!-- By default copy everything as is -->
-  <template match="node()|@*" name="identity" mode="#all">
-    <copy><apply-templates select="node()|@*" mode="#current"/></copy>
+  <template match="node()|@*">
+    <copy><apply-templates select="node()|@*"/></copy>
   </template>
   
   <!-- Revert chapter/verse milestones to their original source elements -->

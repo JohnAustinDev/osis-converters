@@ -1629,6 +1629,10 @@ sub toMilestone {
   if ($src_milestone->hasAttribute('sID')) {$src_milestone->removeAttribute('sID');}
   if ($src_milestone->hasAttribute('eID')) {$src_milestone->removeAttribute('eID');}
   $note .= "[src_milestone]";
+  # Remove any preceding newline or whitespace-only text node
+  my $nl = @{$XPC->findnodes(
+      'preceding-sibling::node()[1][self::text()]', $src_milestone)}[0];
+  if ($nl && $nl->data() =~ /^[\n\s]*$/) {$nl->unbindNode();}
   
   # Write alternate verse number from the osisID
   if ($writeAlternate && $isVerseStart) {

@@ -599,14 +599,15 @@ sub updateConfigFiles {
   else {
     foreach my $m (@{$projAP}) {
       my $proj = $infoP->{$m}{'configProject'};
-      if ( !-e "$PRJDIR/$proj/config.conf" || 
-           !-e "$PRJDIR/$proj/config.conf.bak" ) {
+      if (!-e "$PRJDIR/$proj/config.conf.bak" ) {
         next;
       }
       if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
       $updated{"$PRJDIR/$proj/config.conf"}++;
       
-      unlink("$PRJDIR/$proj/config.conf");
+      if (!-e "$PRJDIR/$proj/config.conf") {
+        unlink("$PRJDIR/$proj/config.conf");
+      }
       &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") 
         or &Log("Move failed: $!\n");
     }
