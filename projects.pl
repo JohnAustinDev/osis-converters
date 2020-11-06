@@ -242,11 +242,11 @@ sub getProjectInfo {
   my $pdir = shift;
   
   opendir(DIR, $pdir) or die;
-  my @subs = readdir(DIR);
+  my @projects = readdir(DIR);
   closedir(DIR);
   
   my %info;
-  foreach my $proj (@subs) {
+  foreach my $proj (@projects) {
     if ($proj =~ /^(defaults|utils|CB_Common|Cross_References)$/) {
       next;
     }
@@ -306,7 +306,7 @@ sub getProjectInfo {
     }
   }
   
-  # Create info for any sub modules
+  # Create info for dict modules now
   foreach my $proj (keys %info) {
     if (!&hasDICT($proj, \%info)) {next;}
     
@@ -321,12 +321,12 @@ sub getProjectInfo {
     }
   }
   
-  # Add all module and sub-module types
-  foreach my $proj (keys %info) {
-    if (!$info{$proj}{'updated'}) {next;}
+  # Add all main and dict module types
+  foreach my $m (keys %info) {
+    if (!$info{$m}{'updated'}) {next;}
     
-    my $cproj = $info{$proj}{'configProject'};
-    my $c2proj = ($proj =~ /DICT$/ ? $cproj.'DICT':$cproj);
+    my $cproj = $info{$m}{'configProject'};
+    my $c2proj = ($m =~ /DICT$/ ? $cproj.'DICT':$cproj);
     
     my $moddrv = $info{$cproj}{"$c2proj+ModDrv"};
     
@@ -335,7 +335,7 @@ sub getProjectInfo {
     if ($moddrv =~ /GenBook/i) {$type = 'childrensBible';}
     if ($moddrv =~ /Com/i) {$type = 'commentary';}
     
-    $info{$proj}{'type'} = $type;
+    $info{$m}{'type'} = $type;
   }
   
   if ($DEBUG) {&Log("info = ".Dumper(\%info)."\n"); }
@@ -543,13 +543,16 @@ sub updateConfigFiles {
       Dumper($configHP)."\n"); 
     
     foreach my $m (@{$projAP}) {
+      if ($infoP->{$m}{'type'} eq 'dict') {next;}
+      if (!-e "$PRJDIR/$m/config.conf") {next;}
+      
+      &copy("$PRJDIR/$m/config.conf", "$PRJDIR/$m/config.conf.bak") 
+        or die "Move failed: $!";
+        
       my $proj = $infoP->{$m}{'configProject'};
-      if (!-e "$PRJDIR/$proj/config.conf") {next;}
       if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
       $updated{"$PRJDIR/$proj/config.conf"}++;
       
-      &move("$PRJDIR/$proj/config.conf", "$PRJDIR/$proj/config.conf.bak") 
-        or die "Move failed: $!";
       open(INC, "<:encoding(UTF-8)", "$PRJDIR/$proj/config.conf.bak") 
         or die "Could not read: $!";
       open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$proj/config.conf") 
@@ -598,18 +601,11 @@ sub updateConfigFiles {
   }
   else {
     foreach my $m (@{$projAP}) {
-      my $proj = $infoP->{$m}{'configProject'};
-      if (!-e "$PRJDIR/$proj/config.conf.bak" ) {
-        next;
-      }
-      if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
-      $updated{"$PRJDIR/$proj/config.conf"}++;
-      
-      if (!-e "$PRJDIR/$proj/config.conf") {
-        unlink("$PRJDIR/$proj/config.conf");
-      }
-      &move("$PRJDIR/$proj/config.conf.bak", "$PRJDIR/$proj/config.conf") 
+      if ($infoP->{$m}{'type'} eq 'dict') {next;}
+      if (!-e "$PRJDIR/$m/config.conf.bak") {next;}
+      &move("$PRJDIR/$m/config.conf.bak", "$PRJDIR/$m/config.conf")
         or &Log("Move failed: $!\n");
+      $updated{"$PRJDIR/$m/config.conf"}++;
     }
     &Log("Restored ".(scalar keys %updated)." config.conf files.\n");
   }
