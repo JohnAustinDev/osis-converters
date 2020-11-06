@@ -915,7 +915,6 @@ sub customize_conf {
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
   my $defConfP = &readConfFile($conf);
-  &changeConfName($defConfP, $modName);
   
   my $haveRepoConf;
   if ($defConfP->{'system+REPOSITORY'} && $defConfP->{'system+REPOSITORY'} =~ /^http/) {
@@ -1031,30 +1030,6 @@ sub customize_conf {
       close(MCF);
     }
     else {&ErrorBug("customize_conf could not open config file $conf");}
-  }
-}
-
-# This changes the MainmodName and DictmodName (if present) of a config
-# file's raw data pointer. It does NOT change any values!
-sub changeConfName {
-  my $confP = shift;
-  my $main = shift;
-  
-  my $dict = ($confP->{'DictmodName'} ? $main.'DICT':'');
-  
-  my $mainwas = $confP->{'MainmodName'};
-  my $dictwas = $confP->{'DictmodName'};
-  
-  $confP->{'MainmodName'} = $main;
-  if ($dict) {
-    $confP->{'DictmodName'} = $dict;
-  }
-  
-  foreach my $fe (keys %{$confP}) {
-    my $nfe = $fe;
-    if ($nfe =~ s/^$mainwas((DICT)?\+)/$main$1/) {
-      $confP->{$nfe} = delete($confP->{$fe});
-    }
   }
 }
 

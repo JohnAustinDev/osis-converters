@@ -399,10 +399,10 @@ subpub:
 # Read the configuration files for the project. Returns a hash pointer
 # with configuration key => value pairs. The configuration file(s) are
 # read in the following order:
-#   1) ~/.osis-converters/config.conf (if it exists)
+#   1) &getDefaultFile('default.conf') (if it exists)
 #   2) $INPD/config.conf (required)
 # Also 'Include:<config>' statements can be used to load other config
-# files as well, which are read when they are encountered.
+# files as well, which are read if/when they are encountered.
 sub readConf {
   
   my %conf;
@@ -484,6 +484,9 @@ sub readConfFile {
     elsif ($_ =~ /^\s*\[(.*?)\]\s*$/) {
       $section = $1;
       $continuingEntry = '';
+      
+      if ($section eq 'MAINMOD') {$section = $MAINMOD;}
+      if ($section eq 'DICTMOD') {$section = ($DICTMOD ? $DICTMOD:"${MAINMOD}DICT");}
       
       if ($. == 1) {
         $confP->{'MainmodName'} = $section;
