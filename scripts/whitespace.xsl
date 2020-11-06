@@ -41,8 +41,8 @@
                   my:breakBefore(./following-sibling::node()[1])">
         <value-of select="replace($text3, ' $', '')"/>
       </when>
-      <when test="my:breakAfter(./parent::*) and 
-                parent::*//text()[last()][. intersect current()]">
+      <when test="parent::*//text()[last()][. intersect current()] and 
+                  my:breakAfter(./parent::*)">
         <value-of select="replace($text3, concat($t, ' $'), '')"/>
       </when>
       <otherwise><value-of select="$text3"/></otherwise>

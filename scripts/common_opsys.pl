@@ -407,7 +407,7 @@ sub readConf {
   
   my %conf;
   
-  my $oc = &expandLinuxPath("~/.osis-converters/config.conf");
+  my $oc = &getDefaultFile('default.conf', -1);
   if (-e $oc) {
     &readConfFile($oc, \%conf);
   }
@@ -758,7 +758,7 @@ sub configRE {
 
 # Look for an osis-converters default file or directory in the following 
 # places, in order. If a default file is not found, return either '' or 
-# throw a stop error if priority was 0 (or null etc.). The file may  
+# throw a stop error if priority was 0 (or undef etc.). The file may  
 # include a path that (presently) begins with either 'bible/' for Bible  
 # module default files or 'dict/' for dictionary module default files,
 # or 'childrens_bible/' for childrens' Bibles. The fallback for

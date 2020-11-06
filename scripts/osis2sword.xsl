@@ -22,12 +22,19 @@
     [@osisWork = /osis/osisText/@osisIDWork]
     /type/string()"/>
   
-  <!-- Do two passes over the data -->
+  <!-- Do multiple passes over the data -->
   <template match="/" priority="30">
     <copy>
-      <variable name="pass1"><apply-templates select="node()"/></variable>
-      <apply-templates select="$pass1" mode="pass2"/>
+      <variable name="pass1"><apply-templates/></variable>
+      <variable name="pass2">
+        <apply-templates mode="dashPrefix" select="$pass1/node()"/>
+      </variable>
+      <apply-templates mode="whitespace" select="$pass2/node()"/>
     </copy>
+  </template>
+  
+  <template mode="dashPrefix" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
   <!-- Remove all non-Bible material that is not within a glossary div -->
@@ -108,7 +115,7 @@
   issue handling colons.-->
   <variable name="reftext" select="for $i in ($REF_introductionINT, $REF_dictionary) 
                                    return oc:decodeOsisRef(tokenize($i, ':')[2])"/>
-  <template mode="pass2" match="seg[@type='keyword']">
+  <template mode="dashPrefix" match="seg[@type='keyword']">
     <variable name="text1">
       <choose>
         <when test="self::seg[normalize-space(text()) and text() = $reftext]">
@@ -129,12 +136,12 @@
     </if>
     
     <copy>
-      <apply-templates mode="pass2" select="@*"/>
+      <apply-templates mode="dashPrefix" select="@*"/>
       <attribute name="osisID" select="oc:encodeOsisRef($text)"/>
       <value-of select="$text"/>
     </copy>
   </template>
-  <template mode="pass2" match="@osisRef">
+  <template mode="dashPrefix" match="@osisRef">
     <variable name="osisRef1" 
       select="if (. = ($REF_introductionINT, $REF_dictionary)) 
               then concat($DICTMOD, ':', if (. = $REF_introductionINT) 
