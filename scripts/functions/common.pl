@@ -43,8 +43,9 @@ our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD,
 # Initialized in /scripts/common_opsys.pl
 our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, @SWORD_OC_CONFIGS,
     %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
-    @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM, 
-    @OC_CONFIGS, @SWORD_AUTOGEN, @SWORD_CONFIGS, $TEI_NAMESPACE, $OSIS_NAMESPACE);
+    @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, 
+    @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
+    $OSIS_NAMESPACE, @CONFIG_SECTIONS);
     
 # config.conf [system] globals initialized in common_opsys.pl's applyCONF_system()
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
@@ -802,7 +803,7 @@ sub checkAndWriteDefaults {
   
   # Project default control files
   my @projectDefaults = (
-    'bible/config.conf', 
+    'template.conf', 
     'childrens_bible/config.conf',
     'bible/CF_usfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
@@ -846,8 +847,9 @@ sub checkAndWriteDefaults {
   foreach my $df (@projectDefaults) {
     my $df_isDirectory = ($df =~ s/\/\*$// ? 1:0); 
     my $dest = $df;
-    my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:'');
-    $dest = "$MAININPD/".($dftype eq 'dict' ? $projName.'DICT/':'')."$dest";
+    $dest =~ s/template\.conf$/config.conf/;
+    my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:$projType);
+    $dest = "$MAININPD/".($dftype eq 'dict' ? $projName.'DICT/':'').$dest;
     if ($dftype eq 'dict') {
       if (!$haveDICT) {next;}
     }
@@ -881,7 +883,7 @@ sub checkAndWriteDefaults {
         my $modType = ($modName eq $projName ? $projType:'dictionary');
         
         &Note("Customizing $file...");
-        if    ($file =~ /config\.conf$/)             {&customize_conf($file, $modName, $modType, $haveDICT);}
+        if    ($file =~ /config\.conf$/)             {&customize_conf($modName, $modType, $haveDICT);}
         elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($file, $modType);}
         elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file, $booknamesHP);}
         else {&ErrorBug("Unknown customization type $dc for $file; write a customization function for this type of file.", 1);}
@@ -891,7 +893,6 @@ sub checkAndWriteDefaults {
 }
 
 sub customize_conf {
-  my $conf = shift;
   my $modName = shift;
   my $modType = shift;
   my $haveDICT = shift;
@@ -903,22 +904,23 @@ sub customize_conf {
   # Save any comments at the end of the default config.conf so they can 
   # be added back after writing the new conf file.
   my $comments = '';
-  if (open(MCF, $READLAYER, $conf)) {
+  if (open(MCF, $READLAYER, $CONFFILE)) {
     while(<MCF>) {
       if ($comments) {$comments .= $_;}
       elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-NEXT-LINE/) {$comments = "\n";}
     }
     close(MCF);
   }
+  $comments =~ s/^#(\[\w+\])/$1/mg;
  
   # If there is any existing $modName conf that is located in a repository 
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
-  my $defConfP = &readConfFile($conf);
+  my $defConfP = &readConf();
   
   my $haveRepoConf;
   if ($defConfP->{'system+REPOSITORY'} && $defConfP->{'system+REPOSITORY'} =~ /^http/) {
-    my $swautogen = &configRE(@SWORD_AUTOGEN);
+    my $swautogen = &configRE(@SWORD_AUTOGEN_CONFIGS);
     $swautogen =~ s/\$$//;
     
     my $mfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($modName).".conf";
@@ -927,30 +929,30 @@ sub customize_conf {
     my $mtext = &shell("wget \"$mfile\" -q -O -", 3);
     my $dtext = &shell("wget \"$dfile\" -q -O -");
     
-    # strip @SWORD_AUTOGEN entries
+    # strip @SWORD_AUTOGEN_CONFIGS entries
     $mtext =~ s/$swautogen\s*=[^\n]*\n//mg; 
     $dtext =~ s/$swautogen\s*=[^\n]*\n//mg;
     if ($mtext) {
       &Note("Default conf was located in REPOSITORY: $mfile", 1);
       &Log("$mtext\n\n");
       &Log("$dtext\n\n");
-      if (open(CNF, $WRITELAYER, $conf)) {
+      if (open(CNF, $WRITELAYER, $CONFFILE)) {
         $haveRepoConf++;
         print CNF $mtext;
         close(CNF);
-        my $confP = &readConfFile($conf);
+        my $confP = &readConfFile($CONFFILE);
         foreach my $k (keys %{$confP}) {
           $defConfP->{$k} = $confP->{$k};
         }
       }
-      else {&ErrorBug("Could not open conf $conf");}
+      else {&ErrorBug("Could not open conf $CONFFILE");}
     }
     
     if ($dtext) {
-      if (open(CNF, $WRITELAYER, "$conf.dict")) {
+      if (open(CNF, $WRITELAYER, "$CONFFILE.dict")) {
         print CNF $dtext;
         close(CNF);
-        my $confP = &readConfFile("$conf.dict");
+        my $confP = &readConfFile("$CONFFILE.dict");
         foreach my $k (keys %{$confP}) {
           my $e = $k; $e =~ s/^[^\+]+\+//;
           # Don't keep these dict entries since MAIN/DICT are now always the same
@@ -960,9 +962,9 @@ sub customize_conf {
         }
         $defConfP->{'MainmodName'} = $modName;
         $defConfP->{'DictmodName'} = $modName.'DICT';
-        unlink("$conf.dict");
+        unlink("$CONFFILE.dict");
       }
-      else {&ErrorBug("Could not open conf $conf.dict");}
+      else {&ErrorBug("Could not open conf $CONFFILE.dict");}
     }
   }
   
@@ -996,12 +998,11 @@ sub customize_conf {
   }
   else {&setConfValue($defConfP, "$modName+Companion", '', 1);}
   
-  &writeConf($conf, $defConfP);
+  &writeConf($CONFFILE, $defConfP);
   
   # Now append the following to the new config.conf:
   # - documentation comments
-  # - any [<section>] settings from the default config.conf
-  # - comments from default config.conf
+  # - comments from original config.conf
   my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n[$modName]\n";
   foreach my $c (@OC_CONFIGS) {
     if (!($CONFIG_DEFAULTS{"doc:$c"})) {next;}
@@ -1015,7 +1016,7 @@ sub customize_conf {
     $defs .= "$e=".$CONFIG_DEFAULTS{$k}."\n";
   }
   my $newconf = '';
-  if (open(MCF, $READLAYER, $conf)) {
+  if (open(MCF, $READLAYER, $CONFFILE)) {
     while(<MCF>) {
       if ($defs && $. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n"; $defs = '';}
       $newconf .= $_;
@@ -1023,13 +1024,13 @@ sub customize_conf {
     $newconf .= $comments;
     close(MCF);
   }
-  else {&ErrorBug("customize_conf could not open config file $conf");}
+  else {&ErrorBug("customize_conf could not open config file $CONFFILE");}
   if ($newconf) {
-    if (open(MCF, $WRITELAYER, $conf)) {
+    if (open(MCF, $WRITELAYER, $CONFFILE)) {
       print MCF $newconf;
       close(MCF);
     }
-    else {&ErrorBug("customize_conf could not open config file $conf");}
+    else {&ErrorBug("customize_conf could not open config file $CONFFILE");}
   }
 }
 
@@ -1561,10 +1562,19 @@ sub osis_converters {
   system($cmd.($logfile ? " 2>> ".&escfile($logfile):''));
 }
 
-# Read config.conf file $conf into $entryValueP and return 1 on success.
+# Write config file $conf to contain entries in $entryValueP. Config 
+# entries of defaults/defaults.conf will NOT be included in the 
+# resulting config file unless $writeDefaults is set.
 sub writeConf {
   my $conf = shift;
   my $entryValueP = shift;
+  my $writeDefaults = shift;
+  
+  my %defaults;
+  my $oc = &getDefaultFile('defaults.conf', -1);
+  if (-e $oc) {
+    &readConfFile($oc, \%defaults, 1);
+  }
   
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
   if (!-e $confdir) {make_path($confdir);}
@@ -1573,6 +1583,7 @@ sub writeConf {
     my $section = '';
     foreach my $fullName (sort { &confEntrySort($a, $b, $entryValueP); } keys %{$entryValueP} ) {
       if ($fullName =~ /^(MainmodName|DictmodName)$/) {next;}
+      elsif (!$writeDefaults && defined($defaults{$fullName})) {next;}
       else {
         my $e = $fullName; 
         my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
@@ -1606,20 +1617,20 @@ sub confEntrySort {
   my $b = shift;
   my $confP = shift;
   
-  my $main = $confP->{'MainmodName'};
-  my $dict = $confP->{'DictmodName'};
-  
   my $ae = $a; my $be = $b;
   my $as = ($ae =~ s/([^\+]+)\+// ? $1:'');
   my $bs = ($be =~ s/([^\+]+)\+// ? $1:'');
+  if    ($as eq $confP->{'MainmodName'}) {$as = 'MAINMOD';}
+  elsif ($as eq $confP->{'DictmodName'}) {$as = 'DICTMOD';}
+  if    ($bs eq $confP->{'MainmodName'}) {$bs = 'MAINMOD';}
+  elsif ($bs eq $confP->{'DictmodName'}) {$bs = 'DICTMOD';}
     
   # First by section
-  my @order = ($main, $dict, 'osis2sword', 'osis2GoBible', 'osis2html', 'osis2ebooks', 'system');
-  my $ax = @order,
-  my $bx = @order;
-  for (my $i=0; $i < @order; $i++) {
-    if ($as eq @order[$i]) {$ax = $i;}
-    if ($bs eq @order[$i]) {$bx = $i;}
+  my $ax = @CONFIG_SECTIONS,
+  my $bx = @CONFIG_SECTIONS;
+  for (my $i=0; $i < @CONFIG_SECTIONS; $i++) {
+    if ($as eq @CONFIG_SECTIONS[$i]) {$ax = $i;}
+    if ($bs eq @CONFIG_SECTIONS[$i]) {$bx = $i;}
   }
   my $res = ($ax <=> $bx);
   if ($res) {return $res;}

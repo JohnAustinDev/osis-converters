@@ -5,4 +5,5 @@ paths.pl
 Vagrantshares
 Vagrantcustom
 ubuntu-*
+.defaults.conf
 

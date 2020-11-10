@@ -44,7 +44,7 @@ require "$SCRD/scripts/common_opsys.pl";
 
 our $WRITELAYER = ">:encoding(UTF-8)";
 our $APPENDLAYER = ">>:encoding(UTF-8)";
-our $READLAYER = "<:encoding(UTF-8)".(runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
+our $READLAYER = "<:encoding(UTF-8)".(&runningInVagrant() ? ":crlf":''); # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
 
 our $INPD = shift;
 
@@ -99,7 +99,7 @@ if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" &&
 
 our $CONF;
 our $CONFFILE = "$MAININPD/config.conf";
-&readSetCONF();
+if (-e $CONFFILE) {&readSetCONF();}
 # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
 {
  my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{"$MAINMOD+Companion"} =~ /\b$cn\b/ ? $cn:'');
