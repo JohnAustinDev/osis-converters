@@ -38,7 +38,7 @@ while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 # Initialize osis-converters normally, but without logging anything yet.
 our $NOLOG = 1; our $LOGFILE_BUFFER;
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init_linux_script();
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init(shift, shift);
 our $NOLOG = 0;
 
 &Debug($LOGFILE_BUFFER); $LOGFILE_BUFFER = '';

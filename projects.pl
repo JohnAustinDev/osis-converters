@@ -2,7 +2,9 @@
 
 # Run specified conversions for every project, as quickly as possible
 
-use strict;
+# Bootstrap osis-converters so project config files can be read.
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl";
+
 use threads;
 use threads::shared;
 use DateTime;
@@ -49,17 +51,17 @@ my $PRJDIR = shift;
 # regex matching modules to run
 my $MODRE = shift;
 
-# script to run on all projects
-my $SCRIPT = shift;
+# conversions to run on matched modules
+my $CONVERSIONS = shift;
 
 # optional max number of threads to use (default is number of CPUs)
 my $MAXTHREADS = shift; 
 
 if (!$MODRE) {$MODRE = 'all';}
-if (!$SCRIPT) {$SCRIPT = 'osis';}
-if ($SCRIPT !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2GoBible|sfm2all)$/) {
-  print "Unrecognzed script argument: $SCRIPT\n";
-  $SCRIPT = '';
+if (!$CONVERSIONS) {$CONVERSIONS = 'osis';}
+if ($CONVERSIONS !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2GoBible|sfm2all)$/) {
+  print "Unrecognzed script argument: $CONVERSIONS\n";
+  $CONVERSIONS = '';
 }
 
 if (!$MAXTHREADS) {
@@ -68,7 +70,7 @@ if (!$MAXTHREADS) {
 }
    
 if ( !$PRJDIR || !-e $PRJDIR || 
-     !$SCRIPT || 
+     !$CONVERSIONS || 
      !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS) 
    ) {
   print "
@@ -92,11 +94,11 @@ max_threads       : The number of threads to use. Default is the number
 $PRJDIR =~ s/\/$//;
 
 my %PRINTED;
-my $LOGFILE = "$PRJDIR/OUT_projects.txt";
-if (-e $LOGFILE) {unlink($LOGFILE);}
+my $MYLOG = "$PRJDIR/OUT_projects.txt";
+if (-e $MYLOG) {unlink($MYLOG);}
 
 my $STARTTIME;
-&timer('start'); &Log("\n");
+&timer('start'); &pLog("\n");
 
 my $INFO = &getProjectInfo($PRJDIR);
 
@@ -120,21 +122,22 @@ foreach my $m (sort keys %{$INFO}) {
   }
 }
 
-&Log("Ignoring ".(scalar keys %MAIN_IGNORES)." projects which need upgrading (".@MODULE_IGNORES." modules):\n");
+&pLog("Ignoring ".(scalar keys %MAIN_IGNORES)." projects which need upgrading (".@MODULE_IGNORES." modules):\n");
 foreach my $m (@MODULE_IGNORES) {
-  &Log(sprintf("%12s\n", $m));
+  &pLog(sprintf("%12s\n", $m));
 }
-&Log("\n");
+&pLog("\n");
 
 # Update config files with any global changes, and then re-read info.
 &updateConfigFiles(\@MODULES, \%CONFIG, $INFO);
+$SIG{'INT'} = sub {&finish()};
 $INFO = &getProjectInfo($PRJDIR);
 
-my @RUN = &getScriptsToRun(\@MODULES, $SCRIPT, $INFO);
+my @RUN = &getScriptsToRun(\@MODULES, $CONVERSIONS, $INFO);
 
-my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $SCRIPT, $INFO, \@MODULES);
+my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $CONVERSIONS, $INFO, \@MODULES);
 
-&Log("Scheduling ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
+&pLog("Scheduling ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
 foreach my $m (@MODULES) {
   foreach my $run (@RUN) {
     if ($run !~ /^(\S+)\s+$m$/) {next;}
@@ -142,7 +145,7 @@ foreach my $m (@MODULES) {
     my $deps = join(', ', @{$DEPENDENCY{$run}});
     my $depsmsg = ($deps ? "(after $deps)":'');
     $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
-    &Log(sprintf("%12s:%12s %-35s %s\n", 
+    &pLog(sprintf("%12s:%12s %-35s %s\n", 
                   $m, 
                   $script,
                   $depsmsg, 
@@ -150,13 +153,13 @@ foreach my $m (@MODULES) {
     ));
   }
 }
-&Log("\n");
+&pLog("\n");
 
 ReadMode 4;
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
-&Log("Running ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
+&pLog("Running ".@RUN." jobs on ".(scalar keys %MAINS)." projects (".@MODULES." modules):\n");
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;
@@ -215,11 +218,9 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
 
 ReadMode 0;
 
-&updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
-
 if ($KEY == 27) {
-  &Log("\n");
-  &Log("
+  &pLog("\n");
+  &pLog("
 No more conversions will be scheduled...
 Press ctrl-c to kill remaining threads and exit.
 Or wait for the current threads to finish:\n");
@@ -229,14 +230,12 @@ else {
   print "No more projects to start and none are running!\n";
 }
 
-foreach my $th (threads->list()) {$th->join();}
-
-&timer('stop');
+&finish();
 
 ########################################################################
 ########################################################################
 
-# Fills a hash with config.conf or CF_osis2osis.txt information for all 
+# Fills a hash with config.conf or CF_osis2osis.txt information for 
 # projects in pdir
 sub getProjectInfo {
   my $pdir = shift;
@@ -282,28 +281,18 @@ sub getProjectInfo {
       close(CF);
       next;
     }
+    
     elsif (!-e "$pdir/$proj/config.conf") {next;}
-    # Most projects have config.conf
-    else {
+    
+    # Projects where config.conf contains [system] are considered updated
+    elsif (&shell("grep '\\[system\\]' \"$pdir/$proj/config.conf\"", 3, 1)) {
+      $info{$proj}{'updated'}++;
       $info{$proj}{'configProject'} = $proj;
-      open(CONF, "<:encoding(UTF-8)", "$pdir/$proj/config.conf") 
-        or die;
-      my $section = $proj;
-      while(<CONF>) {
-        if ($_ =~ /^\[(.*?)\]\s*$/) {
-          $section = $1;
-          # If config.conf has a [system] section, its modules are 
-          # considered updated and runnable.
-          if ($section eq 'system') {
-            $info{$proj}{'updated'}++;
-          }
-        }
-        elsif ($_ =~ /^([^#]\S+)\s*=\s*(.*?)\s*$/) {
-          $info{$proj}{"$section+$1"} = $2;
-        }
-      }
-      close(CONF);
+      our $CONF; &set_main_globals("$pdir/$proj", 'none');
+      foreach my $k (keys %{$CONF}) {$info{$proj}{$k} = $CONF->{$k};}
     }
+    
+    else {$info{$proj}{'configProject'} = $proj;}
   }
   
   # Create info for dict modules now
@@ -338,8 +327,8 @@ sub getProjectInfo {
     $info{$m}{'type'} = $type;
   }
   
-  if ($DEBUG) {&Log("info = ".Dumper(\%info)."\n"); }
-  
+  if ($DEBUG) {&pLog("info = ".Dumper(\%info)."\n");}
+
   return \%info;
 }
 
@@ -484,7 +473,7 @@ sub setDependencies {
     }
   }
   
-  if ($DEBUG) {&Log("DEPENDENCIES = ".Dumper($depsHP)."\n");}
+  if ($DEBUG) {&pLog("DEPENDENCIES = ".Dumper($depsHP)."\n");}
 }
 
 # Run osis-converters on a module, and report.
@@ -510,17 +499,17 @@ sub runScript {
   }
   
   if (@errors) {
-    &Log(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
+    &pLog(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
           $script, 
           $mod, 
           scalar @errors
     ));
-    foreach my $e (@errors) {&Log("$e\n");}
-    &Log("\n");
+    foreach my $e (@errors) {&pLog("$e\n");}
+    &pLog("\n");
     return;
   }
   
-  &Log(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
+  &pLog(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
         $script, 
         $mod
   ));
@@ -533,32 +522,33 @@ sub updateConfigFiles {
   my $restore = shift;
   
   if (!(scalar keys %{$configHP})) {
-    &Log("No config.conf changes to be made.\n\n");
+    &pLog("No config.conf changes to be made.\n\n");
     return;
   }
   
   my %updated;
   if (!$restore) {
-    &Log("Config changes which are being applied to config.conf files: ".
-      Dumper($configHP)."\n"); 
-    
+    &pLog("Config changes which are being applied to config.conf files: ".
+      Dumper($configHP)."\n");
+      
+    # Gather a list of config files to be updated
     foreach my $m (@{$projAP}) {
-      if ($infoP->{$m}{'type'} eq 'dict') {next;}
-      if (!-e "$PRJDIR/$m/config.conf") {next;}
-      
-      &copy("$PRJDIR/$m/config.conf", "$PRJDIR/$m/config.conf.bak") 
+      $updated{$infoP->{$m}{'configProject'}}++;
+      if ($infoP->{$m}{'sourceProject'}) {
+        $updated{$infoP->{$m}{'sourceProject'}}++;
+      }
+    }
+    
+    # Update each config file in turn
+    foreach my $m (keys %updated) {
+      &copy("$PRJDIR/$m/config.conf", "$PRJDIR/$m/.config.conf.bak") 
         or die "Move failed: $!";
-        
-      my $proj = $infoP->{$m}{'configProject'};
-      if ($updated{"$PRJDIR/$proj/config.conf"}) {next;}
-      $updated{"$PRJDIR/$proj/config.conf"}++;
-      
-      open(INC, "<:encoding(UTF-8)", "$PRJDIR/$proj/config.conf.bak") 
+      open(INC, "<:encoding(UTF-8)", "$PRJDIR/$m/.config.conf.bak") 
         or die "Could not read: $!";
-      open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$proj/config.conf") 
+      open(OUTC, ">:encoding(UTF-8)", "$PRJDIR/$m/config.conf") 
         or die "Could not write: $!";
       
-      my $section = $proj;
+      my $section = $m;
       while(<INC>) {
         if ($_ =~ /^\[([^\]]+)\]\s*$/) {
           $section = $1;
@@ -570,9 +560,9 @@ sub updateConfigFiles {
             my $mod = ($sec =~ s/^([^:]+):// ? $1:'');
             foreach my $ec (keys %{$configHP->{$sc}}) {
               if ( $sec eq $section && $ec eq $e &&
-                    (!$mod || $mod eq $proj) ) {
+                    (!$mod || $mod eq $m) ) {
                 $_ = '#'.$_;
-                print "Commenting $proj config.conf: $_";
+                print "Commenting $m config.conf: $_";
               }
             }
           }
@@ -585,31 +575,29 @@ sub updateConfigFiles {
       foreach my $sc (keys %{$configHP}) {
         my $sec = $sc;
         my $mod = ($sec =~ s/^([^:]+):// ? $1:'');
-        if ($sc eq 'MAINMOD') {$sec = $proj;}
-        elsif ($sc eq 'DICTMOD') {$sec = $proj.'DICT';}
+        if ($sc eq 'MAINMOD') {$sec = $m;}
+        elsif ($sc eq 'DICTMOD') {$sec = $m.'DICT';}
         foreach my $ec (keys %{$configHP->{$sc}}) {
-          if ($mod && $mod ne $proj) {next;}
+          if ($mod && $mod ne $m) {next;}
           my $l1 = "[$sec]"; my $l2 = "$ec = ".$configHP->{$sc}{$ec};
-          print "Appending to $proj config.conf: $l1 $l2\n";
+          print "Appending to $m config.conf: $l1 $l2\n";
           print OUTC "$l1\n$l2\n\n";
         }
       }
       close(OUTC);
       
     }
-    &Log("Changed ".(scalar keys %updated)." config.conf files.\n");
+    &pLog("Changed ".(scalar keys %updated)." config.conf files.\n");
   }
   else {
-    foreach my $m (@{$projAP}) {
-      if ($infoP->{$m}{'type'} eq 'dict') {next;}
-      if (!-e "$PRJDIR/$m/config.conf.bak") {next;}
-      &move("$PRJDIR/$m/config.conf.bak", "$PRJDIR/$m/config.conf")
-        or &Log("Move failed: $!\n");
-      $updated{"$PRJDIR/$m/config.conf"}++;
+    my @fs = split(/\n+/, &shell("find \"$PRJDIR\" -name .config.conf.bak"));
+    foreach my $f (@fs) {
+      my $t = $f; $t =~ s/\.(config\.conf)\.bak$/$1/;
+      &move("$PRJDIR/$f", "$PRJDIR/$t");
     }
-    &Log("Restored ".(scalar keys %updated)." config.conf files.\n");
+    &pLog("Restored ".@fs." config.conf files.\n");
   }
-  &Log("\n");
+  &pLog("\n");
   
 }
 
@@ -680,22 +668,22 @@ sub timer {
   my $do = shift;
  
   if ($do =~ /start/i) {
-    &Log("start time: ".localtime()."\n");
+    &pLog("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
   }
   elsif ($do =~ /stop/i) {
-    &Log("\nend time: ".localtime()."\n");
+    &pLog("\nend time: ".localtime()."\n");
     if ($STARTTIME) {
       my $now = DateTime->now();
       my $e = $now->subtract_datetime($STARTTIME);
-      &Log("elapsed time: ".
+      &pLog("elapsed time: ".
             ($e->hours ? $e->hours." hours ":'').
             ($e->minutes ? $e->minutes." minutes ":'').
             $e->seconds." seconds\n");
     }
     $STARTTIME = '';
   }
-  else {&Log("\ncurrent time: ".localtime()."\n");}
+  else {&pLog("\ncurrent time: ".localtime()."\n");}
 }
 
 # Return the number of projects currently running, and print or log a 
@@ -717,7 +705,7 @@ sub working {
     else {$msg .= "Press p again to continue scheduling. ";}
     if (!$KILLED) {$msg .= "Press ESC to kill the scheduler.\n";}
     
-    if ($logOrPrint && $logOrPrint =~ /log/i) {&Log($msg);}
+    if ($logOrPrint && $logOrPrint =~ /log/i) {&pLog($msg);}
     elsif ($msg ne $LASTMSG) {
       print $msg;
       $LASTMSG = $msg;
@@ -749,12 +737,25 @@ sub readKey {
   }
 }
 
-sub Log {
+sub finish {
+
+  ReadMode 0;
+  
+  foreach my $th (threads->list()) {$th->join();}
+
+  &updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
+
+  &timer('stop');
+  
+  exit;
+}
+
+sub pLog {
   my $p = shift;
 
   print encode("utf8", $p);
   
-  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die;
+  open(LOGF, ">>:encoding(UTF-8)", $MYLOG) || die;
   print LOGF $p;
   close(LOGF);
 }

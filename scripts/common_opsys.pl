@@ -31,8 +31,12 @@ use File::Spec;
 # Initialized in entry script
 our ($SCRIPT, $SCRD);
 
-# Initialized in /scripts/bootstrap.pl 
-our ($READLAYER, $WRITELAYER, $APPENDLAYER);
+our $WRITELAYER  =  ">:encoding(UTF-8)";
+our $APPENDLAYER = ">>:encoding(UTF-8)";
+our $READLAYER   =  "<:encoding(UTF-8)";
+# crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
+if (&runningInVagrant()) {$READLAYER .= ":crlf";} 
+
 our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD, 
      $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
      
@@ -177,7 +181,6 @@ sub init_opsys {
     unlink("$SCRD/paths.pl");
   }
 
-  &update_configSystemSection(); # update old config.conf files that are missing the [system] section
   &applyCONF_system(); # this can only be run in init_opsys() without breaking Vagrant VM [system] paths
   
   if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
@@ -240,42 +243,6 @@ will run slower and use more memory.");
   
   &Error("You are not running osis-converters on compatible Linux and do not have vagrant/VirtualBox installed.", $vagrantInstallMessage);
   return 0;
-}
-
-# This is only needed to update old osis-converters projects that lack [system] config.conf sections
-sub update_configSystemSection {
-
-  if (!$CONFFILE || !-e $CONFFILE) {return;}
-  if (open(CXF, $READLAYER, $CONFFILE)) {
-    while (<CXF>) {if ($_ =~ /^\[system\]/) {return;}}
-    close(CXF);
-  }
-  else {&ErrorBug("update_configSystemSection could not open $CONFFILE for reading.");}
-    
-  if (open(CXF, $APPENDLAYER, $CONFFILE)) {
-    &Warn("UPDATE: config.conf has no [system] section. Updating...");
-    &Note("The paths.pl file which was used for various path variables
-and settings has now been replaced by the [system] section of the
-config.conf file. The paths.pl file will be deleted. Your config.conf
-will have a new [system] section. This means you may need to comment out 
-or change the OUTPUT entry in config.conf if your output files appear in
-an unexpected place.");
-    my $df = &getDefaultFile('bible/config.conf', 2);
-    if (!$df) {$df = &getDefaultFile('bible/config.conf', 3);}
-    my $sys = '';
-    if (open(DCF, $READLAYER, $df)) {
-      while(<DCF>) {
-        if ($sys && $_ =~ /^\[/) {last;}
-        if ($sys || $_ =~ /^\[system\]/) {$sys .= $_;}
-      }
-      close(DCF);
-    }
-    else {&ErrorBug("update_configSystemSection could not open $df for reading");}
-    &Warn("<-UPDATE: Appending to $CONFFILE:\n$sys");
-    print CXF "\n$sys";
-    close(CXF);
-  }
-  else {&ErrorBug("update_configSystemSection could not open $CONFFILE for appending");}
 }
 
 # Apply the config file 'system' section which contains customized 
@@ -434,17 +401,17 @@ sub readConf {
 # Read a config.conf file. Return hash pointer to the encoded config
 # data if successful or else undef.
 #
-# The config.conf file must start with [<main_module_name>] on the first 
-# line, followed by either CrossWire SWORD config entries or osis-con-
-# verters specific entries. All of these entries apply to the entire pro-
-# ject. Config entries may also be specified for only specific parts of 
-# the conversion process. This is done by starting a new config section 
-# with [<script_name>]. Then the following entries will only apply to 
-# that part of the conversion process. Any value for a particular script  
-# will overwrite the value of a general entry. The [system] section is 
-# special in that it allows the direct setting of global variables used 
-# by Perl. NOTE: The system section is applied to Perl globals by 
-# applyCONF_system().
+# The config.conf file must start with [<main-module-name>|MAINMOD] on  
+# the first line, followed by either CrossWire SWORD config entries or 
+# osis-converters specific entries. All of these entries apply to the 
+# entire project. Config entries may also be specified for only specific  
+# parts of the conversion process. This is done by starting a new config  
+# section with [<script_name>|<dict-module-name>|DICTMOD]. Then the 
+# following entries will only apply to that part of the conversion   
+# process. Any value for a particular script will overwrite the value of   
+# a general entry. The [system] section is special in that it allows the 
+# direct setting of global variables used by Perl. NOTE: The system 
+# section is applied to Perl globals by applyCONF_system().
 #
 # If the main project has a DICT sub-project, then its config entries 
 # should be specified in a [<DICTMOD>] section.
@@ -459,7 +426,7 @@ sub readConfFile {
   my $confP = shift;
   my $nowarn = shift;
   
-  my $sectRE = &configRE(@CONFIG_SECTIONS, $MAINMOD, $MAINMOD.'DICT');
+  my $sectRE = &configRE(@CONFIG_SECTIONS);
   my $contRE = &configRE(@CONTINUABLE_CONFIGS);
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
   
@@ -500,19 +467,20 @@ sub readConfFile {
       $section = $1;
       $continuingEntry = '';
       
-      if ($section !~ /$sectRE/) {
+      if ($. != 1 && $section !~ /$sectRE/ && $section ne $confP->{'MainmodName'} &&
+          $section ne $confP->{'MainmodName'}.'DICT') {
         &Error("Config file: '$file' unrecognized section: [$section]",
         "Allowable sections are: $sectRE");
-        $section = $MAINMOD;
+        $section = 'MAINMOD';
       }
       
-      if ($section eq 'MAINMOD') {$section = $MAINMOD;}
-      if ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
+      if    ($section eq 'MAINMOD') {$section = $MAINMOD;}
+      elsif ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
       
-      if ($section eq $MAINMOD) {
+      if ($. == 1) {
         $confP->{'MainmodName'} = $section;
       }
-      elsif ($section eq $MAINMOD.'DICT') {
+      elsif ($section eq $confP->{'MainmodName'}.'DICT') {
         $confP->{'DictmodName'} = $section;
       }
     }
@@ -1155,13 +1123,15 @@ sub Log {
   $p =~ s/&lt;/</g; $p =~ s/&gt;/>/g; $p =~ s/&amp;/&/g;
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
   
-  if ($p =~ /ERROR/) {
-    my $ne = &conf('ARG_noErr');
-    if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
-  }
-  elsif ($p =~ /^[\n\s]*WARNING\:/) {
-    my $nw = &conf('ARG_noWarning');
-    if ($nw && $p =~ /$nw/) {return;}
+  if ($CONF) {
+    if ($p =~ /ERROR/) {
+      my $ne = &conf('ARG_noErr');
+      if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
+    }
+    elsif ($p =~ /^[\n\s]*WARNING\:/) {
+      my $nw = &conf('ARG_noWarning');
+      if ($nw && $p =~ /$nw/) {return;}
+    }
   }
   
   if ($flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
@@ -1276,18 +1246,18 @@ sub shell {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
   my $allowNonZeroExit = shift;
-  
+ 
   my $result = `$cmd 2>&1`;
   my $error = $?; $error = ($allowNonZeroExit ? 0:$error);
   $result = decode('utf8', $result);
-  
+
   if ($DEBUG || $error != 0) {$flag = 1;}
-  
+
   &Log("\n$cmd\n", $flag);
   &Log($result."\n", $flag);
-  
+
   if ($error != 0) {&ErrorBug("Shell command error code $error");}
-  
+
   return $result;
 }
 
