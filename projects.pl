@@ -108,7 +108,7 @@ foreach my $m (sort keys %{$INFO}) {
   if ($MODRE && $MODRE !~ /^all$/i && $m !~ /^$MODRE$/) {next;}
   if ($SKIP && $m =~ /$SKIP/) {next;}
   
-  if ($INFO->{$m}{'updated'}) {
+  if ($INFO->{$m}{'runable'}) {
     push(@MODULES, $m);
     
     my $dict = &hasDICT($m);
@@ -253,14 +253,14 @@ sub getProjectInfo {
       next;
     }
     
-    # sourceProject is osis2osis source project, or empty 
-    # if OSIS will be created by sfm2osis.
-    # configProject is the the MAIN module of a project or the 
-    # MAIN module of the sourceProject if there is one.
-      
-    # Projects with a CF_osis2osis.txt file may not have their own 
-    # config.conf file until after osis2osis is run, so this script
-    # uses the sourceProject's config.conf when necessary.
+    # - sourceProject is osis2osis source project, or else undef 
+    # if OSIS will be created by sfm2osis (the usual case).
+    # - configProject is the the MAIN module of a project if it has a
+    # config.conf or else the MAIN module of the sourceProject if there 
+    # is a sourceProject with a config.conf (projects with a 
+    # CF_osis2osis.txt file might not have their own config.conf file 
+    # until after osis2osis is run, so this script may reference the 
+    # sourceProject's config.conf in such a case).
     
     if (-e "$pdir/$proj/CF_osis2osis.txt") {
       open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") 
@@ -269,8 +269,8 @@ sub getProjectInfo {
         if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
           my $sourceProject = $1;
           # If CF_osis2osis.txt has SET_sourceProject, its modules are
-          # considered updated and runnable.
-          $info{$proj}{'updated'}++;
+          # considered runnable.
+          $info{$proj}{'runable'}++;
           $info{$proj}{'sourceProject'} = $sourceProject;
           $info{$proj}{'configProject'} = $sourceProject;
         }
@@ -279,40 +279,36 @@ sub getProjectInfo {
         }
       }
       close(CF);
-      next;
     }
     
-    elsif (!-e "$pdir/$proj/config.conf") {next;}
+    if (!-e "$pdir/$proj/config.conf") {next;}
+    $info{$proj}{'configProject'} = $proj;
     
-    # Projects where config.conf contains [system] are considered updated
-    elsif (&shell("grep '\\[system\\]' \"$pdir/$proj/config.conf\"", 3, 1)) {
-      $info{$proj}{'updated'}++;
-      $info{$proj}{'configProject'} = $proj;
-      our $CONF; &set_main_globals("$pdir/$proj", 'none');
-      foreach my $k (keys %{$CONF}) {$info{$proj}{$k} = $CONF->{$k};}
+    # Projects where config.conf contains [system] are considered runnable
+    my $cp = $info{$proj}{'configProject'};
+    if (&shell("grep '\\[system\\]' \"$pdir/$cp/config.conf\"", 3, 1)) {
+      $info{$proj}{'runable'}++;
+      if (!defined($info{$cp}{'MainmodName'})) {
+        our $CONF; &set_configuration_globals("$pdir/$cp", 'none');
+        foreach my $k (keys %{$CONF}) {$info{$cp}{$k} = $CONF->{$k};}
+      }
     }
-    
-    else {$info{$proj}{'configProject'} = $proj;}
   }
   
   # Create info for dict modules now
   foreach my $proj (keys %info) {
     if (!&hasDICT($proj, \%info)) {next;}
-    
-    my $sproj = ($info{$proj}{'sourceProject'} ? 
-                 $info{$proj}{'sourceProject'} : $proj);
-    
-    $info{$proj.'DICT'}{'updated'}++;
-    $info{$proj.'DICT'}{'configProject'} = $sproj;
-    
-    if ($proj ne $sproj) {
-      $info{$proj.'DICT'}{'sourceProject'} = $sproj;
+    # Only runnable DICT modules are returned by hasDICT()
+    $info{$proj.'DICT'}{'runable'}++;
+    $info{$proj.'DICT'}{'configProject'} = $info{$proj}{'configProject'};
+    if ($info{$proj}{'sourceProject'}) {
+      $info{$proj.'DICT'}{'sourceProject'} = $info{$proj}{'sourceProject'};
     }
   }
   
-  # Add all main and dict module types
+  # Add module types
   foreach my $m (keys %info) {
-    if (!$info{$m}{'updated'}) {next;}
+    if (!$info{$m}{'runable'}) {next;}
     
     my $cproj = $info{$m}{'configProject'};
     my $c2proj = ($m =~ /DICT$/ ? $cproj.'DICT':$cproj);
@@ -399,8 +395,10 @@ sub getScriptsToRun {
 }
 
 # Set dependencies for each conversion. Each dependency is a string with 
-# script and a module, like: "$s $m", such that the given script must be 
-# run on the given module before the dependency is considered met.
+# script and module, like: "$s $m", such that the given script must be 
+# run on the given module before that dependency is considered met. Each
+# conversion has an array of these dependencies, all of which need to be
+# met before the conversion should be run.
 sub setDependencies {
   my $depsHP = shift;
   my $runAP = shift;
@@ -526,21 +524,21 @@ sub updateConfigFiles {
     return;
   }
   
-  my %updated;
   if (!$restore) {
     &pLog("Config changes which are being applied to config.conf files: ".
       Dumper($configHP)."\n");
       
-    # Gather a list of config files to be updated
+    # Gather a list of unique config files to update
+    my %update;
     foreach my $m (@{$projAP}) {
-      $updated{$infoP->{$m}{'configProject'}}++;
+      $update{$infoP->{$m}{'configProject'}}++;
       if ($infoP->{$m}{'sourceProject'}) {
-        $updated{$infoP->{$m}{'sourceProject'}}++;
+        $update{$infoP->{$m}{'sourceProject'}}++;
       }
     }
     
     # Update each config file in turn
-    foreach my $m (keys %updated) {
+    foreach my $m (keys %update) {
       &copy("$PRJDIR/$m/config.conf", "$PRJDIR/$m/.config.conf.bak") 
         or die "Move failed: $!";
       open(INC, "<:encoding(UTF-8)", "$PRJDIR/$m/.config.conf.bak") 
@@ -587,7 +585,7 @@ sub updateConfigFiles {
       close(OUTC);
       
     }
-    &pLog("Changed ".(scalar keys %updated)." config.conf files.\n");
+    &pLog("Changed ".(scalar keys %update)." config.conf files.\n");
   }
   else {
     my @fs = split(/\n+/, &shell("find \"$PRJDIR\" -name .config.conf.bak"));
@@ -609,9 +607,9 @@ sub hasDICT {
   
   $infoP = ($infoP ? $infoP:$INFO);
   
-  # Only updated projects are considered
+  # Only runable projects can have dictionaries
   my $dict;
-  if ($infoP->{$m}{'updated'}) {
+  if ($infoP->{$m}{'runable'}) {
   
     # If this project has a sourceProject, we must look at 
     # sourceProject's conf.

@@ -19,11 +19,12 @@
 
 # This script might be run on Linux, MS-Windows, or MacOS operating systems.
 
-# This is the starting point for all osis-converter scripts. The opsys 
-# is checked, global variables are initialized or cleaned up, and 
-# common.pl is loaded.
+# This is the starting point for all osis-converter scripts. Global 
+# variables are initialized, the operating system is checked and a Linux 
+# VM is utilized with Vagrant if necessary, and finally init_linux_script() 
+# is run to initialize the osis-converters script.
 
-# Main scripts are usually called the following way, having X replaced 
+# Scripts are usually called the following way, having N replaced 
 # by the calling script's proper sub-directory depth (and don't bother
 # trying to shorten anything since 'require' only handles absolute 
 # paths, and File::Spec->rel2abs(__FILE__) is the only way to get the 
@@ -41,36 +42,52 @@ our ($SCRIPT, $SCRD);
 require "$SCRD/scripts/common_opsys.pl";
 
 sub init() {
-  my $inpd = shift;
-  my $logf = shift;
+  my $inpd = shift; # project directory
+  my $logf = shift; # log file (undef=default-log|<path>=append-to-log|'none'=no-log)
   
-  &set_main_globals($inpd, $logf);
-  
-  # Check that this is a provisioned Linux system (and try restarting in
-  # Vagrant if it is not). Also set Perl global variables defined in the
-  # config.conf [system] section.
+  # Set Perl globals associated with the project configuration
+  &set_configuration_globals($inpd, $logf);
+
+  # Set Perl global variables defined in the [system] section of config.conf.
+  &set_system_globals();
+  &DebugListVars('SCRD', 'SCRIPT', 'LOGFILE', 'SCRIPT_NAME', 'MOD', 
+      'INPD', 'MAINMOD', 'MAININPD', 'DICTMOD', 'DICTINPD',
+      our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 'NO_OUTPUT_DELETE');
+
+  # Check that this is a provisioned Linux system (otherwise restart in 
+  # Vagrant if possible, and then exit when Vagrant is finished).
   if (!&init_opsys()) {exit;}
   
-  # From here on we're running in Linux (either locally or on a VM)
+  # From here on out we're always running on a provisioned Linux system
+  # (either natively or as a VM).
   require "$SCRD/scripts/functions/common.pl";
+  
   &init_linux_script();
+  &DebugListVars('OUTDIR', 'MOD_OUTDIR', 'TMPDIR', 'LOGFILE', 'SCRIPT_NAME');
 }
 
-sub set_main_globals {
+sub set_configuration_globals {
   our $INPD = shift;
 
-  # If $LOGFILE is not passed then a new clean one will be started, named $SCRIPT_NAME, during init_linux_script().
-  # If $LOGFILE is passed, that one will be appended to, or, if the passed value is 'none', there will be no log file.
-  our $LOGFILE = shift; # the special value of 'none' will print to the console with no log file created
+  # If $LOGFILE is undef then a new log file named $SCRIPT_NAME will be 
+  # started by init_linux_script().
+  # If $LOGFILE is 'none' then no log file will be created but log info 
+  # will be printed to the console.
+  # If $LOGFILE is a file path then that file will be appended to.
+  our $LOGFILE = shift;
 
   $SCRIPT =~ s/\\/\//g;
   $SCRD   =~ s/\\/\//g;
 
   $INPD = File::Spec->rel2abs($INPD);
   $INPD =~ s/\\/\//g;
-  $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//; # allow using a subdir as project dir
-  $INPD = &shortLinuxPath($INPD); # works even for MS-Windows because of '\' replacement done above
-  if (!-e $INPD) {die "Error: Project directory \"$INPD\" does not exist. Check your command line.\n";}
+  # Allow using a project subdirectory as $INPD argument
+  $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//;
+  # This works even for MS-Windows because of '\' replacement done above
+  $INPD = &shortLinuxPath($INPD);
+  if (!-e $INPD) {die 
+"Error: Project directory \"$INPD\" does not exist. Check your command line.\n";
+  }
     
   if ($LOGFILE && $LOGFILE ne 'none') {
     $LOGFILE = File::Spec->rel2abs($LOGFILE);
@@ -82,9 +99,9 @@ sub set_main_globals {
   # which case SCRIPT_NAME is inherited for &conf() values to be correct.
   if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
 
-  # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated after 
-  # checkAndWriteDefaults() in case a new dictionary is discovered in the 
-  # USFM).
+  # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated  
+  # after checkAndWriteDefaults() in case a new dictionary is discovered 
+  # in the USFM).
   our $MOD = $INPD; $MOD =~ s/^.*\///;
   our ($MAINMOD, $DICTMOD, $MAININPD, $DICTINPD); 
   if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
@@ -108,13 +125,18 @@ sub set_main_globals {
   our $CONF;
   our $CONFFILE = "$MAININPD/config.conf";
   if (-e $CONFFILE) {&readSetCONF();}
-  # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
+  # $DICTMOD will be empty if there is no dictionary module for the 
+  # project, but $DICTINPD always has a value
   {
-   my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || $CONF->{"$MAINMOD+Companion"} =~ /\b$cn\b/ ? $cn:'');
+   my $cn = "${MAINMOD}DICT"; 
+   $DICTMOD = (
+      $INPD eq $DICTINPD || $CONF->{"$MAINMOD+Companion"} =~ /\b$cn\b/ 
+      ? $cn : '' );
   }
 
   # Allow running MAININPD-only scripts from a DICT sub-project
-  if ($INPD eq $DICTINPD && $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
+  if ($INPD eq $DICTINPD && 
+    $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
     $INPD = $MAININPD;
     $MOD = $MAINMOD;
   }
@@ -135,6 +157,8 @@ sub set_main_globals {
   sfm2osis.pl on the main module, then ALSO include a CF_usfm2osis.txt 
   file in the main module directory.", 1);
   }
+  
+  if (our $NO_OUTPUT_DELETE) {our $DEBUG = 1;}
 }
 
 1;

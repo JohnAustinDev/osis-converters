@@ -40,7 +40,8 @@ if (&runningInVagrant()) {$READLAYER .= ":crlf";}
 our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD, 
      $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
      
-# Config.conf [system] globals initialized in applyCONF_system
+# Config.conf [system] globals initialized in set_system_globals 
+# (see @OC_SYSTEM_CONFIGS below).
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
   $OUTDIR, $FONTS, $COVERS, $EBOOKS, $DEBUG, $NO_OUTPUT_DELETE, 
   $VAGRANT, $NO_FORKS);
@@ -96,6 +97,10 @@ our @OC_SYSTEM_CONFIGS = (
   'OUTDIR', 'FONTS', 'COVERS', 'EBOOKS', 'DEBUG', 'NO_OUTPUT_DELETE', 
   'VAGRANT', 'NO_FORKS'
 );
+
+# These are the [system] path variables
+our @OC_SYSTEM_PATH_CONFIGS = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 
+  'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
 
 # CrossWire SWORD entries which may be localized by appending _code
 our @SWORD_LOCALIZABLE_CONFIGS = (
@@ -169,29 +174,17 @@ our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
 
 our $DICTIONARY_WORDS = "DictionaryWords.xml";
 
-# Initializes more global path variables, checks operating system and 
-# dependencies, and restarts with Vagrant if necessary. If checking and
-# initialization is successful 1 is returned so the script can commence.
+# Initializes [system] global variables, checks operating system and 
+# dependencies, and restarts on a Vagrant VM if necessary. If this
+# instance is a Linux system with all necessary dependencies, then 1
+# is returned, otherwise 0 is returned (which should result in an exit).
 sub init_opsys {
 
   chdir($INPD);
   
-  if (-e "$SCRD/paths.pl") {
-    &Warn("UPDATE: Removing outdated file: $SCRD/paths.pl");
-    unlink("$SCRD/paths.pl");
-  }
-
-  &applyCONF_system(); # this can only be run in init_opsys() without breaking Vagrant VM [system] paths
-  
-  if ($NO_OUTPUT_DELETE) {$DEBUG = 1;}
-  &Debug("osis-converters ".(&runningInVagrant() ? "on virtual machine":"on host").":
-\tSCRD=$SCRD
-\tSCRIPT=$SCRIPT
-\tINPD=$INPD
-\tLOGFILE=$LOGFILE
-\tSCRIPT_NAME=$SCRIPT_NAME\n");
-  
-  my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):''); # Mint is like Ubuntu but with totally different release info! $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
+  # Mint is like Ubuntu but with totally different release info! 
+  # $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
+  my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):'');
   my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
   
   # Start the script if we're already running on a VM and/or have dependencies met.
@@ -230,8 +223,7 @@ You are running a compatible version of Linux, so you have two options:
 osis-converters\$ sudo provision.sh
 2) Run with Vagrant by adding 'VAGRANT=1' to the [system] section 
 of config.conf.
-NOTE: Option #2 requires that Vagrant and VirtualBox be installed and 
-will run slower and use more memory.");
+NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
     return 0;
   }
   
@@ -245,18 +237,12 @@ will run slower and use more memory.");
   return 0;
 }
 
-# Apply the config file 'system' section which contains customized 
-# paths to things like fonts and executables (it also contains some 
-# settings like $DEBUG). NOTE: applyCONF_system() can only be run from 
-# init_opsys(), because two passes are necessary to set proper paths
-# when Vagrant is being used.
-sub applyCONF_system {
+# Apply the config file's [system] section directly to Perl globals. 
+# NOTE: This must be run before init_opsys(), because two passes are 
+# necessary to set working @OC_SYSTEM_PATH_CONFIGS for Vagrant.
+sub set_system_globals {
 
   no strict "refs";
-  
-  # The following host paths are converted to absolute paths which may 
-  # later be updated to work on the VM if running in Vagrant.
-  my @pathvars = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR', 'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
   foreach my $sysentry (@OC_SYSTEM_CONFIGS) {
     my $v = &conf($sysentry, undef, undef, undef, 1);
@@ -266,13 +252,13 @@ sub applyCONF_system {
   
   if (!&runningInVagrant()) {
     # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
-    foreach my $v (@pathvars) {
+    foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
       if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
       if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
       if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
     }
     if (open(SHL, $WRITELAYER, "$SCRD/.hostinfo")) {
-      foreach my $v (@pathvars) {
+      foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
         if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
         my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
         $rel2vhs =~ s/\\/\//g; # this relative path is for the Linux VM
@@ -286,7 +272,7 @@ sub applyCONF_system {
   else {
     # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
     require("$SCRD/.hostinfo");
-    foreach my $v (@pathvars) {
+    foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
       if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
       $$v = "$VAGRANT_HOME/INDIR_ROOT/$$v";
     }
@@ -312,12 +298,6 @@ sub applyCONF_system {
     if (!$$v) {next;}
     $$v =~ s/([^\/])$/$1\//;
   }
-  
-  my $dbgmsg = "system configs ".(&runningInVagrant() ? "on virtual machine":"on host").":\n";
-  foreach my $v (@pathvars) {$dbgmsg .= "\t$v = $$v\n";}
-  $dbgmsg .= "\tvagantHostShare=".&vagrantHostShare()."\n";
-  $dbgmsg .= "\tVAGRANT=$VAGRANT\n\tNO_OUTPUT_DELETE=$NO_OUTPUT_DELETE\n";
-  &Debug($dbgmsg, 1);
 }
 
 # Read the subdirectories of $dir as sub-publication scopes and return
@@ -369,6 +349,34 @@ subpub:
   return @scopes;
 }
 
+sub readSetCONF {
+
+  # NOTE: Perl variables from the [system] section of config.conf are only 
+  # set by set_system_globals().
+
+  our $CONF = &readConf();
+  if (!$CONF) {return 0;}
+  
+  my $mainmod = $CONF->{'MainmodName'};
+  my $dictmod = $CONF->{'DictmodName'};
+  
+  # Apply config Defaults
+  my $configRE = &configRE(@OC_CONFIGS);
+  foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
+    if (exists($CONFIG_DEFAULTS{$e})) {
+      if (!exists($CONF->{"$mainmod+$e"})) {
+        $CONF->{"$mainmod+$e"} = $CONFIG_DEFAULTS{$e};
+      }
+    }
+    elsif ($e =~ /$configRE/ && $e !~ /^MATCHES\:/) {
+      &ErrorBug("OC_CONFIGS $e should have a default value.");
+    }
+  }
+  
+  #use Data::Dumper; &Debug(Dumper($CONF)."\n");
+  return 1;
+}
+
 # Read the configuration files for the project. Returns a hash pointer
 # with configuration key => value pairs. The configuration file(s) are
 # read in the following order:
@@ -409,9 +417,8 @@ sub readConf {
 # section with [<script_name>|<dict-module-name>|DICTMOD]. Then the 
 # following entries will only apply to that part of the conversion   
 # process. Any value for a particular script will overwrite the value of   
-# a general entry. The [system] section is special in that it allows the 
-# direct setting of global variables used by Perl. NOTE: The system 
-# section is applied to Perl globals by applyCONF_system().
+# a general entry. The [system] section is special in that it results in
+# the direct setting of Perl global variables (see set_system_globals()).
 #
 # If the main project has a DICT sub-project, then its config entries 
 # should be specified in a [<DICTMOD>] section.
@@ -533,42 +540,14 @@ sub readConfFile {
   return $confP;
 }
 
-sub readSetCONF {
-
-  # Perl variables from the [system] section of config.conf are only 
-  # set by applyCONF_system() and they are NOT set by readSetCONF().
-
-  our $CONF = &readConf();
-  if (!$CONF) {return 0;}
-  
-  my $mainmod = $CONF->{'MainmodName'};
-  my $dictmod = $CONF->{'DictmodName'};
-  
-  # Apply config Defaults
-  my $configRE = &configRE(@OC_CONFIGS);
-  foreach my $e (@OC_CONFIGS, @SWORD_CONFIGS) {
-    if (exists($CONFIG_DEFAULTS{$e})) {
-      if (!exists($CONF->{"$mainmod+$e"})) {
-        $CONF->{"$mainmod+$e"} = $CONFIG_DEFAULTS{$e};
-      }
-    }
-    elsif ($e =~ /$configRE/ && $e !~ /^MATCHES\:/) {
-      &ErrorBug("OC_CONFIGS $e should have a default value.");
-    }
-  }
-  
-  #use Data::Dumper; &Debug(Dumper($CONF)."\n");
-  return 1;
-}
-
 # $CONF contains encoded data from the config.conf file. This function, 
 # when used with only one argument, returns the proper value of a config 
 # parameter, taking into account the context of $MOD and $SCRIPT_NAME. 
 # Also, when passing explicit values for $mod and/or $script_name, the 
-# config value for any other context can also be read. If $quiet is set
+# config value for any other context can also be read. If $quiet is set,
 # return value checking is disabled, and system values are also retriev-
 # able (normally system values should only be retrieved from the Perl
-# global which shares the system entry's name).
+# global variable which shares the system entry's name).
 sub conf {
   my $entry = shift;
   my $mod = shift;         # optional, default is $MOD
@@ -924,6 +903,8 @@ sub vagrantInstalled {
   return $pass;
 }
 
+# Start the current script on a Vagrant VM, wait until it finishes, and 
+# then return.
 sub restart_with_vagrant {
 
   if (!-e "$SCRD/Vagrantcustom" && open(VAGC, $WRITELAYER, "$SCRD/Vagrantcustom")) {
@@ -1098,6 +1079,13 @@ sub Debug {
   if ($DEBUG) {&Log("DEBUG: $dbgmsg", ($flag ? $flag:1));}
 }
 
+sub DebugListVars {
+  my $m = "Variables ".(&runningInVagrant() ? "on virtual machine:\n":"on host:\n");
+  no strict "refs";
+  foreach my $v (@_) {$m .= "\t$v=$$v\n";}
+  &Debug($m, 1);
+}
+
 sub Report {
   my $rptmsg = shift;
   my $flag = shift;
@@ -1222,6 +1210,12 @@ sub escarg {
   return '"'.$n.'"';
 }
 
+sub urlencode {
+  my $s = shift;
+  $s =~ s/([\Q "<>`#?{}\E])/sprintf("%%%02X", ord($1))/seg;
+  return $s;
+}
+
 sub isFolderEmpty { 
   my $dirname = shift;
 
@@ -1259,12 +1253,6 @@ sub shell {
   if ($error != 0) {&ErrorBug("Shell command error code $error");}
 
   return $result;
-}
-
-sub urlencode {
-  my $s = shift;
-  $s =~ s/([\Q "<>`#?{}\E])/sprintf("%%%02X", ord($1))/seg;
-  return $s;
 }
 
 1;

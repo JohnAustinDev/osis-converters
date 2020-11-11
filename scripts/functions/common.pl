@@ -47,7 +47,8 @@ our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, @SWORD_OC_CONFIGS,
     @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
     $OSIS_NAMESPACE, @CONFIG_SECTIONS);
     
-# config.conf [system] globals initialized in common_opsys.pl's applyCONF_system()
+# Config.conf [system] globals initialized in set_system_globals 
+# (see @OC_SYSTEM_CONFIGS in common_opsys.pl).
 our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
     $OUTDIR, $FONTS, $COVERS, $EBOOKS, $DEBUG, $NO_OUTPUT_DELETE, 
     $VAGRANT);
@@ -114,7 +115,7 @@ require("$SCRD/scripts/functions/dictionaryWords.pl");
 require("$SCRD/scripts/objects.pl");
 
 sub init_linux_script {
-  # Global $forkScriptName will only be set when running in fork.pl, in  
+  # Global $forkScriptName will only be set when running from fork.pl, in  
   # which case SCRIPT_NAME is inherited for &conf() values to be correct.
   if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
   
@@ -130,7 +131,9 @@ sub init_linux_script {
   
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
-  # If appropriate, do either runCF_osis2osis(preinit) OR checkAndWriteDefaults() (but never both, since osis2osis also creates input control files)
+  # If appropriate, do either runCF_osis2osis(preinit) OR 
+  # checkAndWriteDefaults(), but never both, since osis2osis also 
+  # creates input control files.
   if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT =~ /(?<!osis2osis)\/(osis2osis|sfm2all)\.pl$/) {
     require("$SCRD/scripts/osis2osis/functions.pl");
     &runCF_osis2osis('preinit');
@@ -185,18 +188,6 @@ sub init_linux_script {
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
   
   $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
-  
-  &Debug("Linux script ".(&runningInVagrant() ? "on virtual machine":"on host").":
-\tOUTDIR=$OUTDIR
-\tMOD_OUTDIR=$MOD_OUTDIR
-\tTMPDIR=$TMPDIR
-\tLOGFILE=$LOGFILE
-\tSCRIPT_NAME=$SCRIPT_NAME
-\tMAININPD=$MAININPD
-\tMAINMOD=$MAINMOD
-\tDICTINPD=$DICTINPD
-\tDICTMOD=$DICTMOD
-\tMOD=$MOD\n\n");
   
   if ($SCRIPT_NAME =~ /^update$/) {return;}
   
