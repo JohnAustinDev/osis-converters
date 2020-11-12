@@ -201,14 +201,6 @@ sub init_linux_script {
   
   if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
   
-  if (!$OUTDIR) {
-    &Error("OUTDIR must be specified in config.conf.", 
-"For publication of output files, OUTDIR must be set in 
-config.conf to the path of the output file repository. Otherwise output 
-files will be written locally to $INPD/output. 
-OUTDIR may only be unspecified during development and debugging.");
-  }
-  
   if ($DEBUG) {
     &Error("DEBUG is set in config.conf.", 
 "For publication of output files, DEBUG needs to be commented out or 
@@ -220,13 +212,13 @@ and debugging.");
 sub logGitRevs {
 
   chdir($MAININPD);
-  my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($inpdGit);
-  my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3):''); chomp($inpdOriginGit);
+  my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3, 1); chomp($inpdGit);
+  my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3, 1):''); chomp($inpdOriginGit);
   
   chdir($SCRD);
-  my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3); chomp($scrdGit);
+  my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3, 1); chomp($scrdGit);
   
-  my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3); chomp($modtoolsGit);
+  my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3, 1); chomp($modtoolsGit);
   
   &Log("osis-converters git rev: $scrdGit\n");
   &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
@@ -1564,7 +1556,7 @@ sub writeConf {
   my %defaults;
   my $oc = &getDefaultFile('defaults.conf', -1);
   if (-e $oc) {
-    &readConfFile($oc, \%defaults, 1);
+    &readConfFile($oc, \%defaults, undef, 1);
   }
   
   my $confdir = $conf; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
@@ -2178,6 +2170,13 @@ sub isDict {
 
 sub getModuleOutputDir {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
+  
+  if ($OUTDIR && ! -d $OUTDIR) {
+    $OUTDIR = undef;
+    &Error("OUTDIR is not an existing directory.", 
+"OUTDIR has been set to a non-existent directory in:\n" . &findConf('OUTDIR') . "\n" .
+"Change it to the path of a directory where output files can be written.");
+  }
   
   my $moddir;
   if ($OUTDIR) {$moddir = "$OUTDIR/$mod";}

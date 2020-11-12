@@ -37,8 +37,8 @@ our $READLAYER   =  "<:encoding(UTF-8)";
 # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
 if (&runningInVagrant()) {$READLAYER .= ":crlf";} 
 
-our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD, 
-     $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
+our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $CONFSRC,
+     $MOD, $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
      
 # Config.conf [system] globals initialized in set_system_globals 
 # (see @OC_SYSTEM_CONFIGS below).
@@ -354,7 +354,7 @@ sub readSetCONF {
   # NOTE: Perl variables from the [system] section of config.conf are only 
   # set by set_system_globals().
 
-  our $CONF = &readConf();
+  $CONF = &readConf(\$CONFSRC);
   if (!$CONF) {return 0;}
   
   my $mainmod = $CONF->{'MainmodName'};
@@ -385,24 +385,26 @@ sub readSetCONF {
 # Also 'Include:<config>' statements can be used to load other config
 # files as well, which are read if/when they are encountered.
 sub readConf {
+  my $confsrcA = shift;
   
-  my (%c1, %c2);
+  my (%c1, %c2, %f1, %f2);
   
   my $oc = &getDefaultFile('defaults.conf', -1);
   if (-e $oc) {
-    &readConfFile($oc, \%c1, 1);
+    &readConfFile($oc, \%c1, \%f1, 1);
   }
   
-  &readConfFile($CONFFILE, \%c2);
-  foreach my $k (keys %c2) {$c1{$k} = $c2{$k};}
+  &readConfFile($CONFFILE, \%c2, \%f2);
+  foreach my $k (keys %c2) {$c1{$k} = $c2{$k}; $f1{$k} = $f2{$k};}
   
   if (!$c1{"MainmodName"}) {
     &Error("No module name in $CONFFILE", 
     "Specify the module name in config.conf like this: [$MAINMOD]", 1);
   }
 
-  #use Data::Dumper; &Log(Dumper(\%conf)."\n", 1);
+  #use Data::Dumper; &Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
   
+  if ($confsrcA) {$$confsrcA = \%f1;}
   return \%c1;
 }
 
@@ -428,9 +430,14 @@ sub readConf {
 #
 # Values of @CONTINUABLE_CONFIGS entries may continue from one line to 
 # the next when their line(s) end with '\'.
+#
+# If hash pointer $confsrcP is provided, it will be filled with key
+# source-file data, so the source file of a particular conf value can
+# later be determined by findConf().
 sub readConfFile {
   my $file = shift;
   my $confP = shift;
+  my $confsrcP = shift;
   my $nowarn = shift;
   
   my $sectRE = &configRE(@CONFIG_SECTIONS);
@@ -462,7 +469,7 @@ sub readConfFile {
         $confFile = "$root/$confFile";
       }
       else {$confFile = &expandLinuxPath($confFile);}
-      if (-e $confFile) {&readConfFile($confFile, $confP);}
+      if (-e $confFile) {&readConfFile($confFile, $confP, $confsrcP, $nowarn);}
       elsif ($confFile !~ /\.defaults\.conf$/) {
         &Error("Include file: '$confFile' not found (at $file line $.)",
         "The Include value must be a full path or a relative path to an existing config file.");
@@ -500,6 +507,7 @@ sub readConfFile {
       $continuingEntry = '';
       if (!exists($confP->{$fullEntry})) {
         $confP->{$fullEntry} = $v;
+        $confsrcP->{$fullEntry} = $file;
       }
       else {
         # if this entry supports multiple values, then append another value
@@ -513,6 +521,7 @@ sub readConfFile {
             is now=$v. $_");
           }
           $confP->{$fullEntry} = $v;
+          $confsrcP->{$fullEntry} = $file;
         }
       }
       
@@ -540,6 +549,18 @@ sub readConfFile {
   return $confP;
 }
 
+# Return the config source file path which specified the requested entry.
+sub findConf {
+  my $entry = shift;
+  my $mod = shift;         # optional, default is $MOD
+  my $script_name = shift; # optional, default is $SCRIPT_NAME
+  
+  my $key = &conf($entry, $mod, $script_name, undef, 1, 1);
+  if (!$key) {return;}
+  
+  return $CONFSRC->{$key};
+}
+
 # $CONF contains encoded data from the config.conf file. This function, 
 # when used with only one argument, returns the proper value of a config 
 # parameter, taking into account the context of $MOD and $SCRIPT_NAME. 
@@ -554,6 +575,7 @@ sub conf {
   my $script_name = shift; # optional, default is $SCRIPT_NAME
   my $autoContext = shift; # optional, context for AUTO values
   my $quiet = shift;       # optional, set to disable value checking for reading system entries or other reasons
+  my $getKey = shift;      # return the key, not the value
   
   $mod = ($mod ? $mod:$MOD);
   $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
@@ -579,6 +601,7 @@ sub conf {
     &ErrorBug("Config request $entry is in the [system] section; use " . 
     "\$$entry rather than &conf('$entry') to access [system] section values.");
   }
+  if ($getKey) {return $key;}
 
   #&Debug("entry=$entry, config-key=$key, value=".$CONF->{$key}."\n");
   
@@ -1010,7 +1033,7 @@ sub Error {
   my $n1 = ($errmsg =~ s/^<\-// ? '':"\n");
 
   &Log($n1."ERROR: $errmsg\n", 1);
-  if ($solmsg) {&Log("SOLUTION: $solmsg\n", 1);}
+  if ($solmsg) {&Log("SOLUTION: $solmsg\n\n", 1);}
   
   if ($doDie) {&Log("Exiting...\n", 1); exit;}
 }
