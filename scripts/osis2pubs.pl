@@ -25,7 +25,7 @@ use strict;
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
-    %OSISBOOKS, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
+    %OSIS_ABBR, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
@@ -1171,7 +1171,7 @@ the eBooks at $PUBOUT into appropriate sub-directories yourself.");
     $result{'type'}{$ptype} = "/$dirname";
     
     # Test that result is a scope
-    $pscope =~ /^([^_\-]+)/; if (!defined($OSISBOOKS{$1})) {next;}
+    $pscope =~ /^([^_\-]+)/; if (!defined($OSIS_ABBR{$1})) {next;}
     
     my $scope = $pscope; $scope =~ s/_/ /g;
     if ($result{'scope'}{$scope}) {next;} # keep first found

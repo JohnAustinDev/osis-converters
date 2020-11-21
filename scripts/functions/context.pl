@@ -42,7 +42,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, %OSISBOOKS, $OSISBOOKSRE, $NT_BOOKS, $OT_BOOKS, 
+our ($XPC, $XML_PARSER, %OSIS_ABBR, $OSISBOOKSRE, %OSIS_GROUP, 
     $DICTIONARY_WORDS);
 
 my %ALREADY_NOTED_RESULT;
@@ -58,12 +58,12 @@ sub getContextAttributeHash {
     if ($ref eq 'ALL') {undef(%h); $h{'all'}++; return \%h;}
     
     # Handle whole book
-    elsif ($OSISBOOKS{$ref}) {$h{'books'}{$ref}++;}
+    elsif (defined($OSIS_ABBR{$ref})) {$h{'books'}{$ref}++;}
     
     # Handle keywords OT and NT
     elsif ($ref =~ /^(OT|NT)$/) {
       $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '1':'2').'.0'}++;
-      foreach my $bk (split(/\s+/, ($ref eq 'OT' ? $OT_BOOKS:$NT_BOOKS))) {
+      foreach my $bk ($ref eq 'OT' ? @{$OSIS_GROUP{'OT'}} : @{$OSIS_GROUP{'NT'}}) {
         $h{'books'}{$bk}++;
       }
     }
@@ -76,7 +76,7 @@ sub getContextAttributeHash {
     
     # Handle keyword ALL
     elsif ($ref =~ s/^ALL\b//) {
-      foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {
+      foreach my $bk (sort keys %OSIS_ABBR) {
         if (!$ref) {$h{'books'}{$bk}++;}
         else {foreach my $k (&osisRef2Contexts("$bk$ref", $MOD, 'not-default')) {$h{'contexts'}{$k}++;}};
       }

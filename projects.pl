@@ -235,8 +235,8 @@ else {
 ########################################################################
 ########################################################################
 
-# Fills a hash with config.conf or CF_osis2osis.txt information for 
-# projects in pdir
+# Fill a hash with config.conf and CF_osis2osis.txt information for all
+# projects in $pdir
 sub getProjectInfo {
   my $pdir = shift;
   

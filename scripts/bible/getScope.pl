@@ -18,7 +18,7 @@
 
 use strict;
 
-our ($XPC, $XML_PARSER, $OSISBOOKSRE);
+our ($XPC, $XML_PARSER, %OSIS_ABBR);
 
 # get the scope of an OSIS file by reading just its verse osisIDs
 sub getScope {
@@ -182,7 +182,9 @@ sub scopeToBooks {
 
     if ($v11nbk =~ /^$bks$/i) {$keep = $bke;}
     if ($keep) {
-      if ($v11nbk !~ /($OSISBOOKSRE)/) {&Error("scopeToBooks unrecognized OSIS book abbreviation: $v11nbk");}
+      if (!defined($OSIS_ABBR{$v11nbk})) {
+        &Error("scopeToBooks unrecognized OSIS book abbreviation: $v11nbk");
+      }
       push(@bookList, $v11nbk);
     }
     if ($v11nbk =~ /^$keep$/i) {$keep = ''; $i++;}

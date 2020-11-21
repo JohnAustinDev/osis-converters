@@ -163,11 +163,185 @@ our %CONFIG_DEFAULTS = (
 
 our $VAGRANT_HOME = '/home/vagrant';
 
-# Globals for OSIS book abbreviations in KJV order
-our $OT_BOOKS = "Gen Exod Lev Num Deut Josh Judg Ruth 1Sam 2Sam 1Kgs 2Kgs 1Chr 2Chr Ezra Neh Esth Job Ps Prov Eccl Song Isa Jer Lam Ezek Dan Hos Joel Amos Obad Jonah Mic Nah Hab Zeph Hag Zech Mal";
-our $NT_BOOKS = "Matt Mark Luke John Acts Rom 1Cor 2Cor Gal Eph Phil Col 1Thess 2Thess 1Tim 2Tim Titus Phlm Heb Jas 1Pet 2Pet 1John 2John 3John Jude Rev";
-our %OSISBOOKS; {my $bn = 1; foreach my $bk (split(/\s+/, "$OT_BOOKS $NT_BOOKS")) {$OSISBOOKS{$bk} = $bn; $bn++;}}
-our $OSISBOOKSRE = "$OT_BOOKS $NT_BOOKS"; $OSISBOOKSRE =~ s/\s+/|/g;
+# OSIS book abbreviations => Paratext abbreviations. Taken from 
+# wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
+our %OSIS_ABBR = (
+   '1Chr' => '1CH',
+   '1Clem' => '1CL',
+   '1Cor' => '1CO',
+   '1En' => 'ENO',
+   '1Esd' => '1ES',
+   '1John' => '1JN',
+   '1Kgs' => '1KI',
+   '1Macc' => '1MA',
+   '1Meq' => '1MQ',
+   '1Pet' => '1PE',
+   '1Sam' => '1SA',
+   '1Thess' => '1TH',
+   '1Tim' => '1TI',
+   '2Bar' => '2BA',
+   '2Chr' => '2CH',
+   '2Clem' => '2CL',
+   '2Cor' => '2CO',
+   '2Esd' => '2ES',
+   '2John' => '2JN',
+   '2Kgs' => '2KI',
+   '2Macc' => '2MA',
+   '2Meq' => '2MQ',
+   '2Pet' => '2PE',
+   '2Sam' => '2SA',
+   '2Thess' => '2TH',
+   '2Tim' => '2TI',
+   '3Cor' => '3CO',
+   '3John' => '3JN',
+   '3Macc' => '3MA',
+   '3Meq' => '3MQ',
+   '4Bar' => '4BA',
+   '4Ezra' => 'EZA',
+   '4Macc' => '4MA',
+   '5ApocSyrPss' => 'PS3',
+   '5Ezra' => '5EZ',
+   '6Ezra' => '6EZ',
+   'Acts' => 'ACT',
+   'AddDan' => '',
+   'AddEsth' => 'ADE',
+   'AddJer' => '',
+   'AddPs' => 'PS2',
+   'Amos' => 'AMO',
+   'AposCreed' => '',
+   'Bar' => 'BAR',
+   'Barn' => 'LBA[34]',
+   'Bel' => 'BEL',
+   'BelTh' => 'BLT',
+   'Col' => 'COL',
+   'Dan' => 'DAN',
+   'DanGr' => 'DAG',
+   'DanTh' => 'DNT',
+   'Deut' => 'DEU',
+   'Did' => 'DID',
+   'Diogn' => '',
+   'DormJohn' => 'DOJ',
+   'Eccl' => 'ECC',
+   'EpBar' => 'LBA',
+   'EpCorPaul' => 'COP',
+   'EpJer' => 'LJE',
+   'EpLao' => 'LAO',
+   'Eph' => 'EPH',
+   'Esth' => 'EST',
+   'EsthGr' => 'ESG',
+   'Exod' => 'EXO',
+   'Ezek' => 'EZK',
+   'Ezra' => 'EZR',
+   'Gal' => 'GAL',
+   'Gen' => 'GEN',
+   'Hab' => 'HAB',
+   'Hag' => 'HAG',
+   'Heb' => 'HEB',
+   'Herm' => 'SHE',
+   'Herm.Mand' => '',
+   'Herm.Sim' => '',
+   'Herm.Vis' => '',
+   'Hos' => 'HOS',
+   'IgnEph' => '',
+   'IgnMagn' => '',
+   'IgnPhld' => '',
+   'IgnPol' => '',
+   'IgnRom' => '',
+   'IgnSmyrn' => '',
+   'IgnTrall' => '',
+   'Isa' => 'ISA',
+   'Jas' => 'JAS',
+   'Jdt' => 'JDT',
+   'Jer' => 'JER',
+   'Job' => 'JOB',
+   'Joel' => 'JOL',
+   'John' => 'JHN',
+   'Jonah' => 'JON',
+   'JosAsen' => '',
+   'JosephusJWvi' => '',
+   'Josh' => 'JOS',
+   'JoshA' => 'JSA',
+   'Jub' => 'JUB',
+   'Jude' => 'JUD',
+   'Judg' => 'JDG',
+   'JudgB' => 'JDB',
+   'Lam' => 'LAM',
+   'Lev' => 'LEV',
+   'Luke' => 'LUK',
+   'Mal' => 'MAL',
+   'Mark' => 'MRK',
+   'MartPol' => '',
+   'Matt' => 'MAT',
+   'Mic' => 'MIC',
+   'Nah' => 'NAM',
+   'Neh' => 'NEH',
+   'Num' => 'NUM',
+   'Obad' => 'OBA',
+   'Odes' => 'ODA',
+   'PapFrag' => '',
+   'Phil' => 'PHP',
+   'Phlm' => 'PHM',
+   'PolPhil' => '',
+   'PrAzar' => 'S3Y',
+   'PrEuth' => 'EUT',
+   'PrJer' => 'PJE',
+   'PrMan' => 'MAN',
+   'PrSol' => 'PSO',
+   'Prov' => 'PRO',
+   'Ps' => 'PSA',
+   'PsJos' => '',
+   'PsMet' => 'PSB',
+   'PssSol' => 'PSS',
+   'QuadFrag' => '',
+   'RelElders' => '',
+   'Rep' => 'REP',
+   'Rev' => 'REV',
+   'Rom' => 'ROM',
+   'Ruth' => 'RUT',
+   'Sir' => 'SIR',
+   'SirP' => '',
+   'Song' => 'SNG',
+   'Sus' => 'SUS',
+   'SusTh' => 'SST',
+   'T12Patr' => '',
+   'T12Patr.TAsh' => '',
+   'T12Patr.TBenj' => '',
+   'T12Patr.TDan' => '',
+   'T12Patr.TGad' => '',
+   'T12Patr.TIss' => '',
+   'T12Patr.TJos' => '',
+   'T12Patr.TJud' => '',
+   'T12Patr.TLevi' => '',
+   'T12Patr.TNaph' => '',
+   'T12Patr.TReu' => '',
+   'T12Patr.TSim' => '',
+   'T12Patr.TZeb' => '',
+   'TatDiat' => '',
+   'Titus' => 'TIT',
+   'Tob' => 'TOB',
+   'TobS' => 'TBS',
+   'WSir' => 'WSI',
+   'Wis' => 'WIS',
+   'Zech' => 'ZEC',
+   'Zeph' => 'ZEP'
+);
+our $OSISBOOKSRE = join('|', (sort keys %OSIS_ABBR));
+
+# OSIS book groups. Taken from wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
+our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic Fathers','Armenian Orthodox Canon Additions','Ethiopian Orthodox Canon/Ge\'ez Translation Additions','Peshitta/Syriac Orthodox Canon','Rahlfs\' LXX','Rahlfs\' variant books','Vulgate & other later Latin mss','Other');
+our %OSIS_GROUP = (
+   'OT' => ['Gen','Exod','Lev','Num','Deut','Josh','Judg','Ruth','1Sam','2Sam','1Kgs','2Kgs','1Chr','2Chr','Ezra','Neh','Esth','Job','Ps','Prov','Eccl','Song','Isa','Jer','Lam','Ezek','Dan','Hos','Joel','Amos','Obad','Jonah','Mic','Nah','Hab','Zeph','Hag','Zech','Mal'],
+   'NT' => ['Matt','Mark','Luke','John','Acts','Rom','1Cor','2Cor','Gal','Eph','Phil','Col','1Thess','2Thess','1Tim','2Tim','Titus','Phlm','Heb','Jas','1Pet','2Pet','1John','2John','3John','Jude','Rev'],
+   'Apocrypha' => ['Tob','Jdt','EsthGr','AddEsth','Wis','SirP','Sir','Bar','EpJer','DanGr','AddDan','PrAzar','Sus','Bel','1Macc','2Macc','3Macc','4Macc','PrMan','1Esd','2Esd','AddPs'],
+   'Apostolic Fathers' => ['1Clem','2Clem','IgnEph','IgnMagn','IgnTrall','IgnRom','IgnPhld','IgnSmyrn','IgnPol','PolPhil','MartPol','Did','Barn','Herm','Herm.Mand','Herm.Sim','Herm.Vis','Diogn','AposCreed','PapFrag','RelElders','QuadFrag'],
+   'Armenian Orthodox Canon Additions' => ['EpCorPaul','3Cor','WSir','PrEuth','DormJohn','JosAsen','T12Patr','T12Patr.TAsh','T12Patr.TBenj','T12Patr.TDan','T12Patr.TGad','T12Patr.TIss','T12Patr.TJos','T12Patr.TJud','T12Patr.TLevi','T12Patr.TNaph','T12Patr.TReu','T12Patr.TSim','T12Patr.TZeb'],
+   'Ethiopian Orthodox Canon/Ge\'ez Translation Additions' => ['1En','Jub','4Bar','1Meq','2Meq','3Meq','Rep','AddJer','PsJos'],
+   'Peshitta/Syriac Orthodox Canon' => ['2Bar','EpBar','5ApocSyrPss','JosephusJWvi'],
+   'Rahlfs\' LXX' => ['Odes','PssSol'],
+   'Rahlfs\' variant books' => ['JoshA','JudgB','TobS','SusTh','DanTh','BelTh'],
+   'Vulgate & other later Latin mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
+   'Other' => ['TatDiat','PsMet']
+);
 
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
@@ -334,12 +508,12 @@ subpub:
       my $order = $2; my $scope = $3; $scope =~ s/_/ /g;
       my @books = split(/[\-\s]/, $scope);
       foreach my $bk (@books) {
-        if (!defined($OSISBOOKS{$bk})) {
+        if (!defined($OSIS_ABBR{$bk})) {
           &Error("Book '$bk' is not an OSIS Bible book abbreviation.", $subPubMessage);
           next subpub;
         }
       }
-      if (!$order) {$order = sprintf("%02i", $OSISBOOKS{@books[0]});}
+      if (!$order) {$order = sprintf("%02i", &defaultBookIndex(@books[0]));}
       while (defined($subPubs{$order})) {$order .= "00";}
       $subPubs{$order} = $scope;
     }
@@ -896,6 +1070,45 @@ sub checkDependencies {
   }
   
   return 1;
+}
+
+# Return the index of the book group of any OSIS abbreviation.
+sub defaultBookGroup {
+  my $abbr = shift;
+  
+  return &defaultBookIndex($abbr, 1);
+}
+
+# Return the index of the book of any OSIS abbreviation in the KJV (default)
+# verse system. If $bookGroup is set, then the bookGroup index is returned.
+sub defaultBookIndex {
+  my $abbr = shift;
+  my $bookGroup = shift;
+  
+  my $gi = 0;
+  my $bi = 0;
+  foreach my $g (@OSIS_GROUPS) {
+    foreach my $a (@{$OSIS_GROUP{$g}}) {
+      if ($abbr eq $a) {return ($bookGroup ? $gi:$bi);}
+      $bi++;
+    }
+    $gi++;
+  }
+}
+
+# Returns $abbr if it is a valid OSIS book abbreviation. If $abbr is a 
+# valid Paratext abbreviation, then its corresponding OSIS abbreviation
+# is returned. If no OSIS abbreviation is found for $abbr, then undef is
+# returned.
+sub bookOsisAbbr {
+  my $abbr = shift;
+  
+  if ($abbr) {
+    if (defined($OSIS_ABBR{$abbr})) {return $abbr;}
+    foreach (keys %OSIS_ABBR) {
+      if ($OSIS_ABBR{$_} eq $abbr) {return $_;}
+    }
+  }
 }
 
 

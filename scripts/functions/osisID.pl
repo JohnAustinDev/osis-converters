@@ -30,7 +30,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $FNREFEXT, $OT_BOOKS, $NT_BOOKS, $OSISBOOKSRE);
+our ($XPC, $XML_PARSER, $FNREFEXT, %OSIS_GROUP, $OSISBOOKSRE, %OSIS_ABBR);
 
 sub osisID2osisRef {
   my $osisID = shift;
@@ -224,7 +224,7 @@ sub inVersesystem {
       return 0;
     }
     my $b = $1; my $c = ($2 ? $3:''); my $v = ($4 ? $5:'');
-    if ($OT_BOOKS !~ /\b$b\b/ && $NT_BOOKS !~ /\b$b\b/)  {
+    if (!defined($OSIS_ABBR{$b}))  {
       &Error("Unrecognized OSIS book abbreviation $b in osisID $id.");
       return 0;
     }

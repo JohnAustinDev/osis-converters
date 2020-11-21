@@ -19,8 +19,8 @@
 use strict;
 our ($READLAYER, $APPENDLAYER, $WRITELAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
-our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, $OSISBOOKSRE, $NT_BOOKS, 
-    %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, 
+our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, 
+    $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, 
     $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE);
 
 my $fitToVerseSystemDoc = "
@@ -424,7 +424,7 @@ sub orderBooks {
     foreach my $bk (@books) {
       my $bkname = $bk->findvalue('./@osisID');
       # Switch to NT bookGroup upon reaching the first NT book
-      if ($i==0 && $NT_BOOKS =~ /\b$bkname\b/i) {$i = 1;}
+      if ($i==0 && &defaultBookGroup($bkname) == 1) {$i = 1;}
       @bookGroups[$i]->appendChild($bk);
       $bk = '';
     }
@@ -435,7 +435,7 @@ sub orderBooks {
       if (!$v11nbk) {next;} # bookArrayP[0] is empty
       foreach my $bk (@books) {
         if (!$bk || $bk->findvalue('./@osisID') ne $v11nbk) {next;}
-        my $i = ($testamentP->{$v11nbk} eq 'OT' ? 0:1);
+        my $i = ($testamentP->{$v11nbk} eq 'NT' ? 1:0);
         @bookGroups[$i]->appendChild($bk);
         $bk = '';
         last;
@@ -444,12 +444,28 @@ sub orderBooks {
   }
   
   foreach my $bk (@books) {
-    if ($bk ne '') {
-      if ($bk->getAttribute('osisID') =~ /($OSISBOOKSRE)/i) {
-        &Error("Book \"".$bk->getAttribute('osisID')."\" occurred multiple times, so one instance was dropped!", "CF_usfm2osis.txt may have RUN this book multiple times.");
+    if ($bk) {
+      my $bkn = $bk->getAttribute('osisID');
+      if (defined($OSIS_ABBR{$bkn})) {
+        my $invsys; foreach (@{$bookArrayP}) {if ($_ eq $bkn) {$invsys++;}}
+        if (!$invsys) {
+          &Error(
+"Book '$bkn' is a valid OSIS abbreviation, but is not part of
+verse system '$vsys'.",
+"This book will not appear in fixed verse system media 
+such as SWORD.");
+          @bookGroups[0]->appendChild($bk);
+        }
+        else {
+          &Error(
+"Book '$bkn' occurred multiple times, so one instance was dropped!", 
+"CF_usfm2osis.txt may have RUN this book multiple times.");
+        }
       }
       else {
-        &Error("Book \"".$bk->getAttribute('osisID')."\" was not found in $vsys Canon, so it was dropped!", "The id tag of the book's source SFM file may be incorrect.");
+        &Error(
+"Book '$bkn' is an unrecognized OSIS book, so it was dropped!", 
+"The id tag of the book's source SFM file may be incorrect.");
       }
     }
   }
@@ -1826,7 +1842,7 @@ sub writeVerseSystem {
       my $b = sprintf("%03i:%s", scalar keys %bks, $1);
       my $c = sprintf("%03i", $2);
       my $v = sprintf("%03i", $3);
-      my $g = ($NT_BOOKS =~ /\b$1\b/ ? 1:0); 
+      my $g = &defaultBookGroup($1); 
       $sdata{$g}{$b}{$c}{$v}++;
     }
     $vk->increment();

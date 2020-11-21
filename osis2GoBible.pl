@@ -36,7 +36,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($INOSIS, $GBOUT, $GO_BIBLE_CREATOR, $XPC, $XML_PARSER, 
-    $MAX_UNICODE, $MODULETOOLS_BIN, $NT_BOOKS);
+    $MAX_UNICODE, $MODULETOOLS_BIN);
 
 my %BookSizes;
 my $BookOverhead = 1000;
@@ -309,7 +309,7 @@ sub createCollectionsOTNT {
   my %cols;
   my $k;
   foreach my $b (@{$collectionsP->{lc($MAINMOD).$colext}}) {
-    $k = ($NT_BOOKS =~ /\b$b\b/ ? $nt1:$ot1);
+    $k = (&defaultBookGroup($b) == 1 ? $nt1:$ot1);
     $cols{$k}++;
     if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
     push(@{$collectionsP->{$k}}, $b);
@@ -373,7 +373,7 @@ sub shiftBookFromOversizedCollections {
     if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", 1);}
     my $n = $2;
     my $bk = pop(@{$collectionsP->{$col}});
-    my $k = lc($MAINMOD).($NT_BOOKS =~ /\b$bk\b/ ? 'nt':'ot').($n+1).$colext;
+    my $k = lc($MAINMOD).(&defaultBookGroup($bk) == 1 ? 'nt':'ot').($n+1).$colext;
     if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
     unshift(@{$collectionsP->{$k}}, $bk);
   }

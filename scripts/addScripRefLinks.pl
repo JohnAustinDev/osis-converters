@@ -20,7 +20,7 @@ use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
-our ($OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS, $DEBUG);
+our ($OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS, $DEBUG);
 
 # IMPORTANT TERMINOLOGY:
 # ----------------------
@@ -279,8 +279,10 @@ sub read_CF_ASRL {
       if ($_ =~ /^(\#.*|\s*)$/) {next;}
       elsif ($_ =~ /^CONTEXT_BOOK:\s*(\S+)\s+(if\-result)\s+(.*?)\s*$/) {
         my $cbk = $1; my $op = $2; my $xp = $3;
-        if ($op ne 'if-result' || "$OT_BOOKS $NT_BOOKS" !~ /\b$cbk\b/) {
-          &Error("CONTEXT_BOOK \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", "Change it to an abbreviation from this list: $OT_BOOKS $NT_BOOKS");
+        if ($op ne 'if-result' || !defined($OSIS_ABBR{$cbk})) {
+          &Error("CONTEXT_BOOK \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", 
+          "Change it to an abbreviation from this list: " . 
+          join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}}));
         }
         else {
           &Note("CONTEXT_BOOK will be $cbk for nodes returning true for $xp");

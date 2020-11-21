@@ -23,8 +23,8 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($ROC, $XPC, $XML_PARSER, $OSISBOOKSRE, $OT_BOOKS, $NT_BOOKS, 
-    $COVERS, $FONTS, %FONT_FILES, @SUB_PUBLICATIONS);
+our ($ROC, $XPC, $XML_PARSER, %OSIS_GROUP, $COVERS, $FONTS, %FONT_FILES, 
+    @SUB_PUBLICATIONS);
 
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames {
@@ -366,10 +366,12 @@ sub sortCoverImages {
   my $a = shift;
   my $b = shift;
   
+  my $abbr = join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}});
+  
   my $sa = $a; $sa =~ s/^.*\///; $sa =~ s/\.[^\.]+$//; $sa =~ s/^([^\s_\-]+).*?$/$1/;
   my $sb = $b; $sb =~ s/^.*\///; $sb =~ s/\.[^\.]+$//; $sb =~ s/^([^\s_\-]+).*?$/$1/;
-  my $ia = index("$NT_BOOKS $OT_BOOKS", $sa);
-  my $ib = index("$NT_BOOKS $OT_BOOKS", $sb);
+  my $ia = index($abbr, $sa);
+  my $ib = index($abbr, $sb);
 
   return $ib <=> $ia;
 }

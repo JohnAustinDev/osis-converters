@@ -41,7 +41,7 @@ our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $MOD,
     $WRITELAYER, $APPENDLAYER);
      
 # Initialized in /scripts/common_opsys.pl
-our ($CONF, $OSISBOOKSRE, %OSISBOOKS, $NT_BOOKS, $OT_BOOKS, @SWORD_OC_CONFIGS,
+our ($CONF, $OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, @OSIS_GROUPS, @SWORD_OC_CONFIGS,
     %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, 
     @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
@@ -414,7 +414,7 @@ sub readBookNamesXML {
       &Note("Reading localized book names from \"$bknxml\"");
     }
     foreach my $bkelem (@bkelems) {
-      my $bk = getOsisName($bkelem->getAttribute('code'), 1);
+      my $bk = &bookOsisAbbr($bkelem->getAttribute('code'));
       if (!$bk) {next;}
       my @ts = ('abbr', 'short', 'long');
       foreach my $t (@ts) {
@@ -1088,9 +1088,12 @@ sub customize_addScripRefLinks {
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
   }
   print CFT "\n";
-  foreach my $osis ( split(/\s+/, $OT_BOOKS), split(/\s+/, $NT_BOOKS) ) {
-    print CFT &getAllAbbrevsString($osis, \%abbrevs);
+  foreach my $group (@OSIS_GROUPS) {
+    foreach my $osis (@{$OSIS_GROUP{$group}}) {
+      print CFT &getAllAbbrevsString($osis, \%abbrevs);
+    }
   }
+  
   close(CFT);
   unlink($cf);
   move("$cf.tmp", $cf);
@@ -1162,8 +1165,7 @@ sub getAllAbbrevsString {
   return $p;
 }
 
-# Sort USFM files by scope, type (and if type is book, then book order 
-# in KJV), then filename
+# Sort USFM files by scope, type, book, then filename
 sub usfmFileSort {
   my $fa = shift;
   my $fb = shift;
@@ -1179,18 +1181,18 @@ sub usfmFileSort {
   # sort by first book of scope
   $scopea =~ s/^([^\s\-]+).*?$/$1/;
   $scopeb =~ s/^([^\s\-]+).*?$/$1/;
-  $r = $OSISBOOKS{$scopea} <=> $OSISBOOKS{$scopeb};
+  $r = &defaultBookIndex($scopea) <=> &defaultBookIndex($scopeb);
   if ($r) {return $r;}
   
   # sort by type, bible books last
-  my $typea = $infoP->{$fa}{'type'};
-  my $typeb = $infoP->{$fb}{'type'};
-  $r = ($typea eq 'bible' ? 0:1) <=> ($typeb eq 'bible' ? 0:1);
-  if ($r) {return $r;}
+  my $typea = ($infoP->{$fa}{'osisBook'} ? 'book':'other');
+  my $typeb = ($infoP->{$fb}{'osisBook'} ? 'book':'other');
+  if ($typea ne $typeb) {return ($typea eq 'book' ? 1:-1);}
   
-  # if we have bible books, sort by order in KJV
+  # if we have bible books, sort by default order
   if ($typea eq 'bible') {
-    $r = $OSISBOOKS{$infoP->{$fa}{'osisBook'}} <=> $OSISBOOKS{$infoP->{$fb}{'osisBook'}};
+    $r = &defaultBookIndex($infoP->{$fa}{'osisBook'}) <=> 
+         &defaultBookIndex($infoP->{$fb}{'osisBook'});
     if ($r) {return $r;}
   }
 
@@ -1235,7 +1237,10 @@ sub customize_usfm2osis {
         if (defined($USFM{$modType}{$f}{'periphType'}) && @{$USFM{$modType}{$f}{'periphType'}}) {
           foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
             my $osisMap = &getOsisMap($periphType, $scope);
-            if (!$osisMap) {next;}
+            if (!defined($osisMap)) {
+              &Error("Unrecognized peripheral name \"$periphType\" in $f.", "Change it to one of the following: " . join(', ', sort keys %PERIPH_TYPE_MAP));
+              next;
+            }
             push(@instructions, $osisMap);
           }
         }
@@ -1272,7 +1277,7 @@ sub getOsisMap {
     elsif ($scope eq 'Gen-Mal') {$scopePath = $USFM_DEFAULT_PERIPH_TARGET{'Old Testament Introduction'};}
     else {
       $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:''); # try to get first book of scope
-      if ($scopePath && $OSISBOOKS{$scopePath}) {
+      if ($scopePath && defined($OSIS_ABBR{$scopePath})) {
         # place at the beginning of the first book of scope
         $scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]/node()[1]';
       }
@@ -1287,10 +1292,7 @@ book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
   if ($periphType eq 'sfmfile') {return "location == $scopePath";}
 
   my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$periphType};
-  if (!$periphTypeDescriptor) {
-    &Error("Unrecognized peripheral name \"$periphType\"", "Change it to one of the following: " . join(', ', sort keys %PERIPH_TYPE_MAP));
-    return '';
-  }
+  if (!$periphTypeDescriptor) {return;}
   if ($periphTypeDescriptor eq 'introduction') {$periphTypeDescriptor = $PERIPH_SUBTYPE_MAP{$periphType};}
 
   # default periph placement is introduction to first book
@@ -1402,7 +1404,7 @@ sub scanUSFM_file {
   if ($id =~ /^\s*(\w{2,3}).*$/) {
     my $shortid = $1;
     $info{'doConvert'} = 1;
-    my $osisBook = &getOsisName($shortid, 1);
+    my $osisBook = &bookOsisAbbr($shortid);
     if ($osisBook) {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
@@ -3197,7 +3199,7 @@ tag number you wish to use.)\n");
       # + the Old/NewTestamentTitle is not 'no'
       if (@bookGroups > 1 && @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
         my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
-        my $whichTestament = ($NT_BOOKS =~ /\b$firstBook\b/ ? 'New':'Old');
+        my $whichTestament = (&defaultBookGroup($firstBook) == 1 ? 'New':'Old');
         my $testamentTitle = &conf($whichTestament.'TestamentTitle');
         if ($testamentTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk('

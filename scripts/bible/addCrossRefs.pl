@@ -37,7 +37,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $OT_BOOKS, $NT_BOOKS, %BOOKNAMES);
+our ($XPC, $XML_PARSER, %OSIS_GROUP, %BOOKNAMES);
 
 my (%INSERT_NOTE_SPEEDUP, $ADD_CROSS_REF_LOC, $ADD_CROSS_REF_BAD,
    $ADD_CROSS_REF_NUM);
@@ -102,7 +102,7 @@ BookNames.xml in the sfm directory which should contain localized
   # find the shortest name in BOOKNAMES and x-usfm-toc milestones, prefering BOOKNAMES when equal length
   my $countLocalizedNames = 0;
   my @bntypes = ('long', 'short', 'abbr');
-  my @books = split(/\s+/, $OT_BOOKS.' '.$NT_BOOKS);
+  my @books; push(@books, @{%OSIS_GROUP{'OT'}}, @{%OSIS_GROUP{'NT'}});
   foreach my $book (@books) {
     my %osisName;
     for (my $x=1; $x<=3; $x++) {
