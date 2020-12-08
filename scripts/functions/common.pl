@@ -1528,7 +1528,7 @@ sub writeXMLFile {
     print XML $xml->toString();
     close(XML);
   }
-  else {&ErrorBug("Could not open XML file for writing: $output", 1);}
+  else {&ErrorBug("Could not open XML file for writing: '$output'", 1);}
 }
 
 sub osis_converters {
@@ -3302,138 +3302,102 @@ sub getScopeTitle {
   return &conf("TitleSubPublication[$scope]");
 }
 
-
-# Split an OSIS file into separate book OSIS files, plus 1 non-book OSIS 
-# file (one that contains everything else). This is intended for use with 
-# joinOSIS to allow parsing smaller files for a big speedup. The only 
-# assumption this routine makes is that bookGroup elements only contain 
-# non-element children, such as text nodes, at the beginning of the 
-# bookGroup (never between or after book div elements). If there are no 
-# book divs, everything is put in other.osis.
+# Duplicate an OSIS file as a series of files: one file having all 
+# $xpath elements' children removed, and then one for each $xpath 
+# element, which has all the other $xpath elements' children removed. 
+# This is intended for use with joinOSIS which will reassemble all these
+# OSIS files back into one document, after any external processing. 
+# IMPORTANT: external precessing may ONLY modify the specific element 
+# (or non-element) node associated with the particular OSIS file, other-
+# wise changes will be lost upon reassembly. This method provides a 
+# massive speedup compared to searching or modifying one huge nodeset. 
+# NOTE: properly handling an element sometimes requires that it be 
+# located within its document context, thus cloning is required.
 sub splitOSIS {
   my $in_osis = shift;
+  my $xpath = shift; 
+  
+  $xpath = ($xpath ? $xpath:'//osis:div[@type="book"]'); # split these out
   
   &Log("\nsplitOSIS: ".&encodePrintPaths($in_osis).":\n", 2);
   
-  undef(%DOCUMENT_CACHE); # splitOSIS uses the same file paths over again and DOCUMENT_CACHE is keyed on file path!
-  
-  my @return;
+  # splitOSIS uses the same file paths over again and DOCUMENT_CACHE 
+  # is keyed on file path!
+  undef(%DOCUMENT_CACHE);
   
   my $tmp = "$TMPDIR/splitOSIS";
   if (-e $tmp) {remove_tree($tmp);}
   make_path($tmp);
   
-  my @books; 
-  my %bookGroup;
-  
-  my $xml = $XML_PARSER->parse_file($in_osis);
-  my @bookElements = $XPC->findnodes('//osis:div[@type="bookGroup"]/osis:div[@type="book"]', $xml);
-  my $isBible = (@bookElements && @bookElements[0]);
-  
-  if ($isBible) {
-    # Mark bookGroup child elements which are between books, so their locations can later be restored
-    my @bookGroupChildElements = $XPC->findnodes('//*[parent::osis:div[@type="bookGroup"]][preceding-sibling::osis:div[@type="book"]][following-sibling::osis:div[@type="book"]]', $xml);
-    foreach my $bgce (@bookGroupChildElements) {
-      $bgce->setAttribute('beforeBook', @{$XPC->findnodes('following-sibling::osis:div[@type="book"][1]', $bgce)}[0]->getAttribute('osisID'));
-  }
-  
-    # Get books, remove them all, and save all remaining stuff as other.osis
-    foreach my $book (@bookElements) {
-      my $osisID = $book->getAttribute('osisID');
-      push(@books, $osisID);
-      $bookGroup{$osisID} = scalar(@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $book)});
-      if (!$bookGroup{$osisID}) {$bookGroup{$osisID} = 0;}
-      $book->unbindNode();
-    }
-  }
-  
-  push(@return, "$tmp/other.osis");
-  &writeXMLFile($xml, @return[$#return]);
-  
-  if (!$isBible) {return @return;}
-  
-  # Prepare an osis file which has only a single book in it
   my $xml = $XML_PARSER->parse_file($in_osis);
   
-  # remove books, except the first book (doing this before removing outside material speeds things up a huge amount!)
-  my @bookElements = $XPC->findnodes('//osis:div[@type="book"]', $xml);
-  foreach my $book (@bookElements) {
-    if (@books[0] && $book->getAttribute('osisID') ne @books[0]) {$book->unbindNode();}
+  my @xmls;
+  push(@xmls, { 'xml' => $xml, 'file' => "$tmp/other.osis" });
+  
+  # First, prune other.osis
+  my (%checkID, $x);
+  foreach my $e ($XPC->findnodes("$xpath[\@osisID]", $xml)) {
+    my $osisID = $e->getAttribute('osisID');
+    if ($checkID{$osisID}) {&ErrorBug("osisID is not unique: $osisID", 1);}
+    $checkID{$osisID}++;
+    my $file = sprintf("%s/%03i_%s.osis", $tmp, ++$x, $osisID);
+    my $marker = $e->cloneNode();
+    $e->replaceNode($marker);
+    push(@xmls, { 'element' => $e, 'osisID' => $osisID, 'file' => $file });
   }
   
-  # remove all material outside of the book
-  my @dels1 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.@books[0].'"]/preceding::node()', $xml);
-  my @dels2 = $XPC->findnodes('//osis:div[@type="book" and @osisID="'.@books[0].'"]/following::node()', $xml);
-  foreach my $del (@dels1) {$del->unbindNode();}
-  foreach my $del (@dels2) {$del->unbindNode();}
-  
-  # Now save separate osis files for each book, encoding their order and bookGroup in the file-name
-  my $bookGroup = @{$XPC->findnodes('//osis:div[@type="bookGroup"]', $xml)}[0];
-  my $x = 0;
-  do {
-    my $bk = @books[$x];
-    
-    if ($x) {
-      foreach my $book (@bookElements) {if ($book->getAttribute('osisID') eq $bk) {$bookGroup->appendChild($book);}}
+  # Then write OSIS files
+  my @files;
+  foreach my $xmlP (@xmls) {
+    if (!defined($xmlP->{'xml'})) {
+      $xmlP->{'xml'} = $xml->cloneNode(1);
+      my $marker = @{$XPC->findnodes(
+        "$xpath[\@osisID='$xmlP->{'osisID'}']", $xmlP->{'xml'})}[0];
+      if (!$marker) {&ErrorBug("No marker: $xmlP->{'osisID'}", 1);}
+      $marker->replaceNode($xmlP->{'element'});
     }
-    
-    push(@return, sprintf("%s/%02i %i %s.osis", $tmp, $x, $bookGroup{$bk}, $bk));
-    
-    &writeXMLFile($xml, @return[$#return]);
-    
-    foreach my $book (@bookElements) {if ($book->getAttribute('osisID') eq $bk) {$book->unbindNode();}}
-    
-    $x++;
-  } while ($x < @books);
+    &writeXMLFile($xmlP->{'xml'}, $xmlP->{'file'});
+    push(@files, $xmlP->{'file'});
+  }
   
-  return @return;
+  return @files;
 }
 
-# Join the OSIS file previously split by splitOSIS() and write it to
-# $path_or_pointer according to the same rules as writeXMLFile();
+# Rejoin the OSIS files previously cloned by splitOSIS(osis, $xpath) and 
+# write it to $path_or_pointer using writeXMLFile();
 sub joinOSIS {
   my $path_or_pointer = shift;
+  my $xpath = shift;
+  
+  $xpath = ($xpath ? $xpath:'//osis:div[@type="book"]');
   
   my $tmp = "$TMPDIR/splitOSIS";
-  if (!-e $tmp) {die "No splitOSIS tmp directory! \"$tmp\"\n";}
+  if (!-e $tmp) {&ErrorBug("No: $tmp", 1);}
   
-  opendir(JOSIS, $tmp) || die "joinOSIS could not open splitOSIS tmp directory \"$tmp\"\n";
-  my @files = readdir(JOSIS);
-  closedir(JOSIS);
+  if (!opendir(JOSIS, $tmp)) {&ErrorBug("Can't open: $tmp", 1);}
+  my @files = readdir(JOSIS); closedir(JOSIS);
   
-  if (!-e "$tmp/other.osis") {die "joinOSIS must have file \"$tmp/other.osis\"!\n";}
+  if (!-e "$tmp/other.osis") {&ErrorBug("No: $tmp/other.osis", 1);}
   my $xml = $XML_PARSER->parse_file("$tmp/other.osis");
   
-  foreach my $f (sort @files) {
-    if ($f eq "other.osis" || $f =~ /^\./) {next;}
-    if ($f !~ /^(\d+) (\d+) (.*?)\.osis$/) {
-      &ErrorBug("joinOSIS bad file name \"$f\"");
+  # Replace each marker with the correct element file's element
+  foreach my $f (@files) {
+    if ($f !~ /^\d+_([^\.]+)\.osis$/) {next;}
+    my $osisID = $1;
+    my $exml = $XML_PARSER->parse_file("$tmp/$f");
+    my @e = @{$XPC->findnodes("$xpath[\@osisID='$osisID']", $exml)};
+    if (!@e[0] || @e > 1) {&ErrorBug("Bad element file: $f", 1);}
+    @e[0]->unbindNode();
+    my @marker = @{$XPC->findnodes("$xpath[\@osisID='$osisID']", $xml)};
+    if (!@marker[0]) {
+      &ErrorBug('No marker: '.$osisID." in $f", 1);
     }
-    my $x = $1;
-    my $bookGroup = $2;
-    my $bk = $3;
-    my $bkxml = $XML_PARSER->parse_file("$tmp/$f");
-    my @bookNode = $XPC->findnodes('//osis:div[@type="book"]', $bkxml);
-    if (@bookNode != 1) {
-      &ErrorBug("joinOSIS file \"$f\" does not have just a single book.");
-    }
-    my @bookGroupNode = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
-    if (!@bookGroupNode || !@bookGroupNode[$bookGroup]) {
-      &ErrorBug("bookGroup \"$bookGroup\" for joinOSIS file \"$f\" not found.");
-    }
-    @bookGroupNode[$bookGroup]->appendChild(@bookNode[0]);
+    @marker[0]->replaceNode(@e[0]);
   }
   
-  # Move maked bookGroupChildElements to their original inter-book locations
-  foreach my $bb ($XPC->findnodes('//*[@beforeBook]', $xml)) {
-    my $beforeBook = $bb->getAttribute('beforeBook');
-    $bb->removeAttribute('beforeBook');
-    $bb->parentNode->insertBefore($bb, @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$beforeBook'][1]", $xml)}[0]);
-  }
-  
+  # Save the reassembled document
   &writeXMLFile($xml, $path_or_pointer, 2);
 }
-
 
 sub writeMissingNoteOsisRefsFAST {
   my $osisP = shift;
