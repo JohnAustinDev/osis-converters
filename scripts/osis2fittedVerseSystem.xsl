@@ -5,10 +5,9 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT takes an OSIS file which may have been fitted to a 
-  SWORD standard verse system by fitToVerseSystem() and removes any 
-  source verse system markup so the resulting OSIS file only contains 
-  the fitted verse system !-->
+  <!-- This XSLT takes an OSIS file which was fitted to a SWORD standard 
+  verse system by fitToVerseSystem() and removes any source verse system 
+  markup so the resulting OSIS file only contains the fitted verse system !-->
   
   <include href="./whitespace.xsl"/>
   
@@ -24,18 +23,24 @@
     <copy><apply-templates select="node()|@*"/></copy>
   </template>
   
+  <!-- Remove these tags -->
+  <template match="div[@resp = 'x-vsys-moved'][@annotateType='x-vsys-moved']">
+    <apply-templates select="node()|@*"/>
+  </template>
+  
   <!-- Remove these elements -->
   <template match="milestone[@resp = 'x-vsys'] |
+                   *[@resp = 'x-vsys-moved'] |
                    milestone[matches(@type,'^x\-vsys\-(.*?)\-(start|end)$')]"
             priority="50"/>
   
   <!-- Remove these attributes -->
-  <template match="@annotateType[. = 'x-vsys-source'] |
-                   @annotateRef[parent::*[@annotateType = 'x-vsys-source']] | 
+  <template match="@annotateType[. = ('x-vsys-source', 'x-vsys-moved')] |
+                   @annotateRef[parent::*[@annotateType = ('x-vsys-source', 'x-vsys-moved')]] | 
                    @resp[. = 'x-vsys']"
             priority="50"/>
   
-  <!-- Remove alternate verse numbers that are redundant for the fitted verse system -->
+  <!-- Remove verse numbers that are redundant in the fitted verse system -->
   <template match="hi[starts-with(@subType, 'x-alternate-')]"/>
             
   <template match="/" priority="59">

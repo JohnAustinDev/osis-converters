@@ -309,7 +309,7 @@ sub createCollectionsOTNT {
   my %cols;
   my $k;
   foreach my $b (@{$collectionsP->{lc($MAINMOD).$colext}}) {
-    $k = (&defaultBookGroup($b) == 1 ? $nt1:$ot1);
+    $k = (&defaultOsisIndex($b, 2) == 1 ? $nt1:$ot1);
     $cols{$k}++;
     if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
     push(@{$collectionsP->{$k}}, $b);
@@ -373,7 +373,7 @@ sub shiftBookFromOversizedCollections {
     if ($col !~ /(ot|nt)(\d+)$colext$/) {&ErrorBug("($col !~ /((ot\\d+|nt\\d+)?)$colext\$/)", 1);}
     my $n = $2;
     my $bk = pop(@{$collectionsP->{$col}});
-    my $k = lc($MAINMOD).(&defaultBookGroup($bk) == 1 ? 'nt':'ot').($n+1).$colext;
+    my $k = lc($MAINMOD).(&defaultOsisIndex($bk, 2) == 1 ? 'nt':'ot').($n+1).$colext;
     if (!exists($collectionsP->{$k})) {$collectionsP->{$k} = ();}
     unshift(@{$collectionsP->{$k}}, $bk);
   }

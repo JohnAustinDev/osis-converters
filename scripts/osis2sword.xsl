@@ -37,6 +37,9 @@
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
+  <!-- Remove all bookGroups other than OT and NT -->
+  <templates match="div[@type='bookGroup'][not(@osisID = ('OT', 'NT'))]"/>
+  
   <!-- Remove all non-Bible material that is not within a glossary div -->
   <template match="div[$type = 'Glossary'][parent::osisText][not(@type = 'glossary')]"/>
   

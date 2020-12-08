@@ -45,7 +45,7 @@ our ($CONF, $OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, @OSIS_GROUPS, @SWORD_OC_CONFI
     %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, 
     @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
-    $OSIS_NAMESPACE, @CONFIG_SECTIONS);
+    $OSIS_NAMESPACE, @CONFIG_SECTIONS, $SWORD_VERSE_SYSTEMS);
     
 # Config.conf [system] globals initialized in set_system_globals 
 # (see @OC_SYSTEM_CONFIGS in common_opsys.pl).
@@ -67,11 +67,6 @@ our $FNREFEND = "</reference>";
 our $FNREFEXT = "note.n";
 our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 our @Roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX");
-our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
-our $VSYS_SINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
-our $VSYS_INSTR_RE  = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+))?)?";
-our $VSYS_PINSTR_RE = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<lv>\\d+|PART))?)?";
-our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
 our @USFM2OSIS_PY_SPECIAL_BOOKS = ('front', 'introduction', 'back', 'concordance', 'glossary', 'index', 'gazetteer', 'x-other');
 our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
 our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
@@ -85,15 +80,16 @@ our $ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for addin
 
 # Verse System related attribute types
 our %VSYS;
-$VSYS{'prefix_vs'}  = 'x-vsys';
-$VSYS{'resp_vs'}    = $VSYS{'prefix_vs'};
-$VSYS{'missing_vs'} = $VSYS{'prefix_vs'}.'-missing';
-$VSYS{'movedto_vs'} = $VSYS{'prefix_vs'}.'-movedto';
-$VSYS{'extra_vs'}   = $VSYS{'prefix_vs'}.'-extra';
-$VSYS{'fitted_vs'}  = $VSYS{'prefix_vs'}.'-fitted';
-$VSYS{'start_vs'}   = '-start';
-$VSYS{'end_vs'}     = '-end';
-$VSYS{'fixed_altvs'} = 'x-alternate-'.&conf('Versification');
+$VSYS{'prefix_vs'}     = 'x-vsys';
+$VSYS{'resp_vs'}       = $VSYS{'prefix_vs'};
+$VSYS{'missing_vs'}    = $VSYS{'prefix_vs'}.'-missing';
+$VSYS{'movedto_vs'}    = $VSYS{'prefix_vs'}.'-movedto';
+$VSYS{'extra_vs'}      = $VSYS{'prefix_vs'}.'-extra';
+$VSYS{'fitted_vs'}     = $VSYS{'prefix_vs'}.'-fitted';
+$VSYS{'start_vs'}      = '-start';
+$VSYS{'end_vs'}        = '-end';
+$VSYS{'fixed_altvs'}   = 'x-alternate-'.&conf('Versification');
+$VSYS{'moved_type'}    = $VSYS{'prefix_vs'}.'-moved';
 
 # annotateType attribute values
 our %ANNOTATE_TYPE;
@@ -1181,7 +1177,7 @@ sub usfmFileSort {
   # sort by first book of scope
   $scopea =~ s/^([^\s\-]+).*?$/$1/;
   $scopeb =~ s/^([^\s\-]+).*?$/$1/;
-  $r = &defaultBookIndex($scopea) <=> &defaultBookIndex($scopeb);
+  $r = &defaultOsisIndex($scopea) <=> &defaultOsisIndex($scopeb);
   if ($r) {return $r;}
   
   # sort by type, bible books last
@@ -1191,8 +1187,8 @@ sub usfmFileSort {
   
   # if we have bible books, sort by default order
   if ($typea eq 'bible') {
-    $r = &defaultBookIndex($infoP->{$fa}{'osisBook'}) <=> 
-         &defaultBookIndex($infoP->{$fb}{'osisBook'});
+    $r = &defaultOsisIndex($infoP->{$fa}{'osisBook'}) <=> 
+         &defaultOsisIndex($infoP->{$fb}{'osisBook'});
     if ($r) {return $r;}
   }
 
@@ -1927,7 +1923,11 @@ sub getCanon {
   my $bookArrayPP = shift; # array pointer: OSIS-book-names in verse system order starting with index 1!!
   
   if (!$CANON_CACHE{$vsys}) {
-    if (!&isValidVersification($vsys)) {return 0;}
+    if (!&isValidVersification($vsys)) {
+      &Error("Not a valid versification system: $vsys".
+"Must be one of: ($SWORD_VERSE_SYSTEMS)");
+      return;
+    }
     
     my $vk = new Sword::VerseKey();
     $vk->setVersificationSystem($vsys);
@@ -1956,7 +1956,7 @@ sub getCanon {
   if ($testamentPP) {$$testamentPP = \%{$CANON_CACHE{$vsys}{'testament'}};}
   if ($bookArrayPP) {$$bookArrayPP = \@{$CANON_CACHE{$vsys}{'bookArray'}};}
 
-  return 1;
+  return $vsys;
 }
 
 
@@ -3199,7 +3199,7 @@ tag number you wish to use.)\n");
       # + the Old/NewTestamentTitle is not 'no'
       if (@bookGroups > 1 && @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
         my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
-        my $whichTestament = (&defaultBookGroup($firstBook) == 1 ? 'New':'Old');
+        my $whichTestament = (&defaultOsisIndex($firstBook, 2) == 1 ? 'New':'Old');
         my $testamentTitle = &conf($whichTestament.'TestamentTitle');
         if ($testamentTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk('
@@ -3335,8 +3335,8 @@ sub splitOSIS {
     my @bookGroupChildElements = $XPC->findnodes('//*[parent::osis:div[@type="bookGroup"]][preceding-sibling::osis:div[@type="book"]][following-sibling::osis:div[@type="book"]]', $xml);
     foreach my $bgce (@bookGroupChildElements) {
       $bgce->setAttribute('beforeBook', @{$XPC->findnodes('following-sibling::osis:div[@type="book"][1]', $bgce)}[0]->getAttribute('osisID'));
-    }
-    
+  }
+  
     # Get books, remove them all, and save all remaining stuff as other.osis
     foreach my $book (@bookElements) {
       my $osisID = $book->getAttribute('osisID');

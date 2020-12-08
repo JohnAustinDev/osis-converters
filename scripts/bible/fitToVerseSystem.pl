@@ -19,9 +19,15 @@
 use strict;
 our ($READLAYER, $APPENDLAYER, $WRITELAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
-our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, 
-    $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, 
-    $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE);
+our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, $VSYS_INSTR_RE, 
+    $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, 
+    $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS);
+    
+our $VSYS_BOOKGRP_RE  = "(?<bg>".join('|', keys(%OSIS_GROUP)).")(\\[(?<pos>\\d+|$OSISBOOKSRE)\\])?";
+our $VSYS_SINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
+our $VSYS_INSTR_RE    = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<vl>\\d+))?)?";
+our $VSYS_PINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<vl>\\d+|PART))?)?";
+our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
 
 my $fitToVerseSystemDoc = "
 ------------------------------------------------------------------------
@@ -46,17 +52,51 @@ means this:
 Bible book 'BK' chapter '1' verse '2' through '3', or, BK 1:2-3
 
 VSYS_MOVED: BK.1.2.3 -> BK.4.5.6 (fixed -> source)
-Specifies that this translation has moved the verses that would be found 
+The following description applies when BK is the same to the left and 
+right of the arrow (otherwise see the next paragraph). This instruction 
+specifies that this translation has moved the verses that would be found 
 in a range of the fixed verse system to a different position in the 
-source verse system, indicated by the range to the right of '->'. The 
-two ranges must be the same size. The end verse portion of either range 
-may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
-reference applies to only part of the specified verse. Furthermore the 
+source verse system, indicated by the range to the right of the arrow. 
+The two ranges must be the same size. The end verse portion of either 
+range may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
+reference applies to only part of the specified verse. The 'moved' 
+verses appear in the same position when rendered as either source or 
+fixed verse systems, by 'fitting' them into the fixed verse system by 
+appending them to the end of the previous verse. Furthermore this 
 VSYS_MOVED instruction also updates the hyperlink targets of externally 
 supplied Scripture cross-references so that they correctly point to 
 their moved location in the source verse system, and updates internal 
-Scripture cross-refernences so they correctly point to their fitted 
-locations.
+Scripture cross-refernences so they correctly point to their proper
+fitted locations.
+
+VSYS_MOVED: BKA.1.2.3 -> BKB.4.5.6 (fixed -> source)
+The following description applies when BKA is different than BKB (if 
+they are the same, see the previous paragraph). This instruction 
+specifies that this translation has moved the verses that would be found 
+in a range of the fixed verse system to a different book in the source 
+verse system, indicated by the range to the right of the arrow. The two 
+ranges must be the same size. Book to book moves result in the verses 
+being located in one book or the other, depending on whether the source 
+or fixed verse system is being used (it does not 'fit' the source into 
+the fixed verse system by appending to existing verses). Furthermore 
+this VSYS_MOVED instruction also updates the hyperlink targets of 
+externally supplied Scripture cross-references so that they correctly 
+point to their moved location in the source verse system, and updates 
+internal Scripture cross-references so they correctly point to their 
+proper fixed locations.
+
+VSYS_MOVED: BKA -> OSIS_GROUP[(BKB|N)] (fixed -> source)
+Specifies that BKA in the fixed verse system was moved to a different
+position in the source, as specified by the bookGroup (see \%OSIS_GROUP 
+keys) and position. Position may be specified by a number or by the OSIS 
+abbreviation of a book found in bookGroup. The book will then appear in 
+that location whenever the source verse system is used.
+
+VSYS_MOVED: OSIS_GROUP -> bookGroup[N] (fixed -> source)
+Specifies that book group OSIS_GROUP in the fixed verse system was moved 
+to a different position in the source, as specified by position N. The 
+book group will then appear in that location whenever the source verse 
+system is used.
 
 VSYS_EXTRA: BK.1.2.3 <- VERSIFICATION:BK.1.2.3 (source <- universal)
 Specifies that the source verse system includes an extra range of verses 
@@ -294,7 +334,7 @@ our %USFM_DEFAULT_PERIPH_TARGET = (
 
 sub parseInstructionVSYS {
   my $t = shift;
-  
+ 
   if ($t =~ /^VSYS_MISSING:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
     my $value = $+{val};
     push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$value });
@@ -307,7 +347,7 @@ sub parseInstructionVSYS {
       push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'universal'=>$from, 'source'=>$to });
     }
   }
-  elsif ($t =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
+  elsif ($t =~ /^VSYS_FROM_TO:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)?\s*)?$/) {
     my $from = $+{from}; my $to = $+{to};
     push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
   }
@@ -315,11 +355,46 @@ sub parseInstructionVSYS {
     my $value = $+{val};
     push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$value, 'source'=>'' });
   }
+  elsif ($t =~ /^VSYS_MOVED:(\s*(?<from>$VSYS_BOOKGRP_RE)\s*\->\s*bookGroup\[(?<to>\d+)\]\s*)?$/) {
+    my $from = $+{from}; my $to = $+{to};
+    if ($+{pos}) {
+      $from = $+{bg};
+      &Error("VSYS_MOVED here does not need position: $+{from} in $t",
+             "Just use '$from' or use another instruction.");
+    }
+    push(@VSYS_INSTR, { 'inst'=>'MOVED_BOOKGROUP', 'fixed'=>$from, 'position'=>$to });
+  }
+  elsif ($t =~ /^VSYS_MOVED:(\s*(?<from>$OSISBOOKSRE)\s*\->\s*(?<to>$VSYS_BOOKGRP_RE)\s*)?$/) {
+    my $from = $+{from}; my $to = $+{to}; my $bg = $+{bg}; my $pos = $+{pos};
+    if (!$pos) {
+      $pos = 1;
+      &Error("Cannot do VSYS_MOVED here without book position: $t",
+             "Use '${bg}[X]' where X is the book number or abbreviation");
+    }
+    if ($+{ch} || $+{vs}) {
+      $from = $+{ch};
+      &Error("Cannot do VSYS_MOVED from part of a book: $t",
+             "Use just '$from' or use another instruction.");
+    }
+    push(@VSYS_INSTR, { 'inst'=>'MOVED_BOOK', 'fixed'=>$from, 'bookGroup'=>$bg, 'position'=>$pos });
+  }
   elsif ($t =~ /^VSYS_MOVED:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
     my $from = $+{from}; my $to = $+{to};
-    push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
-    push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'source'=>$to });
     push(@VSYS_INSTR, { 'inst'=>'FROM_TO', 'fixed'=>$from, 'source'=>$to });
+    my $frbk = ($from =~ /$VSYS_PINSTR_RE/ ? $1:'');
+    my $tobk = ($to   =~ /$VSYS_PINSTR_RE/ ? $1:'');
+    if ($frbk eq $tobk) {
+      push(@VSYS_INSTR, { 'inst'=>'MISSING', 'fixed'=>$from });
+      push(@VSYS_INSTR, { 'inst'=>'EXTRA',   'source'=>$to });
+    }
+    elsif ($from !~ /$VSYS_INSTR_RE/ || $to !~ /$VSYS_INSTR_RE/) {
+      &Error(
+"Cannot do VSYS_MOVED from a book to a different book with PART of a verse: $t",
+"Remove '.PART' from the reference or use another instruction.");
+    }
+    else {
+      push(@VSYS_INSTR, { 'inst'=>'MOVED', 'fixed'=>$from, 'source'=>$to });
+    }
   }
   elsif ($t =~ /^VSYS_MOVED_ALT:(\s*(?<from>$VSYS_PINSTR_RE)\s*\->\s*(?<to>$VSYS_PINSTR_RE)\s*)?$/) {
     my $from = $+{from}; my $to = $+{to};
@@ -328,31 +403,35 @@ sub parseInstructionVSYS {
   }
   elsif ($t =~ /^VSYS_MISSING_FN:(?:\s*(?<val>$VSYS_INSTR_RE)\s*)?$/) {
     my $value = $+{val};
-    my $bk = $+{bk}; my $ch = $+{ch}; my $vs = $+{vs}; my $lv = ($+{lv} ? $+{lv}:$+{vs});
+    my $bk = $+{bk}; my $ch = $+{ch}; my $vs = $+{vs}; my $vl = ($+{vl} ? $+{vl}:$+{vs});
     my $msg = "VSYS_MISSING_FN is used when a previous verse holds a footnote about the missing verse.";
     if ($vs > 1) {
       push(@VSYS_INSTR, { 'inst'=>'VTAG_MISSING', 'fixed'=>$value, 'source'=>"$bk.$ch.".($vs-1).'.PART' });
     }
-    else {&Error("VSYS_MISSING_FN cannot be used with verse $vs: $t", "$msg Use different instruction(s) in CF_usfm2osis.txt.");}
+    else {&Error(
+"VSYS_MISSING_FN cannot be used with verse $vs: $t", 
+"$msg Use different instruction(s) in CF_usfm2osis.txt.");}
   }
   elsif ($t =~ /^VSYS_CHAPTER_SPLIT_AT:(?:\s*(?<val>$VSYS_SINSTR_RE)\s*)?$/) {
     my $value = $+{val};
     my $bk = $+{bk}; my $ch = $+{ch}; my $vs = $+{vs};
     push(@VSYS_INSTR, { 'inst'=>'CHAPTER_SPLIT_AT', 'fixed'=>$value });
   }
+  #else {&Log("FAILED MATCH: t=$t\n", 1);}
   
   return @VSYS_INSTR;
 }
 
-sub vsysInstSort {
+sub sortVsysInst {
   my $a = shift;
   my $b = shift;
   
   my $r;
   
-  # EXTRA applies to source, while all others (which the exception of  
-  # FROM_TO) apply to fixed, so process EXTRA first.
-  my @order = ('EXTRA', 'MISSING', 'CHAPTER_SPLIT_AT', 'VTAG_MISSING', 'FROM_TO');
+  # EXTRA and MOVED modify source, while all others (which the exception of  
+  # FROM_TO which is always last) modify fixed, so process EXTRA and MOVED first.
+  my @order = ('EXTRA', 'MOVED', 'MISSING', 'CHAPTER_SPLIT_AT', 
+        'VTAG_MISSING', 'MOVED_BOOK', 'MOVED_BOOKGROUP', 'FROM_TO');
 
   # order by instruction type
   my $ai; for ($ai=0; $ai<@order; $ai++) {if (@order[$ai] eq $a->{'inst'}) {last;}}
@@ -412,12 +491,15 @@ sub orderBooks {
   
   # create empty bookGroups
   my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
-  my $bg;
-  $bg = $osisText->addNewChild("http://www.bibletechnologies.net/2003/OSIS/namespace", 'div'); $bg->setAttribute('type', 'bookGroup');
-  $bg = $osisText->addNewChild("http://www.bibletechnologies.net/2003/OSIS/namespace", 'div'); $bg->setAttribute('type', 'bookGroup');
+  foreach my $bg (@OSIS_GROUPS) {
+    my $e = $osisText->addNewChild("http://www.bibletechnologies.net/2003/OSIS/namespace", 'div'); 
+    $e->setAttribute('type', 'bookGroup');
+    $e->setAttribute('osisID', $bg);
+  }
   my @bookGroups = $XPC->findnodes('//osis:osisText/osis:div[@type="bookGroup"]', $xml);
 
-  # place books into proper bookGroup in proper order
+  # Place books into SWORD versification's bookGroup and order (SWORD verse
+  # systems only have two book groups: OT and NT).
   if ($maintainBookOrder) {
     # maintain original book order
     my $i = 0;
@@ -443,30 +525,40 @@ sub orderBooks {
     }
   }
   
-  foreach my $bk (@books) {
-    if ($bk) {
-      my $bkn = $bk->getAttribute('osisID');
-      if (defined($OSIS_ABBR{$bkn})) {
-        my $invsys; foreach (@{$bookArrayP}) {if ($_ eq $bkn) {$invsys++;}}
-        if (!$invsys) {
-          &Error(
+  # Place any remaining books into default bookGroup and order
+  my $n = -1;
+  foreach my $bg (@OSIS_GROUPS) {
+    $n++;
+    if ($bg =~ /^(OT|NT)$/) {next;} # These are already populated in v11n order
+    foreach my $bgbk (@{$OSIS_GROUP{$bg}}) {
+      foreach my $bk (@books) {
+        if (!$bk) {next;}
+        my $bkn = $bk->getAttribute('osisID');
+        if ($bkn ne $bgbk) {next;}
+        &Warn(
 "Book '$bkn' is a valid OSIS abbreviation, but is not part of
 verse system '$vsys'.",
-"This book will not appear in fixed verse system media 
-such as SWORD.");
-          @bookGroups[0]->appendChild($bk);
-        }
-        else {
-          &Error(
-"Book '$bkn' occurred multiple times, so one instance was dropped!", 
-"CF_usfm2osis.txt may have RUN this book multiple times.");
-        }
+"This book will not appear in fixed verse system media such as 
+SWORD unless you have used VSYS_MOVED to indicate where it was moved from.");
+        @bookGroups[$n]->appendChild($bk);
+        $bk = '';
       }
-      else {
-        &Error(
+    }
+  }
+    
+  # Drop any remaining books with an error
+  foreach my $bk (@books) {
+    if (!$bk) {next;}
+    my $bkn = $bk->getAttribute('osisID'); 
+    if ($bkn && defined($OSIS_ABBR{$bkn})) {
+      &Error(
+"Book '$bkn' occurred multiple times, so this instance was dropped!", 
+"CF_usfm2osis.txt may have RUN this book multiple times.");
+    }
+    else {
+      &Error(
 "Book '$bkn' is an unrecognized OSIS book, so it was dropped!", 
 "The id tag of the book's source SFM file may be incorrect.");
-      }
     }
   }
   
@@ -780,30 +872,7 @@ sub fitToVerseSystem {
     &Warn("
 There are ".@existing." fitted tags in the text. This OSIS file has 
 already been fitted so this step will be skipped!");
-  }
-  elsif (@VSYS_INSTR) {
-  
-    # Mark alternate verse numbers which represent the fitted verse system so they can be removed when using the fitted OSIS file
-    foreach my $a ($XPC->findnodes('//osis:hi[@subType="x-alternate"]', $xml)) {
-      my $prevVerseFirstTextNode = @{$XPC->findnodes('preceding::osis:verse[@sID][1]/following::text()[normalize-space()][1]', $a)}[0];
-      my $myTextNode = @{$XPC->findnodes('descendant::text()[normalize-space()][1]', $a)}[0];
-      if (!$prevVerseFirstTextNode || !$myTextNode || 
-          $prevVerseFirstTextNode->unique_key ne $myTextNode->unique_key) {next;}
-      $a->setAttribute('subType', $VSYS{'fixed_altvs'});
-    }
-    
-    # Apply VSYS instructions to the translation
-    foreach my $argsP (@VSYS_INSTR) {
-      if ($argsP->{'inst'} eq 'VTAG_MISSING') {next;}
-      &applyVsysInstruction($argsP, $canonP, $xml);
-    }
-    
-    # Update scope in the OSIS file
-    my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
-    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
-    
-    &writeXMLFile($xml, $osisP);
-    $xml = $XML_PARSER->parse_file($$osisP);
+    return;
   }
   
   # Warn that these alternate verse tags in source could require further VSYS intructions
@@ -820,8 +889,44 @@ references:");
       &Log($verse." ".$at."\n");
     }
   }
+  
+  if (@VSYS_INSTR) {
+  
+    # Mark alternate verse numbers which represent the fitted verse system so they can be removed when using the fitted OSIS file
+    foreach my $a ($XPC->findnodes('//osis:hi[@subType="x-alternate"]', $xml)) {
+      my $prevVerseFirstTextNode = @{$XPC->findnodes('preceding::osis:verse[@sID][1]/following::text()[normalize-space()][1]', $a)}[0];
+      my $myTextNode = @{$XPC->findnodes('descendant::text()[normalize-space()][1]', $a)}[0];
+      if (!$prevVerseFirstTextNode || !$myTextNode || 
+          $prevVerseFirstTextNode->unique_key ne $myTextNode->unique_key) {next;}
+      $a->setAttribute('subType', $VSYS{'fixed_altvs'});
+    }
+    
+    # Apply VSYS instructions to the translation
+    foreach my $argsP (@VSYS_INSTR) {
+      if ($argsP->{'inst'} eq 'VTAG_MISSING') {next;}
+      &applyVsysInstruction($argsP, $canonP, $xml);
+    }
+    
+    # Sort bookGroups and books to place position milestones
+    foreach ($XPC->findnodes('//osis:osisText', $xml)) {
+      &sortChildrenFixed($_);
+    }
+    foreach ($XPC->findnodes('//osis:div[@type="bookGroup"]', $xml)) {
+      &sortChildrenFixed($_);
+    }
+    
+    # Update scope in the OSIS file
+    my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
+    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
+    
+    &writeXMLFile($xml, $osisP);
+    $xml = $XML_PARSER->parse_file($$osisP);
+  }
 }
 
+# Checks that all verses in verse system vsys are present and accounted 
+# for in sequential order. Reports on skipped verses, extra verses and 
+# other common problems.
 sub checkVerseSystem {
   my $bibleosis = shift;
   my $vsys = shift;
@@ -829,100 +934,150 @@ sub checkVerseSystem {
   my $xml = $XML_PARSER->parse_file($bibleosis);
   
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &ErrorBug("Leaving checkVerseSystem() because getCanon($vsys) failed.");
-    return;
-  }
+  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
   
-  # Insure that all verses are accounted for and in sequential order 
-  # without any skipping (required by GoBible Creator).
-  my @ve = $XPC->findnodes('//osis:verse[@sID]', $xml);
-  my @v = map($_->getAttribute('sID'), @ve);
-  my $x = 0;
-  my $checked = 0;
-  my $errors = 0;
-
-BOOK:
-  foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {
-    if (@v[$x] !~ /^$bk\./) {next;}
-    my $ch = 1;
-    foreach my $vmax (@{$canonP->{$bk}}) {
-      for (my $vs = 1; $vs <= $vmax; $vs++) {
-        @v[$x] =~ /^([^\.]+)\.(\d+)\.(\d+)(\s|$)/; my $ebk = $1; my $ech = (1*$2); my $evs = (1*$3);
-        if (($ech != 1 && $ech < $ch) || ($ech == $ch && $evs < $vs)) {
-          &Error("Chapter/verse ordering problem at ".@v[$x]." (expected $ch.$vs)", "Check your SFM for out of order chapter/verses and fix them.");
-          $errors++;
-          next;
-        }
-        if (@v[$x] !~ /\b\Q$bk.$ch.$vs\E\b/) {
-          &errMissingVerse("$bk.$ch", $vs, $vmax);
-          $fitToVerseSystemDoc = '';
-          $errors++;
-          next;
-        }
-        @v[$x] =~/\.(\d+)\s*$/; $vs = ($1*1);
-        $x++;
-      }
-      while (@v[$x] =~ /^\Q$bk.$ch./) {
-        &Error("Extra verse: ".@v[$x], 
-"This often happens when a verse was split into two verses 
-somewhere within the chapter. This situation can be addressed in 
-CF_usfm2osis.txt with something like: 
-VSYS_MOVED: Gen.2.3.PART -> Gen.2.4\n$fitToVerseSystemDoc");
-        $fitToVerseSystemDoc = '';
+  my $rbk = 'none';
+  my $rch = 1;
+  my $rvs = 1;
+  
+  my $errors = 0; my $passed = 0;
+  foreach my $v ($XPC->findnodes('//osis:verse[@osisID]', $xml)) {
+    foreach my $vid (split(/\s+/, $v->getAttribute('osisID'))) {
+      if ($vid !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+        &ErrorBug("Malformed verse osisID: $vid");
         $errors++;
-        $x++;
+        next;
       }
-      $ch++;
-    }
-    while (@v[$x] =~ /^\Q$bk./) {
-      &Error("Extra chapter: ".@v[$x], 
-"This happens for instance when Synodal Pslam 151 is 
-included in a SynodalProt translation. This situation can be addressed 
+      my $bk = $1; my $ch = (1*$2); my $vs = (1*$3);
+      
+      if (!defined($canonP->{$bk})) {
+        if (defined($canonP->{$rbk})) {
+          &checkLast(\$rbk, \$rch, \$rvs, $canonP, \$errors);
+          &Warn("Cannot check verses in book $bk because they are not part of the $vsys verse system.");
+        }
+        next;
+      }
+      if ($rbk eq 'none') {$rbk = $bk;}
+    
+      # Count the passing results
+      if    ($bk eq $rbk && 
+             $ch == $rch && 
+             $vs == $rvs) {
+        $passed++;
+      }
+      elsif ($bk eq $rbk && 
+             $ch == ($rch + 1) && 
+             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
+        $passed++;
+      }
+      elsif ($bk ne $rbk &&
+             $ch == 1 && $rch == @{$canonP->{$rbk}} && 
+             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
+        $passed++;
+      }
+      
+      # Otherwise, report various failing results
+      elsif ($vs == 1 && $ch > @{$canonP->{$rbk}}) {
+        $errors++;
+        &Error("Extra chapter: $bk.$ch", 
+&vsmsg("<>This happens for instance when Synodal Pslam 151 is 
+included in a SynodalProt translation. Such a situation can be addressed 
 in CF_usfm2osis.txt with something like: 
-VSYS_EXTRA: Ps.151 <- Synodal:Ps.151\n$fitToVerseSystemDoc");
-      $fitToVerseSystemDoc = '';
-      $errors++;
-      $x++;
+VSYS_EXTRA: Ps.151 <- Synodal:Ps.151"));
+      }
+      elsif ($vs == 1) {
+        $errors++;
+        my $vl = ($rvs - 1);
+        my $vlr = @{$canonP->{$rbk}}[$rch-1];
+        if ($vl < $vlr) {
+          &Error("Chapter ended with ".($vlr-$vl)." missing verse(s): $rbk.$rch",
+&vsmsg("<>This often means verses were joined into larger 
+verses somewhere within the chapter. Such a situation can be addressed 
+in CF_usfm2osis.txt with something like: 
+VSYS_MOVED: Gen.2.4 -> Gen.2.3.PART"));
+        }
+        else {
+          &Error("Chapter ended with ".($vl-$vlr)." extra verse(s): $rbk.$rch",
+&vsmsg("<>This often means verses were split into smaller 
+verses somewhere within the chapter. Such a situation can be addressed 
+in CF_usfm2osis.txt with something like: 
+VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
+        }
+      }
+      elsif ($vs > $rvs) {
+        $errors++;
+        &errMissingVerse("$bk.$ch", $vs);
+      }
+      else {
+        $errors++;
+        &Error("Versification problem at $bk.$ch.$vs (expected $rbk.$rch.$rvs)",
+"<>Check SFM files for out of order verses, missing or extra chapters.");
+      }
+      
+      $rbk = $bk;
+      $rch = $ch;
+      $rvs = ($vs+1);
     }
   }
-  if ($x == @v) {&Log("\n"); &Note("All verses were checked against verse system $vsys.");}
-  else {&Log("\n"); &ErrorBug("Problem checking chapters and verses in verse system $vsys (stopped at $x of @v verses: ".@v[$x].")");}
+  &checkLast(\$rbk, \$rch, \$rvs, $canonP, \$errors);
+
+  if (!$errors && $passed) {
+    &Log("\n"); 
+    &Note("All verses were checked against verse system $vsys.");
+  }
   
   &Report("$errors verse system problems detected".($errors ? ':':'.'));
   if ($errors) {
     &Note("
       This translation does not fit the $vsys verse system. The errors 
       listed above must be fixed. Add the appropriate instructions:
-      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt. $fitToVerseSystemDoc");
-    $fitToVerseSystemDoc = '';
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt.");
   }
+}
+
+sub checkLast {
+  my $rbkP = shift;
+  my $rchP = shift;
+  my $rvsP = shift;
+  my $canonP = shift;
+  my $errorsP = shift;
+  
+  if (defined($canonP->{$$rbkP})) {
+    if ($$rchP != @{$canonP->{$$rbkP}} || ($$rvsP - 1) != @{$canonP->{$$rbkP}}[$$rchP-1]) {
+      $$errorsP++;
+      &Error(
+"The last verse of ($$rbkP.$$rchP.".($$rvsP-1).") is 
+not the last of its book ($$rbkP.$$rchP.".@{$canonP->{$$rbkP}}[$$rchP-1].")", &vsmsg());
+    }
+  }
+  
+  $$rbkP = 'none';
+  $$rchP = 1;
+  $$rvsP = 1;
+}
+
+our $VSMSG_DONE;
+sub vsmsg {
+  my $msg = shift;
+  
+  if ($VSMSG_DONE) {return $msg;}
+  $VSMSG_DONE++;
+  return "$msg\n$fitToVerseSystemDoc";
 }
 
 sub errMissingVerse {
   my $bkch = shift;
   my $vs = shift;
-  my $lastVerseInChapter = shift;
   
-  my $fixes = 
-"possible cause of this error is a verse that has been left out
-on purpose. Often there is a related footnote at the end of the previous 
-verse which sometimes contains the text of the missing verse. This 
-situation can be addressed with:
-VSYS_MISSING_FN: $bkch.$vs
+&Error("Missing verse $bkch.$vs.", 
+&vsmsg("<>A possible cause of this error is a verse that 
+has been left out on purpose. Often there is a related footnote at the 
+end of the previous verse which sometimes contains the text of the 
+missing verse. Such a situation should be addressed like:
+VSYS_MISSING_FN: Gen.25.6
 But, if there is no footnote and a verse (or verses) have been left out, 
-this can be addressed with:
-VSYS_MISSING: $bkch.$vs";
-  
-  if ($vs == $lastVerseInChapter) {
-  &Error("Missing verse $bkch.$vs.", 
-"Because this is the last verse of a chapter, it is likely 
-that multiple verses are joined into a single verse somewhere within the 
-chapter. Such a situation can be addressed in CF_usfm2osis.txt with 
-something like: 
-VSYS_MOVED: $bkch.4 -> $bkch.3.PART\nAnother $fixes\n$fitToVerseSystemDoc");
-  }
-  else {&Error("Missing verse $bkch.$vs.", "A $fixes\n$fitToVerseSystemDoc");}
+this should be addressed with:
+VSYS_MISSING: Gen.25.6"));
 }
 
 sub applyVsysInstruction {
@@ -930,9 +1085,20 @@ sub applyVsysInstruction {
   my $canonP = shift;
   my $xml = shift;
   
-  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}.($argP->{'universal'} ? ", universal=".$argP->{'universal'}:'')."\n");
-
   my $inst = $argP->{'inst'};
+  
+  if ($inst eq 'MOVED_BOOKGROUP') {
+    &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", position=".$argP->{'position'}."\n");
+    &applyVsysMovedBookGroup($argP->{'fixed'}, $argP->{'position'}, $xml);
+    return 1;
+  }
+  if ($inst eq 'MOVED_BOOK') {
+    &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", bookGroup=".$argP->{'bookGroup'}.", position=".$argP->{'position'}."\n");
+    &applyVsysMovedBook($argP->{'fixed'}, $argP->{'bookGroup'}, $argP->{'position'}, $xml);
+    return 1;
+  }
+  
+  &Log("\nVSYS_".$argP->{'inst'}.": fixed=".$argP->{'fixed'}.", source=".$argP->{'source'}.($argP->{'universal'} ? ", universal=".$argP->{'universal'}:'')."\n");
   
   # NOTE: 'fixed' always refers to a known fixed verse system, 
   # and 'source' always refers to the customized source verse system
@@ -961,7 +1127,8 @@ sub applyVsysInstruction {
   elsif ($inst eq 'EXTRA')   {&applyVsysExtra($sourceP, $canonP, $xml);}
   elsif ($inst eq 'FROM_TO') {&applyVsysFromTo($fixedP, $sourceP, $xml);}
   elsif ($inst eq 'CHAPTER_SPLIT_AT') {&applyVsysChapterSplitAt($fixedP, $xml);}
-  else {&ErrorBug("applyVsysInstruction did nothing: $inst");}
+  elsif ($inst eq 'MOVED')   {&applyVsysMoved($fixedP, $sourceP, $xml);}
+  else {&ErrorBug("Unhandled instruction: $inst");}
   
   return 1;
 }
@@ -975,7 +1142,7 @@ sub parseVsysArgument {
   $data{'value'} = $value;
 
   # read and preprocess value
-  my $bk; my $ch; my $vs; my $lv;
+  my $bk; my $ch; my $vs; my $vl;
   if ($vsysType eq 'universal') {
     if ($value !~ /^$VSYS_UNIVERSE_RE$/) {
       &ErrorBug("parseVsysArgument: Could not parse universal: $value !~ /^$VSYS_UNIVERSE_RE\$/");
@@ -984,7 +1151,7 @@ sub parseVsysArgument {
     $data{'vsys'} = $1;
     $bk = $2; $ch = $3; 
     if (defined($4)) {$vs = $5;}
-    if (defined($5)) {$lv = $7;}
+    if (defined($5)) {$vl = $7;}
     if ($data{'vsys'} !~ /^($SWORD_VERSE_SYSTEMS)$/) {
       &Error("parseVsysArgument: Unrecognized verse system: '".$data{'vsys'}."'", "Use a recognized SWORD verse system: $SWORD_VERSE_SYSTEMS");
     }
@@ -995,19 +1162,20 @@ sub parseVsysArgument {
       return \%data;
     }
     $data{'vsys'} = ($vsysType eq 'source' ? 'source':($vsysType eq 'fixed' ? &getVerseSystemOSIS($xml):''));
-    $bk = $1; $ch = $2;
-    if (defined($3)) {$vs = $4;}
-    if (defined($5)) {$lv = $6;}
+    $bk = $+{bk}; $ch = $+{ch};
+    if (defined($+{vs})) {$vs = $+{vs};}
+    if (defined($+{vl})) {$vl = $+{vl};}
   }
   
-  $data{'isPartial'} = ($lv =~ s/^PART$/$vs/ ? 1:0);
-  $data{'isWholeChapter'} = &isWholeVsysChapter($bk, $ch, \$vs, \$lv, $xml);
+  $data{'isPartial'} = ($vl =~ s/^PART$/$vs/ ? 1:0);
+  $data{'isWholeChapter'} = &isWholeVsysChapter($bk, $ch, \$vs, \$vl, $data{'vsys'}, $xml);
+
   $data{'bk'} = $bk;
   $data{'ch'} = (defined($ch) ? (1*$ch) : undef);
   $data{'vs'} = (defined($vs) ? (1*$vs) : undef);
-  $data{'lv'} = (defined($lv) ? (1*$lv) : $vs);
-  $data{'count'} = 1 + (defined($data{'vs'}) ? ($data{'lv'} - $data{'vs'}):-1);
-  
+  $data{'vl'} = (defined($vl) ? (1*$vl) : $vs);
+  $data{'count'} = 1 + (defined($data{'vs'}) ? ($data{'vl'} - $data{'vs'}):-1); 
+
   return \%data
 }
 
@@ -1025,11 +1193,11 @@ sub applyVsysFromTo {
   my $xml = shift;
   
   if (!$fixedP) {
-    &ErrorBug("applyVsysFromTo fixedP should not be empty");
+    &ErrorBug("fixedP should not be empty");
     return;
   }
   
-  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
+  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $vl = $fixedP->{'vl'};
   
   my $note = "";
   
@@ -1063,7 +1231,7 @@ sub applyVsysFromTo {
       else {&ErrorBug("Could not find source element:\n$xpath");}
     }
     else {
-      for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'lv'}; $v++) {
+      for (my $v=$sourceP->{'vs'}; $v<=$sourceP->{'vl'}; $v++) {
         my $sourcevs = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$v;
         my $svs = &getSourceVerseTag($sourcevs, $xml, 1);
         if ($svs) {
@@ -1093,7 +1261,7 @@ sub applyVsysFromTo {
     return;
   }
   
-  for (my $v=$vs; $v<=$lv; $v++) {
+  for (my $v=$vs; $v<=$vl; $v++) {
     my $baseAnnotateRef = ($sourceP ? $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.($sourceP->{'vs'} + $v - $vs):'');
     my $annotateRef = $baseAnnotateRef;
     if ($sourceP && $sourceP->{'isPartial'}) {$annotateRef .= "!PART";}
@@ -1124,9 +1292,11 @@ sub applyVsysFromTo {
     # regular verse) or else a hi with subType=x-alternate (if it was 
     # originally an alternate verse).
     my $altVerseEnd = &getSourceVerseTag($baseAnnotateRef, $xml, 1);
-    if (!$altVerseEnd) {$altVerseEnd = &getSourceAltVerseTag($baseAnnotateRef, $xml, 1);}
     if (!$altVerseEnd) {
-      &ErrorBug("Could not find FROM_TO destination alternate verse $baseAnnotateRef");
+      $altVerseEnd = &getSourceAltVerseTag($baseAnnotateRef, $xml, 1);
+    }
+    if (!$altVerseEnd) {
+      &Warn("Could not find FROM_TO destination alternate verse $baseAnnotateRef");
       next;
     }
     $osisRef = @{$XPC->findnodes('preceding::osis:verse[@osisID][1]', $altVerseEnd)}[0];
@@ -1195,6 +1365,426 @@ sub getSourceAltVerseTag {
   }
   
   return '';
+}
+
+# Used when a range of verses in the fixed verse system was, or is to be 
+# moved from another book in the source verse system. Markup is added at 
+# both locations to facilitate easy destination selection via XSLT:
+# - Moved elements are located and enclosed by a marked div. Element(s) 
+#   within the div could be a verse or verses, up to a whole chapter.
+#   If the div is not already in its fixed verse system location,
+#   then it is moved there.
+# - Empty fixed verse system elements are created only when necessary: 
+#   bookGroup div, book div and chapter tags (unless they already exist). 
+#   These elements will be removed when the source verse system is 
+#   extracted from the resulting OSIS file.
+# - A source target milestone-div is placed to designate where the div con-
+#   taining the fixed element(s) will be moved when the OSIS file is
+#   rendered as source.
+sub applyVsysMoved {
+  my $fixedP = shift;
+  my $sourceP = shift;
+  my $xml = shift;
+  
+  if (!$fixedP || !$sourceP) {return;}
+  
+  my $bk = $sourceP->{'bk'};
+  my $ch = $sourceP->{'ch'};
+  my $vs = $sourceP->{'vs'};
+  my $vl = $sourceP->{'vl'};
+  
+  # Find the first chapter/verse start tag and the last chapter/verse end tag
+  my $es = ( $sourceP->{'isWholeChapter'} ? 
+      @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0] :
+      &getVerseTag("$bk.$ch.$vs", $xml) );
+  my $el = ( $sourceP->{'isWholeChapter'} ? 
+      @{$XPC->findnodes("//osis:chapter[\@eID='$bk.$ch']", $xml)}[0] :
+      &getVerseTag("$bk.$ch.$vl", $xml, 1) );
+  if (!$es || !$el) {
+    &Error("Could not find start and end elements: '$es' '$el'",
+    "Check the VSYS_MOVED instructions.");
+  }
+  
+  # Adjust first element to include pre-verse/chapter title(s)
+  my $pre = @{$XPC->findnodes('preceding::*[1]', $es)}[0];
+  while ($pre && $pre->localname eq 'title') {
+    $es = $pre;
+    $pre = @{$XPC->findnodes('preceding::*[1]', $pre)}[0];
+  }
+  my $esp = $es->parentNode;
+  if ($esp->localname eq 'div' && 
+      @{$XPC->findnodes('child::*[1]', $esp)}[0]->unique_key eq $es->unique_key) {
+    $es = $esp;
+  }
+  
+  # If first element is within section container(s), truncate so it's not
+  my $con = @{$XPC->findnodes('ancestor::osis:div[contains(@type, "ection")][last()]', $es)}[0];
+  if ($con) {&truncateAt($con, $es);}
+  
+  # Save nodes between first and last inclusive, truncating containers
+  # as necessary so first and last are siblings.
+  my @nodes;
+  while ($es) {
+    push(@nodes, $es);
+    if ($es->unique_key eq $el->unique_key) {last;}
+    if ($es->nodeType eq XML::LibXML::XML_ELEMENT_NODE && $es->hasChildNodes) {
+      &truncateAt($es, $el);
+    }
+    $es = @{$XPC->findnodes('following-sibling::node()[1]', $es)}[0];
+  }
+  if (!$es) {&ErrorBug("Ran out of nodes.");}
+  
+  # Enclose them in a marked div
+  my $id = 'source_'.$sourceP->{'value'};
+  my $div = "<div xmlns='$OSIS_NAMESPACE' " .
+  "annotateType='$VSYS{'moved_type'}' annotateRef='$id' " .
+  "resp='$VSYS{'moved_type'}'/>";
+  $div = $XML_PARSER->parse_balanced_chunk($div);
+  $div = $el->parentNode->insertAfter($div, $el);
+  
+  # Write source position milestone
+  my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " .
+  "osisID='$id' resp='$VSYS{'moved_type'}'> </div>";
+  $ms = $XML_PARSER->parse_balanced_chunk($ms);
+  $ms = $el->parentNode->insertAfter($ms, $el);
+  
+  foreach (@nodes) {$_->unbindNode(); $_ = $div->appendChild($_);}
+  
+  # Find position in fixed location, creating bookGroup/book/chapter
+  # only as necessary.
+  my $bk = $fixedP->{'bk'};
+  my $ch = $fixedP->{'ch'};
+  my $vs = $fixedP->{'vs'};
+  my $vl = $fixedP->{'vl'};
+  my $bg = &defaultOsisIndex($bk, 3);
+  my $bookGroup = @{$XPC->findnodes('//osis:div[@type="bookGroup"]
+      [@osisID="'.$bg.'"]', $xml)}[0];
+  if (!$bookGroup) {
+    $bookGroup = &createNewBookGroup($bg, $xml, $VSYS{'moved_type'});
+  }
+  my $book = @{$XPC->findnodes('//osis:div[@type="book"]
+      [@osisID="'.$bk.'"]', $xml)}[0];
+  if (!$book) {$book = &createNewBook($bk, $xml, $VSYS{'moved_type'});}
+  my $chapter;
+  if ($sourceP->{'isWholeChapter'}) {
+    $chapter = @{$XPC->findnodes("//osis:chapter[\@eID='$bk.".($ch-1)."']", $xml)}[0];
+  }
+  else {
+    $chapter = @{$XPC->findnodes("//osis:chapter[\@eID='$bk.$ch']", $xml)}[0];
+    if (!$chapter) {
+      $chapter = &createNewChapter($bk, $ch, $xml, $VSYS{'moved_type'});
+    }
+  }
+  my $verse = &getVerseTag("$bk.$ch.".($vs-1), $xml, 1);
+  
+  # Move div to fixed location
+  $div->unbindNode();
+  if ($sourceP->{'isWholeChapter'}) {
+    if ($chapter) {$div = $chapter->parentNode->insertAfter($div, $chapter);}
+    else {$div = $book->appendChild($div);}
+    my $oldid = $sourceP->{'bk'}.'.'.$sourceP->{'ch'};
+    my $newid = $fixedP->{'bk'}.'.'.$fixedP->{'ch'};
+    foreach my $sl (0, 1) {
+      my $ch = @{$XPC->findnodes("//osis:chapter[\@".($sl ? 'eID':'sID')."='$oldid']", $xml)}[0];
+      if (!$ch) {last;}
+      $ch = &toMilestone($ch);
+      if (!$sl) {$ch->setAttribute('osisID', $newid);}
+      $ch->setAttribute(($sl ? 'eID':'sID'), $newid);
+    }
+  }
+  else {
+    if ($verse) {$div = $verse->parentNode->insertAfter($div, $verse);}
+    else {$div = $chapter->parentNode->insertBefore($div, $chapter);}
+  }
+
+  for (my $v = $sourceP->{'vs'}; $v <= $sourceP->{'vl'}; $v++) {
+    my $oldid = $sourceP->{'bk'}.'.'.$sourceP->{'ch'}.'.'.$v;
+    my $newid =  $fixedP->{'bk'}.'.'. $fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
+    foreach my $sl (0, 1) {
+      my $vt = &getVerseTag($oldid, $xml, $sl);
+      if (!$vt) {last;}
+      $vt = &toMilestone($vt);
+      if (!$sl) {$vt->setAttribute('osisID', $newid);}
+      $vt->setAttribute(($sl ? 'eID':'sID'), $newid);
+    }
+  }
+}
+
+# If $element contains node $makeSibling, then $makeSibling and all 
+# following nodes within $element are moved after $element. So $element 
+# and $makeSibling will always end up as siblings, or else $element will 
+# be left untouched.
+sub truncateAt {
+  my $element = shift;
+  my $makeSibling = shift;
+  my $afterP = shift;
+  
+  if (!defined($afterP)) {$afterP = \$element;}
+
+  my $truncate = 0;
+  foreach my $child ($element->childNodes) {
+    if ($child->unique_key eq $makeSibling->unique_key) {$truncate = 1;}
+    
+    if ($truncate) {
+      $child->unbindNode();
+      $child = $$afterP->parentNode->insertAfter($child, $$afterP);
+      $$afterP = $child;
+    }
+    elsif ($child->nodeType eq XML::LibXML::XML_ELEMENT_NODE && $child->hasChildNodes) {
+      $truncate |= &truncateAt($child, $makeSibling, $afterP);
+    }
+  }
+  
+  return $truncate;
+}
+
+# Used when an entire book has been moved from its fixed verse system
+# position. Markup is added at both locations to facilitate easy dest-
+# ination selection via XSLT:
+# - The fixed book to be moved is marked. Also mark any preceding 
+#   sibling book-introduction divs.
+# - An empty source bookGroup is created if it does not already exist.
+#   Any created bookGroup will be removed when the fixed verse system is
+#   extracted from the resulting OSIS file.
+# - A source target milestone-div is placed so as to designate where the 
+#   fixed book will be moved to. Also milestones for any preceding
+#   sibling book-introduction divs are placed. 
+sub applyVsysMovedBook {
+  my $book = shift;
+  my $bookGroup = shift;
+  my $position = shift;
+  my $xml = shift;
+  
+  # Insure position is ordinal
+  if ($position !~ /^\d+$/) {
+    $position = 1 + &defaultOsisIndex("$bookGroup:$position", 1);
+    if (!defined($position)) {
+      &Error("Book '$position' is not part of bookGroup '$bookGroup'.",
+        "Check the VSYS_MOVED instructions.");
+      $position = 0; # position 1 is first valid position
+    }
+  }
+  
+  # Find book and intro elements in fixed verse system
+  my $bkFixed = @{$XPC->findnodes("//osis:div[\@type='book']
+      [\@osisID='$book']", $xml)}[0];
+  if (!$bkFixed) {
+    &Error("No '$book' book was found in the OSIS file.", 
+           "Check the VSYS_MOVED instructions.");
+    return;
+  }
+  my @elements; push(@elements, $bkFixed); 
+  my $xpath = 'preceding-sibling::osis:div[not(self::osis:div[@type="book"])]';
+  my $ps = @{$XPC->findnodes($xpath, $bkFixed)}[0];
+  while ( $ps->hasAttribute('scope') && 
+          &bookInScope($book, $ps->getAttribute('scope'), &conf('Versification')) 
+        ) {
+    push(@elements, $ps);
+    $ps = @{$XPC->findnodes($xpath, $ps)}[0];
+  }
+  
+  # Find source bookGroup (creating if necessary)
+  my $bgFixed = @{$XPC->findnodes("//osis:div[\@type='bookGroup']
+      [\@osisID='$bookGroup']", $xml)}[0];
+  if (!$bgFixed) {
+    # bookGroups are sorted later
+    $bgFixed = &createNewBookGroup($bookGroup, $xml, $VSYS{'moved_type'});
+  }
+  
+  my $n = 0;
+  foreach my $e (reverse(@elements)) {
+    my $id = 'source_'.$e->getAttribute('osisID');
+    
+    # Mark div in fixed verse system
+    $e->setAttribute('annotateType', $VSYS{'moved_type'});
+    $e->setAttribute('annotateRef', $id);
+
+    # Place milestone with source position in bookGroup
+    my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " . 
+    "osisID='$id' resp='$VSYS{'moved_type'}' position='".($position + $n)."'> </div>";
+    $ms = $XML_PARSER->parse_balanced_chunk($ms)->firstChild;
+    $n += 0.01;
+    
+    # Place milestone as last child (books are sorted later)
+    $ms = $bgFixed->appendChild($ms);
+  }
+  if ($n >= 0.5) {&ErrorBug("Too many intro divs");}
+}
+
+# Used when an entire bookGroup has been moved from its default verse 
+# system position in %OSIS_GROUP to another position in the source verse
+# system. Markup is added at both locations to facilitate easy dest-
+# ination selection via XSLT:
+# - The fixed bookGroup to be moved is marked.
+# - A source target milestone-div is placed so as to designate the  
+#   position of the bookGroup when source is extracted from the OSIS file.
+sub applyVsysMovedBookGroup {
+  my $bookGroup = shift;
+  my $position = shift;
+  my $xml = shift;
+  
+  # Insure position is ordinal
+  if ($position !~ /^\d+$/) {
+    $position = 1 + &defaultOsisIndex($position, 2);
+    if (!defined($position)) {
+      &Error("Book group '$position' is unrecognized.",
+        "Check the VSYS_MOVED instructions.");
+      $position = 0; # position 1 is first valid position
+    }
+  }
+  
+  # Find and mark bookGroup in fixed verse system
+  my $bgFixed = @{$XPC->findnodes("//osis:div[\@type='bookGroup']
+      [\@osisID='$bookGroup']", $xml)}[0];
+  if (!$bgFixed) {
+    &Error("No '$bookGroup' bookGroup was found in the OSIS file.", 
+           "Check the VSYS_MOVED instructions.");
+    return;
+  }
+  $bgFixed->setAttribute('annotateType', $VSYS{'moved_type'});
+  $bgFixed->setAttribute('annotateRef', "source_$bookGroup");
+  
+  # Place milestone with source position in osisText (bookGroups are sorted later)
+  # The 'milestone' must be a div this time, to pass OSIS validation for osisText children.
+  my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " . 
+  "osisID='source_$bookGroup' resp='$VSYS{'moved_type'}' position='$position'> </div>";
+  $ms = $XML_PARSER->parse_balanced_chunk($ms)->firstChild;
+  $ms = $bgFixed->parentNode->appendChild($ms);
+}
+
+sub createNewBookGroup {
+  my $bookGroup = shift;
+  my $xml = shift;
+  my $resp = shift;
+  
+  my $bg = "<div xmlns='$OSIS_NAMESPACE' type='bookGroup' osisID='$bookGroup' ";
+  if ($resp) {$bg .= "resp='$resp' ";}
+  $bg .= "/>";
+  $bg = $XML_PARSER->parse_balanced_chunk($bg)->firstChild;
+  my $osisText = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+  return $osisText->appendChild($bg);
+}
+
+sub createNewBook {
+  my $book = shift;
+  my $xml = shift;
+  my $resp = shift;
+  
+  my $bookGroup = &defaultOsisIndex($book, 3);
+  
+  my $bk = "<div xmlns='$OSIS_NAMESPACE' type='book' osisID='$book' ";
+  if ($resp) {$bk .= "resp='$resp' ";}
+  $bk .= "/>";
+  $bk = $XML_PARSER->parse_balanced_chunk($bk)->firstChild;
+  $bookGroup = @{$XPC->findnodes("//osis:div[\@type='bookGroup']
+      [\@osisID='$bookGroup']", $xml)}[0];
+  return $bookGroup->appendChild($bk);
+}
+
+sub createNewChapter {
+  my $bk = shift;
+  my $ch = shift;
+  my $xml = shift;
+  my $resp = shift;
+  
+  my $nchs = "<chapter xmlns='$OSIS_NAMESPACE' osisID='$bk.$ch' sID='$bk.$ch' ";
+  my $nche = "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' ";
+  if ($resp) {
+    $nchs .= "resp='$resp' ";
+    $nche .= "resp='$resp' ";
+  }
+  $nchs .= "/>";
+  $nche .= "/>";
+  $nchs = $XML_PARSER->parse_balanced_chunk($nchs)->firstChild;
+  $nche = $XML_PARSER->parse_balanced_chunk($nche)->firstChild;
+  
+  my $prevch = @{$XPC->findnodes("//osis:chapter[\@eID='$bk.".($ch-1)."']", $xml)}[0];
+  if ($prevch) {
+    $nchs = $prevch->parentNode->insertAfter($nchs, $prevch);
+  }
+  else {
+    my $book = @{$XPC->findnodes("//osis:div[\@type='book'][\@osisID='$bk']", $xml)}[0];
+    $nchs = $book->addChild($nchs);
+  }
+  $nche = $nchs->parentNode->insertAfter($nche, $nchs);
+  
+  return $nche;
+}
+
+# Sorts bookGroups and books. It places milestone position elements in 
+# their correct positions. Sorting is also required because applyVsys  
+# functions may have appended new elements. NOTE: All non-element child 
+# nodes end up first after this function!
+sub sortChildrenFixed {
+  my $parent = shift;
+
+  my $childType = ($parent->localname eq 'osisText' ? 'bookGroup':'book');
+  
+  # Note: Milestone position ordinals correspond to this order:
+  # - OT|NT books               -> SWORD versification order (or current
+  #                                order if CustomBookOrder is set)
+  # - books in other bookGroups -> %OSIS_GROUP{$bg} order
+  # - bookGroups themselves     -> @OSIS_GROUPS order
+  my %sortOrder; my $pos = 1;
+  if ($childType eq 'book' && $parent->getAttribute('osisID') =~ /^(OT|NT)$/) {
+    if (&conf('CustomBookOrder')) {
+      foreach my $child ($parent->childNodes) {
+        if ($child->nodeType ne XML::LibXML::XML_ELEMENT_NODE ||
+            $child->getAttribute('type') ne 'book') {next;}
+        $sortOrder{$child->getAttribute('osisID')} = $pos++;
+      }
+    }
+    else {
+      my $canonP; my $bookOrderP;
+      &getCanon(&conf('Versification'), \$canonP, \$bookOrderP, undef, undef);
+      foreach (keys %{$bookOrderP}) {
+        $sortOrder{$_} = $bookOrderP->{$_};
+      }
+    }
+  }
+  elsif ($childType eq 'book') {
+    foreach (@{$OSIS_GROUP{$parent->getAttribute('osisID')}}) {
+      $sortOrder{$_} = $pos++;
+    }
+  }
+  else {
+    foreach (@OSIS_GROUPS) {
+      $sortOrder{$_} = $pos++;
+    }
+  }
+  
+  my $pos = 0; my $inc = 0; my %reset; my @unbound;
+  foreach my $child ($parent->childNodes) {
+    if ($child->localname ne 'div') {next;}
+    
+    # Write div's position, if not already recorded
+    if (!$child->hasAttribute('position')) {
+      my $id = ($child->hasAttribute('osisID') ? $child->getAttribute('osisID'):'');
+      my $p = $sortOrder{$id};
+      if (!$p) {
+        if ($child->hasAttribute('scope')) {
+          my $s = $child->getAttribute('scope'); $s =~ s/[\- ].*//;
+          my $scid = ($childType eq 'bookGroup' ? &defaultOsisIndex($s, 3):$s);
+          $p = $sortOrder{$scid};
+        }
+      }
+      if (defined($p)) {$pos = $p;}
+      if (!$reset{$p}) {$reset{$p}++; $inc = 0;}
+      # < 0.5 reserved for position milestones
+      $child->setAttribute('position', ($pos + 0.5 + $inc));
+      $inc += 0.01;
+      if ($inc >= 0.5) {&ErrorBug("Too many intro divs");}
+    }
+    
+    # Unbind all divs
+    push(@unbound, $child);
+    $child->unbindNode()
+  }
+  
+  foreach ( sort { $a->getAttribute('position') <=> $b->getAttribute('position') } @unbound ) {
+    my $r = $parent->appendChild($_);
+    if ($r->hasAttribute('position')) {$r->removeAttribute('position');}
+  }
 }
 
 # Used when a chapter in the fixed verse system has been split into two 
@@ -1269,7 +1859,7 @@ sub applyVsysMissing {
   
   if (!$fixedP) {return;}
   
-  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $lv = $fixedP->{'lv'};
+  my $bk = $fixedP->{'bk'}; my $ch = $fixedP->{'ch'}; my $vs = $fixedP->{'vs'}; my $vl = $fixedP->{'vl'};
   
   if ($fixedP->{'isPartial'}) {
     &Note("Verse reference is partial, so nothing to do here.");
@@ -1310,7 +1900,7 @@ sub applyVsysMissing {
   # For any following verses, advance their verse numbers and add alternate verse numbers if needed
   my $followingVerse = @{$XPC->findnodes('./following::osis:verse[@sID][1]', $verseTagToModify)}[0];
   if ($followingVerse) {
-    my $count = (1 + $lv - $vs);
+    my $count = (1 + $vl - $vs);
     $followingVerse = $followingVerse->getAttribute('osisID');
     $followingVerse =~ s/^[^\.]+\.\d+\.(\d+)\b.*?$/$1/;
     if ($vs != ($followingVerse-$count) - ($vs!=1 ? 0:1)) {
@@ -1325,7 +1915,7 @@ sub applyVsysMissing {
   $verseTagToModify = &getVerseTag("$bk.$ch.".($vs!=1 ? ($vs-1):&getFirstVerseInChapterOSIS($bk, $ch, $xml)), $xml, 0);
   my $endTag = @{$XPC->findnodes('//osis:verse[@eID="'.$verseTagToModify->getAttribute('sID').'"]', $xml)}[0];
   my @missing;
-  for (my $v = $vs; $v <= $lv; $v++) {
+  for (my $v = $vs; $v <= $vl; $v++) {
     my $a = "$bk.$ch.$v";
     &osisIDCheckUnique($a, $xml);
     push(@missing, $a);
@@ -1357,7 +1947,7 @@ sub applyVsysExtra {
   
   if (!$sourceP) {return;}
   
-  my $bk = $sourceP->{'bk'}; my $ch = $sourceP->{'ch'}; my $vs = $sourceP->{'vs'}; my $lv = $sourceP->{'lv'};
+  my $bk = $sourceP->{'bk'}; my $ch = $sourceP->{'ch'}; my $vs = $sourceP->{'vs'}; my $vl = $sourceP->{'vl'};
   
   if ($sourceP->{'isPartial'}) {
     &Note("Verse reference is partial, so nothing to do here.");
@@ -1370,14 +1960,14 @@ sub applyVsysExtra {
   if ($ch > @{$canonP->{$bk}}) {
     if ($ch == (@{$canonP->{$bk}} + 1)) {
       my $lastv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
-      if ($vs != 1 || $lv != $lastv) {
-        &Error("VSYS_EXTRA($bk, $ch, $vs, $lv): Cannot specify verses for a chapter outside the verse system.", "Use just '$bk.$ch' instead.");
+      if ($vs != 1 || $vl != $lastv) {
+        &Error("VSYS_EXTRA($bk, $ch, $vs, $vl): Cannot specify verses for a chapter outside the verse system.", "Use just '$bk.$ch' instead.");
       }
       $vs = 1;
-      $lv = $lastv;
+      $vl = $lastv;
     }
     else {
-      &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $lv): Not yet implemented (except when the extra chapter is the last chapter of the book).");
+      &ErrorBug("VSYS_EXTRA($bk, $ch, $vs, $vl): Not yet implemented (except when the extra chapter is the last chapter of the book).");
       return;
     }
   }
@@ -1386,7 +1976,7 @@ sub applyVsysExtra {
   my $sid = ($isWholeChapter ?
     "$bk.".($ch-1).".".&getLastVerseInChapterOSIS($bk, ($ch-1), $xml) :
     "$bk.$ch.".($vs!=1 ? ($vs-1):$vs));
-  my $eid = "$bk.$ch.".($isWholeChapter || $vs != 1 ? $lv:($lv+1));
+  my $eid = "$bk.$ch.".($isWholeChapter || $vs != 1 ? $vl:($vl+1));
   
   my $startTag = &getVerseTag($sid, $xml, 0);
   my $endTag   = &getVerseTag($eid, $xml, 1);
@@ -1412,7 +2002,7 @@ sub applyVsysExtra {
     my $shift = ($1 - $arv);
     if ($shift) {
       &Note("This verse was moved, adjusting position: '$shift'.");
-      my $newSourceArgumentP = &parseVsysArgument($bk.'.'.$ch.'.'.($vs+$shift).'.'.($sourceP->{'isPartial'} ? 'PART':($lv+$shift)), $xml, 'source');
+      my $newSourceArgumentP = &parseVsysArgument($bk.'.'.$ch.'.'.($vs+$shift).'.'.($sourceP->{'isPartial'} ? 'PART':($vl+$shift)), $xml, 'source');
       &applyVsysExtra($newSourceArgumentP, $canonP, $xml, 1);
       return;
     }
@@ -1428,7 +2018,7 @@ sub applyVsysExtra {
       my $t = $chapLabel->textContent();
       &changeNodeText($chapLabel, '');
       my $alt = "<hi xmlns=\"$OSIS_NAMESPACE\" type=\"italic\" subType=\"x-alternate\">$t</hi>";
-      $alt = $XML_PARSER->parse_balanced_chunk();
+      $alt = $XML_PARSER->parse_balanced_chunk($alt);
       foreach my $chld ($chapLabel->childNodes) {$alt->insertAfter($chld, undef);}
       $chapLabel->insertAfter($alt, undef);
     }
@@ -1452,7 +2042,7 @@ sub applyVsysExtra {
   $startTag = &toMilestone($startTag, 0, 0);
   if ($startTag->getAttribute('sID') eq $endTag->getAttribute('eID')) {
     my %ids; map($ids{$_}++, split(/\s+/, $startTag->getAttribute('osisID')));
-    for (my $v = $vs; $v <= $lv; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
+    for (my $v = $vs; $v <= $vl; $v++) {if ($ids{"$bk.$ch.$v"}) {delete($ids{"$bk.$ch.$v"});}}
     my $newID = join(' ', &normalizeOsisID([ sort keys(%ids) ]));
     $startTag->setAttribute('osisID', $newID);
     $startTag->setAttribute('sID', $newID);
@@ -1473,7 +2063,7 @@ sub applyVsysExtra {
   # Following verses get decremented verse numbers plus an alternate verse number (unless isWholeChapter)
   if (!$isWholeChapter) {
     my $lastV = &getLastVerseInChapterOSIS($bk, $ch, $xml);
-    my $count = (1 + $lv - $vs);
+    my $count = (1 + $vl - $vs);
     for (my $v = $vs + $count + ($vs!=1 ? 0:1); $v <= $lastV; $v++) {
       &reVersify($bk, $ch, $v, 0, (-1*$count), $xml);
     }
@@ -1506,7 +2096,7 @@ sub applyVsysMissingVTag {
   }
   
   my $newOsisID = $prevOsisID;
-  for (my $v = $fixedP->{'vs'}; $v <= $fixedP->{'lv'}; $v++) {
+  for (my $v = $fixedP->{'vs'}; $v <= $fixedP->{'vl'}; $v++) {
     $newOsisID .= ' '.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$v;
   }
   $newOsisID = join(' ', &normalizeOsisID([ split(/\s+/, $newOsisID) ]));
@@ -1580,14 +2170,16 @@ sub reVersify {
 # src_milestone = x-vsys milestone representing an original source verse or chapter tag
 # fit_tag       = verse or chapter tag of fitted source text associated with a src_milestone
 #
-# This function writes a src_milestone for the passed verse or chapter 
+# This function converts a verse or chapter tag into a src_milestone and
+# optionally creates a source verse system fit_tag and/or alternate
+# verse tag. It writes a src_milestone for the passed verse or chapter 
 # tag, unless it already has one. The passed verse or chapter tag 
-# becomes the fit_tag. But if noFitTag is set, the fit_tag is removed 
+# becomes the fit_tag. But if noFitTag is set, any fit_tag is removed 
 # from the tree. The fit_tag element is returned, unless noFitTag is set 
 # and there was no pre-existing src_milestone, in which case '' is 
 # returned. When writeAlternate is set, an alternate verse number will 
-# also be written to the tree when the passed element is a starting 
-# verse tag.
+# also be written to the tree if the passed element is a starting verse
+# tag.
 sub toMilestone {
   my $verse_or_chapter_tag = shift;
   my $noFitTag = shift;
@@ -1653,8 +2245,8 @@ sub toMilestone {
   # Write alternate verse number from the osisID
   if ($writeAlternate && $isVerseStart) {
     if ($s_or_eID =~ /^[^\.]+\.(\d+)\.(\d+)\b.*?(\.(\d+))?$/) {
-      my $ch = $1; my $vs = $2; my $lv = ($3 ? $4:$vs);
-      my $altText = ($vs ne $lv ? "$vs-$lv":"$vs");
+      my $ch = $1; my $vs = $2; my $vl = ($3 ? $4:$vs);
+      my $altText = ($vs ne $vl ? "$vs-$vl":"$vs");
       if ($writeAlternate == 2) {$altText = "$ch:$altText";}
       my $alt = '<hi xmlns="'.$OSIS_NAMESPACE.'" ' .
       'type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'">' .
@@ -1754,46 +2346,52 @@ sub getLastVerseInChapterOSIS {
   
   my @vs = $XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml);
   
-  my $lv;
+  my $vl;
   foreach my $v (@vs) {
-    if ($v->getAttribute('osisID') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $lv) {
-      $lv = (1*$1);
+    if ($v->getAttribute('osisID') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $vl) {
+      $vl = (1*$1);
     }
   }
-  if (!defined($lv)) {
+  if (!defined($vl)) {
     &ErrorBug("getLastVerseInChapterOSIS($bk, $ch): Could not find last verse.");
   }
   
-  return $lv;
+  return $vl;
 }
 
-# Check if $bk.$ch.$$vsP.$$lvP covers an entire chapter. If $$vsP and 
-# $$lvP are both undefined set $$vsP to 1 and $$lvP to the last verse in 
-# the chapter. If $$lvP is undefined but $$vsP is defined, then set 
-# $$lvP to $$vsP. Otherwise $$vsP and $$lvP are left untouched.
+# Check if $bk.$ch.$$vsP.$$vlP covers an entire chapter. If $$vsP and 
+# $$vlP are both undefined set $$vsP to 1 and $$vlP to the last verse in 
+# the chapter. If $$vlP is undefined but $$vsP is defined, then set 
+# $$vlP to $$vsP. Otherwise $$vsP and $$vlP are left untouched.
 sub isWholeVsysChapter {
   my $bk  = shift;
   my $ch  = shift;
   my $vsP  = shift;
-  my $lvP  = shift;
+  my $vlP  = shift;
+  my $vsys = shift;
   my $xml = shift;
   
-  if (!@{$XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml)}[0]) {
+  if ($vsys eq 'source' && !@{$XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml)}[0]) {
     return (!$$vsP);
   }
   
-  my $maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml);
+  my $maxv;
+  if ($vsys eq 'source') {$maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml);}
+  else {
+    my $canonP; &getCanon($vsys, \$canonP);
+    if ($canonP && $canonP->{$bk}) {$maxv = $canonP->{$bk}[($ch-1)];}
+  }
   
-  if (!defined($$lvP)) {
+  if (!defined($$vlP)) {
     if (!defined($$vsP)) {
-      $$vsP = 1; $$lvP = $maxv;
+      $$vsP = 1; $$vlP = $maxv;
     }
     else {
-      $$lvP = $$vsP;
+      $$vlP = $$vsP;
     }
   }
 
-  return ($$vsP == 1 && $$lvP == $maxv);
+  return ($$vsP == 1 && $$vlP == $maxv);
 }
 
 # Takes a required verse element and checks for an x-vsys 
@@ -1842,7 +2440,7 @@ sub writeVerseSystem {
       my $b = sprintf("%03i:%s", scalar keys %bks, $1);
       my $c = sprintf("%03i", $2);
       my $v = sprintf("%03i", $3);
-      my $g = &defaultBookGroup($1); 
+      my $g = &defaultOsisIndex($1, 2); 
       $sdata{$g}{$b}{$c}{$v}++;
     }
     $vk->increment();

@@ -5,13 +5,13 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT takes an OSIS file which may have been fitted to a 
-  SWORD standard verse system by fitToVerseSystem() and reverts it back 
-  to its custom verse system. Also all references that were retargeted 
-  are reverted (including cross-references from external sources) so 
-  that the resulting OSIS file's references are correct according to the 
-  custom verse system. Also, markup associated with the fixed verse 
-  system is removed, leaving only the source verse system markup. !-->
+  <!-- This XSLT takes an OSIS file which was fitted to a SWORD standard 
+  verse system by fitToVerseSystem() and reverts it back to its custom 
+  source verse system. All references that were retargeted are reverted 
+  (including cross-references from external sources) so that the result-
+  ing OSIS file's references are correct according to the custom verse 
+  system. Also, markup associated with the fixed verse system is removed, 
+  leaving only the source verse system markup. !-->
   
   <include href="./whitespace.xsl"/>
   
@@ -25,6 +25,17 @@
   <!-- By default copy everything as is -->
   <template match="node()|@*">
     <copy><apply-templates select="node()|@*"/></copy>
+  </template>
+  
+  <!-- Move the content of x-vsys-moved divs to their source locations -->
+  <template match="div[@annotateType = 'x-vsys-moved']" priority="52"/>
+  <template match="div[@type = 'x-vsys-moved']"  priority="52">
+    <for-each select="//div[@annotateType = 'x-vsys-moved'][@annotateRef = current()/@osisID]">
+      <choose>
+        <when test="@resp = 'x-vsys-moved'"><apply-templates/></when>
+        <otherwise><copy><apply-templates select="node()|@*"/></copy></otherwise>
+      </choose>
+    </for-each>
   </template>
   
   <!-- Revert chapter/verse milestones to their original source elements -->
@@ -51,8 +62,8 @@
   </template>
 
   <!-- Remove these attributes -->
-  <template match="@annotateType[. = 'x-vsys-source'] |
-                   @annotateRef[parent::*[@annotateType = 'x-vsys-source']]"
+  <template match="@annotateType[. = ('x-vsys-source', 'x-vsys-moved')] |
+                   @annotateRef[parent::*[@annotateType = ('x-vsys-source', 'x-vsys-moved')]]"
             priority="50"/>
                    
   <template match="/" priority="59">

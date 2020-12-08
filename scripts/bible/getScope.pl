@@ -192,6 +192,19 @@ sub scopeToBooks {
   return \@bookList;
 }
 
+# Returns 1 if $book is included in $scope, 0 otherwise.
+sub bookInScope {
+  my $book = shift;
+  my $scope = shift;
+  my $vsys = shift;
+  
+  foreach (@{&scopeToBooks($scope, $vsys)}) {
+    if ($_ eq $book) {return 1;}
+  }
+  
+  return 0;
+}
+
 # Return a scope from an array pointer to OSIS book names
 sub booksToScope {
   my $booksAP = shift;

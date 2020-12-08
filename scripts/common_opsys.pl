@@ -163,6 +163,8 @@ our %CONFIG_DEFAULTS = (
 
 our $VAGRANT_HOME = '/home/vagrant';
 
+our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
+
 # OSIS book abbreviations => Paratext abbreviations. Taken from 
 # wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
 our %OSIS_ABBR = (
@@ -210,7 +212,7 @@ our %OSIS_ABBR = (
    'Amos' => 'AMO',
    'AposCreed' => '',
    'Bar' => 'BAR',
-   'Barn' => 'LBA[34]',
+   'Barn' => 'LBA',
    'Bel' => 'BEL',
    'BelTh' => 'BLT',
    'Col' => 'COL',
@@ -513,7 +515,7 @@ subpub:
           next subpub;
         }
       }
-      if (!$order) {$order = sprintf("%02i", &defaultBookIndex(@books[0]));}
+      if (!$order) {$order = sprintf("%02i", &defaultOsisIndex(@books[0]));}
       while (defined($subPubs{$order})) {$order .= "00";}
       $subPubs{$order} = $scope;
     }
@@ -1072,27 +1074,36 @@ sub checkDependencies {
   return 1;
 }
 
-# Return the index of the book group of any OSIS abbreviation.
-sub defaultBookGroup {
-  my $abbr = shift;
+# Return one of the position values of any OSIS book, bookGroup, or both
+# as bookGroup:book in the  default (%OSIS_GROUP) verse system:
+# - !$which  return book index (starting at 0) within entire collection
+# - $which=1 return book index (starting at 0) within parent bookGroup
+# - $which=2 return bookGroup index (starting at 0)
+# - $which=3 return bookGroup osisID
+# If a corresponding position value is not found, undef is returned.
+sub defaultOsisIndex {
+  my $name = shift;
+  my $which = shift;
   
-  return &defaultBookIndex($abbr, 1);
-}
-
-# Return the index of the book of any OSIS abbreviation in the KJV (default)
-# verse system. If $bookGroup is set, then the bookGroup index is returned.
-sub defaultBookIndex {
-  my $abbr = shift;
-  my $bookGroup = shift;
+  if (!$name) {return;}
   
-  my $gi = 0;
-  my $bi = 0;
+  my $bgName = ($name =~ s/^(.*?):(.*)$/$2/ ? $1:'');
+  
+  my $t0 = 0;
+  my $t2 = 0;
   foreach my $g (@OSIS_GROUPS) {
+    my $t1 = 0;
+    if ($which == 2 && ($g eq $name || $g eq $bgName)) {return $t2;}
     foreach my $a (@{$OSIS_GROUP{$g}}) {
-      if ($abbr eq $a) {return ($bookGroup ? $gi:$bi);}
-      $bi++;
+      if ((!$bgName || $g eq $bgName) && $name eq $a) {
+        if    (!$which)     {return $t0;}
+        elsif ($which == 1) {return $t1;}
+        elsif ($which == 2) {return $t2;}
+        return $g;
+      }
+      $t0++; $t1++;
     }
-    $gi++;
+    $t2++;
   }
 }
 

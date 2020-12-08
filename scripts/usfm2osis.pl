@@ -150,7 +150,7 @@ applied to all following RUN commands until/unless canceled by:
   }
   close(COMF);
 
-  @VSYS_INSTR = sort { &vsysInstSort($a, $b) } @VSYS_INSTR;
+  @VSYS_INSTR = sort { &sortVsysInst($a, $b) } @VSYS_INSTR;
 #  foreach my $p (@VSYS_INSTR) {&Log($p->{'inst'}.', fixed='.$p->{'fixed'}.', source='.$p->{'source'}."\n", 1);}
   
   if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
