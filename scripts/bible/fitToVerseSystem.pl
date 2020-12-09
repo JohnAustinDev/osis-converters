@@ -612,11 +612,11 @@ sub correctReferencesVSYS {
   # Process the OSIS file book-by-book for speed
   my ($count, %logH, $logn);
   foreach my $osisbk (&splitOSIS($$osisP)) {
-    my $osisXML = $XML_PARSER->parse_file($osisbk);
-    my $bkid = @{$XPC->findnodes('//osis:div[@type="book"][1]', $osisXML)}[0];
-    if ($bkid) {&Log($bkid->getAttribute('osisID'), 2);}
+    my $osisXML;
+    my $element = &splitOSIS_element($osisbk, \$osisXML);
+    if ($element) {&Log($element->getAttribute('osisID'), 2);}
     my $name_osisXML = &getModNameOSIS($osisXML);
-    my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $osisXML);
+    my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $element);
     if (@existing) {next;}
 
     # Fill a hash table with every element that has an osisRef attribute,
@@ -627,7 +627,7 @@ sub correctReferencesVSYS {
     my %elems;
     &Log(", finding osisRefs", 2);
     foreach my $e (@{$XPC->findnodes('//*[@osisRef]
-        [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $osisXML)}) 
+        [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $element)}) 
     {
       my $origin = (
         @{$XPC->findnodes('ancestor-or-self::osis:note[@type="crossReference"][@resp]', $e)}[0] ? 

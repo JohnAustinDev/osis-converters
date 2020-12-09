@@ -177,13 +177,8 @@ sub runAddScripRefLinks {
   my @files = &splitOSIS($osis);
   
   # Get the refSystem
-  my $refSystem;
-  foreach my $file (@files) {
-    if ($file !~ /other\.osis$/) {next;}
-    my $xml = $XML_PARSER->parse_file($file);
-    $refSystem = &getRefSystemOSIS($xml);
-    last;
-  }
+  my $xml = $XML_PARSER->parse_file(@files[0]);
+  my $refSystem = &getRefSystemOSIS($xml);
   
   if ($NO_FORKS =~ /\b(1|true|AddScripRefLinks)\b/) {
     &Warn("Running addScripRefLinks without forks.pl", 
@@ -465,13 +460,14 @@ sub asrlProcessFile {
   my $osis = shift;
   my $refSystem = shift;
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml;
+  my $element = &splitOSIS_element($osis, \$xml);
   
   my $work = &getBibleModOSIS($xml);
   $work = ($work eq $MOD ? '':$work);
 
   # get every text node
-  my @allTextNodes = $XPC->findnodes('//text()', $xml);
+  my @allTextNodes = $XPC->findnodes('//text()', $element);
 
   # apply text node filters and process desired text-nodes
   my %nodeInfo;
@@ -566,7 +562,7 @@ sub asrlProcessFile {
   }
 
   # remove (after copying attributes) pre-existing reference tags which contain newReference tags
-  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $xml);
+  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $element);
   foreach my $ref (@refs) {
     my @attribs = $ref->attributes();
     my @chdrn = $XPC->findnodes('child::node()', $ref);
@@ -586,7 +582,7 @@ sub asrlProcessFile {
   }
 
   # convert all newReference elements to reference elements
-  my @nrefs = $XPC->findnodes('//newReference', $xml);
+  my @nrefs = $XPC->findnodes('//newReference', $element);
   foreach my $nref (@nrefs) {
     $nref->setNodeName("reference");
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');

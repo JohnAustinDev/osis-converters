@@ -149,20 +149,14 @@ sub runAddFootnoteLinks {
   my $bibleOsis = (&conf('ModDrv') !~ /LD/ ? $$osisP:&getModuleOsisFile($MAINMOD));
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
-    my $bmod;
-    my $brefSystem;
-    foreach my $file (@files) {
-      if ($file !~ /other\.osis$/) {next;}
-      my $bosisXml = $XML_PARSER->parse_file($file);
-      $bmod = &getOsisRefWork($bosisXml);
-      $brefSystem = &getRefSystemOSIS($bosisXml);
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($bosisXml);
-      last;
-    }
+    my $other = $XML_PARSER->parse_file(@files[0]);
+    my $bmod = &getOsisRefWork($other);
+    my $brefSystem = &getRefSystemOSIS($other);
+    $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($other);
     if ($brefSystem =~ /^Bible/) {
       foreach my $file (@files) {
-        my $bosisXml = $XML_PARSER->parse_file($file);
-        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $bosisXml);
+        my $e = &splitOSIS_element($file);
+        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $e);
         foreach my $fn (@fns) {
           my $id = $bmod.':'.$fn->getAttribute('osisID');
           $OSISID_FOOTNOTE{$id}++;
@@ -189,22 +183,16 @@ DICT OSIS file again.");
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
   
   my @files = &splitOSIS($$osisP);
-  my %xmls;
-  my $myMod;
-  my $myRefSystem;
-  foreach my $file (@files) {
-    $xmls{$file} = $XML_PARSER->parse_file($file);
-    if ($file =~ /other\.osis$/) {
-      $myMod = &getOsisRefWork($xmls{$file});
-      $myRefSystem = &getRefSystemOSIS($xmls{$file});
-      $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $xmls{$file})}[0]->getValue();
-      $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($xmls{$file});
-    }
-  }
+  my $other = $XML_PARSER->parse_file(shift(@files));
+  my $myMod = &getOsisRefWork($other);
+  my $myRefSystem = &getRefSystemOSIS($other);
+  $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $other)}[0]->getValue();
+  $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($other);
   if ($myRefSystem =~ /^(Bible|Dict)/) {
-    foreach my $file (sort keys %xmls) {
-      &processXML($xmls{$file}, $myMod, $myRefSystem);
-      &writeXMLFile($xmls{$file}, $file);
+    foreach my $file (@files) {
+      my $xml;
+      &processXML(&splitOSIS_element($file, \$xml), $myMod, $myRefSystem);
+      &writeXMLFile($xml, $file);
     }
   }
   else {

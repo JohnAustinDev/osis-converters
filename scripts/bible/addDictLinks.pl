@@ -70,18 +70,19 @@ sub runAddDictLinks {
 sub adlProcessFile {
   my $osis = shift;
   
-  my $xml = $XML_PARSER->parse_file($osis);
+  my $xml;
+  my $e = &splitOSIS_element($osis, \$xml);
 
   # bible intro
-  my $bibleintro = @{$XPC->findnodes('//osis:osisText', $xml)}[0];
+  my $bibleintro = @{$XPC->findnodes('//osis:osisText', $e)}[0];
   &processContainer($bibleintro);
   
   # testament intros
-  my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $xml);
+  my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $e);
   foreach my $tst (@tstintro) {&processContainer($tst);}
   
   # books and book intros
-  my @books = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+  my @books = $XPC->findnodes('//osis:div[@type="book"]', $e);
   foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
   

@@ -542,8 +542,10 @@ sub write_osisIDs {
   
   my %ids;
   # splitOSIS offers a massive speedup for note osisIDs
+  my $first = 1;
   foreach my $osis (&splitOSIS($$osisP)) {
-    my $xml = $XML_PARSER->parse_file($osis);
+    my $xml;
+    my $element = &splitOSIS_element($osis, \$xml);
     
     # Glossary and other divs
     my @elems = @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
@@ -551,14 +553,14 @@ sub write_osisIDs {
         [not(starts-with(@type, "book"))]
         [not(starts-with(@type, "x-keyword"))]
         [not(starts-with(@type, "x-aggregate"))]
-        [not(contains(@type, "ection"))]', $xml)};
+        [not(contains(@type, "ection"))]', $element)};
         
     # TOC milestones so they can be used as reference targets
     push(@elems, @{$XPC->findnodes('//osis:milestone
-        [@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $xml)});
+        [@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $element)});
         
     # notes (excluding external cross-references which already have osisIDs)
-    push(@elems, @{$XPC->findnodes('//osis:note[not(@resp)]', $xml)});
+    push(@elems, @{$XPC->findnodes('//osis:note[not(@resp)]', $element)});
     
     foreach my $e (@elems) {
       $e->setAttribute('osisID', &create_osisID($e, \%ids));
