@@ -86,7 +86,7 @@ our @OC_CONFIGS = (
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateFullBible', 
   'CreateSeparateBooks', 'CreateSeparatePubs', 'CreateTypes', 'FullResourceURL', 
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
-  'NewTestamentTitle', 'OldTestamentTitle', 'NormalizeUnicode', 'AddScripRefLinks',
+  'MATCHES:BookGroupTitle\w+', 'NormalizeUnicode', 'AddScripRefLinks',
   'AddDictLinks', 'AddSeeAlsoLinks', 'AddFootnoteLinks' , 'AddCrossRefs',
   'ReorderGlossaryEntries', 'CustomBookOrder',
 );
@@ -113,8 +113,8 @@ our @SWORD_LOCALIZABLE_CONFIGS = (
 # Osis-converters entries which contain localized text
 our @OC_LOCALIZABLE_CONFIGS = (
   'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 'MATCHES:ARG_\w+Title\d', 
-  'CombinedGlossaryTitle', 'NewTestamentTitle', 'OldTestamentTitle' ,
-  'TranslationTitle', 'Abbreviation', 'Description', 'About'
+  'TranslationTitle', 'MATCHES:BookGroupTitle\w+', 'CombinedGlossaryTitle', 
+  'Abbreviation', 'Description', 'About'
 );
 
 # CrossWire SWORD configs which may be continued line to line by '\'
@@ -153,8 +153,8 @@ our %CONFIG_DEFAULTS = (
   'CustomBookOrder' => 'false',     'doc:CustomBookOrder' => 'Set to true to allow Bible book order to remain as it is in CF_usfm2osis.txt, rather than the chosen versification\'s order (true|false)',
   'ReorderGlossaryEntries' => 'false',         'doc:ReorderGlossaryEntries' => 'Cause glossary entries to be re-ordered according to KeySort for all, or just the matching, glossaries (all|<regex>)',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
-  'NewTestamentTitle' => 'New Testament DEF',  'doc:NewTestamentTitle' => 'Localized title for the New Testament in the Table of Contents',
-  'OldTestamentTitle' => 'Old Testament DEF',  'doc:OldTestamentTitle' => 'Localized title for the Old Testament in the Table of Contents',
+  'BookGroupTitleOT' => 'New Testament DEF',   'doc:BookGroupTitleOT' => 'Localized title for the New Testament in the Table of Contents',
+  'BookGroupTitleNT' => 'Old Testament DEF',   'doc:BookGroupTitleNT' => 'Localized title for the Old Testament in the Table of Contents',
   'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
   'Font' => '',
   'Companion' => '',
@@ -330,18 +330,18 @@ our %OSIS_ABBR = (
 our $OSISBOOKSRE = join('|', (sort keys %OSIS_ABBR));
 
 # OSIS book groups. Taken from wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
-our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic Fathers','Armenian Orthodox Canon Additions','Ethiopian Orthodox Canon/Ge\'ez Translation Additions','Peshitta/Syriac Orthodox Canon','Rahlfs\' LXX','Rahlfs\' variant books','Vulgate & other later Latin mss','Other');
+our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic_Fathers','Armenian_Orthodox_Canon_Additions','Ethiopian_Orthodox_Canon','Peshitta_Syriac_Orthodox_Canon','Rahlfs_LXX','Rahlfs_variant books','Vulgate_and_other_later_Latin_mss','Other');
 our %OSIS_GROUP = (
    'OT' => ['Gen','Exod','Lev','Num','Deut','Josh','Judg','Ruth','1Sam','2Sam','1Kgs','2Kgs','1Chr','2Chr','Ezra','Neh','Esth','Job','Ps','Prov','Eccl','Song','Isa','Jer','Lam','Ezek','Dan','Hos','Joel','Amos','Obad','Jonah','Mic','Nah','Hab','Zeph','Hag','Zech','Mal'],
    'NT' => ['Matt','Mark','Luke','John','Acts','Rom','1Cor','2Cor','Gal','Eph','Phil','Col','1Thess','2Thess','1Tim','2Tim','Titus','Phlm','Heb','Jas','1Pet','2Pet','1John','2John','3John','Jude','Rev'],
    'Apocrypha' => ['Tob','Jdt','EsthGr','AddEsth','Wis','SirP','Sir','Bar','EpJer','DanGr','AddDan','PrAzar','Sus','Bel','1Macc','2Macc','3Macc','4Macc','PrMan','1Esd','2Esd','AddPs'],
-   'Apostolic Fathers' => ['1Clem','2Clem','IgnEph','IgnMagn','IgnTrall','IgnRom','IgnPhld','IgnSmyrn','IgnPol','PolPhil','MartPol','Did','Barn','Herm','Herm.Mand','Herm.Sim','Herm.Vis','Diogn','AposCreed','PapFrag','RelElders','QuadFrag'],
-   'Armenian Orthodox Canon Additions' => ['EpCorPaul','3Cor','WSir','PrEuth','DormJohn','JosAsen','T12Patr','T12Patr.TAsh','T12Patr.TBenj','T12Patr.TDan','T12Patr.TGad','T12Patr.TIss','T12Patr.TJos','T12Patr.TJud','T12Patr.TLevi','T12Patr.TNaph','T12Patr.TReu','T12Patr.TSim','T12Patr.TZeb'],
-   'Ethiopian Orthodox Canon/Ge\'ez Translation Additions' => ['1En','Jub','4Bar','1Meq','2Meq','3Meq','Rep','AddJer','PsJos'],
-   'Peshitta/Syriac Orthodox Canon' => ['2Bar','EpBar','5ApocSyrPss','JosephusJWvi'],
-   'Rahlfs\' LXX' => ['Odes','PssSol'],
-   'Rahlfs\' variant books' => ['JoshA','JudgB','TobS','SusTh','DanTh','BelTh'],
-   'Vulgate & other later Latin mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
+   'Apostolic_Fathers' => ['1Clem','2Clem','IgnEph','IgnMagn','IgnTrall','IgnRom','IgnPhld','IgnSmyrn','IgnPol','PolPhil','MartPol','Did','Barn','Herm','Herm.Mand','Herm.Sim','Herm.Vis','Diogn','AposCreed','PapFrag','RelElders','QuadFrag'],
+   'Armenian_Orthodox_Canon_Additions' => ['EpCorPaul','3Cor','WSir','PrEuth','DormJohn','JosAsen','T12Patr','T12Patr.TAsh','T12Patr.TBenj','T12Patr.TDan','T12Patr.TGad','T12Patr.TIss','T12Patr.TJos','T12Patr.TJud','T12Patr.TLevi','T12Patr.TNaph','T12Patr.TReu','T12Patr.TSim','T12Patr.TZeb'],
+   'Ethiopian_Orthodox_Canon' => ['1En','Jub','4Bar','1Meq','2Meq','3Meq','Rep','AddJer','PsJos'],
+   'Peshitta_Syriac_Orthodox_Canon' => ['2Bar','EpBar','5ApocSyrPss','JosephusJWvi'],
+   'Rahlfs_LXX' => ['Odes','PssSol'],
+   'Rahlfs_variant books' => ['JoshA','JudgB','TobS','SusTh','DanTh','BelTh'],
+   'Vulgate_and_other_later_Latin_mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
    'Other' => ['TatDiat','PsMet']
 );
 
@@ -1443,10 +1443,27 @@ sub shortLinuxPath {
   return $path;
 }
 
+our $ESCWIN = '<>:|"'; # ? and * are not included, to allowed to globbing
+our $ESCLIN = ' ()';
 sub escfile {
   my $n = shift;
   
-  $n =~ s/(?<!\\)([ \(\)])/\\$1/g;
+  my $escwin = quotemeta($ESCWIN);
+  $n =~ s/([$escwin])/my $c=ord($1); my $r="%$c";/ge;
+  
+  my $esclin = quotemeta($ESCLIN);
+  $n =~ s/(?<!\\)([$esclin])/\\$1/g;
+  return $n;
+}
+
+sub unescfile {
+  my $n = shift;
+  
+  my $ords = join('|', map(ord($_), split(//, $ESCWIN)));
+  $n =~ s/%($ords)/my $c=chr($1)/ge;
+  
+  my $esclin = quotemeta($ESCLIN);
+  $n =~ s/\\([$esclin])/$1/g;
   return $n;
 }
 

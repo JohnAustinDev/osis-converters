@@ -473,7 +473,7 @@ parseable, contact the osis-converters maintainer.\n");}
 #
 # If there is only one bookGroup left, the remaining one's TOC milestone
 # will become [not_parent] so as to prevent an unnecessary TOC level,
-# or, if the Testament intro is empty, it will be entirely removed.
+# or, if the bookGroup intro is empty, it will be entirely removed.
 #
 # If a sub-publication cover matches the scope, it will be moved to 
 # replace the main cover. Or when pruning to a single book that matches
@@ -590,9 +590,9 @@ sub filterBibleToScope {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
     foreach my $b (@books) {
-      my @t = $XPC->findnodes('descendant::osis:milestone
-          [@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b);
-      if (@t[0]) {push(@bookNames, @t[0]->getValue());}
+      my $t = @{$XPC->findnodes('descendant::osis:milestone
+          [@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b)}[0];
+      if ($t) {push(@bookNames, $t->getValue());}
     }
     $$ebookPartTitleP = join(', ', @bookNames);
   }

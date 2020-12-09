@@ -417,7 +417,9 @@ sub parseInstructionVSYS {
     my $bk = $+{bk}; my $ch = $+{ch}; my $vs = $+{vs};
     push(@VSYS_INSTR, { 'inst'=>'CHAPTER_SPLIT_AT', 'fixed'=>$value });
   }
-  #else {&Log("FAILED MATCH: t=$t\n", 1);}
+  elsif ($t =~ /^VSYS_/) {
+    &Error("Unhandled VSYS instruction: $t");
+  }
   
   return @VSYS_INSTR;
 }
@@ -1113,8 +1115,10 @@ sub applyVsysInstruction {
     $fixedP  = &parseVsysArgument($argP->{'universal'}, $xml, 'universal');
   }
   
-  if ($fixedP && $sourceP && $fixedP->{'count'} != $sourceP->{'count'}) {
-    &Error("'From' and 'To' are a different number of verses: $inst: $argP->{'fixed'}($fixedP->{'count'}) -> $argP->{'source'}($sourceP->{'count'})");
+  if ($fixedP && $sourceP &&
+      defined($fixedP->{'count'}) && defined($sourceP->{'count'}) &&
+      $fixedP->{'count'} != $sourceP->{'count'}) {
+    &Error("'From' and 'To' are a different number of verses: ${inst}: $fixedP->{'value'}($fixedP->{'count'}) -> $sourceP->{'value'}($sourceP->{'count'})");
     return 0;
   }
   
@@ -1153,7 +1157,9 @@ sub parseVsysArgument {
     if (defined($4)) {$vs = $5;}
     if (defined($5)) {$vl = $7;}
     if ($data{'vsys'} !~ /^($SWORD_VERSE_SYSTEMS)$/) {
-      &Error("parseVsysArgument: Unrecognized verse system: '".$data{'vsys'}."'", "Use a recognized SWORD verse system: $SWORD_VERSE_SYSTEMS");
+      &Error(
+"parseVsysArgument: Unrecognized verse system: '".$data{'vsys'}."'", 
+"Use a recognized SWORD verse system: $SWORD_VERSE_SYSTEMS");
     }
   }
   else {
@@ -1174,7 +1180,7 @@ sub parseVsysArgument {
   $data{'ch'} = (defined($ch) ? (1*$ch) : undef);
   $data{'vs'} = (defined($vs) ? (1*$vs) : undef);
   $data{'vl'} = (defined($vl) ? (1*$vl) : $vs);
-  $data{'count'} = 1 + (defined($data{'vs'}) ? ($data{'vl'} - $data{'vs'}):-1); 
+  $data{'count'} = (defined($data{'vs'}) ? 1 + $data{'vl'} - $data{'vs'}:undef); 
 
   return \%data
 }
@@ -2343,16 +2349,28 @@ sub getLastVerseInChapterOSIS {
   my $bk = shift;
   my $ch = shift;
   my $xml = shift;
-  
-  my @vs = $XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml);
+  my $source = shift; # also read source verse milestones
+  my $quiet = shift;
   
   my $vl;
+  
+  my @vs = $XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml);
   foreach my $v (@vs) {
     if ($v->getAttribute('osisID') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $vl) {
       $vl = (1*$1);
     }
   }
-  if (!defined($vl)) {
+  
+  if ($source) {
+    my @ms = $XPC->findnodes("//osis:milestone[starts-with(\@annotateRef, '$bk.$ch.')]", $xml);
+    foreach my $v (@ms) {
+      if ($v->getAttribute('annotateRef') =~ /\b\Q$bk.$ch.\E(\d+)$/ && $1 > $vl) {
+        $vl = (1*$1);
+      }
+    }
+  }
+  
+  if (!$quiet && !defined($vl)) {
     &ErrorBug("getLastVerseInChapterOSIS($bk, $ch): Could not find last verse.");
   }
   
@@ -2371,16 +2389,16 @@ sub isWholeVsysChapter {
   my $vsys = shift;
   my $xml = shift;
   
-  if ($vsys eq 'source' && !@{$XPC->findnodes("//osis:verse[starts-with(\@osisID, '$bk.$ch.')]", $xml)}[0]) {
-    return (!$$vsP);
-  }
-  
   my $maxv;
-  if ($vsys eq 'source') {$maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml);}
-  else {
-    my $canonP; &getCanon($vsys, \$canonP);
-    if ($canonP && $canonP->{$bk}) {$maxv = $canonP->{$bk}[($ch-1)];}
+  my $v = ($vsys eq 'source' ? &conf('Versification'):$vsys);
+  my $canonP; &getCanon($v, \$canonP);
+  if ($canonP && ref($canonP->{$bk}) && defined($canonP->{$bk}[($ch-1)])) {
+    $maxv = $canonP->{$bk}[($ch-1)];
   }
+  if (!defined($maxv) && $vsys eq 'source') {
+    $maxv = &getLastVerseInChapterOSIS($bk, $ch, $xml, 1, 1);
+  }
+  if (!defined($maxv)) {return;}
   
   if (!defined($$vlP)) {
     if (!defined($$vsP)) {

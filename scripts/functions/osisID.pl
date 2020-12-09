@@ -542,7 +542,6 @@ sub write_osisIDs {
   
   my %ids;
   # splitOSIS offers a massive speedup for note osisIDs
-  my $first = 1;
   foreach my $osis (&splitOSIS($$osisP)) {
     my $xml;
     my $element = &splitOSIS_element($osis, \$xml);

@@ -277,14 +277,14 @@ sub updateConvertTXT {
           my $n = $1;
           $warn = "Changing $e=$v to ";
           $s = '';
-          $e = 'OldTestamentTitle';
+          $e = 'BookGroupTitleOT';
           &Warn("<-$warn $e=$v");
         }
         elsif ($e =~ /^Group2\s*$/) {
           my $n = $1;
           $warn = "Changing $e=$v to ";
           $s = '';
-          $e = 'NewTestamentTitle';
+          $e = 'BookGroupTitleNT';
           &Warn("<-$warn $e=$v");
         }
         elsif ($e =~ /^Title\s*$/) {
@@ -3191,23 +3191,26 @@ tag number you wish to use.)\n");
         else {&Note("Could not insert Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div because a title could not be determined.");}
       }
 
-      # Add bookGroup introduction TOC entries using OldTestamentTitle and NewTestamentTitle, if:
+      # Add bookGroup introduction TOC entries using BookGroupTitles, if:
       # + there is more than one bookGroup
       # + the bookGroup has more than one book
       # + there are no bookSubGroups in the bookGroup
       # + there is no bookGroup introduction already
-      # + the Old/NewTestamentTitle is not 'no'
-      if (@bookGroups > 1 && @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
-        my $firstBook = @{$XPC->findnodes('descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
-        my $whichTestament = (&defaultOsisIndex($firstBook, 2) == 1 ? 'New':'Old');
-        my $testamentTitle = &conf($whichTestament.'TestamentTitle');
-        if ($testamentTitle eq 'no') {next;}
+      # + the BookGroupTitle is not 'no'
+      if (@bookGroups > 1 && 
+            @{$XPC->findnodes('child::osis:div[@type="book"]', $bookGroup)} > 1 && 
+            !@bookSubGroupAuto && !$bookGroupIntroTOCM) {
+        my $firstBook = @{$XPC->findnodes(
+            'descendant::osis:div[@type="book"][1]/@osisID', $bookGroup)}[0]->value;
+        my $whichBookGroup = &defaultOsisIndex($firstBook, 3);
+        my $bookGroupTitle = &conf("BookGroupTitle$whichBookGroup");
+        if ($bookGroupTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$testamentTitle.'"/>
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$bookGroupTitle.'"/>
 </div>');
         $bookGroup->insertBefore($toc, $bookGroup->firstChild);
-        &Note("Inserting $whichTestament Testament TOC entry within new introduction div as: $testamentTitle");
+        &Note("Inserting $whichBookGroup bookGroup TOC entry within new introduction div as: $bookGroupTitle");
       }
     }
   }
@@ -3308,11 +3311,11 @@ sub getScopeTitle {
 # This method provides a massive speedup compared to searching or 
 # modifying one huge nodeset. It is intended for use with joinOSIS 
 # which will reassemble these OSIS files back into one document, after 
-# any external processing. 
+# they are searched and/or processed. 
 # IMPORTANT: external processing should ONLY modify the one specific 
 # element associated with each particular OSIS file, otherwise changes 
 # will be lost upon reassembly. This is what splitOSIS_element() is 
-# used for: to return this modifiable element of a file.
+# used for, since it returns this modifiable element of a file.
 # NOTE: properly handling an element sometimes requires that it be 
 # located within its document context, thus cloning is required.
 sub splitOSIS {
@@ -3334,7 +3337,7 @@ sub splitOSIS {
   my $xml = $XML_PARSER->parse_file($in_osis);
   
   my @xmls;
-  push(@xmls, { 'xml' => $xml, 'file' => "$tmp/other.osis" });
+  push(@xmls, { 'xml' => $xml, 'file' => &escfile("$tmp/other.osis") });
   
   # First, completely prune other.osis (before any cloning)
   my (%checkID, $x);
@@ -3345,7 +3348,7 @@ sub splitOSIS {
     my $file = sprintf("%s/%03i_%s.osis", $tmp, ++$x, $osisID);
     my $marker = $e->cloneNode();
     $e->replaceNode($marker);
-    push(@xmls, { 'element' => $e, 'osisID' => $osisID, 'file' => $file });
+    push(@xmls, { 'element' => $e, 'osisID' => $osisID, 'file' => &escfile($file) });
   }
   
   # Then write OSIS files
@@ -3385,8 +3388,8 @@ sub splitOSIS_element {
     $$xml_or_xmlP = $xml;
   }
   
-  if ($file !~ /\d+_([^\.]+)\.osis$/) {return $xml->firstChild;}
-  my $osisID = $1;
+  if ($file !~ /[\/\\]\d+_([^\.]+)\.osis$/) {return $xml->firstChild;}
+  my $osisID = &unescfile($1);
   
   my @e = @{$XPC->findnodes("${xpath}[\@osisID='$osisID']", $xml)}[0];
   if (!@e[0] || @e > 1) {&ErrorBug("Problem with $osisID in $file", 1);}
@@ -3407,6 +3410,7 @@ sub joinOSIS {
   
   if (!opendir(JOSIS, $tmp)) {&ErrorBug("Can't open: $tmp", 1);}
   my @files = readdir(JOSIS); closedir(JOSIS);
+  foreach (@files) {$_ = &unescfile(&decode('utf8', $_));}
   
   if (!-e "$tmp/other.osis") {&ErrorBug("No: $tmp/other.osis", 1);}
   my $xml = $XML_PARSER->parse_file("$tmp/other.osis");

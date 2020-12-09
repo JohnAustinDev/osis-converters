@@ -183,7 +183,7 @@ DICT OSIS file again.");
   &Log(sprintf("%-13s         %-50s %-18s %s\n", "--------", "-------", '----', '---------'));
   
   my @files = &splitOSIS($$osisP);
-  my $other = $XML_PARSER->parse_file(shift(@files));
+  my $other = $XML_PARSER->parse_file(@files[0]);
   my $myMod = &getOsisRefWork($other);
   my $myRefSystem = &getRefSystemOSIS($other);
   $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $other)}[0]->getValue();
