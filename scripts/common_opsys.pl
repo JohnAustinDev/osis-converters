@@ -1369,17 +1369,15 @@ sub Log {
     }
   }
   
-  if ($flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
+  if ($NOLOG || $flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
     print encode("utf8", $p);
   }
   
-  if ($flag == 2 || $LOGFILE eq 'none') {return;}
+  if ($NOLOG || $flag == 2 || $LOGFILE eq 'none') {return;}
   
   if ($p !~ /ERROR/ && !$DEBUG) {$p = &encodePrintPaths($p);}
   
-  if ($NOLOG || !$LOGFILE) {$LOGFILE_BUFFER .= $p; return;}
-  
-  if ($NOLOG) {return;}
+  if (!$LOGFILE) {$LOGFILE_BUFFER .= $p; return;}
 
   open(LOGF, $APPENDLAYER, $LOGFILE) || die "Could not open log file \"$LOGFILE\"\n";
   if ($LOGFILE_BUFFER) {print LOGF $LOGFILE_BUFFER; $LOGFILE_BUFFER = '';}
@@ -1443,30 +1441,16 @@ sub shortLinuxPath {
   return $path;
 }
 
-our $ESCWIN = '<>:|"'; # ? and * are not included, to allowed to globbing
-our $ESCLIN = ' ()';
+# Escape a linux file path for use as a non-quoted argument.
 sub escfile {
-  my $n = shift;
+  my $f = shift;
   
-  my $escwin = quotemeta($ESCWIN);
-  $n =~ s/([$escwin])/my $c=ord($1); my $r="%$c";/ge;
-  
-  my $esclin = quotemeta($ESCLIN);
-  $n =~ s/(?<!\\)([$esclin])/\\$1/g;
-  return $n;
+  my $esclin = quotemeta(' ()');
+  $f =~ s/(?<!\\)([$esclin])/\\$1/g;
+  return $f;
 }
 
-sub unescfile {
-  my $n = shift;
-  
-  my $ords = join('|', map(ord($_), split(//, $ESCWIN)));
-  $n =~ s/%($ords)/my $c=chr($1)/ge;
-  
-  my $esclin = quotemeta($ESCLIN);
-  $n =~ s/\\([$esclin])/$1/g;
-  return $n;
-}
-
+# Escape a linux argument using double quotes
 sub escarg {
   my $n = shift;
   
@@ -1474,6 +1458,26 @@ sub escarg {
   return '"'.$n.'"';
 }
 
+# Encode a file path for writing to a Windows or Linux file system.
+our $ESCWIN = '<>:|"'; # ? and * are not included, to allow globbing
+sub encfile {
+  my $f = shift;
+  
+  my $escwin = quotemeta($ESCWIN);
+  $f =~ s/([$escwin])/my $c=ord($1); my $r="%$c";/ge;
+  return $f;
+}
+
+# Decode a file path that was encoded with encfile.
+sub decfile {
+  my $f = shift;
+  
+  my $ords = join('|', map(ord($_), split(//, $ESCWIN)));
+  $f =~ s/%($ords)/my $c=chr($1)/ge;
+  return $f;
+}
+
+# Encode a string for use in a URL
 sub urlencode {
   my $s = shift;
   $s =~ s/([\Q "<>`#?{}\E])/sprintf("%%%02X", ord($1))/seg;

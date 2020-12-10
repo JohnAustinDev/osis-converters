@@ -543,11 +543,12 @@ sub write_osisIDs {
   my %ids;
   # splitOSIS offers a massive speedup for note osisIDs
   foreach my $osis (&splitOSIS($$osisP)) {
-    my $xml;
-    my $element = &splitOSIS_element($osis, \$xml);
+    my $xml; my $filter;
+    my $element = &splitOSIS_element($osis, \$xml, \$filter);
     
     # Glossary and other divs
-    my @elems = @{$XPC->findnodes('descendant-or-self::osis:div[@type][not(@osisID)]
+    my @elems = @{$XPC->findnodes('descendant-or-self::osis:div'.$filter.'[@type]
+        [not(@osisID)]
         [not(@resp="x-oc")]
         [not(starts-with(@type, "book"))]
         [not(starts-with(@type, "x-keyword"))]

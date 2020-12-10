@@ -143,9 +143,14 @@ sub versesToScope {
   if ($s !~ /^\s*$/) {&ErrorBug("While processing scope: $s !~ /^\s*\$/\n");}
   my @scopes = ( $scope );
   
-  # Now include any OSIS books outside of the verse system
+  # Now include any other OSIS books outside of the verse system
   my %other;
-  foreach (keys %{$versesP}) { s/^([^\.]+)\..*?$/$1/; $other{$_}++; }
+  foreach (keys %{$versesP}) {
+    s/^([^\.]+)\..*?$/$1/; 
+    if (!defined($canonP->{$_}) && defined($OSIS_ABBR{$_})) {
+      $other{$_}++;
+    } 
+  }
   foreach (sort { &defaultOsisIndex($a) <=> &defaultOsisIndex($b) } 
            keys %other) {push(@scopes, $_);}
  

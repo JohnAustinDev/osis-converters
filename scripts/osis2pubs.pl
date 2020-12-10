@@ -167,7 +167,8 @@ sub osis2pubs {
   }
   
   if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
-    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
+    system(
+      &escfile("$SCRD/scripts/forks/forks.pl") . ' ' .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .

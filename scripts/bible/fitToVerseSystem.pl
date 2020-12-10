@@ -614,8 +614,8 @@ sub correctReferencesVSYS {
   # Process the OSIS file book-by-book for speed
   my ($count, %logH, $logn);
   foreach my $osisbk (&splitOSIS($$osisP)) {
-    my $osisXML;
-    my $element = &splitOSIS_element($osisbk, \$osisXML);
+    my $osisXML; my $filter;
+    my $element = &splitOSIS_element($osisbk, \$osisXML, \$filter);
     if ($element) {&Log($element->getAttribute('osisID'), 2);}
     my $name_osisXML = &getModNameOSIS($osisXML);
     my @existing = $XPC->findnodes('descendant::osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $element);
@@ -628,8 +628,8 @@ sub correctReferencesVSYS {
     # the source text (which have the fixed verse system).
     my %elems;
     &Log(", finding osisRefs", 2);
-    foreach my $e (@{$XPC->findnodes('descendant-or-self::*[@osisRef]
-        [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $element)}) 
+    foreach my $e (@{$XPC->findnodes("descendant-or-self::*${filter}[\@osisRef]
+        [not(starts-with(\@type, '".$VSYS{'prefix_vs'}."'))]", $element)})
     {
       my $origin = (
         @{$XPC->findnodes('ancestor-or-self::osis:note[@type="crossReference"][@resp]', $e)}[0] ? 

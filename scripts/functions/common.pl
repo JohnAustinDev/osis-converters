@@ -3322,7 +3322,7 @@ sub splitOSIS {
   my $in_osis = shift;
   my $xpath = shift; 
   
-  $xpath = ($xpath ? $xpath:'//osis:div[@type="book"]'); # split these out
+  $xpath = ($xpath ? $xpath:'osis:div[@type="book"]'); # split these out
   
   &Log("\nsplitOSIS: ".&encodePrintPaths($in_osis).":\n", 2);
   
@@ -3337,18 +3337,18 @@ sub splitOSIS {
   my $xml = $XML_PARSER->parse_file($in_osis);
   
   my @xmls;
-  push(@xmls, { 'xml' => $xml, 'file' => &escfile("$tmp/other.osis") });
+  push(@xmls, { 'xml' => $xml, 'file' => &encfile("$tmp/other.osis") });
   
   # First, completely prune other.osis (before any cloning)
   my (%checkID, $x);
-  foreach my $e ($XPC->findnodes("${xpath}[\@osisID]", $xml)) {
+  foreach my $e ($XPC->findnodes("//${xpath}[\@osisID]", $xml)) {
     my $osisID = $e->getAttribute('osisID');
     if ($checkID{$osisID}) {&ErrorBug("osisID is not unique: $osisID", 1);}
     $checkID{$osisID}++;
     my $file = sprintf("%s/%03i_%s.osis", $tmp, ++$x, $osisID);
     my $marker = $e->cloneNode();
     $e->replaceNode($marker);
-    push(@xmls, { 'element' => $e, 'osisID' => $osisID, 'file' => &escfile($file) });
+    push(@xmls, { 'element' => $e, 'osisID' => $osisID, 'file' => &encfile($file) });
   }
   
   # Then write OSIS files
@@ -3357,7 +3357,7 @@ sub splitOSIS {
     if (!defined($xmlP->{'xml'})) {
       $xmlP->{'xml'} = $xml->cloneNode(1);
       my $marker = @{$XPC->findnodes(
-        "${xpath}[\@osisID='$xmlP->{'osisID'}']", $xmlP->{'xml'})}[0];
+        "//${xpath}[\@osisID='$xmlP->{'osisID'}']", $xmlP->{'xml'})}[0];
       if (!$marker) {&ErrorBug("No marker: $xmlP->{'osisID'}", 1);}
       $marker->replaceNode($xmlP->{'element'});
     }
@@ -3370,14 +3370,20 @@ sub splitOSIS {
 
 # Take a file created by splitOSIS and return the element which it
 # pertains to. This function is used because within the file, only this 
-# element may be modified. If a pointer is passed, it will point to the 
-# file's parsed document node.
+# element may be modified. If an xml pointer is passed, it will point to  
+# the file's parsed document node. If $filterP pointer is passed, it
+# be written with an xpath filter to be applied to node searches within
+# the element (useful when the exact number of changes made is required
+# for instance). If $xpath was used when splitOSIS was called, the same 
+# value must be passed here.
 sub splitOSIS_element {
   my $file = shift;
   my $xml_or_xmlP = shift;
+  my $filterP = shift;
   my $xpath = shift;
   
-  $xpath = ($xpath ? $xpath:'//osis:div[@type="book"]');
+  $xpath = ($xpath ? $xpath:'osis:div[@type="book"]');
+  if (ref($filterP)) {$$filterP = '';}
   
   my $xml;
   if (!defined($xml_or_xmlP)) {
@@ -3388,13 +3394,19 @@ sub splitOSIS_element {
     $$xml_or_xmlP = $xml;
   }
   
-  if ($file =~ /\bother\.osis$/) {return $xml->firstChild;}
-  elsif ($file !~ /\b\d\d\d_([^\.]+)\.osis$/) {
-    &ErrorBug("Unexpected file name $file", 1);
-  }
-  my $osisID = &unescfile($1);
+  my $fdec = &decfile(&decode('utf8', $file));
   
-  my @e = @{$XPC->findnodes("${xpath}[\@osisID='$osisID']", $xml)}[0];
+  if ($fdec =~ /\bother\.osis$/) {
+    if (ref($filterP)) {$$filterP = "[not($xpath)]";}
+    return $xml->firstChild;
+  }
+  elsif ($fdec !~ /\b\d\d\d_([^\.]+)\.osis$/) {
+    &Warn("splitOSIS_element is being called on an unsplit OSIS file.");
+    return $xml->firstChild;
+  }
+  my $osisID = $1;
+  
+  my @e = @{$XPC->findnodes("//${xpath}[\@osisID='$osisID']", $xml)}[0];
   if (!@e[0] || @e > 1) {&ErrorBug("Problem with $osisID in $file", 1);}
   
   return @e[0];
@@ -3406,27 +3418,27 @@ sub joinOSIS {
   my $path_or_pointer = shift;
   my $xpath = shift;
   
-  $xpath = ($xpath ? $xpath:'//osis:div[@type="book"]');
+  $xpath = ($xpath ? $xpath:'osis:div[@type="book"]');
   
   my $tmp = "$TMPDIR/splitOSIS";
   if (!-e $tmp) {&ErrorBug("No: $tmp", 1);}
   
   if (!opendir(JOSIS, $tmp)) {&ErrorBug("Can't open: $tmp", 1);}
   my @files = readdir(JOSIS); closedir(JOSIS);
-  foreach (@files) {$_ = &unescfile(&decode('utf8', $_));}
   
   if (!-e "$tmp/other.osis") {&ErrorBug("No: $tmp/other.osis", 1);}
   my $xml = $XML_PARSER->parse_file("$tmp/other.osis");
   
   # Replace each marker with the correct element file's element
   foreach my $f (@files) {
-    if ($f !~ /^\d+_([^\.]+)\.osis$/) {next;}
+    my $fdec = &decfile(&decode('utf8', $f));
+    if ($fdec !~ /\b\d\d\d_([^\.]+)\.osis$/) {next;}
     my $osisID = $1;
     my $exml = $XML_PARSER->parse_file("$tmp/$f");
-    my @e = @{$XPC->findnodes("${xpath}[\@osisID='$osisID']", $exml)};
+    my @e = @{$XPC->findnodes("//${xpath}[\@osisID='$osisID']", $exml)};
     if (!@e[0] || @e > 1) {&ErrorBug("Bad element file: $f", 1);}
     @e[0]->unbindNode();
-    my @marker = @{$XPC->findnodes("${xpath}[\@osisID='$osisID']", $xml)};
+    my @marker = @{$XPC->findnodes("//${xpath}[\@osisID='$osisID']", $xml)};
     if (!@marker[0]) {
       &ErrorBug('No marker: '.$osisID." in $f", 1);
     }
@@ -3540,12 +3552,12 @@ sub removeDefaultWorkPrefixesFAST {
   my %stats = ('osisRef'=>0, 'osisID'=>0);
   
   foreach my $file (@files) {
-    my $xml;
-    my $element = &splitOSIS_element($file, \$xml);
+    my $xml; my $filter;
+    my $element = &splitOSIS_element($file, \$xml, \$filter);
     if ($element->hasAttribute('osisID')) {
       &Log($element->getAttribute('osisID')."\n", 2);
     }
-    &removeDefaultWorkPrefixes($element, \%stats);
+    &removeDefaultWorkPrefixes($element, \%stats, $filter);
     &writeXMLFile($xml, $file);
   }
   
@@ -3561,9 +3573,10 @@ sub removeDefaultWorkPrefixesFAST {
 sub removeDefaultWorkPrefixes {
   my $xml = shift;
   my $statsP = shift;
+  my $filter = shift;
   
   # normalize osisRefs
-  my @osisRefs = $XPC->findnodes('descendant::@osisRef', $xml);
+  my @osisRefs = $XPC->findnodes("descendant-or-self::*${filter}/\@osisRef", $xml);
   my $osisRefWork = &getOsisRefWork($xml);
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
@@ -3575,7 +3588,7 @@ sub removeDefaultWorkPrefixes {
   }
   
   # normalize osisIDs
-  my @osisIDs = $XPC->findnodes('descendant::@osisID', $xml);
+  my @osisIDs = $XPC->findnodes("descendant-or-self::*${filter}/\@osisID", $xml);
   my $osisIDWork = &getOsisIDWork($xml);
   my $normedID = 0;
   foreach my $osisID (@osisIDs) {

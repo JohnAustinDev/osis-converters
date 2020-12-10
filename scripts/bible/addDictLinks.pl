@@ -49,7 +49,8 @@ sub runAddDictLinks {
   else {
     # Run adlProcessFile in parallel on each book
     my $ramkb = 440544; # Approx. KB RAM usage per fork
-    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
+    system(
+      &escfile("$SCRD/scripts/forks/forks.pl") . ' ' .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
@@ -73,38 +74,20 @@ sub adlProcessFile {
   my $xml;
   my $e = &splitOSIS_element($osis, \$xml);
 
-  # bible intro
-  my $bibleintro = @{$XPC->findnodes('descendant-or-self::osis:osisText', $e)}[0];
-  &processContainer($bibleintro);
+  # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
+  foreach (@{$XPC->findnodes('descendant::osis:index[@index="Glossary"]
+      [not(ancestor::osis:header)]', $e)}) {
+    &explicitGlossaryIndexes($_);
+  }
+
+  foreach (@{$XPC->findnodes('descendant::*[local-name() != "reference"]
+      [not(ancestor-or-self::osis:header)]', $e)}) {
+    &searchForGlossaryLinks($_);
+  }
   
-  # testament intros
-  my @tstintro = $XPC->findnodes('descendant-or-self::osis:div[@type="bookGroup"]', $e);
-  foreach my $tst (@tstintro) {&processContainer($tst);}
-  
-  # books and book intros
-  my @books = $XPC->findnodes('descendant-or-self::osis:div[@type="book"]', $e);
-  foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
   
   &saveForkData(__FILE__);
-}
-
-sub processContainer {
-  my $con = shift;
-  
-  my $name = ($con->nodeName() eq 'osisText' ? 'Bible introduction':($con->getAttribute('type') eq 'bookGroup' ? 'Testament introduction':$con->getAttribute('osisID')));
-  
-  my $filter = '';
-  if ($name eq 'Bible introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'bookGroup\']) and not(ancestor-or-self::osis:header)]';}
-  elsif ($name eq 'Testament introduction') {$filter = '[not(ancestor-or-self::osis:div[@type=\'book\'])]';}
-
-  # convert any explicit Glossary entries: <index index="Glossary" level1="..."/>
-  my @glossary = $XPC->findnodes("./descendant::osis:index[\@index='Glossary']$filter", $con);
-  &explicitGlossaryIndexes(\@glossary);
-
-  foreach my $e (@{$XPC->findnodes("./descendant::*[local-name() != 'reference']$filter", $con)}) {
-    my $refAP = &searchForGlossaryLinks($e);
-  }
 }
 
 1;

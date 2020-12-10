@@ -272,19 +272,17 @@ sub validateDictionaryWordsXML {
 }
 
 
-# Takes a list of <index index="Glossary"/> elements and converts them
-# into glossary references, recording the results.
+# Takes an <index index="Glossary"/> element and converts it
+# into a glossary reference, recording the results.
 sub explicitGlossaryIndexes {
-  my $indexElementsP = shift;
+  my $indexElement = shift;
   
   my @result;
-  foreach my $indexElement (@{$indexElementsP}) {
-    if (&usfm3GetAttribute($indexElement->getAttribute('level1'), 'lemma', 'lemma')) {
-      push(@result, &glossaryLink($indexElement));
-    }
-    else {
-      push(@result, @{&searchForGlossaryLinks($indexElement)});
-    }
+  if (&usfm3GetAttribute($indexElement->getAttribute('level1'), 'lemma', 'lemma')) {
+    push(@result, &glossaryLink($indexElement));
+  }
+  else {
+    push(@result, @{&searchForGlossaryLinks($indexElement)});
   }
   
   # Now record the results for later reporting

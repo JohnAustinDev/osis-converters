@@ -188,7 +188,8 @@ sub runAddScripRefLinks {
   else {
     # Run runAddScripRefLinks2 in parallel on each book
     my $ramkb = 634000; # Approx. KB RAM usage per fork
-    system(&escfile("$SCRD/scripts/forks/forks.pl") . " " .
+    system(
+      &escfile("$SCRD/scripts/forks/forks.pl") . ' ' .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
