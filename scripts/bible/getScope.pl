@@ -20,7 +20,11 @@ use strict;
 
 our ($XPC, $XML_PARSER, %OSIS_ABBR);
 
-# get the scope of an OSIS file by reading just its verse osisIDs
+# Return the scope of an OSIS file. The '-' continuation operator will
+# be used when possible to shorten the scope length, but it can only be
+# used (or interpereted) knowing $vsys. For verses outside $vsys, the 
+# OSIS book abbreviation will be appended to the scope in 
+# defaultOsisIndex() order.
 sub getScope {
   my $osis = shift; # can be osis file OR xml node
   my $vsys = shift;
@@ -31,24 +35,22 @@ sub getScope {
   my $scope = "";
   
   $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
-  if (!$vsys) {&ErrorBug("Could not determine versification of $osisf.");}
+  if (!$vsys) {
+    &ErrorBug("Could not determine versification of $osisf.", 1);
+    return;
+  }
 
   &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
-  my %haveVerse;
-  my $canonP; my $bookOrderP; my $testamentP;
-  if (&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
-    my @verses = $XPC->findnodes('//osis:verse', $xml);
-    foreach my $v (@verses) {
-      my $osisIDs = $v->findvalue('./@osisID');
-      my @osisID = split(/\s+/, $osisIDs);
-      foreach my $id (@osisID) {$haveVerse{$id}++;}
+  my %verses;
+  foreach my $v ($XPC->findnodes('//osis:verse[@osisID]', $xml)) {
+    foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {
+      $verses{$id}++;
     }
-    
-    $scope = &versesToScope(\%haveVerse, $vsys);
   }
-  else {&ErrorBug("Could not check scope in OSIS file because getCanon failed.");}
   
+  $scope = &versesToScope(\%verses, $vsys);
+
   &Log("Scope is: $scope\n");
  
   return $scope;
@@ -60,10 +62,7 @@ sub versesToScope {
   my $vsys = shift;
     
   my $canonP; my $bookOrderP; my $testamentP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
-    &ErrorBug("Could not read canon $vsys");
-    return '';
-  }
+  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
   
   my $scope = '';
 
@@ -88,6 +87,7 @@ sub versesToScope {
         }
         $hadLastV = $versesP->{"$bk.$ch.$vs"};
         $lastCheckedV = "$bk.$ch.$vs";
+        delete($versesP->{"$bk.$ch.$vs"});
       }
     }
   }
@@ -141,9 +141,15 @@ sub versesToScope {
     $sep = " ";
   }
   if ($s !~ /^\s*$/) {&ErrorBug("While processing scope: $s !~ /^\s*\$/\n");}
-  #if ($scope eq "$canbkFirst-$canbkLast") {$scope = "";}
+  my @scopes = ( $scope );
+  
+  # Now include any OSIS books outside of the verse system
+  my %other;
+  foreach (keys %{$versesP}) { s/^([^\.]+)\..*?$/$1/; $other{$_}++; }
+  foreach (sort { &defaultOsisIndex($a) <=> &defaultOsisIndex($b) } 
+           keys %other) {push(@scopes, $_);}
  
-  return $scope;
+  return join(' ', @scopes);
 }
 
 sub recordEmptyVerses {
@@ -163,32 +169,42 @@ sub scopeToBooks {
   my $scope = shift;
   my $vsys = shift;
   
-  my $bookOrderP;
-  if (!$vsys || !&getCanon($vsys, undef, \$bookOrderP, undef)) {
+  if (!$vsys) {
     &ErrorBug("Unknown vsys '$vsys' in scopeToBooks", 1);
+    return;
   }
+  
+  my @bookList;
+  
+  my $bookOrderP;
+  &getCanon($vsys, undef, \$bookOrderP, undef);
   
   my @scopes = split(/[\s_]+/, $scope);
   my $i = 0;
-  my $keep = '';
-  
-  my @bookList;
+  my $continuing;
   foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
     my $cs = @scopes[$i];
     $cs =~ s/(^|\-|\s)([^\.]+)\.[^\-]+/$1$2/g; # remove any chapter/verse parts
-    my $bks =$cs;
-    my $bke = $bks;
+    my $bks = $cs;
+    my $bke = $cs;
     if ($bks =~ s/\-(.*)$//) {$bke = $1;}
 
-    if ($v11nbk =~ /^$bks$/i) {$keep = $bke;}
-    if ($keep) {
-      if (!defined($OSIS_ABBR{$v11nbk})) {
-        &Error("scopeToBooks unrecognized OSIS book abbreviation: $v11nbk");
-      }
+    if ($v11nbk =~ /^$bks$/i) {
+      $continuing = $bke;
+    }
+    if ($continuing) {
       push(@bookList, $v11nbk);
     }
-    if ($v11nbk =~ /^$keep$/i) {$keep = ''; $i++;}
+    if ($v11nbk =~ /^$continuing$/i) {
+      $continuing = ''; 
+      @scopes[$i] = ''; 
+      $i++;
+    }
   }
+  
+  # Now record any books that were outside of $vsys
+  foreach (@scopes) {if ($_) {push(@bookList, $_);}}
+  
   return \@bookList;
 }
 
@@ -210,16 +226,24 @@ sub booksToScope {
   my $booksAP = shift;
   my $vsys = shift;
   
-  my $canonP; my $bookOrderP; my $testamentP;
-  if (!$vsys || !&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP)) {
+  if (!$vsys) {
     &ErrorBug("Unknown vsys '$vsys' in booksToScope", 1);
-    return '';
+    return;
   }
+  
+  my $canonP; my $bookOrderP; my $testamentP;
+  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
   
   my %verses;
   foreach my $bk (@{$booksAP}) {
+    if (!ref($canonP->{$bk})) {
+      # NOTE: a book as key will only work for books outside of $vsys 
+      if ($OSIS_ABBR{$bk}) {$verses{$bk}++;}
+      else {&Error("booksToScope is dropping unrecognized book $bk.");}
+      next;
+    }
     for (my $ch=1; $ch<=@{$canonP->{$bk}}; $ch++) {
-      for (my $vs=1; $vs<=$canonP->{$bk}->[$ch-1]; $vs++) {
+      for (my $vs=1; $vs<=$canonP->{$bk}[$ch-1]; $vs++) {
         $verses{"$bk.$ch.$vs"}++;
       }
     }
