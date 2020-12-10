@@ -547,7 +547,7 @@ sub write_osisIDs {
     my $element = &splitOSIS_element($osis, \$xml);
     
     # Glossary and other divs
-    my @elems = @{$XPC->findnodes('//osis:div[@type][not(@osisID)]
+    my @elems = @{$XPC->findnodes('descendant-or-self::osis:div[@type][not(@osisID)]
         [not(@resp="x-oc")]
         [not(starts-with(@type, "book"))]
         [not(starts-with(@type, "x-keyword"))]
@@ -555,11 +555,11 @@ sub write_osisIDs {
         [not(contains(@type, "ection"))]', $element)};
         
     # TOC milestones so they can be used as reference targets
-    push(@elems, @{$XPC->findnodes('//osis:milestone
+    push(@elems, @{$XPC->findnodes('descendant::osis:milestone
         [@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $element)});
         
     # notes (excluding external cross-references which already have osisIDs)
-    push(@elems, @{$XPC->findnodes('//osis:note[not(@resp)]', $element)});
+    push(@elems, @{$XPC->findnodes('descendant::osis:note[not(@resp)]', $element)});
     
     foreach my $e (@elems) {
       $e->setAttribute('osisID', &create_osisID($e, \%ids));

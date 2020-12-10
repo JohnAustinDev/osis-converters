@@ -618,7 +618,7 @@ sub correctReferencesVSYS {
     my $element = &splitOSIS_element($osisbk, \$osisXML);
     if ($element) {&Log($element->getAttribute('osisID'), 2);}
     my $name_osisXML = &getModNameOSIS($osisXML);
-    my @existing = $XPC->findnodes('//osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $element);
+    my @existing = $XPC->findnodes('descendant::osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $element);
     if (@existing) {next;}
 
     # Fill a hash table with every element that has an osisRef attribute,
@@ -628,7 +628,7 @@ sub correctReferencesVSYS {
     # the source text (which have the fixed verse system).
     my %elems;
     &Log(", finding osisRefs", 2);
-    foreach my $e (@{$XPC->findnodes('//*[@osisRef]
+    foreach my $e (@{$XPC->findnodes('descendant-or-self::*[@osisRef]
         [not(starts-with(@type, "'.$VSYS{'prefix_vs'}.'"))]', $element)}) 
     {
       my $origin = (

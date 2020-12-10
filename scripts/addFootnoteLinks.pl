@@ -156,7 +156,7 @@ sub runAddFootnoteLinks {
     if ($brefSystem =~ /^Bible/) {
       foreach my $file (@files) {
         my $e = &splitOSIS_element($file);
-        my @fns = $XPC->findnodes('//osis:note[@placement="foot"]', $e);
+        my @fns = $XPC->findnodes('descendant::osis:note[@placement="foot"]', $e);
         foreach my $fn (@fns) {
           my $id = $bmod.':'.$fn->getAttribute('osisID');
           $OSISID_FOOTNOTE{$id}++;
@@ -282,7 +282,7 @@ sub processXML {
   my $refSystem = shift;
 
   # get every text node
-  my @allTextNodes = $XPC->findnodes('//text()', $xml);
+  my @allTextNodes = $XPC->findnodes('descendant::text()', $xml);
 
   # apply text node filters and process desired text-nodes
   my %nodeInfo;

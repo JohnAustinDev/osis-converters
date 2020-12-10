@@ -3388,7 +3388,10 @@ sub splitOSIS_element {
     $$xml_or_xmlP = $xml;
   }
   
-  if ($file !~ /[\/\\]\d+_([^\.]+)\.osis$/) {return $xml->firstChild;}
+  if ($file =~ /\bother\.osis$/) {return $xml->firstChild;}
+  elsif ($file !~ /\b\d\d\d_([^\.]+)\.osis$/) {
+    &ErrorBug("Unexpected file name $file", 1);
+  }
   my $osisID = &unescfile($1);
   
   my @e = @{$XPC->findnodes("${xpath}[\@osisID='$osisID']", $xml)}[0];
@@ -3464,7 +3467,7 @@ sub writeMissingNoteOsisRefsFAST {
 sub writeMissingNoteOsisRefs {
   my $xml = shift;
   
-  my @notes = $XPC->findnodes('//osis:note[not(@osisRef)]', $xml);
+  my @notes = $XPC->findnodes('descendant::osis:note[not(@osisRef)]', $xml);
   my $refSystem = &getRefSystemOSIS($xml);
   
   my $count = 0;
@@ -3560,7 +3563,7 @@ sub removeDefaultWorkPrefixes {
   my $statsP = shift;
   
   # normalize osisRefs
-  my @osisRefs = $XPC->findnodes('//@osisRef', $xml);
+  my @osisRefs = $XPC->findnodes('descendant::@osisRef', $xml);
   my $osisRefWork = &getOsisRefWork($xml);
   my $normedOR = 0;
   foreach my $osisRef (@osisRefs) {
@@ -3572,7 +3575,7 @@ sub removeDefaultWorkPrefixes {
   }
   
   # normalize osisIDs
-  my @osisIDs = $XPC->findnodes('//@osisID', $xml);
+  my @osisIDs = $XPC->findnodes('descendant::@osisID', $xml);
   my $osisIDWork = &getOsisIDWork($xml);
   my $normedID = 0;
   foreach my $osisID (@osisIDs) {

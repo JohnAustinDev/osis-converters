@@ -74,15 +74,15 @@ sub adlProcessFile {
   my $e = &splitOSIS_element($osis, \$xml);
 
   # bible intro
-  my $bibleintro = @{$XPC->findnodes('//osis:osisText', $e)}[0];
+  my $bibleintro = @{$XPC->findnodes('descendant-or-self::osis:osisText', $e)}[0];
   &processContainer($bibleintro);
   
   # testament intros
-  my @tstintro = $XPC->findnodes('//osis:div[@type="bookGroup"]', $e);
+  my @tstintro = $XPC->findnodes('descendant-or-self::osis:div[@type="bookGroup"]', $e);
   foreach my $tst (@tstintro) {&processContainer($tst);}
   
   # books and book intros
-  my @books = $XPC->findnodes('//osis:div[@type="book"]', $e);
+  my @books = $XPC->findnodes('descendant-or-self::osis:div[@type="book"]', $e);
   foreach my $book (@books) {&processContainer($book);}
   &writeXMLFile($xml, $osis);
   

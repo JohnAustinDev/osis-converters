@@ -467,7 +467,7 @@ sub asrlProcessFile {
   $work = ($work eq $MOD ? '':$work);
 
   # get every text node
-  my @allTextNodes = $XPC->findnodes('//text()', $element);
+  my @allTextNodes = $XPC->findnodes('descendant::text()', $element);
 
   # apply text node filters and process desired text-nodes
   my %nodeInfo;
@@ -562,7 +562,7 @@ sub asrlProcessFile {
   }
 
   # remove (after copying attributes) pre-existing reference tags which contain newReference tags
-  my @refs = $XPC->findnodes('//osis:reference[descendant::newReference]', $element);
+  my @refs = $XPC->findnodes('descendant::osis:reference[descendant::newReference]', $element);
   foreach my $ref (@refs) {
     my @attribs = $ref->attributes();
     my @chdrn = $XPC->findnodes('child::node()', $ref);
@@ -582,7 +582,7 @@ sub asrlProcessFile {
   }
 
   # convert all newReference elements to reference elements
-  my @nrefs = $XPC->findnodes('//newReference', $element);
+  my @nrefs = $XPC->findnodes('descendant::newReference', $element);
   foreach my $nref (@nrefs) {
     $nref->setNodeName("reference");
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
