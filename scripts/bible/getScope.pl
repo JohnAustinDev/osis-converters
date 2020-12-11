@@ -42,21 +42,26 @@ sub getScope {
 
   &Log("\n\nDETECTING SCOPE: Versification=$vsys\n");
 
-  my %verses;
-  foreach my $v ($XPC->findnodes('//osis:verse[@osisID]', $xml)) {
-    foreach my $id (split(/\s+/, $v->getAttribute('osisID'))) {
-      $verses{$id}++;
+  my %ids;
+  foreach my $bk ($XPC->findnodes('//osis:div[@type="book"][@osisID]', $xml)) {
+    $ids{$bk->getAttribute('osisID')}++;
+    foreach my $vs ($XPC->findnodes('descendant::osis:verse[@osisID]', $bk)) {
+      foreach my $id (split(/\s+/, $vs->getAttribute('osisID'))) {
+        $ids{$id}++;
+      }
     }
   }
   
-  $scope = &versesToScope(\%verses, $vsys);
+  $scope = &versesToScope(\%ids, $vsys);
 
   &Log("Scope is: $scope\n");
  
   return $scope;
 }
 
-# Return a scope value compiled from a hash of verse osisIDs
+# Return a scope value compiled from a hash of verse osisIDs. Book 
+# osisIDs of non-verse-system books may also be included in the hash
+# to be appended to the scope (other book osisIDs are ignored).
 sub versesToScope {
   my $versesP = shift;
   my $vsys = shift;
