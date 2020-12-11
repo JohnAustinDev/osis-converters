@@ -3394,13 +3394,11 @@ sub splitOSIS_element {
     $$xml_or_xmlP = $xml;
   }
   
-  my $fdec = &decfile(&decode('utf8', $file));
-  
-  if ($fdec =~ /\bother\.osis$/) {
+  if ($file =~ /\bother\.osis$/) {
     if (ref($filterP)) {$$filterP = "[not($xpath)]";}
     return $xml->firstChild;
   }
-  elsif ($fdec !~ /\b\d\d\d_([^\.]+)\.osis$/) {
+  elsif ($file !~ /\b\d\d\d_([^\.]+)\.osis$/) {
     &Warn("splitOSIS_element is being called on an unsplit OSIS file.");
     return $xml->firstChild;
   }
@@ -3425,13 +3423,14 @@ sub joinOSIS {
   
   if (!opendir(JOSIS, $tmp)) {&ErrorBug("Can't open: $tmp", 1);}
   my @files = readdir(JOSIS); closedir(JOSIS);
+  foreach (@files) {$_ = decode('utf8', $_);}
   
   if (!-e "$tmp/other.osis") {&ErrorBug("No: $tmp/other.osis", 1);}
   my $xml = $XML_PARSER->parse_file("$tmp/other.osis");
   
   # Replace each marker with the correct element file's element
   foreach my $f (@files) {
-    my $fdec = &decfile(&decode('utf8', $f));
+    my $fdec = &decfile($f);
     if ($fdec !~ /\b\d\d\d_([^\.]+)\.osis$/) {next;}
     my $osisID = $1;
     my $exml = $XML_PARSER->parse_file("$tmp/$f");
