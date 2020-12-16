@@ -1505,12 +1505,13 @@ sub setSwordConfValue {
 
 # If $path_or_pointer is a path, $xml is written to it. If it is a 
 # pointer, then temporaryFile(pointed-to) will be written, and the 
-# pointer will be updated to that new path. If $levelup is given with
-# a pointer, the temporary file name will be taken from $levelup.
+# pointer will be updated to that new path. If $outname or $levelup is
+# provided, they will be passed to temporaryFile().
 sub writeXMLFile {
   my $xml = shift;
   my $path_or_pointer = shift;
-  my $levelup = shift; 
+  my $outname = shift;
+  my $levelup = shift;
   
   if (!$levelup) {$levelup = 1;}
   
@@ -1519,7 +1520,7 @@ sub writeXMLFile {
     $output = $path_or_pointer;
   }
   else {
-    $output = &temporaryFile($$path_or_pointer, '', (1+$levelup));
+    $output = &temporaryFile($$path_or_pointer, $outname, (1+$levelup));
     $$path_or_pointer = $output;
   }
   
@@ -3445,7 +3446,7 @@ sub joinOSIS {
   }
   
   # Save the reassembled document
-  &writeXMLFile($xml, $path_or_pointer, 2);
+  &writeXMLFile($xml, $path_or_pointer, undef, 2);
 }
 
 sub writeMissingNoteOsisRefsFAST {
@@ -3600,7 +3601,10 @@ sub removeDefaultWorkPrefixes {
 }
 
 # Take an input file path and return the path of a new temporary file, 
-# which is sequentially numbered and does not already exist. 
+# which is sequentially numbered and does not already exist. If $outname
+# is provided, that name will be used for the tmp file, or, if $levelup
+# is provided, then the caller $levelup levels up will be used (default
+# is one level up).
 sub temporaryFile {
   my $path = shift;
   my $outname = shift;

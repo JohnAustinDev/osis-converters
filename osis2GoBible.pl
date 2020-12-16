@@ -47,10 +47,12 @@ my $GOBIBLE = "$INPD/GoBible";
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
+&LogXSLT(&runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$INOSIS));
+
 # Remove navigation menus
 my $INXML = $XML_PARSER->parse_file($INOSIS);
 foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) {$e->unbindNode();}
-&writeXMLFile($INXML, \$INOSIS);
+&writeXMLFile($INXML, \$INOSIS, 'navmenu');
 
 &runScript($MODULETOOLS_BIN."osis2gobible.xsl", \$INOSIS);
 
@@ -414,7 +416,7 @@ sub goBibleConvChars {
     open(INF, $READLAYER, $file) || die "Could not open $file.\n";
     my $leaf = $file;
     $leaf =~ s/^.*?([^\\\/]+)$/$1/;
-    open(OUTF, $WRITELAYER, "$destdir/$leaf") || die "Could not open $destdir/$leaf.\n";
+      open(OUTF, $WRITELAYER, "$destdir/$leaf") || die "Could not open $destdir/$leaf.\n";
 
     &Log("$file\n");
     my $line = 0;
@@ -472,8 +474,10 @@ sub WriteGB {
   $f =~ s/^.*?([^\/]+)$/$1/;
   for (my $i=0; substr($print, $i, 1); $i++) {
     my $c = substr($print, $i, 1);
+    if (length($highUnicodeP->{$c}) > 255){next;}
     if (ord($c) > $MAX_UNICODE) {$highUnicodeP->{$c} = $highUnicodeP->{$c}.$f.":".$l.":".$i." ";}
   }
+  
   print OUTF $print;
 }
 
