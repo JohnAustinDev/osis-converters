@@ -57,10 +57,11 @@ foreach my $e (@{$XPC->findnodes('//osis:list[@subType="x-navmenu"]', $INXML)}) 
 &runScript($MODULETOOLS_BIN."osis2gobible.xsl", \$INOSIS);
 
 &Log("\n--- Creating Go Bible osis.xml file...\n");
-my $collectionsP = &getFullCollection($MAINMOD, &getScopeOSIS($INXML), &conf('Versification'));
-
-my $scope = &getScopeOSIS($INXML);
-my $ScopeTotal = @{&scopeToBooks($scope, &conf("Versification"))};
+my $xml = $XML_PARSER->parse_file($INOSIS);
+my @books = map($_->getAttribute('osisID'), @{$XPC->findnodes('//osis:div[@type="book"]', $xml)});
+my $scope = &booksToScope(\@books, &conf('Versification'));
+my $ScopeTotal = scalar @books;
+my $collectionsP = &getFullCollection($MAINMOD, $scope, &conf('Versification'));
 
 my %results;
 
