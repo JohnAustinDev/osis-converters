@@ -887,7 +887,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <param name="remove" as="xs:boolean"/>
     <param name="refs" as="xs:string*"/>
     
-    <variable name="result" as="xs:string?">
+    <variable name="result0" as="xs:string?">
       <choose>
         <!-- remove refs -->
         <when test="$remove">
@@ -906,17 +906,19 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       </choose>
     </variable>
     
-    <value-of select="if ($result) then normalize-space($result) else $osisRef"/>
+    <variable name="result" as="xs:string">
+      <value-of select="if ($result0) then normalize-space($result0) else ''"/>
+    </variable>
     
     <!-- Note the result -->
-    <if test="not($result)">
+    <if test="matches($result, '^\s*$')">
       <call-template name="Error">
-<with-param name="msg">These reference target(s) have been removed: <value-of select="$osisRef"/></with-param>
-<with-param name="exp">The targetted element(s) have been removed from this conversion. You 
-may assign  multiple target osisID's to the reference, so that at least 
-one target remains.</with-param>
+<with-param name="msg">These reference target(s) have been filtered and no reference target remains: <value-of select="$osisRef"/><text>&#xa;</text></with-param>
+<with-param name="exp">Multiple target osisID's may be assigned to a single reference. <if test="boolean($remove)">The following are being removed</if><if test="not($remove)">Only the following are being kept</if>: <value-of select="$refs"/></with-param>
       </call-template>
     </if>
+    
+    <value-of select="$result"/>
     
   </function>
   

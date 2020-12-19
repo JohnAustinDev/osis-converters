@@ -12,17 +12,19 @@
   before and/or after the designated elements and comment nodes (to 
   facilitate human readability of the OSIS file). -->
   
-  <template match="/" priority="-1">
-    <apply-templates mode="whitespace"/>
+  <template match="/"><call-template name="whitespace.xsl"/></template>
+  
+  <template mode="whitespace.xsl" match="/" name="whitespace.xsl">
+    <message>NOTE: Running whitespace.xsl</message>
+    <apply-templates mode="whitespace" select="."/>
   </template>
  
-  <!-- The 'whitespace' mode to allows other stylesheets to apply the
-  whitespace stylesheet after all other stylesheets -->
-  <template mode="whitespace" match="node()|@*" priority="-1">
+  <!-- By default copy everything as is -->
+  <template mode="whitespace" match="node()|@*">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
-  <template mode="whitespace" match="text()">
+  <template mode="whitespace" match="text()" priority="1">
     <!-- Regex does not support Perl (?<!\\)\n look-behind for preserving
     escaped new-lines in some config entries, so use an interim xNLx -->
     <variable name="text1" select="replace(., '\\\n', 'xNLx')"/>
@@ -47,7 +49,6 @@
       </when>
       <otherwise><value-of select="$text3"/></otherwise>
     </choose>
-
   </template>
   
   <!-- Write \n only before selected start/end tags (and remove any osis prefixes). -->
@@ -61,7 +62,7 @@
     </element>
   </template>
   
-  <template mode="whitespace" match="comment()"><text>&#xa;</text><copy/></template>
+  <template mode="whitespace" match="comment()" priority="1"><text>&#xa;</text><copy/></template>
   
   <!-- Elements that will have line-breaks before their start-tag if not preceded by verse[sID] -->
   <function name="my:breakBefore" as="xs:boolean">

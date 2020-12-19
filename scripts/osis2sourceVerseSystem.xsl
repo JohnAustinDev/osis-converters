@@ -13,36 +13,40 @@
   system. Also, markup associated with the fixed verse system is removed, 
   leaving only the source verse system markup. !-->
   
-  <include href="./whitespace.xsl"/>
+  <import href="./whitespace.xsl"/>
   
   <template match="/">
-    <copy>
-      <variable name="pass1"><apply-templates/></variable>
-      <apply-templates mode="whitespace" select="$pass1/node()"/>
-    </copy>
+    <variable name="source"><call-template name="osis2sourceVerseSystem.xsl"/></variable>
+    <variable name="whitespace"><apply-templates mode="whitespace.xsl" select="$source"/></variable>
+    <sequence select="$whitespace"/>
+  </template>
+  
+  <template mode="osis2sourceVerseSystem.xsl" match="/" name="osis2sourceVerseSystem.xsl">
+    <message>NOTE: Running osis2sourceVerseSystem.xsl</message>
+    <apply-templates mode="source" select="."/>
   </template>
   
   <!-- By default copy everything as is -->
-  <template match="node()|@*">
-    <copy><apply-templates select="node()|@*"/></copy>
+  <template mode="source" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
   <!-- Move the content of x-vsys-moved divs to their source locations -->
-  <template match="div[@annotateType = 'x-vsys-moved']" priority="52"/>
-  <template match="div[@type = 'x-vsys-moved']"  priority="52">
+  <template mode="source" match="div[@annotateType = 'x-vsys-moved']" priority="2"/>
+  <template mode="source" match="div[@type = 'x-vsys-moved']"  priority="2">
     <for-each select="//div[@annotateType = 'x-vsys-moved'][@annotateRef = current()/@osisID]">
       <choose>
-        <when test="@resp = 'x-vsys-moved'"><apply-templates/></when>
-        <otherwise><copy><apply-templates select="node()|@*"/></copy></otherwise>
+        <when test="@resp = 'x-vsys-moved'"><apply-templates mode="#current"/></when>
+        <otherwise><copy><apply-templates mode="#current" select="node()|@*"/></copy></otherwise>
       </choose>
     </for-each>
   </template>
   
   <!-- Revert chapter/verse milestones to their original source elements -->
-  <template match="milestone[matches(@type,'^x\-vsys\-(.*?)\-(start|end)$')]" priority="51">
+  <template mode="source" match="milestone[matches(@type,'^x\-vsys\-(.*?)\-(start|end)$')]" priority="1">
     <variable name="elem" select="replace(@type, '^x\-vsys\-(.*?)\-(start|end)$', '$1')"/>
     <element name="{$elem}" namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-      <apply-templates select="@*[not(name() = 'type')]"/>
+      <apply-templates mode="#current" select="@*[not(name() = 'type')]"/>
       <if test="ends-with(@type, '-start')">
         <attribute name="osisID" select="@annotateRef"/>
         <attribute name="sID" select="@annotateRef"/>
@@ -54,21 +58,15 @@
   </template>
   
   <!-- Remove these elements (includes x-vsys alternate verses) -->
-  <template match="*[@resp = 'x-vsys']" priority="50"/>
+  <template mode="source" match="*[@resp = 'x-vsys']"/>
   
   <!-- Revert osisRef values to their original source values -->
-  <template match="@osisRef[parent::*[@annotateType = 'x-vsys-source']]" priority="50">
+  <template mode="source" match="@osisRef[parent::*[@annotateType = 'x-vsys-source']]">
     <attribute name="osisRef" select="parent::*/@annotateRef"/>
   </template>
 
   <!-- Remove these attributes -->
-  <template match="@annotateType[. = ('x-vsys-source', 'x-vsys-moved')] |
-                   @annotateRef[parent::*[@annotateType = ('x-vsys-source', 'x-vsys-moved')]]"
-            priority="50"/>
-                   
-  <template match="/" priority="59">
-    <message>NOTE: Running osis2sourceVerseSystem.xsl</message>
-    <next-match/>
-  </template>
+  <template mode="source" match="@annotateType[. = ('x-vsys-source', 'x-vsys-moved')] |
+      @annotateRef[parent::*[@annotateType = ('x-vsys-source', 'x-vsys-moved')]]"/>
 
 </stylesheet>

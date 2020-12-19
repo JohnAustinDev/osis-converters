@@ -15,31 +15,7 @@
   
   <import href="./functions/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
-  <param name="conversion"/>
-  
-  <variable name="removeElements" select="//*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]"/>
-  
-  <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
-  
-  <variable name="removeKeywords" select="$removeGlossary/descendant::seg[@type='keyword']"/>
-  
-  <!-- This must be the same selection that navigationMenu.xsl used to generate prev/next links -->
-  <variable name="sortedGlossaryKeywords" 
-      select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
-                                          [not(@type = 'x-keyword-duplicate')]
-                                          [not(ancestor::div[@scope='NAVMENU'])]
-                                          [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
-  <!-- Remove any marked elements -->
-  <template match="*[. intersect $removeElements]" priority="40"/>
-  
-  <!-- If certain glossaries are removed, remove prev-next navmenu links 
-  from keywords, because otherwise some links will be broken. -->
-  <variable name="removePrevNextLinks" as="xs:boolean" 
-    select="boolean($sortedGlossaryKeywords/descendant::seg[@type='keyword'] intersect $removeKeywords)"/>
-  <template match="item[@subType = 'x-prevnext-link']
-                       [$removePrevNextLinks]
-                       [ancestor::div[starts-with(@type, 'x-keyword')]]" 
-            priority="40"/>
+  <param name="conversion" as="xs:string"/>
   
   <!-- Filter out refs that target elements of removed conversion 
   material of both DICTMOD and MAINMOD. -->
@@ -50,18 +26,35 @@
               ($DICTMOD_DOC/descendant::*[@osisID][ ancestor::*[@annotateType='x-conversion']
               [$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] ]
               /oc:osisRef(@osisID, $DICTMOD))"/>
+                                          
+  <template match="/"><call-template name="conversion.xsl"/></template>
   
-  <template match="@osisRef" priority="40">
-    <attribute name="osisRef" 
-      select="replace(oc:filter_osisRef(., true(), $removedOsisIDs), '\.dup\d+!toc', '!toc')"/>
-  </template>
-  
-  <!-- Report results -->
-  <template match="/" priority="49">
-    <call-template name="Note">
-<with-param name="msg">Running conversion.xsl</with-param>
-    </call-template>
+  <template mode="conversion.xsl" match="/" name="conversion.xsl">
+    <message>NOTE: Running conversion.xsl</message>
     
+    <variable name="removeElements" select="//*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]"/>
+  
+    <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
+    
+    <variable name="removeKeywords" select="$removeGlossary/descendant::seg[@type='keyword']"/>
+    
+    <!-- This must be the same selection that navigationMenu.xsl used to generate prev/next links -->
+    <variable name="sortedGlossaryKeywords" 
+        select="//div[@type='glossary']//div[starts-with(@type, 'x-keyword')]
+                                            [not(@type = 'x-keyword-duplicate')]
+                                            [not(ancestor::div[@scope='NAVMENU'])]
+                                            [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
+    
+    <!-- If certain glossaries are removed, remove prev-next navmenu links 
+    from keywords, because otherwise some links will be broken. -->
+    <variable name="removePrevNextLinks" as="xs:boolean" 
+      select="boolean($sortedGlossaryKeywords/descendant::seg[@type='keyword'] intersect $removeKeywords)"/>
+                
+    <apply-templates mode="conversion" select=".">
+      <with-param name="removeElements"      select="$removeElements"      tunnel="yes"/>
+      <with-param name="removePrevNextLinks" select="$removePrevNextLinks" tunnel="yes"/>
+    </apply-templates>
+  
     <if test="$removeElements">
       <call-template name="Note">
         <with-param name="msg">Removed <value-of select="count($removeElements)"/> div(s) marked as '<value-of select="string-join(distinct-values($removeElements/tokenize(@annotateRef, '\s+')), ' ')"/>' during conversion to '<value-of select="$conversion"/>'.</with-param>
@@ -86,8 +79,30 @@
 <with-param name="exp">Pass DICTMOD_URI and MAINMOD_DOC to conversion.xsl to enable checking and forwarding of these references.</with-param>
       </call-template>
     </if>
-    
-    <next-match/>
+  </template>
+  
+  <!-- By default copy everything as is -->
+  <template mode="conversion" match="node()|@*">
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+  
+  <!-- Remove any marked elements -->
+  <template mode="conversion" match="element()" priority="1">
+    <param name="removeElements" as="element()*" tunnel="yes"/>
+    <if test="not(. intersect $removeElements)"><next-match/></if>
+  </template>
+  
+  <!-- Remove prevnext links that are no longer valid -->
+  <template mode="conversion" match="item[@subType = 'x-prevnext-link']
+                                             [ancestor::div[starts-with(@type, 'x-keyword')]]">
+    <param name="removePrevNextLinks" as="xs:boolean" tunnel="yes"/>
+    <if test="not($removePrevNextLinks)"><next-match/></if>
+  </template>
+
+  <!-- Process osisRef attributes -->
+  <template mode="conversion" match="@osisRef">
+    <attribute name="osisRef" 
+      select="replace(oc:filter_osisRef(., true(), $removedOsisIDs), '\.dup\d+!toc', '!toc')"/>
   </template>
   
 </stylesheet>

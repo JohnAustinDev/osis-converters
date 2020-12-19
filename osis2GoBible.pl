@@ -47,7 +47,7 @@ my $GOBIBLE = "$INPD/GoBible";
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
-&LogXSLT(&runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$INOSIS));
+&runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$INOSIS);
 
 # Remove navigation menus
 my $INXML = $XML_PARSER->parse_file($INOSIS);
