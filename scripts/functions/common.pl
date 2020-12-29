@@ -1703,7 +1703,7 @@ sub getSwordConf {
   my $sourceType = 'OSIS'; # NOTE: osis2tei.xsl still produces a TEI file having OSIS markup!
   
   if (($type eq 'bible' || $type eq 'commentary')) {
-    &setSwordConfValue(\%swordConf, 'Scope', &getScope($moduleSource));
+    &setSwordConfValue(\%swordConf, 'Scope', &getScope($moduleSourceXML));
   }
   
   if ($moddrv =~ /LD/ && !$swordConf{"$MOD+KeySort"}) {

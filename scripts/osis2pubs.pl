@@ -44,9 +44,6 @@ sub osis2pubs {
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
   
-  &Log("Updating OSIS header.\n");
-  &writeOsisHeader(\$INOSIS);
-  
   my %params = (
     'conversion' => ($convertTo eq 'eBook' ? 'epub':'html'), 
     'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
@@ -54,13 +51,21 @@ sub osis2pubs {
   );
   &runScript("$SCRD/scripts/osis2pubs.xsl", \$INOSIS, \%params);
   
+  # Set scope to that of source verse system
+  &Log("Updating OSIS header.\n");
+  &writeOsisHeader(\$INOSIS);
+  
   # Global for reporting results of osis2pubs.pl
   %CONV_REPORT;
 
   # Constants used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
   
-  my $fullScope = (&isChildrensBible($INOSIS_XML) ? '':&getScopeOSIS($INOSIS_XML));
+  my $fullScope = '';
+  if (!&isChildrensBible($INOSIS_XML)) {
+    my $v = &conf('Versification');
+    $fullScope = &booksToScope(&scopeToBooks(&getScopeOSIS($INOSIS_XML), $v), $v);
+  }
   my $serverDirsHP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, 1):{});
   my $tranPubTitle = &conf('TranslationTitle');
   if (!$tranPubTitle) {$tranPubTitle = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');}

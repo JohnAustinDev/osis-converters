@@ -44,7 +44,6 @@ sub getScope {
 
   my %ids;
   foreach my $bk ($XPC->findnodes('//osis:div[@type="book"][@osisID]', $xml)) {
-    $ids{$bk->getAttribute('osisID')}++;
     foreach my $vs ($XPC->findnodes('descendant::osis:verse[@osisID]', $bk)) {
       foreach my $id (split(/\s+/, $vs->getAttribute('osisID'))) {
         $ids{$id}++;
@@ -175,6 +174,8 @@ sub recordEmptyVerses {
   for (my $v=$v1; $v<=$v2; $v++) {$eP->{"$bk.$ch.$v"}++;}
 }
 
+# Convert a scope to an array of OSIS book abbreviations. The order of
+# books in the list is defaultOsisIndex order. 
 sub scopeToBooks {
   my $scope = shift;
   my $vsys = shift;
@@ -184,36 +185,25 @@ sub scopeToBooks {
     return;
   }
   
-  my @bookList;
-  
-  my $bookOrderP;
-  &getCanon($vsys, undef, \$bookOrderP, undef);
+  my $bookOrderP; &getCanon($vsys, undef, \$bookOrderP, undef);
   
   my @scopes = split(/[\s_]+/, $scope);
-  my $i = 0;
-  my $continuing;
-  foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
-    my $cs = @scopes[$i];
-    $cs =~ s/(^|\-|\s)([^\.]+)\.[^\-]+/$1$2/g; # remove any chapter/verse parts
-    my $bks = $cs;
-    my $bke = $cs;
-    if ($bks =~ s/\-(.*)$//) {$bke = $1;}
-
-    if ($v11nbk =~ /^$bks$/i) {
-      $continuing = $bke;
-    }
-    if ($continuing) {
-      push(@bookList, $v11nbk);
-    }
-    if ($v11nbk =~ /^$continuing$/i) {
-      $continuing = ''; 
-      @scopes[$i] = ''; 
-      $i++;
+  foreach (@scopes) { s/(?<=\w)[\.\d]+//g; } # keep only the book parts
+  
+  my %books;
+  foreach my $s (@scopes) {
+    if ($s !~ /^(.*?)\-(.*)$/) {$books{$s}++; next;}
+    my $bks = $1; my $bke = $2;
+    $books{$bks}++; $books{$bke}++;
+    my $continue = 0;
+    foreach my $v11nbk (sort {$bookOrderP->{$a} <=> $bookOrderP->{$b}} keys %{$bookOrderP}) {
+      if ($v11nbk eq $bks) {$continue++;}
+      if ($continue) {$books{$v11nbk}++;}
+      if ($v11nbk eq $bke) {$continue = 0;}
     }
   }
   
-  # Now record any books that were outside of $vsys
-  foreach (@scopes) {if ($_) {push(@bookList, $_);}}
+  my @bookList = (sort { &defaultOsisIndex($a) <=> &defaultOsisIndex($b) } keys %books);
   
   return \@bookList;
 }
