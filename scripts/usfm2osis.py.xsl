@@ -23,6 +23,18 @@
     <!-- pass2 moves TOC milestones out of sections divs -->
     <apply-templates mode="pass2" select="$pass1"/>
   </template>
+  
+  <!-- Throw an error if there are unexpected Bible chapter ancestors. This may happen 
+  when usfm2osis.py does not properly close div containers -->
+  <template match="chapter[@sID]">
+    <variable name="bad" select="ancestor::div[not(matches(@type, '(section|book)', 'i'))][1]"/>
+    <if test="$bad">
+      <call-template name="Error">
+<with-param name="msg">This div should not contain Bible chapters: <value-of select="oc:printNode($bad)"/></with-param>
+      </call-template>
+    </if>
+    <next-match/>
+  </template>
 
   <template match="p[child::milestone[starts-with(@type, 'x-usfm-toc')]]">
     <apply-templates select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>

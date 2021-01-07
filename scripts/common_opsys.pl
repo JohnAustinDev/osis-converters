@@ -38,7 +38,7 @@ our $READLAYER   =  "<:encoding(UTF-8)";
 if (&runningInVagrant()) {$READLAYER .= ":crlf";} 
 
 our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $CONFSRC,
-     $MOD, $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $NOLOG);
+     $MOD, $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $LOGFLAG);
      
 # Config.conf [system] globals initialized in set_system_globals 
 # (see @OC_SYSTEM_CONFIGS below).
@@ -1348,10 +1348,13 @@ sub Report {
 #  1   = log file + console
 #  2   = only console
 #  3   = don't log anything - used by shell($cmd, $flag)
+# NOTE: If $LOGFLAG is defined, its value will be used for $flag.
 my $LOGFILE_BUFFER;
 sub Log {
   my $p = shift; # log message
   my $flag = shift;
+  
+  if (defined($LOGFLAG)) {$flag = $LOGFLAG;}
   
   if ($flag == 3) {return;}
   
@@ -1369,11 +1372,11 @@ sub Log {
     }
   }
   
-  if ($NOLOG || $flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
+  if ($flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
     print encode("utf8", $p);
   }
   
-  if ($NOLOG || $flag == 2 || $LOGFILE eq 'none') {return;}
+  if ($flag == 2 || $LOGFILE eq 'none') {return;}
   
   if ($p !~ /ERROR/ && !$DEBUG) {$p = &encodePrintPaths($p);}
   
@@ -1508,6 +1511,8 @@ sub shell {
   my $cmd = shift;
   my $flag = shift; # same as Log flag
   my $allowNonZeroExit = shift;
+  
+  &Log("\n$cmd\n", ($DEBUG ? 1:$flag));
  
   my $result = `$cmd 2>&1`;
   my $error = $?; $error = ($allowNonZeroExit ? 0:$error);
@@ -1515,7 +1520,6 @@ sub shell {
 
   if ($DEBUG || $error != 0) {$flag = 1;}
 
-  &Log("\n$cmd\n", $flag);
   &Log($result."\n", $flag);
 
   if ($error != 0) {&ErrorBug("Shell command error code $error");}

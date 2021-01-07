@@ -18,7 +18,7 @@
 
 use strict;
 
-our ($WRITELAYER, $APPENDLAYER, $READLAYER, $NOLOG);
+our ($WRITELAYER, $APPENDLAYER, $READLAYER, $LOGFLAG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS, $DEBUG);
 
@@ -371,9 +371,9 @@ sub runAddScripRefLinks2 {
   my $modType = shift;
   my $refSystem = shift;
 
-  $NOLOG = 1; # Already logged in runAddScripRefLinks
+  $LOGFLAG = 3; # Already logged in runAddScripRefLinks
   &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
-  $NOLOG = 0;
+  $LOGFLAG = undef;
   
   &asrlProcessFile($osis, $refSystem);
   

@@ -1405,7 +1405,7 @@ sub scanUSFM_file {
       $info{'osisBook'} = $osisBook;
       $info{'type'} = 'bible';
     }
-    elsif ($id =~ /^(FRT|INT|OTH|AVT|PRE|TTL)/i) { # AVT, PRE, and TTL are from old back-converted osis-converters projects
+    elsif ($id =~ /^(FRT|INT|TOC|OTH|AVT|PRE|TTL)/i) { # AVT, PRE, and TTL are from old back-converted osis-converters projects
       $info{'type'} = 'bible';
       $info{'peripheralID'} = $id;
     }
