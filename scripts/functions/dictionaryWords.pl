@@ -324,8 +324,9 @@ use the attribute 'onlyExplicit' to match this term only where it is
 explicitly marked in the text as a glossary index, and nowhere else. 
 Without the onlyExplicit attribute, you are able to hyperlink the term 
 everywhere it appears in the text.");
-
-      $r->unbindNode();
+  
+      # Leave the unhandled index element as it was since it was in the source
+      #$r->unbindNode();
     }
   }
 }
