@@ -122,6 +122,7 @@ sub addCoverImages {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   my $mod = &getModNameOSIS($xml);
+  my $vsys = &getVerseSystemOSIS($xml);
   my $updated;
   
   my @existing = $XPC->findnodes('//osis:figure[@type="x-cover"]', $xml);
@@ -160,6 +161,7 @@ on the same line");}
   my $scope = (&isChildrensBible($xml) ? 'Chbl' : @{$XPC->findnodes(
     "/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)
     }[0]->textContent);
+  $scope = &booksToScope(&scopeToBooks($scope, $vsys), $vsys);
   $scope =~ s/\s+/_/g;
   my $pubImagePath = &getCoverImageFromScope($mod, $scope);
   # Composite cover image names always end with _comp.jpg

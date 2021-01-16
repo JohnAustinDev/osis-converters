@@ -2673,7 +2673,7 @@ sub runXSLT {
   my $paramsP = shift;
   my $logFlag = shift;
   
-  my $cmd = "saxonb-xslt -ext:on";
+  my $cmd = "saxonb-xslt -l -ext:on";
   $cmd .= " -xsl:" . &escfile($xsl) ;
   $cmd .= " -s:" . &escfile($source);
   if ($output) {

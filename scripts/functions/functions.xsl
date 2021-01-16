@@ -8,6 +8,7 @@
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+ xmlns:sx="http://saxon.sf.net/"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
  exclude-result-prefixes="#all">
   
@@ -1103,18 +1104,21 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   
   <function name="oc:printNode" as="text()">
     <param name="node" as="node()?"/>
-    <choose>
-      <when test="not($node)">NULL</when>
-      <when test="$node[self::element()]">
-        <value-of>[<value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
-      </when>
-      <when test="$node[self::text()]"><value-of select="concat('text-node = [', $node, ']')"/></when>
-      <when test="$node[self::comment()]"><value-of select="concat('comment-node = [', $node, ']')"/></when>
-      <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = [', $node, ']')"/></when>
-      <when test="$node[self::document-node()]"><value-of select="concat('document-node: ', base-uri($node))"/></when>
-      <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction: ', $node)"/></when>
-      <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
-    </choose>
+    <value-of>
+      <choose>
+        <when test="not($node)">NULL</when>
+        <when test="$node[self::element()]">
+          <value-of>[<value-of select="$node/name()"/><for-each select="$node/@*"><value-of select="concat(' ', name(), '=&#34;', ., '&#34;')"/></for-each>]</value-of>
+        </when>
+        <when test="$node[self::text()]"><value-of select="concat('text-node = [', $node, ']')"/></when>
+        <when test="$node[self::comment()]"><value-of select="concat('comment-node = [', $node, ']')"/></when>
+        <when test="$node[self::attribute()]"><value-of select="concat('attribute-node: ', name($node), ' = [', $node, ']')"/></when>
+        <when test="$node[self::document-node()]"><value-of select="concat('document-node: ', base-uri($node))"/></when>
+        <when test="$node[self::processing-instruction()]"><value-of select="concat('processing-instruction: ', $node)"/></when>
+        <otherwise><value-of select="concat('other?:', $node)"/></otherwise>
+      </choose>
+      <if test="$node"> (<value-of select="sx:line-number($node)"/>)</if>
+    </value-of>
   </function>
   
   <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:

@@ -5,6 +5,7 @@
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+ xmlns:sx="http://saxon.sf.net/"
  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
  xmlns:me="http://github.com/JohnAustinDev/osis-converters/checkrefs.xsl"
  exclude-result-prefixes="#all">
@@ -55,7 +56,7 @@
     <!-- Check for bad osisRef values -->
     <for-each select="//reference[not(@osisRef) or not(normalize-space(@osisRef))]">
       <call-template name="Error">
-<with-param name="msg">Reference link is missing an osisRef attribute: <value-of select="parent::*/string()"/></with-param>
+<with-param name="msg">Reference link on line <value-of select="sx:line-number(.)"/> is missing an osisRef attribute: <value-of select="parent::*/string()"/></with-param>
 <with-param name="exp">Maybe this should not be marked as a reference? 
 Reference tags in OSIS require a valid target. When there isn't a valid 
 target, then a different USFM tag should be used instead.</with-param>
