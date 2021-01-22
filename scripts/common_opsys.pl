@@ -88,7 +88,7 @@ our @OC_CONFIGS = (
   'TranslationTitle', 'CombineGlossaries', 'CombinedGlossaryTitle', 
   'MATCHES:BookGroupTitle\w+', 'NormalizeUnicode', 'AddScripRefLinks',
   'AddDictLinks', 'AddSeeAlsoLinks', 'AddFootnoteLinks' , 'AddCrossRefs',
-  'ReorderGlossaryEntries', 'CustomBookOrder',
+  'ReorderGlossaryEntries', 'CustomBookOrder', 'IntroductionTitle',
 );
 
 # Valid [system] section config entries (these end up as Perl global variables)
@@ -114,7 +114,7 @@ our @SWORD_LOCALIZABLE_CONFIGS = (
 our @OC_LOCALIZABLE_CONFIGS = (
   'MATCHES:TitleSubPublication\\[(?<scope>\S+)\\]$', 'MATCHES:ARG_\w+Title\d', 
   'TranslationTitle', 'MATCHES:BookGroupTitle\w+', 'CombinedGlossaryTitle', 
-  'Abbreviation', 'Description', 'About'
+  'Abbreviation', 'Description', 'About', 'IntroductionTitle',
 );
 
 # CrossWire SWORD configs which may be continued line to line by '\'
@@ -156,6 +156,7 @@ our %CONFIG_DEFAULTS = (
   'BookGroupTitleOT' => 'New Testament DEF',   'doc:BookGroupTitleOT' => 'Localized title for the New Testament in the Table of Contents',
   'BookGroupTitleNT' => 'Old Testament DEF',   'doc:BookGroupTitleNT' => 'Localized title for the Old Testament in the Table of Contents',
   'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
+  'IntroductionTitle' => 'Introduction DEF',   'doc:IntroductionTitle' => 'Localized title for introductions (could be for a book, publication or sub-publication introduction)',
   'Font' => '',
   'Companion' => '',
   'NormalizeUnicode' => 'false',    'doc:NormalizeUnicode' => 'Apply Unicode normalization to all characters (true|false|NFD|NFC|NFKD|NFKC|FCD)',
