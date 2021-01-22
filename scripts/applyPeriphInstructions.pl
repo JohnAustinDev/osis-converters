@@ -230,13 +230,13 @@ To position the above material, add location == <XPATH> after the \\id tag."
   
   if (&isBible($xml)) {
     &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
-    # Check that all sub-publications are marked
+    # Check that all sub-publication introductions exist, and add an empty one if not
     foreach my $scope (@SUB_PUBLICATIONS) {
       if (!@{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]', $xml)}[0]) {
         &Warn("No div scope was found for sub-publication $scope.");
         my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, &conf('Versification'))}[0].'"]', $xml)}[0];
         if (!$firstbk) {next;}
-        my $tocms = @{$XPC->findnodes('descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $firstbk)}[0];
+        my $tocms = @{$XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")][last()]', $firstbk)}[0];
         my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
         my $div = $XML_PARSER->parse_balanced_chunk('<div type="introduction" scope="'.$scope.'" resp="'.$ROC.'"> </div>');
         $before->parentNode->insertBefore($div, $before);
@@ -333,6 +333,7 @@ sub placeIntroduction {
 
   # place as first non-toc and non-runningHead element in destination container
   while (@{$XPC->findnodes('
+    ./self::comment() |
     ./self::text()[not(normalize-space())] | 
     ./self::osis:title[@type="runningHead"] | 
     ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
