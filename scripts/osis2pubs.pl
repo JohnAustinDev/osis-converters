@@ -64,7 +64,7 @@ sub osis2pubs {
   my $fullScope = '';
   if (!&isChildrensBible($INOSIS_XML)) {
     my $v = &conf('Versification');
-    $fullScope = &booksToScope(&scopeToBooks(&getScopeOSIS($INOSIS_XML), $v), $v);
+    $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($INOSIS_XML), $v), $v);
   }
   my $serverDirsHP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, 1):{});
   my $tranPubTitle = &conf('TranslationTitle');
@@ -502,7 +502,7 @@ sub filterBibleToScope {
   my $bookTitleTocNum = &conf('TitleTOC');
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
-  my $fullScope = &getScopeOSIS($inxml);
+  my $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($inxml), &conf('Versification')), &conf('Versification'));
   
   my $subPublication;
   if ($pubType ne 'Part') {
@@ -916,7 +916,7 @@ sub filterGlossaryReferences {
 
   &writeXMLFile($xml, $osis);
   
-  my $mname = &getModNameOSIS($xml);
+  my $mname = &getOsisModName($xml);
   
   if (%noteMulti) {
     &Note("Glossary references with multi-target osisRefs exist in $mname, but secondary targets will be ignored:");

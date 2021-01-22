@@ -170,7 +170,7 @@ cross-references will be unreadable.\n$bookNamesMsg");}
     $INSERT_NOTE_SPEEDUP{@{$XPC->findnodes('following::osis:verse[@eID][1]', $alt)}[0]->getAttribute('eID')}++;
   }
   
-  my $osisBooksHP = &getBooksOSIS($osis);
+  my $osisBooksHP = &getOsisBooks($osis);
 NOTE:
   foreach my $note ($XPC->findnodes('//osis:note', $xml)) {
     foreach my $t ($note->childNodes()) {
@@ -249,7 +249,7 @@ other books are added to the translation.");
     }
       
     # add resp attribute, which identifies this note as an external note
-    $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getVerseSystemOSIS($xml));  
+    $note->setAttribute('resp', &getOsisIDWork($xml)."-".&getOsisVersification($xml));  
     
     &insertNote($note, \%{$verses{$placement}}, &getAltVersesOSIS($osis)->{'fixed2Source'}{$fixed});
   }

@@ -121,8 +121,8 @@ sub addCoverImages {
   my $coverWidth = 500;
   
   my $xml = $XML_PARSER->parse_file($$osisP);
-  my $mod = &getModNameOSIS($xml);
-  my $vsys = &getVerseSystemOSIS($xml);
+  my $mod = &getOsisModName($xml);
+  my $vsys = &getOsisVersification($xml);
   my $updated;
   
   my @existing = $XPC->findnodes('//osis:figure[@type="x-cover"]', $xml);

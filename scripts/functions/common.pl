@@ -108,7 +108,7 @@ require("$SCRD/scripts/functions/context.pl");
 require("$SCRD/scripts/functions/image.pl");
 require("$SCRD/scripts/functions/osisID.pl");
 require("$SCRD/scripts/functions/dictionaryWords.pl");
-require("$SCRD/scripts/objects.pl");
+require("$SCRD/scripts/blockFile.pl");
 
 sub init_linux_script {
   # Global $forkScriptName will only be set when running from fork.pl, in  
@@ -531,6 +531,19 @@ sub checkFont {
   &Debug("\n\$FONTS=$FONTS\n\%FONT_FILES=".Dumper(\%FONT_FILES)."\n");
 }
 
+# Return 1 if there is an Internet connection or 0 of there is not. This
+# test may take time, so cache the result for the remainder of the script.
+our $HAVEINTERNET;
+sub haveInternet {
+
+  if (!defined($HAVEINTERNET)) {
+    my $r = &shell('bash -c "echo -n > /dev/tcp/8.8.8.8/53"', 3, 1);
+    $HAVEINTERNET = ($r =~ /no route to host/i ? 0:1);
+  }
+  
+  return $HAVEINTERNET;
+}
+
 # Caches files from a URL, or if the $listingAP array pointer is 
 # provided, a listing of files at the URL (without actually downloading 
 # the files). The path to the local cache is returned. If $listingAP 
@@ -575,6 +588,15 @@ sub getURLCache {
         return $p;
       }
     }
+  }
+  
+  if (!&haveInternet()) {
+    if ($listingAP) {&wgetReadFilePaths($p, $listingAP, $p);}
+    &Note("Using local cache directory $pp");
+    &Error(
+"No Internet connection, and cached files are invalid.", 
+"Connected to the Internet and then rerun the conversion.");
+    return $p;
   }
   
   # Refresh the subdirectory contents from the URL.
@@ -1982,7 +2004,7 @@ sub changeNodeText {
 
 # Some of the following routines take either nodes or module names as inputs.
 # Note: Whereas //osis:osisText[1] is TRULY, UNBELIEVABLY SLOW, /osis:osis/osis:osisText[1] is fast
-sub getModNameOSIS {
+sub getOsisModName {
   my $node = shift; # might already be string mod name- in that case just return it
 
   if (!ref($node)) {
@@ -1990,9 +2012,9 @@ sub getModNameOSIS {
     if (!$DOCUMENT_CACHE{$modname}) {
       our $OSIS;
       my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
-      if (! -e $osis) {&ErrorBug("getModNameOSIS: No current osis file to read for $modname.", 1);}
+      if (! -e $osis) {&ErrorBug("getOsisModName: No current osis file to read for $modname.", 1);}
       &initDocumentCache($XML_PARSER->parse_file($osis));
-      if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getModNameOSIS: header of osis $osis does not include modname $modname.", 1);}
+      if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getOsisModName: header of osis $osis does not include modname $modname.", 1);}
     }
     return $modname;
   }
@@ -2015,7 +2037,7 @@ sub getModNameOSIS {
     return '';
   }
   
-  return $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'};
+  return $DOCUMENT_CACHE{$headerDoc}{'getOsisModName'};
 }
 # Associated functions use this cached header data for a big speedup. 
 # The cache is cleared and reloaded the first time a node is referenced 
@@ -2034,23 +2056,23 @@ sub initDocumentCache {
     &ErrorBug("Document is not an osis document:".$headerDoc, 1);
   }
   $osisIDWork = $osisIDWork->getAttribute('osisIDWork');
-  $DOCUMENT_CACHE{$headerDoc}{'getModNameOSIS'} = $osisIDWork;
+  $DOCUMENT_CACHE{$headerDoc}{'getOsisModName'} = $osisIDWork;
   
   # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   undef($DOCUMENT_CACHE{$osisIDWork});
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
   $dbg .= "selfmod=$osisIDWork ";
-  $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'}     = $osisIDWork;
-  $DOCUMENT_CACHE{$osisIDWork}{'getRefSystemOSIS'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'} =~ s/^Bible.//i;
-  $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisModName'}     = $osisIDWork;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisRefSystem'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'} =~ s/^Bible.//i;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisBibleModName'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
   my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
-  $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'}     = ($dict ? $dict->getAttribute('osisWork'):'');
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisDictModName'}     = ($dict ? $dict->getAttribute('osisWork'):'');
   my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
-  $DOCUMENT_CACHE{$osisIDWork}{'getBooksOSIS'} = \%books;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisBooks'} = \%books;
   my $scope = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[1]/osis:scope', $xml)}[0];
-  $DOCUMENT_CACHE{$osisIDWork}{'getScopeOSIS'} = ($scope ? $scope->textContent():'');
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisScope'} = ($scope ? $scope->textContent():'');
   
   # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $xml);
@@ -2058,19 +2080,19 @@ sub initDocumentCache {
     my $w = $work->getAttribute('osisWork');
     if ($w eq $osisIDWork) {next;}
     undef($DOCUMENT_CACHE{$w});
-    $DOCUMENT_CACHE{$w}{'getRefSystemOSIS'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
+    $DOCUMENT_CACHE{$w}{'getOsisRefSystem'} = @{$XPC->findnodes('./osis:refSystem', $work)}[0]->textContent;
     $dbg .= "compmod=$w ";
-    $DOCUMENT_CACHE{$w}{'getVerseSystemOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getVerseSystemOSIS'};
-    $DOCUMENT_CACHE{$w}{'getBibleModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getBibleModOSIS'};
-    $DOCUMENT_CACHE{$w}{'getDictModOSIS'} = $DOCUMENT_CACHE{$osisIDWork}{'getDictModOSIS'};
+    $DOCUMENT_CACHE{$w}{'getOsisVersification'} = $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'};
+    $DOCUMENT_CACHE{$w}{'getOsisBibleModName'} = $DOCUMENT_CACHE{$osisIDWork}{'getOsisBibleModName'};
+    $DOCUMENT_CACHE{$w}{'getOsisDictModName'} = $DOCUMENT_CACHE{$osisIDWork}{'getOsisDictModName'};
     $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
   }
   &Debug("$dbg\n");
   
-  return $DOCUMENT_CACHE{$osisIDWork}{'getModNameOSIS'};
+  return $DOCUMENT_CACHE{$osisIDWork}{'getOsisModName'};
 }
 # IMPORTANT: the osisCache lookup can ONLY be called on $modname after 
-# a call to getModNameOSIS($modname), since getModNameOSIS($modname) 
+# a call to getOsisModName($modname), since getOsisModName($modname) 
 # is where the cache is written.
 sub osisCache {
   my $func = shift;
@@ -2080,95 +2102,95 @@ sub osisCache {
   &Error("DOCUMENT_CACHE failure: $modname $func\n");
   return '';
 }
-sub getModXmlOSIS {
+sub getOsisXML {
   my $mod = shift;
 
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   if (!$xml) {
     undef($DOCUMENT_CACHE{$mod});
-    &getModNameOSIS($mod);
+    &getOsisModName($mod);
     $xml = $DOCUMENT_CACHE{$mod}{'xml'};
   }
   return $xml;
 }
-sub getRefSystemOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisRefSystem {
+  my $mod = &getOsisModName(shift);
 
-  my $return = &osisCache('getRefSystemOSIS', $mod);
+  my $return = &osisCache('getOsisRefSystem', $mod);
   if (!$return) {
-    &ErrorBug("getRefSystemOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisRefSystem: No document node for \"$mod\"!");
     return '';
   }
   return $return;
 }
-sub getVerseSystemOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisVersification {
+  my $mod = &getOsisModName(shift);
 
   if ($mod eq 'KJV') {return 'KJV';}
   if ($mod eq $MOD) {return &conf('Versification');}
-  my $return = &osisCache('getVerseSystemOSIS', $mod);
+  my $return = &osisCache('getOsisVersification', $mod);
   if (!$return) {
-    &ErrorBug("getVerseSystemOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisVersification: No document node for \"$mod\"!");
     return &conf('Versification');
   }
   return $return;
 }
-sub getBibleModOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisBibleModName {
+  my $mod = &getOsisModName(shift);
 
-  my $return = &osisCache('getBibleModOSIS', $mod);
+  my $return = &osisCache('getOsisBibleModName', $mod);
   if (!$return) {
-    &ErrorBug("getBibleModOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisBibleModName: No document node for \"$mod\"!");
     return '';
   }
   return $return;
 }
-sub getDictModOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisDictModName {
+  my $mod = &getOsisModName(shift);
 
-  my $return = &osisCache('getDictModOSIS', $mod);
+  my $return = &osisCache('getOsisDictModName', $mod);
   if (!$return) {
-    &ErrorBug("getDictModOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisDictModName: No document node for \"$mod\"!");
     return '';
   }
   return $return;
 }
-sub getOsisRefWork {return &getModNameOSIS(shift);}
-sub getOsisIDWork {return &getModNameOSIS(shift);}
-sub getBooksOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisRefWork {return &getOsisModName(shift);}
+sub getOsisIDWork {return &getOsisModName(shift);}
+sub getOsisBooks {
+  my $mod = &getOsisModName(shift);
 
-  my $return = &osisCache('getBooksOSIS', $mod);
+  my $return = &osisCache('getOsisBooks', $mod);
   if (!$return) {
-    &ErrorBug("getBooksOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisBooks: No document node for \"$mod\"!");
     return '';
   }
   return $return;
 }
-sub getScopeOSIS {
-  my $mod = &getModNameOSIS(shift);
+sub getOsisScope {
+  my $mod = &getOsisModName(shift);
 
-  my $return = &osisCache('getScopeOSIS', $mod);
+  my $return = &osisCache('getOsisScope', $mod);
   if (!$return) {
-    &ErrorBug("getScopeOSIS: No document node for \"$mod\"!");
+    &ErrorBug("getOsisScope: No document node for \"$mod\"!");
     return '';
   }
   return $return;
 }
 sub isChildrensBible {
-  my $mod = &getModNameOSIS(shift);
+  my $mod = &getOsisModName(shift);
 
-  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Book\.\w+CB$/ ? 1:0);
+  return (&osisCache('getOsisRefSystem', $mod) =~ /^Book\.\w+CB$/ ? 1:0);
 }
 sub isBible {
-  my $mod = &getModNameOSIS(shift);
+  my $mod = &getOsisModName(shift);
 
-  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Bible/ ? 1:0);
+  return (&osisCache('getOsisRefSystem', $mod) =~ /^Bible/ ? 1:0);
 }
 sub isDict {
-  my $mod = &getModNameOSIS(shift);
+  my $mod = &getOsisModName(shift);
 
-  return (&osisCache('getRefSystemOSIS', $mod) =~ /^Dict/ ? 1:0);
+  return (&osisCache('getOsisRefSystem', $mod) =~ /^Dict/ ? 1:0);
 }
 
 sub getModuleOutputDir {
@@ -3036,16 +3058,18 @@ sub writeTOC {
   }
   
   if ($modType eq 'bible') {
-    # Insure there are as many possible TOC entries for each book
+    # Insure there are as many possible x-usfm-tocN entries for each book,
+    # and add book introduction TOC entries where needed.
     my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
     foreach my $bk (@bks) {
+      my $osisID = $bk->getAttribute('osisID');
       for (my $t=1; $t<=3; $t++) {
         # Is there a TOC entry if this type? If not, add one if we know what it should be
         my @e = $XPC->findnodes('./osis:milestone[@n][@type="x-usfm-toc'.$t.'"] | ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$t.'"]', $bk);
         if (@e && @e[0]) {next;}
         
         if ($t eq $toc && !$WRITETOC_MSG) {
-          &Warn("At least one book (".$bk->getAttribute('osisID').") is missing a \\toc$toc SFM tag. 
+          &Warn("At least one book ($osisID) is missing a \\toc$toc SFM tag. 
 These \\toc tags are used to generate the eBook table of contents. When 
 possible, such tags will be automatically inserted.",
 "That your eBook TOCs render with proper book names and/or 
@@ -3062,7 +3086,7 @@ tag number you wish to use.)\n");
         # Try and get the book name from BookNames.xml
         if (%BOOKNAMES) {
           my @attrib = ('', 'long', 'short', 'abbr');
-          $name = $BOOKNAMES{$bk->getAttribute('osisID')}{@attrib[$t]};
+          $name = $BOOKNAMES{$osisID}{@attrib[$t]};
           if ($name) {$type = @attrib[$t];}
         }
         
@@ -3073,7 +3097,7 @@ tag number you wish to use.)\n");
             @title = $XPC->findnodes('./osis:title[@type="main"]', $bk);
           }
           if (!@title || !@title[0]) {
-            $name = $bk->getAttribute("osisID");
+            $name = $osisID;
             $type = "osisID";
             &Error("writeTOC: Could not locate book name for \"$name\" in OSIS file.");
           }
@@ -3082,9 +3106,26 @@ tag number you wish to use.)\n");
         
         if ($name) {
           my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\" resp=\"$ROC\"/>";
-          &Note("Inserting $type \\toc$t into \"".$bk->getAttribute('osisID')."\" as $name");
+          &Note("Inserting $osisID book $type TOC entry as: $name");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
         }
+      }
+      
+      # Add book introduction TOC if needed
+      my $introWithoutTOC = @{$XPC->findnodes("child::osis:div[\@type]
+        [not(contains(\@type, 'ection'))]
+        [following::osis:chapter[1][\@osisID='$osisID.1']][1]
+        [not(descendant::osis:milestone[\@type='x-usfm-toc".&conf('TOC')."'])]", $bk)}[0];
+      if ($introWithoutTOC) {
+        my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
+        if ($title =~ /DEF$/) {$title = &getDivTitle($introWithoutTOC);}
+        if ($title) {
+          &Note("Inserting $osisID book introduction TOC entry as: $title");
+          my $toc = $XML_PARSER->parse_balanced_chunk('
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[not_parent]'.$title.'" resp="'.$ROC.'"/>');
+          $introWithoutTOC->insertBefore($toc, $introWithoutTOC->firstChild);
+        }
+        else {&Error("Could not determine introduction title.", "Specify IntroductionTitle in config.conf.");}
       }
     }
     
@@ -3480,7 +3521,7 @@ sub writeMissingNoteOsisRefs {
   my $xml = shift;
   
   my @notes = $XPC->findnodes('descendant::osis:note[not(@osisRef)]', $xml);
-  my $refSystem = &getRefSystemOSIS($xml);
+  my $refSystem = &getOsisRefSystem($xml);
   
   my $count = 0;
   foreach my $note (@notes) {

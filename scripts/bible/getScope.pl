@@ -34,7 +34,7 @@ sub getScope {
   
   my $scope = "";
   
-  $vsys = ($vsys ? $vsys:&getVerseSystemOSIS($xml));
+  $vsys = ($vsys ? $vsys:&getOsisVersification($xml));
   if (!$vsys) {
     &ErrorBug("Could not determine versification of $osisf.", 1);
     return;

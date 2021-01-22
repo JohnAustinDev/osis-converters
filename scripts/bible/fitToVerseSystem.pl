@@ -617,7 +617,7 @@ sub correctReferencesVSYS {
     my $osisXML; my $filter;
     my $element = &splitOSIS_element($osisbk, \$osisXML, \$filter);
     if ($element) {&Log($element->getAttribute('osisID'), 2);}
-    my $name_osisXML = &getModNameOSIS($osisXML);
+    my $name_osisXML = &getOsisModName($osisXML);
     my @existing = $XPC->findnodes('descendant::osis:reference[@annotateType="'.$ANNOTATE_TYPE{'Source'}.'"][@annotateRef][@osisRef]', $element);
     if (@existing) {next;}
 
@@ -813,7 +813,7 @@ sub removeMappedElement {
 }
 
 sub getAltVersesOSIS {
-  my $mod = &getModNameOSIS(shift);
+  my $mod = &getOsisModName(shift);
   
   our %DOCUMENT_CACHE;
   my $xml = $DOCUMENT_CACHE{$mod}{'xml'};
@@ -1122,7 +1122,7 @@ sub applyVsysInstruction {
     return 0;
   }
   
-  if ($sourceP && $sourceP->{'bk'} && !&getBooksOSIS($xml)->{$sourceP->{'bk'}}) {
+  if ($sourceP && $sourceP->{'bk'} && !&getOsisBooks($xml)->{$sourceP->{'bk'}}) {
     &Warn("Skipping VSYS_$inst because ".$sourceP->{'bk'}." is not in the OSIS file.", "Is this instruction correct?");
     return 0;
   }
@@ -1167,7 +1167,7 @@ sub parseVsysArgument {
       &ErrorBug("parseVsysArgument: Could not parse: $value !~ /^$VSYS_PINSTR_RE\$/");
       return \%data;
     }
-    $data{'vsys'} = ($vsysType eq 'source' ? 'source':($vsysType eq 'fixed' ? &getVerseSystemOSIS($xml):''));
+    $data{'vsys'} = ($vsysType eq 'source' ? 'source':($vsysType eq 'fixed' ? &getOsisVersification($xml):''));
     $bk = $+{bk}; $ch = $+{ch};
     if (defined($+{vs})) {$vs = $+{vs};}
     if (defined($+{vl})) {$vl = $+{vl};}
@@ -1209,7 +1209,7 @@ sub applyVsysFromTo {
   
   # If the fixed vsys is universal (different than $xml) then just insert 
   # extra_vs and fitted_vs marker(s) after the element(s) and return
-  if ('Bible.'.$fixedP->{'vsys'} ne &getRefSystemOSIS($xml)) {
+  if ('Bible.'.$fixedP->{'vsys'} ne &getOsisRefSystem($xml)) {
     if ($sourceP->{'isWholeChapter'}) {
       my $xpath = '//*
         [@type="'.$VSYS{'prefix_vs'}.'-chapter'.$VSYS{'end_vs'}.'"]

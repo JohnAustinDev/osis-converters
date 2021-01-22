@@ -400,7 +400,7 @@ sub searchForGlossaryLinks {
     if (!$glossary->{'node_context'}) {next;}
     
     my @gs; foreach my $gsp ( split(/\s+/, &getGlossaryScopeAttribute($node)) ) {
-      push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, &getVerseSystemOSIS($node))}:$gsp));
+      push(@gs, ($gsp =~ /\-/ ? @{&scopeToBooks($gsp, &getOsisVersification($node))}:$gsp));
     }
     $glossary->{'scopes_context'} = join('+', @gs);
     

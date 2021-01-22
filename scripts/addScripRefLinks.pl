@@ -178,7 +178,7 @@ sub runAddScripRefLinks {
   
   # Get the refSystem
   my $xml = $XML_PARSER->parse_file(@files[0]);
-  my $refSystem = &getRefSystemOSIS($xml);
+  my $refSystem = &getOsisRefSystem($xml);
   
   if ($NO_FORKS =~ /\b(1|true|AddScripRefLinks)\b/) {
     &Warn("Running addScripRefLinks without forks.pl", 
@@ -464,7 +464,7 @@ sub asrlProcessFile {
   my $xml;
   my $element = &splitOSIS_element($osis, \$xml);
   
-  my $work = &getBibleModOSIS($xml);
+  my $work = &getOsisBibleModName($xml);
   $work = ($work eq $MOD ? '':$work);
 
   # get every text node

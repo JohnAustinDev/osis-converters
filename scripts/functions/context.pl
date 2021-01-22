@@ -158,7 +158,7 @@ sub osisID2Contexts {
   my @ids = ();
   
   # Assume osisID is always in $MOD, since context arguments always(?) apply to the current module.
-  my @ancdivs = $XPC->findnodes("descendant::*[\@osisID='$osisID']/ancestor::osis:div[\@osisID]", &getModXmlOSIS($MOD));
+  my @ancdivs = $XPC->findnodes("descendant::*[\@osisID='$osisID']/ancestor::osis:div[\@osisID]", &getOsisXML($MOD));
 
   # Include introduction?
   if ($includeIntro) {
@@ -219,7 +219,7 @@ sub bibleContext {
   
   # no book means we might be a Bible or testament introduction (or else an entirely different type of OSIS file)
   if (!$bk) {
-    my $refSystem = &getRefSystemOSIS($node);
+    my $refSystem = &getOsisRefSystem($node);
     if ($refSystem !~ /^Bible/) {
       &ErrorBug("bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"");
       return '';
@@ -434,7 +434,7 @@ sub checkAndNormalizeAtomicContext {
     return '';
   }
   
-  if ($CONTEXT_CHECK_XML && &getModNameOSIS($CONTEXT_CHECK_XML) eq $work && 
+  if ($CONTEXT_CHECK_XML && &getOsisModName($CONTEXT_CHECK_XML) eq $work && 
         !&existsElementID($context, $CONTEXT_CHECK_XML) && 
         !&existsScope($context, $CONTEXT_CHECK_XML)
       ) {

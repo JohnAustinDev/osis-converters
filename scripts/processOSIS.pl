@@ -320,7 +320,7 @@ sub runChecks {
   my $modType = shift;
   
   our %DOCUMENT_CACHE;
-  undef(%DOCUMENT_CACHE); &getModNameOSIS($XML_PARSER->parse_file($OSIS)); # reset cache
+  undef(%DOCUMENT_CACHE); &getOsisModName($XML_PARSER->parse_file($OSIS)); # reset cache
   
   # Check all osisRef targets
   if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {

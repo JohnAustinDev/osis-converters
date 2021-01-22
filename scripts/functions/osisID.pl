@@ -122,7 +122,7 @@ sub osisRef2osisID {
     }
     if ($workPrefixFlag =~ /not\-default/i && $pwork eq "$osisRefWorkDefault:") {$pwork = '';}
     my $bible = $work; $bible =~ s/DICT$//;
-    my $vsys = ($work ? &getVerseSystemOSIS($bible):&conf('Versification'));
+    my $vsys = ($work ? &getOsisVersification($bible):&conf('Versification'));
   
     if ($osisRef eq 'OT') {
       $osisRef = "Gen-Mal"; 
@@ -215,7 +215,7 @@ sub inVersesystem {
     my $wktype = 'Bible';
     if ($id =~ s/^([\w\d]+)\://) {$osisIDWork = $1;}
     if (!&isChildrensBible($MOD) && $osisIDWork && $osisIDWork !~ /^bible$/i) {
-      &getRefSystemOSIS($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
+      &getOsisRefSystem($osisIDWork) =~ /^([^\.]+)\.(.*)$/;
       $wktype = $1; $wkvsys = $2;
     }
     
@@ -321,7 +321,7 @@ sub swordVerseKey {
   
   my $work = ($osisIDWorkDefault ? $osisIDWorkDefault:'');
   if ($osisID =~ s/^([\w\d]+)\:(.*)$/$2/) {$work = $1;}
-  my $vsys = $work ? &getVerseSystemOSIS($work):&conf('Versification');
+  my $vsys = $work ? &getOsisVersification($work):&conf('Versification');
   
   if (!$dontCheck && !&idInVerseSystem($osisID, $vsys)) {return 0;}
   

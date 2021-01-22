@@ -151,8 +151,8 @@ sub runAddFootnoteLinks {
     my @files = &splitOSIS($bibleOsis);
     my $other = $XML_PARSER->parse_file(@files[0]);
     my $bmod = &getOsisRefWork($other);
-    my $brefSystem = &getRefSystemOSIS($other);
-    $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getVerseSystemOSIS($other);
+    my $brefSystem = &getOsisRefSystem($other);
+    $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$bmod} = &getOsisVersification($other);
     if ($brefSystem =~ /^Bible/) {
       foreach my $file (@files) {
         my $e = &splitOSIS_element($file);
@@ -185,9 +185,9 @@ DICT OSIS file again.");
   my @files = &splitOSIS($$osisP);
   my $other = $XML_PARSER->parse_file(@files[0]);
   my $myMod = &getOsisRefWork($other);
-  my $myRefSystem = &getRefSystemOSIS($other);
+  my $myRefSystem = &getOsisRefSystem($other);
   $OSISREFWORK = @{$XPC->findnodes('//osis:osisText/@osisRefWork', $other)}[0]->getValue();
-  $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getVerseSystemOSIS($other);
+  $FNL_MODULE_BIBLE_VERSE_SYSTEMS{$myMod} = &getOsisVersification($other);
   if ($myRefSystem =~ /^(Bible|Dict)/) {
     foreach my $file (@files) {
       my $xml;
