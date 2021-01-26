@@ -1129,11 +1129,11 @@
                     to glossaries.
   [inline_toc_last] - Means this TOC element will generate an inline TOC
                     after its content. This is default for material 
-                    which is not in a Bible. This instruction does not
-                    apply to glossaries. The inline TOC will appear just
-                    before the following TOC milestone, even if that
-                    milestone is [no_toc] (so that can be used to place 
-                    the inline TOC anywhere within the content).
+                    which is not in a Bible which means this instruction 
+                    does not apply to glossaries. The inline TOC will 
+                    appear just before the following TOC milestone, even 
+                    if that milestone is [no_toc] (so that can be used  
+                    to place the inline TOC anywhere within the content).
   [not_parent]    - Used on bookGroup or book  milestone TOC elements.   
                     Means that this section should appear as the first  
                     sibling of the following book or chapter list,   
@@ -1411,12 +1411,16 @@
           <html:li>
             <attribute name="class">
               <variable name="class" as="xs:string+">
-                <variable name="intros" select="me:getBookGroupIntroductions(.)"/>
+                <variable name="bookGroupIntros" select="me:getBookGroupIntroductions(.)"/>
+                <variable name="bookIntro" select="ancestor::div[@type='book']/
+                  descendant::osis:milestone[@type=concat('x-usfm-toc', $TOC)][2]
+                  [following::osis:chapter[1][ends-with(@osisID, '.1')]]"/>
                 <choose>
                   <when test="self::chapter"> xsl-chapter-link </when>
                   <when test="self::seg"> xsl-keyword-link </when>
-                  <when test="count($intros) = 1 and . intersect $intros"> xsl-bookGroup-link </when>
-                  <when test=". intersect $intros"> xsl-bookSubGroup-link </when>
+                  <when test="count($bookGroupIntros) = 1 and . intersect $bookGroupIntros"> xsl-bookGroup-link </when>
+                  <when test=". intersect $bookGroupIntros"> xsl-bookSubGroup-link </when>
+                  <when test=". intersect $bookIntro"> xsl-book-introduction-link </when>
                   <when test="parent::div[@type = ('glossary', 'bookGroup', 'book')]">
                     <value-of select="concat(' xsl-', parent::div/@type, '-link ')"/>
                   </when>
@@ -1597,7 +1601,7 @@
   </function>
   
   <!-- Returns the milestone TOC parent(s) of any bookGroup node, which may be one or both of:
-       The TESTAMENT INTRODUCTION: the first child div of the bookGroup when it is either the 
+       The BOOK-GROUP INTRODUCTION: the first child div of the bookGroup when it is either the 
        only non-book TOC div or else is immediately followed by another pre-book TOC div. 
        A BOOK-SUB-GROUP INTRODUCTION: the first preceding non-book TOC milestone in the 
        bookGroup which comes after the first book, or possibly that which comes before the first 

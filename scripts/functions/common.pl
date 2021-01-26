@@ -75,13 +75,16 @@ our $SFM2ALL_SEPARATE_LOGS = 1;
 
 # The attribute types and values below are hardwired into the xsl files
 # to allow them to be more portable. But in Perl, these variables are used.
+our %RESP;
+$RESP{'oc'} = 'x-oc';     # @resp='x-oc' means osis-converters is responsible for adding the element
+$RESP{'vsys'} = 'x-vsys'; # means fitToVerseSystem is responsible for adding this element
+$RESP{'copy'} = 'x-copy'; # means this element is a copy of another element
 
-our $ROC = 'x-oc'; # @resp='x-oc' means osis-converters is responsible for adding the element
+our $ROC = $RESP{'oc'}; # a convenience variable name
 
 # Verse System related attribute types
 our %VSYS;
 $VSYS{'prefix_vs'}     = 'x-vsys';
-$VSYS{'resp_vs'}       = $VSYS{'prefix_vs'};
 $VSYS{'missing_vs'}    = $VSYS{'prefix_vs'}.'-missing';
 $VSYS{'movedto_vs'}    = $VSYS{'prefix_vs'}.'-movedto';
 $VSYS{'extra_vs'}      = $VSYS{'prefix_vs'}.'-extra';
@@ -95,7 +98,9 @@ $VSYS{'moved_type'}    = $VSYS{'prefix_vs'}.'-moved';
 our %ANNOTATE_TYPE;
 $ANNOTATE_TYPE{'Source'} = $VSYS{'prefix_vs'}.'-source'; # annotateRef is osisRef to source (custom) verse system
 $ANNOTATE_TYPE{'Universal'} = $VSYS{'prefix_vs'}.'-universal'; # annotateRef is osisRef to an external (fixed) verse system
-$ANNOTATE_TYPE{'Conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
+$ANNOTATE_TYPE{'conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
+$ANNOTATE_TYPE{'not_conversion'} = 'x-notConversion'; # annotateRef listing conversions where an element should not be output
+$ANNOTATE_TYPE{'cover'} = 'x-coverInsertion'; # annotateRef gives cover insertion info
 $ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features to which an element applies
 
 require("$SCRD/scripts/bible/getScope.pl");
@@ -3112,20 +3117,21 @@ tag number you wish to use.)\n");
       }
       
       # Add book introduction TOC if needed
-      my $introWithoutTOC = @{$XPC->findnodes("child::osis:div[\@type]
-        [not(contains(\@type, 'ection'))]
-        [following::osis:chapter[1][\@osisID='$osisID.1']][1]
-        [not(descendant::osis:milestone[\@type='x-usfm-toc".&conf('TOC')."'])]", $bk)}[0];
-      if ($introWithoutTOC) {
-        my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
-        if ($title =~ /DEF$/) {$title = &getDivTitle($introWithoutTOC);}
-        if ($title) {
+      my $bookIntroTOC = @{$XPC->findnodes(
+        'descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][2]
+        [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
+      if (!$bookIntroTOC) {
+        my $firstIntroTitle = @{$XPC->findnodes(
+          'descendant::osis:title[@type="main"][@subType="x-introduction"][1]', $bk)}[0];
+        if ($firstIntroTitle) {
+          my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
+          if ($title =~ /DEF$/) {$title = $firstIntroTitle->textContent;}
           &Note("Inserting $osisID book introduction TOC entry as: $title");
-          my $toc = $XML_PARSER->parse_balanced_chunk('
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[not_parent]'.$title.'" resp="'.$ROC.'"/>');
-          $introWithoutTOC->insertBefore($toc, $introWithoutTOC->firstChild);
+          # Add a special osisID since many may share the same title
+          my $toc = $XML_PARSER->parse_balanced_chunk("
+<milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]$title' osisID='introduction_$osisID!toc' resp='$ROC'/>");
+          $firstIntroTitle->parentNode->insertBefore($toc, $firstIntroTitle);
         }
-        else {&Error("Could not determine introduction title.", "Specify IntroductionTitle in config.conf.");}
       }
     }
     

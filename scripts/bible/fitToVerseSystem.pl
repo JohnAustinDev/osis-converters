@@ -19,7 +19,7 @@
 use strict;
 our ($READLAYER, $APPENDLAYER, $WRITELAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
-our (@VSYS_INSTR, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, $VSYS_INSTR_RE, 
+our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, $VSYS_INSTR_RE, 
     $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, 
     $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS);
     
@@ -1221,12 +1221,12 @@ sub applyVsysFromTo {
         if (!$osisID) {&ErrorBug("Could not find enclosing verse for element:\n".$sch);}
         else {$osisID = $osisID->getAttribute('osisID');}
         my $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-                  'resp="'.$VSYS{'resp_vs'}.'" ' .
+                  'resp="'.$RESP{'vsys'}.'" ' .
                   'type="'.$VSYS{'extra_vs'}.'" '.
                   'annotateRef="'.$fixedP->{'value'}.'" ' .
                   'annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
                 '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-                  'resp="'.$VSYS{'resp_vs'}.'" ' .
+                  'resp="'.$RESP{'vsys'}.'" ' .
                   'type="'.$VSYS{'fitted_vs'}.'" '.
                   'osisRef="'.$osisID.'" ' .
                   'annotateRef="'.$sourceP->{'value'}.'" ' .
@@ -1246,12 +1246,12 @@ sub applyVsysFromTo {
           else {$osisID = $osisID->getAttribute('osisID'); $osisID =~ s/^.*\s+//;}
           my $univref = $fixedP->{'vsys'}.':'.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.($fixedP->{'vs'} + $v - $sourceP->{'vs'});
           my $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-                    'resp="'.$VSYS{'resp_vs'}.'" ' .
+                    'resp="'.$RESP{'vsys'}.'" ' .
                     'type="'.$VSYS{'extra_vs'}.'" '.
                     'annotateRef="'.$univref.'" ' .
                     'annotateType="'.$ANNOTATE_TYPE{'Universal'}.'" />'.
                   '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-                    'resp="'.$VSYS{'resp_vs'}.'" ' .
+                    'resp="'.$RESP{'vsys'}.'" ' .
                     'type="'.$VSYS{'fitted_vs'}.'" '.
                     'osisRef="'.$osisID.'" ' .
                     'annotateRef="'.$sourceP->{'value'}.'" ' .
@@ -1282,7 +1282,7 @@ sub applyVsysFromTo {
     my $osisRef = "$bk.$ch.$v";
     if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
     my $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-            'resp="'.$VSYS{'resp_vs'}.'" ' .
+            'resp="'.$RESP{'vsys'}.'" ' .
             'type="'.$VSYS{$type}.'" ' .
             'osisRef="'.$osisRef.'" ';
     if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" ';}
@@ -1313,7 +1313,7 @@ sub applyVsysFromTo {
     $osisRef = $osisRef->getAttribute('osisID');
     $osisRef =~ s/^.*?\s+(\S+)$/$1/;
     $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-         'resp="'.$VSYS{'resp_vs'}.'" ' . 
+         'resp="'.$RESP{'vsys'}.'" ' . 
          'type="'.$VSYS{'fitted_vs'}.'" ' .
          'osisRef="'.$osisRef.'" ' .
          'annotateRef="'.$annotateRef.'" ' .
@@ -1844,11 +1844,11 @@ sub applyVsysChapterSplitAt {
       if ($isStart) {
         $newChapTag->setAttribute('osisID', $newID);
         $newChapTag->setAttribute('sID', $newID);
-        $newChapTag->setAttribute('resp', $VSYS{'resp_vs'});
+        $newChapTag->setAttribute('resp', $RESP{'vsys'});
       }
       else {
         $newChapTag->setAttribute('eID', $newID);
-        $newChapTag->setAttribute('resp', $VSYS{'resp_vs'});
+        $newChapTag->setAttribute('resp', $RESP{'vsys'});
       }
     }
   }
@@ -1885,16 +1885,16 @@ sub applyVsysMissing {
     if (!$chapterStartTag) {
       # Create a chapter for the verse if needed
       my $prevChapterEndTag = @{$XPC->findnodes('//osis:chapter[@eID="'.$bk.'.'.($ch-1).'"]', $xml)}[0];
-      my $tags = "<chapter xmlns='$OSIS_NAMESPACE' sID='$bk.$ch' osisID='$bk.$ch' resp='$VSYS{'resp_vs'}'/>" . 
-                 "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' resp='$VSYS{'resp_vs'}'/>";
+      my $tags = "<chapter xmlns='$OSIS_NAMESPACE' sID='$bk.$ch' osisID='$bk.$ch' resp='$RESP{'vsys'}'/>" . 
+                 "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' resp='$RESP{'vsys'}'/>";
       $prevChapterEndTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $prevChapterEndTag);
       $chapterStartTag = @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0];
     }
     # Create an empty verse
-    my $tags = "<verse xmlns='$OSIS_NAMESPACE' sID='$bk.$ch.1' osisID='$bk.$ch.1' resp='$VSYS{'resp_vs'}'/>" . 
-               "<verse xmlns='$OSIS_NAMESPACE' eID='$bk.$ch.1' resp='$VSYS{'resp_vs'}'/>";
+    my $tags = "<verse xmlns='$OSIS_NAMESPACE' sID='$bk.$ch.1' osisID='$bk.$ch.1' resp='$RESP{'vsys'}'/>" . 
+               "<verse xmlns='$OSIS_NAMESPACE' eID='$bk.$ch.1' resp='$RESP{'vsys'}'/>";
     $chapterStartTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $chapterStartTag);
@@ -2031,7 +2031,7 @@ sub applyVsysExtra {
     else {
       &Note("No chapter label was found, adding alternate chapter label \"$ch\".");
       my $alt = "<title xmlns=\"$OSIS_NAMESPACE\" " .
-      "type=\"x-chapterLabel-alternate\" resp=\"$VSYS{'resp_vs'}\">" .
+      "type=\"x-chapterLabel-alternate\" resp=\"$RESP{'vsys'}\">" .
       "<hi type=\"italic\" subType=\"x-alternate\">$ch</hi></title>";
       $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];
@@ -2140,7 +2140,7 @@ sub reVersify {
     $newID = join(' ', @verses);
   }
   
-  if (!$vTagS->hasAttribute('resp') || $vTagS->getAttribute('resp') ne $VSYS{'resp_vs'}) {
+  if (!$vTagS->hasAttribute('resp') || $vTagS->getAttribute('resp') ne $RESP{'vsys'}) {
     $vTagS = &toMilestone($vTagS, 0, ($chCount ? 2:1));
     $vTagE = &toMilestone($vTagE, 0, ($chCount ? 2:1));
     if ($vsCount || $chCount) {
@@ -2164,9 +2164,9 @@ sub reVersify {
       &osisIDCheckUnique($newVerseID, $xml);
       $vTagS->setAttribute('osisID', $newID);
       $vTagS->setAttribute('sID', $newID);
-      $vTagS->setAttribute('resp', $VSYS{'resp_vs'});
+      $vTagS->setAttribute('resp', $RESP{'vsys'});
       $vTagE->setAttribute('eID', $newID);
-      $vTagE->setAttribute('resp', $VSYS{'resp_vs'});
+      $vTagE->setAttribute('resp', $RESP{'vsys'});
     }
   }
   &Note($note); 
@@ -2193,7 +2193,7 @@ sub toMilestone {
   
   # Typical alternate markup example:
   # <milestone type="x-vsys-verse-start" osisRef="Rom.14.24" annotateRef="Rom.16.25" annotateType="x-vsys-source"/>
-  #<hi type="italic" subType="x-alternate" resp="resp_vs"><hi type="super">(25)</hi></hi>
+  #<hi type="italic" subType="x-alternate" resp="x-vsys"><hi type="super">(25)</hi></hi>
   
   my $start_or_end = ($verse_or_chapter_tag->getAttribute('sID') ? 'start_vs':($verse_or_chapter_tag->getAttribute('eID') ? 'end_vs':''));
   my $s_or_eID = ($start_or_end eq 'start_vs' ? $verse_or_chapter_tag->getAttribute('sID'):$verse_or_chapter_tag->getAttribute('eID'));
@@ -2227,7 +2227,7 @@ sub toMilestone {
     else {
       $fit_tag = $verse_or_chapter_tag->cloneNode(1);
       if ($fit_tag->getAttribute('type')) {&ErrorBug("Type already set on $fit_tag");}
-      $fit_tag->setAttribute('resp', $VSYS{'resp_vs'});
+      $fit_tag->setAttribute('resp', $RESP{'vsys'});
       $verse_or_chapter_tag->parentNode->insertBefore($fit_tag, $verse_or_chapter_tag);
       $note .= "[fit_tag]";
     }
@@ -2255,7 +2255,7 @@ sub toMilestone {
       my $altText = ($vs ne $vl ? "$vs-$vl":"$vs");
       if ($writeAlternate == 2) {$altText = "$ch:$altText";}
       my $alt = '<hi xmlns="'.$OSIS_NAMESPACE.'" ' .
-      'type="italic" subType="x-alternate" resp="'.$VSYS{'resp_vs'}.'">' .
+      'type="italic" subType="x-alternate" resp="'.$RESP{'vsys'}.'">' .
       '<hi type="super">('.$altText.') </hi></hi>'; 
       $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $firstTextNode = @{$XPC->findnodes('following::text()
@@ -2282,12 +2282,12 @@ sub undoMilestone {
 
   my $avn = @{$XPC->findnodes('following::text()
     [not(ancestor::osis:hi[starts-with(@subType, "x-alternate-")])][normalize-space()][1]
-    /ancestor-or-self::osis:hi[@subType="x-alternate"][@resp="'.$VSYS{'resp_vs'}.'"][1]', $ms)}[0];
+    /ancestor-or-self::osis:hi[@subType="x-alternate"][@resp="'.$RESP{'vsys'}.'"][1]', $ms)}[0];
   if ($avn) {
     $avn->unbindNode();
     $note .= "[removed alternate verse ".$avn->textContent."]";
   }
-  my $fit_tag = @{$XPC->findnodes('preceding-sibling::*[1][@resp="'.$VSYS{'resp_vs'}.'"]', $ms)}[0];
+  my $fit_tag = @{$XPC->findnodes('preceding-sibling::*[1][@resp="'.$RESP{'vsys'}.'"]', $ms)}[0];
   if ($fit_tag) {
     $fit_tag->unbindNode();
     $note .= "[removed fit_tag]";
@@ -2426,11 +2426,11 @@ sub has_src_milestone {
   
   my $ms = @{$XPC->findnodes('following::*[1][name()="milestone"][starts-with(@type, "'.$VSYS{'prefix_vs'}.'-verse")]', $verseElem)}[0];
   
-  if (!$ms && $verseElem->getAttribute('resp') eq $VSYS{'resp_vs'}) {
-    &ErrorBug($VSYS{'resp_vs'}. " verse tag has no src_milestone");
+  if (!$ms && $verseElem->getAttribute('resp') eq $RESP{'vsys'}) {
+    &ErrorBug($RESP{'vsys'}. " verse tag has no src_milestone");
   }
-  if ($ms && $verseElem->getAttribute('resp') ne $VSYS{'resp_vs'}) {
-    &ErrorBug("verse tag with src_milestone is not ".$VSYS{'resp_vs'});
+  if ($ms && $verseElem->getAttribute('resp') ne $RESP{'vsys'}) {
+    &ErrorBug("verse tag with src_milestone is not ".$RESP{'vsys'});
   }
     
   if (!$ms) {return '';}
