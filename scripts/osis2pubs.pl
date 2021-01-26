@@ -24,7 +24,7 @@ use strict;
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
-our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, 
+our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP,
     %OSIS_ABBR, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
@@ -571,7 +571,14 @@ sub filterBibleToScope {
     
     # move relevant scoped periphs before first kept book.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
+    my %copyPlaced;
     INTRO: foreach my $intro (@scopedPeriphs) {
+      my $resp = $intro->getAttribute('resp');
+      if ($resp !~ /^\Q$RESP{'copy'}/) {$resp = '';}
+      if ($resp && exists($copyPlaced{$resp})) {
+        &Note("Skipping duplicate periph: $resp", 1);
+        next;
+      }
       my $introBooks = &scopeToBooks($intro->getAttribute('scope'), &conf('Versification'));
       if (!@{$introBooks}) {next;}
       foreach my $introbk (@{$introBooks}) {
@@ -581,6 +588,7 @@ sub filterBibleToScope {
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
           &Note("Moved peripheral: $t1 before $t2", 1);
+          $copyPlaced{$resp}++;
           next INTRO;
         }
       }
@@ -639,7 +647,7 @@ sub filterBibleToScope {
     else {
       &Note("Moving sub-publication cover ".$subPubCover->getAttribute('src').
           " to publication cover position.", 1);
-      &insertPubCover($subPubCover, $inxml);
+      &insertTranCover($subPubCover, $inxml);
     }
   }
   if ($scope && $scope ne $fullScope && !$subPubCover) {

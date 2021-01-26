@@ -7,32 +7,38 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
-  <!-- Implements the 'conversion' periph instruction which filters out 
-  elements marked for removal during particular conversions. When 
-  $DICTMOD_DOC is set, this stylesheet adjusts multi-target references 
-  referencing removed keyword osisIDs, and an error is generated if 
-  keyword removal causes broken links. -->
+  <!-- Implements the 'conversion' and 'not_conversion' periph instruc-
+  tions which filter out elements marked for removal during particular 
+  conversions. When $DICTMOD_DOC is set, this stylesheet also adjusts 
+  multi-target references referencing removed keyword osisIDs, and an 
+  error is generated if keyword removal causes broken links. -->
   
   <import href="./functions/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
   <param name="conversion" as="xs:string"/>
   
   <!-- Filter out refs that target elements of removed conversion 
-  material of both DICTMOD and MAINMOD. -->
-  <variable name="removedOsisIDs" as="xs:string*" 
-      select="($MAINMOD_DOC/descendant::*[@osisID][ ancestor::*[@annotateType='x-conversion']
-              [$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] ]
-              /oc:osisRef(@osisID, $MAINMOD)),
-              ($DICTMOD_DOC/descendant::*[@osisID][ ancestor::*[@annotateType='x-conversion']
-              [$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] ]
-              /oc:osisRef(@osisID, $DICTMOD))"/>
+  material in both DICTMOD and MAINMOD. -->
+  <variable name="removedOsisIDs" as="xs:string*" select="
+    ($MAINMOD_DOC/descendant::*[@osisID]
+      [ ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
+        ancestor::*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]
+      ]/oc:osisRef(@osisID, $MAINMOD)
+    ),
+    ($DICTMOD_DOC/descendant::*[@osisID]
+      [ ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
+        ancestor::*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]
+      ]/oc:osisRef(@osisID, $DICTMOD)
+    )"/>
                                           
   <template match="/"><call-template name="conversion.xsl"/></template>
   
   <template mode="conversion.xsl" match="/" name="conversion.xsl">
     <message>NOTE: Running conversion.xsl</message>
     
-    <variable name="removeElements" select="//*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))]"/>
+    <variable name="removeElements" select="
+      //*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
+      //*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]"/>
   
     <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
     
@@ -94,7 +100,7 @@
   
   <!-- Remove prevnext links that are no longer valid -->
   <template mode="conversion" match="item[@subType = 'x-prevnext-link']
-                                             [ancestor::div[starts-with(@type, 'x-keyword')]]">
+                                         [ancestor::div[starts-with(@type, 'x-keyword')]]">
     <param name="removePrevNextLinks" as="xs:boolean" tunnel="yes"/>
     <if test="not($removePrevNextLinks)"><next-match/></if>
   </template>

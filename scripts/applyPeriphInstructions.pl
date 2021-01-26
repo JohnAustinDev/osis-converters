@@ -27,7 +27,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $ROC, @SUB_PUBLICATIONS, 
+our ($XPC, $XML_PARSER, $ROC, %RESP, @SUB_PUBLICATIONS, 
     $ORDER_PERIPHS_COMPATIBILITY_MODE, %ANNOTATE_TYPE);
     
 # Initialized in /scripts/bible/fitToVerseSystem.pl
@@ -49,9 +49,10 @@ sub placementMessage {
   separated list of instruction == value pairs.
   
   BIBLES ONLY
-  The xpath values below select the element before which a peripheral 
-  will be placed. Or to remove a peripheral entirely, the value "remove" 
-  (without the quotes) can be used.
+  The xpath values below select an element, or elements, before which a 
+  peripheral will be placed. If multiple elements are selected a copy of
+  the peripheral will be placed before each one. To remove a peripheral 
+  entirely, the value "remove" (without the quotes) can be used.
   
   INSTRUCTION           ==    VALUE         APPLIES-TO
   location              == <xpath>|remove   The SFM file  
@@ -62,22 +63,26 @@ sub placementMessage {
   x-unknown             == <xpath>|remove   The next periph of any type
   
   BIBLES & DICTIONARIES
-  These instructions apply to any periphs that follow in the instruction 
-  list, and finally to the containing id periph itself. The value 
-  "remove" will cease that marking for the periphs which follow. For 
-  dictionaries, in the rare case where there is a peripheral SFM file 
-  which contains periph tags, those periphs can be marked differently 
-  than the containing id using a Bible instruction above but with the  
-  value "mark" rather than an xpath expression.
+  These instructions will mark any periph divs which may follow in the 
+  instruction list, and finally mark the id div itself, with a parti-
+  cular processing instruction and value. The value "remove" will cease 
+  that particular marking for all the divs which follow. For diction-
+  aries, when there is an SFM file containing periph tags, those periph 
+  divs can be marked differently than the id div itself, using a Bible 
+  instruction above having the value "mark".
   
   INSTRUCTION ==  VALUE                      DESCRIPTION
-  scope       == <a scope>|remove            The scope to which periphs 
-                                             apply
-  conversion  == sword|html|epub|none|remove Periphs should appear only  
-                                             for the listed conversions
-  feature     == INT|INTMENU|remove          Periphs become part of the  
-                                             special feature for intro-
-                                             ductions.
+  scope          == <a scope>|remove    The scope to which periphs apply
+                                             
+  conversion     == sword|html|epub|    Periphs should be included only 
+                    none|remove         for the listed conversions
+  not_conversion == sword|html|epub|    Periphs should not be included
+                    none|remove         in the listed conversions
+  feature        == INT|INTMENU|remove  Periphs are part of the special  
+                                        introduction feature 
+  cover          == yes|no              Yes to add a sub-publication 
+                                        cover to this div, or no to skip
+                                        this div when auto-adding covers
   ';
 }
 sub applyPeriphInstructions {
@@ -103,12 +108,18 @@ sub applyPeriphInstructions {
   my %xpathOriginalBeforeNodes;
   foreach my $idDiv (@idDivs) {
     my $placedPeriphFile;
-    my $scope; my $conversion; my $feature;
+    my %mark = ( 
+      'scope'          => undef, 
+      'conversion'     => undef, 
+      'not_conversion' => undef, 
+      'feature'        => undef, 
+      'cover'          => undef,
+    );
 
     # read the first comment to find instructions, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $idDiv)}[0];
 
-    my @removedElements = ();
+    my @removedDivs = ();
     if ($commentNode && $commentNode =~ /\s\S+ == \S+/) {
       my $comment = $commentNode->textContent;
       #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
@@ -126,19 +137,9 @@ sub applyPeriphInstructions {
         my $inst = $1; my $arg = $2;
         $inst =~ s/(^"|"$)//g; # strip possible quotes
         $arg =~ s/(^"|"$)//g; # quotes are not expected here, but allow them
-  
-        if ($inst eq 'scope') {
-          $scope = ($arg eq 'remove' ? '':$arg);
-          next;
-        }
         
-        if ($inst eq 'conversion') {
-          $conversion = ($arg eq 'remove' ? '':$arg);
-          next;
-        }
-        
-        if ($inst eq 'feature') {
-          $feature = ($arg eq 'remove' ? '':$arg);
+        if (exists($mark{$inst})) {
+          $mark{$inst} = ($arg eq 'remove' ? undef:$arg);
           next;
         }
         
@@ -162,38 +163,42 @@ they appear in the CF file.");
           &Warn("Changing $instruction to $inst == $arg");
         }
         
-        my $elem = ($inst eq 'location' ? $idDiv:&findThisPeriph($idDiv, $inst, $instruction));
-        if (!$elem) {next;} # error already given by findThisPeriph()
+        my $div = ($inst eq 'location' ? $idDiv:&findThisPeriph($idDiv, $inst, $instruction));
+        if (!$div) {next;} # error already given by findThisPeriph()
         
         if ($inst eq 'location') {$placedPeriphFile = 1;}
-        else {$elem->unbindNode();}
+        else {$div->unbindNode();}
         
-        if ($arg =~ /^mark$/i) {&applyInstructions($elem, $scope, $conversion, $feature);}
-        elsif ($arg =~ /^remove$/i) {push(@removedElements, $elem);}
+        if ($arg =~ /^mark$/i) {&applyInstructions($div, \%mark);}
+        elsif ($arg =~ /^remove$/i) {push(@removedDivs, $div);}
         else {
-          # All identical xpath searches must return the same originally found node. 
+          # All identical xpath searches must return the same originally found nodes. 
           # Otherwise sequential order would be reversed with insertBefore */node()[1].
           my $new;
-          if (!exists($xpathOriginalBeforeNodes{$arg})) {
-            my $beforeNode = @{$XPC->findnodes('//'.$arg, $xml)}[0];
-            if (!$beforeNode) {
+          if (!ref($xpathOriginalBeforeNodes{$arg})) {
+            my @a; $xpathOriginalBeforeNodes{$arg} = \@a;
+            foreach ($XPC->findnodes('//'.$arg, $xml)) {
+              push(@{$xpathOriginalBeforeNodes{$arg}}, $_);
+              $new++;
+            }
+            if (!@{$xpathOriginalBeforeNodes{$arg}}) {
               &Error("Removing periph! Could not locate xpath:\"$arg\" in command $instruction");
               next;
             }
-            $xpathOriginalBeforeNodes{$arg} = $beforeNode;
-            $new++;
           }
-          # The beforeNode may be a toc or a runningHead or be empty of 
+          # The beforeNodes may be a toc or a runningHead or be empty of 
           # text, in which case an appropriate next-sibling will be used 
-          # instead (and our beforeNode for this xpath is then updated).
-          my $beforeNode = &placeIntroduction($elem, $xpathOriginalBeforeNodes{$arg});
-          if ($new) {$xpathOriginalBeforeNodes{$arg} = $beforeNode;}
-          &applyInstructions($elem, $scope, $conversion, $feature);
-          my $tg = $elem->toString(); $tg =~ s/>.*$/>/s;
-          &Note("Placing $inst == $arg for $tg");
+          # instead (and beforeNodes is then updated).
+          my @beforeNodes;
+          foreach my $clone (@{&insertClone($div, $xpathOriginalBeforeNodes{$arg})}) {
+            push(@beforeNodes, $clone->nextSibling);
+            &applyInstructions($clone, \%mark);
+            &Note("Placing $inst == $arg for ".&printTag($clone));
+          }
+          if ($new) {$xpathOriginalBeforeNodes{$arg} = \@beforeNodes;}
         }
       }
-      &applyInstructions($idDiv, $scope, $conversion, $feature);
+      &applyInstructions($idDiv, \%mark);
     }
     else {
       if (&isBible($xml)) {
@@ -203,7 +208,7 @@ they appear in the CF file.");
       }
     }
     
-    foreach my $e (@removedElements) {
+    foreach my $e (@removedDivs) {
       my $e2 = $e->toString(); $e2 =~ s/<\!\-\-.*?\-\->//sg; $e2 =~ s/[\s]+/ /sg; $e2 =~ s/.{60,80}\K(?=\s)/\n/sg;
       &Note("Removing: $e2\n");
     }
@@ -276,73 +281,111 @@ sub findThisPeriph {
   return $periph;
 }
 
+sub printTag {
+  my $elem = shift;
+  
+  my $tag = $elem->toString();
+  $tag =~ s/(?<=\>).*$//s;
+  $tag =~ s/<\/?default:/</g;
+  $tag =~ s/\bxmlns(:default)?="[^"]*" ?//g;
+  
+  return $tag;
+}
+
 sub applyInstructions {
   my $div = shift;
+  my $markP = shift;
+  
   my $scope = shift;
   my $conversion = shift;
   my $feature = shift;
   
-  my $sdiv = $div->toString(); $sdiv =~ s/(?<=\>).*$//s;
-  
-  if ($scope) {
-    $div->setAttribute('scope', $scope);
-    &Note("Applying scope='$scope' to $sdiv");
+  my $sdiv = &printTag($div);
+
+  if ($markP->{'scope'}) {
+    $div->setAttribute('scope', $markP->{'scope'});
+    &Note("Applying scope='".$markP->{'scope'}."' to $sdiv");
   }
-  if ($conversion) {
-    my @parts = split(/\s+/, $conversion);
-    my $ok = !($conversion eq 'none' && @parts > 1); 
-    foreach my $p (@parts) {if ($p !~ /^(sword|html|epub|none)$/) {$ok = 0;}}
-    if ($ok) {
-      $div->setAttribute('annotateRef', $conversion);
-      $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Conversion'});
-      &Note("Applying annotateType='".$ANNOTATE_TYPE{'Conversion'}."' annotateRef='$conversion' to $sdiv");
-    }
-    else {
-      &Error("Unrecognized peripheral instruction: conversion == $conversion", 
-        "Only the following values are currently allowed: conversion == sword|html|epub|none");
+  foreach my $con ('conversion', 'not_conversion') {
+    my $valid = 'sword|html|epub|none';
+    if ($markP->{$con}) {
+      my @parts = split(/\s+/, $markP->{$con});
+      my $ok = !($markP->{$con} eq 'none' && @parts > 1); 
+      foreach my $p (@parts) {if ($p !~ /^($valid)$/) {$ok = 0;}}
+      if ($ok) {
+        $div->setAttribute('annotateRef', $markP->{$con});
+        $div->setAttribute('annotateType', $ANNOTATE_TYPE{$con});
+        &Note("Applying annotateType='".$ANNOTATE_TYPE{$con}.
+          "' annotateRef='".$markP->{$con}."' to $sdiv");
+      }
+      else {
+        &Error("Unrecognized peripheral instruction: conversion == ".$markP->{$con}, 
+          "Only the following values are currently allowed: conversion == $valid");
+      }
     }
   }
-  if ($feature) {
-    $div->setAttribute('annotateRef', $feature);
+  if ($markP->{'feature'}) {
+    $div->setAttribute('annotateRef', $markP->{'feature'});
     $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
 
     # The 'INT' feature uses translation introductory material to auto-
     # generate navmenus.
-    if ($feature =~ /^(INT)$/) {
-      &Note("INT feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
+    if ($markP->{'feature'} =~ /^(INT)$/) {
+      &Note("INT feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}.
+        "' annotateRef='".$markP->{'feature'}."' to $sdiv");
     }
     # The 'NAVMENU' feature allows replacement or modification of auto-
     # generated navigational menus.
-    elsif ($feature =~ /^\QNAVMENU./) {
-      &Note("NAVMENU feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}."' annotateRef='$feature' to $sdiv");
-      $div->setAttribute('osisID', $feature); # used by navigationMenu.xsl
+    elsif ($markP->{'feature'} =~ /^\QNAVMENU./) {
+      &Note("NAVMENU feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}.
+        "' annotateRef='".$markP->{'feature'}."' to $sdiv");
+      $div->setAttribute('osisID', $markP->{'feature'}); # used by navigationMenu.xsl
     }
     else {
-      &Error("Unrecognized peripheral instruction: feature == $feature", 
+      &Error("Unrecognized peripheral instruction: feature == $markP->{'feature'}", 
         "The only currently supported value is: feature == (INT|INTMENU)");
+    }
+  }
+  if ($markP->{'cover'}) {
+    if ($markP->{'cover'} =~ /^(yes|no)$/i) {
+      $div->setAttribute('annotateRef', lc($markP->{'cover'}));
+      $div->setAttribute('annotateType', $ANNOTATE_TYPE{'cover'});
+    }
+    else {
+      &Error("Unrecognized peripheral instruction cover value:".$markP->{'cover'},
+      "The value can only be 'yes' or 'no'.");
     }
   }
 }
 
-# Insert $periph node before $beforeNode. But when $beforeNode is a toc 
-# or runningHead element, then insert $periph before the following non-
-# toc, non-runningHead node instead. The resulting $beforeNode is returned.
-sub placeIntroduction {
+# Insert a clone of $periph before each $beforeNodesAP node. But when a
+# $beforeNode is a toc or runningHead element etc., then insert the 
+# $periph clone before the following non-toc, non-runningHead node 
+# instead. An array pointer containing each cloned $periph is returned.
+sub insertClone {
   my $periph = shift;
-  my $beforeNode = shift;
-
-  # place as first non-toc and non-runningHead element in destination container
-  while (@{$XPC->findnodes('
-    ./self::comment() |
-    ./self::text()[not(normalize-space())] | 
-    ./self::osis:title[@type="runningHead"] | 
-    ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
-  ', $beforeNode)}[0]) {
-    $beforeNode = $beforeNode->nextSibling();
-  }
-  $beforeNode->parentNode->insertBefore($periph, $beforeNode);
+  my $beforeNodesAP = shift;
   
-  return $beforeNode;
+  my @clones;
+  my $multiple = (@{$beforeNodesAP} > 1 ? @{$beforeNodesAP}[0]->unique_key:'');
+  foreach my $beforeNode (@{$beforeNodesAP}) {
+    # place as first non-toc and non-runningHead element in destination container
+    while (@{$XPC->findnodes('
+      ./self::comment() |
+      ./self::text()[not(normalize-space())] | 
+      ./self::osis:title[@type="runningHead"] | 
+      ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
+    ', $beforeNode)}[0]) {
+      $beforeNode = $beforeNode->nextSibling();
+    }
+    
+    my $clone = $periph->cloneNode(1);
+    if ($multiple) {$clone->setAttribute('resp', "$RESP{'copy'}-$multiple");}
+    $beforeNode->parentNode->insertBefore($clone, $beforeNode);
+    push(@clones, $clone);
+  }
+  
+  return \@clones;
 }
 
 1;

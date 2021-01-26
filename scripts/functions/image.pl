@@ -24,7 +24,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($ROC, $XPC, $XML_PARSER, %OSIS_GROUP, $COVERS, $FONTS, %FONT_FILES, 
-    @SUB_PUBLICATIONS);
+    @SUB_PUBLICATIONS, %ANNOTATE_TYPE);
 
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames {
@@ -166,12 +166,22 @@ on the same line");}
   my $pubImagePath = &getCoverImageFromScope($mod, $scope);
   # Composite cover image names always end with _comp.jpg
   my $subType = ($pubImagePath && $pubImagePath =~ /_(comp)\.[^\.]+$/ ? $1:'full');
-  if (!$pubImagePath && -e "$INPD/images/cover.jpg") {$pubImagePath = "$INPD/images/cover.jpg";}
-  elsif (!$pubImagePath && -e "$INPD/eBook/cover.jpg") {$pubImagePath = "$INPD/eBook/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
-  elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {$pubImagePath = "$INPD/html/cover.jpg"; &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");}
+  if (!$pubImagePath && -e "$INPD/images/cover.jpg") {
+    $pubImagePath = "$INPD/images/cover.jpg";
+  }
+  elsif (!$pubImagePath && -e "$INPD/eBook/cover.jpg") {
+    $pubImagePath = "$INPD/eBook/cover.jpg";
+    &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");
+  }
+  elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {
+    $pubImagePath = "$INPD/html/cover.jpg";
+    &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");
+  }
   my $iname = $scope;
   if ($pubImagePath) {
-    if ($pubImagePath !~ /\/([^\/\.]+)\.[^\/\.]+$/) {&ErrorBug("Bad pubImagePath: $pubImagePath !~ /\\/([^\\/]*)\\.[^\\/\\.]+\$/", 1);}
+    if ($pubImagePath !~ /\/([^\/\.]+)\.[^\/\.]+$/) {
+      &ErrorBug("Bad pubImagePath: $pubImagePath !~ /\\/([^\\/]*)\\.[^\\/\\.]+\$/", 1);
+    }
     $iname = $1;
   }
   my $imgpath = "$imgdir/$iname.jpg";
@@ -196,64 +206,97 @@ on the same line");}
       &Note("Created full publication cover image from ".@pubcovers." sub-publication images with title $title: $inew");
     }
   }
-  if ($pubImagePath && &insertPubCover(&getCoverFigure($iname, $subType), $xml)) {$updated++;}
+  if ($pubImagePath && &insertTranCover(&getCoverFigure($iname, $subType), $xml)) {$updated++;}
   
   if (&isFolderEmpty($imgdir)) {rmdir($imgdir);}
   
   if ($updated) {&writeXMLFile($xml, $osisP);}
 }
 
-
+# Place one or more sub-publication cover figure elements in $xml.
+# If a candidate location is marked as 'no' it will not receive a cover. 
+# If a candidate location is marked as 'yes' it receive a cover and
+# only other candidates marked as 'yes' will also receive a cover. 
+# Otherwise the first candidate alone will receive the cover.
 sub insertSubpubCover {
   my $scope = shift;
   my $figure = shift;
   my $xml = shift;
 
   $scope =~ s/_/ /g;
-  my $insertAfter = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"][1]/osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"]', $xml)}[0];
-  if ($insertAfter) {
-    $insertAfter->parentNode->insertAfter($figure, $insertAfter);
-    &Note("Inserted sub-publication cover image after TOC milestone of div having scope=\"$scope\".");
+  
+  my $done;
+  foreach my $div ($XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]
+      [@annotateType="'.$ANNOTATE_TYPE{'cover'}.'"][@annotateRef="yes"]', $xml)) {
+    $done |= &insertFirstChildAfterTOC($div, $figure, $scope);
+  }
+  if ($done) {return 1;}
+  
+  my $candidate = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]
+      [not(self::*[@annotateType="'.$ANNOTATE_TYPE{'cover'}.'"][@annotateRef="no"])][1]', $xml)}[0];
+
+  return &insertFirstChildAfterTOC($candidate, $figure, $scope);
+}
+
+sub insertFirstChildAfterTOC {
+  my $elem = shift;
+  my $figure = shift;
+  my $scope = shift;
+  
+  my $clone = $figure->cloneNode(1);
+  
+  my $milestone = @{$XPC->findnodes(
+    'child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $elem)}[0];
+  if ($milestone) {
+    $milestone->parentNode->insertAfter($clone, $milestone);
+    &Note(
+"Inserted sub-publication cover image after TOC milestone of div having scope=\"$scope\".");
     return 1;
   }
-
-  my $insertFirstChild = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"][1]', $xml)}[0];
-  if ($insertFirstChild) {
-    $insertFirstChild->insertBefore($figure, $insertFirstChild->firstChild);
-    &Note("Inserted sub-publication cover image as first child of div having scope=\"$scope\".");
+  elsif ($elem) {
+    $elem->insertBefore($clone, $elem->firstChild);
+    &Note(
+"Inserted sub-publication cover image as first child of div having scope=\"$scope\".");
     return 1;
   }
-
-  return 0;
+  
+  return;
 }
 
 sub getCoverFigure {
   my $iname = shift;
   my $type = shift;  
 
-  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' subType='x-$type-publication' src='./images/$iname.jpg' resp='$ROC'> </figure>");
+  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' ".
+      "subType='x-$type-publication' src='./images/$iname.jpg' ".
+      "resp='$ROC'> </figure>");
 }
 
 
 # The cover figure must be within a div to pass validation. Place it as
 # the first child of the first div if it is not book(Group). Otherwise
 # also create a new div of type x-cover.
-sub insertPubCover {
+sub insertTranCover {
   my $figure = shift;
   my $xml = shift;
+  
+  my $no = '@annotateType="'.$ANNOTATE_TYPE{'cover'}.'" and @annotateRef="no"';
 
   my $div = (
     &isChildrensBible($xml) ? 
-    @{$XPC->findnodes('//osis:div[1]', $xml)}[0] :
-    @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[1][local-name()="div"][not(contains(@type, "book"))]', $xml)}[0]
+    @{$XPC->findnodes("//osis:div[not($no)][1]", $xml)}[0] :
+    @{$XPC->findnodes("//osis:header/following-sibling::*[not($no)][1]
+      [self::osis:div][not(contains(\@type, 'book'))]", $xml)}[0]
   );
   if ($div) {
     $div->insertBefore($figure, $div->firstChild);
-    &Note("Inserted publication cover image as first child of existing div type=".($div->hasAttribute('type') ? $div->getAttribute('type'):'NO-TYPE'));
+    &Note("Inserted publication cover image as first child of existing div type=".
+      ($div->hasAttribute('type') ? $div->getAttribute('type'):'NO-TYPE'));
   }
   else {
-    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover' resp='$ROC'>".$figure->toString()."</div>");
-    my $header = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header', $xml)}[0];
+    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover' resp='$ROC'>".
+      $figure->toString()."</div>");
+    my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
     $header->parentNode->insertAfter($div, $header);
     &Note("Inserted publication x-cover div after header.");
   }
