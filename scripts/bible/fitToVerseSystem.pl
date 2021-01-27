@@ -900,7 +900,7 @@ references:");
       my $myTextNode = @{$XPC->findnodes('descendant::text()[normalize-space()][1]', $a)}[0];
       if (!$prevVerseFirstTextNode || !$myTextNode || 
           $prevVerseFirstTextNode->unique_key ne $myTextNode->unique_key) {next;}
-      $a->setAttribute('subType', $VSYS{'fixed_altvs'});
+      $a->setAttribute('subType', $VSYS{'fixed_altvs'}.&conf('Versification'));
     }
     
     # Apply VSYS instructions to the translation

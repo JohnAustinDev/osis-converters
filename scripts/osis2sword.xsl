@@ -79,6 +79,11 @@
   other reference -->
   <template mode="osis2sword" match="@subType[. = 'x-external'][parent::reference]"/>
   
+  <!-- Remove annotateRef which causes osis2mod import errors when there
+  are non-scripture ref values, and remove annotateType, since neither 
+  attribute applies to SWORD -->
+  <template mode="osis2sword" match="@annotateType | @annotateRef"/>
+  
   <!-- Remove composite cover images from SWORD modules -->
   <template mode="osis2sword" match="figure[@subType='x-comp-publication']"/>
   

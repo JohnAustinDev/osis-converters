@@ -346,6 +346,37 @@ our %OSIS_GROUP = (
    'Other' => ['TatDiat','PsMet']
 );
 
+# The attribute types and values below are hardwired into the xsl files
+# to allow them to be more portable. But in Perl, variables are used.
+our %RESP; # Values for the OSIS resp attribute
+$RESP{'oc'}   = 'x-oc';   # means osis-converters is responsible for adding the element
+$RESP{'vsys'} = 'x-vsys'; # means fitToVerseSystem is responsible for adding this element
+$RESP{'copy'} = 'x-copy'; # means this element is a copy of another element
+
+our $ROC = $RESP{'oc'}; # a convenience variable name
+
+# Verse System element type attribute values
+our %VSYS;
+$VSYS{'prefix_vs'}     = 'x-vsys';
+$VSYS{'missing_vs'}    = $VSYS{'prefix_vs'}.'-missing';
+$VSYS{'movedto_vs'}    = $VSYS{'prefix_vs'}.'-movedto';
+$VSYS{'extra_vs'}      = $VSYS{'prefix_vs'}.'-extra';
+$VSYS{'fitted_vs'}     = $VSYS{'prefix_vs'}.'-fitted';
+$VSYS{'start_vs'}      = '-start';
+$VSYS{'end_vs'}        = '-end';
+$VSYS{'fixed_altvs'}   = 'x-alternate-'; # Versification is then appended
+$VSYS{'moved_type'}    = $VSYS{'prefix_vs'}.'-moved';
+
+# All annotateType attribute values
+our %ANNOTATE_TYPE;
+$ANNOTATE_TYPE{'Source'} = $VSYS{'prefix_vs'}.'-source'; # annotateRef is osisRef to source (custom) verse system
+$ANNOTATE_TYPE{'Universal'} = $VSYS{'prefix_vs'}.'-universal'; # annotateRef is osisRef to an external (fixed) verse system
+$ANNOTATE_TYPE{'conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
+$ANNOTATE_TYPE{'not_conversion'} = 'x-notConversion'; # annotateRef listing conversions where an element should not be output
+$ANNOTATE_TYPE{'cover'} = 'x-coverInsertion'; # annotateRef gives cover insertion info
+$ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features to which an element applies
+
+our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
 
@@ -846,8 +877,8 @@ sub confAuto {
   return 'AUTO';
 }
 
-# Checks if the config entry name is valid (isValidConfigValue() checks
-# the values).
+# Checks if the config entry name is valid (see isValidConfigValue() 
+# for value checking).
 # Returns 0 if $e is not a valid config entry.
 # Returns 'sword-autogen' if it is a SWORD auto-generated entry.
 # Returns 'sword' if it is an otherwise valid SWORD config.conf entry.

@@ -45,7 +45,8 @@ our ($CONF, $OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, @OSIS_GROUPS, @SWORD_OC_CONFI
     %CONFIG_DEFAULTS, @MULTIVALUE_CONFIGS, @CONTINUABLE_CONFIGS, 
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, 
     @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
-    $OSIS_NAMESPACE, @CONFIG_SECTIONS, $SWORD_VERSE_SYSTEMS);
+    $OSIS_NAMESPACE, @CONFIG_SECTIONS, $SWORD_VERSE_SYSTEMS, %RESP, $ROC,
+    %VSYS, %ANNOTATE_TYPE, $OSISSCHEMA);
     
 # Config.conf [system] globals initialized in set_system_globals 
 # (see @OC_SYSTEM_CONFIGS in common_opsys.pl).
@@ -59,7 +60,6 @@ our (%BOOKNAMES, $DEFAULT_DICTIONARY_WORDS, $INOSIS, $OUTOSIS, $OUTZIP,
     $XPC, %DOCUMENT_CACHE);
 
 our $KEYWORD = "osis:seg[\@type='keyword']"; # XPath expression matching dictionary entries in OSIS source
-our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
 our $INDENT = "<milestone type=\"x-p-indent\" />";
 our $LB = "<lb />";
 our $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
@@ -72,36 +72,6 @@ our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or se
 our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 our $UPPERCASE_DICTIONARY_KEYS = 1;
 our $SFM2ALL_SEPARATE_LOGS = 1;
-
-# The attribute types and values below are hardwired into the xsl files
-# to allow them to be more portable. But in Perl, these variables are used.
-our %RESP;
-$RESP{'oc'} = 'x-oc';     # @resp='x-oc' means osis-converters is responsible for adding the element
-$RESP{'vsys'} = 'x-vsys'; # means fitToVerseSystem is responsible for adding this element
-$RESP{'copy'} = 'x-copy'; # means this element is a copy of another element
-
-our $ROC = $RESP{'oc'}; # a convenience variable name
-
-# Verse System related attribute types
-our %VSYS;
-$VSYS{'prefix_vs'}     = 'x-vsys';
-$VSYS{'missing_vs'}    = $VSYS{'prefix_vs'}.'-missing';
-$VSYS{'movedto_vs'}    = $VSYS{'prefix_vs'}.'-movedto';
-$VSYS{'extra_vs'}      = $VSYS{'prefix_vs'}.'-extra';
-$VSYS{'fitted_vs'}     = $VSYS{'prefix_vs'}.'-fitted';
-$VSYS{'start_vs'}      = '-start';
-$VSYS{'end_vs'}        = '-end';
-$VSYS{'fixed_altvs'}   = 'x-alternate-'.&conf('Versification');
-$VSYS{'moved_type'}    = $VSYS{'prefix_vs'}.'-moved';
-
-# annotateType attribute values
-our %ANNOTATE_TYPE;
-$ANNOTATE_TYPE{'Source'} = $VSYS{'prefix_vs'}.'-source'; # annotateRef is osisRef to source (custom) verse system
-$ANNOTATE_TYPE{'Universal'} = $VSYS{'prefix_vs'}.'-universal'; # annotateRef is osisRef to an external (fixed) verse system
-$ANNOTATE_TYPE{'conversion'} = 'x-conversion'; # annotateRef listing conversions where an element should be output
-$ANNOTATE_TYPE{'not_conversion'} = 'x-notConversion'; # annotateRef listing conversions where an element should not be output
-$ANNOTATE_TYPE{'cover'} = 'x-coverInsertion'; # annotateRef gives cover insertion info
-$ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features to which an element applies
 
 require("$SCRD/scripts/bible/getScope.pl");
 require("$SCRD/scripts/bible/fitToVerseSystem.pl");
