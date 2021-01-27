@@ -3100,10 +3100,12 @@ tag number you wish to use.)\n");
             &Note("IntroductionTitle in config.conf may be used to specify a title for all book introduction TOCs.");
           }
           &Note("Inserting $osisID book introduction TOC entry as: $title");
+          my $insertBefore = @{$XPC->findnodes(
+          'child::*[not(self::comment())][local-name()!="milestone"][@type!="runningHead"][1]', $bk)}[0];
           # Add a special osisID since these book intros may all share the same title
           my $toc = $XML_PARSER->parse_balanced_chunk("
 <milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]".&escAttribute($title)."' osisID='introduction_$osisID!toc' resp='$ROC'/>");
-          $firstIntroTitle->parentNode->insertBefore($toc, $firstIntroTitle);
+          $insertBefore->parentNode->insertBefore($toc, $insertBefore);
         }
       }
     }
