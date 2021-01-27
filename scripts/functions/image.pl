@@ -24,7 +24,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($ROC, $XPC, $XML_PARSER, %OSIS_GROUP, $COVERS, $FONTS, %FONT_FILES, 
-    @SUB_PUBLICATIONS, %ANNOTATE_TYPE);
+    @SUB_PUBLICATIONS, %ANNOTATE_TYPE, $ONS);
 
 # Image file names in osis-converters should not contain spaces
 sub checkImageFileNames {
@@ -269,7 +269,7 @@ sub getCoverFigure {
   my $iname = shift;
   my $type = shift;  
 
-  return $XML_PARSER->parse_balanced_chunk("<figure type='x-cover' ".
+  return $XML_PARSER->parse_balanced_chunk("<figure $ONS type='x-cover' ".
       "subType='x-$type-publication' src='./images/$iname.jpg' ".
       "resp='$ROC'> </figure>");
 }
@@ -296,7 +296,7 @@ sub insertTranCover {
       ($div->hasAttribute('type') ? $div->getAttribute('type'):'NO-TYPE'));
   }
   else {
-    my $div = $XML_PARSER->parse_balanced_chunk("<div type='x-cover' resp='$ROC'>".
+    my $div = $XML_PARSER->parse_balanced_chunk("<div $ONS type='x-cover' resp='$ROC'>".
       $figure->toString()."</div>");
     my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
     $header->parentNode->insertAfter($div, $header);

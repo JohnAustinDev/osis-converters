@@ -27,7 +27,7 @@ use strict;
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $DICTIONARY_WORDS, 
     $DICTIONARY_WORDS_NAMESPACE, $DICTIONARY_NotXPATH_Default,
-    $KEYWORD);
+    $KEYWORD, $ONS);
     
 our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
 
@@ -354,7 +354,7 @@ sub glossaryLink {
   $t_new =~ s/^(.*)\Q$linktext\E$/$1/;
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
   my $newRefElement = $XML_PARSER->parse_balanced_chunk(
-    '<reference osisRef="'.$osisRef.'" type="'.($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary').'">'.$linktext.'</reference>'
+    "<reference $ONS osisRef='$osisRef' type='".($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary')."'>$linktext</reference>"
   );
   $i->parentNode->insertBefore($newRefElement, $i);
   my $ref = $i->previousSibling;

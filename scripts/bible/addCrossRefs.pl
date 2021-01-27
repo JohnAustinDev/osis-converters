@@ -37,7 +37,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, %OSIS_GROUP, %BOOKNAMES);
+our ($XPC, $XML_PARSER, %OSIS_GROUP, %BOOKNAMES, $ONS);
 
 my (%INSERT_NOTE_SPEEDUP, $ADD_CROSS_REF_LOC, $ADD_CROSS_REF_BAD,
    $ADD_CROSS_REF_NUM);
@@ -213,7 +213,7 @@ NOTE:
     if ($annotateRef =~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
       my $bk = $1; my $ch = $2; my $vs = $3;
       # later, the fixed verse system osisRef here will get mapped and annotateRef added, by correctReferencesVSYS()
-      my $elem = "<reference osisRef=\"$fixed\" type=\"annotateRef\">$ch".$localizationP->{'ChapterVerseSeparator'}."$vs</reference> ";
+      my $elem = "<reference $ONS osisRef='$fixed' type='annotateRef'>$ch$localizationP->{'ChapterVerseSeparator'}$vs</reference> ";
       $note->insertBefore($XML_PARSER->parse_balanced_chunk($elem), $note->firstChild);
     }
     

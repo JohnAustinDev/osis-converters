@@ -364,7 +364,7 @@ $VSYS{'extra_vs'}      = $VSYS{'prefix_vs'}.'-extra';
 $VSYS{'fitted_vs'}     = $VSYS{'prefix_vs'}.'-fitted';
 $VSYS{'start_vs'}      = '-start';
 $VSYS{'end_vs'}        = '-end';
-$VSYS{'fixed_altvs'}   = 'x-alternate-'; # Versification is then appended
+$VSYS{'fixed_altvs'}   = 'x-alternate-'; # Versification should be appended
 $VSYS{'moved_type'}    = $VSYS{'prefix_vs'}.'-moved';
 
 # All annotateType attribute values
@@ -379,6 +379,8 @@ $ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features 
 our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
+our $ONS = "xmlns='$OSIS_NAMESPACE'";
+our $TNS = "xmlns='$TEI_NAMESPACE'";
 
 our $DICTIONARY_WORDS = "DictionaryWords.xml";
 

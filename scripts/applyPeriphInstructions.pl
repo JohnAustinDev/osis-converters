@@ -28,7 +28,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($XPC, $XML_PARSER, $ROC, %RESP, @SUB_PUBLICATIONS, 
-    $ORDER_PERIPHS_COMPATIBILITY_MODE, %ANNOTATE_TYPE);
+    $ORDER_PERIPHS_COMPATIBILITY_MODE, %ANNOTATE_TYPE, $ONS);
     
 # Initialized in /scripts/bible/fitToVerseSystem.pl
 our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
@@ -243,7 +243,7 @@ To position the above material, add location == <XPATH> after the \\id tag."
         if (!$firstbk) {next;}
         my $tocms = @{$XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")][last()]', $firstbk)}[0];
         my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
-        my $div = $XML_PARSER->parse_balanced_chunk('<div type="introduction" scope="'.$scope.'" resp="'.$ROC.'"> </div>');
+        my $div = $XML_PARSER->parse_balanced_chunk("<div $ONS type='introduction' scope='".$scope."' resp='".$ROC."'> </div>");
         $before->parentNode->insertBefore($div, $before);
         &Note("Added empty introduction div with scope=\"$scope\" within book ".$firstbk->getAttribute('osisID').' '.($tocms ? 'after TOC milestone.':'as first child.'));
       }

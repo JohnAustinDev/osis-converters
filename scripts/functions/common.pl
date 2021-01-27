@@ -46,7 +46,7 @@ our ($CONF, $OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, @OSIS_GROUPS, @SWORD_OC_CONFI
     @OC_LOCALIZABLE_CONFIGS, @SWORD_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, 
     @OC_CONFIGS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, $TEI_NAMESPACE, 
     $OSIS_NAMESPACE, @CONFIG_SECTIONS, $SWORD_VERSE_SYSTEMS, %RESP, $ROC,
-    %VSYS, %ANNOTATE_TYPE, $OSISSCHEMA);
+    %VSYS, %ANNOTATE_TYPE, $OSISSCHEMA, $ONS);
     
 # Config.conf [system] globals initialized in set_system_globals 
 # (see @OC_SYSTEM_CONFIGS in common_opsys.pl).
@@ -2224,7 +2224,7 @@ sub adjustAnnotateRefs {
       if (!$osisIDsP->{$r}) {$remove++; $update++; last;}
     }
     if ($remove) {
-      my $new = $XML_PARSER->parse_balanced_chunk('<hi type="bold">'.$reference->textContent.'</hi>');
+      my $new = $XML_PARSER->parse_balanced_chunk("<hi $ONS type='bold'>".$reference->textContent."</hi>");
       $reference->parentNode->insertAfter($new, $reference);
       $reference->unbindNode();
       &Warn("Removing annotateRef hyperlink to missing verse(s): '".$reference->getAttribute('osisRef')."'",
@@ -2968,7 +2968,7 @@ sub writeWorkElement {
   
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
   $header->appendTextNode("\n");
-  my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work></work>"), undef);
+  my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work $ONS></work>"), undef);
   
   # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
@@ -2977,7 +2977,7 @@ sub writeWorkElement {
     $work->appendTextNode("\n  ");
     my $er = $e;
     $er =~ s/^\d+\://;
-    my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er></$er>"), undef);
+    my $elem = $work->insertAfter($XML_PARSER->parse_balanced_chunk("<$er $ONS></$er>"), undef);
     foreach my $a (sort keys %{$elementsP->{$e}}) {
       if ($a eq 'textContent') {$elem->appendTextNode($elementsP->{$e}{$a});}
       else {$elem->setAttribute($a, $elementsP->{$e}{$a});}
@@ -3080,17 +3080,20 @@ tag number you wish to use.)\n");
         }
         
         if ($name) {
-          my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"".&escAttribute($name)."\" resp=\"$ROC\"/>";
+          my $tag = "<milestone $ONS type='x-usfm-toc$t' n='".&escAttribute($name)."' resp='$ROC'/>";
           &Note("Inserting $osisID book $type TOC entry as: $name");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
         }
       }
       
       # Add book introduction TOC if needed
+      my $bookTOC = @{$XPC->findnodes(
+        'descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]
+        [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
       my $bookIntroTOC = @{$XPC->findnodes(
         'descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][2]
         [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
-      if (!$bookIntroTOC) {
+      if ($bookTOC && !$bookIntroTOC) {
         my $firstIntroTitle = @{$XPC->findnodes(
           'descendant::osis:title[@type="main"][@subType="x-introduction"][1]', $bk)}[0];
         if ($firstIntroTitle) {
@@ -3100,12 +3103,20 @@ tag number you wish to use.)\n");
             &Note("IntroductionTitle in config.conf may be used to specify a title for all book introduction TOCs.");
           }
           &Note("Inserting $osisID book introduction TOC entry as: $title");
-          my $insertBefore = @{$XPC->findnodes(
-          'child::*[not(self::comment())][local-name()!="milestone"][@type!="runningHead"][1]', $bk)}[0];
           # Add a special osisID since these book intros may all share the same title
           my $toc = $XML_PARSER->parse_balanced_chunk("
-<milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]".&escAttribute($title)."' osisID='introduction_$osisID!toc' resp='$ROC'/>");
-          $insertBefore->parentNode->insertBefore($toc, $insertBefore);
+<milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='[not_parent]".&escAttribute($title)."' osisID='introduction_$osisID!toc' resp='$ROC'/>");
+          # Place the TOC directly after the book TOC, unless the intro starts
+          # with a scoped div. Scoped divs may be moved by filterBibleToScope()
+          # and so the TOC must be placed within such divs, to move with it.
+          my $scopedBookIntroDiv = @{$XPC->findnodes('child::osis:div[@type][1][@scope]
+            [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
+          if ($scopedBookIntroDiv) {
+            $scopedBookIntroDiv->insertBefore($toc, $scopedBookIntroDiv->firstChild);
+          }
+          else {
+            $bookTOC->parentNode->insertAfter($toc, $bookTOC);
+          }
         }
       }
     }
@@ -3116,11 +3127,11 @@ tag number you wish to use.)\n");
       [not(preceding::osis:div[starts-with(@type, "book")])][1]', $xml)}[0];
     if (!$mainTOC) {
       my $translationTitle = &conf('TranslationTitle');
-      my $toc = $XML_PARSER->parse_balanced_chunk('
-<div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.&escAttribute($translationTitle).'"/>
-</div>');
-      my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
+      my $toc = $XML_PARSER->parse_balanced_chunk("
+<div $ONS type='introduction' resp='$ROC'>
+  <milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='[level1][not_parent]".&escAttribute($translationTitle)."'/>
+</div>");
+      my $insertBefore = @{$XPC->findnodes('//osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
       if ($insertBefore) {
         $insertBefore->parentNode->insertBefore($toc, $insertBefore);
         &Note("Inserting top TOC entry and title within new introduction div as: $translationTitle");
@@ -3138,8 +3149,8 @@ tag number you wish to use.)\n");
       my $intrTitle = @{$XPC->findnodes('descendant::osis:title[@type="main"][1]', $wholeBookIntro)}[0];
       my $title = ($confTitle ? $confTitle:($intrTitle ? $intrTitle->textContent():''));
       if ($title) {
-        my $toc = $XML_PARSER->parse_balanced_chunk('
-<milestone resp="'.$ROC.'" type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.&escAttribute($title).'"/>');
+        my $toc = $XML_PARSER->parse_balanced_chunk("
+<milestone $ONS resp='$ROC' type='x-usfm-toc".&conf('TOC')."' n='[level1][not_parent]".&escAttribute($title)."'/>");
         $wholeBookIntro->insertBefore($toc, $wholeBookIntro->firstChild);
         &Note("Inserting introduction TOC entry as: $title");
       }
@@ -3207,7 +3218,7 @@ tag number you wish to use.)\n");
         if ($tocentry) {
           # New bookSubGroup TOCs will be [not_parent] if there is already a bookGroup introduction
           my $notParent = ($bookGroupIntroTOCM ? '[not_parent]':'');
-          my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent".&escAttribute($tocentry)."\" resp=\"$ROC\"/>";
+          my $tag = "<milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='$notParent".&escAttribute($tocentry)."' resp='$ROC'/>";
           &Note("Inserting Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
           $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
         }
@@ -3228,10 +3239,10 @@ tag number you wish to use.)\n");
         my $whichBookGroup = &defaultOsisIndex($firstBook, 3);
         my $bookGroupTitle = &conf("BookGroupTitle$whichBookGroup");
         if ($bookGroupTitle eq 'no') {next;}
-        my $toc = $XML_PARSER->parse_balanced_chunk('
-<div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.&escAttribute($bookGroupTitle).'"/>
-</div>');
+        my $toc = $XML_PARSER->parse_balanced_chunk("
+<div $ONS type='introduction' resp='$ROC'>
+  <milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='[level1]".&escAttribute($bookGroupTitle)."'/>
+</div>");
         $bookGroup->insertBefore($toc, $bookGroup->firstChild);
         &Note("Inserting $whichBookGroup bookGroup TOC entry within new introduction div as: $bookGroupTitle");
       }
@@ -3296,7 +3307,7 @@ the localized title to 'SKIP'.");
       }
       
       my $toc = $XML_PARSER->parse_balanced_chunk(
-        '<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.&escAttribute($tocTitle).'" resp="'.$ROC.'"/>'
+        "<milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='[level1]".&escAttribute($tocTitle)."' resp='".$ROC."'/>"
       );
       $div->insertBefore($toc, $div->firstChild);
       &Note("Inserting glossary TOC entry within introduction div as: $tocTitle");

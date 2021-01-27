@@ -21,7 +21,7 @@ our ($READLAYER, $APPENDLAYER, $WRITELAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
 our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, $VSYS_INSTR_RE, 
     $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, 
-    $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS);
+    $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS, $ONS);
     
 our $VSYS_BOOKGRP_RE  = "(?<bg>".join('|', keys(%OSIS_GROUP)).")(\\[(?<pos>\\d+|$OSISBOOKSRE)\\])?";
 our $VSYS_SINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
@@ -1281,10 +1281,10 @@ sub applyVsysFromTo {
     my $type = (!$sourceP ? 'missing_vs':'movedto_vs');
     my $osisRef = "$bk.$ch.$v";
     if ($fixedP->{'isPartial'}) {$osisRef .= "!PART";}
-    my $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-            'resp="'.$RESP{'vsys'}.'" ' .
-            'type="'.$VSYS{$type}.'" ' .
-            'osisRef="'.$osisRef.'" ';
+    my $m = "<milestone $ONS " .
+            "resp='$RESP{'vsys'}' " .
+            "type='$VSYS{$type}' " .
+            "osisRef='$osisRef' ";
     if ($annotateRef) {$m .= 'annotateRef="'.$annotateRef.'" annotateType="'.$ANNOTATE_TYPE{'Source'}.'" ';}
     $m .= '/>';
     $fixedVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $fixedVerseEnd);
@@ -1312,12 +1312,12 @@ sub applyVsysFromTo {
     }
     $osisRef = $osisRef->getAttribute('osisID');
     $osisRef =~ s/^.*?\s+(\S+)$/$1/;
-    $m = '<milestone xmlns="'.$OSIS_NAMESPACE.'" ' .
-         'resp="'.$RESP{'vsys'}.'" ' . 
-         'type="'.$VSYS{'fitted_vs'}.'" ' .
-         'osisRef="'.$osisRef.'" ' .
-         'annotateRef="'.$annotateRef.'" ' .
-         'annotateType="'.$ANNOTATE_TYPE{'Source'}.'"/>';
+    $m = "<milestone $ONS " .
+         "resp='$RESP{'vsys'}' " . 
+         "type='$VSYS{'fitted_vs'}' " .
+         "osisRef='$osisRef' " .
+         "annotateRef='$annotateRef' " .
+         "annotateType='$ANNOTATE_TYPE{'Source'}'/>";
     $altVerseEnd->parentNode->insertBefore($XML_PARSER->parse_balanced_chunk($m), $altVerseEnd);
     $note .= "[fitted_vs verse $v]";
   }
@@ -1442,14 +1442,13 @@ sub applyVsysMoved {
   
   # Enclose them in a marked div
   my $id = 'source_'.$sourceP->{'value'};
-  my $div = "<div xmlns='$OSIS_NAMESPACE' " .
-  "annotateType='$VSYS{'moved_type'}' annotateRef='$id' " .
+  my $div = "<div $ONS annotateType='$VSYS{'moved_type'}' annotateRef='$id' " .
   "resp='$VSYS{'moved_type'}'/>";
   $div = $XML_PARSER->parse_balanced_chunk($div);
   $div = $el->parentNode->insertAfter($div, $el);
   
   # Write source position milestone
-  my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " .
+  my $ms = "<div $ONS type='$VSYS{'moved_type'}' " .
   "osisID='$id' resp='$VSYS{'moved_type'}'> </div>";
   $ms = $XML_PARSER->parse_balanced_chunk($ms);
   $ms = $el->parentNode->insertAfter($ms, $el);
@@ -1606,7 +1605,7 @@ sub applyVsysMovedBook {
     $e->setAttribute('annotateRef', $id);
 
     # Place milestone with source position in bookGroup
-    my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " . 
+    my $ms = "<div $ONS type='$VSYS{'moved_type'}' " . 
     "osisID='$id' resp='$VSYS{'moved_type'}' position='".($position + $n)."'> </div>";
     $ms = $XML_PARSER->parse_balanced_chunk($ms)->firstChild;
     $n += 0.01;
@@ -1652,7 +1651,7 @@ sub applyVsysMovedBookGroup {
   
   # Place milestone with source position in osisText (bookGroups are sorted later)
   # The 'milestone' must be a div this time, to pass OSIS validation for osisText children.
-  my $ms = "<div xmlns='$OSIS_NAMESPACE' type='$VSYS{'moved_type'}' " . 
+  my $ms = "<div $ONS type='$VSYS{'moved_type'}' " . 
   "osisID='source_$bookGroup' resp='$VSYS{'moved_type'}' position='$position'> </div>";
   $ms = $XML_PARSER->parse_balanced_chunk($ms)->firstChild;
   $ms = $bgFixed->parentNode->appendChild($ms);
@@ -1663,7 +1662,7 @@ sub createNewBookGroup {
   my $xml = shift;
   my $resp = shift;
   
-  my $bg = "<div xmlns='$OSIS_NAMESPACE' type='bookGroup' osisID='$bookGroup' ";
+  my $bg = "<div $ONS type='bookGroup' osisID='$bookGroup' ";
   if ($resp) {$bg .= "resp='$resp' ";}
   $bg .= "/>";
   $bg = $XML_PARSER->parse_balanced_chunk($bg)->firstChild;
@@ -1678,7 +1677,7 @@ sub createNewBook {
   
   my $bookGroup = &defaultOsisIndex($book, 3);
   
-  my $bk = "<div xmlns='$OSIS_NAMESPACE' type='book' osisID='$book' ";
+  my $bk = "<div $ONS type='book' osisID='$book' ";
   if ($resp) {$bk .= "resp='$resp' ";}
   $bk .= "/>";
   $bk = $XML_PARSER->parse_balanced_chunk($bk)->firstChild;
@@ -1693,8 +1692,8 @@ sub createNewChapter {
   my $xml = shift;
   my $resp = shift;
   
-  my $nchs = "<chapter xmlns='$OSIS_NAMESPACE' osisID='$bk.$ch' sID='$bk.$ch' ";
-  my $nche = "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' ";
+  my $nchs = "<chapter $ONS osisID='$bk.$ch' sID='$bk.$ch' ";
+  my $nche = "<chapter $ONS eID='$bk.$ch' ";
   if ($resp) {
     $nchs .= "resp='$resp' ";
     $nche .= "resp='$resp' ";
@@ -1885,16 +1884,16 @@ sub applyVsysMissing {
     if (!$chapterStartTag) {
       # Create a chapter for the verse if needed
       my $prevChapterEndTag = @{$XPC->findnodes('//osis:chapter[@eID="'.$bk.'.'.($ch-1).'"]', $xml)}[0];
-      my $tags = "<chapter xmlns='$OSIS_NAMESPACE' sID='$bk.$ch' osisID='$bk.$ch' resp='$RESP{'vsys'}'/>" . 
-                 "<chapter xmlns='$OSIS_NAMESPACE' eID='$bk.$ch' resp='$RESP{'vsys'}'/>";
+      my $tags = "<chapter $ONS sID='$bk.$ch' osisID='$bk.$ch' resp='$RESP{'vsys'}'/>" . 
+                 "<chapter $ONS eID='$bk.$ch' resp='$RESP{'vsys'}'/>";
       $prevChapterEndTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $prevChapterEndTag);
       $chapterStartTag = @{$XPC->findnodes("//osis:chapter[\@sID='$bk.$ch']", $xml)}[0];
     }
     # Create an empty verse
-    my $tags = "<verse xmlns='$OSIS_NAMESPACE' sID='$bk.$ch.1' osisID='$bk.$ch.1' resp='$RESP{'vsys'}'/>" . 
-               "<verse xmlns='$OSIS_NAMESPACE' eID='$bk.$ch.1' resp='$RESP{'vsys'}'/>";
+    my $tags = "<verse $ONS sID='$bk.$ch.1' osisID='$bk.$ch.1' resp='$RESP{'vsys'}'/>" . 
+               "<verse $ONS eID='$bk.$ch.1' resp='$RESP{'vsys'}'/>";
     $chapterStartTag->parentNode->insertAfter(
         $XML_PARSER->parse_balanced_chunk($tags), 
         $chapterStartTag);
@@ -2023,16 +2022,15 @@ sub applyVsysExtra {
       $chapLabel->setAttribute('type', 'x-chapterLabel-alternate');
       my $t = $chapLabel->textContent();
       &changeNodeText($chapLabel, '');
-      my $alt = "<hi xmlns=\"$OSIS_NAMESPACE\" type=\"italic\" subType=\"x-alternate\">$t</hi>";
+      my $alt = "<hi $ONS type='italic' subType='x-alternate'>$t</hi>";
       $alt = $XML_PARSER->parse_balanced_chunk($alt);
       foreach my $chld ($chapLabel->childNodes) {$alt->insertAfter($chld, undef);}
       $chapLabel->insertAfter($alt, undef);
     }
     else {
       &Note("No chapter label was found, adding alternate chapter label \"$ch\".");
-      my $alt = "<title xmlns=\"$OSIS_NAMESPACE\" " .
-      "type=\"x-chapterLabel-alternate\" resp=\"$RESP{'vsys'}\">" .
-      "<hi type=\"italic\" subType=\"x-alternate\">$ch</hi></title>";
+      my $alt = "<title $ONS type='x-chapterLabel-alternate' resp='$RESP{'vsys'}'>" .
+      "<hi $ONS type='italic' subType='x-alternate'>$ch</hi></title>";
       $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $chStart = @{$XPC->findnodes("//osis:chapter[\@osisID='$bk.$ch']", $xml)}[0];
       $chStart->parentNode()->insertAfter($alt, $chStart);
@@ -2254,9 +2252,8 @@ sub toMilestone {
       my $ch = $1; my $vs = $2; my $vl = ($3 ? $4:$vs);
       my $altText = ($vs ne $vl ? "$vs-$vl":"$vs");
       if ($writeAlternate == 2) {$altText = "$ch:$altText";}
-      my $alt = '<hi xmlns="'.$OSIS_NAMESPACE.'" ' .
-      'type="italic" subType="x-alternate" resp="'.$RESP{'vsys'}.'">' .
-      '<hi type="super">('.$altText.') </hi></hi>'; 
+      my $alt = "<hi $ONS type='italic' subType='x-alternate' ".
+      "resp='$RESP{'vsys'}'><hi type='super'>($altText) </hi></hi>"; 
       $alt = $XML_PARSER->parse_balanced_chunk($alt);
       my $firstTextNode = @{$XPC->findnodes('following::text()
         [not(ancestor::osis:hi[starts-with(@subType, "x-alternate-")])]
