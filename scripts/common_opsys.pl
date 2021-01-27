@@ -790,11 +790,6 @@ sub conf {
     $value = &confAuto($entry, $mod, $script_name, $autoContext, $quiet);
   }
   
-  if ($CONFIG_DEFAULTS{$entry} =~ /DEF$/) {
-    $value =~ s/'/&#39;/g;
-    $value =~ s/"/&#34;/g;
-  }
-  
   if ($value =~ /^false$/i) {$value = '';}
 
   return $value;
@@ -1491,6 +1486,14 @@ sub urlencode {
   my $s = shift;
   $s =~ s/([\Q "<>`#?{}\E])/sprintf("%%%02X", ord($1))/seg;
   return $s;
+}
+
+sub escAttribute {
+  my $v = shift;
+  
+  $v =~ s/(['"<>])/my $r = '&#'.ord($1).';'/eg;
+  
+  return $v;
 }
 
 sub isFolderEmpty { 

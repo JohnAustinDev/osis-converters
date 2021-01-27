@@ -3110,7 +3110,7 @@ tag number you wish to use.)\n");
         }
         
         if ($name) {
-          my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"$name\" resp=\"$ROC\"/>";
+          my $tag = "<milestone type=\"x-usfm-toc$t\" n=\"".&escAttribute($name)."\" resp=\"$ROC\"/>";
           &Note("Inserting $osisID book $type TOC entry as: $name");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
         }
@@ -3129,7 +3129,7 @@ tag number you wish to use.)\n");
           &Note("Inserting $osisID book introduction TOC entry as: $title");
           # Add a special osisID since these book intros may all share the same title
           my $toc = $XML_PARSER->parse_balanced_chunk("
-<milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]$title' osisID='introduction_$osisID!toc' resp='$ROC'/>");
+<milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]".&escAttribute($title)."' osisID='introduction_$osisID!toc' resp='$ROC'/>");
           $firstIntroTitle->parentNode->insertBefore($toc, $firstIntroTitle);
         }
       }
@@ -3143,7 +3143,7 @@ tag number you wish to use.)\n");
       my $translationTitle = &conf('TranslationTitle');
       my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$translationTitle.'"/>
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.&escAttribute($translationTitle).'"/>
 </div>');
       my $insertBefore = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/following-sibling::*[not(self::osis:div[@type="x-cover"])][1]', $xml)}[0];
       if ($insertBefore) {
@@ -3164,7 +3164,7 @@ tag number you wish to use.)\n");
       my $title = ($confTitle ? $confTitle:($intrTitle ? $intrTitle->textContent():''));
       if ($title) {
         my $toc = $XML_PARSER->parse_balanced_chunk('
-<milestone resp="'.$ROC.'" type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.$title.'"/>');
+<milestone resp="'.$ROC.'" type="x-usfm-toc'.&conf('TOC').'" n="[level1][not_parent]'.&escAttribute($title).'"/>');
         $wholeBookIntro->insertBefore($toc, $wholeBookIntro->firstChild);
         &Note("Inserting introduction TOC entry as: $title");
       }
@@ -3232,7 +3232,7 @@ tag number you wish to use.)\n");
         if ($tocentry) {
           # New bookSubGroup TOCs will be [not_parent] if there is already a bookGroup introduction
           my $notParent = ($bookGroupIntroTOCM ? '[not_parent]':'');
-          my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent$tocentry\" resp=\"$ROC\"/>";
+          my $tag = "<milestone type=\"x-usfm-toc".&conf('TOC')."\" n=\"$notParent".&escAttribute($tocentry)."\" resp=\"$ROC\"/>";
           &Note("Inserting Testament sub-section TOC entry into \"".$div->getAttribute('type')."\" div as $tocentry");
           $div->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $div->firstChild);
         }
@@ -3255,7 +3255,7 @@ tag number you wish to use.)\n");
         if ($bookGroupTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk('
 <div type="introduction" resp="'.$ROC.'">
-  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$bookGroupTitle.'"/>
+  <milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.&escAttribute($bookGroupTitle).'"/>
 </div>');
         $bookGroup->insertBefore($toc, $bookGroup->firstChild);
         &Note("Inserting $whichBookGroup bookGroup TOC entry within new introduction div as: $bookGroupTitle");
@@ -3321,7 +3321,7 @@ the localized title to 'SKIP'.");
       }
       
       my $toc = $XML_PARSER->parse_balanced_chunk(
-        '<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.$tocTitle.'" resp="'.$ROC.'"/>'
+        '<milestone type="x-usfm-toc'.&conf('TOC').'" n="[level1]'.&escAttribute($tocTitle).'" resp="'.$ROC.'"/>'
       );
       $div->insertBefore($toc, $div->firstChild);
       &Note("Inserting glossary TOC entry within introduction div as: $tocTitle");
