@@ -161,7 +161,9 @@ on the same line");}
   my $scope = (&isChildrensBible($xml) ? 'Chbl' : @{$XPC->findnodes(
     "/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$mod']/osis:scope", $xml)
     }[0]->textContent);
-  $scope = &booksToScope(&scopeToBooks($scope, $vsys), $vsys);
+  if ($scope ne 'Chbl') {
+    $scope = &booksToScope(&scopeToBooks($scope, $vsys), $vsys);
+  }
   $scope =~ s/\s+/_/g;
   my $pubImagePath = &getCoverImageFromScope($mod, $scope);
   # Composite cover image names always end with _comp.jpg

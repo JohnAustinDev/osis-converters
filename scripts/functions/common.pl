@@ -3127,7 +3127,7 @@ tag number you wish to use.)\n");
           my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
           if ($title =~ /DEF$/) {$title = $firstIntroTitle->textContent;}
           &Note("Inserting $osisID book introduction TOC entry as: $title");
-          # Add a special osisID since many may share the same title
+          # Add a special osisID since these book intros may all share the same title
           my $toc = $XML_PARSER->parse_balanced_chunk("
 <milestone type='x-usfm-toc".&conf('TOC')."' n='[not_parent]$title' osisID='introduction_$osisID!toc' resp='$ROC'/>");
           $firstIntroTitle->parentNode->insertBefore($toc, $firstIntroTitle);

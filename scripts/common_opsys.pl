@@ -790,6 +790,11 @@ sub conf {
     $value = &confAuto($entry, $mod, $script_name, $autoContext, $quiet);
   }
   
+  if ($CONFIG_DEFAULTS{$entry} =~ /DEF$/) {
+    $value =~ s/'/&#39;/g;
+    $value =~ s/"/&#34;/g;
+  }
+  
   if ($value =~ /^false$/i) {$value = '';}
 
   return $value;
