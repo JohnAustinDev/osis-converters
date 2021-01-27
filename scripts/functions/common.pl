@@ -3125,7 +3125,10 @@ tag number you wish to use.)\n");
           'descendant::osis:title[@type="main"][@subType="x-introduction"][1]', $bk)}[0];
         if ($firstIntroTitle) {
           my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
-          if ($title =~ /DEF$/) {$title = $firstIntroTitle->textContent;}
+          if ($title =~ /DEF$/) {
+            $title = $firstIntroTitle->textContent;
+            &Note("IntroductionTitle in config.conf may be used to specify a title for all book introduction TOCs.");
+          }
           &Note("Inserting $osisID book introduction TOC entry as: $title");
           # Add a special osisID since these book intros may all share the same title
           my $toc = $XML_PARSER->parse_balanced_chunk("
