@@ -1084,8 +1084,10 @@ sub makeEbook {
     &Note("Created: $outdir/$pubName.$format\n", 1);
     # include any cover small image along with the eBook
     my $s = $scope; $s =~ s/ /_/g;
-    my $pubcover = "$MAININPD/images/$s.jpg";
+    my $pubcover = "$MAININPD/images/${s}.jpg";
+    if (! -e $pubcover) {$pubcover = "$MAININPD/images/${s}_comp.jpg";}
     if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}.jpg";}
+    if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}_comp.jpg";}
     if (-e $pubcover) {
       &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$pubcover\" \"$outdir/image.jpg\"", 3);
       &Note("Created: $outdir/image.jpg\n", 1);
