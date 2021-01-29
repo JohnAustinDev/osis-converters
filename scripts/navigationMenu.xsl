@@ -17,8 +17,8 @@
      book introduction. These 'navmenu's have links to prev/next chapter
      or keyword, and links to the above NAVMENUs.
      
-     NOTE: This navigation menu system is currently only used by SWORD.
-     It is designed to meet the following requirements:
+     NOTE: This navigation menu system is currently used by SWORD.
+     It is designed to meet the following criteria:
      - Must be optimized for random-access Bibles, such as a website or 
        Bible study program. So rather than having a large central table 
        of contents at the 'top' of a publication, there need to be many 
@@ -26,7 +26,7 @@
        chapter, or keyword.
      - Navmenu links must only target keywords contained in glossary 
        divs of DICTMOD.
-     - Every keyword must be unique (this is handled by using aggregated
+     - Every keyword must be unique (this is handled using aggregated
        keywords when necessary).
   -->
  

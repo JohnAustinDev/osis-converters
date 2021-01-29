@@ -438,8 +438,17 @@
   
   <function name="oc:capitalize-first" as="xs:string*">
     <param name="words" as="xs:string*"/>
-    <for-each select="$words"><!-- but don't modify roman numerals! -->
-      <sequence select="if (matches(., '^[IiVvLlXx]+$')) then . else concat(upper-case(substring(.,1,1)), lower-case(substring(.,2)))"/>
+    <variable name="regex">^([\s\(\[\{'"]*)(.+?)([\s\)\]\}'"]*)$</variable>
+    <for-each select="$words">
+      <variable name="prepunc"  select="replace(., $regex, '$1')"/>
+      <variable name="word"     select="replace(., $regex, '$2')"/>
+      <variable name="postpunc" select="replace(., $regex, '$3')"/>
+      <sequence select="normalize-space(concat(
+        $prepunc, 
+        if (matches($word, '^[IiVvLlXx]+$')) (: don't modify roman numerals! :)
+          then $word 
+          else concat(upper-case(substring($word,1,1)), lower-case(substring($word,2))),
+        $postpunc))"/>
     </for-each>
   </function>
   
@@ -649,28 +658,44 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     </osis:div>
   </function>
   
-  <!-- Cannot have a glossary menu title which is the same as any 
-  keyword, as another glossary menu, or the top menu uiDictionary -->
+  <!-- Return the glossary menu title. In order to meet the unique key
+  requirements of systems such as SWORD, this title cannot be the same  
+  as any keyword, other glossary menu title, or top menu: uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
     <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)"/>
     <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
-    <variable name="glossTitle2" select="if ( $scopeTitle and $glossTitle1 = ($uiDictionary,
-      root($glossary)//div[@type='glossary'][not(@scope = 'NAVMENU')]
-      [not(@annotateType = 'x-feature')][not(@subType = 'x-aggregate')]/oc:getDivTitle(.)) )
-      then concat($glossTitle1, ' (', $scopeTitle, ')') else $glossTitle1"/>
-    <variable name="glossTitle" select="if ($glossTitle1) then $glossTitle2 else 'concat(
+    <variable name="glossTitle2" select="
+      if ($scopeTitle and not(contains(lower-case($glossTitle1), lower-case($scopeTitle))) and
+          $glossTitle1 = ($uiDictionary, root($glossary)//div[@type='glossary']
+            [not(. intersect $glossary)]
+            [not(@scope = 'NAVMENU')]
+            [not(@annotateType = 'x-feature')]
+            [not(@subType = 'x-aggregate')]
+            /oc:getDivTitle(.)
+          )
+      )
+      then concat($glossTitle1, ' (', $scopeTitle, ')') 
+      else $glossTitle1"/>
+    <variable name="glossTitle" select="
+      if ($glossTitle1) 
+      then $glossTitle2 
+      else 'concat( 
         oc:keySortLetter($glossary/descendant::reference[1]/string()), 
         '-', 
-        oc:keySortLetter($glossary/descendant::reference[last()]/string()))'"/>
+        oc:keySortLetter($glossary/descendant::reference[last()]/string())
+      )'"/>
     <if test="not($glossTitle1)">
       <call-template name="Warn">
 <with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
-    <value-of select="if ( (not($noDictTopMenu = 'yes') and $glossTitle = $uiDictionary) 
-      or root($glossary)//seg[@type='keyword']/string() = $glossTitle )
+    <value-of select="
+      if (
+        ($noDictTopMenu != 'yes' and $glossTitle = $uiDictionary) 
+        or root($glossary)//seg[@type='keyword']/string() = $glossTitle
+      )
       then concat($glossTitle, '.')
       else $glossTitle"/>
   </function>
@@ -940,7 +965,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   
   <!-- Takes any osisRef attribute value, possibly having multiple
   segments and ranges, and returns a list of work prefixed osisRef 
-  values including only the first and last verse of each range. -->
+  values including only the first and last segment of each range. -->
   <function name="oc:osisRef_atoms" as="xs:string*">
     <param name="osisRef" as="xs:string"/>
     <for-each select="tokenize($osisRef, '\s+')">
