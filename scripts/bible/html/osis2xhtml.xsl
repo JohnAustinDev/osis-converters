@@ -1963,10 +1963,10 @@
         <apply-templates mode="xhtml"/>
       </html:ol>
     </variable>
-    <!-- OSIS allows list to contain head children, but EPUB2 validator 
-    doesn't allow <h> child tags of ul -->
+    <!-- OSIS allows list to contain head and lb children, but EPUB2 validator 
+    doesn't allow <h> or <br/> children of ul -->
     <variable name="ol2" select="oc:expelElements($ol, 
-        $ol/*[contains(@class, 'osis-head')], 
+        $ol/*[contains(@class, 'osis-head') or contains(@class, 'osis-lb')], 
         boolean($currentTask='get-filenames'))"/>
     <for-each select="$ol2">
       <if test="not(boolean(self::html:ol)) or count(child::*)">
