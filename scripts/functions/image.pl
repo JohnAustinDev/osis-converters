@@ -37,13 +37,16 @@ sub checkImageFileNames {
 }
 
 # Copy all images found in the OSIS or TEI file from projdir to outdir. 
-# If any images are found, 1 is returned, otherwise 0; If osis_or_tei
-# is passed as a reference, then a check and update of the cover image
-# will be done as well.
+# Return an array pointer with the relative paths (within the module)
+# of each image. If osis_or_tei is passed as a reference, then a check 
+# and update of the cover image's width (and possible conversion to png
+# to allow a clear background) will be done as well.
 sub copyReferencedImages {
   my $osis_or_tei_orP = shift;
   my $projdir = shift;
   my $outdir = shift;
+  
+  my @imgs;
   
   my $osis_or_tei = (ref($osis_or_tei_orP) ? $$osis_or_tei_orP:$osis_or_tei_orP);
   
@@ -60,42 +63,52 @@ sub copyReferencedImages {
   foreach my $image (@images) {
     my $src = $image->getAttribute('src');
     if ($src !~ s/^\.\///) {
-      &Error("copyReferencedImages found a nonrelative path \"$src\".", "Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
+      &Error("copyReferencedImages found a nonrelative path \"$src\".", 
+"Image src paths specified by SFM \\fig tags need be relative paths (so they should begin with '.').");
       next;
     }
     
-    my $localsrc = &getFigureLocalPath($image, $projdir);
-    if (! -e $localsrc) {
-      &Error("copyReferencedImages: Image \"$src\" not found at \"$localsrc\"", "Add the image to this image path.");
+    my $path_orig = &getFigureLocalPath($image, $projdir);
+    my $path = $path_orig;
+    if (! -e $path) {
+      &Error("copyReferencedImages: Image \"$src\" not found at \"$path\"", 
+"Add the image to this image path.");
       next;
     }
     
-    my $ofile = "$outdir/$src";
-    my $odir = $ofile; $odir =~ s/\/[^\/]*$//;
+    my $opath = "$outdir/$src";
+    my $odir = $opath; $odir =~ s/\/[^\/]*$//;
     if (!-e $odir) {`mkdir -p "$odir"`;}
-    if (-e $ofile && !$copied{"$localsrc:$ofile"}) {
-      &Warn("Image already exists at destination and will not be overwritten: $ofile", "If $localsrc is different than $ofile then you must change the name of one of the images.");
-    }
-    if ($copied{"$localsrc:$ofile"}) {next;}
-    
-    &copy($localsrc, $ofile);
-    $copied{"$localsrc:$ofile"}++;
-    &Note("Copied image \"$ofile\"");
     
     # if osis_or_tei_orP is a reference, increase cover image width if it is very small
+    my $pngTmp;
     if ( ref($osis_or_tei_orP) && 
          $image->getAttribute('type') eq "x-cover" && 
-         &imageInfo($ofile)->{'w'} <= 200 ) {
-      my $pngfile = $ofile; 
-      if ($pngfile =~ s/\.(jpe?g|gif)$/\.png/i) {
-        &shell("convert \"$ofile\" \"$pngfile\"");
-        unlink($ofile);
+         &imageInfo($path)->{'w'} <= 200 ) {
+      $pngTmp = $opath; $pngTmp =~ s/([^\/\\]+)$/tmp_$1/;
+      if ($opath =~ s/\.(jpe?g|gif)$/\.png/i) {
+        $pngTmp =~ s/\.(jpe?g|gif)$/\.png/
+        &shell("convert \"$path\" \"$pngTmp\"");
         my $s = $image->getAttribute('src'); $s =~ s/\.(jpe?g|gif)$/\.png/i;
         $image->setAttribute('src', $s);
         $update++;
       }
-      &changeImageWidth($pngfile, 400, 'transparent');
+      else {&copy($path, $pngTmp);}
+      &changeImageWidth($pngTmp, 400, 'transparent');
+      $path = $pngTmp;
     }
+    
+    if (-e $opath && $copied{$opath} ne $path_orig) {
+      &Warn("Image already exists at with name: $opath", 
+"If $copied{$opath} is different than $path_orig then you must change the name of one of the images.");
+    }
+    $copied{$opath} = $path_orig;
+    
+    &copy($path, $opath);
+    &Note("Copied image \"$opath\"");
+    if ($pngTmp) {unlink($pngTmp);}
+    $opath =~ s/^\Q$outdir/\./;
+    push (@imgs, $opath);
   }
   
   &Report("Copied \"".scalar(keys(%copied))."\" images to \"$outdir\".");
@@ -104,7 +117,7 @@ sub copyReferencedImages {
     &writeXMLFile($xml, $osis_or_tei_orP);
   }
   
-  return scalar(keys(%copied));
+  return \@imgs;
 }
 
 # Reads an OSIS file and looks for or creates cover images for the full

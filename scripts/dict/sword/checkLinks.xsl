@@ -8,85 +8,82 @@
  xmlns:tei="http://www.crosswire.org/2013/TEIOSIS/namespace"
  exclude-result-prefixes="#all">
  
-  <!-- This script checks all osisRef attribtues in the TEI DICT mod and  
-  its MAIN OSIS file. If an osisRef targets a DICT entry which does not 
-  exist, then an error is generated. It also checks that DICT entries
-  are unique, which is a requirement for SWORD. -->
+  <!-- This script checks osisRef and src attribtue targets of OSIS and 
+  TEI SWORD source files. Any MAINMOD links to DICTMOD will only be 
+  checked when DICTMOD is checked (so MAINMOD must be created before 
+  DICTMOD). If an osisRef targets a DICTMOD entry that does not exist, 
+  an error is generated. When DICTMOD is checked, keywords will be 
+  checked for uniqueness, which is a requirement of SWORD. -->
  
   <import href="../../functions/functions.xsl"/>
+  
+  <output method="text"/><!-- this xsl only checks references and outputs nothing -->
  
-  <param name="mainmod"/>
-  <param name="mainmodURI"/>
+  <param name="moduleFiles"/><!-- '|' separated list of referenceable module file relative paths -->
+  
+  <param name="MAINMOD"/><!-- MAINMOD must be a param because TEI header doesn't have it! -->
+  
+  <variable name="MAINTYPE" select="$MAINMOD_DOC//work[@osisWork=//@osisIDWork]/type/@type"/>
  
+  <variable name="DOCWORK" select="if (//@osisRefWork) 
+                                   then //@osisRefWork[1] 
+                                   else $DICTMOD"/>
   <variable name="keywords" select="//tei:entryFree/@n"/>
-  <variable name="mainmodDOC" select="doc($mainmodURI)"/>
+  
   <variable name="duplicate_keywords" select="//tei:entryFree/@n
                                               [. = following::tei:entryFree/@n]
                                               [not(. = preceding::tei:entryFree/@n)]"/>
- 
-  <template match="node()|@*" name="identity" mode="identity">
-    <copy><apply-templates select="node()|@*" mode="identity"/></copy>
-  </template>
+                                                              
+  <template match="/"><call-template name="checkLinks.xsl"/></template>
   
-  <template match="document-node()" priority="2" mode="#all">
-    <call-template name="Log">
-<with-param name="msg">Checking glossary osisRef targets in <value-of select="document-uri(.)"/></with-param>    
-    </call-template>
-    <next-match/>
-  </template>
-  
-  <template match="/">
-    <!-- error if any duplicates, which are not allowed by SWORD -->
+  <template mode="checkLinks.xsl" match="/" name="checkLinks.xsl">
+    <message>NOTE: Running checkLinks.xsl on <value-of select="document-uri(.)"/></message>
+    
+    <!-- Check for duplicate keywords, which are not allowed by SWORD -->
     <for-each select="$duplicate_keywords">
       <call-template name="Error">
 <with-param name="msg">Duplicate keyword: <value-of select="."/></with-param>
       </call-template>
     </for-each>
-    <call-template name="Report">
+    <if test="$keywords">
+      <call-template name="Report">
 <with-param name="msg">There are <value-of select="count($duplicate_keywords)"/> instances of duplicate keywords in <value-of select="$DICTMOD"/> TEI file.</with-param>
-    </call-template>
+      </call-template>
+    </if>
     
-    <!-- copy DICT xml while checking osisRefs -->
-    <copy><apply-templates select="node()" mode="identity"/></copy>
+    <!-- Check osisRef targets (but scripture ref targets are not  
+    checked because SWORD supports open scripture references)-->
+    <variable name="osisRefs" as="xs:string*" select="//@osisRef | $MAINMOD_DOC//@osisRef
+        [boolean($keywords)][starts-with(., concat($DICTMOD, ':'))]"/>
     
-    <!-- read MAIN xml while checking osisRefs -->
-    <apply-templates select="$mainmodDOC" mode="no_output"/>
-  </template>
-  
-  <template match="node()|@*" name="no_output" mode="no_output">
-    <apply-templates select="node()|@*" mode="no_output"/>
-  </template>
-  
-  <!-- this template checks every osisRef in both MAIN and DICT documents -->
-  <template match="@osisRef" mode="#all">
-    <variable name="docwork" select="if (ancestor::osisText/@osisRefWork) 
-                                     then ancestor::osisText/string(@osisRefWork) 
-                                     else $DICTMOD"/>
-    <variable name="work" select="if (tokenize(., ':')[2]) 
-                                  then tokenize(., ':')[1] 
-                                  else $docwork"/>
-    <variable name="ref" select="if (tokenize(., ':')[2]) 
-                                 then tokenize(., ':')[2] 
-                                 else ."/>
-    <choose>
-      <when test="$work = $DICTMOD">
-        <if test="not(oc:decodeOsisRef($ref) = $keywords)">
-          <call-template name="Error">
-<with-param name="msg"><value-of select="$docwork"/> reference target missing: <value-of select="parent::*/string()"/> osisRef="<value-of select="."/>"</with-param>
-          </call-template>
-        </if>
-      </when>
-      <!-- This check wont' be run if there is no DICT -->
-      <when test="$work = $mainmod">
-        <if test="matches($ref, '[^A-Za-z0-9\-\.]') and not($ref = $mainmodDOC//*/@osisID)">
-          <call-template name="Error">
-<with-param name="msg"><value-of select="$docwork"/> bad reference target: osisRef="<value-of select="."/>"</with-param>
-          </call-template>
-        </if>
-      </when>
-    </choose> 
+    <variable name="missing2MAIN" as="xs:string*">
+      <for-each select="$MAINMOD_DOC">
+        <sequence select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
+          return if (not(starts-with($r, concat($MAINMOD, ':')))) then () 
+                 else if (oc:isScripRef($r, 'noneed')) then ()
+                 else if (key('osisID', replace($r, '^[^:]+:', ''))) then () 
+                 else $r"/>
+      </for-each>
+    </variable>
+    <variable name="missing2DICT" as="xs:string*" 
+        select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
+          return if (not(starts-with($r, concat($DICTMOD, ':')))) then ()
+                 else if (not($keywords)) then ()
+                 else if (oc:decodeOsisRef(oc:ref($r)) = $keywords) then ()
+                 else $r"/>
+    <for-each select="$missing2MAIN[normalize-space()], $missing2DICT[normalize-space()]">
+      <call-template name="Error">
+<with-param name="msg">Missing target for osisRef segment: "<value-of select="."/>"</with-param>
+      </call-template>
+    </for-each>
     
-    <next-match/>
+    <!-- Check src attributes against module files -->
+    <for-each select="//@src[not(. = tokenize($moduleFiles, '\|'))]">
+      <call-template name="Error">
+<with-param name="msg">Reference to missing module file: "<value-of select="."/>"</with-param>
+      </call-template>
+    </for-each>
+    
   </template>
   
 </stylesheet>

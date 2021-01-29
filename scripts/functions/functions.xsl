@@ -443,22 +443,6 @@
     </for-each>
   </function>
   
-  <function name="oc:docWork" as="xs:string">
-    <param name="node" as="node()"/>
-    <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
-  </function>
-  
-  <function name="oc:work" as="xs:string">
-    <param name="osisRef" as="xs:string"/>
-    <param name="defaultWork" as="xs:string"/>
-    <value-of select="if (tokenize($osisRef, ':')[2]) then tokenize($osisRef, ':')[1] else $defaultWork"/>
-  </function>
-  
-  <function name="oc:ref" as="xs:string">
-    <param name="osisRef" as="xs:string"/>
-    <value-of select="if (tokenize($osisRef, ':')[2]) then tokenize($osisRef, ':')[2] else $osisRef"/>
-  </function>
-  
   <function name="oc:key" as="node()*">
     <param name="name" as="xs:string"/>
     <param name="docs" as="document-node()+"/>
@@ -923,16 +907,63 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     
   </function>
   
-  <!-- Takes an osisID attribute value (with or without work prefixes, 
-  which are ignored), and returns a list of $work prefixed osisRef values. -->
+  <!-- Return the work ID of a node's OSIS document -->
+  <function name="oc:docWork" as="xs:string">
+    <param name="node" as="node()"/>
+    <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
+  </function>
+  
+  <!-- Return the work ID of a single osisRef or osisID segment string -->
+  <function name="oc:work" as="xs:string">
+    <param name="aRef" as="xs:string"/>
+    <param name="defaultWork" as="xs:string"/>
+    <value-of select="if (tokenize($aRef, ':')[2]) then tokenize($aRef, ':')[1] else $defaultWork"/>
+  </function>
+  
+  <!-- Return just the ref part of a single osisID or osisRef segment 
+  (by removing any work prefix) -->
+  <function name="oc:ref" as="xs:string">
+    <param name="aRef" as="xs:string"/>
+    <value-of select="if (tokenize($aRef, ':')[2]) then tokenize($aRef, ':')[2] else $aRef"/>
+  </function>
+  
+  <!-- Takes any osisID attribute value, possibly having multiple
+  segments, and returns a list of work prefixed osisRef values. -->
   <function name="oc:osisRef" as="xs:string+">
     <param name="osisID" as="xs:string"/>
-    <param name="work" as="xs:string?"/>
-
+    <param name="docwork" as="xs:string"/>
     <for-each select="tokenize($osisID, '\s+')">
-      <variable name="ref" select="if (contains(., ':')) then tokenize(., ':')[2] else ."/>
-      <value-of select="if ($work) then concat($work, ':', .) else ."/>
+      <variable name="work" select="oc:work(., $docwork)"/>
+      <value-of select="concat($work, ':', oc:ref(.))"/>
     </for-each>
+  </function>
+  
+  <!-- Takes any osisRef attribute value, possibly having multiple
+  segments and ranges, and returns a list of work prefixed osisRef 
+  values including only the first and last verse of each range. -->
+  <function name="oc:osisRef_atoms" as="xs:string*">
+    <param name="osisRef" as="xs:string"/>
+    <for-each select="tokenize($osisRef, '\s+')">
+      <variable name="work" select="oc:work(., $DOCWORK)"/>
+      <for-each select="tokenize(oc:ref(.), '-')">
+        <value-of select="concat($work, ':', .)"/>
+      </for-each>
+    </for-each>
+  </function>
+  
+  <!-- The quick way to tell if an osisRef is a scripture reference -->
+  <function name="oc:isScripRef" as="xs:boolean">
+    <param name="osisRef" as="xs:string?"/>
+    <param name="parentWork" as="xs:string"/>
+    <choose>
+      <when test="not($osisRef)"><value-of select="false()"/></when>
+      <otherwise>
+        <variable name="work" select="oc:work($osisRef, $parentWork)"/>
+        <value-of select="not($work = $DICTMOD and $DICTMOD)
+                      and not($work = $MAINMOD and $MAINTYPE ne 'x-bible') 
+                      and not(matches(oc:ref($osisRef), '[^A-Za-z0-9\.\-]'))"/>
+      </otherwise>
+    </choose>
   </function>
   
   <!-- Takes an attribute name and returns all of those attributes within 
@@ -949,19 +980,6 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       [tokenize(attribute()[local-name() = $attrib], '\s+') = $search]
       /attribute()[local-name() = $attrib]"/>
     </if>
-  </function>
-  
-  <!-- The quick way to tell if an osisRef is to scripture -->
-  <function name="oc:isScripRef" as="xs:boolean">
-    <param name="osisRef" as="xs:string?"/>
-    <param name="parentWork" as="xs:string"/>
-
-    <variable name="work" select="if (tokenize($osisRef,':')[2]) 
-                                  then tokenize($osisRef,':')[1] 
-                                  else $parentWork"/>
-    <value-of select="not($DICTMOD and $work = $DICTMOD) 
-                      and not($work = $MAINMOD and $MAINTYPE ne 'x-bible') 
-                      and not(contains($osisRef, '!'))"/>
   </function>
   
   <!-- Use this function if an element must not contain other elements 

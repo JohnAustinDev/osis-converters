@@ -56,21 +56,23 @@ if ($SModDrv =~ /GenBook/) {
 }
 
 # Apply CrossWire ModuleTools osis2sword.xsl
+my $OSIS_OR_TEI = $INOSIS; # could be OSIS or TEI after the next step
 my $typePreProcess = ($SModDrv =~ /Text/ ? 'osis2sword.xsl':($SModDrv =~ /LD/ ? 'osis2tei.xsl':''));
-if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$INOSIS);}
+if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$OSIS_OR_TEI);}
 
 # Uppercasing must be done by Perl to use uc2()
-if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$INOSIS);}
+if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$OSIS_OR_TEI);}
 
 # Copy images and set Feature conf entry
-if (&copyReferencedImages(\$INOSIS, $INPD, "$SWOUT/$SModPath")) {
+my $imgsAP = &copyReferencedImages(\$OSIS_OR_TEI, $INPD, "$SWOUT/$SModPath");
+if (@{$imgsAP}) {
   &setSwordConfValue($Sconf, 'Feature', ($Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"}."<nx/>":"")."Images");
 }
 
-# If this is a DICT module, validate all glossary references in both the
-# MAIN and the DICT SWORD source files.
+# Validate osisRef and src attribtues
+my %params;
 if ($SModDrv =~ /LD/) {
-  # find the final MAIN source OSIS file used for its SWORD module
+  # find the final OSIS file that was used to build the MAIN SWORD module
   my $mainmod = &getModuleOsisFile($MAINMOD);
   $mainmod =~ s/\/[^\/]+$//;
   $mainmod .= '/tmp/osis2sword';
@@ -85,11 +87,11 @@ if ($SModDrv =~ /LD/) {
     }
     $mainmod = "$mainmod/$name";
     if (-e $mainmod) {
-      # pass MAIN and DICT to checkLinks.xsl script and report results
-      my %params = ('mainmodURI' => $mainmod, 'mainmod' => $MAINMOD);
-      my $msg = &runScript("$SCRD/scripts/dict/sword/checkLinks.xsl", \$INOSIS, \%params, 0, 1);
-      my $err = () = $msg =~ /ERROR/g;
-      &Report("Found $err problem(s) with links in $MAINMOD and $DICTMOD.\n");
+      %params = (
+        'MAINMOD' => $MAINMOD, 
+        'MAINMOD_URI' => $mainmod, 
+        'DICTMOD_URI' => $OSIS_OR_TEI
+      );
     }
     else {
       &Error("Could not locate SWORD main module.", 
@@ -99,6 +101,19 @@ if ($SModDrv =~ /LD/) {
   else {
     &Error("Main module not found, unable to run checkLinks.xsl");
   }
+}
+else {
+  %params = (
+    'MAINMOD' => $MAINMOD, 
+    'MAINMOD_URI' => $OSIS_OR_TEI,
+    'DICTMOD_URI' => ''
+  );
+}
+if (%params) {
+  $params{'moduleFiles'} = join('|', @{$imgsAP});
+  my $msg = &runXSLT("$SCRD/scripts/dict/sword/checkLinks.xsl", $OSIS_OR_TEI, undef, \%params);
+  my $err = () = $msg =~ /ERROR/g;
+  &Report("Found $err problem(s) with links of $MAINMOD and $DICTMOD.\n");
 }
 
 # Set MinimumVersion conf entry
@@ -113,17 +128,17 @@ if ($SModVsys ne "KJV") {
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
-  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
+  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($OSIS_OR_TEI)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE ($SModVsys)\n");
 	chdir("$SWOUT/$SModPath");
-  &shell(&escfile($SWORD_BIN."xml2gbs")." $INOSIS ".lc($MOD), -1);
+  &shell(&escfile($SWORD_BIN."xml2gbs")." $OSIS_OR_TEI ".lc($MOD), -1);
 	chdir($SCRD);
 }
 elsif ($SModDrv =~ /LD/) {
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE ($SModVsys)\n");
-  &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($INOSIS)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
+  &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($OSIS_OR_TEI)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
   opendir(MODF, "$SWOUT/$SModPath");
   my @mf = readdir(MODF);

@@ -7,7 +7,6 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:sx="http://saxon.sf.net/"
  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
- xmlns:me="http://github.com/JohnAustinDev/osis-converters/checkrefs.xsl"
  exclude-result-prefixes="#all">
  
   <import href="./functions/functions.xsl"/>
@@ -27,7 +26,7 @@
   
   <!-- Check all osisRefs in the OSIS file, however MAINMOD references 
   to a DICTMOD will only be checked when OSIS file is the DICTMOD,  
-  because MAINMOD is assumed to be created before DICTMOD is created. -->
+  meaning the MAINMOD must be created before the DICTMOD. -->
   <variable name="checkSelf" as="element()*" select="//*[@osisRef][not(@subType='x-external')]
     [$checkingDict or not($DICTMOD) or not(starts-with(@osisRef, $DICTMOD))]"/>
     
@@ -74,7 +73,7 @@ target, then a different USFM tag should be used instead.</with-param>
       <for-each select="($MAINMOD_DOC | $DICTMOD_DOC)">
         <variable name="prefixRE" select="concat('^', //@osisIDWork[1], ':')"/>
         <!-- Ignore !PART endings of osisRefs even though that osisID does not exist -->
-        <sequence select="for $e in $checkSelf, $r in $e/me:osisRef_atoms(@osisRef)
+        <sequence select="for $e in $checkSelf, $r in $e/oc:osisRef_atoms(@osisRef)
             return if ( matches($r, $prefixRE) and 
                         not(key('osisID', replace(replace($r, '^[^:]+:', ''), '!PART$', '')))
                       ) then $r else ()"/>
@@ -88,7 +87,7 @@ target, then a different USFM tag should be used instead.</with-param>
  
     <!-- Check for Scripture targets that are outside the verse system -->
     <for-each select="$VERSE_SYSTEM_DOC">
-      <variable name="erref" select="for $e in $scriptureRefs, $r in $e/me:osisRef_atoms(@osisRef) 
+      <variable name="erref" select="for $e in $scriptureRefs, $r in $e/oc:osisRef_atoms(@osisRef) 
         return if (not(key('osisID', replace($r, '^[^:]+:', ''))))
                then $e else ()"/>
       <for-each select="$erref">
@@ -155,7 +154,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
       <for-each select="$DICTMOD_DOC">
         <!-- Ignore !PART endings of osisRefs even though that osisID does not exist -->
-        <variable name="missing" select="for $e in $checkMain, $r in $e/me:osisRef_atoms(@osisRef) 
+        <variable name="missing" select="for $e in $checkMain, $r in $e/oc:osisRef_atoms(@osisRef) 
           return if (key('osisID', replace(replace($r, '^[^:]+:', ''), '!PART$', ''))) then () else $r" as="xs:string*"/>
         <for-each select="$missing[normalize-space()]">
           <call-template name="Error">
@@ -173,19 +172,5 @@ target, then a different USFM tag should be used instead.</with-param>
     </if>
     
   </template>
-  
-  <!-- An osisRef value may contain multiple space separated segments, 
-  including segments with ranges. This function returns separate
-  prefixed osisRefs including the beginning and ending of each range. -->
-  <function name="me:osisRef_atoms" as="xs:string*">
-    <param name="osisRef" as="xs:string"/>
-    <for-each select="tokenize($osisRef, '\s+')">
-      <variable name="work" select="if (tokenize(., ':')[2]) then tokenize(., ':')[1] else $DOCWORK"/>
-      <variable name="ref" select="if (tokenize(., ':')[2]) then tokenize(., ':')[2] else ."/>
-      <for-each select="tokenize($ref, '-')">
-        <value-of select="concat($work, ':', .)"/>
-      </for-each>
-    </for-each>
-  </function>
   
 </stylesheet>
