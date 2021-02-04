@@ -66,9 +66,13 @@ our ($OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, $XPC, $XML_PARSER, $LOGFILE, $NO_FOR
 #       shortened form, with double quotes around it (and double quotes 
 #       in the replacement must be escaped with '\'), like this:
 #       "<r Gen.4.5>Genesis 4 verse 5</r> and see \"Lord\" in <r Exod.2.3>Exodus 2:3</r>"
-#   CONTEXT_BOOK: <osis-book> if-result <xpath> - Will override the  
-#       context book to be <osis-book> for any node that returns a result 
+#   CONTEXT_BOOK: <osis-book> if-xpath <xpath> - Will override the  
+#       context book to be <osis-book> for any node that does not return
+#       false() for the <xpath> expression. 
 #       when the <xpath> expression is evaluated on it.
+#   WORK_PREFIX: <work> if-xpath <xpath> - Will add the given work as
+#       the osisRef work prefix, for any node that does not return 
+#       false() for the <xpath> expression.
 
 # SELECT WHERE TO LOOK FOR REFERENCES:
 # ------------------------------------
@@ -140,8 +144,8 @@ our (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath,
     $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
     $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
     $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
-    %xpathIfResultContextBook, $LOCATION, $BK, $CH, $VS, $LV,
-    %missedLeftRefs, $LASTP);
+    %xpathIfResultContextBook, %xpathIfResultWorkPrefix,
+    $LOCATION, $BK, $CH, $VS, $LV, %missedLeftRefs, $LASTP);
    
 my $none = "nOnE";
 my $fixReplacementMsg = "
@@ -252,6 +256,7 @@ sub read_CF_ASRL {
   $numNoDigitRef = 0;
   $numNoOSISRef = 0;
   %xpathIfResultContextBook;
+  %xpathIfResultWorkPrefix;
 
   $Types{"T01 (Book? c:v-c:v)"} = 0;
   $Types{"T02 (Book? c:v-lv)"} = 0;
@@ -273,17 +278,27 @@ sub read_CF_ASRL {
       $_ =~ s/\s+$//;
 
       if ($_ =~ /^(\#.*|\s*)$/) {next;}
-      elsif ($_ =~ /^CONTEXT_BOOK:\s*(\S+)\s+(if\-result)\s+(.*?)\s*$/) {
-        my $cbk = $1; my $op = $2; my $xp = $3;
-        if ($op ne 'if-result' || !defined($OSIS_ABBR{$cbk})) {
-          &Error("CONTEXT_BOOK \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", 
-          "Change it to an abbreviation from this list: " . 
-          join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}}));
+      elsif ($_ =~ /^(CONTEXT_BOOK|WORK_PREFIX):\s*(\S+)\s+(if\-xpath)\s+(.*?)\s*$/) {
+        my $cmd = $1; my $cbk = $2; my $op = $3; my $xp = $4;
+        if ($op eq 'if-xpath') {
+          if ($cmd eq 'CONTEXT_BOOK' && !defined($OSIS_ABBR{$cbk})) {
+            &Error(
+"$cmd \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", 
+"Change it to an abbreviation from this list: " . join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}}));
+          }
+          else {
+            &Note("$cmd will be $cbk for nodes returning true for $xp");
+            if    ($cmd eq 'CONTEXT_BOOK') {$xpathIfResultContextBook{$xp} = $cbk;}
+            elsif ($cmd eq 'WORK_PREFIX')  {$xpathIfResultWorkPrefix{$xp} = $cbk;}
+            else {&Error(
+"Unknown command $cmd in CF_addScripRefLinks.txt",
+"This command must be 'CONTEXT_BOOK' or 'WORK_PREFIX'");
+            }
+          }
         }
-        else {
-          &Note("CONTEXT_BOOK will be $cbk for nodes returning true for $xp");
-          $xpathIfResultContextBook{$xp} = $cbk;
-        }
+        else {&Error(
+"Unknown test-type $op in CF_addScripRefLinks.txt", 
+"This test-type must be 'if-xpath'");}
         next;
       }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
@@ -589,6 +604,20 @@ sub asrlProcessFile {
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
     $newLinks++;
   }
+  
+  # change any work prefixes
+  foreach my $new ($XPC->findnodes('descendant-or-self::*[@new]', $element)) {
+    my $osisRef = $new->getAttribute('osisRef');
+    foreach my $xpath (sort keys %xpathIfResultWorkPrefix) {
+      if ($osisRef && @{$XPC->findnodes($xpath, $new)}[0]) {
+        my $was = ($osisRef =~ s/^(\w+):// ? $1:'none');
+        $new->setAttribute('osisRef', $xpathIfResultWorkPrefix{$xpath}.':'.$osisRef);
+        &Note("<>\nChanging work prefix of references matching $xpath from '$was' to '$xpathIfResultWorkPrefix{$xpath}'.");
+        last;
+      }
+    }
+    $new->removeAttribute('new');
+  }
 
   &writeXMLFile($xml, $osis);
 }
@@ -650,7 +679,7 @@ sub newReference {
   my $osisRef = shift;
   my $text = shift;
   
-  return '<newReference osisRef="'.($work ? "$work:":'').$osisRef.'">'.$text.'</newReference>';
+  return '<newReference new="yes" osisRef="'.($work ? "$work:":'').$osisRef.'">'.$text.'</newReference>';
 }
 
 ##########################################################################

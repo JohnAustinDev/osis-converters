@@ -1209,8 +1209,8 @@
                   links.
     REFERENCE:    Normally displayed as half-table width links. But if 
                   there are more than backFullWidth characters in any 
-                  back link, or only one back link and scripture links 
-                  are full-width, then all back links become full-table 
+                  back link, or only one back link and scripture link 
+                  is full-width, then all back links become full-table 
                   width. When there are an odd number of half-table 
                   width back links, the last link is centered by itself. -->
     <variable name="fullWidthElements" select="$listdoc/html:li[me:isFullWidth(., $isTopTOC)]"/>
