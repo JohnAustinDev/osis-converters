@@ -2189,8 +2189,8 @@ sub getModuleOutputDir {
   return $moddir;
 }
 
-# Returns the path to mod's OSIS file if it exists, or, when reportFunc 
-# is 'quiet' (whether the OSIS file exists or not). Otherwise returns ''.
+# Returns the path to mod's OSIS file if it exists or '' if not. Upon
+# failure, $reportFunc will be called with a failure message.
 sub getModuleOsisFile {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
   my $reportFunc = shift;
@@ -2202,6 +2202,7 @@ sub getModuleOsisFile {
     no strict "refs";
     &$reportFunc("$mod OSIS file does not exist: $mof");
   }
+  
   return '';
 }
 
@@ -2989,6 +2990,68 @@ sub writeWorkElement {
   my $w = $work->toString(); 
   $w =~ s/\n+/\n/g;
   return $w;
+}
+
+sub addWorkElements {
+  my $osisP = shift;
+  my $worksP = shift; # hash pointer whose keys are work IDs for adding
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+
+  foreach (sort keys %{$worksP}) {
+    if (@{$XPC->findnodes("//osis:work[\@osisWork='$_']", $xml)}[0]) {next;}
+    &addExternalWorkToHeader($_, $xml);
+  }
+  
+  if (keys %{$worksP}) {&writeXMLFile($xml, $osisP);}
+}
+
+sub addExternalWorkToHeader {
+  my $work = shift;
+  my $xml = shift;
+  
+  my %workAttributes = ('osisWork' => $work);
+  my %workElements;
+  $workElements{'110000:format'}{'textContent'} = 'text/xml';
+  $workElements{'110000:format'}{'type'} = 'x-MIME';
+  
+  # Look for external work's config.conf
+  my $wmain = $work; $wmain =~ s/DICT$//;
+  my $extWorkDir = "$MAININPD/../$wmain";
+  if (-e "$extWorkDir/config.conf") {
+    my $cP = &readConfFile("$extWorkDir/config.conf");
+    my $moddrv = $cP->{"$work+ModDrv"};
+    my %type;
+    if    ($moddrv =~ /LD/)   {
+      $type{'type'}        = 'x-glossary'; 
+      $type{'textContent'} = 'Glossary';
+    }
+    elsif ($moddrv =~ /Text/) {
+      $type{'type'}        = 'x-bible';
+      $type{'textContent'} = 'Bible';
+    }
+    elsif ($moddrv =~ /GenBook/ && $work =~ /CB$/i) {
+      $type{'moddrv'}        = 'x-childrens-bible';
+      $type{'textContent'} = 'Children\'s Bible';
+    }
+    elsif ($moddrv =~ /Com/) {
+      $type{'type'}        = 'x-commentary';
+      $type{'textContent'} = 'Commentary';
+    }
+    my $refSystem = "Bible.".$cP->{"$wmain+Versification"};
+    if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.$work";}
+    if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book.$work";}
+    
+    $workElements{'100000:type'} = \%type;
+    $workElements{'140000:language'}{'textContent'} = $cP->{"$wmain+Lang"};
+    $workElements{'220000:refSystem'}{'textContent'} = $refSystem;
+  }
+  else {
+    &Error("Referenced external work $work could not be located.");
+  }
+  
+  my $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
+  &Note("Added work element to header:\n$header");
 }
 
 sub getDivTitle {

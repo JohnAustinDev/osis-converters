@@ -133,18 +133,18 @@ our ($OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, $XPC, $XML_PARSER, $LOGFILE, $NO_FOR
 
 my $DEBUG_LOCATION = 0;
 
-# These must be our because some are accessed via symbolic reference.
+# These must be 'our' because some are accessed via symbolic reference.
 our (%UnhandledWords, %noDigitRef, %noOSISRef, %fixDone, 
     $numMissedLeftRefs, $numNoDigitRef, $numNoOSISRef, %Types, 
     $CheckRefs, $newLinks);
 
-# These must be our because some are accessed via symbolic reference.
+# These must be 'our' because some are accessed via symbolic reference.
 our (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, 
     $chapTerms, $currentChapTerms, $currentBookTerms, $verseTerms, 
     $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
     $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
     $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
-    %xpathIfResultContextBook, %xpathIfResultWorkPrefix,
+    %xpathIfResultContextBook, %xpathIfResultWorkPrefix, %asrlworks,
     $LOCATION, $BK, $CH, $VS, $LV, %missedLeftRefs, $LASTP);
    
 my $none = "nOnE";
@@ -159,16 +159,9 @@ require("$SCRD/scripts/forks/fork_funcs.pl");
 sub runAddScripRefLinks {
   my $modType = shift;
   my $in_file = shift;
-  my $out_file = shift; # optional if $in_file is a reference
   
-  my $osis;
-  if (ref($in_file)) {
-    $osis = $$in_file;
-    if (!$out_file) {
-      $out_file = &temporaryFile($osis);
-    }
-  }
-  else {$osis = $in_file;}
+  my $osis = $$in_file;
+  my $out_file = &temporaryFile($osis);
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
@@ -177,6 +170,8 @@ sub runAddScripRefLinks {
   &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
   &Log("\n");
+  
+  our %asrlworks; # collect works that are referenced
   
   my @files = &splitOSIS($osis);
   
@@ -208,7 +203,10 @@ sub runAddScripRefLinks {
   }
   
   &joinOSIS($out_file);
-  if (ref($in_file)) {$$in_file = $out_file;}
+  
+  $$in_file = $out_file;
+  
+  &addWorkElements($in_file, \%asrlworks);
   
   &Log("Finished adding <reference> tags.\n");
   &Log("\n");
@@ -605,14 +603,15 @@ sub asrlProcessFile {
     $newLinks++;
   }
   
-  # change any work prefixes
+  # change any work prefixes and write necessary work elements to header
   foreach my $new ($XPC->findnodes('descendant-or-self::*[@new]', $element)) {
     my $osisRef = $new->getAttribute('osisRef');
     foreach my $xpath (sort keys %xpathIfResultWorkPrefix) {
       if ($osisRef && @{$XPC->findnodes($xpath, $new)}[0]) {
         my $was = ($osisRef =~ s/^(\w+):// ? $1:'none');
         $new->setAttribute('osisRef', $xpathIfResultWorkPrefix{$xpath}.':'.$osisRef);
-        &Note("<>\nChanging work prefix of references matching $xpath from '$was' to '$xpathIfResultWorkPrefix{$xpath}'.");
+        &Note("<>Changing work prefix of references matching $xpath from '$was' to '$xpathIfResultWorkPrefix{$xpath}'.");
+        $asrlworks{$xpathIfResultWorkPrefix{$xpath}}++;
         last;
       }
     }

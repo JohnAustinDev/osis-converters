@@ -41,6 +41,7 @@ our (
   %noOSISRef, 
   %fixDone, 
   %Types,
+  %asrlworks,
 );
 our @addScripRefLinks_json = (
   '$CheckRefs',
@@ -55,6 +56,7 @@ our @addScripRefLinks_json = (
   '%noOSISRef',
   '%fixDone', 
   '%Types',
+  '%asrlworks',
 );
 sub addScripRefLinks_assembleFunc {
   
@@ -70,6 +72,7 @@ sub addScripRefLinks_assembleFunc {
   &assemble('concat', '%noOSISRef');
   &assemble('sum',    '%fixDone');
   &assemble('sum',    '%Types');
+  &assemble('sum',    '%asrlworks');
 }
 
 # addDictLinks.pl
