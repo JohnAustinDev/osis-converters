@@ -111,7 +111,7 @@ else {
 }
 if (%params) {
   $params{'moduleFiles'} = join('|', @{$imgsAP});
-  my $msg = &runXSLT("$SCRD/scripts/dict/sword/checkLinks.xsl", $OSIS_OR_TEI, undef, \%params);
+  my $msg = &runXSLT("$SCRD/scripts/checkrefsSWORD.xsl", $OSIS_OR_TEI, undef, \%params);
   my $err = () = $msg =~ /ERROR/g;
   &Report("Found $err problem(s) with links of $MAINMOD and $DICTMOD.\n");
 }
