@@ -664,44 +664,46 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   </function>
   
   <!-- Return the glossary menu title. In order to meet the unique key
-  requirements of systems such as SWORD, this title cannot be the same  
-  as any keyword, other glossary menu title, or top menu: uiDictionary -->
+  (case insensitive) requirements of systems such as SWORD, this title 
+  cannot match any keyword, or any other glossary menu title, or 
+  uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
+    <variable name="avoid" as="xs:string*" select="(
+        lower-case($uiDictionary), 
+        root($glossary)//seg[@type='keyword']/lower-case(string()),
+        root($glossary)//div[@type='glossary']
+          [not(. intersect $glossary)]
+          [not(@scope = 'NAVMENU')]
+          [not(@annotateType = 'x-feature')]
+          [not(@subType = 'x-aggregate')]
+          /lower-case(oc:getDivTitle(.))
+      )"/>
     <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)"/>
     <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
-    <variable name="glossTitle2" select="
-      if ($scopeTitle and not(contains(lower-case($glossTitle1), lower-case($scopeTitle))) and
-          $glossTitle1 = ($uiDictionary, root($glossary)//div[@type='glossary']
-            [not(. intersect $glossary)]
-            [not(@scope = 'NAVMENU')]
-            [not(@annotateType = 'x-feature')]
-            [not(@subType = 'x-aggregate')]
-            /oc:getDivTitle(.)
-          )
-      )
-      then concat($glossTitle1, ' (', $scopeTitle, ')') 
-      else $glossTitle1"/>
     <variable name="glossTitle" select="
-      if ($glossTitle1) 
-      then $glossTitle2 
-      else 'concat( 
+      if (not($glossTitle1)) then 'concat(
         oc:keySortLetter($glossary/descendant::reference[1]/string()), 
         '-', 
         oc:keySortLetter($glossary/descendant::reference[last()]/string())
-      )'"/>
+      )'
+      else if ($scopeTitle 
+          and not(contains(lower-case($glossTitle1), lower-case($scopeTitle))) 
+          and lower-case($glossTitle1) = $avoid
+        ) then concat($glossTitle1, ' (', $scopeTitle, ')') 
+      else $glossTitle1"/>
+      
     <if test="not($glossTitle1)">
       <call-template name="Warn">
 <with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
+    
     <value-of select="
-      if (
-        ($noDictTopMenu != 'yes' and $glossTitle = $uiDictionary) 
-        or root($glossary)//seg[@type='keyword']/string() = $glossTitle
-      )
-      then concat($glossTitle, '.')
+      if ( ($noDictTopMenu != 'yes' and lower-case($glossTitle) = lower-case($uiDictionary)) 
+           or root($glossary)//seg[@type='keyword']/lower-case(string()) = lower-case($glossTitle)
+      ) then concat($glossTitle, '.')
       else $glossTitle"/>
   </function>
   

@@ -833,8 +833,8 @@ sub addLinksText {
     &decodeTerms($ttP);
 
     # Now insure consecutive newReference tags don't have anything between them
-    while ($$ttP =~ /(<newReference osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference osisRef=[^>]+>)/) {
-      $$ttP =~ s/(<newReference osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference osisRef=[^>]+>)/$1$2$4$3$6/;
+    while ($$ttP =~ /(<newReference [^>]*osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference [^>]*osisRef=[^>]+>)/) {
+      $$ttP =~ s/(<newReference [^>]*osisRef=[^>]+>)(.*?)(<\/newReference>)(($sepTerms|\s)+)(<newReference [^>]*osisRef=[^>]+>)/$1$2$4$3$6/;
     }
   }
 
