@@ -75,9 +75,6 @@
   <variable name="eachChapterIsFile" as="xs:boolean" select="$chapterFiles = 'yes'"/>
   <variable name="includeNavMenuLinks" as="xs:boolean" select="$navMenuLinks = 'yes'"/>
   <variable name="epub3Markup" as="xs:boolean" select="$noEpub3Markup != 'yes'"/>
-  <variable name="isChildrensBible" select="boolean(/osis:osis/osis:osisText/osis:header/
-                                            osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
-                                            osis:type[@type='x-childrens-bible'])"/>
   
   <!-- The main input OSIS file must contain a work element corresponding to each 
      OSIS file referenced in the project. But osis-converters supports a single 

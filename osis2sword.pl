@@ -113,7 +113,7 @@ if (%params) {
   $params{'moduleFiles'} = join('|', @{$imgsAP});
   my $msg = &runXSLT("$SCRD/scripts/checkrefsSWORD.xsl", $OSIS_OR_TEI, undef, \%params);
   my $err = () = $msg =~ /ERROR/g;
-  &Report("Found $err problem(s) with links of $MAINMOD and $DICTMOD.\n");
+  &Report("Found $err problem(s) with links of $MAINMOD".($DICTMOD ? " and $DICTMOD":'').".\n");
 }
 
 # Set MinimumVersion conf entry

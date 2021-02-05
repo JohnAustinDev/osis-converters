@@ -596,7 +596,7 @@ sub asrlProcessFile {
   }
 
   # convert all newReference elements to reference elements
-  my @nrefs = $XPC->findnodes('descendant::newReference', $element);
+  my @nrefs = $XPC->findnodes('descendant::*[local-name()="newReference"]', $element);
   foreach my $nref (@nrefs) {
     $nref->setNodeName("reference");
     $nref->setNamespace('http://www.bibletechnologies.net/2003/OSIS/namespace');
@@ -873,7 +873,7 @@ sub fixLink {
   
   my $fixed = $fixP->{$location}{$reference};
   $work = ($work ? $work.':':'');
-  if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/<newReference osisRef="$work$1">$2<\/newReference>/g) {
+  if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/&newReference($work, $1, $2);/eg) {
     &ErrorBug("Bad FIX replacement $location $reference: \"$fixed\"");
     return '';
   }

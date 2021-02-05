@@ -59,7 +59,12 @@
   
   <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
   
-  <key name="osisID" match="*[@osisID]" use="for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')"/>
+  <variable name="isChildrensBible" select="boolean(//osis:header/
+                                            osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
+                                            osis:type[@type='x-childrens-bible'])"/>
+  <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible))
+                                             then for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')
+                                             else @osisID"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->

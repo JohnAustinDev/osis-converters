@@ -8,8 +8,8 @@
  xmlns:tei="http://www.crosswire.org/2013/TEIOSIS/namespace"
  exclude-result-prefixes="#all">
  
-  <!-- This script checks osisRef and src attribtue targets of OSIS and 
-  TEI SWORD source files. Any MAINMOD links to DICTMOD will only be 
+  <!-- This script checks osisRef and src attribtue targets of SWORD 
+  OSIS and TEI source files. Any MAINMOD links to DICTMOD will only be 
   checked when DICTMOD is checked (so MAINMOD must be created before 
   DICTMOD). If an osisRef targets a DICTMOD entry that does not exist, 
   an error is generated. When DICTMOD is checked, keywords will be 
@@ -52,7 +52,8 @@
     </if>
     
     <!-- Check osisRef targets (but scripture ref targets are not  
-    checked because SWORD supports open scripture references)-->
+    checked because SWORD supports scripture references which do not
+    exist in the referenced work)-->
     <variable name="osisRefs" as="xs:string*" select="//@osisRef | $MAINMOD_DOC//@osisRef
         [boolean($keywords)][starts-with(., concat($DICTMOD, ':'))]"/>
     
@@ -61,7 +62,9 @@
         <sequence select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
           return if (not(starts-with($r, concat($MAINMOD, ':')))) then () 
                  else if (oc:isScripRef($r, 'noneed')) then ()
-                 else if (key('osisID', replace($r, '^[^:]+:', ''))) then () 
+                 (: SWORD Children's Bibles expect decoded osisID values even though they don't validate :)
+                 else if ($isChildrensBible and key('osisID', oc:decodeOsisRef(oc:ref($r)))) then ()
+                 else if (not($isChildrensBible) and key('osisID', oc:ref($r))) then ()
                  else $r"/>
       </for-each>
     </variable>
