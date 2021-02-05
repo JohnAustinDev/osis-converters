@@ -872,7 +872,6 @@ sub fixLink {
   }
   
   my $fixed = $fixP->{$location}{$reference};
-  $work = ($work ? $work.':':'');
   if ($fixed !~ s/<r\s*([^>]+)>(.*?)<\/r>/&newReference($work, $1, $2);/eg) {
     &ErrorBug("Bad FIX replacement $location $reference: \"$fixed\"");
     return '';
