@@ -1052,8 +1052,13 @@ sub makeEbook {
   &shell($cmd);
   
   my $ercnt = &shell("grep -i -c 'error' '$biglog'", 3, 1); chomp $ercnt; $ercnt =~ s/^\D*(\d+).*?$/$1/s;
-  if ($ercnt) {&Error("Error(s) occured during eBook processing.", "See log file: $biglog");}
-  &Report("There were \"$ercnt\" problems reported in the eBook long log file: $biglog");
+  if ($ercnt) {
+    if (open(INL, $READLAYER, $biglog)) {
+      while (<INL>) {&Log($_);}
+      close(INL);
+    }
+    &Error("\"$ercnt\" error(s) occured during eBook processing.");
+  }
   
   my $out = "$tmp/$MOD.$format";
   if (-e $out) {

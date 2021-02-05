@@ -298,7 +298,7 @@
         <matching-substring><sequence select="oc:glossaryCaseRE(regex-group(1))"/></matching-substring>
       </analyze-string>
     </variable>
-    <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else ''"/>
+    <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else '(\W)'"/>
   </function>
   <function name="oc:keySortRegexes" as="element(oc:regex)*">
     <!-- split KeySort string into 3 groups: chr | [] | {} -->
@@ -669,42 +669,31 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
-    <variable name="avoid" as="xs:string*" select="(
-        lower-case($uiDictionary), 
-        root($glossary)//seg[@type='keyword']/lower-case(string()),
-        root($glossary)//div[@type='glossary']
-          [not(. intersect $glossary)]
-          [not(@scope = 'NAVMENU')]
-          [not(@annotateType = 'x-feature')]
-          [not(@subType = 'x-aggregate')]
-          /lower-case(oc:getDivTitle(.))
-      )"/>
     <variable name="scopeTitle" select="oc:getDivScopeTitle($glossary)"/>
-    <variable name="glossTitle1" select="oc:getDivTitle($glossary)"/>
+    <variable name="divTitle" select="oc:getDivTitle($glossary)"/>
     <variable name="glossTitle" select="
-      if (not($glossTitle1)) then 'concat(
-        oc:keySortLetter($glossary/descendant::reference[1]/string()), 
-        '-', 
-        oc:keySortLetter($glossary/descendant::reference[last()]/string())
-      )'
+      if (not($divTitle)) then 'concat(
+          oc:keySortLetter($glossary/descendant::reference[1]/string()), 
+          '-', 
+          oc:keySortLetter($glossary/descendant::reference[last()]/string())
+        )'
       else if ($scopeTitle 
-          and not(contains(lower-case($glossTitle1), lower-case($scopeTitle))) 
-          and lower-case($glossTitle1) = $avoid
-        ) then concat($glossTitle1, ' (', $scopeTitle, ')') 
-      else $glossTitle1"/>
+          and not(contains(lower-case($divTitle), lower-case($scopeTitle))) 
+        ) then concat($divTitle, ' (', $scopeTitle, ')')
+      else if ( ($noDictTopMenu != 'yes' and lower-case($divTitle) = lower-case($uiDictionary))
+                or lower-case($divTitle) = root($glossary)//seg[@type='keyword']/lower-case(string())
+              )
+        then concat($divTitle, '.')
+      else $divTitle"/>
       
-    <if test="not($glossTitle1)">
+    <if test="not($divTitle)">
       <call-template name="Warn">
 <with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
     
-    <value-of select="
-      if ( ($noDictTopMenu != 'yes' and lower-case($glossTitle) = lower-case($uiDictionary)) 
-           or root($glossary)//seg[@type='keyword']/lower-case(string()) = lower-case($glossTitle)
-      ) then concat($glossTitle, '.')
-      else $glossTitle"/>
+    <value-of select="$glossTitle"/>
   </function>
   
   <!-- Returns new keywords which make up an auto-generated menu system

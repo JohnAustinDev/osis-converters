@@ -124,8 +124,8 @@
   Non-Boolean attributes:
   IMPORTANT: non-boolean attribute values are CUMULATIVE, so if the same 
   attribute appears in multiple ancestors, each ancestor value is 
-  accumalated. Also, 'context' and 'XPATH' attributes CANCEL the effect   
-  of ancestor 'notContext' and 'notXPATH' attributes respectively.
+  accumalated. However, 'context' and 'XPATH' attributes CANCEL the    
+  effect of ancestor 'notContext' and 'notXPATH' attributes respectively.
 
   context = A space separated list of osisRefs or comma separated list of 
          Paratext refs in which to create links. Or ALL means all Bible 

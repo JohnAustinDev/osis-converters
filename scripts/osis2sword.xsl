@@ -160,9 +160,12 @@
   
   <template mode="dashPrefix" match="@osisRef">
     <variable name="osisRef1" 
-      select="if (. = ($REF_introductionINT, $REF_dictionary)) 
-              then concat($DICTMOD, ':', if (. = $REF_introductionINT) 
-              then '_45__45__32_' else '_45__32_', tokenize(., ':')[2]) 
+      select="if (oc:ref(.) and . = ($REF_introductionINT, $REF_dictionary)) 
+              then concat(
+                $DICTMOD, ':', 
+                if (. = $REF_introductionINT) then '_45__45__32_' else '_45__32_', 
+                tokenize(., ':')[2]
+              )
               else ."/>
     <!-- A harmless work around for xulsword which doesn't handle ':' keywords -->
     <variable name="osisRef2" select="concat(tokenize($osisRef1, ':')[1], ':', 
