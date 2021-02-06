@@ -86,24 +86,15 @@ sub osis2pubs {
     # Get all book divs in OSIS file
     my @bksxml = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
     
-    # Get server subdirectory for every scope and book. For individual
-    # books, use the subdir returned by readServerScopes() overwritten 
-    # by subdir of full-scope if set, overwritten by sub-pub-scope if set.
+    # Get server subdirectories for sub-pubs and each book.
     my %eBookSubDirs;
-    foreach my $bk (@{&scopeToBooks($fullScope, &conf('Versification'))}) {
-      $eBookSubDirs{$bk} = $serverDirsHP->{'scope'}{$bk};
-    }
-    if ($serverDirsHP->{'scope'}{$fullScope}) {
-      $eBookSubDirs{$fullScope} = $serverDirsHP->{'scope'}{$fullScope};
-      foreach my $bk (@{&scopeToBooks($fullScope, &conf('Versification'))}) {
-        $eBookSubDirs{$bk} = $serverDirsHP->{'scope'}{$fullScope};
-      }
-    }
-    foreach my $scope (@SUB_PUBLICATIONS) {
-      if ($serverDirsHP->{'scope'}{$scope}) {
-        $eBookSubDirs{$scope} = $serverDirsHP->{'scope'}{$scope};
-        foreach my $bk (@{&scopeToBooks($scope, &conf('Versification'))}) {
-          $eBookSubDirs{$bk} = $serverDirsHP->{'scope'}{$scope};
+    foreach my $scope (@SUB_PUBLICATIONS, $fullScope) {
+      if (defined($serverDirsHP->{'scope'}{$scope})) {
+        foreach my $subdir (keys %{$serverDirsHP->{'scope'}{$scope}}) {
+          $eBookSubDirs{$scope}{$subdir}++;
+          foreach my $bk (@{&scopeToBooks($scope, &conf('Versification'))}) {
+            $eBookSubDirs{$bk}{$subdir}++;
+          }
         }
       }
     }
@@ -119,7 +110,7 @@ sub osis2pubs {
     if ($createFullBible) {
       $forkArgs .= &OSIS_To_ePublication(scalar(@bksxml), $convertTo, 
         $tranPubTitle, $fullScope, 
-        'Tran', $tranPubName, $eBookSubDirs{$fullScope});
+        'Tran', $tranPubName, join('+', keys %{$eBookSubDirs{$fullScope}}));
         
       $done{$fullScope}++;
     }
@@ -137,7 +128,7 @@ sub osis2pubs {
         my $s = $scope; $s =~ s/\s/_/g;
         $forkArgs .= &OSIS_To_ePublication(scalar(@{&scopeToBooks($scope, &conf('Versification'))}), $convertTo, 
           &conf("TitleSubPublication[$s]"), $scope, 
-          'Full', $pubName, $eBookSubDirs{$scope});
+          'Full', $pubName, join('+', keys %{$eBookSubDirs{$scope}}));
           
         $done{$scope}++;
       }
@@ -164,7 +155,7 @@ sub osis2pubs {
         }
         $forkArgs .= &OSIS_To_ePublication(1, $convertTo, 
           $title, $bk, 
-          'Part', &getEbookName($bk, 'Part'), $eBookSubDirs{$bk});
+          'Part', &getEbookName($bk, 'Part'), join('+', keys %{$eBookSubDirs{$bk}}));
         
         $done{$bk}++;
       }
@@ -1083,19 +1074,25 @@ sub makeEbook {
       }
       else {&Note("Epub validates!: \"$out\"");}
     }
-    # find any sub-directories used by the EBOOK destination URL 
-    my $outdir = $PUBOUT.$pubSubdir; if (!-e $outdir) {&make_path($outdir);}
-    copy($out, "$outdir/$pubName.$format");
-    &Note("Created: $outdir/$pubName.$format\n", 1);
-    # include any cover small image along with the eBook
-    my $s = $scope; $s =~ s/ /_/g;
-    my $pubcover = "$MAININPD/images/${s}.jpg";
-    if (! -e $pubcover) {$pubcover = "$MAININPD/images/${s}_comp.jpg";}
-    if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}.jpg";}
-    if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}_comp.jpg";}
-    if (-e $pubcover) {
-      &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$pubcover\" \"$outdir/image.jpg\"", 3);
-      &Note("Created: $outdir/image.jpg\n", 1);
+    my @outdirs;
+    if ($pubSubdir) {
+      foreach (split(/\+/, $pubSubdir)) {push(@outdirs, $_);}
+    }
+    else {push(@outdirs, '');}
+    foreach my $od (@outdirs) {
+      my $outdir = $PUBOUT.$od; if (!-e $outdir) {&make_path($outdir);}
+      copy($out, "$outdir/$pubName.$format");
+      &Note("Created: $outdir/$pubName.$format\n", 1);
+      # include any cover small image along with the eBook
+      my $s = $scope; $s =~ s/ /_/g;
+      my $pubcover                   = "$MAININPD/images/${s}.jpg";
+      if (! -e $pubcover) {$pubcover = "$MAININPD/images/${s}_comp.jpg";}
+      if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}.jpg";}
+      if (! -e $pubcover) {$pubcover = "$MAININPD/images/${MOD}_${s}_comp.jpg";}
+      if (-e $pubcover) {
+        &shell("convert -colorspace sRGB -type truecolor -resize 150x \"$pubcover\" \"$outdir/image.jpg\"", 3);
+        &Note("Created: $outdir/image.jpg\n", 1);
+      }
     }
     if (!$CONV_REPORT{$pubName}{'Format'}) {$CONV_REPORT{$pubName}{'Format'} = ();}
     push(@{$CONV_REPORT{$pubName}{'Format'}}, $format);
@@ -1134,7 +1131,7 @@ sub getFullEbookName {
 }
 
 # Read the files and directories at $url/$langCode/$pubCode and return 
-# a hash pointer which contains scope => sub-directory pairs. Also, 
+# a hash pointer which contains scope => sub-directory(s) data. Also, 
 # if $mkdir is set, then create a matching local ebook sub-directory for 
 # every $url subdir (whether it contains files or not).
 sub readServerScopes {
@@ -1195,11 +1192,10 @@ the eBooks at $PUBOUT into appropriate sub-directories yourself.");
     $pscope =~ /^([^_\-]+)/; if (!defined($OSIS_ABBR{$1})) {next;}
     
     my $scope = $pscope; $scope =~ s/_/ /g;
-    if ($result{'scope'}{$scope}) {next;} # keep first found
 
-    $result{'scope'}{$scope} = "/$dirname";    
+    $result{'scope'}{$scope}{"/$dirname"}++;    
     foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
-      $result{'scope'}{$bk} = "/$dirname";
+      $result{'scope'}{$bk}{"/$dirname"}++;
       push(@{$dirBooks{$dirname}}, $bk);
     }
   }
@@ -1207,7 +1203,7 @@ the eBooks at $PUBOUT into appropriate sub-directories yourself.");
   # Whenever a directory holds multiple single-book eBooks, be sure to
   # include the whole scope.
   foreach my $dirname (keys %dirBooks) {
-    $result{'scope'}{&booksToScope($dirBooks{$dirname}, &conf("Versification"))} = "/$dirname";
+    $result{'scope'}{&booksToScope($dirBooks{$dirname}, &conf("Versification"))}{"/$dirname"}++;
   }
   
   return \%result;
