@@ -367,7 +367,7 @@ sub insertClone {
   my $beforeNodesAP = shift;
   
   my @clones;
-  my $multiple = (@{$beforeNodesAP} > 1 ? @{$beforeNodesAP}[0]->unique_key:'');
+  my $multiple = (@{$beforeNodesAP} > 1 ? $periph->unique_key:'');
   foreach my $beforeNode (@{$beforeNodesAP}) {
     # place as first non-toc and non-runningHead element in destination container
     while (@{$XPC->findnodes('
