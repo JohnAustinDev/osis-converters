@@ -83,83 +83,125 @@ sub osis2pubs {
       'Tran', $tranPubName, $serverDirsHP->{'type'}{'Chbl'});
   }
   else {
-    # Get all book divs in OSIS file
-    my @bksxml = $XPC->findnodes('//osis:div[@type="book"]', $INOSIS_XML);
-    
-    # Get server subdirectories for sub-pubs and each book.
-    my %eBookSubDirs;
-    foreach my $scope (@SUB_PUBLICATIONS, $fullScope) {
-      if (defined($serverDirsHP->{'scope'}{$scope})) {
-        foreach my $subdir (keys %{$serverDirsHP->{'scope'}{$scope}}) {
-          $eBookSubDirs{$scope}{$subdir}++;
-          foreach my $bk (@{&scopeToBooks($scope, &conf('Versification'))}) {
-            $eBookSubDirs{$bk}{$subdir}++;
-          }
-        }
-      }
-    }
-    
+# Create Bible ePublications from OSIS files of the MAINMOD and DICTMOD 
+# (if one exists). It is assumed that each SUB_PUBLICATIONS has a 
+# unique scope (if there are two publications with the same scope, then
+# at least one of them must be published with another publication code, 
+# to differentiate the two). However, any book may appear in multiple, 
+# SUB_PUBLICATIONS as long as the book itself is identical in each one.
+# Always and only the entire OSIS file publication, when created, will 
+# be the Tran publication, and it is defined as having a scope that 
+# is the same as the OSIS file.
+# 
+# PUBLICATIONS
+# 1 Tran publication          - Containing all the contents of the OSIS
+#                               files. This publication will always be 
+#                               created, unless CreateFullBible is set  
+#                               to false in config.conf.
+# 1 Full publication          - For each SUB_PUBLICATIONS. Selection
+#                               is controlled by CreateSeparatePubs=
+#                               (true|false|AUTO|<scope>|first|last) 
+#                               in config.conf. 
+# 2 or more Part publications - For each book of each multi-book
+#                               SUB_PUBLICATIONS. Selection is 
+#                               controlled by CreateSeparateBooks=
+#                               (true|false|AUTO|<OSIS-book>|first|last) 
+#                               in config.conf.
+# 0 or more Part publications - For each book of a multi-book  
+#                               MAINMOD OSIS file which is not part of 
+#                               SUB_PUBLICATIONS. Selections are 
+#                               controlled by CreateSeparateBooks=
+#                               (true|false|AUTO|<OSIS-book>|first|last) 
+#                               in config.conf.
+#
+# PLACEMENT
+# The EBOOKS URL will be scanned for sub-directory names and the scope 
+# of files contained therein. Created Full sub-publications and their 
+# Part publications will be placed in an output sub-directory having the 
+# same name as the EBOOKS URL sub-directory sharing the same scope. The 
+# Tran publication and any remaining single book Part publications are 
+# not placed in any sub-directory (but in the parent directory).
+#
+# CREATION ORDER
+# Publications are created in the following order: 
+# Tran, SUB_PUBLICATIONS Full/Part, any remaining Part books.
+
     # Get config.conf settings that control what to create
-    my $createFullBible     = &conf('CreateFullBible',     undef, undef, $convertTo);
-    my $createSeparatePubs  = &conf('CreateSeparatePubs',  undef, undef, $convertTo);
-    my $createSeparateBooks = &conf('CreateSeparateBooks', undef, undef, $convertTo);
+    my $createFullBible = &conf('CreateFullBible',     undef, undef, $convertTo);
+    
+    my $subSelect  = &conf('CreateSeparatePubs',  undef, undef, $convertTo);
+    if    ($subSelect =~ /^first$/i) {$subSelect = @SUB_PUBLICATIONS[0];}
+    elsif ($subSelect =~ /^last$/i)  {$subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];}
+    elsif ($subSelect =~ /^true$/i)  {$subSelect = 'all';}
+    else  {$subSelect = undef;}
+    
+    my $bookSelect = &conf('CreateSeparateBooks', undef, undef, $convertTo);
+    my @bks = @{&scopeToBooks($fullScope, &conf('Versification'))};
+    if ($bookSelect =~ /^first$/i)   {$bookSelect = @bks[0];}
+    elsif ($bookSelect =~ /^last$/i) {$bookSelect = @bks[$#bks];}
+    elsif ($bookSelect =~ /^true$/i) {$bookSelect = 'all';}
+    else  {$bookSelect = undef;}
     
     my %done;
     
-    # Convert the entire OSIS file (Tran)
+    # Create the Tran publication
     if ($createFullBible) {
-      $forkArgs .= &OSIS_To_ePublication(scalar(@bksxml), $convertTo, 
-        $tranPubTitle, $fullScope, 
-        'Tran', $tranPubName, join('+', keys %{$eBookSubDirs{$fullScope}}));
-        
-      $done{$fullScope}++;
+      $forkArgs .= &OSIS_To_ePublication(
+        scalar(@{&scopeToBooks($fullScope, &conf('Versification'))}), 
+        $convertTo, 
+        $tranPubTitle, 
+        $fullScope, 
+        'Tran', 
+        $tranPubName, 
+        ''
+      );
+    }
+    $done{$fullScope}++;
+    
+    # Create Full/Part publications
+    foreach my $scope (@SUB_PUBLICATIONS) {
+      my $s = $scope; $s =~ s/\s+/_/;
+      if ($scope eq $fullScope) {next;} # already done and no following error
+      if ($done{$scope}) {
+        &Error(
+"Multiple sub-publications cannot share the same scope: $scope.",
+"All but one of these sub-publications must be published under a different code than $MAINMOD");
+        next;
+      }
+      
+      if ($subSelect eq 'all' || $subSelect eq $scope) {
+        $forkArgs .= &OSIS_To_ePublication(
+          scalar(@{&scopeToBooks($scope, &conf('Versification'))}), 
+          $convertTo, 
+          &conf("TitleSubPublication[$s]"), 
+          $scope,
+          'Full', 
+          &getEbookName($scope, 'Full'), 
+          $serverDirsHP->{'scope'}{$scope}
+        );
+      }
+      $done{$scope}++;
+      
+      # Create book Parts of Full publication
+      $forkArgs .= &createParts(
+        \%done, 0,
+        $convertTo, 
+        $bookSelect, 
+        $scope, 
+        &conf("TitleSubPublication[$s]"), 
+        $serverDirsHP->{'scope'}{$scope}
+      );
     }
     
-    # Convert sub publications (Full)
-    if ($createSeparatePubs) {
-      my $pub;
-      if ($createSeparatePubs =~ /^first$/i)   {$pub = @SUB_PUBLICATIONS[0];}
-      elsif ($createSeparatePubs =~ /^last$/i) {$pub = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];}
-      elsif ($createSeparatePubs =~ /^true$/i) {$pub = 'all';}
-      foreach my $scope (@SUB_PUBLICATIONS) {
-        if ($done{$scope}) {next;}
-        if ($pub ne 'all' && $scope ne $pub) {next;}
-        my $pubName = ($scope eq $fullScope ? $tranPubName:&getEbookName($scope, 'Full'));
-        my $s = $scope; $s =~ s/\s/_/g;
-        $forkArgs .= &OSIS_To_ePublication(scalar(@{&scopeToBooks($scope, &conf('Versification'))}), $convertTo, 
-          &conf("TitleSubPublication[$s]"), $scope, 
-          'Full', $pubName, join('+', keys %{$eBookSubDirs{$scope}}));
-          
-        $done{$scope}++;
-      }
-    }
-
-    # Convert each Bible book (Part)
-    if ($createSeparateBooks) {
-      my $books;
-      if ($createSeparateBooks =~ /^first$/i)   {$books = @bksxml[0]->getAttribute('osisID');}
-      elsif ($createSeparateBooks =~ /^last$/i) {$books = @bksxml[$#bksxml]->getAttribute('osisID');}
-      elsif ($createSeparateBooks =~ /^true$/i) {$books = 'all';}
-      else {$books = join('|', @{&scopeToBooks($createSeparateBooks, &conf('Versification'))});}
-      foreach my $aBook (@bksxml) {
-        my $bk = $aBook->getAttribute('osisID');
-        if ($done{$bk}) {next;} # if already done as a Tran or Full publication
-        if ($books ne 'all' && $bk !~ /^($books)$/) {next;}
-        my $title = $tranPubTitle;
-        foreach my $scope (@SUB_PUBLICATIONS) {
-          my $s = $scope; $s =~ s/\s/_/g;
-          if (!&conf("TitleSubPublication[$s]")) {next;}
-          foreach my $sbk (@{&scopeToBooks($scope, &conf('Versification'))}) {
-            if ($sbk eq $bk) {$title = &conf("TitleSubPublication[$s]");}
-          }
-        }
-        $forkArgs .= &OSIS_To_ePublication(1, $convertTo, 
-          $title, $bk, 
-          'Part', &getEbookName($bk, 'Part'), join('+', keys %{$eBookSubDirs{$bk}}));
-        
-        $done{$bk}++;
-      }
-    }
+    # Create book Parts remaining
+    $forkArgs .= &createParts(
+      \%done, 1,
+      $convertTo, 
+      $bookSelect, 
+      $fullScope, 
+      $tranPubTitle,
+      ''
+    );
   }
   
   if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
@@ -200,6 +242,42 @@ sub osis2pubs {
 ########################################################################
 ########################################################################
 
+# Call OSIS_To_ePublication on each book Part of a larger publication.
+sub createParts {
+  my $doneHP = shift;
+  my $skipDone = shift;
+  my $convertTo = shift;
+  my $select = shift;
+  my $scope = shift;
+  my $title = shift;
+  my $subdir = shift;
+  
+  my $forkargs;
+  
+  my @books = @{&scopeToBooks($scope, &conf('Versification'))};
+  
+  # There are no Parts for single book publications
+  if (@books <= 1) {return '';}
+  
+  foreach my $bk (@books) {
+    if ($skipDone && $doneHP->{$bk}) {next;}
+    if ($select eq 'all' || $select eq $bk) {
+      $forkargs .= &OSIS_To_ePublication(
+        1, 
+        $convertTo, 
+        $title, 
+        $bk, 
+        'Part', 
+        &getEbookName($bk, 'Part'), 
+        $subdir
+      );
+    }
+    $doneHP->{$bk}++;
+  }
+  
+  return $forkargs;
+}
+
 # Either loads arguments for forks.pl to run OSIS_To_ePublication2 as 
 # forks later on, or else runs OSIS_To_ePublication2 now. 
 sub OSIS_To_ePublication {
@@ -219,12 +297,12 @@ sub OSIS_To_ePublication {
 
 # This function may be run in its own thread.
 sub OSIS_To_ePublication2 {
-  my $convertTo = shift; # type of ePublication to output (html or eBook)
-  my $pubTitle = shift; # title of ePublication
-  my $scope = shift; # scope of ePublication
-  my $pubType = shift;
-  my $pubName = shift;
-  my $pubSubdir = shift;
+  my $convertTo = shift; # type of ePublication (html or eBook)
+  my $pubTitle = shift;  # title of ePublication
+  my $scope = shift;     # scope of ePublication
+  my $pubType = shift;   # Tran, Full or Part
+  my $pubName = shift;   # filename for ePublication
+  my $pubSubdir = shift; # subdirectory for ePublication
   
   # restore the state of these globals to when getForkArgs() was first called
   my $x = 0; foreach (@_) {
@@ -1193,9 +1271,9 @@ the eBooks at $PUBOUT into appropriate sub-directories yourself.");
     
     my $scope = $pscope; $scope =~ s/_/ /g;
 
-    $result{'scope'}{$scope}{"/$dirname"}++;    
+    &setCheckSubdir(\%result, $scope, "/$dirname");
+
     foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
-      $result{'scope'}{$bk}{"/$dirname"}++;
       push(@{$dirBooks{$dirname}}, $bk);
     }
   }
@@ -1203,10 +1281,23 @@ the eBooks at $PUBOUT into appropriate sub-directories yourself.");
   # Whenever a directory holds multiple single-book eBooks, be sure to
   # include the whole scope.
   foreach my $dirname (keys %dirBooks) {
-    $result{'scope'}{&booksToScope($dirBooks{$dirname}, &conf("Versification"))}{"/$dirname"}++;
+    &setCheckSubdir(\%result, &booksToScope($dirBooks{$dirname}, &conf("Versification")), "/$dirname");
   }
   
   return \%result;
+}
+
+sub setCheckSubdir {
+  my $resP = shift;
+  my $scope = shift;
+  my $subdir = shift;
+
+  if (defined($resP->{'scope'}{$scope}) && $resP->{'scope'}{$scope} ne $subdir) {
+    &Warn(
+"<>Conflicting subdirectory for scope $scope",
+"<>The EBOOK URL contains multiple subdirectories corresponding to this scope: '$resP->{'scope'}{$scope}' will be used, '$subdir' will be ignored.");
+  }
+  else {$resP->{'scope'}{$scope} = $subdir;}
 }
 
 # Add context parameters to the functions.xsl file as a way to pass them 

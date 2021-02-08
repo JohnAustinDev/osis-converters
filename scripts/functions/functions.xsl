@@ -298,7 +298,9 @@
         <matching-substring><sequence select="oc:glossaryCaseRE(regex-group(1))"/></matching-substring>
       </analyze-string>
     </variable>
-    <value-of select="if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) else '(\W)'"/>
+    <value-of select="if (not(matches(oc:encodeKS($KeySort), '\{([^\}]*)\}'))) then '(\W)'
+                      else if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) 
+                      else ''"/>
   </function>
   <function name="oc:keySortRegexes" as="element(oc:regex)*">
     <!-- split KeySort string into 3 groups: chr | [] | {} -->
