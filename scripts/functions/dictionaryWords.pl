@@ -353,6 +353,7 @@ sub glossaryLink {
   my $t_new = $infoP->{'previousNode'}->data; 
   $t_new =~ s/^(.*)\Q$linktext\E$/$1/;
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
+  if (defined($infoP->{'dup'})) {$osisRef .= '.dup'.$infoP->{'dup'};}
   my $newRefElement = $XML_PARSER->parse_balanced_chunk(
     "<reference $ONS osisRef='$osisRef' type='".($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary')."'>$linktext</reference>"
   );
