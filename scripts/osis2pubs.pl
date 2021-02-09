@@ -160,7 +160,7 @@ sub osis2pubs {
     
     # Create Full/Part publications
     foreach my $scope (@SUB_PUBLICATIONS) {
-      my $s = $scope; $s =~ s/\s+/_/;
+      my $s = $scope; $s =~ s/\s+/_/g;
       if ($scope eq $fullScope) {next;} # already done and no following error
       if ($done{$scope}) {
         &Error(

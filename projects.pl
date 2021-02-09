@@ -35,9 +35,6 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'DICTMOD'}{'AddSeeAlsoLinks'} = 'false';
 #$CONFIG{'system'}{'DEBUG'} = '1';
 
-# This takes 45 minutes so skip it...
-$CONFIG{'GRG:osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
-
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
 
 if ($0 ne "./projects.pl") {
@@ -129,7 +126,7 @@ foreach my $m (@MODULE_IGNORES) {
 &pLog("\n");
 
 # Update config files with any global changes, and then re-read info.
-&updateConfigFiles(\@MODULES, \%CONFIG, $INFO);
+if (keys %CONFIG) {&updateConfigFiles(\@MODULES, \%CONFIG, $INFO);}
 $SIG{'INT'} = sub {&finish()};
 $INFO = &getProjectInfo($PRJDIR);
 
@@ -741,7 +738,9 @@ sub finish {
   
   foreach my $th (threads->list()) {$th->join();}
 
-  &updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
+  if (keys %CONFIG) {
+    &updateConfigFiles(\@MODULES, \%CONFIG, $INFO, 'restore');
+  }
 
   &timer('stop');
   

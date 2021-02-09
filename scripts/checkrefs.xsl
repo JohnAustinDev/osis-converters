@@ -68,7 +68,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </for-each>
 
-    <!-- Check OSIS file's osisRef target existence -->
+    <!-- Check for osisRef target existence -->
     <variable name="missing" as="xs:string*">
       <for-each select="($MAINMOD_DOC | $DICTMOD_DOC)">
         <variable name="prefixRE" select="concat('^', //@osisIDWork[1], ':')"/>
@@ -85,7 +85,7 @@ target, then a different USFM tag should be used instead.</with-param>
       </call-template>
     </for-each>
     
-    <!-- Check that aggregated glossary entries are not being referenced -->
+    <!-- Check for aggregated glossary entries that are being referenced -->
     <variable name="aggcheck" select="($MAINMOD_DOC | $DICTMOD_DOC)//@osisRef
         [not(ancestor::*[@resp='x-oc'])]" as="xs:string*"/>
     <variable name="aggcheckFail" as="xs:string*">
