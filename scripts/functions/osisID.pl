@@ -526,7 +526,7 @@ sub getVerseOsisIDs {
 }
 
 # Write unique osisIDs to any element that requires one. Only elements
-# with osisID attributes may be targetted by an osisRef link. Certain 
+# with osisID attributes may be targeted by an osisRef link. Certain 
 # elements have special id features for 'duplicates':
 #  glossary keyword - ends with .dup1, .dup2... but there is also a
 #                     combined glossary where the .dupN ending is

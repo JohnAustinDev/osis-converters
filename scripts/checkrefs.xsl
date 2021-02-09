@@ -47,7 +47,7 @@
     <!-- Check for duplicate osisIDs -->
     <for-each select="//*[@osisID][(for $i in tokenize(@osisID, '\s+') return count(key('osisID', $i))) != 1]">
       <call-template name="Error">
-<with-param name="msg">osisID attribute value is not unique: <value-of select="@osisID"/></with-param>
+<with-param name="msg">osisID is not unique: <value-of select="@osisID"/></with-param>
 <with-param name="exp">There are multiple elements with the same osisID, which is not allowed.</with-param>
       </call-template>
     </for-each>
@@ -67,21 +67,38 @@ target, then a different USFM tag should be used instead.</with-param>
 <with-param name="exp">Use multiple reference elements instead.</with-param>
       </call-template>
     </for-each>
-    
-    <!-- Check OSIS file's osisRef targets -->
+
+    <!-- Check OSIS file's osisRef target existence -->
     <variable name="missing" as="xs:string*">
       <for-each select="($MAINMOD_DOC | $DICTMOD_DOC)">
         <variable name="prefixRE" select="concat('^', //@osisIDWork[1], ':')"/>
         <!-- Ignore !PART endings of osisRefs even though that osisID does not exist -->
         <sequence select="for $e in $checkSelf, $r in $e/oc:osisRef_atoms(@osisRef)
             return if ( matches($r, $prefixRE) and 
-                        not(key('osisID', replace(replace($r, '^[^:]+:', ''), '!PART$', '')))
+                        not(key('osisID', replace(oc:ref($r), '!PART$', '')))
                       ) then $r else ()"/>
       </for-each>
     </variable>
     <for-each select="$missing[normalize-space()]">
       <call-template name="Error">
 <with-param name="msg"><value-of select="$DOCWORK"/> reference to missing osisRef segment "<value-of select="."/>"</with-param>
+      </call-template>
+    </for-each>
+    
+    <!-- Check that aggregated glossary entries are not being referenced -->
+    <variable name="aggcheck" select="($MAINMOD_DOC | $DICTMOD_DOC)//@osisRef
+        [not(ancestor::*[@resp='x-oc'])]" as="xs:string*"/>
+    <variable name="aggcheckFail" as="xs:string*">
+      <for-each select="$DICTMOD_DOC">
+        <sequence select="for $e in $aggcheck, $r in oc:osisRef_atoms($e)
+              return if ( (key('osisID', oc:ref($r))/ancestor::div[@type='glossary'][@subType='x-aggregate'] )
+                        ) then $r else ()"/>
+      </for-each>
+    </variable>
+    <for-each select="distinct-values($aggcheckFail)">
+      <call-template name="Error">
+<with-param name="msg">Found reference(s) to aggregated glossary entry: osisID="<value-of select="oc:ref(.)"/>"</with-param>
+<with-param name="exp">For aggregated entries, only a particular duplicate may be referenced. Check DictionaryWords.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
       </call-template>
     </for-each>
  

@@ -181,7 +181,7 @@
   </template>
   
   <!-- Only reference the first of any duplicates, otherwise osisRef
-  trimming will result in unpredictable targetting. -->
+  trimming will result in unpredictable targeting. -->
   <function name="me:osisRefs" as="xs:string">
     <param name="osisRefs" as="attribute(osisRef)+"/>
     

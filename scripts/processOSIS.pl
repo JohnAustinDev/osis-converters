@@ -108,20 +108,11 @@ sub processOSIS {
   # Load DictionaryWords.xml
   if ($modType eq 'dict' && &conf('AddSeeAlsoLinks')) {
     $hasDWF++;
-    &checkDWF($OSIS);
+    if (&getDWF('main', 1)) {&checkDWF($OSIS, &getDWF('main', 1));}
+    if (&getDWF('dict', 1)) {&checkDWF($OSIS, &getDWF('dict', 1));}
   }
   elsif ($modType eq 'bible' && $DICTMOD && -e "$MAININPD/$DICTIONARY_WORDS") {
-    my $dictosis = &getModuleOsisFile($DICTMOD);
-    if ($dictosis && $DEBUG) {
-      &Warn("$DICTIONARY_WORDS is present and will now be validated against dictionary OSIS file $dictosis which may or may not be up to date.");
-      $hasDWF++;
-      &checkDWF($dictosis);
-    }
-    else {
-      &Warn("$DICTIONARY_WORDS is present but will not be validated against the DICT OSIS file because osis-converters is not running in DEBUG mode.");
-      $hasDWF++;
-      &checkDWF();
-    }
+    $hasDWF++;
   }
 
   # Add any missing Table of Contents milestones and titles as required for eBooks, html etc.

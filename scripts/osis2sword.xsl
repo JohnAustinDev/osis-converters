@@ -93,7 +93,7 @@
   <!-- Remove TOC milestones, which are not supported for SWORD -->
   <template mode="osis2sword" match="milestone[starts-with(@type, 'x-usfm-toc')]"/>
   
-  <!-- Remove osisRefs targetting removed Bible INT divs and DICTMOD non-glossary targets -->
+  <!-- Remove osisRefs targeting removed Bible INT divs and DICTMOD non-glossary targets -->
   <template mode="osis2sword" match="@osisRef">
     <variable name="osisRef0" 
       select="oc:filter_osisRef(., true(), 

@@ -33,9 +33,14 @@ our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
 
 my %DWF_CACHE;
 sub getDWF {
+  my $which = shift; # 'main', 'dict' or $MOD is default
+  my $returnFile = shift;
+  
+  $which = ($which eq 'main' ? $MAININPD : ($which eq 'dict' ? $DICTINPD : $INPD));
 
-  my $dwfFile = "$INPD/$DICTIONARY_WORDS";
+  my $dwfFile = "$which/$DICTIONARY_WORDS";
   if (!-e $dwfFile) {return '';}
+  elsif ($returnFile) {return $dwfFile;}
   
   if (!exists($DWF_CACHE{$dwfFile})) {
     $DWF_CACHE{$dwfFile} = $XML_PARSER->parse_file($dwfFile);
@@ -46,57 +51,39 @@ sub getDWF {
 
 sub checkDWF {
   my $dictosis = shift;
+  my $dwffile = shift;
   my $noupdateMarkup = shift;
   my $noupdateEntries = shift;
   
-  if (! -e "$INPD/$DICTIONARY_WORDS") {return '';}
-  my $dwf = &getDWF();
+  my $dwf = $XML_PARSER->parse_file($dwffile);
   
   # Check for old DICTIONARY_WORDS markup and update or report
   my $errors = 0;
   my $update = 0;
   my $tst = @{$XPC->findnodes('//dw:div', $dwf)}[0];
   if (!$tst) {
-    &Error("Missing namespace declaration in: \"$INPD/$DICTIONARY_WORDS\", continuing with default.", "Add 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to root element of \"$INPD/$DICTIONARY_WORDS\".");
+    &Error("Missing namespace declaration in: \"$dwffile\", continuing with default.", "Add 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to the root element.");
     $errors++;
     my @ns = $XPC->findnodes('//*', $dwf);
     foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1); $update++;}
   }
   my $tst = @{$XPC->findnodes('//*[@highlight]', $dwf)}[0];
   if ($tst) {
-    &Warn("Ignoring outdated attribute: \"highlight\" found in: \"$INPD/$DICTIONARY_WORDS\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
+    &Warn("Ignoring outdated attribute: \"highlight\" found in: \"$dwffile\"", "Remove the \"highlight\" attribute and use the more powerful notXPATH attribute instead.");
     $errors++;
   }
   my $tst = @{$XPC->findnodes('//*[@withString]', $dwf)}[0];
   if ($tst) {
     $errors++;
-    &Warn("\"withString\" attribute is no longer supported.", "Remove withString attributes from $DICTIONARY_WORDS and replace it with XPATH=<xpath-expression> instead.");
+    &Warn("\"withString\" attribute is no longer supported.", "Remove withString attributes from $dwffile and replace it with XPATH=<xpath-expression> instead.");
   }
-  
-=pod
-  # Save any updates back to source dictionary_words_xml and reload
-  if ($update) {
-    &writeXMLFile($dwf, "$INPD/$DICTIONARY_WORDS.tmp");
-    unlink("$INPD/$DICTIONARY_WORDS"); 
-    rename("$INPD/$DICTIONARY_WORDS.tmp", "$INPD/$DICTIONARY_WORDS");
-    &Note("Updated $update instance of non-conforming markup in $INPD/$DICTIONARY_WORDS");
-    if (!$noupdateMarkup) {
-      $noupdateMarkup++;
-      return &checkDWF($dictosis, $noupdateMarkup, $noupdateEntries);
-    }
-    else {
-      $errors++;
-      &Error("checkDWF failed to update markup. Update $DICTIONARY_WORDS manually.", "Sometimes the $DICTIONARY_WORDS can only be updated manually.");
-    }
-  }
-=cut
   
   # Compare dictosis to DICTIONARY_WORDS
-  if ($dictosis && &compareDictOsis2DWF($dictosis, "$INPD/$DICTIONARY_WORDS")) {
+  if (&compareDictOsis2DWF($dictosis, $dwffile)) {
     if (!$noupdateEntries) {
       # If updates were made, reload DWF etc.
       $noupdateEntries++;
-      return &checkDWF($dictosis, $noupdateMarkup, $noupdateEntries);
+      return &checkDWF($dictosis, $dwffile, $noupdateMarkup, $noupdateEntries);
     }
     else {
       $errors++;
@@ -109,13 +96,13 @@ sub checkDWF {
   if (!@r[0]) {@r = ();}
   &Report("Compound glossary entry names with a single match element: (".scalar(@r)." instances)");
   if (@r) {
-    &Note("Multiple <match> elements should probably be added to $DICTIONARY_WORDS\nto match each part of the compound glossary entry.");
+    &Note("Multiple <match> elements should probably be added to $dwffile\nto match each part of the compound glossary entry.");
     foreach my $r (@r) {&Log($r->textContent."\n");}
   }
   
   my $valid = 0;
   if ($errors == 0) {$valid = &validateDictionaryWordsXML($dwf);}
-  if ($valid) {&Note("$INPD/$DICTIONARY_WORDS has no unrecognized elements or attributes.\n");}
+  if ($valid) {&Note("$dwffile has no unrecognized elements or attributes.\n");}
   
   return ($valid && $errors == 0 ? $dwf:'');
 }
@@ -135,8 +122,9 @@ sub compareDictOsis2DWF {
   &Log("\n--- CHECKING ENTRIES IN: $dictosis FOR INCLUSION IN: $dictionary_words_xml\n", 1);
   
   my $osis = $XML_PARSER->parse_file($dictosis);
+  my $dwf  = $XML_PARSER->parse_file($dictionary_words_xml);
+  
   my $osismod = &getOsisRefWork($osis);
-  my $dwf = $XML_PARSER->parse_file($dictionary_words_xml);
   
   # Decide if keyword any capitalization update is possible or not
   my $allowUpdate = 1; my %noCaseKeys;
@@ -207,6 +195,18 @@ DWF_OSISREF:
         $reported{$osisRef}++;
         $allmatch = 0;
       }
+    }
+  }
+  
+  # Check that aggregated entries are not targeted by DictionaryWords.xml
+  foreach my $e ($XPC->findnodes('//@osisID
+      [ancestor::osis:div[@type="glossary"][@subType="x-aggregate"]]', $osis)) {
+    my $osisRef = $DICTMOD.':'.$e->value;
+    my $entry = @{$XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $dwf)}[0];
+    if ($entry) {
+      &Error(
+"Cannot reference aggregated glossary entry in $dictionary_words_xml:\n<entry osisRef=\"".$entry->getAttribute('osisRef')."\">",
+"Append .dupN to the osisRef, where N is the specific number of a duplicate to be referenced.");
     }
   }
   
@@ -353,7 +353,21 @@ sub glossaryLink {
   my $t_new = $infoP->{'previousNode'}->data; 
   $t_new =~ s/^(.*)\Q$linktext\E$/$1/;
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
+  
+  # Handle any USFM attributes effecting the target
   if (defined($infoP->{'dup'})) {$osisRef .= '.dup'.$infoP->{'dup'};}
+  elsif (defined($infoP->{'context'})) {
+    # Look at the specified context in DictionaryWords.xml for the lemma
+    my $r = @{$XPC->findnodes("//dw:entry
+      [ancestor-or-self::*[\@context][1][\@context='$infoP->{'context'}']]
+      /\@osisRef[starts-with(., '$osisRef.dup') or . = '$osisRef']", &getDWF())}[0];
+    if ($r) {$osisRef = $r->value;}
+    else {&Error(
+"An entry '$osisRef' having context '$infoP->{'context'}' could not be found in DictionaryWords.xml.",
+"DictionaryWords.xml does not contain an entry for lemma '$infoP->{'lemma'}' which has context '$infoP->{'context'}' as specified by the \\w ...\\w* tag.");
+    }
+  }
+  
   my $newRefElement = $XML_PARSER->parse_balanced_chunk(
     "<reference $ONS osisRef='$osisRef' type='".($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary')."'>$linktext</reference>"
   );
