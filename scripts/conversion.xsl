@@ -11,7 +11,7 @@
   tions which filter out elements marked for removal during particular 
   conversions. When $DICTMOD_DOC is set, this stylesheet also adjusts 
   multi-target references referencing removed keyword osisIDs, and an 
-  error is generated if keyword removal causes broken links. -->
+  error is generated if keyword removal results in broken links. -->
   
   <import href="./functions/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 

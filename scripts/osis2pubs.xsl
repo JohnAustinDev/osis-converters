@@ -56,7 +56,7 @@
         select="oc:filter_osisRef(., true(), ($removedNAVMENU_ids, $removedOsisIDs))"/>
   </template>
   
-  <!-- Cancel this conversion template and handle @osisRef in this stylesheet -->
+  <!-- Cancel a conversion mode template to handle @osisRef in this stylesheet -->
   <template mode="conversion" match="@osisRef"><copy/></template>
   
 </stylesheet>

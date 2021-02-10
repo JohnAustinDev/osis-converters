@@ -11,8 +11,8 @@
   <!-- This script checks osisRef and src attribtue targets of SWORD 
   OSIS and TEI source files. Any MAINMOD links to DICTMOD will only be 
   checked when DICTMOD is checked (so MAINMOD must be created before 
-  DICTMOD). If an osisRef targets a DICTMOD entry that does not exist, 
-  an error is generated. When DICTMOD is checked, keywords will be 
+  DICTMOD). If an osisRef targets a DICTMOD entry which does not exist, 
+  an error is generated. When DICTMOD is checked, all keywords will be 
   checked for uniqueness, which is a requirement of SWORD. -->
  
   <import href="./functions/functions.xsl"/>

@@ -25,8 +25,8 @@
   <variable name="scriptureRefs" as="element()*" select="//*[@osisRef][oc:isScripRef(@osisRef, $DOCWORK)]"/>
   
   <!-- Check all osisRefs in the OSIS file, however MAINMOD references 
-  to a DICTMOD will only be checked when OSIS file is the DICTMOD,  
-  meaning the MAINMOD must be created before the DICTMOD. -->
+  to a DICTMOD will only be checked at the time DICTMOD is checked,  
+  meaning MAINMOD must be created before DICTMOD. -->
   <variable name="checkSelf" as="element()*" select="//*[@osisRef][not(@subType='x-external')]
     [$checkingDict or not($DICTMOD) or not(starts-with(@osisRef, $DICTMOD))]"/>
     
