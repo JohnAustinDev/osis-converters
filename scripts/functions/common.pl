@@ -1008,6 +1008,8 @@ sub customize_conf {
     }
     else {&ErrorBug("customize_conf could not open config file $CONFFILE");}
   }
+  
+  &readSetCONF();
 }
 
 sub customize_addScripRefLinks {
@@ -1227,7 +1229,7 @@ sub customize_usfm2osis {
       if ($scope) {push(@instructions, "scope == $scope");} # scope is first instruction because it only effects following instructions
       if ($modType eq 'bible') {
         push(@instructions, &getOsisMap('sfmfile', $scope));
-        if (defined($USFM{$modType}{$f}{'periphType'}) && @{$USFM{$modType}{$f}{'periphType'}}) {
+        if (ref($USFM{$modType}{$f}{'periphType'}) && @{$USFM{$modType}{$f}{'periphType'}}) {
           foreach my $periphType (@{$USFM{$modType}{$f}{'periphType'}}) {
             my $osisMap = &getOsisMap($periphType, $scope);
             if (!defined($osisMap)) {
@@ -1261,27 +1263,27 @@ sub getOsisMap {
   my $periphType = shift; # a key to %USFM_DEFAULT_PERIPH_TARGET defined in fitToVerseSystem.pl
   my $scope = shift;
   
-  # default sfmfile placement is after osis header
-  my $defPath = 'osis:header/following-sibling::node()[1]';
+  # default scopePath is after osis header
+  my $defScopePath = 'osis:header/following-sibling::node()[1]';
   
-  my $scopePath = $defPath;
+  my $scopePath = $defScopePath;
   if ($scope) {
     if ($scope eq 'Matt-Rev') {$scopePath = $USFM_DEFAULT_PERIPH_TARGET{'New Testament Introduction'};}
     elsif ($scope eq 'Gen-Mal') {$scopePath = $USFM_DEFAULT_PERIPH_TARGET{'Old Testament Introduction'};}
     else {
-      $scopePath = ($scope =~ /^([^\s\-]+)/ ? $1:''); # try to get first book of scope
-      if ($scopePath && defined($OSIS_ABBR{$scopePath})) {
-        # place at the beginning of the first book of scope
-        $scopePath = 'osis:div[@type="book"][@osisID="'.$scopePath.'"]/node()[1]';
-      }
-      else {
-        &Error("USFM file's scope \"$scope\" is not recognized.", 
+      my $bookAP = &scopeToBooks($scope, &conf("Versification"));
+      $scopePath = 'osis:div[@type="book"]['.join(' or ', map("\@osisID=\"$_\"", @{$bookAP})).']/node()[1]';
+      foreach my $bk (@{$bookAP}) {
+        if (!defined($OSIS_ABBR{$bk})) {
+          &Error("USFM file's scope \"$scope\" contains unrecognized book:$bk.", 
 "Make sure the sfm sub-directory is named using a proper OSIS 
 book scope, such as: 'Ruth_Esth_Jonah' or 'Matt-Rev'");
-        $scopePath = $defPath;
+          $scopePath = $defScopePath;
+        }
       }
     }
   }
+  
   if ($periphType eq 'sfmfile') {return "location == $scopePath";}
 
   my $periphTypeDescriptor = $PERIPH_TYPE_MAP{$periphType};
