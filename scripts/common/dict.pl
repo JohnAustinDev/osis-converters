@@ -16,6 +16,8 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
 # Parse the module's DICTIONARY_WORDS to DWF. Check for outdated 
 # DICTIONARY_WORDS markup and update it. Validate DICTIONARY_WORDS 
 # entries against a dictionary OSIS file's keywords. Validate 
@@ -26,10 +28,11 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $DICTIONARY_WORDS, 
-    $DICTIONARY_WORDS_NAMESPACE, $DICTIONARY_NotXPATH_Default,
-    $KEYWORD, $ONS);
+    $DICTIONARY_WORDS_NAMESPACE, $ONS);
     
 our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
+
+our $DICTIONARY_NotXPATH_Default = "ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]";
 
 my %DWF_CACHE;
 sub getDWF {
@@ -431,7 +434,7 @@ sub searchForGlossaryLinks {
   my $container = ($isIndex || $node->nodeType == XML::LibXML::XML_TEXT_NODE ? $node->parentNode:$node);
   
   # Never put links in a keyword element
-  if ($glossary && $XPC->findnodes("self::$KEYWORD", $container)) {next;}
+  if ($glossary && $XPC->findnodes("self::osis:seg[\@type='keyword']", $container)) {next;}
   
   my @refs;
   if ($isIndex) {
@@ -661,7 +664,7 @@ sub searchText {
       push(@MATCHES, \%minfo);
     }
     #if ($debug) {&Log("\n".('-' x 80)."\n".('-' x 80)."\n\n$notes\n");}
-    #use Data::Dumper; &Log(Dumper(\@MATCHES)."\n");
+    #&Log(Dumper(\@MATCHES)."\n");
   }
   
   my $context;
@@ -1095,7 +1098,7 @@ sub getIndexInfo {
     $info{$k} = $attribsHP->{$k};
   }
   
-  #use Data::Dumper; &Log($i->toString()."\n".Dumper(\%info)."\n", 1);
+  #&Log($i->toString()."\n".Dumper(\%info)."\n", 1);
   return \%info;
 }
 

@@ -16,9 +16,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# All code here is expected to be run on a Linux Ubuntu 14 to 18 or 
-# compatible operating system having all osis-converters dependencies 
-# already installed.
+use strict;
 
 # getContextAttributeHash() takes context/notContext attribute values from 
 # DictionaryWords.xml and converts them into a hash containing all the 

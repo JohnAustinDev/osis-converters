@@ -7,7 +7,7 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
-  <import href="./functions/functions.xsl"/>
+  <import href="./common/functions.xsl"/>
   
   <!-- By default copy everything as is, for all modes -->
   <template mode="#all" match="node()|@*">

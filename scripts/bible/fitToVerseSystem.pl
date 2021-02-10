@@ -676,7 +676,7 @@ sub correctReferencesVSYS {
         }
       }
     }
-    #use Data::Dumper; &Debug("attribs = ".Dumper(\%attribs)."\n", 1);
+    #&Debug("attribs = ".Dumper(\%attribs)."\n", 1);
     
     $count += &applyMaps(\%attribs, $name_osisXML, \%logH);
 
@@ -846,7 +846,7 @@ sub getAltVersesOSIS {
       $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'fixed2Fitted'}{$fixed} = $DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}{'source2Fitted'}{$source};
     }
     
-    use Data::Dumper; &Debug("getAltVersesOSIS = ".Dumper(\%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}})."\n", 1);
+    &Debug("getAltVersesOSIS = ".Dumper(\%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}})."\n", 1);
   }
   
   return \%{$DOCUMENT_CACHE{$mod}{'getAltVersesOSIS'}};

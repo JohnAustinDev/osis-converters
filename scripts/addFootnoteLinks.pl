@@ -20,7 +20,7 @@ use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $FNREFSTART, $FNREFEND, $FNREFEXT);
+our ($XPC, $XML_PARSER);
 
 # POSSIBLE COMMAND FILE SETTINGS:
 #
@@ -69,6 +69,10 @@ my %TERM_ORDINAL;
 my %FNL_STATS;
 my %FNL_LINKS;
 my $OSISREFWORK;
+
+our $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
+our $FNREFEND = "</reference>";
+our $FNREFEXT = "note.n";
 
 sub runAddFootnoteLinks {
   my $commandFile = shift;

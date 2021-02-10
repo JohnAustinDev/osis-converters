@@ -20,7 +20,7 @@ my $OPTYPE  = @ARGV[4];
 my $IPTYPE  = @ARGV[5];
 my $COVER   = @ARGV[6];
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){4}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 

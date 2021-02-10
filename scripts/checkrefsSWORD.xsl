@@ -15,7 +15,7 @@
   an error is generated. When DICTMOD is checked, all keywords will be 
   checked for uniqueness, which is a requirement of SWORD. -->
  
-  <import href="./functions/functions.xsl"/>
+  <import href="./common/functions.xsl"/>
   
   <output method="text"/><!-- this xsl only checks references and outputs nothing -->
  

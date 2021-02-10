@@ -10,7 +10,7 @@
   
   <!-- This stylesheet decodes osisIDs into utf8 for Children's Bible SWORD import -->
  
-  <import href="../../functions/functions.xsl"/>
+  <import href="../../common/functions.xsl"/>
   
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>

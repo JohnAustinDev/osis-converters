@@ -19,8 +19,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($KEYWORD, $DEFAULT_DICTIONARY_WORDS, 
-   $DICTIONARY_WORDS, $XML_PARSER, $XPC);
+our ($DEFAULT_DICTIONARY_WORDS, $DICTIONARY_WORDS, $XML_PARSER, $XPC);
 
 my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
 
@@ -56,7 +55,7 @@ sub runAddSeeAlsoLinks {
       my $resAP = &searchForGlossaryLinks($textNode);
     }
     
-    my @keywords = $XPC->findnodes("//$KEYWORD", $xml);
+    my @keywords = $XPC->findnodes("//osis:seg[\@type='keyword']", $xml);
     &checkCircularEntryCandidates(\@keywords);
    
     &writeXMLFile($xml, $osisP);
@@ -99,7 +98,7 @@ sub checkCircularEntryCandidates {
     my @allTextNodes = $XPC->findnodes("following::text()", $kw);
     my $i;
     for ($i=0; $i<@allTextNodes; $i++) {
-      if ($XPC->findnodes("./parent::$KEYWORD", @allTextNodes[$i])) {last;}
+      if ($XPC->findnodes("./parent::osis:seg[\@type='keyword']", @allTextNodes[$i])) {last;}
       my @tge = $XPC->findnodes('./ancestor::osis:div[@type="glossary"][1]', @allTextNodes[$i]);
       if (!@tge || !@tge[0] || !@tge[0]->isSameNode($glossaryElement)) {last;}
     }
@@ -109,7 +108,7 @@ sub checkCircularEntryCandidates {
     my $single_osisRef = 0;
     foreach my $t (@allTextNodes) {
       my $e = $t->parentNode();
-      if ($XPC->findnodes("self::$KEYWORD", $e)) {next;}
+      if ($XPC->findnodes("self::osis:seg[\@type='keyword']", $e)) {next;}
       $text .= $t->data;
       if ($e->localName eq 'reference' && $e->getAttribute('type') eq 'x-glosslink') {
         my $osisRef = $e->getAttribute('osisRef');

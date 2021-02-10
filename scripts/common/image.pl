@@ -16,6 +16,8 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
+
 # All code here is expected to be run on a Linux Ubuntu 14 to 18 or 
 # compatible operating system having all osis-converters dependencies 
 # already installed.

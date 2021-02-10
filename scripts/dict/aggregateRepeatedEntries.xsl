@@ -38,7 +38,7 @@
   tions, ie SWORD, will use the GLO version, and normal serial implenta-
   tions, ie eBooks and HTML, will use the full formatted version. -->
  
-  <import href="../functions/functions.xsl"/>
+  <import href="../common/functions.xsl"/>
   
   <param name="TOC" select="oc:conf('TOC', /)"/>
 

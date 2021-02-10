@@ -34,7 +34,7 @@ if [ ! `which calibre` ]; then
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
   #sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=3.48.0
+  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=4.23.0
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 

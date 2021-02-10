@@ -17,7 +17,6 @@
 # <http://www.gnu.org/licenses/>.
 
 use strict;
-use Encode;
 
 # Limit any section of Perl code to use by one thread at a time:
 #

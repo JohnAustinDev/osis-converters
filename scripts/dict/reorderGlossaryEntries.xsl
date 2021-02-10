@@ -9,7 +9,7 @@
   <!-- This XSLT will find all glossaries matching glossaryRegex and 
   re-order their keywords according to KeySort -->
 
-  <import href="../functions/functions.xsl"/>
+  <import href="../common/functions.xsl"/>
   
   <param name="glossaryRegex" select="oc:sarg('glossaryRegex', /, '')"/>
   

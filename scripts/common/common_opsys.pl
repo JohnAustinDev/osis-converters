@@ -17,34 +17,23 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-
 # This script might be loaded on any operating system. So code here
 # should be as operating system agnostic as possible and should not 
 # rely on non-standard Perl modules. The functions in this file are
 # required for bootstrapping osis-converters.
 
 use strict;
-use Encode;
-use File::Copy;
-use File::Spec;
 
-# Initialized in entry script
-our ($SCRIPT, $SCRD);
+our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD, 
+    $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
+    $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
+    $VAGRANT);
 
 our $WRITELAYER  =  ">:encoding(UTF-8)";
 our $APPENDLAYER = ">>:encoding(UTF-8)";
 our $READLAYER   =  "<:encoding(UTF-8)";
 # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
 if (&runningInVagrant()) {$READLAYER .= ":crlf";} 
-
-our (@SUB_PUBLICATIONS, $LOGFILE, $SCRIPT_NAME, $CONFFILE, $CONF, $CONFSRC,
-     $MOD, $INPD, $MAINMOD, $DICTMOD, $MAININPD, $DICTINPD, $LOGFLAG);
-     
-# Config.conf [system] globals initialized in set_system_globals 
-# (see @OC_SYSTEM_CONFIGS below).
-our ($REPOSITORY, $MODULETOOLS_BIN, $GO_BIBLE_CREATOR, $SWORD_BIN, 
-  $OUTDIR, $FONTS, $COVERS, $EBOOKS, $DEBUG, $NO_OUTPUT_DELETE, 
-  $VAGRANT, $NO_FORKS);
   
 # Config.conf sections
 our @CONFIG_SECTIONS = (
@@ -379,6 +368,7 @@ $ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features 
 our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
+our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 our $ONS = "xmlns='$OSIS_NAMESPACE'";
 our $TNS = "xmlns='$TEI_NAMESPACE'";
 
@@ -583,7 +573,7 @@ sub readSetCONF {
     }
   }
   
-  #use Data::Dumper; &Debug(Dumper($CONF)."\n");
+  #&Debug(Dumper($CONF)."\n");
   return 1;
 }
 
@@ -612,7 +602,7 @@ sub readConf {
     "Specify the module name in config.conf like this: [$MAINMOD]", 1);
   }
 
-  #use Data::Dumper; &Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
+  #&Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
   
   if ($confsrcA) {$$confsrcA = \%f1;}
   return \%c1;
@@ -755,7 +745,7 @@ sub readConfFile {
   }
   close(XCONF);
 
-  #use Data::Dumper; &Log(Dumper(\%conf)."\n", 1);
+  #&Log(Dumper(\%conf)."\n", 1);
   return $confP;
 }
 
@@ -1303,7 +1293,6 @@ sub ErrorBug {
   
   &Log("\nERROR (UNEXPECTED): $errmsg\n", 1);
   
-  use Carp qw(longmess);
   &Log(&longmess());
   
   &Log("Report the above unexpected error to osis-converters maintainer.\n\n");

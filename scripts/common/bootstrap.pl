@@ -20,8 +20,8 @@
 # This script might be run on Linux, MS-Windows, or MacOS operating systems.
 
 # This is the starting point for all osis-converter scripts. Global 
-# variables are initialized, the operating system is checked and a Linux 
-# VM is utilized with Vagrant if necessary, and finally init_linux_script() 
+# variables are initialized, the operating system is checked (and a Linux 
+# VM is utilized with Vagrant if necessary) and finally init_linux_script() 
 # is run to initialize the osis-converters script.
 
 # Scripts are usually called the following way, having N replaced 
@@ -31,15 +31,32 @@
 # script's absolute path, and it must work on both host opsys and 
 # Vagrant and the osis-converters installation directory name is 
 # unknown):
-# use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){N}$//; require "$SCRD/scripts/bootstrap.pl"; &init(shift, shift);
+# use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){N}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 use strict;
+use Carp qw(longmess);
+use Cwd;
+use Data::Dumper;
+use DateTime;
+use Encode;
+use File::Copy;
+use File::Find;
+use File::Path qw(make_path remove_tree);
 use File::Spec;
+use HTML::Entities;
+use Net::Ping;
+use Sword;
+use Try::Tiny;
+use Unicode::Normalize;
+use XML::LibXML;
 
-# Initialized in entry script
+select STDERR; $| = 1;  # make unbuffered
+select STDOUT; $| = 1;  # make unbuffered
+
+# Must be initialized in entry script:
 our ($SCRIPT, $SCRD);
 
-require "$SCRD/scripts/common_opsys.pl";
+require "$SCRD/scripts/common/common_opsys.pl";
 
 sub init() {
   my $inpd = shift; # project directory
@@ -60,7 +77,7 @@ sub init() {
   
   # From here on out we're always running on a provisioned Linux system
   # (either natively or as a VM).
-  require "$SCRD/scripts/functions/common.pl";
+  require "$SCRD/scripts/common/common.pl";
   
   &init_linux_script();
   &DebugListVars('OUTDIR', 'MOD_OUTDIR', 'TMPDIR', 'LOGFILE', 'SCRIPT_NAME');

@@ -9,7 +9,7 @@
  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
  exclude-result-prefixes="#all">
  
-  <import href="./functions/functions.xsl"/>
+  <import href="./common/functions.xsl"/>
   
   <param name="TMPDIR"/>
   

@@ -9,7 +9,7 @@
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
-  <xsl:import href="../functions/functions.xsl"/>
+  <xsl:import href="../common/functions.xsl"/>
  
   <!-- TRANSFORM A BIBLE OSIS FILE, AND ITS REFERENCE FILES, INTO AN FB2 FILE
   To run this transform from the command line: 

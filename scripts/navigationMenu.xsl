@@ -29,7 +29,7 @@
        keywords when necessary).
   -->
  
-  <import href="./functions/functions.xsl"/>
+  <import href="./common/functions.xsl"/>
  
   <!-- Is this OSIS file an x-bible (not a Children's Bible or dict)? -->
   <variable name="isBible" select="/osis/osisText/header/work[@osisWork = /osis/osisText/@osisIDWork]/type[@type='x-bible']"/>

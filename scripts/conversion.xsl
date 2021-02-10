@@ -13,7 +13,7 @@
   multi-target references referencing removed keyword osisIDs, and an 
   error is generated if keyword removal results in broken links. -->
   
-  <import href="./functions/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
+  <import href="./common/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
   <param name="conversion" as="xs:string"/>
   

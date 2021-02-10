@@ -10,7 +10,7 @@
  
   <!-- This XSLT writes a default (initial) DictionaryWords.xml file for a glossary OSIS file -->
  
-  <import href="../functions/functions.xsl"/>
+  <import href="../common/functions.xsl"/>
   
   <param name="anyEnding" select="oc:sarg('anyEnding', /, 'false')"/>
   

@@ -1046,6 +1046,32 @@ sub copyCoverTo {
   return $result;
 }
 
+# Copy fontname (which is part of a filename which may correspond to multiple
+# font files) to fontdir 
+sub copyFont {
+  my $fontname = shift;
+  my $fontdir = shift;
+  my $fontP = shift;
+  my $outdir = shift;
+  my $dontRenameRegularFile = shift;
+  
+  &Log("\n--- COPYING font \"$fontname\"\n");
+  
+  $outdir =~ s/\/\s*$//;
+  `mkdir -p "$outdir"`;
+  
+  my $copied = 0;
+  foreach my $f (sort keys %{$fontP->{$fontname}}) {
+    my $fdest = $f;
+    if (!$dontRenameRegularFile && $fontP->{$fontname}{$f}{'style'} eq 'regular') {
+      $fdest =~ s/^.*\.([^\.]+)$/$fontname.$1/;
+    }
+    &copy("$fontdir/$f", "$outdir/$fdest");
+    $copied++;
+    &Note("Copied font file $f to \"$outdir/$fdest\"");
+  }
+}
+
 sub makeHTML {
   my $tmp = shift;
   my $cover = shift;
@@ -1308,7 +1334,7 @@ sub copyFunctionsXSL {
   
   no strict "refs";
   
-  my $file = "$SCRD/scripts/functions/functions.xsl";
+  my $file = "$SCRD/scripts/common/functions.xsl";
   my $name = $file; $name =~ s/^.*\///;
   my $c = 0;
   if (open(FUNC, $READLAYER, $file)) {

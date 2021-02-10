@@ -38,7 +38,7 @@ while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 # Initialize osis-converters
 our $LOGFLAG = 3; # hide the fork's startup noise from the console and log file
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 our $LOGFLAG = undef;
 
 require("$SCRD/scripts/forks/fork_funcs.pl");

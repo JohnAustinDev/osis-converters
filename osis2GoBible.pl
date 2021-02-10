@@ -31,7 +31,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
@@ -71,7 +71,7 @@ my %results;
 
 my @a; push(@a, (sort keys %{$collectionsP}));
 foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
-#use Data::Dumper; &Log("type=$type\n".Dumper($collectionsP)."\n", 1);
+#&Log("type=$type\n".Dumper($collectionsP)."\n", 1);
 
 # Make 'simple' character set, using the collections arrived at by 'normal'
 &makeGoBibles('simple', "$TMPDIR/simple", $collectionsP, 0, \%results);
