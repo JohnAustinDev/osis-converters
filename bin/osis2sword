@@ -25,7 +25,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
@@ -46,13 +46,13 @@ my %params = (
   'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
   'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
 );
-&LogXSLT(&runScript("$SCRD/scripts/osis2sword.xsl", \$INOSIS, \%params, 3));
+&LogXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params, 3));
 
 &usePngIfAvailable(\$INOSIS);
 
 if ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
-  &runScript("$SCRD/scripts/genbook/childrens_bible/genbook2sword.xsl", \$INOSIS);
+  &runScript("$SCRD/lib/genbook/sword.xsl", \$INOSIS);
 }
 
 # Apply CrossWire ModuleTools osis2sword.xsl
@@ -111,7 +111,7 @@ else {
 }
 if (%params) {
   $params{'moduleFiles'} = join('|', @{$imgsAP});
-  my $msg = &runXSLT("$SCRD/scripts/checkrefsSWORD.xsl", $OSIS_OR_TEI, undef, \%params);
+  my $msg = &runXSLT("$SCRD/lib/checkrefsSWORD.xsl", $OSIS_OR_TEI, undef, \%params);
   my $err = () = $msg =~ /ERROR/g;
   &Report("Found $err problem(s) with links of $MAINMOD".($DICTMOD ? " and $DICTMOD":'').".\n");
 }

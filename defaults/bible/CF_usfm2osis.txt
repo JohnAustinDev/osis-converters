@@ -1,15 +1,9 @@
-# See /scripts/usfm2osis.pl for more command file documentation
+# See /lib/usfm2osis.pm for more command file documentation
 
 # Use with CF_osis2osis.txt to provide the source module whose OSIS file 
 # will be used as the starting point for the convsersion. This is used 
 # when producing multiple modules with different scripts.
 #SET_sourceProject:MODNAME
-
-# Use when one conversion should start another upon completion. This will 
-# chain multiple projects together so that sfm2all converts them each 
-# in sequence. This is used when producing multiple modules with 
-# different scripts.
-#sfm2all_RUN:MODNAME
 
 # Use when a punctuation character should be treated as a letter.
 #PUNC_AS_LETTER:'`

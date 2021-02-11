@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
 # 
-# Copyright 2012 John Austin (gpl.programs.info@gmail.com)
+# Copyright 2015 John Austin (gpl.programs.info@gmail.com)
 #     
 # "osis-converters" is free software: you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License as 
@@ -17,27 +17,14 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: sfm2osis [Project_Directory]
+# usage: defaults [Project_Directory]
+ 
+# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
+# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-require("$SCRD/lib/usfm2osis.pm");
-require("$SCRD/lib/process.pm");
 
-our ($INPD, $TMPDIR, $NO_OUTPUT_DELETE);
-our $OSIS = "$TMPDIR/00_usfm2osis.xml";
-
-my $commandFile = "$INPD/CF_usfm2osis.txt";
-if (! -e $commandFile) {
-  &Error("Cannot run sfm2osis unless there is a CF_usfm2osis.txt command file located at $INPD.", 
-  "To run sfm2osis, first run 'update' to create a default CF_usfm2osis.txt file.", 1);
-}
-&usfm2osis($commandFile, $OSIS);
-&processOSIS($OSIS);
-
-if ($NO_OUTPUT_DELETE) {
-  # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by process.pm
-  # YOUR DEBUG CODE GOES HERE
-}
+# &init(shift, shift) with $SCRIPT_NAME =~ /defaults/ will update control files and create missing default control files
 
 &timer('stop');
 

@@ -1,4 +1,4 @@
-# See /scripts/usfm2osis.pl for more command file documentation
+# See /lib/usfm2osis.pm for more command file documentation
 
 # Use when a punctuation character should be treated as a letter.
 #PUNC_AS_LETTER:'`

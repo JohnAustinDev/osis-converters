@@ -17,18 +17,20 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 our ($INPD, $LOGFILE);
 
-# Two scripts are run in succession to convert OSIS files from one proj-
-# ect into those of another. The osis2osis script runs the CF_osis-
-# 2osis.txt file and applies the CC instructions, which may also create
-# a project config.conf where there was none before. Therefore, a sec-
-# ond osis2osis.pl script starts over, using the new config.conf, and 
-# then applies the CCOSIS instructions to complete the conversion.
+# The osis2osis initialization calls runCF_osis2osis('preinit') which 
+# reads the CF_osis2osis.txt file and applies the CC instructions, also 
+# perhaps creating a project config.conf where there was none before. 
+# Then the osis2osis() functions below re-initializes osis-converters, 
+# which calls &runCF_osis2osis('postinit') using the updated config.conf, 
+# and then applies the CCOSIS instructions, completing the conversion.
 
-&osis_converters("$SCRD/scripts/osis2osis/osis2osis.pl", $INPD);
+require("$SCRD/lib/osis2osis.pm");
+
+&osis2osis($INPD, $LOGFILE);
 
 &timer('stop');
 

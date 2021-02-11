@@ -31,7 +31,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
@@ -47,7 +47,7 @@ my $GOBIBLE = "$INPD/GoBible";
 
 &runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
 
-&runScript("$SCRD/scripts/osis2sourceVerseSystem.xsl", \$INOSIS);
+&runScript("$SCRD/lib/sourceVerseSystem.xsl", \$INOSIS);
 
 # Remove navigation menus
 my $INXML = $XML_PARSER->parse_file($INOSIS);

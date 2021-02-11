@@ -26,7 +26,7 @@
 
 use strict;
 
-use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 our ($MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
@@ -46,7 +46,7 @@ close(INF);
 
 &Log("\nOUTPUT FILES CREATED:\n", 1);
 &Log("OUTDIR/DictionaryWords.xml\n", 1);
-&Log("OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml (the old addSeeAlsoLinks.pl 
+&Log("OUTDIR/DictionaryWords_SeeAlsoBackwardCompatible.xml (the old addSeeAlsoLinks.pm 
 implementation never allowed wildcard endings even if they were specified 
 in DictionaryWords.txt, so this file emulates that behaviour such that 
 new SeeAlso links may still match the old)\n", 1);
