@@ -27,12 +27,13 @@ our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $OUTOSIS, $XPC, $XML_PARSER,
 # Initialized in /scripts/usfm2osis.pl
 our ($sourceProject);
 
-require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/addFootnoteLinks.pl");
-require("$SCRD/scripts/bible/addDictLinks.pl");
-require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
-require("$SCRD/scripts/bible/addCrossRefs.pl");
+require("$SCRD/scripts/addScripRefLinks.pl");
 require("$SCRD/scripts/applyPeriphInstructions.pl");
+require("$SCRD/scripts/bible/addCrossRefs.pl");
+require("$SCRD/scripts/bible/addDictLinks.pl");
+require("$SCRD/scripts/bible/fitToVerseSystem.pl");
+require("$SCRD/scripts/dict/addSeeAlsoLinks.pl");
 
 # This script expects a usfm2osis.py produced OSIS input file
 sub processOSIS {
@@ -150,7 +151,7 @@ file to convert footnote references in the text into working hyperlinks.");}
   # Parse glossary references from Bible and Dict modules 
   if ($DICTMOD && $modType eq 'bible' && &conf('AddDictLinks')) {
     if (!$hasDWF || ! -e "$INPD/$DICTIONARY_WORDS") {
-      &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis.pl on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
+      &Error("A $DICTIONARY_WORDS file is required to run addDictLinks.pl.", "First run sfm2osis on the companion module \"$DICTMOD\", then copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
     }
     else {&runAddDictLinks(\$OSIS);}
   }
@@ -239,7 +240,7 @@ RUN:./INT.SFM");
 }
 
 
-# This script expects a sfm2osis.pl produced OSIS input file
+# This script expects a sfm2osis produced OSIS input file
 sub reprocessOSIS {
   my $modname = shift;
   my $sourceProject = shift;

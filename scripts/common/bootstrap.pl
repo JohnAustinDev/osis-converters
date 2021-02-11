@@ -111,7 +111,7 @@ sub set_configuration_globals {
     $LOGFILE =~ s/\\/\//g;
   }
 
-  our $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)\.[^\/\.]+$/$1/;
+  our $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)(\.[^\/\.]+)?$/$1/;
   # Global $forkScriptName will only be set when running in fork.pl, in  
   # which case SCRIPT_NAME is inherited for &conf() values to be correct.
   if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
@@ -153,7 +153,7 @@ sub set_configuration_globals {
 
   # Allow running MAININPD-only scripts from a DICT sub-project
   if ($INPD eq $DICTINPD && 
-    $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2GoBible)\.pl$/) {
+    $SCRIPT =~ /\/(sfm2all|update|osis2ebooks|osis2html|osis2gobible)$/) {
     $INPD = $MAININPD;
     $MOD = $MAINMOD;
   }
@@ -171,7 +171,7 @@ sub set_configuration_globals {
     &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
   "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 
   should still be placed in the main module directory. If you want to run 
-  sfm2osis.pl on the main module, then ALSO include a CF_usfm2osis.txt 
+  sfm2osis on the main module, then ALSO include a CF_usfm2osis.txt 
   file in the main module directory.", 1);
   }
   

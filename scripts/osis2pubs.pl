@@ -433,7 +433,7 @@ body {font-family: font1;}
       }
     }
     else {&Error("OSIS file for dictionary module $DICTMOD could not be found.", 
-"Run sfm2osis.pl on the dictionary module, to create an OSIS 
+"Run sfm2osis on the dictionary module, to create an OSIS 
 file for it, and then run this script again.");}
     
     $CONV_REPORT{$pubName}{'Glossary'} = $DICTMOD;
@@ -1039,7 +1039,7 @@ sub copyCoverTo {
     }
     $result = $source;
   }
-  else {&Error("Cover image $source does not exist!", "Add the cover image to the path, or try re-running sfm2osis.pl to retrive cover images.");}
+  else {&Error("Cover image $source does not exist!", "Add the cover image to the path, or try re-running sfm2osis to retrive cover images.");}
   
   &Log("\n--- COPYING COVER IMAGE $source\n", 1);
   

@@ -17,12 +17,12 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: update.pl [Project_Directory]
+# usage: update [Project_Directory]
  
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 # &init(shift, shift) with $SCRIPT_NAME =~ /update/ will update control files and create missing default control files
 

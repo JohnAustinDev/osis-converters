@@ -6,7 +6,7 @@
 #SET_sourceProject:MODNAME
 
 # Use when one conversion should start another upon completion. This will 
-# chain multiple projects together so that sfm2all.pl converts them each 
+# chain multiple projects together so that sfm2all converts them each 
 # in sequence. This is used when producing multiple modules with 
 # different scripts.
 #sfm2all_RUN:MODNAME

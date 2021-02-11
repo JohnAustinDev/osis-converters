@@ -66,7 +66,7 @@ sub usfm2osis {
   my $cf = shift;
   my $osis = shift;
   
-  &Log("CONVERTING USFM TO OSIS: usfm2osis.pl\n-----------------------------------------------------\n\n", 1);
+  &Log("CONVERTING USFM TO OSIS: usfm2osis\n-----------------------------------------------------\n\n", 1);
 
   open(COMF, $READLAYER, $cf) || die "Could not open usfm2osis command file $cf\n";
 

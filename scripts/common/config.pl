@@ -205,7 +205,7 @@ sub getSwordConf {
   my $moddrv = $swordConf{"$MOD+ModDrv"};
   if (!$moddrv) {
 		&Error("No ModDrv specified in $moduleSource.", 
-    "Update the OSIS file by re-running sfm2osis.pl.", '', 1);
+    "Update the OSIS file by re-running sfm2osis.", '', 1);
 	}
   
 	my $dp;

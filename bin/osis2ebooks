@@ -17,27 +17,28 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2html.pl [Project_Directory]
+# usage: osis2ebooks [Project_Directory]
 
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 require "$SCRD/scripts/osis2pubs.pl";
-&osis2pubs('html');
+&Log("\nUsing ".`calibre --version`);
+&osis2pubs('eBook');
 
-&timer('stop');
+&timer('stop'); &Log("\nend time: ".localtime()."\n");
 
-#if (-e "$TMPDIR/OUT_osis2html.txt") {
+#if (-e "$TMPDIR/OUT_osis2eBooks.txt") {
 #  &Log("
 #
 #
 #
 #
 #------------------------------------------------------------------------
-#                      HTML DETAIL LOG:
+#                      EBOOK DETAIL LOG:
 #------------------------------------------------------------------------");
-#  &shell("cat \"$TMPDIR/OUT_osis2html.txt\"");
+#  &shell("cat \"$TMPDIR/OUT_osis2eBooks.txt\"");
 #}
 
 1;

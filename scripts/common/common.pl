@@ -30,8 +30,6 @@ our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code p
 our $UPPERCASE_DICTIONARY_KEYS = 1;
 our $SFM2ALL_SEPARATE_LOGS = 1;
     
-require("$SCRD/scripts/bible/getScope.pl");
-require("$SCRD/scripts/bible/fitToVerseSystem.pl");
 require("$SCRD/scripts/common/block.pl");
 require("$SCRD/scripts/common/cb.pl");
 require("$SCRD/scripts/common/config.pl");
@@ -44,6 +42,7 @@ require("$SCRD/scripts/common/init.pl");
 require("$SCRD/scripts/common/osis.pl");
 require("$SCRD/scripts/common/osisID.pl");
 require("$SCRD/scripts/common/refs.pl");
+require("$SCRD/scripts/common/scope.pl");
 require("$SCRD/scripts/common/scripts.pl");
 require("$SCRD/scripts/common/split.pl");
 require("$SCRD/scripts/common/toc.pl");
@@ -695,9 +694,9 @@ sub temporaryFile {
   
   my $dir = $path;
   my $file = ($dir =~ s/^(.*?)\/([^\/]+)$/$1/ ? $2:'');
-  if (!$file) {&ErrorBug("Could not parse temporaryFile file $path", 1);}
+  if (!$file) {&ErrorBug("Could not parse temporaryFile file: '$path'", 1);}
   my $ext = ($file =~ s/^(.*?)\.([^\.]+)$/$1/ ? $2:'');
-  if (!$ext) {&ErrorBug("Could not parse temporaryFile ext $path", 1);}
+  if (!$ext) {&ErrorBug("Could not parse temporaryFile ext: '$path'", 1);}
   
   opendir(TDIR, $TMPDIR) || &ErrorBug("Could not open temporaryFile dir $TMPDIR", 1);
   my @files = readdir(TDIR);

@@ -132,7 +132,7 @@ sub runCF_osis2osis {
       my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
       if ($O2O_CurrentContext ne 'postinit') {next;}
       
-      # Since osis2osis.pl is run separately for MAINMOD and DICTMOD,
+      # Since osis2osis is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 
       if ($MOD ne $osis || $NO_OUTPUT_DELETE) {next;}
       

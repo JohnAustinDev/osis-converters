@@ -3,7 +3,7 @@
 # Run specified conversions for every project, as quickly as possible
 
 # Bootstrap osis-converters so project config files can be read.
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl";
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl";
 
 use threads;
 use threads::shared;
@@ -26,7 +26,7 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'osis2html'}{'CreateSeparatePubs'} = 'false';
 #$CONFIG{'osis2html'}{'CreateSeparateBooks'} = 'first';
 #$CONFIG{'osis2sword'}{'ARG_sfm2all_skip'} = 'true';
-#$CONFIG{'osis2GoBible'}{'ARG_sfm2all_skip'} = 'true';
+#$CONFIG{'osis2gobible'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2html'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'osis2ebooks'}{'ARG_sfm2all_skip'} = 'true';
 #$CONFIG{'MAINMOD'}{'AddScripRefLinks'} = 'false';
@@ -37,13 +37,8 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 
 my $SKIP = '^(none)$'; # skip particular modules or sub-modules
 
-if ($0 ne "./projects.pl") {
-  print "\nRun this script from the osis-converters directory.\n";
-  exit;
-}
-
 # path to directory containing osis-converters projects
-my $PRJDIR = shift;
+my $PRJDIR = shift; if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
 
 # regex matching modules to run
 my $MODRE = shift;
@@ -56,7 +51,7 @@ my $MAXTHREADS = shift;
 
 if (!$MODRE) {$MODRE = 'all';}
 if (!$CONVERSIONS) {$CONVERSIONS = 'osis';}
-if ($CONVERSIONS !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2GoBible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2GoBible|sfm2all)$/) {
+if ($CONVERSIONS !~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2gobible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2gobible|sfm2all)$/) {
   print "Unrecognzed script argument: $CONVERSIONS\n";
   $CONVERSIONS = '';
 }
@@ -71,24 +66,23 @@ if ( !$PRJDIR || !-e $PRJDIR ||
      !$MAXTHREADS || $MAXTHREADS != (1*$MAXTHREADS) 
    ) {
   print "
-usage: projects.pl projects_directory [module_regex] [script] [max_threads]
+usage: projects projects_directory [module_regex] [script] [max_threads]
 
-projects_directory: The relative path from this script's directory to 
-                    a directory containing osis-converters projects.
+projects_directory: The path of a directory containing osis-converters 
+                    projects.
 module_regex      : A regex matching modules to run, or 'all'. Default 
                     is 'all'.
 script            : The conversion(s) to run on each project. Default 
                     is osis (which will run sfm2osis or osis2osis 
                     depending on the project). The other options are 
                     sfm2osis, osis2osis, osis2sword, osis2html, 
-                    osis2ebooks, osis2GoBible, osis2all sfm2sword, 
-                    sfm2html, sfm2ebooks, sfm2GoBible and sfm2all.
+                    osis2ebooks, osis2gobible, osis2all sfm2sword, 
+                    sfm2html, sfm2ebooks, sfm2gobible and sfm2all.
 max_threads       : The number of threads to use. Default is the number 
                     of CPUs.
 ";
   exit;
 }
-$PRJDIR =~ s/\/$//;
 
 my %PRINTED;
 my $MYLOG = "$PRJDIR/OUT_projects.txt";
@@ -333,7 +327,7 @@ sub getScriptsToRun {
   my @run;
   
   # Certain module types have a limited set of scripts that can be run on them.
-  my @bible = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword', 'osis2html', 'osis2ebooks', 'osis2GoBible');
+  my @bible = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword', 'osis2html', 'osis2ebooks', 'osis2gobible');
   my @dict = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword');
   my @childrensBible = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword', 'osis2html', 'osis2ebooks');
   my @commentary = ('sfm2osis', 'osis2osis', 'osis', 'osis2sword'); # never tried!: 'osis2html', 'osis2ebooks';
@@ -432,7 +426,7 @@ sub setDependencies {
           $deps{&osisScript($main).' '.$main}++;
         }
       }
-      elsif ($s =~ /^(osis2GoBible)$/) {
+      elsif ($s =~ /^(osis2gobible)$/) {
         # these depend only on their OSIS file
         $deps{&osisScript($m).' '.$m}++;
       }
@@ -483,7 +477,7 @@ sub runScript {
   my $dict = ($p =~ s/DICT$// ? $p.'DICT':'');
   my $path = $pdir.'/'.$p.($dict ? '/'.$dict:'');
   
-  my $cmd = "./$script.pl \"$path\"";
+  my $cmd = "$SCRD/bin/$script \"$path\"";
   print "Started: $cmd\n";
   my $result = decode('utf8', `$cmd  2>&1`);
 

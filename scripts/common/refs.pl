@@ -160,7 +160,7 @@ else this is a problem with the source text:
   }
   else {
     $problems++;
-    &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis.pl on $MAINMOD to generate an OSIS file.");
+    &Error("Cannot check Scripture reference targets because unable to locate $MAINMOD.xml.", "Run sfm2osis on $MAINMOD to generate an OSIS file.");
   }
   
   if ($osis && $changes) {&writeXMLFile($osis, $in_osis);}

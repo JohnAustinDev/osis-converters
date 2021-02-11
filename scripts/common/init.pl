@@ -45,7 +45,7 @@ sub init_linux_script {
   # If appropriate, do either runCF_osis2osis(preinit) OR 
   # checkAndWriteDefaults(), but never both, since osis2osis also 
   # creates input control files.
-  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT =~ /(?<!osis2osis)\/(osis2osis|sfm2all)\.pl$/) {
+  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT =~ /(?<!osis2osis)\/(osis2osis|sfm2all)$/) {
     require("$SCRD/scripts/osis2osis/functions.pl");
     &runCF_osis2osis('preinit');
     our $MOD_OUTDIR = &getModuleOutputDir();
@@ -78,7 +78,7 @@ sub init_linux_script {
   
   if (!-e $CONFFILE) {
     &Error("There is no config.conf file: \"$CONFFILE\".", 
-    "\"$INPD\" may not be an osis-converters project directory. If it is, then run update.pl to create a config.conf file.\n", 1);
+    "\"$INPD\" may not be an osis-converters project directory. If it is, then run 'update' to create a config.conf file.\n", 1);
   }
   
   $MOD_OUTDIR = &getModuleOutputDir();
@@ -344,7 +344,7 @@ sub initInputOutputFiles {
     $OUTZIP = "$modOutdir/$sub.zip"; push(@outs, $OUTZIP);
     $SWOUT = "$modOutdir/sword"; push(@outs, $SWOUT);
   }
-  if ($script_name =~ /^osis2GoBible$/) {
+  if ($script_name =~ /^osis2gobible$/) {
     $GBOUT = "$modOutdir/GoBible/$sub"; push(@outs, $GBOUT);
   }
   if ($script_name =~ /^osis2ebooks$/) {
@@ -354,13 +354,13 @@ sub initInputOutputFiles {
     $HTMLOUT = "$modOutdir/html"; push(@outs, $HTMLOUT);
   }
 
-  if ($script_name =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/) {
+  if ($script_name =~ /^(osis2sword|osis2gobible|osis2ebooks|osis2html)$/) {
     if (-e "$modOutdir/$sub.xml") {
       &copy("$modOutdir/$sub.xml", "$tmpdir/$sub.xml");
       $INOSIS = "$tmpdir/$sub.xml";
     }
     else {
-      &ErrorBug("$script_name.pl cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", 1);
+      &ErrorBug("$script_name cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", 1);
     }
   }
 

@@ -29,7 +29,7 @@ sub getOsisModName {
     my $modname = $node; # node is not a ref() so it's a modname
     if (!$DOCUMENT_CACHE{$modname}) {
       our $OSIS;
-      my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2GoBible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
+      my $osis = ($SCRIPT_NAME =~ /^(osis2sword|osis2gobible|osis2ebooks|osis2html)$/ ? $INOSIS:$OSIS);
       if (! -e $osis) {&ErrorBug("getOsisModName: No current osis file to read for $modname.", 1);}
       &initDocumentCache($XML_PARSER->parse_file($osis));
       if (!$DOCUMENT_CACHE{$modname}) {&ErrorBug("getOsisModName: header of osis $osis does not include modname $modname.", 1);}

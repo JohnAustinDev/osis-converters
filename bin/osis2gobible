@@ -17,7 +17,7 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: osis2GoBible.pl [Bible_Directory]
+# usage: osis2gobible [Bible_Directory]
 
 # Run this script to create GoBible mobile phone Bibles from an osis 
 # file. The following input files need to be in a 
@@ -31,7 +31,7 @@
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);

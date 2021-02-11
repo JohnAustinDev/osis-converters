@@ -17,12 +17,12 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# usage: sfm2all.pl [Project_Directory]
+# usage: sfm2all [Project_Directory]
  
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
 # CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 our ($READLAYER, $CONFFILE, $MOD, $INPD, $MAININPD, $MAINMOD, $DICTMOD, 
     $LOGFILE, $SFM2ALL_SEPARATE_LOGS);
@@ -56,28 +56,28 @@ foreach my $dir (sort {($modules{$a} =~ /LD/ ? 1:0) <=> ($modules{$b} =~ /LD/ ? 
   my $mod = ($modules{$dir} =~ /LD/ ? $DICTMOD:$MAINMOD);
   if (-e "$dir/CF_usfm2osis.txt") {
     if (&conf('ARG_sfm2all_skip', $mod, 'sfm2osis') ne 'true') {
-      &osis_converters("$SCRD/sfm2osis.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+      &osis_converters("$SCRD/bin/sfm2osis", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
     }
   }
   elsif (&conf('ARG_sfm2all_skip', $mod, 'osis2osis') ne 'true') {
-    &osis_converters("$SCRD/osis2osis.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+    &osis_converters("$SCRD/bin/osis2osis", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $mod, 'osis2sword') ne 'true') {
-    &osis_converters("$SCRD/osis2sword.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+    &osis_converters("$SCRD/bin/osis2sword", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
 }
 
 # create any GoBibles and eBooks
 foreach my $dir (sort keys %modules) {
   if ($modules{$dir} =~ /LD/) {next;}
-  if ($modules{$dir} =~ /Text/ && &conf('ARG_sfm2all_skip', $MAINMOD, 'osis2GoBible') ne 'true') {
-    &osis_converters("$SCRD/osis2GoBible.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+  if ($modules{$dir} =~ /Text/ && &conf('ARG_sfm2all_skip', $MAINMOD, 'osis2gobible') ne 'true') {
+    &osis_converters("$SCRD/bin/osis2gobible", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2html') ne 'true') {
-    &osis_converters("$SCRD/osis2html.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+    &osis_converters("$SCRD/bin/osis2html", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
   if (&conf('ARG_sfm2all_skip', $MAINMOD, 'osis2ebooks') ne 'true') {
-    &osis_converters("$SCRD/osis2ebooks.pl", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
+    &osis_converters("$SCRD/bin/osis2ebooks", $dir, ($SFM2ALL_SEPARATE_LOGS ? '':$LOGFILE));
   }
 }
 
@@ -85,7 +85,7 @@ foreach my $dir (sort keys %modules) {
 my $defDir = ($INPD =~ /DICT\/?\s*$/ ? 'dict':'bible');
 my $CFfile = &getDefaultFile("$defDir/CF_usfm2osis.txt", 1);
 if (!$CFfile) {$CFfile = &getDefaultFile("$defDir/CF_osis2osis.txt", 1);}
-if (!$CFfile) {&Error("The project must have either CF_usfm2osis.txt or CF_osis2osis.txt to run sfm2all.pl", '', 1);}
+if (!$CFfile) {&Error("The project must have either CF_usfm2osis.txt or CF_osis2osis.txt to run sfm2all", '', 1);}
 my $sfm2all_RUN;
 if (open(CF, $READLAYER, $CFfile)) {
   while(<CF>) {if ($_ =~ /^SET_sfm2all_RUN:\s*(.*?)\s*$/) {$sfm2all_RUN = $1; last;}}
@@ -97,7 +97,7 @@ if ($sfm2all_RUN) {
     if ($cp =~ /^\./) {$cp = File::Spec->rel2abs($cp, $INPD);}
     else {$cp = "$MAININPD/../$cp"}
     if (-e $cp) {
-      my $cmd = "\"$SCRD/sfm2all.pl\" \"$cp\"";
+      my $cmd = "\"$SCRD/bin/sfm2all\" \"$cp\"";
       &Log("\n-----------------------------------------------------\nRUNNING $cmd\n\n");
       open(SFM2ALL, "$cmd |");
       while(<SFM2ALL>) {print $_;}

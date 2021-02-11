@@ -17,16 +17,16 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){1}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/scripts/common/bootstrap.pl"; &init(shift, shift);
 
 our ($INPD, $LOGFILE);
 
 # Two scripts are run in succession to convert OSIS files from one proj-
-# ect into those of another. The osis2osis.pl script runs the CF_osis-
+# ect into those of another. The osis2osis script runs the CF_osis-
 # 2osis.txt file and applies the CC instructions, which may also create
-# a project config.conf where there was none before. Therefore, the
-# osis2osis_2.pl script starts over, using the new config.conf, and then
-# applies the CCOSIS instructions to complete the conversion.
+# a project config.conf where there was none before. Therefore, a sec-
+# ond osis2osis.pl script starts over, using the new config.conf, and 
+# then applies the CCOSIS instructions to complete the conversion.
 
 &osis_converters("$SCRD/scripts/osis2osis/osis2osis.pl", $INPD);
 

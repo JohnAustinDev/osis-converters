@@ -177,7 +177,7 @@ sub runAddFootnoteLinks {
   else {
     &Error("Bible OSIS file was not found.", 
 "The addFootnoteLinks script requires that the Bible OSIS file is 
-generated before generating the DICT OSIS file. Run sfm2osis.pl on the 
+generated before generating the DICT OSIS file. Run sfm2osis on the 
 Bible module to generate a valid OSIS file, and then try generating the 
 DICT OSIS file again.");
     return;

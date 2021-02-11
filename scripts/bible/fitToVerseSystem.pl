@@ -19,9 +19,13 @@
 use strict;
 our ($READLAYER, $APPENDLAYER, $WRITELAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
-our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, %ANNOTATE_TYPE, $VSYS_INSTR_RE, 
-    $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, 
-    $SWORD_VERSE_SYSTEMS, $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS, $ONS);
+our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, 
+    %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, 
+    $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, $SWORD_VERSE_SYSTEMS, 
+    $OSIS_NAMESPACE, $OSISBOOKSRE, $SWORD_VERSE_SYSTEMS, $ONS,
+    %ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
+    %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
+    %USFM_DEFAULT_PERIPH_TARGET);
     
 our $VSYS_BOOKGRP_RE  = "(?<bg>".join('|', keys(%OSIS_GROUP)).")(\\[(?<pos>\\d+|$OSISBOOKSRE)\\])?";
 our $VSYS_SINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
@@ -250,87 +254,6 @@ facilitate this, the following maps are provided:
 ------------------------------------------------------------------------
 
 ";
-
-# The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
-our %ID_TYPE_MAP = (
-  # File ID code => <div> type attribute value
-  'FRT' => 'front',
-  'INT' => 'introduction',
-  'BAK' => 'back',
-  'CNC' => 'concordance',
-  'GLO' => 'glossary',
-  'TDX' => 'index',
-  'NDX' => 'gazetteer',
-  'OTH' => 'x-other'
-);
-our %ID_TYPE_MAP_R = reverse %ID_TYPE_MAP;
-
-our %PERIPH_TYPE_MAP = (
-  # Text following \periph => <div> type attribute value
-  'Title Page' => 'titlePage', 
-  'Half Title Page' => 'x-halfTitlePage', 
-  'Promotional Page' => 'x-promotionalPage',
-  'Imprimatur' => 'imprimatur', 
-  'Publication Data' => 'publicationData', 
-  'Foreword' => 'x-foreword', 
-  'Preface' => 'preface',
-  'Table of Contents' => 'tableofContents', 
-  'Alphabetical Contents' => 'x-alphabeticalContents',
-  'Table of Abbreviations' => 'x-tableofAbbreviations', 
-  'Chronology' => 'x-chronology',
-  'Weights and Measures' => 'x-weightsandMeasures', 
-  'Map Index' => 'x-mapIndex',
-  'NT Quotes from LXX' => 'x-ntQuotesfromLXX', 
-  'Cover' => 'coverPage', 
-  'Spine' => 'x-spine', 
-  'Tables' => 'x-tables', 
-  'Verses for Daily Living' => 'x-dailyVerses',
-  'Bible Introduction' => 'introduction', 
-  'Old Testament Introduction' => 'introduction',
-  'Pentateuch Introduction' => 'introduction', 
-  'History Introduction' => 'introduction', 
-  'Poetry Introduction' => 'introduction',
-  'Prophecy Introduction' => 'introduction', 
-  'New Testament Introduction' => 'introduction',
-  'Gospels Introduction' => 'introduction', 
-  'Acts Introduction' => 'introduction', 
-  'Epistles Introduction' => 'introduction',
-  'Letters Introduction' => 'introduction', 
-  'Deuterocanon Introduction' => 'introduction'
-);
-our %PERIPH_TYPE_MAP_R = reverse %PERIPH_TYPE_MAP;
-
-our %PERIPH_SUBTYPE_MAP = (
-  # Text following \periph => <div type=introduction"> subType attribute value
-  'Bible Introduction' => 'x-bible', 
-  'Old Testament Introduction' => 'x-oldTestament',
-  'Pentateuch Introduction' => 'x-pentateuch', 
-  'History Introduction' => 'x-history', 
-  'Poetry Introduction' => 'x-poetry',
-  'Prophecy Introduction' => 'x-prophecy', 
-  'New Testament Introduction' => 'x-newTestament',
-  'Gospels Introduction' => 'x-gospels', 
-  'Acts Introduction' => 'x-acts', 
-  'Epistles Introduction' => 'x-epistles',
-  'Letters Introduction' => 'x-letters', 
-  'Deuterocanon Introduction' => 'x-deuterocanon'
-);
-our %PERIPH_SUBTYPE_MAP_R = reverse %PERIPH_SUBTYPE_MAP;
-
-our %USFM_DEFAULT_PERIPH_TARGET = (
-  'Cover|Title Page|Half Title Page|Promotional Page|Imprimatur|Publication Data|Table of Contents|Table of Abbreviations|Bible Introduction|Foreword|Preface|Chronology|Weights and Measures|Map Index' => 'place-according-to-scope',
-  'Old Testament Introduction' => 'osis:div[@type="bookGroup"][1]/node()[1]',
-  'NT Quotes from LXX' => 'osis:div[@type="bookGroup"][last()]/node()[1]',
-  'Pentateuch Introduction' => 'osis:div[@type="book"][@osisID="Gen" or @osisID="Exod" or @osisID="Lev" or @osisID="Num" or @osisID="Deut"]/node()[1]',
-  'History Introduction' => 'osis:div[@type="book"][@osisID="Josh" or @osisID="Judg" or @osisID="Ruth" or @osisID="1Sam" or @osisID="2Sam" or @osisID="1Kgs" or @osisID="2Kgs" or @osisID="1Chr" or @osisID="2Chr" or @osisID="Ezra" or @osisID="Neh" or @osisID="Esth"]/node()[1]',
-  'Poetry Introduction' => 'osis:div[@type="book"][@osisID="Job" or @osisID="Ps" or @osisID="Prov" or @osisID="Eccl" or @osisID="Song"]/node()[1]',
-  'Prophecy Introduction' => 'osis:div[@type="book"][@osisID="Rev" or @osisID="Isa" or @osisID="Jer" or @osisID="Lam" or @osisID="Ezek" or @osisID="Dan" or @osisID="Hos" or @osisID="Joel" or @osisID="Amos" or @osisID="Obad" or @osisID="Jonah" or @osisID="Mic" or @osisID="Nah" or @osisID="Hab" or @osisID="Zeph" or @osisID="Hag" or @osisID="Zech" or @osisID="Mal"]/node()[1]',
-  'New Testament Introduction' => 'osis:div[@type="bookGroup"][last()]/node()[1]',
-  'Gospels Introduction' => 'osis:div[@type="book"][@osisID="Matt" or @osisID="Mark" or @osisID="Luke" or @osisID="John"]/node()[1]',
-  'Acts Introduction' => 'osis:div[@type="book"][@osisID="Acts"]/node()[1]',
-  'Letters Introduction' => 'osis:div[@type="book"][@osisID="Acts" or @osisID="Rom" or @osisID="1Cor" or @osisID="2Cor" or @osisID="Gal" or @osisID="Eph" or @osisID="Phil" or @osisID="Col" or @osisID="1Thess" or @osisID="2Thess" or @osisID="1Tim" or @osisID="2Tim" or @osisID="Titus" or @osisID="Phlm" or @osisID="Heb" or @osisID="Jas" or @osisID="1Pet" or @osisID="2Pet" or @osisID="1John" or @osisID="2John" or @osisID="3John" or @osisID="Jude"]/node()[1]',
-  'Deuterocanon Introduction' => 'osis:div[@type="book"][ancestor::osis:div[@osisID="Apocrypha"]]/node()[1]'
-);
 
 sub parseInstructionVSYS {
   my $t = shift;
