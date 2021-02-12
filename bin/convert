@@ -18,9 +18,8 @@ my $DEBUG = 0;
 my $MODRE_DEF = 'all'; 
 my $CONVERSIONS_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
-my ($PRJDIR, $MODRE, $CONVERSIONS, $MAXTHREADS, $SKIP, $MYLOG);
-if (!&readArguments()) {
-  print "
+
+my $USAGE = "
 USAGE: convert [-h] [-x rx] [-s rx] [-c type] [-t N] [-l file] [dir]
 
 dir     : Path to a directory containing one or more osis-converters 
@@ -35,6 +34,10 @@ dir     : Path to a directory containing one or more osis-converters
 -t N    : Number of threads to use. Default is the number of CPUs.
 -x rx   : Regex matching modules to run, or 'all'. Default is '$MODRE_DEF'.
 ";
+
+my ($PRJDIR, $MODRE, $CONVERSIONS, $MAXTHREADS, $SKIP, $MYLOG);
+if (!&readArguments()) {
+  print $USAGE;
   exit;
 }
 
@@ -119,6 +122,12 @@ foreach my $m (@MODULES) {
   }
 }
 &pLog("\n");
+
+if (! scalar @RUN) {
+  print "ABORT: There is nothing to do.\n";
+  print $USAGE;
+  exit;
+}
 
 if (scalar keys %MAINS > 1) {
   print 'Do you want to continue? (Y/N): ';

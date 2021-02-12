@@ -260,7 +260,7 @@ sub getForkArgs {
 }
 
 sub pathToCaller {
-  my $path;
+  my $path = shift;
   
   my $caller = ($path =~ /^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/ ? $1 : '');
   
