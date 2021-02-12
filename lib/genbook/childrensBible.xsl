@@ -11,7 +11,7 @@
   <!-- This stylesheet converts usfm2osis.py osis into osis-
   converters Children's Bible osis markup -->
  
-  <import href="../../common/functions.xsl"/>
+  <import href="../common/functions.xsl"/>
   
   <!-- Use \toc1, \toc2 or \toc3 tags for creating the TOC -->
   <param name="TOC" select="oc:conf('TOC', /)"/>

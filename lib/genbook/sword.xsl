@@ -10,7 +10,7 @@
   
   <!-- This stylesheet decodes osisIDs into utf8 for SWORD GenBook import -->
  
-  <import href="../../common/functions.xsl"/>
+  <import href="../common/functions.xsl"/>
   
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
