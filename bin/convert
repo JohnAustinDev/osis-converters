@@ -2,18 +2,14 @@
 
 # Run specified conversions for any number of projects, as quickly as possible
 
-# Bootstrap osis-converters so project config files can be read.
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
-
 use threads;
 use threads::shared;
-use DateTime;
-use Encode;
-use File::Copy;
-use Data::Dumper;
-use Term::ReadKey;
 
-my $DEBUG = 0;
+# Bootstrap osis-converters without init() so project config files can be read.
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
+
+my  $DEBUG = 0;
+our $VAGRANT = 0;
 
 my $MODRE_DEF = 'all'; 
 my $CONVERSIONS_DEF = 'sfm2all';
@@ -37,6 +33,19 @@ dir     : Path to a directory containing one or more osis-converters
 
 my ($PRJDIR, $MODRE, $CONVERSIONS, $MAXTHREADS, $SKIP, $MYLOG);
 if (!&arguments(@ARGV)) {print $USAGE; exit;}
+
+# Restart in Vagrant if necessary
+my $isCompatibleLinux = ($^O =~ /linux/i ? `lsb_release -a 2>&1`:'');
+if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
+  &convertInVagrant();
+}
+if (&runningInVagrant()) {$VAGRANT = 1;}
+
+use DateTime;
+use Encode;
+use File::Copy;
+use Data::Dumper;
+use Term::ReadKey;
 
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
@@ -100,6 +109,15 @@ $SIG{'INT'} = sub {&finish()};
 $INFO = &getProjectsInfo($PRJDIR);
 if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
 
+# If any module is running in Vagrant, be sure we're in Vagrant mode or
+# the console will lock up.
+my $v;
+foreach (keys %{$INFO}) {if ($VAGRANT || $INFO->{$_}{'system+VAGRANT'}) {$v++;}}
+if ($v) {
+  $VAGRANT = 1;
+  print "NOTE: Running $VAGRANT project(s) in Vagrant...\n";
+}
+
 my @RUN = &getScriptsToRun(\@MODULES, $CONVERSIONS, $INFO);
 
 my %DEPENDENCY; &setDependencies(\%DEPENDENCY, \@RUN, $CONVERSIONS, $INFO, \@MODULES);
@@ -129,8 +147,8 @@ if (! scalar @RUN) {
   exit;
 }
 
-if (scalar keys %MAINS > 1) {
-  print 'Do you want to continue? (Y/N): ';
+if (!$VAGRANT && scalar keys %MAINS > 1) {
+  print "Do you want to continue? (Y/N): ";
   my $resp = <STDIN>;
   if ($resp !~ /^y(es)?$/i) {
     print "Exiting...\n";
@@ -138,7 +156,7 @@ if (scalar keys %MAINS > 1) {
   }
 }
 
-ReadMode 4;
+if (!$VAGRANT) {ReadMode 4;}
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
@@ -200,7 +218,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
   sleep(2);
 }
 
-ReadMode 0;
+if (!$VAGRANT) {ReadMode 0;}
 
 if ($KEY == 27) {
   &pLog("\n");
@@ -707,9 +725,17 @@ sub working {
   
   if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
-    if (!$PAUSED) {$msg .= "Press p to pause the scheduler. ";}
-    else {$msg .= "Press p again to continue scheduling. ";}
-    if (!$KILLED) {$msg .= "Press ESC to kill the scheduler.\n";}
+    if (!$VAGRANT) {
+      if (!$PAUSED) {
+        $msg .= "Press p to pause the scheduler. ";
+      }
+      else {
+        $msg .= "Press p again to continue scheduling. ";
+      }
+      if (!$KILLED) {
+        $msg .= "Press ESC to kill the scheduler.\n";
+      }
+    }
     
     if ($logOrPrint && $logOrPrint =~ /log/i) {&pLog($msg);}
     elsif ($msg ne $LASTMSG) {
@@ -726,6 +752,7 @@ sub working {
 }
 
 sub readKey {
+  if ($VAGRANT) {return;}
   $KEY = ReadKey(-1);
   $KEY = ($KEY ? ord($KEY):0);
   if ($KEY == 112) {
@@ -745,7 +772,7 @@ sub readKey {
 
 sub finish {
 
-  ReadMode 0;
+  if (!$VAGRANT) {ReadMode 0;}
   
   foreach my $th (threads->list()) {$th->join();}
 
@@ -766,6 +793,37 @@ sub pLog {
   open(LOGF, ">>:encoding(UTF-8)", $MYLOG) || die;
   print LOGF $p;
   close(LOGF);
+}
+
+sub convertInVagrant {
+
+  our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
+  
+  &initialize_vagrant();
+  
+  my $vscript = &vagrantPath($SCRIPT);
+  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit;}
+  my $vpdir   = &vagrantPath($PRJDIR);
+  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit;}
+  my $vlog    = &vagrantPath($MYLOG);
+  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit;}
+  
+  my $cmd = "vagrant ssh -c \"".
+            "'$vscript' ".
+            "-x '$MODRE' ".
+            "-s '$SKIP' ".
+            "-c '$CONVERSIONS' ".
+            "-l '$vlog' ".
+            "'$vpdir'\"";
+
+  print "\nStarting Vagrant with...\n$cmd\n";
+  
+  # Continue printing to console while Vagrant ssh remains open
+  open(VUP, "$cmd |");
+  while(<VUP>) {print $_;}
+  close(VUP);
+  
+  exit;
 }
 
 sub arguments {
@@ -794,7 +852,14 @@ sub arguments {
       if ($f eq 'c' && $v =~ /^(osis|sfm2osis|osis2osis|osis2sword|osis2html|osis2ebooks|osis2gobible|osis2all|sfm2sword|sfm2html|sfm2ebooks|sfm2gobible|sfm2all)$/) {
         $CONVERSIONS = $v;
       }
-      elsif ($f eq 'l') {$MYLOG = $v;}
+      elsif ($f eq 'l') {
+        my $dir = ($v =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
+        if (!$dir || ! -d $dir) {
+          print "ABORT: log file directory does not exist: $v\n";
+          return;
+        }
+        $MYLOG = $v;
+      }
       elsif ($f eq 's') {$SKIP = $v;}
       elsif ($f eq 't' && $v =~ /^\d+$/) {$MAXTHREADS = $v;}
       elsif ($f eq 'x') {$MODRE = $v;}
@@ -814,6 +879,9 @@ sub arguments {
   
   if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
   if ($MYLOG =~ /^\./)  {$MYLOG  = File::Spec->rel2abs($MYLOG);}
+  if ($MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
+    $MODRE = '^'.$MODRE.'(DICT)?$';
+  }
   
   return 1;
 }

@@ -488,6 +488,7 @@ sub init_opsys {
   if ($VAGRANT) {
     if (&vagrantInstalled()) {
       &Note("\nVagrant will be used because \$VAGRANT is set.\n");
+      &initialize_vagrant();
       &restart_with_vagrant();
     }
     else {
@@ -510,6 +511,7 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
   
   # Then we must use Vagrant, if it's installed
   if (&vagrantInstalled()) {
+    &initialize_vagrant();
     &restart_with_vagrant();
     return 0;
   }
@@ -519,8 +521,9 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
 }
 
 # Apply the config file's [system] section directly to Perl globals. 
-# NOTE: This must be run before init_opsys(), because two passes are 
-# necessary to set working @OC_SYSTEM_PATH_CONFIGS for Vagrant.
+# NOTE: This must be run before init_opsys() so .hostinfo can be 
+# written prior to any Vagrant restart. The .hostinfo file is needed to 
+# properly set @OC_SYSTEM_PATH_CONFIGS while running in Vagrant.
 sub set_system_globals {
 
   no strict "refs";
@@ -541,9 +544,7 @@ sub set_system_globals {
     if (open(SHL, $WRITELAYER, "$SCRD/.hostinfo")) {
       foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
         if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-        my $rel2vhs = File::Spec->abs2rel($$v, &vagrantHostShare());
-        $rel2vhs =~ s/\\/\//g; # this relative path is for the Linux VM
-        print SHL "\$$v = '$rel2vhs';\n";
+        print SHL "\$$v = '".&vagrantPath($$v)."';\n";
       }
       print SHL "1;\n";
       close(SHL);
@@ -551,12 +552,7 @@ sub set_system_globals {
     else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work; check that you have write permission in directory $SCRD.");}
   }
   else {
-    # if Vagrant, then read .hostinfo and prepend path to INDIR_ROOT Vagrant share
     require("$SCRD/.hostinfo");
-    foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
-      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-      $$v = "$VAGRANT_HOME/INDIR_ROOT/$$v";
-    }
   }
   
   # Finally set default values when config.conf doesn't specify exedirs
@@ -1261,7 +1257,7 @@ sub vagrantInstalled {
 
 # Start the current script on a Vagrant VM, wait until it finishes, and 
 # then return.
-sub restart_with_vagrant {
+sub initialize_vagrant {
 
   if (!-e "$SCRD/Vagrantcustom" && open(VAGC, $WRITELAYER, "$SCRD/Vagrantcustom")) {
     print VAGC "# NOTE: You must halt your VM for changes to take effect\n
@@ -1285,10 +1281,40 @@ sub restart_with_vagrant {
     &shell("vagrant halt", 3);
     &vagrantUp(\@shares);
   }
+}
 
-  my $scriptRel = "/vagrant/".File::Spec->abs2rel($SCRIPT, $SCRD); $scriptRel =~ s/\\/\//g;
-  my $inpdRel = File::Spec->abs2rel($INPD, &vagrantHostShare()); $inpdRel =~ s/\\/\//g;
-  my $cmd = "vagrant ssh -c \"'$scriptRel' '$VAGRANT_HOME/INDIR_ROOT/$inpdRel'\"";
+sub vagrantPath {
+  my $path = shift;
+  
+  my $vshare = $SCRD;
+  my $hshare = &vagrantHostShare();
+  
+  my $vagrantPath;
+  if ($path =~ /^\Q$vshare/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $vshare));
+    if ($rel !~ /^\.\./) {
+      $vagrantPath = "/vagrant/$rel";
+    }
+  }
+  
+  if (!$vagrantPath && $path =~ /^\Q$hshare/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $hshare));
+    if ($rel !~ /^\.\./) {
+      $vagrantPath = "$VAGRANT_HOME/INDIR_ROOT/$rel";
+    }
+  }
+  
+  return $vagrantPath;
+}
+
+sub restart_with_vagrant {
+
+  my $vscript = &vagrantPath($SCRIPT);
+  if (!$vscript) {&ErrorBug("Failed vagrantPath: $SCRIPT", 1);}
+  my $vinpd   = &vagrantPath($INPD);
+  if (!$vinpd)   {&ErrorBug("Failed vagrantPath: $INPD", 1);}
+
+  my $cmd = "vagrant ssh -c \"'$vscript' '$vinpd'\"";
   print "\nStarting Vagrant with...\n$cmd\n";
   
   # Continue printing to console while Vagrant ssh remains open
@@ -1544,12 +1570,23 @@ sub expandLinuxPath {
   return $r;
 }
 
-sub shortLinuxPath {
+sub shortPath {
   my $path = shift;
+  
+  my @parts = split(/[\\\/]/, $path);
+  
+  for (my $i=0; $i < @parts; $i++) {
+    if (@parts[$i] !~ /^\.+$/ && ($i+1) < @parts && @parts[$i+1] eq '..') {
+      splice(@parts, $i, 2);
+      $i = -1;
+    }
+    elsif ($i && @parts[$i] eq '.') {
+      splice(@parts, $i, 1);
+      $i = -1;
+    }
+  }
 
-  $path =~ s%/\./%/%g;
-  $path =~ s%/[^/]+/\.\.(/|$)%$1%g;
-  return $path;
+  return join('/', @parts);
 }
 
 # Escape a linux file path for use as a non-quoted argument.

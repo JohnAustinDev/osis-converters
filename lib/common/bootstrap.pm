@@ -34,21 +34,11 @@
 # use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){N}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 use strict;
-use Carp qw(longmess);
-use Cwd;
-use Data::Dumper;
-use DateTime;
 use Encode;
 use File::Copy;
 use File::Find;
 use File::Path qw(make_path remove_tree);
 use File::Spec;
-use HTML::Entities;
-use Net::Ping;
-use Sword;
-use Try::Tiny;
-use Unicode::Normalize;
-use XML::LibXML;
 
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
@@ -103,7 +93,7 @@ sub set_configuration_globals {
   # Allow using a project subdirectory as $INPD argument
   $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//;
   # This works even for MS-Windows because of '\' replacement done above
-  $INPD = &shortLinuxPath($INPD);
+  $INPD = &shortPath($INPD);
   if (!-e $INPD) {die 
 "Error: Project directory \"$INPD\" does not exist. Check your command line.\n";
   }

@@ -484,11 +484,11 @@ file for it, and then run this script again.");}
     my @files = split(/\n+/, &shell("find \"$HTMLOUT/$pubName/xhtml\" -type f", 3, 1));
     push(@files, "$HTMLOUT/$pubName/index.xhtml");
     my %linkedFiles; 
-    $linkedFiles{&shortLinuxPath("$HTMLOUT/$pubName/index.xhtml")}++;
+    $linkedFiles{&shortPath("$HTMLOUT/$pubName/index.xhtml")}++;
     foreach my $f (@files) {&getLinkedFiles($f, \%linkedFiles);}
     my $numUnreachable = 0;
     foreach my $f (@files) {
-      if (!defined($linkedFiles{&shortLinuxPath($f)})) {
+      if (!defined($linkedFiles{&shortPath($f)})) {
         $numUnreachable++;
         my $sf = $f; $sf =~ s/^.*\/(xhtml\/)/$1/;
         &Warn("File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), "If you want to make the above material accesible, add a \\toc".&conf('TOC')." tag to it.");
@@ -521,7 +521,7 @@ sub getLinkedFiles {
       my $file = $link->getAttribute('href');
       $file =~ s/[\?\#].*$//;
       if (!$file) {next;}
-      $hP->{&shortLinuxPath($dir.$file)}++;
+      $hP->{&shortPath($dir.$file)}++;
     }
   }
   else {&Error("$f is not a parseable HTML file.", 

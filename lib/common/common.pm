@@ -22,6 +22,16 @@
 
 use strict;
 
+use Carp qw(longmess);
+use DateTime;
+use Data::Dumper;
+use HTML::Entities;
+use Unicode::Normalize;
+use Net::Ping;
+use Sword;
+use Try::Tiny;
+use XML::LibXML;
+
 our ($MAININPD, $MOD, $OUTDIR, $READLAYER, $SCRIPT, $SCRD, 
     $SWORD_VERSE_SYSTEMS, $TMPDIR, $WRITELAYER, $XML_PARSER, $XPC, 
     %DOCUMENT_CACHE);
@@ -416,8 +426,7 @@ sub getModuleOutputDir {
   
   if ($OUTDIR && ! -d $OUTDIR) {
     $OUTDIR = undef;
-    &Error("OUTDIR is not an existing directory.", 
-"OUTDIR has been set to a non-existent directory in:\n" . &findConf('OUTDIR') . "\n" .
+    &Error("OUTDIR is not an existing directory: " . &findConf('OUTDIR'),
 "Change it to the path of a directory where output files can be written.");
   }
   
