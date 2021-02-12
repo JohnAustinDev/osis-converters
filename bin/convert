@@ -36,10 +36,7 @@ dir     : Path to a directory containing one or more osis-converters
 ";
 
 my ($PRJDIR, $MODRE, $CONVERSIONS, $MAXTHREADS, $SKIP, $MYLOG);
-if (!&readArguments()) {
-  print $USAGE;
-  exit;
-}
+if (!&arguments(@ARGV)) {print $USAGE; exit;}
 
 # Config values may be set here to be applied to the config.conf of 
 # every project converted by this script.
@@ -60,6 +57,8 @@ my %CONFIG; # $CONFIG{(MAINMOD|DICTMOD|section)}{config-entry} = value
 #$CONFIG{'MAINMOD'}     {'AddCrossRefLinks'} = 'false';
 #$CONFIG{'DICTMOD'}     {'AddSeeAlsoLinks'} = 'false';
 #$CONFIG{'system'}      {'DEBUG'} = '1';
+
+$Data::Dumper::Sortkeys = 1;
 
 my %PRINTED;
 if (-e $MYLOG) {unlink($MYLOG);}
@@ -99,6 +98,7 @@ foreach my $m (@MODULE_IGNORES) {
 if (keys %CONFIG) {&updateConfigFiles(\@MODULES, \%CONFIG, $INFO);}
 $SIG{'INT'} = sub {&finish()};
 $INFO = &getProjectsInfo($PRJDIR);
+if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
 
 my @RUN = &getScriptsToRun(\@MODULES, $CONVERSIONS, $INFO);
 
@@ -257,18 +257,23 @@ sub getProjectsInfo {
     
     my $cproj = $info{$m}{'configProject'};
     my $c2proj = ($m =~ /DICT$/ ? $cproj.'DICT':$cproj);
-    
     my $moddrv = $info{$cproj}{"$c2proj+ModDrv"};
     
-    my $type = 'bible';
-    if ($moddrv =~ /LD/i) {$type = 'dict';}
-    if ($moddrv =~ /GenBook/i) {$type = 'childrensBible';}
-    if ($moddrv =~ /Com/i) {$type = 'commentary';}
+    if (!$moddrv) {
+      my $sproj = $info{$m}{'sourceProject'};
+      my $s2proj = ($m =~ /DICT$/ ? $sproj.'DICT':$sproj);
+      $moddrv = $info{$sproj}{"$s2proj+ModDrv"};
+    }
+    
+    my $type;
+    if    ($moddrv =~ /text/i)    {$type = 'bible';}
+    elsif ($moddrv =~ /ld/i)      {$type = 'dict';}
+    elsif ($moddrv =~ /genbook/i) {$type = 'childrensBible';}
+    elsif ($moddrv =~ /com/i)     {$type = 'commentary';}
+    else {print "WARNING: Could not determine module type: $m\n";}
     
     $info{$m}{'type'} = $type;
   }
-  
-  if ($DEBUG) {&pLog("info = ".Dumper(\%info)."\n");}
 
   return \%info;
 }
@@ -442,11 +447,11 @@ sub setDependencies {
           $deps{&osisScript($main).' '.$main}++;
         }
       }
-      elsif ($s =~ /^(osis2gobible)$/) {
+      elsif ($s =~ /^(osis2gobible|osis2sword)$/) {
         # these depend only on their OSIS file
         $deps{&osisScript($m).' '.$m}++;
       }
-      elsif ($s =~ /^(osis2html|osis2ebooks|osis2sword)$/) {
+      elsif ($s =~ /^(osis2html|osis2ebooks)$/) {
         # these depend on both main and dict (if exists) OSIS files
         $deps{&osisScript($m).' '.$m}++;
         if (my $dict = &hasDICT($m)) {
@@ -763,8 +768,7 @@ sub pLog {
   close(LOGF);
 }
 
-sub readArguments {
-
+sub arguments {
   $PRJDIR = ".";
   $MYLOG = "./$LOG_DEF";
   $MODRE = $MODRE_DEF;
@@ -772,7 +776,7 @@ sub readArguments {
   $CONVERSIONS = $CONVERSIONS_DEF;
   $MAXTHREADS = `lscpu | egrep "^CPU\\(s\\)\\:"`; $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
 
-  my $arg = shift(@ARGV);
+  my $arg = shift;
   while ($arg) {
     if ($arg =~ /^\-(\S*)/) {
       my $f = $1;
@@ -782,7 +786,7 @@ sub readArguments {
         return;
       }
       
-      my $v = shift(@ARGV); if (!$v || $v =~ /^\-/) {
+      my $v = shift; if (!$v || $v =~ /^\-/) {
         print "ABORT: flag -$f has no value\n";
         return;
       }
@@ -805,7 +809,7 @@ sub readArguments {
       return;
     }
     
-    $arg = shift(@ARGV);
+    $arg = shift;
   }
   
   if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
