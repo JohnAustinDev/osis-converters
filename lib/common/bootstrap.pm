@@ -134,11 +134,11 @@ sub set_configuration_globals {
     $DICTINPD = "$MAININPD/${MAINMOD}DICT";
   }
 
-  # Before testing the project configuration, run bootstrap.pm if it 
+  # Before testing the project configuration, run bootstrap.pl if it 
   # exists in the project, to prepare any control files that need it.
-  if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pm" && 
+  if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" && 
       $SCRIPT_NAME =~ /^(osis2osis|sfm2osis)$/) {
-    &shell("$MAININPD/bootstrap.pm");
+    &shell("$MAININPD/bootstrap.pl");
   }
 
   our $CONF;

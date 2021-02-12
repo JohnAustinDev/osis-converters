@@ -46,7 +46,7 @@ my %params = (
   'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
   'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
 );
-&LogXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params, 3));
+&LogXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params));
 
 &usePngIfAvailable(\$INOSIS);
 

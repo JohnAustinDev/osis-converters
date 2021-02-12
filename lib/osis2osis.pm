@@ -34,7 +34,7 @@ our $sourceProject;
 
 sub osis2osis {
 
-  use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
+  use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
   # Two scripts are run in succession to convert OSIS files from one proj-
   # ect into those of another. The osis2osis script runs the CF_osis-

@@ -25,7 +25,7 @@ USAGE: convert [-h] [-x rx] [-s rx] [-c type] [-t N] [-l file] [dir]
 dir     : Path to a directory containing one or more osis-converters 
           projects. Default is the working directory.
 -c type : Conversion(s) to run. Default is '$CONVERSIONS_DEF'. The 
-          choices are sfm2osis, osis2osis, osis2sword, osis2html, 
+          choices are osis, sfm2osis, osis2osis, osis2sword, osis2html, 
           osis2ebooks, osis2gobible, osis2all sfm2sword, sfm2html, 
           sfm2ebooks, sfm2gobible and sfm2all.
 -h      : Show this usage message an exit.
