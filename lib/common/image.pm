@@ -32,7 +32,7 @@ our ($ROC, $XPC, $XML_PARSER, %OSIS_GROUP, $COVERS, $FONTS, %FONT_FILES,
 sub checkImageFileNames {
   my $dir = shift;
 
-  my $spaces = &shell("find \"$dir\" -type f -name \"* *\" -print", 3);
+  my $spaces = &shell("find '$dir' -type f -name '* *' -print", 3, 1);
   if ($spaces) {
     &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
   }

@@ -197,9 +197,8 @@ glossaries, dictionaries, maps, tables, etc. etc.. But its name must be
 sub readBookNamesXML {
   my $booknamesHP = shift;
   
-  my $main = $INPD; if ($main =~ /DICT$/) {$main .= "/..";}
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
-  foreach my $bknxml (split(/\n+/, &shell("find '$main/sfm' -name 'BookNames.xml' -print", 3))) {
+  foreach my $bknxml (split(/\n+/, &shell("find '$MAININPD/sfm' -name 'BookNames.xml' -print", 3, 1))) {
     if (! -e "$bknxml") {next;}
     my $bknames = $XML_PARSER->parse_file("$bknxml");
     my @bkelems = $XPC->findnodes('//book[@code]', $bknames);
@@ -379,8 +378,8 @@ sub initInputOutputFiles {
   # init SFM files if needed
   if ($script_name =~ /^defaults$/ && -e "$inpd/sfm") {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
-    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3);
-    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3);
+    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3, 1);
+    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3, 1);
   }
 }
 
