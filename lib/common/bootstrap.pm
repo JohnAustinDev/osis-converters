@@ -143,7 +143,7 @@ sub set_configuration_globals {
 
   our $CONF;
   our $CONFFILE = "$MAININPD/config.conf";
-  if (-e $CONFFILE) {&readSetCONF();}
+  if (-e $CONFFILE) {&readSetCONF(1);}
   # $DICTMOD will be empty if there is no dictionary module for the 
   # project, but $DICTINPD always has a value
   {

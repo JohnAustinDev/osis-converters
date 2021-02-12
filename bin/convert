@@ -461,7 +461,7 @@ sub setDependencies {
       if ($d !~ /^(\S+)\s+(\S+)$/) {next;}
       my $s = $1; my $m = $2;
       if (!exists($modules{$m})) {
-        print "WARNING: Skipping dependence '$d' because $m is not being run.\n";
+        print "WARNING: Skipping '$d' because $m is not being run.\n";
         next;
       }
       

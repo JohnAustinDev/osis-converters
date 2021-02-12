@@ -631,11 +631,12 @@ subpub:
 }
 
 sub readSetCONF {
+  my $quiet = shift;
 
   # NOTE: Perl variables from the [system] section of config.conf are only 
   # set by set_system_globals().
 
-  $CONF = &readConf(\$CONFSRC);
+  $CONF = &readConf(\$CONFSRC, $quiet);
   if (!$CONF) {return 0;}
   
   my $mainmod = $CONF->{'MainmodName'};
@@ -667,15 +668,16 @@ sub readSetCONF {
 # files as well, which are read if/when they are encountered.
 sub readConf {
   my $confsrcA = shift;
+  my $quiet = shift;
   
   my (%c1, %c2, %f1, %f2);
   
-  my $oc = &getDefaultFile('defaults.conf', -1);
+  my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
   if (-e $oc) {
     &readConfFile($oc, \%c1, \%f1, 1);
   }
   
-  &readConfFile($CONFFILE, \%c2, \%f2);
+  &readConfFile($CONFFILE, \%c2, \%f2, $quiet);
   foreach my $k (keys %c2) {$c1{$k} = $c2{$k}; $f1{$k} = $f2{$k};}
   
   if (!$c1{"MainmodName"}) {
@@ -725,7 +727,7 @@ sub readConfFile {
   my $contRE = &configRE(@CONTINUABLE_CONFIGS);
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
   
-  &Note("Reading config.conf: $file");
+  if (!$nowarn) {&Note("Reading config.conf: $file");}
  
   if (!open(XCONF, $READLAYER, $file)) {return;}
   
@@ -1056,6 +1058,7 @@ sub getDefaultFile {
   my $file = shift;
   my $priority = shift;
   my $maininpd = shift; $maininpd = ($maininpd ? $maininpd:$MAININPD);
+  my $quiet = shift;
   
   my $mainmod = $maininpd; $mainmod =~ s/^.*?\/([^\/]+)\/?$/$1/;
   
@@ -1069,24 +1072,28 @@ sub getDefaultFile {
   my $mainParent = "$maininpd/..";
   if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
     $defaultFile = $projectDefaultFile;
-    &Note("getDefaultFile: (1) Found $file at $defaultFile");
+    if (!$quiet) {&Note("getDefaultFile: (1) Found $file at $defaultFile");}
   }
   if (($checkAll || $priority == 2) && -e "$mainParent/defaults/$file") {
     if (!$defaultFile) {
       $defaultFile = "$mainParent/defaults/$file";
-      &Note("getDefaultFile: (2) Found $file at $defaultFile");
+      if (!$quiet) {&Note("getDefaultFile: (2) Found $file at $defaultFile");}
     }
     elsif ($^O =~ /linux/i && !&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3, 1)) {
-      &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
+      if (!$quiet) {
+        &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
+      }
     }
   }
   if (($checkAll || $priority == 3) && -e "$SCRD/defaults/$file") {
     if (!$defaultFile) {
       $defaultFile = "$SCRD/defaults/$file";
-      &Note("getDefaultFile: (3) Found $file at $defaultFile");
+      if (!$quiet) {&Note("getDefaultFile: (3) Found $file at $defaultFile");}
     }
     elsif ($^O =~ /linux/i && !&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3, 1)) {
-      &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
+      if (!$quiet) {
+        &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
+      }
     }
   }
   if ($fileType eq 'childrens_bible' && !$defaultFile) {return &getDefaultFile("bible/$moduleFile", $priority);}
