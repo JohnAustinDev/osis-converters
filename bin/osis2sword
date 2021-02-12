@@ -40,11 +40,13 @@ my $SModPath = &dataPath2RealPath($Sconf->{"$MOD+DataPath"});
 my $SModVsys = $Sconf->{"$MOD+Versification"};
 if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
 
-# Prepare osis-converters OSIS for SWORD import
+# Prepare osis-converters OSIS for SWORD import. DICT modules are
+# run after their MAIN module, so during MAIN processing, DICTMOD_URI is
+# empty, in case it does not yet exist.
 my %params = (
   'conversion' => 'sword', 
   'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
-  'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+  'DICTMOD_URI' => ($DICTMOD && $MOD eq $DICTMOD ? &getModuleOsisFile($DICTMOD):'')
 );
 &LogXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params));
 
