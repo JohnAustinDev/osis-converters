@@ -262,9 +262,9 @@ sub getForkArgs {
 sub pathToCaller {
   my $path = shift;
   
-  my $caller = ($path =~ /^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/ ? $1 : '');
+  $path =~ s/^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/$1/;
   
-  return $caller;
+  return $path;
 }
 
 1;
