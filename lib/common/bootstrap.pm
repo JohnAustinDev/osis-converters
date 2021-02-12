@@ -64,6 +64,8 @@ sub init() {
   
   # Set Perl globals associated with the project configuration
   &set_configuration_globals($inpd, $logf);
+  
+  &checkInputs();
 
   # Set Perl global variables defined in the [system] section of config.conf.
   &set_system_globals();
@@ -110,7 +112,7 @@ sub set_configuration_globals {
     $LOGFILE = File::Spec->rel2abs($LOGFILE);
     $LOGFILE =~ s/\\/\//g;
   }
-
+  
   our $SCRIPT_NAME = $SCRIPT; $SCRIPT_NAME =~ s/^.*\/([^\/]+)(\.[^\/\.]+)?$/$1/;
   # Global $forkScriptName will only be set when running in fork.pm, in  
   # which case SCRIPT_NAME is inherited for &conf() values to be correct.
@@ -176,6 +178,31 @@ sub set_configuration_globals {
   }
   
   if (our $NO_OUTPUT_DELETE) {our $DEBUG = 1;}
+}
+
+sub checkInputs {
+
+  our ($SCRIPT_NAME, $INPD);
+  my $usage = "
+USAGE: $SCRIPT_NAME [directory] [log-file]
+
+directory : Path to an osis-converters project directory having an 'sfm'
+            subdirectory containing USFM files. Default is the working 
+            directory.
+log-file  : Path/filename for the log file. Default is OUT_${SCRIPT_NAME}_MOD.txt 
+            in the OUTDIR directory determined by config.conf.
+";
+  if (!-d $INPD) {
+print "ABORT: Not a directory: '$INPD'\n";
+    print $usage;
+    exit 1;
+  }
+  elsif (!-d "$INPD/sfm" && !-d "$INPD/../sfm" && 
+         !-e "$INPD/CF_osis2osis.txt" && !-e "$INPD/../CF_osis2osis.txt") {
+print "ABORT: Not an osis-converters project: '$INPD'\n";
+    print $usage;
+    exit 1;
+  }
 }
 
 1;

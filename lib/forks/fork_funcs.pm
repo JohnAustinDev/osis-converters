@@ -113,7 +113,7 @@ sub osis2pubs_assembleFunc {
 # Called by fork.pm child threads to save their results to JSON files.
 # NOTE: $TMPDIR here is that of the fork script.
 sub saveForkData {
-  my $caller = shift; $caller =~ s/^.*?\/([^\/]+?)(\.pm)?$/$1/;
+  my $caller = &pathToCaller(shift);
   
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
   
@@ -138,7 +138,7 @@ sub saveForkData {
 # Called by the main thread to reassemble data from all child threads.
 # NOTE: $TMPDIR and $SCRIPT_NAME here are those of the main thread.
 sub reassembleForkData {
-  my $caller = shift; $caller =~ s/^.*?\/([^\/]+?)(\.pm)?$/$1/;
+  my $caller = &pathToCaller(shift);
   
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
   
@@ -234,7 +234,7 @@ sub assembleHash {
 sub forkTmpDirs {
   my $tmpdir = shift; # any script's tmp directory
   my $script_name = shift; # parent osis-converters script
-  my $caller = shift; $caller =~ s/^.*?\/([^\/]+?)(\.pm)?$/$1/;
+  my $caller = &pathToCaller(shift);
   
   $tmpdir =~ s/(?<=\/tmp\/).*$/$script_name.$caller.fork_/;
   
@@ -257,6 +257,14 @@ sub getForkArgs {
   if (@_[0] =~ /^\Qstarts-with-arg:\E(\d+)/) {$n = $1; shift;}
   
   return ' '.join(' ', map(&escarg('arg'.$n++.":$_"), @_));
+}
+
+sub pathToCaller {
+  my $path;
+  
+  my $caller = ($path =~ /^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/ ? $1 : '');
+  
+  return $caller;
 }
 
 1;

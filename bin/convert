@@ -120,6 +120,15 @@ foreach my $m (@MODULES) {
 }
 &pLog("\n");
 
+if (scalar keys %MAINS > 1) {
+  print 'Do you want to continue? (Y/N): ';
+  my $resp = <STDIN>;
+  if ($resp !~ /^y(es)?$/i) {
+    print "Exiting...\n";
+    exit;
+  }
+}
+
 ReadMode 4;
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
@@ -764,7 +773,7 @@ sub readArguments {
         return;
       }
       
-      my $v = shift; if (!$v || $v =~ /^\-/) {
+      my $v = shift(@ARGV); if (!$v || $v =~ /^\-/) {
         print "ABORT: flag -$f has no value\n";
         return;
       }

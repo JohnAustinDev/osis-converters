@@ -86,7 +86,7 @@ sub pushCall {
 }
 &saveForkArgs(\@forkCall, \@ARGV);
 
-my $caller = $REQU; $caller =~ s/^.*?\/([^\/]+)(\.pm)?$/$1/;
+my $caller = &pathToCaller($REQU);
 my $forkName = "$SCNM.$caller.fork_";
 my $forkLog = "OUT_${SCNM}_fork.txt";
 my $tmpdir = $LOGF; $tmpdir =~ s/(?<=\/)[^\/]+$/tmp\/$forkName/;
