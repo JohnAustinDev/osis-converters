@@ -181,32 +181,32 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     do {
       $x++;
       $ok = 1;
-      foreach my $run (@{$DEPENDENCY{$RUN[$x]->{'c'}}}) {
+      foreach my $run (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
         if (!$DONE{$run}) {$ok = 0;}
       }
     } while ($x < $#RUN && !$ok);
     
-    if (@{$DEPENDENCY{$RUN[$x]->{'c'}}}) {
+    if (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
       if (!$ok) {
         print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
         last;
       }
-      print "NOTE: Dependencies of ".$RUN[$x]->{'c'}." are done:\n\t".
-      join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'c'}}})."\n";
+      print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
+      join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'r'}}})."\n";
     }
     
     sleep(2); # so jobs don't start at the same time, causing problems
     threads->create(sub {
-      print "Starting: ".$RUN[$x]->{'c'}."\n";
+      print "Starting: ".$RUN[$x]->{'r'}."\n";
       &runScript($RUN[$x]);
       $NUM_THREADS--;
-      $DONE{$RUN[$x]->{'c'}}++;
-      print "Exiting: ".$RUN[$x]->{'c'}."\n";
+      $DONE{$RUN[$x]->{'r'}}++;
+      print "Exiting: ".$RUN[$x]->{'r'}."\n";
     });
     
     $NUM_THREADS++;
     my $s = splice(@RUN, $x, 1);
-    push(@STARTED, $s->{'c'});
+    push(@STARTED, $s->{'r'});
     if (@RUN) {print("There are ".@RUN." jobs left...\n");}
     
     &readKey();
@@ -273,14 +273,14 @@ sub getProjectsInfo {
   foreach my $m (keys %info) {
     if (!$info{$m}{'runable'}) {next;}
     
-    my $cproj = $info{$m}{'configProject'};
-    my $c2proj = ($m =~ /DICT$/ ? $cproj.'DICT':$cproj);
-    my $moddrv = $info{$cproj}{"$c2proj+ModDrv"};
+    my $cp = $info{$m}{'configProject'};
+    my $cpm = ($m =~ /DICT$/ ? $cp.'DICT':$cp);
+    my $moddrv = $info{$cp}{"$cpm+ModDrv"};
     
     if (!$moddrv) {
-      my $sproj = $info{$m}{'sourceProject'};
-      my $s2proj = ($m =~ /DICT$/ ? $sproj.'DICT':$sproj);
-      $moddrv = $info{$sproj}{"$s2proj+ModDrv"};
+      my $sp = $info{$m}{'sourceProject'};
+      my $spm = ($m =~ /DICT$/ ? $sp.'DICT':$sp);
+      $moddrv = $info{$sp}{"$spm+ModDrv"};
     }
     
     my $type;
@@ -383,7 +383,7 @@ sub getScriptsToRun {
             print "WARNING: Skipping '$s $m' because config.conf ARG_skipConversion = true\n";
             next;
           }
-          push(@run, {'c' => "$s $m",
+          push(@run, {'r' => "$s $m",
                       's' => $s, 
                       'm' => $m, 
                       'p' => $infoP->{$m}{'path'} });
@@ -392,13 +392,13 @@ sub getScriptsToRun {
     }
     elsif ($script =~ /^sfm2(sword|html|ebooks|GoBible)$/) {
       my $to = $1;
-      push(@run, {'c' => &osisScript($m)." $m",
+      push(@run, {'r' => &osisScript($m)." $m",
                   's' => &osisScript($m), 
                   'm' => $m, 
                   'p' => $infoP->{$m}{'path'} });
       foreach my $ok (@{$typeAP}) {
         if ("osis2$to" ne $ok) {next;}
-        push(@run, {'c' => "osis2$to $m",
+        push(@run, {'r' => "osis2$to $m",
                     's' => "osis2$to", 
                     'm' => $m, 
                     'p' => $infoP->{$m}{'path'} });
@@ -412,7 +412,7 @@ sub getScriptsToRun {
         elsif ($script =~ /^(sfm2osis|osis2osis)$/) {
           if ($s ne &osisScript($m)) {next;}
         }
-        push(@run, {'c' => "$s $m", 
+        push(@run, {'r' => "$s $m", 
                     's' => $s, 
                     'm' => $m, 
                     'p' => $infoP->{$m}{'path'} });
@@ -436,11 +436,10 @@ sub setDependencies {
   my $modulesAP = shift;
     
   foreach my $rP (@{$runAP}) {
-    my $r = $rP->{'s'}.' '.$rP->{'m'};
+    my $r = $rP->{'r'}; my $s = $rP->{'s'}; my $m = $rP->{'m'};
+    
     $depsHP->{$r} = [];
     
-    if ($r !~ /^(\S+)\s+(\S+)$/) {print "\n$r\n"; die;}
-    my $s = $1; my $m = $2;
     my %deps;
     
     # run's requiring the OSIS files to be rebuilt...
