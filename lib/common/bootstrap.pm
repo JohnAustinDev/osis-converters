@@ -46,6 +46,37 @@ select STDOUT; $| = 1;  # make unbuffered
 # Must be initialized in entry script:
 our ($SCRIPT, $SCRD);
 
+# Conversions to OSIS
+# NOTE: 'osis' means sfm2osis unless the project has a source project, 
+# in which case it means osis2osis.
+our @CONV_OSIS = ('sfm2osis', 'osis2osis', 'osis');
+
+# Conversions from OSIS to others
+our @CONV_PUBS = ('sword', 'ebooks', 'gobible', 'html');
+
+# Unsupported conversions of each module type
+our %CONV_NOCANDO = (
+  'bible'          => undef, 
+  'childrensBible' => [ 'gobible' ],
+  'dict'           => [ 'ebooks', 'gobible', 'html' ],
+  'commentary'     => [ 'ebooks', 'gobible', 'html' ],
+);
+
+# Conversion dependencies
+our %CONV_DEPENDENCIES = (
+  'osis DICT'                     => [ 'osis MAIN' ],
+  'osis MAIN(with-sourceProject)' => [ 'osis MAIN(sourceProject)', 
+                                       'osis DICT(sourceProject)?' ],
+  'sword MAIN'                    => [ 'osis MAIN' ],
+  'sword DICT'                    => [ 'osis DICT', 
+                                       'sword MAIN' ],
+  'ebooks MAIN'                   => [ 'osis MAIN', 
+                                       'osis DICT?' ],
+  'html MAIN'                     => [ 'osis MAIN', 
+                                       'osis DICT?' ],
+  'gobible MAIN'                  => [ 'osis MAIN' ],
+);
+
 require "$SCRD/lib/common/common_opsys.pm";
 
 sub init() {

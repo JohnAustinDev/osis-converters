@@ -11,40 +11,12 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 my  $DEBUG = 0;
 our $VAGRANT = 0;
 
-# Conversions to OSIS
-# NOTE: 'osis' means sfm2osis unless the project has a source project, 
-# in which case it means osis2osis.
-my @CONV_OSIS = ('sfm2osis', 'osis2osis', 'osis');
-
-# Conversions from OSIS to others
-my @CONV_PUBS = ('sword', 'ebooks', 'gobible', 'html');
-
-# Unsupported conversions of each module type
-my %CONV_NOCANDO = (
-  'bible'          => undef, 
-  'childrensBible' => [ 'gobible' ],
-  'dict'           => [ 'ebooks', 'gobible', 'html' ],
-  'commentary'     => [ 'ebooks', 'gobible', 'html' ],
-);
-
-# Conversion dependencies
-my %CONV_DEPENDENCIES = (
-  'osis DICT'                     => [ 'osis MAIN' ],
-  'osis MAIN(with-sourceProject)' => [ 'osis MAIN(sourceProject)', 
-                                       'osis DICT(sourceProject)?' ],
-  'sword MAIN'                    => [ 'osis MAIN' ],
-  'sword DICT'                    => [ 'osis DICT', 
-                                       'sword MAIN' ],
-  'ebooks MAIN'                   => [ 'osis MAIN', 
-                                       'osis DICT?' ],
-  'html MAIN'                     => [ 'osis MAIN', 
-                                       'osis DICT?' ],
-  'gobible MAIN'                  => [ 'osis MAIN' ],
-);
-
 my $MODRE_DEF = 'all'; 
 my $CONVERSION_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
+
+our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES);
+our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG);
 
 my $USAGE = "
 USAGE: convert [-h] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
@@ -60,7 +32,6 @@ dir     : Path to a directory containing one or more osis-converters
 -x rx   : Regex matching modules to skip. Default is none.
 ";
 
-our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG);
 if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
 
 # Restart in Vagrant if necessary
