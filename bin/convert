@@ -37,7 +37,7 @@ if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
 # Restart in Vagrant if necessary
 my $isCompatibleLinux = ($^O =~ /linux/i ? `lsb_release -a 2>&1`:'');
 if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
-  &convertInVagrant();
+  &convertInVagrant(); exit;
 }
 if (&runningInVagrant()) {$VAGRANT = 1;}
 
@@ -397,13 +397,10 @@ sub getScriptsToRun {
     
     # Resolve the osis pathway and apply/remove as needed
     for (my $i=0; $i<@s; $i++) {
-      if (@s[$i] ne 'osis') {next;}
-      @s[$i] = &osisScript($m, $infoP);
-      # When converting to OSIS, only the 'osis' conversion includes 
-      # both types of to-OSIS conversions.
-      if ($conversion =~ /^(sfm2osis|osis2osis)$/ && @s[$i] ne $conversion) {
-        splice(@s, $i, 1); $i--;
-      }
+      if (@s[$i] !~ /osis$/) {next;}
+      my $myosis = &osisScript($m, $infoP);
+      if (@s[$i] eq 'osis') {@s[$i] = $myosis;}
+      elsif (@s[$i] ne $myosis) {splice(@s, $i, 1); $i--;}
     }
     
     # Run the remaining scripts on the module
@@ -418,20 +415,22 @@ sub getScriptsToRun {
   return @run;
 }
 
+# Return a list of osis-converters scripts to be invoked for any given 
+# convert argument to this script.
 sub conversionScripts {
   my $conversion = shift;
   
   my @scripts;
-  if ($conversion =~ /(^sfm|osis$)/) {
-    push(@scripts, 'osis');
+  
+  foreach (@CONV_OSIS) {
+    if ($conversion eq $_) { push(@scripts, $_); return @scripts; }
   }
   
-  if ($conversion =~ /2all$/)   {
-    push(@scripts, map("osis2$_", @CONV_PUBS));
-  }
-  
-  if ($conversion =~ /2(\w+)$/ && $1 ne 'osis' && $1 ne 'all') {
-    push(@scripts, "osis2$1");
+  if ($conversion =~ /^(.*)2(.*)$/)   {
+    my $from = $1; my $to = $2;
+    if ($from eq 'sfm') {push(@scripts, 'osis');}
+    if ($to eq 'all')   {push(@scripts, map("osis2$_", @CONV_PUBS));}
+    else {push(@scripts, "osis2$to");}
   }
   
   return @scripts;
@@ -516,14 +515,9 @@ sub addDependency {
     
     my $ifExists = ($mt =~ s/\?$// ? 1:0);
     
-    # When converting from OSIS, don't include to-OSIS dependencies
-    if ($conversion =~ /^osis2/ && $st =~ /2osis$/) {next;}
-    
-    # When converting to OSIS, only the 'osis' conversion includes both 
-    # types of to-OSIS conversions.
-    if ($conversion =~ /^(sfm2osis|osis2osis)$/ && $st ne $conversion ) {
-      next;
-    }
+    # Don't include the OSIS creation dependencyies when converting from 
+    # OSIS, instead use the pre-existing OSIS files. 
+    if ($st eq 'osis' && $conversion =~ /^osis2/) {next;}
      
     my $mod;
     if    ($mt eq 'MAIN')                {$mod = &main($m, $infoP); }
@@ -531,7 +525,7 @@ sub addDependency {
     elsif ($mt eq 'MAIN(sourceProject)') {$mod = &main($smain, $infoP);}
     elsif ($mt eq 'DICT(sourceProject)') {$mod = &dict($smain, $infoP);}
     
-    if ($ifExists && !$mod) {next;}
+    if (!$mod && $ifExists) {next;}
     
     if (!$mod) {
       print "
@@ -787,8 +781,6 @@ sub convertInVagrant {
   open(VUP, "$cmd |");
   while(<VUP>) {print $_;}
   close(VUP);
-  
-  exit;
 }
 
 # Returns 1 on success or undef on failure (or exits with -h).

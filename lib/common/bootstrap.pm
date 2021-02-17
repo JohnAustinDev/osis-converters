@@ -64,10 +64,13 @@ our %CONV_NOCANDO = (
 
 # Conversion dependencies
 our %CONV_DEPENDENCIES = (
+  # DICT are converted after MAIN enabling final DICT references to be checked
   'osis DICT'                     => [ 'osis MAIN' ],
   'osis MAIN(with-sourceProject)' => [ 'osis MAIN(sourceProject)', 
                                        'osis DICT(sourceProject)?' ],
+  # skip osis DICT(with-sourceProject) because of osis DICT => osis MAIN
   'sword MAIN'                    => [ 'osis MAIN' ],
+  # sword DICT are converted after sword MAIN enabling final DICT references to be checked
   'sword DICT'                    => [ 'osis DICT', 
                                        'sword MAIN' ],
   'ebooks MAIN'                   => [ 'osis MAIN', 
@@ -193,8 +196,8 @@ sub set_configuration_globals {
   if ($INPD eq $DICTINPD && -e "$INPD/CF_osis2osis.txt") {
     &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
   "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 
-  should still be placed in the main module directory. If you want to run 
-  sfm2osis on the main module, then ALSO include a CF_usfm2osis.txt 
+  should still be placed in the main module directory. If you want to  
+  run sfm2osis on the main module, then ALSO include a CF_usfm2osis.txt 
   file in the main module directory.", 1);
   }
   
