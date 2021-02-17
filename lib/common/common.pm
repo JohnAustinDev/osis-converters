@@ -22,7 +22,6 @@
 
 use strict;
 
-use Carp qw(longmess);
 use DateTime;
 use Data::Dumper;
 use HTML::Entities;

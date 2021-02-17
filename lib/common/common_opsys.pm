@@ -27,7 +27,7 @@ use strict;
 our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD, 
     $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
-    $VAGRANT);
+    $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES);
 
 our $WRITELAYER  =  ">:encoding(UTF-8)";
 our $APPENDLAYER = ">>:encoding(UTF-8)";
@@ -37,8 +37,7 @@ if (&runningInVagrant()) {$READLAYER .= ":crlf";}
   
 # Config.conf sections
 our @CONFIG_SECTIONS = (
-  'MAINMOD', 'DICTMOD', 'osis2sword', 'osis2gobible', 
-  'osis2html', 'osis2ebooks', 'system'
+  'MAINMOD', 'DICTMOD', 'system', map("osis2$_", @CONV_PUBS)
 );
 
 # Config entries that are defined by CrossWire SWORD standard
@@ -651,7 +650,7 @@ sub readSetCONF {
     }
   }
   
-  #&Debug(Dumper($CONF)."\n");
+  #use Data::Dumper; &Log(Dumper($CONF)."\n", 1);
   return 1;
 }
 
@@ -681,7 +680,7 @@ sub readConf {
     "Specify the module name in config.conf like this: [$MAINMOD]", 1);
   }
 
-  #&Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
+  #use Data::Dumper;  &Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
   
   if ($confsrcA) {$$confsrcA = \%f1;}
   return \%c1;
@@ -760,21 +759,15 @@ sub readConfFile {
       $section = $1;
       $continuingEntry = '';
       
-      if ($. != 1 && $section !~ /$sectRE/ && $section ne $confP->{'MainmodName'} &&
-          $section ne $confP->{'MainmodName'}.'DICT') {
-        &Error("Config file: '$file' unrecognized section: [$section]",
-        "Allowable sections are: $sectRE");
-        $section = 'MAINMOD';
+      if ($section =~ /$sectRE/) {
+        if    ($section eq 'MAINMOD') {$section = $MAINMOD;}
+        elsif ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
       }
-      
-      if    ($section eq 'MAINMOD') {$section = $MAINMOD;}
-      elsif ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
-      
-      if ($. == 1) {
-        $confP->{'MainmodName'} = $section;
-      }
-      elsif ($section eq $confP->{'MainmodName'}.'DICT') {
+      elsif ($section =~ /DICT$/) {
         $confP->{'DictmodName'} = $section;
+      }
+      else {
+        $confP->{'MainmodName'} = $section;
       }
     }
     
@@ -786,7 +779,7 @@ sub readConfFile {
       $continuingEntry = '';
       if (!exists($confP->{$fullEntry})) {
         $confP->{$fullEntry} = $v;
-        $confsrcP->{$fullEntry} = $file;
+        if ($confsrcP) {$confsrcP->{$fullEntry} = $file;}
       }
       else {
         # if this entry supports multiple values, then append another value
@@ -824,7 +817,7 @@ sub readConfFile {
   }
   close(XCONF);
 
-  #&Log(Dumper(\%conf)."\n", 1);
+  #use Data::Dumper; &Log(Dumper($confP)."\n", 1);
   return $confP;
 }
 
@@ -957,7 +950,7 @@ sub confAuto {
 # Returns 1 otherwise (valid, but nothing special).
 sub isValidConfig {
   my $fullEntry = shift;
-  
+ 
   if ($fullEntry =~ /^(MainmodName|DictmodName)$/) {
     return 1;
   }
@@ -1108,24 +1101,9 @@ sub checkDependencies {
   
   my $logflag = ($quiet ? ($DEBUG ? 2:3):1);
 
-  my @deps;
-  if ($script =~ /(update)/) {
-    @deps = ('SWORD_PERL', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2');
-  }
-  elsif ($script =~ /(sfm2osis|osis2osis)/) {
-    @deps = ('SWORD_PERL', 'XMLLINT', 'MODULETOOLS_BIN', 'XSLT2');
-  }
-  elsif ($script =~ /osis2sword/) {
-    @deps = ('SWORD_PERL', 'SWORD_BIN', 'MODULETOOLS_BIN', 'XSLT2');
-  }
-  elsif ($script =~ /osis2ebooks/) {
-    @deps = ('SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'CALIBRE');
-  }
-  elsif ($script =~ /osis2html/) {
-    @deps = ('SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2');
-  }
-  elsif ($script =~ /osis2gobible/) {
-    @deps = ('SWORD_PERL', 'GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 'XSLT2');
+  my @deps = @{$CONV_BIN_DEPENDENCIES{'all'}};
+  if (ref($CONV_BIN_DEPENDENCIES{$script})) {
+    push(@deps, @{$CONV_BIN_DEPENDENCIES{$script}});
   }
   
   # XSLT2 also requires that openjdk 10.0.1 is NOT being used 

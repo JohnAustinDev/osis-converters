@@ -2,15 +2,17 @@
 
 # Run specified conversions for any number of projects, as quickly as possible
 
+our   $DEBUG = 0;
+our $VAGRANT = 1;
+
 BEGIN {
+
 use threads;
 use threads::shared;
+use Data::Dumper; $Data::Dumper::Sortkeys = 1;
 
 # Bootstrap osis-converters without init() so project config files can be read.
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
-
-my  $DEBUG = 0;
-our $VAGRANT = 0;
 
 my $MODRE_DEF = 'all'; 
 my $CONVERSION_DEF = 'sfm2all';
@@ -36,12 +38,95 @@ dir     : Path to a directory containing one or more osis-converters
 
 if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
 
-# Restart in Vagrant if necessary
+if (-e $MYLOG) {unlink($MYLOG);}
+
+our $INFO = &getProjectsInfo($PRJDIR);
+if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
+
+# If any module is running in Vagrant, be sure we're in Vagrant mode or
+# the console will lock up.
+my $v;
+foreach (keys %{$INFO}) {if ($VAGRANT || $INFO->{$_}{'system+VAGRANT'}) {$v++;}}
+if ($v) {$VAGRANT = 1;}
+
+if ($DEBUG) {
+  my @IGNORE_PROJ = @{&projects($INFO, sort keys %{$INFO})->{'ip'}};
+  &pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
+  foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
+  &pLog("\n");
+}
+
+our @RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
+
+our %DEPENDENCY; &dependencies(\%DEPENDENCY, $CONVERSION, \@RUN, $INFO);
+if ($DEBUG) {&pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n");}
+
+our @RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
+our @RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
+&pLog("Scheduling ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
+my $dr;
+foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
+  my $deps = join(', ', @{$DEPENDENCY{$rP->{'r'}}});
+  my $depsmsg = ($deps ? "(after $deps)":'');
+  $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
+  &pLog(sprintf("%12s:%12s %-35s %s\n", 
+                $rP->{'m'}, 
+                $rP->{'s'} . ($rP->{'dependency'} ? '*':''),
+                $depsmsg, 
+                &outdir($INFO, $rP->{'m'})
+  ));
+  if ($rP->{'dependency'}) {
+    $dr = "*Added to meet all dependencies; use -n to skip these.";
+  }
+}
+&pLog("$dr\n\n");
+
+if (! scalar @RUN) {
+  print "ABORT: There is nothing to do.\n";
+  print $USAGE;
+  exit 1;
+}
+
+my $restartInVagrant;
 my $isCompatibleLinux = ($^O =~ /linux/i ? `lsb_release -a 2>&1`:'');
 if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
-  &convertInVagrant(); exit;
+  $restartInVagrant++;
+}
+
+if (!&runningInVagrant()) {
+  print "Do you want to continue".($restartInVagrant ? ' in Vagrant':'')."? (Y/N): ";
+  my $resp = <STDIN>;
+  if ($resp !~ /^y(es)?$/i) {
+    print "Exiting...\n";
+    exit;
+  }
+}
+
+if ($restartInVagrant) {
+  &pLog("Restarting in Vagrant...\n");
+  
+  # Write .hostinfo by loading defaults.conf
+  our $CONFFILE = "$PRJDIR/defaults/defaults.conf";
+  if (!-e $CONFFILE) {
+    $CONFFILE = "$PRJDIR/../defaults/defaults.conf";
+  }
+  if (-e $CONFFILE) {
+    our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
+    our $CONF = &readConfFile($CONFFILE, undef, undef, 1);
+    our $MOD = 'TMP'; # needed to validate conf() entries
+    &set_system_globals();
+  }
+  else {print "
+WARNING: defaults.conf not found. Vagrant paths may be incorrect 
+without an updated .hostino file.\n\n";}
+
+  &convertInVagrant();
+  exit;
 }
 if (&runningInVagrant()) {$VAGRANT = 1;}
+
+# This thread continues after the following BEGIN block sub definitions!
+########################################################################
 
 sub usagePrint {
   my $tablen = shift;
@@ -68,37 +153,6 @@ sub listConversions {
   }
   
   return \%all;
-}
-
-# Restart the same conversion using the Vagrant VM
-sub convertInVagrant {
-
-  our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
-  
-  &initialize_vagrant();
-  
-  my $vscript = &vagrantPath($SCRIPT);
-  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
-  my $vpdir   = &vagrantPath($PRJDIR);
-  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit 1;}
-  my $vlog    = &vagrantPath($MYLOG);
-  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
-  
-  my $cmd = "vagrant ssh -c \"".
-            "'$vscript' ".
-            "-m '$MODRE' ".
-            "-x '$SKIP' ".
-            "-c '$CONVERSION' ".
-            "-l '$vlog' ".
-            ( $NODEPMODS ? '-n ' : '' ).
-            "'$vpdir'\"";
-
-  print "\nStarting Vagrant with...\n$cmd\n";
-  
-  # Continue printing to console while Vagrant ssh remains open
-  open(VUP, "$cmd |");
-  while(<VUP>) {print $_;}
-  close(VUP);
 }
 
 # Returns 1 on success or undef on failure (or exits with -h).
@@ -164,14 +218,23 @@ sub arguments {
 ABORT: dir does not exist: $PRJDIR\n";
     return;
   }
-  # If PRJDIR is not a project parent directory but is inside a project, 
-  # and -m was not specified, then adjust PRJDIR to the parent dir and 
-  # set -m to 'MOD(DICT)?'. This allows any dependencies to be located.
+  # If PRJDIR is within a project subdirectory, change it to the main
+  # project directory.
+  my @p = split(/[\\\/]/, $PRJDIR);
+  while (@p) {
+    my $d = join('/', @p);
+    if (-e "$d/config.conf" || -e "$d|CF_osis2osis.txt") {
+      $PRJDIR = $d; last;
+    }
+    pop(@p);
+  }
+  
+  # If PRJDIR is a project main directory and -m was not specified, 
+  # then adjust PRJDIR to the parent dir and set -m to 'MOD(DICT)?'. 
+  # This allows any dependencies to be located.
   my $adjust;
   if (!$havem && ! -e "$PRJDIR/defaults") {
-    if (-e "$PRJDIR/sfm")       {$adjust = '..';}
-    if (-e "$PRJDIR/../sfm")    {$adjust = '../..';}
-    if (-e "$PRJDIR/../../sfm") {$adjust = '../../..';}
+    if (-d "$PRJDIR/../defaults") {$adjust = '..';}
     if ($adjust) {
       my @p = split(/[\\\/]/, $PRJDIR);
       my @d = split(/[\\\/]/, $adjust);
@@ -202,160 +265,35 @@ ABORT: dir does not exist: $PRJDIR\n";
     
   return 1;
 }
-} # BEGIN was used to separate Perl module dependencies from Vagrant
-########################################################################
-########################################################################
 
-use Encode;
-use File::Copy;
-use Data::Dumper;
+# Restart the same conversion using the Vagrant VM
+sub convertInVagrant {
 
-$Data::Dumper::Sortkeys = 1;
-$SIG{'INT'} = sub {&finish()};
+  &initialize_vagrant();
+  
+  my $vscript = &vagrantPath($SCRIPT);
+  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
+  my $vpdir   = &vagrantPath($PRJDIR);
+  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit 1;}
+  my $vlog    = &vagrantPath($MYLOG);
+  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
+  
+  my $cmd = "vagrant ssh -c \"".
+            "'$vscript' ".
+            "-m '$MODRE' ".
+            "-x '$SKIP' ".
+            "-c '$CONVERSION' ".
+            "-l '$vlog' ".
+            ( $NODEPMODS ? '-n ' : '' ).
+            "'$vpdir'\"";
 
-my %PRINTED;
-if (-e $MYLOG) {unlink($MYLOG);}
-
-my $STARTTIME;
-&timer('start'); &pLog("\n");
-
-my $INFO = &getProjectsInfo($PRJDIR);
-if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
-
-# If any module is running in Vagrant, be sure we're in Vagrant mode or
-# the console will lock up.
-my $v;
-foreach (keys %{$INFO}) {if ($VAGRANT || $INFO->{$_}{'system+VAGRANT'}) {$v++;}}
-if ($v) {
-  $VAGRANT = 1;
-  print "NOTE: Running $VAGRANT project(s) in Vagrant...\n";
+  print "\nStarting Vagrant with...\n$cmd\n";
+  
+  # Continue printing to console while Vagrant ssh remains open
+  open(VUP, "$cmd |");
+  while(<VUP>) {print $_;}
+  close(VUP);
 }
-
-my @IGNORE_PROJ = @{&projects($INFO, sort keys %{$INFO})->{'ip'}};
-&pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
-foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
-&pLog("\n");
-
-my @RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
-
-my %DEPENDENCY; &dependencies(\%DEPENDENCY, $CONVERSION, \@RUN, $INFO);
-if ($DEBUG) {&pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n");}
-
-my @RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
-my @RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
-&pLog("Scheduling ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
-my $dr;
-foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
-  my $deps = join(', ', @{$DEPENDENCY{$rP->{'r'}}});
-  my $depsmsg = ($deps ? "(after $deps)":'');
-  $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
-  &pLog(sprintf("%12s:%12s %-35s %s\n", 
-                $rP->{'m'}, 
-                $rP->{'s'} . ($rP->{'dependency'} ? '*':''),
-                $depsmsg, 
-                &outdir($INFO, $rP->{'m'})
-  ));
-  if ($rP->{'dependency'}) {
-    $dr = "*Added to meet all dependencies; use -n to skip these.";
-  }
-}
-&pLog("$dr\n\n");
-
-if (! scalar @RUN) {
-  print "ABORT: There is nothing to do.\n";
-  print $USAGE;
-  exit 1;
-}
-
-if (!$VAGRANT) {
-  print "Do you want to continue? (Y/N): ";
-  my $resp = <STDIN>;
-  if ($resp !~ /^y(es)?$/i) {
-    print "Exiting...\n";
-    exit;
-  }
-}
-
-if (!$VAGRANT) {&readMode(4);}
-
-# Now run all jobs until there is nothing left to do, or the ESC key is 
-# pressed.
-&pLog("Running ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
-my $NUM_THREADS :shared = 0;
-my %DONE :shared;
-my @STARTED :shared;
-my $WAIT = 3;
-my $KEY = 0;
-my $PAUSED = 0;
-my $KILLED = 0;
-while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
-          $KEY != 27 
-      ) { # 27 is ESC key
-      
-  $KEY = 0; # clear if set by inner while loop
-  while ( !$PAUSED && $KEY != 27 && $NUM_THREADS < $MAXTHREADS && @RUN ) {
-    # Start another conversion, skipping over any conversion whose 
-    # dependencies are not done.
-    my $x = -1;
-    my $ok;
-    do {
-      $x++;
-      $ok = 1;
-      foreach my $run (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
-        if (!$DONE{$run}) {$ok = 0;}
-      }
-    } while ($x < $#RUN && !$ok);
-    
-    if (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
-      if (!$ok) {
-        print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
-        last;
-      }
-      print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
-      join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'r'}}})."\n";
-    }
-    
-    sleep(2); # so jobs don't start at the same time, causing problems
-    threads->create(sub {
-      print "Starting: ".$RUN[$x]->{'r'}."\n";
-      &runScript($RUN[$x]);
-      $NUM_THREADS--;
-      $DONE{$RUN[$x]->{'r'}}++;
-      print "Exiting: ".$RUN[$x]->{'r'}."\n";
-    });
-    
-    $NUM_THREADS++;
-    my $s = splice(@RUN, $x, 1);
-    push(@STARTED, $s->{'r'});
-    if (@RUN) {print("There are ".@RUN." jobs left...\n");}
-    
-    &readKey();
-  }
-
-  if (!$KEY) {  # allow KEY already set by inner while loop to break outer loop
-    &readKey();
-  }
-  sleep(2);
-}
-
-if (!$VAGRANT) {&readMode(0);}
-
-if ($KEY == 27) {
-  &pLog("\n");
-  &pLog("
-No more conversions will be scheduled...
-Press ctrl-c to kill remaining threads and exit.
-Or wait for the current threads to finish:\n");
-&working(\@STARTED, \%DONE, 'log');
-}
-else {
-  print "No more projects to start and none are running!\n";
-}
-
-&finish();
-
-########################################################################
-########################################################################
 
 sub projects {
   my $infoP = shift;
@@ -366,9 +304,10 @@ sub projects {
     if ($infoP->{$mod}{'runable'}) {
       my $main = &main($mod, $infoP);
       my $dict = &dict($mod, $infoP);
+      $p{$main}++;
       $m{$main}++;
       if ($dict)  {
-        $p{$dict}++;
+        $m{$dict}++;
       }
     }
     else {$ip{$mod}++;}
@@ -691,40 +630,6 @@ ABORT: failed to decode dependency: $d (m=$m, smain=$smain)\n";
   }
 }
 
-# Run osis-converters on a module, and report.
-sub runScript {
-  my $rP = shift;
-  
-  my $script = $rP->{'s'};
-  my $path   = $rP->{'p'};
-  my $mod    = $rP->{'m'};
-  
-  my $cmd = "$SCRD/bin/$script \"$path\"";
-  print "Started: $cmd\n";
-  my $result = decode('utf8', `$cmd  2>&1`);
-
-  my @errors;
-  foreach my $line (split(/\n+/, $result)) {
-    if ($line !~ /ERROR/) {next;}
-    push(@errors, "$mod $line");
-  }
-  
-  if (@errors) {
-    &pLog(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
-          $script, 
-          $mod, 
-          scalar @errors
-    ));
-    foreach my $e (@errors) {&pLog("$e\n");}
-    &pLog("\n");
-    return;
-  }
-  
-  &pLog(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
-        $script, 
-        $mod
-  ));
-}
 
 # Returns the MAIN module name of the project containing module $m, or
 # undef if $m is not in $infoP or is unrunable.
@@ -802,10 +707,148 @@ sub outdir {
   return $outdir;
 }
 
+sub pLog {
+  my $p = shift;
+
+  print encode("utf8", $p);
+  
+  open(LOGF, ">>:encoding(UTF-8)", $MYLOG) || die;
+  print LOGF $p;
+  close(LOGF);
+}
+}
+# BEGIN was used to separate Perl module dependencies for Vagrant.
+# Code beyond this point may be run in a Vagrant virtual machine.
+########################################################################
+
+use Encode;
+use DateTime;
+use Term::ReadKey;
+
+$SIG{'INT'} = sub {&finish()};
+
+my $STARTTIME;
+&timer('start'); &pLog("\n");
+
+if (!$VAGRANT) {ReadMode(4);}
+
+# Now run all jobs until there is nothing left to do, or the ESC key is 
+# pressed.
+&pLog("Running ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
+my $NUM_THREADS :shared = 0;
+my %DONE :shared;
+my @STARTED :shared;
+my $WAIT = 3;
+my $KEY = 0;
+my $PAUSED = 0;
+my $KILLED = 0;
+while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
+          $KEY != 27 
+      ) { # 27 is ESC key
+      
+  $KEY = 0; # clear if set by inner while loop
+  while ( !$PAUSED && $KEY != 27 && $NUM_THREADS < $MAXTHREADS && @RUN ) {
+    # Start another conversion, skipping over any conversion whose 
+    # dependencies are not done.
+    my $x = -1;
+    my $ok;
+    do {
+      $x++;
+      $ok = 1;
+      foreach my $run (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
+        if (!$DONE{$run}) {$ok = 0;}
+      }
+    } while ($x < $#RUN && !$ok);
+    
+    if (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
+      if (!$ok) {
+        print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
+        last;
+      }
+      print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
+      join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'r'}}})."\n";
+    }
+    
+    sleep(2); # so jobs don't start at the same time, causing problems
+    threads->create(sub {
+      print "Starting: ".$RUN[$x]->{'r'}."\n";
+      &runScript($RUN[$x]);
+      $NUM_THREADS--;
+      $DONE{$RUN[$x]->{'r'}}++;
+      print "Exiting: ".$RUN[$x]->{'r'}."\n";
+    });
+    
+    $NUM_THREADS++;
+    my $s = splice(@RUN, $x, 1);
+    push(@STARTED, $s->{'r'});
+    if (@RUN) {print("There are ".@RUN." jobs left...\n");}
+    
+    &readKey();
+  }
+
+  if (!$KEY) {  # allow KEY already set by inner while loop to break outer loop
+    &readKey();
+  }
+  sleep(2);
+}
+
+if (!$VAGRANT) {ReadMode(0);}
+
+if ($KEY == 27) {
+  &pLog("\n");
+  &pLog("
+No more conversions will be scheduled...
+Press ctrl-c to kill remaining threads and exit.
+Or wait for the current threads to finish:\n");
+&working(\@STARTED, \%DONE, 'log');
+}
+else {
+  print "No more projects to start and none are running!\n";
+}
+
+&finish();
+
+########################################################################
+########################################################################
+
+# Run osis-converters on a module, and report.
+sub runScript {
+  my $rP = shift;
+  
+  my $script = $rP->{'s'};
+  my $path   = $rP->{'p'};
+  my $mod    = $rP->{'m'};
+  
+  my $cmd = "$SCRD/bin/$script \"$path\"";
+  print "Started: $cmd\n";
+  my $result = decode('utf8', `$cmd  2>&1`);
+
+  my @errors;
+  foreach my $line (split(/\n+/, $result)) {
+    if ($line !~ /ERROR/) {next;}
+    push(@errors, "$mod $line");
+  }
+  
+  if (@errors) {
+    &pLog(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
+          $script, 
+          $mod, 
+          scalar @errors
+    ));
+    foreach my $e (@errors) {&pLog("$e\n");}
+    &pLog("\n");
+    return;
+  }
+  
+  &pLog(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
+        $script, 
+        $mod
+  ));
+}
+
 sub timer {
   my $do = shift;
  
-  use DateTime;
   if ($do =~ /start/i) {
     &pLog("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
@@ -866,12 +909,6 @@ sub working {
   return scalar @working;
 }
 
-sub readMode {
-  my $mode = shift;
-  
-  use Term::ReadKey; ReadMode $mode;
-}
-
 sub readKey {
   use Term::ReadKey;
   if ($VAGRANT) {return;}
@@ -894,23 +931,13 @@ sub readKey {
 
 sub finish {
 
-  if (!$VAGRANT) {&readMode(0);}
+  if (!$VAGRANT) {ReadMode(0);}
   
   foreach my $th (threads->list()) {$th->join();}
 
   &timer('stop');
   
   exit;
-}
-
-sub pLog {
-  my $p = shift;
-
-  print encode("utf8", $p);
-  
-  open(LOGF, ">>:encoding(UTF-8)", $MYLOG) || die;
-  print LOGF $p;
-  close(LOGF);
 }
 
 1;

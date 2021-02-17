@@ -34,6 +34,7 @@
 # use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){N}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
 use strict;
+use Carp qw(longmess);
 use Encode;
 use File::Copy;
 use File::Find;
@@ -78,6 +79,16 @@ our %CONV_DEPENDENCIES = (
   'html MAIN'                     => [ 'osis MAIN', 
                                        'osis DICT?' ],
   'gobible MAIN'                  => [ 'osis MAIN' ],
+);
+
+# Conversion executable dependencies
+our %CONV_BIN_DEPENDENCIES = (
+  'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2' ],
+  'sfm2osis'     => [ 'XMLLINT' ],
+  'osis2osis'    => [ 'XMLLINT' ],
+  'osis2sword'   => [ 'SWORD_BIN' ],
+  'osis2ebooks'  => [ 'CALIBRE' ],
+  'osis2gobible' => [ 'GO_BIBLE_CREATOR' ],
 );
 
 require "$SCRD/lib/common/common_opsys.pm";
