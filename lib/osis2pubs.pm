@@ -1096,15 +1096,17 @@ sub makeHTML {
   &runXSLT("osis2xhtml.xsl", $osis, "content.opf", \%params);
   chdir($SCRD);
 
-  mkdir("$HTMLOUT/$pubName");
-  &copy_dir("$tmp/xhtml", "$HTMLOUT/$pubName/xhtml");
-  if (-e "$tmp/css") {&copy_dir("$tmp/css", "$HTMLOUT/$pubName/css");}
-  if (-e "$tmp/images") {&copy_dir("$tmp/images", "$HTMLOUT/$pubName/images");}
+  my $n; my $p = "$HTMLOUT/$pubName";
+  while (-e $p) {$n++; $p = "$HTMLOUT/${pubName}_$n"}
+  mkdir($p);
+  &copy_dir("$tmp/xhtml", "$p/xhtml");
+  if (-e "$tmp/css") {&copy_dir("$tmp/css", "$p/css");}
+  if (-e "$tmp/images") {&copy_dir("$tmp/images", "$p/images");}
   if ($cover && -e $cover) {
-    if (! -e "$HTMLOUT/$pubName/images") {mkdir("$HTMLOUT/$pubName/images");}
-    &copy($cover, "$HTMLOUT/$pubName/images");
+    if (! -e "$p/images") {mkdir("$p/images");}
+    &copy($cover, "$p/images");
   }
-  if (open(INDX, $WRITELAYER, "$HTMLOUT/$pubName/index.xhtml")) {
+  if (open(INDX, $WRITELAYER, "$p/index.xhtml")) {
     my $tophref = &shell("perl -0777 -ne 'print \"\$1\" if /<manifest[^>]*>.*?<item href=\"([^\"]+)\"/s' \"$tmp/content.opf\"", 3);
     my $header = &shell("perl -0777 -ne 'print \"\$1\" if /^(.*?<\\/head[^>]*>)/s' \"$tmp/$tophref\"", 3);
     $header =~ s/(<link[^>]+href=")\.(\.\/css\/[^>]*>)/$1$2/sg;
@@ -1123,7 +1125,7 @@ sub makeHTML {
     close(INDX);
   }
   else {
-    &ErrorBug("makeHTML: Could not open \"$HTMLOUT/$pubName/index.xhtml\" for writing");
+    &ErrorBug("makeHTML: Could not open \"$p/index.xhtml\" for writing");
   }
 }
 
