@@ -2,6 +2,7 @@
 
 # Run specified conversions for any number of projects, as quickly as possible
 
+BEGIN {
 use threads;
 use threads::shared;
 
@@ -16,10 +17,10 @@ my $CONVERSION_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES);
-our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG);
+our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG, $NODEPMODS);
 
 my $USAGE = "
-USAGE: convert [-h] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
+USAGE: convert [-h] [-n] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
 
 dir     : Path to a directory containing one or more osis-converters 
           projects. Default is the working directory.
@@ -28,6 +29,7 @@ dir     : Path to a directory containing one or more osis-converters
 -h      : Show this usage message an exit.
 -l file : Log file. Default is $LOG_DEF in the working directory.
 -m rx   : Regex matching modules to run, or 'all'. Default is '$MODRE_DEF'.
+-n      : No additional modules will be run to meet any dependencies.
 -t N    : Number of threads to use. Default is the number of CPUs.
 -x rx   : Regex matching modules to skip. Default is none.
 ";
@@ -41,11 +43,172 @@ if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
 }
 if (&runningInVagrant()) {$VAGRANT = 1;}
 
-use DateTime;
+sub usagePrint {
+  my $tablen = shift;
+  my $string = shift;
+  
+  my $chars = (70 - $tablen);
+  my $tab = (' ' x $tablen);
+  $string =~ s/(.{$chars}\S*)\s/$tab$1\n/g;
+  
+  return $string;
+}
+
+sub listConversions {
+  my $convOsisAP = shift;
+  my $convPubsAP = shift;
+  
+  my %all;
+  foreach (@{$convOsisAP}) {
+    $all{$_}++;
+  }
+  foreach ('all', @{$convPubsAP}) {
+    $all{'sfm'.'2'.$_}++;
+    $all{'osis'.'2'.$_}++;
+  }
+  
+  return \%all;
+}
+
+# Restart the same conversion using the Vagrant VM
+sub convertInVagrant {
+
+  our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
+  
+  &initialize_vagrant();
+  
+  my $vscript = &vagrantPath($SCRIPT);
+  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
+  my $vpdir   = &vagrantPath($PRJDIR);
+  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit 1;}
+  my $vlog    = &vagrantPath($MYLOG);
+  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
+  
+  my $cmd = "vagrant ssh -c \"".
+            "'$vscript' ".
+            "-m '$MODRE' ".
+            "-x '$SKIP' ".
+            "-c '$CONVERSION' ".
+            "-l '$vlog' ".
+            ( $NODEPMODS ? '-n ' : '' ).
+            "'$vpdir'\"";
+
+  print "\nStarting Vagrant with...\n$cmd\n";
+  
+  # Continue printing to console while Vagrant ssh remains open
+  open(VUP, "$cmd |");
+  while(<VUP>) {print $_;}
+  close(VUP);
+}
+
+# Returns 1 on success or undef on failure (or exits with -h).
+sub arguments {
+  $PRJDIR = ".";
+  $MYLOG = "./$LOG_DEF";
+  $MODRE = $MODRE_DEF;
+  $SKIP = '^(none)$';
+  $CONVERSION = $CONVERSION_DEF;
+  $MAXTHREADS = `lscpu | egrep "^CPU\\(s\\)\\:"`; $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
+
+  my $arg = shift;
+  my ($havem, $havex);
+  while ($arg) {
+    if ($arg =~ /^\-(\S*)/) {
+      my $f = $1;
+      if ($f eq 'h') {print $USAGE; exit;}
+      elsif ($f eq 'n') {$NODEPMODS++; $arg = shift; next;}
+      elsif (!$f) {
+        print "ABORT: no flag name: -\n";
+        return;
+      }
+      
+      my $v = shift; if (!$v || $v =~ /^\-/) {
+        print "ABORT: flag -$f has no value\n";
+        return;
+      }
+      
+      my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
+      if ($f eq 'c' && $v =~ /^($all)$/) {
+        $CONVERSION = $v;
+      }
+      elsif ($f eq 'l') {
+        my $dir = ($v =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
+        if (!$dir || ! -d $dir) {
+          print "ABORT: log file directory does not exist: $v\n";
+          return;
+        }
+        $MYLOG = $v;
+      }
+      elsif ($f eq 'm') {$MODRE = $v; $havem++;}
+      elsif ($f eq 't' && $v =~ /^\d+$/) {$MAXTHREADS = $v;}
+      elsif ($f eq 'x') {$SKIP = $v; $havex++;}
+      else {
+        print "ABORT: unhandled flag: -$f $v\n";
+        return;
+      }
+    }
+    elsif (-d $arg) {$PRJDIR = $arg;}
+    else {
+      print "ABORT: not a directory: $arg\n";
+      return;
+    }
+    
+    $arg = shift;
+  }
+  
+  # Adjust PRJDIR...
+  if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
+  $PRJDIR =~ s/[\\\/]$//;
+  if (!-e $PRJDIR) {
+    print "
+ABORT: dir does not exist: $PRJDIR\n";
+    return;
+  }
+  # If PRJDIR is not a project parent directory but is inside a project, 
+  # and -m was not specified, then adjust PRJDIR to the parent dir and 
+  # set -m to 'MOD(DICT)?'. This allows any dependencies to be located.
+  my $adjust;
+  if (!$havem && ! -e "$PRJDIR/defaults") {
+    if (-e "$PRJDIR/sfm")       {$adjust = '..';}
+    if (-e "$PRJDIR/../sfm")    {$adjust = '../..';}
+    if (-e "$PRJDIR/../../sfm") {$adjust = '../../..';}
+    if ($adjust) {
+      my @p = split(/[\\\/]/, $PRJDIR);
+      my @d = split(/[\\\/]/, $adjust);
+      my $mod = @p[(@p-@d)];
+      $MODRE = '^' . $mod . ($mod !~ /DICT$/ ? '(DICT)?':'') . '$';
+      $PRJDIR .= "/$adjust";
+    }
+  }
+  
+  # Adjust MYLOG...
+  if ($MYLOG =~ /^\./)  {$MYLOG  = File::Spec->rel2abs($MYLOG);}
+  
+  # Adjust MODRE and SKIP...
+  # If -m was specified as a single non-DICT module, but PRJDIR is a
+  # project parent directory (non-adjusted), then include the DICT mod.
+  if (!$adjust && $havem && -e "$PRJDIR/defaults" 
+      && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
+    $MODRE = '^'.$MODRE.'(DICT)?$';
+  }
+  elsif ($havem && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
+  if ($havex && $SKIP !~ /(^\^|\$$)/) {$SKIP = '^'.$SKIP.'$';}
+  
+  if ($DEBUG) {
+    no strict 'refs';
+    my @v = ('PRJDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+    print join("\n", map("$_=$$_", @v))."\n\n";
+  }
+    
+  return 1;
+}
+} # BEGIN was used to separate Perl module dependencies from Vagrant
+########################################################################
+########################################################################
+
 use Encode;
 use File::Copy;
 use Data::Dumper;
-use Term::ReadKey;
 
 $Data::Dumper::Sortkeys = 1;
 $SIG{'INT'} = sub {&finish()};
@@ -93,7 +256,7 @@ foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
                 &outdir($INFO, $rP->{'m'})
   ));
   if ($rP->{'dependency'}) {
-    $dr = "* - Added to meet dependencies.";
+    $dr = "*Added to meet all dependencies; use -n to skip these.";
   }
 }
 &pLog("$dr\n\n");
@@ -113,7 +276,7 @@ if (!$VAGRANT) {
   }
 }
 
-if (!$VAGRANT) {ReadMode 4;}
+if (!$VAGRANT) {&readMode(4);}
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
@@ -175,7 +338,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
   sleep(2);
 }
 
-if (!$VAGRANT) {ReadMode 0;}
+if (!$VAGRANT) {&readMode(0);}
 
 if ($KEY == 27) {
   &pLog("\n");
@@ -193,22 +356,6 @@ else {
 
 ########################################################################
 ########################################################################
-
-sub listConversions {
-  my $convOsisAP = shift;
-  my $convPubsAP = shift;
-  
-  my %all;
-  foreach (@{$convOsisAP}) {
-    $all{$_}++;
-  }
-  foreach ('all', @{$convPubsAP}) {
-    $all{'sfm'.'2'.$_}++;
-    $all{'osis'.'2'.$_}++;
-  }
-  
-  return \%all;
-}
 
 sub projects {
   my $infoP = shift;
@@ -234,17 +381,6 @@ sub projects {
                  'ip' => [ sort keys %ip ] ); # ignored projects
   
   return \%result
-}
-
-sub usagePrint {
-  my $tablen = shift;
-  my $string = shift;
-  
-  my $chars = (70 - $tablen);
-  my $tab = (' ' x $tablen);
-  $string =~ s/(.{$chars}\S*)\s/$tab$1\n/g;
-  
-  return $string;
 }
 
 # Fill a hash with config.conf and CF_osis2osis.txt information for all
@@ -445,6 +581,22 @@ sub dependencies {
   foreach my $rP (@{$runAP}) {
     if (defined($dependencyHP->{$rP->{'r'}})) {next;}
     &addDependencies($conversion, $dependencyHP, $rP, $infoP);
+  }
+  
+  # When requested, remove dependencies on modules which are not being run
+  if ($NODEPMODS) {
+    my %rms; map($rms{$_}++, map($_->{'m'}, @{$runAP}));
+    foreach my $r (keys %{$dependencyHP}) {
+      for (my $i=0; $i<@{$dependencyHP->{$r}}; $i++) {
+        @{$dependencyHP->{$r}}[$i] =~ /^(\S+) (\S+)$/;
+        my $s = $1; my $m = $2;
+        if (defined($rms{$m})) {next;}
+        print 
+"WARNING:-n is dropping dependency @{$dependencyHP->{$r}}[$i] on $r\n\n";
+        splice(@{$dependencyHP->{$r}}, $i, 1); $i--;
+      }
+    }
+    return;
   }
  
   # Check for dependencies which require additional runs
@@ -653,6 +805,7 @@ sub outdir {
 sub timer {
   my $do = shift;
  
+  use DateTime;
   if ($do =~ /start/i) {
     &pLog("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
@@ -713,7 +866,14 @@ sub working {
   return scalar @working;
 }
 
+sub readMode {
+  my $mode = shift;
+  
+  use Term::ReadKey; ReadMode $mode;
+}
+
 sub readKey {
+  use Term::ReadKey;
   if ($VAGRANT) {return;}
   $KEY = ReadKey(-1);
   $KEY = ($KEY ? ord($KEY):0);
@@ -734,7 +894,7 @@ sub readKey {
 
 sub finish {
 
-  if (!$VAGRANT) {ReadMode 0;}
+  if (!$VAGRANT) {&readMode(0);}
   
   foreach my $th (threads->list()) {$th->join();}
 
@@ -753,133 +913,4 @@ sub pLog {
   close(LOGF);
 }
 
-# Restart the same conversion using the Vagrant VM
-sub convertInVagrant {
-
-  our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
-  
-  &initialize_vagrant();
-  
-  my $vscript = &vagrantPath($SCRIPT);
-  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
-  my $vpdir   = &vagrantPath($PRJDIR);
-  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit 1;}
-  my $vlog    = &vagrantPath($MYLOG);
-  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
-  
-  my $cmd = "vagrant ssh -c \"".
-            "'$vscript' ".
-            "-m '$MODRE' ".
-            "-x '$SKIP' ".
-            "-c '$CONVERSION' ".
-            "-l '$vlog' ".
-            "'$vpdir'\"";
-
-  print "\nStarting Vagrant with...\n$cmd\n";
-  
-  # Continue printing to console while Vagrant ssh remains open
-  open(VUP, "$cmd |");
-  while(<VUP>) {print $_;}
-  close(VUP);
-}
-
-# Returns 1 on success or undef on failure (or exits with -h).
-sub arguments {
-  $PRJDIR = ".";
-  $MYLOG = "./$LOG_DEF";
-  $MODRE = $MODRE_DEF;
-  $SKIP = '^(none)$';
-  $CONVERSION = $CONVERSION_DEF;
-  $MAXTHREADS = `lscpu | egrep "^CPU\\(s\\)\\:"`; $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
-
-  my $arg = shift;
-  my ($havem, $havex);
-  while ($arg) {
-    if ($arg =~ /^\-(\S*)/) {
-      my $f = $1;
-      if ($f eq 'h') {print $USAGE; exit;}
-      elsif (!$f) {
-        print "ABORT: no flag name: -\n";
-        return;
-      }
-      
-      my $v = shift; if (!$v || $v =~ /^\-/) {
-        print "ABORT: flag -$f has no value\n";
-        return;
-      }
-      
-      my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
-      if ($f eq 'c' && $v =~ /^($all)$/) {
-        $CONVERSION = $v;
-      }
-      elsif ($f eq 'l') {
-        my $dir = ($v =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
-        if (!$dir || ! -d $dir) {
-          print "ABORT: log file directory does not exist: $v\n";
-          return;
-        }
-        $MYLOG = $v;
-      }
-      elsif ($f eq 'm') {$MODRE = $v; $havem++;}
-      elsif ($f eq 't' && $v =~ /^\d+$/) {$MAXTHREADS = $v;}
-      elsif ($f eq 'x') {$SKIP = $v; $havex++;}
-      else {
-        print "ABORT: unhandled flag: -$f $v\n";
-        return;
-      }
-    }
-    elsif (-d $arg) {$PRJDIR = $arg;}
-    else {
-      print "ABORT: not a directory: $arg\n";
-      return;
-    }
-    
-    $arg = shift;
-  }
-  
-  # Adjust PRJDIR...
-  if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
-  $PRJDIR =~ s/[\\\/]$//;
-  if (!-e $PRJDIR) {
-    print "
-ABORT: dir does not exist: $PRJDIR\n";
-    return;
-  }
-  # If PRJDIR is not a project parent directory but is inside a project, 
-  # and -m was not specified, then adjust PRJDIR to the parent dir and 
-  # set -m to 'MOD(DICT)?'. This allows any dependencies to be located.
-  my $adjust;
-  if (!$havem && ! -e "$PRJDIR/defaults") {
-    if (-e "$PRJDIR/sfm")       {$adjust = '..';}
-    if (-e "$PRJDIR/../sfm")    {$adjust = '../..';}
-    if (-e "$PRJDIR/../../sfm") {$adjust = '../../..';}
-    if ($adjust) {
-      my @p = split(/[\\\/]/, $PRJDIR);
-      my @d = split(/[\\\/]/, $adjust);
-      my $mod = @p[(@p-@d)];
-      $MODRE = '^' . $mod . ($mod !~ /DICT$/ ? '(DICT)?':'') . '$';
-      $PRJDIR .= "/$adjust";
-    }
-  }
-  
-  # Adjust MYLOG...
-  if ($MYLOG =~ /^\./)  {$MYLOG  = File::Spec->rel2abs($MYLOG);}
-  
-  # Adjust MODRE and SKIP...
-  # If -m was specified as a single non-DICT module, but PRJDIR is a
-  # project parent directory (non-adjusted), then include the DICT mod.
-  if (!$adjust && $havem && -e "$PRJDIR/defaults" 
-      && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
-    $MODRE = '^'.$MODRE.'(DICT)?$';
-  }
-  elsif ($havem && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
-  if ($havex && $SKIP !~ /(^\^|\$$)/) {$SKIP = '^'.$SKIP.'$';}
-  
-  if ($DEBUG) {
-    no strict 'refs';
-    my @v = ('PRJDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
-    print join("\n", map("$_=$$_", @v))."\n\n";
-  }
-    
-  return 1;
-}
+1;
