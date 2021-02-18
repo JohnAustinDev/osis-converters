@@ -65,23 +65,25 @@ if ($DEBUG) {&pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n");}
 
 our @RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
 our @RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
-&pLog("Scheduling ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
+our $JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
+    " projects (".@RUN_MODS." modules):\n";
 my $dr;
 foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
   my $deps = join(', ', @{$DEPENDENCY{$rP->{'r'}}});
   my $depsmsg = ($deps ? "(after $deps)":'');
   $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
-  &pLog(sprintf("%12s:%12s %-35s %s\n", 
+  $JOBMSG .= sprintf("%12s:%12s %-35s %s\n", 
                 $rP->{'m'}, 
                 $rP->{'s'} . ($rP->{'dependency'} ? '*':''),
                 $depsmsg, 
                 &outdir($INFO, $rP->{'m'})
-  ));
+  );
   if ($rP->{'dependency'}) {
     $dr = "*Added to meet all dependencies; use -n to skip these.";
   }
 }
-&pLog("$dr\n\n");
+$JOBMSG .= "$dr\n\n";
+print $JOBMSG;
 
 if (! scalar @RUN) {
   print "ABORT: There is nothing to do.\n";
@@ -134,9 +136,9 @@ sub usagePrint {
   my $tablen = shift;
   my $string = shift;
   
-  my $chars = (70 - $tablen);
+  my $chars = (60 - $tablen);
   my $tab = (' ' x $tablen);
-  $string =~ s/(.{$chars}\S*)\s/$tab$1\n/g;
+  $string =~ s/(.{$chars}\S*)\s/$1\n$tab/g; $string = $tab.$string;
   
   return $string;
 }
@@ -731,6 +733,8 @@ use Term::ReadKey;
 
 $SIG{'INT'} = sub {&finish()};
 
+&pLog($JOBMSG);
+
 my $STARTTIME;
 &timer('start'); &pLog("\n");
 
@@ -738,7 +742,6 @@ if (!$VAGRANT) {ReadMode(4);}
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
-&pLog("Running ".@RUN." jobs on ".@RUN_PROJ." projects (".@RUN_MODS." modules):\n");
 my $NUM_THREADS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;
