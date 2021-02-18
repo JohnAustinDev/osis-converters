@@ -17,6 +17,8 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 my $MODRE_DEF = 'all'; 
 my $CONVERSION_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
+my $MAXTHREADS_DEF = (`which lscpu` ? `lscpu | egrep "^CPU\\(s\\)\\:"` : 2); 
+$MAXTHREADS_DEF =~ s/^.*?\s+(\d+)\s*$/$1/;
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES);
 our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG, $NODEPMODS);
@@ -32,7 +34,7 @@ dir     : Path to a directory containing one or more osis-converters
 -l file : Log file. Default is $LOG_DEF in the working directory.
 -m rx   : Regex matching modules to run, or 'all'. Default is '$MODRE_DEF'.
 -n      : No additional modules will be run to meet any dependencies.
--t N    : Number of threads to use. Default is the number of CPUs.
+-t N    : Number of threads to use. Default is $MAXTHREADS_DEF.
 -x rx   : Regex matching modules to skip. Default is none.
 ";
 
@@ -162,7 +164,7 @@ sub arguments {
   $MODRE = $MODRE_DEF;
   $SKIP = '^(none)$';
   $CONVERSION = $CONVERSION_DEF;
-  $MAXTHREADS = `lscpu | egrep "^CPU\\(s\\)\\:"`; $MAXTHREADS =~ s/^.*?\s+(\d+)\s*$/$1/;
+  $MAXTHREADS = $MAXTHREADS_DEF;
 
   my $arg = shift;
   my ($havem, $havex);
@@ -386,6 +388,8 @@ sub getProjectInfo {
   my $proj = shift;
   my $infoP = shift;
 
+  if ($proj eq 'defaults') {return;}
+  
   # - sourceProject is osis2osis source project, or else undef 
   # if OSIS will be created by sfm2osis (the usual case).
   # - configProject is the the MAIN module of a project if it has a
