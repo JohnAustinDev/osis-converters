@@ -1,6 +1,6 @@
 CrossReferences
 .vagrant
-.hostinfo
+.vm.conf
 Vagrantshares
 Vagrantcustom
 ubuntu-*

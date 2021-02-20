@@ -27,7 +27,9 @@ use strict;
 our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD, 
     $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
-    $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES);
+    $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS);
+    
+require("$SCRD/lib/common/block.pm");
 
 our $WRITELAYER  =  ">:encoding(UTF-8)";
 our $APPENDLAYER = ">>:encoding(UTF-8)";
@@ -465,7 +467,7 @@ sub init_opsys {
   # Mint is like Ubuntu but with totally different release info! 
   # $isCompatibleLinux = ($isCompatibleLinux =~ /Release\:\s*(14|16|18)\./ms);
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):'');
-  my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT, $SCRD, $INPD) ? 1:0);
+  my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT_NAME, $SCRD, $INPD) ? 1:0);
   
   # Start the script if we're already running on a VM and/or have dependencies met.
   if (&runningInVagrant() || ($haveAllDependencies && !$VAGRANT)) {
@@ -520,57 +522,72 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
 }
 
 # Apply the config file's [system] section directly to Perl globals. 
-# NOTE: This must be run before init_opsys() so .hostinfo can be 
-# written prior to any Vagrant restart. The .hostinfo file is needed to 
-# properly set @OC_SYSTEM_PATH_CONFIGS while running in Vagrant.
+# NOTE: This must be run before init_opsys() so the .vm.conf can be 
+# written prior to any Vagrant restart. The .vm.conf file is used to 
+# set @OC_SYSTEM_PATH_CONFIGS while running in Vagrant.
 sub set_system_globals {
+  my $mainmod = shift;
+  
+  # vm.conf is written when running on the host, and read when running
+  # in Vagrant. To prevent collisions between different osis-converters 
+  # threads, a BlockFile is used to insure only one thread accesses 
+  # vm.conf at a time.
+  my $blockFile = BlockFile->new("$SCRD/.vm.conf-blocked.txt");
 
   no strict "refs";
   
-  foreach my $sysentry (@OC_SYSTEM_CONFIGS) {
-    my $v = &conf($sysentry, undef, undef, undef, 1);
+  # Write OC_SYSTEM_CONFIGS to Perl globals
+  foreach my $e (@OC_SYSTEM_CONFIGS) {
+    my $v = &conf($e, undef, undef, undef, 1);
     if (!defined($v)) {next;}
-    $$sysentry = $v;
+    $$e = $v;
   }
   
   if (!&runningInVagrant()) {
-    # If host, then just make paths absolute (and save .hostinfo for Vagrant when needed)
-    foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
-      if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-      if ($^O =~ /linux/i) {$$v = &expandLinuxPath($$v);}
-      if ($$v =~ /^\./) {$$v = File::Spec->rel2abs($$v, $SCRD);}
+    # Clean OC_SYSTEM_PATH_CONFIGS paths
+    foreach my $e (@OC_SYSTEM_PATH_CONFIGS) {
+      if (!defined($$e) || $$e =~ /^(https?|ftp)\:/) {next;}
+      if ($^O =~ /linux/i) {$$e = &expandLinuxPath($$e);}
+      if ($$e =~ /^\./) {$$e = File::Spec->rel2abs($$e, $SCRD);}
     }
-    if (open(SHL, $WRITELAYER, "$SCRD/.hostinfo")) {
-      foreach my $v (@OC_SYSTEM_PATH_CONFIGS) {
-        if (!$$v || $$v =~ /^(https?|ftp)\:/) {next;}
-        print SHL "\$$v = '".&vagrantPath($$v)."';\n";
-      }
-      print SHL "1;\n";
-      close(SHL);
+    # Write OC_SYSTEM_PATH_CONFIGS Vagrant paths to .vm.conf
+    my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+    foreach my $e (@OC_SYSTEM_PATH_CONFIGS) {
+      if (!defined($$e) || $$e =~ /^(https?|ftp)\:/) {next;}
+      $cP->{"$mainmod+$e"} = ($$e ? &vagrantPath($$e) : $$e);
     }
-    else {&ErrorBug("Could not open $SCRD/.hostinfo. Vagrant will not work; check that you have write permission in directory $SCRD.");}
+    $cP->{"all+HOST_SCRD"} = $SCRD;
+    $cP->{"all+HOST_SHARE"} = &vagrantHostShare();
+    &writeConf("$SCRD/.vm.conf", $cP, 1);
+    if (!-e "$SCRD/.vm.conf") {&Error(
+"Could not write $SCRD/.vm.conf meaning Vagrant will not work properly.",
+"Check that you have write permission on directory $SCRD.");}
   }
   else {
-    require("$SCRD/.hostinfo");
+    # Write .vm.conf settings to Perl globals
+    my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+    foreach my $e (keys %{$cP}) {
+      if ($e !~ /^$mainmod\+(.*)$/) {next;}
+      $$1 = $cP->{$e};
+    }
   }
+}
+
+# Set system default paths if not specified in config.conf.
+sub set_system_default_paths {
+
+  no strict "refs";
   
-  # Finally set default values when config.conf doesn't specify exedirs
-  my %exedirs = (
-    'MODULETOOLS_BIN' => "~/.osis-converters/src/Module-tools/bin", 
-    'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
-    'SWORD_BIN' => "~/.osis-converters/src/sword/build/utilities"
-  );
-    
   # The following are installed to certain locations by provision.sh
   if ($^O =~ /linux/i) {
-    foreach my $v (sort keys %exedirs) {
+    foreach my $v (sort keys %SYSTEM_DEFAULT_PATHS) {
       if ($$v) {next;}
-      $$v = &expandLinuxPath($exedirs{$v});
+      $$v = &expandLinuxPath($SYSTEM_DEFAULT_PATHS{$v});
     }
   }
   
   # All executable directory paths should end in / or else be empty.
-  foreach my $v (sort keys %exedirs) {
+  foreach my $v (sort keys %SYSTEM_DEFAULT_PATHS) {
     if (!$$v) {next;}
     $$v =~ s/([^\/])$/$1\//;
   }
@@ -686,50 +703,52 @@ sub readConf {
   return \%c1;
 }
 
-# Read a config.conf file. Return hash pointer to the encoded config
-# data if successful or else undef.
+# Read a config.conf file. Return a hash pointer to encoded config data.
 #
-# The config.conf file must start with [<main-module-name>|MAINMOD] on  
-# the first line, followed by either CrossWire SWORD config entries or 
-# osis-converters specific entries. All of these entries apply to the 
-# entire project. Config entries may also be specified for only specific  
-# parts of the conversion process. This is done by starting a new config  
-# section with [<script_name>|<dict-module-name>|DICTMOD]. Then the 
-# following entries will only apply to that part of the conversion   
-# process. Any value for a particular script will overwrite the value of   
-# a general entry. The [system] section is special in that it results in
-# the direct setting of Perl global variables (see set_system_globals()).
+# The encoded config data is a hash whose keys are section+entryname
+# and whose values are entry VALUES (see below). Sections are denoted
+# by square brackets. Allowed sections are [system], [<conversion>] and
+# [<module-name>]. Entries in a project's MAINMOD section apply to the
+# whole project, but any entries in a DICTMOD section only apply to the
+# DICTMOD and will override any same-name entries in the MAINMOD 
+# section. Likewise [<conversion>] entries only apply to a particular
+# conversion and override any same-name entries in MAINMOD. The [system]
+# section defines Perl globals used througout the conversion process
+# (see set_system_globals()).
 #
-# If the main project has a DICT sub-project, then its config entries 
-# should be specified in a [<DICTMOD>] section.
-#
+# There are two special config data hash keys: 'MainmodName' and 
+# 'DictmodName' which may be read to find the names of included MAINMOD
+# and DICTMOD sections. The first [<module-name>] sections of each type
+# are recorded by these hash keys.
+# 
+# VALUES:
 # There may by multiple entries for @MULTIVALUE_CONFIGS entries and each 
 # of the values will be joined together using <nx/> as separator.
 #
 # Values of @CONTINUABLE_CONFIGS entries may continue from one line to 
 # the next when their line(s) end with '\'.
 #
+# $confsrcP:
 # If hash pointer $confsrcP is provided, it will be filled with key
 # source-file data, so the source file of a particular conf value can
 # later be determined by findConf().
 sub readConfFile {
-  my $file = shift;
-  my $confP = shift;
-  my $confsrcP = shift;
-  my $nowarn = shift;
+  my $file = shift;     # config file path
+  my $confP = shift;    # optional data hash pointer
+  my $confsrcP = shift; # used for reverse lookup of values
+  my $nowarn = shift;   # turn off warnings and notes
   
   my $sectRE = &configRE(@CONFIG_SECTIONS);
   my $contRE = &configRE(@CONTINUABLE_CONFIGS);
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
   
   if (!$nowarn) {&Note("Reading config.conf: $file");}
- 
-  if (!open(XCONF, $READLAYER, $file)) {return;}
   
   my $continuingEntry = '';
   my $section = '';
   if (!$confP) {my %conf; $confP = \%conf;}
-  while(<XCONF>) {
+  
+  if (open(XCONF, $READLAYER, $file)) {while(<XCONF>) {
     # ignore comment lines
     if ($_ =~ /^#/) {next;}
     
@@ -749,8 +768,9 @@ sub readConfFile {
       else {$confFile = &expandLinuxPath($confFile);}
       if (-e $confFile) {&readConfFile($confFile, $confP, $confsrcP, $nowarn);}
       elsif ($confFile !~ /\.defaults\.conf$/) {
-        &Error("Include file: '$confFile' not found (at $file line $.)",
-        "The Include value must be a full path or a relative path to an existing config file.");
+        &Error(
+"Include file: '$confFile' not found (at $file line $.)",
+"The Include value must be a full or a relative path to an existing config file.");
       }
     }
     
@@ -764,16 +784,27 @@ sub readConfFile {
         elsif ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
       }
       elsif ($section =~ /DICT$/) {
-        $confP->{'DictmodName'} = $section;
+        if (!exists($confP->{'DictmodName'})) {
+          $confP->{'DictmodName'} = $section;
+        }
       }
       else {
-        $confP->{'MainmodName'} = $section;
+        if (!exists($confP->{'MainmodName'})) {
+          $confP->{'MainmodName'} = $section;
+        }
       }
     }
     
     # handle config entries
     elsif ($_ =~ /^\s*(.+?)\s*=\s*(.*?)\s*$/) {
       my $e = $1; my $v = $2;
+      
+      if (!$section) {
+        &Error(
+"Config entry in '$file' needs a section heading: $_",
+"Section headings are enclosed in square brackets like this: '[$MAINMOD]'");
+        $section = $MAINMOD;
+      }
       
       my $fullEntry = "$section+$e";
       $continuingEntry = '';
@@ -814,11 +845,106 @@ sub readConfFile {
     else {
       &Error("Config file: '$file' unhandled config.conf line: $_");
     }
-  }
-  close(XCONF);
+  } close(XCONF); }
 
   #use Data::Dumper; &Log(Dumper($confP)."\n", 1);
   return $confP;
+}
+
+# Write a config file having entries of $confP. NOTE: Config 
+# entries of the defaults.conf will be filtered out unless 
+# $includeDefaults is set.
+sub writeConf {
+  my $file = shift;
+  my $confP = shift;
+  my $includeDefaults = shift;
+
+  my %defaults;
+  my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
+  if (-e $oc) {
+    &readConfFile($oc, \%defaults, undef, 1);
+  }
+  
+  my $confdir = $file; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
+  if (!-e $confdir) {make_path($confdir);}
+  
+  if (open(XCONF, $WRITELAYER, $file)) {
+    my $section = '';
+    
+    foreach my $fullName (
+        sort { &confEntrySort($a, $b, $confP); } 
+        keys %{$confP} ) {
+      if ($fullName =~ /^(MainmodName|DictmodName)$/) {next;}
+      elsif (!$includeDefaults && defined($defaults{$fullName})) {next;}
+      else {
+        my $e = $fullName; 
+        my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+        if (!$e) {
+          &Error("Config entry is empty string: $fullName", 1);
+          next;
+        }
+        if (!$s) {
+          &Error("Config entry has no section: $fullName", 1);
+          next;
+        }
+        if ($s ne $section) {
+          print XCONF ($section ? "\n":'')."[$s]\n";
+          $section = $s;
+        }
+        
+        if ($confP->{$fullName} =~ /<nx\/>/) {
+          foreach my $val (split(/<nx\/>/, $confP->{$fullName})) {
+            print XCONF $e."=".$val."\n";
+          }
+        }
+        else {print XCONF $e."=".$confP->{$fullName}."\n";}
+      }
+    }
+    close(XCONF);
+    
+  }
+  else {
+    &Error("Could not open config.conf file: $file.");
+    return;
+  }
+
+  #&Log(Dumper($confP)."\n", 1);
+
+  $confP = &readConfFile($file, undef, undef, 1);
+  return $confP;
+}
+
+sub confEntrySort {
+  my $a = shift;
+  my $b = shift;
+  my $confP = shift;
+  
+  my $ae = $a; my $be = $b;
+  my $as = ($ae =~ s/([^\+]+)\+// ? $1:'');
+  my $bs = ($be =~ s/([^\+]+)\+// ? $1:'');
+  if    ($as eq $confP->{'MainmodName'}) {$as = 'MAINMOD';}
+  elsif ($as eq $confP->{'DictmodName'}) {$as = 'DICTMOD';}
+  if    ($bs eq $confP->{'MainmodName'}) {$bs = 'MAINMOD';}
+  elsif ($bs eq $confP->{'DictmodName'}) {$bs = 'DICTMOD';}
+    
+  # First by section
+  my $ax = @CONFIG_SECTIONS,
+  my $bx = @CONFIG_SECTIONS;
+  for (my $i=0; $i < @CONFIG_SECTIONS; $i++) {
+    if ($as eq @CONFIG_SECTIONS[$i]) {$ax = $i;}
+    if ($bs eq @CONFIG_SECTIONS[$i]) {$bx = $i;}
+  }
+  if ($ax != @CONFIG_SECTIONS || $bx != @CONFIG_SECTIONS) {
+    my $res = ($ax <=> $bx);
+    if ($res) {return $res;}
+  }
+  else {
+    my $res = $as cmp $bs;
+    if ($res) {return $res;}
+  }
+  
+  # Then by entry
+  return $ae cmp $be;
 }
 
 # Return the config source file path which specified the requested entry.
@@ -852,7 +978,7 @@ sub conf {
   $mod = ($mod ? $mod:$MOD);
   $script_name = ($script_name ? $script_name:$SCRIPT_NAME);
  
-  my $key = '';
+  my $key;
   my $isConf = &isValidConfig("$mod+$entry");
   if (!$isConf) {
     &ErrorBug("Unrecognized config request: $entry");
@@ -866,7 +992,7 @@ sub conf {
   elsif (exists($CONF->{$CONF->{'MainmodName'}.'+'.$entry})) {
     $key = $CONF->{'MainmodName'}.'+'.$entry;
   }
-  elsif ($isConf eq 'system' && $quiet) {
+  elsif ($isConf eq 'system' && $quiet && exists($CONF->{'system+'.$entry})) {
     $key = 'system+'.$entry;
   }
   elsif ($isConf eq 'system' && !$quiet) {
@@ -879,7 +1005,7 @@ sub conf {
   
   if (!$quiet) {&isValidConfigValue($key, $CONF);}
   
-  my $value = ($key ? $CONF->{$key}:undef);
+  my $value = (defined($key) ? $CONF->{$key}:undef);
   
   if ($value eq 'AUTO') {
     $value = &confAuto($entry, $mod, $script_name, $autoContext, $quiet);
@@ -1215,8 +1341,11 @@ sub bookOsisAbbr {
 # window's drive.
 sub vagrantHostShare {
 
-  if ($INPD !~ /^((?:\w\:|\/\w)?\/[^\/]+)/) {
-    die "Error: Cannot parse project path \"$INPD\"\n";
+  if (!$INPD) {
+    &ErrorBug("Cannot determine vagrantHostShare(). \$INPD is not set.", 1);
+  }
+  elsif ($INPD !~ /^((?:\w\:|\/\w)?\/[^\/]+)/) {
+    &ErrorBug("Cannot parse vagrantHostShare(). \$INPD=$INPD", 1);
   }
   return $1;
 }
@@ -1261,28 +1390,70 @@ sub initialize_vagrant {
   }
 }
 
+# Return a vagrant path when running on a host system.
 sub vagrantPath {
-  my $path = shift;
+  my $path = shift; # host system path
   
-  my $vshare = $SCRD;
-  my $hshare = &vagrantHostShare();
+  if (&runningInVagrant()) {
+    &ErrorBug("vagrantPath should only be called from the host system.");
+  }
   
+  my $vhost = $SCRD;
+  my $vvim = '/vagrant';
+  my $hhost = &vagrantHostShare();
+  my $hvim = "$VAGRANT_HOME/INDIR_ROOT";
+ 
   my $vagrantPath;
-  if ($path =~ /^\Q$vshare/) {
-    my $rel = &shortPath(File::Spec->abs2rel($path, $vshare));
+  if ($path =~ /^\Q$vhost/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $vhost));
     if ($rel !~ /^\.\./) {
-      $vagrantPath = "/vagrant/$rel";
+      $vagrantPath = &shortPath("$vvim/$rel");
     }
   }
   
-  if (!$vagrantPath && $path =~ /^\Q$hshare/) {
-    my $rel = &shortPath(File::Spec->abs2rel($path, $hshare));
-    if ($rel !~ /^\.\./) {
-      $vagrantPath = "$VAGRANT_HOME/INDIR_ROOT/$rel";
-    }
+  if (!$vagrantPath && $path =~ /^\Q$hhost/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $hhost));
+    $vagrantPath = &shortPath("$hvim/$rel");
   }
   
+  if (!$vagrantPath) {&ErrorBug("Failed to find vagrantPath('$path')");}
+
   return $vagrantPath;
+}
+
+# Return a host path when running on a Vagrant virtual machine.
+sub hostPath {
+  my $path = shift; # Vagrant vm path
+  
+  if (!&runningInVagrant()) {
+    &ErrorBug("hostPath should only be called from a Vagrant VM.");
+  }
+  
+  my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+  
+  my $vhost = $cP->{"all+HOST_SCRD"};
+  my $vvim = '/vagrant';
+  my $hhost = $cP->{"all+HOST_SHARE"};
+  my $hvim = "$VAGRANT_HOME/INDIR_ROOT";
+
+  my $hostPath;
+  if ($path =~ /^\Q$vvim/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $vvim));
+    if ($rel !~ /^\.\./) {
+      $hostPath = "$vhost/$rel";
+    }
+  }
+  
+  if (!$hostPath && $path =~ /^\Q$hvim/) {
+    my $rel = &shortPath(File::Spec->abs2rel($path, $hvim));
+    if ($rel !~ /^\.\./) {
+      $hostPath = "$hhost/$rel";
+    }
+  }
+  
+  if (!$hostPath) {&ErrorBug("Failed to find hostPath('$path')");}
+
+  return $hostPath;
 }
 
 sub restart_with_vagrant {

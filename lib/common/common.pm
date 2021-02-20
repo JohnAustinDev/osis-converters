@@ -39,7 +39,6 @@ our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code p
 our $UPPERCASE_DICTIONARY_KEYS = 1;
 our $SFM2ALL_SEPARATE_LOGS = 1;
     
-require("$SCRD/lib/common/block.pm");
 require("$SCRD/lib/common/cb.pm");
 require("$SCRD/lib/common/config.pm");
 require("$SCRD/lib/common/context.pm");

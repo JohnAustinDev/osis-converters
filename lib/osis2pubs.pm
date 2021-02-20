@@ -66,7 +66,7 @@ sub osis2pubs {
     my $v = &conf('Versification');
     $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($INOSIS_XML), $v), $v);
   }
-  my $serverDirsHP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, 1):{});
+  my $serverDirsHP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, ( $convertTo ne 'html' )) : {});
   my $tranPubTitle = &conf('TranslationTitle');
   if (!$tranPubTitle) {$tranPubTitle = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');}
   if (!$tranPubTitle) {&ErroBug("osis2pubs.pm could not determine tranPubTitle", 1);}
@@ -141,7 +141,7 @@ sub osis2pubs {
     elsif ($bookSelect =~ /^last$/i) {$bookSelect = @bks[$#bks];}
     elsif ($bookSelect =~ /^true$/i) {$bookSelect = 'all';}
     else  {$bookSelect = undef;}
-    
+  
     my %done;
     
     # Create the Tran publication

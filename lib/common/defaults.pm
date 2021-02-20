@@ -634,11 +634,11 @@ sub update_removeConvertTXT {
   my $confFile = shift;
   
   &Warn("UPDATE: Found outdated convert.txt. Updating $confFile...");
-  my $confP = &readConfFile($confFile);
-  if (!$confP) {
+  if (!-e $confFile) {
     &Error("Could not read config.conf file: $confFile");
     return;
   }
+  my $confP = &readConfFile($confFile);
   
   &updateConvertTXT("$MAININPD/eBook/convert.txt", $confP, 'osis2ebooks');
   &updateConvertTXT("$MAININPD/html/convert.txt", $confP, 'osis2html');

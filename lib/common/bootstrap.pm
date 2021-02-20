@@ -65,13 +65,13 @@ our %CONV_NOCANDO = (
 
 # Conversion dependencies
 our %CONV_DEPENDENCIES = (
-  # DICT are converted after MAIN enabling final DICT references to be checked
+  # DICT are converted after MAIN, enabling DICT references to be checked
   'osis DICT'                     => [ 'osis MAIN' ],
   'osis MAIN(with-sourceProject)' => [ 'osis MAIN(sourceProject)', 
                                        'osis DICT(sourceProject)?' ],
-  # skip osis DICT(with-sourceProject) because of osis DICT => osis MAIN
+  # don't need osis DICT(with-sourceProject) because of osis DICT => osis MAIN
   'sword MAIN'                    => [ 'osis MAIN' ],
-  # sword DICT are converted after sword MAIN enabling final DICT references to be checked
+  # sword DICT are converted after sword MAIN, enabling SWORD DICT references to be checked
   'sword DICT'                    => [ 'osis DICT', 
                                        'sword MAIN' ],
   'ebooks MAIN'                   => [ 'osis MAIN', 
@@ -91,6 +91,26 @@ our %CONV_BIN_DEPENDENCIES = (
   'osis2gobible' => [ 'GO_BIBLE_CREATOR' ],
 );
 
+#  Host default paths to osis-converters executables
+our %SYSTEM_DEFAULT_PATHS = (
+  'MODULETOOLS_BIN'  => "~/.osis-converters/src/Module-tools/bin", 
+  'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
+  'SWORD_BIN'        => "~/.osis-converters/src/sword/build/utilities",
+);
+
+# Ouput files for each conversion type (MOD will be replaced with $MOD)
+our %CONV_OUTPUT_TEST = (
+  'sfm2osis'     => [ 'MOD.xml' ],
+  'osis2osis'    => [ 'MOD.xml' ],
+  'osis2sword'   => [ 'MOD.zip' ],
+  'osis2ebooks'  => [ 'eBook/*.epub', 
+                      'eBook/*.azw3',
+                      'eBook/*/*.epub', 
+                      'eBook/*/*.azw3' ],
+  'osis2html'    => [ 'html/*/index.xhtml' ],
+  'osis2gobible' => [ 'GoBible/MOD/*.jar' ],
+);
+
 require "$SCRD/lib/common/common_opsys.pm";
 
 sub init() {
@@ -103,7 +123,8 @@ sub init() {
   &checkInputs();
 
   # Set Perl global variables defined in the [system] section of config.conf.
-  &set_system_globals();
+  &set_system_globals(our $MAINMOD);
+  &set_system_default_paths();
   &DebugListVars('SCRD', 'SCRIPT', 'LOGFILE', 'SCRIPT_NAME', 'MOD', 
       'INPD', 'MAINMOD', 'MAININPD', 'DICTMOD', 'DICTINPD',
       our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 'NO_OUTPUT_DELETE');

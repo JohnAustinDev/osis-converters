@@ -2,13 +2,21 @@
 
 # Run specified conversions for any number of projects, as quickly as possible
 
-our   $DEBUG = 0;
-our $VAGRANT = 1;
+use strict;
+
+our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
+    $INPD, $DEBUG, $VAGRANT, $PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, 
+    $SKIP, $MYLOG, $NODEPMODS, $INFO, @RUN, %DEPENDENCY, @RUN_PROJ, 
+    @RUN_MODS, $JOBMSG, %CONV_OUTPUT_TEST);
 
 BEGIN {
 
+$DEBUG   = 0;
+$VAGRANT = 1;
+
 use threads;
 use threads::shared;
+use Cwd;
 use Data::Dumper; $Data::Dumper::Sortkeys = 1;
 
 # Bootstrap osis-converters without init() so project config files can be read.
@@ -19,9 +27,6 @@ my $CONVERSION_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
 my $MAXTHREADS_DEF = (`which lscpu` ? `lscpu | egrep "^CPU\\(s\\)\\:"` : 2); 
 $MAXTHREADS_DEF =~ s/^.*?\s+(\d+)\s*$/$1/;
-
-our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES);
-our ($PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, $SKIP, $MYLOG, $NODEPMODS);
 
 my $USAGE = "
 USAGE: convert [-h] [-n] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
@@ -42,14 +47,10 @@ if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
 
 if (-e $MYLOG) {unlink($MYLOG);}
 
-our $INFO = &getProjectsInfo($PRJDIR);
-if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
+$INPD = $PRJDIR; # necessary for vagrantHostShare() to work
 
-# If any module is running in Vagrant, be sure we're in Vagrant mode or
-# the console will lock up.
-my $v;
-foreach (keys %{$INFO}) {if ($VAGRANT || $INFO->{$_}{'system+VAGRANT'}) {$v++;}}
-if ($v) {$VAGRANT = 1;}
+$INFO = &getProjectsInfo($PRJDIR);
+if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
 
 if ($DEBUG) {
   my @IGNORE_PROJ = @{&projects($INFO, sort keys %{$INFO})->{'ip'}};
@@ -58,32 +59,38 @@ if ($DEBUG) {
   &pLog("\n");
 }
 
-our @RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
+@RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
 
-our %DEPENDENCY; &dependencies(\%DEPENDENCY, $CONVERSION, \@RUN, $INFO);
-if ($DEBUG) {&pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n");}
+%DEPENDENCY; &dependencies(\%DEPENDENCY, $CONVERSION, \@RUN, $INFO);
+if ($DEBUG) {
+  &pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n\n");
+  no strict 'refs';
+  my @v = ('PRJDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+  print join("\n", map("$_=$$_", @v))."\n\n";
+}
 
-our @RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
-our @RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
-our $JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
+@RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
+@RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
+$JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
     " projects (".@RUN_MODS." modules):\n";
 my $dr;
 foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
-  my $deps = join(', ', @{$DEPENDENCY{$rP->{'r'}}});
-  my $depsmsg = ($deps ? "(after $deps)":'');
-  $depsmsg =~ s/ (osis2osis|sfm2osis)//g;
-  $JOBMSG .= sprintf("%12s:%12s %-35s %s\n", 
-                $rP->{'m'}, 
-                $rP->{'s'} . ($rP->{'dependency'} ? '*':''),
-                $depsmsg, 
-                &outdir($INFO, $rP->{'m'})
+  my $outdir = ( !&runningInVagrant() ? 
+    File::Spec->abs2rel(&outdir($INFO, $rP->{'m'}), $SCRD) : 
+    File::Spec->abs2rel(&hostPath(&outdir($INFO, $rP->{'m'})), &hostPath($SCRD))
   );
+  $JOBMSG .= sprintf("%12s:%12s %-33s %s\n", 
+                $rP->{'m'}, 
+                $rP->{'s'} . ( $rP->{'dependency'} ? '*' : '' ),
+                &depmsg($rP->{'r'}, \%DEPENDENCY), 
+                $outdir );
+                
   if ($rP->{'dependency'}) {
     $dr = "*Added to meet all dependencies; use -n to skip these.";
   }
 }
 $JOBMSG .= "$dr\n\n";
-print $JOBMSG;
+if (!&runningInVagrant()) {print $JOBMSG;}
 
 if (! scalar @RUN) {
   print "ABORT: There is nothing to do.\n";
@@ -105,29 +112,21 @@ if (!&runningInVagrant()) {
     exit;
   }
 }
+   
+if (!&runningInVagrant() && $restartInVagrant) {
+  if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
+  # Update vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
+  foreach my $m (@RUN_PROJ) {
+    &set_configuration_globals($INFO->{$m}{'path'}, 'none');
+    &set_system_globals($m);
+  }
+}
 
 if ($restartInVagrant) {
   &pLog("Restarting in Vagrant...\n");
-  
-  # Write .hostinfo by loading defaults.conf
-  our $CONFFILE = "$PRJDIR/defaults/defaults.conf";
-  if (!-e $CONFFILE) {
-    $CONFFILE = "$PRJDIR/../defaults/defaults.conf";
-  }
-  if (-e $CONFFILE) {
-    our $INPD = $PRJDIR; # necessary for initialize_vagrant() to work
-    our $CONF = &readConfFile($CONFFILE, undef, undef, 1);
-    our $MOD = 'TMP'; # needed to validate conf() entries
-    &set_system_globals();
-  }
-  else {print "
-WARNING: defaults.conf not found. Vagrant paths may be incorrect 
-without an updated .hostino file.\n\n";}
-
   &convertInVagrant();
   exit;
 }
-if (&runningInVagrant()) {$VAGRANT = 1;}
 
 # This thread continues after the following BEGIN block sub definitions!
 ########################################################################
@@ -197,7 +196,11 @@ sub arguments {
         }
         $MYLOG = $v;
       }
-      elsif ($f eq 'm') {$MODRE = $v; $havem++;}
+      elsif ($f eq 'm') {
+        $MODRE = $v;
+        if ($MODRE eq 'all') {$MODRE = '^.*$';}
+        $havem++;
+      }
       elsif ($f eq 't' && $v =~ /^\d+$/) {$MAXTHREADS = $v;}
       elsif ($f eq 'x') {$SKIP = $v; $havex++;}
       else {
@@ -260,12 +263,6 @@ ABORT: dir does not exist: $PRJDIR\n";
   }
   elsif ($havem && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
   if ($havex && $SKIP !~ /(^\^|\$$)/) {$SKIP = '^'.$SKIP.'$';}
-  
-  if ($DEBUG) {
-    no strict 'refs';
-    my @v = ('PRJDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
-    print join("\n", map("$_=$$_", @v))."\n\n";
-  }
     
   return 1;
 }
@@ -297,6 +294,17 @@ sub convertInVagrant {
   open(VUP, "$cmd |");
   while(<VUP>) {print $_;}
   close(VUP);
+}
+
+sub depmsg {
+  my $run = shift;
+  my $depP = shift;
+  
+  my $deps = join(', ', @{$depP->{$run}});
+  my $depmsg = ($deps ? "(after $deps)":'');
+  $depmsg =~ s/ (osis2osis|sfm2osis)//g;
+  
+  return $depmsg;
 }
 
 sub projects {
@@ -485,11 +493,12 @@ sub getScriptsToRun {
     }
     
     # Run the remaining scripts on the module
-    foreach (@s) {
-      push(@run, { 'r' => "$_ $m",
-                   's' =>  $_, 
+    foreach my $s (@s) {
+      push(@run, { 'r' => "$s $m",
+                   's' =>  $s, 
                    'm' =>  $m, 
-                   'p' =>  $infoP->{$m}{'path'} });
+                   'p' =>  $infoP->{$m}{'path'},
+                   'o' =>  &outdir($infoP, $m) });
     }
   }
   
@@ -536,8 +545,8 @@ sub dependencies {
         @{$dependencyHP->{$r}}[$i] =~ /^(\S+) (\S+)$/;
         my $s = $1; my $m = $2;
         if (defined($rms{$m})) {next;}
-        print 
-"WARNING:-n is dropping dependency @{$dependencyHP->{$r}}[$i] on $r\n\n";
+        print "WARNING: skipping dependency (-n option is set):\n" . 
+          sprintf("%12s:%12s %-33s %s\n\n", $m, $s, &depmsg($r, $dependencyHP), 'SKIPPED');
         splice(@{$dependencyHP->{$r}}, $i, 1); $i--;
       }
     }
@@ -694,23 +703,34 @@ sub osisScript {
   return ($infoP->{$main}{'CCOSIS'}{$m} ? 'osis2osis':'sfm2osis');
 }
 
-# Return the output directory where the OSIS file will go.
+# Return the output directory where the OSIS file will go. It is an
+# absolute path on the running file system (so it could be a host path
+# or a virtual machine path depending on where the script is being run).
 sub outdir {
   my $infoP = shift;
   my $m = shift;
   
   my $p = $m; $p =~ s/DICT$//;
   
-  my $outdir = $infoP->{$p}{'system+OUTDIR'};
-  if ($infoP->{$p}{'sourceProject'}) {
-    $outdir = $infoP->{$infoP->{$p}{'sourceProject'}}{'system+OUTDIR'};
+  my $outdir;
+  if (!&runningInVagrant()) {
+    $outdir = $infoP->{$p}{'system+OUTDIR'};
+    if ($infoP->{$p}{'sourceProject'}) {
+      $outdir = $infoP->{$infoP->{$p}{'sourceProject'}}{'system+OUTDIR'};
+    }
+    if ($outdir) {$outdir = "$SCRD/$outdir";}
   }
-  
-  $outdir = ( $outdir ? $outdir : 
-              "$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."outdir"
-            );
-  
-  return $outdir;
+  else {
+    my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+    $outdir = $cP->{"$p+OUTDIR"};
+  }
+    
+  $outdir = ( $outdir ? 
+      "$outdir/$m" : 
+      "$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
+    );
+ 
+  return &shortPath($outdir);
 }
 
 sub pLog {
@@ -738,7 +758,7 @@ $SIG{'INT'} = sub {&finish()};
 my $STARTTIME;
 &timer('start'); &pLog("\n");
 
-if (!$VAGRANT) {ReadMode(4);}
+if (!&runningInVagrant()) {ReadMode(4);}
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
@@ -799,7 +819,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
   sleep(2);
 }
 
-if (!$VAGRANT) {ReadMode(0);}
+if (!&runningInVagrant()) {ReadMode(0);}
 
 if ($KEY == 27) {
   &pLog("\n");
@@ -823,8 +843,11 @@ sub runScript {
   my $rP = shift;
   
   my $script = $rP->{'s'};
-  my $path   = $rP->{'p'};
   my $mod    = $rP->{'m'};
+  my $path   = $rP->{'p'};
+  my $outdir = $rP->{'o'};
+  
+  my $startTime = time;
   
   my $cmd = "$SCRD/bin/$script \"$path\"";
   print "Started: $cmd\n";
@@ -834,6 +857,11 @@ sub runScript {
   foreach my $line (split(/\n+/, $result)) {
     if ($line !~ /ERROR/) {next;}
     push(@errors, "$mod $line");
+  }
+  
+  our $MOD = $mod; # for conversionTestFile() to work
+  if (!&conversionTestFile($startTime, $script, $outdir)) {
+    push(@errors, "$mod ERROR: No new output file for $script");
   }
   
   if (@errors) {
@@ -851,6 +879,27 @@ sub runScript {
         $script, 
         $mod
   ));
+}
+
+# Returns 1 if the given script has a new output file under outdir, or
+# 0 otherwise.
+sub conversionTestFile {
+  my $startTime = shift;
+  my $script = shift;
+  my $outdir = shift;
+  
+  foreach my $test (@{$CONV_OUTPUT_TEST{$script}}) {
+    my $t = $test;
+    foreach ('MOD') {
+      no strict "refs";
+      $t =~ s/\b$_\b/$$_/g;
+    }
+    foreach my $f (glob("$outdir/$t")) {
+      if ((stat($f))[9] > $startTime) {return 1;}
+    }
+  }
+  
+  return 0;
 }
 
 sub timer {
@@ -890,7 +939,7 @@ sub working {
   
   if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
-    if (!$VAGRANT) {
+    if (!&runningInVagrant()) {
       if (!$PAUSED) {
         $msg .= "Press p to pause the scheduler. ";
       }
@@ -918,7 +967,7 @@ sub working {
 
 sub readKey {
   use Term::ReadKey;
-  if ($VAGRANT) {return;}
+  if (&runningInVagrant()) {return;}
   $KEY = ReadKey(-1);
   $KEY = ($KEY ? ord($KEY):0);
   if ($KEY == 112) {
@@ -938,7 +987,7 @@ sub readKey {
 
 sub finish {
 
-  if (!$VAGRANT) {ReadMode(0);}
+  if (!&runningInVagrant()) {ReadMode(0);}
   
   foreach my $th (threads->list()) {$th->join();}
 
