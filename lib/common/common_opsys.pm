@@ -27,7 +27,8 @@ use strict;
 our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD, 
     $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
-    $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS);
+    $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS,
+    %CONV_BIN_TEST);
     
 require("$SCRD/lib/common/block.pm");
 
@@ -35,7 +36,7 @@ our $WRITELAYER  =  ">:encoding(UTF-8)";
 our $APPENDLAYER = ">>:encoding(UTF-8)";
 our $READLAYER   =  "<:encoding(UTF-8)";
 # crlf read should work with both Windows and Linux, but only use it with Vagrant anyway
-if (&runningInVagrant()) {$READLAYER .= ":crlf";} 
+if (&runningInVagrant()) {$READLAYER .= ":crlf";}
   
 # Config.conf sections
 our @CONFIG_SECTIONS = (
@@ -151,8 +152,6 @@ our %CONFIG_DEFAULTS = (
   'Companion' => '',
   'NormalizeUnicode' => 'false',    'doc:NormalizeUnicode' => 'Apply Unicode normalization to all characters (true|false|NFD|NFC|NFKD|NFKC|FCD)',
 );
-
-our $VAGRANT_HOME = '/home/vagrant';
 
 our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
 
@@ -838,7 +837,7 @@ sub readConfFile {
     
     # is this line part of the previous line?
     elsif ($continuingEntry) {
-      chomp;
+      $_ =~ s/[\r\n]+$//;
       $confP->{$continuingEntry} .= $_;
       $continuingEntry = ($confP->{$continuingEntry} =~ s/\\$/\\\n/ ? $continuingEntry:'');
     }
@@ -1231,44 +1230,36 @@ sub checkDependencies {
   if (ref($CONV_BIN_DEPENDENCIES{$script})) {
     push(@deps, @{$CONV_BIN_DEPENDENCIES{$script}});
   }
-  
-  # XSLT2 also requires that openjdk 10.0.1 is NOT being used 
-  # because its Unicode character classes fail with saxonb-xslt.
-  my %depsh = map { $_ => 1 } @deps;
-  if ($depsh{'XSLT2'}) {push(@deps, 'JAVA');}
-  
-  my %test;
-  $test{'SWORD_BIN'}        = [ &escfile($SWORD_BIN."osis2mod"), "You are running osis2mod: \$Rev: 3431 \$" ]; # want specific version
-  $test{'XMLLINT'}          = [ "xmllint --version", "xmllint: using libxml" ]; # who cares what version
-  $test{'GO_BIBLE_CREATOR'} = [ "java -jar ".&escfile($GO_BIBLE_CREATOR."GoBibleCreator.jar"), "Usage" ];
-  $test{'MODULETOOLS_BIN'}  = [ &escfile($MODULETOOLS_BIN."usfm2osis.py"), "Revision: 491" ]; # check version
-  $test{'XSLT2'}            = [ 'saxonb-xslt', "Saxon 9" ]; # check major version
-  $test{'JAVA'}             = [ 'java -version', "openjdk version \"10.", 1 ]; # NOT openjdk 10.
-  $test{'CALIBRE'}          = [ "ebook-convert --version", "calibre 3" ]; # check major version
-  $test{'SWORD_PERL'}       = [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", "1.8.900" ]; # check version
-  
+
   my $fail;
   foreach my $p (@deps) {
-    if (!exists($test{$p})) {
+    if (!exists($CONV_BIN_TEST{$p})) {
       &ErrorBug("No test for \"$p\".");
       return 0;
     }
-    system($test{$p}[0]." >".&escfile("tmp.txt"). " 2>&1");
+    my $cmd = $CONV_BIN_TEST{$p}[0];
+    foreach my $var (keys %SYSTEM_DEFAULT_PATHS) {
+      no strict 'refs';
+      $cmd =~ s/\b$var\b/$$var/g;
+    }
+    system("$cmd >".&escfile("tmp.txt"). " 2>&1");
     if (!open(TEST, $READLAYER, "tmp.txt")) {
       &ErrorBug("Could not read test output file \"$SCRD/tmp.txt\".");
       return 0;
     }
     my $result; {local $/; $result = <TEST>;} close(TEST); unlink("tmp.txt");
-    my $need = $test{$p}[1];
-    if (!$test{$p}[2] && $result !~ /\Q$need\E/im) {
-      &Error("Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n");
+    my $need = $CONV_BIN_TEST{$p}[1];
+    if (!$CONV_BIN_TEST{$p}[2] && $result !~ /\Q$need\E/im) {
+      &Error("Dependency $p failed:\n\tRan: \"".$CONV_BIN_TEST{$p}[0] .
+        "\"\n\tLooking for: \"$need\"\n\tGot:\n$result\n");
       $fail++;
     }
-    elsif ($test{$p}[2] && $result =~ /\Q$need\E/im) {
-      &Error("Dependency $p failed:\n\tRan: \"".$test{$p}[0]."\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n");
+    elsif ($CONV_BIN_TEST{$p}[2] && $result =~ /\Q$need\E/im) {
+      &Error("Dependency $p failed:\n\tRan: \"".$CONV_BIN_TEST{$p}[0] .
+        "\"\n\tCannot have: \"$need\"\n\tGot:\n$result\n");
       $fail++;
     }
-    #&Note("Dependency $p:\n\tRan: \"".$test{$p}[0]."\"\n\tGot:\n$result");
+    #&Note("Dependency $p:\n\tRan: \"".$CONV_BIN_TEST{$p}[0]."\"\n\tGot:\n$result");
   }
   
   if ($fail) {
@@ -1379,7 +1370,7 @@ sub initialize_vagrant {
 
   # Make sure Vagrant is up, and with the right share(s)
   my @shares;
-  push(@shares, &vagrantShare(&vagrantHostShare(), "$VAGRANT_HOME/INDIR_ROOT"));
+  push(@shares, &vagrantShare(&vagrantHostShare(), "/home/vagrant/INDIR_ROOT"));
   my $status = (-e "./.vagrant" ? &shell("vagrant status", 3):'');
   if ($status !~ /\Qrunning (virtualbox)\E/i) {
     &vagrantUp(\@shares);
@@ -1401,7 +1392,7 @@ sub vagrantPath {
   my $vhost = $SCRD;
   my $vvim = '/vagrant';
   my $hhost = &vagrantHostShare();
-  my $hvim = "$VAGRANT_HOME/INDIR_ROOT";
+  my $hvim = "/home/vagrant/INDIR_ROOT";
  
   my $vagrantPath;
   if ($path =~ /^\Q$vhost/) {
@@ -1434,7 +1425,7 @@ sub hostPath {
   my $vhost = $cP->{"all+HOST_SCRD"};
   my $vvim = '/vagrant';
   my $hhost = $cP->{"all+HOST_SHARE"};
-  my $hvim = "$VAGRANT_HOME/INDIR_ROOT";
+  my $hvim = "/home/vagrant/INDIR_ROOT";
 
   my $hostPath;
   if ($path =~ /^\Q$vvim/) {

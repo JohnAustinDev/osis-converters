@@ -83,7 +83,7 @@ our %CONV_DEPENDENCIES = (
 
 # Conversion executable dependencies
 our %CONV_BIN_DEPENDENCIES = (
-  'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2' ],
+  'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'JAVA' ],
   'sfm2osis'     => [ 'XMLLINT' ],
   'osis2osis'    => [ 'XMLLINT' ],
   'osis2sword'   => [ 'SWORD_BIN' ],
@@ -91,11 +91,33 @@ our %CONV_BIN_DEPENDENCIES = (
   'osis2gobible' => [ 'GO_BIBLE_CREATOR' ],
 );
 
-#  Host default paths to osis-converters executables
+#  Host default paths to locally installed osis-converters executables
 our %SYSTEM_DEFAULT_PATHS = (
   'MODULETOOLS_BIN'  => "~/.osis-converters/src/Module-tools/bin", 
   'GO_BIBLE_CREATOR' => "~/.osis-converters/GoBibleCreator.245", 
   'SWORD_BIN'        => "~/.osis-converters/src/sword/build/utilities",
+);
+
+# Compatibility tests for executable dependencies
+our %CONV_BIN_TEST = (
+  'SWORD_PERL'       => [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", 
+                          "1.8.900" ], 
+  'MODULETOOLS_BIN'  => [ "'MODULETOOLS_BIN/usfm2osis.py'",
+                          "Revision: 491" ], 
+  'XMLLINT'          => [ "xmllint --version",
+                          "xmllint: using libxml" ],
+  'SWORD_BIN'        => [ "'SWORD_BIN/osis2mod'",
+                          "You are running osis2mod: \$Rev: 3431 \$" ],
+  'CALIBRE'          => [ "ebook-convert --version",
+                          "calibre 4" ],
+  'GO_BIBLE_CREATOR' => [ "java -jar 'GO_BIBLE_CREATOR/GoBibleCreator.jar'", 
+                          "Usage" ],
+  # XSLT2 also requires that openjdk 10.0.1 is NOT being used 
+  # because its Unicode character classes fail with saxonb-xslt.
+  'XSLT2'            => [ 'saxonb-xslt',
+                          "Saxon 9" ],
+  'JAVA'             => [ 'java -version', 
+                          "openjdk version \"10.", 1 ], # NOT openjdk 10.
 );
 
 # Ouput files for each conversion type (MOD will be replaced with $MOD)
