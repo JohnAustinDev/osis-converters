@@ -98,6 +98,9 @@ if (! scalar @RUN) {
 }
 
 my $restartInVagrant;
+foreach my $p (@RUN_PROJ) {
+  if ($INFO->{$p}{"system+VAGRANT"}) {$VAGRANT = 1;}
+}
 my $isCompatibleLinux = ($^O =~ /linux/i ? `lsb_release -a 2>&1`:'');
 if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
   $restartInVagrant++;

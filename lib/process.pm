@@ -35,7 +35,7 @@ require("$SCRD/lib/bible/addDictLinks.pm");
 require("$SCRD/lib/bible/fitToVerseSystem.pm");
 require("$SCRD/lib/dict/addSeeAlsoLinks.pm");
 
-# This script expects a usfm2osis.py produced OSIS input file
+# This sub expects an OSIS input file produced by usfm2osis.py
 sub processOSIS {
   my $inosis = shift;
   
@@ -240,7 +240,7 @@ RUN:./INT.SFM");
 }
 
 
-# This script expects a sfm2osis produced OSIS input file
+# This sub expects an OSIS input file produced by sfm2osis
 sub reprocessOSIS {
   my $modname = shift;
   my $sourceProject = shift;
