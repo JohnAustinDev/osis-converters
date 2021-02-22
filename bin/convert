@@ -32,7 +32,7 @@ USAGE: convert [-h] [-n] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
 
 dir     : Path to a directory containing one or more osis-converters 
           projects. Default is the working directory.
--c type : Conversion(s) to run. Default is '$CONVERSION_DEF'. Others are:
+-c conv : Conversion(s) to run. Default is '$CONVERSION_DEF'. Others are:
 " . &usagePrint(10, join(', ', sort keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)})) . ".
 -h      : Show this usage message an exit.
 -l file : Log file. Default is $LOG_DEF in the working directory.
@@ -117,7 +117,7 @@ if (!&runningInVagrant()) {
    
 if (!&runningInVagrant() && $restartInVagrant) {
   if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
-  # Update vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
+  # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
     &set_configuration_globals($INFO->{$m}{'path'}, 'none');
     &set_system_globals($m);
@@ -808,7 +808,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
       join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'r'}}})."\n";
     }
     
-    sleep(2); # so jobs don't start at the same time, causing problems
+    sleep(2); # so jobs don't start too close together
     threads->create(sub {
       print "Starting: ".$RUN[$x]->{'r'}."\n";
       &runScript($RUN[$x]);

@@ -491,7 +491,11 @@ file for it, and then run this script again.");}
       if (!defined($linkedFiles{&shortPath($f)})) {
         $numUnreachable++;
         my $sf = $f; $sf =~ s/^.*\/(xhtml\/)/$1/;
-        &Warn("File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), "If you want to make the above material accesible, add a \\toc".&conf('TOC')." tag to it.");
+        &Error(
+"File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), 
+"If you want to make the above material accesible, add a \\toc".&conf('TOC')." tag 
+before it. Otherwise add 'not_conversion == html' after the \id tag of 
+this material to exclude it from HTML publications.");
       }
     }
     &Report("Found $numUnreachable unreachable file(s) in '$HTMLOUT/$pubName/xhtml'");
