@@ -526,12 +526,6 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
 # set @OC_SYSTEM_PATH_CONFIGS while running in Vagrant.
 sub set_system_globals {
   my $mainmod = shift;
-  
-  # vm.conf is written when running on the host, and read when running
-  # in Vagrant. To prevent collisions between different osis-converters 
-  # threads, a BlockFile is used to insure only one thread accesses 
-  # vm.conf at a time.
-  my $blockFile = BlockFile->new("$SCRD/.vm.conf-blocked.txt");
 
   no strict "refs";
   
@@ -557,6 +551,9 @@ sub set_system_globals {
     }
     $cP->{"all+HOST_SCRD"} = $SCRD;
     $cP->{"all+HOST_SHARE"} = &vagrantHostShare();
+    # To prevent collisions between different osis-converters threads, 
+    # a BlockFile is used to insure a read doesn't occur during writing.
+    my $blockFile = BlockFile->new("$SCRD/.vm.conf-blocked.txt");
     &writeConf("$SCRD/.vm.conf", $cP, 1);
     if (!-e "$SCRD/.vm.conf") {&Error(
 "Could not write $SCRD/.vm.conf meaning Vagrant will not work properly.",

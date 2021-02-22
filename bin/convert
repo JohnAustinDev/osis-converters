@@ -5,9 +5,9 @@
 use strict;
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
-    $INPD, $DEBUG, $VAGRANT, $PRJDIR, $MODRE, $CONVERSION, $MAXTHREADS, 
-    $SKIP, $MYLOG, $NODEPMODS, $INFO, @RUN, %DEPENDENCY, @RUN_PROJ, 
-    @RUN_MODS, $JOBMSG, %CONV_OUTPUT_TEST);
+    $INPD, $DEBUG, $VAGRANT, $PRJSDIR, $MODRE, $CONVERSION, $MAXTHREADS, 
+    $SKIP, $MYLOG, $NODEPMODS, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
+    @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_TEST);
 
 BEGIN {
 
@@ -22,6 +22,7 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1;
 # Bootstrap osis-converters without init() so project config files can be read.
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
 
+# Default script arguments
 my $MODRE_DEF = 'all'; 
 my $CONVERSION_DEF = 'sfm2all';
 my $LOG_DEF = './OUT_convert.txt';
@@ -46,30 +47,25 @@ if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
 
 if (-e $MYLOG) {unlink($MYLOG);}
 
-$INPD = $PRJDIR; # necessary for vagrantHostShare() to work
+$INPD = $PRJSDIR; # necessary for vagrantHostShare() to work
 
-$INFO = &getProjectsInfo($PRJDIR);
-if ($DEBUG) {&pLog("INFO = ".Dumper($INFO)."\n");}
-
-if ($DEBUG) {
-  my @IGNORE_PROJ = @{&projects($INFO, sort keys %{$INFO})->{'ip'}};
-  &pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
-  foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
-  &pLog("\n");
-}
+$INFO = &getProjectsInfo($PRJSDIR);
 
 @RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
 
-%DEPENDENCY; &dependencies(\%DEPENDENCY, $CONVERSION, \@RUN, $INFO);
+%DEPENDENCIES = &getDependencies($CONVERSION, \@RUN, $INFO);
+
 if ($DEBUG) {
-  &pLog("DEPENDENCY = ".Dumper(\%DEPENDENCY)."\n\n");
+  &pLog("INFO = ".Dumper($INFO)."\n");
+  &pLog("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
   no strict 'refs';
-  my @v = ('PRJDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+  my @v = ('PRJSDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
   print join("\n", map("$_=$$_", @v))."\n\n";
 }
 
-@RUN_PROJ = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'p'}};
-@RUN_MODS = @{&projects($INFO, sort map($_->{'m'}, @RUN))->{'m'}};
+@RUN_PROJ    = @{&projects( $INFO, sort map($_->{'m'},@RUN) )->{'p'}};
+@RUN_MODS    = @{&projects( $INFO, sort map($_->{'m'},@RUN) )->{'m'}};
+@IGNORE_PROJ = @{&projects( $INFO, sort keys %{$INFO} )->{'ip'}};
 $JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
     " projects (".@RUN_MODS." modules):\n";
 my $dr;
@@ -81,7 +77,7 @@ foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
   $JOBMSG .= sprintf("%12s:%12s %-33s %s\n", 
                 $rP->{'m'}, 
                 $rP->{'s'} . ( $rP->{'additional'} ? '*' : '' ),
-                &depmsg($rP->{'r'}, \%DEPENDENCY), 
+                &depmsg($rP->{'r'}, \%DEPENDENCIES), 
                 $outdir );
                 
   if ($rP->{'additional'}) {
@@ -170,7 +166,7 @@ sub listConversions {
 
 # Returns 1 on success or undef on failure (or exits with -h).
 sub arguments {
-  $PRJDIR = ".";
+  $PRJSDIR = ".";
   $MYLOG = "./$LOG_DEF";
   $MODRE = $MODRE_DEF;
   $SKIP = '^(none)$';
@@ -218,7 +214,7 @@ sub arguments {
         return;
       }
     }
-    elsif (-d $arg) {$PRJDIR = $arg;}
+    elsif (-d $arg) {$PRJSDIR = $arg;}
     else {
       print "ABORT: not a directory: $arg\n";
       return;
@@ -227,37 +223,37 @@ sub arguments {
     $arg = shift;
   }
   
-  # Adjust PRJDIR...
-  if ($PRJDIR =~ /^\./) {$PRJDIR = File::Spec->rel2abs($PRJDIR);}
-  $PRJDIR =~ s/[\\\/]$//;
-  if (!-e $PRJDIR) {
+  # Adjust PRJSDIR...
+  if ($PRJSDIR =~ /^\./) {$PRJSDIR = File::Spec->rel2abs($PRJSDIR);}
+  $PRJSDIR =~ s/[\\\/]$//;
+  if (!-e $PRJSDIR) {
     print "
-ABORT: dir does not exist: $PRJDIR\n";
+ABORT: dir does not exist: $PRJSDIR\n";
     return;
   }
-  # If PRJDIR is within a project subdirectory, change it to the main
+  # If PRJSDIR is within a project subdirectory, change it to the main
   # project directory.
-  my @p = split(/[\\\/]/, $PRJDIR);
+  my @p = split(/[\\\/]/, $PRJSDIR);
   while (@p) {
     my $d = join('/', @p);
     if (-e "$d/config.conf" || -e "$d|CF_osis2osis.txt") {
-      $PRJDIR = $d; last;
+      $PRJSDIR = $d; last;
     }
     pop(@p);
   }
   
-  # If PRJDIR is a project main directory and -m was not specified, 
-  # then adjust PRJDIR to the parent dir and set -m to 'MOD(DICT)?'. 
+  # If PRJSDIR is a project main directory and -m was not specified, 
+  # then adjust PRJSDIR to the parent dir and set -m to 'MOD(DICT)?'. 
   # This allows any dependencies to be located.
   my $adjust;
-  if (!$havem && ! -e "$PRJDIR/defaults") {
-    if (-d "$PRJDIR/../defaults") {$adjust = '..';}
+  if (!$havem && ! -e "$PRJSDIR/defaults") {
+    if (-d "$PRJSDIR/../defaults") {$adjust = '..';}
     if ($adjust) {
-      my @p = split(/[\\\/]/, $PRJDIR);
+      my @p = split(/[\\\/]/, $PRJSDIR);
       my @d = split(/[\\\/]/, $adjust);
       my $mod = @p[(@p-@d)];
       $MODRE = '^' . $mod . ($mod !~ /DICT$/ ? '(DICT)?':'') . '$';
-      $PRJDIR .= "/$adjust";
+      $PRJSDIR .= "/$adjust";
     }
   }
   
@@ -265,9 +261,9 @@ ABORT: dir does not exist: $PRJDIR\n";
   if ($MYLOG =~ /^\./)  {$MYLOG  = File::Spec->rel2abs($MYLOG);}
   
   # Adjust MODRE and SKIP...
-  # If -m was specified as a single non-DICT module, but PRJDIR is a
+  # If -m was specified as a single non-DICT module, but PRJSDIR is a
   # project parent directory (non-adjusted), then include the DICT mod.
-  if (!$adjust && $havem && -e "$PRJDIR/defaults" 
+  if (!$adjust && $havem && -e "$PRJSDIR/defaults" 
       && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
     $MODRE = '^'.$MODRE.'(DICT)?$';
   }
@@ -284,8 +280,8 @@ sub convertInVagrant {
   
   my $vscript = &vagrantPath($SCRIPT);
   if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
-  my $vpdir   = &vagrantPath($PRJDIR);
-  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJDIR\n"; exit 1;}
+  my $vpdir   = &vagrantPath($PRJSDIR);
+  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJSDIR\n"; exit 1;}
   my $vlog    = &vagrantPath($MYLOG);
   if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
   
@@ -536,11 +532,13 @@ sub conversionScripts {
   return @scripts;
 }
 
-sub dependencies {
-  my $dependencyHP = shift;
+sub getDependencies {
   my $conversion = shift;
   my $runAP = shift;
   my $infoP = shift;
+  my $dependencyHP = shift;
+  
+  my %deps; if (!$dependencyHP) {$dependencyHP = \%deps;}
   
   foreach my $rP (@{$runAP}) {
     if (defined($dependencyHP->{$rP->{'r'}})) {next;}
@@ -560,36 +558,38 @@ sub dependencies {
         splice(@{$dependencyHP->{$r}}, $i, 1); $i--;
       }
     }
-    return;
   }
- 
-  # Check for dependencies which require additional runs
-  foreach my $r (keys %{$dependencyHP}) {
-DEP:
-    for (my $i=0; $i<@{$dependencyHP->{$r}}; $i++) {
-      my $d = @{$dependencyHP->{$r}}[$i];
-      foreach (@{$runAP}) {if ($_->{'r'} eq $d) {next DEP;}}
-      
-      # This dependency is not a requested run, but is required, so add 
-      # an additional run or else abort.
-      $d =~ /^(\S+) (\S+)$/; my $s = $1; my $m = $2;
-      if ($infoP->{$m} && $infoP->{$m}{'runable'}) {
-        unshift(@{$runAP}, { 'r' => "$s $m",
-                             's' =>  $s,
-                             'm' =>  $m, 
-                             'p' =>  $infoP->{$m}{'path'},
-                             'additional' => 1 });
-        &dependencies($dependencyHP, $conversion, $runAP, $infoP);
-      }
-      else {
-        print "
-ABORT: could not locate a required module: '$m' in '$PRJDIR'.
+  else {
+    # Check for dependencies which require additional runs
+    foreach my $r (keys %{$dependencyHP}) {
+  DEP:
+      for (my $i=0; $i<@{$dependencyHP->{$r}}; $i++) {
+        my $d = @{$dependencyHP->{$r}}[$i];
+        foreach (@{$runAP}) {if ($_->{'r'} eq $d) {next DEP;}}
+        
+        # This dependency is not a requested run, but is required, so add 
+        # an additional run or else abort.
+        $d =~ /^(\S+) (\S+)$/; my $s = $1; my $m = $2;
+        if ($infoP->{$m} && $infoP->{$m}{'runable'}) {
+          unshift(@{$runAP}, { 'r' => "$s $m",
+                               's' =>  $s,
+                               'm' =>  $m, 
+                               'p' =>  $infoP->{$m}{'path'},
+                               'additional' => 1 });
+          &getDependencies($conversion, $runAP, $infoP, $dependencyHP);
+        }
+        else {
+          print "
+ABORT: could not locate a required module: '$m' in '$PRJSDIR'.
 Use the -n flag to run anyway without it, or use a project directory 
 containing the necessary project(s).";
-        exit 1;
+          exit 1;
+        }
       }
     }
   }
+  
+  return %{$dependencyHP};
 }
 
 sub addDependencies {
@@ -739,7 +739,7 @@ sub outdir {
     
   $outdir = ( $outdir ? 
       "$outdir/$m" : 
-      "$PRJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
+      "$PRJSDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
     );
  
   return &shortPath($outdir);
@@ -764,6 +764,10 @@ use DateTime;
 use Term::ReadKey;
 
 $SIG{'INT'} = sub {&finish()};
+
+&pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
+foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
+&pLog("\n");
 
 &pLog($JOBMSG);
 
@@ -794,18 +798,18 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     do {
       $x++;
       $ok = 1;
-      foreach my $run (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
+      foreach my $run (@{$DEPENDENCIES{$RUN[$x]->{'r'}}}) {
         if (!$DONE{$run}) {$ok = 0;}
       }
     } while ($x < $#RUN && !$ok);
     
-    if (@{$DEPENDENCY{$RUN[$x]->{'r'}}}) {
+    if (@{$DEPENDENCIES{$RUN[$x]->{'r'}}}) {
       if (!$ok) {
         print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
         last;
       }
       print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
-      join("\n\t", @{$DEPENDENCY{$RUN[$x]->{'r'}}})."\n";
+      join("\n\t", @{$DEPENDENCIES{$RUN[$x]->{'r'}}})."\n";
     }
     
     sleep(2); # so jobs don't start too close together
@@ -951,16 +955,14 @@ sub working {
   
   if ($logOrPrint || !$WAIT) {
     my $msg = "Working on: \n\t".join("\n\t", @working)."\n";
-    if (!&runningInVagrant()) {
+    if (!&runningInVagrant() && !$KILLED) {
       if (!$PAUSED) {
         $msg .= "Press p to pause the scheduler. ";
       }
       else {
         $msg .= "Press p again to continue scheduling. ";
       }
-      if (!$KILLED) {
-        $msg .= "Press ESC to kill the scheduler.\n";
-      }
+      $msg .= "Press ESC to kill the scheduler.\n";
     }
     
     if ($logOrPrint && $logOrPrint =~ /log/i) {&pLog($msg);}
