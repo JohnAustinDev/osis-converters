@@ -10,7 +10,7 @@ class OsisInput(InputFormatPlugin):
     name        = 'OSIS Input'
     author      = 'David Booth'
     description = 'Convert IBT OSIS xml files to epub'
-    version = (3, 1, 0)
+    version = (5, 0, 0)
     minimum_calibre_version = (1,38, 0)
     file_types = set(['xml'])
     supported_platforms = ['linux']
@@ -51,12 +51,12 @@ class OsisInput(InputFormatPlugin):
             "-o:content.opf", 
             "css=%s" % (",").join(sorted(cssFileNames))
         ]
-        print "Running XSLT: " + unicode(command).encode('utf8')
+        print("Running XSLT: " + " ".join(command))
         p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
         output, err = p.communicate()
         if p.returncode != 0:
-            print "ERROR: XSLT failed!:"
-        print err
+            print("ERROR: XSLT failed!:")
+        print(err)
         os.remove('osis2xhtml.xsl')
         os.remove('functions.xsl')
         for afile in glob.glob("./*.xml"):                                                                                                                                   

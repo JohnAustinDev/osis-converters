@@ -109,7 +109,7 @@ our %CONV_BIN_TEST = (
   'SWORD_BIN'        => [ "'SWORD_BIN/osis2mod'",
                           "You are running osis2mod: \$Rev: 3431 \$" ],
   'CALIBRE'          => [ "ebook-convert --version",
-                          "calibre 3" ],
+                          "calibre 5" ],
   'GO_BIBLE_CREATOR' => [ "java -jar 'GO_BIBLE_CREATOR/GoBibleCreator.jar'", 
                           "Usage" ],
   # XSLT2 also requires that openjdk 10.0.1 is NOT being used 

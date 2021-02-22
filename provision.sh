@@ -27,14 +27,13 @@ sudo cpanm JSON::XS
 sudo apt-get install fonts-noto
 sudo apt-get install fonts-symbola
 
-# Calibre 3
+# Calibre 5
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   sudo apt-get install -y xdg-utils imagemagick python-imaging python-mechanize python-lxml python-dateutil python-cssutils python-beautifulsoup python-dnspython python-poppler libpodofo-utils libwmf-bin python-chm
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  #sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=4.23.0
+  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=5.11.0
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
