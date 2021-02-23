@@ -20,9 +20,8 @@ use strict;
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $OUTOSIS, $XPC, $XML_PARSER, 
-    $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, 
-    $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
+our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, $DICTIONARY_WORDS, 
+    $DEFAULT_DICTIONARY_WORDS, $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
 
 # Initialized in /lib/usfm2osis.pm
 our ($sourceProject);
@@ -233,10 +232,10 @@ RUN:./INT.SFM");
   &runChecks($modType);
   
   # Copy final OSIS file to output destination
-  copy($OSIS, $OUTOSIS); 
+  copy($OSIS, &outdir()."/$MOD.xml"); 
   
   # Validate the output OSIS file using the $OSISSCHEMA schema
-  &validateOSIS($OUTOSIS);
+  &validateOSIS(&outdir()."/$MOD.xml");
 }
 
 
@@ -301,10 +300,10 @@ sub reprocessOSIS {
   }
   
   # Copy final OSIS file to output destination
-  copy($OSIS, $OUTOSIS);
+  copy($OSIS, &outdir()."/$MOD.xml");
   
   # Validate the output OSIS file using the $OSISSCHEMA schema
-  &validateOSIS($OUTOSIS);
+  &validateOSIS(&outdir()."/$MOD.xml");
 }
 
 

@@ -35,7 +35,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($INOSIS, $GBOUT, $GO_BIBLE_CREATOR, $XPC, $XML_PARSER, 
+our ($INOSIS, $GO_BIBLE_CREATOR, $XPC, $XML_PARSER, 
     $MAX_UNICODE, $MODULETOOLS_BIN);
 
 my %BookSizes;
@@ -67,7 +67,7 @@ my %results;
 
 # Make 'normal' character set
 &makeGoBibles('normal', "$TMPDIR/normal", $collectionsP, $MaxTries, \%results);
-&copyGoBibles("$TMPDIR/normal", $GBOUT);
+&copyGoBibles("$TMPDIR/normal", &outdir());
 
 my @a; push(@a, (sort keys %{$collectionsP}));
 foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
@@ -75,10 +75,10 @@ foreach my $k (@a) {$collectionsP->{$k.'_s'} = delete $collectionsP->{$k};}
 
 # Make 'simple' character set, using the collections arrived at by 'normal'
 &makeGoBibles('simple', "$TMPDIR/simple", $collectionsP, 0, \%results);
-&copyGoBibles("$TMPDIR/simple", $GBOUT);
+&copyGoBibles("$TMPDIR/simple", &outdir());
 
 # Log results
-my $colSizeP = &readJarFileSizes($GBOUT);
+my $colSizeP = &readJarFileSizes(&outdir());
 foreach my $type (sort keys %results) {
   my $numcols = 0; my $totalFull = 0; my $totalShort = 0; my @collist;
   foreach my $col (sort keys %{$results{$type}}) {

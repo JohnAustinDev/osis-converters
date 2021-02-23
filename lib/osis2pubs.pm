@@ -24,8 +24,8 @@ use strict;
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
-our ($INOSIS, $HTMLOUT, $EBOUT, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP,
-    %OSIS_ABBR, $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
+our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR, 
+    $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
@@ -36,7 +36,7 @@ require("$SCRD/lib/forks/fork_funcs.pm");
 sub osis2pubs {
   my $convertTo = shift;
   
-  $PUBOUT = ($convertTo eq 'html' ? $HTMLOUT:$EBOUT);
+  $PUBOUT = &outdir();
   
   if ($convertTo !~ /^(eBook|html)$/) {
     &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
@@ -468,8 +468,8 @@ file for it, and then run this script again.");}
     &makeHTML($tmp, $cover, $scope, $pubTitle, $pubName, $pubSubdir);
     
     # Use linkchecker to check all links of output html
-    &Log("--- CHECKING html links in \"$HTMLOUT/$pubName/index.xhtml\"\n");
-    my $result = &shell("linkchecker \"$HTMLOUT/$pubName/index.xhtml\"", 3);
+    &Log("--- CHECKING html links in \"$PUBOUT/$pubName/index.xhtml\"\n");
+    my $result = &shell("linkchecker \"$PUBOUT/$pubName/index.xhtml\"", 3);
     if ($result =~ /^That's it\. (\d+) links in (\d+) URLs checked\. (\d+) warnings found\. (\d+) errors found\./m) {
       my $link = 1*$1; my $urls = 1*$2; my $warn = 1*$3; my $err = 1*$4;
       if ($warn || $err) {&Log("$result\n");}
@@ -480,11 +480,11 @@ file for it, and then run this script again.");}
     else {&ErrorBug("Could not parse output of linkchecker:\n$result\n", "Check the version of linkchecker.");}
     
     # Look for any unreachable material
-    &Log("\n--- CHECKING for unreachable material in \"$HTMLOUT/$pubName/xhtml\"\n");
-    my @files = split(/\n+/, &shell("find \"$HTMLOUT/$pubName/xhtml\" -type f", 3, 1));
-    push(@files, "$HTMLOUT/$pubName/index.xhtml");
+    &Log("\n--- CHECKING for unreachable material in \"$PUBOUT/$pubName/xhtml\"\n");
+    my @files = split(/\n+/, &shell("find \"$PUBOUT/$pubName/xhtml\" -type f", 3, 1));
+    push(@files, "$PUBOUT/$pubName/index.xhtml");
     my %linkedFiles; 
-    $linkedFiles{&shortPath("$HTMLOUT/$pubName/index.xhtml")}++;
+    $linkedFiles{&shortPath("$PUBOUT/$pubName/index.xhtml")}++;
     foreach my $f (@files) {&getLinkedFiles($f, \%linkedFiles);}
     my $numUnreachable = 0;
     foreach my $f (@files) {
@@ -498,7 +498,7 @@ tag before it. Otherwise add 'not_conversion == html' after the \\id tag
 of this material to exclude it from HTML publications.");
       }
     }
-    &Report("Found $numUnreachable unreachable file(s) in '$HTMLOUT/$pubName/xhtml'");
+    &Report("Found $numUnreachable unreachable file(s) in '$PUBOUT/$pubName/xhtml'");
   }
   if ($createTypes =~ /epub/i) {&makeEbook($tmp, 'epub', $cover, $scope, $pubName, $pubSubdir);}
   if ($createTypes =~ /azw3/i) {&makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);}
@@ -1100,8 +1100,8 @@ sub makeHTML {
   &runXSLT("osis2xhtml.xsl", $osis, "content.opf", \%params);
   chdir($SCRD);
 
-  my $n; my $p = "$HTMLOUT/$pubName";
-  while (-e $p) {$n++; $p = "$HTMLOUT/${pubName}_$n"}
+  my $n; my $p = "$PUBOUT/$pubName";
+  while (-e $p) {$n++; $p = "$PUBOUT/${pubName}_$n"}
   mkdir($p);
   &copy_dir("$tmp/xhtml", "$p/xhtml");
   if (-e "$tmp/css") {&copy_dir("$tmp/css", "$p/css");}

@@ -7,7 +7,8 @@ use strict;
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
     $INPD, $DEBUG, $VAGRANT, $PRJSDIR, $MODRE, $CONVERSION, $MAXTHREADS, 
     $SKIP, $MYLOG, $NODEPMODS, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
-    @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_TEST);
+    @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
+    %CONV_OUTPUT_SUBDIR);
 
 BEGIN {
 
@@ -71,8 +72,8 @@ $JOBMSG = "Scheduling ".@RUN." jobs on ".@RUN_PROJ.
 my $dr;
 foreach my $rP (sort { $a->{'m'} cmp $b->{'m'} } @RUN) {
   my $outdir = ( !&runningInVagrant() ? 
-    File::Spec->abs2rel(&outdir($INFO, $rP->{'m'}), $SCRD) : 
-    File::Spec->abs2rel(&hostPath(&outdir($INFO, $rP->{'m'})), &hostPath($SCRD))
+    File::Spec->abs2rel(&modOutdir($INFO, $rP->{'m'}), $SCRD) : 
+    File::Spec->abs2rel(&hostPath(&modOutdir($INFO, $rP->{'m'})), &hostPath($SCRD))
   );
   $JOBMSG .= sprintf("%12s:%12s %-33s %s\n", 
                 $rP->{'m'}, 
@@ -504,7 +505,7 @@ sub getScriptsToRun {
                    's' =>  $s, 
                    'm' =>  $m, 
                    'p' =>  $infoP->{$m}{'path'},
-                   'o' =>  &outdir($infoP, $m) });
+                   'o' =>  &modOutdir($infoP, $m) });
     }
   }
   
@@ -718,7 +719,7 @@ sub osisScript {
 # Return the output directory where the OSIS file will go. It is an
 # absolute path on the running file system (so it could be a host path
 # or a virtual machine path depending on where the script is being run).
-sub outdir {
+sub modOutdir {
   my $infoP = shift;
   my $m = shift;
   
@@ -904,13 +905,13 @@ sub conversionTestFile {
   my $script = shift;
   my $outdir = shift;
   
-  foreach my $test (@{$CONV_OUTPUT_TEST{$script}}) {
-    my $t = $test;
-    foreach ('MOD') {
-      no strict "refs";
-      $t =~ s/\b$_\b/$$_/g;
+  foreach my $test (@{$CONV_OUTPUT_FILES{$script}}) {
+    my $t = &const($test);
+    my $sd = '';
+    if ($CONV_OUTPUT_SUBDIR{$script}) {
+      $sd = '/'.&const($CONV_OUTPUT_SUBDIR{$script});
     }
-    foreach my $f (glob("$outdir/$t")) {
+    foreach my $f (glob("${outdir}$sd/$t")) {
       if ((stat($f))[9] > $startTime) {return 1;}
     }
   }

@@ -19,11 +19,11 @@
 use strict;
 
 our ($CONFFILE, $DEBUG, $DEFAULT_DICTIONARY_WORDS, $DICTINPD, 
-    $DICTIONARY_WORDS_NAMESPACE, $DICTMOD, $EBOUT, $FONTS, $GBOUT, 
-    $HTMLOUT, $INOSIS, $INPD, $LOGFILE, $MAININPD, $MAINMOD, $MOD, 
-    $MODULETOOLS_BIN, $MOD_OUTDIR, $NO_OUTPUT_DELETE, $OSIS_NAMESPACE, 
-    $OUTOSIS, $OUTZIP, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWOUT, 
-    $TEI_NAMESPACE, $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES);
+    $DICTIONARY_WORDS_NAMESPACE, $DICTMOD, $FONTS, $INOSIS, $INPD, 
+    $LOGFILE, $MAININPD, $MAINMOD, $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, 
+    $NO_OUTPUT_DELETE, $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, 
+    $TEI_NAMESPACE, $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, 
+    %CONV_OUTPUT_SUBDIR, %CONV_OUTPUT_FILES);
 
 sub init_linux_script {
   # Global $forkScriptName will only be set when running from fork.pm, in  
@@ -333,45 +333,33 @@ sub initInputOutputFiles {
   my $modOutdir = shift;
   my $tmpdir = shift;
   
-  my $sub = $inpd; $sub =~ s/^.*?([^\\\/]+)$/$1/;
-  
-  my @outs;
-  if ($script_name =~ /^(osis2osis.*|sfm2osis)$/) {
-    $OUTOSIS = "$modOutdir/$sub.xml"; push(@outs, $OUTOSIS);
-  }
-  if ($script_name =~ /^(osis2sword)$/) {
-    $OUTZIP = "$modOutdir/$sub.zip"; push(@outs, $OUTZIP);
-    $SWOUT = "$modOutdir/sword"; push(@outs, $SWOUT);
-  }
-  if ($script_name =~ /^osis2gobible$/) {
-    $GBOUT = "$modOutdir/GoBible/$sub"; push(@outs, $GBOUT);
-  }
-  if ($script_name =~ /^osis2ebooks$/) {
-    $EBOUT = "$modOutdir/eBook"; push(@outs, $EBOUT);
-  }
-  if ($script_name =~ /^osis2html$/) {
-    $HTMLOUT = "$modOutdir/html"; push(@outs, $HTMLOUT);
-  }
-
-  if ($script_name =~ /^(osis2sword|osis2gobible|osis2ebooks|osis2html)$/) {
-    if (-e "$modOutdir/$sub.xml") {
-      &copy("$modOutdir/$sub.xml", "$tmpdir/$sub.xml");
-      $INOSIS = "$tmpdir/$sub.xml";
+  # Prepare the input OSIS file if needed
+  if ($script_name =~ /^osis2(?!osis)/) {
+    if (-e "$modOutdir/$MOD.xml") {
+      &copy("$modOutdir/$MOD.xml", "$tmpdir/$MOD.xml");
+      $INOSIS = "$tmpdir/$MOD.xml";
     }
     else {
-      &ErrorBug("$script_name cannot find an input OSIS file at \"$modOutdir/$sub.xml\".", 1);
+      &Error(
+"$script_name cannot find an input OSIS file at \"$modOutdir/$MOD.xml\".", 
+'', 1);
     }
   }
 
+  # Clean the output directory
   our $forkScriptName; # fork results should not be deleted
   if (!$NO_OUTPUT_DELETE && !$forkScriptName) {
-    foreach my $outfile (@outs) {
-      my $isDir = ($outfile =~ /\.[^\\\/\.]+$/ ? 0:1);
-      if (-e $outfile) {
-        if (!$isDir) {unlink($outfile);}
-        else {remove_tree($outfile);}
+    my $subdir = &const($CONV_OUTPUT_SUBDIR{$script_name});
+    if ($subdir) {
+      my $sd0 = (split(/\//, $subdir))[0];
+      if (-e "$modOutdir/$sd0") {remove_tree("$modOutdir/$sd0");}
+      make_path("$modOutdir/$subdir");
+      $subdir = '/'.$subdir;
+    }
+    foreach my $glob (@{$CONV_OUTPUT_FILES{$script_name}}) {
+      foreach my $f (glob($modOutdir.$subdir.'/'.&const($glob))) {
+        unlink($modOutdir.$subdir.'/'.$f);
       }
-      if ($isDir) {make_path($outfile);}
     }
   }
   
@@ -381,6 +369,17 @@ sub initInputOutputFiles {
     &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3, 1);
     &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3, 1);
   }
+}
+
+sub outdir {
+  my $script = shift; if (!$script) {$script = $SCRIPT_NAME;}
+  
+  my $outdir = $MOD_OUTDIR;
+  if ($CONV_OUTPUT_SUBDIR{$script}) {
+    $outdir .= '/'.&const($CONV_OUTPUT_SUBDIR{$script});
+  }
+  
+  return $outdir;
 }
 
 sub initLibXML {

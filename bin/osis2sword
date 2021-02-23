@@ -29,8 +29,12 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($INOSIS, $SWOUT, $OUTZIP, $MOD_OUTDIR, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, 
-    $XML_PARSER, $UPPERCASE_DICTIONARY_KEYS);
+our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER, 
+    $UPPERCASE_DICTIONARY_KEYS);
+    
+my $swtmp = "$TMPDIR/sword";
+if (-e $swtmp) {remove_tree($swtmp);}
+make_path($swtmp);
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
@@ -38,7 +42,7 @@ my $Sconf = &getSwordConf($INOSIS);
 my $SModDrv = $Sconf->{"$MOD+ModDrv"};
 my $SModPath = &dataPath2RealPath($Sconf->{"$MOD+DataPath"});
 my $SModVsys = $Sconf->{"$MOD+Versification"};
-if (! -e "$SWOUT/$SModPath") {make_path("$SWOUT/$SModPath");}
+if (! -e "$swtmp/$SModPath") {make_path("$swtmp/$SModPath");}
 
 # Prepare osis-converters OSIS for SWORD import. DICT modules are
 # run after their MAIN module, so during MAIN processing, DICTMOD_URI is
@@ -66,7 +70,7 @@ if ($typePreProcess) {&runScript($MODULETOOLS_BIN.$typePreProcess, \$OSIS_OR_TEI
 if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$OSIS_OR_TEI);}
 
 # Copy images and set Feature conf entry
-my $imgsAP = &copyReferencedImages(\$OSIS_OR_TEI, $INPD, "$SWOUT/$SModPath");
+my $imgsAP = &copyReferencedImages(\$OSIS_OR_TEI, $INPD, "$swtmp/$SModPath");
 if (@{$imgsAP}) {
   &setSwordConfValue($Sconf, 'Feature', ($Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"}."<nx/>":"")."Images");
 }
@@ -130,24 +134,24 @@ if ($SModVsys ne "KJV") {
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
-  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($OSIS_OR_TEI)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
+  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$swtmp/$SModPath")." ".&escfile($OSIS_OR_TEI)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE ($SModVsys)\n");
-	chdir("$SWOUT/$SModPath");
+	chdir("$swtmp/$SModPath");
   &shell(&escfile($SWORD_BIN."xml2gbs")." $OSIS_OR_TEI ".lc($MOD), -1);
 	chdir($SCRD);
 }
 elsif ($SModDrv =~ /LD/) {
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE ($SModVsys)\n");
-  &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$SWOUT/$SModPath")." ".&escfile($OSIS_OR_TEI)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
+  &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$swtmp/$SModPath")." ".&escfile($OSIS_OR_TEI)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
-  opendir(MODF, "$SWOUT/$SModPath");
+  opendir(MODF, "$swtmp/$SModPath");
   my @mf = readdir(MODF);
   closedir(MODF);
   foreach my $m (@mf) {
   if ($m !~ /^dict\.(.*?)$/) {next;}
-    rename("$SWOUT/$SModPath/$m", "$SWOUT/$SModPath/".lc($MOD).".$1");
+    rename("$swtmp/$SModPath/$m", "$swtmp/$SModPath/".lc($MOD).".$1");
   }
 }
 else {
@@ -157,25 +161,25 @@ else {
 # Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry
 if ($Sconf->{"$MOD+PreferredCSSXHTML"}) {
   my $cssfile = &getDefaultFile(($SModDrv =~ /LD/ ? 'dict':'bible')."/sword/css/".$Sconf->{"$MOD+PreferredCSSXHTML"});
-  copy($cssfile, "$SWOUT/$SModPath");
+  copy($cssfile, "$swtmp/$SModPath");
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
 }
 
 # Set InstallSize conf entry
 {
   my $installSize = 0;             
-  find(sub { $installSize += -s if -f $_ }, "$SWOUT/$SModPath");
+  find(sub { $installSize += -s if -f $_ }, "$swtmp/$SModPath");
   &setSwordConfValue($Sconf, 'InstallSize', $installSize);
 }
 
 # Write the SWORD config.conf file
-my $SwordConfFile = "$SWOUT/mods.d/".lc($MOD).".conf";
-if (! -e "$SWOUT/mods.d") {mkdir "$SWOUT/mods.d";}
+my $SwordConfFile = "$swtmp/mods.d/".lc($MOD).".conf";
+if (! -e "$swtmp/mods.d") {mkdir "$swtmp/mods.d";}
 &writeConf($SwordConfFile, $Sconf);
-&zipModule($OUTZIP, $SWOUT);
+&zipModule(&outdir()."/$MOD.zip", $swtmp);
 
 # Copy config.conf for CVS
-&copy(&escfile($SwordConfFile), "$MOD_OUTDIR/config.conf");
+&copy(&escfile($SwordConfFile), &outdir()."/config.conf");
 
 &timer('stop');
 

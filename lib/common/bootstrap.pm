@@ -81,6 +81,29 @@ our %CONV_DEPENDENCIES = (
   'gobible MAIN'                  => [ 'osis MAIN' ],
 );
 
+# Conversion output subdirectories (MOD will be replaced with $MOD)
+our %CONV_OUTPUT_SUBDIR = (
+  'osis2ebooks'  => 'eBook',
+  'osis2html'    => 'html',
+  'osis2gobible' => 'GoBible/MOD',
+);
+
+# Ouput files of each conversion type (MOD will be replaced with $MOD)
+our %CONV_OUTPUT_FILES = (
+  'sfm2osis'     => [ 'MOD.xml' ],
+  'osis2osis'    => [ 'MOD.xml' ],
+  'osis2sword'   => [ 'MOD.zip',
+                      'config.conf' ],
+  'osis2ebooks'  => [ '*.epub', 
+                      '*.azw3',
+                      '*/*.epub', 
+                      '*/*.azw3' ],
+  'osis2html'    => [ '*/index.xhtml',
+                      '*/*'],
+  'osis2gobible' => [ '*.jar', 
+                      '*.jad' ],
+);
+
 # Conversion executable dependencies
 our %CONV_BIN_DEPENDENCIES = (
   'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'JAVA' ],
@@ -118,19 +141,6 @@ our %CONV_BIN_TEST = (
                           "Saxon 9" ],
   'JAVA'             => [ 'java -version', 
                           "openjdk version \"10.", 1 ], # NOT openjdk 10.
-);
-
-# Ouput files for each conversion type (MOD will be replaced with $MOD)
-our %CONV_OUTPUT_TEST = (
-  'sfm2osis'     => [ 'MOD.xml' ],
-  'osis2osis'    => [ 'MOD.xml' ],
-  'osis2sword'   => [ 'MOD.zip' ],
-  'osis2ebooks'  => [ 'eBook/*.epub', 
-                      'eBook/*.azw3',
-                      'eBook/*/*.epub', 
-                      'eBook/*/*.azw3' ],
-  'osis2html'    => [ 'html/*/index.xhtml' ],
-  'osis2gobible' => [ 'GoBible/MOD/*.jar' ],
 );
 
 require "$SCRD/lib/common/common_opsys.pm";
@@ -281,6 +291,19 @@ print "ABORT: Not an osis-converters project: '$INPD'\n";
     print $usage;
     exit 1;
   }
+}
+
+sub const {
+  my $t = shift;
+  
+  foreach my $v ('MOD', 'MAINMOD', 'DICTMOD') {
+    no strict "refs";
+    if (!defined($$v)) {
+      &ErrorBug("Constant has not been initialized: $v", 1);
+    }
+    $t =~ s/\b$v\b/$$v/g;
+  }
+  return $t;
 }
 
 1;
