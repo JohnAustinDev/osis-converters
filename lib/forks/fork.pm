@@ -17,7 +17,9 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+use strict;
 use Encode;
+use File::Path; 
 
 # This file is used only by forks.pm to run any function as a separate 
 # osis-converters thread.
@@ -36,10 +38,15 @@ our @forkArgs;      my $a = 5;  # - Arguments to use with $forkFunc
 
 while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
+# Create the fork tmp directory and startup log
+my $forklog = @ARGV[1]; 
+my $tmpdir  = @ARGV[1]; $tmpdir =~ s/(?<=\/)[^\/]+$//;
+File::Path::make_path($tmpdir);
+@ARGV[1] = "$tmpdir/OUT_startup.txt";
+
 # Initialize osis-converters
-our $LOGFLAG = 3; # hide the fork's startup noise from the console and log file
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-our $LOGFLAG = undef;
+our $LOGFILE = $forklog;
 
 require("$SCRD/lib/forks/fork_funcs.pm");
 require($forkRequire);

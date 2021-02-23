@@ -113,7 +113,7 @@ sub osis2pubs_assembleFunc {
 # Called by fork.pm child threads to save their results to JSON files.
 # NOTE: $TMPDIR here is that of the fork script.
 sub saveForkData {
-  my $caller = &pathToCaller(shift);
+  my $caller = &caller(shift);
   
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
   
@@ -138,7 +138,7 @@ sub saveForkData {
 # Called by the main thread to reassemble data from all child threads.
 # NOTE: $TMPDIR and $SCRIPT_NAME here are those of the main thread.
 sub reassembleForkData {
-  my $caller = &pathToCaller(shift);
+  my $caller = &caller(shift);
   
   if ($NO_FORKS =~ /\b(1|true|$caller)\b/) {return;}
   
@@ -150,7 +150,6 @@ sub reassembleForkData {
     no strict "refs";
     &readVarsJSON(\@$json, $td);
     &$assembleFunc();
-    if (!$DEBUG) {remove_tree($td);}
   }
 }
 
@@ -233,15 +232,15 @@ sub assembleHash {
 
 sub forkTmpDirs {
   my $tmpdir = shift; # any script's tmp directory
-  my $script_name = shift; # parent osis-converters script
-  my $caller = &pathToCaller(shift);
+  my $script = shift; # parent osis-converters script
+  my $caller = &caller(shift);
   
-  $tmpdir =~ s/(?<=\/tmp\/).*$/$script_name.$caller.fork_/;
+  $tmpdir =~ s/(?<=\/tmp\/).*$/${script}\/${caller}_forks/;
   
   my @dirs;
   
   my $n = 1; 
-  while (-e $tmpdir.$n) {push(@dirs, $tmpdir.$n++);}
+  while (-e $tmpdir.'/fork_'.$n) {push(@dirs, $tmpdir.'/fork_'.$n++);}
   
   return \@dirs;
 }
@@ -259,7 +258,7 @@ sub getForkArgs {
   return ' '.join(' ', map(&escarg('arg'.$n++.":$_"), @_));
 }
 
-sub pathToCaller {
+sub caller {
   my $path = shift;
   
   $path =~ s/^.*?\/([^\/\.]+)(\.[^\/\.]+)?$/$1/;

@@ -18,7 +18,7 @@
 
 use strict;
 
-our ($CONFFILE, $DEBUG, $DEFAULT_DICTIONARY_WORDS, $DICTINPD, 
+our ($CONFFILE, $DEBUG, $DEFAULT_DICTIONARY_WORDS, $DICTINPD, $OUTDIR, 
     $DICTIONARY_WORDS_NAMESPACE, $DICTMOD, $FONTS, $INOSIS, $INPD, 
     $LOGFILE, $MAININPD, $MAINMOD, $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, 
     $NO_OUTPUT_DELETE, $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, 
@@ -32,11 +32,8 @@ sub init_linux_script {
   
   &Log("\n-----------------------------------------------------\nSTARTING \$SCRIPT_NAME=$SCRIPT_NAME\n\n");
   
-  # osis2ebook is usually called multiple times by osis2ebooks so don't repeat these
-  if ($SCRIPT_NAME !~ /^osis2ebook$/) {
-    &logGitRevs();
-    &timer('start');
-  }
+  &logGitRevs();
+  &timer('start');
   
   &initLibXML();
   
@@ -86,7 +83,7 @@ sub init_linux_script {
   
   $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
   if (our $forkScriptName) { # will be set when called by forks.pm
-    if (!defined($LOGFILE)) {&ErrorBug("Fork log file must be specified, and numbered.", 1);}
+    if (!defined($LOGFILE)) {&ErrorBug("Fork log file must be specified", 1);}
     $TMPDIR = $LOGFILE; $TMPDIR =~ s/\/[^\/]+$//;
   }
   if (!$NO_OUTPUT_DELETE) {
@@ -136,6 +133,26 @@ sub logGitRevs {
   if ($inpdGit) {
     &Log("$inpdOriginGit rev: $inpdGit\n");
   }
+}
+
+sub getModuleOutputDir {
+  my $mod = shift; if (!$mod) {$mod = $MOD;}
+  
+  if ($OUTDIR && ! -d $OUTDIR) {
+    $OUTDIR = undef;
+    &Error("OUTDIR is not an existing directory: " . &findConf('OUTDIR'),
+"Change it to the path of a directory where output files can be written.");
+  }
+  
+  my $moddir;
+  if ($OUTDIR) {$moddir = "$OUTDIR/$mod";}
+  else {
+    my $parentDir = "$MAININPD/..";
+    if ($mod =~ /^(.*?)DICT$/) {$moddir = "$parentDir/$1/$mod/output";}
+    else {$moddir = "$parentDir/$mod/output";}
+  }
+
+  return $moddir;
 }
 
 # If $logfileIn is not specified then start a new one at $logfileDef.
@@ -340,9 +357,8 @@ sub initInputOutputFiles {
       $INOSIS = "$tmpdir/$MOD.xml";
     }
     else {
-      &Error(
-"$script_name cannot find an input OSIS file at \"$modOutdir/$MOD.xml\".", 
-'', 1);
+      &Error("$script_name cannot find an input OSIS file at " . 
+        "\"$modOutdir/$MOD.xml\".", '', 1);
     }
   }
 

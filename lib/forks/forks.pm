@@ -86,58 +86,69 @@ sub pushCall {
 }
 &saveForkArgs(\@forkCall, \@ARGV);
 
-my $caller = &pathToCaller($REQU);
-my $forkName = "$SCNM.$caller.fork_";
-my $forkLog = "OUT_${SCNM}_fork.txt";
-my $tmpdir = $LOGF; $tmpdir =~ s/(?<=\/)[^\/]+$/tmp\/$forkName/;
+my $caller = &caller($REQU);
+my $forkDirName = $caller.'_forks';
+my $forkLogName = "OUT_${caller}_fork.txt";
+my $scriptTmpDir = $LOGF; 
+$scriptTmpDir =~ s/(?<=\/)[^\/]+$/tmp\/$SCNM/;
 
-# Delete any old temporary directories for this fork ($DEBUG leaves them)
-foreach my $td (@{&forkTmpDirs($tmpdir, $SCNM, $caller)}) {
-  remove_tree($td);
+my $fatal = 0;
+if (! -e $scriptTmpDir) {
+  &Log("
+ERROR: forks.pm script tmp dir does not exist: $scriptTmpDir
+SOLUTION: custom log files cannot be used with forks.pm: $LOGF");
+  $fatal++;
+} 
+foreach my $e (glob("$scriptTmpDir/$forkDirName/*")) {
+  &Log("ERROR: forks.pm fork tmp directory already exists: $e\n");
+  $fatal++;
 }
 
-# Schedule each call of $forkFunk, keeping CPU near 100% by running
-# forks in parallel when there is RAM available.
-my $n = 1; my $of = @forkCall;
-while (@forkCall) {
-  my $hP = shift(@forkCall);
-  my @forkArgs; foreach my $a (sort keys %{$hP->{'args'}}) {
-    push(@forkArgs, $hP->{'args'}{$a});
-  }
-
-  print "\nSTARTING FORK $forkName$n/$of\n";
-  threads->create(sub {
-    system("\"$SCRD/lib/forks/fork.pm\" " .
-      "\"$INPD\"" . ' ' .
-      "\"$tmpdir$n/$forkLog\"" . ' ' .
-      "\"$SCNM\"" . ' ' .
-      "\"$REQU\"". ' ' .
-      "\"$forkFunc\"" . ' ' .
-      join(' ', map(&escarg($_), @forkArgs)));
-    });
-  $n++;
-  
-  while (
-    @forkCall && 
-    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
-    threads->list(threads::running)
-  ) {};
-}
-foreach my $th (threads->list()) {$th->join();}
-
-# Copy finished fork log files to the main thread's LOGFILE.
-foreach my $td (@{&forkTmpDirs($tmpdir, $SCNM, $caller)}) {
-  if (!-e "$td/$forkLog") {next;}
-  
-  if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLog")) {
-    if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
-      while(<MLF>) {print LGG $_;}
-      close(LGG);
+if (!$fatal) {
+  # Schedule each call of $forkFunk, keeping CPU near 100% by running
+  # forks in parallel when there is RAM available.
+  my $n = 1; my $of = @forkCall;
+  my @threads;
+  while (@forkCall) {
+    my $hP = shift(@forkCall);
+    my @forkArgs; foreach my $a (sort keys %{$hP->{'args'}}) {
+      push(@forkArgs, $hP->{'args'}{$a});
     }
-    else {&Log("ERROR: forks.pm cannot open $LOGF for appending.\n");}
-    close(MLF);
+
+    print "\nSTARTING FORK $forkDirName $n/$of\n";
+    push(@threads, threads->create(sub {
+      system("\"$SCRD/lib/forks/fork.pm\" " .
+        "\"$INPD\"" . ' ' .
+        "\"$scriptTmpDir/$forkDirName/fork_$n/$forkLogName\"" . ' ' .
+        "\"$SCNM\"" . ' ' .
+        "\"$REQU\"". ' ' .
+        "\"$forkFunc\"" . ' ' .
+        join(' ', map(&escarg($_), @forkArgs)));
+      }));
+    $n++;
+    
+    while (
+      @forkCall && 
+      !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
+      threads->list(threads::running)
+    ) {};
   }
-  else {&Log("ERROR: forks.pm cannot open $td/$forkLog for reading.\n");}
+  foreach my $th (@threads) {$th->join();}
+
+  # Copy finished fork log files to the main thread's LOGFILE.
+  foreach my $td (@{&forkTmpDirs($scriptTmpDir, $SCNM, $caller)}) {
+    if (!-e "$td/$forkLogName") {next;}
+    
+    if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
+      if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
+        while(<MLF>) {print LGG $_;}
+        close(LGG);
+      }
+      else {&Log("ERROR: forks.pm cannot open $LOGF for appending.\n");}
+      close(MLF);
+    }
+    else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
+  }
 }
 
 ########################################################################

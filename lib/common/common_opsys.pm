@@ -1234,17 +1234,15 @@ sub checkDependencies {
       &ErrorBug("No test for \"$p\".");
       return 0;
     }
+    
     my $cmd = $CONV_BIN_TEST{$p}[0];
     foreach my $var (keys %SYSTEM_DEFAULT_PATHS) {
       no strict 'refs';
       $cmd =~ s/\b$var\b/$$var/g;
     }
-    system("$cmd >".&escfile("tmp.txt"). " 2>&1");
-    if (!open(TEST, $READLAYER, "tmp.txt")) {
-      &ErrorBug("Could not read test output file \"$SCRD/tmp.txt\".");
-      return 0;
-    }
-    my $result; {local $/; $result = <TEST>;} close(TEST); unlink("tmp.txt");
+    
+    my $result = &shell($cmd, 3, 1);
+    
     my $need = $CONV_BIN_TEST{$p}[1];
     if (!$CONV_BIN_TEST{$p}[2] && $result !~ /\Q$need\E/im) {
       &Error("Dependency $p failed:\n\tRan: \"".$CONV_BIN_TEST{$p}[0] .
@@ -1340,14 +1338,10 @@ sub vagrantHostShare {
 
 sub vagrantInstalled {
 
-  print "\n";
-  my $pass;
-  system("vagrant -v >tmp.txt 2>&1");
-  if (!open(TEST, $READLAYER, "tmp.txt")) {die;}
-  $pass = 0; while (<TEST>) {if ($_ =~ /\Qvagrant\E/i) {$pass = 1; last;}}
-  unlink("tmp.txt");
+  my $pass = &shell("vagrant -v");
+  if ($pass =~ /vagrant/i) {return 1;}
 
-  return $pass;
+  return 0;
 }
 
 # Start the current script on a Vagrant VM, wait until it finishes, and 

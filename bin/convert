@@ -786,6 +786,7 @@ my $WAIT = 3;
 my $KEY = 0;
 my $PAUSED = 0;
 my $KILLED = 0;
+my @THREADS;
 while ( ( &working(\@STARTED, \%DONE) || @RUN ) && 
           $KEY != 27 
       ) { # 27 is ESC key
@@ -814,13 +815,13 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     }
     
     sleep(2); # so jobs don't start too close together
-    threads->create(sub {
+    push(@THREADS, threads->create(sub {
       print "Starting: ".$RUN[$x]->{'r'}."\n";
       &runScript($RUN[$x]);
       $NUM_THREADS--;
       $DONE{$RUN[$x]->{'r'}}++;
       print "Exiting: ".$RUN[$x]->{'r'}."\n";
-    });
+    }));
     
     $NUM_THREADS++;
     my $s = splice(@RUN, $x, 1);
@@ -1004,7 +1005,7 @@ sub finish {
 
   if (!&runningInVagrant()) {ReadMode(0);}
   
-  foreach my $th (threads->list()) {$th->join();}
+  foreach my $th (@THREADS) {$th->join();}
 
   &timer('stop');
   

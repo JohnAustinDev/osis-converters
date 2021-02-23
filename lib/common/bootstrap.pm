@@ -99,7 +99,7 @@ our %CONV_OUTPUT_FILES = (
                       '*/*.epub', 
                       '*/*.azw3' ],
   'osis2html'    => [ '*/index.xhtml',
-                      '*/*'],
+                      '*/*' ],
   'osis2gobible' => [ '*.jar', 
                       '*.jad' ],
 );
@@ -296,7 +296,7 @@ print "ABORT: Not an osis-converters project: '$INPD'\n";
 sub const {
   my $t = shift;
   
-  foreach my $v ('MOD', 'MAINMOD', 'DICTMOD') {
+  foreach my $v ('MAINMOD', 'DICTMOD', 'MOD') {
     no strict "refs";
     if (!defined($$v)) {
       &ErrorBug("Constant has not been initialized: $v", 1);

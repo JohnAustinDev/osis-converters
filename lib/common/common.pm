@@ -31,9 +31,8 @@ use Sword;
 use Try::Tiny;
 use XML::LibXML;
 
-our ($MAININPD, $MOD, $OUTDIR, $READLAYER, $SCRIPT, $SCRD, 
-    $SWORD_VERSE_SYSTEMS, $TMPDIR, $WRITELAYER, $XML_PARSER, $XPC, 
-    %DOCUMENT_CACHE);
+our ($MAININPD, $MOD, $READLAYER, $SCRIPT, $SCRD, $SWORD_VERSE_SYSTEMS, 
+    $TMPDIR, $WRITELAYER, $XML_PARSER, $XPC, %DOCUMENT_CACHE);
 
 our $MAX_UNICODE = 1103; # Default value: highest Russian Cyrillic Uncode code point
 our $UPPERCASE_DICTIONARY_KEYS = 1;
@@ -417,26 +416,6 @@ sub changeNodeText {
 
   foreach my $r ($node->childNodes()) {$r->unbindNode();}
   if ($new) {$node->appendText($new)};
-}
-
-sub getModuleOutputDir {
-  my $mod = shift; if (!$mod) {$mod = $MOD;}
-  
-  if ($OUTDIR && ! -d $OUTDIR) {
-    $OUTDIR = undef;
-    &Error("OUTDIR is not an existing directory: " . &findConf('OUTDIR'),
-"Change it to the path of a directory where output files can be written.");
-  }
-  
-  my $moddir;
-  if ($OUTDIR) {$moddir = "$OUTDIR/$mod";}
-  else {
-    my $parentDir = "$MAININPD/..";
-    if ($mod =~ /^(.*?)DICT$/) {$moddir = "$parentDir/$1/$mod/output";}
-    else {$moddir = "$parentDir/$mod/output";}
-  }
-
-  return $moddir;
 }
 
 # Returns the path to mod's OSIS file if it exists or '' if not. Upon
