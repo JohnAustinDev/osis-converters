@@ -87,7 +87,7 @@ sub pushCall {
 &saveForkArgs(\@forkCall, \@ARGV);
 
 my $caller = &caller($REQU);
-my $forkDirName = $caller.'_forks';
+my $forkDirName = $caller.'.fork';
 my $forkLogName = "OUT_${caller}_fork.txt";
 my $scriptTmpDir = $LOGF; 
 $scriptTmpDir =~ s/(?<=\/)[^\/]+$/tmp\/$SCNM/;

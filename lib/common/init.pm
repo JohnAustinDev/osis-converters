@@ -374,7 +374,7 @@ sub initInputOutputFiles {
     }
     foreach my $glob (@{$CONV_OUTPUT_FILES{$script_name}}) {
       foreach my $f (glob($modOutdir.$subdir.'/'.&const($glob))) {
-        unlink($modOutdir.$subdir.'/'.$f);
+        unlink($f);
       }
     }
   }

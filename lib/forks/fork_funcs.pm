@@ -235,7 +235,7 @@ sub forkTmpDirs {
   my $script = shift; # parent osis-converters script
   my $caller = &caller(shift);
   
-  $tmpdir =~ s/(?<=\/tmp\/).*$/${script}\/${caller}_forks/;
+  $tmpdir =~ s/(?<=\/tmp\/).*$/${script}\/${caller}.fork/;
   
   my @dirs;
   
