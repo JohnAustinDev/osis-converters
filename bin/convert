@@ -764,8 +764,6 @@ use Encode;
 use DateTime;
 use Term::ReadKey;
 
-$SIG{'INT'} = sub {&finish()};
-
 &pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
 foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
 &pLog("\n");
@@ -851,7 +849,13 @@ else {
   print "No more projects to start and none are running!\n";
 }
 
-&finish();
+END {
+  if (exists(&ReadMode)) {ReadMode(0);}
+  
+  foreach my $th (@THREADS) {$th->join();}
+
+  &timer('stop');
+}
 
 ########################################################################
 ########################################################################
@@ -928,18 +932,15 @@ sub timer {
     $STARTTIME = DateTime->now();
   }
   elsif ($do =~ /stop/i) {
-    &pLog("\nend time: ".localtime()."\n");
-    if ($STARTTIME) {
-      my $now = DateTime->now();
-      my $e = $now->subtract_datetime($STARTTIME);
-      &pLog("elapsed time: ".
-            ($e->hours ? $e->hours." hours ":'').
-            ($e->minutes ? $e->minutes." minutes ":'').
-            $e->seconds." seconds\n");
-    }
-    $STARTTIME = '';
+    if (!$STARTTIME) {return;}
+    my $now = DateTime->now();
+    my $e = $now->subtract_datetime($STARTTIME);
+    &pLog("elapsed time: ".
+          ($e->hours ? $e->hours." hours ":'').
+          ($e->minutes ? $e->minutes." minutes ":'').
+          $e->seconds." seconds\n");
+    $STARTTIME = undef;
   }
-  else {&pLog("\ncurrent time: ".localtime()."\n");}
 }
 
 # Return the number of projects currently running, and print or log a 
@@ -999,17 +1000,6 @@ sub readKey {
     $KILLED++;
     print "ESC was pressed...\n";
   }
-}
-
-sub finish {
-
-  if (!&runningInVagrant()) {ReadMode(0);}
-  
-  foreach my $th (@THREADS) {$th->join();}
-
-  &timer('stop');
-  
-  exit;
 }
 
 1;

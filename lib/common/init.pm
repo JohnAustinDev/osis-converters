@@ -350,11 +350,11 @@ sub initInputOutputFiles {
   my $modOutdir = shift;
   my $tmpdir = shift;
   
-  # Prepare the input OSIS file if needed
+  # Copy the input OSIS file if needed
   if ($script_name =~ /^osis2(?!osis)/) {
     if (-e "$modOutdir/$MOD.xml") {
-      &copy("$modOutdir/$MOD.xml", "$tmpdir/$MOD.xml");
-      $INOSIS = "$tmpdir/$MOD.xml";
+      &copy("$modOutdir/$MOD.xml", "$tmpdir/00_$MOD.xml");
+      $INOSIS = "$tmpdir/00_$MOD.xml";
     }
     else {
       &Error("$script_name cannot find an input OSIS file at " . 
@@ -362,7 +362,7 @@ sub initInputOutputFiles {
     }
   }
 
-  # Clean the output directory
+  # Delete old output files/directories
   our $forkScriptName; # fork results should not be deleted
   if (!$NO_OUTPUT_DELETE && !$forkScriptName) {
     my $subdir = &const($CONV_OUTPUT_SUBDIR{$script_name});
@@ -374,7 +374,9 @@ sub initInputOutputFiles {
     }
     foreach my $glob (@{$CONV_OUTPUT_FILES{$script_name}}) {
       foreach my $f (glob($modOutdir.$subdir.'/'.&const($glob))) {
-        unlink($f);
+        if (! -e $f) {next;}
+        if (-d $f) {remove_tree($f);}
+        else {unlink($f);}
       }
     }
   }

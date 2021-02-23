@@ -1653,6 +1653,12 @@ sub Log {
   close(LOGF);
 }
 
+END {
+  $LOGFLAG = undef;
+  my $p = $LOGFILE_BUFFER; $LOGFILE_BUFFER = undef;
+  if ($p) {&Log($p, 1);}
+}
+
 my $LOCAL;
 sub encodePrintPaths {
   my $t = shift;

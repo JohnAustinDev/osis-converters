@@ -1144,7 +1144,7 @@ sub makeEbook {
   &Log("\n--- CREATING $format FROM $tmp/$MOD.xml FOR $scope\n", 1);
   
   # Run Calibre's ebook-convert, using a temporary log file to reduce main log size
-  my $mylog = "$TMPDIR/OUT_$pubName.$format";
+  my $mylog = "$TMPDIR/OUT_$pubName.$format.txt";
   
   my $cmd = "ebook-convert".
   ' '. &escfile("$tmp/$MOD.xml").
@@ -1178,7 +1178,8 @@ sub makeEbook {
   
   &shell($cmd);
   
-  my $ercnt = &shell("grep -i -c 'error' '$mylog'", 3, 1); chomp $ercnt; $ercnt =~ s/^\D*(\d+).*?$/$1/s;
+  my $ercnt = &shell("grep -i -c 'error' '$mylog'", 3, 1); 
+  chomp($ercnt); $ercnt =~ s/^\D*(\d+).*?$/$1/s;
   if ($ercnt) {
     if (open(INL, $READLAYER, $mylog)) {
       while (<INL>) {&Log($_);}
