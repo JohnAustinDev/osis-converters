@@ -78,11 +78,17 @@ sub osis2pubs {
   use strict "refs";
   
   if (&isChildrensBible($INOSIS_XML)) {
-    &OSIS_To_ePublication2($convertTo, 
-      $tranPubTitle, '', 
-      'Tran', $tranPubName, $serverDirsHP->{'type'}{'Chbl'});
+    &OSIS_To_ePublication2(
+      $convertTo, 
+      $tranPubTitle, 
+      '', 
+      'Tran', 
+      $tranPubName, 
+      $serverDirsHP->{'type'}{'Chbl'}
+    );
   }
   else {
+  
 # Create Bible ePublications from OSIS files of the MAINMOD and DICTMOD 
 # (if one exists). It is assumed that each SUB_PUBLICATIONS has a 
 # unique scope (if there are two publications with the same scope, then
@@ -91,42 +97,50 @@ sub osis2pubs {
 # SUB_PUBLICATIONS as long as the book itself is identical in each one.
 # Always and only the entire OSIS file publication, when created, will 
 # be the Tran publication, and it is defined as having a scope that 
-# is the same as the OSIS file.
+# is the same as that of the OSIS file.
 # 
 # PUBLICATIONS
 # 1 Tran publication          - Containing all the contents of the OSIS
 #                               files. This publication will always be 
 #                               created, unless CreateFullBible is set  
 #                               to false in config.conf.
+#
 # 1 Full publication          - For each SUB_PUBLICATIONS. Selection
 #                               is controlled by CreateSeparatePubs=
 #                               (true|false|AUTO|<scope>|first|last) 
 #                               in config.conf. 
+#
 # 2 or more Part publications - For each book of each multi-book
 #                               SUB_PUBLICATIONS. Selection is 
 #                               controlled by CreateSeparateBooks=
 #                               (true|false|AUTO|<OSIS-book>|first|last) 
-#                               in config.conf.
+#                               in config.conf. If a sub-publication
+#                               has only one book, no Part publication
+#                               will be produced.
+#
 # 0 or more Part publications - For each book of a multi-book  
 #                               MAINMOD OSIS file which is not part of 
 #                               SUB_PUBLICATIONS. Selections are 
 #                               controlled by CreateSeparateBooks=
 #                               (true|false|AUTO|<OSIS-book>|first|last) 
-#                               in config.conf.
+#                               in config.conf. If the MAINMOD OSIS file
+#                               contains only one book, no Part pub-
+#                               lication will be produced.
 #
 # PLACEMENT
-# The EBOOKS URL will be scanned for sub-directory names and the scope 
-# of files contained therein. Created Full sub-publications and their 
-# Part publications will be placed in an output sub-directory having the 
-# same name as the EBOOKS URL sub-directory sharing the same scope. The 
-# Tran publication and any remaining single book Part publications are 
-# not placed in any sub-directory (but in the parent directory).
+# For eBooks, the EBOOKS URL will be scanned for sub-directory names and 
+# the scope of files contained therein. Created Full sub-publications 
+# and their Part publications will be placed in an output sub-directory 
+# having the same name as the EBOOKS URL sub-directory sharing the same 
+# scope. The Tran publication and any remaining single book Part 
+# publications are not placed in any sub-directory (but in the parent 
+# directory).
 #
 # CREATION ORDER
 # Publications are created in the following order: 
 # Tran, SUB_PUBLICATIONS Full/Part, any remaining Part books.
 
-    # Get config.conf settings that control what to create
+    # Interperet config.conf settings that control what to create
     my $createFullBible = &conf('CreateFullBible',     undef, undef, $convertTo);
     
     my $subSelect  = &conf('CreateSeparatePubs',  undef, undef, $convertTo);
@@ -301,8 +315,8 @@ sub OSIS_To_ePublication2 {
   my $pubTitle = shift;  # title of ePublication
   my $scope = shift;     # scope of ePublication
   my $pubType = shift;   # Tran, Full or Part
-  my $pubName = shift;   # filename for ePublication
-  my $pubSubdir = shift; # subdirectory for ePublication
+  my $pubName = shift;   # filename of ePublication
+  my $pubSubdir = shift; # subdirectory of ePublication
   
   # restore the state of these globals to when getForkArgs() was first called
   my $x = 0; foreach (@_) {
