@@ -104,10 +104,11 @@ our %CONV_OUTPUT_FILES = (
                       '*.jad' ],
 );
 
-# Types of publication output by each conversion. 'tran' is the entire
-# Bible translation, 'subpub' is one of the SUB_PUBLICATIONS, 'tbook' is 
-# a single Bible-book publication taken from the 'tran' publication and 
-# 'book' is a single Bible-book publication taken from a 'subpub'.
+# Types of publication output by each conversion: 'tran' is the entire
+# Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook' is 
+# a single Bible-book publication which is part of the 'tran' 
+# publication and 'book' is a single Bible-book publication taken as a 
+# part of the 'subpub'.
 our %CONV_PUB_TYPES = (
   'sword'   => [ 'tran' ],
   'gobible' => [ 'tran', 'SimpleChar', 'SizeLimited' ],

@@ -500,16 +500,28 @@ sub getScriptsToRun {
     }
     
     # Run the remaining scripts on the module
-    foreach my $s (@s) {
-      push(@run, { 'r' => "$s $m",
-                   's' =>  $s, 
-                   'm' =>  $m, 
-                   'p' =>  $infoP->{$m}{'path'},
-                   'o' =>  &modOutdir($infoP, $m) });
-    }
+    foreach my $s (@s) {push(@run, &run($s, $m, $infoP));}
   }
   
   return @run;
+}
+
+# Return an object containing all necessary information for a particular
+# script to run on a module.
+sub run {
+  my $script = shift;
+  my $module = shift;
+  my $infoP = shift;
+  my $isAdditional = shift;
+  
+  return {
+    'r' => "$script $module",
+    's' =>  $script, 
+    'm' =>  $module, 
+    'p' =>  $infoP->{$module}{'path'},
+    'o' =>  &modOutdir($infoP, $module),
+    'additional' => $isAdditional,
+  };
 }
 
 # Return a list of osis-converters scripts to be invoked for any given 
@@ -572,11 +584,7 @@ sub getDependencies {
         # an additional run or else abort.
         $d =~ /^(\S+) (\S+)$/; my $s = $1; my $m = $2;
         if ($infoP->{$m} && $infoP->{$m}{'runable'}) {
-          unshift(@{$runAP}, { 'r' => "$s $m",
-                               's' =>  $s,
-                               'm' =>  $m, 
-                               'p' =>  $infoP->{$m}{'path'},
-                               'additional' => 1 });
+          unshift(@{$runAP}, &run($s, $m, $infoP, 1));
           &getDependencies($conversion, $runAP, $infoP, $dependencyHP);
         }
         else {

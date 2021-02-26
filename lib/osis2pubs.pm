@@ -94,7 +94,8 @@ sub osis2pubs {
     &OSIS_To_ePublication2(
       $convertTo, 
       $tranPubTitle, 
-      '', 
+      undef,
+      undef,
       'tran', 
       &childrensBibleFileName($tranPubTitle), 
       $serverDirsHP->{'childrens_bible'}
@@ -173,7 +174,9 @@ sub osis2pubs {
     my %done;
     
     # Create the tran-publication
-    if ($createTranPub) {
+    if ($createTranPub || 
+        $fullScope eq $subSelect || 
+        $fullScope eq $bookSelect) {
       $forkArgs .= &OSIS_To_ePublication(
         scalar(@{&scopeToBooks($fullScope, &conf('Versification'))}), 
         $convertTo, 
@@ -200,7 +203,9 @@ sub osis2pubs {
       my $title = &conf("TitleSubPublication[$s]");
       
       # Create sub-publication
-      if ($subSelect eq 'all' || $subSelect eq $scope) {
+      if ($subSelect eq 'all' || 
+          $scope eq $subSelect || 
+          $scope eq $bookSelect) {
         $forkArgs .= &OSIS_To_ePublication(
           scalar(@{&scopeToBooks($scope, &conf('Versification'))}), 
           $convertTo, 
@@ -1264,7 +1269,7 @@ sub makeEbook {
     $cmd .= ' --debug-pipeline='.&escfile("$tmp/debug");
   }
   
-  $cmd .= " > '$mylog'";
+  $cmd .= " > ".&escfile($mylog);
   
   &shell($cmd);
   
