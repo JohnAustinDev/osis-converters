@@ -57,7 +57,7 @@ sub init_linux_script {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
     
     # update old convert.txt configuration
-    if ($INPD eq $MAININPD && (-e "$INPD/eBook/convert.txt" || -e "$INPD/html/convert.txt")) {
+    if ($INPD eq $MAININPD && (-e "$INPD/ebooks/convert.txt" || -e "$INPD/html/convert.txt")) {
       &update_removeConvertTXT($CONFFILE);
     }
 

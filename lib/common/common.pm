@@ -487,9 +487,9 @@ sub checkCharacters {
   }
   &Report("<-Characters occuring fewer than $rc times in OSIS file (least first): ".(@rare ? join(' ', @rare):'none'));
   
-  # Check for high order Unicode character replacements needed for GoBible/simpleChars.txt
+  # Check for high order Unicode character replacements needed for gobible/simpleChars.txt
   my %allChars; for my $c (split(//, $chars)) {$allChars{$c}++;}
-  my @from; my @to; &readReplacementChars(&getDefaultFile("bible/GoBible/simpleChars.txt"), \@from, \@to);
+  my @from; my @to; &readReplacementChars(&getDefaultFile("bible/gobible/simpleChars.txt"), \@from, \@to);
   foreach my $chr (sort { ord($a) <=> ord($b) } keys %allChars) {
     if (ord($chr) <= $MAX_UNICODE) {next;}
     my $x; for ($x=0; $x<@from; $x++) {
@@ -498,7 +498,7 @@ sub checkCharacters {
     if (@from[$x] ne $chr) {
       &Note("High Unicode character found ( > $MAX_UNICODE): ".ord($chr)." '$chr' <> no-replacement");
       &Warn("<-There is no simpleChars.txt replacement for the high Unicode character: '$chr'", 
-      "This character, and its low order replacement, may be added to: $SCRIPT/defaults/bible/GoBible/simpleChars.txt to remove this warning.");
+      "This character, and its low order replacement, may be added to: $SCRIPT/defaults/bible/gobible/simpleChars.txt to remove this warning.");
     }
   }
 }

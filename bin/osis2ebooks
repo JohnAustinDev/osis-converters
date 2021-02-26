@@ -19,26 +19,14 @@
 
 # usage: osis2ebooks [Project_Directory]
 
-# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
-# CONF wiki: http://www.crosswire.org/wiki/DevTools:conf_Files
-
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
+
 require "$SCRD/lib/osis2pubs.pm";
+
 &Log("\nUsing ".`calibre --version`);
-&osis2pubs('eBook');
+
+&osis2pubs('ebooks');
 
 &timer('stop'); &Log("\nend time: ".localtime()."\n");
-
-#if (-e "$TMPDIR/OUT_osis2eBooks.txt") {
-#  &Log("
-#
-#
-#
-#
-#------------------------------------------------------------------------
-#                      EBOOK DETAIL LOG:
-#------------------------------------------------------------------------");
-#  &shell("cat \"$TMPDIR/OUT_osis2eBooks.txt\"");
-#}
 
 1;

@@ -186,8 +186,8 @@ on the same line");}
   if (!$pubImagePath && -e "$INPD/images/cover.jpg") {
     $pubImagePath = "$INPD/images/cover.jpg";
   }
-  elsif (!$pubImagePath && -e "$INPD/eBook/cover.jpg") {
-    $pubImagePath = "$INPD/eBook/cover.jpg";
+  elsif (!$pubImagePath && -e "$INPD/ebooks/cover.jpg") {
+    $pubImagePath = "$INPD/ebooks/cover.jpg";
     &Error("This cover location is deprecated: $pubImagePath.", "Move this image to $INPD/images");
   }
   elsif (!$pubImagePath && -e "$INPD/html/cover.jpg") {

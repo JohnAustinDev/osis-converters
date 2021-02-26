@@ -25,27 +25,29 @@ use strict;
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR, 
-    $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG);
+    $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG,
+    %ANNOTATE_TYPE, %CONV_PUB_TYPES, @CONV_PUB_TYPES);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
 my @forkGlobals = ('INOSIS', 'PUBOUT'); # global(s) to forward to each fork instance
     
 require("$SCRD/lib/forks/fork_funcs.pm");
+require(&getDefaultFile("lib/server.pm"));
 
 sub osis2pubs {
   my $convertTo = shift;
   
   $PUBOUT = &outdir();
   
-  if ($convertTo !~ /^(eBook|html)$/) {
+  if ($convertTo !~ /^(ebooks|html)$/) {
     &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
   }
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
   
   my %params = (
-    'conversion' => ($convertTo eq 'eBook' ? 'epub':'html'), 
+    'conversion' => join(' ', $convertTo, @{$CONV_PUB_TYPES{$convertTo}}), 
     'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
     'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
   );
@@ -66,11 +68,21 @@ sub osis2pubs {
     my $v = &conf('Versification');
     $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($INOSIS_XML), $v), $v);
   }
-  my $serverDirsHP = ($EBOOKS =~ /^https?\:\/\// ? &readServerScopes($EBOOKS, '', $MAINMOD, ( $convertTo ne 'html' )) : {});
+  
+  my $serverDirsHP = {};
+  if ($EBOOKS =~ /^https?\:\/\//) {
+    $serverDirsHP = &readServerScopes($EBOOKS, $MAINMOD, $convertTo);
+  }
+  
   my $tranPubTitle = &conf('TranslationTitle');
-  if (!$tranPubTitle) {$tranPubTitle = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work[\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0]; $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');}
+  if (!$tranPubTitle) {
+    $tranPubTitle = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work
+        [\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0];
+    $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');
+  }
   if (!$tranPubTitle) {&ErroBug("osis2pubs.pm could not determine tranPubTitle", 1);}
-  my $tranPubName = &getFullEbookName(&isChildrensBible($INOSIS_XML), $tranPubTitle, $fullScope, 'Tran');
+  
+  my $tranPubName = &tranPubFileName($tranPubTitle, $fullScope);
 
   # Use forks.pm to run OSIS_To_ePublication() for a big speed-up
   no strict "refs";
@@ -82,9 +94,9 @@ sub osis2pubs {
       $convertTo, 
       $tranPubTitle, 
       '', 
-      'Tran', 
-      $tranPubName, 
-      $serverDirsHP->{'type'}{'Chbl'}
+      'tran', 
+      &childrensBibleFileName($tranPubTitle), 
+      $serverDirsHP->{'childrens_bible'}
     );
   }
   else {
@@ -96,33 +108,33 @@ sub osis2pubs {
 # to differentiate the two). However, any book may appear in multiple, 
 # SUB_PUBLICATIONS as long as the book itself is identical in each one.
 # Always and only the entire OSIS file publication, when created, will 
-# be the Tran publication, and it is defined as having a scope that 
+# be the 'tran' publication, and it is defined as having a scope that 
 # is the same as that of the OSIS file.
 # 
 # PUBLICATIONS
-# 1 Tran publication          - Containing all the contents of the OSIS
+# 1 tran publication          - Containing all the contents of the OSIS
 #                               files. This publication will always be 
-#                               created, unless CreateFullBible is set  
+#                               created, unless CreatePubTran is set  
 #                               to false in config.conf.
 #
-# 1 Full publication          - For each SUB_PUBLICATIONS. Selection
-#                               is controlled by CreateSeparatePubs=
+# 1 subpub publication        - For each SUB_PUBLICATIONS. Selection
+#                               is controlled by CreatePubSubpub =
 #                               (true|false|AUTO|<scope>|first|last) 
 #                               in config.conf. 
 #
-# 2 or more Part publications - For each book of each multi-book
+# 2 or more book publications - For each book of each multi-book
 #                               SUB_PUBLICATIONS. Selection is 
-#                               controlled by CreateSeparateBooks=
-#                               (true|false|AUTO|<OSIS-book>|first|last) 
+#                               controlled by CreatePubBook =
+#                               (true|false|AUTO|<OSIS-book>|first|last|all) 
 #                               in config.conf. If a sub-publication
 #                               has only one book, no Part publication
 #                               will be produced.
 #
-# 0 or more Part publications - For each book of a multi-book  
+# 0 or more book publications - For each book of a multi-book  
 #                               MAINMOD OSIS file which is not part of 
 #                               SUB_PUBLICATIONS. Selections are 
-#                               controlled by CreateSeparateBooks=
-#                               (true|false|AUTO|<OSIS-book>|first|last) 
+#                               controlled by CreatePubTbook =
+#                               (true|false|AUTO|<OSIS-book>|first|last|all) 
 #                               in config.conf. If the MAINMOD OSIS file
 #                               contains only one book, no Part pub-
 #                               lication will be produced.
@@ -132,40 +144,43 @@ sub osis2pubs {
 # the scope of files contained therein. Created Full sub-publications 
 # and their Part publications will be placed in an output sub-directory 
 # having the same name as the EBOOKS URL sub-directory sharing the same 
-# scope. The Tran publication and any remaining single book Part 
-# publications are not placed in any sub-directory (but in the parent 
+# scope. The 'tran' publication and any remaining single book publica-
+# tions are not placed in any sub-directory (but in the parent 
 # directory).
 #
 # CREATION ORDER
 # Publications are created in the following order: 
-# Tran, SUB_PUBLICATIONS Full/Part, any remaining Part books.
+# 'tran', 'subpub', 'book' then 'tbook'
 
     # Interperet config.conf settings that control what to create
-    my $createFullBible = &conf('CreateFullBible',     undef, undef, $convertTo);
+    my $createTranPub = &conf('CreatePubTran',     undef, undef, $convertTo);
+    &Note("Using CreatePubTran = $createTranPub");
     
-    my $subSelect  = &conf('CreateSeparatePubs',  undef, undef, $convertTo);
-    if    ($subSelect =~ /^first$/i) {$subSelect = @SUB_PUBLICATIONS[0];}
-    elsif ($subSelect =~ /^last$/i)  {$subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];}
+    my $subSelect  = &conf('CreatePubSubpub',  undef, undef, $convertTo);
+    if    ($subSelect =~ /^first$/i)   {$subSelect = @SUB_PUBLICATIONS[0];}
+    elsif ($subSelect =~ /^last$/i)    {$subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];}
     elsif ($subSelect =~ /^true$/i)  {$subSelect = 'all';}
     else  {$subSelect = undef;}
+    &Note("Using CreatePubSubpub = $subSelect");
     
-    my $bookSelect = &conf('CreateSeparateBooks', undef, undef, $convertTo);
+    my $bookSelect = &conf('CreatePubBook', undef, undef, $convertTo);
     my @bks = @{&scopeToBooks($fullScope, &conf('Versification'))};
-    if ($bookSelect =~ /^first$/i)   {$bookSelect = @bks[0];}
-    elsif ($bookSelect =~ /^last$/i) {$bookSelect = @bks[$#bks];}
-    elsif ($bookSelect =~ /^true$/i) {$bookSelect = 'all';}
+    if ($bookSelect =~ /^first$/i)         {$bookSelect = @bks[0];}
+    elsif ($bookSelect =~ /^last$/i)       {$bookSelect = @bks[$#bks];}
+    elsif ($bookSelect =~ /^(true|all)$/i) {$bookSelect = 'all';}
     else  {$bookSelect = undef;}
+    &Note("Using CreatePubBook = $bookSelect");
   
     my %done;
     
     # Create the Tran publication
-    if ($createFullBible) {
+    if ($createTranPub) {
       $forkArgs .= &OSIS_To_ePublication(
         scalar(@{&scopeToBooks($fullScope, &conf('Versification'))}), 
         $convertTo, 
         $tranPubTitle, 
         $fullScope, 
-        'Tran', 
+        'tran', 
         $tranPubName, 
         ''
       );
@@ -183,33 +198,37 @@ sub osis2pubs {
         next;
       }
       
+      my $title = &conf("TitleSubPublication[$s]");
+      
       if ($subSelect eq 'all' || $subSelect eq $scope) {
         $forkArgs .= &OSIS_To_ePublication(
           scalar(@{&scopeToBooks($scope, &conf('Versification'))}), 
           $convertTo, 
-          &conf("TitleSubPublication[$s]"), 
+          $title, 
           $scope,
-          'Full', 
-          &getEbookName($scope, 'Full'), 
-          $serverDirsHP->{'scope'}{$scope}
+          'subpub', 
+          &subPubFileName($title, $scope), 
+          $serverDirsHP->{$scope}
         );
       }
       $done{$scope}++;
       
       # Create book Parts of Full publication
       $forkArgs .= &createParts(
-        \%done, 0,
+        \%done,
+        'book',
         $convertTo, 
         $bookSelect, 
         $scope, 
-        &conf("TitleSubPublication[$s]"), 
-        $serverDirsHP->{'scope'}{$scope}
+        $title, 
+        $serverDirsHP->{$scope}
       );
     }
     
     # Create book Parts remaining
     $forkArgs .= &createParts(
-      \%done, 1,
+      \%done,
+      'tbook',
       $convertTo, 
       $bookSelect, 
       $fullScope, 
@@ -236,18 +255,19 @@ sub osis2pubs {
   my @order = ('Format', 'Name', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
   my %cm;
   foreach my $c (@order) {$cm{$c} = length($c);}
-  foreach my $n (sort keys %CONV_REPORT) {
-    $CONV_REPORT{$n}{'Name'} = $n;
-    if (!$cm{$n} || length($CONV_REPORT{$n}) > $cm{$n}) {$cm{$n} = length($CONV_REPORT{$n});}
-    foreach my $c (sort keys %{$CONV_REPORT{$n}}) {
-      if ($c eq 'Format') {$CONV_REPORT{$n}{$c} = join(',', @{$CONV_REPORT{$n}{$c}});}
-      if (length($CONV_REPORT{$n}{$c}) > $cm{$c}) {$cm{$c} = length($CONV_REPORT{$n}{$c});}
+  foreach my $k (sort keys %CONV_REPORT) {
+    if (!$cm{$k} || length($CONV_REPORT{$k}) > $cm{$k}) {$cm{$k} = length($CONV_REPORT{$k});}
+    foreach my $c (sort keys %{$CONV_REPORT{$k}}) {
+      if ($c eq 'Format') {$CONV_REPORT{$k}{$c} = join(',', @{$CONV_REPORT{$k}{$c}});}
+      if (length($CONV_REPORT{$k}{$c}) > $cm{$c}) {$cm{$c} = length($CONV_REPORT{$k}{$c});}
     }
   }
   my $p; foreach my $c (@order) {$p .= "%-".($cm{$c}+4)."s ";} $p .= "\n";
   &Log(sprintf($p, @order));
-  foreach my $n (sort keys %CONV_REPORT) {
-    my @a; foreach my $c (@order) {push(@a, $CONV_REPORT{$n}{$c});}
+  foreach my $k (
+      sort { $CONV_REPORT{$a}{'Name'} cmp $CONV_REPORT{$b}{'Name'} } 
+      keys %CONV_REPORT) {
+    my @a; foreach my $c (@order) {push(@a, $CONV_REPORT{$k}{$c});}
     &Log(sprintf($p, @a));
   }
 }
@@ -258,13 +278,16 @@ sub osis2pubs {
 
 # Call OSIS_To_ePublication on each book Part of a larger publication.
 sub createParts {
-  my $doneHP = shift;
-  my $skipDone = shift;
-  my $convertTo = shift;
-  my $select = shift;
-  my $scope = shift;
-  my $title = shift;
-  my $subdir = shift;
+  my $doneHP = shift;    # book publications already created
+  my $type = shift;      # type of book publication (book|tbook)
+  my $convertTo = shift; # conversion
+  my $select = shift;    # selection value
+  my $scope = shift;     # scope of publication from which book pubs come
+  my $title = shift;     # title of publication from which book pubs come
+  my $subdir = shift;    # subdirectory in which to place created pubs
+  
+  my $skipDone = ( $type eq 'book' ? 0 : 
+  (&conf('CreatePubBook', undef, undef, $convertTo) eq 'all' ? 0 : 1) );
   
   my $forkargs;
   
@@ -282,7 +305,7 @@ sub createParts {
         $title, 
         $bk, 
         'Part', 
-        &getEbookName($bk, 'Part'), 
+        &bookPubFileName($title, $bk, $type), 
         $subdir
       );
     }
@@ -310,13 +333,17 @@ sub OSIS_To_ePublication {
 }
 
 # This function may be run in its own thread.
+my $KEY;
 sub OSIS_To_ePublication2 {
-  my $convertTo = shift; # type of ePublication (html or eBook)
+  my $convertTo = shift; # type of ePublication (html or ebooks)
   my $pubTitle = shift;  # title of ePublication
   my $scope = shift;     # scope of ePublication
-  my $pubType = shift;   # Tran, Full or Part
+  my $pubType = shift;   # @CONV_PUB_TYPES
   my $pubName = shift;   # filename of ePublication
   my $pubSubdir = shift; # subdirectory of ePublication
+  
+  $KEY = "$pubSubdir/$pubName";
+  $CONV_REPORT{$KEY}{'Name'} = $pubName;
   
   # restore the state of these globals to when getForkArgs() was first called
   my $x = 0; foreach (@_) {
@@ -328,10 +355,6 @@ sub OSIS_To_ePublication2 {
   my $pscope = $scope; $pscope =~ s/\s/_/g;
   
   my $isChildrensBible = ($scope ? 0:1);
-
-  if ($CONV_REPORT{$pubName}) {
-    &ErrorBug("$convertTo \"$pubName\" already created!");
-  }
   
   &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=$pubType, name=$pubName, subdir='$pubSubdir'\n\n", 1);
   
@@ -354,16 +377,16 @@ sub OSIS_To_ePublication2 {
   my $cover = "$tmp/cover.jpg";
   my $coverSource = &copyCoverTo(\$osis, $cover);
   if (!$coverSource) {$cover = '';}
-  $CONV_REPORT{$pubName}{'Cover'} = '';
+  $CONV_REPORT{$KEY}{'Cover'} = '';
   if ($cover) {
     if ($pubType eq 'Part' && $partTitle) {
       &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'white')." \"$cover\"", 3);
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
-    $CONV_REPORT{$pubName}{'Cover'} = $coverSourceName . ($pubType eq 'Part' ? " ($partTitle)":''); 
+    $CONV_REPORT{$KEY}{'Cover'} = $coverSourceName . ($pubType eq 'Part' ? " ($partTitle)":''); 
   }
   else {
-    $CONV_REPORT{$pubName}{'Cover'} = "random-cover ($pubTitle)";
+    $CONV_REPORT{$KEY}{'Cover'} = "random-cover ($pubTitle)";
   }
   
   # copy OSIS file
@@ -402,7 +425,8 @@ sub OSIS_To_ePublication2 {
 @font-face {
   font-family:font1;
   src: url(\'./'.$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
-  font-weight: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; font-style: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
+  font-weight: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; 
+  font-style: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
 }
 ';
       }
@@ -410,7 +434,9 @@ sub OSIS_To_ePublication2 {
 body {font-family: font1;}
 
 ';
-      if (open(FCSS, $READLAYER, "$FONTS/".&conf("Font").".eBook.css")) {while(<FCSS>) {print CSS $_;} close(FCSS);}
+      if (open(FCSS, $READLAYER, "$FONTS/".&conf("Font").".$convertTo.css")) {
+        while(<FCSS>) {print CSS $_;} close(FCSS);
+      }
       close(CSS);
     }
     else {&ErrorBug("Could not write font css to \"$tmp/css/10font.css\"");}
@@ -426,7 +452,7 @@ body {font-family: font1;}
       &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
       my %params = (
-        'conversion' => ($convertTo eq 'eBook' ? 'epub':'html'), 
+        'conversion' => join(' ', $convertTo, @{$CONV_PUB_TYPES{$convertTo}}), 
         'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
         'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
       );
@@ -438,8 +464,8 @@ body {font-family: font1;}
       my $aggfilter = &filterAggregateEntriesToScope(\$outf, $scope);
       &Note("filterAggregateEntriesToScope('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
       if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
-        $CONV_REPORT{$pubName}{'Glossary'} = 'no-glossary';
-        $CONV_REPORT{$pubName}{'Filtered'} = 'all';
+        $CONV_REPORT{$KEY}{'Glossary'} = 'no-glossary';
+        $CONV_REPORT{$KEY}{'Filtered'} = 'all';
       }
       else {
         $dictTmpOsis = "$tmp/$DICTMOD.xml";
@@ -450,8 +476,8 @@ body {font-family: font1;}
 "Run sfm2osis on the dictionary module, to create an OSIS 
 file for it, and then run this script again.");}
     
-    $CONV_REPORT{$pubName}{'Glossary'} = $DICTMOD;
-    $CONV_REPORT{$pubName}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
+    $CONV_REPORT{$KEY}{'Glossary'} = $DICTMOD;
+    $CONV_REPORT{$KEY}{'Filtered'} = ($filter eq '0' ? 'none':$filter);
   }
   if (!$dictTmpOsis) {
     my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
@@ -466,14 +492,14 @@ file for it, and then run this script again.");}
   if ($dictTmpOsis) {&copyReferencedImages($dictTmpOsis, $DICTINPD, $tmp);}
   
   # filter out any and all references pointing to targets outside our final OSIS file scopes
-  $CONV_REPORT{$pubName}{'ScripRefFilter'} = 0;
-  $CONV_REPORT{$pubName}{'GlossRefFilter'} = 0;
-  $CONV_REPORT{$pubName}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $CONV_REPORT{$pubName}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis);
+  $CONV_REPORT{$KEY}{'ScripRefFilter'} = 0;
+  $CONV_REPORT{$KEY}{'GlossRefFilter'} = 0;
+  $CONV_REPORT{$KEY}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
+  $CONV_REPORT{$KEY}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis);
   
   if ($dictTmpOsis) {
-    $CONV_REPORT{$pubName}{'ScripRefFilter'} += &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
-    $CONV_REPORT{$pubName}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis);
+    $CONV_REPORT{$KEY}{'ScripRefFilter'} += &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
+    $CONV_REPORT{$KEY}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis);
   }
 
   # now do the conversion on the temporary directory's files
@@ -549,8 +575,8 @@ parseable, contact the osis-converters maintainer.\n");}
 
 
 # Copy inosis to outosis, while pruning books and other bookGroup child 
-# elements according to scope. Any changes made during the process are 
-# noted in the log file with a note.
+# elements according to scope and pubType. Any changes made during the 
+# process are noted in the log file with a note.
 #
 # If any bookGroup is left with no books in it, then the entire bookGroup 
 # element (including its introduction if there is one) is dropped.
@@ -564,9 +590,10 @@ parseable, contact the osis-converters maintainer.\n");}
 # If any bookSubGroup introduction is not immediately followed by a book 
 # (after book pruning) then that bookSubGroup introduction is removed.
 #
-# If there is only one bookGroup left, the remaining one's TOC milestone
-# will become [not_parent] so as to prevent an unnecessary TOC level,
-# or, if the bookGroup intro is empty, it will be entirely removed.
+# If there is only one bookGroup left, the remaining bookGroup's TOC 
+# milestone will become [not_parent] so as to prevent an unnecessary TOC 
+# level, or, if the bookGroup intro is empty, it will be entirely 
+# removed.
 #
 # If a sub-publication cover matches the scope, it will be moved to 
 # replace the main cover. Or when pruning to a single book that matches
@@ -592,13 +619,31 @@ sub filterBibleToScope {
   my $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($inxml), &conf('Versification')), &conf('Versification'));
   
   my $subPublication;
-  if ($pubType ne 'Part') {
+  if ($pubType !~ /book/i) {
     foreach my $sp (@SUB_PUBLICATIONS) {
       if ($sp eq $scope) {$subPublication = $sp;}
     }
   }
   
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
+  
+  # remove divs marked for pubType removal
+  foreach my $r (@{$XPC->findnodes('//osis:div[@annotateType="' .
+    $ANNOTATE_TYPE{'conversion'}.'"]/@annotateRef', $inxml)}) {
+    my @r = split(/\s+/, $r->value);
+    if (&hasSame(\@r, \@CONV_PUB_TYPES) && !&hasSame(\@r, [$pubType])) {
+      $r->parentNode->unbindNode();
+      &Note("conversion filtered 1 element because $r.");
+    }
+  }
+  foreach my $r (@{$XPC->findnodes('//osis:div[@annotateType="' .
+    $ANNOTATE_TYPE{'not_conversion'}.'"]/@annotateRef', $inxml)}) {
+    my @r = split(/\s+/, $r->value);
+    if (&hasSame(\@r, [$pubType])) {
+      $r->parentNode->unbindNode();
+      &Note("not_conversion filtered 1 element because $r.");
+    }
+  }
   
   # remove books not in scope
   my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, &conf('Versification'))};
@@ -687,6 +732,8 @@ sub filterBibleToScope {
   # Update title references and determine pruned OSIS file's new title
   my $osisTitle = @{$XPC->findnodes('/descendant::osis:type[@type="x-bible"][1]
       /ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
+  my $topmsTitle = @{$XPC->findnodes('/descendant::osis:milestone
+      [@osisID="BIBLE_TOP"]/@n', $inxml)}[0];
   if (@filteredBooks && !$subPublication) {
     my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
     my @bookNames;
@@ -702,6 +749,10 @@ sub filterBibleToScope {
   if ($$ebookTitleP ne $osisTitle->textContent) {
     &changeNodeText($osisTitle, $$ebookTitleP);
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
+  }
+  if ($topmsTitle->value =~ /^((?:\[[^\]]+\])*)(.*?)$/ && $2 ne $$ebookTitleP) {
+    $topmsTitle->setValue($1.$$ebookTitleP);
+    &Note("Updated BIBLE_TOP to \"$$ebookTitleP\"", 1);
   }
   
   # move matching sub-publication cover to top
@@ -1245,132 +1296,10 @@ sub makeEbook {
         &Note("Created: $outdir/image.jpg\n", 1);
       }
     }
-    if (!$CONV_REPORT{$pubName}{'Format'}) {$CONV_REPORT{$pubName}{'Format'} = ();}
-    push(@{$CONV_REPORT{$pubName}{'Format'}}, $format);
+    if (!$CONV_REPORT{$KEY}{'Format'}) {$CONV_REPORT{$KEY}{'Format'} = ();}
+    push(@{$CONV_REPORT{$KEY}{'Format'}}, $format);
   }
   else {&Error("No output file: $out");}
-}
-
-# Return the filename (without file extension)
-sub getEbookName {
-  my $scope = shift;
-  my $type = shift;
-
-  my $fs = $scope; $fs =~ s/\s/_/g;
-  return $fs . "_" . $type;
-}
-
-# Return the filename of a full eBook publication (without extension).
-sub getFullEbookName {
-  my $isChildrensBible = shift;
-  my $tranpubTitle = shift;
-  my $fullscope = shift;
-  my $type = shift;
-  
-  my $name;
-  if ($isChildrensBible) {
-    $name = $tranpubTitle.'__Chbl';
-  }
-  else {
-    my $fs = $fullscope; $fs =~ s/\s/_/g;
-    $name = ($tranpubTitle ? $tranpubTitle.'__':$fs.'_').$type;
-  }
-  
-  $name =~ s/\s+/-/g;
-  
-  return $name;
-}
-
-# Read the files and directories at $url/$langCode/$pubCode and return 
-# a hash pointer which contains scope => sub-directory(s) data. Also, 
-# if $mkdir is set, then create a matching local ebook sub-directory for 
-# every $url subdir (whether it contains files or not).
-sub readServerScopes {
-  my $url = shift;
-  my $langCode = shift;
-  my $pubCode = shift;
-  my $mkdir = shift;
-  
-  my %result;
-  
-  if (!$langCode) { # discover langCode if not provided
-    my @codes; &getURLCache('langCodes-ebooks', $url, 2, 768, \@codes);
-    foreach (@codes) {
-      if (! /^\.\/(.*?)\/(.*?)\/$/) {next;}
-      if ($pubCode eq $2) {$langCode = $1; last;}
-    }
-    if (!$langCode) {
-      &Warn("Could not determine code at $url/code/$pubCode.", 
-"If you plan to publish eBooks to $url, you may need to arrange 
-the eBooks at $PUBOUT into appropriate sub-directories yourself.");
-      return \%result;
-    }
-  }
-  
-  my @fileList; &getURLCache("$MAINMOD-ebooks", "$url/$langCode/$pubCode", 3, 12, \@fileList);
-  my $ignoreDirs = &conf("ARG_ignoreServerDirectoryRegEx");
-  
-  my %dirBooks;
-  foreach my $file (sort @fileList) {
-    if ($file =~ /^\.+\/$/) {next;}
-    elsif ($file =~ /^\.\/(.*)\/$/) {
-      my $subdir = $1;
-      if ($mkdir && $subdir) {
-        &shell("mkdir -p \"$PUBOUT/$subdir\"", 3);
-      }
-      next;
-    }
-    
-    # ./2005/Prov_Full.azw3
-    my $dirname = $file; 
-    my $filename = ($dirname =~ s/^\.\/(.*?)\/([^\/]+)\.(pdf|mobi|azw\d?|epub|fb2|txt)$/$1/ ? $2:'');
-    if (!$filename) {next;}
-    
-    if ($ignoreDirs && $dirname =~ /$ignoreDirs/) {
-      &Note("Skipping server directory '$dirname' because ARG_ignoreServerDirectoryRegEx='".$ignoreDirs."'");
-      next;
-    }
-    
-    # Get scope from $filename, which is [fileNumber-][title__][scope]_[type]
-    $filename =~ s/^\d+\-//;
-    $filename =~ s/^.*?__//;
-    my $ptype = ($filename =~ s/(_?(Tran|Full|Part|Othr|Chbl|Biqu|Lvpr|Stry|Para|Bibs|Digl|Prel|Intr|OSIS|Supl|Glos|Dict|Hide|Audi))+$//i ? $1:'');
-    my $pscope = $filename;
-    
-    $result{'type'}{$ptype} = "/$dirname";
-    
-    # Test that result is a scope
-    $pscope =~ /^([^_\-]+)/; if (!defined($OSIS_ABBR{$1})) {next;}
-    
-    my $scope = $pscope; $scope =~ s/_/ /g;
-
-    &setCheckSubdir(\%result, $scope, "/$dirname");
-
-    foreach my $bk (@{&scopeToBooks($scope, &conf("Versification"))}) {
-      push(@{$dirBooks{$dirname}}, $bk);
-    }
-  }
-  
-  # Whenever a directory holds multiple single-book eBooks, be sure to
-  # include the whole scope.
-  foreach my $dirname (keys %dirBooks) {
-    &setCheckSubdir(\%result, &booksToScope($dirBooks{$dirname}, &conf("Versification")), "/$dirname");
-  }
-  
-  return \%result;
-}
-
-sub setCheckSubdir {
-  my $resP = shift;
-  my $scope = shift;
-  my $subdir = shift;
-
-  if (defined($resP->{'scope'}{$scope}) && $resP->{'scope'}{$scope} ne $subdir) {
-    &Warn(
-"<>Conflicting subdirectory for scope $scope",
-"<>The EBOOK URL contains multiple subdirectories corresponding to this scope: '$resP->{'scope'}{$scope}' will be used, '$subdir' will be ignored.");
-  }
-  else {$resP->{'scope'}{$scope} = $subdir;}
 }
 
 # Add context parameters to the functions.xsl file as a way to pass them 
@@ -1418,8 +1347,8 @@ sub ramNeededKB {
   # Average book (Gal) osis2pub fork took maximum of 1075472 KB of RAM
   # So rate is 30668 KB/book and offset is 1044804 KB
   
-  # ram data is for eBook, but html will use less
-  if ($convertTo eq 'eBook' || $convertTo eq 'html') {
+  # ram data is for ebooks, but html will use less
+  if ($convertTo eq 'ebooks' || $convertTo eq 'html') {
     return int(1000000 + (31000 * $numbks));
   }
 }

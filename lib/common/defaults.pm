@@ -640,7 +640,7 @@ sub update_removeConvertTXT {
   }
   my $confP = &readConfFile($confFile);
   
-  &updateConvertTXT("$MAININPD/eBook/convert.txt", $confP, 'osis2ebooks');
+  &updateConvertTXT("$MAININPD/ebooks/convert.txt", $confP, 'osis2ebooks');
   &updateConvertTXT("$MAININPD/html/convert.txt", $confP, 'osis2html');
   return &writeConf($confFile, $confP);
 }

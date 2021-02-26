@@ -30,7 +30,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER, 
-    $UPPERCASE_DICTIONARY_KEYS);
+    $UPPERCASE_DICTIONARY_KEYS, %CONV_PUB_TYPES);
     
 my $swtmp = "$TMPDIR/sword";
 if (-e $swtmp) {remove_tree($swtmp);}
@@ -48,9 +48,9 @@ if (! -e "$swtmp/$SModPath") {make_path("$swtmp/$SModPath");}
 # run after their MAIN module, so during MAIN processing, DICTMOD_URI is
 # empty, in case it does not yet exist.
 my %params = (
-  'conversion' => 'sword', 
+  'conversion' => join(' ', 'sword', @{$CONV_PUB_TYPES{'sword'}}),
   'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
-  'DICTMOD_URI' => ($DICTMOD && $MOD eq $DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+  'DICTMOD_URI' => ($DICTMOD && $MOD eq $DICTMOD ? &getModuleOsisFile($DICTMOD):''),
 );
 &LogXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params));
 

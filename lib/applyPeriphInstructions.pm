@@ -33,7 +33,7 @@ our ($XPC, $XML_PARSER, $ROC, %RESP, @SUB_PUBLICATIONS,
 
 our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
      %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
-     %USFM_DEFAULT_PERIPH_TARGET);
+     %USFM_DEFAULT_PERIPH_TARGET, @CONV_PUBS, @CONV_PUB_TYPES);
 
 my $AlreadyReportedThis;
 
@@ -65,21 +65,27 @@ sub placementMessage {
   BIBLES & DICTIONARIES
   These instructions will mark any periph divs which may follow in the 
   instruction list, and finally mark the id div itself, with a parti-
-  cular processing instruction and value. The value "remove" will cease 
-  that particular marking for all the divs which follow. For diction-
-  aries, when there is an SFM file containing periph tags, those periph 
-  divs can be marked differently than the id div itself, using a Bible 
-  instruction above having the value "mark".
+  cular processing instruction and value. Multiple values may be applied
+  by separating each by a space. The value "remove" will cease that 
+  particular marking instruction from being applied to the divs which 
+  follow. For dictionaries, when there is an SFM file containing periph 
+  tags, those periph divs can be marked differently than the id div 
+  itself, using a Bible instruction above having the value "mark".
   
   INSTRUCTION ==  VALUE                      DESCRIPTION
   scope          == <a scope>|remove    The scope to which periphs apply
                                              
-  conversion     == sword|html|epub|    Periphs should be included only 
-                    none|remove         for the listed conversions
-  not_conversion == sword|html|epub|    Periphs should not be included
-                    none|remove         in the listed conversions
+  conversion     == @CONV_PUBS|         Periphs should be included only 
+                    @CONV_PUB_TYPES|    for the listed conversions
+                    none|remove         
+                    
+  not_conversion == @CONV_PUBS|         Periphs should not be included
+                    @CONV_PUB_TYPES|    in the listed conversions
+                    remove
+                    
   feature        == INT|INTMENU|remove  Periphs are part of the special  
                                         introduction feature 
+                                        
   cover          == yes|no              Yes to add a sub-publication 
                                         cover to this div, or no to skip
                                         this div when auto-adding covers
@@ -108,7 +114,7 @@ sub applyPeriphInstructions {
   my %xpathOriginalBeforeNodes;
   foreach my $idDiv (@idDivs) {
     my $placedPeriphFile;
-    my %mark = ( 
+    my %mark = (
       'scope'          => undef, 
       'conversion'     => undef, 
       'not_conversion' => undef, 
@@ -302,12 +308,13 @@ sub applyInstructions {
   
   my $sdiv = &printTag($div);
 
+  my $valid = join('|', @CONV_PUBS, @CONV_PUB_TYPES, 'none');
+
   if ($markP->{'scope'}) {
     $div->setAttribute('scope', $markP->{'scope'});
     &Note("Applying scope='".$markP->{'scope'}."' to $sdiv");
   }
   foreach my $con ('conversion', 'not_conversion') {
-    my $valid = 'sword|html|epub|none';
     if ($markP->{$con}) {
       my @parts = split(/\s+/, $markP->{$con});
       my $ok = !($markP->{$con} eq 'none' && @parts > 1); 

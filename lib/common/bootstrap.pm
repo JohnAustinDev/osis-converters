@@ -104,6 +104,23 @@ our %CONV_OUTPUT_FILES = (
                       '*.jad' ],
 );
 
+# Types of publication output by each conversion. 'tran' is the entire
+# Bible translation, 'subpub' is one of the SUB_PUBLICATIONS, 'tbook' is 
+# a single Bible-book publication taken from the 'tran' publication and 
+# 'book' is a single Bible-book publication taken from a 'subpub'.
+our %CONV_PUB_TYPES = (
+  'sword'   => [ 'tran' ],
+  'gobible' => [ 'tran', 'SimpleChar', 'SizeLimited' ],
+  'ebooks'  => [ 'tran', 'subpub', 'tbook', 'book' ],
+  'html'    => [ 'tran', 'subpub', 'tbook', 'book' ],
+);
+
+{
+my %h; 
+foreach my $c (keys %CONV_PUB_TYPES) {map($h{$_}++, @{$CONV_PUB_TYPES{$c}});}
+our @CONV_PUB_TYPES = (sort { length($b) <=> length($a) } keys %h);
+}
+
 # Conversion executable dependencies
 our %CONV_BIN_DEPENDENCIES = (
   'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'JAVA' ],
@@ -189,7 +206,9 @@ sub set_configuration_globals {
   $INPD = File::Spec->rel2abs($INPD);
   $INPD =~ s/\\/\//g;
   # Allow using a project subdirectory as $INPD argument
-  $INPD =~ s/\/(sfm|GoBible|eBook|html|sword|images|output)(\/.*?$|$)//;
+  { my $subs = join('|', 'sfm', 'images', 'output', @CONV_PUBS);
+    $INPD =~ s/\/($subs)(\/.*?$|$)//;
+  }
   # This works even for MS-Windows because of '\' replacement done above
   $INPD = &shortPath($INPD);
   if (!-e $INPD) {die 
@@ -225,7 +244,7 @@ sub set_configuration_globals {
   # Before testing the project configuration, run bootstrap.pl if it 
   # exists in the project, to prepare any control files that need it.
   if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" && 
-      $SCRIPT_NAME =~ /^(osis2osis|sfm2osis)$/) {
+      &hasSame([$SCRIPT_NAME], \@CONV_OSIS)) {
     &shell("$MAININPD/bootstrap.pl");
   }
 
@@ -242,10 +261,12 @@ sub set_configuration_globals {
   }
 
   # Allow running MAININPD-only scripts from a DICT sub-project
-  if ($INPD eq $DICTINPD && 
-    $SCRIPT =~ /\/(defaults|osis2ebooks|osis2html|osis2gobible)$/) {
-    $INPD = $MAININPD;
-    $MOD = $MAINMOD;
+  { my $dictncd = join('|', @{$CONV_NOCANDO{'dict'}});
+    if ($INPD eq $DICTINPD && 
+      $SCRIPT =~ /(\/defaults|$dictncd)$/) {
+      $INPD = $MAININPD;
+      $MOD = $MAINMOD;
+    }
   }
 
   our @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");

@@ -15,19 +15,26 @@
   
   <import href="./common/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
-  <param name="conversion" as="xs:string"/>
+  <param    name="conversion" as="xs:string"/>
+  <variable name="conv" as="xs:string*" select="tokenize($conversion, '\s+')"/>
   
   <!-- Filter out refs that target elements of removed conversion 
-  material in both DICTMOD and MAINMOD. -->
+  material in both DICTMOD and MAINMOD. NOTE: x-conversion keeps the
+  marked element if any listed type matches one listed in $conv, while 
+  x-notConversion removes it if any listed type matches one of $conv. -->
   <variable name="removedOsisIDs" as="xs:string*" select="
     ($MAINMOD_DOC/descendant::*[@osisID]
-      [ ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
-        ancestor::*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]
+      [ ancestor::*[@annotateType='x-conversion']
+          [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
+        ancestor::*[@annotateType='x-notConversion']
+          [count($conv) and $conv = tokenize(@annotateRef, '\s+')]
       ]/oc:osisRef(@osisID, $MAINMOD)
     ),
     ($DICTMOD_DOC/descendant::*[@osisID]
-      [ ancestor::*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
-        ancestor::*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]
+      [ ancestor::*[@annotateType='x-conversion']
+          [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
+        ancestor::*[@annotateType='x-notConversion']
+          [count($conv) and $conv = tokenize(@annotateRef, '\s+')]
       ]/oc:osisRef(@osisID, $DICTMOD)
     )"/>
                                           
@@ -37,8 +44,10 @@
     <message>NOTE: Running conversion.xsl</message>
     
     <variable name="removeElements" select="
-      //*[@annotateType='x-conversion'][$conversion and not($conversion = tokenize(@annotateRef, '\s+'))] |
-      //*[@annotateType='x-notConversion'][$conversion and $conversion = tokenize(@annotateRef, '\s+')]"/>
+      //*[@annotateType='x-conversion']
+         [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
+      //*[@annotateType='x-notConversion']
+         [count($conv) and $conv = tokenize(@annotateRef, '\s+')]"/>
   
     <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
     

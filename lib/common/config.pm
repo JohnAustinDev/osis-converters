@@ -322,5 +322,4 @@ sub getApproximateLangSortOrder {
   return $res;
 }
 
-
 1;

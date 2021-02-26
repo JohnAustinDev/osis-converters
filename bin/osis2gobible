@@ -20,16 +20,12 @@
 # usage: osis2gobible [Bible_Directory]
 
 # Run this script to create GoBible mobile phone Bibles from an osis 
-# file. The following input files need to be in a 
-# "Bible_Directory/GoBible" sub-directory:
+# file. The following control files are used:
 #    collections.txt            - build-control file
 #    ui.properties              - user interface translation
 #    icon.png                   - icon for the application
 #    normalChars.txt (optional) - character replacement file
 #    simpleChars.txt (optional) - simplified character replacement file
-
-# OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
-# GoBible wiki: http://www.crosswire.org/wiki/Projects:Go_Bible
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
@@ -43,9 +39,7 @@ my $BookOverhead = 1000;
 my $JarOverhead = 40000;
 my $MaxTries = 10;
 
-my $GOBIBLE = "$INPD/GoBible";
-
-&runAnyUserScriptsAt("GoBible/preprocess", \$INOSIS);
+&runAnyUserScriptsAt("gobible/preprocess", \$INOSIS);
 
 &runScript("$SCRD/lib/sourceVerseSystem.xsl", \$INOSIS);
 
@@ -116,20 +110,20 @@ sub makeGoBibles {
   if (-e $dir) {remove_tree($dir);}
   mkdir $dir;
   
-  my $clt = &getDefaultFile('bible/GoBible/collections.txt', 1);
+  my $clt = &getDefaultFile('bible/gobible/collections.txt', 1);
   if ($clt) {
-    &Warn("A GoBible/collections.txt was found in input directory $MAININPD so it will now be deleted.",
+    &Warn("A gobible/collections.txt was found in input directory $MAININPD so it will now be deleted.",
 "This file is now auto-generated internally by osis-converters.");
     unlink($clt);
   }
   
   # Gather and prepare GoBible input files
-  copy(&getDefaultFile('bible/GoBible/icon.png'), "$dir/icon.png");
+  copy(&getDefaultFile('bible/gobible/icon.png'), "$dir/icon.png");
   if (-e "$dir/../collections.txt") {unlink "$dir/../collections.txt";}
   my $colfile = &writeCollectionsFile("$dir/../collections.txt", $collectionsP);
   if (-e "$dir/../osis.xml") {unlink "$dir/../osis.xml";}
   &copy($INOSIS, "$dir/../osis.xml");
-  my @files = (&getDefaultFile("bible/GoBible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
+  my @files = (&getDefaultFile("bible/gobible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
   &goBibleConvChars($type, \@files, $dir);
   if (-e $GO_BIBLE_CREATOR."GoBibleCore/ui.properties") {unlink $GO_BIBLE_CREATOR."GoBibleCore/ui.properties";}
   &copy("$dir/ui.properties", $GO_BIBLE_CREATOR."GoBibleCore/ui.properties");
@@ -219,7 +213,7 @@ sub writeCollectionsFile {
     $localbk{$bk} = $tocm->getAttribute('n');
   }
   
-  my $coltxt = &getDefaultFile("bible/GoBible/collections.txt");
+  my $coltxt = &getDefaultFile("bible/gobible/collections.txt");
   if (!open(INC, $READLAYER, $coltxt)) {
     &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", 1);
   }
@@ -404,7 +398,7 @@ sub goBibleConvChars {
   &Log("\n--- Converting characters ($type)\n");
   
   my @FROM, my @TO;
-  &readReplacementChars(&getDefaultFile("bible/GoBible/".$type."Chars.txt"), \@FROM, \@TO);
+  &readReplacementChars(&getDefaultFile("bible/gobible/".$type."Chars.txt"), \@FROM, \@TO);
   
   &Log("Converting the following chars:\n");
   for (my $i=0; $i<@FROM; $i++) {&Log(@FROM[$i]."<>".@TO[$i]."\n");}
@@ -454,7 +448,7 @@ sub goBibleConvChars {
   if ($type eq "simple") {
     if ($error eq "false") {&Log("Good! No such chars were found.\n");}
     else {&Error("The high code point Unicode chars above were found.",
-"You need to add these characters to the GoBible/simpleChars.txt
+"You need to add these characters to the gobible/simpleChars.txt
 file, and map them to lower order Unicode characters (below $MAX_UNICODE) 
 which look as similar as possible to the original character. Then these 
 characters will be replaced when building the 'simple' apps, and will 
