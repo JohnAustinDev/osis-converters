@@ -83,9 +83,8 @@
       select="if ($isChildrensBible) then () else /osis/osisText/header/work[@osisWork != /osis/osisText/@osisIDWork]/
               doc(concat(tokenize(document-uri(/), '[^/]+$')[1], @osisWork, '.xml'))"/>
   
-  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') then
-          boolean($referenceOSIS//div[@type='x-keyword-aggregate'][count(child::div[@type='x-aggregate-subentry']) &#62; 1])
-          else $CombineGlossaries = 'true' "/>
+  <variable name="doCombineGlossaries" select="if ($CombineGlossaries = 'AUTO') 
+      then false() else $CombineGlossaries = 'true' "/>
           
   <variable name="CombGlossaryTitle" select="//work[boolean($DICTMOD) and @osisWork = $DICTMOD]/title[1]"/>
   

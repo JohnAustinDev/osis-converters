@@ -16,7 +16,9 @@
   <import href="./common/functions.xsl"/><!-- needed for reporting results and removedKeywords -->
 
   <param    name="conversion" as="xs:string"/>
-  <variable name="conv" as="xs:string*" select="tokenize($conversion, '\s+')"/>
+  <param    name="notConversion" as="xs:string" select="$conversion"/>
+  <variable name="conv"    as="xs:string*" select="tokenize($conversion, '\s+')"/>
+  <variable name="notConv" as="xs:string*" select="tokenize($notConversion, '\s+')"/>
   
   <!-- Filter out refs that target elements of removed conversion 
   material in both DICTMOD and MAINMOD. NOTE: x-conversion keeps the
@@ -27,14 +29,14 @@
       [ ancestor::*[@annotateType='x-conversion']
           [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
         ancestor::*[@annotateType='x-notConversion']
-          [count($conv) and $conv = tokenize(@annotateRef, '\s+')]
+          [count($notConv) and $notConv = tokenize(@annotateRef, '\s+')]
       ]/oc:osisRef(@osisID, $MAINMOD)
     ),
     ($DICTMOD_DOC/descendant::*[@osisID]
       [ ancestor::*[@annotateType='x-conversion']
           [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
         ancestor::*[@annotateType='x-notConversion']
-          [count($conv) and $conv = tokenize(@annotateRef, '\s+')]
+          [count($notConv) and $notConv = tokenize(@annotateRef, '\s+')]
       ]/oc:osisRef(@osisID, $DICTMOD)
     )"/>
                                           
@@ -47,7 +49,7 @@
       //*[@annotateType='x-conversion']
          [count($conv) and not($conv  = tokenize(@annotateRef, '\s+'))] |
       //*[@annotateType='x-notConversion']
-         [count($conv) and $conv = tokenize(@annotateRef, '\s+')]"/>
+         [count($notConv) and $notConv = tokenize(@annotateRef, '\s+')]"/>
   
     <variable name="removeGlossary" select="$removeElements[self::div[@type='glossary']]"/>
     
