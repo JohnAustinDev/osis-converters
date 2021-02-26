@@ -92,6 +92,16 @@
     </copy>
   </template>
   
+  <!-- Add a main TOC milestone -->
+  <template mode="final" match="div[@type='book'][not(preceding::div)]">
+    <variable name="title" select="root()//work[@osisWork=$MAINMOD]/title[1]/string()"/>
+    <copy>
+      <apply-templates mode="#current" select="@*"/>
+      <osis:milestone type="x-usfm-toc{$TOC}" n="[level1]{$title}" osisID="BIBLE_TOP" resp="x-oc"/>
+      <apply-templates mode="#current"/>
+    </copy>
+  </template>
+  
   <!-- Specify explicit [levelN] TOC levels -->
   <template mode="final" match="milestone[@type=concat('x-usfm-toc', $TOC)]/@n">
     <attribute name="n" select="concat('[level', (count(ancestor-or-self::div[@type=('book','majorSection','chapter')])-1), ']', .)"/>

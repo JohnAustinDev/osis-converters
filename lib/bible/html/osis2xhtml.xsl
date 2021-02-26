@@ -98,10 +98,13 @@
       
   <!-- A main inline Table Of Contents is placed after the first TOC milestone sibling 
        following the OSIS header, or, if there isn't such a milestone, one will be created. -->
-  <variable name="mainTocMilestone" select="if (not($isChildrensBible)) then 
-      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]
-      [. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] else
-      /descendant::milestone[@type=concat('x-usfm-toc', $TOC)][not(contains(@n, '[no_toc]'))][1]"/>
+  <variable name="mainTocMilestone" select="
+      if (not($isChildrensBible)) 
+      then /descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(contains(@n, '[no_toc]'))][1]
+          [. &#60;&#60; /descendant::div[starts-with(@type,'book')][1]] 
+      else /descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(contains(@n, '[no_toc]'))][1]"/>
       
   <variable name="REF_BibleTop" select="concat($MAINMOD,':BIBLE_TOP')"/>
   <variable name="REF_DictTop" select="if ($DICTMOD) then concat($DICTMOD,':DICT_TOP') else ''"/>
@@ -1333,7 +1336,7 @@
   <function name="me:getTocListItems" as="element(html:li)*">
     <param name="tocNode" as="node()"/>
     <param name="isTopTOC" as="xs:boolean"/>
-    
+   
     <variable name="isMainNode" select="oc:docWork($tocNode) = $MAINMOD"/>
     <variable name="myTocLevel" as="xs:integer" 
         select="if ($isTopTOC) then 0 else me:getTocLevel($tocNode)"/>
@@ -1343,9 +1346,9 @@
         <choose>
           <!-- Children's Bibles -->
           <when test="$isChildrensBible and $isTopTOC">
-            <sequence select="$tocNode/ancestor-or-self::div[@type='book'][last()]//
+            <sequence select="$tocNode//
                 milestone[@type=concat('x-usfm-toc', $TOC)]
-                [contains(@n, '[level1]')][not(. intersect $tocNode)]"/>
+                [contains(@n, '[level1]')][not(@isMainTocMilestone)]"/>
           </when>
           <when test="$isChildrensBible">
             <variable name="followingTocs" select="$tocNode/following::
@@ -1353,7 +1356,7 @@
                 [contains(@n, concat('[level',($myTocLevel+1),']'))]"/>
             <variable name="nextSibling"   select="$tocNode/following::
                 milestone[@type=concat('x-usfm-toc', $TOC)]
-                [contains(@n, substring($tocNode/@n, 1, 8))][1]"/>
+                [contains(@n, concat('[level',$myTocLevel,']'))][1]"/>
             <sequence select="if ($nextSibling) then 
                 $followingTocs[. &#60;&#60; $nextSibling] else 
                 $followingTocs"/>
@@ -1409,11 +1412,15 @@
               <variable name="class" as="xs:string+">
                 <variable name="bookGroupIntros" select="me:getBookGroupIntroductions(.)"/>
                 <variable name="bookIntro" select="ancestor::div[@type='book']/
-                  descendant::osis:milestone[@type=concat('x-usfm-toc', $TOC)][2]
-                  [following::osis:chapter[1][ends-with(@osisID, '.1')]]"/>
+                  descendant::milestone[@type=concat('x-usfm-toc', $TOC)][2]
+                  [following::chapter[1][ends-with(@osisID, '.1')]]"/>
                 <choose>
                   <when test="self::chapter"> xsl-chapter-link </when>
                   <when test="self::seg"> xsl-keyword-link </when>
+                  <when test="$isChildrensBible and $isTopTOC and count(
+                              preceding::milestone[contains(@n,'[level1]')]
+                              [@type=concat('x-usfm-toc', $TOC)]) = (2,3)"> xsl-bookGroup-link </when>
+                  <when test="$isChildrensBible and $isTopTOC"> xsl-other-link </when>
                   <when test="count($bookGroupIntros) = 1 and . intersect $bookGroupIntros"> xsl-bookGroup-link </when>
                   <when test=". intersect $bookGroupIntros"> xsl-bookSubGroup-link </when>
                   <when test=". intersect $bookIntro"> xsl-book-introduction-link </when>

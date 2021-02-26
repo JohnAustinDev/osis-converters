@@ -418,13 +418,15 @@ a.x-other-resource {
 .x-bible .xsl-inline-toc li.xsl-bookSubGroup-link:not(.not_parent),
 .x-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent),
 .x-bible .xsl-inline-toc li.xsl-book-link,
-.x-bible .xsl-inline-toc li.xsl-chapter-link {
+.x-bible .xsl-inline-toc li.xsl-chapter-link,
+.x-childrens-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent) {
   background: #388E3C; /* green buttons */
 }
 .x-bible .xsl-inline-toc li.xsl-bookSubGroup-link:not(.not_parent) a,
 .x-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent) a,
 .x-bible .xsl-inline-toc li.xsl-book-link a,
-.x-bible .xsl-inline-toc li.xsl-chapter-link a {
+.x-bible .xsl-inline-toc li.xsl-chapter-link a,
+.x-childrens-bible .xsl-inline-toc li.xsl-bookGroup-link:not(.not_parent) a {
   color: white;
   font-weight: bold;
 }
