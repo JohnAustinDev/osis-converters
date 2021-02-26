@@ -172,7 +172,7 @@ sub osis2pubs {
   
     my %done;
     
-    # Create the Tran publication
+    # Create the tran-publication
     if ($createTranPub) {
       $forkArgs .= &OSIS_To_ePublication(
         scalar(@{&scopeToBooks($fullScope, &conf('Versification'))}), 
@@ -187,7 +187,6 @@ sub osis2pubs {
     }
     $done{$fullScope}++;
     
-    # Create Full/Part publications
     foreach my $scope (@SUB_PUBLICATIONS) {
       my $s = $scope; $s =~ s/\s+/_/g;
       if ($scope eq $fullScope) {next;} # already done and no following error
@@ -200,6 +199,7 @@ sub osis2pubs {
       
       my $title = &conf("TitleSubPublication[$s]");
       
+      # Create sub-publication
       if ($subSelect eq 'all' || $subSelect eq $scope) {
         $forkArgs .= &OSIS_To_ePublication(
           scalar(@{&scopeToBooks($scope, &conf('Versification'))}), 
@@ -214,7 +214,7 @@ sub osis2pubs {
       }
       $done{$scope}++;
       
-      # Create book Parts of Full publication
+      # Create sub-publication-books
       $forkArgs .= &createParts(
         \%done,
         'book',
@@ -226,7 +226,7 @@ sub osis2pubs {
       );
     }
     
-    # Create book Parts remaining
+    # Create the tran-publication-books
     $forkArgs .= &createParts(
       \%done,
       'tbook',
@@ -773,7 +773,9 @@ sub filterBibleToScope {
     &changeNodeText($osisTitle, $$ebookTitleP);
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
-  if ($topmsTitle->value =~ /^((?:\[[^\]]+\])*)(.*?)$/ && $2 ne $$ebookTitleP) {
+  if ($topmsTitle && 
+      $topmsTitle->value =~ /^((?:\[[^\]]+\])*)(.*?)$/ && 
+      $2 ne $$ebookTitleP) {
     $topmsTitle->setValue($1.$$ebookTitleP);
     &Note("Updated BIBLE_TOP to \"$$ebookTitleP\"", 1);
   }
