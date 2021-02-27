@@ -459,7 +459,8 @@ sub imageCaption {
       }
     }
   }
-  return "-gravity North$background -splice 0x$barheight -pointsize $pointsize ".($foundfont ? "-font '$foundfont' ":'')."-annotate +0+$padding '$title'";
+  $title =~ s/"/\\"/g;
+  return "-gravity North$background -splice 0x$barheight -pointsize $pointsize ".($foundfont ? "-font '$foundfont' ":'')."-annotate +0+$padding \"$title\"";
 }
 
 # Check figure links in an OSIS file. Checks target URL as well as target image.

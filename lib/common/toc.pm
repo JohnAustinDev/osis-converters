@@ -49,10 +49,13 @@ sub writeTOC {
     my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
     foreach my $bk (@bks) {
       my $osisID = $bk->getAttribute('osisID');
+      my @names;
       for (my $t=1; $t<=3; $t++) {
         # Is there a TOC entry if this type? If not, add one if we know what it should be
-        my @e = $XPC->findnodes('./osis:milestone[@n][@type="x-usfm-toc'.$t.'"] | ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$t.'"]', $bk);
-        if (@e && @e[0]) {next;}
+        my $e = @{$XPC->findnodes(
+          './osis:milestone[@n][@type="x-usfm-toc'.$t.'"] | 
+           ./*[1][self::osis:div]/osis:milestone[@n][@type="x-usfm-toc'.$t.'"]', $bk)}[0];
+        if ($e) {push(@names, $e->getAttribute('n')); next;}
         
         if ($t eq $toc && !$WRITETOC_MSG) {
           &Warn("At least one book ($osisID) is missing a \\toc$toc SFM tag. 
@@ -78,22 +81,23 @@ tag number you wish to use.)\n");
         
         # Otherwise try and get the default TOC from the first applicable title
         if (!$name && $t eq $toc) {
-          my @title = $XPC->findnodes('./osis:title[@type="runningHead"]', $bk);
-          if (!@title || !@title[0]) {
-            @title = $XPC->findnodes('./osis:title[@type="main"]', $bk);
+          my $title = @{$XPC->findnodes('./osis:title[@type="runningHead"]', $bk)}[0];
+          if (!$title) {
+            $title = @{$XPC->findnodes('./osis:title[@type="main"]', $bk)}[0];
           }
-          if (!@title || !@title[0]) {
+          if (!$title) {
             $name = $osisID;
             $type = "osisID";
             &Error("writeTOC: Could not locate book name for \"$name\" in OSIS file.");
           }
-          else {$name = @title[0]->textContent; $type = 'title';}
+          else {$name = $title->textContent; $type = 'title';}
         }
         
         if ($name) {
           my $tag = "<milestone $ONS type='x-usfm-toc$t' n='".&escAttribute($name)."' resp='$ROC'/>";
           &Note("Inserting $osisID book $type TOC entry as: $name");
           $bk->insertBefore($XML_PARSER->parse_balanced_chunk($tag), $bk->firstChild);
+          push(@names, $name);
         }
       }
       
@@ -105,29 +109,42 @@ tag number you wish to use.)\n");
         'descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][2]
         [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
       if ($bookTOC && !$bookIntroTOC) {
-        my $firstIntroTitle = @{$XPC->findnodes(
-          'descendant::osis:title[@type="main"][@subType="x-introduction"][1]', $bk)}[0];
-        if ($firstIntroTitle) {
-          my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
-          if ($title =~ /DEF$/) {
-            $title = $firstIntroTitle->textContent;
-            &Note("IntroductionTitle in config.conf may be used to specify a title for all book introduction TOCs.");
+        my $title = &conf('IntroductionTitle', undef, undef, undef, 1);
+        if ($title =~ /DEF$/) {
+          # If IntroductionTitle was not specified, find the first main
+          # intro title, and if it is the book name, find the following
+          # intro title and use that as the TOC title.
+          foreach (@names) {s/^(\[[^\]]*\]+)//;}
+          my $nre = join('|', map(quotemeta($_), @names));
+          my $introTitle = @{$XPC->findnodes('descendant::osis:title
+              [@subType="x-introduction"][@type="main"][1]', $bk)}[0];
+          if ($introTitle && $introTitle->textContent =~ /^\s*($nre)\s*$/i) {
+            my $next = @{$XPC->findnodes('following::osis:title
+              [@subType="x-introduction"][1]', $introTitle)}[0];
+            if ($next) {$introTitle = $next;}
           }
-          &Note("Inserting $osisID book introduction TOC entry as: $title");
-          # Add a special osisID since these book intros may all share the same title
-          my $toc = $XML_PARSER->parse_balanced_chunk("
+          if ($introTitle) {
+            $title = $introTitle->textContent;
+            &Warn(
+"<>IntroductionTitle in config.conf could be used to specify the 
+same title for all book introduction TOCs.");
+          }
+          else {&conf('IntroductionTitle');} # throws an error
+        }
+        &Note("Inserting $osisID book introduction TOC entry as: $title");
+        # Add a special osisID since these book intros may all share the same title
+        my $toc = $XML_PARSER->parse_balanced_chunk("
 <milestone $ONS type='x-usfm-toc".&conf('TOC')."' n='[not_parent]".&escAttribute($title)."' osisID='introduction_$osisID!toc' resp='$ROC'/>");
-          # Place the TOC directly after the book TOC, unless the intro starts
-          # with a scoped div. Scoped divs may be moved by filterBibleToScope()
-          # and so the TOC must be placed within such divs, to move with it.
-          my $scopedBookIntroDiv = @{$XPC->findnodes('child::osis:div[@type][1][@scope]
-            [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
-          if ($scopedBookIntroDiv) {
-            $scopedBookIntroDiv->insertBefore($toc, $scopedBookIntroDiv->firstChild);
-          }
-          else {
-            $bookTOC->parentNode->insertAfter($toc, $bookTOC);
-          }
+        # Place the TOC directly after the book TOC, unless the intro starts
+        # with a scoped div. Scoped divs may be moved by filterBibleToScope()
+        # and so the TOC must be placed within such divs, to move with it.
+        my $scopedBookIntroDiv = @{$XPC->findnodes('child::osis:div[@type][1][@scope]
+          [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0];
+        if ($scopedBookIntroDiv) {
+          $scopedBookIntroDiv->insertBefore($toc, $scopedBookIntroDiv->firstChild);
+        }
+        else {
+          $bookTOC->parentNode->insertAfter($toc, $bookTOC);
         }
       }
     }
