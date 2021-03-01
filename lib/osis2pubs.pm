@@ -644,13 +644,15 @@ sub filterBibleToScope {
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
   # remove scoped periphs pertaining to other sub-publications
-  foreach my $sp (@SUB_PUBLICATIONS) {
-    if ($sp eq $parscope) {next;}
-    for (my $i=0; $i<@scopedPeriphs; $i++) {
-      if (@scopedPeriphs[$i]->getAttribute('scope') eq $sp) {
-        @scopedPeriphs[$i]->unbindNode();
-        splice(@scopedPeriphs, $i, 1); $i--;
-        &Note("Filtered another sub-publication's scoped periph: $sp");
+  if ($pubType ne 'tran') {
+    foreach my $sp (@SUB_PUBLICATIONS) {
+      if ($sp eq $parscope) {next;}
+      for (my $i=0; $i<@scopedPeriphs; $i++) {
+        if (@scopedPeriphs[$i]->getAttribute('scope') eq $sp) {
+          @scopedPeriphs[$i]->unbindNode();
+          splice(@scopedPeriphs, $i, 1); $i--;
+          &Note("Filtered another sub-publication's scoped periph: $sp");
+        }
       }
     }
   }

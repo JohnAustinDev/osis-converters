@@ -163,13 +163,24 @@ sub addCoverImages {
     if (!$pubImagePath) {next;}
     push (@pubcovers, $pubImagePath);
     my $imgpath = "$imgdir/$scope.jpg";
-    if ($pubImagePath ne $imgpath) {&shell("convert -colorspace sRGB -type truecolor -resize ${coverWidth}x \"$pubImagePath\" \"$imgpath\"", 3);}
+    if ($pubImagePath ne $imgpath) {
+      &shell("convert " .
+        "-colorspace sRGB " .
+        "-type truecolor " .
+        "-resize ${coverWidth}x " .
+        "\"$pubImagePath\" " .
+        "\"$imgpath\"", 3);
+    }
     &Note("Found sub-publication cover image: $imgpath");
-    if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {$updated++;}
-    else {&Warn("<-Failed to find introduction with scope $s to insert the cover image.",
+    if (&insertSubpubCover($scope, &getCoverFigure($scope, 'sub'), $xml)) {
+      $updated++;
+    }
+    else {&Warn(
+"<-Failed to find introduction with scope $s to insert the cover image.",
 "If you want the cover image to appear in the OSIS file, there 
 needs to be a USFM \\id or \\periph tag that contains scope==$s
-on the same line");}
+on the same line");
+    }
   }
   
   # Find or create a main publication cover and insert it into the OSIS file
@@ -233,7 +244,7 @@ on the same line");}
 # Place one or more sub-publication cover figure elements in $xml.
 # If a candidate location is marked as 'no' it will not receive a cover. 
 # If a candidate location is marked as 'yes' it receive a cover and
-# only other candidates marked as 'yes' will also receive a cover. 
+# only other candidates marked as 'yes' may additionally receive a cover. 
 # Otherwise the first candidate alone will receive the cover.
 sub insertSubpubCover {
   my $scope = shift;
@@ -245,33 +256,35 @@ sub insertSubpubCover {
   my $done;
   foreach my $div ($XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]
       [@annotateType="'.$ANNOTATE_TYPE{'cover'}.'"][@annotateRef="yes"]', $xml)) {
-    $done |= &insertFirstChildAfterTOC($div, $figure, $scope);
+    $done |= &insertSubpubCoverInDiv($div, $figure, $scope);
   }
   if ($done) {return 1;}
   
   my $candidate = @{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]
-      [not(self::*[@annotateType="'.$ANNOTATE_TYPE{'cover'}.'"][@annotateRef="no"])][1]', $xml)}[0];
+      [ not( self::*[@annotateType="'.$ANNOTATE_TYPE{'cover'}.'"]
+                    [@annotateRef="no"] ) 
+      ][1]', $xml)}[0];
 
-  return &insertFirstChildAfterTOC($candidate, $figure, $scope);
+  return &insertSubpubCoverInDiv($candidate, $figure, $scope);
 }
 
-sub insertFirstChildAfterTOC {
-  my $elem = shift;
+sub insertSubpubCoverInDiv {
+  my $div = shift;
   my $figure = shift;
   my $scope = shift;
   
   my $clone = $figure->cloneNode(1);
   
   my $milestone = @{$XPC->findnodes(
-    'child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $elem)}[0];
+    'child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
   if ($milestone) {
     $milestone->parentNode->insertAfter($clone, $milestone);
     &Note(
 "Inserted sub-publication cover image after TOC milestone of div having scope=\"$scope\".");
     return 1;
   }
-  elsif ($elem) {
-    $elem->insertBefore($clone, $elem->firstChild);
+  elsif ($div) {
+    $div->insertBefore($clone, $div->firstChild);
     &Note(
 "Inserted sub-publication cover image as first child of div having scope=\"$scope\".");
     return 1;

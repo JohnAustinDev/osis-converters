@@ -27,8 +27,8 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $ROC, %RESP, @SUB_PUBLICATIONS, 
-    $ORDER_PERIPHS_COMPATIBILITY_MODE, %ANNOTATE_TYPE, $ONS);
+our ($XPC, $XML_PARSER, $ROC, %RESP, $ORDER_PERIPHS_COMPATIBILITY_MODE, 
+    %ANNOTATE_TYPE, $ONS);
     
 
 our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
@@ -169,7 +169,10 @@ they appear in the CF file.");
           &Warn("Changing $instruction to $inst == $arg");
         }
         
-        my $div = ($inst eq 'location' ? $idDiv:&findThisPeriph($idDiv, $inst, $instruction));
+        my $div = ( $inst eq 'location' ? 
+                    $idDiv : 
+                    &findThisPeriph($idDiv, $inst, $instruction)
+                  );
         if (!$div) {next;} # error already given by findThisPeriph()
         
         if ($inst eq 'location') {$placedPeriphFile = 1;}
@@ -188,18 +191,28 @@ they appear in the CF file.");
               $new++;
             }
             if (!@{$xpathOriginalBeforeNodes{$arg}}) {
-              &Error("Removing periph! Could not locate xpath:\"$arg\" in command $instruction");
+              &Error(
+"Removing periph! Could not locate xpath:\"$arg\" in command $instruction");
               next;
+            }
+            if ($inst eq 'location' && @{$xpathOriginalBeforeNodes{$arg}} > 1) {
+              &Error(
+"Must assign 'location' to a single node:\"$arg\" in command $instruction", 
+"Use another RUN command if you really want to place this file more than once.");
             }
           }
           # The beforeNodes may be a toc or a runningHead or be empty of 
           # text, in which case an appropriate next-sibling will be used 
           # instead (and beforeNodes is then updated).
           my @beforeNodes;
-          foreach my $clone (@{&insertClone($div, $xpathOriginalBeforeNodes{$arg})}) {
-            push(@beforeNodes, $clone->nextSibling);
-            &applyInstructions($clone, \%mark);
-            &Note("Placing $inst == $arg for ".&printTag($clone));
+          foreach my $e (
+              @{&placeElement( $div, 
+                               $xpathOriginalBeforeNodes{$arg}, 
+                               $inst) }
+              ) {
+            push(@beforeNodes, $e->nextSibling);
+            &applyInstructions($e, \%mark);
+            &Note("Placing $inst == $arg for " . &printTag($e));
           }
           if ($new) {$xpathOriginalBeforeNodes{$arg} = \@beforeNodes;}
         }
@@ -235,23 +248,6 @@ To position the above material, add location == <XPATH> after the \\id tag."
         $idDiv->unbindNode();
         my $tg = $idDiv->toString(); $tg =~ s/>.*$/>/s;
         &Note("Removing empty div: $tg");
-      }
-    }
-  }
-  
-  if (&isBible($xml)) {
-    &Log("\nChecking sub-publication osisRefs in \"$$osisP\"\n", 1);
-    # Check that all sub-publication introductions exist, and add an empty one if not
-    foreach my $scope (@SUB_PUBLICATIONS) {
-      if (!@{$XPC->findnodes('//osis:div[@type][@scope="'.$scope.'"]', $xml)}[0]) {
-        &Warn("No div scope was found for sub-publication $scope.");
-        my $firstbk = @{$XPC->findnodes('//osis:div[@type="book"][@osisID="'.@{&scopeToBooks($scope, &conf('Versification'))}[0].'"]', $xml)}[0];
-        if (!$firstbk) {next;}
-        my $tocms = @{$XPC->findnodes('child::osis:milestone[starts-with(@type, "x-usfm-toc")][last()]', $firstbk)}[0];
-        my $before = ($tocms ? $tocms->nextSibling:$firstbk->firstChild);
-        my $div = $XML_PARSER->parse_balanced_chunk("<div $ONS type='introduction' scope='".$scope."' resp='".$ROC."'> </div>");
-        $before->parentNode->insertBefore($div, $before);
-        &Note("Added empty introduction div with scope=\"$scope\" within book ".$firstbk->getAttribute('osisID').' '.($tocms ? 'after TOC milestone.':'as first child.'));
       }
     }
   }
@@ -365,15 +361,15 @@ sub applyInstructions {
   }
 }
 
-# Insert a clone of $periph before each $beforeNodesAP node. But when a
-# $beforeNode is a toc or runningHead element etc., then insert the 
-# $periph clone before the following non-toc, non-runningHead node 
-# instead. An array pointer containing each cloned $periph is returned.
-sub insertClone {
+# Insert $periph (or a clone thereof) before each $beforeNodesAP node. 
+# But when a $beforeNode is a toc or runningHead element etc., then 
+# insert the $periph before the following non-toc, non-runningHead node 
+# instead. An array pointer containing each placed element is returned.
+sub placeElement {
   my $periph = shift;
   my $beforeNodesAP = shift;
   
-  my @clones;
+  my @elements;
   my $multiple = (@{$beforeNodesAP} > 1 ? $periph->unique_key:'');
   foreach my $beforeNode (@{$beforeNodesAP}) {
     # place as first non-toc and non-runningHead element in destination container
@@ -386,13 +382,13 @@ sub insertClone {
       $beforeNode = $beforeNode->nextSibling();
     }
     
-    my $clone = $periph->cloneNode(1);
-    if ($multiple) {$clone->setAttribute('resp', "$RESP{'copy'}-$multiple");}
-    $beforeNode->parentNode->insertBefore($clone, $beforeNode);
-    push(@clones, $clone);
+    my $element = ($multiple ? $periph->cloneNode(1) : $periph);
+    if ($multiple) {$element->setAttribute('resp', "$RESP{'copy'}-$multiple");}
+    $beforeNode->parentNode->insertBefore($element, $beforeNode);
+    push(@elements, $element);
   }
   
-  return \@clones;
+  return \@elements;
 }
 
 1;
