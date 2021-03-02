@@ -602,8 +602,11 @@ parseable, contact the osis-converters maintainer.\n");}
 # will be moved up out of the book they're in and inserted before the 
 # first applicable kept book, so as to retain the peripheral.
 #
-# If any bookSubGroup introduction is not immediately followed by a book 
-# (after book pruning) then that bookSubGroup introduction is removed.
+# If, after book pruning, any scoped bookSubGroup introduction does not
+# apply to a kept book, then that bookSubGroup introduction is removed. 
+# But if no books are pruned and there are one or more bookSubGroups, 
+# then books will be reordered such that each bookSubGroup introduction 
+# is followed by the books to which it applies.
 #
 # If there is only one bookGroup left, the remaining bookGroup's TOC 
 # milestone will become [not_parent] so as to prevent an unnecessary TOC 
@@ -628,11 +631,14 @@ sub filterBibleToScope {
   my $ebookTitleP = shift;
   my $ebookPartTitleP= shift;
   
-  my $tocNum = &conf('TOC');
+  my $toc = &conf('TOC');
   my $bookTitleTocNum = &conf('TitleTOC');
+  my $vsys = &conf('Versification');
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
-  my $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($inxml), &conf('Versification')), &conf('Versification'));
+  
+  my $fullScope = 
+    &booksToScope(&scopeToBooks(&getOsisScope($inxml), $vsys), $vsys);
   
   my $subPublication;
   if ($pubType !~ /book/i) {
@@ -643,7 +649,7 @@ sub filterBibleToScope {
   
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
-  # remove scoped periphs pertaining to other sub-publications
+  # Remove scoped periphs pertaining to other sub-publications.
   if ($pubType ne 'tran') {
     foreach my $sp (@SUB_PUBLICATIONS) {
       if ($sp eq $parscope) {next;}
@@ -657,7 +663,7 @@ sub filterBibleToScope {
     }
   }
   
-  # remove divs marked for pubType removal
+  # Remove divs marked for pubType removal by the 'conversion' feature.
   foreach my $r (@{$XPC->findnodes('//osis:div[@annotateType="' .
     $ANNOTATE_TYPE{'conversion'}.'"]/@annotateRef', $inxml)}) {
     my @r = split(/\s+/, $r->value);
@@ -675,65 +681,84 @@ sub filterBibleToScope {
     }
   }
   
-  # remove books not in scope
-  my %scopeBookNames = map { $_ => 1 } @{&scopeToBooks($scope, &conf('Versification'))};
+  # Remove books not in scope
+  my %scopeBook = map { $_ => 1 } @{&scopeToBooks($scope, $vsys)};
+      
   my @filteredBooks;
-  foreach my $bk (@{$XPC->findnodes('//osis:div[@type="book"]', $inxml)}) {
-    my $id = $bk->getAttribute('osisID');
-    if (!$scopeBookNames{$id}) {
-      $bk->unbindNode();
-      push(@filteredBooks, $id);
+  foreach (@{$XPC->findnodes('//osis:div[@type="book"][@osisID]', $inxml)}) {
+    if (!exists($scopeBook{$_->getAttribute('osisID')})) {
+      $_->unbindNode();
+      push(@filteredBooks, $_->getAttribute('osisID'));
     }
   }
   
   if (@filteredBooks) {
-    &Note("Filtered \"".scalar(@filteredBooks)."\" books that were outside of scope \"$scope\".", 1);
+    &Note(
+"Filtered \"" . @filteredBooks .
+"\" books that were outside of scope \"$scope\".", 1);
     
     foreach my $d (@scopedPeriphs) {$d->unbindNode();}
 
-    # remove bookGroup if it has no books left (even if it contains other peripheral material)
-    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"][not(child::osis:div[@type="book"])]', $inxml);
-    my $msg = 0;
-    foreach my $ebg (@emptyBookGroups) {$ebg->unbindNode(); $msg++;}
-    if ($msg) {
-      &Note("Filtered \"$msg\" bookGroups which contained no books.", 1);
+    # Remove bookGroup if it has no books left (even if it contains 
+    # other peripheral material).
+    my @emptyBookGroups = $XPC->findnodes('//osis:div[@type="bookGroup"]
+        [not(child::osis:div[@type="book"])]', $inxml);
+    foreach (@emptyBookGroups) {$_->unbindNode();}
+    if (@emptyBookGroups) {
+      &Note(
+'Filtered "'.@emptyBookGroups.'" bookGroups which contained no books.', 1);
     }
     
-    # if there's only one bookGroup now, change its TOC entry to [not_parent] 
-    # or remove it, to prevent unnecessary TOC levels and entries
+    # If there's only one bookGroup left, either change its TOC entry to 
+    # [not_parent] or remove it.
     my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
-    if (scalar(@grps) == 1 && @grps[0]) {
-      my $ms = @{$XPC->findnodes('child::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1] | 
+    if (@grps == 1 && @grps[0]) {
+      my $ms = @{$XPC->findnodes(
+          'child::osis:milestone[@type="x-usfm-toc'.$toc.'"][1] | 
           child::*[1][not(self::osis:div[@type="book"])]
-          /osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', @grps[0])}[0];
+          /osis:milestone[@type="x-usfm-toc'.$toc.'"][1]', @grps[0])}[0];
       if ($ms) {
-        my $resp = @{$XPC->findnodes('ancestor-or-self::*[@resp="'.$ROC.'"][last()]', $ms)}[0];
-        my $firstIntroPara = @{$XPC->findnodes('self::*[@n]/ancestor::osis:div[@type="bookGroup"]
-            /descendant::osis:p[child::text()[normalize-space()]][1][not(ancestor::osis:div[@type="book"])]', $ms)}[0];
-        my $fipMS = ($firstIntroPara ? 
-          @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$tocNum.'"][1]', $firstIntroPara)}[0] : '');
-        if (!$resp && $firstIntroPara && $fipMS->unique_key eq $ms->unique_key) {
-          $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
-          &Note("Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n').
-              "\" because there is only one bookGroup in the OSIS file.", 1);
+        my $resp = @{$XPC->findnodes('ancestor-or-self::*[@resp="'.$ROC.'"]
+            [last()]', $ms)}[0];
+        my $firstIntroPara = @{$XPC->findnodes(
+            'self::*[@n]
+            /ancestor::osis:div[@type="bookGroup"]
+            /descendant::osis:p[child::text()[normalize-space()]][1]
+                               [not(ancestor::osis:div[@type="book"])]', $ms)}[0];
+        my $fipMS;
+        if ($firstIntroPara) {
+          $fipMS = @{$XPC->findnodes('preceding::osis:milestone
+              [@type="x-usfm-toc'.$toc.'"][1]', $firstIntroPara)}[0];
         }
-        # don't include in the TOC if there is no intro p or the first intro p is under different TOC entry
+        if (!$resp && $firstIntroPara && 
+            $fipMS->unique_key eq $ms->unique_key) {
+          $ms->setAttribute('n', '[not_parent]'.$ms->getAttribute('n'));
+          &Note(
+"Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n').
+"\" because there is only one bookGroup in the OSIS file.", 1);
+        }
+        # Don't include in the TOC if there is no intro p or the first 
+        # intro p is under different TOC entry.
         elsif ($resp) {
-          &Note("Removed auto-generated TOC milestone from bookGroup because there ".
-              "is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
           $resp->unbindNode();
+          &Note(
+"Removed auto-generated TOC milestone from bookGroup because there ".
+"is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
         }
         else {
-          &Note("Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n').
-          "\" because there is only one bookGroup in the OSIS file and the entry contains no paragraphs.", 1);
           $ms->unbindNode();
+          &Note(
+"Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n').
+"\" because there is only one bookGroup in the OSIS file and the entry 
+contains no paragraphs.", 1);
         }
       }
     }
     
     # Move relevant scoped periphs before the first kept book, 
     # eliminating any extra copies.
-    my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
+    my %remainingBooks = map { $_->value => $_->parentNode }
+        $XPC->findnodes('//osis:div[@type="book"]/@osisID', $inxml);
     my %placed;
     INTRO: foreach my $intro (@scopedPeriphs) {
       my $n = $intro->getAttribute('n');
@@ -741,21 +766,36 @@ sub filterBibleToScope {
         &Note("Skipping duplicate periph: $n", 1);
         next;
       }
-      my $introBooks = &scopeToBooks($intro->getAttribute('scope'), &conf('Versification'));
-      if (!@{$introBooks}) {next;}
-      foreach my $introbk (@{$introBooks}) {
-        foreach my $remainingBook (@remainingBooks) {
-          if ($remainingBook->getAttribute('osisID') ne $introbk) {next;}
-          $remainingBook->parentNode->insertBefore($intro, $remainingBook);
-          my $t1 = $intro; $t1 =~ s/>.*$/>/s;
-          my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
-          &Note("Moved peripheral: $t1 before $t2", 1);
-          $placed{$n}++;
-          next INTRO;
-        }
+      foreach my $ibk (
+          @{&scopeToBooks($intro->getAttribute('scope'), $vsys)}) {
+        if (!exists($remainingBooks{$ibk})) {next;}
+        
+        $remainingBooks{$ibk}->parentNode->insertBefore(
+            $intro, $remainingBooks{$ibk} );
+            
+        &Note('Moved peripheral: ' . &pTag($intro) .
+              ' before ' . &pTag($remainingBooks{$ibk}), 1);
+        $placed{$n}++;
+        next INTRO;
       }
-      my $t1 = $intro; $t1 =~ s/>.*$/>/s;
-      &Note("Removed peripheral: $t1", 1);
+      &Note('Removed peripheral: '.&pTag($intro), 1);
+    }
+  }
+  else {
+    # Reorder books according to book-sub-group scope
+    foreach my $bsg ($XPC->findnodes(
+        '//osis:div[@type="bookGroup"]
+        /osis:div[not(@type="book")][@scope]
+                 [following::*[1][self::osis:div[@type="book"]]]', $inxml)) {
+      my $last = $bsg;
+      foreach my $bk (@{&scopeToBooks($bsg->getAttribute('scope'), $vsys)}) {
+        my $next = @{$XPC->findnodes('following::osis:div[1]', $last)}[0];
+        if ($next->getAttribute('osisID') eq $bk) {$last = $next; next;}
+        my $mbk = @{$XPC->findnodes('//osis:div[@osisID="'.$bk.'"]', $inxml)}[0];
+        $last->parentNode->insertAfter($mbk, $last);
+        $last = $mbk;
+        &Note("Reordered $bk for book sub-group: ".$bsg->getAttribute('scope'));
+      }
     }
   }
   
@@ -789,15 +829,14 @@ sub filterBibleToScope {
   
   # Move matching sub-publication cover to top
   my $s = $scope; $s =~ s/\s+/_/g;
-  my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication']
-      [contains(\@src, '/$s.')]", $inxml)}[0];
+  my $subPubCover = @{$XPC->findnodes("//osis:figure
+      [\@subType='x-sub-publication'][contains(\@src, '/$s.')]", $inxml)}[0];
   if (!$subPubCover && $scope && $scope !~ /[_\s\-]/) {
-    foreach my $figure ($XPC->findnodes("//osis:figure[\@subType='x-sub-publication']
-        [\@src]", $inxml)) {
+    foreach my $figure ($XPC->findnodes("//osis:figure
+        [\@subType='x-sub-publication'][\@src]", $inxml)) {
       my $sc = $figure->getAttribute('src'); 
       $sc =~ s/^.*\/([^\.]+)\.[^\.]+$/$1/; $sc =~ s/_/ /g;
-      my $bkP = &scopeToBooks($sc, &conf('Versification'));
-      foreach my $bk (@{$bkP}) {
+      foreach my $bk (@{&scopeToBooks($sc, $vsys)}) {
         if ($bk eq $scope) {$subPubCover = $figure;}
       }
     }
@@ -805,7 +844,7 @@ sub filterBibleToScope {
   if ($subPubCover) {
     $subPubCover->unbindNode();
     $subPubCover->setAttribute('subType', 'x-full-publication');
-    my $cover = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header
+    my $cover = @{$XPC->findnodes('//osis:header
         /following-sibling::*[1][local-name()="div"]
         /osis:figure[@type="x-cover"]', $inxml)}[0];
     if ($cover) {

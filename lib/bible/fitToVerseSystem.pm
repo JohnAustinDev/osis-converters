@@ -720,7 +720,7 @@ sub removeMappedElement {
   my $origin = shift;
   
   my $delete = ($origin eq 'external');
-  my $tag = $e->toString(); $tag =~ s/^(<[^>]*>).*?$/$1/s;
+  my $tag = &pTag($e);
   
   my $msg = '';
   if ($delete) {

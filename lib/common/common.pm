@@ -443,8 +443,7 @@ sub checkIntroductionTags {
   my @warnTags = $XPC->findnodes('//osis:div[@type="majorSection"][not(ancestor::osis:div[@type="book"])]', $xml);
   #my @warnTags = $XPC->findnodes('//osis:title[not(ancestor-or-self::*[@subType="x-introduction"])][not(parent::osis:div[contains(@type, "ection")])]', $xml);
   foreach my $t (@warnTags) {
-    my $tag = $t;
-    $tag =~ s/^[^<]*?(<[^>]*?>).*$/$1/s;
+    my $tag = &pTag($t);
     &Error("The non-introduction tag on line: ".$t->line_number().", \"$tag\" was used in an introduction. This could trigger a bug in osis2mod.cpp, dropping introduction text.", 'Replace this tag with the proper \imt introduction title tag.');
   }
 }

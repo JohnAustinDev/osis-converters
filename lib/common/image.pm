@@ -498,7 +498,7 @@ smaller file size.\n";
   my $errors = 0;
   my $totalsize = 0;
   foreach my $l (@links) {
-    my $tag = $l->toString(); $tag =~ s/^(<[^>]*>).*$/$1/s;
+    my $tag = &pTag($l);
     
     # Check the image path
     my $localPath = &getFigureLocalPath($l);

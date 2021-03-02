@@ -1805,6 +1805,16 @@ sub hasSame {
   return 0;
 }
 
+sub pTag {
+  my $in = shift;
+  
+  if (ref($in)) {$in = $in->toString();}
+  
+  if ($in =~ /(<[^>]+>)/) {return $1;}
+  
+  return;
+}
+
 sub printInt {
   my $in = shift; # a number
 
