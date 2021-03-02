@@ -111,7 +111,7 @@ sub applyPeriphInstructions {
   }
   
   # Handle each id div
-  my %xpathOriginalBeforeNodes;
+  my %beforeNodes;
   foreach my $idDiv (@idDivs) {
     my $placedPeriphFile;
     my %mark = (
@@ -178,43 +178,58 @@ they appear in the CF file.");
         if ($inst eq 'location') {$placedPeriphFile = 1;}
         else {$div->unbindNode();}
         
-        if ($arg =~ /^mark$/i) {&applyInstructions($div, \%mark);}
-        elsif ($arg =~ /^remove$/i) {push(@removedDivs, $div);}
-        else {
-          # All identical xpath searches must return the same originally found nodes. 
-          # Otherwise sequential order would be reversed with insertBefore */node()[1].
-          my $new;
-          if (!ref($xpathOriginalBeforeNodes{$arg})) {
-            my @a; $xpathOriginalBeforeNodes{$arg} = \@a;
-            foreach ($XPC->findnodes('//'.$arg, $xml)) {
-              push(@{$xpathOriginalBeforeNodes{$arg}}, $_);
-              $new++;
-            }
-            if (!@{$xpathOriginalBeforeNodes{$arg}}) {
-              &Error(
+        if ($arg =~ /^mark$/i) {
+          &applyInstructions($div, \%mark);
+          next;
+        }
+        elsif ($arg =~ /^remove$/i) {
+          push(@removedDivs, $div);
+          next;
+        }
+        elsif ($placedPeriphFile > 1) {
+          &Error(
+"Cannot move a periph whose parent file has already been cloned in command $instruction",
+"Move the 'location == <xpath>' portion of the command to the end 
+of the \id tag's line. Or, change the xpath to a single placement, so
+that cloning is no longer required.");
+          next;
+        }
+
+        # All identical xpath searches must return the same originally 
+        # found nodes. Otherwise sequential order would be reversed with 
+        # insertBefore */node()[1].
+        my $new;
+        if (!ref($beforeNodes{$arg})) {
+          my @a; $beforeNodes{$arg} = \@a;
+          foreach ($XPC->findnodes('//'.$arg, $xml)) {
+            push(@{$beforeNodes{$arg}}, $_);
+            $new++;
+          }
+          if (!@{$beforeNodes{$arg}}) {
+            &Error(
 "Removing periph! Could not locate xpath:\"$arg\" in command $instruction");
-              next;
-            }
-            if ($inst eq 'location' && @{$xpathOriginalBeforeNodes{$arg}} > 1) {
-              &Error(
-"Must assign 'location' to a single node:\"$arg\" in command $instruction", 
-"Use another RUN command if you really want to place this file more than once.");
-            }
+            next;
           }
-          # The beforeNodes may be a toc or a runningHead or be empty of 
-          # text, in which case an appropriate next-sibling will be used 
-          # instead (and beforeNodes is then updated).
-          my @beforeNodes;
-          foreach my $e (
-              @{&placeElement( $div, 
-                               $xpathOriginalBeforeNodes{$arg}, 
-                               $inst) }
-              ) {
-            push(@beforeNodes, $e->nextSibling);
-            &applyInstructions($e, \%mark);
-            &Note("Placing $inst == $arg for " . &printTag($e));
-          }
-          if ($new) {$xpathOriginalBeforeNodes{$arg} = \@beforeNodes;}
+        }
+        
+        # The beforeNodes may be a toc or a runningHead etc., in which 
+        # case an appropriate following-sibling will be used instead 
+        # (and beforeNodes will be updated).
+        my $placementAP = &placeElement($div, $beforeNodes{$arg}, $inst);
+        
+        my @beforeNodes;
+        foreach my $e (@{$placementAP}) {
+          push(@beforeNodes, $e->nextSibling);
+          &applyInstructions($e, \%mark);
+          &Note("Placing $inst == $arg for " . &printTag($e));
+        }
+        if ($new) {$beforeNodes{$arg} = \@beforeNodes;}
+        
+        # Once a file has been cloned, any further placement of 
+        # descendant div's would result in duplicate content and will 
+        # generate an error.
+        if (@{$placementAP} > 1 && $inst eq 'location') {
+          $placedPeriphFile = 2;
         }
       }
       &applyInstructions($idDiv, \%mark);
@@ -370,8 +385,13 @@ sub placeElement {
   my $beforeNodesAP = shift;
   
   my @elements;
-  my $multiple = (@{$beforeNodesAP} > 1 ? $periph->unique_key:'');
+  my $multiple;
+  if (@{$beforeNodesAP} > 1) {
+    $multiple = &oc_stringHash($periph->toString());
+  }
+  
   foreach my $beforeNode (@{$beforeNodesAP}) {
+  
     # place as first non-toc and non-runningHead element in destination container
     while (@{$XPC->findnodes('
       ./self::comment() |
@@ -383,8 +403,11 @@ sub placeElement {
     }
     
     my $element = ($multiple ? $periph->cloneNode(1) : $periph);
+    
     if ($multiple) {$element->setAttribute('resp', "$RESP{'copy'}-$multiple");}
+    
     $beforeNode->parentNode->insertBefore($element, $beforeNode);
+    
     push(@elements, $element);
   }
   
