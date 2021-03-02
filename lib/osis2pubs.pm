@@ -731,14 +731,14 @@ sub filterBibleToScope {
       }
     }
     
-    # move relevant scoped periphs before first kept book.
+    # Move relevant scoped periphs before the first kept book, 
+    # eliminating any extra copies.
     my @remainingBooks = $XPC->findnodes('/osis:osis/osis:osisText//osis:div[@type="book"]', $inxml);
-    my %copyPlaced;
+    my %placed;
     INTRO: foreach my $intro (@scopedPeriphs) {
-      my $resp = $intro->getAttribute('resp');
-      if ($resp !~ /^\Q$RESP{'copy'}/) {$resp = '';}
-      if ($resp && exists($copyPlaced{$resp})) {
-        &Note("Skipping duplicate periph: $resp", 1);
+      my $n = $intro->getAttribute('n');
+      if ($n =~ /^\[copy:.*?\]/ && exists($placed{$n})) {
+        &Note("Skipping duplicate periph: $n", 1);
         next;
       }
       my $introBooks = &scopeToBooks($intro->getAttribute('scope'), &conf('Versification'));
@@ -750,7 +750,7 @@ sub filterBibleToScope {
           my $t1 = $intro; $t1 =~ s/>.*$/>/s;
           my $t2 = $remainingBook; $t2 =~ s/>.*$/>/s;
           &Note("Moved peripheral: $t1 before $t2", 1);
-          $copyPlaced{$resp}++;
+          $placed{$n}++;
           next INTRO;
         }
       }
@@ -787,7 +787,7 @@ sub filterBibleToScope {
     &Note("Updated BIBLE_TOP to \"$$ebookTitleP\"", 1);
   }
   
-  # move matching sub-publication cover to top
+  # Move matching sub-publication cover to top
   my $s = $scope; $s =~ s/\s+/_/g;
   my $subPubCover = @{$XPC->findnodes("//osis:figure[\@subType='x-sub-publication']
       [contains(\@src, '/$s.')]", $inxml)}[0];

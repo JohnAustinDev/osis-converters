@@ -422,7 +422,6 @@ our %USFM_DEFAULT_PERIPH_TARGET = (
 our %RESP; # Values for the OSIS resp attribute
 $RESP{'oc'}   = 'x-oc';   # means osis-converters is responsible for adding the element
 $RESP{'vsys'} = 'x-vsys'; # means fitToVerseSystem is responsible for adding this element
-$RESP{'copy'} = 'x-copy'; # means this element is a copy of another element
 
 our $ROC = $RESP{'oc'}; # a convenience variable name
 

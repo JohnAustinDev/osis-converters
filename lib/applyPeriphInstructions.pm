@@ -376,18 +376,18 @@ sub applyInstructions {
   }
 }
 
-# Insert $periph (or a clone thereof) before each $beforeNodesAP node. 
+# Insert the $div (or a clone thereof) before each $beforeNodesAP node. 
 # But when a $beforeNode is a toc or runningHead element etc., then 
-# insert the $periph before the following non-toc, non-runningHead node 
-# instead. An array pointer containing each placed element is returned.
+# insert the $div before the following non-toc, non-runningHead node 
+# instead. An array pointer containing the placed element(s) is returned.
 sub placeElement {
-  my $periph = shift;
+  my $div = shift;
   my $beforeNodesAP = shift;
   
   my @elements;
   my $multiple;
   if (@{$beforeNodesAP} > 1) {
-    $multiple = &oc_stringHash($periph->toString());
+    $multiple = &oc_stringHash($div->toString());
   }
   
   foreach my $beforeNode (@{$beforeNodesAP}) {
@@ -402,9 +402,9 @@ sub placeElement {
       $beforeNode = $beforeNode->nextSibling();
     }
     
-    my $element = ($multiple ? $periph->cloneNode(1) : $periph);
+    my $element = ($multiple ? $div->cloneNode(1) : $div);
     
-    if ($multiple) {$element->setAttribute('resp', "$RESP{'copy'}-$multiple");}
+    if ($multiple) {$element->setAttribute('n', "[copy:$multiple]");}
     
     $beforeNode->parentNode->insertBefore($element, $beforeNode);
     
