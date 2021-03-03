@@ -1805,34 +1805,6 @@ sub hasSame {
   return 0;
 }
 
-# Return the first xml tag of an element or a string.
-sub pTag {
-  my $in = shift;
-  
-  if (ref($in) =~ /element/i) {$in = $in->toString();}
-  
-  if ($in =~ /(<[^>]+>)/) {return $1;}
-  
-  return;
-}
-
-# Return the title part of an n attribute value (that is minus any [...] 
-# instructions). Optionally, also write those instructions to $instP, if 
-# provided.
-sub nTitle {
-  my $n = shift;
-  my $instP = shift;
-  
-  if    (ref($n) =~ /attr/i)    {$n = $n->value;}
-  elsif (ref($n) =~ /element/i) {$n = $n->getAttribute('n');}
- 
-  if ($n =~ s/^((?:\[[^\]]*\])+)(.*?)$/$2/) {
-    if (ref($instP)) {$$instP = $1;}
-  }
-  
-  return $n;
-}
-
 sub printInt {
   my $in = shift; # a number
 

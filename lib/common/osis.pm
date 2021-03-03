@@ -81,15 +81,15 @@ sub initDocumentCache {
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
   $dbg .= "selfmod=$osisIDWork ";
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisModName'}     = $osisIDWork;
-  $DOCUMENT_CACHE{$osisIDWork}{'getOsisRefSystem'}   = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
-  $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'} = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisRefSystem'}   = @{$XPC->findnodes('//osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:refSystem', $xml)}[0]->textContent;
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'} = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type!="x-glossary"]]/osis:refSystem', $xml)}[0]->textContent;
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisVersification'} =~ s/^Bible.//i;
-  $DOCUMENT_CACHE{$osisIDWork}{'getOsisBibleModName'}    = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
-  my $dict = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisBibleModName'}    = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type!="x-glossary"]]', $xml)}[0]->getAttribute('osisWork');
+  my $dict = @{$XPC->findnodes('//osis:header/osis:work[child::osis:type[@type="x-glossary"]]', $xml)}[0];
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisDictModName'}     = ($dict ? $dict->getAttribute('osisWork'):'');
   my %books; foreach my $bk (map($_->getAttribute('osisID'), $XPC->findnodes('//osis:div[@type="book"]', $xml))) {$books{$bk}++;}
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisBooks'} = \%books;
-  my $scope = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[1]/osis:scope', $xml)}[0];
+  my $scope = @{$XPC->findnodes('//osis:header/osis:work[1]/osis:scope', $xml)}[0];
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisScope'} = ($scope ? $scope->textContent():'');
   
   # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)

@@ -231,7 +231,7 @@ sub inVersesystem {
       return 0;
     }
     my ($canonP, $bookOrderP, $bookArrayP);
-    &getCanon($wkvsys, \$canonP, \$bookOrderP, undef, \$bookArrayP);
+    &swordVsys($wkvsys, \$canonP, \$bookOrderP, undef, \$bookArrayP);
     if ($c && ($c < 0 || $c > @{$canonP->{$b}})) {
       &Error("Chapter $c of osisID $id is outside of verse system $wkvsys.");
       return 0;
@@ -384,7 +384,7 @@ sub osisIDSort {
   elsif (!$aNormal && !$bNormal) {return $a cmp $b;}
   
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
+  &swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
   my $abi = (defined($bookOrderP->{$abk}) ? $bookOrderP->{$abk}:-1);
   my $bbi = (defined($bookOrderP->{$bbk}) ? $bookOrderP->{$bbk}:-1);
   if    ($abi != -1 && $bbi == -1) {return 1;}

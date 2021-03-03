@@ -17,8 +17,7 @@
 # <http://www.gnu.org/licenses/>.
 
 use strict;
-our ($READLAYER, $APPENDLAYER, $WRITELAYER);
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $MOD_OUTDIR);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD);
 our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, 
     %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, 
     $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, $SWORD_VERSE_SYSTEMS, 
@@ -395,8 +394,8 @@ sub orderBooks {
   &Log("\nOrdering books of \"$$osisP\" by versification $vsys\n", 1);
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &ErrorBug("Cannot re-order books in OSIS file because getCanon($vsys) failed.");
+  if (!&swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &ErrorBug("Cannot re-order books in OSIS file because swordVsys($vsys) failed.");
     return;
   }
 
@@ -784,8 +783,8 @@ sub fitToVerseSystem {
   &Log("\nFitting OSIS \"$$osisP\" to versification $vsys\n", 1);
 
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  if (!&getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
-    &ErrorBug("Not Fitting OSIS versification because getCanon($vsys) failed.");
+  if (!&swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP)) {
+    &ErrorBug("Not Fitting OSIS versification because swordVsys($vsys) failed.");
     return;
   }
 
@@ -842,7 +841,7 @@ references:");
     
     # Update scope in the OSIS file
     my $scopeElement = @{$XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work[child::osis:type[@type="x-bible"]]/osis:scope', $xml)}[0];
-    if ($scopeElement) {&changeNodeText($scopeElement, &getScope($xml));}
+    if ($scopeElement) {&changeNodeText($scopeElement, &getScopeXML($xml));}
     
     &writeXMLFile($xml, $osisP);
     $xml = $XML_PARSER->parse_file($$osisP);
@@ -859,7 +858,7 @@ sub checkVerseSystem {
   my $xml = $XML_PARSER->parse_file($bibleosis);
   
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
-  &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
+  &swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
   
   my $rbk = 'none';
   my $rch = 1;
@@ -1664,7 +1663,7 @@ sub sortChildrenFixed {
     }
     else {
       my $canonP; my $bookOrderP;
-      &getCanon(&conf('Versification'), \$canonP, \$bookOrderP, undef, undef);
+      &swordVsys(&conf('Versification'), \$canonP, \$bookOrderP);
       foreach (keys %{$bookOrderP}) {
         $sortOrder{$_} = $bookOrderP->{$_};
       }
@@ -2311,7 +2310,7 @@ sub isWholeVsysChapter {
   
   my $maxv;
   my $v = ($vsys eq 'source' ? &conf('Versification'):$vsys);
-  my $canonP; &getCanon($v, \$canonP);
+  my $canonP; &swordVsys($v, \$canonP);
   if ($canonP && ref($canonP->{$bk}) && defined($canonP->{$bk}[($ch-1)])) {
     $maxv = $canonP->{$bk}[($ch-1)];
   }
@@ -2356,87 +2355,6 @@ sub has_src_milestone {
   if (!$ms) {return '';}
   
   return ($returnElem ? $ms:$ms->getAttribute('annotateRef'));
-}
-
-# Writes the chosen verse system to an XML file for easy use by an XSLT.
-sub writeVerseSystem {
-  my $vsys = shift;
-  
-  # Read the entire verse system using SWORD
-  my $vk = new Sword::VerseKey();
-  $vk->setVersificationSystem($vsys ? $vsys:'KJV'); 
-  $vk->setIndex(0);
-  $vk->normalize();
-  my (%sdata, $lastIndex, %bks);
-  do {
-    $lastIndex = $vk->getIndex;
-    if ($vk->getOSISRef() !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-      &ErrorBug("Problem reading SWORD versekey osisRef: ".$vk->getOSISRef(), 1);
-    }
-    else {
-      $bks{$1}++; 
-      my $b = sprintf("%03i:%s", scalar keys %bks, $1);
-      my $c = sprintf("%03i", $2);
-      my $v = sprintf("%03i", $3);
-      my $g = &defaultOsisIndex($1, 2); 
-      $sdata{$g}{$b}{$c}{$v}++;
-    }
-    $vk->increment();
-  } while ($vk->getIndex ne $lastIndex);
-  
-  # Prepare the output directory
-  my $outfile = "$MOD_OUTDIR/tmp/versification/$vsys.xml";
-  if (-e $outfile) {
-    return 1;
-  }
-  if (! -e "$MOD_OUTDIR/tmp") {
-    &ErrorBug("TMPDIR does not exist: $TMPDIR.");
-    return;
-  }
-  if (! -e "$MOD_OUTDIR/tmp/versification") {
-    mkdir "$MOD_OUTDIR/tmp/versification";
-  }
-  
-  # Write the XML file
-  if (!open(VOUT, $WRITELAYER, $outfile)) {
-    &ErrorBug("Could not write verse system to $outfile.");
-    return;
-  }
-  print VOUT 
-'<?xml version="1.0" encoding="UTF-8"?>
-<osis xmlns="http://www.bibletechnologies.net/2003/OSIS/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bibletechnologies.net/2003/OSIS/namespace http://www.crosswire.org/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"> 
-<osisText osisRefWork="'.$vsys.'" osisIDWork="'.$vsys.'"> 
-<header> 
-  <work osisWork="'.$vsys.'">
-    <title>CrossWire SWORD Verse System '.$vsys.'</title> 
-    <refSystem>Bible.'.$vsys.'</refSystem>
-  </work>
-</header>
-';
-  foreach my $gk (sort keys %sdata) {
-    print VOUT "<div type=\"bookGroup\">\n";
-    foreach my $bk (sort keys %{$sdata{$gk}}) {
-      my $b = $bk; $b =~ s/^\d+://;
-      print VOUT "  <div type=\"book\" osisID=\"$b\">\n";
-      foreach my $ck (sort keys %{$sdata{$gk}{$bk}}) {
-        my $c = $ck; $c =~ s/^0+//;
-        print VOUT "    <chapter osisID=\"$b.$c\">\n";
-        foreach my $vk (sort keys %{$sdata{$gk}{$bk}{$ck}}) {
-          my $v = $vk; $v =~ s/^0+//;
-          print VOUT "      <verse osisID=\"$b.$c.$v\"/>\n";
-        }
-        print VOUT "    </chapter>\n";
-      }
-      print VOUT "  </div>\n";
-    }
-    print VOUT "</div>\n";
-  }
-  print VOUT
-'</osisText>
-</osis>';
-  close(VOUT);
-  
-  return 1;
 }
 
 1;

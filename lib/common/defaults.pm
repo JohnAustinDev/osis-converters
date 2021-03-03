@@ -22,7 +22,7 @@ our ($APPENDLAYER, $CONFFILE, $DICTINPD, $INPD, $MAININPD, $MAINMOD,
     $READLAYER, $WRITELAYER, %CONFIG_DEFAULTS, %ID_TYPE_MAP, %OSIS_ABBR,
     %OSIS_GROUP, %PERIPH_SUBTYPE_MAP, %PERIPH_TYPE_MAP, 
     %USFM_DEFAULT_PERIPH_TARGET, @OC_CONFIGS, @OSIS_GROUPS, 
-    @SUB_PUBLICATIONS, @SWORD_AUTOGEN_CONFIGS);
+    @SUB_PUBLICATIONS, @SWORD_AUTOGEN_CONFIGS, $XML_PARSER, $XPC);
 
 # If any 'projectDefaults' files are missing from the entire project 
 # (including the DICT sub-project if there is one), those default files 
@@ -352,6 +352,58 @@ sub customize_addScripRefLinks {
   close(CFT);
   unlink($cf);
   move("$cf.tmp", $cf);
+}
+
+sub readParatextReferenceSettings {
+
+  my @files = split(/\n/, &shell(
+      "find \"$MAININPD/sfm\" -type f " .
+      "-exec grep -q \"<RangeIndicator>\" {} \\; -print"
+    , 3, 1));
+    
+  my $settingsFilePATH;
+  my $settingsFileXML;
+  foreach my $file (@files) {
+    if ($file && -e $file && -r $file) {
+      &Note("Reading Settings.xml file: $file", 1);
+      $settingsFilePATH = $file;
+      last;
+    }
+  }
+  if ($settingsFilePATH) {
+    $settingsFileXML = $XML_PARSER->parse_file($settingsFilePATH);
+  }
+
+  # First set the defaults
+  my %settings = (
+    'RangeIndicator' => '-', 
+    'SequenceIndicator' => ',', 
+    'ReferenceFinalPunctuation' => '.', 
+    'ChapterNumberSeparator' => '; ', 
+    'ChapterRangeSeparator' => decode('utf8', '—'), 
+    'ChapterVerseSeparator' => ':',
+    'BookSequenceSeparator' => '; '
+  );
+  
+  # Now overwrite defaults with anything in settingsFileXML
+  foreach my $k (sort keys %settings) {
+    my $default = $settings{$k};
+    if ($settingsFileXML) {
+      my $kv = @{$XPC->findnodes("$k", $settingsFileXML)}[0];
+      if ($kv && $kv->textContent) {
+        my $v = $kv->textContent;
+        &Note("<>Found localized Scripture reference settings in $settingsFilePATH");
+        if ($v ne $default) {
+          &Note("Setting Paratext $k from '".$settings{$k}."' to '$v' according to $settingsFilePATH");
+          $settings{$k} = $v;
+        }
+      }
+    }
+  }
+  
+  #&Debug("Paratext settings = ".Dumper(\%settings)."\n", 1); 
+  
+  return \%settings;
 }
 
 sub toCFRegex {

@@ -28,6 +28,7 @@ our ($sourceProject);
 
 require("$SCRD/lib/addFootnoteLinks.pm");
 require("$SCRD/lib/addScripRefLinks.pm");
+require("$SCRD/lib/addTOC.pm");
 require("$SCRD/lib/applyPeriphInstructions.pm");
 require("$SCRD/lib/bible/addCrossRefLinks.pm");
 require("$SCRD/lib/bible/addDictLinks.pm");
@@ -116,7 +117,7 @@ sub processOSIS {
   }
 
   # Add any missing Table of Contents milestones and titles as required for eBooks, html etc.
-  &writeTOC(\$OSIS, $modType);
+  &addTOC(\$OSIS, $modType);
   &write_osisIDs(\$OSIS); # Run again to add osisID's to new TOC milestones
 
   # Parse Scripture references from the text and check them
@@ -304,85 +305,6 @@ sub reprocessOSIS {
   
   # Validate the output OSIS file using the $OSISSCHEMA schema
   &validateOSIS(&outdir()."/$MOD.xml");
-}
-
-
-sub runChecks {
-  my $modType = shift;
-  
-  our %DOCUMENT_CACHE;
-  undef(%DOCUMENT_CACHE); &getOsisModName($XML_PARSER->parse_file($OSIS)); # reset cache
-  
-  # Check all osisRef targets
-  if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {
-    # Generate an xml file defining the chosen verse system, for XSLT to compare against
-    &writeVerseSystem(&conf('Versification'));
-    &Log("\n");
-    
-    # Check references in the fixed verse system OSIS file
-    &checkRefs($OSIS, $modType eq 'dict');
-    
-    # Check references in the source verse system transform of the OSIS file
-    &checkRefs($OSIS, $modType eq 'dict', "sourceVerseSystem.xsl");
-  }
-  else {
-  &Error("Glossary links and Bible links in the dictionary module cannot be checked.",
-"The Bible module OSIS file must be created before the dictionary 
-module OSIS file, so that all reference links can be checked. Create the
-Bible module OSIS file, then run this dictionary module again.");
-  }
-  
-  &checkFigureLinks($OSIS);
-  
-  &checkIntroductionTags($OSIS);
-  
-  &checkCharacters($OSIS);
-  
-  my $dwf = &getDWF();
-  if ($dwf) {&checkDictionaryWordsContexts($OSIS, $dwf);}
-  
-  if ($modType eq 'childrens_bible') {&checkChildrensBibleStructure($OSIS);}
-}
-
-
-sub validateOSIS {
-  my $osis = shift;
-  
-  # validate new OSIS file against OSIS schema
-  &Log("\n--- VALIDATING OSIS \n", 1);
-  &Log("BEGIN OSIS VALIDATION\n");
-  my $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml")." ".&escfile("xmllint")." --noout --schema \"$OSISSCHEMA\" ".&escfile($osis)." 2>&1";
-  &Log("$cmd\n");
-  my $res = `$cmd`;
-  my $allow = "(element milestone\: Schemas validity )error( \: Element '.*?milestone', attribute 'osisRef'\: The attribute 'osisRef' is not allowed\.)";
-  my $fix = $res;
-  $fix =~ s/$allow/$1e-r-r-o-r$2/g;
-  &Log("$fix\n");
-  
-  if ($res =~ /failed to load external entity/i) {&Error("The validator failed to load an external entity.", "Maybe there is a problem with the Internet connection, or with one of the input files to the validator.");}
-  
-  # Generate error if file fails to validate
-  my $valid = 0;
-  if ($res =~ /^\Q$osis validates\E$/) {$valid = 1;}
-  elsif (!$res || $res =~ /^\s*$/) {
-    &Error("\"$osis\" validation problem. No success or failure message was returned from the xmllint validator.", "Check your Internet connection, or try again later.");
-  }
-  else {
-    if ($res =~ s/$allow//g) {
-      &Note("
-      Ignore the above milestone osisRef attribute reports. The schema  
-      here apparently deviates from the OSIS handbook which states that 
-      the osisRef attribute is allowed on any element. The current usage  
-      is both required and sensible.\n");
-    }
-    if ($res !~ /Schemas validity error/) {
-      &Note("All of the above validation failures are being allowed.");
-      $valid = 1;
-    }
-    else {&Error("\"$osis\" does not validate! See message(s) above.");}
-  }
-  
-  &Report("OSIS ".($valid ? 'passes':'fails')." required validation.\nEND OSIS VALIDATION");
 }
 
 1;

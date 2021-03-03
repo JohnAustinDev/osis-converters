@@ -476,4 +476,12 @@ sub WriteGB {
   print OUTF $print;
 }
 
+sub fromUTF8 {
+  my $c = shift;
+
+  $c = decode("utf8", $c);
+  utf8::upgrade($c);
+  return $c;
+}
+
 1;

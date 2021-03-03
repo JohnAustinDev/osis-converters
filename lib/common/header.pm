@@ -57,7 +57,9 @@ sub writeOsisHeader {
   &getOSIS_Work($MAINMOD, \%workElements, &searchForISBN($MAINMOD, ($MOD eq $MAINMOD ? $xml:'')));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
-    $workElements{'190000:scope'}{'textContent'} = &getScope($osis, &conf('Versification'));
+    my $v = &conf('Versification');
+    $workElements{'190000:scope'}{'textContent'} = 
+      &getScopeXML($osis, undef, \$v);
   }
   for (my $x=0; $x<@SUB_PUBLICATIONS; $x++) {
     my $n = 59000;

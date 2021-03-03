@@ -23,14 +23,16 @@
 use strict;
 
 our ($READLAYER, $WRITELAYER, $APPENDLAYER);
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
+    $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR, 
     $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG,
     %ANNOTATE_TYPE, %CONV_PUB_TYPES, @CONV_PUB_TYPES);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
-my @forkGlobals = ('INOSIS', 'PUBOUT'); # global(s) to forward to each fork instance
+# Global(s) to forward to each fork instance:
+my @forkGlobals = ('INOSIS', 'PUBOUT');
     
 require("$SCRD/lib/forks/fork_funcs.pm");
 require(&getDefaultFile("lib/server.pm"));
@@ -41,7 +43,8 @@ sub osis2pubs {
   $PUBOUT = &outdir();
   
   if ($convertTo !~ /^(ebooks|html)$/) {
-    &ErrorBug("convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
+    &ErrorBug(
+"convertOSIS: Conversion of OSIS to \"$convertTo\" is not yet supported.");
   }
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
@@ -66,8 +69,8 @@ sub osis2pubs {
   
   my $fullScope = '';
   if (!&isChildrensBible($INOSIS_XML)) {
-    my $v = &conf('Versification');
-    $fullScope = &booksToScope(&scopeToBooks(&getOsisScope($INOSIS_XML), $v), $v);
+    # Get scope of current osis file, minus chapter/verse information.
+    $fullScope = &getScopeXML($INOSIS_XML, 1);
   }
   
   my $serverDirsHP = {};
@@ -77,11 +80,13 @@ sub osis2pubs {
   
   my $tranPubTitle = &conf('TranslationTitle');
   if (!$tranPubTitle) {
-    $tranPubTitle = @{$XPC->findnodes("/osis:osis/osis:osisText/osis:header/osis:work
+    $tranPubTitle = @{$XPC->findnodes("//osis:header/osis:work
         [\@osisWork='$MAINMOD']/osis:title", $INOSIS_XML)}[0];
     $tranPubTitle = ($tranPubTitle ? $tranPubTitle->textContent:'');
   }
-  if (!$tranPubTitle) {&ErroBug("osis2pubs.pm could not determine tranPubTitle", 1);}
+  if (!$tranPubTitle) {
+    &ErroBug("osis2pubs.pm could not determine tranPubTitle", 1);
+  }
   
   my $tranPubName = &tranPubFileName($tranPubTitle, $fullScope);
 
@@ -159,9 +164,15 @@ sub osis2pubs {
     &Note("Using CreatePubTran = $createTranPub");
     
     my $subSelect  = &conf('CreatePubSubpub',  undef, undef, $convertTo);
-    if    ($subSelect =~ /^first$/i) {$subSelect = @SUB_PUBLICATIONS[0];}
-    elsif ($subSelect =~ /^last$/i)  {$subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];}
-    elsif ($subSelect =~ /^true$/i)  {$subSelect = 'all';}
+    if ($subSelect =~ /^first$/i) {
+      $subSelect = @SUB_PUBLICATIONS[0];
+    }
+    elsif ($subSelect =~ /^last$/i)  {
+      $subSelect = @SUB_PUBLICATIONS[$#SUB_PUBLICATIONS];
+    }
+    elsif ($subSelect =~ /^true$/i)  {
+      $subSelect = 'all';
+    }
     &Note("Using CreatePubSubpub = $subSelect");
     
     my $bookSelect = &conf('CreatePubBook', undef, undef, $convertTo);
@@ -257,18 +268,27 @@ sub osis2pubs {
   }
 
   # REPORT results
-  &Report(uc($convertTo)." files created (".scalar(keys %CONV_REPORT)." instances):");
-  my @order = ('Format', 'Name', 'Cover', 'Glossary', 'Filtered', 'ScripRefFilter', 'GlossRefFilter');
+  &Report( uc($convertTo) .
+      " files created (".scalar(keys %CONV_REPORT)." instances):" );
+  my @order = ('Format', 'Name', 'Cover', 'Glossary', 'Filtered', 
+      'ScripRefFilter', 'GlossRefFilter');
   my %cm;
   foreach my $c (@order) {$cm{$c} = length($c);}
   foreach my $k (sort keys %CONV_REPORT) {
-    if (!$cm{$k} || length($CONV_REPORT{$k}) > $cm{$k}) {$cm{$k} = length($CONV_REPORT{$k});}
+    if (!$cm{$k} || length($CONV_REPORT{$k}) > $cm{$k}) {
+      $cm{$k} = length($CONV_REPORT{$k});
+    }
     foreach my $c (sort keys %{$CONV_REPORT{$k}}) {
-      if ($c eq 'Format') {$CONV_REPORT{$k}{$c} = join(',', @{$CONV_REPORT{$k}{$c}});}
-      if (length($CONV_REPORT{$k}{$c}) > $cm{$c}) {$cm{$c} = length($CONV_REPORT{$k}{$c});}
+      if ($c eq 'Format') {
+        $CONV_REPORT{$k}{$c} = join(',', @{$CONV_REPORT{$k}{$c}});
+      }
+      if (length($CONV_REPORT{$k}{$c}) > $cm{$c}) {
+        $cm{$c} = length($CONV_REPORT{$k}{$c});
+      }
     }
   }
-  my $p; foreach my $c (@order) {$p .= "%-".($cm{$c}+4)."s ";} $p .= "\n";
+  my $p; 
+  foreach my $c (@order) {$p .= "%-".($cm{$c}+4)."s ";} $p .= "\n";
   &Log(sprintf($p, @order));
   foreach my $k (
       sort { $CONV_REPORT{$a}{'Name'} cmp $CONV_REPORT{$b}{'Name'} } 
@@ -364,7 +384,9 @@ sub OSIS_To_ePublication2 {
   
   my $isChildrensBible = ($scope ? 0:1);
   
-  &Log("\n-----------------------------------------------------\nMAKING ".uc($convertTo).": scope=$scope, type=$pubType, name=$pubName, subdir='$pubSubdir'\n\n", 1);
+  &Log("\n".('-' x 52)."
+MAKING " . uc($convertTo) . ": scope=$scope, type=$pubType, " .
+"name=$pubName, subdir='$pubSubdir'\n\n", 1);
   
   my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
   make_path("$tmp/tmp/bible");
@@ -389,10 +411,14 @@ sub OSIS_To_ePublication2 {
   $CONV_REPORT{$KEY}{'Cover'} = '';
   if ($cover) {
     if ($pubType =~ /book/i && $partTitle) {
-      &shell("mogrify ".&imageCaption(&imageInfo($cover)->{'w'}, $partTitle, &conf("Font"), 'white')." \"$cover\"", 3);
+      &shell("mogrify " . &imageCaption( &imageInfo($cover)->{'w'}, 
+                                         $partTitle, 
+                                         &conf("Font"), 
+                                         'white' ) . " \"$cover\"", 3);
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
-    $CONV_REPORT{$KEY}{'Cover'} = $coverSourceName . ($pubType =~ /book/i ? " ($partTitle)":''); 
+    $CONV_REPORT{$KEY}{'Cover'} = $coverSourceName . 
+        ($pubType =~ /book/i ? " ($partTitle)":''); 
   }
   else {
     $CONV_REPORT{$KEY}{'Cover'} = "random-cover ($pubTitle)";
@@ -405,37 +431,50 @@ sub OSIS_To_ePublication2 {
   copy("$SCRD/lib/bible/html/osis2xhtml.xsl", $tmp);
   &copyFunctionsXSL($tmp);
   
-  # copy css file(s): always copy html.css and then if needed also copy $convertTo.css if it exists
+  # copy css file(s): always copy html.css and then if needed also copy 
+  # $convertTo.css if it exists
   mkdir("$tmp/css");
-  my $css = &getDefaultFile(($isChildrensBible ? 'childrens_bible':'bible')."/html/css/html.css", -1);
+  my $css = &getDefaultFile(
+    ( $isChildrensBible ? 'childrens_bible':'bible' ) .
+    "/html/css/html.css", -1);
   if ($css) {&copy($css, "$tmp/css/00html.css");}
   if ($convertTo ne 'html') {
-    $css = &getDefaultFile(($isChildrensBible ? 'childrens_bible':'bible')."/$convertTo/css/$convertTo.css", -1);
+    $css = &getDefaultFile(
+      ( $isChildrensBible ? 'childrens_bible':'bible' ) .
+      "/$convertTo/css/$convertTo.css", -1);
     if ($css) {&copy($css, "$tmp/css/01$convertTo.css");}
   }
   # copy font if specified
   if ($FONTS && &conf("Font")) {
     our %FONT_FILES;
     &copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$tmp/css", 1);
-    # The following allows Calibre to embed fonts (which must be installed locally) when 
-    # the '--embed-all-fonts' flag is used with ebook-convert. This has been commented out
-    # (and the flag removed from ebook-convert) because embeded fonts are unnecessary 
-    # when font files are explicitly provided, and embeding never worked right anyway.
+    # The following allows Calibre to embed fonts (which must be 
+    # installed locally) when the '--embed-all-fonts' flag is used with 
+    # ebook-convert. This has been commented out (and the flag removed 
+    # from ebook-convert) because embeded fonts are unnecessary 
+    # when font files are explicitly provided, and embeding never worked 
+    # right anyway.
     #&shell("if [ -e ~/.fonts ]; then echo Font directory exists; else mkdir ~/.fonts; fi", 3);
     #my $home = &shell("echo \$HOME", 3); chomp($home);
     #&Note("Calibre can only embed fonts that are installed. Installing ".&conf("Font")." to host.");
     #&copyFont(&conf("Font"), $FONTS, \%FONT_FILES, "$home/.fonts");
     if (open(CSS, $WRITELAYER, "$tmp/css/10font.css")) {
-      my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 'woff' => 'woff');
+      my %font_format = ('ttf' => 'truetype', 'otf' => 'opentype', 
+          'woff' => 'woff');
       foreach my $f (sort keys %{$FONT_FILES{&conf("Font")}}) {
         my $format = $font_format{lc($FONT_FILES{&conf("Font")}{$f}{'ext'})};
-        if (!$format) {&Log("WARNNG: Font \"$f\" has an unknown format; src format will not be specified.\n");}
+        if (!$format) {
+          &Log(
+"WARNNG: Font \"$f\" has an unknown format; src format will not be specified.\n");
+        }
         print CSS '
 @font-face {
   font-family:font1;
-  src: url(\'./'.$f.'\')'.($format ? ' format(\''.$format.'\')':'').';
-  font-weight: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal').'; 
-  font-style: '.($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal').';
+  src: url(\'./'.$f.'\')'.($format ? ' format(\''.$format.'\')':'') .';
+  font-weight: ' .
+  ($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /bold/i ? 'bold':'normal') .'; 
+  font-style: ' .
+  ($FONT_FILES{&conf("Font")}{$f}{'style'} =~ /italic/i ? 'italic':'normal') .';
 }
 ';
       }
@@ -451,14 +490,17 @@ body {font-family: font1;}
     else {&ErrorBug("Could not write font css to \"$tmp/css/10font.css\"");}
   }
   
-  # copy companion OSIS DICT
-  my $dictTmpOsis; # even if $DICTMOD is set, $dictTmpOsis will be unset when all glossaries are filtered from $DICTMOD
+  # Copy companion OSIS DICT.
+  # Even if $DICTMOD is set, $dictTmpOsis will be unset when all 
+  # glossaries are filtered from $DICTMOD.
+  my $dictTmpOsis; 
   if ($DICTMOD) {
     if (! -e "$tmp/tmp/dict") {make_path("$tmp/tmp/dict");}
     my $outf = &getModuleOsisFile($DICTMOD, 'Error');
     my $filter = '0';
     if ($outf) {
-      &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); $outf = "$tmp/tmp/dict/$DICTMOD.xml";
+      &copy($outf, "$tmp/tmp/dict/$DICTMOD.xml"); 
+      $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
       my %params = (
         'conversion' => join(' ', $convertTo, @{$CONV_PUB_TYPES{$convertTo}}), 
@@ -466,13 +508,19 @@ body {font-family: font1;}
         'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
       );
       &runScript("$SCRD/lib/pubs.xsl", \$outf, \%params);
-      # A glossary module may contain multiple glossary divs, each with its own scope. So filter out any divs that don't match.
-      # This means any non Bible scopes (like SWORD) are also filtered out.
+      # A glossary module may contain multiple glossary divs, each with 
+      # its own scope. So filter out any divs that don't match. This 
+      # means any non Bible scopes (like SWORD) are also filtered out.
       $filter = &filterGlossaryToScope(\$outf, $scope);
-      &Note("filterGlossaryToScope('$scope') filtered: ".($filter eq '-1' ? 'everything':($filter eq '0' ? 'nothing':$filter)));
+      &Note("filterGlossaryToScope('$scope') filtered: " .
+        ( $filter eq '-1' ? 'everything' : 
+        ( $filter eq '0'  ? 'nothing' : $filter )));
       my $aggfilter = &filterAggregateEntriesToScope(\$outf, $scope);
-      &Note("filterAggregateEntriesToScope('$scope') filtered: ".($aggfilter eq '-1' ? 'everything':($aggfilter eq '0' ? 'nothing':$aggfilter)));
-      if ($filter eq '-1') { # '-1' means all glossary divs were filtered out
+      &Note("filterAggregateEntriesToScope('$scope') filtered: " .
+        ( $aggfilter eq '-1' ? 'everything' : 
+        ( $aggfilter eq '0'  ? 'nothing' : $aggfilter )));
+      # '-1' means all glossary divs were filtered out
+      if ($filter eq '-1') { 
         $CONV_REPORT{$KEY}{'Glossary'} = 'no-glossary';
         $CONV_REPORT{$KEY}{'Filtered'} = 'all';
       }
@@ -481,7 +529,8 @@ body {font-family: font1;}
         &copy($outf, $dictTmpOsis);
       }
     }
-    else {&Error("OSIS file for dictionary module $DICTMOD could not be found.", 
+    else {&Error(
+"OSIS file for dictionary module $DICTMOD could not be found.", 
 "Run sfm2osis on the dictionary module, to create an OSIS 
 file for it, and then run this script again.");}
     
@@ -490,25 +539,31 @@ file for it, and then run this script again.");}
   }
   if (!$dictTmpOsis) {
     my $xml = $XML_PARSER->parse_file("$tmp/$MOD.xml");
-    # remove work elements of skipped companions or else the eBook converter will crash
+    # Remove work elements of skipped companions or else the eBook 
+    # converter will crash
     my @cn = $XPC->findnodes('//osis:work[@osisWork="'.$DICTMOD.'"]', $xml);
     foreach my $cnn (@cn) {$cnn->parentNode()->removeChild($cnn);}
     &writeXMLFile($xml, "$tmp/$MOD.xml");
   }
   
-  # copy over only those images referenced in our OSIS files
+  # Copy over only those images referenced in our OSIS files
   &copyReferencedImages("$tmp/$MOD.xml", $INPD, $tmp);
   if ($dictTmpOsis) {&copyReferencedImages($dictTmpOsis, $DICTINPD, $tmp);}
   
-  # filter out any and all references pointing to targets outside our final OSIS file scopes
+  # Filter out any and all references pointing to targets outside our 
+  # final OSIS file scopes
   $CONV_REPORT{$KEY}{'ScripRefFilter'} = 0;
   $CONV_REPORT{$KEY}{'GlossRefFilter'} = 0;
-  $CONV_REPORT{$KEY}{'ScripRefFilter'} += &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
-  $CONV_REPORT{$KEY}{'GlossRefFilter'} += &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis);
+  $CONV_REPORT{$KEY}{'ScripRefFilter'} += 
+    &filterScriptureReferences("$tmp/$MOD.xml", $INOSIS);
+  $CONV_REPORT{$KEY}{'GlossRefFilter'} += 
+    &filterGlossaryReferences("$tmp/$MOD.xml", $dictTmpOsis);
   
   if ($dictTmpOsis) {
-    $CONV_REPORT{$KEY}{'ScripRefFilter'} += &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
-    $CONV_REPORT{$KEY}{'GlossRefFilter'} += &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis);
+    $CONV_REPORT{$KEY}{'ScripRefFilter'} += 
+      &filterScriptureReferences($dictTmpOsis, $INOSIS, "$tmp/$MOD.xml");
+    $CONV_REPORT{$KEY}{'GlossRefFilter'} += 
+      &filterGlossaryReferences($dictTmpOsis, $dictTmpOsis);
   }
 
   # now do the conversion on the temporary directory's files
@@ -526,7 +581,9 @@ file for it, and then run this script again.");}
       if ($warn) {&Warn("See above linkchecker warnings.");}
       if ($err) {&Error("See above linkchecker errors.");}
     }
-    else {&ErrorBug("Could not parse output of linkchecker:\n$result\n", "Check the version of linkchecker.");}
+    else {&ErrorBug(
+"Could not parse output of linkchecker:\n$result\n",
+"Check the version of linkchecker.");}
     
     # Look for any unreachable material
     &Log("\n--- CHECKING for unreachable material in \"$PUBOUT/$pubName/xhtml\"\n");
@@ -549,8 +606,12 @@ of this material to exclude it from HTML publications.");
     }
     &Report("Found $numUnreachable unreachable file(s) in '$PUBOUT/$pubName/xhtml'");
   }
-  if ($createTypes =~ /epub/i) {&makeEbook($tmp, 'epub', $cover, $scope, $pubName, $pubSubdir);}
-  if ($createTypes =~ /azw3/i) {&makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);}
+  if ($createTypes =~ /epub/i) {
+    &makeEbook($tmp, 'epub', $cover, $scope, $pubName, $pubSubdir);
+  }
+  if ($createTypes =~ /azw3/i) {
+    &makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);
+  }
   # fb2 is disabled until a decent FB2 converter is written
   #if ($createTypes =~ /^(fb2)$/i) {&makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);}
 
@@ -637,12 +698,8 @@ sub filterBibleToScope {
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
   
-  my @books = 
-    @{$XPC->findnodes('//osis:div[@type="book"][@osisID]', $inxml)};
-  
-  my $fullScope = 
-    &booksToScope([map($_->getAttribute('osisID'), @books)], $vsys);
-  
+  my $fullScope = &getScopeXML($inxml);
+
   my $subPublication;
   if ($pubType !~ /book/i) {
     foreach my $sp (@SUB_PUBLICATIONS) {
@@ -688,7 +745,7 @@ sub filterBibleToScope {
   my %scopeBook = map { $_ => 1 } @{&scopeToBooks($scope, $vsys)};
       
   my $filteredBooks = 0;
-  foreach (@books) {
+  foreach ($XPC->findnodes('//osis:div[@type="book"][@osisID]', $inxml)) {
     if (exists($scopeBook{$_->getAttribute('osisID')})) {next;}
     $_->unbindNode(); $filteredBooks++;
   }

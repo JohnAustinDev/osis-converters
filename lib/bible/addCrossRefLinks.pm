@@ -346,8 +346,11 @@ sub translateRef {
     my $r1 = $1; my $r2 = ($2 ? $3:'');
     if ($r1 =~ /^([^\.]+)\.(\d+)\.(\d+)/) {
       my $b1 = $1; my $c1 = $2; my $v1 = $3;
-      my $canonP; my $bookOrderP; my $testamentP; &getCanon($vsys, \$canonP, \$bookOrderP, \$testamentP);
-      if ($osisRef eq "$b1.$c1.1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {$r1 = "$b1.$c1"; $r2 = '';}
+      my $canonP; my $bookOrderP; my $testamentP; 
+      &swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP);
+      if ($osisRef eq "$b1.$c1.1-$b1.$c1.".$canonP->{$b1}->[$c1-1]) {
+        $r1 = "$b1.$c1"; $r2 = '';
+      }
     }
     $t = &translateSingleRef($r1, $localeP);
     if ($t && $r2) {
@@ -363,7 +366,8 @@ sub translateRef {
     }
   }
   else {
-    &ErrorBug("Malformed osisRef: $osisRef !~ /^([\w\.]+)(\-([\w\.]+))?\$/");
+    &ErrorBug(
+"Malformed osisRef: $osisRef !~ /^([\w\.]+)(\-([\w\.]+))?\$/");
   }
   
   return $t;

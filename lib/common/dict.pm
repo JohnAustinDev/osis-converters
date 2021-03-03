@@ -1209,7 +1209,7 @@ sub paratextRefList2osisRef {
       else {
         my $canonP;
         # Warning - this assumes &conf('Versification') is verse system of osisRef  
-        &getCanon(&conf('Versification'), \$canonP, undef, undef, undef);
+        &swordVsys(&conf('Versification'), \$canonP, undef, undef, undef);
         my $ch1lv = ($lch == $ch ? $lvs:@{$canonP->{$bk}}[($ch-1)]);
         push(@pOsisRefs, "$bk.$ch.$vs".($ch1lv != $vs ? "-$bk.$ch.$ch1lv":''));
         if ($lch != $ch) {
