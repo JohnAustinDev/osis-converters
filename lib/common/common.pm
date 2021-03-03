@@ -629,10 +629,8 @@ sub getDivTitle {
   
   my $telem = @{$XPC->findnodes('(descendant::osis:title[@type="main"][1] | descendant::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]/@n)[1]', $glossdiv)}[0];
   if (!$telem) {return '';}
-  
-  my $title = $telem->textContent();
-  $title =~ s/^(\[[^\]]*\])+//g;
-  return $title;
+
+  return &nTitle($telem->textContent());
 }
 
 sub oc_stringHash {

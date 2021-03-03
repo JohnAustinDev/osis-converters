@@ -115,16 +115,12 @@ tag number you wish to use.)\n");
             [not(ancestor::osis:title)][not(ancestor::osis:figure)][1]
             [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk)}[0]) {
         my $title = &conf('IntroductionTitle', undef, undef, undef, 1); 
-        if ($title eq '<bookname>') {
-          $title = @bookTOCs[0]->getAttribute('n');
-          $title =~ s/^(\[[^\]]*\])+//;
-        }
+        if ($title eq '<bookname>') {$title = &nTitle(@bookTOCs[0]);}
         elsif ($title =~ /DEF$/) {
           # Since IntroductionTitle was not specified, find the first 
           # introduction title, and if it is just the book name again, 
           # then find the following introduction title and use that.
-          foreach (@names) {s/^(\[[^\]]*\]+)//;}
-          my $nre = join('|', map(quotemeta($_), @names));
+          my $nre = join('|', map(quotemeta(&nTitle($_)), @names));
           my @introTitles = $XPC->findnodes('descendant::osis:title
               [@subType="x-introduction"][not(@type="runningHead")]
               [following::osis:chapter[@osisID="'.$osisID.'.1"]]', $bk);

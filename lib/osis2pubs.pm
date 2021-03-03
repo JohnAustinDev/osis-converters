@@ -617,28 +617,31 @@ parseable, contact the osis-converters maintainer.\n");}
 # replace the main cover. Or when pruning to a single book that matches
 # a sub-publication cover, it will be moved to relace the main cover.
 #
-# The ebookTitleP will have appended to it the list of books remaining 
+# The pubTitleP will have appended to it the list of books remaining 
 # after filtering IF any were filtered out. The final ebook title will 
 # then be written to the outosis file.
 #
-# The ebookPartTitleP is overwritten by the list of books left after
+# The bookTitlesP is overwritten by the list of books left after
 # filtering IF any were filtered out, otherwise it is set to ''.
 sub filterBibleToScope {
-  my $osisP = shift;
-  my $scope = shift;
-  my $parscope = shift;
-  my $pubType = shift;
-  my $ebookTitleP = shift;
-  my $ebookPartTitleP= shift;
+  my $osisP = shift;      # pointer to the osis file path
+  my $scope = shift;      # scope to filter osis file to
+  my $parscope = shift;   # scope of parent (for book pubs)
+  my $pubType = shift;    # one of @CONV_PUB_TYPES
+  my $pubTitleP = shift;  # pointer to publication title
+  my $bookTitlesP= shift; # pointer for returning unfiltered book titles
   
-  my $toc = &conf('TOC');
-  my $bookTitleTocNum = &conf('TitleTOC');
-  my $vsys = &conf('Versification');
+  my $toc      = &conf('TOC');
+  my $titleTOC = &conf('TitleTOC');
+  my $vsys     = &conf('Versification');
   
   my $inxml = $XML_PARSER->parse_file($$osisP);
   
+  my @books = 
+    @{$XPC->findnodes('//osis:div[@type="book"][@osisID]', $inxml)};
+  
   my $fullScope = 
-    &booksToScope(&scopeToBooks(&getOsisScope($inxml), $vsys), $vsys);
+    &booksToScope([map($_->getAttribute('osisID'), @books)], $vsys);
   
   my $subPublication;
   if ($pubType !~ /book/i) {
@@ -684,18 +687,15 @@ sub filterBibleToScope {
   # Remove books not in scope
   my %scopeBook = map { $_ => 1 } @{&scopeToBooks($scope, $vsys)};
       
-  my @filteredBooks;
-  foreach (@{$XPC->findnodes('//osis:div[@type="book"][@osisID]', $inxml)}) {
-    if (!exists($scopeBook{$_->getAttribute('osisID')})) {
-      $_->unbindNode();
-      push(@filteredBooks, $_->getAttribute('osisID'));
-    }
+  my $filteredBooks = 0;
+  foreach (@books) {
+    if (exists($scopeBook{$_->getAttribute('osisID')})) {next;}
+    $_->unbindNode(); $filteredBooks++;
   }
   
-  if (@filteredBooks) {
+  if ($filteredBooks) {
     &Note(
-"Filtered \"" . @filteredBooks .
-"\" books that were outside of scope \"$scope\".", 1);
+"Filtered \"$filteredBooks\" books that were outside of scope \"$scope\".", 1);
     
     foreach my $d (@scopedPeriphs) {$d->unbindNode();}
 
@@ -755,7 +755,7 @@ contains no paragraphs.", 1);
       }
     }
     
-    # Move relevant scoped periphs before the first kept book, 
+    # Move relevant scoped periphs before the first kept book while 
     # eliminating any extra copies.
     my %remainingBooks = map { $_->value => $_->parentNode }
         $XPC->findnodes('//osis:div[@type="book"]/@osisID', $inxml);
@@ -804,27 +804,21 @@ contains no paragraphs.", 1);
       /ancestor::osis:work[1]/descendant::osis:title[1]', $inxml)}[0];
   my $topmsTitle = @{$XPC->findnodes('/descendant::osis:milestone
       [@osisID="BIBLE_TOP"]/@n', $inxml)}[0];
-  if (@filteredBooks && !$subPublication) {
-    my @books = $XPC->findnodes('//osis:div[@type="book"]', $inxml);
-    my @bookNames;
-    foreach my $b (@books) {
-      my $t = @{$XPC->findnodes('descendant::osis:milestone
-          [@type="x-usfm-toc'.$bookTitleTocNum.'"]/@n', $b)}[0];
-      if ($t) {push(@bookNames, $t->getValue());}
-    }
-    $$ebookPartTitleP = join(', ', @bookNames);
+  if ($filteredBooks && !$subPublication) {
+    $$bookTitlesP = join(', ', map($_->value, @{$XPC->findnodes(
+      '//osis:div[@type="book"]
+       //osis:milestone[@type="x-usfm-toc'.$titleTOC.'"]/@n', $inxml)}));
   }
-  else {$$ebookPartTitleP = '';}
-  if ($$ebookPartTitleP) {$$ebookTitleP .= ": $$ebookPartTitleP";}
-  if ($$ebookTitleP ne $osisTitle->textContent) {
-    &changeNodeText($osisTitle, $$ebookTitleP);
+  else {$$bookTitlesP = '';}
+  if ($$bookTitlesP) {$$pubTitleP .= ": $$bookTitlesP";}
+  if ($$pubTitleP ne $osisTitle->textContent) {
+    &changeNodeText($osisTitle, $$pubTitleP);
     &Note('Updated OSIS title to "'.$osisTitle->textContent."\"", 1);
   }
-  if ($topmsTitle && 
-      $topmsTitle->value =~ /^((?:\[[^\]]+\])*)(.*?)$/ && 
-      $2 ne $$ebookTitleP) {
-    $topmsTitle->setValue($1.$$ebookTitleP);
-    &Note("Updated BIBLE_TOP to \"$$ebookTitleP\"", 1);
+  my $i; my $t = &nTitle($topmsTitle, \$i);
+  if ($t && $t ne $$pubTitleP) {
+    $topmsTitle->setValue($i.$$pubTitleP);
+    &Note("Updated BIBLE_TOP to \"$$pubTitleP\"", 1);
   }
   
   # Move matching sub-publication cover to top

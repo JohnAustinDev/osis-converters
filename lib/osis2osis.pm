@@ -229,10 +229,9 @@ sub convertFileStrings {
     
     # Convert milestone n (except initial [command] part)
     my @attributes2Convert = $XPC->findnodes('//osis:milestone/@n', $xml);
-    foreach my $attr (@attributes2Convert) {
-      my $value = $attr->getValue();
-      my $com = ($value =~ s/^((\[[^\]]*\])+)// ? $1:'');
-      $attr->setValue($com.&transcodeStringByMode($value));
+    foreach my $n (@attributes2Convert) {
+      my $i; my $t = &nTitle($n, \$i);
+      $n->setValue($i.&transcodeStringByMode($t));
     }
     &Note("Converted ".@attributes2Convert." milestone n attributes.");
     

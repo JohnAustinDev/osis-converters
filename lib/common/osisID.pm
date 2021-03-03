@@ -654,8 +654,7 @@ sub osisID_baseName {
     return $kind.($title ? '_'.$title:'');
   }
   elsif ($nodeName eq 'milestone') {
-    my $n = $e->getAttribute('n');
-    $n =~ s/^(\[[^\]]+\])+//; # could be n="[level2]Сотворение мира" etc.
+    my $n = &nTitle($e);
     return ($n ? &encodeOsisRef($n):$type);
   }
   elsif ($nodeName eq 'note') {

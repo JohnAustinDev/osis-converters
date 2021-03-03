@@ -836,11 +836,12 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     
     &readKey();
   }
+  
+  sleep(1);
 
   if (!$KEY) {  # allow KEY already set by inner while loop to break outer loop
     &readKey();
   }
-  sleep(2);
 }
 
 if (!&runningInVagrant()) {ReadMode(0);}
@@ -911,8 +912,8 @@ sub runScript {
   ));
 }
 
-# Returns 1 if the given script has a new output file under outdir, or
-# 0 otherwise.
+# Returns 1 if the given script has at least one new output file in its
+# expected output directory, or 0 otherwise.
 sub conversionTestFile {
   my $startTime = shift;
   my $script = shift;
