@@ -53,7 +53,7 @@ our ($sourceProject);
 my $EVAL_REGEX_MSG = 
 "IMPORTANT for EVAL_REGEX:
 EVAL_REGEX instructions only effect RUN statements which come later on 
-in CF_usfm2osis.txt. Also note that:
+in CF_sfm2osis.txt. Also note that:
 EVAL_REGEX(someText):s/before/after/
 is only effective until an empty
 EVAL_REGEX(someText):
@@ -62,13 +62,13 @@ EVAL_REGEX(someText) statements. OR, if someText is a file path, then it
 will only apply when that particular file is later run.";
 
 my (@EVAL_REGEX, $USFMfiles);
-sub usfm2osis {
+sub sfm2osis {
   my $cf = shift;
   my $osis = shift;
   
-  &Log("CONVERTING USFM TO OSIS: usfm2osis\n-----------------------------------------------------\n\n", 1);
+  &Log("CONVERTING SFM TO OSIS: sfm2osis\n-----------------------------------------------------\n\n", 1);
 
-  open(COMF, $READLAYER, $cf) || die "Could not open usfm2osis command file $cf\n";
+  open(COMF, $READLAYER, $cf) || die "Could not open sfm2osis command file $cf\n";
 
   #Defaults:
   @EVAL_REGEX = ();
@@ -144,7 +144,7 @@ applied to all following RUN commands until/unless canceled by:
       else {$USFMfiles .= "$SFMfileGlob ";}
     }
     elsif (!&parseInstructionVSYS($_)) {
-      &Error("Unhandled CF_usfm2osis.txt line \"$_\" in $cf", 
+      &Error("Unhandled CF_sfm2osis.txt line \"$_\" in $cf", 
       "Remove or fix the syntax of this line.");
     }
   }
@@ -173,7 +173,7 @@ the USFM 2.4 specification here:
 http://ubs-icap.org/chm/usfm/2.4/index.html 
 Or sometimes it is due to a bug or 'feature' of CrossWire's usfm2osis.py 
 script or the USFM or OSIS specifications. The solution probably
-requires that EVAL_REGEX instructions be added to CF_usfm2osis.txt
+requires that EVAL_REGEX instructions be added to CF_sfm2osis.txt
 to update or remove offending SFM tags. $EVAL_REGEX_MSG");}
   }
   &Log("\n");
@@ -237,7 +237,7 @@ sub evalRegex {
     
     if (!open(SFM, $READLAYER, $f2)) {
       &Error("Could not open SFM file \"$f2\"", 
-      "This file was incorrectly specified in a RUN line of CF_usfm2osis.txt.", 1);
+      "This file was incorrectly specified in a RUN line of CF_sfm2osis.txt.", 1);
     }
     
     # Variables names in the following block should be uncommon, because 
@@ -249,7 +249,7 @@ sub evalRegex {
       my $numww;
       if (!defined(eval("\$numww = scalar(\$sww =~ ".$rww->{'regex'}.");"))) {
         &Error("Bad EVAL_REGEX expression: ".$rww->{'regex'}." ($@)", 
-        "Fix this EVAL_REGEX expression in CF_usfm2osis.txt", 1);
+        "Fix this EVAL_REGEX expression in CF_sfm2osis.txt", 1);
       }
       elsif ($numww) {
         $eval_regex_applied{$rww->{'regex'}}++;

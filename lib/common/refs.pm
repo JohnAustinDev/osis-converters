@@ -177,7 +177,7 @@ sub removeMissingOsisRefs {
   if (!@badrefs[0]) {return;}
   
   &Error("There are ".@badrefs." reference element(s) without osisRef attributes. These reference tags will be removed!", 
-"Make sure SET_addScripRefLinks is set to 'true' in CF_usfm2osis.txt, so that reference osisRefs will be parsed.");
+"Make sure SET_addScripRefLinks is set to 'true' in CF_sfm2osis.txt, so that reference osisRefs will be parsed.");
   
   foreach my $r (@badrefs) {
     my @children = $r->childNodes();

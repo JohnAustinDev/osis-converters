@@ -1,4 +1,4 @@
-# See /lib/usfm2osis.pm for command file documentation
+# See /lib/sfm2osis.pm for command file documentation
 
 # CHILDREN'S BIBLE
 

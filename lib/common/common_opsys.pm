@@ -142,7 +142,7 @@ our %CONFIG_DEFAULTS = (
   'CreateTypes' => 'AUTO',          'doc:CreateTypes' => 'selects which type(s) of ePublications to create (AUTO|list of epub|azw3|fb2)',
   'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
   'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, is the URL where the full publication can be found.',
-  'CustomBookOrder' => 'false',     'doc:CustomBookOrder' => 'Set to true to allow Bible book order to remain as it is in CF_usfm2osis.txt, rather than the chosen versification\'s order (true|false)',
+  'CustomBookOrder' => 'false',     'doc:CustomBookOrder' => 'Set to true to allow Bible book order to remain as it is in CF_sfm2osis.txt, rather than the chosen versification\'s order (true|false)',
   'ReorderGlossaryEntries' => 'false',         'doc:ReorderGlossaryEntries' => 'Cause glossary entries to be re-ordered according to KeySort for all, or just the matching, glossaries (all|<regex>)',
   'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
   'BookGroupTitleOT' => 'New Testament DEF',   'doc:BookGroupTitleOT' => 'Localized title for the New Testament in the Table of Contents',

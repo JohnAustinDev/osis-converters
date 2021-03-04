@@ -45,7 +45,7 @@ sub placementMessage {
   of Bibles also placing that material, may be appended after the \id 
   tags of SFM files. Placement instructions only apply to Bibles because 
   with dictionaries, their material always remains in the order in which 
-  it appears in CF_usfm2osis.txt. All instructions appear as a comma 
+  it appears in CF_sfm2osis.txt. All instructions appear as a comma 
   separated list of instruction == value pairs.
   
   BIBLES ONLY
@@ -137,7 +137,7 @@ sub applyPeriphInstructions {
         my $instruction = @instr[$x] . @instr[($x+1)];
         $instruction =~ s/^,\s*//;
         if ($instruction !~ /^(\S+|"[^"]+") == (.*?)$/) {
-          &Error("Unhandled location or scope assignment \"$instruction\" in \"$commentNode\" in CF_usfm2osis.txt");
+          &Error("Unhandled location or scope assignment \"$instruction\" in \"$commentNode\" in CF_sfm2osis.txt");
           next;
         }
         my $inst = $1; my $arg = $2;

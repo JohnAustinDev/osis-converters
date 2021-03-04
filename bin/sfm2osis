@@ -20,23 +20,23 @@
 # usage: sfm2osis [Project_Directory]
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-require("$SCRD/lib/usfm2osis.pm");
+require("$SCRD/lib/sfm2osis.pm");
 require("$SCRD/lib/process.pm");
 
 our ($INPD, $TMPDIR, $NO_OUTPUT_DELETE);
 
-our $OSIS = "$TMPDIR/00_usfm2osis.xml"; # output of usfm2osis.py
+our $OSIS = "$TMPDIR/00_sfm2osis.xml"; # output of usfm2osis.py
 
-my $commandFile = "$INPD/CF_usfm2osis.txt";
+my $commandFile = "$INPD/CF_sfm2osis.txt";
 if (! -e $commandFile) {
   &Error(
-"Cannot run sfm2osis unless there is a CF_usfm2osis.txt 
+"Cannot run sfm2osis unless there is a CF_sfm2osis.txt 
 command file located at $INPD.", 
 "To run sfm2osis, first run 'update' to create a default 
-CF_usfm2osis.txt file.", 1);
+CF_sfm2osis.txt file.", 1);
 }
 
-&usfm2osis($commandFile, $OSIS);
+&sfm2osis($commandFile, $OSIS);
 
 &processOSIS($OSIS);
 

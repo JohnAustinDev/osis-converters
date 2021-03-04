@@ -332,7 +332,7 @@ sub parseInstructionVSYS {
     }
     else {&Error(
 "VSYS_MISSING_FN cannot be used with verse $vs: $t", 
-"$msg Use different instruction(s) in CF_usfm2osis.txt.");}
+"$msg Use different instruction(s) in CF_sfm2osis.txt.");}
   }
   elsif ($t =~ /^VSYS_CHAPTER_SPLIT_AT:(?:\s*(?<val>$VSYS_SINSTR_RE)\s*)?$/) {
     my $value = $+{val};
@@ -477,7 +477,7 @@ SWORD unless you have used VSYS_MOVED to indicate where it was moved from.");
     if ($bkn && defined($OSIS_ABBR{$bkn})) {
       &Error(
 "Book '$bkn' occurred multiple times, so this instance was dropped!", 
-"CF_usfm2osis.txt may have RUN this book multiple times.");
+"CF_sfm2osis.txt may have RUN this book multiple times.");
     }
     else {
       &Error(
@@ -806,7 +806,7 @@ already been fitted so this step will be skipped!");
     &Warn("The following alternate verse tags were found.",
 "If these represent verses which normally appear somewhere else in the 
 $vsys verse system, then a VSYS_MOVED_ALT instruction should be 
-added to CF_usfm2osis.txt to allow correction of external cross-
+added to CF_sfm2osis.txt to allow correction of external cross-
 references:");
     foreach my $at (@nakedAltTags) {
       my $verse = @{$XPC->findnodes('preceding::osis:verse[@sID][1]', $at)}[0];
@@ -906,7 +906,7 @@ sub checkVerseSystem {
         &Error("Extra chapter: $bk.$ch", 
 &vsmsg("<>This happens for instance when Synodal Pslam 151 is 
 included in a SynodalProt translation. Such a situation can be addressed 
-in CF_usfm2osis.txt with something like: 
+in CF_sfm2osis.txt with something like: 
 VSYS_EXTRA: Ps.151 <- Synodal:Ps.151"));
       }
       elsif ($vs == 1) {
@@ -917,14 +917,14 @@ VSYS_EXTRA: Ps.151 <- Synodal:Ps.151"));
           &Error("Chapter ended with ".($vlr-$vl)." missing verse(s): $rbk.$rch",
 &vsmsg("<>This often means verses were joined into larger 
 verses somewhere within the chapter. Such a situation can be addressed 
-in CF_usfm2osis.txt with something like: 
+in CF_sfm2osis.txt with something like: 
 VSYS_MOVED: Gen.2.4 -> Gen.2.3.PART"));
         }
         else {
           &Error("Chapter ended with ".($vl-$vlr)." extra verse(s): $rbk.$rch",
 &vsmsg("<>This often means verses were split into smaller 
 verses somewhere within the chapter. Such a situation can be addressed 
-in CF_usfm2osis.txt with something like: 
+in CF_sfm2osis.txt with something like: 
 VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
         }
       }
@@ -955,7 +955,7 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
     &Note("
       This translation does not fit the $vsys verse system. The errors 
       listed above must be fixed. Add the appropriate instructions:
-      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_usfm2osis.txt.");
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_sfm2osis.txt.");
   }
 }
 

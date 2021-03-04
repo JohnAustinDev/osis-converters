@@ -285,7 +285,7 @@ sub set_configuration_globals {
     &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
   "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 
   should still be placed in the main module directory. If you want to  
-  run sfm2osis on the main module, then ALSO include a CF_usfm2osis.txt 
+  run sfm2osis on the main module, then ALSO include a CF_sfm2osis.txt 
   file in the main module directory.", 1);
   }
   

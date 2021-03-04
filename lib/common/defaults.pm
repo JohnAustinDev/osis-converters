@@ -41,11 +41,11 @@ sub checkAndWriteDefaults {
   my @projectDefaults = (
     'template.conf', 
     'childrens_bible/config.conf',
-    'bible/CF_usfm2osis.txt', 
+    'bible/CF_sfm2osis.txt', 
     'bible/CF_addScripRefLinks.txt',
-    'dict/CF_usfm2osis.txt', 
+    'dict/CF_sfm2osis.txt', 
     'dict/CF_addScripRefLinks.txt',
-    'childrens_bible/CF_usfm2osis.txt', 
+    'childrens_bible/CF_sfm2osis.txt', 
     'childrens_bible/CF_addScripRefLinks.txt'
   );
   
@@ -55,7 +55,7 @@ sub checkAndWriteDefaults {
   # customization of the others depends on config.conf contents.
   my @customDefaults = (
     'config.conf', 
-    'CF_usfm2osis.txt', 
+    'CF_sfm2osis.txt', 
     'CF_addScripRefLinks.txt',
   );
   
@@ -99,8 +99,8 @@ sub checkAndWriteDefaults {
       &copy_dir_with_defaults($df, $dest);
       push(@newDefaultFiles, split(/\n+/, &shell("find '$dest' -type f -print", 3)));
     }
-    # If the user has added CF_osis2osis.txt then never add a default CF_usfm2osis.txt file
-    elsif ($df =~ /CF_usfm2osis\.txt$/ && -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
+    # If the user has added CF_osis2osis.txt then never add a default CF_sfm2osis.txt file
+    elsif ($df =~ /CF_sfm2osis\.txt$/ && -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
       next;
     }
     elsif (! -e $dest) {
@@ -120,7 +120,7 @@ sub checkAndWriteDefaults {
         
         &Note("Customizing $file...");
         if    ($file =~ /config\.conf$/)             {&customize_conf($modName, $modType, $haveDICT);}
-        elsif ($file =~ /CF_usfm2osis\.txt$/)        {&customize_usfm2osis($file, $modType);}
+        elsif ($file =~ /CF_sfm2osis\.txt$/)         {&customize_sfm2osis($file, $modType);}
         elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file, $booknamesHP);}
         else {&ErrorBug("Unknown customization type $dc for $file; write a customization function for this type of file.", 1);}
       }
@@ -464,7 +464,7 @@ sub usfmFileSort {
   return $fa cmp $fb;
 }
 
-sub customize_usfm2osis {
+sub customize_sfm2osis {
   my $cf = shift;
   my $modType = shift;
   
@@ -524,7 +524,7 @@ sub customize_usfm2osis {
 }
 
 # Given an official peripheral-type and scope, return the
-# CF_usfm2osis.txt code for default placement of that peripheral within 
+# CF_sfm2osis.txt code for default placement of that peripheral within 
 # the OSIS file. When $periphType is 'sfmfile' (meaning an entire sfm 
 # file) it is placed in the proper bookGroup, or at the beginning of the
 # first book of $scope, or else after the osis:header.
