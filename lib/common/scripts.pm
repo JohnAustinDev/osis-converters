@@ -24,22 +24,24 @@ our ($DEBUG, $DICTMOD, $INPD, $MOD_OUTDIR, $SCRIPT_NAME);
 # appropriate input project path by the user. This allows a project to 
 # apply custom scripts if needed.
 sub runAnyUserScriptsAt {
-  my $pathNoExt = "$INPD/".shift; # path to script, but without extension
+  my $pathNoExt = shift; # relative path to script, without extension
   my $sourceP = shift;
   my $paramsP = shift;
   my $logFlag = shift;
+  
+  $pathNoExt = "$INPD/".$pathNoExt;
+  
+  if (-e "$pathNoExt.pl") {
+    &Note("Running user Perl script: $pathNoExt.pl");
+    &runScript("$pathNoExt.pl", $sourceP, $paramsP, $logFlag);
+  }
+  else {&Note("No user Perl script to run at $pathNoExt.pl");}
   
   if (-e "$pathNoExt.xsl") {
     &Note("Running user XSLT: $pathNoExt.xsl");
     &runScript("$pathNoExt.xsl", $sourceP, $paramsP, $logFlag);
   }
   else {&Note("No user XSLT to run at $pathNoExt.xsl");}
-  
-  if (-e "$pathNoExt.pm") {
-    &Note("Running user Perl script: $pathNoExt.pm");
-    &runScript("$pathNoExt.pm", $sourceP, $paramsP, $logFlag);
-  }
-  else {&Note("No user Perl script to run at $pathNoExt.pm");}
 }
 
 # Runs a script according to its type (its extension). The inputP points

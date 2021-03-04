@@ -18,21 +18,21 @@
 
 use strict;
 
-our ($WRITELAYER, $APPENDLAYER, $READLAYER);
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, $DICTIONARY_WORDS, 
-    $DEFAULT_DICTIONARY_WORDS, $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
+    $TMPDIR, $NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, 
+    $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, $READLAYER,
+    $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
 
 # Initialized in /lib/usfm2osis.pm
-our ($sourceProject);
+our $sourceProject;
 
 require("$SCRD/lib/addFootnoteLinks.pm");
 require("$SCRD/lib/addScripRefLinks.pm");
 require("$SCRD/lib/addTOC.pm");
 require("$SCRD/lib/applyPeriphInstructions.pm");
+require("$SCRD/lib/bible/fitToVerseSystem.pm");
 require("$SCRD/lib/bible/addCrossRefLinks.pm");
 require("$SCRD/lib/bible/addDictLinks.pm");
-require("$SCRD/lib/bible/fitToVerseSystem.pm");
 require("$SCRD/lib/dict/addSeeAlsoLinks.pm");
 
 # This sub expects an OSIS input file produced by usfm2osis.py

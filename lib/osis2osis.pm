@@ -33,57 +33,19 @@ our ($MODE_Transcode, $MODE_Script, $MODE_CCTable, $MODE_Copy,
 our $sourceProject;
 
 sub osis2osis {
-
-  use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-
-  # Two scripts are run in succession to convert OSIS files from one proj-
-  # ect into those of another. The osis2osis script runs the CF_osis-
-  # 2osis.txt file and applies the CC instructions, which may also create
-  # a project config.conf where there was none before. Therefore, a sec-
-  # ond script starts over, using the new config.conf, and then applies 
-  # the CCOSIS instructions to complete the conversion.
-
-  require("$SCRD/utils/simplecc.pl");
-  require("$SCRD/lib/process.pm");
-
-  # NOTE: CF_osis2osis.txt may contain instructions for both MAINMOD and 
-  # DICTMOD, but an osis file will only be generated for the MOD on which 
-  # this script is called.
-  my $commandFile = "$MAININPD/CF_osis2osis.txt";
-  if (! -e $commandFile) {&Error(
-  "Cannot run osis2osis without a CF_osis2osis.txt command file located at: $MAININPD.", 
-  '', 1);}
-
-  if (&runCF_osis2osis('postinit')) {
-    &reprocessOSIS($MOD, $sourceProject);
-
-    if ($NO_OUTPUT_DELETE) {
-     # When NO_OUTPUT_DELETE = true, then the following debug code will be 
-     # run on tmp files previously created by process.pm
-     # DEBUG CODE GOES HERE 
-    }
-  }
-  else {
-    &Warn(
-  "The osis2osis script did not produce $MOD.", 
-  "If $MOD has a CF_usfm2osis.txt file, then sfm2osis should be used instead of osis2osis.");
-  }
-}
-
-sub runCF_osis2osis {
-  $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
+  my $commandFile = shift;
+  my $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
+  
+  our $OSIS2OSIS_PASS = $O2O_CurrentContext;
   
   my ($outfile, $sourceProjectPath);
   
   if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
-    &ErrorBug("runCF_osis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
+    &ErrorBug("osis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
     return;
   }
   
-  &Log("\n-----------------------------------------------------\nSTARTING runCF_osis2osis context=$O2O_CurrentContext, directory=$MAININPD\n\n");
-
-  my $commandFile = "$MAININPD/CF_osis2osis.txt";
-  if (! -e $commandFile) {&Error("Cannot proceed without command file: $commandFile.", '', 1);}
+  &Log("\n-----------------------------------------------------\nSTARTING osis2osis context=$O2O_CurrentContext, directory=$MAININPD\n\n");
 
   # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
   $O2O_CurrentMode = 'MODE_Copy';

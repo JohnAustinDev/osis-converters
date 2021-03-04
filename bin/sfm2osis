@@ -24,18 +24,25 @@ require("$SCRD/lib/usfm2osis.pm");
 require("$SCRD/lib/process.pm");
 
 our ($INPD, $TMPDIR, $NO_OUTPUT_DELETE);
-our $OSIS = "$TMPDIR/00_usfm2osis.xml";
+
+our $OSIS = "$TMPDIR/00_usfm2osis.xml"; # output of usfm2osis.py
 
 my $commandFile = "$INPD/CF_usfm2osis.txt";
 if (! -e $commandFile) {
-  &Error("Cannot run sfm2osis unless there is a CF_usfm2osis.txt command file located at $INPD.", 
-  "To run sfm2osis, first run 'update' to create a default CF_usfm2osis.txt file.", 1);
+  &Error(
+"Cannot run sfm2osis unless there is a CF_usfm2osis.txt 
+command file located at $INPD.", 
+"To run sfm2osis, first run 'update' to create a default 
+CF_usfm2osis.txt file.", 1);
 }
+
 &usfm2osis($commandFile, $OSIS);
+
 &processOSIS($OSIS);
 
 if ($NO_OUTPUT_DELETE) {
-  # When NO_OUTPUT_DELETE = true, then the following debug code will be run on tmp files previously created by process.pm
+  # When NO_OUTPUT_DELETE = true, then the following debug code will 
+  # be run on tmp files previously created by process.pm
   # YOUR DEBUG CODE GOES HERE
 }
 

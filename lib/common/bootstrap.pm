@@ -187,6 +187,8 @@ sub init() {
   # (either natively or as a VM).
   require "$SCRD/lib/common/common.pm";
   
+  if (our $OSIS2OSIS_PASS eq 'preinit') {return;}
+  
   &init_linux_script();
   &DebugListVars('OUTDIR', 'MOD_OUTDIR', 'TMPDIR', 'LOGFILE', 'SCRIPT_NAME');
 }

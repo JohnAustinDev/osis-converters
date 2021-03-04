@@ -33,27 +33,14 @@ sub init_linux_script {
   &Log("\n-----------------------------------------------------\nSTARTING \$SCRIPT_NAME=$SCRIPT_NAME\n\n");
   
   &logGitRevs();
+  
   &timer('start');
   
   &initLibXML();
   
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
-  # If appropriate, do either runCF_osis2osis(preinit) OR 
-  # checkAndWriteDefaults(), but never both, since osis2osis also 
-  # creates input control files.
-  if (-e "$INPD/CF_osis2osis.txt" && $SCRIPT =~ /\/osis2osis$/) {
-    require("$SCRD/lib/osis2osis.pm");
-    &runCF_osis2osis('preinit');
-    our $MOD_OUTDIR = &getModuleOutputDir();
-    if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
-    
-    $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
-
-    $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
-    return 1;
-  }
-  elsif ($SCRIPT_NAME =~ /defaults/) {
+  if ($SCRIPT_NAME =~ /defaults/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
     
     # update old convert.txt configuration

@@ -17,20 +17,105 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+our $OSIS2OSIS_PASS = 'preinit';
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
-our ($INPD, $LOGFILE);
+# This script converts SFM, control, and OSIS files from one project 
+# into those of another. It runs a CF_osis2osis.txt command-file twice 
+# in succession. The first pass (preinit) applies any 'CC' instructions,
+# which convert control files from the SourceProject into those of 
+# the current project. This pass may also create or update the current
+# project's config.conf file. During the second pass (postinit), using 
+# the new config.conf, any 'CCOSIS' instructions are applied to convert 
+# the SourceProject's OSIS file(s) into those of the current project.
+# Finally reprocessOSIS() will be run to perform any required
+# osis-converters additions/processing to the resulting OSIS file and 
+# to validate it.
+#
+# NOTE: CF_osis2osis.txt may contain instructions for both MAINMOD and 
+# DICTMOD, but 'CCOSIS' will only generate an osis file for the module 
+# upon which this script is called.
+#
+# OVERVIEW of CF_osis2osis.txt commands:
+#
+# CC:<control-file>
+# Converts control files using one of the MODEs below.
+#
+# CCOSIS:<osis-file>
+# Converts OSIS files using one of the MODEs below.
+#
+# MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy:
+# Available methods of converting files.
+#
+# In addition to the methods above, these features may also be useful 
+# for certain conversions:
+#
+# bootstrap.pl
+# When found in the project directory, it will be run first, even before
+# the preinit of CF_osis2osis.txt. This script takes no arguments and 
+# can do anything you want.
+#
+# preprocess.pl and/or preprocess.xsl
+# If one or both of these scripts are present in the module directory,
+# they will be run on the OSIS file after the 'CCOSIS' instructions but 
+# before final processing.
+#
+# postprocess.pl and/or postprocess.xsl
+# If one or both of these scripts are present in the module directory,
+# they will be run on the osis file after all processing, just before 
+# validation and checking.
+#
+# There may not be a 'CCOSIS' instruction for a module's OSIS file in 
+# CF_osis2osis.txt. In this case, sfm2osis must be run on the 
+# module after osis2osis to create its OSIS file. This is useful when 
+# osis2osis is only needed to convert SFM and/or control files.
 
-# The osis2osis initialization calls runCF_osis2osis('preinit') which 
-# reads the CF_osis2osis.txt file and applies the CC instructions, also 
-# perhaps creating a project config.conf where there was none before. 
-# Then the osis2osis() functions below re-initializes osis-converters, 
-# which calls &runCF_osis2osis('postinit') using the updated config.conf, 
-# and then applies the CCOSIS instructions, completing the conversion.
+our ($INPD, $MAININPD, $SCRIPT_NAME, $MOD, $LOGFILE, $MOD_OUTDIR, 
+    $NO_OUTPUT_DELETE, $sourceProject);
 
 require("$SCRD/lib/osis2osis.pm");
+require("$SCRD/utils/simplecc.pl");
+require("$SCRD/lib/process.pm");
 
-&osis2osis($INPD, $LOGFILE);
+my $commandFile = "$MAININPD/CF_osis2osis.txt";
+if (! -e $commandFile) {
+  &Error("Cannot run osis2osis without a CF_osis2osis.txt command 
+file located at: $MAININPD.", '', 1);
+}
+
+&osis2osis($commandFile, 'preinit');
+
+$MOD_OUTDIR = &getModuleOutputDir();
+if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
+$LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
+
+our $OSIS2OSIS_PASS = 'postinit';
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init($INPD, $LOGFILE);
+
+if (!&osis2osis($commandFile, 'postinit')) {
+  if (-e "$INPD/CF_usfm2osis.txt") {
+    &Warn(
+"osis2osis did not yet produce $MOD.", 
+"Now run sfm2osis to complete the conversion to OSIS.");
+  }
+  else {
+    &Error(
+"osis2osis did not produce $MOD, and there is no CF_usfm2osis.txt.",
+"Use a 'CCOSIS' instruction in CF_osis2osis.txt to complete the 
+conversion or else use 'CC' to create a CF_usfm2osis.txt file to be used
+with sfm2osis."
+    );
+  }
+  &timer('stop'); exit;
+}
+
+&reprocessOSIS($MOD, $sourceProject);
+
+if ($NO_OUTPUT_DELETE) {
+ # When NO_OUTPUT_DELETE = true, then the following debug code will  
+ # be run on tmp files previously created by process.pm
+ # DEBUG CODE GOES HERE 
+}
 
 &timer('stop');
 
