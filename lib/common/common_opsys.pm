@@ -28,7 +28,8 @@ our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD,
     $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
     $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS,
-    %CONV_BIN_TEST, $MOD_OUTDIR, @CONV_PUB_TYPES);
+    %CONV_BIN_TEST, $MOD_OUTDIR, @CONV_PUB_TYPES, @CONV_OSIS, 
+    %CONV_NOCANDO);
     
 require("$SCRD/lib/common/block.pm");
 
@@ -122,36 +123,32 @@ our @CONTINUABLE_CONFIGS = (
 # value per context of the config file, or an error will be given.
 our @MULTIVALUE_CONFIGS = ('GlobalOptionFilter', 'Feature', 'Obsoletes'); 
 
-# Default values for config entries which have a default value. A 'doc:'
-# value is used to document what certain values mean and to add
-# documentation to a default config.conf file.
+# Default values for config entries which have a default value.
 our %CONFIG_DEFAULTS = (
-  'AddScripRefLinks' => 'AUTO',     'doc:AddScripRefLinks' => 'selects whether to parse Scripture references in the text and convert them to hyperlinks (true|false|AUTO)',
-  'AddDictLinks' => 'AUTO',         'doc:AddDictLinks' => 'selects whether to parse glossary references in Bible text and convert them to hyperlinks (true|false|check|AUTO)',
-  'AddSeeAlsoLinks' => 'AUTO',      'doc:AddSeeAlsoLinks' => 'selects whether to parse glossary references in glossary text and convert them to hyperlinks (true|false|check|AUTO)',
-  'AddFootnoteLinks' => 'AUTO',     'doc:AddFootnoteLinks' => 'selects whether to parse footnote references in the text and convert them to hyperlinks (true|false|AUTO)',
-  'AddCrossRefLinks' => 'AUTO',     'doc:AddCrossRefLinks' => 'selects whether to insert externally generated cross-reference notes into the text (true|false|AUTO)',
-  'Versification' => 'KJV',         'doc:Versification' => 'is a CrossWire SWORD versification system',
-  'Encoding' => 'UTF-8',            'doc:Encoding' => 'osis-converters only supports UTF-8 encoding',
-  'TOC' => '2',                     'doc:TOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags be used to generate TOCs',
-  'TitleCase' => '1',               'doc:TitleCase' => 'is a number from 0 to 2, selecting letter casing for TOC titles. 0 is as-is, 1 is Like This, 2 is LIKE THIS',
-  'TitleTOC' => '2',                'doc:TitleTOC' => 'is a number from 1 to 3, selecting either \toc1, \toc2 or \toc3 USFM tags to be used for generating titles for book ePublications',
-  'CreatePubTran' => 'AUTO',        'doc:CreatePubTran' => 'selects whether to create a single ePublication containing everything in the OSIS file (true|false|AUTO)',
-  'CreatePubSubpub' => 'AUTO',      'doc:CreatePubSubpub' => 'selects whether to create separate outputs for individual sub-publications within a translation (true|false|AUTO|<scope>|first|last)',
-  'CreatePubBook' => 'AUTO',        'doc:CreatePubBook' => 'selects whether to create separate ePublications for individual Bible books (true|false|AUTO|<OSIS-book>|first|last)',
-  'CreateTypes' => 'AUTO',          'doc:CreateTypes' => 'selects which type(s) of ePublications to create (AUTO|list of epub|azw3|fb2)',
-  'CombineGlossaries' => 'AUTO',    'doc:CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary, or \'AUTO\' to let the script decide',
-  'FullResourceURL' => 'false',     'doc:FullResourceURL' => 'Separate book ePublications often have broken links to missing books, so this URL, if supplied, is the URL where the full publication can be found.',
-  'CustomBookOrder' => 'false',     'doc:CustomBookOrder' => 'Set to true to allow Bible book order to remain as it is in CF_sfm2osis.txt, rather than the chosen versification\'s order (true|false)',
-  'ReorderGlossaryEntries' => 'false',         'doc:ReorderGlossaryEntries' => 'Cause glossary entries to be re-ordered according to KeySort for all, or just the matching, glossaries (all|<regex>)',
-  'CombinedGlossaryTitle' => 'Glossary DEF',   'doc:CombinedGlossaryTitle' => 'Localized title for the combined glossary in the Table of Contents',
-  'BookGroupTitleOT' => 'New Testament DEF',   'doc:BookGroupTitleOT' => 'Localized title for the New Testament in the Table of Contents',
-  'BookGroupTitleNT' => 'Old Testament DEF',   'doc:BookGroupTitleNT' => 'Localized title for the Old Testament in the Table of Contents',
-  'TranslationTitle' => 'English Bible DEF',   'doc:TranslationTitle' => 'Localized title for the entire translation used at the top of eBooks etc.. Might be the language name or the localized name for "The Bible".',
-  'IntroductionTitle' => 'Introduction DEF',   'doc:IntroductionTitle' => 'Localized title for introductions (could be for a book, publication or sub-publication introduction)',
-  'Font' => '',
-  'Companion' => '',
-  'NormalizeUnicode' => 'false',    'doc:NormalizeUnicode' => 'Apply Unicode normalization to all characters (true|false|NFD|NFC|NFKD|NFKC|FCD)',
+  'AddScripRefLinks' => 'AUTO',
+  'AddDictLinks' => 'AUTO',
+  'AddSeeAlsoLinks' => 'AUTO',
+  'AddFootnoteLinks' => 'AUTO',
+  'AddCrossRefLinks' => 'AUTO',
+  'Versification' => 'KJV',
+  'Encoding' => 'UTF-8',
+  'TOC' => '2',
+  'TitleCase' => '1',
+  'TitleTOC' => '2',
+  'CreatePubTran' => 'AUTO',
+  'CreatePubSubpub' => 'AUTO',
+  'CreatePubBook' => 'AUTO',
+  'CreateTypes' => 'AUTO',
+  'CombineGlossaries' => 'AUTO',
+  'FullResourceURL' => 'false',
+  'CustomBookOrder' => 'false',
+  'ReorderGlossaryEntries' => 'false',
+  'CombinedGlossaryTitle' => 'Glossary DEF',
+  'BookGroupTitleOT' => 'New Testament DEF',
+  'BookGroupTitleNT' => 'Old Testament DEF',
+  'TranslationTitle' => 'English Bible DEF',
+  'IntroductionTitle' => 'Introduction DEF',
+  'NormalizeUnicode' => 'false',
 );
 
 our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
@@ -458,7 +455,8 @@ our $DICTIONARY_WORDS = "DictionaryWords.xml";
 # Initializes [system] global variables, checks operating system and 
 # dependencies, and restarts on a Vagrant VM if necessary. If this
 # instance is a Linux system with all necessary dependencies, then 1
-# is returned, otherwise 0 is returned (which should result in an exit).
+# is returned, on error undef is returned, and 0 is returned if the
+# script will be restarted with Vagrant (which should result in an exit).
 sub init_opsys {
 
   chdir($INPD);
@@ -475,7 +473,7 @@ sub init_opsys {
     }
     elsif (&runningInVagrant()) {
       &ErrorBug("The Vagrant virtual machine does not have the necessary dependancies installed.");
-      return 0;
+      return;
     }
   }
   
@@ -490,11 +488,12 @@ sub init_opsys {
       &Note("\nVagrant will be used because \$VAGRANT is set.\n");
       &initialize_vagrant();
       &restart_with_vagrant();
+      return 0;
     }
     else {
       &Error("You have VAGRANT=1 in config.conf but Vagrant is not installed.", $vagrantInstallMessage);
+      return;
     }
-    return 0;
   }
   
   # OKAY then, to meet dependancies check if we may use Vagrant and report
@@ -506,7 +505,7 @@ osis-converters\$ sudo provision.sh
 2) Run with Vagrant by adding 'VAGRANT=1' to the [system] section 
 of config.conf.
 NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
-    return 0;
+    return;
   }
   
   # Then we must use Vagrant, if it's installed
@@ -517,7 +516,6 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
   }
   
   &Error("You are not running osis-converters on compatible Linux and do not have vagrant/VirtualBox installed.", $vagrantInstallMessage);
-  return 0;
 }
 
 # Apply the config file's [system] section directly to Perl globals. 
@@ -567,6 +565,87 @@ sub set_system_globals {
       $$1 = $cP->{$e};
     }
   }
+}
+
+
+sub set_project_globals {
+  our $INPD = shift;
+  our $LOGFILE = shift;
+
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+  $INPD =~ s/\\/\//g;
+  # Allow using a project subdirectory as $INPD argument
+  { my $subs = join('|', 'sfm', 'images', 'output', @CONV_PUBS);
+    $INPD =~ s/\/($subs)(\/.*?$|$)//;
+  }
+  # This works even for MS-Windows because of '\' replacement done above
+  $INPD = &shortPath($INPD);
+  if (!-e $INPD) {die 
+"Error: Project directory \"$INPD\" does not exist. Check your command line.\n";
+  }
+
+  # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated  
+  # after checkAndWriteDefaults() in case a new dictionary is discovered 
+  # in the USFM).
+  our $MOD = $INPD; $MOD =~ s/^.*\///;
+  our ($MAINMOD, $DICTMOD, $MAININPD, $DICTINPD); 
+  if ($INPD =~ /^(.*)\/[^\/]+DICT$/) {
+    $MAININPD = $1; 
+    $DICTINPD = $INPD;
+    $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+  }
+  else {
+    $MAININPD = $INPD;
+    $MAINMOD = $MAININPD; $MAINMOD =~ s/^.*\///;
+    $DICTINPD = "$MAININPD/${MAINMOD}DICT";
+  }
+
+  # Before testing the project configuration, run bootstrap.pl if it 
+  # exists in the project, to prepare any control files that need it.
+  if ($MOD eq $MAINMOD && -e "$MAININPD/bootstrap.pl" && 
+      &hasSame([$SCRIPT_NAME], \@CONV_OSIS)) {
+    &shell("$MAININPD/bootstrap.pl");
+  }
+
+  our $CONF;
+  our $CONFFILE = "$MAININPD/config.conf";
+  if (-e $CONFFILE) {&readSetCONF(1);}
+  # $DICTMOD will be empty if there is no dictionary module for the 
+  # project, but $DICTINPD always has a value
+  {
+   my $cn = "${MAINMOD}DICT"; 
+   $DICTMOD = (
+      $INPD eq $DICTINPD || $CONF->{"$MAINMOD+Companion"} =~ /\b$cn\b/ 
+      ? $cn : '' );
+  }
+
+  # Allow running MAININPD-only scripts from a DICT sub-project
+  { my $dictncd = join('|', @{$CONV_NOCANDO{'dict'}});
+    if ($INPD eq $DICTINPD && 
+      $SCRIPT =~ /(\/defaults|$dictncd)$/) {
+      $INPD = $MAININPD;
+      $MOD = $MAINMOD;
+    }
+  }
+
+  our @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
+
+  if (@SUB_PUBLICATIONS == 1) {
+    &Error("There is only one sub-publication directory: ".@SUB_PUBLICATIONS[0], 
+  "When there is a single publication, all source USFM files should be
+  located directly under the sfm directory, without any sub-publication 
+  directories.", 1);
+  }
+
+  if ($INPD eq $DICTINPD && -e "$INPD/CF_osis2osis.txt") {
+    &Error("CF_osis2osis.txt in DICT sub-modules are not processed.", 
+  "To run osis2osis on a DICT sub-module, the CF_osis2osis.txt file 
+  should still be placed in the main module directory. If you want to  
+  run sfm2osis on the main module, then ALSO include a CF_sfm2osis.txt 
+  file in the main module directory.", 1);
+  }
+  
+  if (our $NO_OUTPUT_DELETE) {our $DEBUG = 1;}
 }
 
 # Set system default paths if not specified in config.conf.
@@ -652,7 +731,6 @@ sub readSetCONF {
   
   # Apply config Defaults
   foreach my $e (keys %CONFIG_DEFAULTS) {
-    if ($e =~ /^doc:/) {next;}
     if (!exists($CONF->{"$mainmod+$e"})) {
       $CONF->{"$mainmod+$e"} = $CONFIG_DEFAULTS{$e};
     }
@@ -1220,6 +1298,20 @@ sub getDefaultFile {
   return $defaultFile;
 }
 
+# Check that $dir is an osis-converters module directory, returning an 
+# error message if there is a problem, undef otherwise.
+sub checkModuleDir {
+  my $inpd = shift;
+  
+  if (!-d $inpd) {
+    return "ABORT: Not a directory: '$inpd'\n";
+  }
+  elsif (!-d "$inpd/sfm" && !-d "$inpd/../sfm" && 
+         !-e "$inpd/CF_osis2osis.txt" && !-e "$inpd/../CF_osis2osis.txt") {
+    return "ABORT: Not an osis-converters project: '$inpd'\n";
+  }
+}
+
 # Return 1 if dependencies are met for $script and 0 if not
 sub checkDependencies {
   my $script = shift;
@@ -1507,6 +1599,43 @@ sub matchingShares {
   return (keys(%shares) == 0 ? 1:0);
 }
 
+sub listConversions {
+  my $convOsisAP = shift;
+  my $convPubsAP = shift;
+  
+  my %all;
+  foreach (@{$convOsisAP}) {
+    $all{$_}++;
+  }
+  foreach ('all', @{$convPubsAP}) {
+    $all{'sfm'.'2'.$_}++;
+    $all{'osis'.'2'.$_}++;
+  }
+  
+  return \%all;
+}
+
+sub const {
+  my $t = shift;
+  
+  foreach my $v ('MAINMOD', 'DICTMOD', 'MOD') {
+    no strict "refs";
+    if (!defined($$v)) {
+      &ErrorBug("Constant has not been initialized: $v", 1);
+    }
+    $t =~ s/\b$v\b/$$v/g;
+  }
+  return $t;
+}
+
+# Try to return the number of CPU cores, or else 2 as the default.
+sub numCPUs {
+  my $lscpu = &shell('which lscpu', 3, 1);
+  if (!$lscpu || $lscpu =~ /no lscpu/i) {return 2;}
+  $lscpu = &shell('lscpu | egrep "^CPU\\(s\\)\\:"', 3, 1); 
+  $lscpu =~ s/^.*?\s+(\d+)\s*$/$1/;
+  return $lscpu;
+}
 
 ########################################################################
 # Logging functions
@@ -1598,7 +1727,11 @@ sub Debug {
 }
 
 sub DebugListVars {
-  my $m = "Variables ".(&runningInVagrant() ? "on virtual machine:\n":"on host:\n");
+  my $msg = shift;
+  
+  my $m = "$msg (" . 
+      (&runningInVagrant() ? "on virtual machine":"on host") . 
+  "):\n";
   no strict "refs";
   foreach my $v (@_) {$m .= "\t$v=$$v\n";}
   &Debug($m, 1);

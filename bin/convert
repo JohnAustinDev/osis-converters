@@ -1,14 +1,31 @@
 #!/usr/bin/perl
+# This file is part of "osis-converters".
+# 
+# Copyright 2021 John Austin (gpl.programs.info@gmail.com)
+#     
+# "osis-converters" is free software: you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation, either version 2 of 
+# the License, or (at your option) any later version.
+# 
+# "osis-converters" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "osis-converters".  If not, see 
+# <http://www.gnu.org/licenses/>.
 
 # Run specified conversions for any number of projects, as quickly as possible
 
 use strict;
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
-    $INPD, $DEBUG, $VAGRANT, $PRJSDIR, $MODRE, $CONVERSION, $MAXTHREADS, 
-    $SKIP, $MYLOG, $NODEPMODS, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
+    $INPD, $DEBUG, $VAGRANT, $INPD, $MODRE, $CONVERSION, $MAXTHREADS, 
+    $SKIPRE, $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
     @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
-    %CONV_OUTPUT_SUBDIR);
+    %CONV_OUTPUT_SUBDIR, %ARGS);
 
 BEGIN {
 
@@ -20,39 +37,15 @@ use threads::shared;
 use Cwd;
 use Data::Dumper; $Data::Dumper::Sortkeys = 1;
 
-# Bootstrap osis-converters without init() so project config files can be read.
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(@ARGV);
 
-# Default script arguments
-my $MODRE_DEF = 'all'; 
-my $CONVERSION_DEF = 'sfm2all';
-my $LOG_DEF = './OUT_convert.txt';
-my $MAXTHREADS_DEF = &numCPUs();
+&processArguments();
 
-my $USAGE = "
-USAGE: convert [-h] [-n] [-m rx] [-x rx] [-c type] [-t N] [-l file] [dir]
+if (-e $LOGFILE) {unlink($LOGFILE);}
 
-dir     : Path to a directory containing one or more osis-converters 
-          projects. Default is the working directory.
--c conv : Conversion(s) to run. Default is '$CONVERSION_DEF'. Others are:
-" . &usagePrint(10, join(', ', sort keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)})) . ".
--h      : Show this usage message an exit.
--l file : Log file. Default is $LOG_DEF in the working directory.
--m rx   : Regex matching modules to run, or 'all'. Default is '$MODRE_DEF'.
--n      : No additional modules will be run to meet any dependencies.
--t N    : Number of threads to use. Default is $MAXTHREADS_DEF.
--x rx   : Regex matching modules to skip. Default is none.
-";
+$INFO = &getProjectsInfo($INPD);
 
-if (!&arguments(@ARGV)) {print $USAGE; exit 1;}
-
-if (-e $MYLOG) {unlink($MYLOG);}
-
-$INPD = $PRJSDIR; # necessary for vagrantHostShare() to work
-
-$INFO = &getProjectsInfo($PRJSDIR);
-
-@RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIP, $INFO);
+@RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIPRE, $INFO);
 
 %DEPENDENCIES = &getDependencies($CONVERSION, \@RUN, $INFO);
 
@@ -60,7 +53,7 @@ if ($DEBUG) {
   &pLog("INFO = ".Dumper($INFO)."\n");
   &pLog("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
   no strict 'refs';
-  my @v = ('PRJSDIR', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+  my @v = ('INPD', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
   print join("\n", map("$_=$$_", @v))."\n\n";
 }
 
@@ -90,7 +83,7 @@ if (!&runningInVagrant()) {print $JOBMSG;}
 
 if (! scalar @RUN) {
   print "ABORT: There is nothing to do.\n";
-  print $USAGE;
+  print &usage();
   exit 1;
 }
 
@@ -116,7 +109,7 @@ if (!&runningInVagrant() && $restartInVagrant) {
   if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
   # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
-    &set_configuration_globals($INFO->{$m}{'path'}, 'none');
+    &set_project_globals($INFO->{$m}{'path'}, 'none');
     &set_system_globals($m);
   }
 }
@@ -130,148 +123,63 @@ if ($restartInVagrant) {
 # This thread continues after the following BEGIN block sub definitions!
 ########################################################################
 
-sub numCPUs {
-  my $lscpu = `which lscpu 2>&1`;
-  if (!$lscpu || $lscpu =~ /no lscpu/i) {return 2;}
-  $lscpu = `lscpu | egrep "^CPU\\(s\\)\\:"`; 
-  $lscpu =~ s/^.*?\s+(\d+)\s*$/$1/;
-  return $lscpu;
-}
 
-sub usagePrint {
-  my $tablen = shift;
-  my $string = shift;
-  
-  my $chars = (60 - $tablen);
-  my $tab = (' ' x $tablen);
-  $string =~ s/(.{$chars}\S*)\s/$1\n$tab/g; $string = $tab.$string;
-  
-  return $string;
-}
+sub processArguments {
 
-sub listConversions {
-  my $convOsisAP = shift;
-  my $convPubsAP = shift;
-  
-  my %all;
-  foreach (@{$convOsisAP}) {
-    $all{$_}++;
-  }
-  foreach ('all', @{$convPubsAP}) {
-    $all{'sfm'.'2'.$_}++;
-    $all{'osis'.'2'.$_}++;
+  my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
+  if ($CONVERSION !~ /^($all)$/) {
+    print "ABORT: unknown conversion: $CONVERSION\n";
+    exit 1;
   }
   
-  return \%all;
-}
-
-# Returns 1 on success or undef on failure (or exits with -h).
-sub arguments {
-  $PRJSDIR = ".";
-  $MYLOG = "./$LOG_DEF";
-  $MODRE = $MODRE_DEF;
-  $SKIP = '^(none)$';
-  $CONVERSION = $CONVERSION_DEF;
-  $MAXTHREADS = $MAXTHREADS_DEF;
-
-  my $arg = shift;
-  my ($havem, $havex);
-  while ($arg) {
-    if ($arg =~ /^\-(\S*)/) {
-      my $f = $1;
-      if ($f eq 'h') {print $USAGE; exit;}
-      elsif ($f eq 'n') {$NODEPMODS++; $arg = shift; next;}
-      elsif (!$f) {
-        print "ABORT: no flag name: -\n";
-        return;
-      }
-      
-      my $v = shift; if (!$v || $v =~ /^\-/) {
-        print "ABORT: flag -$f has no value\n";
-        return;
-      }
-      
-      my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
-      if ($f eq 'c' && $v =~ /^($all)$/) {
-        $CONVERSION = $v;
-      }
-      elsif ($f eq 'l') {
-        my $dir = ($v =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
-        if (!$dir || ! -d $dir) {
-          print "ABORT: log file directory does not exist: $v\n";
-          return;
-        }
-        $MYLOG = $v;
-      }
-      elsif ($f eq 'm') {
-        $MODRE = $v;
-        if ($MODRE eq 'all') {$MODRE = '^.*$';}
-        $havem++;
-      }
-      elsif ($f eq 't' && $v =~ /^\d+$/) {$MAXTHREADS = $v;}
-      elsif ($f eq 'x') {$SKIP = $v; $havex++;}
-      else {
-        print "ABORT: unhandled flag: -$f $v\n";
-        return;
-      }
-    }
-    elsif (-d $arg) {$PRJSDIR = $arg;}
-    else {
-      print "ABORT: not a directory: $arg\n";
-      return;
-    }
-    
-    $arg = shift;
+  my $dir = ($LOGFILE =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
+  if (!$dir || ! -d $dir) {
+    print "ABORT: log file directory does not exist: $LOGFILE\n";
+    exit 1;
   }
   
-  # Adjust PRJSDIR...
-  if ($PRJSDIR =~ /^\./) {$PRJSDIR = File::Spec->rel2abs($PRJSDIR);}
-  $PRJSDIR =~ s/[\\\/]$//;
-  if (!-e $PRJSDIR) {
-    print "
-ABORT: dir does not exist: $PRJSDIR\n";
-    return;
+  # Adjust INPD...
+  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
+  $INPD =~ s/[\\\/]$//;
+  if (!-e $INPD) {
+    print "ABORT: dir does not exist: $INPD\n";
+    exit 1;
   }
-  # If PRJSDIR is within a project subdirectory, change it to the main
+  # If INPD is within a project subdirectory, change it to the main
   # project directory.
-  my @p = split(/[\\\/]/, $PRJSDIR);
+  my @p = split(/[\\\/]/, $INPD);
   while (@p) {
     my $d = join('/', @p);
     if (-e "$d/config.conf" || -e "$d|CF_osis2osis.txt") {
-      $PRJSDIR = $d; last;
+      $INPD = $d; last;
     }
     pop(@p);
   }
   
-  # If PRJSDIR is a project main directory and -m was not specified, 
-  # then adjust PRJSDIR to the parent dir and set -m to 'MOD(DICT)?'. 
+  # If INPD is a project main directory and -m was not specified, 
+  # then adjust INPD to the parent dir and set -m to 'MOD(DICT)?'. 
   # This allows any dependencies to be located.
   my $adjust;
-  if (!$havem && ! -e "$PRJSDIR/defaults") {
-    if (-d "$PRJSDIR/../defaults") {$adjust = '..';}
+  if (!$ARGS{'m'} && ! -e "$INPD/defaults") {
+    if (-d "$INPD/../defaults") {$adjust = '..';}
     if ($adjust) {
-      my @p = split(/[\\\/]/, $PRJSDIR);
+      my @p = split(/[\\\/]/, $INPD);
       my @d = split(/[\\\/]/, $adjust);
       my $mod = @p[(@p-@d)];
       $MODRE = '^' . $mod . ($mod !~ /DICT$/ ? '(DICT)?':'') . '$';
-      $PRJSDIR .= "/$adjust";
+      $INPD .= "/$adjust";
     }
   }
   
-  # Adjust MYLOG...
-  if ($MYLOG =~ /^\./)  {$MYLOG  = File::Spec->rel2abs($MYLOG);}
-  
   # Adjust MODRE and SKIP...
-  # If -m was specified as a single non-DICT module, but PRJSDIR is a
+  # If -m was specified as a single non-DICT module, but INPD is a
   # project parent directory (non-adjusted), then include the DICT mod.
-  if (!$adjust && $havem && -e "$PRJSDIR/defaults" 
+  if (!$adjust && $ARGS{'m'} && -e "$INPD/defaults" 
       && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
     $MODRE = '^'.$MODRE.'(DICT)?$';
   }
-  elsif ($havem && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
-  if ($havex && $SKIP !~ /(^\^|\$$)/) {$SKIP = '^'.$SKIP.'$';}
-    
-  return 1;
+  elsif ($ARGS{'m'} && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
+  if ($ARGS{'x'} && $SKIPRE !~ /(^\^|\$$)/) {$SKIPRE = '^'.$SKIPRE.'$';}
 }
 
 # Restart the same conversion using the Vagrant VM
@@ -281,18 +189,18 @@ sub convertInVagrant {
   
   my $vscript = &vagrantPath($SCRIPT);
   if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
-  my $vpdir   = &vagrantPath($PRJSDIR);
-  if (!$vpdir)   {print "ABORT: failed vagrantPath: $PRJSDIR\n"; exit 1;}
-  my $vlog    = &vagrantPath($MYLOG);
-  if (!$vlog)    {print "ABORT: failed vagrantPath: $MYLOG\n";  exit 1;}
+  my $vpdir   = &vagrantPath($INPD);
+  if (!$vpdir)   {print "ABORT: failed vagrantPath: $INPD\n"; exit 1;}
+  my $vlog    = &vagrantPath($LOGFILE);
+  if (!$vlog)    {print "ABORT: failed vagrantPath: $LOGFILE\n";  exit 1;}
   
   my $cmd = "vagrant ssh -c \"".
             "'$vscript' ".
             "-m '$MODRE' ".
-            "-x '$SKIP' ".
+            "-x '$SKIPRE' ".
             "-c '$CONVERSION' ".
             "-l '$vlog' ".
-            ( $NODEPMODS ? '-n ' : '' ).
+            ( $NO_ADDITIONAL ? '-n ' : '' ).
             "'$vpdir'\"";
 
   print "\nStarting Vagrant with...\n$cmd\n";
@@ -445,7 +353,7 @@ sub getProjectInfo {
     $infoP->{$proj}{'runable'}++;
     $infoP->{$proj}{'path'} = "$pdir/$proj";
     if (!defined($infoP->{$cp}{'MainmodName'})) {
-      our $CONF; &set_configuration_globals("$pdir/$cp", 'none');
+      our $CONF; &set_project_globals("$pdir/$cp", 'none');
       foreach my $k (keys %{$CONF}) {$infoP->{$cp}{$k} = $CONF->{$k};}
     }
   }
@@ -559,7 +467,7 @@ sub getDependencies {
   }
   
   # When requested, remove dependencies on modules which are not being run
-  if ($NODEPMODS) {
+  if ($NO_ADDITIONAL) {
     my %rms; map($rms{$_}++, map($_->{'m'}, @{$runAP}));
     foreach my $r (keys %{$dependencyHP}) {
       for (my $i=0; $i<@{$dependencyHP->{$r}}; $i++) {
@@ -589,7 +497,7 @@ sub getDependencies {
         }
         else {
           print "
-ABORT: could not locate a required module: '$m' in '$PRJSDIR'.
+ABORT: could not locate a required module: '$m' in '$INPD'.
 Use the -n flag to run anyway without it, or use a project directory 
 containing the necessary project(s).";
           exit 1;
@@ -748,7 +656,7 @@ sub modOutdir {
     
   $outdir = ( $outdir ? 
       "$outdir/$m" : 
-      "$PRJSDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
+      "$INPD/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
     );
  
   return &shortPath($outdir);
@@ -759,7 +667,7 @@ sub pLog {
 
   print encode("utf8", $p);
   
-  open(LOGF, ">>:encoding(UTF-8)", $MYLOG) || die;
+  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die;
   print LOGF $p;
   close(LOGF);
 }

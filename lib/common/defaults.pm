@@ -240,10 +240,6 @@ sub customize_conf {
   # - documentation comments
   # - comments from original config.conf
   my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n[$modName]\n";
-  foreach my $c (@OC_CONFIGS) {
-    if (!($CONFIG_DEFAULTS{"doc:$c"})) {next;}
-    $defs .= "# $c ".$CONFIG_DEFAULTS{"doc:$c"}."\n#".$c.'='.$CONFIG_DEFAULTS{$c}."\n\n";
-  }
   my $section;
   foreach my $k (sort keys %CONFIG_DEFAULTS) {
     if ($k !~ /^([^\+]+)\+(.*)$/) {next;}
