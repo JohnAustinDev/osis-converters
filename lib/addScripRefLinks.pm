@@ -22,105 +22,13 @@ our ($WRITELAYER, $APPENDLAYER, $READLAYER, $LOGFLAG);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR, $SCRIPT_NAME);
 our ($OSISBOOKSRE, %OSIS_ABBR, %OSIS_GROUP, $XPC, $XML_PARSER, $LOGFILE, $NO_FORKS, $DEBUG);
 
-# IMPORTANT TERMINOLOGY:
+# TERMINOLOGY:
 # ----------------------
 #   A "reference" is a reference to a contiguous Scripture text. For
 #   example: "Matt 1:1-5".
 #   An "extended reference" is a list of Scripture references. For
 #   example: "John 4:5; 6:7-9, 11, 13; 1 Peter 1:3 and Rev 20:1-5" is
 #   a single extended reference.
-
-# SPECIAL ARGUMENTS:
-# ------------------
-#   <regex-group> - A perl regular expression group starting and ending
-#       with parentheses. As usual, special Perl chars must be escaped 
-#       by back-slash. For example: (a|b|\(\.)
-#   <osis-book> - An OSIS book abbreviation such as Gen or Exod.
-#   <xpath> - An xpath expression such as: ancestor::osis:div[@type="book"]
-#   <log-file-line> - A "Linking" line from the ouput log file.
-#       
-
-# PROVIDING BOOK NAMES TO THE PASRER:
-# ------------------------------------
-#   <osis-book>=Name - Will associate the Bible book on the left with
-#       the matching name/abbreviation on the right. Only one term
-#       per line is allowed, but a single book may appear on numerous
-#       lines, each with another matching term. Longest terms for a
-#       book should be listed before shorter terms for the same book.
-#       NOTE: terms on the right are NOT Perl regular expressions but
-#       are string literals. However, these terms may be surrounded by
-#       the PREFIXES or SUFFIXES (see below) and still match the book.
-#
-
-# FIX OR EXCLUDE PARTICULAR "REFERENCES":
-# --------------------------------------------
-#   FIX:<log-file-line> = <the-fix> - Use this to fix or unlink a
-#       parsed reference. Start by copying the "Linking" line from the 
-#       log file which corresponds to the reference that needs fixing. 
-#       These lines have this form: 
-#
-#       Gen.1.5 Linking: "шу бобнинг 8" = Gen.1.8 (T09 (Book|CurrentChap num1-num2?))
-#
-#       Then replace the part after the = with either nothing, to unlink
-#       the reference entirely, or with a fix. The fix is written in a 
-#       shortened form, with double quotes around it (and double quotes 
-#       in the replacement must be escaped with '\'), like this:
-#       "<r Gen.4.5>Genesis 4 verse 5</r> and see \"Lord\" in <r Exod.2.3>Exodus 2:3</r>"
-#   CONTEXT_BOOK: <osis-book> if-xpath <xpath> - Will override the  
-#       context book to be <osis-book> for any node that does not return
-#       false() for the <xpath> expression. 
-#       when the <xpath> expression is evaluated on it.
-#   WORK_PREFIX: <work> if-xpath <xpath> - Will add the given work as
-#       the osisRef work prefix, for any node that does not return 
-#       false() for the <xpath> expression.
-
-# SELECT WHERE TO LOOK FOR REFERENCES:
-# ------------------------------------
-#   SKIP_XPATH:<xpath> - An XPATH expression used to skip particular 
-#       elements of text when searching for Scripture references. By 
-#       default, nothing is skipped.
-#   ONLY_XPATH:<xpath> - An XPATH expression used to select only particular
-#       elements of text to search for Scripture references. By default,
-#       everything is searched.
-#   SKIP_REFERENCES_FOLLOWING:<regex-group> - A Perl regular expression 
-#       which matches words/terms which should indicate the text 
-#       following them are NOT Scripture references.
-#   DONT_MATCH_IF_NO_VERSE: true - To ignore references which
-#       do not imply a verse, as in: "Luke 5".
-#   REQUIRE_BOOK: true - To skip references which do not specify
-#       the book. For example: "see chapter 6 verse 5". Normally, these
-#       references use context to imply their book target.
-
-# CONTROL THE PARSING OF REFERENCES IN THE TEXT:
-# -----------------------------------------------
-#   CHAPTER_TERMS:<regex-group> - A Perl regular expression representing
-#        words/phrases which should be understood as meaning "chapter".
-#   CURRENT_CHAPTER_TERMS:<regex-group> - A Perl regular expression 
-#       representing words/phrases which should be understood as meaning
-#       "the current chapter".
-#   CURRENT_BOOK_TERMS:<regex-group> - A Perl regular expression 
-#       representing words/phrases which should be understood as meaning
-#       "the current book"
-#   VERSE_TERMS:<regex-group> - A Perl regular expression representing 
-#       words/phrases which should be understood as meaning "verse".
-#   COMMON_REF_TERMS:<regex-group> - A Perl regular expression representing 
-#       all characters commonly found in extended references.
-#   PREFIXES:<regex-group> - A Perl regular expression matching possible 
-#       book prefixes. For example: ("\() will allow quotes and "(" as 
-#       prefixes.
-#   REF_END_TERMS:<regex-group> - A Perl regular expression to match the 
-#       end of all extended references.
-#   SUFFIXES:<regex-group> - A Perl regular expression matching suffixes
-#       which may appear at the end of book names and chapter/verse 
-#       terms. SomeTurkic languages have many such suffixes for example.
-#   SEPARATOR_TERMS:<regex-group> - A Perl regular expression matching 
-#       terms used to separate references in extended references. For
-#       example: (;|and) will recognize ";" and the word "and".
-#   CHAPTER_TO_VERSE_TERMS:<regex-group> - A Perl regular expression 
-#       matching terms used to separate chapter from verse in a 
-#       reference. For example: (\:)
-#   CONTINUATION_TERMS:<regex-group> - A Perl regular expression matching 
-#       terms used to show a continuous range of numbers. For example: (\-)
 
 # NO LONGER SUPPORTED:
 # --------------------
@@ -142,8 +50,7 @@ our (%UnhandledWords, %noDigitRef, %noOSISRef, %fixDone,
 our (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath, 
     $chapTerms, $currentChapTerms, $currentBookTerms, $verseTerms, 
     $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
-    $chap2VerseTerms, $continuationTerms, $skipUnhandledBook, 
-    $mustHaveVerse, $require_book, $sp, $numUnhandledWords, %fix,
+    $chap2VerseTerms, $continuationTerms, $sp, $numUnhandledWords, %fix,
     %xpathIfResultContextBook, %xpathIfResultWorkPrefix, %asrlworks,
     $LOCATION, $BK, $CH, $VS, $LV, %missedLeftRefs, $LASTP);
    
@@ -156,7 +63,7 @@ my $fixReplacementMsg = "
    
 require("$SCRD/lib/forks/fork_funcs.pm");
 
-sub runAddScripRefLinks {
+sub addScripRefLinks {
   my $modType = shift;
   my $in_file = shift;
   
@@ -185,7 +92,7 @@ sub runAddScripRefLinks {
     foreach my $osis (@files) {&asrlProcessFile($osis, $refSystem);}
   }
   else {
-    # Run runAddScripRefLinks2 in parallel on each book
+    # Run addScripRefLinks2 in parallel on each book
     my $ramkb = 634000; # Approx. KB RAM usage per fork
     system(
       &escfile("$SCRD/lib/forks/forks.pm") . ' ' .
@@ -193,7 +100,7 @@ sub runAddScripRefLinks {
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
       __FILE__ . ' ' .
-      "runAddScripRefLinks2" . ' ' .
+      "addScripRefLinks2" . ' ' .
       "ramkb:$ramkb" . ' ' .
       "arg2:$modType" . ' ' .
       "arg3:$refSystem" . ' ' .
@@ -245,9 +152,6 @@ sub read_CF_ASRL {
   $sepTerms = $none;
   $chap2VerseTerms = $none;
   $continuationTerms = $none;
-  $skipUnhandledBook = $none;
-  $mustHaveVerse = 0;
-  $require_book = 0;
   $sp="\"";
   $numUnhandledWords = 0;
   $numMissedLeftRefs = 0;
@@ -312,9 +216,6 @@ sub read_CF_ASRL {
       elsif ($_ =~ /^SEPARATOR_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$sepTerms = $2;} next;}
       elsif ($_ =~ /^CHAPTER_TO_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$chap2VerseTerms = $2;} next;}
       elsif ($_ =~ /^CONTINUATION_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$continuationTerms = $2;} next;}
-      elsif ($_ =~ /^SKIP_REFERENCES_FOLLOWING:(\s*\((.*?)\)\s*)?$/) {if ($1) {$skipUnhandledBook = $2;} next;}
-      elsif ($_ =~ /^DONT_MATCH_IF_NO_VERSE:(\s*(.*?)\s*)?$/) {if ($1) {$mustHaveVerse = $2;} next;}
-      elsif ($_ =~ /^REQUIRE_BOOK:(\s*(.*?)\s*)?$/) {if ($1 && $2 !~ /^false$/i) {$require_book = 1;}}
       elsif ($_ =~ /^(FIX:\s*(.*?)\s+(?:Linking:\s*)?(?<!\\)"(.*)(?<!\\)"\s*=)/) { # must match output of logLink
         my $com = $1; my $location = $2; my $printReference = $3;
         my $replacement;
@@ -379,12 +280,12 @@ that you wish to match on a separate line:");
 }
 
 # This function is run in its own thread.
-sub runAddScripRefLinks2 {
+sub addScripRefLinks2 {
   my $osis = shift;
   my $modType = shift;
   my $refSystem = shift;
 
-  $LOGFLAG = 3; # Already logged in runAddScripRefLinks
+  $LOGFLAG = 3; # Already logged in addScripRefLinks
   &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
   $LOGFLAG = undef;
   
@@ -706,13 +607,6 @@ sub addLinksText {
 
       if ($LOCATION eq $DEBUG_LOCATION) {&Log("DEBUG1: MatchedTerm=$matchedTerm Type=$type\n");}
 
-      #  Look at unhandledBook
-      if ($unhandledBook && !$isRefElement && ($require_book || $unhandledBook =~ /$skipUnhandledBook/)) {
-        # skip if its a tag- this could be a book name, but we can't include it in the link
-        &hideTerm($matchedTerm, $ttP);
-        next;
-      }
-
       my $mtENC = quotemeta($matchedTerm);
 
       if ($$ttP !~ /(($prefixTerms)?$mtENC($suffixTerms)*($prefixTerms|$ebookNames|$chapTerms|$verseTerms|$suffixTerms|$refTerms|\d|\s)*)($refEndTerms)/) {
@@ -1006,18 +900,15 @@ sub getOSISRef {
   $$osisP = "";
 
   # OSIS reference
-  if ($vs == -1 && $mustHaveVerse eq "true") {$$osisP = ""; return 0;}
-  else {
-    $$osisP = $$bkP.".".$$chP;
+  $$osisP = $$bkP.".".$$chP;
 
-    # Some Ps have a verse 0 canonical title, but SWORD does not support verse "0".
-    # so move these references so they point to verse 1 and are not just dropped.
-    if ($$bkP eq "Ps" && $vs == 0) {$vs++;}
+  # Some Ps have a verse 0 canonical title, but SWORD does not support verse "0".
+  # so move these references so they point to verse 1 and are not just dropped.
+  if ($$bkP eq "Ps" && $vs == 0) {$vs++;}
 
-    # A value of -1 means don't include verse in OSIS ref
-    if ($vs != -1) {$$osisP .= ".".$vs;}
-    if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}
-  }
+  # A value of -1 means don't include verse in OSIS ref
+  if ($vs != -1) {$$osisP .= ".".$vs;}
+  if ($lv != -1 && $lv > $vs) {$$osisP .= "-".$$bkP.".".$$chP.".".$lv;}
 
   return &validOSISref($$osisP, 0, 0, 1);
 }

@@ -48,7 +48,7 @@ select STDOUT; $| = 1;  # make unbuffered
 our ($SCRIPT, $SCRD);
 
 # DEBUG in config.conf is by set_system_globals()
-our $DEBUG = 0;
+#our $DEBUG = 1;
 
 # Conversions to OSIS
 # NOTE: 'osis' means sfm2osis unless the project has a source project, 

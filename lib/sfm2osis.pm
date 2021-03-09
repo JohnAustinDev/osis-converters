@@ -50,17 +50,6 @@ our ($sourceProject);
 #       Example: SPECIAL_CAPITALS:i->İ ı->I
 #   VSYS_EXTRA, VSYS_MISSING, VSYS_MOVED - see fitToVerseSystem.pm
 
-my $EVAL_REGEX_MSG = 
-"IMPORTANT for EVAL_REGEX:
-EVAL_REGEX instructions only effect RUN statements which come later on 
-in CF_sfm2osis.txt. Also note that:
-EVAL_REGEX(someText):s/before/after/
-is only effective until an empty
-EVAL_REGEX(someText):
-statement is encountered, which will cancel all previous 
-EVAL_REGEX(someText) statements. OR, if someText is a file path, then it 
-will only apply when that particular file is later run.";
-
 my (@EVAL_REGEX, $USFMfiles);
 sub sfm2osis {
   my $cf = shift;
@@ -94,20 +83,6 @@ following to $cf:\nEVAL_REGEX(OPTIONAL_LINE_BREAKS):");
     $line++;
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(sourceProject|DEBUG):(\s*(.*?)\s*)?$/) {
-      no strict "refs";
-      if ($2) {
-        my $par = $1;
-        my $val = $3;
-        if (defined($$par) && $$par ne 'on_by_default') {
-          &Error("The SET_$par command may only appear once, and it applies everywhere.", "Remove all but one of the SET_$par commands from $cf");
-        }
-        else {
-          $$par = ($val && $val !~ /^(0|false)$/i ? $val:'');
-          &Log("INFO: Setting $par to $val\n");
-        }
-      }
-    }
     elsif ($_ =~ /^EVAL_REGEX(\((.*?)\))?:\s*(.*?)\s*$/) {
       my $rg = ($1 ? $2:'');
       my $rx = $3;
@@ -174,7 +149,7 @@ http://ubs-icap.org/chm/usfm/2.4/index.html
 Or sometimes it is due to a bug or 'feature' of CrossWire's usfm2osis.py 
 script or the USFM or OSIS specifications. The solution probably
 requires that EVAL_REGEX instructions be added to CF_sfm2osis.txt
-to update or remove offending SFM tags. $EVAL_REGEX_MSG");}
+to update or remove offending SFM tags.\n" . &help('EVAL_REGEX'));}
   }
   &Log("\n");
   # test/evaluation for u2o.py script

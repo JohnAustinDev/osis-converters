@@ -57,9 +57,9 @@ our ($XPC, $XML_PARSER);
 #        and 16:14 footnotes' requires 'verses[\s\d:-]+and' to 
 #        disassociate the left ref from footnote association.
 
-my ($skip_xpath, $only_xpath, $skipintros, $footnoteTerms, $commonTerms, 
-   $currentVerseTerms, $suffixTerms, $stopreference, $BK, $CH, $VS, $LV, 
-   $LASTP, $intro, $AFL_LC, %reportedSkipped);
+my ($skip_xpath, $only_xpath, $footnoteTerms, $commonTerms, 
+    $currentVerseTerms, $suffixTerms, $stopreference, $BK, $CH, 
+    $VS, $LV, $LASTP, $intro, $AFL_LC, %reportedSkipped);
 
 my %OSISID_FOOTNOTE;
 my %VERSE_FOOTNOTE_IDS;
@@ -83,7 +83,6 @@ sub runAddFootnoteLinks {
   # Globals
   $skip_xpath = '';
   $only_xpath = '';
-  $skipintros = 0;
   $footnoteTerms = '';
   $commonTerms = '';
   $currentVerseTerms = '';
@@ -132,7 +131,6 @@ sub runAddFootnoteLinks {
       }
       elsif ($_ =~ /^SKIP_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$skip_xpath = $2;} next;}
       elsif ($_ =~ /^ONLY_XPATH:(\s*(.*?)\s*)?$/) {if ($1) {$only_xpath = $2;} next;}
-      elsif ($_ =~ /^SKIP_INTRODUCTIONS:\s*(.*?)\s*$/) {$skipintros = $1; $skipintros = ($skipintros && $skipintros !~ /^false$/i ? 1:0); next;}
       elsif ($_ =~ /^FOOTNOTE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$footnoteTerms = $2;} next;}
       elsif ($_ =~ /^COMMON_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$commonTerms = $2;} next;}
       elsif ($_ =~ /^CURRENT_VERSE_TERMS:(\s*\((.*?)\)\s*)?$/) {if ($1) {$currentVerseTerms = $2;} next;}
@@ -338,8 +336,6 @@ sub processXML {
     $thisp =~ s/^([^\.]*\.[^\.]*)\..*$/$1/;
     if ($LASTP ne $thisp) {&Log("--> $thisp\n", 2);} $LASTP = $thisp;
 
-    if ($intro && $skipintros) {next;}
-    
     my $text = &addFootnoteLinks2TextNode($textNode, $myMod);
    
     # save changes for later (to avoid messing up line numbers)

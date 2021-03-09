@@ -169,7 +169,7 @@ sub processOSIS {
   # Parse Scripture references from the text and check them
   if (&conf('AddScripRefLinks')) {
   
-    &runAddScripRefLinks($modType, \$OSIS);
+    &addScripRefLinks($modType, \$OSIS);
     
     &adjustAnnotateRefs(\$OSIS);
     

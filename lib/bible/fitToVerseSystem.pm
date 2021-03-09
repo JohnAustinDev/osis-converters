@@ -32,227 +32,59 @@ our $VSYS_INSTR_RE    = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<
 our $VSYS_PINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<vl>\\d+|PART))?)?";
 our $VSYS_UNIVERSE_RE = "(?<vsys>$SWORD_VERSE_SYSTEMS)\:$VSYS_PINSTR_RE";
 
-my $fitToVerseSystemDoc = "
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS:
-The goal is to fit a source Bible translation having a custom verse 
-system into a known fixed versification system so that every verse of 
-the source system is identified according to the known system. Both the 
-fixed and the source verse systems are recorded together in a single 
-OSIS file. This process should be as easy as possible for the person 
-running the conversion, so only differences between the source and fixed 
-verse systems need to be identified, using the small set of instructions
-described below. Then the Bible translation can be read from the OSIS
-file having either the source or fixed verse system (using a simple 
-XSLT) with all Scripture references being correct according to the 
-chosen verse system.
 
-IMPORTANT:
-In the following descriptions, this:
-BK.1.2.3
-means this:
-Bible book 'BK' chapter '1' verse '2' through '3', or, BK 1:2-3
+# OSIS-CONVERTERS VERSIFICATION SYSTEM:
+# Special milestone markers are added to the OSIS file to facilitate 
+# reference mapping between the source, fixed and fitted verse systems:
+# source: The custom source verse system created by the translators. 
+#         Because it is a unique and customized verse system, by itself 
+#         there is no way to link its verses with external texts or 
+#         cross-references.
+# fixed:  A known, unchanging, verse system which is most similar to the 
+#         source verse system. Because it is a known verse system, its 
+#         verses can be linked to any other known external text or 
+#         cross-reference.
+# fitted: A fusion between the source and fixed verse systems arrived at 
+#         by applying OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS. The 
+#         fitted verse system maintains the exact form of the custom verse 
+#         system, but also exactly fits within the fixed verse system. The
+#         resulting fitted verse system will have 'missing' verses or 
+#         'extra' alternate verses appended to the end of a verse if there 
+#         are differences between the source and fixed verse systems. 
+#         These differences usually represent moved, split, or joined 
+#         verses. The OSIS file can then be extracted in either the source 
+#         or the fixed verse system in such a way that all internal and  
+#         external reference hyperlinks are made correct and functional.
+#         
+# The fitted verse system requires that applicable reference links have 
+# two osisRef attributes, one for the fixed verse system (osisRef) and 
+# another for the source (annotateRef with annotateType = source). To 
+# facilitate this, the following maps are provided:
+# 1) fixed2Source: Given a verse in the fixed verse system, get the id of 
+#    the source verse system verse which corresponds to it. This is needed 
+#    to map a readable externally supplied cross-reference in the fixed 
+#    verse system to the moved location in the source verse system. 
+#    Example: A fixed verse system cross-reference targets Romans 14:24, 
+#    but in the source verse system this verse is at Romans 16:25.
+# 2) source2Fitted: Given a verse in the source verse system, get the id 
+#    of the fitted (fixed verse system) verse which contains it. This is 
+#    needed to map source references to their location in the fitted verse 
+#    system. Example: Source verse Rom.16.25 might correspond to a 
+#    different location in the fixed verse system, but in the fitted 
+#    (fixed) verse system it is appended to the end of Rom.16.24 (the last 
+#    verse of the fixed verse system's chapter).
+# 3) fixed2Fitted: Given a verse in the fixed verse system, get the id of 
+#    the fitted (also a fixed verse system) verse which contains it. This  
+#    is used to map externally supplied cross-references for the fixed 
+#    verse system to their actual location in the fitted verse system. 
+#    Example: A fixed verse system cross-reference targets Rom.14.24, 
+#    but in the fitted OSIS file, this verse is appended to the end of 
+#    Rom.16.24. This is a convenience map since it is the same 
+#    as source2Fitted{fixed2Source{verse}}
+# 4) missing: If a fixed verse system verse is left out of the translation
+#    and is not even included in a footnote, then there will be no cross
+#    references pointing to it.
 
-VSYS_MOVED: BK.1.2.3 -> BK.4.5.6 (fixed -> source)
-The following description applies when BK is the same to the left and 
-right of the arrow (otherwise see the next paragraph). This instruction 
-specifies that this translation has moved the verses that would be found 
-in a range of the fixed verse system to a different position in the 
-source verse system, indicated by the range to the right of the arrow. 
-The two ranges must be the same size. The end verse portion of either 
-range may be the keyword 'PART' (such as Gen.4.7.PART), meaning that the 
-reference applies to only part of the specified verse. The 'moved' 
-verses appear in the same position when rendered as either source or 
-fixed verse systems, by 'fitting' them into the fixed verse system by 
-appending them to the end of the previous verse. Furthermore this 
-VSYS_MOVED instruction also updates the hyperlink targets of externally 
-supplied Scripture cross-references so that they correctly point to 
-their moved location in the source verse system, and updates internal 
-Scripture cross-refernences so they correctly point to their proper
-fitted locations.
-
-VSYS_MOVED: BKA.1.2.3 -> BKB.4.5.6 (fixed -> source)
-The following description applies when BKA is different than BKB (if 
-they are the same, see the previous paragraph). This instruction 
-specifies that this translation has moved the verses that would be found 
-in a range of the fixed verse system to a different book in the source 
-verse system, indicated by the range to the right of the arrow. The two 
-ranges must be the same size. Book to book moves result in the verses 
-being located in one book or the other, depending on whether the source 
-or fixed verse system is being used (it does not 'fit' the source into 
-the fixed verse system by appending to existing verses). Furthermore 
-this VSYS_MOVED instruction also updates the hyperlink targets of 
-externally supplied Scripture cross-references so that they correctly 
-point to their moved location in the source verse system, and updates 
-internal Scripture cross-references so they correctly point to their 
-proper fixed locations.
-
-VSYS_MOVED: BKA -> OSIS_GROUP[(BKB|N)] (fixed -> source)
-Specifies that BKA in the fixed verse system was moved to a different
-position in the source, as specified by the bookGroup (see \%OSIS_GROUP 
-keys) and position. Position may be specified by a number or by the OSIS 
-abbreviation of a book found in bookGroup. The book will then appear in 
-that location whenever the source verse system is used.
-
-VSYS_MOVED: OSIS_GROUP -> bookGroup[N] (fixed -> source)
-Specifies that book group OSIS_GROUP in the fixed verse system was moved 
-to a different position in the source, as specified by position N. The 
-book group will then appear in that location whenever the source verse 
-system is used.
-
-VSYS_EXTRA: BK.1.2.3 <- VERSIFICATION:BK.1.2.3 (source <- universal)
-Specifies that the source verse system includes an extra range of verses 
-which do not exist in the fixed verse system. The left side verse range 
-specifies the extra verses in the source verse system, and the right 
-side range is a universal address for those extra verses, which is only 
-used to record where the extra verses originated from. So for the fitted 
-verse system, the additional verse(s) will be converted to alternate 
-verse(s) and appended to the preceding extant verse in the fixed verse 
-system. Also, if there are any verses following the extra verses in the 
-source verse system, then these will be renumbered downward by the 
-number of extra verses, and alternate verse numbers will be appended to 
-display their original verse number(s) in the source verse system. 
-Additionally in the case of renumbered verses, externally supplied 
-Scripture cross-reference to these verses are updated so as to be 
-correct for both the source and fitted verse systems. The extra verse 
-range may be an entire chapter if it occurs at the end of a book (like 
-Psalm 151), in which case an alternate chapter number will be inserted 
-and the entire extra chapter will be appended to the last verse of the 
-previous extant chapter.
-
-VSYS_CHAPTER_SPLIT_AT: BK.3.6 (fixed)
-Specifies that this translation has split a chapter into two chapters.
-Verses in the split chapter from the split onward will all be appended 
-to the end of the previous verse and given alternate chapter:verse 
-designations. The verses of all following chapters will be given alter-
-nate chapter:verse designations as well. Like VSYS_MOVED, this instruc-
-tion also updates the hyperlink targets of externally supplied Scripture 
-cross-references so that they correctly point to their moved location in 
-the source verse system, and updates internal Scripture cross-
-refernences so they correctly point to their fitted locations.
-
-VSYS_MOVED_ALT: BK.1.2.3 -> BK.4.5.6 (fixed -> source)
-Similar to VSYS_MOVED but this should be used when alternate verse 
-markup like '\\va 2\\va*' has been used by the translators for the 
-verse numbers of the moved verses, rather than regular verse 
-markers being used (which is the more common case). If both regular 
-verse markers (showing the source system verse number) and alternate 
-verse numbers (showing the fixed system verse numbers) have been used by 
-the translators, then VSYS_MOVED should be used. This instruction will 
-not change the OSIS markup of the alternate verses. It is the same as 
-'VSYS_FROM_TO: A -> B'.
-
-VSYS_MISSING: BK.1.2.3 (fixed)
-Specifies that this translation does not include a range of verses of
-the fixed verse system. So the fitted verse system will have the 
-preceeding extant verse id modified to span the missing range, but in no 
-case exceeding the end of a chapter. Any externally supplied cross-
-references to the missing verses will then be removed. Also, if there 
-are source verse(s) already sharing the verse number(s) of the missing 
-verse(s), then the fixed verse system will have these, as well as any 
-following verses in the chapter renumbered upward by the number of 
-missing verses, and alternate verse numbers will be appended to them 
-displaying their original source verse system number. Additionally in 
-the case of renumbered verses, externally supplied Scripture cross-
-reference to these verses are updated so as to be correct for both the 
-source and fitted verse systems. An entire missing chapter is not 
-currently supported unless it is the last chapter in a book.
-
-VSYS_MISSING_FN: (fixed)
-Similar to VSYS_MISSING but is only used if a footnote was included in 
-the verse before the missing verse(s) which addresses the missing 
-verse(s). This will simply link the verse having the footnote together 
-with the missing verse, in the source verse system.
-
-VSYS_EMPTY: BK.1.2.3 (fixed)
-Use this if regular verse markers are included in the text, however the 
-verses are left empty. This will just remove external Scripture 
-cross-references to the removed verse(s).
-
-VSYS_FROM_TO: BK.1.2.3 -> BK.4.5.6 (fixed -> source)
-This does not effect any verse or alternate verse markup or locations. 
-It only allows references in the source and fixed verse systems to have 
-their addresses forwarded to their location in the fitted verse system 
-and to each other. It also allows the human readable portion of external 
-cross-references to be updated to their locations in the source verse 
-system. It could be used if a verse is marked in the text but is left 
-empty, while there is a footnote about it in the previous verse (but see 
-VSYS_MISSING_FN which is the more common case). VSYS_FROM_TO is usually 
-not the right instruction for most use cases; it is used most often 
-internally.
-
-NOTES:
-- Each instruction is evaluated in fixed verse system order regardless 
-of their order in the CF_ file.
-- A verse may be effected by multiple instructions.
-- This implementation does not accomodate extra books, or ranges of 
-chapters, and whole chapters are only supported with VSYS_EXTRA for
-chapters at the end of a book, where the chapter was simply appended 
-(such as Psalm 151 of Synodal).
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-
-";
-
-my $verseSystemDoc = "
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-OSIS-CONVERTERS VERSIFICATION SYSTEM:
-Special milestone markers are added to the OSIS file to facilitate 
-reference mapping between the source, fixed and fitted verse systems:
-source: The custom source verse system created by the translators. 
-        Because it is a unique and customized verse system, by itself 
-        there is no way to link its verses with external texts or 
-        cross-references.
-fixed:  A known, unchanging, verse system which is most similar to the 
-        source verse system. Because it is a known verse system, its 
-        verses can be linked to any other known external text or 
-        cross-reference.
-fitted: A fusion between the source and fixed verse systems arrived at 
-        by applying OSIS-CONVERTERS VERSIFICATION INSTRUCTIONS. The 
-        fitted verse system maintains the exact form of the custom verse 
-        system, but also exactly fits within the fixed verse system. The
-        resulting fitted verse system will have 'missing' verses or 
-        'extra' alternate verses appended to the end of a verse if there 
-        are differences between the source and fixed verse systems. 
-        These differences usually represent moved, split, or joined 
-        verses. The OSIS file can then be extracted in either the source 
-        or the fixed verse system in such a way that all internal and  
-        external reference hyperlinks are made correct and functional.
-        
-The fitted verse system requires that applicable reference links have 
-two osisRef attributes, one for the fixed verse system (osisRef) and 
-another for the source (annotateRef with annotateType = source). To 
-facilitate this, the following maps are provided:
-1) fixed2Source: Given a verse in the fixed verse system, get the id of 
-   the source verse system verse which corresponds to it. This is needed 
-   to map a readable externally supplied cross-reference in the fixed 
-   verse system to the moved location in the source verse system. 
-   Example: A fixed verse system cross-reference targets Romans 14:24, 
-   but in the source verse system this verse is at Romans 16:25.
-2) source2Fitted: Given a verse in the source verse system, get the id 
-   of the fitted (fixed verse system) verse which contains it. This is 
-   needed to map source references to their location in the fitted verse 
-   system. Example: Source verse Rom.16.25 might correspond to a 
-   different location in the fixed verse system, but in the fitted 
-   (fixed) verse system it is appended to the end of Rom.16.24 (the last 
-   verse of the fixed verse system's chapter).
-3) fixed2Fitted: Given a verse in the fixed verse system, get the id of 
-   the fitted (also a fixed verse system) verse which contains it. This  
-   is used to map externally supplied cross-references for the fixed 
-   verse system to their actual location in the fitted verse system. 
-   Example: A fixed verse system cross-reference targets Rom.14.24, 
-   but in the fitted OSIS file, this verse is appended to the end of 
-   Rom.16.24. This is a convenience map since it is the same 
-   as source2Fitted{fixed2Source{verse}}
-4) missing: If a fixed verse system verse is left out of the translation
-   and is not even included in a footnote, then there will be no cross
-   references pointing to it.
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-
-";
 
 sub parseInstructionVSYS {
   my $t = shift;
@@ -986,7 +818,12 @@ sub vsmsg {
   
   if ($VSMSG_DONE) {return $msg;}
   $VSMSG_DONE++;
-  return "$msg\n$fitToVerseSystemDoc";
+  return "$msg
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+" . &help('CF_sfm2osis.txt') . "
+------------------------------------------------------------------------
+------------------------------------------------------------------------";
 }
 
 sub errMissingVerse {

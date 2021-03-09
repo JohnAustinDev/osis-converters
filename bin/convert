@@ -109,7 +109,7 @@ if (!&runningInVagrant() && $restartInVagrant) {
   if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
   # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
-    &set_project_globals($INFO->{$m}{'path'}, 'none');
+    &set_project_globals($INFO->{$m}{'path'}, $LOGFILE);
     &set_system_globals($m);
   }
 }
@@ -129,12 +129,14 @@ sub processArguments {
   my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
   if ($CONVERSION !~ /^($all)$/) {
     print "ABORT: unknown conversion: $CONVERSION\n";
+    print &usage();
     exit 1;
   }
   
   my $dir = ($LOGFILE =~ /^(.*)[\\\/][^\\\/]+$/ ? $1:'');
   if (!$dir || ! -d $dir) {
     print "ABORT: log file directory does not exist: $LOGFILE\n";
+    print &usage();
     exit 1;
   }
   
@@ -143,6 +145,7 @@ sub processArguments {
   $INPD =~ s/[\\\/]$//;
   if (!-e $INPD) {
     print "ABORT: dir does not exist: $INPD\n";
+    print &usage();
     exit 1;
   }
   # If INPD is within a project subdirectory, change it to the main
@@ -353,7 +356,7 @@ sub getProjectInfo {
     $infoP->{$proj}{'runable'}++;
     $infoP->{$proj}{'path'} = "$pdir/$proj";
     if (!defined($infoP->{$cp}{'MainmodName'})) {
-      our $CONF; &set_project_globals("$pdir/$cp", 'none');
+      our $CONF; &set_project_globals("$pdir/$cp", $LOGFILE);
       foreach my $k (keys %{$CONF}) {$infoP->{$cp}{$k} = $CONF->{$k};}
     }
   }

@@ -452,6 +452,22 @@ our $TNS = "xmlns='$TEI_NAMESPACE'";
 
 our $DICTIONARY_WORDS = "DictionaryWords.xml";
 
+our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 'PUNC_AS_LETTER');
+
+our @VSYS_INSTRUCTIONS = ('VSYS_MISSING', 'VSYS_EXTRA', 'VSYS_FROM_TO', 
+    'VSYS_EMPTY', 'VSYS_MOVED', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 
+    'VSYS_CHAPTER_SPLIT_AT');
+    
+our @CF_ADDSCRIPREFLINKS = ('CONTEXT_BOOK', 'WORK_PREFIX', 'SKIP_XPATH', 
+    'ONLY_XPATH', 'CHAPTER_TERMS', 'CURRENT_CHAPTER_TERMS', 
+    'CURRENT_BOOK_TERMS', 'VERSE_TERMS', 'COMMON_REF_TERMS', 'PREFIXES', 
+    'REF_END_TERMS', 'SUFFIXES', 'SEPARATOR_TERMS', '<osis-abbreviation>',
+    'CHAPTER_TO_VERSE_TERMS', 'CONTINUATION_TERMS', 'FIX');
+    
+our @CF_ADDFOOTNOTELINKS = ('ORDINAL_TERMS', 'FIX', 'SKIP_XPATH', 
+    'ONLY_XPATH', 'FOOTNOTE_TERMS', 'COMMON_TERMS', 
+    'CURRENT_VERSE_TERMS', 'SUFFIXES', 'STOP_REFERENCE');
+
 # Initializes [system] global variables, checks operating system and 
 # dependencies, and restarts on a Vagrant VM if necessary. If this
 # instance is a Linux system with all necessary dependencies, then 1
