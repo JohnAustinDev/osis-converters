@@ -188,18 +188,6 @@ sub init() {
     exit 0;
   }
   
-  # If $LOGFILE is undef then a new log file named $SCRIPT_NAME will be 
-  # started by init_linux_script().
-  # If $LOGFILE is 'none' then no log file will be created but log info 
-  # will be printed to the console.
-  # If $LOGFILE is a file path then that file will be appended to.
-  if (our $LOGFILE && $LOGFILE ne 'none') {
-    if ($LOGFILE =~ /^\./) {
-      $LOGFILE = File::Spec->rel2abs($LOGFILE);
-    }
-    $LOGFILE =~ s/\\/\//g;
-  }
-  
   if ($SCRIPT_NAME eq 'convert') {return;}
   
   my $error = &checkModuleDir(our $INPD);

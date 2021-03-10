@@ -39,7 +39,7 @@ our %ARG = (
     
       'first' => [ 'INPD', '.', 'dir', 'Path to an osis-converters project directory. Default is the working directory.' ],
     
-      'second' => [ 'LOGFILE', undef, 'log', 'Log file path. Default is LOG_'.$SCRIPT_NAME.'.txt in the project\'s output directory.' ],
+      'second' => [ 'LOGFILE', undef, 'file', 'Log file path. Default is LOG_'.$SCRIPT_NAME.'.txt in the project\'s output directory.' ],
     },
   },
 
@@ -53,7 +53,7 @@ our %ARG = (
     'argument' => {
     
       # this overrides the second argument of 'all' above
-      'second' => [ 'LOGFILE', './LOG_convert.txt', 'log', 'Log file path. Default is ./OUT_convert.txt in the working directory.' ],
+      'second' => [ 'LOGFILE', './LOG_convert.txt', 'file', 'Log file path. Default is ./OUT_convert.txt in the working directory.' ],
     },
     
     'option' => {
@@ -640,13 +640,16 @@ sub arguments {
       }
     }
     
-    my $var;
-    if (ref($ARG{$SCRIPT_NAME}{$type}{$arg})) {
-      $var = $ARG{$SCRIPT_NAME}{$type}{$arg}[0];
+    my $aP = $ARG{$SCRIPT_NAME}{$type}{$arg};
+    if (!ref($aP)) {
+      $aP = $ARG{'all'}{$type}{$arg};
     }
-    else {$var = $ARG{'all'}{$type}{$arg}[0];}
+    
+    my $var = $aP->[0];
     
     if ($type eq 'switch') {$val = !$$var;}
+    
+    elsif ($aP->[2] =~ /^(file|dir)$/) {$val = &argPath($val);}
     
     $$var = $val;
     $args{$arg} = $val;

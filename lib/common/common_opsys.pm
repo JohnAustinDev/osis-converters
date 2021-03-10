@@ -580,13 +580,23 @@ sub set_system_globals {
   }
 }
 
+sub argPath {
+  my $p = shift;
+  
+  if ($p eq 'none') {return $p;} # special case for LOGFILE
+  elsif (!$p) {return;}
+  
+  if ($p !~ /^[\/\.]/) {$p = "./$p";}
+  if ($p =~ /^\./) {$p = File::Spec->rel2abs($p);}
+  $p =~ s/\\/\//g;
+  
+  return $p;
+}
 
 sub set_project_globals {
-  our $INPD = shift;
-  our $LOGFILE = shift;
+  our $INPD    = &argPath(shift);
+  our $LOGFILE = &argPath(shift);
 
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-  $INPD =~ s/\\/\//g;
   # Allow using a project subdirectory as $INPD argument
   { my $subs = join('|', 'sfm', 'images', 'output', @CONV_PUBS);
     $INPD =~ s/\/($subs)(\/.*?$|$)//;
@@ -1762,7 +1772,14 @@ sub Report {
 #  1   = log file + console
 #  2   = only console
 #  3   = don't log anything - used by shell($cmd, $flag)
-# NOTE: If $LOGFLAG is defined, its value will be used for $flag.
+#
+# If $LOGFLAG is defined, its value will be used for $flag.
+#
+# If $LOGFILE is undef then a new log file named $SCRIPT_NAME will be 
+# started by init_linux_script().
+# If $LOGFILE is 'none' then no log file will be created but log info 
+# will be printed to the console.
+# If $LOGFILE is a file path then that file will be appended to.
 my $LOGFILE_BUFFER;
 sub Log {
   my $p = shift; # log message

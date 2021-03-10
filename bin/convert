@@ -140,14 +140,6 @@ sub processArguments {
     exit 1;
   }
   
-  # Adjust INPD...
-  if ($INPD =~ /^\./) {$INPD = File::Spec->rel2abs($INPD);}
-  $INPD =~ s/[\\\/]$//;
-  if (!-e $INPD) {
-    print "ABORT: dir does not exist: $INPD\n";
-    print &usage();
-    exit 1;
-  }
   # If INPD is within a project subdirectory, change it to the main
   # project directory.
   my @p = split(/[\\\/]/, $INPD);
