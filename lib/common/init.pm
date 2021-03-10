@@ -18,12 +18,12 @@
 
 use strict;
 
-our ($CONFFILE, $DEBUG, $DEFAULT_DICTIONARY_WORDS, $DICTINPD, $OUTDIR, 
-    $DICTIONARY_WORDS_NAMESPACE, $DICTMOD, $FONTS, $INOSIS, $INPD, 
-    $LOGFILE, $MAININPD, $MAINMOD, $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, 
-    $NO_OUTPUT_DELETE, $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, 
-    $TEI_NAMESPACE, $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, 
-    %CONV_OUTPUT_SUBDIR, %CONV_OUTPUT_FILES);
+our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE, 
+    $DICTMOD, $FONTS, $INOSIS, $INPD, $LOGFILE, $MAININPD, $MAINMOD, 
+    $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, $NO_OUTPUT_DELETE, 
+    $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, $TEI_NAMESPACE, 
+    $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, %CONV_OUTPUT_SUBDIR, 
+    %CONV_OUTPUT_FILES);
 
 sub init_linux_script {
   # Global $forkScriptName will only be set when running from fork.pm, in  
@@ -81,8 +81,6 @@ sub init_linux_script {
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
   $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
-  
-  $DEFAULT_DICTIONARY_WORDS = "$MOD_OUTDIR/DictionaryWords_autogen.xml";
   
   if ($SCRIPT_NAME =~ /^defaults$/) {return;}
   
@@ -392,7 +390,7 @@ sub initLibXML {
   $XPC = XML::LibXML::XPathContext->new;
   $XPC->registerNs('osis', $OSIS_NAMESPACE);
   $XPC->registerNs('tei', $TEI_NAMESPACE);
-  $XPC->registerNs('dw', $DICTIONARY_WORDS_NAMESPACE);
+  $XPC->registerNs('dw', $ADDDICTLINKS_NAMESPACE);
   $XML_PARSER = XML::LibXML->new();
 }
 

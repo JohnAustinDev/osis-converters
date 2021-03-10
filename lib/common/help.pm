@@ -102,8 +102,7 @@ our %HELP = (
       [ 'LangSortOrder', 'DEPRECATED. Use the more flexible KeySort instead.' ],
       [ 'AudioCode', 'A publication code for associated audio. Multiple modules having different scripts may reference the same audio.' ],
       [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: (true | false | AUTO).' ],
-      [ 'AddDictLinks' => 'Select whether to parse glossary references in Bible text and convert them to hyperlinks: (true | false | check | AUTO).' ],
-      [ 'AddSeeAlsoLinks' => 'Select whether to parse glossary references in glossary text and convert them to hyperlinks: (true | false | check | AUTO).' ],
+      [ 'AddDictLinks' => 'Select whether to parse glossary references in the text and convert them to hyperlinks: (true | false | check | AUTO).' ],
       [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: (true | false | AUTO).' ],
       [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: (true | false |AUTO).' ],
       [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: '.join(', ', split(/\|/, $SWORD_VERSE_SYSTEMS)).'.' ],
@@ -234,8 +233,14 @@ our %HELP = (
     ])],
   ]],
   
-  [$DICTIONARY_WORDS, [
-  
+  ['CF_addDictLinks.xml', [
+    ['para', '' ],
+    ['list', ['ELEMENT', 'DESCRIPTION'], [
+    
+    ]],
+    ['list', ['ATTRIBUTE', 'DESCRIPTION'], [
+    
+    ]],
   ]],
 ],
 

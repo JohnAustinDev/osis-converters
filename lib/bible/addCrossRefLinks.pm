@@ -42,7 +42,7 @@ our ($XPC, $XML_PARSER, %OSIS_GROUP, %BOOKNAMES, $ONS);
 my (%INSERT_NOTE_SPEEDUP, $ADD_CROSS_REF_LOC, $ADD_CROSS_REF_BAD,
    $ADD_CROSS_REF_NUM);
    
-sub runAddCrossRefLinks {
+sub addCrossRefLinks {
   my $osisP = shift;
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);

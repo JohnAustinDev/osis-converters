@@ -80,8 +80,8 @@ our @OC_CONFIGS = (
   'FullResourceURL', 'TranslationTitle', 'CombineGlossaries', 
   'CombinedGlossaryTitle', 'MATCHES:BookGroupTitle\w+', 
   'NormalizeUnicode', 'AddScripRefLinks', 'AddDictLinks', 
-  'AddSeeAlsoLinks', 'AddFootnoteLinks' , 'AddCrossRefLinks', 
-  'ReorderGlossaryEntries', 'CustomBookOrder', 'IntroductionTitle',
+  'AddFootnoteLinks' , 'AddCrossRefLinks', 'ReorderGlossaryEntries', 
+  'CustomBookOrder', 'IntroductionTitle',
 );
 
 # Valid [system] section config entries (these end up as Perl global variables)
@@ -127,7 +127,6 @@ our @MULTIVALUE_CONFIGS = ('GlobalOptionFilter', 'Feature', 'Obsoletes');
 our %CONFIG_DEFAULTS = (
   'AddScripRefLinks' => 'AUTO',
   'AddDictLinks' => 'AUTO',
-  'AddSeeAlsoLinks' => 'AUTO',
   'AddFootnoteLinks' => 'AUTO',
   'AddCrossRefLinks' => 'AUTO',
   'Versification' => 'KJV',
@@ -446,11 +445,9 @@ $ANNOTATE_TYPE{'Feature'} = 'x-feature'; # annotateRef listing special features 
 our $OSISSCHEMA = "http://localhost/~dmsmith/osis/osisCore.2.1.1-cw-latest.xsd"; # Original is at www.crosswire.org, but it's copied locally for speedup/networkless functionality
 our $OSIS_NAMESPACE = 'http://www.bibletechnologies.net/2003/OSIS/namespace';
 our $TEI_NAMESPACE = 'http://www.crosswire.org/2013/TEIOSIS/namespace';
-our $DICTIONARY_WORDS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
+our $ADDDICTLINKS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 our $ONS = "xmlns='$OSIS_NAMESPACE'";
 our $TNS = "xmlns='$TEI_NAMESPACE'";
-
-our $DICTIONARY_WORDS = "DictionaryWords.xml";
 
 our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 'PUNC_AS_LETTER');
 
@@ -1131,13 +1128,10 @@ sub confAuto {
   }
   elsif ($entry eq 'AddDictLinks') {
     return ($script_name !~ /osis2osis/ && 
-            $mod eq $MAINMOD &&
-            -e "$MAININPD/$DICTIONARY_WORDS" ? 'true':'');
-  }
-  elsif ($entry eq 'AddSeeAlsoLinks') {
-    return ($script_name !~ /osis2osis/ && 
-            $mod eq $DICTMOD &&
-            -e "$DICTINPD/$DICTIONARY_WORDS" ? 'true':'');
+              ( $mod eq $MAINMOD &&
+                -e "$MAININPD/CF_addDictLinks.xml" ||
+                $mod eq $DICTMOD &&
+                -e "$DICTINPD/CF_addDictLinks.xml" ) ? 'true':'');
   }
   elsif ($autoContext eq 'ebooks') {
     if ($entry eq 'CreatePubTran')   {return 'true';}

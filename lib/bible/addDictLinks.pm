@@ -25,10 +25,10 @@ my $REF_SEG_CACHE;
 
 require("$SCRD/lib/forks/fork_funcs.pm");
 
-sub runAddDictLinks {
+sub addDictLinks {
   my $osisP = shift;
   
-  &Log("\n--- ADDING DICTIONARY LINKS\n-----------------------------------------------------\n", 1);
+  &Log("\n--- ADDING DICTIONARY LINKS TO BIBLE MODULE\n-----------------------------------------------------\n", 1);
   &Log("READING OSIS FILE: \"$$osisP\".\n");
   
   if (&conf('AddDictLinks') =~ /^check$/i) {

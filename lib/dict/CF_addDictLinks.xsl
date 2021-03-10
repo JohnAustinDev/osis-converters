@@ -3,12 +3,12 @@
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
- xmlns:me="http://github.com/JohnAustinDev/osis-converters/writeDictionaryWords.xsl"
+ xmlns:me="http://github.com/JohnAustinDev/osis-converters/CF_addDictLinks.xsl"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
  
-  <!-- This XSLT writes a default (initial) DictionaryWords.xml file for a glossary OSIS file -->
+  <!-- This XSLT writes a default (initial) CF_addDictLinks.xml file for a glossary OSIS file -->
  
   <import href="../common/functions.xsl"/>
   
@@ -86,7 +86,7 @@
     </variable>
         
     <call-template name="Note">
-<with-param name="msg">Writing default DictionaryWords.xml (anyEnding=<value-of select="$anyEnding"/>): <value-of select="$output"/> from: <value-of select="base-uri()"/>.</with-param>
+<with-param name="msg">Writing default CF_addDictLinks.xml (anyEnding=<value-of select="$anyEnding"/>): <value-of select="$output"/> from: <value-of select="base-uri()"/>.</with-param>
     </call-template>
     <comment>
   IMPORTANT: 
@@ -152,7 +152,7 @@
   inner text.
     </comment><text>
 </text>
-    <dictionaryWords version="1.0" xmlns="http://github.com/JohnAustinDev/osis-converters">
+    <addDictLinks version="1.0" xmlns="http://github.com/JohnAustinDev/osis-converters">
       <div notXPATH="{$notXPATH_default}">
         
         <for-each-group select="$link_targets" group-by="@scope" 
@@ -177,7 +177,7 @@
         </for-each-group>
 
       </div>
-    </dictionaryWords>
+    </addDictLinks>
   </template>
   
   <!-- Only reference the first of any duplicates, otherwise osisRef

@@ -98,7 +98,7 @@ target, then a different USFM tag should be used instead.</with-param>
     <for-each select="distinct-values($aggcheckFail)">
       <call-template name="Error">
 <with-param name="msg">Found reference(s) to aggregated glossary entry: osisID="<value-of select="oc:ref(.)"/>"</with-param>
-<with-param name="exp">For aggregated entries, only a particular duplicate may be referenced. Check DictionaryWords.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
+<with-param name="exp">For aggregated entries, only a particular duplicate may be referenced. Check CF_addDictLinks.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
       </call-template>
     </for-each>
  

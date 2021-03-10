@@ -18,17 +18,16 @@
 
 use strict;
 
-# Parse the module's DICTIONARY_WORDS to DWF. Check for outdated 
-# DICTIONARY_WORDS markup and update it. Validate DICTIONARY_WORDS 
+# Parse the module's CF_addDictLinks.xml to DWF. Check for outdated 
+# DictionaryWords markup and update it. Validate CF_addDictLinks.xml 
 # entries against a dictionary OSIS file's keywords. Validate 
-# DICTIONARY_WORDS xml markup. Return DWF on successful parsing and 
+# CF_addDictLinks.xml. Return DWF on successful parsing and 
 # checking without error, '' otherwise. 
 
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $DICTIONARY_WORDS, 
-    $DICTIONARY_WORDS_NAMESPACE, $ONS);
+our ($DEBUG, $XPC, $XML_PARSER, $OSISBOOKSRE, $ADDDICTLINKS_NAMESPACE, $ONS);
     
 our (%LINK_OSISREF, @EXPLICIT_GLOSSARY);
 
@@ -41,7 +40,7 @@ sub getDWF {
   
   $which = ($which eq 'main' ? $MAININPD : ($which eq 'dict' ? $DICTINPD : $INPD));
 
-  my $dwfFile = "$which/$DICTIONARY_WORDS";
+  my $dwfFile = "$which/CF_addDictLinks.xml";
   if (!-e $dwfFile) {return '';}
   elsif ($returnFile) {return $dwfFile;}
   
@@ -60,15 +59,15 @@ sub checkDWF {
   
   my $dwf = $XML_PARSER->parse_file($dwffile);
   
-  # Check for old DICTIONARY_WORDS markup and update or report
+  # Check for old DictionaryWords markup and update or report
   my $errors = 0;
   my $update = 0;
   my $tst = @{$XPC->findnodes('//dw:div', $dwf)}[0];
   if (!$tst) {
-    &Error("Missing namespace declaration in: \"$dwffile\", continuing with default.", "Add 'xmlns=\"$DICTIONARY_WORDS_NAMESPACE\"' to the root element.");
+    &Error("Missing namespace declaration in: \"$dwffile\", continuing with default.", "Add 'xmlns=\"$ADDDICTLINKS_NAMESPACE\"' to the root element.");
     $errors++;
     my @ns = $XPC->findnodes('//*', $dwf);
-    foreach my $n (@ns) {$n->setNamespace($DICTIONARY_WORDS_NAMESPACE, 'dw', 1); $update++;}
+    foreach my $n (@ns) {$n->setNamespace($ADDDICTLINKS_NAMESPACE, 'dw', 1); $update++;}
   }
   my $tst = @{$XPC->findnodes('//*[@highlight]', $dwf)}[0];
   if ($tst) {
@@ -81,7 +80,7 @@ sub checkDWF {
     &Warn("\"withString\" attribute is no longer supported.", "Remove withString attributes from $dwffile and replace it with XPATH=<xpath-expression> instead.");
   }
   
-  # Compare dictosis to DICTIONARY_WORDS
+  # Compare dictosis to CF_addDictLinks.xml
   if (&compareDictOsis2DWF($dictosis, $dwffile)) {
     if (!$noupdateEntries) {
       # If updates were made, reload DWF etc.
@@ -104,7 +103,7 @@ sub checkDWF {
   }
   
   my $valid = 0;
-  if ($errors == 0) {$valid = &validateDictionaryWordsXML($dwf);}
+  if ($errors == 0) {$valid = &validateAddDictLinksXML($dwf);}
   if ($valid) {&Note("$dwffile has no unrecognized elements or attributes.\n");}
   
   return ($valid && $errors == 0 ? $dwf:'');
@@ -112,20 +111,20 @@ sub checkDWF {
 
 
 # Check that all keywords in dictosis, except those in the NAVMENU, are 
-# included as entries in the dictionary_words_xml file and all entries 
-# in dictionary_words_xml have keywords in dictosis. If the difference 
+# included as entries in the addDictLinks file and all entries 
+# in addDictLinks have keywords in dictosis. If the difference 
 # is only in capitalization, and all the OSIS file's keywords are unique 
 # according to a case-sensitive comparison, (which occurs when 
-# converting from DictionaryWords.txt to DictionaryWords.xml) then fix 
-# them, update dictionary_words_xml, and return 1. Otherwise return 0.
+# converting from DictionaryWords.txt to CF_addDictLinks.xml) then fix 
+# them, update CF_addDictLinks.xml, and return 1. Otherwise return 0.
 sub compareDictOsis2DWF {
   my $dictosis = shift; # dictionary osis file to validate entries against
-  my $dictionary_words_xml = shift; # DICTIONARY_WORDS xml file to validate
+  my $addDictLinks = shift; # CF_addDictLinks.xml file to validate
   
-  &Log("\n--- CHECKING ENTRIES IN: $dictosis FOR INCLUSION IN: $dictionary_words_xml\n", 1);
+  &Log("\n--- CHECKING ENTRIES IN: $dictosis FOR INCLUSION IN: $addDictLinks\n", 1);
   
   my $osis = $XML_PARSER->parse_file($dictosis);
-  my $dwf  = $XML_PARSER->parse_file($dictionary_words_xml);
+  my $dwf  = $XML_PARSER->parse_file($addDictLinks);
   
   my $osismod = &getOsisRefWork($osis);
   
@@ -133,7 +132,7 @@ sub compareDictOsis2DWF {
   my $allowUpdate = 1; my %noCaseKeys;
   foreach my $es ($XPC->findnodes('//osis:seg[@type="keyword"]/text()', $osis)) {
     if ($noCaseKeys{lc($es)}) {
-      &Note("Will not update case-only discrepancies in $dictionary_words_xml.");
+      &Note("Will not update case-only discrepancies in $addDictLinks.");
       $allowUpdate = 0;
       last;
     }
@@ -145,7 +144,7 @@ sub compareDictOsis2DWF {
   my @dwfOsisRefs = $XPC->findnodes('//dw:entry/@osisRef', $dwf);
   my @dictOsisIDs = $XPC->findnodes('//osis:seg[@type="keyword"][not(ancestor::osis:div[@subType="x-aggregate"])]/@osisID', $osis);
   
-  # Check that all DICTMOD keywords (except NAVEMNU keywords) are included as entries in dictionary_words_xml
+  # Check that all DICTMOD keywords (except NAVEMNU keywords) are included as entries in addDictLinks
   foreach my $osisIDa (@dictOsisIDs) {
     if (!$osisIDa || @{$XPC->findnodes('./ancestor::osis:div[@type="glossary"][@scope="NAVMENU"][1]', $osisIDa)}[0]) {next;}
     my $osisID = $osisIDa->value;
@@ -169,11 +168,11 @@ DWF_OSISREF:
         $dwfOsisRef->setValue(entry2osisRef($osisID_mod, $osisID));
         foreach my $c ($name->childNodes()) {$c->unbindNode();}
         $name->appendText($osisIDa->parentNode->textContent);
-        &Warn("DICT mod keyword and DictionaryWords entry name are identical, but osisID != osisRef. UPDATING DictionaryWords osisRef from $origOsisRef to $osisID", "<>This happens when an old version of DictionaryWords.xml is being upgraded. Otherwise, there could be bug or some problem with this osisRef.");
+        &Warn("DICT mod keyword and CF_addDictLinks.xml entry name are identical, but osisID != osisRef. UPDATING CF_addDictLinks.xml osisRef from $origOsisRef to $osisID", "<>This happens when an old version of CF_addDictLinks.xml is being upgraded. Otherwise, there could be bug or some problem with this osisRef.");
         last;
       }
     }
-    if (!$match) {&Warn("Missing entry \"$osisID\" in $dictionary_words_xml", "That you don't want any links to this entry."); $allmatch = 0;}
+    if (!$match) {&Warn("Missing entry \"$osisID\" in $addDictLinks", "That you don't want any links to this entry."); $allmatch = 0;}
   }
   
   # Check that all DWF osisRefs are included as keywords in dictosis
@@ -192,8 +191,8 @@ DWF_OSISREF:
       }
       if (!$match && $osisRef !~ /\!toc$/) {
         if (!$reported{$osisRef}) {
-          &Warn("Extra entry with osisRef=\"$osisRef\" in $dictionary_words_xml", 
-          "Remove references to $osisRef from $dictionary_words_xml if target does not appear in $DICTMOD.");
+          &Warn("Extra entry with osisRef=\"$osisRef\" in $addDictLinks", 
+          "Remove references to $osisRef from $addDictLinks if target does not appear in $DICTMOD.");
         }
         $reported{$osisRef}++;
         $allmatch = 0;
@@ -201,23 +200,23 @@ DWF_OSISREF:
     }
   }
   
-  # Check that aggregated entries are not targeted by DictionaryWords.xml
+  # Check that aggregated entries are not targeted by CF_addDictLinks.xml
   foreach my $e ($XPC->findnodes('//@osisID
       [ancestor::osis:div[@type="glossary"][@subType="x-aggregate"]]', $osis)) {
     my $osisRef = $DICTMOD.':'.$e->value;
     my $entry = @{$XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $dwf)}[0];
     if ($entry) {
       &Error(
-"Cannot reference aggregated glossary entry in $dictionary_words_xml:\n<entry osisRef=\"".$entry->getAttribute('osisRef')."\">",
+"Cannot reference aggregated glossary entry in $addDictLinks:\n<entry osisRef=\"".$entry->getAttribute('osisRef')."\">",
 "Append .dupN to the osisRef, where N is the specific number of a duplicate to be referenced.");
     }
   }
   
-  # Save any updates back to source dictionary_words_xml
+  # Save any updates back to source addDictLinks
   if ($update) {
-    &writeXMLFile($dwf, "$dictionary_words_xml.tmp");
-    unlink($dictionary_words_xml); rename("$dictionary_words_xml.tmp", $dictionary_words_xml);
-    &Note("Updated $update entries in $dictionary_words_xml");
+    &writeXMLFile($dwf, "$addDictLinks.tmp");
+    unlink($addDictLinks); rename("$addDictLinks.tmp", $addDictLinks);
+    &Note("Updated $update entries in $addDictLinks");
   }
   elsif ($allmatch) {&Log("All entries are included.\n");}
   
@@ -226,7 +225,7 @@ DWF_OSISREF:
 
 
 # Brute force validation of dwf returns 1 on successful validation, 0 otherwise
-sub validateDictionaryWordsXML {
+sub validateAddDictLinksXML {
   my $dwf = shift;
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', $dwf);
@@ -239,23 +238,23 @@ sub validateDictionaryWordsXML {
   
   my $success = 1;
   my $x = "//*";
-  my @allowed = ('dictionaryWords', 'div', 'entry', 'name', 'match');
+  my @allowed = ('addDictLinks', 'div', 'entry', 'name', 'match');
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badElem = $XPC->findnodes($x, $dwf);
   if (@badElem) {
     foreach my $ba (@badElem) {
-      &Error("Bad DictionaryWords.xml element: \"".$ba->localname()."\"", "Only the following elements are allowed: ".join(' ', @allowed));
+      &Error("Bad CF_addDictLinks.xml element: \"".$ba->localname()."\"", "Only the following elements are allowed: ".join(' ', @allowed));
       $success = 0;
     }
   }
   
-  $x = "//*[local-name()!='dictionaryWords'][local-name()!='entry']/@*";
+  $x = "//*[local-name()!='addDictLinks'][local-name()!='entry']/@*";
   @allowed = ('onlyNewTestament', 'onlyOldTestament', 'context', 'notContext', 'multiple', 'osisRef', 'XPATH', 'notXPATH', 'version', 'dontLink', 'notExplicit', 'onlyExplicit');
   foreach my $a (@allowed) {$x .= "[local-name()!='$a']";}
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
-      &Error("\nBad DictionaryWords.xml attribute: \"".$ba->localname()."\"", "Only the following attributes are allowed: ".join(' ', @allowed));
+      &Error("\nBad CF_addDictLinks.xml attribute: \"".$ba->localname()."\"", "Only the following attributes are allowed: ".join(' ', @allowed));
       $success = 0;
     }
   }
@@ -266,7 +265,7 @@ sub validateDictionaryWordsXML {
   my @badAttribs = $XPC->findnodes($x, $dwf);
   if (@badAttribs) {
     foreach my $ba (@badAttribs) {
-      &Error("Bad DictionaryWords.xml entry attribute: \"".$ba->localname()."\"", "The entry element may contain these attributes: ".join(' ', @allowed));
+      &Error("Bad CF_addDictLinks.xml entry attribute: \"".$ba->localname()."\"", "The entry element may contain these attributes: ".join(' ', @allowed));
       $success = 0;
     }
   }
@@ -321,7 +320,7 @@ sub explicitGlossaryIndexes {
       push(@EXPLICIT_GLOSSARY, \%data);
       
       &Error(@{&atomizeContext(&getNodeContext($r))}[0]." Failed to link explicit glossary reference: $report", 
-"<>Add the proper entry to DictionaryWords.xml to match this text 
+"<>Add the proper entry to CF_addDictLinks.xml to match this text 
 and create a hyperlink to the correct glossary entry. If desired you can 
 use the attribute 'onlyExplicit' to match this term only where it is 
 explicitly marked in the text as a glossary index, and nowhere else. 
@@ -360,14 +359,14 @@ sub glossaryLink {
   # Handle any USFM attributes effecting the target
   if (defined($infoP->{'dup'})) {$osisRef .= '.dup'.$infoP->{'dup'};}
   elsif (defined($infoP->{'context'})) {
-    # Look at the specified context in DictionaryWords.xml for the lemma
+    # Look at the specified context in CF_addDictLinks.xml for the lemma
     my $r = @{$XPC->findnodes("//dw:entry
       [ancestor-or-self::*[\@context][1][\@context='$infoP->{'context'}']]
       /\@osisRef[starts-with(., '$osisRef.dup') or . = '$osisRef']", &getDWF())}[0];
     if ($r) {$osisRef = $r->value;}
     else {&Error(
-"An entry '$osisRef' having context '$infoP->{'context'}' could not be found in DictionaryWords.xml.",
-"DictionaryWords.xml does not contain an entry for lemma '$infoP->{'lemma'}' which has context '$infoP->{'context'}' as specified by the \\w ...\\w* tag.");
+"An entry '$osisRef' having context '$infoP->{'context'}' could not be found in CF_addDictLinks.xml.",
+"CF_addDictLinks.xml does not contain an entry for lemma '$infoP->{'lemma'}' which has context '$infoP->{'context'}' as specified by the \\w ...\\w* tag.");
     }
   }
   
@@ -395,7 +394,7 @@ sub glossaryLink {
 }
 
 
-# Search a node for glossary links according to DictionaryWords.xml. The 
+# Search a node for glossary links according to CF_addDictLinks.xml. The 
 # only handled node types are element, text, or <index index="Glossary"/>. 
 # An array is returned containing a list of the new reference elements 
 # that were added.
@@ -604,7 +603,7 @@ sub applyReferenceTags {
 }
 
 # Searches $$textP and adds a single reference glossary link according 
-# to the context of $node (and $glossaryHP) and the DictionaryWords.xml 
+# to the context of $node (and $glossaryHP) and the CF_addDictLinks.xml 
 # file. If a match to a glossary keyword is not found, the empty string 
 # is returned and $$textP is left unmodified. If a match is found, the 
 # matching pattern is returned, and a <reference> and </reference> tag
@@ -967,10 +966,10 @@ sub logDictLinks {
     if (!$match) {$nolink .= $e."\n"; $numnolink++;}
   }
   
-  &Report("Glossary entries from $DICTIONARY_WORDS which have no links in the text: ($numnolink instances)");
+  &Report("Glossary entries from CF_addDictLinks.xml which have no links in the text: ($numnolink instances)");
   if ($nolink) {
     &Note("You may want to link to these entries using a different word or phrase. To do this, edit the");
-    &Log("$DICTIONARY_WORDS file.\n");
+    &Log("CF_addDictLinks.xml file.\n");
     &Log($nolink);
   }
   else {&Log("(all glossary entries have at least one link in the text)\n");}
@@ -991,13 +990,13 @@ sub logDictLinks {
       if (length($osisRef) > $mlen) {$mlen = length($osisRef);}
       $total++;
     }
-    else {&Error("No <entry> containing $m in $DICTIONARY_WORDS", "Match elements may only appear inside entry elements.");}
+    else {&Error("No <entry> containing $m in CF_addDictLinks.xml", "Match elements may only appear inside entry elements.");}
   }
-  &Report("Unused match elements in $DICTIONARY_WORDS: ($total instances)");
+  &Report("Unused match elements in CF_addDictLinks.xml: ($total instances)");
   if ($total > 50) {
     &Warn("Large numbers of unused match elements can slow down the parser.", 
 "When you are sure they are not needed, and parsing is slow, then you  
-can remove unused match elements from DictionaryWords.xml by running:
+can remove unused match elements from CF_addDictLinks.xml by running:
 osis-converters/utils/removeUnusedMatchElements.pl $INPD");
   }
   foreach my $osisRef (sort keys %unused) {
@@ -1042,7 +1041,7 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
   &Note("
 The following listing should be looked over to be sure text is
 correctly linked to the glossary. Glossary entries are matched in the
-text using the match elements found in the $DICTIONARY_WORDS file.\n");
+text using the match elements found in the CF_addDictLinks.xml file.\n");
   &Report("<-Explicit indexes succesfully converted into glossary links: ".$explicits{'total_links'});
   &Report("<-Removed explicit indexes due to glossary match failure: ".$explicits{'total_fails'});
   &Report("<-Links created: ($grandTotal instances)\n* is textual difference other than capitalization\n$p");

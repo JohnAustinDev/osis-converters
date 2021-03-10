@@ -20,8 +20,7 @@ use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
     $TMPDIR, $NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, 
-    $DICTIONARY_WORDS, $DEFAULT_DICTIONARY_WORDS, $READLAYER,
-    $DICTIONARY_NotXPATH_Default, $OSISSCHEMA);
+    $READLAYER, $DICTIONARY_NotXPATH_Default, $OSISSCHEMA, $MOD_OUTDIR);
 
 # Initialized in /lib/sfm2osis.pm
 our $sourceProject;
@@ -33,7 +32,7 @@ require("$SCRD/lib/applyPeriphInstructions.pm");
 require("$SCRD/lib/bible/fitToVerseSystem.pm");
 require("$SCRD/lib/bible/addCrossRefLinks.pm");
 require("$SCRD/lib/bible/addDictLinks.pm");
-require("$SCRD/lib/dict/addSeeAlsoLinks.pm");
+require("$SCRD/lib/dict/addDictLinks.pm");
 
 # This sub expects an OSIS input file produced by usfm2osis.py
 sub processOSIS {
@@ -94,17 +93,17 @@ sub processOSIS {
               { 'glossaryRegex' => &conf('ReorderGlossaryEntries'), });
     }
     
-    # create default DictionaryWords.xml templates
-    &runXSLT("$SCRD/lib/dict/writeDictionaryWords.xsl", 
+    # create default CF_addDictLinks.xml files
+    &runXSLT("$SCRD/lib/dict/CF_addDictLinks.xsl", 
               $OSIS, 
-              $DEFAULT_DICTIONARY_WORDS, 
-              { 'output' => $DEFAULT_DICTIONARY_WORDS,
+              "$MOD_OUTDIR/CF_addDictLinks.dict.xml", 
+              { 'output' => "$MOD_OUTDIR/CF_addDictLinks.dict.xml",
                 'notXPATH_default' => $DICTIONARY_NotXPATH_Default, });
 
-    &runXSLT("$SCRD/lib/dict/writeDictionaryWords.xsl", 
+    &runXSLT("$SCRD/lib/dict/CF_addDictLinks.xsl", 
               $OSIS, 
-              $DEFAULT_DICTIONARY_WORDS.".bible.xml",
-              { 'output' => "$DEFAULT_DICTIONARY_WORDS.bible.xml",
+              "$MOD_OUTDIR/CF_addDictLinks.bible.xml",
+              { 'output' => "$MOD_OUTDIR/CF_addDictLinks.bible.xml",
                 'notXPATH_default' => $DICTIONARY_NotXPATH_Default,
                 'anyEnding' => 'true', });
   }
@@ -121,36 +120,36 @@ sub processOSIS {
   
   else {&Error("Unhandled modType: (".&conf('ModDrv').")", '', 1);}
   
-  # Copy new DictionaryWords.xml if needed
+  # Copy new CF_addDictLinks.xml if needed
   if ($modType eq 'dict' && 
-      -e $DEFAULT_DICTIONARY_WORDS && 
-      ! -e "$DICTINPD/$DICTIONARY_WORDS") {
+      -e "$MOD_OUTDIR/CF_addDictLinks.dict.xml" && 
+      ! -e "$DICTINPD/CF_addDictLinks.xml") {
       
-    copy($DEFAULT_DICTIONARY_WORDS, 
-        "$DICTINPD/$DICTIONARY_WORDS");
+    copy("$MOD_OUTDIR/CF_addDictLinks.dict.xml", 
+        "$DICTINPD/CF_addDictLinks.xml");
         
-    &Note("Copying default $DICTIONARY_WORDS ".
-      "$DEFAULT_DICTIONARY_WORDS to $DICTINPD/$DICTIONARY_WORDS");
+    &Note("Copying default CF_addDictLinks.xml ".
+      "CF_addDictLinks.dict.xml to $DICTINPD/CF_addDictLinks.xml");
   }
   if ($modType eq 'dict' && 
-      -e "$DEFAULT_DICTIONARY_WORDS.bible.xml" && 
-      ! -e "$MAININPD/$DICTIONARY_WORDS") {
+      -e "$MOD_OUTDIR/CF_addDictLinks.bible.xml" && 
+      ! -e "$MAININPD/CF_addDictLinks.xml") {
       
-    copy("$DEFAULT_DICTIONARY_WORDS.bible.xml", 
-         "$MAININPD/$DICTIONARY_WORDS");
+    copy("$MOD_OUTDIR/CF_addDictLinks.bible.xml", 
+         "$MAININPD/CF_addDictLinks.xml");
          
-    &Note("Copying default $DICTIONARY_WORDS ".
-      "$DEFAULT_DICTIONARY_WORDS.bible.xml to $MAININPD/$DICTIONARY_WORDS");
+    &Note("Copying default CF_addDictLinks.xml ".
+      "CF_addDictLinks.bible.xml to $MAININPD/CF_addDictLinks.xml");
   }
   
-  # Check DictionaryWords.xml
+  # Check CF_addDictLinks.xml
   my $hasDWF;
   if ($modType eq 'bible' && $DICTMOD && 
-          -e "$MAININPD/$DICTIONARY_WORDS") {
+          -e "$MAININPD/CF_addDictLinks.xml") {
     $hasDWF++;
   }
   elsif ($modType eq 'dict' && 
-          -e "$DICTINPD/$DICTIONARY_WORDS") {
+          -e "$DICTINPD/CF_addDictLinks.xml") {
     $hasDWF++;
     
     if (&getDWF('main', 1)) {&checkDWF($OSIS, &getDWF('main', 1));}
@@ -184,7 +183,7 @@ sub processOSIS {
         &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
         
       if ($CF_addFootnoteLinks) {
-        &runAddFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
+        &addFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
       }
       else {&Error("CF_addFootnoteLinks.txt is missing", 
 "Remove or comment out SET_addFootnoteLinks in CF_sfm2osis.txt if your 
@@ -204,22 +203,22 @@ links, you need to parse Scripture references also.");
   # Parse glossary references from Bible and Dict modules 
   if ($modType eq 'bible' && $DICTMOD && &conf('AddDictLinks')) {
   
-    if ($hasDWF) {&runAddDictLinks(\$OSIS);}
+    if ($hasDWF) {&addDictLinks(\$OSIS);}
     
     else {
       &Error(
-"A $DICTIONARY_WORDS file is required to run addDictLinks.pm.", 
+"A CF_addDictLinks.xml file is required to run addDictLinks.", 
 "First run sfm2osis on the companion module \"$DICTMOD\", then 
-copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
+copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
     }
   }
-  elsif ($modType eq 'dict' && &conf('AddSeeAlsoLinks')) {
+  elsif ($modType eq 'dict' && &conf('AddDictLinks')) {
   
-    if ($hasDWF) {&runAddSeeAlsoLinks(\$OSIS);}
+    if ($hasDWF) {&addDictLinks2Dict(\$OSIS);}
     
     else {
       &ErrorBug(
-"A $DICTIONARY_WORDS file is required to run addSeeAlsoLinks.pm.");
+"A CF_addDictLinks.xml file is required to run addDictLinks2Dict.");
     }
   }
 
@@ -237,7 +236,7 @@ copy  $DICTMOD/$DICTIONARY_WORDS to $MAININPD.");
 
   # Add external cross-referenes to Bibles
   if ($modType eq 'bible' && &conf('AddCrossRefLinks')) {
-    &runAddCrossRefLinks(\$OSIS);
+    &addCrossRefLinks(\$OSIS);
   }
 
   # If there are differences between the custom and fixed verse systems, 

@@ -74,7 +74,7 @@ our $FNREFSTART = "<reference type=\"x-note\" osisRef=\"TARGET\">";
 our $FNREFEND = "</reference>";
 our $FNREFEXT = "note.n";
 
-sub runAddFootnoteLinks {
+sub addFootnoteLinks {
   my $commandFile = shift;
   my $osisP = shift;
 

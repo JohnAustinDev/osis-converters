@@ -3,7 +3,7 @@
 @ARGV[1] = 'none'; # no log file, just print to screen
 use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
-my $dwfPath = "$INPD/$DICTIONARY_WORDS";
+my $dwfPath = "$INPD/CF_addDictLinks.xml";
 
 my $alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
 my $msg = "Rerun sfm2osis on $MOD to create a new log file, and then rerun this script on $MOD.";
@@ -14,7 +14,7 @@ if (!open(OUT, $READLAYER, $alog)) {
 &Note("Reading log file:\n$alog");
 my ($expected, $state, %unusedMatches);
 while(<OUT>) {
-  if ($_ =~ /^\S+ REPORT: Unused match elements in DictionaryWords\.xml: \((\d+) instances\)/) {
+  if ($_ =~ /^\S+ REPORT: Unused match elements in CF_addDictLinks\.xml: \((\d+) instances\)/) {
     $expected = $1;
     $state = 1;
     next;
@@ -33,7 +33,7 @@ while(<OUT>) {
 close(OUT);
 if (!%unusedMatches) {&Log("\nThere are no unused match elements to remove. Exiting...\n"); exit;}
 
-&Note("Modifying DictionaryWords.xml:\n$dwfPath\n");
+&Note("Modifying CF_addDictLinks.xml:\n$dwfPath\n");
 my $count = 0;
 my $xml = $XML_PARSER->parse_file($dwfPath);
 my @matchElements = $XPC->findnodes("//dw:match", $xml);
@@ -48,7 +48,7 @@ foreach my $osisRef (sort keys %unusedMatches) {
       $m->unbindNode(); $count++; $m = 'unbound';
     }
     if ($ingoingCount == $count) {
-      &Error("Match element \"$unusedMatch\" could not be located in DictionaryWords.xml.", $msg, 1);
+      &Error("Match element \"$unusedMatch\" could not be located in CF_addDictLinks.xml.", $msg, 1);
     }
   }
 }

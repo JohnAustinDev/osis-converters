@@ -182,11 +182,7 @@ sub init() {
   
   our %ARGS = &arguments(@_);
   
-  if (!%ARGS) {
-    print &usage();
-    exit 1;
-  }
-  elsif ($ARGS{'h'}) {
+  if ($ARGS{'h'}) {
     print &usage();
     print "\n" . &help($SCRIPT_NAME);
     exit 0;

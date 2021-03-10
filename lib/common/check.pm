@@ -54,7 +54,7 @@ Bible module OSIS file, then run this dictionary module again.");
   
   my $dwf = &getDWF();
   if ($dwf) {
-    &checkDictionaryWordsContexts($OSIS, $dwf);
+    &checkAddDictLinksContexts($OSIS, $dwf);
   }
   
   if ($modType eq 'childrens_bible') {

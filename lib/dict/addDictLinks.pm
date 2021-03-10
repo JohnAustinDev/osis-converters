@@ -18,20 +18,20 @@
 
 use strict;
 
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($DEFAULT_DICTIONARY_WORDS, $DICTIONARY_WORDS, $XML_PARSER, $XPC);
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, 
+    $TMPDIR, $XML_PARSER, $XPC, $MOD_OUTDIR);
 
 my ($REF_SEG_CACHE, %CheckCircular, %ELINKLIST);
 
-sub runAddSeeAlsoLinks {
+sub addDictLinks2Dict {
   my $osisP = shift;
   
-  &Log("\n--- ADDING DICTIONARY SEE-ALSO LINKS\n-----------------------------------------------------\n\n", 1);
+  &Log("\n--- ADDING DICTIONARY LINKS TO DICTIONARY MODULE\n-----------------------------------------------------\n\n", 1);
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   
   my @entries = $XPC->findnodes('//dw:entry[@osisRef]', &getDWF());
   
-  if (&conf('AddSeeAlsoLinks') =~ /^check$/i) {
+  if (&conf('AddDictLinks') =~ /^check$/i) {
     &Log("Skipping link parser. Checking existing links only.\n");
     &Log("\n");
   }
@@ -62,20 +62,20 @@ sub runAddSeeAlsoLinks {
     
     if (my $resHP = &checkCircularEntries($$osisP)) {
       my $dwfIsDefault = &isDictDWFDefault(); # check before changing
-      my $dxml = $XML_PARSER->parse_file($DEFAULT_DICTIONARY_WORDS);
+      my $dxml = $XML_PARSER->parse_file("$MOD_OUTDIR/CF_addDictLinks.dict.xml");
       foreach my $osisRef (sort keys %{$resHP}) {
         my $entry = @{$XPC->findnodes("//dw:entry[\@osisRef='$osisRef']", $dxml)}[0];
         $entry->setAttribute('notContext', ($entry->hasAttribute('notContext') ? $entry->getAttribute('notContext').' ':'').$resHP->{$osisRef});
-        &Note("Setting entry $osisRef notContext=\"".$entry->getAttribute('notContext')."\" in $DEFAULT_DICTIONARY_WORDS");
+        &Note("Setting entry $osisRef notContext=\"".$entry->getAttribute('notContext')."\" in $MOD_OUTDIR/CF_addDictLinks.dict.xml");
       }
-      &writeXMLFile($dxml, $DEFAULT_DICTIONARY_WORDS);
-      if ($dwfIsDefault) {&copy("$DEFAULT_DICTIONARY_WORDS", "$DICTINPD/$DICTIONARY_WORDS");}
+      &writeXMLFile($dxml, "$MOD_OUTDIR/CF_addDictLinks.dict.xml");
+      if ($dwfIsDefault) {&copy("$MOD_OUTDIR/CF_addDictLinks.dict.xml", "$DICTINPD/CF_addDictLinks.xml");}
       &Error("Circular entry links were found.", 
 ($dwfIsDefault ? 
 "Run sfm2osis again and these should disappear because the 
 circular entries have now been addressed in your ":
 "Apply the notContext attributes listed above 
-to ").$DICTIONARY_WORDS." file."
+to ") . "CF_addDictLinks.xml file."
       );
     }
     
@@ -146,12 +146,12 @@ sub checkCircularEntries {
   my $n = 0; foreach my $k (sort keys %circulars) {$n++;}
   
   &Report("Found $n circular cross references in \"$out_file\".");
-  if (!&isDictDWFDefault() && &conf('AddSeeAlsoLinks') !~ /^check$/i && $n > 0) {
+  if (!&isDictDWFDefault() && &conf('AddDictLinks') !~ /^check$/i && $n > 0) {
     &Warn(
 "The above $n short entries only say: \"See longer entry\".", 
 "In most such cases the long entry should not link back to the short 
 entry. These circular references can be eliminated with the following
-'notContext' attributes added to $DICTIONARY_WORDS, like this:");
+'notContext' attributes added to CF_addDictLinks.xml, like this:");
     foreach my $osisRefShort (sort keys %circulars) {
       my $osisRefLong = $circulars{$osisRefShort};
       &Log("<entry osisRef=\"$osisRefShort\" notContext=\"".$osisRefLong."\">\n");
@@ -165,7 +165,7 @@ entry. These circular references can be eliminated with the following
 # Return true if the current DICT DWF file is same as the current default DICT DWF file
 sub isDictDWFDefault {
 
-  return (&shell("diff \"$DICTINPD/$DICTIONARY_WORDS\" \"$DEFAULT_DICTIONARY_WORDS\"", 3, 1) ? 0:1);
+  return (&shell("diff \"$DICTINPD/CF_addDictLinks.xml\" \"$MOD_OUTDIR/CF_addDictLinks.dict.xml\"", 3, 1) ? 0:1);
 }
 
 1;

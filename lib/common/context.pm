@@ -19,7 +19,7 @@
 use strict;
 
 # getContextAttributeHash() takes context/notContext attribute values from 
-# DictionaryWords.xml and converts them into a hash containing all the 
+# CF_addDictLinks.xml and converts them into a hash containing all the 
 # atomized context values (see checkAndNormalizeAtomicContext() function) 
 # which compose the attribute value, and a list of entire included books. 
 # NOTE: For a big speedup, entire books and 'all' are returned separately.
@@ -40,8 +40,7 @@ use strict;
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, %OSIS_ABBR, $OSISBOOKSRE, %OSIS_GROUP, 
-    $DICTIONARY_WORDS);
+our ($XPC, $XML_PARSER, %OSIS_ABBR, $OSISBOOKSRE, %OSIS_GROUP);
 
 my %ALREADY_NOTED_RESULT;
 sub getContextAttributeHash {
@@ -436,7 +435,7 @@ sub checkAndNormalizeAtomicContext {
         !&existsElementID($context, $CONTEXT_CHECK_XML) && 
         !&existsScope($context, $CONTEXT_CHECK_XML)
       ) {
-    &Error("There is no osisID or scope attribute having the value '$context' in ".$CONTEXT_CHECK_XML->URI." (checkAndNormalizeAtomicContext).", "This is likely caused by a reference to '$context' in ".$DICTIONARY_WORDS);
+    &Error("There is no osisID or scope attribute having the value '$context' in ".$CONTEXT_CHECK_XML->URI." (checkAndNormalizeAtomicContext).", "This is likely caused by a reference to '$context' in CF_addDictLinks.xml");
     $CONTEXT_CHECK_ERR++;
     return '';
   }
@@ -444,7 +443,7 @@ sub checkAndNormalizeAtomicContext {
   return "$pre$before$context";
 }
 
-sub checkDictionaryWordsContexts {
+sub checkAddDictLinksContexts {
   my $osis = shift;
   my $dwf = shift;
   
