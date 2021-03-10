@@ -39,7 +39,7 @@ our %ARG = (
     
       'first' => [ 'INPD', '.', 'dir', 'Path to an osis-converters project directory. Default is the working directory.' ],
     
-      'second' => [ 'LOGFILE', undef, 'log', 'Log file path. Default is OUT_<script>.txt in the project\'s output directory.' ],
+      'second' => [ 'LOGFILE', undef, 'log', 'Log file path. Default is LOG_'.$SCRIPT_NAME.'.txt in the project\'s output directory.' ],
     },
   },
 
@@ -53,7 +53,7 @@ our %ARG = (
     'argument' => {
     
       # this overrides the second argument of 'all' above
-      'second' => [ 'LOGFILE', './OUT_convert.txt', 'log', 'Log file path. Default is ./OUT_convert.txt in the working directory.' ],
+      'second' => [ 'LOGFILE', './LOG_convert.txt', 'log', 'Log file path. Default is ./OUT_convert.txt in the working directory.' ],
     },
     
     'option' => {

@@ -164,22 +164,22 @@ our %CONV_BIN_TEST = (
                           "openjdk version \"10.", 1 ], # NOT openjdk 10.
 );
 
+$SCRIPT =~ s/\\/\//g;
+$SCRD   =~ s/\\/\//g;
+
+our $SCRIPT_NAME = $SCRIPT;
+$SCRIPT_NAME =~ s/^.*\/([^\/]+)(\.[^\/\.]+)?$/$1/;
+
+# Global $forkScriptName will only be set when running in fork.pm, in  
+# which case SCRIPT_NAME is inherited for &conf() values to be correct.
+if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
+  
 require "$SCRD/lib/common/common_opsys.pm";
 require "$SCRD/lib/common/help.pm";
 
 # This sub will exit with 1 on error, or 0 on help or Vagrant-restart.
 # Otherwise it will return if init completes.
 sub init() {
-  $SCRIPT =~ s/\\/\//g;
-  $SCRD   =~ s/\\/\//g;
-  
-  our $SCRIPT_NAME = $SCRIPT;
-  $SCRIPT_NAME =~ s/^.*\/([^\/]+)(\.[^\/\.]+)?$/$1/;
-  
-  # Global $forkScriptName will only be set when running in fork.pm, in  
-  # which case SCRIPT_NAME is inherited for &conf() values to be correct.
-  if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
-  
   our %ARGS = &arguments(@_);
   
   if ($ARGS{'h'}) {

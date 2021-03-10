@@ -80,7 +80,7 @@ sub init_linux_script {
   
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
-  $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
+  $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/LOG_".$SCRIPT_NAME.".txt");
   
   if ($SCRIPT_NAME =~ /^defaults$/) {return;}
   

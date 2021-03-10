@@ -73,7 +73,7 @@ sub validateOSIS {
       &escfile("xmllint") . " --noout --schema \"$OSISSCHEMA\" " .
       &escfile($osis);
       
-  my $res = &shell($cmd, 0, 3);
+  my $res = &shell($cmd, 3, 1);
   
   my $allow = 
     "(element milestone\: Schemas validity )" . 'error' .
