@@ -33,7 +33,7 @@ our ($XPC, $XML_PARSER, $ROC, %RESP, $ORDER_PERIPHS_COMPATIBILITY_MODE,
 
 our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
      %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
-     %USFM_DEFAULT_PERIPH_TARGET, @CONV_PUBS, @CONV_PUB_TYPES);
+     %USFM_DEFAULT_PERIPH_TARGET, @CONV_PUB_SETS);
 
 my $AlreadyReportedThis;
 
@@ -75,12 +75,12 @@ sub placementMessage {
   INSTRUCTION ==  VALUE                      DESCRIPTION
   scope          == <a scope>|remove    The scope to which periphs apply
                                              
-  conversion     == @CONV_PUBS|         Periphs should be included only 
-                    @CONV_PUB_TYPES|    for the listed conversions
+  conversion     == &getPubTypes()|     Periphs should be included only 
+                    @CONV_PUB_SETS|     for the listed conversions
                     none|remove         
                     
-  not_conversion == @CONV_PUBS|         Periphs should not be included
-                    @CONV_PUB_TYPES|    in the listed conversions
+  not_conversion == &getPubTypes()|     Periphs should not be included
+                    @CONV_PUB_SETS|     in the listed conversions
                     remove
                     
   feature        == INT|INTMENU|remove  Periphs are part of the special  
@@ -319,7 +319,7 @@ sub applyInstructions {
   
   my $sdiv = &printTag($div);
 
-  my $valid = join('|', @CONV_PUBS, @CONV_PUB_TYPES, 'none');
+  my $valid = join('|', &getPubTypes(), 'none');
 
   if ($markP->{'scope'}) {
     $div->setAttribute('scope', $markP->{'scope'});

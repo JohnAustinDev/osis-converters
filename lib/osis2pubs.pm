@@ -27,7 +27,7 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
     $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR, 
     $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG,
-    %ANNOTATE_TYPE, %CONV_PUB_TYPES, @CONV_PUB_TYPES);
+    %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
@@ -50,8 +50,8 @@ sub osis2pubs {
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
   
   my %params = (
-    'conversion'    => join(' ', $convertTo, @{$CONV_PUB_TYPES{$convertTo}}),
-    'notConversion' => $convertTo, # keep CONV_PUB_TYPES for later filtering
+    'conversion'    => join(' ', $convertTo, @{$CONV_PUB_SETS{$convertTo}}),
+    'notConversion' => $convertTo, # keep CONV_PUB_SETS for later filtering
     'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
     'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
   );
@@ -365,8 +365,8 @@ sub OSIS_To_ePublication2 {
   my $convertTo = shift; # type of ePublication (html or ebooks)
   my $pubTitle = shift;  # title of ePublication
   my $scope = shift;     # scope of ePublication
-  my $parscope = shift;  # scope of parent pub (if $pubType is book)
-  my $pubType = shift;   # one of @CONV_PUB_TYPES
+  my $parscope = shift;  # scope of parent pub (if $pubSet is book)
+  my $pubSet = shift;    # one of @CONV_PUB_SETS
   my $pubName = shift;   # filename of ePublication
   my $pubSubdir = shift; # subdirectory of ePublication
   
@@ -385,7 +385,7 @@ sub OSIS_To_ePublication2 {
   my $isChildrensBible = ($scope ? 0:1);
   
   &Log("\n".('-' x 52)."
-MAKING " . uc($convertTo) . ": scope=$scope, type=$pubType, " .
+MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
 "name=$pubName, subdir='$pubSubdir'\n\n", 1);
   
   my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
@@ -399,7 +399,7 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubType, " .
       \$osis,
       $scope,
       $parscope,
-      $pubType,
+      $pubSet,
       \$pubTitle, 
       \$partTitle
     );
@@ -410,7 +410,7 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubType, " .
   if (!$coverSource) {$cover = '';}
   $CONV_REPORT{$KEY}{'Cover'} = '';
   if ($cover) {
-    if ($pubType =~ /book/i && $partTitle) {
+    if ($pubSet =~ /book/i && $partTitle) {
       &shell("mogrify " . &imageCaption( &imageInfo($cover)->{'w'}, 
                                          $partTitle, 
                                          &conf("Font"), 
@@ -418,7 +418,7 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubType, " .
     }
     my $coverSourceName = $coverSource; $coverSourceName =~ s/^.*\///;
     $CONV_REPORT{$KEY}{'Cover'} = $coverSourceName . 
-        ($pubType =~ /book/i ? " ($partTitle)":''); 
+        ($pubSet =~ /book/i ? " ($partTitle)":''); 
   }
   else {
     $CONV_REPORT{$KEY}{'Cover'} = "random-cover ($pubTitle)";
@@ -503,7 +503,7 @@ body {font-family: font1;}
       $outf = "$tmp/tmp/dict/$DICTMOD.xml";
       &runAnyUserScriptsAt("$DICTMOD/$convertTo/preprocess", \$outf);
       my %params = (
-        'conversion' => join(' ', $convertTo, @{$CONV_PUB_TYPES{$convertTo}}), 
+        'conversion' => join(' ', $convertTo, @{$CONV_PUB_SETS{$convertTo}}), 
         'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
         'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
       );
@@ -655,7 +655,7 @@ parseable, contact the osis-converters maintainer.\n");}
 # $parscope are pruned.
 #
 # Div elements marked with the conversion or not_conversion feature
-# are pruned according to $pubType
+# are pruned according to $pubSet
 #
 # If any book (kept or pruned) contains or is preceded by peripheral(s) 
 # which pertain to any kept book, the peripheral(s) are kept. If 
@@ -688,7 +688,7 @@ sub filterBibleToScope {
   my $osisP = shift;      # pointer to the osis file path
   my $scope = shift;      # scope to filter osis file to
   my $parscope = shift;   # scope of parent (for book pubs)
-  my $pubType = shift;    # one of @CONV_PUB_TYPES
+  my $pubSet = shift;     # one of @CONV_PUB_SETS
   my $pubTitleP = shift;  # pointer to publication title
   my $bookTitlesP= shift; # pointer for returning unfiltered book titles
   
@@ -701,7 +701,7 @@ sub filterBibleToScope {
   my $fullScope = &getScopeXML($inxml);
 
   my $subPublication;
-  if ($pubType !~ /book/i) {
+  if ($pubSet !~ /book/i) {
     foreach my $sp (@SUB_PUBLICATIONS) {
       if ($sp eq $scope) {$subPublication = $sp;}
     }
@@ -710,7 +710,7 @@ sub filterBibleToScope {
   my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
   
   # Remove scoped periphs pertaining to other sub-publications.
-  if ($pubType ne 'tran') {
+  if ($pubSet ne 'tran') {
     foreach my $sp (@SUB_PUBLICATIONS) {
       if ($sp eq $parscope) {next;}
       for (my $i=0; $i<@scopedPeriphs; $i++) {
@@ -727,7 +727,7 @@ sub filterBibleToScope {
   foreach my $r (@{$XPC->findnodes('//osis:div[@annotateType="' .
     $ANNOTATE_TYPE{'conversion'}.'"]/@annotateRef', $inxml)}) {
     my @r = split(/\s+/, $r->value);
-    if (&hasSame(\@r, \@CONV_PUB_TYPES) && !&hasSame(\@r, [$pubType])) {
+    if (&hasSame(\@r, \@CONV_PUB_SETS) && !&hasSame(\@r, [$pubSet])) {
       $r->parentNode->unbindNode();
       &Note("conversion filtered 1 element because $r.");
     }
@@ -735,7 +735,7 @@ sub filterBibleToScope {
   foreach my $r (@{$XPC->findnodes('//osis:div[@annotateType="' .
     $ANNOTATE_TYPE{'not_conversion'}.'"]/@annotateRef', $inxml)}) {
     my @r = split(/\s+/, $r->value);
-    if (&hasSame(\@r, [$pubType])) {
+    if (&hasSame(\@r, [$pubSet])) {
       $r->parentNode->unbindNode();
       &Note("not_conversion filtered 1 element because $r.");
     }

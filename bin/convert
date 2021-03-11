@@ -126,7 +126,7 @@ if ($restartInVagrant) {
 
 sub processArguments {
 
-  my $all = join('|', keys %{&listConversions(\@CONV_OSIS, \@CONV_PUBS)});
+  my $all = join('|', keys %{&getConversionArgs()});
   if ($CONVERSION !~ /^($all)$/) {
     print "ABORT: unknown conversion: $CONVERSION\n";
     print &usage();
@@ -441,7 +441,7 @@ sub conversionScripts {
   if ($conversion =~ /^(.*)2(.*)$/)   {
     my $from = $1; my $to = $2;
     if ($from eq 'sfm') {push(@scripts, 'osis');}
-    if ($to eq 'all')   {push(@scripts, map("osis2$_", @CONV_PUBS));}
+    if ($to eq 'all')   {push(@scripts, @CONV_PUBS);}
     else {push(@scripts, "osis2$to");}
   }
   

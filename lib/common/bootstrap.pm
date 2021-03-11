@@ -50,13 +50,14 @@ our ($SCRIPT, $SCRD);
 # DEBUG in config.conf is by set_system_globals()
 #our $DEBUG = 1;
 
-# Conversions to OSIS
-# NOTE: 'osis' means sfm2osis unless the project has a source project, 
-# in which case it means osis2osis.
-our @CONV_OSIS = ('sfm2osis', 'osis2osis', 'osis');
+# Conversion to OSIS executables
+our @CONV_OSIS = ('sfm2osis', 'osis2osis');
 
-# Conversions from OSIS to others
-our @CONV_PUBS = ('sword', 'ebooks', 'gobible', 'html');
+# Conversion from OSIS to publication executables
+our @CONV_PUBS = ('osis2sword', 'osis2ebooks', 'osis2gobible', 'osis2html');
+
+# Other osis-converters executables
+our @CONV_OTHER = ('convert', 'defaults');
 
 # Unsupported conversions of each module type
 our %CONV_NOCANDO = (
@@ -107,12 +108,12 @@ our %CONV_OUTPUT_FILES = (
                       '*.jad' ],
 );
 
-# Types of publication output by each conversion: 'tran' is the entire
+# Publication sets output by each conversion: 'tran' is the entire
 # Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook' is 
 # a single Bible-book publication which is part of the 'tran' 
 # publication and 'book' is a single Bible-book publication taken as a 
 # part of the 'subpub'.
-our %CONV_PUB_TYPES = (
+our %CONV_PUB_SETS = (
   'sword'   => [ 'tran' ],
   'gobible' => [ 'tran' ], #  'SimpleChar', 'SizeLimited'
   'ebooks'  => [ 'tran', 'subpub', 'tbook', 'book' ],
@@ -121,8 +122,8 @@ our %CONV_PUB_TYPES = (
 
 {
 my %h; 
-foreach my $c (keys %CONV_PUB_TYPES) {map($h{$_}++, @{$CONV_PUB_TYPES{$c}});}
-our @CONV_PUB_TYPES = (sort { length($b) <=> length($a) } keys %h);
+foreach my $c (keys %CONV_PUB_SETS) {map($h{$_}++, @{$CONV_PUB_SETS{$c}});}
+our @CONV_PUB_SETS = (sort { length($b) <=> length($a) } keys %h);
 }
 
 # Conversion executable dependencies
@@ -182,34 +183,35 @@ require "$SCRD/lib/common/help.pm";
 sub init() {
   our %ARGS = &arguments(@_);
   
+  our ($MAINMOD, $INPD, $LOGFILE, $HELP, $OSIS2OSIS_PASS);
+  
   if ($ARGS{'abort'}) {
     print &usage();
     exit 1;
   }
-  elsif (exists($ARGS{'h'})) {
+  elsif (exists($ARGS{'h'}) && !$HELP) {
     print &usage() . "\n";
-    
-    if ($ARGS{'h'}) {
-      print &help($ARGS{'h'});
-    }
-    else {
-      print &help($SCRIPT_NAME);
-    }
-    
+    print &help("$SCRIPT_NAME;SYNOPSIS");
+    exit 0;
+  }
+  elsif ($ARGS{'h'}) {
+    print &usage() . "\n";
+    print &help($HELP);
     exit 0;
   }
   
   if ($SCRIPT_NAME eq 'convert') {return;}
   
-  my $error = &checkModuleDir(our $INPD);
+  my $error = &checkModuleDir($INPD);
   if ($error) {print $error . &usage(); exit 1};
   
   # Set Perl globals associated with the project configuration
-  &set_project_globals(our $INPD, our $LOGFILE);
+  &set_project_globals($INPD, $LOGFILE);
   
   # Set Perl global variables defined in the [system] section of config.conf.
-  &set_system_globals(our $MAINMOD);
+  &set_system_globals($MAINMOD);
   &set_system_default_paths();
+  
   &DebugListVars("$SCRIPT_NAME globals", 'SCRD', 'SCRIPT', 
     'SCRIPT_NAME', 'MOD', 'MAINMOD', 'MAININPD', 'DICTMOD', 'DICTINPD', 
     our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 'NO_OUTPUT_DELETE');
@@ -220,10 +222,10 @@ sub init() {
   if (!$r) {exit ($r == 0 ? 0:1);}
   
   # From here on out we're always running on a provisioned Linux system
-  # (either natively or as a VM).
+  # (either natively or on a VM).
   require "$SCRD/lib/common/common.pm";
   
-  if (our $OSIS2OSIS_PASS eq 'preinit') {return;}
+  if ($OSIS2OSIS_PASS eq 'preinit') {return;}
   
   &init_linux_script();
   &DebugListVars("$SCRIPT_NAME globals", 'OUTDIR', 'MOD_OUTDIR', 

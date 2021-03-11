@@ -28,7 +28,7 @@ our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD,
     $GO_BIBLE_CREATOR, $INPD, $LOGFILE, $LOGFLAG, $MAININPD, $MAINMOD, 
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
     $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS,
-    %CONV_BIN_TEST, $MOD_OUTDIR, @CONV_PUB_TYPES, @CONV_OSIS, 
+    %CONV_BIN_TEST, $MOD_OUTDIR, @CONV_PUB_SETS, @CONV_OSIS, 
     %CONV_NOCANDO);
     
 require("$SCRD/lib/common/block.pm");
@@ -40,9 +40,7 @@ our $READLAYER   =  "<:encoding(UTF-8)";
 if (&runningInVagrant()) {$READLAYER .= ":crlf";}
   
 # Config.conf sections
-our @CONFIG_SECTIONS = (
-  'MAINMOD', 'DICTMOD', 'system', map("osis2$_", @CONV_PUBS)
-);
+our @CONFIG_SECTIONS = ('MAINMOD', 'DICTMOD', 'system', @CONV_PUBS);
 
 # Config entries that are defined by CrossWire SWORD standard
 our @SWORD_CONFIGS = (
@@ -75,7 +73,7 @@ our @SWORD_AUTOGEN_CONFIGS = (
 # Valid osis-converters config file entries (in addition to SWORD entries)
 our @OC_CONFIGS = (
   'MATCHES:TitleSubPublication\[\S+\]', 'MATCHES:GlossaryNavmenuLink\[[1-9]\]',
-  'MATCHES:CreatePub('.join('|', map(ucfirst($_), @CONV_PUB_TYPES)).')', 
+  'MATCHES:CreatePub('.join('|', map(ucfirst($_), @CONV_PUB_SETS)).')', 
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'CreateTypes', 
   'FullResourceURL', 'TranslationTitle', 'CombineGlossaries', 
   'CombinedGlossaryTitle', 'MATCHES:BookGroupTitle\w+', 
@@ -449,7 +447,12 @@ our $ADDDICTLINKS_NAMESPACE= "http://github.com/JohnAustinDev/osis-converters";
 our $ONS = "xmlns='$OSIS_NAMESPACE'";
 our $TNS = "xmlns='$TEI_NAMESPACE'";
 
-our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 'PUNC_AS_LETTER');
+our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 
+    'CF_addScripRefLinks.txt', 'CF_addDictLinks.xml', 
+    'CF_addFootnoteLinks.txt');
+
+our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 
+    'PUNC_AS_LETTER');
 
 our @VSYS_INSTRUCTIONS = ('VSYS_MISSING', 'VSYS_EXTRA', 'VSYS_FROM_TO', 
     'VSYS_EMPTY', 'VSYS_MOVED', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 
@@ -622,7 +625,7 @@ sub set_project_globals {
   our $LOGFILE = &argPath(shift);
 
   # Allow using a project subdirectory as $INPD argument
-  { my $subs = join('|', 'sfm', 'images', 'output', @CONV_PUBS);
+  { my $subs = join('|', 'sfm', 'images', 'output', &getPubTypes());
     $INPD =~ s/\/($subs)(\/.*?$|$)//;
   }
   # This works even for MS-Windows because of '\' replacement done above
@@ -1627,22 +1630,6 @@ sub matchingShares {
     foreach my $share (@$sharesP) {if ($_ =~ /^\Q$share\E$/) {delete($shares{$share});}}
   }
   return (keys(%shares) == 0 ? 1:0);
-}
-
-sub listConversions {
-  my $convOsisAP = shift;
-  my $convPubsAP = shift;
-  
-  my %all;
-  foreach (@{$convOsisAP}) {
-    $all{$_}++;
-  }
-  foreach ('all', @{$convPubsAP}) {
-    $all{'sfm'.'2'.$_}++;
-    $all{'osis'.'2'.$_}++;
-  }
-  
-  return \%all;
 }
 
 sub const {
