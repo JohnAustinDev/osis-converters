@@ -182,16 +182,27 @@ require "$SCRD/lib/common/help.pm";
 sub init() {
   our %ARGS = &arguments(@_);
   
-  if ($ARGS{'h'}) {
+  if ($ARGS{'abort'}) {
     print &usage();
-    print "\n" . &help($SCRIPT_NAME);
+    exit 1;
+  }
+  elsif (exists($ARGS{'h'})) {
+    print &usage() . "\n";
+    
+    if ($ARGS{'h'}) {
+      print &help($ARGS{'h'});
+    }
+    else {
+      print &help($SCRIPT_NAME);
+    }
+    
     exit 0;
   }
   
   if ($SCRIPT_NAME eq 'convert') {return;}
   
   my $error = &checkModuleDir(our $INPD);
-  if ($error) {print $error."\n".&usage(); exit 1};
+  if ($error) {print $error . &usage(); exit 1};
   
   # Set Perl globals associated with the project configuration
   &set_project_globals(our $INPD, our $LOGFILE);
@@ -217,6 +228,20 @@ sub init() {
   &init_linux_script();
   &DebugListVars("$SCRIPT_NAME globals", 'OUTDIR', 'MOD_OUTDIR', 
     'TMPDIR');
+}
+
+# Check that $dir is an osis-converters module directory, returning an 
+# error message if there is a problem, undef otherwise.
+sub checkModuleDir {
+  my $inpd = shift;
+  
+  if (!-d $inpd) {
+    return "\nABORT: Not a directory: '$inpd'\n";
+  }
+  elsif (!-d "$inpd/sfm" && !-d "$inpd/../sfm" && 
+         !-e "$inpd/CF_osis2osis.txt" && !-e "$inpd/../CF_osis2osis.txt") {
+    return "\nABORT: Not an osis-converters project: '$inpd'\n";
+  }
 }
 
 1;

@@ -55,7 +55,7 @@ sub sfm2osis {
   my $cf = shift;
   my $osis = shift;
   
-  &Log("CONVERTING SFM TO OSIS: sfm2osis\n-----------------------------------------------------\n\n", 1);
+  &Log("\nCONVERTING SFM TO OSIS: sfm2osis\n-----------------------------------------------------\n\n", 1);
 
   open(COMF, $READLAYER, $cf) || die "Could not open sfm2osis command file $cf\n";
 
@@ -126,44 +126,32 @@ applied to all following RUN commands until/unless canceled by:
   close(COMF);
 
   @VSYS_INSTR = sort { &sortVsysInst($a, $b) } @VSYS_INSTR;
-#  foreach my $p (@VSYS_INSTR) {&Log($p->{'inst'}.', fixed='.$p->{'fixed'}.', source='.$p->{'source'}."\n", 1);}
-  
-  if ($NO_OUTPUT_DELETE) {return;} # If we're not deleting previously written output files, we're wanting to skip this initial conversion
-  
-  my $lang = &conf('Lang'); $lang =~ s/-.*$//;
-  $lang = ($lang ? " -l $lang":'');
-  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . " $MOD -v -s none -x -r".$lang." -o " . &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
 
-  my $use_u2o = 0;
-  if (!$use_u2o) {
-    &Log($cmd . "\n", 1);
-    my $result = `$cmd`;
-    if ($result =~ /error|Unhandled/i) {&Log("$result\n", 1);}
-    if ($result =~ /Unhandled/i) {
-      &Error("Some SFM was unhandled while generating the usfm2osis.py output.", 
-"See 'Unhandled' message(s) above, which are in reference to:
-$osis 
-This problem is usually due to SFM which is not USFM 2.4 compliant. See 
-the USFM 2.4 specification here: 
-http://ubs-icap.org/chm/usfm/2.4/index.html 
-Or sometimes it is due to a bug or 'feature' of CrossWire's usfm2osis.py 
-script or the USFM or OSIS specifications. The solution probably
-requires that EVAL_REGEX instructions be added to CF_sfm2osis.txt
-to update or remove offending SFM tags.\n" . &help('EVAL_REGEX'));}
+  # If we're not deleting previously written output files, we're wanting 
+  # to skip this initial conversion.
+  if ($NO_OUTPUT_DELETE) {return;} 
+  
+  my $lang = &conf('Lang');
+  $lang =~ s/-.*$//;
+  $lang = ($lang ? " -l $lang":'');
+  
+  my $cmd = &escfile($MODULETOOLS_BIN."usfm2osis.py") . 
+            " $MOD -v -s none -x -r".$lang." -o " . 
+            &escfile("$osis") . ($DEBUG ? " -d":'') . " $USFMfiles";
+
+  my $log = &shell($cmd);
+  
+  if ($log =~ /Unhandled/i) {
+    &Error("usfm2osis.py left unhandled SFM tags.", 
+      &para("See 'Unhandled' message(s) above. Usually these tags are not USFM 2.4 compliant. See the USFM 2.4 specification at:
+\\b
+https://ubs-icap.org/chm/usfm/2.4/index.html
+\\b
+Sometimes there is a bug or feature of CrossWire's usfm2osis.py script or the USFM or OSIS specifications involved. EVAL_REGEX can be used to change or remove offending SFM tags:") .
+&help('EVAL_REGEX', 1));
   }
   &Log("\n");
-  # test/evaluation for u2o.py script
-  my $home = `echo \$HOME`; chomp($home);
-  my $osis2 = "$MOD_OUTDIR/u2o_evaluation.xml";
-  if ($use_u2o) {
-    $osis2 = $osis;
-    $cmd = &escfile("$home/.osis-converters/src/u2o/u2o.py") . " -e UTF8 -v".$lang." -o " . &escfile($osis2) . ($DEBUG ? " -d":'') . " " .$MOD . " $USFMfiles 2>&1";
-    #&Log("The following is a test of u2o.py...\n", 1);
-    &Log($cmd . "\n", 1);
-    &Log(`$cmd` . "\n", 1);
-    #&Log("Failure of u2o.py above does not effect other osis-converters conversions.\n", 1);
-  }
-  
+
   return;
 }
 

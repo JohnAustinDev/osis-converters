@@ -257,7 +257,7 @@ sub checkConfGlobals {
 This required config entry facilitates correct sorting of glossary 
 keys. EXAMPLE:
 KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[G`][g`][Sh][sh][Ch][ch][ng]`{\\[\\\\[\\\\]\\\\{\\\\}\\(\\)\\]}
-'.&help('KeySort'));
+' . &help('KeySort', 1));
   }
   if ($DICTMOD && !&conf('LangSortOrder', $DICTMOD)) {
     &Error("LangSortOrder is missing from config.conf", "

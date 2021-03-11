@@ -464,6 +464,30 @@ our @CF_ADDSCRIPREFLINKS = ('CONTEXT_BOOK', 'WORK_PREFIX', 'SKIP_XPATH',
 our @CF_ADDFOOTNOTELINKS = ('ORDINAL_TERMS', 'FIX', 'SKIP_XPATH', 
     'ONLY_XPATH', 'FOOTNOTE_TERMS', 'COMMON_TERMS', 
     'CURRENT_VERSE_TERMS', 'SUFFIXES', 'STOP_REFERENCE');
+    
+our %CF_ADDDICTLINKS = (
+  'elements' => [
+    'addDictLinks',
+    'div',
+    'entry',
+    'name',
+    'match',
+  ],
+  'attributes' => {
+    'multiple'         => 'boolean|match', 
+    'onlyExplicit'     => 'boolean|context', 
+    'notExplicit'      => 'boolean|context', 
+    'context'          => 'cumulative|context', 
+    'notContext'       => 'cumulative|context', 
+    'XPATH'            => 'cumulative|xpath', 
+    'notXPATH'         => 'cumulative|xpath', 
+    'dontLink'         => 'boolean', 
+    'onlyOldTestament' => 'boolean', 
+    'onlyNewTestament' => 'boolean',
+    'osisRef'          => 'osisRef+',
+    'noOutboundLinks'  => 'boolean',
+  },
+);
 
 # Initializes [system] global variables, checks operating system and 
 # dependencies, and restarts on a Vagrant VM if necessary. If this
@@ -1318,20 +1342,6 @@ sub getDefaultFile {
   return $defaultFile;
 }
 
-# Check that $dir is an osis-converters module directory, returning an 
-# error message if there is a problem, undef otherwise.
-sub checkModuleDir {
-  my $inpd = shift;
-  
-  if (!-d $inpd) {
-    return "ABORT: Not a directory: '$inpd'\n";
-  }
-  elsif (!-d "$inpd/sfm" && !-d "$inpd/../sfm" && 
-         !-e "$inpd/CF_osis2osis.txt" && !-e "$inpd/../CF_osis2osis.txt") {
-    return "ABORT: Not an osis-converters project: '$inpd'\n";
-  }
-}
-
 # Return 1 if dependencies are met for $script and 0 if not
 sub checkDependencies {
   my $script = shift;
@@ -1983,14 +1993,20 @@ sub shell {
   my $flag = shift; # same as Log flag
   my $allowNonZeroExit = shift;
   
+  # Log the command itself using $flag
   &Log("\n$cmd\n", ($DEBUG ? 1:$flag));
  
+  # Run and save result of stdout+stderr
   my $result = `$cmd 2>&1`;
+  
+  # Check for errors. If $allowNonZeroExit, there are no errors.
   my $error = $?; $error = ($allowNonZeroExit ? 0:$error);
   $result = decode('utf8', $result);
 
+  # Errors are always logged to file + console
   if ($DEBUG || $error != 0) {$flag = 1;}
 
+  # Log the result using $flag
   &Log($result."\n", $flag);
 
   if ($error != 0) {&ErrorBug("Shell command error code $error");}

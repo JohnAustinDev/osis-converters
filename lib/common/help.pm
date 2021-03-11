@@ -25,14 +25,18 @@ our ($SCRIPT_NAME, @CONV_OSIS, @CONV_PUBS);
 our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, $MAXTHREADS, $SKIPRE);
 
 # Each script takes 3 types of arguments: 'switch', 'option' and 'argument'.
-# Each argument is specified by: [ <global-name>, <default-value>, <short-description>, <documentation> ]
+# Each argument is specified by: 
+#   [ <global-name>, <default-value>, <short-description>, <documentation> ]
+# An option whose short-description is enlosed by square brackets means 
+# its value is optional. But optional option values cannot begin with 
+# (-|.|/) or else they will be interpereted as a separate argument.
 our %ARG = (
 
   'all' => { # Arguments available to all scripts:
   
-    'switch' => {
+    'option' => {
     
-      'h' => [ 'HELP', 0, 'boolean', 'Show usage message and exit.' ],
+      'h' => [ 'HELP', undef, '[key]', 'Show help message (about key if provided) and exit.' ],
     },
     
     'argument' => {
@@ -93,7 +97,7 @@ our %HELP = (
       ['(W)', 'These entries are also SWORD standard entries (see https://wiki.crosswire.org/DevTools:conf_Files).'],
     ]],
     ['list', ['ENTRY', 'DESCRIPTION'], 
-      &addEntryType(&getList([&{sub {$re=&configRE(@SWORD_AUTOGEN_CONFIGS); return grep {$_ !~ /$re/} @_;}}(@SWORD_CONFIGS, @SWORD_OC_CONFIGS, @OC_CONFIGS)], 
+      &addConfigType(&getList([&{sub {$re=&configRE(@SWORD_AUTOGEN_CONFIGS); return grep {$_ !~ /$re/} @_;}}(@SWORD_CONFIGS, @SWORD_OC_CONFIGS, @OC_CONFIGS)], 
     [
       [ 'Abbreviation', 'A short localized name for the module.' ],
       [ 'About', 'Localized information about the module.' ],
@@ -234,13 +238,38 @@ our %HELP = (
   ]],
   
   ['CF_addDictLinks.xml', [
-    ['para', '' ],
-    ['list', ['ELEMENT', 'DESCRIPTION'], [
-    
+    ['para', 'Many Bible translations are accompanied by reference material, such as glossaries, maps and tables. Hyperlinks to this material, and between these materials, are helpful study aids. Translators may mark the words or phrases which reference a particular glossary entry or map. But often only the location of a reference is marked, while the exact target of the reference is not. Sometimes no references are marked, even though they obviously exist throughout the translation. This command file\'s purpose is to convert all these kinds of textual references into strictly standardized working hyperlinks. '],
+    ['para', 'IMPORTANT: For case insensitive matches to work, ALL match text MUST be surrounded by the \Q...\E quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the \'i\' flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named \'link\' (using Perl\'s ?\'link\' notation) in which case that group will become the text of the link.' ],
+    ['para', 'References that are marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
+    ['list', ['' ,''], 
+    [
+      ['(B)', 'true or false' ],
+      ['(R)', 'one or more space separated osisRef values' ],
+      ['(X)', 'xpath expression' ],
+      ['(C)', 'one or more space separated osisRef values OR one or more comma separated Paratext references.' ],
+      ['(A)', 'value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn\'t begin with \'not\') cancels negative attribute ancestors.' ],
     ]],
-    ['list', ['ATTRIBUTE', 'DESCRIPTION'], [
-    
-    ]],
+    ['list', ['ATTRIBUTE', 'DESCRIPTION'], &addAttributeType(&getList([ keys %{$CF_ADDDICTLINKS{'attributes'}} ], [
+      ['osisRef', 'This attribute is only allowed on entry elements and is required. It contains a space separated list of work prefixed osisRef values, which are the target(s) of an entry\'s links.' ],
+      ['noOutboundLinks', 'This attribute is only allowed on entry elements. It prohibits the parser from parsing the entry\'s targets for links.' ],
+      ['multiple', 'If false, only the first match candidate for an entry will be linked per chapter or keyword. If \'match\', the first match condidate per match element may be linked per chapter or keyword. If true, there are no such limitations.' ],
+      ['onlyExplicit', 'If true or else contains a context matching the text node, then match elements will only apply if that node is an explicitly marked reference.' ],
+      ['notExplicit', 'If true or else contains a context matching the text node, then match elements will only apply if that node is not an explicitly marked reference.' ],
+      ['context', 'If it contains a context matching the text node, match elements will be applied.' ],
+      ['notContext', 'If it contains a context matching the text node, match elements will be not applied.' ],
+      ['XPATH', 'If the xpath expression evaluates as true for the text node, then match elements will be applied.' ],
+      ['notXPATH', 'If the xpath expression evaluates as true for the text node, then match elements will not be applied.' ],
+      ['dontLink', 'If true, then match elements are used to undo any reference link.' ],
+      ['onlyOldTestament', 'If true, text nodes which are not in the Old Testament, will not have match elements applied.' ],
+      ['onlyNewTestament', 'If true, text nodes which are not in the New Testament, will not have match elements applied.' ],
+    ]))],
+    ['list', ['ELEMENT', 'DESCRIPTION'], &getList($CF_ADDDICTLINKS{'elements'}, [
+      ['addDictLinks', 'The root element.' ],
+      ['div', 'Used to organize groups of entries' ],
+      ['entry', 'Text matching any child match element will be linked with the osisRef attribute value.' ],
+      ['name', 'The name of the parent entry.' ],
+      ['match', 'Contains a Perl regular expression used to search text for links to the parent entry. For a match element to create a link, all its attributes and those of ancestor elements must be properly satisfied.' ],
+    ])],
   ]],
 ],
 
@@ -293,27 +322,34 @@ our %HELP = (
 # can be a script name, a heading, or the entry part of any 'list'.
 sub help {
   my $lookup = shift;
+  my $showcmd = shift;
+  my $heading = shift;
   
   if (ref($HELP{$lookup})) {return &helpTop($HELP{$lookup});}
   
   my $r;
   foreach my $script (sort keys %HELP) {
     foreach my $headP (@{$HELP{$script}}) {
-      if ($headP->[0] =~ /\Q$lookup\E/i) {
-        return &helpHeading($headP->[1]);
+      if ($heading && $heading ne $headP->[0]) {next;}
+      if ($headP->[0] =~ /^$lookup$/i) {
+        $r .= ($showcmd ? $script . ' -h ' . $lookup . "\n\n" : '') . 
+          &helpHeading($headP);
       }
-      foreach my $subP (@{$headP->[1]}) {
-        if ($subP->[0] ne 'list') {next;}
-        foreach my $listP (@{$subP->[1]}) {
-          if ($listP->[0] =~ /\Q$lookup\E/i) {
-            return $listP->[1];
+      foreach my $listP (@{$headP->[1]}) {
+        if ($listP->[0] ne 'list') {next;}
+        foreach my $rowP (@{$listP->[2]}) {
+          if ($rowP->[0] =~ /^$lookup$/i) {
+            $r .= ($showcmd ? $script . ' -h ' . $lookup . "\n\n" : '') . 
+              &format($headP->[0], 'heading') . 
+              &helpList($listP->[1], [[ $rowP->[0], $rowP->[1] ]]);
           }
         }
       }
     }
   }
   
-  return "No help available for $script.";
+  return ($r ? $r : "No help available for '$lookup'" .
+          ($heading ? " under heading $heading" : '') . ".\n");
 }
 
 sub helpTop {
@@ -381,6 +417,7 @@ sub helpList {
   foreach my $row (@{$listAP}) {
     $r .= &listRow($row->[0], $row->[1], $left, $sep) . "\n";
   }
+  $r .= "\n";
   
   return $r;
 }
@@ -491,7 +528,7 @@ sub getList {
   
   foreach (@{$descAP}) {
     if (ref($_) && ($_->[0] || $_->[1])) {
-      &ErrorBug("Unused description: '".$_->[0]."', '".$_->[1]."'\n", 1);
+      &ErrorBug("Unused description: '".$_->[0]."', '".$_->[1]."'\n");
     }
   }
 
@@ -499,7 +536,7 @@ sub getList {
 }
 
 # Adds an entry type code to each key of a 'list'.
-sub addEntryType {
+sub addConfigType {
   my $aP = shift;
 
   my %re = (
@@ -517,6 +554,41 @@ sub addEntryType {
     }
     if (@types) {
       $rP->[0] .= ' ('.join('', @types).')';
+    }
+  }
+  
+  return $aP;
+}
+
+# Adds an attribute type code to each key of a 'list'.
+sub addAttributeType {
+  my $aP = shift;
+  
+  my %t = (
+    'boolean'    => 'B', 
+    'osisRef+'   => 'R', 
+    'xpath'      => 'X', 
+    'context'    => 'C', 
+    'cumulative' => 'A',
+    'match',
+  );
+  
+  foreach my $rP (@{$aP}) {
+    my %types;
+    if ($CF_ADDDICTLINKS{'attributes'}{$rP->[0]}) {
+      foreach my $at (split(/\|/, 
+          $CF_ADDDICTLINKS{'attributes'}{$rP->[0]})) {
+        $types{$at}++;
+      }
+    }
+    
+    if (! keys %types) {next;}
+    
+    my $ts = 
+      join('', sort map((exists($t{$_}) ? $t{$_} : 'x'), keys %types));
+    if ($ts) {$rP->[0] .= " ($ts)";}
+    if ($ts =~ /x/) {
+      &ErrorBug("Missing attribute type $ts: ".join(', ', keys %types), 1);
     }
   }
   
@@ -583,7 +655,8 @@ sub usagePrint {
 
 # Read all arguments in @_ and set all argument globals. Return a hash 
 # containing the supplied arguments if successful. If unexpected 
-# arguments are found an abort message is output and undef is returned.
+# arguments are found an abort message is printed and an abort flag is
+# returned.
 sub arguments {
   no strict 'refs';
   
@@ -601,48 +674,50 @@ sub arguments {
   my $switchRE = join('|', map(keys %{$ARG{$_}{'switch'}}, 'all', $SCRIPT_NAME));
   my $optionRE = join('|', map(keys %{$ARG{$_}{'option'}}, 'all', $SCRIPT_NAME));
   
-  my %args;
+  my %args = ( 'abort' => 1 );
   
   # Now update globals based on the provided arguments.
   my $argv = shift;
   my @a = ('first', 'second'); $a = 0;
-  my ($arg, $val, $type);
+  my ($aP, $arg, $val, $type);
   while ($argv) {
     if ($argv =~ /^\-(\S*)/) {
       my $f = $1;
       if ($f =~ /^($switchRE)$/) {
         $arg = $1;
-        $val = undef;
         $type = 'switch';
+        $aP = &getArg($type, $arg);
+        $val = undef;
       }
       elsif ($f =~ /^($optionRE)$/) {
         $arg = $1;
-        $val = shift; 
         $type = 'option';
-        if (!$val || $val =~ /^\-/) {
-          print "\nABORT: option -$f needs a value\n";
-          return;
+        $aP = &getArg($type, $arg);
+        if ($aP->[2] =~ /^\[/ && 
+            ( !defined(@_[0]) || @_[0] =~ /^[-\.\/]/) ) {$val = undef;}
+        else {
+          $val = shift;
+          if (!$val || $val =~ /^\-/) {
+            print "\nABORT: option -$f needs a value\n";
+            return %args;
+          }
         }
       }
       else {
         print "\nABORT: unhandled option: $argv\n";
-        return;
+        return %args;
       }
     }
     else {
       $arg = @a[$a];
       $val = $argv;
       $type = 'argument';
+      $aP = &getArg($type, $arg);
       if (@a[$a]) {$a++;}
       else {
         print "\nABORT: too many arguments.\n";
-        return;
+        return %args;
       }
-    }
-    
-    my $aP = $ARG{$SCRIPT_NAME}{$type}{$arg};
-    if (!ref($aP)) {
-      $aP = $ARG{'all'}{$type}{$arg};
     }
     
     my $var = $aP->[0];
@@ -656,9 +731,22 @@ sub arguments {
     
     $argv = shift;
   }
+  delete($args{'abort'});
   
   &DebugListVars("$SCRIPT_NAME arguments", 'HELP', 'INPD', 'LOGFILE', 
     'NO_ADDITIONAL', 'CONVERSION', 'MODRE', 'MAXTHREADS', 'SKIPRE');
   
   return %args;
+}
+
+sub getArg {
+  my $type = shift;
+  my $arg = shift;
+  
+  my $aP = $ARG{$SCRIPT_NAME}{$type}{$arg};
+  if (!ref($aP)) {
+    $aP = $ARG{'all'}{$type}{$arg};
+  }
+  
+  return $aP;
 }
