@@ -29,7 +29,10 @@ our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, $MAXTHREADS, $
 #   [ <global-name>, <default-value>, <short-description>, <documentation> ]
 # An option whose short-description is enlosed by square brackets means 
 # its value is optional. But optional option values cannot begin with 
-# (-|.|/) or else they will be interpereted as a separate argument.
+# (-|.|/) or else they will be interpereted as a separate argument, and
+# all 'argument' type arguments must remain as file|dir values. There is
+# still one possible ambinguity since argPath() does not require a 
+# leading './', meaning optional option is best reserved for just -h.
 our %ARG = (
 
   'all' => { # Arguments available to all scripts:
@@ -243,11 +246,11 @@ our %HELP = (
     ['para', 'References that are marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
     ['list', ['' ,''], 
     [
+      ['(A)', 'value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn\'t begin with \'not\') cancels negative attribute ancestors.' ],
       ['(B)', 'true or false' ],
+      ['(C)', 'one or more space separated osisRef values OR one or more comma separated Paratext references.' ],
       ['(R)', 'one or more space separated osisRef values' ],
       ['(X)', 'xpath expression' ],
-      ['(C)', 'one or more space separated osisRef values OR one or more comma separated Paratext references.' ],
-      ['(A)', 'value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn\'t begin with \'not\') cancels negative attribute ancestors.' ],
     ]],
     ['list', ['ATTRIBUTE', 'DESCRIPTION'], &addAttributeType(&getList([ keys %{$CF_ADDDICTLINKS{'attributes'}} ], [
       ['osisRef', 'This attribute is only allowed on entry elements and is required. It contains a space separated list of work prefixed osisRef values, which are the target(s) of an entry\'s links.' ],
@@ -548,7 +551,7 @@ sub addConfigType {
   
   foreach my $rP (@{$aP}) {
     my @types;
-    foreach my $t (sort keys %re) {
+    foreach my $t (sort {$re{$a}[0] cmp $re{$b}[0]} keys %re) {
       my $a = $re{$t}[1];
       if ($rP->[0] =~ /$a/) {push(@types, $re{$t}[0]);}
     }
