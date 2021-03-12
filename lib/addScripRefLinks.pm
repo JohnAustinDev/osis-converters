@@ -791,7 +791,7 @@ sub reportFixes {
       if (!defined($fixDoneP->{$loc}{$ref})) {
         &Error("Fix \"$loc\" \"$ref\" was not applied.", "
    This FIX was not found in the text. The FIX line should be an exact 
-   copy of a line in OUT_sfm2osis.txt beginning with \"Linking\".$fixReplacementMsg");
+   copy of a line in LOG_sfm2osis.txt beginning with \"Linking\".$fixReplacementMsg");
         $f++;
       }
       else {$t += $fixDoneP->{$loc}{$ref};}

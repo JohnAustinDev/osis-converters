@@ -28,16 +28,4 @@ require "$SCRD/lib/osis2pubs.pm";
 
 &timer('stop');
 
-#if (-e "$TMPDIR/OUT_osis2html.txt") {
-#  &Log("
-#
-#
-#
-#
-#------------------------------------------------------------------------
-#                      HTML DETAIL LOG:
-#------------------------------------------------------------------------");
-#  &shell("cat \"$TMPDIR/OUT_osis2html.txt\"");
-#}
-
 1;

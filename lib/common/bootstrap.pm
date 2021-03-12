@@ -33,6 +33,10 @@
 # unknown):
 # use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){N}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 
+# These are set in config.conf by set_system_globals()
+#our $DEBUG = 1;
+#our $VAGRANT = 1;
+
 use strict;
 use Carp qw(longmess);
 use Encode;
@@ -46,9 +50,6 @@ select STDOUT; $| = 1;  # make unbuffered
 
 # These two globals must be initialized in the entry script:
 our ($SCRIPT, $SCRD);
-
-# DEBUG in config.conf is by set_system_globals()
-#our $DEBUG = 1;
 
 # Conversion to OSIS executables
 our @CONV_OSIS = ('sfm2osis', 'osis2osis');
@@ -168,13 +169,11 @@ our %CONV_BIN_TEST = (
 $SCRIPT =~ s/\\/\//g;
 $SCRD   =~ s/\\/\//g;
 
-our $SCRIPT_NAME = $SCRIPT;
-$SCRIPT_NAME =~ s/^.*\/([^\/]+)(\.[^\/\.]+)?$/$1/;
+# Don't reset, in case a fork already set SCRIPT_NAME
+if (! our $SCRIPT_NAME) {
+  $SCRIPT_NAME = &scriptName();
+}
 
-# Global $forkScriptName will only be set when running in fork.pm, in  
-# which case SCRIPT_NAME is inherited for &conf() values to be correct.
-if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
-  
 require "$SCRD/lib/common/common_opsys.pm";
 require "$SCRD/lib/common/help.pm";
 
@@ -183,7 +182,7 @@ require "$SCRD/lib/common/help.pm";
 sub init() {
   our %ARGS = &arguments(@_);
   
-  our ($MAINMOD, $INPD, $LOGFILE, $HELP, $OSIS2OSIS_PASS);
+  our ($MAINMOD, $INPD, $LOGFILE, $SCRIPT_NAME, $HELP, $OSIS2OSIS_PASS);
   
   if ($ARGS{'abort'}) {
     print &usage();
@@ -244,6 +243,16 @@ sub checkModuleDir {
          !-e "$inpd/CF_osis2osis.txt" && !-e "$inpd/../CF_osis2osis.txt") {
     return "\nABORT: Not an osis-converters project: '$inpd'\n";
   }
+}
+
+sub scriptName {
+  
+  my $n = $0;
+  $n =~ s/^\.+//;
+  $n =~ s/^.*[\/\\]([^\/\\]+)$/$1/;
+  $n =~ s/(\.[^\/\.]+)$//;
+  
+  return $n;
 }
 
 1;

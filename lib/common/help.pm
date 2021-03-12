@@ -28,6 +28,7 @@ our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, $MAXTHREADS, $
 # 'switch' (boolean), 'option' (anything) and 'argument' (file|dir)
 # Each argument is specified in %ARG by: 
 #   [ <global-name>, <default-value>, <short-description>, <documentation> ]
+# A short-description of file or dir triggers file argument processing.
 # An option whose short-description is enlosed by square brackets has 
 # an optional value. Optional option values cannot begin with (-|.|/) or 
 # else they will be interpereted as a separate argument, and its also
@@ -61,7 +62,7 @@ our %ARG = (
     'argument' => {
     
       # this overrides the second argument of 'all' above
-      'second' => [ 'LOGFILE', './LOG_convert.txt', 'file', 'Log file path. Default is ./OUT_convert.txt in the working directory.' ],
+      'second' => [ 'LOGFILE', './LOG_convert.txt', 'file', 'Log file path. Default is ./LOG_convert.txt in the working directory.' ],
     },
     
     'option' => {
@@ -93,7 +94,7 @@ our %HELP = (
     ['para', 'The SFM to OSIS conversion process is directed by the following control files:' ],
     ['list', ['FILE', 'DESCRIPTION'], &getList(\@CF_FILES, [
       ['config.conf', 'Configuration file with settings and meta-data for a project.' ],
-      ['CF_sfm2osis.txt', 'Order and place converted SFM files within an OSIS file and record deviations from the standard markup and verse system.' ],
+      ['CF_sfm2osis.txt', 'Place and order converted SFM files within an OSIS file and record deviations from the standard markup and verse system.' ],
       ['CF_addScripRefLinks.txt', 'Control parsing of scripture references in the text and their conversion to working hyperlinks.' ],
       ['CF_addDictLinks.xml', 'Control parsing of reference material references in the text and their conversion to working hyperlinks.' ],
       ['CF_addFootnoteLinks.txt', 'Control parsing of footnote references from the text and their conversion to working hyperlinks.' ],
@@ -729,7 +730,10 @@ sub arguments {
       foreach my $a (sort keys %{$ARG{$s}{$t}}) {
         my $n = @{$ARG{$s}{$t}{$a}}[0];
         my $v = @{$ARG{$s}{$t}{$a}}[1];
-        $$n = $v
+        if (@{$ARG{$s}{$t}{$a}}[2] =~ /^(file|dir)$/) {
+          $$n = &argPath($v);
+        }
+        else {$$n = $v;}
       }
     }
   }
@@ -742,7 +746,7 @@ sub arguments {
   # Now update globals based on the provided arguments.
   my $argv = shift;
   my @a = ('first', 'second'); $a = 0;
-  my ($aP, $arg, $val, $type);
+  my ($aP, $arg, $value, $type);
   while ($argv) {
     if ($argv =~ /^\-(\S*)/) {
       my $f = $1;
@@ -750,17 +754,17 @@ sub arguments {
         $arg = $1;
         $type = 'switch';
         $aP = &getArg($type, $arg);
-        $val = undef;
+        $value = undef;
       }
       elsif ($f =~ /^($optionRE)$/) {
         $arg = $1;
         $type = 'option';
         $aP = &getArg($type, $arg);
         if ($aP->[2] =~ /^\[/ && 
-            ( !defined(@_[0]) || @_[0] =~ /^[-\.\/]/) ) {$val = undef;}
+            ( !defined(@_[0]) || @_[0] =~ /^[-\.\/]/) ) {$value = undef;}
         else {
-          $val = shift;
-          if (!$val || $val =~ /^\-/) {
+          $value = shift;
+          if (!$value || $value =~ /^\-/) {
             print "\nABORT: option -$f needs a value\n";
             return %args;
           }
@@ -773,7 +777,7 @@ sub arguments {
     }
     else {
       $arg = @a[$a];
-      $val = $argv;
+      $value = $argv;
       $type = 'argument';
       $aP = &getArg($type, $arg);
       if (@a[$a]) {$a++;}
@@ -785,12 +789,12 @@ sub arguments {
     
     my $var = $aP->[0];
     
-    if ($type eq 'switch') {$val = !$$var;}
+    if ($type eq 'switch') {$value = !$$var;}
     
-    elsif ($aP->[2] =~ /^(file|dir)$/) {$val = &argPath($val);}
+    elsif ($aP->[2] =~ /^(file|dir)$/) {$value = &argPath($value);}
     
-    $$var = $val;
-    $args{$arg} = $val;
+    $$var = $value;
+    $args{$arg} = $value;
     
     $argv = shift;
   }
@@ -802,6 +806,43 @@ sub arguments {
   return %args;
 }
 
+sub writeArgs {
+  my $hP = shift;
+ 
+  my $cmd;
+  foreach my $a (sort keys %{$hP}) {
+    if (&optType($a) eq 'argument') {next;}
+    
+    $cmd .= "-$a ";
+    if (&optType($a) eq 'option') {
+      $cmd .= "$hP->{$a} ";
+    }
+  }
+  foreach my $a (sort keys %{$hP}) {
+    if (!$hP->{$a} || &optType($a) ne 'argument') {next;}
+    $cmd .= "'$hP->{$a}' ";
+  }
+  
+  return $cmd;
+}
+
+# Get the current type of a given argument name
+sub optType {
+  my $as = shift;
+  
+  my $r;
+  foreach my $s ('all', $SCRIPT_NAME) {
+    foreach my $t (sort keys %{$ARG{$s}}) {
+      foreach my $a (sort keys %{$ARG{$s}{$t}}) {
+        if ($a eq $as) {$r = $t;}
+      }
+    }
+  }
+  
+  return $r;
+}
+
+# Get the current argument definition array for a given type and name.
 sub getArg {
   my $type = shift;
   my $arg = shift;

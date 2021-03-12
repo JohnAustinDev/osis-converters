@@ -28,16 +28,12 @@ use File::Spec;
 use File::Path qw(make_path remove_tree);
 use Encode;
 
-my $SCRD = File::Spec->rel2abs(__FILE__); $SCRD =~ s/([\\\/][^\\\/]+){3}$//;
-
-require("$SCRD/lib/forks/fork_funcs.pm");
-
-my $INPD     = @ARGV[0]; # Absolute path to project input directory
-my $LOGF     = @ARGV[1]; # Absolute path to log file of main thread
-my $SCNM     = @ARGV[2]; # SCRIPT_NAME to use for forks.pm conf() context
-my $REQU     = @ARGV[3]; # Absolute path of perl script of caller
-my $forkFunc = @ARGV[4]; # Name of the function to run
-my $forkArgIndex   = 5;  # @ARGV[$forkArgIndex+] = Arguments for each 
+our $INPD         = @ARGV[0]; # Absolute path to project input directory
+our $LOGFILE      = @ARGV[1]; # Absolute path to log file of main thread
+our $SCRIPT_NAME  = @ARGV[2]; # SCRIPT_NAME for forks.pm conf() context
+my  $forkRequire  = @ARGV[3]; # Absolute path of perl script of caller
+my  $forkFunc     = @ARGV[4]; # Name of the function to run
+my  $forkArgIndex = 5;  # @ARGV[$forkArgIndex+] = Arguments for each 
 # call of the function, with the form argN:<value>. While reading the
 # arguments in order, when arg1 or the final argument is encountered, 
 # any last set of arguments will be used to call the function. So each 
@@ -48,6 +44,17 @@ my $forkArgIndex   = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 # CPU or memory availability.
 
 &Log("\nforks.pm ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
+
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm";
+
+# Initialization already passed with the caller, only need to get $TMPDIR.
+require "$SCRD/lib/common/common.pm";
+&set_project_globals($INPD, $LOGFILE);
+&set_system_globals(our $MAINMOD);
+&set_system_default_paths();
+our $TMPDIR; &initModuleTmpDir();
+
+require("$SCRD/lib/forks/fork_funcs.pm");
 
 our $RAM_SAFE = 80000; # required KB RAM to be left available before starting any parallel fork.
 
@@ -86,20 +93,12 @@ sub pushCall {
 }
 &saveForkArgs(\@forkCall, \@ARGV);
 
-my $caller = &caller($REQU);
+my $caller = &caller($forkRequire);
 my $forkDirName = $caller.'.fork';
-my $forkLogName = "OUT_${caller}_fork.txt";
-my $scriptTmpDir = $LOGF; 
-$scriptTmpDir =~ s/(?<=\/)[^\/]+$/tmp\/$SCNM/;
+my $forkLogName = "LOG_${caller}_fork.txt";
 
 my $fatal = 0;
-if (! -e $scriptTmpDir) {
-  &Log("
-ERROR: forks.pm script tmp dir does not exist: $scriptTmpDir
-SOLUTION: custom log files cannot be used with forks.pm: $LOGF");
-  $fatal++;
-} 
-foreach my $e (glob("$scriptTmpDir/$forkDirName/*")) {
+foreach my $e (glob("$TMPDIR/$forkDirName/*")) {
   &Log("ERROR: forks.pm fork tmp directory already exists: $e\n");
   $fatal++;
 }
@@ -119,9 +118,9 @@ if (!$fatal) {
     push(@threads, threads->create(sub {
       system("\"$SCRD/lib/forks/fork.pm\" " .
         "\"$INPD\"" . ' ' .
-        "\"$scriptTmpDir/$forkDirName/fork_$n/$forkLogName\"" . ' ' .
-        "\"$SCNM\"" . ' ' .
-        "\"$REQU\"". ' ' .
+        "\"$TMPDIR/$forkDirName/fork_$n/$forkLogName\"" . ' ' .
+        "\"$SCRIPT_NAME\"" . ' ' .
+        "\"$forkRequire\"". ' ' .
         "\"$forkFunc\"" . ' ' .
         join(' ', map(&escarg($_), @forkArgs)));
       }));
@@ -136,15 +135,15 @@ if (!$fatal) {
   foreach my $th (@threads) {$th->join();}
 
   # Copy finished fork log files to the main thread's LOGFILE.
-  foreach my $td (@{&forkTmpDirs($scriptTmpDir, $SCNM, $caller)}) {
+  foreach my $td (@{&forkTmpDirs($caller)}) {
     if (!-e "$td/$forkLogName") {next;}
     
     if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
-      if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
+      if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
         while(<MLF>) {print LGG $_;}
         close(LGG);
       }
-      else {&Log("ERROR: forks.pm cannot open $LOGF for appending.\n");}
+      else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
       close(MLF);
     }
     else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
@@ -165,7 +164,7 @@ sub resourcesAvailable {
 
   my (%data, @fields);
   # 'vmstat' for CPU data
-  my $r = ($REQU =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
+  my $r = ($forkRequire =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
   foreach my $line (split(/\n/, `vmstat $r 2`)) { # vmstat [options] [delay [count]]
     if    ($line =~ /procs/) {next;} # first line is grouping, so drop
     elsif ($line =~ /id/) {@fields = split(/\s+/, $line);} # field names
@@ -224,7 +223,7 @@ sub Log {
   my $p = shift;
   
   my $console = ($p =~ /(DEBUG|ERROR)/);
-  if (open(LGG, ">>:encoding(UTF-8)", $LOGF)) {
+  if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
     print LGG $p; close(LGG);
   }
   else {$console++;}

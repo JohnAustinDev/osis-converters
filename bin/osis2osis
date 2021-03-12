@@ -19,7 +19,9 @@
 
 our $OSIS2OSIS_PASS = 'preinit'; # skip init_linux_script()
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-
+# During osis2osis init() skips init_linux_script()
+&initModuleLogFile();
+  
 # This script converts SFM, control, and OSIS files from one project 
 # into those of another. It runs a CF_osis2osis.txt command-file twice 
 # in succession. The first pass (preinit) applies any 'CC' instructions,
@@ -71,8 +73,8 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 # they will be run on the osis file after all processing, just before 
 # validation and checking.
 
-our ($INPD, $MAININPD, $SCRIPT_NAME, $MOD, $LOGFILE, $MOD_OUTDIR, 
-    $NO_OUTPUT_DELETE, $sourceProject);
+our ($INPD, $MAININPD, $SCRIPT_NAME, $MOD, $LOGFILE, $NO_OUTPUT_DELETE, 
+    $sourceProject);
 
 require("$SCRD/lib/osis2osis.pm");
 require("$SCRD/utils/simplecc.pl");
@@ -85,12 +87,6 @@ file located at: $MAININPD.", '', 1);
 }
 
 &osis2osis($commandFile, 'preinit');
-
-# Append log output of second osis2osis() call to that of the first.
-$MOD_OUTDIR = &getModuleOutputDir();
-if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
-$LOGFILE =
-  &initLogFile($LOGFILE, "$MOD_OUTDIR/OUT_".$SCRIPT_NAME."_$MOD.txt");
 
 our $OSIS2OSIS_PASS = 'postinit'; # call init_linux_script() normally
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init($INPD, $LOGFILE);

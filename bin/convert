@@ -22,8 +22,8 @@
 use strict;
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
-    $INPD, $DEBUG, $VAGRANT, $INPD, $MODRE, $CONVERSION, $MAXTHREADS, 
-    $SKIPRE, $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
+    $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $MAXTHREADS, $SKIPRE, 
+    $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
     @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
     %CONV_OUTPUT_SUBDIR, %ARGS);
 
@@ -39,11 +39,15 @@ use Data::Dumper; $Data::Dumper::Sortkeys = 1;
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(@ARGV);
 
-&processArguments();
+our $PROJDIR = &processArguments();
+
+# Save these so they won't be changed, in case Vagrant is needed
+$ARGS{'first'} = $INPD;
+$ARGS{'second'} = $LOGFILE;
 
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
-$INFO = &getProjectsInfo($INPD);
+$INFO = &getProjectsInfo($PROJDIR);
 
 @RUN = &getScriptsToRun($CONVERSION, $MODRE, $SKIPRE, $INFO);
 
@@ -53,7 +57,7 @@ if ($DEBUG) {
   &pLog("INFO = ".Dumper($INFO)."\n");
   &pLog("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
   no strict 'refs';
-  my @v = ('INPD', 'MYLOG', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+  my @v = ('INPD', 'PROJDIR', 'LOGFILE', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
   print join("\n", map("$_=$$_", @v))."\n\n";
 }
 
@@ -142,11 +146,12 @@ sub processArguments {
   
   # If INPD is within a project subdirectory, change it to the main
   # project directory.
-  my @p = split(/[\\\/]/, $INPD);
+  my $projdir = $INPD;
+  my @p = split(/[\\\/]/, $projdir);
   while (@p) {
     my $d = join('/', @p);
-    if (-e "$d/config.conf" || -e "$d|CF_osis2osis.txt") {
-      $INPD = $d; last;
+    if (-f "$d/config.conf" || -f "$d|CF_osis2osis.txt") {
+      $projdir = $d; last;
     }
     pop(@p);
   }
@@ -155,26 +160,28 @@ sub processArguments {
   # then adjust INPD to the parent dir and set -m to 'MOD(DICT)?'. 
   # This allows any dependencies to be located.
   my $adjust;
-  if (!$ARGS{'m'} && ! -e "$INPD/defaults") {
-    if (-d "$INPD/../defaults") {$adjust = '..';}
+  if (!$ARGS{'m'} && ! -e "$projdir/defaults") {
+    if (-d "$projdir/../defaults") {$adjust = '..';}
     if ($adjust) {
-      my @p = split(/[\\\/]/, $INPD);
+      my @p = split(/[\\\/]/, $projdir);
       my @d = split(/[\\\/]/, $adjust);
       my $mod = @p[(@p-@d)];
       $MODRE = '^' . $mod . ($mod !~ /DICT$/ ? '(DICT)?':'') . '$';
-      $INPD .= "/$adjust";
+      $projdir .= "/$adjust";
     }
   }
   
   # Adjust MODRE and SKIP...
   # If -m was specified as a single non-DICT module, but INPD is a
   # project parent directory (non-adjusted), then include the DICT mod.
-  if (!$adjust && $ARGS{'m'} && -e "$INPD/defaults" 
+  if (!$adjust && $ARGS{'m'} && -e "$projdir/defaults" 
       && $MODRE =~ /^[A-Z]+$/ && $MODRE !~ /DICT$/) {
     $MODRE = '^'.$MODRE.'(DICT)?$';
   }
   elsif ($ARGS{'m'} && $MODRE !~ /(^\^|\$$)/) {$MODRE = '^'.$MODRE.'$';}
   if ($ARGS{'x'} && $SKIPRE !~ /(^\^|\$$)/) {$SKIPRE = '^'.$SKIPRE.'$';}
+  
+  return $projdir;
 }
 
 # Restart the same conversion using the Vagrant VM
@@ -182,21 +189,11 @@ sub convertInVagrant {
 
   &initialize_vagrant();
   
-  my $vscript = &vagrantPath($SCRIPT);
-  if (!$vscript) {print "ABORT: failed vagrantPath: $SCRIPT\n"; exit 1;}
-  my $vpdir   = &vagrantPath($INPD);
-  if (!$vpdir)   {print "ABORT: failed vagrantPath: $INPD\n"; exit 1;}
-  my $vlog    = &vagrantPath($LOGFILE);
-  if (!$vlog)    {print "ABORT: failed vagrantPath: $LOGFILE\n";  exit 1;}
-  
-  my $cmd = "vagrant ssh -c \"".
-            "'$vscript' ".
-            "-m '$MODRE' ".
-            "-x '$SKIPRE' ".
-            "-c '$CONVERSION' ".
-            "-l '$vlog' ".
-            ( $NO_ADDITIONAL ? '-n ' : '' ).
-            "'$vpdir'\"";
+  my $vscript     = &vagrantPath($SCRIPT);
+  $ARGS{'first'}  = &vagrantPath($ARGS{'first'});
+  $ARGS{'second'} = &vagrantPath($ARGS{'second'});
+
+  my $cmd = "vagrant ssh -c \" '$vscript' " . &writeArgs(\%ARGS) . "\"";
 
   print "\nStarting Vagrant with...\n$cmd\n";
   
@@ -492,7 +489,7 @@ sub getDependencies {
         }
         else {
           print "
-ABORT: could not locate a required module: '$m' in '$INPD'.
+ABORT: could not locate a required module: '$m' in '$PROJDIR'.
 Use the -n flag to run anyway without it, or use a project directory 
 containing the necessary project(s).";
           exit 1;
@@ -651,7 +648,7 @@ sub modOutdir {
     
   $outdir = ( $outdir ? 
       "$outdir/$m" : 
-      "$INPD/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
+      "$PROJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
     );
  
   return &shortPath($outdir);

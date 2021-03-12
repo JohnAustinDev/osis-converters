@@ -26,10 +26,6 @@ our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE,
     %CONV_OUTPUT_FILES);
 
 sub init_linux_script {
-  # Global $forkScriptName will only be set when running from fork.pm, in  
-  # which case SCRIPT_NAME is inherited for &conf() values to be correct.
-  if (our $forkScriptName) {$SCRIPT_NAME = $forkScriptName;}
-  
   &Log("\n-----------------------------------------------------\nSTARTING \$SCRIPT_NAME=$SCRIPT_NAME\n\n");
   
   &logGitRevs();
@@ -68,19 +64,11 @@ sub init_linux_script {
   $MOD_OUTDIR = &getModuleOutputDir();
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
-  $TMPDIR = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
-  if (our $forkScriptName) { # will be set when called by forks.pm
-    if (!defined($LOGFILE)) {&ErrorBug("Fork log file must be specified", 1);}
-    $TMPDIR = $LOGFILE; $TMPDIR =~ s/\/[^\/]+$//;
-  }
-  if (!$NO_OUTPUT_DELETE) {
-    if (-e $TMPDIR) {remove_tree($TMPDIR);}
-    make_path($TMPDIR);
-  }
+  &initModuleTmpDir();
   
   &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
   
-  $LOGFILE = &initLogFile($LOGFILE, "$MOD_OUTDIR/LOG_".$SCRIPT_NAME.".txt");
+  &initModuleLogFile();
   
   if ($SCRIPT_NAME =~ /^defaults$/) {return;}
   
@@ -90,9 +78,13 @@ sub init_linux_script {
     
   &checkRequiredConfEntries();
   
-  if (&conf('Font')) {&checkFont(&conf('Font'));}
+  if (&conf('Font')) {
+    &checkFont(&conf('Font'));
+  }
   
-  if (-e "$INPD/images") {&checkImageFileNames("$INPD/images");}
+  if (-e "$INPD/images") {
+    &checkImageFileNames("$INPD/images");
+  }
   
   if ($DEBUG) {
     &Error("DEBUG is set in config.conf.", 
@@ -120,6 +112,8 @@ sub logGitRevs {
   }
 }
 
+# Return a module's root output directory. 
+# Requires $OUTDIR and $MAININPD already be set.
 sub getModuleOutputDir {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
   
@@ -140,22 +134,39 @@ sub getModuleOutputDir {
   return $moddir;
 }
 
-# If $logfileIn is not specified then start a new one at $logfileDef.
-# If $logfileIn is specified then append to $logfileIn.
-sub initLogFile {
-  my $logfileIn = shift;
-  my $logfileDef = shift;
+# Sets $TMPDIR, deleting and creating as needed. If $TMPDIR is already
+# set (such as by a fork) it does nothing.
+# Requires $SCRIPT_NAME, $OUTDIR, $MAININPD already be set.
+sub initModuleTmpDir {
+  my $mod = shift; if (!$mod) {$mod = $MOD;}
+
+  if ($TMPDIR) {return;}
   
-  my $logfile = ($logfileIn ? $logfileIn:$logfileDef);
+  my $out = &getModuleOutputDir($mod);
   
-  # delete old log if $logfileIn was not specified
-  if (!$logfileIn && -e $logfile) {unlink($logfile);}
+  $TMPDIR = "$out/tmp/$SCRIPT_NAME";
   
-  # create parent directory if it doesn't exist yet
-  my $logfileParent = $logfile; $logfileParent =~ s/\/[^\/]+\/?$//;
-  if (!-e $logfileParent) {&make_path($logfileParent);}
+  # Only remove $TMPDIR if this is not a fork: &scriptName() eq $SCRIPT_NAME
+  if (-e $TMPDIR && !$NO_OUTPUT_DELETE && 
+        &scriptName() eq $SCRIPT_NAME) {
+    remove_tree($TMPDIR);
+  }
   
-  return $logfile;
+  if (! -e $TMPDIR) {make_path($TMPDIR);}
+}
+
+# Sets $LOGFILE, deleting pre-existing as needed.
+# Requires $OUTDIR, $MAININPD and $SCRIPT_NAME already be set.
+sub initModuleLogFile {
+  my $mod = shift; if (!$mod) {$mod = $MOD;}
+  
+  my $out = &getModuleOutputDir($mod);
+  
+  my $log = ( $LOGFILE ? $LOGFILE : "$out/LOG_$SCRIPT_NAME.txt" );
+  
+  if (-f $log) {unlink($log);}
+  
+  $LOGFILE = $log;
 }
 
 # Enforce the only supported module configuration and naming convention
@@ -348,8 +359,7 @@ sub initInputOutputFiles {
   }
 
   # Delete old output files/directories
-  our $forkScriptName; # fork results should not be deleted
-  if (!$NO_OUTPUT_DELETE && !$forkScriptName) {
+  if (!$NO_OUTPUT_DELETE && &scriptName() eq $SCRIPT_NAME) {
     my $subdir = &const($CONV_OUTPUT_SUBDIR{$script_name});
     if ($subdir) {
       my $sd0 = (split(/\//, $subdir))[0];

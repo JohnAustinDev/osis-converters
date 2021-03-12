@@ -146,7 +146,7 @@ sub reassembleForkData {
   my $assembleFunc = $caller.'_assembleFunc';
 
   # Reassemble the data saved by the separate forks
-  foreach my $td (@{&forkTmpDirs($TMPDIR, $SCRIPT_NAME, $caller)}) {
+  foreach my $td (@{&forkTmpDirs($caller)}) {
     no strict "refs";
     &readVarsJSON(\@$json, $td);
     &$assembleFunc();
@@ -231,16 +231,14 @@ sub assembleHash {
 }
 
 sub forkTmpDirs {
-  my $tmpdir = shift; # any script's tmp directory
-  my $script = shift; # parent osis-converters script
   my $caller = &caller(shift);
   
-  $tmpdir =~ s/(?<=\/tmp\/).*$/${script}\/${caller}.fork/;
+  my $forkTmp = "$TMPDIR/$caller.fork";
   
   my @dirs;
   
   my $n = 1; 
-  while (-e $tmpdir.'/fork_'.$n) {push(@dirs, $tmpdir.'/fork_'.$n++);}
+  while (-e $forkTmp.'/fork_'.$n) {push(@dirs, $forkTmp.'/fork_'.$n++);}
   
   return \@dirs;
 }

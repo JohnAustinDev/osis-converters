@@ -55,21 +55,6 @@ require("$SCRD/lib/common/scope.pm");
 require("$SCRD/lib/common/scripts.pm");
 require("$SCRD/lib/common/split.pm");
 
-# Calls an osis-converters script from within another.
-sub osis_converters {
-  my $script  = shift;
-  my $dir     = shift; # THIS MUST BE AN ABSOLUTE PATH!
-  my $logfile = shift; # optional
-  
-  my $cmd = &escfile($script) . " " .
-            &escfile($dir) . 
-            ($logfile ? " " . &escfile($logfile) : '');
-            
-  &Log("\n\n\nRUNNING OSIS_CONVERTERS:\n$cmd\n", 1);
-  &Log( ('#' x 72) . "\n" . ('#' x 72) . "\n", 1);
-  system( $cmd . ($logfile ? " 2>> " . &escfile($logfile) : '') );
-}
-
 # Return 1 if there is an Internet connection or 0 of there is not. 
 # This test may take time, so cache the result for the remainder of 
 # the script.

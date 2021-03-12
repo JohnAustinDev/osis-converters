@@ -26,23 +26,24 @@ use File::Path;
 
 #print("\nDEBUG: fork.pm ARGV=\n".join("\n", @ARGV)."\n");
 
-# INPD              = @ARGV[0]; # - Full path of the project directory.
-# LOGFILE           = @ARGV[1]; # - Full path of log file for this fork, 
-                                #   which must be in a subdirectory that 
-                                #   is unique to this fork instance.
-our $forkScriptName = @ARGV[2]; # - Used by osis-converters to signal it 
-                                #   is running as a fork of a parent script.
-our $forkRequire    = @ARGV[3]; # - Full path of script containing $forkFunc
-our $forkFunc       = @ARGV[4]; # - Name of function to run
-our @forkArgs;      my $a = 5;  # - Arguments to use with $forkFunc
+# our INPD       = @ARGV[0]; # - Absolute path of the project directory.
+# our LOGFILE    = @ARGV[1]; # - Absolute path of the log file for this
+                             #   fork which must be in a unique 
+                             #   subdirectory for this fork instance.
+our $SCRIPT_NAME = @ARGV[2]; # - SCRIPT_NAME for forks.pm conf() context
+my  $forkRequire = @ARGV[3]; # - Full path of script containing $forkFunc
+my  $forkFunc    = @ARGV[4]; # - Name of function to run
+my  @forkArgs;   my $a = 5;  # - Arguments to use with $forkFunc
 
 while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
-# Create the fork tmp directory and startup log
+# Set TMPDIR so it will not be deleted by init(), and create it.
+our $TMPDIR = @ARGV[1]; $TMPDIR =~ s/(?<=\/)[^\/]+$//;
+File::Path::make_path($TMPDIR);
+
+# Save log path and use tmp log
 my $forklog = @ARGV[1]; 
-my $tmpdir  = @ARGV[1]; $tmpdir =~ s/(?<=\/)[^\/]+$//;
-File::Path::make_path($tmpdir);
-@ARGV[1] = "$tmpdir/OUT_startup.txt";
+@ARGV[1] = "$TMPDIR/LOG_startup.txt";
 
 # Initialize osis-converters
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);

@@ -5,7 +5,7 @@ use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT
 
 my $dwfPath = "$INPD/CF_addDictLinks.xml";
 
-my $alog = "$MOD_OUTDIR/OUT_sfm2osis_$MOD.txt";
+my $alog = "$MOD_OUTDIR/LOG_sfm2osis_$MOD.txt";
 my $msg = "Rerun sfm2osis on $MOD to create a new log file, and then rerun this script on $MOD.";
 if (!open(OUT, $READLAYER, $alog)) {
   &Error("The log file $alog is required to run this script.", $msg, 1);

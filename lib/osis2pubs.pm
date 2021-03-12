@@ -1331,7 +1331,7 @@ sub makeEbook {
   &Log("\n--- CREATING $format FROM $tmp/$MOD.xml FOR $scope\n", 1);
   
   # Run Calibre's ebook-convert, using a temporary log file to reduce main log size
-  my $mylog = "$TMPDIR/OUT_$pubName.$format.txt";
+  my $mylog = "$TMPDIR/LOG_$pubName.$format.txt";
   
   my $cmd = "ebook-convert".
   ' '. &escfile("$tmp/$MOD.xml").
