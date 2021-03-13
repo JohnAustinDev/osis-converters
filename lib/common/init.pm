@@ -64,11 +64,11 @@ sub init_linux_script {
   $MOD_OUTDIR = &getModuleOutputDir();
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
-  &initModuleTmpDir();
+  $TMPDIR = &initTMPDIR();
   
-  &initInputOutputFiles($SCRIPT_NAME, $INPD, $MOD_OUTDIR, $TMPDIR);
+  $LOGFILE = &initLOGFILE();
   
-  &initModuleLogFile();
+  &initModuleFiles();
   
   if ($SCRIPT_NAME =~ /^defaults$/) {return;}
   
@@ -134,39 +134,85 @@ sub getModuleOutputDir {
   return $moddir;
 }
 
-# Sets $TMPDIR, deleting and creating as needed. If $TMPDIR is already
-# set (such as by a fork) it does nothing.
-# Requires $SCRIPT_NAME, $OUTDIR, $MAININPD already be set.
-sub initModuleTmpDir {
-  my $mod = shift; if (!$mod) {$mod = $MOD;}
-
-  if ($TMPDIR) {return;}
+# Delete/create/return $TMPDIR as needed. If $TMPDIR is already
+# set (such as by a fork) it does nothing but return the value of 
+# $TMPDIR.
+sub initTMPDIR {
+  if (!$SCRIPT_NAME) {&ErrorBug("SCRIPT_NAME not set.", 1);}
+  if (!$MOD_OUTDIR)  {&ErrorBug("MOD_OUTDIR not set.", 1);}
   
-  my $out = &getModuleOutputDir($mod);
+  if ($TMPDIR) {return $TMPDIR;}
   
-  $TMPDIR = "$out/tmp/$SCRIPT_NAME";
+  my $tmpdir = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
   
-  # Only remove $TMPDIR if this is not a fork: &scriptName() eq $SCRIPT_NAME
-  if (-e $TMPDIR && !$NO_OUTPUT_DELETE && 
+  # Only delete $TMPDIR if this is not a fork, &scriptName() eq $SCRIPT_NAME
+  if (-d $tmpdir && !$NO_OUTPUT_DELETE && 
         &scriptName() eq $SCRIPT_NAME) {
-    remove_tree($TMPDIR);
+    remove_tree($tmpdir);
   }
   
-  if (! -e $TMPDIR) {make_path($TMPDIR);}
+  if (! -e $tmpdir) {make_path($tmpdir);}
+  
+  return $tmpdir;
 }
 
-# Sets $LOGFILE, deleting pre-existing as needed.
-# Requires $OUTDIR, $MAININPD and $SCRIPT_NAME already be set.
-sub initModuleLogFile {
-  my $mod = shift; if (!$mod) {$mod = $MOD;}
-  
-  my $out = &getModuleOutputDir($mod);
-  
-  my $log = ( $LOGFILE ? $LOGFILE : "$out/LOG_$SCRIPT_NAME.txt" );
+# Delete/set/return $LOGFILE as needed.
+sub initLOGFILE {
+  if (!$SCRIPT_NAME) {&ErrorBug("SCRIPT_NAME not set.", 1);}
+  if (!$MOD_OUTDIR)  {&ErrorBug("MOD_OUTDIR not set.", 1);}
+
+  my $log = ( $LOGFILE ? $LOGFILE : "$MOD_OUTDIR/LOG_$SCRIPT_NAME.txt" );
   
   if (-f $log) {unlink($log);}
   
-  $LOGFILE = $log;
+  return $log;
+}
+
+sub initModuleFiles {
+  if (!$MOD)         {&ErrorBug("MOD not set.", 1);}
+  if (!$INPD)        {&ErrorBug("INPD not set.", 1);}
+  if (!$TMPDIR)      {&ErrorBug("TMPDIR not set.", 1);}
+  if (!$SCRIPT_NAME) {&ErrorBug("SCRIPT_NAME not set.", 1);}
+  if (!$MOD_OUTDIR)  {&ErrorBug("MOD_OUTDIR not set.", 1);}
+
+  # Copy the input OSIS file if needed
+  if ($SCRIPT_NAME =~ /^osis2(?!osis)/) {
+    if (-e "$MOD_OUTDIR/$MOD.xml") {
+      &copy("$MOD_OUTDIR/$MOD.xml", "$TMPDIR/00_$MOD.xml");
+      $INOSIS = "$TMPDIR/00_$MOD.xml";
+    }
+    else {
+      &Error("$SCRIPT_NAME cannot find an input OSIS file at " . 
+        "\"$MOD_OUTDIR/$MOD.xml\".", '', 1);
+    }
+  }
+
+  # Delete old output files/directories
+  if (!$NO_OUTPUT_DELETE && &scriptName() eq $SCRIPT_NAME) {
+    my $subdir = &const($CONV_OUTPUT_SUBDIR{$SCRIPT_NAME});
+    if ($subdir) {
+      my $sd0 = (split(/\//, $subdir))[0];
+      if (-e "$MOD_OUTDIR/$sd0") {
+        remove_tree("$MOD_OUTDIR/$sd0");
+      }
+      make_path("$MOD_OUTDIR/$subdir");
+      $subdir = '/'.$subdir;
+    }
+    foreach my $glob (@{$CONV_OUTPUT_FILES{$SCRIPT_NAME}}) {
+      foreach my $f (glob($MOD_OUTDIR.$subdir.'/'.&const($glob))) {
+        if (! -e $f) {next;}
+        if (-d $f) {remove_tree($f);}
+        else {unlink($f);}
+      }
+    }
+  }
+  
+  # init SFM files if needed
+  if ($SCRIPT_NAME =~ /^defaults$/ && -e "$INPD/sfm") {
+    # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
+    &shell("find \"$INPD/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3, 1);
+    &shell("find \"$INPD/sfm\" -type f -exec dos2unix {} \\;", 3, 1);
+  }
 }
 
 # Enforce the only supported module configuration and naming convention
@@ -338,50 +384,6 @@ sub checkFont {
   }
   
   &Debug("\n\$FONTS=$FONTS\n\%FONT_FILES=".Dumper(\%FONT_FILES)."\n");
-}
-
-sub initInputOutputFiles {
-  my $script_name = shift;
-  my $inpd = shift;
-  my $modOutdir = shift;
-  my $tmpdir = shift;
-  
-  # Copy the input OSIS file if needed
-  if ($script_name =~ /^osis2(?!osis)/) {
-    if (-e "$modOutdir/$MOD.xml") {
-      &copy("$modOutdir/$MOD.xml", "$tmpdir/00_$MOD.xml");
-      $INOSIS = "$tmpdir/00_$MOD.xml";
-    }
-    else {
-      &Error("$script_name cannot find an input OSIS file at " . 
-        "\"$modOutdir/$MOD.xml\".", '', 1);
-    }
-  }
-
-  # Delete old output files/directories
-  if (!$NO_OUTPUT_DELETE && &scriptName() eq $SCRIPT_NAME) {
-    my $subdir = &const($CONV_OUTPUT_SUBDIR{$script_name});
-    if ($subdir) {
-      my $sd0 = (split(/\//, $subdir))[0];
-      if (-e "$modOutdir/$sd0") {remove_tree("$modOutdir/$sd0");}
-      make_path("$modOutdir/$subdir");
-      $subdir = '/'.$subdir;
-    }
-    foreach my $glob (@{$CONV_OUTPUT_FILES{$script_name}}) {
-      foreach my $f (glob($modOutdir.$subdir.'/'.&const($glob))) {
-        if (! -e $f) {next;}
-        if (-d $f) {remove_tree($f);}
-        else {unlink($f);}
-      }
-    }
-  }
-  
-  # init SFM files if needed
-  if ($script_name =~ /^defaults$/ && -e "$inpd/sfm") {
-    # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
-    &shell("find \"$inpd/sfm\" -type f -exec sed '1s/^\xEF\xBB\xBF//' -i.bak {} \\; -exec rm {}.bak \\;", 3, 1);
-    &shell("find \"$inpd/sfm\" -type f -exec dos2unix {} \\;", 3, 1);
-  }
 }
 
 sub outdir {

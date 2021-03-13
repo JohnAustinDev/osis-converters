@@ -43,16 +43,17 @@ my  $forkArgIndex = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 # Note: forks.pm always keeps at least one fork running, regardless of
 # CPU or memory availability.
 
-&Log("\nforks.pm ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
-
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm";
 
-# Initialization already passed with the caller, only need to get $TMPDIR.
+&Log("\nforks.pm ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
+
+# Initialization already passed with the caller, but need to get $TMPDIR.
 require "$SCRD/lib/common/common.pm";
-&set_project_globals($INPD, $LOGFILE);
-&set_system_globals(our $MAINMOD);
+&set_project_globals();
+&set_system_globals();
 &set_system_default_paths();
-our $TMPDIR; &initModuleTmpDir();
+our $MOD_OUTDIR = &getModuleOutputDir();
+our $TMPDIR = &initTMPDIR();
 
 require("$SCRD/lib/forks/fork_funcs.pm");
 
@@ -134,7 +135,7 @@ if (!$fatal) {
   }
   foreach my $th (@threads) {$th->join();}
 
-  # Copy finished fork log files to the main thread's LOGFILE.
+  # Copy finished fork log files back to the main thread's LOGFILE.
   foreach my $td (@{&forkTmpDirs($caller)}) {
     if (!-e "$td/$forkLogName") {next;}
     
@@ -165,7 +166,7 @@ sub resourcesAvailable {
   my (%data, @fields);
   # 'vmstat' for CPU data
   my $r = ($forkRequire =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
-  foreach my $line (split(/\n/, `vmstat $r 2`)) { # vmstat [options] [delay [count]]
+  foreach my $line (split(/\n/, &shell("vmstat $r 2", 3))) { # vmstat [options] [delay [count]]
     if    ($line =~ /procs/) {next;} # first line is grouping, so drop
     elsif ($line =~ /id/) {@fields = split(/\s+/, $line);} # field names
     else { # field data
@@ -174,7 +175,7 @@ sub resourcesAvailable {
     }
   }
   # 'free' for RAM data
-  foreach my $line (split(/\n/, `free`)) {
+  foreach my $line (split(/\n/, &shell("free", 3))) {
     if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
     elsif ($line =~ /^Mem:/) { # field data
       my $n = 0;
@@ -207,28 +208,6 @@ sub resourcesAvailable {
   if ($msg && $msg ne $MSG_LAST) {print $msg; $MSG_LAST = $msg;}
   
   return $available;
-}
-
-########################################################################
-# THE FOLLOWING SUBS ARE ALSO DEFINED IN common_opsys.pm
-
-sub escarg {
-  my $n = shift;
-  
-  $n =~ s/(?<!\\)(["])/\\$1/g;
-  return '"'.$n.'"';
-}
-
-sub Log {
-  my $p = shift;
-  
-  my $console = ($p =~ /(DEBUG|ERROR)/);
-  if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
-    print LGG $p; close(LGG);
-  }
-  else {$console++;}
-  
-  if ($console) {print encode('utf8', $p);}
 }
 
 1;

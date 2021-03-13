@@ -29,7 +29,7 @@ our ($CONF, $CONFFILE, $CONFSRC, $DEBUG, $DICTINPD, $DICTMOD,
     $MOD, $MODULETOOLS_BIN, $SCRD, $SCRIPT, $SCRIPT_NAME, $SWORD_BIN, 
     $VAGRANT, @CONV_PUBS, %CONV_BIN_DEPENDENCIES, %SYSTEM_DEFAULT_PATHS,
     %CONV_BIN_TEST, $MOD_OUTDIR, @CONV_PUB_SETS, @CONV_OSIS, 
-    %CONV_NOCANDO);
+    %CONV_NOCANDO, %ARGS);
     
 require("$SCRD/lib/common/block.pm");
 
@@ -493,10 +493,9 @@ our %CF_ADDDICTLINKS = (
 );
 
 # Initializes [system] global variables, checks operating system and 
-# dependencies, and restarts on a Vagrant VM if necessary. If this
-# instance is a Linux system with all necessary dependencies, then 1
-# is returned, on error undef is returned, and 0 is returned if the
-# script will be restarted with Vagrant (which should result in an exit).
+# dependencies, and returns if all is well, otherwise restarts on a 
+# Vagrant VM (and then exits) or bails with an error message, if Vagrant 
+# is not installed.
 sub init_opsys {
 
   chdir($INPD);
@@ -506,14 +505,15 @@ sub init_opsys {
   my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):'');
   my $haveAllDependencies = ($isCompatibleLinux && &checkDependencies($SCRIPT_NAME, $SCRD, $INPD) ? 1:0);
   
-  # Start the script if we're already running on a VM and/or have dependencies met.
+  # Continue the script if we're already running on a VM and have 
+  # dependencies met and $VAGRANT is not set.
   if (&runningInVagrant() || ($haveAllDependencies && !$VAGRANT)) {
-    if ($haveAllDependencies) {
-      return 1;
-    }
+    if ($haveAllDependencies) {return;}
     elsif (&runningInVagrant()) {
-      &ErrorBug("The Vagrant virtual machine does not have the necessary dependancies installed.");
-      return;
+      &Error(
+"The Vagrant virtual machine does not have the necessary dependancies installed.",
+"You may rebuild the virtual machine by running the command 'Vagrant destroy'.", 1);
+      # EXIT...
     }
   }
   
@@ -525,14 +525,13 @@ sub init_opsys {
   # If the user is forcing the use of Vagrant, then start Vagrant
   if ($VAGRANT) {
     if (&vagrantInstalled()) {
-      &Note("\nVagrant will be used because \$VAGRANT is set.\n");
-      &initialize_vagrant();
-      &restart_with_vagrant();
-      return 0;
+      &Note("Vagrant will be used because \$VAGRANT is set.\n");
+      &restartWithVagrantAndExit();
     }
     else {
-      &Error("You have VAGRANT=1 in config.conf but Vagrant is not installed.", $vagrantInstallMessage);
-      return;
+      &Error("You have VAGRANT=1 in config.conf but Vagrant is not installed.", 
+      $vagrantInstallMessage, 1);
+      # EXIT...
     }
   }
   
@@ -544,18 +543,19 @@ You are running a compatible version of Linux, so you have two options:
 osis-converters\$ sudo provision.sh
 2) Run with Vagrant by adding 'VAGRANT=1' to the [system] section 
 of config.conf.
-NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
-    return;
+NOTE: Option #2 requires that Vagrant and VirtualBox be installed.", 1);
+    # EXIT...
   }
   
   # Then we must use Vagrant, if it's installed
   if (&vagrantInstalled()) {
-    &initialize_vagrant();
-    &restart_with_vagrant();
-    return 0;
+    &restartWithVagrantAndExit();
   }
   
-  &Error("You are not running osis-converters on compatible Linux and do not have vagrant/VirtualBox installed.", $vagrantInstallMessage);
+  &Error(
+"You are not running osis-converters on compatible Linux and do not have vagrant/VirtualBox installed.", 
+$vagrantInstallMessage, 1);
+  # EXIT...
 }
 
 # Apply the config file's [system] section directly to Perl globals. 
@@ -563,7 +563,7 @@ NOTE: Option #2 requires that Vagrant and VirtualBox be installed.");
 # written prior to any Vagrant restart. The .vm.conf file is used to 
 # set @OC_SYSTEM_PATH_CONFIGS while running in Vagrant.
 sub set_system_globals {
-  my $mainmod = shift;
+  if (!$MAINMOD) {&ErrorBug("MAINMOD not set.", 1);}
 
   no strict "refs";
   
@@ -583,9 +583,12 @@ sub set_system_globals {
     }
     # Write OC_SYSTEM_PATH_CONFIGS Vagrant paths to .vm.conf
     my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+    foreach my $k (keys %{$cP}) {
+      if ($k =~ /^$MAINMOD\+/) {delete($cP->{$k});}
+    }
     foreach my $e (@OC_SYSTEM_PATH_CONFIGS) {
       if (!defined($$e) || $$e =~ /^(https?|ftp)\:/) {next;}
-      $cP->{"$mainmod+$e"} = ($$e ? &vagrantPath($$e) : $$e);
+      $cP->{"$MAINMOD+$e"} = ($$e ? &vagrantPath($$e) : $$e);
     }
     $cP->{"all+HOST_SCRD"} = $SCRD;
     $cP->{"all+HOST_SHARE"} = &vagrantHostShare();
@@ -601,7 +604,7 @@ sub set_system_globals {
     # Write .vm.conf settings to Perl globals
     my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
     foreach my $e (keys %{$cP}) {
-      if ($e !~ /^$mainmod\+(.*)$/) {next;}
+      if ($e !~ /^$MAINMOD\+(.*)$/) {next;}
       $$1 = $cP->{$e};
     }
   }
@@ -610,19 +613,21 @@ sub set_system_globals {
 sub argPath {
   my $p = shift;
   
-  if ($p eq 'none') {return $p;} # special case for LOGFILE
+  # 'none' is a special value for LOGFILE
+  if ($p eq 'none') {return $p;}
+  
+  # undef is default for LOGFILE
   elsif (!$p) {return;}
   
   if ($p !~ /^[\/\.]/) {$p = "./$p";}
   if ($p =~ /^\./) {$p = File::Spec->rel2abs($p);}
   $p =~ s/\\/\//g;
   
-  return $p;
+  return &shortPath($p);
 }
 
 sub set_project_globals {
-  our $INPD    = &argPath(shift);
-  our $LOGFILE = &argPath(shift);
+  if (!$INPD)    {&ErrorBug("INPD not set.", 1);}
 
   # Allow using a project subdirectory as $INPD argument
   { my $subs = join('|', 'sfm', 'images', 'output', &getPubTypes());
@@ -630,8 +635,8 @@ sub set_project_globals {
   }
   # This works even for MS-Windows because of '\' replacement done above
   $INPD = &shortPath($INPD);
-  if (!-e $INPD) {die 
-"Error: Project directory \"$INPD\" does not exist. Check your command line.\n";
+  if (!-e $INPD) {&ErrorBug( 
+"Project directory \"$INPD\" does not exist. Check your command line.", 1);
   }
 
   # Set MOD, MAININPD, MAINMOD, DICTINPD and DICTMOD (DICTMOD is updated  
@@ -1321,21 +1326,11 @@ sub getDefaultFile {
       $defaultFile = "$mainParent/defaults/$file";
       if (!$quiet) {&Note("getDefaultFile: (2) Found $file at $defaultFile");}
     }
-    elsif ($^O =~ /linux/i && !&shell("diff '$mainParent/defaults/$file' '$defaultFile'", 3, 1)) {
-      if (!$quiet) {
-        &Note("(2) Default file $defaultFile is not needed because it is identical to the more general default file at $mainParent/defaults/$file");
-      }
-    }
   }
   if (($checkAll || $priority == 3) && -e "$SCRD/defaults/$file") {
     if (!$defaultFile) {
       $defaultFile = "$SCRD/defaults/$file";
       if (!$quiet) {&Note("getDefaultFile: (3) Found $file at $defaultFile");}
-    }
-    elsif ($^O =~ /linux/i && !&shell("diff '$SCRD/defaults/$file' '$defaultFile'", 3, 1)) {
-      if (!$quiet) {
-        &Note("(3) Default file $defaultFile is not needed because it is identical to the more general default file at $SCRD/defaults/$file");
-      }
     }
   }
   if ($fileType eq 'childrens_bible' && !$defaultFile) {return &getDefaultFile("bible/$moduleFile", $priority);}
@@ -1369,7 +1364,8 @@ sub checkDependencies {
     my $cmd = $CONV_BIN_TEST{$p}[0];
     foreach my $var (keys %SYSTEM_DEFAULT_PATHS) {
       no strict 'refs';
-      $cmd =~ s/\b$var\b/$$var/g;
+      my $val = $$var; $val =~ s/\/$//;
+      $cmd =~ s/\b$var\b/$val/g;
     }
     
     my $result = &shell($cmd, 3, 1);
@@ -1569,20 +1565,28 @@ sub hostPath {
   return $hostPath;
 }
 
-sub restart_with_vagrant {
+sub restartWithVagrantAndExit {
 
-  my $vscript = &vagrantPath($SCRIPT);
-  if (!$vscript) {&ErrorBug("Failed vagrantPath: $SCRIPT", 1);}
-  my $vinpd   = &vagrantPath($INPD);
-  if (!$vinpd)   {&ErrorBug("Failed vagrantPath: $INPD", 1);}
+  &initialize_vagrant();
+  
+  $SCRIPT = &vagrantPath($SCRIPT);
+  
+  $ARGS{'first'} = &vagrantPath($INPD);
+  
+  if ($LOGFILE && $LOGFILE ne 'none') {
+    $ARGS{'second'} = &vagrantPath($LOGFILE);
+  }
 
-  my $cmd = "vagrant ssh -c \"'$vscript' '$vinpd'\"";
+  my $cmd = "vagrant ssh -c \" '$SCRIPT' " . &writeArgs(\%ARGS) . "\"";
+
   print "\nStarting Vagrant with...\n$cmd\n";
   
   # Continue printing to console while Vagrant ssh remains open
   open(VUP, "$cmd |");
   while(<VUP>) {print $_;}
   close(VUP);
+  
+  exit $?;
 }
 
 sub runningInVagrant {
@@ -1746,12 +1750,14 @@ sub Debug {
 sub DebugListVars {
   my $msg = shift;
   
-  my $m = "$msg (" . 
-      (&runningInVagrant() ? "on virtual machine":"on host") . 
-  "):\n";
+  my $where = (&runningInVagrant() ? "on virtual machine":"on host");
+  
+  $msg =~ s/WHERE/$where/;
+  $msg .= "\n";
+  
   no strict "refs";
-  foreach my $v (@_) {$m .= "\t$v=$$v\n";}
-  &Debug($m, 1);
+  foreach my $v (sort @_) {$msg .= "\t$v=$$v\n";}
+  &Debug($msg, 1);
 }
 
 sub Report {

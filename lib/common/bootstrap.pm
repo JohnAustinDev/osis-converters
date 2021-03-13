@@ -190,10 +190,10 @@ sub init() {
   }
   elsif (exists($ARGS{'h'}) && !$HELP) {
     print &usage() . "\n";
-    print &help("$SCRIPT_NAME;SYNOPSIS");
+    print &help("$SCRIPT_NAME;Synopsis");
     exit 0;
   }
-  elsif ($ARGS{'h'}) {
+  elsif (exists($ARGS{'h'}) && $HELP) {
     print &usage() . "\n";
     print &help($HELP);
     exit 0;
@@ -205,20 +205,20 @@ sub init() {
   if ($error) {print $error . &usage(); exit 1};
   
   # Set Perl globals associated with the project configuration
-  &set_project_globals($INPD, $LOGFILE);
+  &set_project_globals();
   
   # Set Perl global variables defined in the [system] section of config.conf.
-  &set_system_globals($MAINMOD);
+  &set_system_globals();
   &set_system_default_paths();
   
-  &DebugListVars("$SCRIPT_NAME globals", 'SCRD', 'SCRIPT', 
-    'SCRIPT_NAME', 'MOD', 'MAINMOD', 'MAININPD', 'DICTMOD', 'DICTINPD', 
-    our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 'NO_OUTPUT_DELETE');
+  &DebugListVars("BEFORE &init_opsys() WHERE\n$SCRIPT_NAME globals", 'SCRD', 
+    'SCRIPT', 'SCRIPT_NAME', 'MOD', 'MAINMOD', 'MAININPD', 'DICTMOD', 
+    'DICTINPD', our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 
+    'NO_OUTPUT_DELETE');
 
   # Check that this is a provisioned Linux system (otherwise restart in 
-  # Vagrant if possible, and then exit when Vagrant is finished).
-  my $r = &init_opsys();
-  if (!$r) {exit ($r == 0 ? 0:1);}
+  # Vagrant if possible, and exit when Vagrant is finished).
+  &init_opsys();
   
   # From here on out we're always running on a provisioned Linux system
   # (either natively or on a VM).
@@ -227,8 +227,9 @@ sub init() {
   if ($OSIS2OSIS_PASS eq 'preinit') {return;}
   
   &init_linux_script();
-  &DebugListVars("$SCRIPT_NAME globals", 'OUTDIR', 'MOD_OUTDIR', 
-    'TMPDIR');
+  
+  &DebugListVars("AFTER &init_linux_script() WHERE\n$SCRIPT_NAME globals", 
+    'OUTDIR', 'MOD_OUTDIR', 'TMPDIR', 'LOGFILE');
 }
 
 # Check that $dir is an osis-converters module directory, returning an 

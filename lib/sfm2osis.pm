@@ -148,7 +148,7 @@ applied to all following RUN commands until/unless canceled by:
 https://ubs-icap.org/chm/usfm/2.4/index.html
 \\b
 Sometimes there is a bug or feature of CrossWire's usfm2osis.py script or the USFM or OSIS specifications involved. EVAL_REGEX can be used to change or remove offending SFM tags:") .
-&help('EVAL_REGEX', 1));
+&help('EVAL_REGEX', 1, 1));
   }
   &Log("\n");
 

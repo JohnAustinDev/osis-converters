@@ -1,113 +1,277 @@
-# osis-converters
-Converts [USFM](http://paratext.org/about/usfm#usfmDocumentation) to 
-[OSIS](http://www.crosswire.org/osis/), 
-[SWORD](http://www.crosswire.org/wiki/Main_Page) modules, 
-[GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, 
-html, EPUB, MOBI, and FB2 files.
 
-## use:
-Place [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in 
-a directory: `/some-path/MODULE_NAME/sfm/`
+# osis-converters 
 
-At a Linux or Git Bash prompt:
+## SYNOPSIS 
+Convert Paratext [SFM](http://paratext.org/about/usfm#usfmDocumentation) to [OSIS](http://www.crosswire.org/osis/) XML, CrossWire [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, html, epub and azw3 files.
 
-    osis-converters/bin$ ./defaults /some-path/MODULE_NAME
-    osis-converters/bin$ ./convert /some-path/MODULE_NAME
+Start with [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in a directory: `/some-path/MODULE_NAME/sfm/`. At a Linux or Git Bash prompt run:
+
+`./bin/defaults /some-path/MODULE_NAME`
+
+`./bin/convert /some-path/MODULE_NAME`
 
 Which will output:
-* A SWORD Bible module (from all USFM Bible book files)
-* A SWORD Glossary module (if there are USFM glossary files).
-* An HTML Bible and glossary (if there are USFM glossary files)
+* A SWORD Bible module
+* A SWORD Dictionary module (if there are USFM glossary files).
+* Linked HTML
 * GoBible Java-ME apps.
 * EPUB, FB2, and MOBI eBook Bibles.
-* Comprehensive OSIS files with glossary, parsed Scripture references, 
-and cross-reference links.
-* Default control files, which can be fine tuned as needed/desired.
-* A descriptive log file with helpful hints and suggestions.
+* OSIS file with glossary, parsed Scripture references, and cross-reference links.
+
+Log files report everything about the conversion process using the following labels:
+
+Label | Description
+----- | -----------
+**ERROR** | Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix many following errors.
+**WARNING** | Possible problems. Read and understand the message to decide if anything needs to be done.
+**NOTE** | Informative notes.
+**REPORT** | Conversion reports. Helpful for comparing runs.
 
 
-# osis-converters output files
-By default, all files created by osis-converters are put in a directory called 'output'. This directory contains all the electronic media files and log files (and temporary files) created by osis-converters. Inside the output directory you will find some or all of the following files:
+# sfm2osis 
 
-**MOD.xml** (where MOD will be the module name) - This is the OSIS file (OSIS being a flavor of XML). This is the single most important output file. It is the source file for all other media files. The OSIS file is intended to provide the easiest and most reliable conversion to any other electronic format. USFM files cannot be directly converted into some electronic formats (due to verse system requirements), and other formats would be partially functional (due to lack of hyperlink and container information), or there would be unnecessary errors (because of loose validation) and in any case the USFM specifications are Byzantine and difficult to work with. So the OSIS file is very useful.
+## Synopsis 
 
-**LOG_sfm2osis.txt** - All files that begin with 'LOG_' are log files. Each osis-converters script produces its own log file telling you everything about the conversion process. You MUST read through every log file carefully. Inside a log file you might discover lines that begin with the following labels:
-* ERROR: - These are problems that you MUST fix. There should be a description of how to fix each error. Any errors in the sfm2osis log should be fixed before trying to fix errors in any other log file! Start by fixing the FIRST error listed in the file. You will find that fixing the first error in the file will often fix other errors that follow it. But, if you start by trying to fix the second error, or later errors, you may truly be wasting your time! So you would do well to forget about the second error until after you have fixed the first one. So after doing what the first error message said to fix the problem, run the particular script which produced the log file. Look to see that the error has disappeared and then attack the new first error in the file, repeating this until there are no errors left.
-* WARNING: - These are possible problems, but you must read and understand each warning message so that you can decide whether it is OK as is, or whether you should do something to remove the warning.
-* NOTE: - These are for your information, just so you know what osis-converters is doing at that time. They help in debugging and fixing errors.
-* REPORT: - Reports certain conversion results in a way that helps you see the big picture and helps you see how things may have changed compared to a previous run.
+### CONVERT PARATEXT FILES INTO OSIS XML 
+OSIS is an xml standard for encoding Bibles and related texts (see: [](http://crosswire.org/osis/)). The OSIS files generated by sfm2osis will include meta-data, explicit references, cross-references and textual information not present in the original Paratext Universal Standard Format Marker (USFM and SFM) sources. The resulting OSIS file is a more complete source text than the original Paratext files and is an excellent intermediate format, easily and reliably converted into any other format.
 
-**sword/** and **MOD.zip** (where MOD will be the module name) - This is the Crosswire SWORD module. It can be used with any SWORD compatible program or device.
+A project conversion creates a main OSIS file, which may contain a Bible, Children's Bible or commentary for instance. Any Paratext glossaries, maps and other reference materials are converted into a second OSIS file, whose contents may be referenced by the main OSIS file. These two conversions are treated as separate modules called MAINMOD and DICTMOD. If a project has a DICTMOD module, its module code is the MAINMOD code appended with 'DICT', and it appears as a subdirectory of MAINMOD.
 
-**eBook/** - EPUBs and other eBooks
+The SFM to OSIS conversion process is directed by the following control files:
 
-**html/** - HTML files
+FILE | DESCRIPTION
+---- | -----------
+**config.conf** | Configuration file with settings and meta-data for a project.
+**CF_sfm2osis.txt** | Place and order converted SFM files within an OSIS file and record deviations from the standard markup and verse system.
+**CF_addScripRefLinks.txt** | Control parsing of scripture references in the text and their conversion to working hyperlinks.
+**CF_addDictLinks.xml** | Control parsing of reference material references in the text and their conversion to working hyperlinks.
+**CF_addFootnoteLinks.txt** | Control parsing of footnote references from the text and their conversion to working hyperlinks.
 
-**GoBible/** - GoBible Java-ME apps for old style feature phones
+Default control files are created by the 'defaults' command. For help on an individual file or command use: ReadMe -h <key>
 
-**tmp/** - Temporary and debugging files created during the conversion process. These files can be extremely useful when trying to fix errors.
 
------
+## config.conf 
+Each project has a config.conf file located in its top directory. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. A config.conf file usually has multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The 'system' section is special because it contains global constants that are the same in any context. The following sections are recognized: 'MAINMOD', 'DICTMOD', 'system', 'osis2sword', 'osis2ebooks', 'osis2gobible', 'osis2html' (MAINMOD is the project code and DICTMOD is the same project code suffixed with 'DICT'). What follows are all settings available in the config.conf file. The letters in parenthesis indicate the following special features:
 
-# Crosswire OSIS format
-The intention is to follow the [OSIS specification and handbook](https://www.crosswire.org/osis/) as closely as possible as well as [Crosswire best practice](http://wiki.crosswire.org/OSIS_Tutorial). Although there are a few minor deviations:
+(C): These entry values are continuable from one line to the next using a backslash character.
+(L): These entry values are localizable by appending an underscore and language ISO code to the entry name.
+(S): These entries may only appear in the system section.
+(W): These entries are also SWORD standard entries (see: [](https://wiki.crosswire.org/DevTools:conf_Files)).
 
-## Comparison of .conf files to CrossWire .conf
+ENTRY | DESCRIPTION
+----- | -----------
+**Abbreviation (LW)** | A short localized name for the module.
+**About (CLW)** | Localized information about the module.
+**AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: (true \| false \|AUTO). Default is 'AUTO'.
+**AddDictLinks** | Select whether to parse glossary references in the text and convert them to hyperlinks: (true \| false \| check \| AUTO). Default is 'AUTO'.
+**AddFootnoteLinks** | Select whether to parse footnote references in the text and convert them to hyperlinks: (true \| false \| AUTO). Default is 'AUTO'.
+**AddScripRefLinks** | Select whether to parse scripture references in the text and convert them to hyperlinks: (true \| false \| AUTO). Default is 'AUTO'.
+**AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
+**BlockCount (W)** | 
+**CipherKey (W)** | 
+**CombineGlossaries** | Set this to 'true' to combine all glossaries into one, or false to keep them each as a separate glossary. 'AUTO' let's osis-converters decide. Default is 'AUTO'.
+**CombinedGlossaryTitle (L)** | A localized title for the combined glossary in the Table of Contents.
+**Companion (W)** | 
+**Copyright (CLW)** | 
+**CopyrightContactAddress (CLW)** | 
+**CopyrightContactEmail (LW)** | 
+**CopyrightContactName (CLW)** | 
+**CopyrightContactNotes (CLW)** | 
+**CopyrightDate (LW)** | 
+**CopyrightHolder (LW)** | 
+**CopyrightNotes (CLW)** | 
+**CreateTypes** | Select which type, or types, of eBooks to create: (AUTO \| epub \| azw3 \| fb2). Default is 'AUTO'.
+**CustomBookOrder** | Set to true to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: (true \| false). Default is 'false'.
+**Description (LW)** | A short localized description of the module.
+**Direction (W)** | 
+**DisplayLevel (W)** | 
+**DistributionLicense (W)** | 
+**DistributionNotes (CLW)** | 
+**Encoding (W)** | osis-converters only supports UTF-8 encoding. Default is 'UTF-8'.
+**Feature (W)** | 
+**Font (W)** | 
+**FullResourceURL** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is 'false'.
+**GlossaryFrom (W)** | 
+**GlossaryTo (W)** | 
+**IntroductionTitle (L)** | A localized title for Bible book introductions.
+**KeySort** | This entry allows sorting a language in any desired way using character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.
+**KeyType (W)** | 
+**LCSH (W)** | 
+**Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
+**LangSortOrder** | DEPRECATED. Use the more flexible KeySort instead.
+**ARG_\w+** | Config settings for undocumented fine control.
+**BookGroupTitleNT (L)** | A localized title for the Old Testament in the Table of Contents.
+**BookGroupTitleOT (L)** | A localized title for the New Testament in the Table of Contents.
+**BookGroupTitle\w+** | A localized title to use for these book groups: OT, NT, Apocrypha, Apostolic Fathers, Armenian Orthodox Canon Additions, Ethiopian Orthodox Canon, Peshitta Syriac Orthodox Canon, Rahlfs LXX, Rahlfs variant books, Vulgate and other later Latin mss, Other.
+**CreatePubBook** | Select whether to create separate ePublications for individual Bible books within the OSIS file: (true \| false \| AUTO \| <OSIS-book> \| first \| last).
+**CreatePubSubpub** | Select whether to create separate outputs for individual sub-publications within the OSIS file: (true \| false \| AUTO \| <scope> \| first \| last).
+**CreatePubTran** | Select whether to create a single ePublication containing everything in the OSIS file: (true \| false \| AUTO).
+**GlossaryNavmenuLink\[[1-9]\]** | Specify custom DICTMOD module navigation links.
+**History_[\d\.]+** | Each version of released publications should have one of these entries describing what is new that version.
+**TitleSubPublication\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
+**ModDrv (W)** | 
+**NormalizeUnicode** | Apply a Unicode normalization to all characters: (true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD). Default is 'false'.
+**Obsoletes (W)** | 
+**PreferredCSSXHTML (W)** | 
+**ReorderGlossaryEntries** | Set to true and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: (true \| <regex>). Default is 'false'.
+**ShortCopyright (LW)** | 
+**ShortPromo (LW)** | 
+**TOC** | A number from 1 to 3 indicating the SFM tag to use for generating the Table Of Contents: \toc1, \toc2 or \toc3. Default is '2'.
+**TextSource (CW)** | 
+**TitleCase** | A number from 0 to 2 selecting letter casing for the Table Of Contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is '1'.
+**TitleTOC** | A number from 1 to 3 indicating this SFM tag to use for generating the publication titles: \toc1, \toc2 or \toc3. Default is '2'.
+**TranslationTitle (L)** | A localized title for the entire translation.
+**UnlockURL (W)** | 
+**Versification (W)** | The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: KJV, German, KJVA, Synodal, Leningrad, NRSVA, Luther, Vulg, SynodalProt, Orthodox, LXX, NRSV, MT, Catholic, Catholic2. Default is 'KJV'.
+**Version (W)** | The version of the publication being produced.
 
-These xulsword specific .conf file entries may be inluded:
 
-* `KeySort = AaBbDdEeFfGgHhIijKkLlMmNnOoPpQqRrSsTtUuVvXxYyZz[Gʻ][gʻ][Sh][sh][Ch][ch][ng]ʻʼ{\\[}{\(}{\\{}`
-Is used by xulsword to sort the keys of a dictionary/glossary in any 
-desired order by character collation. Square brackets are used to 
-separate any arbitrary JDK 1.4 case sensitive regular expressions which 
-are to be treated as single characters during the sort comparison. 
-Likewise, curly brackets should be used around any similar regular 
-expression(s) which are to be ignored during the sort comparison. Every 
-other square or curly bracket (including those within regular expressions)
-must be escaped by backslash.
-* `AudioCode = SOMECODE` Sometimes multiple modules will use the same 
-audio files, such as when a translation has multiple modules with 
-different scripts. This allows all these modules to reference the same 
-audio files.
-* `Scope = Gen-Deut Matt-John Rev` Is used to list Bible module 
-contents, and it follows osisRef rules. Note that Scope interperetation 
-is versification dependant, since different verse systems may have 
-different book orders and numbers of chapters and verses. The Scope 
-config entry is important for use cases when the content needs to be 
-determined before the text itself can be loaded and read.
+## CF_sfm2osis.txt 
+This control file is required for all sfm2osis conversions. It should be located in each module's directory (both MAINMOD and DICTMOD if there is one). It controls what material appears in each module's OSIS file and in what order, and is used to apply Perl regular expressions for making changes to SFM files before conversion.
 
-## Comparison of OSIS files to CrossWire OSIS
+Its other purpose is to describe deviations from the standard versification system that Bible translators made during translation. Translators nearly always deviate from the standard versification system in some way. It is imperative these deviations be recorded so references from external documents may be properly resolved, and parallel rendering together with other texts can be accomplished. Each verse must be identified according to the project's strictly defined standard versification scheme. The commands to accomplish this all begin with VSYS. Their proper use results in OSIS files which contain both a rendering of the translator's custom versification scheme and a rendering of the standard versification scheme. OSIS files can then be rendered in either scheme using an XSLT stylesheet.
 
-Osis-converters utilizes CrossWire's [usfm2osis.py](https://github.com/refdoc/Module-tools) script for the
-initial USFM to OSIS conversion (when possible). Additionally, the OSIS 
-subType attribute is used to pass optional CSS classes to front-ends. 
-Optional CSS classes supported by [xulsword](https://github.com/JohnAustinDev/xulsword) are:
+NOTES: Each VSYS instruction is evaluated in verse system order regardless of their order in the control file. A verse may be effected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).
 
-* x-p-first (for drop-caps)
-* x-text-image (for images embedded in text)
-* x-parallel-passage (for parallel passages cross references)
-* x-ref-cb (for reference title links found in Children's Bibles) 
+COMMAND | DESCRIPTION
+------- | -----------
+**EVAL_REGEX** | Any perl regular expression to be applied to source SFM files before conversion. An EVAL_REGEX instruction is only effective for the RUN statements which come after it. The EVAL_REGEX command may be suffixed with a label or path in parenthesis and must be followed by a colon. A label might make organizing various kinds of changes easier, while a file path makes the EVAL_REGEX effective on only a single file. If an EVAL_REGEX has no regular expression, all previous EVAL_REGEX commands sharing the same label are canceled. Examples: `EVAL_REGEX: s/^search/replace/gm` `EVAL_REGEX(myfix): s/^search/replace/gm` `EVAL_REGEX(./sfm/file/path.sfm): s/^search/replace/gm`
+**PUNC_AS_LETTER** | DEPRECATED. Was used to treat a punctuation character as a letter for pattern matches. It is far better to use `EVAL_REGEX` to replace a punctuation character with the proper Unicode character, which will automatically be treated properly.
+**RUN** | Causes an SFM file to be converted and appended to the module's OSIS file. Each RUN must be followed by a colon and the file path of an SFM file to convert. RUN can be used more than once on the same file. IMPORTANT: Bible books are normally re-ordered according to the project's versification system. To maintain RUN Bible book order, `CustomBookOrder` must be set to true in config.conf.
+**SPECIAL_CAPITALS** | DEPRECATED. Was used to enforce non-standard capitalizations. It should only be used if absolutely necessary, since Perl Unicode is now good at doing the right thing on its own. It is better to use EVAL_REGEX to replace offending characters with the proper Unicode character. For example: `SPECIAL_CAPITALS:i->Ä° Ä±->I`.
+**VSYS_CHAPTER_SPLIT_AT** | Used when the translators split a chapter of the project's versification scheme into two chapters. This instruction takes the form:  `VSYS_CHAPTER_SPLIT_AT: Joel.2.28` When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. All references to affected verses will be tagged so as to be correct in either the standard or the custom versification scheme.
+**VSYS_EMPTY** | Like `VSYS_MISSING`, but is only to be used if regular empty verse markers are included in the text. This instruction will only remove external scripture cross-references to the removed verses.
+**VSYS_EXTRA** | Used when translators inserted a range of verses that are not part of the project's versification scheme. This instruction takes the form:  `VSYS_EXTRA: Prov.18.8 <- Synodal:Prov.18.8` The left side is a verse range specifying the extra verses in the custom verse scheme, and the right side range is an optional universal address for those extra verses. The universal address is used to record where the extra verses originated from. When the OSIS file is rendered in the standard versification scheme, the additional verses will become alternate verses appended to the preceding verse, and if there are verses following the extra verses, they will be renumbered downward by the number of extra verses, and alternate verse numbers will be appended displaying the custom verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. The extra verse range may be an entire chapter if it occurs at the end of a book (such as Psalm 151). When rendered in the standard versification scheme, an alternate chapter number will then be inserted and the entire extra chapter will be appended to the last verse of the previous chapter.
+**VSYS_FROM_TO** | This is usually not the right instruction to use; it is used internally as part of other instructions. It does not effect any verse or alternate verse markup. It could be used if a verse is marked in the text but is left empty, while there is a footnote about it in the previous verse (but see `VSYS_MISSING_FN` which is the more common case).
+**VSYS_MISSING** | Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:  `VSYS_MISSING: Josh.24.34.36` Meaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse's osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses already sharing the verse numbers of the missing verses, then the standard versification rendering will renumber them and all following verses upward by the number of missing verses, and alternate verse numbers will be appended displaying the original verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. An entire missing chapter is not supported unless it is the last chapter in the book.
+**VSYS_MISSING_FN** | Like `VSYS_MISSING` but is only to be used if a footnote was included in the verse before the missing verses which gives the reason for the verses being missing. This instruction will simply link the verse having the footnote together with the missing verse.
+**VSYS_MOVED** | Used when translators moved a range of verses from the expected location within the project's versification scheme to another location. This instruction can have several forms:  `VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27` Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range's last verse, indicating only part of the verse was moved. All references to affected verses will be tagged so as to be correct in either the standard or the custom versification scheme. When verses are moved within the same book, the verses will be 'fit' into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.  `VSYS_MOVED: Tob -> Apocrypha[Tob]` Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `%OSIS_GROUP` for supported book-groups and books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.  `VSYS_MOVED: Apocrypha -> bookGroup[2]` Indicates the entire book-group on the left was moved from its expected location to a custom book-group index on the right. See `%OSIS_GROUP` for supported book-groups. The book-group will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book-group will appear in one location or the other.
+**VSYS_MOVED_ALT** | Like `VSYS_MOVED` but this should be used when alternate verse markup like `\va 2\va*` has been used by the translators for the verse numbers of the moved verses (rather than regular verse markers which is the more common case). If both regular verse markers (showing the source system verse number) and alternate verse numbers (showing the fixed system verse numbers) have been used, then `VSYS_MOVED` should be used. This instruction will not change the OSIS markup of alternate verses.
 
-## Deprecated (no longer output by osis-converters)
 
-* `LangSortOrder = AaBbCcDdEe...` Was used by xulsword to sort the keys of
-a dictionary/glossary in original alphabetical order. This has been replaced
-by KeySort.
-* `TabLabel` conf entry was replaced by the standard entry: `Abbreviation`.
-* `GlobalOptionFilter = OSISDictionary` was replaced by the standard 
-`OSISReferenceLinks` filter.
-* Tags like `<div type="x-Synodal-non-canonical">` are no longer used 
-since non-canonical material is completely left out of all OSIS files 
-to facilitate simpler and quicker runtime detection of v11n coverage.
-* `DictionaryModule = <DictModName>` has been replaced by the standard
-`Companion` config entry.
-* `ReferenceBible = <BibleModName>` was used by xulsword to prefer the 
-listed Bible module when showing Scripture reference previews found in 
-the module. Now, the reference Bible is included within each 
-reference's osisRef, like this: `osisRef="MyRefBible:Matt.1.1"`.
-* IMP format is no longer used. Osis-converters now generates TEI dictionaries according to CrossWire's
-recommendations. CrossWire encourages 
-the use of [TEI P5](http://www.crosswire.org/wiki/TEI_Dictionaries) for 
-dictionary markup.
+## CF_addScripRefLinks.txt 
+Paratext publications typically contain localized scripture references found in cross-reference notes, footnotes, introductions and other reference material. These references are an invaluable study aid. However, they often are unable to function as hyperlinks until converted from localized textual references to strictly standardized references. This control file tells the parser how to search the text for textual scripture references, and how to translate them into standardized hyperlinks.
 
+Some descriptions below refer to extended references. An extended reference is composed of a series of individual scripture references which together form a single contextual sentence. An example of an extended reference is: See also Gen 4:4-6, verses 10-14 and chapter 6. The parser searches the text for extended references, and then parses each reference individually, in order, remembering the book and chapter context of the previous reference.
+
+SETTING | DESCRIPTION
+------- | -----------
+**<osis-abbreviation>** | To assign a localized book name or abbreviation to the corresponding osis book abbreviation, use the following form:  Gen = The book of Genesis The osis abbreviation on the left of the equal sign may appear on multiple lines. Each line assigns a localized name or abbreviation on the right to its osis abbreviation on the left. Names on the right are not Perl regular expressions, but they are case insensitive. Listed book names do not need to include any prefixes of `PREFIXES` or suffixes of `SUFFIXES` for the book names to be parsed correctly.
+**CHAPTER_TERMS** | A Perl regular expression matching localized words/phrases which will be understood as meaning "chapter". Example: `CHAPTER_TERMS:(psalm\|chap)`
+**CHAPTER_TO_VERSE_TERMS** | A Perl regular expression matching characters that are used to separate the chapter from the verse in textual references. Example: `CHAPTER_TO_VERSE_TERMS:(:)`
+**COMMON_REF_TERMS** | A Perl regular expression matching phrases or characters which should be ignored within an extended textual reference. When an error is generated because an extended textual reference was incompletely parsed, parsing may have been terminated by a word or character which should instead be ignored. Adding it to COMMON_REF_TERMS may allow the textual reference to parse completely. Example: `COMMON_REF_TERMS:(but not\|a\|b)`
+**CONTEXT_BOOK** | Textual references do not always include the book being referred to. Then the target book must be discovered from the context of the reference. Where the automated context search fails to discover the correct book, the `CONTEXT_BOOK` setting should be used. It takes the following form:  `CONTEXT_BOOK: Gen if-xpath ancestor::div[1]` Where Gen is any osis book abbreviation, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given book will be used as the context book for that reference.
+**CONTINUATION_TERMS** | A Perl regular expression matching characters that are used to indicate a chapter or verse range. Example: `CONTINUATION_TERMS:(to\|-)`
+**CURRENT_BOOK_TERMS** | A Perl regular expression matching localized words/phrases which will be understood as meaning "the current book". Example: `CURRENT_BOOK_TERMS:(this book)`
+**CURRENT_CHAPTER_TERMS** | A Perl regular expression matching localized words/phrases which will be understood as meaning "the current chapter". Example: `CURRENT_CHAPTER_TERMS:(this chapter)`
+**FIX** | If the parser fails to properly convert any particular textual reference, FIX can be used to correct it or skip it. It has the following form:  `FIX: Gen.1.5 Linking: "7:1-8" = "<r Gen.7.1>7:1</r><r Gen.8>-8</r>`" After FIX follows the line from the log file where the extended reference of concern was logged. Replace everything after the equal sign with a shorthand for the fix with the entire fix enclosed by double quotes. Or, remove everything after the equal sign to skip the extended reference entirely. The fix shorthand includes each reference enclosed in r tags with the correct osisID.
+**ONLY_XPATH** | Similar to SKIP_XPATH but when used used, all suspected textual references will be skipped unless the given xpath expression evaluates as true.
+**PREFIXES** | A Perl regular expression matching characters or language prefixes that may appear before other terms, including book names, chapter and verse terms etc. These terms are treated as part of the word they prefix but are otherwise ignored. Example: `PREFIXES:(\(\|")`
+**REF_END_TERMS** | A Perl regular expression matching characters that are required to end an extended textual reference. Example: `REF_END_TERMS:(\.\|")`
+**SEPARATOR_TERMS** | A Perl regular expression matching words or characters that are to be understood as separating individual references within an extended reference. Example: `SEPARATOR_TERMS:(also\|and\|or\|,)`
+**SKIP_XPATH** | When a section or category of text should be skipped by the parser SKIP_XPATH can be used. It takes the following form:  `SKIP_XPATH: ancestor::div[@type='introduction']` The given xpath expression will be evaluated for every suspected textual scripture reference, and if it evaluates as true, it will be left alone.
+**SUFFIXES** | A Perl regular expression matching characters or language suffixes that may appear after other terms, including book names, chapter and verse terms etc. These terms are treated as part of the word that precedes them but are otherwise ignored. Some languages have many grammatical suffixes and including them in SUFFIXES can improve the parsability of such langauges. Example: `SUFFIXES:(\)\|s)`
+**VERSE_TERMS** | A Perl regular expression matching localized words/phrases which will be understood as meaning "verse". Example: `VERSE_TERMS:(verse)`
+**WORK_PREFIX** | Sometimes textual references are to another work. For instance a Children's Bible may contain references to an actual Bible translation. To change the work to which references apply, the WORK_PREFIX setting should be used. It takes the following form:  `WORK_PREFIX: LEZ if-xpath //@osisIDWork='LEZCB'` Where LEZ is any project code to be referenced, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then LEZ will be used as the work prefix for that reference.
+
+
+## CF_addFootnoteLinks.txt 
+When translators include study notes that reference other study notes, this command file can be used to parse references to footnotes and convert them into working hyperlinks. This conversion requires that CF_addScripRefLinks.txt is also performed.
+
+SETTING | DESCRIPTION
+------- | -----------
+**COMMON_TERMS** | See CF_addScripRefLinks.txt
+**CURRENT_VERSE_TERMS** | See CF_addScripRefLinks.txt
+**FIX** | Used to fix a problematic reference. Each instance has the form:  `LOCATION='book.ch.vs' AT='ref-text' and REPLACEMENT='exact-replacement'` Where `LOCATION` is the context of the fix, AT is the text to be fixed, and `REPLACEMENT` is the fix. If `REPLACEMENT` is 'SKIP', there will be no footnote reference link.
+**FOOTNOTE_TERMS** | A Perl regular expression matching terms that are to be converted into footnote links.
+**ONLY_XPATH** | See CF_addScripRefLinks.txt
+**ORDINAL_TERMS** | A list of ordinal:term pairs where ordinal is ( \d \| prev \| next \| last ) and term is a localization of that ordinal to be searched for in the text. Example: `ORDINAL_TERMS:(1:first\|2:second\|prev:preceding)`
+**SKIP_XPATH** | See CF_addScripRefLinks.txt
+**STOP_REFERENCE** | A Perl regular expression matching where scripture references stop and footnote references begin. This is only needed if an error is generated because the parser cannot find the transition. For instance: 'See verses 16:1-5 and 16:14 footnotes' might require the regular expression: `verses[\s\d:-]+and` to delineate between the scripture and footnote references.
+**SUFFIXES** | See CF_addScripRefLinks.txt
+
+
+## CF_addDictLinks.xml 
+Many Bible translations are accompanied by reference materials, such as glossaries, maps and tables. Hyperlinks to this material, and between these materials, are helpful study aids. Translators may mark the words or phrases which reference a particular glossary entry or map. But often only the location of a reference is marked, while the exact target of the reference is not. Sometimes no references are marked, even though they exist throughout the translation. This command file's purpose is to convert all these kinds of textual references into strictly standardized working hyperlinks.
+
+IMPORTANT: For case insensitive matches to work, ALL match text MUST be surrounded by the \Q...\E quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn't properly handle case for some languages. Match patterns can be any Perl regex, but only the 'i' flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named 'link' (using Perl's ?'link' notation) in which case that group will become the text of the link.
+
+References that are marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:
+
+(A): value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn't begin with 'not') cancels negative attribute ancestors.
+(B): true or false
+(C): one or more space separated osisRef values OR one or more comma separated Paratext references.
+(R): one or more space separated osisRef values
+(X): xpath expression
+
+ATTRIBUTE | DESCRIPTION
+--------- | -----------
+**XPATH (AX)** | If the xpath expression evaluates as true for the text node, then match elements will be applied.
+**context (AC)** | If it contains a context matching the text node, match elements will be applied.
+**dontLink (B)** | If true, then match elements are used to undo any reference link.
+**multiple (B)** | If false, only the first match candidate for an entry will be linked per chapter or keyword. If `match`, the first match condidate per match element may be linked per chapter or keyword. If true, there are no such limitations.
+**noOutboundLinks (B)** | This attribute is only allowed on entry elements. It prohibits the parser from parsing the entry's targets for links.
+**notContext (AC)** | If it contains a context matching the text node, match elements will be not applied.
+**notExplicit (BC)** | If true or else contains a context matching the text node, then match elements will only apply if that node is not an explicitly marked reference.
+**notXPATH (AX)** | If the xpath expression evaluates as true for the text node, then match elements will not be applied.
+**onlyExplicit (BC)** | If true or else contains a context matching the text node, then match elements will only apply if that node is an explicitly marked reference.
+**onlyNewTestament (B)** | If true, text nodes which are not in the New Testament, will not have match elements applied.
+**onlyOldTestament (B)** | If true, text nodes which are not in the Old Testament, will not have match elements applied.
+**osisRef (R)** | This attribute is only allowed on entry elements and is required. It contains a space separated list of work prefixed osisRef values, which are the target(s) of an entry's links.
+
+ELEMENT | DESCRIPTION
+------- | -----------
+**addDictLinks** | The root element.
+**div** | Used to organize groups of entries
+**entry** | Text matching any child match element will be linked with the osisRef attribute value.
+**match** | Contains a Perl regular expression used to search text for links to the parent entry. For a match element to create a link, all its attributes and those of ancestor elements must be properly satisfied.
+**name** | The name of the parent entry.
+
+
+# osis2osis 
+
+## Synopsis 
+This is the osis2osis synopsis.
+
+
+## CF_osis2osis.txt 
+This is the CF_osis2osis.txt text.
+
+
+# osis2sword 
+
+## Synopsis 
+This is the osis2sword synopsis.
+
+
+# osis2ebooks 
+
+## Synopsis 
+This is the osis2ebooks synopsis.
+
+
+# osis2gobible 
+
+## Synopsis 
+This is the osis2gobible synopsis.
+
+
+# osis2html 
+
+## Synopsis 
+This is the osis2html synopsis.
+
+
+# CrossWire 
+
+## Non-standard config.conf entries 
+ENRTY | DESCRIPTION
+----- | -----------
+**KeySort** | This entry allows sorting a language in any desired way using character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.
+**AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
+**Scope** | Used to list Bible module contents, and it follows osisRef rules. Note that Scope interperetation is versification dependant, since different verse systems may have different book orders and numbers of chapters and verses. The Scope config entry is important for use cases when the content needs to be determined before the text itself can be loaded and read.
+
+
+## Comparison of OSIS files to CrossWire OSIS 
+Osis-converters utilizes CrossWire's [usfm2osis.py](https://github.com/refdoc/Module-tools) script for the initial USFM to OSIS conversion. The OSIS subType attribute is used to pass optional CSS classes to front-ends.
 

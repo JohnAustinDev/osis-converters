@@ -25,7 +25,7 @@ our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD,
     $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $MAXTHREADS, $SKIPRE, 
     $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
     @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
-    %CONV_OUTPUT_SUBDIR, %ARGS);
+    %CONV_OUTPUT_SUBDIR, %ARGS, $MAINMOD);
 
 BEGIN {
 
@@ -41,9 +41,9 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our $PROJDIR = &processArguments();
 
-# Save these so they won't be changed, in case Vagrant is needed
-$ARGS{'first'} = $INPD;
-$ARGS{'second'} = $LOGFILE;
+# Save these for possible Vagrant restart
+our $INPD_START = $INPD;
+our $LOGFILE_START = $LOGFILE;
 
 if (-e $LOGFILE) {unlink($LOGFILE);}
 
@@ -54,8 +54,8 @@ $INFO = &getProjectsInfo($PROJDIR);
 %DEPENDENCIES = &getDependencies($CONVERSION, \@RUN, $INFO);
 
 if ($DEBUG) {
-  &pLog("INFO = ".Dumper($INFO)."\n");
-  &pLog("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
+  &Log("INFO = ".Dumper($INFO)."\n");
+  &Log("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
   no strict 'refs';
   my @v = ('INPD', 'PROJDIR', 'LOGFILE', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
   print join("\n", map("$_=$$_", @v))."\n\n";
@@ -95,7 +95,7 @@ my $restartInVagrant;
 foreach my $p (@RUN_PROJ) {
   if ($INFO->{$p}{"system+VAGRANT"}) {$VAGRANT = 1;}
 }
-my $isCompatibleLinux = ($^O =~ /linux/i ? `lsb_release -a 2>&1`:'');
+my $isCompatibleLinux = ($^O =~ /linux/i ? &shell("lsb_release -a", 3):'');
 if (!&runningInVagrant() && ($VAGRANT || !$isCompatibleLinux)) {
   $restartInVagrant++;
 }
@@ -113,15 +113,18 @@ if (!&runningInVagrant() && $restartInVagrant) {
   if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
   # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
-    &set_project_globals($INFO->{$m}{'path'}, $LOGFILE);
-    &set_system_globals($m);
+    $INPD = $INFO->{$m}{'path'}; 
+    $MAINMOD = $m;
+    &set_project_globals();
+    &set_system_globals();
   }
 }
 
 if ($restartInVagrant) {
-  &pLog("Restarting in Vagrant...\n");
-  &convertInVagrant();
-  exit;
+  &Log("Restarting in Vagrant...\n");
+  $INPD = $INPD_START;
+  $LOGFILE = $LOGFILE_START;
+  &restartWithVagrantAndExit();
 }
 
 # This thread continues after the following BEGIN block sub definitions!
@@ -182,25 +185,6 @@ sub processArguments {
   if ($ARGS{'x'} && $SKIPRE !~ /(^\^|\$$)/) {$SKIPRE = '^'.$SKIPRE.'$';}
   
   return $projdir;
-}
-
-# Restart the same conversion using the Vagrant VM
-sub convertInVagrant {
-
-  &initialize_vagrant();
-  
-  my $vscript     = &vagrantPath($SCRIPT);
-  $ARGS{'first'}  = &vagrantPath($ARGS{'first'});
-  $ARGS{'second'} = &vagrantPath($ARGS{'second'});
-
-  my $cmd = "vagrant ssh -c \" '$vscript' " . &writeArgs(\%ARGS) . "\"";
-
-  print "\nStarting Vagrant with...\n$cmd\n";
-  
-  # Continue printing to console while Vagrant ssh remains open
-  open(VUP, "$cmd |");
-  while(<VUP>) {print $_;}
-  close(VUP);
 }
 
 sub depmsg {
@@ -325,7 +309,7 @@ sub getProjectInfo {
         # If CF_osis2osis.txt has SET_sourceProject, its modules are
         # considered runnable.
         $infoP->{$proj}{'runable'}++;
-        $infoP->{$proj}{'path'} = "$pdir/$proj";
+        $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
         $infoP->{$proj}{'sourceProject'} = $sourceProject;
         $infoP->{$proj}{'configProject'} = $sourceProject;
       }
@@ -343,9 +327,10 @@ sub getProjectInfo {
   my $cp = $infoP->{$proj}{'configProject'};
   if (&shell("grep '\\[system\\]' \"$pdir/$cp/config.conf\"", 3, 1)) {
     $infoP->{$proj}{'runable'}++;
-    $infoP->{$proj}{'path'} = "$pdir/$proj";
+    $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
     if (!defined($infoP->{$cp}{'MainmodName'})) {
-      our $CONF; &set_project_globals("$pdir/$cp", $LOGFILE);
+      $INPD = "$pdir/$cp";
+      our $CONF; &set_project_globals();
       foreach my $k (keys %{$CONF}) {$infoP->{$cp}{$k} = $CONF->{$k};}
     }
   }
@@ -654,15 +639,6 @@ sub modOutdir {
   return &shortPath($outdir);
 }
 
-sub pLog {
-  my $p = shift;
-
-  print encode("utf8", $p);
-  
-  open(LOGF, ">>:encoding(UTF-8)", $LOGFILE) || die;
-  print LOGF $p;
-  close(LOGF);
-}
 }
 # BEGIN was used to separate Perl module dependencies for Vagrant.
 # Code beyond this point may be run in a Vagrant virtual machine.
@@ -672,14 +648,14 @@ use Encode;
 use DateTime;
 use Term::ReadKey;
 
-&pLog("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
-foreach (@IGNORE_PROJ) {&pLog(sprintf("%12s\n", $_));}
-&pLog("\n");
+&Log("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
+foreach (@IGNORE_PROJ) {&Log(sprintf("%12s\n", $_));}
+&Log("\n");
 
-&pLog($JOBMSG);
+&Log($JOBMSG);
 
 my $STARTTIME;
-&timer('start'); &pLog("\n");
+&timer('start'); &Log("\n");
 
 if (!&runningInVagrant()) {ReadMode(4);}
 
@@ -747,8 +723,8 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
 if (!&runningInVagrant()) {ReadMode(0);}
 
 if ($KEY == 27) {
-  &pLog("\n");
-  &pLog("
+  &Log("\n");
+  &Log("
 No more conversions will be scheduled...
 Press ctrl-c to kill remaining threads and exit.
 Or wait for the current threads to finish:\n");
@@ -780,9 +756,11 @@ sub runScript {
   
   my $startTime = time;
   
-  my $cmd = "$SCRD/bin/$script \"$path\"";
+  my %args = ('first' => $path);
+  my $cmd = "$SCRD/bin/$script " . &writeArgs(\%args);
+  
   print "Started: $cmd\n";
-  my $result = decode('utf8', `$cmd  2>&1`);
+  my $result = &shell($cmd, 3);
 
   my @errors;
   foreach my $line (split(/\n+/, $result)) {
@@ -796,17 +774,17 @@ sub runScript {
   }
   
   if (@errors) {
-    &pLog(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
+    &Log(sprintf("\nFAILED:  %12s %9s FINISHED WITH %i ERROR(s).\n", 
           $script, 
           $mod, 
           scalar @errors
     ));
-    foreach my $e (@errors) {&pLog("$e\n");}
-    &pLog("\n");
+    foreach my $e (@errors) {&Log("$e\n");}
+    &Log("\n");
     return;
   }
   
-  &pLog(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
+  &Log(sprintf("SUCCESS! %12s %9s is FINISHED.\n", 
         $script, 
         $mod
   ));
@@ -837,14 +815,14 @@ sub timer {
   my $do = shift;
  
   if ($do =~ /start/i) {
-    &pLog("start time: ".localtime()."\n");
+    &Log("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
   }
   elsif ($do =~ /stop/i) {
     if (!$STARTTIME) {return;}
     my $now = DateTime->now();
     my $e = $now->subtract_datetime($STARTTIME);
-    &pLog("elapsed time: ".
+    &Log("elapsed time: ".
           ($e->hours ? $e->hours." hours ":'').
           ($e->minutes ? $e->minutes." minutes ":'').
           $e->seconds." seconds\n");
@@ -877,7 +855,7 @@ sub working {
       $msg .= "Press ESC to kill the scheduler.\n";
     }
     
-    if ($logOrPrint && $logOrPrint =~ /log/i) {&pLog($msg);}
+    if ($logOrPrint && $logOrPrint =~ /log/i) {&Log($msg);}
     elsif ($msg ne $LASTMSG) {
       print $msg;
       $LASTMSG = $msg;
