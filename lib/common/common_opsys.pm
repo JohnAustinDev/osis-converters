@@ -450,10 +450,15 @@ our $TNS = "xmlns='$TEI_NAMESPACE'";
 our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 
     'CF_addScripRefLinks.txt', 'CF_addDictLinks.xml', 
     'CF_addFootnoteLinks.txt');
+    
+our @CF_OSIS2OSIS = ('MATCHES:SET_CONFIG_.+', 'SKIP_NODES_MATCHING', 
+    'SKIP_STRINGS_MATCHING', 'CC', 'CCOSIS', 'SET_sourceProject', 
+    'SET_MODE_CCTable', 'SET_MODE_Script', 'SET_MODE_Transcode', 
+    'SET_MODE_Copy');
 
 our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 
     'PUNC_AS_LETTER');
-
+    
 our @VSYS_INSTRUCTIONS = ('VSYS_MISSING', 'VSYS_EXTRA', 'VSYS_FROM_TO', 
     'VSYS_EMPTY', 'VSYS_MOVED', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 
     'VSYS_CHAPTER_SPLIT_AT');

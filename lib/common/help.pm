@@ -89,9 +89,9 @@ our %HELP = (
 
   ['SYNOPSIS', [
     ['para', 'Convert Paratext [SFM](http://paratext.org/about/usfm#usfmDocumentation) to [OSIS](http://www.crosswire.org/osis/) XML, CrossWire [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, html, epub and azw3 files.' ],
-    ['para', 'Start with [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in a directory: `/some-path/MODULE_NAME/sfm/`. At a Linux or Git Bash prompt run:
-    \b\b `./bin/defaults /some-path/MODULE_NAME`
-    \b\b `./bin/convert /some-path/MODULE_NAME`
+    ['para', 'Start with [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in a directory: `some-path/MODULE_NAME/sfm/`. At a Linux or Git Bash prompt run:
+    \b\b `./bin/defaults ./some-path/MODULE_NAME`
+    \b\b `./bin/convert ./some-path/MODULE_NAME`
     \b\b Which will output:
     \b* A SWORD Bible module
     \b* A SWORD Dictionary module (if there are USFM glossary files).
@@ -102,7 +102,7 @@ our %HELP = (
     ['para', 'Log files report everything about the conversion process using the following labels:' ],
     ['list', ['Label', 'Description'], [
       ['ERROR', 'Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix many following errors.' ],
-      ['WARNING', 'Possible problems. Read and understand the message to decide if anything needs to be done.' ],
+      ['WARNING', 'Possible problems. Read the message and decide if anything needs to be done.' ],
       ['NOTE', 'Informative notes.' ],
       ['REPORT', 'Conversion reports. Helpful for comparing runs.' ],
     ]],
@@ -141,7 +141,7 @@ our %HELP = (
       [ 'Abbreviation', 'A short localized name for the module.' ],
       [ 'About', 'Localized information about the module.' ],
       [ 'Description', 'A short localized description of the module.' ],
-      [ 'KeySort', 'This entry allows sorting a language in any desired way using character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.' ],
+      [ 'KeySort', 'This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.' ],
       [ 'LangSortOrder', 'DEPRECATED. Use the more flexible KeySort instead.' ],
       [ 'AudioCode', 'A publication code for associated audio. Multiple modules having different scripts may reference the same audio.' ],
       [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: (true | false | AUTO).' ],
@@ -200,7 +200,7 @@ our %HELP = (
       ['VSYS_EMPTY', 'Like `VSYS_MISSING`, but is only to be used if regular empty verse markers are included in the text. This instruction will only remove external scripture cross-references to the removed verses.' ],
       ['VSYS_MOVED', 'Used when translators moved a range of verses from the expected location within the project\'s versification scheme to another location. This instruction can have several forms:
       \b\b `VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`
-      \b Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range\'s last verse, indicating only part of the verse was moved. All references to affected verses will be tagged so as to be correct in either the standard or the custom versification scheme. When verses are moved within the same book, the verses will be \'fit\' into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.
+      \b Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range\'s last verse, indicating only part of the verse was moved. All references to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.
       \b\b `VSYS_MOVED: Tob -> Apocrypha[Tob]`
       \b Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `%OSIS_GROUP` for supported book-groups and books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.
       \b\b `VSYS_MOVED: Apocrypha -> bookGroup[2]`
@@ -209,7 +209,7 @@ our %HELP = (
       ['VSYS_MISSING_FN', 'Like `VSYS_MISSING` but is only to be used if a footnote was included in the verse before the missing verses which gives the reason for the verses being missing. This instruction will simply link the verse having the footnote together with the missing verse.' ],
       ['VSYS_CHAPTER_SPLIT_AT', 'Used when the translators split a chapter of the project\'s versification scheme into two chapters. This instruction takes the form:
       \b\b `VSYS_CHAPTER_SPLIT_AT: Joel.2.28`
-      \b When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. All references to affected verses will be tagged so as to be correct in either the standard or the custom versification scheme.' ],
+      \b When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. All references to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme.' ],
     ])],
   ]],
   
@@ -249,7 +249,7 @@ our %HELP = (
       \b`CHAPTER_TO_VERSE_TERMS:(:)`' ],
       ['CONTINUATION_TERMS', 'A Perl regular expression matching characters that are used to indicate a chapter or verse range. Example:
       \b`CONTINUATION_TERMS:(to|-)`' ],
-      ['FIX', 'If the parser fails to properly convert any particular textual reference, FIX can be used to correct it or skip it. It has the following form:
+      ['FIX', 'If the parser fails to properly convert any particular textual reference, FIX can be used to correct or skip it. It has the following form:
       \b\b`FIX: Gen.1.5 Linking: "7:1-8" = "<r Gen.7.1>7:1</r><r Gen.8>-8</r>`"
       \bAfter FIX follows the line from the log file where the extended reference of concern was logged. Replace everything after the equal sign with a shorthand for the fix with the entire fix enclosed by double quotes. Or, remove everything after the equal sign to skip the extended reference entirely. The fix shorthand includes each reference enclosed in r tags with the correct osisID.' ],
       ['<osis-abbreviation>', 'To assign a localized book name or abbreviation to the corresponding osis book abbreviation, use the following form:
@@ -315,18 +315,37 @@ our %HELP = (
 'osis2osis' => [
 
   ['Synopsis', [
-    ['para', 'This is the osis2osis synopsis.'],
+    ['para', 'When a translation is to be converted into multiple scripts, osis2osis can be used to simplify the work of conversion. The osis2osis program is flexible and controlled by CF_osis2osis.txt. Source script SFM may be converted using sfm2osis, then the resulting OSIS file converted directly to other scripts using osis2osis. It can also be used to convert control files from one script to another for subsequent final conversion by sfm2osis, which is useful when translators provide multiple sets of source files of different scripts, and control files alone need to be converted from one script to another. ' ],
   ]],
   
   ['CF_osis2osis.txt', [
-    ['para', 'This is the CF_osis2osis.txt text.'],
+    ['para', 'The following settings are supported:' ],
+    ['list', ['SETTING', 'DESCRIPTION'], &getList(\@CF_OSIS2OSIS, [
+      ['SET_CONFIG_<entry>', 'Set the value of a config entry. The config.conf file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `SET_CONFIG_<section>+<entry>: <value>`' ], 
+      ['SKIP_NODES_MATCHING', 'Don\'t convert the text of nodes selected by an xpath expression.' ], 
+      ['SKIP_STRINGS_MATCHING', 'Don\'t convert the text of strings matching a Perl regular expression.' ],
+      ['CC', 'Convert control files using the previously selected MODE. Each control file has a `CC: <file>` line, and each path is relative to it\'s main project directory.' ],
+      ['CCOSIS', 'Convert an OSIS file using the previously selected MODE. Examples: `CCOSIS: <code>` or `CCOSIS: <code>DICT`' ],
+      ['SET_sourceProject', 'A required entry specifying the source project to convert from.' ],
+      ['SET_MODE_CCTable', 'DEPRECATED. Use a CC table do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.' ],
+      ['SET_MODE_Script', 'Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file' ],
+      ['SET_MODE_Transcode', 'Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `SET_MODE_Transcode: script.pl`' ], 
+      ['SET_MODE_Copy', 'Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.' ],
+    ])],
   ]],
 ],
 
 'osis2ebooks' => [
 
   ['Synopsis', [
-    ['para', 'This is the osis2ebooks synopsis.'],
+    ['para', 'Create epub and azw3 eBooks from OSIS files. Once Paratext SFM files have been converted to OSIS XML, eBooks can be created from the OSIS sources. Both the MAINMOD and DICTMOD OSIS files are integrated into an eBook publication. If there are sub-publications as part of the translation, eBooks for each of these will also be created. Finally a separate eBook for each Bible book is created. ' ],
+    ['para', 'The following `config.conf` entries control eBook production:' ],
+    ['list', ['ENTRY', 'DESCRIPTION'], [
+      ['CreateTypes', 'HELP(sfm2osis;config.conf;CreateTypes)' ],
+      ['CreatePubTran', 'HELP(sfm2osis;config.conf;CreatePubTran)' ],
+      ['CreatePubSubpub', 'HELP(sfm2osis;config.conf;CreatePubSubpub)' ],
+      ['CreatePubBook', 'HELP(sfm2osis;config.conf;CreatePubBook)' ],
+    ]],
   ]],
   
 ],
@@ -334,7 +353,7 @@ our %HELP = (
 'osis2html' => [
 
   ['Synopsis', [
-    ['para', 'This is the osis2html synopsis.'],
+    ['para', 'Create HTML from OSIS files. Once Paratext SFM files have been converted to OSIS XML, HTML can be created from the OSIS sources. Both the MAINMOD and DICTMOD OSIS files are integrated together with a table-of-contents and comprehensive navigational links.' ],
   ]],
   
 ],
@@ -342,7 +361,7 @@ our %HELP = (
 'osis2sword' => [
 
   ['Synopsis', [
-    ['para', 'This is the osis2sword synopsis.'],
+    ['para', 'Create CrossWire SWORD modules from OSIS files. Once Paratext files have been converted to OSIS XML, SWORD modules can be created. A Bible, GenBook or Commentary SWORD module will be created from the MAINMOD OSIS file and the DICTMOD OSIS file will be converted to a dictionary SWORD module. Each SWORD module will be linked together by a table-of-contents, glossary and navigational links. '],
   ]],
   
 ],
@@ -350,7 +369,7 @@ our %HELP = (
 'osis2gobible' => [
 
   ['Synopsis', [
-    ['para', 'This is the osis2gobible synopsis.'],
+    ['para', 'Create JAVA-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible may utilize Go Bible Creator to produce these apps for feature phones.'],
   ]],
   
 ],
@@ -523,7 +542,7 @@ sub helpListRow {
 sub helpLink {
   my $t = shift;
 
-  $t =~ s/\[([^\]]*)\]\(([^\)]*)\)/($1 ? $1:$2)/seg;
+  $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/($1 ? $1:$2)/seg;
  
   return $t;
 }

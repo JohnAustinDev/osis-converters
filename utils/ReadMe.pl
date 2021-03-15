@@ -5,10 +5,13 @@ use strict;
 # Update the ReadMe.md page
 
 BEGIN { # allows subs to be replaced
+  our $SCRIPT_NAME = 'convert';
   use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
 }
 
-open(INF, ">:encoding(UTF-8)", "../ReadMe.md") || die;
+our $SCRD;
+
+open(INF, ">:encoding(UTF-8)", "$SCRD/ReadMe.md") || die;
 
 print INF &help();
 
@@ -47,7 +50,11 @@ sub helpList {
 }
 
 sub helpLink {
-  return shift;
+  my $t = shift;
+
+  $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/my $r=($1 ? "[$1]($2)":"[$2]($2)")/eg;
+  
+  return $t;
 }
 
 sub esc {

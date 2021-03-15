@@ -57,7 +57,7 @@ sub osis2osis {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|CONFIG_CONVERT_[\w\+]+|CONFIG_(?:ARG_)?[\w\+]+|CONVERT_\w+|DEBUG|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^SET_(MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|CONFIG_.+|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
       no strict "refs";
       if ($2) {
         my $par = $1;
@@ -77,8 +77,7 @@ sub osis2osis {
         elsif ($par =~ /(SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING)/) {
           $$par =~ s/(?<!\\)\((?!\?)/(?:/g; # Change groups to non-capture!
         }
-        elsif ($par =~ /^CONFIG_(?!CONVERT)(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
-        elsif ($par =~ /^CONVERT_(.*)$/) {$O2O_CONVERTS{$1} = $$par;}
+        elsif ($par =~ /^CONFIG_(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
         elsif ($par eq 'sourceProject') {
           if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
             &Error("SET_sourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SET_sourceProject of $commandFile.", 1);
@@ -92,6 +91,9 @@ sub osis2osis {
           }
           &makeDirs("$sourceProjectPath/sfm", $MAININPD);
           @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
+        }
+        else {
+          &Error("Unhandled CF_osis2osis.txt entry: $_");
         }
       }
     }
@@ -287,11 +289,6 @@ sub convertFileStrings {
         &Error("The setting SET_CONVERT_$e is no longer supported.", 
         "Change it to SET_CONFIG_$e instead.");
       }
-      if (${"CONFIG_CONVERT_$e"} || $e =~ /$loconfigRE/) {
-        my $new = &transcodeStringByMode($confHP->{$fullEntry});
-        &Note("Converting entry $e\n\t\twas: ".$confHP->{$fullEntry}."\n\t\tis:  ".$new);
-        $confHP->{$fullEntry} = $new;
-      }
     }
     
     # set requested values
@@ -396,9 +393,7 @@ sub transcodeStringByMode {
   
   if ($O2O_CurrentMode eq 'MODE_Transcode' && !exists(&transcode)) {
       &Error("<>Function transcode() must be defined when using MODE_Transcode.", "
-<>In MODE_Transcode you must define a Perl function called 
-transcode(). Then you must tell osis-converters where to find it
-using SET_MODE_Transcode:<include-file.pl>");
+<>" . &help('sfm2osis;CF_osis2osis.txt;MODE_Transcode'));
     return $s;
   }
   
