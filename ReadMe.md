@@ -30,7 +30,7 @@ Log files report everything about the conversion process. They are written to th
 
 LABEL | DESCRIPTION
 ----- | -----------
-**ERROR** | Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix many following errors.
+**ERROR** | Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix following errors.
 **WARNING** | Possible problems. Read the message and decide if anything needs to be done.
 **NOTE** | Informative notes.
 **REPORT** | Conversion reports. Helpful for comparing runs.
@@ -91,11 +91,17 @@ HOOK | WHEN CALLED
 Each project has a config.conf file located in its top directory. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. A config.conf file usually has multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The 'system' section is special because it contains global constants that are the same in any context. The following sections are recognized: 'MAINMOD', 'DICTMOD', 'system', 'osis2ebooks', 'osis2html', 'osis2sword', 'osis2gobible' (MAINMOD is the project code and DICTMOD is the same project code suffixed with 'DICT'). What follows are all settings available in the config.conf file. The letters in parenthesis indicate the following entry types:
 
 (C): Continuable from one line to the next using a backslash character.
+
 (L): Localizable by appending underscore and language ISO code to the entry name.
+
 (P): Path of a local file or directory.
+
 (S): System section only.
+
 (U): A http(s) URL.
-(W): SWORD standard (see: [](https://wiki.crosswire.org/DevTools:conf_Files)).
+
+(W): SWORD standard (see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)).
+
 
 ENTRY | DESCRIPTION
 ----- | -----------
@@ -231,10 +237,15 @@ IMPORTANT: For case insensitive matches to work, ALL match text MUST be surround
 References that are marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:
 
 (A): value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn't begin with 'not') cancels negative attribute ancestors.
+
 (B): true or false
+
 (C): one or more space separated osisRef values OR one or more comma separated Paratext references.
+
 (R): one or more space separated osisRef values
+
 (X): xpath expression
+
 
 ATTRIBUTE | DESCRIPTION
 --------- | -----------

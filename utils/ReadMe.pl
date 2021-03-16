@@ -29,17 +29,17 @@ sub helpList {
   
   if (!$listheadAP->[0] && !$listheadAP->[1]) {
     foreach my $row (@{$listAP}) {
-      $r .= $row->[0] . ': ' . $row->[1] . "\n";
+      $r .= $row->[0] . ': ' . &helpTags($row->[1]) . "\n\n";
     }
     $r .= "\n";
     return $r;
   }
   
   $r .= &esc($listheadAP->[0]) . ' | ' . 
-        &esc($listheadAP->[1]) . "\n";
+        &helpTags(&esc($listheadAP->[1])) . "\n";
         
   $r .= '-' x length($listheadAP->[0]) . ' | ' . 
-        '-' x length($listheadAP->[1]) . "\n";
+        '-' x length(&helpTags($listheadAP->[1])) . "\n";
                     
   foreach my $row (@{$listAP}) {
     my $e = $row->[0];

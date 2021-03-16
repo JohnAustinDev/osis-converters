@@ -102,7 +102,7 @@ our %HELP = (
     ['sub-heading', 'LOG FILES' ],
     ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log with the following labels:' ],
     ['list', ['LABEL', 'DESCRIPTION'], [
-      ['ERROR', 'Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix many following errors.' ],
+      ['ERROR', 'Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix following errors.' ],
       ['WARNING', 'Possible problems. Read the message and decide if anything needs to be done.' ],
       ['NOTE', 'Informative notes.' ],
       ['REPORT', 'Conversion reports. Helpful for comparing runs.' ],
