@@ -61,6 +61,13 @@ sub esc {
 sub helpTags {
   my $t = shift;
   
+  # Local file paths: PATH(<encoded-path>?)
+  $t =~ s/PATH\(([^\)]*)\)/
+    my $p = $1; 
+    my $e; 
+    my $r = &const($1,\$e); 
+    '`' . &helpPath($e ? $r : &shortPath($r)) . '`'/seg;
+  
   # Copy of help: HELP(<script>;<heading>;[<key>])
   $t =~ s/HELP\(([^\)]+)\)/&help($1,undef,1,1)/seg;
     
