@@ -55,7 +55,7 @@ our ($SCRIPT, $SCRD);
 our @CONV_OSIS = ('sfm2osis', 'osis2osis');
 
 # Conversion from OSIS to publication executables
-our @CONV_PUBS = ('osis2sword', 'osis2ebooks', 'osis2gobible', 'osis2html');
+our @CONV_PUBS = ('osis2ebooks', 'osis2html', 'osis2sword', 'osis2gobible');
 
 # Other osis-converters executables
 our @CONV_OTHER = ('convert', 'defaults');
@@ -177,8 +177,9 @@ if (! our $SCRIPT_NAME) {
 require "$SCRD/lib/common/common_opsys.pm";
 require "$SCRD/lib/common/help.pm";
 
-# This sub will exit with 1 on error, or 0 on help or Vagrant-restart.
-# Otherwise it will return if init completes.
+# This init will exit with 1 on error, or 0 on help or Vagrant-restart.
+# Otherwise it returns after initializing the Perl globals expected by 
+# the calling script.
 sub init() {
   our %ARGS = &arguments(@_);
   
@@ -199,6 +200,8 @@ sub init() {
     exit 0;
   }
   
+  # 'convert' doesn't need  a particular $INPD directory or config
+  # and does its own Vagrant checking and .vm.conf initialization.
   if ($SCRIPT_NAME eq 'convert') {return;}
   
   my $error = &checkModuleDir($INPD);

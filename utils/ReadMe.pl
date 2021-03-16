@@ -2,9 +2,9 @@
 
 use strict; 
 
-# Update the ReadMe.md page
+# Update osis-converters ReadMe.md
 
-BEGIN { # allows subs to be replaced
+BEGIN { # allow subs to be redefined
   our $SCRIPT_NAME = 'convert';
   use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
 }
@@ -17,7 +17,10 @@ print INF &help();
 
 close(INF);
 
-# These subs redefine subs from help.pm to output md markup.
+########################################################################
+########################################################################
+
+# Redefine subs from help.pm to output md markup.
 sub helpList {
   my $listheadAP = shift;
   my $listAP = shift;
@@ -39,22 +42,13 @@ sub helpList {
         '-' x length($listheadAP->[1]) . "\n";
                     
   foreach my $row (@{$listAP}) {
-    my $e = $row->[0]; my $d = $row->[1];
+    my $e = $row->[0];
     if ($e !~ /^[\(\*]/) {$e = '**' . $e . '**';}
-    $d =~ s/HELP\(([^\)]+)\)/&help($1,undef,1,1)/eg;
-    $r .= &esc($e) . ' | ' . &para(&esc($d), undef, undef, undef, 1, 1);
+    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), undef, undef, undef, 1, 1);
   }
   $r .= "\n";
   
   return $r;
-}
-
-sub helpLink {
-  my $t = shift;
-
-  $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/my $r=($1 ? "[$1]($2)":"[$2]($2)")/eg;
-  
-  return $t;
 }
 
 sub esc {
@@ -64,9 +58,23 @@ sub esc {
   return $t;
 }
 
+sub helpTags {
+  my $t = shift;
+  
+  # Copy of help: HELP(<script>;<heading>;[<key>])
+  $t =~ s/HELP\(([^\)]+)\)/&help($1,undef,1,1)/seg;
+    
+  # Hyperlinks: [text](href)
+  $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/my $r=($1 ? "[$1]($2)":"[$2]($2)")/seg;
+ 
+  return $t;
+}
+
 sub format {
-  my $text = &helpLink(shift);
+  my $text = &helpTags(shift);
   my $type = shift;
+  
+  if (!$text) {return;}
   
   my @args; if ($type =~ s/:(.+)$//) {@args = split(/,/, $1);}
   
@@ -87,7 +95,7 @@ sub format {
 }
 
 sub para {
-  my $t = &helpLink(shift);
+  my $t = &helpTags(shift);
   my $indent = shift; if (!defined($indent)) {$indent = 0;}
   my $left   = shift; if (!defined($left))   {$left   = 0;}
   my $width  = shift; if (!defined($width))  {$width  = 72;}
