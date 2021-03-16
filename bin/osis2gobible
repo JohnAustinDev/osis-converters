@@ -110,7 +110,7 @@ sub makeGoBibles {
   if (-e $dir) {remove_tree($dir);}
   mkdir $dir;
   
-  my $clt = &getDefaultFile('bible/gobible/collections.txt', 1);
+  my $clt = &getDefaultFile('gobible/collections.txt', 1);
   if ($clt) {
     &Warn("A gobible/collections.txt was found in input directory $MAININPD so it will now be deleted.",
 "This file is now auto-generated internally by osis-converters.");
@@ -118,12 +118,12 @@ sub makeGoBibles {
   }
   
   # Gather and prepare GoBible input files
-  copy(&getDefaultFile('bible/gobible/icon.png'), "$dir/icon.png");
+  copy(&getDefaultFile('gobible/icon.png'), "$dir/icon.png");
   if (-e "$dir/../collections.txt") {unlink "$dir/../collections.txt";}
   my $colfile = &writeCollectionsFile("$dir/../collections.txt", $collectionsP);
   if (-e "$dir/../osis.xml") {unlink "$dir/../osis.xml";}
   &copy($INOSIS, "$dir/../osis.xml");
-  my @files = (&getDefaultFile("bible/gobible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
+  my @files = (&getDefaultFile("gobible/ui.properties"), "$dir/../collections.txt", "$dir/../osis.xml");
   &goBibleConvChars($type, \@files, $dir);
   if (-e $GO_BIBLE_CREATOR."GoBibleCore/ui.properties") {unlink $GO_BIBLE_CREATOR."GoBibleCore/ui.properties";}
   &copy("$dir/ui.properties", $GO_BIBLE_CREATOR."GoBibleCore/ui.properties");
@@ -213,7 +213,7 @@ sub writeCollectionsFile {
     $localbk{$bk} = $tocm->getAttribute('n');
   }
   
-  my $coltxt = &getDefaultFile("bible/gobible/collections.txt");
+  my $coltxt = &getDefaultFile("gobible/collections.txt");
   if (!open(INC, $READLAYER, $coltxt)) {
     &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", 1);
   }
@@ -398,7 +398,7 @@ sub goBibleConvChars {
   &Log("\n--- Converting characters ($type)\n");
   
   my @FROM, my @TO;
-  &readReplacementChars(&getDefaultFile("bible/gobible/".$type."Chars.txt"), \@FROM, \@TO);
+  &readReplacementChars(&getDefaultFile("gobible/".$type."Chars.txt"), \@FROM, \@TO);
   
   &Log("Converting the following chars:\n");
   for (my $i=0; $i<@FROM; $i++) {&Log(@FROM[$i]."<>".@TO[$i]."\n");}

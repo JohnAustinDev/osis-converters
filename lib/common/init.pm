@@ -26,7 +26,8 @@ our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE,
     %CONV_OUTPUT_FILES);
 
 sub init_linux_script {
-  &Log("\n-----------------------------------------------------\nSTARTING \$SCRIPT_NAME=$SCRIPT_NAME\n\n");
+  &Log("Running $SCRIPT_NAME version $OC_VERSION
+-----------------------------------------------------\n\n");
   
   &logGitRevs();
   

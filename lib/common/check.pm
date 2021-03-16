@@ -181,7 +181,7 @@ sub checkCharacters {
   my %allChars; for my $c (split(//, $chars)) {$allChars{$c}++;}
   my @from; my @to;
   &readReplacementChars(
-      &getDefaultFile("bible/gobible/simpleChars.txt"), \@from, \@to);
+      &getDefaultFile("gobible/simpleChars.txt"), \@from, \@to);
   foreach my $chr (sort { ord($a) <=> ord($b) } keys %allChars) {
     if (ord($chr) <= $MAX_UNICODE) {next;}
     my $x; for ($x=0; $x<@from; $x++) {

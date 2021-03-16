@@ -435,12 +435,12 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
   # $convertTo.css if it exists
   mkdir("$tmp/css");
   my $css = &getDefaultFile(
-    ( $isChildrensBible ? 'childrens_bible':'bible' ) .
+    ( $isChildrensBible ? 'childrens_bible':'' ) .
     "/html/css/html.css", -1);
   if ($css) {&copy($css, "$tmp/css/00html.css");}
   if ($convertTo ne 'html') {
     $css = &getDefaultFile(
-      ( $isChildrensBible ? 'childrens_bible':'bible' ) .
+      ( $isChildrensBible ? 'childrens_bible':'' ) .
       "/$convertTo/css/$convertTo.css", -1);
     if ($css) {&copy($css, "$tmp/css/01$convertTo.css");}
   }

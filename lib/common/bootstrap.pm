@@ -48,8 +48,10 @@ use File::Spec;
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
+our $OC_VERSION = "1.9";
+
 # These two globals must be initialized in the entry script:
-our ($SCRIPT, $SCRD);
+our ($SCRIPT, $SCRD, $SCRIPT_NAME);
 
 # Conversion to OSIS executables
 our @CONV_OSIS = ('sfm2osis', 'osis2osis');
@@ -170,10 +172,11 @@ $SCRIPT =~ s/\\/\//g;
 $SCRD   =~ s/\\/\//g;
 
 # Don't reset, in case a fork already set SCRIPT_NAME
-if (! our $SCRIPT_NAME) {
+if (! $SCRIPT_NAME) {
   $SCRIPT_NAME = &scriptName();
 }
 
+print "Running $SCRIPT_NAME version $OC_VERSION\n";
 require "$SCRD/lib/common/common_opsys.pm";
 require "$SCRD/lib/common/help.pm";
 
