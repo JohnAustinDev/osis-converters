@@ -13,6 +13,8 @@ our $SCRD;
 
 open(INF, ">:encoding(UTF-8)", "$SCRD/ReadMe.md") || die;
 
+print INF "# osis-converters
+On Ubuntu 16 or 18 `sudo ./provision.sh` will install the necessary dependencies. On other operating systems, including MS-Windows and MacOS, install [Vagrant](https://www.vagrantup.com/downloads), [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Perl](https://www.activestate.com/products/perl/downloads/) and osis-converters will run in a virtual machine.\n";
 print INF &help();
 
 close(INF);
@@ -29,7 +31,7 @@ sub helpList {
   
   if (!$listheadAP->[0] && !$listheadAP->[1]) {
     foreach my $row (@{$listAP}) {
-      $r .= $row->[0] . ': ' . &helpTags($row->[1]) . "\n\n";
+      $r .= $row->[0] . ': ' . &para(&helpTags($row->[1]), 0, 0, 0, 1, 1) . "\n";
     }
     $r .= "\n";
     return $r;
@@ -44,7 +46,7 @@ sub helpList {
   foreach my $row (@{$listAP}) {
     my $e = $row->[0];
     if ($e !~ /^[\(\*]/) {$e = '**' . $e . '**';}
-    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), undef, undef, undef, 1, 1);
+    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), 0, 0, 0, 1, 1);
   }
   $r .= "\n";
   

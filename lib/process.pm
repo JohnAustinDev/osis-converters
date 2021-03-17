@@ -269,18 +269,10 @@ copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
             , $XML_PARSER->parse_file($biblef))}[0]) {
           &Log("\n");
           &Warn(
-"Module $MAINMOD contains module introduction material (located before 
-the first bookGroup, which applies to the entire module). It appears 
-you have not duplicated this material in the glossary. This introductory 
-material could be more useful if copied into glossary module $DICTMOD. 
-This is done by including the USFM file in both the Bible and glossary 
-with feature == INT and in the glossary using an EVAL_REGEX to turn 
-the headings into glossary keys. A menu system will then automatically 
-be created to make the introduction material available in every book and 
-keyword. EX.: Add code something like this to $DICTMOD/CF_sfm2osis.txt: 
-EVAL_REGEX(./INT.SFM):s/^[^\\n]+\\n/\\\\id GLO feature == INT\\n/ 
-EVAL_REGEX(./INT.SFM):s/^\\\\(?:imt|is) (.*?)\\s*\$/\\\\m \\\\k \$1\\\\k*/gm 
-RUN:./INT.SFM");
+"Module $MAINMOD contains module introduction material (located  
+before the first bookGroup, which applies to the entire module). It  
+appears you have not duplicated this material in the glossary.", 
+&para(&help('INT', 0, 0, 1)));
         }
       }
     }

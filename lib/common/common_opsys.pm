@@ -100,11 +100,11 @@ our @OC_SYSTEM_PATH_CONFIGS = ('MODULETOOLS_BIN', 'GO_BIBLE_CREATOR',
   'SWORD_BIN', 'OUTDIR', 'FONTS', 'COVERS', 'REPOSITORY');
   
 # These are the [system] path variables
-our @OC_URL_CONFIGS = ('FONTS', 'COVERS', 'REPOSITORY', 
+our @OC_URL_CONFIGS = ('EBOOKS', 'FONTS', 'COVERS', 'REPOSITORY', 
   'FullResourceURL');
   
 our @OC_DEVEL_CONFIGS = ('GO_BIBLE_CREATOR', 'MODULETOOLS_BIN', 
-  'NO_OUTPUT_DELETE', 'SWORD_BIN', 'VAGRANT');
+  'SWORD_BIN', 'NO_OUTPUT_DELETE');
 
 # CrossWire SWORD entries which may be localized by appending _code
 our @SWORD_LOCALIZABLE_CONFIGS = (
@@ -174,6 +174,15 @@ our @CF_OSIS2OSIS = ('MATCHES:SET_CONFIG_.+', 'SKIP_NODES_MATCHING',
 
 our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 
     'PUNC_AS_LETTER');
+    
+our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[not_parent]', 
+    '[no_inline_toc]', '[only_inline_toc]', '[no_main_inline_toc]', 
+    '[inline_toc_first]', '[inline_toc_last]');
+    
+our %ID_DIRECTIVES = (
+    'placement' => ['location', '<div-identifier>', 'x-unknown'], 
+    'mark'      => ['scope', 'feature', 'cover', 'conversion', 
+                    'not_conversion']);
     
 our @VSYS_INSTRUCTIONS = ('VSYS_MISSING', 'VSYS_EXTRA', 'VSYS_FROM_TO', 
     'VSYS_EMPTY', 'VSYS_MOVED', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 

@@ -19,10 +19,21 @@
 
 # This script might be run on Linux, MS-Windows, or MacOS operating systems.
 
+use strict;
+
 our ($SCRIPT_NAME, @CONV_OSIS, @CONV_PUBS);
 
 # Argument globals
 our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, $MAXTHREADS, $SKIPRE);
+
+our ($SWORD_VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS, 
+  @CF_ADDFOOTNOTELINKS, @CF_ADDSCRIPREFLINKS, @CF_FILES, @CF_OSIS2OSIS, 
+  @CF_SFM2OSIS, @CONFIG_DEPRECATED, @CONFIG_SECTIONS, 
+  @CONTINUABLE_CONFIGS, @CONV_OTHER, @OC_CONFIGS, @OC_DEVEL_CONFIGS, 
+  @OC_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, @OC_SYSTEM_PATH_CONFIGS, 
+  @OC_URL_CONFIGS, @OSIS_GROUPS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, 
+  @SWORD_LOCALIZABLE_CONFIGS, @SWORD_NOT_SUPPORTED, @SWORD_OC_CONFIGS, 
+  @TOC_INSTRUCTIONS, @VSYS_INSTRUCTIONS, %ID_DIRECTIVES, @CONV_PUB_SETS);
 
 # Each script may take 3 kinds of arguments: 
 # 'switch' (boolean), 'option' (anything) and 'argument' (file|dir)
@@ -89,18 +100,19 @@ our %HELP = (
     ['para', 'With [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in directory: `some-path/MODULE_NAME/sfm/`
     \b\b `./bin/defaults ./some-path/MODULE_NAME`
     \b\b `./bin/convert ./some-path/MODULE_NAME`
-    \b\b Will output:
-    \b* One or two OSIS source files
+    \b\b Creates:
+    \b* An OSIS XML file
+    \b* A reference OSIS XML file (if there are USFM reference materials)
     \b* Linked HTML
     \b* epub and azw3 eBook Bibles
     \b* A SWORD Bible module
-    \b* A SWORD Dictionary module (if there are USFM glossary files)
+    \b* A SWORD Dictionary module (if there are USFM reference materials)
     \b* GoBible Java-ME apps' ],
     ['sub-heading', 'DEFAULT CONTROL FILES' ],
     ['para', 'The entire conversion process is guided by control files. Default control files are located at PATH(SCRD/defaults) which may be overwritten by your own default files located at PATH(MAININPD/../defaults).' ],
-    ['para', 'When the `defaults` program is run on a project, project control files are created from the default files which have been auto-customized. Conversion is controlled by these control files in the project directory. A project is not ready to publish until there are no errors reported in LOG files, all warnings have been checked, and all desired material and meta-data has been added to the project.' ],
+    ['para', 'When the `defaults` program is run on a project, project control files are created from the default files which have been auto-customized. Conversion is controlled by these control files in the project directory. A project is not ready to publish until there are no errors reported in LOG files, all warnings have been checked, and all desired materials and meta-data have been added to the project.' ],
     ['sub-heading', 'LOG FILES' ],
-    ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log with the following labels:' ],
+    ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log with these labels:' ],
     ['list', ['LABEL', 'DESCRIPTION'], [
       ['ERROR', 'Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix following errors.' ],
       ['WARNING', 'Possible problems. Read the message and decide if anything needs to be done.' ],
@@ -108,9 +120,9 @@ our %HELP = (
       ['REPORT', 'Conversion reports. Helpful for comparing runs.' ],
     ]],
     ['sub-heading', 'CONVERT' ],
-    ['para', 'The `convert` program will schedule and run conversions for one or more projects. It schedules any pre-requisite conversions insuring all publications are up-to-date. It is normally the last command run on a project before publication, but during development, running individual scripts may be more convenient. The following scripts are called by `convert`, depending on arguments and chosen project:' ],
+    ['para', 'The `convert` program will schedule and run conversions for one or more projects. It schedules any pre-requisite conversions insuring all publications are up-to-date. It is normally the last command run on a project before publication. But during development running individual scripts may be more convenient. The following scripts may be called by `convert`, depending on its arguments:' ],
     ['list', ['SCRIPT', 'DESCRIPTION'], &getList([@CONV_OSIS, @CONV_PUBS], [
-      ['sfm2osis', 'Convert Paratext USFM and SFM to OSIS XML.' ],
+      ['sfm2osis', 'Convert Paratext SFM/USFM to OSIS XML.' ],
       ['osis2osis', 'Convert an OSIS file from one script to another, or convert control files from one script to another.' ],
       ['osis2ebooks', 'Convert OSIS to eBook publications, including an entire translation eBook publication, sub-publication eBooks and single Bible book eBooks.' ],
       ['osis2html', 'Convert OSIS to HTML, including a table-of-contents and comprehensive navigational links.' ],
@@ -132,8 +144,10 @@ our %HELP = (
 
   ['SYNOPSIS', [
     ['sub-heading', 'CONVERT PARATEXT FILES INTO OSIS XML' ],
-    ['para', 'OSIS is an xml standard for encoding Bibles and related texts (see: [](http://crosswire.org/osis/)). The OSIS files generated by sfm2osis will include meta-data, explicit references, cross-references and textual information not present in the original Paratext Universal Standard Format Marker (USFM and SFM) sources. The resulting OSIS file is a more complete source text than the original Paratext files and is an excellent intermediate format, easily and reliably converted into any other format.' ],
+    ['para', 'OSIS is an xml standard for encoding Bibles and related texts (see: [](http://crosswire.org/osis/)). The OSIS files generated by sfm2osis will include meta-data, explicit references, cross-references and textual information not present in the original Paratext Universal Standard Format Marker (USFM and SFM) sources. The resulting OSIS file is a more complete source text than the original Paratext files and is an excellent intermediate format, more easily and reliably converted into any other format.' ],
+    
     ['para', 'A project conversion creates a main OSIS file, which may contain a Bible, Children\'s Bible or commentary for instance. Any Paratext glossaries, maps and other reference materials are converted into a second OSIS file, whose contents may be referenced by the main OSIS file. These two conversions are treated as separate modules referred to as MAINMOD and DICTMOD. If a project has a DICTMOD module, its module code is the MAINMOD code appended with \'DICT\', and it appears as a subdirectory of MAINMOD.' ],
+    
     ['para', 'The SFM to OSIS conversion process is directed by the following control files:' ],
     ['list', ['FILE', 'DESCRIPTION'], &getList(\@CF_FILES, [
       ['config.conf', 'Configuration file with settings and meta-data for a project.' ],
@@ -143,26 +157,87 @@ our %HELP = (
       ['CF_addFootnoteLinks.txt', 'Control parsing of footnote references from the text and their conversion to working OSIS hyperlinks.' ],
     ], 1)],
     ['para', 'Default control files are created by the \'defaults\' command. For help on an individual file or command use: ' . $SCRIPT_NAME . ' -h <key>' ],
+    
     ['sub-heading', 'HOOKS' ],
     ['para', 'For situations when custom processing is required, hooks are provided for custom Perl scripts and XSLT transforms. Perl scripts have two arguments: input OSIS file and output OSIS file, while XSLT transforms use standard XML output. Use hooks only when EVAL_REGEX is insufficient, as hooks complicate project maintenance. Scripts with these names in a module directory will be called at different points during the conversion to OSIS:' ],
     ['list', ['HOOK', 'WHEN CALLED'], [
       ['bootstrap.pl', 'The sfm2osis or osis2osis script will execute it before conversion begins. It may only appear in the project (MAINMOD) directory, and it takes no arguments. It may be used to copy or process any project file etc.' ],
-      ['preprocess.pl', 'It will execute after usfm2osis.py does the initial conversion to OSIS, before subsequent processing. Use EVAL_REGEX when preprocessing of SFM files would be sufficient.' ],
-      ['preprocess.xsl', 'Same as preprocess.pl (after it, if it also exists).' ],
-      ['postprocess.pl', 'It will execute after an OSIS file has been fully processed, but before OSIS validation and final checks.' ],
-      ['postprocess.xsl', 'Same as postprocess.pl (after it, if it also exists).' ],
+      ['preprocess.pl', 'It will be executed after usfm2osis.py does the initial conversion to OSIS, before subsequent processing. Use EVAL_REGEX when preprocessing of SFM files would be sufficient.' ],
+      ['preprocess.xsl', 'Same as preprocess.pl.' ],
+      ['postprocess.pl', 'It will be executed after an OSIS file has been fully processed, but before OSIS validation and final checks.' ],
+      ['postprocess.xsl', 'Same as postprocess.pl.' ],
     ]],
+    
+    ['sub-heading', 'TABLE OF CONTENTS'],
+    ['para', 'A table of contents or menu system (referred to as the TOC) is a critical part of any electronic publication. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials are useless if readers don\'t know they exist. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is completely customizable. By default, USFM tag `\toc2 <title>` creates a new TOC entry. But alternative \tocN tags may be used instead (see `convert -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a \tocN tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.' ],
+    ['para', 'Two renderings of the TOC are supported. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub and azw3. '],
+    ['para', 'The following instructions may be prepended to any TOC title to fine tune how the TOC is rendered:' ],
+    ['list', ['INSTRUCTION', 'DESCRIPTION'], &getList(\@TOC_INSTRUCTIONS, [
+      ['[levelN]', 'Explicitly specifies the TOC hierarchy level. Where N is 1 for top level, 2 for second, or 3 for inner-most level. By Default, TOC hierarchy level is determined from OSIS element hierarchy.' ],
+      ['[not_parent]', 'Force the children of a TOC entry to follow the parent by inheriting its TOC level.' ],
+      ['[no_toc]', 'Removes a chapter or keyword from the TOC.' ],
+      ['[no_inline_toc]', 'Remove a TOC entry from the inline TOC. This could result in broken link errors for non-eBook publications.' ],
+      ['[only_inline_toc]', 'Remove a TOC entry from the detached TOC.' ],
+      ['[no_main_inline_toc]', 'Remove a TOC entry from the main inline TOC. The main inline TOC appears on the first page of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.' ],
+      ['[inline_toc_first]', 'Place the inline TOC after the TOC entry. This is default for MAINMOD and so only applies to DICTMOD, where by default the inline TOC is placed before the following TOC entry (which is normally the first keyword).' ],
+      ['[inline_toc_last]', 'Place the inline TOC before the following TOC entry. This is default for DICTMOD and so only applies to MAINMOD, where by default the inline TOC is placed after the TOC entry. With `[inline_toc_last]` the inline TOC will be placed before the following TOC entry. NOTE: the inline TOC will be placed before the following TOC entry even if that entry is maked as `[no_toc]`. So a `[no_toc]` entry can be used as a placeholder where the inline TOC will appear.' ],
+    ], 1)],
+    
+    ['sub-heading', 'SFM ID DIRECTIVES' ],
+    ['para', 'USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN`, an SFM file may contain multiple \periph tags whose content is intended for different locations. For instance an SFM file may contain three \periph tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.' ],
+    ['para', 'Each ID directive has the form `<directive> == <value>`, and multiple directives must be separated by commas and appear on a single line. ID directives are not part of the original SFM source file. So the default CF_sfm2osis.txt file uses `EVAL_REGEX` to append default directives to the \id tag. There are two types of ID directive:' ],
+    ['list', ['', ''], [
+      ['(P)', 'Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to either an xpath expression or the keywords `remove` or `mark` on the right. For example: 
+      \b`introduction == //div[@osisID="Gen"]`
+      \b`"Title Page" == remove`
+      \bAn xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by any previous mark ID directives found on the \id line. If the xpath expression selects more than one node, the marked div element will be copied and placed before every selected node.
+      \b\bNote: Applying an xpath placement to a dictionary module parent div will result in an error; change the order of `RUN` statements instead.' ],
+      ['(M)', 'Mark directives mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right of it, will be applied to each OSIS div element selected by subsequent placement directives on the same \id line. For example:
+      \b`scope == Matt=Rev`
+      \b`cover == yes`
+      \bWhen the \id line has been fully processed, the location of the SFM file will be marked if it was not already marked by a `location == mark` directive. Any particular mark will cease after a `<mark-type> == stop` directive.' ],
+    ]],
+    ['list', ['DIRECTIVE', 'DESCRIPTION'], &addDirectiveType(&getList( [map(@{$ID_DIRECTIVES{$_}}, reverse sort keys %ID_DIRECTIVES)], [
+      ['location', ' Selects the OSIS div of the converted SFM file for marking or placement. When an SFM file contains \periph sections which are also being placed, those \periph sections are removed from their position within the parent OSIS div. Therefore when the entire contents of an SFM file is being placed somewhere else, `location == remove` may be used to remove the resulting empty parent div element from the OSIS file.' ],
+      ['<div-identifier>', 'Selects an OSIS child div of the converted SFM file for marking or placement. The identifier must be an OSIS div type, OSIS div subType, USFM periph type, or USFM periph name. A USFM periph name must be enclosed in double quotes. The next div child matching that identifier will be selected. Note: An SFM file\'s top (parent) div is always selected with `location`.' ],
+      ['x-unknown', 'Selects the next OSIS child div of the converted SFM file.' ],
+      ['scope', 'Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating that introduction with each of book of the Pentateuch.' ],
+      ['feature', 'Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.' ],
+      ['cover', 'Takes a ( yes | no ) value. A value of yes marks OSIS div elements to receive a cover image if scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
+      ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversion not listed, the OSIS div will be removed. Conversion options are ( ' . join(' | ', 'none', &getPubTypes(), @CONV_PUB_SETS) . ').' ],
+      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are ( ' . join(' | ', &getPubTypes(), @CONV_PUB_SETS) . ').' ],
+    ], 1))],
+    
+    ['sub-heading', 'SPECIAL FEATURES' ],
+    ['para', 'The SFM ID directive `feature == <feature>` may be used to mark OSIS div elements for special purposes. Supported features are:' ],
+    ['list', ['FEATURE', 'DESCRIPTION'], [
+      ['INT', 'When a translation has introductory material which applies to the whole, it is useful to have that material copied to DICTMOD and added to navigation menus. This material will then be available in every introduction, chapter and keyword, rather than one location alone. To enable this feature, `RUN` the introduction SFM file for both MAINMOD and DICTMOD, each time using the `feature == INT` ID directive. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD:
+      \b
+      \bFor example:
+      \b`/MAINMOD/CF_sfm2osis.txt` might contain:
+      \b`EVAL_REGEX:s/^(\\\\id.*?)\n/$1, feature == INT\n/`
+      \b`RUN:../sfm/FRT.SFM`
+      \b
+      \b`/DICTMOD/CF_sfm2osis.txt` might contain:
+      \b`EVAL_REGEX:s/^\\\\id.*?\n/\\\\id GLO feature == INT\n/`
+      \b`EVAL_REGEX:s/^\\\\(?:imt|is) (.*?)$/\\\\m \\\\k $1\\\\k*/gm`
+      \b`RUN:../sfm/FRT.SFM`' ],
+      ['NAVMENU', 'Navigation menus are created automatically from TOC tags. When custom navigation menus are desired, the NAVMENU feature may be used. A custom SFM menu is designed and its \id tag given this ID directive:
+      \b`feature == NAVMENU.<osisID>.<do-what>`
+      \bWhere <osisID> is the osisID of an existing navigation menu, and <do-what> is either `replace` to replace that menu, or `top` to insert at the top of that menu.' ],
+    ]],
+    
   ]],
   
   ['config.conf', [
-    ['para', ' Each project has a config.conf file located in its top directory. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. A config.conf file usually has multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is special because it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("'$_'", @CONFIG_SECTIONS)). ' (MAINMOD is the project code and DICTMOD is the same project code suffixed with \'DICT\'). What follows are all settings available in the config.conf file. The letters in parenthesis indicate the following entry types:'],
+    ['para', ' Each project has a config.conf file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The config.conf file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("'$_'", @CONFIG_SECTIONS)). ' (where MAINMOD is the project code and DICTMOD is the same project code suffixed with \'DICT\'). What follows are available settings in the config.conf file. Letters in parenthesis indicate these entry types:'],
     ['list', ['' ,''], 
     [
-      ['(C)', 'Continuable from one line to the next using a backslash character.'],
+      ['(C)', 'Continuable from one line to another using a backslash character.'],
       ['(L)', 'Localizable by appending underscore and language ISO code to the entry name.'],
       ['(P)', 'Path of a local file or directory.' ],
-      ['(S)', 'System section only.'],
-      ['(U)', 'A http(s) URL.' ],
+      ['(S)', 'May appear in the system section only.'],
+      ['(U)', 'An http or https URL.' ],
       ['(W)', 'SWORD standard (see: [](https://wiki.crosswire.org/DevTools:conf_Files)).'],
     ]],
     ['list', ['ENTRY', 'DESCRIPTION'], &addConfigType(&getList(&configList(), [
@@ -184,10 +259,10 @@ our %HELP = (
       [ 'CreatePubSubpub' => 'Select whether to create separate outputs for individual sub-publications within the OSIS file: (true | false | AUTO | <scope> | first | last).' ],
       [ 'CreatePubBook' => 'Select whether to create separate ePublications for individual Bible books within the OSIS file: (true | false | AUTO | <OSIS-book> | first | last).' ],
       [ 'CreateTypes' => 'Select which type, or types, of eBooks to create: (AUTO | epub | azw3 | fb2).' ],
-      [ 'CombineGlossaries' => 'Set this to \'true\' to combine all glossaries into one, or false to keep them each as a separate glossary. \'AUTO\' let\'s osis-converters decide.' ],
+      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them each as a separate glossary. \'AUTO\' let\'s osis-converters decide.' ],
       [ 'FullResourceURL' => 'Single Bible book eBooks often have links to other books. This URL is where the full publication may be found.' ],
-      [ 'CustomBookOrder' => 'Set to true to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: (true | false).' ],
-      [ 'ReorderGlossaryEntries' => 'Set to true and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: (true | <regex>).' ],
+      [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: (true | false).' ],
+      [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: (true | <regex>).' ],
       [ 'CombinedGlossaryTitle' => 'A localized title for the combined glossary in the Table of Contents.' ],
       [ 'BookGroupTitle\w+' => 'A localized title to use for these book groups: '.&{sub {my $x=join(', ', @OSIS_GROUPS); $x=~s/_/ /g; return $x;}}().'. Example: `BookGroupNT=The New Testament` or BookGroupApocrypha=The Apocrypha`' ],
       [ 'BookGroupTitleOT' => 'A localized title for the New Testament in the Table of Contents.' ],
@@ -210,19 +285,20 @@ our %HELP = (
       [ 'CopyrightDate', 'Four digit copyright year.' ],
       [ 'CopyrightHolder', 'Name of the copyright holder.' ],
       [ 'CopyrightNotes', 'Notes from the copyright holder.' ],
-      [ 'DEBUG', 'Set to enable debugging log output.' ],
+      [ 'DEBUG', 'Set to `true` enable debugging log output.' ],
       [ 'Direction', 'LtoR (Left to Right), RtoL (Right to Left) or BiDi (Bidirectional)' ],
       [ 'DistributionLicense', 'see: [](https://wiki.crosswire.org/DevTools:conf_Files)' ],
       [ 'DistributionNotes', 'Additional distribution notes.' ],
       [ 'EBOOKS', 'Location where eBooks are published.' ],
       [ 'FONTS', 'Location where specified fonts are located for copying/download.' ],
-      [ 'NO_FORKS', 'Set to disable the multi-thread fork feature. Doing so may increase conversion time.' ],
+      [ 'NO_FORKS', 'Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.' ],
       [ 'OUTDIR', 'Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.' ],
       [ 'Obsoletes', 'see: [](https://wiki.crosswire.org/DevTools:conf_Files)' ],
       [ 'REPOSITORY', 'Location where SWORD modules are published.' ],
       [ 'ShortCopyright', 'Short copyright string.' ],
       [ 'ShortPromo', 'A link to the home page for the module, perhaps with an encouragement to visit the site.' ],
       [ 'TextSource', 'Indicates a name or URL for the source of the text.' ],
+      [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
     ]))],
   ]],
   
@@ -441,12 +517,12 @@ our %HELP = (
 );
 
 # Search for a particular key in %HELP and return all matching values as 
-# a formatted string. Key can be a script name, a heading, or the entry 
-# part of any 'list'. Or, it can be a combination of each, separated by 
-# semi-colons as: <script>;<heading>;<entry> where they must be included 
-# in that order but entry is optional, and also 'all' can be used in 
-# place of any particular value. If no key is provided, the entire help
-# contents will be dumped.
+# a formatted string. Key can be a script name, a heading/sub-heading, 
+# or the key of any 'list'. Or, it can be a combination of each, 
+# separated by semi-colons as: <script>;<heading>;<entry> where they
+# must be included in that order but entry is optional, and also 'all' 
+# can be used in place of any particular value. If no key is provided, 
+# the entire help contents will be dumped.
 # If $showcmd is set, a command which may be used to generate the help 
 # message is also shown.
 # If $errorOnFail is set and $lookup is not found, an error is thrown.
@@ -457,16 +533,15 @@ sub help {
   my $returnListDescription = shift;
   
   if ($showcmd) {$showcmd = "$SCRIPT_NAME -h $lookup\n\n";}
-  
+ 
   # Dump entire help documentation
   if (!$lookup) {
-    %check = map {$_} keys %HELP;
+    my %check = map {$_} keys %HELP;
     my $r;
     foreach my $s (@CONV_OTHER, @CONV_OSIS, @CONV_PUBS, 'CrossWire') {
       delete($check{$s});
       if ($HELP{$s}[0][1][0][1] =~ /^For \S+ help see/) {next;}
-      my $t = ( $s eq 'convert' ? 'osis-converters' : $s );
-      $r .= &format($t, 'title') . &help($s, undef, 1);
+      $r .= &help("$s;", 0, 1);
     }
     if (keys %check) {
       &ErrorBug("Extra help:" . join(', ', keys %check), 1);
@@ -475,43 +550,85 @@ sub help {
     return ($showcmd ? $showcmd : '') . $r;
   }
   
-  # Find lookup's script/heading if given
-  my ($script, $heading);
-  my $key = $lookup;
+  my $search;
+  my $script;  # undef is all
+  my $heading; # undef is all
+  my $entry;
   if ($lookup =~ /;/) {
-    my @parts = split(/\s*;\s*/, $lookup);
-    $key = @parts[$#parts];
-    my @p = (\$script, \$heading);
-    for (my $x=0; $x <= 1; $x++) {
-      if (@parts[$x] && @parts[$x] ne 'all') {
-        my $ptr = @p[$x];
-        $$ptr = @parts[$x];
-      }
-    }
+    my @p = split(/\s*;\s*/, $lookup);
+    if (@p[0] && @p[0] !~ /^all$/i) {$script = lc(@p[0]);}
+    if (@p[1] && @p[1] !~ /^all$/i) {$heading = lc(@p[1]);}
+    if (@p[2]) {$entry = lc(@p[2]);}
   }
- 
-  # Help for a given script
-  if (!$script && !$heading && ref($HELP{$key})) {
-    my $r; foreach (@{$HELP{$key}}) {$r .= &helpHeading($_);}
-    return ($showcmd ? $showcmd : '') . $r;
+  else {
+    $search = lc($lookup);
   }
-  
-  # Help for any lookup combination
+
   my $r;
-  my @scripts = ($script ? $script : sort keys %HELP);
-  foreach my $s (@scripts) {
+  foreach my $s (sort keys %HELP) {
+  
+    # Check script
+    if ($search && lc($s) eq $search ||
+        $script && !$heading && !$entry && lc($s) eq $script ) {
+        
+      $r .= &format($s, 'title');
+      
+      foreach (@{$HELP{$s}}) {$r .= &helpHeading($_);}
+      
+      next;
+    }
+    if ($script && lc($s) ne $script) {next;}
+  
     foreach my $headP (@{$HELP{$s}}) {
-      if ($heading && $headP->[0] !~ /^$heading$/i) {next;}
-      if ($headP->[0] =~ /^$key$/i) {
+      
+      # Check heading
+      if ($search && lc($headP->[0]) eq $search ||
+          !$entry && $heading && lc($headP->[0]) eq $heading) {
+          
+        $r .= &format($s, 'title');
+        
         $r .= &helpHeading($headP);
+        
         next;
       }
-      foreach my $listP (@{$headP->[1]}) {
-        if ($listP->[0] ne 'list') {next;}
-        foreach my $rowP (@{$listP->[2]}) {
-          if ($rowP->[0] =~ /^$key$/i) {
-            $r .= &format($headP->[0], 'heading') . 
-              &helpList($listP->[1], [[ $rowP->[0], $rowP->[1] ]]);
+      
+      my ($subheading, $insub);
+      foreach my $subP (@{$headP->[1]}) {
+      
+        # Check sub-heading
+        if ($subP->[0] eq 'sub-heading') {
+          $subheading = $subP->[1];
+          $insub = 0;
+          if ($search && lc($subP->[1]) eq $search ||
+              !$entry && $heading && lc($subheading) eq $heading) {
+            $insub = 1;
+            $r .= &format(join(' / ', $s, $headP->[0]), 'title');
+          }
+        }
+        if ($insub) {
+          if ($subP->[0] eq 'list') {
+            $r .= &helpList($subP->[1], $subP->[2]);
+          }
+          else {
+            $r .= &format($subP->[1], $subP->[0]);
+          }
+          next;
+        }
+        
+        if ($subP->[0] ne 'list') {next;}
+        
+        # Check key
+        foreach my $rowP (@{$subP->[2]}) {
+          if ($search && lc($rowP->[0]) eq $search ||
+             ($entry && $heading && lc($rowP->[0]) eq $entry && 
+             (  lc($headP->[0]) eq $heading ||  
+                lc($subheading) eq $heading
+             ))) {
+             
+            $r .= &format(join(' / ', $s, $headP->[0], $subheading), 'title');
+            
+            $r .= &helpList($subP->[1], [[ $rowP->[0], $rowP->[1] ]]);
+              
             if ($returnListDescription && $rowP->[1] !~ /HELP/) {
               return $rowP->[1];
             }
@@ -797,6 +914,28 @@ sub addConfigType {
   foreach my $rP (@{$aP}) {
     my @types;
     foreach my $t (sort { $a->[0] cmp $b->[0] } @re) {
+      my $a = $t->[1];
+      if ($rP->[0] =~ /$a/) {push(@types, $t->[0]);}
+    }
+    if (@types) {
+      $rP->[0] .= ' ('.join('', @types).')';
+    }
+  }
+  
+  return $aP;
+}
+
+sub addDirectiveType {
+  my $aP = shift;
+  
+  my @re = (
+    ['P', &configRE(@{$ID_DIRECTIVES{'placement'}})],
+    ['M', &configRE(@{$ID_DIRECTIVES{'mark'}})],
+  );
+  
+  foreach my $rP (@{$aP}) {
+    my @types;
+    foreach my $t (@re) {
       my $a = $t->[1];
       if ($rP->[0] =~ /$a/) {push(@types, $t->[0]);}
     }

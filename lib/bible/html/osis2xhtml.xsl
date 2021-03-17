@@ -1112,34 +1112,7 @@
   "n" attribute value of any of the above TOC generating elements are 
   the following:
   
-  INSTRUCTION                   DESCRIPTION
-  [levelN]        - Where N is 1, 2 or 3. Specifies the TOC level.
-  [no_toc]        - Means this element is NOT treated as a TOC element.
-  [no_inline_toc] - Means this TOC element will not generate an inline
-                    TOC. This could result in broken links for non-eBook
-                    publications, so use with care.
-  [only_inline_toc] - Means this TOC element will only generate an 
-                    inline TOC (so not an eBook TOC entry).
-  [no_main_inline_toc] - Means this TOC element will not create an entry
-                    in the main inline TOC.
-  [inline_toc_first] - Means this TOC element will generate an inline
-                    TOC before its content. This is default for material
-                    which is in a Bible. This instruction does not apply
-                    to glossaries.
-  [inline_toc_last] - Means this TOC element will generate an inline TOC
-                    after its content. This is default for material 
-                    which is not in a Bible which means this instruction 
-                    does not apply to glossaries. The inline TOC will 
-                    appear just before the following TOC milestone, even 
-                    if that milestone is [no_toc] (so that can be used  
-                    to place the inline TOC anywhere within the content).
-  [not_parent]    - Used on bookGroup or book  milestone TOC elements.   
-                    Means that this section should appear as the first  
-                    sibling of the following book or chapter list,   
-                    rather than as the parent (parent is default for  
-                    book or bookGroup TOC elements).
-  Any TEXT following these instructions will be used for the TOC entry 
-  name (overriding the default name if there is one). -->
+  see &help('TABLE OF CONTENTS') for INSTRUCTIONS doc -->
   <function name="oc:getMainInlineTOC" as="element(html:div)?">
     <param name="mainRootNode" as="document-node()"/>
     <param name="combinedGlossary" as="document-node()"/>

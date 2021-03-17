@@ -417,7 +417,10 @@ sub conversionScripts {
   my @scripts;
   
   foreach (@CONV_OSIS) {
-    if ($conversion eq $_) { push(@scripts, $_); return @scripts; }
+    if ($conversion eq 'osis' ||$conversion eq $_) {
+      push(@scripts, $_);
+      return @scripts; 
+    }
   }
   
   if ($conversion =~ /^(.*)2(.*)$/)   {

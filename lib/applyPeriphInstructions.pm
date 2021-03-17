@@ -32,65 +32,16 @@ our ($XPC, $XML_PARSER, $ROC, %RESP, $ORDER_PERIPHS_COMPATIBILITY_MODE,
     
 
 our (%ID_TYPE_MAP, %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
-     %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
+     %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, %ID_DIRECTIVES,
      %USFM_DEFAULT_PERIPH_TARGET, @CONV_PUB_SETS);
 
 my $AlreadyReportedThis;
-
 sub placementMessage {
-  if ($AlreadyReportedThis) {return '';} $AlreadyReportedThis++;
-  return '
-  OSIS-CONVERTERS PERIPHERAL INSTRUCTIONS:
-  Special instructions for marking peripheral material, and in the case 
-  of Bibles also placing that material, may be appended after the \id 
-  tags of SFM files. Placement instructions only apply to Bibles because 
-  with dictionaries, their material always remains in the order in which 
-  it appears in CF_sfm2osis.txt. All instructions appear as a comma 
-  separated list of instruction == value pairs.
-  
-  BIBLES ONLY
-  The xpath values below select an element, or elements, before which a 
-  peripheral will be placed. If multiple elements are selected a copy of
-  the peripheral will be placed before each one. To remove a peripheral 
-  entirely, the value "remove" (without the quotes) can be used.
-  
-  INSTRUCTION           ==    VALUE         APPLIES-TO
-  location              == <xpath>|remove   The SFM file  
-  <div type or subType> == <xpath>|remove   The next periph div with 
-                                            that type/subType
-  "<USFM periph type>"  == <xpath>|remove   The next periph having that 
-                                            USFM type
-  x-unknown             == <xpath>|remove   The next periph of any type
-  
-  BIBLES & DICTIONARIES
-  These instructions will mark any periph divs which may follow in the 
-  instruction list, and finally mark the id div itself, with a parti-
-  cular processing instruction and value. Multiple values may be applied
-  by separating each by a space. The value "remove" will cease that 
-  particular marking instruction from being applied to the divs which 
-  follow. For dictionaries, when there is an SFM file containing periph 
-  tags, those periph divs can be marked differently than the id div 
-  itself, using a Bible instruction above having the value "mark".
-  
-  INSTRUCTION ==  VALUE                      DESCRIPTION
-  scope          == <a scope>|remove    The scope to which periphs apply
-                                             
-  conversion     == &getPubTypes()|     Periphs should be included only 
-                    @CONV_PUB_SETS|     for the listed conversions
-                    none|remove         
-                    
-  not_conversion == &getPubTypes()|     Periphs should not be included
-                    @CONV_PUB_SETS|     in the listed conversions
-                    remove
-                    
-  feature        == INT|INTMENU|remove  Periphs are part of the special  
-                                        introduction feature 
-                                        
-  cover          == yes|no              Yes to add a sub-publication 
-                                        cover to this div, or no to skip
-                                        this div when auto-adding covers
-  ';
+  if ($AlreadyReportedThis) {return;}
+  $AlreadyReportedThis++;
+  return &help('SFM ID DIRECTIVES');
 }
+
 sub applyPeriphInstructions {
   my $osisP = shift;
   
@@ -110,17 +61,13 @@ sub applyPeriphInstructions {
     foreach my $idDiv (@idDivs) {$idDiv->unbindNode();}
   }
   
+  my $location = $ID_DIRECTIVES{'placement'}[0];
+  
   # Handle each id div
   my %beforeNodes;
   foreach my $idDiv (@idDivs) {
-    my $placedPeriphFile;
-    my %mark = (
-      'scope'          => undef, 
-      'conversion'     => undef, 
-      'not_conversion' => undef, 
-      'feature'        => undef, 
-      'cover'          => undef,
-    );
+    my ($placedParent, $markedParent);
+    my %mark = map {$_} @{$ID_DIRECTIVES{'mark'}};
 
     # read the first comment to find instructions, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $idDiv)}[0];
@@ -145,7 +92,7 @@ sub applyPeriphInstructions {
         $arg =~ s/(^"|"$)//g; # quotes are not expected here, but allow them
         
         if (exists($mark{$inst})) {
-          $mark{$inst} = ($arg eq 'remove' ? undef:$arg);
+          $mark{$inst} = ($arg eq 'stop' ? undef:$arg);
           next;
         }
         
@@ -169,30 +116,37 @@ they appear in the CF file.");
           &Warn("Changing $instruction to $inst == $arg");
         }
         
-        my $div = ( $inst eq 'location' ? 
+        my $div = ( $inst eq $location ? 
                     $idDiv : 
                     &findThisPeriph($idDiv, $inst, $instruction)
                   );
         if (!$div) {next;} # error already given by findThisPeriph()
         
-        if ($inst eq 'location') {$placedPeriphFile = 1;}
+        if ($inst eq $location) {$placedParent = 1;}
         else {$div->unbindNode();}
         
         if ($arg =~ /^mark$/i) {
           &applyInstructions($div, \%mark);
+          if ($inst eq $location) {$markedParent = 1;}
           next;
         }
         elsif ($arg =~ /^remove$/i) {
           push(@removedDivs, $div);
           next;
         }
-        elsif ($placedPeriphFile > 1) {
+        elsif ($placedParent > 1) {
           &Error(
 "Cannot move a periph whose parent file has already been cloned in command $instruction",
 "Move the 'location == <xpath>' portion of the command to the end 
 of the \id tag's line. Or, change the xpath to a single placement, so
 that cloning is no longer required.");
           next;
+        }
+        elsif ($inst eq $location && !&isBible($xml)) {
+          &Error(
+"Cannot move this non-Bible div using 'location'.",
+"Change the order of RUN statements instead."          
+          );
         }
 
         # All identical xpath searches must return the same originally 
@@ -228,11 +182,11 @@ that cloning is no longer required.");
         # Once a file has been cloned, any further placement of 
         # descendant div's would result in duplicate content and will 
         # generate an error.
-        if (@{$placementAP} > 1 && $inst eq 'location') {
-          $placedPeriphFile = 2;
+        if (@{$placementAP} > 1 && $inst eq $location) {
+          $placedParent = 2;
         }
       }
-      &applyInstructions($idDiv, \%mark);
+      if (!$markedParent) {&applyInstructions($idDiv, \%mark);}
     }
     else {
       if (&isBible($xml)) {
@@ -247,7 +201,7 @@ that cloning is no longer required.");
       &Note("Removing: $e2\n");
     }
     
-    if (&isBible($xml) && !$placedPeriphFile) {
+    if (&isBible($xml) && !$placedParent) {
       my $tst = @{$XPC->findnodes('.//*', $idDiv)}[0];
       my $tst2 = @{$XPC->findnodes('.//text()[normalize-space()]', $idDiv)}[0];
       if ($tst || $tst2) {
