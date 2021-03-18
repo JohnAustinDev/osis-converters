@@ -23,13 +23,13 @@ Creates:
 
 
 ### DEFAULT CONTROL FILES 
-The entire conversion process is guided by control files. Default control files are located at `<osis-converters> / defaults` which may be overwritten by your own default files located at `<main-module> / .. / defaults`.
+The conversion process is guided by control files. Default control files are located at `<osis-converters> / defaults` which may be overwritten by default files located at `<main-module> / .. / defaults`.
 
-When the `defaults` program is run on a project, project control files are created from the default files which have been auto-customized. Conversion is controlled by these control files in the project directory. A project is not ready to publish until there are no errors reported in LOG files, all warnings have been checked, and all desired materials and meta-data have been added to the project.
+When the `defaults` program is run on a project, customized project control files are created from the default files. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, all warnings have been checked, and all materials and meta-data have been added to the project.
 
 
 ### LOG FILES 
-Log files report everything about the conversion process. They are written to the module's output directory and begin with `LOG_`. Each conversion step generates its own log with these labels:
+Log files report everything about the conversion process. They are written to the module's output directory and begin with `LOG_`. Each conversion step generates its own log containing these labels:
 
 LABEL | DESCRIPTION
 ----- | -----------
@@ -91,7 +91,7 @@ HOOK | WHEN CALLED
 
 
 ### TABLE OF CONTENTS 
-A table of contents or menu system (referred to as the TOC) is a critical part of any electronic publication. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials are useless if readers don't know they exist. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is completely customizable. By default, USFM tag `\toc2 <title>` creates a new TOC entry. But alternative \tocN tags may be used instead (see `convert -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a \tocN tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.
+A table of contents or menu system (referred to as the TOC) is a critical part of any electronic publication. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials are useless if readers don't know they exist. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is completely customizable. By default, USFM `\toc2` tags create new TOC entries. But alternative `\tocN` tags may be used instead (see `convert -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a `\tocN` tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.
 
 Two renderings of the TOC are supported. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub and azw3.
 
@@ -106,25 +106,25 @@ INSTRUCTION | DESCRIPTION
 **[only_inline_toc]** | Remove a TOC entry from the detached TOC.
 **[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC. The main inline TOC appears on the first page of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.
 **[inline_toc_first]** | Place the inline TOC after the TOC entry. This is default for MAINMOD and so only applies to DICTMOD, where by default the inline TOC is placed before the following TOC entry (which is normally the first keyword).
-**[inline_toc_last]** | Place the inline TOC before the following TOC entry. This is default for DICTMOD and so only applies to MAINMOD, where by default the inline TOC is placed after the TOC entry. With `[inline_toc_last]` the inline TOC will be placed before the following TOC entry. NOTE: the inline TOC will be placed before the following TOC entry even if that entry is maked as `[no_toc]`. So a `[no_toc]` entry can be used as a placeholder where the inline TOC will appear.
+**[inline_toc_last]** | Place the inline TOC before the following TOC entry. This is default for DICTMOD and so only applies to MAINMOD, where by default the inline TOC is placed after the TOC entry. With `[inline_toc_last]` the inline TOC will be placed before the following TOC entry. NOTE: the inline TOC will be placed before the following TOC entry even if that entry is maked as `[no_toc]`. So a `[no_toc]` entry can be used as a placeholder where the inline TOC should appear.
 
 
 ### SFM ID DIRECTIVES 
-USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN`, an SFM file may contain multiple \periph tags whose content is intended for different locations. For instance an SFM file may contain three \periph tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.
+USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN` in `CF_sfm2osis.txt`, an SFM file may contain multiple `\periph` tags whose content is intended for different locations. For instance an SFM file may contain three `\periph tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.
 
-Each ID directive has the form `<directive> == <value>`, and multiple directives must be separated by commas and appear on a single line. ID directives are not part of the original SFM source file. So the default CF_sfm2osis.txt file uses `EVAL_REGEX` to append default directives to the \id tag. There are two types of ID directive:
+Each ID directive has the form `<directive> == <value>`, and multiple directives must be separated by commas and appear on a single line. ID directives are not part of the original SFM source file. So the default `CF_sfm2osis.txt` file uses `EVAL_REGEX` to append default directives to the `\id` tag. There are two types of ID directive:
 
-(P): Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to either an xpath expression or the keywords `remove` or `mark` on the right. For example: `introduction == //div[@osisID="Gen"]` `"Title Page" == remove` An xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by any previous mark ID directives found on the \id line. If the xpath expression selects more than one node, the marked div element will be copied and placed before every selected node.  Note: Applying an xpath placement to a dictionary module parent div will result in an error; change the order of `RUN` statements instead.
+(P): Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to either an xpath expression or the keywords `remove` or `mark` on the right. For example: `introduction == //div[@osisID="Gen"]`, `"Title Page" == remove` An xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by any previous marking ID directives found on the `\id` line. If the xpath expression selects more than one node, the marked div element will be copied and placed before every selected node.  Note: Applying an xpath placement to a dictionary module parent div will result in an error; change the order of `RUN` statements instead.
 
-(M): Mark directives mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right of it, will be applied to each OSIS div element selected by subsequent placement directives on the same \id line. For example: `scope == Matt=Rev` `cover == yes` When the \id line has been fully processed, the location of the SFM file will be marked if it was not already marked by a `location == mark` directive. Any particular mark will cease after a `<mark-type> == stop` directive.
+(M): Mark directives mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right, will be applied to each OSIS div element selected by subsequent placement directives on the same `\id` line. For example: `scope == Matt-Rev`, `cover == yes` When the `\id` line has been fully processed, the location of the SFM file will be marked if it was not already marked by a `location == mark` directive. Any particular mark will cease after a `<mark-type> == stop` directive.
 
 
 DIRECTIVE | DESCRIPTION
 --------- | -----------
-**location (P)** | Selects the OSIS div of the converted SFM file for marking or placement. When an SFM file contains \periph sections which are also being placed, those \periph sections are removed from their position within the parent OSIS div. Therefore when the entire contents of an SFM file is being placed somewhere else, `location == remove` may be used to remove the resulting empty parent div element from the OSIS file.
-**<div-identifier> (P)** | Selects an OSIS child div of the converted SFM file for marking or placement. The identifier must be an OSIS div type, OSIS div subType, USFM periph type, or USFM periph name. A USFM periph name must be enclosed in double quotes. The next div child matching that identifier will be selected. Note: An SFM file's top (parent) div is always selected with `location`.
-**x-unknown (P)** | Selects the next OSIS child div of the converted SFM file.
-**scope (M)** | Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating that introduction with each of book of the Pentateuch.
+**location (P)** | Selects the OSIS div of the converted SFM file for marking or placement. When an SFM file contains `\periph` sections which are also being placed, those `\periph` sections are removed from their position within the parent OSIS div. Therefore when the entire contents of an SFM file is placed somewhere else, `location == remove` may be used to remove the resulting empty parent div element from the OSIS file.
+**<div-identifier> (P)** | Selects an OSIS child div of the converted SFM file for marking or placement. The identifier must be an OSIS div type, OSIS div subType, USFM periph type, or USFM periph name. A USFM periph name must be enclosed in double quotes. The next div child matching that identifier will be selected. Note: An SFM file's top (parent) div is always selected by `location`.
+**x-unknown (P)** | Selects the next OSIS child div of the converted SFM file, regardless of what it is.
+**scope (M)** | Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.
 **feature (M)** | Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.
 **cover (M)** | Takes a ( yes \| no ) value. A value of yes marks OSIS div elements to receive a cover image if scope matches an available cover image. Use in conjunction with the scope ID directive.
 **conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversion not listed, the OSIS div will be removed. Conversion options are ( none \| ebooks \| html \| sword \| gobible \| subpub \| tbook \| tran \| book).
@@ -136,8 +136,8 @@ The SFM ID directive `feature == <feature>` may be used to mark OSIS div element
 
 FEATURE | DESCRIPTION
 ------- | -----------
-**INT** | When a translation has introductory material which applies to the whole, it is useful to have that material copied to DICTMOD and added to navigation menus. This material will then be available in every introduction, chapter and keyword, rather than one location alone. To enable this feature, `RUN` the introduction SFM file for both MAINMOD and DICTMOD, each time using the `feature == INT` ID directive. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD:  For example: `/MAINMOD/CF_sfm2osis.txt` might contain: `EVAL_REGEX:s/^(\\id.*?)\n/$1, feature == INT\n/` `RUN:../sfm/FRT.SFM`  `/DICTMOD/CF_sfm2osis.txt` might contain: `EVAL_REGEX:s/^\\id.*?\n/\\id GLO feature == INT\n/` `EVAL_REGEX:s/^\\(?:imt\|is) (.*?)$/\\m \\k $1\\k*/gm` `RUN:../sfm/FRT.SFM`
-**NAVMENU** | Navigation menus are created automatically from TOC tags. When custom navigation menus are desired, the NAVMENU feature may be used. A custom SFM menu is designed and its \id tag given this ID directive: `feature == NAVMENU.<osisID>.<do-what>` Where <osisID> is the osisID of an existing navigation menu, and <do-what> is either `replace` to replace that menu, or `top` to insert at the top of that menu.
+**INT** | When a translation has introductory material that applies to the whole, it is useful to have this material added to navigation menus. It will then be accessible from every introduction, chapter and keyword, rather than from one location alone. To enable this feature, include a `RUN` statement for the introduction SFM file in both `MAINMOD/CF_sfm2osis.txt` and  `DICTMOD/CF_sfm2osis.txt` adding the `feature == INT` ID directive each time. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD. Here is an example:  `/MAINMOD/CF_sfm2osis.txt` might contain: `EVAL_REGEX:s/^(\\id.*?)\n/$1, feature == INT\n/` `RUN:../sfm/FRT.SFM`  `/DICTMOD/CF_sfm2osis.txt` might contain: `EVAL_REGEX:s/^\\id.*?\n/\\id GLO feature == INT\n/` `EVAL_REGEX:s/^\\(?:imt\|is) (.*?)$/\\m \\k $1\\k*/gm` `RUN:../sfm/FRT.SFM`
+**NAVMENU** | Navigation menus are created automatically from TOC tags. If custom navigation menus are desired, use the NAVMENU feature. Design a custom SFM menu and append an ID directive to the `\id` tag: `feature == NAVMENU.<osisID>.<replace\|top>` Using the osisID of an existing navigation menu to modify, and using either `replace` to replace that menu, or `top` to insert at the top of that menu.
 
 
 ## config.conf 
@@ -186,6 +186,7 @@ ENTRY | DESCRIPTION
 **EBOOKS (SU)** | Location where eBooks are published.
 **Encoding (W)** | osis-converters only supports UTF-8 encoding. Default is 'UTF-8'.
 **FONTS (PSU)** | Location where specified fonts are located for copying/download.
+**Font (W)** | 
 **FullResourceURL (U)** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is 'false'.
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.
@@ -200,6 +201,7 @@ ENTRY | DESCRIPTION
 **GlossaryNavmenuLink\[[1-9]\]** | Specify custom DICTMOD module navigation links.
 **History_[\d\.]+** | Each version of released publications should have one of these entries describing what is new that version.
 **TitleSubPublication\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
+**ModDrv (W)** | 
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: (true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD). Default is 'false'.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
