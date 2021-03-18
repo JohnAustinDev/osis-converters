@@ -221,7 +221,7 @@ our %HELP = (
       \b`EVAL_REGEX:s/^\\\\id.*?\n/\\\\id GLO feature == INT\n/`
       \b`EVAL_REGEX:s/^\\\\(?:imt|is) (.*?)$/\\\\m \\\\k $1\\\\k*/gm`
       \b`RUN:../sfm/FRT.SFM`' ],
-      ['NAVMENU', 'Navigation menus are created automatically from TOC tags. If custom navigation menus are desired, use the NAVMENU feature. Design a custom SFM menu and append an ID directive to the `\id` tag:
+      ['NAVMENU', 'Navigation menus are created automatically the TOC. If custom navigation menus are desired, use the NAVMENU feature. Design a custom SFM menu and append an ID directive to the `\id` tag:
       \b`feature == NAVMENU.<osisID>.<replace|top>`
       \bUsing the osisID of an existing navigation menu to modify, and using either `replace` to replace that menu, or `top` to insert at the top of that menu.' ],
     ]],
@@ -229,7 +229,7 @@ our %HELP = (
   ]],
   
   ['config.conf', [
-    ['para', ' Each project has a config.conf file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The config.conf file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("'$_'", @CONFIG_SECTIONS)). ' (where MAINMOD is the project code and DICTMOD is the same project code suffixed with \'DICT\'). What follows are available settings in the config.conf file. Letters in parenthesis indicate these entry types:'],
+    ['para', ' Each project has a config.conf file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The config.conf file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("$_", @CONFIG_SECTIONS)). ' (where MAINMOD is the project code and DICTMOD is the same project code suffixed with \'DICT\'). What follows are available settings in the config.conf file. Letters in parenthesis indicate these entry types:'],
     ['list', ['' ,''], 
     [
       ['(C)', 'Continuable from one line to another using a backslash character.'],
@@ -462,7 +462,7 @@ our %HELP = (
 'osis2ebooks' => [
 
   ['SYNOPSIS', [
-    ['para', 'Create epub and azw3 eBooks from OSIS files. Once Paratext SFM files have been converted to OSIS XML, eBooks can be created from the OSIS sources. Both the MAINMOD and DICTMOD OSIS files are integrated into an eBook publication. If there are sub-publications as part of the translation, eBooks for each of these will also be created. Finally a separate eBook for each Bible book is created.' ],
+    ['para', 'Create epub and azw3 eBooks from OSIS files. Once Paratext SFM files have been converted to OSIS XML, eBooks can be created from the OSIS sources. Both the MAINMOD and DICTMOD OSIS files are integrated into an eBook publication. If there are sub-publications as part of the translation, eBooks for each of these will also be created. Optionally a separate eBook for each Bible book may be created.' ],
     ['para', 'The following `config.conf` entries control eBook production:' ],
     ['list', ['ENTRY', 'DESCRIPTION'], [
       ['CreateTypes', 'HELP(sfm2osis;config.conf;CreateTypes)' ],

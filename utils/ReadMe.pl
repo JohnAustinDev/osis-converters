@@ -56,7 +56,7 @@ sub helpList {
 sub esc {
   my $t = shift;
   
-  $t =~ s/\|/\\|/g;
+  $t =~ s/\|/&#124;/g;
   return $t;
 }
 
