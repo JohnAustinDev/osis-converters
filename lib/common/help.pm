@@ -130,7 +130,7 @@ our %HELP = (
       ['osis2gobible', 'Convert OSIS to Java-ME feature phone apps.' ],
     ], 1)],
     ['sub-heading', 'HELP' ],
-    ['para', 'Run <script> -h to get help on any partiular script. Or run <any-script> -h <setting/file> to see help on any particular setting or control file.'],
+    ['para', 'For help use the -h flag. Or run `convert -h <setting/file>` to see help on any particular setting or control file.'],
   ]],
 ],
 
@@ -156,7 +156,7 @@ our %HELP = (
       ['CF_addDictLinks.xml', 'Control parsing of reference material references in the text and their conversion to working OSIS hyperlinks.' ],
       ['CF_addFootnoteLinks.txt', 'Control parsing of footnote references from the text and their conversion to working OSIS hyperlinks.' ],
     ], 1)],
-    ['para', 'Default control files are created by the \'defaults\' command. For help on an individual file or command use: ' . $SCRIPT_NAME . ' -h <key>' ],
+    ['para', 'Default control files are created by the \'defaults\' command. For help on an individual file or command use: `' . $SCRIPT_NAME . ' -h <key>`' ],
     
     ['sub-heading', 'HOOKS' ],
     ['para', 'For situations when custom processing is required, hooks are provided for custom Perl scripts and XSLT transforms. Perl scripts have two arguments: input OSIS file and output OSIS file, while XSLT transforms use standard XML output. Use hooks only when EVAL_REGEX is insufficient, as hooks complicate project maintenance. Scripts with these names in a module directory will be called at different points during the conversion to OSIS:' ],
@@ -184,7 +184,7 @@ our %HELP = (
     ], 1)],
     
     ['sub-heading', 'SFM ID DIRECTIVES' ],
-    ['para', 'USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN` in `CF_sfm2osis.txt`, an SFM file may contain multiple `\periph` tags whose content is intended for different locations. For instance an SFM file may contain three `\periph tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.' ],
+    ['para', 'USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN` in `CF_sfm2osis.txt`, an SFM file may contain multiple `\periph` tags whose content is intended for different locations. For instance an SFM file may contain three `\periph` tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.' ],
     ['para', 'Each ID directive has the form `<directive> == <value>`, and multiple directives must be separated by commas and appear on a single line. ID directives are not part of the original SFM source file. So the default `CF_sfm2osis.txt` file uses `EVAL_REGEX` to append default directives to the `\id` tag. There are two types of ID directive:' ],
     ['list', ['', ''], [
       ['(P)', 'Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to either an xpath expression or the keywords `remove` or `mark` on the right. For example: 
@@ -203,9 +203,9 @@ our %HELP = (
       ['x-unknown', 'Selects the next OSIS child div of the converted SFM file, regardless of what it is.' ],
       ['scope', 'Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.' ],
       ['feature', 'Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.' ],
-      ['cover', 'Takes a ( yes | no ) value. A value of yes marks OSIS div elements to receive a cover image if scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
-      ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversion not listed, the OSIS div will be removed. Conversion options are ( ' . join(' | ', 'none', &getPubTypes(), @CONV_PUB_SETS) . ').' ],
-      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are ( ' . join(' | ', &getPubTypes(), @CONV_PUB_SETS) . ').' ],
+      ['cover', 'Takes a `( yes | no )` value. A value of yes marks OSIS div elements to receive a cover image if scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
+      ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversion not listed, the OSIS div will be removed. Conversion options are `( ' . join(' | ', 'none', &getPubTypes(), @CONV_PUB_SETS) . ')`.' ],
+      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ' . join(' | ', &getPubTypes(), @CONV_PUB_SETS) . ')`.' ],
     ], 1))],
     
     ['sub-heading', 'SPECIAL FEATURES' ],
@@ -245,31 +245,31 @@ our %HELP = (
       [ 'Description', 'A short localized description of the module.' ],
       [ 'KeySort', 'This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.' ],
       [ 'AudioCode', 'A publication code for associated audio. Multiple modules having different scripts may reference the same audio.' ],
-      [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: (true | false | AUTO).' ],
-      [ 'AddDictLinks' => 'Select whether to parse glossary references in the text and convert them to hyperlinks: (true | false | check | AUTO).' ],
-      [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: (true | false | AUTO).' ],
-      [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: (true | false |AUTO).' ],
-      [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: '.join(', ', split(/\|/, $SWORD_VERSE_SYSTEMS)).'.' ],
+      [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: `(true | false | AUTO)`.' ],
+      [ 'AddDictLinks' => 'Select whether to parse glossary references in the text and convert them to hyperlinks: `(true | false | check | AUTO)`.' ],
+      [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: `(true | false | AUTO)`.' ],
+      [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: `(true | false |AUTO)`.' ],
+      [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: `'.join(', ', split(/\|/, $SWORD_VERSE_SYSTEMS)).'`.' ],
       [ 'Encoding' => 'osis-converters only supports UTF-8 encoding.' ],
-      [ 'TOC' => 'A number from 1 to 3 indicating which SFM tag to use for generating the Table Of Contents: \toc1, \toc2 or \toc3.' ],
+      [ 'TOC' => 'A number from 1 to 3 indicating which SFM tag to use for generating the Table Of Contents: `\toc1`, `\toc2` or `\toc3`.' ],
       [ 'TitleCase' => 'A number from 0 to 2 selecting letter casing for the Table Of Contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS.' ],
-      [ 'TitleTOC' => 'A number from 1 to 3 indicating this SFM tag to use for generating the publication titles: \toc1, \toc2 or \toc3.' ],
-      [ 'CreatePubTran' => 'Select whether to create a single ePublication containing everything in the OSIS file: (true | false | AUTO).'],
-      [ 'CreatePubSubpub' => 'Select whether to create separate outputs for individual sub-publications within the OSIS file: (true | false | AUTO | <scope> | first | last).' ],
-      [ 'CreatePubBook' => 'Select whether to create separate ePublications for individual Bible books within the OSIS file: (true | false | AUTO | <OSIS-book> | first | last).' ],
-      [ 'CreateTypes' => 'Select which type, or types, of eBooks to create: (AUTO | epub | azw3 | fb2).' ],
-      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them each as a separate glossary. \'AUTO\' let\'s osis-converters decide.' ],
+      [ 'TitleTOC' => 'A number from 1 to 3 indicating this SFM tag to use for generating the publication titles: `\toc1`, `\toc2` or `\toc3`.' ],
+      [ 'CreatePubTran' => 'Select whether to create a single ePublication containing everything in the OSIS file: `(true | false | AUTO)`.'],
+      [ 'CreatePubSubpub' => 'Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`.' ],
+      [ 'CreatePubBook' => 'Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`.' ],
+      [ 'CreateTypes' => 'Select which type, or types, of eBooks to create: `(AUTO | epub | azw3 | fb2)`.' ],
+      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them each as a separate glossary. `AUTO` let\'s osis-converters decide.' ],
       [ 'FullResourceURL' => 'Single Bible book eBooks often have links to other books. This URL is where the full publication may be found.' ],
-      [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: (true | false).' ],
-      [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: (true | <regex>).' ],
+      [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: `(true | false)`.' ],
+      [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true | <regex>)`.' ],
       [ 'CombinedGlossaryTitle' => 'A localized title for the combined glossary in the Table of Contents.' ],
-      [ 'BookGroupTitle\w+' => 'A localized title to use for these book groups: '.&{sub {my $x=join(', ', @OSIS_GROUPS); $x=~s/_/ /g; return $x;}}().'. Example: `BookGroupNT=The New Testament` or BookGroupApocrypha=The Apocrypha`' ],
+      [ 'BookGroupTitle\w+' => 'A localized title to use for these book groups: `'.&{sub {my $x=join(', ', @OSIS_GROUPS); $x=~s/_/ /g; return $x;}}().'`. Example: `BookGroupNT=The New Testament` or `BookGroupApocrypha=The Apocrypha`' ],
       [ 'BookGroupTitleOT' => 'A localized title for the New Testament in the Table of Contents.' ],
       [ 'BookGroupTitleNT' => 'A localized title for the Old Testament in the Table of Contents.' ],
       [ 'TranslationTitle' => 'A localized title for the entire translation.' ],
       [ 'IntroductionTitle' => 'A localized title for Bible book introductions.' ],
       [ 'TitleSubPublication\[\S+\]', 'A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.' ], 
-      [ 'NormalizeUnicode' => 'Apply a Unicode normalization to all characters: (true | false | NFD | NFC | NFKD | NFKC | FCD).' ],
+      [ 'NormalizeUnicode' => 'Apply a Unicode normalization to all characters: `(true | false | NFD | NFC | NFKD | NFKC | FCD)`.' ],
       [ 'Lang' => 'ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn' ],
       [ 'ARG_\w+' => 'Config settings for undocumented fine control.' ],
       [ 'GlossaryNavmenuLink\[[1-9]\]' => 'Specify custom DICTMOD module navigation links.' ], 
@@ -312,7 +312,7 @@ our %HELP = (
       \b`EVAL_REGEX(myfix): s/^search/replace/gm` 
       \b`EVAL_REGEX(./sfm/file/path.sfm): s/^search/replace/gm`' ],
       ['RUN', 'Causes an SFM file to be converted and appended to the module\'s OSIS file. Each RUN must be followed by a colon and the file path of an SFM file to convert. RUN can be used more than once on the same file. IMPORTANT: Bible books are normally re-ordered according to the project\'s versification system. To maintain RUN Bible book order, `CustomBookOrder` must be set to true in config.conf.' ],
-      ['SPECIAL_CAPITALS', 'Was used to enforce non-standard capitalizations. It should only be used if absolutely necessary, since Perl Unicode is now good at doing the right thing on its own. It is better to use EVAL_REGEX to replace offending characters with the proper Unicode character. For example: `SPECIAL_CAPITALS:i->İ ı->I`.' ],
+      ['SPECIAL_CAPITALS', 'Was used to enforce non-standard capitalizations. It should only be used if absolutely necessary, since Perl Unicode is now good at doing the right thing on its own. It is better to use EVAL_REGEX to replace offending characters with the proper Unicode character.' ],
       ['PUNC_AS_LETTER', 'Was used to treat a punctuation character as a letter for pattern matches. It is far better to use `EVAL_REGEX` to replace a punctuation character with the proper Unicode character, which will automatically be treated properly.' ],
       ['VSYS_MISSING', 'Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:
       \b\b`VSYS_MISSING: Josh.24.34.36`
@@ -377,7 +377,7 @@ our %HELP = (
       \b\b`FIX: Gen.1.5 Linking: "7:1-8" = "<r Gen.7.1>7:1</r><r Gen.8>-8</r>`"
       \bAfter FIX follows the line from the log file where the extended reference of concern was logged. Replace everything after the equal sign with a shorthand for the fix with the entire fix enclosed by double quotes. Or, remove everything after the equal sign to skip the extended reference entirely. The fix shorthand includes each reference enclosed in r tags with the correct osisID.' ],
       ['<osis-abbreviation>', 'To assign a localized book name or abbreviation to the corresponding osis book abbreviation, use the following form:
-      \b\bGen = The book of Genesis
+      \b\b`Gen = The book of Genesis`
       \bThe osis abbreviation on the left of the equal sign may appear on multiple lines. Each line assigns a localized name or abbreviation on the right to its osis abbreviation on the left. Names on the right are not Perl regular expressions, but they are case insensitive. Listed book names do not need to include any prefixes of `PREFIXES` or suffixes of `SUFFIXES` for the book names to be parsed correctly.' ],
     ])],
   ]],
@@ -843,7 +843,7 @@ sub getList {
       my $pdef;
       if ($key =~ /^($refRE)$/) {$pdef = $CONFIG_DEFAULTS{$key};}
       if ($pdef =~ /DEF$/) {$pdef = '';}
-      $pdef = ($pdef ? "Default is '$pdef'.":'');
+      $pdef = ($pdef ? "Default is `$pdef`.":'');
       
       push(@out, [ $pkey, $pdep.$pdesc.$pdef ]);
     }
