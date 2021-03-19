@@ -163,7 +163,7 @@ our %CONFIG_DEFAULTS = (
 );
 
 # Command files and settings
-our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 
+our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 'vsys.xml', 
     'CF_addScripRefLinks.txt', 'CF_addDictLinks.xml', 
     'CF_addFootnoteLinks.txt');
     
@@ -180,13 +180,13 @@ our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[not_parent]',
     '[inline_toc_first]', '[inline_toc_last]');
     
 our %ID_DIRECTIVES = (
-    'placement' => ['location', '<div-identifier>', 'x-unknown'], 
+    'placement' => ['location', '<identifier>', 'x-unknown'], 
     'mark'      => ['scope', 'feature', 'cover', 'conversion', 
                     'not_conversion']);
     
-our @VSYS_INSTRUCTIONS = ('VSYS_MISSING', 'VSYS_EXTRA', 'VSYS_FROM_TO', 
-    'VSYS_EMPTY', 'VSYS_MOVED', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 
-    'VSYS_CHAPTER_SPLIT_AT');
+our @VSYS_INSTRUCTIONS = ('VSYS_MOVED', 'VSYS_MISSING', 'VSYS_EXTRA',  
+    'VSYS_EMPTY', 'VSYS_MOVED_ALT', 'VSYS_MISSING_FN', 
+    'VSYS_CHAPTER_SPLIT_AT', 'VSYS_FROM_TO');
     
 our @CF_ADDSCRIPREFLINKS = ('CONTEXT_BOOK', 'WORK_PREFIX', 'SKIP_XPATH', 
     'ONLY_XPATH', 'CHAPTER_TERMS', 'CURRENT_CHAPTER_TERMS', 
@@ -222,7 +222,7 @@ our %CF_ADDDICTLINKS = (
   },
 );
 
-our $SWORD_VERSE_SYSTEMS = "KJV|German|KJVA|Synodal|Leningrad|NRSVA|Luther|Vulg|SynodalProt|Orthodox|LXX|NRSV|MT|Catholic|Catholic2";
+our @SWORD_VERSE_SYSTEMS = ('KJV', 'German', 'KJVA', 'Synodal', 'Leningrad', 'NRSVA', 'Luther', 'Vulg', 'SynodalProt', 'Orthodox', 'LXX', 'NRSV', 'MT', 'Catholic', 'Catholic2');
 
 # OSIS book abbreviations => Paratext abbreviations. Taken from 
 # wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
@@ -244,6 +244,9 @@ our %OSIS_GROUP = (
    'Vulgate_and_other_later_Latin_mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
    'Other' => ['TatDiat','PsMet']
 );
+our @OSIS_ABBR_OT = @{$OSIS_GROUP{'OT'}};
+our @OSIS_ABBR_NT = @{$OSIS_GROUP{'NT'}};
+our @OSIS_ABBR = (@OSIS_ABBR_OT, @OSIS_ABBR_NT);
 
 # The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
 our %ID_TYPE_MAP = (
@@ -501,7 +504,7 @@ sub set_project_globals {
   if (!$INPD)    {&ErrorBug("INPD not set.", 1);}
 
   # Allow using a project subdirectory as $INPD argument
-  { my $subs = join('|', 'sfm', 'images', 'output', &getPubTypes());
+  { my $subs = join('|', 'sfm', 'images', 'output', &CONV_PUBS());
     $INPD =~ s/\/($subs)(\/.*?$|$)//;
   }
   # This works even for MS-Windows because of '\' replacement done above

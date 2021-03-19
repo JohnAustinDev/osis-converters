@@ -14,7 +14,7 @@ our $SCRD;
 open(INF, ">:encoding(UTF-8)", "$SCRD/ReadMe.md") || die;
 
 print INF "# osis-converters
-On Ubuntu 16 or 18 `sudo ./provision.sh` will install the necessary dependencies. On other operating systems, including MS-Windows and MacOS, install [Vagrant](https://www.vagrantup.com/downloads), [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Perl](https://www.activestate.com/products/perl/downloads/) and osis-converters will run in a virtual machine.\n";
+Ubuntu 16 or 18 dependencies may be installed with `sudo ./provision.sh`. Other operating systems, including MS-Windows and MacOS, require [Vagrant](https://www.vagrantup.com/downloads), [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Perl](https://www.activestate.com/products/perl/downloads/); then osis-converters will start its own virtual machine.\n";
 print INF &help();
 
 close(INF);
@@ -29,24 +29,28 @@ sub helpList {
   
   my $r;
   
+  # Collapse no-heading lists
   if (!$listheadAP->[0] && !$listheadAP->[1]) {
     foreach my $row (@{$listAP}) {
-      $r .= $row->[0] . ': ' . &para(&helpTags($row->[1]), 0, 0, 0, 1, 1) . "\n";
+      $r .= $row->[0] . ': ' . &para(&helpTags($row->[1]), 0, 0, 0, 1) . "\n";
     }
     $r .= "\n";
     return $r;
   }
   
+  # Heading
   $r .= &esc($listheadAP->[0]) . ' | ' . 
         &helpTags(&esc($listheadAP->[1])) . "\n";
         
   $r .= '-' x length($listheadAP->[0]) . ' | ' . 
         '-' x length(&helpTags($listheadAP->[1])) . "\n";
-                    
+  
+  # Rows
   foreach my $row (@{$listAP}) {
     my $e = $row->[0];
+    $e =~ s/(<[^>]*>)/`$1`/g;
     if ($e !~ /^[\(\*]/) {$e = '**' . $e . '**';}
-    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), 0, 0, 0, 1, 1);
+    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), 0, 0, 0, 1);
   }
   $r .= "\n";
   
@@ -109,17 +113,11 @@ sub para {
   my $left   = shift; if (!defined($left))   {$left   = 0;}
   my $width  = shift; if (!defined($width))  {$width  = 72;}
   my $noBlankLine = shift;
-  my $noNewlines = shift;
   
   $t =~ s/\s*\n\s*/ /g;
   $t =~ s/(^\s*|\s*$)//g;
-  if (!$noNewlines) {
-    $t =~ s/(\s*\\b\s*)/\n/g;
-  }
-  else {
-    $t =~ s/(\s*\\b\s*)/ /g;
-  }
-  
+  $t =~ s/(\s*\\b\s*)/<br \/>/g;
+
   my $r = $t;
   
   $r .= "\n";

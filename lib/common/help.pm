@@ -26,9 +26,9 @@ our ($SCRIPT_NAME, @CONV_OSIS, @CONV_PUBS);
 # Argument globals
 our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, $MAXTHREADS, $SKIPRE);
 
-our ($SWORD_VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS, 
+our (@SWORD_VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS, 
   @CF_ADDFOOTNOTELINKS, @CF_ADDSCRIPREFLINKS, @CF_FILES, @CF_OSIS2OSIS, 
-  @CF_SFM2OSIS, @CONFIG_DEPRECATED, @CONFIG_SECTIONS, 
+  @CF_SFM2OSIS, @CONFIG_DEPRECATED, @CONFIG_SECTIONS, %CONV_OUTPUT_FILES,
   @CONTINUABLE_CONFIGS, @CONV_OTHER, @OC_CONFIGS, @OC_DEVEL_CONFIGS, 
   @OC_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, @OC_SYSTEM_PATH_CONFIGS, 
   @OC_URL_CONFIGS, @OSIS_GROUPS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, 
@@ -96,31 +96,36 @@ our %HELP = (
 
 'convert' => [
   ['SYNOPSIS', [
-    ['para', 'Convert Paratext [SFM](http://paratext.org/about/usfm#usfmDocumentation) to [OSIS](http://www.crosswire.org/osis/) XML, CrossWire [SWORD](http://www.crosswire.org/wiki/Main_Page) modules, [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps, html, epub and azw3 files.' ],
-    ['para', 'With [USFM](http://paratext.org/about/usfm#usfmDocumentation) files in directory: `some-path/MODULE_NAME/sfm/`
+    ['para', 'With Paratext USFM files in directory: `some-path/MODULE_NAME/sfm/`
     \b\b `./bin/defaults ./some-path/MODULE_NAME`
     \b\b `./bin/convert ./some-path/MODULE_NAME`
     \b\b Creates:
-    \b* An OSIS XML file
+    \b* An [OSIS](http://www.crosswire.org/osis/) XML file
     \b* A reference OSIS XML file (if there are USFM reference materials)
     \b* Linked HTML
     \b* epub and azw3 eBook Bibles
-    \b* A SWORD Bible module
+    \b* A [SWORD](http://www.crosswire.org/wiki/Main_Page) Bible module
     \b* A SWORD Dictionary module (if there are USFM reference materials)
-    \b* GoBible Java-ME apps' ],
+    \b* [GoBible](http://www.crosswire.org/wiki/Projects:Go_Bible) Java-ME apps' ],
+    
+    ['sub-heading', 'USFM / SFM' ],
+    ['para', 'Paratext Unified Standard Format Markers (USFM) is the successor of Standard Format Markers (SFM). SFM may require preprocessing before conversion to OSIS (see `convert -h EVAL_REGEX`).' ],
+    
     ['sub-heading', 'DEFAULT CONTROL FILES' ],
-    ['para', 'The conversion process is guided by control files. Default control files are located at PATH(SCRD/defaults) which may be overwritten by default files located at PATH(MAININPD/../defaults).' ],
-    ['para', 'When the `defaults` program is run on a project, customized project control files are created from the default files. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, all warnings have been checked, and all materials and meta-data have been added to the project.' ],
+    ['para', 'The conversion process is guided by control files. Control file templates are located at PATH(SCRD/defaults) and may be replaced by customized templates at PATH(MAININPD/../defaults).' ],
+    ['para', 'When the `defaults` program is run on a project, project control files are created from the templates. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project.' ],
+    
     ['sub-heading', 'LOG FILES' ],
-    ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log containing these labels:' ],
+    ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log file containing these labels:' ],
     ['list', ['LABEL', 'DESCRIPTION'], [
       ['ERROR', 'Problems that must be fixed. A solution to the problem is also listed. Fix the first error, because this will often fix following errors.' ],
       ['WARNING', 'Possible problems. Read the message and decide if anything needs to be done.' ],
       ['NOTE', 'Informative notes.' ],
       ['REPORT', 'Conversion reports. Helpful for comparing runs.' ],
     ]],
+    
     ['sub-heading', 'CONVERT' ],
-    ['para', 'The `convert` program will schedule and run conversions for one or more projects. It schedules any pre-requisite conversions insuring all publications are up-to-date. It is normally the last command run on a project before publication. But during development running individual scripts may be more convenient. The following scripts may be called by `convert`, depending on its arguments:' ],
+    ['para', 'The `convert` program will schedule and run conversions for one or more projects. It schedules any pre-requisite conversions, insuring each publication is up-to-date. Normally it is the last command run on a project before publication. During development, running individual scripts may be more convenient. The following scripts are called by `convert`, depending on its arguments:' ],
     ['list', ['SCRIPT', 'DESCRIPTION'], &getList([@CONV_OSIS, @CONV_PUBS], [
       ['sfm2osis', 'Convert Paratext SFM/USFM to OSIS XML.' ],
       ['osis2osis', 'Convert an OSIS file from one script to another, or convert control files from one script to another.' ],
@@ -128,9 +133,17 @@ our %HELP = (
       ['osis2html', 'Convert OSIS to HTML, including a table-of-contents and comprehensive navigational links.' ],
       ['osis2sword', 'Convert OSIS to CrossWire SWORD modules. A main module will be produced, as well as a linked dictionary module when applicable.' ],
       ['osis2gobible', 'Convert OSIS to Java-ME feature phone apps.' ],
-    ], 1)],
+    ])],
+    
+    ['sub-heading', 'SCOPE' ],
+    ['para', 'Scope is a specific way of representing the Bible books included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see `convert -h \'@OSIS_ABBR\'`) in verse system order. Example: `Ruth Esth Jonah`. But continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
+    
+    ['sub-heading', 'SUB-PUBLICATIONS' ],
+    ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Scripts like `osis2ebooks` and `osis2html` output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
+    ['para', 'To add a sub-publication, create a subdirectory in PATH(MAINMOD/sfm) whose name is the scope of the sub-publication, and put all SFM files pertaining to that sub-publication in it.' ],
+    
     ['sub-heading', 'HELP' ],
-    ['para', 'For help use the -h flag. Or run `convert -h <setting/file>` to see help on any particular setting or control file.'],
+    ['para', 'Run `convert -h <setting/file/script>` to find help on any particular setting, control file or script.'],
   ]],
 ],
 
@@ -144,34 +157,25 @@ our %HELP = (
 
   ['SYNOPSIS', [
     ['sub-heading', 'CONVERT PARATEXT FILES INTO OSIS XML' ],
-    ['para', 'OSIS is an xml standard for encoding Bibles and related texts (see: [](http://crosswire.org/osis/)). The OSIS files generated by sfm2osis will include meta-data, explicit references, cross-references and textual information not present in the original Paratext Universal Standard Format Marker (USFM and SFM) sources. The resulting OSIS file is a more complete source text than the original Paratext files and is an excellent intermediate format, more easily and reliably converted into any other format.' ],
+    ['para', 'OSIS is an xml standard for encoding Bibles and related texts (see: [](http://crosswire.org/osis/)). The OSIS files generated by sfm2osis include meta-data, explicit references, cross-references and textual information not present in the original Paratext USFM/SFM source files. The resulting OSIS file is a more complete source file than the original Paratext files and is an excellent intermediate format, easily and reliably converted into any other format.' ],
     
-    ['para', 'A project conversion creates a main OSIS file, which may contain a Bible, Children\'s Bible or commentary for instance. Any Paratext glossaries, maps and other reference materials are converted into a second OSIS file, whose contents may be referenced by the main OSIS file. These two conversions are treated as separate modules referred to as MAINMOD and DICTMOD. If a project has a DICTMOD module, its module code is the MAINMOD code appended with \'DICT\', and it appears as a subdirectory of MAINMOD.' ],
+    ['para', 'A project conversion creates a main OSIS file, which might contain a Bible, Children\'s Bible or a commentary for instance. Paratext glossaries, maps and other reference materials are converted into a second OSIS file, whose contents may be referenced by the main OSIS file. These two conversions are treated as separate modules, referred to as MAINMOD and DICTMOD. If a project has a DICTMOD module, its module code is the MAINMOD code appended with \'DICT\', and it appears as a subdirectory in MAINMOD.' ],
     
     ['para', 'The SFM to OSIS conversion process is directed by the following control files:' ],
     ['list', ['FILE', 'DESCRIPTION'], &getList(\@CF_FILES, [
       ['config.conf', 'Configuration file with settings and meta-data for a project.' ],
-      ['CF_sfm2osis.txt', 'Place and order converted SFM files within an OSIS file and record deviations from the standard markup and verse system.' ],
-      ['CF_addScripRefLinks.txt', 'Control parsing of scripture references in the text and their conversion to working OSIS hyperlinks.' ],
-      ['CF_addDictLinks.xml', 'Control parsing of reference material references in the text and their conversion to working OSIS hyperlinks.' ],
+      ['CF_sfm2osis.txt', 'Place and order converted SFM files within the OSIS file and record deviations from the standard markup and verse system.' ],
+      ['vsys.xml', 'Insert Bible cross-references into the text.' ],
+      ['CF_addScripRefLinks.txt', 'Control parsing of scripture references from the text and their conversion to working OSIS hyperlinks.' ],
+      ['CF_addDictLinks.xml', 'Control parsing of reference material references from the text and their conversion to working OSIS hyperlinks.' ],
       ['CF_addFootnoteLinks.txt', 'Control parsing of footnote references from the text and their conversion to working OSIS hyperlinks.' ],
-    ], 1)],
-    ['para', 'Default control files are created by the \'defaults\' command. For help on an individual file or command use: `' . $SCRIPT_NAME . ' -h <key>`' ],
-    
-    ['sub-heading', 'HOOKS' ],
-    ['para', 'For situations when custom processing is required, hooks are provided for custom Perl scripts and XSLT transforms. Perl scripts have two arguments: input OSIS file and output OSIS file, while XSLT transforms use standard XML output. Use hooks only when EVAL_REGEX is insufficient, as hooks complicate project maintenance. Scripts with these names in a module directory will be called at different points during the conversion to OSIS:' ],
-    ['list', ['HOOK', 'WHEN CALLED'], [
-      ['bootstrap.pl', 'The sfm2osis or osis2osis script will execute it before conversion begins. It may only appear in the project (MAINMOD) directory, and it takes no arguments. It may be used to copy or process any project file etc.' ],
-      ['preprocess.pl', 'It will be executed after usfm2osis.py does the initial conversion to OSIS, before subsequent processing. Use EVAL_REGEX when preprocessing of SFM files would be sufficient.' ],
-      ['preprocess.xsl', 'Same as preprocess.pl.' ],
-      ['postprocess.pl', 'It will be executed after an OSIS file has been fully processed, but before OSIS validation and final checks.' ],
-      ['postprocess.xsl', 'Same as postprocess.pl.' ],
-    ]],
+    ])],
+    ['para', 'Default control files are created by the \'defaults\' command. For help on an individual file or command run: `' . $SCRIPT_NAME . ' -h <file/command>`' ],
     
     ['sub-heading', 'TABLE OF CONTENTS'],
     ['para', 'A table of contents or menu system (referred to as the TOC) is a critical part of any electronic publication. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials are useless if readers don\'t know they exist. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is completely customizable. By default, USFM `\toc2` tags create new TOC entries. But alternative `\tocN` tags may be used instead (see `convert -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a `\tocN` tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.' ],
-    ['para', 'Two renderings of the TOC are supported. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub and azw3. '],
-    ['para', 'The following instructions may be prepended to any TOC title to fine tune how the TOC is rendered:' ],
+    ['para', 'Two renderings of the TOC are supported. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text in segments, having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub and azw3. '],
+    ['para', 'One or more of the following instructions may be prepended to any TOC title to fine tune how the TOC is rendered:' ],
     ['list', ['INSTRUCTION', 'DESCRIPTION'], &getList(\@TOC_INSTRUCTIONS, [
       ['[levelN]', 'Explicitly specifies the TOC hierarchy level. Where N is 1 for top level, 2 for second, or 3 for inner-most level. By Default, TOC hierarchy level is determined from OSIS element hierarchy.' ],
       ['[not_parent]', 'Force the children of a TOC entry to follow the parent by inheriting its TOC level.' ],
@@ -179,51 +183,60 @@ our %HELP = (
       ['[no_inline_toc]', 'Remove a TOC entry from the inline TOC. This could result in broken link errors for non-eBook publications.' ],
       ['[only_inline_toc]', 'Remove a TOC entry from the detached TOC.' ],
       ['[no_main_inline_toc]', 'Remove a TOC entry from the main inline TOC. The main inline TOC appears on the first page of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.' ],
-      ['[inline_toc_first]', 'Place the inline TOC after the TOC entry. This is default for MAINMOD and so only applies to DICTMOD, where by default the inline TOC is placed before the following TOC entry (which is normally the first keyword).' ],
-      ['[inline_toc_last]', 'Place the inline TOC before the following TOC entry. This is default for DICTMOD and so only applies to MAINMOD, where by default the inline TOC is placed after the TOC entry. With `[inline_toc_last]` the inline TOC will be placed before the following TOC entry. NOTE: the inline TOC will be placed before the following TOC entry even if that entry is maked as `[no_toc]`. So a `[no_toc]` entry can be used as a placeholder where the inline TOC should appear.' ],
-    ], 1)],
+      ['[inline_toc_first]', 'Place the inline TOC segment at the top of the parent\'s body text. This only applies to DICTMOD, where by default inline TOC segments are placed before the first TOC child entry after the parent TOC entry, or in other words, after their parent TOC\'s body text.' ],
+      ['[inline_toc_last]', 'Place the inline TOC segment after the parent TOC\'s body text. This only applies to MAINMOD, where by default inline TOC segments are placed before their parent\'s body text. NOTE: the inline TOC will be placed before the following child TOC entry even if that entry is marked as `[no_toc]`. So a `[no_toc]` child entry can be used as a placeholder where the inline TOC segment should appear.' ],
+    ])],
     
     ['sub-heading', 'SFM ID DIRECTIVES' ],
-    ['para', 'USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark content for special purposes or to place it appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN` in `CF_sfm2osis.txt`, an SFM file may contain multiple `\periph` tags whose content is intended for different locations. For instance an SFM file may contain three `\periph` tags, one for the copyright information, another for the introduction and another for end-notes. The intended placement is different for each, even though they reside in the same SFM file. ID directives will handle this situation and more. Each ID directive acts on one or more OSIS div elements.' ],
-    ['para', 'Each ID directive has the form `<directive> == <value>`, and multiple directives must be separated by commas and appear on a single line. ID directives are not part of the original SFM source file. So the default `CF_sfm2osis.txt` file uses `EVAL_REGEX` to append default directives to the `\id` tag. There are two types of ID directive:' ],
+    ['para', 'USFM files begin with an \id tag. Special directives may be appended to the \id tag to mark its content for special purposes or to place content appropriately within the OSIS file. Although SFM files are converted and appended to the OSIS file in the order they are `RUN` in `CF_sfm2osis.txt`, an SFM file\'s content may need to appear in different locations. For instance an SFM file may contain a `\periph` tag for the copyright information, another for the introduction and another for end-notes. Each should take a different location within the OSIS file even though they reside together in the same SFM file. ID directives will handle this situation and more.' ],
+    ['para', 'Each ID directive has the form `<directive> == <value>` and will act on one or more OSIS div elements. A set of ID directives may be appended to an `\id` tag, with each directive separated by a comma, and all must appear on a single line. ID directives are not part of the original SFM source file. The default `CF_sfm2osis.txt` file uses `EVAL_REGEX` to append default directives to the `\id` tag. There are two types of ID directive:' ],
     ['list', ['', ''], [
-      ['(P)', 'Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to either an xpath expression or the keywords `remove` or `mark` on the right. For example: 
+      ['(P)', 'Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to the right side\'s xpath expression or keyword. An xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by all previous marking ID directives in the set. If the xpath expression selects more than one node, the marked div element will be copied and placed before every selected node. Example placement directives: 
       \b`introduction == //div[@osisID="Gen"]`,
-      \b`"Title Page" == remove`
-      \bAn xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by any previous marking ID directives found on the `\id` line. If the xpath expression selects more than one node, the marked div element will be copied and placed before every selected node.
+      \b`"Table of Contents" == remove`
       \b\bNote: Applying an xpath placement to a dictionary module parent div will result in an error; change the order of `RUN` statements instead.' ],
-      ['(M)', 'Mark directives mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right, will be applied to each OSIS div element selected by subsequent placement directives on the same `\id` line. For example:
-      \b`scope == Matt-Rev`,
-      \b`cover == yes`
-      \bWhen the `\id` line has been fully processed, the location of the SFM file will be marked if it was not already marked by a `location == mark` directive. Any particular mark will cease after a `<mark-type> == stop` directive.' ],
+      ['(M)', 'Mark directives will mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right, will be applied to each OSIS div element selected by subsequent placement directives in the set. Example marking directives:
+      \b`cover == yes`,
+      \b`scope == Matt-Rev`
+      \bWhen the `\id` line has been fully processed, the top OSIS div element will be marked if it was not explicitly marked by the `location == mark` directive. Any particular mark will cease for that set after a `<mark-type> == stop` directive.' ],
     ]],
     ['list', ['DIRECTIVE', 'DESCRIPTION'], &addDirectiveType(&getList( [map(@{$ID_DIRECTIVES{$_}}, reverse sort keys %ID_DIRECTIVES)], [
       ['location', ' Selects the OSIS div of the converted SFM file for marking or placement. When an SFM file contains `\periph` sections which are also being placed, those `\periph` sections are removed from their position within the parent OSIS div. Therefore when the entire contents of an SFM file is placed somewhere else, `location == remove` may be used to remove the resulting empty parent div element from the OSIS file.' ],
-      ['<div-identifier>', 'Selects an OSIS child div of the converted SFM file for marking or placement. The identifier must be an OSIS div type, OSIS div subType, USFM periph type, or USFM periph name. A USFM periph name must be enclosed in double quotes. The next div child matching that identifier will be selected. Note: An SFM file\'s top (parent) div is always selected by `location`.' ],
+      ['<identifier>', 'Selects an OSIS child div of the converted SFM file for marking or placement. The identifier must be an OSIS div type, OSIS div subType, USFM periph type, or USFM periph name. A USFM periph name must be enclosed in double quotes. The next div child matching the identifier will be selected. Note: An SFM file\'s top (parent) div should be selected using `location`.' ],
       ['x-unknown', 'Selects the next OSIS child div of the converted SFM file, regardless of what it is.' ],
       ['scope', 'Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.' ],
       ['feature', 'Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.' ],
-      ['cover', 'Takes a `( yes | no )` value. A value of yes marks OSIS div elements to receive a cover image if scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
-      ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversion not listed, the OSIS div will be removed. Conversion options are `( ' . join(' | ', 'none', &getPubTypes(), @CONV_PUB_SETS) . ')`.' ],
-      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ' . join(' | ', &getPubTypes(), @CONV_PUB_SETS) . ')`.' ],
-    ], 1))],
+      ['cover', 'Takes a `( yes | no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
+      ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( ' . join(' | ', 'none', &CONV_PUBS(), @CONV_PUB_SETS) . ')`.' ],
+      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ' . join(' | ', &CONV_PUBS(), @CONV_PUB_SETS) . ')`.' ],
+    ]))],
     
     ['sub-heading', 'SPECIAL FEATURES' ],
-    ['para', 'The SFM ID directive `feature == <feature>` may be used to mark OSIS div elements for special purposes. Supported features are:' ],
+    ['para', 'The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see `convert -h "SFM ID DIRECTIVES"`). Supported features are:' ],
     ['list', ['FEATURE', 'DESCRIPTION'], [
       ['INT', 'When a translation has introductory material that applies to the whole, it is useful to have this material added to navigation menus. It will then be accessible from every introduction, chapter and keyword, rather than from one location alone. To enable this feature, include a `RUN` statement for the introduction SFM file in both `MAINMOD/CF_sfm2osis.txt` and  `DICTMOD/CF_sfm2osis.txt` adding the `feature == INT` ID directive each time. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD. Here is an example:
       \b
       \b`/MAINMOD/CF_sfm2osis.txt` might contain:
-      \b`EVAL_REGEX:s/^(\\\\id.*?)\n/$1, feature == INT\n/`
+      \b`EVAL_REGEX:s/(\\\\id [^\\n]+)/$1, feature == INT/`
       \b`RUN:../sfm/FRT.SFM`
       \b
       \b`/DICTMOD/CF_sfm2osis.txt` might contain:
-      \b`EVAL_REGEX:s/^\\\\id.*?\n/\\\\id GLO feature == INT\n/`
+      \b`EVAL_REGEX:s/(\\\\id [^\\n]+)/\\\\id GLO feature == INT/`
       \b`EVAL_REGEX:s/^\\\\(?:imt|is) (.*?)$/\\\\m \\\\k $1\\\\k*/gm`
       \b`RUN:../sfm/FRT.SFM`' ],
-      ['NAVMENU', 'Navigation menus are created automatically the TOC. If custom navigation menus are desired, use the NAVMENU feature. Design a custom SFM menu and append an ID directive to the `\id` tag:
+      ['NAVMENU', 'Navigation menus are created automatically from the TOC. When custom navigation menus are desired, the NAVMENU feature may be used. Design the custom menu in USFM and append the ID directive to its `\id` tag:
       \b`feature == NAVMENU.<osisID>.<replace|top>`
-      \bUsing the osisID of an existing navigation menu to modify, and using either `replace` to replace that menu, or `top` to insert at the top of that menu.' ],
+      \bUsing the osisID of an existing navigation menu to modify, and using either `replace` to replace that menu, or `top` to insert the custom menu at the top of that menu.' ],
+    ]],
+    
+    ['sub-heading', 'HOOKS' ],
+    ['para', 'For situations when custom processing is required, hooks are provided for custom Perl scripts and XSLT transforms. Use hooks only when EVAL_REGEX is insufficient, as hooks complicate project maintenance. Perl scripts have two arguments: input OSIS file and output OSIS file, while XSLT transforms use standard XML output. Scripts with the following names in a module directory will be called at different points during the conversion to OSIS:' ],
+    ['list', ['HOOK', 'WHEN CALLED'], [
+      ['bootstrap.pl', 'The sfm2osis or osis2osis script will execute it before conversion begins. It may only appear in the project (MAINMOD) directory, and it takes no arguments. It may be used to copy or process any project file etc., but should be used only when osis2osis is insufficient (see `convert -h osis2osis`).' ],
+      ['preprocess.pl', 'It will be executed after usfm2osis.py does the initial conversion to OSIS, before subsequent processing. Use EVAL_REGEX when preprocessing of SFM files would be sufficient.' ],
+      ['preprocess.xsl', 'Same as preprocess.pl (after it).' ],
+      ['postprocess.pl', 'It will be executed after an OSIS file has been fully processed, but before OSIS validation and final checks.' ],
+      ['postprocess.xsl', 'Same as postprocess.pl (after it).' ],
     ]],
     
   ]],
@@ -241,24 +254,24 @@ our %HELP = (
     ]],
     ['list', ['ENTRY', 'DESCRIPTION'], &addConfigType(&getList(&configList(), [
       [ 'Abbreviation', 'A short localized name for the module.' ],
-      [ 'About', 'Localized information about the module.' ],
+      [ 'About', 'Localized information about the module. Similar to `Description` but longer.' ],
       [ 'Description', 'A short localized description of the module.' ],
-      [ 'KeySort', 'This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within these regular expressions must have an ADDITIONAL \ before it.' ],
+      [ 'KeySort', 'This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.' ],
       [ 'AudioCode', 'A publication code for associated audio. Multiple modules having different scripts may reference the same audio.' ],
-      [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: `(true | false | AUTO)`.' ],
-      [ 'AddDictLinks' => 'Select whether to parse glossary references in the text and convert them to hyperlinks: `(true | false | check | AUTO)`.' ],
-      [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: `(true | false | AUTO)`.' ],
-      [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: `(true | false |AUTO)`.' ],
-      [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: `'.join(', ', split(/\|/, $SWORD_VERSE_SYSTEMS)).'`.' ],
+      [ 'AddScripRefLinks', 'Select whether to parse scripture references in the text and convert them to hyperlinks: `(true | false | AUTO)`. `AUTO` runs the parser only if `CF_addScripRefLinks.txt` is present for the module.' ],
+      [ 'AddDictLinks' => 'Select whether to parse glossary references in the text and convert them to hyperlinks: `(true | false | check | AUTO)`. `AUTO` runs the parser only if `CF_addDictLinks.txt` is present for the module.' ],
+      [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: `(true | false | AUTO)`. `AUTO` runs the parser only if `CF_addFootnoteLinks.txt` is present for the module.' ],
+      [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: `(true | false |AUTO)`. `AUTO` adds them only if a `<vsys>.xml` file is found at PATH(defaults/bible/Cross_References/<versification>.xml) having the name of the versification used by the project (see `convert -h "Adding External Cross-References"`).' ],
+      [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: '.join(', ', map("`$_`", @SWORD_VERSE_SYSTEMS)).'.' ],
       [ 'Encoding' => 'osis-converters only supports UTF-8 encoding.' ],
-      [ 'TOC' => 'A number from 1 to 3 indicating which SFM tag to use for generating the Table Of Contents: `\toc1`, `\toc2` or `\toc3`.' ],
-      [ 'TitleCase' => 'A number from 0 to 2 selecting letter casing for the Table Of Contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS.' ],
-      [ 'TitleTOC' => 'A number from 1 to 3 indicating this SFM tag to use for generating the publication titles: `\toc1`, `\toc2` or `\toc3`.' ],
+      [ 'TOC' => 'A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`.' ],
+      [ 'TitleCase' => 'A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS.' ],
+      [ 'TitleTOC' => 'A number from 1 to 3 indicating which SFM tag to use when generating publication titles: `\toc1`, `\toc2` or `\toc3`.' ],
       [ 'CreatePubTran' => 'Select whether to create a single ePublication containing everything in the OSIS file: `(true | false | AUTO)`.'],
       [ 'CreatePubSubpub' => 'Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`.' ],
       [ 'CreatePubBook' => 'Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`.' ],
-      [ 'CreateTypes' => 'Select which type, or types, of eBooks to create: `(AUTO | epub | azw3 | fb2)`.' ],
-      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them each as a separate glossary. `AUTO` let\'s osis-converters decide.' ],
+      [ 'CreateTypes' => 'Select which type, or types, of eBooks to create: `(AUTO | '.join(' | ', &CONV_OUTPUT_FILES('osis2ebooks')).')`.' ],
+      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` let\'s osis-converters decide.' ],
       [ 'FullResourceURL' => 'Single Bible book eBooks often have links to other books. This URL is where the full publication may be found.' ],
       [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: `(true | false)`.' ],
       [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true | <regex>)`.' ],
@@ -272,10 +285,10 @@ our %HELP = (
       [ 'NormalizeUnicode' => 'Apply a Unicode normalization to all characters: `(true | false | NFD | NFC | NFKD | NFKC | FCD)`.' ],
       [ 'Lang' => 'ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn' ],
       [ 'ARG_\w+' => 'Config settings for undocumented fine control.' ],
-      [ 'GlossaryNavmenuLink\[[1-9]\]' => 'Specify custom DICTMOD module navigation links.' ], 
-      [ 'History_[\d\.]+' => 'Each version of released publications should have one of these entries describing what is new that version.' ],              
+      [ 'GlossaryNavmenuLink\[[1-9]\]' => 'Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`' ], 
+      [ 'History_[\d\.]+' => 'Each version of released publications should have one of these entries describing what was new in that version.' ],              
       [ 'Version', 'The version of the publication being produced. There should be a corresponding `History_<version>` entry stating what is new in this version.' ],
-      [ 'COVERS', 'Location where cover images can be found. Cover images should be named: `<project-code>_<scope>.jpg` and will automatically be included in the appropriate OSIS files.' ],
+      [ 'COVERS', 'Location where cover images may be found. Cover images should be named: `<project-code>_<scope>.jpg` and will then automatically be included in the appropriate OSIS files.' ],
       [ 'Copyright', 'Contains the copyright notice for the work, including the year of copyright and the owner of the copyright.' ],
       [ 'CopyrightContactAddress', 'Address of the copyright holder.' ],
       [ 'CopyrightContactEmail', 'Email address of the copyright holder.' ],
@@ -289,7 +302,7 @@ our %HELP = (
       [ 'DistributionLicense', 'see: [](https://wiki.crosswire.org/DevTools:conf_Files)' ],
       [ 'DistributionNotes', 'Additional distribution notes.' ],
       [ 'EBOOKS', 'Location where eBooks are published.' ],
-      [ 'FONTS', 'Location where specified fonts are located for copying/download.' ],
+      [ 'FONTS', 'Location where specified fonts can be found.' ],
       [ 'NO_FORKS', 'Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.' ],
       [ 'OUTDIR', 'Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.' ],
       [ 'Obsoletes', 'see: [](https://wiki.crosswire.org/DevTools:conf_Files)' ],
@@ -298,12 +311,12 @@ our %HELP = (
       [ 'ShortPromo', 'A link to the home page for the module, perhaps with an encouragement to visit the site.' ],
       [ 'TextSource', 'Indicates a name or URL for the source of the text.' ],
       [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
-    ]))],
+    ], 1))],
   ]],
   
   ['CF_sfm2osis.txt', [
-    ['para', 'This control file is required for all sfm2osis conversions. It should be located in each module\'s directory (both MAINMOD and DICTMOD if there is one). It controls what material appears in each module\'s OSIS file and in what order, and is used to apply Perl regular expressions for making changes to SFM files before conversion. ' ],
-    ['para', 'Its other purpose is to describe deviations from the standard versification system that Bible translators made during translation. Translators nearly always deviate from the standard versification system in some way. It is imperative these deviations be recorded so references from external documents may be properly resolved, and parallel rendering together with other texts can be accomplished. Each verse must be identified according to the project\'s strictly defined standard versification scheme. The commands to accomplish this all begin with VSYS. Their proper use results in OSIS files which contain both a rendering of the translator\'s custom versification scheme and a rendering of the standard versification scheme. OSIS files can then be rendered in either scheme using an XSLT stylesheet. ' ],
+    ['para', 'This control file is required for sfm2osis conversions. It should be located in each module\'s directory (both MAINMOD and DICTMOD if there is one). It controls what material appears in each module\'s OSIS file and in what order, and is used to apply Perl regular expressions for making changes to SFM files before conversion. ' ],
+    ['para', 'Its other purpose is to describe deviations from the standard versification system that Bible translators made during translation. Translators nearly always deviate from the standard versification system in some way. It is imperative these deviations be recorded so references from external documents may be properly resolved, and parallel rendering together with other texts can be accomplished. Each verse must be identified according to the project\'s strictly defined standard versification scheme. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files which contain both a rendering of the translator\'s custom versification scheme and a rendering of the standard versification scheme. OSIS files can then be rendered in either scheme using an XSLT stylesheet. ' ],
     ['para', 'NOTES: Each VSYS instruction is evaluated in verse system order regardless of their order in the control file. A verse may be effected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).'],
     ['list', ['COMMAND', 'DESCRIPTION'], &getList([@CF_SFM2OSIS, @VSYS_INSTRUCTIONS], [
       ['EVAL_REGEX', 'Any perl regular expression to be applied to source SFM files before conversion. An EVAL_REGEX instruction is only effective for the RUN statements which come after it. The EVAL_REGEX command may be suffixed with a label or path in parenthesis and must be followed by a colon. A label might make organizing various kinds of changes easier, while a file path makes the EVAL_REGEX effective on only a single file. If an EVAL_REGEX has no regular expression, all previous EVAL_REGEX commands sharing the same label are canceled. 
@@ -315,26 +328,42 @@ our %HELP = (
       ['SPECIAL_CAPITALS', 'Was used to enforce non-standard capitalizations. It should only be used if absolutely necessary, since Perl Unicode is now good at doing the right thing on its own. It is better to use EVAL_REGEX to replace offending characters with the proper Unicode character.' ],
       ['PUNC_AS_LETTER', 'Was used to treat a punctuation character as a letter for pattern matches. It is far better to use `EVAL_REGEX` to replace a punctuation character with the proper Unicode character, which will automatically be treated properly.' ],
       ['VSYS_MISSING', 'Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:
-      \b\b`VSYS_MISSING: Josh.24.34.36`
-      \bMeaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse\'s osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses already sharing the verse numbers of the missing verses, then the standard versification rendering will renumber them and all following verses upward by the number of missing verses, and alternate verse numbers will be appended displaying the original verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. An entire missing chapter is not supported unless it is the last chapter in the book.' ],
+      \b`VSYS_MISSING: Josh.24.34.36`
+      \bMeaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse\'s osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses in the chapter having the verse numbers of the missing verses, then the standard versification rendering will renumber them and any following verses upward by the number of missing verses, and alternate verse numbers will be appended to display the original verse numbers. References to affected verses will be tagged so as to render them correctly in either standard or custom versification schemes. An entire missing chapter is not supported unless it is the last chapter in the book.' ],
       ['VSYS_EXTRA', 'Used when translators inserted a range of verses that are not part of the project\'s versification scheme. This instruction takes the form:
-      \b\b `VSYS_EXTRA: Prov.18.8 <- Synodal:Prov.18.8`
+      \b`VSYS_EXTRA: Prov.18.8 <- Synodal:Prov.18.8`
       \b The left side is a verse range specifying the extra verses in the custom verse scheme, and the right side range is an optional universal address for those extra verses. The universal address is used to record where the extra verses originated from. When the OSIS file is rendered in the standard versification scheme, the additional verses will become alternate verses appended to the preceding verse, and if there are verses following the extra verses, they will be renumbered downward by the number of extra verses, and alternate verse numbers will be appended displaying the custom verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. The extra verse range may be an entire chapter if it occurs at the end of a book (such as Psalm 151). When rendered in the standard versification scheme, an alternate chapter number will then be inserted and the entire extra chapter will be appended to the last verse of the previous chapter.' ],
       ['VSYS_FROM_TO', 'This is usually not the right instruction to use; it is used internally as part of other instructions. It does not effect any verse or alternate verse markup. It could be used if a verse is marked in the text but is left empty, while there is a footnote about it in the previous verse (but see `VSYS_MISSING_FN` which is the more common case). '], 
       ['VSYS_EMPTY', 'Like `VSYS_MISSING`, but is only to be used if regular empty verse markers are included in the text. This instruction will only remove external scripture cross-references to the removed verses.' ],
       ['VSYS_MOVED', 'Used when translators moved a range of verses from the expected location within the project\'s versification scheme to another location. This instruction can have several forms:
-      \b\b `VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`
-      \b Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range\'s last verse, indicating only part of the verse was moved. All references to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.
-      \b\b `VSYS_MOVED: Tob -> Apocrypha[Tob]`
+      \b`VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`
+      \b Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range\'s last verse, indicating only part of the verse was moved. References to affected verses will be tagged so as to render correctly in both standard and custom versification schemes. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending on whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.
+      \b`VSYS_MOVED: Tob -> Apocrypha[Tob]`
       \b Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `%OSIS_GROUP` for supported book-groups and books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.
-      \b\b `VSYS_MOVED: Apocrypha -> bookGroup[2]`
+      \b`VSYS_MOVED: Apocrypha -> bookGroup[2]`
       \bIndicates the entire book-group on the left was moved from its expected location to a custom book-group index on the right. See `%OSIS_GROUP` for supported book-groups. The book-group will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book-group will appear in one location or the other.' ],
       ['VSYS_MOVED_ALT', 'Like `VSYS_MOVED` but this should be used when alternate verse markup like `\va 2\va*` has been used by the translators for the verse numbers of the moved verses (rather than regular verse markers which is the more common case). If both regular verse markers (showing the source system verse number) and alternate verse numbers (showing the fixed system verse numbers) have been used, then `VSYS_MOVED` should be used. This instruction will not change the OSIS markup of alternate verses. '],
       ['VSYS_MISSING_FN', 'Like `VSYS_MISSING` but is only to be used if a footnote was included in the verse before the missing verses which gives the reason for the verses being missing. This instruction will simply link the verse having the footnote together with the missing verse.' ],
       ['VSYS_CHAPTER_SPLIT_AT', 'Used when the translators split a chapter of the project\'s versification scheme into two chapters. This instruction takes the form:
-      \b\b `VSYS_CHAPTER_SPLIT_AT: Joel.2.28`
-      \b When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. All references to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme.' ],
+      \b`VSYS_CHAPTER_SPLIT_AT: Joel.2.28`
+      \b When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. References to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme.' ],
     ])],
+  ]],
+  
+  ['vsys.xml', [
+    ['sub-heading', 'Adding External Cross-References' ],
+    ['para', 'A universal address is assigned to each verse, making it possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The only requirement is the cross-reference list must apply to the versification system of the project. The list must be placed in PATH(defaults/bible/addCrossRefs/<vsys>.xml) where vsys is the project\'s versification system (options are: '.join(', ', map("`$_`", @SWORD_VERSE_SYSTEMS)).').'],
+    ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
+    ['para', 'The `<vsys>.xml` file is an OSIS file with books, chapters and verses according to the versification system; the only content required however are OSIS notes. Example OSIS notes:
+    \b`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`
+    \b`<reference osisRef="Josh.14.15"/>`
+    \b`<reference osisRef="Judg.1.10"/>`
+    \b`<reference osisRef="Gen.13.18"/>`
+    \b`<reference osisRef="Gen.23.2"/>`
+    \b`</note>`
+    \b`<note type="crossReference" subType="x-parallel-passage" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.p1">`
+    \b`<reference osisRef="1Chr.1.35-1Chr.1.37" type="parallel"/>`
+    \b`</note>`'],
   ]],
   
   ['CF_addScripRefLinks.txt', [
@@ -342,15 +371,15 @@ our %HELP = (
     ['para', 'Some descriptions below refer to extended references. An extended reference is composed of a series of individual scripture references which together form a single contextual sentence. An example of an extended reference is: See also Gen 4:4-6, verses 10-14 and chapter 6. The parser searches the text for extended references, and then parses each reference individually, in order, remembering the book and chapter context of the previous reference.' ],
     ['list', ['SETTING', 'DESCRIPTION'], &getList([@CF_ADDSCRIPREFLINKS], [
       ['CONTEXT_BOOK', 'Textual references do not always include the book being referred to. Then the target book must be discovered from the context of the reference. Where the automated context search fails to discover the correct book, the `CONTEXT_BOOK` setting should be used. It takes the following form:
-      \b\b`CONTEXT_BOOK: Gen if-xpath ancestor::div[1]`
+      \b`CONTEXT_BOOK: Gen if-xpath ancestor::div[1]`
       \bWhere Gen is any osis book abbreviation, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given book will be used as the context book for that reference.' ],
       ['WORK_PREFIX', 'Sometimes textual references are to another work. For instance a Children\'s Bible may contain references to an actual Bible translation. To change the work to which references apply, the WORK_PREFIX setting should be used. It takes the following form:
-      \b\b`WORK_PREFIX: LEZ if-xpath //@osisIDWork=\'LEZCB\'`
+      \b`WORK_PREFIX: LEZ if-xpath //@osisIDWork=\'LEZCB\'`
       \bWhere LEZ is any project code to be referenced, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then LEZ will be used as the work prefix for that reference.' ],
       ['SKIP_XPATH', 'When a section or category of text should be skipped by the parser SKIP_XPATH can be used. It takes the following form:
-      \b\b`SKIP_XPATH: ancestor::div[@type=\'introduction\']`
+      \b`SKIP_XPATH: ancestor::div[@type=\'introduction\']`
       \bThe given xpath expression will be evaluated for every suspected textual scripture reference, and if it evaluates as true, it will be left alone.' ],
-      ['ONLY_XPATH', 'Similar to SKIP_XPATH but when used used, all suspected textual references will be skipped unless the given xpath expression evaluates as true.' ],
+      ['ONLY_XPATH', 'Similar to SKIP_XPATH but suspected textual references will be skipped unless the given xpath expression evaluates as true.' ],
       ['CHAPTER_TERMS', 'A Perl regular expression matching localized words/phrases which will be understood as meaning "chapter". Example:
       \b`CHAPTER_TERMS:(psalm|chap)`' ],
       ['CURRENT_CHAPTER_TERMS', 'A Perl regular expression matching localized words/phrases which will be understood as meaning "the current chapter". Example:
@@ -374,12 +403,12 @@ our %HELP = (
       ['CONTINUATION_TERMS', 'A Perl regular expression matching characters that are used to indicate a chapter or verse range. Example:
       \b`CONTINUATION_TERMS:(to|-)`' ],
       ['FIX', 'If the parser fails to properly convert any particular textual reference, FIX can be used to correct or skip it. It has the following form:
-      \b\b`FIX: Gen.1.5 Linking: "7:1-8" = "<r Gen.7.1>7:1</r><r Gen.8>-8</r>`"
+      \b`FIX: Gen.1.5 Linking: "7:1-8" = "<r Gen.7.1>7:1</r><r Gen.8>-8</r>"`
       \bAfter FIX follows the line from the log file where the extended reference of concern was logged. Replace everything after the equal sign with a shorthand for the fix with the entire fix enclosed by double quotes. Or, remove everything after the equal sign to skip the extended reference entirely. The fix shorthand includes each reference enclosed in r tags with the correct osisID.' ],
       ['<osis-abbreviation>', 'To assign a localized book name or abbreviation to the corresponding osis book abbreviation, use the following form:
-      \b\b`Gen = The book of Genesis`
+      \b`Gen = The book of Genesis`
       \bThe osis abbreviation on the left of the equal sign may appear on multiple lines. Each line assigns a localized name or abbreviation on the right to its osis abbreviation on the left. Names on the right are not Perl regular expressions, but they are case insensitive. Listed book names do not need to include any prefixes of `PREFIXES` or suffixes of `SUFFIXES` for the book names to be parsed correctly.' ],
-    ])],
+    ], 1)],
   ]],
   
   ['CF_addFootnoteLinks.txt', [
@@ -388,7 +417,7 @@ our %HELP = (
       ['ORDINAL_TERMS', 'A list of ordinal:term pairs where ordinal is ( \d | prev | next | last ) and term is a localization of that ordinal to be searched for in the text. Example:
       \b`ORDINAL_TERMS:(1:first|2:second|prev:preceding)`' ],
       ['FIX', 'Used to fix a problematic reference. Each instance has the form:
-      \b\b`LOCATION=\'book.ch.vs\' AT=\'ref-text\' and REPLACEMENT=\'exact-replacement\'`
+      \b`LOCATION=\'book.ch.vs\' AT=\'ref-text\' and REPLACEMENT=\'exact-replacement\'`
       \bWhere `LOCATION` is the context of the fix, AT is the text to be fixed, and `REPLACEMENT` is the fix. If `REPLACEMENT` is \'SKIP\', there will be no footnote reference link.' ],
       ['SKIP_XPATH', 'See CF_addScripRefLinks.txt'],
       ['ONLY_XPATH', 'See CF_addScripRefLinks.txt'],
@@ -397,13 +426,14 @@ our %HELP = (
       ['CURRENT_VERSE_TERMS', 'See CF_addScripRefLinks.txt'],
       ['SUFFIXES', 'See CF_addScripRefLinks.txt'],
       ['STOP_REFERENCE', 'A Perl regular expression matching where scripture references stop and footnote references begin. This is only needed if an error is generated because the parser cannot find the transition. For instance: \'See verses 16:1-5 and 16:14 footnotes\' might require the regular expression: `verses[\s\d:-]+and` to delineate between the scripture and footnote references.'],
-    ])],
+    ], 1)],
   ]],
   
   ['CF_addDictLinks.xml', [
     ['para', 'Many Bible translations are accompanied by reference materials, such as glossaries, maps and tables. Hyperlinks to this material, and between these materials, are helpful study aids. Translators may mark the words or phrases which reference a particular glossary entry or map. But often only the location of a reference is marked, while the exact target of the reference is not. Sometimes no references are marked, even though they exist throughout the translation. This command file\'s purpose is to convert all these kinds of textual references into strictly standardized working hyperlinks. '],
-    ['para', 'IMPORTANT: For case insensitive matches to work, ALL match text MUST be surrounded by the \Q...\E quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the \'i\' flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named \'link\' (using Perl\'s ?\'link\' notation) in which case that group will become the text of the link.' ],
-    ['para', 'References that are marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
+    ['para', 'IMPORTANT: For case insensitive matches to work, all match text must be surrounded by the \Q...\E quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the \'i\' flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named \'link\' (using Perl\'s ?\'link\' notation) in which case that group will become the text of the link.' ],
+    ['para', 'Glossary references marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. USFM 3 explicit references may include the target lemma is an attribute. If there are multiple sub-publications which share the same lemma in their glossaries however, disambiguation may be required. Two additional `\w` tag attributes may be used for disambiguation: `context` to specify the context of the target glossary (usually a scope value), and `dup` to specify the number of the duplicate lemma as it appears in CF_addDictLinks.xml.'],
+    ['para', 'Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
     ['list', ['' ,''], 
     [
       ['(A)', 'value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn\'t begin with \'not\') cancels negative attribute ancestors.' ],
@@ -425,13 +455,13 @@ our %HELP = (
       ['dontLink', 'If true, then match elements are used to undo any reference link.' ],
       ['onlyOldTestament', 'If true, text nodes which are not in the Old Testament, will not have match elements applied.' ],
       ['onlyNewTestament', 'If true, text nodes which are not in the New Testament, will not have match elements applied.' ],
-    ]))],
+    ], 1))],
     ['list', ['ELEMENT', 'DESCRIPTION'], &getList($CF_ADDDICTLINKS{'elements'}, [
       ['addDictLinks', 'The root element.' ],
       ['div', 'Used to organize groups of entries' ],
       ['entry', 'Text matching any child match element will be linked with the osisRef attribute value.' ],
       ['name', 'The name of the parent entry.' ],
-      ['match', 'Contains a Perl regular expression used to search text for links to the parent entry. For a match element to create a link, all its attributes and those of ancestor elements must be properly satisfied.' ],
+      ['match', 'Contains a Perl regular expression used to search text for links to the parent entry. For a match element to create a link, its attributes and those of its ancestor elements must be properly satisfied.' ],
     ])],
   ]],
 ],
@@ -508,7 +538,7 @@ our %HELP = (
       ['KeySort', 'HELP(sfm2osis;config.conf;KeySort)' ],
       ['AudioCode', 'HELP(sfm2osis;config.conf;AudioCode)' ],
       ['Scope', 'Used to describe a Bible module\'s contents. It follows osisRef rules including the use of the \'-\' range character. Note that Scope range interpretation requires knowledge of the versification system. The Scope entry allows determination of a Bible module\'s contents before it is loaded.' ],
-    ])],
+    ], 1)],
   ]],
   
 ],
@@ -561,6 +591,21 @@ sub help {
   }
   else {
     $search = lc($lookup);
+  }
+  
+  # Check for a data dump
+  if ($search) {
+    no strict 'refs';
+    my $v = uc($search);
+    my $t = ($v =~ s/^([%@\$])// ? $1:'');
+    my $r;
+    if ($t eq '@' && @$v) {
+      $r .= "\@$v : " . join(', ', @$v);
+    }
+    elsif ($t eq '$' && $$v) {
+      $r .= "\$$v : $$v";
+    }
+    if ($r) {return ($showcmd ? $showcmd : '') . $r . "\n";}
   }
 
   my $r;
@@ -806,14 +851,14 @@ sub para {
 sub getList {
   my $keyAP = shift;
   my $descAP = shift;
-  my $nosort = shift;
+  my $sort = shift;
   
-  my $refRE = &configRE(keys %CONFIG_DEFAULTS);
+  my $defRE = &configRE(keys %CONFIG_DEFAULTS);
   my $depRE = &configRE(@CONFIG_DEPRECATED);
   
   my @out;
   # Go through all required keys (some may be MATCHES keys)
-  foreach my $k ($nosort ? @{$keyAP} : sort @{$keyAP}) {
+  foreach my $k ($sort ? sort @{$keyAP} : @{$keyAP}) {
     my $key = $k;
     
     # Look for one or more matching description keys
@@ -841,9 +886,12 @@ sub getList {
       my $pdesc = ($descP->[1] ? $descP->[1] . ' ' : '');
       
       my $pdef;
-      if ($key =~ /^($refRE)$/) {$pdef = $CONFIG_DEFAULTS{$key};}
+      if ($pkey =~ /^($defRE)$/) {$pdef = $CONFIG_DEFAULTS{$pkey};}
       if ($pdef =~ /DEF$/) {$pdef = '';}
       $pdef = ($pdef ? "Default is `$pdef`.":'');
+      
+      # Don't include deprecated list entries
+      if ($pdep) {next;}
       
       push(@out, [ $pkey, $pdep.$pdesc.$pdef ]);
     }
@@ -866,21 +914,12 @@ sub getConversionArgs {
   foreach ('osis', @CONV_OSIS) {
     $all{$_}++;
   }
-  foreach ('all', &getPubTypes()) {
+  foreach ('all', &CONV_PUBS()) {
     $all{'sfm'.'2'.$_}++;
     $all{'osis'.'2'.$_}++;
   }
   
   return \%all;
-}
-sub getPubTypes {
-
-  my @pubTypes;
-  foreach (@CONV_PUBS) {
-    my $pt = $_; $pt =~ s/^osis2//;
-    push(@pubTypes, $pt);
-  }
-  return @pubTypes;
 }
 
 sub configList {

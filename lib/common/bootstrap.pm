@@ -58,6 +58,10 @@ our @CONV_OSIS = ('sfm2osis', 'osis2osis');
 
 # Conversion from OSIS to publication executables
 our @CONV_PUBS = ('osis2ebooks', 'osis2html', 'osis2sword', 'osis2gobible');
+sub CONV_PUBS {
+  my @p; foreach (@CONV_PUBS) {if (/^osis2(.*)$/) {push(@p, $_);}}
+  return @p;
+}
 
 # Other osis-converters executables
 our @CONV_OTHER = ('convert', 'defaults');
@@ -110,6 +114,15 @@ our %CONV_OUTPUT_FILES = (
   'osis2gobible' => [ '*.jar', 
                       '*.jad' ],
 );
+sub CONV_OUTPUT_FILES {
+  my $conversion = shift;
+  
+  my %u;
+  foreach (@{$CONV_OUTPUT_FILES{$conversion}}) {
+    if (/\.([^\.]+)$/) {$u{$1}++;}
+  }
+  return sort keys %u;
+}
 
 # Publication sets output by each conversion: 'tran' is the entire
 # Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook' is 
