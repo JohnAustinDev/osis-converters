@@ -38,7 +38,7 @@ my  @forkArgs;   my $a = 5;  # - Arguments to use with $forkFunc
 while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 # Set TMPDIR so it will not be deleted by init(), and create it.
-our $TMPDIR = @ARGV[1]; $TMPDIR =~ s/(?<=\/)[^\/]+$//;
+our $TMPDIR = @ARGV[1]; $TMPDIR =~ s/\/[^\/]+$//;
 File::Path::make_path($TMPDIR);
 
 # Save log path and use tmp log

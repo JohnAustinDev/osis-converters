@@ -16,11 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
-
-our $OSIS2OSIS_PASS = 'preinit'; # skip init_linux_script()
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
-# During osis2osis init() skips init_linux_script()
-our $LOGFILE = &initLOGFILE();
   
 # This script converts SFM, control, and OSIS files from one project 
 # into those of another. It runs a CF_osis2osis.txt command-file twice 
@@ -50,31 +45,21 @@ our $LOGFILE = &initLOGFILE();
 # MODEs below.
 #
 # CCOSIS:<osis-file>
-# Converts OSIS files using one of the MODEs below.
+# Converts OSIS files using one of the modes below.
 #
-# MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy:
+# Mode[transcode]|Mode[cctable]|Mode[script]|Mode[copy]:
 # Available methods of converting files.
-#
-# In addition to the commands above, these features may also be useful 
-# for some conversions:
-#
-# bootstrap.pl
-# When found in the project directory, it will be run first, even before
-# the preinit of CF_osis2osis.txt. This script takes no arguments and 
-# can do anything you want it to.
-#
-# preprocess.pl and/or preprocess.xsl
-# If one or both of these scripts are present in the module directory,
-# they will be run on the OSIS file after the 'CCOSIS' instructions but 
-# before final processing.
-#
-# postprocess.pl and/or postprocess.xsl
-# If one or both of these scripts are present in the module directory,
-# they will be run on the osis file after all processing, just before 
-# validation and checking.
 
-our ($INPD, $MAININPD, $SCRIPT_NAME, $MOD, $LOGFILE, $NO_OUTPUT_DELETE, 
-    $sourceProject);
+our ($INPD, $MAININPD, $SCRIPT_NAME, $MOD, $NO_OUTPUT_DELETE, $SourceProject);
+
+our $OSIS2OSIS_PASS = 'preinit'; # skip init_linux_script()
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
+# During osis2osis init() skips init_linux_script()
+our $MOD_OUTDIR = &getModuleOutputDir();
+if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
+our $TMPDIR = &initTMPDIR();
+our $LOGFILE = &initLOGFILE();
+our $APPENDLOG++;
 
 require("$SCRD/lib/osis2osis.pm");
 require("$SCRD/utils/simplecc.pl");
@@ -86,12 +71,12 @@ if (! -e $commandFile) {
 file located at: $MAININPD.", '', 1);
 }
 
-&osis2osis($commandFile, 'preinit');
-
+&osis2osis($commandFile);
 our $OSIS2OSIS_PASS = 'postinit'; # call init_linux_script() normally
+
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init($INPD, $LOGFILE);
 
-if (!&osis2osis($commandFile, 'postinit')) {
+if (!&osis2osis($commandFile)) {
 
   if (-e "$INPD/CF_sfm2osis.txt") {
     &Warn(
@@ -112,7 +97,7 @@ with sfm2osis."
   exit;
 }
 
-&reprocessOSIS($MOD, $sourceProject);
+&reprocessOSIS($MOD, $SourceProject);
 
 if ($NO_OUTPUT_DELETE) {
  # When NO_OUTPUT_DELETE = true, then the following debug code will  

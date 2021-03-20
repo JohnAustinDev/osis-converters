@@ -42,13 +42,13 @@ SCRIPT | DESCRIPTION
 
 
 ### SCOPE 
-Scope is a specific way of representing the Bible books included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see `convert -h '@OSIS_ABBR'`) in verse system order. Example: `Ruth Esth Jonah`. But continuous ranges of more than two books are shortened using '-'. Example: `Matt-Rev`.
+What is referred to as 'scope' is a specific way of representing which Bible books are included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see `convert -h '@OSIS_ABBR'`) in verse system order. Example: `Ruth Esth Jonah`. Continuous ranges of more than two books are shortened using '-'. Example: `Matt-Rev`.
 
 
 ### SUB-PUBLICATIONS 
-A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Scripts like `osis2ebooks` and `osis2html` output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.
+A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.
 
-To add a sub-publication, create a subdirectory in `<main-module> / sfm` whose name is the scope of the sub-publication, and put all SFM files pertaining to that sub-publication in it.
+To add a sub-publication, create a subdirectory in `<main-module> / sfm` whose name is the scope of the sub-publication, and put all SFM files pertaining to it there.
 
 
 ### HELP 
@@ -70,7 +70,7 @@ FILE | DESCRIPTION
 ---- | -----------
 **config.conf** | Configuration file with settings and meta-data for a project.
 **CF_sfm2osis.txt** | Place and order converted SFM files within the OSIS file and record deviations from the standard markup and verse system.
-**vsys.xml** | Insert Bible cross-references into the text.
+**vsys.xml** | Insert Bible cross-references found in this file into the text.
 **CF_addScripRefLinks.txt** | Control parsing of scripture references from the text and their conversion to working OSIS hyperlinks.
 **CF_addDictLinks.xml** | Control parsing of reference material references from the text and their conversion to working OSIS hyperlinks.
 **CF_addFootnoteLinks.txt** | Control parsing of footnote references from the text and their conversion to working OSIS hyperlinks.
@@ -115,12 +115,12 @@ DIRECTIVE | DESCRIPTION
 **scope (M)** | Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.
 **feature (M)** | Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.
 **cover (M)** | Takes a `( yes \| no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.
-**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| osis2ebooks \| osis2html \| osis2sword \| osis2gobible \| subpub \| tbook \| tran \| book)`.
-**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( osis2ebooks \| osis2html \| osis2sword \| osis2gobible \| subpub \| tbook \| tran \| book)`.
+**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| subpub \| tbook \| book \| tran)`.
+**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| subpub \| tbook \| book \| tran)`.
 
 
 ### SPECIAL FEATURES 
-The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see `convert -h "SFM ID DIRECTIVES"`). Supported features are:
+The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see `convert -h 'SFM ID DIRECTIVES'`). Supported features are:
 
 FEATURE | DESCRIPTION
 ------- | -----------
@@ -141,7 +141,7 @@ HOOK | WHEN CALLED
 
 
 ## config.conf 
-Each project has a config.conf file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The config.conf file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The 'system' section is different as it contains global constants that are the same in any context. The following sections are recognized: MAINMOD, DICTMOD, system, osis2ebooks, osis2html, osis2sword, osis2gobible (where MAINMOD is the project code and DICTMOD is the same project code suffixed with 'DICT'). What follows are available settings in the config.conf file. Letters in parenthesis indicate these entry types:
+Each project has a `config.conf` file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The `config.conf` file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The 'system' section is different as it contains global constants that are the same in any context. The following sections are recognized: MAINMOD, DICTMOD, system, osis2ebooks, osis2html, osis2sword, osis2gobible (where MAINMOD is the project code and DICTMOD is the same project code suffixed with 'DICT'). What follows are available settings in the `config.conf` file. Letters in parenthesis indicate these entry types:
 
 (C): Continuable from one line to another using a backslash character.
 
@@ -160,11 +160,12 @@ ENTRY | DESCRIPTION
 ----- | -----------
 **Abbreviation (LW)** | A short localized name for the module.
 **About (CLW)** | Localized information about the module. Similar to `Description` but longer.
-**AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `<vsys>.xml` file is found at `defaults / bible / Cross_References / <versification>.xml` having the name of the versification used by the project (see `convert -h "Adding External Cross-References"`). Default is `AUTO`.
+**AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `<vsys>.xml` file is found for the project (see `convert -h 'Adding External Cross-References'`). Default is `AUTO`.
 **AddDictLinks** | Select whether to parse glossary references in the text and convert them to hyperlinks: `(true \| false \| check \| AUTO)`. `AUTO` runs the parser only if `CF_addDictLinks.txt` is present for the module. Default is `AUTO`.
 **AddFootnoteLinks** | Select whether to parse footnote references in the text and convert them to hyperlinks: `(true \| false \| AUTO)`. `AUTO` runs the parser only if `CF_addFootnoteLinks.txt` is present for the module. Default is `AUTO`.
 **AddScripRefLinks** | Select whether to parse scripture references in the text and convert them to hyperlinks: `(true \| false \| AUTO)`. `AUTO` runs the parser only if `CF_addScripRefLinks.txt` is present for the module. Default is `AUTO`.
 **AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
+**BookGroupTitle\[\w+\]** | A localized title to use for one these book groups: `OT, NT, Apocrypha, Apostolic_Fathers, Armenian_Orthodox_Canon_Additions, Ethiopian_Orthodox_Canon, Peshitta_Syriac_Orthodox_Canon, Rahlfs_LXX, Rahlfs_variant books, Vulgate_and_other_later_Latin_mss, Other`. Example: `BookGroup[NT]=The New Testament` or `BookGroup[Apocrypha]=The Apocrypha`
 **COVERS (PSU)** | Location where cover images may be found. Cover images should be named: `<project-code>_<scope>.jpg` and will then automatically be included in the appropriate OSIS files.
 **CombineGlossaries** | Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` let's osis-converters decide. Default is `AUTO`.
 **CombinedGlossaryTitle (L)** | A localized title for the combined glossary in the Table of Contents.
@@ -176,7 +177,6 @@ ENTRY | DESCRIPTION
 **CopyrightDate (LW)** | Four digit copyright year.
 **CopyrightHolder (LW)** | Name of the copyright holder.
 **CopyrightNotes (CLW)** | Notes from the copyright holder.
-**CreateTypes** | Select which type, or types, of eBooks to create: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
 **CustomBookOrder** | Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: `(true \| false)`. Default is `false`.
 **DEBUG (S)** | Set to `true` enable debugging log output.
 **Description (LW)** | A short localized description of the module.
@@ -185,23 +185,19 @@ ENTRY | DESCRIPTION
 **DistributionNotes (CLW)** | Additional distribution notes.
 **EBOOKS (SU)** | Location where eBooks are published.
 **Encoding (W)** | osis-converters only supports UTF-8 encoding. Default is `UTF-8`.
-**FONTS (PSU)** | Location where specified fonts can be found.
-**Font (W)** | 
+**FONTS (PSU)** | Permanent location where specified fonts can be found.
+**Font (W)** | The font to use for electronic publications.
 **FullResourceURL (U)** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is `false`.
+**History_[\d\.]+** | Each version of released publications should have one of these entries describing what was new in that version.
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.
 **Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
+**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
+**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
+**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
 **ARG_\w+** | Config settings for undocumented fine control.
-**BookGroupTitleNT (L)** | A localized title for the Old Testament in the Table of Contents.
-**BookGroupTitleOT (L)** | A localized title for the New Testament in the Table of Contents.
-**BookGroupTitle\w+** | A localized title to use for these book groups: `OT, NT, Apocrypha, Apostolic Fathers, Armenian Orthodox Canon Additions, Ethiopian Orthodox Canon, Peshitta Syriac Orthodox Canon, Rahlfs LXX, Rahlfs variant books, Vulgate and other later Latin mss, Other`. Example: `BookGroupNT=The New Testament` or `BookGroupApocrypha=The Apocrypha`
-**CreatePubBook** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`. Default is `AUTO`.
-**CreatePubSubpub** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`. Default is `AUTO`.
-**CreatePubTran** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`. Default is `AUTO`.
-**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
-**History_[\d\.]+** | Each version of released publications should have one of these entries describing what was new in that version.
-**TitleSubPublication\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
-**ModDrv (W)** | 
+**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
+**ModDrv (W)** | The type of module. This is auto-selected according to SFM `\id` type. Options avaiable are: `zText` for Bibles, `RawLD4` for DICTMOD, `RawGenBook` for Children's Bibles, or `zCom` for commentaries.
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
@@ -210,6 +206,8 @@ ENTRY | DESCRIPTION
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.
 **ShortPromo (LW)** | A link to the home page for the module, perhaps with an encouragement to visit the site.
+**SubPublicationTitle\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
+**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
 **TitleCase** | A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.
@@ -230,7 +228,7 @@ NOTES: Each VSYS instruction is evaluated in verse system order regardless of th
 COMMAND | DESCRIPTION
 ------- | -----------
 **EVAL_REGEX** | Any perl regular expression to be applied to source SFM files before conversion. An EVAL_REGEX instruction is only effective for the RUN statements which come after it. The EVAL_REGEX command may be suffixed with a label or path in parenthesis and must be followed by a colon. A label might make organizing various kinds of changes easier, while a file path makes the EVAL_REGEX effective on only a single file. If an EVAL_REGEX has no regular expression, all previous EVAL_REGEX commands sharing the same label are canceled.<br />Examples:<br />`EVAL_REGEX: s/^search/replace/gm`<br />`EVAL_REGEX(myfix): s/^search/replace/gm`<br />`EVAL_REGEX(./sfm/file/path.sfm): s/^search/replace/gm`
-**RUN** | Causes an SFM file to be converted and appended to the module's OSIS file. Each RUN must be followed by a colon and the file path of an SFM file to convert. RUN can be used more than once on the same file. IMPORTANT: Bible books are normally re-ordered according to the project's versification system. To maintain RUN Bible book order, `CustomBookOrder` must be set to true in config.conf.
+**RUN** | Causes an SFM file to be converted and appended to the module's OSIS file. Each RUN must be followed by a colon and the file path of an SFM file to convert. RUN can be used more than once on the same file. IMPORTANT: Bible books are normally re-ordered according to the project's versification system. To maintain RUN Bible book order, `CustomBookOrder` must be set to true in `config.conf`.
 **VSYS_MOVED** | Used when translators moved a range of verses from the expected location within the project's versification scheme to another location. This instruction can have several forms:<br />`VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`<br />Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range's last verse, indicating only part of the verse was moved. References to affected verses will be tagged so as to render correctly in both standard and custom versification schemes. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending on whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.<br />`VSYS_MOVED: Tob -> Apocrypha[Tob]`<br />Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `%OSIS_GROUP` for supported book-groups and books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.<br />`VSYS_MOVED: Apocrypha -> bookGroup[2]`<br />Indicates the entire book-group on the left was moved from its expected location to a custom book-group index on the right. See `%OSIS_GROUP` for supported book-groups. The book-group will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book-group will appear in one location or the other.
 **VSYS_MISSING** | Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:<br />`VSYS_MISSING: Josh.24.34.36`<br />Meaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse's osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses in the chapter having the verse numbers of the missing verses, then the standard versification rendering will renumber them and any following verses upward by the number of missing verses, and alternate verse numbers will be appended to display the original verse numbers. References to affected verses will be tagged so as to render them correctly in either standard or custom versification schemes. An entire missing chapter is not supported unless it is the last chapter in the book.
 **VSYS_EXTRA** | Used when translators inserted a range of verses that are not part of the project's versification scheme. This instruction takes the form:<br />`VSYS_EXTRA: Prov.18.8 <- Synodal:Prov.18.8`<br />The left side is a verse range specifying the extra verses in the custom verse scheme, and the right side range is an optional universal address for those extra verses. The universal address is used to record where the extra verses originated from. When the OSIS file is rendered in the standard versification scheme, the additional verses will become alternate verses appended to the preceding verse, and if there are verses following the extra verses, they will be renumbered downward by the number of extra verses, and alternate verse numbers will be appended displaying the custom verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. The extra verse range may be an entire chapter if it occurs at the end of a book (such as Psalm 151). When rendered in the standard versification scheme, an alternate chapter number will then be inserted and the entire extra chapter will be appended to the last verse of the previous chapter.
@@ -340,7 +338,7 @@ ELEMENT | DESCRIPTION
 # osis2osis 
 
 ## SYNOPSIS 
-When a translation is to be converted into multiple scripts, osis2osis can be used to simplify the work of conversion. The osis2osis program is flexible and controlled by CF_osis2osis.txt. Source script SFM may be converted using sfm2osis, then the resulting OSIS file and the source script config.conf can be converted directly to other scripts using osis2osis. The osis2osis script can also be used to convert just control files from one script to another, allowing sfm2osis create the OSIS file. This is useful when translators provide multiple sets of source files of different scripts, and control files alone need to be converted from one script to another.
+When a translation is to be converted into multiple scripts, osis2osis can be used to simplify the work of conversion. The osis2osis program is flexible and controlled by CF_osis2osis.txt. Source script SFM may be converted using sfm2osis, then the resulting OSIS file and the source script `config.conf` can be converted directly to other scripts using osis2osis. The osis2osis script can also be used to convert just control files from one script to another, allowing sfm2osis create the OSIS file. This is useful when translators provide multiple sets of source files of different scripts, and control files alone need to be converted from one script to another.
 
 
 ## CF_osis2osis.txt 
@@ -348,15 +346,16 @@ The following settings are supported:
 
 SETTING | DESCRIPTION
 ------- | -----------
-**SET_CONFIG_`<entry>`** | Set the value of a config entry. The config.conf file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `SET_CONFIG_<section>+<entry>: <value>`
-**SKIP_NODES_MATCHING** | Don't convert the text of nodes selected by an xpath expression.
-**SKIP_STRINGS_MATCHING** | Don't convert the text of strings matching a Perl regular expression.
+**SourceProject** | A required entry specifying the source project to convert from.
 **CC** | Convert control files using the previously selected MODE. Each control file has a `CC: <file>` line, and each path is relative to it's main project directory.
 **CCOSIS** | Convert an OSIS file using the previously selected MODE. Examples: `CCOSIS: <code>` or `CCOSIS: <code>DICT`
-**SET_sourceProject** | A required entry specifying the source project to convert from.
-**SET_MODE_Script** | Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file
-**SET_MODE_Transcode** | Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `SET_MODE_Transcode: script.pl`
-**SET_MODE_Copy** | Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.
+**Mode[cctable]** | Use a CC table do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.
+**Mode[script]** | Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file
+**Mode[transcode]** | Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `SET_MODE_Transcode: script.pl`
+**Mode[copy]** | Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.
+**Config\[.+\]** | Set the value of a config entry. The `config.conf` file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `SET_Config[<section>+<entry>]: <value>`
+**SkipNodesMatching** | Don't convert the text of nodes selected by an xpath expression.
+**SkipStringsMatching** | Don't convert the text of strings matching a Perl regular expression.
 
 
 # osis2ebooks 
@@ -368,10 +367,10 @@ The following `config.conf` entries control eBook production:
 
 ENTRY | DESCRIPTION
 ----- | -----------
-**CreateTypes** | Select which type, or types, of eBooks to create: `(AUTO | azw3 | epub)`. Default is `AUTO`.
-**CreatePubTran** | Select whether to create a single ePublication containing everything in the OSIS file: `(true | false | AUTO)`. Default is `AUTO`.
-**CreatePubSubpub** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`. Default is `AUTO`.
-**CreatePubBook** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`. Default is `AUTO`.
+**MakeTypes** | Select which type, or types, of publications to make: `(AUTO | azw3 | epub)`. Default is `AUTO`.
+**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true | false | AUTO)`.
+**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`.
+**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`.
 
 
 # osis2html 
@@ -391,15 +390,17 @@ Create CrossWire SWORD modules from OSIS files. Once Paratext files have been co
 ## SYNOPSIS 
 Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones.
 
-Default control files will be copied from the defaults directory (see `convert -h` for their locations). This includes the Go Bible Creator user interface localization file and the app icon. These files can be customized per project, by placing them in `<main-module> / gobible` directory. Or customized for a group of projects, by placing them in `<main-module> / .. / defaults / gobible`.
+Default control files will be copied from the defaults directory (see `convert -h convert` for their locations). This includes the Go Bible Creator user interface localization file and the app icon. These files can be customized per project, by placing them in `<main-module> / gobible` directory. Or customized for a group of projects, by placing them in `<main-module> / .. / defaults / gobible`.
 
 IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.
+
+Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by `defaults / gobible / <type>Char.txt` or `<main-module> / .. / defaults / gobible / <type>Char.txt` where type is `simple` or `normal`.
 
 
 # CrossWire 
 
 ## Non-standard config.conf entries 
-The following are SWORD config.conf entries which are not part of the CrossWire standard.
+The following are SWORD `config.conf` entries which are not part of the CrossWire standard.
 
 ENRTY | DESCRIPTION
 ----- | -----------

@@ -418,7 +418,7 @@
   <function name="oc:getDivScopeTitle" as="xs:string">
     <param name="glossary" as="element(div)?"/>
     <variable name ="pscope" select="replace($glossary/@scope, '\s', '_')"/>
-    <variable name="title" select="root($glossary)//header//description[contains(@type, concat('TitleSubPublication[', $pscope, ']'))]"/>
+    <variable name="title" select="root($glossary)//header//description[contains(@type, concat('SubPublicationTitle[', $pscope, ']'))]"/>
     <value-of select="if ($title) then $title/text() else ''"/>
   </function>
   

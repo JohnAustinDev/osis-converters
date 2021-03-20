@@ -24,9 +24,6 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($READLAYER, $WRITELAYER, $MOD_OUTDIR, @VSYS_INSTR,
     $NO_OUTPUT_DELETE, $MODULETOOLS_BIN, $DEBUG);
     
-# Initialized below
-our ($sourceProject);
-
 # IMPORTANT NOTES ABOUT SFM & COMMAND FILES:
 #  -SFM files must be UTF-8 encoded.
 #
@@ -148,7 +145,7 @@ applied to all following RUN commands until/unless canceled by:
 https://ubs-icap.org/chm/usfm/2.4/index.html
 \\b
 Sometimes there is a bug or feature of CrossWire's usfm2osis.py script or the USFM or OSIS specifications involved. EVAL_REGEX can be used to change or remove offending SFM tags:") .
-&help('EVAL_REGEX', 1, 1));
+&help('EVAL_REGEX', 1));
   }
   &Log("\n");
 

@@ -22,33 +22,30 @@ use strict;
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($OSIS, @SUB_PUBLICATIONS, $NO_OUTPUT_DELETE, $XPC, $XML_PARSER,
-    @OC_LOCALIZABLE_CONFIGS, $O2O_CurrentContext, $O2O_CurrentMode, 
+    @OC_LOCALIZABLE_CONFIGS, $OSIS2OSIS_PASS, $O2O_CurrentMode, 
     %O2O_CONFIGS, %O2O_CONVERTS);    
    
 # Perl symbolic references are always to globals
-our ($MODE_Transcode, $MODE_Script, $MODE_CCTable, $MODE_Copy,
-    $SKIP_NODES_MATCHING, $SKIP_STRINGS_MATCHING);
+our ($Mode_transcode, $Mode_script, $Mode_cctable, $Mode_copy,
+    $SkipNodesMatching, $SkipStringsMatching);
     
 # Initialized below
-our $sourceProject;
+our $SourceProject;
 
 sub osis2osis {
   my $commandFile = shift;
-  my $O2O_CurrentContext = shift; # During 'preinit', CC commands are run. During 'postinit', CCOSIS command(s) run. 
-  
-  our $OSIS2OSIS_PASS = $O2O_CurrentContext;
-  
+
   my ($outfile, $sourceProjectPath);
   
-  if ($O2O_CurrentContext !~ /^(preinit|postinit)$/) {
-    &ErrorBug("osis2osis context '$O2O_CurrentContext' must be 'preinit' or 'postinit'.");
+  if ($OSIS2OSIS_PASS !~ /^(preinit|postinit)$/) {
+    &ErrorBug("osis2osis context '$OSIS2OSIS_PASS' must be 'preinit' or 'postinit'.");
     return;
   }
   
-  &Log("\n-----------------------------------------------------\nSTARTING osis2osis context=$O2O_CurrentContext, directory=$MAININPD\n\n");
+  &Log("\n-----------------------------------------------------\nSTARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD\n\n");
 
   # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
-  $O2O_CurrentMode = 'MODE_Copy';
+  $O2O_CurrentMode = 'copy';
   undef(%O2O_CONFIGS);
   undef(%O2O_CONVERTS);
   
@@ -57,30 +54,32 @@ sub osis2osis {
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
-    elsif ($_ =~ /^SET_(MODE_Transcode|MODE_CCTable|MODE_Script|MODE_Copy|sourceProject|CONFIG_.+|SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING):(\s*(.*?)\s*)?$/) {
+    elsif ($_ =~ /^(Mode\[transcode\]|Mode\[cctable\]|Mode\[script\]|Mode\[copy\]|SourceProject|Config\[.+\]|SkipNodesMatching|SkipStringsMatching):(\s*(.*?)\s*)?$/) {
       no strict "refs";
       if ($2) {
         my $par = $1;
         my $val = $3;
         
+        $par =~ s/\[/_/g; $par =~ s/\]//g;
+        
         $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
-        &Log("NOTE: Setting \$main::$par to $val\n", 1);
-        if ($par =~ /^(MODE_CCTable|MODE_Script|MODE_Transcode|MODE_Copy)$/) {
-          $O2O_CurrentMode = $par;
+        &Log("NOTE: Setting $par to $val\n", 1);
+        if ($par =~ /^Mode_(cctable|script|transcode|copy)$/) {
+          $O2O_CurrentMode = $1;
           &Note("Setting conversion mode to $par");
-          if ($par ne 'MODE_Copy') {
+          if ($par ne 'copy') {
             if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $MAININPD);}
-            if (! -e $$par) {&Error("File does not exist: $$par", "Check the SET_$par command path."); next;}
-            if ($par eq 'MODE_Transcode') {require($MODE_Transcode);}
+            if (! -e $$par) {&Error("File does not exist: $$par", "Check the Mode[$par] command path."); next;}
+            if ($par eq 'transcode') {require($Mode_transcode);}
           }
         }
-        elsif ($par =~ /(SKIP_NODES_MATCHING|SKIP_STRINGS_MATCHING)/) {
+        elsif ($par =~ /(SkipNodesMatching|SkipStringsMatching)/) {
           $$par =~ s/(?<!\\)\((?!\?)/(?:/g; # Change groups to non-capture!
         }
-        elsif ($par =~ /^CONFIG_(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
-        elsif ($par eq 'sourceProject') {
+        elsif ($par =~ /^Config_(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
+        elsif ($par eq 'SourceProject') {
           if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
-            &Error("SET_sourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SET_sourceProject of $commandFile.", 1);
+            &Error("SourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SourceProject of $commandFile.", 1);
           }
           # osis2osis depends on sourceProject OSIS file, and also on its sfm hierarchy, so copy that
           $sourceProjectPath = $$par;
@@ -99,31 +98,43 @@ sub osis2osis {
     }
     elsif ($_ =~ /^CC:\s*(.*?)\s*$/) {
       my $ccpath = $1;
-      if ($O2O_CurrentContext ne 'preinit') {next;}
+      if ($OSIS2OSIS_PASS ne 'preinit') {next;}
       if ($NO_OUTPUT_DELETE) {next;}
-      if (!$sourceProject) {&Error("Unable to run CC", "Specify SET_sourceProject in $commandFile", 1);}
+      if (!$SourceProject) {&Error(
+"Unable to run CC", "Specify SET_sourceProject in $commandFile", 1);
+      }
       my $inpath;
-      if ($ccpath =~ /^\./) {&Error("Paths in CC: instructions cannot start with '.':$_", "The path is intended for use by getDefaultFile() of sourceProject.", 1);}
+      if ($ccpath =~ /^\./) {&Error(
+"Paths in CC: instructions cannot start with '.':$_", 
+"The path is intended for use by getDefaultFile() of SourceProject.", 1);
+      }
       my $glob = ($ccpath =~ s/^(.*?)(\/[^\/]*\*[^\/]*)$/$1/ ? $2:'');
       $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
       foreach my $in (glob $inpath.$glob) {
         my $out = $in;
         $out =~ s/\Q$sourceProjectPath\E\//$MAININPD\//;
-        my $from = $sourceProject.'DICT'; my $to = $MAINMOD.'DICT';
+        my $from = $SourceProject.'DICT'; my $to = $MAINMOD.'DICT';
         $out =~ s/\/$from\//\/$to\//g;
         &Note("CC processing mode $O2O_CurrentMode, $in -> $out");
-        if (! -e $in) {&Error("File does not exist: $in", "Check your CC command path and sourceProject.", 1);}
+        if (! -e $in) {&Error(
+"File does not exist: $in", 
+"Check your CC command path and SourceProject.", 1);
+        }
         if ($out =~ /^(.*)\/[^\/]+?$/ && !-e $1) {`mkdir -p $1`;}
-        if ($O2O_CurrentMode eq 'MODE_Copy') {&copy($in, $out);}
-        elsif ($O2O_CurrentMode eq 'MODE_Script') {&shell("\"$MODE_Script\" \"$in\" \"$out\"");}
+        if ($O2O_CurrentMode eq 'copy') {
+          &copy($in, $out);
+        }
+        elsif ($O2O_CurrentMode eq 'script') {
+          &shell("\"$Mode_script\" \"$in\" \"$out\"");
+        }
         else {&convertFileStrings($in, $out);}
       }
     }
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
-      if (!$sourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
-      my $sourceProject_osis = $sourceProject.($osis =~ /DICT$/ ? 'DICT':'');
-      if ($O2O_CurrentContext ne 'postinit') {next;}
+      if (!$SourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
+      my $sourceProject_osis = $SourceProject.($osis =~ /DICT$/ ? 'DICT':'');
+      if ($OSIS2OSIS_PASS ne 'postinit') {next;}
       
       # Since osis2osis is run separately for MAINMOD and DICTMOD,
       # only the current MOD will be run at this time. 
@@ -143,11 +154,11 @@ sub osis2osis {
         config.conf, or create the source project OSIS file(s).", 1);
       }   
       
-      if ($O2O_CurrentMode eq 'MODE_Copy') {
+      if ($O2O_CurrentMode eq 'copy') {
         &copy($src_osis, $outfile);
       }
-      elsif ($O2O_CurrentMode eq 'MODE_Script') {
-        &shell("\"$MODE_Script\" \"$src_osis\" \"$outfile\"");
+      elsif ($O2O_CurrentMode eq 'script') {
+        &shell("\"$Mode_script\" \"$src_osis\" \"$outfile\"");
       }
       else  {
         &convertFileStrings($src_osis, $outfile);
@@ -212,7 +223,7 @@ sub convertFileStrings {
     &Note("Converted ".@glossIDs2Convert." glossary osisRef values.");
     
     # Convert osisRef, annotateRef and osisID work prefixes
-    my $w = $sourceProject;
+    my $w = $SourceProject;
     my @ids = $XPC->findnodes('//*[contains(@osisRef, "'.$w.':") or contains(@osisRef, "'.$w.'DICT:")]', $xml);
     foreach my $id (@ids) {my $new = $id->getAttribute('osisRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisRef', $new);}
     &Note("Converted ".@ids." osisRef values.");
@@ -244,12 +255,12 @@ sub convertFileStrings {
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
     # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW (except AudioCode!)
-    my $confHP = &readConfFile($ccin);
+    my $confHP = &readConf($ccin);
     my $origMainmod = $confHP->{'MainmodName'};
     my $origDictmod = $confHP->{'DictmodName'};
 
     # NOTE: Global $DICTMOD may not have been set yet, even if there is
-    # a dictionary module with the project, so if sourceProject has a
+    # a dictionary module with the project, so if SourceProject has a
     # dict module, make sure DICTMOD is set.
     if ($origDictmod && !$DICTMOD) {
       $DICTMOD = $MAINMOD.'DICT';
@@ -269,7 +280,7 @@ sub convertFileStrings {
     foreach my $e (sort keys %{$confHP}) {
       if ($e =~ /\+AudioCode/) {next;}
       my $new = $confHP->{$e};
-      my $mainsp = $sourceProject; $mainsp =~ s/DICT$//;
+      my $mainsp = $SourceProject; $mainsp =~ s/DICT$//;
       my $lcmsp = lc($mainsp);
       my $m1 = $new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg;
       my $m2 = $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g;
@@ -280,15 +291,16 @@ sub convertFileStrings {
     }
     
     # convert appropriate entry values
-    my $loconfigRE = &configRE(@OC_LOCALIZABLE_CONFIGS);
+    my @c = ('MATCHES:.*Title.*', 'Abbreviation', 'About', 'Description');
+    my $l = &conf('Lang'); $l =~ s/\-.*$//;
+    if ($l) {push(@c, "MATCHES:.*_$l");}
+    my $locRE = &configRE(@c);
     foreach my $fullEntry (sort keys %{$confHP}) {
-      no strict "refs";
       my $e = $fullEntry;
       my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
-      if (${"CONVERT_$e"}) {
-        &Error("The setting SET_CONVERT_$e is no longer supported.", 
-        "Change it to SET_CONFIG_$e instead.");
-      }
+      if ($e !~ /$locRE/) {next;}
+      $confHP->{$fullEntry} = &transcodeStringByMode($confHP->{$fullEntry});
+      &Note("Converting entry $e to: ".$confHP->{$fullEntry});
     }
     
     # set requested values
@@ -316,7 +328,7 @@ sub convertFileStrings {
     if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open collections.txt output $ccout"); return;}
     my %col;
     while(<INF>) {
-      if ($_ =~ s/^(Collection\:\s*)(\Q$sourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
+      if ($_ =~ s/^(Collection\:\s*)(\Q$SourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
       elsif ($_ =~ /^(Info|Application-Name)\s*(:.*$)/) {
         my $entry = $1; my $value = $2;
         my $newValue = &transcodeStringByMode($value);
@@ -376,7 +388,7 @@ sub translateStringByMode {
   my $s = shift;
   
   if (exists(&translate)) {return &translate($s);}
-  elsif ($O2O_CurrentMode eq 'MODE_Transcode') {
+  elsif ($O2O_CurrentMode eq 'transcode') {
       &Warn("<>Function translate() is usally defined when using MODE_Transcode, but it is not.", "
 <>In MODE_Transcode you can define a Perl function called 
 translate() which will translate src attributes and other metadata. To 
@@ -384,29 +396,29 @@ use it, you must tell osis-converters where to find it by using
 SET_MODE_Transcode:<include-file.pl>");
     return $s;
   }
-  elsif ($O2O_CurrentMode eq 'MODE_CCTable') {return &transcodeStringByMode($s);}
+  elsif ($O2O_CurrentMode eq 'cctable') {return &transcodeStringByMode($s);}
   else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by translateStringByMode()");}
 }
 
 sub transcodeStringByMode {
   my $s = shift;
   
-  if ($O2O_CurrentMode eq 'MODE_Transcode' && !exists(&transcode)) {
+  if ($O2O_CurrentMode eq 'transcode' && !exists(&transcode)) {
       &Error("<>Function transcode() must be defined when using MODE_Transcode.", "
 <>" . &help('sfm2osis;CF_osis2osis.txt;MODE_Transcode'));
     return $s;
   }
   
-  if ($SKIP_NODES_MATCHING && $s =~ /$SKIP_NODES_MATCHING/) {
+  if ($SkipNodesMatching && $s =~ /$SkipNodesMatching/) {
     &Note("Skipping node: $s");
     return $s;
   }
   
-  if (!$SKIP_STRINGS_MATCHING) {return &transcodeStringByMode2($s);}
+  if (!$SkipStringsMatching) {return &transcodeStringByMode2($s);}
   
-  my @subs = split(/($SKIP_STRINGS_MATCHING)/, $s);
+  my @subs = split(/($SkipStringsMatching)/, $s);
   foreach my $sub (@subs) {
-    if ($sub =~ /$SKIP_STRINGS_MATCHING/) {
+    if ($sub =~ /$SkipStringsMatching/) {
       &Note("Skipping string: $sub");
       next;
     }
@@ -417,12 +429,12 @@ sub transcodeStringByMode {
 sub transcodeStringByMode2 {
   my $s = shift;
   
-  if ($O2O_CurrentMode eq 'MODE_Transcode') {
+  if ($O2O_CurrentMode eq 'transcode') {
     return &transcode($s);
   }
-  elsif ($O2O_CurrentMode eq 'MODE_CCTable')  {
+  elsif ($O2O_CurrentMode eq 'cctable')  {
     require("$SCRD/utils/simplecc.pl");
-    return &simplecc_convert($s, $MODE_CCTable);
+    return &simplecc_convert($s, $Mode_cctable);
   }
   else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by transcodeStringByMode()");}
 }

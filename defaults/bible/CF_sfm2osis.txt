@@ -1,27 +1,3 @@
-# See /lib/sfm2osis.pm for more command file documentation
-
-# Use with CF_osis2osis.txt to provide the source module whose OSIS file 
-# will be used as the starting point for the convsersion. This is used 
-# when producing multiple modules with different scripts.
-#SET_sourceProject:MODNAME
-
-# Use when a punctuation character should be treated as a letter.
-#PUNC_AS_LETTER:'`
-
-# Use when Perl uc() and lc() do not produce the correct upper/lower 
-# case conversion.
-#SPECIAL_CAPITALS:i->İ ı->I
-
-# Use to make modifications to USFM files before conversion. The keyword
-# EVAL_REGEX may be immediately followed by a label within parenthesis 
-# which will label that EVAL_REGEX for either later cancelling, or, if 
-# the label is the path to a particular USFM file then the regex will 
-# only be applied to that particular file. Cancellation can also be done 
-# by "EVAL_REGEX(label):"
 #EVAL_REGEX:s///g
 
-# Use to add a USFM file to the conversion. Bible modules will have their
-# books reordered according to the chosen versification scheme (unless 
-# CustomBookOrder is true). The contents of a Dict module will always 
-# be the order in which files are run.
 #RUN:./sfm/*.sfm

@@ -148,7 +148,7 @@ sub addFootnoteLinks {
   &Log("READING INPUT FILE: \"$$osisP\".\n");
   &Log("\n");
   
-  my $bibleOsis = (&conf('ModDrv') !~ /LD/ ? $$osisP:&getModuleOsisFile($MAINMOD));
+  my $bibleOsis = ($MOD eq $MAINMOD ? $$osisP:&getModuleOsisFile($MAINMOD));
   if (-e $bibleOsis) {
     my @files = &splitOSIS($bibleOsis);
     my $other = $XML_PARSER->parse_file(@files[0]);

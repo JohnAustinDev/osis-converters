@@ -18,7 +18,7 @@
 
 use strict;
 
-our ($XPC, $XML_PARSER, %OSIS_ABBR, @SWORD_VERSE_SYSTEMS, $MOD_OUTDIR,
+our ($XPC, $XML_PARSER, %OSIS_ABBR, @VERSE_SYSTEMS, $MOD_OUTDIR, 
     $TMPDIR, $WRITELAYER);
 
 # Return the scope of the entire contents of an OSIS file. The '-' 
@@ -452,10 +452,10 @@ sub swordVsysXML {
 sub checkVerseSystemName {
   my $vsys = shift;
   
-  my $vsre = join('|', @SWORD_VERSE_SYSTEMS);
+  my $vsre = join('|', @VERSE_SYSTEMS);
   if ($vsys !~ /($vsre)/) {
     &Error("Not a valid osis-converters versification system: $vsys".
-           "Must be one of: ".join(', ', @SWORD_VERSE_SYSTEMS));
+           "Must be one of: ".join(', ', @VERSE_SYSTEMS));
     return;
   }
   

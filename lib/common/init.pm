@@ -23,7 +23,7 @@ our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE,
     $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, $NO_OUTPUT_DELETE, 
     $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, $TEI_NAMESPACE, 
     $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, %CONV_OUTPUT_SUBDIR, 
-    %CONV_OUTPUT_FILES, $OC_VERSION);
+    %CONV_OUTPUT_FILES, $OC_VERSION, %ARGS, $APPENDLOG);
 
 sub init_linux_script {
   &Log("Running $SCRIPT_NAME version $OC_VERSION
@@ -40,21 +40,10 @@ sub init_linux_script {
   if ($SCRIPT_NAME =~ /defaults/) {
     &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
     
-    # update old convert.txt configuration
-    if ($INPD eq $MAININPD && (-e "$INPD/ebooks/convert.txt" || -e "$INPD/html/convert.txt")) {
-      &update_removeConvertTXT($CONFFILE);
-    }
-
-    # update old /DICT/config.conf configuration
-    if ($DICTMOD && -e "$DICTINPD/config.conf") {
-      &update_removeDictConfig("$DICTINPD/config.conf", $CONFFILE);
-    }
-    
     &readSetCONF();
+    
     # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
-    {
-     my $cn = "${MAINMOD}DICT"; $DICTMOD = ($INPD eq $DICTINPD || &conf('Companion', $MAINMOD) =~ /\b$cn\b/ ? $cn:'');
-    }
+    $DICTMOD = ( -d $DICTINPD ? $MAINMOD . 'DICT' : '' );
   }
   
   if (!-e $CONFFILE) {
@@ -164,7 +153,9 @@ sub initLOGFILE {
 
   my $log = ( $LOGFILE ? $LOGFILE : "$MOD_OUTDIR/LOG_$SCRIPT_NAME.txt" );
   
-  if (-f $log) {unlink($log);}
+  if (-f $log && !$APPENDLOG) {
+    unlink($log);
+  }
   
   return $log;
 }
@@ -227,30 +218,13 @@ sub checkProjectConfiguration {
   Exiting...";
     exit;
   }
-  if (&conf('ModDrv') =~ /LD/) {
-    my $main = $INPD;
-    if ($main !~ s/^.*?\/([^\/]+)\/$MOD$/$1/) {
-      &Error("Unsupported project configuration.", "The top project directory must be a Bible project.", 1);
-    }
-    if ($MOD ne $main.'DICT') {
-      &Error("The name for this project's sub-directory $INPD must be '$main"."DICT'.", 
-"Change the name of this sub-directory and edit config.conf to change  
-the module name between [] at the top, as well as the Companion entry.", 1);
-    }
-  }
-  elsif (&conf('ModDrv') =~ /GenBook/) {
+  
+  if ($MOD eq $MAINMOD && &conf('ModDrv') =~ /GenBook/) {
     if ($MOD !~ /CB$/) {
       &Error("The only GenBook type modules currently supported are
 Children's Bibles, and their module names should be uppercase language
 code followed by 'CB'.", 1);
     }
-  }
-  elsif (&conf('Companion') && &conf('Companion') ne $MOD.'DICT') {
-    &Error("There can only be one companion module, and it must be named '".$MOD."DICT.", 
-"All reference materials for this project will be written to a single 
-OSIS file and SWORD module. This OSIS/SWORD file may contain multiple 
-glossaries, dictionaries, maps, tables, etc. etc.. But its name must be 
-'$MOD"."DICT'.", 1);
   }
 }
 

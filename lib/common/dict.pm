@@ -754,7 +754,7 @@ sub searchText {
     $MATCHES_USED{$m->{'node'}->toString()}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
-    my $attribs = "osisRef=\"$osisRef\" type=\"".(&conf('ModDrv') =~ /LD/ ? 'x-glosslink':'x-glossary')."\"";
+    my $attribs = "osisRef=\"$osisRef\" type=\"".($MOD eq $MAINMOD ? 'x-glosslink':'x-glossary')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
     substr($$textP, $ie, 0, "</reference>");

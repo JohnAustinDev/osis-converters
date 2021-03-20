@@ -118,7 +118,7 @@ sub getOSIS_Work {
  
   my @tm = localtime(time);
   my %type;
-  if    (&conf('ModDrv', $modname) =~ /LD/)   {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
+  if ($DICTMOD && $modname eq $DICTMOD) {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
   elsif (&conf('ModDrv', $modname) =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
   elsif (&conf('ModDrv', $modname) =~ /GenBook/ && $MOD =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
   elsif (&conf('ModDrv', $modname) =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
@@ -286,14 +286,10 @@ sub addExternalWorkToHeader {
   my $wmain = $work; $wmain =~ s/DICT$//;
   my $extWorkDir = "$MAININPD/../$wmain";
   if (-e "$extWorkDir/config.conf") {
-    my $cP = &readConfFile("$extWorkDir/config.conf");
+    my $cP = &readConf("$extWorkDir/config.conf");
     my $moddrv = $cP->{"$work+ModDrv"};
     my %type;
-    if    ($moddrv =~ /LD/)   {
-      $type{'type'}        = 'x-glossary'; 
-      $type{'textContent'} = 'Glossary';
-    }
-    elsif ($moddrv =~ /Text/) {
+    if ($moddrv =~ /Text/) {
       $type{'type'}        = 'x-bible';
       $type{'textContent'} = 'Bible';
     }
@@ -305,6 +301,11 @@ sub addExternalWorkToHeader {
       $type{'type'}        = 'x-commentary';
       $type{'textContent'} = 'Commentary';
     }
+    else {
+      $type{'type'}        = 'x-glossary'; 
+      $type{'textContent'} = 'Glossary';
+    }
+
     my $refSystem = "Bible.".$cP->{"$wmain+Versification"};
     if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.$work";}
     if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book.$work";}

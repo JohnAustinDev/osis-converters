@@ -39,7 +39,7 @@ my $AlreadyReportedThis;
 sub placementMessage {
   if ($AlreadyReportedThis) {return;}
   $AlreadyReportedThis++;
-  return &help('SFM ID DIRECTIVES');
+  return &help('SFM ID DIRECTIVES', 1);
 }
 
 sub applyPeriphInstructions {
@@ -67,7 +67,7 @@ sub applyPeriphInstructions {
   my %beforeNodes;
   foreach my $idDiv (@idDivs) {
     my ($placedParent, $markedParent);
-    my %mark = map {$_} @{$ID_DIRECTIVES{'mark'}};
+    my %mark = map {$_ => undef} @{$ID_DIRECTIVES{'mark'}};
 
     # read the first comment to find instructions, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $idDiv)}[0];
@@ -273,7 +273,7 @@ sub applyInstructions {
   
   my $sdiv = &printTag($div);
 
-  my $valid = join('|', &CONV_PUBS(), 'none');
+  my $valid = join('|', &PUB_TYPES(), 'none');
 
   if ($markP->{'scope'}) {
     $div->setAttribute('scope', $markP->{'scope'});

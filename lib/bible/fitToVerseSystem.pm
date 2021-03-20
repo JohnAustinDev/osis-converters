@@ -21,7 +21,7 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD);
 our (@VSYS_INSTR, %RESP, %VSYS, $XPC, $XML_PARSER, %OSIS_ABBR, 
     %ANNOTATE_TYPE, $VSYS_INSTR_RE, $VSYS_PINSTR_RE, $VSYS_SINSTR_RE, 
     $VSYS_UNIVERSE_RE, @OSIS_GROUPS, %OSIS_GROUP, $OSIS_NAMESPACE, 
-    $OSISBOOKSRE, @SWORD_VERSE_SYSTEMS, $ONS, %ID_TYPE_MAP, 
+    $OSISBOOKSRE, @VERSE_SYSTEMS, $ONS, %ID_TYPE_MAP, 
     %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP, %PERIPH_TYPE_MAP_R, 
     %PERIPH_SUBTYPE_MAP, %PERIPH_SUBTYPE_MAP_R, 
     %USFM_DEFAULT_PERIPH_TARGET);
@@ -30,7 +30,7 @@ our $VSYS_BOOKGRP_RE  = "(?<bg>".join('|', keys(%OSIS_GROUP)).")(\\[(?<pos>\\d+|
 our $VSYS_SINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+))";
 our $VSYS_INSTR_RE    = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<vl>\\d+))?)?";
 our $VSYS_PINSTR_RE   = "(?<bk>$OSISBOOKSRE)\\.(?<ch>\\d+)(\\.(?<vs>\\d+)(\\.(?<vl>\\d+|PART))?)?";
-our $VSYS_UNIVERSE_RE = "(?<vsys>".join('|', @SWORD_VERSE_SYSTEMS).")\:$VSYS_PINSTR_RE";
+our $VSYS_UNIVERSE_RE = "(?<vsys>".join('|', @VERSE_SYSTEMS).")\:$VSYS_PINSTR_RE";
 
 
 # OSIS-CONVERTERS VERSIFICATION SYSTEM:
@@ -821,7 +821,7 @@ sub vsmsg {
   return "$msg
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
-" . &help('CF_sfm2osis.txt', 1, 1) . "
+" . &help('CF_sfm2osis.txt', 1) . "
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------";
 }
@@ -915,11 +915,11 @@ sub parseVsysArgument {
     $bk = $2; $ch = $3; 
     if (defined($4)) {$vs = $5;}
     if (defined($5)) {$vl = $7;}
-    my $vsre = join('|', @SWORD_VERSE_SYSTEMS);
+    my $vsre = join('|', @VERSE_SYSTEMS);
     if ($data{'vsys'} !~ /^($vsre)$/) {
       &Error(
 "parseVsysArgument: Unrecognized verse system: '".$data{'vsys'}."'", 
-"Use a recognized SWORD verse system: ".join(', ', @SWORD_VERSE_SYSTEMS));
+"Use a recognized SWORD verse system: ".join(', ', @VERSE_SYSTEMS));
     }
   }
   else {

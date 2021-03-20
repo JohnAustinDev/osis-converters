@@ -121,17 +121,17 @@ sub osis2pubs {
 # PUBLICATIONS
 # 1 tran publication          - Containing all the contents of the OSIS
 #                               files. This publication will always be 
-#                               created, unless CreatePubTran is set  
+#                               created, unless MakeSet[tran] is set  
 #                               to false in config.conf.
 #
 # 1 subpub publication        - For each SUB_PUBLICATIONS. Selection
-#                               is controlled by CreatePubSubpub =
+#                               is controlled by MakeSet[subpub] =
 #                               (true|false|AUTO|<scope>|first|last) 
 #                               in config.conf. 
 #
 # 2 or more book publications - For each book of each multi-book
 #                               SUB_PUBLICATIONS. Selection is 
-#                               controlled by CreatePubBook =
+#                               controlled by MakeSet[book] =
 #                               (true|false|AUTO|<OSIS-book>|first|last|all) 
 #                               in config.conf. If a sub-publication
 #                               has only one book, no Part publication
@@ -140,7 +140,7 @@ sub osis2pubs {
 # 0 or more book publications - For each book of a multi-book  
 #                               MAINMOD OSIS file which is not part of 
 #                               SUB_PUBLICATIONS. Selections are 
-#                               controlled by CreatePubTbook =
+#                               controlled by MakeSet[book] =
 #                               (true|false|AUTO|<OSIS-book>|first|last|all) 
 #                               in config.conf. If the MAINMOD OSIS file
 #                               contains only one book, no Part pub-
@@ -160,10 +160,10 @@ sub osis2pubs {
 # 'tran', 'subpub', 'book' then 'tbook'
 
     # Interperet config.conf settings that control what to create
-    my $createTranPub = &conf('CreatePubTran',     undef, undef, $convertTo);
-    &Note("Using CreatePubTran = $createTranPub");
+    my $createTranPub = &conf('MakeSet[tran]',     undef, undef, $convertTo);
+    &Note("Using MakeSet[tran] = $createTranPub");
     
-    my $subSelect  = &conf('CreatePubSubpub',  undef, undef, $convertTo);
+    my $subSelect  = &conf('MakeSet[subpub]',  undef, undef, $convertTo);
     if ($subSelect =~ /^first$/i) {
       $subSelect = @SUB_PUBLICATIONS[0];
     }
@@ -173,14 +173,14 @@ sub osis2pubs {
     elsif ($subSelect =~ /^true$/i)  {
       $subSelect = 'all';
     }
-    &Note("Using CreatePubSubpub = $subSelect");
+    &Note("Using MakeSet[subpub] = $subSelect");
     
-    my $bookSelect = &conf('CreatePubBook', undef, undef, $convertTo);
+    my $bookSelect = &conf('MakeSet[book]', undef, undef, $convertTo);
     my @bks = @{&scopeToBooks($fullScope, &conf('Versification'))};
     if ($bookSelect =~ /^first$/i)         {$bookSelect = @bks[0];}
     elsif ($bookSelect =~ /^last$/i)       {$bookSelect = @bks[$#bks];}
     elsif ($bookSelect =~ /^(true|all)$/i) {$bookSelect = 'all';}
-    &Note("Using CreatePubBook = $bookSelect");
+    &Note("Using MakeSet[book] = $bookSelect");
   
     my %done;
     
@@ -211,7 +211,7 @@ sub osis2pubs {
         next;
       }
       
-      my $title = &conf("TitleSubPublication[$s]");
+      my $title = &conf("SubPublicationTitle[$s]");
       
       # Create sub-publication
       if ($subSelect eq 'all' || 
@@ -313,7 +313,7 @@ sub createParts {
   my $subdir = shift;    # subdirectory in which to place created pubs
   
   my $skipDone = ( $type eq 'book' ? 0 : 
-  (&conf('CreatePubBook', undef, undef, $convertTo) eq 'all' ? 0 : 1) );
+  (&conf('MakeSet[book]', undef, undef, $convertTo) eq 'all' ? 0 : 1) );
   
   my $forkargs;
   
@@ -567,7 +567,7 @@ file for it, and then run this script again.");}
   }
 
   # now do the conversion on the temporary directory's files
-  my $createTypes = &conf('CreateTypes', undef, undef, $convertTo);
+  my $createTypes = &conf('MakeTypes', undef, undef, $convertTo);
   if ($createTypes =~ /html/i) {
     &makeHTML($tmp, $cover, $scope, $pubTitle, $pubName, $pubSubdir);
     

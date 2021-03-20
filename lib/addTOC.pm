@@ -355,7 +355,7 @@ $bookGroupIntroTOCM->getAttribute('n')."'.");
                   $div->getAttribute('scope') : '');
         $s =~ s/\s/_/g;
   
-        my $tocentry = ($s ? &conf("TitleSubPublication[$s]") : '');
+        my $tocentry = ($s ? &conf("SubPublicationTitle[$s]") : '');
         if (!$tocentry) {
           my $nexttitle = @{$XPC->findnodes('descendant::osis:title
               [@type="main"][1]', $div)}[0];
@@ -404,7 +404,7 @@ $bookGroupIntroTOCM->getAttribute('n')."'.");
         my $firstBook = @{$XPC->findnodes('descendant::osis:div
           [@type="book"][1]/@osisID', $bookGroup)}[0]->value;
         my $whichBookGroup = &defaultOsisIndex($firstBook, 3);
-        my $bookGroupTitle = &conf("BookGroupTitle$whichBookGroup");
+        my $bookGroupTitle = &conf("BookGroupTitle[$whichBookGroup]");
         if ($bookGroupTitle eq 'no') {next;}
         my $toc = $XML_PARSER->parse_balanced_chunk("
 <div $ONS type='introduction' resp='$ROC'>
@@ -455,8 +455,9 @@ $bookGroupIntroTOCM->getAttribute('n')."'.");
       $confentry =~ s/\!.*$//;
       my $confTitle = &conf($confentry);
       my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
-      my $titleSubPublication = ( $div->getAttribute('scope') ? 
-        &conf("TitleSubPublication[".$div->getAttribute('scope')."]") : '' );
+      my $s = $div->getAttribute('scope'); $s =~ s/ /_/g;
+      my $titleSubPublication = ( $s ? 
+        &conf("SubPublicationTitle[$s]") : '' );
       # Look in OSIS file for a title element
       $tocTitle = @{$XPC->findnodes('descendant::osis:title
           [@type="main"][1]', $div)}[0];

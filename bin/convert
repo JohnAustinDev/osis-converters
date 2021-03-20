@@ -273,9 +273,9 @@ sub getProjectsInfo {
     
     my $type;
     if    ($moddrv =~ /text/i)    {$type = 'bible';}
-    elsif ($moddrv =~ /ld/i)      {$type = 'dict';}
     elsif ($moddrv =~ /genbook/i) {$type = 'childrensBible';}
     elsif ($moddrv =~ /com/i)     {$type = 'commentary';}
+    elsif ($m =~ /DICT$/i)        {$type = 'dict';}
     else {print "WARNING: Could not determine module type: $m\n";}
     
     $info{$m}{'type'} = $type;
@@ -304,9 +304,9 @@ sub getProjectInfo {
     open(CF, "<:encoding(UTF-8)", "$pdir/$proj/CF_osis2osis.txt") 
       or die;
     while(<CF>) {
-      if ($_ =~ /^SET_sourceProject:(.*?)\s*$/) {
+      if ($_ =~ /^SourceProject:(.*?)\s*$/) {
         my $sourceProject = $1;
-        # If CF_osis2osis.txt has SET_sourceProject, its modules are
+        # If CF_osis2osis.txt has SourceProject, its modules are
         # considered runnable.
         $infoP->{$proj}{'runable'}++;
         $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
@@ -584,9 +584,8 @@ sub dict {
     my $sproj = ( $infoP->{$m}{'sourceProject'} ? 
       $infoP->{$m}{'sourceProject'}:$infoP->{$m}{'configProject'} );
    
-    # It must have a sub-module which follows all the rules.
-    my $modDrv = $infoP->{$sproj}{$sproj."DICT+ModDrv"};
-    if ($modDrv && $modDrv =~ /LD/) {
+    # It must have a sub-module 
+    if (-d $infoP->{$sproj}{'path'} . '/' . $sproj.'DICT') {
       $dict = ($m !~ /DICT$/ ? $m.'DICT':$m);
     }
   }
@@ -630,7 +629,7 @@ sub modOutdir {
     if ($outdir) {$outdir = "$SCRD/$outdir";}
   }
   else {
-    my $cP = &readConfFile("$SCRD/.vm.conf", undef, undef, 1);
+    my $cP = &readConfFile("$SCRD/.vm.conf", undef, 1);
     $outdir = $cP->{"$p+OUTDIR"};
   }
     

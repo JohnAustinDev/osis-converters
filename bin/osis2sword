@@ -39,6 +39,7 @@ make_path($swtmp);
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 
 my $Sconf = &getSwordConf($INOSIS);
+
 my $SModDrv = $Sconf->{"$MOD+ModDrv"};
 my $SModPath = &dataPath2RealPath($Sconf->{"$MOD+DataPath"});
 my $SModVsys = $Sconf->{"$MOD+Versification"};
@@ -134,16 +135,26 @@ if ($SModVsys ne "KJV") {
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
-  &shell(&escfile($SWORD_BIN."osis2mod")." ".&escfile("$swtmp/$SModPath")." ".&escfile($OSIS_OR_TEI)." ".($SModDrv =~ /zText/ ? ' -z z':'')." -v ".$SModVsys.($SModDrv =~ /Text4/ ? ' -s 4':''), -1);
+  
+  &shell( &escfile($SWORD_BIN."osis2mod") . ' ' . 
+          &escfile("$swtmp/$SModPath") . ' ' . 
+          &escfile($OSIS_OR_TEI) . ' ' . 
+          ($SModDrv =~ /zText/ ? ' -z z' : '') . ' ' .
+          "-v " . $SModVsys . 
+          ($SModDrv =~ /Text4/ ? ' -s 4' : ''), -1);
+  
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE ($SModVsys)\n");
+  
 	chdir("$swtmp/$SModPath");
   &shell(&escfile($SWORD_BIN."xml2gbs")." $OSIS_OR_TEI ".lc($MOD), -1);
 	chdir($SCRD);
+  
 }
 elsif ($SModDrv =~ /LD/) {
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE ($SModVsys)\n");
+  
   &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$swtmp/$SModPath")." ".&escfile($OSIS_OR_TEI)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
   opendir(MODF, "$swtmp/$SModPath");
@@ -153,6 +164,7 @@ elsif ($SModDrv =~ /LD/) {
   if ($m !~ /^dict\.(.*?)$/) {next;}
     rename("$swtmp/$SModPath/$m", "$swtmp/$SModPath/".lc($MOD).".$1");
   }
+  
 }
 else {
 	&ErrorBug("Unhandled module type \"$SModDrv\"; only the following are supported: Bible, Dictionary or General-Book", 1);
@@ -175,7 +187,7 @@ if ($Sconf->{"$MOD+PreferredCSSXHTML"}) {
 # Write the SWORD config.conf file
 my $SwordConfFile = "$swtmp/mods.d/".lc($MOD).".conf";
 if (! -e "$swtmp/mods.d") {mkdir "$swtmp/mods.d";}
-&writeConf($SwordConfFile, $Sconf);
+&writeConf($SwordConfFile, $Sconf, 1);
 &zipModule(&outdir()."/$MOD.zip", $swtmp);
 
 # Copy config.conf for CVS
@@ -211,7 +223,7 @@ sub upperCaseKeys {
   my $osis_or_teiP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
-  if (&conf('ModDrv') =~ /LD/) {
+  if ($MOD ne $MAINMOD) {
     foreach my $keyword ($XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml)) {
       $keyword->setValue(&uc2($keyword->getValue()));
     }

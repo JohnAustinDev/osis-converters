@@ -76,7 +76,7 @@
                  else $r"/>
     <for-each select="$missing2MAIN[normalize-space()], $missing2DICT[normalize-space()]">
       <call-template name="Error">
-<with-param name="msg">Missing target for osisRef segment: "<value-of select="."/>"</with-param>
+<with-param name="msg">Missing target entryFree[@n="<value-of select="oc:decodeOsisRef(oc:ref(.))"/>"]</with-param>
       </call-template>
     </for-each>
     

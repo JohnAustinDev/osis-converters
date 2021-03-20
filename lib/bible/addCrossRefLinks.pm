@@ -47,7 +47,7 @@ sub addCrossRefLinks {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $def = "bible/Cross_References/".&conf('Versification').".xml";
+  my $def = "bible/AddCrossRefLinks/".&conf('Versification').".xml";
   my $CrossRefFile = &getDefaultFile($def, -1);
   if (!-e $CrossRefFile) {
     &Warn("Could not locate a Cross Reference source file: $def", "

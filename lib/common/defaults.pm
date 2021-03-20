@@ -20,7 +20,7 @@ use strict;
 
 our ($APPENDLAYER, $CONFFILE, $DICTINPD, $INPD, $MAININPD, $MAINMOD,
     $READLAYER, $WRITELAYER, %CONFIG_DEFAULTS, %ID_TYPE_MAP, %OSIS_ABBR,
-    %OSIS_GROUP, %PERIPH_SUBTYPE_MAP, %PERIPH_TYPE_MAP, 
+    %OSIS_GROUP, %PERIPH_SUBTYPE_MAP, %PERIPH_TYPE_MAP, $DICTMOD, 
     %USFM_DEFAULT_PERIPH_TARGET, @OC_CONFIGS, @OSIS_GROUPS, 
     @SUB_PUBLICATIONS, @SWORD_AUTOGEN_CONFIGS, $XML_PARSER, $XPC);
 
@@ -61,19 +61,10 @@ sub checkAndWriteDefaults {
   
   # Always process the main project, regardless of which module we started with
   # Determine if there is any sub-project dictionary (the fastest way possible)
-  my $haveDICT = ($MAININPD ne $INPD ? 1:0);
+  my $haveDICT = $DICTMOD;
   if (!$haveDICT) {
-    if ($CONFFILE && -e $CONFFILE) {
-      if (my $comps = &conf('Companion', $MAINMOD)) {
-        foreach my $c (split(/\s*,\s*/, $comps)) {
-          if ($c =~ /DICT$/) {$haveDICT = 1;}
-        }
-      }
-    }
-    else {
-      if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
-      if (exists($USFM{'dictionary'})) {$haveDICT = 1;}
-    }
+    if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
+    if (exists($USFM{'dictionary'})) {$haveDICT = 1;}
   }
   
   # Copy projectDefaults files that are missing
@@ -152,7 +143,7 @@ sub customize_conf {
   # If there is any existing $modName conf that is located in a repository 
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
-  my $defConfP = &readConf();
+  my $defConfP = &readConf($CONFFILE);
   
   my $haveRepoConf;
   if ($defConfP->{'system+REPOSITORY'} && $defConfP->{'system+REPOSITORY'} =~ /^http/) {
@@ -214,25 +205,16 @@ sub customize_conf {
     if ($modType eq 'other') {&setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);}
   }
 
-  # TitleSubPublication[scope]
+  # SubPublicationTitle[scope]
   foreach my $scope (@SUB_PUBLICATIONS) {
     my $sp = $scope; $sp =~ s/\s/_/g;
-    &setConfValue($defConfP, "$modName+TitleSubPublication[$sp]", "Title of Sub-Publication $sp DEF", 1);
+    &setConfValue($defConfP, "$modName+SubPublicationTitle[$sp]", "Title of Sub-Publication $sp DEF", 1);
   }
   
   # FullResourceURL
   my $v = $defConfP->{"$modName+FullResourceURL"};
   $v =~ s/\bNAME\b/$modName/g;
   if ($v) {&setConfValue($defConfP, "$modName+FullResourceURL", $v, 1);}
-  
-  # Companion + [DICTMOD] section
-  if ($haveDICT) {
-    my $companion = $modName.'DICT';
-    &setConfValue($defConfP, "$modName+Companion", $companion, 1);
-    &setConfValue($defConfP, "$companion+Companion", $modName, 1);
-    &setConfValue($defConfP, "$companion+ModDrv", 'RawLD4', 1);
-  }
-  else {&setConfValue($defConfP, "$modName+Companion", '', 1);}
   
   &writeConf($CONFFILE, $defConfP);
   
@@ -673,124 +655,6 @@ sub scanUSFM_file {
   &Log("\n");
   
   return \%info;
-}
-
-########################################################################
-# These functions are only needed to update old osis-converters projects
-
-sub update_removeConvertTXT {
-  my $confFile = shift;
-  
-  &Warn("UPDATE: Found outdated convert.txt. Updating $confFile...");
-  if (!-e $confFile) {
-    &Error("Could not read config.conf file: $confFile");
-    return;
-  }
-  my $confP = &readConfFile($confFile);
-  
-  &updateConvertTXT("$MAININPD/ebooks/convert.txt", $confP, 'osis2ebooks');
-  &updateConvertTXT("$MAININPD/html/convert.txt", $confP, 'osis2html');
-  return &writeConf($confFile, $confP);
-}
-
-sub updateConvertTXT {
-  my $convtxt = shift;
-  my $confP = shift;
-  my $section = shift;
-  
-  if (! -e $convtxt) {return '';}
-  
-  my %pubScopeTitle;
-  if (open(CONV, $READLAYER, $convtxt)) {
-    while(<CONV>) {
-      my $s = $section;
-      if ($_ =~ /^#/) {next;}
-      elsif ($_ =~ /^([^=]+?)\s*=\s*(.*?)\s*$/) {
-        my $e = $1; my $v = $2;
-        my $warn;
-        if ($e eq 'MultipleGlossaries') {
-          $warn = "Changing $e=$v to";
-          $s = '';
-          $e = 'CombineGlossaries';
-          $v = ($v && $v !~ /^(false|0)$/i ? 'false':'true');
-          &Warn("<-$warn $e=$v");
-        }
-        elsif ($e =~ /^CreateFullPublication(\d+)/) {
-          my $n = $1;
-          my $sp = $v; $sp =~ s/\s/_/g;
-          $pubScopeTitle{$n}{'sp'} = $sp;
-          $e = '';
-        }
-        elsif ($e =~ /^TitleFullPublication(\d+)/) {
-          my $n = $1;
-          $pubScopeTitle{$n}{'title'} = $v;
-          $e = '';
-        }
-        elsif ($e =~ /^Group1\s*$/) {
-          my $n = $1;
-          $warn = "Changing $e=$v to ";
-          $s = '';
-          $e = 'BookGroupTitleOT';
-          &Warn("<-$warn $e=$v");
-        }
-        elsif ($e =~ /^Group2\s*$/) {
-          my $n = $1;
-          $warn = "Changing $e=$v to ";
-          $s = '';
-          $e = 'BookGroupTitleNT';
-          &Warn("<-$warn $e=$v");
-        }
-        elsif ($e =~ /^Title\s*$/) {
-          my $n = $1;
-          $warn = "Changing $e=$v to ";
-          $s = '';
-          $e = 'TranslationTitle';
-          &Warn("<-$warn $e=$v");
-        }
-        if ($e) {
-          $confP->{($s ? "$s+":'').$e} = $v;
-        }
-      }
-    }
-    close(CONV);
-    foreach my $n (sort keys %pubScopeTitle) {
-      my $e = ($section ? "$section+":'').'TitleSubPublication['.$pubScopeTitle{$n}{'sp'}.']';
-      my $v = $pubScopeTitle{$n}{'title'};
-      $confP->{$e} = $v;
-      &Warn("<-Changing CreateFullPublication and TitleFullPublication to $e=$v");
-    }
-  }
-  else {&Warn("Did not find \"$convtxt\"");}
-  
-  &Warn("<-UPDATE: Removing outdated convert.txt: $convtxt");
-  &Note("The file: $convtxt which was used for 
-various settings has now been replaced by a section in the config.conf 
-file. The convert.txt file will be deleted. Your config.conf will have 
-a new section with that information.");
-  unlink($convtxt);
-}
-
-sub update_removeDictConfig {
-  my $dconf = shift;
-  my $confFile = shift;
-
-  &Warn("UPDATE: Found outdated DICT config.conf. Updating...");
-  my $mainConfP = &readConfFile($confFile);
-  my $dictConfP = &readConfFile($dconf);
-  &Warn("<-UPDATE: Removing outdated DICT config.conf: $dconf");
-  unlink($dconf);
-  &Note("The file: $dconf which was used for 
-DICT settings has now been replaced by a section in the config.conf 
-file. The DICT config.conf file will be deleted. Your config.conf will 
-have new section with that information.");
-  foreach my $de (sort keys %{$dictConfP}) {
-    if ($de =~ /(^MainmodName|DictmodName)$/) {next;}
-    my $de2 = $de; $de2 =~ s/^$MAINMOD\+//;
-    if ($mainConfP->{$de} eq $dictConfP->{$de} || $mainConfP->{"$MAINMOD+$de2"} eq $dictConfP->{$de}) {next;}
-    $mainConfP->{$de} = $dictConfP->{$de};
-  }
-
-  return &writeConf($confFile, $mainConfP);
 }
 
 1;

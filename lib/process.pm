@@ -22,9 +22,6 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
     $TMPDIR, $NO_OUTPUT_DELETE, $DEBUG, $OSIS, $XPC, $XML_PARSER, 
     $READLAYER, $DICTIONARY_NotXPATH_Default, $OSISSCHEMA, $MOD_OUTDIR);
 
-# Initialized in /lib/sfm2osis.pm
-our $sourceProject;
-
 require("$SCRD/lib/addFootnoteLinks.pm");
 require("$SCRD/lib/addScripRefLinks.pm");
 require("$SCRD/lib/addTOC.pm");
@@ -44,7 +41,7 @@ sub processOSIS {
   # Run user supplied preprocess.pl and/or preprocess.xsl if present
   &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-  my $modType = (&conf('ModDrv') =~ /LD/   ? 'dict' :
+  my $modType = ($MOD ne $MAINMOD          ? 'dict' :
                 (&conf('ModDrv') =~ /Text/ ? 'bible' :
                 (&conf('ModDrv') =~ /Com/  ? 'commentary' : 
                 'childrens_bible')));
@@ -272,7 +269,7 @@ copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
 "Module $MAINMOD contains module introduction material (located  
 before the first bookGroup, which applies to the entire module). It  
 appears you have not duplicated this material in the glossary.", 
-&para(&help('INT', 0, 0, 1)));
+&para(&help('INT', 1, 1)));
         }
       }
     }
@@ -334,7 +331,7 @@ sub reprocessOSIS {
   # Run user supplied preprocess.pl and/or preprocess.xsl if present
   &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-  my $modType = (&conf('ModDrv') =~ /LD/   ? 'dict' :
+  my $modType = ($MOD ne $MAINMOD          ? 'dict' :
                 (&conf('ModDrv') =~ /Text/ ? 'bible' :
                 (&conf('ModDrv') =~ /Com/  ? 'commentary' :
                 'childrens_bible')));
