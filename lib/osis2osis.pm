@@ -64,7 +64,7 @@ sub osis2osis {
         
         $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Log("NOTE: Setting $par to $val\n", 1);
-        if ($par =~ /^Mode_(cctable|script|transcode|copy)$/) {
+        if ($par =~ s/^Mode_(cctable|script|transcode|copy)$/$1/) {
           $O2O_CurrentMode = $1;
           &Note("Setting conversion mode to $par");
           if ($par ne 'copy') {

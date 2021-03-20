@@ -273,7 +273,7 @@ sub applyInstructions {
   
   my $sdiv = &printTag($div);
 
-  my $valid = join('|', &PUB_TYPES(), 'none');
+  my $valid = join('|', &PUB_TYPES(), @CONV_PUB_SETS, 'none');
 
   if ($markP->{'scope'}) {
     $div->setAttribute('scope', $markP->{'scope'});

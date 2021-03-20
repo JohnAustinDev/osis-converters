@@ -96,9 +96,9 @@ our %HELP = (
 
 'convert' => [
   ['SYNOPSIS', [
-    ['para', 'With Paratext USFM files in directory: `some-path/MODULE_NAME/sfm/`
-    \b\b `./bin/defaults ./some-path/MODULE_NAME`
-    \b\b `./bin/convert ./some-path/MODULE_NAME`
+    ['para', 'With Paratext USFM files in the directory: `/<PROJECT_CODE>/sfm/`
+    \b\b `./bin/defaults ./<PROJECT_CODE>`
+    \b\b `./bin/convert ./<PROJECT_CODE>`
     \b\b Creates:
     \b* An [OSIS](http://www.crosswire.org/osis/) XML file
     \b* A reference OSIS XML file (if there are USFM reference materials)
@@ -136,7 +136,7 @@ our %HELP = (
     ])],
     
     ['sub-heading', 'SCOPE' ],
-    ['para', 'What is referred to as \'scope\' is a specific way of representing which Bible books are included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see HELPREF(@OSIS_ABBR)) in verse system order. Example: `Ruth Esth Jonah`. Continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
+    ['para', 'What is referred to as \'scope\' is a specific way of representing which Bible books are included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see HELPREF(OSIS_ABBR)) in verse system order. Example: `Ruth Esth Jonah`. Continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
     
     ['sub-heading', 'SUB-PUBLICATIONS' ],
     ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
@@ -1186,9 +1186,14 @@ sub arguments {
     
     my $var = $aP->[0];
     
+    # Apply arg type special handling
     if ($type eq 'switch') {$value = !$$var;}
     
     elsif ($aP->[2] =~ /^(file|dir)$/) {$value = &argPath($value);}
+    
+    elsif ($aP->[2] eq 'rx') {
+      $value = $value . ($value =~ /^\w+(?<!DICT)$/ ? '(DICT)?' : '');
+    }
     
     $$var = $value;
     $args{$arg} = $value;
