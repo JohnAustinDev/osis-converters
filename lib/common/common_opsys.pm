@@ -79,7 +79,7 @@ our @SWORD_AUTOGEN_CONFIGS = (
 # Valid osis-converters config file entries (in addition to SWORD entries)
 our @OC_CONFIGS = (
   'MATCHES:SubPublicationTitle\[\S+\]', 'MATCHES:GlossaryNavmenuLink\[[1-9]\]',
-  'MATCHES:MakeSet\[('.join('|', @CONV_PUB_SETS).')\]', 
+  'MATCHES:MakeSet\[(' . join('|', @CONV_PUB_SETS) . ')\]', 
   'MATCHES:ARG_\w+', 'TOC', 'TitleCase', 'TitleTOC', 'MakeTypes', 
   'FullResourceURL', 'TranslationTitle', 'CombineGlossaries', 
   'CombinedGlossaryTitle', 'MATCHES:BookGroupTitle\[\w+\]', 
@@ -165,7 +165,7 @@ our %CONFIG_DEFAULTS = (
 );
 
 # Command files and settings
-our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 'vsys.xml', 
+our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 'CF_<vsys>.xml', 
     'CF_addScripRefLinks.txt', 'CF_addDictLinks.xml', 
     'CF_addFootnoteLinks.txt');
     
@@ -226,11 +226,6 @@ our %CF_ADDDICTLINKS = (
 
 our @VERSE_SYSTEMS = ('KJV', 'German', 'KJVA', 'Synodal', 'Leningrad', 'NRSVA', 'Luther', 'Vulg', 'SynodalProt', 'Orthodox', 'LXX', 'NRSV', 'MT', 'Catholic', 'Catholic2');
 
-# OSIS book abbreviations => Paratext abbreviations. Taken from 
-# wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
-our %OSIS_ABBR = ('1Chr' => '1CH', '1Clem' => '1CL', '1Cor' => '1CO', '1En' => 'ENO', '1Esd' => '1ES', '1John' => '1JN', '1Kgs' => '1KI', '1Macc' => '1MA', '1Meq' => '1MQ', '1Pet' => '1PE', '1Sam' => '1SA', '1Thess' => '1TH', '1Tim' => '1TI', '2Bar' => '2BA', '2Chr' => '2CH', '2Clem' => '2CL', '2Cor' => '2CO', '2Esd' => '2ES', '2John' => '2JN', '2Kgs' => '2KI', '2Macc' => '2MA', '2Meq' => '2MQ', '2Pet' => '2PE', '2Sam' => '2SA', '2Thess' => '2TH', '2Tim' => '2TI', '3Cor' => '3CO', '3John' => '3JN', '3Macc' => '3MA', '3Meq' => '3MQ', '4Bar' => '4BA', '4Ezra' => 'EZA', '4Macc' => '4MA', '5ApocSyrPss' => 'PS3', '5Ezra' => '5EZ', '6Ezra' => '6EZ', 'Acts' => 'ACT', 'AddDan' => '', 'AddEsth' => 'ADE', 'AddJer' => '', 'AddPs' => 'PS2', 'Amos' => 'AMO', 'AposCreed' => '', 'Bar' => 'BAR', 'Barn' => 'LBA', 'Bel' => 'BEL', 'BelTh' => 'BLT', 'Col' => 'COL', 'Dan' => 'DAN', 'DanGr' => 'DAG', 'DanTh' => 'DNT', 'Deut' => 'DEU', 'Did' => 'DID', 'Diogn' => '', 'DormJohn' => 'DOJ', 'Eccl' => 'ECC', 'EpBar' => 'LBA', 'EpCorPaul' => 'COP', 'EpJer' => 'LJE', 'EpLao' => 'LAO', 'Eph' => 'EPH', 'Esth' => 'EST', 'EsthGr' => 'ESG', 'Exod' => 'EXO', 'Ezek' => 'EZK', 'Ezra' => 'EZR', 'Gal' => 'GAL', 'Gen' => 'GEN', 'Hab' => 'HAB', 'Hag' => 'HAG', 'Heb' => 'HEB', 'Herm' => 'SHE', 'Herm.Mand' => '', 'Herm.Sim' => '', 'Herm.Vis' => '', 'Hos' => 'HOS', 'IgnEph' => '', 'IgnMagn' => '', 'IgnPhld' => '', 'IgnPol' => '', 'IgnRom' => '', 'IgnSmyrn' => '', 'IgnTrall' => '', 'Isa' => 'ISA', 'Jas' => 'JAS', 'Jdt' => 'JDT', 'Jer' => 'JER', 'Job' => 'JOB', 'Joel' => 'JOL', 'John' => 'JHN', 'Jonah' => 'JON', 'JosAsen' => '', 'JosephusJWvi' => '', 'Josh' => 'JOS', 'JoshA' => 'JSA', 'Jub' => 'JUB', 'Jude' => 'JUD', 'Judg' => 'JDG', 'JudgB' => 'JDB', 'Lam' => 'LAM', 'Lev' => 'LEV', 'Luke' => 'LUK', 'Mal' => 'MAL', 'Mark' => 'MRK', 'MartPol' => '', 'Matt' => 'MAT', 'Mic' => 'MIC', 'Nah' => 'NAM', 'Neh' => 'NEH', 'Num' => 'NUM', 'Obad' => 'OBA', 'Odes' => 'ODA', 'PapFrag' => '', 'Phil' => 'PHP', 'Phlm' => 'PHM', 'PolPhil' => '', 'PrAzar' => 'S3Y', 'PrEuth' => 'EUT', 'PrJer' => 'PJE', 'PrMan' => 'MAN', 'PrSol' => 'PSO', 'Prov' => 'PRO', 'Ps' => 'PSA', 'PsJos' => '', 'PsMet' => 'PSB', 'PssSol' => 'PSS', 'QuadFrag' => '', 'RelElders' => '', 'Rep' => 'REP', 'Rev' => 'REV', 'Rom' => 'ROM', 'Ruth' => 'RUT', 'Sir' => 'SIR', 'SirP' => '', 'Song' => 'SNG', 'Sus' => 'SUS', 'SusTh' => 'SST', 'T12Patr' => '', 'T12Patr.TAsh' => '', 'T12Patr.TBenj' => '', 'T12Patr.TDan' => '', 'T12Patr.TGad' => '', 'T12Patr.TIss' => '', 'T12Patr.TJos' => '', 'T12Patr.TJud' => '', 'T12Patr.TLevi' => '', 'T12Patr.TNaph' => '', 'T12Patr.TReu' => '', 'T12Patr.TSim' => '', 'T12Patr.TZeb' => '', 'TatDiat' => '', 'Titus' => 'TIT', 'Tob' => 'TOB', 'TobS' => 'TBS', 'WSir' => 'WSI', 'Wis' => 'WIS', 'Zech' => 'ZEC', 'Zeph' => 'ZEP');
-our $OSISBOOKSRE = join('|', (sort keys %OSIS_ABBR));
-
 # OSIS book groups. Taken from wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
 our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic_Fathers','Armenian_Orthodox_Canon_Additions','Ethiopian_Orthodox_Canon','Peshitta_Syriac_Orthodox_Canon','Rahlfs_LXX','Rahlfs_variant books','Vulgate_and_other_later_Latin_mss','Other');
 our %OSIS_GROUP = (
@@ -246,9 +241,15 @@ our %OSIS_GROUP = (
    'Vulgate_and_other_later_Latin_mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
    'Other' => ['TatDiat','PsMet']
 );
+
+# OSIS book abbreviations => Paratext abbreviations. Taken from 
+# wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
+our %OSIS_ABBR = ('1Chr' => '1CH', '1Clem' => '1CL', '1Cor' => '1CO', '1En' => 'ENO', '1Esd' => '1ES', '1John' => '1JN', '1Kgs' => '1KI', '1Macc' => '1MA', '1Meq' => '1MQ', '1Pet' => '1PE', '1Sam' => '1SA', '1Thess' => '1TH', '1Tim' => '1TI', '2Bar' => '2BA', '2Chr' => '2CH', '2Clem' => '2CL', '2Cor' => '2CO', '2Esd' => '2ES', '2John' => '2JN', '2Kgs' => '2KI', '2Macc' => '2MA', '2Meq' => '2MQ', '2Pet' => '2PE', '2Sam' => '2SA', '2Thess' => '2TH', '2Tim' => '2TI', '3Cor' => '3CO', '3John' => '3JN', '3Macc' => '3MA', '3Meq' => '3MQ', '4Bar' => '4BA', '4Ezra' => 'EZA', '4Macc' => '4MA', '5ApocSyrPss' => 'PS3', '5Ezra' => '5EZ', '6Ezra' => '6EZ', 'Acts' => 'ACT', 'AddDan' => '', 'AddEsth' => 'ADE', 'AddJer' => '', 'AddPs' => 'PS2', 'Amos' => 'AMO', 'AposCreed' => '', 'Bar' => 'BAR', 'Barn' => 'LBA', 'Bel' => 'BEL', 'BelTh' => 'BLT', 'Col' => 'COL', 'Dan' => 'DAN', 'DanGr' => 'DAG', 'DanTh' => 'DNT', 'Deut' => 'DEU', 'Did' => 'DID', 'Diogn' => '', 'DormJohn' => 'DOJ', 'Eccl' => 'ECC', 'EpBar' => 'LBA', 'EpCorPaul' => 'COP', 'EpJer' => 'LJE', 'EpLao' => 'LAO', 'Eph' => 'EPH', 'Esth' => 'EST', 'EsthGr' => 'ESG', 'Exod' => 'EXO', 'Ezek' => 'EZK', 'Ezra' => 'EZR', 'Gal' => 'GAL', 'Gen' => 'GEN', 'Hab' => 'HAB', 'Hag' => 'HAG', 'Heb' => 'HEB', 'Herm' => 'SHE', 'Herm.Mand' => '', 'Herm.Sim' => '', 'Herm.Vis' => '', 'Hos' => 'HOS', 'IgnEph' => '', 'IgnMagn' => '', 'IgnPhld' => '', 'IgnPol' => '', 'IgnRom' => '', 'IgnSmyrn' => '', 'IgnTrall' => '', 'Isa' => 'ISA', 'Jas' => 'JAS', 'Jdt' => 'JDT', 'Jer' => 'JER', 'Job' => 'JOB', 'Joel' => 'JOL', 'John' => 'JHN', 'Jonah' => 'JON', 'JosAsen' => '', 'JosephusJWvi' => '', 'Josh' => 'JOS', 'JoshA' => 'JSA', 'Jub' => 'JUB', 'Jude' => 'JUD', 'Judg' => 'JDG', 'JudgB' => 'JDB', 'Lam' => 'LAM', 'Lev' => 'LEV', 'Luke' => 'LUK', 'Mal' => 'MAL', 'Mark' => 'MRK', 'MartPol' => '', 'Matt' => 'MAT', 'Mic' => 'MIC', 'Nah' => 'NAM', 'Neh' => 'NEH', 'Num' => 'NUM', 'Obad' => 'OBA', 'Odes' => 'ODA', 'PapFrag' => '', 'Phil' => 'PHP', 'Phlm' => 'PHM', 'PolPhil' => '', 'PrAzar' => 'S3Y', 'PrEuth' => 'EUT', 'PrJer' => 'PJE', 'PrMan' => 'MAN', 'PrSol' => 'PSO', 'Prov' => 'PRO', 'Ps' => 'PSA', 'PsJos' => '', 'PsMet' => 'PSB', 'PssSol' => 'PSS', 'QuadFrag' => '', 'RelElders' => '', 'Rep' => 'REP', 'Rev' => 'REV', 'Rom' => 'ROM', 'Ruth' => 'RUT', 'Sir' => 'SIR', 'SirP' => '', 'Song' => 'SNG', 'Sus' => 'SUS', 'SusTh' => 'SST', 'T12Patr' => '', 'T12Patr.TAsh' => '', 'T12Patr.TBenj' => '', 'T12Patr.TDan' => '', 'T12Patr.TGad' => '', 'T12Patr.TIss' => '', 'T12Patr.TJos' => '', 'T12Patr.TJud' => '', 'T12Patr.TLevi' => '', 'T12Patr.TNaph' => '', 'T12Patr.TReu' => '', 'T12Patr.TSim' => '', 'T12Patr.TZeb' => '', 'TatDiat' => '', 'Titus' => 'TIT', 'Tob' => 'TOB', 'TobS' => 'TBS', 'WSir' => 'WSI', 'Wis' => 'WIS', 'Zech' => 'ZEC', 'Zeph' => 'ZEP');
 our @OSIS_ABBR_OT = @{$OSIS_GROUP{'OT'}};
 our @OSIS_ABBR_NT = @{$OSIS_GROUP{'NT'}};
+our @OSIS_ABBR_ALL = (map(@{$OSIS_GROUP{$_}}, @OSIS_GROUPS));
 our @OSIS_ABBR = (@OSIS_ABBR_OT, @OSIS_ABBR_NT);
+our $OSISBOOKSRE = join('|', @OSIS_ABBR_ALL);
 
 # The following MAPs were taken from usfm2osis.py and apply to USFM 2.4
 our %ID_TYPE_MAP = (

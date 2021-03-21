@@ -16,24 +16,6 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
-# This function adds cross-reference notes to a Bible OSIS file. But
-# for valid cross-references to be added, the following requirements 
-# must be met:
-# 1) A set of cross-reference OSIS notes must be supplied in the form of 
-#    an external xml file.
-# 2) The external cross-reference notes must all exactly follow one of 
-#    the standard SWORD verse systems (such as KJV, Synodal or SynodalProt).
-# 3) The Bible OSIS file must exactly match the SWORD verse system of  
-#    the cross-references.
-# 4) The previous requirement means that if the Bible contains any verses 
-#    which follow a different verse system than the cross-references 
-#    (and this is very common), then those sections must have been marked
-#    up and fitted by the fitToVerseSystem() function. However, in this 
-#    case, the added cross-reference notes will be placed in the alternate 
-#    location (and external references to verses in alternate locations 
-#    will later also be modified to target that alternate location by 
-#    correctReferencesVSYS() ).
-
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
@@ -47,34 +29,11 @@ sub addCrossRefLinks {
 
   &Log("\n--- ADDING CROSS REFERENCES\n-----------------------------------------------------\n\n", 1);
   
-  my $def = "bible/AddCrossRefLinks/".&conf('Versification').".xml";
+  my $def = "AddCrossRefLinks/CF_".&conf('Versification').".xml";
   my $CrossRefFile = &getDefaultFile($def, -1);
   if (!-e $CrossRefFile) {
-    &Warn("Could not locate a Cross Reference source file: $def", "
-The cross reference source file is an OSIS file that contains only 
-cross-references for the necessary verse system: ".&conf('Versification').". Without 
-one, cross-references will not be added to the text. It should be 
-typically placed in the following directory:
-osis-converters/defaults/bible/CrossReferences/".&conf('Versification').".xml
-The reference tags in the file do not need to contain presentational 
-text, because it would be replaced with localized text anyway. 
-Example OSIS cross-references:
-
-<div type=\"book\" osisID=\"Gen\">
-  <chapter osisID=\"Gen.1\">
-  
-    <note type=\"crossReference\" osisRef=\"Gen.1.27\" osisID=\"Gen.1.27!crossReference.r1\">
-      <reference osisRef=\"Matt.19.4\"/>
-      <reference osisRef=\"Mark.10.6\"/>
-    </note>
-    
-    <note type=\"crossReference\" subType=\"x-parallel-passage\" osisRef=\"Gen.36.1\" osisID=\"Gen.36.1!crossReference.p1\">
-      <reference osisRef=\"1Chr.1.35-1Chr.1.37\" type=\"parallel\"/>
-   </note>
-   
-  </chapter>
-</div>
-");
+    &Warn("Could not locate a Cross Reference file: $def", 
+          &help('Adding External Cross-References', 1));
     return 0;
   }
   
