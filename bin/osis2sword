@@ -171,10 +171,12 @@ else {
 }
 
 # Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry
-if ($Sconf->{"$MOD+PreferredCSSXHTML"}) {
-  my $cssfile = &getDefaultFile(($SModDrv =~ /LD/ ? 'dict':'bible')."/sword/css/".$Sconf->{"$MOD+PreferredCSSXHTML"});
-  copy($cssfile, "$swtmp/$SModPath");
+my $cssfile = &getDefaultFile( ($SModDrv =~ /LD/ ? 'dict':'bible') .
+    "/sword/css/module.css", -1);
+if ($cssfile) {
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
+  copy($cssfile, "$swtmp/$SModPath");
+  &setSwordConfValue($Sconf, 'PreferredCSSXHTML', 'module.css');
 }
 
 # Set InstallSize conf entry

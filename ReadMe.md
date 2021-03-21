@@ -115,8 +115,8 @@ DIRECTIVE | DESCRIPTION
 **scope (M)** | Marks OSIS div elements with a given scope. This may be used to mark the Pentateuch introduction with `scope == Gen-Deut` for instance, associating it with each of book of the Pentateuch.
 **feature (M)** | Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.
 **cover (M)** | Takes a `( yes \| no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.
-**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| subpub \| tbook \| tran \| book)`.
-**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| subpub \| tbook \| tran \| book)`.
+**conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| subpub \| tbook \| book \| tran)`.
+**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| subpub \| tbook \| book \| tran)`.
 
 
 ### SPECIAL FEATURES 
@@ -189,6 +189,7 @@ ENTRY | DESCRIPTION
 **Font (W)** | The font to use for electronic publications.
 **FullResourceURL (U)** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is `false`.
 **History_[\d\.]+** | Each version of released publications should have one of these entries describing what was new in that version.
+**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.
 **Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
@@ -202,12 +203,12 @@ ENTRY | DESCRIPTION
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
+**PreferredCSSXHTML (W)** | SWORD module css may be included by putting it in `<module> / sword / css / module.css` or `<main-module> / .. / defaults / <bible / |dict> / sword / css / module.css`
 **REPOSITORY (PSU)** | Location where SWORD modules are published.
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.
 **ShortPromo (LW)** | A link to the home page for the module, perhaps with an encouragement to visit the site.
 **SubPublicationTitle\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
-**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
 **TitleCase** | A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.
@@ -242,11 +243,11 @@ COMMAND | DESCRIPTION
 ## CF_vsys.xml 
 
 ### Adding External Cross-References 
-Because a universal address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `defaults / AddCrossRefs / CF_<vsys>.xml` where vsys is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
+Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `defaults / AddCrossRefs / CF_<vsys>.xml` where vsys is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
 
 Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.
 
-The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following it's specific versification system; the only content required however are OSIS notes. Example OSIS notes:<br />`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`<br />`<reference osisRef="Josh.14.15"/>`<br />`<reference osisRef="Judg.1.10"/>`<br />`<reference osisRef="Gen.13.18"/>`<br />`<reference osisRef="Gen.23.2"/>`<br />`</note>`<br />`<note type="crossReference" subType="x-parallel-passage" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.p1">`<br />`<reference osisRef="1Chr.1.35-1Chr.1.37" type="parallel"/>`<br />`</note>`
+The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:<br />`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`<br />`<reference osisRef="Josh.14.15"/>`<br />`<reference osisRef="Judg.1.10"/>`<br />`<reference osisRef="Gen.13.18"/>`<br />`<reference osisRef="Gen.23.2"/>`<br />`</note>`<br />`<note type="crossReference" subType="x-parallel-passage" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.p1">`<br />`<reference osisRef="1Chr.1.35-1Chr.1.37" type="parallel"/>`<br />`</note>`
 
 
 ## CF_addScripRefLinks.txt 

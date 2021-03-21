@@ -311,6 +311,7 @@ our %HELP = (
       [ 'TextSource', 'Indicates a name or URL for the source of the text.' ],
       [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
       [ 'ModDrv', 'The type of module. This is auto-selected according to SFM `\id` type. Options avaiable are: `zText` for Bibles, `RawLD4` for DICTMOD, `RawGenBook` for Children\'s Bibles, or `zCom` for commentaries.' ],
+      [ 'PreferredCSSXHTML', 'SWORD module css may be included by putting it in PATH(MOD/sword/css/module.css) or PATH(MAINMOD/../defaults/<bible|dict>/sword/css/module.css)' ],
     ], 1))],
   ]],
   
@@ -352,9 +353,9 @@ our %HELP = (
   
   ['CF_vsys.xml', [
     ['sub-heading', 'Adding External Cross-References' ],
-    ['para', 'Because a universal address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(defaults/AddCrossRefs/CF_<vsys>.xml) where vsys is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
+    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(defaults/AddCrossRefs/CF_<vsys>.xml) where vsys is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
     ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
-    ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following it\'s specific versification system; the only content required however are OSIS notes. Example OSIS notes:
+    ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:
     \b`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`
     \b`<reference osisRef="Josh.14.15"/>`
     \b`<reference osisRef="Judg.1.10"/>`
@@ -442,7 +443,7 @@ our %HELP = (
       ['(R)', 'one or more space separated osisRef values' ],
       ['(X)', 'xpath expression' ],
     ]],
-    ['list', ['ATTRIBUTE', 'DESCRIPTION'], &addAttributeType(&getList([ keys %{$CF_ADDDICTLINKS{'attributes'}} ], [
+    ['list', ['ATTRIBUTE', 'DESCRIPTION'], &addAttributeType(&getList([ sort keys %{$CF_ADDDICTLINKS{'attributes'}} ], [
       ['osisRef', 'This attribute is only allowed on entry elements and is required. It contains a space separated list of work prefixed osisRef values, which are the target(s) of an entry\'s links.' ],
       ['noOutboundLinks', 'This attribute is only allowed on entry elements. It prohibits the parser from parsing the entry\'s targets for links.' ],
       ['multiple', 'If false, only the first match candidate for an entry will be linked per chapter or keyword. If `match`, the first match condidate per match element may be linked per chapter or keyword. If true, there are no such limitations.' ],
@@ -966,11 +967,29 @@ sub configList {
               @OC_SYSTEM_CONFIGS);
   
   # Subtract these entries from the list
-  my $re = &configRE( @SWORD_AUTOGEN_CONFIGS, 
-                      @SWORD_NOT_SUPPORTED, 
-                      @OC_DEVEL_CONFIGS);
+  my @remove = (@SWORD_AUTOGEN_CONFIGS, 
+                @SWORD_NOT_SUPPORTED, 
+                @OC_DEVEL_CONFIGS);
+                      
+  # But include these auto-gen SWORD entries anyway
+  my @keep = ('PreferredCSSXHTML');
   
-  return [ grep {$_ !~ /$re/} @list ];
+  my @final; 
+LIST:
+  foreach my $l (@list) {
+    foreach my $r (@remove) {
+      foreach my $k (@keep) {
+        if ($l eq $k) {
+          push(@final, $l);
+          next LIST;
+        }
+      }
+      if ($l eq $r) {next LIST;}
+    }
+    push(@final, $l);
+  }
+  
+  return \@final;
 }
 
 # Adds an entry type code to each key of the config.conf list.
