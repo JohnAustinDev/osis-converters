@@ -162,6 +162,7 @@ our %CONFIG_DEFAULTS = (
   'IntroductionTitle' => 'Introduction DEF',
   'NormalizeUnicode' => 'false',
   'Direction' => 'LtoR',
+  'KeySort' => 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz DEF',
 );
 
 # Command files and settings

@@ -1,5 +1,3 @@
-# See /lib/sfm2osis.pm for command file documentation
-
 # CHILDREN'S BIBLE
 
 # Some Children's Bibles (Gaugauz & Lezgi) have Bartimaeus before 

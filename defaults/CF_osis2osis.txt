@@ -2,10 +2,11 @@ SourceProject:SRCPRJ
 
 Mode[copy]:true
 
-Config[lang]=<lang-script>
-Config[KeySort]=AaBbCcDdEe...
+Config[lang]=LANG
+Config[KeySort]=AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz
 
 CC:./config.conf
 CC:./gobible/*
 
-CCOSIS:SOMEMODULE
+CCOSIS:MAINMOD
+CCOSIS:DICTMOD
