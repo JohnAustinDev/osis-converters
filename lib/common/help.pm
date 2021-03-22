@@ -808,7 +808,7 @@ sub helpRef {
 sub helpPath {
   my $p = shift;
  
-  return join(' / ', split(/\s*[\/\\]\s*/, $p));
+  return join(' / ', split(/\s*[\/\\](?!\|)\s*/, $p));
 }
 
 sub format {

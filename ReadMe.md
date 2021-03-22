@@ -203,7 +203,7 @@ ENTRY | DESCRIPTION
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
-**PreferredCSSXHTML (W)** | SWORD module css may be included by putting it in `<module> / sword / css / module.css` or `<main-module> / .. / defaults / <bible / |dict> / sword / css / module.css`
+**PreferredCSSXHTML (W)** | SWORD module css may be included by putting it in `<module> / sword / css / module.css` or `<main-module> / .. / defaults / <bible\|dict> / sword / css / module.css`
 **REPOSITORY (PSU)** | Location where SWORD modules are published.
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.
