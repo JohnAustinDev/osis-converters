@@ -23,11 +23,10 @@ our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($OSIS, @SUB_PUBLICATIONS, $NO_OUTPUT_DELETE, $XPC, $XML_PARSER,
     @OC_LOCALIZABLE_CONFIGS, $OSIS2OSIS_PASS, $O2O_CurrentMode, 
-    %O2O_CONFIGS, %O2O_CONVERTS);    
+    $O2O_ModeValue, %O2O_CONFIGS, %O2O_CONVERTS);    
    
 # Perl symbolic references are always to globals
-our ($Mode_transcode, $Mode_script, $Mode_cctable, $Mode_copy,
-    $SkipNodesMatching, $SkipStringsMatching);
+our ($SkipNodesMatching, $SkipStringsMatching);
     
 # Initialized below
 our $SourceProject;
@@ -38,11 +37,15 @@ sub osis2osis {
   my ($outfile, $sourceProjectPath);
   
   if ($OSIS2OSIS_PASS !~ /^(preinit|postinit)$/) {
-    &ErrorBug("osis2osis context '$OSIS2OSIS_PASS' must be 'preinit' or 'postinit'.");
+    &ErrorBug("'$OSIS2OSIS_PASS' was not 'preinit' or 'postinit'");
     return;
   }
   
-  &Log("\n-----------------------------------------------------\nSTARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD\n\n");
+  &Log("
+-----------------------------------------------------
+STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
+
+");
 
   # This subroutine is run multiple times, for possibly two modules, so settings should never carry over.
   $O2O_CurrentMode = 'copy';
@@ -64,13 +67,20 @@ sub osis2osis {
         
         $$par = ($val && $val !~ /^(0|false)$/i ? $val:'0');
         &Log("NOTE: Setting $par to $val\n", 1);
-        if ($par =~ s/^Mode_(cctable|script|transcode|copy)$/$1/) {
+        if ($par =~ /^Mode_(cctable|script|transcode|copy)$/) {
           $O2O_CurrentMode = $1;
-          &Note("Setting conversion mode to $par");
-          if ($par ne 'copy') {
-            if ($$par =~ /^\./) {$$par = File::Spec->rel2abs($$par, $MAININPD);}
-            if (! -e $$par) {&Error("File does not exist: $$par", "Check the Mode[$par] command path."); next;}
-            if ($par eq 'transcode') {require($Mode_transcode);}
+          $O2O_ModeValue = $$par;
+          &Note("Setting conversion mode to $O2O_CurrentMode");
+          if ($O2O_CurrentMode ne 'copy') {
+            if ($O2O_ModeValue =~ /^\./) {
+              $O2O_ModeValue = File::Spec->rel2abs($O2O_ModeValue, $MAININPD);
+            }
+            if (! -e $O2O_ModeValue) {
+              &Error("File does not exist: $O2O_ModeValue", 
+                     "Check the Mode[$O2O_CurrentMode] command path.");
+              next;
+            }
+            if ($O2O_CurrentMode eq 'transcode') {require($O2O_ModeValue);}
           }
         }
         elsif ($par =~ /(SkipNodesMatching|SkipStringsMatching)/) {
@@ -79,14 +89,21 @@ sub osis2osis {
         elsif ($par =~ /^Config_(.*)$/) {$O2O_CONFIGS{$1} = $$par;}
         elsif ($par eq 'SourceProject') {
           if ($$par =~ /(^|\/)([^\/]+)DICT\/?$/) {
-            &Error("SourceProject must be name or path to a project main module (not a DICT module).", "Remove the letters: 'DICT' from the module name/path in SourceProject of $commandFile.", 1);
+            &Error(
+"SourceProject must be name or path to a project main module (not a DICT module).", 
+"Remove the letters: 'DICT' from the module name/path in SourceProject of $commandFile.", 1);
           }
-          # osis2osis depends on sourceProject OSIS file, and also on its sfm hierarchy, so copy that
+          # osis2osis depends on sourceProject OSIS file, and also on 
+          # its sfm hierarchy, so copy that
           $sourceProjectPath = $$par;
-          if ($sourceProjectPath =~ /^\./) {$sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $MAININPD);}
+          if ($sourceProjectPath =~ /^\./) {
+            $sourceProjectPath = File::Spec->rel2abs($sourceProjectPath, $MAININPD);
+          }
           else {$sourceProjectPath = "$MAININPD/../$$par";}
           if (! -d $sourceProjectPath) {
-            &Error("sourceProject $sourceProjectPath does not exist.", "'SET_sourceProject:$$par' must be the name of, or path to, an existing project (not a DICT).", 1);
+            &Error(
+"sourceProject $sourceProjectPath does not exist.", 
+"'SET_sourceProject:$$par' must be the name of, or path to, an existing project (not a DICT).", 1);
           }
           &makeDirs("$sourceProjectPath/sfm", $MAININPD);
           @SUB_PUBLICATIONS = &getSubPublications("$MAININPD/sfm");
@@ -125,7 +142,7 @@ sub osis2osis {
           &copy($in, $out);
         }
         elsif ($O2O_CurrentMode eq 'script') {
-          &shell("\"$Mode_script\" \"$in\" \"$out\"");
+          &shell("\"$O2O_ModeValue\" \"$in\" \"$out\"");
         }
         else {&convertFileStrings($in, $out);}
       }
@@ -158,13 +175,16 @@ sub osis2osis {
         &copy($src_osis, $outfile);
       }
       elsif ($O2O_CurrentMode eq 'script') {
-        &shell("\"$Mode_script\" \"$src_osis\" \"$outfile\"");
+        &shell("\"$O2O_ModeValue\" \"$src_osis\" \"$outfile\"");
       }
       else  {
         &convertFileStrings($src_osis, $outfile);
       }
     }
-    else {&Error("Unhandled $commandFile line: $_", "Fix this line so that it contains a valid command.");}
+    else {
+&Error("Unhandled $commandFile line: $_", 
+"Fix this line so that it contains a valid command.");
+    }
   }
   close(COMF);
   
@@ -434,7 +454,7 @@ sub transcodeStringByMode2 {
   }
   elsif ($O2O_CurrentMode eq 'cctable')  {
     require("$SCRD/utils/simplecc.pl");
-    return &simplecc_convert($s, $Mode_cctable);
+    return &simplecc_convert($s, $O2O_ModeValue);
   }
   else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by transcodeStringByMode()");}
 }

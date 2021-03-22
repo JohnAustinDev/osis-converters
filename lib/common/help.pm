@@ -311,7 +311,7 @@ our %HELP = (
       [ 'TextSource', 'Indicates a name or URL for the source of the text.' ],
       [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
       [ 'ModDrv', 'The type of module. This is auto-selected according to SFM `\id` type. Options avaiable are: `zText` for Bibles, `RawLD4` for DICTMOD, `RawGenBook` for Children\'s Bibles, or `zCom` for commentaries.' ],
-      [ 'PreferredCSSXHTML', 'SWORD module css may be included by putting it in PATH(MOD/sword/css/module.css) or PATH(MAINMOD/../defaults/<bible|dict>/sword/css/module.css)' ],
+      [ 'PreferredCSSXHTML', 'SWORD module css may be included by putting it in PATH(MOD/sword/css/module.css) or PATH(MAINMOD/../defaults/bible|dict/sword/css/module.css)' ],
     ], 1))],
   ]],
   
@@ -767,17 +767,17 @@ sub helpTags {
   my $t = shift;
   
   # Local file paths: PATH(<encoded-path>?)
-  $t =~ s/PATH\(([^\)]*)\)/
+  $t =~ s/PATH\((.*?)\)/
     my $p = $1; 
     my $e; 
-    my $r = &const($1,\$e); 
+    my $r = &const($p,\$e); 
     '`' . &helpPath($e ? $r : &shortPath($r)) . '`'/seg;
     
   # Reference to help: HELPREF(blah)
   $t =~ s/HELPREF\((.*?)\)/&helpRef($1)/seg;
   
   # Copy of help: HELP(<script>;<heading>;<key>?)
-  $t =~ s/HELP\(([^\)]+)\)/&help($1,1,1)/seg;
+  $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
     
   # Hyperlinks: [<text>?](<href>)
   $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/($1 ? $1:$2)/seg;

@@ -73,8 +73,7 @@ file located at: $MAININPD.", '', 1);
 
 &osis2osis($commandFile);
 our $OSIS2OSIS_PASS = 'postinit'; # call init_linux_script() normally
-
-use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init($INPD, $LOGFILE);
+&init($INPD, $LOGFILE);
 
 if (!&osis2osis($commandFile)) {
 
