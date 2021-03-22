@@ -790,8 +790,14 @@ sub readConfFile {
       $continuingEntry = '';
       
       if ($section =~ /$sectRE/) {
-        if    ($section eq 'MAINMOD') {$section = $MAINMOD;}
-        elsif ($section eq 'DICTMOD') {$section = $MAINMOD.'DICT';}
+        if    ($section eq 'MAINMOD') {
+          $section = $MAINMOD;
+          $confP->{'MainmodName'} = $section;
+        }
+        elsif ($section eq 'DICTMOD') {
+          $section = $MAINMOD.'DICT';
+          $confP->{'DictmodName'} = $section;
+        }
       }
       elsif ($section =~ /DICT$/) {
         if (!exists($confP->{'DictmodName'})) {

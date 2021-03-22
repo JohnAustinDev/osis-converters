@@ -64,7 +64,11 @@ sub checkAndWriteDefaults {
   my $haveDICT = $DICTMOD;
   if (!$haveDICT) {
     if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
-    if (exists($USFM{'dictionary'})) {$haveDICT = 1;}
+    if (exists($USFM{'dictionary'})) {
+      $haveDICT = 1;
+      $DICTMOD = $MAINMOD.'DICT';
+      if (! -e "$MAININPD/$DICTMOD") {mkdir "$MAININPD/$DICTMOD";}
+    }
   }
   
   # Copy projectDefaults files that are missing
@@ -86,7 +90,7 @@ sub checkAndWriteDefaults {
     if (!-e $dparent) {make_path($dparent);}
     
     if ($df_isDirectory && (! -e $dest || ! &shell("ls -A '$dest'", 3))) {
-      &Note("Copying missing default directory $df to $dest.");
+      &Note("Copying default directory $df to $dest.");
       &copy_dir_with_defaults($df, $dest);
       push(@newDefaultFiles, split(/\n+/, &shell("find '$dest' -type f -print", 3)));
     }
@@ -95,7 +99,7 @@ sub checkAndWriteDefaults {
       next;
     }
     elsif (! -e $dest) {
-      &Note("Copying missing default file $df to $dest.");
+      &Note("Copying default file $df to $dest.");
       my $src = &getDefaultFile($df, -1);
       if (-e $src) {copy($src, $dest);}
       push(@newDefaultFiles, $dest);
@@ -110,10 +114,16 @@ sub checkAndWriteDefaults {
         my $modType = ($modName eq $projName ? $projType:'dictionary');
         
         &Note("Customizing $file...");
-        if    ($file =~ /config\.conf$/)             {&customize_conf($modName, $modType, $haveDICT);}
-        elsif ($file =~ /CF_sfm2osis\.txt$/)         {&customize_sfm2osis($file, $modType);}
-        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {&customize_addScripRefLinks($file, $booknamesHP);}
-        else {&ErrorBug("Unknown customization type $dc for $file; write a customization function for this type of file.", 1);}
+        if    ($file =~ /config\.conf$/)             {
+          &customize_conf($modName, $modType, $haveDICT);
+        }
+        elsif ($file =~ /CF_sfm2osis\.txt$/)         {
+          &customize_sfm2osis($file, $modType);
+        }
+        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {
+          &customize_addScripRefLinks($file, $booknamesHP);
+        }
+        else {&ErrorBug("Unknown customization type $dc for $file.", 1);}
       }
     }
   }
@@ -125,28 +135,18 @@ sub customize_conf {
   my $haveDICT = shift;
 
   if ($modType eq 'dictionary') {
-    &ErrorBug("The 'dictionary' modType does not have its own config.conf file, but customize_conf was called with modType='dictionary'.", 1);
+    &ErrorBug("customize_conf was called with modType='dictionary'.", 1);
   }
- 
-  # Save any comments at the end of the default config.conf so they can 
-  # be added back after writing the new conf file.
-  my $comments = '';
-  if (open(MCF, $READLAYER, $CONFFILE)) {
-    while(<MCF>) {
-      if ($comments) {$comments .= $_;}
-      elsif ($_ =~ /^\Q#COMMENTS-ONLY-MUST-FOLLOW-NEXT-LINE/) {$comments = "\n";}
-    }
-    close(MCF);
-  }
-  $comments =~ s/^#(\[\w+\])/$1/mg;
  
   # If there is any existing $modName conf that is located in a repository 
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
   my $defConfP = &readConf($CONFFILE);
-  
+
   my $haveRepoConf;
-  if ($defConfP->{'system+REPOSITORY'} && $defConfP->{'system+REPOSITORY'} =~ /^http/) {
+  if ($defConfP->{'system+REPOSITORY'} && 
+      $defConfP->{'system+REPOSITORY'} =~ /^http/) {
+      
     my $swautogen = &configRE(@SWORD_AUTOGEN_CONFIGS);
     $swautogen =~ s/\$$//;
     
@@ -200,52 +200,36 @@ sub customize_conf {
     &setConfValue($defConfP, "$modName+Abbreviation", $modName, 1);
     
     # ModDrv
-    if ($modType eq 'childrens_bible') {&setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);}
-    if ($modType eq 'bible') {&setConfValue($defConfP, "$modName+ModDrv", 'zText', 1);}
-    if ($modType eq 'other') {&setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);}
+    if ($modType eq 'childrens_bible') {
+      &setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);
+    }
+    if ($modType eq 'bible') {
+      &setConfValue($defConfP, "$modName+ModDrv", 'zText', 1);
+    }
+    if ($modType eq 'other') {
+      &setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);
+    }
   }
 
   # SubPublicationTitle[scope]
   foreach my $scope (@SUB_PUBLICATIONS) {
     my $sp = $scope; $sp =~ s/\s/_/g;
-    &setConfValue($defConfP, "$modName+SubPublicationTitle[$sp]", "Title of Sub-Publication $sp DEF", 1);
+    &setConfValue($defConfP, 
+                  "$modName+SubPublicationTitle[$sp]", 
+                  "Title of Sub-Publication $sp DEF", 1);
   }
   
   # FullResourceURL
   my $v = $defConfP->{"$modName+FullResourceURL"};
   $v =~ s/\bNAME\b/$modName/g;
-  if ($v) {&setConfValue($defConfP, "$modName+FullResourceURL", $v, 1);}
+  if ($v) {
+    &setConfValue($defConfP, "$modName+FullResourceURL", $v, 1);
+  }
+  
+  # Add a [system] section which tells convert this is a oc 2.0 project.
+  $defConfP->{'system+DEBUG'} = 0;
   
   &writeConf($CONFFILE, $defConfP);
-  
-  # Now append the following to the new config.conf:
-  # - documentation comments
-  # - comments from original config.conf
-  my $defs = "# DEFAULT OSIS-CONVERTER CONFIG SETTINGS\n[$modName]\n";
-  my $section;
-  foreach my $k (sort keys %CONFIG_DEFAULTS) {
-    if ($k !~ /^([^\+]+)\+(.*)$/) {next;}
-    my $s = $1; my $e = $2;
-    if ($s ne $section) {$defs .= "[$s]\n"; $section = $s;}
-    $defs .= "$e=".$CONFIG_DEFAULTS{$k}."\n";
-  }
-  my $newconf = '';
-  if (open(MCF, $READLAYER, $CONFFILE)) {
-    while(<MCF>) {
-      if ($defs && $. != 1 && $_ =~ /^\[/) {$newconf .= "$defs\n"; $defs = '';}
-      $newconf .= $_;
-    }
-    $newconf .= $comments;
-    close(MCF);
-  }
-  else {&ErrorBug("customize_conf could not open config file $CONFFILE");}
-  if ($newconf) {
-    if (open(MCF, $WRITELAYER, $CONFFILE)) {
-      print MCF $newconf;
-      close(MCF);
-    }
-    else {&ErrorBug("customize_conf could not open config file $CONFFILE");}
-  }
   
   &readSetCONF();
 }

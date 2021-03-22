@@ -140,7 +140,7 @@ our %CONV_PUB_SETS = (
 {
 my %h; 
 foreach my $c (keys %CONV_PUB_SETS) {map($h{$_}++, @{$CONV_PUB_SETS{$c}});}
-our @CONV_PUB_SETS = (sort { length($b) <=> length($a) } keys %h);
+our @CONV_PUB_SETS = (sort keys %h);
 }
 
 # Conversion executable dependencies
