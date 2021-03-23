@@ -434,15 +434,11 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
   # copy css file(s): always copy html.css and then if needed also copy 
   # $convertTo.css if it exists
   mkdir("$tmp/css");
-  my $css = &getDefaultFile(
-    ( $isChildrensBible ? 'childrens_bible':'' ) .
-    "/html/css/html.css", -1);
-  if ($css) {&copy($css, "$tmp/css/00html.css");}
+  &copy(&getDefaultFile("/html/css/html.css"), 
+        "$tmp/css/00html.css");
   if ($convertTo ne 'html') {
-    $css = &getDefaultFile(
-      ( $isChildrensBible ? 'childrens_bible':'' ) .
-      "/$convertTo/css/$convertTo.css", -1);
-    if ($css) {&copy($css, "$tmp/css/01$convertTo.css");}
+    &copy(&getDefaultFile("/$convertTo/css/$convertTo.css"), 
+          "$tmp/css/01$convertTo.css");
   }
   # copy font if specified
   if ($FONTS && &conf("Font")) {
@@ -863,8 +859,8 @@ contains no paragraphs.", 1);
       [@osisID="BIBLE_TOP"]/@n', $inxml)}[0];
   if ($filteredBooks && !$subPublication) {
     $$bookTitlesP = join(', ', map($_->value, @{$XPC->findnodes(
-      '//osis:div[@type="book"]
-       //osis:milestone[@type="x-usfm-toc'.$titleTOC.'"]/@n', $inxml)}));
+      '//osis:div[@type="book"]/descendant::osis:milestone
+      [@type="x-usfm-toc'.$titleTOC.'"][1]/@n', $inxml)}));
   }
   else {$$bookTitlesP = '';}
   if ($$bookTitlesP) {$$pubTitleP .= ": $$bookTitlesP";}

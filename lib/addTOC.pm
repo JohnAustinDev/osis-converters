@@ -514,6 +514,7 @@ the localized title to 'SKIP'.");
     
   }
   elsif ($modType eq 'childrens_bible') {return;}
+  else {&ErrorBug("Bad modType: $modType.");}
   
   
   &writeXMLFile($xml, $osisP);

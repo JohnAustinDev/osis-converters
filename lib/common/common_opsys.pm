@@ -162,7 +162,6 @@ our %CONFIG_DEFAULTS = (
   'IntroductionTitle' => 'Introduction DEF',
   'NormalizeUnicode' => 'false',
   'Direction' => 'LtoR',
-  'KeySort' => 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz DEF',
 );
 
 # Command files and settings
@@ -688,25 +687,24 @@ sub readConf {
   my $confsrcP = shift;
   my $quiet = shift;
   
-  my (%c1, %c2, %f1, %f2);
+  my (%c, %f);
   
   my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
   if (-e $oc) {
-    &readConfFile($oc, \%f1, 1, \%c1);
+    &readConfFile($oc, \%f, 1, \%c);
   }
   
-  &readConfFile($projconf, \%f2, $quiet, \%c2);
-  foreach my $k (keys %c2) {$c1{$k} = $c2{$k}; $f1{$k} = $f2{$k};}
+  &readConfFile($projconf, \%f, $quiet, \%c);
   
-  if (!$c1{"MainmodName"}) {
+  if (!$c{"MainmodName"}) {
     &Error("No module name in $projconf", 
     "Specify the module name in config.conf like this: [MODNAME]", 1);
   }
 
-  #use Data::Dumper;  &Log(Dumper(\%c1)."\n".Dumper(\%f1)."\n", 1);
+  #use Data::Dumper;  &Log("readConf ".\%c.":\n".Dumper(\%c)."\n", 1);
   
-  if ($confsrcP) {$$confsrcP = \%f1;}
-  return \%c1;
+  if ($confsrcP) {$$confsrcP = \%f;}
+  return \%c;
 }
 
 # Read a config.conf file. Return a hash pointer to encoded config data.
@@ -758,7 +756,12 @@ sub readConfFile {
   my $section = '';
   if (!$confP) {my %conf; $confP = \%conf;}
   
-  if (open(XCONF, $READLAYER, $file)) {while(<XCONF>) {
+  my @lines;
+  if (open(XCONF, $READLAYER, $file)) {
+    while(<XCONF>) {push(@lines, $_);}
+    close(XCONF);
+  }
+  foreach (@lines) {
     # ignore comment lines
     if ($_ =~ /^#/) {next;}
     
@@ -776,7 +779,12 @@ sub readConfFile {
         $confFile = "$root/$confFile";
       }
       else {$confFile = &expandLinuxPath($confFile);}
-      if (-e $confFile) {&readConfFile($confFile, $confsrcP, $quiet, $confP);}
+      if (-e $confFile) {
+        if ($confFile !~ /\.defaults\.conf$/) {
+          &Note("Including config file: $confFile.");
+        }
+        &readConfFile($confFile, $confsrcP, $quiet, $confP);
+      }
       elsif ($confFile !~ /\.defaults\.conf$/) {
         &Error(
 "Include file: '$confFile' not found (at $file line $.)",
@@ -824,6 +832,14 @@ sub readConfFile {
       
       my $fullEntry = "$section+$e";
       $continuingEntry = '';
+      
+      if ($v eq 'undef') {
+        if (exists($confP->{$fullEntry})) {
+          delete($confP->{$fullEntry});
+        }
+        next;
+      }
+      
       if (!exists($confP->{$fullEntry})) {
         $confP->{$fullEntry} = $v;
         if ($confsrcP) {$confsrcP->{$fullEntry} = $file;}
@@ -840,11 +856,11 @@ sub readConfFile {
             is now=$v. $_");
           }
           $confP->{$fullEntry} = $v;
-          $confsrcP->{$fullEntry} = $file;
+          if ($confsrcP) {$confsrcP->{$fullEntry} = $file;}
         }
       }
       
-      # is this entry continuing to next line?
+      # is this entry going to continue to next line?
       $continuingEntry = ($confP->{$fullEntry} =~ s/\\$/\\\n/ ? $fullEntry:'');
       if ($continuingEntry && $e !~ /$contRE/) {
         &Error("Config file: '$file' config entry '$e' must take only a single line.", 
@@ -861,9 +877,9 @@ sub readConfFile {
     else {
       &Error("Config file: '$file' unhandled config.conf line: $_");
     }
-  } close(XCONF); }
+  }
 
-  #use Data::Dumper; &Log(Dumper($confP)."\n", 1);
+  #use Data::Dumper; &Log($file.":\n".Dumper($confP)."\n", 1);
   return $confP;
 }
 

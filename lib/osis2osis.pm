@@ -53,7 +53,8 @@ STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
   undef(%O2O_CONVERTS);
   
   my $newOSIS;
-  open(COMF, $READLAYER, $commandFile) || die "Could not open osis2osis command file $commandFile\n";
+  open(COMF, $READLAYER, $commandFile) 
+      || die "Could not open osis2osis command file $commandFile\n";
   while (<COMF>) {
     if ($_ =~ /^\s*$/) {next;}
     elsif ($_ =~ /^#/) {next;}
@@ -149,8 +150,12 @@ STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
     }
     elsif ($_ =~ /^CCOSIS:\s*(.*?)\s*$/) {
       my $osis = $1;
-      if (!$SourceProject) {&Error("Unable to run CCOSIS", "Specify SET_sourceProject in $commandFile", 1);}
-      my $sourceProject_osis = $SourceProject.($osis =~ /DICT$/ ? 'DICT':'');
+      if (!$SourceProject) {
+        &Error("Unable to run CCOSIS", 
+               "Specify SET_sourceProject in $commandFile", 1);
+      }
+      my $sourceProject_osis = $SourceProject . 
+          ($osis =~ /DICT$/ ? 'DICT':'');
       if ($OSIS2OSIS_PASS ne 'postinit') {next;}
       
       # Since osis2osis is run separately for MAINMOD and DICTMOD,
@@ -231,8 +236,10 @@ sub convertFileStrings {
     &Note("Converted ".@attributes2Convert." milestone n attributes.");
     
     # Convert glossary osisRefs and IDs
-    my @a = $XPC->findnodes('//*[@osisRef][contains(@type, "x-gloss")]/@osisRef', $xml);
-    my @b = $XPC->findnodes('//osis:seg[@type="keyword"][@osisID]/@osisID', $xml);
+    my @a = $XPC->findnodes(
+      '//*[@osisRef][contains(@type, "x-gloss")]/@osisRef', $xml);
+    my @b = $XPC->findnodes(
+      '//osis:seg[@type="keyword"][@osisID]/@osisID', $xml);
     my @glossIDs2Convert; push(@glossIDs2Convert, @a, @b);
     foreach my $id (@glossIDs2Convert) {
       my $idvalue = $id->getValue();
@@ -244,26 +251,49 @@ sub convertFileStrings {
     
     # Convert osisRef, annotateRef and osisID work prefixes
     my $w = $SourceProject;
-    my @ids = $XPC->findnodes('//*[contains(@osisRef, "'.$w.':") or contains(@osisRef, "'.$w.'DICT:")]', $xml);
-    foreach my $id (@ids) {my $new = $id->getAttribute('osisRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisRef', $new);}
+    my @ids = $XPC->findnodes('//*[
+      contains(@osisRef, "'.$w.':") or 
+      contains(@osisRef, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {
+      my $new = $id->getAttribute('osisRef');
+      $new =~ s/^$w((DICT)?:)/$MAINMOD$1/;
+      $id->setAttribute('osisRef', $new);
+    }
     &Note("Converted ".@ids." osisRef values.");
     
-    my @ids = $XPC->findnodes('//*[contains(@annotateRef, "'.$w.':") or contains(@annotateRef, "'.$w.'DICT:")]', $xml);
-    foreach my $id (@ids) {my $new = $id->getAttribute('annotateRef'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('annotateRef', $new);}
+    my @ids = $XPC->findnodes('//*[
+      contains(@annotateRef, "'.$w.':") or 
+      contains(@annotateRef, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {
+      my $new = $id->getAttribute('annotateRef');
+      $new =~ s/^$w((DICT)?:)/$MAINMOD$1/;
+      $id->setAttribute('annotateRef', $new);
+    }
     &Note("Converted ".@ids." annotateRef values.");
     
-    my @ids = $XPC->findnodes('//*[contains(@osisID, "'.$w.':") or contains(@osisID, "'.$w.'DICT:")]', $xml);
-    foreach my $id (@ids) {my $new = $id->getAttribute('osisID'); $new =~ s/^$w((DICT)?:)/$MAINMOD$1/; $id->setAttribute('osisID', $new);}
+    my @ids = $XPC->findnodes('//*[
+      contains(@osisID, "'.$w.':") or 
+      contains(@osisID, "'.$w.'DICT:")]', $xml);
+    foreach my $id (@ids) {
+      my $new = $id->getAttribute('osisID');
+      $new =~ s/^$w((DICT)?:)/$MAINMOD$1/;
+      $id->setAttribute('osisID', $new);
+    }
     &Note("Converted ".@ids." osisID values.");
     
     # Convert all text nodes after Header (unless skipped)
-    my @textNodes = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/following::text()', $xml);
-    foreach my $t (@textNodes) {$t->setData(&transcodeStringByMode($t->data));}
+    my @textNodes = $XPC->findnodes(
+      '//osis:header/following::text()', $xml);
+    foreach my $t (@textNodes) {
+      $t->setData(&transcodeStringByMode($t->data));
+    }
     &Note("Converted ".@textNodes." text nodes.");
     
     # Translate src attributes (for images etc.)
     my @srcs = $XPC->findnodes('//@src', $xml);
-    foreach my $src (@srcs) {$src->setValue(&translateStringByMode($src->getValue()));}
+    foreach my $src (@srcs) {
+      $src->setValue(&translateStringByMode($src->getValue()));
+    }
     &Note("Translated ".@srcs." src attributes.");
     
     &writeXMLFile($xml, $ccout);
@@ -274,7 +304,8 @@ sub convertFileStrings {
     # Entries in @OC_LOCALIZABLE_CONFIGS are converted.
     # CONFIG_<entry> will replace an entry with a new value.
     # CONFIG_CONVERT_<entry> will convert that entry.
-    # All other entries are not converted, but WILL have module names in their values updated: OLD -> NEW (except AudioCode!)
+    # All other entries are not converted, but WILL have module names 
+    # in their values updated: OLD -> NEW (except AudioCode!)
     my $confHP = &readConf($ccin);
     my $origMainmod = $confHP->{'MainmodName'};
     my $origDictmod = $confHP->{'DictmodName'};
@@ -319,7 +350,8 @@ sub convertFileStrings {
       my $e = $fullEntry;
       my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
       if ($e !~ /$locRE/) {next;}
-      $confHP->{$fullEntry} = &transcodeStringByMode($confHP->{$fullEntry});
+      $confHP->{$fullEntry} = 
+          &transcodeStringByMode($confHP->{$fullEntry});
       &Note("Converting entry $e to: ".$confHP->{$fullEntry});
     }
     
@@ -334,18 +366,24 @@ sub convertFileStrings {
     # write new conf entries/values
     &writeConf($ccout, $confHP);
 
-    # IMPORTANT: At one time the config.conf file was re-read at this point, 
-    # and progress continued. However, system variables are not re-loaded this
-    # way (and cannot be with Vagrant). Therefore, progress is instead halted
-    # after preinit, and then the script is restarted, loading correct system
-    # variables.
+    # IMPORTANT: At one time the config.conf file was re-read at this 
+    # point, and progress continued. However, system variables are not 
+    # re-loaded this way (and cannot be with Vagrant). Therefore, 
+    # progress is instead halted after preinit, and then the script is 
+    # restarted, loading correct system variables.
   }
   
   # collections.txt
   elsif ($fname eq "collections.txt") {
     my $newMod = lc($MOD);
-    if (!open(INF, $READLAYER, $ccin)) {&Error("Could not open collections.txt input $ccin"); return;}
-    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open collections.txt output $ccout"); return;}
+    if (!open(INF, $READLAYER, $ccin)) {
+      &Error("Could not open collections.txt input $ccin");
+      return;
+    }
+    if (!open(OUTF, $WRITELAYER, $ccout)) {
+      &Error("Could not open collections.txt output $ccout");
+      return;
+    }
     my %col;
     while(<INF>) {
       if ($_ =~ s/^(Collection\:\s*)(\Q$SourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
@@ -359,14 +397,26 @@ sub convertFileStrings {
     }
     close(INF);
     close(OUTF);
-    if (!%col) {&Error("Did not update Collection names in collections.txt");}
-    else {foreach my $c (sort keys %col) {&Note("Updated Collection $c to ".$col{$c});}}
+    if (!%col) {
+      &Error("Did not update Collection names in collections.txt");
+    }
+    else {
+      foreach my $c (sort keys %col) {
+        &Note("Updated Collection $c to ".$col{$c});
+      }
+    }
   }
   
   # USFM files
   elsif ($fname =~ /\.sfm$/) {
-    if (!open(INF,  $READLAYER, $ccin)) {&Error("Could not open SFM input $ccin"); return;}
-    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open SFM output $ccout"); return;}
+    if (!open(INF,  $READLAYER, $ccin)) {
+      &Error("Could not open SFM input $ccin");
+      return;
+    }
+    if (!open(OUTF, $WRITELAYER, $ccout)) {
+      &Error("Could not open SFM output $ccout");
+      return;
+    }
     while(<INF>) {
       if ($_ !~ /^\\id/) {
         my @parts = split(/(\\[\w\d]+)/, $_);
@@ -384,9 +434,16 @@ sub convertFileStrings {
   
   # other
   else {
-    &Warn("Converting unknown file type $fname.", "All text in the file will be converted.");
-    if (!open(INF,  $READLAYER, $ccin)) {&Error("Could not open input $ccin"); return;}
-    if (!open(OUTF, $WRITELAYER, $ccout)) {&Error("Could not open output $ccout"); return;}
+    &Warn("Converting unknown file type $fname.", 
+          "All text in the file will be converted.");
+    if (!open(INF,  $READLAYER, $ccin)) {
+      &Error("Could not open input $ccin");
+      return;
+    }
+    if (!open(OUTF, $WRITELAYER, $ccout)) {
+      &Error("Could not open output $ccout");
+      return;
+    }
     while(<INF>) {print OUTF &transcodeStringByMode($_);}
     close(INF);
     close(OUTF);
@@ -409,7 +466,8 @@ sub translateStringByMode {
   
   if (exists(&translate)) {return &translate($s);}
   elsif ($O2O_CurrentMode eq 'transcode') {
-      &Warn("<>Function translate() is usally defined when using MODE_Transcode, but it is not.", "
+      &Warn(
+"<>Function translate() is usally defined when using MODE_Transcode, but it is not.", "
 <>In MODE_Transcode you can define a Perl function called 
 translate() which will translate src attributes and other metadata. To 
 use it, you must tell osis-converters where to find it by using 
@@ -417,14 +475,15 @@ SET_MODE_Transcode:<include-file.pl>");
     return $s;
   }
   elsif ($O2O_CurrentMode eq 'cctable') {return &transcodeStringByMode($s);}
-  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by translateStringByMode()");}
+  else {&ErrorBug("Mode $O2O_CurrentMode is not supported.");}
 }
 
 sub transcodeStringByMode {
   my $s = shift;
   
   if ($O2O_CurrentMode eq 'transcode' && !exists(&transcode)) {
-      &Error("<>Function transcode() must be defined when using MODE_Transcode.", "
+      &Error(
+"<>Function transcode() must be defined when using MODE_Transcode.", "
 <>" . &help('sfm2osis;CF_osis2osis.txt;MODE_Transcode'));
     return $s;
   }
@@ -456,7 +515,7 @@ sub transcodeStringByMode2 {
     require("$SCRD/utils/simplecc.pl");
     return &simplecc_convert($s, $O2O_ModeValue);
   }
-  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported by transcodeStringByMode()");}
+  else {&ErrorBug("Mode $O2O_CurrentMode is not yet supported.");}
 }
 
 1;

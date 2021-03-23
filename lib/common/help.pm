@@ -140,7 +140,7 @@ our %HELP = (
     
     ['sub-heading', 'SUB-PUBLICATIONS' ],
     ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
-    ['para', 'To add a sub-publication, create a subdirectory in PATH(MAINMOD/sfm) whose name is the scope of the sub-publication, and put all SFM files pertaining to it there.' ],
+    ['para', 'To add a sub-publication, put the SFM files pertaining to it in the subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` the sub-publication scope.' ],
     
     ['sub-heading', 'HELP' ],
     ['para', 'Run HELPREF(<setting/file/script>) to find help on any particular setting, control file or script.'],
@@ -177,7 +177,7 @@ our %HELP = (
     ['para', 'Two renderings of the TOC are supported. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text in segments, having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub and azw3. '],
     ['para', 'One or more of the following instructions may be prepended to any TOC title to fine tune how the TOC is rendered:' ],
     ['list', ['INSTRUCTION', 'DESCRIPTION'], &getList(\@TOC_INSTRUCTIONS, [
-      ['[levelN]', 'Explicitly specifies the TOC hierarchy level. Where N is 1 for top level, 2 for second, or 3 for inner-most level. By Default, TOC hierarchy level is determined from OSIS element hierarchy.' ],
+      ['[levelN]', 'Explicitly specifies the TOC hierarchy level. Where `N` is 1 for top level, 2 for second, or 3 for inner-most level. By Default, TOC hierarchy level is determined from OSIS element hierarchy.' ],
       ['[not_parent]', 'Force the children of a TOC entry to follow the parent by inheriting its TOC level.' ],
       ['[no_toc]', 'Removes a chapter or keyword from the TOC.' ],
       ['[no_inline_toc]', 'Remove a TOC entry from the inline TOC. This could result in broken link errors for non-eBook publications.' ],
@@ -242,7 +242,7 @@ our %HELP = (
   ]],
   
   ['config.conf', [
-    ['para', ' Each project has a `config.conf` file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The `config.conf` file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("`$_`", @CONFIG_SECTIONS)). ' (where MAINMOD is the project code and DICTMOD is the same project code suffixed with \'DICT\'). What follows are available settings in the `config.conf` file. Letters in parenthesis indicate these entry types:'],
+    ['para', ' Each project has a `config.conf` file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The `config.conf` file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("`$_`", @CONFIG_SECTIONS)). ' (where `MAINMOD` is the project code and `DICTMOD` is the same project code suffixed with `DICT`). What follows are available settings in the `config.conf` file. Letters in parenthesis indicate these entry types:'],
     ['list', ['' ,''], 
     [
       ['(C)', 'Continuable from one line to another using a backslash character.'],
@@ -353,7 +353,7 @@ our %HELP = (
   
   ['CF_vsys.xml', [
     ['sub-heading', 'Adding External Cross-References' ],
-    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(defaults/AddCrossRefs/CF_<vsys>.xml) where vsys is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
+    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(defaults/AddCrossRefs/CF_<vsys>.xml) where `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
     ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
     ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:
     \b`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`
@@ -373,10 +373,10 @@ our %HELP = (
     ['list', ['SETTING', 'DESCRIPTION'], &getList([@CF_ADDSCRIPREFLINKS], [
       ['CONTEXT_BOOK', 'Textual references do not always include the book being referred to. Then the target book must be discovered from the context of the reference. Where the automated context search fails to discover the correct book, the `CONTEXT_BOOK` setting should be used. It takes the following form:
       \b`CONTEXT_BOOK: Gen if-xpath ancestor::div[1]`
-      \bWhere Gen is any osis book abbreviation, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given book will be used as the context book for that reference.' ],
+      \bWhere `Gen` is any osis book abbreviation, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given book will be used as the context book for that reference.' ],
       ['WORK_PREFIX', 'Sometimes textual references are to another work. For instance a Children\'s Bible may contain references to an actual Bible translation. To change the work to which references apply, the WORK_PREFIX setting should be used. It takes the following form:
       \b`WORK_PREFIX: LEZ if-xpath //@osisIDWork=\'LEZCB\'`
-      \bWhere LEZ is any project code to be referenced, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then LEZ will be used as the work prefix for that reference.' ],
+      \bWhere `LEZ` is any project code to be referenced, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then LEZ will be used as the work prefix for that reference.' ],
       ['SKIP_XPATH', 'When a section or category of text should be skipped by the parser SKIP_XPATH can be used. It takes the following form:
       \b`SKIP_XPATH: ancestor::div[@type=\'introduction\']`
       \bThe given xpath expression will be evaluated for every suspected textual scripture reference, and if it evaluates as true, it will be left alone.' ],
@@ -415,7 +415,7 @@ our %HELP = (
   ['CF_addFootnoteLinks.txt', [
     ['para', 'When translators include study notes that reference other study notes, this command file can be used to parse references to footnotes and convert them into working hyperlinks. This conversion requires that CF_addScripRefLinks.txt is also performed.' ],
     ['list', ['SETTING', 'DESCRIPTION'], &getList([@CF_ADDFOOTNOTELINKS], [
-      ['ORDINAL_TERMS', 'A list of ordinal:term pairs where ordinal is ( \d | prev | next | last ) and term is a localization of that ordinal to be searched for in the text. Example:
+      ['ORDINAL_TERMS', 'A list of ordinal:term pairs where ordinal is `( \d | prev | next | last )` and term is a localization of that ordinal to be searched for in the text. Example:
       \b`ORDINAL_TERMS:(1:first|2:second|prev:preceding)`' ],
       ['FIX', 'Used to fix a problematic reference. Each instance has the form:
       \b`LOCATION=\'book.ch.vs\' AT=\'ref-text\' and REPLACEMENT=\'exact-replacement\'`
@@ -432,8 +432,8 @@ our %HELP = (
   
   ['CF_addDictLinks.xml', [
     ['para', 'Many Bible translations are accompanied by reference materials, such as glossaries, maps and tables. Hyperlinks to this material, and between these materials, are helpful study aids. Translators may mark the words or phrases which reference a particular glossary entry or map. But often only the location of a reference is marked, while the exact target of the reference is not. Sometimes no references are marked, even though they exist throughout the translation. This command file\'s purpose is to convert all these kinds of textual references into strictly standardized working hyperlinks. '],
-    ['para', 'IMPORTANT: For case insensitive matches to work, all match text must be surrounded by the \Q...\E quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the \'i\' flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named \'link\' (using Perl\'s ?\'link\' notation) in which case that group will become the text of the link.' ],
-    ['para', 'Glossary references marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. USFM 3 explicit references may include their target lemma in the `lemma` attribute value. If there are multiple sub-publications which share the same lemma in their glossaries however, disambiguation may still be required. Two additional `\w` tag attributes may be used for disambiguation: `context` to specify the context of the target glossary (usually a scope value), and `dup` to specify the number of the duplicate lemma as it appears in CF_addDictLinks.xml.'],
+    ['para', 'IMPORTANT: For case insensitive matches to work, all match text must be surrounded by the `\Q...\E` quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the `i` flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named `link` (using Perl\'s `?\'link\'` notation) in which case that group will become the text of the link.' ],
+    ['para', 'Glossary references marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. USFM 3 explicit references may include their target lemma in the `lemma` attribute value. If there are multiple sub-publications which share the same lemma in their glossaries, disambiguation may still be required. Two additional `\w` tag attributes may be used for disambiguation: `context` to specify the context of the target glossary (usually a scope value), and `dup` to specify the number of the duplicate lemma as it appears in CF_addDictLinks.xml.'],
     ['para', 'Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
     ['list', ['' ,''], 
     [
@@ -527,7 +527,7 @@ our %HELP = (
     ['para', 'Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones. '],
     ['para', 'Default control files will be copied from the defaults directory (see HELPREF(convert) for their locations). This includes the Go Bible Creator user interface localization file and the app icon. These files can be customized per project, by placing them in PATH(MAINMOD/gobible) directory. Or customized for a group of projects, by placing them in PATH(MAINMOD/../defaults/gobible).' ],
     ['para', 'IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.' ],
-    ['para', 'Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by PATH(defaults/gobible/<type>Char.txt) or PATH(MAINMOD/../defaults/gobible/<type>Char.txt) where type is `simple` or `normal`. ' ],
+    ['para', 'Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by PATH(defaults/gobible/<type>Char.txt) or PATH(MAINMOD/../defaults/gobible/<type>Char.txt) where `<type>` is `simple` or `normal`. ' ],
   ]],
   
 ],

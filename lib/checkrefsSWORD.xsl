@@ -57,24 +57,13 @@
     <variable name="osisRefs" as="xs:string*" select="//@osisRef | $MAINMOD_DOC//@osisRef
         [boolean($keywords)][starts-with(., concat($DICTMOD, ':'))]"/>
     
-    <variable name="missing2MAIN" as="xs:string*">
-      <for-each select="$MAINMOD_DOC">
-        <sequence select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
-          return if (not(starts-with($r, concat($MAINMOD, ':')))) then () 
-                 else if (oc:isScripRef($r, 'noneed')) then ()
-                 (: SWORD Children's Bibles expect decoded osisID values even though they don't validate :)
-                 else if ($isChildrensBible and key('osisID', oc:decodeOsisRef(oc:ref($r)))) then ()
-                 else if (not($isChildrensBible) and key('osisID', oc:ref($r))) then ()
-                 else $r"/>
-      </for-each>
-    </variable>
     <variable name="missing2DICT" as="xs:string*" 
         select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
           return if (not(starts-with($r, concat($DICTMOD, ':')))) then ()
                  else if (not($keywords)) then ()
                  else if (oc:decodeOsisRef(oc:ref($r)) = $keywords) then ()
                  else $r"/>
-    <for-each select="$missing2MAIN[normalize-space()], $missing2DICT[normalize-space()]">
+    <for-each select="$missing2DICT[normalize-space()]">
       <call-template name="Error">
 <with-param name="msg">Missing target entryFree[@n="<value-of select="oc:decodeOsisRef(oc:ref(.))"/>"]</with-param>
       </call-template>

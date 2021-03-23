@@ -123,9 +123,15 @@ sub getSwordConf {
     &setSwordConfValue(\%swordConf, $e, &conf($e));
   }
   
-  # DICTMOD ModDrv is not set until now
-  if ($DICTMOD && $MOD eq $DICTMOD) {
-    &setSwordConfValue(\%swordConf, 'ModDrv', 'RawLD4');
+  # Companion and DICTMOD ModDrv is not set until now
+  if ($DICTMOD) {
+    if ($MOD eq $DICTMOD) {
+      &setSwordConfValue(\%swordConf, 'ModDrv', 'RawLD4');
+      &setSwordConfValue(\%swordConf, 'Companion', $MAINMOD);
+    }
+    else {
+      &setSwordConfValue(\%swordConf, 'Companion', $DICTMOD);
+    }
   }
   
   my $moddrv = $swordConf{"$MOD+ModDrv"};
@@ -180,6 +186,10 @@ sub getSwordConf {
     &setSwordConfValue(\%swordConf, 'Scope', &getScopeXML($moduleSourceXML));
   }
   
+  if ($type eq 'genbook' && $MOD =~ /^(\w{3,4})CB$/) {
+    &setSwordConfValue(\%swordConf, 'Companion', $1);
+  }
+  
   if ($moddrv =~ /LD/ && !$swordConf{"$MOD+LangSortOrder"}) {
     my $lso = &conf('KeySort');
     $lso =~ s/(\[[^\]]*\]|\{[^\}]*\})//g;
@@ -201,7 +211,7 @@ sub getSwordConf {
       $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
       &setSwordConfValue(\%swordConf, 'OSISVersion', $vers);
     }
-    if ($XPC->findnodes("//osis:reference[\@type='x-glossary']", $moduleSourceXML)) {
+    if ($DICTMOD && $MOD eq $MAINMOD) {
       &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 
       'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On');
     }
@@ -211,7 +221,7 @@ sub getSwordConf {
     &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISScripref');
   }
   
-  if ($moddrv =~ /LD/) {
+  if ($DICTMOD && $MOD eq $DICTMOD) {
     # The following is needed to prevent ICU from becoming a SWORD engine 
     # dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
     if ($UPPERCASE_DICTIONARY_KEYS) {
