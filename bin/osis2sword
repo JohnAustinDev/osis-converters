@@ -189,7 +189,7 @@ if ($cssfile) {
 # Write the SWORD config.conf file
 my $SwordConfFile = "$swtmp/mods.d/".lc($MOD).".conf";
 if (! -e "$swtmp/mods.d") {mkdir "$swtmp/mods.d";}
-&writeConf($SwordConfFile, $Sconf, 1);
+&writeConf($SwordConfFile, $Sconf);
 &zipModule(&outdir()."/$MOD.zip", $swtmp);
 
 # Copy config.conf for CVS

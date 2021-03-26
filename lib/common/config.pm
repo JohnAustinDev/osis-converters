@@ -96,7 +96,7 @@ sub contextConfigEntries {
   
   my @entries;
   foreach my $fe (keys %{$CONF}) {
-    if ($fe =~ /^(MainmodName|DictmodName)$/) {next;}
+    if ($fe eq 'MAINMOD') {next;}
     my $e = $fe;
     my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
     if ($s eq 'system') {next;}
@@ -114,7 +114,7 @@ sub contextConfigEntries {
 sub getSwordConf {
   my $moduleSource = shift;
   
-  my %swordConf = ( 'MainmodName' => $MOD );
+  my %swordConf = ( 'MAINMOD' => $MOD );
   
   # Copy appropriate values from project config.conf
   my $swordConfigRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
@@ -141,7 +141,7 @@ sub getSwordConf {
   }
   
 	my $dp;
-  my $mod = $swordConf{"MainmodName"};
+  my $mod = $swordConf{"MAINMOD"};
 	if    ($moddrv eq "RawText")    {$dp = "./modules/texts/rawtext/".lc($mod)."/";}
   elsif ($moddrv eq "RawText4")   {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
 	elsif ($moddrv eq "zText")      {$dp = "./modules/texts/ztext/".lc($mod)."/";}

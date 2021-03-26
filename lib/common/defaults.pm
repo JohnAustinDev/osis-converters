@@ -141,7 +141,7 @@ sub customize_conf {
   # If there is any existing $modName conf that is located in a repository 
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
-  my $defConfP = &readConf($CONFFILE);
+  my $defConfP = &readProjectConf($CONFFILE);
 
   my $haveRepoConf;
   if ($defConfP->{'system+REPOSITORY'} && 
@@ -187,8 +187,7 @@ sub customize_conf {
           if ($defConfP->{"$modName+$e"} eq $confP->{$k}) {next;}
           $defConfP->{$k} = $confP->{$k};
         }
-        $defConfP->{'MainmodName'} = $modName;
-        $defConfP->{'DictmodName'} = $modName.'DICT';
+        $defConfP->{'MAINMOD'} = $modName;
         unlink("$CONFFILE.dict");
       }
       else {&ErrorBug("Could not open conf $CONFFILE.dict");}
@@ -229,7 +228,7 @@ sub customize_conf {
   # Add a [system] section which tells convert this is a oc 2.0 project.
   $defConfP->{'system+DEBUG'} = 0;
   
-  &writeConf($CONFFILE, $defConfP);
+  &writeConf($CONFFILE, $defConfP, 1);
   
   &readSetCONF();
 }

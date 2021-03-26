@@ -286,7 +286,7 @@ sub addExternalWorkToHeader {
   my $wmain = $work; $wmain =~ s/DICT$//;
   my $extWorkDir = "$MAININPD/../$wmain";
   if (-e "$extWorkDir/config.conf") {
-    my $cP = &readConf("$extWorkDir/config.conf");
+    my $cP = &readProjectConf("$extWorkDir/config.conf");
     my $moddrv = $cP->{"$work+ModDrv"};
     my %type;
     if ($moddrv =~ /Text/) {

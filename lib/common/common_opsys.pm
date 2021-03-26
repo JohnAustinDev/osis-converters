@@ -459,7 +459,7 @@ sub set_system_globals {
       if ($$e =~ /^\./) {$$e = File::Spec->rel2abs($$e, $SCRD);}
     }
     # Write OC_SYSTEM_PATH_CONFIGS Vagrant paths to .vm.conf
-    my $cP = &readConfFile("$SCRD/.vm.conf", undef, 1);
+    my $cP = &readConfFile("$SCRD/.vm.conf");
     foreach my $k (keys %{$cP}) {
       if ($k =~ /^$MAINMOD\+/) {delete($cP->{$k});}
     }
@@ -472,14 +472,14 @@ sub set_system_globals {
     # To prevent collisions between different osis-converters threads, 
     # a BlockFile is used to insure a read doesn't occur during writing.
     my $blockFile = BlockFile->new("$SCRD/.vm.conf-blocked.txt");
-    &writeConf("$SCRD/.vm.conf", $cP, 1);
+    &writeConf("$SCRD/.vm.conf", $cP);
     if (!-e "$SCRD/.vm.conf") {&Error(
 "Could not write $SCRD/.vm.conf meaning Vagrant will not work properly.",
 "Check that you have write permission on directory $SCRD.");}
   }
   else {
     # Write .vm.conf settings to Perl globals
-    my $cP = &readConfFile("$SCRD/.vm.conf", undef, 1);
+    my $cP = &readConfFile("$SCRD/.vm.conf");
     foreach my $e (keys %{$cP}) {
       if ($e !~ /^$MAINMOD\+(.*)$/) {next;}
       $$1 = $cP->{$e};
@@ -541,7 +541,7 @@ sub set_project_globals {
 
   our $CONF;
   our $CONFFILE = "$MAININPD/config.conf";
-  if (-e $CONFFILE) {&readSetCONF(1);}
+  if (-e $CONFFILE) {&readSetCONF();}
   
   # $DICTMOD will be empty if there is no dictionary module for the 
   # project, but $DICTINPD always has a value
@@ -646,21 +646,17 @@ subpub:
 }
 
 sub readSetCONF {
-  my $quiet = shift;
 
-  # NOTE: Perl variables from the [system] section of config.conf are only 
-  # set by set_system_globals().
+  # NOTE: Perl variables from the [system] section of config.conf are  
+  # only set by set_system_globals().
 
-  $CONF = &readConf($CONFFILE, \$CONFSRC, $quiet);
+  $CONF = &readProjectConf($CONFFILE, \$CONFSRC);
   if (!$CONF) {return 0;}
-  
-  my $mainmod = $CONF->{'MainmodName'};
-  my $dictmod = $CONF->{'DictmodName'};
   
   # Apply config Defaults
   foreach my $e (keys %CONFIG_DEFAULTS) {
-    if (!exists($CONF->{"$mainmod+$e"})) {
-      $CONF->{"$mainmod+$e"} = $CONFIG_DEFAULTS{$e};
+    if (!exists($CONF->{"$MAINMOD+$e"})) {
+      $CONF->{"$MAINMOD+$e"} = $CONFIG_DEFAULTS{$e};
     }
   }
   
@@ -680,26 +676,31 @@ sub readSetCONF {
 # read in the following order:
 #   1) &getDefaultFile('defaults.conf') (if it exists)
 #   2) $INPD/config.conf (required)
-# Also 'Include:<config>' statements can be used to load other config
-# files as well, which are read if/when they are encountered.
-sub readConf {
+# Also any 'Include:<config>' statements are read to load other config
+# files in the order encountered.
+sub readProjectConf {
   my $projconf = shift;
   my $confsrcP = shift;
-  my $quiet = shift;
+  
+  # Default conf files may use MAINMOD and DICTMOD sections, so the 
+  # 'MAINMOD' key must be set before reading any default file(s).
+  my $tmpP = &readConfFile($projconf);
+  if (!$tmpP->{'MAINMOD'}) {
+    &Error(
+"Project config has no [<project-code>] section.", 
+"Project config files must include a [<project-code>] section:\n" . 
+&help('config.conf', 1), 1);
+  }
   
   my (%c, %f);
+  $c{'MAINMOD'} = $tmpP->{'MAINMOD'};
   
   my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
   if (-e $oc) {
-    &readConfFile($oc, \%f, 1, \%c);
+    &readConfFile($oc, \%f, \%c);
   }
   
-  &readConfFile($projconf, \%f, $quiet, \%c);
-  
-  if (!$c{"MainmodName"}) {
-    &Error("No module name in $projconf", 
-    "Specify the module name in config.conf like this: [MODNAME]", 1);
-  }
+  &readConfFile($projconf, \%f, \%c, 1);
 
   #use Data::Dumper;  &Log("readConf ".\%c.":\n".Dumper(\%c)."\n", 1);
   
@@ -720,10 +721,13 @@ sub readConf {
 # section defines Perl globals used througout the conversion process
 # (see set_system_globals()).
 #
-# There are two special config data hash keys: 'MainmodName' and 
-# 'DictmodName' which may be read to find the names of included MAINMOD
-# and DICTMOD sections. The first [<module-name>] sections of each type
-# are recorded by these hash keys.
+# The default module to use as MAINMOD for context interpretation is 
+# recorded in a special 'MAINMOD' hash key. This key value will not be 
+# overwritten if previously set, and must be previously set to read any
+# config file with 'MAINMOD' or 'DICTMOD' sections (such as default
+# config files). Otherwise, the first unknown section name not ending 
+# in DICT will become the MAINMOD key value, and once written it will 
+# not be changed.
 # 
 # VALUES:
 # There may by multiple entries for @MULTIVALUE_CONFIGS entries and each 
@@ -739,18 +743,12 @@ sub readConf {
 sub readConfFile {
   my $file = shift;     # config file path
   my $confsrcP = shift; # used for reverse lookup of values
-  my $quiet = shift;    # turn off warnings and notes
   my $confP = shift;    # optional data hash pointer
-  
-  if (!defined($MAINMOD)) {
-    &ErrorBug("\$MAINMOD is not defined.", 1);
-  }
+  my $warn = shift;     # warn when overwritting existing values
   
   my $sectRE = &configRE(@CONFIG_SECTIONS);
   my $contRE = &configRE(@CONTINUABLE_CONFIGS);
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
-  
-  if (!$quiet) {&Note("Reading config.conf: $file");}
   
   my $continuingEntry = '';
   my $section = '';
@@ -783,7 +781,7 @@ sub readConfFile {
         if ($confFile !~ /\.defaults\.conf$/) {
           &Note("Including config file: $confFile.");
         }
-        &readConfFile($confFile, $confsrcP, $quiet, $confP);
+        &readConfFile($confFile, $confsrcP, $confP, $warn);
       }
       elsif ($confFile !~ /\.defaults\.conf$/) {
         &Error(
@@ -798,24 +796,21 @@ sub readConfFile {
       $continuingEntry = '';
       
       if ($section =~ /$sectRE/) {
-        if    ($section eq 'MAINMOD') {
-          $section = $MAINMOD;
-          $confP->{'MainmodName'} = $section;
+        if ($section eq 'MAINMOD') {
+          if (!$confP->{'MAINMOD'}) {
+            &ErrorBug("MAINMOD is undefined.", 1);
+          }
+          $section = $confP->{'MAINMOD'};
         }
         elsif ($section eq 'DICTMOD') {
-          $section = $MAINMOD.'DICT';
-          $confP->{'DictmodName'} = $section;
+          if (!$confP->{'MAINMOD'}) {
+            &ErrorBug("MAINMOD is undefined.", 1);
+          }
+          $section = $confP->{'MAINMOD'}.'DICT';
         }
       }
-      elsif ($section =~ /DICT$/) {
-        if (!exists($confP->{'DictmodName'})) {
-          $confP->{'DictmodName'} = $section;
-        }
-      }
-      else {
-        if (!exists($confP->{'MainmodName'})) {
-          $confP->{'MainmodName'} = $section;
-        }
+      elsif (!$confP->{'MAINMOD'} && $section !~ /DICT$/) {
+        $confP->{'MAINMOD'} = $section;
       }
     }
     
@@ -826,8 +821,7 @@ sub readConfFile {
       if (!$section) {
         &Error(
 "Config entry in '$file' needs a section heading: $_",
-"Section headings are enclosed in square brackets like this: '[$MAINMOD]'");
-        $section = $MAINMOD;
+"Section headings are enclosed in square brackets like this: '[$MAINMOD]'", 1);
       }
       
       my $fullEntry = "$section+$e";
@@ -851,9 +845,11 @@ sub readConfFile {
         }
         # otherwise overwrite previous value
         else {
-          if (!$quiet) {
-            &Warn("Config file: '$file' config.conf entry '$fullEntry' appears more than once: was=".$confP->{$fullEntry}.", 
-            is now=$v. $_");
+          if ($warn) {
+            &Warn(
+"config.conf '$fullEntry' was changed by: '$file':
+    was=" . $confP->{$fullEntry} . "
+    is =$v");
           }
           $confP->{$fullEntry} = $v;
           if ($confsrcP) {$confsrcP->{$fullEntry} = $file;}
@@ -884,17 +880,21 @@ sub readConfFile {
 }
 
 # Write a config file having entries of $confP. NOTE: Config 
-# entries of the defaults.conf will be filtered out unless 
-# $includeDefaults is set.
+# entries of the defaults.conf will be filtered out if $filterDefaults 
+# is set. The written config file will include a [system] section,
+# to signal an osis-converters 1.0+ config file.
 sub writeConf {
   my $file = shift;
   my $confP = shift;
-  my $includeDefaults = shift;
+  my $filterDefaults = shift;
 
   my %defaults;
-  my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
-  if (-e $oc) {
-    &readConfFile($oc, undef, 1, \%defaults);
+  if ($filterDefaults) {
+    my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
+    if (-e $oc) {
+      $defaults{'MAINMOD'} = $confP->{'MAINMOD'};
+      &readConfFile($oc, undef, \%defaults);
+    }
   }
   
   my $confdir = $file; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
@@ -903,11 +903,12 @@ sub writeConf {
   if (open(XCONF, $WRITELAYER, $file)) {
     my $section = '';
     
+    my $hasSystemSection;
     foreach my $fullName (
         sort { &confEntrySort($a, $b, $confP); } 
         keys %{$confP} ) {
-      if ($fullName =~ /^(MainmodName|DictmodName)$/) {next;}
-      elsif (!$includeDefaults && defined($defaults{$fullName})) {next;}
+      if ($fullName eq 'MAINMOD') {next;}
+      elsif ($filterDefaults && defined($defaults{$fullName})) {next;}
       else {
         my $e = $fullName; 
         my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
@@ -922,6 +923,7 @@ sub writeConf {
         if ($s ne $section) {
           print XCONF ($section ? "\n":'')."[$s]\n";
           $section = $s;
+          if ($s eq 'system') {$hasSystemSection++;}
         }
         
         if ($confP->{$fullName} =~ /<nx\/>/) {
@@ -931,6 +933,9 @@ sub writeConf {
         }
         else {print XCONF $e."=".$confP->{$fullName}."\n";}
       }
+    }
+    if (!$hasSystemSection) {
+      print XCONF "\n[system]\n#DEBUG=1\n";
     }
     close(XCONF);
     
@@ -942,7 +947,7 @@ sub writeConf {
 
   #&Log(Dumper($confP)."\n", 1);
 
-  $confP = &readConfFile($file, undef, 1);
+  $confP = &readConfFile($file);
   return $confP;
 }
 
@@ -954,10 +959,10 @@ sub confEntrySort {
   my $ae = $a; my $be = $b;
   my $as = ($ae =~ s/([^\+]+)\+// ? $1:'');
   my $bs = ($be =~ s/([^\+]+)\+// ? $1:'');
-  if    ($as eq $confP->{'MainmodName'}) {$as = 'MAINMOD';}
-  elsif ($as eq $confP->{'DictmodName'}) {$as = 'DICTMOD';}
-  if    ($bs eq $confP->{'MainmodName'}) {$bs = 'MAINMOD';}
-  elsif ($bs eq $confP->{'DictmodName'}) {$bs = 'DICTMOD';}
+  if    ($as eq $confP->{'MAINMOD'}) {$as = 'MAINMOD';}
+  elsif ($as eq $confP->{'MAINMOD'}.'DICT') {$as = 'DICTMOD';}
+  if    ($bs eq $confP->{'MAINMOD'}) {$bs = 'MAINMOD';}
+  elsif ($bs eq $confP->{'MAINMOD'}.'DICT') {$bs = 'DICTMOD';}
     
   # First by section
   my $ax = @CONFIG_SECTIONS,
@@ -1018,11 +1023,11 @@ sub conf {
   elsif (exists($CONF->{$script_name.'+'.$entry})) {
     $key = $script_name.'+'.$entry;
   }
-  elsif ($CONF->{'DictmodName'} && $mod eq $CONF->{'DictmodName'} && exists($CONF->{$mod.'+'.$entry})) {
+  elsif ($mod eq $CONF->{'MAINMOD'}.'DICT' && exists($CONF->{$mod.'+'.$entry})) {
     $key = $mod.'+'.$entry;
   }
-  elsif (exists($CONF->{$CONF->{'MainmodName'}.'+'.$entry})) {
-    $key = $CONF->{'MainmodName'}.'+'.$entry;
+  elsif (exists($CONF->{$CONF->{'MAINMOD'}.'+'.$entry})) {
+    $key = $CONF->{'MAINMOD'}.'+'.$entry;
   }
   elsif ($isConf eq 'system' && $quiet && exists($CONF->{'system+'.$entry})) {
     $key = 'system+'.$entry;
@@ -1111,7 +1116,7 @@ sub confAuto {
 sub isValidConfig {
   my $fullEntry = shift;
  
-  if ($fullEntry =~ /^(MainmodName|DictmodName)$/) {
+  if ($fullEntry eq 'MAINMOD') {
     return 1;
   }
   
@@ -1450,7 +1455,7 @@ sub hostPath {
     &ErrorBug("hostPath should only be called from a Vagrant VM.");
   }
   
-  my $cP = &readConfFile("$SCRD/.vm.conf", undef, 1);
+  my $cP = &readConfFile("$SCRD/.vm.conf");
   
   my $vhost = $cP->{"all+HOST_SCRD"};
   my $vvim = '/vagrant';

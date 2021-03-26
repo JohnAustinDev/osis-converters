@@ -301,76 +301,59 @@ sub convertFileStrings {
   
   # config.conf
   elsif ($fname eq "config.conf") {
-    # Entries in @OC_LOCALIZABLE_CONFIGS are converted.
-    # CONFIG_<entry> will replace an entry with a new value.
-    # CONFIG_CONVERT_<entry> will convert that entry.
-    # All other entries are not converted, but WILL have module names 
-    # in their values updated: OLD -> NEW (except AudioCode!)
-    my $confHP = &readConf($ccin);
-    my $origMainmod = $confHP->{'MainmodName'};
-    my $origDictmod = $confHP->{'DictmodName'};
-
-    # NOTE: Global $DICTMOD may not have been set yet, even if there is
-    # a dictionary module with the project, so if SourceProject has a
-    # dict module, make sure DICTMOD is set.
-    if ($origDictmod && !$DICTMOD) {
-      $DICTMOD = $MAINMOD.'DICT';
-    }
+    my $confHP = &readProjectConf($ccin);
     
-    # replace module names in all config keys
+    # change config.conf keys
+    $confHP->{'MAINMOD'} = $MAINMOD;
     foreach my $e (sort keys %{$confHP}) {
-      my $e2 = $e;
-      if ($origDictmod) {
-        $e2 =~ s/^${origDictmod}\+/${DICTMOD}\+/;
-      }
-      $e2 =~ s/^${origMainmod}\+/${MAINMOD}\+/;
-      $confHP->{$e2} = delete($confHP->{$e});
+      my $new = $e;
+      $new =~ s/^$SourceProject((DICT)?)\+/$MAINMOD$1\+/;
+      $confHP->{$new} = delete($confHP->{$e});
     }
     
-    # replace module names in all config values
+    # replace module names in config values (except AudioCode)
     foreach my $e (sort keys %{$confHP}) {
       if ($e =~ /\+AudioCode/) {next;}
       my $new = $confHP->{$e};
-      my $mainsp = $SourceProject; $mainsp =~ s/DICT$//;
-      my $lcmsp = lc($mainsp);
-      my $m1 = $new =~ s/($lcmsp)(dict)?/my $r = lc($MAINMOD).$2;/eg;
-      my $m2 = $new =~ s/($mainsp)(DICT)?/$MAINMOD$2/g;
+      my $lcSourceProject = lc($SourceProject);
+      my $m1 = $new =~ s/\b$lcSourceProject((dict)?)\b/my $r = lc($MAINMOD).$1;/eg;
+      my $m2 = $new =~ s/\b$SourceProject((DICT)?)\b/$MAINMOD$1/g;
       if ($m1 || $m2) {
         &Note("Modifying entry $e\n\t\twas: ".$confHP->{$e}."\n\t\tis:  ".$new);
         $confHP->{$e} = $new;
       }
     }
     
-    # convert appropriate entry values
+    # convert localized entry values
     my @c = ('MATCHES:.*Title.*', 'Abbreviation', 'About', 'Description');
     my $l = &conf('Lang'); $l =~ s/\-.*$//;
     if ($l) {push(@c, "MATCHES:.*_$l");}
     my $locRE = &configRE(@c);
-    foreach my $fullEntry (sort keys %{$confHP}) {
-      my $e = $fullEntry;
-      my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
+    foreach my $fe (sort keys %{$confHP}) {
+      my $e = $fe;
+      my $s = ($e =~ s/^([^\+]+)\+// ? $1 : '');
       if ($e !~ /$locRE/) {next;}
-      $confHP->{$fullEntry} = 
-          &transcodeStringByMode($confHP->{$fullEntry});
-      &Note("Converting entry $e to: ".$confHP->{$fullEntry});
+      $confHP->{$fe} = 
+          &transcodeStringByMode($confHP->{$fe});
+      &Note("Converting entry $e to: ".$confHP->{$fe});
     }
     
     # set requested values
     foreach my $e (sort keys %O2O_CONFIGS) {
       my $fullEntry = $e;
       if ($fullEntry !~ /\+/) {$fullEntry = "$MAINMOD+$e";}
-      &Note("Setting entry $e to: ".$O2O_CONFIGS{$e});
       $confHP->{$fullEntry} = $O2O_CONFIGS{$e};
+      &Note("Setting entry $e to: ".$confHP->{$fullEntry});
     }
     
-    # write new conf entries/values
-    &writeConf($ccout, $confHP);
+    # write new config.conf file
+    &writeConf($ccout, $confHP, 1);
 
     # IMPORTANT: At one time the config.conf file was re-read at this 
-    # point, and progress continued. However, system variables are not 
+    # point, and progress continued. However, global variables are not 
     # re-loaded this way (and cannot be with Vagrant). Therefore, 
-    # progress is instead halted after preinit, and then the script is 
-    # restarted, loading correct system variables.
+    # progress is instead halted after preinit, and the script is 
+    # restarted to reload globals.
   }
   
   # collections.txt

@@ -15,7 +15,7 @@ foreach my $c (split(/\n/, &shell("find '$projdir' -name config.conf", 3))) {
   
   my %conf = %{&readConfFile($c)};
   
-  my $mod = $conf{'MainmodName'};
+  my $mod = $conf{'MAINMOD'};
   if (!$mod) {die;}
   if ($mod =~ /^($skip)$/i) {next;}
   

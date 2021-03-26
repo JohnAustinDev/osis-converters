@@ -328,10 +328,9 @@ sub getProjectInfo {
   if (&shell("grep '\\[system\\]' \"$pdir/$cp/config.conf\"", 3, 1)) {
     $infoP->{$proj}{'runable'}++;
     $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
-    if (!defined($infoP->{$cp}{'MainmodName'})) {
-      $INPD = "$pdir/$cp";
-      our $CONF; &set_project_globals();
-      foreach my $k (keys %{$CONF}) {$infoP->{$cp}{$k} = $CONF->{$k};}
+    if (!defined($infoP->{$cp}{'MAINMOD'})) {
+      my $confP = &readProjectConf("$pdir/$cp/config.conf");
+      foreach my $k (keys %{$confP}) {$infoP->{$cp}{$k} = $confP->{$k};}
     }
   }
 }
@@ -629,7 +628,7 @@ sub modOutdir {
     if ($outdir) {$outdir = "$SCRD/$outdir";}
   }
   else {
-    my $cP = &readConfFile("$SCRD/.vm.conf", undef, 1);
+    my $cP = &readConfFile("$SCRD/.vm.conf");
     $outdir = $cP->{"$p+OUTDIR"};
   }
     
