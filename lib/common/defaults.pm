@@ -75,8 +75,7 @@ sub checkAndWriteDefaults {
   my $projName = $MAININPD; $projName =~ s/^.*\/([^\/]+)\/?$/$1/;
   my $projType = ($projName =~ /\w{3,}CB$/ ? 'childrens_bible':'bible');
   my @newDefaultFiles;
-  foreach my $df (@projectDefaults) {
-    my $df_isDirectory = ($df =~ s/\/\*$// ? 1:0); 
+  foreach my $df (@projectDefaults) { 
     my $dest = $df;
     $dest =~ s/template\.conf$/config.conf/;
     my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:$projType);
@@ -89,13 +88,9 @@ sub checkAndWriteDefaults {
     my $dparent = $dest; $dparent =~ s/[^\/]+$//;
     if (!-e $dparent) {make_path($dparent);}
     
-    if ($df_isDirectory && (! -e $dest || ! &shell("ls -A '$dest'", 3))) {
-      &Note("Copying default directory $df to $dest.");
-      &copy_dir_with_defaults($df, $dest);
-      push(@newDefaultFiles, split(/\n+/, &shell("find '$dest' -type f -print", 3)));
-    }
-    # If the user has added CF_osis2osis.txt then never add a default CF_sfm2osis.txt file
-    elsif ($df =~ /CF_sfm2osis\.txt$/ && -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
+    # If CF_osis2osis.txt exists then don't add CF_sfm2osis.txt
+    if ($df =~ /CF_sfm2osis\.txt$/ && 
+        -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
       next;
     }
     elsif (! -e $dest) {

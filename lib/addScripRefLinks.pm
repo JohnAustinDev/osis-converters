@@ -72,7 +72,8 @@ sub addScripRefLinks {
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
-  &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
+  &read_CF_ASRL(&getDefaultFile(
+    ($modType eq 'dict' ? 'dict':'bible') . "/CF_addScripRefLinks.txt"));
   
   &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
@@ -286,7 +287,8 @@ sub addScripRefLinks2 {
   my $refSystem = shift;
 
   $LOGFLAG = 3; # Already logged in addScripRefLinks
-  &read_CF_ASRL(&getDefaultFile("$modType/CF_addScripRefLinks.txt"));
+  &read_CF_ASRL(&getDefaultFile(
+    ($modType eq 'dict' ? 'dict':'bible') . "/CF_addScripRefLinks.txt"));
   $LOGFLAG = undef;
   
   &asrlProcessFile($osis, $refSystem);

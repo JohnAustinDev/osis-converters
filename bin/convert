@@ -328,10 +328,12 @@ sub getProjectInfo {
   if (&shell("grep '\\[system\\]' \"$pdir/$cp/config.conf\"", 3, 1)) {
     $infoP->{$proj}{'runable'}++;
     $infoP->{$proj}{'path'} = &shortPath("$pdir/$proj");
+    our $LOGFLAG = 3; # don't quack about config includes etc.
     if (!defined($infoP->{$cp}{'MAINMOD'})) {
       my $confP = &readProjectConf("$pdir/$cp/config.conf");
       foreach my $k (keys %{$confP}) {$infoP->{$cp}{$k} = $confP->{$k};}
     }
+    undef($LOGFLAG);
   }
 }
 

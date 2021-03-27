@@ -695,7 +695,7 @@ sub readProjectConf {
   my (%c, %f);
   $c{'MAINMOD'} = $tmpP->{'MAINMOD'};
   
-  my $oc = &getDefaultFile('defaults.conf', -1, undef, 1);
+  my $oc = &getDefaultFile('defaults.conf', -1, $projconf, 1);
   if (-e $oc) {
     &readConfFile($oc, \%f, \%c);
   }
@@ -847,9 +847,9 @@ sub readConfFile {
         else {
           if ($warn) {
             &Warn(
-"config.conf '$fullEntry' was changed by: '$file':
-    was=" . $confP->{$fullEntry} . "
-    is =$v");
+"config.conf '$fullEntry' changed in: '$file':
+    was: " . $confP->{$fullEntry} . "
+    is : $v");
           }
           $confP->{$fullEntry} = $v;
           if ($confsrcP) {$confsrcP->{$fullEntry} = $file;}
@@ -1197,64 +1197,78 @@ sub configRE {
   return (@entryRE ? '^('.join('|', @entryRE).')$':'');
 }
 
-# Look for an osis-converters default file or directory in the following 
-# places, in order. If a default file is not found, return either '' or 
-# throw a stop error if priority was 0 (or undef etc.). The file may  
-# include a path that (presently) begins with either 'bible/' for Bible  
-# module default files or 'dict/' for dictionary module default files,
-# or 'childrens_bible/' for childrens' Bibles. The fallback for
-# 'childrens_bible' calls is 'bible' if the former does not exist. 
-# If priority 1, 2 or 3 is specified, only the location with that 
-# priority will be checked:
-# priority  location
-#    1      Project directory (if bible|dict subdir matches the project type)
-#    2      main-project-parent/defaults directory
+# Look for an osis-converters default file. If a default file is not 
+# found, return either '' or throw a stop error if priority was 0 (or 
+# undef). The file may include a 'bible' or 'dict' sub-directory for 
+# default files which may apply to MAINMOD or DICTMOD. If priority 1, 2 
+# or 3 is specified, only the location with that priority will be 
+# checked:
+#
+# priority  location(s)
+#   -1      check 1, 2 then 3 and fail quietly if not found
+#    0      check 1, 2 then 3 and stop-error if not found
+#    1      $projdir or $MAININPD if $projdir is not set
+#    2      project-parent/defaults directory
 #    3      osis-converters/defaults directory
 #
-# NOTE: priority -1 will check all locations in order but will not throw 
-# an error upon failure to locate a file.
-#
-# NOTE: Soft links in the file path are followed, but soft links that 
-# are valid on the host will NOT be valid on a VM! To work for the VM, 
-# soft links must be valid from the VM's perspective (so they will begin 
-# with /vagrant and will be broken on the host, but will work on the VM).
+# $projdir may be either $MAININPD, $DICTINPD or $MAININPD/../
 sub getDefaultFile {
   my $file = shift;
   my $priority = shift;
-  my $maininpd = shift; $maininpd = ($maininpd ? $maininpd:$MAININPD);
+  my $projdir = shift; $projdir = ($projdir ? $projdir : $MAININPD);
   my $quiet = shift;
   
-  my $mainmod = $maininpd; $mainmod =~ s/^.*?\/([^\/]+)\/?$/$1/;
+  my $ret = "$projdir/$file";
+  if (!$priority || $priority == -1 || $priority == 1) {
   
-  my $moduleFile = $file;
-  my $fileType = ($moduleFile =~ s/^(childrens_bible|bible|dict)\/// ? $1:'');
-  
-  my $defaultFile;
-  my $checkAll = ($priority != 1 && $priority != 2 && $priority != 3);
-  
-  my $projectDefaultFile = ($fileType eq 'dict' ? "$maininpd/${mainmod}DICT":$maininpd).'/'.$moduleFile;
-  my $mainParent = "$maininpd/..";
-  if (($checkAll || $priority == 1) && -e $projectDefaultFile) {
-    $defaultFile = $projectDefaultFile;
-    if (!$quiet) {&Note("getDefaultFile: (1) Found $file at $defaultFile");}
-  }
-  if (($checkAll || $priority == 2) && -e "$mainParent/defaults/$file") {
-    if (!$defaultFile) {
-      $defaultFile = "$mainParent/defaults/$file";
-      if (!$quiet) {&Note("getDefaultFile: (2) Found $file at $defaultFile");}
+    # bible|dict subdirectory will select MAININPD or DICTINPD
+    my $f = $file;
+    my $t = ($f =~ s/^(bible|dict)\/(.*?)$/$2/ ? $1 : '');
+    if ($t) {
+      $ret = "$projdir/$f";
+      my $mod = $projdir; $mod =~ s/\/$//; $mod =~ s/^.*\///;
+      my $proj = ($mod =~ /^(.*)DICT$/ ? $1 : $mod);
+      if ($t eq 'dict' && $mod eq $proj) {
+        $ret = "$projdir/${proj}DICT/$f";
+      }
+      if ($t eq 'bible' && $mod ne $proj) {
+        $ret = "$projdir/../$f";
+      }
+    }
+    if (-f $ret) {
+      if (!$quiet) {&Note("(1) Found $file at $ret");}
+      return $ret;
     }
   }
-  if (($checkAll || $priority == 3) && -e "$SCRD/defaults/$file") {
-    if (!$defaultFile) {
-      $defaultFile = "$SCRD/defaults/$file";
-      if (!$quiet) {&Note("getDefaultFile: (3) Found $file at $defaultFile");}
+  
+  if (!$priority || $priority == -1 || $priority == 2) {
+    my @dirs = split(/[\/\\]/, $projdir);
+    do {
+      my $pdir = join('/', @dirs);
+      if ($pdir eq $SCRD) {last;}
+      $ret =  "$pdir/defaults/$file";
+      pop(@dirs);
+    }
+    while (@dirs && ! -f $ret);
+    if (-f $ret) {
+      if (!$quiet) {&Note("(2) Found $file at $ret");}
+      return $ret;
     }
   }
-  if ($fileType eq 'childrens_bible' && !$defaultFile) {return &getDefaultFile("bible/$moduleFile", $priority);}
-  if (!$priority && !$defaultFile) {
-    &ErrorBug("Default file $file could not be found in any default path; add this file to the osis-converters/defaults directory.", 1);
+  
+  if (!$priority || $priority == -1 || $priority == 3) {
+    $ret = "$SCRD/defaults/$file";
+    if (-f $ret) {
+      if (!$quiet) {&Note("(3) Found $file at $ret");}
+      return $ret;
+    }
   }
-  return $defaultFile;
+  
+  if (!$priority) {
+    &ErrorBug("Failed to find '$file'", 1);
+  }
+  
+  return '';
 }
 
 # Return 1 if dependencies are met for $script and 0 if not
@@ -1574,6 +1588,8 @@ sub const {
   my $t = $t0;
   foreach my $v ('MAINMOD', 'DICTMOD', 'MOD', 'SCRD', 'SCRIPT', 
                 'SCRIPT_NAME') {
+    if ($t !~ /\b$v\b/) {next;}
+    
     no strict "refs";
     if (!defined($$v)) {
       my $err = "Constant has not been initialized: $v";

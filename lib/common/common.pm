@@ -197,27 +197,6 @@ sub copy_dir {
   return 1;
 }
 
-# Copies files from each default directory, starting with lowest to 
-# highest priority, and merging files each time.
-sub copy_dir_with_defaults {
-  my $dir = shift;
-  my $dest = shift;
-  my $keep = shift;
-  my $skip = shift;
-  
-  my $isDefaultDest; # not sure what this is - 'use strict' caught it
-  
-  for (my $x=3; $x>=($isDefaultDest ? 2:1); $x--) {
-    my $defDir = &getDefaultFile($dir, $x);
-    if (!$defDir) {next;}
-    # Never copy a directory over itself
-    my ($dev1, $ino1) = stat $defDir;
-    my ($dev2, $ino2) = stat $dest;
-    if ($dev1 eq $dev2 && $ino1 eq $ino2) {next;}
-    &copy_dir($defDir, $dest, 1, 0, $keep, $skip);
-  }
-}
-
 # Make a zipped copy of a module.
 sub zipModule {
   my $zipfile = shift;
