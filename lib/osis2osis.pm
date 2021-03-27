@@ -122,10 +122,10 @@ STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
 "Unable to run CC", "Specify SET_sourceProject in $commandFile", 1);
       }
       my $inpath;
-      if ($ccpath =~ /^\./) {&Error(
-"Paths in CC: instructions cannot start with '.':$_", 
-"The path is intended for use by getDefaultFile() of SourceProject.", 1);
+      if ($ccpath =~ /^([\.\/\\]+)/) {&Error(
+"Paths in CC: instructions cannot start with '$1':$_",  &help('CC', 1), 1);
       }
+      if ($ccpath !~ s/^DICTMOD\b/dict/) {$ccpath = "bible/$ccpath";}
       my $glob = ($ccpath =~ s/^(.*?)(\/[^\/]*\*[^\/]*)$/$1/ ? $2:'');
       $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
       foreach my $in (glob $inpath.$glob) {

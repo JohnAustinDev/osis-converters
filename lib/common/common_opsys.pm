@@ -1226,7 +1226,7 @@ sub getDefaultFile {
     my $t = ($f =~ s/^(bible|dict)\/(.*?)$/$2/ ? $1 : '');
     if ($t) {
       $ret = "$projdir/$f";
-      my $mod = $projdir; $mod =~ s/\/$//; $mod =~ s/^.*\///;
+      my $mod = $projdir; $mod =~ s/\/$//; $mod =~ s/^.*?([^\/]+)$/$1/;
       my $proj = ($mod =~ /^(.*)DICT$/ ? $1 : $mod);
       if ($t eq 'dict' && $mod eq $proj) {
         $ret = "$projdir/${proj}DICT/$f";
@@ -1235,7 +1235,7 @@ sub getDefaultFile {
         $ret = "$projdir/../$f";
       }
     }
-    if (-f $ret) {
+    if (-e $ret) {
       if (!$quiet) {&Note("(1) Found $file at $ret");}
       return $ret;
     }
@@ -1249,8 +1249,8 @@ sub getDefaultFile {
       $ret =  "$pdir/defaults/$file";
       pop(@dirs);
     }
-    while (@dirs && ! -f $ret);
-    if (-f $ret) {
+    while (@dirs && ! -e $ret);
+    if (-e $ret) {
       if (!$quiet) {&Note("(2) Found $file at $ret");}
       return $ret;
     }
@@ -1258,7 +1258,7 @@ sub getDefaultFile {
   
   if (!$priority || $priority == -1 || $priority == 3) {
     $ret = "$SCRD/defaults/$file";
-    if (-f $ret) {
+    if (-e $ret) {
       if (!$quiet) {&Note("(3) Found $file at $ret");}
       return $ret;
     }
