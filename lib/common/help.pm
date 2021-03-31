@@ -33,7 +33,8 @@ our (@VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS,
   @OC_LOCALIZABLE_CONFIGS, @OC_SYSTEM_CONFIGS, @OC_SYSTEM_PATH_CONFIGS, 
   @OC_URL_CONFIGS, @OSIS_GROUPS, @SWORD_AUTOGEN_CONFIGS, @SWORD_CONFIGS, 
   @SWORD_LOCALIZABLE_CONFIGS, @SWORD_NOT_SUPPORTED, @SWORD_OC_CONFIGS, 
-  @TOC_INSTRUCTIONS, @VSYS_INSTRUCTIONS, %ID_DIRECTIVES, @CONV_PUB_SETS);
+  @TOC_INSTRUCTIONS, @VSYS_INSTRUCTIONS, %ID_DIRECTIVES, @CONV_PUB_SETS,
+  @PROJECT_TYPES);
 
 # Each script may take 3 kinds of arguments: 
 # 'switch' (boolean), 'option' (anything) and 'argument' (file|dir)
@@ -112,8 +113,7 @@ our %HELP = (
     ['para', 'Paratext Unified Standard Format Markers (USFM) is the successor of Standard Format Markers (SFM). SFM may require preprocessing before conversion to OSIS (see HELPREF(EVAL_REGEX)).' ],
     
     ['sub-heading', 'DEFAULT CONTROL FILES' ],
-    ['para', 'The conversion process is guided by control files. Control file templates are located at PATH(SCRD/defaults) and may be replaced by customized templates at PATH(MAININPD/../defaults).' ],
-    ['para', 'When the `defaults` program is run on a project, project control files are created from the templates. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project.' ],
+    ['para', 'The conversion process is guided by control files. When the `defaults` program is run on a project, project control files are created from templates located in one of the `defaults` directories. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project. For details see HELPREF(defaults)' ],
     
     ['sub-heading', 'LOG FILES' ],
     ['para', 'Log files report everything about the conversion process. They are written to the module\'s output directory and begin with `LOG_`. Each conversion step generates its own log file containing these labels:' ],
@@ -149,7 +149,18 @@ our %HELP = (
 
 'defaults' => [
   ['SYNOPSIS', [
-    ['para', 'For `defaults` help see HELPREF(convert)' ]
+    ['para', 'Create default control files for a project (for both `MAINMOD` and `DICTMOD` if there is one) from source files located in `defaults` directories. Existing project control files are never changed or overwritten. If a template is located, it will be copied and then modified for the project, otherwise any default file located will be copied. The order of search is:
+    \b 1. `<file>_<type>_template.<ext>`
+    \b 2. `<file>_template.<ext>`
+    \b 3. `<file>_<type>.<ext>`
+    \b 4. Any file with the same name and extension.
+    \b Where `<file>` is `('.join(' | ', grep($_ !~ /^(CF_<vsys>|CF_addDictLinks)/, map($_ =~ /^(.*?)\.[^\.]+$/ ? $1:''), @CF_FILES)).')` `<type>` is `('.join(' | ', @PROJECT_TYPES, 'dictionary').')` according to the type of project or module and `<ext>` is the file extension.' ],
+    ['sub-heading', 'Defaults Directories' ],
+    ['para', 'All `defaults` files are searched for in the following directories, in order. The first template found is modified and used, otherwise the first file found is used. The directories searched are:
+    \b 1. `<project-directory>`
+    \b 2. `<project-directory>/../defaults`
+    \b 3. `osis-converters/defaults`
+    \b NOTE: during #2 each <project-directory> ancestor will be searched for a `defaults` directory, not just the parent, meaning similar projects may be grouped together in subdirectories.' ],
   ]],
 ],
 
@@ -263,7 +274,6 @@ our %HELP = (
       [ 'AddFootnoteLinks' => 'Select whether to parse footnote references in the text and convert them to hyperlinks: `(true | false | AUTO)`. `AUTO` runs the parser only if `CF_addFootnoteLinks.txt` is present for the module.' ],
       [ 'AddCrossRefLinks' => 'Select whether to insert externally generated cross-reference notes into the text: `(true | false |AUTO)`. `AUTO` adds them only if a `CF_<vsys>.xml` file is found for the project (see HELPREF(Adding External Cross-References)).' ],
       [ 'Versification' => 'The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'.' ],
-      [ 'Encoding' => 'osis-converters only supports UTF-8 encoding.' ],
       [ 'TOC' => 'A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`.' ],
       [ 'TitleCase' => 'A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS.' ],
       [ 'TitleTOC' => 'A number from 1 to 3 indicating which SFM tag to use when generating publication titles: `\toc1`, `\toc2` or `\toc3`.' ],
@@ -310,8 +320,8 @@ our %HELP = (
       [ 'ShortPromo', 'A link to the home page for the module, perhaps with an encouragement to visit the site.' ],
       [ 'TextSource', 'Indicates a name or URL for the source of the text.' ],
       [ 'VAGRANT', 'Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.' ],
-      [ 'ModDrv', 'The type of module. This is auto-selected according to SFM `\id` type. Options avaiable are: `zText` for Bibles, `RawLD4` for DICTMOD, `RawGenBook` for Children\'s Bibles, or `zCom` for commentaries.' ],
-      [ 'PreferredCSSXHTML', 'SWORD module css may be included by putting it in PATH(MOD/sword/css/module.css) or PATH(MAINMOD/../defaults/bible|dict/sword/css/module.css)' ],
+      [ 'PreferredCSSXHTML', 'SWORD module css may be included by placing it in a `module.css` file located in a default directory (See HELPREF(defaults)).' ],
+      [ 'ProjectType', 'Type of project. Options are: `' . join(' | ', @PROJECT_TYPES) . '`.' ],
     ], 1))],
   ]],
   
@@ -353,7 +363,7 @@ our %HELP = (
   
   ['CF_vsys.xml', [
     ['sub-heading', 'Adding External Cross-References' ],
-    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(defaults/AddCrossRefs/CF_<vsys>.xml) where `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
+    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(AddCrossRefs/CF_<vsys>.xml) within a `defaults` directory (see HELPREF(defaults)). `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
     ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
     ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:
     \b`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`
@@ -525,9 +535,9 @@ our %HELP = (
 
   ['SYNOPSIS', [
     ['para', 'Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones. '],
-    ['para', 'Default control files will be copied from the defaults directory (see HELPREF(convert) for their locations). This includes the Go Bible Creator user interface localization file and the app icon. These files can be customized per project, by placing them in PATH(MAINMOD/gobible) directory. Or customized for a group of projects, by placing them in PATH(MAINMOD/../defaults/gobible).' ],
+    ['para', 'Default control files will be copied from a `defaults` directory (see HELPREF(defaults)). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.' ],
     ['para', 'IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.' ],
-    ['para', 'Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by PATH(defaults/gobible/<type>Char.txt) or PATH(MAINMOD/../defaults/gobible/<type>Char.txt) where `<type>` is `simple` or `normal`. ' ],
+    ['para', 'Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by these `defaults` files: PATH(gobible/<type>Char.txt) where `<type>` is `simple` or `normal`. ' ],
   ]],
   
 ],
@@ -937,7 +947,7 @@ sub getList {
   
   foreach (@{$descAP}) {
     if (ref($_) && ($_->[0] || $_->[1])) {
-      &ErrorBug("Unused description: '".$_->[0]."', '".$_->[1]."'\n");
+      &ErrorBug("Unused help description: '".$_->[0]."', '".$_->[1]."'\n");
     }
   }
 

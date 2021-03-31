@@ -41,11 +41,6 @@ sub processOSIS {
   # Run user supplied preprocess.pl and/or preprocess.xsl if present
   &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-  my $modType = ($MOD ne $MAINMOD          ? 'dict' :
-                (&conf('ModDrv') =~ /Text/ ? 'bible' :
-                (&conf('ModDrv') =~ /Com/  ? 'commentary' : 
-                'childrens_bible')));
-
   # Apply any fixups needed to usfm2osis.py output which are 
   # osis-converters specific
   &runScript("$SCRD/lib/usfm2osis.py.xsl", \$OSIS);
@@ -56,23 +51,9 @@ sub processOSIS {
     &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
   }
   
-  # Bible OSIS: re-order books and periphs according to CF_sfm2osis.txt
-  if ($modType eq 'bible') {
-  
-    &orderBooks(\$OSIS, &conf('Versification'), &conf('CustomBookOrder'));
-    
-    &applyVsysMissingVTagInstructions(\$OSIS);
-    
-    &applyPeriphInstructions(\$OSIS);
-    
-    &write_osisIDs(\$OSIS);
-    
-    &runScript("$SCRD/lib/bible/checkUpdateIntros.xsl", \$OSIS);   
-  }
-  
   # Dictionary OSIS: aggregate repeated entries (required for SWORD) and 
   # re-order entries if desired.
-  elsif ($modType eq 'dict') {
+  if ($MOD eq $DICTMOD) {
     &applyPeriphInstructions(\$OSIS);
     
     if (!@{$XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', 
@@ -105,8 +86,22 @@ sub processOSIS {
                 'anyEnding' => 'true', });
   }
   
+  # Bible OSIS: re-order books and periphs according to CF_sfm2osis.txt
+  elsif (&conf('ProjectType') =~ /^(bible|commentary)$/) {
+  
+    &orderBooks(\$OSIS, &conf('Versification'), &conf('CustomBookOrder'));
+    
+    &applyVsysMissingVTagInstructions(\$OSIS);
+    
+    &applyPeriphInstructions(\$OSIS);
+    
+    &write_osisIDs(\$OSIS);
+    
+    &runScript("$SCRD/lib/bible/checkUpdateIntros.xsl", \$OSIS);   
+  }
+  
   # Children's Bible OSIS: specific to osis-converters Children's Bibles
-  elsif ($modType eq 'childrens_bible') {
+  elsif (&conf('ProjectType') eq 'childrens_bible') {
   
     &runScript("$SCRD/lib/genbook/childrensBible.xsl", \$OSIS);
     
@@ -115,10 +110,12 @@ sub processOSIS {
     &checkAdjustCBImages(\$OSIS);
   }
   
-  else {&Error("Unhandled modType: (".&conf('ModDrv').")", '', 1);}
+  else {
+    &ErrorBug("Unhandled project type: " . &conf('ProjectType'), 1);
+  }
   
   # Copy new CF_addDictLinks.xml if needed
-  if ($modType eq 'dict' && 
+  if ($MOD eq $DICTMOD && 
       -e "$MOD_OUTDIR/CF_addDictLinks.dict.xml" && 
       ! -e "$DICTINPD/CF_addDictLinks.xml") {
       
@@ -128,7 +125,7 @@ sub processOSIS {
     &Note("Copying default CF_addDictLinks.xml ".
       "CF_addDictLinks.dict.xml to $DICTINPD/CF_addDictLinks.xml");
   }
-  if ($modType eq 'dict' && 
+  if ($MOD eq $DICTMOD && 
       -e "$MOD_OUTDIR/CF_addDictLinks.bible.xml" && 
       ! -e "$MAININPD/CF_addDictLinks.xml") {
       
@@ -141,11 +138,11 @@ sub processOSIS {
   
   # Check CF_addDictLinks.xml
   my $hasDWF;
-  if ($modType eq 'bible' && $DICTMOD && 
+  if ($MOD eq $MAINMOD && $DICTMOD && 
           -e "$MAININPD/CF_addDictLinks.xml") {
     $hasDWF++;
   }
-  elsif ($modType eq 'dict' && 
+  elsif ($MOD eq $DICTMOD && 
           -e "$DICTINPD/CF_addDictLinks.xml") {
     $hasDWF++;
     
@@ -157,7 +154,7 @@ sub processOSIS {
 
   # Add any missing Table of Contents milestones and titles as required 
   # for eBooks, html etc.
-  &addTOC(\$OSIS, $modType);
+  &addTOC(\$OSIS);
   
   # Run again to add osisID's to new TOC milestones
   &write_osisIDs(\$OSIS); 
@@ -165,7 +162,7 @@ sub processOSIS {
   # Parse Scripture references from the text and check them
   if (&conf('AddScripRefLinks')) {
   
-    &addScripRefLinks($modType, \$OSIS);
+    &addScripRefLinks(\$OSIS);
     
     &adjustAnnotateRefs(\$OSIS);
     
@@ -175,19 +172,7 @@ sub processOSIS {
 
   # Parse links to footnotes if a text includes them
   if (&conf('AddFootnoteLinks')) {
-    if (&conf('AddScripRefLinks')) {
-      my $CF_addFootnoteLinks = 
-        &getDefaultFile("$modType/CF_addFootnoteLinks.txt", -1);
-        
-      if ($CF_addFootnoteLinks) {
-        &addFootnoteLinks($CF_addFootnoteLinks, \$OSIS);
-      }
-      else {&Error("CF_addFootnoteLinks.txt is missing", 
-"Remove or comment out SET_addFootnoteLinks in CF_sfm2osis.txt if your 
-translation does not include links to footnotes. If it does include 
-links to footnotes, then add and configure a CF_addFootnoteLinks.txt 
-file to convert footnote references in the text into working hyperlinks.");}
-    }
+    if (&conf('AddScripRefLinks')) {&addFootnoteLinks(\$OSIS);}
     else {
       &Error(
 "AddScripRefLinks must be 'true' if AddFootnoteLinks is 
@@ -198,7 +183,7 @@ links, you need to parse Scripture references also.");
   }
 
   # Parse glossary references from Bible and Dict modules 
-  if ($modType eq 'bible' && $DICTMOD && &conf('AddDictLinks')) {
+  if ($MOD eq $MAINMOD && $DICTMOD && &conf('AddDictLinks')) {
   
     if ($hasDWF) {&addDictLinks(\$OSIS);}
     
@@ -209,7 +194,7 @@ links, you need to parse Scripture references also.");
 copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
     }
   }
-  elsif ($modType eq 'dict' && &conf('AddDictLinks')) {
+  elsif ($MOD eq $DICTMOD && &conf('AddDictLinks')) {
   
     if ($hasDWF) {&addDictLinks2Dict(\$OSIS);}
     
@@ -224,7 +209,7 @@ copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
 
   # Fit the custom verse system into a known fixed verse system and then 
   # check against it.
-  if ($modType eq 'bible') {
+  if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'bible') {
   
     &fitToVerseSystem(\$OSIS, &conf('Versification'));
     
@@ -232,17 +217,18 @@ copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
   }
 
   # Add external cross-referenes to Bibles
-  if ($modType eq 'bible' && &conf('AddCrossRefLinks')) {
+  if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'bible' && 
+      &conf('AddCrossRefLinks')) {
     &addCrossRefLinks(\$OSIS);
   }
 
   # If there are differences between the custom and fixed verse systems, 
   # then some references need to be updated
-  if ($modType eq 'bible' || $modType eq 'dict') {
+  if (&conf('ProjectType') eq 'bible') {
     &correctReferencesVSYS(\$OSIS);
   }
   
-  if ($modType eq 'bible') {
+  if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'bible') {
     &removeDefaultWorkPrefixesFAST(\$OSIS);
   }
 
@@ -301,7 +287,7 @@ appears you have not duplicated this material in the glossary.",
   }
 
   # Add any cover images to the OSIS file
-  if ($modType ne 'dict') {&addCoverImages(\$OSIS);}
+  if ($MOD eq $MAINMOD) {&addCoverImages(\$OSIS);}
   
   # Normalize the whitespace within the OSIS file
   &runScript("$SCRD/lib/whitespace.xsl", \$OSIS);
@@ -310,7 +296,7 @@ appears you have not duplicated this material in the glossary.",
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
-  &runChecks($modType);
+  &runChecks();
   
   # Copy final OSIS file to output destination
   copy($OSIS, &outdir()."/$MOD.xml"); 
@@ -331,18 +317,13 @@ sub reprocessOSIS {
   # Run user supplied preprocess.pl and/or preprocess.xsl if present
   &runAnyUserScriptsAt("preprocess", \$OSIS);
 
-  my $modType = ($MOD ne $MAINMOD          ? 'dict' :
-                (&conf('ModDrv') =~ /Text/ ? 'bible' :
-                (&conf('ModDrv') =~ /Com/  ? 'commentary' :
-                'childrens_bible')));
-
   &Log("Wrote to header: \n".&writeOsisHeader(\$OSIS)."\n");
   
   if (&conf('NormalizeUnicode')) {
     &normalizeUnicode(\$OSIS, &conf('NormalizeUnicode'));
   }
 
-  if ($modType eq 'dict' && &conf('ReorderGlossaryEntries')) {
+  if ($MOD eq $DICTMOD && &conf('ReorderGlossaryEntries')) {
   
     &runScript("$SCRD/lib/dict/reorderGlossaryEntries.xsl", 
               \$OSIS, 
@@ -352,7 +333,7 @@ sub reprocessOSIS {
   &checkVerseSystem($OSIS, &conf('Versification'));
 
   # Add any cover images to the OSIS file
-  if ($modType ne 'dict') {&addCoverImages(\$OSIS, 1);}
+  if ($MOD eq $MAINMOD) {&addCoverImages(\$OSIS, 1);}
   
   # Normalize the whitespace within the OSIS file
   &runScript("$SCRD/lib/whitespace.xsl", \$OSIS); 
@@ -361,7 +342,7 @@ sub reprocessOSIS {
   &runAnyUserScriptsAt("postprocess", \$OSIS);
 
   # Checks are done now, as late as possible in the flow
-  &runChecks($modType);
+  &runChecks();
   
   # Check osis file for unintentional occurrences of sourceProject code
   &Note("Checking OSIS for unintentional source project references...\n");

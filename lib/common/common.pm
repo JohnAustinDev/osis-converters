@@ -35,7 +35,6 @@ our ($MAININPD, $MOD, $READLAYER, $SCRIPT, $SCRD, $TMPDIR, $WRITELAYER,
     $XPC, %DOCUMENT_CACHE);
 
 our $MAX_UNICODE = 1103; # Highest Russian Cyrillic Uncode code point
-our $UPPERCASE_DICTIONARY_KEYS = 1;
 our $SFM2ALL_SEPARATE_LOGS = 1;
     
 require("$SCRD/lib/common/cb.pm");

@@ -73,7 +73,9 @@ if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$OSIS_OR_TEI);}
 # Copy images and set Feature conf entry
 my $imgsAP = &copyReferencedImages(\$OSIS_OR_TEI, $INPD, "$swtmp/$SModPath");
 if (@{$imgsAP}) {
-  &setSwordConfValue($Sconf, 'Feature', ($Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"}."<nx/>":"")."Images");
+  $Sconf->{"$MOD+Feature"} = ( 
+    $Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"} . '<nx/>' : '' 
+  ) . 'Images';
 }
 
 # Validate osisRef and src attribtues
@@ -123,15 +125,6 @@ if (%params) {
   &Report("Found $err problem(s) with links of $MAINMOD".($DICTMOD ? " and $DICTMOD":'').".\n");
 }
 
-# Set MinimumVersion conf entry
-my $msv = "1.6.1";
-if ($SModVsys ne "KJV") {
-  my $vers = &shell(&escfile($SWORD_BIN."osis2mod"), 3, 1);
-  if ($vers =~ (/\$rev:\s*(\d+)\s*\$/i) && $1 > 2478) {$msv = "1.6.2";}
-  if ($SModVsys eq "SynodalProt") {$msv = "1.7.0";}
-  &setSwordConfValue($Sconf, 'MinimumVersion', $msv);
-}
-
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
@@ -171,19 +164,18 @@ else {
 }
 
 # Copy PreferredCSSXHTML css and set PreferredCSSXHTML conf entry
-my $cssfile = &getDefaultFile( ($SModDrv =~ /LD/ ? 'dict':'bible') .
+my $cssfile = &getDefaultFile( ($MOD eq $DICTMOD ? 'DICTMOD' : '') .
     "/sword/css/module.css", -1);
 if ($cssfile) {
   &Log("\n--- COPYING PreferredCSSXHTML \"$cssfile\"\n");
   copy($cssfile, "$swtmp/$SModPath");
-  &setSwordConfValue($Sconf, 'PreferredCSSXHTML', 'module.css');
 }
 
 # Set InstallSize conf entry
 {
   my $installSize = 0;             
   find(sub { $installSize += -s if -f $_ }, "$swtmp/$SModPath");
-  &setSwordConfValue($Sconf, 'InstallSize', $installSize);
+  $Sconf->{"$MOD+InstallSize"} = $installSize;
 }
 
 # Write the SWORD config.conf file
@@ -225,7 +217,7 @@ sub upperCaseKeys {
   my $osis_or_teiP = shift;
   
   my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
-  if ($MOD ne $MAINMOD) {
+  if ($MOD eq $DICTMOD) {
     foreach my $keyword ($XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml)) {
       $keyword->setValue(&uc2($keyword->getValue()));
     }

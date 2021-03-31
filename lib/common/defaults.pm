@@ -18,152 +18,159 @@
 
 use strict;
 
-our ($APPENDLAYER, $CONFFILE, $DICTINPD, $INPD, $MAININPD, $MAINMOD,
+our ($APPENDLAYER, $CONFFILE, $DICTINPD, $INPD, $MAININPD, $MOD, $MAINMOD,
     $READLAYER, $WRITELAYER, %CONFIG_DEFAULTS, %ID_TYPE_MAP, %OSIS_ABBR,
     %OSIS_GROUP, %PERIPH_SUBTYPE_MAP, %PERIPH_TYPE_MAP, $DICTMOD, 
-    %USFM_DEFAULT_PERIPH_TARGET, @OC_CONFIGS, @OSIS_GROUPS, 
+    %USFM_DEFAULT_PERIPH_TARGET, @OC_CONFIGS, @OSIS_GROUPS, @CF_FILES,
     @SUB_PUBLICATIONS, @SWORD_AUTOGEN_CONFIGS, $XML_PARSER, $XPC);
 
-# If any 'projectDefaults' files are missing from the entire project 
-# (including the DICT sub-project if there is one), those default files 
-# will be copied to the proper directory using getDefaultFile(). If a 
-# copied file is a 'customDefaults' file, then it will also be 
-# customized for the project. Note that not all control files are 
-# included in the 'projectDefaults' list, such as those which rarely 
-# change from project to project. This is because all default files are 
-# read at runtime by getDefaultFile(). So these may be copied and 
-# customized as needed, manually by the user.
+# Create default control files for a project (for both MAINMOD and 
+# DICTMOD if there is one) from files found in defaults directories. 
+# Default files are searched for using getDefaultFile(). Existing 
+# project control files are never changed or overwritten. If a 
+# template is located, it will be copied and then modified for the 
+# project if a sub named &customize_<file>($path,$type,$bookNamesP) is 
+# defined, otherwise any default file located will be copied. The order 
+# of search is:
+#
+# 1) <file>_<type>_template.ext
+# 2) <file>_template.ext
+# 3) <file>_<type>.ext
+# 4) <file>.ext
 my %USFM;
-sub checkAndWriteDefaults {
+sub defaults {
   my $booknamesHP = shift;
+ 
+  # First get project type and dictionary module.
+  my $projType;
+  if (-f $CONFFILE) {$projType = &conf('ProjectType');}
+  elsif ($MOD =~ /^\w{2,}CB$/) {$projType = 'childrens_bible';}
+  else {$projType = 'bible';}
   
-  # Project default control files
-  my @projectDefaults = (
-    'template.conf', 
-    'childrens_bible/config.conf',
-    'bible/CF_sfm2osis.txt', 
-    'bible/CF_addScripRefLinks.txt',
-    'dict/CF_sfm2osis.txt', 
-    'dict/CF_addScripRefLinks.txt',
-    'childrens_bible/CF_sfm2osis.txt', 
-    'childrens_bible/CF_addScripRefLinks.txt'
-  );
-  
-  # These are default control files which are automatically customized 
-  # to save the user's time and energy. These files are processed in 
-  # order, and config.conf files must come first because the 
-  # customization of the others depends on config.conf contents.
-  my @customDefaults = (
-    'config.conf', 
-    'CF_sfm2osis.txt', 
-    'CF_addScripRefLinks.txt',
-  );
-  
-  # Always process the main project, regardless of which module we started with
-  # Determine if there is any sub-project dictionary (the fastest way possible)
-  my $haveDICT = $DICTMOD;
-  if (!$haveDICT) {
-    if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
+  if (!$DICTMOD) {
+    &scanUSFM("$MAININPD/sfm", \%USFM);
     if (exists($USFM{'dictionary'})) {
-      $haveDICT = 1;
       $DICTMOD = $MAINMOD.'DICT';
       if (! -e "$MAININPD/$DICTMOD") {mkdir "$MAININPD/$DICTMOD";}
     }
   }
   
-  # Copy projectDefaults files that are missing
-  my $projName = $MAININPD; $projName =~ s/^.*\/([^\/]+)\/?$/$1/;
-  my $projType = ($projName =~ /\w{3,}CB$/ ? 'childrens_bible':'bible');
-  my @newDefaultFiles;
-  foreach my $df (@projectDefaults) { 
-    my $dest = $df;
-    $dest =~ s/template\.conf$/config.conf/;
-    my $dftype = ($dest =~ s/^(bible|dict|childrens_bible)\/// ? $1:$projType);
-    $dest = "$MAININPD/".($dftype eq 'dict' ? $projName.'DICT/':'').$dest;
-    if ($dftype eq 'dict') {
-      if (!$haveDICT) {next;}
-    }
-    elsif ($dftype ne $projType) {next;}
-    
-    my $dparent = $dest; $dparent =~ s/[^\/]+$//;
-    if (!-e $dparent) {make_path($dparent);}
-    
-    # If CF_osis2osis.txt exists then don't add CF_sfm2osis.txt
-    if ($df =~ /CF_sfm2osis\.txt$/ && 
-        -e ($dftype eq 'dict' ? $DICTINPD:$MAININPD)."/CF_osis2osis.txt") {
-      next;
-    }
-    elsif (! -e $dest) {
-      &Note("Copying default file $df to $dest.");
-      my $src = &getDefaultFile($df, -1);
-      if (-e $src) {copy($src, $dest);}
-      push(@newDefaultFiles, $dest);
-    }
-  }
+  # Include either CF_osis2osis.txt or CF_sfm2osis.txt, not both.
+  my $skip = 'CF_osis2osis';
+  if (-f "$MAININPD/$skip.txt") {$skip = 'CF_sfm2osis';}
   
-  # Customize any new default files which need it (in order)
-  foreach my $dc (@customDefaults) {
-    foreach my $file (@newDefaultFiles) {
-      if ($file =~ /\/\Q$dc\E$/) {
-        my $modName = ($file =~ /\/$projName\/($projName)DICT\// ? $projName.'DICT':$projName);
-        my $modType = ($modName eq $projName ? $projType:'dictionary');
-        
-        &Note("Customizing $file...");
-        if    ($file =~ /config\.conf$/)             {
-          &customize_conf($modName, $modType, $haveDICT);
+  my @mods = (''); if ($DICTMOD) {push(@mods, "DICTMOD/");}
+  
+  foreach my $m (@mods) {
+    my $type = ($m eq 'DICTMOD/' ? 'dictionary' : $projType);
+    
+    foreach my $c (@CF_FILES) {
+      my $cf = $c; my $ext = ($cf =~ s/\.([^\.]+)$// ? $1 : '');
+           
+      # CF_<vsys>.xml is not project-specific, and CF_addDictLinks.xml 
+      # defaults are generated when DICTMOD is read. So skip them.
+      if ($cf eq 'CF_<vsys>' || 
+          $cf eq 'CF_addDictLinks' || 
+          $cf eq $skip) {next;}
+      
+      my $dest = "$MAININPD/".($m ? "$DICTMOD/" : '')."$cf.$ext";
+      
+      if (-f $dest) {next;}
+      
+      # Is there a template of the given type?
+      my $t = &getDefaultFile($m . $cf . "_$type" . '_template' . ".$ext", -1);
+      if (!$t) {
+        # Or a generic template without a type?
+        $t = &getDefaultFile($m . $cf . '_template' . ".$ext", -1);
+      }
+      if ($t) {
+        if ($m eq "DICTMOD/" && $cf eq 'config.conf') {
+          &ErrorBug("Only MAINMOD may have a config.conf file.", 1);
         }
-        elsif ($file =~ /CF_sfm2osis\.txt$/)         {
-          &customize_sfm2osis($file, $modType);
+        &copy($t, $dest);
+        &Note("Customizing $t as $dest.");
+        my $func = "customize_$cf";
+        if (defined(&$func)) {
+          no strict 'refs';
+          &$func($dest, $type, $booknamesHP);
+          if ($cf eq 'config') {&readSetCONF();}
         }
-        elsif ($file =~ /CF_addScripRefLinks\.txt$/) {
-          &customize_addScripRefLinks($file, $booknamesHP);
+        else {&ErrorBug("No customization sub for $t", 1);}
+        next;
+      }
+      
+      # Otherwise is there a default file of the given type?
+      my $f = &getDefaultFile($m . $cf . '_' . $type . ".$ext", -1);
+      # Or a generic default file without a type?
+      if (!$f) {$f = &getDefaultFile($m . $cf . ".$ext", -1);}
+      if ($f) {
+        &Note("Copying $f to $dest.");
+        &copy($f, $dest);
+        if ($dest =~ /config\.conf$/) {
+          # Change config.conf MAINMOD/DICTMOD names and reload
+          &customize_config($dest, $type, undef, 1);
+          &readSetCONF();
         }
-        else {&ErrorBug("Unknown customization type $dc for $file.", 1);}
       }
     }
   }
 }
 
-sub customize_conf {
-  my $modName = shift;
-  my $modType = shift;
-  my $haveDICT = shift;
-
-  if ($modType eq 'dictionary') {
-    &ErrorBug("customize_conf was called with modType='dictionary'.", 1);
-  }
+sub customize_config {
+  my $conFile = shift;
+  my $projType = shift;
+  my $unused = shift;
+  my $nameonly = shift;
  
+  my $defConfP = &readProjectConf($conFile);
+  $defConfP->{"$MAINMOD+ProjectType"} = $projType;
+
+  # Change MAINMOD/DICTMOD names
+  $defConfP->{'MAINMOD'} = $MAINMOD;
+  foreach my $fe (keys %{$defConfP}) {
+    my $nfe = $fe;
+    $nfe =~ s/^DICTMOD\+/$DICTMOD+/;
+    $nfe =~ s/^MAINMOD\+/$MAINMOD+/;
+    if ($nfe eq $fe) {next;}
+    $defConfP->{$nfe} = delete($defConfP->{$fe});
+  }
+  
+  if ($nameonly) {
+    &writeConf($CONFFILE, $defConfP, 1);
+    &readSetCONF();
+    return 
+  }
+
   # If there is any existing $modName conf that is located in a repository 
   # then replace our default config.conf with a stripped-down version of 
   # the repo version and its dict.
-  my $defConfP = &readProjectConf($CONFFILE);
-
   my $haveRepoConf;
   if ($defConfP->{'system+REPOSITORY'} && 
       $defConfP->{'system+REPOSITORY'} =~ /^http/) {
-      
-    my $swautogen = &configRE(@SWORD_AUTOGEN_CONFIGS);
-    $swautogen =~ s/\$$//;
     
-    my $mfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($modName).".conf";
-    my $dfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($modName)."dict.conf";
+    my $mfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($MAINMOD).".conf";
+    my $dfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($MAINMOD)."dict.conf";
+   
+    &Log("\nReading: $mfile\n", 2);
+    my $mtext = &shell("wget \"$mfile\" -q -O -");
     
-    my $mtext = &shell("wget \"$mfile\" -q -O -", 3);
+    &Log("\nReading: $dfile\n", 2);
     my $dtext = &shell("wget \"$dfile\" -q -O -");
+
+    # strip these entries
+    my $strip = &configRE(@SWORD_AUTOGEN_CONFIGS);
+    $strip =~ s/\$$//;
+    $mtext =~ s/$strip\s*=[^\n]*\n//mg; 
+    $dtext =~ s/$strip\s*=[^\n]*\n//mg;
     
-    # strip @SWORD_AUTOGEN_CONFIGS entries
-    $mtext =~ s/$swautogen\s*=[^\n]*\n//mg; 
-    $dtext =~ s/$swautogen\s*=[^\n]*\n//mg;
     if ($mtext) {
-      &Note("Default conf was located in REPOSITORY: $mfile", 1);
-      &Log("$mtext\n\n");
-      &Log("$dtext\n\n");
       if (open(CNF, $WRITELAYER, $CONFFILE)) {
         $haveRepoConf++;
         print CNF $mtext;
         close(CNF);
         my $confP = &readConfFile($CONFFILE);
         foreach my $k (keys %{$confP}) {
+          if (!&isValidConfig($k)) {next;}
           $defConfP->{$k} = $confP->{$k};
         }
       }
@@ -176,61 +183,45 @@ sub customize_conf {
         close(CNF);
         my $confP = &readConfFile("$CONFFILE.dict");
         foreach my $k (keys %{$confP}) {
+          if (!&isValidConfig($k)) {next;}
           my $e = $k; $e =~ s/^[^\+]+\+//;
           # Don't keep these dict entries since MAIN/DICT are now always the same
           if ($e =~ /^(Version|History_.*)$/) {next;}
-          if ($defConfP->{"$modName+$e"} eq $confP->{$k}) {next;}
-          $defConfP->{$k} = $confP->{$k};
+          if ($defConfP->{"$MAINMOD+$e"} eq $confP->{$k}) {next;}
+          $defConfP->{"$DICTMOD+$e"} = $confP->{$k};
         }
-        $defConfP->{'MAINMOD'} = $modName;
         unlink("$CONFFILE.dict");
       }
       else {&ErrorBug("Could not open conf $CONFFILE.dict");}
-    }
-  }
-  
-  if (!$haveRepoConf) {
-    # Abbreviation
-    &setConfValue($defConfP, "$modName+Abbreviation", $modName, 1);
-    
-    # ModDrv
-    if ($modType eq 'childrens_bible') {
-      &setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);
-    }
-    if ($modType eq 'bible') {
-      &setConfValue($defConfP, "$modName+ModDrv", 'zText', 1);
-    }
-    if ($modType eq 'other') {
-      &setConfValue($defConfP, "$modName+ModDrv", 'RawGenBook', 1);
     }
   }
 
   # SubPublicationTitle[scope]
   foreach my $scope (@SUB_PUBLICATIONS) {
     my $sp = $scope; $sp =~ s/\s/_/g;
-    &setConfValue($defConfP, 
-                  "$modName+SubPublicationTitle[$sp]", 
-                  "Title of Sub-Publication $sp DEF", 1);
+    $defConfP->{"$MAINMOD+SubPublicationTitle[$sp]"} = 
+        "Title of Sub-Publication $sp DEF";
   }
   
-  # FullResourceURL
-  my $v = $defConfP->{"$modName+FullResourceURL"};
-  $v =~ s/\bNAME\b/$modName/g;
-  if ($v) {
-    &setConfValue($defConfP, "$modName+FullResourceURL", $v, 1);
+  # Template constants
+  foreach my $fe (keys %{$defConfP}) {
+    $defConfP->{$fe} = &const($defConfP->{$fe});
   }
   
-  # Add a [system] section which tells convert this is a oc 2.0 project.
+  # Add a [system] section which tells convert this is a oc 1.0 project.
   $defConfP->{'system+DEBUG'} = 0;
   
-  &writeConf($CONFFILE, $defConfP, 1);
-  
-  &readSetCONF();
+  &writeConf($conFile, $defConfP, 1);
 }
 
-sub customize_addScripRefLinks {
-  my $cf = shift;
+sub customize_CF_addScripRefLinks {
+  my $conFile = shift;
+  my $type = shift;
   my $booknamesHP = shift;
+  
+  if (-s $conFile) {
+    &ErrorBug("This template must be empty.", 1);
+  }
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
@@ -293,7 +284,7 @@ sub customize_addScripRefLinks {
   $cfSettings{'05 COMMON_REF_TERMS'} = \@comRefTerms;
   
   # Write to CF_addScripRefLinks.txt in the most user friendly way possible
-  if (!open(CFT, $WRITELAYER, "$cf.tmp")) {&ErrorBug("Could not open \"$cf.tmp\"", 1);}
+  if (!open(CFT, $WRITELAYER, "$conFile.tmp")) {&ErrorBug("Could not open \"$conFile.tmp\"", 1);}
   foreach my $cfs (sort keys %cfSettings) {
     my $pcfs = $cfs; $pcfs =~ s/^\d\d //;
     print CFT "$pcfs:".( @{$cfSettings{$cfs}} ? &toCFRegex($cfSettings{$cfs}):'')."\n";
@@ -306,8 +297,8 @@ sub customize_addScripRefLinks {
   }
   
   close(CFT);
-  unlink($cf);
-  move("$cf.tmp", $cf);
+  unlink($conFile);
+  move("$conFile.tmp", $conFile);
 }
 
 sub readParatextReferenceSettings {
@@ -420,16 +411,19 @@ sub usfmFileSort {
   return $fa cmp $fb;
 }
 
-sub customize_sfm2osis {
-  my $cf = shift;
+sub customize_CF_sfm2osis {
+  my $conFile = shift;
   my $modType = shift;
   
   if (!%USFM) {&scanUSFM("$MAININPD/sfm", \%USFM);}
   
-  if (!open (CFF, $APPENDLAYER, "$cf")) {&ErrorBug("Could not open \"$cf\"", 1);}
-  print CFF "\n# NOTE: The order of books in the final OSIS file will be verse system order, regardless of the order they are run in this control file.\n";
+  if (!open (CFF, $APPENDLAYER, "$conFile")) {
+    &ErrorBug("Could not open \"$conFile\"", 1);
+  }
+
   my $lastScope;
-  foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } keys %{$USFM{$modType}}) {
+  foreach my $f (sort { usfmFileSort($a, $b, $USFM{$modType}) } 
+                 keys %{$USFM{$modType}}) {
     my $scope = $USFM{$modType}{$f}{'scope'};
     if ($scope ne $lastScope) {
       print CFF "\n";
@@ -613,7 +607,7 @@ sub scanUSFM_file {
       $info{'peripheralID'} = $1;
     }
     elsif ($id =~ /^(PREPAT|SHM[NO]T|CB|NT|OT|FOTO)/i) { # Strange IDs associated with Children's Bibles
-      $info{'type'} = 'bible';
+      $info{'type'} = 'childrens_bible';
     }
     elsif ($id =~ /^\s*(\w{3})\b/) {
       $info{'peripheralID'} = $1;

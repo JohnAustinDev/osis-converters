@@ -261,22 +261,20 @@ sub getProjectsInfo {
   foreach my $m (keys %info) {
     if (!$info{$m}{'runable'}) {next;}
     
-    my $cp = $info{$m}{'configProject'};
-    my $cpm = ($m =~ /DICT$/ ? $cp.'DICT':$cp);
-    my $moddrv = $info{$cp}{"$cpm+ModDrv"};
-    
-    if (!$moddrv) {
-      my $sp = $info{$m}{'sourceProject'};
-      my $spm = ($m =~ /DICT$/ ? $sp.'DICT':$sp);
-      $moddrv = $info{$sp}{"$spm+ModDrv"};
+    if ($m =~ /DICT$/) {
+      $info{$m}{'type'} = 'dictionary';
+      next;
     }
     
-    my $type;
-    if    ($moddrv =~ /text/i)    {$type = 'bible';}
-    elsif ($moddrv =~ /genbook/i) {$type = 'childrensBible';}
-    elsif ($moddrv =~ /com/i)     {$type = 'commentary';}
-    elsif ($m =~ /DICT$/i)        {$type = 'dict';}
-    else {print "WARNING: Could not determine module type: $m\n";}
+    my $cp = $info{$m}{'configProject'};
+    my $cpm = ($m =~ /DICT$/ ? $cp.'DICT' : $cp);
+    my $type = $info{$cp}{"$cpm+ProjectType"};
+    
+    if (!$type) {
+      my $sp = $info{$m}{'sourceProject'};
+      my $spm = ($m =~ /DICT$/ ? $sp.'DICT':$sp);
+      $type = $info{$sp}{"$spm+ProjectType"};
+    }
     
     $info{$m}{'type'} = $type;
   }
@@ -650,6 +648,9 @@ sub modOutdir {
 use Encode;
 use DateTime;
 use Term::ReadKey;
+
+# Update ReadMe.md
+if (!&runningInVagrant()) {&shell("$SCRD/utils/ReadMe.pl", 3);}
 
 &Log("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
 foreach (@IGNORE_PROJ) {&Log(sprintf("%12s\n", $_));}

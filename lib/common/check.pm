@@ -17,15 +17,14 @@
 # <http://www.gnu.org/licenses/>.
 
 sub runChecks {
-  my $modType = shift;
-  
+
   # Reset the cache
   our %DOCUMENT_CACHE;
   undef(%DOCUMENT_CACHE); 
   &getOsisModName($XML_PARSER->parse_file($OSIS)); 
   
   # Check all osisRef targets
-  if ($modType ne 'dict' || -e &getModuleOsisFile($MAINMOD)) {
+  if ($MOD eq $MAINMOD || -e &getModuleOsisFile($MAINMOD)) {
   
     # Generate an xml file defining the chosen verse system, for XSLT to 
     # compare against
@@ -33,10 +32,10 @@ sub runChecks {
     &Log("\n");
     
     # Check references in the fixed verse system OSIS file
-    &checkRefs($OSIS, $modType eq 'dict');
+    &checkRefs($OSIS, $MOD eq $DICTMOD);
     
     # Check references in the source verse system transform of the OSIS file
-    &checkRefs($OSIS, $modType eq 'dict', "sourceVerseSystem.xsl");
+    &checkRefs($OSIS, $MOD eq $DICTMOD, "sourceVerseSystem.xsl");
   }
   else {
   &Error(
@@ -57,7 +56,7 @@ Bible module OSIS file, then run this dictionary module again.");
     &checkAddDictLinksContexts($OSIS, $dwf);
   }
   
-  if ($modType eq 'childrens_bible') {
+  if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'childrens_bible') {
     &checkChildrensBibleStructure($OSIS);
   }
 }

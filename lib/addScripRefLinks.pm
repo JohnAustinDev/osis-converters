@@ -64,7 +64,6 @@ my $fixReplacementMsg = "
 require("$SCRD/lib/forks/fork_funcs.pm");
 
 sub addScripRefLinks {
-  my $modType = shift;
   my $in_file = shift;
   
   my $osis = $$in_file;
@@ -72,8 +71,7 @@ sub addScripRefLinks {
 
   &Log("\n--- ADDING SCRIPTURE REFERENCE LINKS\n-----------------------------------------------------\n\n", 1);
 
-  &read_CF_ASRL(&getDefaultFile(
-    ($modType eq 'dict' ? 'dict':'bible') . "/CF_addScripRefLinks.txt"));
+  &read_CF_ASRL("$INPD/CF_addScripRefLinks.txt");
   
   &Log("READING INPUT FILE: \"$osis\".\n");
   &Log("WRITING INPUT FILE: \"$out_file\".\n");
@@ -103,7 +101,6 @@ sub addScripRefLinks {
       __FILE__ . ' ' .
       "addScripRefLinks2" . ' ' .
       "ramkb:$ramkb" . ' ' .
-      "arg2:$modType" . ' ' .
       "arg3:$refSystem" . ' ' .
       join(' ', map(&escarg("arg1:$_"), @files))
     );
@@ -283,12 +280,10 @@ that you wish to match on a separate line:");
 # This function is run in its own thread.
 sub addScripRefLinks2 {
   my $osis = shift;
-  my $modType = shift;
   my $refSystem = shift;
 
   $LOGFLAG = 3; # Already logged in addScripRefLinks
-  &read_CF_ASRL(&getDefaultFile(
-    ($modType eq 'dict' ? 'dict':'bible') . "/CF_addScripRefLinks.txt"));
+  &read_CF_ASRL("$INPD/CF_addScripRefLinks.txt");
   $LOGFLAG = undef;
   
   &asrlProcessFile($osis, $refSystem);

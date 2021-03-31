@@ -12,9 +12,7 @@ Paratext Unified Standard Format Markers (USFM) is the successor of Standard For
 
 
 ### DEFAULT CONTROL FILES 
-The conversion process is guided by control files. Control file templates are located at `<osis-converters> / defaults` and may be replaced by customized templates at `<main-module> / .. / defaults`.
-
-When the `defaults` program is run on a project, project control files are created from the templates. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project.
+The conversion process is guided by control files. When the `defaults` program is run on a project, project control files are created from templates located in one of the `defaults` directories. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project. For details see `convert -h defaults`
 
 
 ### LOG FILES 
@@ -53,6 +51,16 @@ To add a sub-publication, put the SFM files pertaining to it in the subdirectory
 
 ### HELP 
 Run `convert -h <setting/file/script>` to find help on any particular setting, control file or script.
+
+
+# defaults 
+
+## SYNOPSIS 
+Create default control files for a project (for both `MAINMOD` and `DICTMOD` if there is one) from source files located in `defaults` directories. Existing project control files are never changed or overwritten. If a template is located, it will be copied and then modified for the project, otherwise any default file located will be copied. The order of search is:<br />1. `<file>_<type>_template.<ext>`<br />2. `<file>_template.<ext>`<br />3. `<file>_<type>.<ext>`<br />4. Any file with the same name and extension.<br />Where `<file>` is `(config.conf | CF_sfm2osis.txt | CF_addScripRefLinks.txt | CF_addFootnoteLinks.txt)` `<type>` is `(bible | childrens_bible | commentary | dictionary)` according to the type of project or module and `<ext>` is the file extension.
+
+
+### Defaults Directories 
+All `defaults` files are searched for in the following directories, in order. The first template found is modified and used, otherwise the first file found is used. The directories searched are:<br />1. `<project-directory>`<br />2. `<project-directory>/../defaults`<br />3. `osis-converters/defaults`<br />NOTE: during #2 each <project-directory> ancestor will be searched for a `defaults` directory, not just the parent, meaning similar projects may be grouped together in subdirectories.
 
 
 # sfm2osis 
@@ -158,6 +166,7 @@ Each project has a `config.conf` file. The configuration file contains conversio
 
 ENTRY | DESCRIPTION
 ----- | -----------
+**ARG_\w+** | Config settings for undocumented fine control.
 **Abbreviation (LW)** | A short localized name for the module.
 **About (CLW)** | Localized information about the module. Similar to `Description` but longer.
 **AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `CF_<vsys>.xml` file is found for the project (see `convert -h 'Adding External Cross-References'`). Default is `AUTO`.
@@ -184,7 +193,6 @@ ENTRY | DESCRIPTION
 **DistributionLicense (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
 **DistributionNotes (CLW)** | Additional distribution notes.
 **EBOOKS (SU)** | Location where eBooks are published.
-**Encoding (W)** | osis-converters only supports UTF-8 encoding. Default is `UTF-8`.
 **FONTS (PSU)** | Permanent location where specified fonts can be found.
 **Font (W)** | The font to use for electronic publications.
 **FullResourceURL (U)** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is `false`.
@@ -193,22 +201,21 @@ ENTRY | DESCRIPTION
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.
 **Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
-**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
-**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
-**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
-**ARG_\w+** | Config settings for undocumented fine control.
 **MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
-**ModDrv (W)** | The type of module. This is auto-selected according to SFM `\id` type. Options avaiable are: `zText` for Bibles, `RawLD4` for DICTMOD, `RawGenBook` for Children's Bibles, or `zCom` for commentaries.
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
-**PreferredCSSXHTML (W)** | SWORD module css may be included by putting it in `<module> / sword / css / module.css` or `<main-module> / .. / defaults / bible\|dict / sword / css / module.css`
+**PreferredCSSXHTML (W)** | SWORD module css may be included by placing it in a `module.css` file located in a default directory (See `convert -h defaults`).
+**ProjectType** | Type of project. Options are: `bible \| childrens_bible \| commentary`. Default is `bible`.
 **REPOSITORY (PSU)** | Location where SWORD modules are published.
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.
 **ShortPromo (LW)** | A link to the home page for the module, perhaps with an encouragement to visit the site.
 **SubPublicationTitle\[\S+\]** | A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.
+**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
+**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
+**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
 **TitleCase** | A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.
@@ -243,7 +250,7 @@ COMMAND | DESCRIPTION
 ## CF_vsys.xml 
 
 ### Adding External Cross-References 
-Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `defaults / AddCrossRefs / CF_<vsys>.xml` where `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
+Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `AddCrossRefs / CF_<vsys>.xml` within a `defaults` directory (see `convert -h defaults`). `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
 
 Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.
 
@@ -348,7 +355,7 @@ The following settings are supported:
 SETTING | DESCRIPTION
 ------- | -----------
 **SourceProject** | A required entry specifying the source project to convert from.
-**CC** | Convert control files using the previously selected MODE. Each control file has a `CC: <file>` line, and each path is relative to it's main project directory.
+**CC** | Convert control and project files using the previously selected MODE. The path is relative to the source project and should not begin with `.` or `/`. The keyword `DICTMOD` can be used in place of the dictionary subdirectory. Example: `CC: DICTMOD/images/*`
 **CCOSIS** | Convert an OSIS file using the previously selected MODE. Examples: `CCOSIS: <code>` or `CCOSIS: <code>DICT`
 **Mode[cctable]** | Use a CC table do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.
 **Mode[script]** | Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file
@@ -391,11 +398,11 @@ Create CrossWire SWORD modules from OSIS files. Once Paratext files have been co
 ## SYNOPSIS 
 Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones.
 
-Default control files will be copied from the defaults directory (see `convert -h convert` for their locations). This includes the Go Bible Creator user interface localization file and the app icon. These files can be customized per project, by placing them in `<main-module> / gobible` directory. Or customized for a group of projects, by placing them in `<main-module> / .. / defaults / gobible`.
+Default control files will be copied from a `defaults` directory (see `convert -h defaults`). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.
 
 IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.
 
-Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by `defaults / gobible / <type>Char.txt` or `<main-module> / .. / defaults / gobible / <type>Char.txt` where `<type>` is `simple` or `normal`.
+Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by these `defaults` files: `gobible / <type>Char.txt` where `<type>` is `simple` or `normal`.
 
 
 # CrossWire 

@@ -125,10 +125,8 @@ STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
       if ($ccpath =~ /^([\.\/\\]+)/) {&Error(
 "Paths in CC: instructions cannot start with '$1':$_",  &help('CC', 1), 1);
       }
-      if ($ccpath !~ s/^DICTMOD\b/dict/) {$ccpath = "bible/$ccpath";}
-      my $glob = ($ccpath =~ s/^(.*?)(\/[^\/]*\*[^\/]*)$/$1/ ? $2:'');
-      $inpath = &getDefaultFile($ccpath, 0, $sourceProjectPath);
-      foreach my $in (glob $inpath.$glob) {
+      $ccpath =~ s/\bDICTMOD\b/${SourceProject}DICT/g;
+      foreach my $in (glob "$sourceProjectPath/$ccpath") {
         my $out = $in;
         $out =~ s/\Q$sourceProjectPath\E\//$MAININPD\//;
         my $from = $SourceProject.'DICT'; my $to = $MAINMOD.'DICT';

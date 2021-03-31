@@ -38,7 +38,7 @@ sub init_linux_script {
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
   
   if ($SCRIPT_NAME =~ /defaults/) {
-    &checkAndWriteDefaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
+    &defaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
     
     &readSetCONF();
     
@@ -55,7 +55,7 @@ sub init_linux_script {
   if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
   
   $TMPDIR = &initTMPDIR();
-  
+
   $LOGFILE = &initLOGFILE();
   
   &initModuleFiles();
@@ -157,6 +157,8 @@ sub initLOGFILE {
     unlink($log);
   }
   
+  $LOGFILE = $log; &Log(); # clear the log buffer
+  
   return $log;
 }
 
@@ -219,11 +221,9 @@ sub checkProjectConfiguration {
     exit;
   }
   
-  if ($MOD eq $MAINMOD && &conf('ModDrv') =~ /GenBook/) {
+  if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'childrens_bible') {
     if ($MOD !~ /CB$/) {
-      &Error("The only GenBook type modules currently supported are
-Children's Bibles, and their module names should be uppercase language
-code followed by 'CB'.", 1);
+      &Error("Children's Bible project codes should end with 'CB'.", '', 1);
     }
   }
 }

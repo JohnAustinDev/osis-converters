@@ -21,77 +21,11 @@ use strict;
 our ($CONF, $DICTINPD, $DICTMOD, $INPD, $MAINMOD, $MOD, 
      $UPPERCASE_DICTIONARY_KEYS, $WRITELAYER, $XML_PARSER, $XPC, 
      @CONFIG_SECTIONS, @MULTIVALUE_CONFIGS, @SUB_PUBLICATIONS, 
-     @SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+     @SWORD_CONFIGS, @SWORD_OC_CONFIGS, %SWORD_CONFIG_VALUES,
+     @PROJECT_TYPES);
 
-# Sets a config.conf entry to a particular value (when $flag = 1) or  
-# adds another entry having the value if there isn't already one ($flag 
-# = 2) or just checks that an entry is present with the value (!$flag). 
-# Returns 1 if the config contains the value upon function exit, or 0 if 
-# it does not.
-sub setConfValue {
-  my $confP = shift;
-  my $fullEntry = shift;
-  my $value = shift;
-  my $flag = shift;
-  
-  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
-  
-  my $e = $fullEntry;
-  my $s = ($e =~ s/^([^\+]+)\+// ? $1:'');
-  if (!$s) {
-    &ErrorBug("setConfValue requires a qualified config entry name.", 1);
-  }
- 
-  my $sep = ($e =~ /$multRE/ ? '<nx/>':'');
-  
-  if ($value eq $confP->{$fullEntry}) {return 1;}
-  if ($flag != 1 && $sep && 
-      $confP->{$fullEntry} =~ /(^|\s*\Q$sep\E\s*)\Q$value\E(\s*\Q$sep\E\s*|$)/) {
-    return 1;
-  }
-  if ($flag == 2 && !$sep) {
-    &ErrorBug("Config entry '$e' cannot have multiple values, but setConfValue flag='$flag'", 1);
-  }
-  
-  if (!$flag) {return 0;}
-  elsif ($flag == 1) {
-    $confP->{$fullEntry} = $value;
-  }
-  elsif ($flag == 2) {
-    if ($confP->{$fullEntry}) {$confP->{$fullEntry} .= $sep.$value;}
-    else {$confP->{$fullEntry} = $value;}
-  }
-  else {&ErrorBug("Unexpected setConfValue flag='$flag'", 1);}
-  return 1;
-}
-
-# Sets a config entry for a CrossWire SWORD module. If the entry is not
-# a valid SWORD config entry, an error is thrown.
-sub setSwordConfValue {
-  my $confP = shift;
-  my $entry = shift;
-  my $value = shift;
-  
-  if ($entry =~ /\+/) {
-    &ErrorBug("setSwordConfValue requires an unqualified config entry name.");
-  }
-  
-  my $swordAutoRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
-  if ($entry !~ /$swordAutoRE/) {
-    &ErrorBug("'$entry' is not a valid SWORD entry.", 1);
-  }
-  
-  my $multRE = &configRE(@MULTIVALUE_CONFIGS);
-  if ($entry =~ /$multRE/) {
-    &setConfValue($confP, "$MOD+$entry", $value, 2);
-  }
-  else {
-    &setConfValue($confP, "$MOD+$entry", $value, 1);
-  }
-}
-
-# Return a list of all config entries which have values in the current 
-# context.
+# Return a list of all config entries which have values defined in the 
+# current context.
 sub contextConfigEntries {
   
   my @entries;
@@ -107,146 +41,95 @@ sub contextConfigEntries {
   return @entries;
 }
 
-# Fill a config conf data pointer with SWORD entries taken from:
-# 1) Project config.conf
-# 2) Current OSIS source file
-# 3) auto-generated 
+# Fill a config conf data pointer with SWORD entries taken from the
+# project config.conf and %SWORD_CONFIG_VALUES.
 sub getSwordConf {
   my $moduleSource = shift;
   
+  my $xml = $XML_PARSER->parse_file($moduleSource);
+  
   my %swordConf = ( 'MAINMOD' => $MOD );
   
-  # Copy appropriate values from project config.conf
-  my $swordConfigRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
+  # Copy any SWORD entries set in project config.conf
+  my $swordRE = &configRE(@SWORD_CONFIGS, @SWORD_OC_CONFIGS);
   foreach my $e (&contextConfigEntries()) {
-    if ($e !~ /$swordConfigRE/) {next;}
-    &setSwordConfValue(\%swordConf, $e, &conf($e));
+    if ($e !~ /$swordRE/) {next;}
+    $swordConf{"$MOD+$e"} = &conf($e);
   }
   
-  # Companion and DICTMOD ModDrv is not set until now
-  if ($DICTMOD) {
-    if ($MOD eq $DICTMOD) {
-      &setSwordConfValue(\%swordConf, 'ModDrv', 'RawLD4');
-      &setSwordConfValue(\%swordConf, 'Companion', $MAINMOD);
-    }
-    else {
-      &setSwordConfValue(\%swordConf, 'Companion', $DICTMOD);
-    }
-  }
+  # Set values in %SWORD_CONFIG_VALUES
+  my $osisversion = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $xml)}[0];
+  $osisversion = $osisversion->value;
+  $osisversion =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
   
-  my $moddrv = $swordConf{"$MOD+ModDrv"};
-  if (!$moddrv) {
-    &Error("No ModDrv specified in $moduleSource.", 
-    "Update the OSIS file by re-running sfm2osis.", '', 1);
-  }
-  
-	my $dp;
-  my $mod = $swordConf{"MAINMOD"};
-	if    ($moddrv eq "RawText")    {$dp = "./modules/texts/rawtext/".lc($mod)."/";}
-  elsif ($moddrv eq "RawText4")   {$dp = "./modules/texts/rawtext4/".lc($mod)."/";}
-	elsif ($moddrv eq "zText")      {$dp = "./modules/texts/ztext/".lc($mod)."/";}
-	elsif ($moddrv eq "zText4")     {$dp = "./modules/texts/ztext4/".lc($mod)."/";}
-	elsif ($moddrv eq "RawCom")     {$dp = "./modules/comments/rawcom/".lc($mod)."/";}
-	elsif ($moddrv eq "RawCom4")    {$dp = "./modules/comments/rawcom4/".lc($mod)."/";}
-	elsif ($moddrv eq "zCom")       {$dp = "./modules/comments/zcom/".lc($mod)."/";}
-	elsif ($moddrv eq "HREFCom")    {$dp = "./modules/comments/hrefcom/".lc($mod)."/";}
-	elsif ($moddrv eq "RawFiles")   {$dp = "./modules/comments/rawfiles/".lc($mod)."/";}
-	elsif ($moddrv eq "RawLD")      {$dp = "./modules/lexdict/rawld/".lc($mod)."/".lc($mod);}
-	elsif ($moddrv eq "RawLD4")     {$dp = "./modules/lexdict/rawld4/".lc($mod)."/".lc($mod);}
-	elsif ($moddrv eq "zLD")        {$dp = "./modules/lexdict/zld/".lc($mod)."/".lc($mod);}
-	elsif ($moddrv eq "RawGenBook") {$dp = "./modules/genbook/rawgenbook/".lc($mod)."/".lc($mod);}
-	else {
-		&Error("ModDrv \"$moddrv\" is unrecognized.", "Change it to a recognized SWORD module type.");
-	}
-  # At this time (Jan 2017) JSword does not yet support zText4
-  if ($moddrv =~ /^(raw)(text|com)$/i || $moddrv =~ /^rawld$/i) {
-    &Error("ModDrv \"".$moddrv."\" should be changed to \"".$moddrv."4\" in config.conf.");
-  }
-  &setSwordConfValue(\%swordConf, 'DataPath', $dp);
-
-  my $type = 'genbook';
-  if ($moddrv =~ /LD/) {$type = 'dictionary';}
-  elsif ($moddrv =~ /Text/) {$type = 'bible';}
-  elsif ($moddrv =~ /Com/) {$type = 'commentary';}
-  
-  &setSwordConfValue(\%swordConf, 'Encoding', 'UTF-8');
-
-  if ($moddrv =~ /Text/) {
-    &setSwordConfValue(\%swordConf, 'Category', 'Biblical Texts');
-    if ($moddrv =~ /zText/) {
-      &setSwordConfValue(\%swordConf, 'CompressType', 'ZIP');
-      &setSwordConfValue(\%swordConf, 'BlockType', 'BOOK');
-    }
-  }
-  
-  my $moduleSourceXML = $XML_PARSER->parse_file($moduleSource);
-  my $sourceType = 'OSIS'; # NOTE: osis2tei.xsl still produces a TEI file having OSIS markup!
-  
-  if (($type eq 'bible' || $type eq 'commentary')) {
-    &setSwordConfValue(\%swordConf, 'Scope', &getScopeXML($moduleSourceXML));
-  }
-  
-  if ($type eq 'genbook' && $MOD =~ /^(\w{3,4})CB$/) {
-    &setSwordConfValue(\%swordConf, 'Companion', $1);
-  }
-  
-  if ($moddrv =~ /LD/ && !$swordConf{"$MOD+LangSortOrder"}) {
-    my $lso = &conf('KeySort');
-    $lso =~ s/(\[[^\]]*\]|\{[^\}]*\})//g;
-    &setSwordConfValue(\%swordConf, 'LangSortOrder', $lso);
-  }
-  
-  &setSwordConfValue(\%swordConf, 'SourceType', $sourceType);
-  if ($swordConf{"$MOD+SourceType"} !~ /^(OSIS|TEI)$/) {
-    &Error("Unsupported SourceType: ".$swordConf{"$MOD+SourceType"}, 
-    "Only OSIS and TEI are supported by osis-converters", 1);
-  }
-  if ($swordConf{"$MOD+SourceType"} eq 'TEI') {
-    &Warn("Some front-ends may not fully support TEI yet");
-  }
-  
-  if ($swordConf{"$MOD+SourceType"} eq 'OSIS') {
-    my $vers = @{$XPC->findnodes('//osis:osis/@xsi:schemaLocation', $moduleSourceXML)}[0];
-    if ($vers) {
-      $vers = $vers->value; $vers =~ s/^.*osisCore\.([\d\.]+).*?\.xsd$/$1/i;
-      &setSwordConfValue(\%swordConf, 'OSISVersion', $vers);
-    }
-    if ($DICTMOD && $MOD eq $MAINMOD) {
-      &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 
-      'OSISReferenceLinks|Reference Material Links|Hide or show links to study helps in the Biblical text.|x-glossary||On');
-    }
-
-    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISFootnotes');
-    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISHeadings');
-    &setSwordConfValue(\%swordConf, 'GlobalOptionFilter', 'OSISScripref');
-  }
-  
-  if ($DICTMOD && $MOD eq $DICTMOD) {
-    # The following is needed to prevent ICU from becoming a SWORD engine 
-    # dependency (as internal UTF8 keys would otherwise be UpperCased with ICU)
-    if ($UPPERCASE_DICTIONARY_KEYS) {
-      &setSwordConfValue(\%swordConf, 'CaseSensitiveKeys', 'true');
-    }
-  }
-
   my @tm = localtime(time);
-  &setSwordConfValue(\%swordConf, 'SwordVersionDate', sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]));
+  my $today = sprintf("%d-%02d-%02d", (1900+$tm[5]), ($tm[4]+1), $tm[3]);
   
+  my $mod = lc($MOD);
+  
+  my $scope = (&conf('ProjectType') =~ /^(bible|commentary)$/ &&
+               $MOD eq $MAINMOD ? &getScopeXML($xml) : '');
+               
+  my $chblCompanion = ($MOD =~ /^(\w{3,4})CB$/ ? $1 : '');
+  
+  my $keysort = &conf('KeySort'); $keysort =~ s/(\[[^\]]*\]|\{[^\}]*\})//g;
+  
+  my $cssfile = &getDefaultFile( ($MOD eq $DICTMOD ? 'DICTMOD' : '') .
+    "/sword/css/module.css", -1);
+  my $modulecss = ($cssfile ? 'module.css' : '');
+
+  foreach my $t ( 'all', 
+      ($MOD eq $MAINMOD ? &conf('ProjectType') : 'dictionary') ) {
+    foreach my $e (keys %{$SWORD_CONFIG_VALUES{$t}}) {
+      my $val = $SWORD_CONFIG_VALUES{$t}{$e};
+      eval('$val = "' . $val . '";');
+      if (!$val) {next;}
+      $swordConf{"$MOD+$e"} = $val;
+    }
+  }
+
   return \%swordConf;
 }
 
 sub checkConfGlobals {
 
-  if ($MAINMOD =~ /^...CB$/ && &conf('FullResourceURL')) {
-    &Error("For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", "Children's Bibles do not currently support this feature so it must be turned off.");
+  my $ok = grep(&conf('ProjectType') eq $_, @PROJECT_TYPES);
+  if (!$ok) {
+    &Error(
+"Unknown project type: " . &conf('ProjectType'), 
+&help('ProjectType', 1)
+    ,1);
   }
+  
+  if ($DICTMOD) {
+    foreach my $fe (sort keys %{$CONF}) {
+      if ($fe !~ /^(.*?)\+ProjectType$/ || $1 eq $MAINMOD) {next;}
+      &Error(
+"ProjectType may only appear in the [$MAINMOD] section.", 
+"Move/remove it from the [$1] section", 1);
+    }
+  }
+
+  if (&conf('ProjectType') eq 'childrens_bible' && &conf('FullResourceURL')) {
+    &Error(
+"For Children's Bibles, FullResourceURL must be removed from config.conf or set to false.", 
+"Children's Bibles do not currently support this feature so it must be turned off."
+    );
+  }
+  
   foreach my $entry (sort keys %{$CONF}) {
     my $isConf = &isValidConfig($entry);
     if (!$isConf) {
-      &Error("Unrecognized config entry: $entry", "Either this entry is not needed, or else it is named incorrectly.");
+      &Error(
+"Unrecognized config entry: $entry", 
+"Either this entry is not needed, or else it is named incorrectly."
+      );
     }
     elsif ($isConf eq 'sword-autogen') {
-      &Error("Config request '$entry' is valid but it should not be set in config.conf because it is auto-generated.", "Remove this entry from the config.conf file.");
+      &Error(
+"Config request '$entry' is valid but it should not be set in config.conf because it is auto-generated.", 
+"Remove this entry from the config.conf file."
+      );
     }
   }
 
@@ -255,13 +138,11 @@ sub checkConfGlobals {
     foreach my $s (@SUB_PUBLICATIONS) {
       my $sp = $s; $sp =~ s/\s/_/g;
       if (&conf("SubPublicationTitle[$sp]") && &conf("SubPublicationTitle[$sp]") !~ / DEF$/) {next;}
-      &Warn("Sub publication title config entry 'SubPublicationTitle[$sp]' is not localized: ".&conf("SubPublicationTitle[$sp]"), 
-      "You should localize the title in config.conf with: SubPublicationTitle[$sp]=Localized Title");
+      &Warn(
+"Sub publication title config entry 'SubPublicationTitle[$sp]' is not localized: ".&conf("SubPublicationTitle[$sp]"), 
+"You should localize the title in config.conf with: SubPublicationTitle[$sp]=Localized Title"
+      );
     }
-  }
-  
-  if ($MOD eq $MAINMOD && !&conf('ModDrv')) {
-    &Error("ModDrv must be specified in config.conf", &help('ModDrv', 1));
   }
   
   if ($DICTMOD && !&conf('KeySort', $DICTMOD)) {

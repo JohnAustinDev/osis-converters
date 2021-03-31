@@ -53,12 +53,11 @@ our $OC_VERSION = "0.9";
 # These two globals must be initialized in the entry script:
 our ($SCRIPT, $SCRD, $SCRIPT_NAME);
 
-# Conversion to OSIS executables
+# Conversions to OSIS
 our @CONV_OSIS = ('sfm2osis', 'osis2osis');
 
-# Conversion from OSIS to publication executables
+# Conversions from OSIS to publications
 our @CONV_PUBS = ('osis2ebooks', 'osis2html', 'osis2sword', 'osis2gobible');
-
 sub PUB_TYPES {
   my @p; foreach (@CONV_PUBS) {if (/^osis2(.*)$/) {push(@p, $1);}}
   return @p;
@@ -67,12 +66,17 @@ sub PUB_TYPES {
 # Other osis-converters executables
 our @CONV_OTHER = ('convert', 'defaults');
 
-# Unsupported conversions of each module type
+# Types of projects supported: 'bible' and 'commentary' follow a strict 
+# SWORD verse system; 'childrens_bible' follows a particular structure
+# defined in checkChildrensBibleStructure(). 
+our @PROJECT_TYPES = ('bible', 'childrens_bible', 'commentary');
+
+# Unsupported conversions for each project/module type
 our %CONV_NOCANDO = (
-  'bible'          => undef, 
-  'childrensBible' => [ 'gobible' ],
-  'dict'           => [ 'ebooks', 'gobible', 'html' ],
-  'commentary'     => [ 'ebooks', 'gobible', 'html' ],
+  'bible'           => undef, 
+  'childrens_bible' => [ 'gobible' ],
+  'dictionary'      => [ 'ebooks', 'gobible', 'html' ],
+  'commentary'      => [ 'ebooks', 'gobible', 'html' ],
 );
 
 # Conversion dependencies
@@ -116,34 +120,29 @@ our %CONV_OUTPUT_FILES = (
                       '*.jad' ],
 );
 sub CONV_OUTPUT_FILES {
-  my $conversion = shift;
-  
-  my %u;
-  foreach (@{$CONV_OUTPUT_FILES{$conversion}}) {
-    if (/\.([^\.]+)$/) {$u{$1}++;}
-  }
+  my $conversion = shift; my %u;
+  foreach (@{$CONV_OUTPUT_FILES{$conversion}}) {if (/\.([^\.]+)$/) {$u{$1}++;}}
   return sort keys %u;
 }
 
 # Publication sets output by each conversion: 'tran' is the entire
-# Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook' is 
-# a single Bible-book publication which is part of the 'tran' 
-# publication and 'book' is a single Bible-book publication taken as a 
-# part of the 'subpub'.
+# Bible translation, 'subpub' is one of any SUB_PUBLICATIONS, 'tbook' 
+# is a single Bible-book publication which is part of the 'tran' 
+# publication and 'book' is a single Bible-book publication as a part 
+# of a 'subpub' if possible, or else as part of 'tran' otherwise.
 our %CONV_PUB_SETS = (
   'sword'   => [ 'tran' ],
   'gobible' => [ 'tran' ], #  'SimpleChar', 'SizeLimited'
   'ebooks'  => [ 'tran', 'subpub', 'tbook', 'book' ],
   'html'    => [ 'tran', 'subpub', 'tbook', 'book' ],
 );
-
 {
 my %h; 
 foreach my $c (keys %CONV_PUB_SETS) {map($h{$_}++, @{$CONV_PUB_SETS{$c}});}
 our @CONV_PUB_SETS = (sort keys %h);
 }
 
-# Conversion executable dependencies
+# Executables required for each conversion
 our %CONV_BIN_DEPENDENCIES = (
   'all'          => [ 'SWORD_PERL', 'MODULETOOLS_BIN', 'XSLT2', 'JAVA' ],
   'sfm2osis'     => [ 'XMLLINT' ],
@@ -229,7 +228,7 @@ sub init() {
   # Set Perl global variables defined in the [system] section of config.conf.
   &set_system_globals();
   &set_system_default_paths();
-  
+
   &DebugListVars("BEFORE &init_opsys() WHERE\n$SCRIPT_NAME globals", 'SCRD', 
     'SCRIPT', 'SCRIPT_NAME', 'MOD', 'MAINMOD', 'MAININPD', 'DICTMOD', 
     'DICTINPD', our @OC_SYSTEM_PATH_CONFIGS, 'VAGRANT', 

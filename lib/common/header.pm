@@ -118,10 +118,19 @@ sub getOSIS_Work {
  
   my @tm = localtime(time);
   my %type;
-  if ($DICTMOD && $modname eq $DICTMOD) {$type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';}
-  elsif (&conf('ModDrv', $modname) =~ /Text/) {$type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';}
-  elsif (&conf('ModDrv', $modname) =~ /GenBook/ && $MOD =~ /CB$/i) {$type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';}
-  elsif (&conf('ModDrv', $modname) =~ /Com/) {$type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';}
+  if ($DICTMOD && $modname eq $DICTMOD) {
+    $type{'type'} = 'x-glossary'; $type{'textContent'} = 'Glossary';
+  }
+  elsif (&conf('ProjectType', $modname) eq 'bible') {
+    $type{'type'} = 'x-bible'; $type{'textContent'} = 'Bible';
+  }
+  elsif (&conf('ProjectType', $modname) eq 'childrens_bible') {
+    $type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';
+  }
+  elsif (&conf('ProjectType', $modname) eq 'commentary') {
+    $type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';
+  
+  }
   my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-childrens-bible' ? 'GenBook':($type{'type'} eq 'x-commentary' ? 'Comm':'Bible')));
   my $refSystem = "Bible.".&conf('Versification');
   if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.$DICTMOD";}
@@ -287,23 +296,23 @@ sub addExternalWorkToHeader {
   my $extWorkDir = "$MAININPD/../$wmain";
   if (-e "$extWorkDir/config.conf") {
     my $cP = &readProjectConf("$extWorkDir/config.conf");
-    my $moddrv = $cP->{"$work+ModDrv"};
+    my $ptype = $cP->{"$work+ProjectType"};
     my %type;
-    if ($moddrv =~ /Text/) {
+    if ($work ne $wmain) {
+      $type{'type'}        = 'x-glossary'; 
+      $type{'textContent'} = 'Glossary';
+    }
+    elsif ($ptype eq 'bible') {
       $type{'type'}        = 'x-bible';
       $type{'textContent'} = 'Bible';
     }
-    elsif ($moddrv =~ /GenBook/ && $work =~ /CB$/i) {
+    elsif ($ptype eq 'childrens_bible') {
       $type{'moddrv'}        = 'x-childrens-bible';
       $type{'textContent'} = 'Children\'s Bible';
     }
-    elsif ($moddrv =~ /Com/) {
+    elsif ($ptype eq 'commentary') {
       $type{'type'}        = 'x-commentary';
       $type{'textContent'} = 'Commentary';
-    }
-    else {
-      $type{'type'}        = 'x-glossary'; 
-      $type{'textContent'} = 'Glossary';
     }
 
     my $refSystem = "Bible.".$cP->{"$wmain+Versification"};

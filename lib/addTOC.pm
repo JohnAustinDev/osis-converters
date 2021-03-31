@@ -18,15 +18,14 @@
 
 use strict;
 
-our ($MOD, $ONS, $ROC, $XML_PARSER, $XPC, %BOOKNAMES, %ID_TYPE_MAP_R,
-    %PERIPH_TYPE_MAP_R, @SUB_PUBLICATIONS, %ANNOTATE_TYPE);
+our ($MOD, $DICTMOD, $ONS, $ROC, $XML_PARSER, $XPC, %BOOKNAMES, 
+  %ID_TYPE_MAP_R, %PERIPH_TYPE_MAP_R, @SUB_PUBLICATIONS, %ANNOTATE_TYPE);
 
 # Check for existing TOC entries, and add as much TOC information as 
 # possible
 my $WRITETOC_MSG;
 sub addTOC {
   my $osisP = shift;
-  my $modType = shift;
 
   &Log("\nChecking Table Of Content tags...\n");
   
@@ -44,8 +43,104 @@ sub addTOC {
       &Log($t->toString()."\n");
     }
   }
+  if ($MOD eq $DICTMOD) {
+    my $maxkw = &conf("ARG_AutoMaxTOC1"); 
+    $maxkw = ($maxkw ne '' ? $maxkw:7);
+    # Any Paratext div which does not have a TOC entry already and does 
+    # not have sub-entries that are specified as level1-TOC, should get 
+    # a level1-TOC entry, so that its main contents will be available 
+    # there. Such a TOC entry is not added, however, if the div is a 
+    # glossary (that is, a div containing keywords) that has less than 
+    # ARG_AutoMaxTOC1 keywords, in which case the sub-entries themselves 
+    # may be left without a preceding level1-TOC entry so that they will 
+    # appear as level1-TOC themselves.
+    my $typeRE = '^('.join('|', sort keys(%PERIPH_TYPE_MAP_R), 
+                                sort keys(%ID_TYPE_MAP_R)) . ')$';
+    $typeRE =~ s/\-/\\-/g;
   
-  if ($modType eq 'bible') {
+    my @needTOC = $XPC->findnodes('//osis:div
+        [not(@subType = "x-aggregate")][not(@resp="x-oc")]
+        [not(descendant::*[contains(@n, "[level1]")])]
+        [not(descendant::osis:milestone[@type="x-usfm-toc'.$toc.'"])]', $xml);
+        
+    my %n;
+    foreach my $div (@needTOC) {
+      if (!$div->hasAttribute('type') || 
+          $div->getAttribute('type') !~ /$typeRE/) {next;}
+      my $type = $div->getAttribute('type');
+      if ($maxkw && @{$XPC->findnodes('descendant::osis:seg
+          [@type="keyword"]', $div)} <= $maxkw) {next;}
+      if ($div->getAttribute('scope')) {
+        # If scope is not an OSIS scope, then skip it
+        if (!@{ &scopeToBooks($div->getAttribute('scope')
+                , &conf('Versification')) }) {next;} 
+      }
+      
+      my $tocTitle;
+      my $confentry = 'ARG_'.$div->getAttribute('osisID'); 
+      $confentry =~ s/\!.*$//;
+      my $confTitle = &conf($confentry);
+      my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
+      my $s = $div->getAttribute('scope'); $s =~ s/ /_/g;
+      my $titleSubPublication = ( $s ? 
+        &conf("SubPublicationTitle[$s]") : '' );
+      # Look in OSIS file for a title element
+      $tocTitle = @{$XPC->findnodes('descendant::osis:title
+          [@type="main"][1]', $div)}[0];
+      if ($tocTitle) {
+        $tocTitle = $tocTitle->textContent;
+      }
+      # Or look in config.conf for explicit toc entry
+      if (!$tocTitle && $confTitle) {
+        if ($confTitle eq 'SKIP') {next;}
+        $tocTitle = $confTitle;
+      }
+      # Or create a toc entry (without title) from SUB_PUBLICATIONS & 
+      # CombinedGlossaryTitle 
+      if (!$tocTitle && $combinedGlossaryTitle && $titleSubPublication) {
+        $tocTitle = "$combinedGlossaryTitle ($titleSubPublication)";
+      }
+      if (!$tocTitle) {
+        $tocTitle = $div->getAttribute('osisID');
+        &Error(
+"The Paratext div with title '$tocTitle' needs a localized title.",
+"A level1 TOC entry for this div has been automatically created, but it 
+needs a title. You must provide the localized title for this TOC entry 
+by adding the following to config.conf: 
+$confentry=The Localized Title. 
+If you really do not want this glossary to appear in the TOC, then set
+the localized title to 'SKIP'.");
+      }
+      
+      my $toc = $XML_PARSER->parse_balanced_chunk(
+        "<milestone $ONS " .
+        "type='x-usfm-toc$toc' " .
+        "n='[level1]".&escAttribute($tocTitle)."' " .
+        "resp='".$ROC."'/>"
+      );
+      $div->insertBefore($toc, $div->firstChild);
+      &Note("Inserting glossary TOC entry within introduction div as: " .
+      $tocTitle);
+    }
+    
+    # If a glossary with a TOC entry has only one keyword, don't let that
+    # single keyword become a secondary TOC entry.
+    foreach my $gloss ($XPC->findnodes('//osis:div[@type="glossary"]
+        [descendant::osis:milestone[@type="x-usfm-toc'.$toc.'"]]
+        [count(descendant::osis:seg[@type="keyword"]) = 1]', $xml)) {
+      my $i;
+      my $ms = @{$XPC->findnodes('descendant::osis:milestone
+          [@type="x-usfm-toc'.$toc.'"][1]', $gloss)}[0];
+      if (&nTitle($ms, \$i) && $i =~ /\[no_toc\]/) {next;}
+      my $kw = @{$XPC->findnodes('descendant::osis:seg
+          [@type="keyword"][1]', $gloss)}[0];
+      if (&nTitle($kw, \$i) && $i =~ /\[no_toc\]/) {next;}
+      $kw->setAttribute('n', '[no_toc]');
+    }
+    
+  }
+  
+  elsif (&conf('ProjectType') =~ /^(bible|commentary)$/) {
     # Insure there are as many possible x-usfm-tocN entries for each 
     # book, and add book introduction TOC entries where needed.
     my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
@@ -417,105 +512,8 @@ $bookGroupIntroTOCM->getAttribute('n')."'.");
       }
     }
   }
-  elsif ($modType eq 'dict') {
-    my $maxkw = &conf("ARG_AutoMaxTOC1"); 
-    $maxkw = ($maxkw ne '' ? $maxkw:7);
-    # Any Paratext div which does not have a TOC entry already and does 
-    # not have sub-entries that are specified as level1-TOC, should get 
-    # a level1-TOC entry, so that its main contents will be available 
-    # there. Such a TOC entry is not added, however, if the div is a 
-    # glossary (that is, a div containing keywords) that has less than 
-    # ARG_AutoMaxTOC1 keywords, in which case the sub-entries themselves 
-    # may be left without a preceding level1-TOC entry so that they will 
-    # appear as level1-TOC themselves.
-    my $typeRE = '^('.join('|', sort keys(%PERIPH_TYPE_MAP_R), 
-                                sort keys(%ID_TYPE_MAP_R)) . ')$';
-    $typeRE =~ s/\-/\\-/g;
   
-    my @needTOC = $XPC->findnodes('//osis:div
-        [not(@subType = "x-aggregate")][not(@resp="x-oc")]
-        [not(descendant::*[contains(@n, "[level1]")])]
-        [not(descendant::osis:milestone[@type="x-usfm-toc'.$toc.'"])]', $xml);
-        
-    my %n;
-    foreach my $div (@needTOC) {
-      if (!$div->hasAttribute('type') || 
-          $div->getAttribute('type') !~ /$typeRE/) {next;}
-      my $type = $div->getAttribute('type');
-      if ($maxkw && @{$XPC->findnodes('descendant::osis:seg
-          [@type="keyword"]', $div)} <= $maxkw) {next;}
-      if ($div->getAttribute('scope')) {
-        # If scope is not an OSIS scope, then skip it
-        if (!@{ &scopeToBooks($div->getAttribute('scope')
-                , &conf('Versification')) }) {next;} 
-      }
-      
-      my $tocTitle;
-      my $confentry = 'ARG_'.$div->getAttribute('osisID'); 
-      $confentry =~ s/\!.*$//;
-      my $confTitle = &conf($confentry);
-      my $combinedGlossaryTitle = &conf('CombinedGlossaryTitle');
-      my $s = $div->getAttribute('scope'); $s =~ s/ /_/g;
-      my $titleSubPublication = ( $s ? 
-        &conf("SubPublicationTitle[$s]") : '' );
-      # Look in OSIS file for a title element
-      $tocTitle = @{$XPC->findnodes('descendant::osis:title
-          [@type="main"][1]', $div)}[0];
-      if ($tocTitle) {
-        $tocTitle = $tocTitle->textContent;
-      }
-      # Or look in config.conf for explicit toc entry
-      if (!$tocTitle && $confTitle) {
-        if ($confTitle eq 'SKIP') {next;}
-        $tocTitle = $confTitle;
-      }
-      # Or create a toc entry (without title) from SUB_PUBLICATIONS & 
-      # CombinedGlossaryTitle 
-      if (!$tocTitle && $combinedGlossaryTitle && $titleSubPublication) {
-        $tocTitle = "$combinedGlossaryTitle ($titleSubPublication)";
-      }
-      if (!$tocTitle) {
-        $tocTitle = $div->getAttribute('osisID');
-        &Error(
-"The Paratext div with title '$tocTitle' needs a localized title.",
-"A level1 TOC entry for this div has been automatically created, but it 
-needs a title. You must provide the localized title for this TOC entry 
-by adding the following to config.conf: 
-$confentry=The Localized Title. 
-If you really do not want this glossary to appear in the TOC, then set
-the localized title to 'SKIP'.");
-      }
-      
-      my $toc = $XML_PARSER->parse_balanced_chunk(
-        "<milestone $ONS " .
-        "type='x-usfm-toc$toc' " .
-        "n='[level1]".&escAttribute($tocTitle)."' " .
-        "resp='".$ROC."'/>"
-      );
-      $div->insertBefore($toc, $div->firstChild);
-      &Note("Inserting glossary TOC entry within introduction div as: " .
-      $tocTitle);
-    }
-    
-    # If a glossary with a TOC entry has only one keyword, don't let that
-    # single keyword become a secondary TOC entry.
-    foreach my $gloss ($XPC->findnodes('//osis:div[@type="glossary"]
-        [descendant::osis:milestone[@type="x-usfm-toc'.$toc.'"]]
-        [count(descendant::osis:seg[@type="keyword"]) = 1]', $xml)) {
-      my $i;
-      my $ms = @{$XPC->findnodes('descendant::osis:milestone
-          [@type="x-usfm-toc'.$toc.'"][1]', $gloss)}[0];
-      if (&nTitle($ms, \$i) && $i =~ /\[no_toc\]/) {next;}
-      my $kw = @{$XPC->findnodes('descendant::osis:seg
-          [@type="keyword"][1]', $gloss)}[0];
-      if (&nTitle($kw, \$i) && $i =~ /\[no_toc\]/) {next;}
-      $kw->setAttribute('n', '[no_toc]');
-    }
-    
-  }
-  elsif ($modType eq 'childrens_bible') {return;}
-  else {&ErrorBug("Bad modType: $modType.");}
-  
+  elsif (&conf('ProjectType') eq 'childrens_bible') {return;}
   
   &writeXMLFile($xml, $osisP);
 }

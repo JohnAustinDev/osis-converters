@@ -75,8 +75,15 @@ our $FNREFEND = "</reference>";
 our $FNREFEXT = "note.n";
 
 sub addFootnoteLinks {
-  my $commandFile = shift;
   my $osisP = shift;
+  
+  my $commandFile = "$INPD/CF_addFootnoteLinks.txt";
+
+  if (! -f $commandFile) {
+    &Error("Missing control file: $commandFile", 
+"Run 'defaults' to create a default control file.");
+    return;
+  }
 
   &Log("\n--- ADDING FOOTNOTE LINKS\n-----------------------------------------------------\n\n", 1);
 
