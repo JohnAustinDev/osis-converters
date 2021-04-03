@@ -32,7 +32,7 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
 our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER, 
     $UPPERCASE_DICTIONARY_KEYS, %CONV_PUB_SETS);
     
-my $swtmp = "$TMPDIR/sword";
+my $swtmp = &outdir() . '/sword';
 if (-e $swtmp) {remove_tree($swtmp);}
 make_path($swtmp);
 
