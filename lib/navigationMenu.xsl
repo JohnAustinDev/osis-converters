@@ -47,9 +47,10 @@
   
   <variable name="mainGlossaryID" select="oc:sarg('mainGlossaryID', /, 'false')"/>
   
-  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
-  
   <variable name="doCombineGlossaries" select="oc:conf('CombineGlossaries', /) = 'true'"/>
+  
+  <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 
+      if ($doCombineGlossaries and not($INT_feature)) then 'yes' else 'no')"/>
   
   <variable name="glossaryNavmenuLinks" select="/osis[$DICTMOD]/osisText/header/work/description
       [matches(@type, '^x\-config\-GlossaryNavmenuLink\[[1-9]\]')]/string()"/>

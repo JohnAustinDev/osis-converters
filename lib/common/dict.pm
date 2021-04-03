@@ -371,7 +371,7 @@ sub glossaryLink {
   }
   
   my $newRefElement = $XML_PARSER->parse_balanced_chunk(
-    "<reference $ONS osisRef='$osisRef' type='".($MOD eq $DICTMOD ? 'x-glosslink':'x-glossary')."'>$linktext</reference>"
+    "<reference $ONS osisRef='$osisRef' type='".($MOD eq $MAINMOD ? 'x-glossary':'x-glosslink')."'>$linktext</reference>"
   );
   $i->parentNode->insertBefore($newRefElement, $i);
   my $ref = $i->previousSibling;
@@ -754,7 +754,7 @@ sub searchText {
     $MATCHES_USED{$m->{'node'}->toString()}++;
     $matchedPattern = $m->{'node'}->textContent;
     my $osisRef = ($removeLater ? 'REMOVE_LATER':$m->{'osisRef'});
-    my $attribs = "osisRef=\"$osisRef\" type=\"".($MOD eq $MAINMOD ? 'x-glosslink':'x-glossary')."\"";
+    my $attribs = "osisRef=\"$osisRef\" type=\"".($MOD eq $MAINMOD ? 'x-glossary':'x-glosslink')."\"";
     my $match = substr($$textP, $is, ($ie-$is));
     
     substr($$textP, $ie, 0, "</reference>");

@@ -84,7 +84,14 @@ sub getSwordConf {
       my $val = $SWORD_CONFIG_VALUES{$t}{$e};
       eval('$val = "' . $val . '";');
       if (!$val) {next;}
-      $swordConf{"$MOD+$e"} = $val;
+      if (exists($swordConf{"$MOD+$e"})) {
+        my $multRE = &configRE(@MULTIVALUE_CONFIGS);
+        if ($e =~ /$multRE/) {$swordConf{"$MOD+$e"} .= '<nx/>' . $val;}
+        else {&Error("Multiple values are not allowed: $e");}
+      }
+      else {
+        $swordConf{"$MOD+$e"} = $val;
+      }
     }
   }
 
