@@ -405,8 +405,6 @@ Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted
 
 Default control files will be copied from a `defaults` directory (see `convert -h defaults`). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.
 
-IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.
-
 Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by these `defaults` files: `gobible / <type>Char.txt` where `<type>` is `simple` or `normal`.
 
 

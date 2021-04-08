@@ -538,7 +538,6 @@ our %HELP = (
   ['SYNOPSIS', [
     ['para', 'Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones. '],
     ['para', 'Default control files will be copied from a `defaults` directory (see HELPREF(defaults)). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.' ],
-    ['para', 'IMPORTANT: The collections.txt default file is just a template and should not be customized. The actual collections.txt control file is auto-generated at runtime.' ],
     ['para', 'Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by these `defaults` files: PATH(gobible/<type>Char.txt) where `<type>` is `simple` or `normal`. ' ],
   ]],
   

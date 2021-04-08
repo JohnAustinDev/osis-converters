@@ -110,13 +110,6 @@ sub makeGoBibles {
   if (-e $dir) {remove_tree($dir);}
   mkdir $dir;
   
-  my $clt = &getDefaultFile('gobible/collections.txt', 1);
-  if ($clt) {
-    &Warn("A gobible/collections.txt was found in input directory $MAININPD so it will now be deleted.",
-"This file is now auto-generated internally by osis-converters.");
-    unlink($clt);
-  }
-  
   # Gather and prepare GoBible input files
   copy(&getDefaultFile('gobible/icon.png'), "$dir/icon.png");
   if (-e "$dir/../collections.txt") {unlink "$dir/../collections.txt";}
@@ -213,7 +206,7 @@ sub writeCollectionsFile {
     $localbk{$bk} = $tocm->getAttribute('n');
   }
   
-  my $coltxt = &getDefaultFile("gobible/collections.txt");
+  my $coltxt = &getDefaultFile("gobible/collections_template.txt");
   if (!open(INC, $READLAYER, $coltxt)) {
     &ErrorBug("writeCollectionsFile could not open $coltxt for reading.", 1);
   }

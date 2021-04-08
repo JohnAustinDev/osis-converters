@@ -354,40 +354,6 @@ sub convertFileStrings {
     # restarted to reload globals.
   }
   
-  # collections.txt
-  elsif ($fname eq "collections.txt") {
-    my $newMod = lc($MOD);
-    if (!open(INF, $READLAYER, $ccin)) {
-      &Error("Could not open collections.txt input $ccin");
-      return;
-    }
-    if (!open(OUTF, $WRITELAYER, $ccout)) {
-      &Error("Could not open collections.txt output $ccout");
-      return;
-    }
-    my %col;
-    while(<INF>) {
-      if ($_ =~ s/^(Collection\:\s*)(\Q$SourceProject\E)(.*)$/$1$newMod$3/i) {$col{"$2$3"} = "$newMod$3";}
-      elsif ($_ =~ /^(Info|Application-Name)\s*(:.*$)/) {
-        my $entry = $1; my $value = $2;
-        my $newValue = &transcodeStringByMode($value);
-        $_ = "$entry$newValue\n";
-        &Note("Converted entry $entry\n\t\twas: $value\n\t\tis:  $newValue");
-      }
-      print OUTF $_;
-    }
-    close(INF);
-    close(OUTF);
-    if (!%col) {
-      &Error("Did not update Collection names in collections.txt");
-    }
-    else {
-      foreach my $c (sort keys %col) {
-        &Note("Updated Collection $c to ".$col{$c});
-      }
-    }
-  }
-  
   # USFM files
   elsif ($fname =~ /\.sfm$/) {
     if (!open(INF,  $READLAYER, $ccin)) {
