@@ -255,7 +255,7 @@ COMMAND | DESCRIPTION
 ## CF_vsys.xml 
 
 ### ADDING EXTERNAL CROSS-REFERENCES 
-Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `AddCrossRefs / CF_<vsys>.xml` within a `defaults` directory (see `convert -h defaults`). `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
+Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in `AddCrossRefs / CF_<vsys>.xml` within a `defaults` directory (see `convert -h defaults`). `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). These verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
 
 Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.
 
@@ -380,10 +380,10 @@ The following `config.conf` entries control eBook production:
 
 ENTRY | DESCRIPTION
 ----- | -----------
-**MakeTypes** | Select which type, or types, of publications to make: `(AUTO | azw3 | epub)`. Default is `AUTO`.
-**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true | false | AUTO)`.
-**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`.
-**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`.
+**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
+**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
+**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
 
 
 # osis2html 

@@ -365,7 +365,7 @@ our %HELP = (
   
   ['CF_vsys.xml', [
     ['sub-heading', 'ADDING EXTERNAL CROSS-REFERENCES' ],
-    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(AddCrossRefs/CF_<vsys>.xml) within a `defaults` directory (see HELPREF(defaults)). `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
+    ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(AddCrossRefs/CF_<vsys>.xml) within a `defaults` directory (see HELPREF(defaults)). `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). These verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
     ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
     ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:
     \b`<note type="crossReference" osisRef="Gen.1.1" osisID="Gen.1.1!crossReference.r1">`
@@ -778,6 +778,11 @@ sub helpListRow {
 sub helpTags {
   my $t = shift;
   
+  # Copy of help: HELP(<script>;<heading>;<key>?)
+  # These are done first since they add raw &help() text which may 
+  # include other tags.
+  $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
+  
   # Local file paths: PATH(<encoded-path>?)
   $t =~ s/PATH\((.*?)\)/
     my $p = $1; 
@@ -788,9 +793,6 @@ sub helpTags {
   # Reference to help: HELPREF(blah)
   $t =~ s/HELPREF\((.*?)\)/&helpRef($1)/seg;
   
-  # Copy of help: HELP(<script>;<heading>;<key>?)
-  $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
-    
   # Hyperlinks: [<text>?](<href>)
   $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/($1 ? $1:$2)/seg;
  

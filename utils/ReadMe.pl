@@ -50,7 +50,7 @@ sub helpList {
     my $e = $row->[0];
     $e =~ s/(<[^>]*>)/`$1`/g;
     if ($e !~ /^[\(\*]/) {$e = '**' . $e . '**';}
-    $r .= &esc($e) . ' | ' . &para(&esc($row->[1]), 0, 0, 0, 1);
+    $r .= &esc($e) . ' | ' . &esc(&para($row->[1], 0, 0, 0, 1));
   }
   $r .= "\n";
   
@@ -67,6 +67,11 @@ sub esc {
 sub helpTags {
   my $t = shift;
   
+  # Copy of help: HELP(<script>;<heading>;[<key>])
+  # These are done first since they add raw &help() text which may 
+  # include other tags.
+  $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
+  
   # Local file paths: PATH(<encoded-path>?)
   $t =~ s/PATH\((.*?)\)/
     my $p = $1; 
@@ -77,9 +82,6 @@ sub helpTags {
   # Reference to help: HELPREF(blah)
   $t =~ s/HELPREF\((.*?)\)/&helpRef($1)/seg;
   
-  # Copy of help: HELP(<script>;<heading>;[<key>])
-  $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
-    
   # Hyperlinks: [text](href)
   $t =~ s/\[([^\]]*)\]\(([^\)]+)\)/my $r=($1 ? "[$1]($2)":"[$2]($2)")/seg;
  
