@@ -139,7 +139,7 @@ our %HELP = (
     ['para', 'What is referred to as \'scope\' is a specific way of representing which Bible books are included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see HELPREF(OSIS_ABBR)) in verse system order. Example: `Ruth Esth Jonah`. Continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
     
     ['sub-heading', 'SUB-PUBLICATIONS' ],
-    ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-pubications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
+    ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-publications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
     ['para', 'To add a sub-publication, put the SFM files pertaining to it in the subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` is the sub-publication\'s scope.' ],
     
     ['sub-heading', 'HELP' ],
@@ -154,13 +154,13 @@ our %HELP = (
     \b 2. `<file>_template.<ext>`
     \b 3. `<file>_<type>.<ext>`
     \b 4. Any file with the same name and extension.
-    \b Where `<file>` is `('.join(' | ', grep($_ !~ /^(CF_<vsys>|CF_addDictLinks)/, map($_ =~ /^(.*?)\.[^\.]+$/ ? $1:''), @CF_FILES)).')` `<type>` is `('.join(' | ', @PROJECT_TYPES, 'dictionary').')` according to the type of project or module and `<ext>` is the file extension.' ],
-    ['sub-heading', 'Defaults Directories' ],
+    \b Where `<file>.<ext>` is `('.join(' | ', grep($_ !~ /^(CF_<vsys>|CF_addDictLinks)/, map($_ =~ /^(.*?)\.[^\.]+$/ ? $1:''), @CF_FILES)).')` and `<type>` is `('.join(' | ', @PROJECT_TYPES, 'dictionary').')` according to the type of project or module.' ],
+    ['sub-heading', 'DEFAULTS DIRECTORIES' ],
     ['para', 'All `defaults` files are searched for in the following directories, in order. The first template found is modified and used, otherwise the first file found is used. The directories searched are:
     \b 1. `<project-directory>`
     \b 2. `<project-directory>/../defaults`
     \b 3. `osis-converters/defaults`
-    \b NOTE: during #2 each <project-directory> ancestor will be searched for a `defaults` directory, not just the parent, so similar projects may be grouped together in subdirectories, sharing default files.' ],
+    \b NOTE: during #2 each <project-directory> ancestor directory will be searched for a `defaults` directory, not just the parent, so similar projects may be grouped together in subdirectories, sharing default files.' ],
   ]],
 ],
 
@@ -326,9 +326,7 @@ our %HELP = (
   
   ['CF_sfm2osis.txt', [
     ['para', 'This control file is required for sfm2osis conversions. It should be located in each module\'s directory (both MAINMOD and DICTMOD if there is one). It controls what material appears in each module\'s OSIS file and in what order, and is used to apply Perl regular expressions for making changes to SFM files before conversion. ' ],
-    ['para', 'Its other purpose is to describe deviations from the standard versification system that Bible translators made during translation. Translators nearly always deviate from the standard versification system in some way. It is imperative these deviations be recorded so references from external documents may be properly resolved, and parallel rendering together with other texts can be accomplished. Each verse must be identified according to the project\'s strictly defined standard versification scheme. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files which contain both a rendering of the translator\'s custom versification scheme and a rendering of the standard versification scheme. OSIS files can then be rendered in either scheme using an XSLT stylesheet. ' ],
-    ['para', 'NOTES: Each VSYS instruction is evaluated in verse system order regardless of their order in the control file. A verse may be effected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).'],
-    ['list', ['COMMAND', 'DESCRIPTION'], &getList([@CF_SFM2OSIS, @VSYS_INSTRUCTIONS], [
+    ['list', ['COMMAND', 'DESCRIPTION'], &getList([@CF_SFM2OSIS], [
       ['EVAL_REGEX', 'Any perl regular expression to be applied to source SFM files before conversion. An EVAL_REGEX instruction is only effective for the RUN statements which come after it. The EVAL_REGEX command may be suffixed with a label or path in parenthesis and must be followed by a colon. A label might make organizing various kinds of changes easier, while a file path makes the EVAL_REGEX effective on only a single file. If an EVAL_REGEX has no regular expression, all previous EVAL_REGEX commands sharing the same label are canceled. 
       \bExamples: 
       \b`EVAL_REGEX: s/^search/replace/gm`
@@ -337,6 +335,11 @@ our %HELP = (
       ['RUN', 'Causes an SFM file to be converted and appended to the module\'s OSIS file. Each RUN must be followed by a colon and the file path of an SFM file to convert. RUN can be used more than once on the same file. IMPORTANT: Bible books are normally re-ordered according to the project\'s versification system. To maintain RUN Bible book order, `CustomBookOrder` must be set to true in `config.conf`.' ],
       ['SPECIAL_CAPITALS', 'Was used to enforce non-standard capitalizations. It should only be used if absolutely necessary, since Perl Unicode is now good at doing the right thing on its own. It is better to use EVAL_REGEX to replace offending characters with the proper Unicode character.' ],
       ['PUNC_AS_LETTER', 'Was used to treat a punctuation character as a letter for pattern matches. It is far better to use `EVAL_REGEX` to replace a punctuation character with the proper Unicode character, which will automatically be treated properly.' ],
+    ])],
+    ['sub-heading', 'VSYS INSTRUCTIONS' ],
+    ['para', 'The other purpose of the `CF_sfm2osis.txt` file for Bibles and commentaries is to describe deviations from the versification standard. These deviations should be recorded so references from external documents may be properly resolved, and parallel rendering with other texts can be accomplished. Each verse is identified according to the project\'s strictly defined versification. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files which contain both a rendering in the translator\'s custom versification and a rendering in the standard versification. OSIS files can then be rendered in either scheme using an XSLT stylesheet. ' ],
+    ['para', 'VSYS instructions are evaluated in verse system order regardless of their order in the control file. A verse may be effected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).'],
+    ['list', ['COMMAND', 'DESCRIPTION'], &getList([@VSYS_INSTRUCTIONS], [
       ['VSYS_MISSING', 'Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:
       \b`VSYS_MISSING: Josh.24.34.36`
       \bMeaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse\'s osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses in the chapter having the verse numbers of the missing verses, then the standard versification rendering will renumber them and any following verses upward by the number of missing verses, and alternate verse numbers will be appended to display the original verse numbers. References to affected verses will be tagged so as to render them correctly in either standard or custom versification schemes. An entire missing chapter is not supported unless it is the last chapter in the book.' ],
@@ -361,7 +364,7 @@ our %HELP = (
   ]],
   
   ['CF_vsys.xml', [
-    ['sub-heading', 'Adding External Cross-References' ],
+    ['sub-heading', 'ADDING EXTERNAL CROSS-REFERENCES' ],
     ['para', 'Because a strictly defined address is assigned to each verse, it is possible to incorporate a list of cross-references into any translation. These cross-references, although not part of the original translation, add an excellent Bible study tool when available. The cross-reference list must belong to the same versification system as the project. The list must be placed in PATH(AddCrossRefs/CF_<vsys>.xml) within a `defaults` directory (see HELPREF(defaults)). `<vsys>` is the project\'s versification system (options are: '.join(', ', map("`$_`", @VERSE_SYSTEMS)).'). Available verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)'],
     ['para', 'Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.' ],
     ['para', 'The `CF_<vsys>.xml` file is an OSIS file with books, chapters and verses following the specific versification system; the only content required however are OSIS notes. Example OSIS notes:
@@ -441,7 +444,6 @@ our %HELP = (
   
   ['CF_addDictLinks.xml', [
     ['para', 'Many Bible translations are accompanied by reference materials, such as glossaries, maps and tables. Hyperlinks to this material, and between these materials, are helpful study aids. Translators may mark the words or phrases which reference a particular glossary entry or map. But often only the location of a reference is marked, while the exact target of the reference is not. Sometimes no references are marked, even though they exist throughout the translation. This command file\'s purpose is to convert all these kinds of textual references into strictly standardized working hyperlinks. '],
-    ['para', 'IMPORTANT: For case insensitive matches to work, all match text must be surrounded by the `\Q...\E` quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the `i` flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named `link` (using Perl\'s `?\'link\'` notation) in which case that group will become the text of the link.' ],
     ['para', 'Glossary references marked by translators are called explicit references. If the target of an explicit reference cannot be determined, a conversion error is logged. USFM 3 explicit references may include their target lemma in the `lemma` attribute value. If there are multiple sub-publications which share the same lemma in their glossaries, disambiguation may still be required. Two additional `\w` tag attributes may be used for disambiguation: `context` to specify the context of the target glossary (usually a scope value), and `dup` to specify the number of the duplicate lemma as it appears in CF_addDictLinks.xml.'],
     ['para', 'Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:' ],
     ['list', ['' ,''], 
@@ -473,6 +475,7 @@ our %HELP = (
       ['name', 'The name of the parent entry.' ],
       ['match', 'Contains a Perl regular expression used to search text for links to the parent entry. For a match element to create a link, its attributes and those of its ancestor elements must be properly satisfied.' ],
     ])],
+    ['para', 'NOTE: For case insensitive matches to work, all match text must be surrounded by the `\Q...\E` quote operators. If a match is failing, consider this first. This is not a normal Perl rule, but is required because Perl doesn\'t properly handle case for some languages. Match patterns can be any Perl regex, but only the `i` flag is supported. The last matching parenthetical group will become the text of the link, unless there is a group named `link` (using Perl\'s `?\'link\'` notation) in which case that group will become the text of the link.' ],
   ]],
 ],
 

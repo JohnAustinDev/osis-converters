@@ -16,6 +16,185 @@
 # along with "osis-converters".  If not, see 
 # <http://www.gnu.org/licenses/>.
 
+# Checks that all verses in verse system vsys are present and accounted 
+# for in sequential order. Reports on skipped verses, extra verses and 
+# other common problems.
+
+# Check every verse of an OSIS file against a standard versification.
+# An error message is generated for each detected deviation. NOTE: This 
+# sub cannot detect all possible deviations. For instance if a verse is 
+# split into two verses while two other verses in the same chapter are 
+# joined, the total number of verses in that chapter remains correct
+# according to the standard, and those deviations will not be detected. 
+# Also NOTE: when deviations are detected, the resolution is not. For 
+# instance, a deviation in a chapter with too many verses will generate
+# an error, but any verse in that chapter may have been split into two. 
+sub checkVerseSystem {
+  my $bibleosis = shift;
+  my $vsys = shift;
+  
+  my $xml = $XML_PARSER->parse_file($bibleosis);
+  
+  my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
+  &swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
+  
+  my $rbk = 'none';
+  my $rch = 1;
+  my $rvs = 1;
+  
+  my $errors = 0; my $passed = 0;
+  foreach my $v ($XPC->findnodes('//osis:verse[@osisID]', $xml)) {
+    foreach my $vid (split(/\s+/, $v->getAttribute('osisID'))) {
+      if ($vid !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+        &ErrorBug("Malformed verse osisID: $vid");
+        $errors++;
+        next;
+      }
+      my $bk = $1; my $ch = (1*$2); my $vs = (1*$3);
+      
+      if (!defined($canonP->{$bk})) {
+        if (defined($canonP->{$rbk})) {
+          &checkVerseSystemLastVerse(\$rbk, \$rch, \$rvs, $canonP, \$errors);
+          &Warn(
+"Cannot check verses in book $bk because it is not part of the $vsys verse system.");
+        }
+        next;
+      }
+      if ($rbk eq 'none') {$rbk = $bk;}
+    
+      # Count the passing results
+      if    ($bk eq $rbk && 
+             $ch == $rch && 
+             $vs == $rvs) {
+        $passed++;
+      }
+      elsif ($bk eq $rbk && 
+             $ch == ($rch + 1) && 
+             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
+        $passed++;
+      }
+      elsif ($bk ne $rbk &&
+             $ch == 1 && $rch == @{$canonP->{$rbk}} && 
+             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
+        $passed++;
+      }
+      
+      # Otherwise, report various failing results
+      elsif ($vs == 1 && $ch > @{$canonP->{$rbk}}) {
+        $errors++;
+        &Error("Extra chapter: $bk.$ch", 
+&vsmsg("<>This happens for instance when Synodal Pslam 151 is 
+included in a SynodalProt translation. Such a situation can be addressed 
+in CF_sfm2osis.txt with something like: 
+VSYS_EXTRA: Ps.151 <- Synodal:Ps.151
+It is also possible some chapter was split into two. This can be 
+addressed with something like:
+VSYS_CHAPTER_SPLIT_AT: Joel.2.28"));
+      }
+      elsif ($vs == 1) {
+        $errors++;
+        my $vl = ($rvs - 1);
+        my $vlr = @{$canonP->{$rbk}}[$rch-1];
+        if ($vl < $vlr) {
+          &Error(
+"Chapter ended with ".($vlr-$vl)." missing verse(s): $rbk.$rch",
+&vsmsg("<>This often means verses were joined together somewhere 
+within the chapter. This can be addressed in CF_sfm2osis.txt with 
+something like: 
+VSYS_MOVED: Gen.2.4 -> Gen.2.3.PART"));
+        }
+        else {
+          &Error(
+"Chapter ended with ".($vl-$vlr)." extra verse(s): $rbk.$rch",
+&vsmsg("<>This often means verses were split into smaller 
+verses somewhere within the chapter. This can be addressed in 
+CF_sfm2osis.txt with something like: 
+VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
+        }
+      }
+      elsif ($vs > $rvs) {
+        $errors++;
+        &errMissingVerse("$bk.$ch", $rvs);
+      }
+      else {
+        $errors++;
+        &Error(
+"Versification problem at $bk.$ch.$vs (expected $rbk.$rch.$rvs)",
+"<>Check SFM files for out of order verses, missing or extra chapters.");
+      }
+      
+      $rbk = $bk;
+      $rch = $ch;
+      $rvs = ($vs+1);
+    }
+  }
+  &checkVerseSystemLastVerse(\$rbk, \$rch, \$rvs, $canonP, \$errors);
+
+  if (!$errors && $passed) {
+    &Log("\n"); 
+    &Note("All verses were checked against verse system $vsys.");
+  }
+  
+  &Report("$errors verse system problems detected".($errors ? ':':'.'));
+  if ($errors) {
+    &Note("
+      This translation does not fit the $vsys verse system. The errors 
+      listed above must be fixed. Add the appropriate instructions:
+      VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_sfm2osis.txt.");
+  }
+}
+
+sub checkVerseSystemLastVerse {
+  my $rbkP = shift;
+  my $rchP = shift;
+  my $rvsP = shift;
+  my $canonP = shift;
+  my $errorsP = shift;
+  
+  if (defined($canonP->{$$rbkP})) {
+    if ($$rchP != @{$canonP->{$$rbkP}} || ($$rvsP - 1) != @{$canonP->{$$rbkP}}[$$rchP-1]) {
+      $$errorsP++;
+      &Error(
+"The book's last verse, $$rbkP.$$rchP.".($$rvsP-1).", is not the last  
+verse of the verse system: $$rbkP.$$rchP.".@{$canonP->{$$rbkP}}[$$rchP-1], 
+&vsmsg());
+    }
+  }
+  
+  $$rbkP = 'none';
+  $$rchP = 1;
+  $$rvsP = 1;
+}
+
+sub errMissingVerse {
+  my $bkch = shift;
+  my $vs = shift;
+  
+&Error("Missing verse $bkch.$vs.", 
+&vsmsg("<>A possible cause of this error is that a verse 
+has been left out on purpose. Often there is a related footnote at the 
+end of the previous verse containing the text of the missing verse. This
+situation would be addressed with:
+VSYS_MISSING_FN: $bkch.$vs
+However, if there is no footnote and a verse (or verses) have been left 
+out on purpose, this would be addressed with:
+VSYS_MISSING: $bkch.$vs"));
+}
+
+our $VSMSG_DONE;
+sub vsmsg {
+  my $msg = shift;
+  
+  if ($VSMSG_DONE) {return $msg;}
+  $VSMSG_DONE++;
+  return "$msg
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+" . &help('VSYS INSTRUCTIONS', 1) . "
+------------------------------------------------------------------------
+------------------------------------------------------------------------";
+}
+
 sub runChecks {
 
   # Reset the cache
@@ -59,6 +238,34 @@ Bible module OSIS file, then run this dictionary module again.");
   if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'childrens_bible') {
     &checkChildrensBibleStructure($OSIS);
   }
+}
+
+sub checkRefs {
+  my $osis = shift;
+  my $isDict = shift;
+  my $prep_xslt = shift;
+  
+  my $t = ($prep_xslt =~ /fitted/i ? ' FITTED':($prep_xslt =~ /source/i ? ' SOURCE':''));
+  &Log("CHECKING$t OSISREF/OSISIDS IN OSIS: $osis\n");
+  
+  my $main = ($isDict ? &getModuleOsisFile($MAINMOD):$osis);
+  my $dict = ($isDict ? $osis:'');
+  
+  if ($prep_xslt) {
+    &runScript("$SCRD/lib/$prep_xslt", \$main);
+    if ($dict) {
+      &runScript("$SCRD/lib/$prep_xslt", \$dict);
+    }
+  }
+  
+  my %params = ( 
+    'MAINMOD_URI' => $main, 
+    'DICTMOD_URI' => $dict, 
+    'versification' => ($prep_xslt !~ /source/i ? &conf('Versification'):'')
+  );
+  my $result = &runXSLT("$SCRD/lib/checkrefs.xsl", ($isDict ? $dict:$main), '', \%params);
+  
+  &Log($result."\n");
 }
 
 sub validateOSIS {

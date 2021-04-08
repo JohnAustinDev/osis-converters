@@ -63,7 +63,7 @@
                                             osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
                                             osis:type[@type='x-childrens-bible'])"/>
   <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible))
-                                             then for $i in tokenize(@osisID, '\s+') return replace($i, '^[^:]+:', '')
+                                             then tokenize(@osisID, '\s+')
                                              else @osisID"/>
     
   <!-- Return a contextualized config entry value by reading the OSIS header.
@@ -411,7 +411,7 @@
         </otherwise>
       </choose>
     </variable>
-    <value-of select="oc:titleCase(replace($title, '^(\[[^\]]*\])+', ''))"/>
+    <value-of select="replace($title, '^(\[[^\]]*\])+', '')"/>
   </function>
   
   <!-- Return the sub-publication title matching @scope -->

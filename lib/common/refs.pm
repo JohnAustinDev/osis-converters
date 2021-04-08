@@ -55,34 +55,6 @@ correct to convert these to textual rather than hyperlink references.");
   }
 }
 
-sub checkRefs {
-  my $osis = shift;
-  my $isDict = shift;
-  my $prep_xslt = shift;
-  
-  my $t = ($prep_xslt =~ /fitted/i ? ' FITTED':($prep_xslt =~ /source/i ? ' SOURCE':' '));
-  &Log("CHECKING$t OSISREF/OSISIDS IN OSIS: $osis\n");
-  
-  my $main = ($isDict ? &getModuleOsisFile($MAINMOD):$osis);
-  my $dict = ($isDict ? $osis:'');
-  
-  if ($prep_xslt) {
-    &runScript("$SCRD/lib/$prep_xslt", \$main, '', 3);
-    if ($dict) {
-      &runScript("$SCRD/lib/$prep_xslt", \$dict, '', 3);
-    }
-  }
-  
-  my %params = ( 
-    'MAINMOD_URI' => $main, 
-    'DICTMOD_URI' => $dict, 
-    'versification' => ($prep_xslt !~ /source/i ? &conf('Versification'):'')
-  );
-  my $result = &runXSLT("$SCRD/lib/checkrefs.xsl", ($isDict ? $dict:$main), '', \%params, 3);
-  
-  &Log($result."\n");
-}
-
 # Check all Scripture reference links in the source text. This does not
 # look for or check any externally supplied cross-references. This check
 # is run before fitToVerseSystem(), so it is checking that the source
