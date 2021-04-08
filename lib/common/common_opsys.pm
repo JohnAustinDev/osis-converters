@@ -212,8 +212,8 @@ our @CF_FILES = ('config.conf', 'CF_sfm2osis.txt', 'CF_<vsys>.xml',
     'CF_addFootnoteLinks.txt');
     
 our @CF_OSIS2OSIS = ('SourceProject', 'CC', 'CCOSIS', 
-    'Mode[cctable]', 'Mode[script]', 'Mode[transcode]', 
-    'Mode[copy]', 'MATCHES:Config\[.+\]', 'SkipNodesMatching', 
+    'Mode[copy]', 'Mode[script]', 'Mode[transcode]', 
+    'Mode[cctable]', 'MATCHES:Config\[.+\]', 'SkipNodesMatching', 
     'SkipStringsMatching');
 
 our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 

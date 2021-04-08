@@ -362,10 +362,10 @@ SETTING | DESCRIPTION
 **SourceProject** | A required entry specifying the source project to convert from.
 **CC** | Convert control and project files using the previously selected MODE. The path is relative to the source project and should not begin with `.` or `/`. The keyword `DICTMOD` can be used in place of the dictionary subdirectory. Example: `CC: DICTMOD/images/*`
 **CCOSIS** | Convert an OSIS file using the previously selected MODE. Examples: `CCOSIS: <code>` or `CCOSIS: <code>DICT`
-**Mode[cctable]** | Use a CC table do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.
+**Mode[copy]** | Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.
 **Mode[script]** | Use the given script to do the conversion. The script path is relative to the project directory. The script needs to take two arguments: input-file and output-file
 **Mode[transcode]** | Use the function `transcode(<string>)` defined in the Perl script whose path is given. Example: `SET_MODE_Transcode: script.pl`
-**Mode[copy]** | Copy the listed file or file glob from the source project to the current project. Files could be images, css, etc. Paths are relative to their project main directory.
+**Mode[cctable]** | Use a CC table to do the conversion. CC tables are no longer supported by SIL. Use SET_MODE_Script instead.
 **Config\[.+\]** | Set the value of a config entry. The `config.conf` file itself should be converted using `CC: config.conf`. An entry for a particular section can be set using `SET_Config[<section>+<entry>]: <value>`
 **SkipNodesMatching** | Don't convert the text of nodes selected by an xpath expression.
 **SkipStringsMatching** | Don't convert the text of strings matching a Perl regular expression.
