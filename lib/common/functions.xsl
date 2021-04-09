@@ -583,7 +583,7 @@
     <choose>
       <when test="matches($encodedRef, '&amp;disabled=1')">
         <osis:seg subType="x-disabled">
-          <value-of select="$text"/>
+          <value-of select="oc:titleCase($text)"/>
         </osis:seg>
       </when>
       <otherwise>
@@ -599,7 +599,7 @@
             <attribute name="type">x-glosslink</attribute>
             <attribute name="subType">x-target_self</attribute>
           </if>
-          <value-of select="$text"/>
+          <value-of select="oc:titleCase($text)"/>
         </osis:reference>
       </otherwise>
     </choose>
