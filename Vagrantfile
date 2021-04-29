@@ -6,16 +6,28 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
+  config.vm.box = "ubuntu/xenial64"
+  
+  config.ssh.forward_x11 = true
+
   config.vm.box_check_update = false
+
+  # SSH forwarding doesn't work on Windows, so here is a work-around.
+  if Vagrant::Util::Platform.windows?
+    # Copy ~/.ssh/id_rsa to the VM
+    if File.exists?(File.join(Dir.home, ".ssh", "id_rsa"))
+      user_ssh_key = File.read(File.join(Dir.home, ".ssh", "id_rsa"))
+      config.vm.provision :shell, :inline => "echo 'Windows-specific: Copying host SSH Key to VM...' && mkdir -p /home/vagrant/.ssh && echo '#{user_ssh_key}' > /home/vagrant/.ssh/id_rsa && chown -R vagrant:vagrant /home/vagrant/.ssh && chmod 600 /home/vagrant/.ssh/id_rsa"
+    end
+  else
+    config.ssh.forward_agent = true
+  end
 
   config.vm.provision :shell do |shell|
     shell.inline = "if [ -e /var/lib/dpkg/lock ]; then echo UNLOCKING DPKG && sudo rm /var/lib/dpkg/lock; fi"
   end
 
-  config.vm.box = "ubuntu/xenial64"
   config.vm.provision :shell, :path => "provision.sh", privileged: false
-  config.ssh.forward_agent = true
-  config.ssh.forward_x11 = true
   
   # Include a customized vagrant file for customizing things like RAM
   Vagrantcustom = File.join(File.expand_path(File.dirname(__FILE__)), 'Vagrantcustom')
