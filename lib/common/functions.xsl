@@ -1062,6 +1062,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
           <variable name="myGroupTextNode" select="./descendant::text()[normalize-space()]
                                                    [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
           <copy>
+            <if test="$myFirstTextNode and not($myGroupTextNode intersect $myFirstTextNode)">
+              <attribute name="subType">x-continued</attribute>
+            </if>
             <for-each select="@*">
               <!-- never duplicate a container's id: only the copy containing the first text node gets it -->
               <if test="not($myFirstTextNode) or not(name() = ('id','osisID')) or 
