@@ -27,8 +27,8 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
  exclude-result-prefixes="#all">
  
   <!-- Convert chapter and verse milestones to container elements. To 
-  make this conversion possible, section div tags are removed, while
-  p, lg and l are converted to milestone. -->
+  make this conversion possible, elements that may contain milestone
+  chapter or verse elements must be themselves converted to milestones. -->
   
   <import href="../common/functions.xsl"/>
   
@@ -43,14 +43,14 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
       <apply-templates mode="sourceVerseSystem.xsl" select="."/>
     </variable>
     
-    <!-- Remove section divs and other overlapping container tags -->
-    <variable name="sections">
-      <apply-templates mode="sections" select="$sourceVerseSystem"/>
+    <!-- Convert elements that may contain chapter|verse milestones to milestones -->
+    <variable name="milestones">
+      <apply-templates mode="milestones" select="$sourceVerseSystem"/>
     </variable>
     
-    <!-- Put chapter contents into chapter containers -->
+    <!-- Put chapter/verse contents into container elements -->
     <variable name="containers">
-      <apply-templates mode="containers" select="$sections"/>
+      <apply-templates mode="containers" select="$milestones"/>
     </variable>
     
     <sequence select="$containers"/>
@@ -61,24 +61,23 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
   
-  <template mode="sections" match="div[contains(@type, 'ection')][ancestor::div[@type='book']]">
-    <apply-templates mode="#current"/>
-  </template>
-  
-  <template mode="sections" match="p[ancestor::div[@type='book']] | 
-                                  lg[ancestor::div[@type='book']] | 
-                                   l[ancestor::div[@type='book']]">
-    <element name="milestone" 
-        namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-      <attribute name="resp" select="concat(local-name(), '-start')"/>
-      <apply-templates mode="#current" select="@*"/>
-    </element>
-    <apply-templates mode="#current"/>
-    <element name="milestone" 
-        namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
-      <attribute name="resp" select="concat(local-name(), '-end')"/>
-      <apply-templates mode="#current" select="@*"/>
-    </element>
+  <template mode="milestones" match="p | l | lg | div[contains(@type, 'ection')]">
+    <choose>
+      <when test="not(ancestor::div[@type='book'])"><next-match/></when>
+      <otherwise>
+        <element name="milestone" 
+            namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+          <apply-templates mode="#current" select="@*"/>
+          <attribute name="marker" select="concat(local-name(), '-start')"/>
+        </element>
+        <apply-templates mode="#current"/>
+        <element name="milestone" 
+            namespace="http://www.bibletechnologies.net/2003/OSIS/namespace">
+          <apply-templates mode="#current" select="@*"/>
+          <attribute name="marker" select="concat(local-name(), '-end')"/>
+        </element>
+      </otherwise>
+    </choose>
   </template>
   
   <template mode="containers" match="div[@type='book']">
