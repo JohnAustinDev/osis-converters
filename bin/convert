@@ -634,7 +634,7 @@ sub modOutdir {
     
   $outdir = ( $outdir ? 
       "$outdir/$m" : 
-      "$PROJDIR/$p/".($m =~ /DICT$/ ? "$m/":'')."output"
+      $infoP->{$p}{'path'}.'/'.($m =~ /DICT$/ ? "$m/":'')."output"
     );
  
   return &shortPath($outdir);
