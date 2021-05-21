@@ -56,8 +56,18 @@ sub processOSIS {
   if ($MOD eq $DICTMOD) {
     &applyPeriphInstructions(\$OSIS);
     
+    my $dxml = $XML_PARSER->parse_file($OSIS);
+    foreach my $div (@{$XPC->findnodes('//osis:div[@type="glossary"]
+      [not(descendant::osis:seg[@type="keyword"])]', $dxml)}[0]) {
+      &Error(
+"This glossary has no keywords: '" . &getDivTitle($div) . "'.", 
+"GLO SFM files must contain at least one keyword. EVAL_REGEX may
+be used to add keywords: \\k keyword \\k*. Material before the first keyword 
+will not be included in SWORD.");
+    }
+    
     if (!@{$XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', 
-        $XML_PARSER->parse_file($OSIS))}[0]) {
+        $dxml)}[0]) {
         
       &runScript("$SCRD/lib/dict/aggregateRepeatedEntries.xsl", \$OSIS);
       
