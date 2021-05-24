@@ -57,8 +57,8 @@ sub processOSIS {
     &applyPeriphInstructions(\$OSIS);
     
     my $dxml = $XML_PARSER->parse_file($OSIS);
-    foreach my $div (@{$XPC->findnodes('//osis:div[@type="glossary"]
-      [not(descendant::osis:seg[@type="keyword"])]', $dxml)}[0]) {
+    foreach my $div ($XPC->findnodes('//osis:div[@type="glossary"]
+      [not(descendant::osis:seg[@type="keyword"])]', $dxml)) {
       &Error(
 "This glossary has no keywords: '" . &getDivTitle($div) . "'.", 
 "GLO SFM files must contain at least one keyword. EVAL_REGEX may
