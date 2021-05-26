@@ -155,7 +155,7 @@ glossary entry.</with-param>
       <!-- Break up lists with keyword items -->
       <variable name="pass1">
         <for-each select="node()">
-          <sequence select="oc:expelElements(., self::list/item/descendant::*[count(descendant-or-self::seg[@type='keyword']) = 1], false())"/>
+          <sequence select="oc:expelElements(., self::list/item/descendant::*[count(descendant-or-self::seg[@type='keyword']) = 1], (), false())"/>
         </for-each>
       </variable>
       

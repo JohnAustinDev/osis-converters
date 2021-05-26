@@ -81,11 +81,14 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
   </template>
   
   <template mode="containers" match="div[@type='book']">
+    <variable name="continue">
+      <attribute name="subType">x-continued</attribute>
+    </variable>
     <copy>
       <apply-templates mode="#current" select="@*"/>
       <variable name="bookChildren">
         <for-each select="node()">
-          <sequence select="oc:expelElements(., ./descendant::chapter, false())"/>
+          <sequence select="oc:expelElements(., ./descendant::chapter, $continue, false())"/>
         </for-each>
       </variable>
       <for-each-group select="$bookChildren/node()" group-starting-with="chapter[@sID]">
@@ -99,7 +102,7 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
               <apply-templates mode="#current" select="current()/@*[not(name() = 'sID')]"/>
               <variable name="chapterChildren">
                 <for-each select="current-group()[not(self::chapter)]">
-                  <sequence select="oc:expelElements(., ./descendant::verse, false())"/>
+                  <sequence select="oc:expelElements(., ./descendant::verse, $continue, false())"/>
                 </for-each>
               </variable>
               <for-each-group select="$chapterChildren/node()" group-starting-with="verse[@sID]">

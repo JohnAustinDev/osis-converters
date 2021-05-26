@@ -67,12 +67,12 @@
   paragraphs and section divs at TOC milestones. -->
   <template mode="pass1" match="p[child::milestone[starts-with(@type, 'x-usfm-toc')]]">
     <apply-templates mode="#current" 
-      select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
+      select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], (), true())"/>
   </template>
   
   <template mode="pass2" match="div[matches(@type,'[Ss]ection')][child::milestone[starts-with(@type, 'x-usfm-toc')]]">
     <apply-templates mode="#current" 
-      select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], true())"/>
+      select="oc:expelElements(., child::milestone[starts-with(@type, 'x-usfm-toc')], (), true())"/>
   </template>
   
 </stylesheet>

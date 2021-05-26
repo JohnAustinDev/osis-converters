@@ -484,7 +484,7 @@
   <!-- preprocess_expelChapterTags -->
   <template mode="preprocess_expelChapterTags" match="*[parent::div[@type='book']]">
     <variable name="book" select="parent::*/@osisID"/>
-    <sequence select="oc:expelElements(., descendant::chapter[starts-with(@sID, concat($book, '.'))], false())"/>
+    <sequence select="oc:expelElements(., descendant::chapter[starts-with(@sID, concat($book, '.'))], (), false())"/>
   </template>
   
   <!-- preprocess_glossTocMenus -->
@@ -1943,6 +1943,7 @@
     doesn't allow <h> or <br/> children of ul -->
     <variable name="ol2" select="oc:expelElements($ol, 
         $ol/*[contains(@class, 'osis-head') or contains(@class, 'osis-lb')], 
+        (),
         boolean($currentTask='get-filenames'))"/>
     <for-each select="$ol2">
       <if test="not(boolean(self::html:ol)) or count(child::*)">
@@ -2051,7 +2052,8 @@ Dropping redundant TOC milestone in keyword <value-of select="preceding-sibling:
     </variable>
     <!-- Block elements as descendants of p do not validate, so expel those. Also expel page-breaks. -->
     <sequence select="oc:expelElements( $p, 
-        $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')], 
+        $p//*[matches(@class, '(^|\s)(pb|osis\-figure)(\s|$)') or matches(local-name(), '^h\d')],
+        (),
         boolean($currentTask = 'get-filenames') )"/>
   </template>
   

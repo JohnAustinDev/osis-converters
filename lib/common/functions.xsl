@@ -1010,8 +1010,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   of the container $element, which is divided and duplicated accordingly.
   Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
-    <param name="element" as="node()"/><!-- any non-element will just be returned -->
-    <param name="expel" as="node()*"/> <!-- node(s) to be expelled -->
+    <param name="element" as="node()"/>        <!-- any non-element will just be returned -->
+    <param name="expel" as="node()*"/>         <!-- node(s) to be expelled -->
+    <param name="continue" as="attribute()?"/> <!-- attribute to add to any follow-on duplicated container elements -->
     <param name="quiet" as="xs:boolean"/>
     
     <variable name="expel2" select="$expel except $expel[ancestor::node() intersect $expel]"/>
@@ -1022,7 +1023,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       </when>
       <otherwise>
         <for-each-group select="$element" group-by="oc:myExpelGroups(., $expel2)">
-          <sequence select="oc:copyExpel($element, current-grouping-key(), $expel2, $quiet)"/>
+          <sequence select="oc:copyExpel($element, current-grouping-key(), $expel2, $continue, $quiet)"/>
         </for-each-group>
       </otherwise>
     </choose>
@@ -1032,6 +1033,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <param name="node" as="node()"/>
     <param name="currentGroupingKey" as="xs:integer"/>
     <param name="expel" as="node()+"/>
+    <param name="continue" as="attribute()?"/>
     <param name="quiet" as="xs:boolean"/>
     
     <variable name="expelMe" as="node()?" 
@@ -1052,18 +1054,25 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
                        [oc:myExpelGroups(., $expel) = $currentGroupingKey] ) 
                   and $node/matches(local-name(), '^(div|p|l|lg|list|item|head|li|ul|td|tr)$')">
         <for-each select="$node/node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
-          <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
+          <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $continue, $quiet)"/>
         </for-each>
       </when>
       <!-- Other nodes are copied according to currentGoupingKey -->
       <otherwise>
         <for-each select="$node">
-          <variable name="myFirstTextNode" select="./descendant::text()[normalize-space()][1]"/>
-          <variable name="myGroupTextNode" select="./descendant::text()[normalize-space()]
-                                                   [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
+          <variable name="myFirstTextNode" select="./descendant::text()
+              [not(ancestor-or-self::node() intersect $expel)]
+              [normalize-space()][1]"/>
+          <variable name="myGroupTextNode" select="./descendant::text()
+              [not(ancestor-or-self::node() intersect $expel)]
+              [normalize-space()]
+              [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
           <copy>
-            <if test="$myFirstTextNode and not($myGroupTextNode intersect $myFirstTextNode)">
-              <attribute name="subType">x-continued</attribute>
+            <if test="$continue and
+                      $myFirstTextNode and 
+                      $myGroupTextNode and 
+                      not($myGroupTextNode intersect $myFirstTextNode)">
+              <copy-of select="$continue"/>
             </if>
             <for-each select="@*">
               <!-- never duplicate a container's id: only the copy containing the first text node gets it -->
@@ -1073,7 +1082,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
               </if>
             </for-each>
             <for-each select="node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
-              <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $quiet)"/>
+              <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $continue, $quiet)"/>
             </for-each>
           </copy>
         </for-each>
