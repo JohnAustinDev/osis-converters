@@ -1591,7 +1591,7 @@
     <variable name="nonBook_TOC_children" as="element(milestone)*" 
         select="$bookGroup/div[not(@type='book')]/milestone[@type=concat('x-usfm-toc', $TOC)]
                 [not(contains(@n, '[no_toc]'))]
-                [not(contains(@n, '[not_parent]'))]"/>
+                [not(contains(@n, '[not_parent]'))][1]"/>
         
     <variable name="testament_introduction" as="element(milestone)?" 
         select="$bookGroup/child::div[1][@type != 'book']
