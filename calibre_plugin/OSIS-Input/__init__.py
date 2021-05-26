@@ -1,5 +1,5 @@
 from calibre.customize.conversion import InputFormatPlugin, OptionRecommendation
-from subprocess import Popen, PIPE
+import subprocess
 import re
 import shutil
 import glob
@@ -52,11 +52,10 @@ class OsisInput(InputFormatPlugin):
             "css=%s" % (",").join(sorted(cssFileNames))
         ]
         print("Running XSLT: " + " ".join(command))
-        p = Popen(command, stdin=None, stdout=PIPE, stderr=PIPE)
-        output, err = p.communicate()
+        p = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
         if p.returncode != 0:
             print("ERROR: XSLT failed!:")
-        print(err)
+        print(p.stdout)
         os.remove('osis2xhtml.xsl')
         os.remove('functions.xsl')
         for afile in glob.glob("./*.xml"):                                                                                                                                   
