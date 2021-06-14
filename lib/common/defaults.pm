@@ -152,10 +152,10 @@ sub customize_config {
     my $dfile = $defConfP->{'system+REPOSITORY'}.'/'.lc($MAINMOD)."dict.conf";
    
     &Log("\nReading: $mfile\n", 2);
-    my $mtext = &shell("wget \"$mfile\" -q -O -", NULL, 1);
+    my $mtext = &shell("wget \"$mfile\" -q -O -", undef, 1);
     
     &Log("\nReading: $dfile\n", 2);
-    my $dtext = &shell("wget \"$dfile\" -q -O -", NULL, 1);
+    my $dtext = &shell("wget \"$dfile\" -q -O -", undef, 1);
 
     # strip these entries
     my $strip = &configRE(@SWORD_AUTOGEN_CONFIGS);
