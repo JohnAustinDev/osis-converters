@@ -38,7 +38,7 @@
 #our $VAGRANT = 1;
 
 use strict;
-use Carp qw(longmess);
+use Carp qw(longmess); $Carp::MaxArgLen = 0; $Carp::MaxArgNums = 0;
 use Encode;
 use File::Copy;
 use File::Find;

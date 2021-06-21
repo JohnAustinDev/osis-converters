@@ -287,8 +287,6 @@ sub addScripRefLinks2 {
   $LOGFLAG = undef;
   
   &asrlProcessFile($osis, $refSystem);
-  
-  &saveForkData(__FILE__);
 }
 
 sub reportAddScripRefLinks {

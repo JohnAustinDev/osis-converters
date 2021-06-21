@@ -86,8 +86,6 @@ sub adlProcessFile {
   }
   
   &writeXMLFile($xml, $osis);
-  
-  &saveForkData(__FILE__);
 }
 
 1;

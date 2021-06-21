@@ -44,6 +44,7 @@ File::Path::make_path($TMPDIR);
 # Save log path and use tmp log
 my $forklog = @ARGV[1]; 
 @ARGV[1] = "$TMPDIR/LOG_startup.txt";
+open(STDERR, ">$TMPDIR/LOG_stderr.txt");
 
 # Initialize osis-converters
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
@@ -62,5 +63,7 @@ no strict "refs";
 &Debug("Starting fork: $forkFunc(".join(', ', map("'$_'", @forkArgs)).")");
 
 &$forkFunc(@forkArgs);
+
+&saveForkData($forkRequire);
 
 1;

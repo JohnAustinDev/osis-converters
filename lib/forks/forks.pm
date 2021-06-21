@@ -137,17 +137,30 @@ if (!$fatal) {
 
   # Copy finished fork log files back to the main thread's LOGFILE.
   foreach my $td (@{&forkTmpDirs($caller)}) {
-    if (!-e "$td/$forkLogName") {next;}
-    
-    if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
-      if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
-        while(<MLF>) {print LGG $_;}
-        close(LGG);
+    if (-e "$td/$forkLogName") {
+      if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
+        if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
+          while(<MLF>) {print LGG $_;}
+          close(LGG);
+        }
+        else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
+        close(MLF);
       }
-      else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
-      close(MLF);
+      else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
     }
-    else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
+    
+    if (-s "$td/LOG_stderr.txt") {
+      if (open(MLF, "<:encoding(UTF-8)", "$td/LOG_stderr.txt")) {
+        if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
+          print LGG "\nERROR: File '$td/LOG_stderr.txt' contains:\n";
+          while(<MLF>) {print LGG $_;}
+          close(LGG);
+        }
+        else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
+        close(MLF);
+      }
+      else {&Log("ERROR: forks.pm cannot open $td/LOG_stderr.txt for reading.\n");}
+    }
   }
 }
 

@@ -120,19 +120,22 @@ sub saveForkData {
   my $json = $caller.'_json';
 
   no strict "refs";
-  foreach my $h (@$json) {
-    if (open(DAT, ">$TMPDIR/$h.json")) {
-      my $v = $h; my $t = ($v =~ s/^(%|@|\$)// ? $1:'');
-      if    ($t eq '%') {print DAT encode_json(\%{$v});}
-      elsif ($t eq '@') {print DAT encode_json(\@{$v});}
-      elsif ($t eq '$') {
-        my @tmp = ( ${$v} );
-        print DAT encode_json(\@tmp);
+  if (@$json) {
+    foreach my $h (@$json) {
+      if (open(DAT, ">$TMPDIR/$h.json")) {
+        my $v = $h; my $t = ($v =~ s/^(%|@|\$)// ? $1:'');
+        if    ($t eq '%') {print DAT encode_json(\%{$v});}
+        elsif ($t eq '@') {print DAT encode_json(\@{$v});}
+        elsif ($t eq '$') {
+          my @tmp = ( ${$v} );
+          print DAT encode_json(\@tmp);
+        }
+        else {&ErrorBug("JSON name must start with %, @ or \$: '$h'\n", 1);}
       }
-      else {&ErrorBug("saveForkData JSON name must start with %, @ or \$: '$h'\n", 1);}
+      else {&ErrorBug("$caller couldn't open $TMPDIR/$h.json\n", 1);}
     }
-    else {&ErrorBug("saveForkData $caller couldn't open $TMPDIR/$h.json\n", 1);}
   }
+  else {&ErrorBug("missing \@$json array in ".__FILE__."\n", 1);}
 }
 
 # Called by the main thread to reassemble data from all child threads.

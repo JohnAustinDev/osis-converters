@@ -610,8 +610,6 @@ of this material to exclude it from HTML publications.");
   }
   # fb2 is disabled until a decent FB2 converter is written
   #if ($createTypes =~ /^(fb2)$/i) {&makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);}
-
-  &saveForkData(__FILE__);
 }
 
 ########################################################################
