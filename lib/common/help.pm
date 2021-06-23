@@ -136,11 +136,11 @@ our %HELP = (
     ])],
     
     ['sub-heading', 'SCOPE' ],
-    ['para', 'What is referred to as \'scope\' is a specific way of representing which Bible books are included in a publication. It is used in file and directory names etc. Scope is a space separated list of OSIS book abbreviations (see HELPREF(OSIS_ABBR)) in verse system order. Example: `Ruth Esth Jonah`. Continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
+    ['para', 'A \'scope\' is a specific way of listing the contents of Bible publications. It is generally a space separated list of OSIS book abbreviations in verse system order (see HELPREF(OSIS_ABBR)). When used in directory names, file names or config.conf entry names, spaces should be replaced by an underscore. Example: `Ruth_Esth_Jonah`. Continuous ranges of more than two books are shortened using \'-\'. Example: `Matt-Rev`.' ],
     
     ['sub-heading', 'SUB-PUBLICATIONS' ],
     ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-publications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
-    ['para', 'To add a sub-publication, put the SFM files pertaining to it in the subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` is the sub-publication\'s scope.' ],
+    ['para', 'A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` is the scope of the sub-publication (see HELPREF(scope)).' ],
     
     ['sub-heading', 'HELP' ],
     ['para', 'Run HELPREF(<setting> | <file> | <script>) to find help on any particular setting, control file or script.'],
@@ -287,10 +287,10 @@ our %HELP = (
       [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: `(true | false)`.' ],
       [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true | <regex>)`.' ],
       [ 'CombinedGlossaryTitle' => 'A localized title for the combined glossary in the Table of Contents.' ],
-      [ 'BookGroupTitle\[\w+\]' => 'A localized title to use for one these book groups: `'.join(', ', @OSIS_GROUPS).'`. Example: `BookGroup[NT]=The New Testament` or `BookGroup[Apocrypha]=The Apocrypha`' ],
+      [ 'BookGroupTitle\[\w+\]' => 'A localized title to use for one the book groups. `BookGroupTitle[NT]` is the New Testament\'s title and `BookGroupTitle[OT]` is the Old Testament\'s title. One of the following book group codes must appear between the square brackets: `'.join(', ', @OSIS_GROUPS).'`. Example: `BookGroup[NT]=The New Testament` or `BookGroup[Apocrypha]=The Apocrypha`' ],
       [ 'TranslationTitle' => 'A localized title for the entire translation.' ],
       [ 'IntroductionTitle' => 'A localized title for Bible book introductions.' ],
-      [ 'SubPublicationTitle\[\S+\]', 'A localized title for each sub-publication. A sub-publication is created when SFM files are placed within an sfm sub-directory. The name of the sub-directory must be the scope of the sub-publication, having spaces replaced by underscores.' ], 
+      [ 'SubPublicationTitle\[\S+\]', 'The localized title of a particular sub-publication. The scope of the sub-publication must appear between the square brackets (see HELPREF(SUB-PUBLICATIONS) and see HELPREF(scope)).' ], 
       [ 'NormalizeUnicode' => 'Apply a Unicode normalization to all characters: `(true | false | NFD | NFC | NFKD | NFKC | FCD)`.' ],
       [ 'Lang' => 'ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn' ],
       [ 'ARG_\w+' => 'Config settings for undocumented fine control.' ],
@@ -552,7 +552,7 @@ our %HELP = (
     ['list', ['ENRTY', 'DESCRIPTION'], &getList(\@SWORD_OC_CONFIGS, [
       ['KeySort', 'HELP(sfm2osis;config.conf;KeySort)' ],
       ['AudioCode', 'HELP(sfm2osis;config.conf;AudioCode)' ],
-      ['Scope', 'Used to describe a Bible module\'s contents. It follows osisRef rules including the use of the \'-\' range character. Note that Scope range interpretation requires knowledge of the versification system. The Scope entry allows determination of a Bible module\'s contents before it is loaded.' ],
+      ['Scope', 'HELPREF(scope)' ],
     ], 1)],
   ]],
   
@@ -601,12 +601,12 @@ sub help {
   my $entry;
   if ($lookup =~ /;/) {
     my @p = split(/\s*;\s*/, $lookup);
-    if (@p[0] && @p[0] !~ /^all$/i) {$script = lc(@p[0]);}
-    if (@p[1] && @p[1] !~ /^all$/i) {$heading = lc(@p[1]);}
-    if (@p[2]) {$entry = lc(@p[2]);}
+    if (@p[0] && @p[0] !~ /^all$/i) {$script = @p[0];}
+    if (@p[1] && @p[1] !~ /^all$/i) {$heading = @p[1];}
+    if (@p[2]) {$entry = @p[2];}
   }
   else {
-    $search = lc($lookup);
+    $search = $lookup;
   }
   
   # Check for a global variable request
@@ -634,8 +634,8 @@ sub help {
   foreach my $s (sort keys %HELP) {
   
     # Check script
-    if ($search && lc($s) eq $search ||
-        $script && !$heading && !$entry && lc($s) eq $script ) {
+    if ( &search($search, $s) ||
+        !$heading && !$entry && &search($script, $s) ) {
       if ($test) {return 'yes';}
       
       $r .= &format($s, 'title');
@@ -649,8 +649,8 @@ sub help {
     foreach my $headP (@{$HELP{$s}}) {
       
       # Check heading
-      if ($search && lc($headP->[0]) eq $search ||
-          !$entry && $heading && lc($headP->[0]) eq $heading) {
+      if (&search($search, $headP->[0]) ||
+          !$entry && &search($heading, $headP->[0])) {
         if ($test) {return 'yes';}
         
         $r .= &format($s, 'title');
@@ -667,8 +667,8 @@ sub help {
         if ($subP->[0] eq 'sub-heading') {
           $subheading = $subP->[1];
           $insub = 0;
-          if ($search && lc($subP->[1]) eq $search ||
-              !$entry && $heading && lc($subheading) eq $heading) {
+          if (&search($search, $subP->[1]) ||
+              !$entry && &search($heading, $subheading)) {
             if ($test) {return 'yes';}
             $insub = 1;
             $r .= &format(join(' / ', $s, $headP->[0]), 'title');
@@ -685,16 +685,16 @@ sub help {
         }
         
         if ($subP->[0] ne 'list') {next;}
-        
+    
         # Check key
         foreach my $rowP (@{$subP->[2]}) {
-          if ($search && lc($rowP->[0]) eq $search ||
-             ($entry && $heading && lc($rowP->[0]) eq $entry && 
-             (  lc($headP->[0]) eq $heading ||  
-                lc($subheading) eq $heading
-             ))) {
+          if (( &search($search, $rowP->[0]) ||
+             (  &search($entry, $rowP->[0]) && 
+             (    &search($heading, $headP->[0]) ||  
+                  &search($heading, $subheading)
+             ))) && $rowP->[1] !~ /^\s*HELPREF\([^\)]*\)\s*$/ ) {
             if ($test) {return 'yes';}
-             
+              
             $r .= &format(join(' / ', $s, $headP->[0], $subheading), 'title');
             
             $r .= &helpList($subP->[1], [[ $rowP->[0], $rowP->[1] ]]);
@@ -714,6 +714,15 @@ sub help {
   }
   
   return $r;
+}
+
+sub search {
+  my $for = quotemeta(shift);
+  my $in = shift;
+  
+  if (!$for) {return;}
+  
+  return $in =~ /$for/i;
 }
 
 sub helpHeading {
@@ -775,23 +784,26 @@ sub helpListRow {
 }
 
 # Special help tags which can be rendered differently for various
-# output formats, or else can use late rendering.
+# output formats, or require late rendering.
 sub helpTags {
   my $t = shift;
   
-  # Copy of help: HELP(<script>;<heading>;<key>?)
+  # HELP(<script>;<heading>;<key>?)
+  # Copy of help: 
   # These are done first since they add raw &help() text which may 
   # include other tags.
   $t =~ s/HELP\((.*?)\)/&help($1,1,1)/seg;
   
-  # Local file paths: PATH(<encoded-path>?)
+  # PATH(<encoded-path>?)
+  # Local file paths: 
   $t =~ s/PATH\((.*?)\)/
     my $p = $1; 
     my $e; 
     my $r = &const($p,\$e); 
     '`' . &helpPath($e ? $r : &shortPath($r)) . '`'/seg;
     
-  # Reference to help: HELPREF(blah)
+  # HELPREF(blah)
+  # Reference to help: 
   $t =~ s/HELPREF\((.*?)\)/&helpRef($1)/seg;
   
   # Hyperlinks: [<text>?](<href>)
@@ -803,7 +815,7 @@ sub helpTags {
 sub helpRef {
   my $ref = shift;
   
-  my $r = "`convert -h";
+  my $r = "`$0 -h";
   
   if ($ref) {$r .= ' ';}
   if ($ref =~ /[\s\@\$\%]/) {$r .= "'";}
