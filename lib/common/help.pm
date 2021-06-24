@@ -484,7 +484,8 @@ our %HELP = (
 'osis2osis' => [
 
   ['SYNOPSIS', [
-    ['para', 'When a translation is to be converted into multiple scripts, osis2osis can be used to simplify the work of conversion. The osis2osis program is flexible and controlled by CF_osis2osis.txt. Source script SFM may be converted using sfm2osis, then the resulting OSIS file and the source script `config.conf` can be converted directly to other scripts using osis2osis. The osis2osis script can also be used to convert just control files from one script to another, allowing sfm2osis create the OSIS file. This is useful when translators provide multiple sets of source files of different scripts, and control files alone need to be converted from one script to another. ' ],
+    ['para', 'When a translation is to be converted into multiple scripts, osis2osis can be used to simplify the work of conversion. The osis2osis program is flexible and controlled by CF_osis2osis.txt. Source script SFM may be converted using sfm2osis, then the resulting OSIS file and the source script\'s `config.conf` may be converted directly to the other scripts using osis2osis.' ],
+    ['para', 'The osis2osis script can also be used to convert all control files from one script to another, allowing sfm2osis to subsequently create the OSIS file. This is useful when translators provide multiple sets of source files of different scripts, so that only control files need to be converted from one script to another.' ],
   ]],
   
   ['CF_osis2osis.txt', [
