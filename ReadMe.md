@@ -423,5 +423,5 @@ ENRTY | DESCRIPTION
 ----- | -----------
 **AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.
-**Scope** | `./bin/convert -h scope`
+**Scope** | A 'scope' is a specific way of listing the contents of Bible publications. It is generally a space separated list of OSIS book abbreviations in verse system order (see `./bin/convert -h OSIS_ABBR`). When used in directory names, file names or config.conf entry names, spaces should be replaced by an underscore. Example: `Ruth_Esth_Jonah`. Continuous ranges of more than two books are shortened using '-'. Example: `Matt-Rev`.
 

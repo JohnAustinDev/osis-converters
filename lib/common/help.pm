@@ -93,6 +93,10 @@ our %ARG = (
 # osis-converters help documentation is stored in the following data structure:
 # <script> => [ [ <heading>, [ [ sub-heading|para|list, value(s) ], ... ] ], ... ]
 # where: list = [ 'list', [key-heading, description-heading], [ [ <name>, <description> ], ... ] ]
+#
+# Help strings may include the following special tags: 
+# HELP(), HELPREF(), PATH(), or [hyperlink](URL)
+# See helpTags() for a full description.
 our %HELP = (
 
 'convert' => [
@@ -553,7 +557,7 @@ our %HELP = (
     ['list', ['ENRTY', 'DESCRIPTION'], &getList(\@SWORD_OC_CONFIGS, [
       ['KeySort', 'HELP(sfm2osis;config.conf;KeySort)' ],
       ['AudioCode', 'HELP(sfm2osis;config.conf;AudioCode)' ],
-      ['Scope', 'HELPREF(scope)' ],
+      ['Scope', 'HELP(convert;scope)' ],
     ], 1)],
   ]],
   
@@ -576,7 +580,7 @@ our %HELP = (
 sub help {
   my $lookup = shift;
   my $errorOnFail = shift;
-  my $returnListDescription = shift;
+  my $returnFirstPara = shift;
   
   my $test = ($lookup =~ s/^TEST:/$1/ ? 1:0);
  
@@ -626,8 +630,16 @@ sub help {
       $r .= "\&$v() : " . &$v();
     }
     if ($r) {
-      if ($test) {return 'yes';}
-      return $r . "\n";
+      if ($test) {
+        return 'yes';
+      }
+      elsif ($returnFirstPara) {
+        $r =~ s/^.*?: //;
+        return $r;
+      }
+      else {
+        return $r . "\n";
+      }
     }
   }
 
@@ -679,6 +691,9 @@ sub help {
           if ($subP->[0] eq 'list') {
             $r .= &helpList($subP->[1], $subP->[2]);
           }
+          elsif ($subP->[0] eq 'para' && $returnFirstPara) {
+            return $subP->[1];
+          }
           else {
             $r .= &format($subP->[1], $subP->[0]);
           }
@@ -693,14 +708,14 @@ sub help {
              (  &search($entry, $rowP->[0]) && 
              (    &search($heading, $headP->[0]) ||  
                   &search($heading, $subheading)
-             ))) && $rowP->[1] !~ /^\s*HELPREF\([^\)]*\)\s*$/ ) {
+             ))) && $rowP->[1] !~ /^\s*(see\s*)?(HELP|HELPREF)\([^\)]*\)\s*$/ ) {
             if ($test) {return 'yes';}
               
             $r .= &format(join(' / ', $s, $headP->[0], $subheading), 'title');
             
             $r .= &helpList($subP->[1], [[ $rowP->[0], $rowP->[1] ]]);
               
-            if ($returnListDescription && $rowP->[1] !~ /HELP/) {
+            if ($returnFirstPara) {
               return $rowP->[1];
             }
           }
