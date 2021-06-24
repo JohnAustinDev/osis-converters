@@ -242,7 +242,7 @@ COMMAND | DESCRIPTION
 ### VSYS INSTRUCTIONS 
 The other purpose of the `CF_sfm2osis.txt` file for Bibles and commentaries is to describe deviations from the versification standard. These deviations should be recorded so references from external documents may be properly resolved, and parallel rendering with other texts can be accomplished. Each verse is identified according to the project's strictly defined versification. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files containing both a rendering in the translator's custom versification and a rendering in the standard versification. OSIS files can then be rendered in either scheme using an XSLT stylesheet.
 
-VSYS instructions are evaluated in verse system order regardless of their order in the control file. A verse may be effected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).
+VSYS instructions are evaluated in verse system order regardless of their order in the control file. A verse may be affected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).
 
 COMMAND | DESCRIPTION
 ------- | -----------
@@ -253,7 +253,7 @@ COMMAND | DESCRIPTION
 **VSYS_MOVED_ALT** | Like `VSYS_MOVED` but this should be used when alternate verse markup like `\va 2\va*` has been used by the translators for the verse numbers of the moved verses (rather than regular verse markers which is the more common case). If both regular verse markers (showing the source system verse number) and alternate verse numbers (showing the fixed system verse numbers) have been used, then `VSYS_MOVED` should be used. This instruction will not change the OSIS markup of alternate verses.
 **VSYS_MISSING_FN** | Like `VSYS_MISSING` but is only to be used if a footnote was included in the verse before the missing verses which gives the reason for the verses being missing. This instruction will simply link the verse having the footnote together with the missing verse.
 **VSYS_CHAPTER_SPLIT_AT** | Used when the translators split a chapter of the project's versification scheme into two chapters. This instruction takes the form:<br />`VSYS_CHAPTER_SPLIT_AT: Joel.2.28`<br />When the OSIS file is rendered as the standard versification scheme, verses from the split onward will be appended to the end of the previous verse and given alternate chapter:verse designations. Verses of any following chapters will also be given alternate chapter:verse designations. References to affected verses will be tagged so as to be correct in both the standard and the custom versification scheme.
-**VSYS_FROM_TO** | This is usually not the right instruction to use; it is used internally as part of other instructions. It does not effect any verse or alternate verse markup. It could be used if a verse is marked in the text but is left empty, while there is a footnote about it in the previous verse (but see `VSYS_MISSING_FN` which is the more common case).
+**VSYS_FROM_TO** | This is usually not the right instruction to use; it is used internally as part of other instructions. It does not affect any verse or alternate verse markup. It could be used if a verse is marked in the text but is left empty, while there is a footnote about it in the previous verse (but see `VSYS_MISSING_FN` which is the more common case).
 
 
 ## CF_vsys.xml 
