@@ -7,6 +7,7 @@ use strict;
 BEGIN { # allow subs to be redefined
   our $SCRIPT_NAME = 'convert';
   use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm";
+  $0 = "./bin/$SCRIPT_NAME"; chdir($SCRD);
 }
 
 our $SCRD;
@@ -108,6 +109,7 @@ sub format {
   elsif ($type eq 'para') {
     return &para($text, @args);
   }
+  else {&ErrorBug("Unknown format type $type, '$text'");}
   
   return $text;
 }

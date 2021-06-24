@@ -8,11 +8,11 @@ With Paratext USFM files in the directory: `/<PROJECT_CODE>/sfm/`<br /><br />`./
 
 
 ### USFM / SFM 
-Paratext Unified Standard Format Markers (USFM) is the successor of Standard Format Markers (SFM). SFM may require preprocessing before conversion to OSIS (see `./ReadMe.pl -h EVAL_REGEX`).
+Paratext Unified Standard Format Markers (USFM) is the successor of Standard Format Markers (SFM). SFM may require preprocessing before conversion to OSIS (see `./bin/convert -h EVAL_REGEX`).
 
 
 ### DEFAULT CONTROL FILES 
-The conversion process is guided by control files. When the `defaults` program is run on a project, project control files are created from templates located in one of the `defaults` directories. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project. For details see `./ReadMe.pl -h defaults`
+The conversion process is guided by control files. When the `defaults` program is run on a project, project control files are created from templates located in one of the `defaults` directories. Conversion is controlled by these files located in the project directory. A project is not ready to publish until there are no errors reported in LOG files, warnings have been checked, and all materials and meta-data have been added to the project. For details see `./bin/convert -h defaults`
 
 
 ### LOG FILES 
@@ -40,17 +40,17 @@ SCRIPT | DESCRIPTION
 
 
 ### SCOPE 
-A 'scope' is a specific way of listing the contents of Bible publications. It is generally a space separated list of OSIS book abbreviations in verse system order (see `./ReadMe.pl -h OSIS_ABBR`). When used in directory names, file names or config.conf entry names, spaces should be replaced by an underscore. Example: `Ruth_Esth_Jonah`. Continuous ranges of more than two books are shortened using '-'. Example: `Matt-Rev`.
+A 'scope' is a specific way of listing the contents of Bible publications. It is generally a space separated list of OSIS book abbreviations in verse system order (see `./bin/convert -h OSIS_ABBR`). When used in directory names, file names or config.conf entry names, spaces should be replaced by an underscore. Example: `Ruth_Esth_Jonah`. Continuous ranges of more than two books are shortened using '-'. Example: `Matt-Rev`.
 
 
 ### SUB-PUBLICATIONS 
 A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-publications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.
 
-A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory `<main-module> / sfm / <scope>` where `<scope>` is the scope of the sub-publication (see `./ReadMe.pl -h scope`).
+A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory `<main-module> / sfm / <scope>` where `<scope>` is the scope of the sub-publication (see `./bin/convert -h scope`).
 
 
 ### HELP 
-Run `./ReadMe.pl -h '<setting> | <file> | <script>'` to find help on any particular setting, control file or script.
+Run `./bin/convert -h '<setting> | <file> | <script>'` to find help on any particular setting, control file or script.
 
 
 # defaults 
@@ -83,11 +83,11 @@ FILE | DESCRIPTION
 **CF_addDictLinks.xml** | Control parsing of reference material references from the text and their conversion to working OSIS hyperlinks.
 **CF_addFootnoteLinks.txt** | Control parsing of footnote references from the text and their conversion to working OSIS hyperlinks.
 
-Default control files are created by the 'defaults' command. For help on an individual file or command run: `./ReadMe.pl -h '<file> | <command>'`
+Default control files are created by the 'defaults' command. For help on an individual file or command run: `./bin/convert -h '<file> | <command>'`
 
 
 ### TABLE OF CONTENTS 
-A table of contents or menu system (referred to as the TOC) is a critical part of most electronic publications. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials appear in the TOC. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is also customizable. By default, USFM `\toc2` tags create new TOC entries. Alternative `\tocN` tags may be used if desired (see `./ReadMe.pl -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a `\tocN` tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.
+A table of contents or menu system (referred to as the TOC) is a critical part of most electronic publications. Bible books, chapters, introductions, glossaries, tables, maps and other reference materials appear in the TOC. The sfm2osis script tries to auto-detect TOC entries, and marks them. But the TOC is also customizable. By default, USFM `\toc2` tags create new TOC entries. Alternative `\tocN` tags may be used if desired (see `./bin/convert -h TOC`). Chapters and glossary keywords automatically appear in the TOC and do not need a `\tocN` tag. Note: `EVAL_REGEX` may be used to insert a TOC tag into an SFM file.
 
 Two renderings of the TOC are generated. One is a detached, hierarchical TOC having up to three levels of hierarchy. This fits the requirements of an eBook TOC. The second is an inline TOC appearing along with the text in segments, having no hierarchical limitations. This fits the requirments of SWORD. Some ePublications use both renderings, such as epub.
 
@@ -128,7 +128,7 @@ DIRECTIVE | DESCRIPTION
 
 
 ### SPECIAL FEATURES 
-The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see `./ReadMe.pl -h 'SFM ID DIRECTIVES'`). Supported features are:
+The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see `./bin/convert -h 'SFM ID DIRECTIVES'`). Supported features are:
 
 FEATURE | DESCRIPTION
 ------- | -----------
@@ -143,7 +143,7 @@ Scripts with these names in a module directory will be called at different point
 
 HOOK | WHEN CALLED
 ---- | -----------
-**bootstrap.pl** | The sfm2osis or osis2osis script will execute it before conversion begins. It must appear in a project's top directory, and it takes no arguments. It may be used to copy or process any project file etc., but should be used only when osis2osis is insufficient (see `./ReadMe.pl -h osis2osis`).
+**bootstrap.pl** | The sfm2osis or osis2osis script will execute it before conversion begins. It must appear in a project's top directory, and it takes no arguments. It may be used to copy or process any project file etc., but should be used only when osis2osis is insufficient (see `./bin/convert -h osis2osis`).
 **preprocess.pl** | It will be executed after usfm2osis.py does the initial conversion to OSIS, before subsequent processing. Use EVAL_REGEX when preprocessing of SFM files would be sufficient.
 **preprocess.xsl** | Same as preprocess.pl (after it).
 **postprocess.pl** | It will be executed after an OSIS file has been fully processed, but before OSIS validation and final checks.
@@ -153,25 +153,14 @@ HOOK | WHEN CALLED
 ## config.conf 
 Each project has a `config.conf` file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The `config.conf` file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The 'system' section is different as it contains global constants that are the same in any context. The following sections are recognized: `MAINMOD`, `DICTMOD`, `system`, `osis2ebooks`, `osis2html`, `osis2sword`, `osis2gobible` (where `MAINMOD` is the project code and `DICTMOD` is the project code suffixed with `DICT`).
 
-These are available settings in the `config.conf` file. Letters in parenthesis indicate these entry types:(C): Continuable from one line to another using a backslash character.
-
-(L): Localizable by appending underscore and language ISO code to the entry name.
-
-(P): Path of a local file or directory.
-
-(S): May appear in the system section only.
-
-(U): An http or https URL.
-
-(W): SWORD standard (see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)).
-
+The following table lists the available entries of `config.conf`. See the end of the table for the meaning of letters in parenthesis which follow some entry names.
 
 ENTRY | DESCRIPTION
 ----- | -----------
 **ARG_\w+** | Config settings for undocumented fine control.
 **Abbreviation (LW)** | A short localized name for the module.
 **About (CLW)** | Localized information about the module. Similar to `Description` but longer.
-**AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `CF_<vsys>.xml` file is found for the project (see `./ReadMe.pl -h 'Adding External Cross-References'`). Default is `AUTO`.
+**AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `CF_<vsys>.xml` file is found for the project (see `./bin/convert -h 'Adding External Cross-References'`). Default is `AUTO`.
 **AddDictLinks** | Select whether to parse glossary references in the text and convert them to hyperlinks: `(true \| false \| check \| AUTO)`. `AUTO` runs the parser only if `CF_addDictLinks.txt` is present for the module. Default is `AUTO`.
 **AddFootnoteLinks** | Select whether to parse footnote references in the text and convert them to hyperlinks: `(true \| false \| AUTO)`. `AUTO` runs the parser only if `CF_addFootnoteLinks.txt` is present for the module. Default is `AUTO`.
 **AddScripRefLinks** | Select whether to parse scripture references in the text and convert them to hyperlinks: `(true \| false \| AUTO)`. `AUTO` runs the parser only if `CF_addScripRefLinks.txt` is present for the module. Default is `AUTO`.
@@ -208,13 +197,13 @@ ENTRY | DESCRIPTION
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
-**PreferredCSSXHTML (W)** | SWORD module css may be included by placing it in a `module.css` file located in a default directory (See `./ReadMe.pl -h defaults`).
+**PreferredCSSXHTML (W)** | SWORD module css may be included by placing it in a `module.css` file located in a default directory (See `./bin/convert -h defaults`).
 **ProjectType** | Type of project. Options are: `bible \| childrens_bible \| commentary`. Default is `bible`.
 **REPOSITORY (PSU)** | Location where SWORD modules are published.
 **ReorderGlossaryEntries** | Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true \| <regex>)`. Default is `false`.
 **ShortCopyright (LW)** | Short copyright string.
 **ShortPromo (LW)** | A link to the home page for the module, perhaps with an encouragement to visit the site.
-**SubPublicationTitle\[\S+\]** | The localized title of a particular sub-publication. The scope of the sub-publication must appear between the square brackets (see `./ReadMe.pl -h SUB-PUBLICATIONS` and see `./ReadMe.pl -h scope`).
+**SubPublicationTitle\[\S+\]** | The localized title of a particular sub-publication. The scope of the sub-publication must appear between the square brackets (see `./bin/convert -h SUB-PUBLICATIONS` and see `./bin/convert -h scope`).
 **MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
 **MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
 **MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
@@ -226,6 +215,19 @@ ENTRY | DESCRIPTION
 **VAGRANT (S)** | Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.
 **Versification (W)** | The versification system of the project. All deviations from this verse system must be recorded in CF_sfm2osis.txt by VSYS instructions. Supported options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`. Default is `KJV`.
 **Version (W)** | The version of the publication being produced. There should be a corresponding `History_<version>` entry stating what is new in this version.
+
+(C): Continuable from one line to another using a backslash character.
+
+(L): Localizable by appending underscore and language ISO code to the entry name.
+
+(P): Path of a local file or directory.
+
+(S): May appear in the system section only.
+
+(U): An http or https URL.
+
+(W): SWORD standard (see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)).
+
 
 
 ## CF_sfm2osis.txt 
@@ -244,7 +246,7 @@ VSYS instructions are evaluated in verse system order regardless of their order 
 
 COMMAND | DESCRIPTION
 ------- | -----------
-**VSYS_MOVED** | Used when translators moved a range of verses from the expected location within the project's versification scheme to another location. This instruction can have several forms:<br />`VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`<br />Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range's last verse, indicating only part of the verse was moved. References to affected verses will be tagged so as to render correctly in both standard and custom versification schemes. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending on whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.<br />`VSYS_MOVED: Tob -> Apocrypha[Tob]`<br />Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `./ReadMe.pl -h OSIS_GROUPS` for supported book-groups and `./ReadMe.pl -h OSIS_ABBR_ALL` for supported books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.<br />`VSYS_MOVED: Apocrypha -> bookGroup[2]`<br />Indicates the entire book-group on the left was moved from its expected location to a custom book-group index on the right. See `./ReadMe.pl -h OSIS_GROUPS` for supported book-groups. The book-group will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book-group will appear in one location or the other.
+**VSYS_MOVED** | Used when translators moved a range of verses from the expected location within the project's versification scheme to another location. This instruction can have several forms:<br />`VSYS_MOVED: Rom.14.24.26 -> Rom.16.25.27`<br />Indicates the range of verses given on the left was moved from its expected location to a custom location given on the right. Rom.16.25.27 is Romans 16:25-27. Both ranges must cover the same number of verses. Either or both ranges may end with the keyword `PART` in place of the range's last verse, indicating only part of the verse was moved. References to affected verses will be tagged so as to render correctly in both standard and custom versification schemes. When verses are moved within the same book, the verses will be fit into the standard verse scheme. When verses are moved from one book to another, the effected verses will be recorded in both places within the OSIS file. Depending on whether the OSIS file is rendered as standard, or custom versification scheme, the verses will appear in one location or the other.<br />`VSYS_MOVED: Tob -> Apocrypha[Tob]`<br />Indicates the entire book on the left was moved from its expected location to a custom book-group[book] given on the right. See `./bin/convert -h OSIS_GROUPS` for supported book-groups and `./bin/convert -h OSIS_ABBR_ALL` for supported books. An index number may be used on the right side in place of the book name. The book will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book will appear in one location or the other.<br />`VSYS_MOVED: Apocrypha -> bookGroup[2]`<br />Indicates the entire book-group on the left was moved from its expected location to a custom book-group index on the right. See `./bin/convert -h OSIS_GROUPS` for supported book-groups. The book-group will be recorded in both places within the OSIS file. Depending upon whether the OSIS file is rendered as the standard, or custom versification scheme, the book-group will appear in one location or the other.
 **VSYS_MISSING** | Specifies that this translation does not include a range of verses of the standard versification scheme. This instruction takes the form:<br />`VSYS_MISSING: Josh.24.34.36`<br />Meaning that Joshua 24:34-36 of the standard versification scheme has not been included in the custom scheme. When the OSIS file is rendered as the standard versification scheme, the preceeding verse's osisID will be modified to include the missing range. But any externally supplied cross-references that refer to the missing verses will be removed. If there are verses in the chapter having the verse numbers of the missing verses, then the standard versification rendering will renumber them and any following verses upward by the number of missing verses, and alternate verse numbers will be appended to display the original verse numbers. References to affected verses will be tagged so as to render them correctly in either standard or custom versification schemes. An entire missing chapter is not supported unless it is the last chapter in the book.
 **VSYS_EXTRA** | Used when translators inserted a range of verses that are not part of the project's versification scheme. This instruction takes the form:<br />`VSYS_EXTRA: Prov.18.8 <- Synodal:Prov.18.8`<br />The left side is a verse range specifying the extra verses in the custom verse scheme, and the right side range is an optional universal address for those extra verses. The universal address is used to record where the extra verses originated from. When the OSIS file is rendered in the standard versification scheme, the additional verses will become alternate verses appended to the preceding verse, and if there are verses following the extra verses, they will be renumbered downward by the number of extra verses, and alternate verse numbers will be appended displaying the custom verse numbers. References to affected verses will be tagged so as to render correctly in either the standard or custom versification scheme. The extra verse range may be an entire chapter if it occurs at the end of a book (such as Psalm 151). When rendered in the standard versification scheme, an alternate chapter number will then be inserted and the entire extra chapter will be appended to the last verse of the previous chapter.
 **VSYS_EMPTY** | Like `VSYS_MISSING`, but is only to be used if regular empty verse markers are included in the text. This instruction will only remove external scripture cross-references to the removed verses.
@@ -257,7 +259,7 @@ COMMAND | DESCRIPTION
 ## CF_vsys.xml 
 
 ### ADDING EXTERNAL CROSS-REFERENCES 
-A strictly defined address is assigned to each verse, making it is possible to incorporate a list of cross-references into the translation. These cross-references, although not part of the original translation, can be an excellent Bible study tool. The cross-reference list must belong to the same versification system as the project. The list must be placed in `AddCrossRefs / CF_<vsys>.xml` within a `defaults` directory (see `./ReadMe.pl -h defaults`). `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). These verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
+A strictly defined address is assigned to each verse, making it is possible to incorporate a list of cross-references into the translation. These cross-references, although not part of the original translation, can be an excellent Bible study tool. The cross-reference list must belong to the same versification system as the project. The list must be placed in `AddCrossRefs / CF_<vsys>.xml` within a `defaults` directory (see `./bin/convert -h defaults`). `<vsys>` is the project's versification system (options are: `KJV`, `German`, `KJVA`, `Synodal`, `Leningrad`, `NRSVA`, `Luther`, `Vulg`, `SynodalProt`, `Orthodox`, `LXX`, `NRSV`, `MT`, `Catholic`, `Catholic2`). These verse systems are defined in `canon_<vsys>.h` of [SWORD](https://crosswire.org/svn/sword/trunk/include/). Verse maps between these verse systems are defined in `<vsys>.properties` of [JSWORD](https://github.com/crosswire/jsword/tree/master/src/main/resources/org/crosswire/jsword/versification)
 
 Cross-references in the list are localized and inserted into the appropriate verses as OSIS notes. Two note types are supported: parallel-passage, and cross-reference. Parallel-passage references are inserted at the beginning of a verse, and cross-references at the end.
 
@@ -405,7 +407,7 @@ Create CrossWire SWORD modules from OSIS files. Once Paratext files have been co
 ## SYNOPSIS 
 Create Java-ME JAR apps from OSIS files. Once Paratext files have been converted to OSIS XML, osis2gobible utilizes Go Bible Creator to produce these apps for feature phones.
 
-Default control files will be copied from a `defaults` directory (see `./ReadMe.pl -h defaults`). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.
+Default control files will be copied from a `defaults` directory (see `./bin/convert -h defaults`). This includes the Go Bible Creator user interface localization file and the app icon. These files may be customized per project, or customized for a group of projects, depending on which `defaults` directory the file is located in.
 
 Jar files whose file name contains a number are maximum 512kb in size, for phones with Jar size limitations. Jar files ending with `_s` have simplified character sets, for phones with character limitations. Character set transliteration for simplified and normal GoBible character sets is controlled by these `defaults` files: `gobible / <type>Char.txt` where `<type>` is `simple` or `normal`.
 
@@ -419,5 +421,5 @@ ENRTY | DESCRIPTION
 ----- | -----------
 **AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary JDK 1.4 case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it.
-**Scope** | `./ReadMe.pl -h scope`
+**Scope** | `./bin/convert -h scope`
 

@@ -254,16 +254,7 @@ our %HELP = (
   
   ['config.conf', [
     ['para', 'Each project has a `config.conf` file. The configuration file contains conversion settings and meta-data for the project. A project consist of a single main module, and possibly a single dictionary module containing reference material. The `config.conf` file may have multiple sections. The main section contains configuration settings applying to the entire project, while settings in other sections are effective in their particular context, overriding any matching settings of the main section. The \'system\' section is different as it contains global constants that are the same in any context. The following sections are recognized: '.join(', ', map("`$_`", @CONFIG_SECTIONS)). ' (where `MAINMOD` is the project code and `DICTMOD` is the project code suffixed with `DICT`).' ],
-    ['psrs', 'These are available settings in the `config.conf` file. Letters in parenthesis indicate these entry types:'],
-    ['list', ['' ,''], 
-    [
-      ['(C)', 'Continuable from one line to another using a backslash character.'],
-      ['(L)', 'Localizable by appending underscore and language ISO code to the entry name.'],
-      ['(P)', 'Path of a local file or directory.' ],
-      ['(S)', 'May appear in the system section only.'],
-      ['(U)', 'An http or https URL.' ],
-      ['(W)', 'SWORD standard (see: [](https://wiki.crosswire.org/DevTools:conf_Files)).'],
-    ]],
+    ['para', 'The following table lists the available entries of `config.conf`. See the end of the table for the meaning of letters in parenthesis which follow some entry names.'],
     ['list', ['ENTRY', 'DESCRIPTION'], &addConfigType(&getList(&configList(), [
       [ 'Abbreviation', 'A short localized name for the module.' ],
       [ 'About', 'Localized information about the module. Similar to `Description` but longer.' ],
@@ -324,6 +315,15 @@ our %HELP = (
       [ 'PreferredCSSXHTML', 'SWORD module css may be included by placing it in a `module.css` file located in a default directory (See HELPREF(defaults)).' ],
       [ 'ProjectType', 'Type of project. Options are: `' . join(' | ', @PROJECT_TYPES) . '`.' ],
     ], 1))],
+    ['list', ['' ,''], 
+    [
+      ['(C)', 'Continuable from one line to another using a backslash character.'],
+      ['(L)', 'Localizable by appending underscore and language ISO code to the entry name.'],
+      ['(P)', 'Path of a local file or directory.' ],
+      ['(S)', 'May appear in the system section only.'],
+      ['(U)', 'An http or https URL.' ],
+      ['(W)', 'SWORD standard (see: [](https://wiki.crosswire.org/DevTools:conf_Files)).'],
+    ]],
   ]],
   
   ['CF_sfm2osis.txt', [
@@ -857,6 +857,9 @@ sub format {
   }
   elsif ($type eq 'para') {
     return &para($text, @args);
+  }
+  else {
+    &ErrorBug("Unknown format type $type, '$text'");
   }
   
   return $text;
