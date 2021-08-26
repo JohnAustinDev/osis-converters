@@ -203,8 +203,9 @@
           <analyze-string select="$r" regex="."> 
             <matching-substring>
               <choose>
-                <when test=". = ';'"> </when>
-                <when test="string-to-codepoints(.)[1] &#62; 1103 or matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]'))">
+                <when test="string-to-codepoints(.)[1] &#62; 1103 or 
+                            matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]')) or
+                            . = ';'">
                   <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
                 </when>
                 <otherwise><value-of select="."/></otherwise>
