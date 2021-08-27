@@ -238,6 +238,17 @@ Bible module OSIS file, then run this dictionary module again.");
   if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'childrens_bible') {
     &checkChildrensBibleStructure($OSIS);
   }
+  
+  if ($DICTMOD && $MOD eq $DICTMOD) {
+    foreach my $div ($XPC->findnodes('//osis:div[@type="glossary"]
+      [not(descendant::osis:seg[@type="keyword"])]', &getOsisXML($MOD))) {
+      &Error(
+"This glossary has no keywords: '" . $div . "'.", 
+"GLO SFM files must contain at least one keyword. EVAL_REGEX may
+be used to add keywords: \\k keyword \\k*. Material before the first keyword 
+will not be included in SWORD.");
+    }
+  }
 }
 
 sub checkRefs {

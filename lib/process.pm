@@ -57,14 +57,6 @@ sub processOSIS {
     &applyPeriphInstructions(\$OSIS);
     
     my $dxml = $XML_PARSER->parse_file($OSIS);
-    foreach my $div ($XPC->findnodes('//osis:div[@type="glossary"]
-      [not(descendant::osis:seg[@type="keyword"])]', $dxml)) {
-      &Error(
-"This glossary has no keywords: '" . &getDivTitle($div) . "'.", 
-"GLO SFM files must contain at least one keyword. EVAL_REGEX may
-be used to add keywords: \\k keyword \\k*. Material before the first keyword 
-will not be included in SWORD.");
-    }
     
     if (!@{$XPC->findnodes('//osis:div[contains(@type, "x-keyword")]', 
         $dxml)}[0]) {

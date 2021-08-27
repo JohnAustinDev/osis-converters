@@ -209,7 +209,7 @@ ENTRY | DESCRIPTION
 **MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
-**TitleCase** | A number from 0 to 2 selecting letter casing for the table of contents: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.
+**TitleCase** | A number from 0 to 2 selecting letter casing for table of contents titles: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.
 **TitleTOC** | A number from 1 to 3 indicating which SFM tag to use when generating publication titles: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TranslationTitle (L)** | A localized title for the entire translation.
 **VAGRANT (S)** | Set to `true` to force osis-converters to run in a Vagrant VirtualBox virtual machine.
