@@ -315,7 +315,7 @@ Glossary references marked by translators are called explicit references. If the
 
 Marked and unmarked references are parsed from the text using the match elements of the CF_addDictLinks.xml file. Element attributes in this XML file are used to control where and how the match elements are to be used. Letters in parentheses indicate the following attribute value types:
 
-(A): value is the accumulation of its own value and ancestor values. But a positive attribute (one whose name doesn't begin with 'not') will cancel any negative attribute ancestors.
+(A): value is the accumulation of the element's own value and any ancestor element values. But a positive attribute (one whose name doesn't begin with 'not') will cancel any negative attribute ancestors.
 
 (B): true or false
 
@@ -328,18 +328,18 @@ Marked and unmarked references are parsed from the text using the match elements
 
 ATTRIBUTE | DESCRIPTION
 --------- | -----------
-**XPATH (AX)** | If the xpath expression evaluates as true for the text node, then match elements will be applied.
-**context (AC)** | If it contains a context matching the text node, match elements will be applied.
-**dontLink (B)** | If true, then match elements are used to undo any reference link.
-**multiple (B)** | If false, only the first match candidate for an entry will be linked per chapter or keyword. If `match`, the first match condidate per match element may be linked per chapter or keyword. If true, there are no such limitations.
-**noOutboundLinks (B)** | This attribute is only allowed on entry elements. It prohibits the parser from parsing the entry's targets for links.
-**notContext (AC)** | If it contains a context matching the text node, match elements will be not applied.
-**notExplicit (BC)** | If true or else contains a context matching the text node, then match elements will only apply if that node is not an explicitly marked reference.
-**notXPATH (AX)** | If the xpath expression evaluates as true for the text node, then match elements will not be applied.
-**onlyExplicit (BC)** | If true or else contains a context matching the text node, then match elements will only apply if that node is an explicitly marked reference.
-**onlyNewTestament (B)** | If true, text nodes which are not in the New Testament, will not have match elements applied.
-**onlyOldTestament (B)** | If true, text nodes which are not in the Old Testament, will not have match elements applied.
-**osisRef (R)** | This attribute is only allowed on entry elements and is required. It contains a space separated list of work prefixed osisRef values, which are the target(s) of an entry's links.
+**XPATH (AX)** | The `match` element will only be applied to text nodes for which this xpath value evaluates as true.
+**context (AC)** | The `match` element will only be applied to text nodes included in this context value.
+**dontLink (B)** | If `true`, then the `match` element will instead undo reference links, rather than create them.
+**multiple (B)** | If the value is `false`, only the first match candidate for an entry will be linked per chapter or keyword. If `match`, the first match candidate per match element may be linked per chapter or keyword. If `true`, there are no such limitations.
+**noOutboundLinks (B)** | This attribute is only allowed on `entry` elements. It prohibits the parser from parsing the entry's own glossary text for links. Thus there may be reference links to the entry, but the entry text itself will not be parsed for outgoing links to anything else.
+**notContext (AC)** | The `match` element will not be applied to text nodes included in this context value.
+**notExplicit (BC)** | If the value is `true` (or else contains a context matching the text node) the `match` element will not be applied to explicitly marked references.
+**notXPATH (AX)** | The `match` element will not be applied to text nodes for which this xpath value evaluates as true.
+**onlyExplicit (BC)** | If the value is `true` (or else contains a context matching the text node) the `match` element will only be applied to explicitly marked references.
+**onlyNewTestament (B)** | If `true`, the `match` element will only be applied to text nodes in the New Testament.
+**onlyOldTestament (B)** | If `true`, the `match` element will only be applied to text nodes in the Old Testament.
+**osisRef (R)** | This attribute is only allowed on `entry` elements and is required. It contains a space separated list of work prefixed osisRef values which are the target(s) of the entry's matched reference links.
 
 ELEMENT | DESCRIPTION
 ------- | -----------
