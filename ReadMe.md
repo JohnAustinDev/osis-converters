@@ -339,7 +339,7 @@ ATTRIBUTE | DESCRIPTION
 **onlyExplicit (BC)** | If the value is `true` (or else contains a context matching the text node) the `match` element will only be applied to explicitly marked references.
 **onlyNewTestament (B)** | If `true`, the `match` element will only be applied to text nodes in the New Testament.
 **onlyOldTestament (B)** | If `true`, the `match` element will only be applied to text nodes in the Old Testament.
-**osisRef (R)** | This attribute is only allowed on `entry` elements and is required. It contains a space separated list of work prefixed osisRef values which are the target(s) of the entry's matched reference links.
+**osisRef (R)** | This attribute is only allowed on `entry` elements and is required. It contains a space separated list of work prefixed osisRef values which are the target(s) of the entry's child `match` elements.
 
 ELEMENT | DESCRIPTION
 ------- | -----------

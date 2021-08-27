@@ -461,7 +461,7 @@ our %HELP = (
       ['(X)', 'xpath expression' ],
     ]],
     ['list', ['ATTRIBUTE', 'DESCRIPTION'], &addAttributeType(&getList([ sort keys %{$CF_ADDDICTLINKS{'attributes'}} ], [
-      ['osisRef', 'This attribute is only allowed on `entry` elements and is required. It contains a space separated list of work prefixed osisRef values which are the target(s) of the entry\'s matched reference links.' ],
+      ['osisRef', 'This attribute is only allowed on `entry` elements and is required. It contains a space separated list of work prefixed osisRef values which are the target(s) of the entry\'s child `match` elements.' ],
       ['noOutboundLinks', 'This attribute is only allowed on `entry` elements. It prohibits the parser from parsing the entry\'s own glossary text for links. Thus there may be reference links to the entry, but the entry text itself will not be parsed for outgoing links to anything else.' ],
       ['multiple', 'If the value is `false`, only the first match candidate for an entry will be linked per chapter or keyword. If `match`, the first match candidate per match element may be linked per chapter or keyword. If `true`, there are no such limitations.' ],
       ['onlyExplicit', 'If the value is `true` (or else contains a context matching the text node) the `match` element will only be applied to explicitly marked references.' ],
