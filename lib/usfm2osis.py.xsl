@@ -46,11 +46,14 @@
   <template mode="pass1" match="@n[parent::note][. = '']"/>
   
   <!-- glossary keywords should never have optional line breaks or other 
-  markup in them -->
+  markup in them, and also must not contain TOC instructions (which should
+  only appear in the n attribute) -->
   <template mode="pass1" match="seg[@type='keyword']">
+    <variable name="text" select="replace(string(), '^(\[[^\]]*\])+', '')"/>
     <copy>
+      <if test="string() != $text"><attribute name="n" select="string()"/></if>
       <apply-templates mode="#current" select="@*"/>
-      <value-of select="string()"/>
+      <value-of select="$text"/>
       <for-each select="element()">
         <call-template name="Warn">
 <with-param name="msg">Keyword child element was converted to text: <value-of select="oc:printNode(.)"/></with-param>

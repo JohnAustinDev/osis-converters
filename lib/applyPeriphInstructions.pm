@@ -299,10 +299,16 @@ sub applyInstructions {
   if ($markP->{'feature'}) {
     $div->setAttribute('annotateRef', $markP->{'feature'});
     $div->setAttribute('annotateType', $ANNOTATE_TYPE{'Feature'});
-
+    
+    # The 'NO_TOC' feature is for material which should not appear in any
+    # TOC or NAVMENU.
+    if ($markP->{'feature'} =~ /^(NO_TOC)$/) {
+      &Note("NO_TOC feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}.
+        "' annotateRef='".$markP->{'feature'}."' to $sdiv");
+    }
     # The 'INT' feature uses translation introductory material to auto-
     # generate navmenus.
-    if ($markP->{'feature'} =~ /^(INT)$/) {
+    elsif ($markP->{'feature'} =~ /^(INT)$/) {
       &Note("INT feature: Applying annotateType='".$ANNOTATE_TYPE{'Feature'}.
         "' annotateRef='".$markP->{'feature'}."' to $sdiv");
     }

@@ -228,6 +228,7 @@ our %HELP = (
     ['sub-heading', 'SPECIAL FEATURES' ],
     ['para', 'The directive `feature == <feature>` may be used to mark OSIS div elements for special purposes (see HELPREF(SFM ID DIRECTIVES)). Supported features are:' ],
     ['list', ['FEATURE', 'DESCRIPTION'], [
+      ['NO_TOC', 'A glossary marked with this feature will not appear in any table of contents or navigational menus. This is useful on material that was duplicated as a glossary containing targets for textual links.' ],
       ['INT', 'When a translation has introductory material that applies to the whole, it is useful to have this material added to navigation menus. It will then be accessible from every introduction, chapter and keyword, rather than from one location alone. To enable this feature, include a `RUN` statement for the introduction SFM file in both `MAINMOD/CF_sfm2osis.txt` and  `DICTMOD/CF_sfm2osis.txt` adding the `feature == INT` ID directive each time. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD. Here is an example:
       \b
       \b`/MAINMOD/CF_sfm2osis.txt` might contain:
@@ -277,7 +278,7 @@ our %HELP = (
       [ 'MakeSet[subpub]' => 'Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true | false | AUTO | <scope> | first | last)`.' ],
       [ 'MakeSet[book]' => 'Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true | false | AUTO | <OSIS-book> | first | last)`.' ],
       [ 'MakeTypes' => 'Select which type, or types, of publications to make: `(AUTO | '.join(' | ', &CONV_OUTPUT_FILES('osis2ebooks')).')`.' ],
-      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` let\'s osis-converters decide.' ],
+      [ 'CombineGlossaries' => 'Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` lets osis-converters decide.' ],
       [ 'FullResourceURL' => 'Single Bible book eBooks often have links to other books. This URL is where the full publication may be found.' ],
       [ 'CustomBookOrder' => 'Set to `true` to allow Bible book order to remain as it appears in CF_sfm2osis.txt, rather than project versification order: `(true | false)`.' ],
       [ 'ReorderGlossaryEntries' => 'Set to `true` and all glossaries will have their entries re-ordered according to KeySort, or else set to a regex to re-order only glossaries whose titles match: `(true | <regex>)`.' ],

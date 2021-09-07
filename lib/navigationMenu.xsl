@@ -41,7 +41,8 @@
               [not(ancestor::div[@scope='NAVMENU'])]
               [not(ancestor::div[@annotateType='x-feature'][@annotateRef='INT'])]"/>
   
-  <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]"/>
+  <variable name="firstTOC" select="/descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+      [not(ancestor::div[@annotateType='x-feature' and @annotateRef='NO_TOC'])][1]"/>
   
   <variable name="myREF_intro" select="if ($INT_feature) then $REF_introductionINT else ''"/>
   

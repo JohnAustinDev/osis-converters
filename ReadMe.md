@@ -132,6 +132,7 @@ The directive `feature == <feature>` may be used to mark OSIS div elements for s
 
 FEATURE | DESCRIPTION
 ------- | -----------
+**NO_TOC** | A glossary marked with this feature will not appear in any table of contents or navigational menus. This is useful on material that was duplicated as a glossary containing targets for textual links.
 **INT** | When a translation has introductory material that applies to the whole, it is useful to have this material added to navigation menus. It will then be accessible from every introduction, chapter and keyword, rather than from one location alone. To enable this feature, include a `RUN` statement for the introduction SFM file in both `MAINMOD/CF_sfm2osis.txt` and  `DICTMOD/CF_sfm2osis.txt` adding the `feature == INT` ID directive each time. The other requirement is the use of EVAL_REGEX to convert headings into keywords in DICTMOD. Here is an example:<br /><br />`/MAINMOD/CF_sfm2osis.txt` might contain:<br />`EVAL_REGEX:s/(\\id [^\n]+)/$1, feature == INT/`<br />`RUN:../sfm/FRT.SFM`<br /><br />`/DICTMOD/CF_sfm2osis.txt` might contain:<br />`EVAL_REGEX:s/(\\id [^\n]+)/\\id GLO feature == INT/`<br />`EVAL_REGEX:s/^\\(?:imt\|is) (.*?)$/\\m \\k $1\\k*/gm`<br />`RUN:../sfm/FRT.SFM`
 **NAVMENU** | Navigation menus are created automatically from the TOC. But when custom navigation menus are desired, the NAVMENU feature may be used. Design the custom menu in USFM and append the ID directive to its `\id` tag:<br />`feature == NAVMENU.<osisID>.<replace\|top>`<br />Using the osisID of an existing navigation menu to modify, and using either `replace` to replace that menu, or `top` to insert the custom menu at the top of that menu.
 
@@ -167,7 +168,7 @@ ENTRY | DESCRIPTION
 **AudioCode** | A publication code for associated audio. Multiple modules having different scripts may reference the same audio.
 **BookGroupTitle\[\w+\]** | A localized title to use for one the book groups. `BookGroupTitle[NT]` is the New Testament's title and `BookGroupTitle[OT]` is the Old Testament's title. One of the following book group codes must appear between the square brackets: `OT, NT, Apocrypha, Apostolic_Fathers, Armenian_Orthodox_Canon_Additions, Ethiopian_Orthodox_Canon, Peshitta_Syriac_Orthodox_Canon, Rahlfs_LXX, Rahlfs_variant books, Vulgate_and_other_later_Latin_mss, Other`. Example: `BookGroup[NT]=The New Testament` or `BookGroup[Apocrypha]=The Apocrypha`
 **COVERS (PSU)** | Location where cover images may be found. Cover images should be named: `<project-code>_<scope>.jpg` and will then automatically be included in the appropriate OSIS files.
-**CombineGlossaries** | Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` let's osis-converters decide. Default is `AUTO`.
+**CombineGlossaries** | Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` lets osis-converters decide. Default is `AUTO`.
 **CombinedGlossaryTitle (L)** | A localized title for the combined glossary in the Table of Contents.
 **Copyright (CLW)** | Contains the copyright notice for the work, including the year of copyright and the owner of the copyright.
 **CopyrightContactAddress (CLW)** | Address of the copyright holder.
