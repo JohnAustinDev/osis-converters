@@ -203,12 +203,11 @@
           <analyze-string select="$r" regex="."> 
             <matching-substring>
               <choose>
-                <when test="string-to-codepoints(.)[1] &#62; 1103 or 
-                            matches(., oc:uniregex('[^\p{gc=L}\p{gc=N}_]')) or
-                            . = ';'">
-                  <value-of>_<value-of select="string-to-codepoints(.)[1]"/>_</value-of>
+                <when test="string-to-codepoints(.)[1] &#60;= 1103 and 
+                            matches(., oc:uniregex('[\p{gc=L}\p{gc=N}]'))">
+                  <value-of><value-of select="."/></value-of>
                 </when>
-                <otherwise><value-of select="."/></otherwise>
+                <otherwise>_<value-of select="string-to-codepoints(.)[1]"/>_</otherwise>
               </choose>
             </matching-substring>
           </analyze-string>
@@ -392,7 +391,11 @@
   <function name="oc:unicode_Category_Regex_Support" as="xs:boolean">
     <param name="gc" as="xs:string?"/>
     <variable name="unicodeLetters" select="'ᴴЦ'"/>
-    <value-of select="matches($unicodeLetters, concat('\p{', $gc, 'L}')) and not(matches($unicodeLetters, concat('[^\p{', $gc, 'L}]'))) and not(matches($unicodeLetters, concat('\P{', $gc, 'L}')))"/>
+    <variable name="unicodePunc" select="'!@#$%^*'"/>
+    <value-of select="matches($unicodeLetters, concat('^\p{', $gc, 'L}+$')) and 
+                      not(matches($unicodeLetters, concat('\P{', $gc, 'L}'))) and
+                      matches($unicodePunc, concat('^\P{', $gc, 'L}+$')) and 
+                      not(matches($unicodePunc, concat('[\p{', $gc, 'L}]')))"/>
   </function>
   
   <!-- Return the title of a div element -->
