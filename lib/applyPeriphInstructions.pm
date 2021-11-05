@@ -76,7 +76,14 @@ sub applyPeriphInstructions {
     if ($commentNode && $commentNode =~ /\s\S+ == \S+/) {
       my $comment = $commentNode->textContent;
       #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
-      $comment =~ s/^.*?(?=\s(?:\S+|"[^"]+") ==)//; $comment =~ s/\s*$//;  # strip beginning/end stuff 
+      $comment =~ s/\s*$//; # strip end stuff
+      $comment =~ s/^(.*?)(?=\s(?:\S+|"[^"]+") ==)//;  # strip beginning stuff 
+      my $start = $1;
+      if ($start =~ /^\s*id comment\s*\-(.* = .*)$/) {
+        &Warn(
+"Dropping '$start' from ID directive.", 
+'ID directives require \'==\' and not \'=\'. Did you mean to use \'==\' here?');
+      }
       my @instr = split(/(,\s*(?:\S+|"[^"]+") == )/, ", $comment");
       
       # The last scope, script and feature values in the list will be applied to the container div
@@ -328,6 +335,8 @@ sub applyInstructions {
     if ($markP->{'cover'} =~ /^(yes|no)$/i) {
       $div->setAttribute('annotateRef', lc($markP->{'cover'}));
       $div->setAttribute('annotateType', $ANNOTATE_TYPE{'cover'});
+      &Note("cover: Applying annotateRef='".lc($markP->{'cover'}).
+        "' annotateType='".$ANNOTATE_TYPE{'cover'}."' to $sdiv");
     }
     else {
       &Error("Unrecognized peripheral instruction cover value:".$markP->{'cover'},

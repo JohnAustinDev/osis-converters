@@ -243,7 +243,7 @@ on the same line");
 
 # Place one or more sub-publication cover figure elements in $xml.
 # If a candidate location is marked as 'no' it will not receive a cover. 
-# If a candidate location is marked as 'yes' it receive a cover and
+# If a candidate location is marked as 'yes' it will receive a cover and
 # only other candidates marked as 'yes' may additionally receive a cover. 
 # Otherwise the first candidate alone will receive the cover.
 sub insertSubpubCover {

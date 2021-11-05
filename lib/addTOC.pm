@@ -421,7 +421,7 @@ $bookGroupIntroTOCM->getAttribute('n')."'.");
         
       # bookSubGroupAuto TOCs are are defined as non-book bookGroup  
       # child divs having a scope, which are either preceded by a book 
-      # or are the 1st  or 2nd children of their bookGroup, excluding  
+      # or are the 1st or 2nd children of their bookGroup, excluding  
       # any bookGroup introduction. Each bookSubGroupAuto will appear in 
       # the TOC.
       my @bookSubGroupAuto = $XPC->findnodes(
