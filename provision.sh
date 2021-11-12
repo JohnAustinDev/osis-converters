@@ -35,8 +35,8 @@ sudo cpanm Term::ReadKey
 sudo cpanm JSON::XS
 
 # Fonts
-sudo apt-get install fonts-noto
-sudo apt-get install fonts-symbola
+sudo apt-get install -y fonts-noto
+sudo apt-get install -y fonts-symbola
 
 # Calibre 5
 if [ ! `which calibre` ]; then
