@@ -671,7 +671,9 @@ subpub:
       my @books = split(/[\-\s]/, $scope);
       foreach my $bk (@books) {
         if (!defined($OSIS_ABBR{$bk})) {
-          &Error("Book '$bk' is not an OSIS Bible book abbreviation.", $subPubMessage);
+          &Warn(
+"Skipping sub-publication directory: '$bk' is not an OSIS Bible book abbreviation or scope.", 
+"If this subdirectory is intended to be a sub-publication:\n$subPubMessage");
           next subpub;
         }
       }
