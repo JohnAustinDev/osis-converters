@@ -410,7 +410,8 @@
           <value-of select="$div/(
               descendant::title[@type='main'][1] | 
               descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n |
-              descendant::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1]
+              descendant::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1] |
+              descendant::title[@type='x-chapterLabel'][1]
             )[1]"/>
         </otherwise>
       </choose>
