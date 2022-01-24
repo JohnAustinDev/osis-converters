@@ -5,4 +5,5 @@ Vagrantshares
 Vagrantcustom
 ubuntu-*
 .defaults.conf
+LOG_*
 
