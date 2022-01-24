@@ -125,6 +125,27 @@ if (%params) {
   &Report("Found $err problem(s) with links of $MAINMOD".($DICTMOD ? " and $DICTMOD":'').".\n");
 }
 
+# Check length of Bible introduction
+if ($SModDrv =~ /Text$/) {
+  my $introlen = 0;
+  foreach my $i (@{$XPC->findnodes('(//osis:osisText/node() | //osis:div[@type="bookGroup"]/node())
+  [not(self::osis:header)]
+  [not(self::osis:div[@type="bookGroup"])]
+  [not(self::osis:div[@type="book"])]
+  [not(preceding::osis:div[@type="book"])]', $XML_PARSER->parse_file($OSIS_OR_TEI))}) {
+    $introlen += length($i->toString());
+  }
+  if ($introlen > 64000) {
+    &Error(
+"Bible introduction is too long (".$introlen." > 64000)", 
+"Shorten the introduction by moving parts of it into the DICT 
+module and replacing it with links. Long entries are difficult to scroll 
+through in some media and should be avoided. But if there is very good 
+reason to require an exceedingly long introduction, the SWORD Text4 
+module type might be used, which supports larger entries.");
+  }
+}
+
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
