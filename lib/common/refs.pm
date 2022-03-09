@@ -120,8 +120,10 @@ other books are added to the translation.");
         }
         elsif (!$ids{$id}) {
           $problems++;
+          my @anc = $XPC->findnodes('./ancestor::*[@osisID]', $sref);
+          my $loc = join(', ', map($_->getAttribute('osisID'), @anc));
           &Error(
-"Scripture reference in source text targets a nonexistant verse: \"$id\"", 
+"Scripture reference at: $loc targets a nonexistant verse: \"$id\"", 
 "Maybe this should not have been parsed as a Scripture 
 reference, or maybe it was mis-parsed by CF_addScripRefLinks.txt? Or 
 else this is a problem with the source text: 

@@ -269,7 +269,7 @@ our %CF_ADDDICTLINKS = (
 our @VERSE_SYSTEMS = ('KJV', 'German', 'KJVA', 'Synodal', 'Leningrad', 'NRSVA', 'Luther', 'Vulg', 'SynodalProt', 'Orthodox', 'LXX', 'NRSV', 'MT', 'Catholic', 'Catholic2');
 
 # OSIS book groups. Taken from wiki.crosswire.org/OSIS_Book_Abbreviations on 11/19/20.
-our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic_Fathers','Armenian_Orthodox_Canon_Additions','Ethiopian_Orthodox_Canon','Peshitta_Syriac_Orthodox_Canon','Rahlfs_LXX','Rahlfs_variant books','Vulgate_and_other_later_Latin_mss','Other');
+our @OSIS_GROUPS = ('OT','NT','Apocrypha','Apostolic_Fathers','Armenian_Orthodox_Canon_Additions','Ethiopian_Orthodox_Canon','Peshitta_Syriac_Orthodox_Canon','Rahlfs_LXX','Rahlfs_variant_books','Vulgate_and_other_later_Latin_mss','Other');
 our %OSIS_GROUP = (
    'OT' => ['Gen','Exod','Lev','Num','Deut','Josh','Judg','Ruth','1Sam','2Sam','1Kgs','2Kgs','1Chr','2Chr','Ezra','Neh','Esth','Job','Ps','Prov','Eccl','Song','Isa','Jer','Lam','Ezek','Dan','Hos','Joel','Amos','Obad','Jonah','Mic','Nah','Hab','Zeph','Hag','Zech','Mal'],
    'NT' => ['Matt','Mark','Luke','John','Acts','Rom','1Cor','2Cor','Gal','Eph','Phil','Col','1Thess','2Thess','1Tim','2Tim','Titus','Phlm','Heb','Jas','1Pet','2Pet','1John','2John','3John','Jude','Rev'],
@@ -279,7 +279,7 @@ our %OSIS_GROUP = (
    'Ethiopian_Orthodox_Canon' => ['1En','Jub','4Bar','1Meq','2Meq','3Meq','Rep','AddJer','PsJos'],
    'Peshitta_Syriac_Orthodox_Canon' => ['2Bar','EpBar','5ApocSyrPss','JosephusJWvi'],
    'Rahlfs_LXX' => ['Odes','PssSol'],
-   'Rahlfs_variant books' => ['JoshA','JudgB','TobS','SusTh','DanTh','BelTh'],
+   'Rahlfs_variant_books' => ['JoshA','JudgB','TobS','SusTh','DanTh','BelTh'],
    'Vulgate_and_other_later_Latin_mss' => ['EpLao','5Ezra','4Ezra','6Ezra','PrSol','PrJer'],
    'Other' => ['TatDiat','PsMet']
 );

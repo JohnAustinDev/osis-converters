@@ -21,7 +21,7 @@
     <apply-templates mode="pass2" select="$pass1"/>
   </template>
   
-  <!-- Throw an error if there are unexpected verse div ancestors. This 
+  <!-- Throw an error if there are unexpected ancestorss of a verse. This 
   helps indicate if usfm2osis.py did not properly close div elements 
   like \periph -->
   <template mode="pass1" match="verse[@osisID]">
