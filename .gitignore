@@ -6,4 +6,5 @@ Vagrantcustom
 ubuntu-*
 .defaults.conf
 LOG_*
+.vstags
 

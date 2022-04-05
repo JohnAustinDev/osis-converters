@@ -34,6 +34,10 @@ sudo cpanm DateTime
 sudo cpanm Term::ReadKey
 sudo cpanm JSON::XS
 
+# VSCODE (extensions: Code intelligence via ctags cfgweb.vscode-perl, Language Server and Debugger richterger.perl)
+sudo cpanm Perl::LanguageServer
+sudo cpanm Perl::Tidy
+
 # Fonts
 sudo apt-get install -y fonts-noto
 sudo apt-get install -y fonts-symbola
