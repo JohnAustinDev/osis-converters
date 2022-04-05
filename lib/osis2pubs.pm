@@ -260,7 +260,7 @@ sub osis2pubs {
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
-      __FILE__ . ' ' .
+      &escfile(__FILE__) . ' ' .
       "OSIS_To_ePublication2" . ' ' .
       $forkArgs
     );

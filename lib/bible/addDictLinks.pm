@@ -54,10 +54,10 @@ sub addDictLinks {
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
-      __FILE__ . ' ' .
+      &escfile(__FILE__) . ' ' .
       "adlProcessFile" . ' ' .
       "ramkb:$ramkb" . ' ' .
-      join(' ', map(&escarg("arg1:$_"), @files))
+      join(' ', map(&escfile("arg1:$_"), @files))
     );
     &reassembleForkData(__FILE__);
   }

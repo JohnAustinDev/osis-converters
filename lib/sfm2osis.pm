@@ -164,7 +164,7 @@ sub evalRegex {
   my $tmp = "$TMPDIR/sfm";
   make_path($tmp);
   my @files;
-  foreach my $f (glob $usfmFiles) {
+  foreach my $f (glob &escfile($usfmFiles)) {
     my $df = $f;
     $df =~ /^.*?[\\\/]([^\\\/]+)[\\\/]([^\\\/]+)$/;
     my $pd = $1; my $dd = $2;
@@ -195,7 +195,7 @@ sub evalRegex {
     
     my $fln = $f2; $fln =~ s/^.*\/([^\/]+)$/$1/;
     
-    if (!open(SFM, $READLAYER, $f2)) {
+    if (!open(SFM, $READLAYER, "$f2")) {
       &Error("Could not open SFM file \"$f2\"", 
       "This file was incorrectly specified in a RUN line of CF_sfm2osis.txt.", 1);
     }

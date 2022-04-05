@@ -98,11 +98,11 @@ sub addScripRefLinks {
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
       $SCRIPT_NAME . ' ' .
-      __FILE__ . ' ' .
+      &escfile(__FILE__) . ' ' .
       "addScripRefLinks2" . ' ' .
       "ramkb:$ramkb" . ' ' .
       "arg3:$refSystem" . ' ' .
-      join(' ', map(&escarg("arg1:$_"), @files))
+      join(' ', map(&escfile("arg1:$_"), @files))
     );
     &reassembleForkData(__FILE__);
   }
