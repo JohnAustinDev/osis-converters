@@ -47,7 +47,7 @@ if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=5.11.0
+  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=5.40.0
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
