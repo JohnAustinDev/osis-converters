@@ -164,7 +164,7 @@ sub evalRegex {
   my $tmp = "$TMPDIR/sfm";
   make_path($tmp);
   my @files;
-  foreach my $f (glob &escfile($usfmFiles)) {
+  foreach my $f (glob(&escglob($usfmFiles))) {
     my $df = $f;
     $df =~ /^.*?[\\\/]([^\\\/]+)[\\\/]([^\\\/]+)$/;
     my $pd = $1; my $dd = $2;

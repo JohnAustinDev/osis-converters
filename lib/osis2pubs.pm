@@ -1275,7 +1275,7 @@ sub makeHTML {
   
   &Log("\n--- CREATING HTML FROM $osis FOR $scope\n", 1);
   
-  my @cssFileNames = split(/\s*\n/, shell("cd $tmp && find . -name '*.css' -print", 3));
+  my @cssFileNames = split(/\s*\n/, shell("cd \"$tmp\" && find . -name '*.css' -print", 3));
   my %params = ('css' => join(',', map { (my $s = $_) =~ s/^\.\///; $s } @cssFileNames));
   chdir($tmp);
   &runXSLT("osis2xhtml.xsl", $osis, "content.opf", \%params);
@@ -1359,7 +1359,7 @@ sub makeEbook {
   
   &shell($cmd);
   
-  my $ercnt = &shell("grep -i -c 'error' '$mylog'", 3, 1); 
+  my $ercnt = &shell("grep -i -c 'error' \"$mylog'\"", 3, 1); 
   chomp($ercnt); $ercnt =~ s/^\D*(\d+).*?$/$1/s;
   if ($ercnt) {
     if (open(INL, $READLAYER, $mylog)) {

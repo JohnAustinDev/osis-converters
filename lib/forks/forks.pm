@@ -99,7 +99,7 @@ my $forkDirName = $caller.'.fork';
 my $forkLogName = "LOG_${caller}_fork.txt";
 
 my $fatal = 0;
-foreach my $e (glob("$TMPDIR/$forkDirName/*")) {
+foreach my $e (glob(&escglob("$TMPDIR/$forkDirName/*"))) {
   &Log("ERROR: forks.pm fork tmp directory already exists: $e\n");
   $fatal++;
 }

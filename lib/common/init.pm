@@ -193,7 +193,7 @@ sub initModuleFiles {
       $subdir = '/'.$subdir;
     }
     foreach my $glob (@{$CONV_OUTPUT_FILES{$SCRIPT_NAME}}) {
-      foreach my $f (glob($MOD_OUTDIR.$subdir.'/'.&const($glob))) {
+      foreach my $f (glob(&escglob($MOD_OUTDIR.$subdir.'/'.&const($glob)))) {
         if (! -e $f) {next;}
         if (-d $f) {remove_tree($f);}
         else {unlink($f);}

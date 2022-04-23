@@ -286,7 +286,10 @@ sub validateOSIS {
   &Log("\n--- VALIDATING OSIS \n", 1);
   &Log("BEGIN OSIS VALIDATION\n");
   
-  my $cmd = "XML_CATALOG_FILES=".&escfile($SCRD."/xml/catalog.xml").' '.
+  # XML_CATALOG_FILES value cannot contain spaces, even quoted or
+  # escaped, so relative path must be used.
+  chdir($SCRD);
+  my $cmd = "XML_CATALOG_FILES=./xml/catalog.xml".' '.
       &escfile("xmllint") . " --noout --schema \"$OSISSCHEMA\" " .
       &escfile($osis);
       

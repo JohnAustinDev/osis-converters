@@ -126,7 +126,7 @@ STARTING osis2osis context=$OSIS2OSIS_PASS, directory=$MAININPD
 "Paths in CC: instructions cannot start with '$1':$_",  &help('CC', 1), 1);
       }
       $ccpath =~ s/\bDICTMOD\b/${SourceProject}DICT/g;
-      foreach my $in (glob "$sourceProjectPath/$ccpath") {
+      foreach my $in (glob(&escglob("$sourceProjectPath/$ccpath"))) {
         my $out = $in;
         $out =~ s/\Q$sourceProjectPath\E\//$MAININPD\//;
         my $from = $SourceProject.'DICT'; my $to = $MAINMOD.'DICT';

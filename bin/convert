@@ -110,7 +110,7 @@ if (!&runningInVagrant()) {
 }
    
 if (!&runningInVagrant() && $restartInVagrant) {
-  if (-e "$SCRD/.hostinfo") {unlink("$SCRD/.hostinfo");} # no longer used
+  if (-e &escfile("$SCRD/.hostinfo")) {unlink(&escfile("$SCRD/.hostinfo"));} # no longer used
   # Update .vm.conf's @OC_SYSTEM_PATH_CONFIGS Vagrant paths
   foreach my $m (@RUN_PROJ) {
     $INPD = $INFO->{$m}{'path'}; 
@@ -650,7 +650,7 @@ use DateTime;
 use Term::ReadKey;
 
 # Update ReadMe.md
-if (!&runningInVagrant()) {&shell("$SCRD/utils/ReadMe.pl", 3);}
+if (!&runningInVagrant()) {&shell(&escfile("$SCRD/utils/ReadMe.pl"), 3);}
 
 &Log("Ignoring ".@IGNORE_PROJ." projects which need upgrading:\n");
 foreach (@IGNORE_PROJ) {&Log(sprintf("%12s\n", $_));}
@@ -761,7 +761,7 @@ sub runScript {
   my $startTime = time;
   
   my %args = ('first' => $path);
-  my $cmd = "$SCRD/bin/$script " . &writeArgs(\%args);
+  my $cmd = &escfile("$SCRD/bin/$script"). ' ' . &writeArgs(\%args);
   
   print "Started: $cmd\n";
   my $result = &shell($cmd, 3);
@@ -807,7 +807,7 @@ sub conversionTestFile {
     if ($CONV_OUTPUT_SUBDIR{$script}) {
       $sd = '/'.&const($CONV_OUTPUT_SUBDIR{$script});
     }
-    foreach my $f (glob("${outdir}$sd/$t")) {
+    foreach my $f (glob(&escglob("${outdir}$sd/$t"))) {
       if ((stat($f))[9] > $startTime) {return 1;}
     }
   }

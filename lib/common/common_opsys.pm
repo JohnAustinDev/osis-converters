@@ -1807,6 +1807,8 @@ my $LOCAL;
 sub encodePrintPaths {
   my $t = shift;
   
+  if ($DEBUG) {return $t;}
+  
   no strict "refs";
   
   # $LOCAL needs to be a global, but it cannot be changed by config.conf
@@ -1868,6 +1870,18 @@ sub shortPath {
   }
 
   return join('/', @parts);
+}
+
+# Perl manual: Note that glob splits its arguments on whitespace and 
+# treats each segment as separate pattern. If you want to glob filenames
+# that might contain whitespace, you'll have to use extra quotes around
+# the spacey filename to protect it.
+sub escglob {
+  my $glob = shift;
+  
+  my $esclin = quotemeta(' ');
+  $glob =~ s/(?<!\\)([$esclin])/\\$1/g;
+  return $glob;
 }
 
 # Escape a linux file path for use as a non-quoted argument.
