@@ -564,7 +564,7 @@ file for it, and then run this script again.");}
 
   # now do the conversion on the temporary directory's files
   my $createTypes = &conf('MakeTypes', undef, undef, $convertTo);
-  if ($createTypes =~ /html/i) {
+  if ($convertTo eq "html") {
     &makeHTML($tmp, $cover, $scope, $pubTitle, $pubName, $pubSubdir);
     
     # Use linkchecker to check all links of output html
@@ -602,10 +602,10 @@ of this material to exclude it from HTML publications.");
     }
     &Report("Found $numUnreachable unreachable file(s) in '$PUBOUT/$pubName/xhtml'");
   }
-  if ($createTypes =~ /epub/i) {
+  if ($convertTo eq "ebooks" && $createTypes =~ /epub/i) {
     &makeEbook($tmp, 'epub', $cover, $scope, $pubName, $pubSubdir);
   }
-  if ($createTypes =~ /azw3/i) {
+  if ($convertTo eq "ebooks" && $createTypes =~ /azw3/i) {
     &makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);
   }
   # fb2 is disabled until a decent FB2 converter is written
@@ -1359,14 +1359,14 @@ sub makeEbook {
   
   &shell($cmd);
   
-  my $ercnt = &shell("grep -i -c 'error' \"$mylog'\"", 3, 1); 
+  my $ercnt = &shell("grep -i -c 'error' \"$mylog\"", 3, 1); 
   chomp($ercnt); $ercnt =~ s/^\D*(\d+).*?$/$1/s;
   if ($ercnt) {
     if (open(INL, $READLAYER, $mylog)) {
       while (<INL>) {&Log($_);}
       close(INL);
     }
-    &Error("\"$ercnt\" error(s) occured during eBook processing.");
+    &Error("\"$ercnt\" error(s) occured during ebook-convert processing.");
   }
   
   my $out = "$tmp/$MOD.$format";
