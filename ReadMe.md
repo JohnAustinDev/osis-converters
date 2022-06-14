@@ -1,5 +1,5 @@
 # osis-converters
-Ubuntu 16 or 18 dependencies may be installed with `sudo ./provision.sh`. Other operating systems, including MS-Windows and MacOS, require [Vagrant](https://www.vagrantup.com/downloads), [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and [Perl](https://www.activestate.com/products/perl/downloads/); then osis-converters will start its own virtual machine.
+Ubuntu dependencies may be installed by running `sudo ./provision.sh`.
 
 # convert 
 
