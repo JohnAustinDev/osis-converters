@@ -92,7 +92,7 @@ sub searchForISBN {
   my @checkconfs = ('About', 'Description', 'ShortPromo', 'TextSource', 'LCSH');
   foreach my $cc (@checkconfs) {push(@checktxt, &conf($cc, $mod));}
   foreach my $tn (@checktxt) {
-    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-]+)/i) {
+    if ($tn =~ /\bisbn (number|\#|no\.?)?([\d\-Xx]+)/i) {
       $isbn = $2;
       $isbns{$isbn}++;
     }
