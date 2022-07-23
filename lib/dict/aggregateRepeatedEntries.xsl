@@ -47,8 +47,10 @@
   <!-- Get a list of applicable keywords which are NOT unique (by a case insensitive comparison) -->
   <variable name="duplicate_keywords" select="//seg[@type='keyword']
       [ancestor::div[@type='glossary']]
-      [lower-case(string()) = following::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(string())]
-      [not(lower-case(string()) = preceding::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(string()))]"/>
+      [lower-case(normalize-space(string())) = 
+        following::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(normalize-space(string()))]
+      [not(lower-case(normalize-space(string())) = 
+        preceding::seg[@type='keyword'][ancestor::div[@type='glossary']]/lower-case(normalize-space(string())))]"/>
       
   <variable name="glossaryTitlesInKeyword" select="oc:sarg('glossaryTitlesInKeyword', /, 'no')"/>
   
@@ -199,8 +201,8 @@ glossary entry.</with-param>
               <attribute name="type">
                 <choose>
                   <when test="$duplicate_keywords[
-                      lower-case(string()) = 
-                      lower-case(current-group()/descendant-or-self::seg[@type='keyword']/string()) 
+                      lower-case(normalize-space(string())) = 
+                      lower-case(normalize-space(current-group()/descendant-or-self::seg[@type='keyword']/string())) 
                     ]">x-keyword-duplicate</when>
                   <otherwise>x-keyword</otherwise>
                 </choose>
@@ -217,7 +219,7 @@ glossary entry.</with-param>
   <template mode="write_osisIDs" match="seg[@type='keyword']">
     <variable name="segs_sharing_keyword" select="ancestor::osisText//seg[@type='keyword']
     [ancestor::div[@type='glossary']]
-    [lower-case(string()) = lower-case(string(current()))]"/>
+    [lower-case(normalize-space(string())) = lower-case(normalize-space(string(current())))]"/>
     <variable name="dup" select="if (count($segs_sharing_keyword) &#62; 1) 
                                  then oc:index-of-node($segs_sharing_keyword, .) 
                                  else ''"/>
@@ -261,7 +263,7 @@ glossary entry.</with-param>
               </copy>
               <variable name="subentry_keywords" 
                 select="//seg[@type='keyword'][ancestor::div[@type='glossary']]
-                        [lower-case(string()) = lower-case(string(current()))]"/>
+                        [lower-case(normalize-space(string())) = lower-case(normalize-space(string(current())))]"/>
               <!-- $titles look ahead allows titles to be skipped if they are all the same -->
               <variable name="titles" as="element(oc:vars)*">
                 <for-each select="$subentry_keywords/ancestor::div[@type='x-keyword-duplicate']">
