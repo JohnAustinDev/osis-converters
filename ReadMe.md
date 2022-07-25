@@ -241,7 +241,7 @@ COMMAND | DESCRIPTION
 
 
 ### VSYS INSTRUCTIONS 
-The other purpose of the `CF_sfm2osis.txt` file for Bibles and commentaries is to describe deviations from the versification standard. These deviations should be recorded so references from external documents may be properly resolved, and parallel rendering with other texts can be accomplished. Each verse is identified according to the project's strictly defined versification. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files containing both a rendering of the translator's custom versification and a rendering of the standard versification. OSIS files can then be rendered in either scheme using the corresponding XSLT stylesheet.
+The other purpose of the `CF_sfm2osis.txt` file for Bibles and commentaries is to describe deviations from the versification standard. These deviations should be recorded so references from external documents may be properly resolved, and parallel rendering with other texts can be done. Each verse is identified according to the project's strictly defined versification. The commands to accomplish this begin with VSYS. Their proper use results in OSIS files containing both a rendering of the translator's custom versification and a rendering of the standard versification. OSIS files can then be rendered in either scheme using the corresponding XSLT stylesheet.
 
 VSYS instructions are evaluated in verse system order regardless of their order in the control file. A verse may be affected by multiple VSYS instructions. VSYS operations on entire chapters are not supported except for VSYS_EXTRA chapters at the end of a book (such as Psalm 151 of Synodal).
 

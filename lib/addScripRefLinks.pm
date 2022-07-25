@@ -223,6 +223,11 @@ sub read_CF_ASRL {
         }
         $printReference =~ s/\\"/"/g; $replacement =~ s/\\"/"/g; # unescape any escaped double quotes
         $fix{$location}{$printReference} = ($replacement ? $replacement:'skip');
+        # If this FIX targets a DICT entry that has duplicate lemmas, fix the aggregate entry as well.
+        my $agglocation = $location;
+        if ($agglocation =~ s/\.(?=dup\d+\.)/!/) {
+          $fix{$agglocation}{$printReference} = ($replacement ? $replacement:'skip');
+        }
       }
       elsif ($_ =~ /^([\S]+)\s*=\s*(.+?)\s*$/) {
         my $lb = $2;
@@ -426,9 +431,7 @@ sub asrlProcessFile {
     # override context book if requested
     foreach my $xpath (sort keys %xpathIfResultContextBook) {
       my @r = $XPC->findnodes($xpath, $textNode);
-      if (!@r || !@r[0]) {next;}
-      $BK = $xpathIfResultContextBook{$xpath};
-      last;
+      if (@r && @r[0]) {$BK = $xpathIfResultContextBook{$xpath};}
     }
     
     $LOCATION = "$BK.$CH.$VS";
