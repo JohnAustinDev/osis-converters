@@ -1,5 +1,5 @@
-Replace-these-chars: ' «´» Ä ÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥᴴҪҫҮүҰұҲҳҶҷӋӌҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓا‑–—―‘’“”„•‹›○◦
-With-these-chars:    ' "'" A CEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНннСcYvYvХхЧчЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл|----''""'*""-·
+Replace-these-chars: ' «´» Ä ÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥᴴҪҫҮүҰұҲҳҶҷӋӌҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓا‑–—―‘’“”„•‹›○◦Ӽӽ
+With-these-chars:    ' "'" A CEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНннСcYvYvХхЧчЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл|----''""'*""-·Хх
 
 Replace-this-group: Ӕ
 With-this-group:    AE
@@ -25,3 +25,7 @@ Replace-this-group: №
 With-this-group:    No
 Replace-this-group: …
 With-this-group: ...
+Replace-this-group: љ
+With-this-group: ль
+Replace-this-group: њ
+With-this-group: нь
