@@ -39,7 +39,7 @@ while (defined(@ARGV[$a])) {push(@forkArgs, decode('utf8', @ARGV[$a++]));}
 
 # Set TMPDIR so it will not be deleted by init(), and create it.
 our $TMPDIR = @ARGV[1]; $TMPDIR =~ s/\/[^\/]+$//;
-File::Path::make_path($TMPDIR);
+File::Path::make_path("$TMPDIR");
 
 # Save log path and use tmp log
 my $forklog = @ARGV[1]; 

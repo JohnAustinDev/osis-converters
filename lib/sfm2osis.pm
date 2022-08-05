@@ -162,7 +162,7 @@ sub evalRegex {
   
   # If needed, preprocess tags before running usfm2osis.py
   my $tmp = "$TMPDIR/sfm";
-  make_path($tmp);
+  make_path("$tmp");
   my @files;
   foreach my $f (glob(&escglob($usfmFiles))) {
     my $df = $f;

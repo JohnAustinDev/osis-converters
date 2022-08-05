@@ -397,7 +397,7 @@ sub goBibleConvChars {
   for (my $i=0; $i<@FROM; $i++) {&Log(@FROM[$i]."<>".@TO[$i]."\n");}
 
   &Log("Converting chars in following files:\n");
-  make_path($destdir);
+  make_path("$destdir");
 
   my %highUnicode;
   foreach my $file (@$aP) {

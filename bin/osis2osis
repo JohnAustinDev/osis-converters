@@ -56,7 +56,7 @@ our $OSIS2OSIS_PASS = 'preinit'; # skip init_linux_script()
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
 # During osis2osis init() skips init_linux_script()
 our $MOD_OUTDIR = &getModuleOutputDir();
-if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
+if (!-e "$MOD_OUTDIR") {&make_path("$MOD_OUTDIR");}
 our $TMPDIR = &initTMPDIR();
 our $LOGFILE = &initLOGFILE();
 our $APPENDLOG++;

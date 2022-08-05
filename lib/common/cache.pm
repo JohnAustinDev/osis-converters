@@ -40,7 +40,7 @@ sub getURLCache {
   
   my $pp = "~/.osis-converters/URLCache/$name";
   my $p = &expandLinuxPath($pp);
-  if (! -e $p) {make_path($p);}
+  if (! -e "$p") {make_path("$p");}
   my $pdir = $url; $pdir =~ s/^.*?([^\/]+)\/?$/$1/; # URL directory name
   
   # This function may take significant time to complete, and other  
@@ -94,7 +94,7 @@ sub getURLCache {
       else {
         $url =~ s/(?<!\/)$/\//; # listing URLs should always end in /
         my $cdir = $url; $cdir =~ s/^https?\:\/\/[^\/]+\/(.*?)\/$/$1/; my @cd = split(/\//, $cdir); $cdir = @cd-1; # url path depth
-        if ($p !~ /\/\.osis-converters\//) {die;} remove_tree($p); make_path($p);
+        if ($p !~ /\/\.osis-converters\//) {die;} remove_tree("$p"); make_path("$p");
         &shell("cd '$p' && wget -r --level=$depth -np -nH --quiet -erobots=off --restrict-file-names=nocontrol --cut-dirs=$cdir --accept index.html -X $pdir $url", 3);
         $success = &wgetReadFilePaths($p, $listingAP, $p);
       }

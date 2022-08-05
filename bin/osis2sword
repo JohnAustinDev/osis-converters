@@ -33,8 +33,8 @@ our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER,
     $UPPERCASE_DICTIONARY_KEYS, %CONV_PUB_SETS);
     
 my $swtmp = &outdir() . '/sword';
-if (-e $swtmp) {remove_tree($swtmp);}
-make_path($swtmp);
+if (-e "$swtmp") {remove_tree("$swtmp");}
+make_path("$swtmp");
 
 &runAnyUserScriptsAt("sword/preprocess", \$INOSIS);
 

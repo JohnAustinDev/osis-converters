@@ -46,8 +46,8 @@ sub splitOSIS {
   undef(%DOCUMENT_CACHE);
   
   my $tmp = "$TMPDIR/splitOSIS";
-  if (-e $tmp) {remove_tree($tmp);}
-  make_path($tmp);
+  if (-e $tmp) {remove_tree("$tmp");}
+  make_path("$tmp");
   
   my $xml = $XML_PARSER->parse_file($in_osis);
   

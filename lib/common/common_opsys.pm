@@ -929,7 +929,7 @@ sub writeConf {
   }
   
   my $confdir = $file; $confdir =~ s/([\\\/][^\\\/]+){1}$//;
-  if (!-e $confdir) {make_path($confdir);}
+  if (!-e "$confdir") {make_path("$confdir");}
   
   if (open(XCONF, $WRITELAYER, $file)) {
     my $section = '';

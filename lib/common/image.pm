@@ -421,7 +421,7 @@ sub createCompositeCoverImage {
   for (my $j=0; $j<$ni; $j++) {
     my $dimP = &imageInfo(@{$coversAP}[$j]);
     my $sh = int($dimP->{'h'} * ($xw/$dimP->{'w'}));
-    &shell("convert -resize ${xw}x${sh} ".@{$coversAP}[$j]." \"$temp\"", 3);
+    &shell("convert -resize ${xw}x${sh} \"".@{$coversAP}[$j]."\" \"$temp\"", 3);
     if ($j == 0) {
       &shell("convert -size ${imgw}x${imgh} xc:None \"$temp\" -geometry +".($j*$xs)."+".($j*$ys)." -composite \"$out\"", 3);
     }

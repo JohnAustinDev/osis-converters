@@ -52,7 +52,7 @@ sub init_linux_script {
   }
   
   $MOD_OUTDIR = &getModuleOutputDir();
-  if (!-e $MOD_OUTDIR) {&make_path($MOD_OUTDIR);}
+  if (!-e "$MOD_OUTDIR") {&make_path("$MOD_OUTDIR");}
   
   $TMPDIR = &initTMPDIR();
 
@@ -107,10 +107,10 @@ sub logGitRevs {
 sub getModuleOutputDir {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
   
-  if ($OUTDIR && ! -d $OUTDIR) {
+  if ($OUTDIR && ! -d "$OUTDIR") {
     $OUTDIR = undef;
     &Error("OUTDIR is not an existing directory: " . &findConf('OUTDIR'),
-"Change it to the path of a directory where output files can be written.");
+"Change it to the path of a directory where output files can be written.", 1);
   }
   
   my $moddir;
@@ -141,7 +141,7 @@ sub initTMPDIR {
     remove_tree($tmpdir);
   }
   
-  if (! -e $tmpdir) {make_path($tmpdir);}
+  if (! -e "$tmpdir") {make_path("$tmpdir");}
   
   return $tmpdir;
 }

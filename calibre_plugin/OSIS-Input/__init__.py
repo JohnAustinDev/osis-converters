@@ -56,10 +56,6 @@ class OsisInput(InputFormatPlugin):
         if p.returncode != 0:
             print("ERROR: XSLT failed!:")
         print(p.stdout)
-        os.remove('osis2xhtml.xsl')
-        os.remove('functions.xsl')
-        for afile in glob.glob("./*.xml"):                                                                                                                                   
-            os.remove(afile)
         
         return os.path.abspath('content.opf')
         

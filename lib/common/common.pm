@@ -178,7 +178,7 @@ sub copy_dir {
   opendir(DIR, $id) || die "Could not open dir $id\n";
   my @fs = readdir(DIR);
   closedir(DIR);
-  make_path($od);
+  make_path("$od");
 
   for(my $i=0; $i < @fs; $i++) {
     if ($fs[$i] =~ /^\.+$/) {next;}

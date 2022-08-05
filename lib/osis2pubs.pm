@@ -389,6 +389,7 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
 "name=$pubName, subdir='$pubSubdir'\n\n", 1);
   
   my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
+  if (-e "$tmp") {remove_tree("$tmp");}
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &shell("cp \"$INOSIS\" \"$osis\"", 3);
@@ -1398,7 +1399,7 @@ sub makeEbook {
     }
     else {push(@outdirs, '');}
     foreach my $od (@outdirs) {
-      my $outdir = $PUBOUT.$od; if (!-e $outdir) {&make_path($outdir);}
+      my $outdir = $PUBOUT.$od; if (!-e "$outdir") {&make_path("$outdir");}
       copy($out, "$outdir/$pubName.$format");
       &Note("Created: $outdir/$pubName.$format\n", 1);
       # include any cover small image along with the eBook
