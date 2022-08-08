@@ -1,5 +1,5 @@
-Replace-these-chars: ' «´» Ä ÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥᴴҪҫҮүҰұҲҳҶҷӋӌҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓا‑–—―‘’“”„•‹›○◦Ӽӽ
-With-these-chars:    ' "'" A CEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНннСcYvYvХхЧчЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл|----''""'*""-·Хх
+Replace-these-chars: ' «´» Ä ÇÊÖÜÝäçêöüýāēİıŇňŞşŢţŽžȳʻʼЁІЎЙйёіјўѲѳҒғҔҕҖҗҘҙҚқҠҡҢңҤҥᴴҪҫҮүҰұҲҳҶҷӋӌҺһӀӏӁӂӃӄӇӈӐӑӒӓӖӗӘәӢӣӦӧӨөӮӯӰӱӲӳԒԓا‑–—―‘’“”„•‹›○◦ӼӽԮԯ
+With-these-chars:    ' "'" A CEOUYaceouyaeIiNnSsTtZzy''EIУИиeijуОоГгhhЖжЗзКкКкНнНннСcYvYvХхЧчЧчhhI|ЖжКкHнАaAaЕеЭэИйOoƟøУуУyУуЛл|----''""'*""-·ХхЛл
 
 Replace-this-group: Ӕ
 With-this-group:    AE
