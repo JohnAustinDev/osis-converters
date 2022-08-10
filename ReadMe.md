@@ -158,7 +158,6 @@ The following table lists the available entries of `config.conf`. See the end of
 
 ENTRY | DESCRIPTION
 ----- | -----------
-**ARG_\w+** | Config settings for undocumented fine control.
 **Abbreviation (LW)** | A short localized name for the module.
 **About (CLW)** | Localized information about the module. Similar to `Description` but longer.
 **AddCrossRefLinks** | Select whether to insert externally generated cross-reference notes into the text: `(true \| false \|AUTO)`. `AUTO` adds them only if a `CF_<vsys>.xml` file is found for the project (see `./bin/convert -h 'Adding External Cross-References'`). Default is `AUTO`.
@@ -189,10 +188,13 @@ ENTRY | DESCRIPTION
 **Font (W)** | The font to use for electronic publications.
 **FullResourceURL (U)** | Single Bible book eBooks often have links to other books. This URL is where the full publication may be found. Default is `false`.
 **History_[\d\.]+** | Each version of released publications should have one of these entries describing what was new in that version.
-**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
 **IntroductionTitle (L)** | A localized title for Bible book introductions.
 **KeySort** | This entry enables localized list sorting by character collation. Square brackets are used to separate any arbitrary case sensitive regular expressions which are to be treated as single characters during the sort comparison. Also, a single set of curly brackets can be used around a regular expression which matches any characters/patterns that need to be ignored during the sort comparison. IMPORTANT: Any square or curly bracket within regular expressions must have an additional backslash before it. NOTE: The regular expression processor currently in use does not support look-around assertions.
 **Lang (W)** | ISO language code and script code. Examples: tkm-Cyrl or tkm-Latn
+**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
+**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
+**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**ARG_\w+** | Config settings for undocumented fine control.
 **MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
@@ -205,9 +207,7 @@ ENTRY | DESCRIPTION
 **ShortCopyright (LW)** | Short copyright string.
 **ShortPromo (LW)** | A link to the home page for the module, perhaps with an encouragement to visit the site.
 **SubPublicationTitle\[\S+\]** | The localized title of a particular sub-publication. The scope of the sub-publication must appear between the square brackets (see `./bin/convert -h SUB-PUBLICATIONS` and see `./bin/convert -h scope`).
-**MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
-**MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
-**MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
+**GlossaryNavmenuLink\[[1-9]\]** | Specify a custom main navigation menu link. For example to change the title of the second link on the main menu: `GlossaryNavmenuLink[2]=New Title` or to bypass a sub-menu having only one link on it: `GlossaryNavmenuLink[1]=&osisRef=<osisID>&text=My Link Title`
 **TOC** | A number from 1 to 3 indicating which SFM tag to use for generating the table of contents: `\toc1`, `\toc2` or `\toc3`. Default is `2`.
 **TextSource (CW)** | Indicates a name or URL for the source of the text.
 **TitleCase** | A number from 0 to 2 selecting letter casing for table of contents titles: 0 is as-is, 1 is Like This, 2 is LIKE THIS. Default is `1`.

@@ -73,7 +73,7 @@ our @SWORD_AUTOGEN_CONFIGS = (
   'BlockCount', 'SourceType', 'Feature', 'OSISVersion', 'ModDrv',
   'PreferredCSSXHTML', 'GlobalOptionFilter', 'Scope', 'Encoding',
   'SwordVersionDate', 'InstallSize', 'MinimumVersion', 
-  'CaseSensitiveKeys',
+  'CaseSensitiveKeys', 'LangSortOrder',
 );
 
 # Valid osis-converters config file entries (in addition to SWORD entries)

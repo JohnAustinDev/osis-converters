@@ -34,10 +34,10 @@
                                               [. = following::tei:entryFree/@n]
                                               [not(. = preceding::tei:entryFree/@n)]"/>
                                                               
-  <template match="/"><call-template name="checkLinks.xsl"/></template>
+  <template match="/"><call-template name="checkrefsSWORD.xsl"/></template>
   
-  <template mode="checkLinks.xsl" match="/" name="checkLinks.xsl">
-    <message>NOTE: Running checkLinks.xsl on <value-of select="document-uri(.)"/></message>
+  <template mode="checkrefsSWORD.xsl" match="/" name="checkrefsSWORD.xsl">
+    <message>NOTE: Running checkrefsSWORD.xsl on <value-of select="document-uri(.)"/></message>
     
     <!-- Check for duplicate keywords, which are not allowed by SWORD -->
     <for-each select="$duplicate_keywords">

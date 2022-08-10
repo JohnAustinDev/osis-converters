@@ -108,7 +108,7 @@ if ($SModDrv =~ /LD/) {
     }
   }
   else {
-    &Error("Main module not found, unable to run checkLinks.xsl");
+    &Error("Main module not found, unable to run checkrefsSWORD.xsl");
   }
 }
 else {

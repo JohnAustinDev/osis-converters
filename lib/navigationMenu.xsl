@@ -247,7 +247,7 @@
                     <sequence select="/descendant::div[@type='glossary'][@osisID = $mainGlossaryID]"/>
                   </when>
                   <when test="$maxkw &#62; $glossaryTocAutoThresh">
-                    <sequence select="$glossaries[count(descendant::seg[@type='keyword']) = $maxkw]"/>
+                    <sequence select="$glossaries[count(descendant::seg[@type='keyword']) = $maxkw][1]"/>
                   </when>
                 </choose>
               </variable>

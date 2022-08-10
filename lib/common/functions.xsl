@@ -187,8 +187,8 @@
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
       <otherwise>
         <value-of select="boolean(
-            oc:keySortLetter(  $glossaryEntry/string()) = 
-            oc:keySortLetter($previousKeyword/string())
+            upper-case(oc:keySortLetter(  $glossaryEntry/string())) = 
+            upper-case(oc:keySortLetter($previousKeyword/string()))
         )"/>
       </otherwise>
     </choose>
@@ -680,9 +680,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <variable name="divTitle" select="oc:getDivTitle($glossary)"/>
     <variable name="glossTitle" select="
       if (not($divTitle)) then 'concat(
-          oc:keySortLetter($glossary/descendant::reference[1]/string()), 
+          upper-case(oc:keySortLetter($glossary/descendant::reference[1]/string())), 
           '-', 
-          oc:keySortLetter($glossary/descendant::reference[last()]/string())
+          upper-case(oc:keySortLetter($glossary/descendant::reference[last()]/string()))
         )'
       else if ($scopeTitle 
           and not(contains(lower-case($divTitle), lower-case($scopeTitle))) 
@@ -742,9 +742,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <text>&#xa;</text>
            
     <variable name="allLetters" select="concat(
-      oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][1]), 
+      upper-case(oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][1])), 
       '-', 
-      oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][last()]))"/>
+      upper-case(oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][last()])))"/>
       
     <variable name="allLettersTitle" select="concat($glossaryMenuTitle, ' (', $allLetters, ')')"/>
     
@@ -767,7 +767,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
         <text>&#xa;</text>
         <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letter" select="oc:keySortLetter(text())"/>
+            <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
             <variable name="letterTitle" select="concat($letter, ' - ', $glossaryMenuTitle)"/>
             <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letterTitle)}" 
               type="x-glosslink" subType="x-target_self">
@@ -822,7 +822,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
         <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letterTitle" 
-              select="concat(oc:keySortLetter(text()), ' - ', $glossaryMenuTitle)"/>
+              select="concat(upper-case(oc:keySortLetter(text())), ' - ', $glossaryMenuTitle)"/>
             <osis:p>
               <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letterTitle)}">
                 <value-of select="$letterTitle"/>
