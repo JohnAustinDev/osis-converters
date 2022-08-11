@@ -357,16 +357,16 @@ sub glossaryLink {
   my $osisRef = $DICTMOD.':'.&encodeOsisRef($infoP->{'lemma'});
   
   # Handle any USFM attributes effecting the target
-  if (defined($infoP->{'dup'})) {$osisRef .= '.dup'.$infoP->{'dup'};}
-  elsif (defined($infoP->{'context'})) {
+  if (defined($infoP->{'x-dup'})) {$osisRef .= '.dup'.$infoP->{'dup'};}
+  elsif (defined($infoP->{'x-context'})) {
     # Look at the specified context in CF_addDictLinks.xml for the lemma
     my $r = @{$XPC->findnodes("//dw:entry
-      [ancestor-or-self::*[\@context][1][\@context='$infoP->{'context'}']]
+      [ancestor-or-self::*[\@context][1][\@context='$infoP->{'x-context'}']]
       /\@osisRef[starts-with(., '$osisRef.dup') or . = '$osisRef']", &getDWF())}[0];
     if ($r) {$osisRef = $r->value;}
     else {&Error(
-"An entry '$osisRef' having context '$infoP->{'context'}' could not be found in CF_addDictLinks.xml.",
-"CF_addDictLinks.xml does not contain an entry for lemma '$infoP->{'lemma'}' which has context '$infoP->{'context'}' as specified by the \\w ...\\w* tag.");
+"An entry '$osisRef' having context '$infoP->{'x-context'}' could not be found in CF_addDictLinks.xml.",
+"CF_addDictLinks.xml does not contain an entry for lemma '$infoP->{'lemma'}' which has context '$infoP->{'x-context'}' as specified by the \\w ...\\w* tag.");
     }
   }
   
@@ -1278,21 +1278,18 @@ sub usfm3GetAttributes {
   my %attribs;
   if (!$value) {return \%attribs;}
   if ($value !~ /(?<!\\)\|(.*)$/) {return \%attribs;}
-  my $as = $1;
-  
-  my $re = '(\S+)\s*=\s*([\'"])(.*?)(?!<\\\\)\2';
-  if ($as =~ /$re/) {
-    while ($as =~ s/$re//) {
+  foreach my $a (split(/(?<!\\)\|/, $1)) {
+    if ($a =~ /(\S+)=([\'"])(.*?)(?!<\\)\2/) {
       $attribs{$1} = &valueClean($3);
     }
-    if ($as !~ /^\s*$/) {
+    elsif ($defaultAttribute) {
+      $attribs{$defaultAttribute} = &valueClean($a);
+    }
+    else {
       &Error("Parsing USFM3 attributes: $value.",
-"Acceptable attributes must have one of these forms:
-\\w some-text|attrib1='value' attrib2='value'\\w*
-\\w some-text|value\\w* (only for default attribute)");
+"Marker has no default attribute so attribute name must be specified.");
     }
   }
-  else {$attribs{$defaultAttribute} = &valueClean($as);}
 
   return \%attribs;
 }
