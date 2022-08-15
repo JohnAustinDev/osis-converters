@@ -645,10 +645,7 @@ sub getSubPublications {
   
   my $subPubMessage = 
   "The directory name must be a valid scope code, using underscores
-  in place of spaces. This scope represents the contents of the sub-
-  publication within the subdirectory. The name may be prepended with a 
-  2 digit number followed by '_' to order the sub-publications within 
-  the translation. For example: '02_Ruth_Esther_Jonah'.";
+  in place of spaces.";
   
   my @scopes = ();
   if (opendir(DIR, $dir)) {

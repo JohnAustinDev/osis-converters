@@ -341,13 +341,15 @@ sub checkSwordBug {
 
   my $parser = XML::LibXML->new('line_numbers' => 1);
   my $xml = $parser->parse_file($inosis);
-  foreach my $t ( $XPC->findnodes('//osis:div[@type="majorSection"]
-      [not(ancestor::osis:div[@type="book"])]', $xml) ) {
-    &Error(
+  foreach my $t ($XPC->findnodes('//osis:div[@type="majorSection"]', $xml)) {
+    my @p = split(/\./, &bibleContext($t));
+    if ($p[0] =~ /INTRO/ || $p[1] eq '0') {
+      &Error(
 "The non-introduction tag on line: ".$t->line_number().", '".&pTag($t)."' 
 was used in an introduction. This could trigger a bug in osis2mod.cpp, 
 which drops introduction text.", 
 'Replace this tag with the proper \imt introduction title tag.');
+    }
   }
 }
 

@@ -144,7 +144,7 @@ our %HELP = (
     
     ['sub-heading', 'SUB-PUBLICATIONS' ],
     ['para', 'A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-publications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.' ],
-    ['para', 'A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` is the scope of the sub-publication (see HELPREF(scope)).' ],
+    ['para', 'A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory PATH(MAINMOD/sfm/<scope>) where `<scope>` is the scope of the sub-publication (see HELPREF(scope)). The scope may be prepended with a 2 digit number followed by \'_\' to order the sub-publications within the whole translation.' ],
     
     ['sub-heading', 'HELP' ],
     ['para', 'Run HELPREF(<setting> | <file> | <script>) to find help on any particular setting, control file or script.'],

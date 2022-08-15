@@ -46,7 +46,7 @@ A 'scope' is a specific way of listing the contents of Bible publications. It is
 ### SUB-PUBLICATIONS 
 A Bible translation may have been published in multiple parts, such as a Penteteuch publication and a Gospels publication. These are referred to as sub-publications. Conversions may output electronic publications for each sub-publication, in addition to the whole. They may also output single Bible book electronic publications. Each electronic publication will include reference materials that fall within its scope.
 
-A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory `<main-module> / sfm / <scope>` where `<scope>` is the scope of the sub-publication (see `./bin/convert -h scope`).
+A sub-publication is added to a project by putting those SFM files which are part of the sub-publication in subdirectory `<main-module> / sfm / <scope>` where `<scope>` is the scope of the sub-publication (see `./bin/convert -h scope`). The scope may be prepended with a 2 digit number followed by '_' to order the sub-publications within the whole translation.
 
 
 ### HELP 
