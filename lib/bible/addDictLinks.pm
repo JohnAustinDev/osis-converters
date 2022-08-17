@@ -64,7 +64,7 @@ sub addDictLinks {
 
   &joinOSIS($osisP);
   
-  &logDictLinks();
+  &logDictLinks($$osisP);
 }
 
 # This function may be run in its own thread.

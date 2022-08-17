@@ -79,7 +79,7 @@ to ") . "CF_addDictLinks.xml file."
       );
     }
     
-    &logDictLinks();
+    &logDictLinks($$osisP);
   }
 
   &Log("FINISHED\n\n");

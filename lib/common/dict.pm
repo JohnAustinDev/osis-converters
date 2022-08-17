@@ -913,8 +913,10 @@ sub matchRegex {
 
 # Print log info for all glossary link searches
 sub logDictLinks {
+  my $osis = shift;
 
   my $dwf = &getDWF();
+  my $xml = $XML_PARSER->parse_file($osis);
   
   &Log("\n");
   
@@ -945,9 +947,22 @@ sub logDictLinks {
     }
   }
   
-  &Report("There were ".(scalar keys %{$explicits{'fails'}})." unique failed explicit entry contexts:");
+  my $numExpFail = (scalar keys %{$explicits{'fails'}});
+  &Report("There were $numExpFail unique failed explicit entry contexts:");
   foreach my $context (sort { length($b) <=> length($a) } keys %{$explicits{'fails'}}) {
     &Log("$context\n");
+  }
+  if ($numExpFail > 0) {
+    &Note("First location of each of the $numExpFail failed entry contexts (in document order):");
+    my @exs = $XPC->findnodes(join(' | ', map('(//osis:index[@index="Glossary"][@level1="'.$_.'"])[1]', keys %{$explicits{'fails'}})), $xml);
+    foreach my $ex (@exs) {
+      my $c = &getNodeContext($ex);
+      my $ctext = '';
+      foreach my $ct ($XPC->findnodes('parent::*/node()', $ex)) {
+        if ($c eq &getNodeContext($ct)) {$ctext .= $ct;}
+      }
+      &Log("$c: $ctext\n");
+    }
   }
   
   my $nolink = "";
