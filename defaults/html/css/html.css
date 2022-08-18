@@ -20,34 +20,18 @@ body.book .xsl-footnote-section,
 body.book .xsl-crossref-section {
   text-align: left;
 }
-.main.x-introduction {
-  text-align:center;
-}
-h1.x-introduction, h2.x-introduction, h3.x-introduction {
-  font-size:1.2em;
-}
-h1.x-introduction {
-  margin-top:2em;
-}
 div[class~=section] {
   margin-bottom:2em;
 }
-.xsl-toc-entry.osis-milestone + h1.x-introduction,
-.x-introduction + h1.x-introduction {
-  margin-top:0.4em;
-}
-h2.x-introduction, h3.x-introduction {
-  text-align: left;
-  font-weight:bold;
-  font-style:normal;
-}
-h1, h2, h3 {
-  page-break-after: avoid;
-  font-weight:bold;
-  color:#004400;
+
+h1, h2, h3, h4 {
+  color: #004400;
   text-align: center;
-  clear:both;
-  margin: 0.4em 0 0.2em;
+  font-weight: bold;
+  clear: both;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  page-break-after: avoid;
   adobe-hyphenate: none;
   -webkit-hyphens: none;
   -moz-hyphens: none;
@@ -55,13 +39,47 @@ h1, h2, h3 {
   -epub-hyphens: none;
   hyphens: none;
 }
-h1, dfn {
-  font-size:1.2em;
+h3, h4 {
+  margin-top: 0;
+  margin-bottom: 0;
 }
-h2, h3 {
-  font-size:1.1em;
-  font-weight:normal;
-  font-style:italic;
+h2:not(.main),
+h3:not(.main),
+h4:not(.main) {
+  font-style: italic;
+}
+h1 {
+  font-size: 1.4em !important;
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
+h2 {
+  font-size: 1.2em !important;
+}
+h3 {
+  font-size: 1.1em !important;
+}
+h4 {
+  font-size: 1em !important;
+  color: inherit;
+}
+h1.main {
+  font-size: 1.5em !important;
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
+h2.main {
+  font-size: 1.3em !important;
+}
+h3.main {
+  font-size: 1.2em !important;
+}
+h4.main {
+  font-size: 1.1em !important;
+}
+
+dfn {
+  font-size:1.2em;
 }
 ol {
   list-style-type: none;
