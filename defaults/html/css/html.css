@@ -49,33 +49,33 @@ h4:not(.main) {
   font-style: italic;
 }
 h1 {
-  font-size: 1.4em !important;
+  font-size: 1.4em;
   margin-top: 2em;
   margin-bottom: 1em;
 }
 h2 {
-  font-size: 1.2em !important;
+  font-size: 1.2em;
 }
 h3 {
-  font-size: 1.1em !important;
+  font-size: 1.1em;
 }
 h4 {
-  font-size: 1em !important;
+  font-size: 1em;
   color: inherit;
 }
 h1.main {
-  font-size: 1.5em !important;
+  font-size: 1.5em;
   margin-top: 2em;
   margin-bottom: 1em;
 }
 h2.main {
-  font-size: 1.3em !important;
+  font-size: 1.3em;
 }
 h3.main {
-  font-size: 1.2em !important;
+  font-size: 1.2em;
 }
 h4.main {
-  font-size: 1.1em !important;
+  font-size: 1.1em;
 }
 
 dfn {
