@@ -128,11 +128,11 @@ sub osisRef2osisID {
   
     if ($osisRef eq 'OT') {
       $osisRef = "Gen-Mal"; 
-      if ($expandIntros) {push(@osisIDs, $pwork."TESTAMENT_INTRO.0");}
+      if ($expandIntros) {push(@osisIDs, $pwork."BOOKGROUP_INTRO.0");}
     }
     elsif ($osisRef eq 'NT') {
       $osisRef = "Matt-Rev"; 
-      if ($expandIntros) {push(@osisIDs, $pwork."TESTAMENT_INTRO.1");}
+      if ($expandIntros) {push(@osisIDs, $pwork."BOOKGROUP_INTRO.1");}
     }
 
     if ($osisRef !~ /^(.*?)\-(.*)$/) {push(@osisIDs, map("$pwork$_", split(/\s+/, &expandOsisID($osisRef, $vsys, $expandIntros)))); next;}

@@ -221,7 +221,7 @@ our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS',
     
 our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[not_parent]', 
     '[no_inline_toc]', '[only_inline_toc]', '[no_main_inline_toc]', 
-    '[inline_toc_first]', '[inline_toc_last]');
+    '[inline_toc_first]', '[inline_toc_last]', '[bookSubGroup]');
     
 our %ID_DIRECTIVES = (
     'placement' => ['location', '<identifier>', 'x-unknown'], 

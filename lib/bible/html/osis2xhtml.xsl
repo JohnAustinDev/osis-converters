@@ -1608,9 +1608,9 @@
     
     <variable name="nonBook_TOC_children" as="element(milestone)*" 
         select="$bookGroup/div[not(@type='book')]/milestone[@type=concat('x-usfm-toc', $TOC)]
-        [not(me:getTocClasses(.) = ('no_toc', 'not_parent'))][1]"/>
+        [not(me:getTocClasses(.) = 'no_toc')][1]"/>
         
-    <variable name="testament_introduction" as="element(milestone)?" 
+    <variable name="bookGroup_intro" as="element(milestone)?" 
         select="$bookGroup/child::div[1][@type != 'book']
         [ count($nonBook_TOC_children) = 1 or 
           following-sibling::div[1][@type != 'book']/milestone[@type=concat('x-usfm-toc', $TOC)]
@@ -1618,16 +1618,16 @@
         ]/milestone[@type=concat('x-usfm-toc', $TOC)]
           [not(me:getTocClasses(.) = ('no_toc'))][1]"/>
         
-    <variable name="group_introductions" as="element(milestone)*"
-        select="$nonBook_TOC_children[not(. intersect $testament_introduction)]
+    <variable name="bookSubGroup_intros" as="element(milestone)*"
+        select="$nonBook_TOC_children[not(. intersect $bookGroup_intro)]
         [ . &#62;&#62; $bookGroup/div[@type='book'][1] or
-        count($nonBook_TOC_children[not(. intersect $testament_introduction)]) &#62; 1 ]"/>
+        count($nonBook_TOC_children[not(. intersect $bookGroup_intro)]) &#62; 1 ]"/>
         
-    <variable name="my_group_introduction" as="element(milestone)?" 
-        select="( $group_introductions[. &#60;&#60; $x] | 
-                  $group_introductions[. intersect $x] )[last()]"/>
+    <variable name="my_bookSubGroup_intro" as="element(milestone)?" 
+        select="( $bookSubGroup_intros[. &#60;&#60; $x] | 
+                  $bookSubGroup_intros[. intersect $x] )[last()]"/>
                   
-    <sequence select="($testament_introduction | $my_group_introduction)"/>
+    <sequence select="($bookGroup_intro | $my_bookSubGroup_intro)"/>
   </function>
   
   <!-- This template may be called from any element. It adds a class attribute 

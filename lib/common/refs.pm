@@ -214,7 +214,7 @@ sub writeMissingNoteOsisRefs {
     if (&isBible($xml)) {
       # need an actual osisID, so bibleContext output needs fixup
       $osisRef = @{&atomizeContext(&bibleContext($note))}[0];
-      if ($osisRef =~ /(BIBLE_INTRO|TESTAMENT_INTRO)/) {
+      if ($osisRef =~ /(BIBLE_INTRO|BOOKGROUP_INTRO|BOOKSUBGROUP_INTRO)/) {
         $osisRef = '';
       }
       $osisRef =~ s/(\.0)+$//;

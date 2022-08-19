@@ -103,6 +103,7 @@ INSTRUCTION | DESCRIPTION
 **[no_main_inline_toc]** | Remove a TOC entry from the main inline TOC. The main inline TOC appears on the beginning of an ePublication and serves as the overall TOC for the entire publication. The TOC entry may still appear in subsequent inline TOC segments.
 **[inline_toc_first]** | Place the inline TOC segment right after the TOC entry. This only applies to DICTMOD, where by default inline TOC segments are placed just before the following TOC entry.
 **[inline_toc_last]** | Place the inline TOC segment before the following TOC entry. This only applies to MAINMOD, where by default inline TOC segments are placed right after the TOC entry. NOTE: the inline TOC will be placed before the following child TOC entry even when it is marked as `[no_toc]`. So a `[no_toc]` child entry can be used as a placeholder for the previous inline TOC segment.
+**[bookSubGroup]** | The TOC entry corresponds to a Bible book sub-group introduction, which might in rare cases be indistinguishable from a book-group introduction.
 
 
 ### SFM ID DIRECTIVES 

@@ -18,10 +18,15 @@
 
 use strict;
 
-# getContextAttributeHash() takes context/notContext attribute values from 
-# CF_addDictLinks.xml and converts them into a hash containing all the 
-# atomized context values (see checkAndNormalizeAtomicContext() function) 
-# which compose the attribute value, and a list of entire included books. 
+our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
+our ($XPC, $XML_PARSER, %OSIS_ABBR, $OSISBOOKSRE, %OSIS_GROUP);
+
+my %ALREADY_NOTED_RESULT;
+
+# Take a context/notContext attribute value from CF_addDictLinks.xml and
+# convert it into a hash containing all the atomized context values (see
+# checkAndNormalizeAtomicContext() function) composing that value, plus
+# a list of entire included books. 
 # NOTE: For a big speedup, entire books and 'all' are returned separately.
 #
 # context/notContext attribute values are space separated instances of 
@@ -30,19 +35,12 @@ use strict;
 # - Bible osisRef (which is any combination of: OSISBK.CH.VS or OSISBK.CH.VS-OSISBK.CH.VS) 
 #   plus it may begin with OSISBK = 'ALL' meadning all Bible books
 # - Comma separated list of Paratext references, such as: GEN 1:2-4, EXO 5:6
-# - Other special keywords:
+# - These other special keywords:
 #   ALL = Any context, can be used to cancel a higher level attribute
 #   OT = Old Testament (including introductions)
 #   NT = New Testament (including introductions)
 #   BIBLE_INTRO or BIBLE_INTRO.0 = Bible introduction
-#   TESTAMENT_INTRO.1 or TESTAMENT_INTRO.2 = OT or NT introduction, respectively
-
-use strict;
-
-our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, %OSIS_ABBR, $OSISBOOKSRE, %OSIS_GROUP);
-
-my %ALREADY_NOTED_RESULT;
+#   BOOKGROUP_INTRO.1 or BOOKGROUP_INTRO.2 = OT or NT introduction, respectively
 sub getContextAttributeHash {
   my $attrValue = shift;
   my $notesP = shift;
@@ -59,7 +57,7 @@ sub getContextAttributeHash {
     
     # Handle keywords OT and NT
     elsif ($ref =~ /^(OT|NT)$/) {
-      $h{'contexts'}{'TESTAMENT_INTRO.'.($ref eq 'OT' ? '1':'2').'.0'}++;
+      $h{'contexts'}{'BOOKGROUP_INTRO.'.($ref eq 'OT' ? '1':'2').'.0'}++;
       foreach my $bk ($ref eq 'OT' ? @{$OSIS_GROUP{'OT'}} : @{$OSIS_GROUP{'NT'}}) {
         $h{'books'}{$bk}++;
       }
@@ -171,7 +169,7 @@ sub osisID2Contexts {
         }
         elsif ($d->getAttribute('type') eq 'bookGroup') {
           my $n = 1 + @{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $d)};
-          push(@ids, "TESTAMENT_INTRO.$n.0.0");
+          push(@ids, "BOOKGROUP_INTRO.$n.0.0");
           last;
         }
       }
@@ -199,8 +197,10 @@ sub getNodeContext {
 # would be 3 parts for a Bible) so it may represent a range of verses.
 # Possible forms:
 # BIBLE_INTRO.0.0.0 = Bible intro
-# TESTAMENT_INTRO.1.0.0 = Old Testament intro
-# TESTAMENT_INTRO.2.0.0 = New Testament intro
+# BOOKGROUP_INTRO.1.0.0 = Old Testament intro
+# BOOKGROUP_INTRO.2.0.0 = New Testament intro
+# BOOKSUBGROUP_INTRO.1.1.0 = 1st OT sub-group intro
+# BOOKSUBGROUP_INTRO.1.2.0 = 2nd OT sub-group intro
 # Gen.0.0.0 = Gen book intro
 # Gen.1.0.0 = Gen chapter 1 intro
 # Gen.1.1.1 = Genesis 1:1
@@ -214,21 +214,65 @@ sub bibleContext {
   my $bkdiv = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="book"][@osisID][1]', $node)}[0];
   my $bk = ($bkdiv ? $bkdiv->getAttribute('osisID'):'');
   
-  # no book means we might be a Bible or testament introduction (or else an entirely different type of OSIS file)
+  # no book means we might be a Bible, bookGroup or bookSubGroup introduction
+  # (or else in a different type of OSIS file entirely)
   if (!$bk) {
     my $refSystem = &getOsisRefSystem($node);
     if ($refSystem !~ /^Bible/) {
       &ErrorBug("bibleContext: OSIS file is not a Bible \"$refSystem\" for node \"$node\"");
       return '';
     }
-    my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type=\'bookGroup\'][1]', $node)}[0];
+    my $tst = @{$XPC->findnodes('ancestor-or-self::osis:div[@type="bookGroup"]', $node)}[0];
     if ($tst) {
-      return "TESTAMENT_INTRO.".(1+@{$XPC->findnodes('preceding::osis:div[@type=\'bookGroup\']', $tst)}).".0.0";
+      # If we're in a bookGroup (but not in a book) then we are either in a
+      # bookGroup intro or a bookSubGroup intro. We are in a bookSubGroup
+      # intro if there exists a preceding book, or [bookSubGroup] TOC
+      # milestone, in the bookGroup OR there exists material between books
+      # AND we are in the div immediately preceding the first book of the
+      # bookGroup. Otherwise we are in the bookGroup introduction.
+      my $bgnum = (1+@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $tst)});
+      my $bsgnum = 0;
+      my $sureBSGChildren = @{$XPC->findnodes('child::node()
+        [not(self::osis:div[@type="book"])]
+        [preceding-sibling::osis:div[@type="book"]]', $tst)}[0];
+      my $bgid = $tst->getAttribute('osisID');
+      my $chbsgnum = 1;
+      my $inbsg = 0;
+      my $toc = &conf('TOC');
+      foreach my $child ($XPC->findnodes('/node()', $tst)) {
+        my $mybook = @{$XPC->findnodes('self::osis:div[@type="book"]', $child)}[0];
+        if ($mybook) {
+          if ($inbsg) {
+            $chbsgnum++;
+            $inbsg = 0;
+          }
+        }
+        elsif (@{$XPC->findnodes('preceding-sibling::osis:div[@type="book"]', $child)}[0] ||
+          @{$XPC->findnodes('preceding::osis:milestone[@type="x-usfm-toc'.$toc.'"][1]
+            [contains(@n, "[bookSubGroup]")]', $child)}[0]) {
+          $inbsg = 1;
+        }
+        elsif ($sureBSGChildren && @{$XPC->findnodes('following-sibling::node()[1]
+          [self::osis:div[@type="book"]]', $child)}[0]) {
+          $inbsg = 1;
+        }
+        if ($inbsg && $child->unique_key eq @{$XPC->findnodes('ancestor-or-self::node()
+          [parent::osis:div[@type="bookGroup"]]', $node)}[0]->unique_key) {
+          $bsgnum = $chbsgnum;
+          last;
+        }
+      }
+      if ($bsgnum) {
+        return "BOOKSUBGROUP_INTRO.$bgnum.$bsgnum.0";
+      }
+      return "BOOKGROUP_INTRO.$bgnum.0.0";
     }
+    # If we're not in a bookGroup we are Bible introduction.
     return "BIBLE_INTRO.0.0.0";
   }
 
-  # find most specific osisID associated with elem (assumes milestone verse/chapter tags and end tags which have no osisID attribute)
+  # find most specific osisID associated with elem (assumes milestone
+  # verse/chapter tags and end tags which have no osisID attribute)
   my $c = @{$XPC->findnodes('preceding::osis:chapter[@osisID][1]', $node)}[0];
   if (!($c && $c->getAttribute('osisID') =~ /^\Q$bk.\E(\d+)$/)) {$c = '';}
   my $cn = ($c ? $1:0);
@@ -319,7 +363,7 @@ sub atomizeContext {
   
   my @out;
   foreach my $seg (split(/\+/, $context)) {
-    if ($seg =~ /^(BIBLE|TESTAMENT)_INTRO/) { # from bibleContext()
+    if ($seg =~ /^(BIBLE_INTRO|BOOKGROUP_INTRO|BOOKSUBGROUP_INTRO)/) { # from bibleContext()
       push(@out, $seg);
     }
     elsif ($seg =~ /^(\w+\.\d+)\.(\d+)\.(\d+)$/) { # from bibleContext()
@@ -382,8 +426,9 @@ sub getScopeAttributeContext {
 #
 # Atomized context values are defined as one of the following:
 # BIBLE_INTRO.0.0 = Bible intro
-# TESTAMENT_INTRO.1.0 = Old Testament intro
-# TESTAMENT_INTRO.2.0 = New Testament intro
+# BOOKGROUP_INTRO.1.0 = Old Testament intro
+# BOOKGROUP_INTRO.2.0 = New Testament intro
+# BOOKSUBGROUP_INTRO.1.1.0 = 1st OT book sub-group intro
 # (OSISBK).0.0 = book introduction of OSISBK
 # (OSISBK).CH.0 = chapter 1 introduction OSISBK
 # (OSISBK).CH.VS = verse OSISBK CH:VS
@@ -399,17 +444,14 @@ sub checkAndNormalizeAtomicContext {
   
   my $before = '';
   my $ext = ($context =~ s/(![^!]*)$// ? $1:''); # remove any extension
-  if ($context =~ /^(BIBLE_INTRO|TESTAMENT_INTRO|$OSISBOOKSRE)(\.(\d+)(\.(\d+)(\.(\d+))?)?)?$/) {
+  if ($context =~ /^(BIBLE_INTRO|BOOKGROUP_INTRO|BOOKSUBGROUP_INTRO|$OSISBOOKSRE)(\.(\d+)(\.(\d+)(\.(\d+))?)?)?$/) {
     my $bk = $1; my $ch = $3; my $vs = $5; my $vl = $7;
     if ($vl && $vs != $vl) {
       &ErrorBug("checkAndNormalizeAtomicContext: A multi-verse Bible context is not a valid atomized context: $context");
       return '';
     }
-    if ($bk eq 'TESTAMENT_INTRO' && $ch != 1 && $ch != 2) {
-      if (!$quiet) {&Error("checkAndNormalizeAtomicContext: TESTAMENT_INTRO is '$ch'.", 'It must be 1 or 2.');}
-      return '';
-    }
-    if ($bk eq 'TESTAMENT_INTRO') {return "$pre$bk.$ch.0";}
+    if ($bk eq 'BOOKGROUP_INTRO') {return "$pre$bk.$ch.0";}
+    elsif ($bk eq 'BOOKSUBGROUP_INTRO') {return "$pre$bk.$ch.$vs";}
     elsif ($bk eq 'BIBLE_INTRO') {return "$pre$bk.0.0";}
     else {
       if ($ch eq '0') {$vs = '0';}

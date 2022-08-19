@@ -149,12 +149,16 @@ the localized title to 'SKIP'.");
       my $osisID = $bk->getAttribute('osisID');
       my @names;
       for (my $t=1; $t<=3; $t++) {
-        # Is there a TOC entry if this type? If not, add one if we 
-        # know what it should be
+        # Does this book have a TOC entry if this type? If not, maybe add one.
+        my $tx1 = $t + 1;
+        my $tx2 = $t + 2;
+        if ($tx1 > 3) {$tx1 -= 3;}
+        if ($tx2 > 3) {$tx2 -= 3;}
         my $e = @{$XPC->findnodes(
-          'descendant::osis:milestone[@n][@type="x-usfm-toc'.$t.'"] | 
-           descendant::*[1][self::osis:div]
-           /osis:milestone[@n][@type="x-usfm-toc'.$t.'"]', $bk)}[0];
+          'child::node()[not(self::text())][not(self::comment())]
+          [not(self::osis:title[@type="runningHead"])]
+          [not(@type="x-usfm-toc'.$tx1.'")][not(@type="x-usfm-toc'.$tx2.'")][1]
+          [self::osis:milestone[@n][@type="x-usfm-toc'.$t.'"]]', $bk)}[0];
         if ($e) {push(@names, $e->getAttribute('n')); next;}
         
         if ($t eq $toc && !$WRITETOC_MSG) {
@@ -180,8 +184,7 @@ tag number you wish to use.)\n");
           if ($name) {$type = @attrib[$t];}
         }
         
-        # Otherwise try and get the default TOC from the first 
-        # applicable title
+        # If $toc tag's name is missing, be sure to find the name.
         if (!$name && $t eq $toc) {
           my $title = @{$XPC->findnodes('descendant::osis:title
               [@type="runningHead"]', $bk)}[0];
