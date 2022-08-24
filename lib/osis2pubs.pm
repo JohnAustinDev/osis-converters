@@ -48,7 +48,7 @@ sub osis2pubs {
   }
 
   &runAnyUserScriptsAt("$convertTo/preprocess", \$INOSIS);
-  
+
   my %params = (
     'conversion'    => join(' ', $convertTo, @{$CONV_PUB_SETS{$convertTo}}),
     'notConversion' => $convertTo, # keep CONV_PUB_SETS for later filtering
@@ -56,17 +56,17 @@ sub osis2pubs {
     'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
   );
   &runScript("$SCRD/lib/pubs.xsl", \$INOSIS, \%params);
-  
+ 
   # Set scope to that of source verse system
   &Log("Updating OSIS header.\n");
   &writeOsisHeader(\$INOSIS);
-  
+
   # Global for reporting results of osis2pubs.pm
   %CONV_REPORT;
 
   # Constants used by this script
   $INOSIS_XML = $XML_PARSER->parse_file($INOSIS);
-  
+      
   my $fullScope = '';
   if (!&isChildrensBible($INOSIS_XML)) {
     # Get scope of current osis file, minus chapter/verse information.
@@ -389,7 +389,7 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
 "name=$pubName, subdir='$pubSubdir'\n\n", 1);
   
   my $tmp = $pscope; $tmp = ($tmp ? "$TMPDIR/$tmp":$TMPDIR);
-  if (-e "$tmp") {remove_tree("$tmp");}
+  if ($pscope && -e "$tmp") {remove_tree("$tmp");}
   make_path("$tmp/tmp/bible");
   my $osis = "$tmp/tmp/bible/$MOD.xml";
   &shell("cp \"$INOSIS\" \"$osis\"", 3);

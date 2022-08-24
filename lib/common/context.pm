@@ -227,7 +227,7 @@ sub bibleContext {
       # If we're in a bookGroup (but not in a book) then we are either in a
       # bookGroup intro or a bookSubGroup intro. We are in a bookSubGroup
       # intro if there exists a preceding book, or [bookSubGroup] TOC
-      # milestone, in the bookGroup OR there exists material between books
+      # milestone in the bookGroup OR there exists material between books
       # AND we are in the div immediately preceding the first book of the
       # bookGroup. Otherwise we are in the bookGroup introduction.
       my $bgnum = (1+@{$XPC->findnodes('preceding::osis:div[@type="bookGroup"]', $tst)});

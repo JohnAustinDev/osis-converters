@@ -338,6 +338,8 @@ returned from the xmllint validator.",
 
 sub checkSwordBug {
   my $inosis = shift;
+  
+  if (&conf('ProjectType') ne 'bible') {return;}
 
   my $parser = XML::LibXML->new('line_numbers' => 1);
   my $xml = $parser->parse_file($inosis);

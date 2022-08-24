@@ -275,6 +275,8 @@ sub insertSubpubCoverInDiv {
   
   my $clone = $figure->cloneNode(1);
   
+  if (!$div) {return;}
+  
   my $milestone = @{$XPC->findnodes(
     'child::osis:milestone[@type="x-usfm-toc'.&conf('TOC').'"][1]', $div)}[0];
   if ($milestone) {
