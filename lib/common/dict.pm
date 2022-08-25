@@ -361,7 +361,7 @@ sub glossaryLink {
   elsif (defined($infoP->{'x-context'})) {
     # Look at the specified context in CF_addDictLinks.xml for the lemma
     my $r = @{$XPC->findnodes("//dw:entry
-      [ancestor-or-self::*[\@context][1][\@context='$infoP->{'x-context'}']]
+      [ancestor-or-self::*[\@context][1][contains(\@context, '".$infoP->{'x-context'}."')]]
       /\@osisRef[starts-with(., '$osisRef.dup') or . = '$osisRef']", &getDWF())}[0];
     if ($r) {$osisRef = $r->value;}
     else {&Error(
@@ -1083,6 +1083,11 @@ sub getIndexInfo {
   }
   
   my $attribsHP = &usfm3GetAttributes($i->getAttribute('level1'), 'lemma');
+  foreach my $a (sort keys %{$attribsHP}) {
+    if ($a !~ /^(lemma|x\-dup|x\-context)$/) {
+      &Error("Unknown usfm3 \\w tag attribute: $a ($a !~ /^(lemma|x-dup|x-context)\$/)", "Change the attribute name or remove it.");
+    }
+  }
   my $lemma = $attribsHP->{'lemma'};
   
   # If linktext is empty, it may be determined later.
@@ -1293,12 +1298,15 @@ sub usfm3GetAttributes {
   my %attribs;
   if (!$value) {return \%attribs;}
   if ($value !~ /(?<!\\)\|(.*)$/) {return \%attribs;}
-  foreach my $a (split(/(?<!\\)\|/, $1)) {
-    if ($a =~ /(\S+)=([\'"])(.*?)(?!<\\)\2/) {
-      $attribs{$1} = &valueClean($3);
-    }
-    elsif ($defaultAttribute) {
-      $attribs{$defaultAttribute} = &valueClean($a);
+  my $atts = $1;
+  while ($atts =~ s/(\S+)=([\'"])(.*?)(?!<\\)\2//) {
+    my $att = $1; my $val = $3;
+    $attribs{$att} = &valueClean($val);
+  }
+  if ($atts =~ /^\s*(\S.*?)\s*$/) {
+    my $val = $1;
+    if ($defaultAttribute) {
+      $attribs{$defaultAttribute} = &valueClean($val);
     }
     else {
       &Error("Parsing USFM3 attributes: $value.",
