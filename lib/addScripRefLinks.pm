@@ -52,7 +52,8 @@ our (%books, $ebookNames, $oneChapterBooks, $skip_xpath, $only_xpath,
     $refTerms, $prefixTerms, $refEndTerms, $suffixTerms, $sepTerms, 
     $chap2VerseTerms, $continuationTerms, $sp, $numUnhandledWords, %fix,
     %xpathIfResultContextBook, %xpathIfResultWorkPrefix, %asrlworks,
-    $LOCATION, $BK, $CH, $VS, $LV, %missedLeftRefs, $LASTP);
+    $LOCATION, $BK, $CH, $VS, $LV, %missedLeftRefs, $LASTP, @OSIS_ABBR,
+    %OSIS_ABBR);
    
 my $none = "nOnE";
 my $fixReplacementMsg = "
@@ -230,11 +231,16 @@ sub read_CF_ASRL {
         }
       }
       elsif ($_ =~ /^([\S]+)\s*=\s*(.+?)\s*$/) {
-        my $lb = $2;
-        my $elb = quotemeta($lb);
-        $books{$lb}=$1;
-        if ($lb && $lb =~ /[\.\?\*]/) {$bookNamesWithPerlChars{$lb}++;}
-        push(@abkn, $elb);
+        my $osisbk = $1; my $lb = $2;
+        if ($OSIS_ABBR{$osisbk}) {
+          my $elb = quotemeta($lb);
+          $books{$lb} = $osisbk;
+          if ($lb && $lb =~ /[\.\?\*]/) {$bookNamesWithPerlChars{$lb}++;}
+          push(@abkn, $elb);
+        }
+        else {
+          &Error("CF_addScripRefLinks.txt line \"$_\", '$osisbk' is not an OSIS book abbreviation.", "Valid OSIS abbreviations are: @OSIS_ABBR");
+        }
       }
       else {
         &Error("CF_addScripRefLinks.txt line \"$_\" was not handled.", "Check the syntax of this line and remove, change, or comment it out with '#'.");
