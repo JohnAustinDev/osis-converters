@@ -248,16 +248,17 @@ copy  $DICTMOD/CF_addDictLinks.xml to $MAININPD.");
     if ($MAINMOD && !$glossContainsINT) {
       my $biblef = &getModuleOsisFile($MAINMOD);
       if ($biblef) {
-        if (@{$XPC->findnodes('//osis:div[not(@resp="x-oc")]
+        my $int = @{$XPC->findnodes('//osis:div[not(@resp="x-oc")]
             [@type="introduction"]
-            [not(ancestor::div[@type="book" or @type="bookGroup"])]'
-            , $XML_PARSER->parse_file($biblef))}[0]) {
+            [not(ancestor::osis:div[@type="book" or @type="bookGroup"])]'
+            , $XML_PARSER->parse_file($biblef))}[0];
+        if ($int) {
           &Log("\n");
           &Warn(
 "Module $MAINMOD contains module introduction material (located  
 before the first bookGroup, which applies to the entire module). It  
 appears you have not duplicated this material in the glossary.", 
-&para(&help('INT', 1, 1)));
+&para(&help('sfm2osis;SPECIAL FEATURES;INT', 1, 1)));
         }
       }
     }

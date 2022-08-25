@@ -1449,52 +1449,159 @@
   
   <function name="me:isGlossaryTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    
-    <sequence select="boolean($x intersect $x/ancestor::div[@type='glossary'][1]/
-      descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-      [not(me:getTocClasses(.) = 'no_toc')][1])"/>
+    <sequence select="boolean(
+        $x intersect $x/ancestor::div[@type='glossary'][1]/
+        descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+        [not(me:getTocClasses(.) = 'no_toc')][1])"/>
+  </function>
+  
+  <function name="me:isChildrensBibleSectionTOC" as="xs:boolean">
+    <param name="x" as="node()"/>
+    <sequence select="$isChildrensBible and boolean(
+      $x[
+        self::milestone[@type=concat('x-usfm-toc', $TOC)]
+        [not(me:getTocClasses(.) = 'no_toc')]
+      ]/parent::dir[@type='majorSection'])"/>
   </function>
   
   <function name="me:isBookIntroTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    <sequence select="not(me:isBookTOC($x)) and  boolean(
-        $x[self::milestone[@type=concat('x-usfm-toc', $TOC)][not(me:getTocClasses(.) = 'no_toc')]]
-          [ancestor::div[@type='book']]
-          [following::chapter[1][ends-with(@osisID, '.1')]])"/>
+    <sequence select="not(me:isBookTOC($x)) and boolean(
+        $x[
+          self::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(me:getTocClasses(.) = 'no_toc')]
+        ][ancestor::div[@type='book']]
+        [following::chapter[1][ends-with(@osisID, '.1')]])"/>
   </function>
   
   <function name="me:isBookTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    <sequence select="boolean($x intersect $x/ancestor::div[@type='book'][1]/
-        milestone[@type=concat('x-usfm-toc', $TOC)][1]
-        [not(me:getTocClasses(.) = 'no_toc')]
-        [following::chapter[1][ends-with(@osisID, '.1')]])"/>
+    <sequence select="boolean(
+      $x intersect $x/ancestor::div[@type='book'][1]/
+      milestone[@type=concat('x-usfm-toc', $TOC)][1]
+      [not(me:getTocClasses(.) = 'no_toc')]
+      [following::chapter[1][ends-with(@osisID, '.1')]])"/>
   </function>
   
   <function name="me:isBookSubGroupTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    
     <choose>
-      <when test="not($x[self::milestone[@type=concat('x-usfm-toc', $TOC)]
-        [not(me:getTocClasses(.) = 'no_toc')]])">
+      <when test="not($x[
+          self::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(me:getTocClasses(.) = 'no_toc')]
+        ])">
         <sequence select="false()"/>
       </when>
       <when test="$x[contains(@n, '[bookSubGroup]')]">
         <sequence select="true()"/>
       </when>
       <otherwise>
-        <sequence select="boolean($x/ancestor::div[parent::div[@type='bookGroup']]
-            [not(@type='book')][preceding-sibling::div[@type='book'][1]])"/>
+        <sequence select="boolean(
+            $x/ancestor::div
+            [parent::div[@type='bookGroup']]
+            [not(@type='book')]
+            [preceding-sibling::div[@type='book']]
+          )"/>
       </otherwise>
     </choose>
   </function>
   
   <function name="me:isBookGroupTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    
-    <sequence select="boolean($x intersect $x/ancestor::div[@type='bookGroup'][1]/
+    <sequence select="boolean(
+      $x intersect $x/ancestor::div[@type='bookGroup'][1]/
       descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-      [not(me:getTocClasses(.) = 'no_toc')][1][not(contains(@n, '[bookSubGroup]'))])"/>
+      [not(me:getTocClasses(.) = 'no_toc')][1]
+      [not(contains(@n, '[bookSubGroup]'))]
+    )"/>
+  </function>
+  
+  <function name="me:isBibleIntroTOC" as="xs:boolean">
+    <param name="x" as="node()"/>
+    <sequence select="boolean($x intersect $x/ancestor::osisText/div
+      [not(@type = ('book', 'bookGroup'))]
+      [. &#60;&#60; parent::osisText/div[@type='bookGroup'][1]]/
+      descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
+      [not(me:getTocClasses(.) = 'no_toc')][1])"/>
+  </function>
+  
+  <function name="me:isParentTOC" as="xs:boolean">
+    <param name="x" as="node()"/>
+    <sequence select="boolean(
+        $x[
+          self::milestone[@type=concat('x-usfm-toc', $TOC)]
+          [not(me:getTocClasses(.) = 'no_toc')]
+          [me:getTocClasses(.) = 'parent']
+        ]
+      ) or
+        me:isGlossaryTOC($x) or
+        me:isBibleIntroTOC($x) or
+        me:isBookTOC($x) or 
+        me:isBookGroupTOC($x) or
+        me:isChildrensBibleSectionTOC($x)"/>
+  </function>
+  
+  <function name="me:getParentTOC" as="element(milestone)?">
+    <param name="x" as="node()"/>
+    <choose>
+      <when test="me:isGlossaryTOC($x) or 
+                  me:isChildrensBibleSectionTOC($x) or
+                  me:isBookGroupTOC($x) or
+                  me:isBibleIntroTOC($x)">
+        <sequence select="()"/>
+      </when>
+      <when test="me:isBookIntroTOC($x)">
+        <sequence select="$x/ancestor::div[@type='book'][1]/
+          descendant::milestone[me:isBookTOC(.)][1]"/>
+      </when>
+      <when test="me:isBookTOC($x) or me:isBookSubGroupTOC($x)">
+        <sequence select="$x/ancestor::div[@type='bookGroup'][1]/
+          descendant::milestone[me:isBookGroupTOC(.)][1]"/>
+      </when>
+      <otherwise>
+        <sequence select="$x/ancestor::div
+          [starts-with(@type, 'book') or parent::osisText][1]/
+          descendant::milestone
+          [@type=concat('x-usfm-toc', $TOC)][me:isParentTOC(.)]
+          [. &#60;&#60; $x][last()]"/>
+      </otherwise>
+    </choose>
+  </function>
+  
+  <!-- getTocLevel returns an integer which is the TOC hierarchy level 
+  of the tocElement; where 1 is the hightest possible level and 3 is the
+  lowest (deeper levels will throw an ERROR as they are not supported by
+  eBook readers). -->
+  <function name="me:getTocLevel" as="xs:integer">
+    <param name="tocElement" as="element()"/>
+    
+    <variable name="toclevelEXPLICIT" select="
+      if (matches($tocElement/@n, '\[level\d\]'))
+      then replace($tocElement/@n, '^.*\[level(\d)\].*$', '$1')
+      else '0'"/>
+    <variable name="parentTOC" as="element(milestone)?"
+      select="me:getParentTOC($tocElement)"/>
+    <variable name="result" as="xs:integer">
+      <choose>
+        <when test="$toclevelEXPLICIT != '0'">
+          <value-of select="$toclevelEXPLICIT"/>
+        </when>
+        <when test="$parentTOC">
+          <value-of select="1 + me:getTocLevel($parentTOC)"/>
+        </when>
+        <otherwise><value-of select="'1'"/></otherwise>
+      </choose>
+    </variable>
+    <choose>
+      <when test="$result &#60;= 3"><value-of select="$result"/></when>
+      <otherwise>
+        <call-template name="Error">
+<with-param name="msg">Maximum TOC level exceeded (<value-of select="$result"/> &#62; 3) defaulting to 3: <value-of select="oc:printNode($tocElement)"/></with-param>
+<with-param name="exp">EBook readers handle up to 3 levels of TOC. Use [levelN] TOC instructions to reduce the hierarchy level.</with-param>
+        </call-template>
+        <value-of select="'3'"/>
+      </otherwise>
+    </choose>
   </function>
   
   <function name="me:getTocClasses" as="xs:string*">
@@ -1578,100 +1685,6 @@
     
     <value-of select="if ($tocTitleEXPLICIT) then $tocTitleEXPLICIT else $tocTitleOSIS"/>
     
-  </function>
-  
-  <!-- getTocLevel returns an integer which is the TOC hierarchy level 
-  of the tocElement; where 1 is the hightest possible level and 3 is the
-  lowest (deeper levels will throw an ERROR as they are not supported by
-  eBook readers). -->
-  <function name="me:getTocLevel" as="xs:integer">
-    <param name="tocElement" as="element()"/>
-    
-    <variable name="toclevelEXPLICIT"
-        select="if (matches($tocElement/@n, '\[level\d\]')) then 
-                replace($tocElement/@n, '^.*\[level(\d)\].*$', '$1') else '0'"/>
-    <variable name="result" as="xs:integer">
-      <choose>
-        <when test="$toclevelEXPLICIT != '0'">
-          <value-of select="$toclevelEXPLICIT"/>
-        </when>
-        <otherwise>
-          <!-- Each kind of OSIS file has its own default set of level1 TOCs, and
-          may also have particular TOCs that won't have children. -->
-          <variable name="isLevel1" as="xs:boolean">
-            <choose>
-              <when test="oc:docWork($tocElement) = $DICTMOD">
-              <!-- DICTMOD: Is this the first TOC milestone of a top div? -->
-                <sequence select="boolean($tocElement intersect $tocElement/
-                    ancestor::div[parent::osisText]/
-                    descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-                    [not(me:getTocClasses(.) = ('no_toc'))][1])"/>
-              </when>
-              <when test="$isChildrensBible">
-                <!-- ChildrensBible: Is this the first TOC milestone of a 
-                div[@type="majorSection"]? -->
-                <sequence select="boolean($tocElement intersect $tocElement/
-                    ancestor::div[@type='majorSection'][last()]/
-                    descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-                    [not(me:getTocClasses(.) = ('no_toc'))][1])"/>
-              </when>
-              <otherwise>
-                <!-- Bible: Is this the first TOC milestone of the OSIS file, 
-                or the bookGroup TOC? -->
-                <value-of select="boolean($tocElement intersect (
-                    $mainTocMilestone | $tocElement/ancestor::div[@type='bookGroup']/
-                    descendant::milestone[me:isBookGroupTOC(.)][1]
-                  ))"/>
-              </otherwise>
-            </choose>
-          </variable>
-          <choose>
-            <when test="$isLevel1"><value-of select="'1'"/></when>
-            <otherwise>
-              <variable name="prevTOCParent" as="element()?">
-                <variable name="firstSibling" as="element()">
-                  <choose>
-                    <when test="oc:docWork($tocElement) = $DICTMOD or $isChildrensBible">
-                      <sequence select="$tocElement"/>
-                    </when>
-                    <!-- Bible book and bookSubGroup TOCs all share the same level -->
-                    <when test="me:isBookTOC($tocElement) or me:isBookSubGroupTOC($tocElement)">
-                      <sequence select="$tocElement/ancestor::div[@type='bookGroup']/
-                      descendant::milestone[me:isBookTOC(.) or me:isBookSubGroupTOC(.)][1]"/>
-                    </when>
-                    <otherwise><sequence select="$tocElement"/></otherwise>
-                  </choose>
-                </variable>
-                <!-- Book intro TOC and Book subGroup TOCs are never parent TOCs. Also keyword 
-                and chapter TOCs are never parent TOCs. -->
-                <sequence select="$firstSibling/preceding::milestone[@type=concat('x-usfm-toc', $TOC)]
-                        [not(me:getTocClasses(.) = ('no_toc', 'not_parent'))]
-                        [not(me:isBookIntroTOC(.))]
-                        [not(me:isBookSubGroupTOC(.))][1]"/>
-              </variable>
-              <choose>
-                <when test="not($prevTOCParent)"><value-of select="'1'"/></when>
-                <otherwise>
-                  <value-of select="1 + me:getTocLevel($prevTOCParent)"/>
-                </otherwise>
-              </choose>
-            </otherwise>
-          </choose>
-        </otherwise>
-      </choose>
-    </variable>
-    
-    <choose>
-      <when test="$result &#60;= 3">
-        <value-of select="$result"/>
-      </when>
-      <otherwise>
-        <call-template name="Error">
-<with-param name="msg">Maximum TOC level exceeded (<value-of select="$result"/> &#62; 3) defaulting to level 3: <value-of select="oc:printNode($tocElement)"/></with-param>
-        </call-template>
-        <value-of select="'3'"/>
-      </otherwise>
-    </choose>
   </function>
   
   <!-- This template may be called from any element. It adds a class attribute 

@@ -219,7 +219,7 @@ our @CF_OSIS2OSIS = ('SourceProject', 'CC', 'CCOSIS',
 our @CF_SFM2OSIS = ('EVAL_REGEX', 'RUN', 'SPECIAL_CAPITALS', 
     'PUNC_AS_LETTER');
     
-our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[not_parent]', 
+our @TOC_INSTRUCTIONS = ('[levelN]', '[no_toc]', '[parent]', '[not_parent]', 
     '[no_inline_toc]', '[only_inline_toc]', '[no_main_inline_toc]', 
     '[inline_toc_first]', '[inline_toc_last]', '[bookSubGroup]');
     
