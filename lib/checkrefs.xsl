@@ -3,6 +3,7 @@
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
+ xmlns:me="http://github.com/JohnAustinDev/osis-converters/lib/checkrefs.xsl"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:sx="http://saxon.sf.net/"
@@ -86,22 +87,9 @@ target, then a different USFM tag should be used instead.</with-param>
     </for-each>
     
     <!-- Check for aggregated glossary entries that are being referenced -->
-    <variable name="aggcheck" select="($MAINMOD_DOC | $DICTMOD_DOC)//@osisRef
-        [not(ancestor::*[@resp='x-oc'])]" as="xs:string*"/>
-    <variable name="aggcheckFail" as="xs:string*">
-      <for-each select="$DICTMOD_DOC">
-        <sequence select="for $e in $aggcheck, $r in oc:osisRef_atoms($e)
-              return if ( (key('osisID', oc:ref($r))/ancestor::div[@type='glossary'][@subType='x-aggregate'] )
-                        ) then $r else ()"/>
-      </for-each>
-    </variable>
-    <for-each select="distinct-values($aggcheckFail)">
-      <call-template name="Error">
-<with-param name="msg">Found reference(s) to aggregated glossary entry: osisID="<value-of select="oc:ref(.)"/>"</with-param>
-<with-param name="exp">For aggregated entries, only a particular duplicate may be referenced. Check CF_addDictLinks.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
-      </call-template>
-    </for-each>
- 
+    <sequence select="me:doAggregateCheck($MAINMOD_DOC)"/>
+    <sequence select="me:doAggregateCheck($DICTMOD_DOC)"/>
+    
     <!-- Check for Scripture targets that are outside the verse system -->
     <for-each select="$VERSE_SYSTEM_DOC">
       <variable name="erref" select="for $e in $scriptureRefs, $r in $e/oc:osisRef_atoms(@osisRef) 
@@ -189,5 +177,30 @@ target, then a different USFM tag should be used instead.</with-param>
     </if>
     
   </template>
+  
+  <function name="me:doAggregateCheck">
+    <param name="doc" as="document-node()?"/>
+    <choose>
+      <when test="not($doc)"><sequence select="()"/></when>
+      <otherwise>
+      <variable name="aggcheck" select="$doc//@osisRef
+          [not(ancestor::*[@resp='x-oc'])]" as="xs:string*"/>
+        <variable name="aggcheckFail" as="xs:string*">
+          <for-each select="$DICTMOD_DOC">
+            <sequence select="for $e in $aggcheck, $r in oc:osisRef_atoms($e)
+                  return if ( (key('osisID', oc:ref($r))/ancestor::div
+                              [@type='glossary'][@subType='x-aggregate'] )
+                            ) then $r else ()"/>
+          </for-each>
+        </variable>
+        <for-each select="distinct-values($aggcheckFail)">
+          <call-template name="Error">
+<with-param name="msg">Found reference(s) in <value-of select="$doc//@osisIDWork[1]"/> to aggregated glossary entry: <value-of select="concat($DICTMOD_DOC//@osisIDWork[1], ':', oc:ref(.))"/></with-param>
+<with-param name="exp">Aggregated glossary entries should not be referenced directly; individual members should be referenced. Check CF_addDictLinks.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
+          </call-template>
+        </for-each>
+      </otherwise>
+    </choose>
+  </function>
   
 </stylesheet>

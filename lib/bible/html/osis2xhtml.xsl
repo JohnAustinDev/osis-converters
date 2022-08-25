@@ -1451,8 +1451,8 @@
     <param name="x" as="node()"/>
     <sequence select="boolean(
         $x intersect $x/ancestor::div[@type='glossary'][1]/
-        descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-        [not(me:getTocClasses(.) = 'no_toc')][1])"/>
+        descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]
+        [not(me:getTocClasses(.) = 'no_toc')])"/>
   </function>
   
   <function name="me:isChildrensBibleSectionTOC" as="xs:boolean">
@@ -1471,7 +1471,10 @@
           self::milestone[@type=concat('x-usfm-toc', $TOC)]
           [not(me:getTocClasses(.) = 'no_toc')]
         ][ancestor::div[@type='book']]
-        [following::chapter[1][ends-with(@osisID, '.1')]])"/>
+        [
+          following::chapter[1] intersect 
+          ancestor::div[@type='book'][1]/descendant::chapter[1]
+        ])"/>
   </function>
   
   <function name="me:isBookTOC" as="xs:boolean">
@@ -1480,7 +1483,10 @@
       $x intersect $x/ancestor::div[@type='book'][1]/
       milestone[@type=concat('x-usfm-toc', $TOC)][1]
       [not(me:getTocClasses(.) = 'no_toc')]
-      [following::chapter[1][ends-with(@osisID, '.1')]])"/>
+      [
+        following::chapter[1] intersect 
+        ancestor::div[@type='book'][1]/descendant::chapter[1]
+      ])"/>
   </function>
   
   <function name="me:isBookSubGroupTOC" as="xs:boolean">
@@ -1510,19 +1516,24 @@
     <param name="x" as="node()"/>
     <sequence select="boolean(
       $x intersect $x/ancestor::div[@type='bookGroup'][1]/
-      descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-      [not(me:getTocClasses(.) = 'no_toc')][1]
+      descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]
+      [not(me:getTocClasses(.) = 'no_toc')]
+      [
+        . &#60;&#60; 
+        ancestor::div[@type='bookGroup'][1]/
+        descendant::div[@type='book'][1]
+      ]
       [not(contains(@n, '[bookSubGroup]'))]
     )"/>
   </function>
   
   <function name="me:isBibleIntroTOC" as="xs:boolean">
     <param name="x" as="node()"/>
-    <sequence select="boolean($x intersect $x/ancestor::osisText/div
-      [not(@type = ('book', 'bookGroup'))]
-      [. &#60;&#60; parent::osisText/div[@type='bookGroup'][1]]/
-      descendant::milestone[@type=concat('x-usfm-toc', $TOC)]
-      [not(me:getTocClasses(.) = 'no_toc')][1])"/>
+    <sequence select="boolean($x intersect $x/ancestor::osisText/
+      div[not(@type = ('book', 'bookGroup'))]
+        [. &#60;&#60; parent::osisText/div[@type='bookGroup'][1]]/
+      descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]
+      [not(me:getTocClasses(.) = 'no_toc')])"/>
   </function>
   
   <function name="me:isParentTOC" as="xs:boolean">

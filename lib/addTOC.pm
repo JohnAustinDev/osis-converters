@@ -149,15 +149,10 @@ the localized title to 'SKIP'.");
       my $osisID = $bk->getAttribute('osisID');
       my @names;
       for (my $t=1; $t<=3; $t++) {
-        # Does this book have a TOC entry if this type? If not, maybe add one.
-        my $tx1 = $t + 1;
-        my $tx2 = $t + 2;
-        if ($tx1 > 3) {$tx1 -= 3;}
-        if ($tx2 > 3) {$tx2 -= 3;}
+        # Does this book have a TOC entry of this type? If not, try to add one.
         my $e = @{$XPC->findnodes(
-          'child::node()[not(self::text())][not(self::comment())]
-          [not(self::osis:title[@type="runningHead"])]
-          [not(@type="x-usfm-toc'.$tx1.'")][not(@type="x-usfm-toc'.$tx2.'")][1]
+          'child::*[not(@resp="x-oc")][not(@type="runningHead")]
+          [not(local-name()="milestone" and not(@type="x-usfm-toc'.$t.'"))][1]
           [self::osis:milestone[@n][@type="x-usfm-toc'.$t.'"]]', $bk)}[0];
         if ($e) {push(@names, $e->getAttribute('n')); next;}
         
