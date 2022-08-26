@@ -1084,7 +1084,7 @@ sub getIndexInfo {
   
   my $attribsHP = &usfm3GetAttributes($i->getAttribute('level1'), 'lemma');
   foreach my $a (sort keys %{$attribsHP}) {
-    if ($a !~ /^(lemma|x\-dup|x\-context)$/) {
+    if ($a !~ /^(lemma|x\-dup|x\-context|x\-subType)$/) {
       &Error("Unknown usfm3 \\w tag attribute: $a ($a !~ /^(lemma|x-dup|x-context)\$/)", "Change the attribute name or remove it.");
     }
   }
