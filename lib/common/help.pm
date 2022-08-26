@@ -393,13 +393,13 @@ our %HELP = (
     ['para', 'Descriptions below may refer to extended references. An extended reference is a series of individual scripture references which together form a single sentence. An example of an extended reference is: See also Gen 4:4-6, verses 10-14 and chapter 6. The parser searches the text for extended references, and then parses each reference individually, in order, remembering the book and chapter context of the previous reference.' ],
     ['list', ['SETTING', 'DESCRIPTION'], &getList([@CF_ADDSCRIPREFLINKS], [
       ['CONTEXT_BOOK', 'Textual references do not always include the book being referred to. Then the target book must be discovered from the context of the reference. Where the automated context search fails to discover the correct book, the `CONTEXT_BOOK` setting should be used. It takes the following form:
-      \b`CONTEXT_BOOK: Gen if-xpath ancestor::div[1]`
+      \b`CONTEXT_BOOK: Gen if-xpath ancestor::osis:div[1]`
       \bWhere `Gen` is any osis book abbreviation, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then the given book will be used as the context book for that reference.' ],
       ['WORK_PREFIX', 'Sometimes textual references are to another work. For instance a Children\'s Bible may contain references to an actual Bible translation. To change the work to which references apply, the WORK_PREFIX setting should be used. It takes the following form:
       \b`WORK_PREFIX: LEZ if-xpath //@osisIDWork=\'LEZCB\'`
       \bWhere `LEZ` is any project code to be referenced, `if-xpath` is a required keyword, and what follows is any xpath expression. The xpath will be evaluated for each textual reference and if it evaluates as true then LEZ will be used as the work prefix for that reference.' ],
       ['SKIP_XPATH', 'When a section or category of text should be skipped by the parser SKIP_XPATH can be used. It takes the following form:
-      \b`SKIP_XPATH: ancestor::div[@type=\'introduction\']`
+      \b`SKIP_XPATH: ancestor::osis:div[@type=\'introduction\']`
       \bThe given xpath expression will be evaluated for every suspected textual scripture reference, and if it evaluates as true, it will be left alone.' ],
       ['ONLY_XPATH', 'Similar to SKIP_XPATH but suspected textual references will be skipped unless the given xpath expression evaluates as true.' ],
       ['CHAPTER_TERMS', 'A Perl regular expression matching localized words/phrases which will be understood as meaning "chapter". Example:
