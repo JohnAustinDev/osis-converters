@@ -51,11 +51,19 @@
       </call-template>
     </if>
     
+    <!-- Check for empty osisRef attributes -->
+    <for-each select="(//@osisRef | $MAINMOD_DOC//@osisRef)[not(normalize-space())]">
+      <call-template name="Error">
+<with-param name="msg">Empty osisRef in <value-of select="if (./ancestor::osisText/@osisIDWork) then $MAINMOD else $DICTMOD"/>: <value-of select="oc:printNode(./parent::*)"/></with-param>
+      </call-template>
+    </for-each>
+    
     <!-- Check osisRef targets (but scripture ref targets are not  
     checked because SWORD supports scripture references which do not
     exist in the referenced work)-->
-    <variable name="osisRefs" as="xs:string*" select="//@osisRef | $MAINMOD_DOC//@osisRef
-        [boolean($keywords)][starts-with(., concat($DICTMOD, ':'))]"/>
+    <variable name="osisRefs" as="xs:string*"
+      select="(//@osisRef | $MAINMOD_DOC//@osisRef)
+              [boolean($keywords)][starts-with(., concat($DICTMOD, ':'))]"/>
     
     <variable name="missing2DICT" as="xs:string*" 
         select="for $e in $osisRefs, $r in oc:osisRef_atoms($e)
