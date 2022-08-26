@@ -647,7 +647,7 @@ parseable, contact the osis-converters maintainer.\n");}
 # element (including its introduction if there is one) is dropped.
 #
 # Div elements having a scope matching any sub-publication other than
-# $parscope are pruned.
+# $parentScope are pruned.
 #
 # Div elements marked with the conversion or not_conversion feature
 # are pruned according to $pubSet
@@ -666,8 +666,7 @@ parseable, contact the osis-converters maintainer.\n");}
 #
 # If there is only one bookGroup left, the remaining bookGroup's TOC 
 # milestone will become [not_parent] so as to prevent an unnecessary TOC 
-# level, or, if the bookGroup intro is empty, it will be entirely 
-# removed.
+# level, or, if the bookGroup intro is empty, it will become [no_toc].
 #
 # If a sub-publication cover matches the scope, it will be moved to 
 # replace the main cover. Or when pruning to a single book that matches
@@ -680,12 +679,12 @@ parseable, contact the osis-converters maintainer.\n");}
 # The bookTitlesP is overwritten by the list of books left after
 # filtering IF any were filtered out, otherwise it is set to ''.
 sub filterBibleToScope {
-  my $osisP = shift;      # pointer to the osis file path
-  my $scope = shift;      # scope to filter osis file to
-  my $parscope = shift;   # scope of parent (for book pubs)
-  my $pubSet = shift;     # one of @CONV_PUB_SETS
-  my $pubTitleP = shift;  # pointer to publication title
-  my $bookTitlesP= shift; # pointer for returning unfiltered book titles
+  my $osisP = shift;       # pointer to the osis file path
+  my $scope = shift;       # scope to filter osis file to
+  my $parentScope = shift; # scope of parent (for book pubs)
+  my $pubSet = shift;      # one of @CONV_PUB_SETS
+  my $pubTitleP = shift;   # pointer to publication title
+  my $bookTitlesP= shift;  # pointer for returning unfiltered book titles
   
   my $toc      = &conf('TOC');
   my $titleTOC = &conf('TitleTOC');
@@ -707,7 +706,7 @@ sub filterBibleToScope {
   # Remove scoped periphs pertaining to other sub-publications.
   if ($pubSet ne 'tran') {
     foreach my $sp (@SUB_PUBLICATIONS) {
-      if ($sp eq $parscope) {next;}
+      if ($sp eq $parentScope) {next;}
       for (my $i=0; $i<@scopedPeriphs; $i++) {
         if (@scopedPeriphs[$i]->getAttribute('scope') eq $sp) {
           @scopedPeriphs[$i]->unbindNode();
@@ -762,7 +761,7 @@ sub filterBibleToScope {
     }
     
     # If there's only one bookGroup left, either change its TOC entry to 
-    # [not_parent] or remove it.
+    # [not_parent] or [no_toc].
     my @grps = $XPC->findnodes('//osis:div[@type="bookGroup"]', $inxml);
     if (@grps == 1 && @grps[0]) {
       my $ms = @{$XPC->findnodes(
@@ -789,20 +788,17 @@ sub filterBibleToScope {
 "Changed TOC milestone from bookGroup to n=\"".$ms->getAttribute('n').
 "\" because there is only one bookGroup in the OSIS file.", 1);
         }
-        # Don't include in the TOC if there is no intro p or the first 
+        # Add [no_toc] if there is no intro p or the first 
         # intro p is under different TOC entry.
-        elsif ($resp) {
-          $resp->unbindNode();
-          &Note(
-"Removed auto-generated TOC milestone from bookGroup because there ".
-"is only one bookGroup in the OSIS file:\n".$resp->toString."\n", 1);
-        }
         else {
-          $ms->unbindNode();
-          &Note(
-"Removed TOC milestone from bookGroup with n=\"".$ms->getAttribute('n').
-"\" because there is only one bookGroup in the OSIS file and the entry 
-contains no paragraphs.", 1);
+          my $n = $ms->getAttribute('n');
+          if ($n !~ /\Q[no_toc]/) {
+            $ms->setAttribute('n', "[no_toc]$n");
+            &Note(
+  "Added [no_toc] to TOC milestone of bookGroup n=\"".$ms->getAttribute('n').
+  "\" because there is only one bookGroup in the OSIS file and the entry 
+  contains no paragraphs.", 1);
+          }
         }
       }
     }
