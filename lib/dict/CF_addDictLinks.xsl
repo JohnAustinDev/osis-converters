@@ -31,7 +31,8 @@
           [@osisID][not(ancestor::div[@subType='x-aggregate'])]">
         <oc:target osisRef="{concat($MOD, ':' , replace(@osisID, '\.dup\d+!toc', '!toc'))}" 
                 name="{oc:decodeOsisRef(replace(@osisID, '(\.dup\d+|![^!]+)+$', ''))}"
-                scope="{ancestor::div[@scope][@scope != 'NAVMENU'][last()]/@scope}"/>
+                scope="{ancestor::div[@scope][@scope != 'NAVMENU'][last()]/@scope}"
+                osisID="{@osisID}"/>
       </for-each>
     </variable>
     
@@ -76,9 +77,12 @@
           <element name="name" namespace="http://github.com/JohnAustinDev/osis-converters">
             <value-of select="."/>
           </element>
+          <variable name="name" select="." as="xs:string"/>
           <for-each select="$matcheElements/oc:match">
             <sort select="string-length(.)" data-type="number" order="descending"/>
-            <sequence select="."/>
+            <if test="position()=1 or not($link_targets[@name=$name][ends-with(@osisID, '!toc')])">
+              <sequence select="."/>
+            </if>
           </for-each>
         </element>
         
