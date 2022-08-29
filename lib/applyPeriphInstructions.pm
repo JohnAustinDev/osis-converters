@@ -75,7 +75,9 @@ sub applyPeriphInstructions {
 
     # read the first comment to find instructions, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $idDiv)}[0];
-    &Note("Parsing comment of ".$idDiv->getAttribute('type').": ".$commentNode->textContent);  
+    if ($commentNode) {
+      &Note("Parsing comment of ".$idDiv->getAttribute('type').": ".$commentNode->textContent);
+    }
 
     my @removedDivs = ();
     if ($commentNode && $commentNode =~ /\s\S+ == \S+/) {
