@@ -314,9 +314,8 @@ $bke->getAttribute('osisID') . ' ' .
     
     # Add translation main TOC entry if not there already
     my $mainTOC = @{$XPC->findnodes(
-      '//osis:milestone[@type="x-usfm-toc'.$toc.'"]
-      [not(ancestor::osis:div[starts-with(@type, "book")])]
-      [not(preceding::osis:div[starts-with(@type, "book")])][1]', $xml)}[0];
+      '/osis:osisText[1]/osis:div[1][not(starts-with(@type, "book"))]/
+      osis:milestone[@type="x-usfm-toc'.$toc.'"][1]', $xml)}[0];
     if (!$mainTOC) {
       my $translationTitle = &conf('TranslationTitle');
       my $toc = $XML_PARSER->parse_balanced_chunk("

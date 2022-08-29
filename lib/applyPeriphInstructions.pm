@@ -55,10 +55,14 @@ sub applyPeriphInstructions {
     push(@xpath, '//osis:div[@type="'.$type.'"][not(@subType)]');
   }
   my @idDivs = $XPC->findnodes(join('|', @xpath), $xml);
+  &Note("Found ".@idDivs." special ID div elements."); 
   
-  # For Bibles, remove all id divs
+  # For Bibles, remove all id divs, and add books to the list.
   if (&isBible($xml)) {
     foreach my $idDiv (@idDivs) {$idDiv->unbindNode();}
+    my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
+    &Note("Found ".@bks." book div elements.");
+    push(@idDivs, @bks);
   }
   
   my $location = $ID_DIRECTIVES{'placement'}[0];
@@ -71,6 +75,7 @@ sub applyPeriphInstructions {
 
     # read the first comment to find instructions, if any
     my $commentNode = @{$XPC->findnodes('child::node()[2][self::comment()]', $idDiv)}[0];
+    &Note("Parsing comment of ".$idDiv->getAttribute('type').": ".$commentNode->textContent);  
 
     my @removedDivs = ();
     if ($commentNode && $commentNode =~ /\s\S+ == \S+/) {
@@ -155,6 +160,12 @@ that cloning is no longer required.");
 "Change the order of RUN statements instead."          
           );
         }
+        elsif ($inst eq $location && $idDiv->getAttribute('type', 'book')) {
+          &Error(
+"Cannot move book div elements with ID directives.", 
+"Use CustomBookOrder: ".&help('CustomBookOrder', 1));
+          next;
+        }
 
         # All identical xpath searches must return the same originally 
         # found nodes. Otherwise sequential order would be reversed with 
@@ -196,7 +207,7 @@ that cloning is no longer required.");
       if (!$markedParent) {&applyInstructions($idDiv, \%mark);}
     }
     else {
-      if (&isBible($xml)) {
+      if ($idDiv->getAttribute('type') ne 'book' && &isBible($xml)) {
         &Error("Removing periph(s)!", "You must specify the location where each peripheral file should be placed within the OSIS file.");
         &Log(&placementMessage());
         &Warn("REMOVED:\n$idDiv");
@@ -208,7 +219,7 @@ that cloning is no longer required.");
       &Note("Removing: $e2\n");
     }
     
-    if (&isBible($xml) && !$placedParent) {
+    if ($idDiv->getAttribute('type') ne 'book' && &isBible($xml) && !$placedParent) {
       my $tst = @{$XPC->findnodes('.//*', $idDiv)}[0];
       my $tst2 = @{$XPC->findnodes('.//text()[normalize-space()]', $idDiv)}[0];
       if ($tst || $tst2) {
@@ -235,10 +246,10 @@ sub findThisPeriph {
   my $parent = shift;
   my $left = shift;
   my $command = shift;
-  
+
   my $type;
   my $subType;
-  if ($left eq 'x-unknown') {$type = $left;}
+  if ($left eq 'x-unknown') {$type = 'x-unknown';}
   elsif (defined($PERIPH_TYPE_MAP{$left})) {
     $type = $PERIPH_TYPE_MAP{$left};
     $subType = $PERIPH_SUBTYPE_MAP{$left};
