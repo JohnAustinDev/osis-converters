@@ -162,7 +162,7 @@ that cloning is no longer required.");
 "Change the order of RUN statements instead."          
           );
         }
-        elsif ($inst eq $location && $idDiv->getAttribute('type', 'book')) {
+        elsif ($inst eq $location && $idDiv->getAttribute('type') eq 'book') {
           &Error(
 "Cannot move book div elements with ID directives.", 
 "Use CustomBookOrder: ".&help('CustomBookOrder', 1));
