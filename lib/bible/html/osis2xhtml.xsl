@@ -1544,12 +1544,15 @@
           [not(me:getTocClasses(.) = 'no_toc')]
           [me:getTocClasses(.) = 'parent']
         ]
-      ) or
-        me:isGlossaryTOC($x) or
-        me:isBibleIntroTOC($x) or
-        me:isBookTOC($x) or 
-        me:isBookGroupTOC($x) or
-        me:isChildrensBibleSectionTOC($x)"/>
+      ) or boolean(
+        not(me:getTocClasses($x) = ('no_toc', 'not_parent')) and 
+        (
+          me:isGlossaryTOC($x) or
+          me:isBibleIntroTOC($x) or
+          me:isBookTOC($x) or 
+          me:isBookGroupTOC($x) or
+          me:isChildrensBibleSectionTOC($x)
+        ))"/>
   </function>
   
   <function name="me:getParentTOC" as="element(milestone)?">
@@ -1562,12 +1565,21 @@
         <sequence select="()"/>
       </when>
       <when test="me:isBookIntroTOC($x)">
-        <sequence select="$x/ancestor::div[@type='book'][1]/
+        <variable name="p1" select="$x/ancestor::div[@type='book'][1]/
           descendant::milestone[me:isBookTOC(.)][1]"/>
+        <variable name="p2" select="if ($p1) then $p1 else 
+          $x/ancestor::div[@type='bookGroup'][1]/
+          descendant::milestone[me:isBookGroupTOC(.)][1]"/>
+        <sequence select="if (not($p2))
+          then () else if (me:isParentTOC($p2))
+          then $p2 else me:getParentTOC($p2)"/>
       </when>
       <when test="me:isBookTOC($x) or me:isBookSubGroupTOC($x)">
-        <sequence select="$x/ancestor::div[@type='bookGroup'][1]/
+      <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
           descendant::milestone[me:isBookGroupTOC(.)][1]"/>
+        <sequence select="if (not($p))
+          then () else if (me:isParentTOC($p))
+          then $p else me:getParentTOC($p)"/>
       </when>
       <otherwise>
         <sequence select="$x/ancestor::div
