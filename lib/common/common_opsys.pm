@@ -200,7 +200,7 @@ our %SWORD_CONFIG_VALUES = (
   'dictionary' => {
     'Companion' => '$MAINMOD',
     'ModDrv', => 'RawLD4',
-    'DataPath' => './modules/lexdict/rawld/$mod/$mod',
+    'DataPath' => './modules/lexdict/rawld4/$mod/$mod',
     'CaseSensitiveKeys' => ($UPPERCASE_DICTIONARY_KEYS ? 'true' : undef),
     'LangSortOrder' => '$keysort',
   },
