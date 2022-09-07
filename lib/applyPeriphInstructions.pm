@@ -27,7 +27,7 @@
 use strict;
 
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($XPC, $XML_PARSER, $ROC, %RESP, $ORDER_PERIPHS_COMPATIBILITY_MODE, 
+our ($XPC, $XML_PARSER, $ROC, %RESP, 
     %ANNOTATE_TYPE, $ONS);
     
 
@@ -80,7 +80,7 @@ sub applyPeriphInstructions {
     }
 
     my @removedDivs = ();
-    if ($commentNode && $commentNode =~ /\s\S+ == \S+/) {
+    if ($commentNode && $commentNode->textContent =~ /\s\S+ == \S+/) {
       my $comment = $commentNode->textContent;
       #<!-- id comment - (FRT) scope="Gen", titlePage == osis:div[@type='book'], tableofContents == remove, preface == osis:div[@type='bookGroup'][1], preface == osis:div[@type='bookGroup'][1] -->
       $comment =~ s/\s*$//; # strip end stuff
@@ -93,7 +93,7 @@ sub applyPeriphInstructions {
       }
       my @instr = split(/(,\s*(?:\S+|"[^"]+") == )/, ", $comment");
       
-      # The last scope, script and feature values in the list will be applied to the container div
+      # The final scope, script and feature values in the list will be applied to the container div
       for (my $x=1; $x < @instr; $x += 2) { # start at $x=1 because 0 is always just a leading comma
         my $instruction = @instr[$x] . @instr[($x+1)];
         $instruction =~ s/^,\s*//;
@@ -109,27 +109,7 @@ sub applyPeriphInstructions {
           $mark{$inst} = ($arg eq 'stop' ? undef:$arg);
           next;
         }
-        
-        if ($arg eq "osis:header") {
-          $ORDER_PERIPHS_COMPATIBILITY_MODE++;
-          $arg = "osis:div[\@type='bookGroup'][1]";
-          &Error("Introduction comment specifies '$instruction' but this usage has been deprecated.", 
-"This xpath was previously interpereted as 'place after the header' but 
-it now means 'place as preceding sibling of the header'. Also, the 
-peripherals are now processed in the order they appear in the CF file. 
-To retain the old meaning, change osis:header to $arg");
-          &Warn("Changing osis:header to $arg and switching to compatibility mode.");
-        }
-        elsif ($ORDER_PERIPHS_COMPATIBILITY_MODE && $arg =~ /div\[\@type=.bookGroup.]\[\d+\]$/) {
-          $arg .= "/node()[1]";
-          &Error("Introduction comment specifies '$instruction' but this usage has been deprecated.", 
-"This xpath was previously interpereted as 'place as first child of the 
-bookGroup' but it now is interpereted as 'place as the preceding sibling 
-of the bookGroup'. Also, the peripherals are now processed in the order 
-they appear in the CF file.");
-          &Warn("Changing $instruction to $inst == $arg");
-        }
-        
+     
         my $div = ( $inst eq $location ? 
                     $idDiv : 
                     &findThisPeriph($idDiv, $inst, $instruction)
@@ -140,7 +120,7 @@ they appear in the CF file.");
         else {$div->unbindNode();}
         
         if ($arg =~ /^mark$/i) {
-          &applyInstructions($div, \%mark);
+          &applyMarks($div, \%mark);
           if ($inst eq $location) {$markedParent = 1;}
           next;
         }
@@ -194,7 +174,7 @@ that cloning is no longer required.");
         my @beforeNodes;
         foreach my $e (@{$placementAP}) {
           push(@beforeNodes, $e->nextSibling);
-          &applyInstructions($e, \%mark);
+          &applyMarks($e, \%mark);
           &Note("Placing $inst == $arg for " . &printTag($e));
         }
         if ($new) {$beforeNodes{$arg} = \@beforeNodes;}
@@ -206,7 +186,7 @@ that cloning is no longer required.");
           $placedParent = 2;
         }
       }
-      if (!$markedParent) {&applyInstructions($idDiv, \%mark);}
+      if (!$markedParent) {&applyMarks($idDiv, \%mark);}
     }
     else {
       if ($idDiv->getAttribute('type') ne 'book' && &isBible($xml)) {
@@ -283,7 +263,7 @@ sub printTag {
   return $tag;
 }
 
-sub applyInstructions {
+sub applyMarks {
   my $div = shift;
   my $markP = shift;
   

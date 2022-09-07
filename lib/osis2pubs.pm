@@ -701,7 +701,7 @@ sub filterBibleToScope {
     }
   }
   
-  my @scopedPeriphs = $XPC->findnodes('//osis:div[@scope]', $inxml);
+  my @scopedPeriphs = $XPC->findnodes('//osis:div[not(@type="book")][@scope]', $inxml);
   
   # Remove scoped periphs pertaining to other sub-publications.
   if ($pubSet ne 'tran') {
