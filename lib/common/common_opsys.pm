@@ -1641,6 +1641,11 @@ sub Error {
   my $solmsg = shift;
   my $doDie = shift;
   
+  if ($CONF) {
+    my $ne = &conf('ARG_noErr');
+    if ($ne && $errmsg =~ /$ne/) {return &Warn($errmsg, $solmsg, 1);}
+  }
+  
   # Solution msgs beginning with <> will only be output once
   if ($solmsg =~ s/^<>//) {
     if ($ERR_CHECK{$solmsg}) {$solmsg='';} 
@@ -1675,6 +1680,11 @@ sub Warn {
   my $warnmsg = shift;
   my $checkmsg = shift;
   my $flag = shift;
+  
+  if ($CONF) {
+    my $nw = &conf('ARG_noWarning');
+    if ($nw && $warnmsg =~ /$nw/) {return &Note($warnmsg, 1);}
+  }
   
   # Terms beginning with <- will not have a leading line-break
   my $n1 = ($warnmsg =~ s/^<\-// ? '':"\n");
@@ -1766,17 +1776,6 @@ sub Log {
   
   $p =~ s/&lt;/</g; $p =~ s/&gt;/>/g; $p =~ s/&amp;/&/g;
   $p =~ s/&#(\d+);/my $r = chr($1);/eg;
-  
-  if ($CONF) {
-    if ($p =~ /ERROR/) {
-      my $ne = &conf('ARG_noErr');
-      if ($ne && $p =~ /$ne/) {$p =~ s/ERROR/WARNING/g;}
-    }
-    elsif ($p =~ /^[\n\s]*WARNING\:/) {
-      my $nw = &conf('ARG_noWarning');
-      if ($nw && $p =~ /$nw/) {return;}
-    }
-  }
   
   if ($flag >= 1 || $p =~ /(ERROR|DEBUG)/ || $LOGFILE eq 'none') {
     print encode("utf8", $p);

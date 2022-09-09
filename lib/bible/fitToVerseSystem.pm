@@ -1558,6 +1558,11 @@ sub applyVsysExtra {
     return;
   }
   
+  if (!exists($canonP->{$bk})) {
+    &Error("VSYS function applyVsysExtra requires verse system to contain '$bk'.");
+    return;
+  }
+  
   my $isWholeChapter = ($ch > @{$canonP->{$bk}} ? 1:$sourceP->{'isWholeChapter'});
   
   # Handle the special case of an extra chapter (like Psalm 151)

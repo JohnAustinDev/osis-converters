@@ -44,9 +44,8 @@ sub checkVerseSystem {
   my $rch = 1;
   my $rvs = 1;
   my $prevVerseID = '';
-  my $chapterEID = '';
-  my $verseEID = '';
-  my $chapterHasVerse = 0;
+  my $chapterSID = '';
+  my $verseSID = '';
   
   my $errors = 0; my $passed = 0;
   foreach my $elem ($XPC->findnodes('//*[
@@ -64,15 +63,14 @@ sub checkVerseSystem {
         &checkBookLastVerseID($prevVerseID, $canonP, \$errors);
         $prevVerseID = '';
       }
+      
       if (!defined($bki)) {
         $errors++;
         &Error(
 "Unknown or unspecified book: '$bkname'");
       }
-      elsif ($chapterEID || $verseEID) {
-        $errors++;
-        &Error(
-"Tag '$chapterEID' '$verseEID' was left open at $elem");
+      elsif (my $e = &checkOpenTags($elem, 0, $chapterSID, 0, $verseSID)) {
+        $errors += $e;
       }
       $rbk = $bkname;
       $rch = 1;
@@ -81,14 +79,13 @@ sub checkVerseSystem {
     # Check chapter
     elsif ($elem->nodeName eq 'chapter') {
       # chapter sID
-      my $cid = $elem->getAttribute('osisID');
-      if ($cid) {
-        $chapterHasVerse = 0;
-        $chapterEID = $elem->getAttribute('sID');
-        if ($cid !~ /^([^\.]+)\.(\d+)$/) {
+      my $osisID = $elem->getAttribute('osisID');
+      if ($osisID) {
+        if ($osisID !~ /^([^\.]+)\.(\d+)$/) {
           &ErrorBug(
 "Malformed chapter osisID: $elem");
           $errors++;
+          $chapterSID = $elem->getAttribute('sID');
           next;
         }
         my $bkname = $1; my $ch = (1*$2);
@@ -96,8 +93,7 @@ sub checkVerseSystem {
         if ($bkname ne $rbk) {
           $errors++;
           &Error(
-"Expected osisID to contain '$rbk': $elem");
-          next;
+"Unexpected chapter osisID: $elem");
         }
         elsif ($ch != $rch) {
           $errors++;
@@ -116,14 +112,14 @@ VSYS_CHAPTER_SPLIT_AT: Joel.2.28"));
 "Chapter should be $rch: $elem");
           }
         }
-        elsif ($verseEID) {
-          $errors++;
-          &Error(
-"Tag $verseEID was left open at $elem");
+        elsif (my $e = &checkOpenTags($elem, 0, $chapterSID, 0, $verseSID)) {
+          $errors += $e;
         }
         $rbk = $bkname;
         $rch = $ch;
         $rvs = 1;
+        
+        $chapterSID = $elem->getAttribute('sID');
       }
       # chapter eID
       else {
@@ -138,21 +134,17 @@ VSYS_CHAPTER_SPLIT_AT: Joel.2.28"));
           $errors++;
           &ErrorBug(
 "Malformed eID: $elem");
+          $chapterSID = '';
           next;
         }
         my $bkname = $1; my $ch = (1*$2);
         my $xch = $prevVerseID;
         my $xvs = $xch =~ s/\.([^\.]+)$// ? $1 : '';
         my $lvs = @{$canonP->{$bkname}}[$ch-1];
-        if ($eid ne $chapterEID) {
+        if ($eid ne $chapterSID) {
           $errors++;
           &Error(
-"Expected eID=\"$chapterEID\": $elem");
-        }
-        elsif (!$chapterHasVerse) {
-          $errors++;
-          &Error(
-"Skipping chapter containing no verses: $elem");
+"Expected eID=\"$chapterSID\": $elem");
         }
         elsif ($xch eq $eid && $xvs < $lvs) {
           $errors++;
@@ -172,7 +164,18 @@ verses somewhere within the chapter. This can be addressed in
 CF_sfm2osis.txt with something like: 
 VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
         }
-        $chapterEID = '';
+        elsif (my $e = &checkOpenTags($elem, 1, $chapterSID, 0, $verseSID)) {
+          $errors += $e;
+        }
+        $chapterSID = '';
+        
+        # Now find the next expected book, chapter, and verse.
+        $rvs = 1;
+        $rch = ($ch + 1);
+        if ($rch > @{$canonP->{$bkname}}) {
+          $rch = 1;
+          $rbk = '';
+        }
       }
     }
     # Check verse
@@ -180,12 +183,11 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
       # verse sID
       my $osisID = $elem->getAttribute('osisID');
       if ($osisID) {
-        $chapterHasVerse = 1;
-        $verseEID = $elem->getAttribute('sID');
         foreach my $vid (split(/\s+/, $osisID)) {
           if ($vid !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
             &ErrorBug("Malformed verse osisID: $vid");
             $errors++;
+            $verseSID = $elem->getAttribute('sID');
             next;
           }
           my $bkname = $1; my $ch = (1*$2); my $vs = (1*$3);
@@ -194,7 +196,7 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
           if ($bkname ne $rbk) {
             $errors++;
             &Error(
-"Expected osisID to contain '$rbk': $elem");
+"Unexpected verse osisID: $elem");
           }
           elsif ($ch != $rch) {
             $errors++;
@@ -203,13 +205,24 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
           }
           elsif ($vs > $rvs) {
             $errors++;
-            &errMissingVerse("$bkname.$ch", $rvs);
+            &Error("Missing verse $bkname.$ch.$rvs.", 
+&vsmsg("<>A possible cause of this error is that a verse 
+has been left out on purpose. Often there is a related footnote at the 
+end of the previous verse containing the text of the missing verse. This
+situation would be addressed with:
+VSYS_MISSING_FN: $bkname.$ch.$rvs
+However, if there is no footnote and a verse (or verses) have been left 
+out on purpose, this would be addressed with:
+VSYS_MISSING: $bkname.$ch.$rvs"));
           }
           elsif ($vs != $rvs) {
             $errors++;
             &Error(
 "Versification problem at $bkname.$ch.$vs (expected $rbk.$rch.$rvs)",
 "<>Check SFM files for out of order verses, missing or extra chapters.");
+          }
+          elsif (my $e = &checkOpenTags($elem, 1, $chapterSID, 0, $verseSID)) {
+            $errors += $e;
           }
           else {
             $passed++;
@@ -220,24 +233,29 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
           
           # Now find the next expected book, chapter, and verse.
           $rvs = ($vs + 1);
-          if ($rvs > @{$canonP->{$rbk}}[$rch-1]) {
+          if ($rvs > @{$canonP->{$bkname}}[$ch-1]) {
             $rvs = 1;
-            $rch++;
-            if ($rch > @{$canonP->{$rbk}}) {
+            $rch = ($ch + 1);
+            if ($rch > @{$canonP->{$bkname}}) {
               $rch = 1;
               $rbk = '';
             }
           }
         }
+        $verseSID = $elem->getAttribute('sID');
       }
       # verse eID
       elsif ($elem->getAttribute('eID')) {
-        if ($verseEID ne $elem->getAttribute('eID')) {
+        my $eid = $elem->getAttribute('eID');
+        if ($verseSID ne $eid) {
           $errors++;
           &Error(
-"Expected eID=\"$verseEID\": $elem");
+"Expected eID=\"$verseSID\": $elem");
         }
-        $verseEID = '';
+        elsif (my $e = &checkOpenTags($elem, 1, $chapterSID, 1, $verseSID)) {
+          $errors += $e;
+        }
+        $verseSID = '';
       }
       else {
         $errors++;
@@ -262,6 +280,61 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
       listed above must be fixed. Add the appropriate instructions:
       VSYS_EXTRA, VSYS_MISSING and/or VSYS_MOVED to CF_sfm2osis.txt.");
   }
+}
+
+sub checkOpenTags {
+  my $elem = shift;
+  my $expectChOpen = shift;
+  my $chSID = shift;
+  my $expectVsOpen = shift;
+  my $vsSID = shift;
+  
+  my $errors = 0;
+  if ($expectChOpen) {
+    if ($chSID) {
+      if ($elem->nodeName eq 'chapter') {
+        if ($chSID ne $elem->getAttribute('eID')) {
+          $errors++;
+          &Error(
+"Expected eID=\"$chSID\": $elem");
+        }
+      }
+    }
+    else {
+      $errors++;
+      &Error(
+"Expected chapter to be open at: $elem");
+    }
+  }
+  elsif ($chSID) {
+    $errors++;
+    &Error(
+"Expected chapter with sID=\"$chSID\" to have been closed at: $elem");
+  }
+  
+  if ($expectVsOpen) {
+    if ($vsSID) {
+      if ($elem->nodeName eq 'verse') {
+        if ($vsSID ne $elem->getAttribute('eID')) {
+          $errors++;
+          &Error(
+"Expected eID=\"$vsSID\": $elem");
+        }
+      }
+    }
+    else {
+      $errors++;
+      &Error(
+"Expected verse to be open at: $elem");
+    }
+  }
+  elsif ($vsSID) {
+    $errors++;
+    &Error(
+"Expected verse with sID=\"$vsSID\" to have been closed at: $elem");
+  }
+  
+  return $errors;
 }
 
 sub checkBookLastVerseID {
@@ -289,21 +362,6 @@ correct last verse: $bk.$ch.".@{$canonP->{$bk}}[$ch-1],
     &ErrorBug("Not an OSIS book abbreviation: '$bk'");
     $$errorsP++;
   }
-}
-
-sub errMissingVerse {
-  my $bkch = shift;
-  my $vs = shift;
-  
-&Error("Missing verse $bkch.$vs.", 
-&vsmsg("<>A possible cause of this error is that a verse 
-has been left out on purpose. Often there is a related footnote at the 
-end of the previous verse containing the text of the missing verse. This
-situation would be addressed with:
-VSYS_MISSING_FN: $bkch.$vs
-However, if there is no footnote and a verse (or verses) have been left 
-out on purpose, this would be addressed with:
-VSYS_MISSING: $bkch.$vs"));
 }
 
 our $VSMSG_DONE;
