@@ -20,15 +20,17 @@
 # for in sequential order. Reports on skipped verses, extra verses and 
 # other common problems.
 
-# Check every verse of an OSIS file against a standard versification.
-# An error message is generated for each detected deviation. NOTE: This 
-# sub cannot detect all possible deviations. For instance if a verse is 
-# split into two verses while two other verses in the same chapter are 
-# joined, the total number of verses in that chapter remains correct
-# according to the standard, and those deviations will not be detected. 
-# Also NOTE: when deviations are detected, the resolution is not. For 
-# instance, a deviation in a chapter with too many verses will generate
-# an error, but any verse in that chapter may have been split into two. 
+# Check every book, chapter and verse of an OSIS file against 
+# a standard versification. An error message is generated for each 
+# detected deviation. NOTE: Book order and bookGroup order are not 
+# checked, and this sub cannot detect all possible deviations. For 
+# instance if a verse is split into two verses while two other verses in 
+# the same chapter are joined, the total number of verses in that 
+# chapter remains correct according to the standard, and those 
+# deviations will not be detected. Also NOTE: when deviations are 
+# detected, the resolution is not. For instance, a deviation in a 
+# chapter with too many verses will generate an error, but any verse in 
+# that chapter may have been split into two. 
 sub checkVerseSystem {
   my $bibleosis = shift;
   my $vsys = shift;
@@ -38,51 +40,69 @@ sub checkVerseSystem {
   my $canonP; my $bookOrderP; my $testamentP; my $bookArrayP;
   &swordVsys($vsys, \$canonP, \$bookOrderP, \$testamentP, \$bookArrayP);
   
-  my $rbk = 'none';
+  my $rbk = '';
   my $rch = 1;
   my $rvs = 1;
+  my $prevVerseID = '';
+  my $chapterEID = '';
+  my $verseEID = '';
+  my $chapterHasVerse = 0;
   
   my $errors = 0; my $passed = 0;
-  foreach my $v ($XPC->findnodes('//osis:verse[@osisID]', $xml)) {
-    foreach my $vid (split(/\s+/, $v->getAttribute('osisID'))) {
-      if ($vid !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
-        &ErrorBug("Malformed verse osisID: $vid");
-        $errors++;
-        next;
+  foreach my $elem ($XPC->findnodes('//*[
+      local-name() = "div" or  
+      local-name() = "chapter" or 
+      local-name() = "verse"
+    ]', $xml)) {
+
+    # Check book
+    if ($elem->nodeName eq 'div' &&
+        $elem->getAttribute('type') eq 'book') {
+      my $bkname = $elem->getAttribute('osisID');
+      my $bki = &defaultOsisIndex($bkname);
+      if ($prevVerseID) {
+        &checkBookLastVerseID($prevVerseID, $canonP, \$errors);
+        $prevVerseID = '';
       }
-      my $bk = $1; my $ch = (1*$2); my $vs = (1*$3);
-      
-      if (!defined($canonP->{$bk})) {
-        if (defined($canonP->{$rbk})) {
-          &checkVerseSystemLastVerse(\$rbk, \$rch, \$rvs, $canonP, \$errors);
-          &Warn(
-"Cannot check verses in book $bk because it is not part of the $vsys verse system.");
+      if (!defined($bki)) {
+        $errors++;
+        &Error(
+"Unknown or unspecified book: '$bkname'");
+      }
+      elsif ($chapterEID || $verseEID) {
+        $errors++;
+        &Error(
+"Tag '$chapterEID' '$verseEID' was left open at $elem");
+      }
+      $rbk = $bkname;
+      $rch = 1;
+      $rvs = 1;
+    }
+    # Check chapter
+    elsif ($elem->nodeName eq 'chapter') {
+      # chapter sID
+      my $cid = $elem->getAttribute('osisID');
+      if ($cid) {
+        $chapterHasVerse = 0;
+        $chapterEID = $elem->getAttribute('sID');
+        if ($cid !~ /^([^\.]+)\.(\d+)$/) {
+          &ErrorBug(
+"Malformed chapter osisID: $elem");
+          $errors++;
+          next;
         }
-        next;
-      }
-      if ($rbk eq 'none') {$rbk = $bk;}
-    
-      # Count the passing results
-      if    ($bk eq $rbk && 
-             $ch == $rch && 
-             $vs == $rvs) {
-        $passed++;
-      }
-      elsif ($bk eq $rbk && 
-             $ch == ($rch + 1) && 
-             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
-        $passed++;
-      }
-      elsif ($bk ne $rbk &&
-             $ch == 1 && $rch == @{$canonP->{$rbk}} && 
-             $vs == 1 && ($rvs - 1) == @{$canonP->{$rbk}}[$rch-1]) {
-        $passed++;
-      }
-      
-      # Otherwise, report various failing results
-      elsif ($vs == 1 && $ch > @{$canonP->{$rbk}}) {
-        $errors++;
-        &Error("Extra chapter: $bk.$ch", 
+        my $bkname = $1; my $ch = (1*$2);
+        my $bki = &defaultOsisIndex($bkname);
+        if ($bkname ne $rbk) {
+          $errors++;
+          &Error(
+"Expected osisID to contain '$rbk': $elem");
+          next;
+        }
+        elsif ($ch != $rch) {
+          $errors++;
+          if (exists($canonP->{$bkname}) && $ch > @{$canonP->{$bkname}}) {
+            &Error("Extra chapter: $bkname.$ch", 
 &vsmsg("<>This happens for instance when Synodal Pslam 151 is 
 included in a SynodalProt translation. Such a situation can be addressed 
 in CF_sfm2osis.txt with something like: 
@@ -90,46 +110,146 @@ VSYS_EXTRA: Ps.151 <- Synodal:Ps.151
 It is also possible some chapter was split into two. This can be 
 addressed with something like:
 VSYS_CHAPTER_SPLIT_AT: Joel.2.28"));
-      }
-      elsif ($vs == 1) {
-        $errors++;
-        my $vl = ($rvs - 1);
-        my $vlr = @{$canonP->{$rbk}}[$rch-1];
-        if ($vl < $vlr) {
+          }
+          else {
+            &Error(
+"Chapter should be $rch: $elem");
+          }
+        }
+        elsif ($verseEID) {
+          $errors++;
           &Error(
-"Chapter ended with ".($vlr-$vl)." missing verse(s): $rbk.$rch",
+"Tag $verseEID was left open at $elem");
+        }
+        $rbk = $bkname;
+        $rch = $ch;
+        $rvs = 1;
+      }
+      # chapter eID
+      else {
+        my $eid = $elem->getAttribute('eID');
+        if (!$eid) {
+          $errors++;
+          &ErrorBug(
+"Chapter tag must have either an osisID or an eID: $elem");
+          next;
+        }
+        if ($eid !~ /^([^\.]+)\.(\d+)$/) {
+          $errors++;
+          &ErrorBug(
+"Malformed eID: $elem");
+          next;
+        }
+        my $bkname = $1; my $ch = (1*$2);
+        my $xch = $prevVerseID;
+        my $xvs = $xch =~ s/\.([^\.]+)$// ? $1 : '';
+        my $lvs = @{$canonP->{$bkname}}[$ch-1];
+        if ($eid ne $chapterEID) {
+          $errors++;
+          &Error(
+"Expected eID=\"$chapterEID\": $elem");
+        }
+        elsif (!$chapterHasVerse) {
+          $errors++;
+          &Error(
+"Skipping chapter containing no verses: $elem");
+        }
+        elsif ($xch eq $eid && $xvs < $lvs) {
+          $errors++;
+          &Error(
+"Chapter ended with ".($lvs-$xvs)." missing verse(s): $eid",
 &vsmsg("<>This often means verses were joined together somewhere 
 within the chapter. This can be addressed in CF_sfm2osis.txt with 
 something like: 
 VSYS_MOVED: Gen.2.4 -> Gen.2.3.PART"));
         }
-        else {
+        elsif ($xch eq $eid && $xvs > $lvs) {
+          $errors++;
           &Error(
-"Chapter ended with ".($vl-$vlr)." extra verse(s): $rbk.$rch",
+"Chapter ended with ".($xvs-$lvs)." extra verse(s): $eid",
 &vsmsg("<>This often means verses were split into smaller 
 verses somewhere within the chapter. This can be addressed in 
 CF_sfm2osis.txt with something like: 
 VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
         }
+        $chapterEID = '';
       }
-      elsif ($vs > $rvs) {
-        $errors++;
-        &errMissingVerse("$bk.$ch", $rvs);
+    }
+    # Check verse
+    elsif ($elem->nodeName eq 'verse') {
+      # verse sID
+      my $osisID = $elem->getAttribute('osisID');
+      if ($osisID) {
+        $chapterHasVerse = 1;
+        $verseEID = $elem->getAttribute('sID');
+        foreach my $vid (split(/\s+/, $osisID)) {
+          if ($vid !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+            &ErrorBug("Malformed verse osisID: $vid");
+            $errors++;
+            next;
+          }
+          my $bkname = $1; my $ch = (1*$2); my $vs = (1*$3);
+          my $bki = &defaultOsisIndex($bkname);
+         
+          if ($bkname ne $rbk) {
+            $errors++;
+            &Error(
+"Expected osisID to contain '$rbk': $elem");
+          }
+          elsif ($ch != $rch) {
+            $errors++;
+            &Error(
+"Expected chapter to be '$rch': $elem");
+          }
+          elsif ($vs > $rvs) {
+            $errors++;
+            &errMissingVerse("$bkname.$ch", $rvs);
+          }
+          elsif ($vs != $rvs) {
+            $errors++;
+            &Error(
+"Versification problem at $bkname.$ch.$vs (expected $rbk.$rch.$rvs)",
+"<>Check SFM files for out of order verses, missing or extra chapters.");
+          }
+          else {
+            $passed++;
+          }
+          
+          # Save as previous verse for later checking if the book is finished.
+          $prevVerseID = "$bkname.$ch.$vs";
+          
+          # Now find the next expected book, chapter, and verse.
+          $rvs = ($vs + 1);
+          if ($rvs > @{$canonP->{$rbk}}[$rch-1]) {
+            $rvs = 1;
+            $rch++;
+            if ($rch > @{$canonP->{$rbk}}) {
+              $rch = 1;
+              $rbk = '';
+            }
+          }
+        }
+      }
+      # verse eID
+      elsif ($elem->getAttribute('eID')) {
+        if ($verseEID ne $elem->getAttribute('eID')) {
+          $errors++;
+          &Error(
+"Expected eID=\"$verseEID\": $elem");
+        }
+        $verseEID = '';
       }
       else {
         $errors++;
-        &Error(
-"Versification problem at $bk.$ch.$vs (expected $rbk.$rch.$rvs)",
-"<>Check SFM files for out of order verses, missing or extra chapters.");
+        &ErrorBug(
+"Verse tag must have either an osisID or an eID: $elem");
       }
-      
-      $rbk = $bk;
-      $rch = $ch;
-      $rvs = ($vs+1);
     }
   }
-  &checkVerseSystemLastVerse(\$rbk, \$rch, \$rvs, $canonP, \$errors);
-
+  if ($prevVerseID) {
+    &checkBookLastVerseID($prevVerseID, $canonP, \$errors);
+  }
+        
   if (!$errors && $passed) {
     &Log("\n"); 
     &Note("All verses were checked against verse system $vsys.");
@@ -144,26 +264,31 @@ VSYS_MOVED: Gen.2.3.PART -> Gen.2.4"));
   }
 }
 
-sub checkVerseSystemLastVerse {
-  my $rbkP = shift;
-  my $rchP = shift;
-  my $rvsP = shift;
+sub checkBookLastVerseID {
+  my $verseID = shift;
   my $canonP = shift;
   my $errorsP = shift;
   
-  if (defined($canonP->{$$rbkP})) {
-    if ($$rchP != @{$canonP->{$$rbkP}} || ($$rvsP - 1) != @{$canonP->{$$rbkP}}[$$rchP-1]) {
+  if ($verseID !~ /^([^\.]+)\.(\d+)\.(\d+)$/) {
+    &ErrorBug("Malformed verse osisID: $verseID");
+    $$errorsP++;
+    return;
+  }
+  my $bk = $1; my $ch = (1*$2); my $vs = (1*$3);
+  
+  if (defined($canonP->{$bk})) {
+    if ($ch != @{$canonP->{$bk}} || $vs != @{$canonP->{$bk}}[$ch-1]) {
       $$errorsP++;
       &Error(
-"The book's last verse, $$rbkP.$$rchP.".($$rvsP-1).", is not the last  
-verse of the verse system: $$rbkP.$$rchP.".@{$canonP->{$$rbkP}}[$$rchP-1], 
+"The book's last verse, $verseID, is not the  
+correct last verse: $bk.$ch.".@{$canonP->{$bk}}[$ch-1], 
 &vsmsg());
     }
   }
-  
-  $$rbkP = 'none';
-  $$rchP = 1;
-  $$rvsP = 1;
+  else {
+    &ErrorBug("Not an OSIS book abbreviation: '$bk'");
+    $$errorsP++;
+  }
 }
 
 sub errMissingVerse {
