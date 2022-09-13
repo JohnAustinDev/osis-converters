@@ -709,7 +709,7 @@ sub addLinksText {
       }
 
       ADDLINK:
-      if ($unhandledBook && !$isFixed && !$isRefElement) {
+      if ($unhandledBook && !$isFixed) {
         $numUnhandledWords++;
         my $ubk = $unhandledBook;
         $ubk =~ s/^.*>$/<tag>/;
@@ -859,7 +859,7 @@ sub decodeTerms {
 #       $matchP - holds the matched text
 #       $typeP - holds the type of match
 #       $uhbkP - holds the word preceding the matched text IF no book or book-term was matched.
-#                        The uhkP value is null only if a book or book-term WAS matched
+#                The uhbkP value is null only if a book or book-term WAS matched
 # Returns:
 #       1 if a match was found
 #       0 otherwise

@@ -34,8 +34,8 @@ sub addTOC {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
-  my @tocTags = $XPC->findnodes('//osis:milestone[@n]
-                                [starts-with(@type, "x-usfm-toc")]', $xml);
+  my @tocTags = $XPC->findnodes("//osis:milestone[\@n]
+                                [\@type = concat('x-usfm-toc', $toc)]", $xml);
   
   if (@tocTags) {
     &Note("Found ".scalar(@tocTags)." table of content milestone tags:");
@@ -142,19 +142,42 @@ the localized title to 'SKIP'.");
   
   elsif (&conf('ProjectType') =~ /^(bible|commentary)$/) {
     # Insure there are as many possible x-usfm-tocN entries for each 
-    # book, and add book introduction TOC entries where needed.
+    # book. If names are found in BookNames.xml they will overwrite any
+    # existing x-usfm-tocN: abbr = \toc1, short = \toc2, long = \toc3.
+    # Also and add book introduction TOC entries where needed.
     my @bks = $XPC->findnodes('//osis:div[@type="book"]', $xml);
     my %bookIntros;
     foreach my $bk (@bks) {
       my $osisID = $bk->getAttribute('osisID');
-      my @names;
+      my @names; # Used to generate a regex to find the title element.
+      my @attrib = ('', 'long', 'short', 'abbr');
       for (my $t=1; $t<=3; $t++) {
-        # Does this book have a TOC entry of this type? If not, try to add one.
+        my $name;
+        my $type;
+        
+        # Try and get the book name from BookNames.xml
+        if (%BOOKNAMES) {
+          $name = $BOOKNAMES{$osisID}{@attrib[$t]};
+          if ($name) {$type = @attrib[$t];}
+        }
+        
+        # Does this book have a TOC entry of this type? If so, insure it 
+        # has the correct value from BookNames.xml. If not, try to add one.
         my $e = @{$XPC->findnodes(
           'child::*[not(@resp="x-oc")][not(@type="runningHead")]
           [not(local-name()="milestone" and not(@type="x-usfm-toc'.$t.'"))][1]
           [self::osis:milestone[@n][@type="x-usfm-toc'.$t.'"]]', $bk)}[0];
-        if ($e) {push(@names, $e->getAttribute('n')); next;}
+        if ($e) {
+          my $n = $e->getAttribute('n');
+          my $i = $n =~ s/^((\[[^\]]*\])+)// ? $1 : '';
+          if (!$name) {$name = $n;}
+          if ($n ne $name) {
+            $e->setAttribute('n', "$i$name");
+            &Note("Updating \\toc$t from '$n' to '$name' because BookNames.xml contains '$type' for $osisID.");
+          }
+          push(@names, $name);
+          next;
+        }
         
         if ($t eq $toc && !$WRITETOC_MSG) {
           &Warn(
@@ -169,17 +192,7 @@ tag number you wish to use.)\n");
           $WRITETOC_MSG++;
         }
         
-        my $name;
-        my $type;
-        
-        # Try and get the book name from BookNames.xml
-        if (%BOOKNAMES) {
-          my @attrib = ('', 'long', 'short', 'abbr');
-          $name = $BOOKNAMES{$osisID}{@attrib[$t]};
-          if ($name) {$type = @attrib[$t];}
-        }
-        
-        # If $toc tag's name is missing, be sure to find the name.
+        # If $toc tag's name is missing, be sure to find a name.
         if (!$name && $t eq $toc) {
           my $title = @{$XPC->findnodes('descendant::osis:title
               [@type="runningHead"]', $bk)}[0];

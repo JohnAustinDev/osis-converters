@@ -60,6 +60,8 @@
   
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   
+  <param name="TitleTOC" select="oc:conf('TitleTOC', /)"/>
+  
   <param name="FullResourceURL" select="oc:conf('FullResourceURL', /)"/><!-- '' or 'false' turns this feature off -->
   
   <param name="tocWidth" select="xs:integer(number(oc:sarg('tocWidth', /, '50')))"/><!-- in chars, is ARG_tocWidth in config.conf -->
@@ -1666,18 +1668,29 @@
   
   <!-- me:getTocTitle returns the title text of tocElement -->
   <function name="me:getTocTitle" as="xs:string">
-    <param name="tocElement" as="element()"/>
+    <param name="tocElement0" as="element()"/>
+    
+    <variable name="tocElement" as="element()">
+      <choose>
+        <when test="$tocElement0[self::milestone][me:isBookTOC($tocElement0)]/parent::*/
+          milestone[@type=concat('x-usfm-toc', $TitleTOC)][1][@n]">
+          <sequence select="$tocElement0/parent::*/
+          milestone[@type=concat('x-usfm-toc', $TitleTOC)][1][@n]"/>
+        </when>
+        <otherwise><sequence select="$tocElement0"/></otherwise>
+      </choose>
+    </variable>
     
     <variable name="tocTitleEXPLICIT" 
-        select="if (matches($tocElement/@n, '^(\[[^\]]*\])+')) then 
-                replace($tocElement/@n, '^(\[[^\]]*\])+', '') else if
-                ($tocElement/@n) then $tocElement/@n else ''"/>
+        select="if ($tocElement/@n) 
+          then replace($tocElement/@n, '^(\[[^\]]*\])+', '') 
+          else ''"/>
                 
     <variable name="tocTitleOSIS">
       <choose>
         <!-- milestone TOC -->
-        <when test="$tocElement/self::milestone[@type=concat('x-usfm-toc', $TOC) and @n]">
-          <value-of select="$tocElement/@n"/>
+        <when test="$tocElement0/self::milestone[@type=concat('x-usfm-toc', $TOC)]">
+          <value-of select="replace($tocElement/@n, '^(\[[^\]]*\])+', '')"/>
         </when>
         <!-- chapter TOC -->
         <when test="$tocElement/self::chapter[@sID]">
