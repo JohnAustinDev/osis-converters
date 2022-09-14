@@ -1494,10 +1494,9 @@
   <function name="me:isBookSubGroupTOC" as="xs:boolean">
     <param name="x" as="node()"/>
     <choose>
-      <when test="not($x[
-          self::milestone[@type=concat('x-usfm-toc', $TOC)]
-          [not(me:getTocClasses(.) = 'no_toc')]
-        ])">
+      <when test="
+        not($x[self::milestone[@type=concat('x-usfm-toc', $TOC)]]) or
+        me:getTocClasses($x) = 'no_toc'">
         <sequence select="false()"/>
       </when>
       <when test="$x[contains(@n, '[bookSubGroup]')]">
@@ -1508,7 +1507,8 @@
             $x/ancestor::div
             [parent::div[@type='bookGroup']]
             [not(@type='book')]
-            [preceding-sibling::div[@type='book']]
+            [preceding-sibling::div[1][@type='book']]
+            [$x intersect descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]]
           )"/>
       </otherwise>
     </choose>
