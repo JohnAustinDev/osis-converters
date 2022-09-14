@@ -1553,6 +1553,7 @@
           me:isBibleIntroTOC($x) or
           me:isBookTOC($x) or 
           me:isBookGroupTOC($x) or
+          (me:isBookSubGroupTOC($x) and me:getTocLevel($x) = 1) or
           me:isChildrensBibleSectionTOC($x)
         ))"/>
   </function>
@@ -1576,7 +1577,17 @@
           then () else if (me:isParentTOC($p2))
           then $p2 else me:getParentTOC($p2)"/>
       </when>
-      <when test="me:isBookTOC($x) or me:isBookSubGroupTOC($x)">
+      <when test="me:isBookTOC($x)">
+      <!-- really, p should use me:isBookSubGroupTOC(.)[ancestor::div[contains(@scope, $x/@osisID)]
+      but @scope needs to be a book list to work right. -->
+      <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
+          descendant::milestone[me:isBookGroupTOC(.) or me:isBookSubGroupTOC(.)]
+          [. &#60;&#60; $x][last()]"/>
+        <sequence select="if (not($p))
+          then () else if (me:isParentTOC($p))
+          then $p else me:getParentTOC($p)"/>
+      </when>
+      <when test="me:isBookSubGroupTOC($x)">
       <variable name="p" select="$x/ancestor::div[@type='bookGroup'][1]/
           descendant::milestone[me:isBookGroupTOC(.)][1]"/>
         <sequence select="if (not($p))
