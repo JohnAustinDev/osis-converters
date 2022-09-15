@@ -169,7 +169,7 @@ that cloning is no longer required.");
         # The beforeNodes may be a toc or a runningHead etc., in which 
         # case an appropriate following-sibling will be used instead 
         # (and beforeNodes will be updated).
-        my $placementAP = &placeElement($div, $beforeNodes{$arg}, $inst);
+        my $placementAP = &placeElement($div, $beforeNodes{$arg}, $arg);
         
         my @beforeNodes;
         foreach my $e (@{$placementAP}) {
@@ -339,12 +339,14 @@ sub applyMarks {
 }
 
 # Insert the $div (or a clone thereof) before each $beforeNodesAP node. 
-# But when a $beforeNode is a toc or runningHead element etc., then 
-# insert the $div before the following non-toc, non-runningHead node 
-# instead. An array pointer containing the placed element(s) is returned.
+# But when the $xpath ends with /node()[1] and the result node is a toc, 
+# runningHead, comment or empty text node, then insert the $div before 
+# next sibling which is not one of those. An array pointer containing 
+# the placed element(s) is returned.
 sub placeElement {
   my $div = shift;
   my $beforeNodesAP = shift;
+  my $xpath = shift;
   
   my @elements;
   my $multiple;
@@ -353,15 +355,16 @@ sub placeElement {
   }
   
   foreach my $beforeNode (@{$beforeNodesAP}) {
-  
-    # place as first non-toc and non-runningHead element in destination container
-    while (@{$XPC->findnodes('
-      ./self::comment() |
-      ./self::text()[not(normalize-space())] | 
-      ./self::osis:title[@type="runningHead"] | 
-      ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
-    ', $beforeNode)}[0]) {
-      $beforeNode = $beforeNode->nextSibling();
+    if ($xpath =~ /(\/|child::)node\(\)\[1\]$/) {
+      # place as first non-toc and non-runningHead sibling
+      while (@{$XPC->findnodes('
+        ./self::comment() |
+        ./self::text()[not(normalize-space())] | 
+        ./self::osis:title[@type="runningHead"] | 
+        ./self::osis:milestone[starts-with(@type, "x-usfm-toc")]
+      ', $beforeNode)}[0]) {
+        $beforeNode = $beforeNode->nextSibling();
+      }
     }
     
     my $element = ($multiple ? $div->cloneNode(1) : $div);
