@@ -398,7 +398,7 @@ $bke->getAttribute('osisID') . ' ' .
                                 [not(contains(@n, "[bookSubGroup]"))]'
           , $bookGroup)}[0];
       
-      # bookGroup child TOC entries will be made [not_parent] IF there  
+      # bookGroup child TOC entries will be made [not_parent] if there  
       # already exists a bookGroup introduction TOC entry (otherwise 
       # chapters would end  up as useless level4 which do not appear in 
       # eBook readers).
@@ -407,7 +407,8 @@ $bke->getAttribute('osisID') . ' ' .
             [not(@type="book")][not(@resp="'.$ROC.'")]
             [ count(descendant::osis:milestone
               [@type="x-usfm-toc'.$toc.'"]) = 1
-            ]/osis:milestone[@type="x-usfm-toc'.$toc.'"]'
+            ]/osis:milestone[@type="x-usfm-toc'.$toc.'"]
+                            [not(contains(@n, "[bookSubGroup]"))]'
             , $bookGroup)) {
           if ($m->getAttribute('n') !~ /\Q[not_parent]\E/ && 
               $m->parentNode->unique_key ne 
