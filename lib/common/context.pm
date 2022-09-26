@@ -394,7 +394,10 @@ sub inContext {
   
   if ($contextsHashP->{'all'}) {return $context;}
   
+  &testValidContextAtom($context);
+  
   foreach my $atom (@{&atomizeContext($context)}) {
+    &testValidContextAtom($atom);
     if ($contextsHashP->{'contexts'}{$atom}) {return $context;}
     # check book separately for big speedup (see getContextAttributeHash)
     if ($atom =~ s/^([^\.]+).*?$/$1/ && $contextsHashP->{'books'}{$atom}) {
@@ -403,6 +406,19 @@ sub inContext {
   }
   
   return 0;
+}
+
+sub testValidContextAtom {
+  my $test = shift;
+  
+  if ($test =~ /^(BIBLE_INTRO|BOOKGROUP_INTRO|BOOKSUBGROUP_INTRO|BEFORE_)/) {
+    return;
+  }
+  
+  $test =~ s/_\d+_//g;
+  if ($test =~ /_/) {
+    &Error("Context value should not contain underscore(s): $test", "Did you mean to use space(s)?");
+  }
 }
 
 # Return a context string as the '+' separated list of osisID's which 

@@ -911,7 +911,7 @@ an image whose filename is any scope that contains $scope":''));
   &writeXMLFile($inxml, $osisP);
 }
 
-# Returns names of filtered divs, or else '-1' if all were be filtered or '0' if none were be filtered
+# Returns names of filtered divs, or else '-1' if all were filtered or '0' if none were be filtered
 sub filterGlossaryToScope {
   my $osisP = shift; # OSIS to filter
   my $scope = shift; # scope to filter to

@@ -34,7 +34,9 @@ sub checkImageFileNames {
 
   my $spaces = &shell("find '$dir' -type f -name '* *' -print", 3, 1);
   if ($spaces) {
-    &Error("Image filenames must not contain spaces:\n$spaces", "Remove or replace space characters in these image file names.");
+    &Error(
+"Image filenames must not contain spaces:\n$spaces",
+"Remove or replace space characters in these image file names.");
   }
 }
 
@@ -395,7 +397,7 @@ sub createCompositeCoverImage {
   
   my @sorted = sort  { &sortCoverImages($a, $b) } @{$coversAP};
   $coversAP = \@sorted;
-  
+ 
   # adjustable constants
   my $nmx   =   5; # after this number of images, the composite image's width and height will grow linearly
   my $minxs =  20; # minimum x offset of images
@@ -438,19 +440,36 @@ sub createCompositeCoverImage {
   return (-e $cover ? 1:0);
 }
 
-# Sort cover images (with 'top' meaning last) having NT on top of (after) OT, and earlier books on top of (after) newer books
+# Sort cover images. The last image will be fully visible when stacked. 
+# Put OT first, in reverse book order. Put NT next, also reverse book 
+# order.
 sub sortCoverImages {
   my $a = shift;
   my $b = shift;
   
-  my $abbr = join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}});
+  my $ot = join(' ', @{$OSIS_GROUP{'OT'}});
+  my $nt = join(' ', @{$OSIS_GROUP{'NT'}});
   
   my $sa = $a; $sa =~ s/^.*\///; $sa =~ s/\.[^\.]+$//; $sa =~ s/^([^\s_\-]+).*?$/$1/;
   my $sb = $b; $sb =~ s/^.*\///; $sb =~ s/\.[^\.]+$//; $sb =~ s/^([^\s_\-]+).*?$/$1/;
-  my $ia = index($abbr, $sa);
-  my $ib = index($abbr, $sb);
-
-  return $ib <=> $ia;
+  my $iaOT = index($ot, $sa);
+  my $ibOT = index($ot, $sb);
+  my $iaNT = index($nt, $sa);
+  my $ibNT = index($nt, $sb);
+  
+  if ($iaOT != -1) {
+    if ($ibOT != -1) {
+      return $ibOT <=> $iaOT;
+    }
+    return -1;
+  }
+  if ($iaNT != -1) {
+    if ($ibNT != -1) {
+      return $ibNT <=> $iaNT;
+    }
+    return 1;
+  }
+  return 0;
 }
 
 # Returns a portion of an ImageMagick command line for adding a cation to an image
