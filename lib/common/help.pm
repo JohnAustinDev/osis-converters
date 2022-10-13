@@ -575,11 +575,11 @@ our %HELP = (
 # must be included in that order but entry is optional, and also 'all' 
 # can be used in place of any particular value. If no key is provided, 
 # the entire help contents will be dumped.
-# If $showcmd is set, a command which may be used to generate the help 
-# message is also shown.
 # If $errorOnFail is set and $lookup is not found, an error is thrown.
 # If $lookup is prepended with TEST: then 'yes' will be returned if it
 # exists in help.
+# If $returnFirstPara is set only the first paragraph will be returned
+# of the total that otherwise would have been returned.
 sub help {
   my $lookup = shift;
   my $errorOnFail = shift;
@@ -728,7 +728,7 @@ sub help {
   }
   
   if (!$r) {
-    $r = "No help available for '$lookup'.\n";
+    $r = "No help found for '$lookup'.\n";
     if ($errorOnFail) {&Error($r);}
   }
   

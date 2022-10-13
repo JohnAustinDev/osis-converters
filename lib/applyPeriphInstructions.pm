@@ -190,7 +190,9 @@ that cloning is no longer required.");
     }
     else {
       if ($idDiv->getAttribute('type') ne 'book' && &isBible($xml)) {
-        &Error("Removing periph(s)!", "You must specify the location where each peripheral file should be placed within the OSIS file.");
+        &Error(
+"Removing periph(s)!", 
+"You must specify the location where each peripheral file should be placed within the OSIS file. See: ".&help('sfm id directives'));
         &Log(&placementMessage());
         &Warn("REMOVED:\n$idDiv");
       }
