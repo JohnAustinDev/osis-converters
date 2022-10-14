@@ -48,7 +48,7 @@ use File::Spec;
 select STDERR; $| = 1;  # make unbuffered
 select STDOUT; $| = 1;  # make unbuffered
 
-our $OC_VERSION = "0.9";
+our $OC_VERSION = "1.0";
 
 # These two globals must be initialized in the entry script:
 our ($SCRIPT, $SCRD, $SCRIPT_NAME);
