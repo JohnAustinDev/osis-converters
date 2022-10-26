@@ -542,9 +542,20 @@ sub write_osisIDs {
   
   &Log("\nWriting osisIDs:\n", 1);
   
-  my %ids;
   # splitOSIS offers a massive speedup for note osisIDs
-  foreach my $osis (&splitOSIS($$osisP)) {
+  my @osis = &splitOSIS($$osisP);
+  
+  # Gather existing osisID, so they aren't duplicated
+  my %ids;
+  foreach my $osis (@osis) {
+    my $xml; my $filter;
+    my $element = &splitOSIS_element($osis, \$xml, \$filter);
+    foreach my $id (@{$XPC->findnodes('//@osisID', $element)}) {
+      $ids{$id->value}++;
+    }
+  }
+  
+  foreach my $osis (@osis) {
     my $xml; my $filter;
     my $element = &splitOSIS_element($osis, \$xml, \$filter);
     
