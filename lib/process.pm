@@ -78,14 +78,15 @@ sub processOSIS {
               $OSIS, 
               "$MOD_OUTDIR/CF_addDictLinks.dict.xml", 
               { 'output' => "$MOD_OUTDIR/CF_addDictLinks.dict.xml",
+                'type' => 'dict',
                 'notXPATH_default' => $DICTIONARY_NotXPATH_Default, });
 
     &runXSLT("$SCRD/lib/dict/CF_addDictLinks.xsl", 
               $OSIS, 
               "$MOD_OUTDIR/CF_addDictLinks.bible.xml",
               { 'output' => "$MOD_OUTDIR/CF_addDictLinks.bible.xml",
-                'notXPATH_default' => $DICTIONARY_NotXPATH_Default,
-                'anyEnding' => 'true', });
+                'type' => 'bible',
+                'notXPATH_default' => $DICTIONARY_NotXPATH_Default, });
   }
   
   # Bible OSIS: re-order books and periphs according to CF_sfm2osis.txt

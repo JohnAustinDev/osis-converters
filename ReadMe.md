@@ -126,7 +126,7 @@ DIRECTIVE | DESCRIPTION
 **feature (M)** | Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.
 **cover (M)** | Takes a `( yes \| no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.
 **conversion (M)** | Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( none \| ebooks \| html \| sword \| gobible \| book \| subpub \| tbook \| tran)`.
-**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| book \| subpub \| tbook \| tran)`.
+**not_conversion (M)** | Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ebooks \| html \| sword \| gobible \| CF_addDictLinks \| CF_addDictLinks.bible \| CF_addDictLinks.dict \| book \| subpub \| tbook \| tran)`.
 
 
 ### SPECIAL FEATURES 

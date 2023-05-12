@@ -275,7 +275,9 @@ sub applyMarks {
   
   my $sdiv = &printTag($div);
 
-  my $valid = join('|', &PUB_TYPES(), @CONV_PUB_SETS, 'none');
+  my $valid = join('|', &PUB_TYPES(), @CONV_PUB_SETS, 
+    'none', 'CF_addDictLinks', 'CF_addDictLinks.bible', 
+    'CF_addDictLinks.dict');
 
   if ($markP->{'scope'}) {
     $div->setAttribute('scope', $markP->{'scope'});
@@ -293,8 +295,8 @@ sub applyMarks {
           "' annotateRef='".$markP->{$con}."' to $sdiv");
       }
       else {
-        &Error("Unrecognized peripheral instruction: conversion == ".$markP->{$con}, 
-          "Only the following values are currently allowed: conversion == $valid");
+        &Error("Unrecognized peripheral instruction: $con == ".$markP->{$con}, 
+          "Only the following values are currently allowed: $con == $valid");
       }
     }
   }

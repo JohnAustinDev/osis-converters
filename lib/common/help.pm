@@ -224,7 +224,7 @@ our %HELP = (
       ['feature', 'Mark OSIS div elements for use with a particular feature. See SPECIAL FEATURES below.' ],
       ['cover', 'Takes a `( yes | no )` value. A value of yes marks OSIS div elements to receive a cover image when scope matches an available cover image. Use in conjunction with the scope ID directive.' ],
       ['conversion', 'Takes a space separated list of conversions for which the marked OSIS div is to be included. For conversions not listed, the OSIS div will be removed. Conversion options are `( ' . join(' | ', 'none', &PUB_TYPES(), @CONV_PUB_SETS) . ')`.' ],
-      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ' . join(' | ', &PUB_TYPES(), @CONV_PUB_SETS) . ')`.' ],
+      ['not_conversion', 'Takes a space separated list of conversions during which the marked OSIS div is to be removed. Conversion options are `( ' . join(' | ', &PUB_TYPES(), 'CF_addDictLinks', 'CF_addDictLinks.bible', 'CF_addDictLinks.dict', @CONV_PUB_SETS) . ')`.' ],
     ]))],
     
     ['sub-heading', 'SPECIAL FEATURES' ],

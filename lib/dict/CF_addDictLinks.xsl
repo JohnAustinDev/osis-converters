@@ -12,7 +12,7 @@
  
   <import href="../common/functions.xsl"/>
   
-  <param name="anyEnding" select="oc:sarg('anyEnding', /, 'false')"/>
+  <param name="type" select="oc:sarg('outputType', /, 'bible')"/>
   
   <param name="notXPATH_default" select="oc:sarg('notXPATH_default', /, 
     'ancestor-or-self::*[self::osis:caption or self::osis:figure or self::osis:title or self::osis:name or self::osis:lb]')"/>
@@ -28,7 +28,10 @@
     <!-- Save all target osisRef values, and their associated infos -->
     <variable name="link_targets" as="element(oc:target)*">
       <for-each select="(descendant::seg[@type='keyword'] | descendant::milestone)
-          [@osisID][not(ancestor::div[@subType='x-aggregate'])]">
+          [@osisID][not(ancestor::div[@subType='x-aggregate'])]
+          [not(ancestor::div[@annotateType='x-notConversion']
+                            [tokenize(@annotateRef, '\s+') = ('CF_addDictLinks', concat('CF_addDictLinks.', $type))]
+          )]">
         <oc:target osisRef="{concat($MOD, ':' , replace(@osisID, '\.dup\d+!toc', '!toc'))}" 
                 name="{oc:decodeOsisRef(replace(@osisID, '(\.dup\d+|![^!]+)+$', ''))}"
                 scope="{ancestor::div[@scope][@scope != 'NAVMENU'][last()]/@scope}"
@@ -45,7 +48,7 @@
           <variable name="variants" select="tokenize(., '\s*[,;\[\]\(\)…]\s*')"/>
           <for-each select="if (count($variants) = 1) then . else (., $variants)">
             <choose>
-              <when test="$anyEnding = 'true' and string-length(.) &#62; 3">
+              <when test="$type = 'bible' and string-length(.) &#62; 3">
                 <variable name="words">
                   <for-each select="tokenize(., '\s+')">
                     <sequence select="concat('\Q', ., '\E\S*')"/>
@@ -90,7 +93,7 @@
     </variable>
         
     <call-template name="Note">
-<with-param name="msg">Writing default CF_addDictLinks.xml (anyEnding=<value-of select="$anyEnding"/>): <value-of select="$output"/> from: <value-of select="base-uri()"/>.</with-param>
+<with-param name="msg">Writing default CF_addDictLinks.xml (type=<value-of select="$type"/>): <value-of select="$output"/> from: <value-of select="base-uri()"/>.</with-param>
     </call-template>
     <addDictLinks version="1.0" xmlns="http://github.com/JohnAustinDev/osis-converters">
       <div notXPATH="{$notXPATH_default}">
