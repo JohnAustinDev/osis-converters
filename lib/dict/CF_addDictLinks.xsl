@@ -45,7 +45,7 @@
       
         <variable name="matcheElements">
           <!-- the following regex matches separators between keyword variants -->
-          <variable name="variants" select="tokenize(., '\s*[,;\[\]\(\)…]\s*')"/>
+          <variable name="variants" select="tokenize(., '\s*[,;\[\]\(\)…/]\s*')"/>
           <for-each select="if (count($variants) = 1) then . else (., $variants)">
             <choose>
               <when test="$type = 'bible' and string-length(.) &#62; 3">

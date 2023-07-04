@@ -264,15 +264,15 @@
             </for-each>
           </matching-substring>
           <non-matching-substring>
-            <choose>
-              <when test="matches(., oc:uniregex('\p{gc=L}'))">
+            <analyze-string select="." regex="{oc:uniregex('\p{gc=L}')}">
+              <matching-substring>
                 <call-template name="Error">
                   <with-param name="msg">keySort(): Cannot sort aggregate glossary entry '<value-of select="$text"/>'; 'KeySort=<value-of select="$KeySort"/>' is missing the character <value-of select="concat('&quot;', ., '&quot;')"/>.</with-param>
                   <with-param name="exp">Add the missing character to the config.conf file's KeySort entry. Place it where it belongs in the order of characters.</with-param>
                 </call-template>
-              </when>
-              <otherwise><value-of select="."/></otherwise>
-            </choose>
+              </matching-substring>
+              <non-matching-substring><value-of select="."/></non-matching-substring>
+            </analyze-string>
           </non-matching-substring>
         </analyze-string>
         </value-of>
