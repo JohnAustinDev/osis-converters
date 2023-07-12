@@ -1349,35 +1349,26 @@
                               )[not(me:getTocClasses(.) = ('no_toc'))] except 
                 $tocNode/following::chapter[@eID][@eID = $tocNode/@sID]/following::*"/>
           </when>
-          <!-- otherwise find the container div for this TOC element -->
+          <!-- otherwise use toclevel for this TOC element -->
           <otherwise>
-            <variable name="container" as="node()?" 
-                select="if ($isTopTOC) then (root($tocNode)) else
-                        if (
-                          $tocNode/parent::div[not(@type = ('bookGroup', 'book'))]
-                          [parent::div[@type = ('bookGroup', 'book')]]
-                          [not(preceding-sibling::*) or parent::div[@type = 'bookGroup']]
-                        )
-                        then $tocNode/parent::div/parent::div 
-                        else $tocNode/ancestor::div[1]"/>
-            <variable name="containerTocs" 
-                select="( $container//chapter[@sID] | 
-                          $container//seg[@type='keyword'] | 
-                          $container//milestone[@type=concat('x-usfm-toc', $TOC)]
+            <variable name="followingTocCandidates" 
+                select="( root($tocNode)//chapter[@sID] | 
+                          root($tocNode)//seg[@type='keyword'] | 
+                          root($tocNode)//milestone[@type=concat('x-usfm-toc', $TOC)]
                         )[. &#62;&#62; $tocNode]
                          [not($isTopTOC and @isMainTocMilestone = 'true')]
                          [not($isTopTOC and self::*[contains(@n, '[no_main_inline_toc]')])]
                          [not(ancestor::div[@type='glossary'][@subType='x-aggregate'])]
                          [not(me:getTocClasses(.) = ('no_toc'))]"/>
             <variable name="nextTocSP" select="if ($isTopTOC) then () else 
-                $tocNode/following::*[. intersect $containerTocs]
+                $tocNode/following::*[. intersect $followingTocCandidates]
                                      [me:getTocLevel(.) &#60;= $myTocLevel][1]"/>
-            <sequence select="$containerTocs[me:getTocLevel(.) = $myTocLevel + 1]
-                                            [not(. intersect $nextTocSP)]
-                                            [not(. &#62;&#62; $nextTocSP)]"/>
+            <sequence select="$followingTocCandidates[me:getTocLevel(.) = $myTocLevel + 1]
+                                            [not($nextTocSP) or not(. intersect $nextTocSP)]
+                                            [not($nextTocSP) or not(. &#62;&#62; $nextTocSP)]"/>
           </otherwise>
         </choose>
-      </variable>
+      </variable>   
       <variable name="onlyKeywordFirstLetter" as="xs:boolean" 
         select="not($isMainNode) and 
                 ($SCRIPT_NAME = 'osis2ebooks') and 
