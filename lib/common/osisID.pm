@@ -572,8 +572,8 @@ sub write_osisIDs {
     push(@elems, @{$XPC->findnodes('descendant::osis:milestone
         [@type="x-usfm-toc'.&conf('TOC').'"][@n][not(@osisID)]', $element)});
         
-    # notes (excluding external cross-references which already have osisIDs)
-    push(@elems, @{$XPC->findnodes('descendant::osis:note[not(@resp)]', $element)});
+    # notes (excluding those which already have osisIDs)
+    push(@elems, @{$XPC->findnodes('descendant::osis:note[not(@osisID)]', $element)});
     
     foreach my $e (@elems) {
       $e->setAttribute('osisID', &create_osisID($e, \%ids));
@@ -591,8 +591,8 @@ sub write_osisIDs {
 # This functions returns unique osisID values to assign to any element.
 # But in order for it to work, $usedHP pointer must be provided, whose 
 # keys are the osisIDs of all elements appearing earlier in the OSIS
-# file sharing the same nodeName (ie. div or milestone) so as not to
-# duplicate those osisID values.
+# file (or at least those sharing the same nodeName- ie. div or
+# milestone) so as not to duplicate those osisID values.
 sub create_osisID {
   my $e = shift;
   my $usedHP = shift;

@@ -415,7 +415,7 @@ sub testValidContextAtom {
     return;
   }
   
-  $test =~ s/^[A-Za-z0-9]+_//; # Remove any basename
+  $test =~ s/^[A-Za-z0-9]+(?!_\d+_)_//; # Remove any basename
   $test =~ s/_\d+_//g;
   if ($test =~ /_/) {
     &Error("Context value should not contain underscore(s): $test", "Did you mean to use space(s)?");
