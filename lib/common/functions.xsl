@@ -131,6 +131,20 @@
     </choose>
   </function>
   
+  <!-- Return the localized config value, or empty string if no values are found -->
+  <function name="oc:locConf" as="xs:string">
+    <param name="entryBase" as="xs:string"/>
+    <param name="fallbackLocale" as="xs:string"/>
+    <param name="anynode" as="node()"/>
+    <variable name="opt1" select="oc:osisHeaderContext(concat($entryBase, '_', replace(oc:osisHeaderContext('x-config-Lang', $anynode, 'no'), '-.*$', '')), $anynode, 'no')"/>
+    <variable name="opt2" select="oc:osisHeaderContext(concat($entryBase, '_', $fallbackLocale), $anynode, 'no')"/>
+    <sequence select="if ($opt1)
+                      then $opt1
+                      else if ($opt2)
+                      then $opt2
+                      else oc:osisHeaderContext($entryBase, $anynode, 'no')"/>
+  </function>
+  
   <function name="oc:isValidConfigValue" as="xs:boolean">
     <param name="entry" as="xs:string"/>
     <param name="value" as="xs:string"/>

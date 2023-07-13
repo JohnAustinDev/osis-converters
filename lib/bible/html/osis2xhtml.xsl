@@ -1997,6 +1997,10 @@
     </html:li>
   </template>
   
+  <template mode="xhtml" match="lb[@type = 'x-hr']">
+    <html:hr><call-template name="class"/></html:hr>
+  </template>
+  
   <template mode="xhtml" match="lb">
     <html:br><call-template name="class"/></html:br>
   </template>

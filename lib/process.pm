@@ -98,6 +98,8 @@ sub processOSIS {
     
     &applyPeriphInstructions(\$OSIS);
     
+    &runScript("$SCRD/lib/writeCopyrightStatement.xsl", \$OSIS);
+    
     &write_osisIDs(\$OSIS);
     
     &runScript("$SCRD/lib/bible/checkUpdateIntros.xsl", \$OSIS);   
@@ -107,6 +109,8 @@ sub processOSIS {
   elsif (&conf('ProjectType') eq 'childrens_bible') {
   
     &runScript("$SCRD/lib/genbook/childrensBible.xsl", \$OSIS);
+    
+    &runScript("$SCRD/lib/writeCopyrightStatement.xsl", \$OSIS);
     
     &write_osisIDs(\$OSIS);
     
