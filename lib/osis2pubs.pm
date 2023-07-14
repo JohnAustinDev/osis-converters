@@ -27,7 +27,9 @@ our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
     $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR, 
     $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG,
-    %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS);
+    %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS, $RAM_GB_EBOOKS,
+    $RAM_MB_EBOOKS_PERBOOK, $RAM_GB_EBOOKS_DEF, 
+    $RAM_MB_EBOOKS_PERBOOK_DEF);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
   
@@ -1462,7 +1464,9 @@ sub ramNeededKB {
   
   # ram data is for ebooks, but html will use less
   if ($convertTo eq 'ebooks' || $convertTo eq 'html') {
-    return int(1000000 + (31000 * $numbks));
+    if (!$RAM_GB_EBOOKS) {$RAM_GB_EBOOKS = $RAM_GB_EBOOKS_DEF;}
+    if (!$RAM_MB_EBOOKS_PERBOOK) {$RAM_MB_EBOOKS_PERBOOK = $RAM_MB_EBOOKS_PERBOOK_DEF;}
+    return int($RAM_GB_EBOOKS * 1000000 + ($RAM_MB_EBOOKS_PERBOOK * 1000 * $numbks));
   }
 }
 
