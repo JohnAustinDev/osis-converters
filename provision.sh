@@ -8,6 +8,11 @@
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
+if [[ $(whoami) == "root" ]]; then
+  echo "This script should NOT be run as root. Exiting..."
+  exit 1
+fi
+
 if [ -e /vagrant/Vagrantfile ]; then VCODE="/vagrant"; else VCODE=`pwd`; fi
 if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src; fi
 

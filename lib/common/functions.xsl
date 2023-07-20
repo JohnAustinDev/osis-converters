@@ -138,7 +138,7 @@
     <param name="anynode" as="node()"/>
     <variable name="opt1" select="oc:osisHeaderContext(concat($entryBase, '_', replace(oc:osisHeaderContext('x-config-Lang', $anynode, 'no'), '-.*$', '')), $anynode, 'no')"/>
     <variable name="opt2" select="oc:osisHeaderContext(concat($entryBase, '_', $fallbackLocale), $anynode, 'no')"/>
-    <sequence select="if ($opt1)
+    <value-of select="if ($opt1)
                       then $opt1
                       else if ($opt2)
                       then $opt2
