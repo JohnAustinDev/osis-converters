@@ -98,71 +98,76 @@ my $caller = &caller($forkRequire);
 my $forkDirName = $caller.'.fork';
 my $forkLogName = "LOG_${caller}_fork.txt";
 
-my $fatal = 0;
+my $fatal :shared = 0;
 foreach my $e (glob(&escglob("$TMPDIR/$forkDirName/*"))) {
   &Log("ERROR: forks.pm fork tmp directory already exists: $e\n");
-  $fatal++;
+  $fatal = 1;
 }
 
-if (!$fatal) {
-  # Schedule each call of $forkFunk, keeping CPU near 100% by running
-  # forks in parallel when there is RAM available.
-  my $n = 1; my $of = @forkCall;
-  my @threads;
-  while (@forkCall) {
-    my $hP = shift(@forkCall);
-    my @forkArgs; foreach my $a (sort keys %{$hP->{'args'}}) {
-      push(@forkArgs, $hP->{'args'}{$a});
-    }
+# Schedule each call of $forkFunk, keeping CPU near 100% by running
+# forks in parallel when there is RAM available.
+my $n = 1; my $of = @forkCall;
+my @threads;
+while ($fatal == 0 && @forkCall) {
+  my $hP = shift(@forkCall);
+  my @forkArgs; foreach my $a (sort keys %{$hP->{'args'}}) {
+    push(@forkArgs, $hP->{'args'}{$a});
+  }
 
-    print "\nSTARTING FORK $forkDirName $n/$of\n";
-    push(@threads, threads->create(sub {
-      system("\"$SCRD/lib/forks/fork.pm\" " .
+  print "\nSTARTING FORK $forkDirName $n/$of\n";
+  push(@threads, threads->create(
+    sub {
+      my $forkLogFile = "$TMPDIR/$forkDirName/fork_$n/$forkLogName";
+      my $exitStatus = system("\"$SCRD/lib/forks/fork.pm\" " .
         "\"$INPD\"" . ' ' .
-        "\"$TMPDIR/$forkDirName/fork_$n/$forkLogName\"" . ' ' .
+        "\"$forkLogFile\"" . ' ' .
         "\"$SCRIPT_NAME\"" . ' ' .
         "\"$forkRequire\"". ' ' .
         "\"$forkFunc\"" . ' ' .
         join(' ', map(&escarg($_), @forkArgs)));
-      }));
-    $n++;
-    
-    while (
-      @forkCall && 
-      !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
-      threads->list(threads::running)
-    ) {};
-  }
-  foreach my $th (@threads) {$th->join();}
+       $exitStatus = $exitStatus >> 8;
+      if ($exitStatus != 0) {$fatal = $exitStatus;}
+    }));
+  $n++;
+  
+  while (
+    @forkCall && 
+    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
+    threads->list(threads::running)
+  ) {};
+}
+foreach my $th (@threads) {$th->join();}
 
-  # Copy finished fork log files back to the main thread's LOGFILE.
-  foreach my $td (@{&forkTmpDirs($caller)}) {
-    if (-e "$td/$forkLogName") {
-      if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
-        if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
-          while(<MLF>) {print LGG $_;}
-          close(LGG);
-        }
-        else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
-        close(MLF);
+# Copy finished fork log files back to the main thread's LOGFILE. This
+# must be done after all log files have been generated, so they can be
+# reassembled in the correct order!
+foreach my $td (@{&forkTmpDirs($caller)}) {
+  if (-e "$td/$forkLogName") {
+    if (open(MLF, "<:encoding(UTF-8)", "$td/$forkLogName")) {
+      if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
+        while(<MLF>) {print LGG $_;}
+        close(LGG);
       }
-      else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
+      else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
+      close(MLF);
     }
-    
-    if (-s "$td/LOG_stderr.txt") {
-      if (open(MLF, "<:encoding(UTF-8)", "$td/LOG_stderr.txt")) {
-        if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
-          print LGG "\nERROR: File '$td/LOG_stderr.txt' contains:\n";
-          while(<MLF>) {print LGG $_;}
-          close(LGG);
-        }
-        else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
-        close(MLF);
+    else {&Log("ERROR: forks.pm cannot open $td/$forkLogName for reading.\n");}
+  }
+  
+  if (-s "$td/LOG_stderr.txt") {
+    if (open(MLF, "<:encoding(UTF-8)", "$td/LOG_stderr.txt")) {
+      if (open(LGG, ">>:encoding(UTF-8)", $LOGFILE)) {
+        print LGG "\nERROR: File '$td/LOG_stderr.txt' contains:\n";
+        while(<MLF>) {print LGG $_;}
+        close(LGG);
       }
-      else {&Log("ERROR: forks.pm cannot open $td/LOG_stderr.txt for reading.\n");}
+      else {&Log("ERROR: forks.pm cannot open $LOGFILE for appending.\n");}
+      close(MLF);
     }
+    else {&Log("ERROR: forks.pm cannot open $td/LOG_stderr.txt for reading.\n");}
   }
 }
+if ($fatal) {exit $fatal;}
 
 ########################################################################
 ########################################################################

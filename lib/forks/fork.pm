@@ -53,16 +53,14 @@ our $LOGFILE = $forklog;
 require("$SCRD/lib/forks/fork_funcs.pm");
 require($forkRequire);
 
-if (!exists &{$forkFunc}) {
-  &ErrorBug("forkFunc '$forkFunc' does not exist in '$forkRequire'.\n", 1);
-}
+if (!exists &{$forkFunc}) {exit 2;}
 
 # Run the function
 no strict "refs";
 
 &Debug("Starting fork: $forkFunc(".join(', ', map("'$_'", @forkArgs)).")");
 
-&$forkFunc(@forkArgs);
+&$forkFunc(@forkArgs); # will exit 255 if any XSLT (or script?) fails
 
 &saveForkData($forkRequire);
 

@@ -267,4 +267,19 @@ sub caller {
   return $path;
 }
 
+# Any fork exit codes which are to abort should be listed below.
+sub handleAbort {
+  my $exitCode = shift;
+  my $forkFunc = shift;
+  my $forkRequire = shift;
+  
+  $exitCode = $exitCode >> 8; # remove Perl wait status of system() call
+  
+  if ($exitCode == 2) {
+    &ErrorBug("forkFunc '$forkFunc' does not exist in '$forkRequire'.\n", 1);
+  } elsif ($exitCode == 255) {
+    &Error("forkFunc '$forkFunc' abort error.\n", '', 1);
+  }
+}
+
 1;

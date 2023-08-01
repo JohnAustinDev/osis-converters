@@ -196,7 +196,7 @@ target, then a different USFM tag should be used instead.</with-param>
         <for-each select="distinct-values($aggcheckFail)">
           <call-template name="Error">
 <with-param name="msg">Found reference(s) in <value-of select="$doc//@osisIDWork[1]"/> to aggregated glossary entry: <value-of select="concat($DICTMOD_DOC//@osisIDWork[1], ':', oc:ref(.))"/></with-param>
-<with-param name="exp">Aggregated glossary entries should not be referenced directly; individual members should be referenced. Check CF_addDictLinks.xml or add 'context' or 'dup' USFM attribute to the \w \w* tag.</with-param>
+<with-param name="exp">Aggregated glossary entries should not be referenced directly; individual members should be referenced. Check CF_addDictLinks.xml or add 'x-context' or 'x-dup' USFM attribute to the \w \w* tag.</with-param>
           </call-template>
         </for-each>
       </otherwise>

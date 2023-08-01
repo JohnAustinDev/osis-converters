@@ -257,7 +257,7 @@ sub osis2pubs {
   }
   
   if (!($NO_FORKS =~ /\b(1|true|osis2pubs)\b/)) {
-    system(
+    my $exv = system(
       &escfile("$SCRD/lib/forks/forks.pm") . ' ' .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
@@ -266,6 +266,7 @@ sub osis2pubs {
       "OSIS_To_ePublication2" . ' ' .
       $forkArgs
     );
+    &handleAbort($exv, "OSIS_To_ePublication2", __FILE__);
     &reassembleForkData(__FILE__);
   }
 

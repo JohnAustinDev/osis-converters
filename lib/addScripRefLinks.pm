@@ -94,7 +94,7 @@ sub addScripRefLinks {
   else {
     # Run addScripRefLinks2 in parallel on each book
     my $ramkb = 634000; # Approx. KB RAM usage per fork
-    system(
+    my $exv = system(
       &escfile("$SCRD/lib/forks/forks.pm") . ' ' .
       &escfile($INPD) . ' ' .
       &escfile($LOGFILE) . ' ' .
@@ -105,6 +105,7 @@ sub addScripRefLinks {
       "arg3:$refSystem" . ' ' .
       join(' ', map(&escfile("arg1:$_"), @files))
     );
+    &handleAbort($exv, "addScripRefLinks2", __FILE__);
     &reassembleForkData(__FILE__);
   }
   
