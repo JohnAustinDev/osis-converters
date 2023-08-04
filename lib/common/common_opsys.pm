@@ -845,7 +845,7 @@ sub readConfFile {
     }
     
     # handle config entries
-    elsif ($_ =~ /^\s*(.+?)\s*=\s*(.*?)\s*$/) {
+    elsif ($_ =~ /^([^=\s]+)\s*=\s*(.*?)\s*$/) {
       my $e = $1; my $v = $2;
       
       if (!$section) {
