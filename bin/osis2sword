@@ -57,6 +57,8 @@ my %params = (
 
 &usePngIfAvailable(\$INOSIS);
 
+&useSwordImgIfAvailable(\$INOSIS);
+
 if ($SModDrv =~ /GenBook/) {
   &checkChildrensBibleStructure($INOSIS);
   &runScript("$SCRD/lib/genbook/sword.xsl", \$INOSIS);
@@ -218,6 +220,8 @@ sub usePngIfAvailable {
   
   my $xml = $XML_PARSER->parse_file($$osisP);
   
+  &Note("Using png images if available...");
+  
   # use png images if available
   my @jpgs = $XPC->findnodes('//osis:figure[contains(@src, ".jpg") or contains(@src, ".JPG")]', $xml);
   foreach my $jpg (@jpgs) {
@@ -226,6 +230,27 @@ sub usePngIfAvailable {
     if (-e "$INPD/$pnm.png") {
       $jpg->setAttribute('src', "$pnm.png");
       &Note("Changing jpg image to png: ".$jpg->getAttribute('src'));
+    }
+  }
+  
+  &writeXMLFile($xml, $osisP);
+}
+
+sub useSwordImgIfAvailable {
+  my $osisP = shift;
+  
+  &Note("Using '_sword' images if available...");
+  
+  my $xml = $XML_PARSER->parse_file($$osisP);
+  
+  # use Sword specific images if available
+  my @figs = $XPC->findnodes('//osis:figure', $xml);
+  foreach my $fig (@figs) {
+    my $src = $fig->getAttribute('src');
+    my $swsrc = $src; $swsrc =~ s/(?=\.([^.]+)$)/_sword/;
+    if ($src !~ /_sword/ && -e "$INPD/$swsrc") {
+      $fig->setAttribute('src', $swsrc);
+      &Note("Changing $src image to: ".$fig->getAttribute('src'));
     }
   }
   
