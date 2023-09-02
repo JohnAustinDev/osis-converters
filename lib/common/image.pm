@@ -373,6 +373,9 @@ sub findCover {
     foreach my $f (@fs) {
       my $fscope = $f;
       my $m = $mod.'_';
+      if ($fscope =~ s/^($m)?(.*?)\.png$/$2/i) {
+        &Error("Cover image must be jpg, is: $f");
+      }
       if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
       $fscope =~ s/_comp$//; # remove any composite marker to get scope
       if ($scope eq $fscope) {return "$dir/$f";}
