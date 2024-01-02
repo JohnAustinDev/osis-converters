@@ -18,11 +18,11 @@ if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src
 
 sudo apt-get update
 sudo apt-get install -y openjdk-8-jdk
-sudo apt-get install -y build-essential python2 cmake libtool autoconf make pkg-config libicu-dev unzip cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck imagemagick
+sudo apt-get install -y build-essential python2-dev cmake libtool autoconf make pkg-config libicu-dev unzip curl cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck imagemagick
 sudo apt-get install -y libtool-bin
 
 # Linkchecker is not in the Ubuntu 20 repos, but can be installed with pip2
-if [[ "$(lsb_release -r)" =~ "20." ]]; then
+if [[ "$(lsb_release -r)" =~ "2[0-9]\." ]]; then
   curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
   sudo python2 ./get-pip.py
   rm ./get-pip.py
@@ -78,7 +78,7 @@ else
 fi
 
 # SWORD 1.8 from subversion
-swordRev=3595
+
 if [ ! -e $HOME/.osis-converters/src/sword ]; then
   svnrev=0
 else

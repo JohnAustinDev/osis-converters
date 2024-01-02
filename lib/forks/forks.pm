@@ -49,6 +49,7 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 # Initialization already passed with the caller, but need to get $TMPDIR.
 require "$SCRD/lib/common/common.pm";
+require "$SCRD/lib/common/resource.pm";
 &set_project_globals();
 &set_system_globals();
 &set_system_default_paths();
@@ -56,8 +57,6 @@ our $MOD_OUTDIR = &getModuleOutputDir();
 our $TMPDIR = &initTMPDIR();
 
 require("$SCRD/lib/forks/fork_funcs.pm");
-
-our $RAM_SAFE = 80000; # required KB RAM to be left available before starting any parallel fork.
 
 # Collect the fork function arguments for each call
 my @forkCall;
@@ -132,7 +131,7 @@ while ($fatal == 0 && @forkCall) {
   
   while (
     @forkCall && 
-    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}) && 
+    !resourcesAvailable(7, @forkCall[0]->{'ramkb'}, $forkRequire) && 
     threads->list(threads::running)
   ) {};
 }
@@ -168,64 +167,5 @@ foreach my $td (@{&forkTmpDirs($caller)}) {
   }
 }
 if ($fatal) {exit $fatal;}
-
-########################################################################
-########################################################################
-
-# Return true if CPU idle time and RAM passes requirements. This check
-# takes a specific number of seconds to return.
-our $MSG_LAST;
-sub resourcesAvailable {
-  my $reqIDLE = shift; # percent CPU idle time required
-  my $reqRAM = shift;  # KB of free RAM required
-  
-  $reqRAM += $RAM_SAFE;
-
-  my (%data, @fields);
-  # 'vmstat' for CPU data
-  my $r = ($forkRequire =~ /osis2pubs/ ? 5:1); # seconds for vmstat check
-  foreach my $line (split(/\n/, &shell("vmstat $r 2", 3))) { # vmstat [options] [delay [count]]
-    if    ($line =~ /procs/) {next;} # first line is grouping, so drop
-    elsif ($line =~ /id/) {@fields = split(/\s+/, $line);} # field names
-    else { # field data
-      my $n = 0;
-      foreach my $d (split(/\s+/, $line)) {$data{'vmstat'}{@fields[$n++]} = $d;}
-    }
-  }
-  # 'free' for RAM data
-  foreach my $line (split(/\n/, &shell("free", 3))) {
-    if ($line =~ /available/) {@fields = split(/\s+/, $line);} # field names
-    elsif ($line =~ /^Mem:/) { # field data
-      my $n = 0;
-      foreach my $d (split(/\s+/, $line)) {
-        $data{'free'}{@fields[$n++]} = $d;
-      }
-    }
-  }
-  
-  my $idle = $data{'vmstat'}{'id'};
-  my $ramkb = $data{'free'}{'available'};
-  
-  if (!defined($idle) || !defined($ramkb)) {
-    &Log("ERROR: unexpected idle ($idle) or ramkb ($ramkb) output\n");
-    return;
-  }
-  
-  my $available = $idle >= $reqIDLE && $ramkb >= $reqRAM;
-  
-  my $msg;
-  if (!$available) {
-    if ($idle < $reqIDLE) {
-      $msg = "Waiting for CPU ($idle% < $reqIDLE%)...\n";
-    }
-    else {
-      $msg = sprintf("Waiting for RAM %.1f GB < %.1f GB)...\n", 
-      $ramkb/1000000, $reqRAM/1000000);
-    }
-  }
-  if ($msg && $msg ne $MSG_LAST) {print $msg; $MSG_LAST = $msg;}
-  
-  return $available;
-}
 
 1;

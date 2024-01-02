@@ -22,7 +22,7 @@
 use strict;
 
 our (@CONV_OSIS, @CONV_PUBS, %CONV_NOCANDO, %CONV_DEPENDENCIES, $SCRD, 
-    $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $MAXTHREADS, $SKIPRE, 
+    $INPD, $DEBUG, $VAGRANT, $MODRE, $CONVERSION, $SKIPRE, 
     $LOGFILE, $NO_ADDITIONAL, $INFO, @RUN, %DEPENDENCIES, @RUN_PROJ, 
     @RUN_MODS, @IGNORE_PROJ, $JOBMSG, %CONV_OUTPUT_FILES, 
     %CONV_OUTPUT_SUBDIR, %ARGS, $MAINMOD);
@@ -57,7 +57,7 @@ if ($DEBUG) {
   &Log("INFO = ".Dumper($INFO)."\n");
   &Log("DEPENDENCIES = ".Dumper(\%DEPENDENCIES)."\n\n");
   no strict 'refs';
-  my @v = ('INPD', 'PROJDIR', 'LOGFILE', 'MODRE', 'SKIP', 'CONVERSION', 'MAXTHREADS');
+  my @v = ('INPD', 'PROJDIR', 'LOGFILE', 'MODRE', 'SKIP', 'CONVERSION');
   print join("\n", map("$_=$$_", @v))."\n\n";
 }
 
@@ -368,10 +368,11 @@ sub getScriptsToRun {
     
     # Remove if ARG_skipConversion is set in config.conf
     for (my $i=0; $i<@s; $i++) {
-      my $skip = $infoP->{$infoP->{$m}{'configProject'}}{@s[$i]."+ARG_skipConversion"};
+      my $scr = @s[$i];
+      my $skip = $infoP->{$infoP->{$m}{'configProject'}}{"$scr+ARG_skipConversion"};
       if ($skip && $skip =~ /^(true|yes)$/i) {
         splice(@s, $i, 1); $i--;
-        print "WARNING: ARG_skipConversion is skipping: '@s[$i] $m'\n";
+        print "WARNING: ARG_skipConversion is skipping: '$scr $m'\n";
       }
     }
     
@@ -645,6 +646,8 @@ sub modOutdir {
 # Code beyond this point may be run in a Vagrant virtual machine.
 ########################################################################
 
+require "$SCRD/lib/common/resource.pm";
+
 use Encode;
 use DateTime;
 use Term::ReadKey;
@@ -665,7 +668,7 @@ if (!&runningInVagrant()) {ReadMode(4);}
 
 # Now run all jobs until there is nothing left to do, or the ESC key is 
 # pressed.
-my $NUM_THREADS :shared = 0;
+my $NUM_CONVERSIONS :shared = 0;
 my %DONE :shared;
 my @STARTED :shared;
 my $WAIT = 3;
@@ -678,7 +681,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
       ) { # 27 is ESC key
       
   $KEY = 0; # clear if set by inner while loop
-  while ( !$PAUSED && $KEY != 27 && $NUM_THREADS < $MAXTHREADS && @RUN ) {
+  while ( @RUN && !$PAUSED && $KEY != 27 && &resourcesAvailable(7, '25%', 'convert') ) {
     # Start another conversion, skipping over any conversion whose 
     # dependencies are not done.
     my $x = -1;
@@ -693,7 +696,7 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     
     if (@{$DEPENDENCIES{$RUN[$x]->{'r'}}}) {
       if (!$ok) {
-        print "Waiting for dependencies (".($MAXTHREADS - $NUM_THREADS)." free threads)...\n".
+        print "Waiting for dependencies...\n".
         last;
       }
       print "NOTE: Dependencies of ".$RUN[$x]->{'r'}." are done:\n\t".
@@ -704,12 +707,12 @@ while ( ( &working(\@STARTED, \%DONE) || @RUN ) &&
     push(@THREADS, threads->create(sub {
       print "Starting: ".$RUN[$x]->{'r'}."\n";
       &runScript($RUN[$x]);
-      $NUM_THREADS--;
+      $NUM_CONVERSIONS--;
       $DONE{$RUN[$x]->{'r'}}++;
       print "Exiting: ".$RUN[$x]->{'r'}."\n";
     }));
     
-    $NUM_THREADS++;
+    $NUM_CONVERSIONS++;
     my $s = splice(@RUN, $x, 1);
     push(@STARTED, $s->{'r'});
     if (@RUN) {print("There are ".@RUN." jobs left...\n");}

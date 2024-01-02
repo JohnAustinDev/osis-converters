@@ -25,7 +25,7 @@ our ($SCRIPT_NAME, @CONV_OSIS, @CONV_PUBS);
 
 # Argument globals
 our ($HELP, $INPD, $LOGFILE, $NO_ADDITIONAL, $CONVERSION, $MODRE, 
-    $MAXTHREADS, $SKIPRE, $RAM_GB_EBOOKS_DEF, $RAM_MB_EBOOKS_PERBOOK_DEF);
+    $SKIPRE, $RAM_GB_EBOOKS_DEF, $RAM_MB_EBOOKS_PERBOOK_DEF);
 
 our (@VERSE_SYSTEMS, %CF_ADDDICTLINKS, %CONFIG_DEFAULTS, 
   @CF_ADDFOOTNOTELINKS, @CF_ADDSCRIPREFLINKS, @CF_FILES, @CF_OSIS2OSIS, 
@@ -83,8 +83,6 @@ our %ARG = (
       'c' => [ 'CONVERSION', 'sfm2all', 'conv', 'Conversion(s) to run. Default is sfm2all. Others are: ' . join(', ', sort keys %{&getConversionArgs()}) . '.' ],
       
       'm' => [ 'MODRE', '.+', 'rx', 'Regex matching modules to run. Default is all.' ],
-
-      't' => [ 'MAXTHREADS', &numCPUs(), 'N', 'Number of threads to use. Default is '.&numCPUs() . '.' ],
 
       'x' => [ 'SKIPRE', undef, 'rx', 'Regex matching modules to skip. Default is none.' ],
     },
@@ -1277,7 +1275,7 @@ sub arguments {
   
   &DebugListVars("AFTER &arguments() WHERE\n$SCRIPT_NAME arguments", 'HELP', 
     'INPD', 'LOGFILE', 'NO_ADDITIONAL', 'CONVERSION', 'MODRE', 
-    'MAXTHREADS', 'SKIPRE');
+    'SKIPRE');
   
   return %args;
 }
