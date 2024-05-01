@@ -374,13 +374,14 @@ sub findCover {
       my $ext = $f =~ /\.([^\.]+)$/i ? $1 : '';
       my $fscope = $f;
       my $m = $mod.'_';
-      if ($fscope !~ s/^($m)?(.*?)\.jpg$/$2/i) {next;}
+      if ($fscope !~ s/^($m)?(.*?)\.[^.]+$/$2/i) {next;}
       $fscope =~ s/_comp$//; # remove any composite marker to get scope
       if ($scope eq $fscope) {
         if ($ext !~ /jpg/i) {&Error("Cover image must be jpg, is: $f");}
         return "$dir/$f";
       }
     }
+    &Note("Failed to find '$scope' cover image in '$dir'");
   }
   
   return '';
