@@ -1190,6 +1190,11 @@ sub isValidConfigValue {
     "Add $e=<localized-title> to the config.conf file.");
     return 0;
   }
+  elsif ($confP->{$fullEntry} eq 'DEF') {
+    &Error("Using default value for $fullEntry: '".$confP->{$fullEntry}."'", 
+    "Add $e=Updated-value to the config.conf file.");
+    return 0;
+  }
   
   my $multRE = &configRE(@MULTIVALUE_CONFIGS);
   if ($confP->{$fullEntry} =~ /<nx\/>/ && $e !~ /$multRE/) {

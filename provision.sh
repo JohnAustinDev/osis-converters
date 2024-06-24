@@ -87,7 +87,7 @@ else
 fi
 
 # Build Sword tools and install Perl bindings
-if [ ${svnrev:0:${#swordRev}} != "$swordRev" ]; then
+if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   cd $HOME/.osis-converters/src
   svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword
   mkdir sword/build
