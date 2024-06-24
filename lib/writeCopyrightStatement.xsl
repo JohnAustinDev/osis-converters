@@ -21,7 +21,7 @@
   <!-- Insert it before the first bookGroup, or before the first
   introduction if there is one. For Children's Bibles, insert it
   at the end of the initial majorSection. -->
-  <variable name="insertBeforeMe" as="element()">
+  <variable name="insertBeforeMe" as="node()">
     <sequence select="if ($isChildrensBible)
       then //osisText/div[@type = 'book'][1]/div[@type = 'majorSection'][1]/node()[last()]
       else //osisText/div[@type = 'bookGroup' or (@type = 'introduction' and not(@resp = 'x-oc'))][1]"/>
