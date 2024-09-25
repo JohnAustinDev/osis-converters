@@ -21,7 +21,7 @@
     <apply-templates mode="pass2" select="$pass1"/>
   </template>
   
-  <!-- Throw an error if there are unexpected ancestorss of a verse. This 
+  <!-- Throw an error if there are unexpected ancestors of a verse. This 
   helps indicate if usfm2osis.py did not properly close div elements 
   like \periph -->
   <template mode="pass1" match="verse[@osisID]">
@@ -33,6 +33,14 @@
       </call-template>
     </if>
     <next-match/>
+  </template>
+  
+  <!-- Paratext renders cells containing numbers differently, so identify with subType -->
+  <template mode="pass1" match="cell[matches(text(),'^\s*\-?\d[\d\s.,]*$')]">
+    <copy>
+      <attribute name="subType">x-number</attribute>
+      <apply-templates mode="#current" select="node()|@*"/>
+    </copy>
   </template>
   
   <!-- usfm2osis.py puts scope title content within a reference element, 

@@ -1726,15 +1726,16 @@
   </function>
   
   <!-- This template may be called from any element. It adds a class attribute 
-  according to tag, level, type, subType and class -->
+  according to tag, level, type, subType, role and class -->
   <template name="class"><attribute name="class" select="me:getClasses(.)"/></template>
   <function name="me:getClasses" as="xs:string">
     <param name="x" as="element()"/>
     <value-of select="normalize-space(string-join((
         concat('osis-', $x/local-name()), 
         $x/@type, 
-        $x/@subType, 
-        $x/@class, 
+        $x/@subType,
+        $x/@role,
+        $x/@class,
         if ($x/@level) then concat('level-', $x/@level) else ''), ' ')
       )"/>
   </function>
@@ -1949,6 +1950,7 @@
   
   <template mode="xhtml" match="cell">
     <html:td>
+      <call-template name="class"/>
       <apply-templates mode="xhtml"/>
     </html:td>
   </template>

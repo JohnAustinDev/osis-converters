@@ -261,6 +261,16 @@ body.index.with-cover a.text {
   height:100%;
   text-align:center;
 }
+table {
+  margin: 1em 0 0 1.5em;
+}
+table td.label {
+  font-style: italic;
+  margin-top: 1em;
+}
+table td.x-number {
+  text-align: right;
+}
 
 /* Children's Bible CSS added by osis-converters */
 .x-text-image {

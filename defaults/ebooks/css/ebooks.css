@@ -1,4 +1,4 @@
-/* These rules are to supercede rules in bible/html/html.css */
+/* These rules are to supercede rules in html/css/html.css */
 .osis-l > .xsl-chapter-number {
   left:-1.5em; /* so that float left never overlaps text */
 }
