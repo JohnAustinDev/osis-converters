@@ -1703,7 +1703,7 @@ sub applyVsysMissingVTag {
     return;
   }
   
-  my $newOsisID = $prevOsisID;
+  my $newOsisID = $prevVerseS->getAttribute('osisID');
   for (my $v = $fixedP->{'vs'}; $v <= $fixedP->{'vl'}; $v++) {
     $newOsisID .= ' '.$fixedP->{'bk'}.'.'.$fixedP->{'ch'}.'.'.$v;
   }
