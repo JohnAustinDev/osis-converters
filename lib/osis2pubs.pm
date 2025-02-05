@@ -1399,6 +1399,8 @@ sub makeEbook {
     else {push(@outdirs, '');}
     foreach my $od (@outdirs) {
       my $outdir = $PUBOUT.$od; if (!-e "$outdir") {&make_path("$outdir");}
+      # Server script may apply this placeholder, which cannot be known until now.
+      $pubName =~ s/FORMAT/$format/g;
       copy($out, "$outdir/$pubName.$format");
       &Note("Created: $outdir/$pubName.$format\n", 1);
       # include any cover small image along with the eBook

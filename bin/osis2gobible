@@ -39,6 +39,8 @@ my $BookOverhead = 1000;
 my $JarOverhead = 40000;
 my $MaxTries = 10;
 
+require(&getDefaultFile("lib/server.pm"));
+
 &runAnyUserScriptsAt("gobible/preprocess", \$INOSIS);
 
 &runScript("$SCRD/lib/sourceVerseSystem.xsl", \$INOSIS);
