@@ -163,15 +163,15 @@ our %SYSTEM_DEFAULT_PATHS = (
 # Compatibility tests for executable dependencies
 our %CONV_BIN_TEST = (
   'SWORD_PERL'       => [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", 
-                          "1.8.900" ], 
+                          "1.9.0.3900" ], 
   'MODULETOOLS_BIN'  => [ "python2 'MODULETOOLS_BIN/usfm2osis.py'",
                           "Revision: 491" ], 
   'XMLLINT'          => [ "xmllint --version",
                           "xmllint: using libxml" ],
   'SWORD_BIN'        => [ "'SWORD_BIN/osis2mod'",
-                          "You are running osis2mod: \$Rev: 3431 \$" ],
+                          "You are running osis2mod: \$Rev: 3769-oc \$" ],
   'CALIBRE'          => [ "ebook-convert --version",
-                          "calibre 5" ],
+                          "calibre 7" ],
   'GO_BIBLE_CREATOR' => [ "java -jar 'GO_BIBLE_CREATOR/GoBibleCreator.jar'", 
                           "Usage" ],
   # XSLT2 also requires that openjdk 10.0.1 is NOT being used 

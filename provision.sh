@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script should NOT be run as root. It was developed on Ubuntu Xenial
+# This script should NOT be run as root. It has been updated for Ubuntu 24.
 
 # When this script is run on a VM or Linux host, it will:
 #   Install everything necessary for the VM or host (if the host is compatible)
@@ -18,8 +18,10 @@ if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src
 
 sudo apt-get update
 sudo apt-get install -y openjdk-8-jdk
-sudo apt-get install -y build-essential python2-dev cmake libtool autoconf make pkg-config libicu-dev unzip curl cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck imagemagick
+sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config libicu-dev unzip curl cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck imagemagick
 sudo apt-get install -y libtool-bin
+
+if [[ -z "$(which python2)" ]]; then ln -s /usr/bin/2.7 /usr/local/bin/python2; fi
 
 # Linkchecker is not in the Ubuntu 20 repos, but can be installed with pip2
 if [[ "$(lsb_release -r)" =~ "2[0-9]\." ]]; then
@@ -46,12 +48,12 @@ sudo cpanm Perl::Tidy
 sudo apt-get install -y fonts-noto
 sudo apt-get install -y fonts-symbola
 
-# Calibre 5
+# Calibre 7.6
 if [ ! `which calibre` ]; then
   sudo apt-get install -y xorg openbox
   # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
   mkdir $HOME/.config
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=5.40.0
+  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=7.6
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
@@ -78,7 +80,7 @@ else
 fi
 
 # SWORD 1.8 from subversion
-
+swordRev=3900
 if [ ! -e $HOME/.osis-converters/src/sword ]; then
   svnrev=0
 else
@@ -93,29 +95,17 @@ if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   mkdir sword/build
   cd sword
   
-  # The setFormattedVA function caused perlswig build to fail and isn't needed
-  perl -0777 -pe 's/(charAt\(unsigned long\);)/$1\n%ignore sword::SWBuf::setFormattedVA(const char *format, va_list argptr);/' ./bindings/swig/swbuf.i > swbuf.i
-  mv swbuf.i ./bindings/swig/swbuf.i
   # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
-  sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
+  ##sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
   cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword/utilities/"
   
-  # ICU 61 removed 'using namespace icu' from unicode/uversion.h, so here's a fix for that
-  find . -type f -exec sed -i -r -e "s|(<unicode/unistr.h>)|\1\nusing namespace icu;|" {} \;
-  
   cd build
-  cmake -G "Unix Makefiles" -D SWORD_BINDINGS=Perl ..
+  cmake -G "Unix Makefiles" -DSWORD_PERL="TRUE" ..
   make 
   sudo make install
-  
-  # Install Perl Sword bindings
-  cd bindings/swig/perl
-  perl Makefile.PL
-  make -f Makefile.perlswig
-  sudo make -f Makefile.perlswig install
 fi
 
 # non English hosts may need this:

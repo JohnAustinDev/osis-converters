@@ -2,7 +2,7 @@
  *
  *  osis2mod.cpp - Utility to import a module in OSIS format
  *
- * $Id: osis2mod.cpp 3431 2016-08-16 22:46:19Z refdoc $
+ * $Id: osis2mod.cpp 3769 2020-07-26 17:27:10Z scribe $
  *
  * Copyright 2003-2014 CrossWire Bible Society (http://www.crosswire.org)
  *      CrossWire Bible Society
@@ -42,6 +42,7 @@
 #include <utilxml.h>
 #include <listkey.h>
 #include <versekey.h>
+#include <swversion.h>
 
 #include <ztext.h>
 #include <ztext4.h>
@@ -482,7 +483,7 @@ void makeValidRef(VerseKey &key) {
 void writeEntry(SWBuf &text, bool force = false) {
 	char keyOsisID[255];
 
-	static const char* revision = "<milestone type=\"x-importer\" subType=\"x-osis2mod\" n=\"$Rev: 3431 $\"/>";
+	static SWBuf revision; revision.setFormatted("<milestone type=\"x-importer\" subType=\"x-osis2mod\" n=\"$Rev: 3769-oc $ (SWORD: %s)\"/>", SWVersion::currentVersion.getText());
 	static bool firstOT = true;
 	static bool firstNT = true;
 
@@ -829,19 +830,18 @@ bool handleToken(SWBuf &text, XMLTag token) {
 				ListKey verseKeys = currentVerse.parseVerseList(keyVal, currentVerse, true);
 				int memberKeyCount = verseKeys.getCount();
 				if (memberKeyCount) {
-					currentVerse = verseKeys.getElement(0);
+					verseKeys.setPosition(TOP);
+					// get the first single verse
+					currentVerse = verseKeys;
 					// See if this osisID or annotateRef refers to more than one verse.
-					// If it does, save it until all verses have been seen.
-					// At that point we will output links.
 					// This can be done by incrementing, which will produce an error
 					// if there is only one verse.
-					if (memberKeyCount > 1) {
-						verseKeys.setPosition(TOP);
-						verseKeys.increment(1);
-						if (!verseKeys.popError()) {
-							cout << "DEBUG(LINK): " << currentVerse.getOSISRef() << endl;
-							linkedVerses.push_back(verseKeys);
-						}
+					verseKeys.increment(1);
+					if (!verseKeys.popError()) {
+						// If it does, save it until all verses have been seen.
+						// At that point we will output links.
+						cout << "DEBUG(LINK MASTER): " << currentVerse.getOSISRef() << endl;
+						linkedVerses.push_back(verseKeys);
 					}
 				}
 				else {
@@ -1847,7 +1847,7 @@ void processOSIS(istream& infile) {
 
 int main(int argc, char **argv) {
 
-	fprintf(stderr, "You are running osis2mod: $Rev: 3431 $\n");
+	fprintf(stderr, "You are running osis2mod: $Rev: 3769-oc $ (SWORD: %s)\n", SWVersion::currentVersion.getText());
 	
 	if (argc > 1) {
 		for (int i = 1; i < argc; i++) {
