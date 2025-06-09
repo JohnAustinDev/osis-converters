@@ -163,8 +163,8 @@ our %SYSTEM_DEFAULT_PATHS = (
 # Compatibility tests for executable dependencies
 our %CONV_BIN_TEST = (
   'SWORD_PERL'       => [ "perl -le 'use Sword; print \$Sword::SWORD_VERSION_STR'", 
-                          "1.9.0.3900" ], 
-  'MODULETOOLS_BIN'  => [ "python2 'MODULETOOLS_BIN/usfm2osis.py'",
+                          "1.9.0" ], 
+  'MODULETOOLS_BIN'  => [ "python3 'MODULETOOLS_BIN/usfm2osis.py'",
                           "Revision: 491" ], 
   'XMLLINT'          => [ "xmllint --version",
                           "xmllint: using libxml" ],

@@ -18,20 +18,8 @@ if [ ! -e $HOME/.osis-converters/src ]; then mkdir -p $HOME/.osis-converters/src
 
 sudo apt-get update
 sudo apt-get install -y openjdk-8-jdk
-sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config libicu-dev unzip curl cpanminus subversion git gitk zip swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev dos2unix epubcheck imagemagick
-sudo apt-get install -y libtool-bin
-
-if [[ -z "$(which python2)" ]]; then ln -s /usr/bin/2.7 /usr/local/bin/python2; fi
-
-# Linkchecker is not in the Ubuntu 20 repos, but can be installed with pip2
-if [[ "$(lsb_release -r)" =~ "2[0-9]\." ]]; then
-  curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
-  sudo python2 ./get-pip.py
-  rm ./get-pip.py
-  sudo pip2 install linkchecker
-else
-  sudo apt-get install -y linkchecker
-fi
+sudo apt-get install -y build-essential cmake libtool autoconf make pkg-config libicu-dev swig libxml-libxml-perl zlib1g-dev default-jre libsaxonb-java libxml2-dev libxml2-utils liblzma-dev libtool-bin
+sudo apt-get install -y zip unzip curl cpanminus subversion git dos2unix epubcheck imagemagick linkchecker
 
 # XML::LibXML
 sudo cpanm HTML::Entities
@@ -48,12 +36,10 @@ sudo cpanm Perl::Tidy
 sudo apt-get install -y fonts-noto
 sudo apt-get install -y fonts-symbola
 
-# Calibre 7.6
-if [ ! `which calibre` ]; then
-  sudo apt-get install -y xorg openbox
-  # the .config directory must be created now, or else the calibre installer creates it as root making it unusable by vagrant
-  mkdir $HOME/.config
-  sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=7.6
+# Calibre 7 (Ubuntu 24 calibre has a package problem, so install from calibre-ebook.com)
+if [[ -z "$(which calibre)" ]]; then
+  sudo apt-get install -y qt6-base-dev libegl1 libopengl0 libxcb-cursor0
+  sudo -v && wget --no-check-certificate -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin version=7.6.0
 fi
 calibre-customize -b $VCODE/calibre_plugin/OSIS-Input
 
@@ -91,7 +77,7 @@ fi
 # Build Sword tools and install Perl bindings
 if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   cd $HOME/.osis-converters/src
-  svn checkout -r $swordRev http://crosswire.org/svn/sword/trunk sword
+  svn checkout -r $swordRev https://crosswire.org/svn/sword/trunk sword
   mkdir sword/build
   cd sword
   
@@ -103,7 +89,7 @@ if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   cp "$VCODE/sword-patch/osis2mod.cpp" "$HOME/.osis-converters/src/sword/utilities/"
   
   cd build
-  cmake -G "Unix Makefiles" -DSWORD_PERL="TRUE" ..
+  cmake -G "Unix Makefiles" -DSWORD_PERL="TRUE" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
   make 
   sudo make install
 fi

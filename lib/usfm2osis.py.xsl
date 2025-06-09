@@ -43,6 +43,15 @@
     </copy>
   </template>
   
+  <!-- Empty cell elements do not render in SWORD (or possibly eBooks?) -->
+  <template mode="pass1" match="cell[not(text())]">
+    <copy>
+      <apply-templates mode="#current" select="node()|@*"/>
+      <!-- This space character is a No-Break Space &#xA0; -->
+      <text> </text>
+    </copy>
+  </template>
+  
   <!-- usfm2osis.py puts scope title content within a reference element, 
   but they are not actually reference links. So this fixes them. -->
   <template mode="pass1" match="reference[ancestor::title[@type='scope']]">
