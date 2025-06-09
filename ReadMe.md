@@ -172,6 +172,7 @@ ENTRY | DESCRIPTION
 **COVERS (PSU)** | Location where cover images may be found. Cover images should be named: `<project-code>_<scope>.jpg` and will then automatically be included in the appropriate OSIS files.
 **CombineGlossaries** | Set to `true` to combine all glossaries into one, or false to keep them separate. `AUTO` lets osis-converters decide. Default is `AUTO`.
 **CombinedGlossaryTitle (L)** | A localized title for the combined glossary in the Table of Contents.
+**Companion (W)** | 
 **Copyright (CLW)** | Contains the copyright notice for the work, including the year of copyright and the owner of the copyright.
 **CopyrightContactAddress (CLW)** | Address of the copyright holder.
 **CopyrightContactEmail (LW)** | Email address of the copyright holder.

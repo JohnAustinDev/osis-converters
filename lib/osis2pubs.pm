@@ -570,41 +570,43 @@ file for it, and then run this script again.");}
   my $createTypes = &conf('MakeTypes', undef, undef, $convertTo);
   if ($convertTo eq "html") {
     &makeHTML($tmp, $cover, $scope, $pubTitle, $pubName, $pubSubdir);
-    
-    # Use linkchecker to check all links of output html
-    &Log("--- CHECKING html links in \"$PUBOUT/$pubName/index.xhtml\"\n");
-    my $result = &shell("linkchecker \"$PUBOUT/$pubName/index.xhtml\"", 3);
-    if ($result =~ /^That's it\. (\d+) links in (\d+) URLs checked\. (\d+) warnings found\. (\d+) errors found\./m) {
-      my $link = 1*$1; my $urls = 1*$2; my $warn = 1*$3; my $err = 1*$4;
-      if ($warn || $err) {&Log("$result\n");}
-      &Report("Checked $link resulting html links (".($warn+$err)." problems).");
-      if ($warn) {&Warn("See above linkchecker warnings.");}
-      if ($err) {&Error("See above linkchecker errors.");}
-    }
-    else {&ErrorBug(
-"Could not parse output of linkchecker:\n$result\n",
-"Check the version of linkchecker.");}
-    
-    # Look for any unreachable material
-    &Log("\n--- CHECKING for unreachable material in \"$PUBOUT/$pubName/xhtml\"\n");
-    my @files = split(/\n+/, &shell("find \"$PUBOUT/$pubName/xhtml\" -type f", 3, 1));
-    push(@files, "$PUBOUT/$pubName/index.xhtml");
-    my %linkedFiles; 
-    $linkedFiles{&shortPath("$PUBOUT/$pubName/index.xhtml")}++;
-    foreach my $f (@files) {&getLinkedFiles($f, \%linkedFiles);}
-    my $numUnreachable = 0;
-    foreach my $f (@files) {
-      if (!defined($linkedFiles{&shortPath($f)})) {
-        $numUnreachable++;
-        my $sf = $f; $sf =~ s/^.*\/(xhtml\/)/$1/;
-        &Error(
-"File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), 
-"If you want to make the above material accessible, add a \\toc".&conf('TOC')." 
-tag before it. Otherwise add 'not_conversion == html' after the \\id tag  
-of this material to exclude it from HTML publications.");
+    # linkchecker as of June 2025 refuses to process xhtml files, so is disabled!
+    if (0) {
+      # Use linkchecker to check all links of output html
+      &Log("--- CHECKING html links in \"$PUBOUT/$pubName/index.xhtml\"\n");
+      my $result = &shell("linkchecker \"$PUBOUT/$pubName/index.xhtml\"", 3);
+      if ($result =~ /^That's it\. (\d+) links in (\d+) URLs checked\. (\d+) warnings found\. (\d+) errors found\./m) {
+        my $link = 1*$1; my $urls = 1*$2; my $warn = 1*$3; my $err = 1*$4;
+        if ($warn || $err) {&Log("$result\n");}
+        &Report("Checked $link resulting html links (".($warn+$err)." problems).");
+        if ($warn) {&Warn("See above linkchecker warnings.");}
+        if ($err) {&Error("See above linkchecker errors.");}
       }
+      else {&ErrorBug(
+  "Could not parse output of linkchecker:\n$result\n",
+  "Check the version of linkchecker.");}
+      
+      # Look for any unreachable material
+      &Log("\n--- CHECKING for unreachable material in \"$PUBOUT/$pubName/xhtml\"\n");
+      my @files = split(/\n+/, &shell("find \"$PUBOUT/$pubName/xhtml\" -type f", 3, 1));
+      push(@files, "$PUBOUT/$pubName/index.xhtml");
+      my %linkedFiles; 
+      $linkedFiles{&shortPath("$PUBOUT/$pubName/index.xhtml")}++;
+      foreach my $f (@files) {&getLinkedFiles($f, \%linkedFiles);}
+      my $numUnreachable = 0;
+      foreach my $f (@files) {
+        if (!defined($linkedFiles{&shortPath($f)})) {
+          $numUnreachable++;
+          my $sf = $f; $sf =~ s/^.*\/(xhtml\/)/$1/;
+          &Error(
+  "File '$sf' is unreachable. It contains:\n".&shell("cat \"$f\"", 3), 
+  "If you want to make the above material accessible, add a \\toc".&conf('TOC')." 
+  tag before it. Otherwise add 'not_conversion == html' after the \\id tag  
+  of this material to exclude it from HTML publications.");
+        }
+      }
+      &Report("Found $numUnreachable unreachable file(s) in '$PUBOUT/$pubName/xhtml'");
     }
-    &Report("Found $numUnreachable unreachable file(s) in '$PUBOUT/$pubName/xhtml'");
   }
   if ($convertTo eq "ebooks" && $createTypes =~ /epub/i) {
     &makeEbook($tmp, 'epub', $cover, $scope, $pubName, $pubSubdir);
