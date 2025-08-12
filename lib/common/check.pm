@@ -479,7 +479,7 @@ sub validateOSIS {
   my $res = &shell($cmd, 3, 1);
   
   my $allow = 
-    "(element milestone\: Schemas validity )" . 'error' .
+    "(Schemas validity )" . 'error' .
     "( \: Element '.*?milestone', attribute 'osisRef'\: " .
     "The attribute 'osisRef' is not allowed\.)";
   my $fix = $res;
