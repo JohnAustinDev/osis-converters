@@ -551,7 +551,7 @@ sub getLinksReference {
   elsif ($t =~ /^(\d+)$/ && $BK && $CH && $VS) {
     return &newReference($work, "$BK.$CH.$1", $t);
   }
-  elsif ($t =~ /^(\d+)$/ && $BK) {
+  elsif ($t =~ /^(\d+)($continuationTerms\d+)?$/ && $BK) {
     return &newReference($work, "$BK.$1", $t);
   }
   
