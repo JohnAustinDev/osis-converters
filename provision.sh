@@ -81,8 +81,8 @@ if [[ ${svnrev:0:${#swordRev}} != "$swordRev" ]]; then
   mkdir sword/build
   cd sword
   
-  # fix xml2gbs.cpp bug that disallows '.' in GenBook keys
-  ##sed -i -r -e "s|else if \(\*strtmp == '\.'\)|else if (*strtmp == 34)|" ./utilities/xml2gbs.cpp
+  # fix xml2gbs.cpp bug (feature??) where '.' in a GenBook key causes all characters before it to be ignored!
+  cp "$VCODE/sword-patch/xml2gbs.cpp" "$HOME/.osis-converters/src/sword/utilities/"
   # fix osis2mod bug that drops paragraph type when converting to milestone div
   # fix osis2mod bug that puts New Testament intro at end of Malachi
   # fix osis2mod bug that fails to treat subSection titles as pre-verse titles
