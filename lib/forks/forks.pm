@@ -45,7 +45,10 @@ my  $forkArgIndex = 5;  # @ARGV[$forkArgIndex+] = Arguments for each
 
 use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){3}$//; require "$SCRD/lib/common/bootstrap.pm";
 
-&Log("\nforks.pm ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
+our $DEBUG;
+if ($DEBUG) {
+  &Log("\nforks.pm ".join(' ', map("'".decode('utf8', $_)."'", @ARGV))."\n");
+}
 
 # Initialization already passed with the caller, but need to get $TMPDIR.
 require "$SCRD/lib/common/common.pm";

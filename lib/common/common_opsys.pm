@@ -1822,8 +1822,9 @@ sub encodePrintPaths {
   foreach my $path (sort { length $$b <=> length $$a } @paths) {
     if (!$$path) {next;}
     my $rp = $$path;
-    $rp =~ s/[\/\\]+$//;
-    $t =~ s/\Q$rp\E/\$$path/g;
+    my $m = $rp =~ s/(([\/\\]($DICTMOD|$MAINMOD))+)$// ? $1 : '';
+    $rp =~ s/[\W]/./;
+    $t =~ s/$rp/\$$path$m/g;
   }
   
   # since log files are written to MOD_OUTDIR, simplify this further

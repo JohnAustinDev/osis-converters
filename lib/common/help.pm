@@ -209,7 +209,7 @@ our %HELP = (
     ['list', ['', ''], [
       ['(P)', 'Placement directives select the OSIS div element referred to on the left of the `==` and mark, move or remove it according to the right side\'s xpath expression or keyword. An xpath expression selects one or more OSIS XML nodes, before which the div element will be placed. The `remove` keyword removes the div element entirely from the OSIS file. The `mark` keyword leaves the div where it is. If not removed, the div element will be marked by all previous marking ID directives in the set. If the xpath expression selects more than one node, the marked div element will be copied and placed before each selected node. Example placement directives: 
       \b`"Table of Contents" == remove`, 
-      \b`introduction == //div[@osisID="Gen"]`' ],
+      \b`introduction == osis:div[@osisID="Gen"]/node()[1]`' ],
       ['(M)', 'Mark directives will mark OSIS div elements in some way. The kind of mark left of `==` having the value to the right, will be applied to each OSIS div element selected by subsequent placement directives in the set. Example marking directives:
       \b`cover == yes`,
       \b`scope == Matt-Rev`
