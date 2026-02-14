@@ -1822,7 +1822,11 @@ sub encodePrintPaths {
   foreach my $path (sort { length $$b <=> length $$a } @paths) {
     if (!$$path) {next;}
     my $rp = $$path;
-    my $m = $rp =~ s/(([\/\\]($DICTMOD|$MAINMOD))+)$// ? $1 : '';
+    my $m = '';
+    if ($rp =~ s/(([\/\\]($DICTMOD|$MAINMOD))+)$//) {
+      $m = $1;
+      $m =~ s/\w+/../g;
+    }
     $rp =~ s/[\W]/./;
     $t =~ s/$rp/\$$path$m/g;
   }

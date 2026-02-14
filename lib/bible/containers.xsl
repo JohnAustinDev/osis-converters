@@ -81,7 +81,7 @@ Copyright 2021 John Austin (gpl.programs.info@gmail.com)
   </template>
   
   <template mode="containers" match="div[@type='book']">
-    <variable name="continue">
+    <variable name="continue" as="attribute()">
       <attribute name="subType">x-continued</attribute>
     </variable>
     <copy>

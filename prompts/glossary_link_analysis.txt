@@ -1,0 +1,21 @@
+We are analyzing a Tuvan OSIS Bible glossary term.
+
+Here is the glossary entry text:
+
+[PASTE HERE]
+
+Here is a list of OSIS verse references where this term (or its forms) occurs:
+
+[PASTE HERE]
+
+Please:
+
+1. Read the glossary definition carefully and identify its core semantic domains.
+2. Analyze each verse reference in context (ritual, moral, physical, metaphorical, etc.).
+3. Group the references into semantic tiers A through E based on relevance to the glossary definition (A=core, B=strong, C=secondary, D=weak, E=peripheral).
+4. Output each tier separately, as space-separated OSIS reference strings.
+5. Use the complete OSIS reference format only (e.g., Gen.7.2!note.n1), not human-readable references.
+6. Do NOT include commentary.
+
+Goal:
+To determine which links are most appropriate for glossary auto-linking, and which may need to be filtered out.

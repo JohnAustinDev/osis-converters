@@ -36,7 +36,7 @@
   </template>
   
   <!-- Paratext renders cells containing numbers differently, so identify with subType -->
-  <template mode="pass1" match="cell[matches(text(),'^\s*\-?\d[\d\s.,]*$')]">
+  <template mode="pass1" match="cell[matches(normalize-space(.),'^\s*\-?\d[\d\s.,]*$')]">
     <copy>
       <attribute name="subType">x-number</attribute>
       <apply-templates mode="#current" select="node()|@*"/>

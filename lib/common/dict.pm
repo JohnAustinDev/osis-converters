@@ -1028,7 +1028,8 @@ osis-converters/utils/removeUnusedMatchElements.pl $INPD");
   my %asString; my $maxLenAsString = 0;
   foreach my $refs (keys %LINK_OSISREF) {
     $grandTotal += $LINK_OSISREF{$refs}{'total'};
-    $toString{$refs} = &decodeOsisRef($refs);
+    my @ent = $XPC->findnodes('//dw:entry[@osisRef="' . $refs . '"]/dw:name/text()', $dwf);
+    $toString{$refs} = @ent ? @ent[0] : 'unknown';
     if (!$maxLenToString || $maxLenToString < length($toString{$refs})) {$maxLenToString = length($toString{$refs});}
     foreach my $as (sort {&numAlphaSort($LINK_OSISREF{$refs}{'matched'}, $a, $b, '', 0);} keys %{$LINK_OSISREF{$refs}{'matched'}}) {
       my $tp = '*'; foreach my $ref (split(/\s+/, $refs)) {if (lc($as) eq lc(&osisRef2Entry($ref))) {$tp = '';}}
