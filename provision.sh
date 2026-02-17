@@ -27,6 +27,7 @@ sudo cpanm HTML::Entities
 sudo cpanm DateTime
 sudo cpanm Term::ReadKey
 sudo cpanm JSON::XS
+sudo cpanm Text::CSV_XS
 
 # VSCODE (extensions: Code intelligence via ctags cfgweb.vscode-perl, Language Server and Debugger richterger.perl)
 sudo cpanm Perl::LanguageServer
