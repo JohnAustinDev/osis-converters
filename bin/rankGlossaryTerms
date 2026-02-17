@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+# To filter CF_addDictLinks.xml so it may produce AI validated links,
+# follow these steps:
+# 1) Run rankGlossaryTerms to generate prompts_terms which must be
+#    one-by-one fed to AI and the results added to the terms.csv file.
+# 2) Run rankGlossaryLinks to generate prompts_links which must be
+#    one-by-one fed to AI and the results added to the links.csv file.
+# 3) Run filterAddDictLinks which reads these two csv files and
+#    filters CF_addDictLinks.xml so it will produce valid links.
+
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
+
+our ($MAININPD, $MAINMOD);
+
+my $aiPromptLength = &conf('ARG_AiPromptLength') || 100;
+my $termsPromptDirName = 'ai_prompt_terms';
+my $termsCsvName = 'terms.csv';
+
+# Must read MAINMOD LOG_sfm2osis.txt to record number of links for each term.
+my $mainOutdir = &getModuleOutputDir($MAINMOD);
+my $sfm2osisLog = "$mainOutdir/LOG_sfm2osis.txt";
+my $termsPromptDir = "$MAININPD/$termsPromptDirName";
+my $termsCsv = "$termsPromptDir/$termsCsvName";
+
+my $Iso = &conf('Lang'); $Iso =~ s/\-\w+$//;
+my $Columns = "\"ISO-639 $Iso term\",\"English gloss\",\"Class\",\"Link count\"";
+
+if (open(INF, "<:encoding(UTF-8)", "$sfm2osisLog")) {
+  my @terms;
+  while (<INF>) {
+    if (/^\s+(\d+)\s+links to (.*?)\s+as\s+/) {
+      push(@terms, "$2 ($1)");
+    }
+  }
+  my $n = 1;
+  if (-e glob("$termsPromptDir/*.txt")) {`rm '$termsPromptDir'/*.txt`;}
+  if (! -e "$termsPromptDir") {`mkdir '$termsPromptDir'`;}
+  if (@terms && ! -e "$termsCsv") {
+    &shell("echo '\"term classes requiring validation\",\"(C|D)\"' > $termsCsv");
+    &shell("echo '\"A\",\"deterministic phrase\"' >> $termsCsv");
+    &shell("echo '\"B\",\"proper name\"' >> $termsCsv");
+    &shell("echo '\"C\",\"domain/technical term\"' >> $termsCsv");
+    &shell("echo '\"D\",\"generic lexical term\"' >> $termsCsv");
+    &shell("echo '\"\",\"\"' >> $termsCsv");
+    &shell("echo '$Columns' >> $termsCsv");
+  }
+  @terms = sort(@terms);
+  while (@terms) {
+    my @batch = splice(@terms, 0, $aiPromptLength);
+    my $path = $termsPromptDir . '/prompt_' . $n . '-' . ($n + @batch - 1) . ".txt";
+    writePrompt(\@batch, $path);
+    $n += @batch;
+  }
+} else {
+  &Error("Could not open $sfm2osisLog.");
+}
+
+########################################################################
+########################################################################
+
+sub writePrompt {
+  my $termAP = shift;
+  my $outfile = shift;
+
+  my $result = "We are analyzing the terms of an ISO-639 $Iso Bible glossary.
+You are performing glossary term tiering using a locked universal rubric.
+
+This rubric MUST NOT be reinterpreted, optimized, or reconsidered during this
+run or future runs. You MUST apply it mechanically and consistently.
+
+Some terms are actually comma separated lists of sub-terms. In these cases you
+MUST evaluate each sub-term individually according to the rubric, and then
+assign the term to ONE tier, which MUST be the lowest tier of any sub-term.
+
+Tier A: Proper Name. Assign ONLY if this term is a proper name.
+
+Tier B: Deterministic. Assign ONLY if this term meets ANY of these conditions:
+  The term is a phrase containing multiple space separated words.
+  There is only one primary meaning for the term.
+
+Tier C: Moderate validation required. Assign ONLY if none of the other tiers'
+  requirements have been sufficiently met.
+
+Tied D: Validation required. Assign ONLY if ANY of these conditions are met:
+  There are multiple primary meanings for the term (ie. 'time' or 'judge')
+  The term is commonly used as multiple parts of speech (ie. 'dance' can be a verb or a noun)
+  The term's meaning is sufficiently general or ambiguous so as to require narrowing (ie. 'leaders')
+
+Please for each term:
+1. Remove the link count that is in parenthesis following each term.
+2. Determine the best concise English gloss (1-5 words) never glossing a
+compound until each morpheme is understood and always verifying against
+the ISO-639 $Iso language lexeme.
+3. Analyze the term and assign it to exactly one tier (A-D).
+4. Explain your reasoning step-by-step before providing the final tier assigments.
+5. Output this as Excel-safe CSV, without a heading row, where each term is a row of exactly these four columns: $Columns
+6. The \"ISO-639 $Iso term\" value MUST be the exact original term (meaning if there are comma separated sub-terms, they must all be included in the term value and in their original order).
+7. Cross-Check Requirement: Before final output, you must cross-reference your step-by-step reasoning with the final CSV data. If the reasoning identifies a mismatch or a specific tier (e.g., Tier D), the CSV MUST reflect that exact tier. Discrepancies between reasoning and the CSV are a failure of the mechanical application.
+8. Provide a copy button so I can copy the output as raw text.
+9. Provide commentary outside of the copyable block.
+
+Here are the glossary terms:
+
+" . join("\n", @{$termAP}) . "
+
+End prompt.
+";
+
+  if ($outfile) {
+    if (open(OUTF, ">:encoding(UTF-8)", "$outfile")) {
+      print OUTF $result;
+      close(OUTF);
+    } else {
+      die "Could not open output file $outfile.\n";
+    }
+  } else {
+    print $result;
+  }
+}

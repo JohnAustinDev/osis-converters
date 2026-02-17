@@ -1,0 +1,163 @@
+#! /usr/bin/perl
+
+# To filter CF_addDictLinks.xml so it may produce AI validated links,
+# follow these steps:
+# 1) Run rankGlossaryTerms to generate prompts_terms which must be
+#    one-by-one fed to AI and the results added to the terms.csv file.
+# 2) Run rankGlossaryLinks to generate prompts_links which must be
+#    one-by-one fed to AI and the results added to the links.csv file.
+# 3) Run filterAddDictLinks which reads these two csv files and
+#    filters CF_addDictLinks.xml so it will produce valid links.
+
+use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SCRD = $SCRIPT; $SCRD =~ s/([\\\/][^\\\/]+){2}$//; require "$SCRD/lib/common/bootstrap.pm"; &init(shift, shift);
+
+use Encode;
+use Text::CSV_XS;
+use File::Spec;
+use XML::LibXML;
+use Data::Dumper;
+
+our ($INPD, $MAININPD, $MAINMOD, $DICTMOD, $XML_PARSER, $XPC);
+
+my $termsPromptDirName = 'ai_prompt_terms';
+my $linksPromtDirName = 'ai_prompt_links';
+my $termsCsvName = 'terms.csv';
+my $linksCsvName = 'links.csv';
+
+my $termsPromptDir = "$MAININPD/$termsPromptDirName";
+my $termsCsv = "$termsPromptDir/$termsCsvName";
+my $linksPromptDir = "$MAININPD/$linksPromtDirName";
+my $linksCsv = "$linksPromptDir/$linksCsvName";
+
+my $Iso = &conf('Lang'); $Iso =~ s/\-\w+$//;
+
+# Read the CF_addDictLinks.xml into LibXUL document
+my $addDictLinksXML = "$INPD/CF_addDictLinks.xml";
+my $dwf = $XML_PARSER->parse_file($addDictLinksXML);
+
+# Read the two CSV files into hash of hashes, and read config
+my %config;
+my %terms;
+my $dataStart = 0;
+my $csv = Text::CSV_XS->new({ binary => 1, auto_diag => 1 });
+open(my $fh, "<:encoding(utf8)", "$termsCsv") or &Error("$termsCsv: $!", 1, 1, 1);
+while (my $row = $csv->getline($fh)) {
+  if (@$row[0] eq "ISO-639 $Iso term") {
+    $dataStart = 1;
+  } elsif ($dataStart) {
+    my $ent = @$row[0];
+    my $gloss = @$row[1];
+    my $class = @$row[2];
+    my $count = @$row[3];
+    $terms{$ent} = { 'gloss' => $gloss, 'class' => $class, 'count' => $count };
+  } else {
+    $config{'default'}{'terms'}{@$row[0]} = @$row[1];
+  }
+}
+close $fh;
+my %links;
+my $dataStart = 0;
+open(my $fh, "<:encoding(utf8)", "$linksCsv") or &Error("$linksCsv: $!", 1, 1, 1);
+while (my $row = $csv->getline($fh)) {
+  if (@$row[0] eq "ISO-639 $Iso glossary term") {
+    $dataStart = 1;
+  } elsif ($dataStart) {
+    my $ent = @$row[0];
+    my $link = @$row[1];
+    my $osisID = @$row[2];
+    my $class = @$row[3];
+    my @osisIDs;
+    if (!defined($links{$ent}{$class}{'osisIDs'})) {
+      $links{$ent}{$class}{'osisIDs'} = \@osisIDs;
+    }
+    push(@{$links{$ent}{$class}{'osisIDs'}}, $osisID);
+    my @links;
+    if (!defined($links{$ent}{$class}{'links'})) {
+      $links{$ent}{$class}{'links'} = \@links;
+    }
+    push(@{$links{$ent}{$class}{'links'}}, $link);
+  } else {
+    $config{'default'}{'links'}{@$row[0]} = @$row[1];
+  }
+}
+close $fh;
+
+# Update each entry
+foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
+  my $entry = $nameNode->textContent();
+  my $entryNode = $nameNode->parentNode();
+  my @matchNodes = $XPC->findnodes(".//dw:match", $entryNode);
+
+  # Add context or notContext attribute if appropriate
+  if ($links{$entry}) {
+    my (@context, @notContext);
+    foreach my $class (keys %{$links{$entry}}) {
+      my $re = $config{'default'}{'links'}{'keep link classes'};
+      if ($class =~ /$re/) {
+        push(@context, @{$links{$entry}{$class}{'osisIDs'}});
+      } else {
+        push(@notContext, @{$links{$entry}{$class}{'osisIDs'}});
+      }
+    }
+    if (@notContext) {
+      if (@context < @notContext) {
+        my $val = join(' ', sort @context);
+        if ($entryNode->getAttribute('context') ne $val) {
+          $entryNode->setAttribute('context', $val);
+          &Log("Added context to $entry: $val\n");
+        }
+      } else {
+        my $val = join(' ', sort @notContext);
+        if ($entryNode->getAttribute('notContext') ne $val) {
+          $entryNode->setAttribute('notContext', $val);
+          &Log("Added notContext to $entry: $val\n");
+        }
+      }
+    }
+  }
+
+  # Enforce capitalization if appropriate (class B is Proper Noun)
+  if (
+    $terms{$entry}{'class'} eq 'B' &&
+    $config{'default'}{'links'}{'only link capitalized proper nouns'}
+  ) {
+    foreach my $matchNode (@matchNodes) {
+      my $t = $matchNode->textContent();
+      if ($t =~ s/^(.*?\/[^i\/]*)i([^i\/]*)$/$1$2/) {
+        #&setTextContent($matchNode, $t);
+        &Log("Enforced capitalization on $entry: $t\n");
+      }
+    }
+  }
+
+  # Enforce exact term if appropriate
+  my $lenlt = $config{'default'}{'links'}{'link exact term if term length less than'};
+  my $cntgt = $config{'default'}{'links'}{'link exact term if link count greater than'};
+  if (length($entry) < $lenlt || $cntgt < $terms{$entry}{'count'}) {
+    foreach my $matchNode (@matchNodes) {
+      my $t = $matchNode->textContent();
+      if ($t =~ s/(?<=\\E)\\S\*(\)?)/$1\\b/g) {
+        #&setTextContent($matchNode, $t);
+        &Log("Enforced exact term on $entry: $t\n");
+      }
+    }
+  }
+}
+
+# Overwrite CF_addDictLinks.xml with an updated version
+if (open(XML, ">$addDictLinksXML")) {
+  print XML $dwf->toString();
+  close(XML);
+}
+
+########################################################################
+########################################################################
+
+sub setTextContent {
+  my $element = shift;
+  my $text = shift;
+
+  foreach my $c ($element->childNodes()) {$c->unbindNode();}
+  my $newNode = $element->ownerDocument->createTextNode($text);
+  $element->appendChild($newNode);
+}

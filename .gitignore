@@ -7,4 +7,5 @@ ubuntu-*
 .defaults.conf
 LOG_*
 .vstags
+.vscode
 
