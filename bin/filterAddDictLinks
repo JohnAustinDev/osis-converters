@@ -124,7 +124,7 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
     foreach my $matchNode (@matchNodes) {
       my $t = $matchNode->textContent();
       if ($t =~ s/^(.*?\/[^i\/]*)i([^i\/]*)$/$1$2/) {
-        #&setTextContent($matchNode, $t);
+        &setTextContent($matchNode, $t);
         &Log("Enforced capitalization on $entry: $t\n");
       }
     }
@@ -137,7 +137,7 @@ foreach my $nameNode ($XPC->findnodes(".//dw:entry/dw:name", $dwf)) {
     foreach my $matchNode (@matchNodes) {
       my $t = $matchNode->textContent();
       if ($t =~ s/(?<=\\E)\\S\*(\)?)/$1\\b/g) {
-        #&setTextContent($matchNode, $t);
+        &setTextContent($matchNode, $t);
         &Log("Enforced exact term on $entry: $t\n");
       }
     }
