@@ -183,13 +183,13 @@ sub read_CF_ASRL {
       elsif ($_ =~ /^(CONTEXT_BOOK|WORK_PREFIX):\s*(\S+)\s+(if\-xpath)\s+(.*?)\s*$/) {
         my $cmd = $1; my $cbk = $2; my $op = $3; my $xp = $4;
         if ($op eq 'if-xpath') {
-          if ($cmd eq 'CONTEXT_BOOK' && !defined($OSIS_ABBR{$cbk})) {
+          if ($cmd eq 'CONTEXT_BOOK' && !defined($OSIS_ABBR{$cbk}) && $cbk ne 'skip') {
             &Error(
-"$cmd \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation.", 
+"$cmd \"$cbk\" in CF_addScripRefLinks.txt is not an OSIS book abbreviation or 'skip'.", 
 "Change it to an abbreviation from this list: " . join(' ', @{$OSIS_GROUP{'OT'}}, @{$OSIS_GROUP{'NT'}}));
           }
           else {
-            &Note("$cmd will be $cbk for nodes returning true for $xp");
+            &Note("$cmd will be '$cbk' for nodes returning true for $xp");
             if    ($cmd eq 'CONTEXT_BOOK') {$xpathIfResultContextBook{$xp} = $cbk;}
             elsif ($cmd eq 'WORK_PREFIX')  {$xpathIfResultWorkPrefix{$xp} = $cbk;}
             else {&Error(
@@ -438,7 +438,10 @@ sub asrlProcessFile {
     # override context book if requested
     foreach my $xpath (sort keys %xpathIfResultContextBook) {
       my @r = $XPC->findnodes($xpath, $textNode);
-      if (@r && @r[0]) {$BK = $xpathIfResultContextBook{$xpath};}
+      if (@r && @r[0]) {
+        if ($xpathIfResultContextBook{$xpath} eq 'skip') {$BK = '';}
+        else {$BK = $xpathIfResultContextBook{$xpath};}
+      }
     }
     
     $LOCATION = "$BK.$CH.$VS";
