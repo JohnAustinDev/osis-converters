@@ -1,19 +1,19 @@
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2021 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 use strict;
@@ -22,18 +22,18 @@ our ($CONF, $DICTMOD, $MAININPD, $MAINMOD, $MOD, $ONS, $XML_PARSER,
     $XPC, @SUB_PUBLICATIONS);
 
 # Deletes existing header work elements, and writes new ones which
-# include, as meta-data, all settings from config.conf. The osis file is 
-# overwritten if $osis_or_osisP is not a reference, otherwise a new 
+# include, as meta-data, all settings from config.conf. The osis file is
+# overwritten if $osis_or_osisP is not a reference, otherwise a new
 # output file is written and the reference is updated to point to it.
 sub writeOsisHeader {
   my $osis_or_osisP = shift;
-  
-  my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP); 
-  
+
+  my $osis = (ref($osis_or_osisP) ? $$osis_or_osisP:$osis_or_osisP);
+
   &Log("\nWriting work and companion work elements in OSIS header:\n");
-  
+
   my $xml = $XML_PARSER->parse_file($osis);
-  
+
   # Both osisIDWork and osisRefWork defaults are set to the current work.
   my @uds = ('osisRefWork', 'osisIDWork');
   foreach my $ud (@uds) {
@@ -44,21 +44,21 @@ sub writeOsisHeader {
       @orw[0]->setAttribute($ud, $MOD);
     }
   }
-  
+
   # Remove any work elements
   foreach my $we (@{$XPC->findnodes('//*[local-name()="work"]', $xml)}) {
     $we->unbindNode();
   }
-  
+
   my $header;
-    
+
   # Add work element for MAINMOD
   my %workElements;
   &getOSIS_Work($MAINMOD, \%workElements, &searchForISBN($MAINMOD, ($MOD eq $MAINMOD ? $xml:'')));
   # CAUTION: The workElements indexes must correlate to their assignment in getOSIS_Work()
   if ($workElements{'100000:type'}{'textContent'} eq 'Bible') {
     my $v = &conf('Versification');
-    $workElements{'190000:scope'}{'textContent'} = 
+    $workElements{'190000:scope'}{'textContent'} =
       &getScopeXML($osis, undef, \$v);
   }
   for (my $x=0; $x<@SUB_PUBLICATIONS; $x++) {
@@ -68,7 +68,7 @@ sub writeOsisHeader {
   }
   my %workAttributes = ('osisWork' => $MAINMOD);
   $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
-  
+
   # Add work element for DICTMOD
   if ($DICTMOD) {
     my %workElements;
@@ -76,9 +76,9 @@ sub writeOsisHeader {
     my %workAttributes = ('osisWork' => $DICTMOD);
     $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   }
-  
+
   &writeXMLFile($xml, $osis_or_osisP);
-  
+
   return $header;
 }
 
@@ -86,7 +86,7 @@ sub writeOsisHeader {
 sub searchForISBN {
   my $mod = shift;
   my $xml = shift;
-  
+
   my %isbns; my $isbn;
   my @checktxt = ($xml ? $XPC->findnodes('//text()', $xml):());
   my @checkconfs = ('About', 'Description', 'ShortPromo', 'TextSource', 'LCSH');
@@ -100,22 +100,22 @@ sub searchForISBN {
   return join(', ', sort keys %isbns);
 }
 
-# Write all work children elements for modname to osisWorkP. The modname 
+# Write all work children elements for modname to osisWorkP. The modname
 # must be either the value of $MAINMOD or $DICTMOD. In addition to
-# writing the standard OSIS work elements, most of the config.conf is 
+# writing the standard OSIS work elements, most of the config.conf is
 # also written as description elements, and these config.conf entries
 # are written as follows:
-# - Config entries which are particular to DICT are written to the 
-#   DICT work element. All others are written to the MAIN work element. 
+# - Config entries which are particular to DICT are written to the
+#   DICT work element. All others are written to the MAIN work element.
 # - Description type attributes contain the section+entry EXCEPT when
-#   section is DICT or MAIN (since this is defined by the word element). 
-# IMPORTANT: Retreiving the usual context specific config.conf value from 
-# header data requires searching both MAIN and DICT work elements. 
+#   section is DICT or MAIN (since this is defined by the word element).
+# IMPORTANT: Retreiving the usual context specific config.conf value from
+# header data requires searching both MAIN and DICT work elements.
 sub getOSIS_Work {
-  my $modname = shift; 
+  my $modname = shift;
   my $osisWorkP = shift;
   my $isbn = shift;
- 
+
   my @tm = localtime(time);
   my %type;
   if ($DICTMOD && $modname eq $DICTMOD) {
@@ -127,20 +127,23 @@ sub getOSIS_Work {
   elsif (&conf('ProjectType', $modname) eq 'childrens_bible') {
     $type{'type'} = 'x-childrens-bible'; $type{'textContent'} = 'Children\'s Bible';
   }
+  elsif (&conf('ProjectType', $modname) eq 'generic_book') {
+    $type{'type'} = 'x-generic-book'; $type{'textContent'} = 'Book';
+  }
   elsif (&conf('ProjectType', $modname) eq 'commentary') {
     $type{'type'} = 'x-commentary'; $type{'textContent'} = 'Commentary';
-  
+
   }
-  my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-childrens-bible' ? 'GenBook':($type{'type'} eq 'x-commentary' ? 'Comm':'Bible')));
-  my $refSystem = "Bible.".&conf('Versification');
+  my $idf = ($type{'type'} eq 'x-glossary' ? 'Dict':($type{'type'} eq 'x-commentary' ? 'Comm':($type{'type'} eq 'x-bible' ? 'Bible':'GenBook')));
+  my $refSystem = "Book.$modname";
   if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.$DICTMOD";}
-  if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book.$modname";}
+  if ($type{'type'} eq 'x-bible') {$refSystem = "Bible.".&conf('Versification');}
   my $isbnID = $isbn;
   $isbnID =~ s/[\- ]//g;
   foreach my $n (split(/,/, $isbnID)) {if ($n && length($n) != 13 && length($n) != 10) {
     &Error("ISBN number \"$n\" is not 10 or 13 digits", "Check that the ISBN number is correct.");
   }}
-  
+
   # write OSIS Work elements:
   # element order seems to be important for passing OSIS schema validation for some reason (hence the ordinal prefix)
   $osisWorkP->{'000000:title'}{'textContent'} = ($modname eq $DICTMOD ? &conf('CombinedGlossaryTitle'):&conf('TranslationTitle'));
@@ -186,7 +189,7 @@ sub getOSIS_Work {
 #    '200000:castList' => '',
 #    '210000:teiHeader' => '',
 #    '220000:refSystem' => ''
-  
+
   return;
 }
 
@@ -197,7 +200,7 @@ sub mapLocalizedElem {
   my $osisWorkP = shift;
   my $mod = shift;
   my $skipTypeAttribute = shift;
-  
+
   foreach my $k (sort {$a cmp $b} keys %{$CONF}) {
     if ($k !~ /^([^\+]+)\+$entry(_([\w\-]+))?$/) {next;}
     my $s = $1;
@@ -221,7 +224,7 @@ sub mapConfig {
   my $prefix = shift;
   my $osisWorkP = shift;
   my $modname = shift;
-  
+
   foreach my $fullEntry (sort keys %{$CONF}) {
     if ($index > $maxindex) {&ErrorBug("mapConfig: Too many \"$elementName\" $prefix entries.");}
     elsif ($modname && $fullEntry =~ /DICT\+/ && $modname ne $DICTMOD) {next;}
@@ -242,11 +245,11 @@ sub writeWorkElement {
   my $attributesP = shift;
   my $elementsP = shift;
   my $xml = shift;
-  
+
   my $header = @{$XPC->findnodes('//osis:header', $xml)}[0];
   $header->appendTextNode("\n");
   my $work = $header->insertAfter($XML_PARSER->parse_balanced_chunk("<work $ONS></work>"), undef);
-  
+
   # If an element would have no textContent, the element is not written
   foreach my $a (sort keys %{$attributesP}) {$work->setAttribute($a, $attributesP->{$a});}
   foreach my $e (sort keys %{$elementsP}) {
@@ -262,8 +265,8 @@ sub writeWorkElement {
   }
   $work->appendTextNode("\n");
   $header->appendTextNode("\n");
-  
-  my $w = $work->toString(); 
+
+  my $w = $work->toString();
   $w =~ s/\n+/\n/g;
   return $w;
 }
@@ -271,26 +274,26 @@ sub writeWorkElement {
 sub addWorkElements {
   my $osisP = shift;
   my $worksP = shift; # hash pointer whose keys are work IDs for adding
-  
+
   my $xml = $XML_PARSER->parse_file($$osisP);
 
   foreach (sort keys %{$worksP}) {
     if (@{$XPC->findnodes("//osis:work[\@osisWork='$_']", $xml)}[0]) {next;}
     &addExternalWorkToHeader($_, $xml);
   }
-  
+
   if (keys %{$worksP}) {&writeXMLFile($xml, $osisP);}
 }
 
 sub addExternalWorkToHeader {
   my $work = shift;
   my $xml = shift;
-  
+
   my %workAttributes = ('osisWork' => $work);
   my %workElements;
   $workElements{'110000:format'}{'textContent'} = 'text/xml';
   $workElements{'110000:format'}{'type'} = 'x-MIME';
-  
+
   # Look for external work's config.conf
   my $wmain = $work; $wmain =~ s/DICT$//;
   my $extWorkDir = "$MAININPD/../$wmain";
@@ -299,7 +302,7 @@ sub addExternalWorkToHeader {
     my $ptype = $cP->{"$work+ProjectType"};
     my %type;
     if ($work ne $wmain) {
-      $type{'type'}        = 'x-glossary'; 
+      $type{'type'}        = 'x-glossary';
       $type{'textContent'} = 'Glossary';
     }
     elsif ($ptype eq 'bible') {
@@ -310,6 +313,10 @@ sub addExternalWorkToHeader {
       $type{'moddrv'}        = 'x-childrens-bible';
       $type{'textContent'} = 'Children\'s Bible';
     }
+    elsif ($ptype eq 'generic_book') {
+      $type{'moddrv'}        = 'x-generic-book';
+      $type{'textContent'} = 'Book';
+    }
     elsif ($ptype eq 'commentary') {
       $type{'type'}        = 'x-commentary';
       $type{'textContent'} = 'Commentary';
@@ -318,7 +325,7 @@ sub addExternalWorkToHeader {
     my $refSystem = "Bible.".$cP->{"$wmain+Versification"};
     if ($type{'type'} eq 'x-glossary') {$refSystem = "Dict.$work";}
     if ($type{'type'} eq 'x-childrens-bible') {$refSystem = "Book.$work";}
-    
+
     $workElements{'100000:type'} = \%type;
     $workElements{'140000:language'}{'textContent'} = $cP->{"$wmain+Lang"};
     $workElements{'220000:refSystem'}{'textContent'} = $refSystem;
@@ -326,7 +333,7 @@ sub addExternalWorkToHeader {
   else {
     &Error("Referenced external work $work could not be located.");
   }
-  
+
   my $header .= &writeWorkElement(\%workAttributes, \%workElements, $xml);
   &Note("Added work element to header:\n$header");
 }

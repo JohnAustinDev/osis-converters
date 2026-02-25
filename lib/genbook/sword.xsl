@@ -7,15 +7,20 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
-  
-  <!-- This stylesheet decodes osisIDs into utf8 for SWORD GenBook import -->
- 
+
+  <!-- This stylesheet decodes osisIDs into utf8 for SWORD GenBook import and
+  removes div tags that do not have osisIDs which may interfere with hierarchy.-->
+
   <import href="../common/functions.xsl"/>
-  
+
   <template match="node()|@*" name="identity" mode="#all">
     <copy><apply-templates select="node()|@*" mode="#current"/></copy>
   </template>
- 
+
   <template match="@osisID"><attribute name="osisID" select="oc:decodeOsisRef(.)"/></template>
-  
+
+  <template match="div[not(@osisID)]">
+    <apply-templates select="node()" mode="#current"/>
+  </template>
+
 </stylesheet>

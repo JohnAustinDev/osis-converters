@@ -1,18 +1,18 @@
 #!/usr/bin/perl
 
-# This file contains functions to interface with a particular server 
+# This file contains functions to interface with a particular server
 # setup. This file will be superceded by any corresponding default file
 # in a project's defaults directory.
 
-# Return the filename to use (without extension) for a particular 'tran' 
+# Return the filename to use (without extension) for a particular 'tran'
 # publication.
 sub tranPubFileName {
   my $title = shift;
   my $scope = shift;
-  
+
   my $t = $title; $t =~ s/\s+/-/g;
   my $s = $scope; $s =~ s/\s+/_/g;
-  
+
   return "$t($s)";
 }
 
@@ -24,7 +24,7 @@ sub subPubFileName {
 
   my $t = $title; $t =~ s/\s+/-/g;
   my $s = $scope; $s =~ s/\s+/_/g;
-  
+
   return "Subpub $t($s)";
 }
 
@@ -37,7 +37,7 @@ sub bookPubFileName {
 
   my $t = $title; $t =~ s/\s+/-/g;
   my $s = $scope; $s =~ s/\s+/_/g;
-  
+
   return "$type $t($s)";
 }
 
@@ -45,24 +45,34 @@ sub bookPubFileName {
 # Children's Bible publication.
 sub childrensBibleFileName {
   my $title = shift;
-  
+
   my $t = $title; $t =~ s/\s+/-/g;
-  
+
   return "$t(Childrens_Bible)";
 }
 
+# Return the filename to use (without extension) for a particular
+# Generic Book publication.
+sub genericBookFileName {
+  my $title = shift;
+
+  my $t = $title; $t =~ s/\s+/-/g;
+
+  return "$t(Book)";
+}
+
 # Return a hash whose key value pairs are scope => sub-directory by
-# scanning $url for files of $type and recording the scope of such 
-# files located there and the sub-directory in which they are found. 
-# The scope: 'childrens_bible' is used when Children's Bibles (having no 
+# scanning $url for files of $type and recording the scope of such
+# files located there and the sub-directory in which they are found.
+# The scope: 'childrens_bible' is used when Children's Bibles (having no
 # scope) are found.
 sub readServerScopes {
   my $url        = shift; # URL to go to
   my $mainmod    = shift; # mainmod to look for
   my $type       = shift; # type of file to look for
-  
+
   my %result;
-  
+
   return \%result;
 }
 

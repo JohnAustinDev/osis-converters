@@ -1,19 +1,19 @@
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2021 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 use strict;
@@ -36,7 +36,7 @@ sub getOsisModName {
     }
     return $modname;
   }
-  
+
   # Generate doc data if the root document has not been seen before
   my $headerDoc = $node->ownerDocument->URI;
 
@@ -49,22 +49,22 @@ sub getOsisModName {
     }
     else {&initDocumentCache($node->ownerDocument);}
   }
-  
+
   if (!$DOCUMENT_CACHE{$headerDoc}) {
     &ErrorBug("initDocumentCache failed to init \"$headerDoc\"!", 1);
     return '';
   }
-  
+
   return $DOCUMENT_CACHE{$headerDoc}{'getOsisModName'};
 }
-# Associated functions use this cached header data for a big speedup. 
-# The cache is cleared and reloaded the first time a node is referenced 
+# Associated functions use this cached header data for a big speedup.
+# The cache is cleared and reloaded the first time a node is referenced
 # from an OSIS file URI.
 sub initDocumentCache {
   my $xml = shift; # must be a document node
-  
+
   my $dbg = "initDocumentCache: ";
-  
+
   my $headerDoc = $xml->URI;
   undef($DOCUMENT_CACHE{$headerDoc});
   $DOCUMENT_CACHE{$headerDoc}{'xml'} = $xml;
@@ -75,7 +75,7 @@ sub initDocumentCache {
   }
   $osisIDWork = $osisIDWork->getAttribute('osisIDWork');
   $DOCUMENT_CACHE{$headerDoc}{'getOsisModName'} = $osisIDWork;
-  
+
   # Save data by MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   undef($DOCUMENT_CACHE{$osisIDWork});
   $DOCUMENT_CACHE{$osisIDWork}{'xml'}                = $xml;
@@ -91,7 +91,8 @@ sub initDocumentCache {
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisBooks'} = \%books;
   my $scope = @{$XPC->findnodes('//osis:header/osis:work[1]/osis:scope', $xml)}[0];
   $DOCUMENT_CACHE{$osisIDWork}{'getOsisScope'} = ($scope ? $scope->textContent():'');
-  
+  $DOCUMENT_CACHE{$osisIDWork}{'getOsisType'} = @{$XPC->findnodes('//osis:header/osis:work[@osisWork="'.$osisIDWork.'"]/osis:type', $xml)}[0]->getAttribute('type');
+
   # Save companion data by its MODNAME (gets overwritten anytime initDocumentCache is called, since the header includes all works)
   my @works = $XPC->findnodes('/osis:osis/osis:osisText/osis:header/osis:work', $xml);
   foreach my $work (@works) {
@@ -106,12 +107,12 @@ sub initDocumentCache {
     $DOCUMENT_CACHE{$w}{'xml'} = ''; # force a re-read when again needed (by existsElementID)
   }
   &Debug("$dbg\n");
-  
+
   return $DOCUMENT_CACHE{$osisIDWork}{'getOsisModName'};
 }
 
-# IMPORTANT: the osisCache lookup can ONLY be called on $modname after 
-# a call to getOsisModName($modname), since getOsisModName($modname) 
+# IMPORTANT: the osisCache lookup can ONLY be called on $modname after
+# a call to getOsisModName($modname), since getOsisModName($modname)
 # is where the cache is written.
 sub osisCache {
   my $func = shift;
@@ -209,7 +210,23 @@ sub getOsisScope {
 sub isChildrensBible {
   my $mod = &getOsisModName(shift);
 
-  return (&osisCache('getOsisRefSystem', $mod) =~ /^Book\.\w+CB$/ ? 1:0);
+  my $return = &osisCache('getOsisType', $mod);
+  if (!$return) {
+    &ErrorBug("getOsisType: No document node for \"$mod\"!");
+    return '';
+  }
+  return $return eq 'x-childrens-bible';
+}
+
+sub isGenericBook {
+  my $mod = &getOsisModName(shift);
+
+  my $return = &osisCache('getOsisType', $mod);
+  if (!$return) {
+    &ErrorBug("getOsisType: No document node for \"$mod\"!");
+    return '';
+  }
+  return $return eq 'x-generic-book';
 }
 
 sub isBible {

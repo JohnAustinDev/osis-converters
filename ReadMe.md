@@ -56,7 +56,7 @@ Run `./bin/convert -h '<setting> | <file> | <script>'` to find help on any parti
 # defaults 
 
 ## SYNOPSIS 
-Create default control files for a project (for both `MAINMOD` and `DICTMOD` if there is one) from source files located in `defaults` directories. Existing project control files are never changed or overwritten. If a template is located, it will be copied and then modified for the project, otherwise any default file located will be copied. The order of search is:<br />1. `<file>_<type>_template.<ext>`<br />2. `<file>_template.<ext>`<br />3. `<file>_<type>.<ext>`<br />4. Any file with the same name and extension.<br />Where `<file>.<ext>` is `(config.conf | CF_sfm2osis.txt | CF_addScripRefLinks.txt | CF_addFootnoteLinks.txt)` and `<type>` is `(bible | childrens_bible | commentary | dictionary)` according to the type of project or module.
+Create default control files for a project (for both `MAINMOD` and `DICTMOD` if there is one) from source files located in `defaults` directories. Existing project control files are never changed or overwritten. If a template is located, it will be copied and then modified for the project, otherwise any default file located will be copied. The order of search is:<br />1. `<file>_<type>_template.<ext>`<br />2. `<file>_template.<ext>`<br />3. `<file>_<type>.<ext>`<br />4. Any file with the same name and extension.<br />Where `<file>.<ext>` is `(config.conf | CF_sfm2osis.txt | CF_addScripRefLinks.txt | CF_addFootnoteLinks.txt)` and `<type>` is `(bible | childrens_bible | commentary | generic_book | dictionary)` according to the type of project or module.
 
 
 ### DEFAULTS DIRECTORIES 
@@ -205,7 +205,7 @@ ENTRY | DESCRIPTION
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
 **Obsoletes (W)** | see: [https://wiki.crosswire.org/DevTools:conf_Files](https://wiki.crosswire.org/DevTools:conf_Files)
 **PreferredCSSXHTML (W)** | SWORD module css may be included by placing it in a `module.css` file located in a default directory (See `./bin/convert -h defaults`).
-**ProjectType** | Type of project. Options are: `bible \| childrens_bible \| commentary`. Default is `bible`.
+**ProjectType** | Type of project. Options are: `bible \| childrens_bible \| commentary \| generic_book`. Default is `bible`.
 **RAM_GB_EBOOKS (S)** | The required amount of RAM, in GB, that needs to be free before the scheduler will start another eBook or HTML build. Default is 1. Increase this value if scheduled eBook builds are using too much RAM.
 **RAM_MB_EBOOKS_PERBOOK (S)** | The required amount of RAM, in MB per Bible book, that needs to be free in addition to RAM_GB_EBOOKS, before the scheduler will start another eBook or HTML build. Default is 32. This value can be used to further optimize RAM usage.
 **REPOSITORY (PSU)** | Location where SWORD modules are published.

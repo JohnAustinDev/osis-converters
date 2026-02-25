@@ -1,84 +1,84 @@
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2021 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 use strict;
 
-our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE, 
-    $DICTMOD, $FONTS, $INOSIS, $INPD, $LOGFILE, $MAININPD, $MAINMOD, 
-    $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, $NO_OUTPUT_DELETE, 
-    $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, $TEI_NAMESPACE, 
-    $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, %CONV_OUTPUT_SUBDIR, 
+our ($CONFFILE, $DEBUG, $DICTINPD, $OUTDIR, $ADDDICTLINKS_NAMESPACE,
+    $DICTMOD, $FONTS, $INOSIS, $INPD, $LOGFILE, $MAININPD, $MAINMOD,
+    $MOD, $MODULETOOLS_BIN, $MOD_OUTDIR, $NO_OUTPUT_DELETE,
+    $OSIS_NAMESPACE, $SCRD, $SCRIPT, $SCRIPT_NAME, $TEI_NAMESPACE,
+    $TMPDIR, $XML_PARSER, $XPC, %BOOKNAMES, %CONV_OUTPUT_SUBDIR,
     %CONV_OUTPUT_FILES, $OC_VERSION, %ARGS, $APPENDLOG);
 
 sub init_linux_script {
   &Log("Running $SCRIPT_NAME version $OC_VERSION
 -----------------------------------------------------\n\n");
-  
+
   &logGitRevs();
-  
+
   &timer('start');
-  
+
   &initLibXML();
-  
+
   %BOOKNAMES; &readBookNamesXML(\%BOOKNAMES);
-  
+
   if ($SCRIPT_NAME =~ /defaults/) {
     &defaults(\%BOOKNAMES); # do this after readBookNamesXML() so %BOOKNAMES is set
-    
+
     &readSetCONF();
-    
+
     # $DICTMOD will be empty if there is no dictionary module for the project, but $DICTINPD always has a value
     $DICTMOD = ( -d $DICTINPD ? $MAINMOD . 'DICT' : '' );
   }
-  
+
   if (!-e $CONFFILE) {
-    &Error("There is no config.conf file: \"$CONFFILE\".", 
+    &Error("There is no config.conf file: \"$CONFFILE\".",
     "\"$INPD\" may not be an osis-converters project directory. If it is, then run 'defaults' to create a config.conf file.\n", 1);
   }
-  
+
   $MOD_OUTDIR = &getModuleOutputDir();
   if (!-e "$MOD_OUTDIR") {&make_path("$MOD_OUTDIR");}
-  
+
   $TMPDIR = &initTMPDIR();
 
   $LOGFILE = &initLOGFILE();
-  
+
   &initModuleFiles();
-  
+
   if ($SCRIPT_NAME =~ /^defaults$/) {return;}
-  
+
   &checkConfGlobals();
-    
+
   &checkProjectConfiguration();
-    
+
   &checkRequiredConfEntries();
-  
+
   if (&conf('Font')) {
     &checkFont(&conf('Font'));
   }
-  
+
   if (-e "$INPD/images") {
     &checkImageFileNames("$INPD/images");
   }
-  
+
   if ($DEBUG) {
-    &Error("DEBUG is set in config.conf.", 
-"For publication of output files, DEBUG needs to be commented out or 
+    &Error("DEBUG is set in config.conf.",
+"For publication of output files, DEBUG needs to be commented out or
 set to 0 in config.conf. DEBUG may only be specified during development
 and debugging.");
   }
@@ -89,12 +89,12 @@ sub logGitRevs {
   chdir($MAININPD);
   my $inpdGit = &shell("git rev-parse HEAD 2>/dev/null", 3, 1); chomp($inpdGit);
   my $inpdOriginGit = ($inpdGit ? &shell("git config --get remote.origin.url", 3, 1):''); chomp($inpdOriginGit);
-  
+
   chdir($SCRD);
   my $scrdGit = &shell("git rev-parse HEAD 2>/dev/null", 3, 1); chomp($scrdGit);
-  
+
   my $modtoolsGit = &shell("cd \"$MODULETOOLS_BIN\" && git rev-parse HEAD 2>/dev/null", 3, 1); chomp($modtoolsGit);
-  
+
   &Log("osis-converters git rev: $scrdGit\n");
   &Log("Module-tools git rev: $modtoolsGit at $MODULETOOLS_BIN\n");
   if ($inpdGit) {
@@ -102,17 +102,17 @@ sub logGitRevs {
   }
 }
 
-# Return a module's root output directory. 
+# Return a module's root output directory.
 # Requires $OUTDIR and $MAININPD already be set.
 sub getModuleOutputDir {
   my $mod = shift; if (!$mod) {$mod = $MOD;}
-  
+
   if ($OUTDIR && ! -d "$OUTDIR") {
     $OUTDIR = undef;
     &Error("OUTDIR is not an existing directory: " . &findConf('OUTDIR'),
 "Change it to the path of a directory where output files can be written.", 1);
   }
-  
+
   my $moddir;
   if ($OUTDIR) {$moddir = "$OUTDIR/$mod";}
   else {
@@ -125,24 +125,24 @@ sub getModuleOutputDir {
 }
 
 # Delete/create/return $TMPDIR as needed. If $TMPDIR is already
-# set (such as by a fork) it does nothing but return the value of 
+# set (such as by a fork) it does nothing but return the value of
 # $TMPDIR.
 sub initTMPDIR {
   if (!$SCRIPT_NAME) {&ErrorBug("SCRIPT_NAME not set.", 1);}
   if (!$MOD_OUTDIR)  {&ErrorBug("MOD_OUTDIR not set.", 1);}
-  
+
   if ($TMPDIR) {return $TMPDIR;}
-  
+
   my $tmpdir = "$MOD_OUTDIR/tmp/$SCRIPT_NAME";
-  
+
   # Only delete $TMPDIR if this is not a fork, &scriptName() eq $SCRIPT_NAME
-  if (-d $tmpdir && !$NO_OUTPUT_DELETE && 
+  if (-d $tmpdir && !$NO_OUTPUT_DELETE &&
         &scriptName() eq $SCRIPT_NAME) {
     remove_tree($tmpdir);
   }
-  
+
   if (! -e "$tmpdir") {make_path("$tmpdir");}
-  
+
   return $tmpdir;
 }
 
@@ -152,13 +152,13 @@ sub initLOGFILE {
   if (!$MOD_OUTDIR)  {&ErrorBug("MOD_OUTDIR not set.", 1);}
 
   my $log = ( $LOGFILE ? $LOGFILE : "$MOD_OUTDIR/LOG_$SCRIPT_NAME.txt" );
-  
+
   if (-f $log && !$APPENDLOG) {
     unlink($log);
   }
-  
+
   $LOGFILE = $log; &Log(); # clear the log buffer
-  
+
   return $log;
 }
 
@@ -176,7 +176,7 @@ sub initModuleFiles {
       $INOSIS = "$TMPDIR/00_$MOD.xml";
     }
     else {
-      &Error("$SCRIPT_NAME cannot find an input OSIS file at " . 
+      &Error("$SCRIPT_NAME cannot find an input OSIS file at " .
         "\"$MOD_OUTDIR/$MOD.xml\".", '', 1);
     }
   }
@@ -200,7 +200,7 @@ sub initModuleFiles {
       }
     }
   }
-  
+
   # init SFM files if needed
   if ($SCRIPT_NAME =~ /^defaults$/ && -e "$INPD/sfm") {
     # check for BOM in SFM and clear it if it's there, also normalize line endings to Unix
@@ -213,14 +213,14 @@ sub initModuleFiles {
 sub checkProjectConfiguration {
 
   if (uc($MAINMOD) ne $MAINMOD) {
-    print 
-  "ERROR: Module name $MAINMOD should be all capitals. Change the 
-  directory name to ".uc($MAINMOD)."  and change the name in config.conf 
+    print
+  "ERROR: Module name $MAINMOD should be all capitals. Change the
+  directory name to ".uc($MAINMOD)."  and change the name in config.conf
   (if config.conf exists). Then try again.
   Exiting...";
     exit;
   }
-  
+
   if ($MOD eq $MAINMOD && &conf('ProjectType') eq 'childrens_bible') {
     if ($MOD !~ /CB$/) {
       &Error("Children's Bible project codes should end with 'CB'.", '', 1);
@@ -230,7 +230,7 @@ sub checkProjectConfiguration {
 
 sub readBookNamesXML {
   my $booknamesHP = shift;
-  
+
   # Read BookNames.xml, if found, which can be used for localizing Bible book names
   foreach my $bknxml (split(/\n+/, &shell("find '$MAININPD/sfm' -name 'BookNames.xml' -print", 3, 1))) {
     if (! -e "$bknxml") {next;}
@@ -248,7 +248,7 @@ sub readBookNamesXML {
         if ($booknamesHP->{$bk}{$t} && $booknamesHP->{$bk}{$t} ne $bkelem->getAttribute($t)) {
           my $new = $bkelem->getAttribute($t);
           if (
-            ($t eq 'short' && length($new) > length($booknamesHP->{$bk}{$t})) || 
+            ($t eq 'short' && length($new) > length($booknamesHP->{$bk}{$t})) ||
             ($t eq 'long' && length($new) < length($booknamesHP->{$bk}{$t}))
           ) {
             $new = $booknamesHP->{$bk}{$t};
@@ -267,7 +267,7 @@ sub readBookNamesXML {
 my $STARTTIME;
 sub timer {
   my $do = shift;
- 
+
   if ($do =~ /start/i) {
     &Log("start time: ".localtime()."\n");
     $STARTTIME = DateTime->now();
@@ -290,38 +290,38 @@ sub timer {
 our %FONT_FILES;
 sub checkFont {
   my $font = shift;
-  
+
   # After this routine is run, font features can use "if ($FONT)" to check
   # font support and then use $FONTS/$FONT_FILES if font files are needed.
-  
+
   # FONTS can be a URL in which case update the local font cache
   if ($FONTS =~ /^https?\:/) {$FONTS = &getURLCache('fonts', $FONTS, 1, 12);}
 
   if ($FONTS && ! -e $FONTS) {
     &Error("config.conf specifies FONTS as \"$FONTS\" but this path does ".
-    "not exist. FONTS will be unset.", 
+    "not exist. FONTS will be unset.",
     "Change the value of FONTS in the [system] section of config.conf to ".
     "point to an existing path or URL.");
     $FONTS = '';
   }
 
   if ($FONTS) {
-    # The Font value is a font internal name, which may have multiple font 
-    # files associated with it. Font files should be named according to 
+    # The Font value is a font internal name, which may have multiple font
+    # files associated with it. Font files should be named according to
     # the excpectations below.
     opendir(DIR, $FONTS);
     my @fonts = readdir(DIR);
     closedir(DIR);
     my %styles = (
-      'R'  => 'regular', 
-      'B'  => 'bold', 
-      'I'  => 'italic', 
-      'BI' => 'bold italic', 
+      'R'  => 'regular',
+      'B'  => 'bold',
+      'I'  => 'italic',
+      'BI' => 'bold italic',
       'IB' => 'bold italic'
     );
     foreach my $s (sort keys %styles) {
       if ($font =~ /\-$s$/i) {
-        &Error("The Font config.conf entry should not specify the font style.", 
+        &Error("The Font config.conf entry should not specify the font style.",
         "Remove '-$s' from FONT=$font in config.conf");
       }
     }
@@ -330,7 +330,7 @@ sub checkFont {
       if ($f =~ /^(.*?)(\-([ribRIB]{1,2}))?\.([^\.]+)$/) {
         my $n = $1; my $t = ($2 ? $3:'R'); my $ext = $4;
         if ($2 && uc($3) eq 'R') {
-          &Error("Regular font $f should not have the $2 extension.", 
+          &Error("Regular font $f should not have the $2 extension.",
           "Change the name of the font file from $f to $n.$ext");
         }
         if ($n eq $font) {
@@ -347,7 +347,7 @@ sub checkFont {
       }
     }
     else {
-      &Error("No font file(s) for \"$font\" were found at \"$FONTS\"", 
+      &Error("No font file(s) for \"$font\" were found at \"$FONTS\"",
       "Add the required font to this directory, or change FONTS in the ".
       "[system] section of config.conf to the correct path or URL.");
     }
@@ -357,18 +357,18 @@ sub checkFont {
     "has been specified in the [system] section of config.conf. Therefore, ".
     "this setting will be ignored!\n");
   }
-  
+
   &Debug("\n\$FONTS=$FONTS\n\%FONT_FILES=".Dumper(\%FONT_FILES)."\n");
 }
 
 sub outdir {
   my $script = shift; if (!$script) {$script = $SCRIPT_NAME;}
-  
+
   my $outdir = $MOD_OUTDIR;
   if ($CONV_OUTPUT_SUBDIR{$script}) {
     $outdir .= '/'.&const($CONV_OUTPUT_SUBDIR{$script});
   }
-  
+
   return $outdir;
 }
 

@@ -1,25 +1,25 @@
 #!/usr/bin/perl
 # This file is part of "osis-converters".
-# 
+#
 # Copyright 2012 John Austin (gpl.programs.info@gmail.com)
-#     
-# "osis-converters" is free software: you can redistribute it and/or 
-# modify it under the terms of the GNU General Public License as 
-# published by the Free Software Foundation, either version 2 of 
+#
+# "osis-converters" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
 # the License, or (at your option) any later version.
-# 
+#
 # "osis-converters" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with "osis-converters".  If not, see 
+# along with "osis-converters".  If not, see
 # <http://www.gnu.org/licenses/>.
 
 # usage: osis2sword [Project_Directory]
 
-# Run this script to create raw and zipped SWORD modules from an 
+# Run this script to create raw and zipped SWORD modules from an
 # osis.xml file and a config.conf file located in the Project_Directory.
 
 # OSIS wiki: http://www.crosswire.org/wiki/OSIS_Bibles
@@ -29,9 +29,9 @@ use strict; use File::Spec; our $SCRIPT = File::Spec->rel2abs(__FILE__); our $SC
 
 our ($WRITELAYER, $APPENDLAYER, $READLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD, $TMPDIR);
-our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER, 
+our ($INOSIS, $SWORD_BIN, $MODULETOOLS_BIN, $XPC, $XML_PARSER,
     $UPPERCASE_DICTIONARY_KEYS, %CONV_PUB_SETS);
-    
+
 my $swtmp = &outdir() . '/sword';
 if (-e "$swtmp") {remove_tree("$swtmp");}
 make_path("$swtmp");
@@ -50,7 +50,7 @@ if (! -e "$swtmp/$SModPath") {make_path("$swtmp/$SModPath");}
 # empty, in case it does not yet exist.
 my %params = (
   'conversion' => join(' ', 'sword', @{$CONV_PUB_SETS{'sword'}}),
-  'MAINMOD_URI' => &getModuleOsisFile($MAINMOD), 
+  'MAINMOD_URI' => &getModuleOsisFile($MAINMOD),
   'DICTMOD_URI' => ($DICTMOD && $MOD eq $DICTMOD ? &getModuleOsisFile($DICTMOD):''),
 );
 &logXSLT(&runScript("$SCRD/lib/sword.xsl", \$INOSIS, \%params, 3));
@@ -60,7 +60,9 @@ my %params = (
 &useSwordImgIfAvailable(\$INOSIS);
 
 if ($SModDrv =~ /GenBook/) {
-  &checkChildrensBibleStructure($INOSIS);
+  if (&conf('ProjectType') ne 'generic_book') {
+    &checkChildrensBibleStructure($INOSIS);
+  }
   &runScript("$SCRD/lib/genbook/sword.xsl", \$INOSIS);
 }
 
@@ -75,8 +77,8 @@ if ($UPPERCASE_DICTIONARY_KEYS) {&upperCaseKeys(\$OSIS_OR_TEI);}
 # Copy images and set Feature conf entry
 my $imgsAP = &copyReferencedImages(\$OSIS_OR_TEI, $INPD, "$swtmp/$SModPath");
 if (@{$imgsAP}) {
-  $Sconf->{"$MOD+Feature"} = ( 
-    $Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"} . '<nx/>' : '' 
+  $Sconf->{"$MOD+Feature"} = (
+    $Sconf->{"$MOD+Feature"} ? $Sconf->{"$MOD+Feature"} . '<nx/>' : ''
   ) . 'Images';
 }
 
@@ -99,13 +101,13 @@ if ($SModDrv =~ /LD/) {
     $mainmod = "$mainmod/$name";
     if (-e $mainmod) {
       %params = (
-        'MAINMOD' => $MAINMOD, 
-        'MAINMOD_URI' => $mainmod, 
+        'MAINMOD' => $MAINMOD,
+        'MAINMOD_URI' => $mainmod,
         'DICTMOD_URI' => $OSIS_OR_TEI
       );
     }
     else {
-      &Error("Could not locate SWORD main module.", 
+      &Error("Could not locate SWORD main module.",
       "The main SWORD module must be created before the dict SWORD module.");
     }
   }
@@ -115,7 +117,7 @@ if ($SModDrv =~ /LD/) {
 }
 else {
   %params = (
-    'MAINMOD' => $MAINMOD, 
+    'MAINMOD' => $MAINMOD,
     'MAINMOD_URI' => $OSIS_OR_TEI,
     'DICTMOD_URI' => ''
   );
@@ -139,11 +141,11 @@ if ($SModDrv =~ /Text$/) {
   }
   if ($introlen > 64000) {
     &Error(
-"Bible introduction is too long (".$introlen." > 64000)", 
-"Shorten the introduction by moving parts of it into the DICT 
-module and replacing it with links. Long entries are difficult to scroll 
-through in some media and should be avoided. But if there is very good 
-reason to require an exceedingly long introduction, the SWORD Text4 
+"Bible introduction is too long (".$introlen." > 64000)",
+"Shorten the introduction by moving parts of it into the DICT
+module and replacing it with links. Long entries are difficult to scroll
+through in some media and should be avoided. But if there is very good
+reason to require an exceedingly long introduction, the SWORD Text4
 module type might be used, which supports larger entries.");
   }
 }
@@ -151,26 +153,26 @@ module type might be used, which supports larger entries.");
 # Write the SWORD module
 if ($SModDrv =~ /Text/) {
   &Log("\n--- CREATING $MOD SWORD MODULE ($SModVsys)\n");
-  
-  &shell( &escfile($SWORD_BIN."osis2mod") . ' ' . 
-          &escfile("$swtmp/$SModPath") . ' ' . 
-          &escfile($OSIS_OR_TEI) . ' ' . 
+
+  &shell( &escfile($SWORD_BIN."osis2mod") . ' ' .
+          &escfile("$swtmp/$SModPath") . ' ' .
+          &escfile($OSIS_OR_TEI) . ' ' .
           ($SModDrv =~ /zText/ ? ' -z z' : '') . ' ' .
-          "-v " . $SModVsys . 
+          "-v " . $SModVsys .
           ($SModDrv =~ /Text4/ ? ' -s 4' : ''), -1);
-  
+
 }
 elsif ($SModDrv =~ /^RawGenBook$/) {
 	&Log("\n--- CREATING $MOD RawGenBook SWORD MODULE ($SModVsys)\n");
-  
+
 	chdir("$swtmp/$SModPath");
   &shell(&escfile($SWORD_BIN."xml2gbs")." $OSIS_OR_TEI ".lc($MOD), -1);
 	chdir($SCRD);
-  
+
 }
 elsif ($SModDrv =~ /LD/) {
   &Log("\n--- CREATING $MOD Dictionary TEI SWORD MODULE ($SModVsys)\n");
-  
+
   &shell(&escfile($SWORD_BIN."tei2mod")." ".&escfile("$swtmp/$SModPath")." ".&escfile($OSIS_OR_TEI)." -s ".($SModDrv eq "RawLD" ? "2":"4"), -1);
   # tei2mod creates module files called "dict" which are non-standard, so fix
   opendir(MODF, "$swtmp/$SModPath");
@@ -180,7 +182,7 @@ elsif ($SModDrv =~ /LD/) {
   if ($m !~ /^dict\.(.*?)$/) {next;}
     rename("$swtmp/$SModPath/$m", "$swtmp/$SModPath/".lc($MOD).".$1");
   }
-  
+
 }
 else {
 	&ErrorBug("Unhandled module type \"$SModDrv\"; only the following are supported: Bible, Dictionary or General-Book", 1);
@@ -196,7 +198,7 @@ if ($cssfile) {
 
 # Set InstallSize conf entry
 {
-  my $installSize = 0;             
+  my $installSize = 0;
   find(sub { $installSize += -s if -f $_ }, "$swtmp/$SModPath");
   $Sconf->{"$MOD+InstallSize"} = $installSize;
 }
@@ -218,11 +220,11 @@ my $Version = $Sconf->{"$MOD+Version"};
 
 sub usePngIfAvailable {
   my $osisP = shift;
-  
+
   my $xml = $XML_PARSER->parse_file($$osisP);
-  
+
   &Note("Using png images if available...");
-  
+
   # use png images if available
   my @jpgs = $XPC->findnodes('//osis:figure[contains(@src, ".jpg") or contains(@src, ".JPG")]', $xml);
   foreach my $jpg (@jpgs) {
@@ -233,17 +235,17 @@ sub usePngIfAvailable {
       &Note("Changing jpg image to png: ".$jpg->getAttribute('src'));
     }
   }
-  
+
   &writeXMLFile($xml, $osisP);
 }
 
 sub useSwordImgIfAvailable {
   my $osisP = shift;
-  
+
   &Note("Using '_sword' images if available...");
-  
+
   my $xml = $XML_PARSER->parse_file($$osisP);
-  
+
   # use Sword specific images if available
   my @figs = $XPC->findnodes('//osis:figure', $xml);
   foreach my $fig (@figs) {
@@ -254,7 +256,7 @@ sub useSwordImgIfAvailable {
       &Note("Changing $src image to: ".$fig->getAttribute('src'));
     }
   }
-  
+
   &writeXMLFile($xml, $osisP);
 }
 
@@ -262,7 +264,7 @@ sub useSwordImgIfAvailable {
 # XSLT was not used to do this because a custom uc2() Perl function is needed.
 sub upperCaseKeys {
   my $osis_or_teiP = shift;
-  
+
   my $xml = $XML_PARSER->parse_file($$osis_or_teiP);
   if ($MOD eq $DICTMOD) {
     foreach my $keyword ($XPC->findnodes('//*[local-name()="entryFree"]/@n', $xml)) {

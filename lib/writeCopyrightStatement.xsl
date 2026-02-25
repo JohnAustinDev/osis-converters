@@ -7,44 +7,69 @@
  xmlns:me="http://github.com/JohnAustinDev/osis-converters/navigationMenu.xsl"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  exclude-result-prefixes="#all">
- 
+
   <!-- This XSLT does the following:
-  1) Assemble a human readable copyright statement with distribution notes, 
+  1) Assemble a human readable copyright statement with distribution notes,
      using header metadata.
   2) Insert the statement into an appropriate place in the OSIS file.
   -->
- 
+
   <import href="./common/functions.xsl"/>
-  
+
   <param name="fallbackLang" select="'ru'"/>
-  
+
   <!-- Insert it before the first bookGroup, or before the first
   introduction if there is one. For Children's Bibles, insert it
-  at the end of the initial majorSection. -->
-  <variable name="insertBeforeMe" as="node()">
-    <sequence select="if ($isChildrensBible)
-      then //osisText/div[@type = 'book'][1]/div[@type = 'majorSection'][1]/node()[last()]
-      else //osisText/div[@type = 'bookGroup' or (@type = 'introduction' and not(@resp = 'x-oc'))][1]"/>
+  at the end of the initial majorSection. For others at the end
+  of the first chapter. -->
+  <variable name="insertBefore" as="node()?">
+    <sequence select="
+      if (not($isChildrensBible) and not($isGenericBook))
+      then //osisText/div[@type = 'bookGroup' or (@type = 'introduction' and not(@resp = 'x-oc'))][1]
+      else ()"/>
   </variable>
-  
+
+  <variable name="appendChild" as="node()?">
+    <sequence select="
+      if ($isChildrensBible)
+      then //osisText/div[@type = 'book'][1]/div[@type = 'majorSection'][1]
+      else (if ($isGenericBook)
+      then //osisText/descendant::div[@type = 'book'][1]
+      else ())"/>
+  </variable>
+
   <template match="/">
-    <message>NOTE: Running writeCopyrightStatement.xsl</message>
-    
+    <call-template name="Log">
+      <with-param name="msg">NOTE: Running writeCopyrightStatement.xsl (insertBefore=<value-of select="count($insertBefore)"/>, appendChild=<value-of select="count($appendChild)"/>)</with-param>
+    </call-template>
+
     <if test="//osisText/@osisIDWork != $MAINMOD">
       <call-template name="ErrorBug">
         <with-param name="msg">Module type not supported.</with-param>
         <with-param name="die">yes</with-param>
       </call-template>
     </if>
-    
+
     <apply-templates mode="writeCopyrightStatement" select="." />
   </template>
-  
+
   <template match="node()|@*" mode="writeCopyrightStatement">
     <copy><apply-templates mode="#current" select="node()|@*"/></copy>
   </template>
-  
-  <template match="*[. intersect $insertBeforeMe]" mode="writeCopyrightStatement">
+
+  <template match="*[. intersect $insertBefore]" mode="writeCopyrightStatement">
+    <call-template name="copyright"/>
+    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
+  </template>
+
+  <template match="*[. intersect $appendChild]" mode="writeCopyrightStatement">
+    <copy>
+      <apply-templates mode="#current" select="node()|@*"/>
+      <call-template name="copyright"/>
+    </copy>
+  </template>
+
+  <template name="copyright">
     <variable name="DistributionLicense"
       select="oc:locConf('DistributionLicense', $fallbackLang, .)"/>
     <variable name="Copyright"
@@ -57,9 +82,14 @@
       select="oc:locConf('CopyrightContactAddress', $fallbackLang, .)"/>
     <variable name="CopyrightContactEmail"
       select="oc:locConf('CopyrightContactEmail', $fallbackLang, .)"/>
-      
-    <if test="$DistributionLicense or $Copyright or $DistributionNotes or
-      $CopyrightHolder or $CopyrightContactAddress or $CopyrightContactEmail">
+    <variable name="doInsert" select="$DistributionLicense or $Copyright or $DistributionNotes or
+      $CopyrightHolder or $CopyrightContactAddress or $CopyrightContactEmail"/>
+
+    <call-template name="Log">
+      <with-param name="msg">Inserting copyright: (<value-of select="$doInsert"/>)</with-param>
+    </call-template>
+
+    <if test="$doInsert">
       <osis:div type="x-copyright">
         <osis:lb type="x-hr"/>
         <if test="$DistributionLicense">
@@ -68,7 +98,7 @@
           </osis:title>
         </if>
         <if test="$Copyright">
-          <osis:div><value-of select="$Copyright"/></osis:div>
+          <osis:p><value-of select="$Copyright"/></osis:p>
         </if>
         <if test="$CopyrightHolder or $CopyrightContactAddress or $CopyrightContactEmail">
           <osis:lb/>
@@ -90,14 +120,11 @@
           <osis:lb/>
         </if>
         <if test="$DistributionNotes">
-          <osis:div><value-of select="$DistributionNotes"/></osis:div>
+          <osis:p><value-of select="$DistributionNotes"/></osis:p>
         </if>
         <osis:lb type="x-hr"/>
       </osis:div>
     </if>
-    
-    <copy><apply-templates mode="#current" select="node()|@*"/></copy>
-    
   </template>
-  
+
 </stylesheet>

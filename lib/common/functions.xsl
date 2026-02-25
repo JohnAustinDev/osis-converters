@@ -11,44 +11,44 @@
  xmlns:sx="http://saxon.sf.net/"
  xmlns:osis="http://www.bibletechnologies.net/2003/OSIS/namespace"
  exclude-result-prefixes="#all">
-  
+
   <!-- If script-specific config context is desired from oc:conf(), then the calling script must pass this SCRIPT_NAME parameter -->
   <param name="SCRIPT_NAME"/>
-  
-  <!-- If DICT-specific config context is desired from oc:conf(), then either the OSIS file header 
+
+  <!-- If DICT-specific config context is desired from oc:conf(), then either the OSIS file header
   and osisText elements must be marked-up as x-glossary type, OR the calling script must pass in DICTMOD -->
   <param name="DICTMOD" select="/osis/osisText/header/work[child::type[@type='x-glossary']]/@osisWork"/>
   <!-- The main module code (could refer to Bible or Children's Bible) -->
   <variable name="MAINMOD" select="/descendant::work[child::type[@type!='x-glossary']][1]/@osisWork"/>
   <variable name="MAINTYPE" select="$MAINMOD/parent::*/type/@type"/>
-  
+
   <variable name="DOCWORK" as="xs:string" select="//@osisIDWork[1]"/>
-  
+
   <param name="MAINMOD_URI"/>
   <param name="DICTMOD_URI"/>
   <variable name="MAINMOD_DOC" select="if ($MAINMOD_URI) then doc($MAINMOD_URI) else ()"/>
   <variable name="DICTMOD_DOC" select="if ($DICTMOD_URI) then doc($DICTMOD_URI) else ()"/>
-  
-  <!-- The following config entries require a properly marked-up OSIS header, OR 
+
+  <!-- The following config entries require a properly marked-up OSIS header, OR
   the calling script must pass in their values (otherwise an error is thrown for oc:conf()) -->
   <param name="DEBUG" select="oc:csys('DEBUG', /)"/>
   <param name="TOC" select="oc:conf('TOC', /)"/>
   <param name="TitleCase" select="oc:conf('TitleCase', /)"/>
   <param name="KeySort" select="oc:conf('KeySort', /)"/>
-  
+
   <!-- Glossaries with more than this number of keywords will get an A-Z menu -->
   <param name="glossaryTocAutoThresh" select="xs:integer(number(oc:sarg('glossaryTocAutoThresh', /, '20')))"/><!-- is ARG_glossaryTocAutoThresh in config.conf -->
-  
+
   <!-- ARG_glossaryCase for sorting, letter headings, lists and paging. Can be lower-case, as-is, or upper-case -->
   <variable name="glossaryCase" select="oc:sarg('glossaryCase', /, 'upper-case')"/>
-  
+
   <!-- All projects have an osisID for the main introduction, and if there is a reference OSIS file
-  there will also be an osisID for the top of the reference material. NOTE: If the INT feature is 
+  there will also be an osisID for the top of the reference material. NOTE: If the INT feature is
   used, the main introduction osisID will be in the dictionary module. -->
   <variable name="INT_feature" select="/descendant::*[@annotateType = 'x-feature'][@annotateRef = 'INT'][1]"/>
-  <variable name="uiIntroduction" 
+  <variable name="uiIntroduction"
     select="oc:sarg('uiIntroduction', /, /osis/osisText/header/work[@osisWork = $MAINMOD]/title[1])"/>
-  <variable name="uiDictionary" select="if ($DICTMOD) then 
+  <variable name="uiDictionary" select="if ($DICTMOD) then
             oc:sarg('uiDictionary', /, /osis/osisText/header/work[@osisWork = $DICTMOD]/title[1]) else ''"/>
 
   <variable name="REF_introduction" select="concat($MAINMOD,':BIBLE_TOP')"/>
@@ -56,16 +56,19 @@
   there can be no other glossary keyword called $uiDictionary (nor $uiIntroduction if the INT feature is used). -->
   <variable name="REF_introductionINT" select="if ($INT_feature) then concat($DICTMOD,':',oc:encodeOsisRef($uiIntroduction)) else ''"/>
   <variable name="REF_dictionary" select="if ($DICTMOD) then concat($DICTMOD,':',oc:encodeOsisRef($uiDictionary)) else ''"/>
-  
+
   <variable name="noDictTopMenu" select="oc:sarg('noDictTopMenu', /, 'no')"/>
-  
+
   <variable name="isChildrensBible" select="boolean(//osis:header/
                                             osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
                                             osis:type[@type='x-childrens-bible'])"/>
-  <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible))
+  <variable name="isGenericBook" select="boolean(//osis:header/
+                                         osis:work[@osisWork=/osis:osis/osis:osisText/@osisIDWork]/
+                                         osis:type[@type='x-generic-book'])"/>
+  <key name="osisID" match="*[@osisID]" use="if (not($isChildrensBible) and not($isGenericBook))
                                              then tokenize(@osisID, '\s+')
                                              else @osisID"/>
-    
+
   <!-- Return a contextualized config entry value by reading the OSIS header.
        An error is thrown if requested entry is not found. -->
   <function name="oc:conf" as="xs:string?">
@@ -84,8 +87,8 @@
       </otherwise>
     </choose>
   </function>
-  
-  <!-- Return a contextualized optional config ARG_entry value by reading the OSIS header. 
+
+  <!-- Return a contextualized optional config ARG_entry value by reading the OSIS header.
        The required default value is returned if ARG_entry is not found) -->
   <function name="oc:sarg" as="xs:string?">
     <param name="entry" as="xs:string"/>
@@ -101,7 +104,7 @@
     <call-template name="Note"><with-param name="msg" select="concat('Reading config.conf (SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, '): ARG_', $entry, ' = ', $result)"/></call-template>
     <value-of select="$result"/>
   </function>
-    
+
   <!-- Return a config system value by reading the OSIS header.
        Nothing is returned if the requested param is not found. -->
   <function name="oc:csys" as="xs:string?">
@@ -111,7 +114,7 @@
     <call-template name="Note"><with-param name="msg" select="concat('(SCRIPT_NAME=', $SCRIPT_NAME, ', DICTMOD=', $DICTMOD, ') Reading system variable: ', $entry, ' = ', $result)"/></call-template>
     <value-of select="$result"/>
   </function>
-  
+
   <!-- Return a contextualized config or argument value by reading the OSIS header -->
   <function name="oc:osisHeaderContext" as="xs:string?">
     <param name="entry" as="xs:string"/>
@@ -130,7 +133,7 @@
       </when>
     </choose>
   </function>
-  
+
   <!-- Return the localized config value, or empty string if no values are found -->
   <function name="oc:locConf" as="xs:string">
     <param name="entryBase" as="xs:string"/>
@@ -144,7 +147,7 @@
                       then $opt2
                       else oc:osisHeaderContext($entryBase, $anynode, 'no')"/>
   </function>
-  
+
   <function name="oc:isValidConfigValue" as="xs:boolean">
     <param name="entry" as="xs:string"/>
     <param name="value" as="xs:string"/>
@@ -159,26 +162,26 @@
       <otherwise><value-of select="true()"/></otherwise>
     </choose>
   </function>
- 
+
   <function name="oc:number-of-matches" as="xs:integer">
     <param name="arg" as="xs:string?"/>
     <param name="pattern" as="xs:string"/>
     <sequence select="count(tokenize($arg,$pattern)) - 1"/>
   </function>
-  
+
   <function name="oc:index-of-node" as="xs:integer*">
     <param name="nodes" as="node()*"/>
     <param name="nodeToFind" as="node()"/>
     <sequence select="for $seq in (1 to count($nodes)) return $seq[$nodes[$seq] is $nodeToFind]"/>
   </function>
-  
-  <!-- xml:id must start with a letter or underscore, and can only 
+
+  <!-- xml:id must start with a letter or underscore, and can only
   contain ASCII letters, digits, underscores, hyphens, and periods. -->
   <function name="oc:id" as="xs:string">
     <param name="str" as="xs:string"/>
     <variable name="ascii" as="xs:string">
       <value-of>
-        <analyze-string select="$str" regex="."> 
+        <analyze-string select="$str" regex=".">
           <matching-substring>
             <choose>
               <when test="not(matches(., '[A-Za-z0-9_\-\.]'))">
@@ -192,8 +195,8 @@
     </variable>
     <value-of select="if (matches($ascii, '^[A-Za-z_]')) then $ascii else concat('_', $ascii)"/>
   </function>
-  
-  <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)--> 
+
+  <!-- Only output true if $glossaryEntry first letter matches that of the previous entry (case-insensitive)-->
   <function name="oc:skipGlossaryEntry" as="xs:boolean">
     <param name="glossaryEntry" as="element(seg)"/>
     <variable name="previousKeyword" select="$glossaryEntry/preceding::seg[@type='keyword'][1]"/>
@@ -201,23 +204,23 @@
       <when test="not($previousKeyword)"><value-of select="false()"/></when>
       <otherwise>
         <value-of select="boolean(
-            upper-case(oc:keySortLetter(  $glossaryEntry/string())) = 
+            upper-case(oc:keySortLetter(  $glossaryEntry/string())) =
             upper-case(oc:keySortLetter($previousKeyword/string()))
         )"/>
       </otherwise>
     </choose>
   </function>
-  
+
   <!-- Encode any UTF8 string value into a legal OSIS osisRef -->
   <function name="oc:encodeOsisRef" as="xs:string?">
     <param name="r" as="xs:string?"/>
     <choose>
       <when test="$r">
         <value-of>
-          <analyze-string select="$r" regex="."> 
+          <analyze-string select="$r" regex=".">
             <matching-substring>
               <choose>
-                <when test="string-to-codepoints(.)[1] &#60;= 1103 and 
+                <when test="string-to-codepoints(.)[1] &#60;= 1103 and
                             matches(., oc:uniregex('[\p{gc=L}\p{gc=N}]'))">
                   <value-of><value-of select="."/></value-of>
                 </when>
@@ -229,7 +232,7 @@
       </when>
     </choose>
   </function>
-  
+
   <!-- Decode a oc:encodeOsisRef osisRef to UTF8 -->
   <function name="oc:decodeOsisRef" as="xs:string?">
     <param name="osisRef" as="xs:string?"/>
@@ -251,7 +254,7 @@
       </when>
     </choose>
   </function>
-  
+
   <!-- Sort $KeySort order with: <sort select="oc:keySort($key)" data-type="text" order="ascending" collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/> -->
   <!-- NOTE: the 'i' matching flag does not work with all Unicode characters, so a different approach must be used: oc:glossaryCase(regex-letters) -->
   <function name="oc:keySort" as="xs:string?">
@@ -259,12 +262,12 @@
     <if test="$KeySort and $text">
       <variable name="text2" select="oc:glossaryCase($text)"/>
       <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
-      <variable name="text3" select="if ($ignoreRegex) 
-        then replace($text2, $ignoreRegex, '') 
+      <variable name="text3" select="if ($ignoreRegex)
+        then replace($text2, $ignoreRegex, '')
         else $text2"/>
       <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
       <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
-      <variable name="keySortRegex" as="xs:string" 
+      <variable name="keySortRegex" as="xs:string"
         select="concat('(', string-join($orderedRegexes/oc:glossaryCaseRE(@regex), '|'), ')')"/>
       <variable name="result" as="xs:string">
         <value-of>
@@ -313,7 +316,7 @@
       </analyze-string>
     </variable>
     <value-of select="if (not(matches(oc:encodeKS($KeySort), '\{([^\}]*)\}'))) then '(\W)'
-                      else if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')')) 
+                      else if ($ignores) then oc:decodeKS(concat('(', string-join($ignores, '|'), ')'))
                       else ''"/>
   </function>
   <function name="oc:keySortRegexes" as="element(oc:regex)*">
@@ -331,8 +334,8 @@
   </function>
   <function name="oc:orderLongToShort" as="element(oc:regex)*">
     <param name="charRegexes" as="element(oc:regex)*"/>
-    <for-each select="$charRegexes">     
-      <sort select="string-length(./@regex)" data-type="number" order="descending"/> 
+    <for-each select="$charRegexes">
+      <sort select="string-length(./@regex)" data-type="number" order="descending"/>
       <copy-of select="."/>
     </for-each>
   </function>
@@ -350,10 +353,10 @@
       </otherwise>
     </choose>
   </function>
-  <!-- Same as oc:glossaryCase() except leaves characters preceded by '\' 
-  untouched. Since the 'i' flag does not work right on some high order 
+  <!-- Same as oc:glossaryCase() except leaves characters preceded by '\'
+  untouched. Since the 'i' flag does not work right on some high order
   Unicode chars (such as ӏ) the same casing needs to be applied to the
-  letters in regexes as was applied to the source string upon which 
+  letters in regexes as was applied to the source string upon which
   the search is being applied. -->
   <function name="oc:glossaryCaseRE" as="xs:string">
     <param name="regex" as="xs:string"/>
@@ -368,7 +371,7 @@
     </variable>
     <value-of select="$result"/>
   </function>
-  
+
   <!-- Find the longest KeySort match at the beginning of a string, or else the first character if $KeySort not set. -->
   <function name="oc:keySortLetter" as="xs:string">
     <param name="text" as="xs:string"/>
@@ -376,19 +379,19 @@
     <choose>
       <when test="$KeySort">
         <variable name="ignoreRegex" select="oc:keySortIgnore()" as="xs:string"/>
-        <variable name="text3" select="if ($ignoreRegex) 
-          then replace($text2, $ignoreRegex, '') 
+        <variable name="text3" select="if ($ignoreRegex)
+          then replace($text2, $ignoreRegex, '')
           else $text2"/>
         <variable name="keySortRegexes" select="oc:keySortRegexes()" as="element(oc:regex)*"/>
         <variable name="orderedRegexes" select="oc:orderLongToShort($keySortRegexes)" as="element(oc:regex)*"/>
-        <value-of select="replace( $text3, 
-                                   concat('^(', string-join($orderedRegexes/oc:glossaryCaseRE(@regex), '|'), ').*?$'), 
+        <value-of select="replace( $text3,
+                                   concat('^(', string-join($orderedRegexes/oc:glossaryCaseRE(@regex), '|'), ').*?$'),
                                    '$1')"/>
       </when>
       <otherwise><value-of select="substring($text2, 1, 1)"/></otherwise>
     </choose>
   </function>
-  
+
   <function name="oc:uniregex" as="xs:string">
     <param name="regex" as="xs:string"/>
     <choose>
@@ -406,12 +409,12 @@
     <param name="gc" as="xs:string?"/>
     <variable name="unicodeLetters" select="'ᴴЦ'"/>
     <variable name="unicodePunc" select="'!@#$%^*'"/>
-    <value-of select="matches($unicodeLetters, concat('^\p{', $gc, 'L}+$')) and 
+    <value-of select="matches($unicodeLetters, concat('^\p{', $gc, 'L}+$')) and
                       not(matches($unicodeLetters, concat('\P{', $gc, 'L}'))) and
-                      matches($unicodePunc, concat('^\P{', $gc, 'L}+$')) and 
+                      matches($unicodePunc, concat('^\P{', $gc, 'L}+$')) and
                       not(matches($unicodePunc, concat('[\p{', $gc, 'L}]')))"/>
   </function>
-  
+
   <!-- Return the title of a div element -->
   <function name="oc:getDivTitle" as="xs:string">
     <param name="div" as="element(div)"/>
@@ -422,7 +425,7 @@
         </when>
         <otherwise>
           <value-of select="$div/(
-              descendant::title[@type='main'][1] | 
+              descendant::title[@type='main'][1] |
               descendant::milestone[@type=concat('x-usfm-toc', $TOC)][1]/@n |
               descendant::seg[@type='keyword'][count($div//seg[@type='keyword']) = 1] |
               descendant::title[@type='x-chapterLabel'][1]
@@ -432,7 +435,7 @@
     </variable>
     <value-of select="replace($title, '^(\[[^\]]*\])+', '')"/>
   </function>
-  
+
   <!-- Return the sub-publication title matching @scope -->
   <function name="oc:getDivScopeTitle" as="xs:string">
     <param name="glossary" as="element(div)?"/>
@@ -440,19 +443,19 @@
     <variable name="title" select="root($glossary)//header//description[contains(@type, concat('SubPublicationTitle[', $pscope, ']'))]"/>
     <value-of select="if ($title) then $title/text() else ''"/>
   </function>
-  
+
   <function name="oc:getTocInstructions" as="xs:string*">
     <param name="tocElement" as="element()?"/>
     <variable name="result" as="xs:string*">
       <if test="$tocElement/@n">
-        <analyze-string select="$tocElement/@n" regex="\[([^\]]*)\]"> 
+        <analyze-string select="$tocElement/@n" regex="\[([^\]]*)\]">
           <matching-substring><value-of select="regex-group(1)"/></matching-substring>
         </analyze-string>
       </if>
     </variable>
     <if test="count($result[. != ''])"><value-of select="distinct-values($result)"/></if>
   </function>
-  
+
   <function name="oc:titleCase" as="xs:string?">
     <param name="title" as="xs:string?"/>
     <choose>
@@ -461,7 +464,7 @@
       <otherwise><value-of select="$title"/></otherwise>
     </choose>
   </function>
-  
+
   <function name="oc:capitalize-first" as="xs:string*">
     <param name="words" as="xs:string*"/>
     <variable name="regex">^([\s\(\[\{'"]*)(.+?)([\s\)\]\}'"]*)$</variable>
@@ -470,14 +473,14 @@
       <variable name="word"     select="replace(., $regex, '$2')"/>
       <variable name="postpunc" select="replace(., $regex, '$3')"/>
       <sequence select="normalize-space(concat(
-        $prepunc, 
+        $prepunc,
         if (matches($word, '^[IiVvLlXx]+$')) (: don't modify roman numerals! :)
-          then $word 
+          then $word
           else concat(upper-case(substring($word,1,1)), lower-case(substring($word,2))),
         $postpunc))"/>
     </for-each>
   </function>
-  
+
   <function name="oc:key" as="node()*">
     <param name="name" as="xs:string"/>
     <param name="docs" as="document-node()+"/>
@@ -487,46 +490,46 @@
       <sequence select="key($name, $refvalue)"/>
     </for-each>
   </function>
-  
+
   <function name="oc:getPrevChapterEncRef" as="xs:string?">
     <param name="node" as="node()?"/>
     <variable name="inChapter" as="element(chapter)?"
       select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
               [@eID = $node/preceding::chapter[1]/@sID]"/>
-    <variable name="osisID" select="if ($inChapter) then 
+    <variable name="osisID" select="if ($inChapter) then
                       $inChapter/preceding::chapter[ @osisID = string-join((
-                        tokenize( $inChapter/@eID, '\.' )[1], 
-                        string(number(tokenize( $inChapter/@eID, '\.' )[2])-1)), '.') ][1]/@osisID 
+                        tokenize( $inChapter/@eID, '\.' )[1],
+                        string(number(tokenize( $inChapter/@eID, '\.' )[2])-1)), '.') ][1]/@osisID
                       else ''"/>
     <value-of select="if ($osisID) then concat('&amp;osisRef=', $osisID) else ''"/>
   </function>
-  
+
   <function name="oc:getNextChapterEncRef" as="xs:string?">
     <param name="node" as="node()?"/>
     <variable name="inChapter" as="element(chapter)?"
       select="$node/(self::chapter[@eID] | following::chapter[@eID])[1]
               [@eID = $node/preceding::chapter[1]/@sID]"/>
-    <variable name="osisID" select="if ($inChapter) then 
+    <variable name="osisID" select="if ($inChapter) then
                       $inChapter/following::chapter[ @osisID = string-join((
-                        tokenize( $inChapter/@eID, '\.' )[1], 
-                        string(number(tokenize( $inChapter/@eID, '\.' )[2])+1)), '.')][1]/@osisID 
+                        tokenize( $inChapter/@eID, '\.' )[1],
+                        string(number(tokenize( $inChapter/@eID, '\.' )[2])+1)), '.')][1]/@osisID
                       else ''"/>
     <value-of select="if ($osisID) then concat('&amp;osisRef=', $osisID) else ''"/>
   </function>
-  
-  <!-- Returns a list of links to glossary and introductory material, 
+
+  <!-- Returns a list of links to glossary and introductory material,
   including next/previous chapter/keyword links. Arguments are all
   encoded like a URL query is, for instance: '&osisRef=Matt.1.1&text=Matthew'.
-  Also, &disabled=1 can be added to disable the generated link. NOTE: 
-  Normally links to keywords in Bible modules are type x-glossary, while 
-  those in Dict modules are x-glosslink, but here they are all 
+  Also, &disabled=1 can be added to disable the generated link. NOTE:
+  Normally links to keywords in Bible modules are type x-glossary, while
+  those in Dict modules are x-glosslink, but here they are all
   x-glosslink for CSS backward compatibility in xulsword. -->
   <function name="oc:getNavmenuLinks" as="element(list)?">
     <param name="encREF_prev"      as="xs:string?"/>
     <param name="encREF_next"      as="xs:string?"/>
     <param name="encREF_intro"     as="xs:string?"/>
     <param name="encREF_dictList"  as="xs:string*"/>
-    
+
     <variable name="defaultTextPREV" select="
         if (boolean($encREF_prev) and not(matches($encREF_prev, '&amp;text=[^&amp;]+')))
         then '&amp;text= ← '
@@ -539,7 +542,7 @@
         if (boolean($encREF_intro) and not(matches($encREF_intro, '&amp;text=[^&amp;]+')))
         then concat('&amp;text=', $uiIntroduction)
         else ''"/>
-    
+
     <if test="$encREF_prev or $encREF_next or $encREF_intro or count($encREF_dictList)">
       <osis:list subType="x-navmenu" resp="x-oc">
 
@@ -555,20 +558,20 @@
             </osis:p>
           </osis:item>
         </if>
-        
+
         <sequence select="oc:getMenuItem(
           concat($encREF_intro, $defaultTextINTRO),
           'x-introduction-link' )"/>
-        
+
         <for-each select="$encREF_dictList">
           <sequence select="oc:getMenuItem(
-            ., 
+            .,
             'x-dictionary-link')"/>
         </for-each>
-        
+
         <osis:lb/>
         <osis:lb/>
-        
+
       </osis:list>
     </if>
   </function>
@@ -592,7 +595,7 @@
 <with-param name="die">yes</with-param>
       </call-template>
     </if>
-    <if test="not(matches($encodedRef, '&amp;disabled=1')) and 
+    <if test="not(matches($encodedRef, '&amp;disabled=1')) and
               not(matches($encodedRef, '&amp;(osisRef|href)=[^&amp;]+'))">
       <call-template name="ErrorBug">
 <with-param name="msg">getMenuLink link has no target (osisRef or href): <value-of select="$encodedRef"/></with-param>
@@ -623,18 +626,18 @@
       </otherwise>
     </choose>
   </function>
-  
+
   <!-- Returns a menu with links to each glossary of DICTMOD -->
   <function name="oc:glossaryTopMenu" as="node()+">
     <param name="osisText" as="element(osisText)"/>
-    
+
     <osis:div type="x-keyword" subType="x-navmenu-glossaries">
       <osis:p>
         <osis:seg type="keyword" osisID="{oc:encodeOsisRef($uiDictionary)}">
           <value-of select="$uiDictionary"/>
         </osis:seg>
       </osis:p>
-      
+
       <osis:list subType="x-menulist">
         <for-each select="$osisText/div[@type='glossary'][not(@scope = 'NAVMENU')]
                                                          [not(@annotateType = 'x-feature')]
@@ -651,9 +654,9 @@
                 </osis:item>
               </for-each>
               <call-template name="Warn">
-<with-param name="msg">Links to <value-of select=".//seg[@type='keyword']"/> keyword(s) were placed on the navigation, menu 
+<with-param name="msg">Links to <value-of select=".//seg[@type='keyword']"/> keyword(s) were placed on the navigation, menu
 because their glossary has no title.</with-param>
-<with-param name="exp">If the glossary is given a title using a \toc<value-of select="$TOC"/> tag or a main title tag, then 
+<with-param name="exp">If the glossary is given a title using a \toc<value-of select="$TOC"/> tag or a main title tag, then
 the glossary title will appear on the menu instead of each keyword.</with-param>
               </call-template>
             </when>
@@ -683,10 +686,10 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       </call-template>
     </osis:div>
   </function>
-  
+
   <!-- Return the glossary menu title. In order to meet the unique key
-  (case insensitive) requirements of systems such as SWORD, this title 
-  cannot match any keyword, or any other glossary menu title, or 
+  (case insensitive) requirements of systems such as SWORD, this title
+  cannot match any keyword, or any other glossary menu title, or
   uiDictionary -->
   <function name="oc:glossMenuTitle" as="xs:string">
     <param name="glossary" as="element(div)"/>
@@ -694,87 +697,87 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <variable name="divTitle" select="oc:getDivTitle($glossary)"/>
     <variable name="glossTitle" select="
       if (not($divTitle)) then 'concat(
-          upper-case(oc:keySortLetter($glossary/descendant::reference[1]/string())), 
-          '-', 
+          upper-case(oc:keySortLetter($glossary/descendant::reference[1]/string())),
+          '-',
           upper-case(oc:keySortLetter($glossary/descendant::reference[last()]/string()))
         )'
-      else if ($scopeTitle 
-          and not(contains(lower-case($divTitle), lower-case($scopeTitle))) 
+      else if ($scopeTitle
+          and not(contains(lower-case($divTitle), lower-case($scopeTitle)))
         ) then concat($divTitle, ' (', $scopeTitle, ')')
       else if ( ($noDictTopMenu != 'yes' and lower-case($divTitle) = lower-case($uiDictionary))
                 or lower-case($divTitle) = root($glossary)//seg[@type='keyword']/lower-case(string())
               )
         then concat($divTitle, '.')
       else $divTitle"/>
-      
+
     <if test="not($divTitle)">
       <call-template name="Warn">
 <with-param name="msg">Glossary does not have a title. The following will be used: '<value-of select="$glossTitle"/>'</with-param>
 <with-param name="exp">You may add a title using a \toc<value-of select="$TOC"/> tag or a main title tag to the top of the glossary.</with-param>
       </call-template>
     </if>
-    
+
     <value-of select="$glossTitle"/>
   </function>
-  
+
   <!-- Returns new keywords which make up an auto-generated menu system
-  for another glossary. If the glossary does not have a title an error 
-  may be thrown. If $appendEntries is true then the glossary entries 
-  themselves are also copied and returned in sorted order at the end of 
-  each letter menu (in this case the glossary itself does not need to be 
+  for another glossary. If the glossary does not have a title an error
+  may be thrown. If $appendEntries is true then the glossary entries
+  themselves are also copied and returned in sorted order at the end of
+  each letter menu (in this case the glossary itself does not need to be
   written by the caller). -->
   <function name="oc:glossaryMenu" as="node()+">
     <param name="glossary" as="element(div)"/>
     <param name="include_AtoZ_menu" as="xs:string"/>
     <param name="include_letter_menus" as="xs:string"/>
     <param name="appendEntries" as="xs:boolean"/>
-    
+
     <if test="$include_letter_menus = 'no' and $include_AtoZ_menu = 'yes'">
       <call-template name="ErrorBug">
 <with-param name="msg">When including the A to Z menu, letter menus must also be created.</with-param>
-<with-param name="die">yes</with-param>      
+<with-param name="die">yes</with-param>
       </call-template>
     </if>
-    
+
     <if test="$appendEntries and $include_AtoZ_menu = 'no' and $include_letter_menus = 'no'">
       <call-template name="ErrorBug">
 <with-param name="msg">All-keyword menu with appended entries is not yet implemented.</with-param>
-<with-param name="die">yes</with-param>      
+<with-param name="die">yes</with-param>
       </call-template>
     </if>
-    
+
     <variable name="glossaryMenuTitle" select="oc:glossMenuTitle($glossary)"/>
-    
+
     <variable name="glossarySorted">
       <for-each select="$glossary/descendant::div[starts-with(@type,'x-keyword')]">
-        <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending" 
+        <sort select="oc:keySort(.//seg[@type='keyword'])" data-type="text" order="ascending"
           collation="http://www.w3.org/2005/xpath-functions/collation/codepoint"/>
         <sequence select="."/>
       </for-each>
     </variable>
-    
+
     <text>&#xa;</text>
-           
+
     <variable name="allLetters" select="concat(
-      upper-case(oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][1])), 
-      '-', 
+      upper-case(oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][1])),
+      '-',
       upper-case(oc:keySortLetter($glossarySorted/descendant::seg[@type='keyword'][last()])))"/>
-      
+
     <variable name="allLettersTitle" select="concat($glossaryMenuTitle, ' (', $allLetters, ')')"/>
-    
-    <variable name="do_AtoZ_menu" as="xs:boolean" select="$include_AtoZ_menu = 'yes' or 
+
+    <variable name="do_AtoZ_menu" as="xs:boolean" select="$include_AtoZ_menu = 'yes' or
       ($include_AtoZ_menu = 'AUTO' and count($glossary//seg[@type='keyword']) &#62;= $glossaryTocAutoThresh)"/>
-    
+
     <if test="$do_AtoZ_menu">
-      <!-- Create a menu with links to each letter plus a link 
-      to the all-keywords menu. --> 
+      <!-- Create a menu with links to each letter plus a link
+      to the all-keywords menu. -->
       <osis:div type="x-keyword" subType="x-navmenu-all-letters">
         <osis:p subType="x-navmenu-top">
           <osis:seg type="keyword" osisID="{oc:encodeOsisRef($glossaryMenuTitle)}">
             <value-of select="$glossaryMenuTitle"/>
           </osis:seg>
         </osis:p>
-        <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allLettersTitle)}" 
+        <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($allLettersTitle)}"
           type="x-glosslink" subType="x-target_self">
           <value-of select="$allLetters"/>
         </osis:reference>
@@ -783,7 +786,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
           <if test="oc:skipGlossaryEntry(.) = false()">
             <variable name="letter" select="upper-case(oc:keySortLetter(text()))"/>
             <variable name="letterTitle" select="concat($letter, ' - ', $glossaryMenuTitle)"/>
-            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letterTitle)}" 
+            <osis:reference osisRef="{$DICTMOD}:{oc:encodeOsisRef($letterTitle)}"
               type="x-glosslink" subType="x-target_self">
               <value-of select="$letter"/>
             </osis:reference>
@@ -795,14 +798,14 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
 <with-param name="msg">Added A-Z menu: <value-of select="$glossaryMenuTitle"/></with-param>
       </call-template>
     </if>
-    
+
     <if test="count($glossary//seg[@type='keyword']) &#62; 1">
       <!-- A menu with osisID of glossaryMenuTitle must be output if the
-      glossary's getDivTitle is non-empty and it has more than 1 keyword, 
+      glossary's getDivTitle is non-empty and it has more than 1 keyword,
       because oc:glossaryTopMenu targets it in that case. -->
-      <variable name="allKeywordsTitle" select="if (not($do_AtoZ_menu)) 
+      <variable name="allKeywordsTitle" select="if (not($do_AtoZ_menu))
         then $glossaryMenuTitle else $allLettersTitle"/>
-      
+
       <!-- Create the all-keywords menu with a link to each keyword -->
       <text>&#xa;</text>
       <osis:div type="x-keyword" subType="x-navmenu-all-keywords">
@@ -828,14 +831,14 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
 <with-param name="msg">Added all-keyword menu: <value-of select="$allKeywordsTitle"/></with-param>
       </call-template>
     </if>
-  
+
     <if test="$do_AtoZ_menu or $include_letter_menus = 'yes'">
-      <!-- Create a menu for each letter, with links to the keywords that 
+      <!-- Create a menu for each letter, with links to the keywords that
       begin with that letter. -->
       <variable name="letterMenus" as="element()*">
         <for-each select="$glossarySorted//seg[@type='keyword']">
           <if test="oc:skipGlossaryEntry(.) = false()">
-            <variable name="letterTitle" 
+            <variable name="letterTitle"
               select="concat(upper-case(oc:keySortLetter(text())), ' - ', $glossaryMenuTitle)"/>
             <osis:p>
               <osis:seg type="keyword" osisID="{oc:encodeOsisRef($letterTitle)}">
@@ -843,7 +846,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
               </osis:seg>
             </osis:p>
           </if>
-          <osis:reference osisRef="{$DICTMOD}:{@osisID}" 
+          <osis:reference osisRef="{$DICTMOD}:{@osisID}"
             type="x-glosslink" subType="x-target_self">
             <value-of select="text()"/>
           </osis:reference>
@@ -853,7 +856,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
         <text>&#xa;</text>
         <osis:div type="x-keyword" subType="x-navmenu-letter">
           <sequence select="current-group()[1]"/>
-          <if test="not($appendEntries) or 
+          <if test="not($appendEntries) or
                     count(current-group()[self::reference]) &#62; 1">
             <osis:list subType="x-menulist">
               <for-each select="current-group()[not(position() = 1)]">
@@ -867,12 +870,12 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
         <call-template name="Note">
 <with-param name="msg">Added letter menu <value-of select="current-group()//seg[@type='keyword'][1]/string()"/></with-param>
         </call-template>
-        <!-- If appendEntries is true then entries are copied and 
+        <!-- If appendEntries is true then entries are copied and
         appended to the end of each menu. -->
         <if test="$appendEntries">
-          <variable name="keywords" as="element(div)+" 
+          <variable name="keywords" as="element(div)+"
             select="$glossarySorted/descendant::div[starts-with(@type,'x-keyword')]
-                [ descendant::seg[@type='keyword']/@osisID = 
+                [ descendant::seg[@type='keyword']/@osisID =
                   current-group()[not(position() = 1)][self::reference]/replace(@osisRef, '^[^:]*:' ,'') ]"/>
           <sequence select="oc:setKeywordTocInstruction($keywords, '[level3]')"/>
           <call-template name="Note">
@@ -884,12 +887,12 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     </if>
 
   </function>
-  
+
   <!-- Returns a copy of an element, adding TOC instruction $instr to every keyword -->
   <function name="oc:setKeywordTocInstruction">
     <param name="element" as="node()+"/>
     <param name="instr" as="xs:string"/>
-    
+
     <apply-templates mode="setKeywordTocInst" select="$element">
       <with-param name="instr" select="$instr" tunnel="yes"/>
     </apply-templates>
@@ -905,38 +908,38 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <apply-templates mode="setKeywordTocInst" select="node()"/>
     </copy>
   </template>
-  
-  <!-- Return an osisRef with any osisRef targets listed in refs either 
-  removed (if remove is true), or solely kept. NOTE: each ref in refs 
+
+  <!-- Return an osisRef with any osisRef targets listed in refs either
+  removed (if remove is true), or solely kept. NOTE: each ref in refs
   must include the work prefix. -->
   <function name="oc:filter_osisRef" as="xs:string">
     <param name="osisRef" as="xs:string"/>
     <param name="remove" as="xs:boolean"/>
     <param name="refs" as="xs:string*"/>
-    
+
     <variable name="result0" as="xs:string?">
       <choose>
         <!-- remove refs -->
         <when test="$remove">
           <value-of select="string-join(
-              ( for $i in tokenize($osisRef, '\s+') return 
+              ( for $i in tokenize($osisRef, '\s+') return
                 if ($i = $refs) then '' else $i
               ), ' ')"/>
         </when>
         <!-- keep refs -->
         <otherwise>
           <value-of select="string-join(
-              ( for $i in tokenize($osisRef, '\s+') return 
+              ( for $i in tokenize($osisRef, '\s+') return
                 if ($i != $refs) then '' else $i
               ), ' ')"/>
         </otherwise>
       </choose>
     </variable>
-    
+
     <variable name="result" as="xs:string">
       <value-of select="if ($result0) then normalize-space($result0) else ''"/>
     </variable>
-    
+
     <!-- Note the result -->
     <if test="matches($result, '^\s*$')">
       <call-template name="Error">
@@ -944,31 +947,31 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
 <with-param name="exp">Multiple target osisID's may be assigned to a single reference. <if test="boolean($remove)">The following are being removed</if><if test="not($remove)">Only the following are being kept</if>: <value-of select="$refs"/></with-param>
       </call-template>
     </if>
-    
+
     <value-of select="$result"/>
-    
+
   </function>
-  
+
   <!-- Return the work ID of a node's OSIS document -->
   <function name="oc:docWork" as="xs:string">
     <param name="node" as="node()"/>
     <value-of select="if ($DICTMOD) then root($node)/osis[1]/osisText[1]/@osisIDWork else $MAINMOD"/>
   </function>
-  
+
   <!-- Return the work ID of a single osisRef or osisID segment string -->
   <function name="oc:work" as="xs:string">
     <param name="aRef" as="xs:string"/>
     <param name="defaultWork" as="xs:string"/>
     <value-of select="if (tokenize($aRef, ':')[2]) then tokenize($aRef, ':')[1] else $defaultWork"/>
   </function>
-  
-  <!-- Return just the ref part of a single osisID or osisRef segment 
+
+  <!-- Return just the ref part of a single osisID or osisRef segment
   (by removing any work prefix) -->
   <function name="oc:ref" as="xs:string">
     <param name="aRef" as="xs:string"/>
     <value-of select="if (tokenize($aRef, ':')[2]) then tokenize($aRef, ':')[2] else $aRef"/>
   </function>
-  
+
   <!-- Takes any osisID attribute value, possibly having multiple
   segments, and returns a list of work prefixed osisRef values. -->
   <function name="oc:osisRef" as="xs:string+">
@@ -979,9 +982,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <value-of select="concat($work, ':', oc:ref(.))"/>
     </for-each>
   </function>
-  
+
   <!-- Takes any osisRef attribute value, possibly having multiple
-  segments and ranges, and returns a list of work prefixed osisRef 
+  segments and ranges, and returns a list of work prefixed osisRef
   values including only the first and last segment of each range. -->
   <function name="oc:osisRef_atoms" as="xs:string*">
     <param name="osisRef" as="xs:string"/>
@@ -992,7 +995,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       </for-each>
     </for-each>
   </function>
-  
+
   <!-- The quick way to tell if an osisRef is a scripture reference -->
   <function name="oc:isScripRef" as="xs:boolean">
     <param name="osisRef" as="xs:string?"/>
@@ -1002,20 +1005,20 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <otherwise>
         <variable name="work" select="oc:work($osisRef, $parentWork)"/>
         <value-of select="not($work = $DICTMOD and $DICTMOD)
-                      and not($work = $MAINMOD and $MAINTYPE ne 'x-bible') 
+                      and not($work = $MAINMOD and $MAINTYPE ne 'x-bible')
                       and not(matches(oc:ref($osisRef), '[^A-Za-z0-9\.\-]'))"/>
       </otherwise>
     </choose>
   </function>
-  
-  <!-- Takes an attribute name and returns all of those attributes within 
-  $nodes having value $search (among any and all space delimited values). 
+
+  <!-- Takes an attribute name and returns all of those attributes within
+  $nodes having value $search (among any and all space delimited values).
   The $search string(s) must not contain spaces. -->
   <function name="oc:attribsWith" as="attribute()*">
     <param name="attrib" as="xs:string"/>
     <param name="search" as="xs:string*"/>
     <param name="nodes" as="node()*"/>
-    
+
     <if test="count($search)">
       <sequence select="$nodes/descendant-or-self::*
       [attribute()[local-name() = $attrib]]
@@ -1023,9 +1026,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       /attribute()[local-name() = $attrib]"/>
     </if>
   </function>
-  
-  <!-- Use this function if an element must not contain other elements 
-  (for EPUB2 etc. validation). Any element in $expel becomes a sibling 
+
+  <!-- Use this function if an element must not contain other elements
+  (for EPUB2 etc. validation). Any element in $expel becomes a sibling
   of the container $element, which is divided and duplicated accordingly.
   Empty div|p|l|lg|list|item|head|li|ul|td|tr will not be copied. -->
   <function name="oc:expelElements">
@@ -1033,9 +1036,9 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <param name="expel" as="node()*"/>         <!-- node(s) to be expelled -->
     <param name="continue" as="attribute()?"/> <!-- attribute to add to any follow-on duplicated container elements -->
     <param name="quiet" as="xs:boolean"/>
-    
+
     <variable name="expel2" select="$expel except $expel[ancestor::node() intersect $expel]"/>
-    
+
     <choose>
       <when test="not($expel) or $element[not(self::element())]">
         <sequence select="$element"/>
@@ -1046,7 +1049,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
         </for-each-group>
       </otherwise>
     </choose>
-    
+
   </function>
   <function name="oc:copyExpel">
     <param name="node" as="node()"/>
@@ -1054,8 +1057,8 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <param name="expel" as="node()+"/>
     <param name="continue" as="attribute()?"/>
     <param name="quiet" as="xs:boolean"/>
-    
-    <variable name="expelMe" as="node()?" 
+
+    <variable name="expelMe" as="node()?"
       select="$node/descendant-or-self::node()[. intersect $expel]
               [oc:myExpelGroups(., $expel) = $currentGroupingKey]"/>
     <choose>
@@ -1070,7 +1073,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       </when>
       <!-- Container elements without text are flattened -->
       <when test="not( $node/descendant-or-self::text()[normalize-space()]
-                       [oc:myExpelGroups(., $expel) = $currentGroupingKey] ) 
+                       [oc:myExpelGroups(., $expel) = $currentGroupingKey] )
                   and $node/matches(local-name(), '^(div|p|l|lg|list|item|head|li|ul|td|tr)$')">
         <for-each select="$node/node()[oc:myExpelGroups(., $expel) = $currentGroupingKey]">
           <sequence select="oc:copyExpel(., $currentGroupingKey, $expel, $continue, $quiet)"/>
@@ -1088,14 +1091,14 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
               [oc:myExpelGroups(., $expel) = $currentGroupingKey][1]"/>
           <copy>
             <if test="$continue and
-                      $myFirstTextNode and 
-                      $myGroupTextNode and 
+                      $myFirstTextNode and
+                      $myGroupTextNode and
                       not($myGroupTextNode intersect $myFirstTextNode)">
               <copy-of select="$continue"/>
             </if>
             <for-each select="@*">
               <!-- never duplicate a container's id: only the copy containing the first text node gets it -->
-              <if test="not($myFirstTextNode) or not(name() = ('id','osisID')) or 
+              <if test="not($myFirstTextNode) or not(name() = ('id','osisID')) or
                 $myGroupTextNode intersect $myFirstTextNode">
                 <copy/>
               </if>
@@ -1111,41 +1114,41 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
   <function name="oc:myExpelGroups" as="xs:integer+">
     <param name="node" as="node()"/>
     <param name="expel" as="node()+"/>
-    <sequence select="for $i in $node/descendant-or-self::node() return 
-                        count($i[ancestor-or-self::node() intersect $expel]) + 
+    <sequence select="for $i in $node/descendant-or-self::node() return
+                        count($i[ancestor-or-self::node() intersect $expel]) +
                       2*count($i/preceding::node()[. intersect $expel])"/>
   </function>
 
-  <!-- oc:uriToRelativePath($base-uri, $rel-uri) this function converts a 
+  <!-- oc:uriToRelativePath($base-uri, $rel-uri) this function converts a
   URI to a relative path using another URI directory as base reference. -->
   <function name="oc:uriToRelativePath" as="xs:string">
     <param name="base-uri-file" as="xs:string"/> <!-- the URI base (file or directory) -->
     <param name="rel-uri-file" as="xs:string"/>  <!-- the URI to be converted to a relative path from that base (file or directory) -->
-    
+
     <!-- base-uri begins and ends with '/' or is just '/' -->
     <variable name="base-uri" select="replace(replace($base-uri-file, '^([^/])', '/$1'), '/[^/]*$', '')"/>
-    
+
     <!-- for rel-uri, any '.'s at the start of rel-uri-file are IGNORED so it begins with '/' -->
     <variable name="rel-uri" select="replace(replace($rel-uri-file, '^\.+', ''), '^([^/])', '/$1')"/>
     <variable name="tkn-base-uri" select="tokenize($base-uri, '/')" as="xs:string+"/>
     <variable name="tkn-rel-uri" select="tokenize($rel-uri, '/')" as="xs:string+"/>
     <variable name="uri-parts-max" select="max((count($tkn-base-uri), count($tkn-rel-uri)))" as="xs:integer"/>
     <!--  count equal URI parts with same index -->
-    <variable name="uri-equal-parts" select="for $i in (1 to $uri-parts-max) 
+    <variable name="uri-equal-parts" select="for $i in (1 to $uri-parts-max)
       return $i[$tkn-base-uri[$i] eq $tkn-rel-uri[$i]]" as="xs:integer*"/>
     <variable name="relativePath">
       <choose>
         <!--  both URIs must share the same URI scheme -->
         <when test="$uri-equal-parts[1] eq 1">
-          <!-- drop directories that have equal names but are not physically equal, 
+          <!-- drop directories that have equal names but are not physically equal,
           e.g. their value should correspond to the index in the sequence -->
           <variable name="dir-count-common" select="max(
-              for $i in $uri-equal-parts 
+              for $i in $uri-equal-parts
               return $i[index-of($uri-equal-parts, $i) eq $i]
             )" as="xs:integer"/>
           <!-- difference from common to URI parts to common URI parts -->
           <variable name="delta-base-uri" select="count($tkn-base-uri) - $dir-count-common" as="xs:integer"/>
-          <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>    
+          <variable name="delta-rel-uri" select="count($tkn-rel-uri) - $dir-count-common" as="xs:integer"/>
           <variable name="relative-path" select="
             concat(
             (: dot or dot-dot :) if ($delta-base-uri) then string-join(for $i in (1 to $delta-base-uri) return '../', '') else './',
@@ -1160,7 +1163,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
             </otherwise>
           </choose>
         </when>
-        <!-- if both URIs share no equal part (e.g. for the reason of different URI 
+        <!-- if both URIs share no equal part (e.g. for the reason of different URI
         scheme names) then it's not possible to create a relative path. -->
         <otherwise>
           <value-of select="$rel-uri"/>
@@ -1173,7 +1176,7 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
     <sequence select="$relativePath"/>
     <!--<call-template name="Log"><with-param name="msg">base-uri-file=<value-of select="$base-uri-file"/>, rel-uri-file=<value-of select="$rel-uri-file"/>, relativePath=<value-of select="$relativePath"/>, </with-param></call-template>-->
   </function>
-  
+
   <function name="oc:printNode" as="text()">
     <param name="node" as="node()?"/>
     <value-of>
@@ -1192,14 +1195,14 @@ the glossary title will appear on the menu instead of each keyword.</with-param>
       <if test="$node"> (<value-of select="sx:line-number($node)"/>)</if>
     </value-of>
   </function>
-  
+
   <!-- The following extension allows XSLT to read binary files into base64 strings. The reasons for the munge are:
   - Only Java functions are supported by saxon.
   - Java exec() immediately returns, without blocking, making another blocking method a necessity.
   - Saxon seems to limit Java exec() so it can only be run by <message>, meaning there is no usable return value of any kind,
     thus no way to monitor the process, nor return data from exec(), other than having it always write to a file.
   - XSLT's unparsed-text-available() is its only file existence check, and it only works on text files (not binaries).
-  - Bash shell scripting provides all necessary functionality, but XSLT requires it to be written while the context is 
+  - Bash shell scripting provides all necessary functionality, but XSLT requires it to be written while the context is
     outside of any temporary trees (hence the need to call prepareRunTime and cleanupRunTime at the proper moment). -->
   <variable name="DOCDIR" select="tokenize(document-uri(/), '[^/]+$')[1]" as="xs:string"/>
   <variable name="runtimeDir" select="file:new(uri:new($DOCDIR))"/>
@@ -1241,9 +1244,9 @@ chmod +r <value-of select="$tmpResult"/>
   <template name="sleep" xmlns:thread="java.lang.Thread">
     <param name="ms" select="10"/>
     <if test="$ms!=10"><call-template name="Warn"><with-param name="msg" select="concat('Sleeping ', $ms, 'ms')"/></call-template></if>
-    <message select="thread:sleep($ms)"/>     
+    <message select="thread:sleep($ms)"/>
   </template>
-  
+
   <!-- The following messaging functions match those in common_opsys.pm for reporting consistency -->
   <template name="Error">
     <param name="msg"/>
@@ -1251,63 +1254,63 @@ chmod +r <value-of select="$tmpResult"/>
     <param name="die" select="'no'"/>
     <message terminate="{$die}" select="oc:log('ERROR', $msg, 'SOLUTION', $exp)"/>
   </template>
-  
+
   <template name="ErrorBug">
     <param name="msg"/>
     <param name="die" select="'no'"/>
-    <message terminate="{$die}" select="oc:log('ERROR (UNEXPECTED)', $msg, 
+    <message terminate="{$die}" select="oc:log('ERROR (UNEXPECTED)', $msg,
       'SOLUTION', 'Please report the above unexpected ERROR to osis-converters maintainer.')"/>
   </template>
-  
+
   <template name="Warn">
     <param name="msg"/>
     <param name="exp"/>
     <message select="oc:log('WARNING', $msg, 'CHECK', $exp)"/>
   </template>
-  
+
   <template name="Note">
     <param name="msg"/>
     <message select="oc:log('NOTE', $msg, '', '')"/>
   </template>
-  
+
   <template name="Debug">
     <param name="msg"/>
     <if test="$DEBUG"><message select="oc:log('DEBUG', $msg, '', '')"/></if>
   </template>
-  
+
   <template name="Report">
     <param name="msg"/>
     <variable name="work" select="//osisText[1]/@osisIDWork"/>
     <message select="oc:log(concat( (if ($work) then concat($work, ' ') else ''), 'REPORT'), $msg, '', '')"/>
   </template>
-  
+
   <template name="Log">
     <param name="msg"/>
     <message select="oc:log('', $msg, '', '')"/>
   </template>
-  
+
   <function name="oc:log" as="xs:string">
     <param name="head1" as="xs:string"/>
     <param name="str1" as="xs:string"/>
     <param name="head2" as="xs:string"/>
     <param name="str2" as="xs:string"/>
-    
+
     <value-of>
     <if test="matches($head1, '(ERROR|WARNING|REPORT|DEBUG)') and not(matches($str1, '^&#60;\-'))"><text>&#xa;</text></if>
-    
+
     <if test="matches($str1, '\S')">
       <if test="matches($head1, '\S')"><value-of select="concat($head1, ': ')"/></if>
       <value-of select="replace($str1, '^(&#60;\-|\-&#62;)', '')"/>
     </if>
-    
+
     <if test="matches($str2, '\S')">
       <text>&#xa;</text>
       <if test="matches($head2, '\S')"><value-of select="concat($head2, ': ')"/></if>
       <value-of select="replace($str2, '^(&#60;\-|\-&#62;)', '')"/>
     </if>
-    
+
     <if test="matches($head1, '(ERROR)') and not(matches($str1, '^&#60;\-'))"><text>&#xa;</text></if>
     </value-of>
   </function>
-  
+
 </stylesheet>
