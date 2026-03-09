@@ -2,7 +2,7 @@
 <stylesheet version="2.0"
  xpath-default-namespace="http://www.bibletechnologies.net/2003/OSIS/namespace"
  xmlns="http://www.w3.org/1999/XSL/Transform"
- xmlns:me="http://github.com/JohnAustinDev/osis-converters/osis2xhtml"
+ xmlns:me="http://github.com/JohnAustinDev/osis-converters/osis2html"
  xmlns:oc="http://github.com/JohnAustinDev/osis-converters"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -26,9 +26,9 @@
                         facilitate Calibre table-of-content generation,
                         title="toclevel-N" attributes are written.
 
-  This transform may be run by placing osis2xhtml.xsl, functions.xsl and
+  This transform may be run by placing osis2html.xsl, functions.xsl and
   referenced OSIS files in the same directory. Then run:
-  $ saxonb-xslt -ext:on -xsl:osis2xhtml.xsl -s:main_osis.xml -o:content.opf
+  $ saxonb-xslt -ext:on -xsl:osis2html.xsl -s:main_osis.xml -o:content.opf
   -->
 
   <import href="./functions.xsl"/>

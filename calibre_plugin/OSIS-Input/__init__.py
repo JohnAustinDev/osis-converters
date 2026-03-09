@@ -39,14 +39,14 @@ class OsisInput(InputFormatPlugin):
         for afile in glob.glob("%s/*.xml" % inputDir):                                                                                                                                   
             shutil.copy(afile, '.')
             
-        # Copy osis2xhtml.xsl
-        shutil.copy(inputDir + "/osis2xhtml.xsl", '.')
+        # Copy osis2html.xsl
+        shutil.copy(inputDir + "/osis2html.xsl", '.')
         shutil.copy(inputDir + "/functions.xsl", '.')
             
         # Transform the OSIS files to XHTML
         command = ["saxonb-xslt", 
             "-ext:on", 
-            "-xsl:osis2xhtml.xsl", 
+            "-xsl:osis2html.xsl", 
             "-s:%s" % inputOSIS, 
             "-o:content.opf", 
             "css=%s" % (",").join(sorted(cssFileNames))

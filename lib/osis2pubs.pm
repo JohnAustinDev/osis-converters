@@ -26,9 +26,9 @@ our ($READLAYER, $WRITELAYER, $APPENDLAYER);
 our ($SCRD, $MOD, $INPD, $MAINMOD, $MAININPD, $DICTMOD, $DICTINPD,
     $TMPDIR, $SCRIPT_NAME);
 our ($INOSIS, $EBOOKS, $LOGFILE, $XPC, $XML_PARSER, %RESP, %OSIS_ABBR,
-    $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS, $DEBUG,
+    $FONTS, $DEBUG, $ROC, $CONF, @SUB_PUBLICATIONS, $NO_FORKS,
     %ANNOTATE_TYPE, %CONV_PUB_SETS, @CONV_PUB_SETS, $RAM_GB_EBOOKS,
-    $RAM_MB_EBOOKS_PERBOOK, $RAM_GB_EBOOKS_DEF,
+    $RAM_MB_EBOOKS_PERBOOK, $RAM_GB_EBOOKS_DEF, $MOD_OUTDIR,
     $RAM_MB_EBOOKS_PERBOOK_DEF);
 
 our ($INOSIS_XML, $PUBOUT, %CONV_REPORT);
@@ -439,8 +439,8 @@ MAKING " . uc($convertTo) . ": scope=$scope, type=$pubSet, " .
   # copy OSIS file
   &copy($osis, "$tmp/$MOD.xml");
 
-  # copy osis2xhtml.xsl
-  copy("$SCRD/lib/bible/html/osis2xhtml.xsl", $tmp);
+  # copy osis2html.xsl
+  copy("$SCRD/lib/osis2html.xsl", $tmp);
   &copyFunctionsXSL($tmp);
 
   # copy css file(s): always copy html.css and then if needed also copy
@@ -619,8 +619,9 @@ of this material to exclude it from HTML publications.");
   if ($convertTo eq "ebooks" && $createTypes =~ /azw3/i) {
     &makeEbook($tmp, 'azw3', $cover, $scope, $pubName, $pubSubdir);
   }
-  # fb2 is disabled until a decent FB2 converter is written
-  #if ($createTypes =~ /^(fb2)$/i) {&makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);}
+  if ($convertTo eq "ebooks" && $createTypes =~ /fb2/i) {
+    &makeEbook($tmp, 'fb2', $cover, $scope, $pubName, $pubSubdir);
+  }
 }
 
 ########################################################################
@@ -1140,7 +1141,7 @@ sub filterGlossaryReferences {
   my $xml = $XML_PARSER->parse_file($osis);
 
   # filter out references outside our scope (but don't check those which
-  # in the INT feature, as they might be forwarded by osis2xhtml.xsl)
+  # in the INT feature, as they might be forwarded by osis2html.xsl)
   my @links = $XPC->findnodes('//osis:reference[@osisRef][@type="x-glosslink" or @type="x-glossary"]
       [not(ancestor::osis:div[@annotateType="x-feature"][@annotateRef="INT"])]', $xml);
   my %removedOsisRefs; my %modifiedOsisRefs;
@@ -1285,7 +1286,7 @@ sub makeHTML {
   my @cssFileNames = split(/\s*\n/, shell("cd \"$tmp\" && find . -name '*.css' -print", 3));
   my %params = ('css' => join(',', map { (my $s = $_) =~ s/^\.\///; $s } @cssFileNames));
   chdir($tmp);
-  &runXSLT("osis2xhtml.xsl", $osis, "content.opf", \%params);
+  &runXSLT("osis2html.xsl", $osis, "content.opf", \%params);
   chdir($SCRD);
 
   my $n; my $p = "$PUBOUT/$pubName";
@@ -1334,32 +1335,51 @@ sub makeEbook {
   # Run Calibre's ebook-convert, using a temporary log file to reduce main log size
   my $mylog = "$TMPDIR/LOG_$pubName.$format.txt";
 
-  my $cmd = "ebook-convert".
-  ' '. &escfile("$tmp/$MOD.xml").
-  ' '. &escfile("$tmp/$MOD.$format").
-  ' --max-toc-links 0'.
-  ' --chapter "/"'.
-  ' --chapter-mark none'.
-  ' --page-breaks-before "/"'.
-  ' --keep-ligatures'.
-  ' --disable-font-rescaling'.
-  ' --minimum-line-height 0'.
-  ' --subset-embedded-fonts'.
-  ' --level1-toc "//*[@title=\'toclevel-1\']"'.
-  ' --level2-toc "//*[@title=\'toclevel-2\']"'.
-  ' --level3-toc "//*[@title=\'toclevel-3\']"';
+  my $cmd;
+  # FB2 has its own XSLT transform whereas others use Calibre.
+  if ($format eq 'fb2') {
+    my %params = (
+      'MAINMOD_URI' => &getModuleOsisFile($MAINMOD),
+      'DICTMOD_URI' => ($DICTMOD ? &getModuleOsisFile($DICTMOD):'')
+    );
+    $cmd = "saxonb-xslt -l -ext:on";
+    $cmd .= " -xsl:" . &escfile("$SCRD/lib/osis2fb2.xsl");
+    $cmd .= " -s:" . &escfile("$tmp/$MOD.xml");
+    $cmd .= " -o:" . &escfile("$tmp/$MOD.$format");
+    foreach my $p (sort keys %params) {
+      my $v = $params{$p};
+      $v =~ s/(["\\])/\\$1/g; # escape quote since below passes with quote
+      $cmd .= " $p=\"$v\"";
+    }
+    $cmd .= " DEBUG=\"$DEBUG\" DICTMOD=\"$DICTMOD\" SCRIPT_NAME=\"$SCRIPT_NAME\" TMPDIR=\"$MOD_OUTDIR/tmp\"";
+  } else {
+    $cmd = "ebook-convert".
+    ' '. &escfile("$tmp/$MOD.xml").
+    ' '. &escfile("$tmp/$MOD.$format").
+    ' --max-toc-links 0'.
+    ' --chapter "/"'.
+    ' --chapter-mark none'.
+    ' --page-breaks-before "/"'.
+    ' --keep-ligatures'.
+    ' --disable-font-rescaling'.
+    ' --minimum-line-height 0'.
+    ' --subset-embedded-fonts'.
+    ' --level1-toc "//*[@title=\'toclevel-1\']"'.
+    ' --level2-toc "//*[@title=\'toclevel-2\']"'.
+    ' --level3-toc "//*[@title=\'toclevel-3\']"';
 
-  if ($cover) {
-    if ($cover =~ /^\./) {$cover = File::Spec->rel2abs($cover);}
-    $cmd .= " --cover ".&escfile($cover);
-  }
+    if ($cover) {
+      if ($cover =~ /^\./) {$cover = File::Spec->rel2abs($cover);}
+      $cmd .= " --cover ".&escfile($cover);
+    }
 
-  if ($format eq "epub") {
-    $cmd .= " --output-profile tablet --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
-  }
+    if ($format eq "epub") {
+      $cmd .= " --output-profile tablet --preserve-cover-aspect-ratio --dont-split-on-page-breaks"; #--flow-size 0
+    }
 
-  if ($DEBUG) {
-    $cmd .= ' --debug-pipeline='.&escfile("$tmp/debug");
+    if ($DEBUG) {
+      $cmd .= ' --debug-pipeline='.&escfile("$tmp/debug");
+    }
   }
 
   $cmd .= " > ".&escfile($mylog);

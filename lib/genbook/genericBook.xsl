@@ -123,7 +123,7 @@
     </copy>
   </template>
 
-  <!-- Keywords are treated as TOC elements by osis2xhtml.xsl, so change
+  <!-- Keywords are treated as TOC elements by osis2html.xsl, so change
   them to something else-->
   <template mode="final" match="seg[@type='keyword']">
     <osis:hi type="italic" subType="x-keyword">
@@ -133,7 +133,7 @@
     </osis:hi>
   </template>
 
-  <!-- Chapter Label titles are removed by osis2xhtml.xsl, so remove
+  <!-- Chapter Label titles are removed by osis2html.xsl, so remove
   the type attribute for them.-->
   <template mode="final" match="title/@type['x-chapterLabel']"/>
 

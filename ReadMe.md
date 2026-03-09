@@ -199,7 +199,7 @@ ENTRY | DESCRIPTION
 **MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
 **MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
 **MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
-**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
+**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub \| fb2)`. Default is `AUTO`.
 **NO_FORKS (S)** | Set to `true` to disable the multi-thread fork feature. Doing so may increase conversion time.
 **NormalizeUnicode** | Apply a Unicode normalization to all characters: `(true \| false \| NFD \| NFC \| NFKD \| NFKC \| FCD)`. Default is `false`.
 **OUTDIR (PS)** | Location where output files should be written. OSIS, LOG and publication files will appear in a module subdirectory here. Default is an `output` subdirectory within the module.
@@ -392,7 +392,7 @@ The following `config.conf` entries control eBook production:
 
 ENTRY | DESCRIPTION
 ----- | -----------
-**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub)`. Default is `AUTO`.
+**MakeTypes** | Select which type, or types, of publications to make: `(AUTO \| azw3 \| epub \| fb2)`. Default is `AUTO`.
 **MakeSet[tran]** | Select whether to create a single ePublication containing everything in the OSIS file: `(true \| false \| AUTO)`.
 **MakeSet[subpub]** | Select whether to create separate outputs for individual sub-publications within the OSIS file: `(true \| false \| AUTO \| <scope> \| first \| last)`.
 **MakeSet[book]** | Select whether to create separate ePublications for individual Bible books within the OSIS file: `(true \| false \| AUTO \| <OSIS-book> \| first \| last)`.
